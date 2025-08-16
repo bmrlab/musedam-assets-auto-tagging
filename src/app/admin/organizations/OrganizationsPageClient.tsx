@@ -29,6 +29,7 @@ import {
   LogOut,
   Plus,
   Settings,
+  TestTube,
   Trash2,
   UserPlus,
   Users,
@@ -402,6 +403,10 @@ export function OrganizationsPageClient() {
               <Button variant="outline" onClick={() => router.push("/admin/users")}>
                 <Users className="h-4 w-4 mr-2" />
                 用户管理
+              </Button>
+              <Button variant="outline" onClick={() => router.push("/admin/federation")}>
+                <TestTube className="h-4 w-4 mr-2" />
+                MuseDAM联合登录
               </Button>
               <Button variant="destructive" onClick={handleLogout}>
                 <LogOut className="h-4 w-4 mr-2" />

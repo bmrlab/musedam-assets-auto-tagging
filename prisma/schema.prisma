@@ -25,6 +25,7 @@ model User {
   accounts                Account[]
   organizationMemberships OrganizationMembership[]
   organizationInvitations OrganizationInvitation[]
+  museDAMUser             MuseDAMUser?
 
   @@unique([email])
 }
@@ -80,8 +81,7 @@ model Organization {
   metadata                String?
   organizationMemberships OrganizationMembership[]
   organizationInvitations OrganizationInvitation[]
-  AssetObject             AssetObject[]
-  AssetTag                AssetTag[]
+  museDAMOrganization     MuseDAMOrganization?
 
   @@unique([slug])
 }
@@ -106,4 +106,22 @@ model OrganizationInvitation {
   expiresAt      DateTime
   inviterId      String
   user           User         @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+}
+
+model MuseDAMUser {
+  id     String @id
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model MuseDAMOrganization {
+  id             String       @id
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

@@ -18,6 +18,7 @@ import {
   Loader2,
   LogOut,
   Search,
+  TestTube,
   UserPlus,
   Users,
 } from "lucide-react";
@@ -226,6 +227,10 @@ export function UsersPageClient() {
               <Button variant="outline" onClick={() => router.push("/admin/organizations")}>
                 <Building className="h-4 w-4 mr-2" />
                 组织管理
+              </Button>
+              <Button variant="outline" onClick={() => router.push("/admin/federation")}>
+                <TestTube className="h-4 w-4 mr-2" />
+                MuseDAM联合登录
               </Button>
               <Button variant="destructive" onClick={handleLogout}>
                 <LogOut className="h-4 w-4 mr-2" />
