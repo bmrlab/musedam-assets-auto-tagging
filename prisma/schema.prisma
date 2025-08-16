@@ -9,119 +9,37 @@ datasource db {
   shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
 
+model Team {
+  id   Int     @id @default(autoincrement())
+  name String  @db.VarChar(255)
+  slug String? @unique @db.VarChar(64)
+
+  createdAt  DateTime    @default(now()) @db.Timestamptz(6)
+  updatedAt  DateTime    @updatedAt @db.Timestamptz(6)
+  Membership Membership?
+}
+
 model User {
-  id                      String                   @id
-  name                    String
-  email                   String
-  emailVerified           Boolean
-  image                   String?
-  createdAt               DateTime
-  updatedAt               DateTime
-  role                    String?
-  banned                  Boolean?
-  banReason               String?
-  banExpires              DateTime?
-  sessions                Session[]
-  accounts                Account[]
-  organizationMemberships OrganizationMembership[]
-  organizationInvitations OrganizationInvitation[]
-  museDAMUser             MuseDAMUser?
+  id       Int     @id @default(autoincrement())
+  name     String  @default("") @db.VarChar(64)
+  email    String? @unique
+  password String
+  slug     String? @unique @db.VarChar(64)
 
-  @@unique([email])
+  createdAt  DateTime    @default(now()) @db.Timestamptz(6)
+  updatedAt  DateTime    @updatedAt @db.Timestamptz(6)
+  Membership Membership?
 }
 
-model Session {
-  id                   String   @id
-  expiresAt            DateTime
-  token                String
-  createdAt            DateTime
-  updatedAt            DateTime
-  ipAddress            String?
-  userAgent            String?
-  userId               String
-  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  impersonatedBy       String?
-  activeOrganizationId String?
+model Membership {
+  id     Int  @id @default(autoincrement())
+  userId Int  @unique
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  teamId Int  @unique
+  team   Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
-  @@unique([token])
-}
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
 
-model Account {
-  id                    String    @id
-  accountId             String
-  providerId            String
-  userId                String
-  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  accessToken           String?
-  refreshToken          String?
-  idToken               String?
-  accessTokenExpiresAt  DateTime?
-  refreshTokenExpiresAt DateTime?
-  scope                 String?
-  password              String?
-  createdAt             DateTime
-  updatedAt             DateTime
-}
-
-model Verification {
-  id         String    @id
-  identifier String
-  value      String
-  expiresAt  DateTime
-  createdAt  DateTime?
-  updatedAt  DateTime?
-}
-
-model Organization {
-  id                      String                   @id
-  name                    String
-  slug                    String?
-  logo                    String?
-  createdAt               DateTime
-  metadata                String?
-  organizationMemberships OrganizationMembership[]
-  organizationInvitations OrganizationInvitation[]
-  museDAMOrganization     MuseDAMOrganization?
-
-  @@unique([slug])
-}
-
-model OrganizationMembership {
-  id             String       @id
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  userId         String
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role           String
-  createdAt      DateTime
-}
-
-model OrganizationInvitation {
-  id             String       @id
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  email          String
-  role           String?
-  status         String
-  expiresAt      DateTime
-  inviterId      String
-  user           User         @relation(fields: [inviterId], references: [id], onDelete: Cascade)
-}
-
-model MuseDAMUser {
-  id     String @id
-  userId String @unique
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model MuseDAMOrganization {
-  id             String       @id
-  organizationId String       @unique
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  @@unique([userId, teamId])
 }

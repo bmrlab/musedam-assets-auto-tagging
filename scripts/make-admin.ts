@@ -19,8 +19,6 @@ async function makeUserAdmin(options: MakeAdminOptions) {
         id: true,
         email: true,
         name: true,
-        role: true,
-        banned: true,
       },
     });
 
@@ -30,31 +28,16 @@ async function makeUserAdmin(options: MakeAdminOptions) {
       return null;
     }
 
-    if (existingUser.banned) {
-      console.error(`❌ 用户 ${email} 已被封禁，无法提升为管理员`);
-      console.log("💡 提示: 请先解封用户，然后再提升为管理员");
-      return null;
-    }
-
-    if (existingUser.role === "admin") {
-      console.log(`ℹ️  用户 ${email} 已经是管理员了`);
-      return existingUser;
-    }
-
-    // 更新用户角色为管理员
-    const adminUser = await prisma.user.update({
-      where: { email },
-      data: {
-        role: "admin",
-        emailVerified: true, // 管理员账户自动验证邮箱
+    const adminUser = await prisma.adminUser.upsert({
+      where: { userId: existingUser.id },
+      create: {
+        userId: existingUser.id,
       },
+      update: {},
     });
 
     console.log(`✅ 用户提升为管理员成功:`);
     console.log(`   邮箱: ${email}`);
-    console.log(`   姓名: ${adminUser.name}`);
-    console.log(`   原角色: ${existingUser.role || "user"} → 新角色: admin`);
-    console.log(`   用户ID: ${adminUser.id}`);
 
     return adminUser;
   } catch (error) {
