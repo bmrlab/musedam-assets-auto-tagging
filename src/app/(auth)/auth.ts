@@ -19,7 +19,16 @@ export const auth = betterAuth({
       adminRoles: ["admin"],
       defaultRole: "user",
     }),
-    organization(),
+    organization({
+      schema: {
+        invitation: {
+          modelName: "organizationInvitation",
+        },
+        member: {
+          modelName: "organizationMembership",
+        },
+      },
+    }),
   ],
   trustedOrigins: ["*"],
   session: {
