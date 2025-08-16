@@ -1,17 +1,14 @@
 "use client";
 
-import { useSession, signOut } from "@/app/(auth)/client";
+import { useSession, authClient } from "@/app/(auth)/client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import UserPanel from "../components/UserPanel";
 
 export default function Home() {
   const { data: session, isPending } = useSession();
+  const { data: activeOrganization } = authClient.useActiveOrganization();
   const router = useRouter();
-
-  const handleLogout = async () => {
-    await signOut();
-    router.refresh();
-  };
 
   if (isPending) {
     return (
@@ -34,45 +31,13 @@ export default function Home() {
               <h1 className="text-2xl font-bold text-gray-900">
                 MuseDAM 资产自动标记系统
               </h1>
-            </div>
-            <div className="flex items-center space-x-4">
-              {session?.user ? (
-                <>
-                  <span className="text-gray-700">
-                    欢迎, {session.user.name}
-                  </span>
-                  {session.user.role === "admin" && (
-                    <Link
-                      href="/admin"
-                      className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-                    >
-                      管理员面板
-                    </Link>
-                  )}
-                  <button
-                    onClick={handleLogout}
-                    className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
-                  >
-                    退出登录
-                  </button>
-                </>
-              ) : (
-                <div className="flex space-x-2">
-                  <Link
-                    href="/login"
-                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-                  >
-                    登录
-                  </Link>
-                  <Link
-                    href="/register"
-                    className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-                  >
-                    注册
-                  </Link>
-                </div>
+              {session?.user && activeOrganization && (
+                <p className="text-sm text-gray-600 mt-1">
+                  当前组织: {activeOrganization.name}
+                </p>
               )}
             </div>
+            <UserPanel />
           </div>
         </div>
       </div>
@@ -86,9 +51,57 @@ export default function Home() {
                 <h2 className="text-3xl font-bold text-gray-900 mb-4">
                   欢迎使用 MuseDAM 资产自动标记系统
                 </h2>
-                <p className="text-xl text-gray-600 mb-8">
+                <p className="text-xl text-gray-600 mb-4">
                   这里是主要功能区域，您可以进行资产管理和自动标记操作。
                 </p>
+
+                {/* 当前组织状态 */}
+                <div className="mb-8">
+                  {activeOrganization ? (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-md mx-auto">
+                      <div className="flex items-center justify-center">
+                        {activeOrganization.logo && (
+                          <img
+                            src={activeOrganization.logo}
+                            alt={activeOrganization.name}
+                            className="h-8 w-8 rounded-full mr-3"
+                          />
+                        )}
+                        <div>
+                          <p className="text-sm font-medium text-blue-900">
+                            当前工作在组织
+                          </p>
+                          <p className="text-lg font-bold text-blue-700">
+                            {activeOrganization.name}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 max-w-md mx-auto">
+                      <p className="text-sm text-gray-600">
+                        您当前处于个人模式，可以通过右上角的组织切换器选择工作组织
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* 管理员入口 */}
+                {session.user.role === "admin" && (
+                  <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-8 max-w-md mx-auto">
+                    <div className="text-center">
+                      <p className="text-sm font-medium text-purple-900 mb-2">
+                        管理员功能
+                      </p>
+                      <Link
+                        href="/admin"
+                        className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 inline-block"
+                      >
+                        进入管理面板
+                      </Link>
+                    </div>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   <div className="bg-white p-6 rounded-lg shadow">

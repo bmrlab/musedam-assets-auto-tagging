@@ -1,4 +1,5 @@
 import { auth } from "@/app/(auth)/auth";
+import { AdminPageClient } from "./AdminPageClient";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
@@ -6,11 +7,8 @@ export default async function AdminPage() {
   const session = await auth.api.getSession({
     headers: await headers(),
   });
-
   if (!session?.user || session.user.role !== "admin") {
     redirect("/login");
   }
-
-  // 重定向到用户管理页面作为默认页面
-  redirect("/admin/users");
+  return <AdminPageClient />;
 }

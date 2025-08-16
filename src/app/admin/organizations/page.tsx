@@ -1,8 +1,9 @@
 import { auth } from "@/app/(auth)/auth";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { OrganizationsPageClient } from "./OrganizationsPageClient";
 
-export default async function AdminPage() {
+export default async function OrganizationsPage() {
   const session = await auth.api.getSession({
     headers: await headers(),
   });
@@ -11,6 +12,5 @@ export default async function AdminPage() {
     redirect("/login");
   }
 
-  // 重定向到用户管理页面作为默认页面
-  redirect("/admin/users");
+  return <OrganizationsPageClient />;
 }
