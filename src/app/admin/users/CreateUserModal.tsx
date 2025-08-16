@@ -1,7 +1,26 @@
 "use client";
 
-import { useState } from "react";
 import { authClient } from "@/app/(auth)/client";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Loader2 } from "lucide-react";
+import { useState } from "react";
 
 interface CreateUserModalProps {
   isOpen: boolean;
@@ -9,11 +28,7 @@ interface CreateUserModalProps {
   onUserCreated: () => void;
 }
 
-export default function CreateUserModal({
-  isOpen,
-  onClose,
-  onUserCreated,
-}: CreateUserModalProps) {
+export default function CreateUserModal({ isOpen, onClose, onUserCreated }: CreateUserModalProps) {
   const [formData, setFormData] = useState({
     email: "",
     name: "",
@@ -57,9 +72,7 @@ export default function CreateUserModal({
     }
   };
 
-  const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
-  ) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
@@ -67,124 +80,110 @@ export default function CreateUserModal({
     }));
   };
 
-  if (!isOpen) return null;
+  const handleRoleChange = (value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      role: value,
+    }));
+  };
+
+  const handleClose = () => {
+    // 重置表单和错误状态
+    setFormData({
+      email: "",
+      name: "",
+      password: "",
+      role: "user",
+    });
+    setError("");
+    onClose();
+  };
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-      <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-        <div className="mt-3">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">创建新用户</h3>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>创建新用户</DialogTitle>
+          <DialogDescription>填写用户信息以创建新的系统用户账户</DialogDescription>
+        </DialogHeader>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label
-                htmlFor="email"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                邮箱地址 *
-              </label>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                required
-                value={formData.email}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                placeholder="user@example.com"
-              />
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="email">邮箱地址 *</Label>
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              required
+              value={formData.email}
+              onChange={handleInputChange}
+              placeholder="user@example.com"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="name">姓名 *</Label>
+            <Input
+              id="name"
+              name="name"
+              type="text"
+              required
+              value={formData.name}
+              onChange={handleInputChange}
+              placeholder="用户姓名"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="password">密码 *</Label>
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              required
+              minLength={6}
+              value={formData.password}
+              onChange={handleInputChange}
+              placeholder="至少6位密码"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="role">角色</Label>
+            <Select value={formData.role} onValueChange={handleRoleChange}>
+              <SelectTrigger>
+                <SelectValue placeholder="选择用户角色" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="user">普通用户</SelectItem>
+                <SelectItem value="admin">管理员</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {error && (
+            <div className="p-3 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-md">
+              {error}
             </div>
+          )}
 
-            <div>
-              <label
-                htmlFor="name"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                姓名 *
-              </label>
-              <input
-                type="text"
-                id="name"
-                name="name"
-                required
-                value={formData.name}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                placeholder="用户姓名"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                密码 *
-              </label>
-              <input
-                type="password"
-                id="password"
-                name="password"
-                required
-                minLength={6}
-                value={formData.password}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                placeholder="至少6位密码"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="role"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                角色
-              </label>
-              <select
-                id="role"
-                name="role"
-                value={formData.role}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="user">普通用户</option>
-                <option value="admin">管理员</option>
-              </select>
-            </div>
-
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">
-                {error}
-              </div>
-            )}
-
-            <div className="flex justify-end space-x-3 pt-4">
-              <button
-                type="button"
-                onClick={onClose}
-                className="bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400"
-              >
-                取消
-              </button>
-              <button
-                type="submit"
-                disabled={loading}
-                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? (
-                  <div className="flex items-center">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    创建中...
-                  </div>
-                ) : (
-                  "创建用户"
-                )}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
+          <DialogFooter className="gap-2">
+            <Button type="button" variant="outline" onClick={handleClose}>
+              取消
+            </Button>
+            <Button type="submit" disabled={loading}>
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  创建中...
+                </>
+              ) : (
+                "创建用户"
+              )}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

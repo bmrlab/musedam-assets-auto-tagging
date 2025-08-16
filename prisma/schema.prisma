@@ -80,6 +80,8 @@ model Organization {
   metadata                String?
   organizationMemberships OrganizationMembership[]
   organizationInvitations OrganizationInvitation[]
+  AssetObject             AssetObject[]
+  AssetTag                AssetTag[]
 
   @@unique([slug])
 }

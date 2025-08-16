@@ -1,7 +1,7 @@
 import { auth } from "@/app/(auth)/auth";
-import { AdminPageClient } from "./AdminPageClient";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { UsersPageClient } from "./UsersPageClient";
 
 export default async function AdminPage() {
   const session = await auth.api.getSession({
@@ -10,5 +10,5 @@ export default async function AdminPage() {
   if (!session?.user || session.user.role !== "admin") {
     redirect("/login");
   }
-  return <AdminPageClient />;
+  return <UsersPageClient />;
 }
