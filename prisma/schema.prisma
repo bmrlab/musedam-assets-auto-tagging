@@ -14,9 +14,11 @@ model Team {
   name String  @db.VarChar(255)
   slug String? @unique @db.VarChar(64)
 
-  createdAt  DateTime    @default(now()) @db.Timestamptz(6)
-  updatedAt  DateTime    @updatedAt @db.Timestamptz(6)
-  Membership Membership?
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  memberships Membership[]
+  tags        Tag[]
 }
 
 model User {
@@ -26,9 +28,10 @@ model User {
   password String
   slug     String? @unique @db.VarChar(64)
 
-  createdAt  DateTime    @default(now()) @db.Timestamptz(6)
-  updatedAt  DateTime    @updatedAt @db.Timestamptz(6)
-  Membership Membership?
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  memberships Membership[]
 }
 
 model Membership {
@@ -42,4 +45,33 @@ model Membership {
   updatedAt DateTime @updatedAt @db.Timestamptz(6)
 
   @@unique([userId, teamId])
+}
+
+model AssetObject {
+  id               Int    @id @default(autoincrement())
+  materializedPath String
+  name             String
+  description      String
+  tags             Json   @default("[]") // string[]
+  content          Json   @default("{}") // Record<string, string>
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+}
+
+model Tag {
+  id     Int  @id @default(autoincrement())
+  teamId Int
+  team   Team @relation(fields: [teamId], references: [id])
+
+  name     String @db.VarChar(100)
+  level    Int    @default(1) // 层级: 1, 2, 3
+  parentId Int?
+  parent   Tag?   @relation("TagHierarchy", fields: [parentId], references: [id])
+  children Tag[]  @relation("TagHierarchy")
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  @@unique([teamId, level, name])
 }
