@@ -1,14 +1,35 @@
 "use client";
 import { Button } from "@/components/ui/button";
+import UserPanel from "@/components/UserPanel";
+import { ExtractServerActionData } from "@/lib/serverAction";
 import { Moon, Sun } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useTheme } from "next-themes";
 import Link from "next/link";
-import UserPanel from "../components/UserPanel";
+import { useEffect, useState } from "react";
+import { fetchUserAndTeam } from "./actions";
 
 export default function Home() {
   const { data: session, status: sessionStatus } = useSession();
   const { theme, setTheme } = useTheme();
+  const [user, setUser] = useState<ExtractServerActionData<typeof fetchUserAndTeam>["user"] | null>(
+    null,
+  );
+  const [team, setTeam] = useState<ExtractServerActionData<typeof fetchUserAndTeam>["team"] | null>(
+    null,
+  );
+
+  useEffect(() => {
+    if (session?.user) {
+      fetchUserAndTeam().then((result) => {
+        if (result.success) {
+          const { user, team } = result.data;
+          setUser(user);
+          setTeam(team);
+        }
+      });
+    }
+  }, [sessionStatus]);
 
   if (sessionStatus === "loading") {
     return (
@@ -53,11 +74,14 @@ export default function Home() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
-          {session?.user ? (
+          {user && team ? (
             <div>
-              <div>{session.user.id}</div>
-              <div>{session.userType}</div>
-              <div>{session.team?.id}</div>
+              <div>
+                user: {user.name} ({user.slug})
+              </div>
+              <div>
+                team: {team.name} ({team.slug})
+              </div>
             </div>
           ) : (
             <div className="text-center">

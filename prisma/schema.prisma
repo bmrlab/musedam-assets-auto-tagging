@@ -10,23 +10,21 @@ datasource db {
 }
 
 model Team {
-  id   Int     @id @default(autoincrement())
-  name String  @db.VarChar(255)
-  slug String? @unique @db.VarChar(64)
+  id   Int    @id @default(autoincrement())
+  name String @default("") @db.VarChar(255)
+  slug String @unique @db.VarChar(64)
 
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @db.Timestamptz(6)
 
   memberships Membership[]
-  tags        Tag[]
+  // tags        Tag[]
 }
 
 model User {
-  id       Int     @id @default(autoincrement())
-  name     String  @default("") @db.VarChar(64)
-  email    String? @unique
-  password String
-  slug     String? @unique @db.VarChar(64)
+  id   Int    @id @default(autoincrement())
+  name String @default("") @db.VarChar(255)
+  slug String @unique @db.VarChar(64)
 
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @db.Timestamptz(6)
@@ -47,31 +45,31 @@ model Membership {
   @@unique([userId, teamId])
 }
 
-model AssetObject {
-  id               Int    @id @default(autoincrement())
-  materializedPath String
-  name             String
-  description      String
-  tags             Json   @default("[]") // string[]
-  content          Json   @default("{}") // Record<string, string>
+// model AssetObject {
+//   id               Int    @id @default(autoincrement())
+//   materializedPath String
+//   name             String
+//   description      String
+//   tags             Json   @default("[]") // string[]
+//   content          Json   @default("{}") // Record<string, string>
 
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @db.Timestamptz(6)
-}
+//   createdAt DateTime @default(now()) @db.Timestamptz(6)
+//   updatedAt DateTime @updatedAt @db.Timestamptz(6)
+// }
 
-model Tag {
-  id     Int  @id @default(autoincrement())
-  teamId Int
-  team   Team @relation(fields: [teamId], references: [id])
+// model Tag {
+//   id     Int  @id @default(autoincrement())
+//   teamId Int
+//   team   Team @relation(fields: [teamId], references: [id])
 
-  name     String @db.VarChar(100)
-  level    Int    @default(1) // 层级: 1, 2, 3
-  parentId Int?
-  parent   Tag?   @relation("TagHierarchy", fields: [parentId], references: [id])
-  children Tag[]  @relation("TagHierarchy")
+//   name     String @db.VarChar(100)
+//   level    Int    @default(1) // 层级: 1, 2, 3
+//   parentId Int?
+//   parent   Tag?   @relation("TagHierarchy", fields: [parentId], references: [id])
+//   children Tag[]  @relation("TagHierarchy")
 
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+//   createdAt DateTime @default(now()) @db.Timestamptz(6)
+//   updatedAt DateTime @updatedAt @db.Timestamptz(6)
 
-  @@unique([teamId, level, name])
-}
+//   @@unique([teamId, level, name])
+// }

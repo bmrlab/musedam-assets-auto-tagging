@@ -1,11 +1,9 @@
 import "server-only";
 
-import { User } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
-import { compare } from "bcryptjs";
 import { type NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { verifyImpersonationLoginToken } from "./impersonationLogin";
+import { verifyTokenLoginCredential } from "./tokenLogin";
 
 const authOptions: NextAuthOptions = {
   pages: {
@@ -30,43 +28,7 @@ const authOptions: NextAuthOptions = {
   },
   providers: [
     CredentialsProvider({
-      id: "credentials",
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
-      },
-      /**
-       * 前端需要调用 signin/actions.ts 里的 signInWithEmail 方法不要直接调用 next-auth/react 自带的 signIn
-       * signInWithEmail 可以更好的处理错误，并且在 EMAIL_NOT_VERIFIED 的时候跳转
-       */
-      async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          throw new Error("INVALID_CREDENTIALS");
-        }
-        const email = credentials.email.toLowerCase().trim();
-        let user: User | null;
-        try {
-          user = await prisma.user.findUnique({ where: { email } });
-        } catch (error) {
-          throw new Error("SERVER_ERROR");
-        }
-        if (!user) {
-          throw new Error("USER_NOT_FOUND");
-        }
-        const isPasswordValid = await compare(credentials.password, user.password);
-        if (!isPasswordValid) {
-          throw new Error("INVALID_PASSWORD");
-        }
-        return {
-          id: user.id,
-          name: user.name,
-          email: user.email!,
-          userType: "Personal",
-        };
-      },
-    }),
-    CredentialsProvider({
-      id: "impersonation-login",
+      id: "token-login",
       credentials: {
         token: { label: "Token", type: "text" },
       },
@@ -75,26 +37,31 @@ const authOptions: NextAuthOptions = {
           throw new Error("TOKEN_REQUIRED");
         }
         // Verify the impersonation login token
-        const payload = verifyImpersonationLoginToken(credentials.token);
+        const payload = verifyTokenLoginCredential(credentials.token);
         if (!payload) {
           throw new Error("INVALID_TOKEN");
         }
+        const userSlug = `u/${payload.user.id}`;
         const user = await prisma.user.upsert({
-          where: { slug: payload.musedamUserId.toString() },
+          where: { slug: userSlug },
           create: {
-            name: `MuseDAM-User-${payload.musedamUserId}`,
-            slug: payload.musedamUserId.toString(),
-            password: "",
+            name: payload.user.name,
+            slug: userSlug,
           },
-          update: {},
+          update: {
+            name: payload.user.name,
+          },
         });
+        const teamSlug = `t/${payload.team.id}`;
         const team = await prisma.team.upsert({
-          where: { slug: payload.musedamTeamId.toString() },
+          where: { slug: teamSlug },
           create: {
-            name: `MuseDAM-Team-${payload.musedamTeamId}`,
-            slug: payload.musedamTeamId.toString(),
+            name: payload.team.name,
+            slug: teamSlug,
           },
-          update: {},
+          update: {
+            name: payload.team.name,
+          },
         });
         prisma.membership.upsert({
           where: {
@@ -111,9 +78,6 @@ const authOptions: NextAuthOptions = {
         });
         return {
           id: user.id,
-          name: user.name,
-          email: user.email!,
-          userType: "TeamMember",
           teamId: team.id,
         };
       },
@@ -121,46 +85,25 @@ const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     session: ({ session, token }) => {
-      const invalidSession = { ...session, user: undefined, userType: undefined, team: undefined };
-      const validSession = {
+      return {
         ...session,
         user: {
           ...session.user,
           id: parseInt(token.id + ""),
         },
+        team: {
+          ...session.team,
+          id: parseInt(token._tid + ""),
+        },
       };
-      if (token._ut === 0) {
-        validSession.userType = "Personal";
-      } else if (token._ut === 1) {
-        if (!token._tid) {
-          return invalidSession;
-        }
-        validSession.userType = "TeamMember";
-        validSession.team = { id: token._tid };
-      } else {
-        return invalidSession;
-      }
-
-      return validSession;
     },
     jwt: ({ token, user }) => {
       if (user) {
-        const validToken = {
+        return {
           ...token,
           id: parseInt(user.id + ""),
+          _tid: parseInt(user.teamId + ""),
         };
-        if (user.userType === "Personal") {
-          validToken._ut = 0;
-        } else if (user.userType === "TeamMember") {
-          if (!user.teamId) {
-            throw new Error("INVALID_TEAM_ID");
-          }
-          validToken._ut = 1;
-          validToken._tid = parseInt(user.teamId + "");
-        } else {
-          throw new Error("INVALID_USER_TYPE");
-        }
-        return validToken;
       }
       return token;
     },
