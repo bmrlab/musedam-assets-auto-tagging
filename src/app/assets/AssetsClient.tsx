@@ -3,9 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ExtractServerActionData } from "@/lib/serverAction";
 import { AssetObject } from "@/prisma/client";
-import { Calendar, File, Folder, Tag as TagIcon } from "lucide-react";
+import { Bot, Calendar, File, Folder, Tag as TagIcon } from "lucide-react";
 import { useState } from "react";
 import { fetchTeamAssets } from "./actions";
+import TagPredictionDialog from "./TagPredictionDialog";
 
 interface AssetsClientProps {
   initialAssets: ExtractServerActionData<typeof fetchTeamAssets>["assets"];
@@ -13,6 +14,8 @@ interface AssetsClientProps {
 
 export default function AssetsClient({ initialAssets }: AssetsClientProps) {
   const [assets, setAssets] = useState<AssetObject[]>(initialAssets);
+  const [selectedAsset, setSelectedAsset] = useState<AssetObject | null>(null);
+  const [isPredictionDialogOpen, setIsPredictionDialogOpen] = useState(false);
 
   const refreshAssets = async () => {
     const result = await fetchTeamAssets();
@@ -73,6 +76,16 @@ export default function AssetsClient({ initialAssets }: AssetsClientProps) {
       }
     }
     return Array.isArray(tags) ? tags : [];
+  };
+
+  const handleAIPrediction = (asset: AssetObject) => {
+    setSelectedAsset(asset);
+    setIsPredictionDialogOpen(true);
+  };
+
+  const handleClosePredictionDialog = () => {
+    setIsPredictionDialogOpen(false);
+    setSelectedAsset(null);
   };
 
   return (
@@ -162,6 +175,15 @@ export default function AssetsClient({ initialAssets }: AssetsClientProps) {
 
                         {/* 操作按钮 */}
                         <div className="flex gap-2 ml-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleAIPrediction(asset)}
+                            className="flex items-center gap-1"
+                          >
+                            <Bot className="h-3 w-3" />
+                            AI预测
+                          </Button>
                           <Button variant="outline" size="sm">
                             编辑
                           </Button>
@@ -239,6 +261,13 @@ export default function AssetsClient({ initialAssets }: AssetsClientProps) {
           </CardContent>
         </Card>
       )}
+
+      {/* AI标签预测Dialog */}
+      <TagPredictionDialog
+        asset={selectedAsset}
+        isOpen={isPredictionDialogOpen}
+        onClose={handleClosePredictionDialog}
+      />
     </div>
   );
 }
