@@ -1,19 +1,9 @@
 "use server";
-import { predictAssetTags } from "@/ai/tagging";
+import { enqueueTaggingTask, TagPrediction } from "@/ai/tagging";
 import { withAuth } from "@/app/(auth)/withAuth";
 import { ServerActionResult } from "@/lib/serverAction";
-import { AssetObject, Tag } from "@/prisma/client";
+import { AssetObject } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
-
-interface TagWithChildren extends Tag {
-  children?: TagWithChildren[];
-}
-
-interface TagPrediction {
-  tagPath: string[];
-  confidence: number;
-  source: string[];
-}
 
 export async function fetchTeamAssets(): Promise<
   ServerActionResult<{
@@ -34,48 +24,74 @@ export async function fetchTeamAssets(): Promise<
   });
 }
 
-export async function predictAssetTagsAction(assetId: number): Promise<
-  ServerActionResult<{
-    predictions: TagPrediction[];
-  }>
-> {
+export async function predictAssetTagsAction(
+  assetId: number,
+): Promise<ServerActionResult<{ predictions: TagPrediction[] }>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
-      // 获取资产信息
-      const asset = await prisma.assetObject.findFirst({
+      const assetObject = await prisma.assetObject.findFirst({
         where: { id: assetId, teamId },
       });
 
-      if (!asset) {
+      if (!assetObject) {
         return {
           success: false,
           message: "资产不存在或无权限访问",
         };
       }
 
-      // 获取团队的所有标签
-      const tags = await prisma.tag.findMany({
-        where: { teamId },
-        orderBy: [{ level: "asc" }, { name: "asc" }],
-        include: {
-          parent: true,
-          children: {
-            orderBy: { name: "asc" },
-            include: {
-              children: {
-                orderBy: { name: "asc" },
-              },
+      const taggingQueueItem = await enqueueTaggingTask({ assetObject });
+
+      // 轮询队列项状态，每5秒检查一次
+      const maxWaitTime = 60000; // 最大等待时间60秒
+      const pollInterval = 5000; // 5秒轮询间隔
+      const startTime = Date.now();
+
+      while (Date.now() - startTime < maxWaitTime) {
+        await new Promise((resolve) => setTimeout(resolve, pollInterval));
+
+        const updatedQueueItem = await prisma.taggingQueueItem.findUnique({
+          where: { id: taggingQueueItem.id },
+        });
+
+        if (!updatedQueueItem) {
+          return {
+            success: false,
+            message: "队列项不存在",
+          };
+        }
+
+        if (updatedQueueItem.status === "completed") {
+          const { predictions } =
+            (updatedQueueItem.result as unknown as {
+              predictions: TagPrediction[];
+            }) ?? {};
+          if (!predictions) {
+            return {
+              success: false,
+              message: "AI标签预测结果为空",
+            };
+          }
+          return {
+            success: true,
+            data: {
+              predictions,
             },
-          },
-        },
-      });
+          };
+        }
 
-      // 调用AI预测函数
-      const predictions = await predictAssetTags(asset, tags as TagWithChildren[]);
+        if (updatedQueueItem.status === "failed") {
+          return {
+            success: false,
+            message: "AI标签预测失败，请稍后重试",
+          };
+        }
+      }
 
+      // 超时处理
       return {
-        success: true,
-        data: { predictions },
+        success: false,
+        message: "AI标签预测超时，请稍后重试",
       };
     } catch (error) {
       console.error("AI标签预测失败:", error);

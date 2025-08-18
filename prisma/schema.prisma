@@ -17,9 +17,10 @@ model Team {
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @db.Timestamptz(6)
 
-  memberships Membership[]
-  tags        Tag[]
-  AssetObject AssetObject[]
+  memberships       Membership[]
+  tags              Tag[]
+  assetObjects      AssetObject[]
+  taggingQueueItems TaggingQueueItem[]
 }
 
 model User {
@@ -59,6 +60,8 @@ model AssetObject {
 
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  taggingQueueItems TaggingQueueItem[]
 }
 
 model Tag {
@@ -76,4 +79,28 @@ model Tag {
   updatedAt DateTime @updatedAt @db.Timestamptz(6)
 
   @@unique([teamId, level, name])
+}
+
+enum TaggingQueueStatus {
+  pending
+  processing
+  completed
+  failed
+}
+
+model TaggingQueueItem {
+  id            Int                @id @default(autoincrement())
+  teamId        Int
+  team          Team               @relation(fields: [teamId], references: [id])
+  assetObjectId Int
+  assetObject   AssetObject        @relation(fields: [assetObjectId], references: [id])
+  status        TaggingQueueStatus
+  startsAt      DateTime?          @db.Timestamptz(6)
+  endsAt        DateTime?          @db.Timestamptz(6)
+  result        Json               @default("{}")
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  @@index([teamId, status])
 }

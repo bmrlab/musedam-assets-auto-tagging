@@ -1,5 +1,10 @@
+import "server-only";
+
 import { llm } from "@/ai/provider";
-import { AssetObject, Tag } from "@/prisma/client";
+import { AssetObject, Tag, TaggingQueueItem } from "@/prisma/client";
+import { InputJsonObject, InputJsonValue } from "@/prisma/client/runtime/library";
+import prisma from "@/prisma/prisma";
+import { waitUntil } from "@vercel/functions";
 import { generateObject } from "ai";
 import { z } from "zod";
 
@@ -7,7 +12,7 @@ interface TagWithChildren extends Tag {
   children?: TagWithChildren[];
 }
 
-interface TagPrediction {
+export interface TagPrediction {
   tagPath: string[];
   confidence: number;
   source: string[];
@@ -31,7 +36,7 @@ const TagPredictionSchema = z.object({
  * @param availableTags 可用的标签列表（包含层级关系）
  * @returns 预测结果数组，包含标签路径和置信度
  */
-export async function predictAssetTags(
+async function predictAssetTags(
   asset: AssetObject,
   availableTags: TagWithChildren[],
 ): Promise<TagPrediction[]> {
@@ -149,44 +154,65 @@ function buildTagStructureText(tags: TagWithChildren[]): string {
   return structureText;
 }
 
-/**
- * 验证标签路径是否在给定的标签体系中存在
- */
-export function validateTagPath(tagPath: string[], availableTags: TagWithChildren[]): boolean {
-  if (tagPath.length === 0 || tagPath.length > 3) {
-    return false;
-  }
+export async function enqueueTaggingTask({
+  assetObject,
+}: {
+  assetObject: AssetObject;
+}): Promise<TaggingQueueItem> {
+  const teamId = assetObject.teamId;
 
-  // 查找一级标签
-  const level1Tag = availableTags.find((tag) => tag.level === 1 && tag.name === tagPath[0]);
+  // 获取团队的所有标签
+  const tags = await prisma.tag
+    .findMany({
+      where: { teamId },
+      orderBy: [{ level: "asc" }, { name: "asc" }],
+      include: {
+        parent: true,
+        children: {
+          orderBy: { name: "asc" },
+          include: {
+            children: {
+              orderBy: { name: "asc" },
+            },
+          },
+        },
+      },
+    })
+    .then((tags) => tags as TagWithChildren[]);
 
-  if (!level1Tag) {
-    return false;
-  }
+  const taggingQueueItem = await prisma.taggingQueueItem.create({
+    data: {
+      teamId: teamId,
+      assetObjectId: assetObject.id,
+      status: "processing",
+      startsAt: new Date(),
+    },
+  });
 
-  // 如果只有一级标签
-  if (tagPath.length === 1) {
-    return true;
-  }
-
-  // 查找二级标签
-  const level2Tag = availableTags.find(
-    (tag) => tag.level === 2 && tag.parentId === level1Tag.id && tag.name === tagPath[1],
+  waitUntil(
+    (async () => {
+      try {
+        const predictions = await predictAssetTags(assetObject, tags);
+        await prisma.taggingQueueItem.update({
+          where: { id: taggingQueueItem.id },
+          data: {
+            status: "completed",
+            endsAt: new Date(),
+            result: { predictions: predictions as unknown as InputJsonObject },
+          },
+        });
+      } catch (error) {
+        await prisma.taggingQueueItem.update({
+          where: { id: taggingQueueItem.id },
+          data: {
+            status: "failed",
+            endsAt: new Date(),
+            result: { error: error as InputJsonValue },
+          },
+        });
+      }
+    })(),
   );
 
-  if (!level2Tag) {
-    return false;
-  }
-
-  // 如果只有二级标签
-  if (tagPath.length === 2) {
-    return true;
-  }
-
-  // 查找三级标签
-  const level3Tag = availableTags.find(
-    (tag) => tag.level === 3 && tag.parentId === level2Tag.id && tag.name === tagPath[2],
-  );
-
-  return !!level3Tag;
+  return taggingQueueItem;
 }
