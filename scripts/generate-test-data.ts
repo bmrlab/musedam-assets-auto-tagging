@@ -1,5 +1,6 @@
 #!/usr/bin/env tsx
 
+import { idToSlug } from "@/lib/slug";
 import { PrismaClient } from "@/prisma/client";
 
 const prisma = new PrismaClient();
@@ -220,7 +221,7 @@ async function generateTestData() {
     for (let i = 0; i < 20; i++) {
       // 生成6位数字的slug
       const assetNumber = String(i + 1).padStart(6, "0");
-      const assetSlug = `a/${assetNumber}`;
+      const assetSlug = idToSlug("assetObject", assetNumber);
 
       // 随机选择文件夹路径
       const materializedPath = folderPaths[Math.floor(Math.random() * folderPaths.length)];

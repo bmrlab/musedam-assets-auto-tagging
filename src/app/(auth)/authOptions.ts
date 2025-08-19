@@ -1,5 +1,6 @@
 import "server-only";
 
+import { idToSlug } from "@/lib/slug";
 import prisma from "@/prisma/prisma";
 import { type NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
@@ -41,7 +42,7 @@ const authOptions: NextAuthOptions = {
         if (!payload) {
           throw new Error("INVALID_TOKEN");
         }
-        const userSlug = `u/${payload.user.id}`;
+        const userSlug = idToSlug("user", payload.user.id);
         const user = await prisma.user.upsert({
           where: { slug: userSlug },
           create: {
@@ -52,7 +53,7 @@ const authOptions: NextAuthOptions = {
             name: payload.user.name,
           },
         });
-        const teamSlug = `t/${payload.team.id}`;
+        const teamSlug = idToSlug("team", payload.team.id);
         const team = await prisma.team.upsert({
           where: { slug: teamSlug },
           create: {

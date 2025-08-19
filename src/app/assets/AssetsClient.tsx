@@ -4,8 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ExtractServerActionData } from "@/lib/serverAction";
 import { AssetObject } from "@/prisma/client";
 import { Bot, Calendar, File, Folder, Tag as TagIcon } from "lucide-react";
-import { useState } from "react";
-import { fetchTeamAssets } from "./actions";
+import { useCallback, useState } from "react";
+import { fetchSampleAssetsAction, fetchTeamAssets } from "./actions";
 import TagPredictionDialog from "./TagPredictionDialog";
 
 interface AssetsClientProps {
@@ -88,6 +88,10 @@ export default function AssetsClient({ initialAssets }: AssetsClientProps) {
     setSelectedAsset(null);
   };
 
+  const fetchSampleAssets = useCallback(async () => {
+    await fetchSampleAssetsAction();
+  }, []);
+
   return (
     <div className="space-y-6">
       {/* 标题和操作栏 */}
@@ -97,6 +101,9 @@ export default function AssetsClient({ initialAssets }: AssetsClientProps) {
           <p className="text-muted-foreground">查看和管理团队的资产文件</p>
         </div>
         <div className="flex gap-2">
+          <Button onClick={fetchSampleAssets} variant="outline">
+            导入素材
+          </Button>
           <Button onClick={refreshAssets} variant="outline">
             刷新
           </Button>
