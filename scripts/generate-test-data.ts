@@ -2,163 +2,231 @@
 
 import { idToSlug } from "@/lib/slug";
 import { PrismaClient } from "@/prisma/client";
+import * as fs from "fs";
+import * as yaml from "js-yaml";
+import * as path from "path";
 
 const prisma = new PrismaClient();
 
-interface TagLevel {
+interface TagConfig {
   name: string;
-  children?: TagLevel[];
+  children?: TagConfig[];
 }
 
-// 定义3层标签结构
-const tagStructure: TagLevel[] = [
-  {
-    name: "产品类别",
-    children: [
-      {
-        name: "电子产品",
-        children: [
-          { name: "手机设备" },
-          { name: "电脑数码" },
-          { name: "智能家居" },
-          { name: "音响设备" },
-        ],
-      },
-      {
-        name: "服装配饰",
-        children: [
-          { name: "男装" },
-          { name: "女装" },
-          { name: "童装" },
-          { name: "鞋靴" },
-          { name: "包包配饰" },
-        ],
-      },
-      {
-        name: "家居用品",
-        children: [
-          { name: "厨房用具" },
-          { name: "卧室用品" },
-          { name: "客厅装饰" },
-          { name: "收纳整理" },
-        ],
-      },
-      {
-        name: "食品饮料",
-        children: [
-          { name: "零食小食" },
-          { name: "饮品茶酒" },
-          { name: "生鲜食材" },
-          { name: "保健营养" },
-        ],
-      },
-    ],
-  },
-  {
-    name: "媒体类型",
-    children: [
-      {
-        name: "图片素材",
-        children: [
-          { name: "产品图片" },
-          { name: "生活场景" },
-          { name: "人物肖像" },
-          { name: "背景素材" },
-        ],
-      },
-      {
-        name: "视频内容",
-        children: [
-          { name: "广告视频" },
-          { name: "产品展示" },
-          { name: "教程演示" },
-          { name: "短视频" },
-        ],
-      },
-      {
-        name: "文档资料",
-        children: [
-          { name: "产品手册" },
-          { name: "营销文案" },
-          { name: "技术文档" },
-          { name: "合同协议" },
-        ],
-      },
-      {
-        name: "设计文件",
-        children: [
-          { name: "UI设计" },
-          { name: "平面设计" },
-          { name: "包装设计" },
-          { name: "品牌VI" },
-        ],
-      },
-    ],
-  },
-];
+interface TestDataConfig {
+  tags: TagConfig[];
+  folder_paths: string[];
+  meaningful_names: string[];
+  random_names: string[];
+  descriptions: {
+    meaningful_descriptions: string[];
+    simple_descriptions: string[];
+    empty_descriptions: string[];
+  };
+  file_extensions: {
+    images: string[];
+    videos: string[];
+    documents: string[];
+    design: string[];
+    archives: string[];
+  };
+  generation_config: {
+    total_assets: number;
+    meaningful_name_ratio: number;
+    meaningful_description_ratio: number;
+    empty_description_ratio: number;
+    path_name_correlation_ratio: number;
+  };
+}
 
-// 生成素材文件夹路径
-const folderPaths = [
-  "/营销素材/产品宣传/手机类",
-  "/营销素材/产品宣传/服装类",
-  "/营销素材/社交媒体/微博",
-  "/营销素材/社交媒体/小红书",
-  "/设计文件/品牌VI/LOGO",
-  "/设计文件/品牌VI/海报",
-  "/设计文件/包装设计",
-  "/文档资料/产品说明书",
-  "/文档资料/市场调研",
-  "/视频素材/广告片",
-  "/视频素材/产品展示",
-  "/图片素材/产品图",
-  "/图片素材/lifestyle",
-  "/临时文件/待整理",
-  "/归档文件/2023年",
-];
+// 加载 YAML 配置
+function loadTestDataConfig(): TestDataConfig {
+  const configPath = path.join(__dirname, "generate-test-data.yaml");
+  const yamlContent = fs.readFileSync(configPath, "utf8");
+  return yaml.load(yamlContent) as TestDataConfig;
+}
 
-// 有意义的文件名
-const meaningfulNames = [
-  "iPhone15_产品海报_春季新品",
-  "品牌LOGO_标准版_2024",
-  "产品说明书_用户手册_V2.1",
-  "社交媒体_小红书_种草文案",
-  "广告视频_TVC_30秒版本",
-  "包装设计_礼盒装_最终版",
-  "市场调研_消费者洞察_Q1",
-  "官网首页_轮播图_主视觉",
-  "门店物料_海报_A2尺寸",
-  "产品摄影_白底图_高清版",
-];
+// 递归创建标签
+async function createTagsRecursively(
+  teamId: number,
+  tagConfigs: TagConfig[],
+  parentId: number | null = null,
+  level: number = 1,
+  createdTags: any[] = [],
+): Promise<any[]> {
+  for (const tagConfig of tagConfigs) {
+    const tag = await prisma.tag.create({
+      data: {
+        teamId,
+        name: tagConfig.name,
+        level,
+        parentId,
+      },
+    });
 
-// 无意义的文件名
-const randomNames = [
-  "IMG_20241201_143052",
-  "DSC_8492",
-  "未命名-1_副本",
-  "新建文件夹_temp",
-  "Untitled-design-final",
-  "copy_of_draft_v3",
-  "screenshot_2024_12_01",
-  "file_001_backup",
-  "temp_export_final2",
-  "document_draft_old",
-];
+    createdTags.push(tag);
 
-async function generateTestData() {
+    if (tagConfig.children && tagConfig.children.length > 0) {
+      await createTagsRecursively(teamId, tagConfig.children, tag.id, level + 1, createdTags);
+    }
+  }
+
+  return createdTags;
+}
+
+// 随机选择数组中的元素
+function randomChoice<T>(array: T[]): T {
+  return array[Math.floor(Math.random() * array.length)];
+}
+
+// 根据概率返回 true 或 false
+function randomBoolean(probability: number): boolean {
+  return Math.random() < probability;
+}
+
+// 获取所有文件扩展名
+function getAllExtensions(config: TestDataConfig): string[] {
+  return [
+    ...config.file_extensions.images,
+    ...config.file_extensions.videos,
+    ...config.file_extensions.documents,
+    ...config.file_extensions.design,
+    ...config.file_extensions.archives,
+  ];
+}
+
+// 生成文件名（有关联性或无关联性）
+function generateFileName(
+  config: TestDataConfig,
+  folderPath: string,
+  shouldCorrelate: boolean,
+): string {
+  const useMeaningfulName = randomBoolean(config.generation_config.meaningful_name_ratio);
+  const extensions = getAllExtensions(config);
+  const extension = randomChoice(extensions);
+
+  let baseName: string;
+
+  if (useMeaningfulName) {
+    baseName = randomChoice(config.meaningful_names);
+
+    // 如果需要关联性，尝试匹配文件夹路径
+    if (shouldCorrelate) {
+      const pathLower = folderPath.toLowerCase();
+
+      // 根据路径调整文件名
+      if ((pathLower.includes("服装") || pathLower.includes("clothing")) && Math.random() > 0.3) {
+        const clothingNames = config.meaningful_names.filter(
+          (name) =>
+            name.includes("服装") ||
+            name.includes("鞋") ||
+            name.includes("包") ||
+            name.includes("Nike") ||
+            name.includes("AJ") ||
+            name.includes("Coach") ||
+            name.includes("Air_Jordan") ||
+            name.includes("Burberry") ||
+            name.includes("Gucci") ||
+            name.includes("Prada") ||
+            name.includes("sneakers") ||
+            name.includes("handbag") ||
+            name.includes("trench_coat") ||
+            name.includes("shoes"),
+        );
+        if (clothingNames.length > 0) {
+          baseName = randomChoice(clothingNames);
+        }
+      } else if (
+        (pathLower.includes("数码") || pathLower.includes("electronics")) &&
+        Math.random() > 0.3
+      ) {
+        const digitalNames = config.meaningful_names.filter(
+          (name) =>
+            name.includes("iPhone") ||
+            name.includes("华为") ||
+            name.includes("小米") ||
+            name.includes("Mac") ||
+            name.includes("索尼") ||
+            name.includes("特斯拉") ||
+            name.includes("Huawei") ||
+            name.includes("Xiaomi") ||
+            name.includes("MacBook") ||
+            name.includes("Sony") ||
+            name.includes("Tesla") ||
+            name.includes("Dyson") ||
+            name.includes("vacuum"),
+        );
+        if (digitalNames.length > 0) {
+          baseName = randomChoice(digitalNames);
+        }
+      } else if (
+        (pathLower.includes("美妆") || pathLower.includes("beauty")) &&
+        Math.random() > 0.3
+      ) {
+        const beautyNames = config.meaningful_names.filter(
+          (name) =>
+            name.includes("SK-II") ||
+            name.includes("YSL") ||
+            name.includes("兰蔻") ||
+            name.includes("海蓝之谜") ||
+            name.includes("雅诗兰黛") ||
+            name.includes("迪奥") ||
+            name.includes("Lancome") ||
+            name.includes("La_Mer") ||
+            name.includes("Estee_Lauder") ||
+            name.includes("Dior") ||
+            name.includes("Chanel") ||
+            name.includes("lipstick") ||
+            name.includes("foundation") ||
+            name.includes("perfume") ||
+            name.includes("cream"),
+        );
+        if (beautyNames.length > 0) {
+          baseName = randomChoice(beautyNames);
+        }
+      }
+    }
+  } else {
+    baseName = randomChoice(config.random_names);
+  }
+
+  return baseName + extension;
+}
+
+// 生成描述
+function generateDescription(config: TestDataConfig, fileName: string, folderPath: string): string {
+  const meaningfulRatio = config.generation_config.meaningful_description_ratio;
+  const emptyRatio = config.generation_config.empty_description_ratio;
+
+  const rand = Math.random();
+
+  if (rand < emptyRatio) {
+    return randomChoice(config.descriptions.empty_descriptions);
+  } else if (rand < meaningfulRatio + emptyRatio) {
+    return randomChoice(config.descriptions.meaningful_descriptions);
+  } else {
+    return randomChoice(config.descriptions.simple_descriptions);
+  }
+}
+
+async function generateTestData(teamSlug: string) {
   try {
     console.log("🚀 开始生成测试数据...");
+
+    // 加载配置
+    const config = loadTestDataConfig();
 
     // 1. 查找或创建team
     console.log("📁 查找或创建团队...");
     let team = await prisma.team.findUnique({
-      where: { slug: "t/999" },
+      where: { slug: teamSlug },
     });
 
     if (!team) {
       team = await prisma.team.create({
         data: {
-          name: "测试团队",
-          slug: "t/999",
+          name: "电商测试团队",
+          slug: teamSlug,
         },
       });
       console.log("✅ 创建了新团队:", team.name);
@@ -168,104 +236,32 @@ async function generateTestData() {
 
     // 2. 生成标签结构
     console.log("🏷️  生成标签结构...");
-    const createdTags: any[] = [];
-
-    for (const level1Tag of tagStructure) {
-      // 创建一级标签
-      const parentTag = await prisma.tag.create({
-        data: {
-          teamId: team.id,
-          name: level1Tag.name,
-          level: 1,
-          parentId: null,
-        },
-      });
-      createdTags.push(parentTag);
-
-      if (level1Tag.children) {
-        for (const level2Tag of level1Tag.children) {
-          // 创建二级标签
-          const childTag = await prisma.tag.create({
-            data: {
-              teamId: team.id,
-              name: level2Tag.name,
-              level: 2,
-              parentId: parentTag.id,
-            },
-          });
-          createdTags.push(childTag);
-
-          // 创建三级标签
-          if (level2Tag.children) {
-            for (const level3Tag of level2Tag.children) {
-              const grandChildTag = await prisma.tag.create({
-                data: {
-                  teamId: team.id,
-                  name: level3Tag.name,
-                  level: 3,
-                  parentId: childTag.id,
-                },
-              });
-              createdTags.push(grandChildTag);
-            }
-          }
-        }
-      }
-    }
-
+    const createdTags = await createTagsRecursively(team.id, config.tags);
     console.log(`✅ 创建了 ${createdTags.length} 个标签`);
 
     // 3. 生成AssetObject
     console.log("📄 生成资产对象...");
+    const totalAssets = config.generation_config.total_assets;
+    const correlationRatio = config.generation_config.path_name_correlation_ratio;
 
-    for (let i = 0; i < 20; i++) {
-      // 生成6位数字的slug
-      const assetNumber = String(i + 1).padStart(6, "0");
+    for (let i = 0; i < totalAssets; i++) {
+      // 生成6位随机数字的slug
+      const assetNumber = String(Math.floor(Math.random() * 900000) + 100000);
       const assetSlug = idToSlug("assetObject", assetNumber);
 
       // 随机选择文件夹路径
-      const materializedPath = folderPaths[Math.floor(Math.random() * folderPaths.length)];
+      const materializedPath = randomChoice(config.folder_paths);
 
-      // 随机选择有意义或无意义的文件名
-      const useMeaningfulName = Math.random() > 0.4;
-      let name: string;
-      if (useMeaningfulName) {
-        name = meaningfulNames[Math.floor(Math.random() * meaningfulNames.length)];
-      } else {
-        name = randomNames[Math.floor(Math.random() * randomNames.length)];
-      }
+      // 判断是否需要关联性
+      const shouldCorrelate = randomBoolean(correlationRatio);
 
-      // 添加随机文件扩展名
-      const extensions = [".jpg", ".png", ".pdf", ".mp4", ".psd", ".ai", ".docx", ".xlsx", ".pptx"];
-      const extension = extensions[Math.floor(Math.random() * extensions.length)];
-      name += extension;
+      // 生成文件名
+      const name = generateFileName(config, materializedPath, shouldCorrelate);
 
       // 生成描述
-      const descriptions = [
-        "这是一个重要的营销素材",
-        "产品相关的设计文件",
-        "市场推广使用的图片",
-        "品牌宣传物料",
-        "内部使用的文档资料",
-        "", // 空描述
-        "临时文件，待整理",
-        "客户提供的参考素材",
-        "设计师制作的创意图片",
-        "官方发布的标准素材",
-      ];
-      const description = descriptions[Math.floor(Math.random() * descriptions.length)];
+      const description = generateDescription(config, name, materializedPath);
 
-      // 随机选择2-5个标签，有些可以为空
-      let selectedTags: string[] = [];
-      const shouldHaveTags = Math.random() > 0.15; // 85%的概率有标签
-
-      if (shouldHaveTags) {
-        const tagCount = Math.floor(Math.random() * 4) + 2; // 2-5个标签
-        const shuffledTags = [...createdTags].sort(() => Math.random() - 0.5);
-        selectedTags = shuffledTags.slice(0, tagCount).map((tag) => tag.name);
-      }
-
-      // 创建AssetObject
+      // 创建AssetObject（tags字段设为空数组）
       const assetObject = await prisma.assetObject.create({
         data: {
           teamId: team.id,
@@ -273,19 +269,31 @@ async function generateTestData() {
           materializedPath,
           name,
           description,
-          tags: selectedTags,
+          tags: [], // 设为空数组
           content: {},
         },
       });
 
-      console.log(`✅ 创建资产 ${i + 1}/20: ${assetObject.name}`);
+      // 显示进度
+      if ((i + 1) % 20 === 0 || i === totalAssets - 1) {
+        console.log(`✅ 创建资产 ${i + 1}/${totalAssets}: ${assetObject.name}`);
+      }
     }
 
     console.log("🎉 测试数据生成完成！");
     console.log(`📊 统计信息:`);
     console.log(`   - 团队: 1个 (${team.name})`);
     console.log(`   - 标签: ${createdTags.length}个`);
-    console.log(`   - 资产对象: 20个`);
+    console.log(`   - 资产对象: ${totalAssets}个`);
+
+    // 显示标签层级统计
+    const level1Tags = createdTags.filter((tag) => tag.level === 1);
+    const level2Tags = createdTags.filter((tag) => tag.level === 2);
+    const level3Tags = createdTags.filter((tag) => tag.level === 3);
+
+    console.log(`   - 一级标签: ${level1Tags.length}个`);
+    console.log(`   - 二级标签: ${level2Tags.length}个`);
+    console.log(`   - 三级标签: ${level3Tags.length}个`);
   } catch (error) {
     console.error("❌ 生成测试数据失败:", error);
     throw error;
@@ -293,10 +301,19 @@ async function generateTestData() {
 }
 
 async function main() {
-  console.log("🧪 MuseDAM 测试数据生成工具\n");
+  console.log("🧪 MuseDAM 电商行业测试数据生成工具\n");
+
+  // 从命令行参数读取 team slug
+  const teamSlug = process.argv[2];
+  if (!teamSlug) {
+    console.error("❌ 请提供团队 slug 参数");
+    console.log("用法: tsx scripts/generate-test-data.ts <team-slug>");
+    console.log("示例: tsx scripts/generate-test-data.ts t/999");
+    process.exit(1);
+  }
 
   try {
-    await generateTestData();
+    await generateTestData(teamSlug);
   } catch (error) {
     console.error("❌ 执行失败:", error);
     process.exit(1);

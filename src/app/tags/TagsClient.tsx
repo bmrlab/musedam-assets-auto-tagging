@@ -23,7 +23,7 @@ export default function TagsClient({ initialTags }: TagsClientProps) {
   const [selectedLevel3, setSelectedLevel3] = useState<TagWithChildren | null>(null);
 
   // 获取不同层级的标签
-  const level1Tags = tags.filter(tag => tag.level === 1);
+  const level1Tags = tags.filter((tag) => tag.level === 1);
   const level2Tags = selectedLevel1?.children || [];
   const level3Tags = selectedLevel2?.children || [];
 
@@ -51,7 +51,7 @@ export default function TagsClient({ initialTags }: TagsClientProps) {
 
   useEffect(() => {
     // 如果选中的一级标签不在当前标签列表中，清除选择
-    if (selectedLevel1 && !level1Tags.find(tag => tag.id === selectedLevel1.id)) {
+    if (selectedLevel1 && !level1Tags.find((tag) => tag.id === selectedLevel1.id)) {
       setSelectedLevel1(null);
       setSelectedLevel2(null);
       setSelectedLevel3(null);
@@ -70,9 +70,7 @@ export default function TagsClient({ initialTags }: TagsClientProps) {
           <Button onClick={refreshTags} variant="outline">
             刷新
           </Button>
-          <Button>
-            新建标签
-          </Button>
+          <Button>新建标签</Button>
         </div>
       </div>
 
@@ -108,11 +106,7 @@ export default function TagsClient({ initialTags }: TagsClientProps) {
           {selectedLevel2 && (
             <>
               <ChevronRight className="h-4 w-4" />
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSelectedLevel3(null)}
-              >
+              <Button variant="ghost" size="sm" onClick={() => setSelectedLevel3(null)}>
                 {selectedLevel2.name}
               </Button>
             </>
@@ -152,7 +146,7 @@ export default function TagsClient({ initialTags }: TagsClientProps) {
                 >
                   <span>{tag.name}</span>
                   {tag.children && tag.children.length > 0 && (
-                    <span className="text-xs bg-muted px-2 py-1 rounded">
+                    <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded">
                       {tag.children.length}
                     </span>
                   )}
@@ -188,7 +182,7 @@ export default function TagsClient({ initialTags }: TagsClientProps) {
                 >
                   <span>{tag.name}</span>
                   {tag.children && tag.children.length > 0 && (
-                    <span className="text-xs bg-muted px-2 py-1 rounded">
+                    <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded">
                       {tag.children.length}
                     </span>
                   )}
@@ -245,13 +239,13 @@ export default function TagsClient({ initialTags }: TagsClientProps) {
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                {tags.filter(tag => tag.level === 2).length}
+                {tags.filter((tag) => tag.level === 2).length}
               </div>
               <div className="text-sm text-muted-foreground">二级标签</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                {tags.filter(tag => tag.level === 3).length}
+                {tags.filter((tag) => tag.level === 3).length}
               </div>
               <div className="text-sm text-muted-foreground">三级标签</div>
             </div>

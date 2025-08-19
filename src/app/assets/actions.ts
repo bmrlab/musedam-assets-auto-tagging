@@ -16,7 +16,7 @@ export async function fetchTeamAssets(): Promise<
     const assets = await prisma.assetObject.findMany({
       where: { teamId },
       orderBy: [{ createdAt: "desc" }],
-      take: 10, // 默认前10个
+      take: 100,
     });
 
     return {
