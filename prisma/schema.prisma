@@ -79,6 +79,7 @@ model Tag {
   updatedAt DateTime @updatedAt @db.Timestamptz(6)
 
   @@unique([teamId, level, name])
+  @@index([teamId, parentId])
 }
 
 enum TaggingQueueStatus {
