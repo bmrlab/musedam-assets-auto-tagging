@@ -6,7 +6,19 @@ const prisma = new PrismaClient();
 
 async function main() {
   const args = process.argv.slice(2);
-  const [musedamUserId, musedamUserName, musedamTeamId, musedamTeamName] = args;
+  let [musedamUserId, musedamUserName, musedamTeamId, musedamTeamName] = args;
+
+  if (!musedamUserId || !musedamUserName || !musedamTeamId || !musedamTeamName) {
+    console.log("ℹ️ 未提供参数，使用默认值");
+    console.log("用法: tsx scripts/generate-auth-token.ts <userId> <userName> <teamId> <teamName>");
+    console.log("示例: tsx scripts/generate-auth-token.ts user123 'John Doe' team456 'My Team'");
+    [musedamUserId, musedamUserName, musedamTeamId, musedamTeamName] = [
+      "test-user-id",
+      "Test User",
+      "test-team-id",
+      "Test Team",
+    ];
+  }
 
   const now = Date.now();
   const expiresAt = now + 24 * 60 * 60 * 1000; // Convert hours to milliseconds

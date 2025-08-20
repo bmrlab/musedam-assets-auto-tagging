@@ -304,12 +304,12 @@ async function main() {
   console.log("🧪 MuseDAM 电商行业测试数据生成工具\n");
 
   // 从命令行参数读取 team slug
-  const teamSlug = process.argv[2];
+  let teamSlug = process.argv[2];
   if (!teamSlug) {
-    console.error("❌ 请提供团队 slug 参数");
+    console.log("ℹ️ 未提供团队 slug 参数，使用默认值: t/test-team-id");
     console.log("用法: tsx scripts/generate-test-data.ts <team-slug>");
     console.log("示例: tsx scripts/generate-test-data.ts t/999");
-    process.exit(1);
+    teamSlug = "t/test-team-id";
   }
 
   try {
