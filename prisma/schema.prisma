@@ -21,6 +21,7 @@ model Team {
   tags              Tag[]
   assetObjects      AssetObject[]
   taggingQueueItems TaggingQueueItem[]
+  TaggingAuditItem  TaggingAuditItem[]
 }
 
 model User {
@@ -62,6 +63,7 @@ model AssetObject {
   updatedAt DateTime @updatedAt @db.Timestamptz(6)
 
   taggingQueueItems TaggingQueueItem[]
+  TaggingAuditItem  TaggingAuditItem[]
 }
 
 model Tag {
@@ -75,8 +77,9 @@ model Tag {
   parent   Tag?   @relation("TagHierarchy", fields: [parentId], references: [id])
   children Tag[]  @relation("TagHierarchy")
 
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  createdAt        DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime           @updatedAt @db.Timestamptz(6)
+  TaggingAuditItem TaggingAuditItem[]
 
   @@unique([teamId, level, name])
   @@index([teamId, parentId])
@@ -99,6 +102,34 @@ model TaggingQueueItem {
   startsAt      DateTime?          @db.Timestamptz(6)
   endsAt        DateTime?          @db.Timestamptz(6)
   result        Json               @default("{}")
+  extra         Json               @default("{}")
+
+  createdAt        DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime           @updatedAt @db.Timestamptz(6)
+  TaggingAuditItem TaggingAuditItem[]
+
+  @@index([teamId, status])
+}
+
+enum TaggingAuditStatus {
+  pending
+  approved
+  rejected
+}
+
+model TaggingAuditItem {
+  id            Int                @id @default(autoincrement())
+  teamId        Int
+  team          Team               @relation(fields: [teamId], references: [id])
+  assetObjectId Int
+  assetObject   AssetObject        @relation(fields: [assetObjectId], references: [id])
+  status        TaggingAuditStatus
+  confidence    Float
+  tagPath       Json               @default("[]")
+  leafTagId     Int
+  leafTag       Tag                @relation(fields: [leafTagId], references: [id])
+  queueItemId   Int
+  queueItem     TaggingQueueItem   @relation(fields: [queueItemId], references: [id])
 
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @db.Timestamptz(6)

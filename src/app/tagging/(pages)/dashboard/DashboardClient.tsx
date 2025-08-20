@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
+  createTestReviewData,
   DashboardStats,
   fetchContentTypeStats,
   fetchDashboardStats,
@@ -149,19 +150,31 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
     }
   };
 
+  const handleCreateTestData = async () => {
+    const result = await createTestReviewData();
+    if (result.success) {
+      await refreshData();
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* 顶部统计卡片 */}
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">AI 自动打标</h1>
-        <Button onClick={refreshData} disabled={isRefreshing} variant="outline" size="sm">
-          {isRefreshing ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <RefreshCw className="h-4 w-4" />
-          )}
-          {isRefreshing ? "刷新中..." : "刷新"}
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={handleCreateTestData} variant="outline" size="sm">
+            创建测试数据
+          </Button>
+          <Button onClick={refreshData} disabled={isRefreshing} variant="outline" size="sm">
+            {isRefreshing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
+            {isRefreshing ? "刷新中..." : "刷新"}
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

@@ -3,7 +3,7 @@ import "server-only";
 import { llm } from "@/ai/provider";
 import { AssetObject, TagWithChildren } from "@/prisma/client";
 import { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
-import { streamObject, UserModelMessage } from "ai";
+import { generateObject, UserModelMessage } from "ai";
 import { tagPredictionSystemPrompt } from "./prompt";
 import { SourceBasedTagPredictions, tagPredictionSchema } from "./types";
 import { buildTagStructureText } from "./utils";
@@ -66,49 +66,37 @@ ${tagStructureText}`,
     },
   ];
 
-  const streamObjectPromise = new Promise<{
-    predictions: SourceBasedTagPredictions;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    extra: any;
-  }>(async (resolve, reject) => {
-    try {
-      const { partialObjectStream } = streamObject({
-        // model: llm("claude-sonnet-4"),
-        // model: llm("gpt-5-nano"),
-        model: llm("gpt-5-mini"),
-        output: "array",
-        providerOptions: {
-          // azure openai provider 这里也是 openai
-          openai: {
-            promptCacheKey: `musedam-t-${asset.teamId}`,
-            reasoningSummary: "auto", // 'auto' | 'detailed'
-            reasoningEffort: "minimal", // 'minimal' | 'low' | 'medium' | 'high'
-          } satisfies OpenAIResponsesProviderOptions,
-        },
-        schema: tagPredictionSchema,
-        system: tagPredictionSystemPrompt(),
-        messages,
-        onFinish: (result) => {
-          // console.log(result.object);
-          // console.log(result.usage, result.providerMetadata);
-          if (!result.object) {
-            reject(new Error("AI标签预测失败, result.object is undefined"));
-          } else {
-            resolve({
-              predictions: result.object,
-              extra: { usage: result.usage },
-            });
-          }
-        },
-      });
-      for await (const partialObject of partialObjectStream) {
-        // console.log(partialObject);
-      }
-    } catch (error) {
-      console.error("AI标签预测失败:", error);
-      reject(new Error("AI标签预测失败"));
-    }
-  });
+  try {
+    const result = await generateObject({
+      // model: llm("claude-sonnet-4"),
+      // model: llm("gpt-5-nano"),
+      model: llm("gpt-5-mini"),
+      output: "array",
+      providerOptions: {
+        // azure openai provider 这里也是 openai
+        openai: {
+          promptCacheKey: `musedam-t-${asset.teamId}`,
+          reasoningSummary: "auto", // 'auto' | 'detailed'
+          reasoningEffort: "minimal", // 'minimal' | 'low' | 'medium' | 'high'
+        } satisfies OpenAIResponsesProviderOptions,
+      },
+      schema: tagPredictionSchema,
+      system: tagPredictionSystemPrompt(),
+      messages,
+    });
 
-  return await streamObjectPromise;
+    // console.log(result.object);
+    // console.log(result.usage, result.providerMetadata);
+    if (!result.object) {
+      throw new Error("AI标签预测失败, result.object is undefined");
+    }
+
+    return {
+      predictions: result.object,
+      extra: { usage: result.usage },
+    };
+  } catch (error) {
+    console.error("AI标签预测失败:", error);
+    throw new Error("AI标签预测失败");
+  }
 }

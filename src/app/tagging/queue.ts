@@ -1,10 +1,12 @@
 import "server-only";
 
-import { AssetObject, TaggingQueueItem } from "@/prisma/client";
+import { rootLogger } from "@/lib/logging";
+import { AssetObject, Prisma, TaggingQueueItem } from "@/prisma/client";
 import { InputJsonObject, InputJsonValue, JsonObject } from "@/prisma/client/runtime/library";
 import prisma from "@/prisma/prisma";
 import { waitUntil } from "@vercel/functions";
 import { predictAssetTags } from "./predict";
+import { SourceBasedTagPredictions } from "./types";
 import { fetchTagsTree } from "./utils";
 
 export async function enqueueTaggingTask({
@@ -30,7 +32,7 @@ export async function enqueueTaggingTask({
     (async () => {
       try {
         const { predictions, extra } = await predictAssetTags(assetObject, tagsTree);
-        await prisma.taggingQueueItem.update({
+        const updatedQueueItem = await prisma.taggingQueueItem.update({
           where: { id: taggingQueueItem.id },
           data: {
             status: "completed",
@@ -39,7 +41,19 @@ export async function enqueueTaggingTask({
             extra: { ...(taggingQueueItem.extra as JsonObject), ...extra },
           },
         });
+        await createAuditItems({
+          assetObject,
+          taggingQueueItem: updatedQueueItem,
+          predictions,
+        }).catch(() => {
+          // 忽略 error，createAuditItems 里自己会处理
+        });
       } catch (error) {
+        rootLogger.error({
+          teamId: teamId,
+          assetObjectId: assetObject.id,
+          msg: `predictAssetTags failed: ${error}`,
+        });
         await prisma.taggingQueueItem.update({
           where: { id: taggingQueueItem.id },
           data: {
@@ -53,4 +67,40 @@ export async function enqueueTaggingTask({
   );
 
   return taggingQueueItem;
+}
+
+async function createAuditItems({
+  assetObject,
+  taggingQueueItem,
+  predictions,
+}: {
+  assetObject: AssetObject;
+  taggingQueueItem: TaggingQueueItem;
+  predictions: SourceBasedTagPredictions;
+}) {
+  try {
+    const data: Prisma.TaggingAuditItemCreateManyInput[] = [];
+    // TODO: 要做一下加权，暂时先跳过
+    for (const prediction of predictions) {
+      for (const tagPrediction of prediction.tags) {
+        data.push({
+          assetObjectId: assetObject.id,
+          teamId: assetObject.teamId,
+          status: "pending",
+          confidence: tagPrediction.confidence,
+          queueItemId: taggingQueueItem.id,
+          leafTagId: tagPrediction.leafTagId,
+        });
+      }
+    }
+    await prisma.taggingAuditItem.createMany({
+      data,
+    });
+  } catch (error) {
+    rootLogger.error({
+      teamId: assetObject.teamId,
+      assetObjectId: assetObject.id,
+      msg: `createAuditItems failed: ${error}`,
+    });
+  }
 }
