@@ -1,3 +1,6 @@
+/**
+ * 将 MuseDAM 的资源 id 转换为 slug
+ */
 export function idToSlug(type: "team" | "user" | "assetObject", id: string) {
   switch (type) {
     case "team":
@@ -9,16 +12,17 @@ export function idToSlug(type: "team" | "user" | "assetObject", id: string) {
   }
 }
 
-export function slugToId(slug: string): { type: "team" | "user" | "assetObject"; id: string } {
-  const [type, id] = slug.split("/");
-  switch (type) {
-    case "t":
-      return { type: "team", id };
-    case "u":
-      return { type: "user", id };
-    case "a":
-      return { type: "assetObject", id };
-    default:
-      throw new Error(`Invalid slug type: ${type}`);
+/**
+ * 返回 MuseDAM 的资源 id，类型是 string
+ */
+export function slugToId(type: "team" | "user" | "assetObject", slug: string): string {
+  const [t, id] = slug.split("/");
+  if (!t || !id) {
+    throw new Error(`Invalid slug: ${slug}`);
   }
+  const typeMap = { team: "t", user: "u", assetObject: "a" };
+  if (t !== typeMap[type]) {
+    throw new Error(`Type mismatch: expected ${typeMap[type]}, got ${t}`);
+  }
+  return id;
 }

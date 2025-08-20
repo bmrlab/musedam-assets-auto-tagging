@@ -1,34 +1,12 @@
 import "server-only";
 
 import { llm } from "@/ai/provider";
-import { AssetObject, Tag, TaggingQueueItem } from "@/prisma/client";
+import { AssetObject, TaggingQueueItem, TagWithChildren } from "@/prisma/client";
 import { InputJsonObject, InputJsonValue } from "@/prisma/client/runtime/library";
 import prisma from "@/prisma/prisma";
 import { waitUntil } from "@vercel/functions";
-import { generateObject } from "ai";
-import { z } from "zod";
-
-interface TagWithChildren extends Tag {
-  children?: TagWithChildren[];
-}
-
-export interface TagPrediction {
-  tagPath: string[];
-  confidence: number;
-  source: string[];
-}
-
-const TagPredictionSchema = z.object({
-  predictions: z
-    .array(
-      z.object({
-        tagPath: z.array(z.string()).min(1).max(3),
-        confidence: z.number().min(0).max(1),
-        source: z.array(z.string()).min(1),
-      }),
-    )
-    .min(1),
-});
+import { generateObject, UserModelMessage } from "ai";
+import { SourceBasedTagPredictions, tagPredictionSchema } from "./types";
 
 /**
  * 使用AI预测资产的最适合标签
@@ -36,10 +14,10 @@ const TagPredictionSchema = z.object({
  * @param availableTags 可用的标签列表（包含层级关系）
  * @returns 预测结果数组，包含标签路径和置信度
  */
-async function predictAssetTags(
+export async function predictAssetTags(
   asset: AssetObject,
   availableTags: TagWithChildren[],
-): Promise<TagPrediction[]> {
+): Promise<SourceBasedTagPredictions> {
   // 构建标签结构的文本描述
   const tagStructureText = buildTagStructureText(availableTags);
 
@@ -59,68 +37,136 @@ async function predictAssetTags(
     contentData = {};
   }
 
-  const prompt = `你是一个专业的数字资产管理AI助手，需要为资产文件预测最合适的标签。
+  const systemPrompt = `# 角色定义
+你是一个专业的数字资产标签分析专家，擅长从不同维度分析资产信息并预测合适的分类标签。
 
-资产信息：
-- 文件名：${asset.name}
-- 文件路径：${asset.materializedPath}
-- 描述：${asset.description || "无描述"}
-- 现有标签：${existingTags.length > 0 ? existingTags.join(", ") : "无"}
-- 其他内容：${Object.keys(contentData).length > 0 ? JSON.stringify(contentData) : "无"}
+# 分析策略
+按照以下步骤进行系统化分析：
 
-可用标签体系：
-${tagStructureText}
+## Step 1: 信息源评估
+首先评估三个信息源的有效性：
+- **filename**: 文件名称和描述信息
+- **filepath**: 文件路径结构信息
+- **content**: 内容分析和元数据信息
 
-请根据以上信息，预测5个最适合的标签，每个预测包含：
-1. 标签的完整路径（从一级到最终级别）
-2. 置信度（0-1之间的数值）
-3. 预测来源（基于哪些资产信息得出的预测）
+如果某个信息源无效（空值、随机字符、无意义文本），则跳过该源的分析。
 
-注意事项：
-- 如果预测二级标签，路径应包含：[一级标签, 二级标签]
-- 如果预测三级标签，路径应包含：[一级标签, 二级标签, 三级标签]
-- 置信度需要基于文件名、路径、描述等信息的匹配程度
-- 考虑文件扩展名、路径语义、描述内容等多个维度
-- 优先推荐更具体的标签（三级 > 二级 > 一级）
-- 确保标签路径在给定的标签体系中存在
-- 预测来源应明确指出是基于文件名、文件路径、描述、扩展名中的哪些信息
+## Step 2: 逐源分析流程
+对每个有效的信息源，按以下步骤进行分析：
 
-可用的来源类型：
-- "文件名" - 基于文件名分析
-- "文件路径" - 基于文件夹路径分析
-- "文件描述" - 基于描述内容分析
-- "文件扩展名" - 基于文件类型分析
-- "现有标签" - 基于已有标签推测
+### 2.1 一级分类识别
+- 基于当前信息源的语义特征，识别最匹配的1-2个一级标签
+- 分析文本中的关键词、主题概念、类型特征等通用信息
+- 评估匹配的置信度（0-1）
+- 如果置信度低于0.3，跳过该信息源
 
-示例输出格式：
+### 2.2 二级分类细化
+- 在确定的一级标签基础上，寻找最适合的二级标签
+- 深入分析具体子类别、功能属性、应用场景等细节信息
+- 评估二级标签的置信度
+- 如果没有合适的二级标签，停留在一级
+
+### 2.3 三级分类精化
+- 在确定的二级标签基础上，寻找最精确的三级标签
+- 分析更细致的分类维度和具体特征属性
+- 评估三级标签的置信度
+- 优先推荐三级标签，但不强制
+
+## Step 3: 质量控制
+- 每个信息源最多输出3个标签预测
+- 确保所有标签路径在给定标签体系中存在
+- 置信度反映真实匹配程度，避免过度自信
+
+# 输出格式
+\`\`\`json
 {
-  "predictions": [
+  "filename": [
     {
-      "tagPath": ["产品类别", "电子产品", "手机设备"],
-      "confidence": 0.95,
-      "source": ["文件名", "文件路径"]
+      "tagPath": ["媒体类型", "图片", "产品图"],
+      "confidence": 0.85
     },
     {
-      "tagPath": ["媒体类型", "图片素材", "产品图片"],
-      "confidence": 0.88,
-      "source": ["文件扩展名", "文件路径"]
+      "tagPath": ["用途", "商业"],
+      "confidence": 0.72
+    }
+  ],
+  "filepath": [
+    {
+      "tagPath": ["项目分类", "设计素材", "UI组件"],
+      "confidence": 0.88
+    },
+    {
+      "tagPath": ["颜色", "蓝色"],
+      "confidence": 0.45
+    }
+  ],
+  "content": [
+    {
+      "tagPath": ["风格", "简约"],
+      "confidence": 0.63
     }
   ]
 }
-}`;
+\`\`\`
+
+# 重要提醒
+- 信息源标识固定为: filename, filepath, content
+- 每个信息源独立分析，互不影响
+- 先确定一级分类，再逐步细化
+- 无有效信息的源返回空数组[]`;
+
+  const messages: UserModelMessage[] = [
+    {
+      role: "user",
+      content: `# 可用标签体系
+${tagStructureText}`,
+      providerOptions: { bedrock: { cachePoint: { type: "default" } } },
+    },
+    {
+      role: "user",
+      content: `# 待分析资产信息
+
+## filename信息源
+文件名：${asset.name}
+文件描述：${asset.description || "无"}
+
+## filepath信息源
+文件路径：${asset.materializedPath}
+
+## content信息源
+内容分析：${Object.keys(contentData).length > 0 ? JSON.stringify(contentData, null, 2) : "无有效内容数据"}
+
+---
+
+请严格按照Step by Step流程进行分析：
+
+1. **信息源评估**：评估上述三个信息源(filename, filepath, content)的有效性
+2. **逐源分析**：对每个有效信息源，依次进行：
+   - 识别最匹配的1-2个一级标签
+   - 在确定一级标签后，细化到二级标签
+   - 在确定二级标签后，精化到三级标签
+3. **输出结果**：按指定格式输出，每个信息源最多3个标签预测
+
+记住：先确定一级分类，再逐步细化到二三级。无效信息源返回空数组。`,
+    },
+  ];
 
   try {
     const result = await generateObject({
-      model: llm("gpt-5-mini"),
-      schema: TagPredictionSchema,
-      prompt,
+      // model: llm("claude-sonnet-4"),
+      model: llm("gpt-5-nano"),
+      // providerOptions: {
+      //   azure: { promptCacheKey: `musedam-t-${asset.teamId}` },
+      // },
+      schema: tagPredictionSchema,
+      system: systemPrompt,
+      messages,
     });
 
-    return result.object.predictions.map((pred) => ({
-      tagPath: pred.tagPath,
-      confidence: pred.confidence,
-      source: pred.source,
-    }));
+    console.log(result.object);
+    console.log(result.usage, result.providerMetadata);
+
+    return result.object;
   } catch (error) {
     console.error("AI标签预测失败:", error);
     throw new Error("AI标签预测失败");
@@ -130,28 +176,49 @@ ${tagStructureText}
 /**
  * 构建标签结构的文本描述
  */
-function buildTagStructureText(tags: TagWithChildren[]): string {
-  const level1Tags = tags.filter((tag) => tag.level === 1);
-
+export function buildTagStructureText(tags: TagWithChildren[]): string {
   let structureText = "";
-
-  for (const level1Tag of level1Tags) {
-    structureText += `\n一级标签: ${level1Tag.name}\n`;
-
-    const level2Tags = tags.filter((tag) => tag.level === 2 && tag.parentId === level1Tag.id);
-
-    for (const level2Tag of level2Tags) {
-      structureText += `  └─ 二级标签: ${level2Tag.name}\n`;
-
-      const level3Tags = tags.filter((tag) => tag.level === 3 && tag.parentId === level2Tag.id);
-
-      for (const level3Tag of level3Tags) {
-        structureText += `      └─ 三级标签: ${level3Tag.name}\n`;
+  for (const level1Tag of tags) {
+    structureText += `\Level 1 (id: ${level1Tag.id}): ${level1Tag.name}\n`;
+    for (const level2Tag of level1Tag.children ?? []) {
+      structureText += `  └─ Level 2 (id: ${level2Tag.id}): ${level2Tag.name}\n`;
+      for (const level3Tag of level2Tag.children ?? []) {
+        structureText += `      └─ Level 3 (id: ${level3Tag.id}): ${level3Tag.name}\n`;
       }
     }
   }
-
   return structureText;
+}
+
+export async function fetchTagsTree({ teamId }: { teamId: number }) {
+  const tags = await prisma.tag
+    .findMany({
+      where: {
+        teamId,
+        parentId: { equals: null },
+      },
+      orderBy: [{ id: "asc" }],
+      select: {
+        id: true,
+        name: true,
+        children: {
+          orderBy: { id: "asc" },
+          select: {
+            id: true,
+            name: true,
+            children: {
+              select: {
+                id: true,
+                name: true,
+              },
+              orderBy: { id: "asc" },
+            },
+          },
+        },
+      },
+    })
+    .then((tags) => tags as TagWithChildren[]);
+  return tags;
 }
 
 export async function enqueueTaggingTask({
@@ -162,23 +229,7 @@ export async function enqueueTaggingTask({
   const teamId = assetObject.teamId;
 
   // 获取团队的所有标签
-  const tags = await prisma.tag
-    .findMany({
-      where: { teamId },
-      orderBy: [{ level: "asc" }, { name: "asc" }],
-      include: {
-        parent: true,
-        children: {
-          orderBy: { name: "asc" },
-          include: {
-            children: {
-              orderBy: { name: "asc" },
-            },
-          },
-        },
-      },
-    })
-    .then((tags) => tags as TagWithChildren[]);
+  const tagsTree = await fetchTagsTree({ teamId });
 
   const taggingQueueItem = await prisma.taggingQueueItem.create({
     data: {
@@ -192,7 +243,7 @@ export async function enqueueTaggingTask({
   waitUntil(
     (async () => {
       try {
-        const predictions = await predictAssetTags(assetObject, tags);
+        const predictions = await predictAssetTags(assetObject, tagsTree);
         await prisma.taggingQueueItem.update({
           where: { id: taggingQueueItem.id },
           data: {

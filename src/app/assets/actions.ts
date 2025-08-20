@@ -110,7 +110,7 @@ export async function fetchSampleAssetsAction(): Promise<ServerActionResult<void
     const team = await prisma.team.findUniqueOrThrow({
       where: { id: teamId },
     });
-    const { id: musedamTeamId } = slugToId(team.slug);
+    const musedamTeamId = slugToId("team", team.slug);
     // TODO: 根据 musedamTeamId 获取 accessToken
 
     const result = await requestMuseDAMAPI("/api/muse/search-assets", {
@@ -125,32 +125,6 @@ export async function fetchSampleAssetsAction(): Promise<ServerActionResult<void
         endPoint: 40,
       },
     });
-
-    // teamId: team.id,
-    // slug: assetSlug,
-    // materializedPath,
-    // name,
-    // description,
-    // tags: selectedTags,
-    // content: {},
-
-    // for (const asset of result["assets"]) {
-    //   const { id, name, description, parentIds, tags: tagIds } = asset;
-    //   const { id: assetId } = asset;
-    //   const { id: musedamAssetId } = slugToId(asset.slug);
-    //   const { id: musedamTagId } = slugToId(asset.tags[0].slug);
-    //   const assetObject = await prisma.assetObject.create({
-    //     data: {
-    //       teamId,
-    //       slug: asset.slug,
-    //       materializedPath: asset.materializedPath,
-    //       name: asset.name,
-    //       description: asset.description,
-    //       tags: { connect: [{ id: musedamTagId }] },
-    //       content: {},
-    //     },
-    //   });
-    // }
 
     return {
       success: true,
