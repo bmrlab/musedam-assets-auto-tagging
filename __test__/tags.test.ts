@@ -1,4 +1,4 @@
-import { buildTagStructureText, fetchTagsTree } from "@/ai/tagging";
+import { buildTagStructureText, fetchTagsTree } from "@/app/tagging/utils";
 import prisma from "@/prisma/prisma";
 import { describe, it, vi } from "vitest";
 
