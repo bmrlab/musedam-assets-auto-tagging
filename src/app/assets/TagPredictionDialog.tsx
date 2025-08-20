@@ -1,4 +1,5 @@
 "use client";
+import { SourceBasedTagPredictions } from "@/ai/types";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,12 +14,6 @@ import { Bot, CheckCircle, Sparkles, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { predictAssetTagsAction } from "./actions";
 
-interface TagPrediction {
-  tagPath: string[];
-  confidence: number;
-  source: string[];
-}
-
 interface TagPredictionDialogProps {
   asset: AssetObject | null;
   isOpen: boolean;
@@ -27,7 +22,7 @@ interface TagPredictionDialogProps {
 
 export default function TagPredictionDialog({ asset, isOpen, onClose }: TagPredictionDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const [predictions, setPredictions] = useState<TagPrediction[]>([]);
+  const [predictions, setPredictions] = useState<SourceBasedTagPredictions | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -41,7 +36,7 @@ export default function TagPredictionDialog({ asset, isOpen, onClose }: TagPredi
 
     setIsLoading(true);
     setError(null);
-    setPredictions([]);
+    setPredictions(null);
 
     try {
       const result = await predictAssetTagsAction(asset.id);
@@ -74,29 +69,34 @@ export default function TagPredictionDialog({ asset, isOpen, onClose }: TagPredi
     return tagPath.join(" > ");
   };
 
-  const formatSource = (source: string[]) => {
-    return source.join("、");
+  const getSourceDisplayName = (sourceKey: string) => {
+    switch (sourceKey) {
+      case "filename":
+        return "文件名称";
+      case "filepath":
+        return "路径结构";
+      case "content":
+        return "内容分析";
+      default:
+        return sourceKey;
+    }
   };
 
-  const getSourceIcon = (sourceType: string) => {
-    switch (sourceType) {
-      case "文件名":
+  const getSourceIcon = (sourceKey: string) => {
+    switch (sourceKey) {
+      case "filename":
         return "📝";
-      case "文件路径":
+      case "filepath":
         return "📁";
-      case "文件描述":
+      case "content":
         return "💬";
-      case "文件扩展名":
-        return "🏷️";
-      case "现有标签":
-        return "🔖";
       default:
         return "ℹ️";
     }
   };
 
   const handleClose = () => {
-    setPredictions([]);
+    setPredictions(null);
     setError(null);
     onClose();
   };
@@ -142,74 +142,84 @@ export default function TagPredictionDialog({ asset, isOpen, onClose }: TagPredi
           )}
 
           {/* 预测结果 */}
-          {predictions.length > 0 && (
+          {predictions && (
             <div className="space-y-4">
               <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
                 <CheckCircle className="h-5 w-5" />
-                <span className="font-medium">预测完成！以下是推荐的标签：</span>
+                <span className="font-medium">预测完成！以下是各策略的分析结果：</span>
               </div>
 
-              <div className="space-y-3">
-                {predictions.map((prediction, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between p-3 bg-muted rounded-lg hover:bg-muted/80 transition-colors"
-                  >
-                    <div className="flex-1">
-                      <div className="font-medium text-sm">{formatTagPath(prediction.tagPath)}</div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {prediction.tagPath.length}级标签
-                      </div>
-                      <div className="flex items-center gap-1 mt-2">
-                        <span className="text-xs text-muted-foreground">预测来源:</span>
-                        <div className="flex items-center gap-1">
-                          {prediction.source.map((src, srcIndex) => (
-                            <span
-                              key={srcIndex}
-                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300"
-                            >
-                              <span>{getSourceIcon(src)}</span>
-                              <span>{src}</span>
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      {/* 置信度条 */}
-                      <div className="flex items-center gap-2">
-                        <div className="w-16 h-2 bg-muted-foreground/20 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full rounded-full transition-all ${
-                              prediction.confidence >= 0.8
-                                ? "bg-green-500"
-                                : prediction.confidence >= 0.6
-                                  ? "bg-yellow-500"
-                                  : "bg-red-500"
-                            }`}
-                            style={{ width: `${prediction.confidence * 100}%` }}
-                          />
-                        </div>
-                        <span className="text-xs text-muted-foreground">
-                          {Math.round(prediction.confidence * 100)}%
-                        </span>
-                      </div>
-
-                      {/* 置信度标签 */}
-                      <span
-                        className={`text-xs px-2 py-1 rounded-full font-medium ${getConfidenceColor(
-                          prediction.confidence,
-                        )} bg-current/10`}
-                      >
-                        {getConfidenceLabel(prediction.confidence)}
+              <div className="space-y-6">
+                {Object.entries(predictions).map(([sourceKey, sourcePredictions]) => (
+                  <div key={sourceKey} className="space-y-3">
+                    {/* 策略标题 */}
+                    <div className="flex items-center gap-2 pb-2 border-b">
+                      <span className="text-lg">{getSourceIcon(sourceKey)}</span>
+                      <h3 className="font-medium text-base">{getSourceDisplayName(sourceKey)}</h3>
+                      <span className="text-xs text-muted-foreground">
+                        ({sourcePredictions.length} 个预测)
                       </span>
-
-                      {/* 操作按钮 */}
-                      <Button size="sm" variant="outline">
-                        应用
-                      </Button>
                     </div>
+
+                    {/* 策略结果 */}
+                    {sourcePredictions.length > 0 ? (
+                      <div className="space-y-2">
+                        {sourcePredictions.map((prediction, index) => (
+                          <div
+                            key={index}
+                            className="flex items-center justify-between p-3 bg-muted rounded-lg hover:bg-muted/80 transition-colors"
+                          >
+                            <div className="flex-1">
+                              <div className="font-medium text-sm">
+                                {formatTagPath(prediction.tagPath)}
+                              </div>
+                              <div className="text-xs text-muted-foreground mt-1">
+                                {prediction.tagPath.length}级标签 • ID: {prediction.leafTagId}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-3">
+                              {/* 置信度条 */}
+                              <div className="flex items-center gap-2">
+                                <div className="w-16 h-2 bg-muted-foreground/20 rounded-full overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full transition-all ${
+                                      prediction.confidence >= 0.8
+                                        ? "bg-green-500"
+                                        : prediction.confidence >= 0.6
+                                          ? "bg-yellow-500"
+                                          : "bg-red-500"
+                                    }`}
+                                    style={{ width: `${prediction.confidence * 100}%` }}
+                                  />
+                                </div>
+                                <span className="text-xs text-muted-foreground">
+                                  {Math.round(prediction.confidence * 100)}%
+                                </span>
+                              </div>
+
+                              {/* 置信度标签 */}
+                              <span
+                                className={`text-xs px-2 py-1 rounded-full font-medium ${getConfidenceColor(
+                                  prediction.confidence,
+                                )} bg-current/10`}
+                              >
+                                {getConfidenceLabel(prediction.confidence)}
+                              </span>
+
+                              {/* 操作按钮 */}
+                              <Button size="sm" variant="outline">
+                                应用
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-4 text-muted-foreground bg-muted/30 rounded-lg">
+                        <span className="text-sm">该策略未能生成有效的标签预测</span>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -230,15 +240,22 @@ export default function TagPredictionDialog({ asset, isOpen, onClose }: TagPredi
           )}
 
           {/* 空状态（预测完成但无结果） */}
-          {!isLoading && !error && predictions.length === 0 && asset && (
-            <div className="text-center py-8">
-              <Bot className="h-8 w-8 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">暂无预测结果</p>
-              <Button onClick={startPrediction} className="mt-4" variant="outline">
-                重新预测
-              </Button>
-            </div>
-          )}
+          {!isLoading &&
+            !error &&
+            predictions &&
+            Object.values(predictions).every((sourcePreds) => sourcePreds.length === 0) &&
+            asset && (
+              <div className="text-center py-8">
+                <Bot className="h-8 w-8 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground">所有策略均未能生成有效的标签预测</p>
+                <p className="text-xs text-muted-foreground mt-2">
+                  可能是文件信息不足或标签体系不匹配
+                </p>
+                <Button onClick={startPrediction} className="mt-4" variant="outline">
+                  重新预测
+                </Button>
+              </div>
+            )}
         </div>
       </DialogContent>
     </Dialog>

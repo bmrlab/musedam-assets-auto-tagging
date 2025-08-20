@@ -1,5 +1,6 @@
 "use server";
-import { enqueueTaggingTask, TagPrediction } from "@/ai/tagging";
+import { enqueueTaggingTask } from "@/ai/tagging";
+import { SourceBasedTagPredictions } from "@/ai/types";
 import { withAuth } from "@/app/(auth)/withAuth";
 import { ServerActionResult } from "@/lib/serverAction";
 import { slugToId } from "@/lib/slug";
@@ -28,7 +29,7 @@ export async function fetchTeamAssets(): Promise<
 
 export async function predictAssetTagsAction(
   assetId: number,
-): Promise<ServerActionResult<{ predictions: TagPrediction[] }>> {
+): Promise<ServerActionResult<{ predictions: SourceBasedTagPredictions }>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
       const assetObject = await prisma.assetObject.findFirst({
@@ -66,7 +67,7 @@ export async function predictAssetTagsAction(
         if (updatedQueueItem.status === "completed") {
           const { predictions } =
             (updatedQueueItem.result as unknown as {
-              predictions: TagPrediction[];
+              predictions: SourceBasedTagPredictions;
             }) ?? {};
           if (!predictions) {
             return {

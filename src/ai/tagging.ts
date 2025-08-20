@@ -9,8 +9,8 @@ import { generateObject, UserModelMessage } from "ai";
 import { SourceBasedTagPredictions, tagPredictionSchema } from "./types";
 
 /**
- * 使用AI预测资产的最适合标签
- * @param asset 资产对象
+ * 使用AI预测内容素材的最适合标签
+ * @param asset 内容素材对象
  * @param availableTags 可用的标签列表（包含层级关系）
  * @returns 预测结果数组，包含标签路径和置信度
  */
@@ -38,7 +38,7 @@ export async function predictAssetTags(
   }
 
   const systemPrompt = `# 角色定义
-你是一个专业的数字资产标签分析专家，擅长从不同维度分析资产信息并预测合适的分类标签。
+你是一个专业的数字内容素材标签分析专家，擅长从不同维度分析内容素材信息并预测合适的分类标签。
 
 # 分析策略
 按照以下步骤进行系统化分析：
@@ -78,32 +78,42 @@ export async function predictAssetTags(
 - 置信度反映真实匹配程度，避免过度自信
 
 # 输出格式
+每个预测必须包含三个字段：
+1. **tagPath**: 标签路径数组（从一级到最终级别）
+2. **confidence**: 置信度数值（0-1之间）
+3. **leafTagId**: 最末级标签的数据库ID（关键验证字段）
+
 \`\`\`json
 {
   "filename": [
     {
       "tagPath": ["媒体类型", "图片", "产品图"],
-      "confidence": 0.85
+      "confidence": 0.85,
+      "leafTagId": 3
     },
     {
       "tagPath": ["用途", "商业"],
-      "confidence": 0.72
+      "confidence": 0.72,
+      "leafTagId": 5
     }
   ],
   "filepath": [
     {
       "tagPath": ["项目分类", "设计素材", "UI组件"],
-      "confidence": 0.88
+      "confidence": 0.88,
+      "leafTagId": 15
     },
     {
       "tagPath": ["颜色", "蓝色"],
-      "confidence": 0.45
+      "confidence": 0.45,
+      "leafTagId": 23
     }
   ],
   "content": [
     {
       "tagPath": ["风格", "简约"],
-      "confidence": 0.63
+      "confidence": 0.63,
+      "leafTagId": 18
     }
   ]
 }
@@ -113,7 +123,13 @@ export async function predictAssetTags(
 - 信息源标识固定为: filename, filepath, content
 - 每个信息源独立分析，互不影响
 - 先确定一级分类，再逐步细化
-- 无有效信息的源返回空数组[]`;
+- 无有效信息的源返回空数组[]
+
+## 关键：leafTagId 字段说明
+- **必须输出**: 每个预测都必须包含 leafTagId 字段
+- **取值规则**: 使用标签路径中最后一级标签的 id 值
+- **验证机制**: 此 ID 用于验证预测准确性，即使 tagPath 文本有误，系统也能通过 ID 进行纠错
+- **示例**: 如果预测路径为 ["媒体类型", "图片", "产品图"]，则 leafTagId 应为 "产品图" 这个三级标签的 id`;
 
   const messages: UserModelMessage[] = [
     {
@@ -124,7 +140,7 @@ ${tagStructureText}`,
     },
     {
       role: "user",
-      content: `# 待分析资产信息
+      content: `# 待分析内容素材信息
 
 ## filename信息源
 文件名：${asset.name}
@@ -163,8 +179,8 @@ ${tagStructureText}`,
       messages,
     });
 
-    console.log(result.object);
-    console.log(result.usage, result.providerMetadata);
+    // console.log(result.object);
+    // console.log(result.usage, result.providerMetadata);
 
     return result.object;
   } catch (error) {
