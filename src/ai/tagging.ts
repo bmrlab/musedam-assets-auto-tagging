@@ -46,9 +46,9 @@ export async function predictAssetTags(
 
 ## Step 1: 信息源评估
 首先评估三个信息源的有效性：
-- **filename**: 文件名称和描述信息
-- **filepath**: 文件路径结构信息
-- **content**: 内容分析和元数据信息
+- **basicInfo**: 文件名称和描述信息
+- **materializedPath**: 文件路径结构信息
+- **contentAnalysis**: 内容分析和元数据信息
 
 如果某个信息源无效（空值、随机字符、无意义文本），则跳过该源的分析。
 
@@ -118,52 +118,58 @@ export async function predictAssetTags(
 4. **证据原则**：置信度必须有明确的匹配证据支撑
 
 # 输出格式
-每个预测必须包含三个字段：
-1. **tagPath**: 标签路径数组（从一级到最终级别）
-2. **confidence**: 置信度数值（0-1之间）
-3. **leafTagId**: 最末级标签的数据库ID（关键验证字段）
+返回一个数组，每个元素包含：
+1. **source**: 信息源标识（"basicInfo" | "materializedPath" | "contentAnalysis"）
+2. **tags**: 该信息源的标签预测数组，每个预测包含：
+   - **confidence**: 置信度数值（0-1之间）
+   - **leafTagId**: 最末级标签的数据库ID（关键验证字段）
+   - **tagPath**: 标签路径数组（从一级到最终级别）
 
 \`\`\`json
-{
-  "filename": [
-    {
-      "tagPath": ["媒体类型", "图片", "产品图"],
-      "confidence": 0.85,
-      "leafTagId": 3
-    },
-    {
-      "tagPath": ["用途", "商业"],
-      "confidence": 0.72,
-      "leafTagId": 5
-    }
-  ],
-  "filepath": [
-    {
-      "tagPath": ["项目分类", "设计素材", "UI组件"],
-      "confidence": 0.88,
-      "leafTagId": 15
-    },
-    {
-      "tagPath": ["颜色", "蓝色"],
-      "confidence": 0.45,
-      "leafTagId": 23
-    }
-  ],
-  "content": [
-    {
-      "tagPath": ["风格", "简约"],
-      "confidence": 0.63,
-      "leafTagId": 18
-    }
-  ]
-}
+[
+  {
+    "source": "basicInfo",
+    "tags": [
+      {
+        "confidence": 0.85,
+        "leafTagId": 3,
+        "tagPath": ["媒体类型", "图片", "产品图"]
+      },
+      {
+        "confidence": 0.72,
+        "leafTagId": 5,
+        "tagPath": ["用途", "商业"]
+      }
+    ]
+  },
+  {
+    "source": "materializedPath",
+    "tags": [
+      {
+        "confidence": 0.88,
+        "leafTagId": 15,
+        "tagPath": ["项目分类", "设计素材", "UI组件"]
+      }
+    ]
+  },
+  {
+    "source": "contentAnalysis",
+    "tags": [
+      {
+        "confidence": 0.63,
+        "leafTagId": 18,
+        "tagPath": ["风格", "简约"]
+      }
+    ]
+  }
+]
 \`\`\`
 
 # 重要提醒
-- 信息源标识固定为: filename, filepath, content
+- 信息源标识固定为: basicInfo, materializedPath, contentAnalysis
 - 每个信息源独立分析，互不影响
 - 先确定一级分类，再逐步细化
-- 无有效信息的源返回空数组[]
+- 无有效信息的源返回空tags数组[]
 
 ## 关键：leafTagId 字段说明
 - **必须输出**: 每个预测都必须包含 leafTagId 字段
@@ -189,28 +195,28 @@ ${tagStructureText}`,
       role: "user",
       content: `# 待分析内容素材信息
 
-## filename信息源
+## basicInfo信息源
 文件名：${asset.name}
 文件描述：${asset.description || "无"}
 
-## filepath信息源
+## materializedPath信息源
 文件路径：${asset.materializedPath}
 
-## content信息源
+## contentAnalysis信息源
 内容分析：${Object.keys(contentData).length > 0 ? JSON.stringify(contentData, null, 2) : "无有效内容数据"}
 
 ---
 
 请严格按照Step by Step流程进行分析：
 
-1. **信息源评估**：评估上述三个信息源(filename, filepath, content)的有效性
+1. **信息源评估**：评估上述三个信息源(basicInfo, materializedPath, contentAnalysis)的有效性
 2. **整体语义匹配**：对每个有效信息源，进行完整的语义匹配：
    - 将信息源与所有可用标签的完整路径进行匹配
    - 直接寻找最符合语义的完整标签概念（1级、2级或3级均可）
    - 优先选择语义匹配度最高的标签，在匹配度相当时选择更具体的标签
-3. **输出结果**：按指定格式输出，每个信息源最多3个标签预测
+3. **输出结果**：按指定格式输出数组结构，每个信息源最多3个标签预测
 
-记住：不要被层级结构限制，直接匹配最贴切的完整语义概念。无效信息源返回空数组。
+记住：不要被层级结构限制，直接匹配最贴切的完整语义概念。无效信息源返回空tags数组。
 
 **重要**：整体目标是输出4-6个标签预测，合理分配到各信息源。多个来源预测同一标签时，该标签的整体置信度会提升，所以单个来源的门槛可以适当宽松。`,
     },
@@ -222,6 +228,7 @@ ${tagStructureText}`,
         // model: llm("claude-sonnet-4"),
         // model: llm("gpt-5-nano"),
         model: llm("gpt-5-mini"),
+        output: "array",
         providerOptions: {
           // azure openai provider 这里也是 openai
           openai: {

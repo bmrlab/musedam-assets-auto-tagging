@@ -1,37 +1,25 @@
 import z from "zod";
 
-export type TagPrediction = {
-  tagPath: string[];
-  confidence: number;
-  leafTagId: number;
-};
-
-export type SourceBasedTagPredictions = {
-  filename: TagPrediction[];
-  filepath: TagPrediction[];
-  content: TagPrediction[];
-};
-
 export const tagPredictionSchema = z.object({
-  filename: z.array(
+  source: z.enum(["basicInfo", "materializedPath", "contentAnalysis"]),
+  tags: z.array(
     z.object({
-      tagPath: z.array(z.string()).min(1).max(3),
       confidence: z.number().min(0).max(1),
       leafTagId: z.number(),
-    }),
-  ),
-  filepath: z.array(
-    z.object({
       tagPath: z.array(z.string()).min(1).max(3),
-      confidence: z.number().min(0).max(1),
-      leafTagId: z.number(),
-    }),
-  ),
-  content: z.array(
-    z.object({
-      tagPath: z.array(z.string()).min(1).max(3),
-      confidence: z.number().min(0).max(1),
-      leafTagId: z.number(),
     }),
   ),
 });
+
+export type TagPrediction = z.infer<typeof tagPredictionSchema>["tags"][number];
+// {
+//   confidence: number;
+//   leafTagId: number;
+//   tagPath: string[];
+// };
+
+export type SourceBasedTagPredictions = z.infer<typeof tagPredictionSchema>[];
+// {
+//   source: "basicInfo" | "materializedPath" | "contentAnalysis";
+//   tags: TagPrediction[];
+// }[];

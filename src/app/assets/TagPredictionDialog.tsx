@@ -73,11 +73,11 @@ export default function TagPredictionDialog({ asset, isOpen, onClose }: TagPredi
 
   const getSourceDisplayName = (sourceKey: string) => {
     switch (sourceKey) {
-      case "filename":
-        return "文件名称";
-      case "filepath":
+      case "basicInfo":
+        return "基本信息";
+      case "materializedPath":
         return "路径结构";
-      case "content":
+      case "contentAnalysis":
         return "内容分析";
       default:
         return sourceKey;
@@ -86,11 +86,11 @@ export default function TagPredictionDialog({ asset, isOpen, onClose }: TagPredi
 
   const getSourceIcon = (sourceKey: string) => {
     switch (sourceKey) {
-      case "filename":
+      case "basicInfo":
         return "📝";
-      case "filepath":
+      case "materializedPath":
         return "📁";
-      case "content":
+      case "contentAnalysis":
         return "💬";
       default:
         return "ℹ️";
@@ -152,21 +152,23 @@ export default function TagPredictionDialog({ asset, isOpen, onClose }: TagPredi
               </div>
 
               <div className="space-y-6">
-                {Object.entries(predictions).map(([sourceKey, sourcePredictions]) => (
-                  <div key={sourceKey} className="space-y-3">
+                {predictions.map((sourceResult) => (
+                  <div key={sourceResult.source} className="space-y-3">
                     {/* 策略标题 */}
                     <div className="flex items-center gap-2 pb-2 border-b">
-                      <span className="text-lg">{getSourceIcon(sourceKey)}</span>
-                      <h3 className="font-medium text-base">{getSourceDisplayName(sourceKey)}</h3>
+                      <span className="text-lg">{getSourceIcon(sourceResult.source)}</span>
+                      <h3 className="font-medium text-base">
+                        {getSourceDisplayName(sourceResult.source)}
+                      </h3>
                       <span className="text-xs text-muted-foreground">
-                        ({sourcePredictions.length} 个预测)
+                        ({sourceResult.tags.length} 个预测)
                       </span>
                     </div>
 
                     {/* 策略结果 */}
-                    {sourcePredictions.length > 0 ? (
+                    {sourceResult.tags.length > 0 ? (
                       <div className="space-y-2">
-                        {sourcePredictions.map((prediction, index) => (
+                        {sourceResult.tags.map((prediction, index) => (
                           <div
                             key={index}
                             className="flex items-center justify-between p-3 bg-muted rounded-lg hover:bg-muted/80 transition-colors"
@@ -247,7 +249,7 @@ export default function TagPredictionDialog({ asset, isOpen, onClose }: TagPredi
           {!isLoading &&
             !error &&
             predictions &&
-            Object.values(predictions).every((sourcePreds) => sourcePreds.length === 0) &&
+            predictions.every((sourceResult) => sourceResult.tags.length === 0) &&
             asset && (
               <div className="text-center py-8">
                 <Bot className="h-8 w-8 text-muted-foreground mx-auto mb-4" />
