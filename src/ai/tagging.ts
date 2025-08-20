@@ -4,8 +4,9 @@ import { llm } from "@/ai/provider";
 import { AssetObject, TaggingQueueItem, TagWithChildren } from "@/prisma/client";
 import { InputJsonObject, InputJsonValue } from "@/prisma/client/runtime/library";
 import prisma from "@/prisma/prisma";
+import { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 import { waitUntil } from "@vercel/functions";
-import { generateObject, UserModelMessage } from "ai";
+import { streamObject, UserModelMessage } from "ai";
 import { SourceBasedTagPredictions, tagPredictionSchema } from "./types";
 
 /**
@@ -51,31 +52,70 @@ export async function predictAssetTags(
 
 如果某个信息源无效（空值、随机字符、无意义文本），则跳过该源的分析。
 
-## Step 2: 逐源分析流程
-对每个有效的信息源，按以下步骤进行分析：
+## Step 2: 整体语义匹配
+对每个有效的信息源，进行整体语义匹配：
 
-### 2.1 一级分类识别
-- 基于当前信息源的语义特征，识别最匹配的1-2个一级标签
-- 分析文本中的关键词、主题概念、类型特征等通用信息
-- 评估匹配的置信度（0-1）
-- 如果置信度低于0.3，跳过该信息源
+### 2.1 完整路径识别
+- 将当前信息源与所有可用标签的完整路径进行语义匹配
+- 寻找最符合信息源语义的完整标签概念（可以是1级、2级或3级标签）
+- 不要被层级结构限制，直接匹配最贴切的完整语义概念
 
-### 2.2 二级分类细化
-- 在确定的一级标签基础上，寻找最适合的二级标签
-- 深入分析具体子类别、功能属性、应用场景等细节信息
-- 评估二级标签的置信度
-- 如果没有合适的二级标签，停留在一级
+### 2.2 优先级原则
+- **语义匹配度优先**：优先选择语义最匹配的标签，无论层级
+- **具体性优先**：在语义匹配度相当的情况下，优先选择更具体的标签（3级 > 2级 > 1级）
+- **置信度评估**：基于信息源与完整标签路径的匹配程度评估置信度
 
-### 2.3 三级分类精化
-- 在确定的二级标签基础上，寻找最精确的三级标签
-- 分析更细致的分类维度和具体特征属性
-- 评估三级标签的置信度
-- 优先推荐三级标签，但不强制
-
-## Step 3: 质量控制
-- 每个信息源最多输出3个标签预测
+## Step 3: 质量控制与输出策略
+- 整体输出控制：所有来源合计输出4-6个标签预测（除非信息严重不足）
+- 来源分配建议：每个有效信息源输出1-3个标签，根据信息质量灵活调整
 - 确保所有标签路径在给定标签体系中存在
-- 置信度反映真实匹配程度，避免过度自信
+- 严格按照置信度评分标准进行评分
+
+# 置信度评分标准
+置信度必须基于以下客观标准进行评估，确保评分一致性：
+
+## 🔵 精准区间（0.80-1.00）- 直接匹配
+**评分依据**：
+- **直接匹配**：信息源中包含与标签完全一致或高度相似的关键词
+- **上下文明确**：信息源提供充分的上下文支持该分类
+- **无歧义性**：该分类是唯一合理的解释，无其他竞争标签
+- **示例场景**：
+  - 文件名"brand_logo.svg"直接匹配到["品牌素材", "Logo"]
+  - 路径"/marketing/poster/"直接匹配到["营销素材", "海报"]
+  - 描述"产品展示图"直接匹配到["媒体类型", "图片", "产品图"]
+
+## 🟢 平衡区间（0.70-0.79）- 合理推断
+**评分依据**：
+- **间接匹配**：通过语义分析或常识推断得出的合理分类
+- **较强证据**：有较好的支持证据，推理过程合理
+- **轻微歧义**：可能有其他标签也较合适，但当前最优
+- **示例场景**：
+  - 文件名"banner_blue.jpg"匹配到["颜色", "蓝色"]（从颜色关键词推断）
+  - 路径包含"design"匹配到["项目分类", "设计素材"]（从用途推断）
+  - 文件名"promo_video.mp4"匹配到["媒体类型", "视频"]（从格式推断）
+
+## 🟡 宽泛区间（0.60-0.69）- 弱匹配但保留
+**评分依据**：
+- **弱关联**：基于间接线索的推测，但仍有一定合理性
+- **有限证据**：证据不够充分，但符合常理推断
+- **轻度歧义**：存在其他可能的标签选择，但当前标签仍可接受
+- **示例场景**：
+  - 路径包含"temp"弱匹配到["状态", "临时"]（推断相对模糊）
+  - 扩展名".psd"弱匹配到["文件类型", "设计源文件"]（间接推断）
+  - 文件名"image_v2"弱匹配到["版本", "修订版"]（推断不够确定）
+
+## 🔴 超低区间（0.60以下）- 显示为红色
+**评分依据**：
+- **几乎无关联**：基于非常薄弱或错误的线索
+- **高度歧义**：存在多个同样或更合理的标签选择
+- **信息严重不足**：信息源无法提供有效分类依据
+- **显示方式**：前端显示为红色标识，提醒用户关注
+
+## 评分原则
+1. **保守原则**：宁可低估也不过度自信
+2. **一致性原则**：相似情况应给出相似置信度
+3. **客观原则**：基于信息匹配程度，不受标签重要性影响
+4. **证据原则**：置信度必须有明确的匹配证据支撑
 
 # 输出格式
 每个预测必须包含三个字段：
@@ -129,7 +169,14 @@ export async function predictAssetTags(
 - **必须输出**: 每个预测都必须包含 leafTagId 字段
 - **取值规则**: 使用标签路径中最后一级标签的 id 值
 - **验证机制**: 此 ID 用于验证预测准确性，即使 tagPath 文本有误，系统也能通过 ID 进行纠错
-- **示例**: 如果预测路径为 ["媒体类型", "图片", "产品图"]，则 leafTagId 应为 "产品图" 这个三级标签的 id`;
+- **示例**: 如果预测路径为 ["媒体类型", "图片", "产品图"]，则 leafTagId 应为 "产品图" 这个三级标签的 id
+
+## 置信度评分要求
+- **严格执行**: 必须严格按照上述置信度评分标准进行评估
+- **保持一致**: 相同质量的匹配必须给出相同区间的置信度
+- **最低门槛**: 只输出置信度≥0.5的预测，低于此值的直接丢弃
+- **客观评分**: 置信度反映信息匹配程度，不受标签类型或重要性影响
+- **证据支撑**: 每个置信度评分都必须有明确的匹配证据`;
 
   const messages: UserModelMessage[] = [
     {
@@ -157,36 +204,55 @@ ${tagStructureText}`,
 请严格按照Step by Step流程进行分析：
 
 1. **信息源评估**：评估上述三个信息源(filename, filepath, content)的有效性
-2. **逐源分析**：对每个有效信息源，依次进行：
-   - 识别最匹配的1-2个一级标签
-   - 在确定一级标签后，细化到二级标签
-   - 在确定二级标签后，精化到三级标签
+2. **整体语义匹配**：对每个有效信息源，进行完整的语义匹配：
+   - 将信息源与所有可用标签的完整路径进行匹配
+   - 直接寻找最符合语义的完整标签概念（1级、2级或3级均可）
+   - 优先选择语义匹配度最高的标签，在匹配度相当时选择更具体的标签
 3. **输出结果**：按指定格式输出，每个信息源最多3个标签预测
 
-记住：先确定一级分类，再逐步细化到二三级。无效信息源返回空数组。`,
+记住：不要被层级结构限制，直接匹配最贴切的完整语义概念。无效信息源返回空数组。
+
+**重要**：整体目标是输出4-6个标签预测，合理分配到各信息源。多个来源预测同一标签时，该标签的整体置信度会提升，所以单个来源的门槛可以适当宽松。`,
     },
   ];
 
-  try {
-    const result = await generateObject({
-      // model: llm("claude-sonnet-4"),
-      model: llm("gpt-5-nano"),
-      // providerOptions: {
-      //   azure: { promptCacheKey: `musedam-t-${asset.teamId}` },
-      // },
-      schema: tagPredictionSchema,
-      system: systemPrompt,
-      messages,
-    });
+  const streamObjectPromise = new Promise<SourceBasedTagPredictions>(async (resolve, reject) => {
+    try {
+      const { partialObjectStream } = streamObject({
+        // model: llm("claude-sonnet-4"),
+        // model: llm("gpt-5-nano"),
+        model: llm("gpt-5-mini"),
+        providerOptions: {
+          // azure openai provider 这里也是 openai
+          openai: {
+            promptCacheKey: `musedam-t-${asset.teamId}`,
+            reasoningSummary: "auto", // 'auto' | 'detailed'
+            reasoningEffort: "minimal", // 'minimal' | 'low' | 'medium' | 'high'
+          } satisfies OpenAIResponsesProviderOptions,
+        },
+        schema: tagPredictionSchema,
+        system: systemPrompt,
+        messages,
+        onFinish: (result) => {
+          // console.log(result.object);
+          // console.log(result.usage, result.providerMetadata);
+          if (!result.object) {
+            reject(new Error("AI标签预测失败, result.object is undefined"));
+          } else {
+            resolve(result.object);
+          }
+        },
+      });
+      for await (const partialObject of partialObjectStream) {
+        // console.log(partialObject);
+      }
+    } catch (error) {
+      console.error("AI标签预测失败:", error);
+      reject(new Error("AI标签预测失败"));
+    }
+  });
 
-    // console.log(result.object);
-    // console.log(result.usage, result.providerMetadata);
-
-    return result.object;
-  } catch (error) {
-    console.error("AI标签预测失败:", error);
-    throw new Error("AI标签预测失败");
-  }
+  return await streamObjectPromise;
 }
 
 /**

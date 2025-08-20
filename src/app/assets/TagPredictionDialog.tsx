@@ -54,14 +54,16 @@ export default function TagPredictionDialog({ asset, isOpen, onClose }: TagPredi
   };
 
   const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 0.8) return "text-green-600 dark:text-green-400";
+    if (confidence >= 0.8) return "text-blue-600 dark:text-blue-400";
+    if (confidence >= 0.7) return "text-green-600 dark:text-green-400";
     if (confidence >= 0.6) return "text-yellow-600 dark:text-yellow-400";
     return "text-red-600 dark:text-red-400";
   };
 
   const getConfidenceLabel = (confidence: number) => {
-    if (confidence >= 0.8) return "高";
-    if (confidence >= 0.6) return "中";
+    if (confidence >= 0.8) return "精准";
+    if (confidence >= 0.7) return "平衡";
+    if (confidence >= 0.6) return "宽泛";
     return "低";
   };
 
@@ -185,10 +187,12 @@ export default function TagPredictionDialog({ asset, isOpen, onClose }: TagPredi
                                   <div
                                     className={`h-full rounded-full transition-all ${
                                       prediction.confidence >= 0.8
-                                        ? "bg-green-500"
-                                        : prediction.confidence >= 0.6
-                                          ? "bg-yellow-500"
-                                          : "bg-red-500"
+                                        ? "bg-blue-500"
+                                        : prediction.confidence >= 0.7
+                                          ? "bg-green-500"
+                                          : prediction.confidence >= 0.6
+                                            ? "bg-yellow-500"
+                                            : "bg-red-500"
                                     }`}
                                     style={{ width: `${prediction.confidence * 100}%` }}
                                   />
