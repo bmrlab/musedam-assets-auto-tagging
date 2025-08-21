@@ -11,7 +11,7 @@ export async function fetchTeamTags(): Promise<
 > {
   return withAuth(async ({ team: { id: teamId } }) => {
     console.log(teamId);
-    const tags = await prisma.tag.findMany({
+    const tags = await prisma.assetTag.findMany({
       where: {
         teamId,
         parentId: {

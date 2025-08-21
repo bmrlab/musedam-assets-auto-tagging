@@ -5,21 +5,21 @@ import prisma from "@/prisma/prisma";
 export async function seedTestReviewData(teamId: number) {
   // 创建示例标签层级结构
   const level1Tags = await Promise.all([
-    prisma.tag.create({
+    prisma.assetTag.create({
       data: {
         teamId,
         name: "媒体类型",
         level: 1,
       },
     }),
-    prisma.tag.create({
+    prisma.assetTag.create({
       data: {
         teamId,
         name: "项目分类",
         level: 1,
       },
     }),
-    prisma.tag.create({
+    prisma.assetTag.create({
       data: {
         teamId,
         name: "颜色",
@@ -30,7 +30,7 @@ export async function seedTestReviewData(teamId: number) {
 
   // 创建二级标签
   const level2Tags = await Promise.all([
-    prisma.tag.create({
+    prisma.assetTag.create({
       data: {
         teamId,
         name: "图片",
@@ -38,7 +38,7 @@ export async function seedTestReviewData(teamId: number) {
         parentId: level1Tags[0].id,
       },
     }),
-    prisma.tag.create({
+    prisma.assetTag.create({
       data: {
         teamId,
         name: "视频",
@@ -46,7 +46,7 @@ export async function seedTestReviewData(teamId: number) {
         parentId: level1Tags[0].id,
       },
     }),
-    prisma.tag.create({
+    prisma.assetTag.create({
       data: {
         teamId,
         name: "设计素材",
@@ -54,7 +54,7 @@ export async function seedTestReviewData(teamId: number) {
         parentId: level1Tags[1].id,
       },
     }),
-    prisma.tag.create({
+    prisma.assetTag.create({
       data: {
         teamId,
         name: "营销素材",
@@ -62,7 +62,7 @@ export async function seedTestReviewData(teamId: number) {
         parentId: level1Tags[1].id,
       },
     }),
-    prisma.tag.create({
+    prisma.assetTag.create({
       data: {
         teamId,
         name: "蓝色",
@@ -74,7 +74,7 @@ export async function seedTestReviewData(teamId: number) {
 
   // 创建三级标签
   const level3Tags = await Promise.all([
-    prisma.tag.create({
+    prisma.assetTag.create({
       data: {
         teamId,
         name: "产品图",
@@ -82,7 +82,7 @@ export async function seedTestReviewData(teamId: number) {
         parentId: level2Tags[0].id,
       },
     }),
-    prisma.tag.create({
+    prisma.assetTag.create({
       data: {
         teamId,
         name: "Banner",
@@ -90,7 +90,7 @@ export async function seedTestReviewData(teamId: number) {
         parentId: level2Tags[0].id,
       },
     }),
-    prisma.tag.create({
+    prisma.assetTag.create({
       data: {
         teamId,
         name: "UI组件",
@@ -98,7 +98,7 @@ export async function seedTestReviewData(teamId: number) {
         parentId: level2Tags[2].id,
       },
     }),
-    prisma.tag.create({
+    prisma.assetTag.create({
       data: {
         teamId,
         name: "海报",
@@ -345,7 +345,7 @@ export async function cleanupTestReviewData(teamId: number) {
     where: { teamId },
   });
 
-  await prisma.tag.deleteMany({
+  await prisma.assetTag.deleteMany({
     where: { teamId },
   });
 

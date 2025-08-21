@@ -55,7 +55,7 @@ async function createTagsRecursively(
   createdTags: any[] = [],
 ): Promise<any[]> {
   for (const tagConfig of tagConfigs) {
-    const tag = await prisma.tag.create({
+    const tag = await prisma.assetTag.create({
       data: {
         teamId,
         name: tagConfig.name,

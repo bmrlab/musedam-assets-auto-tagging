@@ -1,20 +1,44 @@
 import { slugToId } from "@/lib/slug";
-import { exchangeMuseDAMTeamAPIKey } from "@/musedam/apiKey";
+import { exchangeMuseDAMTeamAPIKey, retrieveTeamCredentials } from "@/musedam/apiKey";
+import { syncTagsFromMuseDAM } from "@/musedam/tags";
+import { Team } from "@/prisma/client";
+import prisma from "@/prisma/prisma";
 import { loadEnvConfig } from "@next/env";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const TEST_TEAM_SLUG = "t/135";
 
 vi.mock("server-only", () => ({}));
 
 beforeEach(() => {
   // 加载 .env 文件
   loadEnvConfig(process.cwd());
+  expect(process.env.MUSEDAM_APP_API_KEY).toBeDefined();
+  expect(process.env.MUSEDAM_APP_SECRET).toBeDefined();
 });
 
 describe("MuseDAM API - Test environment", () => {
+  let team: Team;
+
+  beforeEach(async () => {
+    const teamOrNull = await prisma.team.findUnique({ where: { slug: TEST_TEAM_SLUG } });
+    expect(teamOrNull).not.toBeNull();
+    team = teamOrNull!;
+  });
+
   it("should exchange API key successfully", async () => {
-    const teamSlug = "t/135";
-    const musedamTeamId = slugToId("team", teamSlug);
+    const musedamTeamId = slugToId("team", TEST_TEAM_SLUG);
     const result = await exchangeMuseDAMTeamAPIKey({ musedamTeamId });
     expect(result.apiKey).toBeDefined();
+  });
+
+  it("should retrieve team credentials successfully", async () => {
+    const config = await retrieveTeamCredentials({ team });
+    expect(config.apiKey).toBeDefined();
+    expect(config.expiresAt).toBeDefined();
+  });
+
+  it("should query tag tree successfully", async () => {
+    const result = await syncTagsFromMuseDAM({ team });
   });
 });

@@ -18,7 +18,7 @@ model Team {
   updatedAt DateTime @updatedAt @db.Timestamptz(6)
 
   memberships       Membership[]
-  tags              Tag[]
+  assetTags         AssetTag[]
   assetObjects      AssetObject[]
   taggingQueueItems TaggingQueueItem[]
   taggingAuditItems TaggingAuditItem[]
@@ -67,16 +67,17 @@ model AssetObject {
   TaggingAuditItem  TaggingAuditItem[]
 }
 
-model Tag {
+model AssetTag {
   id     Int  @id @default(autoincrement())
   teamId Int
   team   Team @relation(fields: [teamId], references: [id])
 
-  name     String @db.VarChar(100)
-  level    Int    @default(1) // 层级: 1, 2, 3
+  name     String     @db.VarChar(100)
+  slug     String?    @db.VarChar(64) // 新增以后还不存在 slug，和 musedam 同步以后会有
+  level    Int        @default(1) // 层级: 1, 2, 3
   parentId Int?
-  parent   Tag?   @relation("TagHierarchy", fields: [parentId], references: [id])
-  children Tag[]  @relation("TagHierarchy")
+  parent   AssetTag?  @relation("TagHierarchy", fields: [parentId], references: [id])
+  children AssetTag[] @relation("TagHierarchy")
 
   createdAt        DateTime           @default(now()) @db.Timestamptz(6)
   updatedAt        DateTime           @updatedAt @db.Timestamptz(6)
@@ -128,7 +129,7 @@ model TaggingAuditItem {
   confidence    Float
   tagPath       Json               @default("[]")
   leafTagId     Int
-  leafTag       Tag                @relation(fields: [leafTagId], references: [id])
+  leafTag       AssetTag           @relation(fields: [leafTagId], references: [id])
   queueItemId   Int
   queueItem     TaggingQueueItem   @relation(fields: [queueItemId], references: [id])
 

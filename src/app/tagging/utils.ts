@@ -21,7 +21,7 @@ export function buildTagStructureText(tags: TagWithChildren[]): string {
 }
 
 export async function fetchTagsTree({ teamId }: { teamId: number }) {
-  const tags = await prisma.tag
+  const tags = await prisma.assetTag
     .findMany({
       where: {
         teamId,

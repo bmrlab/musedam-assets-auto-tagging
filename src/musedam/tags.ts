@@ -1,0 +1,93 @@
+import { idToSlug, slugToId } from "@/lib/slug";
+import prisma from "@/prisma/prisma";
+import { retrieveTeamCredentials } from "./apiKey";
+import { requestMuseDAMAPI } from "./lib";
+
+type MuseDAMTagTree = {
+  id: number;
+  name: string;
+  children: MuseDAMTagTree | null;
+}[];
+
+export async function syncTagsFromMuseDAM({
+  team,
+}: {
+  team: {
+    id: number;
+    slug: string;
+  };
+}) {
+  const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
+  const musedamTeamId = slugToId("team", team.slug);
+  const result = await requestMuseDAMAPI("/api/muse/query-tag-tree", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${musedamTeamApiKey}`,
+    },
+    body: {
+      orgId: parseInt(musedamTeamId),
+    },
+  });
+  const tags = result as MuseDAMTagTree;
+  const upsert = async function ({
+    name,
+    slug,
+    level,
+    parentId,
+  }: {
+    name: string;
+    slug: string;
+    level: 1 | 2 | 3;
+    parentId: number | null;
+  }) {
+    const assetTag = await prisma.assetTag.upsert({
+      where: {
+        teamId_level_name: {
+          teamId: team.id,
+          level,
+          name,
+        },
+      },
+      create: {
+        teamId: team.id,
+        level,
+        name,
+        slug,
+        parentId,
+      },
+      update: {
+        slug,
+        parentId,
+      },
+    });
+    return assetTag;
+  };
+  for (const level1Tag of tags) {
+    const level1AssetTag = await upsert({
+      name: level1Tag.name,
+      slug: idToSlug("assetTag", level1Tag.id.toString()),
+      level: 1,
+      parentId: null,
+    });
+    console.log(level1Tag, level1AssetTag);
+    for (const level2Tag of level1Tag.children ?? []) {
+      const level2AssetTag = await upsert({
+        name: level2Tag.name,
+        slug: idToSlug("assetTag", level2Tag.id.toString()),
+        level: 2,
+        parentId: level1AssetTag.id,
+      });
+      console.log(level2Tag, level2AssetTag);
+      for (const level3Tag of level2Tag.children ?? []) {
+        const level3AssetTag = await upsert({
+          name: level3Tag.name,
+          slug: idToSlug("assetTag", level3Tag.id.toString()),
+          level: 3,
+          parentId: level2AssetTag.id,
+        });
+        console.log(level3Tag, level3AssetTag);
+      }
+    }
+  }
+  return result;
+}
