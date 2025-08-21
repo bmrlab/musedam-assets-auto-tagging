@@ -264,7 +264,7 @@ export async function fetchContentTypeStats(): Promise<
   });
 }
 
-export async function createTestReviewData(): Promise<ServerActionResult<{}>> {
+export async function createTestReviewData(): Promise<ServerActionResult<void>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
       const { seedTestReviewData } = await import("../review/seed-test-data");
@@ -272,7 +272,7 @@ export async function createTestReviewData(): Promise<ServerActionResult<{}>> {
 
       return {
         success: true,
-        data: {},
+        data: undefined,
       };
     } catch (error) {
       console.error("创建测试数据失败:", error);
@@ -284,7 +284,7 @@ export async function createTestReviewData(): Promise<ServerActionResult<{}>> {
   });
 }
 
-export async function retryFailedTask(taskId: number): Promise<ServerActionResult<{}>> {
+export async function retryFailedTask(taskId: number): Promise<ServerActionResult<void>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
       const task = await prisma.taggingQueueItem.findFirst({
@@ -310,7 +310,7 @@ export async function retryFailedTask(taskId: number): Promise<ServerActionResul
 
       return {
         success: true,
-        data: {},
+        data: undefined,
       };
     } catch (error) {
       console.error("重试失败任务失败:", error);

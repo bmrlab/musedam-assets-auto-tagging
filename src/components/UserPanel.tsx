@@ -11,10 +11,8 @@ import {
 import { LogOut, User } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
 
 export default function UserPanel() {
-  const [showOrgSelector, setShowOrgSelector] = useState(false);
   const { data: session } = useSession();
   // const { data: organizations } = authClient.useListOrganizations();
   // const { data: activeOrganization } = authClient.useActiveOrganization();
@@ -28,10 +26,6 @@ export default function UserPanel() {
   const handleProfileClick = () => {
     // TODO: 实现用户资料页面
     console.log("Navigate to profile");
-  };
-
-  const handleAdminClick = () => {
-    router.push("/admin");
   };
 
   if (!session?.user) {
@@ -54,9 +48,7 @@ export default function UserPanel() {
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="relative h-8 w-8 rounded-full p-0">
             <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center">
-              <span className="text-sm font-medium text-primary-foreground">
-                {session.user.name?.charAt(0).toUpperCase() || "U"}
-              </span>
+              <span className="text-sm font-medium text-primary-foreground">{session.user.id}</span>
             </div>
           </Button>
         </DropdownMenuTrigger>
@@ -66,14 +58,8 @@ export default function UserPanel() {
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center">
                   <span className="text-sm font-medium text-primary-foreground">
-                    {session.user.name?.charAt(0).toUpperCase() || "U"}
+                    {session.user.id}
                   </span>
-                </div>
-                <div className="flex flex-col">
-                  <p className="text-sm font-medium leading-none">{session.user.name}</p>
-                  <p className="text-xs leading-none text-muted-foreground mt-1">
-                    {session.user.email}
-                  </p>
                 </div>
               </div>
             </div>

@@ -1,13 +1,12 @@
 import "server-only";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function requestMuseDAMAPI(
   apiPath: `/${string}`,
   {
     method,
     body,
     headers,
-  }: { method: "POST" | "GET"; body?: any; headers?: Record<string, string> },
+  }: { method: "POST" | "GET"; body?: unknown; headers?: Record<string, string> },
 ) {
   const response = await fetch(`https://muse-open.test.tezign.com${apiPath}`, {
     method: "POST",

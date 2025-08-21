@@ -25,16 +25,8 @@ export async function predictAssetTags(
   // 构建标签结构的文本描述
   const tagStructureText = buildTagStructureText(availableTags);
 
-  // 解析asset的tags字段
-  let existingTags: string[] = [];
-  try {
-    existingTags = typeof asset.tags === "string" ? JSON.parse(asset.tags) : asset.tags;
-  } catch {
-    existingTags = [];
-  }
-
   // 解析asset的content字段
-  let contentData: Record<string, any> = {};
+  let contentData: Record<string, unknown> = {};
   try {
     contentData = typeof asset.content === "string" ? JSON.parse(asset.content) : asset.content;
   } catch {

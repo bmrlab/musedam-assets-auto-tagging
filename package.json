@@ -12,10 +12,10 @@
     "start": "next start",
     "test": "vitest",
     "lint": "next lint",
+    "lint:fix": "next lint --max-warnings 0 --fix",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "make-admin": "tsx scripts/make-admin.ts",
     "login-url": "tsx scripts/login-url.ts",
-    "test-federation": "node scripts/test-federation-login.js",
     "generate-test-data": "tsx scripts/generate-test-data.ts"
   },
   "dependencies": {

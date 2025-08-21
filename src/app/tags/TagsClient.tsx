@@ -2,7 +2,7 @@
 import { Button } from "@/components/ui/button";
 import { AssetTag } from "@/prisma/client";
 import { Save } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { fetchTeamTags, saveTagsTree } from "./actions";
 import { SyncConfirmDialog } from "./components/SyncConfirmDialog";
@@ -28,49 +28,55 @@ export default function TagsClient({ initialTags }: TagsClientProps) {
   };
 
   // 将 Prisma 数据转换为 TagNode 格式并按ID排序
-  const convertToTagNodes = (tags: (AssetTag & { children?: any[] })[]): TagNode[] => {
-    return tags
-      .sort((a, b) => a.id - b.id) // 按ID排序
-      .map((tag) => ({
-        id: tag.id,
-        name: tag.name,
-        originalName: tag.name,
-        children: tag.children ? convertToTagNodes(tag.children) : [],
-      }));
-  };
+  const convertToTagNodes = useCallback(
+    (tags: (AssetTag & { children?: (AssetTag & { children?: AssetTag[] })[] })[]): TagNode[] => {
+      return tags
+        .sort((a, b) => a.id - b.id) // 按ID排序
+        .map((tag) => ({
+          id: tag.id,
+          name: tag.name,
+          originalName: tag.name,
+          children: tag.children ? convertToTagNodes(tag.children) : [],
+        }));
+    },
+    [],
+  );
 
   // 设置默认选中状态
-  const setDefaultSelection = (tree: TagNode[]) => {
-    if (tree.length > 0 && !initialized) {
-      const firstLevel1 = tree[0];
-      setSelectedLevel1Id(getNodeId(firstLevel1));
+  const setDefaultSelection = useCallback(
+    (tree: TagNode[]) => {
+      if (tree.length > 0 && !initialized) {
+        const firstLevel1 = tree[0];
+        setSelectedLevel1Id(getNodeId(firstLevel1));
 
-      if (firstLevel1.children.length > 0) {
-        const firstLevel2 = firstLevel1.children[0];
-        setSelectedLevel2Id(getNodeId(firstLevel2));
+        if (firstLevel1.children.length > 0) {
+          const firstLevel2 = firstLevel1.children[0];
+          setSelectedLevel2Id(getNodeId(firstLevel2));
+        }
+        setInitialized(true);
       }
-      setInitialized(true);
-    }
-  };
+    },
+    [initialized],
+  );
 
   useEffect(() => {
     const newTree = convertToTagNodes(initialTags);
     setTagsTree(newTree);
     setDefaultSelection(newTree);
-  }, [initialTags]);
+  }, [initialTags, convertToTagNodes, setDefaultSelection]);
 
   // 检查是否有变更
-  const checkHasChanges = (nodes: TagNode[]): boolean => {
+  const checkHasChanges = useCallback((nodes: TagNode[]): boolean => {
     for (const node of nodes) {
       if (node.verb || node.isDeleted) return true;
       if (checkHasChanges(node.children)) return true;
     }
     return false;
-  };
+  }, []);
 
   useEffect(() => {
     setHasChanges(checkHasChanges(tagsTree));
-  }, [tagsTree]);
+  }, [tagsTree, checkHasChanges]);
 
   // 根据ID查找节点
   const findNodeById = (nodes: TagNode[], nodeId: string): TagNode | null => {

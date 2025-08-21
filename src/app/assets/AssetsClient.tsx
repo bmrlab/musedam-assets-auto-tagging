@@ -67,7 +67,7 @@ export default function AssetsClient({ initialAssets }: AssetsClientProps) {
     }).format(new Date(date));
   };
 
-  const parseTags = (tags: any): string[] => {
+  const parseTags = (tags: unknown): string[] => {
     if (typeof tags === "string") {
       try {
         return JSON.parse(tags);

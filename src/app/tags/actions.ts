@@ -45,7 +45,7 @@ export async function fetchTeamTags(): Promise<
   });
 }
 
-export async function syncTagsFromMuseDAM(): Promise<ServerActionResult<{}>> {
+export async function syncTagsFromMuseDAM(): Promise<ServerActionResult<void>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
       // 获取团队信息
@@ -60,7 +60,7 @@ export async function syncTagsFromMuseDAM(): Promise<ServerActionResult<{}>> {
 
       return {
         success: true,
-        data: {},
+        data: undefined,
       };
     } catch (error) {
       console.error("Sync from MuseDAM error:", error);
@@ -72,7 +72,7 @@ export async function syncTagsFromMuseDAM(): Promise<ServerActionResult<{}>> {
   });
 }
 
-export async function saveTagsTree(tagsTree: TagNode[]): Promise<ServerActionResult<{}>> {
+export async function saveTagsTree(tagsTree: TagNode[]): Promise<ServerActionResult<void>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
       // 在数据库操作前先同步到 MuseDAM（此时数据库中的数据还是完整的）
@@ -189,7 +189,7 @@ export async function saveTagsTree(tagsTree: TagNode[]): Promise<ServerActionRes
 
       return {
         success: true,
-        data: {},
+        data: undefined,
       };
     } catch (error) {
       console.error("Save tags tree error:", error);

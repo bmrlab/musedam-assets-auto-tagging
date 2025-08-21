@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 // 定义设置数据的schema
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const SettingsSchema = z.object({
   isTaggingEnabled: z.boolean(),
   taggingMode: z.enum(["direct", "review"]),
@@ -26,7 +27,7 @@ export async function fetchSettings(): Promise<
     settings: SettingsData;
   }>
 > {
-  return withAuth(async ({ team: { id: teamId } }) => {
+  return withAuth(async () => {
     try {
       // TODO: 从数据库或配置文件获取实际设置
       // 这里返回默认设置作为示例
@@ -59,9 +60,10 @@ export async function fetchSettings(): Promise<
 
 // 更新设置
 export async function updateSettings(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   data: SettingsData,
 ): Promise<ServerActionResult<{ success: boolean }>> {
-  return withAuth(async ({ team: { id: teamId } }) => {
+  return withAuth(async () => {
     try {
       // TODO: 保存设置到数据库
       // 这里可以添加数据库保存逻辑
@@ -94,7 +96,7 @@ export async function resetSettings(): Promise<
     settings: SettingsData;
   }>
 > {
-  return withAuth(async ({ team: { id: teamId } }) => {
+  return withAuth(async () => {
     try {
       const defaultSettings: SettingsData = {
         isTaggingEnabled: true,
@@ -135,10 +137,10 @@ export async function resetSettings(): Promise<
 // 获取标签体系数据（用于"管理标签体系"功能）
 export async function fetchTagSystem(): Promise<
   ServerActionResult<{
-    tagSystem: any[];
+    tagSystem: Record<string, unknown>[];
   }>
 > {
-  return withAuth(async ({ team: { id: teamId } }) => {
+  return withAuth(async () => {
     try {
       // TODO: 从数据库获取标签体系数据
       // const tagSystem = await prisma.tagSystem.findMany({

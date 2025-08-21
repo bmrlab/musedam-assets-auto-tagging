@@ -3,7 +3,6 @@ import { withAuth } from "@/app/(auth)/withAuth";
 import { enqueueTaggingTask } from "@/app/(tagging)/queue";
 import { SourceBasedTagPredictions } from "@/app/(tagging)/types";
 import { ServerActionResult } from "@/lib/serverAction";
-import { slugToId } from "@/lib/slug";
 import { requestMuseDAMAPI } from "@/musedam/lib";
 import { AssetObject } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
@@ -107,14 +106,8 @@ export async function predictAssetTagsAction(
 }
 
 export async function fetchSampleAssetsAction(): Promise<ServerActionResult<void>> {
-  return withAuth(async ({ team: { id: teamId } }) => {
-    const team = await prisma.team.findUniqueOrThrow({
-      where: { id: teamId },
-    });
-    const musedamTeamId = slugToId("team", team.slug);
-    // TODO: 根据 musedamTeamId 获取 accessToken
-
-    const result = await requestMuseDAMAPI("/api/muse/search-assets", {
+  return withAuth(async () => {
+    await requestMuseDAMAPI("/api/muse/search-assets", {
       method: "POST",
       body: {
         parentId: 29669,
@@ -126,7 +119,6 @@ export async function fetchSampleAssetsAction(): Promise<ServerActionResult<void
         endPoint: 40,
       },
     });
-
     return {
       success: true,
       data: undefined,

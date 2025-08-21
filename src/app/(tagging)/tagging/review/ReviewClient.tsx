@@ -149,7 +149,7 @@ export default function ReviewClient({ initialStats, initialAssets }: ReviewClie
 
   const buildTagPath = (auditItem: AssetWithAuditItems["TaggingAuditItem"][0]) => {
     const path: string[] = [];
-    let currentTag = auditItem.leafTag;
+    const currentTag = auditItem.leafTag;
 
     // 从叶子节点向上构建路径
     path.unshift(currentTag.name);

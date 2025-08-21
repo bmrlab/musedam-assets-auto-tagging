@@ -29,7 +29,7 @@ export default function Home() {
         }
       });
     }
-  }, [sessionStatus]);
+  }, [session?.user, sessionStatus]);
 
   if (sessionStatus === "loading") {
     return (

@@ -46,9 +46,7 @@ export function getActiveMenuTitle(pathname: string): string {
   return activeItem?.title || "AI 自动打标引擎";
 }
 
-interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {}
-
-export function AppSidebar({ className, ...props }: AppSidebarProps) {
+export function AppSidebar({ className, ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname();
 
   return (

@@ -28,7 +28,7 @@ export default function TokenAuthPage() {
       .finally(() => {
         setLoading(false);
       });
-  }, [params]);
+  }, [params, router]);
 
   if (loading) {
     return (

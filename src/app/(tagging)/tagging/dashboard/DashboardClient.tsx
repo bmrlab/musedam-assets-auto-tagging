@@ -24,6 +24,21 @@ import {
   TaskWithAsset,
 } from "./actions";
 
+interface ContentStats {
+  imageAnalysis: {
+    count: number;
+    avgTime: number;
+  };
+  textAnalysis: {
+    count: number;
+    avgTime: number;
+  };
+  videoAnalysis: {
+    count: number;
+    avgTime: number;
+  };
+}
+
 interface DashboardClientProps {
   initialStats: ExtractServerActionData<typeof fetchDashboardStats>["stats"];
   initialTasks: ExtractServerActionData<typeof fetchProcessingTasks>["tasks"];
@@ -32,7 +47,7 @@ interface DashboardClientProps {
 export default function DashboardClient({ initialStats, initialTasks }: DashboardClientProps) {
   const [stats, setStats] = useState<DashboardStats>(initialStats);
   const [tasks, setTasks] = useState<TaskWithAsset[]>(initialTasks);
-  const [contentStats, setContentStats] = useState<any>(null);
+  const [contentStats, setContentStats] = useState<ContentStats | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [currentTime, setCurrentTime] = useState(Date.now());
 

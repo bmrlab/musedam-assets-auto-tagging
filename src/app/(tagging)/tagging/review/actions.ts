@@ -92,7 +92,7 @@ export async function fetchAssetsWithAuditItems(
       const offset = (page - 1) * limit;
 
       // 构建查询条件
-      const auditItemWhere: any = {
+      const auditItemWhere: Record<string, unknown> = {
         teamId,
       };
 
@@ -137,7 +137,7 @@ export async function fetchAssetsWithAuditItems(
       }
 
       // 构建资产查询条件
-      const assetWhere: any = {
+      const assetWhere: Record<string, unknown> = {
         teamId,
         id: { in: assetIds },
       };
@@ -202,7 +202,7 @@ export async function fetchAssetsWithAuditItems(
 export async function updateAuditItemStatus(
   auditItemId: number,
   status: TaggingAuditStatus,
-): Promise<ServerActionResult<{}>> {
+): Promise<ServerActionResult<object>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
       const auditItem = await prisma.taggingAuditItem.findFirst({
@@ -238,7 +238,7 @@ export async function updateAuditItemStatus(
 export async function batchUpdateAuditItemStatus(
   auditItemIds: number[],
   status: TaggingAuditStatus,
-): Promise<ServerActionResult<{}>> {
+): Promise<ServerActionResult<object>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
       await prisma.taggingAuditItem.updateMany({

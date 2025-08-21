@@ -11,7 +11,7 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { AssetObject } from "@/prisma/client";
 import { Bot, CheckCircle, Sparkles, XCircle } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { predictAssetTagsAction } from "./actions";
 
 interface TagPredictionDialogProps {
@@ -25,13 +25,7 @@ export default function TagPredictionDialog({ asset, isOpen, onClose }: TagPredi
   const [predictions, setPredictions] = useState<SourceBasedTagPredictions | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (isOpen && asset) {
-      startPrediction();
-    }
-  }, [isOpen, asset]);
-
-  const startPrediction = async () => {
+  const startPrediction = useCallback(async () => {
     if (!asset) return;
 
     setIsLoading(true);
@@ -46,12 +40,18 @@ export default function TagPredictionDialog({ asset, isOpen, onClose }: TagPredi
       } else {
         setError(result.message || "预测失败");
       }
-    } catch (err) {
+    } catch {
       setError("网络错误，请重试");
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [asset]);
+
+  useEffect(() => {
+    if (isOpen && asset) {
+      startPrediction();
+    }
+  }, [isOpen, asset, startPrediction]);
 
   const getConfidenceColor = (confidence: number) => {
     if (confidence >= 0.8) return "text-blue-600 dark:text-blue-400";

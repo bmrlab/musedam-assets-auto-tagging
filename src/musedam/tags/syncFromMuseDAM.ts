@@ -81,13 +81,12 @@ export async function syncTagsFromMuseDAM({
       });
       // console.log(level2Tag, level2AssetTag);
       for (const level3Tag of level2Tag.children ?? []) {
-        const level3AssetTag = await upsert({
+        await upsert({
           name: level3Tag.name,
           slug: idToSlug("assetTag", level3Tag.id.toString()),
           level: 3,
           parentId: level2AssetTag.id,
         });
-        // console.log(level3Tag, level3AssetTag);
       }
     }
   }

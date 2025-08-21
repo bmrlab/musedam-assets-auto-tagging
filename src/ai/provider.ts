@@ -17,6 +17,7 @@ const bedrock = createAmazonBedrock({
   fetch: proxiedFetch,
 });
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const azure = createAzure({
   resourceName: process.env.AZURE_RESOURCE_NAME,
   apiKey: process.env.AZURE_API_KEY,
