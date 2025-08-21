@@ -1,16 +1,27 @@
 "use server";
 import { withAuth } from "@/app/(auth)/withAuth";
 import { ServerActionResult } from "@/lib/serverAction";
-import { Tag } from "@/prisma/client";
+import { AssetTag } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
+
+interface TagNode {
+  id?: number;
+  name: string;
+  verb?: "create" | "update" | "delete";
+  children: TagNode[];
+}
 
 export async function fetchTeamTags(): Promise<
   ServerActionResult<{
-    tags: Tag[];
+    tags: (AssetTag & {
+      parent?: AssetTag | null;
+      children?: (AssetTag & {
+        children?: AssetTag[];
+      })[];
+    })[];
   }>
 > {
   return withAuth(async ({ team: { id: teamId } }) => {
-    console.log(teamId);
     const tags = await prisma.assetTag.findMany({
       where: {
         teamId,
@@ -36,5 +47,118 @@ export async function fetchTeamTags(): Promise<
       success: true,
       data: { tags },
     };
+  });
+}
+
+export async function saveTagsTree(tagsTree: TagNode[]): Promise<ServerActionResult<{}>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    try {
+      await prisma.$transaction(async (tx) => {
+        // 递归处理标签节点
+        const processNodes = async (
+          nodes: TagNode[],
+          parentId: number | null = null,
+          level: number = 1,
+        ) => {
+          for (const node of nodes) {
+            if (node.verb === "delete" && node.id) {
+              // 删除标签（级联删除子标签）
+              await tx.assetTag.delete({
+                where: {
+                  id: node.id,
+                  teamId,
+                },
+              });
+            } else if (node.verb === "create") {
+              // 创建新标签
+              if (!node.name.trim()) {
+                throw new Error("标签名不能为空");
+              }
+
+              // 检查同级标签名是否重复
+              const existingTag = await tx.assetTag.findFirst({
+                where: {
+                  teamId,
+                  parentId,
+                  name: node.name.trim(),
+                },
+              });
+
+              if (existingTag) {
+                throw new Error(`标签名 "${node.name}" 在同级中已存在`);
+              }
+
+              const createdTag = await tx.assetTag.create({
+                data: {
+                  teamId,
+                  name: node.name.trim(),
+                  level,
+                  parentId,
+                },
+              });
+
+              // 递归处理子标签
+              if (node.children.length > 0) {
+                await processNodes(node.children, createdTag.id, level + 1);
+              }
+            } else if (node.verb === "update" && node.id) {
+              // 更新标签
+              if (!node.name.trim()) {
+                throw new Error("标签名不能为空");
+              }
+
+              // 检查同级标签名是否重复（排除自己）
+              const existingTag = await tx.assetTag.findFirst({
+                where: {
+                  teamId,
+                  parentId,
+                  name: node.name.trim(),
+                  id: {
+                    not: node.id,
+                  },
+                },
+              });
+
+              if (existingTag) {
+                throw new Error(`标签名 "${node.name}" 在同级中已存在`);
+              }
+
+              await tx.assetTag.update({
+                where: {
+                  id: node.id,
+                  teamId,
+                },
+                data: {
+                  name: node.name.trim(),
+                },
+              });
+
+              // 递归处理子标签
+              if (node.children.length > 0) {
+                await processNodes(node.children, node.id, level + 1);
+              }
+            } else if (!node.verb && node.id) {
+              // 无变更，但需要处理子标签
+              if (node.children.length > 0) {
+                await processNodes(node.children, node.id, level + 1);
+              }
+            }
+          }
+        };
+
+        await processNodes(tagsTree);
+      });
+
+      return {
+        success: true,
+        data: {},
+      };
+    } catch (error) {
+      console.error("Save tags tree error:", error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : "保存标签树时发生未知错误",
+      };
+    }
   });
 }
