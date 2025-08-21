@@ -1,8 +1,8 @@
 import { idToSlug, slugToId } from "@/lib/slug";
+import { retrieveTeamCredentials } from "@/musedam/apiKey";
+import { requestMuseDAMAPI } from "@/musedam/lib";
 import { AssetTag } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
-import { retrieveTeamCredentials } from "./apiKey";
-import { requestMuseDAMAPI } from "./lib";
 
 type MuseDAMTagTree = {
   id: number;
@@ -18,6 +18,13 @@ export async function syncTagsFromMuseDAM({
     slug: string;
   };
 }) {
+  // 先删除当前团队的所有标签
+  await prisma.assetTag.deleteMany({
+    where: {
+      teamId: team.id,
+    },
+  });
+
   const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
   const musedamTeamId = slugToId("team", team.slug);
   const result = await requestMuseDAMAPI("/api/muse/query-tag-tree", {

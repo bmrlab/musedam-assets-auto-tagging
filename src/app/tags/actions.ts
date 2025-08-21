@@ -1,15 +1,10 @@
 "use server";
 import { withAuth } from "@/app/(auth)/withAuth";
 import { ServerActionResult } from "@/lib/serverAction";
+import { syncTagsToMuseDAM } from "@/musedam/tags/syncToMuseDAM";
 import { AssetTag } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
-
-interface TagNode {
-  id?: number;
-  name: string;
-  verb?: "create" | "update" | "delete";
-  children: TagNode[];
-}
+import { TagNode } from "./types";
 
 export async function fetchTeamTags(): Promise<
   ServerActionResult<{
@@ -50,9 +45,52 @@ export async function fetchTeamTags(): Promise<
   });
 }
 
+export async function syncTagsFromMuseDAM(): Promise<ServerActionResult<{}>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    try {
+      // 获取团队信息
+      const team = await prisma.team.findUniqueOrThrow({
+        where: { id: teamId },
+      });
+
+      const { syncTagsFromMuseDAM: syncFromMuseDAM } = await import(
+        "@/musedam/tags/syncFromMuseDAM"
+      );
+      await syncFromMuseDAM({ team: { id: teamId, slug: team.slug } });
+
+      return {
+        success: true,
+        data: {},
+      };
+    } catch (error) {
+      console.error("Sync from MuseDAM error:", error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : "从 MuseDAM 同步标签时发生未知错误",
+      };
+    }
+  });
+}
+
 export async function saveTagsTree(tagsTree: TagNode[]): Promise<ServerActionResult<{}>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
+      // 在数据库操作前先同步到 MuseDAM（此时数据库中的数据还是完整的）
+      try {
+        // 获取团队信息
+        const team = await prisma.team.findUniqueOrThrow({
+          where: { id: teamId },
+        });
+
+        await syncTagsToMuseDAM({
+          team: { id: teamId, slug: team.slug },
+          tagsTree,
+        });
+      } catch (error) {
+        console.error("Sync to MuseDAM error:", error);
+        // MuseDAM 同步失败不影响本地保存结果
+      }
+
       await prisma.$transaction(async (tx) => {
         // 递归处理标签节点
         const processNodes = async (

@@ -17,10 +17,7 @@ export function idToSlug(type: "team" | "user" | "assetObject" | "assetTag", id:
 /**
  * 返回 MuseDAM 的资源 id，类型是 string
  */
-export function slugToId(
-  type: "team" | "user" | "assetObject" | "assetObject",
-  slug: string,
-): string {
+export function slugToId(type: "team" | "user" | "assetObject" | "assetTag", slug: string): string {
   const [t, id] = slug.split("/");
   if (!t || !id) {
     throw new Error(`Invalid slug: ${slug}`);

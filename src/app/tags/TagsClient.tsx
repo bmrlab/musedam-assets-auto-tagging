@@ -1,24 +1,13 @@
 "use client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
 import { AssetTag } from "@/prisma/client";
-import { Edit2, Plus, Save, Trash2, Undo2, X } from "lucide-react";
+import { Save } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { fetchTeamTags, saveTagsTree } from "./actions";
-
-interface TagNode {
-  id?: number;
-  name: string;
-  verb?: "create" | "update" | "delete";
-  children: TagNode[];
-  isDeleted?: boolean;
-  isEditing?: boolean;
-  originalName?: string;
-  tempId?: string; // 用于新创建的标签的临时ID
-}
+import { SyncConfirmDialog } from "./components/SyncConfirmDialog";
+import { TagColumn } from "./components/TagColumn";
+import { TagNode } from "./types";
 
 interface TagsClientProps {
   initialTags: (AssetTag & { children?: (AssetTag & { children?: AssetTag[] })[] })[];
@@ -200,7 +189,7 @@ export default function TagsClient({ initialTags }: TagsClientProps) {
   };
 
   // 更新标签名
-  const updateTagName = (nodeId: string, newName: string) => {
+  const updateTagName = (nodeId: string, newName: string): boolean => {
     const context = findNodeContext(tagsTree, nodeId);
     if (!context) return false;
 
@@ -332,121 +321,17 @@ export default function TagsClient({ initialTags }: TagsClientProps) {
     }
   };
 
-  // 标签项渲染组件
-  const TagItem = ({
-    tag,
-    level,
-    onSelect,
-    isSelected = false,
-  }: {
-    tag: TagNode;
-    level: number;
-    onSelect?: () => void;
-    isSelected?: boolean;
-  }) => {
-    const [editValue, setEditValue] = useState(tag.name);
-    const nodeId = getNodeId(tag);
-
-    const handleSave = () => {
-      if (!editValue.trim()) {
-        toast.error("标签名不能为空");
-        return;
-      }
-      updateTagName(nodeId, editValue.trim());
-    };
-
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-      if (e.key === "Enter") {
-        handleSave();
-      } else if (e.key === "Escape") {
-        setEditValue(tag.name);
-        cancelEdit(nodeId);
-      }
-    };
-
-    if (tag.isEditing) {
-      return (
-        <div className="flex items-center gap-2 p-2 border rounded">
-          <Input
-            value={editValue}
-            onChange={(e) => setEditValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="输入标签名"
-            className="flex-1"
-            autoFocus
-          />
-          <Button size="sm" onClick={handleSave} disabled={!editValue.trim()}>
-            <Save className="h-3 w-3" />
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => cancelEdit(nodeId)}>
-            <X className="h-3 w-3" />
-          </Button>
-        </div>
-      );
+  // 处理同步完成
+  const handleSyncComplete = async () => {
+    const refreshResult = await fetchTeamTags();
+    if (refreshResult.success) {
+      const newTree = convertToTagNodes(refreshResult.data.tags);
+      setTagsTree(newTree);
+      setSelectedLevel1Id(null);
+      setSelectedLevel2Id(null);
+      setInitialized(false);
+      setDefaultSelection(newTree);
     }
-
-    return (
-      <div
-        className={cn("flex items-center justify-between p-2 rounded border transition-colors", {
-          "bg-red-50 border-red-200 text-red-600 opacity-60": tag.isDeleted,
-          "hover:bg-muted cursor-pointer": !tag.isDeleted,
-          "bg-green-50 border-green-200": tag.verb === "create",
-          "bg-blue-50 border-blue-200": tag.verb === "update",
-          "bg-primary/10": isSelected && !tag.isDeleted,
-        })}
-        onClick={!tag.isDeleted ? onSelect : undefined}
-      >
-        <span className={tag.isDeleted ? "line-through" : ""}>
-          {tag.name}
-          {tag.verb === "create" && <span className="ml-1 text-xs text-green-600">(新建)</span>}
-          {tag.verb === "update" && <span className="ml-1 text-xs text-blue-600">(已修改)</span>}
-          {tag.isDeleted && <span className="ml-1 text-xs text-red-600">(将删除)</span>}
-          {level < 3 && tag.children.length > 0 && (
-            <span className="ml-2 text-xs bg-muted text-muted-foreground px-1 rounded">
-              {tag.children.filter((child) => !child.isDeleted).length}
-            </span>
-          )}
-        </span>
-
-        <div className="flex items-center gap-1">
-          {tag.isDeleted ? (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={(e) => {
-                e.stopPropagation();
-                restoreTag(nodeId);
-              }}
-            >
-              <Undo2 className="h-3 w-3" />
-            </Button>
-          ) : (
-            <>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  startEdit(nodeId);
-                }}
-              >
-                <Edit2 className="h-3 w-3" />
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  deleteTag(nodeId);
-                }}
-              >
-                <Trash2 className="h-3 w-3" />
-              </Button>
-            </>
-          )}
-        </div>
-      </div>
-    );
   };
 
   return (
@@ -457,105 +342,72 @@ export default function TagsClient({ initialTags }: TagsClientProps) {
           <h1 className="text-2xl font-bold">标签编辑</h1>
           <p className="text-muted-foreground">管理三级标签体系</p>
         </div>
-        <Button
-          onClick={saveChanges}
-          disabled={!hasChanges || isSaving}
-          className="flex items-center gap-2"
-        >
-          <Save className="h-4 w-4" />
-          {isSaving ? "保存中..." : "保存更改"}
-        </Button>
+        <div className="flex items-center gap-2">
+          <SyncConfirmDialog onSyncComplete={handleSyncComplete} />
+          <Button
+            onClick={saveChanges}
+            disabled={!hasChanges || isSaving}
+            className="flex items-center gap-2"
+          >
+            <Save className="h-4 w-4" />
+            {isSaving ? "保存中..." : "保存更改"}
+          </Button>
+        </div>
       </div>
 
       {/* 三列标签编辑区域 */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* 第一列：一级标签 */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">一级标签</CardTitle>
-              <Button size="sm" onClick={() => addTag(1)}>
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {level1Tags.length === 0 ? (
-              <p className="text-muted-foreground text-sm text-center py-4">暂无标签</p>
-            ) : (
-              level1Tags.map((tag) => (
-                <TagItem
-                  key={getNodeId(tag)}
-                  tag={tag}
-                  level={1}
-                  isSelected={selectedLevel1Id === getNodeId(tag)}
-                  onSelect={() => {
-                    setSelectedLevel1Id(getNodeId(tag));
-                    setSelectedLevel2Id(null);
-                  }}
-                />
-              ))
-            )}
-          </CardContent>
-        </Card>
+        <TagColumn
+          title="一级标签"
+          tags={level1Tags}
+          level={1}
+          selectedId={selectedLevel1Id}
+          canAdd={true}
+          emptyMessage="暂无标签"
+          onAddTag={addTag}
+          onSelectTag={(nodeId) => {
+            setSelectedLevel1Id(nodeId);
+            setSelectedLevel2Id(null);
+          }}
+          onEdit={updateTagName}
+          onStartEdit={startEdit}
+          onCancelEdit={cancelEdit}
+          onDelete={deleteTag}
+          onRestore={restoreTag}
+          getNodeId={getNodeId}
+        />
 
-        {/* 第二列：二级标签 */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">二级标签</CardTitle>
-              <Button
-                size="sm"
-                onClick={() => addTag(2)}
-                disabled={!selectedLevel1 || selectedLevel1.isDeleted}
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {!selectedLevel1 ? (
-              <p className="text-muted-foreground text-sm text-center py-4">请先选择一级标签</p>
-            ) : level2Tags.length === 0 ? (
-              <p className="text-muted-foreground text-sm text-center py-4">暂无标签</p>
-            ) : (
-              level2Tags.map((tag) => (
-                <TagItem
-                  key={getNodeId(tag)}
-                  tag={tag}
-                  level={2}
-                  isSelected={selectedLevel2Id === getNodeId(tag)}
-                  onSelect={() => setSelectedLevel2Id(getNodeId(tag))}
-                />
-              ))
-            )}
-          </CardContent>
-        </Card>
+        <TagColumn
+          title="二级标签"
+          tags={level2Tags}
+          level={2}
+          selectedId={selectedLevel2Id}
+          canAdd={!!selectedLevel1 && !selectedLevel1.isDeleted}
+          emptyMessage={!selectedLevel1 ? "请先选择一级标签" : "暂无标签"}
+          onAddTag={addTag}
+          onSelectTag={(nodeId) => setSelectedLevel2Id(nodeId)}
+          onEdit={updateTagName}
+          onStartEdit={startEdit}
+          onCancelEdit={cancelEdit}
+          onDelete={deleteTag}
+          onRestore={restoreTag}
+          getNodeId={getNodeId}
+        />
 
-        {/* 第三列：三级标签 */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">三级标签</CardTitle>
-              <Button
-                size="sm"
-                onClick={() => addTag(3)}
-                disabled={!selectedLevel2 || selectedLevel2.isDeleted}
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {!selectedLevel2 ? (
-              <p className="text-muted-foreground text-sm text-center py-4">请先选择二级标签</p>
-            ) : level3Tags.length === 0 ? (
-              <p className="text-muted-foreground text-sm text-center py-4">暂无标签</p>
-            ) : (
-              level3Tags.map((tag) => <TagItem key={getNodeId(tag)} tag={tag} level={3} />)
-            )}
-          </CardContent>
-        </Card>
+        <TagColumn
+          title="三级标签"
+          tags={level3Tags}
+          level={3}
+          canAdd={!!selectedLevel2 && !selectedLevel2.isDeleted}
+          emptyMessage={!selectedLevel2 ? "请先选择二级标签" : "暂无标签"}
+          onAddTag={addTag}
+          onEdit={updateTagName}
+          onStartEdit={startEdit}
+          onCancelEdit={cancelEdit}
+          onDelete={deleteTag}
+          onRestore={restoreTag}
+          getNodeId={getNodeId}
+        />
       </div>
     </div>
   );
