@@ -1,4 +1,5 @@
 import { idToSlug, slugToId } from "@/lib/slug";
+import { AssetTag } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 import { retrieveTeamCredentials } from "./apiKey";
 import { requestMuseDAMAPI } from "./lib";
@@ -28,6 +29,7 @@ export async function syncTagsFromMuseDAM({
       orgId: parseInt(musedamTeamId),
     },
   });
+  const teamId = team.id;
   const tags = result as MuseDAMTagTree;
   const upsert = async function ({
     name,
@@ -40,25 +42,18 @@ export async function syncTagsFromMuseDAM({
     level: 1 | 2 | 3;
     parentId: number | null;
   }) {
-    const assetTag = await prisma.assetTag.upsert({
-      where: {
-        teamId_level_name: {
-          teamId: team.id,
-          level,
-          name,
-        },
-      },
-      create: {
-        teamId: team.id,
-        level,
-        name,
-        slug,
-        parentId,
-      },
-      update: {
-        slug,
-        parentId,
-      },
+    const where = parentId
+      ? { teamId, parentId, name }
+      : { teamId, name, parentId: { equals: null } };
+    const assetTag = await prisma.$transaction(async (tx) => {
+      let assetTag: AssetTag;
+      const assetTags = await tx.assetTag.findMany({ where });
+      if (assetTags[0]) {
+        assetTag = assetTags[0];
+      } else {
+        assetTag = await tx.assetTag.create({ data: { teamId, level, name, slug, parentId } });
+      }
+      return assetTag;
     });
     return assetTag;
   };

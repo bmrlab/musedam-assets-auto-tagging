@@ -83,8 +83,12 @@ model AssetTag {
   updatedAt        DateTime           @updatedAt @db.Timestamptz(6)
   TaggingAuditItem TaggingAuditItem[]
 
-  @@unique([teamId, level, name])
-  @@index([teamId, parentId])
+  // ⚠️ migration.sql 里人工添加了一条 unique 索引，在 parentId 为空的时候，需要确保 teamId,name 唯一
+  //    CREATE UNIQUE INDEX "AssetTag_teamId_name_key" ON "public"."AssetTag"("teamId", "name") WHERE "parentId" IS NULL;
+  // Prisma 不支持这种类型的 unique 索引定义，智能人工添加
+  //    目前这样不会导致 Prisma 判断 migration 和 schema 不同步，所以问题不大
+  //    如果之后 squash migration，需要再次人工添加上面这个 sql
+  @@unique([teamId, parentId, name])
 }
 
 enum TaggingQueueStatus {
