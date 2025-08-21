@@ -64,7 +64,7 @@ export async function syncTagsFromMuseDAM({
       level: 1,
       parentId: null,
     });
-    console.log(level1Tag, level1AssetTag);
+    // console.log(level1Tag, level1AssetTag);
     for (const level2Tag of level1Tag.children ?? []) {
       const level2AssetTag = await upsert({
         name: level2Tag.name,
@@ -72,7 +72,7 @@ export async function syncTagsFromMuseDAM({
         level: 2,
         parentId: level1AssetTag.id,
       });
-      console.log(level2Tag, level2AssetTag);
+      // console.log(level2Tag, level2AssetTag);
       for (const level3Tag of level2Tag.children ?? []) {
         const level3AssetTag = await upsert({
           name: level3Tag.name,
@@ -80,9 +80,9 @@ export async function syncTagsFromMuseDAM({
           level: 3,
           parentId: level2AssetTag.id,
         });
-        console.log(level3Tag, level3AssetTag);
+        // console.log(level3Tag, level3AssetTag);
       }
     }
   }
-  return result;
+  return tags;
 }

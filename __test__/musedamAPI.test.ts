@@ -1,5 +1,6 @@
 import { slugToId } from "@/lib/slug";
 import { exchangeMuseDAMTeamAPIKey, retrieveTeamCredentials } from "@/musedam/apiKey";
+import { syncAssetsFromMuseDAM } from "@/musedam/assets";
 import { syncTagsFromMuseDAM } from "@/musedam/tags";
 import { Team } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
@@ -39,6 +40,15 @@ describe("MuseDAM API - Test environment", () => {
   });
 
   it("should query tag tree successfully", async () => {
-    const result = await syncTagsFromMuseDAM({ team });
-  });
+    const promise = syncTagsFromMuseDAM({ team });
+    await expect(promise).resolves.not.toThrow();
+  }, 30000);
+
+  it("should query assets successfully", async () => {
+    const promise = syncAssetsFromMuseDAM({
+      team,
+      musedamFolderId: 29669,
+    });
+    await expect(promise).resolves.not.toThrow();
+  }, 30000);
 });
