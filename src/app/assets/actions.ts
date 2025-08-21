@@ -1,7 +1,7 @@
 "use server";
 import { withAuth } from "@/app/(auth)/withAuth";
-import { enqueueTaggingTask } from "@/app/tagging/queue";
-import { SourceBasedTagPredictions } from "@/app/tagging/types";
+import { enqueueTaggingTask } from "@/app/(tagging)/queue";
+import { SourceBasedTagPredictions } from "@/app/(tagging)/types";
 import { ServerActionResult } from "@/lib/serverAction";
 import { slugToId } from "@/lib/slug";
 import { requestMuseDAMAPI } from "@/musedam/lib";

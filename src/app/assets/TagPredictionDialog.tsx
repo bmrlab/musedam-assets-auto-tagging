@@ -1,5 +1,5 @@
 "use client";
-import { SourceBasedTagPredictions } from "@/app/tagging/types";
+import { SourceBasedTagPredictions } from "@/app/(tagging)/types";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
