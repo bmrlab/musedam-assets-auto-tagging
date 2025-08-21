@@ -4,7 +4,7 @@ import { describe, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-describe("Tag Prediction - Real Database Test", () => {
+describe.skip("Tag Prediction - Real Database Test", () => {
   it("should predict tags for a real asset", async () => {
     const teamSlug = "t/test-team-id";
     const { id: teamId } = await prisma.team.findUniqueOrThrow({

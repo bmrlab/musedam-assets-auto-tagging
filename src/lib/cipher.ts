@@ -1,11 +1,12 @@
 import crypto from "crypto";
 
+const IV_LENGTH = 16;
+const ALGORITHM = "aes-256-cbc";
+
 export function encryptText(text: string): string {
-  const IV_LENGTH = 16;
-  const ALGORITHM = "aes-256-cbc";
   const CIPHER_PASSWORD = process.env.CIPHER_PASSWORD;
   if (!CIPHER_PASSWORD) {
-    throw new Error("CIPHER_SECRET_KEY environment variable is not set");
+    throw new Error("CIPHER_PASSWORD environment variable is not set");
   }
   const CIPHER_SECRET_KEY = crypto.scryptSync(CIPHER_PASSWORD, "salt", 32);
   // Create initialization vector
@@ -28,11 +29,9 @@ export function encryptText(text: string): string {
 
 // Convert token back to analyst ID
 export function decryptText(encryptedText: string): string {
-  const IV_LENGTH = 16;
-  const ALGORITHM = "aes-256-cbc";
   const CIPHER_PASSWORD = process.env.CIPHER_PASSWORD;
   if (!CIPHER_PASSWORD) {
-    throw new Error("CIPHER_SECRET_KEY environment variable is not set");
+    throw new Error("CIPHER_PASSWORD environment variable is not set");
   }
   const CIPHER_SECRET_KEY = crypto.scryptSync(CIPHER_PASSWORD, "salt", 32);
   // Restore base64 standard characters and padding

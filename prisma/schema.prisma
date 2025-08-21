@@ -21,7 +21,8 @@ model Team {
   tags              Tag[]
   assetObjects      AssetObject[]
   taggingQueueItems TaggingQueueItem[]
-  TaggingAuditItem  TaggingAuditItem[]
+  taggingAuditItems TaggingAuditItem[]
+  configs           TeamConfig[]
 }
 
 model User {
@@ -135,4 +136,17 @@ model TaggingAuditItem {
   updatedAt DateTime @updatedAt @db.Timestamptz(6)
 
   @@index([teamId, status])
+}
+
+model TeamConfig {
+  id     Int    @id @default(autoincrement())
+  teamId Int
+  team   Team   @relation(fields: [teamId], references: [id])
+  key    String @db.VarChar(255)
+  value  Json   @default("{}")
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  @@unique([teamId, key])
 }

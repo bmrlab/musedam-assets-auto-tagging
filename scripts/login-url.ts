@@ -1,10 +1,13 @@
 import { encryptText } from "@/lib/cipher";
+import { loadEnvConfig } from "@next/env";
 
 // import PrismaClient 会自动加载 .env，用这种方式来读取环境变量，方便点
-import { PrismaClient } from "@/prisma/client";
-const prisma = new PrismaClient();
+// import { PrismaClient } from "@/prisma/client";
+// const prisma = new PrismaClient();
 
 async function main() {
+  // load env config from .env file
+  loadEnvConfig(process.cwd());
   const args = process.argv.slice(2);
   let [musedamUserId, musedamUserName, musedamTeamId, musedamTeamName] = args;
 
