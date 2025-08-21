@@ -9,18 +9,26 @@ async function main() {
   // load env config from .env file
   loadEnvConfig(process.cwd());
   const args = process.argv.slice(2);
-  let [musedamUserId, musedamUserName, musedamTeamId, musedamTeamName] = args;
+  let [musedamUserId, musedamUserName, musedamTeamId, musedamTeamName, callbackUrl] = args;
 
   if (!musedamUserId || !musedamUserName || !musedamTeamId || !musedamTeamName) {
     console.log("ℹ️ 未提供参数，使用默认值");
-    console.log("用法: tsx scripts/generate-auth-token.ts <userId> <userName> <teamId> <teamName>");
-    console.log("示例: tsx scripts/generate-auth-token.ts user123 'John Doe' team456 'My Team'");
-    [musedamUserId, musedamUserName, musedamTeamId, musedamTeamName] = [
+    console.log(
+      "用法: tsx scripts/login-url.ts <userId> <userName> <teamId> <teamName> [callbackUrl]",
+    );
+    console.log("示例: tsx scripts/login-url.ts user123 'John Doe' team456 'My Team' '/tagging'");
+    [musedamUserId, musedamUserName, musedamTeamId, musedamTeamName, callbackUrl] = [
       "test-user-id",
       "Test User",
       "test-team-id",
       "Test Team",
+      "/",
     ];
+  }
+
+  // 如果没有提供 callbackUrl，使用默认值
+  if (!callbackUrl) {
+    callbackUrl = "/";
   }
 
   const now = Date.now();
@@ -40,7 +48,8 @@ async function main() {
   };
 
   const token = encryptText(JSON.stringify(payload));
-  console.log(`http://localhost:3000/auth/${encodeURIComponent(token)}`);
+  const loginUrl = `http://localhost:3000/auth/${encodeURIComponent(token)}?callbackUrl=${encodeURIComponent(callbackUrl)}`;
+  console.log(loginUrl);
 }
 
 if (require.main === module) {
