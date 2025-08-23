@@ -59,6 +59,7 @@ model AssetObject {
   description      String
   tags             Json   @default("[]") // string[]
   content          Json   @default("{}") // Record<string, string>
+  extra            Json   @default("{}")
 
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @db.Timestamptz(6)
@@ -78,6 +79,7 @@ model AssetTag {
   parentId Int?
   parent   AssetTag?  @relation("TagHierarchy", fields: [parentId], references: [id])
   children AssetTag[] @relation("TagHierarchy")
+  extra    Json       @default("{}")
 
   createdAt        DateTime           @default(now()) @db.Timestamptz(6)
   updatedAt        DateTime           @updatedAt @db.Timestamptz(6)

@@ -81,6 +81,7 @@ export async function syncSingleAssetFromMuseDAM({
     parentIds: number[];
     description: string | null;
     tags: { id: number; name: string }[];
+    thumbnailAccessUrl: string;
   };
 
   const musedamFolderId = asset.parentIds[0];
@@ -105,6 +106,7 @@ export async function syncSingleAssetFromMuseDAM({
       materializedPath: folderPath,
       content: contentAnalysis,
       tags,
+      extra: asset,
     },
     update: {
       name: asset.name,
@@ -112,6 +114,7 @@ export async function syncSingleAssetFromMuseDAM({
       materializedPath: folderPath,
       content: contentAnalysis,
       tags,
+      extra: asset,
     },
   });
 
@@ -147,16 +150,8 @@ export async function syncAssetsFromMuseDAM({
       endPoint: 40,
     },
   });
-  const assets = result.assets as {
-    id: number;
-    name: string;
-    parentIds: number[];
-    description: string | null;
-    tags: { id: number; name: string }[];
-  }[];
-
   await Promise.all(
-    assets.map(async (asset) => {
+    result.assets.map(async (asset: { id: number }) => {
       const waitTime = Math.floor(Math.random() * 10000) + 1000; // 1-10 seconds in milliseconds
       await new Promise((resolve) => setTimeout(resolve, waitTime));
       await syncSingleAssetFromMuseDAM({

@@ -2,8 +2,9 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ExtractServerActionData } from "@/lib/serverAction";
-import { AssetObject, AssetObjectContentAnalysis } from "@/prisma/client";
+import { AssetObject, AssetObjectContentAnalysis, AssetObjectExtra } from "@/prisma/client";
 import { Bot, Calendar, File, Folder, Tag as TagIcon } from "lucide-react";
+import Image from "next/image";
 import { useCallback, useState } from "react";
 import { fetchSampleAssetsAction, fetchTeamAssets } from "./actions";
 import TagPredictionDialog from "./TagPredictionDialog";
@@ -24,37 +25,9 @@ export default function AssetsClient({ initialAssets }: AssetsClientProps) {
     }
   };
 
-  const getFileIcon = (fileName: string) => {
-    const extension = fileName.split(".").pop()?.toLowerCase();
-    switch (extension) {
-      case "jpg":
-      case "jpeg":
-      case "png":
-      case "gif":
-      case "webp":
-        return "🖼️";
-      case "mp4":
-      case "mov":
-      case "avi":
-        return "🎬";
-      case "pdf":
-        return "📄";
-      case "doc":
-      case "docx":
-        return "📝";
-      case "xls":
-      case "xlsx":
-        return "📊";
-      case "ppt":
-      case "pptx":
-        return "📑";
-      case "psd":
-        return "🎨";
-      case "ai":
-        return "✏️";
-      default:
-        return "📁";
-    }
+  const getThumbnailUrl = (asset: AssetObject) => {
+    const extra = asset.extra as AssetObjectExtra | null;
+    return extra?.thumbnailAccessUrl;
   };
 
   const formatDate = (date: Date) => {
@@ -131,11 +104,21 @@ export default function AssetsClient({ initialAssets }: AssetsClientProps) {
               <Card key={asset.id} className="hover:shadow-md transition-shadow">
                 <CardContent className="pt-6">
                   <div className="flex items-start gap-4">
-                    {/* 文件图标 */}
-                    <div className="flex-shrink-0">
-                      <div className="w-12 h-12 flex items-center justify-center bg-muted rounded-lg text-2xl">
-                        {getFileIcon(asset.name)}
-                      </div>
+                    {/* 文件缩略图 */}
+                    <div className="shrink-0 w-24 h-24 relative">
+                      {getThumbnailUrl(asset) ? (
+                        <Image
+                          src={getThumbnailUrl(asset)!}
+                          alt={asset.name}
+                          fill
+                          sizes="100px" // 这个是图片 optimize 的尺寸，不是前端显示的尺寸
+                          className="object-cover rounded-sm"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                          <File className="h-6 w-6" />
+                        </div>
+                      )}
                     </div>
 
                     {/* 主要信息 */}

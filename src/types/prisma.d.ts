@@ -12,4 +12,8 @@ declare module "@/prisma/client" {
     aiDescription?: string;
     aiDetailedDescription?: Record<string, string>[];
   };
+
+  export type AssetObjectExtra = Partial<{
+    thumbnailAccessUrl: string;
+  }>;
 }

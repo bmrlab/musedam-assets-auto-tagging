@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ExtractServerActionData } from "@/lib/serverAction";
+import { AssetObjectExtra } from "@/prisma/client";
 import {
   Calendar,
   CheckCircle,
@@ -20,6 +21,7 @@ import {
   Tag as TagIcon,
   XCircle,
 } from "lucide-react";
+import Image from "next/image";
 import { useCallback, useState } from "react";
 import {
   AssetWithAuditItems,
@@ -76,27 +78,9 @@ export default function ReviewClient({ initialStats, initialAssets }: ReviewClie
     refreshData();
   }, [refreshData]);
 
-  const getFileIcon = (fileName: string) => {
-    const extension = fileName.split(".").pop()?.toLowerCase();
-    switch (extension) {
-      case "jpg":
-      case "jpeg":
-      case "png":
-      case "gif":
-      case "webp":
-        return "🖼️";
-      case "mp4":
-      case "mov":
-      case "avi":
-        return "🎬";
-      case "pdf":
-        return "📄";
-      case "doc":
-      case "docx":
-        return "📝";
-      default:
-        return "📁";
-    }
+  const getThumbnailUrl = (asset: AssetWithAuditItems) => {
+    const extra = asset.extra as AssetObjectExtra | null;
+    return extra?.thumbnailAccessUrl;
   };
 
   const formatDate = (date: Date) => {
@@ -314,10 +298,20 @@ export default function ReviewClient({ initialStats, initialAssets }: ReviewClie
                 <CardContent className="pt-6">
                   {/* 资产基本信息 */}
                   <div className="flex items-start gap-4 mb-4">
-                    <div className="flex-shrink-0">
-                      <div className="w-12 h-12 flex items-center justify-center bg-muted rounded-lg text-2xl">
-                        {getFileIcon(asset.name)}
-                      </div>
+                    <div className="shrink-0 w-24 h-24 relative">
+                      {getThumbnailUrl(asset) ? (
+                        <Image
+                          src={getThumbnailUrl(asset)!}
+                          alt={asset.name}
+                          fill
+                          sizes="100px" // 这个是图片 optimize 的尺寸，不是前端显示的尺寸
+                          className="object-cover rounded-sm"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                          <File className="h-6 w-6" />
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex-1 min-w-0">
