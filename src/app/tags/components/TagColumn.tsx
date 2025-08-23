@@ -1,9 +1,9 @@
 "use client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import { Plus } from "lucide-react";
-import { TagItem } from "./TagItem";
 import { TagNode } from "../types";
+import { TagItem } from "./TagItem";
 
 interface TagColumnProps {
   title: string;
@@ -20,6 +20,7 @@ interface TagColumnProps {
   onDelete: (nodeId: string) => void;
   onRestore: (nodeId: string) => void;
   getNodeId: (node: TagNode) => string;
+  className?: string;
 }
 
 export function TagColumn({
@@ -37,38 +38,52 @@ export function TagColumn({
   onDelete,
   onRestore,
   getNodeId,
+  className,
 }: TagColumnProps) {
+  const activeTags = tags.filter((tag) => !tag.isDeleted);
+  const totalCount = tags.length;
+
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-lg">{title}</CardTitle>
-          <Button size="sm" onClick={() => onAddTag(level)} disabled={!canAdd}>
-            <Plus className="h-4 w-4" />
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-2">
+    <div className={cn("flex flex-col items-stretch overflow-hidden", className)}>
+      {/* 标题栏 */}
+      <div className="flex items-center justify-start px-4 py-3 text-muted-foreground">
+        <div className="text-sm">{title}</div>
+        <span className="text-xs">({totalCount})</span>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => onAddTag(level)}
+          disabled={!canAdd}
+          className="ml-auto h-6 w-6 p-0"
+        >
+          <Plus className="h-3 w-3" />
+        </Button>
+      </div>
+
+      {/* 标签列表 */}
+      <div className="flex-1 overflow-y-auto scrollbar-thin">
         {tags.length === 0 ? (
-          <p className="text-muted-foreground text-sm text-center py-4">{emptyMessage}</p>
+          <p className="text-muted-foreground text-sm text-center py-8">{emptyMessage}</p>
         ) : (
-          tags.map((tag) => (
-            <TagItem
-              key={getNodeId(tag)}
-              tag={tag}
-              level={level}
-              isSelected={selectedId === getNodeId(tag)}
-              onSelect={onSelectTag ? () => onSelectTag(getNodeId(tag)) : undefined}
-              onEdit={onEdit}
-              onStartEdit={onStartEdit}
-              onCancelEdit={onCancelEdit}
-              onDelete={onDelete}
-              onRestore={onRestore}
-              getNodeId={getNodeId}
-            />
-          ))
+          <div className="px-2 space-y-1">
+            {tags.map((tag) => (
+              <TagItem
+                key={getNodeId(tag)}
+                tag={tag}
+                level={level}
+                isSelected={selectedId === getNodeId(tag)}
+                onSelect={onSelectTag ? () => onSelectTag(getNodeId(tag)) : undefined}
+                onEdit={onEdit}
+                onStartEdit={onStartEdit}
+                onCancelEdit={onCancelEdit}
+                onDelete={onDelete}
+                onRestore={onRestore}
+                getNodeId={getNodeId}
+              />
+            ))}
+          </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

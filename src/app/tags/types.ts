@@ -1,5 +1,6 @@
 export interface TagNode {
   id?: number;
+  slug: string | null;
   name: string;
   verb?: "create" | "update" | "delete";
   children: TagNode[];

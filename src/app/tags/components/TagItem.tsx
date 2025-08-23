@@ -1,8 +1,14 @@
 "use client";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { Edit2, Save, Trash2, Undo2, X } from "lucide-react";
+import { Edit2Icon, MoreHorizontal, Save, TagIcon, Trash2Icon, Undo2, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { TagNode } from "../types";
@@ -33,6 +39,7 @@ export function TagItem({
   getNodeId,
 }: TagItemProps) {
   const [editValue, setEditValue] = useState(tag.name);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   const nodeId = getNodeId(tag);
 
   const handleSave = () => {
@@ -60,85 +67,139 @@ export function TagItem({
     onCancelEdit(nodeId);
   };
 
+  const handleEditClick = () => {
+    setDropdownOpen(false);
+    onStartEdit(nodeId);
+  };
+
+  const handleDeleteClick = () => {
+    setDropdownOpen(false);
+    onDelete(nodeId);
+  };
+
+  const handleRename = () => {
+    setDropdownOpen(false);
+    onStartEdit(nodeId);
+  };
+
+  // 编辑状态的渲染
   if (tag.isEditing) {
     return (
-      <div className="flex items-center gap-2 p-2 border rounded">
+      <div className="h-9 flex items-center gap-1 px-2 border rounded-md">
+        <TagIcon className="size-3" />
         <Input
           value={editValue}
           onChange={(e) => setEditValue(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="输入标签名"
-          className="flex-1"
+          className="flex-1 h-6 p-0 shadow-none border-none rounded-none text-sm"
           autoFocus
         />
-        <Button size="sm" onClick={handleSave} disabled={!editValue.trim()}>
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={handleSave}
+          disabled={!editValue.trim()}
+          className="bg-transparent hover:bg-transparent cursor-pointer size-7 p-1"
+        >
           <Save className="h-3 w-3" />
         </Button>
-        <Button size="sm" variant="ghost" onClick={handleCancel}>
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={handleCancel}
+          className="bg-transparent hover:bg-transparent cursor-pointer size-7 p-1"
+        >
           <X className="h-3 w-3" />
         </Button>
       </div>
     );
   }
 
+  // 正常状态的渲染
   return (
     <div
-      className={cn("flex items-center justify-between p-2 rounded border transition-colors", {
-        "bg-red-50 border-red-200 text-red-600 opacity-60": tag.isDeleted,
-        "hover:bg-muted cursor-pointer": !tag.isDeleted,
-        "bg-green-50 border-green-200": tag.verb === "create",
-        "bg-blue-50 border-blue-200": tag.verb === "update",
-        "bg-primary/10": isSelected && !tag.isDeleted,
-      })}
+      className={cn(
+        "h-9 group flex items-center justify-between px-2 rounded-sm transition-all duration-200",
+        {
+          "bg-red-50 text-red-600 opacity-60": tag.isDeleted,
+          "hover:bg-gray-50": !tag.isDeleted && !isSelected,
+          "bg-green-50": tag.verb === "create" && !isSelected,
+          "bg-blue-50": tag.verb === "update" && !isSelected,
+          "bg-accent text-accent-foreground": isSelected && !tag.isDeleted,
+        },
+      )}
       onClick={!tag.isDeleted ? onSelect : undefined}
     >
-      <span className={tag.isDeleted ? "line-through" : ""}>
-        {tag.name}
-        {tag.verb === "create" && <span className="ml-1 text-xs text-green-600">(新建)</span>}
-        {tag.verb === "update" && <span className="ml-1 text-xs text-blue-600">(已修改)</span>}
-        {tag.isDeleted && <span className="ml-1 text-xs text-red-600">(将删除)</span>}
+      <div className="flex-1 flex items-center gap-2">
+        <TagIcon className="size-3" />
+        <span
+          className={cn("text-sm font-medium truncate", {
+            "line-through": tag.isDeleted,
+          })}
+        >
+          {tag.name}
+        </span>
+
+        {/* 子标签数量 */}
         {level < 3 && tag.children.length > 0 && (
-          <span className="ml-2 text-xs bg-muted text-muted-foreground px-1 rounded">
+          <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
             {tag.children.filter((child) => !child.isDeleted).length}
           </span>
         )}
-      </span>
 
-      <div className="flex items-center gap-1">
+        {/* 状态标签 */}
+        {tag.verb === "create" && (
+          <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">新建</span>
+        )}
+        {tag.verb === "update" && (
+          <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">已修改</span>
+        )}
+        {tag.isDeleted && (
+          <span className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded">将删除</span>
+        )}
+      </div>
+
+      {/* 操作按钮 */}
+      <div className="flex items-center">
         {tag.isDeleted ? (
           <Button
-            size="sm"
+            size="icon"
             variant="ghost"
             onClick={(e) => {
               e.stopPropagation();
               onRestore(nodeId);
             }}
+            className="bg-transparent hover:bg-transparent opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
           >
             <Undo2 className="h-3 w-3" />
           </Button>
         ) : (
-          <>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={(e) => {
-                e.stopPropagation();
-                onStartEdit(nodeId);
-              }}
-            >
-              <Edit2 className="h-3 w-3" />
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(nodeId);
-              }}
-            >
-              <Trash2 className="h-3 w-3" />
-            </Button>
-          </>
+          <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
+            <DropdownMenuTrigger asChild>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={(e) => e.stopPropagation()}
+                className="bg-transparent hover:bg-transparent opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+              >
+                <MoreHorizontal className="h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" side="bottom" className="w-32">
+              <DropdownMenuItem onClick={handleRename}>
+                <Edit2Icon className="h-3 w-3 text-current" />
+                重命名
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={handleDeleteClick}
+                className="text-sm text-red-600 focus:text-red-600"
+              >
+                <Trash2Icon className="h-3 w-3 text-current" />
+                删除
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
       </div>
     </div>

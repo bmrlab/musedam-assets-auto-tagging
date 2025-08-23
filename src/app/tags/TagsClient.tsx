@@ -1,5 +1,7 @@
 "use client";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { AssetTag } from "@/prisma/client";
 import { Save } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -7,6 +9,7 @@ import { toast } from "sonner";
 import { fetchTeamTags, saveTagsTree } from "./actions";
 import { SyncConfirmDialog } from "./components/SyncConfirmDialog";
 import { TagColumn } from "./components/TagColumn";
+import { TagDetails } from "./components/TagDetails";
 import { TagNode } from "./types";
 
 interface TagsClientProps {
@@ -17,6 +20,7 @@ export default function TagsClient({ initialTags }: TagsClientProps) {
   const [tagsTree, setTagsTree] = useState<TagNode[]>([]);
   const [selectedLevel1Id, setSelectedLevel1Id] = useState<string | null>(null);
   const [selectedLevel2Id, setSelectedLevel2Id] = useState<string | null>(null);
+  const [selectedLevel3Id, setSelectedLevel3Id] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [nextTempId, setNextTempId] = useState(1);
@@ -34,6 +38,7 @@ export default function TagsClient({ initialTags }: TagsClientProps) {
         .sort((a, b) => a.id - b.id) // 按ID排序
         .map((tag) => ({
           id: tag.id,
+          slug: tag.slug,
           name: tag.name,
           originalName: tag.name,
           children: tag.children ? convertToTagNodes(tag.children) : [],
@@ -52,6 +57,11 @@ export default function TagsClient({ initialTags }: TagsClientProps) {
         if (firstLevel1.children.length > 0) {
           const firstLevel2 = firstLevel1.children[0];
           setSelectedLevel2Id(getNodeId(firstLevel2));
+
+          if (firstLevel2.children.length > 0) {
+            const firstLevel3 = firstLevel2.children[0];
+            setSelectedLevel3Id(getNodeId(firstLevel3));
+          }
         }
         setInitialized(true);
       }
@@ -138,6 +148,7 @@ export default function TagsClient({ initialTags }: TagsClientProps) {
   // 获取选中的节点
   const selectedLevel1 = selectedLevel1Id ? findNodeById(tagsTree, selectedLevel1Id) : null;
   const selectedLevel2 = selectedLevel2Id ? findNodeById(tagsTree, selectedLevel2Id) : null;
+  const selectedLevel3 = selectedLevel3Id ? findNodeById(tagsTree, selectedLevel3Id) : null;
 
   // 获取不同层级的标签
   const level1Tags = getVisibleTags(tagsTree);
@@ -160,6 +171,7 @@ export default function TagsClient({ initialTags }: TagsClientProps) {
     setNextTempId(nextTempId + 1);
 
     const newTag: TagNode = {
+      slug: null,
       name: "",
       verb: "create",
       children: [],
@@ -263,8 +275,12 @@ export default function TagsClient({ initialTags }: TagsClientProps) {
     if (nodeId === selectedLevel1Id) {
       setSelectedLevel1Id(null);
       setSelectedLevel2Id(null);
+      setSelectedLevel3Id(null);
     } else if (nodeId === selectedLevel2Id) {
       setSelectedLevel2Id(null);
+      setSelectedLevel3Id(null);
+    } else if (nodeId === selectedLevel3Id) {
+      setSelectedLevel3Id(null);
     }
   };
 
@@ -286,6 +302,7 @@ export default function TagsClient({ initialTags }: TagsClientProps) {
       // 保存当前选中状态
       const currentLevel1 = selectedLevel1;
       const currentLevel2 = selectedLevel2;
+      const currentLevel3 = selectedLevel3;
 
       const result = await saveTagsTree(tagsTree);
       if (result.success) {
@@ -306,13 +323,26 @@ export default function TagsClient({ initialTags }: TagsClientProps) {
                 const newLevel2 = newLevel1.children.find((tag) => tag.name === currentLevel2.name);
                 if (newLevel2) {
                   setSelectedLevel2Id(getNodeId(newLevel2));
+
+                  if (currentLevel3) {
+                    const newLevel3 = newLevel2.children.find(
+                      (tag) => tag.name === currentLevel3.name,
+                    );
+                    if (newLevel3) {
+                      setSelectedLevel3Id(getNodeId(newLevel3));
+                    } else {
+                      setSelectedLevel3Id(null);
+                    }
+                  }
                 } else {
                   setSelectedLevel2Id(null);
+                  setSelectedLevel3Id(null);
                 }
               }
             } else {
               setSelectedLevel1Id(null);
               setSelectedLevel2Id(null);
+              setSelectedLevel3Id(null);
             }
           }
         }
@@ -335,45 +365,91 @@ export default function TagsClient({ initialTags }: TagsClientProps) {
       setTagsTree(newTree);
       setSelectedLevel1Id(null);
       setSelectedLevel2Id(null);
+      setSelectedLevel3Id(null);
       setInitialized(false);
       setDefaultSelection(newTree);
     }
   };
 
-  return (
-    <div className="space-y-6">
-      {/* 操作栏 */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold">标签编辑</h1>
-          <p className="text-muted-foreground">管理三级标签体系</p>
+  // 获取当前选中的标签信息
+  const getSelectedTag = () => {
+    if (selectedLevel3) return { tag: selectedLevel3, level: 3 };
+    if (selectedLevel2) return { tag: selectedLevel2, level: 2 };
+    if (selectedLevel1) return { tag: selectedLevel1, level: 1 };
+    return null;
+  };
+
+  const TagsHeaderMenu = () => {
+    return (
+      <div className="bg-background border rounded-md p-2 flex justify-between items-center gap-3">
+        <div className="flex items-center gap-4 flex-1 relative">
+          <Input
+            type="text"
+            placeholder="搜索标签"
+            className="w-full pl-10"
+            // TODO: 实现搜索功能
+          />
+          <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
+            <svg
+              className="w-4 h-4 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
+            </svg>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <SyncConfirmDialog onSyncComplete={handleSyncComplete} />
-          <Button
-            onClick={saveChanges}
-            disabled={!hasChanges || isSaving}
-            className="flex items-center gap-2"
-          >
-            <Save className="h-4 w-4" />
-            {isSaving ? "保存中..." : "保存更改"}
+        <div className="flex items-center gap-3">
+          {/* AI自动打标签开关 */}
+          <div className="flex items-center gap-2">
+            <Switch />
+            <span className="text-sm text-gray-600">AI 自动打标签</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <SyncConfirmDialog onSyncComplete={handleSyncComplete} />
+            <Button
+              onClick={saveChanges}
+              disabled={!hasChanges || isSaving}
+              variant="default"
+              size="sm"
+            >
+              <Save className="h-4 w-4" />
+              {isSaving ? "保存中..." : "保存更改"}
+            </Button>
+          </div>
+          <Button variant="outline" size="sm">
+            <div className="w-2 h-2 bg-orange-400 rounded-full"></div>
+            AI 助手
+          </Button>
+          <Button variant="outline" size="sm">
+            批量创建
           </Button>
         </div>
       </div>
+    );
+  };
 
-      {/* 三列标签编辑区域 */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+  const TagMainColumns = () => {
+    return (
+      <div className="flex-1 bg-background border rounded-md overflow-hidden grid grid-cols-3 [&>div+div]:border-l">
         <TagColumn
-          title="一级标签"
+          title="标签组"
           tags={level1Tags}
           level={1}
           selectedId={selectedLevel1Id}
           canAdd={true}
-          emptyMessage="暂无标签"
+          emptyMessage="暂无标签组"
           onAddTag={addTag}
           onSelectTag={(nodeId) => {
             setSelectedLevel1Id(nodeId);
             setSelectedLevel2Id(null);
+            setSelectedLevel3Id(null);
           }}
           onEdit={updateTagName}
           onStartEdit={startEdit}
@@ -384,14 +460,17 @@ export default function TagsClient({ initialTags }: TagsClientProps) {
         />
 
         <TagColumn
-          title="二级标签"
+          title="标签"
           tags={level2Tags}
           level={2}
           selectedId={selectedLevel2Id}
           canAdd={!!selectedLevel1 && !selectedLevel1.isDeleted}
-          emptyMessage={!selectedLevel1 ? "请先选择一级标签" : "暂无标签"}
+          emptyMessage={!selectedLevel1 ? "请先选择标签组" : "暂无标签"}
           onAddTag={addTag}
-          onSelectTag={(nodeId) => setSelectedLevel2Id(nodeId)}
+          onSelectTag={(nodeId) => {
+            setSelectedLevel2Id(nodeId);
+            setSelectedLevel3Id(null);
+          }}
           onEdit={updateTagName}
           onStartEdit={startEdit}
           onCancelEdit={cancelEdit}
@@ -401,12 +480,14 @@ export default function TagsClient({ initialTags }: TagsClientProps) {
         />
 
         <TagColumn
-          title="三级标签"
+          title="标签"
           tags={level3Tags}
           level={3}
+          selectedId={selectedLevel3Id}
           canAdd={!!selectedLevel2 && !selectedLevel2.isDeleted}
           emptyMessage={!selectedLevel2 ? "请先选择二级标签" : "暂无标签"}
           onAddTag={addTag}
+          onSelectTag={(nodeId) => setSelectedLevel3Id(nodeId)}
           onEdit={updateTagName}
           onStartEdit={startEdit}
           onCancelEdit={cancelEdit}
@@ -414,6 +495,16 @@ export default function TagsClient({ initialTags }: TagsClientProps) {
           onRestore={restoreTag}
           getNodeId={getNodeId}
         />
+      </div>
+    );
+  };
+
+  return (
+    <div className="h-dvh min-w-[60rem] overflow-x-scroll scrollbar-thin flex flex-col items-stretch gap-4 p-4 bg-zinc-50">
+      <TagsHeaderMenu />
+      <div className="flex-1 overflow-hidden flex flex-row items-stretch gap-4">
+        <TagMainColumns />
+        <TagDetails selectedTag={getSelectedTag()} />
       </div>
     </div>
   );
