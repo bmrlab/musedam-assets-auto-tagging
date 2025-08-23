@@ -1,7 +1,7 @@
 import "server-only";
 
 import { llm } from "@/ai/provider";
-import { AssetObject, TagWithChildren } from "@/prisma/client";
+import { AssetObject, AssetObjectContentAnalysis, TagWithChildren } from "@/prisma/client";
 import { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 import { generateObject, UserModelMessage } from "ai";
 import { tagPredictionSystemPrompt } from "./prompt";
@@ -25,14 +25,6 @@ export async function predictAssetTags(
   // 构建标签结构的文本描述
   const tagStructureText = buildTagStructureText(availableTags);
 
-  // 解析asset的content字段
-  let contentData: Record<string, unknown> = {};
-  try {
-    contentData = typeof asset.content === "string" ? JSON.parse(asset.content) : asset.content;
-  } catch {
-    contentData = {};
-  }
-
   const messages: UserModelMessage[] = [
     {
       role: "user",
@@ -52,7 +44,7 @@ ${tagStructureText}`,
 文件路径：${asset.materializedPath}
 
 ## contentAnalysis信息源
-内容分析：${Object.keys(contentData).length > 0 ? JSON.stringify(contentData, null, 2) : "无有效内容数据"}
+内容分析：${(asset.content as AssetObjectContentAnalysis)?.aiDescription || "无有效内容数据"}
 
 请按照既定的Step by Step流程进行分析并输出结果。`,
     },

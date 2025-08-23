@@ -2,7 +2,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ExtractServerActionData } from "@/lib/serverAction";
-import { AssetObject } from "@/prisma/client";
+import { AssetObject, AssetObjectContentAnalysis } from "@/prisma/client";
 import { Bot, Calendar, File, Folder, Tag as TagIcon } from "lucide-react";
 import { useCallback, useState } from "react";
 import { fetchSampleAssetsAction, fetchTeamAssets } from "./actions";
@@ -158,7 +158,7 @@ export default function AssetsClient({ initialAssets }: AssetsClientProps) {
                           {/* 描述 */}
                           {asset.description && (
                             <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
-                              {asset.description}
+                              描述: {asset.description}
                             </p>
                           )}
 
@@ -177,6 +177,12 @@ export default function AssetsClient({ initialAssets }: AssetsClientProps) {
                                 ))}
                               </div>
                             </div>
+                          )}
+                          {/* 内容分析 */}
+                          {asset.content && (
+                            <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
+                              AI 解析: {(asset.content as AssetObjectContentAnalysis).aiDescription}
+                            </p>
                           )}
                         </div>
 

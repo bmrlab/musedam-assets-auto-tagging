@@ -5,4 +5,11 @@ declare module "@/prisma/client" {
   export type TagWithChildren = Pick<Tag, "id" | "name"> & {
     children?: TagWithChildren[];
   };
+
+  export type AssetObjectContentAnalysis = {
+    aiTags?: string;
+    aiTitle?: string;
+    aiDescription?: string;
+    aiDetailedDescription?: Record<string, string>[];
+  };
 }

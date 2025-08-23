@@ -26,72 +26,25 @@ async function fetchMuseDAMFolderPath({
   return result[musedamFolderId];
 }
 
-/**
- * For testing purposes.
- */
-export async function syncAssetsFromMuseDAM({
-  musedamFolderId,
+async function fetchContentAnalysisFromMuseDAM({
   team,
+  musedamAssetId,
 }: {
-  musedamFolderId?: number;
   team: {
     id: number;
     slug: string;
   };
+  musedamAssetId: number;
 }) {
   const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
-  const result = await requestMuseDAMAPI("/api/muse/search-assets", {
+  const result = await requestMuseDAMAPI("/api/muse/get-material-analysis-result", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${musedamTeamApiKey}`,
     },
-    body: {
-      parentId: musedamFolderId,
-      sort: {
-        sortName: "CREATE_TIME",
-        sortType: "DESC",
-      },
-      startPoint: 0,
-      endPoint: 40,
-    },
+    body: [musedamAssetId],
   });
-  const assets = result.assets as {
-    id: number;
-    name: string;
-    parentIds: number[];
-    description: string | null;
-    tags: { id: number; name: string }[];
-  }[];
-  for (const asset of assets) {
-    const musedamFolderId = asset.parentIds[0];
-    const folderPath = await fetchMuseDAMFolderPath({
-      team,
-      musedamFolderId,
-    });
-    // console.log(`Asset ${asset.id} is in folder ${folderPath}`);
-    const assetSlug = idToSlug("assetObject", asset.id.toString());
-    await prisma.assetObject.upsert({
-      where: {
-        teamId: team.id,
-        slug: assetSlug,
-      },
-      create: {
-        teamId: team.id,
-        slug: assetSlug,
-        name: asset.name,
-        description: asset.description || "",
-        materializedPath: folderPath,
-        tags: asset.tags.map((tag) => tag.name),
-      },
-      update: {
-        name: asset.name,
-        description: asset.description || "",
-        materializedPath: folderPath,
-        tags: asset.tags.map((tag) => tag.name),
-      },
-    });
-  }
-  return result;
+  return result[musedamAssetId];
 }
 
 /**
@@ -131,11 +84,11 @@ export async function syncSingleAssetFromMuseDAM({
   };
 
   const musedamFolderId = asset.parentIds[0];
-  const folderPath = await fetchMuseDAMFolderPath({
-    team,
-    musedamFolderId,
-  });
-
+  const [folderPath, contentAnalysis] = await Promise.all([
+    musedamFolderId ? fetchMuseDAMFolderPath({ team, musedamFolderId }) : Promise.resolve(""),
+    fetchContentAnalysisFromMuseDAM({ team, musedamAssetId }),
+  ]);
+  const tags = asset.tags.map((tag) => tag.name);
   const assetSlug = idToSlug("assetObject", asset.id.toString());
 
   // 更新或创建 asset 记录
@@ -150,15 +103,68 @@ export async function syncSingleAssetFromMuseDAM({
       name: asset.name,
       description: asset.description || "",
       materializedPath: folderPath,
-      tags: asset.tags.map((tag) => tag.name),
+      content: contentAnalysis,
+      tags,
     },
     update: {
       name: asset.name,
       description: asset.description || "",
       materializedPath: folderPath,
-      tags: asset.tags.map((tag) => tag.name),
+      content: contentAnalysis,
+      tags,
     },
   });
 
   return assetObject;
+}
+
+/**
+ * For testing purposes.
+ */
+export async function syncAssetsFromMuseDAM({
+  musedamFolderId,
+  team,
+}: {
+  musedamFolderId?: number;
+  team: {
+    id: number;
+    slug: string;
+  };
+}) {
+  const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
+  const result = await requestMuseDAMAPI("/api/muse/search-assets", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${musedamTeamApiKey}`,
+    },
+    body: {
+      parentId: musedamFolderId,
+      sort: {
+        sortName: "CREATE_TIME",
+        sortType: "DESC",
+      },
+      startPoint: 0,
+      endPoint: 40,
+    },
+  });
+  const assets = result.assets as {
+    id: number;
+    name: string;
+    parentIds: number[];
+    description: string | null;
+    tags: { id: number; name: string }[];
+  }[];
+
+  await Promise.all(
+    assets.map(async (asset) => {
+      const waitTime = Math.floor(Math.random() * 10000) + 1000; // 1-10 seconds in milliseconds
+      await new Promise((resolve) => setTimeout(resolve, waitTime));
+      await syncSingleAssetFromMuseDAM({
+        musedamAssetId: asset.id,
+        team,
+      });
+    }),
+  );
+
+  return result;
 }

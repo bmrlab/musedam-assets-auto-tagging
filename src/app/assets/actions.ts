@@ -3,7 +3,7 @@ import { withAuth } from "@/app/(auth)/withAuth";
 import { enqueueTaggingTask } from "@/app/(tagging)/queue";
 import { SourceBasedTagPredictions } from "@/app/(tagging)/types";
 import { ServerActionResult } from "@/lib/serverAction";
-import { requestMuseDAMAPI } from "@/musedam/lib";
+import { syncAssetsFromMuseDAM } from "@/musedam/assets";
 import { AssetObject } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 
@@ -106,19 +106,12 @@ export async function predictAssetTagsAction(
 }
 
 export async function fetchSampleAssetsAction(): Promise<ServerActionResult<void>> {
-  return withAuth(async () => {
-    await requestMuseDAMAPI("/api/muse/search-assets", {
-      method: "POST",
-      body: {
-        parentId: 29669,
-        sort: {
-          sortName: "CREATE_TIME",
-          sortType: "DESC",
-        },
-        startPoint: 0,
-        endPoint: 40,
-      },
+  return withAuth(async ({ team: { id: teamId } }) => {
+    const team = await prisma.team.findUniqueOrThrow({
+      where: { id: teamId },
+      select: { id: true, slug: true },
     });
+    await syncAssetsFromMuseDAM({ team });
     return {
       success: true,
       data: undefined,

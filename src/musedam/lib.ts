@@ -8,7 +8,7 @@ export async function requestMuseDAMAPI(
     headers,
   }: { method: "POST" | "GET"; body?: unknown; headers?: Record<string, string> },
 ) {
-  const response = await fetch(`https://muse-open.test.tezign.com${apiPath}`, {
+  const response = await fetch(`${process.env.MUSEDAM_API_BASE_URL}${apiPath}`, {
     method: "POST",
     body: method === "POST" ? JSON.stringify(body) : undefined,
     headers: {
