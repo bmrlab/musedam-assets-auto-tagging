@@ -6,6 +6,7 @@ CREATE TABLE "public"."AssetTag" (
     "slug" VARCHAR(64),
     "level" INTEGER NOT NULL DEFAULT 1,
     "parentId" INTEGER,
+    "extra" JSONB NOT NULL DEFAULT '{}',
     "createdAt" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMPTZ(6) NOT NULL,
 

@@ -49,6 +49,19 @@ model Membership {
   @@unique([userId, teamId])
 }
 
+model TeamConfig {
+  id     Int    @id @default(autoincrement())
+  teamId Int
+  team   Team   @relation(fields: [teamId], references: [id])
+  key    String @db.VarChar(255)
+  value  Json   @default("{}")
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  @@unique([teamId, key])
+}
+
 model AssetObject {
   id               Int    @id @default(autoincrement())
   teamId           Int
@@ -65,7 +78,7 @@ model AssetObject {
   updatedAt DateTime @updatedAt @db.Timestamptz(6)
 
   taggingQueueItems TaggingQueueItem[]
-  TaggingAuditItem  TaggingAuditItem[]
+  taggingAuditItems TaggingAuditItem[]
 }
 
 model AssetTag {
@@ -81,9 +94,9 @@ model AssetTag {
   children AssetTag[] @relation("TagHierarchy")
   extra    Json       @default("{}")
 
-  createdAt        DateTime           @default(now()) @db.Timestamptz(6)
-  updatedAt        DateTime           @updatedAt @db.Timestamptz(6)
-  TaggingAuditItem TaggingAuditItem[]
+  createdAt         DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime           @updatedAt @db.Timestamptz(6)
+  taggingAuditItems TaggingAuditItem[]
 
   // ⚠️ migration.sql 里人工添加了一条 unique 索引，在 parentId 为空的时候，需要确保 teamId,name 唯一
   //    CREATE UNIQUE INDEX "AssetTag_teamId_name_key" ON "public"."AssetTag"("teamId", "name") WHERE "parentId" IS NULL;
@@ -104,17 +117,17 @@ model TaggingQueueItem {
   id            Int                @id @default(autoincrement())
   teamId        Int
   team          Team               @relation(fields: [teamId], references: [id])
-  assetObjectId Int
-  assetObject   AssetObject        @relation(fields: [assetObjectId], references: [id])
+  assetObjectId Int?
+  assetObject   AssetObject?       @relation(fields: [assetObjectId], references: [id], onDelete: SetNull)
   status        TaggingQueueStatus
   startsAt      DateTime?          @db.Timestamptz(6)
   endsAt        DateTime?          @db.Timestamptz(6)
   result        Json               @default("{}")
   extra         Json               @default("{}")
 
-  createdAt        DateTime           @default(now()) @db.Timestamptz(6)
-  updatedAt        DateTime           @updatedAt @db.Timestamptz(6)
-  TaggingAuditItem TaggingAuditItem[]
+  createdAt         DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime           @updatedAt @db.Timestamptz(6)
+  taggingAuditItems TaggingAuditItem[]
 
   @@index([teamId, status])
 }
@@ -129,31 +142,18 @@ model TaggingAuditItem {
   id            Int                @id @default(autoincrement())
   teamId        Int
   team          Team               @relation(fields: [teamId], references: [id])
-  assetObjectId Int
-  assetObject   AssetObject        @relation(fields: [assetObjectId], references: [id])
+  assetObjectId Int?
+  assetObject   AssetObject?       @relation(fields: [assetObjectId], references: [id], onDelete: SetNull)
   status        TaggingAuditStatus
   score         Int
   tagPath       Json               @default("[]")
-  leafTagId     Int
-  leafTag       AssetTag           @relation(fields: [leafTagId], references: [id])
-  queueItemId   Int
-  queueItem     TaggingQueueItem   @relation(fields: [queueItemId], references: [id])
+  leafTagId     Int?
+  leafTag       AssetTag?          @relation(fields: [leafTagId], references: [id], onDelete: SetNull)
+  queueItemId   Int?
+  queueItem     TaggingQueueItem?  @relation(fields: [queueItemId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @db.Timestamptz(6)
 
   @@index([teamId, status])
-}
-
-model TeamConfig {
-  id     Int    @id @default(autoincrement())
-  teamId Int
-  team   Team   @relation(fields: [teamId], references: [id])
-  key    String @db.VarChar(255)
-  value  Json   @default("{}")
-
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @db.Timestamptz(6)
-
-  @@unique([teamId, key])
 }

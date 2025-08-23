@@ -96,6 +96,9 @@ ${tagStructureText}`,
     },
   ];
 
+  // 用于返回，记录在数据库里
+  const inputPrompt = messages[1].content as string;
+
   try {
     const result = await generateObject({
       // model: llm("claude-sonnet-4"),
@@ -127,7 +130,10 @@ ${tagStructureText}`,
     return {
       predictions,
       tagsWithScore,
-      extra: { usage: result.usage },
+      extra: {
+        usage: result.usage,
+        input: inputPrompt,
+      },
     };
   } catch (error) {
     console.error("AI标签预测失败:", error);

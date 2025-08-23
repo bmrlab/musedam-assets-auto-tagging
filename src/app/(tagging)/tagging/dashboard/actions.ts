@@ -219,11 +219,13 @@ export async function fetchContentTypeStats(): Promise<
       };
 
       const imageTask = recentTasks.filter(
-        (task) => getFileType(task.assetObject.name) === "image",
+        (task) => getFileType(task.assetObject?.name ?? "") === "image",
       );
-      const textTasks = recentTasks.filter((task) => getFileType(task.assetObject.name) === "text");
+      const textTasks = recentTasks.filter(
+        (task) => getFileType(task.assetObject?.name ?? "") === "text",
+      );
       const videoTasks = recentTasks.filter(
-        (task) => getFileType(task.assetObject.name) === "video",
+        (task) => getFileType(task.assetObject?.name ?? "") === "video",
       );
 
       const calculateAvgTime = (tasks: typeof recentTasks) => {

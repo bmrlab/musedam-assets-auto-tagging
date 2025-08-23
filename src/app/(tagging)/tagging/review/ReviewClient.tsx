@@ -131,27 +131,6 @@ export default function ReviewClient({ initialStats, initialAssets }: ReviewClie
     }
   };
 
-  const buildTagPath = (auditItem: AssetWithAuditItems["TaggingAuditItem"][0]) => {
-    const path: string[] = [];
-    const currentTag = auditItem.leafTag;
-
-    // 从叶子节点向上构建路径
-    path.unshift(currentTag.name);
-
-    if (currentTag.parent) {
-      path.unshift(currentTag.parent.name);
-      if (currentTag.parent.parent) {
-        path.unshift(currentTag.parent.parent.name);
-      }
-    }
-
-    return path;
-  };
-
-  const formatTagPath = (tagPath: string[]) => {
-    return tagPath.join(" > ");
-  };
-
   return (
     <div className="space-y-6">
       {/* 标题和刷新按钮 */}
@@ -360,7 +339,7 @@ export default function ReviewClient({ initialStats, initialAssets }: ReviewClie
                     </div>
 
                     {/* AI推荐标签 */}
-                    {asset.TaggingAuditItem.length > 0 && (
+                    {asset.taggingAuditItems.length > 0 && (
                       <div>
                         <div className="flex items-center gap-2 mb-3">
                           <div className="flex items-center gap-1">
@@ -371,73 +350,70 @@ export default function ReviewClient({ initialStats, initialAssets }: ReviewClie
                         </div>
 
                         <div className="space-y-2">
-                          {asset.TaggingAuditItem.map((auditItem) => {
-                            const tagPath = buildTagPath(auditItem);
-                            return (
-                              <div
-                                key={auditItem.id}
-                                className="flex items-center justify-between p-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors"
-                              >
-                                <div className="flex-1">
-                                  <div className="font-medium text-sm">
-                                    {formatTagPath(tagPath)}
-                                  </div>
-                                  <div className="text-xs text-muted-foreground mt-1">
-                                    {tagPath.length}级标签 • ID: {auditItem.leafTagId}
-                                  </div>
+                          {asset.taggingAuditItems.map((auditItem) => (
+                            <div
+                              key={auditItem.id}
+                              className="flex items-center justify-between p-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors"
+                            >
+                              <div className="flex-1">
+                                <div className="font-medium text-sm">
+                                  {auditItem.tagPath.join(" > ")}
                                 </div>
-
-                                <div className="flex items-center gap-3">
-                                  {/* 置信度条 */}
-                                  <div className="flex items-center gap-2">
-                                    <div className="w-16 h-2 bg-muted-foreground/20 rounded-full overflow-hidden">
-                                      <div
-                                        className={`h-full rounded-full transition-all ${
-                                          auditItem.score >= 80
-                                            ? "bg-blue-500"
-                                            : auditItem.score >= 60
-                                              ? "bg-green-500"
-                                              : "bg-orange-500"
-                                        }`}
-                                        style={{ width: `${auditItem.score}%` }}
-                                      />
-                                    </div>
-                                    <span className="text-xs text-muted-foreground">
-                                      {auditItem.score}%
-                                    </span>
-                                  </div>
-
-                                  {/* 置信度标签 */}
-                                  <span
-                                    className={`text-xs px-2 py-1 rounded-full font-medium ${getConfidenceColor(
-                                      auditItem.score,
-                                    )} bg-current/10`}
-                                  >
-                                    {getConfidenceLabel(auditItem.score)}
-                                  </span>
-
-                                  {/* 状态 */}
-                                  <span
-                                    className={`text-xs font-medium ${getStatusColor(auditItem.status)}`}
-                                  >
-                                    {getStatusText(auditItem.status)}
-                                  </span>
-
-                                  {/* 操作按钮 */}
-                                  {auditItem.status === "pending" && (
-                                    <div className="flex gap-1">
-                                      <Button size="sm" variant="outline" className="h-7 px-2">
-                                        <CheckCircle className="h-3 w-3" />
-                                      </Button>
-                                      <Button size="sm" variant="outline" className="h-7 px-2">
-                                        <XCircle className="h-3 w-3" />
-                                      </Button>
-                                    </div>
-                                  )}
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  {auditItem.tagPath.length}级标签 • ID: {auditItem.leafTagId}
                                 </div>
                               </div>
-                            );
-                          })}
+
+                              <div className="flex items-center gap-3">
+                                {/* 置信度条 */}
+                                <div className="flex items-center gap-2">
+                                  <div className="w-16 h-2 bg-muted-foreground/20 rounded-full overflow-hidden">
+                                    <div
+                                      className={`h-full rounded-full transition-all ${
+                                        auditItem.score >= 80
+                                          ? "bg-blue-500"
+                                          : auditItem.score >= 60
+                                            ? "bg-green-500"
+                                            : "bg-orange-500"
+                                      }`}
+                                      style={{ width: `${auditItem.score}%` }}
+                                    />
+                                  </div>
+                                  <span className="text-xs text-muted-foreground">
+                                    {auditItem.score}%
+                                  </span>
+                                </div>
+
+                                {/* 置信度标签 */}
+                                <span
+                                  className={`text-xs px-2 py-1 rounded-full font-medium ${getConfidenceColor(
+                                    auditItem.score,
+                                  )} bg-current/10`}
+                                >
+                                  {getConfidenceLabel(auditItem.score)}
+                                </span>
+
+                                {/* 状态 */}
+                                <span
+                                  className={`text-xs font-medium ${getStatusColor(auditItem.status)}`}
+                                >
+                                  {getStatusText(auditItem.status)}
+                                </span>
+
+                                {/* 操作按钮 */}
+                                {auditItem.status === "pending" && (
+                                  <div className="flex gap-1">
+                                    <Button size="sm" variant="outline" className="h-7 px-2">
+                                      <CheckCircle className="h-3 w-3" />
+                                    </Button>
+                                    <Button size="sm" variant="outline" className="h-7 px-2">
+                                      <XCircle className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     )}

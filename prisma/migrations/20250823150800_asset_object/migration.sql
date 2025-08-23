@@ -8,6 +8,7 @@ CREATE TABLE "public"."AssetObject" (
     "description" TEXT NOT NULL,
     "tags" JSONB NOT NULL DEFAULT '[]',
     "content" JSONB NOT NULL DEFAULT '{}',
+    "extra" JSONB NOT NULL DEFAULT '{}',
     "createdAt" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMPTZ(6) NOT NULL,
 

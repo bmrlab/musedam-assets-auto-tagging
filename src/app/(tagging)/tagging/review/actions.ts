@@ -13,23 +13,9 @@ export interface ReviewStats {
   rejected: number;
 }
 
-export interface AssetWithAuditItems extends AssetObject {
-  TaggingAuditItem: (TaggingAuditItem & {
-    leafTag: {
-      id: number;
-      name: string;
-      level: number;
-      parent?: {
-        id: number;
-        name: string;
-        parent?: {
-          id: number;
-          name: string;
-        };
-      } | null;
-    };
-  })[];
-}
+export type AssetWithAuditItems = AssetObject & {
+  taggingAuditItems: (Omit<TaggingAuditItem, "tagPath"> & { tagPath: string[] })[];
+};
 
 export async function fetchReviewStats(): Promise<
   ServerActionResult<{
@@ -103,13 +89,13 @@ export async function fetchAssetsWithAuditItems(
       if (confidenceFilter) {
         switch (confidenceFilter) {
           case "high":
-            auditItemWhere.confidence = { gte: 0.8 };
+            auditItemWhere.score = { gte: 80 };
             break;
           case "medium":
-            auditItemWhere.confidence = { gte: 0.6, lt: 0.8 };
+            auditItemWhere.score = { gte: 60, lt: 80 };
             break;
           case "low":
-            auditItemWhere.confidence = { lt: 0.6 };
+            auditItemWhere.score = { lt: 60 };
             break;
         }
       }
@@ -154,19 +140,7 @@ export async function fetchAssetsWithAuditItems(
         prisma.assetObject.findMany({
           where: assetWhere,
           include: {
-            TaggingAuditItem: {
-              where: auditItemWhere,
-              include: {
-                leafTag: {
-                  include: {
-                    parent: {
-                      include: {
-                        parent: true,
-                      },
-                    },
-                  },
-                },
-              },
+            taggingAuditItems: {
               orderBy: [{ score: "desc" }, { createdAt: "desc" }],
             },
           },
