@@ -132,7 +132,7 @@ model TaggingAuditItem {
   assetObjectId Int
   assetObject   AssetObject        @relation(fields: [assetObjectId], references: [id])
   status        TaggingAuditStatus
-  confidence    Float
+  score         Int
   tagPath       Json               @default("[]")
   leafTagId     Int
   leafTag       AssetTag           @relation(fields: [leafTagId], references: [id])

@@ -100,8 +100,8 @@ export default function ReviewClient({ initialStats, initialAssets }: ReviewClie
   };
 
   const getConfidenceLabel = (confidence: number) => {
-    if (confidence >= 0.8) return "精准";
-    if (confidence >= 0.6) return "平衡";
+    if (confidence >= 80) return "精准";
+    if (confidence >= 60) return "平衡";
     return "宽泛";
   };
 
@@ -393,27 +393,27 @@ export default function ReviewClient({ initialStats, initialAssets }: ReviewClie
                                     <div className="w-16 h-2 bg-muted-foreground/20 rounded-full overflow-hidden">
                                       <div
                                         className={`h-full rounded-full transition-all ${
-                                          auditItem.confidence >= 0.8
+                                          auditItem.score >= 80
                                             ? "bg-blue-500"
-                                            : auditItem.confidence >= 0.6
+                                            : auditItem.score >= 60
                                               ? "bg-green-500"
                                               : "bg-orange-500"
                                         }`}
-                                        style={{ width: `${auditItem.confidence * 100}%` }}
+                                        style={{ width: `${auditItem.score}%` }}
                                       />
                                     </div>
                                     <span className="text-xs text-muted-foreground">
-                                      {Math.round(auditItem.confidence * 100)}%
+                                      {auditItem.score}%
                                     </span>
                                   </div>
 
                                   {/* 置信度标签 */}
                                   <span
                                     className={`text-xs px-2 py-1 rounded-full font-medium ${getConfidenceColor(
-                                      auditItem.confidence,
+                                      auditItem.score,
                                     )} bg-current/10`}
                                   >
-                                    {getConfidenceLabel(auditItem.confidence)}
+                                    {getConfidenceLabel(auditItem.score)}
                                   </span>
 
                                   {/* 状态 */}

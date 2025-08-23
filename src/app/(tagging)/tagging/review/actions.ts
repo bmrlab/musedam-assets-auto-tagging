@@ -167,7 +167,7 @@ export async function fetchAssetsWithAuditItems(
                   },
                 },
               },
-              orderBy: [{ confidence: "desc" }, { createdAt: "desc" }],
+              orderBy: [{ score: "desc" }, { createdAt: "desc" }],
             },
           },
           orderBy: { createdAt: "desc" },

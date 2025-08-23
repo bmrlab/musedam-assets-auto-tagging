@@ -6,7 +6,7 @@ import { InputJsonObject, InputJsonValue, JsonObject } from "@/prisma/client/run
 import prisma from "@/prisma/prisma";
 import { waitUntil } from "@vercel/functions";
 import { predictAssetTags } from "./predict";
-import { SourceBasedTagPredictions } from "./types";
+import { SourceBasedTagPredictions, TagWithScore } from "./types";
 import { fetchTagsTree } from "./utils";
 
 export async function enqueueTaggingTask({
@@ -31,13 +31,16 @@ export async function enqueueTaggingTask({
   waitUntil(
     (async () => {
       try {
-        const { predictions, extra } = await predictAssetTags(assetObject, tagsTree);
+        const { predictions, tagsWithScore, extra } = await predictAssetTags(assetObject, tagsTree);
         const updatedQueueItem = await prisma.taggingQueueItem.update({
           where: { id: taggingQueueItem.id },
           data: {
             status: "completed",
             endsAt: new Date(),
-            result: { predictions: predictions as unknown as InputJsonObject },
+            result: {
+              predictions: predictions as unknown as InputJsonObject,
+              tagsWithScore: tagsWithScore as unknown as InputJsonObject,
+            },
             extra: { ...(taggingQueueItem.extra as JsonObject), ...extra },
           },
         });
@@ -45,6 +48,7 @@ export async function enqueueTaggingTask({
           assetObject,
           taggingQueueItem: updatedQueueItem,
           predictions,
+          tagsWithScore,
         }).catch(() => {
           // 忽略 error，createAuditItems 里自己会处理
         });
@@ -72,26 +76,27 @@ export async function enqueueTaggingTask({
 async function createAuditItems({
   assetObject,
   taggingQueueItem,
-  predictions,
+  // predictions,
+  tagsWithScore,
 }: {
   assetObject: AssetObject;
   taggingQueueItem: TaggingQueueItem;
   predictions: SourceBasedTagPredictions;
+  tagsWithScore: TagWithScore[];
 }) {
   try {
     const data: Prisma.TaggingAuditItemCreateManyInput[] = [];
     // TODO: 要做一下加权，暂时先跳过
-    for (const prediction of predictions) {
-      for (const tagPrediction of prediction.tags) {
-        data.push({
-          assetObjectId: assetObject.id,
-          teamId: assetObject.teamId,
-          status: "pending",
-          confidence: tagPrediction.confidence,
-          queueItemId: taggingQueueItem.id,
-          leafTagId: tagPrediction.leafTagId,
-        });
-      }
+    for (const { leafTagId, tagPath, score } of tagsWithScore) {
+      data.push({
+        queueItemId: taggingQueueItem.id,
+        assetObjectId: assetObject.id,
+        teamId: assetObject.teamId,
+        status: "pending",
+        score,
+        tagPath,
+        leafTagId,
+      });
     }
     await prisma.taggingAuditItem.createMany({
       data,

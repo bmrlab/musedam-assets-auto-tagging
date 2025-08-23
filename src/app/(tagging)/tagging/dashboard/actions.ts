@@ -264,26 +264,6 @@ export async function fetchContentTypeStats(): Promise<
   });
 }
 
-export async function createTestReviewData(): Promise<ServerActionResult<void>> {
-  return withAuth(async ({ team: { id: teamId } }) => {
-    try {
-      const { seedTestReviewData } = await import("../review/seed-test-data");
-      await seedTestReviewData(teamId);
-
-      return {
-        success: true,
-        data: undefined,
-      };
-    } catch (error) {
-      console.error("创建测试数据失败:", error);
-      return {
-        success: false,
-        message: "创建测试数据失败",
-      };
-    }
-  });
-}
-
 export async function retryFailedTask(taskId: number): Promise<ServerActionResult<void>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
