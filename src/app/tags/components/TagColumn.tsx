@@ -40,7 +40,7 @@ export function TagColumn({
   getNodeId,
   className,
 }: TagColumnProps) {
-  const activeTags = tags.filter((tag) => !tag.isDeleted);
+  // const activeTags = tags.filter((tag) => !tag.isDeleted);
   const totalCount = tags.length;
 
   return (

@@ -67,10 +67,10 @@ export function TagItem({
     onCancelEdit(nodeId);
   };
 
-  const handleEditClick = () => {
-    setDropdownOpen(false);
-    onStartEdit(nodeId);
-  };
+  // const handleEditClick = () => {
+  //   setDropdownOpen(false);
+  //   onStartEdit(nodeId);
+  // };
 
   const handleDeleteClick = () => {
     setDropdownOpen(false);
