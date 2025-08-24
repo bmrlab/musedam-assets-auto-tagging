@@ -1,7 +1,7 @@
 "use server";
 import { withAuth } from "@/app/(auth)/withAuth";
 import { ServerActionResult } from "@/lib/serverAction";
-import { AssetObject, TaggingAuditItem } from "@/prisma/client";
+import { AssetObject, Prisma, TaggingAuditItem } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 
 type TaggingAuditStatus = "pending" | "approved" | "rejected";
@@ -62,7 +62,7 @@ export async function fetchReviewStats(): Promise<
 
 export async function fetchAssetsWithAuditItems(
   page: number = 1,
-  limit: number = 20,
+  limit: number = 10,
   statusFilter?: TaggingAuditStatus,
   confidenceFilter?: "high" | "medium" | "low",
   searchQuery?: string,
@@ -77,9 +77,11 @@ export async function fetchAssetsWithAuditItems(
     try {
       const offset = (page - 1) * limit;
 
-      // 构建查询条件
-      const auditItemWhere: Record<string, unknown> = {
+      const auditItemWhere: Prisma.TaggingAuditItemWhereInput = {
         teamId,
+        assetObjectId: {
+          not: null,
+        },
       };
 
       if (statusFilter) {
@@ -90,26 +92,38 @@ export async function fetchAssetsWithAuditItems(
         switch (confidenceFilter) {
           case "high":
             auditItemWhere.score = { gte: 80 };
-            break;
           case "medium":
-            auditItemWhere.score = { gte: 60, lt: 80 };
-            break;
+            auditItemWhere.score = { gte: 70, lt: 80 };
           case "low":
-            auditItemWhere.score = { lt: 60 };
-            break;
+            auditItemWhere.score = { lt: 70 };
         }
       }
 
-      // 先获取有审核项的资产ID
-      const auditItems = await prisma.taggingAuditItem.findMany({
-        where: auditItemWhere,
-        select: {
-          assetObjectId: true,
-        },
-        distinct: ["assetObjectId"],
-      });
+      if (searchQuery) {
+        auditItemWhere.assetObject = {
+          OR: [
+            { name: { contains: searchQuery, mode: "insensitive" } },
+            { description: { contains: searchQuery, mode: "insensitive" } },
+            { materializedPath: { contains: searchQuery, mode: "insensitive" } },
+          ],
+        };
+      }
 
-      const assetIds = auditItems.map((item) => item.assetObjectId);
+      // 先获取有审核项的资产ID
+      const assetIds = (
+        await prisma.taggingAuditItem.findMany({
+          where: auditItemWhere,
+          select: {
+            assetObjectId: true,
+          },
+          distinct: ["assetObjectId"],
+          orderBy: {
+            id: "desc",
+          },
+          skip: offset,
+          take: limit,
+        })
+      ).map((item) => item.assetObjectId!);
 
       if (assetIds.length === 0) {
         return {
@@ -122,34 +136,18 @@ export async function fetchAssetsWithAuditItems(
         };
       }
 
-      // 构建资产查询条件
-      const assetWhere: Record<string, unknown> = {
-        teamId,
-        id: { in: assetIds },
-      };
-
-      if (searchQuery) {
-        assetWhere.OR = [
-          { name: { contains: searchQuery, mode: "insensitive" } },
-          { description: { contains: searchQuery, mode: "insensitive" } },
-          { materializedPath: { contains: searchQuery, mode: "insensitive" } },
-        ];
-      }
-
+      // assetIds 已经过滤好，也限制了数量，这里可以直接使用了
       const [assets, totalCount] = await Promise.all([
         prisma.assetObject.findMany({
-          where: assetWhere,
+          where: { teamId, id: { in: assetIds } },
           include: {
             taggingAuditItems: {
               orderBy: [{ score: "desc" }, { createdAt: "desc" }],
             },
           },
-          orderBy: { createdAt: "desc" },
-          skip: offset,
-          take: limit,
         }),
         prisma.assetObject.count({
-          where: assetWhere,
+          where: { teamId, id: { in: assetIds } },
         }),
       ]);
 

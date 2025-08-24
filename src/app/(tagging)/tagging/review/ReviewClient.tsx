@@ -54,13 +54,12 @@ export default function ReviewClient({ initialStats, initialAssets }: ReviewClie
         fetchReviewStats(),
         fetchAssetsWithAuditItems(
           1,
-          20,
+          5,
           statusFilter === "all" ? undefined : statusFilter,
           confidenceFilter === "all" ? undefined : confidenceFilter,
           searchQuery || undefined,
         ),
       ]);
-
       if (statsResult.success) {
         setStats(statsResult.data.stats);
       }

@@ -13,7 +13,7 @@ export default async function ReviewPage() {
 
   const [statsResult, assetsResult] = await Promise.all([
     fetchReviewStats(),
-    fetchAssetsWithAuditItems(1, 20),
+    fetchAssetsWithAuditItems(1, 5),
   ]);
 
   if (!statsResult.success) {
