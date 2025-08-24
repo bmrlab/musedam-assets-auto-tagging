@@ -1,64 +1,12 @@
 "use server";
 import { withAuth } from "@/app/(auth)/withAuth";
 import { ServerActionResult } from "@/lib/serverAction";
-import { AssetObject, Prisma, TaggingAuditItem } from "@/prisma/client";
+import { AssetObject, Prisma, TaggingAuditItem, TaggingAuditStatus } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
-
-type TaggingAuditStatus = "pending" | "approved" | "rejected";
-
-export interface ReviewStats {
-  total: number;
-  pending: number;
-  approved: number;
-  rejected: number;
-}
 
 export type AssetWithAuditItems = AssetObject & {
   taggingAuditItems: (Omit<TaggingAuditItem, "tagPath"> & { tagPath: string[] })[];
 };
-
-export async function fetchReviewStats(): Promise<
-  ServerActionResult<{
-    stats: ReviewStats;
-  }>
-> {
-  return withAuth(async ({ team: { id: teamId } }) => {
-    try {
-      const [total, pending, approved, rejected] = await Promise.all([
-        prisma.taggingAuditItem.count({
-          where: { teamId },
-        }),
-        prisma.taggingAuditItem.count({
-          where: { teamId, status: "pending" },
-        }),
-        prisma.taggingAuditItem.count({
-          where: { teamId, status: "approved" },
-        }),
-        prisma.taggingAuditItem.count({
-          where: { teamId, status: "rejected" },
-        }),
-      ]);
-
-      const stats: ReviewStats = {
-        total,
-        pending,
-        approved,
-        rejected,
-      };
-
-      return {
-        success: true,
-        data: { stats },
-      };
-    } catch (error) {
-      console.error("获取审核统计失败:", error);
-      return {
-        success: false,
-        message: "获取统计数据失败",
-      };
-    }
-  });
-}
 
 export async function fetchAssetsWithAuditItems(
   page: number = 1,
