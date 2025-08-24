@@ -13,6 +13,13 @@ declare module "@/prisma/client" {
     aiDetailedDescription?: Record<string, string>[];
   };
 
+  // typeof assetObject.tags
+  export type AssetObjectTags = Array<{
+    tagId?: number;
+    tagSlug: string;
+    tagPath: string[];
+  }>;
+
   export type AssetObjectExtra = Partial<{
     thumbnailAccessUrl: string;
   }>;

@@ -1,4 +1,5 @@
 import { idToSlug } from "@/lib/slug";
+import { AssetObjectTags } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 import { retrieveTeamCredentials } from "./apiKey";
 import { requestMuseDAMAPI } from "./lib";
@@ -47,6 +48,37 @@ async function fetchContentAnalysisFromMuseDAM({
   return result[musedamAssetId];
 }
 
+// build AssetObjectTags from tags response from musedam
+async function buildAssetObjectTags(
+  tags: { id: number; name: string }[],
+): Promise<AssetObjectTags> {
+  const tagSlugs = tags.map(({ id }) => idToSlug("assetTag", id.toString()));
+  const fields = { id: true, slug: true, name: true };
+  const assetTags = await prisma.assetTag.findMany({
+    where: {
+      slug: { in: tagSlugs },
+    },
+    select: {
+      ...fields,
+      parent: {
+        select: {
+          ...fields,
+          parent: {
+            select: { ...fields },
+          },
+        },
+      },
+    },
+  });
+  return assetTags.map((tag) => ({
+    tagId: tag.id,
+    tagSlug: tag.slug!, // 因为有 where { slug }，这里不可能为空
+    tagPath: [tag.parent?.parent?.name, tag.parent?.name, tag.name].filter(
+      (item) => item !== undefined,
+    ),
+  }));
+}
+
 /**
  * 根据单个 MuseDAM asset ID 获取素材详情并同步到数据库
  */
@@ -85,11 +117,11 @@ export async function syncSingleAssetFromMuseDAM({
   };
 
   const musedamFolderId = asset.parentIds[0];
-  const [folderPath, contentAnalysis] = await Promise.all([
+  const [folderPath, contentAnalysis, tags] = await Promise.all([
     musedamFolderId ? fetchMuseDAMFolderPath({ team, musedamFolderId }) : Promise.resolve(""),
     fetchContentAnalysisFromMuseDAM({ team, musedamAssetId }),
+    buildAssetObjectTags(asset.tags),
   ]);
-  const tags = asset.tags.map((tag) => tag.name);
   const assetSlug = idToSlug("assetObject", asset.id.toString());
 
   // 更新或创建 asset 记录
