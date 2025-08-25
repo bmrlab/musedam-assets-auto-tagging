@@ -7,6 +7,7 @@ AI打标审核页面是MuseDAM自动打标系统的核心功能之一，用于�
 ## 功能特性
 
 ### 📊 统计面板
+
 - **全部状态统计**: 显示所有审核项的总数
 - **待审核**: 需要人工确认的标签预测
 - **已采纳**: 用户确认正确的标签
@@ -14,6 +15,7 @@ AI打标审核页面是MuseDAM自动打标系统的核心功能之一，用于�
 - **未匹配**: 无法匹配到标签体系的预测
 
 ### 🔍 筛选功能
+
 - **状态筛选**: 按审核状态过滤 (全部/待审核/已采纳/已调整)
 - **置信度筛选**: 按AI预测的置信度过滤
   - 精准 (≥80%): 高置信度预测
@@ -23,6 +25,7 @@ AI打标审核页面是MuseDAM自动打标系统的核心功能之一，用于�
 - **搜索**: 支持按文件名、描述和路径搜索
 
 ### 📋 资产展示
+
 - **资产信息**: 显示文件名、路径、创建时间等基本信息
 - **现有标签**: 显示资产当前已有的标签
 - **AI推荐标签**: 展示AI预测的标签及其详细信息
@@ -32,6 +35,7 @@ AI打标审核页面是MuseDAM自动打标系统的核心功能之一，用于�
   - 审核状态: 当前的审核状态
 
 ### ⚙️ 操作功能
+
 - **单个审核**: 对每个标签预测进行确认或拒绝 (TODO)
 - **批量操作**: 批量采纳或拒绝标签 (TODO)
 - **标签管理**: 添加新标签、覆盖现有标签 (TODO)
@@ -39,6 +43,7 @@ AI打标审核页面是MuseDAM自动打标系统的核心功能之一，用于�
 ## 数据流程
 
 ### 1. 标签预测生成
+
 ```
 AssetObject → AI预测 → TaggingQueueItem → TaggingAuditItem
 ```
@@ -52,7 +57,9 @@ AssetObject → AI预测 → TaggingQueueItem → TaggingAuditItem
    - 叶子标签ID
 
 ### 2. 审核项创建
+
 每个AI预测会创建一个`TaggingAuditItem`记录：
+
 - `confidence`: 0-1之间的置信度分数
 - `tagPath`: JSON数组，存储完整标签路径
 - `leafTagId`: 最终标签的数据库ID
@@ -60,17 +67,18 @@ AssetObject → AI预测 → TaggingQueueItem → TaggingAuditItem
 - `queueItemId`: 关联的队列项ID
 
 ### 3. 按资产聚合显示
+
 审核页面按`AssetObject`分组显示所有相关的审核项，方便用户一次性审核一个资产的所有标签预测。
 
 ## 技术实现
 
 ### Server Actions
+
 - `fetchReviewStats()`: 获取审核统计数据
 - `fetchAssetsWithAuditItems()`: 获取带审核项的资产列表
-- `updateAuditItemStatus()`: 更新单个审核项状态
-- `batchUpdateAuditItemStatus()`: 批量更新审核项状态
 
 ### 数据结构
+
 ```typescript
 interface AssetWithAuditItems extends AssetObject {
   TaggingAuditItem: (TaggingAuditItem & {
@@ -85,6 +93,7 @@ interface AssetWithAuditItems extends AssetObject {
 ```
 
 ### 组件架构
+
 ```
 ReviewPage (Server Component)
 └── ReviewClient (Client Component)
@@ -97,17 +106,21 @@ ReviewPage (Server Component)
 ## 测试数据
 
 ### 创建测试数据
+
 在Dashboard页面点击"创建测试数据"按钮，会自动生成：
+
 - 3层标签体系 (媒体类型、项目分类、颜色等)
 - 3个示例资产对象
 - 对应的队列项和审核项
 
 ### 测试数据内容
+
 1. **产品发布会海报**: 包含多个待审核标签
 2. **运动鞋户外摄影**: 包含已审核的标签
 3. **移动应用界面设计**: 包含设计相关标签
 
 ### 清理测试数据
+
 ```typescript
 import { cleanupTestReviewData } from "./seed-test-data";
 await cleanupTestReviewData(teamId);
@@ -116,21 +129,25 @@ await cleanupTestReviewData(teamId);
 ## 置信度评分系统
 
 ### 精准区间 (0.80-1.00) - 蓝色
+
 - 直接匹配关键词
 - 上下文明确支持
 - 无歧义性
 
 ### 平衡区间 (0.70-0.79) - 绿色
+
 - 合理推断得出
 - 较强支持证据
 - 轻微歧义但最优
 
 ### 宽泛区间 (0.60-0.69) - 黄色/橙色
+
 - 弱关联推测
 - 有限证据支持
 - 存在其他可能选择
 
 ### 低置信度 (<0.60) - 红色
+
 - 几乎无关联
 - 高度歧义
 - 信息严重不足

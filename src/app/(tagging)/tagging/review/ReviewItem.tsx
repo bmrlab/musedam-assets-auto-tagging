@@ -1,11 +1,31 @@
 "use client";
 import { Button } from "@/components/ui/button";
 import { AssetObjectExtra, AssetObjectTags, TaggingAuditStatus } from "@/prisma/client";
-import { CheckCircle, DotIcon, Folder, Tag as TagIcon, XCircle } from "lucide-react";
+import { CheckCircle, DotIcon, Folder, Loader2Icon, Tag as TagIcon, XCircle } from "lucide-react";
 import Image from "next/image";
-import { AssetWithAuditItems } from "./actions";
+import { useCallback, useState } from "react";
+import { approveAuditItemsAction, AssetWithAuditItems } from "./actions";
 
 export function ReviewItem({ asset }: { asset: AssetWithAuditItems }) {
+  const [loading, setLoading] = useState(false);
+
+  const approveAuditItems = useCallback(
+    async ({ append }: { append: boolean }) => {
+      setLoading(true);
+      try {
+        await approveAuditItemsAction({
+          assetWithAuditItems: asset,
+          append,
+        });
+      } catch (error) {
+        console.log(error);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [asset],
+  );
+
   const getThumbnailUrl = (asset: AssetWithAuditItems) => {
     const extra = asset.extra as AssetObjectExtra | null;
     return extra?.thumbnailAccessUrl;
@@ -86,24 +106,34 @@ export function ReviewItem({ asset }: { asset: AssetWithAuditItems }) {
           <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
             <span>{(asset.extra as AssetObjectExtra).extension?.toUpperCase()}</span>
             <DotIcon className="size-3" />
-            <span>{(asset.extra as AssetObjectExtra).size}</span>
+            <span>{(asset.extra as AssetObjectExtra).size?.toLocaleString()} Bytes</span>
             <DotIcon className="size-3" />
             {/* TODO: 这里应该是发起打标的时间，需要优化下 */}
             <span>{formatDate(asset.taggingAuditItems[0].createdAt)}</span>
           </div>
         </div>
 
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm">
-            添加
-          </Button>
-          <Button variant="outline" size="sm">
-            置盖
-          </Button>
-          <Button variant="outline" size="sm">
-            拒绝
-          </Button>
-        </div>
+        {loading ? (
+          <div>
+            <Loader2Icon className="size-4 animate-spin" />
+          </div>
+        ) : (
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => approveAuditItems({ append: true })}>
+              添加
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => approveAuditItems({ append: false })}
+            >
+              置盖
+            </Button>
+            <Button variant="outline" size="sm">
+              拒绝
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* 标签信息 */}

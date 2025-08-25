@@ -38,7 +38,7 @@ async function fetchContentAnalysisFromMuseDAM({
   musedamAssetId: number;
 }) {
   const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
-  const result = await requestMuseDAMAPI("/api/muse/get-material-analysis-result", {
+  const result = await requestMuseDAMAPI("/api/muse/get-asset-analysis-result", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${musedamTeamApiKey}`,
@@ -152,6 +152,38 @@ export async function syncSingleAssetFromMuseDAM({
 
   return assetObject;
 }
+
+export async function setAssetTagsToMuseDAM({
+  musedamAssetId,
+  musedamTagIds,
+  append,
+  team,
+}: {
+  musedamAssetId: number;
+  musedamTagIds: number[];
+  append: boolean;
+  team: {
+    id: number;
+    slug: string;
+  };
+}) {
+  const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
+  const result = await requestMuseDAMAPI("/api/muse/set-assets-tags", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${musedamTeamApiKey}`,
+    },
+    body: {
+      assetIds: [musedamAssetId],
+      tagIds: musedamTagIds,
+      remove: !append,
+    },
+  });
+  // console.log(musedamAssetId, result);
+  return result;
+}
+
+// setting-assets-tags
 
 /**
  * For testing purposes.

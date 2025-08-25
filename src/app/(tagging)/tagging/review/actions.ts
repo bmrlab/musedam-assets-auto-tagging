@@ -1,6 +1,8 @@
 "use server";
 import { withAuth } from "@/app/(auth)/withAuth";
 import { ServerActionResult } from "@/lib/serverAction";
+import { slugToId } from "@/lib/slug";
+import { setAssetTagsToMuseDAM, syncSingleAssetFromMuseDAM } from "@/musedam/assets";
 import { AssetObject, Prisma, TaggingAuditItem, TaggingAuditStatus } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 
@@ -119,66 +121,51 @@ export async function fetchAssetsWithAuditItems(
   });
 }
 
-export async function updateAuditItemStatus(
-  auditItemId: number,
-  status: TaggingAuditStatus,
-): Promise<ServerActionResult<object>> {
+export async function approveAuditItemsAction({
+  assetWithAuditItems,
+  append = true,
+}: {
+  assetWithAuditItems: AssetWithAuditItems;
+  append?: boolean;
+}): Promise<ServerActionResult<void>> {
   return withAuth(async ({ team: { id: teamId } }) => {
-    try {
-      const auditItem = await prisma.taggingAuditItem.findFirst({
-        where: { id: auditItemId, teamId },
-      });
+    const team = await prisma.team.findUniqueOrThrow({
+      where: { id: teamId },
+      select: { id: true, slug: true },
+    });
 
-      if (!auditItem) {
-        return {
-          success: false,
-          message: "审核项不存在或无权限操作",
-        };
-      }
-
-      await prisma.taggingAuditItem.update({
-        where: { id: auditItemId },
-        data: { status },
-      });
-
-      return {
-        success: true,
-        data: {},
-      };
-    } catch (error) {
-      console.error("更新审核状态失败:", error);
-      return {
-        success: false,
-        message: "更新状态失败",
-      };
-    }
-  });
-}
-
-export async function batchUpdateAuditItemStatus(
-  auditItemIds: number[],
-  status: TaggingAuditStatus,
-): Promise<ServerActionResult<object>> {
-  return withAuth(async ({ team: { id: teamId } }) => {
-    try {
-      await prisma.taggingAuditItem.updateMany({
-        where: {
-          id: { in: auditItemIds },
-          teamId,
+    const musedamAssetId = parseInt(slugToId("assetObject", assetWithAuditItems.slug));
+    const assetTags = await prisma.assetTag.findMany({
+      where: {
+        id: {
+          in: assetWithAuditItems.taggingAuditItems
+            .filter((item) => item.leafTagId)
+            .map((item) => item.leafTagId!),
         },
-        data: { status },
-      });
+        slug: {
+          not: null,
+        },
+      },
+      select: { id: true, slug: true },
+    });
 
-      return {
-        success: true,
-        data: {},
-      };
-    } catch (error) {
-      console.error("批量更新审核状态失败:", error);
-      return {
-        success: false,
-        message: "批量更新状态失败",
-      };
-    }
+    const musedamTagIds = assetTags.map((tag) => parseInt(slugToId("assetTag", tag.slug!)));
+
+    await setAssetTagsToMuseDAM({
+      musedamAssetId,
+      musedamTagIds,
+      team,
+      append,
+    });
+
+    await syncSingleAssetFromMuseDAM({
+      musedamAssetId,
+      team,
+    });
+
+    return {
+      success: true,
+      data: undefined,
+    };
   });
 }
