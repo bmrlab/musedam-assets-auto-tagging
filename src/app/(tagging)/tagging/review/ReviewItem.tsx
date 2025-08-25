@@ -1,20 +1,34 @@
 "use client";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { cn } from "@/lib/utils";
 import { AssetObjectExtra, AssetObjectTags, TaggingAuditStatus } from "@/prisma/client";
-import { CheckCircle, DotIcon, Folder, Loader2Icon, Tag as TagIcon, XCircle } from "lucide-react";
+import { CheckIcon, DotIcon, Folder, Loader2Icon, Tag as TagIcon, XIcon } from "lucide-react";
 import Image from "next/image";
 import { useCallback, useState } from "react";
 import { approveAuditItemsAction, AssetWithAuditItems } from "./actions";
 
 export function ReviewItem({ asset }: { asset: AssetWithAuditItems }) {
   const [loading, setLoading] = useState(false);
+  const [rejectedItems, setRejectedItems] = useState<number[]>([]);
 
   const approveAuditItems = useCallback(
     async ({ append }: { append: boolean }) => {
       setLoading(true);
+      const { taggingAuditItems, ...assetObject } = asset;
+      const auditItems: {
+        id: number;
+        leafTagId: number | null;
+        status: TaggingAuditStatus;
+      }[] = taggingAuditItems.map((taggingAuditItem) => ({
+        id: taggingAuditItem.id,
+        leafTagId: taggingAuditItem.leafTagId,
+        status: rejectedItems.includes(taggingAuditItem.id) ? "rejected" : "approved",
+      }));
       try {
         await approveAuditItemsAction({
-          assetWithAuditItems: asset,
+          assetObject,
+          auditItems,
           append,
         });
       } catch (error) {
@@ -23,7 +37,7 @@ export function ReviewItem({ asset }: { asset: AssetWithAuditItems }) {
         setLoading(false);
       }
     },
-    [asset],
+    [asset, rejectedItems],
   );
 
   const getThumbnailUrl = (asset: AssetWithAuditItems) => {
@@ -39,44 +53,6 @@ export function ReviewItem({ asset }: { asset: AssetWithAuditItems }) {
       hour: "2-digit",
       minute: "2-digit",
     }).format(new Date(date));
-  };
-
-  const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 80) return "text-blue-600 dark:text-blue-400";
-    if (confidence >= 60) return "text-green-600 dark:text-green-400";
-    return "text-orange-600 dark:text-orange-400";
-  };
-
-  const getConfidenceLabel = (confidence: number) => {
-    if (confidence >= 80) return "精准";
-    if (confidence >= 60) return "平衡";
-    return "宽泛";
-  };
-
-  const getStatusColor = (status: TaggingAuditStatus) => {
-    switch (status) {
-      case "pending":
-        return "text-orange-600 dark:text-orange-400";
-      case "approved":
-        return "text-green-600 dark:text-green-400";
-      case "rejected":
-        return "text-red-600 dark:text-red-400";
-      default:
-        return "text-gray-600 dark:text-gray-400";
-    }
-  };
-
-  const getStatusText = (status: TaggingAuditStatus) => {
-    switch (status) {
-      case "pending":
-        return "待审核";
-      case "approved":
-        return "已采纳";
-      case "rejected":
-        return "已调整";
-      default:
-        return "未知状态";
-    }
   };
 
   return (
@@ -117,7 +93,7 @@ export function ReviewItem({ asset }: { asset: AssetWithAuditItems }) {
           <div>
             <Loader2Icon className="size-4 animate-spin" />
           </div>
-        ) : (
+        ) : asset.taggingAuditItems.find((auditItem) => auditItem.status === "pending") ? (
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => approveAuditItems({ append: true })}>
               添加
@@ -133,7 +109,7 @@ export function ReviewItem({ asset }: { asset: AssetWithAuditItems }) {
               拒绝
             </Button>
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* 标签信息 */}
@@ -164,63 +140,74 @@ export function ReviewItem({ asset }: { asset: AssetWithAuditItems }) {
               <span className="text-sm font-medium">AI 推荐标签</span>
               <span className="text-xs text-muted-foreground">基于标签体系匹配</span>
             </div>
-            <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
               {asset.taggingAuditItems.map((auditItem) => (
                 <div
                   key={auditItem.id}
-                  className="flex items-center justify-between p-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors"
+                  className={cn(
+                    "relative py-2 pl-3 pr-8 rounded-md border min-w-36",
+                    {
+                      "border-dashed":
+                        rejectedItems.includes(auditItem.id) || auditItem.status === "rejected",
+                    },
+                    {
+                      "text-blue-500 bg-blue-50 border-blue-500": auditItem.score >= 80,
+                      "text-green-500 bg-green-50 border-green-500":
+                        auditItem.score >= 70 && auditItem.score < 80,
+                      "text-orange-500 bg-orange-50 border-orange-500": auditItem.score < 70,
+                    },
+                  )}
                 >
-                  <div className="flex-1">
-                    <div className="font-medium text-sm">{auditItem.tagPath.join(" > ")}</div>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      {auditItem.tagPath.length}级标签 • ID: {auditItem.leafTagId}
-                    </div>
+                  <div className="font-medium text-sm mb-2">{auditItem.tagPath.join(" > ")}</div>
+                  <div className="flex items-center gap-2">
+                    {/*<div className="w-16 h-2 bg-muted-foreground/20 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${
+                          auditItem.score >= 80
+                            ? "bg-blue-500"
+                            : auditItem.score >= 60
+                              ? "bg-green-500"
+                              : "bg-orange-500"
+                        }`}
+                        style={{ width: `${auditItem.score}%` }}
+                      />
+                    </div>*/}
+                    <Progress
+                      value={auditItem.score}
+                      className="bg-current/20 [&>[data-slot=progress-indicator]]:bg-current"
+                    />
+                    <span className="text-xs text-muted-foreground">{auditItem.score}%</span>
                   </div>
-
-                  <div className="flex items-center gap-3">
-                    {/* 置信度条 */}
-                    <div className="flex items-center gap-2">
-                      <div className="w-16 h-2 bg-muted-foreground/20 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all ${
-                            auditItem.score >= 80
-                              ? "bg-blue-500"
-                              : auditItem.score >= 60
-                                ? "bg-green-500"
-                                : "bg-orange-500"
-                          }`}
-                          style={{ width: `${auditItem.score}%` }}
-                        />
-                      </div>
-                      <span className="text-xs text-muted-foreground">{auditItem.score}%</span>
-                    </div>
-
-                    {/* 置信度标签 */}
-                    <span
-                      className={`text-xs px-2 py-1 rounded-full font-medium ${getConfidenceColor(
-                        auditItem.score,
-                      )} bg-current/10`}
+                  {/* 操作按钮 */}
+                  {auditItem.status === "pending" ? (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className={cn(
+                        "absolute top-3 right-2 p-0",
+                        "size-3 bg-transparent hover:bg-transparent text-current hover:text-current/90",
+                      )}
+                      onClick={() =>
+                        setRejectedItems((rejectedItems) => {
+                          const index = rejectedItems.indexOf(auditItem.id);
+                          if (index >= 0) {
+                            return [
+                              ...rejectedItems.slice(0, index),
+                              ...rejectedItems.slice(index + 1),
+                            ];
+                          } else {
+                            return [...rejectedItems, auditItem.id];
+                          }
+                        })
+                      }
                     >
-                      {getConfidenceLabel(auditItem.score)}
-                    </span>
-
-                    {/* 状态 */}
-                    <span className={`text-xs font-medium ${getStatusColor(auditItem.status)}`}>
-                      {getStatusText(auditItem.status)}
-                    </span>
-
-                    {/* 操作按钮 */}
-                    {auditItem.status === "pending" && (
-                      <div className="flex gap-1">
-                        <Button size="sm" variant="outline" className="h-7 px-2">
-                          <CheckCircle className="h-3 w-3" />
-                        </Button>
-                        <Button size="sm" variant="outline" className="h-7 px-2">
-                          <XCircle className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    )}
-                  </div>
+                      {rejectedItems.includes(auditItem.id) ? (
+                        <CheckIcon className="h-3 w-3" />
+                      ) : (
+                        <XIcon className="h-3 w-3" />
+                      )}
+                    </Button>
+                  ) : null}
                 </div>
               ))}
             </div>

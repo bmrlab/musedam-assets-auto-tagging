@@ -122,10 +122,16 @@ export async function fetchAssetsWithAuditItems(
 }
 
 export async function approveAuditItemsAction({
-  assetWithAuditItems,
+  assetObject,
+  auditItems,
   append = true,
 }: {
-  assetWithAuditItems: AssetWithAuditItems;
+  assetObject: AssetObject;
+  auditItems: {
+    id: number;
+    leafTagId: number | null;
+    status: TaggingAuditStatus;
+  }[];
   append?: boolean;
 }): Promise<ServerActionResult<void>> {
   return withAuth(async ({ team: { id: teamId } }) => {
@@ -134,13 +140,13 @@ export async function approveAuditItemsAction({
       select: { id: true, slug: true },
     });
 
-    const musedamAssetId = parseInt(slugToId("assetObject", assetWithAuditItems.slug));
-    const assetTags = await prisma.assetTag.findMany({
+    const musedamAssetId = parseInt(slugToId("assetObject", assetObject.slug));
+    const approvedAsetTags = await prisma.assetTag.findMany({
       where: {
         id: {
-          in: assetWithAuditItems.taggingAuditItems
-            .filter((item) => item.leafTagId)
-            .map((item) => item.leafTagId!),
+          in: auditItems
+            .filter(({ leafTagId, status }) => leafTagId && status === "approved")
+            .map(({ leafTagId }) => leafTagId!),
         },
         slug: {
           not: null,
@@ -148,14 +154,21 @@ export async function approveAuditItemsAction({
       },
       select: { id: true, slug: true },
     });
-
-    const musedamTagIds = assetTags.map((tag) => parseInt(slugToId("assetTag", tag.slug!)));
-
+    const musedamTagIds = approvedAsetTags.map((tag) => parseInt(slugToId("assetTag", tag.slug!)));
     await setAssetTagsToMuseDAM({
       musedamAssetId,
       musedamTagIds,
       team,
       append,
+    });
+
+    await prisma.$transaction(async (tx) => {
+      for (const { id, status } of auditItems) {
+        await tx.taggingAuditItem.update({
+          where: { id },
+          data: { status },
+        });
+      }
     });
 
     await syncSingleAssetFromMuseDAM({
