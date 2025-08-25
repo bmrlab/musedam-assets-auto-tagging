@@ -25,14 +25,18 @@ Content-Type: application/json
 ```json
 {
   "teamId": 135,
-  "assetId": 6908914
+  "assetId": 6908914,
+  "sources": ["basicInfo", "materializedPath", "contentAnalysis"],
+  "mode": "balanced"
 }
 ```
 
-| 参数名  | 类型   | 必填 | 描述                    |
-| ------- | ------ | ---- | ----------------------- |
-| teamId  | number | 是   | MuseDAM 团队 ID         |
-| assetId | number | 是   | MuseDAM 系统中的素材 ID |
+| 参数名  | 类型     | 必填 | 描述                                                                                                                  |
+| ------- | -------- | ---- | --------------------------------------------------------------------------------------------------------------------- |
+| teamId  | number   | 是   | MuseDAM 团队 ID                                                                                                       |
+| assetId | number   | 是   | MuseDAM 系统中的素材 ID                                                                                               |
+| sources | string[] | 否   | 打标数据源列表，可选值：`basicInfo`、`materializedPath`、`contentAnalysis`、`tagKeywords`。不填写时默认使用所有数据源 |
+| mode    | string   | 否   | 打标模式，可选值：`precise`（精确）、`balanced`（平衡）、`broad`（广泛）。不填写时默认为 `balanced`                   |
 
 #### 响应格式
 

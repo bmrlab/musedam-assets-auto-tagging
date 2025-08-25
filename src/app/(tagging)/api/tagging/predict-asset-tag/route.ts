@@ -1,4 +1,5 @@
 import { enqueueTaggingTask } from "@/app/(tagging)/queue";
+import { tagPredictionSchema } from "@/app/(tagging)/types";
 import { idToSlug } from "@/lib/slug";
 import { syncSingleAssetFromMuseDAM } from "@/musedam/assets";
 import prisma from "@/prisma/prisma";
@@ -8,13 +9,18 @@ import { z } from "zod";
 const requestSchema = z.object({
   teamId: z.number().int().positive(),
   assetId: z.number().int().positive(),
+  sources: z
+    .array(tagPredictionSchema.shape.source)
+    .optional()
+    .default(["basicInfo", "materializedPath", "contentAnalysis", "tagKeywords"]),
+  mode: z.enum(["precise", "balanced", "broad"]).optional().default("balanced"),
 });
 
 export async function POST(request: NextRequest) {
   try {
     // 解析请求体
     const body = await request.json();
-    const { teamId, assetId: musedamAssetId } = requestSchema.parse(body);
+    const { teamId, assetId: musedamAssetId, sources, mode } = requestSchema.parse(body);
 
     // 根据 teamId 构造 team slug 并查询 team
     const teamSlug = idToSlug("team", teamId.toString());
