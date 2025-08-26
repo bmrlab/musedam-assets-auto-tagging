@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/utils";
 import { Info, Loader2, Save, Settings, User } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -130,11 +131,12 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Direct Application */}
             <div
-              className={`border rounded-lg p-4 cursor-pointer transition-all ${
+              className={cn(
+                "border rounded-lg p-4 cursor-pointer transition-all",
                 taggingMode === "direct"
                   ? "border-primary bg-primary/5"
-                  : "border-border hover:border-primary/50"
-              }`}
+                  : "border-border hover:border-primary/50",
+              )}
               onClick={() => handleTaggingModeChange("direct")}
             >
               <div className="text-center">
@@ -145,11 +147,12 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
 
             {/* Review Mode */}
             <div
-              className={`border rounded-lg p-4 cursor-pointer transition-all ${
+              className={cn(
+                "border rounded-lg p-4 cursor-pointer transition-all",
                 taggingMode === "review"
                   ? "border-primary bg-primary/5"
-                  : "border-border hover:border-primary/50"
-              }`}
+                  : "border-border hover:border-primary/50",
+              )}
               onClick={() => handleTaggingModeChange("review")}
             >
               <div className="text-center">
@@ -282,11 +285,12 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Precise Mode */}
             <div
-              className={`border rounded-lg p-4 cursor-pointer transition-all ${
+              className={cn(
+                "border rounded-lg p-4 cursor-pointer transition-all",
                 recognitionMode === "precise"
                   ? "border-primary bg-primary/5"
-                  : "border-border hover:border-primary/50"
-              }`}
+                  : "border-border hover:border-primary/50",
+              )}
               onClick={() => handleRecognitionModeChange("precise")}
             >
               <div className="text-center space-y-2">
@@ -300,11 +304,12 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
 
             {/* Balanced Mode */}
             <div
-              className={`border rounded-lg p-4 cursor-pointer transition-all relative ${
+              className={cn(
+                "border rounded-lg p-4 cursor-pointer transition-all relative",
                 recognitionMode === "balanced"
                   ? "border-primary bg-primary/5"
-                  : "border-border hover:border-primary/50"
-              }`}
+                  : "border-border hover:border-primary/50",
+              )}
               onClick={() => handleRecognitionModeChange("balanced")}
             >
               <div className="text-center space-y-2">
@@ -325,11 +330,12 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
 
             {/* Broad Mode */}
             <div
-              className={`border rounded-lg p-4 cursor-pointer transition-all ${
+              className={cn(
+                "border rounded-lg p-4 cursor-pointer transition-all",
                 recognitionMode === "broad"
                   ? "border-primary bg-primary/5"
-                  : "border-border hover:border-primary/50"
-              }`}
+                  : "border-border hover:border-primary/50",
+              )}
               onClick={() => handleRecognitionModeChange("broad")}
             >
               <div className="text-center space-y-2">

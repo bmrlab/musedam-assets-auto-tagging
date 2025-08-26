@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { ExtractServerActionData } from "@/lib/serverAction";
+import { cn } from "@/lib/utils";
 import {
   AlertCircle,
   CheckCircle,
@@ -300,7 +301,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
 
                       {/* 状态 */}
                       <div className="flex items-center gap-2">
-                        <span className={`text-sm font-medium ${getStatusColor(task.status)}`}>
+                        <span className={cn("text-sm font-medium", getStatusColor(task.status))}>
                           {getStatusText(task.status)}
                         </span>
                         {task.status === "processing" && (
