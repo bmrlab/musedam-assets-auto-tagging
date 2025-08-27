@@ -10,13 +10,13 @@ import {
 } from "@/components/ui/select";
 import { File, Loader2Icon, Search } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { AssetWithAuditItems, fetchAssetsWithAuditItems } from "./actions";
+import { AssetWithAuditItemsBatch, fetchAssetsWithAuditItems } from "./actions";
 import { ReviewItem } from "./ReviewItem";
 
 type TaggingAuditStatus = "pending" | "approved" | "rejected";
 
 export default function ReviewPageClient() {
-  const [assets, setAssets] = useState<AssetWithAuditItems[]>([]);
+  const [assets, setAssets] = useState<AssetWithAuditItemsBatch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<TaggingAuditStatus | "all">("all");
   const [confidenceFilter, setConfidenceFilter] = useState<"all" | "high" | "medium" | "low">(
@@ -135,7 +135,7 @@ export default function ReviewPageClient() {
           </CardContent>
         </Card>
       ) : (
-        assets.map((asset) => <ReviewItem key={asset.id} asset={asset} />)
+        assets.map((asset) => <ReviewItem key={asset.assetObject.id} {...asset} />)
       )}
     </div>
   );

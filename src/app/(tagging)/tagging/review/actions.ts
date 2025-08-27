@@ -3,11 +3,21 @@ import { withAuth } from "@/app/(auth)/withAuth";
 import { ServerActionResult } from "@/lib/serverAction";
 import { slugToId } from "@/lib/slug";
 import { setAssetTagsToMuseDAM, syncSingleAssetFromMuseDAM } from "@/musedam/assets";
-import { AssetObject, Prisma, TaggingAuditItem, TaggingAuditStatus } from "@/prisma/client";
+import {
+  AssetObject,
+  Prisma,
+  TaggingAuditItem,
+  TaggingAuditStatus,
+  TaggingQueueItem,
+} from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 
-export type AssetWithAuditItems = AssetObject & {
-  taggingAuditItems: (Omit<TaggingAuditItem, "tagPath"> & { tagPath: string[] })[];
+export type AssetWithAuditItemsBatch = {
+  assetObject: AssetObject;
+  batch: {
+    queueItem: TaggingQueueItem;
+    taggingAuditItems: (Omit<TaggingAuditItem, "tagPath"> & { tagPath: string[] })[];
+  }[];
 };
 
 export async function fetchAssetsWithAuditItems(
@@ -18,9 +28,9 @@ export async function fetchAssetsWithAuditItems(
   searchQuery?: string,
 ): Promise<
   ServerActionResult<{
-    assets: AssetWithAuditItems[];
-    total: number;
-    hasMore: boolean;
+    assets: AssetWithAuditItemsBatch[];
+    // total: number;
+    // hasMore: boolean;
   }>
 > {
   return withAuth(async ({ team: { id: teamId } }) => {
@@ -29,9 +39,8 @@ export async function fetchAssetsWithAuditItems(
 
       const auditItemWhere: Prisma.TaggingAuditItemWhereInput = {
         teamId,
-        assetObjectId: {
-          not: null,
-        },
+        assetObjectId: { not: null },
+        queueItemId: { not: null },
       };
 
       if (statusFilter) {
@@ -60,7 +69,7 @@ export async function fetchAssetsWithAuditItems(
       }
 
       // 先获取有审核项的资产ID
-      const assetIds = (
+      const assetObjectIds = (
         await prisma.taggingAuditItem.findMany({
           where: auditItemWhere,
           select: {
@@ -68,47 +77,68 @@ export async function fetchAssetsWithAuditItems(
           },
           distinct: ["assetObjectId"],
           orderBy: {
-            id: "desc",
+            queueItem: { id: "desc" },
           },
           skip: offset,
           take: limit,
         })
       ).map((item) => item.assetObjectId!);
 
-      if (assetIds.length === 0) {
+      if (assetObjectIds.length === 0) {
         return {
           success: true,
           data: {
             assets: [],
-            total: 0,
-            hasMore: false,
+            // total: 0,
+            // hasMore: false,
           },
         };
       }
 
       // assetIds 已经过滤好，也限制了数量，这里可以直接使用了
-      const [assets, totalCount] = await Promise.all([
-        prisma.assetObject.findMany({
-          where: { teamId, id: { in: assetIds } },
-          include: {
-            taggingAuditItems: {
-              orderBy: [{ score: "desc" }, { createdAt: "desc" }],
+      const assetObjects = await prisma.assetObject.findMany({
+        where: { teamId, id: { in: assetObjectIds } },
+        include: {
+          taggingAuditItems: {
+            include: {
+              queueItem: true,
             },
+            orderBy: [{ score: "desc" }, { createdAt: "desc" }],
           },
-        }),
-        prisma.assetObject.count({
-          where: { teamId, id: { in: assetIds } },
-        }),
-      ]);
+        },
+      });
 
-      const hasMore = offset + assets.length < totalCount;
+      const results: AssetWithAuditItemsBatch[] = [];
 
+      for (const assetObjectId of assetObjectIds) {
+        const assetObject = assetObjects.find(({ id }) => id === assetObjectId);
+        if (!assetObject) continue;
+        const batch: AssetWithAuditItemsBatch["batch"] = [];
+        for (const { queueItem, tagPath, ...taggingAuditItem } of assetObject.taggingAuditItems) {
+          if (!queueItem) continue;
+          let group = batch.find((group) => group.queueItem.id === queueItem.id);
+          if (!group) {
+            group = { queueItem, taggingAuditItems: [] };
+            batch.push(group);
+          }
+          group.taggingAuditItems.push({
+            tagPath: tagPath as string[],
+            ...taggingAuditItem,
+          });
+        }
+        results.push({
+          assetObject,
+          batch,
+        });
+      }
+
+      // const hasMore = offset + assets.length < totalCount;
       return {
         success: true,
         data: {
-          assets: assets as AssetWithAuditItems[],
-          total: totalCount,
-          hasMore,
+          assets: results,
+          // total: totalCount,
+          // hasMore,
         },
       };
     } catch (error) {

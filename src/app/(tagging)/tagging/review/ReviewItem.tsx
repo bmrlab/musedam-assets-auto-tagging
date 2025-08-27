@@ -2,29 +2,45 @@
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import { AssetObjectExtra, AssetObjectTags, TaggingAuditStatus } from "@/prisma/client";
+import {
+  AssetObject,
+  AssetObjectExtra,
+  AssetObjectTags,
+  TaggingAuditStatus,
+} from "@/prisma/client";
 import { CheckIcon, DotIcon, Folder, Loader2Icon, Tag as TagIcon, XIcon } from "lucide-react";
 import Image from "next/image";
-import { useCallback, useState } from "react";
-import { approveAuditItemsAction, AssetWithAuditItems } from "./actions";
+import { useCallback, useMemo, useState } from "react";
+import { approveAuditItemsAction, AssetWithAuditItemsBatch } from "./actions";
 
-export function ReviewItem({ asset }: { asset: AssetWithAuditItems }) {
+export function ReviewItem({ assetObject, batch }: AssetWithAuditItemsBatch) {
   const [loading, setLoading] = useState(false);
   const [rejectedItems, setRejectedItems] = useState<number[]>([]);
+
+  const auditItemsSet = useMemo(() => {
+    const set = new Set<AssetWithAuditItemsBatch["batch"][number]["taggingAuditItems"][number]>();
+    batch.forEach(({ taggingAuditItems }) => {
+      taggingAuditItems.forEach((auditItem) => {
+        set.add(auditItem);
+      });
+    });
+    return set;
+  }, [batch]);
 
   const approveAuditItems = useCallback(
     async ({ append }: { append: boolean }) => {
       setLoading(true);
-      const { taggingAuditItems, ...assetObject } = asset;
       const auditItems: {
         id: number;
-        leafTagId: number | null;
+        leafTagId: number;
         status: TaggingAuditStatus;
-      }[] = taggingAuditItems.map((taggingAuditItem) => ({
-        id: taggingAuditItem.id,
-        leafTagId: taggingAuditItem.leafTagId,
-        status: rejectedItems.includes(taggingAuditItem.id) ? "rejected" : "approved",
-      }));
+      }[] = Array.from(auditItemsSet)
+        .filter(({ leafTagId }) => !!leafTagId)
+        .map(({ id, leafTagId }) => ({
+          id: id,
+          leafTagId: leafTagId!,
+          status: rejectedItems.includes(leafTagId!) ? "rejected" : "approved",
+        }));
       try {
         await approveAuditItemsAction({
           assetObject,
@@ -37,10 +53,10 @@ export function ReviewItem({ asset }: { asset: AssetWithAuditItems }) {
         setLoading(false);
       }
     },
-    [asset, rejectedItems],
+    [auditItemsSet, rejectedItems],
   );
 
-  const getThumbnailUrl = (asset: AssetWithAuditItems) => {
+  const getThumbnailUrl = (asset: AssetObject) => {
     const extra = asset.extra as AssetObjectExtra | null;
     return extra?.thumbnailAccessUrl;
   };
@@ -61,8 +77,8 @@ export function ReviewItem({ asset }: { asset: AssetWithAuditItems }) {
       <div className="flex items-start gap-4">
         <div className="shrink-0 w-24 h-24 relative">
           <Image
-            src={getThumbnailUrl(asset)!}
-            alt={asset.name}
+            src={getThumbnailUrl(assetObject)!}
+            alt={assetObject.name}
             fill
             sizes="100px" // 这个是图片 optimize 的尺寸，不是前端显示的尺寸
             className="object-cover rounded-sm"
@@ -70,22 +86,19 @@ export function ReviewItem({ asset }: { asset: AssetWithAuditItems }) {
         </div>
 
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-lg truncate" title={asset.name}>
-            {asset.name}
+          <h3 className="font-semibold text-lg truncate" title={assetObject.name}>
+            {assetObject.name}
           </h3>
           <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
             <Folder className="h-4 w-4" />
-            <span className="truncate" title={asset.materializedPath}>
-              {asset.materializedPath}
+            <span className="truncate" title={assetObject.materializedPath}>
+              {assetObject.materializedPath}
             </span>
           </div>
           <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
-            <span>{(asset.extra as AssetObjectExtra).extension?.toUpperCase()}</span>
+            <span>{(assetObject.extra as AssetObjectExtra).extension?.toUpperCase()}</span>
             <DotIcon className="size-3" />
-            <span>{(asset.extra as AssetObjectExtra).size?.toLocaleString()} Bytes</span>
-            <DotIcon className="size-3" />
-            {/* TODO: 这里应该是发起打标的时间，需要优化下 */}
-            <span>{formatDate(asset.taggingAuditItems[0].createdAt)}</span>
+            <span>{(assetObject.extra as AssetObjectExtra).size?.toLocaleString()} Bytes</span>
           </div>
         </div>
 
@@ -93,7 +106,7 @@ export function ReviewItem({ asset }: { asset: AssetWithAuditItems }) {
           <div>
             <Loader2Icon className="size-4 animate-spin" />
           </div>
-        ) : asset.taggingAuditItems.find((auditItem) => auditItem.status === "pending") ? (
+        ) : Array.from(auditItemsSet).find((auditItem) => auditItem.status === "pending") ? (
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => approveAuditItems({ append: true })}>
               添加
@@ -113,7 +126,7 @@ export function ReviewItem({ asset }: { asset: AssetWithAuditItems }) {
       </div>
 
       {/* 标签信息 */}
-      <div className="flex flex-row items-items-stretch gap-4">
+      <div className="grid grid-cols-2 gap-4">
         {/* 现有标签 */}
         <div className="flex-1 bg-zinc-50 rounded-md p-4">
           <div className="flex items-center gap-2 mb-2">
@@ -121,7 +134,7 @@ export function ReviewItem({ asset }: { asset: AssetWithAuditItems }) {
             <span className="text-sm font-medium">标签</span>
           </div>
           <div className="flex flex-wrap gap-1">
-            {(asset.tags as AssetObjectTags).map((tag, index) => (
+            {(assetObject.tags as AssetObjectTags).map((tag, index) => (
               <span
                 key={index}
                 className="inline-flex items-center px-2 py-1 rounded-sm text-xs border bg-background text-foreground"
@@ -133,22 +146,26 @@ export function ReviewItem({ asset }: { asset: AssetWithAuditItems }) {
         </div>
 
         {/* AI推荐标签 */}
-        {asset.taggingAuditItems.length > 0 && (
-          <div className="flex-1 bg-zinc-50 rounded-md p-4">
+        {batch.map(({ queueItem, taggingAuditItems }) => (
+          <div key={queueItem.id} className="flex-1 bg-zinc-50 rounded-md p-4">
             <div className="flex items-center gap-2 mb-3">
               <TagIcon className="h-4 w-4" />
               <span className="text-sm font-medium">AI 推荐标签</span>
               <span className="text-xs text-muted-foreground">基于标签体系匹配</span>
+              <span className="ml-auto text-xs text-muted-foreground">
+                {formatDate(queueItem.createdAt)}
+              </span>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              {asset.taggingAuditItems.map((auditItem) => (
+              {taggingAuditItems.map((auditItem) => (
                 <div
                   key={auditItem.id}
                   className={cn(
                     "relative py-2 pl-3 pr-8 rounded-md border min-w-36",
                     {
                       "border-dashed":
-                        rejectedItems.includes(auditItem.id) || auditItem.status === "rejected",
+                        (auditItem.leafTagId && rejectedItems.includes(auditItem.leafTagId)) ||
+                        auditItem.status === "rejected",
                     },
                     {
                       "text-blue-500 bg-blue-50 border-blue-500": auditItem.score >= 80,
@@ -179,7 +196,7 @@ export function ReviewItem({ asset }: { asset: AssetWithAuditItems }) {
                     <span className="text-xs text-muted-foreground">{auditItem.score}%</span>
                   </div>
                   {/* 操作按钮 */}
-                  {auditItem.status === "pending" ? (
+                  {auditItem.status === "pending" && auditItem.leafTagId ? (
                     <Button
                       size="icon"
                       variant="ghost"
@@ -189,19 +206,20 @@ export function ReviewItem({ asset }: { asset: AssetWithAuditItems }) {
                       )}
                       onClick={() =>
                         setRejectedItems((rejectedItems) => {
-                          const index = rejectedItems.indexOf(auditItem.id);
+                          if (!auditItem.leafTagId) return [...rejectedItems];
+                          const index = rejectedItems.indexOf(auditItem.leafTagId);
                           if (index >= 0) {
                             return [
                               ...rejectedItems.slice(0, index),
                               ...rejectedItems.slice(index + 1),
                             ];
                           } else {
-                            return [...rejectedItems, auditItem.id];
+                            return [...rejectedItems, auditItem.leafTagId];
                           }
                         })
                       }
                     >
-                      {rejectedItems.includes(auditItem.id) ? (
+                      {rejectedItems.includes(auditItem.leafTagId) ? (
                         <CheckIcon className="h-3 w-3" />
                       ) : (
                         <XIcon className="h-3 w-3" />
@@ -212,7 +230,7 @@ export function ReviewItem({ asset }: { asset: AssetWithAuditItems }) {
               ))}
             </div>
           </div>
-        )}
+        ))}
       </div>
     </div>
   );
