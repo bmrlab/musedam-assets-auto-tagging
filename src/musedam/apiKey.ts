@@ -5,6 +5,13 @@ import prisma from "@/prisma/prisma";
 import { requestMuseDAMAPI } from "./lib";
 import { TeamConfigName, TeamConfigValue } from "./types";
 
+interface CacheItem {
+  value: TeamConfigValue<"musedamTeamApiKey">;
+  expiresAt: Date;
+}
+
+const apiKeyCache = new Map<string, CacheItem>();
+
 export async function exchangeMuseDAMTeamAPIKey({
   musedamTeamId,
 }: {
@@ -35,6 +42,14 @@ export async function retrieveTeamCredentials({
 }: {
   team: Pick<Team, "id" | "slug">;
 }): Promise<TeamConfigValue<"musedamTeamApiKey">> {
+  const cacheKey = `team_${team.id}`;
+  
+  // Check memory cache first
+  const cachedItem = apiKeyCache.get(cacheKey);
+  if (cachedItem && cachedItem.expiresAt > new Date()) {
+    return cachedItem.value;
+  }
+
   const existingConfig = await prisma.teamConfig.findUnique({
     where: {
       teamId_key: {
@@ -44,7 +59,13 @@ export async function retrieveTeamCredentials({
     },
   });
   if (existingConfig) {
-    return existingConfig.value as TeamConfigValue<"musedamTeamApiKey">;
+    const value = existingConfig.value as TeamConfigValue<"musedamTeamApiKey">;
+    // Cache for 1 hour
+    apiKeyCache.set(cacheKey, {
+      value,
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000)
+    });
+    return value;
   }
   const musedamTeamId = slugToId("team", team.slug);
   const result = await exchangeMuseDAMTeamAPIKey({ musedamTeamId });
@@ -60,8 +81,17 @@ export async function retrieveTeamCredentials({
       value: result,
     },
   });
-  return {
+  
+  const returnValue = {
     apiKey: result.apiKey,
     expiresAt: result.expiresAt,
   };
+  
+  // Cache for 1 hour
+  apiKeyCache.set(cacheKey, {
+    value: returnValue,
+    expiresAt: new Date(Date.now() + 60 * 60 * 1000)
+  });
+  
+  return returnValue;
 }
