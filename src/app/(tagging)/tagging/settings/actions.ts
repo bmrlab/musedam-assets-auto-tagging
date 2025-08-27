@@ -17,6 +17,15 @@ const SettingsSchema = z.object({
     tagKeywords: z.boolean(),
     multiLanguage: z.boolean(),
   }),
+  applicationScope: z.object({
+    scopeType: z.enum(["all", "shared", "specific"]),
+    selectedFolders: z.array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+      }),
+    ),
+  }),
 });
 
 export type SettingsData = z.infer<typeof SettingsSchema>;
@@ -41,6 +50,10 @@ export async function fetchSettings(): Promise<
           materialContent: true,
           tagKeywords: true,
           multiLanguage: false,
+        },
+        applicationScope: {
+          scopeType: "all",
+          selectedFolders: [],
         },
       };
 
@@ -108,6 +121,10 @@ export async function resetSettings(): Promise<
           materialContent: true,
           tagKeywords: true,
           multiLanguage: false,
+        },
+        applicationScope: {
+          scopeType: "all",
+          selectedFolders: [],
         },
       };
 
