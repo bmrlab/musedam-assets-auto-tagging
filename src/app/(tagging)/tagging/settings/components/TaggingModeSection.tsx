@@ -7,10 +7,7 @@ interface TaggingModeSectionProps {
   onTaggingModeChange: (mode: "direct" | "review") => void;
 }
 
-export function TaggingModeSection({
-  taggingMode,
-  onTaggingModeChange,
-}: TaggingModeSectionProps) {
+export function TaggingModeSection({ taggingMode, onTaggingModeChange }: TaggingModeSectionProps) {
   return (
     <Card>
       <CardHeader>

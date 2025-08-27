@@ -47,8 +47,7 @@ export function SyncConfirmDialog({ onSyncComplete }: SyncConfirmDialogProps) {
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>
         <Button variant="outline" className="flex items-center gap-2">
-          <Download className="h-4 w-4" />
-          从 MuseDAM 同步
+          <Download className="h-4 w-4" />从 MuseDAM 同步
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>

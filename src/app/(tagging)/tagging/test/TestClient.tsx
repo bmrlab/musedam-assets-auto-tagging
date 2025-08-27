@@ -72,36 +72,39 @@ export default function TestClient() {
     setSelectedAssets([]);
   };
 
-  const handleMessage = useCallback((event: MessageEvent) => {
-    // 安全检查：确保消息来源是信任的
-    if (!event.origin.includes("musedam.test.tezign.com")) {
-      return;
-    }
+  const handleMessage = useCallback(
+    (event: MessageEvent) => {
+      // 安全检查：确保消息来源是信任的
+      if (!event.origin.includes("musedam.test.tezign.com")) {
+        return;
+      }
 
-    const { type, payLoad } = event.data;
+      const { type, payLoad } = event.data;
 
-    switch (type) {
-      case "museDAM-selector-page-mounted":
-        console.log("页面加载完成");
-        break;
-      case "museDAM-selector-confirm":
-        console.log("用户确认选择");
-        const assets = payLoad.selectedAssets as SelectedAsset[];
-        setSelectedAssets(assets);
-        handleStartTagging(assets);
-        break;
-      case "museDAM-selector-cancel":
-        console.log("用户取消操作");
-        handleCloseDialog();
-        break;
-      case "museDAM-selector-choiceChange":
-        console.log("选择内容变化");
-        break;
-      case "museDAM-selector-page-unMounted":
-        console.log("页面卸载");
-        break;
-    }
-  }, [handleStartTagging]);
+      switch (type) {
+        case "museDAM-selector-page-mounted":
+          console.log("页面加载完成");
+          break;
+        case "museDAM-selector-confirm":
+          console.log("用户确认选择");
+          const assets = payLoad.selectedAssets as SelectedAsset[];
+          setSelectedAssets(assets);
+          handleStartTagging(assets);
+          break;
+        case "museDAM-selector-cancel":
+          console.log("用户取消操作");
+          handleCloseDialog();
+          break;
+        case "museDAM-selector-choiceChange":
+          console.log("选择内容变化");
+          break;
+        case "museDAM-selector-page-unMounted":
+          console.log("页面卸载");
+          break;
+      }
+    },
+    [handleStartTagging],
+  );
 
   const handleStartTagging = async (assets: SelectedAsset[]) => {
     if (assets.length === 0) {

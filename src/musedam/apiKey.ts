@@ -43,7 +43,7 @@ export async function retrieveTeamCredentials({
   team: Pick<Team, "id" | "slug">;
 }): Promise<TeamConfigValue<"musedamTeamApiKey">> {
   const cacheKey = `team_${team.id}`;
-  
+
   // Check memory cache first
   const cachedItem = apiKeyCache.get(cacheKey);
   if (cachedItem && cachedItem.expiresAt > new Date()) {
@@ -63,7 +63,7 @@ export async function retrieveTeamCredentials({
     // Cache for 1 hour
     apiKeyCache.set(cacheKey, {
       value,
-      expiresAt: new Date(Date.now() + 60 * 60 * 1000)
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000),
     });
     return value;
   }
@@ -81,17 +81,17 @@ export async function retrieveTeamCredentials({
       value: result,
     },
   });
-  
+
   const returnValue = {
     apiKey: result.apiKey,
     expiresAt: result.expiresAt,
   };
-  
+
   // Cache for 1 hour
   apiKeyCache.set(cacheKey, {
     value: returnValue,
-    expiresAt: new Date(Date.now() + 60 * 60 * 1000)
+    expiresAt: new Date(Date.now() + 60 * 60 * 1000),
   });
-  
+
   return returnValue;
 }
