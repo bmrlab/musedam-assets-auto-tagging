@@ -53,7 +53,7 @@ export function ReviewItem({ assetObject, batch }: AssetWithAuditItemsBatch) {
         setLoading(false);
       }
     },
-    [auditItemsSet, rejectedItems],
+    [auditItemsSet, rejectedItems, assetObject],
   );
 
   const getThumbnailUrl = (asset: AssetObject) => {

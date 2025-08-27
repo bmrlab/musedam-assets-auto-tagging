@@ -46,7 +46,7 @@ export default function ReviewPageClient() {
 
   useEffect(() => {
     refreshData();
-  }, []);
+  }, [refreshData]);
 
   const handleFilterChange = useCallback(() => {
     refreshData();

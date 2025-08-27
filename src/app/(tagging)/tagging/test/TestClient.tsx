@@ -101,7 +101,7 @@ export default function TestClient() {
         console.log("页面卸载");
         break;
     }
-  }, []);
+  }, [handleStartTagging]);
 
   const handleStartTagging = async (assets: SelectedAsset[]) => {
     if (assets.length === 0) {
@@ -164,10 +164,10 @@ export default function TestClient() {
           <div>
             <h3 className="font-medium text-blue-900 dark:text-blue-100 mb-2">功能说明</h3>
             <div className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
-              <p>• 点击"选择素材测试"按钮，从 MuseDAM 中选择需要测试的素材</p>
+              <p>• 点击&ldquo;选择素材测试&rdquo;按钮，从 MuseDAM 中选择需要测试的素材</p>
               <p>• 系统将自动为选中的素材发起 AI 打标任务</p>
-              <p>• 可以在"控制面板"查看打标进度和结果</p>
-              <p>• 可以在"AI打标审核"中查看和审核打标结果</p>
+              <p>• 可以在&ldquo;控制面板&rdquo;查看打标进度和结果</p>
+              <p>• 可以在&ldquo;AI打标审核&rdquo;中查看和审核打标结果</p>
             </div>
           </div>
         </div>
