@@ -32,7 +32,7 @@ export default function RootLayout({
         <AuthProvider>
           <NextThemesProvider
             attribute="class"
-            defaultTheme="dark"
+            defaultTheme="light"
             enableSystem={false}
             disableTransitionOnChange
           >
