@@ -14,7 +14,6 @@ import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { syncTagsFromMuseDAM } from "../actions";
 
 interface SyncConfirmDialogProps {
   onSyncComplete?: () => void;

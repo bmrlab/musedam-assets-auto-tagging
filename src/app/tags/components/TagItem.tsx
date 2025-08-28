@@ -24,6 +24,8 @@ interface TagItemProps {
   onDelete: (nodeId: string) => void;
   onRestore: (nodeId: string) => void;
   getNodeId: (node: TagNode) => string;
+  // 标签详情是否被编辑过
+  hasDetailChanges?: boolean;
 }
 
 export function TagItem({
@@ -37,6 +39,7 @@ export function TagItem({
   onDelete,
   onRestore,
   getNodeId,
+  hasDetailChanges = false,
 }: TagItemProps) {
   const [editValue, setEditValue] = useState(tag.name);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -157,6 +160,10 @@ export function TagItem({
         )}
         {tag.isDeleted && (
           <span className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded">将删除</span>
+        )}
+        {/* 标签详情编辑状态 */}
+        {hasDetailChanges && !tag.verb && !tag.isDeleted && (
+          <span className="text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">已编辑</span>
         )}
       </div>
 

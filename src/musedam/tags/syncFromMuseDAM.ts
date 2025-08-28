@@ -1,3 +1,5 @@
+import "server-only";
+
 import { idToSlug, slugToId } from "@/lib/slug";
 import { retrieveTeamCredentials } from "@/musedam/apiKey";
 import { requestMuseDAMAPI } from "@/musedam/lib";

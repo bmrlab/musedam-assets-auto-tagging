@@ -6,17 +6,19 @@ import { AssetTag } from "@/prisma/client";
 import { Save } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { fetchTeamTags, saveTagsTree } from "./actions";
+import { fetchTeamTags, saveTagsTree, updateTagExtra } from "./actions";
 import { SyncConfirmDialog } from "./components/SyncConfirmDialog";
 import { TagColumn } from "./components/TagColumn";
 import { TagDetails } from "./components/TagDetails";
+import { TagEditProvider, useTagEdit } from "./contexts/TagEditContext";
 import { TagNode } from "./types";
 
 interface TagsClientProps {
   initialTags: (AssetTag & { children?: (AssetTag & { children?: AssetTag[] })[] })[];
 }
 
-export default function TagsClient({ initialTags }: TagsClientProps) {
+function TagsClientInner({ initialTags }: TagsClientProps) {
+  const { editedTags, clearAllEdits, hasAnyEdits } = useTagEdit();
   const [tagsTree, setTagsTree] = useState<TagNode[]>([]);
   const [originalTags, setOriginalTags] = useState<
     (AssetTag & { children?: (AssetTag & { children?: AssetTag[] })[] })[]
@@ -28,6 +30,7 @@ export default function TagsClient({ initialTags }: TagsClientProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [nextTempId, setNextTempId] = useState(1);
   const [initialized, setInitialized] = useState(false);
+  // 移除了 tagExtraChanges 状态，现在使用 Context
 
   // 获取节点的唯一标识符
   const getNodeId = (node: TagNode): string => {
@@ -80,13 +83,18 @@ export default function TagsClient({ initialTags }: TagsClientProps) {
   }, [initialTags, convertToTagNodes, setDefaultSelection]);
 
   // 检查是否有变更
-  const checkHasChanges = useCallback((nodes: TagNode[]): boolean => {
-    for (const node of nodes) {
-      if (node.verb || node.isDeleted) return true;
-      if (checkHasChanges(node.children)) return true;
-    }
-    return false;
-  }, []);
+  const checkHasChanges = useCallback(
+    (nodes: TagNode[]): boolean => {
+      for (const node of nodes) {
+        if (node.verb || node.isDeleted) return true;
+        if (checkHasChanges(node.children)) return true;
+      }
+      // 检查是否有标签详情变更
+      if (hasAnyEdits()) return true;
+      return false;
+    },
+    [hasAnyEdits],
+  );
 
   useEffect(() => {
     setHasChanges(checkHasChanges(tagsTree));
@@ -299,10 +307,22 @@ export default function TagsClient({ initialTags }: TagsClientProps) {
     );
   };
 
-  // 保存标签树
+  // 保存所有变更
   const saveChanges = async () => {
     setIsSaving(true);
     try {
+      // 1. 先保存标签详情变更
+      if (editedTags.size > 0) {
+        for (const [tagId, editData] of editedTags) {
+          const result = await updateTagExtra(tagId, editData);
+          if (!result.success) {
+            toast.error(`保存标签详情失败: ${result.message}`);
+            return;
+          }
+        }
+      }
+
+      // 2. 再保存标签树结构变更
       // 保存当前选中状态
       const currentLevel1 = selectedLevel1;
       const currentLevel2 = selectedLevel2;
@@ -310,8 +330,12 @@ export default function TagsClient({ initialTags }: TagsClientProps) {
 
       const result = await saveTagsTree(tagsTree);
       if (result.success) {
-        toast.success("标签保存成功");
-        // 刷新数据
+        toast.success("所有变更保存成功");
+
+        // 3. 清空所有编辑状态
+        clearAllEdits();
+
+        // 4. 刷新数据
         const refreshResult = await fetchTeamTags();
         if (refreshResult.success) {
           const newTree = convertToTagNodes(refreshResult.data.tags);
@@ -416,19 +440,10 @@ export default function TagsClient({ initialTags }: TagsClientProps) {
     return { tag: originalTag, level };
   };
 
-  // 处理标签更新后刷新数据
-  const handleTagUpdated = async () => {
-    try {
-      const refreshResult = await fetchTeamTags();
-      if (refreshResult.success) {
-        const newTree = convertToTagNodes(refreshResult.data.tags);
-        setTagsTree(newTree);
-        setOriginalTags(refreshResult.data.tags);
-      }
-    } catch (error) {
-      console.error("Refresh tags error:", error);
-    }
-  };
+  // 检查标签详情是否被编辑过
+  const checkTagDetailChanges = useCallback((tagId: number): boolean => {
+    return editedTags.has(tagId);
+  }, [editedTags]);
 
   const TagsHeaderMenu = () => {
     return (
@@ -508,6 +523,7 @@ export default function TagsClient({ initialTags }: TagsClientProps) {
           onDelete={deleteTag}
           onRestore={restoreTag}
           getNodeId={getNodeId}
+          hasDetailChanges={checkTagDetailChanges}
         />
 
         <TagColumn
@@ -528,6 +544,7 @@ export default function TagsClient({ initialTags }: TagsClientProps) {
           onDelete={deleteTag}
           onRestore={restoreTag}
           getNodeId={getNodeId}
+          hasDetailChanges={checkTagDetailChanges}
         />
 
         <TagColumn
@@ -545,6 +562,7 @@ export default function TagsClient({ initialTags }: TagsClientProps) {
           onDelete={deleteTag}
           onRestore={restoreTag}
           getNodeId={getNodeId}
+          hasDetailChanges={checkTagDetailChanges}
         />
       </div>
     );
@@ -555,8 +573,17 @@ export default function TagsClient({ initialTags }: TagsClientProps) {
       <TagsHeaderMenu />
       <div className="flex-1 overflow-hidden flex flex-row items-stretch gap-4">
         <TagMainColumns />
-        <TagDetails selectedTag={getSelectedTag()} onTagUpdated={handleTagUpdated} />
+        <TagDetails selectedTag={getSelectedTag()} />
       </div>
     </div>
+  );
+}
+
+// 主组件，用 Provider 包裹
+export default function TagsClient({ initialTags }: TagsClientProps) {
+  return (
+    <TagEditProvider>
+      <TagsClientInner initialTags={initialTags} />
+    </TagEditProvider>
   );
 }

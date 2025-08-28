@@ -1,6 +1,8 @@
 "use server";
+
 import { withAuth } from "@/app/(auth)/withAuth";
 import { ServerActionResult } from "@/lib/serverAction";
+import { syncTagsFromMuseDAM } from "@/musedam/tags/syncFromMuseDAM";
 import { syncTagsToMuseDAM } from "@/musedam/tags/syncToMuseDAM";
 import type { AssetTagExtra } from "@/prisma/client";
 import { AssetTag } from "@/prisma/client";
@@ -46,7 +48,7 @@ export async function fetchTeamTags(): Promise<
   });
 }
 
-export async function syncTagsFromMuseDAM(): Promise<ServerActionResult<void>> {
+export async function syncTagsFromMuseDAMAction(): Promise<ServerActionResult<void>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
       // 获取团队信息
@@ -54,10 +56,7 @@ export async function syncTagsFromMuseDAM(): Promise<ServerActionResult<void>> {
         where: { id: teamId },
       });
 
-      const { syncTagsFromMuseDAM: syncFromMuseDAM } = await import(
-        "@/musedam/tags/syncFromMuseDAM"
-      );
-      await syncFromMuseDAM({ team: { id: teamId, slug: team.slug } });
+      await syncTagsFromMuseDAM({ team: { id: teamId, slug: team.slug } });
 
       return {
         success: true,

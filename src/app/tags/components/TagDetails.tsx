@@ -7,104 +7,129 @@ import { Textarea } from "@/components/ui/textarea";
 import type { AssetTagExtra } from "@/prisma/client";
 import { AssetTag } from "@/prisma/client";
 import { Plus, X } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
-import { toast } from "sonner";
-import { updateTagExtra } from "../actions";
+import { useEffect, useState } from "react";
+import { useTagEdit, TagEditData } from "../contexts/TagEditContext";
 
-export function TagDetails({
-  selectedTag,
-  onTagUpdated,
-}: {
+// 组件Props类型
+interface TagDetailsProps {
   selectedTag: { tag: AssetTag; level: number } | null;
-  onTagUpdated?: () => void;
-}) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [editData, setEditData] = useState({
+}
+
+export function TagDetails({ selectedTag }: TagDetailsProps) {
+  const { getTagEditData, updateTagData, isTagEdited } = useTagEdit();
+  
+  // 本地表单状态
+  const [formData, setFormData] = useState<TagEditData>({
     name: "",
     description: "",
-    keywords: [] as string[],
-    negativeKeywords: [] as string[],
+    keywords: [],
+    negativeKeywords: [],
   });
 
-  // 解析extra字段
-  const getTagExtra = useCallback((tag: AssetTag): AssetTagExtra => {
+  // 获取标签的extra数据
+  const getTagExtra = (tag: AssetTag): AssetTagExtra => {
     try {
       return (tag.extra as AssetTagExtra) || {};
     } catch {
       return {};
     }
-  }, []);
+  };
 
-  // 初始化编辑数据
+  // 获取原始数据
+  const getOriginalData = (tag: AssetTag): TagEditData => {
+    const extra = getTagExtra(tag);
+    return {
+      name: tag.name,
+      description: extra.description || "",
+      keywords: extra.keywords || [],
+      negativeKeywords: extra.negativeKeywords || [],
+    };
+  };
+
+  // 当选中标签变化时，更新表单数据
   useEffect(() => {
-    if (selectedTag) {
-      const extra = getTagExtra(selectedTag.tag);
-      setEditData({
-        name: selectedTag.tag.name,
-        description: extra.description || "",
-        keywords: extra.keywords || [],
-        negativeKeywords: extra.negativeKeywords || [],
+    if (selectedTag?.tag.id) {
+      const editedData = getTagEditData(selectedTag.tag.id);
+      const originalData = getOriginalData(selectedTag.tag);
+      
+      // 如果有编辑数据，使用编辑数据；否则使用原始数据
+      setFormData(editedData || originalData);
+    } else {
+      // 没有选中标签时重置
+      setFormData({
+        name: "",
+        description: "",
+        keywords: [],
+        negativeKeywords: [],
       });
-      setIsEditing(false);
     }
-  }, [selectedTag, getTagExtra]);
+  }, [selectedTag?.tag.id, getTagEditData]);
 
-  const handleSave = async () => {
-    if (!selectedTag?.tag.id) return;
-
-    setIsSaving(true);
-    try {
-      const result = await updateTagExtra(selectedTag.tag.id, editData);
-      if (result.success) {
-        toast.success("标签信息已更新");
-        setIsEditing(false);
-        onTagUpdated?.();
-      } else {
-        toast.error(result.message || "更新失败");
-      }
-    } catch (error) {
-      console.error("Update error:", error);
-      toast.error("更新时发生错误");
-    } finally {
-      setIsSaving(false);
+  // 更新表单字段
+  const updateField = (field: keyof TagEditData, value: string | string[]) => {
+    const newFormData = { ...formData, [field]: value };
+    setFormData(newFormData);
+    
+    // 同时更新Context中的数据
+    if (selectedTag?.tag.id) {
+      updateTagData(selectedTag.tag.id, newFormData);
     }
   };
 
-  const handleCancel = () => {
-    if (selectedTag) {
-      const extra = getTagExtra(selectedTag.tag);
-      setEditData({
-        name: selectedTag.tag.name,
-        description: extra.description || "",
-        keywords: extra.keywords || [],
-        negativeKeywords: extra.negativeKeywords || [],
-      });
-    }
-    setIsEditing(false);
-  };
-
+  // 添加关键词
   const addKeyword = (type: "keywords" | "negativeKeywords") => {
-    setEditData((prev) => ({
-      ...prev,
-      [type]: [...prev[type], ""],
-    }));
+    updateField(type, [...formData[type], ""]);
   };
 
+  // 更新关键词
   const updateKeyword = (type: "keywords" | "negativeKeywords", index: number, value: string) => {
-    setEditData((prev) => ({
-      ...prev,
-      [type]: prev[type].map((item, i) => (i === index ? value : item)),
-    }));
+    const newKeywords = formData[type].map((item, i) => (i === index ? value : item));
+    updateField(type, newKeywords);
   };
 
+  // 删除关键词
   const removeKeyword = (type: "keywords" | "negativeKeywords", index: number) => {
-    setEditData((prev) => ({
-      ...prev,
-      [type]: prev[type].filter((_, i) => i !== index),
-    }));
+    const newKeywords = formData[type].filter((_, i) => i !== index);
+    updateField(type, newKeywords);
   };
 
+  // 渲染关键词列表
+  const renderKeywordList = (
+    type: "keywords" | "negativeKeywords",
+    placeholder: string
+  ) => (
+    <>
+      {formData[type].map((keyword, index) => (
+        <div key={index} className="flex items-center gap-2">
+          <Input
+            value={keyword}
+            onChange={(e) => updateKeyword(type, index, e.target.value)}
+            placeholder={placeholder}
+            className="flex-1"
+          />
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0 text-red-500"
+            onClick={() => removeKeyword(type, index)}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      ))}
+      <Button
+        variant="outline"
+        size="sm"
+        className="w-full"
+        onClick={() => addKeyword(type)}
+      >
+        <Plus className="h-4 w-4 mr-1" />
+        新增
+      </Button>
+    </>
+  );
+
+  // 没有选中标签时的空状态
   if (!selectedTag) {
     return (
       <div className="w-[18rem] bg-background border rounded-md flex flex-col items-stretch overflow-hidden">
@@ -116,55 +141,40 @@ export function TagDetails({
     );
   }
 
-  const { tag } = selectedTag;
-  const extra = getTagExtra(tag);
+  // 检查是否被编辑过
+  const hasChanges = selectedTag.tag.id ? isTagEdited(selectedTag.tag.id) : false;
 
   return (
     <div className="w-[18rem] bg-background border rounded-md flex flex-col items-stretch overflow-hidden">
+      {/* 标题栏 */}
       <div className="border-b px-4 py-2 font-medium flex items-center justify-between">
         <span>标签详情</span>
-        {!isEditing && tag.id && (
-          <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
-            编辑
-          </Button>
+        {hasChanges && (
+          <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">已修改</span>
         )}
       </div>
 
-      <div
-        className="flex-1 overflow-y-scroll scrollbar-thin space-y-6 p-4 cursor-pointer"
-        onClick={() => !isEditing && tag.id && setIsEditing(true)}
-      >
+      {/* 表单内容 */}
+      <div className="flex-1 overflow-y-scroll scrollbar-thin space-y-6 p-4">
         {/* 标签名称 */}
         <div className="space-y-2">
           <Label className="text-sm font-medium">标签名称</Label>
-          {isEditing ? (
-            <Input
-              value={editData.name}
-              onChange={(e) => setEditData((prev) => ({ ...prev, name: e.target.value }))}
-              placeholder="海报设计"
-              onClick={(e) => e.stopPropagation()}
-            />
-          ) : (
-            <div className="text-sm font-medium bg-gray-50 p-2 rounded border">{tag.name}</div>
-          )}
+          <Input
+            value={formData.name}
+            onChange={(e) => updateField("name", e.target.value)}
+            placeholder="海报设计"
+          />
         </div>
 
         {/* 标签描述 */}
         <div className="space-y-2">
           <Label className="text-sm font-medium">标签描述</Label>
-          {isEditing ? (
-            <Textarea
-              value={editData.description}
-              onChange={(e) => setEditData((prev) => ({ ...prev, description: e.target.value }))}
-              placeholder="选填，添加标签描述可帮助 AI 更好地理解标签的应用场景"
-              className="min-h-[80px] resize-none"
-              onClick={(e) => e.stopPropagation()}
-            />
-          ) : (
-            <div className="text-sm text-gray-600 bg-gray-50 p-2 rounded border min-h-[80px]">
-              {extra.description || "选填，添加标签描述可帮助 AI 更好地理解标签的应用场景"}
-            </div>
-          )}
+          <Textarea
+            value={formData.description}
+            onChange={(e) => updateField("description", e.target.value)}
+            placeholder="选填，添加标签描述可帮助 AI 更好地理解标签的应用场景"
+            className="min-h-[80px] resize-none"
+          />
         </div>
 
         {/* AI自动打标 */}
@@ -184,71 +194,13 @@ export function TagDetails({
               variant="ghost"
               size="sm"
               className="h-6 w-6 p-0 text-blue-500"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (isEditing) {
-                  addKeyword("keywords");
-                } else {
-                  setIsEditing(true);
-                }
-              }}
+              onClick={() => addKeyword("keywords")}
             >
               ℹ️
             </Button>
           </div>
           <div className="space-y-2">
-            {isEditing ? (
-              <>
-                {editData.keywords.map((keyword, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <Input
-                      value={keyword}
-                      onChange={(e) => updateKeyword("keywords", index, e.target.value)}
-                      placeholder="输入关键词"
-                      className="flex-1"
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 p-0 text-red-500"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeKeyword("keywords", index);
-                      }}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    addKeyword("keywords");
-                  }}
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  新增
-                </Button>
-              </>
-            ) : (
-              <div className="space-y-1">
-                {extra.keywords?.map((keyword, index) => (
-                  <div
-                    key={index}
-                    className="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs mr-1 mb-1"
-                  >
-                    {keyword}
-                  </div>
-                ))}
-                {(!extra.keywords || extra.keywords.length === 0) && (
-                  <div className="text-sm text-gray-400">暂无关键词</div>
-                )}
-              </div>
-            )}
+            {renderKeywordList("keywords", "输入关键词")}
           </div>
         </div>
 
@@ -260,92 +212,16 @@ export function TagDetails({
               variant="ghost"
               size="sm"
               className="h-6 w-6 p-0 text-blue-500"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (isEditing) {
-                  addKeyword("negativeKeywords");
-                } else {
-                  setIsEditing(true);
-                }
-              }}
+              onClick={() => addKeyword("negativeKeywords")}
             >
               ℹ️
             </Button>
           </div>
           <div className="space-y-2">
-            {isEditing ? (
-              <>
-                {editData.negativeKeywords.map((keyword, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <Input
-                      value={keyword}
-                      onChange={(e) => updateKeyword("negativeKeywords", index, e.target.value)}
-                      placeholder="输入关键词"
-                      className="flex-1"
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 p-0 text-red-500"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeKeyword("negativeKeywords", index);
-                      }}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    addKeyword("negativeKeywords");
-                  }}
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  新增
-                </Button>
-              </>
-            ) : (
-              <div className="space-y-1">
-                {extra.negativeKeywords?.map((keyword, index) => (
-                  <div
-                    key={index}
-                    className="inline-block bg-gray-100 text-gray-800 px-2 py-1 rounded text-xs mr-1 mb-1"
-                  >
-                    {keyword}
-                  </div>
-                ))}
-                {(!extra.negativeKeywords || extra.negativeKeywords.length === 0) && (
-                  <div className="text-sm text-gray-400">暂无排除关键词</div>
-                )}
-              </div>
-            )}
+            {renderKeywordList("negativeKeywords", "输入关键词")}
           </div>
         </div>
       </div>
-
-      {/* 编辑模式底部按钮 */}
-      {isEditing && (
-        <div className="border-t p-4 flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleCancel}
-            disabled={isSaving}
-            className="flex-1"
-          >
-            取消
-          </Button>
-          <Button size="sm" onClick={handleSave} disabled={isSaving} className="flex-1">
-            {isSaving ? "保存中..." : "保存"}
-          </Button>
-        </div>
-      )}
     </div>
   );
 }

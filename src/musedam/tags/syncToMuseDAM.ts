@@ -1,3 +1,5 @@
+import "server-only";
+
 import { TagNode } from "@/app/tags/types";
 import { slugToId } from "@/lib/slug";
 import { retrieveTeamCredentials } from "@/musedam/apiKey";

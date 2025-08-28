@@ -21,6 +21,8 @@ interface TagColumnProps {
   onRestore: (nodeId: string) => void;
   getNodeId: (node: TagNode) => string;
   className?: string;
+  // 用于检查标签详情是否被编辑过
+  hasDetailChanges?: (tagId: number) => boolean;
 }
 
 export function TagColumn({
@@ -39,6 +41,7 @@ export function TagColumn({
   onRestore,
   getNodeId,
   className,
+  hasDetailChanges,
 }: TagColumnProps) {
   // const activeTags = tags.filter((tag) => !tag.isDeleted);
   const totalCount = tags.length;
@@ -79,6 +82,7 @@ export function TagColumn({
                 onDelete={onDelete}
                 onRestore={onRestore}
                 getNodeId={getNodeId}
+                hasDetailChanges={tag.id ? hasDetailChanges?.(tag.id) : false}
               />
             ))}
           </div>

@@ -12,3 +12,6 @@ https://git.tezign.com/engineering/tezign-intelligence-frontend-minidam/-/blob/f
 
 自动打标 PRD
 https://tezign.feishu.cn/wiki/IqiywpVpfipXPxkNm6ycNAFlnpF
+
+测试 iframe 通信
+https://musedam.test.tezign.com/apps/test-client-actions
