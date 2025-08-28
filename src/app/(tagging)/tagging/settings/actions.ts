@@ -3,8 +3,8 @@
 import { withAuth } from "@/app/(auth)/withAuth";
 import { ServerActionResult } from "@/lib/serverAction";
 import { revalidatePath } from "next/cache";
+import { getSettings, resetSettings, saveSettings } from "./lib";
 import { SettingsData } from "./types";
-import { getSettings, saveSettings, resetSettings } from "./lib";
 
 // 获取设置数据
 export async function fetchSettings(): Promise<

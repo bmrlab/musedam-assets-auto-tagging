@@ -28,6 +28,15 @@ export async function fetchTeamAssets(): Promise<
 
 export async function predictAssetTagsAction(
   assetId: number,
+  options?: {
+    matchingSources?: {
+      basicInfo: boolean;
+      materializedPath: boolean;
+      contentAnalysis: boolean;
+      tagKeywords: boolean;
+    };
+    recognitionAccuracy?: "precise" | "balanced" | "broad";
+  },
 ): Promise<ServerActionResult<{ predictions: SourceBasedTagPredictions }>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
@@ -42,7 +51,11 @@ export async function predictAssetTagsAction(
         };
       }
 
-      const taggingQueueItem = await enqueueTaggingTask({ assetObject });
+      const taggingQueueItem = await enqueueTaggingTask({
+        assetObject,
+        matchingSources: options?.matchingSources,
+        recognitionAccuracy: options?.recognitionAccuracy,
+      });
 
       // 轮询队列项状态，每5秒检查一次
       const maxWaitTime = 60000; // 最大等待时间60秒

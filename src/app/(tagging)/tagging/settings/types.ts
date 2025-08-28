@@ -4,11 +4,11 @@ import { z } from "zod";
 export const SettingsSchema = z.object({
   isTaggingEnabled: z.boolean(),
   taggingMode: z.enum(["direct", "review"]),
-  recognitionMode: z.enum(["precise", "balanced", "broad"]),
-  matchingStrategies: z.object({
-    filePath: z.boolean(),
-    materialName: z.boolean(),
-    materialContent: z.boolean(),
+  recognitionAccuracy: z.enum(["precise", "balanced", "broad"]),
+  matchingSources: z.object({
+    basicInfo: z.boolean(),
+    materializedPath: z.boolean(),
+    contentAnalysis: z.boolean(),
     tagKeywords: z.boolean(),
   }),
   applicationScope: z.object({
@@ -28,8 +28,8 @@ export type SettingsData = z.infer<typeof SettingsSchema>;
 export const CONFIG_KEYS = {
   IS_TAGGING_ENABLED: "isTaggingEnabled",
   TAGGING_MODE: "taggingMode",
-  RECOGNITION_MODE: "recognitionMode",
-  MATCHING_STRATEGIES: "matchingStrategies",
+  RECOGNITION_ACCURACY: "recognitionAccuracy",
+  MATCHING_SOURCES: "matchingSources",
   APPLICATION_SCOPE: "applicationScope",
 } as const;
 
@@ -37,11 +37,11 @@ export const CONFIG_KEYS = {
 export const DEFAULT_SETTINGS: SettingsData = {
   isTaggingEnabled: true,
   taggingMode: "review",
-  recognitionMode: "balanced",
-  matchingStrategies: {
-    filePath: true,
-    materialName: true,
-    materialContent: true,
+  recognitionAccuracy: "balanced",
+  matchingSources: {
+    basicInfo: true,
+    materializedPath: true,
+    contentAnalysis: true,
     tagKeywords: true,
   },
   applicationScope: {

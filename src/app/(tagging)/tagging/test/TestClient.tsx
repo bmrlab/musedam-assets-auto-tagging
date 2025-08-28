@@ -1,10 +1,10 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { dispatchMuseDAMClientAction } from "@/musedam/embed";
 import { Loader2, TestTube } from "lucide-react";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
-import { dispatchMuseDAMClientAction } from "@/musedam/embed";
 import { startTaggingTasksAction } from "./actions";
 
 interface SelectedAsset {
@@ -29,7 +29,7 @@ export default function TestClient() {
       setIsProcessing(true);
       const res = await dispatchMuseDAMClientAction("assets-selector-modal-open", {});
       console.log("素材选择结果:", res);
-      
+
       if (res && typeof res === "object") {
         const { selectedAssets } = res;
         console.log("selectedAssets:", selectedAssets);
@@ -83,7 +83,6 @@ export default function TestClient() {
     }
   }, []);
 
-
   return (
     <div className="space-y-6">
       {/* 页面标题 */}
@@ -113,12 +112,7 @@ export default function TestClient() {
 
       {/* 操作区域 */}
       <div className="flex justify-center">
-        <Button 
-          onClick={handleAssetSelection} 
-          size="lg" 
-          className="gap-2" 
-          disabled={isProcessing}
-        >
+        <Button onClick={handleAssetSelection} size="lg" className="gap-2" disabled={isProcessing}>
           {isProcessing ? (
             <>
               <Loader2 className="size-4 animate-spin" />

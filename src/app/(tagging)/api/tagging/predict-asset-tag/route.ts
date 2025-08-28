@@ -1,5 +1,4 @@
 import { enqueueTaggingTask } from "@/app/(tagging)/queue";
-import { tagPredictionSchema } from "@/app/(tagging)/types";
 import { idToSlug } from "@/lib/slug";
 import { syncSingleAssetFromMuseDAM } from "@/musedam/assets";
 import prisma from "@/prisma/prisma";
@@ -9,18 +8,33 @@ import { z } from "zod";
 const requestSchema = z.object({
   teamId: z.number().int().positive(),
   assetId: z.number().int().positive(),
-  sources: z
-    .array(tagPredictionSchema.shape.source)
+  matchingSources: z
+    .object({
+      basicInfo: z.boolean(),
+      materializedPath: z.boolean(),
+      contentAnalysis: z.boolean(),
+      tagKeywords: z.boolean(),
+    })
     .optional()
-    .default(["basicInfo", "materializedPath", "contentAnalysis", "tagKeywords"]),
-  mode: z.enum(["precise", "balanced", "broad"]).optional().default("balanced"),
+    .default({
+      basicInfo: true,
+      materializedPath: true,
+      contentAnalysis: true,
+      tagKeywords: true,
+    }),
+  recognitionAccuracy: z.enum(["precise", "balanced", "broad"]).optional().default("balanced"),
 });
 
 export async function POST(request: NextRequest) {
   try {
     // 解析请求体
     const body = await request.json();
-    const { teamId, assetId: musedamAssetId } = requestSchema.parse(body);
+    const {
+      teamId,
+      assetId: musedamAssetId,
+      matchingSources,
+      recognitionAccuracy,
+    } = requestSchema.parse(body);
 
     // 根据 teamId 构造 team slug 并查询 team
     const teamSlug = idToSlug("team", teamId.toString());
@@ -52,7 +66,11 @@ export async function POST(request: NextRequest) {
 
     // 2. 发起 AI 打标任务
     try {
-      const taggingQueueItem = await enqueueTaggingTask({ assetObject });
+      const taggingQueueItem = await enqueueTaggingTask({
+        assetObject,
+        matchingSources,
+        recognitionAccuracy,
+      });
 
       return NextResponse.json({
         success: true,

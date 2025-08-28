@@ -11,8 +11,17 @@ import { fetchTagsTree } from "./utils";
 
 export async function enqueueTaggingTask({
   assetObject,
+  matchingSources,
+  recognitionAccuracy,
 }: {
   assetObject: AssetObject;
+  matchingSources?: {
+    basicInfo: boolean;
+    materializedPath: boolean;
+    contentAnalysis: boolean;
+    tagKeywords: boolean;
+  };
+  recognitionAccuracy?: "precise" | "balanced" | "broad";
 }): Promise<TaggingQueueItem> {
   const teamId = assetObject.teamId;
 
@@ -25,13 +34,21 @@ export async function enqueueTaggingTask({
       assetObjectId: assetObject.id,
       status: "processing",
       startsAt: new Date(),
+      extra: {
+        matchingSources,
+        recognitionAccuracy,
+      },
     },
   });
 
   waitUntil(
     (async () => {
       try {
-        const { predictions, tagsWithScore, extra } = await predictAssetTags(assetObject, tagsTree);
+        const { predictions, tagsWithScore, extra } = await predictAssetTags(
+          assetObject,
+          tagsTree,
+          { matchingSources, recognitionAccuracy },
+        );
         const updatedQueueItem = await prisma.taggingQueueItem.update({
           where: { id: taggingQueueItem.id },
           data: {
@@ -41,7 +58,10 @@ export async function enqueueTaggingTask({
               predictions: predictions as unknown as InputJsonObject,
               tagsWithScore: tagsWithScore as unknown as InputJsonObject,
             },
-            extra: { ...(taggingQueueItem.extra as JsonObject), ...extra },
+            extra: {
+              ...(taggingQueueItem.extra as JsonObject),
+              ...extra,
+            },
           },
         });
         await createAuditItems({

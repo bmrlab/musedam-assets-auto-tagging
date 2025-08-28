@@ -62,6 +62,15 @@ export function calculateTagScore(predictions: SourceBasedTagPredictions) {
 export async function predictAssetTags(
   asset: AssetObject,
   availableTags: TagWithChildren[],
+  options?: {
+    matchingSources?: {
+      basicInfo: boolean;
+      materializedPath: boolean;
+      contentAnalysis: boolean;
+      tagKeywords: boolean;
+    };
+    recognitionAccuracy?: "precise" | "balanced" | "broad";
+  },
 ): Promise<{
   predictions: SourceBasedTagPredictions;
   tagsWithScore: TagWithScore[];
@@ -124,7 +133,19 @@ ${tagStructureText}`,
       throw new Error("AI标签预测失败, result.object is undefined");
     }
 
-    const predictions = result.object;
+    let predictions = result.object;
+
+    // 根据 matchingSources 过滤结果
+    if (options?.matchingSources) {
+      const enabledSources = Object.entries(options.matchingSources)
+        .filter(([, enabled]) => enabled)
+        .map(([source]) => source as keyof typeof options.matchingSources);
+
+      predictions = predictions.filter((prediction) =>
+        enabledSources.includes(prediction.source as keyof typeof options.matchingSources),
+      );
+    }
+
     const tagsWithScore = calculateTagScore(predictions);
 
     return {
@@ -133,6 +154,8 @@ ${tagStructureText}`,
       extra: {
         usage: result.usage,
         input: inputPrompt,
+        matchingSources: options?.matchingSources,
+        recognitionAccuracy: options?.recognitionAccuracy,
       },
     };
   } catch (error) {
