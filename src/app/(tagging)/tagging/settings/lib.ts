@@ -28,10 +28,10 @@ export async function getSettings(teamId: number): Promise<SettingsData> {
       DEFAULT_SETTINGS.isTaggingEnabled,
     ),
     taggingMode: getConfigValue(CONFIG_KEYS.TAGGING_MODE, DEFAULT_SETTINGS.taggingMode),
-    recognitionMode: getConfigValue(CONFIG_KEYS.RECOGNITION_MODE, DEFAULT_SETTINGS.recognitionMode),
-    matchingStrategies: getConfigValue(
-      CONFIG_KEYS.MATCHING_STRATEGIES,
-      DEFAULT_SETTINGS.matchingStrategies,
+    recognitionAccuracy: getConfigValue(CONFIG_KEYS.RECOGNITION_ACCURACY, DEFAULT_SETTINGS.recognitionAccuracy),
+    matchingSources: getConfigValue(
+      CONFIG_KEYS.MATCHING_SOURCES,
+      DEFAULT_SETTINGS.matchingSources,
     ),
     applicationScope: getConfigValue(
       CONFIG_KEYS.APPLICATION_SCOPE,
@@ -57,12 +57,12 @@ export async function saveSettings(teamId: number, data: SettingsData): Promise<
         value: data.taggingMode,
       },
       {
-        key: CONFIG_KEYS.RECOGNITION_MODE,
-        value: data.recognitionMode,
+        key: CONFIG_KEYS.RECOGNITION_ACCURACY,
+        value: data.recognitionAccuracy,
       },
       {
-        key: CONFIG_KEYS.MATCHING_STRATEGIES,
-        value: data.matchingStrategies,
+        key: CONFIG_KEYS.MATCHING_SOURCES,
+        value: data.matchingSources,
       },
       {
         key: CONFIG_KEYS.APPLICATION_SCOPE,

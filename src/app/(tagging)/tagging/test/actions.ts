@@ -21,6 +21,15 @@ interface SelectedAsset {
 
 export async function startTaggingTasksAction(
   selectedAssets: SelectedAsset[],
+  options?: {
+    matchingSources?: {
+      basicInfo: boolean;
+      materializedPath: boolean;
+      contentAnalysis: boolean;
+      tagKeywords: boolean;
+    };
+    recognitionAccuracy?: "precise" | "balanced" | "broad";
+  },
 ): Promise<
   ServerActionResult<{ successCount: number; failedCount: number; failedAssets: string[] }>
 > {
@@ -48,7 +57,11 @@ export async function startTaggingTasksAction(
           });
 
           // 2. 发起 AI 打标任务
-          await enqueueTaggingTask({ assetObject });
+          await enqueueTaggingTask({ 
+            assetObject,
+            matchingSources: options?.matchingSources,
+            recognitionAccuracy: options?.recognitionAccuracy,
+          });
 
           successCount++;
         } catch (error) {

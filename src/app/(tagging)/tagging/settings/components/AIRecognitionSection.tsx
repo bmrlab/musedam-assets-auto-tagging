@@ -3,13 +3,13 @@ import { cn } from "@/lib/utils";
 import { InfoIcon } from "lucide-react";
 
 interface AIRecognitionSectionProps {
-  recognitionMode: "precise" | "balanced" | "broad";
-  onRecognitionModeChange: (mode: "precise" | "balanced" | "broad") => void;
+  recognitionAccuracy: "precise" | "balanced" | "broad";
+  onRecognitionAccuracyChange: (accuracy: "precise" | "balanced" | "broad") => void;
 }
 
 export function AIRecognitionSection({
-  recognitionMode,
-  onRecognitionModeChange,
+  recognitionAccuracy,
+  onRecognitionAccuracyChange,
 }: AIRecognitionSectionProps) {
   return (
     <Card>
@@ -22,11 +22,11 @@ export function AIRecognitionSection({
           <div
             className={cn(
               "border rounded-lg p-4 cursor-pointer transition-all",
-              recognitionMode === "precise"
+              recognitionAccuracy === "precise"
                 ? "border-primary bg-primary/5"
                 : "border-border hover:border-primary/50",
             )}
-            onClick={() => onRecognitionModeChange("precise")}
+            onClick={() => onRecognitionAccuracyChange("precise")}
           >
             <div className="text-center space-y-2">
               <h3 className="font-medium">精准模式</h3>
@@ -40,11 +40,11 @@ export function AIRecognitionSection({
           <div
             className={cn(
               "border rounded-lg p-4 cursor-pointer transition-all relative",
-              recognitionMode === "balanced"
+              recognitionAccuracy === "balanced"
                 ? "border-primary bg-primary/5"
                 : "border-border hover:border-primary/50",
             )}
-            onClick={() => onRecognitionModeChange("balanced")}
+            onClick={() => onRecognitionAccuracyChange("balanced")}
           >
             <div className="text-center space-y-2">
               <div className="flex items-center justify-center gap-2">
@@ -65,11 +65,11 @@ export function AIRecognitionSection({
           <div
             className={cn(
               "border rounded-lg p-4 cursor-pointer transition-all",
-              recognitionMode === "broad"
+              recognitionAccuracy === "broad"
                 ? "border-primary bg-primary/5"
                 : "border-border hover:border-primary/50",
             )}
-            onClick={() => onRecognitionModeChange("broad")}
+            onClick={() => onRecognitionAccuracyChange("broad")}
           >
             <div className="text-center space-y-2">
               <h3 className="font-medium">宽泛模式</h3>

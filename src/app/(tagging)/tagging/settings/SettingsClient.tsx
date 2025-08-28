@@ -18,16 +18,16 @@ interface SettingsClientProps {
 export default function SettingsClient({ initialSettings }: SettingsClientProps) {
   const [isTaggingEnabled, setIsTaggingEnabled] = useState(initialSettings.isTaggingEnabled);
   const [taggingMode, setTaggingMode] = useState(initialSettings.taggingMode);
-  const [recognitionMode, setRecognitionMode] = useState(initialSettings.recognitionMode);
-  const [matchingStrategies, setMatchingStrategies] = useState(initialSettings.matchingStrategies);
+  const [recognitionAccuracy, setRecognitionAccuracy] = useState(initialSettings.recognitionAccuracy);
+  const [matchingSources, setMatchingSources] = useState(initialSettings.matchingSources);
   const [applicationScope, setApplicationScope] = useState(initialSettings.applicationScope);
   const [isPending, startTransition] = useTransition();
   const [hasChanges, setHasChanges] = useState(false);
 
-  const handleStrategyChange = (strategy: keyof typeof matchingStrategies, checked: boolean) => {
-    setMatchingStrategies((prev) => ({
+  const handleSourceChange = (source: keyof typeof matchingSources, checked: boolean) => {
+    setMatchingSources((prev) => ({
       ...prev,
-      [strategy]: checked,
+      [source]: checked,
     }));
     setHasChanges(true);
   };
@@ -37,8 +37,8 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
       const settingsData: SettingsData = {
         isTaggingEnabled,
         taggingMode,
-        recognitionMode,
-        matchingStrategies,
+        recognitionAccuracy,
+        matchingSources,
         applicationScope,
       };
 
@@ -63,8 +63,8 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
     setHasChanges(true);
   };
 
-  const handleRecognitionModeChange = (mode: "precise" | "balanced" | "broad") => {
-    setRecognitionMode(mode);
+  const handleRecognitionAccuracyChange = (accuracy: "precise" | "balanced" | "broad") => {
+    setRecognitionAccuracy(accuracy);
     setHasChanges(true);
   };
 
@@ -141,13 +141,13 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
       <TaggingModeSection taggingMode={taggingMode} onTaggingModeChange={handleTaggingModeChange} />
 
       <MatchingStrategySection
-        matchingStrategies={matchingStrategies}
-        onStrategyChange={handleStrategyChange}
+        matchingSources={matchingSources}
+        onSourceChange={handleSourceChange}
       />
 
       <AIRecognitionSection
-        recognitionMode={recognitionMode}
-        onRecognitionModeChange={handleRecognitionModeChange}
+        recognitionAccuracy={recognitionAccuracy}
+        onRecognitionAccuracyChange={handleRecognitionAccuracyChange}
       />
 
       <ApplicationScopeSection

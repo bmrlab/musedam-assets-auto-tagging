@@ -54,10 +54,12 @@ function initializeMessageListener() {
         pendingPromises.delete(message.dispatchId);
 
         // 根据响应结果 resolve 或 reject
-        if (message.error) {
-          pendingPromise.reject(new Error(message.error));
+        if (!message.result || !message.result.success) {
+          // 如果 result.success === false，一定有 result.message
+          pendingPromise.reject(new Error(message.result?.message ?? "Unknown error"));
         } else {
-          pendingPromise.resolve(message.result);
+          // 如果 result.success === true，一定有 result.data
+          pendingPromise.resolve(message.result.data);
         }
       }
     }

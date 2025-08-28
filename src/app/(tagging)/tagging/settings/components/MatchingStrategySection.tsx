@@ -1,21 +1,21 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 
-interface MatchingStrategies {
-  filePath: boolean;
-  materialName: boolean;
-  materialContent: boolean;
+interface MatchingSources {
+  basicInfo: boolean;
+  materializedPath: boolean;
+  contentAnalysis: boolean;
   tagKeywords: boolean;
 }
 
 interface MatchingStrategySectionProps {
-  matchingStrategies: MatchingStrategies;
-  onStrategyChange: (strategy: keyof MatchingStrategies, checked: boolean) => void;
+  matchingSources: MatchingSources;
+  onSourceChange: (source: keyof MatchingSources, checked: boolean) => void;
 }
 
 export function MatchingStrategySection({
-  matchingStrategies,
-  onStrategyChange,
+  matchingSources,
+  onSourceChange,
 }: MatchingStrategySectionProps) {
   return (
     <Card>
@@ -26,8 +26,8 @@ export function MatchingStrategySection({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="flex items-center space-x-3">
             <Checkbox
-              checked={matchingStrategies.filePath}
-              onCheckedChange={(checked) => onStrategyChange("filePath", checked as boolean)}
+              checked={matchingSources.materializedPath}
+              onCheckedChange={(checked) => onSourceChange("materializedPath", checked as boolean)}
             />
             <div>
               <h3 className="font-medium">文件类路径匹配</h3>
@@ -37,8 +37,8 @@ export function MatchingStrategySection({
 
           <div className="flex items-center space-x-3">
             <Checkbox
-              checked={matchingStrategies.materialName}
-              onCheckedChange={(checked) => onStrategyChange("materialName", checked as boolean)}
+              checked={matchingSources.basicInfo}
+              onCheckedChange={(checked) => onSourceChange("basicInfo", checked as boolean)}
             />
             <div>
               <h3 className="font-medium">素材名称匹配</h3>
@@ -48,8 +48,8 @@ export function MatchingStrategySection({
 
           <div className="flex items-center space-x-3">
             <Checkbox
-              checked={matchingStrategies.materialContent}
-              onCheckedChange={(checked) => onStrategyChange("materialContent", checked as boolean)}
+              checked={matchingSources.contentAnalysis}
+              onCheckedChange={(checked) => onSourceChange("contentAnalysis", checked as boolean)}
             />
             <div>
               <h3 className="font-medium">素材内容匹配</h3>
@@ -59,8 +59,8 @@ export function MatchingStrategySection({
 
           <div className="flex items-center space-x-3">
             <Checkbox
-              checked={matchingStrategies.tagKeywords}
-              onCheckedChange={(checked) => onStrategyChange("tagKeywords", checked as boolean)}
+              checked={matchingSources.tagKeywords}
+              onCheckedChange={(checked) => onSourceChange("tagKeywords", checked as boolean)}
             />
             <div>
               <h3 className="font-medium">标签关键词匹配</h3>
