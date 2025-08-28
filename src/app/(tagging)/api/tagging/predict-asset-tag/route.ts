@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
   try {
     // 解析请求体
     const body = await request.json();
-    const { teamId, assetId: musedamAssetId, sources, mode } = requestSchema.parse(body);
+    const { teamId, assetId: musedamAssetId } = requestSchema.parse(body);
 
     // 根据 teamId 构造 team slug 并查询 team
     const teamSlug = idToSlug("team", teamId.toString());

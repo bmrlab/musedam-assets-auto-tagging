@@ -2,7 +2,8 @@
 import { dispatchMuseDAMClientAction } from "@/musedam/embed";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { SettingsData, updateSettings } from "./actions";
+import { updateSettings } from "./actions";
+import { SettingsData } from "./types";
 import { AIRecognitionSection } from "./components/AIRecognitionSection";
 import { ApplicationScopeSection } from "./components/ApplicationScopeSection";
 import { GlobalSettingsSection } from "./components/GlobalSettingsSection";

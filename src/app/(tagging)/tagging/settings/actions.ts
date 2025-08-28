@@ -1,33 +1,10 @@
 "use server";
+
 import { withAuth } from "@/app/(auth)/withAuth";
 import { ServerActionResult } from "@/lib/serverAction";
 import { revalidatePath } from "next/cache";
-import { z } from "zod";
-
-// 定义设置数据的schema
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const SettingsSchema = z.object({
-  isTaggingEnabled: z.boolean(),
-  taggingMode: z.enum(["direct", "review"]),
-  recognitionMode: z.enum(["precise", "balanced", "broad"]),
-  matchingStrategies: z.object({
-    filePath: z.boolean(),
-    materialName: z.boolean(),
-    materialContent: z.boolean(),
-    tagKeywords: z.boolean(),
-  }),
-  applicationScope: z.object({
-    scopeType: z.enum(["all", "specific"]),
-    selectedFolders: z.array(
-      z.object({
-        id: z.string(),
-        name: z.string(),
-      }),
-    ),
-  }),
-});
-
-export type SettingsData = z.infer<typeof SettingsSchema>;
+import { SettingsData } from "./types";
+import { getSettings, saveSettings, resetSettings } from "./lib";
 
 // 获取设置数据
 export async function fetchSettings(): Promise<
@@ -35,26 +12,9 @@ export async function fetchSettings(): Promise<
     settings: SettingsData;
   }>
 > {
-  return withAuth(async () => {
+  return withAuth(async ({ team }) => {
     try {
-      // TODO: 从数据库或配置文件获取实际设置
-      // 这里返回默认设置作为示例
-      const settings: SettingsData = {
-        isTaggingEnabled: true,
-        taggingMode: "review",
-        recognitionMode: "balanced",
-        matchingStrategies: {
-          filePath: true,
-          materialName: true,
-          materialContent: true,
-          tagKeywords: true,
-        },
-        applicationScope: {
-          scopeType: "all",
-          selectedFolders: [],
-        },
-      };
-
+      const settings = await getSettings(team.id);
       return {
         success: true,
         data: { settings },
@@ -71,18 +31,11 @@ export async function fetchSettings(): Promise<
 
 // 更新设置
 export async function updateSettings(
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   data: SettingsData,
 ): Promise<ServerActionResult<{ success: boolean }>> {
-  return withAuth(async () => {
+  return withAuth(async ({ team }) => {
     try {
-      // TODO: 保存设置到数据库
-      // 这里可以添加数据库保存逻辑
-      // await prisma.teamSettings.upsert({
-      //   where: { teamId },
-      //   update: data,
-      //   create: { teamId, ...data },
-      // });
+      await saveSettings(team.id, data);
 
       // 重新验证页面缓存
       revalidatePath("/tagging/settings");
@@ -102,35 +55,14 @@ export async function updateSettings(
 }
 
 // 重置设置为默认值
-export async function resetSettings(): Promise<
+export async function resetSettingsAction(): Promise<
   ServerActionResult<{
     settings: SettingsData;
   }>
 > {
-  return withAuth(async () => {
+  return withAuth(async ({ team }) => {
     try {
-      const defaultSettings: SettingsData = {
-        isTaggingEnabled: true,
-        taggingMode: "review",
-        recognitionMode: "balanced",
-        matchingStrategies: {
-          filePath: true,
-          materialName: true,
-          materialContent: true,
-          tagKeywords: true,
-        },
-        applicationScope: {
-          scopeType: "all",
-          selectedFolders: [],
-        },
-      };
-
-      // TODO: 保存默认设置到数据库
-      // await prisma.teamSettings.upsert({
-      //   where: { teamId },
-      //   update: defaultSettings,
-      //   create: { teamId, ...defaultSettings },
-      // });
+      const defaultSettings = await resetSettings(team.id);
 
       revalidatePath("/tagging/settings");
 
