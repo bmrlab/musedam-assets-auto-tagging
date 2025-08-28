@@ -1,16 +1,10 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Loader2, TestTube } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { toast } from "sonner";
+import { dispatchMuseDAMClientAction } from "@/musedam/embed";
 import { startTaggingTasksAction } from "./actions";
 
 interface SelectedAsset {
@@ -28,48 +22,34 @@ interface SelectedAsset {
 }
 
 export default function TestClient() {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [selectedAssets, setSelectedAssets] = useState<SelectedAsset[]>([]);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  useEffect(() => {
-    // (window as any).iframeRef = iframeRef;
+  const handleAssetSelection = async () => {
+    try {
+      setIsProcessing(true);
+      const res = await dispatchMuseDAMClientAction("assets-selector-modal-open", {});
+      console.log("素材选择结果:", res);
+      
+      if (res && typeof res === "object") {
+        const { selectedAssets } = res;
+        console.log("selectedAssets:", selectedAssets);
 
-    const handleMessage = (event: MessageEvent) => {
-      if (!/^museDAM/.test(event.data.type)) {
-        return;
+        if (selectedAssets && Array.isArray(selectedAssets) && selectedAssets.length > 0) {
+          await handleStartTagging(selectedAssets);
+        } else {
+          console.log("没有选择素材或返回格式不正确");
+          toast.info("未选择任何素材");
+        }
+      } else {
+        console.log("没有选择素材或返回格式不正确");
+        toast.info("未选择任何素材");
       }
-      if (event.data.type === "museDAM-selector-page-mounted") {
-        setTimeout(() => {
-          iframeRef.current?.contentWindow?.postMessage(
-            {
-              type: "museDAM-selector-init",
-              data: {
-                dataLimit: [
-                  { type: "image", limit: 1 },
-                  { type: "video", limit: 1 },
-                ],
-                theme: "light",
-              },
-            },
-            "*",
-          );
-        }, 1000);
-      }
-    };
-    window.addEventListener("message", handleMessage);
-    return () => window.removeEventListener("message", handleMessage);
-  }, []);
-
-  const handleOpenDialog = () => {
-    setIsDialogOpen(true);
-    setSelectedAssets([]);
-  };
-
-  const handleCloseDialog = () => {
-    setIsDialogOpen(false);
-    setSelectedAssets([]);
+    } catch (error) {
+      console.error("选择素材失败:", error);
+      toast.error("选择素材失败");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleStartTagging = useCallback(async (assets: SelectedAsset[]) => {
@@ -77,8 +57,6 @@ export default function TestClient() {
       toast.error("未选择任何素材");
       return;
     }
-
-    setIsProcessing(true);
 
     try {
       const result = await startTaggingTasksAction(assets);
@@ -102,52 +80,9 @@ export default function TestClient() {
     } catch (error) {
       console.error("发起打标任务时出错:", error);
       toast.error("发起打标任务时出错");
-    } finally {
-      setIsProcessing(false);
-      handleCloseDialog();
     }
   }, []);
 
-  const handleMessage = useCallback(
-    (event: MessageEvent) => {
-      // 安全检查：确保消息来源是信任的
-      if (!event.origin.includes("musedam.test.tezign.com")) {
-        return;
-      }
-
-      const { type, payLoad } = event.data;
-
-      switch (type) {
-        case "museDAM-selector-page-mounted":
-          console.log("页面加载完成");
-          break;
-        case "museDAM-selector-confirm":
-          console.log("用户确认选择");
-          const assets = payLoad.selectedAssets as SelectedAsset[];
-          setSelectedAssets(assets);
-          handleStartTagging(assets);
-          break;
-        case "museDAM-selector-cancel":
-          console.log("用户取消操作");
-          handleCloseDialog();
-          break;
-        case "museDAM-selector-choiceChange":
-          console.log("选择内容变化");
-          break;
-        case "museDAM-selector-page-unMounted":
-          console.log("页面卸载");
-          break;
-      }
-    },
-    [handleStartTagging],
-  );
-
-  useEffect(() => {
-    window.addEventListener("message", handleMessage);
-    return () => {
-      window.removeEventListener("message", handleMessage);
-    };
-  }, [handleMessage]);
 
   return (
     <div className="space-y-6">
@@ -178,49 +113,25 @@ export default function TestClient() {
 
       {/* 操作区域 */}
       <div className="flex justify-center">
-        <Button onClick={handleOpenDialog} size="lg" className="gap-2">
-          <TestTube className="size-4" />
-          选择素材测试
+        <Button 
+          onClick={handleAssetSelection} 
+          size="lg" 
+          className="gap-2" 
+          disabled={isProcessing}
+        >
+          {isProcessing ? (
+            <>
+              <Loader2 className="size-4 animate-spin" />
+              正在处理...
+            </>
+          ) : (
+            <>
+              <TestTube className="size-4" />
+              选择素材测试
+            </>
+          )}
         </Button>
       </div>
-
-      {/* 素材选择器 Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[90vw] sm:max-h-[90vh] p-0">
-          <DialogHeader className="p-6 pb-0">
-            <DialogTitle className="flex items-center gap-2">
-              <TestTube className="size-5 text-primary" />
-              选择素材进行打标测试
-            </DialogTitle>
-            <DialogDescription>从 MuseDAM 中选择需要测试 AI 打标功能的素材</DialogDescription>
-          </DialogHeader>
-
-          {/* 处理状态覆盖层 */}
-          {isProcessing && (
-            <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
-              <div className="text-center space-y-4">
-                <Loader2 className="size-12 animate-spin text-primary mx-auto" />
-                <div>
-                  <p className="font-medium">正在发起打标任务...</p>
-                  <p className="text-sm text-muted-foreground">
-                    已选择 {selectedAssets.length} 个素材
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* iframe 容器 */}
-          <div className="flex-1 h-[70vh]">
-            <iframe
-              ref={iframeRef}
-              src="https://musedam.test.tezign.com/outer"
-              className="w-full h-full border-0"
-              title="MuseDAM 素材选择器"
-            />
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
