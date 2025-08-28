@@ -57,7 +57,7 @@ export async function startTaggingTasksAction(
           });
 
           // 2. 发起 AI 打标任务
-          await enqueueTaggingTask({ 
+          await enqueueTaggingTask({
             assetObject,
             matchingSources: options?.matchingSources,
             recognitionAccuracy: options?.recognitionAccuracy,

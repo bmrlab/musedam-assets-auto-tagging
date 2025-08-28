@@ -2,6 +2,7 @@
 import { withAuth } from "@/app/(auth)/withAuth";
 import { ServerActionResult } from "@/lib/serverAction";
 import { syncTagsToMuseDAM } from "@/musedam/tags/syncToMuseDAM";
+import type { AssetTagExtra } from "@/prisma/client";
 import { AssetTag } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 import { TagNode } from "./types";
@@ -196,6 +197,98 @@ export async function saveTagsTree(tagsTree: TagNode[]): Promise<ServerActionRes
       return {
         success: false,
         message: error instanceof Error ? error.message : "保存标签树时发生未知错误",
+      };
+    }
+  });
+}
+
+export async function updateTagExtra(
+  tagId: number,
+  data: {
+    name?: string;
+    description?: string;
+    keywords?: string[];
+    negativeKeywords?: string[];
+  },
+): Promise<ServerActionResult<void>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    try {
+      // 获取现有标签
+      const existingTag = await prisma.assetTag.findFirst({
+        where: {
+          id: tagId,
+          teamId,
+        },
+      });
+
+      if (!existingTag) {
+        return {
+          success: false,
+          message: "标签不存在",
+        };
+      }
+
+      // 准备更新数据
+      const updateData: { name?: string; extra?: AssetTagExtra } = {};
+
+      // 处理名称更新
+      if (data.name && data.name.trim() !== existingTag.name) {
+        // 检查同级标签名是否重复
+        const duplicateTag = await prisma.assetTag.findFirst({
+          where: {
+            teamId,
+            parentId: existingTag.parentId,
+            name: data.name.trim(),
+            id: {
+              not: tagId,
+            },
+          },
+        });
+
+        if (duplicateTag) {
+          return {
+            success: false,
+            message: `标签名 "${data.name}" 在同级中已存在`,
+          };
+        }
+
+        updateData.name = data.name.trim();
+      }
+
+      // 处理extra字段更新
+      const currentExtra = (existingTag.extra as AssetTagExtra) || {};
+      const newExtra: AssetTagExtra = { ...currentExtra };
+
+      if (data.description !== undefined) {
+        newExtra.description = data.description;
+      }
+      if (data.keywords !== undefined) {
+        newExtra.keywords = data.keywords;
+      }
+      if (data.negativeKeywords !== undefined) {
+        newExtra.negativeKeywords = data.negativeKeywords;
+      }
+
+      updateData.extra = newExtra;
+
+      // 更新标签
+      await prisma.assetTag.update({
+        where: {
+          id: tagId,
+          teamId,
+        },
+        data: updateData,
+      });
+
+      return {
+        success: true,
+        data: undefined,
+      };
+    } catch (error) {
+      console.error("Update tag extra error:", error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : "更新标签信息时发生未知错误",
       };
     }
   });

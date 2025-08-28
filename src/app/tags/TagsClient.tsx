@@ -18,6 +18,9 @@ interface TagsClientProps {
 
 export default function TagsClient({ initialTags }: TagsClientProps) {
   const [tagsTree, setTagsTree] = useState<TagNode[]>([]);
+  const [originalTags, setOriginalTags] = useState<
+    (AssetTag & { children?: (AssetTag & { children?: AssetTag[] })[] })[]
+  >([]);
   const [selectedLevel1Id, setSelectedLevel1Id] = useState<string | null>(null);
   const [selectedLevel2Id, setSelectedLevel2Id] = useState<string | null>(null);
   const [selectedLevel3Id, setSelectedLevel3Id] = useState<string | null>(null);
@@ -72,6 +75,7 @@ export default function TagsClient({ initialTags }: TagsClientProps) {
   useEffect(() => {
     const newTree = convertToTagNodes(initialTags);
     setTagsTree(newTree);
+    setOriginalTags(initialTags);
     setDefaultSelection(newTree);
   }, [initialTags, convertToTagNodes, setDefaultSelection]);
 
@@ -312,6 +316,7 @@ export default function TagsClient({ initialTags }: TagsClientProps) {
         if (refreshResult.success) {
           const newTree = convertToTagNodes(refreshResult.data.tags);
           setTagsTree(newTree);
+          setOriginalTags(refreshResult.data.tags);
 
           // 尝试恢复选中状态
           if (currentLevel1) {
@@ -363,6 +368,7 @@ export default function TagsClient({ initialTags }: TagsClientProps) {
     if (refreshResult.success) {
       const newTree = convertToTagNodes(refreshResult.data.tags);
       setTagsTree(newTree);
+      setOriginalTags(refreshResult.data.tags);
       setSelectedLevel1Id(null);
       setSelectedLevel2Id(null);
       setSelectedLevel3Id(null);
@@ -371,12 +377,57 @@ export default function TagsClient({ initialTags }: TagsClientProps) {
     }
   };
 
+  // 从原始标签中查找AssetTag
+  const findOriginalTag = (
+    tags: (AssetTag & { children?: (AssetTag & { children?: AssetTag[] })[] })[],
+    targetId: number,
+  ): AssetTag | null => {
+    for (const tag of tags) {
+      if (tag.id === targetId) return tag;
+      if (tag.children) {
+        const found = findOriginalTag(tag.children, targetId);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+
   // 获取当前选中的标签信息
   const getSelectedTag = () => {
-    if (selectedLevel3) return { tag: selectedLevel3, level: 3 };
-    if (selectedLevel2) return { tag: selectedLevel2, level: 2 };
-    if (selectedLevel1) return { tag: selectedLevel1, level: 1 };
-    return null;
+    let selectedNode: TagNode | null = null;
+    let level = 0;
+
+    if (selectedLevel3) {
+      selectedNode = selectedLevel3;
+      level = 3;
+    } else if (selectedLevel2) {
+      selectedNode = selectedLevel2;
+      level = 2;
+    } else if (selectedLevel1) {
+      selectedNode = selectedLevel1;
+      level = 1;
+    }
+
+    if (!selectedNode || !selectedNode.id) return null;
+
+    const originalTag = findOriginalTag(originalTags, selectedNode.id);
+    if (!originalTag) return null;
+
+    return { tag: originalTag, level };
+  };
+
+  // 处理标签更新后刷新数据
+  const handleTagUpdated = async () => {
+    try {
+      const refreshResult = await fetchTeamTags();
+      if (refreshResult.success) {
+        const newTree = convertToTagNodes(refreshResult.data.tags);
+        setTagsTree(newTree);
+        setOriginalTags(refreshResult.data.tags);
+      }
+    } catch (error) {
+      console.error("Refresh tags error:", error);
+    }
   };
 
   const TagsHeaderMenu = () => {
@@ -504,7 +555,7 @@ export default function TagsClient({ initialTags }: TagsClientProps) {
       <TagsHeaderMenu />
       <div className="flex-1 overflow-hidden flex flex-row items-stretch gap-4">
         <TagMainColumns />
-        <TagDetails selectedTag={getSelectedTag()} />
+        <TagDetails selectedTag={getSelectedTag()} onTagUpdated={handleTagUpdated} />
       </div>
     </div>
   );

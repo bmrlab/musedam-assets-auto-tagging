@@ -28,11 +28,11 @@ export async function getSettings(teamId: number): Promise<SettingsData> {
       DEFAULT_SETTINGS.isTaggingEnabled,
     ),
     taggingMode: getConfigValue(CONFIG_KEYS.TAGGING_MODE, DEFAULT_SETTINGS.taggingMode),
-    recognitionAccuracy: getConfigValue(CONFIG_KEYS.RECOGNITION_ACCURACY, DEFAULT_SETTINGS.recognitionAccuracy),
-    matchingSources: getConfigValue(
-      CONFIG_KEYS.MATCHING_SOURCES,
-      DEFAULT_SETTINGS.matchingSources,
+    recognitionAccuracy: getConfigValue(
+      CONFIG_KEYS.RECOGNITION_ACCURACY,
+      DEFAULT_SETTINGS.recognitionAccuracy,
     ),
+    matchingSources: getConfigValue(CONFIG_KEYS.MATCHING_SOURCES, DEFAULT_SETTINGS.matchingSources),
     applicationScope: getConfigValue(
       CONFIG_KEYS.APPLICATION_SCOPE,
       DEFAULT_SETTINGS.applicationScope,

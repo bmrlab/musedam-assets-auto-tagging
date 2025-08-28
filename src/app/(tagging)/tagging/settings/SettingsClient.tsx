@@ -18,7 +18,9 @@ interface SettingsClientProps {
 export default function SettingsClient({ initialSettings }: SettingsClientProps) {
   const [isTaggingEnabled, setIsTaggingEnabled] = useState(initialSettings.isTaggingEnabled);
   const [taggingMode, setTaggingMode] = useState(initialSettings.taggingMode);
-  const [recognitionAccuracy, setRecognitionAccuracy] = useState(initialSettings.recognitionAccuracy);
+  const [recognitionAccuracy, setRecognitionAccuracy] = useState(
+    initialSettings.recognitionAccuracy,
+  );
   const [matchingSources, setMatchingSources] = useState(initialSettings.matchingSources);
   const [applicationScope, setApplicationScope] = useState(initialSettings.applicationScope);
   const [isPending, startTransition] = useTransition();

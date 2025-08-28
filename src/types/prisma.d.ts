@@ -25,4 +25,10 @@ declare module "@/prisma/client" {
     size: number;
     extension: string;
   }>;
+
+  export type AssetTagExtra = Partial<{
+    description: string;
+    keywords: string[];
+    negativeKeywords: string[];
+  }>;
 }
