@@ -441,9 +441,12 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
   };
 
   // 检查标签详情是否被编辑过
-  const checkTagDetailChanges = useCallback((tagId: number): boolean => {
-    return editedTags.has(tagId);
-  }, [editedTags]);
+  const checkTagDetailChanges = useCallback(
+    (tagId: number): boolean => {
+      return editedTags.has(tagId);
+    },
+    [editedTags],
+  );
 
   const TagsHeaderMenu = () => {
     return (

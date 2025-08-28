@@ -1,5 +1,5 @@
 "use client";
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, ReactNode, useContext, useState } from "react";
 
 // 标签编辑数据类型
 export interface TagEditData {
@@ -13,19 +13,19 @@ export interface TagEditData {
 interface TagEditContextType {
   // 所有标签的编辑状态 - tagId -> 编辑的数据
   editedTags: Map<number, TagEditData>;
-  
+
   // 更新标签编辑数据
   updateTagData: (tagId: number, data: Partial<TagEditData>) => void;
-  
+
   // 获取标签的编辑数据（如果没有编辑过则返回null）
   getTagEditData: (tagId: number) => TagEditData | null;
-  
+
   // 检查标签是否被编辑过
   isTagEdited: (tagId: number) => boolean;
-  
+
   // 清空所有编辑状态（保存后调用）
   clearAllEdits: () => void;
-  
+
   // 检查是否有任何编辑
   hasAnyEdits: () => boolean;
 }
@@ -38,10 +38,10 @@ export function TagEditProvider({ children }: { children: ReactNode }) {
   const [editedTags, setEditedTags] = useState<Map<number, TagEditData>>(new Map());
 
   const updateTagData = (tagId: number, data: Partial<TagEditData>) => {
-    setEditedTags(prev => {
+    setEditedTags((prev) => {
       const newMap = new Map(prev);
       const existing = newMap.get(tagId);
-      
+
       if (existing) {
         // 更新现有数据
         newMap.set(tagId, { ...existing, ...data });
@@ -52,11 +52,11 @@ export function TagEditProvider({ children }: { children: ReactNode }) {
           description: "",
           keywords: [],
           negativeKeywords: [],
-          ...data
+          ...data,
         };
         newMap.set(tagId, defaultData);
       }
-      
+
       return newMap;
     });
   };
@@ -86,11 +86,7 @@ export function TagEditProvider({ children }: { children: ReactNode }) {
     hasAnyEdits,
   };
 
-  return (
-    <TagEditContext.Provider value={value}>
-      {children}
-    </TagEditContext.Provider>
-  );
+  return <TagEditContext.Provider value={value}>{children}</TagEditContext.Provider>;
 }
 
 // Hook来使用Context

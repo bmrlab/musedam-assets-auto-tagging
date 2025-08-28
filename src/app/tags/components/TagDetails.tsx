@@ -7,8 +7,8 @@ import { Textarea } from "@/components/ui/textarea";
 import type { AssetTagExtra } from "@/prisma/client";
 import { AssetTag } from "@/prisma/client";
 import { Plus, X } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useTagEdit, TagEditData } from "../contexts/TagEditContext";
+import { useCallback, useEffect, useState } from "react";
+import { TagEditData, useTagEdit } from "../contexts/TagEditContext";
 
 // 组件Props类型
 interface TagDetailsProps {
@@ -17,7 +17,7 @@ interface TagDetailsProps {
 
 export function TagDetails({ selectedTag }: TagDetailsProps) {
   const { getTagEditData, updateTagData, isTagEdited } = useTagEdit();
-  
+
   // 本地表单状态
   const [formData, setFormData] = useState<TagEditData>({
     name: "",
@@ -27,31 +27,34 @@ export function TagDetails({ selectedTag }: TagDetailsProps) {
   });
 
   // 获取标签的extra数据
-  const getTagExtra = (tag: AssetTag): AssetTagExtra => {
+  const getTagExtra = useCallback((tag: AssetTag): AssetTagExtra => {
     try {
       return (tag.extra as AssetTagExtra) || {};
     } catch {
       return {};
     }
-  };
+  }, []);
 
   // 获取原始数据
-  const getOriginalData = (tag: AssetTag): TagEditData => {
-    const extra = getTagExtra(tag);
-    return {
-      name: tag.name,
-      description: extra.description || "",
-      keywords: extra.keywords || [],
-      negativeKeywords: extra.negativeKeywords || [],
-    };
-  };
+  const getOriginalData = useCallback(
+    (tag: AssetTag): TagEditData => {
+      const extra = getTagExtra(tag);
+      return {
+        name: tag.name,
+        description: extra.description || "",
+        keywords: extra.keywords || [],
+        negativeKeywords: extra.negativeKeywords || [],
+      };
+    },
+    [getTagExtra],
+  );
 
   // 当选中标签变化时，更新表单数据
   useEffect(() => {
     if (selectedTag?.tag.id) {
       const editedData = getTagEditData(selectedTag.tag.id);
       const originalData = getOriginalData(selectedTag.tag);
-      
+
       // 如果有编辑数据，使用编辑数据；否则使用原始数据
       setFormData(editedData || originalData);
     } else {
@@ -63,13 +66,13 @@ export function TagDetails({ selectedTag }: TagDetailsProps) {
         negativeKeywords: [],
       });
     }
-  }, [selectedTag?.tag.id, getTagEditData]);
+  }, [selectedTag?.tag.id, selectedTag?.tag, getTagEditData, getOriginalData]);
 
   // 更新表单字段
   const updateField = (field: keyof TagEditData, value: string | string[]) => {
     const newFormData = { ...formData, [field]: value };
     setFormData(newFormData);
-    
+
     // 同时更新Context中的数据
     if (selectedTag?.tag.id) {
       updateTagData(selectedTag.tag.id, newFormData);
@@ -94,10 +97,7 @@ export function TagDetails({ selectedTag }: TagDetailsProps) {
   };
 
   // 渲染关键词列表
-  const renderKeywordList = (
-    type: "keywords" | "negativeKeywords",
-    placeholder: string
-  ) => (
+  const renderKeywordList = (type: "keywords" | "negativeKeywords", placeholder: string) => (
     <>
       {formData[type].map((keyword, index) => (
         <div key={index} className="flex items-center gap-2">
@@ -117,12 +117,7 @@ export function TagDetails({ selectedTag }: TagDetailsProps) {
           </Button>
         </div>
       ))}
-      <Button
-        variant="outline"
-        size="sm"
-        className="w-full"
-        onClick={() => addKeyword(type)}
-      >
+      <Button variant="outline" size="sm" className="w-full" onClick={() => addKeyword(type)}>
         <Plus className="h-4 w-4 mr-1" />
         新增
       </Button>
@@ -199,9 +194,7 @@ export function TagDetails({ selectedTag }: TagDetailsProps) {
               ℹ️
             </Button>
           </div>
-          <div className="space-y-2">
-            {renderKeywordList("keywords", "输入关键词")}
-          </div>
+          <div className="space-y-2">{renderKeywordList("keywords", "输入关键词")}</div>
         </div>
 
         {/* 排除关键词 */}
@@ -217,9 +210,7 @@ export function TagDetails({ selectedTag }: TagDetailsProps) {
               ℹ️
             </Button>
           </div>
-          <div className="space-y-2">
-            {renderKeywordList("negativeKeywords", "输入关键词")}
-          </div>
+          <div className="space-y-2">{renderKeywordList("negativeKeywords", "输入关键词")}</div>
         </div>
       </div>
     </div>

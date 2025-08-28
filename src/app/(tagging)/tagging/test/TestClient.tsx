@@ -261,7 +261,7 @@ export default function TestClient() {
             )}
 
             <div className="flex items-center justify-start gap-3">
-              <Button onClick={handleAssetSelection} className="gap-2" disabled={isProcessing}>
+              <Button onClick={handleStartTagging} className="gap-2" disabled={isProcessing}>
                 {isProcessing ? (
                   <>
                     <Loader2 className="size-4 animate-spin" />

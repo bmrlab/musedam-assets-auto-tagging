@@ -163,7 +163,9 @@ export function TagItem({
         )}
         {/* 标签详情编辑状态 */}
         {hasDetailChanges && !tag.verb && !tag.isDeleted && (
-          <span className="text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">已编辑</span>
+          <span className="text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">
+            已编辑
+          </span>
         )}
       </div>
 

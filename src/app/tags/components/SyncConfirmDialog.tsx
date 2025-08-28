@@ -1,4 +1,5 @@
 "use client";
+import { syncTagsFromMuseDAMAction } from "@/app/tags/actions";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,7 +27,7 @@ export function SyncConfirmDialog({ onSyncComplete }: SyncConfirmDialogProps) {
   const handleSync = async () => {
     setIsLoading(true);
     try {
-      const result = await syncTagsFromMuseDAM();
+      const result = await syncTagsFromMuseDAMAction();
       if (result.success) {
         toast.success("从 MuseDAM 同步标签成功");
         setOpen(false);
