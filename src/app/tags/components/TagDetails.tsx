@@ -26,6 +26,12 @@ export function TagDetails({ selectedTag }: TagDetailsProps) {
     negativeKeywords: [],
   });
 
+  // 关键词输入状态
+  const [keywordsInputValue, setKeywordsInputValue] = useState("");
+  const [showKeywordsInput, setShowKeywordsInput] = useState(false);
+  const [negativeKeywordsInputValue, setNegativeKeywordsInputValue] = useState("");
+  const [showNegativeKeywordsInput, setShowNegativeKeywordsInput] = useState(false);
+
   // 获取标签的extra数据
   const getTagExtra = useCallback((tag: AssetTag): AssetTagExtra => {
     try {
@@ -96,33 +102,74 @@ export function TagDetails({ selectedTag }: TagDetailsProps) {
     updateField(type, newKeywords);
   };
 
-  // 渲染关键词列表
-  const renderKeywordList = (type: "keywords" | "negativeKeywords", placeholder: string) => (
-    <>
-      {formData[type].map((keyword, index) => (
-        <div key={index} className="flex items-center gap-2">
+  // 渲染关键词列表（inline标签形式）
+  const renderKeywordList = (type: "keywords" | "negativeKeywords", placeholder: string) => {
+    const isKeywordsType = type === "keywords";
+    const inputValue = isKeywordsType ? keywordsInputValue : negativeKeywordsInputValue;
+    const setInputValue = isKeywordsType ? setKeywordsInputValue : setNegativeKeywordsInputValue;
+    const showInput = isKeywordsType ? showKeywordsInput : showNegativeKeywordsInput;
+    const setShowInput = isKeywordsType ? setShowKeywordsInput : setShowNegativeKeywordsInput;
+
+    const handleAddTag = () => {
+      if (inputValue.trim()) {
+        updateField(type, [...formData[type], inputValue.trim()]);
+        setInputValue("");
+        setShowInput(false);
+      }
+    };
+
+    const handleKeyPress = (e: React.KeyboardEvent) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleAddTag();
+      } else if (e.key === "Escape") {
+        setInputValue("");
+        setShowInput(false);
+      }
+    };
+
+    return (
+      <div className="flex flex-wrap gap-1.5">
+        {formData[type].map((keyword, index) => (
+          <div
+            key={index}
+            className="inline-flex items-center gap-1 bg-gray-100 hover:bg-gray-200 rounded-md px-2 py-1 text-sm"
+          >
+            <span>{keyword}</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-4 w-4 p-0 text-gray-500 hover:text-red-500"
+              onClick={() => removeKeyword(type, index)}
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          </div>
+        ))}
+        {showInput ? (
           <Input
-            value={keyword}
-            onChange={(e) => updateKeyword(type, index, e.target.value)}
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={handleKeyPress}
+            onBlur={handleAddTag}
             placeholder={placeholder}
-            className="flex-1"
+            className="h-7 w-24 text-sm"
+            autoFocus
           />
+        ) : (
           <Button
             variant="ghost"
             size="sm"
-            className="h-8 w-8 p-0 text-red-500"
-            onClick={() => removeKeyword(type, index)}
+            className="h-7 px-2 text-sm text-gray-500 border border-dashed border-gray-300 hover:border-gray-400"
+            onClick={() => setShowInput(true)}
           >
-            <X className="h-4 w-4" />
+            <Plus className="h-3 w-3 mr-1" />
+            添加
           </Button>
-        </div>
-      ))}
-      <Button variant="outline" size="sm" className="w-full" onClick={() => addKeyword(type)}>
-        <Plus className="h-4 w-4 mr-1" />
-        新增
-      </Button>
-    </>
-  );
+        )}
+      </div>
+    );
+  };
 
   // 没有选中标签时的空状态
   if (!selectedTag) {
@@ -189,12 +236,12 @@ export function TagDetails({ selectedTag }: TagDetailsProps) {
               variant="ghost"
               size="sm"
               className="h-6 w-6 p-0 text-blue-500"
-              onClick={() => addKeyword("keywords")}
+              title="添加与此标签相关的关键词，帮助AI更准确地识别此标签"
             >
               ℹ️
             </Button>
           </div>
-          <div className="space-y-2">{renderKeywordList("keywords", "输入关键词")}</div>
+          {renderKeywordList("keywords", "输入关键词")}
         </div>
 
         {/* 排除关键词 */}
@@ -205,12 +252,12 @@ export function TagDetails({ selectedTag }: TagDetailsProps) {
               variant="ghost"
               size="sm"
               className="h-6 w-6 p-0 text-blue-500"
-              onClick={() => addKeyword("negativeKeywords")}
+              title="添加需要排除的关键词，当素材包含这些词时将不会被打上此标签"
             >
               ℹ️
             </Button>
           </div>
-          <div className="space-y-2">{renderKeywordList("negativeKeywords", "输入关键词")}</div>
+          {renderKeywordList("negativeKeywords", "输入关键词")}
         </div>
       </div>
     </div>
