@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
               status: null,
             },
           },
-          { status: 201 },
+          { status: 202 },
         );
       }
     }
