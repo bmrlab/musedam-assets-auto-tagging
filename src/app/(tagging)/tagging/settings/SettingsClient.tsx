@@ -1,4 +1,5 @@
 "use client";
+import { TaggingSettingsData } from "@/app/(tagging)/types";
 import { dispatchMuseDAMClientAction } from "@/musedam/embed";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -9,10 +10,9 @@ import { GlobalSettingsSection } from "./components/GlobalSettingsSection";
 import { MatchingStrategySection } from "./components/MatchingStrategySection";
 import { SettingsHeader } from "./components/SettingsHeader";
 import { TaggingModeSection } from "./components/TaggingModeSection";
-import { SettingsData } from "./types";
 
 interface SettingsClientProps {
-  initialSettings: SettingsData;
+  initialSettings: TaggingSettingsData;
 }
 
 export default function SettingsClient({ initialSettings }: SettingsClientProps) {
@@ -36,7 +36,7 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
 
   const handleSaveSettings = () => {
     startTransition(async () => {
-      const settingsData: SettingsData = {
+      const settingsData: TaggingSettingsData = {
         isTaggingEnabled,
         taggingMode,
         recognitionAccuracy,

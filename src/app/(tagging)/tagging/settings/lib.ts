@@ -1,16 +1,20 @@
 import "server-only";
 
+import {
+  DEFAULT_TAGGING_SETTINGS,
+  TAGGING_CONFIG_KEYS,
+  TaggingSettingsData,
+} from "@/app/(tagging)/types";
 import prisma from "@/prisma/prisma";
-import { CONFIG_KEYS, DEFAULT_SETTINGS, SettingsData } from "./types";
 
 // 获取设置数据
-export async function getSettings(teamId: number): Promise<SettingsData> {
+export async function getTaggingSettings(teamId: number): Promise<TaggingSettingsData> {
   // 从数据库获取团队配置
   const configs = await prisma.teamConfig.findMany({
     where: {
       teamId,
       key: {
-        in: Object.values(CONFIG_KEYS),
+        in: Object.values(TAGGING_CONFIG_KEYS),
       },
     },
   });
@@ -22,20 +26,26 @@ export async function getSettings(teamId: number): Promise<SettingsData> {
   };
 
   // 合并默认设置和数据库设置
-  const settings: SettingsData = {
+  const settings: TaggingSettingsData = {
     isTaggingEnabled: getConfigValue(
-      CONFIG_KEYS.IS_TAGGING_ENABLED,
-      DEFAULT_SETTINGS.isTaggingEnabled,
+      TAGGING_CONFIG_KEYS.IS_TAGGING_ENABLED,
+      DEFAULT_TAGGING_SETTINGS.isTaggingEnabled,
     ),
-    taggingMode: getConfigValue(CONFIG_KEYS.TAGGING_MODE, DEFAULT_SETTINGS.taggingMode),
+    taggingMode: getConfigValue(
+      TAGGING_CONFIG_KEYS.TAGGING_MODE,
+      DEFAULT_TAGGING_SETTINGS.taggingMode,
+    ),
     recognitionAccuracy: getConfigValue(
-      CONFIG_KEYS.RECOGNITION_ACCURACY,
-      DEFAULT_SETTINGS.recognitionAccuracy,
+      TAGGING_CONFIG_KEYS.RECOGNITION_ACCURACY,
+      DEFAULT_TAGGING_SETTINGS.recognitionAccuracy,
     ),
-    matchingSources: getConfigValue(CONFIG_KEYS.MATCHING_SOURCES, DEFAULT_SETTINGS.matchingSources),
+    matchingSources: getConfigValue(
+      TAGGING_CONFIG_KEYS.MATCHING_SOURCES,
+      DEFAULT_TAGGING_SETTINGS.matchingSources,
+    ),
     applicationScope: getConfigValue(
-      CONFIG_KEYS.APPLICATION_SCOPE,
-      DEFAULT_SETTINGS.applicationScope,
+      TAGGING_CONFIG_KEYS.APPLICATION_SCOPE,
+      DEFAULT_TAGGING_SETTINGS.applicationScope,
     ),
   };
 
@@ -43,29 +53,32 @@ export async function getSettings(teamId: number): Promise<SettingsData> {
 }
 
 // 保存设置数据
-export async function saveSettings(teamId: number, data: SettingsData): Promise<void> {
+export async function saveTaggingSettings(
+  teamId: number,
+  data: TaggingSettingsData,
+): Promise<void> {
   // 使用事务保存各个配置项
   await prisma.$transaction(async (tx) => {
     // 保存各个配置项到不同的 key
     const configUpdates = [
       {
-        key: CONFIG_KEYS.IS_TAGGING_ENABLED,
+        key: TAGGING_CONFIG_KEYS.IS_TAGGING_ENABLED,
         value: data.isTaggingEnabled,
       },
       {
-        key: CONFIG_KEYS.TAGGING_MODE,
+        key: TAGGING_CONFIG_KEYS.TAGGING_MODE,
         value: data.taggingMode,
       },
       {
-        key: CONFIG_KEYS.RECOGNITION_ACCURACY,
+        key: TAGGING_CONFIG_KEYS.RECOGNITION_ACCURACY,
         value: data.recognitionAccuracy,
       },
       {
-        key: CONFIG_KEYS.MATCHING_SOURCES,
+        key: TAGGING_CONFIG_KEYS.MATCHING_SOURCES,
         value: data.matchingSources,
       },
       {
-        key: CONFIG_KEYS.APPLICATION_SCOPE,
+        key: TAGGING_CONFIG_KEYS.APPLICATION_SCOPE,
         value: data.applicationScope,
       },
     ];
@@ -93,7 +106,7 @@ export async function saveSettings(teamId: number, data: SettingsData): Promise<
 }
 
 // 重置设置为默认值
-export async function resetSettings(teamId: number): Promise<SettingsData> {
-  await saveSettings(teamId, DEFAULT_SETTINGS);
-  return DEFAULT_SETTINGS;
+export async function resetTaggingSettings(teamId: number): Promise<TaggingSettingsData> {
+  await saveTaggingSettings(teamId, DEFAULT_TAGGING_SETTINGS);
+  return DEFAULT_TAGGING_SETTINGS;
 }

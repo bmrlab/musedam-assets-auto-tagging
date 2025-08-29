@@ -1,20 +1,20 @@
 "use server";
 
 import { withAuth } from "@/app/(auth)/withAuth";
+import { TaggingSettingsData } from "@/app/(tagging)/types";
 import { ServerActionResult } from "@/lib/serverAction";
 import { revalidatePath } from "next/cache";
-import { getSettings, resetSettings, saveSettings } from "./lib";
-import { SettingsData } from "./types";
+import { getTaggingSettings, resetTaggingSettings, saveTaggingSettings } from "./lib";
 
 // 获取设置数据
 export async function fetchSettings(): Promise<
   ServerActionResult<{
-    settings: SettingsData;
+    settings: TaggingSettingsData;
   }>
 > {
   return withAuth(async ({ team }) => {
     try {
-      const settings = await getSettings(team.id);
+      const settings = await getTaggingSettings(team.id);
       return {
         success: true,
         data: { settings },
@@ -31,11 +31,11 @@ export async function fetchSettings(): Promise<
 
 // 更新设置
 export async function updateSettings(
-  data: SettingsData,
+  data: TaggingSettingsData,
 ): Promise<ServerActionResult<{ success: boolean }>> {
   return withAuth(async ({ team }) => {
     try {
-      await saveSettings(team.id, data);
+      await saveTaggingSettings(team.id, data);
 
       // 重新验证页面缓存
       revalidatePath("/tagging/settings");
@@ -57,12 +57,12 @@ export async function updateSettings(
 // 重置设置为默认值
 export async function resetSettingsAction(): Promise<
   ServerActionResult<{
-    settings: SettingsData;
+    settings: TaggingSettingsData;
   }>
 > {
   return withAuth(async ({ team }) => {
     try {
-      const defaultSettings = await resetSettings(team.id);
+      const defaultSettings = await resetTaggingSettings(team.id);
 
       revalidatePath("/tagging/settings");
 
