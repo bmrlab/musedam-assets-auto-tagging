@@ -1,9 +1,11 @@
 import "server-only";
 
+import { rootLogger } from "@/lib/logging";
 import { idToSlug } from "@/lib/slug";
 import prisma from "@/prisma/prisma";
 import { type NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import { createUserAndTeam } from "./lib";
 import { verifyTokenLoginCredential } from "./tokenLogin";
 
 const authOptions: NextAuthOptions = {
@@ -43,40 +45,18 @@ const authOptions: NextAuthOptions = {
           throw new Error("INVALID_TOKEN");
         }
         const userSlug = idToSlug("user", payload.user.id);
-        const user = await prisma.user.upsert({
-          where: { slug: userSlug },
-          create: {
-            name: payload.user.name,
-            slug: userSlug,
-          },
-          update: {
-            name: payload.user.name,
-          },
-        });
         const teamSlug = idToSlug("team", payload.team.id);
-        const team = await prisma.team.upsert({
-          where: { slug: teamSlug },
-          create: {
-            name: payload.team.name,
-            slug: teamSlug,
-          },
-          update: {
-            name: payload.team.name,
-          },
-        });
-        prisma.membership.upsert({
-          where: {
-            userId_teamId: {
-              userId: user.id,
-              teamId: team.id,
-            },
-          },
-          create: {
-            userId: user.id,
-            teamId: team.id,
-          },
-          update: {},
-        });
+        let [user, team] = await Promise.all([
+          prisma.user.findUnique({ where: { slug: userSlug }, select: { id: true } }),
+          prisma.team.findUnique({ where: { slug: teamSlug }, select: { id: true } }),
+        ]);
+        if (!user || !team) {
+          rootLogger.info(`First time seeing user ${userSlug} for team ${teamSlug}, initializing`);
+          ({ user, team } = await createUserAndTeam({
+            user: { name: payload.user.name, slug: userSlug },
+            team: { id: team?.id, name: payload.team.name, slug: teamSlug },
+          }));
+        }
         return {
           id: user.id,
           teamId: team.id,
