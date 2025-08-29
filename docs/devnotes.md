@@ -1,5 +1,13 @@
+# todo:
+
+## 打标不能立即开始，而是应该有一个全局的任务，在不断从数据库里取任务进行打标
+
+## 权限相关：
+
 系统管理员的 roleCode=admin
 内容管理员的 roleCode=content
+
+---
 
 musedam 接口文档（新）
 https://tezign.feishu.cn/wiki/S8lZwj23giRTbUkttV7cTUtOnXd

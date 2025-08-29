@@ -1,13 +1,17 @@
-"use client";
-// import { dispatchMuseDAMClientAction } from "@/musedam/embed";
-import { useEffect } from "react";
+// "use client";
+// // import { dispatchMuseDAMClientAction } from "@/musedam/embed";
+// import { useEffect } from "react";
+// export default function TaggingPage() {
+//   useEffect(() => {
+//     // dispatchMuseDAMClientAction("folder-selector-modal-open", {}).then((res) => {
+//     //   console.log("res", res);
+//     // });
+//   }, []);
+//   return <div>tagging</div>;
+// }
 
-export default function TaggingPage() {
-  useEffect(() => {
-    // dispatchMuseDAMClientAction("folder-selector-modal-open", {}).then((res) => {
-    //   console.log("res", res);
-    // });
-  }, []);
+import { permanentRedirect } from "next/navigation";
 
-  return <div>tagging</div>;
+export default async function TaggingPage() {
+  permanentRedirect("/tagging/dashboard");
 }

@@ -1,4 +1,5 @@
 "use client";
+import { PageLoadingFallback } from "@/components/PageLoadingFallback";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
@@ -21,12 +22,13 @@ export function TokenAuthPageClient({
     signIn("token-login", {
       token,
       callbackUrl,
+      redirect: false,
     })
       .then((result) => {
-        if (result?.ok && !result?.error) {
-          router.replace(callbackUrl);
+        if (result?.error) {
+          setError(result.error);
         } else {
-          setError(result?.error ?? "Auth failed");
+          router.replace(callbackUrl);
         }
         setLoading(false);
       })
@@ -37,13 +39,8 @@ export function TokenAuthPageClient({
 
   if (loading) {
     return (
-      <div className="h-dvh flex flex-col items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle>Loading...</CardTitle>
-            <CardDescription>Please wait while we authenticate you.</CardDescription>
-          </CardHeader>
-        </Card>
+      <div className="h-dvh w-dvw flex flex-col items-stretch justify-start">
+        <PageLoadingFallback />
       </div>
     );
   }
