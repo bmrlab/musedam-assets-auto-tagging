@@ -50,9 +50,9 @@ async function fetchContentAnalysisFromMuseDAM({
 
 // build AssetObjectTags from tags response from musedam
 async function buildAssetObjectTags(
-  tags: { id: number; name: string }[],
+  musedamTags: { id: number; name: string }[],
 ): Promise<AssetObjectTags> {
-  const tagSlugs = tags.map(({ id }) => idToSlug("assetTag", id.toString()));
+  const tagSlugs = musedamTags.map(({ id: musedamTagId }) => idToSlug("assetTag", musedamTagId));
   const fields = { id: true, slug: true, name: true };
   const assetTags = await prisma.assetTag.findMany({
     where: {
@@ -107,7 +107,7 @@ export async function syncSingleAssetFromMuseDAM({
     throw new Error(`Asset ${musedamAssetId} not found`);
   }
 
-  const asset = assets[0] as {
+  const musedamAsset = assets[0] as {
     id: number;
     name: string;
     parentIds: number[];
@@ -116,13 +116,13 @@ export async function syncSingleAssetFromMuseDAM({
     thumbnailAccessUrl: string;
   };
 
-  const musedamFolderId = asset.parentIds[0];
+  const musedamFolderId = musedamAsset.parentIds[0];
   const [folderPath, contentAnalysis, tags] = await Promise.all([
     musedamFolderId ? fetchMuseDAMFolderPath({ team, musedamFolderId }) : Promise.resolve(""),
     fetchContentAnalysisFromMuseDAM({ team, musedamAssetId }),
-    buildAssetObjectTags(asset.tags),
+    buildAssetObjectTags(musedamAsset.tags),
   ]);
-  const assetSlug = idToSlug("assetObject", asset.id.toString());
+  const assetSlug = idToSlug("assetObject", musedamAsset.id);
 
   // 更新或创建 asset 记录
   const assetObject = await prisma.assetObject.upsert({
@@ -133,24 +133,24 @@ export async function syncSingleAssetFromMuseDAM({
     create: {
       teamId: team.id,
       slug: assetSlug,
-      name: asset.name,
-      description: asset.description || "",
+      name: musedamAsset.name,
+      description: musedamAsset.description || "",
       materializedPath: folderPath,
       content: contentAnalysis,
       tags,
-      extra: asset,
+      extra: musedamAsset,
     },
     update: {
-      name: asset.name,
-      description: asset.description || "",
+      name: musedamAsset.name,
+      description: musedamAsset.description || "",
       materializedPath: folderPath,
       content: contentAnalysis,
       tags,
-      extra: asset,
+      extra: musedamAsset,
     },
   });
 
-  return assetObject;
+  return { assetObject, musedamAsset };
 }
 
 export async function setAssetTagsToMuseDAM({

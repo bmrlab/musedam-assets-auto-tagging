@@ -35,11 +35,11 @@ export async function syncTagsFromMuseDAM({
       Authorization: `Bearer ${musedamTeamApiKey}`,
     },
     body: {
-      orgId: parseInt(musedamTeamId),
+      orgId: musedamTeamId,
     },
   });
   const teamId = team.id;
-  const tags = result as MuseDAMTagTree;
+  const musedamTags = result as MuseDAMTagTree;
   const upsert = async function ({
     name,
     slug,
@@ -66,10 +66,10 @@ export async function syncTagsFromMuseDAM({
     });
     return assetTag;
   };
-  for (const level1Tag of tags) {
+  for (const level1Tag of musedamTags) {
     const level1AssetTag = await upsert({
       name: level1Tag.name,
-      slug: idToSlug("assetTag", level1Tag.id.toString()),
+      slug: idToSlug("assetTag", level1Tag.id),
       level: 1,
       parentId: null,
     });
@@ -77,7 +77,7 @@ export async function syncTagsFromMuseDAM({
     for (const level2Tag of level1Tag.children ?? []) {
       const level2AssetTag = await upsert({
         name: level2Tag.name,
-        slug: idToSlug("assetTag", level2Tag.id.toString()),
+        slug: idToSlug("assetTag", level2Tag.id),
         level: 2,
         parentId: level1AssetTag.id,
       });
@@ -85,12 +85,12 @@ export async function syncTagsFromMuseDAM({
       for (const level3Tag of level2Tag.children ?? []) {
         await upsert({
           name: level3Tag.name,
-          slug: idToSlug("assetTag", level3Tag.id.toString()),
+          slug: idToSlug("assetTag", level3Tag.id),
           level: 3,
           parentId: level2AssetTag.id,
         });
       }
     }
   }
-  return tags;
+  return musedamTags;
 }

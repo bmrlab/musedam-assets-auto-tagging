@@ -25,7 +25,7 @@ function convertToMuseDAMFormat(node: TagNode): MuseDAMTagRequest | null {
   if (node.id) {
     const assetTag = findAssetTagById(node.id);
     if (assetTag?.slug) {
-      musedamId = parseInt(slugToId("assetTag", assetTag.slug));
+      musedamId = slugToId("assetTag", assetTag.slug);
     }
   }
 

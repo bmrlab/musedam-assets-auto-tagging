@@ -1,5 +1,6 @@
 "use client";
 import { TaggingSettingsData } from "@/app/(tagging)/types";
+import { idToSlug } from "@/lib/slug";
 import { dispatchMuseDAMClientAction } from "@/musedam/embed";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -84,7 +85,10 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
       const res = await dispatchMuseDAMClientAction("folder-selector-modal-open", {});
       console.log("文件夹选择结果:", res);
       if (res && typeof res === "object") {
-        const { allMaterials, selectedFolders } = res;
+        const { allMaterials, selectedFolders } = res as {
+          selectedFolders: Array<{ id: number; name: string }>;
+          allMaterials: boolean;
+        };
         console.log("allMaterials:", allMaterials, "selectedFolders:", selectedFolders);
 
         if (allMaterials) {
@@ -102,7 +106,10 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
             const newScope = {
               ...prev,
               scopeType: "specific" as const,
-              selectedFolders: selectedFolders,
+              selectedFolders: selectedFolders.map((folder) => ({
+                slug: idToSlug("assetFolder", folder.id),
+                name: folder.name,
+              })),
             };
             console.log("新的应用范围状态:", newScope);
             return newScope;
@@ -118,10 +125,10 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
     }
   };
 
-  const handleRemoveFolder = (folderId: string) => {
+  const handleRemoveFolder = (folderSlug: string) => {
     setApplicationScope((prev) => ({
       ...prev,
-      selectedFolders: prev.selectedFolders.filter((folder) => folder.id !== folderId),
+      selectedFolders: prev.selectedFolders.filter((folder) => folder.slug !== folderSlug),
     }));
     setHasChanges(true);
   };

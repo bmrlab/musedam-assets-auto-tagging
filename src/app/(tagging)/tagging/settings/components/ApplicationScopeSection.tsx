@@ -1,19 +1,12 @@
+import { TaggingSettingsData } from "@/app/(tagging)/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
-interface ApplicationScope {
-  scopeType: "all" | "specific";
-  selectedFolders: Array<{
-    id: string;
-    name: string;
-  }>;
-}
-
 interface ApplicationScopeSectionProps {
-  applicationScope: ApplicationScope;
+  applicationScope: TaggingSettingsData["applicationScope"];
   onFolderSelection: () => void;
-  onRemoveFolder: (folderId: string) => void;
+  onRemoveFolder: (folderSlug: string) => void;
   onScopeTypeChange: (scopeType: "all" | "specific") => void;
 }
 
@@ -57,7 +50,7 @@ export function ApplicationScopeSection({
 
             {applicationScope.selectedFolders.map((folder) => (
               <div
-                key={folder.id}
+                key={folder.slug}
                 className={cn(
                   "border rounded-lg p-4 cursor-pointer transition-all flex items-center justify-between",
                   applicationScope.scopeType === "specific"
@@ -78,7 +71,7 @@ export function ApplicationScopeSection({
                   size="sm"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onRemoveFolder(folder.id);
+                    onRemoveFolder(folder.slug);
                   }}
                   className="h-8 w-8 p-0"
                 >

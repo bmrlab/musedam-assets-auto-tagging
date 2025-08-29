@@ -170,7 +170,7 @@ export async function approveAuditItemsAction({
       select: { id: true, slug: true },
     });
 
-    const musedamAssetId = parseInt(slugToId("assetObject", assetObject.slug));
+    const musedamAssetId = slugToId("assetObject", assetObject.slug);
     const approvedAsetTags = await prisma.assetTag.findMany({
       where: {
         id: {
@@ -184,7 +184,7 @@ export async function approveAuditItemsAction({
       },
       select: { id: true, slug: true },
     });
-    const musedamTagIds = approvedAsetTags.map((tag) => parseInt(slugToId("assetTag", tag.slug!)));
+    const musedamTagIds = approvedAsetTags.map((tag) => slugToId("assetTag", tag.slug!));
     await setAssetTagsToMuseDAM({
       musedamAssetId,
       musedamTagIds,

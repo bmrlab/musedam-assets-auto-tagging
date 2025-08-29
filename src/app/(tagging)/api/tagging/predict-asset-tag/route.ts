@@ -1,6 +1,8 @@
 import { enqueueTaggingTask } from "@/app/(tagging)/queue";
-import { idToSlug } from "@/lib/slug";
+import { getTaggingSettings } from "@/app/(tagging)/tagging/settings/lib";
+import { idToSlug, slugToId } from "@/lib/slug";
 import { syncSingleAssetFromMuseDAM } from "@/musedam/assets";
+import { AssetObject } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -30,14 +32,14 @@ export async function POST(request: NextRequest) {
     // 解析请求体
     const body = await request.json();
     const {
-      teamId,
+      teamId: musedamTeamId,
       assetId: musedamAssetId,
       matchingSources,
       recognitionAccuracy,
     } = requestSchema.parse(body);
 
     // 根据 teamId 构造 team slug 并查询 team
-    const teamSlug = idToSlug("team", teamId.toString());
+    const teamSlug = idToSlug("team", musedamTeamId);
     const team = await prisma.team.findUnique({
       where: { slug: teamSlug },
     });
@@ -47,12 +49,13 @@ export async function POST(request: NextRequest) {
     }
 
     // 1. 从 MuseDAM 同步素材到本地数据库
-    let assetObject;
+    let assetObject: AssetObject;
+    let musedamAsset: { parentIds: number[] };
     try {
-      assetObject = await syncSingleAssetFromMuseDAM({
+      ({ assetObject, musedamAsset } = await syncSingleAssetFromMuseDAM({
         musedamAssetId,
         team,
-      });
+      }));
     } catch (error) {
       console.error("Failed to sync asset from MuseDAM:", error);
       return NextResponse.json(
@@ -62,6 +65,30 @@ export async function POST(request: NextRequest) {
         },
         { status: 400 },
       );
+    }
+
+    const settings = await getTaggingSettings(team.id);
+    if (settings.applicationScope.scopeType !== "all") {
+      // 检查 selectedFolders 和 parentIds 的 id 是否有交集
+      const musedamFolderIds: number[] = settings.applicationScope.selectedFolders.map((folder) =>
+        slugToId("assetFolder", folder.slug),
+      );
+      const hasIntersection = musedamAsset.parentIds.some((parentId) =>
+        musedamFolderIds.includes(parentId),
+      );
+      if (!hasIntersection) {
+        return NextResponse.json(
+          {
+            success: true,
+            data: {
+              message: `Asset ${musedamAssetId} is not in the selected folders`,
+              queueItemId: null,
+              status: "not_in_selected_folders",
+            },
+          },
+          { status: 201 },
+        );
+      }
     }
 
     // 2. 发起 AI 打标任务

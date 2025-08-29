@@ -51,7 +51,7 @@ export async function startTaggingTasksAction(
           });
 
           // 1. 从 MuseDAM 同步素材到本地数据库
-          const assetObject = await syncSingleAssetFromMuseDAM({
+          const { assetObject } = await syncSingleAssetFromMuseDAM({
             musedamAssetId,
             team,
           });

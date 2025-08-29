@@ -246,7 +246,7 @@ async function generateTestData(teamSlug: string) {
 
     for (let i = 0; i < totalAssets; i++) {
       // 生成6位随机数字的slug
-      const assetNumber = String(Math.floor(Math.random() * 900000) + 100000);
+      const assetNumber = Math.floor(Math.random() * 900000) + 100000;
       const assetSlug = idToSlug("assetObject", assetNumber);
 
       // 随机选择文件夹路径

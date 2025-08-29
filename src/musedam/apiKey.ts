@@ -15,7 +15,7 @@ const apiKeyCache = new Map<string, CacheItem>();
 export async function exchangeMuseDAMTeamAPIKey({
   musedamTeamId,
 }: {
-  musedamTeamId: string;
+  musedamTeamId: number;
 }): Promise<{
   apiKey: string;
   expiresAt: string;

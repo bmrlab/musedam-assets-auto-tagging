@@ -58,7 +58,7 @@ export const taggingSettingsSchema = z.object({
     scopeType: z.enum(["all", "specific"]),
     selectedFolders: z.array(
       z.object({
-        id: z.string(),
+        slug: z.string(),
         name: z.string(),
       }),
     ),
