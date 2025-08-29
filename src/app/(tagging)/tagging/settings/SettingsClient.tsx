@@ -2,6 +2,7 @@
 import { TaggingSettingsData } from "@/app/(tagging)/types";
 import { idToSlug } from "@/lib/slug";
 import { dispatchMuseDAMClientAction } from "@/musedam/embed";
+import { MuseDAMID } from "@/musedam/types";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { updateSettings } from "./actions";
@@ -86,7 +87,7 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
       console.log("文件夹选择结果:", res);
       if (res && typeof res === "object") {
         const { allMaterials, selectedFolders } = res as {
-          selectedFolders: Array<{ id: number; name: string }>;
+          selectedFolders: Array<{ id: MuseDAMID; name: string }>;
           allMaterials: boolean;
         };
         console.log("allMaterials:", allMaterials, "selectedFolders:", selectedFolders);

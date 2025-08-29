@@ -5,9 +5,10 @@ import { retrieveTeamCredentials } from "@/musedam/apiKey";
 import { requestMuseDAMAPI } from "@/musedam/lib";
 import { AssetTag } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
+import { MuseDAMID } from "../types";
 
 type MuseDAMTagTree = {
-  id: number;
+  id: MuseDAMID;
   name: string;
   children: MuseDAMTagTree | null;
 }[];

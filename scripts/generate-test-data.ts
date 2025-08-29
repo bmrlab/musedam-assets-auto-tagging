@@ -1,6 +1,7 @@
 #!/usr/bin/env tsx
 
 import { idToSlug } from "@/lib/slug";
+import { MuseDAMID } from "@/musedam/types";
 import { PrismaClient } from "@/prisma/client";
 import * as fs from "fs";
 import * as yaml from "js-yaml";
@@ -247,7 +248,7 @@ async function generateTestData(teamSlug: string) {
     for (let i = 0; i < totalAssets; i++) {
       // 生成6位随机数字的slug
       const assetNumber = Math.floor(Math.random() * 900000) + 100000;
-      const assetSlug = idToSlug("assetObject", assetNumber);
+      const assetSlug = idToSlug("assetObject", new MuseDAMID(assetNumber));
 
       // 随机选择文件夹路径
       const materializedPath = randomChoice(config.folder_paths);

@@ -10,29 +10,17 @@ export async function createUserAndTeam(payload: {
 }) {
   const { user, team } = await prisma.$transaction(async (tx) => {
     const [user, team] = await Promise.all([
-      tx.user.upsert({
-        where: {
-          slug: payload.user.slug,
-        },
-        create: {
+      tx.user.create({
+        data: {
           name: payload.user.name,
           slug: payload.user.slug,
-        },
-        update: {
-          name: payload.user.name,
         },
       }),
       !payload.team.id
-        ? tx.team.upsert({
-            where: {
-              slug: payload.team.slug,
-            },
-            create: {
+        ? tx.team.create({
+            data: {
               name: payload.team.name,
               slug: payload.team.slug,
-            },
-            update: {
-              name: payload.team.name,
             },
           })
         : Promise.resolve({
@@ -40,18 +28,11 @@ export async function createUserAndTeam(payload: {
             slug: payload.team.slug,
           }),
     ]);
-    await tx.membership.upsert({
-      where: {
-        userId_teamId: {
-          userId: user.id,
-          teamId: team.id,
-        },
-      },
-      create: {
+    await tx.membership.create({
+      data: {
         userId: user.id,
         teamId: team.id,
       },
-      update: {},
     });
     return { user, team };
   });

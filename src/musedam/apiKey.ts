@@ -3,7 +3,7 @@ import { slugToId } from "@/lib/slug";
 import { Team } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 import { requestMuseDAMAPI } from "./lib";
-import { TeamConfigName, TeamConfigValue } from "./types";
+import { MuseDAMID, TeamConfigName, TeamConfigValue } from "./types";
 
 interface CacheItem {
   value: TeamConfigValue<"musedamTeamApiKey">;
@@ -15,7 +15,7 @@ const apiKeyCache = new Map<string, CacheItem>();
 export async function exchangeMuseDAMTeamAPIKey({
   musedamTeamId,
 }: {
-  musedamTeamId: number;
+  musedamTeamId: MuseDAMID;
 }): Promise<{
   apiKey: string;
   expiresAt: string;
@@ -31,7 +31,7 @@ export async function exchangeMuseDAMTeamAPIKey({
       Authorization: `Basic ${token}`,
     },
     body: {
-      orgId: parseInt(musedamTeamId),
+      orgId: musedamTeamId,
     },
   });
   return result;

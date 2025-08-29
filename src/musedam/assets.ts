@@ -3,6 +3,7 @@ import { AssetObjectTags } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 import { retrieveTeamCredentials } from "./apiKey";
 import { requestMuseDAMAPI } from "./lib";
+import { MuseDAMID } from "./types";
 
 async function fetchMuseDAMFolderPath({
   team,
@@ -12,11 +13,11 @@ async function fetchMuseDAMFolderPath({
     id: number;
     slug: string;
   };
-  musedamFolderId: number;
+  musedamFolderId: MuseDAMID;
 }) {
   const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
   const result: {
-    [musedamFolderId]: string;
+    [_id: string]: string;
   } = await requestMuseDAMAPI("/api/muse/folder-path", {
     method: "POST",
     headers: {
@@ -24,7 +25,7 @@ async function fetchMuseDAMFolderPath({
     },
     body: [musedamFolderId],
   });
-  return result[musedamFolderId];
+  return result[musedamFolderId.toString()];
 }
 
 async function fetchContentAnalysisFromMuseDAM({
@@ -35,22 +36,24 @@ async function fetchContentAnalysisFromMuseDAM({
     id: number;
     slug: string;
   };
-  musedamAssetId: number;
+  musedamAssetId: MuseDAMID;
 }) {
   const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
-  const result = await requestMuseDAMAPI("/api/muse/get-asset-analysis-result", {
+  const result: {
+    [_id: string]: string;
+  } = await requestMuseDAMAPI("/api/muse/get-asset-analysis-result", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${musedamTeamApiKey}`,
     },
     body: [musedamAssetId],
   });
-  return result[musedamAssetId];
+  return result[musedamAssetId.toString()];
 }
 
 // build AssetObjectTags from tags response from musedam
 async function buildAssetObjectTags(
-  musedamTags: { id: number; name: string }[],
+  musedamTags: { id: MuseDAMID; name: string }[],
 ): Promise<AssetObjectTags> {
   const tagSlugs = musedamTags.map(({ id: musedamTagId }) => idToSlug("assetTag", musedamTagId));
   const fields = { id: true, slug: true, name: true };
@@ -86,7 +89,7 @@ export async function syncSingleAssetFromMuseDAM({
   musedamAssetId,
   team,
 }: {
-  musedamAssetId: number;
+  musedamAssetId: MuseDAMID;
   team: {
     id: number;
     slug: string;
@@ -108,11 +111,11 @@ export async function syncSingleAssetFromMuseDAM({
   }
 
   const musedamAsset = assets[0] as {
-    id: number;
+    id: MuseDAMID;
     name: string;
-    parentIds: number[];
+    parentIds: MuseDAMID[];
     description: string | null;
-    tags: { id: number; name: string }[];
+    tags: { id: MuseDAMID; name: string }[];
     thumbnailAccessUrl: string;
   };
 
@@ -159,8 +162,8 @@ export async function setAssetTagsToMuseDAM({
   append,
   team,
 }: {
-  musedamAssetId: number;
-  musedamTagIds: number[];
+  musedamAssetId: MuseDAMID;
+  musedamTagIds: MuseDAMID[];
   append: boolean;
   team: {
     id: number;
@@ -192,7 +195,7 @@ export async function syncAssetsFromMuseDAM({
   musedamFolderId,
   team,
 }: {
-  musedamFolderId?: number;
+  musedamFolderId?: MuseDAMID;
   team: {
     id: number;
     slug: string;
@@ -215,7 +218,7 @@ export async function syncAssetsFromMuseDAM({
     },
   });
   await Promise.all(
-    result.assets.map(async (asset: { id: number }) => {
+    result.assets.map(async (asset: { id: MuseDAMID }) => {
       const waitTime = Math.floor(Math.random() * 10000) + 1000; // 1-10 seconds in milliseconds
       await new Promise((resolve) => setTimeout(resolve, waitTime));
       await syncSingleAssetFromMuseDAM({

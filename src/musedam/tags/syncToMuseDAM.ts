@@ -6,9 +6,10 @@ import { retrieveTeamCredentials } from "@/musedam/apiKey";
 import { requestMuseDAMAPI } from "@/musedam/lib";
 import { AssetTag } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
+import { MuseDAMID } from "../types";
 
 interface MuseDAMTagRequest {
-  id?: number;
+  id?: MuseDAMID;
   name: string;
   operation: 0 | 1 | 2 | 3; // 0不操作 1更新 2创建 3删除
   children?: MuseDAMTagRequest[];
@@ -19,7 +20,7 @@ interface MuseDAMTagRequest {
  */
 function convertToMuseDAMFormat(node: TagNode): MuseDAMTagRequest | null {
   let operation: 0 | 1 | 2 | 3 = 0; // 默认不操作
-  let musedamId: number | undefined;
+  let musedamId: MuseDAMID | undefined;
 
   // 如果有 id，说明在数据库中已存在，可以获取其对应的 MuseDAM ID
   if (node.id) {

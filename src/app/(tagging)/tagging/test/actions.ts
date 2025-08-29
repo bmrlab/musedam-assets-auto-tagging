@@ -3,10 +3,11 @@ import { withAuth } from "@/app/(auth)/withAuth";
 import { enqueueTaggingTask } from "@/app/(tagging)/queue";
 import { ServerActionResult } from "@/lib/serverAction";
 import { syncSingleAssetFromMuseDAM } from "@/musedam/assets";
+import { MuseDAMID } from "@/musedam/types";
 import prisma from "@/prisma/prisma";
 
 interface SelectedAsset {
-  id: string; // 素材唯一标识
+  id: MuseDAMID; // 素材唯一标识
   name: string; // 素材名称
   extension: string; // 文件扩展名
   size: number; // 文件大小（字节）
@@ -15,7 +16,7 @@ interface SelectedAsset {
   width?: number; // 图片宽度（图片类型）
   height?: number; // 图片高度（图片类型）
   type?: string; // 素材类型
-  folderId?: number; // 所在文件夹ID
+  folderId?: MuseDAMID; // 所在文件夹ID
   folderName?: string; // 所在文件夹名称
 }
 
@@ -42,7 +43,7 @@ export async function startTaggingTasksAction(
       // 批量发起打标任务
       for (const asset of selectedAssets) {
         try {
-          const musedamAssetId = parseInt(asset.id);
+          const musedamAssetId = asset.id;
 
           // 获取完整的team信息
           const team = await prisma.team.findUniqueOrThrow({

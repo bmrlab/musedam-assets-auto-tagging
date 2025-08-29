@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { dispatchMuseDAMClientAction } from "@/musedam/embed";
+import { MuseDAMID } from "@/musedam/types";
 import { FileText, Loader2, PlayIcon, PlusIcon, TestTube, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
@@ -11,7 +12,7 @@ import { toast } from "sonner";
 import { startTaggingTasksAction } from "./actions";
 
 interface SelectedAsset {
-  id: string; // 素材唯一标识
+  id: MuseDAMID; // 素材唯一标识
   name: string; // 素材名称
   extension: string; // 文件扩展名
   size: number; // 文件大小（字节）
@@ -20,7 +21,7 @@ interface SelectedAsset {
   width?: number; // 图片宽度（图片类型）
   height?: number; // 图片高度（图片类型）
   type?: string; // 素材类型
-  folderId?: number; // 所在文件夹ID
+  folderId?: MuseDAMID; // 所在文件夹ID
   folderName?: string; // 所在文件夹名称
 }
 
@@ -168,7 +169,7 @@ export default function TestClient() {
     }
   }, [selectedAssets, matchingSources, recognitionAccuracy, router]);
 
-  const removeAsset = (assetId: string) => {
+  const removeAsset = (assetId: MuseDAMID) => {
     setSelectedAssets((prev) => prev.filter((asset) => asset.id !== assetId));
   };
 
@@ -234,7 +235,7 @@ export default function TestClient() {
                 <div className="space-y-2 max-h-60 overflow-y-auto">
                   {selectedAssets.map((asset) => (
                     <div
-                      key={asset.id}
+                      key={asset.id.toString()}
                       className="flex items-center justify-between p-3 border rounded-lg"
                     >
                       <div className="flex items-center gap-3">

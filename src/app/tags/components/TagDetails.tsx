@@ -86,11 +86,13 @@ export function TagDetails({ selectedTag }: TagDetailsProps) {
   };
 
   // 添加关键词
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const addKeyword = (type: "keywords" | "negativeKeywords") => {
     updateField(type, [...formData[type], ""]);
   };
 
   // 更新关键词
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const updateKeyword = (type: "keywords" | "negativeKeywords", index: number, value: string) => {
     const newKeywords = formData[type].map((item, i) => (i === index ? value : item));
     updateField(type, newKeywords);

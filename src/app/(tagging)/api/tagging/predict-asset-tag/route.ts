@@ -2,14 +2,15 @@ import { enqueueTaggingTask } from "@/app/(tagging)/queue";
 import { getTaggingSettings } from "@/app/(tagging)/tagging/settings/lib";
 import { idToSlug, slugToId } from "@/lib/slug";
 import { syncSingleAssetFromMuseDAM } from "@/musedam/assets";
+import { MuseDAMID } from "@/musedam/types";
 import { AssetObject } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 const requestSchema = z.object({
-  teamId: z.number().int().positive(),
-  assetId: z.number().int().positive(),
+  teamId: z.bigint().positive(),
+  assetId: z.bigint().positive(),
   matchingSources: z
     .object({
       basicInfo: z.boolean(),
@@ -39,7 +40,7 @@ export async function POST(request: NextRequest) {
     } = requestSchema.parse(body);
 
     // 根据 teamId 构造 team slug 并查询 team
-    const teamSlug = idToSlug("team", musedamTeamId);
+    const teamSlug = idToSlug("team", new MuseDAMID(musedamTeamId));
     const team = await prisma.team.findUnique({
       where: { slug: teamSlug },
     });
@@ -50,10 +51,10 @@ export async function POST(request: NextRequest) {
 
     // 1. 从 MuseDAM 同步素材到本地数据库
     let assetObject: AssetObject;
-    let musedamAsset: { parentIds: number[] };
+    let musedamAsset: { parentIds: MuseDAMID[] };
     try {
       ({ assetObject, musedamAsset } = await syncSingleAssetFromMuseDAM({
-        musedamAssetId,
+        musedamAssetId: new MuseDAMID(musedamAssetId),
         team,
       }));
     } catch (error) {
@@ -70,8 +71,8 @@ export async function POST(request: NextRequest) {
     const settings = await getTaggingSettings(team.id);
     if (settings.applicationScope.scopeType !== "all") {
       // 检查 selectedFolders 和 parentIds 的 id 是否有交集
-      const musedamFolderIds: number[] = settings.applicationScope.selectedFolders.map((folder) =>
-        slugToId("assetFolder", folder.slug),
+      const musedamFolderIds: MuseDAMID[] = settings.applicationScope.selectedFolders.map(
+        (folder) => slugToId("assetFolder", folder.slug),
       );
       const hasIntersection = musedamAsset.parentIds.some((parentId) =>
         musedamFolderIds.includes(parentId),
@@ -83,7 +84,7 @@ export async function POST(request: NextRequest) {
             data: {
               message: `Asset ${musedamAssetId} is not in the selected folders`,
               queueItemId: null,
-              status: "not_in_selected_folders",
+              status: null,
             },
           },
           { status: 201 },

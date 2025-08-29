@@ -1,9 +1,11 @@
+import { MuseDAMID } from "@/musedam/types";
+
 /**
  * 将 MuseDAM 的资源 id 转换为 slug
  */
 export function idToSlug(
   type: "team" | "user" | "assetFolder" | "assetObject" | "assetTag",
-  id: number,
+  id: MuseDAMID,
 ) {
   switch (type) {
     case "team":
@@ -25,7 +27,7 @@ export function idToSlug(
 export function slugToId(
   type: "team" | "user" | "assetFolder" | "assetObject" | "assetTag",
   slug: string,
-): number {
+): MuseDAMID {
   const match = slug.match(/^([a-z])\/(\d+)$/);
   if (!match) {
     throw new Error(`Invalid slug: ${slug}`);
@@ -35,5 +37,5 @@ export function slugToId(
   if (t !== typeMap[type]) {
     throw new Error(`Type mismatch: expected ${typeMap[type]}, got ${t}`);
   }
-  return parseInt(id);
+  return new MuseDAMID(id);
 }
