@@ -38,12 +38,6 @@ CREATE UNIQUE INDEX "Team_slug_key" ON "public"."Team"("slug");
 CREATE UNIQUE INDEX "User_slug_key" ON "public"."User"("slug");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Membership_userId_key" ON "public"."Membership"("userId");
-
--- CreateIndex
-CREATE UNIQUE INDEX "Membership_teamId_key" ON "public"."Membership"("teamId");
-
--- CreateIndex
 CREATE UNIQUE INDEX "Membership_userId_teamId_key" ON "public"."Membership"("userId", "teamId");
 
 -- AddForeignKey
