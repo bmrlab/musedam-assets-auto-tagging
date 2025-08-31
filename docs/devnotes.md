@@ -18,6 +18,9 @@ https://tezign.feishu.cn/wiki/Co8kwU1I2iccDNkczxXcRBJonnc
 素材选择器说明
 https://git.tezign.com/engineering/tezign-intelligence-frontend-minidam/-/blob/feat/autoTag/packages/minidam-app/OUTER_INTEGRATION_README.md
 
+MuseDAM iframe 通信说明
+https://git.tezign.com/engineering/tezign-intelligence-frontend-minidam/-/tree/feat/autoTag/packages/minidam-app/src/components-app
+
 自动打标 PRD
 https://tezign.feishu.cn/wiki/IqiywpVpfipXPxkNm6ycNAFlnpF
 

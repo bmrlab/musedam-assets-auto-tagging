@@ -140,7 +140,7 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
   }, [applicationScope]);
 
   return (
-    <div className="space-y-8 p-6 max-w-5xl mx-auto">
+    <div className="space-y-6 p-6 max-w-5xl mx-auto">
       <SettingsHeader hasChanges={hasChanges} isPending={isPending} onSave={handleSaveSettings} />
 
       <GlobalSettingsSection
@@ -150,14 +150,14 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
 
       <TaggingModeSection taggingMode={taggingMode} onTaggingModeChange={handleTaggingModeChange} />
 
-      <MatchingStrategySection
-        matchingSources={matchingSources}
-        onSourceChange={handleSourceChange}
-      />
-
       <AIRecognitionSection
         recognitionAccuracy={recognitionAccuracy}
         onRecognitionAccuracyChange={handleRecognitionAccuracyChange}
+      />
+
+      <MatchingStrategySection
+        matchingSources={matchingSources}
+        onSourceChange={handleSourceChange}
       />
 
       <ApplicationScopeSection

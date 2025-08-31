@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Loader2Icon, SaveIcon, SettingsIcon } from "lucide-react";
+import { Loader2Icon, SaveIcon } from "lucide-react";
 
 interface SettingsHeaderProps {
   hasChanges: boolean;
@@ -10,9 +10,8 @@ interface SettingsHeaderProps {
 export function SettingsHeader({ hasChanges, isPending, onSave }: SettingsHeaderProps) {
   return (
     <div className="flex items-center justify-between">
-      <div className="flex items-center gap-3">
-        <SettingsIcon className="size-6" />
-        <h1 className="text-2xl font-bold">AI 打标设置</h1>
+      <div>
+        <h1 className="text-lg font-medium">打标开关</h1>
       </div>
 
       {hasChanges && (
