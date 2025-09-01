@@ -154,8 +154,7 @@ export default function TestClient() {
           });
         }
 
-        // 跳转到dashboard页面
-        router.push("/tagging/dashboard");
+        router.push("/tagging/review");
       } else {
         toast.error("发起打标任务失败", {
           description: result.message,

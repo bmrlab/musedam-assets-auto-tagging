@@ -1,5 +1,7 @@
 import { rootLogger } from "@/lib/logging";
+import { slugToId } from "@/lib/slug";
 import { syncTagsFromMuseDAM } from "@/musedam/tags/syncFromMuseDAM";
+import { fetchMuseDAMUser } from "@/musedam/user";
 import prisma from "@/prisma/prisma";
 import { after } from "next/server";
 import "server-only";
@@ -49,7 +51,23 @@ export async function createUserAndTeam(payload: {
     );
   }
   return {
-    user: { id: user.id },
-    team: { id: team.id },
+    user: { id: user.id, slug: user.slug },
+    team: { id: team.id, slug: team.slug },
   };
+}
+
+export async function checkUserPermission(payload: {
+  user: { id: number; slug: string };
+  team: { id: number; slug: string };
+}) {
+  const musedamUserId = slugToId("user", payload.user.slug);
+  const result = await fetchMuseDAMUser({
+    team: payload.team,
+    musedamUserId,
+  });
+  if (result.roleCode === "admin" || result.roleCode === "content") {
+    return result;
+  } else {
+    throw new Error("Permission denied");
+  }
 }
