@@ -4,7 +4,7 @@ import { MuseDAMID } from "@/musedam/types";
  * 将 MuseDAM 的资源 id 转换为 slug
  */
 export function idToSlug(
-  type: "team" | "user" | "assetFolder" | "assetObject" | "assetTag",
+  type: "team" | "user" | "assetFolder" | "assetObject" | "assetTag" | "group" | "department",
   id: MuseDAMID,
 ) {
   switch (type) {
@@ -18,6 +18,10 @@ export function idToSlug(
       return `a/${id}`;
     case "assetTag":
       return `g/${id}`;
+    case "group":
+      return `ug/${id}`;
+    case "department":
+      return `ud/${id}`;
   }
 }
 
@@ -25,15 +29,23 @@ export function idToSlug(
  * 返回 MuseDAM 的资源 id，类型是 string
  */
 export function slugToId(
-  type: "team" | "user" | "assetFolder" | "assetObject" | "assetTag",
+  type: "team" | "user" | "assetFolder" | "assetObject" | "assetTag" | "group" | "department",
   slug: string,
 ): MuseDAMID {
-  const match = slug.match(/^([a-z])\/(\d+)$/);
+  const match = slug.match(/^([a-z]+)\/(\d+)$/);
   if (!match) {
     throw new Error(`Invalid slug: ${slug}`);
   }
   const [, t, id] = match;
-  const typeMap = { team: "t", user: "u", assetFolder: "f", assetObject: "a", assetTag: "g" };
+  const typeMap = {
+    team: "t",
+    user: "u",
+    assetFolder: "f",
+    assetObject: "a",
+    assetTag: "g",
+    group: "ug",
+    department: "ud",
+  };
   if (t !== typeMap[type]) {
     throw new Error(`Type mismatch: expected ${typeMap[type]}, got ${t}`);
   }

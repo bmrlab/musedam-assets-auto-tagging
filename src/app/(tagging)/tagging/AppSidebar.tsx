@@ -16,7 +16,13 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
-import { BarChart3Icon, BugPlayIcon, CheckSquareIcon, SettingsIcon } from "lucide-react";
+import {
+  BarChart3Icon,
+  BugPlayIcon,
+  CheckSquareIcon,
+  SettingsIcon,
+  ShieldIcon,
+} from "lucide-react";
 
 const menuItems = [
   {
@@ -33,6 +39,11 @@ const menuItems = [
     title: "AI打标设置",
     url: "/tagging/settings",
     icon: SettingsIcon,
+  },
+  {
+    title: "权限管理",
+    url: "/tagging/access",
+    icon: ShieldIcon,
   },
   {
     title: "测试打标",

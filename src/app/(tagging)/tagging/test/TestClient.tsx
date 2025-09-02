@@ -103,20 +103,13 @@ export default function TestClient() {
   const handleAssetSelection = async () => {
     try {
       setIsProcessing(true);
-      const res = await dispatchMuseDAMClientAction("assets-selector-modal-open", {});
-      console.log("素材选择结果:", res);
-
-      if (res && typeof res === "object") {
-        const { selectedAssets: assets } = res;
-        console.log("selectedAssets:", assets);
-
-        if (assets && Array.isArray(assets) && assets.length > 0) {
-          setSelectedAssets(assets);
-          toast.success(`已选择 ${assets.length} 个素材`);
-        } else {
-          console.log("没有选择素材或返回格式不正确");
-          toast.info("未选择任何素材");
-        }
+      const res: {
+        selectedAssets: SelectedAsset[];
+      } = await dispatchMuseDAMClientAction("assets-selector-modal-open", {});
+      const { selectedAssets: assets } = res;
+      if (assets && Array.isArray(assets) && assets.length > 0) {
+        setSelectedAssets(assets);
+        toast.success(`已选择 ${assets.length} 个素材`);
       } else {
         console.log("没有选择素材或返回格式不正确");
         toast.info("未选择任何素材");

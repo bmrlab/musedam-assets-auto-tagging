@@ -83,43 +83,33 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
 
   const handleFolderSelection = async () => {
     try {
-      const res = await dispatchMuseDAMClientAction("folder-selector-modal-open", {});
-      console.log("文件夹选择结果:", res);
-      if (res && typeof res === "object") {
-        const { allMaterials, selectedFolders } = res as {
-          selectedFolders: Array<{ id: MuseDAMID; name: string }>;
-          allMaterials: boolean;
-        };
-        console.log("allMaterials:", allMaterials, "selectedFolders:", selectedFolders);
-
-        if (allMaterials) {
-          setApplicationScope((prev) => ({
+      const res: {
+        selectedFolders: Array<{ id: MuseDAMID; name: string }>;
+        allMaterials: boolean;
+      } = await dispatchMuseDAMClientAction("folder-selector-modal-open", {});
+      const { allMaterials, selectedFolders } = res;
+      // console.log("allMaterials:", allMaterials, "selectedFolders:", selectedFolders);
+      if (allMaterials) {
+        setApplicationScope((prev) => ({
+          ...prev,
+          scopeType: "all",
+          selectedFolders: [],
+        }));
+      } else if (selectedFolders && Array.isArray(selectedFolders) && selectedFolders.length > 0) {
+        setApplicationScope((prev) => {
+          const newScope = {
             ...prev,
-            scopeType: "all",
-            selectedFolders: [],
-          }));
-        } else if (
-          selectedFolders &&
-          Array.isArray(selectedFolders) &&
-          selectedFolders.length > 0
-        ) {
-          setApplicationScope((prev) => {
-            const newScope = {
-              ...prev,
-              scopeType: "specific" as const,
-              selectedFolders: selectedFolders.map((folder) => ({
-                slug: idToSlug("assetFolder", folder.id),
-                name: folder.name,
-              })),
-            };
-            console.log("新的应用范围状态:", newScope);
-            return newScope;
-          });
-        }
-        setHasChanges(true);
-      } else {
-        console.log("没有选择文件夹或返回格式不正确");
+            scopeType: "specific" as const,
+            selectedFolders: selectedFolders.map((folder) => ({
+              slug: idToSlug("assetFolder", folder.id),
+              name: folder.name,
+            })),
+          };
+          console.log("新的应用范围状态:", newScope);
+          return newScope;
+        });
       }
+      setHasChanges(true);
     } catch (error) {
       console.error("选择文件夹失败:", error);
       toast.error("选择文件夹失败");

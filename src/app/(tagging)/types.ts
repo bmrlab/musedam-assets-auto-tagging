@@ -74,6 +74,7 @@ export const TAGGING_CONFIG_KEYS = {
   RECOGNITION_ACCURACY: "recognitionAccuracy",
   MATCHING_SOURCES: "matchingSources",
   APPLICATION_SCOPE: "applicationScope",
+  ACCESS_PERMISSIONS: "accessPermissions",
 } as const;
 
 // 默认设置
@@ -92,3 +93,11 @@ export const DEFAULT_TAGGING_SETTINGS: TaggingSettingsData = {
     selectedFolders: [],
   },
 };
+
+// Permission settings
+export type AccessRole = "reviewer" | "admin";
+export interface AccessPermission {
+  slug: string;
+  name: string;
+  role: AccessRole;
+}

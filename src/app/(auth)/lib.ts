@@ -1,10 +1,12 @@
 import { rootLogger } from "@/lib/logging";
-import { slugToId } from "@/lib/slug";
+import { idToSlug, slugToId } from "@/lib/slug";
 import { syncTagsFromMuseDAM } from "@/musedam/tags/syncFromMuseDAM";
 import { fetchMuseDAMUser } from "@/musedam/user";
 import prisma from "@/prisma/prisma";
 import { after } from "next/server";
 import "server-only";
+import { getAccessPermissions } from "../(tagging)/tagging/access/lib";
+import { AccessPermission } from "../(tagging)/types";
 
 export async function createUserAndTeam(payload: {
   user: { name: string; slug: string };
@@ -65,9 +67,46 @@ export async function checkUserPermission(payload: {
     team: payload.team,
     musedamUserId,
   });
+
+  // First check if user has admin or content role in MuseDAM
   if (result.roleCode === "admin" || result.roleCode === "content") {
     return result;
-  } else {
-    throw new Error("Permission denied");
   }
+
+  // If not, check access permissions configuration
+  const permissions = await getAccessPermissions(payload.team.id);
+
+  if (permissions.length > 0) {
+
+    // Check if user has direct permission
+    const userSlug = payload.user.slug;
+    const userPermission = permissions.find((p) => p.slug === userSlug);
+    if (userPermission) {
+      return { ...result, accessRole: userPermission.role };
+    }
+
+    // Check if user's department has permission
+    if (result.departmentIds && result.departmentIds.length > 0) {
+      for (const deptId of result.departmentIds) {
+        const deptSlug = idToSlug("department", deptId);
+        const deptPermission = permissions.find((p) => p.slug === deptSlug);
+        if (deptPermission) {
+          return { ...result, accessRole: deptPermission.role };
+        }
+      }
+    }
+
+    // Check if user's group has permission
+    if (result.groupIds && result.groupIds.length > 0) {
+      for (const groupId of result.groupIds) {
+        const groupSlug = idToSlug("group", groupId);
+        const groupPermission = permissions.find((p) => p.slug === groupSlug);
+        if (groupPermission) {
+          return { ...result, accessRole: groupPermission.role };
+        }
+      }
+    }
+  }
+
+  throw new Error("Permission denied");
 }
