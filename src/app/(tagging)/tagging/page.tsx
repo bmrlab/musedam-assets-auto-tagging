@@ -1,5 +1,5 @@
 // "use client";
-// // import { dispatchMuseDAMClientAction } from "@/musedam/embed";
+// // import { dispatchMuseDAMClientAction } from "@/musedam/message";
 // import { useEffect } from "react";
 // export default function TaggingPage() {
 //   useEffect(() => {

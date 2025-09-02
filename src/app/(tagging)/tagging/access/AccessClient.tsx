@@ -8,8 +8,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { dispatchMuseDAMClientAction } from "@/embed/message";
 import { idToSlug } from "@/lib/slug";
-import { dispatchMuseDAMClientAction } from "@/musedam/embed";
 import { MuseDAMID } from "@/musedam/types";
 import { Building, ChevronDown, Loader2, Plus, User, Users } from "lucide-react";
 import { useState, useTransition } from "react";

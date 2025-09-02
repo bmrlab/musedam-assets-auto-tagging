@@ -1,16 +1,21 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-// 全局队列，存储待处理的 promise
-const pendingPromises = new Map<
-  string,
-  {
-    resolve: (result: any) => void;
-    reject: (error: any) => void;
-  }
->();
+// 定义全局类型
+const globalForMessage = global as unknown as {
+  musedamMessageQueue:
+    | Map<string, { resolve: (result: any) => void; reject: (error: any) => void }>
+    | undefined;
+};
 
-// 全局监听器标记，确保只有一个监听器
-let isListenerInitialized = false;
+// 创建或获取全局队列
+function getPendingPromises() {
+  if (!globalForMessage.musedamMessageQueue) {
+    globalForMessage.musedamMessageQueue = new Map();
+    // 第一次创建时初始化监听器
+    initializeMessageListener();
+  }
+  return globalForMessage.musedamMessageQueue;
+}
 
 // 生成唯一的 dispatch ID
 function generateDispatchId(): string {
@@ -21,10 +26,6 @@ function generateDispatchId(): string {
 
 // 初始化全局消息监听器
 function initializeMessageListener() {
-  if (isListenerInitialized) {
-    return;
-  }
-
   // 检查是否在浏览器环境
   if (typeof window === "undefined") {
     console.warn("Cannot initialize message listener: not in browser environment");
@@ -46,6 +47,7 @@ function initializeMessageListener() {
       message.type === "action_result" &&
       message.dispatchId
     ) {
+      const pendingPromises = getPendingPromises();
       // 从队列中找到对应的 promise
       const pendingPromise = pendingPromises.get(message.dispatchId);
 
@@ -64,8 +66,6 @@ function initializeMessageListener() {
       }
     }
   });
-
-  isListenerInitialized = true;
 }
 
 /**
@@ -86,8 +86,9 @@ export function dispatchMuseDAMClientAction(action: string, args: any = {}): Pro
   if (!window.parent || window.parent === window) {
     return Promise.reject(new Error("No parent window available for communication"));
   }
-  // 确保全局监听器已初始化
-  initializeMessageListener();
+
+  // 获取全局队列（会自动初始化监听器）
+  const pendingPromises = getPendingPromises();
 
   // 生成唯一的 dispatch ID
   const dispatchId = generateDispatchId();
@@ -111,19 +112,19 @@ export function dispatchMuseDAMClientAction(action: string, args: any = {}): Pro
   // 发送消息到父窗口
   window.parent.postMessage(message, "*");
 
-  // 设置超时处理（可选，防止 promise 永远不 resolve）
-  const timeout = setTimeout(() => {
-    const pendingPromise = pendingPromises.get(dispatchId);
-    if (pendingPromise) {
-      pendingPromises.delete(dispatchId);
-      pendingPromise.reject(new Error(`Request timeout for action: ${action}`));
-    }
-  }, 30000); // 30秒超时
-
-  // 在 promise resolve/reject 时清除超时
-  promise.finally(() => {
-    clearTimeout(timeout);
-  });
+  // // 设置超时处理（可选，防止 promise 永远不 resolve）
+  // // 暂时不需要，因为这都是用户交互，可能打开一个文件夹选项框选择了10分钟，其实也没问题
+  // const timeout = setTimeout(() => {
+  //   const pendingPromise = pendingPromises.get(dispatchId);
+  //   if (pendingPromise) {
+  //     pendingPromises.delete(dispatchId);
+  //     pendingPromise.reject(new Error(`Request timeout for action: ${action}`));
+  //   }
+  // }, 30000); // 30秒超时
+  // // 在 promise resolve/reject 时清除超时
+  // promise.finally(() => {
+  //   clearTimeout(timeout);
+  // });
 
   return promise;
 }
@@ -132,13 +133,14 @@ export function dispatchMuseDAMClientAction(action: string, args: any = {}): Pro
  * 获取当前待处理的请求数量（用于调试）
  */
 export function getPendingRequestsCount(): number {
-  return pendingPromises.size;
+  return getPendingPromises().size;
 }
 
 /**
  * 清除所有待处理的请求（用于清理）
  */
 export function clearPendingRequests(): void {
+  const pendingPromises = getPendingPromises();
   pendingPromises.forEach(({ reject }) => {
     reject(new Error("Request cleared"));
   });

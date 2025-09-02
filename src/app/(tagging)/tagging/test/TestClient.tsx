@@ -2,8 +2,8 @@
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { dispatchMuseDAMClientAction } from "@/embed/message";
 import { cn } from "@/lib/utils";
-import { dispatchMuseDAMClientAction } from "@/musedam/embed";
 import { MuseDAMID } from "@/musedam/types";
 import { BugPlayIcon, FileText, Loader2, PlayIcon, PlusIcon, X } from "lucide-react";
 import { useRouter } from "next/navigation";

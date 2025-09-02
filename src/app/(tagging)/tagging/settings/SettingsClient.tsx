@@ -1,7 +1,7 @@
 "use client";
 import { TaggingSettingsData } from "@/app/(tagging)/types";
+import { dispatchMuseDAMClientAction } from "@/embed/message";
 import { idToSlug } from "@/lib/slug";
-import { dispatchMuseDAMClientAction } from "@/musedam/embed";
 import { MuseDAMID } from "@/musedam/types";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
