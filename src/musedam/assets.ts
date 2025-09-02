@@ -115,7 +115,7 @@ export async function syncSingleAssetFromMuseDAM({
     name: string;
     parentIds: MuseDAMID[];
     description: string | null;
-    tags: { id: MuseDAMID; name: string }[];
+    tags: { id: MuseDAMID; name: string }[] | null;
     thumbnailAccessUrl: string;
   };
 
@@ -123,7 +123,7 @@ export async function syncSingleAssetFromMuseDAM({
   const [folderPath, contentAnalysis, tags] = await Promise.all([
     musedamFolderId ? fetchMuseDAMFolderPath({ team, musedamFolderId }) : Promise.resolve(""),
     fetchContentAnalysisFromMuseDAM({ team, musedamAssetId }),
-    buildAssetObjectTags(musedamAsset.tags),
+    buildAssetObjectTags(musedamAsset.tags ?? []),
   ]);
   const assetSlug = idToSlug("assetObject", musedamAsset.id);
 

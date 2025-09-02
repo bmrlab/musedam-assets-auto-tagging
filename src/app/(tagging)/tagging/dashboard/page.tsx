@@ -13,7 +13,7 @@ export default async function DashboardPage() {
 
   const [statsResult, tasksResult] = await Promise.all([
     fetchDashboardStats(),
-    fetchProcessingTasks(1, 20),
+    fetchProcessingTasks(1, 10, "processing"),
   ]);
 
   if (!statsResult.success) {

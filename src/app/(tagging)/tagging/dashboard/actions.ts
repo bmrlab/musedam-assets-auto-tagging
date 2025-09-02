@@ -1,10 +1,15 @@
 "use server";
 import { withAuth } from "@/app/(auth)/withAuth";
 import { ServerActionResult } from "@/lib/serverAction";
-import { AssetObject, TaggingQueueItem } from "@/prisma/client";
+import {
+  AssetObject,
+  AssetObjectExtra,
+  TaggingQueueItem,
+  TaggingQueueStatus,
+} from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 
-export interface DashboardStats {
+export type DashboardStats = {
   totalCompleted: number;
   processing: number;
   pending: number;
@@ -13,11 +18,13 @@ export interface DashboardStats {
   monthlyCompleted: number;
   dailyCompleted: number;
   avgProcessingTime: number; // 平均处理时间（秒）
-}
+};
 
-export interface TaskWithAsset extends TaggingQueueItem {
-  assetObject: AssetObject;
-}
+export type TaskWithAsset = Omit<TaggingQueueItem, "assetObject"> & {
+  assetObject: Omit<AssetObject, "extra"> & {
+    extra: AssetObjectExtra;
+  };
+};
 
 export async function fetchDashboardStats(): Promise<
   ServerActionResult<{
@@ -125,23 +132,31 @@ export async function fetchDashboardStats(): Promise<
 export async function fetchProcessingTasks(
   page: number = 1,
   limit: number = 20,
+  filter: "all" | "processing" = "all",
 ): Promise<
   ServerActionResult<{
     tasks: TaskWithAsset[];
     total: number;
     hasMore: boolean;
+    page: number;
+    limit: number;
   }>
 > {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
       const offset = (page - 1) * limit;
 
+      const whereClause =
+        filter === "all"
+          ? { teamId }
+          : {
+              teamId,
+              status: { in: ["processing", "pending"] as TaggingQueueStatus[] },
+            };
+
       const [tasks, total] = await Promise.all([
         prisma.taggingQueueItem.findMany({
-          where: {
-            teamId,
-            status: { in: ["processing", "pending", "failed"] },
-          },
+          where: whereClause,
           include: {
             assetObject: true,
           },
@@ -153,10 +168,7 @@ export async function fetchProcessingTasks(
           take: limit,
         }),
         prisma.taggingQueueItem.count({
-          where: {
-            teamId,
-            status: { in: ["processing", "pending", "failed"] },
-          },
+          where: whereClause,
         }),
       ]);
 
@@ -168,6 +180,8 @@ export async function fetchProcessingTasks(
           tasks: tasks as TaskWithAsset[],
           total,
           hasMore,
+          page,
+          limit,
         },
       };
     } catch (error) {
@@ -299,6 +313,257 @@ export async function retryFailedTask(taskId: number): Promise<ServerActionResul
       return {
         success: false,
         message: "重试任务失败",
+      };
+    }
+  });
+}
+
+export async function retryAllFailedTasks(): Promise<ServerActionResult<{ count: number }>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    try {
+      const result = await prisma.taggingQueueItem.updateMany({
+        where: { teamId, status: "failed" },
+        data: {
+          status: "pending",
+          startsAt: null,
+          endsAt: null,
+          result: {},
+        },
+      });
+
+      return {
+        success: true,
+        data: { count: result.count },
+      };
+    } catch (error) {
+      console.error("重试所有失败任务失败:", error);
+      return {
+        success: false,
+        message: "重试任务失败",
+      };
+    }
+  });
+}
+
+export async function fetchWeeklyTaggingData(): Promise<
+  ServerActionResult<{
+    data: Array<{
+      day: string;
+      count: number;
+    }>;
+  }>
+> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    try {
+      const today = new Date();
+      const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+      const tasks = await prisma.taggingQueueItem.findMany({
+        where: {
+          teamId,
+          status: "completed",
+          endsAt: {
+            gte: weekAgo,
+            lte: today,
+          },
+        },
+        select: {
+          endsAt: true,
+        },
+      });
+
+      const dayNames = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+      const data = Array.from({ length: 7 }, (_, i) => {
+        const date = new Date(weekAgo);
+        date.setDate(weekAgo.getDate() + i);
+        const dayStart = new Date(date);
+        dayStart.setHours(0, 0, 0, 0);
+        const dayEnd = new Date(date);
+        dayEnd.setHours(23, 59, 59, 999);
+
+        const count = tasks.filter((task) => {
+          if (!task.endsAt) return false;
+          return task.endsAt >= dayStart && task.endsAt <= dayEnd;
+        }).length;
+
+        return {
+          day: dayNames[date.getDay()],
+          count,
+        };
+      });
+
+      return {
+        success: true,
+        data: { data },
+      };
+    } catch (error) {
+      console.error("获取每周打标数据失败:", error);
+      return {
+        success: false,
+        message: "获取数据失败",
+      };
+    }
+  });
+}
+
+export async function fetchStrategyDistribution(): Promise<
+  ServerActionResult<{
+    data: Array<{
+      name: string;
+      value: number;
+      percentage: number;
+    }>;
+  }>
+> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    try {
+      const tasks = await prisma.taggingQueueItem.findMany({
+        where: {
+          teamId,
+          status: "completed",
+        },
+        select: {
+          result: true,
+        },
+      });
+
+      const strategies = {
+        direct: 0,
+        name: 0,
+        content: 0,
+        keyword: 0,
+      };
+
+      tasks.forEach((task) => {
+        const result = task.result as any;
+        if (result?.strategy) {
+          switch (result.strategy) {
+            case "direct":
+              strategies.direct++;
+              break;
+            case "name":
+              strategies.name++;
+              break;
+            case "content":
+              strategies.content++;
+              break;
+            case "keyword":
+              strategies.keyword++;
+              break;
+          }
+        }
+      });
+
+      const total = Object.values(strategies).reduce((sum, val) => sum + val, 0);
+
+      const data = [
+        {
+          name: "直接匹配",
+          value: strategies.direct,
+          percentage: total > 0 ? Math.round((strategies.direct / total) * 100) : 0,
+        },
+        {
+          name: "名称匹配",
+          value: strategies.name,
+          percentage: total > 0 ? Math.round((strategies.name / total) * 100) : 0,
+        },
+        {
+          name: "内容匹配",
+          value: strategies.content,
+          percentage: total > 0 ? Math.round((strategies.content / total) * 100) : 0,
+        },
+        {
+          name: "关键词匹配",
+          value: strategies.keyword,
+          percentage: total > 0 ? Math.round((strategies.keyword / total) * 100) : 0,
+        },
+      ];
+
+      return {
+        success: true,
+        data: { data },
+      };
+    } catch (error) {
+      console.error("获取策略分布失败:", error);
+      return {
+        success: false,
+        message: "获取数据失败",
+      };
+    }
+  });
+}
+
+export async function fetchMonthlyTrend(): Promise<
+  ServerActionResult<{
+    data: Array<{
+      month: string;
+      completed: number;
+      total: number;
+    }>;
+  }>
+> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    try {
+      const months = [];
+      const monthNames = [
+        "1月",
+        "2月",
+        "3月",
+        "4月",
+        "5月",
+        "6月",
+        "7月",
+        "8月",
+        "9月",
+        "10月",
+        "11月",
+        "12月",
+      ];
+
+      for (let i = 11; i >= 0; i--) {
+        const date = new Date();
+        date.setMonth(date.getMonth() - i);
+        const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
+        const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999);
+
+        const [completed, total] = await Promise.all([
+          prisma.taggingQueueItem.count({
+            where: {
+              teamId,
+              status: "completed",
+              endsAt: {
+                gte: monthStart,
+                lte: monthEnd,
+              },
+            },
+          }),
+          prisma.taggingQueueItem.count({
+            where: {
+              teamId,
+              createdAt: {
+                gte: monthStart,
+                lte: monthEnd,
+              },
+            },
+          }),
+        ]);
+
+        months.push({
+          month: monthNames[date.getMonth()],
+          completed,
+          total,
+        });
+      }
+
+      return {
+        success: true,
+        data: { data: months },
+      };
+    } catch (error) {
+      console.error("获取月度趋势失败:", error);
+      return {
+        success: false,
+        message: "获取数据失败",
       };
     }
   });

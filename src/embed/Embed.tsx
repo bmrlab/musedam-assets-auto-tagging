@@ -12,7 +12,7 @@ export function Embed() {
     const pathValue = `#path=${pathname}${search ? `?${search}` : ""}`;
     dispatchMuseDAMClientAction("syncPath", {
       path: pathValue,
-    });
+    }).catch(() => {});
   }, [pathname, searchParams]);
 
   return <></>;
