@@ -1,6 +1,7 @@
 import "server-only";
 
 import { AccessPermission, TAGGING_CONFIG_KEYS } from "@/app/(tagging)/types";
+import { InputJsonValue } from "@/prisma/client/runtime/library";
 import prisma from "@/prisma/prisma";
 
 // 获取权限配置数据
@@ -39,10 +40,10 @@ export async function saveAccessPermissions(
     create: {
       teamId,
       key: TAGGING_CONFIG_KEYS.ACCESS_PERMISSIONS,
-      value: permissions as any,
+      value: permissions as unknown as InputJsonValue,
     },
     update: {
-      value: permissions as any,
+      value: permissions as unknown as InputJsonValue,
     },
   });
 }
@@ -53,10 +54,10 @@ export async function addOrUpdateAccessPermission(
   permission: AccessPermission,
 ): Promise<AccessPermission[]> {
   const currentPermissions = await getAccessPermissions(teamId);
-  
+
   // 检查是否已存在
-  const existingIndex = currentPermissions.findIndex(p => p.slug === permission.slug);
-  
+  const existingIndex = currentPermissions.findIndex((p) => p.slug === permission.slug);
+
   let newPermissions: AccessPermission[];
   if (existingIndex >= 0) {
     // 更新现有权限
@@ -77,8 +78,8 @@ export async function removeAccessPermission(
   slug: string,
 ): Promise<AccessPermission[]> {
   const currentPermissions = await getAccessPermissions(teamId);
-  const newPermissions = currentPermissions.filter(p => p.slug !== slug);
-  
+  const newPermissions = currentPermissions.filter((p) => p.slug !== slug);
+
   await saveAccessPermissions(teamId, newPermissions);
   return newPermissions;
 }

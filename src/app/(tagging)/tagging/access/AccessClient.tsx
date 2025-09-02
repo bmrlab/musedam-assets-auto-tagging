@@ -1,14 +1,17 @@
 "use client";
 import { AccessPermission, AccessRole } from "@/app/(tagging)/types";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { idToSlug } from "@/lib/slug";
-import { cn } from "@/lib/utils";
 import { dispatchMuseDAMClientAction } from "@/musedam/embed";
 import { MuseDAMID } from "@/musedam/types";
-import { Building, Loader2, Plus, Trash2, User, Users } from "lucide-react";
+import { Building, ChevronDown, Loader2, Plus, User, Users } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { addAccessPermissionAction, removeAccessPermissionAction } from "./actions";
@@ -27,7 +30,6 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
   const [permissions, setPermissions] = useState<AccessPermission[]>(initialPermissions);
   const [isPending, startTransition] = useTransition();
   const [isSelecting, setIsSelecting] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<AccessRole>("reviewer");
 
   const handleMemberSelection = async () => {
     try {
@@ -40,35 +42,35 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
       const { members, departments, groups } = res;
       const allPermissions: AccessPermission[] = [];
 
-      // 处理用户
+      // 处理用户 - 默认都是可管理权限
       if (members && members.length > 0) {
         for (const member of members) {
           allPermissions.push({
             slug: idToSlug("user", member.id),
             name: member.name,
-            role: selectedRole,
+            role: "admin",
           });
         }
       }
 
-      // 处理部门
+      // 处理部门 - 默认都是可管理权限
       if (departments && departments.length > 0) {
         for (const dept of departments) {
           allPermissions.push({
             slug: idToSlug("department", dept.id),
             name: dept.name,
-            role: selectedRole,
+            role: "admin",
           });
         }
       }
 
-      // 处理用户组
+      // 处理用户组 - 默认都是可管理权限
       if (groups && groups.length > 0) {
         for (const group of groups) {
           allPermissions.push({
             slug: idToSlug("group", group.id),
             name: group.name,
-            role: selectedRole,
+            role: "admin",
           });
         }
       }
@@ -95,6 +97,23 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
     } finally {
       setIsSelecting(false);
     }
+  };
+
+  const handleChangeRole = async (slug: string, newRole: AccessRole) => {
+    const permission = permissions.find((p) => p.slug === slug);
+    if (!permission) return;
+
+    const updatedPermission: AccessPermission = { ...permission, role: newRole };
+
+    startTransition(async () => {
+      const result = await addAccessPermissionAction(updatedPermission);
+      if (result.success) {
+        setPermissions(result.data.permissions);
+        toast.success(`已更新 ${permission.name} 的权限为${getRoleLabel(newRole)}`);
+      } else {
+        toast.error("更新权限失败");
+      }
+    });
   };
 
   const handleRemovePermission = (slug: string) => {
@@ -127,117 +146,132 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
     return role === "admin" ? "可管理" : "可审核";
   };
 
-  const getRoleDescription = (role: AccessRole) => {
-    return role === "admin" ? "拥有所有功能的访问权限" : "仅可访问审核页面";
-  };
-
   return (
-    <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-2xl font-semibold">权限管理</h1>
-        <p className="mt-2 text-muted-foreground">管理谁可以访问自动标签功能</p>
+    <div className="bg-background border rounded-lg">
+      <div className="px-4 py-3 border-b flex items-center justify-between">
+        <h3 className="font-medium text-sm">角色与权限</h3>
+        <Button onClick={handleMemberSelection} disabled={isSelecting || isPending} size="sm">
+          {isSelecting ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              选择成员中...
+            </>
+          ) : (
+            <>
+              <Plus className="h-4 w-4" />
+              添加成员
+            </>
+          )}
+        </Button>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>添加权限</CardTitle>
-          <CardDescription>选择成员并设置其权限级别</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-3">
-            <Label>权限级别</Label>
-            <RadioGroup
-              value={selectedRole}
-              onValueChange={(v) => setSelectedRole(v as AccessRole)}
-            >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="reviewer" id="reviewer" />
-                <Label htmlFor="reviewer" className="font-normal cursor-pointer">
-                  <div>
-                    <div className="font-medium">可审核</div>
-                    <div className="text-sm text-muted-foreground">
-                      {getRoleDescription("reviewer")}
-                    </div>
-                  </div>
-                </Label>
+      <div className="p-6">
+        <div className="space-y-0">
+          {/* 固定的系统管理员 */}
+          <div className="flex items-center justify-between py-3 border-b">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100">
+                <div className="text-blue-600">⚡</div>
               </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="admin" id="admin" />
-                <Label htmlFor="admin" className="font-normal cursor-pointer">
-                  <div>
-                    <div className="font-medium">可管理</div>
-                    <div className="text-sm text-muted-foreground">
-                      {getRoleDescription("admin")}
-                    </div>
-                  </div>
-                </Label>
+              <div>
+                <div className="font-medium">系统管理员</div>
               </div>
-            </RadioGroup>
+            </div>
+            {/*<div className="text-sm text-muted-foreground w-20 text-right">可管理</div>*/}
+            <Button variant="ghost" size="sm" className="h-8 w-20" disabled={true}>
+              <span>可管理</span>
+              <ChevronDown className="ml-1 h-3 w-3" />
+            </Button>
           </div>
 
-          <Button
-            onClick={handleMemberSelection}
-            disabled={isSelecting || isPending}
-            className="w-full sm:w-auto"
-          >
-            {isSelecting ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                选择成员中...
-              </>
-            ) : (
-              <>
-                <Plus className="h-4 w-4" />
-                选择成员
-              </>
-            )}
-          </Button>
-        </CardContent>
-      </Card>
+          {/* 固定的内容管理员 */}
+          <div className="flex items-center justify-between py-3 border-b">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100">
+                <div className="text-blue-600">⚡</div>
+              </div>
+              <div>
+                <div className="font-medium">内容管理员</div>
+              </div>
+            </div>
+            {/*<div className="text-sm text-muted-foreground w-20 text-right">可管理</div>*/}
+            <Button variant="ghost" size="sm" className="h-8 w-20" disabled={true}>
+              <span>可管理</span>
+              <ChevronDown className="ml-1 h-3 w-3" />
+            </Button>
+          </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>当前权限</CardTitle>
-          <CardDescription>已配置的访问权限列表</CardDescription>
-        </CardHeader>
-        <CardContent>
+          {/* 动态权限列表 */}
           {permissions.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">暂无权限配置</div>
+            <div className="text-center py-8 text-muted-foreground border-b">
+              暂无其他权限配置，点击上方&quot;添加成员&quot;按钮开始配置
+            </div>
           ) : (
-            <div className="space-y-2">
+            <>
               {permissions.map((permission) => (
                 <div
                   key={permission.slug}
-                  className={cn(
-                    "flex items-center justify-between rounded-lg border p-3",
-                    "hover:bg-accent/50 transition-colors",
-                  )}
+                  className="flex items-center justify-between py-3 border-b"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100">
                       {getPermissionIcon(permission.slug)}
                     </div>
                     <div>
                       <div className="font-medium">{permission.name}</div>
                       <div className="text-sm text-muted-foreground">
-                        {getPermissionType(permission.slug)} · {getRoleLabel(permission.role)}
+                        {getPermissionType(permission.slug)}
                       </div>
                     </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleRemovePermission(permission.slug)}
-                    disabled={isPending}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-8 w-20" disabled={isPending}>
+                          <span>{getRoleLabel(permission.role)}</span>
+                          <ChevronDown className="ml-1 h-3 w-3" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-56">
+                        <DropdownMenuItem
+                          onClick={() => handleChangeRole(permission.slug, "admin")}
+                          disabled={permission.role === "admin"}
+                          className="py-3"
+                        >
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium">可管理</span>
+                            <span className="text-xs text-muted-foreground">
+                              完整管理权限，包括配置和成员管理
+                            </span>
+                          </div>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleChangeRole(permission.slug, "reviewer")}
+                          disabled={permission.role === "reviewer"}
+                          className="py-3"
+                        >
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium">可审核</span>
+                            <span className="text-xs text-muted-foreground">
+                              可查看和审核打标结果，不可修改配置
+                            </span>
+                          </div>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="text-destructive py-3"
+                          onClick={() => handleRemovePermission(permission.slug)}
+                        >
+                          <span className="text-sm font-medium">移除</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </div>
               ))}
-            </div>
+            </>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

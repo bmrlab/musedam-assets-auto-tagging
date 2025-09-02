@@ -6,7 +6,6 @@ import prisma from "@/prisma/prisma";
 import { after } from "next/server";
 import "server-only";
 import { getAccessPermissions } from "../(tagging)/tagging/access/lib";
-import { AccessPermission } from "../(tagging)/types";
 
 export async function createUserAndTeam(payload: {
   user: { name: string; slug: string };
@@ -77,7 +76,6 @@ export async function checkUserPermission(payload: {
   const permissions = await getAccessPermissions(payload.team.id);
 
   if (permissions.length > 0) {
-
     // Check if user has direct permission
     const userSlug = payload.user.slug;
     const userPermission = permissions.find((p) => p.slug === userSlug);
