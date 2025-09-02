@@ -16,7 +16,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
-import { BarChart3Icon, CheckSquareIcon, SettingsIcon, TestTubeIcon } from "lucide-react";
+import { BarChart3Icon, BugPlayIcon, CheckSquareIcon, SettingsIcon } from "lucide-react";
 
 const menuItems = [
   {
@@ -37,7 +37,7 @@ const menuItems = [
   {
     title: "测试打标",
     url: "/tagging/test",
-    icon: TestTubeIcon,
+    icon: BugPlayIcon,
   },
 ];
 

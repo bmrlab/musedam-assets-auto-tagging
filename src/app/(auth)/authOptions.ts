@@ -17,15 +17,15 @@ const authOptions: NextAuthOptions = {
   },
   cookies: {
     sessionToken: {
-      name: "next-auth.session-token",
+      name: "auto-tagging.next-auth.session-token",
       options: { httpOnly: true, sameSite: "none", path: "/", secure: true },
     },
     callbackUrl: {
-      name: "next-auth.callback-url",
+      name: "auto-tagging.next-auth.callback-url",
       options: { sameSite: "none", path: "/", secure: true },
     },
     csrfToken: {
-      name: "next-auth.csrf-token",
+      name: "auto-tagging.next-auth.csrf-token",
       options: { httpOnly: true, sameSite: "none", path: "/", secure: true },
     },
   },

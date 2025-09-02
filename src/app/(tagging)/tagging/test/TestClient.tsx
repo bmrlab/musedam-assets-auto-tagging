@@ -5,7 +5,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { dispatchMuseDAMClientAction } from "@/musedam/embed";
 import { MuseDAMID } from "@/musedam/types";
-import { FileText, Loader2, PlayIcon, PlusIcon, TestTube, X } from "lucide-react";
+import { BugPlayIcon, FileText, Loader2, PlayIcon, PlusIcon, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
@@ -197,7 +197,7 @@ export default function TestClient() {
           <div className="p-4 space-y-4">
             {/* 功能介绍 */}
             <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4 flex gap-3">
-              <TestTube className="size-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+              <BugPlayIcon className="size-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
               <div>
                 <h3 className="font-medium text-blue-900 dark:text-blue-100 mb-2">测试说明</h3>
                 <div className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
