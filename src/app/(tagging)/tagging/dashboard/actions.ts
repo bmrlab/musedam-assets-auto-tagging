@@ -435,7 +435,7 @@ export async function fetchStrategyDistribution(): Promise<
       };
 
       tasks.forEach((task) => {
-        const result = task.result as any;
+        const result = task.result as { strategy?: string };
         if (result?.strategy) {
           switch (result.strategy) {
             case "direct":

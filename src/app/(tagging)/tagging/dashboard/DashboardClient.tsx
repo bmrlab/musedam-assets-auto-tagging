@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 import { AssetObjectExtra } from "@/prisma/client";
 import { CheckCircle2, RefreshCw } from "lucide-react";
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -47,20 +47,18 @@ interface DashboardClientProps {
 export default function DashboardClient({ initialStats, initialTasks }: DashboardClientProps) {
   const [stats, setStats] = useState<DashboardStats>(initialStats);
   const [tasks, setTasks] = useState<TaskWithAsset[]>(initialTasks);
-  const [weeklyData, setWeeklyData] = useState<any[]>([]);
-  const [monthlyData, setMonthlyData] = useState<any[]>([]);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [weeklyData, setWeeklyData] = useState<Array<{ day: string; count: number }>>([]);
+  const [monthlyData, setMonthlyData] = useState<Array<{ month: string; completed: number; total: number }>>([]);
   const [currentTime, setCurrentTime] = useState(Date.now());
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [taskFilter, setTaskFilter] = useState<"all" | "processing">("processing");
   const [totalTasks, setTotalTasks] = useState(0);
 
-  const refreshData = async (
+  const refreshData = useCallback(async (
     page: number = currentPage,
     filter: "all" | "processing" = taskFilter,
   ) => {
-    setIsRefreshing(true);
     try {
       const [statsResult, tasksResult, weeklyResult, monthlyResult] = await Promise.all([
         fetchDashboardStats(),
@@ -85,15 +83,13 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
       }
     } catch (error) {
       console.error("刷新数据失败:", error);
-    } finally {
-      setIsRefreshing(false);
     }
-  };
+  }, [currentPage, taskFilter]);
 
   useEffect(() => {
     // Initial load
     refreshData(currentPage, taskFilter);
-  }, [currentPage, taskFilter]);
+  }, [currentPage, taskFilter, refreshData]);
 
   useEffect(() => {
     // Auto refresh every 30 seconds
@@ -110,7 +106,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
       clearInterval(refreshInterval);
       clearInterval(timeInterval);
     };
-  }, []);
+  }, [refreshData]);
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
@@ -190,10 +186,9 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
   };
 
   const renderPagination = () => {
-    const pageNumbers = [];
     const maxVisible = 5;
     let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
-    let end = Math.min(totalPages, start + maxVisible - 1);
+    const end = Math.min(totalPages, start + maxVisible - 1);
 
     if (end - start + 1 < maxVisible) {
       start = Math.max(1, end - maxVisible + 1);
