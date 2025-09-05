@@ -84,3 +84,47 @@ pnpm login-url
 # 使用自定义数据
 pnpm login-url user123 "John Doe" team456 "My Team" "/tagging"
 ```
+
+## 外网访问配置
+
+项目支持通过 frp 内网穿透实现外网访问。
+
+### 1. 下载 frp 客户端
+
+```bash
+# 进入 devserver 目录
+cd devserver
+
+# 运行安装脚本（自动检测系统架构）
+./setup-frpc.sh
+```
+
+### 2. 配置文件
+
+frp 配置文件 `devserver/frpc.toml`：
+
+```toml
+serverAddr = "114.55.30.112"
+serverPort = 7000
+
+[[proxies]]
+name = "musedam-auto-tagging"
+type = "tcp"
+localIP = "127.0.0.1"
+localPort = 3000
+remotePort = 7093
+```
+
+### 3. 启动外网代理
+
+```bash
+# 确保在 devserver 目录下
+cd devserver
+
+# 启动 frp 客户端
+./frpc -c ./frpc.toml
+```
+
+启动成功后，可通过以下地址访问：
+
+🌐 **外网地址：** https://tagging.dev.musedam.cc
