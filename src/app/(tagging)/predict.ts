@@ -9,12 +9,46 @@ import { tagPredictionSystemPrompt } from "./prompt";
 import { SourceBasedTagPredictions, tagPredictionSchema, TagWithScore } from "./types";
 import { buildTagStructureText } from "./utils";
 
-export const WeightOfSource: Record<z.Infer<typeof tagPredictionSchema.shape.source>, number> = {
-  basicInfo: 35,
-  materializedPath: 30,
-  contentAnalysis: 25,
-  tagKeywords: 10,
+// export const WeightOfSource: Record<z.Infer<typeof tagPredictionSchema.shape.source>, number> = {
+//   basicInfo: 35,
+//   materializedPath: 30,
+//   contentAnalysis: 25,
+//   tagKeywords: 10,
+// };
+
+// 多源标签分数计算权重配置
+const SCORING_WEIGHTS: Record<z.Infer<typeof tagPredictionSchema.shape.source>, number> = {
+  basicInfo: 0.7,
+  materializedPath: 0.75,
+  contentAnalysis: 0.85,
+  tagKeywords: 0.95,
 };
+
+/**
+ * 多源标签分数计算 - 多个信息源识别同一标签时增强置信度而非简单平均
+ * @returns 最终分数 0-1 范围
+ */
+function calculateMultiSourceScore(
+  confidenceBySources: TagWithScore["confidenceBySources"],
+): number {
+  const dampingFactor = 0.8;
+  let remaining = 1;
+  let maxWeighted = 0;
+
+  (
+    Object.entries(confidenceBySources) as [keyof TagWithScore["confidenceBySources"], number][]
+  ).forEach(([source, confidence]) => {
+    if (confidence !== undefined && confidence !== null) {
+      const weight = SCORING_WEIGHTS[source];
+      const enhanced = Math.pow(confidence, weight);
+      maxWeighted = Math.max(maxWeighted, enhanced);
+      remaining *= 1 - enhanced * dampingFactor;
+    }
+  });
+
+  const rawScore = 1 - remaining;
+  return Math.max(rawScore, maxWeighted);
+}
 
 /**
  * 加权的算法不一定对，如果一个 tag 在两个 source 都有，结果应该是更高分数而不是在两个 source 的 confidence 之间的一个数值
@@ -37,18 +71,8 @@ export function calculateTagScore(predictions: SourceBasedTagPredictions) {
     });
   });
   tagsWithScore.forEach((item) => {
-    const [totalConfidence, totalWeight] = (
-      Object.entries(item.confidenceBySources) as [keyof typeof item.confidenceBySources, number][]
-    ).reduce(
-      ([totalConfidence, totalWeight], [source, confidence]) => {
-        return [
-          totalConfidence + confidence * WeightOfSource[source],
-          totalWeight + WeightOfSource[source],
-        ];
-      },
-      [0, 0],
-    );
-    item.score = totalWeight > 0 ? Math.round((totalConfidence / totalWeight) * 100) : 0;
+    const finalScore = calculateMultiSourceScore(item.confidenceBySources);
+    item.score = Math.round(finalScore * 100);
   });
   return tagsWithScore;
 }
