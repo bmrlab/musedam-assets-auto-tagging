@@ -31,7 +31,7 @@ brew services start postgresql@15
 
 ```bash
 psql -d postgres
-CREATE USER musedam WITH LOGIN PASSWORD 'musedam' SUPERUSER;  # migration 执行时包含创建 vector extension, 需要 superuser 权限
+CREATE USER musedam WITH LOGIN PASSWORD 'musedam' SUPERUSER;
 CREATE DATABASE musedam_assets_auto_tagging OWNER musedam;
 CREATE DATABASE musedam_assets_auto_tagging_shadow OWNER musedam;
 \q
