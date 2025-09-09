@@ -1,13 +1,17 @@
 import "server-only";
 
 import { rootLogger } from "@/lib/logging";
-import { AssetObject, Prisma, TaggingQueueItem } from "@/prisma/client";
-import { InputJsonObject, InputJsonValue, JsonObject } from "@/prisma/client/runtime/library";
+import {
+  AssetObject,
+  Prisma,
+  TaggingQueueItem,
+  TaggingQueueItemExtra,
+  TaggingQueueItemResult,
+} from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 import { waitUntil } from "@vercel/functions";
 import { predictAssetTags } from "./predict";
 import { SourceBasedTagPredictions, TagWithScore } from "./types";
-import { fetchTagsTree } from "./utils";
 
 export async function enqueueTaggingTask({
   assetObject,
@@ -25,72 +29,142 @@ export async function enqueueTaggingTask({
 }): Promise<TaggingQueueItem> {
   const teamId = assetObject.teamId;
 
-  // 获取团队的所有标签
-  const tagsTree = await fetchTagsTree({ teamId });
-
   const taggingQueueItem = await prisma.taggingQueueItem.create({
     data: {
       teamId: teamId,
       assetObjectId: assetObject.id,
-      status: "processing",
+      status: "pending",
       startsAt: new Date(),
       extra: {
         matchingSources,
         recognitionAccuracy,
-      },
+      } as TaggingQueueItemExtra,
     },
   });
 
-  waitUntil(
-    (async () => {
-      try {
-        const { predictions, tagsWithScore, extra } = await predictAssetTags(
-          assetObject,
-          tagsTree,
-          { matchingSources, recognitionAccuracy },
-        );
-        const updatedQueueItem = await prisma.taggingQueueItem.update({
-          where: { id: taggingQueueItem.id },
-          data: {
-            status: "completed",
-            endsAt: new Date(),
-            result: {
-              predictions: predictions as unknown as InputJsonObject,
-              tagsWithScore: tagsWithScore as unknown as InputJsonObject,
-            },
-            extra: {
-              ...(taggingQueueItem.extra as JsonObject),
-              ...extra,
-            },
-          },
-        });
-        await createAuditItems({
-          assetObject,
-          taggingQueueItem: updatedQueueItem,
+  return taggingQueueItem;
+}
+
+export async function processQueueItem({
+  assetObject,
+  ...queueItem
+}: TaggingQueueItem & {
+  assetObject: AssetObject | null;
+}): Promise<void> {
+  const logger = rootLogger.child({
+    teamId: queueItem.teamId,
+    assetObjectId: queueItem.assetObjectId,
+    queueItemId: queueItem.id,
+  });
+  if (!assetObject) {
+    logger.warn("assetObject is missing, skip processQueueItem");
+    return;
+  }
+
+  logger.info("processQueueItem started");
+
+  try {
+    const extra = queueItem.extra as TaggingQueueItemExtra;
+    const {
+      predictions,
+      tagsWithScore,
+      extra: newExtra,
+    } = await predictAssetTags(assetObject, {
+      matchingSources: extra?.matchingSources,
+      recognitionAccuracy: extra?.recognitionAccuracy,
+    });
+    logger.info("processQueueItem completed");
+    const updatedQueueItem = await prisma.taggingQueueItem.update({
+      where: { id: queueItem.id },
+      data: {
+        status: "completed",
+        endsAt: new Date(),
+        result: {
           predictions,
           tagsWithScore,
-        }).catch(() => {
-          // 忽略 error，createAuditItems 里自己会处理
-        });
-      } catch (error) {
-        rootLogger.error({
-          teamId: teamId,
-          assetObjectId: assetObject.id,
-          msg: `predictAssetTags failed: ${error}`,
-        });
-        await prisma.taggingQueueItem.update({
-          where: { id: taggingQueueItem.id },
-          data: {
-            status: "failed",
-            endsAt: new Date(),
-            result: { error: error as InputJsonValue },
-          },
-        });
-      }
-    })(),
-  );
+        } as TaggingQueueItemResult,
+        extra: {
+          ...extra,
+          ...newExtra,
+        },
+      },
+    });
+    await createAuditItems({
+      assetObject,
+      taggingQueueItem: updatedQueueItem,
+      predictions,
+      tagsWithScore,
+    }).catch(() => {
+      // 忽略 error，createAuditItems 里自己会处理
+    });
+  } catch (error) {
+    logger.error(`processQueueItem failed: ${error}`);
+    await prisma.taggingQueueItem.update({
+      where: { id: queueItem.id },
+      data: {
+        status: "failed",
+        endsAt: new Date(),
+        result: { error } as TaggingQueueItemResult,
+      },
+    });
+  }
+}
 
-  return taggingQueueItem;
+export async function processPendingQueueItems(): Promise<{
+  processing: number;
+  skipped: number;
+}> {
+  const pendingItems = await prisma.taggingQueueItem.findMany({
+    where: {
+      status: "pending",
+    },
+    orderBy: {
+      startsAt: "asc",
+    },
+    include: {
+      assetObject: true,
+    },
+    take: 10,
+  });
+
+  let processing = 0;
+  let skipped = 0;
+
+  for (const queueItem of pendingItems) {
+    try {
+      const updatedItem = await prisma.taggingQueueItem.updateMany({
+        where: {
+          id: queueItem.id,
+          status: "pending",
+        },
+        data: {
+          status: "processing",
+        },
+      });
+
+      if (updatedItem.count > 0) {
+        waitUntil(
+          Promise.any([
+            processQueueItem({ ...queueItem, status: "processing" }),
+            // new Promise((resolve) => setTimeout(resolve, 1000)),
+          ]),
+        );
+        processing++;
+      } else {
+        skipped++;
+      }
+    } catch (error) {
+      rootLogger.error({
+        teamId: queueItem.teamId,
+        assetObjectId: queueItem.assetObjectId,
+        queueItemId: queueItem.id,
+        msg: `Failed to update queue item status: ${error}`,
+      });
+      skipped++;
+    }
+  }
+
+  return { processing, skipped };
 }
 
 async function createAuditItems({

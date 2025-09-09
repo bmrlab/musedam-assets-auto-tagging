@@ -1,13 +1,13 @@
 import "server-only";
 
 import { llm } from "@/ai/provider";
-import { AssetObject, AssetObjectContentAnalysis, TagWithChildren } from "@/prisma/client";
+import { AssetObject, AssetObjectContentAnalysis, TaggingQueueItemExtra } from "@/prisma/client";
 import { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 import { generateObject, UserModelMessage } from "ai";
 import z from "zod";
 import { tagPredictionSystemPrompt } from "./prompt";
 import { SourceBasedTagPredictions, tagPredictionSchema, TagWithScore } from "./types";
-import { buildTagStructureText } from "./utils";
+import { buildTagStructureText, fetchTagsTree } from "./utils";
 
 // export const WeightOfSource: Record<z.Infer<typeof tagPredictionSchema.shape.source>, number> = {
 //   basicInfo: 35,
@@ -85,7 +85,6 @@ export function calculateTagScore(predictions: SourceBasedTagPredictions) {
  */
 export async function predictAssetTags(
   asset: AssetObject,
-  availableTags: TagWithChildren[],
   options?: {
     matchingSources?: {
       basicInfo: boolean;
@@ -98,11 +97,12 @@ export async function predictAssetTags(
 ): Promise<{
   predictions: SourceBasedTagPredictions;
   tagsWithScore: TagWithScore[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  extra: any;
+  extra: TaggingQueueItemExtra;
 }> {
+  // TODO: 缓存
+  const tagsTree = await fetchTagsTree({ teamId: asset.teamId });
   // 构建标签结构的文本描述
-  const tagStructureText = buildTagStructureText(availableTags);
+  const tagStructureText = buildTagStructureText(tagsTree);
 
   const messages: UserModelMessage[] = [
     {

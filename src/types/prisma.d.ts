@@ -31,4 +31,23 @@ declare module "@/prisma/client" {
     keywords: string[];
     negativeKeywords: string[];
   }>;
+
+  export type TaggingQueueItemExtra = Partial<{
+    usage: any; // LLM 返回的 usage 信息
+    input: string; // 给 LLM 的 user message
+    matchingSources: {
+      basicInfo: boolean;
+      materializedPath: boolean;
+      contentAnalysis: boolean;
+      tagKeywords: boolean;
+    };
+    recognitionAccuracy: "precise" | "balanced" | "broad";
+  }>;
+
+  import { SourceBasedTagPredictions, TagWithScore } from "@/app/(tagging)/types";
+  export type TaggingQueueItemResult = Partial<{
+    error: string;
+    predictions: SourceBasedTagPredictions;
+    tagsWithScore: TagWithScore[];
+  }>;
 }

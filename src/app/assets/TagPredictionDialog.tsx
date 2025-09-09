@@ -12,6 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { AssetObject } from "@/prisma/client";
 import { Bot, CheckCircle, Sparkles, XCircle } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
 import { predictAssetTagsAction } from "./actions";
 
 interface TagPredictionDialogProps {
@@ -34,9 +35,10 @@ export default function TagPredictionDialog({ asset, isOpen, onClose }: TagPredi
 
     try {
       const result = await predictAssetTagsAction(asset.id);
-
+      // const result = await predictAssetTagsAndWaitAction(asset.id);
       if (result.success) {
-        setPredictions(result.data.predictions);
+        toast.success("打标任务已发起");
+        // setPredictions(result.data.predictions);
       } else {
         setError(result.message || "预测失败");
       }
@@ -49,7 +51,9 @@ export default function TagPredictionDialog({ asset, isOpen, onClose }: TagPredi
 
   useEffect(() => {
     if (isOpen && asset) {
-      startPrediction();
+      startPrediction().finally(() => {
+        handleClose();
+      });
     }
   }, [isOpen, asset, startPrediction]);
 
@@ -97,11 +101,11 @@ export default function TagPredictionDialog({ asset, isOpen, onClose }: TagPredi
     }
   };
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     setPredictions(null);
     setError(null);
     onClose();
-  };
+  }, [onClose]);
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>

@@ -37,10 +37,38 @@ export async function predictAssetTagsAction(
     };
     recognitionAccuracy?: "precise" | "balanced" | "broad";
   },
+): Promise<ServerActionResult<void>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    const assetObject = await prisma.assetObject.findUniqueOrThrow({
+      where: { id: assetId, teamId },
+    });
+    await enqueueTaggingTask({
+      assetObject,
+      matchingSources: options?.matchingSources,
+      recognitionAccuracy: options?.recognitionAccuracy,
+    });
+    return {
+      success: true,
+      data: undefined,
+    };
+  });
+}
+
+export async function predictAssetTagsAndWaitAction(
+  assetId: number,
+  options?: {
+    matchingSources?: {
+      basicInfo: boolean;
+      materializedPath: boolean;
+      contentAnalysis: boolean;
+      tagKeywords: boolean;
+    };
+    recognitionAccuracy?: "precise" | "balanced" | "broad";
+  },
 ): Promise<ServerActionResult<{ predictions: SourceBasedTagPredictions }>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
-      const assetObject = await prisma.assetObject.findFirst({
+      const assetObject = await prisma.assetObject.findUnique({
         where: { id: assetId, teamId },
       });
 
