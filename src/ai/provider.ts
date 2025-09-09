@@ -51,7 +51,7 @@ export function llm(modelName: LLMModelName) {
       if (process.env.AZURE_EASTUS2_API_KEY) {
         break;
       } else {
-        return openai(modelName);
+        return openai.completion(modelName);
       }
     case "claude-3-7-sonnet":
     case "claude-sonnet-4":
