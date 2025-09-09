@@ -57,6 +57,27 @@ npx prisma migrate dev  # 执行数据库迁移
 pnpm dev
 ```
 
+5. 启动打标处理服务（可选）
+
+如果需要处理自动打标任务，需要启动队列处理器。首先在 `.env` 文件中配置内部 API 密钥：
+
+```env
+INTERNAL_API_KEY=your_secret_key_here
+```
+
+然后在新的终端窗口中运行：
+
+```bash
+pnpm queue-processor
+```
+
+队列处理器会：
+- 每 10 秒自动调用一次 `/api/tagging/process-queue` 接口
+- 每次处理最多 10 个待处理的打标任务
+- 显示处理进度和状态信息
+
+**注意：** 队列处理器需要与开发服务器同时运行才能正常工作。
+
 ## Scripts
 
 ### login-url
