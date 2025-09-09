@@ -5,6 +5,7 @@ import { AuthProvider } from "@/components/AuthProvider";
 import { Embed } from "@/embed/Embed";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Suspense } from "react";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -41,7 +42,9 @@ export default function RootLayout({
             <Toaster richColors={true} />
           </NextThemesProvider>
         </AuthProvider>
-        <Embed />
+        <Suspense fallback={null}>
+          <Embed />
+        </Suspense>
       </body>
     </html>
   );

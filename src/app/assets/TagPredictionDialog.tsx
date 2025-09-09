@@ -49,13 +49,19 @@ export default function TagPredictionDialog({ asset, isOpen, onClose }: TagPredi
     }
   }, [asset]);
 
+  const handleClose = useCallback(() => {
+    setPredictions(null);
+    setError(null);
+    onClose();
+  }, [onClose]);
+
   useEffect(() => {
     if (isOpen && asset) {
       startPrediction().finally(() => {
         handleClose();
       });
     }
-  }, [isOpen, asset, startPrediction]);
+  }, [isOpen, asset, startPrediction, handleClose]);
 
   const getConfidenceColor = (confidence: number) => {
     if (confidence >= 0.8) return "text-blue-600 dark:text-blue-400";
@@ -100,12 +106,6 @@ export default function TagPredictionDialog({ asset, isOpen, onClose }: TagPredi
         return "ℹ️";
     }
   };
-
-  const handleClose = useCallback(() => {
-    setPredictions(null);
-    setError(null);
-    onClose();
-  }, [onClose]);
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>

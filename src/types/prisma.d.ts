@@ -33,6 +33,7 @@ declare module "@/prisma/client" {
   }>;
 
   export type TaggingQueueItemExtra = Partial<{
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     usage: any; // LLM 返回的 usage 信息
     input: string; // 给 LLM 的 user message
     matchingSources: {
