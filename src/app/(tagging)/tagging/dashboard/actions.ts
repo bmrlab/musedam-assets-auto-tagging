@@ -161,8 +161,9 @@ export async function fetchProcessingTasks(
             assetObject: true,
           },
           orderBy: [
-            { status: "asc" }, // processing 优先
-            { createdAt: "desc" },
+            // { status: "asc" }, // processing 优先 ? 不用这样
+            // { createdAt: "desc" },
+            { id: "desc" },
           ],
           skip: offset,
           take: limit,

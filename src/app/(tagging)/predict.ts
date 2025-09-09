@@ -137,7 +137,6 @@ ${tagStructureText}`,
       // model: llm("claude-sonnet-4"),
       // model: llm("gpt-5-nano"),
       model: llm("gpt-5-mini"),
-      output: "array",
       providerOptions: {
         // azure openai provider 这里也是 openai
         openai: {
@@ -146,9 +145,14 @@ ${tagStructureText}`,
           reasoningEffort: "minimal", // 'minimal' | 'low' | 'medium' | 'high'
         } satisfies OpenAIResponsesProviderOptions,
       },
-      schema: tagPredictionSchema,
+      // output: "array",
+      schema: z.array(tagPredictionSchema),
       system: tagPredictionSystemPrompt(),
       messages,
+      // experimental_repairText: async (res) => {
+      //   console.log(JSON.stringify(JSON.parse(res.text)));
+      //   return "[]";
+      // },
     });
 
     // console.log(result.object);
