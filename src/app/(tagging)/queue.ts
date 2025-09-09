@@ -114,6 +114,8 @@ export async function processPendingQueueItems(): Promise<{
   processing: number;
   skipped: number;
 }> {
+  rootLogger.info(`processPendingQueueItems`);
+
   const pendingItems = await prisma.taggingQueueItem.findMany({
     where: {
       status: "pending",
@@ -124,7 +126,7 @@ export async function processPendingQueueItems(): Promise<{
     include: {
       assetObject: true,
     },
-    take: 10,
+    take: 30,
   });
 
   let processing = 0;
@@ -158,11 +160,15 @@ export async function processPendingQueueItems(): Promise<{
         teamId: queueItem.teamId,
         assetObjectId: queueItem.assetObjectId,
         queueItemId: queueItem.id,
-        msg: `Failed to update queue item status: ${error}`,
+        msg: `Failed to update queue item (pending -> processing): ${error}`,
       });
       skipped++;
     }
   }
+
+  rootLogger.info({
+    msg: `processPendingQueueItems, processing: ${processing}, skipped: ${skipped}`,
+  });
 
   return { processing, skipped };
 }
