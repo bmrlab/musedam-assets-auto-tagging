@@ -1,0 +1,65 @@
+# Dependencies
+node_modules
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+package-lock.json
+yarn.lock
+.pnpm-store/
+
+# Next.js build output
+.next
+out
+
+# Prisma client
+src/prisma/client
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Testing
+coverage
+.nyc_output
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+.DS_Store
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Misc
+README.md
+LICENSE
+*.md
+.github
+docs
+tests
+__tests__
+test
+jest.config.js
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Other build artifacts
+dist
+build
+.cache
+.turbo
