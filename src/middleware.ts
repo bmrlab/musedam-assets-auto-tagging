@@ -46,7 +46,7 @@ function handleLocale(req: NextRequest) {
   if (locale) {
     response.headers.set("x-locale", locale);
   }
-  if (locale && !localeCookie) {
+  if (locale && (!localeCookie?.value || localeCookie.value !== locale)) {
     // 只有当前 cookie 没设置过才设置，否则会导致 cookie 一直更新，useTranslation 结果也一直更新，某些页面就会反复刷新
     response.cookies.set("locale", locale, {
       httpOnly: false, // 允许前端 JavaScript 访问

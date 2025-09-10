@@ -216,31 +216,23 @@ function MyComponent() {
 #### 主题 (theme) 参数处理
 
 - **实现位置**：`src/components/ThemeProvider.tsx`
-- **检测方式**：客户端组件在渲染时读取 URL 参数
-- **生效机制**：直接调用 next-themes 的 `setTheme()` 方法
-- **持久化**：next-themes 自动将主题设置保存到 localStorage
+- **检测方式**：客户端组件在渲染时读取 URL 参数 `?theme=`，直接写入 localStorage 持久化
+- **生效机制**：客户端渲染后，页面跳转会保留 theme 设置，如果在服务端重定向页面，theme 参数会丢失
 
 #### 语言 (locale) 参数处理
 
 - **实现位置**：`src/middleware.ts`
-- **检测方式**：服务端中间件优先读取 URL 参数 `?locale=`，其次读取 cookie
-- **生效机制**：通过 `x-locale` 请求头传递给服务端，客户端通过 next-intl 获取
-- **持久化**：中间件自动将语言设置同步到 cookie
+- **检测方式**：服务端中间件优先读取 URL 参数 `?locale=`，如果 cookie 值不存在或者不一致，则更新 cookie
+- **生效机制**：会失踪保留此次 locale 设置，服务端直接重定向也会保留，直到下一次主动设置 locale
 
 #### 认证页面额外处理 (`/auth/[token]`)
 
 - **文件位置**：`src/app/(auth)/auth/[token]/page.tsx` 和 `TokenAuthPageClient.tsx`
-- **特殊功能**：除了正常的参数处理外，还会在客户端渲染时**主动持久化**这两个参数
+- **特殊功能**：除了正常的参数处理外，还会在客户端渲染 auth 页面时**主动持久化**这两个参数
 - **实现原因**：确保通过认证 URL 传入的主题和语言设置能够持续生效，避免页面跳转后丢失
 - **持久化方式**：
   - `theme`：调用 `setTheme()` 强制更新 localStorage
   - `locale`：调用 `setLocale()` 强制更新 cookie
-
-#### 客户端钩子 (`src/i18n/client.ts`)
-
-- **useLocaleClient**：提供 `toggleLocale()` 和 `setLocale()` 方法
-- **Cookie 管理**：使用 `js-cookie` 库操作浏览器 cookie
-- **页面刷新**：设置后自动刷新页面应用新配置
 
 ### 使用示例
 

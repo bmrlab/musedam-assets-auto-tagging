@@ -12,8 +12,15 @@ export function ThemeProvider({
   if (forcedTheme !== "dark" && forcedTheme !== "light") {
     forcedTheme = undefined;
   }
+  if (
+    forcedTheme &&
+    typeof window !== "undefined" &&
+    window.localStorage.getItem("theme") !== forcedTheme
+  ) {
+    window.localStorage.setItem("theme", forcedTheme);
+  }
   return (
-    <NextThemesProvider forcedTheme={forcedTheme} {...props}>
+    <NextThemesProvider {...props} storageKey="theme" forcedTheme={forcedTheme}>
       {children}
     </NextThemesProvider>
   );
