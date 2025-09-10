@@ -1,6 +1,8 @@
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { Toaster } from "@/components/ui/sonner";
 import type { Metadata } from "next";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale } from "next-intl/server";
 // import { SessionProvider } from "next-auth/react";  // SessionProvider 只能在 client 使用，需要 创建一个新文件 AuthProvider 然后 use client;
 import { AuthProvider } from "@/components/AuthProvider";
 import { Embed } from "@/embed/Embed";
@@ -23,13 +25,14 @@ export const metadata: Metadata = {
   description: "MuseDAM AI 自动打标",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = await getLocale();
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang={locale} suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <AuthProvider>
           <ThemeProvider
@@ -38,8 +41,10 @@ export default function RootLayout({
             enableSystem={false}
             disableTransitionOnChange
           >
-            {children}
-            <Toaster richColors={true} />
+            <NextIntlClientProvider>
+              {children}
+              <Toaster richColors={true} />
+            </NextIntlClientProvider>
           </ThemeProvider>
         </AuthProvider>
         <Suspense fallback={null}>

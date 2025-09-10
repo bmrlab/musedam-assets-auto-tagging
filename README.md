@@ -149,3 +149,41 @@ cd devserver
 启动成功后，可通过以下地址访问：
 
 🌐 **外网地址：** https://tagging.dev.musedam.cc
+
+## 国际化配置
+
+项目使用 next-intl 实现国际化支持，支持中文（zh-CN）和英文（en-US）。
+
+### 消息文件结构
+
+国际化文本消息文件采用分层管理：
+
+1. **全局消息文件**：`messages/[locale].json`
+   - 存放全局通用的翻译文本
+   - 例如：`messages/zh-CN.json`、`messages/en-US.json`
+
+2. **模块消息文件**：`src/app/[module]/messages/[locale].json`
+   - 存放特定模块的翻译文本，避免全局消息文件过于庞大
+   - **重要**：模块消息文件必须有根键名，用于区分不同模块
+   - 例如：`src/app/(tagging)/messages/zh-CN.json` 包含 `"Tagging": {}` 根键
+
+### 消息合并机制
+
+所有消息文件会在运行时自动合并：
+
+- **配置文件**：
+  - `src/i18n/request.ts`：处理消息文件的动态加载和合并
+  - `src/i18n/global.ts`：TypeScript 类型定义，确保类型安全
+
+- **合并顺序**：全局消息 + 模块消息，后者会覆盖前者的同名键
+
+### 使用方式
+
+```tsx
+import { useTranslations } from 'next-intl';
+
+function MyComponent() {
+  const t = useTranslations('Homepage'); // 对应消息文件中的 Homepage 键
+  return <h1>{t('title')}</h1>;
+}
+```

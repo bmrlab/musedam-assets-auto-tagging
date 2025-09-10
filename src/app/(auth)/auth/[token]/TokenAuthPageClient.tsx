@@ -1,6 +1,7 @@
 "use client";
 import { PageLoadingFallback } from "@/components/PageLoadingFallback";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useLocaleClient } from "@/i18n/client";
 import { signIn } from "next-auth/react";
 import { useTheme } from "next-themes";
 import Link from "next/link";
@@ -22,6 +23,7 @@ export function TokenAuthPageClient({
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { setLocale } = useLocaleClient();
 
   useEffect(() => {
     setLoading(true);
@@ -48,6 +50,12 @@ export function TokenAuthPageClient({
       setTheme(theme);
     }
   }, [theme, setTheme]);
+
+  useEffect(() => {
+    if (locale) {
+      setLocale(locale);
+    }
+  }, [locale, setLocale]);
 
   if (loading) {
     return (

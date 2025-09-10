@@ -1,4 +1,5 @@
 import { getRequestClientIp, getRequestOrigin } from "@/lib/request/headers";
+import { Locale } from "next-intl";
 import { NextRequest, NextResponse } from "next/server";
 
 export const config = {
@@ -27,12 +28,31 @@ async function handlePingRequest(req: NextRequest) {
   );
 }
 
+function handleLocale(req: NextRequest) {
+  // Get the locale from cookies
+  const localeCookie = req.cookies.get("locale");
+  const locale =
+    localeCookie?.value === "zh-CN" || localeCookie?.value === "en-US"
+      ? (localeCookie?.value as Locale)
+      : undefined;
+  // Create a response object from the request
+  const response = NextResponse.next();
+  // Set the locale in a header to be accessible in server components
+  if (locale) {
+    response.headers.set("x-locale", locale);
+  }
+  return { response, locale };
+}
+
 export async function middleware(req: NextRequest) {
   if (req.nextUrl.pathname.endsWith(".ping")) {
     return await handlePingRequest(req);
   }
 
-  const response = NextResponse.next();
+  const {
+    response,
+    // locale,
+  } = handleLocale(req);
 
   // Set security headers dynamically at runtime
   response.headers.set("X-Frame-Options", "SAMEORIGIN");

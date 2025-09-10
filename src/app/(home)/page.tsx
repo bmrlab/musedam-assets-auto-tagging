@@ -1,17 +1,23 @@
 "use client";
 import { Button } from "@/components/ui/button";
 import UserPanel from "@/components/UserPanel";
+import { useLocaleClient } from "@/i18n/client";
 import { ExtractServerActionData } from "@/lib/serverAction";
 import { Moon, Sun } from "lucide-react";
 import { useSession } from "next-auth/react";
+import { useLocale, useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { fetchUserAndTeam } from "./actions";
 
 export default function Home() {
+  const t = useTranslations("Homepage");
   const { data: session, status: sessionStatus } = useSession();
   const { theme, setTheme } = useTheme();
+  const locale = useLocale();
+  const { toggleLocale } = useLocaleClient();
+
   const [user, setUser] = useState<ExtractServerActionData<typeof fetchUserAndTeam>["user"] | null>(
     null,
   );
@@ -49,7 +55,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div>
-              <h1 className="text-2xl font-bold">MuseDAM 资产自动标记系统</h1>
+              <h1 className="text-2xl font-bold">{t("title")}</h1>
               {/*{session?.user && activeOrganization && (
                 <p className="text-sm text-muted-foreground mt-1">
                   当前组织: {activeOrganization.name}
@@ -57,6 +63,9 @@ export default function Home() {
               )}*/}
             </div>
             <div className="flex items-center gap-4">
+              <Button variant="outline" onClick={() => toggleLocale()} aria-label="切换语言">
+                {locale === "zh-CN" ? "English" : "中文"}
+              </Button>
               <Button
                 variant="outline"
                 size="icon"
