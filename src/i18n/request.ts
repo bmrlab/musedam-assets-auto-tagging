@@ -19,7 +19,8 @@ export default getRequestConfig(async ({ locale }) => {
     const [cookieLocale, headerLocale] = await Promise.all([cookies(), headers()]).then(
       ([cookies, headers]) => [cookies.get("locale")?.value, headers.get("x-locale")],
     );
-    locale = (cookieLocale || headerLocale) as (typeof locales)[number];
+    const defaultLocale = "zh-CN"; // 一定要有默认的 locale，不然后面 getMessages(undefined) 会报错
+    locale = (cookieLocale || headerLocale || defaultLocale) as (typeof locales)[number];
   }
   return {
     locale,
