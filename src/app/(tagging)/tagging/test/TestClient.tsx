@@ -9,6 +9,7 @@ import { BugPlayIcon, FileText, Loader2, PlayIcon, PlusIcon, X } from "lucide-re
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { startTaggingTasksAction } from "./actions";
 
 interface SelectedAsset {
@@ -26,6 +27,7 @@ interface SelectedAsset {
 }
 
 export default function TestClient() {
+  const t = useTranslations("Tagging.Test");
   const router = useRouter();
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedAssets, setSelectedAssets] = useState<SelectedAsset[]>([]);
@@ -109,14 +111,14 @@ export default function TestClient() {
       const { selectedAssets: assets } = res;
       if (assets && Array.isArray(assets) && assets.length > 0) {
         setSelectedAssets(assets);
-        toast.success(`已选择 ${assets.length} 个素材`);
+        toast.success(t("assetsSelectedSuccess", { count: assets.length }));
       } else {
-        console.log("没有选择素材或返回格式不正确");
-        toast.info("未选择任何素材");
+        console.log(t("noAssetsSelectedInfo"));
+        toast.info(t("noAssetsSelected"));
       }
     } catch (error) {
-      console.error("选择素材失败:", error);
-      toast.error("选择素材失败");
+      console.error(t("assetSelectionFailed"), error);
+      toast.error(t("assetSelectionFailed"));
     } finally {
       setIsProcessing(false);
     }
@@ -124,7 +126,7 @@ export default function TestClient() {
 
   const handleStartTagging = useCallback(async () => {
     if (selectedAssets.length === 0) {
-      toast.error("请先选择素材");
+      toast.error(t("selectAssetsFirst"));
       return;
     }
 
@@ -139,27 +141,27 @@ export default function TestClient() {
         const { successCount, failedCount, failedAssets } = result.data;
 
         if (failedCount === 0) {
-          toast.success(`成功发起 ${successCount} 个素材的打标任务`);
+          toast.success(t("taggingTasksStarted", { successCount }));
         } else {
-          toast.warning(`发起打标任务完成：成功 ${successCount} 个，失败 ${failedCount} 个`, {
+          toast.warning(t("taggingTasksPartialSuccess", { successCount, failedCount }), {
             description:
-              failedAssets.length > 0 ? `失败的素材：${failedAssets.join(", ")}` : undefined,
+              failedAssets.length > 0 ? t("failedAssets", { assets: failedAssets.join(", ") }) : undefined,
           });
         }
 
         router.push("/tagging/review");
       } else {
-        toast.error("发起打标任务失败", {
+        toast.error(t("startTaggingFailed"), {
           description: result.message,
         });
       }
     } catch (error) {
-      console.error("发起打标任务时出错:", error);
-      toast.error("发起打标任务时出错");
+      console.error(t("startTaggingError"), error);
+      toast.error(t("startTaggingError"));
     } finally {
       setIsProcessing(false);
     }
-  }, [selectedAssets, matchingSources, recognitionAccuracy, router]);
+  }, [selectedAssets, matchingSources, recognitionAccuracy, router, t]);
 
   const removeAsset = (assetId: MuseDAMID) => {
     setSelectedAssets((prev) => prev.filter((asset) => asset.id !== assetId));
@@ -184,7 +186,7 @@ export default function TestClient() {
       <div className="lg:col-span-2 space-y-6">
         <div className="bg-background border rounded-md">
           <div className="px-4 py-3 border-b">
-            <h3 className="font-medium text-sm">上传测试文件</h3>
+            <h3 className="font-medium text-sm">{t("uploadTestFiles")}</h3>
           </div>
 
           <div className="p-4 space-y-4">
@@ -192,11 +194,11 @@ export default function TestClient() {
             <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4 flex gap-3">
               <BugPlayIcon className="size-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
               <div>
-                <h3 className="font-medium text-blue-900 dark:text-blue-100 mb-2">测试说明</h3>
+                <h3 className="font-medium text-blue-900 dark:text-blue-100 mb-2">{t("testDescription")}</h3>
                 <div className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
-                  <p>• AI 将运用现有配置及系统标签体系对指定素材进行打标</p>
-                  <p>• 请确保已创建标签体系；也可使用 AI 助手快速生成行业标签体系</p>
-                  <p>• AI 匹配测试中的配置仅为测试使用，与 AI 打标设置互不影响</p>
+                  <p>{t("testDescriptionText1")}</p>
+                  <p>{t("testDescriptionText2")}</p>
+                  <p>{t("testDescriptionText3")}</p>
                 </div>
               </div>
             </div>
@@ -204,16 +206,16 @@ export default function TestClient() {
             {/* 素材选择区域 */}
             {selectedAssets.length === 0 ? (
               <div className="p-8 border border-dashed rounded-lg text-center">
-                <h3 className="font-medium">选择素材库的文件</h3>
+                <h3 className="font-medium">{t("selectAssetsFromLibrary")}</h3>
                 <p className="text-sm text-muted-foreground">
-                  仅测试使用，文件及结果不会保存或进入企业库
+                  {t("testOnlyDescription")}
                 </p>
               </div>
             ) : (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <p className="text-sm text-muted-foreground">
-                    已选择 {selectedAssets.length} 个文件
+                    {t("selectedFilesCount", { count: selectedAssets.length })}
                   </p>
                   {/*<Button
                       variant="outline"
@@ -258,18 +260,18 @@ export default function TestClient() {
                 {isProcessing ? (
                   <>
                     <Loader2 className="size-4 animate-spin" />
-                    正在处理...
+                    {t("processing")}
                   </>
                 ) : (
                   <>
                     <PlayIcon className="size-4" />
-                    开始测试
+                    {t("startTest")}
                   </>
                 )}
               </Button>
               <Button variant="outline" onClick={handleAssetSelection} disabled={isProcessing}>
                 <PlusIcon className="size-4" />
-                选择资产库文件
+                {t("selectAssetFiles")}
               </Button>
             </div>
           </div>
@@ -277,7 +279,7 @@ export default function TestClient() {
 
         <div className="bg-background border rounded-md">
           <div className="px-4 py-3 border-b">
-            <h3 className="font-medium text-sm">打标结果</h3>
+            <h3 className="font-medium text-sm">{t("taggingResults")}</h3>
           </div>
           <div className="p-4">...</div>
         </div>
@@ -288,16 +290,16 @@ export default function TestClient() {
         {/* 选择打标场景 */}
         <div className="bg-background border rounded-md">
           <div className="px-4 py-3 border-b">
-            <h3 className="font-medium text-sm">选择打标场景</h3>
+            <h3 className="font-medium text-sm">{t("selectTaggingScene")}</h3>
           </div>
           <div className="p-4 grid grid-cols-2 gap-3">
             {[
-              { key: "general", label: "通用素材", icon: "📄" },
-              { key: "brand", label: "品牌视觉", icon: "👁️" },
-              { key: "product", label: "产品展示", icon: "📦" },
-              { key: "marketing", label: "营销推广", icon: "📢" },
-              { key: "video", label: "视频创意", icon: "🎬" },
-              { key: "archive", label: "历史资料", icon: "📚" },
+              { key: "general", label: t("generalAssets"), icon: "📄" },
+              { key: "brand", label: t("brandVisual"), icon: "👁️" },
+              { key: "product", label: t("productDisplay"), icon: "📦" },
+              { key: "marketing", label: t("marketingPromotion"), icon: "📢" },
+              { key: "video", label: t("videoCreative"), icon: "🎬" },
+              { key: "archive", label: t("archiveMaterial"), icon: "📚" },
             ].map(({ key, label, icon }) => (
               <div
                 key={key}
@@ -318,18 +320,18 @@ export default function TestClient() {
         {/* AI识别模式 */}
         <div className="bg-background border rounded-md">
           <div className="px-4 py-3 border-b">
-            <h3 className="font-medium text-sm">推荐 AI 识别模式</h3>
+            <h3 className="font-medium text-sm">{t("recommendedAIRecognition")}</h3>
           </div>
           <div className="p-4 grid grid-cols-2 gap-3">
             {[
-              { key: "precise", label: "精准模式", confidence: "80-100% 置信度" },
+              { key: "precise", label: t("preciseMode"), confidence: t("preciseConfidence") },
               {
                 key: "balanced",
-                label: "平衡模式",
-                confidence: "70-100% 置信度",
+                label: t("balancedMode"),
+                confidence: t("balancedConfidence"),
                 recommended: true,
               },
-              { key: "broad", label: "宽泛模式", confidence: "60-100% 置信度" },
+              { key: "broad", label: t("broadMode"), confidence: t("broadConfidence") },
             ].map(({ key, label, confidence, recommended }) => (
               <div
                 key={key}
@@ -344,7 +346,7 @@ export default function TestClient() {
                     <h3 className="font-medium text-sm">{label}</h3>
                     {recommended && (
                       <span className="bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded">
-                        推荐
+                        {t("recommended")}
                       </span>
                     )}
                   </div>
@@ -360,14 +362,14 @@ export default function TestClient() {
         {/* 匹配策略 */}
         <div className="bg-background border rounded-md">
           <div className="px-4 py-3 border-b">
-            <h3 className="font-medium text-sm">推荐匹配策略</h3>
+            <h3 className="font-medium text-sm">{t("recommendedMatchingStrategy")}</h3>
           </div>
           <div className="p-4 grid grid-cols-2 gap-3">
             {[
-              { key: "materializedPath", label: "文件类路径匹配" },
-              { key: "basicInfo", label: "素材名称匹配" },
-              { key: "contentAnalysis", label: "素材内容匹配" },
-              { key: "tagKeywords", label: "标签关键词匹配" },
+              { key: "materializedPath", label: t("pathMatching") },
+              { key: "basicInfo", label: t("nameMatching") },
+              { key: "contentAnalysis", label: t("contentMatching") },
+              { key: "tagKeywords", label: t("tagKeywordMatching") },
             ].map(({ key, label }) => (
               <div
                 key={key}
