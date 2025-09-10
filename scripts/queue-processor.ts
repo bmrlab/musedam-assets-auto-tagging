@@ -5,7 +5,7 @@ async function processQueue() {
   loadEnvConfig(process.cwd());
 
   const internalApiKey = process.env.INTERNAL_API_KEY;
-  
+
   if (!internalApiKey) {
     console.error("❌ INTERNAL_API_KEY not configured in environment");
     process.exit(1);
@@ -18,7 +18,7 @@ async function processQueue() {
     const response = await fetch(endpoint, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${internalApiKey}`,
+        Authorization: `Bearer ${internalApiKey}`,
         "Content-Type": "application/json",
       },
     });
@@ -31,7 +31,9 @@ async function processQueue() {
     }
 
     const result = await response.json();
-    console.log(`✅ ${new Date().toISOString()} - Queue processing completed: ${result.processing} processing, ${result.skipped} skipped`);
+    console.log(
+      `✅ ${new Date().toISOString()} - Queue processing completed: ${result.processing} processing, ${result.skipped} skipped`,
+    );
     return true;
   } catch (error) {
     console.error(`❌ ${new Date().toISOString()} - Error processing queue:`, error);

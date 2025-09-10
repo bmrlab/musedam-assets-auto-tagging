@@ -72,6 +72,7 @@ pnpm queue-processor
 ```
 
 队列处理器会：
+
 - 每 10 秒自动调用一次 `/api/tagging/process-queue` 接口
 - 每次处理最多 10 个待处理的打标任务
 - 显示处理进度和状态信息
@@ -180,11 +181,11 @@ cd devserver
 ### 使用方式
 
 ```tsx
-import { useTranslations } from 'next-intl';
+import { useTranslations } from "next-intl";
 
 function MyComponent() {
-  const t = useTranslations('Homepage'); // 对应消息文件中的 Homepage 键
-  return <h1>{t('title')}</h1>;
+  const t = useTranslations("Homepage"); // 对应消息文件中的 Homepage 键
+  return <h1>{t("title")}</h1>;
 }
 ```
 
@@ -195,10 +196,12 @@ function MyComponent() {
 ### 支持的参数
 
 #### 主题参数 (theme)
+
 - `?theme=dark` - 深色主题
 - `?theme=light` - 浅色主题
 
-#### 语言参数 (locale)  
+#### 语言参数 (locale)
+
 - `?locale=zh-CN` - 中文
 - `?locale=en-US` - 英文
 
@@ -211,18 +214,21 @@ function MyComponent() {
 ### 实现机制
 
 #### 主题 (theme) 参数处理
+
 - **实现位置**：`src/components/ThemeProvider.tsx`
 - **检测方式**：客户端组件在渲染时读取 URL 参数
 - **生效机制**：直接调用 next-themes 的 `setTheme()` 方法
 - **持久化**：next-themes 自动将主题设置保存到 localStorage
 
-#### 语言 (locale) 参数处理  
+#### 语言 (locale) 参数处理
+
 - **实现位置**：`src/middleware.ts`
 - **检测方式**：服务端中间件优先读取 URL 参数 `?locale=`，其次读取 cookie
 - **生效机制**：通过 `x-locale` 请求头传递给服务端，客户端通过 next-intl 获取
 - **持久化**：中间件自动将语言设置同步到 cookie
 
 #### 认证页面额外处理 (`/auth/[token]`)
+
 - **文件位置**：`src/app/(auth)/auth/[token]/page.tsx` 和 `TokenAuthPageClient.tsx`
 - **特殊功能**：除了正常的参数处理外，还会在客户端渲染时**主动持久化**这两个参数
 - **实现原因**：确保通过认证 URL 传入的主题和语言设置能够持续生效，避免页面跳转后丢失
@@ -231,6 +237,7 @@ function MyComponent() {
   - `locale`：调用 `setLocale()` 强制更新 cookie
 
 #### 客户端钩子 (`src/i18n/client.ts`)
+
 - **useLocaleClient**：提供 `toggleLocale()` 和 `setLocale()` 方法
 - **Cookie 管理**：使用 `js-cookie` 库操作浏览器 cookie
 - **页面刷新**：设置后自动刷新页面应用新配置
@@ -241,7 +248,7 @@ function MyComponent() {
 # 设置深色主题 + 英文界面
 https://yourdomain.com/auth/token?theme=dark&locale=en-US
 
-# 设置浅色主题 + 中文界面  
+# 设置浅色主题 + 中文界面
 https://yourdomain.com/?theme=light&locale=zh-CN
 
 # 只设置语言

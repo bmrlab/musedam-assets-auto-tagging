@@ -38,11 +38,13 @@ function calculateMultiSourceScore(sources: SourceScores = {}): number {
   // sigmoid参数：让单source高confidence接近原值，多source有协同效应
   const steepness = 4; // 控制陡峭度
   const center = 0.8; // 中心点，调整让行为更合理
-  
+
   const finalScore = 1 / (1 + Math.exp(-steepness * (weightedSum - center)));
-  
+
   console.log(`  加权和: ${weightedSum.toFixed(4)}`);
-  console.log(`  sigmoid(${steepness}*(${weightedSum.toFixed(4)}-${center})) = ${finalScore.toFixed(4)}`);
+  console.log(
+    `  sigmoid(${steepness}*(${weightedSum.toFixed(4)}-${center})) = ${finalScore.toFixed(4)}`,
+  );
   console.log(`  百分制: ${Math.round(finalScore * 100)}分\n`);
 
   return finalScore;
@@ -222,7 +224,7 @@ function generateMarkdownTable(): string {
         weightedSum += confidence * weight;
       }
     });
-    
+
     const steepness = 4;
     const center = 0.8;
     const finalScore = 1 / (1 + Math.exp(-steepness * (weightedSum - center)));
