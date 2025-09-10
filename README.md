@@ -187,3 +187,67 @@ function MyComponent() {
   return <h1>{t('title')}</h1>;
 }
 ```
+
+## URL 参数覆盖配置
+
+项目支持通过 URL 参数动态设置主题和语言，实现即时生效且持久化存储。
+
+### 支持的参数
+
+#### 主题参数 (theme)
+- `?theme=dark` - 深色主题
+- `?theme=light` - 浅色主题
+
+#### 语言参数 (locale)  
+- `?locale=zh-CN` - 中文
+- `?locale=en-US` - 英文
+
+### 参数优先级
+
+1. **URL 参数**：优先级最高，立即生效
+2. **Cookie 存储**：持久化用户设置
+3. **系统默认**：深色主题 + 中文
+
+### 实现机制
+
+#### 主题 (theme) 参数处理
+- **实现位置**：`src/components/ThemeProvider.tsx`
+- **检测方式**：客户端组件在渲染时读取 URL 参数
+- **生效机制**：直接调用 next-themes 的 `setTheme()` 方法
+- **持久化**：next-themes 自动将主题设置保存到 localStorage
+
+#### 语言 (locale) 参数处理  
+- **实现位置**：`src/middleware.ts`
+- **检测方式**：服务端中间件优先读取 URL 参数 `?locale=`，其次读取 cookie
+- **生效机制**：通过 `x-locale` 请求头传递给服务端，客户端通过 next-intl 获取
+- **持久化**：中间件自动将语言设置同步到 cookie
+
+#### 认证页面额外处理 (`/auth/[token]`)
+- **文件位置**：`src/app/(auth)/auth/[token]/page.tsx` 和 `TokenAuthPageClient.tsx`
+- **特殊功能**：除了正常的参数处理外，还会在客户端渲染时**主动持久化**这两个参数
+- **实现原因**：确保通过认证 URL 传入的主题和语言设置能够持续生效，避免页面跳转后丢失
+- **持久化方式**：
+  - `theme`：调用 `setTheme()` 强制更新 localStorage
+  - `locale`：调用 `setLocale()` 强制更新 cookie
+
+#### 客户端钩子 (`src/i18n/client.ts`)
+- **useLocaleClient**：提供 `toggleLocale()` 和 `setLocale()` 方法
+- **Cookie 管理**：使用 `js-cookie` 库操作浏览器 cookie
+- **页面刷新**：设置后自动刷新页面应用新配置
+
+### 使用示例
+
+```bash
+# 设置深色主题 + 英文界面
+https://yourdomain.com/auth/token?theme=dark&locale=en-US
+
+# 设置浅色主题 + 中文界面  
+https://yourdomain.com/?theme=light&locale=zh-CN
+
+# 只设置语言
+https://yourdomain.com/tagging?locale=en-US
+```
+
+### 集成场景
+
+特别适用于 iframe 嵌入场景，外部应用可通过 URL 参数控制嵌入页面的主题和语言，确保界面风格与外部应用保持一致。详见 [自动登录集成文档](./docs/auto-login-integration.md)。

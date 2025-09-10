@@ -31,15 +31,29 @@ async function handlePingRequest(req: NextRequest) {
 function handleLocale(req: NextRequest) {
   // Get the locale from cookies
   const localeCookie = req.cookies.get("locale");
+  const urlObj = new URL(req.url);
+  const requestLocale = urlObj.searchParams.get("locale");
+  // url 中的 ?locale= 优先，然后是 cookie 中的
   const locale =
-    localeCookie?.value === "zh-CN" || localeCookie?.value === "en-US"
-      ? (localeCookie?.value as Locale)
-      : undefined;
+    requestLocale === "zh-CN" || requestLocale === "en-US"
+      ? (requestLocale as Locale)
+      : localeCookie?.value === "zh-CN" || localeCookie?.value === "en-US"
+        ? (localeCookie?.value as Locale)
+        : undefined;
   // Create a response object from the request
   const response = NextResponse.next();
   // Set the locale in a header to be accessible in server components
   if (locale) {
     response.headers.set("x-locale", locale);
+  }
+  if (locale && !localeCookie) {
+    // 只有当前 cookie 没设置过才设置，否则会导致 cookie 一直更新，useTranslation 结果也一直更新，某些页面就会反复刷新
+    response.cookies.set("locale", locale, {
+      httpOnly: false, // 允许前端 JavaScript 访问
+      expires: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 365 天后过期
+      sameSite: "lax", // 安全性设置
+      secure: process.env.NODE_ENV === "production", // 生产环境使用 HTTPS
+    });
   }
   return { response, locale };
 }

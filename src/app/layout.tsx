@@ -1,11 +1,11 @@
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { Toaster } from "@/components/ui/sonner";
 import type { Metadata } from "next";
-import { NextIntlClientProvider } from "next-intl";
 import { getLocale } from "next-intl/server";
 // import { SessionProvider } from "next-auth/react";  // SessionProvider 只能在 client 使用，需要 创建一个新文件 AuthProvider 然后 use client;
 import { AuthProvider } from "@/components/AuthProvider";
 import { Embed } from "@/embed/Embed";
+import { NextIntlClientProvider } from "next-intl";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Suspense } from "react";
 import "./globals.css";

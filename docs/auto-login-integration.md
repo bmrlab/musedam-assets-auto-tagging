@@ -86,14 +86,27 @@ const loginUrl = `https://autotagging.yourdomain.com/auth/${encryptedToken}?call
 - `dark` - 深色主题（默认）
 - `light` - 浅色主题
 
-示例：
+#### locale 参数
+
+支持的语言设置：
+
+- `zh-CN` - 中文（默认）
+- `en-US` - 英文
+
+#### 参数组合示例
 
 ```javascript
-// 使用深色主题
+// 使用深色主题 + 中文界面
+const loginUrl = `https://autotagging.yourdomain.com/auth/${encryptedToken}?callbackUrl=/tagging&theme=dark&locale=zh-CN`;
+
+// 使用浅色主题 + 英文界面
+const loginUrl = `https://autotagging.yourdomain.com/auth/${encryptedToken}?callbackUrl=/tagging&theme=light&locale=en-US`;
+
+// 只设置主题
 const loginUrl = `https://autotagging.yourdomain.com/auth/${encryptedToken}?callbackUrl=/tagging&theme=dark`;
 
-// 使用浅色主题
-const loginUrl = `https://autotagging.yourdomain.com/auth/${encryptedToken}?callbackUrl=/tagging&theme=light`;
+// 只设置语言
+const loginUrl = `https://autotagging.yourdomain.com/auth/${encryptedToken}?callbackUrl=/tagging&locale=en-US`;
 ```
 
 > 由于 theme 和 locale 参数可能在页面跳转中丢失，通过 auth 页面传入的 theme 和 locale 参数不是临时设置，而是会持久化在浏览器本地，如果每次 auth url 上都带着 theme 和 locale 参数，就可以确保始终同步。
