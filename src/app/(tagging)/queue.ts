@@ -89,6 +89,8 @@ export async function processQueueItem({
         },
       },
     });
+
+    // TODO 如果是测试内容，不需要进入审核
     await createAuditItems({
       assetObject,
       taggingQueueItem: updatedQueueItem,

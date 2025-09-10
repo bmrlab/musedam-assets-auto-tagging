@@ -13,6 +13,7 @@ import { TagColumn } from "./components/TagColumn";
 import { TagDetails } from "./components/TagDetails";
 import { TagEditProvider, useTagEdit } from "./contexts/TagEditContext";
 import { TagNode } from "./types";
+import { SmartTagsContent } from "./components/SmartTags";
 
 interface TagsClientProps {
   initialTags: (AssetTag & { children?: (AssetTag & { children?: AssetTag[] })[] })[];
@@ -458,7 +459,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
             type="text"
             placeholder={t("searchPlaceholder")}
             className="w-full pl-10"
-            // TODO: 实现搜索功能
+          // TODO: 实现搜索功能
           />
           <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
             <svg
@@ -530,45 +531,48 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
           getNodeId={getNodeId}
           hasDetailChanges={checkTagDetailChanges}
         />
+        {selectedLevel1Id === "-1" ? <div className="col-span-2 flex flex-col items-stretch overflow-hidden">
+          <SmartTagsContent />
+        </div> : <>
+          <TagColumn
+            title={t("tag")}
+            tags={level2Tags}
+            level={2}
+            selectedId={selectedLevel2Id}
+            canAdd={!!selectedLevel1 && !selectedLevel1.isDeleted}
+            emptyMessage={!selectedLevel1 ? t("selectTagGroupFirst") : t("noTags")}
+            onAddTag={addTag}
+            onSelectTag={(nodeId) => {
+              setSelectedLevel2Id(nodeId);
+              setSelectedLevel3Id(null);
+            }}
+            onEdit={updateTagName}
+            onStartEdit={startEdit}
+            onCancelEdit={cancelEdit}
+            onDelete={deleteTag}
+            onRestore={restoreTag}
+            getNodeId={getNodeId}
+            hasDetailChanges={checkTagDetailChanges}
+          />
 
-        <TagColumn
-          title={t("tag")}
-          tags={level2Tags}
-          level={2}
-          selectedId={selectedLevel2Id}
-          canAdd={!!selectedLevel1 && !selectedLevel1.isDeleted}
-          emptyMessage={!selectedLevel1 ? t("selectTagGroupFirst") : t("noTags")}
-          onAddTag={addTag}
-          onSelectTag={(nodeId) => {
-            setSelectedLevel2Id(nodeId);
-            setSelectedLevel3Id(null);
-          }}
-          onEdit={updateTagName}
-          onStartEdit={startEdit}
-          onCancelEdit={cancelEdit}
-          onDelete={deleteTag}
-          onRestore={restoreTag}
-          getNodeId={getNodeId}
-          hasDetailChanges={checkTagDetailChanges}
-        />
-
-        <TagColumn
-          title={t("tag")}
-          tags={level3Tags}
-          level={3}
-          selectedId={selectedLevel3Id}
-          canAdd={!!selectedLevel2 && !selectedLevel2.isDeleted}
-          emptyMessage={!selectedLevel2 ? t("selectSecondLevelFirst") : t("noTags")}
-          onAddTag={addTag}
-          onSelectTag={(nodeId) => setSelectedLevel3Id(nodeId)}
-          onEdit={updateTagName}
-          onStartEdit={startEdit}
-          onCancelEdit={cancelEdit}
-          onDelete={deleteTag}
-          onRestore={restoreTag}
-          getNodeId={getNodeId}
-          hasDetailChanges={checkTagDetailChanges}
-        />
+          <TagColumn
+            title={t("tag")}
+            tags={level3Tags}
+            level={3}
+            selectedId={selectedLevel3Id}
+            canAdd={!!selectedLevel2 && !selectedLevel2.isDeleted}
+            emptyMessage={!selectedLevel2 ? t("selectSecondLevelFirst") : t("noTags")}
+            onAddTag={addTag}
+            onSelectTag={(nodeId) => setSelectedLevel3Id(nodeId)}
+            onEdit={updateTagName}
+            onStartEdit={startEdit}
+            onCancelEdit={cancelEdit}
+            onDelete={deleteTag}
+            onRestore={restoreTag}
+            getNodeId={getNodeId}
+            hasDetailChanges={checkTagDetailChanges}
+          />
+        </>}
       </div>
     );
   };

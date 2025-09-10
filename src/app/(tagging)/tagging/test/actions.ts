@@ -32,13 +32,19 @@ export async function startTaggingTasksAction(
     recognitionAccuracy?: "precise" | "balanced" | "broad";
   },
 ): Promise<
-  ServerActionResult<{ successCount: number; failedCount: number; failedAssets: string[] }>
+  ServerActionResult<{
+    successCount: number;
+    failedCount: number;
+    failedAssets: string[];
+    queueItemIds: number[];
+  }>
 > {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
       let successCount = 0;
       let failedCount = 0;
       const failedAssets: string[] = [];
+      const queueItemIds: number[] = [];
 
       // 批量发起打标任务
       for (const asset of selectedAssets) {
@@ -58,12 +64,13 @@ export async function startTaggingTasksAction(
           });
 
           // 2. 发起 AI 打标任务
-          await enqueueTaggingTask({
+          const taggingQueueItem = await enqueueTaggingTask({
             assetObject,
             matchingSources: options?.matchingSources,
             recognitionAccuracy: options?.recognitionAccuracy,
           });
 
+          queueItemIds.push(taggingQueueItem.id);
           successCount++;
         } catch (error) {
           console.error(`Error starting tagging for asset ${asset.name} (${asset.id}):`, error);
@@ -78,6 +85,7 @@ export async function startTaggingTasksAction(
           successCount,
           failedCount,
           failedAssets,
+          queueItemIds,
         },
       };
     } catch (error) {

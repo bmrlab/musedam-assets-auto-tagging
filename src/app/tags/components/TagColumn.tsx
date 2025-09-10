@@ -88,6 +88,22 @@ export function TagColumn({
           </div>
         )}
       </div>
+      {level === 1 &&
+        <div className="w-full h-12 border-t border-t-solid border-t-[#E4E9F2] flex items-center justify-between text-[var(--ant-basic-6)] text-sm leading-[22px] px-1.5">
+          <div
+            className={cn(
+              'w-full h-9 flex items-center justify-between px-2.5 cursor-pointer rounded-lg',
+              selectedId === "-1"
+                ? 'bg-[var(--ant-primary-1)] text-[var(--ant-primary-6)] font-medium'
+                : 'hover:bg-[var(--ant-primary-1)]'
+            )}
+            onClick={() => {
+              onSelectTag?.("-1")
+            }}>
+            智能标签
+          </div>
+        </div>
+      }
     </div>
   );
 }

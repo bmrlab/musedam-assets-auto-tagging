@@ -9,8 +9,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 const requestSchema = z.object({
-  teamId: z.bigint().positive(),
-  assetId: z.bigint().positive(),
+  teamId: z.coerce.bigint().positive(),
+  assetId: z.coerce.bigint().positive(),
   matchingSources: z
     .object({
       basicInfo: z.boolean(),
@@ -32,6 +32,7 @@ export async function POST(request: NextRequest) {
   try {
     // 解析请求体
     const body = await request.json();
+    console.log("body---------", body)
     const {
       teamId: musedamTeamId,
       assetId: musedamAssetId,
@@ -75,8 +76,9 @@ export async function POST(request: NextRequest) {
         (folder) => slugToId("assetFolder", folder.slug),
       );
       const hasIntersection = musedamAsset.parentIds.some((parentId) =>
-        musedamFolderIds.includes(parentId),
+        musedamFolderIds.some((folderId) => folderId.toString() === String(parentId)),
       );
+      console.log("musedamFolderIds", { musedamFolderIds, musedamAsset, hasIntersection })
       if (!hasIntersection) {
         return NextResponse.json(
           {
