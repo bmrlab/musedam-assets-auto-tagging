@@ -59,7 +59,7 @@ const encryptedToken = encryptText(JSON.stringify(payload), appSecret);
 将加密后的 token 和回调页面参数组装成完整 URL：
 
 ```javascript
-const loginUrl = `https://autotagging.yourdomain.com/auth/${encryptedToken}?callbackUrl=/tagging`;
+const loginUrl = `https://autotagging.yourdomain.com/auth/${encryptedToken}?callbackUrl=/tagging&theme=dark`;
 ```
 
 ### 3. iframe 嵌入
@@ -70,10 +70,33 @@ const loginUrl = `https://autotagging.yourdomain.com/auth/${encryptedToken}?call
 <iframe src="生成的登录URL" width="100%" height="800px" frameborder="0"></iframe>
 ```
 
-### 4. 支持的回调路径
+### 4. 支持的参数
+
+#### callbackUrl 参数
+
+支持的回调路径：
 
 - `/tagging` - 打标控制台
 - `/tags` - 标签管理
+
+#### theme 参数
+
+支持的主题设置：
+
+- `dark` - 深色主题（默认）
+- `light` - 浅色主题
+
+示例：
+
+```javascript
+// 使用深色主题
+const loginUrl = `https://autotagging.yourdomain.com/auth/${encryptedToken}?callbackUrl=/tagging&theme=dark`;
+
+// 使用浅色主题
+const loginUrl = `https://autotagging.yourdomain.com/auth/${encryptedToken}?callbackUrl=/tagging&theme=light`;
+```
+
+> 由于 theme 和 locale 参数可能在页面跳转中丢失，通过 auth 页面传入的 theme 和 locale 参数不是临时设置，而是会持久化在浏览器本地，如果每次 auth url 上都带着 theme 和 locale 参数，就可以确保始终同步。
 
 ## 参考代码
 

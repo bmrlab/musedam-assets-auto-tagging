@@ -2,6 +2,7 @@
 import { PageLoadingFallback } from "@/components/PageLoadingFallback";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { signIn } from "next-auth/react";
+import { useTheme } from "next-themes";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -9,10 +10,15 @@ import { useEffect, useState } from "react";
 export function TokenAuthPageClient({
   token,
   callbackUrl,
+  theme,
+  locale,
 }: {
   token: string;
   callbackUrl: string;
+  theme?: "light" | "dark";
+  locale?: "zh-CN" | "en-US";
 }) {
+  const { setTheme } = useTheme();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,6 +42,12 @@ export function TokenAuthPageClient({
         setLoading(false);
       });
   }, [token, callbackUrl, router]);
+
+  useEffect(() => {
+    if (theme) {
+      setTheme(theme);
+    }
+  }, [theme, setTheme]);
 
   if (loading) {
     return (
