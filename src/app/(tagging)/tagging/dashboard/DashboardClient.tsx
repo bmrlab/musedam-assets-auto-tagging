@@ -287,7 +287,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
           <div className="text-center">
             <div className="text-3xl font-bold">{formatNumber(stats.totalCompleted)}</div>
             <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground mt-2">
-              <span className="w-2 h-2 bg-green-600 rounded-full"></span>
+              <span className="w-2 h-2 bg-green-600 dark:bg-green-400 rounded-full"></span>
               <span>{t("totalCompleted")}</span>
             </div>
           </div>
@@ -295,7 +295,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
           <div className="text-center">
             <div className="text-3xl font-bold">{stats.processing}</div>
             <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground mt-2">
-              <span className="w-2 h-2 bg-blue-600 rounded-full"></span>
+              <span className="w-2 h-2 bg-blue-600 dark:bg-blue-400 rounded-full"></span>
               <span>{t("processing")}</span>
             </div>
           </div>
@@ -303,7 +303,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
           <div className="text-center">
             <div className="text-3xl font-bold">{stats.pending}</div>
             <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground mt-2">
-              <span className="w-2 h-2 bg-orange-600 rounded-full"></span>
+              <span className="w-2 h-2 bg-orange-600 dark:bg-orange-400 rounded-full"></span>
               <span>{t("pending")}</span>
             </div>
           </div>
@@ -311,7 +311,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
           <div className="text-center">
             <div className="text-3xl font-bold">{stats.failed}</div>
             <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground mt-2">
-              <span className="w-2 h-2 bg-red-600 rounded-full"></span>
+              <span className="w-2 h-2 bg-red-600 dark:bg-red-400 rounded-full"></span>
               <span>{t("failed")}</span>
             </div>
           </div>
@@ -412,20 +412,20 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
                   {/* Status */}
                   <div className="shrink-0">
                     {task.status === "processing" ? (
-                      <span className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-pulse"></span>
+                      <span className="w-1.5 h-1.5 bg-blue-600 dark:bg-blue-400 rounded-full animate-pulse"></span>
                     ) : task.status === "pending" ? (
-                      <span className="text-xs text-orange-600">{t("waitingForTagging")}</span>
+                      <span className="text-xs text-orange-600 dark:text-orange-400">{t("waitingForTagging")}</span>
                     ) : task.status === "failed" ? (
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50 h-auto py-0.5 px-2 text-xs"
+                        className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/30 h-auto py-0.5 px-2 text-xs"
                         onClick={() => handleRetryTask(task.id)}
                       >
                         {t("taggingFailed")}
                       </Button>
                     ) : task.status === "completed" ? (
-                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                      <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
                     ) : null}
                   </div>
                 </div>

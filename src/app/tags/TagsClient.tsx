@@ -462,7 +462,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
           />
           <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
             <svg
-              className="w-4 h-4 text-gray-400"
+              className="w-4 h-4 text-muted-foreground"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -480,7 +480,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
           {/* AI自动打标签开关 */}
           <div className="flex items-center gap-2">
             <Switch />
-            <span className="text-sm text-gray-600">{t("aiAutoTagging")}</span>
+            <span className="text-sm text-muted-foreground">{t("aiAutoTagging")}</span>
           </div>
           <div className="flex items-center gap-2">
             <SyncConfirmDialog onSyncComplete={handleSyncComplete} />
@@ -495,7 +495,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
             </Button>
           </div>
           <Button variant="outline" size="sm">
-            <div className="w-2 h-2 bg-orange-400 rounded-full"></div>
+            <div className="w-2 h-2 bg-orange-400 dark:bg-orange-300 rounded-full"></div>
             {t("aiAssistant")}
           </Button>
           <Button variant="outline" size="sm">
@@ -574,7 +574,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
   };
 
   return (
-    <div className="h-dvh min-w-[60rem] overflow-x-scroll scrollbar-thin flex flex-col items-stretch gap-4 p-4 bg-zinc-50">
+    <div className="h-dvh min-w-[60rem] overflow-x-scroll scrollbar-thin flex flex-col items-stretch gap-4 p-4 bg-muted/30">
       <TagsHeaderMenu />
       <div className="flex-1 overflow-hidden flex flex-row items-stretch gap-4">
         <TagMainColumns />

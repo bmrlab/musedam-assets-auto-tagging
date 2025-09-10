@@ -130,7 +130,7 @@ export function ReviewItem({ assetObject, batch }: AssetWithAuditItemsBatch) {
       {/* 标签信息 */}
       <div className="grid grid-cols-2 gap-4">
         {/* 现有标签 */}
-        <div className="flex-1 bg-zinc-50 rounded-md p-4">
+        <div className="flex-1 bg-muted rounded-md p-4">
           <div className="flex items-center gap-2 mb-2">
             <TagIcon className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm font-medium">{t("tags")}</span>
@@ -149,7 +149,7 @@ export function ReviewItem({ assetObject, batch }: AssetWithAuditItemsBatch) {
 
         {/* AI推荐标签 */}
         {batch.map(({ queueItem, taggingAuditItems }) => (
-          <div key={queueItem.id} className="flex-1 bg-zinc-50 rounded-md p-4">
+          <div key={queueItem.id} className="flex-1 bg-muted rounded-md p-4">
             <div className="flex items-center gap-2 mb-3">
               <TagIcon className="h-4 w-4" />
               <span className="text-sm font-medium">{t("aiRecommendedTags")}</span>
@@ -170,10 +170,10 @@ export function ReviewItem({ assetObject, batch }: AssetWithAuditItemsBatch) {
                         auditItem.status === "rejected",
                     },
                     {
-                      "text-blue-500 bg-blue-50 border-blue-500": auditItem.score >= 80,
-                      "text-green-500 bg-green-50 border-green-500":
+                      "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 border-blue-500 dark:border-blue-800": auditItem.score >= 80,
+                      "text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950/30 border-green-500 dark:border-green-800":
                         auditItem.score >= 70 && auditItem.score < 80,
-                      "text-orange-500 bg-orange-50 border-orange-500": auditItem.score < 70,
+                      "text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/30 border-orange-500 dark:border-orange-800": auditItem.score < 70,
                     },
                   )}
                 >

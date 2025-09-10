@@ -127,10 +127,10 @@ export function TagItem({
       className={cn(
         "h-9 group flex items-center justify-between px-2 rounded-sm transition-all duration-200",
         {
-          "bg-red-50 text-red-600 opacity-60": tag.isDeleted,
-          "hover:bg-gray-50": !tag.isDeleted && !isSelected,
-          "bg-green-50": tag.verb === "create" && !isSelected,
-          "bg-blue-50": tag.verb === "update" && !isSelected,
+          "bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 opacity-60": tag.isDeleted,
+          "hover:bg-muted/50": !tag.isDeleted && !isSelected,
+          "bg-green-50 dark:bg-green-950/30": tag.verb === "create" && !isSelected,
+          "bg-blue-50 dark:bg-blue-950/30": tag.verb === "update" && !isSelected,
           "bg-accent text-accent-foreground": isSelected && !tag.isDeleted,
         },
       )}
@@ -148,24 +148,24 @@ export function TagItem({
 
         {/* 子标签数量 */}
         {level < 3 && tag.children.length > 0 && (
-          <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
+          <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
             {tag.children.filter((child) => !child.isDeleted).length}
           </span>
         )}
 
         {/* 状态标签 */}
         {tag.verb === "create" && (
-          <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">{t("new")}</span>
+          <span className="text-xs bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 px-1.5 py-0.5 rounded">{t("new")}</span>
         )}
         {tag.verb === "update" && (
-          <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">{t("modified")}</span>
+          <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded">{t("modified")}</span>
         )}
         {tag.isDeleted && (
-          <span className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded">{t("toBeDeleted")}</span>
+          <span className="text-xs bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 px-1.5 py-0.5 rounded">{t("toBeDeleted")}</span>
         )}
         {/* 标签详情编辑状态 */}
         {hasDetailChanges && !tag.verb && !tag.isDeleted && (
-          <span className="text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">
+          <span className="text-xs bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300 px-1.5 py-0.5 rounded">
             {t("edited")}
           </span>
         )}
@@ -204,7 +204,7 @@ export function TagItem({
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={handleDeleteClick}
-                className="text-sm text-red-600 focus:text-red-600"
+                className="text-sm text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400"
               >
                 <Trash2Icon className="h-3 w-3 text-current" />
                 {t("delete")}

@@ -137,13 +137,13 @@ export function TagDetails({ selectedTag }: TagDetailsProps) {
         {formData[type].map((keyword, index) => (
           <div
             key={index}
-            className="inline-flex items-center gap-1 bg-gray-100 hover:bg-gray-200 rounded-md px-2 py-1 text-sm"
+            className="inline-flex items-center gap-1 bg-muted hover:bg-muted/80 rounded-md px-2 py-1 text-sm"
           >
             <span>{keyword}</span>
             <Button
               variant="ghost"
               size="sm"
-              className="h-4 w-4 p-0 text-gray-500 hover:text-red-500"
+              className="h-4 w-4 p-0 text-muted-foreground hover:text-red-500 dark:hover:text-red-400"
               onClick={() => removeKeyword(type, index)}
             >
               <X className="h-3 w-3" />
@@ -164,7 +164,7 @@ export function TagDetails({ selectedTag }: TagDetailsProps) {
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 px-2 text-sm text-gray-500 border border-dashed border-gray-300 hover:border-gray-400"
+            className="h-7 px-2 text-sm text-muted-foreground border border-dashed border-muted-foreground/30 hover:border-muted-foreground/50"
             onClick={() => setShowInput(true)}
           >
             <Plus className="h-3 w-3 mr-1" />
@@ -196,7 +196,7 @@ export function TagDetails({ selectedTag }: TagDetailsProps) {
       <div className="border-b px-4 py-2 font-medium flex items-center justify-between">
         <span>{t("tagDetails")}</span>
         {hasChanges && (
-          <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">{t("modified")}</span>
+          <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded">{t("modified")}</span>
         )}
       </div>
 
@@ -228,7 +228,7 @@ export function TagDetails({ selectedTag }: TagDetailsProps) {
           <Label className="text-sm font-medium">{t("aiAutoTagging")}</Label>
           <div className="flex items-center gap-2">
             <Switch defaultChecked />
-            <span className="text-sm text-gray-600">{t("aiAutoTaggingEnabled")}</span>
+            <span className="text-sm text-muted-foreground">{t("aiAutoTaggingEnabled")}</span>
           </div>
         </div>
 
@@ -239,7 +239,7 @@ export function TagDetails({ selectedTag }: TagDetailsProps) {
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 w-6 p-0 text-blue-500"
+              className="h-6 w-6 p-0 text-blue-500 dark:text-blue-400"
               title={t("matchingKeywordsTooltip")}
             >
               ℹ️
@@ -255,7 +255,7 @@ export function TagDetails({ selectedTag }: TagDetailsProps) {
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 w-6 p-0 text-blue-500"
+              className="h-6 w-6 p-0 text-blue-500 dark:text-blue-400"
               title={t("excludeKeywordsTooltip")}
             >
               ℹ️

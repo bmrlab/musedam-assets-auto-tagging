@@ -171,8 +171,8 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
           {/* 固定的系统管理员 */}
           <div className="flex items-center justify-between py-3 border-b">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100">
-                <div className="text-blue-600">⚡</div>
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900">
+                <div className="text-blue-600 dark:text-blue-400">⚡</div>
               </div>
               <div>
                 <div className="font-medium">{t("systemAdmin")}</div>
@@ -188,8 +188,8 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
           {/* 固定的内容管理员 */}
           <div className="flex items-center justify-between py-3 border-b">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100">
-                <div className="text-blue-600">⚡</div>
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900">
+                <div className="text-blue-600 dark:text-blue-400">⚡</div>
               </div>
               <div>
                 <div className="font-medium">{t("contentAdmin")}</div>
@@ -215,7 +215,7 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
                   className="flex items-center justify-between py-3 border-b"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
                       {getPermissionIcon(permission.slug)}
                     </div>
                     <div>
