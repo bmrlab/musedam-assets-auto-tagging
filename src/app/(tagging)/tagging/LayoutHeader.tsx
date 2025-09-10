@@ -1,11 +1,13 @@
 "use client";
 import { cn } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 import { usePathname } from "next/navigation";
 import { getActiveMenuTitle } from "./AppSidebar";
 
 export function LayoutHeader() {
   const pathname = usePathname();
-  const activeTitle = getActiveMenuTitle(pathname);
+  const t = useTranslations("Tagging");
+  const activeTitle = getActiveMenuTitle(pathname, t);
   return (
     <header
       className={cn(

@@ -1,8 +1,11 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import * as React from "react";
+
+type TranslationFunction = ReturnType<typeof useTranslations>;
 
 import {
   Sidebar,
@@ -24,46 +27,49 @@ import {
   ShieldIcon,
 } from "lucide-react";
 
-const menuItems = [
+const getMenuItems = (t: TranslationFunction) => [
   {
-    title: "控制面板",
+    title: t("Sidebar.dashboard"),
     url: "/tagging/dashboard",
     icon: BarChart3Icon,
   },
   {
-    title: "AI打标审核",
+    title: t("Sidebar.review"),
     url: "/tagging/review",
     icon: CheckSquareIcon,
   },
   {
-    title: "AI打标设置",
+    title: t("Sidebar.settings"),
     url: "/tagging/settings",
     icon: SettingsIcon,
   },
   {
-    title: "权限管理",
+    title: t("Sidebar.access"),
     url: "/tagging/access",
     icon: ShieldIcon,
   },
   {
-    title: "测试打标",
+    title: t("Sidebar.test"),
     url: "/tagging/test",
     icon: BugPlayIcon,
   },
 ];
 
-export function getActiveMenuTitle(pathname: string): string {
+export function getActiveMenuTitle(pathname: string, t: TranslationFunction): string {
+  const menuItems = getMenuItems(t);
   const activeItem = menuItems.find((item) => pathname === item.url);
-  return activeItem?.title || "AI 自动打标引擎";
+  return activeItem?.title || t("App.title");
 }
 
 export function AppSidebar({ className, ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname();
+  const t = useTranslations("Tagging");
+  const menuItems = getMenuItems(t);
 
   return (
     <Sidebar collapsible="icon" className={cn("p-2 bg-background", className)} {...props}>
       <SidebarHeader className="group-data-[state=collapsed]:px-0 mb-2 flex flex-row items-center justify-between group-data-[state=collapsed]:justify-center">
-        <div className="group-data-[state=collapsed]:hidden font-medium px-1">AI 自动打标引擎</div>
+        <div className="group-data-[state=collapsed]:hidden font-medium px-1">{t("App.title")}</div>
         <SidebarTrigger className="hover:bg-transparent dark:hover:bg-transparent" />
       </SidebarHeader>
       <SidebarContent>

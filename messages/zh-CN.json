@@ -2,5 +2,58 @@
   "Homepage": {
     "title": "MuseDAM 资产自动标记系统"
   },
-  "Components": {}
+  "Components": {},
+  "TagsPage": {
+    "searchPlaceholder": "搜索标签",
+    "aiAutoTagging": "AI 自动打标签",
+    "saveChanges": "保存更改",
+    "saving": "保存中...",
+    "aiAssistant": "AI 助手",
+    "batchCreate": "批量创建",
+    "tagGroup": "标签组",
+    "tag": "标签",
+    "noTagGroups": "暂无标签组",
+    "noTags": "暂无标签",
+    "selectTagGroupFirst": "请先选择标签组",
+    "selectSecondLevelFirst": "请先选择二级标签",
+    "tagNameExists": "标签名在同级中已存在",
+    "saveSuccess": "所有变更保存成功",
+    "saveFailed": "保存失败",
+    "saveDetailsFailed": "保存标签详情失败",
+    "syncFromMuseDAM": "从 MuseDAM 同步",
+    "confirmSyncTitle": "确认同步标签",
+    "confirmSyncDescription": "此操作将：\n• 删除当前系统中的所有标签\n• 从 MuseDAM 重新拉取完整的标签体系\n• 所有本地未保存的标签修改将丢失\n\n确定要继续吗？",
+    "cancel": "取消",
+    "confirmSync": "确认同步",
+    "syncing": "同步中...",
+    "syncSuccess": "从 MuseDAM 同步标签成功",
+    "syncFailed": "同步失败",
+    "syncError": "同步时发生错误",
+    "TagItem": {
+      "tagNameRequired": "标签名不能为空",
+      "inputTagName": "输入标签名",
+      "new": "新建",
+      "modified": "已修改",
+      "toBeDeleted": "将删除",
+      "edited": "已编辑",
+      "rename": "重命名",
+      "delete": "删除"
+    },
+    "TagDetails": {
+      "add": "添加",
+      "tagDetails": "标签详情",
+      "selectTagToView": "请选择一个标签查看详情",
+      "modified": "已修改",
+      "tagName": "标签名称",
+      "tagDescription": "标签描述",
+      "tagDescriptionPlaceholder": "选填，添加标签描述可帮助 AI 更好地理解标签的应用场景",
+      "aiAutoTagging": "AI 自动打标",
+      "aiAutoTaggingEnabled": "已启用，允许 AI 识别此标签",
+      "matchingKeywords": "匹配关键词",
+      "matchingKeywordsTooltip": "添加与此标签相关的关键词，帮助AI更准确地识别此标签",
+      "inputKeywords": "输入关键词",
+      "excludeKeywords": "排除关键词",
+      "excludeKeywordsTooltip": "添加需要排除的关键词，当素材包含这些词时将不会被打上此标签"
+    }
+  }
 }

@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { File, Loader2Icon, Search } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
 import { AssetWithAuditItemsBatch, fetchAssetsWithAuditItems } from "./actions";
 import { ReviewItem } from "./ReviewItem";
@@ -16,6 +17,7 @@ import { ReviewItem } from "./ReviewItem";
 type TaggingAuditStatus = "pending" | "approved" | "rejected";
 
 export default function ReviewPageClient() {
+  const t = useTranslations("Tagging.Review");
   const [assets, setAssets] = useState<AssetWithAuditItemsBatch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<TaggingAuditStatus | "all">("all");
@@ -38,11 +40,11 @@ export default function ReviewPageClient() {
         setAssets(assetsResult.data.assets);
       }
     } catch (error) {
-      console.error("刷新数据失败:", error);
+      console.error(t("refreshDataFailed"), error);
     } finally {
       setIsLoading(false);
     }
-  }, [statusFilter, confidenceFilter, searchQuery]);
+  }, [statusFilter, confidenceFilter, searchQuery, t]);
 
   useEffect(() => {
     refreshData();
@@ -64,13 +66,13 @@ export default function ReviewPageClient() {
           }}
         >
           <SelectTrigger className="w-32">
-            <SelectValue placeholder="全部状态" />
+            <SelectValue placeholder={t("allStatuses")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">全部状态</SelectItem>
-            <SelectItem value="pending">待审核</SelectItem>
-            <SelectItem value="approved">已采纳</SelectItem>
-            <SelectItem value="rejected">已调整</SelectItem>
+            <SelectItem value="all">{t("allStatuses")}</SelectItem>
+            <SelectItem value="pending">{t("pending")}</SelectItem>
+            <SelectItem value="approved">{t("approved")}</SelectItem>
+            <SelectItem value="rejected">{t("rejected")}</SelectItem>
           </SelectContent>
         </Select>
         <Select
@@ -81,32 +83,32 @@ export default function ReviewPageClient() {
           }}
         >
           <SelectTrigger className="w-32">
-            <SelectValue placeholder="全部置信度" />
+            <SelectValue placeholder={t("allConfidence")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">全部置信度</SelectItem>
-            <SelectItem value="high">精准 (≥80%)</SelectItem>
-            <SelectItem value="medium">平衡 (60-79%)</SelectItem>
-            <SelectItem value="low">宽泛 (&lt;60%)</SelectItem>
+            <SelectItem value="all">{t("allConfidence")}</SelectItem>
+            <SelectItem value="high">{t("precise")}</SelectItem>
+            <SelectItem value="medium">{t("balanced")}</SelectItem>
+            <SelectItem value="low">{t("broad")}</SelectItem>
           </SelectContent>
         </Select>
 
         <Select disabled>
           <SelectTrigger className="w-36">
-            <SelectValue placeholder="打标发起时间" />
+            <SelectValue placeholder={t("taggingInitiatedTime")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">全部时间</SelectItem>
-            <SelectItem value="today">今天</SelectItem>
-            <SelectItem value="week">本周</SelectItem>
-            <SelectItem value="month">本月</SelectItem>
+            <SelectItem value="all">{t("allTime")}</SelectItem>
+            <SelectItem value="today">{t("today")}</SelectItem>
+            <SelectItem value="week">{t("thisWeek")}</SelectItem>
+            <SelectItem value="month">{t("thisMonth")}</SelectItem>
           </SelectContent>
         </Select>
 
         <div className="flex-1 max-w-md relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="搜索名称或标签"
+            placeholder={t("searchPlaceholder")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={(e) => {
@@ -124,14 +126,14 @@ export default function ReviewPageClient() {
         <Card>
           <CardContent className="pt-6 text-center text-muted-foreground">
             <Loader2Icon className="size-8 animate-spin mx-auto mb-4" />
-            <p>加载中...</p>
+            <p>{t("loading")}</p>
           </CardContent>
         </Card>
       ) : assets.length === 0 ? (
         <Card>
           <CardContent className="pt-6 text-center text-muted-foreground">
             <File className="h-12 w-12 mx-auto mb-4" />
-            <p>暂无待审核的素材</p>
+            <p>{t("noAssetsToReview")}</p>
           </CardContent>
         </Card>
       ) : (

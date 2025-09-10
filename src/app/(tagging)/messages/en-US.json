@@ -1,3 +1,154 @@
 {
-  "Tagging": {}
+  "Tagging": {
+    "App": {
+      "title": "AI Auto-Tagging Engine"
+    },
+    "Sidebar": {
+      "dashboard": "Dashboard",
+      "review": "AI Tagging Review",
+      "settings": "AI Tagging Settings",
+      "access": "Access Management",
+      "test": "Test Tagging"
+    },
+    "Dashboard": {
+      "title": "AI Auto-Tagging in Progress",
+      "totalCompleted": "Total Successful Tagged Assets",
+      "processing": "Processing",
+      "pending": "Awaiting Tagging",
+      "failed": "Tagging Failed",
+      "remainingTasks": "Remaining {count} / {total} items, estimated {minutes} minutes to complete",
+      "filterProcessing": "In Progress",
+      "filterAll": "All",
+      "retryFailedTasks": "Retry Failed Tasks",
+      "noTasks": "No tasks",
+      "waitingForTagging": "Waiting for tagging...",
+      "taggingFailed": "AI Tagging Failed",
+      "aiTaggingTime": "AI Tagging Time",
+      "processingTrend": "Processing Trend",
+      "initiateTasks": "Initiate Tasks",
+      "processTasks": "Process Tasks",
+      "weeklyTagging": "Weekly Tagging",
+      "paginationInfo": "{current} / {total} items"
+    },
+    "Settings": {
+      "title": "Tagging Switch",
+      "saveSettings": "Save Settings",
+      "saving": "Saving...",
+      "settingsSaved": "Settings saved",
+      "saveSettingsFailed": "Failed to save settings",
+      "selectFoldersFailed": "Failed to select folders",
+      "newApplicationScope": "New application scope state:",
+      "selectedFoldersCount": "Selected folders count:",
+      "Global": {
+        "title": "Global Settings",
+        "enableTagging": "Enable Tagging",
+        "enableTaggingDesc": "Enable AI auto-tagging for assets",
+        "manageTagSystem": "Manage Tag System"
+      },
+      "TaggingMode": {
+        "title": "Tagging Mode",
+        "direct": "Direct",
+        "directDesc": "AI tags are applied directly to assets",
+        "review": "Review",
+        "reviewDesc": "AI tags require manual review before applying",
+        "firstTimeRecommendation": "First-time use recommendation:",
+        "firstTimeRecommendationDesc": "Manual review can help evaluate AI tagging effectiveness. Switch to direct application mode once accuracy meets requirements"
+      },
+      "AIRecognition": {
+        "title": "AI Recognition",
+        "precise": "Precise",
+        "preciseDesc": "High accuracy, fewer tags (≥80% confidence)",
+        "balanced": "Balanced",
+        "balancedDesc": "Balanced accuracy and coverage (≥60% confidence)",
+        "broad": "Broad",
+        "broadDesc": "High coverage, more tags (≥40% confidence)",
+        "confidence": "confidence",
+        "recommended": "Recommended"
+      },
+      "MatchingStrategy": {
+        "title": "Matching Strategy",
+        "desc": "Select tag matching sources",
+        "existingTags": "Existing Tags",
+        "existingTagsDesc": "Match from existing tags in the system",
+        "aiGenerated": "AI Generated",
+        "aiGeneratedDesc": "Generate new tags using AI",
+        "customKeywords": "Custom Keywords",
+        "customKeywordsDesc": "Match from custom keyword library",
+        "filePathMatching": "File Path Matching",
+        "filePathMatchingDesc": "Tag matching based on the file path where assets are located",
+        "assetNameMatching": "Asset Name Matching",
+        "assetNameMatchingDesc": "Analyze key information in file names for matching"
+      },
+      "ApplicationScope": {
+        "title": "Application Scope",
+        "allAssets": "All Assets",
+        "allAssetsDesc": "Apply to all assets in the system",
+        "specificFolders": "Specific Folders",
+        "specificFoldersDesc": "Apply only to selected folders",
+        "selectFolders": "Select Folders",
+        "selectedFolders": "Selected Folders ({count})",
+        "noFoldersSelected": "No folders selected",
+        "scope": "AI Tagging Scope",
+        "selectScopeDesc": "Click to select the asset scope for enabling AI auto-tagging",
+        "currentAndNewAssets": "Current folder and newly uploaded assets",
+        "onlySelectedScope": "Only assets within the selected scope will undergo AI auto-tagging"
+      }
+    },
+    "Review": {
+      "add": "Add",
+      "replace": "Replace",
+      "reject": "Reject",
+      "tags": "Tags",
+      "aiRecommendedTags": "AI Recommended Tags",
+      "basedOnTagSystem": "Based on tag system matching",
+      "allStatuses": "All Statuses",
+      "pending": "Pending Review",
+      "approved": "Approved",
+      "rejected": "Adjusted",
+      "allConfidence": "All Confidence",
+      "precise": "Precise (≥80%)",
+      "balanced": "Balanced (60-79%)",
+      "broad": "Broad (<60%)",
+      "taggingInitiatedTime": "Tagging Initiated Time",
+      "allTime": "All Time",
+      "today": "Today",
+      "thisWeek": "This Week",
+      "thisMonth": "This Month",
+      "searchPlaceholder": "Search names or tags",
+      "loading": "Loading...",
+      "noAssetsToReview": "No assets to review",
+      "refreshDataFailed": "Failed to refresh data"
+    },
+    "Access": {
+      "roleAndPermissions": "Role & Permissions",
+      "selectingMembers": "Selecting members...",
+      "addMembers": "Add Members",
+      "systemAdmin": "System Admin",
+      "contentAdmin": "Content Admin",
+      "noPermissionsConfigured": "No other permissions configured. Click the \"Add Members\" button above to start configuration",
+      "permissionAddedSuccess": "Permission for {name} has been added",
+      "permissionAddFailed": "Failed to add permission for {name}",
+      "noMembersSelected": "No members selected",
+      "selectMembersFailed": "Failed to select members",
+      "permissionUpdatedSuccess": "Updated {name}'s permission to {role}",
+      "updatePermissionFailed": "Failed to update permission",
+      "permissionRemoved": "Permission removed",
+      "removePermissionFailed": "Failed to remove permission",
+      "user": "User",
+      "userGroup": "User Group",
+      "department": "Department",
+      "unknown": "Unknown",
+      "canManage": "Can Manage",
+      "canReview": "Can Review",
+      "fullManagementPermission": "Full management permissions, including configuration and member management",
+      "reviewPermission": "Can view and review tagging results, cannot modify configurations",
+      "remove": "Remove"
+    },
+    "Common": {
+      "refreshDataFailed": "Failed to refresh data",
+      "retryTasksSuccess": "{count} failed tasks have been retried",
+      "retryFailed": "Retry failed",
+      "taskAddedToQueue": "Task has been added back to queue"
+    }
+  }
 }

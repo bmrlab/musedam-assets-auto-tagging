@@ -9,11 +9,13 @@ import {
   TaggingAuditStatus,
 } from "@/prisma/client";
 import { CheckIcon, DotIcon, Folder, Loader2Icon, Tag as TagIcon, XIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 import Image from "next/image";
 import { useCallback, useMemo, useState } from "react";
 import { approveAuditItemsAction, AssetWithAuditItemsBatch } from "./actions";
 
 export function ReviewItem({ assetObject, batch }: AssetWithAuditItemsBatch) {
+  const t = useTranslations("Tagging.Review");
   const [loading, setLoading] = useState(false);
   const [rejectedItems, setRejectedItems] = useState<number[]>([]);
 
@@ -109,17 +111,17 @@ export function ReviewItem({ assetObject, batch }: AssetWithAuditItemsBatch) {
         ) : Array.from(auditItemsSet).find((auditItem) => auditItem.status === "pending") ? (
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => approveAuditItems({ append: true })}>
-              添加
+              {t("add")}
             </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={() => approveAuditItems({ append: false })}
             >
-              置盖
+              {t("replace")}
             </Button>
             <Button variant="outline" size="sm">
-              拒绝
+              {t("reject")}
             </Button>
           </div>
         ) : null}
@@ -131,7 +133,7 @@ export function ReviewItem({ assetObject, batch }: AssetWithAuditItemsBatch) {
         <div className="flex-1 bg-zinc-50 rounded-md p-4">
           <div className="flex items-center gap-2 mb-2">
             <TagIcon className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium">标签</span>
+            <span className="text-sm font-medium">{t("tags")}</span>
           </div>
           <div className="flex flex-wrap gap-1">
             {(assetObject.tags as AssetObjectTags).map((tag, index) => (
@@ -150,8 +152,8 @@ export function ReviewItem({ assetObject, batch }: AssetWithAuditItemsBatch) {
           <div key={queueItem.id} className="flex-1 bg-zinc-50 rounded-md p-4">
             <div className="flex items-center gap-2 mb-3">
               <TagIcon className="h-4 w-4" />
-              <span className="text-sm font-medium">AI 推荐标签</span>
-              <span className="text-xs text-muted-foreground">基于标签体系匹配</span>
+              <span className="text-sm font-medium">{t("aiRecommendedTags")}</span>
+              <span className="text-xs text-muted-foreground">{t("basedOnTagSystem")}</span>
               <span className="ml-auto text-xs text-muted-foreground">
                 {formatDate(queueItem.createdAt)}
               </span>

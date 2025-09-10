@@ -14,6 +14,7 @@ import { MuseDAMID } from "@/musedam/types";
 import { Building, ChevronDown, Loader2, Plus, User, Users } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { addAccessPermissionAction, removeAccessPermissionAction } from "./actions";
 
 interface AccessClientProps {
@@ -27,6 +28,7 @@ interface MemberSelectionResult {
 }
 
 export default function AccessClient({ initialPermissions }: AccessClientProps) {
+  const t = useTranslations("Tagging.Access");
   const [permissions, setPermissions] = useState<AccessPermission[]>(initialPermissions);
   const [isPending, startTransition] = useTransition();
   const [isSelecting, setIsSelecting] = useState(false);
@@ -82,18 +84,18 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
             const result = await addAccessPermissionAction(permission);
             if (result.success) {
               setPermissions(result.data.permissions);
-              toast.success(`已添加 ${permission.name} 的权限`);
+              toast.success(t("permissionAddedSuccess", { name: permission.name }));
             } else {
-              toast.error(`添加 ${permission.name} 权限失败`);
+              toast.error(t("permissionAddFailed", { name: permission.name }));
             }
           });
         }
       } else {
-        toast.info("未选择任何成员");
+        toast.info(t("noMembersSelected"));
       }
     } catch (error) {
       console.error("选择成员失败:", error);
-      toast.error("选择成员失败");
+      toast.error(t("selectMembersFailed"));
     } finally {
       setIsSelecting(false);
     }
@@ -109,9 +111,9 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
       const result = await addAccessPermissionAction(updatedPermission);
       if (result.success) {
         setPermissions(result.data.permissions);
-        toast.success(`已更新 ${permission.name} 的权限为${getRoleLabel(newRole)}`);
+        toast.success(t("permissionUpdatedSuccess", { name: permission.name, role: getRoleLabel(newRole) }));
       } else {
-        toast.error("更新权限失败");
+        toast.error(t("updatePermissionFailed"));
       }
     });
   };
@@ -121,9 +123,9 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
       const result = await removeAccessPermissionAction(slug);
       if (result.success) {
         setPermissions(result.data.permissions);
-        toast.success("权限已移除");
+        toast.success(t("permissionRemoved"));
       } else {
-        toast.error("移除权限失败");
+        toast.error(t("removePermissionFailed"));
       }
     });
   };
@@ -136,30 +138,30 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
   };
 
   const getPermissionType = (slug: string) => {
-    if (slug.startsWith("u/")) return "用户";
-    if (slug.startsWith("ug/")) return "用户组";
-    if (slug.startsWith("ud/")) return "部门";
-    return "未知";
+    if (slug.startsWith("u/")) return t("user");
+    if (slug.startsWith("ug/")) return t("userGroup");
+    if (slug.startsWith("ud/")) return t("department");
+    return t("unknown");
   };
 
   const getRoleLabel = (role: AccessRole) => {
-    return role === "admin" ? "可管理" : "可审核";
+    return role === "admin" ? t("canManage") : t("canReview");
   };
 
   return (
     <div className="bg-background border rounded-lg">
       <div className="px-4 py-3 border-b flex items-center justify-between">
-        <h3 className="font-medium text-sm">角色与权限</h3>
+        <h3 className="font-medium text-sm">{t("roleAndPermissions")}</h3>
         <Button onClick={handleMemberSelection} disabled={isSelecting || isPending} size="sm">
           {isSelecting ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
-              选择成员中...
+              {t("selectingMembers")}
             </>
           ) : (
             <>
               <Plus className="h-4 w-4" />
-              添加成员
+              {t("addMembers")}
             </>
           )}
         </Button>
@@ -173,12 +175,12 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
                 <div className="text-blue-600">⚡</div>
               </div>
               <div>
-                <div className="font-medium">系统管理员</div>
+                <div className="font-medium">{t("systemAdmin")}</div>
               </div>
             </div>
             {/*<div className="text-sm text-muted-foreground w-20 text-right">可管理</div>*/}
             <Button variant="ghost" size="sm" className="h-8 w-20" disabled={true}>
-              <span>可管理</span>
+              <span>{t("canManage")}</span>
               <ChevronDown className="ml-1 h-3 w-3" />
             </Button>
           </div>
@@ -190,12 +192,12 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
                 <div className="text-blue-600">⚡</div>
               </div>
               <div>
-                <div className="font-medium">内容管理员</div>
+                <div className="font-medium">{t("contentAdmin")}</div>
               </div>
             </div>
             {/*<div className="text-sm text-muted-foreground w-20 text-right">可管理</div>*/}
             <Button variant="ghost" size="sm" className="h-8 w-20" disabled={true}>
-              <span>可管理</span>
+              <span>{t("canManage")}</span>
               <ChevronDown className="ml-1 h-3 w-3" />
             </Button>
           </div>
@@ -203,7 +205,7 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
           {/* 动态权限列表 */}
           {permissions.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground border-b">
-              暂无其他权限配置，点击上方&quot;添加成员&quot;按钮开始配置
+              {t("noPermissionsConfigured")}
             </div>
           ) : (
             <>
@@ -238,9 +240,9 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
                           className="py-3"
                         >
                           <div className="flex flex-col">
-                            <span className="text-sm font-medium">可管理</span>
+                            <span className="text-sm font-medium">{t("canManage")}</span>
                             <span className="text-xs text-muted-foreground">
-                              完整管理权限，包括配置和成员管理
+                              {t("fullManagementPermission")}
                             </span>
                           </div>
                         </DropdownMenuItem>
@@ -250,9 +252,9 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
                           className="py-3"
                         >
                           <div className="flex flex-col">
-                            <span className="text-sm font-medium">可审核</span>
+                            <span className="text-sm font-medium">{t("canReview")}</span>
                             <span className="text-xs text-muted-foreground">
-                              可查看和审核打标结果，不可修改配置
+                              {t("reviewPermission")}
                             </span>
                           </div>
                         </DropdownMenuItem>
@@ -261,7 +263,7 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
                           className="text-destructive py-3"
                           onClick={() => handleRemovePermission(permission.slug)}
                         >
-                          <span className="text-sm font-medium">移除</span>
+                          <span className="text-sm font-medium">{t("remove")}</span>
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>

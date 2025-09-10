@@ -1,4 +1,5 @@
 import { Checkbox } from "@/components/ui/checkbox";
+import { useTranslations } from "next-intl";
 
 interface MatchingSources {
   basicInfo: boolean;
@@ -16,12 +17,14 @@ export function MatchingStrategySection({
   matchingSources,
   onSourceChange,
 }: MatchingStrategySectionProps) {
+  const t = useTranslations("Tagging.Settings.MatchingStrategy");
+
   return (
     <div className="space-y-6">
       {/* 匹配策略选择 */}
       <div className="bg-background border rounded-lg">
         <div className="px-4 py-3 border-b">
-          <h3 className="font-medium text-sm">匹配策略选择</h3>
+          <h3 className="font-medium text-sm">{t("title")}</h3>
         </div>
         <div className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -34,9 +37,9 @@ export function MatchingStrategySection({
                 className="mt-0.5"
               />
               <div>
-                <h3 className="font-medium">文件类路径匹配</h3>
+                <h3 className="font-medium">{t("filePathMatching")}</h3>
                 <p className="text-sm text-muted-foreground">
-                  基于素材所在的文件类路径进行标签匹配
+                  {t("filePathMatchingDesc")}
                 </p>
               </div>
             </div>
@@ -48,8 +51,8 @@ export function MatchingStrategySection({
                 className="mt-0.5"
               />
               <div>
-                <h3 className="font-medium">素材名称匹配</h3>
-                <p className="text-sm text-muted-foreground">分析文件名称中的关键信息进行匹配</p>
+                <h3 className="font-medium">{t("assetNameMatching")}</h3>
+                <p className="text-sm text-muted-foreground">{t("assetNameMatchingDesc")}</p>
               </div>
             </div>
 
@@ -60,8 +63,8 @@ export function MatchingStrategySection({
                 className="mt-0.5"
               />
               <div>
-                <h3 className="font-medium">素材内容匹配</h3>
-                <p className="text-sm text-muted-foreground">AI 分析文件内容进行智能识别</p>
+                <h3 className="font-medium">{t("aiGenerated")}</h3>
+                <p className="text-sm text-muted-foreground">{t("aiGeneratedDesc")}</p>
               </div>
             </div>
 
@@ -72,8 +75,8 @@ export function MatchingStrategySection({
                 className="mt-0.5"
               />
               <div>
-                <h3 className="font-medium">标签关键词匹配</h3>
-                <p className="text-sm text-muted-foreground">基于现有关键词进行准确匹配</p>
+                <h3 className="font-medium">{t("existingTags")}</h3>
+                <p className="text-sm text-muted-foreground">{t("existingTagsDesc")}</p>
               </div>
             </div>
           </div>

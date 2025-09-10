@@ -3,6 +3,7 @@ import { TaggingSettingsData } from "@/app/(tagging)/types";
 import { dispatchMuseDAMClientAction } from "@/embed/message";
 import { idToSlug } from "@/lib/slug";
 import { MuseDAMID } from "@/musedam/types";
+import { useTranslations } from "next-intl";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { updateSettings } from "./actions";
@@ -18,6 +19,7 @@ interface SettingsClientProps {
 }
 
 export default function SettingsClient({ initialSettings }: SettingsClientProps) {
+  const t = useTranslations("Tagging.Settings");
   const [isTaggingEnabled, setIsTaggingEnabled] = useState(initialSettings.isTaggingEnabled);
   const [taggingMode, setTaggingMode] = useState(initialSettings.taggingMode);
   const [recognitionAccuracy, setRecognitionAccuracy] = useState(
@@ -49,10 +51,10 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
       const result = await updateSettings(settingsData);
 
       if (result.success) {
-        toast.success("设置已保存");
+        toast.success(t("settingsSaved"));
         setHasChanges(false);
       } else {
-        toast.error("保存设置失败");
+        toast.error(t("saveSettingsFailed"));
       }
     });
   };
@@ -105,14 +107,14 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
               name: folder.name,
             })),
           };
-          console.log("新的应用范围状态:", newScope);
+          console.log(t("newApplicationScope"), newScope);
           return newScope;
         });
       }
       setHasChanges(true);
     } catch (error) {
-      console.error("选择文件夹失败:", error);
-      toast.error("选择文件夹失败");
+      console.error(t("selectFoldersFailed"), error);
+      toast.error(t("selectFoldersFailed"));
     }
   };
 
@@ -126,8 +128,8 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
 
   useEffect(() => {
     console.log("Application scope state changed:", applicationScope);
-    console.log("Selected folders count:", applicationScope.selectedFolders.length);
-  }, [applicationScope]);
+    console.log(t("selectedFoldersCount"), applicationScope.selectedFolders.length);
+  }, [applicationScope, t]);
 
   return (
     <div className="space-y-6 p-6 max-w-5xl mx-auto">

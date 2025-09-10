@@ -9,6 +9,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { Edit2Icon, MoreHorizontal, Save, TagIcon, Trash2Icon, Undo2, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
 import { TagNode } from "../types";
@@ -41,13 +42,14 @@ export function TagItem({
   getNodeId,
   hasDetailChanges = false,
 }: TagItemProps) {
+  const t = useTranslations("TagsPage.TagItem");
   const [editValue, setEditValue] = useState(tag.name);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const nodeId = getNodeId(tag);
 
   const handleSave = () => {
     if (!editValue.trim()) {
-      toast.error("标签名不能为空");
+      toast.error(t("tagNameRequired"));
       return;
     }
     const success = onEdit(nodeId, editValue.trim());
@@ -94,7 +96,7 @@ export function TagItem({
           value={editValue}
           onChange={(e) => setEditValue(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="输入标签名"
+          placeholder={t("inputTagName")}
           className="flex-1 h-6 p-0 shadow-none border-none rounded-none text-sm"
           autoFocus
         />
@@ -153,18 +155,18 @@ export function TagItem({
 
         {/* 状态标签 */}
         {tag.verb === "create" && (
-          <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">新建</span>
+          <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">{t("new")}</span>
         )}
         {tag.verb === "update" && (
-          <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">已修改</span>
+          <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">{t("modified")}</span>
         )}
         {tag.isDeleted && (
-          <span className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded">将删除</span>
+          <span className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded">{t("toBeDeleted")}</span>
         )}
         {/* 标签详情编辑状态 */}
         {hasDetailChanges && !tag.verb && !tag.isDeleted && (
           <span className="text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">
-            已编辑
+            {t("edited")}
           </span>
         )}
       </div>
@@ -198,14 +200,14 @@ export function TagItem({
             <DropdownMenuContent align="end" side="bottom" className="w-32">
               <DropdownMenuItem onClick={handleRename}>
                 <Edit2Icon className="h-3 w-3 text-current" />
-                重命名
+                {t("rename")}
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={handleDeleteClick}
                 className="text-sm text-red-600 focus:text-red-600"
               >
                 <Trash2Icon className="h-3 w-3 text-current" />
-                删除
+                {t("delete")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

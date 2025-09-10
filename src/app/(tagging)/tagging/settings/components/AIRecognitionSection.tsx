@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import { InfoIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 interface AIRecognitionSectionProps {
   recognitionAccuracy: "precise" | "balanced" | "broad";
@@ -10,12 +11,14 @@ export function AIRecognitionSection({
   recognitionAccuracy,
   onRecognitionAccuracyChange,
 }: AIRecognitionSectionProps) {
+  const t = useTranslations("Tagging.Settings.AIRecognition");
+
   return (
     <div className="space-y-6">
       {/* AI 识别设置 */}
       <div className="bg-background border rounded-lg">
         <div className="px-4 py-3 border-b flex items-center gap-2">
-          <h3 className="font-medium text-sm">AI 识别设置</h3>
+          <h3 className="font-medium text-sm">{t("title")}</h3>
           <InfoIcon className="size-4 text-muted-foreground" />
         </div>
         <div className="p-6">
@@ -30,11 +33,11 @@ export function AIRecognitionSection({
               onClick={() => onRecognitionAccuracyChange("precise")}
             >
               <div className="text-center space-y-3">
-                <h3 className="font-medium">精准模式</h3>
+                <h3 className="font-medium">{t("precise")}</h3>
                 <div className="text-sm font-medium text-blue-600 dark:text-blue-400">
-                  80-100% 置信度
+                  80-100% {t("confidence")}
                 </div>
-                <p className="text-xs text-muted-foreground">优先准确性，适合打标要求严格的场景</p>
+                <p className="text-xs text-muted-foreground">{t("preciseDesc")}</p>
               </div>
             </div>
 
@@ -49,17 +52,15 @@ export function AIRecognitionSection({
             >
               <div className="text-center space-y-3">
                 <div className="flex items-center justify-center gap-2">
-                  <h3 className="font-medium">平衡模式</h3>
+                  <h3 className="font-medium">{t("balanced")}</h3>
                   <span className="bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded">
-                    推荐
+                    {t("recommended")}
                   </span>
                 </div>
                 <div className="text-sm font-medium text-blue-600 dark:text-blue-400">
-                  70-100% 置信度
+                  70-100% {t("confidence")}
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  平衡标签准确性与覆盖率，适合日常大多数场景
-                </p>
+                <p className="text-xs text-muted-foreground">{t("balancedDesc")}</p>
               </div>
             </div>
 
@@ -73,11 +74,11 @@ export function AIRecognitionSection({
               onClick={() => onRecognitionAccuracyChange("broad")}
             >
               <div className="text-center space-y-3">
-                <h3 className="font-medium">宽泛模式</h3>
+                <h3 className="font-medium">{t("broad")}</h3>
                 <div className="text-sm font-medium text-blue-600 dark:text-blue-400">
-                  60-100% 置信度
+                  60-100% {t("confidence")}
                 </div>
-                <p className="text-xs text-muted-foreground">优先标签覆盖率，适合内容智能分类</p>
+                <p className="text-xs text-muted-foreground">{t("broadDesc")}</p>
               </div>
             </div>
           </div>

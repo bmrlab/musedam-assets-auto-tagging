@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import type { AssetTagExtra } from "@/prisma/client";
 import { AssetTag } from "@/prisma/client";
 import { Plus, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
 import { TagEditData, useTagEdit } from "../contexts/TagEditContext";
 
@@ -16,6 +17,7 @@ interface TagDetailsProps {
 }
 
 export function TagDetails({ selectedTag }: TagDetailsProps) {
+  const t = useTranslations("TagsPage.TagDetails");
   const { getTagEditData, updateTagData, isTagEdited } = useTagEdit();
 
   // 本地表单状态
@@ -166,7 +168,7 @@ export function TagDetails({ selectedTag }: TagDetailsProps) {
             onClick={() => setShowInput(true)}
           >
             <Plus className="h-3 w-3 mr-1" />
-            添加
+            {t("add")}
           </Button>
         )}
       </div>
@@ -177,9 +179,9 @@ export function TagDetails({ selectedTag }: TagDetailsProps) {
   if (!selectedTag) {
     return (
       <div className="w-[18rem] bg-background border rounded-md flex flex-col items-stretch overflow-hidden">
-        <div className="border-b px-4 py-2 font-medium">标签详情</div>
+        <div className="border-b px-4 py-2 font-medium">{t("tagDetails")}</div>
         <div className="flex-1 overflow-y-scroll scrollbar-thin p-4">
-          <p className="text-muted-foreground text-center py-8">请选择一个标签查看详情</p>
+          <p className="text-muted-foreground text-center py-8">{t("selectTagToView")}</p>
         </div>
       </div>
     );
@@ -192,9 +194,9 @@ export function TagDetails({ selectedTag }: TagDetailsProps) {
     <div className="w-[18rem] bg-background border rounded-md flex flex-col items-stretch overflow-hidden">
       {/* 标题栏 */}
       <div className="border-b px-4 py-2 font-medium flex items-center justify-between">
-        <span>标签详情</span>
+        <span>{t("tagDetails")}</span>
         {hasChanges && (
-          <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">已修改</span>
+          <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">{t("modified")}</span>
         )}
       </div>
 
@@ -202,7 +204,7 @@ export function TagDetails({ selectedTag }: TagDetailsProps) {
       <div className="flex-1 overflow-y-scroll scrollbar-thin space-y-6 p-4">
         {/* 标签名称 */}
         <div className="space-y-2">
-          <Label className="text-sm font-medium">标签名称</Label>
+          <Label className="text-sm font-medium">{t("tagName")}</Label>
           <Input
             value={formData.name}
             onChange={(e) => updateField("name", e.target.value)}
@@ -212,54 +214,54 @@ export function TagDetails({ selectedTag }: TagDetailsProps) {
 
         {/* 标签描述 */}
         <div className="space-y-2">
-          <Label className="text-sm font-medium">标签描述</Label>
+          <Label className="text-sm font-medium">{t("tagDescription")}</Label>
           <Textarea
             value={formData.description}
             onChange={(e) => updateField("description", e.target.value)}
-            placeholder="选填，添加标签描述可帮助 AI 更好地理解标签的应用场景"
+            placeholder={t("tagDescriptionPlaceholder")}
             className="min-h-[80px] resize-none"
           />
         </div>
 
         {/* AI自动打标 */}
         <div className="space-y-2">
-          <Label className="text-sm font-medium">AI 自动打标</Label>
+          <Label className="text-sm font-medium">{t("aiAutoTagging")}</Label>
           <div className="flex items-center gap-2">
             <Switch defaultChecked />
-            <span className="text-sm text-gray-600">已启用，允许 AI 识别此标签</span>
+            <span className="text-sm text-gray-600">{t("aiAutoTaggingEnabled")}</span>
           </div>
         </div>
 
         {/* 匹配关键词 */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <Label className="text-sm font-medium">匹配关键词</Label>
+            <Label className="text-sm font-medium">{t("matchingKeywords")}</Label>
             <Button
               variant="ghost"
               size="sm"
               className="h-6 w-6 p-0 text-blue-500"
-              title="添加与此标签相关的关键词，帮助AI更准确地识别此标签"
+              title={t("matchingKeywordsTooltip")}
             >
               ℹ️
             </Button>
           </div>
-          {renderKeywordList("keywords", "输入关键词")}
+          {renderKeywordList("keywords", t("inputKeywords"))}
         </div>
 
         {/* 排除关键词 */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <Label className="text-sm font-medium">排除关键词</Label>
+            <Label className="text-sm font-medium">{t("excludeKeywords")}</Label>
             <Button
               variant="ghost"
               size="sm"
               className="h-6 w-6 p-0 text-blue-500"
-              title="添加需要排除的关键词，当素材包含这些词时将不会被打上此标签"
+              title={t("excludeKeywordsTooltip")}
             >
               ℹ️
             </Button>
           </div>
-          {renderKeywordList("negativeKeywords", "输入关键词")}
+          {renderKeywordList("negativeKeywords", t("inputKeywords"))}
         </div>
       </div>
     </div>

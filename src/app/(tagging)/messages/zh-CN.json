@@ -1,3 +1,154 @@
 {
-  "Tagging": {}
+  "Tagging": {
+    "App": {
+      "title": "AI 自动打标引擎"
+    },
+    "Sidebar": {
+      "dashboard": "控制面板",
+      "review": "AI打标审核",
+      "settings": "AI打标设置",
+      "access": "权限管理",
+      "test": "测试打标"
+    },
+    "Dashboard": {
+      "title": "AI 自动打标中",
+      "totalCompleted": "总成功打标资产",
+      "processing": "正在打标中",
+      "pending": "等待打标",
+      "failed": "打标失败",
+      "remainingTasks": "剩余 {count} / {total} 项， 预计 {minutes} 分钟后完成",
+      "filterProcessing": "进行中",
+      "filterAll": "全部",
+      "retryFailedTasks": "重试失败任务",
+      "noTasks": "暂无任务",
+      "waitingForTagging": "等待打标...",
+      "taggingFailed": "AI 打标失败",
+      "aiTaggingTime": "AI 打标时间",
+      "processingTrend": "处理量趋势",
+      "initiateTasks": "发起任务",
+      "processTasks": "处理任务",
+      "weeklyTagging": "本周打标",
+      "paginationInfo": "{current} / {total} 条"
+    },
+    "Settings": {
+      "title": "打标开关",
+      "saveSettings": "保存设置",
+      "saving": "保存中...",
+      "settingsSaved": "设置已保存",
+      "saveSettingsFailed": "保存设置失败",
+      "selectFoldersFailed": "选择文件夹失败",
+      "newApplicationScope": "新的应用范围状态:",
+      "selectedFoldersCount": "选择的文件夹数量:",
+      "Global": {
+        "title": "全局设置",
+        "enableTagging": "启用打标",
+        "enableTaggingDesc": "为资产启用AI自动打标",
+        "manageTagSystem": "管理标签体系"
+      },
+      "TaggingMode": {
+        "title": "打标模式",
+        "direct": "直接",
+        "directDesc": "AI标签直接应用到资产",
+        "review": "审核",
+        "reviewDesc": "AI标签需要人工审核后应用",
+        "firstTimeRecommendation": "初次使用建议审核模式：",
+        "firstTimeRecommendationDesc": "通过人工审核可以评估 AI 打标效果，待准确率满足要求后在切换为直接应用模式"
+      },
+      "AIRecognition": {
+        "title": "AI识别",
+        "precise": "精准",
+        "preciseDesc": "高准确性，较少标签（≥80%置信度）",
+        "balanced": "平衡",
+        "balancedDesc": "平衡准确性与覆盖度（≥60%置信度）",
+        "broad": "宽泛",
+        "broadDesc": "高覆盖度，更多标签（≥40%置信度）",
+        "confidence": "置信度",
+        "recommended": "推荐"
+      },
+      "MatchingStrategy": {
+        "title": "匹配策略",
+        "desc": "选择标签匹配来源",
+        "existingTags": "已有标签",
+        "existingTagsDesc": "从系统已有标签中匹配",
+        "aiGenerated": "AI生成",
+        "aiGeneratedDesc": "使用AI生成新标签",
+        "customKeywords": "自定义关键词",
+        "customKeywordsDesc": "从自定义关键词库中匹配",
+        "filePathMatching": "文件类路径匹配",
+        "filePathMatchingDesc": "基于素材所在的文件类路径进行标签匹配",
+        "assetNameMatching": "素材名称匹配",
+        "assetNameMatchingDesc": "分析文件名称中的关键信息进行匹配"
+      },
+      "ApplicationScope": {
+        "title": "应用范围",
+        "allAssets": "全部资产",
+        "allAssetsDesc": "应用到系统中的所有资产",
+        "specificFolders": "指定文件夹",
+        "specificFoldersDesc": "仅应用到选定的文件夹",
+        "selectFolders": "选择文件夹",
+        "selectedFolders": "已选择文件夹 ({count})",
+        "noFoldersSelected": "未选择文件夹",
+        "scope": "AI 打标范围",
+        "selectScopeDesc": "点击选择要启用 AI 自动打标的资产范围",
+        "currentAndNewAssets": "当前文件夹及新上传的素材",
+        "onlySelectedScope": "仅选中的范围内的素材会进行 AI 自动打标"
+      }
+    },
+    "Review": {
+      "add": "添加",
+      "replace": "置盖",
+      "reject": "拒绝",
+      "tags": "标签",
+      "aiRecommendedTags": "AI 推荐标签",
+      "basedOnTagSystem": "基于标签体系匹配",
+      "allStatuses": "全部状态",
+      "pending": "待审核",
+      "approved": "已采纳",
+      "rejected": "已调整",
+      "allConfidence": "全部置信度",
+      "precise": "精准 (≥80%)",
+      "balanced": "平衡 (60-79%)",
+      "broad": "宽泛 (<60%)",
+      "taggingInitiatedTime": "打标发起时间",
+      "allTime": "全部时间",
+      "today": "今天",
+      "thisWeek": "本周",
+      "thisMonth": "本月",
+      "searchPlaceholder": "搜索名称或标签",
+      "loading": "加载中...",
+      "noAssetsToReview": "暂无待审核的素材",
+      "refreshDataFailed": "刷新数据失败"
+    },
+    "Access": {
+      "roleAndPermissions": "角色与权限",
+      "selectingMembers": "选择成员中...",
+      "addMembers": "添加成员",
+      "systemAdmin": "系统管理员",
+      "contentAdmin": "内容管理员",
+      "noPermissionsConfigured": "暂无其他权限配置，点击上方\"添加成员\"按钮开始配置",
+      "permissionAddedSuccess": "已添加 {name} 的权限",
+      "permissionAddFailed": "添加 {name} 权限失败",
+      "noMembersSelected": "未选择任何成员",
+      "selectMembersFailed": "选择成员失败",
+      "permissionUpdatedSuccess": "已更新 {name} 的权限为{role}",
+      "updatePermissionFailed": "更新权限失败",
+      "permissionRemoved": "权限已移除",
+      "removePermissionFailed": "移除权限失败",
+      "user": "用户",
+      "userGroup": "用户组",
+      "department": "部门",
+      "unknown": "未知",
+      "canManage": "可管理",
+      "canReview": "可审核",
+      "fullManagementPermission": "完整管理权限，包括配置和成员管理",
+      "reviewPermission": "可查看和审核打标结果，不可修改配置",
+      "remove": "移除"
+    },
+    "Common": {
+      "refreshDataFailed": "刷新数据失败:",
+      "retryTasksSuccess": "已重试 {count} 个失败任务",
+      "retryFailed": "重试失败",
+      "taskAddedToQueue": "任务已重新加入队列"
+    }
+  }
 }

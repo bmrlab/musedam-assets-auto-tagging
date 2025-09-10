@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { AssetTag } from "@/prisma/client";
 import { Save } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { fetchTeamTags, saveTagsTree, updateTagExtra } from "./actions";
@@ -18,6 +19,7 @@ interface TagsClientProps {
 }
 
 function TagsClientInner({ initialTags }: TagsClientProps) {
+  const t = useTranslations("TagsPage");
   const { editedTags, clearAllEdits, hasAnyEdits } = useTagEdit();
   const [tagsTree, setTagsTree] = useState<TagNode[]>([]);
   const [originalTags, setOriginalTags] = useState<
@@ -224,7 +226,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
     if (!context) return false;
 
     if (checkNameDuplicate(newName, context.siblings, nodeId)) {
-      toast.error("标签名在同级中已存在");
+      toast.error(t("tagNameExists"));
       return false;
     }
 
@@ -316,7 +318,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
         for (const [tagId, editData] of editedTags) {
           const result = await updateTagExtra(tagId, editData);
           if (!result.success) {
-            toast.error(`保存标签详情失败: ${result.message}`);
+            toast.error(`${t("saveDetailsFailed")}: ${result.message}`);
             return;
           }
         }
@@ -330,7 +332,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
 
       const result = await saveTagsTree(tagsTree);
       if (result.success) {
-        toast.success("所有变更保存成功");
+        toast.success(t("saveSuccess"));
 
         // 3. 清空所有编辑状态
         clearAllEdits();
@@ -376,11 +378,11 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
           }
         }
       } else {
-        toast.error(result.message || "保存失败");
+        toast.error(result.message || t("saveFailed"));
       }
     } catch (error) {
       console.error("Save error:", error);
-      toast.error("保存时发生错误");
+      toast.error(t("saveFailed"));
     } finally {
       setIsSaving(false);
     }
@@ -454,7 +456,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
         <div className="flex items-center gap-4 flex-1 relative">
           <Input
             type="text"
-            placeholder="搜索标签"
+            placeholder={t("searchPlaceholder")}
             className="w-full pl-10"
             // TODO: 实现搜索功能
           />
@@ -478,7 +480,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
           {/* AI自动打标签开关 */}
           <div className="flex items-center gap-2">
             <Switch />
-            <span className="text-sm text-gray-600">AI 自动打标签</span>
+            <span className="text-sm text-gray-600">{t("aiAutoTagging")}</span>
           </div>
           <div className="flex items-center gap-2">
             <SyncConfirmDialog onSyncComplete={handleSyncComplete} />
@@ -489,15 +491,15 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
               size="sm"
             >
               <Save className="h-4 w-4" />
-              {isSaving ? "保存中..." : "保存更改"}
+              {isSaving ? t("saving") : t("saveChanges")}
             </Button>
           </div>
           <Button variant="outline" size="sm">
             <div className="w-2 h-2 bg-orange-400 rounded-full"></div>
-            AI 助手
+            {t("aiAssistant")}
           </Button>
           <Button variant="outline" size="sm">
-            批量创建
+            {t("batchCreate")}
           </Button>
         </div>
       </div>
@@ -508,12 +510,12 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
     return (
       <div className="flex-1 bg-background border rounded-md overflow-hidden grid grid-cols-3 [&>div+div]:border-l">
         <TagColumn
-          title="标签组"
+          title={t("tagGroup")}
           tags={level1Tags}
           level={1}
           selectedId={selectedLevel1Id}
           canAdd={true}
-          emptyMessage="暂无标签组"
+          emptyMessage={t("noTagGroups")}
           onAddTag={addTag}
           onSelectTag={(nodeId) => {
             setSelectedLevel1Id(nodeId);
@@ -530,12 +532,12 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
         />
 
         <TagColumn
-          title="标签"
+          title={t("tag")}
           tags={level2Tags}
           level={2}
           selectedId={selectedLevel2Id}
           canAdd={!!selectedLevel1 && !selectedLevel1.isDeleted}
-          emptyMessage={!selectedLevel1 ? "请先选择标签组" : "暂无标签"}
+          emptyMessage={!selectedLevel1 ? t("selectTagGroupFirst") : t("noTags")}
           onAddTag={addTag}
           onSelectTag={(nodeId) => {
             setSelectedLevel2Id(nodeId);
@@ -551,12 +553,12 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
         />
 
         <TagColumn
-          title="标签"
+          title={t("tag")}
           tags={level3Tags}
           level={3}
           selectedId={selectedLevel3Id}
           canAdd={!!selectedLevel2 && !selectedLevel2.isDeleted}
-          emptyMessage={!selectedLevel2 ? "请先选择二级标签" : "暂无标签"}
+          emptyMessage={!selectedLevel2 ? t("selectSecondLevelFirst") : t("noTags")}
           onAddTag={addTag}
           onSelectTag={(nodeId) => setSelectedLevel3Id(nodeId)}
           onEdit={updateTagName}

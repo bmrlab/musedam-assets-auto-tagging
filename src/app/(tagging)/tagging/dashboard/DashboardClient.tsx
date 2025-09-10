@@ -14,6 +14,7 @@ import { ExtractServerActionData } from "@/lib/serverAction";
 import { cn } from "@/lib/utils";
 import { AssetObjectExtra } from "@/prisma/client";
 import { CheckCircle2, RefreshCw } from "lucide-react";
+import { useTranslations } from "next-intl";
 import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -45,46 +46,51 @@ interface DashboardClientProps {
 }
 
 export default function DashboardClient({ initialStats, initialTasks }: DashboardClientProps) {
+  const t = useTranslations("Tagging.Dashboard");
+  const tCommon = useTranslations("Tagging.Common");
+
   const [stats, setStats] = useState<DashboardStats>(initialStats);
   const [tasks, setTasks] = useState<TaskWithAsset[]>(initialTasks);
   const [weeklyData, setWeeklyData] = useState<Array<{ day: string; count: number }>>([]);
-  const [monthlyData, setMonthlyData] = useState<Array<{ month: string; completed: number; total: number }>>([]);
+  const [monthlyData, setMonthlyData] = useState<
+    Array<{ month: string; completed: number; total: number }>
+  >([]);
   const [currentTime, setCurrentTime] = useState(Date.now());
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [taskFilter, setTaskFilter] = useState<"all" | "processing">("processing");
   const [totalTasks, setTotalTasks] = useState(0);
 
-  const refreshData = useCallback(async (
-    page: number = currentPage,
-    filter: "all" | "processing" = taskFilter,
-  ) => {
-    try {
-      const [statsResult, tasksResult, weeklyResult, monthlyResult] = await Promise.all([
-        fetchDashboardStats(),
-        fetchProcessingTasks(page, 10, filter),
-        fetchWeeklyTaggingData(),
-        fetchMonthlyTrend(),
-      ]);
+  const refreshData = useCallback(
+    async (page: number = currentPage, filter: "all" | "processing" = taskFilter) => {
+      try {
+        const [statsResult, tasksResult, weeklyResult, monthlyResult] = await Promise.all([
+          fetchDashboardStats(),
+          fetchProcessingTasks(page, 10, filter),
+          fetchWeeklyTaggingData(),
+          fetchMonthlyTrend(),
+        ]);
 
-      if (statsResult.success) {
-        setStats(statsResult.data.stats);
+        if (statsResult.success) {
+          setStats(statsResult.data.stats);
+        }
+        if (tasksResult.success) {
+          setTasks(tasksResult.data.tasks);
+          setTotalTasks(tasksResult.data.total);
+          setTotalPages(Math.ceil(tasksResult.data.total / 10));
+        }
+        if (weeklyResult.success) {
+          setWeeklyData(weeklyResult.data.data);
+        }
+        if (monthlyResult.success) {
+          setMonthlyData(monthlyResult.data.data);
+        }
+      } catch (error) {
+        console.error(tCommon("refreshDataFailed"), error);
       }
-      if (tasksResult.success) {
-        setTasks(tasksResult.data.tasks);
-        setTotalTasks(tasksResult.data.total);
-        setTotalPages(Math.ceil(tasksResult.data.total / 10));
-      }
-      if (weeklyResult.success) {
-        setWeeklyData(weeklyResult.data.data);
-      }
-      if (monthlyResult.success) {
-        setMonthlyData(monthlyResult.data.data);
-      }
-    } catch (error) {
-      console.error("刷新数据失败:", error);
-    }
-  }, [currentPage, taskFilter]);
+    },
+    [currentPage, taskFilter, tCommon],
+  );
 
   useEffect(() => {
     // Initial load
@@ -123,20 +129,20 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
   const handleRetryTask = async (taskId: number) => {
     const result = await retryFailedTask(taskId);
     if (result.success) {
-      toast.success("任务已重新加入队列");
+      toast.success(tCommon("taskAddedToQueue"));
       await refreshData();
     } else {
-      toast.error("重试失败");
+      toast.error(tCommon("retryFailed"));
     }
   };
 
   const handleRetryAllTasks = async () => {
     const result = await retryAllFailedTasks();
     if (result.success) {
-      toast.success(`已重试 ${result.data.count} 个失败任务`);
+      toast.success(tCommon("retryTasksSuccess", { count: result.data.count }));
       await refreshData();
     } else {
-      toast.error("重试失败");
+      toast.error(tCommon("retryFailed"));
     }
   };
 
@@ -282,7 +288,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
             <div className="text-3xl font-bold">{formatNumber(stats.totalCompleted)}</div>
             <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground mt-2">
               <span className="w-2 h-2 bg-green-600 rounded-full"></span>
-              <span>总成功打标资产</span>
+              <span>{t("totalCompleted")}</span>
             </div>
           </div>
 
@@ -290,7 +296,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
             <div className="text-3xl font-bold">{stats.processing}</div>
             <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground mt-2">
               <span className="w-2 h-2 bg-blue-600 rounded-full"></span>
-              <span>正在打标中</span>
+              <span>{t("processing")}</span>
             </div>
           </div>
 
@@ -298,7 +304,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
             <div className="text-3xl font-bold">{stats.pending}</div>
             <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground mt-2">
               <span className="w-2 h-2 bg-orange-600 rounded-full"></span>
-              <span>等待打标</span>
+              <span>{t("pending")}</span>
             </div>
           </div>
 
@@ -306,7 +312,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
             <div className="text-3xl font-bold">{stats.failed}</div>
             <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground mt-2">
               <span className="w-2 h-2 bg-red-600 rounded-full"></span>
-              <span>打标失败</span>
+              <span>{t("failed")}</span>
             </div>
           </div>
         </div>
@@ -316,11 +322,15 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
       <div className="bg-background border rounded-lg">
         <div className="flex items-center justify-between p-4 border-b">
           <div>
-            <h2 className="font-semibold">AI 自动打标中</h2>
+            <h2 className="font-semibold">{t("title")}</h2>
             <p className="text-sm text-muted-foreground">
-              剩余 {totalTasks} / {stats.pending + stats.processing + stats.failed} 项， 预计{" "}
-              {Math.ceil(((stats.pending + stats.processing) * stats.avgProcessingTime) / 60)}{" "}
-              分钟后完成
+              {t("remainingTasks", {
+                count: totalTasks,
+                total: stats.pending + stats.processing + stats.failed,
+                minutes: Math.ceil(
+                  ((stats.pending + stats.processing) * stats.avgProcessingTime) / 60,
+                ),
+              })}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -328,17 +338,17 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
               <div className="flex items-center gap-4">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <RadioGroupItem value="processing" />
-                  <span className="text-sm">进行中</span>
+                  <span className="text-sm">{t("filterProcessing")}</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <RadioGroupItem value="all" />
-                  <span className="text-sm">全部</span>
+                  <span className="text-sm">{t("filterAll")}</span>
                 </label>
               </div>
             </RadioGroup>
             <Button size="sm" variant="outline" onClick={handleRetryAllTasks}>
               <RefreshCw className="h-3 w-3 mr-1" />
-              重试失败任务
+              {t("retryFailedTasks")}
             </Button>
           </div>
         </div>
@@ -348,7 +358,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
           {tasks.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <CheckCircle2 className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-              <p>暂无任务</p>
+              <p>{t("noTasks")}</p>
             </div>
           ) : (
             tasks.map((task) => {
@@ -392,7 +402,9 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
                       )}
                       <>
                         <span>·</span>
-                        <span>AI 打标时间: {formatDuration(task)}</span>
+                        <span>
+                          {t("aiTaggingTime")}: {formatDuration(task)}
+                        </span>
                       </>
                     </div>
                   </div>
@@ -402,7 +414,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
                     {task.status === "processing" ? (
                       <span className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-pulse"></span>
                     ) : task.status === "pending" ? (
-                      <span className="text-xs text-orange-600">等待打标...</span>
+                      <span className="text-xs text-orange-600">{t("waitingForTagging")}</span>
                     ) : task.status === "failed" ? (
                       <Button
                         size="sm"
@@ -410,7 +422,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
                         className="text-red-600 hover:text-red-700 hover:bg-red-50 h-auto py-0.5 px-2 text-xs"
                         onClick={() => handleRetryTask(task.id)}
                       >
-                        AI 打标失败
+                        {t("taggingFailed")}
                       </Button>
                     ) : task.status === "completed" ? (
                       <CheckCircle2 className="h-4 w-4 text-green-600" />
@@ -427,7 +439,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
           <div className="p-4 border-t flex items-center justify-between">
             {renderPagination()}
             <span className="shrink-0 text-sm text-muted-foreground">
-              {tasks.length} / {totalTasks} 条
+              {t("paginationInfo", { current: tasks.length, total: totalTasks })}
             </span>
           </div>
         )}
@@ -438,15 +450,15 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
         {/* Monthly Trend Chart - Takes 2 columns */}
         <div className="col-span-2 bg-background border rounded-lg">
           <div className="p-4 border-b flex items-center justify-between">
-            <h3 className="font-semibold">处理量趋势</h3>
+            <h3 className="font-semibold">{t("processingTrend")}</h3>
             <div className="flex items-center gap-4 mt-2">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full" style={{ backgroundColor: "#10b981" }} />
-                <span className="text-sm text-muted-foreground">发起任务</span>
+                <span className="text-sm text-muted-foreground">{t("initiateTasks")}</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full" style={{ backgroundColor: "#3b82f6" }} />
-                <span className="text-sm text-muted-foreground">处理任务</span>
+                <span className="text-sm text-muted-foreground">{t("processTasks")}</span>
               </div>
             </div>
           </div>
@@ -505,7 +517,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
         {/* Weekly Tagging Chart - Takes 1 column */}
         <div className="bg-background border rounded-lg">
           <div className="p-4 border-b">
-            <h3 className="font-semibold">本周打标</h3>
+            <h3 className="font-semibold">{t("weeklyTagging")}</h3>
           </div>
           <div className="p-4">
             <ResponsiveContainer width="100%" height={250}>

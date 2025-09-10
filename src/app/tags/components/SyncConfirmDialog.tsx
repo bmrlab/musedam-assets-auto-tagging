@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -21,6 +22,7 @@ interface SyncConfirmDialogProps {
 }
 
 export function SyncConfirmDialog({ onSyncComplete }: SyncConfirmDialogProps) {
+  const t = useTranslations("TagsPage");
   const [isLoading, setIsLoading] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -29,15 +31,15 @@ export function SyncConfirmDialog({ onSyncComplete }: SyncConfirmDialogProps) {
     try {
       const result = await syncTagsFromMuseDAMAction();
       if (result.success) {
-        toast.success("从 MuseDAM 同步标签成功");
+        toast.success(t("syncSuccess"));
         setOpen(false);
         onSyncComplete?.();
       } else {
-        toast.error(result.message || "同步失败");
+        toast.error(result.message || t("syncFailed"));
       }
     } catch (error) {
       console.error("Sync error:", error);
-      toast.error("同步时发生错误");
+      toast.error(t("syncError"));
     } finally {
       setIsLoading(false);
     }
@@ -47,29 +49,21 @@ export function SyncConfirmDialog({ onSyncComplete }: SyncConfirmDialogProps) {
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>
         <Button variant="outline" className="flex items-center gap-2">
-          <Download className="h-4 w-4" />从 MuseDAM 同步
+          <Download className="h-4 w-4" />
+          {t("syncFromMuseDAM")}
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>确认同步标签</AlertDialogTitle>
-          <AlertDialogDescription>
-            此操作将：
-            <br />
-            • 删除当前系统中的所有标签
-            <br />
-            • 从 MuseDAM 重新拉取完整的标签体系
-            <br />
-            • 所有本地未保存的标签修改将丢失
-            <br />
-            <br />
-            确定要继续吗？
+          <AlertDialogTitle>{t("confirmSyncTitle")}</AlertDialogTitle>
+          <AlertDialogDescription style={{ whiteSpace: "pre-line" }}>
+            {t("confirmSyncDescription")}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isLoading}>取消</AlertDialogCancel>
+          <AlertDialogCancel disabled={isLoading}>{t("cancel")}</AlertDialogCancel>
           <AlertDialogAction onClick={handleSync} disabled={isLoading}>
-            {isLoading ? "同步中..." : "确认同步"}
+            {isLoading ? t("syncing") : t("confirmSync")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

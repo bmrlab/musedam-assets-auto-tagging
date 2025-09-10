@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import { InfoIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 interface TaggingModeSectionProps {
   taggingMode: "direct" | "review";
@@ -7,12 +8,14 @@ interface TaggingModeSectionProps {
 }
 
 export function TaggingModeSection({ taggingMode, onTaggingModeChange }: TaggingModeSectionProps) {
+  const t = useTranslations("Tagging.Settings.TaggingMode");
+
   return (
     <div className="space-y-6">
       {/* 打标模式 */}
       <div className="bg-background border rounded-lg">
         <div className="px-4 py-3 border-b">
-          <h3 className="font-medium text-sm">打标模式</h3>
+          <h3 className="font-medium text-sm">{t("title")}</h3>
         </div>
         <div className="p-6 space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -26,8 +29,8 @@ export function TaggingModeSection({ taggingMode, onTaggingModeChange }: Tagging
               onClick={() => onTaggingModeChange("direct")}
             >
               <div className="text-center">
-                <h3 className="font-medium mb-2">直接应用</h3>
-                <p className="text-sm text-muted-foreground">AI 打标直接应用到资产标签</p>
+                <h3 className="font-medium mb-2">{t("direct")}</h3>
+                <p className="text-sm text-muted-foreground">{t("directDesc")}</p>
               </div>
             </div>
 
@@ -41,8 +44,8 @@ export function TaggingModeSection({ taggingMode, onTaggingModeChange }: Tagging
               onClick={() => onTaggingModeChange("review")}
             >
               <div className="text-center">
-                <h3 className="font-medium mb-2">审核模式</h3>
-                <p className="text-sm text-muted-foreground">需人工审核后应用到资产标签</p>
+                <h3 className="font-medium mb-2">{t("review")}</h3>
+                <p className="text-sm text-muted-foreground">{t("reviewDesc")}</p>
               </div>
             </div>
           </div>
@@ -52,10 +55,10 @@ export function TaggingModeSection({ taggingMode, onTaggingModeChange }: Tagging
               <InfoIcon className="size-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
               <div className="text-sm">
                 <span className="font-medium text-blue-900 dark:text-blue-100">
-                  初次使用建议审核模式：
+                  {t("firstTimeRecommendation")}
                 </span>
                 <span className="text-blue-800 dark:text-blue-200 ml-1">
-                  通过人工审核可以评估 AI 打标效果，待准确率满足要求后在切换为直接应用模式
+                  {t("firstTimeRecommendationDesc")}
                 </span>
               </div>
             </div>

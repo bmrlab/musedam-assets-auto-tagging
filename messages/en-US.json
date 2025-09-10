@@ -2,5 +2,58 @@
   "Homepage": {
     "title": "MuseDAM assets auto tagging system"
   },
-  "Components": {}
+  "Components": {},
+  "TagsPage": {
+    "searchPlaceholder": "Search tags",
+    "aiAutoTagging": "AI Auto Tagging",
+    "saveChanges": "Save Changes",
+    "saving": "Saving...",
+    "aiAssistant": "AI Assistant",
+    "batchCreate": "Batch Create",
+    "tagGroup": "Tag Group",
+    "tag": "Tag",
+    "noTagGroups": "No tag groups",
+    "noTags": "No tags",
+    "selectTagGroupFirst": "Please select a tag group first",
+    "selectSecondLevelFirst": "Please select a second-level tag first",
+    "tagNameExists": "Tag name already exists at the same level",
+    "saveSuccess": "All changes saved successfully",
+    "saveFailed": "Save failed",
+    "saveDetailsFailed": "Failed to save tag details",
+    "syncFromMuseDAM": "Sync from MuseDAM",
+    "confirmSyncTitle": "Confirm Tag Synchronization",
+    "confirmSyncDescription": "This operation will:\n• Delete all current tags in the system\n• Re-fetch the complete tag hierarchy from MuseDAM\n• All unsaved local tag modifications will be lost\n\nAre you sure you want to continue?",
+    "cancel": "Cancel",
+    "confirmSync": "Confirm Sync",
+    "syncing": "Syncing...",
+    "syncSuccess": "Successfully synced tags from MuseDAM",
+    "syncFailed": "Sync failed",
+    "syncError": "Error occurred during sync",
+    "TagItem": {
+      "tagNameRequired": "Tag name cannot be empty",
+      "inputTagName": "Enter tag name",
+      "new": "New",
+      "modified": "Modified",
+      "toBeDeleted": "To be deleted",
+      "edited": "Edited",
+      "rename": "Rename",
+      "delete": "Delete"
+    },
+    "TagDetails": {
+      "add": "Add",
+      "tagDetails": "Tag Details",
+      "selectTagToView": "Please select a tag to view details",
+      "modified": "Modified",
+      "tagName": "Tag Name",
+      "tagDescription": "Tag Description",
+      "tagDescriptionPlaceholder": "Optional. Adding tag descriptions helps AI better understand the application scenarios of tags",
+      "aiAutoTagging": "AI Auto Tagging",
+      "aiAutoTaggingEnabled": "Enabled, allows AI to recognize this tag",
+      "matchingKeywords": "Matching Keywords",
+      "matchingKeywordsTooltip": "Add keywords related to this tag to help AI identify this tag more accurately",
+      "inputKeywords": "Enter keywords",
+      "excludeKeywords": "Exclude Keywords",
+      "excludeKeywordsTooltip": "Add keywords to exclude. Assets containing these words will not be tagged with this tag"
+    }
+  }
 }

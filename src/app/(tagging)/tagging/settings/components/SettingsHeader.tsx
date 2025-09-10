@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Loader2Icon, SaveIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 interface SettingsHeaderProps {
   hasChanges: boolean;
@@ -8,10 +9,12 @@ interface SettingsHeaderProps {
 }
 
 export function SettingsHeader({ hasChanges, isPending, onSave }: SettingsHeaderProps) {
+  const t = useTranslations("Tagging.Settings");
+
   return (
     <div className="flex items-center justify-between">
       <div>
-        <h1 className="text-lg font-medium">打标开关</h1>
+        <h1 className="text-lg font-medium">{t("title")}</h1>
       </div>
 
       {hasChanges && (
@@ -21,7 +24,7 @@ export function SettingsHeader({ hasChanges, isPending, onSave }: SettingsHeader
           ) : (
             <SaveIcon className="size-4" />
           )}
-          {isPending ? "保存中..." : "保存设置"}
+          {isPending ? t("saving") : t("saveSettings")}
         </Button>
       )}
     </div>

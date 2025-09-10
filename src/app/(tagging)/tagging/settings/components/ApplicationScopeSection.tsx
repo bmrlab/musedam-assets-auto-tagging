@@ -1,6 +1,7 @@
 import { TaggingSettingsData } from "@/app/(tagging)/types";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 
 interface ApplicationScopeSectionProps {
   applicationScope: TaggingSettingsData["applicationScope"];
@@ -15,16 +16,18 @@ export function ApplicationScopeSection({
   onRemoveFolder,
   onScopeTypeChange,
 }: ApplicationScopeSectionProps) {
+  const t = useTranslations("Tagging.Settings.ApplicationScope");
+
   return (
     <div className="space-y-6">
       {/* 应用范围设置 */}
       <div className="bg-background border rounded-lg">
         <div className="px-4 py-3 border-b">
-          <h3 className="font-medium text-sm">应用范围设置</h3>
+          <h3 className="font-medium text-sm">{t("title")}</h3>
         </div>
         <div className="p-6 space-y-6">
           <div className="space-y-4">
-            <h3 className="font-medium">AI 打标范围</h3>
+            <h3 className="font-medium">{t("scope")}</h3>
             <div
               className="border-2 border-dashed border-primary rounded-lg p-6 cursor-pointer hover:bg-primary/5 transition-colors text-center"
               onClick={onFolderSelection}
@@ -32,7 +35,7 @@ export function ApplicationScopeSection({
               <div className="size-12 bg-primary/10 rounded-lg flex items-center justify-center mx-auto mb-3">
                 📁
               </div>
-              <p className="text-sm text-muted-foreground">点击选择要启用 AI 自动打标的资产范围</p>
+              <p className="text-sm text-muted-foreground">{t("selectScopeDesc")}</p>
             </div>
 
             <div className="space-y-4">
@@ -43,8 +46,8 @@ export function ApplicationScopeSection({
                 >
                   <div className="size-5 bg-muted rounded flex items-center justify-center">📁</div>
                   <div>
-                    <h4 className="font-medium">全部素材</h4>
-                    <p className="text-sm text-muted-foreground">资产库所有现有及新上传的素材</p>
+                    <h4 className="font-medium">{t("allAssets")}</h4>
+                    <p className="text-sm text-muted-foreground">{t("allAssetsDesc")}</p>
                   </div>
                 </div>
               )}
@@ -66,7 +69,7 @@ export function ApplicationScopeSection({
                     </div>
                     <div>
                       <h4 className="font-medium">{folder.name}</h4>
-                      <p className="text-sm text-muted-foreground">当前文件夹及新上传的素材</p>
+                      <p className="text-sm text-muted-foreground">{t("currentAndNewAssets")}</p>
                     </div>
                   </div>
                   <Button
@@ -89,7 +92,7 @@ export function ApplicationScopeSection({
                 <div className="size-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5">ℹ️</div>
                 <div className="text-sm">
                   <span className="font-medium text-amber-900 dark:text-amber-100">
-                    仅选中的范围内的素材会进行 AI 自动打标
+                    {t("onlySelectedScope")}
                   </span>
                 </div>
               </div>
