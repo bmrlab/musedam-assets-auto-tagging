@@ -2,43 +2,8 @@ serverAddr = "114.55.30.112"
 serverPort = 7000
 
 [[proxies]]
-name = "atypica-llm-app"
-type = "tcp"
-localIP = "127.0.0.1"
-localPort = 3000
-remotePort = 7092
-
-[[proxies]]
 name = "musedam-auto-tagging"
 type = "tcp"
 localIP = "127.0.0.1"
 localPort = 3000
 remotePort = 7093
-
-# [[proxies]]
-# name = "heidianapi-djangoadmin"
-# type = "tcp"
-# localIP = "127.0.0.1"
-# localPort = 8001
-# remotePort = 7001
-
-# [[proxies]]
-# name = "pingxx-proxy-server"
-# type = "tcp"
-# localIP = "127.0.0.1"
-# localPort = 8002
-# remotePort = 7002
-
-# [[proxies]]
-# name = "oat-ai-pocketbase"
-# type = "tcp"
-# localIP = "127.0.0.1"
-# localPort = 8090
-# remotePort = 7090
-
-# [[proxies]]
-# name = "oat-ai-website"
-# type = "tcp"
-# localIP = "127.0.0.1"
-# localPort = 8091
-# remotePort = 7091
