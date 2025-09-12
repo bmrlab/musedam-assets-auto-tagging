@@ -5,6 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { CheckIcon, ClockIcon, FileTextIcon, ImageIcon, ArrowDownIcon, TagIcon, ArrowRight, CircleQuestionMarkIcon, FolderIcon } from "lucide-react";
 import Image from "next/image";
+import { useTranslations } from "next-intl";
 
 // 模拟数据结构，基于设计稿
 interface TaggingResult {
@@ -44,6 +45,8 @@ interface TaggingResultDisplayProps {
 }
 
 export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
+    const t = useTranslations("TaggingResultDisplay");
+
     const formatFileSize = (bytes: number) => {
         if (bytes < 1024) return `${bytes} B`;
         if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -85,10 +88,10 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
                     <div className="flex items-center gap-4 text-sm text-muted-foreground mt-2">
                         <div className="flex items-center gap-1">
                             <ClockIcon className="w-4 h-4" />
-                            <span>处理时间: {result.asset.processingTime}s</span>
+                            <span>{t("processingTime")}: {result.asset.processingTime}s</span>
                         </div>
                         <div>
-                            AI 识别模式: {result.asset.recognitionMode}
+                            {t("aiRecognitionMode")}: {result.asset.recognitionMode}
                         </div>
                     </div>
                 </div>
@@ -96,7 +99,7 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
                 {/* 综合得分 */}
                 <div className="shrink-0 text-right">
                     <div className="text-3xl font-bold text-primary">{result.overallScore}</div>
-                    <div className="text-sm text-muted-foreground">综合得分</div>
+                    <div className="text-sm text-muted-foreground">{t("overallScore")}</div>
                 </div>
             </div>
 
@@ -105,8 +108,8 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
                 <CardHeader className="pb-3">
                     <CardTitle className="text-base flex items-center gap-2">
                         <TagIcon className="w-4 h-4" />
-                        生效标签 ({result.effectiveTags.length})
-                        <span className="text-sm font-normal text-muted-foreground">80%-100% 置信度</span>
+                        {t("effectiveTags")} ({result.effectiveTags.length})
+                        <span className="text-sm font-normal text-muted-foreground">{t("effectiveTagsDescription")}</span>
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="pt-0">
@@ -123,15 +126,15 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
                                         {tag.tagPath.join(" > ")}
                                     </div>
                                     <div className="text-xs text-[#00E096]">
-                                        匹配来源: {tag.matchingSource}
+                                        {t("matchingSource")}: {tag.matchingSource}
                                     </div>
                                 </div>
                                 <div className="text-right">
                                     <div className="text-sm font-medium text-[#00B283]">
-                                        置信度: {tag.confidence}%
+                                        {t("confidence")}: {tag.confidence}%
                                     </div>
                                     <div className="text-xs text-[#00E096]">
-                                        得分: {tag.score}
+                                        {t("score")}: {tag.score}
                                     </div>
                                 </div>
                             </div>
@@ -145,8 +148,8 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
                 <CardHeader className="pb-3">
                     <CardTitle className="text-base flex items-center gap-2">
                         <CircleQuestionMarkIcon className="size-4" />
-                        候选标签 ({result.candidateTags.length})
-                        <span className="text-sm font-normal text-muted-foreground text">60%-79% 置信度</span>
+                        {t("candidateTags")} ({result.candidateTags.length})
+                        <span className="text-sm font-normal text-muted-foreground text">{t("candidateTagsDescription")}</span>
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="pt-0">
@@ -162,15 +165,15 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
                                         {tag.tagPath.join(" > ")}
                                     </div>
                                     <div className="text-xs text-[#FA8C16]">
-                                        匹配来源: {tag.matchingSource}
+                                        {t("matchingSource")}: {tag.matchingSource}
                                     </div>
                                 </div>
                                 <div className="text-right">
                                     <div className="text-sm font-medium text-[#D46B08]">
-                                        置信度: {tag.confidence}%
+                                        {t("confidence")}: {tag.confidence}%
                                     </div>
                                     <div className="text-xs text-[#FA8C16]">
-                                        得分: {tag.score}
+                                        {t("score")}: {tag.score}
                                     </div>
                                 </div>
                             </div>
@@ -180,7 +183,7 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
             </div>
 
             {/* 策略分析详情 */}
-            <div>
+            {/* <div>
                 <CardHeader className="pb-3">
                     <CardTitle className="text-base flex items-center gap-2">
                         <TagIcon className="size-4" />
@@ -219,7 +222,7 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
                         }
                     </div>
                 </CardContent>
-            </div>
+            </div> */}
         </div>
     );
 }

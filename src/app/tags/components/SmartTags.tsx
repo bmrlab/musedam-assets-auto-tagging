@@ -4,18 +4,11 @@ import { isNumber } from "util";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Edit2Icon, Trash2Icon } from "lucide-react";
 import { dispatchMuseDAMClientAction } from "@/embed/message";
-
-export interface SmartTagRecord {
-    id: number;
-    description: string;
-    materialCount: number;
-    name: string;
-    parentId: number;
-}
+import { TagRecord } from "../types";
 
 export const SmartTagsContent = () => {
     const [listInfo, setListInfo] = useState<{
-        tags: SmartTagRecord[],
+        tags: TagRecord[],
         total: number,
         isLoading: boolean,
         current: number,
@@ -38,8 +31,6 @@ export const SmartTagsContent = () => {
             pageNum,
             pageSize: 50
         });
-
-        console.log("res", res)
 
         if (isLoadMore && listInfo) {
             // 加载更多时追加数据
@@ -93,7 +84,7 @@ export const SmartTagsContent = () => {
         }
     }, [hasMore, loadingMore, listInfo])
 
-    const [selectedTag, setSelectedTag] = useState<SmartTagRecord | null>(null);
+    const [selectedTag, setSelectedTag] = useState<TagRecord | null>(null);
     const [contextMenu, setContextMenu] = useState<{
         visible: boolean;
         x: number;
@@ -101,7 +92,7 @@ export const SmartTagsContent = () => {
     }>({ visible: false, x: 0, y: 0 });
 
     const showContextMenu = useCallback(
-        (e: React.MouseEvent, tag: SmartTagRecord) => {
+        (e: React.MouseEvent, tag: TagRecord) => {
             e.preventDefault();
             setSelectedTag(tag);
             setContextMenu({
@@ -138,7 +129,7 @@ export const SmartTagsContent = () => {
     }, [contextMenu.visible, hideContextMenu]);
     const editTagRef = useRef<HTMLDivElement>(null);
     // const editTagSize = useSize(editTagRef);
-    const [isEditTag, setIsEditTag] = useState<SmartTagRecord | null>(null);
+    const [isEditTag, setIsEditTag] = useState<TagRecord | null>(null);
     const inputRef = useRef<any>(null);
     const [inputValue, setInputValue] = useState('');
 
@@ -152,7 +143,7 @@ export const SmartTagsContent = () => {
     };
 
 
-    const handleDelete = async (tag: SmartTagRecord,) => {
+    const handleDelete = async (tag: TagRecord,) => {
         const res = await dispatchMuseDAMClientAction("delete-smart-tag", { tag })
         if (res.success) {
             setSelectedTag(null)

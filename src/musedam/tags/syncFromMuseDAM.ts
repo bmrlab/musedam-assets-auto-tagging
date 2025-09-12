@@ -2,7 +2,7 @@ import "server-only";
 
 import { idToSlug, slugToId } from "@/lib/slug";
 import { retrieveTeamCredentials } from "@/musedam/apiKey";
-import { requestMuseDAMAPI } from "@/musedam/lib";
+import { generateCurlCommand, requestMuseDAMAPI } from "@/musedam/lib";
 import { AssetTag } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 import { MuseDAMID } from "../types";
@@ -30,6 +30,23 @@ export async function syncTagsFromMuseDAM({
 
   const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
   const musedamTeamId = slugToId("team", team.slug);
+
+  // const url = `${process.env.MUSEDAM_API_BASE_URL}/api/muse/query-tag-tree`;
+  // const requestHeaders = {
+  //   "Content-Type": "application/json",
+  //   "x-asm-prefer-tag": "version-env-06",
+  //   Authorization: `Bearer ${musedamTeamApiKey}`,
+  // };
+  // const requestBody = JSON.stringify({
+  //   orgId: musedamTeamId,
+  // })
+
+  // // 打印curl命令
+  // const curlCommand = generateCurlCommand(url, "POST", requestHeaders, requestBody);
+  // console.log("🔗 Curl Command:");
+  // console.log(curlCommand);
+
+
   const result = await requestMuseDAMAPI("/api/muse/query-tag-tree", {
     method: "POST",
     headers: {
@@ -39,6 +56,7 @@ export async function syncTagsFromMuseDAM({
       orgId: musedamTeamId,
     },
   });
+
   const teamId = team.id;
   const musedamTags = result as MuseDAMTagTree;
   const upsert = async function ({

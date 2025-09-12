@@ -19,7 +19,7 @@ interface TagItemProps {
   level: number;
   isSelected?: boolean;
   onSelect?: () => void;
-  onEdit: (nodeId: string, newName: string) => boolean;
+  onEdit: (nodeId: string, newName: string) => Promise<boolean>;
   onStartEdit: (nodeId: string) => void;
   onCancelEdit: (nodeId: string) => void;
   onDelete: (nodeId: string) => void;
@@ -27,6 +27,7 @@ interface TagItemProps {
   getNodeId: (node: TagNode) => string;
   // 标签详情是否被编辑过
   hasDetailChanges?: boolean;
+  canEdit?: boolean
 }
 
 export function TagItem({
@@ -41,36 +42,37 @@ export function TagItem({
   onRestore,
   getNodeId,
   hasDetailChanges = false,
+  canEdit
 }: TagItemProps) {
   const t = useTranslations("TagsPage.TagItem");
   const [editValue, setEditValue] = useState(tag.name);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const nodeId = getNodeId(tag);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!editValue.trim()) {
       toast.error(t("tagNameRequired"));
       return;
     }
-    const success = onEdit(nodeId, editValue.trim());
+    const success = await onEdit(nodeId, editValue.trim());
     if (!success) {
       setEditValue(tag.name); // 恢复原值
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = async (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
-      handleSave();
+      await handleSave();
     } else if (e.key === "Escape") {
       setEditValue(tag.name);
       onCancelEdit(nodeId);
     }
   };
 
-  const handleCancel = () => {
-    setEditValue(tag.name);
-    onCancelEdit(nodeId);
-  };
+  // const handleCancel = () => {
+  //   setEditValue(tag.name);
+  //   onCancelEdit(nodeId);
+  // };
 
   // const handleEditClick = () => {
   //   setDropdownOpen(false);
@@ -86,6 +88,9 @@ export function TagItem({
     setDropdownOpen(false);
     onStartEdit(nodeId);
   };
+  if (tag.isDeleted) {
+    return null
+  }
 
   // 编辑状态的渲染
   if (tag.isEditing) {
@@ -96,11 +101,12 @@ export function TagItem({
           value={editValue}
           onChange={(e) => setEditValue(e.target.value)}
           onKeyDown={handleKeyDown}
+          onBlur={handleSave}
           placeholder={t("inputTagName")}
           className="flex-1 h-6 p-0 shadow-none border-none rounded-none text-sm"
           autoFocus
         />
-        <Button
+        {/* <Button
           size="icon"
           variant="ghost"
           onClick={handleSave}
@@ -116,7 +122,7 @@ export function TagItem({
           className="bg-transparent hover:bg-transparent cursor-pointer size-7 p-1"
         >
           <X className="h-3 w-3" />
-        </Button>
+        </Button> */}
       </div>
     );
   }
@@ -146,15 +152,15 @@ export function TagItem({
           {tag.name}
         </span>
 
-        {/* 子标签数量 */}
-        {level < 3 && tag.children.length > 0 && (
+        {/* 标签上的素材数量 */}
+        {/* {level < 3 && tag.children.length > 0 && (
           <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
             {tag.children.filter((child) => !child.isDeleted).length}
           </span>
-        )}
+        )} */}
 
         {/* 状态标签 */}
-        {tag.verb === "create" && (
+        {/* {tag.verb === "create" && (
           <span className="text-xs bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 px-1.5 py-0.5 rounded">{t("new")}</span>
         )}
         {tag.verb === "update" && (
@@ -162,7 +168,7 @@ export function TagItem({
         )}
         {tag.isDeleted && (
           <span className="text-xs bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 px-1.5 py-0.5 rounded">{t("toBeDeleted")}</span>
-        )}
+        )} */}
         {/* 标签详情编辑状态 */}
         {hasDetailChanges && !tag.verb && !tag.isDeleted && (
           <span className="text-xs bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300 px-1.5 py-0.5 rounded">
@@ -172,7 +178,7 @@ export function TagItem({
       </div>
 
       {/* 操作按钮 */}
-      <div className="flex items-center">
+      {canEdit && <div className="flex items-center">
         {tag.isDeleted ? (
           <Button
             size="icon"
@@ -212,7 +218,7 @@ export function TagItem({
             </DropdownMenuContent>
           </DropdownMenu>
         )}
-      </div>
+      </div>}
     </div>
   );
 }

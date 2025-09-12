@@ -9,3 +9,19 @@ export interface TagNode {
   originalName?: string;
   tempId?: string; // 用于新创建的标签的临时ID
 }
+
+
+
+export interface TagRecord {
+  id: number;
+  description: string;
+  materialCount: number;
+  name: string;
+  parentId: number;
+}
+
+
+export type SearchTagData = {
+  tag: TagRecord;
+  parent?: SearchTagData;
+};

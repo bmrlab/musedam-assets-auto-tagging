@@ -14,7 +14,7 @@ interface TagColumnProps {
   emptyMessage: string;
   onAddTag: (level: 1 | 2 | 3) => void;
   onSelectTag?: (nodeId: string) => void;
-  onEdit: (nodeId: string, newName: string) => boolean;
+  onEdit: (nodeId: string, newName: string) => Promise<boolean>;
   onStartEdit: (nodeId: string) => void;
   onCancelEdit: (nodeId: string) => void;
   onDelete: (nodeId: string) => void;
@@ -23,6 +23,9 @@ interface TagColumnProps {
   className?: string;
   // 用于检查标签详情是否被编辑过
   hasDetailChanges?: (tagId: number) => boolean;
+  canEdit?: boolean
+  totalCount?: number
+  showAiTags?: boolean
 }
 
 export function TagColumn({
@@ -42,9 +45,12 @@ export function TagColumn({
   getNodeId,
   className,
   hasDetailChanges,
+  canEdit,
+  totalCount,
+  showAiTags
 }: TagColumnProps) {
   // const activeTags = tags.filter((tag) => !tag.isDeleted);
-  const totalCount = tags.length;
+  // const totalCount = tags.length;
 
   return (
     <div className={cn("flex flex-col items-stretch overflow-hidden", className)}>
@@ -52,7 +58,7 @@ export function TagColumn({
       <div className="flex items-center justify-start px-4 py-3 text-muted-foreground">
         <div className="text-sm">{title}</div>
         <span className="text-xs">({totalCount})</span>
-        <Button
+        {canEdit && <Button
           size="sm"
           variant="ghost"
           onClick={() => onAddTag(level)}
@@ -60,7 +66,7 @@ export function TagColumn({
           className="ml-auto h-6 w-6 p-0"
         >
           <Plus className="h-3 w-3" />
-        </Button>
+        </Button>}
       </div>
 
       {/* 标签列表 */}
@@ -82,13 +88,14 @@ export function TagColumn({
                 onDelete={onDelete}
                 onRestore={onRestore}
                 getNodeId={getNodeId}
+                canEdit={canEdit}
                 hasDetailChanges={tag.id ? hasDetailChanges?.(tag.id) : false}
               />
             ))}
           </div>
         )}
       </div>
-      {level === 1 &&
+      {level === 1 && showAiTags &&
         <div className="w-full h-12 border-t border-t-solid border-t-[#E4E9F2] flex items-center justify-between text-[var(--ant-basic-6)] text-sm leading-[22px] px-1.5">
           <div
             className={cn(

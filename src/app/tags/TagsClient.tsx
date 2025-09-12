@@ -1,19 +1,18 @@
 "use client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
 import { AssetTag } from "@/prisma/client";
-import { Save } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { toast } from "sonner";
-import { fetchTeamTags, saveTagsTree, updateTagExtra } from "./actions";
+import { fetchTeamTags, saveTagsTree, updateTagExtra, saveSingleTagChange } from "./actions";
 import { SyncConfirmDialog } from "./components/SyncConfirmDialog";
-import { TagColumn } from "./components/TagColumn";
 import { TagDetails } from "./components/TagDetails";
 import { TagEditProvider, useTagEdit } from "./contexts/TagEditContext";
-import { TagNode } from "./types";
-import { SmartTagsContent } from "./components/SmartTags";
+import { TagNode, SearchTagData, TagRecord } from "./types";
+import { CreateModal } from "./components/CreateModal";
+import { ThreeTagList } from "./components/ThreeTagList";
+import { SearchResult } from "./components/SearchResult";
 
 interface TagsClientProps {
   initialTags: (AssetTag & { children?: (AssetTag & { children?: AssetTag[] })[] })[];
@@ -29,16 +28,172 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
   const [selectedLevel1Id, setSelectedLevel1Id] = useState<string | null>(null);
   const [selectedLevel2Id, setSelectedLevel2Id] = useState<string | null>(null);
   const [selectedLevel3Id, setSelectedLevel3Id] = useState<string | null>(null);
-  const [hasChanges, setHasChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [nextTempId, setNextTempId] = useState(1);
   const [initialized, setInitialized] = useState(false);
+  const [createModalVisible, setCreateModalVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
   // 移除了 tagExtraChanges 状态，现在使用 Context
 
   // 获取节点的唯一标识符
   const getNodeId = (node: TagNode): string => {
     return node.id ? node.id.toString() : node.tempId!;
   };
+
+  // 搜索标签函数
+  const searchTags = (tags: TagNode[], query: string): TagNode[] => {
+    if (!query.trim()) return tags;
+
+    const lowerQuery = query.toLowerCase().trim();
+
+    return tags.filter(tag => {
+      // 检查当前标签名是否匹配
+      const nameMatch = tag.name.toLowerCase().includes(lowerQuery);
+
+      // 检查子标签是否有匹配
+      const childrenMatch = searchTags(tag.children, query).length > 0;
+
+      return nameMatch || childrenMatch;
+    }).map(tag => ({
+      ...tag,
+      children: searchTags(tag.children, query)
+    }));
+  };
+
+  // 获取搜索结果
+  const getSearchResults = (): TagNode[] => {
+    if (!searchQuery.trim()) return tagsTree;
+    return searchTags(tagsTree, searchQuery);
+  };
+
+  // 将搜索结果转换为SearchTagData格式
+  const getSearchResultsAsData = (): SearchTagData[] => {
+    if (!searchQuery.trim()) return [];
+
+    const results: SearchTagData[] = [];
+
+    const collectSearchResults = (nodes: TagNode[], parent?: SearchTagData) => {
+      for (const node of nodes) {
+        if (node.id) {
+          // 从原始数据中查找对应的标签信息
+          const originalTag = findOriginalTag(originalTags, node.id);
+
+          const tagRecord: TagRecord = {
+            id: node.id,
+            name: node.name,
+            description: "", // AssetTag没有description字段
+            materialCount: 0, // AssetTag没有materialCount字段，需要从其他地方获取
+            parentId: parent?.tag.id || 0,
+          };
+
+          const searchData: SearchTagData = {
+            tag: tagRecord,
+            parent: parent,
+          };
+
+          results.push(searchData);
+        }
+
+        // 递归处理子节点
+        if (node.children.length > 0) {
+          const currentParent: SearchTagData = {
+            tag: {
+              id: node.id || 0,
+              name: node.name,
+              description: "",
+              materialCount: 0,
+              parentId: parent?.tag.id || 0,
+            },
+            parent: parent,
+          };
+          collectSearchResults(node.children, currentParent);
+        }
+      }
+    };
+
+    collectSearchResults(getSearchResults());
+    return results;
+  };
+
+  // 处理搜索输入
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchQuery(value);
+    setIsSearching(value.trim().length > 0);
+
+    // 如果开始搜索，清除当前选择
+    if (value.trim().length > 0) {
+      setSelectedLevel1Id(null);
+      setSelectedLevel2Id(null);
+      setSelectedLevel3Id(null);
+    } else {
+      // 搜索清空时，恢复默认选择
+      if (tagsTree.length > 0) {
+        const firstLevel1 = tagsTree[0];
+        setSelectedLevel1Id(getNodeId(firstLevel1));
+
+        if (firstLevel1.children.length > 0) {
+          const firstLevel2 = firstLevel1.children[0];
+          setSelectedLevel2Id(getNodeId(firstLevel2));
+
+          if (firstLevel2.children.length > 0) {
+            const firstLevel3 = firstLevel2.children[0];
+            setSelectedLevel3Id(getNodeId(firstLevel3));
+          }
+        }
+      }
+    }
+  }, [tagsTree, getNodeId]);
+
+  // 处理搜索结果点击
+  const handleSearchResultClick = useCallback((data: TagRecord) => {
+    // 清空搜索
+    setSearchQuery("");
+    setIsSearching(false);
+
+    // 根据搜索结果找到对应的标签节点并选中
+    const findAndSelectTag = (nodes: TagNode[], targetId: number): boolean => {
+      for (const node of nodes) {
+        if (node.id === targetId) {
+          // 找到目标节点，设置选中状态
+          setSelectedLevel1Id(getNodeId(node));
+          setSelectedLevel2Id(null);
+          setSelectedLevel3Id(null);
+          return true;
+        }
+
+        // 递归查找子节点
+        if (node.children.length > 0) {
+          for (const child of node.children) {
+            if (child.id === targetId) {
+              // 找到二级标签
+              setSelectedLevel1Id(getNodeId(node));
+              setSelectedLevel2Id(getNodeId(child));
+              setSelectedLevel3Id(null);
+              return true;
+            }
+
+            // 查找三级标签
+            if (child.children.length > 0) {
+              for (const grandChild of child.children) {
+                if (grandChild.id === targetId) {
+                  // 找到三级标签
+                  setSelectedLevel1Id(getNodeId(node));
+                  setSelectedLevel2Id(getNodeId(child));
+                  setSelectedLevel3Id(getNodeId(grandChild));
+                  return true;
+                }
+              }
+            }
+          }
+        }
+      }
+      return false;
+    };
+
+    // 在标签树中查找并选中对应的标签
+    findAndSelectTag(tagsTree, data.id);
+  }, [tagsTree, getNodeId]);
 
   // 将 Prisma 数据转换为 TagNode 格式并按ID排序
   const convertToTagNodes = useCallback(
@@ -83,25 +238,8 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
     setTagsTree(newTree);
     setOriginalTags(initialTags);
     setDefaultSelection(newTree);
-  }, [initialTags, convertToTagNodes, setDefaultSelection]);
+  }, [initialTags]);
 
-  // 检查是否有变更
-  const checkHasChanges = useCallback(
-    (nodes: TagNode[]): boolean => {
-      for (const node of nodes) {
-        if (node.verb || node.isDeleted) return true;
-        if (checkHasChanges(node.children)) return true;
-      }
-      // 检查是否有标签详情变更
-      if (hasAnyEdits()) return true;
-      return false;
-    },
-    [hasAnyEdits],
-  );
-
-  useEffect(() => {
-    setHasChanges(checkHasChanges(tagsTree));
-  }, [tagsTree, checkHasChanges]);
 
   // 根据ID查找节点
   const findNodeById = (nodes: TagNode[], nodeId: string): TagNode | null => {
@@ -165,10 +303,54 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
   const selectedLevel2 = selectedLevel2Id ? findNodeById(tagsTree, selectedLevel2Id) : null;
   const selectedLevel3 = selectedLevel3Id ? findNodeById(tagsTree, selectedLevel3Id) : null;
 
-  // 获取不同层级的标签
-  const level1Tags = getVisibleTags(tagsTree);
+  // 获取不同层级的标签（支持搜索）
+  const currentTagsTree = isSearching ? getSearchResults() : tagsTree;
+  const level1Tags = getVisibleTags(currentTagsTree);
   const level2Tags = selectedLevel1 ? getVisibleTags(selectedLevel1.children) : [];
   const level3Tags = selectedLevel2 ? getVisibleTags(selectedLevel2.children) : [];
+
+  // 计算节点的层级
+  const getNodeLevel = (nodeId: string): number => {
+    // 检查是否在第一级
+    const level1Node = tagsTree.find(tag => getNodeId(tag) === nodeId);
+    if (level1Node) return 1;
+
+    // 检查是否在第二级
+    for (const level1 of tagsTree) {
+      const level2Node = level1.children.find(tag => getNodeId(tag) === nodeId);
+      if (level2Node) return 2;
+
+      // 检查是否在第三级
+      for (const level2 of level1.children) {
+        const level3Node = level2.children.find(tag => getNodeId(tag) === nodeId);
+        if (level3Node) return 3;
+      }
+    }
+
+    return 1; // 默认返回1
+  };
+
+  // 获取节点的父节点ID
+  const getParentNodeId = (nodeId: string): number | null => {
+    const level = getNodeLevel(nodeId);
+
+    if (level === 1) return null;
+
+    // 查找父节点
+    for (const level1 of tagsTree) {
+      if (level === 2) {
+        const level2Node = level1.children.find(tag => getNodeId(tag) === nodeId);
+        if (level2Node) return level1.id || null;
+      } else if (level === 3) {
+        for (const level2 of level1.children) {
+          const level3Node = level2.children.find(tag => getNodeId(tag) === nodeId);
+          if (level3Node) return level2.id || null;
+        }
+      }
+    }
+
+    return null;
+  };
 
   // 检查同级标签名是否重复
   const checkNameDuplicate = (name: string, siblings: TagNode[], excludeId?: string) => {
@@ -181,7 +363,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
   };
 
   // 添加标签
-  const addTag = (level: 1 | 2 | 3) => {
+  const addTag = async (level: 1 | 2 | 3) => {
     const tempId = `temp_${nextTempId}`;
     setNextTempId(nextTempId + 1);
 
@@ -194,6 +376,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
       tempId,
     };
 
+    // 先更新本地状态
     setTagsTree((tree) => {
       const sortTags = (tags: TagNode[]) => {
         return [...tags].sort((a, b) => {
@@ -219,10 +402,12 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
       }
       return tree;
     });
-  };
 
+    // 当用户完成编辑时，会通过 updateTagName 调用 saveSingleTagChange
+    // 这里不需要立即调用，因为新标签还没有名称
+  };
   // 更新标签名
-  const updateTagName = (nodeId: string, newName: string): boolean => {
+  const updateTagName = async (nodeId: string, newName: string): Promise<boolean> => {
     const context = findNodeContext(tagsTree, nodeId);
     if (!context) return false;
 
@@ -231,6 +416,9 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
       return false;
     }
 
+    const node = context.node;
+
+    // 更新本地状态
     setTagsTree((tree) =>
       updateNodeInTree(tree, nodeId, (node) => ({
         ...node,
@@ -239,7 +427,66 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
         isEditing: false,
       })),
     );
-    return true;
+
+    // 直接调用 saveSingleTagChange
+    try {
+      setIsSaving(true);
+
+      // 找到父节点ID和层级
+      const parentId = getParentNodeId(nodeId);
+      const level = getNodeLevel(nodeId);
+
+      // 构建要保存的节点
+      const nodeToSave: TagNode = {
+        ...node,
+        name: newName,
+        verb: node.id ? (node.originalName !== newName ? "update" : undefined) : "create",
+        isEditing: false,
+      };
+
+      const result = await saveSingleTagChange(nodeToSave, parentId, level);
+
+      if (result.success) {
+        toast.success(t("saveSuccess"));
+
+        // 刷新数据
+        const refreshResult = await fetchTeamTags();
+        if (refreshResult.success) {
+          const newTree = convertToTagNodes(refreshResult.data.tags);
+          setTagsTree(newTree);
+          setOriginalTags(refreshResult.data.tags);
+        }
+
+        return true;
+      } else {
+        toast.error(result.message || t("saveFailed"));
+        // 恢复原值
+        setTagsTree((tree) =>
+          updateNodeInTree(tree, nodeId, (node) => ({
+            ...node,
+            name: node.originalName || node.name,
+            verb: undefined,
+            isEditing: false,
+          })),
+        );
+        return false;
+      }
+    } catch (error) {
+      console.error("Save tag name error:", error);
+      toast.error(t("saveFailed"));
+      // 恢复原值
+      setTagsTree((tree) =>
+        updateNodeInTree(tree, nodeId, (node) => ({
+          ...node,
+          name: node.originalName || node.name,
+          verb: undefined,
+          isEditing: false,
+        })),
+      );
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // 开始编辑
@@ -271,7 +518,13 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
   };
 
   // 删除标签（标记删除）
-  const deleteTag = (nodeId: string) => {
+  const deleteTag = async (nodeId: string) => {
+    const context = findNodeContext(tagsTree, nodeId);
+    if (!context) return;
+
+    const node = context.node;
+
+    // 更新本地状态
     setTagsTree((tree) =>
       updateNodeInTree(tree, nodeId, (node) => {
         if (node.verb === "create") {
@@ -296,6 +549,59 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
       setSelectedLevel3Id(null);
     } else if (nodeId === selectedLevel3Id) {
       setSelectedLevel3Id(null);
+    }
+
+    // 直接调用 saveSingleTagChange
+    try {
+      setIsSaving(true);
+
+      // 找到父节点ID和层级
+      const parentId = getParentNodeId(nodeId);
+      const level = getNodeLevel(nodeId);
+
+      // 构建要保存的节点
+      const nodeToSave: TagNode = {
+        ...node,
+        isDeleted: true,
+        verb: "delete",
+      };
+
+      const result = await saveSingleTagChange(nodeToSave, parentId, level);
+
+      if (result.success) {
+        toast.success(t("saveSuccess"));
+
+        // 刷新数据
+        const refreshResult = await fetchTeamTags();
+        if (refreshResult.success) {
+          const newTree = convertToTagNodes(refreshResult.data.tags);
+          setTagsTree(newTree);
+          setOriginalTags(refreshResult.data.tags);
+        }
+      } else {
+        toast.error(result.message || t("saveFailed"));
+        // 恢复原值
+        setTagsTree((tree) =>
+          updateNodeInTree(tree, nodeId, (node) => ({
+            ...node,
+            isDeleted: false,
+            verb: undefined,
+          })),
+        );
+      }
+    } catch (error) {
+      console.error("Delete tag error:", error);
+      toast.error(t("saveFailed"));
+      // 恢复原值
+      setTagsTree((tree) =>
+        updateNodeInTree(tree, nodeId, (node) => ({
+          ...node,
+          isDeleted: false,
+          verb: undefined,
+        })),
+      );
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -330,7 +636,6 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
       const currentLevel1 = selectedLevel1;
       const currentLevel2 = selectedLevel2;
       const currentLevel3 = selectedLevel3;
-
       const result = await saveTagsTree(tagsTree);
       if (result.success) {
         toast.success(t("saveSuccess"));
@@ -388,7 +693,6 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
       setIsSaving(false);
     }
   };
-
   // 处理同步完成
   const handleSyncComplete = async () => {
     const refreshResult = await fetchTeamTags();
@@ -451,19 +755,38 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
     [editedTags],
   );
 
-  const TagsHeaderMenu = () => {
-    return (
-      <div className="bg-background border rounded-md p-2 flex justify-between items-center gap-3">
-        <div className="flex items-center gap-4 flex-1 relative">
-          <Input
-            type="text"
-            placeholder={t("searchPlaceholder")}
-            className="w-full pl-10"
-          // TODO: 实现搜索功能
-          />
-          <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
+  const TagsHeaderMenu = useMemo(() => (
+    <div className="bg-background border rounded-md p-2 flex justify-between items-center gap-3">
+      <div className="flex items-center gap-4 flex-1 relative">
+        <Input
+          type="text"
+          placeholder={t("searchPlaceholder")}
+          className="w-full pl-10 pr-10"
+          value={searchQuery}
+          onChange={(e) => handleSearchChange(e.target.value)}
+        />
+        <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
+          <svg
+            className="w-4 h-4 text-muted-foreground"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            />
+          </svg>
+        </div>
+        {searchQuery && (
+          <button
+            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            onClick={() => handleSearchChange("")}
+          >
             <svg
-              className="w-4 h-4 text-muted-foreground"
+              className="w-4 h-4"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -472,118 +795,102 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                d="M6 18L18 6M6 6l12 12"
               />
             </svg>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          {/* AI自动打标签开关 */}
-          <div className="flex items-center gap-2">
-            <Switch />
-            <span className="text-sm text-muted-foreground">{t("aiAutoTagging")}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <SyncConfirmDialog onSyncComplete={handleSyncComplete} />
-            <Button
-              onClick={saveChanges}
-              disabled={!hasChanges || isSaving}
-              variant="default"
-              size="sm"
-            >
-              <Save className="h-4 w-4" />
-              {isSaving ? t("saving") : t("saveChanges")}
-            </Button>
-          </div>
-          <Button variant="outline" size="sm">
-            <div className="w-2 h-2 bg-orange-400 dark:bg-orange-300 rounded-full"></div>
-            {t("aiAssistant")}
-          </Button>
-          <Button variant="outline" size="sm">
-            {t("batchCreate")}
-          </Button>
-        </div>
+          </button>
+        )}
       </div>
-    );
-  };
-
-  const TagMainColumns = () => {
-    return (
-      <div className="flex-1 bg-background border rounded-md overflow-hidden grid grid-cols-3 [&>div+div]:border-l">
-        <TagColumn
-          title={t("tagGroup")}
-          tags={level1Tags}
-          level={1}
-          selectedId={selectedLevel1Id}
-          canAdd={true}
-          emptyMessage={t("noTagGroups")}
-          onAddTag={addTag}
-          onSelectTag={(nodeId) => {
-            setSelectedLevel1Id(nodeId);
-            setSelectedLevel2Id(null);
-            setSelectedLevel3Id(null);
-          }}
-          onEdit={updateTagName}
-          onStartEdit={startEdit}
-          onCancelEdit={cancelEdit}
-          onDelete={deleteTag}
-          onRestore={restoreTag}
-          getNodeId={getNodeId}
-          hasDetailChanges={checkTagDetailChanges}
-        />
-        {selectedLevel1Id === "-1" ? <div className="col-span-2 flex flex-col items-stretch overflow-hidden">
-          <SmartTagsContent />
-        </div> : <>
-          <TagColumn
-            title={t("tag")}
-            tags={level2Tags}
-            level={2}
-            selectedId={selectedLevel2Id}
-            canAdd={!!selectedLevel1 && !selectedLevel1.isDeleted}
-            emptyMessage={!selectedLevel1 ? t("selectTagGroupFirst") : t("noTags")}
-            onAddTag={addTag}
-            onSelectTag={(nodeId) => {
-              setSelectedLevel2Id(nodeId);
-              setSelectedLevel3Id(null);
-            }}
-            onEdit={updateTagName}
-            onStartEdit={startEdit}
-            onCancelEdit={cancelEdit}
-            onDelete={deleteTag}
-            onRestore={restoreTag}
-            getNodeId={getNodeId}
-            hasDetailChanges={checkTagDetailChanges}
-          />
-
-          <TagColumn
-            title={t("tag")}
-            tags={level3Tags}
-            level={3}
-            selectedId={selectedLevel3Id}
-            canAdd={!!selectedLevel2 && !selectedLevel2.isDeleted}
-            emptyMessage={!selectedLevel2 ? t("selectSecondLevelFirst") : t("noTags")}
-            onAddTag={addTag}
-            onSelectTag={(nodeId) => setSelectedLevel3Id(nodeId)}
-            onEdit={updateTagName}
-            onStartEdit={startEdit}
-            onCancelEdit={cancelEdit}
-            onDelete={deleteTag}
-            onRestore={restoreTag}
-            getNodeId={getNodeId}
-            hasDetailChanges={checkTagDetailChanges}
-          />
-        </>}
+      <div className="flex items-center gap-3">
+        {/* AI自动打标签开关 */}
+        {/* <div className="flex items-center gap-2">
+          <Switch />
+          <span className="text-sm text-muted-foreground">{t("aiAutoTagging")}</span>
+        </div> */}
+        <div className="flex items-center gap-2">
+          <SyncConfirmDialog onSyncComplete={handleSyncComplete} />
+        </div>
+        <Button variant="outline" size="sm" onClick={() => {
+          setCreateModalVisible(true)
+        }}>
+          {t("batchCreate")}
+        </Button>
       </div>
-    );
-  };
+    </div>
+  ), [t, searchQuery, handleSearchChange, handleSyncComplete]);
+
+  const TagMainColumns = useMemo(() => (
+
+    <ThreeTagList
+      title={t("tagManagement")}
+      list1={level1Tags}
+      list2={level2Tags}
+      list3={level3Tags}
+      total1={level1Tags.length}
+      total2={level2Tags.length}
+      total3={level3Tags.length}
+      selectedLevel1Id={selectedLevel1Id}
+      selectedLevel2Id={selectedLevel2Id}
+      selectedLevel3Id={selectedLevel3Id}
+      onSelectLevel1={(nodeId) => {
+        setSelectedLevel1Id(nodeId);
+        setSelectedLevel2Id(null);
+        setSelectedLevel3Id(null);
+      }}
+      onSelectLevel2={(nodeId) => {
+        setSelectedLevel2Id(nodeId);
+        setSelectedLevel3Id(null);
+      }}
+      onSelectLevel3={(nodeId) => setSelectedLevel3Id(nodeId)}
+      onEdit={updateTagName}
+      onStartEdit={startEdit}
+      onCancelEdit={cancelEdit}
+      onDelete={deleteTag}
+      onRestore={restoreTag}
+      onAddTag={addTag}
+      getNodeId={getNodeId}
+      hasDetailChanges={checkTagDetailChanges}
+      showAdd={!isSearching}
+      showAiTags={true}
+      canEdit={!isSearching}
+    />
+
+  ), [
+    level1Tags,
+    level2Tags,
+    level3Tags,
+    selectedLevel1Id,
+    selectedLevel2Id,
+    selectedLevel3Id,
+    updateTagName,
+    startEdit,
+    cancelEdit,
+    deleteTag,
+    restoreTag,
+    addTag,
+    getNodeId,
+    checkTagDetailChanges,
+    isSearching
+  ]);
 
   return (
-    <div className="h-dvh min-w-[60rem] overflow-x-scroll scrollbar-thin flex flex-col items-stretch gap-4 p-4 bg-muted/30">
-      <TagsHeaderMenu />
+    <div className="h-dvh min-w-[60rem] overflow-x-scroll scrollbar-thin flex flex-col items-stretch gap-4 p-4 bg-[var(--ant-basic-1)]">
+      {TagsHeaderMenu}
       <div className="flex-1 overflow-hidden flex flex-row items-stretch gap-4">
-        <TagMainColumns />
+        {isSearching ? (
+          <SearchResult
+            searchData={getSearchResultsAsData()}
+            handleClick={handleSearchResultClick}
+          />
+        ) : (
+          TagMainColumns
+        )}
         <TagDetails selectedTag={getSelectedTag()} />
       </div>
+      <CreateModal
+        visible={createModalVisible}
+        setVisible={setCreateModalVisible}
+        refresh={handleSyncComplete} />
     </div>
   );
 }
