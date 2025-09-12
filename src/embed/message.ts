@@ -3,8 +3,8 @@
 // 定义全局类型
 const globalForMessage = global as unknown as {
   musedamMessageQueue:
-    | Map<string, { resolve: (result: any) => void; reject: (error: any) => void }>
-    | undefined;
+  | Map<string, { resolve: (result: any) => void; reject: (error: any) => void }>
+  | undefined;
 };
 
 // 创建或获取全局队列
@@ -65,7 +65,55 @@ function initializeMessageListener() {
         }
       }
     }
+
+    // 处理来自父项目的配置更新事件
+    if (
+      message.source === "musedam" &&
+      message.target === "musedam-app" &&
+      message.type === "action" &&
+      message.action
+    ) {
+      handleParentConfigUpdate(message.action, message.args);
+    }
   });
+}
+
+// 处理来自父项目的配置更新事件
+function handleParentConfigUpdate(action: string, args: any) {
+  switch (action) {
+    case "updateLocale":
+      if (args?.locale && typeof window !== "undefined") {
+        // 更新语言设置
+        const validLocales = ["zh-CN", "en-US"];
+        if (validLocales.includes(args.locale)) {
+          // 使用 js-cookie 设置 cookie
+          if (typeof document !== "undefined") {
+            document.cookie = `locale=${args.locale}; path=/; max-age=${365 * 24 * 60 * 60}`;
+            // 触发页面刷新以应用新的语言设置
+            window.location.reload();
+          }
+        }
+      }
+      break;
+
+    case "updateTheme":
+      if (args?.theme && typeof window !== "undefined") {
+        // 更新主题设置
+        const validThemes = ["light", "dark"];
+        if (validThemes.includes(args.theme)) {
+          // 更新 localStorage
+          localStorage.setItem("theme", args.theme);
+          // 触发主题更新
+          const event = new CustomEvent("theme-change", { detail: { theme: args.theme } });
+          window.dispatchEvent(event);
+        }
+      }
+      break;
+
+    default:
+      // 忽略未知的 action
+      break;
+  }
 }
 
 /**
