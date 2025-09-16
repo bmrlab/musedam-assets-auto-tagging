@@ -160,8 +160,6 @@ export const CreateModal = ({
   refresh?: () => void;
 }) => {
   const t = useTranslations('TagsPage.ManualCreateModal');
-  const tTips = useTranslations('TagsPage.ManualCreateTipsModal');
-  const tTips2 = useTranslations('TagsPage.ManualCreateTips2Modal');
 
   const [isManualTipsOpen, setIsManualTipsOpen] = useState(false);
   const [isManualTips2Open, setIsManualTips2Open] = useState(false);
@@ -212,15 +210,15 @@ export const CreateModal = ({
     return result;
   }, [batchCreateText]);
 
-  const [activeTags, setActiveTags] = useState<{
-    1: number | null;
-    2: number | null;
-    3: number | null;
-  }>({
-    1: null,
-    2: null,
-    3: null
-  });
+  // const [activeTags, setActiveTags] = useState<{
+  //   1: number | null;
+  //   2: number | null;
+  //   3: number | null;
+  // }>({
+  //   1: null,
+  //   2: null,
+  //   3: null
+  // });
 
   // 预览模式下的选中状态
   const [previewSelectedLevel1Id, setPreviewSelectedLevel1Id] = useState<string | null>(null);
@@ -240,19 +238,19 @@ export const CreateModal = ({
   const previewTagNodes = useMemo(() => convertToTagNodes(nameChildList), [nameChildList]);
 
   const list1 = nameChildList;
-  const total1 = list1.length;
-  const list2 = useMemo(() => {
-    return typeof activeTags?.[1] === 'number' ? nameChildList[activeTags?.[1]]?.nameChildList || [] : [];
-  }, [nameChildList, activeTags?.[1]]);
-  const total2 = list2.length;
-  const list3 = useMemo(() => {
-    return typeof activeTags?.[2] === 'number'
-      ? typeof activeTags?.[1] === 'number'
-        ? nameChildList[activeTags?.[1]]?.nameChildList?.[activeTags?.[2]]?.nameChildList || []
-        : []
-      : [];
-  }, [nameChildList, activeTags?.[1], activeTags?.[2]]);
-  const total3 = list3.length;
+  // const total1 = list1.length;
+  // const list2 = useMemo(() => {
+  //   return typeof activeTags?.[1] === 'number' ? nameChildList[activeTags?.[1]]?.nameChildList || [] : [];
+  // }, [nameChildList, activeTags?.[1]]);
+  // const total2 = list2.length;
+  // const list3 = useMemo(() => {
+  //   return typeof activeTags?.[2] === 'number'
+  //     ? typeof activeTags?.[1] === 'number'
+  //       ? nameChildList[activeTags?.[1]]?.nameChildList?.[activeTags?.[2]]?.nameChildList || []
+  //       : []
+  //     : [];
+  // }, [nameChildList, activeTags?.[1], activeTags?.[2]]);
+  // const total3 = list3.length;
 
   // 预览模式下的数据
   const previewList1 = previewTagNodes;
@@ -316,9 +314,9 @@ export const CreateModal = ({
       } else {
         toast.error(result.message || '创建标签失败');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Batch create tags error:', err);
-      toast.error(err.message || '创建标签时发生错误');
+      toast.error(err instanceof Error ? err.message : '创建标签时发生错误');
     } finally {
       setIsCreating(false);
     }

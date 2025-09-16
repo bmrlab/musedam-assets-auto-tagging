@@ -82,7 +82,7 @@ export const SmartTagsContent = () => {
                 observer.unobserve(loadMoreElement)
             }
         }
-    }, [hasMore, loadingMore, listInfo])
+    }, [hasMore, loadingMore, listInfo, getList])
 
     const [selectedTag, setSelectedTag] = useState<TagRecord | null>(null);
     const [contextMenu, setContextMenu] = useState<{
@@ -130,7 +130,7 @@ export const SmartTagsContent = () => {
     const editTagRef = useRef<HTMLDivElement>(null);
     // const editTagSize = useSize(editTagRef);
     const [isEditTag, setIsEditTag] = useState<TagRecord | null>(null);
-    const inputRef = useRef<any>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
     const [inputValue, setInputValue] = useState('');
 
     const handleRename = () => {
@@ -202,6 +202,7 @@ export const SmartTagsContent = () => {
                     if (isEditTag?.id === tag?.id) {
                         return (
                             <Input
+                                key={tag.id}
                                 ref={inputRef}
                                 value={inputValue}
                                 onChange={(e) => setInputValue(e.target.value)}

@@ -1,5 +1,4 @@
 import { withAuth } from "@/app/(auth)/withAuth";
-import { TaggingQueueItem } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -10,11 +9,12 @@ const paramsSchema = z.object({
 
 export async function GET(
     request: NextRequest,
-    { params }: { params: { queueItemId: string } }
+    { params }: { params: Promise<{ queueItemId: string }> }
 ) {
     return withAuth(async ({ team: { id: teamId } }) => {
         try {
-            const { queueItemId } = paramsSchema.parse(params);
+            const resolvedParams = await params;
+            const { queueItemId } = paramsSchema.parse(resolvedParams);
 
             const queueItem = await prisma.taggingQueueItem.findFirst({
                 where: {

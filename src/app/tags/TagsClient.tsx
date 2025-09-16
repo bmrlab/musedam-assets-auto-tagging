@@ -20,7 +20,8 @@ interface TagsClientProps {
 
 function TagsClientInner({ initialTags }: TagsClientProps) {
   const t = useTranslations("TagsPage");
-  const { editedTags, clearAllEdits, hasAnyEdits } = useTagEdit();
+  // const { editedTags, clearAllEdits, hasAnyEdits } = useTagEdit();
+  const { editedTags } = useTagEdit();
   const [tagsTree, setTagsTree] = useState<TagNode[]>([]);
   const [originalTags, setOriginalTags] = useState<
     (AssetTag & { children?: (AssetTag & { children?: AssetTag[] })[] })[]
@@ -37,9 +38,9 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
   // 移除了 tagExtraChanges 状态，现在使用 Context
 
   // 获取节点的唯一标识符
-  const getNodeId = (node: TagNode): string => {
+  const getNodeId = useCallback((node: TagNode): string => {
     return node.id ? node.id.toString() : node.tempId!;
-  };
+  }, []);
 
   // 搜索标签函数
   const searchTags = (tags: TagNode[], query: string): TagNode[] => {
@@ -77,7 +78,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
       for (const node of nodes) {
         if (node.id) {
           // 从原始数据中查找对应的标签信息
-          const originalTag = findOriginalTag(originalTags, node.id);
+          // const originalTag = findOriginalTag(originalTags, node.id);
 
           const tagRecord: TagRecord = {
             id: node.id,
@@ -238,7 +239,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
     setTagsTree(newTree);
     setOriginalTags(initialTags);
     setDefaultSelection(newTree);
-  }, [initialTags]);
+  }, [initialTags, convertToTagNodes, setDefaultSelection]);
 
 
   // 根据ID查找节点
@@ -409,7 +410,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
   // 更新标签名
   const updateTagName = async (nodeId: string, newName: string): Promise<boolean> => {
     const context = findNodeContext(tagsTree, nodeId);
-    if (!context) return false;
+    if (!context || isSaving) return false;
 
     if (checkNameDuplicate(newName, context.siblings, nodeId)) {
       toast.error(t("tagNameExists"));
@@ -520,7 +521,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
   // 删除标签（标记删除）
   const deleteTag = async (nodeId: string) => {
     const context = findNodeContext(tagsTree, nodeId);
-    if (!context) return;
+    if (!context || isSaving) return;
 
     const node = context.node;
 
@@ -617,84 +618,84 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
   };
 
   // 保存所有变更
-  const saveChanges = async () => {
-    setIsSaving(true);
-    try {
-      // 1. 先保存标签详情变更
-      if (editedTags.size > 0) {
-        for (const [tagId, editData] of editedTags) {
-          const result = await updateTagExtra(tagId, editData);
-          if (!result.success) {
-            toast.error(`${t("saveDetailsFailed")}: ${result.message}`);
-            return;
-          }
-        }
-      }
+  // const saveChanges = async () => {
+  //   setIsSaving(true);
+  //   try {
+  //     // 1. 先保存标签详情变更
+  //     if (editedTags.size > 0) {
+  //       for (const [tagId, editData] of editedTags) {
+  //         const result = await updateTagExtra(tagId, editData);
+  //         if (!result.success) {
+  //           toast.error(`${t("saveDetailsFailed")}: ${result.message}`);
+  //           return;
+  //         }
+  //       }
+  //     }
 
-      // 2. 再保存标签树结构变更
-      // 保存当前选中状态
-      const currentLevel1 = selectedLevel1;
-      const currentLevel2 = selectedLevel2;
-      const currentLevel3 = selectedLevel3;
-      const result = await saveTagsTree(tagsTree);
-      if (result.success) {
-        toast.success(t("saveSuccess"));
+  //     // 2. 再保存标签树结构变更
+  //     // 保存当前选中状态
+  //     const currentLevel1 = selectedLevel1;
+  //     const currentLevel2 = selectedLevel2;
+  //     const currentLevel3 = selectedLevel3;
+  //     const result = await saveTagsTree(tagsTree);
+  //     if (result.success) {
+  //       toast.success(t("saveSuccess"));
 
-        // 3. 清空所有编辑状态
-        clearAllEdits();
+  //       // 3. 清空所有编辑状态
+  //       clearAllEdits();
 
-        // 4. 刷新数据
-        const refreshResult = await fetchTeamTags();
-        if (refreshResult.success) {
-          const newTree = convertToTagNodes(refreshResult.data.tags);
-          setTagsTree(newTree);
-          setOriginalTags(refreshResult.data.tags);
+  //       // 4. 刷新数据
+  //       const refreshResult = await fetchTeamTags();
+  //       if (refreshResult.success) {
+  //         const newTree = convertToTagNodes(refreshResult.data.tags);
+  //         setTagsTree(newTree);
+  //         setOriginalTags(refreshResult.data.tags);
 
-          // 尝试恢复选中状态
-          if (currentLevel1) {
-            const newLevel1 = newTree.find((tag) => tag.name === currentLevel1.name);
-            if (newLevel1) {
-              setSelectedLevel1Id(getNodeId(newLevel1));
+  //         // 尝试恢复选中状态
+  //         if (currentLevel1) {
+  //           const newLevel1 = newTree.find((tag) => tag.name === currentLevel1.name);
+  //           if (newLevel1) {
+  //             setSelectedLevel1Id(getNodeId(newLevel1));
 
-              if (currentLevel2) {
-                const newLevel2 = newLevel1.children.find((tag) => tag.name === currentLevel2.name);
-                if (newLevel2) {
-                  setSelectedLevel2Id(getNodeId(newLevel2));
+  //             if (currentLevel2) {
+  //               const newLevel2 = newLevel1.children.find((tag) => tag.name === currentLevel2.name);
+  //               if (newLevel2) {
+  //                 setSelectedLevel2Id(getNodeId(newLevel2));
 
-                  if (currentLevel3) {
-                    const newLevel3 = newLevel2.children.find(
-                      (tag) => tag.name === currentLevel3.name,
-                    );
-                    if (newLevel3) {
-                      setSelectedLevel3Id(getNodeId(newLevel3));
-                    } else {
-                      setSelectedLevel3Id(null);
-                    }
-                  }
-                } else {
-                  setSelectedLevel2Id(null);
-                  setSelectedLevel3Id(null);
-                }
-              }
-            } else {
-              setSelectedLevel1Id(null);
-              setSelectedLevel2Id(null);
-              setSelectedLevel3Id(null);
-            }
-          }
-        }
-      } else {
-        toast.error(result.message || t("saveFailed"));
-      }
-    } catch (error) {
-      console.error("Save error:", error);
-      toast.error(t("saveFailed"));
-    } finally {
-      setIsSaving(false);
-    }
-  };
+  //                 if (currentLevel3) {
+  //                   const newLevel3 = newLevel2.children.find(
+  //                     (tag) => tag.name === currentLevel3.name,
+  //                   );
+  //                   if (newLevel3) {
+  //                     setSelectedLevel3Id(getNodeId(newLevel3));
+  //                   } else {
+  //                     setSelectedLevel3Id(null);
+  //                   }
+  //                 }
+  //               } else {
+  //                 setSelectedLevel2Id(null);
+  //                 setSelectedLevel3Id(null);
+  //               }
+  //             }
+  //           } else {
+  //             setSelectedLevel1Id(null);
+  //             setSelectedLevel2Id(null);
+  //             setSelectedLevel3Id(null);
+  //           }
+  //         }
+  //       }
+  //     } else {
+  //       toast.error(result.message || t("saveFailed"));
+  //     }
+  //   } catch (error) {
+  //     console.error("Save error:", error);
+  //     toast.error(t("saveFailed"));
+  //   } finally {
+  //     setIsSaving(false);
+  //   }
+  // };
   // 处理同步完成
-  const handleSyncComplete = async () => {
+  const handleSyncComplete = useCallback(async () => {
     const refreshResult = await fetchTeamTags();
     if (refreshResult.success) {
       const newTree = convertToTagNodes(refreshResult.data.tags);
@@ -706,7 +707,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
       setInitialized(false);
       setDefaultSelection(newTree);
     }
-  };
+  }, [convertToTagNodes, setDefaultSelection]);
 
   // 从原始标签中查找AssetTag
   const findOriginalTag = (
@@ -856,6 +857,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
     />
 
   ), [
+    t,
     level1Tags,
     level2Tags,
     level3Tags,

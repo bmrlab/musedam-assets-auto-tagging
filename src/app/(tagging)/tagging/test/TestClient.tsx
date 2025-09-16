@@ -6,12 +6,11 @@ import { dispatchMuseDAMClientAction } from "@/embed/message";
 import { cn } from "@/lib/utils";
 import { MuseDAMID } from "@/musedam/types";
 import { BugPlayIcon, FileText, Loader2, PlayIcon, PlusIcon, TagsIcon, X } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 import { startTaggingTasksAction } from "./actions";
-import { TaggingResultDisplay } from "./components/TaggingResultDisplay";
+import { TaggingResult, TaggingResultDisplay } from "./components/TaggingResultDisplay";
 
 interface SelectedAsset {
   id: MuseDAMID; // 素材唯一标识
@@ -29,10 +28,9 @@ interface SelectedAsset {
 
 export default function TestClient() {
   const t = useTranslations("Tagging.Test");
-  const router = useRouter();
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedAssets, setSelectedAssets] = useState<SelectedAsset[]>([]);
-  const [taggingResults, setTaggingResults] = useState<any[]>([]);
+  const [taggingResults, setTaggingResults] = useState<TaggingResult[]>([]);
   const [queueItemIds, setQueueItemIds] = useState<number[]>([]);
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
   const pollingRef = useRef<boolean>(false);
@@ -107,6 +105,15 @@ export default function TestClient() {
     },
   };
 
+  // 停止轮询
+  const stopPolling = useCallback(() => {
+    pollingRef.current = false;
+    if (pollingInterval) {
+      clearInterval(pollingInterval);
+      setPollingInterval(null);
+    }
+  }, [pollingInterval]);
+
   // 轮询获取队列状态
   const pollQueueStatus = useCallback(async (ids: number[]) => {
     if (!pollingRef.current || ids.length === 0) return;
@@ -143,8 +150,8 @@ export default function TestClient() {
             const { assetObject, result: resultData, extra } = result
             // 按置信度分类标签
             const allTags = resultData?.tagsWithScore || [];
-            const effectiveTags = allTags.filter((tag: any) => (tag.score || 0) >= 80);
-            const candidateTags = allTags.filter((tag: any) => (tag.score || 0) >= 60 && (tag.score || 0) < 80);
+            const effectiveTags = allTags.filter((tag: { score?: number }) => (tag.score || 0) >= 80);
+            const candidateTags = allTags.filter((tag: { score?: number }) => (tag.score || 0) >= 60 && (tag.score || 0) < 80);
 
             return {
               asset: {
@@ -163,14 +170,14 @@ export default function TestClient() {
               },
               overallScore: resultData?.tagsWithScore?.[0]?.score || 0,
               // 生效标签
-              effectiveTags: effectiveTags.map((tag: any) => ({
+              effectiveTags: effectiveTags.map((tag: { tagPath?: string[]; matchingSource?: string; score?: number }) => ({
                 tagPath: tag.tagPath || [],
                 matchingSource: tag.matchingSource || "AI匹配",
                 confidence: Math.floor(tag.score || 0),
                 score: tag.score || 0,
               })),
               // 候选标签
-              candidateTags: candidateTags.map((tag: any) => ({
+              candidateTags: candidateTags.map((tag: { tagPath?: string[]; matchingSource?: string; score?: number }) => ({
                 tagPath: tag.tagPath || [],
                 matchingSource: tag.matchingSource || "AI匹配",
                 confidence: Math.floor(tag.score || 0),
@@ -181,9 +188,9 @@ export default function TestClient() {
                 const strategyMap = new Map<string, { weight: number; score: number }>();
 
                 // 遍历所有标签的confidenceBySources
-                allTags.forEach((tag: any) => {
+                allTags.forEach((tag: { confidenceBySources?: Record<string, number> }) => {
                   if (tag.confidenceBySources) {
-                    Object.entries(tag.confidenceBySources).forEach(([source, confidence]: [string, any]) => {
+                    Object.entries(tag.confidenceBySources).forEach(([source, confidence]: [string, number]) => {
                       if (!strategyMap.has(source)) {
                         strategyMap.set(source, { weight: 0, score: 0 });
                       }
@@ -212,16 +219,14 @@ export default function TestClient() {
     } catch (error) {
       console.error("轮询队列状态失败:", error);
     }
-  }, []);
+  }, [stopPolling]);
 
   // 开始轮询
   const startPolling = useCallback((ids: number[]) => {
-    console.log("pollingRef.current", pollingRef.current)
     if (pollingRef.current) return;
 
     pollingRef.current = true;
     setQueueItemIds(ids);
-    console.log("ids", ids)
     // 立即执行一次
     pollQueueStatus(ids);
 
@@ -233,15 +238,6 @@ export default function TestClient() {
     setPollingInterval(interval);
   }, [pollQueueStatus]);
 
-  // 停止轮询
-  const stopPolling = useCallback(() => {
-    pollingRef.current = false;
-    if (pollingInterval) {
-      clearInterval(pollingInterval);
-      setPollingInterval(null);
-    }
-  }, [pollingInterval]);
-
   // useEffect(() => {
   //   startPolling([19, 20]);
   // }, [])
@@ -251,7 +247,7 @@ export default function TestClient() {
     return () => {
       stopPolling();
     };
-  }, []);
+  }, [stopPolling]);
 
   const handleAssetSelection = async () => {
     try {
@@ -321,7 +317,7 @@ export default function TestClient() {
     } finally {
       setIsProcessing(false);
     }
-  }, [selectedAssets, matchingSources, recognitionAccuracy, startPolling]);
+  }, [selectedAssets, matchingSources, recognitionAccuracy, startPolling, t]);
 
   const removeAsset = (assetId: MuseDAMID) => {
     setSelectedAssets((prev) => prev.filter((asset) => asset.id !== assetId));
@@ -501,12 +497,12 @@ export default function TestClient() {
           </div>
           <div className="p-4 grid grid-cols-2 gap-3">
             {[
-              { key: "general", label: t("generalAssets"), icon: "📄" },
-              { key: "brand", label: t("brandVisual"), icon: "👁️" },
-              { key: "product", label: t("productDisplay"), icon: "📦" },
-              { key: "marketing", label: t("marketingPromotion"), icon: "📢" },
+              { key: "general", label: t("generalAssets"), icon: "📂" },
+              { key: "brand", label: t("brandVisual"), icon: "🧑‍🎨" },
+              { key: "product", label: t("productDisplay"), icon: "📸" },
+              { key: "marketing", label: t("marketingPromotion"), icon: "🎯" },
               { key: "video", label: t("videoCreative"), icon: "🎬" },
-              { key: "archive", label: t("archiveMaterial"), icon: "📚" },
+              { key: "archive", label: t("archiveMaterial"), icon: "🗃️" },
             ].map(({ key, label, icon }) => (
               <div
                 key={key}

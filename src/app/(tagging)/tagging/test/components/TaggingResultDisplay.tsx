@@ -1,14 +1,11 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { cn } from "@/lib/utils";
-import { CheckIcon, ClockIcon, FileTextIcon, ImageIcon, ArrowDownIcon, TagIcon, ArrowRight, CircleQuestionMarkIcon, FolderIcon } from "lucide-react";
+import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CheckIcon, ClockIcon, ImageIcon, TagIcon, CircleQuestionMarkIcon, FolderIcon } from "lucide-react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
 
-// 模拟数据结构，基于设计稿
-interface TaggingResult {
+export interface TaggingResult {
     asset: {
         id: string;
         name: string;

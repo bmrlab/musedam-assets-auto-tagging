@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { Edit2Icon, MoreHorizontal, Save, TagIcon, Trash2Icon, Undo2, X } from "lucide-react";
+import { Edit2Icon, MoreHorizontal, TagIcon, Trash2Icon, Undo2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -32,7 +32,7 @@ interface TagItemProps {
 
 export function TagItem({
   tag,
-  level,
+  // level,
   isSelected = false,
   onSelect,
   onEdit,

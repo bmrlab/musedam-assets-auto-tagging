@@ -1,6 +1,5 @@
 import { FC } from "react";
 import { SearchTagData, TagRecord } from "../types";
-import { AlignRight } from "lucide-react";
 
 
 
@@ -20,6 +19,7 @@ export const SearchResult: FC<{
                         const first = data.parent?.parent?.tag;
                         return (
                             <div
+                                key={data.tag.id}
                                 className="flex-shrink-0 gap-1 h-6 flex items-center bg-[var(--ant-basic-1)] text-[var(--ant-basic-7)] rounded border border-solid border-[var(--ant-basic-3)] px-2 cursor-pointer hover:bg-[var(--ant-primary-1)] hover:border-[var(--ant-primary-5)] hover:text-[var(--ant-primary-5)] transition-all duration-300"
                                 onClick={() => {
                                     handleClick(data.tag)

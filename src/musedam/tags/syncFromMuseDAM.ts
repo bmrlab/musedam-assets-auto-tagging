@@ -2,7 +2,7 @@ import "server-only";
 
 import { idToSlug, slugToId } from "@/lib/slug";
 import { retrieveTeamCredentials } from "@/musedam/apiKey";
-import { generateCurlCommand, requestMuseDAMAPI } from "@/musedam/lib";
+import { requestMuseDAMAPI } from "@/musedam/lib";
 import { AssetTag } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 import { MuseDAMID } from "../types";

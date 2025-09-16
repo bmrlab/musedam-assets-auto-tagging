@@ -321,7 +321,7 @@ export async function batchCreateTags(
           });
 
           // 转换为 TagNode 格式用于同步
-          const convertToTagNodes = (tags: any[]): TagNode[] => {
+          const convertToTagNodes = (tags: (AssetTag & { children?: AssetTag[] })[]): TagNode[] => {
             return tags.map((tag) => ({
               id: tag.id,
               slug: tag.slug,
