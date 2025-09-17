@@ -161,8 +161,13 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
   };
 
   const getThumbnailUrl = (task: TaskWithAsset): string | null => {
-    const extra = task.assetObject.extra as AssetObjectExtra | null;
-    return extra?.thumbnailAccessUrl || null;
+    try {
+      const extra = task.assetObject.extra as AssetObjectExtra | null;
+      return extra?.thumbnailAccessUrl || null;
+    } catch (error) {
+      console.warn("Failed to parse asset extra data:", error);
+      return null;
+    }
   };
 
   const getFileIcon = (fileName: string) => {
@@ -393,13 +398,40 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
                       </span>
                     </div>
                     <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                      <span>{task.assetObject.extra?.extension?.toUpperCase()}</span>
-                      {task.assetObject.extra?.size && (
-                        <>
-                          <span>·</span>
-                          <span>{formatFileSize(task.assetObject.extra?.size)}</span>
-                        </>
-                      )}
+                      <span>
+                        {(() => {
+                          try {
+                            const extra = task.assetObject.extra as AssetObjectExtra | null;
+                            return extra?.extension?.toUpperCase() || "UNKNOWN";
+                          } catch {
+                            return "UNKNOWN";
+                          }
+                        })()}
+                      </span>
+                      {(() => {
+                        try {
+                          const extra = task.assetObject.extra as AssetObjectExtra | null;
+                          return extra?.size;
+                        } catch (error) {
+                          return null;
+                        }
+                      })() && (
+                          <>
+                            <span>·</span>
+                            <span>
+                              {formatFileSize(
+                                (() => {
+                                  try {
+                                    const extra = task.assetObject.extra as AssetObjectExtra | null;
+                                    return extra?.size || 0;
+                                  } catch (error) {
+                                    return 0;
+                                  }
+                                })()
+                              )}
+                            </span>
+                          </>
+                        )}
                       <>
                         <span>·</span>
                         <span>
