@@ -17,6 +17,7 @@ export async function enqueueTaggingTask({
   assetObject,
   matchingSources,
   recognitionAccuracy,
+  taskType = "default",
 }: {
   assetObject: AssetObject;
   matchingSources?: {
@@ -26,6 +27,7 @@ export async function enqueueTaggingTask({
     tagKeywords: boolean;
   };
   recognitionAccuracy?: "precise" | "balanced" | "broad";
+  taskType?: "default" | "test";
 }): Promise<TaggingQueueItem> {
   const teamId = assetObject.teamId;
 
@@ -34,6 +36,7 @@ export async function enqueueTaggingTask({
       teamId: teamId,
       assetObjectId: assetObject.id,
       status: "pending",
+      taskType,
       startsAt: new Date(),
       extra: {
         matchingSources,
@@ -90,15 +93,17 @@ export async function processQueueItem({
       },
     });
 
-    // TODO 如果是测试内容，不需要进入审核
-    await createAuditItems({
-      assetObject,
-      taggingQueueItem: updatedQueueItem,
-      predictions,
-      tagsWithScore,
-    }).catch(() => {
-      // 忽略 error，createAuditItems 里自己会处理
-    });
+    if (updatedQueueItem.taskType !== "test") {
+      // 如果是测试内容，不需要进入审核
+      await createAuditItems({
+        assetObject,
+        taggingQueueItem: updatedQueueItem,
+        predictions,
+        tagsWithScore,
+      }).catch(() => {
+        // 忽略 error，createAuditItems 里自己会处理
+      });
+    }
   } catch (error) {
     logger.error(`processQueueItem failed: ${error}`);
     await prisma.taggingQueueItem.update({

@@ -113,6 +113,11 @@ enum TaggingQueueStatus {
   failed
 }
 
+enum TaggingTaskType {
+  default
+  test
+}
+
 model TaggingQueueItem {
   id            Int                @id @default(autoincrement())
   teamId        Int
@@ -120,6 +125,7 @@ model TaggingQueueItem {
   assetObjectId Int?
   assetObject   AssetObject?       @relation(fields: [assetObjectId], references: [id], onDelete: SetNull)
   status        TaggingQueueStatus
+  taskType      TaggingTaskType    @default(default) // 任务类型：default=默认任务，test=测试任务
   startsAt      DateTime?          @db.Timestamptz(6)
   endsAt        DateTime?          @db.Timestamptz(6)
   result        Json               @default("{}")

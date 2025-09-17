@@ -68,6 +68,7 @@ export async function startTaggingTasksAction(
             assetObject,
             matchingSources: options?.matchingSources,
             recognitionAccuracy: options?.recognitionAccuracy,
+            taskType: "test",
           });
 
           queueItemIds.push(taggingQueueItem.id);
