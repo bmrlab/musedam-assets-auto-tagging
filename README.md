@@ -104,7 +104,7 @@ pnpm login-url <userId> <userName> <teamId> <teamName> [callbackUrl]
 pnpm login-url
 
 # 使用自定义数据
-pnpm login-url user123 "John Doe" team456 "My Team" "/tagging"
+pnpm login-url "123" "John Doe" "456" "My Team" "/tagging"
 ```
 
 ## 外网访问配置

@@ -16,11 +16,11 @@ async function main() {
     console.log(
       "用法: tsx scripts/login-url.ts <userId> <userName> <teamId> <teamName> [callbackUrl]",
     );
-    console.log("示例: tsx scripts/login-url.ts user123 'John Doe' team456 'My Team' '/tagging'");
+    console.log("示例: tsx scripts/login-url.ts '123' 'John Doe' '456' 'My Team' '/tagging'");
     [musedamUserId, musedamUserName, musedamTeamId, musedamTeamName, callbackUrl] = [
-      "test-user-id",
+      "123",
       "Test User",
-      "test-team-id",
+      "456",
       "Test Team",
       "/",
     ];
