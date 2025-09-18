@@ -32,7 +32,6 @@ export async function POST(request: NextRequest) {
   try {
     // 解析请求体
     const body = await request.json();
-    console.log("body---------", body)
     const {
       teamId: musedamTeamId,
       assetId: musedamAssetId,
@@ -78,7 +77,7 @@ export async function POST(request: NextRequest) {
       const hasIntersection = musedamAsset.parentIds.some((parentId) =>
         musedamFolderIds.some((folderId) => folderId.toString() === String(parentId)),
       );
-      console.log("musedamFolderIds", { musedamFolderIds, musedamAsset, hasIntersection })
+      // console.log("musedamFolderIds", { musedamFolderIds, musedamAsset, hasIntersection });
       if (!hasIntersection) {
         return NextResponse.json(
           {

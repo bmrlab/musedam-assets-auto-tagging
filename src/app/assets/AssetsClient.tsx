@@ -111,7 +111,7 @@ export default function AssetsClient({ initialAssets }: AssetsClientProps) {
                         alt={asset.name}
                         fill
                         sizes="100px" // 这个是图片 optimize 的尺寸，不是前端显示的尺寸
-                        className="object-cover rounded-sm"
+                        className="object-cover rounded-[10px]"
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-muted-foreground">

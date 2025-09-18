@@ -6,8 +6,8 @@ import { MuseDAMID } from "@/musedam/types";
 // 定义全局类型
 const globalForMessage = global as unknown as {
   musedamMessageQueue:
-  | Map<string, { resolve: (result: any) => void; reject: (error: any) => void }>
-  | undefined;
+    | Map<string, { resolve: (result: any) => void; reject: (error: any) => void }>
+    | undefined;
 };
 
 // 创建或获取全局队列
@@ -53,7 +53,7 @@ function initializeMessageListener() {
       const pendingPromises = getPendingPromises();
       // 从队列中找到对应的 promise
       const pendingPromise = pendingPromises.get(message.dispatchId);
-      console.log("message", message)
+      console.log("message", message);
       if (pendingPromise) {
         // 移除已处理的 promise
         pendingPromises.delete(message.dispatchId);
@@ -82,9 +82,15 @@ function initializeMessageListener() {
   });
 }
 
+// 确保在浏览器环境下，模块加载即初始化监听器，避免父窗口过早发消息被丢失
+if (typeof window !== "undefined") {
+  // 该调用会在首次运行时创建全局队列并注册一次 message 监听器
+  getPendingPromises();
+}
+
 // 处理来自父项目的配置更新事件
 function handleParentConfigUpdate(action: string, args: any) {
-  console.log("action", action)
+  console.log("action", action, args);
   switch (action) {
     case "updateLocale":
       if (args?.locale && typeof window !== "undefined") {
@@ -123,14 +129,14 @@ function handleParentConfigUpdate(action: string, args: any) {
 
 type BaseActionResult<T = {}> =
   | {
-    success: true;
-    data: T;
-  }
+      success: true;
+      data: T;
+    }
   | {
-    success: false;
-    message: string;
-    code?: string;
-  };
+      success: false;
+      message: string;
+      code?: string;
+    };
 
 type ActionMap = {
   "member-selector-modal-open": {

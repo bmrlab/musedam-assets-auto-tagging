@@ -7,9 +7,9 @@ export default function TaggingLayout({ children }: { children: React.ReactNode 
   return (
     <SidebarProvider className="h-dvh">
       <AppSidebar />
-      <SidebarInset className="h-full relative">
+      <SidebarInset className="h-full relative overflow-y-scroll scrollbar-thin ">
         <LayoutHeader />
-        <main className="pt-14 pb-5 px-5 flex flex-1 flex-col gap-4 overflow-y-scroll scrollbar-thin bg-muted/30">
+        <main className="pt-[22px] pb-5 px-5 flex flex-1 flex-col gap-4 bg-muted/30">
           {children}
         </main>
       </SidebarInset>

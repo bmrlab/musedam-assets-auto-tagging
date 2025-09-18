@@ -8,12 +8,20 @@ import {
   AssetObjectTags,
   TaggingAuditStatus,
 } from "@/prisma/client";
-import { CheckIcon, DotIcon, Folder, Loader2Icon, Tag as TagIcon, XIcon } from "lucide-react";
+import {
+  CheckIcon,
+  DotIcon,
+  Folder,
+  Loader2Icon,
+  Tag as TagIcon,
+  Timer,
+  XIcon,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 import Image from "next/image";
 import { useCallback, useMemo, useState } from "react";
-import { approveAuditItemsAction, AssetWithAuditItemsBatch } from "./actions";
 import { toast } from "sonner";
+import { approveAuditItemsAction, AssetWithAuditItemsBatch } from "./actions";
 
 export function ReviewItem({ assetObject, batch, onSuccess }: AssetWithAuditItemsBatch) {
   const t = useTranslations("Tagging.Review");
@@ -50,11 +58,11 @@ export function ReviewItem({ assetObject, batch, onSuccess }: AssetWithAuditItem
           auditItems,
           append,
         });
-        toast.success("应用成功")
-        onSuccess?.()
+        toast.success("应用成功");
+        onSuccess?.();
       } catch (error: any) {
         console.log(error);
-        toast.error(error?.message ?? "应用失败")
+        toast.error(error?.message ?? "应用失败");
       } finally {
         setLoading(false);
       }
@@ -87,7 +95,7 @@ export function ReviewItem({ assetObject, batch, onSuccess }: AssetWithAuditItem
             alt={assetObject.name}
             fill
             sizes="100px" // 这个是图片 optimize 的尺寸，不是前端显示的尺寸
-            className="object-cover rounded-sm"
+            className="object-cover rounded-[10px]"
           />
         </div>
 
@@ -128,7 +136,12 @@ export function ReviewItem({ assetObject, batch, onSuccess }: AssetWithAuditItem
               className="rounded-[4px] h-6 bg-primary text-primary-foreground hover:bg-primary/90 border-primary"
             >
               <svg className="size-[14px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
               </svg>
               {t("replace")}
             </Button>
@@ -170,7 +183,8 @@ export function ReviewItem({ assetObject, batch, onSuccess }: AssetWithAuditItem
               <TagIcon className="h-4 w-4" />
               <span className="text-sm font-medium">{t("aiRecommendedTags")}</span>
               <span className="text-xs text-muted-foreground">{t("basedOnTagSystem")}</span>
-              <span className="ml-auto text-xs text-muted-foreground">
+              <span className="ml-auto text-xs text-muted-foreground flex items-center gap-1">
+                <Timer className="size-4" />
                 {formatDate(queueItem.createdAt)}
               </span>
             </div>
@@ -186,10 +200,12 @@ export function ReviewItem({ assetObject, batch, onSuccess }: AssetWithAuditItem
                         auditItem.status === "rejected",
                     },
                     {
-                      "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 border-blue-500 dark:border-blue-800": auditItem.score >= 80,
+                      "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 border-blue-500 dark:border-blue-800":
+                        auditItem.score >= 80,
                       "text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950/30 border-green-500 dark:border-green-800":
                         auditItem.score >= 70 && auditItem.score < 80,
-                      "text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/30 border-orange-500 dark:border-orange-800": auditItem.score < 70,
+                      "text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/30 border-orange-500 dark:border-orange-800":
+                        auditItem.score < 70,
                     },
                   )}
                 >
