@@ -215,6 +215,8 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
                 "cursor-pointer",
                 currentPage === 1 && "pointer-events-none opacity-50",
               )}
+              previousText={tCommon("pagination.previous")}
+              ariaLabel={tCommon("pagination.goToPreviousPage")}
             />
           </PaginationItem>
 
@@ -227,7 +229,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
               </PaginationItem>
               {start > 2 && (
                 <PaginationItem>
-                  <PaginationEllipsis />
+                  <PaginationEllipsis morePagesText={tCommon("pagination.morePages")} />
                 </PaginationItem>
               )}
             </>
@@ -249,7 +251,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
             <>
               {end < totalPages - 1 && (
                 <PaginationItem>
-                  <PaginationEllipsis />
+                  <PaginationEllipsis morePagesText={tCommon("pagination.morePages")} />
                 </PaginationItem>
               )}
               <PaginationItem>
@@ -270,6 +272,8 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
                 "cursor-pointer",
                 currentPage === totalPages && "pointer-events-none opacity-50",
               )}
+              nextText={tCommon("pagination.next")}
+              ariaLabel={tCommon("pagination.goToNextPage")}
             />
           </PaginationItem>
         </PaginationContent>
@@ -331,7 +335,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
             <p className="text-sm text-muted-foreground">
               {t("remainingTasks", {
                 count: totalTasks,
-                total: stats.pending + stats.processing + stats.failed,
+                total: stats.pending + stats.processing,
                 minutes: Math.ceil(
                   ((stats.pending + stats.processing) * stats.avgProcessingTime) / 60,
                 ),

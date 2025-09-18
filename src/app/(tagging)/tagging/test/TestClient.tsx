@@ -170,7 +170,7 @@ export default function TestClient() {
                   processingTime:
                     result.startsAt && result.endsAt
                       ? (new Date(result.endsAt).getTime() - new Date(result.startsAt).getTime()) /
-                        1000
+                      1000
                       : 0,
                   recognitionMode:
                     extra?.recognitionAccuracy === "precise"
@@ -271,7 +271,7 @@ export default function TestClient() {
     return () => {
       stopPolling();
     };
-  }, [stopPolling]);
+  }, []);
 
   const handleAssetSelection = async () => {
     try {
@@ -325,7 +325,7 @@ export default function TestClient() {
         // 开始轮询队列状态
         if (queueItemIds.length > 0) {
           startPolling(queueItemIds);
-          toast.info("正在处理中，请稍候...");
+          // toast.info("正在处理中，请稍候...");
         }
 
         // 不再跳转到review页面，而是在当前页面显示结果

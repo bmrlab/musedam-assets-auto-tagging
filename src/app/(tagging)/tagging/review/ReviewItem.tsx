@@ -13,8 +13,9 @@ import { useTranslations } from "next-intl";
 import Image from "next/image";
 import { useCallback, useMemo, useState } from "react";
 import { approveAuditItemsAction, AssetWithAuditItemsBatch } from "./actions";
+import { toast } from "sonner";
 
-export function ReviewItem({ assetObject, batch }: AssetWithAuditItemsBatch) {
+export function ReviewItem({ assetObject, batch, onSuccess }: AssetWithAuditItemsBatch) {
   const t = useTranslations("Tagging.Review");
   const [loading, setLoading] = useState(false);
   const [rejectedItems, setRejectedItems] = useState<number[]>([]);
@@ -49,8 +50,11 @@ export function ReviewItem({ assetObject, batch }: AssetWithAuditItemsBatch) {
           auditItems,
           append,
         });
-      } catch (error) {
+        toast.success("应用成功")
+        onSuccess?.()
+      } catch (error: any) {
         console.log(error);
+        toast.error(error?.message ?? "应用失败")
       } finally {
         setLoading(false);
       }
@@ -110,17 +114,29 @@ export function ReviewItem({ assetObject, batch }: AssetWithAuditItemsBatch) {
           </div>
         ) : Array.from(auditItemsSet).find((auditItem) => auditItem.status === "pending") ? (
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => approveAuditItems({ append: true })}>
+            <Button
+              size="sm"
+              onClick={() => approveAuditItems({ append: true })}
+              className="rounded-[4px] h-6 bg-primary text-primary-foreground hover:bg-primary/90 border-primary"
+            >
+              <CheckIcon className="size-[14px]" />
               {t("add")}
             </Button>
             <Button
-              variant="outline"
               size="sm"
               onClick={() => approveAuditItems({ append: false })}
+              className="rounded-[4px] h-6 bg-primary text-primary-foreground hover:bg-primary/90 border-primary"
             >
+              <svg className="size-[14px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
               {t("replace")}
             </Button>
-            <Button variant="outline" size="sm">
+            <Button
+              size="sm"
+              className="rounded-[4px] h-6 bg-background text-[var(--ant-danger-6)] border-solid border-[var(--ant-danger-6)] border hover:bg-destructive/10 hover:text-destructive hover:border-destructive"
+            >
+              <XIcon className="size-[14px]" />
               {t("reject")}
             </Button>
           </div>

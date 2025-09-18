@@ -2,6 +2,7 @@ import { slugToId } from "@/lib/slug";
 import { exchangeMuseDAMTeamAPIKey, retrieveTeamCredentials } from "@/musedam/apiKey";
 import { syncAssetsFromMuseDAM, syncSingleAssetFromMuseDAM } from "@/musedam/assets";
 import { syncTagsFromMuseDAM } from "@/musedam/tags/syncFromMuseDAM";
+import { MuseDAMID } from "@/musedam/types";
 import { Team } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 import { loadEnvConfig } from "@next/env";
@@ -47,7 +48,7 @@ describe("MuseDAM API - Test environment", () => {
   it("should query assets successfully", async () => {
     const promise = syncAssetsFromMuseDAM({
       team,
-      musedamFolderId: 29669,
+      musedamFolderId: MuseDAMID.from(29669),
     });
     await expect(promise).resolves.not.toThrow();
   }, 30000);
@@ -55,7 +56,7 @@ describe("MuseDAM API - Test environment", () => {
   it("should query single asset successfully", async () => {
     const promise = syncSingleAssetFromMuseDAM({
       team,
-      musedamAssetId: 6908636,
+      musedamAssetId: MuseDAMID.from(6908636),
     });
     await expect(promise).resolves.not.toThrow();
   }, 30000);

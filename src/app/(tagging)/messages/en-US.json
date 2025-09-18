@@ -51,7 +51,7 @@
         "directDesc": "AI tags are applied directly to assets",
         "review": "Review",
         "reviewDesc": "AI tags require manual review before applying",
-        "firstTimeRecommendation": "First-time use recommendation:",
+        "firstTimeRecommendation": "💡 First-time use recommendation:",
         "firstTimeRecommendationDesc": "Manual review can help evaluate AI tagging effectiveness. Switch to direct application mode once accuracy meets requirements"
       },
       "AIRecognition": {
@@ -91,7 +91,8 @@
         "scope": "AI Tagging Scope",
         "selectScopeDesc": "Click to select the asset scope for enabling AI auto-tagging",
         "currentAndNewAssets": "Current folder and newly uploaded assets",
-        "onlySelectedScope": "Only assets within the selected scope will undergo AI auto-tagging"
+        "onlySelectedScope": "💡 Only assets within the selected scope will undergo AI auto-tagging",
+        "removeFolder": "Remove"
       }
     },
     "Review": {
@@ -117,7 +118,8 @@
       "searchPlaceholder": "Search names or tags",
       "loading": "Loading...",
       "noAssetsToReview": "No assets to review",
-      "refreshDataFailed": "Failed to refresh data"
+      "refreshDataFailed": "Failed to refresh data",
+      "paginationInfo": "Showing {current} - {total} of {totalCount} items"
     },
     "Access": {
       "roleAndPermissions": "Role & Permissions",
@@ -192,7 +194,14 @@
       "refreshDataFailed": "Failed to refresh data",
       "retryTasksSuccess": "{count} failed tasks have been retried",
       "retryFailed": "Retry failed",
-      "taskAddedToQueue": "Task has been added back to queue"
+      "taskAddedToQueue": "Task has been added back to queue",
+      "pagination": {
+        "previous": "Previous",
+        "next": "Next",
+        "goToPreviousPage": "Go to previous page",
+        "goToNextPage": "Go to next page",
+        "morePages": "More pages"
+      }
     }
   }
 }

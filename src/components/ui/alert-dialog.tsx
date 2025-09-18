@@ -42,7 +42,8 @@ function AlertDialogContent({
 }: React.ComponentProps<typeof AlertDialogPrimitive.Content>) {
   return (
     <AlertDialogPortal>
-      <AlertDialogOverlay />
+      {/* 暂时隐藏蒙层 */}
+      {/* <AlertDialogOverlay /> */}
       <AlertDialogPrimitive.Content
         data-slot="alert-dialog-content"
         className={cn(

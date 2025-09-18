@@ -1,9 +1,11 @@
 "use client";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Plus } from "lucide-react";
+import { List, Plus } from "lucide-react";
 import { TagNode } from "../types";
 import { TagItem } from "./TagItem";
+import { TagSortModal } from "./TagSortModal";
+import { useState } from "react";
 
 interface TagColumnProps {
   title: string;
@@ -26,6 +28,7 @@ interface TagColumnProps {
   canEdit?: boolean
   totalCount?: number
   showAiTags?: boolean
+  onSortTags?: (level: 1 | 2 | 3, sortedTags: TagNode[]) => void
 }
 
 export function TagColumn({
@@ -47,26 +50,45 @@ export function TagColumn({
   hasDetailChanges,
   canEdit,
   totalCount,
-  showAiTags
+  showAiTags,
+  onSortTags
 }: TagColumnProps) {
-  // const activeTags = tags.filter((tag) => !tag.isDeleted);
-  // const totalCount = tags.length;
+  const [sortTagOpen, setSortTagOpen] = useState(false)
+
+  // 处理排序确认
+  const handleSortConfirm = (sortedTags: TagNode[]) => {
+    if (onSortTags) {
+      onSortTags(level, sortedTags);
+    }
+    setSortTagOpen(false);
+  };
+
 
   return (
     <div className={cn("flex flex-col items-stretch overflow-hidden", className)}>
       {/* 标题栏 */}
       <div className="flex items-center justify-start px-4 py-3 text-muted-foreground">
-        <div className="text-sm">{title}</div>
+        <div className="text-sm ">{title}</div>
         <span className="text-xs">({totalCount})</span>
-        {canEdit && <Button
-          size="sm"
-          variant="ghost"
-          onClick={() => onAddTag(level)}
-          disabled={!canAdd}
-          className="ml-auto h-6 w-6 p-0"
-        >
-          <Plus className="h-3 w-3" />
-        </Button>}
+        {canEdit && <div className="flex items-center justify-end gap-1 flex-1">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setSortTagOpen(true)}
+            className=" h-6 w-6 p-0"
+          >
+            <List className="h-3 w-3" />
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => onAddTag(level)}
+            disabled={!canAdd}
+            className="h-6 w-6 p-0"
+          >
+            <Plus className="h-3 w-3" />
+          </Button>
+        </div>}
       </div>
 
       {/* 标签列表 */}
@@ -111,6 +133,15 @@ export function TagColumn({
           </div>
         </div>
       }
+
+      {/* 标签排序弹窗 */}
+      <TagSortModal
+        open={sortTagOpen}
+        onClose={() => setSortTagOpen(false)}
+        onConfirm={handleSortConfirm}
+        tags={tags}
+        level={level}
+      />
     </div>
   );
 }

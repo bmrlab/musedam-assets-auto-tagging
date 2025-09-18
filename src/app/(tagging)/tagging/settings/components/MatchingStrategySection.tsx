@@ -19,66 +19,54 @@ export function MatchingStrategySection({
 }: MatchingStrategySectionProps) {
   const t = useTranslations("Tagging.Settings.MatchingStrategy");
 
+  const sections: {
+    key: keyof MatchingSources;
+    title: string;
+    desc: string;
+  }[] = [
+      {
+        key: "materializedPath",
+        title: t("filePathMatching"),
+        desc: t("filePathMatchingDesc")
+      },
+      {
+        key: "basicInfo",
+        title: t("assetNameMatching"),
+        desc: t("assetNameMatchingDesc")
+      },
+      {
+        key: "contentAnalysis",
+        title: t("aiGenerated"),
+        desc: t("aiGeneratedDesc")
+      },
+      {
+        key: "tagKeywords",
+        title: t("existingTags"),
+        desc: t("existingTagsDesc")
+      }
+    ]
   return (
     <div className="space-y-6">
       {/* 匹配策略选择 */}
       <div className="bg-background border rounded-lg">
         <div className="px-4 py-3 border-b">
-          <h3 className="font-medium text-sm">{t("title")}</h3>
+          <h3 className="font-medium text-base">{t("title")}</h3>
         </div>
         <div className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="flex items-start space-x-3 p-3 border rounded-lg">
-              <Checkbox
-                checked={matchingSources.materializedPath}
-                onCheckedChange={(checked) =>
-                  onSourceChange("materializedPath", checked as boolean)
-                }
-                className="mt-0.5"
-              />
-              <div>
-                <h3 className="font-medium">{t("filePathMatching")}</h3>
-                <p className="text-sm text-muted-foreground">
-                  {t("filePathMatchingDesc")}
-                </p>
+            {sections.map(({ key, title, desc }) => {
+              return <div className="flex items-start space-x-2 p-4 border rounded-lg bg-[var(--ant-basic-1)]" key={key}>
+                <Checkbox
+                  checked={matchingSources[key]}
+                  onCheckedChange={(checked) => onSourceChange(key, checked as boolean)}
+                  className="mt-0.5"
+                />
+                <div>
+                  <h3 className="font-medium text-sm leading-[22px] mb-1">{title}</h3>
+                  <p className="text-xs text-[var(--ant-basic-5)]">{desc}</p>
+                </div>
               </div>
-            </div>
-
-            <div className="flex items-start space-x-3 p-3 border rounded-lg">
-              <Checkbox
-                checked={matchingSources.basicInfo}
-                onCheckedChange={(checked) => onSourceChange("basicInfo", checked as boolean)}
-                className="mt-0.5"
-              />
-              <div>
-                <h3 className="font-medium">{t("assetNameMatching")}</h3>
-                <p className="text-sm text-muted-foreground">{t("assetNameMatchingDesc")}</p>
-              </div>
-            </div>
-
-            <div className="flex items-start space-x-3 p-3 border rounded-lg">
-              <Checkbox
-                checked={matchingSources.contentAnalysis}
-                onCheckedChange={(checked) => onSourceChange("contentAnalysis", checked as boolean)}
-                className="mt-0.5"
-              />
-              <div>
-                <h3 className="font-medium">{t("aiGenerated")}</h3>
-                <p className="text-sm text-muted-foreground">{t("aiGeneratedDesc")}</p>
-              </div>
-            </div>
-
-            <div className="flex items-start space-x-3 p-3 border rounded-lg">
-              <Checkbox
-                checked={matchingSources.tagKeywords}
-                onCheckedChange={(checked) => onSourceChange("tagKeywords", checked as boolean)}
-                className="mt-0.5"
-              />
-              <div>
-                <h3 className="font-medium">{t("existingTags")}</h3>
-                <p className="text-sm text-muted-foreground">{t("existingTagsDesc")}</p>
-              </div>
-            </div>
+            })}
           </div>
         </div>
       </div>

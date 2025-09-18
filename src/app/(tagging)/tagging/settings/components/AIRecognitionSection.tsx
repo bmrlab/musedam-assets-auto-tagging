@@ -12,7 +12,33 @@ export function AIRecognitionSection({
   onRecognitionAccuracyChange,
 }: AIRecognitionSectionProps) {
   const t = useTranslations("Tagging.Settings.AIRecognition");
-
+  const items: {
+    key: "precise" | "balanced" | "broad";
+    title: string;
+    confidence: string;
+    des: string;
+    isRecommended?: boolean;
+  }[] = [
+      {
+        key: "precise",
+        title: t("precise"),
+        confidence: "80-100%",
+        des: t("preciseDesc")
+      },
+      {
+        key: "balanced",
+        title: t("balanced"),
+        confidence: "70-100%",
+        des: t("balancedDesc"),
+        isRecommended: true
+      },
+      {
+        key: "broad",
+        title: t("broad"),
+        confidence: "60-100%",
+        des: t("broadDesc")
+      }
+    ]
   return (
     <div className="space-y-6">
       {/* AI 识别设置 */}
@@ -23,64 +49,31 @@ export function AIRecognitionSection({
         </div>
         <div className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div
-              className={cn(
-                "border rounded-lg p-6 cursor-pointer transition-all",
-                recognitionAccuracy === "precise"
-                  ? "border-primary bg-primary/5"
-                  : "border-border hover:border-primary/50",
-              )}
-              onClick={() => onRecognitionAccuracyChange("precise")}
-            >
-              <div className="text-center space-y-3">
-                <h3 className="font-medium">{t("precise")}</h3>
-                <div className="text-sm font-medium text-blue-600 dark:text-blue-400">
-                  80-100% {t("confidence")}
+            {items.map((item) => {
+              return <div
+                key={item.key}
+                className={cn(
+                  "border rounded-lg p-4 cursor-pointer transition-all relative ease-in-out duration-300",
+                  recognitionAccuracy === item.key
+                    ? "border-[var(--ant-primary-6)] bg-[var(--ant-primary-1)] ring-1 ring-[var(--ant-primary-6)]"
+                    : "border-border hover:border-[var(--ant-primary-6)]",
+                )}
+                onClick={() => onRecognitionAccuracyChange(item.key)}
+              >
+                <div className="text-center">
+                  <div className="flex items-center justify-center gap-2 ">
+                    <h3 className="font-medium text-sm mb-[6px]">{item.title}</h3>
+                    {item.isRecommended && <span className="bg-[#F9F0FF] text-xs text-[#722ED1] border border-solid border-[#D3ADF7] px-[6px] py-[2px] rounded absolute top-[10px] right-[10px]">
+                      {t('recommended')}
+                    </span>}
+                  </div>
+                  <div className="text-xs font-medium text-[var(--ant-primary-6)] mb-1">
+                    {item.confidence} {t("confidence")}
+                  </div>
+                  <p className="text-xs text-[var(--ant-basic-5)]">{item.des}</p>
                 </div>
-                <p className="text-xs text-muted-foreground">{t("preciseDesc")}</p>
               </div>
-            </div>
-
-            <div
-              className={cn(
-                "border rounded-lg p-6 cursor-pointer transition-all relative",
-                recognitionAccuracy === "balanced"
-                  ? "border-primary bg-primary/5"
-                  : "border-border hover:border-primary/50",
-              )}
-              onClick={() => onRecognitionAccuracyChange("balanced")}
-            >
-              <div className="text-center space-y-3">
-                <div className="flex items-center justify-center gap-2">
-                  <h3 className="font-medium">{t("balanced")}</h3>
-                  <span className="bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded">
-                    {t("recommended")}
-                  </span>
-                </div>
-                <div className="text-sm font-medium text-blue-600 dark:text-blue-400">
-                  70-100% {t("confidence")}
-                </div>
-                <p className="text-xs text-muted-foreground">{t("balancedDesc")}</p>
-              </div>
-            </div>
-
-            <div
-              className={cn(
-                "border rounded-lg p-6 cursor-pointer transition-all",
-                recognitionAccuracy === "broad"
-                  ? "border-primary bg-primary/5"
-                  : "border-border hover:border-primary/50",
-              )}
-              onClick={() => onRecognitionAccuracyChange("broad")}
-            >
-              <div className="text-center space-y-3">
-                <h3 className="font-medium">{t("broad")}</h3>
-                <div className="text-sm font-medium text-blue-600 dark:text-blue-400">
-                  60-100% {t("confidence")}
-                </div>
-                <p className="text-xs text-muted-foreground">{t("broadDesc")}</p>
-              </div>
-            </div>
+            })}
           </div>
         </div>
       </div>

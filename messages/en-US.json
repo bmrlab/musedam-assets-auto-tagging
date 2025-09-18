@@ -4,12 +4,14 @@
   },
   "Components": {},
   "TagsPage": {
+    "sortSuccess": "Tags sorted successfully",
+    "sortFailed": "Failed to sort tags",
     "tagManagement": "Tag management",
     "searchPlaceholder": "Search tags",
     "noSearchResults": "No matching tags found",
     "searchResults": "Search Results",
     "aiAutoTagging": "AI Auto Tagging",
-    "saveChanges": "Save Changes",
+    "saveChanges": "Save",
     "saving": "Saving...",
     "aiAssistant": "AI Assistant",
     "batchCreate": "Batch Create",
@@ -40,7 +42,10 @@
       "toBeDeleted": "To be deleted",
       "edited": "Edited",
       "rename": "Rename",
-      "delete": "Delete"
+      "delete": "Delete",
+      "deleteConfirmTitle": "Delete Tag",
+      "deleteConfirmDescription": "Are you sure you want to delete the tag \"{tagName}\"?",
+      "confirmDelete": "Confirm Delete"
     },
     "TagDetails": {
       "add": "Add",
@@ -102,5 +107,10 @@
     "matchingSource": "Matching Source",
     "confidence": "Confidence",
     "score": "Score"
+  },
+  "SmartTags": {
+    "title": "Smart Tags",
+    "rename": "Rename",
+    "delete": "Delete"
   }
 }

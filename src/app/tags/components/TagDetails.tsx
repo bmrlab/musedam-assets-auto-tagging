@@ -6,19 +6,24 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import type { AssetTagExtra } from "@/prisma/client";
 import { AssetTag } from "@/prisma/client";
-import { Plus, X } from "lucide-react";
+import { Edit, Edit2, InfoIcon, Plus, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
 import { TagEditData, useTagEdit } from "../contexts/TagEditContext";
+import { updateTagExtra } from "../actions";
+import { toast } from "sonner";
+import { Tooltip } from "recharts";
 
 // 组件Props类型
 interface TagDetailsProps {
   selectedTag: { tag: AssetTag; level: number } | null;
+  refreshTags: () => void
 }
 
-export function TagDetails({ selectedTag }: TagDetailsProps) {
+export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
   const t = useTranslations("TagsPage.TagDetails");
-  const { getTagEditData, updateTagData, isTagEdited } = useTagEdit();
+  const tRoot = useTranslations("TagsPage");
+  const { getTagEditData, isTagEdited } = useTagEdit();
 
   // 本地表单状态
   const [formData, setFormData] = useState<TagEditData>({
@@ -27,6 +32,9 @@ export function TagDetails({ selectedTag }: TagDetailsProps) {
     keywords: [],
     negativeKeywords: [],
   });
+
+  // 编辑态
+  const [isEditing, setIsEditing] = useState(false);
 
   // 关键词输入状态
   const [keywordsInputValue, setKeywordsInputValue] = useState("");
@@ -62,17 +70,16 @@ export function TagDetails({ selectedTag }: TagDetailsProps) {
     if (selectedTag?.tag.id) {
       const editedData = getTagEditData(selectedTag.tag.id);
       const originalData = getOriginalData(selectedTag.tag);
-
-      // 如果有编辑数据，使用编辑数据；否则使用原始数据
       setFormData(editedData || originalData);
+      setIsEditing(false);
     } else {
-      // 没有选中标签时重置
       setFormData({
         name: "",
         description: "",
         keywords: [],
         negativeKeywords: [],
       });
+      setIsEditing(false);
     }
   }, [selectedTag?.tag.id, selectedTag?.tag, getTagEditData, getOriginalData]);
 
@@ -80,11 +87,6 @@ export function TagDetails({ selectedTag }: TagDetailsProps) {
   const updateField = (field: keyof TagEditData, value: string | string[]) => {
     const newFormData = { ...formData, [field]: value };
     setFormData(newFormData);
-
-    // 同时更新Context中的数据
-    if (selectedTag?.tag.id) {
-      updateTagData(selectedTag.tag.id, newFormData);
-    }
   };
 
   // 添加关键词
@@ -190,14 +192,58 @@ export function TagDetails({ selectedTag }: TagDetailsProps) {
   // 检查是否被编辑过
   const hasChanges = selectedTag.tag.id ? isTagEdited(selectedTag.tag.id) : false;
 
+  const handleStartEdit = () => {
+    setIsEditing(true);
+  };
+
+  const handleCancel = () => {
+    if (selectedTag?.tag) {
+      const originalData = getOriginalData(selectedTag.tag);
+      setFormData(originalData);
+    }
+    setIsEditing(false);
+  };
+
+  const handleSave = async () => {
+    if (!selectedTag?.tag?.id) return;
+    try {
+      const res = await updateTagExtra(selectedTag.tag.id, {
+        name: formData.name,
+        description: formData.description,
+        keywords: formData.keywords,
+        negativeKeywords: formData.negativeKeywords,
+      });
+      if (res.success) {
+        toast.success(tRoot("saveSuccess"));
+        refreshTags()
+        setIsEditing(false);
+      } else {
+        toast.error(res.message || tRoot("saveFailed"));
+      }
+    } catch (e) {
+      toast.error(tRoot("saveFailed"));
+    }
+  };
+
   return (
     <div className="w-[18rem] bg-background border rounded-md flex flex-col items-stretch overflow-hidden">
       {/* 标题栏 */}
       <div className="border-b px-4 py-2 font-medium flex items-center justify-between">
         <span>{t("tagDetails")}</span>
-        {hasChanges && (
-          <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded">{t("modified")}</span>
+        {!isEditing ? (
+          <Button onClick={handleStartEdit}>
+            <Edit />
+            编辑
+          </Button>
+        ) : (
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" onClick={handleCancel}>{tRoot("cancel")}</Button>
+            <Button onClick={handleSave}>{tRoot("saveChanges")}</Button>
+          </div>
         )}
+        {/* {hasChanges && (
+          <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded">{t("modified")}</span>
+        )} */}
       </div>
 
       {/* 表单内容 */}
@@ -205,29 +251,41 @@ export function TagDetails({ selectedTag }: TagDetailsProps) {
         {/* 标签名称 */}
         <div className="space-y-2">
           <Label className="text-sm font-medium">{t("tagName")}</Label>
-          <Input
-            value={formData.name}
-            onChange={(e) => updateField("name", e.target.value)}
-            placeholder="海报设计"
-          />
+          {isEditing ? (
+            <Input
+              value={formData.name}
+              onChange={(e) => updateField("name", e.target.value)}
+              placeholder="海报设计"
+            />
+          ) : (
+            <div className="text-sm text-foreground/90 min-h-9 flex items-center px-3 py-2 border rounded-md bg-muted/30">
+              {formData.name || "-"}
+            </div>
+          )}
         </div>
 
         {/* 标签描述 */}
         <div className="space-y-2">
           <Label className="text-sm font-medium">{t("tagDescription")}</Label>
-          <Textarea
-            value={formData.description}
-            onChange={(e) => updateField("description", e.target.value)}
-            placeholder={t("tagDescriptionPlaceholder")}
-            className="min-h-[80px] resize-none"
-          />
+          {isEditing ? (
+            <Textarea
+              value={formData.description}
+              onChange={(e) => updateField("description", e.target.value)}
+              placeholder={t("tagDescriptionPlaceholder")}
+              className="min-h-[80px] resize-none"
+            />
+          ) : (
+            <div className="text-sm text-foreground/90 whitespace-pre-wrap px-3 py-2 border rounded-md bg-muted/30 min-h-[80px]">
+              {formData.description || "-"}
+            </div>
+          )}
         </div>
 
         {/* AI自动打标 */}
         <div className="space-y-2">
           <Label className="text-sm font-medium">{t("aiAutoTagging")}</Label>
           <div className="flex items-center gap-2">
-            <Switch defaultChecked />
+            <Switch defaultChecked disabled={!isEditing} />
             <span className="text-sm text-muted-foreground">{t("aiAutoTaggingEnabled")}</span>
           </div>
         </div>
@@ -239,13 +297,28 @@ export function TagDetails({ selectedTag }: TagDetailsProps) {
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 w-6 p-0 text-blue-500 dark:text-blue-400"
+              className="h-6 w-6 p-0"
+
               title={t("matchingKeywordsTooltip")}
             >
-              ℹ️
+              <InfoIcon />
             </Button>
           </div>
-          {renderKeywordList("keywords", t("inputKeywords"))}
+          {isEditing ? (
+            renderKeywordList("keywords", t("inputKeywords"))
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {formData.keywords.length > 0 ? (
+                formData.keywords.map((keyword, index) => (
+                  <div key={index} className="inline-flex items-center gap-1 bg-muted rounded-md px-2 py-1 text-sm">
+                    <span>{keyword}</span>
+                  </div>
+                ))
+              ) : (
+                <span className="text-sm text-muted-foreground">-</span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* 排除关键词 */}
@@ -255,13 +328,27 @@ export function TagDetails({ selectedTag }: TagDetailsProps) {
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 w-6 p-0 text-blue-500 dark:text-blue-400"
+              className="h-6 w-6 p-0"
               title={t("excludeKeywordsTooltip")}
             >
-              ℹ️
+              <InfoIcon />
             </Button>
           </div>
-          {renderKeywordList("negativeKeywords", t("inputKeywords"))}
+          {isEditing ? (
+            renderKeywordList("negativeKeywords", t("inputKeywords"))
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {formData.negativeKeywords.length > 0 ? (
+                formData.negativeKeywords.map((keyword, index) => (
+                  <div key={index} className="inline-flex items-center gap-1 bg-muted rounded-md px-2 py-1 text-sm">
+                    <span>{keyword}</span>
+                  </div>
+                ))
+              ) : (
+                <span className="text-sm text-muted-foreground">-</span>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

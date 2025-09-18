@@ -47,6 +47,9 @@ interface ThreeTagListProps {
     // 样式
     className?: string;
     canEdit?: boolean
+
+    // 排序回调
+    onSortTags?: (level: 1 | 2 | 3, sortedTags: TagNode[]) => void
 }
 
 export function ThreeTagList({
@@ -73,7 +76,9 @@ export function ThreeTagList({
     showAdd = true,
     showAiTags = true,
     className,
-    canEdit, title
+    canEdit,
+    title,
+    onSortTags
 }: ThreeTagListProps) {
     const t = useTranslations("TagsPage");
 
@@ -109,6 +114,7 @@ export function ThreeTagList({
                     canEdit={canEdit}
                     totalCount={total1}
                     showAiTags={showAiTags}
+                    onSortTags={onSortTags}
                 />
 
                 {/* 第二列 - 标签 */}
@@ -136,6 +142,7 @@ export function ThreeTagList({
                             hasDetailChanges={hasDetailChanges}
                             canEdit={canEdit}
                             totalCount={total2}
+                            onSortTags={onSortTags}
                         />
 
                         {/* 第三列 - 标签 */}
@@ -157,6 +164,7 @@ export function ThreeTagList({
                             hasDetailChanges={hasDetailChanges}
                             canEdit={canEdit}
                             totalCount={total3}
+                            onSortTags={onSortTags}
                         />
                     </>
                 )}

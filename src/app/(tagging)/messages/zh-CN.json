@@ -6,7 +6,7 @@
     "Sidebar": {
       "dashboard": "控制面板",
       "review": "AI打标审核",
-      "settings": "AI打标设置",
+      "settings": "AI 打标设置",
       "access": "权限管理",
       "test": "测试打标"
     },
@@ -31,7 +31,7 @@
       "paginationInfo": "{current} / {total} 条"
     },
     "Settings": {
-      "title": "打标开关",
+      "title": "全局设置",
       "saveSettings": "保存设置",
       "saving": "保存中...",
       "settingsSaved": "设置已保存",
@@ -40,38 +40,38 @@
       "newApplicationScope": "新的应用范围状态:",
       "selectedFoldersCount": "选择的文件夹数量:",
       "Global": {
-        "title": "全局设置",
-        "enableTagging": "启用打标",
-        "enableTaggingDesc": "为资产启用AI自动打标",
+        "title": "打标开关",
+        "enableTagging": "AI 自动打标引擎",
+        "enableTaggingDesc": "开启中，AI 将可根据配置及系统标签体系对资产进行打标",
         "manageTagSystem": "管理标签体系"
       },
       "TaggingMode": {
         "title": "打标模式",
-        "direct": "直接",
-        "directDesc": "AI标签直接应用到资产",
-        "review": "审核",
-        "reviewDesc": "AI标签需要人工审核后应用",
-        "firstTimeRecommendation": "初次使用建议审核模式：",
+        "direct": "直接应用",
+        "directDesc": "AI 打标直接应用到资产标签",
+        "review": "审核模式",
+        "reviewDesc": "需人工审核后应用到资产标签",
+        "firstTimeRecommendation": "💡 初次使用建议审核模式：",
         "firstTimeRecommendationDesc": "通过人工审核可以评估 AI 打标效果，待准确率满足要求后在切换为直接应用模式"
       },
       "AIRecognition": {
-        "title": "AI识别",
-        "precise": "精准",
-        "preciseDesc": "高准确性，较少标签（≥80%置信度）",
-        "balanced": "平衡",
-        "balancedDesc": "平衡准确性与覆盖度（≥60%置信度）",
-        "broad": "宽泛",
-        "broadDesc": "高覆盖度，更多标签（≥40%置信度）",
+        "title": "AI 识别设置",
+        "precise": "精准模式",
+        "preciseDesc": "优先准确性，适合打标要求严格的场景",
+        "balanced": "平衡模式",
+        "balancedDesc": "平衡标签准确性与覆盖度，适合日常大多数场景",
+        "broad": "宽泛模式",
+        "broadDesc": "优先标签覆盖度，适合内容初步分类",
         "confidence": "置信度",
         "recommended": "推荐"
       },
       "MatchingStrategy": {
-        "title": "匹配策略",
+        "title": "匹配策略选择",
         "desc": "选择标签匹配来源",
-        "existingTags": "已有标签",
-        "existingTagsDesc": "从系统已有标签中匹配",
-        "aiGenerated": "AI生成",
-        "aiGeneratedDesc": "使用AI生成新标签",
+        "existingTags": "标签关键词匹配",
+        "existingTagsDesc": "基于预设关键词进行精准匹配",
+        "aiGenerated": "素材内容匹配",
+        "aiGeneratedDesc": "AI 分析文件内容进行智能识别",
         "customKeywords": "自定义关键词",
         "customKeywordsDesc": "从自定义关键词库中匹配",
         "filePathMatching": "文件类路径匹配",
@@ -80,7 +80,7 @@
         "assetNameMatchingDesc": "分析文件名称中的关键信息进行匹配"
       },
       "ApplicationScope": {
-        "title": "应用范围",
+        "title": "应用范围设置",
         "allAssets": "全部资产",
         "allAssetsDesc": "应用到系统中的所有资产",
         "specificFolders": "指定文件夹",
@@ -91,12 +91,13 @@
         "scope": "AI 打标范围",
         "selectScopeDesc": "点击选择要启用 AI 自动打标的资产范围",
         "currentAndNewAssets": "当前文件夹及新上传的素材",
-        "onlySelectedScope": "仅选中的范围内的素材会进行 AI 自动打标"
+        "onlySelectedScope": "💡 仅选中的范围内的素材才会被 AI 自动打标",
+        "removeFolder": "移除"
       }
     },
     "Review": {
       "add": "添加",
-      "replace": "置盖",
+      "replace": "覆盖",
       "reject": "拒绝",
       "tags": "标签",
       "aiRecommendedTags": "AI 推荐标签",
@@ -117,7 +118,8 @@
       "searchPlaceholder": "搜索名称或标签",
       "loading": "加载中...",
       "noAssetsToReview": "暂无待审核的素材",
-      "refreshDataFailed": "刷新数据失败"
+      "refreshDataFailed": "刷新数据失败",
+      "paginationInfo": "显示第 {current} - {total} 条，共 {totalCount} 条"
     },
     "Access": {
       "roleAndPermissions": "角色与权限",
@@ -192,7 +194,14 @@
       "refreshDataFailed": "刷新数据失败:",
       "retryTasksSuccess": "已重试 {count} 个失败任务",
       "retryFailed": "重试失败",
-      "taskAddedToQueue": "任务已重新加入队列"
+      "taskAddedToQueue": "任务已重新加入队列",
+      "pagination": {
+        "previous": "上一页",
+        "next": "下一页",
+        "goToPreviousPage": "转到上一页",
+        "goToNextPage": "转到下一页",
+        "morePages": "更多页面"
+      }
     }
   }
 }

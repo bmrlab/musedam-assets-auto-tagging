@@ -18,6 +18,7 @@ export type AssetWithAuditItemsBatch = {
     queueItem: TaggingQueueItem;
     taggingAuditItems: (Omit<TaggingAuditItem, "tagPath"> & { tagPath: string[] })[];
   }[];
+  onSuccess?: () => void
 };
 
 export async function fetchAssetsWithAuditItems(
@@ -29,8 +30,10 @@ export async function fetchAssetsWithAuditItems(
 ): Promise<
   ServerActionResult<{
     assets: AssetWithAuditItemsBatch[];
-    // total: number;
-    // hasMore: boolean;
+    total: number;
+    hasMore: boolean;
+    currentPage: number;
+    totalPages: number;
   }>
 > {
   return withAuth(async ({ team: { id: teamId } }) => {
@@ -68,7 +71,17 @@ export async function fetchAssetsWithAuditItems(
         };
       }
 
-      // 先获取有审核项的资产ID
+      // 先获取总数 - 使用 findMany 然后计算去重后的数量
+      const distinctAssetIds = await prisma.taggingAuditItem.findMany({
+        where: auditItemWhere,
+        select: {
+          assetObjectId: true,
+        },
+        distinct: ["assetObjectId"],
+      });
+      const totalCount = distinctAssetIds.length;
+
+      // 获取有审核项的资产ID
       const assetObjectIds = (
         await prisma.taggingAuditItem.findMany({
           where: auditItemWhere,
@@ -84,13 +97,18 @@ export async function fetchAssetsWithAuditItems(
         })
       ).map((item) => item.assetObjectId!);
 
+      const totalPages = Math.ceil(totalCount / limit);
+      const hasMore = page < totalPages;
+
       if (assetObjectIds.length === 0) {
         return {
           success: true,
           data: {
             assets: [],
-            // total: 0,
-            // hasMore: false,
+            total: totalCount,
+            hasMore: false,
+            currentPage: page,
+            totalPages,
           },
         };
       }
@@ -132,13 +150,14 @@ export async function fetchAssetsWithAuditItems(
         });
       }
 
-      // const hasMore = offset + assets.length < totalCount;
       return {
         success: true,
         data: {
           assets: results,
-          // total: totalCount,
-          // hasMore,
+          total: totalCount,
+          hasMore,
+          currentPage: page,
+          totalPages,
         },
       };
     } catch (error) {

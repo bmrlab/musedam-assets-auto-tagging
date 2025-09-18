@@ -85,29 +85,50 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
 
   const handleFolderSelection = async () => {
     try {
-      const res = await dispatchMuseDAMClientAction("folder-selector-modal-open", {});
+      const res = await dispatchMuseDAMClientAction("folder-selector-modal-open", {
+        initialSelectedFolders: applicationScope.selectedFolders?.map((item) => ({
+          id: item.slug.replace('f/', ''),
+          name: item.name,
+        })),
+        allMaterials: applicationScope.scopeType === "all",
+      });
       const { allMaterials, selectedFolders } = res;
       // console.log("allMaterials:", allMaterials, "selectedFolders:", selectedFolders);
-      if (allMaterials) {
-        setApplicationScope((prev) => ({
+      // if (allMaterials) {
+      //   setApplicationScope((prev) => ({
+      //     ...prev,
+      //     scopeType: "all",
+      //     selectedFolders: [],
+      //   }));
+      // } else if (selectedFolders && Array.isArray(selectedFolders) && selectedFolders.length > 0) {
+      //   setApplicationScope((prev) => {
+      //     const scopeType:"all" | "specific" =  allMaterials ? "all" : "specific"
+      //     const newScope = {
+      //       ...prev,
+      //       scopeType:scopeType,
+      //       selectedFolders: selectedFolders.map((folder) => ({
+      //         slug: idToSlug("assetFolder", folder.id),
+      //         name: folder.name,
+      //       })),
+      //     };
+      //     console.log(t("newApplicationScope"), newScope);
+      //     return newScope;
+      // });
+      // }
+
+      setApplicationScope((prev) => {
+        const scopeType: "all" | "specific" = allMaterials ? "all" : "specific"
+        const newScope = {
           ...prev,
-          scopeType: "all",
-          selectedFolders: [],
-        }));
-      } else if (selectedFolders && Array.isArray(selectedFolders) && selectedFolders.length > 0) {
-        setApplicationScope((prev) => {
-          const newScope = {
-            ...prev,
-            scopeType: "specific" as const,
-            selectedFolders: selectedFolders.map((folder) => ({
-              slug: idToSlug("assetFolder", folder.id),
-              name: folder.name,
-            })),
-          };
-          console.log(t("newApplicationScope"), newScope);
-          return newScope;
-        });
-      }
+          scopeType: scopeType,
+          selectedFolders: selectedFolders.map((folder) => ({
+            slug: idToSlug("assetFolder", folder.id),
+            name: folder.name,
+          })),
+        };
+        console.log(t("newApplicationScope"), newScope);
+        return newScope;
+      });
       setHasChanges(true);
     } catch (error) {
       console.error(t("selectFoldersFailed"), error);
@@ -129,7 +150,7 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
   }, [applicationScope, t]);
 
   return (
-    <div className="space-y-6 p-6 max-w-5xl mx-auto">
+    <div className="space-y-3">
       <SettingsHeader hasChanges={hasChanges} isPending={isPending} onSave={handleSaveSettings} />
 
       <GlobalSettingsSection

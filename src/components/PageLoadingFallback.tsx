@@ -1,6 +1,7 @@
 "use client";
 import { Progress } from "@/components/ui/progress";
 import { useEffect, useState } from "react";
+import { Spin } from "./ui/spin";
 
 export function PageLoadingFallback() {
   const [progress, setProgress] = useState(0);
@@ -16,6 +17,10 @@ export function PageLoadingFallback() {
       clearTimeout(timer3);
     };
   }, []);
+
+  return <div className="h-full w-full flex items-center justify-center">
+    <Spin variant="dots" size="small" />
+  </div>
 
   return (
     <>

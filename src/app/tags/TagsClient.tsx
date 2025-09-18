@@ -518,7 +518,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
     );
   };
 
-  // 删除标签（标记删除）
+  // 删除标签
   const deleteTag = async (nodeId: string) => {
     const context = findNodeContext(tagsTree, nodeId);
     if (!context || isSaving) return;
@@ -566,7 +566,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
         isDeleted: true,
         verb: "delete",
       };
-
+      console.log("nodeToSave", nodeToSave)
       const result = await saveSingleTagChange(nodeToSave, parentId, level);
 
       if (result.success) {
@@ -756,6 +756,47 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
     [editedTags],
   );
 
+  // 处理标签排序
+  const handleSortTags = useCallback(async (level: 1 | 2 | 3, sortedTags: TagNode[]) => {
+    try {
+      setIsSaving(true);
+
+      // 这里需要实现排序保存逻辑
+      // 可以根据需要调用相应的API来保存排序
+      console.log(`Sorting level ${level} tags:`, sortedTags);
+
+      // 更新本地状态
+      setTagsTree((tree) => {
+        const updateTree = (nodes: TagNode[]): TagNode[] => {
+          if (level === 1) {
+            // 更新一级标签排序
+            return sortedTags;
+          } else {
+            // 递归更新子级标签排序
+            return nodes.map(node => ({
+              ...node,
+              children: level === 2 && getNodeId(node) === selectedLevel1Id
+                ? sortedTags
+                : level === 3 && getNodeId(node) === selectedLevel2Id
+                  ? sortedTags
+                  : updateTree(node.children)
+            }));
+          }
+        };
+
+        return updateTree(tree);
+      });
+
+      toast.success(t("sortSuccess"));
+
+    } catch (error) {
+      console.error("Sort tags error:", error);
+      toast.error(t("sortFailed"));
+    } finally {
+      setIsSaving(false);
+    }
+  }, [selectedLevel1Id, selectedLevel2Id, getNodeId, t]);
+
   const TagsHeaderMenu = useMemo(() => (
     <div className="bg-background border rounded-md p-2 flex justify-between items-center gap-3">
       <div className="flex items-center gap-4 flex-1 relative">
@@ -887,7 +928,15 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
         ) : (
           TagMainColumns
         )}
-        <TagDetails selectedTag={getSelectedTag()} />
+        <TagDetails selectedTag={getSelectedTag()} refreshTags={async () => {
+          // 刷新数据
+          const refreshResult = await fetchTeamTags();
+          if (refreshResult.success) {
+            const newTree = convertToTagNodes(refreshResult.data.tags);
+            setTagsTree(newTree);
+            setOriginalTags(refreshResult.data.tags);
+          }
+        }} />
       </div>
       <CreateModal
         visible={createModalVisible}

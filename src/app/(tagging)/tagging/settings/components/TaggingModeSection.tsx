@@ -15,52 +15,49 @@ export function TaggingModeSection({ taggingMode, onTaggingModeChange }: Tagging
       {/* 打标模式 */}
       <div className="bg-background border rounded-lg">
         <div className="px-4 py-3 border-b">
-          <h3 className="font-medium text-sm">{t("title")}</h3>
+          <h3 className="font-medium text-base">{t("title")}</h3>
         </div>
-        <div className="p-6 space-y-6">
+        <div className="p-5 space-y-5">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div
               className={cn(
-                "border rounded-lg p-6 cursor-pointer transition-all",
+                "border rounded-lg p-4 cursor-pointer transition-all text-sm",
                 taggingMode === "direct"
-                  ? "border-primary bg-primary/5"
-                  : "border-border hover:border-primary/50",
+                  ? "border-[var(--ant-primary-6)] bg-[var(--ant-primary-1)] ring-1 ring-[var(--ant-primary-6)]"
+                  : "border-border hover:border-[var(--ant-primary-6)]",
               )}
               onClick={() => onTaggingModeChange("direct")}
             >
               <div className="text-center">
                 <h3 className="font-medium mb-2">{t("direct")}</h3>
-                <p className="text-sm text-muted-foreground">{t("directDesc")}</p>
+                <p className="text-xs text-[var(--ant-basic-5)]">{t("directDesc")}</p>
               </div>
             </div>
 
             <div
               className={cn(
-                "border rounded-lg p-6 cursor-pointer transition-all",
+                "border rounded-lg p-4 cursor-pointer transition-all text-sm",
                 taggingMode === "review"
-                  ? "border-primary bg-primary/5"
-                  : "border-border hover:border-primary/50",
+                  ? "border-[var(--ant-primary-6)] bg-[var(--ant-primary-1)] ring-1 ring-[var(--ant-primary-6)]"
+                  : "border-border hover:border-[var(--ant-primary-6)]",
               )}
               onClick={() => onTaggingModeChange("review")}
             >
               <div className="text-center">
                 <h3 className="font-medium mb-2">{t("review")}</h3>
-                <p className="text-sm text-muted-foreground">{t("reviewDesc")}</p>
+                <p className="text-muted-foreground text-xs">{t("reviewDesc")}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-            <div className="flex gap-3">
-              <InfoIcon className="size-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
-              <div className="text-sm">
-                <span className="font-medium text-blue-900 dark:text-blue-100">
-                  {t("firstTimeRecommendation")}
-                </span>
-                <span className="text-blue-800 dark:text-blue-200 ml-1">
-                  {t("firstTimeRecommendationDesc")}
-                </span>
-              </div>
+          <div className="bg-[var(--ant-primary-1)] border border-[var(--ant-primary-5)] rounded-lg px-3 py-[14px]">
+            <div className="flex gap-3 text-[13px]">
+              <span className="font-medium ">
+                {t("firstTimeRecommendation")}
+              </span>
+              <span className="ml-1">
+                {t("firstTimeRecommendationDesc")}
+              </span>
             </div>
           </div>
         </div>

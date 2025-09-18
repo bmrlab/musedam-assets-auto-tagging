@@ -5,8 +5,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Edit2Icon, Trash2Icon } from "lucide-react";
 import { dispatchMuseDAMClientAction } from "@/embed/message";
 import { TagRecord } from "../types";
+import { useTranslations } from "next-intl";
 
 export const SmartTagsContent = () => {
+    const t = useTranslations("SmartTags");
     const [listInfo, setListInfo] = useState<{
         tags: TagRecord[],
         total: number,
@@ -185,7 +187,7 @@ export const SmartTagsContent = () => {
         <div className="flex flex-col w-full h-full overflow-y-scroll p-5 gap-3">
             <div className="flex items-center gap-[7px]">
                 <div className="text-base leading-4 text-[var(--ant-basic-7)] font-semibold">
-                    智能标签
+                    {t("title")}
                 </div>
                 <div className="w-auto h-5 px-2 rounded-full bg-[var(--ant-basic-3)] text-[12px] leading-5 text-[var(--ant-basic6)]">
                     {listInfo?.total}
@@ -280,14 +282,14 @@ export const SmartTagsContent = () => {
                         onClick={handleRename}
                     >
                         <Edit2Icon className="h-3 w-3" />
-                        重命名
+                        {t("rename")}
                     </button>
                     <button
                         className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
                         onClick={() => selectedTag ? handleDelete(selectedTag) : undefined}
                     >
                         <Trash2Icon className="h-3 w-3" />
-                        删除
+                        {t("delete")}
                     </button>
                 </div>
             )}

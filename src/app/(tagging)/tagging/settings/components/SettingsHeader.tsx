@@ -12,13 +12,11 @@ export function SettingsHeader({ hasChanges, isPending, onSave }: SettingsHeader
   const t = useTranslations("Tagging.Settings");
 
   return (
-    <div className="flex items-center justify-between">
-      <div>
-        <h1 className="text-lg font-medium">{t("title")}</h1>
-      </div>
+    <div className="flex items-center justify-between h-[32px]">
+      <h1 className="text-sm font-medium">{t("title")}</h1>
 
       {hasChanges && (
-        <Button onClick={onSave} disabled={isPending} className="gap-2">
+        <Button onClick={onSave} disabled={isPending} className="gap-2 h-[32px]">
           {isPending ? (
             <Loader2Icon className="size-4 animate-spin" />
           ) : (
