@@ -1,10 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import { TagRecord } from "@/app/tags/types";
+import { MuseDAMID } from "@/musedam/types";
+
 // 定义全局类型
 const globalForMessage = global as unknown as {
   musedamMessageQueue:
-  | Map<string, { resolve: (result: any) => void; reject: (error: any) => void }>
-  | undefined;
+    | Map<string, { resolve: (result: any) => void; reject: (error: any) => void }>
+    | undefined;
 };
 
 // 创建或获取全局队列
@@ -116,13 +119,103 @@ function handleParentConfigUpdate(action: string, args: any) {
   }
 }
 
+type BaseActionResult<T = {}> =
+  | {
+      success: true;
+      data: T;
+    }
+  | {
+      success: false;
+      message: string;
+      code?: string;
+    };
+
+type ActionMap = {
+  "member-selector-modal-open": {
+    args: {};
+    result: BaseActionResult<{
+      members: { id: MuseDAMID; name: string }[];
+      departments: { id: MuseDAMID; name: string }[];
+      groups: { id: MuseDAMID; name: string }[];
+    }>;
+  };
+  "folder-selector-modal-open": {
+    args: {};
+    result: BaseActionResult<{
+      selectedFolders: Array<{ id: MuseDAMID; name: string }>;
+      allMaterials: boolean;
+    }>;
+  };
+  "assets-selector-modal-open": {
+    args: {};
+    result: BaseActionResult<{
+      selectedAssets: Array<{
+        id: MuseDAMID; // 素材唯一标识
+        name: string; // 素材名称
+        extension: string; // 文件扩展名
+        size: number; // 文件大小（字节）
+        url?: string; // 素材访问链接
+        thumbnail?: string; // 缩略图链接
+        width?: number; // 图片宽度（图片类型）
+        height?: number; // 图片高度（图片类型）
+        type?: string; // 素材类型
+        folderId?: MuseDAMID; // 所在文件夹ID
+        folderName?: string; // 所在文件夹名称
+      }>;
+    }>;
+  };
+  goto: {
+    args: {
+      url: string;
+    };
+    result: BaseActionResult<never>;
+  };
+  "get-smart-tags-list": {
+    args: {
+      pageNum: number;
+      pageSize: number;
+    };
+    result: BaseActionResult<{
+      tags: TagRecord[];
+      total: number;
+      isLoading: boolean;
+      current: number;
+      pageSize: number;
+    }>;
+  };
+  "delete-smart-tag": {
+    args: {
+      tag: TagRecord;
+    };
+    result: BaseActionResult<{ tagId: number }>;
+  };
+  "rename-smart-tag": {
+    args: {
+      tagId: number;
+      newName: string;
+    };
+    result: BaseActionResult<{ tagId: number; newName: string }>;
+  };
+  syncPath: {
+    args: {
+      path: string;
+    };
+    result: BaseActionResult<never>;
+  };
+};
+
+type ExtractSuccessData<T> = T extends { success: true; data: infer U } ? U : never;
+
 /**
  * 向 MuseDAM 父窗口发起 action 请求
  * @param action - 要调用的方法名称
  * @param args - 传递给方法的参数
- * @returns Promise<any> - 返回方法执行结果的 Promise
+ * @returns Promise - 返回方法执行结果的 Promise
  */
-export function dispatchMuseDAMClientAction(action: string, args: any = {}): Promise<any> {
+export function dispatchMuseDAMClientAction<T extends keyof ActionMap>(
+  action: T,
+  args: ActionMap[T]["args"] = {},
+): Promise<ExtractSuccessData<ActionMap[T]["result"]>> {
   // 检查是否在浏览器环境
   if (typeof window === "undefined") {
     return Promise.reject(
@@ -142,7 +235,7 @@ export function dispatchMuseDAMClientAction(action: string, args: any = {}): Pro
   const dispatchId = generateDispatchId();
 
   // 创建 Promise 并添加到队列
-  const promise = new Promise((resolve, reject) => {
+  const promise = new Promise<ExtractSuccessData<ActionMap[T]["result"]>>((resolve, reject) => {
     pendingPromises.set(dispatchId, { resolve, reject });
   });
 

@@ -85,10 +85,7 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
 
   const handleFolderSelection = async () => {
     try {
-      const res: {
-        selectedFolders: Array<{ id: MuseDAMID; name: string }>;
-        allMaterials: boolean;
-      } = await dispatchMuseDAMClientAction("folder-selector-modal-open", {});
+      const res = await dispatchMuseDAMClientAction("folder-selector-modal-open", {});
       const { allMaterials, selectedFolders } = res;
       // console.log("allMaterials:", allMaterials, "selectedFolders:", selectedFolders);
       if (allMaterials) {
