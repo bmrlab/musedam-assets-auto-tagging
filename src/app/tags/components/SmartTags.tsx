@@ -144,22 +144,20 @@ export const SmartTagsContent = () => {
 
 
     const handleDelete = async (tag: TagRecord,) => {
-        const res = await dispatchMuseDAMClientAction("delete-smart-tag", { tag })
-        if (res.success) {
-            setSelectedTag(null)
-            // 更新当前列表状态
-            setListInfo(prev => prev ? {
-                ...prev,
-                tags: prev.tags.filter(t => t.id !== tag.id),
-                total: prev.total - 1
-            } : prev)
-            // 重新计算是否还有更多数据
-            setHasMore(prev => {
-                if (!listInfo) return prev
-                const remainingCount = listInfo.total - 1
-                return remainingCount > listInfo.tags.length - 1
-            })
-        }
+        await dispatchMuseDAMClientAction("delete-smart-tag", { tag })
+        setSelectedTag(null)
+        // 更新当前列表状态
+        setListInfo(prev => prev ? {
+            ...prev,
+            tags: prev.tags.filter(t => t.id !== tag.id),
+            total: prev.total - 1
+        } : prev)
+        // 重新计算是否还有更多数据
+        setHasMore(prev => {
+            if (!listInfo) return prev
+            const remainingCount = listInfo.total - 1
+            return remainingCount > listInfo.tags.length - 1
+        })
     };
 
     const changeAiTag = async (tagId: number, newName: string) => {
@@ -169,19 +167,18 @@ export const SmartTagsContent = () => {
             setIsEditTag(null)
             return
         }
-        const res = await dispatchMuseDAMClientAction("rename-smart-tag", {
+        await dispatchMuseDAMClientAction("rename-smart-tag", {
             tagId,
             newName
         })
         setSelectedTag(null)
         setIsEditTag(null)
-        if (res.success) {
-            // 更新当前列表状态
-            setListInfo(prev => prev ? {
-                ...prev,
-                tags: prev.tags.map(t => t.id === tagId ? { ...t, name: newName } : t)
-            } : prev)
-        }
+        // 更新当前列表状态
+        setListInfo(prev => prev ? {
+            ...prev,
+            tags: prev.tags.map(t => t.id === tagId ? { ...t, name: newName } : t)
+        } : prev)
+
     }
 
     return (

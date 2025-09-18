@@ -21,12 +21,6 @@ interface AccessClientProps {
   initialPermissions: AccessPermission[];
 }
 
-interface MemberSelectionResult {
-  members: { id: MuseDAMID; name: string }[];
-  departments: { id: MuseDAMID; name: string }[];
-  groups: { id: MuseDAMID; name: string }[];
-}
-
 export default function AccessClient({ initialPermissions }: AccessClientProps) {
   const t = useTranslations("Tagging.Access");
   const [permissions, setPermissions] = useState<AccessPermission[]>(initialPermissions);
@@ -36,7 +30,7 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
   const handleMemberSelection = async () => {
     try {
       setIsSelecting(true);
-      const res: MemberSelectionResult = await dispatchMuseDAMClientAction(
+      const res = await dispatchMuseDAMClientAction(
         "member-selector-modal-open",
         {},
       );

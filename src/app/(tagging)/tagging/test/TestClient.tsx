@@ -6,9 +6,9 @@ import { dispatchMuseDAMClientAction } from "@/embed/message";
 import { cn } from "@/lib/utils";
 import { MuseDAMID } from "@/musedam/types";
 import { BugPlayIcon, FileText, Loader2, PlayIcon, PlusIcon, TagsIcon, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { useTranslations } from "next-intl";
 import { startTaggingTasksAction } from "./actions";
 import { TaggingResult, TaggingResultDisplay } from "./components/TaggingResultDisplay";
 
@@ -115,128 +115,152 @@ export default function TestClient() {
   }, [pollingInterval]);
 
   // 轮询获取队列状态
-  const pollQueueStatus = useCallback(async (ids: number[]) => {
-    if (!pollingRef.current || ids.length === 0) return;
+  const pollQueueStatus = useCallback(
+    async (ids: number[]) => {
+      if (!pollingRef.current || ids.length === 0) return;
 
-    try {
-      const promises = ids.map(async (id) => {
-        const response = await fetch(`/api/tagging/queue-status/${id}`);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch queue status for ${id}`);
+      try {
+        const promises = ids.map(async (id) => {
+          const response = await fetch(`/api/tagging/queue-status/${id}`);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch queue status for ${id}`);
+          }
+          const data = await response.json();
+          return data.success ? data.data : null;
+        });
+
+        const results = await Promise.all(promises);
+        const validResults = results.filter(Boolean);
+
+        // 检查是否所有任务都已完成
+        const allCompleted = validResults.every(
+          (result) => result.status === "completed" || result.status === "failed",
+        );
+
+        if (allCompleted) {
+          // 停止轮询
+          stopPolling();
+
+          // 处理完成的结果
+          const completedResults = validResults.filter((result) => result.status === "completed");
+          const failedResults = validResults.filter((result) => result.status === "failed");
+
+          if (completedResults.length > 0) {
+            // 转换结果格式以适配TaggingResultDisplay组件
+            const formattedResults = completedResults.map((result) => {
+              const { assetObject, result: resultData, extra } = result;
+              // 按置信度分类标签
+              const allTags = resultData?.tagsWithScore || [];
+              const effectiveTags = allTags.filter(
+                (tag: { score?: number }) => (tag.score || 0) >= 80,
+              );
+              const candidateTags = allTags.filter(
+                (tag: { score?: number }) => (tag.score || 0) >= 60 && (tag.score || 0) < 80,
+              );
+
+              return {
+                asset: {
+                  id: assetObject?.id?.toString() || "",
+                  name: assetObject?.name || "",
+                  extension: assetObject.extra?.extension || "",
+                  size: assetObject.extra?.size || 0,
+                  thumbnail: assetObject.extra?.thumbnailAccessUrl,
+                  materializedPath: assetObject.materializedPath,
+                  categories: [], // 从result中提取
+                  processingTime:
+                    result.startsAt && result.endsAt
+                      ? (new Date(result.endsAt).getTime() - new Date(result.startsAt).getTime()) /
+                        1000
+                      : 0,
+                  recognitionMode:
+                    extra?.recognitionAccuracy === "precise"
+                      ? "精准模式"
+                      : extra?.recognitionAccuracy === "balanced"
+                        ? "平衡模式"
+                        : "宽泛模式",
+                },
+                overallScore: resultData?.tagsWithScore?.[0]?.score || 0,
+                // 生效标签
+                effectiveTags: effectiveTags.map(
+                  (tag: { tagPath?: string[]; matchingSource?: string; score?: number }) => ({
+                    tagPath: tag.tagPath || [],
+                    matchingSource: tag.matchingSource || "AI匹配",
+                    confidence: Math.floor(tag.score || 0),
+                    score: tag.score || 0,
+                  }),
+                ),
+                // 候选标签
+                candidateTags: candidateTags.map(
+                  (tag: { tagPath?: string[]; matchingSource?: string; score?: number }) => ({
+                    tagPath: tag.tagPath || [],
+                    matchingSource: tag.matchingSource || "AI匹配",
+                    confidence: Math.floor(tag.score || 0),
+                    score: tag.score || 0,
+                  }),
+                ),
+                // 策略分析详情 - 从所有标签的confidenceBySources中提取
+                strategyAnalysis: (() => {
+                  const strategyMap = new Map<string, { weight: number; score: number }>();
+
+                  // 遍历所有标签的confidenceBySources
+                  allTags.forEach((tag: { confidenceBySources?: Record<string, number> }) => {
+                    if (tag.confidenceBySources) {
+                      Object.entries(tag.confidenceBySources).forEach(
+                        ([source, confidence]: [string, number]) => {
+                          if (!strategyMap.has(source)) {
+                            strategyMap.set(source, { weight: 0, score: 0 });
+                          }
+                          const current = strategyMap.get(source)!;
+                          current.weight += confidence;
+                          current.score = Math.max(current.score, confidence * 100); // 转换为百分比
+                        },
+                      );
+                    }
+                  });
+
+                  // 转换为数组格式
+                  return Array.from(strategyMap.entries()).map(([key, value]) => ({
+                    key,
+                    weight: Math.round(value.weight * 100), // 转换为百分比
+                    score: Math.round(value.score),
+                  }));
+                })(),
+              };
+            });
+            setTaggingResults(formattedResults);
+            toast.success(
+              `打标完成！成功 ${completedResults.length} 个，失败 ${failedResults.length} 个`,
+            );
+          } else {
+            toast.error("所有打标任务都失败了");
+          }
         }
-        const data = await response.json();
-        return data.success ? data.data : null;
-      });
-
-      const results = await Promise.all(promises);
-      const validResults = results.filter(Boolean);
-
-      // 检查是否所有任务都已完成
-      const allCompleted = validResults.every(
-        (result) => result.status === "completed" || result.status === "failed"
-      );
-
-      if (allCompleted) {
-        // 停止轮询
-        stopPolling();
-
-        // 处理完成的结果
-        const completedResults = validResults.filter((result) => result.status === "completed");
-        const failedResults = validResults.filter((result) => result.status === "failed");
-
-        if (completedResults.length > 0) {
-          // 转换结果格式以适配TaggingResultDisplay组件
-          const formattedResults = completedResults.map((result) => {
-            const { assetObject, result: resultData, extra } = result
-            // 按置信度分类标签
-            const allTags = resultData?.tagsWithScore || [];
-            const effectiveTags = allTags.filter((tag: { score?: number }) => (tag.score || 0) >= 80);
-            const candidateTags = allTags.filter((tag: { score?: number }) => (tag.score || 0) >= 60 && (tag.score || 0) < 80);
-
-            return {
-              asset: {
-                id: assetObject?.id?.toString() || '',
-                name: assetObject?.name || '',
-                extension: assetObject.extra?.extension || '',
-                size: assetObject.extra?.size || 0,
-                thumbnail: assetObject.extra?.thumbnailAccessUrl,
-                materializedPath: assetObject.materializedPath,
-                categories: [], // 从result中提取
-                processingTime: result.startsAt && result.endsAt
-                  ? (new Date(result.endsAt).getTime() - new Date(result.startsAt).getTime()) / 1000
-                  : 0,
-                recognitionMode: extra?.recognitionAccuracy === "precise" ? "精准模式" :
-                  extra?.recognitionAccuracy === "balanced" ? "平衡模式" : "宽泛模式",
-              },
-              overallScore: resultData?.tagsWithScore?.[0]?.score || 0,
-              // 生效标签
-              effectiveTags: effectiveTags.map((tag: { tagPath?: string[]; matchingSource?: string; score?: number }) => ({
-                tagPath: tag.tagPath || [],
-                matchingSource: tag.matchingSource || "AI匹配",
-                confidence: Math.floor(tag.score || 0),
-                score: tag.score || 0,
-              })),
-              // 候选标签
-              candidateTags: candidateTags.map((tag: { tagPath?: string[]; matchingSource?: string; score?: number }) => ({
-                tagPath: tag.tagPath || [],
-                matchingSource: tag.matchingSource || "AI匹配",
-                confidence: Math.floor(tag.score || 0),
-                score: tag.score || 0,
-              })),
-              // 策略分析详情 - 从所有标签的confidenceBySources中提取
-              strategyAnalysis: (() => {
-                const strategyMap = new Map<string, { weight: number; score: number }>();
-
-                // 遍历所有标签的confidenceBySources
-                allTags.forEach((tag: { confidenceBySources?: Record<string, number> }) => {
-                  if (tag.confidenceBySources) {
-                    Object.entries(tag.confidenceBySources).forEach(([source, confidence]: [string, number]) => {
-                      if (!strategyMap.has(source)) {
-                        strategyMap.set(source, { weight: 0, score: 0 });
-                      }
-                      const current = strategyMap.get(source)!;
-                      current.weight += confidence;
-                      current.score = Math.max(current.score, confidence * 100); // 转换为百分比
-                    });
-                  }
-                });
-
-                // 转换为数组格式
-                return Array.from(strategyMap.entries()).map(([key, value]) => ({
-                  key,
-                  weight: Math.round(value.weight * 100), // 转换为百分比
-                  score: Math.round(value.score),
-                }));
-              })(),
-            };
-          });
-          setTaggingResults(formattedResults);
-          toast.success(`打标完成！成功 ${completedResults.length} 个，失败 ${failedResults.length} 个`);
-        } else {
-          toast.error("所有打标任务都失败了");
-        }
+      } catch (error) {
+        console.error("轮询队列状态失败:", error);
       }
-    } catch (error) {
-      console.error("轮询队列状态失败:", error);
-    }
-  }, [stopPolling]);
+    },
+    [stopPolling],
+  );
 
   // 开始轮询
-  const startPolling = useCallback((ids: number[]) => {
-    if (pollingRef.current) return;
+  const startPolling = useCallback(
+    (ids: number[]) => {
+      if (pollingRef.current) return;
 
-    pollingRef.current = true;
-    setQueueItemIds(ids);
-    // 立即执行一次
-    pollQueueStatus(ids);
-
-    // 设置定时器，每2秒轮询一次
-    const interval = setInterval(() => {
+      pollingRef.current = true;
+      setQueueItemIds(ids);
+      // 立即执行一次
       pollQueueStatus(ids);
-    }, 2000);
 
-    setPollingInterval(interval);
-  }, [pollQueueStatus]);
+      // 设置定时器，每2秒轮询一次
+      const interval = setInterval(() => {
+        pollQueueStatus(ids);
+      }, 2000);
+
+      setPollingInterval(interval);
+    },
+    [pollQueueStatus],
+  );
 
   // useEffect(() => {
   //   startPolling([19, 20]);
@@ -252,9 +276,7 @@ export default function TestClient() {
   const handleAssetSelection = async () => {
     try {
       setIsProcessing(true);
-      const res: {
-        selectedAssets: SelectedAsset[];
-      } = await dispatchMuseDAMClientAction("assets-selector-modal-open", {});
+      const res = await dispatchMuseDAMClientAction("assets-selector-modal-open", {});
       const { selectedAssets: assets } = res;
       if (assets && Array.isArray(assets) && assets.length > 0) {
         setSelectedAssets(assets);
@@ -294,7 +316,9 @@ export default function TestClient() {
         } else {
           toast.warning(t("taggingTasksPartialSuccess", { successCount, failedCount }), {
             description:
-              failedAssets.length > 0 ? t("failedAssets", { assets: failedAssets.join(", ") }) : undefined,
+              failedAssets.length > 0
+                ? t("failedAssets", { assets: failedAssets.join(", ") })
+                : undefined,
           });
         }
 
@@ -343,7 +367,11 @@ export default function TestClient() {
         <div className="bg-background border rounded-md">
           <div className="px-4 py-3 border-b flex justify-between items-center">
             <h3 className="font-medium text-sm">{t("uploadTestFiles")}</h3>
-            <Button variant='outline' size='sm' onClick={() => dispatchMuseDAMClientAction("goto", { url: "/home/dashboard/tag" })}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => dispatchMuseDAMClientAction("goto", { url: "/home/dashboard/tag" })}
+            >
               <TagsIcon className="rotate-180 scale-y-[-1]" />
               管理标签体系
             </Button>
@@ -354,7 +382,9 @@ export default function TestClient() {
             <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4 flex gap-3">
               <BugPlayIcon className="size-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
               <div>
-                <h3 className="font-medium text-blue-900 dark:text-blue-100 mb-2">{t("testDescription")}</h3>
+                <h3 className="font-medium text-blue-900 dark:text-blue-100 mb-2">
+                  {t("testDescription")}
+                </h3>
                 <div className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
                   <p>{t("testDescriptionText1")}</p>
                   <p>{t("testDescriptionText2")}</p>
@@ -367,9 +397,7 @@ export default function TestClient() {
             {selectedAssets.length === 0 ? (
               <div className="p-8 border border-dashed rounded-lg text-center">
                 <h3 className="font-medium">{t("selectAssetsFromLibrary")}</h3>
-                <p className="text-sm text-muted-foreground">
-                  {t("testOnlyDescription")}
-                </p>
+                <p className="text-sm text-muted-foreground">{t("testOnlyDescription")}</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -474,18 +502,20 @@ export default function TestClient() {
           </div>
         )}
 
-        {taggingResults.length > 0 && <div className="bg-background border rounded-md">
-          <div className="px-4 py-3 border-b">
-            <h3 className="font-medium text-sm">{t("taggingResults")}</h3>
-          </div>
-          <div className="p-4">
-            <div className="space-y-6">
-              {taggingResults.map((result, index) => (
-                <TaggingResultDisplay key={index} result={result} />
-              ))}
+        {taggingResults.length > 0 && (
+          <div className="bg-background border rounded-md">
+            <div className="px-4 py-3 border-b">
+              <h3 className="font-medium text-sm">{t("taggingResults")}</h3>
+            </div>
+            <div className="p-4">
+              <div className="space-y-6">
+                {taggingResults.map((result, index) => (
+                  <TaggingResultDisplay key={index} result={result} />
+                ))}
+              </div>
             </div>
           </div>
-        </div>}
+        )}
       </div>
 
       {/* 右侧：配置面板 */}
