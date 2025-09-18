@@ -27,7 +27,7 @@ export function GlobalSettingsSection({
           <div className="flex items-center justify-between">
             <div>
               <h3 className="font-medium text-sm">{t("enableTagging")}</h3>
-              <p className="text-[13px] text-[var(--ant-basic-6)] mt-1">{t("enableTaggingDesc")}</p>
+              <p className="text-[13px] text-basic-6 mt-1">{t("enableTaggingDesc")}</p>
             </div>
             <Switch checked={isTaggingEnabled} onCheckedChange={onTaggingEnabledChange} />
           </div>

@@ -917,7 +917,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
   ]);
 
   return (
-    <div className="h-dvh min-w-[60rem] overflow-x-scroll scrollbar-thin flex flex-col items-stretch gap-4 p-4 bg-[var(--ant-basic-1)]">
+    <div className="h-dvh min-w-[60rem] overflow-x-scroll scrollbar-thin flex flex-col items-stretch gap-4 p-4 bg-basic-1">
       {TagsHeaderMenu}
       <div className="flex-1 overflow-hidden flex flex-row items-stretch gap-4">
         {isSearching ? (

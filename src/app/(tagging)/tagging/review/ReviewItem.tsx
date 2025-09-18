@@ -134,7 +134,7 @@ export function ReviewItem({ assetObject, batch, onSuccess }: AssetWithAuditItem
             </Button>
             <Button
               size="sm"
-              className="rounded-[4px] h-6 bg-background text-[var(--ant-danger-6)] border-solid border-[var(--ant-danger-6)] border hover:bg-destructive/10 hover:text-destructive hover:border-destructive"
+              className="rounded-[4px] h-6 bg-background text-danger-6 border-solid border-danger-6 border hover:bg-destructive/10 hover:text-destructive hover:border-destructive"
             >
               <XIcon className="size-[14px]" />
               {t("reject")}

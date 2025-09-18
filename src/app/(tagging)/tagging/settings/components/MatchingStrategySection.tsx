@@ -55,7 +55,7 @@ export function MatchingStrategySection({
         <div className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {sections.map(({ key, title, desc }) => {
-              return <div className="flex items-start space-x-2 p-4 border rounded-lg bg-[var(--ant-basic-1)]" key={key}>
+              return <div className="flex items-start space-x-2 p-4 border rounded-lg bg-basic-1" key={key}>
                 <Checkbox
                   checked={matchingSources[key]}
                   onCheckedChange={(checked) => onSourceChange(key, checked as boolean)}
@@ -63,7 +63,7 @@ export function MatchingStrategySection({
                 />
                 <div>
                   <h3 className="font-medium text-sm leading-[22px] mb-1">{title}</h3>
-                  <p className="text-xs text-[var(--ant-basic-5)]">{desc}</p>
+                  <p className="text-xs text-basic-5">{desc}</p>
                 </div>
               </div>
             })}

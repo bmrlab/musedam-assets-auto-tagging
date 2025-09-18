@@ -20,7 +20,7 @@ export const SearchResult: FC<{
                         return (
                             <div
                                 key={data.tag.id}
-                                className="flex-shrink-0 gap-1 h-6 flex items-center bg-[var(--ant-basic-1)] text-[var(--ant-basic-7)] rounded border border-solid border-[var(--ant-basic-3)] px-2 cursor-pointer hover:bg-[var(--ant-primary-1)] hover:border-[var(--ant-primary-5)] hover:text-[var(--ant-primary-5)] transition-all duration-300"
+                                className="flex-shrink-0 gap-1 h-6 flex items-center bg-basic-1 text-basic-7 rounded border border-solid border-basic-3 px-2 cursor-pointer hover:bg-primary-1 hover:border-primary-5 hover:text-primary-5 transition-all duration-300"
                                 onClick={() => {
                                     handleClick(data.tag)
                                 }}
@@ -38,7 +38,7 @@ export const SearchResult: FC<{
                                 </div>
                                 {/* TODO 现在没有这个数据 */}
                                 {/* {third.materialCount && (
-                                    <div className="text-[13px] leading-[18px] text-[var(--ant-basic-5)]">
+                                    <div className="text-[13px] leading-[18px] text-basic-5">
                                         {third.materialCount}
                                     </div>
                                 )} */}

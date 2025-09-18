@@ -44,6 +44,84 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+
+  /* Ant 配色 -> Tailwind token（供 text-、bg-、border- 使用） */
+  /* Primary */
+  --color-primary-1: var(--ant-primary-1);
+  --color-primary-2: var(--ant-primary-2);
+  --color-primary-3: var(--ant-primary-3);
+  --color-primary-4: var(--ant-primary-4);
+  --color-primary-5: var(--ant-primary-5);
+  --color-primary-6: var(--ant-primary-6);
+  --color-primary-7: var(--ant-primary-7);
+  --color-primary-8: var(--ant-primary-8);
+  --color-primary-9: var(--ant-primary-9);
+  --color-primary-10: var(--ant-primary-10);
+
+  /* Primary 透明度 */
+  --color-primary-t-1: var(--ant-primary-t-1);
+  --color-primary-t-2: var(--ant-primary-t-2);
+  --color-primary-t-3: var(--ant-primary-t-3);
+  --color-primary-t-4: var(--ant-primary-t-4);
+  --color-primary-t-5: var(--ant-primary-t-5);
+  --color-primary-t-6: var(--ant-primary-t-6);
+  --color-primary-t-7: var(--ant-primary-t-7);
+  --color-primary-t-8: var(--ant-primary-t-8);
+  --color-primary-t-9: var(--ant-primary-t-9);
+  --color-primary-t-10: var(--ant-primary-t-10);
+  --color-primary-t-11: var(--ant-primary-t-11);
+  --color-primary-t-12: var(--ant-primary-t-12);
+  --color-primary-t-13: var(--ant-primary-t-13);
+
+  /* Basic */
+  --color-basic-0: var(--ant-basic-0);
+  --color-basic-1: var(--ant-basic-1);
+  --color-basic-2: var(--ant-basic-2);
+  --color-basic-3: var(--ant-basic-3);
+  --color-basic-4: var(--ant-basic-4);
+  --color-basic-5: var(--ant-basic-5);
+  --color-basic-6: var(--ant-basic-6);
+  --color-basic-7: var(--ant-basic-7);
+  --color-basic-8: var(--ant-basic-8);
+  --color-basic-9: var(--ant-basic-9);
+  --color-basic-10: var(--ant-basic-10);
+
+  /* Success */
+  --color-success-1: var(--ant-success-1);
+  --color-success-2: var(--ant-success-2);
+  --color-success-3: var(--ant-success-3);
+  --color-success-4: var(--ant-success-4);
+  --color-success-5: var(--ant-success-5);
+  --color-success-6: var(--ant-success-6);
+  --color-success-7: var(--ant-success-7);
+  --color-success-8: var(--ant-success-8);
+  --color-success-9: var(--ant-success-9);
+
+  /* Warning */
+  --color-warning-1: var(--ant-warning-1);
+  --color-warning-2: var(--ant-warning-2);
+  --color-warning-3: var(--ant-warning-3);
+  --color-warning-4: var(--ant-warning-4);
+  --color-warning-5: var(--ant-warning-5);
+  --color-warning-6: var(--ant-warning-6);
+  --color-warning-7: var(--ant-warning-7);
+  --color-warning-8: var(--ant-warning-8);
+  --color-warning-9: var(--ant-warning-9);
+
+  /* Danger */
+  --color-danger-1: var(--ant-danger-1);
+  --color-danger-2: var(--ant-danger-2);
+  --color-danger-3: var(--ant-danger-3);
+  --color-danger-4: var(--ant-danger-4);
+  --color-danger-5: var(--ant-danger-5);
+  --color-danger-6: var(--ant-danger-6);
+  --color-danger-7: var(--ant-danger-7);
+  --color-danger-8: var(--ant-danger-8);
+  --color-danger-9: var(--ant-danger-9);
+
+  /* 固定 */
+  --color-fixed-0: var(--ant-fixed-0);
+  --color-fixed-F: var(--ant-fixed-F);
 }
 
 :root {
@@ -80,6 +158,84 @@
   --sidebar-accent-foreground: oklch(0.57 0.23 265.29);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* Ant 配色映射到 Tailwind v4 token（--color-*) */
+  /* Primary */
+  --color-primary-1: var(--ant-primary-1);
+  --color-primary-2: var(--ant-primary-2);
+  --color-primary-3: var(--ant-primary-3);
+  --color-primary-4: var(--ant-primary-4);
+  --color-primary-5: var(--ant-primary-5);
+  --color-primary-6: var(--ant-primary-6);
+  --color-primary-7: var(--ant-primary-7);
+  --color-primary-8: var(--ant-primary-8);
+  --color-primary-9: var(--ant-primary-9);
+  --color-primary-10: var(--ant-primary-10);
+
+  /* Primary 透明度 */
+  --color-primary-t-1: var(--ant-primary-t-1);
+  --color-primary-t-2: var(--ant-primary-t-2);
+  --color-primary-t-3: var(--ant-primary-t-3);
+  --color-primary-t-4: var(--ant-primary-t-4);
+  --color-primary-t-5: var(--ant-primary-t-5);
+  --color-primary-t-6: var(--ant-primary-t-6);
+  --color-primary-t-7: var(--ant-primary-t-7);
+  --color-primary-t-8: var(--ant-primary-t-8);
+  --color-primary-t-9: var(--ant-primary-t-9);
+  --color-primary-t-10: var(--ant-primary-t-10);
+  --color-primary-t-11: var(--ant-primary-t-11);
+  --color-primary-t-12: var(--ant-primary-t-12);
+  --color-primary-t-13: var(--ant-primary-t-13);
+
+  /* Basic */
+  --color-basic-0: var(--ant-basic-0);
+  --color-basic-1: var(--ant-basic-1);
+  --color-basic-2: var(--ant-basic-2);
+  --color-basic-3: var(--ant-basic-3);
+  --color-basic-4: var(--ant-basic-4);
+  --color-basic-5: var(--ant-basic-5);
+  --color-basic-6: var(--ant-basic-6);
+  --color-basic-7: var(--ant-basic-7);
+  --color-basic-8: var(--ant-basic-8);
+  --color-basic-9: var(--ant-basic-9);
+  --color-basic-10: var(--ant-basic-10);
+
+  /* Success */
+  --color-success-1: var(--ant-success-1);
+  --color-success-2: var(--ant-success-2);
+  --color-success-3: var(--ant-success-3);
+  --color-success-4: var(--ant-success-4);
+  --color-success-5: var(--ant-success-5);
+  --color-success-6: var(--ant-success-6);
+  --color-success-7: var(--ant-success-7);
+  --color-success-8: var(--ant-success-8);
+  --color-success-9: var(--ant-success-9);
+
+  /* Warning */
+  --color-warning-1: var(--ant-warning-1);
+  --color-warning-2: var(--ant-warning-2);
+  --color-warning-3: var(--ant-warning-3);
+  --color-warning-4: var(--ant-warning-4);
+  --color-warning-5: var(--ant-warning-5);
+  --color-warning-6: var(--ant-warning-6);
+  --color-warning-7: var(--ant-warning-7);
+  --color-warning-8: var(--ant-warning-8);
+  --color-warning-9: var(--ant-warning-9);
+
+  /* Danger */
+  --color-danger-1: var(--ant-danger-1);
+  --color-danger-2: var(--ant-danger-2);
+  --color-danger-3: var(--ant-danger-3);
+  --color-danger-4: var(--ant-danger-4);
+  --color-danger-5: var(--ant-danger-5);
+  --color-danger-6: var(--ant-danger-6);
+  --color-danger-7: var(--ant-danger-7);
+  --color-danger-8: var(--ant-danger-8);
+  --color-danger-9: var(--ant-danger-9);
+
+  /* 固定 */
+  --color-fixed-0: var(--ant-fixed-0);
+  --color-fixed-F: var(--ant-fixed-F);
 }
 
 .dark {

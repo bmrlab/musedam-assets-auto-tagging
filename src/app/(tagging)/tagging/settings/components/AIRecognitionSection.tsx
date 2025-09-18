@@ -55,8 +55,8 @@ export function AIRecognitionSection({
                 className={cn(
                   "border rounded-lg p-4 cursor-pointer transition-all relative ease-in-out duration-300",
                   recognitionAccuracy === item.key
-                    ? "border-[var(--ant-primary-6)] bg-[var(--ant-primary-1)] ring-1 ring-[var(--ant-primary-6)]"
-                    : "border-border hover:border-[var(--ant-primary-6)]",
+                    ? "border-primary-6 bg-primary-1 ring-1 ring-primary-6"
+                    : "border-border hover:border-primary-6",
                 )}
                 onClick={() => onRecognitionAccuracyChange(item.key)}
               >
@@ -67,10 +67,10 @@ export function AIRecognitionSection({
                       {t('recommended')}
                     </span>}
                   </div>
-                  <div className="text-xs font-medium text-[var(--ant-primary-6)] mb-1">
+                  <div className="text-xs font-medium text-primary-6 mb-1">
                     {item.confidence} {t("confidence")}
                   </div>
-                  <p className="text-xs text-[var(--ant-basic-5)]">{item.des}</p>
+                  <p className="text-xs text-basic-5">{item.des}</p>
                 </div>
               </div>
             })}

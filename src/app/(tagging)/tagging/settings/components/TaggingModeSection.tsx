@@ -23,14 +23,14 @@ export function TaggingModeSection({ taggingMode, onTaggingModeChange }: Tagging
               className={cn(
                 "border rounded-lg p-4 cursor-pointer transition-all text-sm",
                 taggingMode === "direct"
-                  ? "border-[var(--ant-primary-6)] bg-[var(--ant-primary-1)] ring-1 ring-[var(--ant-primary-6)]"
-                  : "border-border hover:border-[var(--ant-primary-6)]",
+                  ? "border-primary-6 bg-primary-1 ring-1 ring-primary-6"
+                  : "border-border hover:border-primary-6",
               )}
               onClick={() => onTaggingModeChange("direct")}
             >
               <div className="text-center">
                 <h3 className="font-medium mb-2">{t("direct")}</h3>
-                <p className="text-xs text-[var(--ant-basic-5)]">{t("directDesc")}</p>
+                <p className="text-xs text-basic-5">{t("directDesc")}</p>
               </div>
             </div>
 
@@ -38,8 +38,8 @@ export function TaggingModeSection({ taggingMode, onTaggingModeChange }: Tagging
               className={cn(
                 "border rounded-lg p-4 cursor-pointer transition-all text-sm",
                 taggingMode === "review"
-                  ? "border-[var(--ant-primary-6)] bg-[var(--ant-primary-1)] ring-1 ring-[var(--ant-primary-6)]"
-                  : "border-border hover:border-[var(--ant-primary-6)]",
+                  ? "border-primary-6 bg-primary-1 ring-1 ring-primary-6"
+                  : "border-border hover:border-primary-6",
               )}
               onClick={() => onTaggingModeChange("review")}
             >
@@ -50,7 +50,7 @@ export function TaggingModeSection({ taggingMode, onTaggingModeChange }: Tagging
             </div>
           </div>
 
-          <div className="bg-[var(--ant-primary-1)] border border-[var(--ant-primary-5)] rounded-lg px-3 py-[14px]">
+          <div className="bg-primary-1 border border-primary-5 rounded-lg px-3 py-[14px]">
             <div className="flex gap-3 text-[13px]">
               <span className="font-medium ">
                 {t("firstTimeRecommendation")}

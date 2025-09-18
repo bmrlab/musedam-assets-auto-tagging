@@ -186,10 +186,10 @@ export const SmartTagsContent = () => {
     return (
         <div className="flex flex-col w-full h-full overflow-y-scroll p-5 gap-3">
             <div className="flex items-center gap-[7px]">
-                <div className="text-base leading-4 text-[var(--ant-basic-7)] font-semibold">
+                <div className="text-base leading-4 text-basic-7 font-semibold">
                     {t("title")}
                 </div>
-                <div className="w-auto h-5 px-2 rounded-full bg-[var(--ant-basic-3)] text-[12px] leading-5 text-[var(--ant-basic6)]">
+                <div className="w-auto h-5 px-2 rounded-full bg-basic-3 text-[12px] leading-5 text-basic-6">
                     {listInfo?.total}
                 </div>
             </div>
@@ -223,12 +223,12 @@ export const SmartTagsContent = () => {
                         return (
                             <div
                                 key={index}
-                                className="flex-shrink-0 gap-1 h-6 flex items-center bg-[var(--ant-basic-1)] text-[var(--ant-basic-7)] rounded border border-solid border-[var(--ant-basic-3)] px-2 cursor-pointer hover:bg-[var(--ant-primary-1)] hover:border-[var(--ant-primary-5)] hover:text-[var(--ant-primary-5)] transition-all duration-300"
+                                className="flex-shrink-0 gap-1 h-6 flex items-center bg-basic-1 text-basic-7 rounded border border-solid border-basic-3 px-2 cursor-pointer hover:bg-primary-1 hover:border-primary-5 hover:text-primary-5 transition-all duration-300"
                                 onContextMenu={(e) => showContextMenu(e, tag)}
                             >
                                 <div className="text-sm leading-[22px]">{tag.name}</div>
                                 {isNumber(tag?.materialCount) && (
-                                    <div className="text-[13px] leading-[18px] text-[var(--ant-basic-5)]">{tag?.materialCount}</div>
+                                    <div className="text-[13px] leading-[18px] text-basic-5">{tag?.materialCount}</div>
                                 )}
                             </div>
                         );
@@ -243,7 +243,7 @@ export const SmartTagsContent = () => {
                     >
                         <div
                             ref={editTagRef}
-                            className="flex-shrink-0 gap-1 h-6 flex items-center bg-[var(--ant-basic-1)] text-[var(--ant-basic-7)] rounded border border-solid border-[var(--ant-basic-3)] px-2"
+                            className="flex-shrink-0 gap-1 h-6 flex items-center bg-basic-1 text-basic-7 rounded border border-solid border-basic-3 px-2"
                         >
                             {isEditTag.name}
                         </div>

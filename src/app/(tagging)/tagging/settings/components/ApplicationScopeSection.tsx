@@ -33,7 +33,7 @@ export function ApplicationScopeSection({
           <div className="space-y-4">
             <h3 className="font-medium text-sm">{t("scope")}</h3>
             <div
-              className="border-1 border-dashed hover:border-[var(--ant-primary-6)] border-[var(--ant-basic-4)] bg-[var(--ant-basic-1)] rounded-lg p-6 cursor-pointer transition-all ease-in-out duration-300 flex flex-col items-center"
+              className="border-1 border-dashed hover:border-primary-6 border-basic-4 bg-basic-1 rounded-lg p-6 cursor-pointer transition-all ease-in-out duration-300 flex flex-col items-center"
               onClick={onFolderSelection}
             >
               <Image
@@ -43,7 +43,7 @@ export function ApplicationScopeSection({
                 width={36}
                 height={36}
               />
-              <p className="text-sm text-[var(--ant-basic-6)]">{t("selectScopeDesc")}</p>
+              <p className="text-sm text-basic-6">{t("selectScopeDesc")}</p>
             </div>
 
             <div className="space-y-0 border rounded-lg transition-all">
@@ -63,7 +63,7 @@ export function ApplicationScopeSection({
                     </div>
                     <div>
                       <h4 className="font-medium text-[13px]">{t("allAssets")}</h4>
-                      <p className="text-xs text-[var(--ant-basic-5)]">{t("allAssetsDesc")}</p>
+                      <p className="text-xs text-basic-5">{t("allAssetsDesc")}</p>
                     </div>
                   </div>
                   <TooltipProvider>
@@ -76,7 +76,7 @@ export function ApplicationScopeSection({
                             e.stopPropagation();
                             onScopeTypeChange("specific")
                           }}
-                          className="h-8 w-8 p-0 hover:text-[var(--ant-danger-6)]"
+                          className="h-8 w-8 p-0 hover:text-danger-6"
                         >
                           <Trash />
                         </Button>
@@ -109,7 +109,7 @@ export function ApplicationScopeSection({
                     </div>
                     <div>
                       <h4 className="font-medium text-[13px]">{folder.name}</h4>
-                      <p className="text-xs text-[var(--ant-basic-5)]">{t("currentAndNewAssets")}</p>
+                      <p className="text-xs text-basic-5">{t("currentAndNewAssets")}</p>
                     </div>
                   </div>
                   <TooltipProvider>
@@ -122,7 +122,7 @@ export function ApplicationScopeSection({
                             e.stopPropagation();
                             onRemoveFolder(folder.slug);
                           }}
-                          className="h-8 w-8 p-0 hover:text-[var(--ant-danger-6)]"
+                          className="h-8 w-8 p-0 hover:text-danger-6"
                         >
                           <Trash />
                         </Button>
@@ -136,7 +136,7 @@ export function ApplicationScopeSection({
               ))}
             </div>
 
-            <div className="flex gap-3 text-[var(--ant-basic-5)] text-[13px]">
+            <div className="flex gap-3 text-basic-5 text-[13px]">
               {t("onlySelectedScope")}
             </div>
           </div>
