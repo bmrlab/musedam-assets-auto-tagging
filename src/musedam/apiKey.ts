@@ -25,7 +25,12 @@ export async function exchangeMuseDAMTeamAPIKey({
   const token: string = Buffer.from(
     `${process.env.MUSEDAM_APP_API_KEY}:${process.env.MUSEDAM_APP_SECRET}`,
   ).toString("base64");
-  const result = await requestMuseDAMAPI("/api/apps/exchange-api-key", {
+  const result = await requestMuseDAMAPI<{
+    apiKey: string;
+    expiresAt: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    org: any;
+  }>("/api/apps/exchange-api-key", {
     method: "POST",
     headers: {
       Authorization: `Basic ${token}`,

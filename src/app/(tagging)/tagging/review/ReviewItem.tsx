@@ -52,9 +52,9 @@ export function ReviewItem({ assetObject, batch, onSuccess }: AssetWithAuditItem
         });
         toast.success("应用成功");
         onSuccess?.();
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.log(error);
-        toast.error(error?.message ?? "应用失败");
+        toast.error(error instanceof Error ? error.message : "应用失败");
       } finally {
         setLoading(false);
       }

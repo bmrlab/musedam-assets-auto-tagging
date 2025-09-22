@@ -2,6 +2,7 @@
 import { TaggingSettingsData } from "@/app/(tagging)/types";
 import { dispatchMuseDAMClientAction } from "@/embed/message";
 import { idToSlug } from "@/lib/slug";
+import { MuseDAMID } from "@/musedam/types";
 import { useTranslations } from "next-intl";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -86,7 +87,7 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
     try {
       const res = await dispatchMuseDAMClientAction("folder-selector-modal-open", {
         initialSelectedFolders: applicationScope.selectedFolders?.map((item) => ({
-          id: item.slug.replace("f/", ""),
+          id: MuseDAMID.from(item.slug.replace("f/", "")),
           name: item.name,
         })),
         allMaterials: applicationScope.scopeType === "all",

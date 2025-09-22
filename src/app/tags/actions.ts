@@ -5,10 +5,26 @@ import { ServerActionResult } from "@/lib/serverAction";
 import { idToSlug } from "@/lib/slug";
 import { syncTagsFromMuseDAM } from "@/musedam/tags/syncFromMuseDAM";
 import { syncTagsToMuseDAM } from "@/musedam/tags/syncToMuseDAM";
+import { MuseDAMID } from "@/musedam/types";
 import type { AssetTagExtra } from "@/prisma/client";
 import { AssetTag } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 import { TagNode } from "./types";
+
+// 定义 MuseDAM 标签响应的类型
+type MuseDAMTagResponse = {
+  id?: MuseDAMID;
+  name: string;
+  operation: 0 | 1 | 2 | 3;
+  sort?: number;
+  children?: MuseDAMTagResponse[];
+};
+
+// 定义同步结果的类型
+type SyncResult = {
+  tags: MuseDAMTagResponse[];
+  createdTagMapping: Map<string, MuseDAMID>;
+};
 
 export async function fetchTeamTags(): Promise<
   ServerActionResult<{
@@ -77,7 +93,7 @@ export async function saveTagsTree(tagsTree: TagNode[]): Promise<ServerActionRes
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
       // 在数据库操作前先同步到 MuseDAM（此时数据库中的数据还是完整的）
-      let syncResult: { tags: any[]; createdTagMapping: Map<string, any> } | null = null;
+      let syncResult: SyncResult | null = null;
       try {
         // 获取团队信息
         const team = await prisma.team.findUniqueOrThrow({
@@ -288,7 +304,7 @@ export async function batchCreateTags(
         };
 
         const tagsTree = convertToTagNodes(nameChildList);
-        let syncResult: { tags: any[]; createdTagMapping: Map<string, any> } | null = null;
+        let syncResult: SyncResult | null = null;
 
         // 先同步到 MuseDAM
         try {
@@ -423,7 +439,7 @@ export async function saveSingleTagChange(
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
       // 在数据库操作前先同步到 MuseDAM（此时数据库中的数据还是完整的）
-      let syncResult: { tags: any[]; createdTagMapping: Map<string, any> } | null = null;
+      let syncResult: SyncResult | null = null;
       try {
         // 获取团队信息
         const team = await prisma.team.findUniqueOrThrow({

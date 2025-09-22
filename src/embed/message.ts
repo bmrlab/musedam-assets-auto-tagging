@@ -128,7 +128,7 @@ function handleParentConfigUpdate(action: string, args: any) {
   }
 }
 
-type BaseActionResult<T = {}> =
+type BaseActionResult<T = Record<string, never>> =
   | {
       success: true;
       data: T;
@@ -141,7 +141,7 @@ type BaseActionResult<T = {}> =
 
 type ActionMap = {
   "member-selector-modal-open": {
-    args: {};
+    args: Record<string, never>;
     result: BaseActionResult<{
       members: { id: MuseDAMID; name: string }[];
       departments: { id: MuseDAMID; name: string }[];
@@ -149,14 +149,17 @@ type ActionMap = {
     }>;
   };
   "folder-selector-modal-open": {
-    args: {};
+    args: {
+      initialSelectedFolders?: Array<{ id: MuseDAMID; name: string }>;
+      allMaterials?: boolean;
+    };
     result: BaseActionResult<{
       selectedFolders: Array<{ id: MuseDAMID; name: string }>;
       allMaterials: boolean;
     }>;
   };
   "assets-selector-modal-open": {
-    args: {};
+    args: Record<string, never>;
     result: BaseActionResult<{
       selectedAssets: Array<{
         id: MuseDAMID; // 素材唯一标识
