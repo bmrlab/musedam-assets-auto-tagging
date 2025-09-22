@@ -165,11 +165,11 @@ type ActionMap = {
   };
   "folder-selector-modal-open": {
     args: {
-      initialSelectedFolders?: Array<{ id: MuseDAMID; name: string }>;
+      initialSelectedFolders?: Array<{ id: number; name: string }>;
       allMaterials?: boolean;
     };
     result: BaseActionResult<{
-      selectedFolders: Array<{ id: MuseDAMID; name: string }>;
+      selectedFolders: Array<{ id: number; name: string }>;
       allMaterials: boolean;
     }>;
   };
@@ -177,7 +177,7 @@ type ActionMap = {
     args: Record<string, never>;
     result: BaseActionResult<{
       selectedAssets: Array<{
-        id: MuseDAMID; // 素材唯一标识
+        id: number; // 素材唯一标识
         name: string; // 素材名称
         extension: string; // 文件扩展名
         size: number; // 文件大小（字节）
