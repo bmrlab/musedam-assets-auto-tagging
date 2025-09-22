@@ -4,7 +4,7 @@ export function generateCurlCommand(
   url: string,
   method: string,
   headers: Record<string, string>,
-  body?: string
+  body?: string,
 ): string {
   let curl = `curl -X ${method} '${url}'`;
 
@@ -21,14 +21,14 @@ export function generateCurlCommand(
   return curl;
 }
 
-export async function requestMuseDAMAPI(
+export async function requestMuseDAMAPI<T = unknown>(
   apiPath: `/${string}`,
   {
     method,
     body,
     headers,
   }: { method: "POST" | "GET"; body?: unknown; headers?: Record<string, string> },
-) {
+): Promise<T> {
   const url = `${process.env.MUSEDAM_API_BASE_URL}${apiPath}`;
   const requestHeaders = {
     "Content-Type": "application/json",
@@ -57,5 +57,5 @@ export async function requestMuseDAMAPI(
       `MuseDAM API request failed, status code: ${response.status}, message: ${result["message"]}`,
     );
   }
-  return result["result"] ?? result["data"] ?? {};
+  return (result["result"] ?? result["data"] ?? {}) as T;
 }

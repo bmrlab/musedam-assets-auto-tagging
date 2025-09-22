@@ -98,7 +98,7 @@ export async function syncSingleAssetFromMuseDAM({
   const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
 
   // 调用 assets-by-ids API 获取单个素材
-  const assets = await requestMuseDAMAPI("/api/muse/assets-by-ids", {
+  const assets = await requestMuseDAMAPI<{ id: MuseDAMID }[]>("/api/muse/assets-by-ids", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${musedamTeamApiKey}`,
@@ -202,21 +202,24 @@ export async function syncAssetsFromMuseDAM({
   };
 }) {
   const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
-  const result = await requestMuseDAMAPI("/api/muse/search-assets", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${musedamTeamApiKey}`,
-    },
-    body: {
-      parentId: musedamFolderId,
-      sort: {
-        sortName: "CREATE_TIME",
-        sortType: "DESC",
+  const result = await requestMuseDAMAPI<{ assets: { id: MuseDAMID }[] }>(
+    "/api/muse/search-assets",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${musedamTeamApiKey}`,
       },
-      startPoint: 0,
-      endPoint: 40,
+      body: {
+        parentId: musedamFolderId,
+        sort: {
+          sortName: "CREATE_TIME",
+          sortType: "DESC",
+        },
+        startPoint: 0,
+        endPoint: 40,
+      },
     },
-  });
+  );
   await Promise.all(
     result.assets.map(async (asset: { id: MuseDAMID }) => {
       const waitTime = Math.floor(Math.random() * 10000) + 1000; // 1-10 seconds in milliseconds

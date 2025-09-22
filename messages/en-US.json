@@ -61,7 +61,13 @@
       "matchingKeywordsTooltip": "Add keywords related to this tag to help AI identify this tag more accurately",
       "inputKeywords": "Enter keywords",
       "excludeKeywords": "Exclude Keywords",
-      "excludeKeywordsTooltip": "Add keywords to exclude. Assets containing these words will not be tagged with this tag"
+      "excludeKeywordsTooltip": "Add keywords to exclude. Assets containing these words will not be tagged with this tag",
+      "edit": "Edit",
+      "matchingRule": "Matching Rule:",
+      "matchingRuleDescription": "When asset names, metadata, and folder paths match the above keywords, AI will automatically tag the asset",
+      "excludeRule": "Exclude Rule:",
+      "excludeRuleDescription": "When asset names, metadata, and folder paths contain these keywords, even if matching keywords are found, the tag will not be automatically applied",
+      "tagNamePlaceholder": "Poster Design"
     },
     "ManualCreateModal": {
       "LabelsCreatedSuccessfully": "Labels created successfully",
@@ -94,6 +100,19 @@
       "ClearExistingTagsAndUseNewOnes": "Clear existing tags and use new ones",
       "Cancel": "Cancel",
       "ConfirmToUseTheNewTagSystemOnl": "Confirm switching to the new tag system? This will clear your existing tags and all associated assets. This action cannot be undone. Proceed with caution."
+    },
+    "TagSortModal": {
+      "title": "Tag Sorting",
+      "noSortableTags": "No sortable tags",
+      "sortSaveSuccess": "Sort saved successfully",
+      "sortSaveFailed": "Failed to save sort",
+      "cancel": "Cancel",
+      "confirm": "Confirm",
+      "saving": "Saving...",
+      "level1Title": "Level 1 Tags",
+      "level2Title": "Level 2 Tags",
+      "level3Title": "Level 3 Tags",
+      "defaultTitle": "Tags"
     }
   },
   "TaggingResultDisplay": {

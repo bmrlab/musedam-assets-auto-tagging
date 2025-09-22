@@ -73,7 +73,7 @@ export default function AssetsClient({ initialAssets }: AssetsClientProps) {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold">资产管理</h1>
-          <p className="text-muted-foreground">查看和管理团队的资产文件</p>
+          <p className="text-basic-5">查看和管理团队的资产文件</p>
         </div>
         <div className="flex gap-2">
           <Button onClick={fetchSampleAssets} variant="outline" disabled={isLoading}>
@@ -91,7 +91,7 @@ export default function AssetsClient({ initialAssets }: AssetsClientProps) {
         {assets.length === 0 ? (
           <Card>
             <CardContent className="pt-6">
-              <div className="text-center text-muted-foreground">
+              <div className="text-center text-basic-5">
                 <File className="h-12 w-12 mx-auto mb-4" />
                 <p>暂无资产文件</p>
                 <Button className="mt-4">上传第一个资产</Button>
@@ -114,7 +114,7 @@ export default function AssetsClient({ initialAssets }: AssetsClientProps) {
                         className="object-cover rounded-[10px]"
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                      <div className="w-full h-full flex items-center justify-center text-basic-5">
                         <File className="h-6 w-6" />
                       </div>
                     )}
@@ -130,7 +130,7 @@ export default function AssetsClient({ initialAssets }: AssetsClientProps) {
                         </h3>
 
                         {/* 路径 */}
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
+                        <div className="flex items-center gap-1 text-sm text-basic-5 mt-1">
                           <Folder className="h-4 w-4" />
                           <span className="truncate" title={asset.materializedPath}>
                             {asset.materializedPath}
@@ -139,7 +139,7 @@ export default function AssetsClient({ initialAssets }: AssetsClientProps) {
 
                         {/* 描述 */}
                         {asset.description && (
-                          <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
+                          <p className="text-sm text-basic-5 mt-2 line-clamp-2">
                             描述: {asset.description}
                           </p>
                         )}
@@ -147,7 +147,7 @@ export default function AssetsClient({ initialAssets }: AssetsClientProps) {
                         {/* 标签 */}
                         {(asset.tags as AssetObjectTags).length > 0 && (
                           <div className="flex items-center gap-2 mt-3">
-                            <TagIcon className="h-4 w-4 text-muted-foreground" />
+                            <TagIcon className="h-4 w-4 text-basic-5" />
                             <div className="flex flex-wrap gap-1">
                               {(asset.tags as AssetObjectTags).map((tag, index) => (
                                 <span
@@ -162,7 +162,7 @@ export default function AssetsClient({ initialAssets }: AssetsClientProps) {
                         )}
                         {/* 内容分析 */}
                         {asset.content && (
-                          <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
+                          <p className="text-sm text-basic-5 mt-2 line-clamp-2">
                             AI 解析: {(asset.content as AssetObjectContentAnalysis).aiDescription}
                           </p>
                         )}
@@ -190,7 +190,7 @@ export default function AssetsClient({ initialAssets }: AssetsClientProps) {
 
                     {/* 底部信息 */}
                     <div className="flex items-center justify-between mt-4 pt-3 border-t">
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-4 text-sm text-basic-5">
                         <div className="flex items-center gap-1">
                           <Calendar className="h-4 w-4" />
                           <span>创建于 {formatDate(asset.createdAt)}</span>

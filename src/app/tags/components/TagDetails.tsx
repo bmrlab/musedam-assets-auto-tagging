@@ -4,20 +4,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { AssetTagExtra } from "@/prisma/client";
 import { AssetTag } from "@/prisma/client";
-import { Edit, Edit2, InfoIcon, Plus, X } from "lucide-react";
+import { Edit, InfoIcon, Plus, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
-import { TagEditData, useTagEdit } from "../contexts/TagEditContext";
-import { updateTagExtra } from "../actions";
 import { toast } from "sonner";
-import { Tooltip } from "recharts";
+import { updateTagExtra } from "../actions";
+import { TagEditData, useTagEdit } from "../contexts/TagEditContext";
 
 // 组件Props类型
 interface TagDetailsProps {
   selectedTag: { tag: AssetTag; level: number } | null;
-  refreshTags: () => void
+  refreshTags: () => void;
 }
 
 export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
@@ -145,7 +145,7 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
             <Button
               variant="ghost"
               size="sm"
-              className="h-4 w-4 p-0 text-muted-foreground hover:text-red-500 dark:hover:text-red-400"
+              className="h-4 w-4 p-0 text-basic-5 hover:text-red-500 dark:hover:text-red-400"
               onClick={() => removeKeyword(type, index)}
             >
               <X className="h-3 w-3" />
@@ -166,7 +166,7 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 px-2 text-sm text-muted-foreground border border-dashed border-muted-foreground/30 hover:border-muted-foreground/50"
+            className="h-7 px-2 text-sm text-basic-5 border border-dashed border-muted-foreground/30 hover:border-muted-foreground/50"
             onClick={() => setShowInput(true)}
           >
             <Plus className="h-3 w-3 mr-1" />
@@ -183,7 +183,7 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
       <div className="w-[18rem] bg-background border rounded-md flex flex-col items-stretch overflow-hidden">
         <div className="border-b px-4 py-2 font-medium">{t("tagDetails")}</div>
         <div className="flex-1 overflow-y-scroll scrollbar-thin p-4">
-          <p className="text-muted-foreground text-center py-8">{t("selectTagToView")}</p>
+          <p className="text-basic-5 text-center py-8">{t("selectTagToView")}</p>
         </div>
       </div>
     );
@@ -215,7 +215,7 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
       });
       if (res.success) {
         toast.success(tRoot("saveSuccess"));
-        refreshTags()
+        refreshTags();
         setIsEditing(false);
       } else {
         toast.error(res.message || tRoot("saveFailed"));
@@ -231,14 +231,18 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
       <div className="border-b px-4 py-2 font-medium flex items-center justify-between">
         <span>{t("tagDetails")}</span>
         {!isEditing ? (
-          <Button onClick={handleStartEdit}>
+          <Button onClick={handleStartEdit} size="sm">
             <Edit />
-            编辑
+            {t("edit")}
           </Button>
         ) : (
           <div className="flex items-center gap-2">
-            <Button variant="ghost" onClick={handleCancel}>{tRoot("cancel")}</Button>
-            <Button onClick={handleSave}>{tRoot("saveChanges")}</Button>
+            <Button variant="ghost" onClick={handleCancel} size="sm">
+              {tRoot("cancel")}
+            </Button>
+            <Button onClick={handleSave} size="sm">
+              {tRoot("saveChanges")}
+            </Button>
           </div>
         )}
         {/* {hasChanges && (
@@ -255,7 +259,7 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
             <Input
               value={formData.name}
               onChange={(e) => updateField("name", e.target.value)}
-              placeholder="海报设计"
+              placeholder={t("tagNamePlaceholder")}
             />
           ) : (
             <div className="text-sm text-foreground/90 min-h-9 flex items-center px-3 py-2 border rounded-md bg-muted/30">
@@ -286,23 +290,27 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
           <Label className="text-sm font-medium">{t("aiAutoTagging")}</Label>
           <div className="flex items-center gap-2">
             <Switch defaultChecked disabled={!isEditing} />
-            <span className="text-sm text-muted-foreground">{t("aiAutoTaggingEnabled")}</span>
+            <span className="text-sm text-basic-5">{t("aiAutoTaggingEnabled")}</span>
           </div>
         </div>
 
         {/* 匹配关键词 */}
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1">
             <Label className="text-sm font-medium">{t("matchingKeywords")}</Label>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 w-6 p-0"
-
-              title={t("matchingKeywordsTooltip")}
-            >
-              <InfoIcon />
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                    <InfoIcon />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-[240px] text-sm">
+                  <span className="font-medium">{t("matchingRule")}</span>
+                  {t("matchingRuleDescription")}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
           {isEditing ? (
             renderKeywordList("keywords", t("inputKeywords"))
@@ -310,12 +318,15 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
             <div className="flex flex-wrap gap-1.5">
               {formData.keywords.length > 0 ? (
                 formData.keywords.map((keyword, index) => (
-                  <div key={index} className="inline-flex items-center gap-1 bg-muted rounded-md px-2 py-1 text-sm">
+                  <div
+                    key={index}
+                    className="inline-flex items-center gap-1 bg-muted rounded-md px-2 py-1 text-sm"
+                  >
                     <span>{keyword}</span>
                   </div>
                 ))
               ) : (
-                <span className="text-sm text-muted-foreground">-</span>
+                <span className="text-sm text-basic-5">-</span>
               )}
             </div>
           )}
@@ -323,16 +334,27 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
 
         {/* 排除关键词 */}
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1">
             <Label className="text-sm font-medium">{t("excludeKeywords")}</Label>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 w-6 p-0"
-              title={t("excludeKeywordsTooltip")}
-            >
-              <InfoIcon />
-            </Button>
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0"
+                    title={t("excludeKeywordsTooltip")}
+                  >
+                    <InfoIcon />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-[240px] text-sm">
+                  <span className="font-medium">{t("excludeRule")}</span>
+                  {t("excludeRuleDescription")}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
           {isEditing ? (
             renderKeywordList("negativeKeywords", t("inputKeywords"))
@@ -340,12 +362,15 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
             <div className="flex flex-wrap gap-1.5">
               {formData.negativeKeywords.length > 0 ? (
                 formData.negativeKeywords.map((keyword, index) => (
-                  <div key={index} className="inline-flex items-center gap-1 bg-muted rounded-md px-2 py-1 text-sm">
+                  <div
+                    key={index}
+                    className="inline-flex items-center gap-1 bg-muted rounded-md px-2 py-1 text-sm"
+                  >
                     <span>{keyword}</span>
                   </div>
                 ))
               ) : (
-                <span className="text-sm text-muted-foreground">-</span>
+                <span className="text-sm text-basic-5">-</span>
               )}
             </div>
           )}

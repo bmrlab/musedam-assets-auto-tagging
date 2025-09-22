@@ -92,6 +92,7 @@ model AssetTag {
   parentId Int?
   parent   AssetTag?  @relation("TagHierarchy", fields: [parentId], references: [id])
   children AssetTag[] @relation("TagHierarchy")
+  sort     Int        @default(0) // 排序字段，数值越小排序越靠前
   extra    Json       @default("{}")
 
   createdAt         DateTime           @default(now()) @db.Timestamptz(6)

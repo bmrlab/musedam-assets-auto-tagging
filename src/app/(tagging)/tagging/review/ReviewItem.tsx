@@ -1,22 +1,14 @@
 "use client";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { cn } from "@/lib/utils";
+import { cn, formatSize } from "@/lib/utils";
 import {
   AssetObject,
   AssetObjectExtra,
   AssetObjectTags,
   TaggingAuditStatus,
 } from "@/prisma/client";
-import {
-  CheckIcon,
-  DotIcon,
-  Folder,
-  Loader2Icon,
-  Tag as TagIcon,
-  Timer,
-  XIcon,
-} from "lucide-react";
+import { CheckIcon, DotIcon, Loader2Icon, Timer, XIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Image from "next/image";
 import { useCallback, useMemo, useState } from "react";
@@ -88,7 +80,7 @@ export function ReviewItem({ assetObject, batch, onSuccess }: AssetWithAuditItem
   return (
     <div className="bg-background border rounded-md px-6 pt-8 pb-6 space-y-6">
       {/* 资产基本信息 */}
-      <div className="flex items-start gap-4">
+      <div className="flex items-center gap-4">
         <div className="shrink-0 w-24 h-24 relative">
           <Image
             src={getThumbnailUrl(assetObject)!}
@@ -100,19 +92,22 @@ export function ReviewItem({ assetObject, batch, onSuccess }: AssetWithAuditItem
         </div>
 
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-lg truncate" title={assetObject.name}>
+          <h3 className="font-semibold text-basic" title={assetObject.name}>
             {assetObject.name}
           </h3>
-          <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
+          {/* 所属文件夹 */}
+          {/* <div className="flex items-center gap-1 text-sm text-basic-5 mt-1">
             <Folder className="h-4 w-4" />
             <span className="truncate" title={assetObject.materializedPath}>
               {assetObject.materializedPath}
             </span>
-          </div>
-          <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
+          </div> */}
+          <div className="flex items-center gap-1 text-xs text-basic-5 mt-1">
             <span>{(assetObject.extra as AssetObjectExtra).extension?.toUpperCase()}</span>
             <DotIcon className="size-3" />
-            <span>{(assetObject.extra as AssetObjectExtra).size?.toLocaleString()} Bytes</span>
+            <span>
+              {formatSize((assetObject.extra as AssetObjectExtra).size)?.toLocaleString()}
+            </span>
           </div>
         </div>
 
@@ -159,9 +154,9 @@ export function ReviewItem({ assetObject, batch, onSuccess }: AssetWithAuditItem
       {/* 标签信息 */}
       <div className="grid grid-cols-2 gap-4">
         {/* 现有标签 */}
-        <div className="flex-1 bg-muted rounded-md p-4">
+        <div className="flex-1 bg-[rgba(247,249,252,0.8)] dark:bg-basic-1 rounded-md p-4">
           <div className="flex items-center gap-2 mb-2">
-            <TagIcon className="h-4 w-4 text-muted-foreground" />
+            <Image src="/Tags.svg" alt="folder" width={16} height={16} />
             <span className="text-sm font-medium">{t("tags")}</span>
           </div>
           <div className="flex flex-wrap gap-1">
@@ -178,12 +173,15 @@ export function ReviewItem({ assetObject, batch, onSuccess }: AssetWithAuditItem
 
         {/* AI推荐标签 */}
         {batch.map(({ queueItem, taggingAuditItems }) => (
-          <div key={queueItem.id} className="flex-1 bg-muted rounded-md p-4">
+          <div
+            key={queueItem.id}
+            className="flex-1 bg-[rgba(247,249,252,0.8)] dark:bg-basic-1 rounded-md p-4"
+          >
             <div className="flex items-center gap-2 mb-3">
-              <TagIcon className="h-4 w-4" />
+              <Image src="/TagAI.svg" alt="folder" width={16} height={16} />
               <span className="text-sm font-medium">{t("aiRecommendedTags")}</span>
-              <span className="text-xs text-muted-foreground">{t("basedOnTagSystem")}</span>
-              <span className="ml-auto text-xs text-muted-foreground flex items-center gap-1">
+              <span className="text-xs text-basic-5">{t("basedOnTagSystem")}</span>
+              <span className="ml-auto text-xs text-basic-5 flex items-center gap-1">
                 <Timer className="size-4" />
                 {formatDate(queueItem.createdAt)}
               </span>
@@ -227,7 +225,7 @@ export function ReviewItem({ assetObject, batch, onSuccess }: AssetWithAuditItem
                       value={auditItem.score}
                       className="bg-current/20 [&>[data-slot=progress-indicator]]:bg-current"
                     />
-                    <span className="text-xs text-muted-foreground">{auditItem.score}%</span>
+                    <span className="text-xs text-basic-5">{auditItem.score}%</span>
                   </div>
                   {/* 操作按钮 */}
                   {auditItem.status === "pending" && auditItem.leafTagId ? (

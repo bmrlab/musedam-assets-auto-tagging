@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { dispatchMuseDAMClientAction } from "@/embed/message";
-import { SettingsIcon, TagIcon, TagsIcon } from "lucide-react";
+import { TagsIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 interface GlobalSettingsSectionProps {
@@ -19,7 +19,6 @@ export function GlobalSettingsSection({
     <div className="space-y-6">
       {/* AI 自动打标引擎 */}
       <div className="bg-background border rounded-lg">
-
         <div className="px-4 py-3 border-b">
           <h3 className="font-medium text-base">{t("title")}</h3>
         </div>
@@ -32,8 +31,12 @@ export function GlobalSettingsSection({
             <Switch checked={isTaggingEnabled} onCheckedChange={onTaggingEnabledChange} />
           </div>
 
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Button variant="outline" size="sm" onClick={() => dispatchMuseDAMClientAction("goto", { url: "/home/dashboard/tag" })}>
+          <div className="flex items-center gap-2 text-basic-5">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => dispatchMuseDAMClientAction("goto", { url: "/home/dashboard/tag" })}
+            >
               <TagsIcon className="rotate-180 scale-y-[-1]" />
               {t("manageTagSystem")}
             </Button>

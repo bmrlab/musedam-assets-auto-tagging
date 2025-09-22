@@ -119,7 +119,8 @@
       "loading": "加载中...",
       "noAssetsToReview": "暂无待审核的素材",
       "refreshDataFailed": "刷新数据失败",
-      "paginationInfo": "显示第 {current} - {total} 条，共 {totalCount} 条"
+      "paginationInfo": "显示第 {current} - {total} 条，共 {totalCount} 条",
+      "totalItems": "全部 {total} 项"
     },
     "Access": {
       "roleAndPermissions": "角色与权限",

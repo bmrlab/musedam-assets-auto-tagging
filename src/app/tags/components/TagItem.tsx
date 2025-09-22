@@ -1,12 +1,4 @@
 "use client";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,14 +9,22 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { dispatchMuseDAMClientAction } from "@/embed/message";
 import { cn } from "@/lib/utils";
-import { Edit, Edit2Icon, MoreHorizontal, Search, TagIcon, Trash2Icon, Undo2 } from "lucide-react";
+import { Edit, MoreHorizontal, Search, TagIcon, Trash2Icon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
 import { TagNode } from "../types";
-import { dispatchMuseDAMClientAction } from "@/embed/message";
 
 interface TagItemProps {
   tag: TagNode;
@@ -39,7 +39,7 @@ interface TagItemProps {
   getNodeId: (node: TagNode) => string;
   // 标签详情是否被编辑过
   hasDetailChanges?: boolean;
-  canEdit?: boolean
+  canEdit?: boolean;
 }
 
 export function TagItem({
@@ -54,7 +54,7 @@ export function TagItem({
   // onRestore,
   getNodeId,
   hasDetailChanges = false,
-  canEdit
+  canEdit,
 }: TagItemProps) {
   const t = useTranslations("TagsPage.TagItem");
   const tRoot = useTranslations("TagsPage");
@@ -108,7 +108,7 @@ export function TagItem({
     onStartEdit(nodeId);
   };
   if (tag.isDeleted) {
-    return null
+    return null;
   }
 
   // 编辑状态的渲染
@@ -151,15 +151,16 @@ export function TagItem({
     <>
       <div
         className={cn(
-          "h-9 group flex items-center justify-between px-2 rounded-sm transition-all duration-200",
-          'cursor-pointer ease-in-out duration-300 transition-all',
-          {
-            "bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 opacity-60": tag.isDeleted,
-            "hover:bg-muted/50": !tag.isDeleted && !isSelected,
-            "bg-green-50 dark:bg-green-950/30": tag.verb === "create" && !isSelected,
-            "bg-blue-50 dark:bg-blue-950/30": tag.verb === "update" && !isSelected,
-            "bg-accent text-accent-foreground": isSelected && !tag.isDeleted,
-          },
+          "h-9 group flex items-center justify-between px-2 rounded-sm",
+          "cursor-pointer transition-all duration-300 ease-in-out",
+          isSelected ? "bg-primary-1 text-primary-6 font-medium" : "hover:bg-primary-1",
+          // {
+          //   "bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 opacity-60": tag.isDeleted,
+          //   "hover:bg-basic-3": !tag.isDeleted && !isSelected,
+          //   "bg-green-50 dark:bg-green-950/30": tag.verb === "create" && !isSelected,
+          //   "bg-blue-50 dark:bg-blue-950/30": tag.verb === "update" && !isSelected,
+          //   "bg-accent text-accent-foreground": isSelected && !tag.isDeleted,
+          // },
         )}
         onClick={!tag.isDeleted ? onSelect : undefined}
       >
@@ -175,7 +176,7 @@ export function TagItem({
 
           {/* 标签上的素材数量 */}
           {/* {level < 3 && tag.children.length > 0 && (
-          <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+          <span className="text-xs text-basic-5 bg-muted px-1.5 py-0.5 rounded">
             {tag.children.filter((child) => !child.isDeleted).length}
           </span>
         )} */}
@@ -199,59 +200,64 @@ export function TagItem({
         </div>
 
         {/* 操作按钮 */}
-        {canEdit && <div className="flex items-center">
-          {tag.isDeleted ? (<></>
-            // <Button
-            //   size="icon"
-            //   variant="ghost"
-            //   onClick={(e) => {
-            //     e.stopPropagation();
-            //      onRestore(nodeId);
-            //   }}
-            //   className="bg-transparent hover:bg-transparent opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-            // >
-            //   <Undo2 className="h-3 w-3" />
-            // </Button>
-          ) : (
-            <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={(e) => e.stopPropagation()}
-                  className="bg-transparent hover:bg-transparent opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                >
-                  <MoreHorizontal className="h-3 w-3" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" side="bottom" className="w-40">
-                <DropdownMenuItem onClick={() => {
-                  const searchUrl = `/home/all?filter=${encodeURIComponent(encodeURIComponent(
-                    JSON.stringify({ tags: [tag.id], tagIncEx: true })
-                  ))}`
-                  dispatchMuseDAMClientAction("goto", {
-                    url: searchUrl
-                  })
-                }}>
-                  <Search className="h-3 w-3 text-current" />
-                  搜索关联素材
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleRename} >
-                  <Edit className="h-3 w-3 text-current" />
-                  {t("rename")}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={handleDeleteClick}
-                  className="text-sm text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400"
-                >
-                  <Trash2Icon className="h-3 w-3 text-current" />
-                  {t("delete")}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </div>}
+        {canEdit && (
+          <div className="flex items-center">
+            {tag.isDeleted ? (
+              <></>
+            ) : (
+              // <Button
+              //   size="icon"
+              //   variant="ghost"
+              //   onClick={(e) => {
+              //     e.stopPropagation();
+              //      onRestore(nodeId);
+              //   }}
+              //   className="bg-transparent hover:bg-transparent opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+              // >
+              //   <Undo2 className="h-3 w-3" />
+              // </Button>
+              <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={(e) => e.stopPropagation()}
+                    className="size-6 rounded-sm bg-transparent hover:bg-transparent opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                  >
+                    <MoreHorizontal className="h-3 w-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" side="bottom" className="w-40">
+                  <DropdownMenuItem
+                    onClick={() => {
+                      const searchUrl = `/home/all?filter=${encodeURIComponent(
+                        encodeURIComponent(JSON.stringify({ tags: [tag.id], tagIncEx: true })),
+                      )}`;
+                      dispatchMuseDAMClientAction("goto", {
+                        url: searchUrl,
+                      });
+                    }}
+                  >
+                    <Search className="h-3 w-3 text-current" />
+                    搜索关联素材
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleRename}>
+                    <Edit className="h-3 w-3 text-current" />
+                    {t("rename")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={handleDeleteClick}
+                    className="text-sm text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400"
+                  >
+                    <Trash2Icon className="h-3 w-3 text-current" />
+                    {t("delete")}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
+        )}
       </div>
 
       {/* 删除确认弹窗 */}

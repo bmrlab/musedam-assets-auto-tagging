@@ -295,7 +295,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
         <div className="grid grid-cols-4 gap-8">
           <div className="text-center">
             <div className="text-3xl font-bold">{formatNumber(stats.totalCompleted)}</div>
-            <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground mt-2">
+            <div className="flex items-center justify-center gap-1 text-sm text-basic-5 mt-2">
               <span className="w-2 h-2 bg-green-600 dark:bg-green-400 rounded-full"></span>
               <span>{t("totalCompleted")}</span>
             </div>
@@ -303,7 +303,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
 
           <div className="text-center">
             <div className="text-3xl font-bold">{stats.processing}</div>
-            <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground mt-2">
+            <div className="flex items-center justify-center gap-1 text-sm text-basic-5 mt-2">
               <span className="w-2 h-2 bg-blue-600 dark:bg-blue-400 rounded-full"></span>
               <span>{t("processing")}</span>
             </div>
@@ -311,7 +311,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
 
           <div className="text-center">
             <div className="text-3xl font-bold">{stats.pending}</div>
-            <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground mt-2">
+            <div className="flex items-center justify-center gap-1 text-sm text-basic-5 mt-2">
               <span className="w-2 h-2 bg-orange-600 dark:bg-orange-400 rounded-full"></span>
               <span>{t("pending")}</span>
             </div>
@@ -319,7 +319,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
 
           <div className="text-center">
             <div className="text-3xl font-bold">{stats.failed}</div>
-            <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground mt-2">
+            <div className="flex items-center justify-center gap-1 text-sm text-basic-5 mt-2">
               <span className="w-2 h-2 bg-red-600 dark:bg-red-400 rounded-full"></span>
               <span>{t("failed")}</span>
             </div>
@@ -332,7 +332,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
         <div className="flex items-center justify-between p-4 border-b">
           <div>
             <h2 className="font-semibold">{t("title")}</h2>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-basic-5">
               {t("remainingTasks", {
                 count: totalTasks,
                 total: stats.pending + stats.processing,
@@ -365,8 +365,8 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
         {/* Task Items */}
         <div className="divide-y">
           {tasks.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <CheckCircle2 className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+            <div className="text-center py-12 text-basic-5">
+              <CheckCircle2 className="h-12 w-12 mx-auto mb-4 text-basic-5/50" />
               <p>{t("noTasks")}</p>
             </div>
           ) : (
@@ -375,7 +375,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
               return (
                 <div
                   key={task.id}
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors"
+                  className="flex items-center gap-3 px-4 py-3 hover:bg-basic-3 transition-colors"
                 >
                   {/* Thumbnail or Icon */}
                   <div className="shrink-0 w-12 h-12 relative rounded overflow-hidden bg-muted">
@@ -401,7 +401,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
                         {task.assetObject.name}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                    <div className="flex items-center gap-2 text-xs text-basic-5 mt-0.5">
                       <span>
                         {(() => {
                           try {
@@ -420,22 +420,22 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
                           return null;
                         }
                       })() && (
-                          <>
-                            <span>·</span>
-                            <span>
-                              {formatFileSize(
-                                (() => {
-                                  try {
-                                    const extra = task.assetObject.extra as AssetObjectExtra | null;
-                                    return extra?.size || 0;
-                                  } catch (error) {
-                                    return 0;
-                                  }
-                                })()
-                              )}
-                            </span>
-                          </>
-                        )}
+                        <>
+                          <span>·</span>
+                          <span>
+                            {formatFileSize(
+                              (() => {
+                                try {
+                                  const extra = task.assetObject.extra as AssetObjectExtra | null;
+                                  return extra?.size || 0;
+                                } catch (error) {
+                                  return 0;
+                                }
+                              })(),
+                            )}
+                          </span>
+                        </>
+                      )}
                       <>
                         <span>·</span>
                         <span>
@@ -450,7 +450,9 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
                     {task.status === "processing" ? (
                       <span className="w-1.5 h-1.5 bg-blue-600 dark:bg-blue-400 rounded-full animate-pulse"></span>
                     ) : task.status === "pending" ? (
-                      <span className="text-xs text-orange-600 dark:text-orange-400">{t("waitingForTagging")}</span>
+                      <span className="text-xs text-orange-600 dark:text-orange-400">
+                        {t("waitingForTagging")}
+                      </span>
                     ) : task.status === "failed" ? (
                       <Button
                         size="sm"
@@ -474,7 +476,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
         {totalPages > 1 && (
           <div className="p-4 border-t flex items-center justify-between">
             {renderPagination()}
-            <span className="shrink-0 text-sm text-muted-foreground">
+            <span className="shrink-0 text-sm text-basic-5">
               {t("paginationInfo", { current: tasks.length, total: totalTasks })}
             </span>
           </div>
@@ -490,11 +492,11 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
             <div className="flex items-center gap-4 mt-2">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full" style={{ backgroundColor: "#10b981" }} />
-                <span className="text-sm text-muted-foreground">{t("initiateTasks")}</span>
+                <span className="text-sm text-basic-5">{t("initiateTasks")}</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full" style={{ backgroundColor: "#3b82f6" }} />
-                <span className="text-sm text-muted-foreground">{t("processTasks")}</span>
+                <span className="text-sm text-basic-5">{t("processTasks")}</span>
               </div>
             </div>
           </div>

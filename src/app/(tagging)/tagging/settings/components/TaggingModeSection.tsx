@@ -1,5 +1,4 @@
 import { cn } from "@/lib/utils";
-import { InfoIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 interface TaggingModeSectionProps {
@@ -45,19 +44,15 @@ export function TaggingModeSection({ taggingMode, onTaggingModeChange }: Tagging
             >
               <div className="text-center">
                 <h3 className="font-medium mb-2">{t("review")}</h3>
-                <p className="text-muted-foreground text-xs">{t("reviewDesc")}</p>
+                <p className="text-basic-5 text-xs">{t("reviewDesc")}</p>
               </div>
             </div>
           </div>
 
           <div className="bg-primary-1 border border-primary-5 rounded-lg px-3 py-[14px]">
             <div className="flex gap-3 text-[13px]">
-              <span className="font-medium ">
-                {t("firstTimeRecommendation")}
-              </span>
-              <span className="ml-1">
-                {t("firstTimeRecommendationDesc")}
-              </span>
+              <span className="font-medium ">{t("firstTimeRecommendation")}</span>
+              <span className="ml-1">{t("firstTimeRecommendationDesc")}</span>
             </div>
           </div>
         </div>

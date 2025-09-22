@@ -10,11 +10,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { dispatchMuseDAMClientAction } from "@/embed/message";
 import { idToSlug } from "@/lib/slug";
-import { MuseDAMID } from "@/musedam/types";
 import { Building, ChevronDown, Loader2, Plus, User, Users } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { useTranslations } from "next-intl";
 import { addAccessPermissionAction, removeAccessPermissionAction } from "./actions";
 
 interface AccessClientProps {
@@ -30,10 +29,7 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
   const handleMemberSelection = async () => {
     try {
       setIsSelecting(true);
-      const res = await dispatchMuseDAMClientAction(
-        "member-selector-modal-open",
-        {},
-      );
+      const res = await dispatchMuseDAMClientAction("member-selector-modal-open", {});
 
       const { members, departments, groups } = res;
       const allPermissions: AccessPermission[] = [];
@@ -105,7 +101,9 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
       const result = await addAccessPermissionAction(updatedPermission);
       if (result.success) {
         setPermissions(result.data.permissions);
-        toast.success(t("permissionUpdatedSuccess", { name: permission.name, role: getRoleLabel(newRole) }));
+        toast.success(
+          t("permissionUpdatedSuccess", { name: permission.name, role: getRoleLabel(newRole) }),
+        );
       } else {
         toast.error(t("updatePermissionFailed"));
       }
@@ -172,7 +170,7 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
                 <div className="font-medium">{t("systemAdmin")}</div>
               </div>
             </div>
-            {/*<div className="text-sm text-muted-foreground w-20 text-right">可管理</div>*/}
+            {/*<div className="text-sm text-basic-5 w-20 text-right">可管理</div>*/}
             <Button variant="ghost" size="sm" className="h-8 w-20" disabled={true}>
               <span>{t("canManage")}</span>
               <ChevronDown className="ml-1 h-3 w-3" />
@@ -189,7 +187,7 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
                 <div className="font-medium">{t("contentAdmin")}</div>
               </div>
             </div>
-            {/*<div className="text-sm text-muted-foreground w-20 text-right">可管理</div>*/}
+            {/*<div className="text-sm text-basic-5 w-20 text-right">可管理</div>*/}
             <Button variant="ghost" size="sm" className="h-8 w-20" disabled={true}>
               <span>{t("canManage")}</span>
               <ChevronDown className="ml-1 h-3 w-3" />
@@ -198,7 +196,7 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
 
           {/* 动态权限列表 */}
           {permissions.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground border-b">
+            <div className="text-center py-8 text-basic-5 border-b">
               {t("noPermissionsConfigured")}
             </div>
           ) : (
@@ -214,7 +212,7 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
                     </div>
                     <div>
                       <div className="font-medium">{permission.name}</div>
-                      <div className="text-sm text-muted-foreground">
+                      <div className="text-sm text-basic-5">
                         {getPermissionType(permission.slug)}
                       </div>
                     </div>
@@ -235,7 +233,7 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
                         >
                           <div className="flex flex-col">
                             <span className="text-sm font-medium">{t("canManage")}</span>
-                            <span className="text-xs text-muted-foreground">
+                            <span className="text-xs text-basic-5">
                               {t("fullManagementPermission")}
                             </span>
                           </div>
@@ -247,9 +245,7 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
                         >
                           <div className="flex flex-col">
                             <span className="text-sm font-medium">{t("canReview")}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {t("reviewPermission")}
-                            </span>
+                            <span className="text-xs text-basic-5">{t("reviewPermission")}</span>
                           </div>
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />

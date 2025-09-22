@@ -8,9 +8,8 @@ export interface TagNode {
   isEditing?: boolean;
   originalName?: string;
   tempId?: string; // 用于新创建的标签的临时ID
+  sort?: number; // 排序字段
 }
-
-
 
 export interface TagRecord {
   id: number;
@@ -19,7 +18,6 @@ export interface TagRecord {
   name: string;
   parentId: number;
 }
-
 
 export type SearchTagData = {
   tag: TagRecord;

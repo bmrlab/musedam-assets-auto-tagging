@@ -61,7 +61,13 @@
       "matchingKeywordsTooltip": "添加与此标签相关的关键词，帮助AI更准确地识别此标签",
       "inputKeywords": "输入关键词",
       "excludeKeywords": "排除关键词",
-      "excludeKeywordsTooltip": "添加需要排除的关键词，当素材包含这些词时将不会被打上此标签"
+      "excludeKeywordsTooltip": "添加需要排除的关键词，当素材包含这些词时将不会被打上此标签",
+      "edit": "编辑",
+      "matchingRule": "匹配规则：",
+      "matchingRuleDescription": "当素材的名称、元数据和所在文件夹匹配到上述关键词时，AI 将自动为素材打上对应标签",
+      "excludeRule": "排除规则：",
+      "excludeRuleDescription": "当素材的名称、元数据和所在文件夹包含这些关键词时，即使匹配到上述关键词也不会自动打标",
+      "tagNamePlaceholder": "海报设计"
     },
     "ManualCreateModal": {
       "LabelsCreatedSuccessfully": "批量创建标签成功",
@@ -94,6 +100,19 @@
       "ClearExistingTagsAndUseNewOnes": "清空原有标签，使用新标签",
       "Cancel": "取消",
       "ConfirmToUseTheNewTagSystemOnl": "确认仅使用新标签体系吗？这将会清空您原有的标签体系，以及原有标签下所有的关联素材。此操作不可恢复，请谨慎操作。"
+    },
+    "TagSortModal": {
+      "title": "标签排序",
+      "noSortableTags": "没有可排序的标签",
+      "sortSaveSuccess": "排序保存成功",
+      "sortSaveFailed": "排序保存失败",
+      "cancel": "取消",
+      "confirm": "确认",
+      "saving": "保存中...",
+      "level1Title": "一级标签",
+      "level2Title": "二级标签",
+      "level3Title": "三级标签",
+      "defaultTitle": "标签"
     }
   },
   "TaggingResultDisplay": {

@@ -119,7 +119,8 @@
       "loading": "Loading...",
       "noAssetsToReview": "No assets to review",
       "refreshDataFailed": "Failed to refresh data",
-      "paginationInfo": "Showing {current} - {total} of {totalCount} items"
+      "paginationInfo": "Showing {current} - {total} of {totalCount} items",
+      "totalItems": "Total {total} items"
     },
     "Access": {
       "roleAndPermissions": "Role & Permissions",

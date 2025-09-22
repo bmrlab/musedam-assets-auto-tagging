@@ -2,11 +2,12 @@
 //   useServiceEnterpriseTagBatchAdd,
 //   useServiceEnterpriseTagList
 // } from '@/hooks/business/enterpriseTags/useEnterpriseTags';
-import { cn } from '@/lib/utils';
-import { useEffect, useMemo, useState } from 'react';
-import { toast } from 'sonner';
-import { useTranslations } from 'next-intl';
+import { cn } from "@/lib/utils";
+import { useTranslations } from "next-intl";
+import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -14,14 +15,13 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
-import { Button } from '@/components/ui/button';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Label } from '@/components/ui/label';
-import { ThreeTagList } from './ThreeTagList';
-import { TagNode } from '../types';
-import { batchCreateTags, BatchCreateTagData, checkExistingTags } from '../actions';
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Textarea } from "@/components/ui/textarea";
+import { BatchCreateTagData, batchCreateTags, checkExistingTags } from "../actions";
+import { TagNode } from "../types";
+import { ThreeTagList } from "./ThreeTagList";
 
 interface NameChildList {
   name: string;
@@ -45,26 +45,24 @@ const convertToTagNodes = (nameChildList: NameChildList[]): TagNode[] => {
 const ManualCreateTips2Modal = ({
   visible,
   setVisible,
-  onSuccess
+  onSuccess,
 }: {
   visible: boolean;
   setVisible: (x: boolean) => void;
   onSuccess: () => void;
 }) => {
-  const t = useTranslations('TagsPage.ManualCreateTips2Modal');
+  const t = useTranslations("TagsPage.ManualCreateTips2Modal");
 
   return (
     <Dialog open={visible} onOpenChange={setVisible}>
       <DialogContent className="sm:max-w-[400px]">
         <DialogHeader>
-          <DialogTitle>{t('HereSTheTranslatedVersionFollo')}</DialogTitle>
+          <DialogTitle>{t("HereSTheTranslatedVersionFollo")}</DialogTitle>
         </DialogHeader>
-        <DialogDescription>
-          {t('ConfirmToUseTheNewTagSystemOnl')}
-        </DialogDescription>
+        <DialogDescription>{t("ConfirmToUseTheNewTagSystemOnl")}</DialogDescription>
         <DialogFooter>
           <Button variant="outline" onClick={() => setVisible(false)}>
-            {t('Cancel')}
+            {t("Cancel")}
           </Button>
           <Button
             variant="destructive"
@@ -73,7 +71,7 @@ const ManualCreateTips2Modal = ({
               onSuccess();
             }}
           >
-            {t('ClearExistingTagsAndUseNewOnes')}
+            {t("ClearExistingTagsAndUseNewOnes")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -84,25 +82,23 @@ const ManualCreateTips2Modal = ({
 const ManualCreateTipsModal = ({
   visible,
   setVisible,
-  onSuccess
+  onSuccess,
 }: {
   visible: boolean;
   setVisible: (x: boolean) => void;
   onSuccess: (addType: 1 | 2) => void;
 }) => {
-  const t = useTranslations('TagsPage.ManualCreateTipsModal');
+  const t = useTranslations("TagsPage.ManualCreateTipsModal");
   const [radioValue, setRadioValue] = useState<1 | 2>(2);
 
   return (
     <Dialog open={visible} onOpenChange={setVisible}>
       <DialogContent className="sm:max-w-[400px]">
         <DialogHeader>
-          <DialogTitle>{t('CreateTagPrompt')}</DialogTitle>
+          <DialogTitle>{t("CreateTagPrompt")}</DialogTitle>
         </DialogHeader>
         <div className="w-full h-auto flex flex-col gap-4">
-          <div className="text-sm text-muted-foreground">
-            {t('ExistingTagDataFoundInTheSyste')}
-          </div>
+          <div className="text-sm text-basic-5">{t("ExistingTagDataFoundInTheSyste")}</div>
           <RadioGroup
             value={radioValue.toString()}
             onValueChange={(value) => setRadioValue(Number(value) as 1 | 2)}
@@ -111,26 +107,22 @@ const ManualCreateTipsModal = ({
             <div className="flex flex-col space-y-1">
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="2" id="merge" />
-                <Label htmlFor="merge">{t('MergeIntoExistingTagSystem')}</Label>
+                <Label htmlFor="merge">{t("MergeIntoExistingTagSystem")}</Label>
               </div>
-              <div className="text-xs text-muted-foreground pl-6">
-                {t('RetainExistingTagsAndAddNewTag')}
-              </div>
+              <div className="text-xs text-basic-5 pl-6">{t("RetainExistingTagsAndAddNewTag")}</div>
             </div>
             <div className="flex flex-col space-y-1">
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="1" id="clear" />
-                <Label htmlFor="clear">{t('UnderstoodPleaseProvideTheText')}</Label>
+                <Label htmlFor="clear">{t("UnderstoodPleaseProvideTheText")}</Label>
               </div>
-              <div className="text-xs text-muted-foreground pl-6">
-                {t('ClearExistingTagsKeepOnlyTheNe')}
-              </div>
+              <div className="text-xs text-basic-5 pl-6">{t("ClearExistingTagsKeepOnlyTheNe")}</div>
             </div>
           </RadioGroup>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setVisible(false)}>
-            {t('Cancel')}
+            {t("Cancel")}
           </Button>
           <Button
             onClick={() => {
@@ -142,7 +134,7 @@ const ManualCreateTipsModal = ({
               }
             }}
           >
-            {t('Confirm')}
+            {t("Confirm")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -153,57 +145,57 @@ const ManualCreateTipsModal = ({
 export const CreateModal = ({
   visible,
   setVisible,
-  refresh
+  refresh,
 }: {
   visible: boolean;
   setVisible: (x: boolean) => void;
   refresh?: () => void;
 }) => {
-  const t = useTranslations('TagsPage.ManualCreateModal');
+  const t = useTranslations("TagsPage.ManualCreateModal");
 
   const [isManualTipsOpen, setIsManualTipsOpen] = useState(false);
   const [isManualTips2Open, setIsManualTips2Open] = useState(false);
-  const [mode, setMode] = useState<'preview' | 'edit'>('edit');
-  const [batchCreateText, inputBatchCreateText] = useState('');
+  const [mode, setMode] = useState<"preview" | "edit">("edit");
+  const [batchCreateText, inputBatchCreateText] = useState("");
   const [showTips, setShowTips] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [hasExistingTags, setHasExistingTags] = useState(false);
   const nameChildList: TTag[] = useMemo(() => {
     if (!batchCreateText) return [];
-    const lines = batchCreateText.split('\n').filter((line) => line.trim());
+    const lines = batchCreateText.split("\n").filter((line) => line.trim());
     const result: TTag[] = [];
     let currentL1: TTag | null = null;
     let currentL2: TTag | null = null;
     for (const line of lines) {
       // 一级标签
-      if (line.startsWith('# ') || (line.startsWith('#') && !line.startsWith('##'))) {
-        const name = line.startsWith('# ') ? line.slice(2).trim() : line.slice(1).trim();
+      if (line.startsWith("# ") || (line.startsWith("#") && !line.startsWith("##"))) {
+        const name = line.startsWith("# ") ? line.slice(2).trim() : line.slice(1).trim();
         // name 必须有值
         if (!name) continue;
         currentL1 = {
           name,
-          nameChildList: []
+          nameChildList: [],
         };
         currentL2 = null;
         result.push(currentL1);
       }
       // 二级标签
-      else if (line.startsWith('## ') || (line.startsWith('##') && !line.startsWith('###'))) {
+      else if (line.startsWith("## ") || (line.startsWith("##") && !line.startsWith("###"))) {
         if (!currentL1) continue;
-        const name = line.startsWith('## ') ? line.slice(3).trim() : line.slice(2).trim();
+        const name = line.startsWith("## ") ? line.slice(3).trim() : line.slice(2).trim();
         // name 必须有值
         if (!name) continue;
         currentL2 = {
           name,
-          nameChildList: []
+          nameChildList: [],
         };
         currentL1.nameChildList?.push(currentL2);
       }
       // 三级标签
-      else if (line.trim() && !line.startsWith('#')) {
+      else if (line.trim() && !line.startsWith("#")) {
         if (!currentL2) continue;
         currentL2.nameChildList?.push({
-          name: line.trim()
+          name: line.trim(),
         });
       }
     }
@@ -228,7 +220,7 @@ export const CreateModal = ({
   useEffect(() => {
     if (!visible) {
       setShowTips(true);
-      inputBatchCreateText('');
+      inputBatchCreateText("");
       setPreviewSelectedLevel1Id(null);
       setPreviewSelectedLevel2Id(null);
       setPreviewSelectedLevel3Id(null);
@@ -256,12 +248,12 @@ export const CreateModal = ({
   const previewList1 = previewTagNodes;
   const previewList2 = useMemo(() => {
     if (!previewSelectedLevel1Id) return [];
-    const selectedNode = previewTagNodes.find(node => node.tempId === previewSelectedLevel1Id);
+    const selectedNode = previewTagNodes.find((node) => node.tempId === previewSelectedLevel1Id);
     return selectedNode?.children || [];
   }, [previewTagNodes, previewSelectedLevel1Id]);
   const previewList3 = useMemo(() => {
     if (!previewSelectedLevel2Id) return [];
-    const selectedNode = previewList2.find(node => node.tempId === previewSelectedLevel2Id);
+    const selectedNode = previewList2.find((node) => node.tempId === previewSelectedLevel2Id);
     return selectedNode?.children || [];
   }, [previewList2, previewSelectedLevel2Id]);
   // 检查是否有现有标签
@@ -274,7 +266,7 @@ export const CreateModal = ({
             setHasExistingTags(result.data.hasExistingTags);
           }
         } catch (error) {
-          console.error('Check existing tags error:', error);
+          console.error("Check existing tags error:", error);
         }
       };
       checkTags();
@@ -307,16 +299,16 @@ export const CreateModal = ({
       const result = await batchCreateTags(batchData, addType);
 
       if (result.success) {
-        inputBatchCreateText('');
+        inputBatchCreateText("");
         refresh?.();
-        toast.success(t('LabelsCreatedSuccessfully'));
+        toast.success(t("LabelsCreatedSuccessfully"));
         setVisible(false);
       } else {
-        toast.error(result.message || '创建标签失败');
+        toast.error(result.message || "创建标签失败");
       }
     } catch (err: unknown) {
-      console.error('Batch create tags error:', err);
-      toast.error(err instanceof Error ? err.message : '创建标签时发生错误');
+      console.error("Batch create tags error:", err);
+      toast.error(err instanceof Error ? err.message : "创建标签时发生错误");
     } finally {
       setIsCreating(false);
     }
@@ -326,48 +318,42 @@ export const CreateModal = ({
       <Dialog open={visible} onOpenChange={setVisible}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>{t('CreateLabelsManually')}</DialogTitle>
+            <DialogTitle>{t("CreateLabelsManually")}</DialogTitle>
           </DialogHeader>
           <div className="w-full h-[442px] flex flex-col gap-3">
             <div className="w-full flex items-center justify-between">
-              <div className="text-sm text-muted-foreground">
-                {t('QuicklyCreateMultipleTagPathsW')}
-              </div>
+              <div className="text-sm text-basic-5">{t("QuicklyCreateMultipleTagPathsW")}</div>
               <div className="h-[30px] w-auto rounded-md bg-muted p-0.5 flex items-center space-x-0.5">
                 <div
                   className={cn(
-                    'border border-solid rounded flex justify-center items-center px-2 cursor-pointer',
-                    mode === 'preview'
-                      ? 'border-border bg-background'
-                      : 'border-transparent'
+                    "border border-solid rounded flex justify-center items-center px-2 cursor-pointer",
+                    mode === "preview" ? "border-border bg-background" : "border-transparent",
                   )}
-                  onClick={() => setMode('preview')}
+                  onClick={() => setMode("preview")}
                 >
                   <div
                     className={cn(
-                      'text-[13px] leading-[22px] select-none',
-                      mode === 'preview' ? 'font-medium text-foreground' : 'text-muted-foreground'
+                      "text-[13px] leading-[22px] select-none",
+                      mode === "preview" ? "font-medium text-foreground" : "text-basic-5",
                     )}
                   >
-                    {t('PreviewView')}
+                    {t("PreviewView")}
                   </div>
                 </div>
                 <div
                   className={cn(
-                    'border border-solid rounded flex justify-center items-center px-2 cursor-pointer',
-                    mode === 'edit'
-                      ? 'border-border bg-background'
-                      : 'border-transparent'
+                    "border border-solid rounded flex justify-center items-center px-2 cursor-pointer",
+                    mode === "edit" ? "border-border bg-background" : "border-transparent",
                   )}
-                  onClick={() => setMode('edit')}
+                  onClick={() => setMode("edit")}
                 >
                   <div
                     className={cn(
-                      'text-[13px] leading-[22px] select-none',
-                      mode === 'edit' ? 'font-medium text-foreground' : 'text-muted-foreground'
+                      "text-[13px] leading-[22px] select-none",
+                      mode === "edit" ? "font-medium text-foreground" : "text-basic-5",
                     )}
                   >
-                    {t('HereSTheTranslatedTextFollowin')}
+                    {t("HereSTheTranslatedTextFollowin")}
                   </div>
                 </div>
               </div>
@@ -375,17 +361,17 @@ export const CreateModal = ({
             <div className="flex-1 relative">
               <div className="absolute inset-0">
                 <div className="relative w-full h-full">
-                  {mode === 'edit' && (
+                  {mode === "edit" && (
                     <>
                       {showTips && !batchCreateText && (
-                        <div className="absolute inset-0 px-4 py-2 text-muted-foreground text-sm leading-[22px] font-normal pointer-events-none">
-                          <div>{t('PleaseCreateLabelsInTheFollowi')}</div>
-                          <div>{t('FormatInstructions')}</div>
-                          <div>{t('PrimaryTag')}</div>
-                          <div>{t('SecondaryTags')}</div>
-                          <div>{t('Label1')}</div>
-                          <div>{t('Label2')}</div>
-                          <div>{t('OrdinaryTextIsALevel3Tag')}</div>
+                        <div className="absolute inset-0 px-4 py-2 text-basic-5 text-sm leading-[22px] font-normal pointer-events-none">
+                          <div>{t("PleaseCreateLabelsInTheFollowi")}</div>
+                          <div>{t("FormatInstructions")}</div>
+                          <div>{t("PrimaryTag")}</div>
+                          <div>{t("SecondaryTags")}</div>
+                          <div>{t("Label1")}</div>
+                          <div>{t("Label2")}</div>
+                          <div>{t("OrdinaryTextIsALevel3Tag")}</div>
                         </div>
                       )}
                       <Textarea
@@ -393,14 +379,14 @@ export const CreateModal = ({
                         onBlur={() => setShowTips(true)}
                         value={batchCreateText}
                         className={cn(
-                          'relative h-full px-4 py-2',
-                          batchCreateText?.length ? '' : 'bg-transparent'
+                          "relative h-full px-4 py-2",
+                          batchCreateText?.length ? "" : "bg-transparent",
                         )}
-                        onChange={(e) => inputBatchCreateText(e.target.value || '')}
+                        onChange={(e) => inputBatchCreateText(e.target.value || "")}
                       />
                     </>
                   )}
-                  {mode === 'preview' && (
+                  {mode === "preview" && (
                     <ThreeTagList
                       list1={previewList1}
                       list2={previewList2}
@@ -423,7 +409,7 @@ export const CreateModal = ({
                       onSelectLevel3={(nodeId) => setPreviewSelectedLevel3Id(nodeId)}
                       showAdd={false}
                       showAiTags={false}
-                      getNodeId={(node) => node.tempId || 'unknown'}
+                      getNodeId={(node) => node.tempId || "unknown"}
                     />
                   )}
                 </div>
@@ -432,7 +418,7 @@ export const CreateModal = ({
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setVisible(false)}>
-              {t('Cancel')}
+              {t("Cancel")}
             </Button>
             <Button
               disabled={!batchCreateText || !list1.length || isCreating}
@@ -440,7 +426,7 @@ export const CreateModal = ({
                 handleAddTags();
               }}
             >
-              {isCreating ? '创建中...' : t('CreateNow')}
+              {isCreating ? "创建中..." : t("CreateNow")}
             </Button>
           </DialogFooter>
         </DialogContent>

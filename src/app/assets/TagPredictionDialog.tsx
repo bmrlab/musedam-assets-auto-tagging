@@ -131,7 +131,7 @@ export default function TagPredictionDialog({ asset, isOpen, onClose }: TagPredi
               <div className="flex items-center justify-center mb-4">
                 <Sparkles className="h-8 w-8 text-primary animate-pulse" />
               </div>
-              <p className="text-muted-foreground mb-4">AI 正在分析文件并预测标签...</p>
+              <p className="text-basic-5 mb-4">AI 正在分析文件并预测标签...</p>
               <Progress value={undefined} className="w-full" />
             </div>
           )}
@@ -164,7 +164,7 @@ export default function TagPredictionDialog({ asset, isOpen, onClose }: TagPredi
                       <h3 className="font-medium text-base">
                         {getSourceDisplayName(sourceResult.source)}
                       </h3>
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-xs text-basic-5">
                         ({sourceResult.tags.length} 个预测)
                       </span>
                     </div>
@@ -181,7 +181,7 @@ export default function TagPredictionDialog({ asset, isOpen, onClose }: TagPredi
                               <div className="font-medium text-sm">
                                 {formatTagPath(prediction.tagPath)}
                               </div>
-                              <div className="text-xs text-muted-foreground mt-1">
+                              <div className="text-xs text-basic-5 mt-1">
                                 {prediction.tagPath.length}级标签 • ID: {prediction.leafTagId}
                               </div>
                             </div>
@@ -203,7 +203,7 @@ export default function TagPredictionDialog({ asset, isOpen, onClose }: TagPredi
                                     style={{ width: `${prediction.confidence * 100}%` }}
                                   />
                                 </div>
-                                <span className="text-xs text-muted-foreground">
+                                <span className="text-xs text-basic-5">
                                   {Math.round(prediction.confidence * 100)}%
                                 </span>
                               </div>
@@ -226,7 +226,7 @@ export default function TagPredictionDialog({ asset, isOpen, onClose }: TagPredi
                         ))}
                       </div>
                     ) : (
-                      <div className="text-center py-4 text-muted-foreground bg-muted/30 rounded-lg">
+                      <div className="text-center py-4 text-basic-5 bg-muted/30 rounded-lg">
                         <span className="text-sm">该策略未能生成有效的标签预测</span>
                       </div>
                     )}
@@ -256,11 +256,9 @@ export default function TagPredictionDialog({ asset, isOpen, onClose }: TagPredi
             predictions.every((sourceResult) => sourceResult.tags.length === 0) &&
             asset && (
               <div className="text-center py-8">
-                <Bot className="h-8 w-8 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">所有策略均未能生成有效的标签预测</p>
-                <p className="text-xs text-muted-foreground mt-2">
-                  可能是文件信息不足或标签体系不匹配
-                </p>
+                <Bot className="h-8 w-8 text-basic-5 mx-auto mb-4" />
+                <p className="text-basic-5">所有策略均未能生成有效的标签预测</p>
+                <p className="text-xs text-basic-5 mt-2">可能是文件信息不足或标签体系不匹配</p>
                 <Button onClick={startPrediction} className="mt-4" variant="outline">
                   重新预测
                 </Button>

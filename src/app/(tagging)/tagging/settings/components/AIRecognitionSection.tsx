@@ -19,60 +19,64 @@ export function AIRecognitionSection({
     des: string;
     isRecommended?: boolean;
   }[] = [
-      {
-        key: "precise",
-        title: t("precise"),
-        confidence: "80-100%",
-        des: t("preciseDesc")
-      },
-      {
-        key: "balanced",
-        title: t("balanced"),
-        confidence: "70-100%",
-        des: t("balancedDesc"),
-        isRecommended: true
-      },
-      {
-        key: "broad",
-        title: t("broad"),
-        confidence: "60-100%",
-        des: t("broadDesc")
-      }
-    ]
+    {
+      key: "precise",
+      title: t("precise"),
+      confidence: "80-100%",
+      des: t("preciseDesc"),
+    },
+    {
+      key: "balanced",
+      title: t("balanced"),
+      confidence: "70-100%",
+      des: t("balancedDesc"),
+      isRecommended: true,
+    },
+    {
+      key: "broad",
+      title: t("broad"),
+      confidence: "60-100%",
+      des: t("broadDesc"),
+    },
+  ];
   return (
     <div className="space-y-6">
       {/* AI 识别设置 */}
       <div className="bg-background border rounded-lg">
         <div className="px-4 py-3 border-b flex items-center gap-2">
           <h3 className="font-medium text-sm">{t("title")}</h3>
-          <InfoIcon className="size-4 text-muted-foreground" />
+          <InfoIcon className="size-4 text-basic-5" />
         </div>
         <div className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {items.map((item) => {
-              return <div
-                key={item.key}
-                className={cn(
-                  "border rounded-lg p-4 cursor-pointer transition-all relative ease-in-out duration-300",
-                  recognitionAccuracy === item.key
-                    ? "border-primary-6 bg-primary-1 ring-1 ring-primary-6"
-                    : "border-border hover:border-primary-6",
-                )}
-                onClick={() => onRecognitionAccuracyChange(item.key)}
-              >
-                <div className="text-center">
-                  <div className="flex items-center justify-center gap-2 ">
-                    <h3 className="font-medium text-sm mb-[6px]">{item.title}</h3>
-                    {item.isRecommended && <span className="bg-[#F9F0FF] text-xs text-[#722ED1] border border-solid border-[#D3ADF7] px-[6px] py-[2px] rounded absolute top-[10px] right-[10px]">
-                      {t('recommended')}
-                    </span>}
+              return (
+                <div
+                  key={item.key}
+                  className={cn(
+                    "border rounded-lg p-4 cursor-pointer transition-all relative ease-in-out duration-300",
+                    recognitionAccuracy === item.key
+                      ? "border-primary-6 bg-primary-1 ring-1 ring-primary-6"
+                      : "border-border hover:border-primary-6",
+                  )}
+                  onClick={() => onRecognitionAccuracyChange(item.key)}
+                >
+                  <div className="text-center">
+                    <div className="flex items-center justify-center gap-2 ">
+                      <h3 className="font-medium text-sm mb-[6px]">{item.title}</h3>
+                      {item.isRecommended && (
+                        <span className="bg-[#F9F0FF] text-xs text-[#722ED1] border border-solid border-[#D3ADF7] px-[6px] py-[2px] rounded absolute top-[10px] right-[10px]">
+                          {t("recommended")}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs font-medium text-primary-6 mb-1">
+                      {item.confidence} {t("confidence")}
+                    </div>
+                    <p className="text-xs text-basic-5">{item.des}</p>
                   </div>
-                  <div className="text-xs font-medium text-primary-6 mb-1">
-                    {item.confidence} {t("confidence")}
-                  </div>
-                  <p className="text-xs text-basic-5">{item.des}</p>
                 </div>
-              </div>
+              );
             })}
           </div>
         </div>

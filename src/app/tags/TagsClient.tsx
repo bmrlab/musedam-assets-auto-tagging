@@ -3,16 +3,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AssetTag } from "@/prisma/client";
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { fetchTeamTags, saveTagsTree, updateTagExtra, saveSingleTagChange } from "./actions";
+import { fetchTeamTags, saveSingleTagChange, saveTagsTree } from "./actions";
+import { CreateModal } from "./components/CreateModal";
+import { SearchResult } from "./components/SearchResult";
 import { SyncConfirmDialog } from "./components/SyncConfirmDialog";
 import { TagDetails } from "./components/TagDetails";
-import { TagEditProvider, useTagEdit } from "./contexts/TagEditContext";
-import { TagNode, SearchTagData, TagRecord } from "./types";
-import { CreateModal } from "./components/CreateModal";
 import { ThreeTagList } from "./components/ThreeTagList";
-import { SearchResult } from "./components/SearchResult";
+import { TagEditProvider, useTagEdit } from "./contexts/TagEditContext";
+import { SearchTagData, TagNode, TagRecord } from "./types";
 
 interface TagsClientProps {
   initialTags: (AssetTag & { children?: (AssetTag & { children?: AssetTag[] })[] })[];
@@ -48,18 +48,20 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
 
     const lowerQuery = query.toLowerCase().trim();
 
-    return tags.filter(tag => {
-      // 检查当前标签名是否匹配
-      const nameMatch = tag.name.toLowerCase().includes(lowerQuery);
+    return tags
+      .filter((tag) => {
+        // 检查当前标签名是否匹配
+        const nameMatch = tag.name.toLowerCase().includes(lowerQuery);
 
-      // 检查子标签是否有匹配
-      const childrenMatch = searchTags(tag.children, query).length > 0;
+        // 检查子标签是否有匹配
+        const childrenMatch = searchTags(tag.children, query).length > 0;
 
-      return nameMatch || childrenMatch;
-    }).map(tag => ({
-      ...tag,
-      children: searchTags(tag.children, query)
-    }));
+        return nameMatch || childrenMatch;
+      })
+      .map((tag) => ({
+        ...tag,
+        children: searchTags(tag.children, query),
+      }));
   };
 
   // 获取搜索结果
@@ -118,94 +120,101 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
   };
 
   // 处理搜索输入
-  const handleSearchChange = useCallback((value: string) => {
-    setSearchQuery(value);
-    setIsSearching(value.trim().length > 0);
+  const handleSearchChange = useCallback(
+    (value: string) => {
+      setSearchQuery(value);
+      setIsSearching(value.trim().length > 0);
 
-    // 如果开始搜索，清除当前选择
-    if (value.trim().length > 0) {
-      setSelectedLevel1Id(null);
-      setSelectedLevel2Id(null);
-      setSelectedLevel3Id(null);
-    } else {
-      // 搜索清空时，恢复默认选择
-      if (tagsTree.length > 0) {
-        const firstLevel1 = tagsTree[0];
-        setSelectedLevel1Id(getNodeId(firstLevel1));
+      // 如果开始搜索，清除当前选择
+      if (value.trim().length > 0) {
+        setSelectedLevel1Id(null);
+        setSelectedLevel2Id(null);
+        setSelectedLevel3Id(null);
+      } else {
+        // 搜索清空时，恢复默认选择
+        if (tagsTree.length > 0) {
+          const firstLevel1 = tagsTree[0];
+          setSelectedLevel1Id(getNodeId(firstLevel1));
 
-        if (firstLevel1.children.length > 0) {
-          const firstLevel2 = firstLevel1.children[0];
-          setSelectedLevel2Id(getNodeId(firstLevel2));
+          if (firstLevel1.children.length > 0) {
+            const firstLevel2 = firstLevel1.children[0];
+            setSelectedLevel2Id(getNodeId(firstLevel2));
 
-          if (firstLevel2.children.length > 0) {
-            const firstLevel3 = firstLevel2.children[0];
-            setSelectedLevel3Id(getNodeId(firstLevel3));
+            if (firstLevel2.children.length > 0) {
+              const firstLevel3 = firstLevel2.children[0];
+              setSelectedLevel3Id(getNodeId(firstLevel3));
+            }
           }
         }
       }
-    }
-  }, [tagsTree, getNodeId]);
+    },
+    [tagsTree, getNodeId],
+  );
 
   // 处理搜索结果点击
-  const handleSearchResultClick = useCallback((data: TagRecord) => {
-    // 清空搜索
-    setSearchQuery("");
-    setIsSearching(false);
+  const handleSearchResultClick = useCallback(
+    (data: TagRecord) => {
+      // 清空搜索
+      setSearchQuery("");
+      setIsSearching(false);
 
-    // 根据搜索结果找到对应的标签节点并选中
-    const findAndSelectTag = (nodes: TagNode[], targetId: number): boolean => {
-      for (const node of nodes) {
-        if (node.id === targetId) {
-          // 找到目标节点，设置选中状态
-          setSelectedLevel1Id(getNodeId(node));
-          setSelectedLevel2Id(null);
-          setSelectedLevel3Id(null);
-          return true;
-        }
+      // 根据搜索结果找到对应的标签节点并选中
+      const findAndSelectTag = (nodes: TagNode[], targetId: number): boolean => {
+        for (const node of nodes) {
+          if (node.id === targetId) {
+            // 找到目标节点，设置选中状态
+            setSelectedLevel1Id(getNodeId(node));
+            setSelectedLevel2Id(null);
+            setSelectedLevel3Id(null);
+            return true;
+          }
 
-        // 递归查找子节点
-        if (node.children.length > 0) {
-          for (const child of node.children) {
-            if (child.id === targetId) {
-              // 找到二级标签
-              setSelectedLevel1Id(getNodeId(node));
-              setSelectedLevel2Id(getNodeId(child));
-              setSelectedLevel3Id(null);
-              return true;
-            }
+          // 递归查找子节点
+          if (node.children.length > 0) {
+            for (const child of node.children) {
+              if (child.id === targetId) {
+                // 找到二级标签
+                setSelectedLevel1Id(getNodeId(node));
+                setSelectedLevel2Id(getNodeId(child));
+                setSelectedLevel3Id(null);
+                return true;
+              }
 
-            // 查找三级标签
-            if (child.children.length > 0) {
-              for (const grandChild of child.children) {
-                if (grandChild.id === targetId) {
-                  // 找到三级标签
-                  setSelectedLevel1Id(getNodeId(node));
-                  setSelectedLevel2Id(getNodeId(child));
-                  setSelectedLevel3Id(getNodeId(grandChild));
-                  return true;
+              // 查找三级标签
+              if (child.children.length > 0) {
+                for (const grandChild of child.children) {
+                  if (grandChild.id === targetId) {
+                    // 找到三级标签
+                    setSelectedLevel1Id(getNodeId(node));
+                    setSelectedLevel2Id(getNodeId(child));
+                    setSelectedLevel3Id(getNodeId(grandChild));
+                    return true;
+                  }
                 }
               }
             }
           }
         }
-      }
-      return false;
-    };
+        return false;
+      };
 
-    // 在标签树中查找并选中对应的标签
-    findAndSelectTag(tagsTree, data.id);
-  }, [tagsTree, getNodeId]);
+      // 在标签树中查找并选中对应的标签
+      findAndSelectTag(tagsTree, data.id);
+    },
+    [tagsTree, getNodeId],
+  );
 
-  // 将 Prisma 数据转换为 TagNode 格式并按ID排序
+  // 将 Prisma 数据转换为 TagNode 格式并按sort排序（数字越大越靠前）
   const convertToTagNodes = useCallback(
     (tags: (AssetTag & { children?: (AssetTag & { children?: AssetTag[] })[] })[]): TagNode[] => {
       return tags
-        .sort((a, b) => a.id - b.id) // 按ID排序
+        .sort((a, b) => b.sort - a.sort) // 按sort降序排序，数字越大越靠前
         .map((tag) => ({
           id: tag.id,
           slug: tag.slug,
           name: tag.name,
           originalName: tag.name,
+          sort: tag.sort,
           children: tag.children ? convertToTagNodes(tag.children) : [],
         }));
     },
@@ -240,7 +249,6 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
     setOriginalTags(initialTags);
     setDefaultSelection(newTree);
   }, [initialTags, convertToTagNodes, setDefaultSelection]);
-
 
   // 根据ID查找节点
   const findNodeById = (nodes: TagNode[], nodeId: string): TagNode | null => {
@@ -287,9 +295,9 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
       })
       .filter(Boolean) as TagNode[];
 
-    // 按ID排序，新建的标签（tempId）排在最后
+    // 按sort降序排序，新建的标签（tempId）排在最后
     return result.sort((a, b) => {
-      if (a.id && b.id) return a.id - b.id;
+      if (a.id && b.id) return (b.sort || 0) - (a.sort || 0); // 数字越大越靠前
       if (a.id && !b.id) return -1;
       if (!a.id && b.id) return 1;
       return 0;
@@ -313,17 +321,17 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
   // 计算节点的层级
   const getNodeLevel = (nodeId: string): number => {
     // 检查是否在第一级
-    const level1Node = tagsTree.find(tag => getNodeId(tag) === nodeId);
+    const level1Node = tagsTree.find((tag) => getNodeId(tag) === nodeId);
     if (level1Node) return 1;
 
     // 检查是否在第二级
     for (const level1 of tagsTree) {
-      const level2Node = level1.children.find(tag => getNodeId(tag) === nodeId);
+      const level2Node = level1.children.find((tag) => getNodeId(tag) === nodeId);
       if (level2Node) return 2;
 
       // 检查是否在第三级
       for (const level2 of level1.children) {
-        const level3Node = level2.children.find(tag => getNodeId(tag) === nodeId);
+        const level3Node = level2.children.find((tag) => getNodeId(tag) === nodeId);
         if (level3Node) return 3;
       }
     }
@@ -340,11 +348,11 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
     // 查找父节点
     for (const level1 of tagsTree) {
       if (level === 2) {
-        const level2Node = level1.children.find(tag => getNodeId(tag) === nodeId);
+        const level2Node = level1.children.find((tag) => getNodeId(tag) === nodeId);
         if (level2Node) return level1.id || null;
       } else if (level === 3) {
         for (const level2 of level1.children) {
-          const level3Node = level2.children.find(tag => getNodeId(tag) === nodeId);
+          const level3Node = level2.children.find((tag) => getNodeId(tag) === nodeId);
           if (level3Node) return level2.id || null;
         }
       }
@@ -381,7 +389,8 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
     setTagsTree((tree) => {
       const sortTags = (tags: TagNode[]) => {
         return [...tags].sort((a, b) => {
-          if (a.id && b.id) return a.id - b.id;
+          // 新创建的标签（没有id）排在最后
+          if (a.id && b.id) return (b.sort || 0) - (a.sort || 0); // 数字越大越靠前
           if (a.id && !b.id) return -1;
           if (!a.id && b.id) return 1;
           return 0;
@@ -566,7 +575,6 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
         isDeleted: true,
         verb: "delete",
       };
-      console.log("nodeToSave", nodeToSave)
       const result = await saveSingleTagChange(nodeToSave, parentId, level);
 
       if (result.success) {
@@ -757,78 +765,58 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
   );
 
   // 处理标签排序
-  const handleSortTags = useCallback(async (level: 1 | 2 | 3, sortedTags: TagNode[]) => {
-    try {
-      setIsSaving(true);
+  const handleSortTags = useCallback(
+    async (level: 1 | 2 | 3, sortedTags: TagNode[]) => {
+      try {
+        setIsSaving(true);
+        // 更新本地状态
+        setTagsTree((tree) => {
+          const updateTree = (nodes: TagNode[]): TagNode[] => {
+            if (level === 1) {
+              // 更新一级标签排序
+              return sortedTags;
+            } else {
+              // 递归更新子级标签排序
+              return nodes.map((node) => ({
+                ...node,
+                children:
+                  level === 2 && getNodeId(node) === selectedLevel1Id
+                    ? sortedTags
+                    : level === 3 && getNodeId(node) === selectedLevel2Id
+                      ? sortedTags
+                      : updateTree(node.children),
+              }));
+            }
+          };
+          return updateTree(tree);
+        });
+        // console.log("sortedTags", sortedTags, tagsTree);
+        await saveTagsTree(tagsTree);
+        toast.success(t("sortSuccess"));
+      } catch (error) {
+        console.error("Sort tags error:", error);
+        toast.error(t("sortFailed"));
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [selectedLevel1Id, selectedLevel2Id, getNodeId, t],
+  );
 
-      // 这里需要实现排序保存逻辑
-      // 可以根据需要调用相应的API来保存排序
-      console.log(`Sorting level ${level} tags:`, sortedTags);
-
-      // 更新本地状态
-      setTagsTree((tree) => {
-        const updateTree = (nodes: TagNode[]): TagNode[] => {
-          if (level === 1) {
-            // 更新一级标签排序
-            return sortedTags;
-          } else {
-            // 递归更新子级标签排序
-            return nodes.map(node => ({
-              ...node,
-              children: level === 2 && getNodeId(node) === selectedLevel1Id
-                ? sortedTags
-                : level === 3 && getNodeId(node) === selectedLevel2Id
-                  ? sortedTags
-                  : updateTree(node.children)
-            }));
-          }
-        };
-
-        return updateTree(tree);
-      });
-
-      toast.success(t("sortSuccess"));
-
-    } catch (error) {
-      console.error("Sort tags error:", error);
-      toast.error(t("sortFailed"));
-    } finally {
-      setIsSaving(false);
-    }
-  }, [selectedLevel1Id, selectedLevel2Id, getNodeId, t]);
-
-  const TagsHeaderMenu = useMemo(() => (
-    <div className="bg-background border rounded-md p-2 flex justify-between items-center gap-3">
-      <div className="flex items-center gap-4 flex-1 relative">
-        <Input
-          type="text"
-          placeholder={t("searchPlaceholder")}
-          className="w-full pl-10 pr-10"
-          value={searchQuery}
-          onChange={(e) => handleSearchChange(e.target.value)}
-        />
-        <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
-          <svg
-            className="w-4 h-4 text-muted-foreground"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-            />
-          </svg>
-        </div>
-        {searchQuery && (
-          <button
-            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            onClick={() => handleSearchChange("")}
-          >
+  const TagsHeaderMenu = useMemo(
+    () => (
+      <div className="bg-background border rounded-md p-2 flex justify-between items-center gap-3">
+        <div className="flex items-center gap-4 flex-1 relative">
+          <Input
+            type="text"
+            placeholder={t("searchPlaceholder")}
+            className="w-full pl-10 pr-10"
+            value={searchQuery}
+            onChange={(e) => handleSearchChange(e.target.value)}
+          />
+          <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
             <svg
-              className="w-4 h-4"
+              className="w-4 h-4 text-basic-5"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -837,84 +825,106 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
               />
             </svg>
-          </button>
-        )}
-      </div>
-      <div className="flex items-center gap-3">
-        {/* AI自动打标签开关 */}
-        {/* <div className="flex items-center gap-2">
-          <Switch />
-          <span className="text-sm text-muted-foreground">{t("aiAutoTagging")}</span>
-        </div> */}
-        <div className="flex items-center gap-2">
-          <SyncConfirmDialog onSyncComplete={handleSyncComplete} />
+          </div>
+          {searchQuery && (
+            <button
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-basic-5 hover:text-foreground"
+              onClick={() => handleSearchChange("")}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          )}
         </div>
-        <Button variant="outline" size="sm" onClick={() => {
-          setCreateModalVisible(true)
-        }}>
-          {t("batchCreate")}
-        </Button>
+        <div className="flex items-center gap-3">
+          {/* AI自动打标签开关 */}
+          {/* <div className="flex items-center gap-2">
+          <Switch />
+          <span className="text-sm text-basic-5">{t("aiAutoTagging")}</span>
+        </div> */}
+          <div className="flex items-center gap-2">
+            <SyncConfirmDialog onSyncComplete={handleSyncComplete} />
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setCreateModalVisible(true);
+            }}
+          >
+            {t("batchCreate")}
+          </Button>
+        </div>
       </div>
-    </div>
-  ), [t, searchQuery, handleSearchChange, handleSyncComplete]);
+    ),
+    [t, searchQuery, handleSearchChange, handleSyncComplete],
+  );
 
-  const TagMainColumns = useMemo(() => (
-
-    <ThreeTagList
-      title={t("tagManagement")}
-      list1={level1Tags}
-      list2={level2Tags}
-      list3={level3Tags}
-      total1={level1Tags.length}
-      total2={level2Tags.length}
-      total3={level3Tags.length}
-      selectedLevel1Id={selectedLevel1Id}
-      selectedLevel2Id={selectedLevel2Id}
-      selectedLevel3Id={selectedLevel3Id}
-      onSelectLevel1={(nodeId) => {
-        setSelectedLevel1Id(nodeId);
-        setSelectedLevel2Id(null);
-        setSelectedLevel3Id(null);
-      }}
-      onSelectLevel2={(nodeId) => {
-        setSelectedLevel2Id(nodeId);
-        setSelectedLevel3Id(null);
-      }}
-      onSelectLevel3={(nodeId) => setSelectedLevel3Id(nodeId)}
-      onEdit={updateTagName}
-      onStartEdit={startEdit}
-      onCancelEdit={cancelEdit}
-      onDelete={deleteTag}
-      onRestore={restoreTag}
-      onAddTag={addTag}
-      getNodeId={getNodeId}
-      hasDetailChanges={checkTagDetailChanges}
-      showAdd={!isSearching}
-      showAiTags={true}
-      canEdit={!isSearching}
-    />
-
-  ), [
-    t,
-    level1Tags,
-    level2Tags,
-    level3Tags,
-    selectedLevel1Id,
-    selectedLevel2Id,
-    selectedLevel3Id,
-    updateTagName,
-    startEdit,
-    cancelEdit,
-    deleteTag,
-    restoreTag,
-    addTag,
-    getNodeId,
-    checkTagDetailChanges,
-    isSearching
-  ]);
+  const TagMainColumns = useMemo(
+    () => (
+      <ThreeTagList
+        title={t("tagManagement")}
+        list1={level1Tags}
+        list2={level2Tags}
+        list3={level3Tags}
+        total1={level1Tags.length}
+        total2={level2Tags.length}
+        total3={level3Tags.length}
+        selectedLevel1Id={selectedLevel1Id}
+        selectedLevel2Id={selectedLevel2Id}
+        selectedLevel3Id={selectedLevel3Id}
+        onSelectLevel1={(nodeId) => {
+          setSelectedLevel1Id(nodeId);
+          setSelectedLevel2Id(null);
+          setSelectedLevel3Id(null);
+        }}
+        onSelectLevel2={(nodeId) => {
+          setSelectedLevel2Id(nodeId);
+          setSelectedLevel3Id(null);
+        }}
+        onSelectLevel3={(nodeId) => setSelectedLevel3Id(nodeId)}
+        onEdit={updateTagName}
+        onStartEdit={startEdit}
+        onCancelEdit={cancelEdit}
+        onDelete={deleteTag}
+        onRestore={restoreTag}
+        onAddTag={addTag}
+        getNodeId={getNodeId}
+        hasDetailChanges={checkTagDetailChanges}
+        showAdd={!isSearching}
+        showAiTags={true}
+        canEdit={!isSearching}
+        onSortTags={handleSortTags}
+      />
+    ),
+    [
+      t,
+      level1Tags,
+      level2Tags,
+      level3Tags,
+      selectedLevel1Id,
+      selectedLevel2Id,
+      selectedLevel3Id,
+      updateTagName,
+      startEdit,
+      cancelEdit,
+      deleteTag,
+      restoreTag,
+      addTag,
+      getNodeId,
+      checkTagDetailChanges,
+      isSearching,
+    ],
+  );
 
   return (
     <div className="h-dvh min-w-[60rem] overflow-x-scroll scrollbar-thin flex flex-col items-stretch gap-4 p-4 bg-basic-1">
@@ -928,20 +938,24 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
         ) : (
           TagMainColumns
         )}
-        <TagDetails selectedTag={getSelectedTag()} refreshTags={async () => {
-          // 刷新数据
-          const refreshResult = await fetchTeamTags();
-          if (refreshResult.success) {
-            const newTree = convertToTagNodes(refreshResult.data.tags);
-            setTagsTree(newTree);
-            setOriginalTags(refreshResult.data.tags);
-          }
-        }} />
+        <TagDetails
+          selectedTag={getSelectedTag()}
+          refreshTags={async () => {
+            // 刷新数据
+            const refreshResult = await fetchTeamTags();
+            if (refreshResult.success) {
+              const newTree = convertToTagNodes(refreshResult.data.tags);
+              setTagsTree(newTree);
+              setOriginalTags(refreshResult.data.tags);
+            }
+          }}
+        />
       </div>
       <CreateModal
         visible={createModalVisible}
         setVisible={setCreateModalVisible}
-        refresh={handleSyncComplete} />
+        refresh={handleSyncComplete}
+      />
     </div>
   );
 }

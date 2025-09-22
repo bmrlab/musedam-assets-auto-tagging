@@ -5,7 +5,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { dispatchMuseDAMClientAction } from "@/embed/message";
 import { cn } from "@/lib/utils";
 import { MuseDAMID } from "@/musedam/types";
-import { BugPlayIcon, FileText, Loader2, PlayIcon, PlusIcon, TagsIcon, X } from "lucide-react";
+import { FileText, Loader2, PlayIcon, PlusIcon, TagsIcon, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -170,7 +170,7 @@ export default function TestClient() {
                   processingTime:
                     result.startsAt && result.endsAt
                       ? (new Date(result.endsAt).getTime() - new Date(result.startsAt).getTime()) /
-                      1000
+                        1000
                       : 0,
                   recognitionMode:
                     extra?.recognitionAccuracy === "precise"
@@ -379,13 +379,10 @@ export default function TestClient() {
 
           <div className="p-4 space-y-4">
             {/* 功能介绍 */}
-            <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4 flex gap-3">
-              <BugPlayIcon className="size-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+            <div className="text-basic-8 bg-primary-1 border-primary-5 border  dark:border-blue-800 rounded-lg p-4 flex gap-3">
               <div>
-                <h3 className="font-medium text-blue-900 dark:text-blue-100 mb-2">
-                  {t("testDescription")}
-                </h3>
-                <div className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
+                <h3 className="font-medium mb-2">💡 {t("testDescription")}</h3>
+                <div className="text-sm  space-y-1">
                   <p>{t("testDescriptionText1")}</p>
                   <p>{t("testDescriptionText2")}</p>
                   <p>{t("testDescriptionText3")}</p>
@@ -397,12 +394,12 @@ export default function TestClient() {
             {selectedAssets.length === 0 ? (
               <div className="p-8 border border-dashed rounded-lg text-center">
                 <h3 className="font-medium">{t("selectAssetsFromLibrary")}</h3>
-                <p className="text-sm text-muted-foreground">{t("testOnlyDescription")}</p>
+                <p className="text-sm text-basic-5">{t("testOnlyDescription")}</p>
               </div>
             ) : (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-basic-5">
                     {t("selectedFilesCount", { count: selectedAssets.length })}
                   </p>
                   {/*<Button
@@ -421,10 +418,10 @@ export default function TestClient() {
                       className="flex items-center justify-between p-3 border rounded-lg"
                     >
                       <div className="flex items-center gap-3">
-                        <FileText className="size-4 text-muted-foreground" />
+                        <FileText className="size-4 text-basic-5" />
                         <div>
                           <p className="font-medium text-sm">{asset.name}</p>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-xs text-basic-5">
                             {asset.extension} • {(asset.size / 1024).toFixed(1)} KB
                           </p>
                         </div>
@@ -493,9 +490,7 @@ export default function TestClient() {
                 <Loader2 className="size-4 animate-spin text-blue-600" />
                 <div>
                   <p className="text-sm font-medium">正在处理 {queueItemIds.length} 个打标任务</p>
-                  <p className="text-xs text-muted-foreground">
-                    每2秒检查一次状态，完成后将自动显示结果
-                  </p>
+                  <p className="text-xs text-basic-5">每2秒检查一次状态，完成后将自动显示结果</p>
                 </div>
               </div>
             </div>
@@ -538,8 +533,10 @@ export default function TestClient() {
                 key={key}
                 className={cn(
                   "flex items-center gap-2",
-                  "py-2 px-3 border rounded-lg cursor-pointer transition-all hover:border-primary/50",
-                  selectedScene === key ? "bg-primary/5 border-primary" : "hover:bg-muted/50",
+                  "py-2 px-3 border rounded-lg cursor-pointer transition-all ",
+                  selectedScene === key
+                    ? "bg-[#EEF3FF] border-primary-6 ring ring-primary-6"
+                    : "hover:border-primary-6",
                 )}
                 onClick={() => handleSceneSelect(key)}
               >
@@ -570,7 +567,9 @@ export default function TestClient() {
                 key={key}
                 className={cn(
                   "border rounded-lg p-3 cursor-pointer transition-all hover:border-primary/50",
-                  recognitionAccuracy === key ? "border-primary bg-primary/5" : "",
+                  recognitionAccuracy === key
+                    ? "bg-[#EEF3FF] border-primary-6 ring ring-primary-6"
+                    : "hover:border-primary-6",
                 )}
                 onClick={() => setRecognitionAccuracy(key as typeof recognitionAccuracy)}
               >

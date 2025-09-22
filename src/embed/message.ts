@@ -53,14 +53,16 @@ function initializeMessageListener() {
       const pendingPromises = getPendingPromises();
       // 从队列中找到对应的 promise
       const pendingPromise = pendingPromises.get(message.dispatchId);
-      console.log("message", message);
       if (pendingPromise) {
         // 移除已处理的 promise
         pendingPromises.delete(message.dispatchId);
         // 根据响应结果 resolve 或 reject
         if (!message.result || !message.result.success) {
-          // 如果 result.success === false，一定有 result.message
-          if (message.result.code !== "cancel") {
+          // 如果 result.success === false，一定有 result.code
+          if (message.result.code === "cancelled") {
+            // 当用户取消操作时，不抛出异常，resolve undefined
+            pendingPromise.resolve(undefined as any);
+          } else {
             pendingPromise.reject(new Error(message.result?.message ?? "Unknown error"));
           }
         } else {
@@ -90,7 +92,6 @@ if (typeof window !== "undefined") {
 
 // 处理来自父项目的配置更新事件
 function handleParentConfigUpdate(action: string, args: any) {
-  console.log("action", action, args);
   switch (action) {
     case "updateLocale":
       if (args?.locale && typeof window !== "undefined") {

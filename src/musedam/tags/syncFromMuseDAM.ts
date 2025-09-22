@@ -10,6 +10,7 @@ import { MuseDAMID } from "../types";
 type MuseDAMTagTree = {
   id: MuseDAMID;
   name: string;
+  sort: number;
   children: MuseDAMTagTree | null;
 }[];
 
@@ -46,7 +47,6 @@ export async function syncTagsFromMuseDAM({
   // console.log("🔗 Curl Command:");
   // console.log(curlCommand);
 
-
   const result = await requestMuseDAMAPI("/api/muse/query-tag-tree", {
     method: "POST",
     headers: {
@@ -64,11 +64,13 @@ export async function syncTagsFromMuseDAM({
     slug,
     level,
     parentId,
+    sort,
   }: {
     name: string;
     slug: string;
     level: 1 | 2 | 3;
     parentId: number | null;
+    sort: number;
   }) {
     const where = parentId
       ? { teamId, parentId, name }
@@ -77,9 +79,15 @@ export async function syncTagsFromMuseDAM({
       let assetTag: AssetTag;
       const assetTags = await tx.assetTag.findMany({ where });
       if (assetTags[0]) {
-        assetTag = assetTags[0];
+        // 更新现有标签的 sort 字段
+        assetTag = await tx.assetTag.update({
+          where: { id: assetTags[0].id },
+          data: { sort },
+        });
       } else {
-        assetTag = await tx.assetTag.create({ data: { teamId, level, name, slug, parentId } });
+        assetTag = await tx.assetTag.create({
+          data: { teamId, level, name, slug, parentId, sort },
+        });
       }
       return assetTag;
     });
@@ -91,6 +99,7 @@ export async function syncTagsFromMuseDAM({
       slug: idToSlug("assetTag", level1Tag.id),
       level: 1,
       parentId: null,
+      sort: level1Tag.sort,
     });
     // console.log(level1Tag, level1AssetTag);
     for (const level2Tag of level1Tag.children ?? []) {
@@ -99,6 +108,7 @@ export async function syncTagsFromMuseDAM({
         slug: idToSlug("assetTag", level2Tag.id),
         level: 2,
         parentId: level1AssetTag.id,
+        sort: level2Tag.sort,
       });
       // console.log(level2Tag, level2AssetTag);
       for (const level3Tag of level2Tag.children ?? []) {
@@ -107,6 +117,7 @@ export async function syncTagsFromMuseDAM({
           slug: idToSlug("assetTag", level3Tag.id),
           level: 3,
           parentId: level2AssetTag.id,
+          sort: level3Tag.sort,
         });
       }
     }

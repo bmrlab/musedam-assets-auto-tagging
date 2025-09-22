@@ -18,7 +18,7 @@ export type AssetWithAuditItemsBatch = {
     queueItem: TaggingQueueItem;
     taggingAuditItems: (Omit<TaggingAuditItem, "tagPath"> & { tagPath: string[] })[];
   }[];
-  onSuccess?: () => void
+  onSuccess?: () => void;
 };
 
 export async function fetchAssetsWithAuditItems(
@@ -27,6 +27,7 @@ export async function fetchAssetsWithAuditItems(
   statusFilter?: TaggingAuditStatus,
   confidenceFilter?: "high" | "medium" | "low",
   searchQuery?: string,
+  timeFilter?: "all" | "today" | "week" | "month",
 ): Promise<
   ServerActionResult<{
     assets: AssetWithAuditItemsBatch[];
@@ -54,10 +55,13 @@ export async function fetchAssetsWithAuditItems(
         switch (confidenceFilter) {
           case "high":
             auditItemWhere.score = { gte: 80 };
+            break;
           case "medium":
             auditItemWhere.score = { gte: 70, lt: 80 };
+            break;
           case "low":
             auditItemWhere.score = { lt: 70 };
+            break;
         }
       }
 
@@ -68,6 +72,34 @@ export async function fetchAssetsWithAuditItems(
             { description: { contains: searchQuery, mode: "insensitive" } },
             { materializedPath: { contains: searchQuery, mode: "insensitive" } },
           ],
+        };
+      }
+
+      // 添加时间筛选逻辑
+      if (timeFilter && timeFilter !== "all") {
+        const now = new Date();
+        let startDate: Date;
+
+        switch (timeFilter) {
+          case "today":
+            startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            break;
+          case "week":
+            startDate = new Date(now);
+            startDate.setDate(now.getDate() - now.getDay());
+            startDate.setHours(0, 0, 0, 0);
+            break;
+          case "month":
+            startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+            break;
+          default:
+            startDate = new Date(0); // 默认不限制
+        }
+
+        auditItemWhere.queueItem = {
+          createdAt: {
+            gte: startDate,
+          },
         };
       }
 

@@ -2,6 +2,7 @@
 
 import { withAuth } from "@/app/(auth)/withAuth";
 import { ServerActionResult } from "@/lib/serverAction";
+import { idToSlug } from "@/lib/slug";
 import { syncTagsFromMuseDAM } from "@/musedam/tags/syncFromMuseDAM";
 import { syncTagsToMuseDAM } from "@/musedam/tags/syncToMuseDAM";
 import type { AssetTagExtra } from "@/prisma/client";
@@ -27,14 +28,14 @@ export async function fetchTeamTags(): Promise<
           equals: null,
         },
       },
-      orderBy: [{ level: "asc" }, { name: "asc" }],
+      orderBy: [{ level: "asc" }, { sort: "desc" }, { name: "asc" }],
       include: {
         parent: true,
         children: {
-          orderBy: { name: "asc" },
+          orderBy: [{ sort: "desc" }, { name: "asc" }],
           include: {
             children: {
-              orderBy: { name: "asc" },
+              orderBy: [{ sort: "desc" }, { name: "asc" }],
             },
           },
         },
@@ -76,13 +77,14 @@ export async function saveTagsTree(tagsTree: TagNode[]): Promise<ServerActionRes
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
       // 在数据库操作前先同步到 MuseDAM（此时数据库中的数据还是完整的）
+      let syncResult: { tags: any[]; createdTagMapping: Map<string, any> } | null = null;
       try {
         // 获取团队信息
         const team = await prisma.team.findUniqueOrThrow({
           where: { id: teamId },
         });
 
-        await syncTagsToMuseDAM({
+        syncResult = await syncTagsToMuseDAM({
           team: { id: teamId, slug: team.slug },
           tagsTree,
         });
@@ -138,6 +140,18 @@ export async function saveTagsTree(tagsTree: TagNode[]): Promise<ServerActionRes
                   },
                 });
                 targetTagId = createdTag.id;
+
+                // 如果有同步结果且该标签是新创建的，更新 slug
+                if (syncResult && node.tempId) {
+                  const musedamId = syncResult.createdTagMapping.get(node.tempId);
+                  if (musedamId) {
+                    const slug = idToSlug("assetTag", musedamId);
+                    await tx.assetTag.update({
+                      where: { id: targetTagId },
+                      data: { slug },
+                    });
+                  }
+                }
               }
 
               // 递归处理子标签
@@ -212,7 +226,9 @@ export interface BatchCreateTagData {
   nameChildList?: BatchCreateTagData[];
 }
 
-export async function checkExistingTags(): Promise<ServerActionResult<{ hasExistingTags: boolean; count: number }>> {
+export async function checkExistingTags(): Promise<
+  ServerActionResult<{ hasExistingTags: boolean; count: number }>
+> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
       const count = await prisma.assetTag.count({
@@ -243,7 +259,49 @@ export async function batchCreateTags(
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
       if (addType === 1) {
-        // 仅保留新建标签树：直接删除所有现有标签，然后创建新标签
+        // 仅保留新建标签树：先同步到 MuseDAM，然后创建标签并更新 slug
+        const team = await prisma.team.findUniqueOrThrow({
+          where: { id: teamId },
+        });
+
+        // 转换为 TagNode 格式用于同步
+        const convertToTagNodes = (
+          data: BatchCreateTagData[],
+          parentPath: string = "",
+        ): TagNode[] => {
+          return data.map((item, index) => {
+            const currentPath = parentPath
+              ? `${parentPath}_${index}`
+              : `batch_${Date.now()}_${index}`;
+            return {
+              id: undefined,
+              slug: null,
+              name: item.name,
+              originalName: item.name,
+              children: item.nameChildList
+                ? convertToTagNodes(item.nameChildList, currentPath)
+                : [],
+              verb: "create" as const,
+              tempId: currentPath,
+            };
+          });
+        };
+
+        const tagsTree = convertToTagNodes(nameChildList);
+        let syncResult: { tags: any[]; createdTagMapping: Map<string, any> } | null = null;
+
+        // 先同步到 MuseDAM
+        try {
+          syncResult = await syncTagsToMuseDAM({
+            team: { id: teamId, slug: team.slug },
+            tagsTree,
+          });
+        } catch (error) {
+          console.error("Sync to MuseDAM error:", error);
+          // MuseDAM 同步失败不影响本地保存结果
+        }
+
+        // 然后创建标签并更新 slug
         await prisma.$transaction(async (tx) => {
           // 1. 删除所有现有标签（级联删除子标签）
           await tx.assetTag.deleteMany({
@@ -255,11 +313,17 @@ export async function batchCreateTags(
             data: BatchCreateTagData[],
             parentId: number | null = null,
             level: number = 1,
+            tempIdPrefix: string = "",
           ) => {
-            for (const item of data) {
+            for (let i = 0; i < data.length; i++) {
+              const item = data[i];
               if (!item.name.trim()) {
                 throw new Error("标签名不能为空");
               }
+
+              const currentTempId = tempIdPrefix
+                ? `${tempIdPrefix}_${i}`
+                : `batch_${Date.now()}_${i}`;
 
               // 检查同级标签名是否重复
               const existingTag = await tx.assetTag.findFirst({
@@ -286,60 +350,34 @@ export async function batchCreateTags(
                   },
                 });
                 targetTagId = createdTag.id;
+
+                // 如果有同步结果且该标签是新创建的，更新 slug
+                if (syncResult && syncResult.createdTagMapping) {
+                  const musedamId = syncResult.createdTagMapping.get(currentTempId);
+                  if (musedamId) {
+                    const slug = idToSlug("assetTag", musedamId);
+                    await tx.assetTag.update({
+                      where: { id: targetTagId },
+                      data: { slug },
+                    });
+                  }
+                }
               }
 
               // 递归创建子标签
               if (item.nameChildList && item.nameChildList.length > 0) {
-                await createTagsRecursively(item.nameChildList, targetTagId, level + 1);
+                await createTagsRecursively(
+                  item.nameChildList,
+                  targetTagId,
+                  level + 1,
+                  currentTempId,
+                );
               }
             }
           };
 
           await createTagsRecursively(nameChildList);
         });
-
-        // 3. 同步到 MuseDAM
-        try {
-          const team = await prisma.team.findUniqueOrThrow({
-            where: { id: teamId },
-          });
-
-          // 获取新创建的标签树用于同步
-          const newTags = await prisma.assetTag.findMany({
-            where: { teamId },
-            orderBy: [{ level: "asc" }, { name: "asc" }],
-            include: {
-              children: {
-                orderBy: { name: "asc" },
-                include: {
-                  children: {
-                    orderBy: { name: "asc" },
-                  },
-                },
-              },
-            },
-          });
-
-          // 转换为 TagNode 格式用于同步
-          const convertToTagNodes = (tags: (AssetTag & { children?: AssetTag[] })[]): TagNode[] => {
-            return tags.map((tag) => ({
-              id: tag.id,
-              slug: tag.slug,
-              name: tag.name,
-              originalName: tag.name,
-              children: tag.children ? convertToTagNodes(tag.children) : [],
-            }));
-          };
-
-          const tagsTree = convertToTagNodes(newTags);
-          await syncTagsToMuseDAM({
-            team: { id: teamId, slug: team.slug },
-            tagsTree,
-          });
-        } catch (error) {
-          console.error("Sync to MuseDAM error:", error);
-          // MuseDAM 同步失败不影响本地保存结果
-        }
       } else {
         // 合并到现有标签系统：使用现有的 saveTagsTree 逻辑
         const convertToTagNodes = (data: BatchCreateTagData[]): TagNode[] => {
@@ -385,6 +423,7 @@ export async function saveSingleTagChange(
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
       // 在数据库操作前先同步到 MuseDAM（此时数据库中的数据还是完整的）
+      let syncResult: { tags: any[]; createdTagMapping: Map<string, any> } | null = null;
       try {
         // 获取团队信息
         const team = await prisma.team.findUniqueOrThrow({
@@ -393,7 +432,7 @@ export async function saveSingleTagChange(
 
         // 构建单个节点的标签树用于同步
         const singleNodeTree: TagNode[] = [node];
-        await syncTagsToMuseDAM({
+        syncResult = await syncTagsToMuseDAM({
           team: { id: teamId, slug: team.slug },
           tagsTree: singleNodeTree,
         });
@@ -442,6 +481,18 @@ export async function saveSingleTagChange(
               },
             });
             targetTagId = createdTag.id;
+
+            // 如果有同步结果且该标签是新创建的，更新 slug
+            if (syncResult && syncResult.createdTagMapping && node.tempId) {
+              const musedamId = syncResult.createdTagMapping.get(node.tempId);
+              if (musedamId) {
+                const slug = idToSlug("assetTag", musedamId);
+                await tx.assetTag.update({
+                  where: { id: targetTagId },
+                  data: { slug },
+                });
+              }
+            }
           }
 
           // 递归处理子标签
@@ -507,6 +558,41 @@ export async function saveSingleTagChange(
       return {
         success: false,
         message: error instanceof Error ? error.message : "保存标签修改时发生未知错误",
+      };
+    }
+  });
+}
+
+// 更新标签排序
+export async function updateTagSort(
+  tagSortData: { id: number; sort: number }[],
+): Promise<ServerActionResult<void>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    try {
+      await prisma.$transaction(async (tx) => {
+        // 批量更新标签排序
+        for (const { id, sort } of tagSortData) {
+          await tx.assetTag.update({
+            where: {
+              id,
+              teamId,
+            },
+            data: {
+              sort,
+            },
+          });
+        }
+      });
+
+      return {
+        success: true,
+        data: undefined,
+      };
+    } catch (error) {
+      console.error("Update tag sort error:", error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : "更新标签排序时发生未知错误",
       };
     }
   });

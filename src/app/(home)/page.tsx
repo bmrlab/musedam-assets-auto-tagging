@@ -42,7 +42,7 @@ export default function Home() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-muted-foreground">正在加载...</p>
+          <p className="mt-4 text-basic-5">正在加载...</p>
         </div>
       </div>
     );
@@ -57,7 +57,7 @@ export default function Home() {
             <div>
               <h1 className="text-2xl font-bold">{t("title")}</h1>
               {/*{session?.user && activeOrganization && (
-                <p className="text-sm text-muted-foreground mt-1">
+                <p className="text-sm text-basic-5 mt-1">
                   当前组织: {activeOrganization.name}
                 </p>
               )}*/}
@@ -95,7 +95,7 @@ export default function Home() {
           ) : (
             <div className="text-center">
               <h2 className="text-3xl font-bold mb-4">欢迎使用 MuseDAM 资产自动标记系统</h2>
-              <p className="text-xl text-muted-foreground mb-8">请先登录以访问系统功能</p>
+              <p className="text-xl text-basic-5 mb-8">请先登录以访问系统功能</p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Button asChild size="lg">
                   <Link href="/auth/signin">立即登录</Link>
