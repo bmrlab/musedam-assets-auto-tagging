@@ -11,7 +11,7 @@ export function LayoutHeader() {
   return (
     <header
       className={cn(
-        "z-1 mt-2 ml-2 px-3 py-1 rounded-full",
+        "mt-[22px] ml-2 px-3 rounded-full",
         "flex shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12",
       )}
     >

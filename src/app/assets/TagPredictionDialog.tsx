@@ -226,7 +226,7 @@ export default function TagPredictionDialog({ asset, isOpen, onClose }: TagPredi
                         ))}
                       </div>
                     ) : (
-                      <div className="text-center py-4 text-basic-5 bg-muted/30 rounded-lg">
+                      <div className="text-center py-4 text-basic-5 bg-basic-1 rounded-lg">
                         <span className="text-sm">该策略未能生成有效的标签预测</span>
                       </div>
                     )}

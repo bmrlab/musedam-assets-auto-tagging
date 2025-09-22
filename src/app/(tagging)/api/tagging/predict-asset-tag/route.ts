@@ -69,6 +69,7 @@ export async function POST(request: NextRequest) {
     }
 
     const settings = await getTaggingSettings(team.id);
+    console.log("xxx", settings.applicationScope.scopeType);
     if (settings.applicationScope.scopeType !== "all") {
       // 检查 selectedFolders 和 parentIds 的 id 是否有交集
       const musedamFolderIds: MuseDAMID[] = settings.applicationScope.selectedFolders.map(

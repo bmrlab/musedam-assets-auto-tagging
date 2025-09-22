@@ -192,7 +192,7 @@ export function ReviewItem({ assetObject, batch, onSuccess }: AssetWithAuditItem
                 <div
                   key={auditItem.id}
                   className={cn(
-                    "relative py-2 pl-3 pr-8 rounded-md border min-w-36",
+                    "relative py-2 pl-3 pr-8 rounded-[6px] border min-w-36",
                     {
                       "border-dashed":
                         (auditItem.leafTagId && rejectedItems.includes(auditItem.leafTagId)) ||
@@ -208,8 +208,10 @@ export function ReviewItem({ assetObject, batch, onSuccess }: AssetWithAuditItem
                     },
                   )}
                 >
-                  <div className="font-medium text-sm mb-2">{auditItem.tagPath.join(" > ")}</div>
-                  <div className="flex items-center gap-2">
+                  <div className="font-medium text-[13px] mb-[2px]">
+                    {auditItem.tagPath.join(" > ")}
+                  </div>
+                  <div className="flex items-center gap-2 h-4">
                     {/*<div className="w-16 h-2 bg-muted-foreground/20 rounded-full overflow-hidden">
                       <div
                         className={`h-full rounded-full transition-all ${
@@ -226,7 +228,7 @@ export function ReviewItem({ assetObject, batch, onSuccess }: AssetWithAuditItem
                       value={auditItem.score}
                       className="bg-current/20 [&>[data-slot=progress-indicator]]:bg-current"
                     />
-                    <span className="text-xs text-basic-5">{auditItem.score}%</span>
+                    <span className="text-[10px] ">{auditItem.score}%</span>
                   </div>
                   {/* 操作按钮 */}
                   {auditItem.status === "pending" && auditItem.leafTagId ? (

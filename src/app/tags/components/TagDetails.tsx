@@ -262,7 +262,7 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
               placeholder={t("tagNamePlaceholder")}
             />
           ) : (
-            <div className="text-sm text-foreground/90 min-h-9 flex items-center px-3 py-2 border rounded-md bg-muted/30">
+            <div className="text-sm text-foreground/90 min-h-9 flex items-center px-3 py-2 border rounded-md bg-basic-1">
               {formData.name || "-"}
             </div>
           )}
@@ -279,7 +279,7 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
               className="min-h-[80px] resize-none"
             />
           ) : (
-            <div className="text-sm text-foreground/90 whitespace-pre-wrap px-3 py-2 border rounded-md bg-muted/30 min-h-[80px]">
+            <div className="text-sm text-foreground/90 whitespace-pre-wrap px-3 py-2 border rounded-md bg-basic-1 min-h-[80px]">
               {formData.description || "-"}
             </div>
           )}
