@@ -99,7 +99,7 @@ export default function ReviewPageClient() {
               refreshDataWithFilters(1, newStatus, confidenceFilter, searchQuery, timeFilter);
             }}
           >
-            <SelectTrigger className="w-32">
+            <SelectTrigger className="min-w-32 w-fit">
               <SelectValue placeholder={t("allStatuses")} />
             </SelectTrigger>
             <SelectContent>
@@ -118,7 +118,7 @@ export default function ReviewPageClient() {
               refreshDataWithFilters(1, statusFilter, newConfidence, searchQuery, timeFilter);
             }}
           >
-            <SelectTrigger className="w-32">
+            <SelectTrigger className="min-w-32 w-fit">
               <SelectValue placeholder={t("allConfidence")} />
             </SelectTrigger>
             <SelectContent>

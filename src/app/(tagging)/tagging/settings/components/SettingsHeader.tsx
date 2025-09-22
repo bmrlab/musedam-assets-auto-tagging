@@ -1,6 +1,5 @@
-import { Button } from "@/components/ui/button";
-import { Loader2Icon, SaveIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useEffect } from "react";
 
 interface SettingsHeaderProps {
   hasChanges: boolean;
@@ -11,11 +10,17 @@ interface SettingsHeaderProps {
 export function SettingsHeader({ hasChanges, isPending, onSave }: SettingsHeaderProps) {
   const t = useTranslations("Tagging.Settings");
 
+  // 自动保存
+  useEffect(() => {
+    if (hasChanges) {
+      onSave();
+    }
+  }, [hasChanges]);
   return (
     <div className="flex items-center justify-between h-[32px]">
       <h1 className="text-sm font-medium">{t("title")}</h1>
 
-      {hasChanges && (
+      {/* {hasChanges && (
         <Button onClick={onSave} disabled={isPending} className="gap-2 h-[32px]">
           {isPending ? (
             <Loader2Icon className="size-4 animate-spin" />
@@ -24,7 +29,7 @@ export function SettingsHeader({ hasChanges, isPending, onSave }: SettingsHeader
           )}
           {isPending ? t("saving") : t("saveSettings")}
         </Button>
-      )}
+      )} */}
     </div>
   );
 }

@@ -87,7 +87,7 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
     try {
       const res = await dispatchMuseDAMClientAction("folder-selector-modal-open", {
         initialSelectedFolders: applicationScope.selectedFolders?.map((item) => ({
-          id: MuseDAMID.from(item.slug.replace("f/", "")),
+          id: Number(item.slug.replace("f/", "")),
           name: item.name,
         })),
         allMaterials: applicationScope.scopeType === "all",
@@ -125,7 +125,7 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
           ...prev,
           scopeType: scopeType,
           selectedFolders: selectedFolders.map((folder) => ({
-            slug: idToSlug("assetFolder", folder.id),
+            slug: idToSlug("assetFolder", new MuseDAMID(folder.id)),
             name: folder.name,
           })),
         };

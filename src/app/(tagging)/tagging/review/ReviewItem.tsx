@@ -121,7 +121,7 @@ export function ReviewItem({ assetObject, batch, onSuccess }: AssetWithAuditItem
             <Button
               size="sm"
               onClick={() => approveAuditItems({ append: true })}
-              className="rounded-[4px] h-6 bg-primary text-primary-foreground hover:bg-primary/90 border-primary"
+              className="rounded-[4px] h-6 bg-primary-6 "
             >
               <CheckIcon className="size-[14px]" />
               {t("add")}
@@ -129,7 +129,7 @@ export function ReviewItem({ assetObject, batch, onSuccess }: AssetWithAuditItem
             <Button
               size="sm"
               onClick={() => approveAuditItems({ append: false })}
-              className="rounded-[4px] h-6 bg-primary text-primary-foreground hover:bg-primary/90 border-primary"
+              className="rounded-[4px] h-6 bg-primary-6 "
             >
               <svg className="size-[14px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
