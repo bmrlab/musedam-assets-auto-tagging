@@ -9,7 +9,7 @@ import {
   TaggingAuditStatus,
 } from "@/prisma/client";
 import { CheckIcon, DotIcon, Loader2Icon, Timer, XIcon } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import Image from "next/image";
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -17,6 +17,7 @@ import { approveAuditItemsAction, AssetWithAuditItemsBatch } from "./actions";
 
 export function ReviewItem({ assetObject, batch, onSuccess }: AssetWithAuditItemsBatch) {
   const t = useTranslations("Tagging.Review");
+  const locale = useLocale();
   const [loading, setLoading] = useState(false);
   const [rejectedItems, setRejectedItems] = useState<number[]>([]);
 
@@ -50,11 +51,11 @@ export function ReviewItem({ assetObject, batch, onSuccess }: AssetWithAuditItem
           auditItems,
           append,
         });
-        toast.success("应用成功");
+        toast.success(t("applySuccess"));
         onSuccess?.();
       } catch (error: unknown) {
         console.log(error);
-        toast.error(error instanceof Error ? error.message : "应用失败");
+        toast.error(error instanceof Error ? error.message : t("applyFailed"));
       } finally {
         setLoading(false);
       }
@@ -68,7 +69,7 @@ export function ReviewItem({ assetObject, batch, onSuccess }: AssetWithAuditItem
   };
 
   const formatDate = (date: Date) => {
-    return new Intl.DateTimeFormat("zh-CN", {
+    return new Intl.DateTimeFormat(locale, {
       year: "numeric",
       month: "2-digit",
       day: "2-digit",

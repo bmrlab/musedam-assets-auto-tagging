@@ -30,7 +30,7 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
     try {
       setIsSelecting(true);
       const res = await dispatchMuseDAMClientAction("member-selector-modal-open", {});
-
+      if (!res) return;
       const { members, departments, groups } = res;
       const allPermissions: AccessPermission[] = [];
 

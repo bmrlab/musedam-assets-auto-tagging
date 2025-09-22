@@ -2,6 +2,7 @@
 
 import { TagRecord } from "@/app/tags/types";
 import { MuseDAMID } from "@/musedam/types";
+import Cookies from "js-cookie";
 
 // 定义全局类型
 const globalForMessage = global as unknown as {
@@ -98,10 +99,24 @@ function handleParentConfigUpdate(action: string, args: any) {
         // 更新语言设置
         const validLocales = ["zh-CN", "en-US"];
         if (validLocales.includes(args.locale)) {
-          // 使用 js-cookie 设置 cookie
+          // 同时尝试设置 cookie（第三方 iframe 需 SameSite=None; Secure，可能仍受浏览器策略限制）
           if (typeof document !== "undefined") {
-            document.cookie = `locale=${args.locale}; path=/; max-age=${365 * 24 * 60 * 60}`;
-            // 触发页面刷新以应用新的语言设置
+            try {
+              Cookies.set("locale", args.locale, {
+                expires: 365,
+                sameSite: "None" as any,
+                secure: true,
+              });
+            } catch {}
+          }
+          // 通过 URL 参数传递 locale，服务端中间件会读取 ?locale= 并下发 x-locale
+          try {
+            const url = new URL(window.location.href);
+            url.searchParams.set("locale", args.locale);
+            // 使用 replace 避免产生历史记录，确保刷新后生效
+            window.location.replace(url.toString());
+          } catch {
+            // 回退：如果 URL API 不可用，执行完整刷新
             window.location.reload();
           }
         }

@@ -28,6 +28,7 @@ interface SelectedAsset {
 
 export default function TestClient() {
   const t = useTranslations("Tagging.Test");
+  const tClient = useTranslations("Tagging.TestClient");
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedAssets, setSelectedAssets] = useState<SelectedAsset[]>([]);
   const [taggingResults, setTaggingResults] = useState<TaggingResult[]>([]);
@@ -174,10 +175,10 @@ export default function TestClient() {
                       : 0,
                   recognitionMode:
                     extra?.recognitionAccuracy === "precise"
-                      ? "精准模式"
+                      ? tClient("preciseMode")
                       : extra?.recognitionAccuracy === "balanced"
-                        ? "平衡模式"
-                        : "宽泛模式",
+                        ? tClient("balancedMode")
+                        : tClient("broadMode"),
                 },
                 overallScore: resultData?.tagsWithScore?.[0]?.score || 0,
                 // 生效标签
@@ -229,14 +230,17 @@ export default function TestClient() {
             });
             setTaggingResults(formattedResults);
             toast.success(
-              `打标完成！成功 ${completedResults.length} 个，失败 ${failedResults.length} 个`,
+              tClient("taggingCompleted", {
+                successCount: completedResults.length,
+                failedCount: failedResults.length,
+              }),
             );
           } else {
-            toast.error("所有打标任务都失败了");
+            toast.error(tClient("allTaggingTasksFailed"));
           }
         }
       } catch (error) {
-        console.error("轮询队列状态失败:", error);
+        console.error(tClient("pollingQueueStatusFailed"), error);
       }
     },
     [stopPolling],
@@ -277,12 +281,12 @@ export default function TestClient() {
     try {
       setIsProcessing(true);
       const res = await dispatchMuseDAMClientAction("assets-selector-modal-open", {});
+      if (!res) return;
       const { selectedAssets: assets } = res;
       if (assets && Array.isArray(assets) && assets.length > 0) {
         setSelectedAssets(assets);
         toast.success(t("assetsSelectedSuccess", { count: assets.length }));
       } else {
-        console.log(t("noAssetsSelectedInfo"));
         toast.info(t("noAssetsSelected"));
       }
     } catch (error) {
@@ -373,7 +377,7 @@ export default function TestClient() {
               onClick={() => dispatchMuseDAMClientAction("goto", { url: "/home/dashboard/tag" })}
             >
               <TagsIcon className="rotate-180 scale-y-[-1]" />
-              管理标签体系
+              {tClient("manageTagSystem")}
             </Button>
           </div>
 
@@ -483,14 +487,16 @@ export default function TestClient() {
         {pollingRef.current && (
           <div className="bg-background border rounded-md">
             <div className="px-4 py-3 border-b">
-              <h3 className="font-medium text-sm">处理状态</h3>
+              <h3 className="font-medium text-sm">{tClient("processingStatus")}</h3>
             </div>
             <div className="p-4">
               <div className="flex items-center gap-3">
                 <Loader2 className="size-4 animate-spin text-blue-600" />
                 <div>
-                  <p className="text-sm font-medium">正在处理 {queueItemIds.length} 个打标任务</p>
-                  <p className="text-xs text-basic-5">每2秒检查一次状态，完成后将自动显示结果</p>
+                  <p className="text-sm font-medium">
+                    {tClient("processingTasks", { count: queueItemIds.length })}
+                  </p>
+                  <p className="text-xs text-basic-5">{tClient("pollingDescription")}</p>
                 </div>
               </div>
             </div>
@@ -535,7 +541,7 @@ export default function TestClient() {
                   "flex items-center gap-2",
                   "py-2 px-3 border rounded-lg cursor-pointer transition-all ",
                   selectedScene === key
-                    ? "bg-[#EEF3FF] border-primary-6 ring ring-primary-6"
+                    ? "bg-primary-1 border-primary-6 ring ring-primary-6"
                     : "hover:border-primary-6",
                 )}
                 onClick={() => handleSceneSelect(key)}
@@ -568,7 +574,7 @@ export default function TestClient() {
                 className={cn(
                   "border rounded-lg p-3 cursor-pointer transition-all hover:border-primary/50",
                   recognitionAccuracy === key
-                    ? "bg-[#EEF3FF] border-primary-6 ring ring-primary-6"
+                    ? "bg-primary-1 border-primary-6 ring ring-primary-6"
                     : "hover:border-primary-6",
                 )}
                 onClick={() => setRecognitionAccuracy(key as typeof recognitionAccuracy)}
@@ -576,15 +582,8 @@ export default function TestClient() {
                 <div className="text-center space-y-1">
                   <div className="flex items-center justify-center gap-1">
                     <h3 className="font-medium text-sm">{label}</h3>
-                    {recommended && (
-                      <span className="bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded">
-                        {t("recommended")}
-                      </span>
-                    )}
                   </div>
-                  <div className="text-xs font-medium text-blue-600 dark:text-blue-400">
-                    {confidence}
-                  </div>
+                  <div className="text-xs font-medium">{confidence}</div>
                 </div>
               </div>
             ))}

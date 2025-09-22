@@ -120,7 +120,9 @@
       "noAssetsToReview": "No assets to review",
       "refreshDataFailed": "Failed to refresh data",
       "paginationInfo": "Showing {current} - {total} of {totalCount} items",
-      "totalItems": "Total {total} items"
+      "totalItems": "Total {total} items",
+      "applySuccess": "Applied successfully",
+      "applyFailed": "Apply failed"
     },
     "Access": {
       "roleAndPermissions": "Role & Permissions",
@@ -190,6 +192,18 @@
       "nameMatching": "Asset Name Matching",
       "contentMatching": "Asset Content Matching",
       "tagKeywordMatching": "Tag Keyword Matching"
+    },
+    "TestClient": {
+      "preciseMode": "Precise Mode",
+      "balancedMode": "Balanced Mode",
+      "broadMode": "Broad Mode",
+      "taggingCompleted": "Tagging completed! {successCount} successful, {failedCount} failed",
+      "allTaggingTasksFailed": "All tagging tasks failed",
+      "pollingQueueStatusFailed": "Failed to poll queue status",
+      "manageTagSystem": "Manage Tag System",
+      "processingStatus": "Processing Status",
+      "processingTasks": "Processing {count} tagging tasks",
+      "pollingDescription": "Checking status every 2 seconds, results will be displayed automatically when completed"
     },
     "Common": {
       "refreshDataFailed": "Failed to refresh data",

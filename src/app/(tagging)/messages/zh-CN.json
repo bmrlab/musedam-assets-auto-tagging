@@ -5,7 +5,7 @@
     },
     "Sidebar": {
       "dashboard": "控制面板",
-      "review": "AI打标审核",
+      "review": "AI 打标审核",
       "settings": "AI 打标设置",
       "access": "权限管理",
       "test": "测试打标"
@@ -120,7 +120,9 @@
       "noAssetsToReview": "暂无待审核的素材",
       "refreshDataFailed": "刷新数据失败",
       "paginationInfo": "显示第 {current} - {total} 条，共 {totalCount} 条",
-      "totalItems": "全部 {total} 项"
+      "totalItems": "全部 {total} 项",
+      "applySuccess": "应用成功",
+      "applyFailed": "应用失败"
     },
     "Access": {
       "roleAndPermissions": "角色与权限",
@@ -190,6 +192,18 @@
       "nameMatching": "素材名称匹配",
       "contentMatching": "素材内容匹配",
       "tagKeywordMatching": "标签关键词匹配"
+    },
+    "TestClient": {
+      "preciseMode": "精准模式",
+      "balancedMode": "平衡模式",
+      "broadMode": "宽泛模式",
+      "taggingCompleted": "打标完成！成功 {successCount} 个，失败 {failedCount} 个",
+      "allTaggingTasksFailed": "所有打标任务都失败了",
+      "pollingQueueStatusFailed": "轮询队列状态失败",
+      "manageTagSystem": "管理标签体系",
+      "processingStatus": "处理状态",
+      "processingTasks": "正在处理 {count} 个打标任务",
+      "pollingDescription": "每2秒检查一次状态，完成后将自动显示结果"
     },
     "Common": {
       "refreshDataFailed": "刷新数据失败:",
