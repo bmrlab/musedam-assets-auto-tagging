@@ -284,7 +284,12 @@ export default function TestClient() {
       if (!res) return;
       const { selectedAssets: assets } = res;
       if (assets && Array.isArray(assets) && assets.length > 0) {
-        setSelectedAssets(assets);
+        // 转换 assets 中的 id 为 MuseDAMID 类型
+        const convertedAssets = assets.map((asset) => ({
+          ...asset,
+          id: new MuseDAMID(asset.id),
+        }));
+        setSelectedAssets(convertedAssets);
         toast.success(t("assetsSelectedSuccess", { count: assets.length }));
       } else {
         toast.info(t("noAssetsSelected"));
