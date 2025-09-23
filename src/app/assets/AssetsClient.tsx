@@ -33,7 +33,7 @@ export default function AssetsClient({ initialAssets }: AssetsClientProps) {
 
   const getThumbnailUrl = (asset: AssetObject) => {
     const extra = asset.extra as AssetObjectExtra | null;
-    return extra?.thumbnailAccessUrl;
+    return extra?.thumbnailAccessUrl ?? "/file.svg";
   };
 
   const formatDate = (date: Date) => {
@@ -105,19 +105,13 @@ export default function AssetsClient({ initialAssets }: AssetsClientProps) {
                 <div className="flex items-start gap-4">
                   {/* 文件缩略图 */}
                   <div className="shrink-0 w-24 h-24 relative">
-                    {getThumbnailUrl(asset) ? (
-                      <Image
-                        src={getThumbnailUrl(asset)!}
-                        alt={asset.name}
-                        fill
-                        sizes="100px" // 这个是图片 optimize 的尺寸，不是前端显示的尺寸
-                        className="object-cover rounded-[10px]"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-basic-5">
-                        <File className="h-6 w-6" />
-                      </div>
-                    )}
+                    <Image
+                      src={getThumbnailUrl(asset)}
+                      alt={asset.name}
+                      fill
+                      sizes="100px" // 这个是图片 optimize 的尺寸，不是前端显示的尺寸
+                      className="object-cover rounded-[10px]"
+                    />
                   </div>
 
                   {/* 主要信息 */}

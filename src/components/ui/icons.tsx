@@ -99,6 +99,10 @@ export function TeamIcon(props: IconProps) {
   return <SvgIcon src="/Icon/Team.svg" viewBox="0 0 37 36" {...props} />;
 }
 
+export function ClockCircleIcon(props: IconProps) {
+  return <SvgIcon src="/Icon/ClockCircle.svg" viewBox="0 0 37 36" {...props} />;
+}
+
 /**
  * 统一的图标组件，支持自定义SVG和Lucide图标
  */

@@ -44,7 +44,7 @@ export function ApplicationScopeSection({
             <div className="space-y-0 border rounded-lg transition-all">
               {applicationScope.scopeType === "all" && (
                 <div
-                  className="p-3 cursor-pointer flex items-center justify-between gap-3 border-b"
+                  className="p-3 cursor-pointer flex items-center justify-between gap-3"
                   // onClick={() => onScopeTypeChange("all")}
                 >
                   <div className="flex items-center gap-3">
@@ -83,7 +83,7 @@ export function ApplicationScopeSection({
                 <div
                   key={folder.slug}
                   className={cn(
-                    "p-3 cursor-pointer flex items-center justify-between border-b",
+                    "p-3 cursor-pointer flex items-center justify-between border-t",
                     index === applicationScope.selectedFolders.length - 1 && "border-b-0",
                   )}
                   onClick={() =>

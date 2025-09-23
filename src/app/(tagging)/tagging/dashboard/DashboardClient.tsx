@@ -160,27 +160,29 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
     return `${size.toFixed(1)} ${units[unitIndex]}`;
   };
 
-  const getThumbnailUrl = (task: TaskWithAsset): string | null => {
+  const getThumbnailUrl = (task: TaskWithAsset): string => {
     try {
       const extra = task.assetObject.extra as AssetObjectExtra | null;
-      return extra?.thumbnailAccessUrl || null;
+      return extra?.thumbnailAccessUrl ?? "/file.svg";
     } catch (error) {
       console.warn("Failed to parse asset extra data:", error);
-      return null;
+      return "/file.svg";
     }
   };
 
-  const getFileIcon = (fileName: string) => {
-    const extension = fileName.split(".").pop()?.toLowerCase();
-    const imageExts = ["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg"];
-    const videoExts = ["mp4", "mov", "avi", "mkv", "webm"];
-    const docExts = ["pdf", "doc", "docx", "txt", "md"];
+  // const getFileIcon = (fileName: string) => {
+  //   const extension = fileName.split(".").pop()?.toLowerCase();
+  //   const imageExts = ["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg"];
+  //   const videoExts = ["mp4", "mov", "avi", "mkv", "webm"];
+  //   const docExts = ["pdf", "doc", "docx", "txt", "md"];
 
-    if (imageExts.includes(extension || "")) return "🖼️";
-    if (videoExts.includes(extension || "")) return "🎬";
-    if (docExts.includes(extension || "")) return "📄";
-    return "📁";
-  };
+  //   if (imageExts.includes(extension || "")) return "🖼️";
+  //   if (videoExts.includes(extension || "")) return "🎬";
+  //   if (docExts.includes(extension || "")) return "📄";
+  //   return "📁";
+  // };
+
+  const notFinishedTasks = stats.pending + stats.processing;
 
   const formatDuration = (task: TaskWithAsset) => {
     if (task.status === "processing" && task.startsAt) {
@@ -334,11 +336,9 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
             <h2 className="font-semibold">{t("title")}</h2>
             <p className="text-sm text-basic-5">
               {t("remainingTasks", {
-                count: totalTasks,
-                total: stats.pending + stats.processing,
-                minutes: Math.ceil(
-                  ((stats.pending + stats.processing) * stats.avgProcessingTime) / 60,
-                ),
+                count: notFinishedTasks,
+                total: taskFilter === "processing" ? notFinishedTasks : totalTasks,
+                minutes: Math.ceil((notFinishedTasks * stats.avgProcessingTime) / 60),
               })}
             </p>
           </div>
@@ -371,7 +371,6 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
             </div>
           ) : (
             tasks.map((task) => {
-              const thumbnailUrl = getThumbnailUrl(task);
               return (
                 <div
                   key={task.id}
@@ -379,19 +378,13 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
                 >
                   {/* Thumbnail or Icon */}
                   <div className="shrink-0 w-12 h-12 relative rounded overflow-hidden bg-muted">
-                    {thumbnailUrl ? (
-                      <Image
-                        src={thumbnailUrl}
-                        alt={task.assetObject.name}
-                        fill
-                        sizes="48px"
-                        className="object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-xl">
-                        {getFileIcon(task.assetObject.name)}
-                      </div>
-                    )}
+                    <Image
+                      src={getThumbnailUrl(task)}
+                      alt={task.assetObject.name}
+                      fill
+                      sizes="48px"
+                      className="object-cover"
+                    />
                   </div>
 
                   {/* File Info */}

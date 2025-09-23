@@ -1,6 +1,6 @@
 "use client";
 import { Button } from "@/components/ui/button";
-import { TagAIIcon, TagsIcon } from "@/components/ui/icons";
+import { ClockCircleIcon, TagAIIcon, TagsIcon } from "@/components/ui/icons";
 import { Progress } from "@/components/ui/progress";
 import { cn, formatSize } from "@/lib/utils";
 import {
@@ -9,7 +9,7 @@ import {
   AssetObjectTags,
   TaggingAuditStatus,
 } from "@/prisma/client";
-import { CheckIcon, DotIcon, Loader2Icon, Timer, XIcon } from "lucide-react";
+import { CheckIcon, DotIcon, Loader2Icon, XIcon } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import Image from "next/image";
 import { useCallback, useMemo, useState } from "react";
@@ -66,7 +66,7 @@ export function ReviewItem({ assetObject, batch, onSuccess }: AssetWithAuditItem
 
   const getThumbnailUrl = (asset: AssetObject) => {
     const extra = asset.extra as AssetObjectExtra | null;
-    return extra?.thumbnailAccessUrl;
+    return extra?.thumbnailAccessUrl ?? "/file.svg";
   };
 
   const formatDate = (date: Date) => {
@@ -85,7 +85,7 @@ export function ReviewItem({ assetObject, batch, onSuccess }: AssetWithAuditItem
       <div className="flex items-center gap-4">
         <div className="shrink-0 w-24 h-24 relative">
           <Image
-            src={getThumbnailUrl(assetObject)!}
+            src={getThumbnailUrl(assetObject)}
             alt={assetObject.name}
             fill
             sizes="100px" // 这个是图片 optimize 的尺寸，不是前端显示的尺寸
@@ -174,7 +174,7 @@ export function ReviewItem({ assetObject, batch, onSuccess }: AssetWithAuditItem
         </div>
 
         {/* AI推荐标签 */}
-        {batch.map(({ queueItem, taggingAuditItems }) => (
+        {batch.map(({ queueItem, taggingAuditItems }, index) => (
           <div
             key={queueItem.id}
             className="flex-1 bg-[rgba(247,249,252,0.8)] dark:bg-basic-1 rounded-md p-4"
@@ -183,8 +183,13 @@ export function ReviewItem({ assetObject, batch, onSuccess }: AssetWithAuditItem
               <TagAIIcon className="size-4" />
               <span className="text-sm font-medium">{t("aiRecommendedTags")}</span>
               <span className="text-xs text-basic-5">{t("basedOnTagSystem")}</span>
+              {batch.length > 1 && index === 0 ? (
+                <span className="ml-2 inline-flex items-center px-[13px] py-[2px] rounded-[4px] text-xs text-danger-6 border border-danger-3 bg-danger-1">
+                  {t("latest")}
+                </span>
+              ) : null}
               <span className="ml-auto text-xs text-basic-5 flex items-center gap-1">
-                <Timer className="size-4" />
+                <ClockCircleIcon className="size-3" />
                 {formatDate(queueItem.createdAt)}
               </span>
             </div>

@@ -1,5 +1,6 @@
 // 导出所有图标相关的组件和类型
 export {
+  ClockCircleIcon,
   DashboardIcon,
   FoldersIcon,
   Icon,

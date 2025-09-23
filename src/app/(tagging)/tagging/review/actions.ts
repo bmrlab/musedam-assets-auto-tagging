@@ -122,7 +122,7 @@ export async function fetchAssetsWithAuditItems(
           },
           distinct: ["assetObjectId"],
           orderBy: {
-            queueItem: { id: "desc" },
+            queueItem: { createdAt: "desc" },
           },
           skip: offset,
           take: limit,
@@ -176,6 +176,12 @@ export async function fetchAssetsWithAuditItems(
             ...taggingAuditItem,
           });
         }
+        // 将同一资产内的不同队列分组按创建时间降序排序（最新在前）
+        batch.sort((a, b) => {
+          const ta = new Date(a.queueItem.createdAt).getTime();
+          const tb = new Date(b.queueItem.createdAt).getTime();
+          return tb - ta;
+        });
         results.push({
           assetObject,
           batch,

@@ -102,6 +102,7 @@
       "tags": "Tags",
       "aiRecommendedTags": "AI Recommended Tags",
       "basedOnTagSystem": "Based on tag system matching",
+      "latest": "Latest",
       "allStatuses": "All Statuses",
       "pending": "Pending Review",
       "approved": "Approved",
