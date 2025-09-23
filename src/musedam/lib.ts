@@ -38,12 +38,12 @@ export async function requestMuseDAMAPI<T = unknown>(
   const requestBody = method === "POST" ? JSON.stringify(body) : undefined;
 
   // 打印curl命令
-  // const curlCommand = generateCurlCommand(url, "POST", requestHeaders, requestBody);
+  const curlCommand = generateCurlCommand(url, method, requestHeaders, requestBody);
   // console.log("🔗 Curl Command:");
   // console.log(curlCommand);
 
   const response = await fetch(url, {
-    method: "POST",
+    method: method,
     body: requestBody,
     headers: requestHeaders,
   });
@@ -54,7 +54,7 @@ export async function requestMuseDAMAPI<T = unknown>(
   const result = await response.json();
   if (result["code"] + "" !== "0") {
     throw new Error(
-      `MuseDAM API request failed, status code: ${response.status}, message: ${result["message"]}`,
+      `MuseDAM API request failed ${curlCommand}, status code: ${response.status}, message: ${result["message"]}`,
     );
   }
   return (result["result"] ?? result["data"] ?? {}) as T;
