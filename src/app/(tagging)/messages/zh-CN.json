@@ -8,7 +8,7 @@
       "review": "AI 打标审核",
       "settings": "AI 打标设置",
       "access": "权限管理",
-      "test": "测试打标"
+      "test": "AI 匹配测试"
     },
     "Dashboard": {
       "title": "AI 自动打标中",

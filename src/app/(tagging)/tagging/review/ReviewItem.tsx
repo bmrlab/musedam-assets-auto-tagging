@@ -1,5 +1,6 @@
 "use client";
 import { Button } from "@/components/ui/button";
+import { TagAIIcon, TagsIcon } from "@/components/ui/icons";
 import { Progress } from "@/components/ui/progress";
 import { cn, formatSize } from "@/lib/utils";
 import {
@@ -157,7 +158,7 @@ export function ReviewItem({ assetObject, batch, onSuccess }: AssetWithAuditItem
         {/* 现有标签 */}
         <div className="flex-1 bg-[rgba(247,249,252,0.8)] dark:bg-basic-1 rounded-md p-4">
           <div className="flex items-center gap-2 mb-2">
-            <Image src="/Tags.svg" alt="folder" width={16} height={16} />
+            <TagsIcon className="size-4" />
             <span className="text-sm font-medium">{t("tags")}</span>
           </div>
           <div className="flex flex-wrap gap-1">
@@ -179,7 +180,7 @@ export function ReviewItem({ assetObject, batch, onSuccess }: AssetWithAuditItem
             className="flex-1 bg-[rgba(247,249,252,0.8)] dark:bg-basic-1 rounded-md p-4"
           >
             <div className="flex items-center gap-2 mb-3">
-              <Image src="/TagAI.svg" alt="folder" width={16} height={16} />
+              <TagAIIcon className="size-4" />
               <span className="text-sm font-medium">{t("aiRecommendedTags")}</span>
               <span className="text-xs text-basic-5">{t("basedOnTagSystem")}</span>
               <span className="ml-auto text-xs text-basic-5 flex items-center gap-1">

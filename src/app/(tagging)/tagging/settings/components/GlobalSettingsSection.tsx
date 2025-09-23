@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
+import { TagsIcon } from "@/components/ui/icons";
 import { Switch } from "@/components/ui/switch";
 import { dispatchMuseDAMClientAction } from "@/embed/message";
-import { TagsIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 interface GlobalSettingsSectionProps {
@@ -37,7 +37,7 @@ export function GlobalSettingsSection({
               size="sm"
               onClick={() => dispatchMuseDAMClientAction("goto", { url: "/home/dashboard/tag" })}
             >
-              <TagsIcon className="rotate-180 scale-y-[-1]" />
+              <TagsIcon />
               {t("manageTagSystem")}
             </Button>
           </div>

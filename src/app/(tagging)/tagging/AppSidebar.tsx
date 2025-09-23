@@ -7,6 +7,7 @@ import * as React from "react";
 
 type TranslationFunction = ReturnType<typeof useTranslations>;
 
+import { DashboardIcon, MonitorIcon, SettingIcon, TagAIIcon, TeamIcon } from "@/components/ui";
 import {
   Sidebar,
   SidebarContent,
@@ -19,39 +20,32 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
-import {
-  BarChart3Icon,
-  BugPlayIcon,
-  CheckSquareIcon,
-  SettingsIcon,
-  ShieldIcon,
-} from "lucide-react";
 
 const getMenuItems = (t: TranslationFunction) => [
   {
     title: t("Sidebar.dashboard"),
     url: "/tagging/dashboard",
-    icon: BarChart3Icon,
+    icon: DashboardIcon,
   },
   {
     title: t("Sidebar.review"),
     url: "/tagging/review",
-    icon: CheckSquareIcon,
-  },
-  {
-    title: t("Sidebar.settings"),
-    url: "/tagging/settings",
-    icon: SettingsIcon,
-  },
-  {
-    title: t("Sidebar.access"),
-    url: "/tagging/access",
-    icon: ShieldIcon,
+    icon: TagAIIcon,
   },
   {
     title: t("Sidebar.test"),
     url: "/tagging/test",
-    icon: BugPlayIcon,
+    icon: MonitorIcon,
+  },
+  {
+    title: t("Sidebar.settings"),
+    url: "/tagging/settings",
+    icon: SettingIcon,
+  },
+  {
+    title: t("Sidebar.access"),
+    url: "/tagging/access",
+    icon: TeamIcon,
   },
 ];
 

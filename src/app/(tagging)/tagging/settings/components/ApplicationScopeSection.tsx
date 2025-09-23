@@ -1,11 +1,12 @@
 import { TaggingSettingsData } from "@/app/(tagging)/types";
 import { Button } from "@/components/ui/button";
+import { FoldersIcon } from "@/components/ui/icons";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { dispatchMuseDAMClientAction } from "@/embed/message";
 import { cn } from "@/lib/utils";
-import { File, Folder, FolderIcon, InfoIcon, Trash } from "lucide-react";
+import { Trash } from "lucide-react";
 import { useTranslations } from "next-intl";
-import Image from 'next/image';
+import Image from "next/image";
 
 interface ApplicationScopeSectionProps {
   applicationScope: TaggingSettingsData["applicationScope"];
@@ -36,13 +37,7 @@ export function ApplicationScopeSection({
               className="border-1 border-dashed hover:border-primary-6 border-basic-4 bg-basic-1 rounded-lg p-6 cursor-pointer transition-all ease-in-out duration-300 flex flex-col items-center"
               onClick={onFolderSelection}
             >
-              <Image
-                src="/folders.svg"
-                alt="folder"
-                className="size-9  mb-5"
-                width={36}
-                height={36}
-              />
+              <FoldersIcon className="size-9  mb-5 text-primary-6" />
               <p className="text-sm text-basic-6">{t("selectScopeDesc")}</p>
             </div>
 
@@ -50,16 +45,11 @@ export function ApplicationScopeSection({
               {applicationScope.scopeType === "all" && (
                 <div
                   className="p-3 cursor-pointer flex items-center justify-between gap-3 border-b"
-                // onClick={() => onScopeTypeChange("all")}
+                  // onClick={() => onScopeTypeChange("all")}
                 >
                   <div className="flex items-center gap-3">
                     <div className="size-[30px] flex items-center justify-center ">
-                      <Image
-                        src="/other-type.svg"
-                        alt="file"
-                        width={20}
-                        height={24}
-                      />
+                      <Image src="/other-type.svg" alt="file" width={20} height={24} />
                     </div>
                     <div>
                       <h4 className="font-medium text-[13px]">{t("allAssets")}</h4>
@@ -74,7 +64,7 @@ export function ApplicationScopeSection({
                           size="sm"
                           onClick={(e) => {
                             e.stopPropagation();
-                            onScopeTypeChange("specific")
+                            onScopeTypeChange("specific");
                           }}
                           className="h-8 w-8 p-0 hover:text-danger-6"
                         >
@@ -94,18 +84,17 @@ export function ApplicationScopeSection({
                   key={folder.slug}
                   className={cn(
                     "p-3 cursor-pointer flex items-center justify-between border-b",
-                    index === applicationScope.selectedFolders.length - 1 && "border-b-0"
+                    index === applicationScope.selectedFolders.length - 1 && "border-b-0",
                   )}
-                  onClick={() => dispatchMuseDAMClientAction("goto", { url: `/home/folder/${folder.slug.replace('/f', '')}` })}
+                  onClick={() =>
+                    dispatchMuseDAMClientAction("goto", {
+                      url: `/home/folder/${folder.slug.replace("/f", "")}`,
+                    })
+                  }
                 >
                   <div className="flex items-center gap-3">
                     <div className="size-[30px] flex items-center justify-center">
-                      <Image
-                        src="/folder.svg"
-                        alt="folder"
-                        width={22.5}
-                        height={19}
-                      />
+                      <Image src="/folder.svg" alt="folder" width={22.5} height={19} />
                     </div>
                     <div>
                       <h4 className="font-medium text-[13px]">{folder.name}</h4>
@@ -136,9 +125,7 @@ export function ApplicationScopeSection({
               ))}
             </div>
 
-            <div className="flex gap-3 text-basic-5 text-[13px]">
-              {t("onlySelectedScope")}
-            </div>
+            <div className="flex gap-3 text-basic-5 text-[13px]">{t("onlySelectedScope")}</div>
           </div>
         </div>
       </div>

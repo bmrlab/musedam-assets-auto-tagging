@@ -2,10 +2,11 @@
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { TagsIcon } from "@/components/ui/icons";
 import { dispatchMuseDAMClientAction } from "@/embed/message";
 import { cn } from "@/lib/utils";
 import { MuseDAMID } from "@/musedam/types";
-import { FileText, Loader2, PlayIcon, PlusIcon, TagsIcon, X } from "lucide-react";
+import { FileText, Loader2, PlayIcon, PlusIcon, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -381,7 +382,7 @@ export default function TestClient() {
               size="sm"
               onClick={() => dispatchMuseDAMClientAction("goto", { url: "/home/dashboard/tag" })}
             >
-              <TagsIcon className="rotate-180 scale-y-[-1]" />
+              <TagsIcon />
               {tClient("manageTagSystem")}
             </Button>
           </div>
