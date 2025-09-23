@@ -93,12 +93,18 @@ export function TagSortModal({
         return;
       }
 
+      // 创建带有新sort值的标签数组
+      const tagsWithNewSort = sortedTags.map((tag, index) => ({
+        ...tag,
+        sort: sortedTags.length - index, // 更新sort值
+        verb: "update" as const,
+      }));
+
       // 调用排序更新接口-更新数据
       const result = await updateTagSort(sortData);
-
       if (result.success) {
         toast.success(t("sortSaveSuccess"));
-        onConfirm(sortedTags);
+        onConfirm(tagsWithNewSort); // 传递带有新sort值的标签数组
         onClose();
       } else {
         toast.error(result.message || t("sortSaveFailed"));

@@ -769,29 +769,58 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
     async (level: 1 | 2 | 3, sortedTags: TagNode[]) => {
       try {
         setIsSaving(true);
-        // 更新本地状态
-        setTagsTree((tree) => {
-          const updateTree = (nodes: TagNode[]): TagNode[] => {
-            if (level === 1) {
-              // 更新一级标签排序
-              return sortedTags;
-            } else {
-              // 递归更新子级标签排序
-              return nodes.map((node) => ({
+        // 同步更新排序值(sort)并生成最新树
+        const applySortValue = (list: TagNode[]): TagNode[] =>
+          list.map((item, index) => ({
+            ...item,
+            // 数字越大越靠前，因此首位应为最大值
+            sort: list.length - index,
+          }));
+
+        const buildUpdatedTree = (nodes: TagNode[]): TagNode[] => {
+          if (level === 1) {
+            return applySortValue(sortedTags).map((node) => ({
+              ...node,
+              // 不改变各自的子节点顺序
+              children: node.children,
+            }));
+          }
+
+          return nodes.map((node) => {
+            if (level === 2 && getNodeId(node) === selectedLevel1Id) {
+              return {
                 ...node,
-                children:
-                  level === 2 && getNodeId(node) === selectedLevel1Id
-                    ? sortedTags
-                    : level === 3 && getNodeId(node) === selectedLevel2Id
-                      ? sortedTags
-                      : updateTree(node.children),
-              }));
+                children: applySortValue(sortedTags).map((child) => ({
+                  ...child,
+                  children: child.children,
+                })),
+              };
             }
-          };
-          return updateTree(tree);
-        });
-        // console.log("sortedTags", sortedTags, tagsTree);
-        await saveTagsTree(tagsTree);
+            if (level === 3 && getNodeId(node) === selectedLevel2Id) {
+              // 这里不会命中，因为第3级排序的匹配在二级节点上
+              // 保持不变
+              return node;
+            }
+            return {
+              ...node,
+              children:
+                level === 3 && getNodeId(node) === selectedLevel1Id
+                  ? node.children.map((child) =>
+                      getNodeId(child) === selectedLevel2Id
+                        ? {
+                            ...child,
+                            children: applySortValue(sortedTags),
+                          }
+                        : child,
+                    )
+                  : buildUpdatedTree(node.children),
+            };
+          });
+        };
+
+        const newTree = buildUpdatedTree(tagsTree);
+        setTagsTree(newTree);
+        await saveTagsTree(newTree);
         toast.success(t("sortSuccess"));
       } catch (error) {
         console.error("Sort tags error:", error);
@@ -800,7 +829,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
         setIsSaving(false);
       }
     },
-    [selectedLevel1Id, selectedLevel2Id, getNodeId, t],
+    [tagsTree, selectedLevel1Id, selectedLevel2Id, getNodeId, t],
   );
 
   const TagsHeaderMenu = useMemo(

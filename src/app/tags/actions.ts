@@ -11,18 +11,18 @@ import { AssetTag } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 import { TagNode } from "./types";
 
-// 定义 MuseDAM 标签响应的类型
-type MuseDAMTagResponse = {
-  id?: MuseDAMID;
+// 定义 MuseDAM 标签请求的类型（与 syncToMuseDAM 返回的类型匹配）
+type MuseDAMTagRequest = {
+  id?: number;
   name: string;
   operation: 0 | 1 | 2 | 3;
   sort?: number;
-  children?: MuseDAMTagResponse[];
+  children?: MuseDAMTagRequest[];
 };
 
 // 定义同步结果的类型
 type SyncResult = {
-  tags: MuseDAMTagResponse[];
+  tags: MuseDAMTagRequest[];
   createdTagMapping: Map<string, MuseDAMID>;
 };
 

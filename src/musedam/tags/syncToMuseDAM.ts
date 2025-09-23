@@ -3,13 +3,13 @@ import "server-only";
 import { TagNode } from "@/app/tags/types";
 import { slugToId } from "@/lib/slug";
 import { retrieveTeamCredentials } from "@/musedam/apiKey";
-import { requestMuseDAMAPI } from "@/musedam/lib";
 import { AssetTag } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
+import { requestMuseDAMAPI } from "../lib";
 import { MuseDAMID } from "../types";
 
 interface MuseDAMTagRequest {
-  id?: MuseDAMID;
+  id?: number;
   name: string;
   operation: 0 | 1 | 2 | 3; // 0不操作 1更新 2创建 3删除
   sort?: number;
@@ -17,7 +17,7 @@ interface MuseDAMTagRequest {
 }
 
 interface MuseDAMTagResponse {
-  id?: MuseDAMID;
+  id?: number;
   name: string;
   operation: 0 | 1 | 2 | 3;
   sort?: number;
@@ -77,7 +77,7 @@ function convertToMuseDAMFormat(
   };
 
   if (musedamId) {
-    result.id = musedamId;
+    result.id = Number(musedamId.toString());
   }
 
   // 如果有 sort 字段，添加到请求中
@@ -200,12 +200,13 @@ export async function syncTagsToMuseDAM({
   // };
   // const requestBody = JSON.stringify({
   //   tags: musedamTags,
-  // })
+  // });
 
   // // 打印curl命令
   // const curlCommand = generateCurlCommand(url, "POST", requestHeaders, requestBody);
   // console.log("🔗 Curl Command:");
   // console.log(curlCommand);
+
   // 调用 MuseDAM API
   const res = await requestMuseDAMAPI<{ tags: MuseDAMTagResponse[] }>("/api/muse/merge-tags", {
     method: "POST",
@@ -247,7 +248,7 @@ export async function syncTagsToMuseDAM({
         );
 
         if (matchingNode && matchingNode.tempId) {
-          createdTagMapping.set(matchingNode.tempId, responseTag.id);
+          createdTagMapping.set(matchingNode.tempId, MuseDAMID.from(responseTag.id));
         }
       }
 
