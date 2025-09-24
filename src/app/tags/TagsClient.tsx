@@ -1,7 +1,6 @@
 "use client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { dispatchMuseDAMClientAction } from "@/embed/message";
 import { AssetTag } from "@/prisma/client";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -374,7 +373,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
 
   // 刷新数据
   const refetchTagsTree = async () => {
-    dispatchMuseDAMClientAction("refetch-tags-tree", {});
+    // dispatchMuseDAMClientAction("refetch-tags-tree", {});
 
     const refreshResult = await fetchTeamTags();
     if (refreshResult.success) {
