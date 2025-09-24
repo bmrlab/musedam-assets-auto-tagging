@@ -166,6 +166,9 @@ export async function fetchAssetsWithAuditItems(
         const batch: AssetWithAuditItemsBatch["batch"] = [];
         for (const { queueItem, tagPath, ...taggingAuditItem } of assetObject.taggingAuditItems) {
           if (!queueItem) continue;
+          // 过滤掉状态为 rejected 的审核项
+          if (taggingAuditItem.status === "rejected") continue;
+
           let group = batch.find((group) => group.queueItem.id === queueItem.id);
           if (!group) {
             group = { queueItem, taggingAuditItems: [] };
@@ -176,16 +179,23 @@ export async function fetchAssetsWithAuditItems(
             ...taggingAuditItem,
           });
         }
+        // 过滤掉没有审核项的 batch（所有审核项都被过滤掉了）
+        const filteredBatch = batch.filter((group) => group.taggingAuditItems.length > 0);
+
         // 将同一资产内的不同队列分组按创建时间降序排序（最新在前）
-        batch.sort((a, b) => {
+        filteredBatch.sort((a, b) => {
           const ta = new Date(a.queueItem.createdAt).getTime();
           const tb = new Date(b.queueItem.createdAt).getTime();
           return tb - ta;
         });
-        results.push({
-          assetObject,
-          batch,
-        });
+
+        // 只有当有有效的 batch 时才添加到结果中
+        if (filteredBatch.length > 0) {
+          results.push({
+            assetObject,
+            batch: filteredBatch,
+          });
+        }
       }
 
       return {
@@ -242,6 +252,7 @@ export async function approveAuditItemsAction({
       select: { id: true, slug: true },
     });
     const musedamTagIds = approvedAsetTags.map((tag) => slugToId("assetTag", tag.slug!));
+
     await setAssetTagsToMuseDAM({
       musedamAssetId,
       musedamTagIds,
@@ -267,5 +278,42 @@ export async function approveAuditItemsAction({
       success: true,
       data: undefined,
     };
+  });
+}
+
+export async function rejectAuditItemsAction({
+  assetObject,
+}: {
+  assetObject: AssetObject;
+}): Promise<ServerActionResult<void>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    try {
+      await prisma.$transaction(async (tx) => {
+        // 将该素材的所有待审核 的 AI 推荐标签都标记为 rejected
+        await tx.taggingAuditItem.updateMany({
+          where: {
+            teamId,
+            assetObjectId: assetObject.id,
+            status: {
+              in: ["pending"],
+            },
+          },
+          data: {
+            status: "rejected",
+          },
+        });
+      });
+
+      return {
+        success: true,
+        data: undefined,
+      };
+    } catch (error) {
+      console.error("删除 AI 打标记录失败:", error);
+      return {
+        success: false,
+        message: "删除 AI 打标记录失败",
+      };
+    }
   });
 }

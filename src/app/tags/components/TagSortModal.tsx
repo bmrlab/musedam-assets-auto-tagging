@@ -103,7 +103,6 @@ export function TagSortModal({
       // 调用排序更新接口-更新数据
       const result = await updateTagSort(sortData);
       if (result.success) {
-        toast.success(t("sortSaveSuccess"));
         onConfirm(tagsWithNewSort); // 传递带有新sort值的标签数组
         onClose();
       } else {

@@ -98,6 +98,7 @@
     "Review": {
       "add": "Add",
       "replace": "Replace",
+      "delete": "Delete",
       "reject": "Reject",
       "tags": "Tags",
       "aiRecommendedTags": "AI Recommended Tags",
@@ -123,7 +124,13 @@
       "paginationInfo": "Showing {current} - {total} of {totalCount} items",
       "totalItems": "Total {total} items",
       "applySuccess": "Applied successfully",
-      "applyFailed": "Apply failed"
+      "applyFailed": "Apply failed",
+      "rejectConfirmTitle": "Operation Prompt",
+      "rejectConfirmDescription": "Confirm to delete the AI tagging record of the asset \"{assetName}\"? This operation cannot be recovered, please proceed with caution.",
+      "rejectConfirmCancel": "Cancel",
+      "rejectConfirmReject": "Delete",
+      "rejectSuccess": "Delete successfully",
+      "rejectFailed": "Delete failed"
     },
     "Access": {
       "roleAndPermissions": "Role & Permissions",

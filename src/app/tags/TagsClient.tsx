@@ -1,11 +1,12 @@
 "use client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { dispatchMuseDAMClientAction } from "@/embed/message";
 import { AssetTag } from "@/prisma/client";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { fetchTeamTags, saveSingleTagChange, saveTagsTree } from "./actions";
+import { fetchTeamTags, saveTagsTree, saveTagsTreeToMuseDAM } from "./actions";
 import { CreateModal } from "./components/CreateModal";
 import { SearchResult } from "./components/SearchResult";
 import { SyncConfirmDialog } from "./components/SyncConfirmDialog";
@@ -371,6 +372,18 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
     );
   };
 
+  // 刷新数据
+  const refetchTagsTree = async () => {
+    dispatchMuseDAMClientAction("refetch-tags-tree", {});
+
+    const refreshResult = await fetchTeamTags();
+    if (refreshResult.success) {
+      const newTree = convertToTagNodes(refreshResult.data.tags);
+      setTagsTree(newTree);
+      setOriginalTags(refreshResult.data.tags);
+    }
+  };
+
   // 添加标签
   const addTag = async (level: 1 | 2 | 3) => {
     const tempId = `temp_${nextTempId}`;
@@ -416,6 +429,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
     // 当用户完成编辑时，会通过 updateTagName 调用 saveSingleTagChange
     // 这里不需要立即调用，因为新标签还没有名称
   };
+
   // 更新标签名
   const updateTagName = async (nodeId: string, newName: string): Promise<boolean> => {
     const context = findNodeContext(tagsTree, nodeId);
@@ -428,45 +442,24 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
 
     const node = context.node;
 
-    // 更新本地状态
-    setTagsTree((tree) =>
-      updateNodeInTree(tree, nodeId, (node) => ({
-        ...node,
-        name: newName,
-        verb: node.id ? (node.originalName !== newName ? "update" : undefined) : "create",
-        isEditing: false,
-      })),
-    );
-
-    // 直接调用 saveSingleTagChange
+    // 简化：基于更新后的整棵树保存
     try {
       setIsSaving(true);
 
-      // 找到父节点ID和层级
-      const parentId = getParentNodeId(nodeId);
-      const level = getNodeLevel(nodeId);
-
-      // 构建要保存的节点
-      const nodeToSave: TagNode = {
+      const updatedTree = updateNodeInTree(tagsTree, nodeId, (node) => ({
         ...node,
         name: newName,
         verb: node.id ? (node.originalName !== newName ? "update" : undefined) : "create",
         isEditing: false,
-      };
+      }));
 
-      const result = await saveSingleTagChange(nodeToSave, parentId, level);
+      setTagsTree(updatedTree);
+
+      const result = await saveTagsTree(updatedTree);
 
       if (result.success) {
         toast.success(t("saveSuccess"));
-
-        // 刷新数据
-        const refreshResult = await fetchTeamTags();
-        if (refreshResult.success) {
-          const newTree = convertToTagNodes(refreshResult.data.tags);
-          setTagsTree(newTree);
-          setOriginalTags(refreshResult.data.tags);
-        }
-
+        await refetchTagsTree();
         return true;
       } else {
         toast.error(result.message || t("saveFailed"));
@@ -534,20 +527,19 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
 
     const node = context.node;
 
-    // 更新本地状态
-    setTagsTree((tree) =>
-      updateNodeInTree(tree, nodeId, (node) => {
-        if (node.verb === "create") {
-          // 新创建的标签直接移除
-          return null;
-        }
-        return {
-          ...node,
-          isDeleted: true,
-          verb: "delete",
-        };
-      }),
-    );
+    // 先构造包含删除标记的最新树
+    const updatedTree = updateNodeInTree(tagsTree, nodeId, (node) => {
+      if (node.verb === "create") {
+        // 新创建的标签直接移除
+        return null;
+      }
+      return {
+        ...node,
+        isDeleted: true,
+        verb: "delete",
+      };
+    });
+    setTagsTree(updatedTree);
 
     // 如果删除的是当前选中的标签，清除选择
     if (nodeId === selectedLevel1Id) {
@@ -561,32 +553,14 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
       setSelectedLevel3Id(null);
     }
 
-    // 直接调用 saveSingleTagChange
+    // 整棵树保存
     try {
       setIsSaving(true);
-
-      // 找到父节点ID和层级
-      const parentId = getParentNodeId(nodeId);
-      const level = getNodeLevel(nodeId);
-
-      // 构建要保存的节点
-      const nodeToSave: TagNode = {
-        ...node,
-        isDeleted: true,
-        verb: "delete",
-      };
-      const result = await saveSingleTagChange(nodeToSave, parentId, level);
+      const result = await saveTagsTree(updatedTree);
 
       if (result.success) {
         toast.success(t("saveSuccess"));
-
-        // 刷新数据
-        const refreshResult = await fetchTeamTags();
-        if (refreshResult.success) {
-          const newTree = convertToTagNodes(refreshResult.data.tags);
-          setTagsTree(newTree);
-          setOriginalTags(refreshResult.data.tags);
-        }
+        await refetchTagsTree();
       } else {
         toast.error(result.message || t("saveFailed"));
         // 恢复原值
@@ -820,10 +794,10 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
 
         const newTree = buildUpdatedTree(tagsTree);
         setTagsTree(newTree);
-        await saveTagsTree(newTree);
+        await saveTagsTreeToMuseDAM(newTree);
+        refetchTagsTree();
         toast.success(t("sortSuccess"));
       } catch (error) {
-        console.error("Sort tags error:", error);
         toast.error(t("sortFailed"));
       } finally {
         setIsSaving(false);
@@ -967,18 +941,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
         ) : (
           TagMainColumns
         )}
-        <TagDetails
-          selectedTag={getSelectedTag()}
-          refreshTags={async () => {
-            // 刷新数据
-            const refreshResult = await fetchTeamTags();
-            if (refreshResult.success) {
-              const newTree = convertToTagNodes(refreshResult.data.tags);
-              setTagsTree(newTree);
-              setOriginalTags(refreshResult.data.tags);
-            }
-          }}
-        />
+        <TagDetails selectedTag={getSelectedTag()} refreshTags={refetchTagsTree} />
       </div>
       <CreateModal
         visible={createModalVisible}

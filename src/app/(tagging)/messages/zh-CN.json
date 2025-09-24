@@ -98,6 +98,7 @@
     "Review": {
       "add": "添加",
       "replace": "覆盖",
+      "delete": "删除",
       "reject": "拒绝",
       "tags": "标签",
       "aiRecommendedTags": "AI 推荐标签",
@@ -123,7 +124,13 @@
       "paginationInfo": "显示第 {current} - {total} 条，共 {totalCount} 条",
       "totalItems": "全部 {total} 项",
       "applySuccess": "应用成功",
-      "applyFailed": "应用失败"
+      "applyFailed": "应用失败",
+      "rejectConfirmTitle": "操作提示",
+      "rejectConfirmDescription": "确认删除素材「{assetName}」的 AI 打标记录？此操作不可恢复，请谨慎操作。",
+      "rejectConfirmCancel": "取消",
+      "rejectConfirmReject": "删除",
+      "rejectSuccess": "删除成功",
+      "rejectFailed": "删除失败"
     },
     "Access": {
       "roleAndPermissions": "角色与权限",

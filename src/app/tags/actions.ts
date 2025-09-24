@@ -89,21 +89,46 @@ export async function syncTagsFromMuseDAMAction(): Promise<ServerActionResult<vo
   });
 }
 
+export async function saveTagsTreeToMuseDAM(
+  tagsTree: TagNode[],
+): Promise<ServerActionResult<SyncResult>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    try {
+      // 获取团队信息
+      const team = await prisma.team.findUniqueOrThrow({
+        where: { id: teamId },
+      });
+
+      const syncResult = await syncTagsToMuseDAM({
+        team: { id: teamId, slug: team.slug },
+        tagsTree,
+      });
+
+      return {
+        success: true,
+        data: syncResult,
+      };
+    } catch (error) {
+      console.error("Sync to MuseDAM error:", error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : "同步到 MuseDAM 时发生未知错误",
+      };
+    }
+  });
+}
 export async function saveTagsTree(tagsTree: TagNode[]): Promise<ServerActionResult<void>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
       // 在数据库操作前先同步到 MuseDAM（此时数据库中的数据还是完整的）
       let syncResult: SyncResult | null = null;
       try {
-        // 获取团队信息
-        const team = await prisma.team.findUniqueOrThrow({
-          where: { id: teamId },
-        });
-
-        syncResult = await syncTagsToMuseDAM({
-          team: { id: teamId, slug: team.slug },
-          tagsTree,
-        });
+        const syncResponse = await saveTagsTreeToMuseDAM(tagsTree);
+        if (syncResponse.success) {
+          syncResult = syncResponse.data;
+        } else {
+          console.error("Sync to MuseDAM failed:", syncResponse.message);
+        }
       } catch (error) {
         console.error("Sync to MuseDAM error:", error);
         // MuseDAM 同步失败不影响本地保存结果
@@ -308,10 +333,12 @@ export async function batchCreateTags(
 
         // 先同步到 MuseDAM
         try {
-          syncResult = await syncTagsToMuseDAM({
-            team: { id: teamId, slug: team.slug },
-            tagsTree,
-          });
+          const syncResponse = await saveTagsTreeToMuseDAM(tagsTree);
+          if (syncResponse.success) {
+            syncResult = syncResponse.data;
+          } else {
+            console.error("Sync to MuseDAM failed:", syncResponse.message);
+          }
         } catch (error) {
           console.error("Sync to MuseDAM error:", error);
           // MuseDAM 同步失败不影响本地保存结果
@@ -448,10 +475,13 @@ export async function saveSingleTagChange(
 
         // 构建单个节点的标签树用于同步
         const singleNodeTree: TagNode[] = [node];
-        syncResult = await syncTagsToMuseDAM({
-          team: { id: teamId, slug: team.slug },
-          tagsTree: singleNodeTree,
-        });
+        const syncResponse = await saveTagsTreeToMuseDAM(singleNodeTree);
+
+        if (syncResponse.success) {
+          syncResult = syncResponse.data;
+        } else {
+          console.error("Sync to MuseDAM failed:", syncResponse.message);
+        }
       } catch (error) {
         console.error("Sync to MuseDAM error:", error);
         // MuseDAM 同步失败不影响本地保存结果

@@ -106,7 +106,7 @@ export default function ReviewPageClient() {
               <SelectItem value="all">{t("allStatuses")}</SelectItem>
               <SelectItem value="pending">{t("pending")}</SelectItem>
               <SelectItem value="approved">{t("approved")}</SelectItem>
-              <SelectItem value="rejected">{t("rejected")}</SelectItem>
+              {/* <SelectItem value="rejected">{t("rejected")}</SelectItem> */}
             </SelectContent>
           </Select>
           <Select
