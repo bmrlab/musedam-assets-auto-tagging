@@ -6,6 +6,8 @@ import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { fetchTeamTags, saveTagsTree, saveTagsTreeToMuseDAM } from "./actions";
+import { AiCreateModal } from "./components/AiCreateModal";
+import { BatchCreateModal } from "./components/BatchCreateModal";
 import { CreateModal } from "./components/CreateModal";
 import { SearchResult } from "./components/SearchResult";
 import { SyncConfirmDialog } from "./components/SyncConfirmDialog";
@@ -33,6 +35,8 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
   const [nextTempId, setNextTempId] = useState(1);
   const [initialized, setInitialized] = useState(false);
   const [createModalVisible, setCreateModalVisible] = useState(false);
+  const [batchCreateModalVisible, setBatchCreateModalVisible] = useState(false);
+  const [aiCreateModalVisible, setAiCreateModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   // 移除了 tagExtraChanges 状态，现在使用 Context
@@ -678,9 +682,11 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
   // 处理同步完成
   const handleSyncComplete = useCallback(async () => {
     const refreshResult = await fetchTeamTags();
+    // console.log("refreshResult", refreshResult);
     if (refreshResult.success) {
       const newTree = convertToTagNodes(refreshResult.data.tags);
       setTagsTree(newTree);
+      toast.success(t("TagsClient.tagCreatedSuccessfully"));
       setOriginalTags(refreshResult.data.tags);
       setSelectedLevel1Id(null);
       setSelectedLevel2Id(null);
@@ -857,10 +863,10 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
             <SyncConfirmDialog onSyncComplete={handleSyncComplete} />
           </div>
           <Button
-            variant="outline"
+            variant="default"
             size="sm"
             onClick={() => {
-              setCreateModalVisible(true);
+              setBatchCreateModalVisible(true);
             }}
           >
             {t("batchCreate")}
@@ -942,6 +948,17 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
         )}
         <TagDetails selectedTag={getSelectedTag()} refreshTags={refetchTagsTree} />
       </div>
+      <BatchCreateModal
+        visible={batchCreateModalVisible}
+        setVisible={setBatchCreateModalVisible}
+        onSelectAiCreate={() => setAiCreateModalVisible(true)}
+        onSelectManualCreate={() => setCreateModalVisible(true)}
+      />
+      <AiCreateModal
+        visible={aiCreateModalVisible}
+        setVisible={setAiCreateModalVisible}
+        onSuccess={handleSyncComplete}
+      />
       <CreateModal
         visible={createModalVisible}
         setVisible={setCreateModalVisible}

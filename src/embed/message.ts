@@ -73,7 +73,7 @@ function initializeMessageListener() {
       }
     }
 
-    // 处理来自父项目的配置更新事件
+    // 处理来自父项目的配置更新事件或查询事件
     if (
       message.source === "musedam" &&
       message.target === "musedam-app" &&
@@ -81,6 +81,12 @@ function initializeMessageListener() {
       message.action
     ) {
       handleParentConfigUpdate(message.action, message.args);
+      // 支持异步返回结果的查询类 action
+      // if (message.action === "checkUserPermission") {
+      //   handleCheckUserPermission(message.dispatchId);
+      // } else {
+      //   handleParentConfigUpdate(message.action, message.args);
+      // }
     }
   });
 }
@@ -89,6 +95,28 @@ function initializeMessageListener() {
 if (typeof window !== "undefined") {
   // 该调用会在首次运行时创建全局队列并注册一次 message 监听器
   getPendingPromises();
+
+  // 通知父窗口：应用加载完成
+  // const notifyParentAppLoaded = () => {
+  //   try {
+  //     const message = {
+  //       source: "musedam-app",
+  //       target: "musedam",
+  //       type: "event",
+  //       event: "loaded",
+  //       timestamp: new Date().toISOString(),
+  //     } as const;
+  //     window.parent?.postMessage(message, "*");
+  //   } catch {}
+  // };
+
+  // if (document?.readyState === "complete" || document?.readyState === "interactive") {
+  //   // 文档已就绪，异步触发一次
+  //   setTimeout(notifyParentAppLoaded, 0);
+  // } else {
+  //   // 等待 DOMContentLoaded 再通知
+  //   window.addEventListener("DOMContentLoaded", notifyParentAppLoaded, { once: true } as any);
+  // }
 }
 
 // 处理来自父项目的配置更新事件
@@ -142,6 +170,33 @@ function handleParentConfigUpdate(action: string, args: any) {
       break;
   }
 }
+
+// 处理权限检查请求：从父项目请求检查当前登录用户权限
+// async function handleCheckUserPermission(dispatchId?: string) {
+//   if (typeof window === "undefined") return;
+//   try {
+//     const res = await fetch("/api/auth/check-permission", { credentials: "include" });
+//     const message = {
+//       source: "musedam-app",
+//       target: "musedam",
+//       type: "action_result",
+//       dispatchId,
+//       action: "checkPermission",
+//       result: res.ok,
+//     } as const;
+//     window.parent?.postMessage(message, "*");
+//   } catch (error: unknown) {
+//     const message = {
+//       source: "musedam-app",
+//       target: "musedam",
+//       type: "action_result",
+//       action: "checkPermission",
+//       dispatchId,
+//       result: false,
+//     } as const;
+//     window.parent?.postMessage(message, "*");
+//   }
+// }
 
 type BaseActionResult<T = Record<string, never>> =
   | {
@@ -197,6 +252,10 @@ type ActionMap = {
     };
     result: BaseActionResult<never>;
   };
+  // "refetch-tags-tree": {
+  //   args: {};
+  //   result: BaseActionResult<never>;
+  // };
   "get-smart-tags-list": {
     args: {
       pageNum: number;

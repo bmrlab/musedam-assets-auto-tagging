@@ -34,6 +34,12 @@
     "syncSuccess": "Successfully synced tags from MuseDAM",
     "syncFailed": "Sync failed",
     "syncError": "Error occurred during sync",
+    "selectCreateMethod": "Please choose a creation method:",
+    "aiCreateLabel": "AI Tag Generation",
+    "aiCreateDesc": "AI generates a professional tag template based on industry features",
+    "manualCreateLabel": "Create tags manually",
+    "manualCreateDesc": "Build a bespoke taxonomy for your unique business context",
+    "recommended": "Recommended",
     "TagItem": {
       "tagNameRequired": "Tag name cannot be empty",
       "inputTagName": "Enter tag name",
@@ -113,6 +119,83 @@
       "level2Title": "Level 2 Tags",
       "level3Title": "Level 3 Tags",
       "defaultTitle": "Tags"
+    },
+    "TagsClient": {
+      "tagCreatedSuccessfully": "Tags created successfully"
+    },
+    "AiCreateModal": {
+      "generateFailed": "Failed to generate tag system",
+      "creating": "Creating..."
+    }
+  },
+  "AiCreateModal": {
+    "title": "AI Tag System Generator",
+    "createSettings": "Creation Settings",
+    "tip": "💡 Select an industry to auto-fill a professional scenario description. You can adjust it as needed.",
+    "selectIndustry": "Select Industry",
+    "other": "Other",
+    "pleaseDescribe": "Please describe",
+    "customPrompt": "Custom Prompt",
+    "generate": "Generate Tag System",
+    "generating": "Generating...",
+    "result": "Generated Result",
+    "waiting": "Waiting",
+    "aiAnalyzing": "AI is analyzing and generating the tag system...",
+    "pleaseSelectOrInput": "Please select an industry or enter a custom prompt on the left, then click Generate.",
+    "confirmApply": "Apply to System",
+    "none": "None",
+    "tagTreePrompt": {
+      "template": "You are an expert in enterprise digital asset tag taxonomies. Based on the following user context, generate a 'tag tree'.\n[User Context]\n{userContext}\n\nYou MUST output strictly in the following format only (no extra explanations, symbols, numbering, blank lines, or additional sections):\n# Level 1 Tag\n## Level 2 Tag\nTag 1\nTag 2\n\nRules:\n- Output only the tag tree itself. Do NOT include any explanations, hints, examples, Markdown code fences, or backticks.\n- Use English for all text.\n- Quantity limits (strict): At most 30 items for each '# Level 1 Tag', 30 items for each '## Level 2 Tag', and 30 items of concrete 'Tag' under each '## Level 2 Tag'. If you are about to exceed the limit, keep only the first 30 items and stop immediately.\n- Terms should be professional, mutually exclusive, clear, and geared for practical search. Avoid long sentences.\n- Do NOT output empty headings, numbering, colons, brackets, or any explanatory text.\n- Do NOT add symbols outside the defined levels, such as em dashes, colons, '- ', or numeric lists.\n- Do NOT restate the user context or add a concluding summary."
+    },
+    "industry": {
+      "general": {
+        "label": "General Industry",
+        "prompt": "Marketing-driven enterprises focus on brand storytelling, content creation, performance advertising, and cross-channel campaigns. Key digital assets include brand visuals, advertising creatives, campaign videos, social media content, promotional materials, and branded templates. Organize assets by marketing objectives: brand awareness, lead generation, conversion optimization, and customer retention.\nThis system applies to e-commerce, CPG, tech hardware, fashion, and F&B industries prioritizing marketing excellence."
+      },
+      "ecommerce": {
+        "label": "E-commerce & Retail",
+        "prompt": "E-commerce retailers focus on product merchandising, conversion optimization, marketplace presence, and customer lifecycle marketing. Key digital assets include product photography, lifestyle shots, video demos, marketplace banners, promotional graphics, and customer testimonials. Organize assets by sales funnel stages: product discovery, consideration content, conversion assets, and post-purchase engagement.\nThis system applies to Amazon sellers, Shopify stores, marketplace vendors, and omnichannel retailers across platforms like eBay, Walmart, and direct-to-consumer brands."
+      },
+      "fmcg": {
+        "label": "Consumer Packaged Goods (CPG)",
+        "prompt": "CPG brands focus on shelf appeal, category differentiation, retailer partnerships, and consumer education. Key digital assets include packaging photography, in-use demonstrations, lifestyle imagery, retailer-specific materials, promotional campaigns, and educational content. Organize assets by distribution channels: retail partnerships, consumer-direct campaigns, trade marketing, and brand building initiatives."
+      },
+      "beauty": {
+        "label": "Beauty & Cosmetics",
+        "prompt": "Beauty brands focus on product education, trend-driven content, influencer partnerships, and community building. Key digital assets include product photography, before/after transformations, tutorial videos, influencer collaboration content, user-generated reviews, and seasonal campaign materials. Organize assets by marketing funnel stages: awareness campaigns, product education, social proof, and conversion-focused content.\nThis system applies to skincare, makeup, fragrance, and beauty tools brands managing comprehensive content from product showcase to consumer education."
+      },
+      "fashion": {
+        "label": "Fashion & Apparel",
+        "prompt": "Fashion brands focus on seasonal collections, style inspiration, influencer collaborations, and lifestyle positioning. Key digital assets include lookbook photography, runway content, styling videos, influencer partnerships, model shoots, and trend-focused campaigns. Organize assets by content strategy: brand storytelling, product showcases, social commerce, and community engagement.\nThis system applies to clothing, footwear, accessories, and luxury fashion brands managing visual content from product launches to lifestyle communication."
+      },
+      "electronics": {
+        "label": "Consumer Electronics",
+        "prompt": "Tech hardware brands focus on feature demonstrations, performance comparisons, user education, and innovation storytelling. Key digital assets include product photography, demo videos, technical specifications, comparison charts, unboxing content, and user tutorials. Organize assets by customer journey stages: product awareness, feature education, purchase consideration, and user onboarding.\nThis system applies to smartphones, laptops, smart home devices, and tech accessories managing content from product features to user experience."
+      },
+      "automotive": {
+        "label": "Automotive",
+        "prompt": "Automotive brands focus on vehicle showcases, performance demonstrations, safety features, and lifestyle integration. Key digital assets include exterior photography, interior details, test drive footage, safety demonstrations, lifestyle scenarios, and sustainability messaging. Organize assets by purchase journey stages: brand consideration, model comparison, feature highlights, and ownership experience.\nThis system applies to passenger vehicles, electric vehicles, commercial fleets, and automotive parts managing content from brand awareness to driving experience."
+      },
+      "interior": {
+        "label": "Interior Design",
+        "prompt": "Interior design firms focus on project showcases, design inspiration, process transparency, and client testimonials. Key digital assets include space photography, design renderings, material samples, process documentation, before/after transformations, and client case studies. Organize assets by project lifecycle: inspiration galleries, design concepts, work-in-progress, and completed showcases.\nThis system applies to residential design, commercial spaces, hospitality design, and home staging managing visual content from concept to completion."
+      },
+      "luxury": {
+        "label": "Luxury Goods",
+        "prompt": "Luxury brands focus on heritage storytelling, craftsmanship excellence, exclusivity positioning, and premium experiences. Key digital assets include artisanal photography, craftsmanship videos, brand heritage content, exclusive collections, celebrity endorsements, and experiential campaigns. Organize assets by brand pillars: heritage storytelling, craftsmanship showcase, exclusivity marketing, and lifestyle positioning.\nThis system applies to haute couture, fine jewelry, luxury watches, and premium leather goods managing content from artisanal value to cultural significance."
+      },
+      "gaming": {
+        "label": "Gaming",
+        "prompt": "Gaming companies focus on community engagement, gameplay showcases, competitive esports, and user-generated content. Key digital assets include game trailers, character artwork, gameplay footage, esports highlights, community content, and live stream materials. Organize assets by engagement strategy: game promotion, community building, competitive content, and player retention.\nThis system applies to mobile games, PC gaming, console titles, and VR experiences managing content from game marketing to community ecosystem."
+      },
+      "jewelry": {
+        "label": "Jewelry",
+        "prompt": "Jewelry brands focus on craftsmanship storytelling, emotional connections, occasion marketing, and personalization services. Key digital assets include macro photography, craftsmanship videos, lifestyle imagery, customization showcases, emotional storytelling content, and occasion-specific campaigns. Organize assets by emotional messaging: craftsmanship pride, milestone celebrations, personal expression, and gifting occasions.\nThis system applies to engagement rings, fine jewelry, custom pieces, and fashion jewelry managing content from artisanal craft to emotional significance."
+      },
+      "theme-park": {
+        "label": "Theme Parks",
+        "prompt": "Entertainment venues focus on experience marketing, seasonal events, family engagement, and immersive storytelling. Key digital assets include attraction photography, experience videos, seasonal campaigns, behind-the-scenes content, visitor testimonials, and safety communications. Organize assets by visitor journey: trip planning, on-site experience, seasonal offerings, and memory creation.\nThis system applies to Disney parks, Universal Studios, regional theme parks, and entertainment complexes managing content from visitor attraction to experience amplification."
+      }
     }
   },
   "TaggingResultDisplay": {

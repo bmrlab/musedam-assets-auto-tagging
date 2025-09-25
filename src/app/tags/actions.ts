@@ -1,5 +1,6 @@
 "use server";
 
+import { llm } from "@/ai/provider";
 import { withAuth } from "@/app/(auth)/withAuth";
 import { ServerActionResult } from "@/lib/serverAction";
 import { idToSlug } from "@/lib/slug";
@@ -9,6 +10,8 @@ import { MuseDAMID } from "@/musedam/types";
 import type { AssetTagExtra } from "@/prisma/client";
 import { AssetTag } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
+import { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
+import { generateText } from "ai";
 import { TagNode } from "./types";
 
 // 定义 MuseDAM 标签请求的类型（与 syncToMuseDAM 返回的类型匹配）
@@ -299,148 +302,91 @@ export async function batchCreateTags(
 ): Promise<ServerActionResult<void>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
-      if (addType === 1) {
-        // 仅保留新建标签树：先同步到 MuseDAM，然后创建标签并更新 slug
-        const team = await prisma.team.findUniqueOrThrow({
-          where: { id: teamId },
-        });
-
-        // 转换为 TagNode 格式用于同步
-        const convertToTagNodes = (
-          data: BatchCreateTagData[],
-          parentPath: string = "",
-        ): TagNode[] => {
-          return data.map((item, index) => {
-            const currentPath = parentPath
-              ? `${parentPath}_${index}`
-              : `batch_${Date.now()}_${index}`;
-            return {
-              id: undefined,
-              slug: null,
-              name: item.name,
-              originalName: item.name,
-              children: item.nameChildList
-                ? convertToTagNodes(item.nameChildList, currentPath)
-                : [],
-              verb: "create" as const,
-              tempId: currentPath,
-            };
-          });
-        };
-
-        const tagsTree = convertToTagNodes(nameChildList);
-        let syncResult: SyncResult | null = null;
-
-        // 先同步到 MuseDAM
-        try {
-          const syncResponse = await saveTagsTreeToMuseDAM(tagsTree);
-          if (syncResponse.success) {
-            syncResult = syncResponse.data;
-          } else {
-            console.error("Sync to MuseDAM failed:", syncResponse.message);
-          }
-        } catch (error) {
-          console.error("Sync to MuseDAM error:", error);
-          // MuseDAM 同步失败不影响本地保存结果
-        }
-
-        // 然后创建标签并更新 slug
-        await prisma.$transaction(async (tx) => {
-          // 1. 删除所有现有标签（级联删除子标签）
-          await tx.assetTag.deleteMany({
-            where: { teamId },
-          });
-
-          // 2. 创建新标签
-          const createTagsRecursively = async (
-            data: BatchCreateTagData[],
-            parentId: number | null = null,
-            level: number = 1,
-            tempIdPrefix: string = "",
-          ) => {
-            for (let i = 0; i < data.length; i++) {
-              const item = data[i];
-              if (!item.name.trim()) {
-                throw new Error("标签名不能为空");
-              }
-
-              const currentTempId = tempIdPrefix
-                ? `${tempIdPrefix}_${i}`
-                : `batch_${Date.now()}_${i}`;
-
-              // 检查同级标签名是否重复
-              const existingTag = await tx.assetTag.findFirst({
-                where: {
-                  teamId,
-                  parentId,
-                  name: item.name.trim(),
-                },
-              });
-
-              let targetTagId: number;
-
-              if (existingTag) {
-                // 标签已存在，使用现有标签的ID
-                targetTagId = existingTag.id;
-              } else {
-                // 标签不存在，创建新标签
-                const createdTag = await tx.assetTag.create({
-                  data: {
-                    teamId,
-                    name: item.name.trim(),
-                    level,
-                    parentId,
-                  },
-                });
-                targetTagId = createdTag.id;
-
-                // 如果有同步结果且该标签是新创建的，更新 slug
-                if (syncResult && syncResult.createdTagMapping) {
-                  const musedamId = syncResult.createdTagMapping.get(currentTempId);
-                  if (musedamId) {
-                    const slug = idToSlug("assetTag", musedamId);
-                    await tx.assetTag.update({
-                      where: { id: targetTagId },
-                      data: { slug },
-                    });
-                  }
-                }
-              }
-
-              // 递归创建子标签
-              if (item.nameChildList && item.nameChildList.length > 0) {
-                await createTagsRecursively(
-                  item.nameChildList,
-                  targetTagId,
-                  level + 1,
-                  currentTempId,
-                );
-              }
-            }
-          };
-
-          await createTagsRecursively(nameChildList);
-        });
-      } else {
-        // 合并到现有标签系统：使用现有的 saveTagsTree 逻辑
-        const convertToTagNodes = (data: BatchCreateTagData[]): TagNode[] => {
-          return data.map((item) => ({
+      // 转换为 TagNode 格式用于同步
+      const convertToTagNodes = (
+        data: BatchCreateTagData[],
+        parentPath: string = "",
+      ): TagNode[] => {
+        return data.map((item, index) => {
+          const currentPath = parentPath
+            ? `${parentPath}_${index}`
+            : `batch_${Date.now()}_${index}`;
+          return {
             id: undefined,
             slug: null,
             name: item.name,
             originalName: item.name,
-            children: item.nameChildList ? convertToTagNodes(item.nameChildList) : [],
+            children: item.nameChildList ? convertToTagNodes(item.nameChildList, currentPath) : [],
             verb: "create" as const,
-            tempId: `batch_${Date.now()}_${Math.random()}`,
-          }));
-        };
+            tempId: currentPath,
+          };
+        });
+      };
 
-        const tagsTree = convertToTagNodes(nameChildList);
-        const result = await saveTagsTree(tagsTree);
+      const tagsTree = convertToTagNodes(nameChildList);
+      let syncResult: SyncResult | null = null;
 
-        if (!result.success) {
-          return result;
+      // 先同步到 MuseDAM（在事务外执行，避免长时间事务）
+      try {
+        const syncResponse = await saveTagsTreeToMuseDAM(tagsTree);
+        if (syncResponse.success) {
+          syncResult = syncResponse.data;
+        } else {
+          console.error("Sync to MuseDAM failed:", syncResponse.message);
         }
+      } catch (error) {
+        console.error("Sync to MuseDAM error:", error);
+        // MuseDAM 同步失败不影响本地保存结果
+      }
+
+      if (addType === 1) {
+        // 仅保留新建标签树：删除所有现有标签，然后批量创建新标签
+        await prisma.$transaction(
+          async (tx) => {
+            // 1. 删除所有现有标签（级联删除子标签）
+            await tx.assetTag.deleteMany({
+              where: { teamId },
+            });
+
+            // 2. 批量创建新标签
+            await createTagsBatch(tx, nameChildList, teamId, syncResult);
+          },
+          {
+            timeout: 60000, // 60秒超时
+            isolationLevel: "ReadCommitted",
+          },
+        );
+      } else {
+        // 合并到现有标签系统：获取现有标签，然后批量创建
+        await prisma.$transaction(
+          async (tx) => {
+            // 获取所有现有标签用于去重检查
+            const existingTags = await tx.assetTag.findMany({
+              where: { teamId },
+              select: { id: true, name: true, parentId: true, level: true },
+            });
+
+            // 创建标签映射用于快速查找
+            const existingTagMap = new Map<string, number>();
+            existingTags.forEach((tag) => {
+              const key = `${tag.parentId || "root"}_${tag.name}_${tag.level}`;
+              existingTagMap.set(key, tag.id);
+            });
+
+            // 批量创建新标签
+            await createTagsBatchWithExistingCheck(
+              tx,
+              nameChildList,
+              teamId,
+              existingTagMap,
+              syncResult,
+            );
+          },
+          {
+            timeout: 60000, // 60秒超时
+            isolationLevel: "ReadCommitted",
+          },
+        );
       }
 
       return {
@@ -455,6 +401,183 @@ export async function batchCreateTags(
       };
     }
   });
+}
+
+// 批量创建标签的辅助函数（用于 addType === 1）
+async function createTagsBatch(
+  tx: any,
+  nameChildList: BatchCreateTagData[],
+  teamId: number,
+  syncResult: SyncResult | null,
+  parentId: number | null = null,
+  level: number = 1,
+  tempIdPrefix: string = "",
+): Promise<Map<string, number>> {
+  const tagIdMap = new Map<string, number>();
+  const createPromises: Promise<any>[] = [];
+
+  // 准备批量创建的数据
+  const createData = nameChildList.map((item, index) => {
+    const currentTempId = tempIdPrefix
+      ? `${tempIdPrefix}_${index}`
+      : `batch_${Date.now()}_${index}`;
+
+    return {
+      data: {
+        teamId,
+        name: item.name.trim(),
+        level,
+        parentId,
+      },
+      tempId: currentTempId,
+      nameChildList: item.nameChildList || [],
+    };
+  });
+
+  // 批量创建标签
+  const createdTags = await Promise.all(
+    createData.map(async ({ data, tempId, nameChildList }) => {
+      const createdTag = await tx.assetTag.create({ data });
+      tagIdMap.set(tempId, createdTag.id);
+      return { createdTag, tempId, nameChildList };
+    }),
+  );
+
+  // 批量更新 slug（如果有同步结果）
+  if (syncResult && syncResult.createdTagMapping) {
+    const updatePromises = createdTags
+      .filter(({ tempId }) => syncResult.createdTagMapping.has(tempId))
+      .map(async ({ createdTag, tempId }) => {
+        const musedamId = syncResult.createdTagMapping.get(tempId);
+        if (musedamId) {
+          const slug = idToSlug("assetTag", musedamId);
+          return tx.assetTag.update({
+            where: { id: createdTag.id },
+            data: { slug },
+          });
+        }
+      });
+
+    await Promise.all(updatePromises.filter(Boolean));
+  }
+
+  // 递归处理子标签
+  for (const { createdTag, tempId, nameChildList } of createdTags) {
+    if (nameChildList.length > 0) {
+      const childMap = await createTagsBatch(
+        tx,
+        nameChildList,
+        teamId,
+        syncResult,
+        createdTag.id,
+        level + 1,
+        tempId,
+      );
+      // 合并子标签映射
+      childMap.forEach((id, key) => tagIdMap.set(key, id));
+    }
+  }
+
+  return tagIdMap;
+}
+
+// 批量创建标签的辅助函数（用于 addType === 2，带重复检查）
+async function createTagsBatchWithExistingCheck(
+  tx: any,
+  nameChildList: BatchCreateTagData[],
+  teamId: number,
+  existingTagMap: Map<string, number>,
+  syncResult: SyncResult | null,
+  parentId: number | null = null,
+  level: number = 1,
+  tempIdPrefix: string = "",
+): Promise<Map<string, number>> {
+  const tagIdMap = new Map<string, number>();
+  const createData: Array<{
+    data: any;
+    tempId: string;
+    nameChildList: BatchCreateTagData[];
+    isNew: boolean;
+  }> = [];
+
+  // 准备创建数据并检查重复
+  for (let i = 0; i < nameChildList.length; i++) {
+    const item = nameChildList[i];
+    const currentTempId = tempIdPrefix ? `${tempIdPrefix}_${i}` : `batch_${Date.now()}_${i}`;
+
+    const key = `${parentId || "root"}_${item.name.trim()}_${level}`;
+    const existingId = existingTagMap.get(key);
+
+    if (existingId) {
+      // 标签已存在，使用现有ID
+      tagIdMap.set(currentTempId, existingId);
+    } else {
+      // 需要创建新标签
+      createData.push({
+        data: {
+          teamId,
+          name: item.name.trim(),
+          level,
+          parentId,
+        },
+        tempId: currentTempId,
+        nameChildList: item.nameChildList || [],
+        isNew: true,
+      });
+    }
+  }
+
+  // 批量创建新标签
+  if (createData.length > 0) {
+    const createdTags = await Promise.all(
+      createData.map(async ({ data, tempId, nameChildList, isNew }) => {
+        if (isNew) {
+          const createdTag = await tx.assetTag.create({ data });
+          tagIdMap.set(tempId, createdTag.id);
+          return { createdTag, tempId, nameChildList };
+        }
+        return null;
+      }),
+    );
+
+    // 批量更新 slug
+    if (syncResult && syncResult.createdTagMapping) {
+      const updatePromises = createdTags
+        .filter((item): item is NonNullable<typeof item> => item !== null)
+        .filter(({ tempId }) => syncResult.createdTagMapping.has(tempId))
+        .map(async ({ createdTag, tempId }) => {
+          const musedamId = syncResult.createdTagMapping.get(tempId);
+          if (musedamId) {
+            const slug = idToSlug("assetTag", musedamId);
+            return tx.assetTag.update({
+              where: { id: createdTag.id },
+              data: { slug },
+            });
+          }
+        });
+
+      await Promise.all(updatePromises.filter(Boolean));
+    }
+
+    // 递归处理子标签
+    for (const item of createdTags.filter(Boolean)) {
+      if (item && item.nameChildList.length > 0) {
+        const childMap = await createTagsBatchWithExistingCheck(
+          tx,
+          item.nameChildList,
+          teamId,
+          existingTagMap,
+          syncResult,
+          item.createdTag.id,
+          level + 1,
+          item.tempId,
+        );
+        childMap.forEach((id, key) => tagIdMap.set(key, id));
+      }
+    }
+  }
+
+  return tagIdMap;
 }
 
 // 保存单个标签的变更（支持 create、update、delete）
@@ -731,6 +854,47 @@ export async function updateTagExtra(
       return {
         success: false,
         message: error instanceof Error ? error.message : "更新标签信息时发生未知错误",
+      };
+    }
+  });
+}
+
+// 基于大模型生成标签树文本（严格结构化输出）
+export async function generateTagTreeByLLM(
+  finalPrompt: string,
+): Promise<ServerActionResult<{ text: string; input: string }>> {
+  "use server";
+
+  return withAuth(async ({ team: { id: teamId } }) => {
+    try {
+      const result = await generateText({
+        model: llm("gpt-5-mini"),
+        providerOptions: {
+          openai: {
+            promptCacheKey: `musedam-tags-tree-${teamId}`,
+            reasoningSummary: "auto",
+            reasoningEffort: "minimal",
+          } satisfies OpenAIResponsesProviderOptions,
+        },
+        system:
+          "你是严格的结构化输出助手。你必须仅输出标签树本身，不得包含任何说明、反引号或多余内容。",
+        messages: [
+          {
+            role: "user",
+            content: finalPrompt,
+          },
+        ],
+      });
+
+      return {
+        success: true,
+        data: { text: result.text, input: finalPrompt },
+      };
+    } catch (error) {
+      console.error("generateTagTreeByLLM error:", error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : "生成标签树失败",
       };
     }
   });

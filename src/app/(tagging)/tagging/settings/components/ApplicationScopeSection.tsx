@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { FoldersIcon } from "@/components/ui/icons";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { dispatchMuseDAMClientAction } from "@/embed/message";
+import { slugToId } from "@/lib/slug";
 import { cn } from "@/lib/utils";
 import { Trash } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -83,14 +84,16 @@ export function ApplicationScopeSection({
                 <div
                   key={folder.slug}
                   className={cn(
-                    "p-3 cursor-pointer flex items-center justify-between border-t",
-                    index === applicationScope.selectedFolders.length - 1 && "border-b-0",
+                    "p-3 cursor-pointer flex items-center justify-between ",
+                    index === 0 && applicationScope.scopeType !== "all" ? "" : "border-t",
                   )}
-                  onClick={() =>
+                  onClick={() => {
+                    const folderId = slugToId("assetFolder", folder.slug);
+                    console.log("folderId", folderId.toString());
                     dispatchMuseDAMClientAction("goto", {
-                      url: `/home/folder/${folder.slug.replace("/f", "")}`,
-                    })
-                  }
+                      url: `/home/folder/${folderId.toString()}`,
+                    });
+                  }}
                 >
                   <div className="flex items-center gap-3">
                     <div className="size-[30px] flex items-center justify-center">

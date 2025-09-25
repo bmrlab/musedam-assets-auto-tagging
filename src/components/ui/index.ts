@@ -21,3 +21,7 @@ export {
 
 // 导出示例组件
 export { Example1, Example2, Example3 } from "./icon-examples";
+export { TagExamples } from "./tag-examples";
+
+// 导出 Tag 组件
+export { Tag, TagGroup, tagVariants, type TagGroupProps, type TagProps } from "./tag";

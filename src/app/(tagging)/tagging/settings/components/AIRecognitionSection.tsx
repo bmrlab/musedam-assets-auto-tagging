@@ -1,3 +1,4 @@
+import { Tag } from "@/components/ui/tag";
 import { cn } from "@/lib/utils";
 import { InfoIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -64,11 +65,7 @@ export function AIRecognitionSection({
                   <div className="text-center">
                     <div className="flex items-center justify-center gap-2 ">
                       <h3 className="font-medium text-sm mb-[6px]">{item.title}</h3>
-                      {item.isRecommended && (
-                        <span className="bg-[#F9F0FF] text-xs text-[#722ED1] border border-solid border-[#D3ADF7] px-[6px] py-[2px] rounded absolute top-[10px] right-[10px]">
-                          {t("recommended")}
-                        </span>
-                      )}
+                      {item.isRecommended && <Tag variant="purple"> {t("recommended")}</Tag>}
                     </div>
                     <div className="text-xs font-medium text-primary-6 mb-1">
                       {item.confidence} {t("confidence")}
