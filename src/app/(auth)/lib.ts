@@ -12,36 +12,59 @@ export async function createUserAndTeam(payload: {
   team: { id?: number; name: string; slug: string };
 }) {
   const { user, team } = await prisma.$transaction(async (tx) => {
-    const [user, team] = await Promise.all([
-      tx.user.create({
+    // 先查找用户和团队是否已存在
+    const [existingUser, existingTeam] = await Promise.all([
+      tx.user.findUnique({ where: { slug: payload.user.slug } }),
+      payload.team.id
+        ? tx.team.findUnique({ where: { id: payload.team.id } })
+        : tx.team.findUnique({ where: { slug: payload.team.slug } }),
+    ]);
+
+    // 如果用户不存在，创建用户
+    const user =
+      existingUser ||
+      (await tx.user.create({
         data: {
           name: payload.user.name,
           slug: payload.user.slug,
         },
-      }),
-      !payload.team.id
-        ? tx.team.create({
-            data: {
-              name: payload.team.name,
-              slug: payload.team.slug,
-            },
-          })
-        : Promise.resolve({
-            id: payload.team.id,
-            slug: payload.team.slug,
-          }),
-    ]);
-    await tx.membership.create({
-      data: {
-        userId: user.id,
-        teamId: team.id,
+      }));
+
+    // 如果团队不存在，创建团队
+    const team =
+      existingTeam ||
+      (await tx.team.create({
+        data: {
+          name: payload.team.name,
+          slug: payload.team.slug,
+        },
+      }));
+
+    // 检查成员关系是否已存在
+    const existingMembership = await tx.membership.findUnique({
+      where: {
+        userId_teamId: {
+          userId: user.id,
+          teamId: team.id,
+        },
       },
     });
+
+    // 如果成员关系不存在，创建成员关系
+    if (!existingMembership) {
+      await tx.membership.create({
+        data: {
+          userId: user.id,
+          teamId: team.id,
+        },
+      });
+    }
+
     return { user, team };
   });
   // TODO: 如果同时打开两个页面都在创建 team，这里可能会出现冲突，有一个办法是在 teamconfig 里添加一个 loading 标记
   if (!payload.team.id) {
-    rootLogger.info(`Team ${payload.team.slug} created, syncing tags from MuseDAM`);
+    rootLogger.info(`Team ${payload.team.slug} initialized, syncing tags from MuseDAM`);
     after(
       syncTagsFromMuseDAM({
         team: {

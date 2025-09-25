@@ -1,8 +1,6 @@
 import "server-only";
 
-import { rootLogger } from "@/lib/logging";
 import { idToSlug } from "@/lib/slug";
-import prisma from "@/prisma/prisma";
 import { getServerSession, type NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { checkUserPermission, createUserAndTeam } from "./lib";
@@ -56,17 +54,12 @@ const authOptions: NextAuthOptions = {
             teamSlug: session.team.slug,
           };
         }
-        let [user, team] = await Promise.all([
-          prisma.user.findUnique({ where: { slug: userSlug }, select: { id: true, slug: true } }),
-          prisma.team.findUnique({ where: { slug: teamSlug }, select: { id: true, slug: true } }),
-        ]);
-        if (!user || !team) {
-          rootLogger.info(`First time seeing user ${userSlug} for team ${teamSlug}, initializing`);
-          ({ user, team } = await createUserAndTeam({
-            user: { name: payload.user.name, slug: userSlug },
-            team: { id: team?.id, name: payload.team.name, slug: teamSlug },
-          }));
-        }
+        // 使用 createUserAndTeam 来处理用户和团队的创建或获取
+        // 该函数现在会智能处理已存在的情况
+        const { user, team } = await createUserAndTeam({
+          user: { name: payload.user.name, slug: userSlug },
+          team: { id: undefined, name: payload.team.name, slug: teamSlug },
+        });
         try {
           await checkUserPermission({ user, team });
         } catch (error) {
