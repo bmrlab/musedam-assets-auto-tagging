@@ -688,13 +688,39 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
       setTagsTree(newTree);
       toast.success(t("TagsClient.tagCreatedSuccessfully"));
       setOriginalTags(refreshResult.data.tags);
-      setSelectedLevel1Id(null);
-      setSelectedLevel2Id(null);
-      setSelectedLevel3Id(null);
-      setInitialized(false);
-      setDefaultSelection(newTree);
+
+      // 基于最新的 newTree 直接重置并设置默认选中，避免依赖 initialized 的旧值
+      if (newTree.length > 0) {
+        const firstLevel1 = newTree[0];
+        const level1Id = getNodeId(firstLevel1);
+        setSelectedLevel1Id(level1Id);
+
+        if (firstLevel1.children.length > 0) {
+          const firstLevel2 = firstLevel1.children[0];
+          const level2Id = getNodeId(firstLevel2);
+          setSelectedLevel2Id(level2Id);
+
+          if (firstLevel2.children.length > 0) {
+            const firstLevel3 = firstLevel2.children[0];
+            const level3Id = getNodeId(firstLevel3);
+            setSelectedLevel3Id(level3Id);
+          } else {
+            setSelectedLevel3Id(null);
+          }
+        } else {
+          setSelectedLevel2Id(null);
+          setSelectedLevel3Id(null);
+        }
+      } else {
+        setSelectedLevel1Id(null);
+        setSelectedLevel2Id(null);
+        setSelectedLevel3Id(null);
+      }
+
+      // 认为已完成初始化
+      setInitialized(true);
     }
-  }, [convertToTagNodes, setDefaultSelection]);
+  }, [convertToTagNodes, getNodeId, t]);
 
   // 从原始标签中查找AssetTag
   const findOriginalTag = (

@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Spin } from "@/components/ui/spin";
 import { useTranslations } from "next-intl";
 import { createContext, ReactNode, useCallback, useContext, useState } from "react";
 import { toast } from "sonner";
@@ -242,7 +243,7 @@ export const BatchCreateTagsProvider = ({
 // 模态框组件
 const ManualCreateTipsModal = () => {
   const t = useTranslations("TagsPage.ManualCreateTipsModal");
-  const { isManualTipsOpen, closeManualTips, handleManualTipsConfirm } =
+  const { isManualTipsOpen, closeManualTips, handleManualTipsConfirm, isCreating } =
     useBatchCreateTagsContext();
   const [radioValue, setRadioValue] = useState<1 | 2>(2);
 
@@ -283,7 +284,9 @@ const ManualCreateTipsModal = () => {
             onClick={() => {
               handleManualTipsConfirm(radioValue);
             }}
+            disabled={isCreating}
           >
+            {isCreating && <Spin />}
             {t("Confirm")}
           </Button>
         </DialogFooter>

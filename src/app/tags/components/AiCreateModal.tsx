@@ -10,6 +10,7 @@ import { Spin } from "@/components/ui/spin";
 import { Textarea } from "@/components/ui/textarea";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
+import { toast } from "sonner";
 import { generateTagTreeByLLM } from "../actions";
 import {
   BatchCreateTagsProvider,
@@ -114,7 +115,7 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
 
       setGeneratedResult(resp.data.text.trim());
     } catch (error) {
-      console.error(t("AiCreateModal.generateFailed"), error);
+      toast.error(t("AiCreateModal.generateFailed") + (error as Error)?.message);
     } finally {
       setIsGenerating(false);
     }
