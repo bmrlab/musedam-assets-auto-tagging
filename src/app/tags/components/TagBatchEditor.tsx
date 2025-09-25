@@ -97,11 +97,22 @@ export const TagBatchEditor = ({
   const [previewSelectedLevel3Id, setPreviewSelectedLevel3Id] = useState<string | null>(null);
 
   useEffect(() => {
-    // 输入变化时，清理预览选中
-    setPreviewSelectedLevel1Id(null);
-    setPreviewSelectedLevel2Id(null);
+    // 输入变化时，设置默认选中第一个一级标签和二级标签
+    if (previewTagNodes.length > 0) {
+      setPreviewSelectedLevel1Id(previewTagNodes[0]?.tempId || null);
+
+      // 如果第一个一级标签有子标签，也默认选中第一个二级标签
+      if (previewTagNodes[0].children.length > 0) {
+        setPreviewSelectedLevel2Id(previewTagNodes[0]?.children[0]?.tempId || null);
+      } else {
+        setPreviewSelectedLevel2Id(null);
+      }
+    } else {
+      setPreviewSelectedLevel1Id(null);
+      setPreviewSelectedLevel2Id(null);
+    }
     setPreviewSelectedLevel3Id(null);
-  }, [value]);
+  }, [value, previewTagNodes]);
 
   const previewList1 = previewTagNodes;
   const previewList2 = useMemo(() => {

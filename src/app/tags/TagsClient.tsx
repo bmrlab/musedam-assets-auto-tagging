@@ -682,7 +682,6 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
   // 处理同步完成
   const handleSyncComplete = useCallback(async () => {
     const refreshResult = await fetchTeamTags();
-    // console.log("refreshResult", refreshResult);
     if (refreshResult.success) {
       const newTree = convertToTagNodes(refreshResult.data.tags);
       setTagsTree(newTree);

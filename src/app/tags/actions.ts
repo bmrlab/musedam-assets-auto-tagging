@@ -30,6 +30,42 @@ type SyncResult = {
   createdTagMapping: Map<string, MuseDAMID>;
 };
 
+// 根据 MuseDAM 返回的标签树构建 musedamId -> sort 的映射
+function buildMuseDAMSortMap(tags: MuseDAMTagRequest[]): Map<number, number> {
+  const map = new Map<number, number>();
+  const walk = (nodes: MuseDAMTagRequest[]) => {
+    for (const node of nodes) {
+      if (typeof node.id === "number" && typeof node.sort === "number") {
+        map.set(node.id, node.sort);
+      }
+      if (node.children && node.children.length > 0) {
+        walk(node.children);
+      }
+    }
+  };
+  walk(tags);
+  return map;
+}
+
+// 通过 tempId 路径在 syncResult.tags 中回溯 sort（当 createdTagMapping 命中失败时）
+function getSortByTempIdPath(tags: MuseDAMTagRequest[], tempId: string): number | undefined {
+  // 期望形如 batch_<ts>_0_1_2
+  const parts = tempId.split("_");
+  if (parts.length < 3) return undefined;
+  // 去掉前两段 ["batch", "<ts>"]，剩下的都是层级索引
+  const indexParts = parts.slice(2);
+  let currentLevel: MuseDAMTagRequest[] | undefined = tags;
+  let currentNode: MuseDAMTagRequest | undefined;
+  for (const idxStr of indexParts) {
+    if (!currentLevel || currentLevel.length === 0) return undefined;
+    const idx = Number(idxStr);
+    if (Number.isNaN(idx) || idx < 0 || idx >= currentLevel.length) return undefined;
+    currentNode = currentLevel[idx];
+    currentLevel = currentNode?.children ?? undefined;
+  }
+  return typeof currentNode?.sort === "number" ? currentNode?.sort : undefined;
+}
+
 export async function fetchTeamTags(): Promise<
   ServerActionResult<{
     tags: (AssetTag & {
@@ -268,6 +304,7 @@ export async function saveTagsTree(tagsTree: TagNode[]): Promise<ServerActionRes
 // 批量创建标签的数据结构
 export interface BatchCreateTagData {
   name: string;
+  sort: number;
   nameChildList?: BatchCreateTagData[];
 }
 
@@ -303,15 +340,14 @@ export async function batchCreateTags(
 ): Promise<ServerActionResult<void>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
+      const baseTs = Date.now();
       // 转换为 TagNode 格式用于同步
       const convertToTagNodes = (
         data: BatchCreateTagData[],
         parentPath: string = "",
       ): TagNode[] => {
         return data.map((item, index) => {
-          const currentPath = parentPath
-            ? `${parentPath}_${index}`
-            : `batch_${Date.now()}_${index}`;
+          const currentPath = parentPath ? `${parentPath}_${index}` : `batch_${baseTs}_${index}`;
           return {
             id: undefined,
             slug: null,
@@ -339,7 +375,7 @@ export async function batchCreateTags(
         console.error("Sync to MuseDAM error:", error);
         // MuseDAM 同步失败不影响本地保存结果
       }
-
+      // console.log("syncResult------", syncResult);
       if (addType === 1) {
         // 仅保留新建标签树：删除所有现有标签，然后批量创建新标签
         await prisma.$transaction(
@@ -350,7 +386,7 @@ export async function batchCreateTags(
             });
 
             // 2. 批量创建新标签
-            await createTagsBatch(tx, nameChildList, teamId, syncResult);
+            await createTagsBatch(tx, nameChildList, teamId, syncResult, null, 1, "", baseTs);
           },
           {
             timeout: 60000, // 60秒超时
@@ -381,6 +417,10 @@ export async function batchCreateTags(
               teamId,
               existingTagMap,
               syncResult,
+              null,
+              1,
+              "",
+              baseTs,
             );
           },
           {
@@ -413,14 +453,29 @@ async function createTagsBatch(
   parentId: number | null = null,
   level: number = 1,
   tempIdPrefix: string = "",
+  baseTs?: number,
 ): Promise<Map<string, number>> {
   const tagIdMap = new Map<string, number>();
+  const musedamSortMap = syncResult ? buildMuseDAMSortMap(syncResult.tags) : null;
 
   // 准备批量创建的数据
   const createData = nameChildList.map((item, index) => {
     const currentTempId = tempIdPrefix
       ? `${tempIdPrefix}_${index}`
-      : `batch_${Date.now()}_${index}`;
+      : `batch_${baseTs ?? Date.now()}_${index}`;
+
+    let sortValue: number | undefined = undefined;
+    if (syncResult && syncResult.createdTagMapping && musedamSortMap) {
+      const musedamId = syncResult.createdTagMapping.get(currentTempId);
+      const idNum = Number(musedamId as unknown as number);
+      if (!Number.isNaN(idNum)) {
+        const s = musedamSortMap.get(idNum);
+        if (typeof s === "number") sortValue = s;
+      }
+      if (sortValue === undefined && syncResult.tags && syncResult.tags.length > 0) {
+        sortValue = getSortByTempIdPath(syncResult.tags, currentTempId);
+      }
+    }
 
     return {
       data: {
@@ -428,6 +483,7 @@ async function createTagsBatch(
         name: item.name.trim(),
         level,
         parentId,
+        ...(sortValue !== undefined ? { sort: sortValue } : {}),
       },
       tempId: currentTempId,
       nameChildList: item.nameChildList || [],
@@ -472,6 +528,7 @@ async function createTagsBatch(
         createdTag.id,
         level + 1,
         tempId,
+        baseTs,
       );
       // 合并子标签映射
       childMap.forEach((id, key) => tagIdMap.set(key, id));
@@ -487,6 +544,7 @@ type CreateTagData = {
   name: string;
   level: number;
   parentId: number | null;
+  sort?: number;
 };
 
 async function createTagsBatchWithExistingCheck(
@@ -498,8 +556,10 @@ async function createTagsBatchWithExistingCheck(
   parentId: number | null = null,
   level: number = 1,
   tempIdPrefix: string = "",
+  baseTs?: number,
 ): Promise<Map<string, number>> {
   const tagIdMap = new Map<string, number>();
+  const musedamSortMap = syncResult ? buildMuseDAMSortMap(syncResult.tags) : null;
   const createData: Array<{
     data: CreateTagData;
     tempId: string;
@@ -510,7 +570,9 @@ async function createTagsBatchWithExistingCheck(
   // 准备创建数据并检查重复
   for (let i = 0; i < nameChildList.length; i++) {
     const item = nameChildList[i];
-    const currentTempId = tempIdPrefix ? `${tempIdPrefix}_${i}` : `batch_${Date.now()}_${i}`;
+    const currentTempId = tempIdPrefix
+      ? `${tempIdPrefix}_${i}`
+      : `batch_${baseTs ?? Date.now()}_${i}`;
 
     const key = `${parentId || "root"}_${item.name.trim()}_${level}`;
     const existingId = existingTagMap.get(key);
@@ -520,12 +582,25 @@ async function createTagsBatchWithExistingCheck(
       tagIdMap.set(currentTempId, existingId);
     } else {
       // 需要创建新标签
+      let sortValue: number | undefined = undefined;
+      if (syncResult && syncResult.createdTagMapping && musedamSortMap) {
+        const musedamId = syncResult.createdTagMapping.get(currentTempId);
+        const idNum = Number(musedamId as unknown as number);
+        if (!Number.isNaN(idNum)) {
+          const s = musedamSortMap.get(idNum);
+          if (typeof s === "number") sortValue = s;
+        }
+        if (sortValue === undefined && syncResult.tags && syncResult.tags.length > 0) {
+          sortValue = getSortByTempIdPath(syncResult.tags, currentTempId);
+        }
+      }
       createData.push({
         data: {
           teamId,
           name: item.name.trim(),
           level,
           parentId,
+          ...(sortValue !== undefined ? { sort: sortValue } : {}),
         },
         tempId: currentTempId,
         nameChildList: item.nameChildList || [],
@@ -578,6 +653,7 @@ async function createTagsBatchWithExistingCheck(
           item.createdTag.id,
           level + 1,
           item.tempId,
+          baseTs,
         );
         childMap.forEach((id, key) => tagIdMap.set(key, id));
       }

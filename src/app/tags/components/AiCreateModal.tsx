@@ -77,7 +77,10 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedResult, setGeneratedResult] = useState<string>("");
 
-  const [mode, setMode] = useState<"preview" | "edit">("edit");
+  const [mode, setMode] = useState<"preview" | "edit">("preview");
+
+  // 控制行业下拉的展开/收起（选择具体行业后收起，“其他”保持展开）
+  const [industrySelectOpen, setIndustrySelectOpen] = useState(false);
 
   // 使用提取的 Hook
   const { handleAddTags } = useBatchCreateTagsContext();
@@ -149,11 +152,17 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
         setCustomPrompt(selectedOption.prompt ?? "");
       }
     }
+
+    // 选择具体行业后收起下拉
+    setIndustrySelectOpen(false);
   };
 
   const handleOtherSelect = () => {
     setSelectedIndustry("");
     setIsOtherSelected(true);
+
+    // 选择“其他”时保持下拉展开，便于继续输入描述
+    setIndustrySelectOpen(true);
   };
 
   // 获取选中行业的显示名称
@@ -206,6 +215,8 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
                   <div className="space-y-2 flex items-center justify-between">
                     <Label htmlFor="industry">{tAI("selectIndustry")}</Label>
                     <Select
+                      open={industrySelectOpen}
+                      onOpenChange={setIndustrySelectOpen}
                       value={isOtherSelected ? "other" : selectedIndustry}
                       onValueChange={(value) => {
                         if (value === "other") {
