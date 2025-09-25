@@ -304,7 +304,7 @@ export async function saveTagsTree(tagsTree: TagNode[]): Promise<ServerActionRes
 // 批量创建标签的数据结构
 export interface BatchCreateTagData {
   name: string;
-  sort: number;
+  sort?: number;
   nameChildList?: BatchCreateTagData[];
 }
 

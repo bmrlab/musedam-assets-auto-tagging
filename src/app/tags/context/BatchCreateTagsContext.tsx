@@ -286,7 +286,7 @@ const ManualCreateTipsModal = () => {
             }}
             disabled={isCreating}
           >
-            {isCreating && <Spin />}
+            {isCreating && <Spin size="small" />}
             {t("Confirm")}
           </Button>
         </DialogFooter>
