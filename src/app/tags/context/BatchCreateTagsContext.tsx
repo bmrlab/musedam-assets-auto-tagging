@@ -104,7 +104,7 @@ interface BatchCreateTagsProviderProps {
   children: ReactNode;
   onSuccess?: () => void;
   onClose?: () => void;
-  translationKey?: string;
+  translationKey?: "TagsPage.ManualCreateModal";
 }
 
 export const BatchCreateTagsProvider = ({
@@ -113,7 +113,7 @@ export const BatchCreateTagsProvider = ({
   onClose,
   translationKey = "TagsPage.ManualCreateModal",
 }: BatchCreateTagsProviderProps) => {
-  const t = useTranslations(translationKey as any);
+  const t = useTranslations(translationKey);
 
   const [isCreating, setIsCreating] = useState(false);
 

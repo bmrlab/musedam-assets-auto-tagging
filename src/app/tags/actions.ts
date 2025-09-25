@@ -11,6 +11,7 @@ import type { AssetTagExtra } from "@/prisma/client";
 import { AssetTag } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 import { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
+import type { Prisma } from "@prisma/client";
 import { generateText } from "ai";
 import { TagNode } from "./types";
 
@@ -405,7 +406,7 @@ export async function batchCreateTags(
 
 // 批量创建标签的辅助函数（用于 addType === 1）
 async function createTagsBatch(
-  tx: any,
+  tx: Prisma.TransactionClient,
   nameChildList: BatchCreateTagData[],
   teamId: number,
   syncResult: SyncResult | null,
@@ -414,7 +415,6 @@ async function createTagsBatch(
   tempIdPrefix: string = "",
 ): Promise<Map<string, number>> {
   const tagIdMap = new Map<string, number>();
-  const createPromises: Promise<any>[] = [];
 
   // 准备批量创建的数据
   const createData = nameChildList.map((item, index) => {
@@ -482,8 +482,15 @@ async function createTagsBatch(
 }
 
 // 批量创建标签的辅助函数（用于 addType === 2，带重复检查）
+type CreateTagData = {
+  teamId: number;
+  name: string;
+  level: number;
+  parentId: number | null;
+};
+
 async function createTagsBatchWithExistingCheck(
-  tx: any,
+  tx: Prisma.TransactionClient,
   nameChildList: BatchCreateTagData[],
   teamId: number,
   existingTagMap: Map<string, number>,
@@ -494,7 +501,7 @@ async function createTagsBatchWithExistingCheck(
 ): Promise<Map<string, number>> {
   const tagIdMap = new Map<string, number>();
   const createData: Array<{
-    data: any;
+    data: CreateTagData;
     tempId: string;
     nameChildList: BatchCreateTagData[];
     isNew: boolean;

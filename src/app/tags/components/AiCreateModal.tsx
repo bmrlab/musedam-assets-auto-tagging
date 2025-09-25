@@ -65,8 +65,8 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
   const industryOptions = industryValues.map((value) => ({
     value,
     icon: industryIcons[value],
-    label: tAI(`industry.${value}.label` as any),
-    prompt: tAI(`industry.${value}.prompt` as any),
+    label: tAI(`industry.${value}.label`),
+    prompt: tAI(`industry.${value}.prompt`),
   }));
   const [selectedIndustry, setSelectedIndustry] = useState<string>("");
   const [isOtherSelected, setIsOtherSelected] = useState(false);
