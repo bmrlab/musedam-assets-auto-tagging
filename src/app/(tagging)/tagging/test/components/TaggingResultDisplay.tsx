@@ -58,7 +58,7 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
   };
 
   return (
-    <div className="bg-background border rounded-lg p-6 space-y-6">
+    <div className="bg-background border border-basic-4 rounded-lg p-6 space-y-6">
       {/* 文件信息头部 */}
       <div className="flex items-start gap-4">
         {/* 缩略图 */}

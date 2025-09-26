@@ -427,7 +427,7 @@ export default function TestClient() {
                   {selectedAssets.map((asset) => (
                     <div
                       key={asset.id.toString()}
-                      className="flex items-center justify-between p-3 border rounded-md"
+                      className="flex items-center justify-between p-3 border border-basic-4 rounded-md"
                     >
                       <div className="flex items-center gap-3">
                         <FileText className="size-4 text-basic-5" />
@@ -443,8 +443,9 @@ export default function TestClient() {
                         size="sm"
                         onClick={() => removeAsset(asset.id)}
                         disabled={isProcessing}
+                        className="group hover:bg-transparent "
                       >
-                        <X className="size-4" />
+                        <X className="size-4 text-basic-5 group-hover:text-basic-8 ease-in-out duration-300 transition-all" />
                       </Button>
                     </div>
                   ))}
@@ -549,7 +550,7 @@ export default function TestClient() {
                 key={key}
                 className={cn(
                   "flex items-center gap-2",
-                  "py-2 px-3 border rounded-md cursor-pointer transition-all ",
+                  "py-2 px-3 border border-basic-4 rounded-md cursor-pointer transition-all ",
                   selectedScene === key
                     ? "bg-primary-1 border-primary-6 ring ring-primary-6"
                     : "hover:border-primary-6",
@@ -582,7 +583,7 @@ export default function TestClient() {
               <div
                 key={key}
                 className={cn(
-                  "border rounded-md p-3 cursor-pointer transition-all hover:border-primary/50",
+                  "border rounded-md p-3 cursor-pointer border-basic-4 transition-all hover:border-primary/50",
                   recognitionAccuracy === key
                     ? "bg-primary-1 border-primary-6 ring ring-primary-6"
                     : "hover:border-primary-6",

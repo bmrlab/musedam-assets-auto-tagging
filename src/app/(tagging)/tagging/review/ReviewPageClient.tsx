@@ -129,7 +129,7 @@ export default function ReviewPageClient() {
         handlePageChange(page < 1 ? 1 : page > totalPages ? totalPages : page);
       }
     },
-    [totalPages, handlePageChange, currentPage],
+    [totalPages, handlePageChange],
   );
 
 
@@ -233,7 +233,7 @@ export default function ReviewPageClient() {
             onCheckedChange={handleSelectAll}
             ref={(el) => {
               if (el) {
-                (el as any).indeterminate = isIndeterminate;
+                (el as HTMLInputElement).indeterminate = isIndeterminate;
               }
             }}
           />
