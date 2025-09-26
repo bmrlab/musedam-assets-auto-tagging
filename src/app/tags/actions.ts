@@ -950,6 +950,9 @@ export async function generateTagTreeByLLM(
 
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
+      console.log("generateTagTreeByLLM: 开始生成，teamId:", teamId);
+      console.log("generateTagTreeByLLM: finalPrompt 长度:", finalPrompt.length);
+
       const result = await generateText({
         model: llm("gpt-5-mini"),
         providerOptions: {
@@ -969,12 +972,17 @@ export async function generateTagTreeByLLM(
         ],
       });
 
+      console.log("generateTagTreeByLLM: 生成成功，结果长度:", result.text.length);
       return {
         success: true,
         data: { text: result.text, input: finalPrompt },
       };
     } catch (error) {
       console.error("generateTagTreeByLLM error:", error);
+      console.error(
+        "generateTagTreeByLLM error stack:",
+        error instanceof Error ? error.stack : "No stack",
+      );
       return {
         success: false,
         message: error instanceof Error ? error.message : "生成标签树失败",

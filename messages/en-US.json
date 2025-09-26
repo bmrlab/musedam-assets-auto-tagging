@@ -89,7 +89,10 @@
       "SecondaryTags": "## Secondary tag",
       "Label1": "Tag 1",
       "Label2": "Tag 2",
-      "OrdinaryTextIsALevel3Tag": "Ordinary text is a level 3 tag."
+      "OrdinaryTextIsALevel3Tag": "Ordinary text is a level 3 tag.",
+      "PrimaryTagDescription": "← Main categories (e.g., content types, product series)",
+      "SecondaryTagDescription": "← Sub-categories (e.g., image assets, clothing categories)",
+      "LabelDescription": "← Specific tags (e.g., product images, top series)"
     },
     "ManualCreateTipsModal": {
       "CreateTagPrompt": "Create tag tips",

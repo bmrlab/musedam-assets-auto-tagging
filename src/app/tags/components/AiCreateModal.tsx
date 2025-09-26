@@ -92,6 +92,7 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
 
     setIsGenerating(true);
     try {
+      console.log("handleGenerate: 开始生成");
       // 组装提示词：将行业预设、其它描述与用户输入合并
       const selectedOption = industryOptions.find((o) => o.value === selectedIndustry);
       const industryPreset = selectedOption?.prompt?.trim() ?? "";
@@ -109,16 +110,21 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
       const finalPrompt = tAI("tagTreePrompt.template", {
         userContext: (mergedUserContext || "").trim() || tAI("none"),
       });
-      // console.log("finalPrompt", finalPrompt);
+      console.log("handleGenerate: 调用 generateTagTreeByLLM");
       const resp = await generateTagTreeByLLM(finalPrompt);
       if (!resp.success) {
         throw new Error(resp.message || "生成失败");
       }
-      // console.log("resp.data", resp.data);
 
       setGeneratedResult(resp.data.text.trim());
     } catch (error) {
-      toast.error(t("AiCreateModal.generateFailed") + (error as Error)?.message);
+      console.error("AI generation error:", error);
+      console.error(
+        "AI generation error stack:",
+        error instanceof Error ? error.stack : "No stack",
+      );
+      const errorMessage = error instanceof Error ? error.message : "未知错误";
+      toast.error(t("AiCreateModal.generateFailed") + ": " + errorMessage);
     } finally {
       setIsGenerating(false);
     }
@@ -358,18 +364,20 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
                       <div className="mt-3">
                         <div className="flex items-start">
                           <span className="mr-2">{tManual("PrimaryTag")}</span>
-                          <span className="text-[#52C41A]"></span>
+                          <span className="text-[#52C41A]">{tManual("PrimaryTagDescription")}</span>
                         </div>
 
                         <div className="flex items-start">
                           <span className="mr-2">{tManual("SecondaryTags")}</span>
-                          <span className="text-[#1890FF]"></span>
+                          <span className="text-[#1890FF]">
+                            {tManual("SecondaryTagDescription")}
+                          </span>
                         </div>
 
                         <div className="flex items-start gap-2">
                           <span>{tManual("Label1")}</span>
                           <div>
-                            <span className="text-[#FAAD14]"></span>
+                            <span className="text-[#FAAD14]">{tManual("LabelDescription")}</span>
                           </div>
                         </div>
 
