@@ -14,6 +14,7 @@ import { Building, ChevronDown, Loader2, Plus, User, Users } from "lucide-react"
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import Image from "next/image";
 import { addAccessPermissionAction, removeAccessPermissionAction } from "./actions";
 
 interface AccessClientProps {
@@ -25,6 +26,8 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
   const [permissions, setPermissions] = useState<AccessPermission[]>(initialPermissions);
   const [isPending, startTransition] = useTransition();
   const [isSelecting, setIsSelecting] = useState(false);
+  // 默认是可审核权限
+  const defaultRole = "reviewer";
 
   const handleMemberSelection = async () => {
     try {
@@ -34,35 +37,35 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
       const { members, departments, groups } = res;
       const allPermissions: AccessPermission[] = [];
 
-      // 处理用户 - 默认都是可管理权限
+      // 处理用户 
       if (members && members.length > 0) {
         for (const member of members) {
           allPermissions.push({
             slug: idToSlug("user", member.id),
             name: member.name,
-            role: "admin",
+            role: defaultRole,
           });
         }
       }
 
-      // 处理部门 - 默认都是可管理权限
+      // 处理部门 
       if (departments && departments.length > 0) {
         for (const dept of departments) {
           allPermissions.push({
             slug: idToSlug("department", dept.id),
             name: dept.name,
-            role: "admin",
+            role: defaultRole,
           });
         }
       }
 
-      // 处理用户组 - 默认都是可管理权限
+      // 处理用户组 
       if (groups && groups.length > 0) {
         for (const group of groups) {
           allPermissions.push({
             slug: idToSlug("group", group.id),
             name: group.name,
-            role: "admin",
+            role: defaultRole,
           });
         }
       }
@@ -163,34 +166,30 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
           {/* 固定的系统管理员 */}
           <div className="flex items-center justify-between py-3 border-b">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900">
-                <div className="text-blue-600 dark:text-blue-400">⚡</div>
-              </div>
+              <Image src="/logo.svg" alt="logo" width={40} height={40} className='rounded-full' />
               <div>
-                <div className="font-medium">{t("systemAdmin")}</div>
+                <div className="font-medium text-sm">{t("systemAdmin")}</div>
               </div>
             </div>
             {/*<div className="text-sm text-basic-5 w-20 text-right">可管理</div>*/}
             <Button variant="ghost" size="sm" className="h-8 w-20" disabled={true}>
               <span>{t("canManage")}</span>
-              <ChevronDown className="ml-1 h-3 w-3" />
+              <ChevronDown className="ml-1 h-3 w-3 opacity-0" />
             </Button>
           </div>
 
           {/* 固定的内容管理员 */}
           <div className="flex items-center justify-between py-3 border-b">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900">
-                <div className="text-blue-600 dark:text-blue-400">⚡</div>
-              </div>
+              <Image src="/logo.svg" alt="logo" width={40} height={40} className='rounded-full' />
               <div>
-                <div className="font-medium">{t("contentAdmin")}</div>
+                <div className="font-medium text-sm">{t("contentAdmin")}</div>
               </div>
             </div>
             {/*<div className="text-sm text-basic-5 w-20 text-right">可管理</div>*/}
             <Button variant="ghost" size="sm" className="h-8 w-20" disabled={true}>
               <span>{t("canManage")}</span>
-              <ChevronDown className="ml-1 h-3 w-3" />
+              <ChevronDown className="ml-1 h-3 w-3 opacity-0" />
             </Button>
           </div>
 
@@ -211,28 +210,28 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
                       {getPermissionIcon(permission.slug)}
                     </div>
                     <div>
-                      <div className="font-medium">{permission.name}</div>
-                      <div className="text-sm text-basic-5">
+                      <div className="font-medium text-sm">{permission.name}</div>
+                      <div className="text-xs text-basic-5">
                         {getPermissionType(permission.slug)}
                       </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-8 w-20" disabled={isPending}>
+                      <DropdownMenuTrigger asChild className="font-normal">
+                        <Button variant="ghost" size="sm" className="h-8 w-20 hover:bg-transparent" disabled={isPending}>
                           <span>{getRoleLabel(permission.role)}</span>
                           <ChevronDown className="ml-1 h-3 w-3" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-56">
+                      <DropdownMenuContent align="end" className="w-[270px]">
                         <DropdownMenuItem
                           onClick={() => handleChangeRole(permission.slug, "admin")}
                           disabled={permission.role === "admin"}
                           className="py-3"
                         >
                           <div className="flex flex-col">
-                            <span className="text-sm font-medium">{t("canManage")}</span>
+                            <span className="text-sm">{t("canManage")}</span>
                             <span className="text-xs text-basic-5">
                               {t("fullManagementPermission")}
                             </span>
@@ -244,7 +243,7 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
                           className="py-3"
                         >
                           <div className="flex flex-col">
-                            <span className="text-sm font-medium">{t("canReview")}</span>
+                            <span className="text-sm">{t("canReview")}</span>
                             <span className="text-xs text-basic-5">{t("reviewPermission")}</span>
                           </div>
                         </DropdownMenuItem>
@@ -253,7 +252,7 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
                           className="text-destructive py-3"
                           onClick={() => handleRemovePermission(permission.slug)}
                         >
-                          <span className="text-sm font-medium">{t("remove")}</span>
+                          <span className="text-sm">{t("remove")}</span>
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>

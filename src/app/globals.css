@@ -41,8 +41,8 @@
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
   --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius));
+  --radius-lg: calc(var(--radius) + 2px);
   --radius-xl: calc(var(--radius) + 4px);
 
   /* Ant 配色 -> Tailwind token（供 text-、bg-、border- 使用） */
@@ -149,7 +149,7 @@
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --radius: 0.625rem;
+  --radius: 0.5rem;
   --sidebar: oklch(1 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -331,9 +331,10 @@
   background-color: theme(--color-zinc-600);
 }
 
-button:hover{
+button:hover {
   cursor: pointer;
 }
+
 textarea:focus,
 textarea:focus-visible {
   border: 1px solid #5c8aff;
@@ -490,6 +491,7 @@ textarea:focus-visible {
   --ant-box-shadow: 0 3px 6px -4px rgba(0, 0, 0, 0.48), 0 6px 16px 0 rgba(0, 0, 0, 0.32), 0 9px 28px 8px rgba(0, 0, 0, 0.2);
   --ant-description-border: #262626;
 }
+
 
 /* Ant Design Message 样式 - 统一背景色和文字颜色版本 */
 [data-sonner-toaster] {

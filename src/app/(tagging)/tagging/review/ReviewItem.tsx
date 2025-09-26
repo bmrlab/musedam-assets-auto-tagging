@@ -31,12 +31,13 @@ import {
   rejectAuditItemsAction,
 } from "./actions";
 
-export function ReviewItem({ assetObject, batch, onSuccess }: AssetWithAuditItemsBatch) {
+export function ReviewItem({ assetObject, batch, onSuccess, CheckboxComponent, batchLoading }: AssetWithAuditItemsBatch & { CheckboxComponent: React.ReactNode, batchLoading?: boolean }) {
   const t = useTranslations("Tagging.Review");
   const locale = useLocale();
   const [loading, setLoading] = useState(false);
   const [rejectedItems, setRejectedItems] = useState<number[]>([]);
 
+  const realLoading = batchLoading || loading;
   const auditItemsSet = useMemo(() => {
     const set = new Set<AssetWithAuditItemsBatch["batch"][number]["taggingAuditItems"][number]>();
     batch.forEach(({ taggingAuditItems }) => {
@@ -61,6 +62,11 @@ export function ReviewItem({ assetObject, batch, onSuccess }: AssetWithAuditItem
           leafTagId: leafTagId!,
           status: rejectedItems.includes(leafTagId!) ? "rejected" : "approved",
         }));
+      if (!auditItems.length) {
+        toast.error('历史脏数据，找不到对应的标签')
+        setLoading(false);
+        return;
+      }
       try {
         await approveAuditItemsAction({
           assetObject,
@@ -112,6 +118,7 @@ export function ReviewItem({ assetObject, batch, onSuccess }: AssetWithAuditItem
     <div className="bg-background border rounded-md px-6 pt-8 pb-6 space-y-6">
       {/* 资产基本信息 */}
       <div className="flex items-center gap-4">
+        {CheckboxComponent}
         <div className="shrink-0 w-24 h-24 relative">
           <Image
             src={getThumbnailUrl(assetObject)}
@@ -142,18 +149,15 @@ export function ReviewItem({ assetObject, batch, onSuccess }: AssetWithAuditItem
           </div>
         </div>
 
-        {loading ? (
-          <div>
-            <Loader2Icon className="size-4 animate-spin" />
-          </div>
-        ) : Array.from(auditItemsSet).find((auditItem) => auditItem.status === "pending") ? (
+        {Array.from(auditItemsSet).find((auditItem) => auditItem.status === "pending") ? (
           <div className="flex gap-2">
             <Button
               size="sm"
+              disabled={realLoading}
               onClick={() => approveAuditItems({ append: true })}
               className="rounded-[4px] h-6 bg-primary-6 "
             >
-              <CheckIcon className="size-[14px]" />
+              {loading ? <Loader2Icon className="size-[14px] animate-spin" /> : <CheckIcon className="size-[14px]" />}
               {t("add")}
             </Button>
             {/* <Button
@@ -176,9 +180,9 @@ export function ReviewItem({ assetObject, batch, onSuccess }: AssetWithAuditItem
                 <Button
                   size="sm"
                   className="rounded-[4px] h-6 bg-background text-danger-6 border-solid border-danger-6 border hover:bg-destructive/10 hover:text-destructive hover:border-destructive"
-                  disabled={loading}
+                  disabled={realLoading}
                 >
-                  <XIcon className="size-[14px]" />
+                  {loading ? <Loader2Icon className="size-[14px] animate-spin" /> : <XIcon className="size-[14px]" />}
                   {t("delete")}
                 </Button>
               </AlertDialogTrigger>

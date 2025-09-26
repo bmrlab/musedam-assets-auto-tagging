@@ -127,10 +127,22 @@
       "applyFailed": "应用失败",
       "rejectConfirmTitle": "操作提示",
       "rejectConfirmDescription": "确认删除素材「{assetName}」的 AI 打标记录？此操作不可恢复，请谨慎操作。",
+      "batchRejectConfirmDescription": "确认删除 {assetNum} 个素材的 AI 打标记录？此操作不可恢复，请谨慎操作。",
       "rejectConfirmCancel": "取消",
       "rejectConfirmReject": "删除",
       "rejectSuccess": "删除成功",
-      "rejectFailed": "删除失败"
+      "rejectFailed": "删除失败",
+      "selectedItems": "选中",
+      "batchApproveSuccess": "批量添加至素材标签成功",
+      "batchApproveFailed": "批量添加至素材标签失败",
+      "batchRejectSuccess": "批量删除 AI 打标记录成功",
+      "batchRejectFailed": "批量删除 AI 打标记录失败",
+      "noPendingTags": "暂无待审核标签",
+      "enableAutoTaggingDesc": "立即开启 AI 自动打标引擎，基于标签体系自动为素材精准打标~",
+      "goToTaggingManagement": "前往 AI 打标管理",
+      "pageInputPlaceholder": "输入页数，按回车跳转",
+      "itemsPerPage": "{count}条/页",
+      "itemsUnit": "条"
     },
     "Access": {
       "roleAndPermissions": "角色与权限",

@@ -49,7 +49,7 @@ function TooltipContent({
         {...props}
       >
         {children}
-        <TooltipPrimitive.Arrow className="z-50 size-2.5 translate-y-[calc(-50%_-_2px)] rotate-45 rounded-[2px]" style={{ backgroundColor: 'rgba(0, 0, 0, 0.7)', fill: 'rgba(0, 0, 0, 0.7)' }} />
+        <TooltipPrimitive.Arrow style={{ fill: 'rgba(0, 0, 0, 0.7)' }} />
       </TooltipPrimitive.Content>
     </TooltipPrimitive.Portal>
   );

@@ -251,8 +251,9 @@ export async function approveAuditItemsAction({
       },
       select: { id: true, slug: true },
     });
-    const musedamTagIds = approvedAsetTags.map((tag) => slugToId("assetTag", tag.slug!));
 
+    const musedamTagIds = approvedAsetTags.map((tag) => slugToId("assetTag", tag.slug!));
+    
     await setAssetTagsToMuseDAM({
       musedamAssetId,
       musedamTagIds,
@@ -313,6 +314,126 @@ export async function rejectAuditItemsAction({
       return {
         success: false,
         message: "删除 AI 打标记录失败",
+      };
+    }
+  });
+}
+
+export async function batchApproveAuditItemsAction({
+  assetObjects,
+  append = true,
+}: {
+  assetObjects: AssetObject[];
+  append?: boolean;
+}): Promise<ServerActionResult<void>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    try {
+      const team = await prisma.team.findUniqueOrThrow({
+        where: { id: teamId },
+        select: { id: true, slug: true },
+      });
+
+      // 获取所有待审核的审核项
+      const auditItems = await prisma.taggingAuditItem.findMany({
+        where: {
+          teamId,
+          assetObjectId: { in: assetObjects.map(a => a.id) },
+          status: "pending",
+          leafTagId: { not: null },
+        },
+        include: {
+          assetObject: true,
+        },
+      });
+      console.log("auditItems",auditItems)
+      // 按资产分组处理
+      for (const assetObject of assetObjects) {
+        const assetAuditItems = auditItems.filter(item => item.assetObjectId === assetObject.id);
+        
+        if (assetAuditItems.length === 0) continue;
+
+        const musedamAssetId = slugToId("assetObject", assetObject.slug);
+        const approvedAssetTags = await prisma.assetTag.findMany({
+          where: {
+            id: {
+              in: assetAuditItems.map(item => item.leafTagId!),
+            },
+            slug: {
+              not: null,
+            },
+          },
+          select: { id: true, slug: true },
+        });
+        const musedamTagIds = approvedAssetTags.map((tag) => slugToId("assetTag", tag.slug!));
+       
+        await setAssetTagsToMuseDAM({
+          musedamAssetId,
+          musedamTagIds,
+          team,
+          append,
+        });
+
+        await prisma.$transaction(async (tx) => {
+          await tx.taggingAuditItem.updateMany({
+            where: {
+              id: { in: assetAuditItems.map(item => item.id) },
+            },
+            data: { status: "approved" },
+          });
+        });
+
+        await syncSingleAssetFromMuseDAM({
+          musedamAssetId,
+          team,
+        });
+      }
+
+      return {
+        success: true,
+        data: undefined,
+      };
+    } catch (error) {
+      console.error("批量通过审核失败:", error);
+      return {
+        success: false,
+        message: "批量通过审核失败",
+      };
+    }
+  });
+}
+
+export async function batchRejectAuditItemsAction({
+  assetObjects,
+}: {
+  assetObjects: AssetObject[];
+}): Promise<ServerActionResult<void>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    try {
+      await prisma.$transaction(async (tx) => {
+        // 将选中素材的所有待审核的 AI 推荐标签都标记为 rejected
+        await tx.taggingAuditItem.updateMany({
+          where: {
+            teamId,
+            assetObjectId: { in: assetObjects.map(a => a.id) },
+            status: {
+              in: ["pending"],
+            },
+          },
+          data: {
+            status: "rejected",
+          },
+        });
+      });
+
+      return {
+        success: true,
+        data: undefined,
+      };
+    } catch (error) {
+      console.error("批量删除 AI 打标记录失败:", error);
+      return {
+        success: false,
+        message: "批量删除 AI 打标记录失败",
       };
     }
   });

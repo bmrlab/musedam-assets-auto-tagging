@@ -127,10 +127,22 @@
       "applyFailed": "Apply failed",
       "rejectConfirmTitle": "Operation Prompt",
       "rejectConfirmDescription": "Confirm to delete the AI tagging record of the asset \"{assetName}\"? This operation cannot be recovered, please proceed with caution.",
+      "batchRejectConfirmDescription": "Confirm to delete the AI tagging record of {assetNum} assets? This operation cannot be recovered, please proceed with caution.",
       "rejectConfirmCancel": "Cancel",
       "rejectConfirmReject": "Delete",
       "rejectSuccess": "Delete successfully",
-      "rejectFailed": "Delete failed"
+      "rejectFailed": "Delete failed",
+      "selectedItems": "Selected",
+      "batchApproveSuccess": "Batch added to asset tags successfully",
+      "batchApproveFailed": "Failed to batch add to asset tags",
+      "batchRejectSuccess": "Batch deleted AI tagging records successfully",
+      "batchRejectFailed": "Failed to batch delete AI tagging records",
+      "noPendingTags": "No pending tags to review",
+      "enableAutoTaggingDesc": "Enable AI auto-tagging engine now, automatically tag assets precisely based on tag system~",
+      "goToTaggingManagement": "Go to AI Tagging Management",
+      "pageInputPlaceholder": "Enter page number, press Enter to jump",
+      "itemsPerPage": "{count} items/page",
+      "itemsUnit": "items"
     },
     "Access": {
       "roleAndPermissions": "Role & Permissions",

@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { TagsIcon } from "@/components/ui/icons";
+import { FileImageIcon, TagsIcon } from "@/components/ui/icons";
 import { dispatchMuseDAMClientAction } from "@/embed/message";
 import { cn } from "@/lib/utils";
 import { MuseDAMID } from "@/musedam/types";
@@ -172,7 +172,7 @@ export default function TestClient() {
                   processingTime:
                     result.startsAt && result.endsAt
                       ? (new Date(result.endsAt).getTime() - new Date(result.startsAt).getTime()) /
-                        1000
+                      1000
                       : 0,
                   recognitionMode:
                     extra?.recognitionAccuracy === "precise"
@@ -387,24 +387,26 @@ export default function TestClient() {
             </Button>
           </div>
 
-          <div className="p-4 space-y-4">
+          <div className="p-4 space-y-5">
             {/* 功能介绍 */}
-            <div className="text-basic-8 bg-primary-1 border-primary-5 border  dark:border-blue-800 rounded-lg p-4 flex gap-3">
-              <div>
+            <div className="text-basic-8 bg-primary-1 border-primary-5 border rounded-md p-4 flex gap-3">
+              <div className="text-[13px] leading-[18px]">
                 <h3 className="font-medium mb-2">💡 {t("testDescription")}</h3>
-                <div className="text-sm  space-y-1">
-                  <p>{t("testDescriptionText1")}</p>
-                  <p>{t("testDescriptionText2")}</p>
-                  <p>{t("testDescriptionText3")}</p>
-                </div>
+                <ul className="space-y-1 ">
+                  <li>{t("testDescriptionText1")}</li>
+                  <li>{t("testDescriptionText2")}</li>
+                  <li>{t("testDescriptionText3")}</li>
+                </ul>
               </div>
             </div>
 
             {/* 素材选择区域 */}
             {selectedAssets.length === 0 ? (
-              <div className="p-8 border border-dashed rounded-lg text-center">
-                <h3 className="font-medium">{t("selectAssetsFromLibrary")}</h3>
-                <p className="text-sm text-basic-5">{t("testOnlyDescription")}</p>
+              <div className="w-full h-[200px] flex flex-col justify-center items-center border border-dashed border-basic-4 rounded-md text-center bg-basic-1 hover:border-primary-6 ease-in-out duration-300 transition-all cursor-pointer"
+                onClick={handleAssetSelection}>
+                <FileImageIcon className="size-12 text-primary-6 mb-5" />
+                <h3 className="leading-6 mb-1">{t("selectAssetsFromLibrary")}</h3>
+                <p className="text-xs text-basic-5">{t("testOnlyDescription")}</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -425,7 +427,7 @@ export default function TestClient() {
                   {selectedAssets.map((asset) => (
                     <div
                       key={asset.id.toString()}
-                      className="flex items-center justify-between p-3 border rounded-lg"
+                      className="flex items-center justify-between p-3 border rounded-md"
                     >
                       <div className="flex items-center gap-3">
                         <FileText className="size-4 text-basic-5" />
@@ -455,6 +457,7 @@ export default function TestClient() {
                 onClick={handleStartTagging}
                 className="gap-2"
                 disabled={isProcessing || pollingRef.current}
+                size="sm"
               >
                 {isProcessing || pollingRef.current ? (
                   <>
@@ -472,6 +475,7 @@ export default function TestClient() {
                 variant="outline"
                 onClick={handleAssetSelection}
                 disabled={isProcessing || pollingRef.current}
+                size="sm"
               >
                 <PlusIcon className="size-4" />
                 {t("selectAssetFiles")}
@@ -545,7 +549,7 @@ export default function TestClient() {
                 key={key}
                 className={cn(
                   "flex items-center gap-2",
-                  "py-2 px-3 border rounded-lg cursor-pointer transition-all ",
+                  "py-2 px-3 border rounded-md cursor-pointer transition-all ",
                   selectedScene === key
                     ? "bg-primary-1 border-primary-6 ring ring-primary-6"
                     : "hover:border-primary-6",
@@ -578,7 +582,7 @@ export default function TestClient() {
               <div
                 key={key}
                 className={cn(
-                  "border rounded-lg p-3 cursor-pointer transition-all hover:border-primary/50",
+                  "border rounded-md p-3 cursor-pointer transition-all hover:border-primary/50",
                   recognitionAccuracy === key
                     ? "bg-primary-1 border-primary-6 ring ring-primary-6"
                     : "hover:border-primary-6",
@@ -610,7 +614,7 @@ export default function TestClient() {
             ].map(({ key, label }) => (
               <div
                 key={key}
-                className={cn("flex items-center gap-2", "py-2 px-3 border rounded-lg")}
+                className={cn("flex items-center gap-2", "py-2 px-3 border rounded-md")}
               >
                 <Checkbox
                   checked={matchingSources[key as keyof typeof matchingSources]}

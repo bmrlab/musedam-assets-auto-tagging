@@ -16,11 +16,28 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { File, Loader2Icon, Search } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { CheckIcon, Loader2Icon, Search, XIcon } from "lucide-react";
+import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
-import { AssetWithAuditItemsBatch, fetchAssetsWithAuditItems } from "./actions";
+import { AssetWithAuditItemsBatch, fetchAssetsWithAuditItems, batchApproveAuditItemsAction, batchRejectAuditItemsAction } from "./actions";
 import { ReviewItem } from "./ReviewItem";
+import { useTheme } from "next-themes";
+import Image from "next/image";
+import { dispatchMuseDAMClientAction } from "@/embed/message";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 
 type TaggingAuditStatus = "pending" | "approved" | "rejected";
 
@@ -38,7 +55,12 @@ export default function ReviewPageClient() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
-  const pageSize = 20;
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
+  const [pageSize, setPageSize] = useState(10);
+  const [loading, setLoading] = useState(false);
+  const [selectedAssets, setSelectedAssets] = useState<AssetWithAuditItemsBatch[]>([]);
+  const [selectedAssetIds, setSelectedAssetIds] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     refreshDataWithFilters();
@@ -51,21 +73,26 @@ export default function ReviewPageClient() {
       confidence: "all" | "high" | "medium" | "low" = confidenceFilter,
       search: string = searchQuery,
       time: "all" | "today" | "week" | "month" = timeFilter,
+      size: number = pageSize,
     ) => {
       setIsLoading(true);
       try {
         const assetsResult = await fetchAssetsWithAuditItems(
           page,
-          pageSize,
+          size,
           status === "all" ? undefined : status,
           confidence === "all" ? undefined : confidence,
           search || undefined,
           time === "all" ? undefined : time,
         );
         if (assetsResult.success) {
-          setAssets(assetsResult.data.assets);
+          const newAssets = assetsResult.data.assets;
+          setAssets(newAssets);
           setTotalPages(assetsResult.data.totalPages);
           setTotal(assetsResult.data.total);
+
+          // 保留已选择的资产，不过滤当前页面不存在的
+          // setSelectedAssets 和 setSelectedAssetIds 保持不变
         }
       } catch (error) {
         console.error(t("refreshDataFailed"), error);
@@ -84,11 +111,176 @@ export default function ReviewPageClient() {
     [refreshDataWithFilters, statusFilter, confidenceFilter, searchQuery, timeFilter],
   );
 
+  const handlePageSizeChange = useCallback(
+    (newPageSize: string) => {
+      const size = parseInt(newPageSize);
+      setPageSize(size);
+      setCurrentPage(1);
+      refreshDataWithFilters(1, statusFilter, confidenceFilter, searchQuery, timeFilter, size);
+    },
+    [refreshDataWithFilters, statusFilter, confidenceFilter, searchQuery, timeFilter],
+  );
+
+  const handlePageInputSubmit = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "Enter") {
+        const pageNumber = (e.target as HTMLInputElement).value as string;
+        const page = parseInt(pageNumber);
+        handlePageChange(page < 1 ? 1 : page > totalPages ? totalPages : page);
+      }
+    },
+    [totalPages, handlePageChange, currentPage],
+  );
+
+
+  // 计算选择状态
+  const isAllSelected = assets.length > 0 && assets.every(asset => selectedAssetIds.has(asset.assetObject.id));
+  const isIndeterminate = selectedAssetIds.size > 0 && !isAllSelected;
+
+  // 全选/取消全选
+  const handleSelectAll = useCallback((checked: boolean) => {
+    if (checked) {
+      // 保留原本选择的，再叠加当前页面的
+      const currentPageIds = new Set(assets.map(asset => asset.assetObject.id));
+      const newSelectedIds = new Set([...selectedAssetIds, ...currentPageIds]);
+      setSelectedAssetIds(newSelectedIds);
+
+      // 合并已选择的资产和当前页面的资产，去重
+      const existingAssets = selectedAssets.filter(asset => !currentPageIds.has(asset.assetObject.id));
+      setSelectedAssets([...existingAssets, ...assets]);
+    } else {
+      // 取消全选时，只取消当前页面的选择，保留其他页面的选择
+      const currentPageIds = new Set(assets.map(asset => asset.assetObject.id));
+      const newSelectedIds = new Set([...selectedAssetIds].filter(id => !currentPageIds.has(id)));
+      setSelectedAssetIds(newSelectedIds);
+
+      setSelectedAssets(prev => prev.filter(asset => !currentPageIds.has(asset.assetObject.id)));
+    }
+  }, [assets, selectedAssetIds, selectedAssets]);
+
+  // 单个选择
+  const handleSelectAsset = useCallback((asset: AssetWithAuditItemsBatch, checked: boolean) => {
+    if (checked) {
+      setSelectedAssetIds(prev => new Set([...prev, asset.assetObject.id]));
+      setSelectedAssets(prev => [...prev, asset]);
+    } else {
+      setSelectedAssetIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(asset.assetObject.id);
+        return newSet;
+      });
+      setSelectedAssets(prev => prev.filter(a => a.assetObject.id !== asset.assetObject.id));
+    }
+  }, []);
+
+  // 批量通过审核
+  const handleBatchApprove = useCallback(async () => {
+    if (selectedAssets.length === 0) return;
+
+    setLoading(true);
+    try {
+      await batchApproveAuditItemsAction({
+        assetObjects: selectedAssets.map(asset => asset.assetObject),
+        append: true,
+      });
+      toast.success(t("batchApproveSuccess"));
+      setCurrentPage(1)
+      setSelectedAssets([]);
+      setSelectedAssetIds(new Set());
+      refreshDataWithFilters();
+    } catch (error: unknown) {
+      console.error(error);
+      toast.error(error instanceof Error ? error.message : t("batchApproveFailed"));
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedAssets, t, refreshDataWithFilters]);
+
+  // 批量拒绝审核
+  const handleBatchReject = useCallback(async () => {
+    if (selectedAssets.length === 0) return;
+
+    setLoading(true);
+    try {
+      await batchRejectAuditItemsAction({
+        assetObjects: selectedAssets.map(asset => asset.assetObject),
+      });
+      toast.success(t("batchRejectSuccess"));
+      setCurrentPage(1)
+      setSelectedAssets([]);
+      setSelectedAssetIds(new Set());
+      refreshDataWithFilters();
+    } catch (error: unknown) {
+      console.error(error);
+      toast.error(error instanceof Error ? error.message : t("batchRejectFailed"));
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedAssets, t, refreshDataWithFilters]);
+
+
+
+
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col space-y-[10px]">
       {/* 筛选器和搜索 */}
-      <div className="flex items-center justify-between py-2 px-3 bg-background border rounded-md">
-        <div className="text-[13px] font-medium">{t("totalItems", { total })}</div>
+      <div className="flex items-center justify-between py-4 px-5 bg-background border rounded-md">
+        <div className="text-[13px] font-medium flex items-center gap-3">
+          <Checkbox
+            className="size-4"
+            checked={isAllSelected}
+            indeterminate={selectedAssets.length > 0 && !isAllSelected}
+            onCheckedChange={handleSelectAll}
+            ref={(el) => {
+              if (el) {
+                (el as any).indeterminate = isIndeterminate;
+              }
+            }}
+          />
+          {!selectedAssets.length ? t("totalItems", { total }) :
+            <div className="">选中<span className="text-primary-6"> {selectedAssets.length}</span> /{total} 项</div>}
+
+
+          {selectedAssets.length > 0 && <><Button
+            size="sm"
+            onClick={handleBatchApprove}
+            className="rounded-[4px] h-6 bg-primary-6 "
+            disabled={loading || selectedAssets.length === 0}
+          >
+            {loading ? <Loader2Icon className="size-[14px] animate-spin" /> : <CheckIcon className="size-[14px]" />}
+            {t("add")}
+          </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  size="sm"
+                  className="rounded-[4px] h-6 bg-background text-danger-6 border-solid border-danger-6 border hover:bg-destructive/10 hover:text-destructive hover:border-destructive"
+                  disabled={loading || selectedAssets.length === 0}
+                >
+                  {loading ? <Loader2Icon className="size-[14px] animate-spin" /> : <XIcon className="size-[14px]" />}
+                  {t("delete")}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>{t("rejectConfirmTitle")}</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {t("batchRejectConfirmDescription", { assetNum: selectedAssets.length })}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>{t("rejectConfirmCancel")}</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleBatchReject}
+                    className="bg-danger-6 text-white hover:bg-danger-7"
+                  >
+                    {t("rejectConfirmReject")}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </>}
+        </div>
         <div className="flex flex-col sm:flex-row justify-end gap-4">
           <Select
             value={statusFilter}
@@ -99,7 +291,7 @@ export default function ReviewPageClient() {
               refreshDataWithFilters(1, newStatus, confidenceFilter, searchQuery, timeFilter);
             }}
           >
-            <SelectTrigger className="min-w-32 w-fit">
+            <SelectTrigger className="min-w-32 w-fit !h-8 rounded-[6px]">
               <SelectValue placeholder={t("allStatuses")} />
             </SelectTrigger>
             <SelectContent>
@@ -118,7 +310,7 @@ export default function ReviewPageClient() {
               refreshDataWithFilters(1, statusFilter, newConfidence, searchQuery, timeFilter);
             }}
           >
-            <SelectTrigger className="min-w-32 w-fit">
+            <SelectTrigger className="min-w-32 w-fit !h-8 rounded-[6px]">
               <SelectValue placeholder={t("allConfidence")} />
             </SelectTrigger>
             <SelectContent>
@@ -138,7 +330,7 @@ export default function ReviewPageClient() {
               refreshDataWithFilters(1, statusFilter, confidenceFilter, searchQuery, newTime);
             }}
           >
-            <SelectTrigger className="w-36">
+            <SelectTrigger className="min-w-32 w-fit !h-8 rounded-[6px]">
               <SelectValue placeholder={t("taggingInitiatedTime")} />
             </SelectTrigger>
             <SelectContent>
@@ -167,7 +359,7 @@ export default function ReviewPageClient() {
                   );
                 }
               }}
-              className="pl-10"
+              className="pl-10 h-8 rounded-[6px]"
             />
           </div>
         </div>
@@ -175,100 +367,138 @@ export default function ReviewPageClient() {
 
       {/* 右侧主要内容 */}
       {isLoading ? (
-        <Card>
-          <CardContent className="pt-6 text-center text-basic-5">
-            <Loader2Icon className="size-8 animate-spin mx-auto mb-4" />
+        <Card className="flex-1 flex items-center justify-center">
+          <CardContent className="pt-6 text-center">
+            <Loader2Icon className="size-5 animate-spin text-primary-6 mx-auto mb-4" />
             <p>{t("loading")}</p>
           </CardContent>
         </Card>
       ) : assets.length === 0 ? (
-        <Card>
-          <CardContent className="pt-6 text-center text-basic-5">
-            <File className="h-12 w-12 mx-auto mb-4" />
-            <p>{t("noAssetsToReview")}</p>
+        <Card className="flex-1 flex items-center justify-center">
+          <CardContent className="pt-6 text-center">
+            <Image
+              width={171}
+              height={120}
+              src={isDark ? "/emptyDataDark.svg" : "/emptyData.svg"}
+              alt="empty"
+              className="h-[120px] w-auto mx-auto mb-4"
+            />
+            <p className='text-[20px] font-semibold leading-[28px] mb-2'>{t("noPendingTags")}</p>
+            <p className="text-sm text-basic-5">{t("enableAutoTaggingDesc")}</p>
+            <Button variant="default" size="sm" className="mt-6" onClick={() => dispatchMuseDAMClientAction("goto", { url: "/home/dashboard/tag" })}>{t("goToTaggingManagement")}</Button>
           </CardContent>
         </Card>
-      ) : (
-        <>
-          {assets.map((asset) => (
-            <ReviewItem
-              key={asset.assetObject.id}
-              {...asset}
-              onSuccess={() => refreshDataWithFilters()}
-            />
-          ))}
+      ) : <>
+        {assets.map((asset) => (
+          <ReviewItem
+            {...asset}
+            batchLoading={loading}
+            onSuccess={() => refreshDataWithFilters()}
+            CheckboxComponent={<Checkbox
+              className="size-4"
+              checked={selectedAssetIds.has(asset.assetObject.id)}
+              onCheckedChange={(checked) => handleSelectAsset(asset, checked as boolean)}
+            />}
+            key={asset.assetObject.id}
+          />
+        ))}
 
-          {/* 分页组件 */}
-          {totalPages > 1 && (
-            <div className="flex justify-center mt-6">
-              <Pagination>
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        if (currentPage > 1) {
-                          handlePageChange(currentPage - 1);
-                        }
-                      }}
-                      className={currentPage <= 1 ? "pointer-events-none opacity-50" : ""}
-                      previousText={tCommon("pagination.previous")}
-                      ariaLabel={tCommon("pagination.goToPreviousPage")}
-                    />
-                  </PaginationItem>
 
-                  {/* 页码 */}
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    let pageNum;
-                    if (totalPages <= 5) {
-                      pageNum = i + 1;
-                    } else if (currentPage <= 3) {
-                      pageNum = i + 1;
-                    } else if (currentPage >= totalPages - 2) {
-                      pageNum = totalPages - 4 + i;
-                    } else {
-                      pageNum = currentPage - 2 + i;
-                    }
+        {/* 分页组件 */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-[14px]">
+          {/* 页码输入 */}
+          <Input
+            placeholder={t("pageInputPlaceholder")}
+            type="number"
+            min="1"
+            max={totalPages}
+            onKeyDown={handlePageInputSubmit}
+            className=" w-[270px] h-[38px]"
+          />
 
-                    return (
-                      <PaginationItem key={pageNum}>
-                        <PaginationLink
-                          href="#"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            handlePageChange(pageNum);
-                          }}
-                          isActive={currentPage === pageNum}
-                        >
-                          {pageNum}
-                        </PaginationLink>
-                      </PaginationItem>
-                    );
-                  })}
 
-                  {/* 省略号在 Review 暂未出现的逻辑，如后续加入，请传 morePagesText */}
+          {/* 分页导航 */}
+          <div className="flex items-center gap-2">
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (currentPage > 1) {
+                        handlePageChange(currentPage - 1);
+                      }
+                    }}
+                    className={currentPage <= 1 ? "pointer-events-none opacity-50" : ""}
+                    previousText={tCommon("pagination.previous")}
+                    ariaLabel={tCommon("pagination.goToPreviousPage")}
+                  />
+                </PaginationItem>
 
-                  <PaginationItem>
-                    <PaginationNext
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        if (currentPage < totalPages) {
-                          handlePageChange(currentPage + 1);
-                        }
-                      }}
-                      className={currentPage >= totalPages ? "pointer-events-none opacity-50" : ""}
-                      nextText={tCommon("pagination.next")}
-                      ariaLabel={tCommon("pagination.goToNextPage")}
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
+                {/* 页码 */}
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+
+                  return (
+                    <PaginationItem key={pageNum}>
+                      <PaginationLink
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handlePageChange(pageNum);
+                        }}
+                        isActive={currentPage === pageNum}
+                      >
+                        {pageNum}
+                      </PaginationLink>
+                    </PaginationItem>
+                  );
+                })}
+
+                <PaginationItem>
+                  <PaginationNext
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (currentPage < totalPages) {
+                        handlePageChange(currentPage + 1);
+                      }
+                    }}
+                    className={currentPage >= totalPages ? "pointer-events-none opacity-50" : ""}
+                    nextText={tCommon("pagination.next")}
+                    ariaLabel={tCommon("pagination.goToNextPage")}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+            {/* 每页条数选择 */}
+            <div className="flex items-center gap-2 text-sm text-basic-5">
+              <Select value={pageSize.toString()} onValueChange={handlePageSizeChange}>
+                <SelectTrigger className="h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[10, 20, 40, 50, 100].map((item) => (
+                    <SelectItem key={item} value={item.toString()}>{t("itemsPerPage", { count: item })}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <span>{t("itemsUnit")}</span>
             </div>
-          )}
-        </>
-      )}
+          </div>
+        </div>
+      </>
+      }
     </div>
   );
 }

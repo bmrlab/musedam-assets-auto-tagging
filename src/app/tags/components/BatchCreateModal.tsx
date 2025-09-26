@@ -73,11 +73,10 @@ export const BatchCreateModal = ({
                 return (
                   <Card
                     key={key}
-                    className={`cursor-pointer py-4 transition-all ease-in-out duration-300 ${
-                      selectedOption === key
-                        ? "border-primary-6 bg-primary-1 ring-1 ring-primary-6"
-                        : "border-basic-4 hover:border-primary-6"
-                    }`}
+                    className={`cursor-pointer py-4 transition-all ease-in-out duration-300 ${selectedOption === key
+                      ? "border-primary-6 bg-primary-1 ring-1 ring-primary-6"
+                      : "border-basic-4 hover:border-primary-6"
+                      }`}
                     onClick={() => setSelectedOption(key)}
                   >
                     <CardContent className="px-4">
@@ -100,10 +99,10 @@ export const BatchCreateModal = ({
         </div>
 
         <div className="flex justify-end space-x-3 pt-4">
-          <Button variant="outline" onClick={() => setVisible(false)}>
+          <Button variant="outline" onClick={() => setVisible(false)} size="sm">
             {t("cancel")}
           </Button>
-          <Button onClick={handleConfirm}>{t("confirmSync", { default: "确认" })}</Button>
+          <Button onClick={handleConfirm} size="sm">{t("confirmSync", { default: "确认" })}</Button>
         </div>
       </DialogContent>
     </Dialog>

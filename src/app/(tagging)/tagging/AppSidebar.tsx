@@ -64,7 +64,7 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
     <Sidebar collapsible="icon" className={cn("px-1.5 bg-background", className)} {...props}>
       <SidebarHeader className="group-data-[state=collapsed]:px-0 mb-2 flex flex-row items-center justify-between group-data-[state=collapsed]:justify-center">
         <div className="group-data-[state=collapsed]:hidden font-medium">{t("App.title")}</div>
-        <SidebarTrigger className="hover:bg-transparent dark:hover:bg-transparent" />
+        <SidebarTrigger />
       </SidebarHeader>
       <SidebarContent>
         <SidebarMenu>

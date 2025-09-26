@@ -83,8 +83,15 @@ export function MonitorIcon(props: IconProps) {
   return <SvgIcon src="/Icon/Monitor.svg" viewBox="0 0 37 36" {...props} />;
 }
 
+export function DoubleLeftIcon(props: IconProps) {
+  return <SvgIcon src="/Icon/DoubleLeft.svg" viewBox="0 0 37 36" {...props} />;
+}
+
 export function SettingIcon(props: IconProps) {
   return <SvgIcon src="/Icon/Setting.svg" viewBox="0 0 37 36" {...props} />;
+}
+export function FileImageIcon(props: IconProps) {
+  return <SvgIcon src="/Icon/FileImage.svg" viewBox="0 0 37 36" {...props} />;
 }
 
 export function TagAIIcon(props: IconProps) {

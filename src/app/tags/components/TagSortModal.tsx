@@ -148,17 +148,20 @@ export function TagSortModal({
                 draggable
                 onDragStart={(e) => handleDragStart(e, index)}
                 onDragEnd={handleDragEnd}
+                onMouseDown={() => setIsDragging(true)}
+                onMouseUp={() => setIsDragging(false)}
                 onDragOver={handleDragOver}
                 onDrop={(e) => handleDrop(e, index)}
                 className={cn(
-                  "group flex items-center justify-between w-full h-8 px-2.5 py-1 rounded-lg",
-                  "hover:bg-gray-50 dark:hover:bg-gray-800 cursor-move",
+                  "group flex items-center justify-between w-full h-8 px-2.5 py-1 rounded-md",
+                  "hover:bg-gray-50 dark:hover:bg-gray-800",
+                  isDragging ? "cursor-grabbing" : "cursor-grab",
                   isDragging && "opacity-50",
                 )}
               >
                 <div className="flex items-center flex-1 min-w-0">
                   <div className="w-5 h-5 flex justify-center items-center mr-1">
-                    <GripVertical className="w-4 h-4 text-gray-400 cursor-grab" />
+                    <GripVertical className={cn("w-4 h-4 text-[#c5cee0] hover:text-primary-6", isDragging ? "cursor-grabbing" : "cursor-grab")} />
                   </div>
                   <Tag className="w-4 h-4 text-gray-400 mr-1.5 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
@@ -174,10 +177,10 @@ export function TagSortModal({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={isLoading || externalIsLoading}>
+          <Button variant="outline" onClick={onClose} disabled={isLoading || externalIsLoading} size="sm">
             {t("cancel")}
           </Button>
-          <Button onClick={handleConfirm} disabled={isLoading || externalIsLoading}>
+          <Button onClick={handleConfirm} disabled={isLoading || externalIsLoading} size="sm">
             {isLoading || externalIsLoading ? t("saving") : t("confirm")}
           </Button>
         </DialogFooter>

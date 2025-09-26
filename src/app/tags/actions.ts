@@ -2,6 +2,7 @@
 
 import { llm } from "@/ai/provider";
 import { withAuth } from "@/app/(auth)/withAuth";
+import { rootLogger } from "@/lib/logging";
 import { ServerActionResult } from "@/lib/serverAction";
 import { idToSlug } from "@/lib/slug";
 import { syncTagsFromMuseDAM } from "@/musedam/tags/syncFromMuseDAM";
@@ -950,8 +951,11 @@ export async function generateTagTreeByLLM(
 
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
-      console.log("generateTagTreeByLLM: 开始生成，teamId:", teamId);
-      console.log("generateTagTreeByLLM: finalPrompt 长度:", finalPrompt.length);
+      rootLogger.info({
+        msg: "generateTagTreeByLLM: 开始生成",
+        teamId,
+        promptLength: finalPrompt.length,
+      });
 
       const result = await generateText({
         model: llm("gpt-5-mini"),
@@ -972,17 +976,20 @@ export async function generateTagTreeByLLM(
         ],
       });
 
-      console.log("generateTagTreeByLLM: 生成成功，结果长度:", result.text.length);
+      rootLogger.info({
+        msg: "generateTagTreeByLLM: 生成成功",
+        resultLength: result.text.length,
+      });
       return {
         success: true,
         data: { text: result.text, input: finalPrompt },
       };
     } catch (error) {
-      console.error("generateTagTreeByLLM error:", error);
-      console.error(
-        "generateTagTreeByLLM error stack:",
-        error instanceof Error ? error.stack : "No stack",
-      );
+      rootLogger.error({
+        msg: "generateTagTreeByLLM error",
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
       return {
         success: false,
         message: error instanceof Error ? error.message : "生成标签树失败",

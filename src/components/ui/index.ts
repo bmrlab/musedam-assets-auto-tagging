@@ -2,6 +2,7 @@
 export {
   ClockCircleIcon,
   DashboardIcon,
+  DoubleLeftIcon,
   FoldersIcon,
   Icon,
   MonitorIcon,
@@ -11,6 +12,7 @@ export {
   TagsIcon,
   TeamIcon,
   UnifiedIcon,
+  FileImageIcon,
   iconPaths,
   iconViewBoxes,
   type IconName,
