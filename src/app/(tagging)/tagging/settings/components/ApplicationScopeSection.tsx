@@ -46,7 +46,7 @@ export function ApplicationScopeSection({
               {applicationScope.scopeType === "all" && (
                 <div
                   className="p-3 cursor-pointer flex items-center justify-between gap-3"
-                  // onClick={() => onScopeTypeChange("all")}
+                // onClick={() => onScopeTypeChange("all")}
                 >
                   <div className="flex items-center gap-3">
                     <div className="size-[30px] flex items-center justify-center ">
@@ -67,7 +67,7 @@ export function ApplicationScopeSection({
                             e.stopPropagation();
                             onScopeTypeChange("specific");
                           }}
-                          className="h-8 w-8 p-0 hover:text-danger-6"
+                          className="h-8 w-8 p-0 hover:text-danger-6 text-basic-5"
                         >
                           <Trash />
                         </Button>

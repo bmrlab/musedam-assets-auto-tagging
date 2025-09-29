@@ -11,7 +11,7 @@ function Pagination({ className, ...props }: React.ComponentProps<"nav">) {
       role="navigation"
       aria-label="pagination"
       data-slot="pagination"
-      className={cn("mx-auto flex w-full justify-end", className)}
+      className={cn("mx-auto flex w-full justify-start", className)}
       {...props}
     />
   );
@@ -56,8 +56,8 @@ function PaginationLink({ className, isActive, size = "icon", ...props }: Pagina
 
 function PaginationPrevious({
   className,
-  previousText = "Previous",
-  ariaLabel = "Go to previous page",
+  previousText,
+  ariaLabel,
   ...props
 }: React.ComponentProps<typeof PaginationLink> & {
   previousText?: string;
@@ -71,7 +71,7 @@ function PaginationPrevious({
       {...props}
     >
       <ChevronLeftIcon />
-      <span className="hidden sm:block">{previousText}</span>
+      {!!previousText?.length && <span className="hidden sm:block">{previousText}</span>}
     </PaginationLink>
   );
 }
@@ -79,8 +79,8 @@ function PaginationPrevious({
 
 function PaginationNext({
   className,
-  nextText = "Next",
-  ariaLabel = "Go to next page",
+  nextText,
+  ariaLabel,
   ...props
 }: React.ComponentProps<typeof PaginationLink> & {
   nextText?: string;
@@ -93,7 +93,7 @@ function PaginationNext({
       className={cn("gap-1 px-2.5 sm:pr-2.5", className)}
       {...props}
     >
-      <span className="hidden sm:block">{nextText}</span>
+      {!!nextText?.length && <span className="hidden sm:block">{nextText}</span>}
       <ChevronRightIcon />
     </PaginationLink>
   );
@@ -110,7 +110,7 @@ function PaginationEllipsis({
     <span
       aria-hidden
       data-slot="pagination-ellipsis"
-      className={cn("flex size-9 items-center justify-center", className)}
+      className={cn("flex size-8 items-center justify-center", className)}
       {...props}
     >
       <MoreHorizontalIcon className="size-4" />

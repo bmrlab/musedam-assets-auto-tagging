@@ -7,7 +7,7 @@
       "dashboard": "控制面板",
       "review": "AI 打标审核",
       "settings": "AI 打标设置",
-      "access": "权限管理",
+      "access": "成员设置",
       "test": "AI 匹配测试"
     },
     "Dashboard": {
@@ -79,6 +79,15 @@
         "assetNameMatching": "素材名称匹配",
         "assetNameMatchingDesc": "分析文件名称中的关键信息进行匹配"
       },
+      "TriggerTiming": {
+        "title": "触发时机设置",
+        "autoRealtimeTagging": "自动实时打标",
+        "autoRealtimeTaggingDesc": "文件上传完成后立即执行 AI 智能解析和自动打标",
+        "manualTriggerTagging": "手动触发打标",
+        "manualTriggerTaggingDesc": "支持资产库内有编辑权限的用户手动选择文件或文件夹进行批量打标",
+        "scheduledTagging": "定时打标",
+        "scheduledTaggingDesc": "系统定时扫描未打标文件，自动执行打标"
+      },
       "ApplicationScope": {
         "title": "应用范围设置",
         "allAssets": "全部资产",
@@ -93,6 +102,9 @@
         "currentAndNewAssets": "当前文件夹及新上传的素材",
         "onlySelectedScope": "💡 仅选中的范围内的素材才会被 AI 自动打标",
         "removeFolder": "移除"
+      },
+      "AdvancedSettings": {
+        "title": "高级设置"
       }
     },
     "Review": {

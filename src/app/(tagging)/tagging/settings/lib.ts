@@ -47,6 +47,12 @@ export async function getTaggingSettings(teamId: number): Promise<TaggingSetting
       TAGGING_CONFIG_KEYS.APPLICATION_SCOPE,
       DEFAULT_TAGGING_SETTINGS.applicationScope,
     ),
+    // 触发时机
+    triggerTiming: {
+      autoRealtimeTagging: true,
+      manualTriggerTagging: true,
+      scheduledTagging: false,
+    },
   };
 
   return settings;

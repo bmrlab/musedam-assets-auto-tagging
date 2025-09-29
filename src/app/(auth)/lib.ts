@@ -11,15 +11,15 @@ export async function createUserAndTeam(payload: {
   user: { name: string; slug: string };
   team: { id?: number; name: string; slug: string };
 }) {
-  const { user, team } = await prisma.$transaction(async (tx) => {
-    // 先查找用户和团队是否已存在
-    const [existingUser, existingTeam] = await Promise.all([
-      tx.user.findUnique({ where: { slug: payload.user.slug } }),
-      payload.team.id
-        ? tx.team.findUnique({ where: { id: payload.team.id } })
-        : tx.team.findUnique({ where: { slug: payload.team.slug } }),
-    ]);
+  // 先查找用户和团队是否已存在
+  const [existingUser, existingTeam] = await Promise.all([
+    prisma.user.findUnique({ where: { slug: payload.user.slug } }),
+    payload.team.id
+      ? prisma.team.findUnique({ where: { id: payload.team.id } })
+      : prisma.team.findUnique({ where: { slug: payload.team.slug } }),
+  ]);
 
+  const { user, team } = await prisma.$transaction(async (tx) => {
     // 如果用户不存在，创建用户
     const user =
       existingUser ||
@@ -62,8 +62,10 @@ export async function createUserAndTeam(payload: {
 
     return { user, team };
   });
+
   // TODO: 如果同时打开两个页面都在创建 team，这里可能会出现冲突，有一个办法是在 teamconfig 里添加一个 loading 标记
-  if (!payload.team.id) {
+  // 第一次创建团队，需要同步标签数据（在事务外执行）
+  if (!existingTeam) {
     rootLogger.info(`Team ${payload.team.slug} initialized, syncing tags from MuseDAM`);
     after(
       syncTagsFromMuseDAM({

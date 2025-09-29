@@ -237,7 +237,7 @@ type ActionMap = {
         extension: string; // 文件扩展名
         size: number; // 文件大小（字节）
         url?: string; // 素材访问链接
-        thumbnail?: string; // 缩略图链接
+        thumbnail?: {url?:string}; // 缩略图链接
         width?: number; // 图片宽度（图片类型）
         height?: number; // 图片高度（图片类型）
         type?: string; // 素材类型

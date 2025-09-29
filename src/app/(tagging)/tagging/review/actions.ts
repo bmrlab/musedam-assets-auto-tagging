@@ -103,9 +103,18 @@ export async function fetchAssetsWithAuditItems(
         };
       }
 
-      // 先获取总数 - 使用 findMany 然后计算去重后的数量
+      // 先获取总数 - 需要排除 rejected 状态的审核项
+      const totalAuditItemWhere: Prisma.TaggingAuditItemWhereInput = {
+        ...auditItemWhere,
+      };
+      
+      // 如果没有指定状态过滤，则排除 rejected 状态
+      if (!statusFilter) {
+        totalAuditItemWhere.status = { not: "rejected" };
+      }
+      
       const distinctAssetIds = await prisma.taggingAuditItem.findMany({
-        where: auditItemWhere,
+        where: totalAuditItemWhere,
         select: {
           assetObjectId: true,
         },
@@ -113,10 +122,10 @@ export async function fetchAssetsWithAuditItems(
       });
       const totalCount = distinctAssetIds.length;
 
-      // 获取有审核项的资产ID
+      // 获取有审核项的资产ID - 也需要排除 rejected 状态
       const assetObjectIds = (
         await prisma.taggingAuditItem.findMany({
-          where: auditItemWhere,
+          where: totalAuditItemWhere,
           select: {
             assetObjectId: true,
           },
@@ -238,6 +247,13 @@ export async function approveAuditItemsAction({
     });
 
     const musedamAssetId = slugToId("assetObject", assetObject.slug);
+  
+    // 判断素材是否还在素材库
+   await syncSingleAssetFromMuseDAM({
+      musedamAssetId,
+      team,
+    });
+
     const approvedAsetTags = await prisma.assetTag.findMany({
       where: {
         id: {
@@ -253,6 +269,8 @@ export async function approveAuditItemsAction({
     });
 
     const musedamTagIds = approvedAsetTags.map((tag) => slugToId("assetTag", tag.slug!));
+
+    
     
     await setAssetTagsToMuseDAM({
       musedamAssetId,
@@ -268,11 +286,6 @@ export async function approveAuditItemsAction({
           data: { status },
         });
       }
-    });
-
-    await syncSingleAssetFromMuseDAM({
-      musedamAssetId,
-      team,
     });
 
     return {
@@ -345,14 +358,26 @@ export async function batchApproveAuditItemsAction({
           assetObject: true,
         },
       });
-      console.log("auditItems",auditItems)
       // 按资产分组处理
       for (const assetObject of assetObjects) {
         const assetAuditItems = auditItems.filter(item => item.assetObjectId === assetObject.id);
         
         if (assetAuditItems.length === 0) continue;
-
         const musedamAssetId = slugToId("assetObject", assetObject.slug);
+
+        try{
+          await syncSingleAssetFromMuseDAM({
+            musedamAssetId,
+            team,
+          });
+        }catch(error){
+          if(error instanceof Error && error.message === 'Asset not found'){
+            await rejectAuditItemsAction({ assetObject });
+            continue;
+          }
+          // 如果是其他错误，重新抛出
+          throw error;
+        }
         const approvedAssetTags = await prisma.assetTag.findMany({
           where: {
             id: {
@@ -381,11 +406,6 @@ export async function batchApproveAuditItemsAction({
             data: { status: "approved" },
           });
         });
-
-        await syncSingleAssetFromMuseDAM({
-          musedamAssetId,
-          team,
-        });
       }
 
       return {
@@ -393,10 +413,10 @@ export async function batchApproveAuditItemsAction({
         data: undefined,
       };
     } catch (error) {
-      console.error("批量通过审核失败:", error);
+      console.error("批量添加失败:", error);
       return {
         success: false,
-        message: "批量通过审核失败",
+        message: "批量添加失败",
       };
     }
   });

@@ -107,7 +107,7 @@ export async function syncSingleAssetFromMuseDAM({
   });
 
   if (!assets || assets.length === 0) {
-    throw new Error(`Asset ${musedamAssetId} not found`);
+    throw new Error(`Asset not found`);
   }
 
   const musedamAsset = assets[0] as {
@@ -182,7 +182,7 @@ export async function setAssetTagsToMuseDAM({
       remove: !append,
     },
   });
-  // console.log(musedamAssetId, result);
+  console.log("set-assets-tags", result);
   return result;
 }
 

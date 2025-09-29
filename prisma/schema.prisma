@@ -86,14 +86,15 @@ model AssetTag {
   teamId Int
   team   Team @relation(fields: [teamId], references: [id])
 
-  name     String     @db.VarChar(100)
-  slug     String?    @db.VarChar(64) // 新增以后还不存在 slug，和 musedam 同步以后会有
-  level    Int        @default(1) // 层级: 1, 2, 3
-  parentId Int?
-  parent   AssetTag?  @relation("TagHierarchy", fields: [parentId], references: [id])
-  children AssetTag[] @relation("TagHierarchy")
-  sort     Int        @default(0) // 排序字段，数值越小排序越靠前
-  extra    Json       @default("{}")
+  name           String     @db.VarChar(100)
+  slug           String?    @db.VarChar(64) // 新增以后还不存在 slug，和 musedam 同步以后会有
+  level          Int        @default(1) // 层级: 1, 2, 3
+  parentId       Int?
+  parent         AssetTag?  @relation("TagHierarchy", fields: [parentId], references: [id])
+  children       AssetTag[] @relation("TagHierarchy")
+  sort           Int        @default(0) // 排序字段，数值越小排序越靠前
+  taggingEnabled Boolean    @default(true) // 是否允许打标，默认开启
+  extra          Json       @default("{}")
 
   createdAt         DateTime           @default(now()) @db.Timestamptz(6)
   updatedAt         DateTime           @updatedAt @db.Timestamptz(6)

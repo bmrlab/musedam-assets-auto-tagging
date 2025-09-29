@@ -21,6 +21,7 @@ interface SyncConfirmDialogProps {
   onSyncComplete?: () => void;
 }
 
+// 手动从 museDAM 同步标签
 export function SyncConfirmDialog({ onSyncComplete }: SyncConfirmDialogProps) {
   const t = useTranslations("TagsPage");
   const [isLoading, setIsLoading] = useState(false);
@@ -31,7 +32,7 @@ export function SyncConfirmDialog({ onSyncComplete }: SyncConfirmDialogProps) {
     try {
       const result = await syncTagsFromMuseDAMAction();
       if (result.success) {
-        toast.success(t("syncSuccess"));
+        // toast.success(t("syncSuccess"));
         setOpen(false);
         onSyncComplete?.();
       } else {
@@ -48,7 +49,7 @@ export function SyncConfirmDialog({ onSyncComplete }: SyncConfirmDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>
-        <Button variant="outline" className="flex items-center gap-2">
+        <Button variant="outline" className="flex items-center gap-2" size="sm" >
           <Download className="h-4 w-4" />
           {t("syncFromMuseDAM")}
         </Button>

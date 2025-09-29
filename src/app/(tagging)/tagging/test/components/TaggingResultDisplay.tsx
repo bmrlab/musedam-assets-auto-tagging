@@ -1,5 +1,6 @@
 "use client";
 
+import { TagAIIcon, VimIcon } from "@/components/ui";
 import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   CheckIcon,
@@ -82,27 +83,28 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
           <h3 className="font-semibold text-lg truncate" title={result.asset.name}>
             {result.asset.name}
           </h3>
-          <div className="flex items-center gap-2 text-sm text-basic-5 mt-1">
+          <div className="flex items-center gap-2 text-xs text-basic-5 mt-1 flex-nowrap overflow-hidden text-ellipsis">
             <span>
               {result.asset.extension.toUpperCase()} · {formatFileSize(result.asset.size)}{" "}
             </span>
             {result.asset.materializedPath && (
-              <span>
+              <>
                 · <FolderIcon className="size-[12px]" /> {result.asset.materializedPath}
-              </span>
+              </>
             )}
           </div>
           {/* <div className="text-sm text-basic-5 mt-1">
                         分类：{result.asset.categories.join(" / ")}
                     </div> */}
-          <div className="flex items-center gap-4 text-sm text-basic-5 mt-2">
+          <div className="flex items-center gap-4 text-[13px] 5 mt-2">
             <div className="flex items-center gap-1">
-              <ClockIcon className="w-4 h-4" />
+              <ClockIcon className="size-[14px] text-primary" />
               <span>
                 {t("processingTime")}: {result.asset.processingTime}s
               </span>
             </div>
             <div>
+              <VimIcon className="size-[14px] text-[#9254DE]" />
               {t("aiRecognitionMode")}: {result.asset.recognitionMode}
             </div>
           </div>
@@ -117,36 +119,36 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
 
       {/* 生效标签 */}
       <div>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <TagIcon className="w-4 h-4" />
+        <CardHeader className="pb-2 px-0">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <TagAIIcon className="w-4 h-4" />
             {t("effectiveTags")} ({result.effectiveTags.length})
-            <span className="text-sm font-normal text-basic-5">
+            <span className="text-xs font-normal text-basic-5">
               {t("effectiveTagsDescription")}
             </span>
           </CardTitle>
         </CardHeader>
-        <CardContent className="pt-0">
+        <CardContent className="pt-0 px-0">
           <div className="space-y-3">
             {result.effectiveTags.map((tag, index) => (
               <div
                 key={index}
-                className="flex items-center justify-between p-3 bg-[#EDFFF3] border border-[#8CFAC7] rounded-lg"
+                className="flex items-center justify-between p-3 bg-primary-1 border border-primary-4 rounded-md"
               >
-                <CheckIcon className="size-[14px] text-[#00E096] mr-2" />
+                <CheckIcon className="size-[14px] text-primary-5 mr-2" />
                 <div className="flex-1">
-                  <div className="font-medium text-sm text-[#00B283] mb-1">
+                  <div className="font-medium text-sm text-primary-6 mb-1">
                     {tag.tagPath.join(" > ")}
                   </div>
-                  <div className="text-xs text-[#00E096]">
+                  <div className="text-xs text-primary-5">
                     {t("matchingSource")}: {tag.matchingSource}
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-sm font-medium text-[#00B283]">
+                  <div className="text-sm font-medium text-primary-6">
                     {t("confidence")}: {tag.confidence}%
                   </div>
-                  <div className="text-xs text-[#00E096]">
+                  <div className="text-xs text-primary-5">
                     {t("score")}: {tag.score}
                   </div>
                 </div>
@@ -158,16 +160,16 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
 
       {/* 候选标签 */}
       <div>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
+        <CardHeader className="pb-2 px-0">
+          <CardTitle className="text-sm flex items-center gap-2 ">
             <CircleQuestionMarkIcon className="size-4" />
             {t("candidateTags")} ({result.candidateTags.length})
-            <span className="text-sm font-normal text-basic-5 text">
+            <span className="text-xs font-normal text-basic-5 text">
               {t("candidateTagsDescription")}
             </span>
           </CardTitle>
         </CardHeader>
-        <CardContent className="pt-0">
+        <CardContent className="pt-0 px-0">
           <div className="space-y-3">
             {result.candidateTags.map((tag, index) => (
               <div

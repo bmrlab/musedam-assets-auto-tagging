@@ -7,7 +7,7 @@ import { generateObject, UserModelMessage } from "ai";
 import z from "zod";
 import { tagPredictionSystemPrompt } from "./prompt";
 import { SourceBasedTagPredictions, tagPredictionSchema, TagWithScore } from "./types";
-import { buildTagStructureText, fetchTagsTree } from "./utils";
+import { buildTagStructureText, buildTagKeywordsText, fetchTagsTree } from "./utils";
 
 // export const WeightOfSource: Record<z.Infer<typeof tagPredictionSchema.shape.source>, number> = {
 //   basicInfo: 35,
@@ -103,12 +103,17 @@ export async function predictAssetTags(
   const tagsTree = await fetchTagsTree({ teamId: asset.teamId });
   // 构建标签结构的文本描述
   const tagStructureText = buildTagStructureText(tagsTree);
+  // 构建标签关键词信息
+  const tagKeywordsText = buildTagKeywordsText(tagsTree);
 
   const messages: UserModelMessage[] = [
     {
       role: "user",
       content: `# 可用标签体系
-${tagStructureText}`,
+${tagStructureText}
+
+# 标签关键词配置
+${tagKeywordsText}`,
       providerOptions: { bedrock: { cachePoint: { type: "default" } } },
     },
     {
@@ -124,6 +129,9 @@ ${tagStructureText}`,
 
 ## contentAnalysis信息源
 内容分析：${(asset.content as AssetObjectContentAnalysis)?.aiDescription || "无有效内容数据"}
+
+## tagKeywords信息源
+标签关键词匹配：请根据上述标签关键词配置，分析素材信息是否匹配到任何标签的匹配关键词，同时注意排除包含排除关键词的情况。
 
 请按照既定的Step by Step流程进行分析并输出结果。`,
     },

@@ -7,6 +7,7 @@ export interface TagEditData {
   description: string;
   keywords: string[];
   negativeKeywords: string[];
+  taggingEnabled: boolean;
 }
 
 // Context类型定义
@@ -52,6 +53,7 @@ export function TagEditProvider({ children }: { children: ReactNode }) {
           description: "",
           keywords: [],
           negativeKeywords: [],
+          taggingEnabled: true,
           ...data,
         };
         newMap.set(tagId, defaultData);

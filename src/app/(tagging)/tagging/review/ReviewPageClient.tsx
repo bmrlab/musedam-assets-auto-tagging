@@ -241,20 +241,22 @@ export default function ReviewPageClient() {
             <div className="">选中<span className="text-primary-6"> {selectedAssets.length}</span> /{total} 项</div>}
 
 
-          {selectedAssets.length > 0 && <><Button
-            size="sm"
-            onClick={handleBatchApprove}
-            className="rounded-[4px] h-6 bg-primary-6 "
-            disabled={loading || selectedAssets.length === 0}
-          >
-            {loading ? <Loader2Icon className="size-[14px] animate-spin" /> : <CheckIcon className="size-[14px]" />}
-            {t("add")}
-          </Button>
+          {selectedAssets.length > 0 && <>
+            <Button
+              onClick={handleBatchApprove}
+              size="sm"
+              variant="default"
+              className="rounded-[6px] "
+              disabled={loading || selectedAssets.length === 0}
+            >
+              {loading ? <Loader2Icon className="size-[14px] animate-spin" /> : <CheckIcon className="size-[14px]" />}
+              {t("add")}
+            </Button>
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button
                   size="sm"
-                  className="rounded-[4px] h-6 bg-background text-danger-6 border-solid border-danger-6 border hover:bg-destructive/10 hover:text-destructive hover:border-destructive"
+                  className="rounded-[6px] bg-background text-danger-6 border-solid border-danger-6 border hover:bg-destructive/10 hover:text-destructive hover:border-destructive"
                   disabled={loading || selectedAssets.length === 0}
                 >
                   {loading ? <Loader2Icon className="size-[14px] animate-spin" /> : <XIcon className="size-[14px]" />}

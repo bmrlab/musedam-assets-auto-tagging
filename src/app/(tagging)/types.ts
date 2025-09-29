@@ -54,6 +54,11 @@ export const taggingSettingsSchema = z.object({
     contentAnalysis: z.boolean(),
     tagKeywords: z.boolean(),
   }),
+  triggerTiming: z.object({
+    autoRealtimeTagging: z.boolean(),
+    manualTriggerTagging: z.boolean(),
+    scheduledTagging: z.boolean(),
+  }),
   applicationScope: z.object({
     scopeType: z.enum(["all", "specific"]),
     selectedFolders: z.array(
@@ -73,6 +78,7 @@ export const TAGGING_CONFIG_KEYS = {
   TAGGING_MODE: "taggingMode",
   RECOGNITION_ACCURACY: "recognitionAccuracy",
   MATCHING_SOURCES: "matchingSources",
+  TRIGGER_TIMING: "triggerTiming",
   APPLICATION_SCOPE: "applicationScope",
   ACCESS_PERMISSIONS: "accessPermissions",
 } as const;
@@ -87,6 +93,11 @@ export const DEFAULT_TAGGING_SETTINGS: TaggingSettingsData = {
     materializedPath: true,
     contentAnalysis: true,
     tagKeywords: true,
+  },
+  triggerTiming: {
+    autoRealtimeTagging: true,
+    manualTriggerTagging: true,
+    scheduledTagging: false,
   },
   applicationScope: {
     scopeType: "all",

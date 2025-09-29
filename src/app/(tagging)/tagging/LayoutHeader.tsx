@@ -15,7 +15,7 @@ export function LayoutHeader() {
         "flex shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12",
       )}
     >
-      <h1 className="text-lg font-semibold">{activeTitle}</h1>
+      <h1 className="text-xl font-semibold">{activeTitle}</h1>
     </header>
   );
 }

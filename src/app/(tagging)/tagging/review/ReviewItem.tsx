@@ -76,7 +76,13 @@ export function ReviewItem({ assetObject, batch, onSuccess, CheckboxComponent, b
         toast.success(t("applySuccess"));
         onSuccess?.();
       } catch (error: unknown) {
-        console.log(error);
+        const errorMsg = error instanceof Error ? error.message : undefined
+        if (errorMsg === 'Asset not found') {
+          await rejectAuditItemsAction({ assetObject });
+          toast.warning("素材已被删除")
+          onSuccess?.();
+          return
+        }
         toast.error(error instanceof Error ? error.message : t("applyFailed"));
       } finally {
         setLoading(false);
@@ -154,8 +160,9 @@ export function ReviewItem({ assetObject, batch, onSuccess, CheckboxComponent, b
             <Button
               size="sm"
               disabled={realLoading}
+              variant="default"
               onClick={() => approveAuditItems({ append: true })}
-              className="rounded-[4px] h-6 bg-primary-6 "
+              className="h-[28px] rounded-[6px] bg-primary-6 "
             >
               {loading ? <Loader2Icon className="size-[14px] animate-spin" /> : <CheckIcon className="size-[14px]" />}
               {t("add")}
@@ -179,7 +186,7 @@ export function ReviewItem({ assetObject, batch, onSuccess, CheckboxComponent, b
               <AlertDialogTrigger asChild>
                 <Button
                   size="sm"
-                  className="rounded-[4px] h-6 bg-background text-danger-6 border-solid border-danger-6 border hover:bg-destructive/10 hover:text-destructive hover:border-destructive"
+                  className="h-[28px] rounded-[6px] bg-background text-danger-6 border-solid border-danger-6 border hover:bg-destructive/10 hover:text-destructive hover:border-destructive"
                   disabled={realLoading}
                 >
                   {loading ? <Loader2Icon className="size-[14px] animate-spin" /> : <XIcon className="size-[14px]" />}

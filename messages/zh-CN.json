@@ -51,7 +51,8 @@
       "delete": "删除",
       "deleteConfirmTitle": "删除标签",
       "deleteConfirmDescription": "是否确认删除标签「{tagName}」？",
-      "confirmDelete": "确认删除"
+      "confirmDelete": "确认删除",
+      "searchRelatedAssets": "搜索关联素材"
     },
     "TagDetails": {
       "add": "添加",
@@ -63,6 +64,7 @@
       "tagDescriptionPlaceholder": "选填，添加标签描述可帮助 AI 更好地理解标签的应用场景",
       "aiAutoTagging": "AI 自动打标",
       "aiAutoTaggingEnabled": "已启用，允许 AI 识别此标签",
+      "aiAutoTaggingDisabled": "已禁用，AI 不会识别此标签",
       "matchingKeywords": "匹配关键词",
       "matchingKeywordsTooltip": "添加与此标签相关的关键词，帮助AI更准确地识别此标签",
       "inputKeywords": "输入关键词",
@@ -206,9 +208,9 @@
     "aiRecognitionMode": "AI 识别模式",
     "overallScore": "综合得分",
     "effectiveTags": "生效标签",
-    "effectiveTagsDescription": "80%-100% 置信度",
+    "effectiveTagsDescription": "置信度 80%-100%",
     "candidateTags": "候选标签",
-    "candidateTagsDescription": "60%-79% 置信度",
+    "candidateTagsDescription": "置信度 60%-79%",
     "matchingSource": "匹配来源",
     "confidence": "置信度",
     "score": "得分"
@@ -217,5 +219,9 @@
     "title": "智能标签",
     "rename": "重命名",
     "delete": "删除"
+  },
+  "SearchResult": {
+    "tagGroup": "标签组",
+    "noSearchResults": "搜索结果为空"
   }
 }

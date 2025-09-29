@@ -13,6 +13,7 @@ import { GlobalSettingsSection } from "./components/GlobalSettingsSection";
 import { MatchingStrategySection } from "./components/MatchingStrategySection";
 import { SettingsHeader } from "./components/SettingsHeader";
 import { TaggingModeSection } from "./components/TaggingModeSection";
+import { TriggerTimingSection } from "./components/TriggerTimingSection";
 
 interface SettingsClientProps {
   initialSettings: TaggingSettingsData;
@@ -26,6 +27,7 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
     initialSettings.recognitionAccuracy,
   );
   const [matchingSources, setMatchingSources] = useState(initialSettings.matchingSources);
+  const [triggerTiming, setTriggerTiming] = useState(initialSettings.triggerTiming);
   const [applicationScope, setApplicationScope] = useState(initialSettings.applicationScope);
   const [isPending, startTransition] = useTransition();
   const [hasChanges, setHasChanges] = useState(false);
@@ -45,6 +47,7 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
         taggingMode,
         recognitionAccuracy,
         matchingSources,
+        triggerTiming,
         applicationScope,
       };
 
@@ -71,6 +74,30 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
 
   const handleRecognitionAccuracyChange = (accuracy: "precise" | "balanced" | "broad") => {
     setRecognitionAccuracy(accuracy);
+    setHasChanges(true);
+  };
+
+  const handleAutoRealtimeChange = (enabled: boolean) => {
+    setTriggerTiming((prev) => ({
+      ...prev,
+      autoRealtimeTagging: enabled,
+    }));
+    setHasChanges(true);
+  };
+
+  const handleManualTriggerChange = (enabled: boolean) => {
+    setTriggerTiming((prev) => ({
+      ...prev,
+      manualTriggerTagging: enabled,
+    }));
+    setHasChanges(true);
+  };
+
+  const handleScheduledChange = (enabled: boolean) => {
+    setTriggerTiming((prev) => ({
+      ...prev,
+      scheduledTagging: enabled,
+    }));
     setHasChanges(true);
   };
 
@@ -169,6 +196,17 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
       <MatchingStrategySection
         matchingSources={matchingSources}
         onSourceChange={handleSourceChange}
+      />
+
+
+      <h1 className="text-sm font-medium mt-[30px]">{t("AdvancedSettings.title")}</h1>
+      <TriggerTimingSection
+        autoRealtimeTagging={triggerTiming.autoRealtimeTagging}
+        manualTriggerTagging={triggerTiming.manualTriggerTagging}
+        scheduledTagging={triggerTiming.scheduledTagging}
+        onAutoRealtimeChange={handleAutoRealtimeChange}
+        onManualTriggerChange={handleManualTriggerChange}
+        onScheduledChange={handleScheduledChange}
       />
 
       <ApplicationScopeSection

@@ -15,6 +15,7 @@ import { TagDetails } from "./components/TagDetails";
 import { ThreeTagList } from "./components/ThreeTagList";
 import { TagEditProvider, useTagEdit } from "./contexts/TagEditContext";
 import { SearchTagData, TagNode, TagRecord } from "./types";
+import { SearchIcon, X } from "lucide-react";
 
 interface TagsClientProps {
   initialTags: (AssetTag & { children?: (AssetTag & { children?: AssetTag[] })[] })[];
@@ -208,11 +209,18 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
     [tagsTree, getNodeId],
   );
 
-  // 将 Prisma 数据转换为 TagNode 格式并按sort排序（数字越大越靠前）
+  // 将 Prisma 数据转换为 TagNode 格式并按sort排序（数字越大越靠前），sort相同时按id升序排序
   const convertToTagNodes = useCallback(
     (tags: (AssetTag & { children?: (AssetTag & { children?: AssetTag[] })[] })[]): TagNode[] => {
       return tags
-        .sort((a, b) => b.sort - a.sort) // 按sort降序排序，数字越大越靠前
+        .sort((a, b) => {
+          // 先按sort降序排序，数字越大越靠前
+          if (a.sort !== b.sort) {
+            return b.sort - a.sort;
+          }
+          // sort相同时，按id升序排序，id小的在前
+          return a.id - b.id;
+        })
         .map((tag) => ({
           id: tag.id,
           slug: tag.slug,
@@ -810,13 +818,13 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
               children:
                 level === 3 && getNodeId(node) === selectedLevel1Id
                   ? node.children.map((child) =>
-                      getNodeId(child) === selectedLevel2Id
-                        ? {
-                            ...child,
-                            children: applySortValue(sortedTags),
-                          }
-                        : child,
-                    )
+                    getNodeId(child) === selectedLevel2Id
+                      ? {
+                        ...child,
+                        children: applySortValue(sortedTags),
+                      }
+                      : child,
+                  )
                   : buildUpdatedTree(node.children),
             };
           });
@@ -843,38 +851,17 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
           <Input
             type="text"
             placeholder={t("searchPlaceholder")}
-            className="w-full pl-10 pr-10"
+            className="w-full pl-[30px] pr-10 border-none h-[32px]"
             value={searchQuery}
             onChange={(e) => handleSearchChange(e.target.value)}
           />
-          <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
-            <svg
-              className="w-4 h-4 text-basic-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-              />
-            </svg>
-          </div>
+          <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-basic-5" size={14} />
           {searchQuery && (
             <button
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-basic-5 hover:text-foreground"
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 group"
               onClick={() => handleSearchChange("")}
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
+              <X className=" text-basic-5 group-hover:text-basic-8 ease-in-out transition-all duration-300" size={14} />
             </button>
           )}
         </div>
@@ -884,9 +871,9 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
           <Switch />
           <span className="text-sm text-basic-5">{t("aiAutoTagging")}</span>
         </div> */}
-          <div className="flex items-center gap-2">
+          {/* <div className="flex items-center gap-2">
             <SyncConfirmDialog onSyncComplete={handleSyncComplete} />
-          </div>
+          </div> */}
           <Button
             variant="default"
             size="sm"

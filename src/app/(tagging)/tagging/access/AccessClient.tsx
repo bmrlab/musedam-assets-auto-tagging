@@ -161,7 +161,7 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
           )}
         </Button>
       </div>
-      <div className="p-6">
+      <div className="px-5 py-[6px]">
         <div className="space-y-0">
           {/* 固定的系统管理员 */}
           <div className="flex items-center justify-between py-3 border-b">
@@ -193,74 +193,65 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
             </Button>
           </div>
 
-          {/* 动态权限列表 */}
-          {permissions.length === 0 ? (
-            <div className="text-center py-8 text-basic-5 border-b">
-              {t("noPermissionsConfigured")}
-            </div>
-          ) : (
-            <>
-              {permissions.map((permission) => (
-                <div
-                  key={permission.slug}
-                  className="flex items-center justify-between py-3 border-b"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
-                      {getPermissionIcon(permission.slug)}
-                    </div>
-                    <div>
-                      <div className="font-medium text-sm">{permission.name}</div>
-                      <div className="text-xs text-basic-5">
-                        {getPermissionType(permission.slug)}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild className="font-normal">
-                        <Button variant="ghost" size="sm" className="h-8 w-20 hover:bg-transparent" disabled={isPending}>
-                          <span>{getRoleLabel(permission.role)}</span>
-                          <ChevronDown className="ml-1 h-3 w-3" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-[270px]">
-                        <DropdownMenuItem
-                          onClick={() => handleChangeRole(permission.slug, "admin")}
-                          disabled={permission.role === "admin"}
-                          className="py-3"
-                        >
-                          <div className="flex flex-col">
-                            <span className="text-sm">{t("canManage")}</span>
-                            <span className="text-xs text-basic-5">
-                              {t("fullManagementPermission")}
-                            </span>
-                          </div>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => handleChangeRole(permission.slug, "reviewer")}
-                          disabled={permission.role === "reviewer"}
-                          className="py-3"
-                        >
-                          <div className="flex flex-col">
-                            <span className="text-sm">{t("canReview")}</span>
-                            <span className="text-xs text-basic-5">{t("reviewPermission")}</span>
-                          </div>
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          className="text-destructive py-3"
-                          onClick={() => handleRemovePermission(permission.slug)}
-                        >
-                          <span className="text-sm">{t("remove")}</span>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+          {permissions?.map((permission) => (
+            <div
+              key={permission.slug}
+              className="flex items-center justify-between py-3 border-b"
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+                  {getPermissionIcon(permission.slug)}
+                </div>
+                <div>
+                  <div className="font-medium text-sm">{permission.name}</div>
+                  <div className="text-xs text-basic-5">
+                    {getPermissionType(permission.slug)}
                   </div>
                 </div>
-              ))}
-            </>
-          )}
+              </div>
+              <div className="flex items-center gap-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild className="font-normal">
+                    <Button variant="ghost" size="sm" className="h-8 w-20 hover:bg-transparent group" disabled={isPending}>
+                      <span>{getRoleLabel(permission.role)}</span>
+                      <ChevronDown className="size-[14px] text-basic-5 group-hover:text-primary-6 transition-all duration-300 ease-in-out" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-[270px]">
+                    <DropdownMenuItem
+                      onClick={() => handleChangeRole(permission.slug, "admin")}
+                      disabled={permission.role === "admin"}
+                      className="py-[6px]"
+                    >
+                      <div className="flex flex-col">
+                        <span className="text-sm">{t("canManage")}</span>
+                        <span className="text-xs text-basic-5">
+                          {t("fullManagementPermission")}
+                        </span>
+                      </div>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleChangeRole(permission.slug, "reviewer")}
+                      disabled={permission.role === "reviewer"}
+                      className="py-[6px]"
+                    >
+                      <div className="flex flex-col">
+                        <span className="text-sm">{t("canReview")}</span>
+                        <span className="text-xs text-basic-5">{t("reviewPermission")}</span>
+                      </div>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="!text-danger-6 py-[6px] "
+                      onClick={() => handleRemovePermission(permission.slug)}
+                    >
+                      <span className="text-sm">{t("remove")}</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>

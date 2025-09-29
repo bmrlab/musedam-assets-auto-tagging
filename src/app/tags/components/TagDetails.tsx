@@ -31,6 +31,7 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
     description: "",
     keywords: [],
     negativeKeywords: [],
+    taggingEnabled: true,
   });
 
   // 编辑态
@@ -60,6 +61,7 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
         description: extra.description || "",
         keywords: extra.keywords || [],
         negativeKeywords: extra.negativeKeywords || [],
+        taggingEnabled: tag.taggingEnabled,
       };
     },
     [getTagExtra],
@@ -78,13 +80,14 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
         description: "",
         keywords: [],
         negativeKeywords: [],
+        taggingEnabled: true,
       });
       setIsEditing(false);
     }
   }, [selectedTag?.tag.id, selectedTag?.tag, getTagEditData, getOriginalData]);
 
   // 更新表单字段
-  const updateField = (field: keyof TagEditData, value: string | string[]) => {
+  const updateField = (field: keyof TagEditData, value: string | string[] | boolean) => {
     const newFormData = { ...formData, [field]: value };
     setFormData(newFormData);
   };
@@ -212,6 +215,7 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
         description: formData.description,
         keywords: formData.keywords,
         negativeKeywords: formData.negativeKeywords,
+        taggingEnabled: formData.taggingEnabled,
       });
       if (res.success) {
         toast.success(tRoot("saveSuccess"));
@@ -289,8 +293,17 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
         <div className="space-y-2">
           <Label className="text-sm font-medium">{t("aiAutoTagging")}</Label>
           <div className="flex items-center gap-2">
-            <Switch defaultChecked disabled={!isEditing} />
-            <span className="text-sm text-basic-5">{t("aiAutoTaggingEnabled")}</span>
+            <Switch
+              checked={formData.taggingEnabled}
+              onCheckedChange={(checked) => {
+                // TODO 增加二次确认弹窗
+                updateField("taggingEnabled", checked)
+              }}
+              disabled={!isEditing}
+            />
+            <span className="text-sm text-basic-5">
+              {formData.taggingEnabled ? t("aiAutoTaggingEnabled") : t("aiAutoTaggingDisabled")}
+            </span>
           </div>
         </div>
 

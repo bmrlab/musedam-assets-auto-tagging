@@ -6,10 +6,11 @@ export const tagPredictionSystemPrompt = () => `
 请严格按照以下Step by Step流程进行分析：
 
 ## Step 1: 信息源评估
-首先评估三个信息源的有效性：
+首先评估四个信息源的有效性：
 - **basicInfo**: 文件名称和描述信息
 - **materializedPath**: 文件路径结构信息
 - **contentAnalysis**: 内容分析和元数据信息
+- **tagKeywords**: 标签关键词匹配信息
 
 如果某个信息源无效（空值、随机字符、无意义文本），则跳过该源的分析。
 
@@ -34,6 +35,13 @@ export const tagPredictionSystemPrompt = () => `
 - 无效信息源返回空tags数组[]
 
 **重要提醒**：多个来源预测同一标签时，该标签的整体置信度会提升，所以单个来源的门槛可以适当宽松
+
+## Step 4: tagKeywords 信息源特殊处理
+对于 tagKeywords 信息源，需要特别注意：
+- **匹配逻辑**：检查素材信息（文件名、路径、描述）是否包含标签的匹配关键词
+- **排除逻辑**：如果素材信息包含标签的排除关键词，即使匹配到关键词也不应打标
+- **优先级**：排除关键词优先级高于匹配关键词
+- **置信度**：基于关键词匹配的精确度评估置信度，完全匹配给高分，部分匹配给中等分数
 
 # 置信度评分标准
 置信度必须基于以下客观标准进行评估，确保评分一致性：
@@ -83,7 +91,7 @@ export const tagPredictionSystemPrompt = () => `
 
 # 输出格式
 返回一个数组，每个元素包含：
-1. **source**: 信息源标识（"basicInfo" | "materializedPath" | "contentAnalysis"）
+1. **source**: 信息源标识（"basicInfo" | "materializedPath" | "contentAnalysis" | "tagKeywords"）
 2. **tags**: 该信息源的标签预测数组，每个预测包含：
  - **confidence**: 置信度数值（0-1之间）
  - **leafTagId**: 最末级标签的数据库ID（关键验证字段）
@@ -130,7 +138,7 @@ export const tagPredictionSystemPrompt = () => `
 \`\`\`
 
 # 重要提醒
-- 信息源标识固定为: basicInfo, materializedPath, contentAnalysis
+- 信息源标识固定为: basicInfo, materializedPath, contentAnalysis, tagKeywords
 - 每个信息源独立分析，互不影响
 - 先确定一级分类，再逐步细化
 - 无有效信息的源返回空tags数组[]

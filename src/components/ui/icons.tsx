@@ -90,8 +90,14 @@ export function DoubleLeftIcon(props: IconProps) {
 export function SettingIcon(props: IconProps) {
   return <SvgIcon src="/Icon/Setting.svg" viewBox="0 0 37 36" {...props} />;
 }
+
 export function FileImageIcon(props: IconProps) {
   return <SvgIcon src="/Icon/FileImage.svg" viewBox="0 0 37 36" {...props} />;
+}
+
+
+export function VimIcon(props: IconProps) {
+  return <SvgIcon src="/Icon/Vim.svg" viewBox="0 0 37 36" {...props} />;
 }
 
 export function TagAIIcon(props: IconProps) {

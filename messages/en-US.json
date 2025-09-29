@@ -51,7 +51,8 @@
       "delete": "Delete",
       "deleteConfirmTitle": "Delete Tag",
       "deleteConfirmDescription": "Are you sure you want to delete the tag \"{tagName}\"?",
-      "confirmDelete": "Confirm Delete"
+      "confirmDelete": "Confirm Delete",
+      "searchRelatedAssets": "Search Related Assets"
     },
     "TagDetails": {
       "add": "Add",
@@ -63,6 +64,7 @@
       "tagDescriptionPlaceholder": "Optional. Adding tag descriptions helps AI better understand the application scenarios of tags",
       "aiAutoTagging": "AI Auto Tagging",
       "aiAutoTaggingEnabled": "Enabled, allows AI to recognize this tag",
+      "aiAutoTaggingDisabled": "Disabled, AI will not recognize this tag",
       "matchingKeywords": "Matching Keywords",
       "matchingKeywordsTooltip": "Add keywords related to this tag to help AI identify this tag more accurately",
       "inputKeywords": "Enter keywords",
@@ -217,5 +219,9 @@
     "title": "Smart Tags",
     "rename": "Rename",
     "delete": "Delete"
+  },
+  "SearchResult": {
+    "tagGroup": "Tag Group",
+    "noSearchResults": "No search results"
   }
 }

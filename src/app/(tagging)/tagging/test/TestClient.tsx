@@ -6,6 +6,7 @@ import { FileImageIcon, TagsIcon } from "@/components/ui/icons";
 import { dispatchMuseDAMClientAction } from "@/embed/message";
 import { cn } from "@/lib/utils";
 import { MuseDAMID } from "@/musedam/types";
+import Image from "next/image";
 import { FileText, Loader2, PlayIcon, PlusIcon, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -19,7 +20,9 @@ interface SelectedAsset {
   extension: string; // 文件扩展名
   size: number; // 文件大小（字节）
   url?: string; // 素材访问链接
-  thumbnail?: string; // 缩略图链接
+  thumbnail?: {
+    url?: string// 缩略图链接
+  };
   width?: number; // 图片宽度（图片类型）
   height?: number; // 图片高度（图片类型）
   type?: string; // 素材类型
@@ -369,6 +372,7 @@ export default function TestClient() {
       setMatchingSources(config.matchingSources);
     }
   };
+  console.log("selectedAssets", selectedAssets)
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -430,7 +434,7 @@ export default function TestClient() {
                       className="flex items-center justify-between p-3 border border-basic-4 rounded-md"
                     >
                       <div className="flex items-center gap-3">
-                        <FileText className="size-4 text-basic-5" />
+                        <Image src={asset.thumbnail?.url || '/file.svg'} alt={asset.name} className="object-cover rounded size-8" width={32} height={32} />
                         <div>
                           <p className="font-medium text-sm">{asset.name}</p>
                           <p className="text-xs text-basic-5">

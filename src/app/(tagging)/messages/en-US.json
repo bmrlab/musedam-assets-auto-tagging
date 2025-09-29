@@ -7,7 +7,7 @@
       "dashboard": "Dashboard",
       "review": "AI Tagging Review",
       "settings": "AI Tagging Settings",
-      "access": "Access Management",
+      "access": "Members Settings",
       "test": "Test Tagging"
     },
     "Dashboard": {
@@ -93,6 +93,9 @@
         "currentAndNewAssets": "Current folder and newly uploaded assets",
         "onlySelectedScope": "💡 Only assets within the selected scope will undergo AI auto-tagging",
         "removeFolder": "Remove"
+      },
+      "AdvancedSettings": {
+        "title": "Advanced Settings"
       }
     },
     "Review": {

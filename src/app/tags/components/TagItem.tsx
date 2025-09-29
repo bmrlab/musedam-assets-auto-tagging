@@ -239,7 +239,7 @@ export function TagItem({
                     }}
                   >
                     <Search className="h-3 w-3 text-current" />
-                    搜索关联素材
+                    {t("searchRelatedAssets")}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleRename}>
@@ -248,7 +248,7 @@ export function TagItem({
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={handleDeleteClick}
-                    className="text-sm text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400"
+                    className="text-sm !text-danger-6"
                   >
                     <Trash2Icon className="h-3 w-3 text-current" />
                     {t("delete")}

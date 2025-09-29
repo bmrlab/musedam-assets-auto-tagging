@@ -103,7 +103,7 @@ export async function fetchTeamTags(): Promise<
       success: true,
       data: { tags },
     };
-  });
+});
 }
 
 export async function syncTagsFromMuseDAMAction(): Promise<ServerActionResult<void>> {
@@ -213,27 +213,25 @@ export async function saveTagsTree(tagsTree: TagNode[]): Promise<ServerActionRes
                 targetTagId = existingTag.id;
               } else {
                 // 标签不存在，创建新标签
+                // 计算 slug
+                let slug: string | null = null;
+                if (node.tempId && syncResult && syncResult.createdTagMapping) {
+                  const musedamId = syncResult.createdTagMapping.get(node.tempId);
+                  if (musedamId) {
+                    slug = idToSlug("assetTag", musedamId);
+                  }
+                }
+
                 const createdTag = await tx.assetTag.create({
                   data: {
                     teamId,
                     name: node.name.trim(),
                     level,
+                    slug,
                     parentId,
                   },
                 });
                 targetTagId = createdTag.id;
-
-                // 如果有同步结果且该标签是新创建的，更新 slug
-                if (syncResult && node.tempId) {
-                  const musedamId = syncResult.createdTagMapping.get(node.tempId);
-                  if (musedamId) {
-                    const slug = idToSlug("assetTag", musedamId);
-                    await tx.assetTag.update({
-                      where: { id: targetTagId },
-                      data: { slug },
-                    });
-                  }
-                }
               }
 
               // 递归处理子标签
@@ -858,6 +856,7 @@ export async function updateTagExtra(
     description?: string;
     keywords?: string[];
     negativeKeywords?: string[];
+    taggingEnabled?: boolean;
   },
 ): Promise<ServerActionResult<void>> {
   return withAuth(async ({ team: { id: teamId } }) => {
@@ -878,7 +877,7 @@ export async function updateTagExtra(
       }
 
       // 准备更新数据
-      const updateData: { name?: string; extra?: AssetTagExtra } = {};
+      const updateData: { name?: string; extra?: AssetTagExtra; taggingEnabled?: boolean } = {};
 
       // 处理名称更新
       if (data.name && data.name.trim() !== existingTag.name) {
@@ -902,6 +901,11 @@ export async function updateTagExtra(
         }
 
         updateData.name = data.name.trim();
+      }
+
+      // 处理taggingEnabled更新
+      if (data.taggingEnabled !== undefined) {
+        updateData.taggingEnabled = data.taggingEnabled;
       }
 
       // 处理extra字段更新
