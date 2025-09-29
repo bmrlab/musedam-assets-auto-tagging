@@ -1,7 +1,7 @@
 import { enqueueTaggingTask } from "@/app/(tagging)/queue";
 import { getTaggingSettings } from "@/app/(tagging)/tagging/settings/lib";
 import { idToSlug, slugToId } from "@/lib/slug";
-import { syncSingleAssetFromMuseDAM } from "@/musedam/assets";
+import { fetchMuseDAMFolderSubIds, syncSingleAssetFromMuseDAM } from "@/musedam/assets";
 import { MuseDAMID } from "@/musedam/types";
 import { AssetObject } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
@@ -25,6 +25,7 @@ const requestSchema = z.object({
       contentAnalysis: true,
       tagKeywords: true,
     }),
+  triggerType: z.enum(["default", "manual", "scheduled"]).optional().default("default"),
   recognitionAccuracy: z.enum(["precise", "balanced", "broad"]).optional().default("balanced"),
 });
 
@@ -37,6 +38,7 @@ export async function POST(request: NextRequest) {
       assetId: musedamAssetId,
       matchingSources,
       recognitionAccuracy,
+      triggerType
     } = requestSchema.parse(body);
 
     // 根据 teamId 构造 team slug 并查询 team
@@ -45,8 +47,23 @@ export async function POST(request: NextRequest) {
       where: { slug: teamSlug },
     });
 
+    // 团队不存在
     if (!team) {
       return NextResponse.json({ success: false, error: "Team not found" }, { status: 404 });
+    }
+
+    const settings = await getTaggingSettings(team.id);
+
+    // 未开启自动打标；且发起的是自动打标任务；不进入队列
+    if(!settings.triggerTiming.autoRealtimeTagging && triggerType === "default"){
+      return NextResponse.json({
+        success: true,
+        data: {
+          message: "Tagging auto realtime is not enabled",
+          queueItemId: null,
+          status: null,
+        },
+      });
     }
 
     // 1. 从 MuseDAM 同步素材到本地数据库
@@ -68,16 +85,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const settings = await getTaggingSettings(team.id);
-    if (settings.applicationScope.scopeType !== "all") {
-      // 检查 selectedFolders 和 parentIds 的 id 是否有交集
-      const musedamFolderIds: MuseDAMID[] = settings.applicationScope.selectedFolders.map(
-        (folder) => slugToId("assetFolder", folder.slug),
-      );
+    if (settings.applicationScope.scopeType !== "all") {  
+      // 获取到selectedFolders 和其子文件夹
+      const selectedFolderIds = settings.applicationScope.selectedFolders.map(folder => slugToId("assetFolder", folder.slug))
+      const musedamFolderSubIds = await fetchMuseDAMFolderSubIds({
+        team,
+        musedamFolderIds: selectedFolderIds,
+      });
+
+      // 简化：允许集合 = 选中目录 + 每个选中目录的子目录（来自返回的 map 键和值）
+      const allowedFolderIdSet = new Set<string>(selectedFolderIds.map((id) => id.toString()));
+      for (const [folderIdStr, subIds] of Object.entries(
+        musedamFolderSubIds as unknown as Record<string, (number | string)[]>,
+      )) {
+        allowedFolderIdSet.add(folderIdStr);
+        for (const subId of subIds) allowedFolderIdSet.add(String(subId));
+      }
+
+      // 检查素材所在父目录是否在允许集合内
       const hasIntersection = musedamAsset.parentIds.some((parentId) =>
-        musedamFolderIds.some((folderId) => folderId.toString() === String(parentId)),
+        allowedFolderIdSet.has(String(parentId)),
       );
-      // console.log("musedamFolderIds", { musedamFolderIds, musedamAsset, hasIntersection });
+
       if (!hasIntersection) {
         return NextResponse.json(
           {

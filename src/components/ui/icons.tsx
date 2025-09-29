@@ -72,48 +72,56 @@ const ICON_NAMES = {
 
 // 导出所有图标组件，直接使用SvgIcon组件
 export function DashboardIcon(props: IconProps) {
-  return <SvgIcon src="/Icon/Dashboard.svg" viewBox="0 0 37 36" {...props} />;
+  return <SvgIcon src="/Icon/Dashboard.svg"  {...props} />;
 }
 
 export function FoldersIcon(props: IconProps) {
-  return <SvgIcon src="/Icon/folders.svg" viewBox="0 0 37 36" {...props} />;
+  return <SvgIcon src="/Icon/folders.svg"  {...props} />;
 }
 
 export function MonitorIcon(props: IconProps) {
-  return <SvgIcon src="/Icon/Monitor.svg" viewBox="0 0 37 36" {...props} />;
+  return <SvgIcon src="/Icon/Monitor.svg"  {...props} />;
 }
 
 export function DoubleLeftIcon(props: IconProps) {
-  return <SvgIcon src="/Icon/DoubleLeft.svg" viewBox="0 0 37 36" {...props} />;
+  return <SvgIcon src="/Icon/DoubleLeft.svg"  {...props} />;
 }
 
 export function SettingIcon(props: IconProps) {
-  return <SvgIcon src="/Icon/Setting.svg" viewBox="0 0 37 36" {...props} />;
+  return <SvgIcon src="/Icon/Setting.svg"  {...props} />;
 }
 
 export function FileImageIcon(props: IconProps) {
-  return <SvgIcon src="/Icon/FileImage.svg" viewBox="0 0 37 36" {...props} />;
+  return <SvgIcon src="/Icon/FileImage.svg"  {...props} />;
+}
+
+export function DepartmentIcon(props: IconProps) {
+  return <SvgIcon src="/Icon/Department.svg"  {...props} />;
+}
+
+export function RetryIcon(props: IconProps) {
+  return <SvgIcon src="/Icon/Retry.svg"  {...props} />;
 }
 
 
 export function VimIcon(props: IconProps) {
-  return <SvgIcon src="/Icon/Vim.svg" viewBox="0 0 37 36" {...props} />;
+  return <SvgIcon src="/Icon/Vim.svg"  {...props} />;
 }
 
 export function TagAIIcon(props: IconProps) {
-  return <SvgIcon src="/Icon/TagAI.svg" viewBox="0 0 37 36" {...props} />;
+  return <SvgIcon src="/Icon/TagAI.svg"  {...props} />;
 }
 
 export function TagsIcon(props: IconProps) {
-  return <SvgIcon src="/Icon/Tags.svg" viewBox="0 0 37 36" {...props} />;
+  return <SvgIcon src="/Icon/Tags.svg"  {...props} />;
 }
 
 export function TeamIcon(props: IconProps) {
-  return <SvgIcon src="/Icon/Team.svg" viewBox="0 0 37 36" {...props} />;
+  return <SvgIcon src="/Icon/Team.svg"  {...props} />;
 }
 
 export function ClockCircleIcon(props: IconProps) {
-  return <SvgIcon src="/Icon/ClockCircle.svg" viewBox="0 0 37 36" {...props} />;
+  return <SvgIcon src="/Icon/ClockCircle.svg"  {...props} />;
 }
 
 /**

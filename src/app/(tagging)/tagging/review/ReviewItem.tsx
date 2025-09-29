@@ -11,6 +11,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ClockCircleIcon, TagAIIcon, TagsIcon } from "@/components/ui/icons";
 import { Progress } from "@/components/ui/progress";
 import { cn, formatSize } from "@/lib/utils";
@@ -30,6 +31,8 @@ import {
   AssetWithAuditItemsBatch,
   rejectAuditItemsAction,
 } from "./actions";
+import { slugToId } from "@/lib/slug";
+import { dispatchMuseDAMClientAction } from "@/embed/message";
 
 export function ReviewItem({ assetObject, batch, onSuccess, CheckboxComponent, batchLoading }: AssetWithAuditItemsBatch & { CheckboxComponent: React.ReactNode, batchLoading?: boolean }) {
   const t = useTranslations("Tagging.Review");
@@ -63,7 +66,7 @@ export function ReviewItem({ assetObject, batch, onSuccess, CheckboxComponent, b
           status: rejectedItems.includes(leafTagId!) ? "rejected" : "approved",
         }));
       if (!auditItems.length) {
-        toast.error('历史脏数据，找不到对应的标签')
+        toast.error(t("noCorrespondingTag"))
         setLoading(false);
         return;
       }
@@ -79,7 +82,7 @@ export function ReviewItem({ assetObject, batch, onSuccess, CheckboxComponent, b
         const errorMsg = error instanceof Error ? error.message : undefined
         if (errorMsg === 'Asset not found') {
           await rejectAuditItemsAction({ assetObject });
-          toast.warning("素材已被删除")
+          toast.warning(t("assetDeleted"))
           onSuccess?.();
           return
         }
@@ -125,7 +128,13 @@ export function ReviewItem({ assetObject, batch, onSuccess, CheckboxComponent, b
       {/* 资产基本信息 */}
       <div className="flex items-center gap-4">
         {CheckboxComponent}
-        <div className="shrink-0 w-24 h-24 relative">
+        <div className="shrink-0 size-[86px] cursor-pointer relative" onClick={() => {
+          const assetId = slugToId("assetObject", assetObject.slug)
+          dispatchMuseDAMClientAction("goto", {
+            url: `/detail/${assetId.toString()}`,
+            target: "_blank",
+          });
+        }}>
           <Image
             src={getThumbnailUrl(assetObject)}
             alt={assetObject.name}
@@ -260,18 +269,18 @@ export function ReviewItem({ assetObject, batch, onSuccess, CheckboxComponent, b
                   <div
                     key={auditItem.id}
                     className={cn(
-                      "relative py-2 pl-3 pr-8 rounded-[6px] border min-w-36",
+                      "relative py-2 pl-3 pr-8 rounded-[6px] border min-w-46",
                       {
                         "border-dashed":
                           (auditItem.leafTagId && rejectedItems.includes(auditItem.leafTagId)) ||
                           auditItem.status === "rejected",
                       },
                       {
-                        "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 border-blue-500 dark:border-blue-800":
+                        "text-primary-6 bg-primary-1 border-primary-4":
                           auditItem.score >= 80,
-                        "text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950/30 border-green-500 dark:border-green-800":
+                        "text-[#52C41A] bg-[#F6FFED] border-[#95DE64]":
                           auditItem.score >= 70 && auditItem.score < 80,
-                        "text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/30 border-orange-500 dark:border-orange-800":
+                        "text-[#FA8C16] bg-[#FFF7E6] border-[#FFC069] dark:border-orange-800":
                           auditItem.score < 70,
                       },
                     )}
@@ -300,34 +309,43 @@ export function ReviewItem({ assetObject, batch, onSuccess, CheckboxComponent, b
                     </div>
                     {/* 操作按钮 */}
                     {auditItem.status === "pending" && auditItem.leafTagId ? (
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className={cn(
-                          "absolute top-3 right-2 p-0",
-                          "size-3 bg-transparent hover:bg-transparent text-current hover:text-current/90",
-                        )}
-                        onClick={() =>
-                          setRejectedItems((rejectedItems) => {
-                            if (!auditItem.leafTagId) return [...rejectedItems];
-                            const index = rejectedItems.indexOf(auditItem.leafTagId);
-                            if (index >= 0) {
-                              return [
-                                ...rejectedItems.slice(0, index),
-                                ...rejectedItems.slice(index + 1),
-                              ];
-                            } else {
-                              return [...rejectedItems, auditItem.leafTagId];
-                            }
-                          })
-                        }
-                      >
-                        {rejectedItems.includes(auditItem.leafTagId) ? (
-                          <CheckIcon className="h-3 w-3" />
-                        ) : (
-                          <XIcon className="h-3 w-3" />
-                        )}
-                      </Button>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className={cn(
+                                "absolute top-3 right-2 p-0",
+                                "size-3 bg-transparent hover:bg-transparent text-basic-5 hover:text-basic-8",
+                              )}
+                              onClick={() =>
+                                setRejectedItems((rejectedItems) => {
+                                  if (!auditItem.leafTagId) return [...rejectedItems];
+                                  const index = rejectedItems.indexOf(auditItem.leafTagId);
+                                  if (index >= 0) {
+                                    return [
+                                      ...rejectedItems.slice(0, index),
+                                      ...rejectedItems.slice(index + 1),
+                                    ];
+                                  } else {
+                                    return [...rejectedItems, auditItem.leafTagId];
+                                  }
+                                })
+                              }
+                            >
+                              {rejectedItems.includes(auditItem.leafTagId) ? (
+                                <CheckIcon className="h-3 w-3" />
+                              ) : (
+                                <XIcon className="h-3 w-3" />
+                              )}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>{rejectedItems.includes(auditItem.leafTagId) ? t("tooltipAdd") : t("tooltipRemove")}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     ) : null}
                   </div>
                 ))}

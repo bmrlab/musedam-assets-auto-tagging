@@ -131,6 +131,9 @@
     "AiCreateModal": {
       "generateFailed": "Failed to generate tag system",
       "creating": "Creating..."
+    },
+    "TagColumn": {
+      "smartTags": "Smart Tags"
     }
   },
   "AiCreateModal": {

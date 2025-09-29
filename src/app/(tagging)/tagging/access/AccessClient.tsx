@@ -10,12 +10,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { dispatchMuseDAMClientAction } from "@/embed/message";
 import { idToSlug } from "@/lib/slug";
-import { Building, ChevronDown, Loader2, Plus, User, Users } from "lucide-react";
+import { Building, ChevronDown, GroupIcon, Loader2, Plus, User, Users } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import Image from "next/image";
 import { addAccessPermissionAction, removeAccessPermissionAction } from "./actions";
+import { DepartmentIcon, TeamIcon } from "@/components/ui";
 
 interface AccessClientProps {
   initialPermissions: AccessPermission[];
@@ -127,8 +128,8 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
 
   const getPermissionIcon = (slug: string) => {
     if (slug.startsWith("u/")) return <User className="h-4 w-4" />;
-    if (slug.startsWith("ug/")) return <Users className="h-4 w-4" />;
-    if (slug.startsWith("ud/")) return <Building className="h-4 w-4" />;
+    if (slug.startsWith("ug/")) return <TeamIcon className="h-4 w-4" />;
+    if (slug.startsWith("ud/")) return <DepartmentIcon className="h-4 w-4" />;
     return null;
   };
 

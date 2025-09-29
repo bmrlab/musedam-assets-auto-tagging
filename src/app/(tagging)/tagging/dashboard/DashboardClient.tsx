@@ -13,7 +13,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ExtractServerActionData } from "@/lib/serverAction";
 import { cn } from "@/lib/utils";
 import { AssetObjectExtra } from "@/prisma/client";
-import { CheckCircle2, RefreshCw, RefreshCwIcon } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
@@ -47,6 +47,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useTheme } from "next-themes";
+import { RetryIcon } from "@/components/ui/icons";
 
 interface DashboardClientProps {
   initialStats: ExtractServerActionData<typeof fetchDashboardStats>["stats"];
@@ -66,9 +67,9 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
   const [currentTime, setCurrentTime] = useState(Date.now());
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [taskFilter, setTaskFilter] = useState<"all" | "processing">("processing");
+  const [taskFilter, setTaskFilter] = useState<"all" | "processing">("all");
   const [totalTasks, setTotalTasks] = useState(0);
-  const [pageSize, setPageSize] = useState(20);
+  const [pageSize, setPageSize] = useState(14);
 
   const { theme } = useTheme();
   const isDark = theme === "dark";
@@ -231,7 +232,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
     }
 
     return (
-      <div className="flex items-center justify-between gap-2 p-4 border-t ">
+      <div className="flex items-center justify-between gap-2 p-3 border-t">
         <Pagination className="flex-1 mx-0">
           <PaginationContent>
             <PaginationItem>
@@ -393,14 +394,14 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
               </div>
             </RadioGroup>
             <Button size="sm" variant="outline" onClick={handleRetryAllTasks}>
-              <RefreshCw className="h-3 w-3 mr-1" />
+              <RetryIcon className="size-[14px] mr-1" />
               {t("retryFailedTasks")}
             </Button>
           </div>
         </div>
 
         {/* Task Items */}
-        <div className="">
+        <div className="tagging-tasks-list">
           {tasks.length === 0 ? (
             <div className="text-center py-12 text-basic-5 text-sm ">
               <Image
@@ -413,105 +414,110 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
               <p>{t("noTasks")}</p>
             </div>
           ) : (
-            tasks.map((task) => {
-              return (
-                <div
-                  key={task.id}
-                  className="flex items-center gap-[14px] px-4 py-3  transition-all"
-                >
-                  {/* Thumbnail or Icon */}
-                  <div className="shrink-0 size-8 relative overflow-hidden bg-muted">
-                    <Image
-                      src={getThumbnailUrl(task)}
-                      alt={task.assetObject.name}
-                      fill
-                      sizes="32px"
-                      className="object-cover"
-                    />
-                  </div>
-
-                  {/* File Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-baseline gap-2 text-xs">
-                      <span className="font-medium truncate" title={task.assetObject.name}>
-                        {task.assetObject.name}
-                      </span>
+            <div className="max-h-[622px] overflow-y-auto">
+              {tasks.map((task) => {
+                return (
+                  <div
+                    key={task.id}
+                    className="flex items-center gap-[14px] px-4 py-3  transition-all"
+                  >
+                    {/* Thumbnail or Icon */}
+                    <div className="shrink-0 size-8 relative overflow-hidden bg-muted">
+                      <Image
+                        src={getThumbnailUrl(task)}
+                        alt={task.assetObject.name}
+                        fill
+                        sizes="32px"
+                        className="object-cover"
+                      />
                     </div>
-                    <div className="flex items-center gap-2 text-xs mt-0.5">
-                      <span>
+
+                    {/* File Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline gap-2 text-xs">
+                        <span className="font-medium truncate" title={task.assetObject.name}>
+                          {task.assetObject.name}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs mt-0.5 text-basic-6">
+                        <span>
+                          {(() => {
+                            try {
+                              const extra = task.assetObject.extra as AssetObjectExtra | null;
+                              return extra?.extension?.toUpperCase() || "UNKNOWN";
+                            } catch {
+                              return "UNKNOWN";
+                            }
+                          })()}
+                        </span>
                         {(() => {
                           try {
                             const extra = task.assetObject.extra as AssetObjectExtra | null;
-                            return extra?.extension?.toUpperCase() || "UNKNOWN";
-                          } catch {
-                            return "UNKNOWN";
+                            return extra?.size;
+                          } catch (error) {
+                            return null;
                           }
-                        })()}
-                      </span>
-                      {(() => {
-                        try {
-                          const extra = task.assetObject.extra as AssetObjectExtra | null;
-                          return extra?.size;
-                        } catch (error) {
-                          return null;
-                        }
-                      })() && (
-                          <span className="text-basic-5">
-                            <span> · </span>
-                            {formatFileSize(
-                              (() => {
-                                try {
-                                  const extra = task.assetObject.extra as AssetObjectExtra | null;
-                                  return extra?.size || 0;
-                                } catch (error) {
-                                  return 0;
-                                }
-                              })(),
-                            )}
-                            <span> · </span>
-                          </span>
-                        )}
-                      <>
-                        {task.status === "failed" ? <span className="text-danger-6">
-                          {t("taggingFailed")}
-                        </span> : <span>
-                          {`${t("aiTaggingTime")}: ${formatDuration(task)}`}
-                        </span>}
-                      </>
+                        })() && (
+                            <span className="text-basic-5">
+                              <span> · </span>
+                              {formatFileSize(
+                                (() => {
+                                  try {
+                                    const extra = task.assetObject.extra as AssetObjectExtra | null;
+                                    return extra?.size || 0;
+                                  } catch (error) {
+                                    return 0;
+                                  }
+                                })(),
+                              )}
+                              <span> · </span>
+                            </span>
+                          )}
+                        <>
+                          {task.status === "failed" ? <span className="text-danger-6">
+                            {t("taggingFailed")}
+                          </span> : task.status === "pending" ? (
+                            <span className="text-xs ">
+                              {t("waitingForTagging")}
+                            </span>
+                          ) : <span className='flex items-center gap-[3px]'>
+                            {`${t("aiTaggingTime")}: ${formatDuration(task)}`}
+                            {task.status === "completed" && <CheckCircle2 className="size-3 text-[#00E096]" />}
+                          </span>}
+                        </>
+                      </div>
+                    </div>
+
+                    {/* Status */}
+                    <div className="shrink-0">
+                      {task.status === "processing" ? (
+                        <span className="w-1.5 h-1.5 bg-primary-6 rounded-full animate-pulse"></span>
+                      ) : task.status === "failed" ? (
+                        <div className="size-[26px] cursor-pointer transition-all duration-300 ease-in-out flex items-center justify-center group hover:bg-primary-1 rounded-[6px]" onClick={() => handleRetryTask(task.id)} >
+                          <RetryIcon className="h-4 w-4 text-basic-6 group-hover:text-basic-8" />
+                        </div>
+                      )
+                        // : task.status === "pending" ? (
+                        //   <span className="text-xs text-warning-6">
+                        //     {t("waitingForTagging")}
+                        //   </span>
+                        // ) 
+                        // : task.status === "completed" ? (
+                        //   <CheckCircle2 className="h-4 w-4 text-[#00E096]" />
+                        // ) 
+                        : null}
                     </div>
                   </div>
+                );
+              })}
+            </div>
+          )}
 
-                  {/* Status */}
-                  <div className="shrink-0">
-                    {task.status === "processing" ? (
-                      <span className="w-1.5 h-1.5 bg-blue-600 dark:bg-blue-400 rounded-full animate-pulse"></span>
-                    ) : task.status === "pending" ? (
-                      <span className="text-xs text-orange-600 dark:text-orange-400">
-                        {t("waitingForTagging")}
-                      </span>
-                    ) : task.status === "failed" ? (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-danger-6  h-auto py-0.5 px-2 text-xs"
-                        onClick={() => handleRetryTask(task.id)}
-                      >
-                        <RefreshCwIcon />
-                      </Button>
-                    ) : task.status === "completed" ? (
-                      <CheckCircle2 className="h-4 w-4 text-[#00E096]" />
-                    ) : null}
-                  </div>
-                </div>
-              );
-            })
+          {/* Pagination */}
+          {totalPages > 1 && (
+            renderPagination()
           )}
         </div>
-
-        {/* Pagination */}
-        {totalPages > 1 && (
-          renderPagination()
-        )}
       </div>
 
       {/* Charts Side by Side - 2:1 ratio */}
@@ -525,8 +531,8 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
                 <div className="size-[10px] rounded-full bg-[#0FCA7A]" />
                 <span className="text-xs">{t("initiateTasks")}</span>
               </div>
-              <div className="flex items-center gap-2 bg-[#00C7F2]">
-                <div className="size-[10px] rounded-full" />
+              <div className="flex items-center gap-2 ">
+                <div className="size-[10px] rounded-full bg-[#00C7F2]" />
                 <span className="text-xs">{t("processTasks")}</span>
               </div>
             </div>

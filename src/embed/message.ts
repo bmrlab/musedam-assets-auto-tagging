@@ -249,6 +249,7 @@ type ActionMap = {
   goto: {
     args: {
       url: string;
+      target?:"_blank" | "_self";
     };
     result: BaseActionResult<never>;
   };

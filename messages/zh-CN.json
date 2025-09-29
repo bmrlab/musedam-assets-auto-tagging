@@ -131,6 +131,9 @@
     "AiCreateModal": {
       "generateFailed": "生成标签体系失败",
       "creating": "创建中..."
+    },
+    "TagColumn": {
+      "smartTags": "智能标签"
     }
   },
   "AiCreateModal": {

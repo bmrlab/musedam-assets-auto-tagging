@@ -15,7 +15,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
       richColors={true}
       closeButton={false}
       duration={3000}
-      offset={8}
+      offset={12}
       style={
         {
           "--unified-bg": "var(--ant-basic-0)",

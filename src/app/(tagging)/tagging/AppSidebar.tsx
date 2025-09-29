@@ -61,17 +61,17 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
   const menuItems = getMenuItems(t);
 
   return (
-    <Sidebar collapsible="icon" className={cn("px-1.5 bg-background", className)} {...props}>
-      <SidebarHeader className="group-data-[state=collapsed]:px-0 mb-2 flex flex-row items-center justify-between group-data-[state=collapsed]:justify-center">
-        <div className="group-data-[state=collapsed]:hidden font-medium">{t("App.title")}</div>
+    <Sidebar collapsible="icon" className={cn("bg-background", className)} {...props}>
+      <SidebarHeader className="group-data-[state=collapsed]:px-0 mb-4 px-[18px] h-[48px] flex flex-row items-center justify-between group-data-[state=collapsed]:justify-center">
+        <div className="group-data-[state=collapsed]:hidden leading-[32px] text-base font-semibold">{t("App.title")}</div>
         <SidebarTrigger />
       </SidebarHeader>
-      <SidebarContent>
+      <SidebarContent className="px-1.5">
         <SidebarMenu>
           {menuItems.map((item) => (
             <SidebarMenuItem key={item.url}>
               <SidebarMenuButton
-                className="px-[14px] h-10"
+                className="px-4 h-10"
                 asChild
                 isActive={pathname === item.url}
                 tooltip={item.title}

@@ -2,6 +2,7 @@
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { List, Plus } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { TagNode } from "../types";
 import { TagItem } from "./TagItem";
@@ -53,6 +54,7 @@ export function TagColumn({
   showAiTags,
   onSortTags,
 }: TagColumnProps) {
+  const t = useTranslations("TagsPage.TagColumn");
   const [sortTagOpen, setSortTagOpen] = useState(false);
 
   // 处理排序确认
@@ -133,7 +135,7 @@ export function TagColumn({
               onSelectTag?.("-1");
             }}
           >
-            智能标签
+            {t("smartTags")}
           </div>
         </div>
       )}

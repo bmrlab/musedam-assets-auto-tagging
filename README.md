@@ -71,13 +71,30 @@ INTERNAL_API_KEY=your_secret_key_here
 pnpm queue-processor
 ```
 
-队列处理器会：
+队列处理器会自动：
 
 - 每 10 秒自动调用一次 `/api/tagging/process-queue` 接口
 - 每次处理最多 10 个待处理的打标任务
+- **每天凌晨 0 点自动执行定时标签任务**，遍历所有启用了 `settings.triggerTiming.scheduledTagging` 的团队
 - 显示处理进度和状态信息
 
-**注意：** 队列处理器需要与开发服务器同时运行才能正常工作。
+### 6. 定时标签功能
+
+定时标签功能已经**集成在队列处理器中**，无需额外配置。每天凌晨 0 点会自动：
+
+- 查询所有 `settings.triggerTiming.scheduledTagging` 为 `true` 的团队
+- 为每个团队调用 `requestMuseDAMAPI("/timing-tag", { method: "POST", body: { folderIds: settings.applicationScope.selectedFolders, isAll: settings.applicationScope.scopeType === 'all' }})`
+- 记录详细的执行日志和结果
+
+#### 手动执行定时标签任务
+
+如果需要立即运行一次定时标签任务（用于测试）：
+
+```bash
+pnpm scheduled-tagger
+```
+
+**注意：** 队列处理器需要在 `.env` 文件中配置 `INTERNAL_API_KEY` 来访问内部 API。
 
 ## Scripts
 
@@ -106,6 +123,21 @@ pnpm login-url
 # 使用自定义数据
 pnpm login-url "123" "John Doe" "456" "My Team" "/tagging"
 ```
+
+### scheduled-tagger
+
+手动触发定时标签任务的脚本（用于测试）：
+
+```bash
+pnpm scheduled-tagger
+```
+
+该脚本会立即执行一次定时标签任务：
+- 查询所有启用了 `settings.triggerTiming.scheduledTagging` 的团队
+- 为每个团队调用 `requestMuseDAMAPI("/timing-tag", { method: "POST", body: { folderIds: settings.applicationScope.selectedFolders, isAll: settings.applicationScope.scopeType === 'all' }})`
+- 输出详细的执行报告
+
+**注意：** 定时标签任务也会**自动通过 `pnpm queue-processor` 在每天凌晨 0 点运行**，无需手动执行。
 
 ## 外网访问配置
 

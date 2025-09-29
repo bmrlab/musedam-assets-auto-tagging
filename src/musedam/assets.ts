@@ -5,6 +5,11 @@ import { retrieveTeamCredentials } from "./apiKey";
 import { requestMuseDAMAPI } from "./lib";
 import { MuseDAMID } from "./types";
 
+/**
+ * 获取文件夹路径
+ * @param param0 
+ * @returns 
+ */
 async function fetchMuseDAMFolderPath({
   team,
   musedamFolderId,
@@ -25,7 +30,38 @@ async function fetchMuseDAMFolderPath({
     },
     body: [musedamFolderId],
   });
+
   return result[musedamFolderId.toString()];
+}
+
+
+/**
+ * 获取文件夹下的子文件夹id
+ * @param param0 
+ * @returns 
+ */
+export async function fetchMuseDAMFolderSubIds({
+  team,
+  musedamFolderIds,
+}: {
+  team: {
+    id: number;
+    slug: string;
+  };
+  musedamFolderIds: MuseDAMID[];
+}) {
+  const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
+  const result: {
+    [_id: string]: string;
+  } = await requestMuseDAMAPI("/api/muse/get-sub-folder-ids", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${musedamTeamApiKey}`,
+    },
+    body: musedamFolderIds,
+  });
+
+  return result;
 }
 
 async function fetchContentAnalysisFromMuseDAM({
@@ -110,6 +146,7 @@ export async function syncSingleAssetFromMuseDAM({
     throw new Error(`Asset not found`);
   }
 
+
   const musedamAsset = assets[0] as {
     id: MuseDAMID;
     name: string;
@@ -126,7 +163,7 @@ export async function syncSingleAssetFromMuseDAM({
     buildAssetObjectTags(musedamAsset.tags ?? []),
   ]);
   const assetSlug = idToSlug("assetObject", musedamAsset.id);
-
+  console.log("folderPath",folderPath)
   // 更新或创建 asset 记录
   const assetObject = await prisma.assetObject.upsert({
     where: {
@@ -233,3 +270,4 @@ export async function syncAssetsFromMuseDAM({
 
   return result;
 }
+

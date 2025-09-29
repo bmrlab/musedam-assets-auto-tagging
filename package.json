@@ -18,7 +18,8 @@
     "make-admin": "tsx scripts/make-admin.ts",
     "login-url": "tsx scripts/login-url.ts",
     "generate-test-data": "tsx scripts/generate-test-data.ts",
-    "queue-processor": "tsx scripts/queue-processor.ts"
+    "queue-processor": "tsx scripts/queue-processor.ts",
+    "scheduled-tagger": "tsx scripts/queue-processor.ts --scheduled-only"
   },
   "dependencies": {
     "@ai-sdk/amazon-bedrock": "^3.0.8",
