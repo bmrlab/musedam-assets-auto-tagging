@@ -3,6 +3,7 @@ import { getTaggingSettings } from "@/app/(tagging)/tagging/settings/lib";
 import { TaggingSettingsData } from "@/app/(tagging)/types";
 import { idToSlug, slugToId } from "@/lib/slug";
 import prisma from "@/prisma/prisma";
+import { JsonValue } from "@/prisma/client/runtime/library";
 import { syncSingleAssetFromMuseDAM } from "@/musedam/assets";
 import { MuseDAMID } from "@/musedam/types";
 import { NextRequest, NextResponse } from "next/server";
@@ -151,7 +152,9 @@ async function processBatchTagging({
       targetAssetIds = assetIds;
     } else {
       // 查询符合条件的资产对象
-      const whereCondition: any = {
+      const whereCondition: {
+        teamId: number;
+      } = {
         teamId: team.id,
       };
 
@@ -164,7 +167,7 @@ async function processBatchTagging({
       // 从 extra 字段中提取 MuseDAMID
       targetAssetIds = assetObjects
         .map((asset) => {
-          const extra = asset.extra as any;
+          const extra = asset.extra as { id?: number } | null;
           return extra?.id ? Number(extra.id) : null;
         })
         .filter((id): id is number => id !== null && id > 0)
@@ -191,7 +194,31 @@ async function processBatchTagging({
 
     const syncResults = await Promise.allSettled(syncPromises);
     const successfulSyncs = syncResults
-      .filter((result): result is PromiseFulfilledResult<any> => 
+      .filter((result): result is PromiseFulfilledResult<{
+        success: boolean;
+        musedamAssetId: number;
+        assetObject: {
+          teamId: number;
+          name: string;
+          id: number;
+          slug: string;
+          createdAt: Date;
+          updatedAt: Date;
+          extra: JsonValue;
+          materializedPath: string;
+          description: string;
+          tags: JsonValue;
+          content: JsonValue;
+        };
+        musedamAsset: {
+          id: MuseDAMID;
+          name: string;
+          parentIds: MuseDAMID[];
+          description: string | null;
+          tags: { id: MuseDAMID; name: string }[] | null;
+          thumbnailAccessUrl: string;
+        };
+      }> => 
         result.status === "fulfilled" && result.value.success
       )
       .map(result => result.value);
@@ -230,7 +257,7 @@ async function processBatchTagging({
           const musedamFolderIds: MuseDAMID[] = settings.applicationScope.selectedFolders.map(
             (folder) => slugToId("assetFolder", folder.slug),
           );
-          const hasIntersection = musedamAsset.parentIds.some((parentId: string | number) =>
+          const hasIntersection = musedamAsset.parentIds.some((parentId: MuseDAMID) =>
             musedamFolderIds.some((folderId) => folderId.toString() === String(parentId)),
           );
           
@@ -259,7 +286,11 @@ async function processBatchTagging({
 
     // 统计同步失败的数量
     const syncFailures = syncResults
-      .filter((result): result is PromiseFulfilledResult<any> => 
+      .filter((result): result is PromiseFulfilledResult<{
+        success: boolean;
+        musedamAssetId: number;
+        error: string;
+      }> => 
         result.status === "fulfilled" && !result.value.success
       ).length;
 

@@ -9,7 +9,6 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ExtractServerActionData } from "@/lib/serverAction";
 import { cn } from "@/lib/utils";
 import { AssetObjectExtra } from "@/prisma/client";
@@ -69,7 +68,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
   const [totalPages, setTotalPages] = useState(1);
   const [taskFilter, setTaskFilter] = useState<"all" | "processing">("all");
   const [totalTasks, setTotalTasks] = useState(0);
-  const [pageSize, setPageSize] = useState(14);
+  const [pageSize, setPageSize] = useState(20);
 
   const { theme } = useTheme();
   const isDark = theme === "dark";
@@ -306,7 +305,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
 
         <div className="flex items-center gap-2 text-sm text-basic-5">
           <Select value={pageSize.toString()} onValueChange={handlePageSizeChange}>
-            <SelectTrigger className="!h-8">
+            <SelectTrigger className="!h-8 ">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -380,23 +379,19 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <RadioGroup value={taskFilter} onValueChange={handleFilterChange}>
-              <div className="flex items-center gap-2">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <RadioGroupItem value="all" />
-                  <span className="text-sm">{t("filterAll")}</span>
-                </label>
-
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <RadioGroupItem value="processing" />
-                  <span className="text-sm">{t("filterProcessing")}</span>
-                </label>
-              </div>
-            </RadioGroup>
-            <Button size="sm" variant="outline" onClick={handleRetryAllTasks}>
+            <Select value={taskFilter} onValueChange={handleFilterChange}>
+              <SelectTrigger className="!h-8 w-[120px]">
+                <SelectValue placeholder={t("filterAll")} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t("filterAll")}</SelectItem>
+                <SelectItem value="processing">{t("filterProcessing")}</SelectItem>
+              </SelectContent>
+            </Select>
+            {stats.failed > 0 && <Button size="sm" variant="outline" onClick={handleRetryAllTasks}>
               <RetryIcon className="size-[14px] mr-1" />
               {t("retryFailedTasks")}
-            </Button>
+            </Button>}
           </div>
         </div>
 
