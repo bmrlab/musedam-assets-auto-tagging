@@ -91,6 +91,9 @@ export function SettingIcon(props: IconProps) {
   return <SvgIcon src="/Icon/Setting.svg"  {...props} />;
 }
 
+export function EditIcon(props: IconProps) {
+  return <SvgIcon src="/Icon/Edit.svg"  {...props} />;
+}
 export function FileImageIcon(props: IconProps) {
   return <SvgIcon src="/Icon/FileImage.svg"  {...props} />;
 }

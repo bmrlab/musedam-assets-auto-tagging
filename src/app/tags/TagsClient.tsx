@@ -15,7 +15,7 @@ import { TagDetails } from "./components/TagDetails";
 import { ThreeTagList } from "./components/ThreeTagList";
 import { TagEditProvider, useTagEdit } from "./contexts/TagEditContext";
 import { SearchTagData, TagNode, TagRecord } from "./types";
-import { SearchIcon, X } from "lucide-react";
+import { PlusIcon, SearchIcon, X } from "lucide-react";
 
 interface TagsClientProps {
   initialTags: (AssetTag & { children?: (AssetTag & { children?: AssetTag[] })[] })[];
@@ -851,7 +851,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
           <Input
             type="text"
             placeholder={t("searchPlaceholder")}
-            className="w-full pl-[30px] pr-10 border-none h-[32px]"
+            className="w-full pl-[30px] pr-10 border-none h-[32px] !hover:border-none !focus:border-none !focus:shadow-none !focus-visible:border-none !focus-visible:shadow-none"
             value={searchQuery}
             onChange={(e) => handleSearchChange(e.target.value)}
           />
@@ -881,6 +881,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
               setBatchCreateModalVisible(true);
             }}
           >
+            <PlusIcon className="size-[14px]" />
             {t("batchCreate")}
           </Button>
         </div>

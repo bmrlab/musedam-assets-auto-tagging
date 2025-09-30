@@ -333,7 +333,9 @@ button:hover {
 }
 
 textarea:focus,
-textarea:focus-visible {
+textarea:focus-visible,
+input:focus,
+input:focus-visible {
   border: 1px solid #5c8aff;
   box-shadow: 0 0 0 2px rgba(51, 102, 255, .2);
 }

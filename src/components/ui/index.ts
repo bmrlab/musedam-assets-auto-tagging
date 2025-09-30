@@ -7,6 +7,7 @@ export {
   Icon,
   MonitorIcon,
   SettingIcon,
+  EditIcon,
   VimIcon,
   SvgIcon,
   TagAIIcon,

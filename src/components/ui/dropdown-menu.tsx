@@ -17,9 +17,16 @@ function DropdownMenuPortal({
 }
 
 function DropdownMenuTrigger({
+  className,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Trigger>) {
-  return <DropdownMenuPrimitive.Trigger data-slot="dropdown-menu-trigger" {...props} />;
+  return <DropdownMenuPrimitive.Trigger data-slot="dropdown-menu-trigger "
+    className={cn(
+      "focus-visible:ring-0 focus-visible:ring-offset-0",
+      className,
+    )}
+    {...props}
+  />;
 }
 
 function DropdownMenuContent({
@@ -150,7 +157,7 @@ function DropdownMenuSeparator({
   return (
     <DropdownMenuPrimitive.Separator
       data-slot="dropdown-menu-separator"
-      className={cn("bg-border -mx-1 my-1 h-px", className)}
+      className={cn("bg-border my-0.5 h-px mx-1", className)}
       {...props}
     />
   );
@@ -183,7 +190,7 @@ function DropdownMenuSubTrigger({
       data-slot="dropdown-menu-sub-trigger"
       data-inset={inset}
       className={cn(
-        "focus:bg-accent focus:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground flex cursor-default items-center rounded-sm px-2 py-1.5 text-sm outline-hidden select-none data-[inset]:pl-8",
+        "focus:bg-accent focus:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground flex cursor-default items-center rounded-[6px] px-2 py-1.5 text-sm outline-hidden select-none data-[inset]:pl-8",
         className,
       )}
       {...props}

@@ -10,13 +10,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { dispatchMuseDAMClientAction } from "@/embed/message";
 import { idToSlug } from "@/lib/slug";
-import { Building, ChevronDown, GroupIcon, Loader2, Plus, User, Users } from "lucide-react";
+import { Building, Check, ChevronDown, GroupIcon, Loader2, Plus, User, Users } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import Image from "next/image";
 import { addAccessPermissionAction, removeAccessPermissionAction } from "./actions";
 import { DepartmentIcon, TeamIcon } from "@/components/ui";
+import { cn } from "@/lib/utils";
 
 interface AccessClientProps {
   initialPermissions: AccessPermission[];
@@ -33,11 +34,17 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
   const handleMemberSelection = async () => {
     try {
       setIsSelecting(true);
-      const res = await dispatchMuseDAMClientAction("member-selector-modal-open", {});
+      const res = await dispatchMuseDAMClientAction("member-selector-modal-open", {
+        selectedItems: {
+          members: initialPermissions.filter((p) => p.slug.startsWith("u/")).map((p) => ({ id: p.slug.split("/")[1], name: p.name })),
+          departments: initialPermissions.filter((p) => p.slug.startsWith("ud/")).map((p) => ({ id: p.slug.split("/")[1], name: p.name })),
+          groups: initialPermissions.filter((p) => p.slug.startsWith("ug/")).map((p) => ({ id: p.slug.split("/")[1], name: p.name })),
+        }
+      });
       if (!res) return;
       const { members, departments, groups } = res;
       const allPermissions: AccessPermission[] = [];
-
+      console.log("member", members)
       // 处理用户 
       if (members && members.length > 0) {
         for (const member of members) {
@@ -45,6 +52,10 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
             slug: idToSlug("user", member.id),
             name: member.name,
             role: defaultRole,
+            extra: {
+              avatarUrl: member.avatarUrl,
+              departmentsName: member.departmentsName,
+            }
           });
         }
       }
@@ -126,15 +137,23 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
     });
   };
 
-  const getPermissionIcon = (slug: string) => {
-    if (slug.startsWith("u/")) return <User className="h-4 w-4" />;
-    if (slug.startsWith("ug/")) return <TeamIcon className="h-4 w-4" />;
-    if (slug.startsWith("ud/")) return <DepartmentIcon className="h-4 w-4" />;
-    return null;
+  const getPermissionIcon = ({ slug, extra, name }: AccessPermission) => {
+    const nameInAvatar = name.slice(0, 1)
+    if (extra?.avatarUrl) {
+      return <img src={extra.avatarUrl} alt="avatar" width={40} height={40} className='rounded-full object-cover size-9' />
+    }
+    return <div className="flex size-9 items-center justify-center bg-[#C5CEE0] border border-black/10 border-solid text-white rounded-full text-[14px]">
+      {
+        slug.startsWith("u/") ? <div className="w-full h-full flex items-center justify-center">{nameInAvatar}</div>
+          : slug.startsWith("ug/") ?
+            <TeamIcon className="size-[14px] text-current" />
+            : <DepartmentIcon className="size-[14px] text-current" />
+      }
+    </div>
   };
 
-  const getPermissionType = (slug: string) => {
-    if (slug.startsWith("u/")) return t("user");
+  const getPermissionDes = ({ slug, extra }: AccessPermission) => {
+    if (slug.startsWith("u/")) return extra?.departmentsName ? extra.departmentsName : t("user");
     if (slug.startsWith("ug/")) return t("userGroup");
     if (slug.startsWith("ud/")) return t("department");
     return t("unknown");
@@ -145,7 +164,7 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
   };
 
   return (
-    <div className="bg-background border rounded-lg">
+    <div className="bg-background border rounded-lg h-full">
       <div className="px-4 py-3 border-b flex items-center justify-between">
         <h3 className="font-medium text-sm">{t("roleAndPermissions")}</h3>
         <Button onClick={handleMemberSelection} disabled={isSelecting || isPending} size="sm">
@@ -200,13 +219,11 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
               className="flex items-center justify-between py-3 border-b"
             >
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
-                  {getPermissionIcon(permission.slug)}
-                </div>
+                {getPermissionIcon(permission)}
                 <div>
                   <div className="font-medium text-sm">{permission.name}</div>
                   <div className="text-xs text-basic-5">
-                    {getPermissionType(permission.slug)}
+                    {getPermissionDes(permission)}
                   </div>
                 </div>
               </div>
@@ -224,22 +241,28 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
                       disabled={permission.role === "admin"}
                       className="py-[6px]"
                     >
-                      <div className="flex flex-col">
+                      <div className="flex flex-col flex-1">
                         <span className="text-sm">{t("canManage")}</span>
-                        <span className="text-xs text-basic-5">
+                        <span className="text-xs text-basic-5 mt-[2px]">
                           {t("fullManagementPermission")}
                         </span>
                       </div>
+                      {permission.role === "admin" && (
+                        <Check className="h-4 w-4 text-primary-6" />
+                      )}
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onClick={() => handleChangeRole(permission.slug, "reviewer")}
                       disabled={permission.role === "reviewer"}
                       className="py-[6px]"
                     >
-                      <div className="flex flex-col">
+                      <div className="flex flex-col flex-1">
                         <span className="text-sm">{t("canReview")}</span>
-                        <span className="text-xs text-basic-5">{t("reviewPermission")}</span>
+                        <span className="text-xs text-basic-5 mt-[2px]">{t("reviewPermission")}</span>
                       </div>
+                      {permission.role === "reviewer" && (
+                        <Check className="h-4 w-4 text-primary-6" />
+                      )}
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem

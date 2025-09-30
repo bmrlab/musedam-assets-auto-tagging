@@ -67,9 +67,9 @@ export function ApplicationScopeSection({
                             e.stopPropagation();
                             onScopeTypeChange("specific");
                           }}
-                          className="h-8 w-8 p-0 hover:text-danger-6 text-basic-5"
+                          className="text-basic-5 size-8 p-0 hover:text-danger-6"
                         >
-                          <Trash />
+                          <Trash className="text-current" />
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>
@@ -114,7 +114,7 @@ export function ApplicationScopeSection({
                             e.stopPropagation();
                             onRemoveFolder(folder.slug);
                           }}
-                          className="h-8 w-8 p-0 hover:text-danger-6"
+                          className="size-8 p-0 hover:text-danger-6 text-basic-5"
                         >
                           <Trash />
                         </Button>

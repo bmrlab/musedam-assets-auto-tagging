@@ -31,15 +31,16 @@ function SelectTrigger({
       data-slot="select-trigger"
       data-size={size}
       className={cn(
-        "cursor-pointer",
+        "cursor-pointer hover:border-primary-5 transition-all duration-300 ease-in-out",
         "text-basic-8 border-basic-4 data-[placeholder]:text-basic-5 px-3 [&_svg:not([class*='text-'])]:text-basic-5 flex w-fit items-center justify-between gap-2 rounded-[6px] border bg-transparent py-2 text-sm whitespace-nowrap transition-all outline-none  disabled:cursor-not-allowed disabled:opacity-50 data-[size=default]:h-9 data-[size=sm]:h-8 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "data-[state=open]:border-[#5c8aff] data-[state=open]:shadow-[0_0_0_2px_rgba(51,102,255,0.2)] data-[state=open]:text-basic-5",
         className,
       )}
       {...props}
     >
       {children}
       <SelectPrimitive.Icon asChild>
-        <ChevronDownIcon className="size-3 rgba(0,0,0,0.25)" />
+        <ChevronDownIcon className="text-current" />
       </SelectPrimitive.Icon>
     </SelectPrimitive.Trigger>
   );

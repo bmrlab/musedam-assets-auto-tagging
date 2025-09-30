@@ -155,7 +155,7 @@ export function ReviewItem({ assetObject, batch, onSuccess, CheckboxComponent, b
               {assetObject.materializedPath}
             </span>
           </div> */}
-          <div className="flex items-center gap-1 text-xs text-basic-5 mt-1">
+          <div className="flex items-center gap-0.5 text-xs text-basic-5 mt-1">
             <span>{(assetObject.extra as AssetObjectExtra).extension?.toUpperCase()}</span>
             <DotIcon className="size-3" />
             <span>

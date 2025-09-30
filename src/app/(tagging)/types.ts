@@ -107,8 +107,15 @@ export const DEFAULT_TAGGING_SETTINGS: TaggingSettingsData = {
 
 // Permission settings
 export type AccessRole = "reviewer" | "admin";
+
+
+interface MemberExtra {
+  avatarUrl?: string;
+  departmentsName?: string;
+};
 export interface AccessPermission {
   slug: string;
   name: string;
   role: AccessRole;
+  extra?: MemberExtra
 }

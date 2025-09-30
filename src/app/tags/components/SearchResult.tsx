@@ -10,7 +10,7 @@ export const SearchResult: FC<{
 }> = ({ searchData, handleClick }) => {
     const t = useTranslations("SearchResult");
     return <div className="flex-1 bg-background border h-full rounded-md overflow-hidden flex flex-col">
-        <div className="border-b px-4 py-2 font-medium">{t("tagGroup")}</div>
+        <div className="border-b px-4 py-2 font-medium leading-8">{t("tagGroup")}</div>
         <div className="flex-1 overflow-y-auto scrollbar-thin">
             <div className="flex gap-2.5 flex-wrap p-5">
                 {searchData &&
@@ -51,7 +51,7 @@ export const SearchResult: FC<{
             {Array.isArray(searchData) && searchData.length === 0 && (
                 <div className="w-full h-full flex justify-center items-center flex-col">
                     {/* <img src={emptyTagsSvg} className="w-[82px] h-[66px] mb-[12px]" /> */}
-                    <p className="">{t("noSearchResults")}</p>
+                    <p className="text-sm text-basic-5">{t("noSearchResults")}</p>
                 </div>
             )}
         </div>

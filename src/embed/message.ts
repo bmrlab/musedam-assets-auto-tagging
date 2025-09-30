@@ -96,27 +96,27 @@ if (typeof window !== "undefined") {
   // 该调用会在首次运行时创建全局队列并注册一次 message 监听器
   getPendingPromises();
 
-  // 通知父窗口：应用加载完成
-  // const notifyParentAppLoaded = () => {
-  //   try {
-  //     const message = {
-  //       source: "musedam-app",
-  //       target: "musedam",
-  //       type: "event",
-  //       event: "loaded",
-  //       timestamp: new Date().toISOString(),
-  //     } as const;
-  //     window.parent?.postMessage(message, "*");
-  //   } catch {}
-  // };
+  // 自动通知父窗口团队设置已就绪
+  const autoNotifyTeamSettings = () => {
+    try {
+      // 延迟一段时间确保页面完全加载和授权完成
+      setTimeout(() => {
+        notifyTeamSettingsReady().catch((error) => {
+          console.error("Failed to auto notify team settings ready:", error);
+        });
+      }, 2000); // 延迟2秒确保授权完成
+    } catch (error) {
+      console.error("Failed to setup auto notify team settings:", error);
+    }
+  };
 
-  // if (document?.readyState === "complete" || document?.readyState === "interactive") {
-  //   // 文档已就绪，异步触发一次
-  //   setTimeout(notifyParentAppLoaded, 0);
-  // } else {
-  //   // 等待 DOMContentLoaded 再通知
-  //   window.addEventListener("DOMContentLoaded", notifyParentAppLoaded, { once: true } as any);
-  // }
+  if (document?.readyState === "complete" || document?.readyState === "interactive") {
+    // 文档已就绪，异步触发一次
+    autoNotifyTeamSettings();
+  } else {
+    // 等待 DOMContentLoaded 再通知
+    window.addEventListener("DOMContentLoaded", autoNotifyTeamSettings, { once: true } as any);
+  }
 }
 
 // 处理来自父项目的配置更新事件
@@ -211,9 +211,20 @@ type BaseActionResult<T = Record<string, never>> =
 
 type ActionMap = {
   "member-selector-modal-open": {
-    args: Record<string, never>;
+    args: {
+      selectedItems?: {
+        members?: Array<{ id: string; name: string }>;
+        departments?: Array<{ id: string; name: string }>;
+        groups?: Array<{ id: string; name: string }>;
+      };
+    };
     result: BaseActionResult<{
-      members: { id: MuseDAMID; name: string }[];
+      members: {
+        id: MuseDAMID;
+        name: string;
+        departmentsName?: string;
+        avatarUrl?: string;
+      }[];
       departments: { id: MuseDAMID; name: string }[];
       groups: { id: MuseDAMID; name: string }[];
     }>;
@@ -237,7 +248,7 @@ type ActionMap = {
         extension: string; // 文件扩展名
         size: number; // 文件大小（字节）
         url?: string; // 素材访问链接
-        thumbnail?: {url?:string}; // 缩略图链接
+        thumbnail?: { url?: string }; // 缩略图链接
         width?: number; // 图片宽度（图片类型）
         height?: number; // 图片高度（图片类型）
         type?: string; // 素材类型
@@ -249,7 +260,7 @@ type ActionMap = {
   goto: {
     args: {
       url: string;
-      target?:"_blank" | "_self";
+      target?: "_blank" | "_self";
     };
     result: BaseActionResult<never>;
   };
@@ -288,6 +299,13 @@ type ActionMap = {
       path: string;
     };
     result: BaseActionResult<never>;
+  };
+  "get-team-settings": {
+    args: Record<string, never>;
+    result: BaseActionResult<{
+      manualTriggerTagging: boolean;
+      hasPermission: boolean;
+    }>;
   };
 };
 
@@ -373,4 +391,80 @@ export function clearPendingRequests(): void {
     reject(new Error("Request cleared"));
   });
   pendingPromises.clear();
+}
+
+/**
+ * 通知父窗口：团队设置已就绪
+ * 当授权完成后调用此函数，将团队设置信息传递给父窗口
+ */
+export async function notifyTeamSettingsReady(): Promise<void> {
+  // 检查是否在浏览器环境
+  if (typeof window === "undefined") {
+    console.warn("Cannot notify team settings ready: not in browser environment");
+    return;
+  }
+
+  // 检查是否有父窗口
+  if (!window.parent || window.parent === window) {
+    console.warn("Cannot notify team settings ready: no parent window available");
+    return;
+  }
+
+  try {
+    // 获取团队设置数据
+    const response = await fetch("/api/team/settings", {
+      credentials: "include",
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch team settings: ${response.status}`);
+    }
+
+    const result = await response.json();
+
+    if (!result.success) {
+      throw new Error(`Failed to fetch team settings: ${result.message}`);
+    }
+
+    // 发送团队设置数据给父窗口
+    const message = {
+      source: "musedam-app",
+      target: "musedam",
+      type: "event",
+      event: "team-settings-ready",
+      data: result.data,
+      timestamp: new Date().toISOString(),
+    } as const;
+
+    window.parent.postMessage(message, "*");
+  } catch (error) {
+    console.error("Failed to notify team settings ready:", error);
+
+    // 即使获取设置失败，也发送一个基本的就绪通知
+    try {
+      const message = {
+        source: "musedam-app",
+        target: "musedam",
+        type: "event",
+        event: "team-settings-ready",
+        timestamp: new Date().toISOString(),
+      } as const;
+
+      window.parent.postMessage(message, "*");
+    } catch (fallbackError) {
+      console.error("Failed to send fallback team settings ready notification:", fallbackError);
+    }
+  }
+}
+
+/**
+ * 手动触发团队设置通知
+ * 可以在授权完成后的任何时间调用此函数
+ */
+export function triggerTeamSettingsNotification(): void {
+  if (typeof window !== "undefined") {
+    notifyTeamSettingsReady().catch((error) => {
+      console.error("Failed to trigger team settings notification:", error);
+    });
+  }
 }

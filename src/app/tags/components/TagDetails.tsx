@@ -7,12 +7,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { AssetTagExtra } from "@/prisma/client";
 import { AssetTag } from "@/prisma/client";
-import { Edit, InfoIcon, Plus, X } from "lucide-react";
+import { InfoIcon, Plus, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { updateTagExtra } from "../actions";
 import { TagEditData, useTagEdit } from "../contexts/TagEditContext";
+import { EditIcon } from "@/components/ui";
 
 // 组件Props类型
 interface TagDetailsProps {
@@ -186,7 +187,7 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
       <div className="w-[18rem] bg-background border rounded-md flex flex-col items-stretch overflow-hidden">
         <div className="border-b px-4 py-2 font-medium">{t("tagDetails")}</div>
         <div className="flex-1 overflow-y-scroll scrollbar-thin p-4">
-          <p className="text-basic-5 text-center py-8">{t("selectTagToView")}</p>
+          <p className="text-basic-5 text-center py-8 text-sm">{t("selectTagToView")}</p>
         </div>
       </div>
     );
@@ -235,8 +236,8 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
       <div className="border-b px-4 py-2 font-medium flex items-center justify-between">
         <span>{t("tagDetails")}</span>
         {!isEditing ? (
-          <Button onClick={handleStartEdit} size="sm">
-            <Edit />
+          <Button onClick={handleStartEdit} size="sm" variant="outline">
+            <EditIcon className="size-[14px]" />
             {t("edit")}
           </Button>
         ) : (
@@ -314,8 +315,8 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                    <InfoIcon />
+                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-basic-5 hover:text-basic-8">
+                    <InfoIcon className="text-current" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent className="max-w-[240px] text-sm">
@@ -356,10 +357,10 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-6 w-6 p-0"
+                    className="h-6 w-6 p-0 text-basic-5 hover:text-basic-8"
                     title={t("excludeKeywordsTooltip")}
                   >
-                    <InfoIcon />
+                    <InfoIcon className="text-current" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent className="max-w-[240px] text-sm">

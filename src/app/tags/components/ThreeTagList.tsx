@@ -92,7 +92,7 @@ export function ThreeTagList({
 
     return (
         <div className={cn("flex-1 bg-background border h-full rounded-md overflow-hidden flex flex-col", className)}>
-            {title && <div className="border-b px-4 py-2 font-medium">{title}</div>}
+            {title && <div className="border-b px-4 py-2 font-medium leading-8">{title}</div>}
             <div className="grid grid-cols-3 [&>div+div]:border-l flex-1 overflow-hidden">
                 {/* 第一列 - 标签组 */}
                 <TagColumn

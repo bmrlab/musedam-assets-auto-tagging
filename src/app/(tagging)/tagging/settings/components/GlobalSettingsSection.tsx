@@ -35,7 +35,7 @@ export function GlobalSettingsSection({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => dispatchMuseDAMClientAction("goto", { url: "/home/dashboard/tag" })}
+              onClick={() => dispatchMuseDAMClientAction("goto", { url: "/home/dashboard/tag", target: "_blank" })}
             >
               <TagsIcon />
               {t("manageTagSystem")}

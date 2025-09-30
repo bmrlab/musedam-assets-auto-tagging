@@ -432,8 +432,7 @@ export default function ReviewPageClient() {
                         handlePageChange(currentPage - 1);
                       }
                     }}
-                    className={currentPage <= 1 ? "pointer-events-none opacity-50" : ""}
-                    previousText={tCommon("pagination.previous")}
+                    disabled={currentPage <= 1}
                     ariaLabel={tCommon("pagination.goToPreviousPage")}
                   />
                 </PaginationItem>
@@ -476,8 +475,7 @@ export default function ReviewPageClient() {
                         handlePageChange(currentPage + 1);
                       }
                     }}
-                    className={currentPage >= totalPages ? "pointer-events-none opacity-50" : ""}
-                    nextText={tCommon("pagination.next")}
+                    disabled={currentPage >= totalPages}
                     ariaLabel={tCommon("pagination.goToNextPage")}
                   />
                 </PaginationItem>

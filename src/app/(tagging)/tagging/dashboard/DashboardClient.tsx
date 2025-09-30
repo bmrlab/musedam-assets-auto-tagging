@@ -237,10 +237,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
             <PaginationItem>
               <PaginationPrevious
                 onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
-                className={cn(
-                  "cursor-pointer",
-                  currentPage === 1 && "pointer-events-none opacity-50 cursor-not-allowed",
-                )}
+                disabled={currentPage <= 1}
                 ariaLabel={tCommon("pagination.goToPreviousPage")}
               />
             </PaginationItem>
@@ -293,10 +290,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
             <PaginationItem>
               <PaginationNext
                 onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
-                className={cn(
-                  "cursor-pointer",
-                  currentPage === totalPages && "pointer-events-none opacity-50 cursor-not-allowed",
-                )}
+                disabled={currentPage >= totalPages}
                 ariaLabel={tCommon("pagination.goToNextPage")}
               />
             </PaginationItem>

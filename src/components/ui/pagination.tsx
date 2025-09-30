@@ -21,7 +21,7 @@ function PaginationContent({ className, ...props }: React.ComponentProps<"ul">) 
   return (
     <ul
       data-slot="pagination-content"
-      className={cn("flex flex-row items-center gap-1", className)}
+      className={cn("flex flex-row items-center gap-2", className)}
       {...props}
     />
   );
@@ -33,6 +33,7 @@ function PaginationItem({ ...props }: React.ComponentProps<"li">) {
 
 type PaginationLinkProps = {
   isActive?: boolean;
+  disabled?: boolean
 } & Pick<React.ComponentProps<typeof Button>, "size"> &
   React.ComponentProps<"a">;
 
@@ -44,9 +45,10 @@ function PaginationLink({ className, isActive, size = "icon", ...props }: Pagina
       data-active={isActive}
       className={cn(
         buttonVariants({
-          variant: isActive ? "outline" : "ghost",
+          variant: "outline",
           size,
         }),
+        isActive && 'border-primary-5 text-primary-5',
         className,
       )}
       {...props}
@@ -58,6 +60,7 @@ function PaginationPrevious({
   className,
   previousText,
   ariaLabel,
+  disabled,
   ...props
 }: React.ComponentProps<typeof PaginationLink> & {
   previousText?: string;
@@ -67,11 +70,10 @@ function PaginationPrevious({
     <PaginationLink
       aria-label={ariaLabel}
       size="default"
-      className={cn("gap-1 px-2.5 sm:pl-2.5", className)}
+      className={cn(" flex items-center size-8", disabled && "pointer-events-none opacity-50 cursor-not-allowed", className)}
       {...props}
     >
       <ChevronLeftIcon />
-      {!!previousText?.length && <span className="hidden sm:block">{previousText}</span>}
     </PaginationLink>
   );
 }
@@ -81,6 +83,7 @@ function PaginationNext({
   className,
   nextText,
   ariaLabel,
+  disabled,
   ...props
 }: React.ComponentProps<typeof PaginationLink> & {
   nextText?: string;
@@ -90,10 +93,9 @@ function PaginationNext({
     <PaginationLink
       aria-label={ariaLabel}
       size="default"
-      className={cn("gap-1 px-2.5 sm:pr-2.5", className)}
+      className={cn("gap-1 flex items-center size-8", disabled && "pointer-events-none opacity-50 cursor-not-allowed", className)}
       {...props}
     >
-      {!!nextText?.length && <span className="hidden sm:block">{nextText}</span>}
       <ChevronRightIcon />
     </PaginationLink>
   );

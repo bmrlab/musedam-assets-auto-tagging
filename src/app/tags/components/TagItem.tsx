@@ -122,7 +122,7 @@ export function TagItem({
           onKeyDown={handleKeyDown}
           onBlur={handleSave}
           placeholder={t("inputTagName")}
-          className="flex-1 h-6 p-0 shadow-none border-none rounded-none text-sm"
+          className="flex-1 h-6 p-0 shadow-none border-none rounded-none text-sm active:border-none active:shadow-none focus:border-none focus:shadow-none focus-visible:border-none focus-visible:shadow-none"
           autoFocus
         />
         {/* <Button
@@ -164,10 +164,10 @@ export function TagItem({
         )}
         onClick={!tag.isDeleted ? onSelect : undefined}
       >
-        <div className="flex-1 flex items-center gap-2">
-          <TagIcon className="size-3" />
+        <div className="flex-1 flex items-center gap-[10px] overflow-hidden">
+          <TagIcon className="size-3 text-basic-8" />
           <span
-            className={cn("text-sm font-medium truncate", {
+            className={cn("text-sm flex-1 overflow-hidden text-ellipsis whitespace-nowrap", {
               "line-through": tag.isDeleted,
             })}
           >
@@ -273,7 +273,7 @@ export function TagItem({
             <AlertDialogCancel>{tRoot("cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmDelete}
-              className="bg-red-600 hover:bg-red-700 text-white"
+              className="bg-danger-6 text-white"
             >
               {t("confirmDelete")}
             </AlertDialogAction>
