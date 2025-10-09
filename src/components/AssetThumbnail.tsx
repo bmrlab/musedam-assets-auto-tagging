@@ -21,7 +21,7 @@ enum ETypes3D {
     stl = 'stl',
     fbx = 'fbx',
     gltf = 'gltf',
-    glb = 'gltf',
+    glb = 'glb',
     c4d = 'c4d',
     // 媒体服务目前不支持
     '3ds' = '3ds',
@@ -145,7 +145,7 @@ function isAudio(ext: string) {
 
 
 function is3dPackageAsset(asset: object) {
-    const a = asset as any;
+    const a = asset as { type?: string };
     return a.type === 'triD' || a.type === 'PROJECT_3D';
 }
 
@@ -289,7 +289,7 @@ export const AssetThumbnail = memo(
             }
 
             return <Image src="/asset-thumbnail/unknown.svg" alt="unknown" width={maxWidth} height={maxHeight} className={cn('object-contain', className)} />;
-        }, [asset.extension, maxWidth, maxHeight, className]);
+        }, [asset, maxWidth, maxHeight, className]);
 
         return (
             <div className="flex justify-center items-center" style={{ width: maxWidth, height: maxHeight }}>
