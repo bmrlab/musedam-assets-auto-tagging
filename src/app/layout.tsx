@@ -43,7 +43,7 @@ export default async function RootLayout({
           >
             <NextIntlClientProvider>
               {children}
-              <Toaster richColors={true} />
+              <Toaster richColors={true} offset={20} />
             </NextIntlClientProvider>
           </ThemeProvider>
         </AuthProvider>

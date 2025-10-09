@@ -25,6 +25,7 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
 import { TagNode } from "../types";
+import { slugToId } from "@/lib/slug";
 
 interface TagItemProps {
   tag: TagNode;
@@ -230,9 +231,15 @@ export function TagItem({
                 <DropdownMenuContent align="end" side="bottom" className="w-40">
                   <DropdownMenuItem
                     onClick={() => {
+                      if (!tag.slug) {
+                        toast.error("没有对应的tagId")
+                        return
+                      }
+                      const tagIdInMuseDam = slugToId("assetTag", tag.slug)
                       const searchUrl = `/home/all?filter=${encodeURIComponent(
-                        encodeURIComponent(JSON.stringify({ tags: [tag.id], tagIncEx: true })),
+                        encodeURIComponent(JSON.stringify({ tags: [tagIdInMuseDam], tagIncEx: true })),
                       )}`;
+                      console.log("searchUrl", searchUrl)
                       dispatchMuseDAMClientAction("goto", {
                         url: searchUrl,
                       });

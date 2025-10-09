@@ -92,8 +92,8 @@ export const Spin: React.FC<SpinProps> = ({
     // 计算点大小与间距
     const dotMap = {
       small: { size: 6, gap: 2 },
-      default: { size: 8, gap: 3 },
-      large: { size: 10, gap: 4 },
+      default: { size: 9, gap: 3 },
+      large: { size: 12, gap: 4 },
     } as const;
     const { size: dotSize, gap } = dotMap[size];
     const baseDotStyle: CSSProperties = {
@@ -111,26 +111,54 @@ export const Spin: React.FC<SpinProps> = ({
           <div
             className="grid"
             style={{
-              gridTemplateColumns: `repeat(2, ${dotSize}px)`,
-              gridTemplateRows: `repeat(2, ${dotSize}px)`,
+              gridTemplateColumns: `repeat(2, 8px)`,
+              gridTemplateRows: `repeat(2, 8px)`,
               gap,
             }}
           >
             <span
-              className="rounded-full bg-blue-500/90 animate-pulse"
-              style={{ ...baseDotStyle, animationDelay: "0ms" }}
+              className="rounded-full animate-pulse"
+              style={{
+                ...baseDotStyle,
+                backgroundColor: "#36f",
+                opacity: 0.98,
+                transform: "scale(0.75)",
+                transformOrigin: "50% 50%",
+                animationDelay: "0ms"
+              }}
             />
             <span
-              className="rounded-full bg-blue-400/90 animate-pulse"
-              style={{ ...baseDotStyle, animationDelay: "150ms" }}
+              className="rounded-full animate-pulse"
+              style={{
+                ...baseDotStyle,
+                backgroundColor: "#36f",
+                opacity: 0.73,
+                transform: "scale(0.75)",
+                transformOrigin: "50% 50%",
+                animationDelay: "150ms"
+              }}
             />
             <span
-              className="rounded-full bg-blue-400/80 animate-pulse"
-              style={{ ...baseDotStyle, animationDelay: "300ms" }}
+              className="rounded-full animate-pulse"
+              style={{
+                ...baseDotStyle,
+                backgroundColor: "#36f",
+                opacity: 0.65,
+                transform: "scale(0.75)",
+                transformOrigin: "50% 50%",
+                animationDelay: "300ms"
+              }}
             />
             <span
-              className="rounded-full bg-blue-300/80 animate-pulse"
-              style={{ ...baseDotStyle, animationDelay: "450ms" }}
+              className="rounded-full animate-pulse"
+              style={{
+                ...baseDotStyle,
+                backgroundColor: "#36f",
+                opacity: 0.44,
+                transform: "scale(0.75)",
+                transformOrigin: "50% 50%",
+                animationDelay: "450ms"
+              }}
             />
           </div>
         </div>

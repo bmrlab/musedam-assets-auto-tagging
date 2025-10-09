@@ -142,6 +142,8 @@
       "selectedItems": "Selected",
       "batchApproveSuccess": "Batch added to asset tags successfully",
       "batchApproveFailed": "Failed to batch add to asset tags",
+      "batchApprovePartialSuccess": "Partial success, {successCount} succeeded, {failedCount} failed",
+      "selectedItemsCount": "Selected {count} / {total} items",
       "batchRejectSuccess": "Batch deleted AI tagging records successfully",
       "batchRejectFailed": "Failed to batch delete AI tagging records",
       "noPendingTags": "No pending tags to review",

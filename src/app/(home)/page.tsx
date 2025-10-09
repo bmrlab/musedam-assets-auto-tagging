@@ -10,6 +10,7 @@ import { useTheme } from "next-themes";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { fetchUserAndTeam } from "./actions";
+import { Spin } from "@/components/ui/spin";
 
 export default function Home() {
   const t = useTranslations("Homepage");
@@ -41,8 +42,7 @@ export default function Home() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-basic-5">正在加载...</p>
+          <Spin variant="dots" />
         </div>
       </div>
     );

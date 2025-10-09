@@ -19,7 +19,7 @@ export function PageLoadingFallback() {
   }, []);
 
   return <div className="h-full w-full flex items-center justify-center bg-basic-1">
-    <Spin variant="dots" size="small" />
+    <Spin variant="dots" />
   </div>
 
   return (

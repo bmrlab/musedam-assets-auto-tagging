@@ -151,6 +151,8 @@
       "selectedItems": "选中",
       "batchApproveSuccess": "批量添加至素材标签成功",
       "batchApproveFailed": "批量添加至素材标签失败",
+      "batchApprovePartialSuccess": "部分添加成功，{successCount} 个成功，{failedCount} 个失败",
+      "selectedItemsCount": "选中 {count} / {total} 项",
       "batchRejectSuccess": "批量删除 AI 打标记录成功",
       "batchRejectFailed": "批量删除 AI 打标记录失败",
       "noPendingTags": "暂无待审核标签",

@@ -107,12 +107,12 @@ export async function fetchAssetsWithAuditItems(
       const totalAuditItemWhere: Prisma.TaggingAuditItemWhereInput = {
         ...auditItemWhere,
       };
-      
+
       // 如果没有指定状态过滤，则排除 rejected 状态
       if (!statusFilter) {
         totalAuditItemWhere.status = { not: "rejected" };
       }
-      
+
       const distinctAssetIds = await prisma.taggingAuditItem.findMany({
         where: totalAuditItemWhere,
         select: {
@@ -247,9 +247,9 @@ export async function approveAuditItemsAction({
     });
 
     const musedamAssetId = slugToId("assetObject", assetObject.slug);
-  
+
     // 判断素材是否还在素材库
-   await syncSingleAssetFromMuseDAM({
+    await syncSingleAssetFromMuseDAM({
       musedamAssetId,
       team,
     });
@@ -270,8 +270,6 @@ export async function approveAuditItemsAction({
 
     const musedamTagIds = approvedAsetTags.map((tag) => slugToId("assetTag", tag.slug!));
 
-    
-    
     await setAssetTagsToMuseDAM({
       musedamAssetId,
       musedamTagIds,
@@ -338,7 +336,7 @@ export async function batchApproveAuditItemsAction({
 }: {
   assetObjects: AssetObject[];
   append?: boolean;
-}): Promise<ServerActionResult<void>> {
+}): Promise<ServerActionResult<{ failedCount: number }>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
       const team = await prisma.team.findUniqueOrThrow({
@@ -346,11 +344,13 @@ export async function batchApproveAuditItemsAction({
         select: { id: true, slug: true },
       });
 
+      let failedCount = 0;
+
       // 获取所有待审核的审核项
       const auditItems = await prisma.taggingAuditItem.findMany({
         where: {
           teamId,
-          assetObjectId: { in: assetObjects.map(a => a.id) },
+          assetObjectId: { in: assetObjects.map((a) => a.id) },
           status: "pending",
           leafTagId: { not: null },
         },
@@ -360,19 +360,20 @@ export async function batchApproveAuditItemsAction({
       });
       // 按资产分组处理
       for (const assetObject of assetObjects) {
-        const assetAuditItems = auditItems.filter(item => item.assetObjectId === assetObject.id);
-        
+        const assetAuditItems = auditItems.filter((item) => item.assetObjectId === assetObject.id);
+
         if (assetAuditItems.length === 0) continue;
         const musedamAssetId = slugToId("assetObject", assetObject.slug);
 
-        try{
+        try {
           await syncSingleAssetFromMuseDAM({
             musedamAssetId,
             team,
           });
-        }catch(error){
-          if(error instanceof Error && error.message === 'Asset not found'){
+        } catch (error) {
+          if (error instanceof Error && error.message === "Asset not found") {
             await rejectAuditItemsAction({ assetObject });
+            failedCount++;
             continue;
           }
           // 如果是其他错误，重新抛出
@@ -381,7 +382,7 @@ export async function batchApproveAuditItemsAction({
         const approvedAssetTags = await prisma.assetTag.findMany({
           where: {
             id: {
-              in: assetAuditItems.map(item => item.leafTagId!),
+              in: assetAuditItems.map((item) => item.leafTagId!),
             },
             slug: {
               not: null,
@@ -389,8 +390,15 @@ export async function batchApproveAuditItemsAction({
           },
           select: { id: true, slug: true },
         });
+
         const musedamTagIds = approvedAssetTags.map((tag) => slugToId("assetTag", tag.slug!));
-       
+
+        // 如果标签ID为空，记为失败并跳过
+        if (musedamTagIds.length === 0) {
+          failedCount++;
+          continue;
+        }
+
         await setAssetTagsToMuseDAM({
           musedamAssetId,
           musedamTagIds,
@@ -401,7 +409,7 @@ export async function batchApproveAuditItemsAction({
         await prisma.$transaction(async (tx) => {
           await tx.taggingAuditItem.updateMany({
             where: {
-              id: { in: assetAuditItems.map(item => item.id) },
+              id: { in: assetAuditItems.map((item) => item.id) },
             },
             data: { status: "approved" },
           });
@@ -410,7 +418,7 @@ export async function batchApproveAuditItemsAction({
 
       return {
         success: true,
-        data: undefined,
+        data: { failedCount },
       };
     } catch (error) {
       console.error("批量添加失败:", error);
@@ -434,7 +442,7 @@ export async function batchRejectAuditItemsAction({
         await tx.taggingAuditItem.updateMany({
           where: {
             teamId,
-            assetObjectId: { in: assetObjects.map(a => a.id) },
+            assetObjectId: { in: assetObjects.map((a) => a.id) },
             status: {
               in: ["pending"],
             },

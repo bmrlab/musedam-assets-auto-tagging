@@ -179,11 +179,27 @@ export default function ReviewPageClient() {
 
     setLoading(true);
     try {
-      await batchApproveAuditItemsAction({
+      const result = await batchApproveAuditItemsAction({
         assetObjects: selectedAssets.map(asset => asset.assetObject),
         append: true,
       });
-      toast.success(t("batchApproveSuccess"));
+
+      if (result.success && result.data) {
+        const { failedCount } = result.data;
+        const successCount = selectedAssets.length - failedCount;
+
+        if (failedCount === 0) {
+          toast.success(t("batchApproveSuccess"));
+        } else if (successCount === 0) {
+          toast.error(t("noCorrespondingTag"))
+          return;
+        } else {
+          toast.warning(t("batchApprovePartialSuccess", { successCount, failedCount }));
+        }
+      } else {
+        toast.error(t("batchApproveFailed"));
+      }
+
       setCurrentPage(1)
       setSelectedAssets([]);
       setSelectedAssetIds(new Set());
@@ -218,9 +234,6 @@ export default function ReviewPageClient() {
     }
   }, [selectedAssets, t, refreshDataWithFilters]);
 
-
-
-
   return (
     <div className="flex flex-col space-y-[10px]">
       {/* 筛选器和搜索 */}
@@ -237,8 +250,7 @@ export default function ReviewPageClient() {
               }
             }}
           />
-          {!selectedAssets.length ? t("totalItems", { total }) :
-            <div className="">选中<span className="text-primary-6"> {selectedAssets.length}</span> /{total} 项</div>}
+          {!selectedAssets.length ? t("totalItems", { total }) : t("selectedItemsCount", { count: selectedAssets.length, total })}
 
 
           {selectedAssets.length > 0 && <>
