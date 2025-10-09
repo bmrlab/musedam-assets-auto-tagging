@@ -26,6 +26,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { TagNode } from "../types";
 import { slugToId } from "@/lib/slug";
+import { TagOutlinedIcon, TagSearchIcon } from "@/components/ui/icons";
 
 interface TagItemProps {
   tag: TagNode;
@@ -133,7 +134,7 @@ export function TagItem({
           disabled={!editValue.trim()}
           className="bg-transparent hover:bg-transparent cursor-pointer size-7 p-1"
         >
-          <Save className="h-3 w-3" />
+          <Save className="size-[14px]" />
         </Button>
         <Button
           size="icon"
@@ -141,7 +142,7 @@ export function TagItem({
           onClick={handleCancel}
           className="bg-transparent hover:bg-transparent cursor-pointer size-7 p-1"
         >
-          <X className="h-3 w-3" />
+          <X className="size-[14px]" />
         </Button> */}
       </div>
     );
@@ -166,7 +167,7 @@ export function TagItem({
         onClick={!tag.isDeleted ? onSelect : undefined}
       >
         <div className="flex-1 flex items-center gap-[10px] overflow-hidden">
-          <TagIcon className="size-3 text-basic-8" />
+          <TagOutlinedIcon className="size-4 text-current" />
           <span
             className={cn("text-sm flex-1 overflow-hidden text-ellipsis whitespace-nowrap", {
               "line-through": tag.isDeleted,
@@ -215,7 +216,7 @@ export function TagItem({
               //   }}
               //   className="bg-transparent hover:bg-transparent opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
               // >
-              //   <Undo2 className="h-3 w-3" />
+              //   <Undo2 className="size-[14px]" />
               // </Button>
               <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
                 <DropdownMenuTrigger asChild>
@@ -225,7 +226,7 @@ export function TagItem({
                     onClick={(e) => e.stopPropagation()}
                     className="size-6 rounded-sm bg-transparent hover:bg-transparent opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                   >
-                    <MoreHorizontal className="h-3 w-3" />
+                    <MoreHorizontal className="size-[14px]" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" side="bottom" className="w-40">
@@ -237,27 +238,26 @@ export function TagItem({
                       }
                       const tagIdInMuseDam = slugToId("assetTag", tag.slug)
                       const searchUrl = `/home/all?filter=${encodeURIComponent(
-                        encodeURIComponent(JSON.stringify({ tags: [tagIdInMuseDam], tagIncEx: true })),
+                        encodeURIComponent(JSON.stringify({ tags: [Number(tagIdInMuseDam)], tagIncEx: true })),
                       )}`;
-                      console.log("searchUrl", searchUrl)
                       dispatchMuseDAMClientAction("goto", {
                         url: searchUrl,
                       });
                     }}
                   >
-                    <Search className="h-3 w-3 text-current" />
+                    <TagSearchIcon className="size-[14px] text-current" />
                     {t("searchRelatedAssets")}
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleRename}>
-                    <Edit className="h-3 w-3 text-current" />
+                    <Edit className="size-[14px] text-current" />
                     {t("rename")}
                   </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={handleDeleteClick}
-                    className="text-sm !text-danger-6"
+                    className="text-sm text-danger-6 focus:bg-danger-5 focus:text-white"
                   >
-                    <Trash2Icon className="h-3 w-3 text-current" />
+                    <Trash2Icon className="size-[14px] text-current" />
                     {t("delete")}
                   </DropdownMenuItem>
                 </DropdownMenuContent>

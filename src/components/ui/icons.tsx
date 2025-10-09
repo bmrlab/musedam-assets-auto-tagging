@@ -91,6 +91,15 @@ export function SettingIcon(props: IconProps) {
   return <SvgIcon src="/Icon/Setting.svg"  {...props} />;
 }
 
+export function TagOutlinedIcon(props: IconProps) {
+  return <SvgIcon src="/Icon/TagOutlined.svg"  {...props} />;
+}
+
+export function TagSearchIcon(props: IconProps) {
+  return <SvgIcon src="/Icon/TagSearch.svg"  {...props} />;
+}
+
+
 export function EditIcon(props: IconProps) {
   return <SvgIcon src="/Icon/Edit.svg"  {...props} />;
 }
