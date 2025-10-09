@@ -185,8 +185,8 @@ export default function ReviewPageClient() {
       });
 
       if (result.success && result.data) {
-        const { failedCount } = result.data;
-        const successCount = selectedAssets.length - failedCount;
+        const { failedCount, deletedCount } = result.data;
+        const successCount = selectedAssets.length - failedCount - deletedCount;
 
         if (failedCount === 0) {
           toast.success(t("batchApproveSuccess"));
@@ -194,7 +194,7 @@ export default function ReviewPageClient() {
           toast.error(t("noCorrespondingTag"))
           return;
         } else {
-          toast.warning(t("batchApprovePartialSuccess", { successCount, failedCount }));
+          toast.warning(t("batchApprovePartialSuccess", { successCount }) + (failedCount > 0 ? t("batchFailedCount", { failedCount }) : "") + (deletedCount > 0 ? t("batchDeletedCount", { deletedCount }) : ""));
         }
       } else {
         toast.error(t("batchApproveFailed"));

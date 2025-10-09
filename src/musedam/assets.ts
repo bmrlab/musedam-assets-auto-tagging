@@ -7,8 +7,8 @@ import { MuseDAMID } from "./types";
 
 /**
  * 获取文件夹路径
- * @param param0 
- * @returns 
+ * @param param0
+ * @returns
  */
 async function fetchMuseDAMFolderPath({
   team,
@@ -34,11 +34,10 @@ async function fetchMuseDAMFolderPath({
   return result[musedamFolderId.toString()];
 }
 
-
 /**
  * 获取文件夹下的子文件夹id
- * @param param0 
- * @returns 
+ * @param param0
+ * @returns
  */
 export async function fetchMuseDAMFolderSubIds({
   team,
@@ -146,7 +145,6 @@ export async function syncSingleAssetFromMuseDAM({
     throw new Error(`Asset not found`);
   }
 
-
   const musedamAsset = assets[0] as {
     id: MuseDAMID;
     name: string;
@@ -163,7 +161,6 @@ export async function syncSingleAssetFromMuseDAM({
     buildAssetObjectTags(musedamAsset.tags ?? []),
   ]);
   const assetSlug = idToSlug("assetObject", musedamAsset.id);
-  console.log("folderPath",folderPath)
   // 更新或创建 asset 记录
   const assetObject = await prisma.assetObject.upsert({
     where: {
@@ -270,4 +267,3 @@ export async function syncAssetsFromMuseDAM({
 
   return result;
 }
-

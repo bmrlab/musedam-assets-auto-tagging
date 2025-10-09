@@ -336,7 +336,7 @@ export async function batchApproveAuditItemsAction({
 }: {
   assetObjects: AssetObject[];
   append?: boolean;
-}): Promise<ServerActionResult<{ failedCount: number }>> {
+}): Promise<ServerActionResult<{ failedCount: number; deletedCount: number }>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
       const team = await prisma.team.findUniqueOrThrow({
@@ -345,6 +345,7 @@ export async function batchApproveAuditItemsAction({
       });
 
       let failedCount = 0;
+      let deletedCount = 0;
 
       // 获取所有待审核的审核项
       const auditItems = await prisma.taggingAuditItem.findMany({
@@ -362,7 +363,10 @@ export async function batchApproveAuditItemsAction({
       for (const assetObject of assetObjects) {
         const assetAuditItems = auditItems.filter((item) => item.assetObjectId === assetObject.id);
 
-        if (assetAuditItems.length === 0) continue;
+        if (assetAuditItems.length === 0) {
+          failedCount++;
+          continue;
+        }
         const musedamAssetId = slugToId("assetObject", assetObject.slug);
 
         try {
@@ -371,9 +375,10 @@ export async function batchApproveAuditItemsAction({
             team,
           });
         } catch (error) {
+          // 素材被删除，从列表移除
           if (error instanceof Error && error.message === "Asset not found") {
             await rejectAuditItemsAction({ assetObject });
-            failedCount++;
+            deletedCount++;
             continue;
           }
           // 如果是其他错误，重新抛出
@@ -418,7 +423,7 @@ export async function batchApproveAuditItemsAction({
 
       return {
         success: true,
-        data: { failedCount },
+        data: { failedCount, deletedCount },
       };
     } catch (error) {
       console.error("批量添加失败:", error);
