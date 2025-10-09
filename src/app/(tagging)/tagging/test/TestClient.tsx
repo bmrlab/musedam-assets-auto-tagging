@@ -13,6 +13,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { startTaggingTasksAction } from "./actions";
 import { TaggingResult, TaggingResultDisplay } from "./components/TaggingResultDisplay";
+import { AssetThumbnail } from "@/components/AssetThumbnail";
 
 interface SelectedAsset {
   id: MuseDAMID; // 素材唯一标识
@@ -433,8 +434,15 @@ export default function TestClient() {
                       key={asset.id.toString()}
                       className="flex items-center justify-between p-3 border border-basic-4 rounded-md"
                     >
-                      <div className="flex items-center gap-3">
-                        <Image src={asset.thumbnail?.url || '/file.svg'} alt={asset.name} className="object-cover rounded size-8" width={32} height={32} />
+                      <div className="flex items-center gap-3 shrink-0">
+                        <AssetThumbnail asset={{
+                          thumbnailUrl: asset.thumbnail?.url,
+                          extension: asset.extension,
+                        }}
+                          className="rounded size-8"
+                          maxWidth={32}
+                          maxHeight={32}
+                        />
                         <div>
                           <p className="font-medium text-sm">{asset.name}</p>
                           <p className="text-xs text-basic-5">

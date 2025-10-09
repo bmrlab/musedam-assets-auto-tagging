@@ -47,6 +47,7 @@ import {
 } from "@/components/ui/select";
 import { useTheme } from "next-themes";
 import { RetryIcon } from "@/components/ui/icons";
+import { AssetThumbnail } from "@/components/AssetThumbnail";
 
 interface DashboardClientProps {
   initialStats: ExtractServerActionData<typeof fetchDashboardStats>["stats"];
@@ -182,28 +183,6 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
 
     return `${size.toFixed(1)} ${units[unitIndex]}`;
   };
-
-  const getThumbnailUrl = (task: TaskWithAsset): string => {
-    try {
-      const extra = task.assetObject.extra as AssetObjectExtra | null;
-      return extra?.thumbnailAccessUrl ?? "/file.svg";
-    } catch (error) {
-      console.warn("Failed to parse asset extra data:", error);
-      return "/file.svg";
-    }
-  };
-
-  // const getFileIcon = (fileName: string) => {
-  //   const extension = fileName.split(".").pop()?.toLowerCase();
-  //   const imageExts = ["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg"];
-  //   const videoExts = ["mp4", "mov", "avi", "mkv", "webm"];
-  //   const docExts = ["pdf", "doc", "docx", "txt", "md"];
-
-  //   if (imageExts.includes(extension || "")) return "🖼️";
-  //   if (videoExts.includes(extension || "")) return "🎬";
-  //   if (docExts.includes(extension || "")) return "📄";
-  //   return "📁";
-  // };
 
   const notFinishedTasks = stats.pending + stats.processing;
 
@@ -405,19 +384,22 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
           ) : (
             <div className="max-h-[622px] overflow-y-auto">
               {tasks.map((task) => {
+
+                const extra = task.assetObject.extra as AssetObjectExtra | null;
                 return (
                   <div
                     key={task.id}
                     className="flex items-center gap-[14px] px-4 py-3  transition-all"
                   >
                     {/* Thumbnail or Icon */}
-                    <div className="shrink-0 size-8 relative overflow-hidden bg-muted">
-                      <Image
-                        src={getThumbnailUrl(task)}
-                        alt={task.assetObject.name}
-                        fill
-                        sizes="32px"
-                        className="object-cover"
+                    <div className="shrink-0 size-8 relative overflow-hidden">
+                      <AssetThumbnail asset={{
+                        thumbnailUrl: extra?.thumbnailAccessUrl,
+                        extension: extra?.extension,
+                      }}
+                        className="size-8 rounded-none"
+                        maxWidth={32}
+                        maxHeight={32}
                       />
                     </div>
 
