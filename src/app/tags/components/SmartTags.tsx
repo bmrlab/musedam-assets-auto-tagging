@@ -270,7 +270,7 @@ export const SmartTagsContent = () => {
             </div>
             {contextMenu.visible && (
                 <div
-                    className="fixed z-50 bg-white border border-gray-200 rounded-md shadow-lg py-1 min-w-[120px]"
+                    className="fixed z-50 bg-background border rounded-md shadow-lg py-1 min-w-[120px] px-1"
                     style={{
                         left: contextMenu.x,
                         top: contextMenu.y,
@@ -278,17 +278,17 @@ export const SmartTagsContent = () => {
                     onClick={(e) => e.stopPropagation()}
                 >
                     <button
-                        className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
+                        className="w-full px-2 py-[6px] text-left text-sm hover:bg-primary-1 flex items-center gap-2 rounded-sm cursor-pointer transition-all ease-in-out duration-300"
                         onClick={handleRename}
                     >
-                        <Edit2Icon className="h-3 w-3" />
+                        <Edit2Icon className="size-[14px]" />
                         {t("rename")}
                     </button>
                     <button
-                        className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                        className="w-full px-2 py-[6px] text-left text-sm text-danger-6 hover:bg-danger-5 hover:text-white flex items-center gap-2 rounded-sm cursor-pointer transition-all ease-in-out duration-300"
                         onClick={() => selectedTag ? handleDelete(selectedTag) : undefined}
                     >
-                        <Trash2Icon className="h-3 w-3" />
+                        <Trash2Icon className="size-[14px]" />
                         {t("delete")}
                     </button>
                 </div>
