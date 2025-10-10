@@ -15,6 +15,24 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { updateTagSort } from "../actions";
 import { TagNode } from "../types";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
 
 interface TagSortModalProps {
   open: boolean;
@@ -23,6 +41,62 @@ interface TagSortModalProps {
   tags: TagNode[];
   level: 1 | 2 | 3;
   isLoading?: boolean;
+}
+
+interface SortableItemProps {
+  tag: TagNode;
+  index: number;
+}
+
+function SortableItem({ tag, index }: SortableItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: tag.id?.toString() || tag.tempId?.toString() || `tag-${index}`
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className={cn(
+        "group flex items-center justify-between w-full h-8 px-2.5 py-1 rounded-md",
+        "hover:bg-gray-50 dark:hover:bg-gray-800",
+        "transition-colors cursor-grab active:cursor-grabbing",
+        isDragging && "bg-blue-50 dark:bg-blue-900/20 shadow-lg z-50 opacity-50",
+      )}
+    >
+      <div className="flex items-center flex-1 min-w-0">
+        <div className="w-5 h-5 flex justify-center items-center mr-1">
+          <GripVertical
+            className={cn(
+              "w-4 h-4 text-[#c5cee0] hover:text-primary-6",
+            )}
+          />
+        </div>
+        <Tag className="w-4 h-4 text-gray-400 mr-1.5 flex-shrink-0" />
+        <div className="flex-1 min-w-0 overflow-hidden text-ellipsis">
+          <span className="text-sm leading-5 truncate">{tag.name}</span>
+        </div>
+      </div>
+      {/* TODO 标签上的素材数 */}
+      {/* <div className="flex items-center text-gray-400 text-xs leading-4 ml-2">
+        <span>{index + 1}</span>
+      </div> */}
+    </div>
+  );
 }
 
 export function TagSortModal({
@@ -35,8 +109,20 @@ export function TagSortModal({
 }: TagSortModalProps) {
   const t = useTranslations("TagsPage.TagSortModal");
   const [sortedTags, setSortedTags] = useState<TagNode[]>([...tags]);
-  const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  // 配置传感器
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // 拖拽前需要移动的最小距离
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
   // 当弹窗打开时，重置排序列表
   useEffect(() => {
     if (open) {
@@ -44,35 +130,25 @@ export function TagSortModal({
     }
   }, [open, tags]);
 
-  // 处理拖拽开始
-  const handleDragStart = (e: React.DragEvent, index: number) => {
-    e.stopPropagation();
-    e.dataTransfer.setData("text/plain", index.toString());
-    setIsDragging(true);
-  };
-
   // 处理拖拽结束
-  const handleDragEnd = () => {
-    setIsDragging(false);
-  };
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
 
-  // 处理拖拽悬停
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-  };
+    // 如果没有目标位置，直接返回
+    if (!over || active.id === over.id) {
+      return;
+    }
 
-  // 处理放置
-  const handleDrop = (e: React.DragEvent, targetIndex: number) => {
-    e.preventDefault();
-    const sourceIndex = parseInt(e.dataTransfer.getData("text/plain"));
+    setSortedTags((items) => {
+      const oldIndex = items.findIndex(
+        (item) => (item.id?.toString() || item.tempId?.toString() || '') === active.id
+      );
+      const newIndex = items.findIndex(
+        (item) => (item.id?.toString() || item.tempId?.toString() || '') === over.id
+      );
 
-    if (sourceIndex === targetIndex) return;
-
-    const newTags = [...sortedTags];
-    const [removed] = newTags.splice(sourceIndex, 1);
-    newTags.splice(targetIndex, 0, removed);
-
-    setSortedTags(newTags);
+      return arrayMove(items, oldIndex, newIndex);
+    });
   };
 
   // 处理确认
@@ -130,6 +206,11 @@ export function TagSortModal({
     }
   };
 
+  // 生成唯一的ID列表用于 SortableContext
+  const itemIds = sortedTags.map((tag, index) =>
+    tag.id?.toString() || tag.tempId?.toString() || `tag-${index}`
+  );
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-md">
@@ -140,41 +221,28 @@ export function TagSortModal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="max-h-86 overflow-y-auto py-2 px-2 border rounded-[10px]">
-          <div className="space-y-1">
-            {sortedTags.map((tag, index) => (
-              <div
-                key={tag.id || tag.tempId || index}
-                draggable
-                onDragStart={(e) => handleDragStart(e, index)}
-                onDragEnd={handleDragEnd}
-                onMouseDown={() => setIsDragging(true)}
-                onMouseUp={() => setIsDragging(false)}
-                onDragOver={handleDragOver}
-                onDrop={(e) => handleDrop(e, index)}
-                className={cn(
-                  "group flex items-center justify-between w-full h-8 px-2.5 py-1 rounded-md",
-                  "hover:bg-gray-50 dark:hover:bg-gray-800",
-                  isDragging ? "cursor-grabbing" : "cursor-grab",
-                  isDragging && "opacity-50",
-                )}
-              >
-                <div className="flex items-center flex-1 min-w-0">
-                  <div className="w-5 h-5 flex justify-center items-center mr-1">
-                    <GripVertical className={cn("w-4 h-4 text-[#c5cee0] hover:text-primary-6", isDragging ? "cursor-grabbing" : "cursor-grab")} />
-                  </div>
-                  <Tag className="w-4 h-4 text-gray-400 mr-1.5 flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <span className="text-sm leading-5 truncate">{tag.name}</span>
-                  </div>
-                </div>
-                <div className="flex items-center text-gray-400 text-xs leading-4 ml-2">
-                  <span>{index + 1}</span>
-                </div>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={itemIds}
+            strategy={verticalListSortingStrategy}
+          >
+            <div className="max-h-86 overflow-y-auto py-2 px-2 border rounded-[10px]">
+              <div className="space-y-1">
+                {sortedTags.map((tag, index) => (
+                  <SortableItem
+                    key={tag.id?.toString() || tag.tempId?.toString() || `tag-${index}`}
+                    tag={tag}
+                    index={index}
+                  />
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
+            </div>
+          </SortableContext>
+        </DndContext>
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={isLoading || externalIsLoading} size="sm">
