@@ -1,16 +1,51 @@
 "use server";
 import { withAuth } from "@/app/(auth)/withAuth";
 import { ServerActionResult } from "@/lib/serverAction";
-import { slugToId } from "@/lib/slug";
+import { idToSlug, slugToId } from "@/lib/slug";
+import { retrieveTeamCredentials } from "@/musedam/apiKey";
 import { setAssetTagsToMuseDAM, syncSingleAssetFromMuseDAM } from "@/musedam/assets";
+import { requestMuseDAMAPI } from "@/musedam/lib";
+import { MuseDAMID } from "@/musedam/types";
 import {
   AssetObject,
+  AssetObjectTags,
   Prisma,
   TaggingAuditItem,
   TaggingAuditStatus,
   TaggingQueueItem,
 } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
+
+// 辅助函数：从 MuseDAM 标签构建 AssetObjectTags
+async function buildAssetObjectTags(
+  musedamTags: { id: MuseDAMID; name: string }[],
+): Promise<AssetObjectTags> {
+  const tagSlugs = musedamTags.map(({ id: musedamTagId }) => idToSlug("assetTag", musedamTagId));
+  const fields = { id: true, slug: true, name: true };
+  const assetTags = await prisma.assetTag.findMany({
+    where: {
+      slug: { in: tagSlugs },
+    },
+    select: {
+      ...fields,
+      parent: {
+        select: {
+          ...fields,
+          parent: {
+            select: { ...fields },
+          },
+        },
+      },
+    },
+  });
+  return assetTags.map((tag) => ({
+    tagId: tag.id,
+    tagSlug: tag.slug!, // 因为有 where { slug }，这里不可能为空
+    tagPath: [tag.parent?.parent?.name, tag.parent?.name, tag.name].filter(
+      (item) => item !== undefined,
+    ),
+  }));
+}
 
 export type AssetWithAuditItemsBatch = {
   assetObject: AssetObject;
@@ -277,6 +312,30 @@ export async function approveAuditItemsAction({
       append,
     });
 
+    // 从 MuseDAM 获取更新后的素材标签并同步到本地数据库
+    const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
+    const assets = await requestMuseDAMAPI<{ id: MuseDAMID }[]>("/api/muse/assets-by-ids", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${musedamTeamApiKey}`,
+      },
+      body: [musedamAssetId],
+    });
+
+    if (assets && assets.length > 0) {
+      const musedamAsset = assets[0] as {
+        id: MuseDAMID;
+        tags: { id: MuseDAMID; name: string }[] | null;
+      };
+      const tags = await buildAssetObjectTags(musedamAsset.tags ?? []);
+
+      // 更新本地素材的 tags 字段
+      await prisma.assetObject.update({
+        where: { id: assetObject.id },
+        data: { tags },
+      });
+    }
+
     await prisma.$transaction(async (tx) => {
       for (const { id, status } of auditItems) {
         await tx.taggingAuditItem.update({
@@ -410,6 +469,35 @@ export async function batchApproveAuditItemsAction({
           team,
           append,
         });
+
+        // 从 MuseDAM 获取更新后的素材标签并同步到本地数据库
+        try {
+          const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
+          const assets = await requestMuseDAMAPI<{ id: MuseDAMID }[]>("/api/muse/assets-by-ids", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${musedamTeamApiKey}`,
+            },
+            body: [musedamAssetId],
+          });
+
+          if (assets && assets.length > 0) {
+            const musedamAsset = assets[0] as {
+              id: MuseDAMID;
+              tags: { id: MuseDAMID; name: string }[] | null;
+            };
+            const tags = await buildAssetObjectTags(musedamAsset.tags ?? []);
+
+            // 更新本地素材的 tags 字段
+            await prisma.assetObject.update({
+              where: { id: assetObject.id },
+              data: { tags },
+            });
+          }
+        } catch (error) {
+          console.error("更新素材标签失败:", error);
+          // 不影响主流程，继续执行
+        }
 
         await prisma.$transaction(async (tx) => {
           await tx.taggingAuditItem.updateMany({

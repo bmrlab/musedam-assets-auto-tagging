@@ -103,9 +103,9 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
                 {t("processingTime")}: {result.asset.processingTime}s
               </span>
             </div>
-            <div>
+            <div className="flex items-center gap-1">
               <VimIcon className="size-[14px] text-[#9254DE]" />
-              {t("aiRecognitionMode")}: {result.asset.recognitionMode}
+              <span> {t("aiRecognitionMode")}: {result.asset.recognitionMode}</span>
             </div>
           </div>
         </div>

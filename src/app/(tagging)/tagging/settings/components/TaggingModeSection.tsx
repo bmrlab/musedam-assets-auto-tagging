@@ -20,10 +20,10 @@ export function TaggingModeSection({ taggingMode, onTaggingModeChange }: Tagging
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div
               className={cn(
-                "border rounded-lg p-4 cursor-pointer transition-all text-sm",
+                "border rounded-lg p-4 cursor-pointer transition-all text-sm ",
                 taggingMode === "direct"
                   ? "border-primary-6 bg-primary-1 ring-1 ring-primary-6"
-                  : "border-border hover:border-primary-6",
+                  : "border-basic-4 hover:border-primary-6",
               )}
               onClick={() => onTaggingModeChange("direct")}
             >
@@ -38,7 +38,7 @@ export function TaggingModeSection({ taggingMode, onTaggingModeChange }: Tagging
                 "border rounded-lg p-4 cursor-pointer transition-all text-sm",
                 taggingMode === "review"
                   ? "border-primary-6 bg-primary-1 ring-1 ring-primary-6"
-                  : "border-border hover:border-primary-6",
+                  : "border-basic-4 hover:border-primary-6",
               )}
               onClick={() => onTaggingModeChange("review")}
             >

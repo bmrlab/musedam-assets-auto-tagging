@@ -6,7 +6,7 @@
     "Sidebar": {
       "dashboard": "Dashboard",
       "review": "AI Tagging Review",
-      "settings": "AI Tagging Settings",
+      "settings": "Tagging Settings",
       "access": "Members Settings",
       "test": "Test Tagging"
     },
@@ -78,6 +78,15 @@
         "filePathMatchingDesc": "Tag matching based on the file path where assets are located",
         "assetNameMatching": "Asset Name Matching",
         "assetNameMatchingDesc": "Analyze key information in file names for matching"
+      },
+      "TriggerTiming": {
+        "title": "Trigger Timing",
+        "autoRealtimeTagging": "Auto Realtime Tagging",
+        "autoRealtimeTaggingDesc": "Execute AI intelligent parsing and automatic tagging immediately after file upload",
+        "manualTriggerTagging": "Manual Trigger Tagging",
+        "manualTriggerTaggingDesc": "Support users with edit permissions in the asset library to manually select files or folders for batch tagging",
+        "scheduledTagging": "Scheduled Tagging",
+        "scheduledTaggingDesc": "Scan untagged files periodically and automatically execute tagging"
       },
       "ApplicationScope": {
         "title": "Application Scope",
@@ -183,6 +192,7 @@
     "Test": {
       "uploadTestFiles": "Upload Test Files",
       "testDescription": "Test Description",
+      "removeAsset": "Remove",
       "testDescriptionText1": "• AI will use existing configurations and system tag system to tag specified assets",
       "testDescriptionText2": "• Please ensure tag system is created; You can also use AI assistant to quickly generate industry tag system",
       "testDescriptionText3": "• AI matching configuration in test is for testing only and does not affect AI tagging settings",
@@ -234,7 +244,8 @@
       "manageTagSystem": "Manage Tag System",
       "processingStatus": "Processing Status",
       "processingTasks": "Processing {count} tagging tasks",
-      "pollingDescription": "Checking status every 2 seconds, results will be displayed automatically when completed"
+      "pollingDescription": "Checking status every 2 seconds, results will be displayed automatically when completed",
+      "aiMatching": "AI Matching"
     },
     "Common": {
       "refreshDataFailed": "Failed to refresh data",

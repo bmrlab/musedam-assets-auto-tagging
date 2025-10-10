@@ -192,6 +192,7 @@
     "Test": {
       "uploadTestFiles": "上传测试文件",
       "testDescription": "测试说明",
+      "removeAsset": "移除",
       "testDescriptionText1": "• AI 将运用现有配置及系统标签体系对指定素材进行打标",
       "testDescriptionText2": "• 请确保已创建标签体系；也可使用 AI 助手快速生成行业标签体系",
       "testDescriptionText3": "• AI 匹配测试中的配置仅为测试使用，与 AI 打标设置互不影响",
@@ -243,7 +244,8 @@
       "manageTagSystem": "管理标签体系",
       "processingStatus": "处理状态",
       "processingTasks": "正在处理 {count} 个打标任务",
-      "pollingDescription": "每2秒检查一次状态，完成后将自动显示结果"
+      "pollingDescription": "每2秒检查一次状态，完成后将自动显示结果",
+      "aiMatching": "AI 匹配"
     },
     "Common": {
       "refreshDataFailed": "刷新数据失败:",

@@ -306,7 +306,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
         <div className="grid grid-cols-4 gap-8">
           <div className="text-center">
             <div className="text-[22px] font-semibold leading-[32px]">{formatNumber(stats.totalCompleted)}</div>
-            <div className="flex items-center justify-center gap-1 text-sm text-basic-6 mt-1">
+            <div className="flex items-center justify-center gap-[6px] text-xs text-basic-6 mt-1">
               <span className="size-[5px] bg-[#00E096] rounded-full"></span>
               <span>{t("totalCompleted")}</span>
             </div>
@@ -314,7 +314,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
 
           <div className="text-center">
             <div className="text-[22px] font-semibold leading-[32px]">{stats.processing}</div>
-            <div className="flex items-center justify-center gap-1 text-sm text-basic-6 mt-1">
+            <div className="flex items-center justify-center gap-[6px] text-xs text-basic-6 mt-1">
               <span className="size-[5px] bg-primary-6 rounded-full"></span>
               <span>{t("processing")}</span>
             </div>
@@ -322,7 +322,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
 
           <div className="text-center">
             <div className="text-[22px] font-semibold leading-[32px]">{stats.pending}</div>
-            <div className="flex items-center justify-center gap-1 text-sm text-basic-6 mt-1">
+            <div className="flex items-center justify-center gap-[6px] text-xs text-basic-6 mt-1">
               <span className="size-[5px] bg-warning-6 rounded-full"></span>
               <span>{t("pending")}</span>
             </div>
@@ -330,7 +330,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
 
           <div className="text-center">
             <div className="text-[22px] font-semibold leading-[32px]">{stats.failed}</div>
-            <div className="flex items-center justify-center gap-1 text-sm text-basic-6 mt-1">
+            <div className="flex items-center justify-center gap-[6px] text-xs text-basic-6 mt-1">
               <span className="size-[5px] bg-danger-6 rounded-full"></span>
               <span>{t("failed")}</span>
             </div>
@@ -397,7 +397,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
                         thumbnailUrl: extra?.thumbnailAccessUrl,
                         extension: extra?.extension,
                       }}
-                        className="size-8 rounded-none"
+                        className="size-8 rounded-sm"
                         maxWidth={32}
                         maxHeight={32}
                       />

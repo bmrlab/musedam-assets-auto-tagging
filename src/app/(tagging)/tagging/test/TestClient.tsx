@@ -7,13 +7,14 @@ import { dispatchMuseDAMClientAction } from "@/embed/message";
 import { cn } from "@/lib/utils";
 import { MuseDAMID } from "@/musedam/types";
 import Image from "next/image";
-import { FileText, Loader2, PlayIcon, PlusIcon, X } from "lucide-react";
+import { FileText, Loader2, PlayIcon, PlusIcon, Trash, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { startTaggingTasksAction } from "./actions";
 import { TaggingResult, TaggingResultDisplay } from "./components/TaggingResultDisplay";
 import { AssetThumbnail } from "@/components/AssetThumbnail";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface SelectedAsset {
   id: MuseDAMID; // 素材唯一标识
@@ -190,7 +191,7 @@ export default function TestClient() {
                 effectiveTags: effectiveTags.map(
                   (tag: { tagPath?: string[]; matchingSource?: string; score?: number }) => ({
                     tagPath: tag.tagPath || [],
-                    matchingSource: tag.matchingSource || "AI匹配",
+                    matchingSource: tag.matchingSource || tClient("aiMatching"),
                     confidence: Math.floor(tag.score || 0),
                     score: tag.score || 0,
                   }),
@@ -199,7 +200,7 @@ export default function TestClient() {
                 candidateTags: candidateTags.map(
                   (tag: { tagPath?: string[]; matchingSource?: string; score?: number }) => ({
                     tagPath: tag.tagPath || [],
-                    matchingSource: tag.matchingSource || "AI匹配",
+                    matchingSource: tag.matchingSource || tClient("aiMatching"),
                     confidence: Math.floor(tag.score || 0),
                     score: tag.score || 0,
                   }),
@@ -248,7 +249,7 @@ export default function TestClient() {
         console.error(tClient("pollingQueueStatusFailed"), error);
       }
     },
-    [stopPolling],
+    [stopPolling, tClient],
   );
 
   // 开始轮询
@@ -450,15 +451,31 @@ export default function TestClient() {
                           </p>
                         </div>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeAsset(asset.id)}
-                        disabled={isProcessing}
-                        className="group hover:bg-transparent "
-                      >
-                        <X className="size-4 text-basic-5 group-hover:text-basic-8 ease-in-out duration-300 transition-all" />
-                      </Button>
+
+
+
+
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              disabled={isProcessing}
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeAsset(asset.id)
+                              }}
+                              className="text-basic-5 size-8 p-0 hover:text-danger-6"
+                            >
+                              <Trash className="text-current" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>{t("removeAsset")}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </div>
                   ))}
                 </div>
@@ -606,7 +623,7 @@ export default function TestClient() {
                   <div className="flex items-center justify-center gap-1">
                     <h3 className="font-medium text-sm">{label}</h3>
                   </div>
-                  <div className="text-xs font-medium">{confidence}</div>
+                  <div className="text-xs font-medium text-basic-5">{confidence}</div>
                 </div>
               </div>
             ))}
@@ -627,7 +644,7 @@ export default function TestClient() {
             ].map(({ key, label }) => (
               <div
                 key={key}
-                className={cn("flex items-center gap-2", "py-2 px-3 border rounded-md")}
+                className={cn("flex items-center gap-2", "py-2 px-3 border rounded-md border-basic-4")}
               >
                 <Checkbox
                   checked={matchingSources[key as keyof typeof matchingSources]}

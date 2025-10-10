@@ -42,7 +42,7 @@ export function ApplicationScopeSection({
               <p className="text-sm text-basic-6">{t("selectScopeDesc")}</p>
             </div>
 
-            <div className="space-y-0 border rounded-lg transition-all">
+            <div className="space-y-0 border border-basic-4 rounded-lg transition-all">
               {applicationScope.scopeType === "all" && (
                 <div
                   className="p-3 cursor-pointer flex items-center justify-between gap-3"
