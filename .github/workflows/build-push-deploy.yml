@@ -74,7 +74,7 @@ jobs:
 
   sync-and-deploy:
     runs-on: ubuntu-latest
-    needs: build-app
+    needs: build-job
 
     steps:
       - name: Get version from tag
