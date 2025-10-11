@@ -164,11 +164,14 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
   };
 
   return (
-    <div className="bg-background border rounded-lg h-full">
+    <div className="bg-background border rounded-[6px] h-full">
       <div className="px-4 py-3 border-b flex items-center justify-between">
         <h3 className="font-medium text-sm">{t("roleAndPermissions")}</h3>
         <Button onClick={handleMemberSelection} disabled={isSelecting || isPending} size="sm">
-          {isSelecting ? (
+          <Plus className="h-4 w-4" />
+          {t("addMembers")}
+
+          {/* {isSelecting ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
               {t("selectingMembers")}
@@ -178,7 +181,7 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
               <Plus className="h-4 w-4" />
               {t("addMembers")}
             </>
-          )}
+          )} */}
         </Button>
       </div>
       <div className="px-5 py-[6px]">
@@ -238,7 +241,7 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
                   <DropdownMenuContent align="end" className="w-[270px]">
                     <DropdownMenuItem
                       onClick={() => handleChangeRole(permission.slug, "admin")}
-                      disabled={permission.role === "admin"}
+                      // disabled={permission.role === "admin"}
                       className="py-[6px]"
                     >
                       <div className="flex flex-col flex-1">
@@ -253,7 +256,7 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onClick={() => handleChangeRole(permission.slug, "reviewer")}
-                      disabled={permission.role === "reviewer"}
+                      // disabled={permission.role === "reviewer"}
                       className="py-[6px]"
                     >
                       <div className="flex flex-col flex-1">

@@ -238,7 +238,7 @@ export function TagItem({
                       }
                       const tagIdInMuseDam = slugToId("assetTag", tag.slug)
                       const searchUrl = `/home/all?filter=${encodeURIComponent(
-                        encodeURIComponent(JSON.stringify({ tags: [Number(tagIdInMuseDam)], tagIncEx: true })),
+                        encodeURIComponent(JSON.stringify({ tags: [Number(tagIdInMuseDam)], tagIncEx: false })),
                       )}`;
                       dispatchMuseDAMClientAction("goto", {
                         url: searchUrl,

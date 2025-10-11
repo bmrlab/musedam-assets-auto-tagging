@@ -302,7 +302,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
   return (
     <div className="space-y-4">
       {/* Statistics Card - Single card with 4 items */}
-      <div className="bg-background border rounded-lg p-6">
+      <div className="bg-background border rounded-[6px] p-6">
         <div className="grid grid-cols-4 gap-8">
           <div className="text-center">
             <div className="text-[22px] font-semibold leading-[32px]">{formatNumber(stats.totalCompleted)}</div>
@@ -339,7 +339,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
       </div>
 
       {/* Task List Section */}
-      <div className="bg-background border rounded-lg">
+      <div className="bg-background border rounded-[6px]">
         <div className="flex items-center justify-between py-3 px-5 border-b">
           <div className=" flex items-center gap-4">
             <h2 className="font-semibold">{t("title")}</h2>
@@ -494,7 +494,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
       {/* Charts Side by Side - 2:1 ratio */}
       <div className="grid grid-cols-3 gap-4">
         {/* Monthly Trend Chart - Takes 2 columns */}
-        <div className="col-span-2 bg-background border rounded-lg">
+        <div className="col-span-2 bg-background border rounded-[6px]">
           <div className="p-4 border-b flex items-center justify-between">
             <h3 className="font-semibold">{t("processingTrend")}</h3>
             <div className="flex items-center text-basic-6 gap-4 mt-2">
@@ -561,7 +561,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
         </div>
 
         {/* Weekly Tagging Chart - Takes 1 column */}
-        <div className="bg-background border rounded-lg">
+        <div className="bg-background border rounded-[6px]">
           <div className="p-4 border-b">
             <h3 className="font-semibold">{t("weeklyTagging")}</h3>
           </div>

@@ -43,7 +43,7 @@ export function AIRecognitionSection({
   return (
     <div className="space-y-6">
       {/* AI 识别设置 */}
-      <div className="bg-background border rounded-lg">
+      <div className="bg-background border rounded-[6px]">
         <div className="px-4 py-3 border-b flex items-center gap-2">
           <h3 className="font-medium text-sm">{t("title")}</h3>
           <InfoIcon className="size-4 text-basic-5" />

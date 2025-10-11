@@ -33,6 +33,7 @@ import {
 } from "./actions";
 import { slugToId } from "@/lib/slug";
 import { dispatchMuseDAMClientAction } from "@/embed/message";
+import { AssetThumbnail } from "@/components/AssetThumbnail";
 
 export function ReviewItem({ assetObject, batch, onSuccess, CheckboxComponent, batchLoading }: AssetWithAuditItemsBatch & { CheckboxComponent: React.ReactNode, batchLoading?: boolean }) {
   const t = useTranslations("Tagging.Review");
@@ -124,7 +125,7 @@ export function ReviewItem({ assetObject, batch, onSuccess, CheckboxComponent, b
   }, [assetObject, t, onSuccess]);
 
   return (
-    <div className="bg-background border rounded-md px-6 pt-8 pb-6 space-y-6">
+    <div className="bg-background border rounded-[6px] px-6 pt-8 pb-6 space-y-6">
       {/* 资产基本信息 */}
       <div className="flex items-center gap-4">
         {CheckboxComponent}
@@ -135,13 +136,16 @@ export function ReviewItem({ assetObject, batch, onSuccess, CheckboxComponent, b
             target: "_blank",
           });
         }}>
-          <Image
-            src={getThumbnailUrl(assetObject)}
-            alt={assetObject.name}
-            fill
-            sizes="100px" // 这个是图片 optimize 的尺寸，不是前端显示的尺寸
-            className="object-cover rounded-[10px]"
+          <AssetThumbnail
+            asset={{
+              thumbnailUrl: (assetObject?.extra as AssetObjectExtra | null)?.thumbnailAccessUrl,
+              extension: (assetObject?.extra as AssetObjectExtra | null)?.extension,
+            }}
+            maxWidth={86}
+            maxHeight={86}
+            className="rounded-[10px] size-[86px]"
           />
+
         </div>
 
         <div className="flex-1 min-w-0">
@@ -171,7 +175,7 @@ export function ReviewItem({ assetObject, batch, onSuccess, CheckboxComponent, b
               disabled={realLoading}
               variant="default"
               onClick={() => approveAuditItems({ append: true })}
-              className="h-[28px] rounded-[6px] bg-primary-6 "
+              className="h-[28px] rounded-[6px] px-2"
             >
               {loading ? <Loader2Icon className="size-[14px] animate-spin" /> : <CheckIcon className="size-[14px]" />}
               {t("add")}
@@ -195,7 +199,8 @@ export function ReviewItem({ assetObject, batch, onSuccess, CheckboxComponent, b
               <AlertDialogTrigger asChild>
                 <Button
                   size="sm"
-                  className="h-[28px] rounded-[6px] bg-background text-danger-6 border-solid border-danger-6 border hover:bg-destructive/10 hover:text-destructive hover:border-destructive"
+                  variant="danger"
+                  className="h-[28px] rounded-[6px] px-2"
                   disabled={realLoading}
                 >
                   {loading ? <Loader2Icon className="size-[14px] animate-spin" /> : <XIcon className="size-[14px]" />}
@@ -269,26 +274,26 @@ export function ReviewItem({ assetObject, batch, onSuccess, CheckboxComponent, b
                   <div
                     key={auditItem.id}
                     className={cn(
-                      "relative py-2 pl-3 pr-8 rounded-[6px] border min-w-46",
+                      "relative py-[6px] px-2 rounded-[6px] border items-center flex gap-2",
                       {
                         "border-dashed":
                           (auditItem.leafTagId && rejectedItems.includes(auditItem.leafTagId)) ||
                           auditItem.status === "rejected",
                       },
                       {
-                        "text-primary-6 bg-primary-1 border-primary-4":
+                        "text-primary-6 bg-primary-1 border-[#A6C1FF]":
                           auditItem.score >= 80,
                         "text-[#52C41A] bg-[#F6FFED] border-[#95DE64]":
                           auditItem.score >= 70 && auditItem.score < 80,
-                        "text-[#FA8C16] bg-[#FFF7E6] border-[#FFC069] dark:border-orange-800":
+                        "text-[#FA8C16] bg-[#FFF7E6] border-[#FFC069]":
                           auditItem.score < 70,
                       },
                     )}
                   >
-                    <div className="font-medium text-[13px] mb-[2px]">
+                    <div className="font-medium text-[13px] leading-[18px]">
                       {auditItem.tagPath.join(" > ")}
                     </div>
-                    <div className="flex items-center gap-2 h-4">
+                    <div className="flex items-center gap-[6px]">
                       {/*<div className="w-16 h-2 bg-muted-foreground/20 rounded-full overflow-hidden">
                       <div
                         className={`h-full rounded-full transition-all ${
@@ -303,7 +308,7 @@ export function ReviewItem({ assetObject, batch, onSuccess, CheckboxComponent, b
                     </div>*/}
                       <Progress
                         value={auditItem.score}
-                        className="bg-current/20 [&>[data-slot=progress-indicator]]:bg-current"
+                        className="bg-current/20 [&>[data-slot=progress-indicator]]:bg-current w-[60px]"
                       />
                       <span className="text-[10px] ">{auditItem.score}%</span>
                     </div>
@@ -316,8 +321,7 @@ export function ReviewItem({ assetObject, batch, onSuccess, CheckboxComponent, b
                               size="icon"
                               variant="ghost"
                               className={cn(
-                                "absolute top-3 right-2 p-0",
-                                "size-3 bg-transparent hover:bg-transparent text-basic-5 hover:text-basic-8",
+                                "size-3 bg-transparent hover:bg-transparent text-basic-5 hover:text-current",
                               )}
                               onClick={() =>
                                 setRejectedItems((rejectedItems) => {

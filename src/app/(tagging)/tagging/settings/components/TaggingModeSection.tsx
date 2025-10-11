@@ -12,7 +12,7 @@ export function TaggingModeSection({ taggingMode, onTaggingModeChange }: Tagging
   return (
     <div className="space-y-6">
       {/* 打标模式 */}
-      <div className="bg-background border rounded-lg">
+      <div className="bg-background border rounded-[6px]">
         <div className="px-4 py-3 border-b">
           <h3 className="font-medium text-base">{t("title")}</h3>
         </div>

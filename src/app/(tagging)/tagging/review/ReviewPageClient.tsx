@@ -237,7 +237,7 @@ export default function ReviewPageClient() {
   return (
     <div className="flex flex-col space-y-[10px]">
       {/* 筛选器和搜索 */}
-      <div className="flex items-center justify-between py-4 px-5 bg-background border rounded-md">
+      <div className="flex items-center justify-between py-4 px-5 bg-background border rounded-[6px]">
         <div className="text-[13px] font-medium flex items-center gap-3">
           <Checkbox
             className="size-4"
@@ -423,11 +423,10 @@ export default function ReviewPageClient() {
           {/* 页码输入 */}
           <Input
             placeholder={t("pageInputPlaceholder")}
-            type="number"
             min="1"
             max={totalPages}
             onKeyDown={handlePageInputSubmit}
-            className=" w-[270px] h-[38px]"
+            className="rounded-[6px] max-w-[270px] flex-1 h-[38px]"
           />
 
 
