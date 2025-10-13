@@ -118,6 +118,8 @@ enum TaggingQueueStatus {
 enum TaggingTaskType {
   default
   test
+  manual
+  scheduled
 }
 
 model TaggingQueueItem {
