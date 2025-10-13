@@ -235,7 +235,7 @@ export default function ReviewPageClient() {
   }, [selectedAssets, t, refreshDataWithFilters]);
 
   return (
-    <div className="flex flex-col space-y-[10px]">
+    <div className="flex flex-col space-y-[10px] min-h-full">
       {/* 筛选器和搜索 */}
       <div className="flex items-center justify-between py-4 px-5 bg-background border rounded-[6px]">
         <div className="text-[13px] font-medium flex items-center gap-3">
