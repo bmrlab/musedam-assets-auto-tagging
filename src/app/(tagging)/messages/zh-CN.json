@@ -43,6 +43,7 @@
         "title": "打标开关",
         "enableTagging": "AI 自动打标引擎",
         "enableTaggingDesc": "开启中，AI 将可根据配置及系统标签体系对资产进行打标",
+        "disabledDesc": "关闭中",
         "manageTagSystem": "管理标签体系"
       },
       "TaggingMode": {
@@ -105,6 +106,23 @@
       },
       "AdvancedSettings": {
         "title": "高级设置"
+      },
+      "ConfirmDialog": {
+        "enableTitle": "开启 AI 自动打标",
+        "disableTitle": "关闭 AI 自动打标",
+        "enableWithoutTagsDescription": "AI 自动打标需要基于您的标签体系进行智能打标。当前系统暂无标签体系,请创建标签体系后再启用此功能~",
+        "enableWithTagsDescription": "AI 将基于您的标签体系自动分析资产内容,为资产推荐合适的标签。推荐结果会显示在\"AI 推荐打标\"字段中,您可审核后选择应用到正式标签。",
+        "disableWithoutTasksDescription": "关闭后，新上传的资产将不再生成基于您的标签体系的推荐标签。",
+        "disableWithTasksDescription": "当前有 {count} 个打标任务正在进行中，正在进行的任务不受影响，会继续完成。关闭后,新上传资产将不再生成基于标签体系的推荐标签。",
+        "tips": "提示：",
+        "enableHint": "系统当前默认支持基于图像通用识别内容进行打标",
+        "disableHint": "AI 智能标签功能仍会正常为资产提供通用内容识别",
+        "autoRealtimeOption": "为新上传资产生成推荐标签",
+        "autoRealtimeDescription": "上传的资产将自动获得 AI 标签推荐",
+        "cancel": "取消",
+        "confirmEnable": "确认开启",
+        "confirmDisable": "确认关闭",
+        "iUnderstand": "我知道了"
       }
     },
     "Review": {

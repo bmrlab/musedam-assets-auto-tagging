@@ -286,7 +286,7 @@ export default function ReviewPageClient() {
                   <AlertDialogCancel>{t("rejectConfirmCancel")}</AlertDialogCancel>
                   <AlertDialogAction
                     onClick={handleBatchReject}
-                    className="bg-danger-6 text-white hover:bg-danger-7"
+                    variant="dialogDanger"
                   >
                     {t("rejectConfirmReject")}
                   </AlertDialogAction>

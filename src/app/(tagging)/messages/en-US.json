@@ -40,9 +40,10 @@
       "newApplicationScope": "New application scope state:",
       "selectedFoldersCount": "Selected folders count:",
       "Global": {
-        "title": "Global Settings",
-        "enableTagging": "Enable Tagging",
-        "enableTaggingDesc": "Enable AI auto-tagging for assets",
+        "title": "Tagging Switch",
+        "enableTagging": "AI Auto-Tagging Engine",
+        "enableTaggingDesc": "Enabled, AI will tag assets based on configuration and tag system",
+        "disabledDesc": "Disabled",
         "manageTagSystem": "Manage Tag System"
       },
       "TaggingMode": {
@@ -105,6 +106,23 @@
       },
       "AdvancedSettings": {
         "title": "Advanced Settings"
+      },
+      "ConfirmDialog": {
+        "enableTitle": "Enable AI Auto-Tagging",
+        "disableTitle": "Disable AI Auto-Tagging",
+        "enableWithoutTagsDescription": "AI auto-tagging requires a tag system for intelligent tagging. There is currently no tag system in the system. Please create a tag system before enabling this feature~",
+        "enableWithTagsDescription": "AI will automatically analyze asset content based on your tag system and recommend suitable tags for assets. Recommended results will be displayed in the \"AI Recommended Tags\" field, and you can review and choose to apply them to formal tags.",
+        "disableWithoutTasksDescription": "After disabling, newly uploaded assets will no longer generate recommended tags based on your tag system.",
+        "disableWithTasksDescription": "There are currently {count} tagging tasks in progress, ongoing tasks will not be affected and will continue to complete. After disabling, newly uploaded assets will no longer generate recommended tags based on the tag system.",
+        "tips": "Tip: ",
+        "enableHint": "The system currently supports tagging based on general image recognition content by default",
+        "disableHint": "AI smart tags feature will still provide general content recognition for assets normally",
+        "autoRealtimeOption": "Generate recommended tags for newly uploaded assets",
+        "autoRealtimeDescription": "Uploaded assets will automatically get AI tag recommendations",
+        "cancel": "Cancel",
+        "confirmEnable": "Confirm Enable",
+        "confirmDisable": "Confirm Disable",
+        "iUnderstand": "I Understand"
       }
     },
     "Review": {

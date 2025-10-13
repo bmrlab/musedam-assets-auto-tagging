@@ -218,7 +218,7 @@ export function ReviewItem({ assetObject, batch, onSuccess, CheckboxComponent, b
                   <AlertDialogCancel>{t("rejectConfirmCancel")}</AlertDialogCancel>
                   <AlertDialogAction
                     onClick={handleReject}
-                    className="bg-danger-6 text-white hover:bg-danger-7"
+                    variant="dialogDanger"
                   >
                     {t("rejectConfirmReject")}
                   </AlertDialogAction>

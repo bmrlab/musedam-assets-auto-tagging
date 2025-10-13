@@ -67,6 +67,29 @@ function getSortByTempIdPath(tags: MuseDAMTagRequest[], tempId: string): number 
   return typeof currentNode?.sort === "number" ? currentNode?.sort : undefined;
 }
 
+export async function getTeamHasTags(): Promise<
+  ServerActionResult<{
+    hasTags: boolean;
+  }>
+> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    const tags = await prisma.assetTag.findMany({
+      where: {
+        teamId,
+        parentId: {
+          equals: null,
+        },
+      },
+      take: 1,
+    });
+
+    return {
+      success: true,
+      data: { hasTags: tags.length > 0 },
+    };
+  });
+}
+
 export async function fetchTeamTags(): Promise<
   ServerActionResult<{
     tags: (AssetTag & {
@@ -103,7 +126,7 @@ export async function fetchTeamTags(): Promise<
       success: true,
       data: { tags },
     };
-});
+  });
 }
 
 export async function syncTagsFromMuseDAMAction(): Promise<ServerActionResult<void>> {

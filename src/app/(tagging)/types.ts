@@ -85,7 +85,7 @@ export const TAGGING_CONFIG_KEYS = {
 
 // 默认设置
 export const DEFAULT_TAGGING_SETTINGS: TaggingSettingsData = {
-  isTaggingEnabled: true,
+  isTaggingEnabled: false,
   taggingMode: "review",
   recognitionAccuracy: "balanced",
   matchingSources: {
@@ -108,14 +108,13 @@ export const DEFAULT_TAGGING_SETTINGS: TaggingSettingsData = {
 // Permission settings
 export type AccessRole = "reviewer" | "admin";
 
-
 interface MemberExtra {
   avatarUrl?: string;
   departmentsName?: string;
-};
+}
 export interface AccessPermission {
   slug: string;
   name: string;
   role: AccessRole;
-  extra?: MemberExtra
+  extra?: MemberExtra;
 }

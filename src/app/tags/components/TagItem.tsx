@@ -269,7 +269,7 @@ export function TagItem({
 
       {/* 删除确认弹窗 */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent className="w-[400px]">
+        <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t("deleteConfirmTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
@@ -280,7 +280,7 @@ export function TagItem({
             <AlertDialogCancel>{tRoot("cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmDelete}
-              className="bg-danger-6 text-white"
+              variant="dialogDanger"
             >
               {t("confirmDelete")}
             </AlertDialogAction>

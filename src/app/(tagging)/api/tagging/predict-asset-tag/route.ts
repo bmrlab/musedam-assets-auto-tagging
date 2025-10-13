@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
       assetId: musedamAssetId,
       matchingSources,
       recognitionAccuracy,
-      triggerType
+      triggerType,
     } = requestSchema.parse(body);
 
     // 根据 teamId 构造 team slug 并查询 team
@@ -55,7 +55,18 @@ export async function POST(request: NextRequest) {
     const settings = await getTaggingSettings(team.id);
 
     // 未开启自动打标；且发起的是自动打标任务；不进入队列
-    if(!settings.triggerTiming.autoRealtimeTagging && triggerType === "default"){
+    if (!settings.isTaggingEnabled) {
+      return NextResponse.json({
+        success: true,
+        data: {
+          message: "Auto tagging is not enabled",
+          queueItemId: null,
+          status: null,
+        },
+      });
+    }
+
+    if (!settings.triggerTiming.autoRealtimeTagging && triggerType === "default") {
       return NextResponse.json({
         success: true,
         data: {
@@ -85,9 +96,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (settings.applicationScope.scopeType !== "all") {  
+    if (settings.applicationScope.scopeType !== "all") {
       // 获取到selectedFolders 和其子文件夹
-      const selectedFolderIds = settings.applicationScope.selectedFolders.map(folder => slugToId("assetFolder", folder.slug))
+      const selectedFolderIds = settings.applicationScope.selectedFolders.map((folder) =>
+        slugToId("assetFolder", folder.slug),
+      );
       const musedamFolderSubIds = await fetchMuseDAMFolderSubIds({
         team,
         musedamFolderIds: selectedFolderIds,

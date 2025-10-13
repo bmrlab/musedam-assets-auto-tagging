@@ -14,6 +14,7 @@ import { MatchingStrategySection } from "./components/MatchingStrategySection";
 import { TaggingModeSection } from "./components/TaggingModeSection";
 import { TriggerTimingSection } from "./components/TriggerTimingSection";
 
+
 interface SettingsClientProps {
   initialSettings: TaggingSettingsData;
 }
@@ -29,6 +30,7 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
   const [triggerTiming, setTriggerTiming] = useState(initialSettings.triggerTiming);
   const [applicationScope, setApplicationScope] = useState(initialSettings.applicationScope);
   const [isPending, setIsSaving] = useState(false);
+
 
   const handleSourceChange = (source: keyof typeof matchingSources, checked: boolean) => {
     setMatchingSources((prev) => ({
