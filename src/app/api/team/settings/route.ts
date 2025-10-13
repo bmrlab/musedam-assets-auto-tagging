@@ -30,7 +30,8 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       data: {
-        manualTriggerTagging: settings.triggerTiming.manualTriggerTagging,
+        manualTriggerTagging:
+          settings.isTaggingEnabled && settings.triggerTiming.manualTriggerTagging,
         hasPermission,
       },
     });

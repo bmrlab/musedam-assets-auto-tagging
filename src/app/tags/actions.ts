@@ -25,16 +25,25 @@ type MuseDAMTagRequest = {
   children?: MuseDAMTagRequest[];
 };
 
+// 定义 MuseDAM 标签响应的类型（API 返回的数据，包含 sort）
+type MuseDAMTagResponse = {
+  id?: number;
+  name: string;
+  operation: 0 | 1 | 2 | 3;
+  sort?: number;
+  children?: MuseDAMTagResponse[];
+};
+
 // 定义同步结果的类型
 type SyncResult = {
-  tags: MuseDAMTagRequest[];
+  tags: MuseDAMTagResponse[]; // 使用响应类型，确保包含 API 返回的 sort
   createdTagMapping: Map<string, MuseDAMID>;
 };
 
 // 根据 MuseDAM 返回的标签树构建 musedamId -> sort 的映射
-function buildMuseDAMSortMap(tags: MuseDAMTagRequest[]): Map<number, number> {
+function buildMuseDAMSortMap(tags: MuseDAMTagResponse[]): Map<number, number> {
   const map = new Map<number, number>();
-  const walk = (nodes: MuseDAMTagRequest[]) => {
+  const walk = (nodes: MuseDAMTagResponse[]) => {
     for (const node of nodes) {
       if (typeof node.id === "number" && typeof node.sort === "number") {
         map.set(node.id, node.sort);
@@ -49,14 +58,14 @@ function buildMuseDAMSortMap(tags: MuseDAMTagRequest[]): Map<number, number> {
 }
 
 // 通过 tempId 路径在 syncResult.tags 中回溯 sort（当 createdTagMapping 命中失败时）
-function getSortByTempIdPath(tags: MuseDAMTagRequest[], tempId: string): number | undefined {
+function getSortByTempIdPath(tags: MuseDAMTagResponse[], tempId: string): number | undefined {
   // 期望形如 batch_<ts>_0_1_2
   const parts = tempId.split("_");
   if (parts.length < 3) return undefined;
   // 去掉前两段 ["batch", "<ts>"]，剩下的都是层级索引
   const indexParts = parts.slice(2);
-  let currentLevel: MuseDAMTagRequest[] | undefined = tags;
-  let currentNode: MuseDAMTagRequest | undefined;
+  let currentLevel: MuseDAMTagResponse[] | undefined = tags;
+  let currentNode: MuseDAMTagResponse | undefined;
   for (const idxStr of indexParts) {
     if (!currentLevel || currentLevel.length === 0) return undefined;
     const idx = Number(idxStr);
@@ -198,6 +207,9 @@ export async function saveTagsTree(tagsTree: TagNode[]): Promise<ServerActionRes
         // MuseDAM 同步失败不影响本地保存结果
       }
 
+      // 构建 musedamId -> sort 的映射
+      const musedamSortMap = syncResult ? buildMuseDAMSortMap(syncResult.tags) : null;
+
       await prisma.$transaction(async (tx) => {
         // 递归处理标签节点
         const processNodes = async (
@@ -236,12 +248,28 @@ export async function saveTagsTree(tagsTree: TagNode[]): Promise<ServerActionRes
                 targetTagId = existingTag.id;
               } else {
                 // 标签不存在，创建新标签
-                // 计算 slug
+                // 计算 slug 和 sort
                 let slug: string | null = null;
+                let sortValue: number | undefined = undefined;
+
                 if (node.tempId && syncResult && syncResult.createdTagMapping) {
                   const musedamId = syncResult.createdTagMapping.get(node.tempId);
                   if (musedamId) {
                     slug = idToSlug("assetTag", musedamId);
+
+                    // 尝试从 musedamSortMap 获取 sort
+                    if (musedamSortMap) {
+                      const idNum = Number(musedamId as unknown as number);
+                      if (!Number.isNaN(idNum)) {
+                        const s = musedamSortMap.get(idNum);
+                        if (typeof s === "number") sortValue = s;
+                      }
+                    }
+                  }
+
+                  // 如果通过 musedamId 获取 sort 失败，尝试通过 tempId 路径获取
+                  if (sortValue === undefined && syncResult.tags && syncResult.tags.length > 0) {
+                    sortValue = getSortByTempIdPath(syncResult.tags, node.tempId);
                   }
                 }
 
@@ -252,6 +280,7 @@ export async function saveTagsTree(tagsTree: TagNode[]): Promise<ServerActionRes
                     level,
                     slug,
                     parentId,
+                    ...(sortValue !== undefined ? { sort: sortValue } : {}),
                   },
                 });
                 targetTagId = createdTag.id;
@@ -742,6 +771,9 @@ export async function saveSingleTagChange(
         // MuseDAM 同步失败不影响本地保存结果
       }
 
+      // 构建 musedamId -> sort 的映射
+      const musedamSortMap = syncResult ? buildMuseDAMSortMap(syncResult.tags) : null;
+
       await prisma.$transaction(async (tx) => {
         if (node.verb === "delete" && node.id) {
           // 删除标签（级联删除子标签）
@@ -773,27 +805,42 @@ export async function saveSingleTagChange(
             targetTagId = existingTag.id;
           } else {
             // 标签不存在，创建新标签
+            // 计算 slug 和 sort
+            let slug: string | null = null;
+            let sortValue: number | undefined = undefined;
+
+            if (node.tempId && syncResult && syncResult.createdTagMapping) {
+              const musedamId = syncResult.createdTagMapping.get(node.tempId);
+              if (musedamId) {
+                slug = idToSlug("assetTag", musedamId);
+
+                // 尝试从 musedamSortMap 获取 sort
+                if (musedamSortMap) {
+                  const idNum = Number(musedamId as unknown as number);
+                  if (!Number.isNaN(idNum)) {
+                    const s = musedamSortMap.get(idNum);
+                    if (typeof s === "number") sortValue = s;
+                  }
+                }
+              }
+
+              // 如果通过 musedamId 获取 sort 失败，尝试通过 tempId 路径获取
+              if (sortValue === undefined && syncResult.tags && syncResult.tags.length > 0) {
+                sortValue = getSortByTempIdPath(syncResult.tags, node.tempId);
+              }
+            }
+
             const createdTag = await tx.assetTag.create({
               data: {
                 teamId,
                 name: node.name.trim(),
                 level,
+                slug,
                 parentId,
+                ...(sortValue !== undefined ? { sort: sortValue } : {}),
               },
             });
             targetTagId = createdTag.id;
-
-            // 如果有同步结果且该标签是新创建的，更新 slug
-            if (syncResult && syncResult.createdTagMapping && node.tempId) {
-              const musedamId = syncResult.createdTagMapping.get(node.tempId);
-              if (musedamId) {
-                const slug = idToSlug("assetTag", musedamId);
-                await tx.assetTag.update({
-                  where: { id: targetTagId },
-                  data: { slug },
-                });
-              }
-            }
           }
 
           // 递归处理子标签

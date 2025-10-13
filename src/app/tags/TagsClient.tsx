@@ -387,7 +387,6 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
 
   // 刷新数据
   const refetchTagsTree = async () => {
-    // dispatchMuseDAMClientAction("refetch-tags-tree", {});
     setIsLoading(true);
     const refreshResult = await fetchTeamTags();
     if (refreshResult.success) {

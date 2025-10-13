@@ -233,6 +233,8 @@ export async function fetchAssetsWithAuditItems(
           return tb - ta;
         });
 
+        // const finalBatch = filteredBatch;
+
         // 只有当有有效的 batch 时才添加到结果中
         if (filteredBatch.length > 0) {
           results.push({
@@ -416,13 +418,72 @@ export async function batchApproveAuditItemsAction({
         },
         include: {
           assetObject: true,
+          queueItem: true,
         },
       });
       // 按资产分组处理
       for (const assetObject of assetObjects) {
         const assetAuditItems = auditItems.filter((item) => item.assetObjectId === assetObject.id);
 
-        if (assetAuditItems.length === 0) {
+        // 参考 fetchAssetsWithAuditItems 的 batch 分组逻辑
+        const batch: {
+          queueItem: NonNullable<(typeof assetAuditItems)[number]["queueItem"]>;
+          taggingAuditItems: typeof assetAuditItems;
+        }[] = [];
+
+        for (const auditItem of assetAuditItems) {
+          const { queueItem } = auditItem;
+          if (!queueItem) continue;
+
+          let group = batch.find((g) => g.queueItem.id === queueItem.id);
+          if (!group) {
+            group = { queueItem, taggingAuditItems: [] };
+            batch.push(group);
+          }
+          group.taggingAuditItems.push(auditItem);
+        }
+
+        // 按创建时间降序排序（最新在前）
+        batch.sort((a, b) => {
+          const ta = new Date(a.queueItem.createdAt).getTime();
+          const tb = new Date(b.queueItem.createdAt).getTime();
+          return tb - ta;
+        });
+
+        // 过滤掉旧的 default 类型的 batch，只保留最新的一个
+        let hasDefaultBatch = false;
+        const filteredOutAuditItems: typeof assetAuditItems = [];
+        const finalAuditItems: typeof assetAuditItems = [];
+
+        batch.forEach((group) => {
+          if (group.queueItem.taskType === "default") {
+            if (hasDefaultBatch) {
+              // 已经保留了一个 default batch，这个是旧的，标记为 rejected
+              filteredOutAuditItems.push(...group.taggingAuditItems);
+            } else {
+              hasDefaultBatch = true;
+              finalAuditItems.push(...group.taggingAuditItems);
+            }
+          } else {
+            // 非 default 类型的都保留
+            finalAuditItems.push(...group.taggingAuditItems);
+          }
+        });
+
+        // 将被过滤掉的 audit items 标记为 rejected
+        if (filteredOutAuditItems.length > 0) {
+          await prisma.taggingAuditItem.updateMany({
+            where: {
+              id: { in: filteredOutAuditItems.map((item) => item.id) },
+            },
+            data: { status: "rejected" },
+          });
+        }
+
+        // 用过滤后的 audit items 替代原来的
+        const finalAssetAuditItems = finalAuditItems;
+
+        if (finalAssetAuditItems.length === 0) {
           failedCount++;
           continue;
         }
@@ -446,7 +507,7 @@ export async function batchApproveAuditItemsAction({
         const approvedAssetTags = await prisma.assetTag.findMany({
           where: {
             id: {
-              in: assetAuditItems.map((item) => item.leafTagId!),
+              in: finalAssetAuditItems.map((item) => item.leafTagId!),
             },
             slug: {
               not: null,
@@ -502,7 +563,7 @@ export async function batchApproveAuditItemsAction({
         await prisma.$transaction(async (tx) => {
           await tx.taggingAuditItem.updateMany({
             where: {
-              id: { in: assetAuditItems.map((item) => item.id) },
+              id: { in: finalAssetAuditItems.map((item) => item.id) },
             },
             data: { status: "approved" },
           });

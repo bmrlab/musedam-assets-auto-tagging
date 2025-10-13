@@ -27,7 +27,7 @@ export async function enqueueTaggingTask({
     tagKeywords: boolean;
   };
   recognitionAccuracy?: "precise" | "balanced" | "broad";
-  taskType?: "default" | "test";
+  taskType?: "default" | "test" | "manual" | "scheduled";
 }): Promise<TaggingQueueItem> {
   const teamId = assetObject.teamId;
 

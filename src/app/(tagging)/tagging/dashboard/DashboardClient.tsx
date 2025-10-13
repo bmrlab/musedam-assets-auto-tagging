@@ -180,7 +180,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
   };
 
   const formatFileSize = (bytes: number | null): string => {
-    if (!bytes) return "";
+    if (!bytes) return "0 KB";
     const units = ["B", "KB", "MB", "GB"];
     let size = bytes;
     let unitIndex = 0;
@@ -390,7 +390,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
 
         {/* Task Items */}
         <div className="tagging-tasks-list">
-          {isLoading ? (
+          {isLoading && tasks.length === 0 ? (
             <div className="max-h-[622px] overflow-y-auto">
               {[1, 2, 3, 4, 5].map((i) => (
                 <div key={i} className="flex items-center gap-[14px] px-4 py-3">
@@ -461,7 +461,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
                           } catch (error) {
                             return null;
                           }
-                        })() && (
+                        })() !== null && (
                             <span className="text-basic-5">
                               <span> · </span>
                               {formatFileSize(

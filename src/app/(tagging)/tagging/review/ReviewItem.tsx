@@ -16,14 +16,12 @@ import { ClockCircleIcon, TagAIIcon, TagsIcon } from "@/components/ui/icons";
 import { Progress } from "@/components/ui/progress";
 import { cn, formatSize } from "@/lib/utils";
 import {
-  AssetObject,
   AssetObjectExtra,
   AssetObjectTags,
   TaggingAuditStatus,
 } from "@/prisma/client";
 import { CheckIcon, DotIcon, Loader2Icon, XIcon } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
-import Image from "next/image";
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -42,15 +40,45 @@ export function ReviewItem({ assetObject, batch, onSuccess, CheckboxComponent, b
   const [rejectedItems, setRejectedItems] = useState<number[]>([]);
 
   const realLoading = batchLoading || loading;
+
+  const finalBatch = useMemo(() => {
+    // 对于 taskType === 'default' 的 batch，只保留最新的那个
+    let hasDefaultBatch = false;
+    return batch.filter((group) => {
+      if (group.queueItem.taskType === "default") {
+        if (hasDefaultBatch) {
+          return false; // 已经保留了一个 default batch，跳过后续的
+        }
+        hasDefaultBatch = true;
+        return true; // 保留第一个（最新的）default batch
+      }
+      return true; // 非 default 类型的 batch 都保留
+    })
+  }, [batch]);
+
+  // 获取被 filter 掉的 audit items（用于在 approve 时标记为 rejected）
+  const filteredOutAuditItems = useMemo(() => {
+    const finalBatchSet = new Set(finalBatch);
+    const items: AssetWithAuditItemsBatch["batch"][number]["taggingAuditItems"][number][] = [];
+    batch.forEach((group) => {
+      if (!finalBatchSet.has(group)) {
+        group.taggingAuditItems.forEach((auditItem) => {
+          items.push(auditItem);
+        });
+      }
+    });
+    return items;
+  }, [batch, finalBatch]);
+
   const auditItemsSet = useMemo(() => {
     const set = new Set<AssetWithAuditItemsBatch["batch"][number]["taggingAuditItems"][number]>();
-    batch.forEach(({ taggingAuditItems }) => {
+    finalBatch.forEach(({ taggingAuditItems }) => {
       taggingAuditItems.forEach((auditItem) => {
         set.add(auditItem);
       });
     });
     return set;
-  }, [batch]);
+  }, [finalBatch]);
 
   const approveAuditItems = useCallback(
     async ({ append }: { append: boolean }) => {
@@ -66,7 +94,20 @@ export function ReviewItem({ assetObject, batch, onSuccess, CheckboxComponent, b
           leafTagId: leafTagId!,
           status: rejectedItems.includes(leafTagId!) ? "rejected" : "approved",
         }));
-      if (!auditItems.length) {
+
+      // 将被 filter 掉的 audit items 标记为 rejected
+      const filteredOutItems = filteredOutAuditItems
+        .filter(({ leafTagId }) => !!leafTagId)
+        .map(({ id, leafTagId }) => ({
+          id: id,
+          leafTagId: leafTagId!,
+          status: "rejected" as TaggingAuditStatus,
+        }));
+
+      // 合并两个数组
+      const allAuditItems = [...auditItems, ...filteredOutItems];
+
+      if (!allAuditItems.length) {
         toast.error(t("noCorrespondingTag"))
         setLoading(false);
         return;
@@ -74,7 +115,7 @@ export function ReviewItem({ assetObject, batch, onSuccess, CheckboxComponent, b
       try {
         await approveAuditItemsAction({
           assetObject,
-          auditItems,
+          auditItems: allAuditItems,
           append,
         });
         toast.success(t("applySuccess"));
@@ -92,13 +133,9 @@ export function ReviewItem({ assetObject, batch, onSuccess, CheckboxComponent, b
         setLoading(false);
       }
     },
-    [auditItemsSet, rejectedItems, assetObject],
+    [auditItemsSet, rejectedItems, assetObject, filteredOutAuditItems],
   );
 
-  const getThumbnailUrl = (asset: AssetObject) => {
-    const extra = asset.extra as AssetObjectExtra | null;
-    return extra?.thumbnailAccessUrl ?? "/file.svg";
-  };
 
   const formatDate = (date: Date) => {
     return new Intl.DateTimeFormat(locale, {
@@ -250,7 +287,7 @@ export function ReviewItem({ assetObject, batch, onSuccess, CheckboxComponent, b
         </div>
         <div className="col-span-1 flex flex-col gap-[6px]">
           {/* AI推荐标签 */}
-          {batch.map(({ queueItem, taggingAuditItems }, index) => (
+          {finalBatch.map(({ queueItem, taggingAuditItems }, index) => (
             <div
               key={queueItem.id}
               className="w-full bg-[rgba(247,249,252,0.8)] dark:bg-basic-1 rounded-md p-4"
@@ -259,7 +296,7 @@ export function ReviewItem({ assetObject, batch, onSuccess, CheckboxComponent, b
                 <TagAIIcon className="size-4" />
                 <span className="text-sm font-medium">{t("aiRecommendedTags")}</span>
                 <span className="text-xs text-basic-5">{t("basedOnTagSystem")}</span>
-                {batch.length > 1 && index === 0 ? (
+                {finalBatch.length > 1 && index === 0 ? (
                   <span className="ml-2 inline-flex items-center px-[13px] py-[2px] rounded-[4px] text-xs text-danger-6 border border-danger-3 bg-danger-1">
                     {t("latest")}
                   </span>

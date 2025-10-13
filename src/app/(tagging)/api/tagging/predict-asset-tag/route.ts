@@ -134,13 +134,13 @@ export async function POST(request: NextRequest) {
         );
       }
     }
-
     // 2. 发起 AI 打标任务
     try {
       const taggingQueueItem = await enqueueTaggingTask({
         assetObject,
         matchingSources,
         recognitionAccuracy,
+        taskType: triggerType,
       });
 
       return NextResponse.json({
