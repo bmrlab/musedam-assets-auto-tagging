@@ -168,19 +168,19 @@ export function ReviewItem({ assetObject, batch, onSuccess, CheckboxComponent, b
           </div>
         </div>
 
-        {Array.from(auditItemsSet).find((auditItem) => auditItem.status === "pending") ? (
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              disabled={realLoading}
-              variant="default"
-              onClick={() => approveAuditItems({ append: true })}
-              className="h-[28px] rounded-[6px] px-2"
-            >
-              {loading ? <Loader2Icon className="size-[14px] animate-spin" /> : <CheckIcon className="size-[14px]" />}
-              {t("add")}
-            </Button>
-            {/* <Button
+
+        <div className="flex gap-2">
+          {Array.from(auditItemsSet).find((auditItem) => auditItem.status === "pending") && <Button
+            size="sm"
+            disabled={realLoading}
+            variant="default"
+            onClick={() => approveAuditItems({ append: true })}
+            className="h-[28px] rounded-[6px] px-2"
+          >
+            {loading ? <Loader2Icon className="size-[14px] animate-spin" /> : <CheckIcon className="size-[14px]" />}
+            {t("add")}
+          </Button>}
+          {/* <Button
               size="sm"
               onClick={() => approveAuditItems({ append: false })}
               className="rounded-[4px] h-6 bg-primary-6 "
@@ -195,38 +195,38 @@ export function ReviewItem({ assetObject, batch, onSuccess, CheckboxComponent, b
               </svg>
               {t("replace")}
             </Button> */}
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button
-                  size="sm"
-                  variant="danger"
-                  className="h-[28px] rounded-[6px] px-2"
-                  disabled={realLoading}
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                size="sm"
+                variant="danger"
+                className="h-[28px] rounded-[6px] px-2"
+                disabled={realLoading}
+              >
+                {loading ? <Loader2Icon className="size-[14px] animate-spin" /> : <XIcon className="size-[14px]" />}
+                {t("delete")}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>{t("rejectConfirmTitle")}</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {t("rejectConfirmDescription", { assetName: assetObject.name })}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>{t("rejectConfirmCancel")}</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleReject}
+                  variant="dialogDanger"
                 >
-                  {loading ? <Loader2Icon className="size-[14px] animate-spin" /> : <XIcon className="size-[14px]" />}
-                  {t("delete")}
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>{t("rejectConfirmTitle")}</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    {t("rejectConfirmDescription", { assetName: assetObject.name })}
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>{t("rejectConfirmCancel")}</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={handleReject}
-                    variant="dialogDanger"
-                  >
-                    {t("rejectConfirmReject")}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div>
-        ) : null}
+                  {t("rejectConfirmReject")}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+
       </div>
 
       {/* 标签信息 */}

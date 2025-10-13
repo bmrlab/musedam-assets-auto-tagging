@@ -383,11 +383,38 @@ export async function batchCreateTags(
       };
 
       const tagsTree = convertToTagNodes(nameChildList);
+
       let syncResult: SyncResult | null = null;
 
       // 先同步到 MuseDAM（在事务外执行，避免长时间事务）
       try {
-        const syncResponse = await saveTagsTreeToMuseDAM(tagsTree);
+        let finalTagsTree = tagsTree;
+
+        // 如果是替换模式（addType === 1），需要先获取现有的一级标签并标记为删除
+        if (addType === 1) {
+          const existingRootTags = await prisma.assetTag.findMany({
+            where: {
+              teamId,
+              parentId: null,
+            },
+            orderBy: [{ sort: "desc" }, { name: "asc" }],
+          });
+
+          // 将现有标签转换为 TagNode 格式并标记为删除
+          const deleteTagNodes: TagNode[] = existingRootTags.map((tag) => ({
+            id: tag.id,
+            slug: tag.slug,
+            name: tag.name,
+            originalName: tag.name,
+            children: [],
+            verb: "delete" as const,
+          }));
+
+          // 合并删除标签和新建标签
+          finalTagsTree = [...deleteTagNodes, ...tagsTree];
+        }
+
+        const syncResponse = await saveTagsTreeToMuseDAM(finalTagsTree);
         if (syncResponse.success) {
           syncResult = syncResponse.data;
         } else {

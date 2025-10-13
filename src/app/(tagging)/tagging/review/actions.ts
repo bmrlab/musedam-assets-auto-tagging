@@ -365,9 +365,9 @@ export async function rejectAuditItemsAction({
           where: {
             teamId,
             assetObjectId: assetObject.id,
-            status: {
-              in: ["pending"],
-            },
+            // status: {
+            //   in: ["pending","approved"],
+            // },
           },
           data: {
             status: "rejected",
