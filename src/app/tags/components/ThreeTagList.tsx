@@ -4,6 +4,7 @@ import { TagNode } from "../types";
 import { TagColumn } from "./TagColumn";
 import { SmartTagsContent } from "./SmartTags";
 import { useTranslations } from "next-intl";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface ThreeTagListProps {
     title?: string
@@ -50,6 +51,9 @@ interface ThreeTagListProps {
 
     // 排序回调
     onSortTags?: (level: 1 | 2 | 3, sortedTags: TagNode[]) => void
+
+    // 加载状态
+    loading?: boolean;
 }
 
 export function ThreeTagList({
@@ -78,7 +82,8 @@ export function ThreeTagList({
     className,
     canEdit,
     title,
-    onSortTags
+    onSortTags,
+    loading = false
 }: ThreeTagListProps) {
     const t = useTranslations("TagsPage");
 
@@ -90,85 +95,106 @@ export function ThreeTagList({
     const selectedLevel1 = selectedLevel1Id ? list1.find(tag => getNodeId(tag) === selectedLevel1Id) : null;
     const selectedLevel2 = selectedLevel2Id ? list2.find(tag => getNodeId(tag) === selectedLevel2Id) : null;
 
+    // Loading 骨架屏组件
+    const LoadingSkeleton = () => (
+        <div className="grid grid-cols-3 [&>div+div]:border-l flex-1 overflow-hidden">
+            {[1, 2, 3].map((col) => (
+                <div key={col} className="flex flex-col p-4 space-y-3">
+                    <div className="flex items-center justify-between mb-2">
+                        <Skeleton className="h-4 w-20" />
+                        <Skeleton className="h-4 w-8" />
+                    </div>
+                    {[1, 2, 3, 4, 5].map((item) => (
+                        <Skeleton key={item} className="h-9 w-full" />
+                    ))}
+                </div>
+            ))}
+        </div>
+    );
+
     return (
         <div className={cn("flex-1 bg-background border h-full rounded-md overflow-hidden flex flex-col", className)}>
             {title && <div className="border-b px-4 py-2 font-medium leading-8">{title}</div>}
-            <div className="grid grid-cols-3 [&>div+div]:border-l flex-1 overflow-hidden">
-                {/* 第一列 - 标签组 */}
-                <TagColumn
-                    title={t("tagGroup")}
-                    tags={list1}
-                    level={1}
-                    selectedId={selectedLevel1Id}
-                    canAdd={showAdd}
-                    emptyMessage={canEdit ? t("noTagGroups") : ""}
-                    onAddTag={onAddTag || (() => { })}
-                    onSelectTag={onSelectLevel1}
-                    onEdit={onEdit || (async () => false)}
-                    onStartEdit={onStartEdit || (() => { })}
-                    onCancelEdit={onCancelEdit || (() => { })}
-                    onDelete={onDelete || (() => { })}
-                    onRestore={onRestore || (() => { })}
-                    getNodeId={getNodeId}
-                    hasDetailChanges={hasDetailChanges}
-                    canEdit={canEdit}
-                    totalCount={total1}
-                    showAiTags={showAiTags}
-                    onSortTags={onSortTags}
-                />
+            {loading ? (
+                <LoadingSkeleton />
+            ) : (
+                <div className="grid grid-cols-3 [&>div+div]:border-l flex-1 overflow-hidden">
+                    {/* 第一列 - 标签组 */}
+                    <TagColumn
+                        title={t("tagGroup")}
+                        tags={list1}
+                        level={1}
+                        selectedId={selectedLevel1Id}
+                        canAdd={showAdd}
+                        emptyMessage={canEdit ? t("noTagGroups") : ""}
+                        onAddTag={onAddTag || (() => { })}
+                        onSelectTag={onSelectLevel1}
+                        onEdit={onEdit || (async () => false)}
+                        onStartEdit={onStartEdit || (() => { })}
+                        onCancelEdit={onCancelEdit || (() => { })}
+                        onDelete={onDelete || (() => { })}
+                        onRestore={onRestore || (() => { })}
+                        getNodeId={getNodeId}
+                        hasDetailChanges={hasDetailChanges}
+                        canEdit={canEdit}
+                        totalCount={total1}
+                        showAiTags={showAiTags}
+                        onSortTags={onSortTags}
+                    />
 
-                {/* 第二列 - 标签 */}
-                {selectedLevel1Id === "-1" ? (
-                    <div className="col-span-2 flex flex-col items-stretch overflow-hidden">
-                        <SmartTagsContent />
-                    </div>
-                ) : (
-                    <>
-                        <TagColumn
-                            title={t("tag")}
-                            tags={list2}
-                            level={2}
-                            selectedId={selectedLevel2Id}
-                            canAdd={showAdd && !!canAddLevel2 && !!selectedLevel1 && !selectedLevel1.isDeleted}
-                            emptyMessage={!selectedLevel1 ? "" : t("noTags")}
-                            onAddTag={onAddTag || (() => { })}
-                            onSelectTag={onSelectLevel2}
-                            onEdit={onEdit || (async () => false)}
-                            onStartEdit={onStartEdit || (() => { })}
-                            onCancelEdit={onCancelEdit || (() => { })}
-                            onDelete={onDelete || (() => { })}
-                            onRestore={onRestore || (() => { })}
-                            getNodeId={getNodeId}
-                            hasDetailChanges={hasDetailChanges}
-                            canEdit={canEdit}
-                            totalCount={total2}
-                            onSortTags={onSortTags}
-                        />
+                    {/* 第二列 - 标签 */}
+                    {selectedLevel1Id === "-1" ? (
+                        <div className="col-span-2 flex flex-col items-stretch overflow-hidden">
+                            <SmartTagsContent />
+                        </div>
+                    ) : (
+                        <>
+                            <TagColumn
+                                title={t("tag")}
+                                tags={list2}
+                                level={2}
+                                selectedId={selectedLevel2Id}
+                                canAdd={showAdd && !!canAddLevel2 && !!selectedLevel1 && !selectedLevel1.isDeleted}
+                                emptyMessage={!selectedLevel1 ? "" : t("noTags")}
+                                onAddTag={onAddTag || (() => { })}
+                                onSelectTag={onSelectLevel2}
+                                onEdit={onEdit || (async () => false)}
+                                onStartEdit={onStartEdit || (() => { })}
+                                onCancelEdit={onCancelEdit || (() => { })}
+                                onDelete={onDelete || (() => { })}
+                                onRestore={onRestore || (() => { })}
+                                getNodeId={getNodeId}
+                                hasDetailChanges={hasDetailChanges}
+                                canEdit={canEdit}
+                                totalCount={total2}
+                                onSortTags={onSortTags}
+                            />
 
-                        {/* 第三列 - 标签 */}
-                        <TagColumn
-                            title={t("tag")}
-                            tags={list3}
-                            level={3}
-                            selectedId={selectedLevel3Id}
-                            canAdd={showAdd && !!canAddLevel3 && !!selectedLevel2 && !selectedLevel2.isDeleted}
-                            emptyMessage={!selectedLevel2 ? "" : t("noTags")}
-                            onAddTag={onAddTag || (() => { })}
-                            onSelectTag={onSelectLevel3}
-                            onEdit={onEdit || (async () => false)}
-                            onStartEdit={onStartEdit || (() => { })}
-                            onCancelEdit={onCancelEdit || (() => { })}
-                            onDelete={onDelete || (() => { })}
-                            onRestore={onRestore || (() => { })}
-                            getNodeId={getNodeId}
-                            hasDetailChanges={hasDetailChanges}
-                            canEdit={canEdit}
-                            totalCount={total3}
-                            onSortTags={onSortTags}
-                        />
-                    </>
-                )}
-            </div>
+                            {/* 第三列 - 标签 */}
+                            <TagColumn
+                                title={t("tag")}
+                                tags={list3}
+                                level={3}
+                                selectedId={selectedLevel3Id}
+                                canAdd={showAdd && !!canAddLevel3 && !!selectedLevel2 && !selectedLevel2.isDeleted}
+                                emptyMessage={!selectedLevel2 ? "" : t("noTags")}
+                                onAddTag={onAddTag || (() => { })}
+                                onSelectTag={onSelectLevel3}
+                                onEdit={onEdit || (async () => false)}
+                                onStartEdit={onStartEdit || (() => { })}
+                                onCancelEdit={onCancelEdit || (() => { })}
+                                onDelete={onDelete || (() => { })}
+                                onRestore={onRestore || (() => { })}
+                                getNodeId={getNodeId}
+                                hasDetailChanges={hasDetailChanges}
+                                canEdit={canEdit}
+                                totalCount={total3}
+                                onSortTags={onSortTags}
+                            />
+                        </>
+                    )}
+                </div>
+            )}
         </div>
     );
 }

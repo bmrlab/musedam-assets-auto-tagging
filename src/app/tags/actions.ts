@@ -11,9 +11,9 @@ import { MuseDAMID } from "@/musedam/types";
 import type { AssetTagExtra } from "@/prisma/client";
 import { AssetTag } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
-import { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 import type { Prisma } from "@prisma/client";
-import { generateText } from "ai";
+import { generateObject } from "ai";
+import { z } from "zod";
 import { TagNode } from "./types";
 
 // 定义 MuseDAM 标签请求的类型（与 syncToMuseDAM 返回的类型匹配）
@@ -970,6 +970,54 @@ export async function updateTagExtra(
   });
 }
 
+// 定义标签树的 schema（三层结构）
+const tagTreeSchema = z.object({
+  tags: z.array(
+    z.object({
+      name: z.string().describe("一级标签名称"),
+      children: z
+        .array(
+          z.object({
+            name: z.string().describe("二级标签名称"),
+            children: z
+              .array(
+                z.object({
+                  name: z.string().describe("三级标签名称"),
+                }),
+              )
+              .optional()
+              .describe("三级标签列表"),
+          }),
+        )
+        .optional()
+        .describe("二级标签列表"),
+    }),
+  ),
+});
+
+// 将结构化数据转换为文本格式
+function convertStructuredToText(data: z.infer<typeof tagTreeSchema>): string {
+  const lines: string[] = [];
+
+  for (const level1 of data.tags) {
+    lines.push(`# ${level1.name}`);
+
+    if (level1.children && level1.children.length > 0) {
+      for (const level2 of level1.children) {
+        lines.push(`## ${level2.name}`);
+
+        if (level2.children && level2.children.length > 0) {
+          for (const level3 of level2.children) {
+            lines.push(level3.name);
+          }
+        }
+      }
+    }
+  }
+
+  return lines.join("\n");
+}
+
 // 基于大模型生成标签树文本（严格结构化输出）
 export async function generateTagTreeByLLM(
   finalPrompt: string,
@@ -984,32 +1032,52 @@ export async function generateTagTreeByLLM(
         promptLength: finalPrompt.length,
       });
 
-      const result = await generateText({
+      // 构建针对结构化输出优化的 prompt
+      const structuredPrompt = `${finalPrompt}
+
+请以 JSON 格式返回标签树，结构如下：
+{
+  "tags": [
+    {
+      "name": "一级标签名称",
+      "children": [
+        {
+          "name": "二级标签名称",
+          "children": [
+            { "name": "三级标签名称1" },
+            { "name": "三级标签名称2" }
+          ]
+        }
+      ]
+    }
+  ]
+}
+
+注意：
+- 标签名称应简洁、专业、互斥
+- children 为可选字段，没有子标签时可以省略
+- 确保所有标签名称都是有意义的中文文本`;
+
+      const result = await generateObject({
         model: llm("gpt-5-mini"),
-        providerOptions: {
-          openai: {
-            promptCacheKey: `musedam-tags-tree-${teamId}`,
-            reasoningSummary: "auto",
-            reasoningEffort: "minimal",
-          } satisfies OpenAIResponsesProviderOptions,
-        },
-        system:
-          "你是严格的结构化输出助手。你必须仅输出标签树本身，不得包含任何说明、反引号或多余内容。",
-        messages: [
-          {
-            role: "user",
-            content: finalPrompt,
-          },
-        ],
+        schema: tagTreeSchema,
+        schemaName: "TagTree",
+        schemaDescription: "企业数字资产的三层标签分类体系",
+        prompt: structuredPrompt,
       });
+
+      // 将结构化数据转换为文本格式
+      const textOutput = convertStructuredToText(result.object);
 
       rootLogger.info({
         msg: "generateTagTreeByLLM: 生成成功",
-        resultLength: result.text.length,
+        structuredData: result.object,
+        textOutput,
       });
+
       return {
         success: true,
-        data: { text: result.text, input: finalPrompt },
+        data: { text: textOutput, input: finalPrompt },
       };
     } catch (error) {
       rootLogger.error({

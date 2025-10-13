@@ -48,6 +48,7 @@ import {
 import { useTheme } from "next-themes";
 import { RetryIcon } from "@/components/ui/icons";
 import { AssetThumbnail } from "@/components/AssetThumbnail";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface DashboardClientProps {
   initialStats: ExtractServerActionData<typeof fetchDashboardStats>["stats"];
@@ -70,13 +71,17 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
   const [taskFilter, setTaskFilter] = useState<"all" | "processing">("all");
   const [totalTasks, setTotalTasks] = useState(0);
   const [pageSize, setPageSize] = useState(20);
+  const [isLoading, setIsLoading] = useState(true);
 
   const { theme } = useTheme();
   const isDark = theme === "dark";
 
   const refreshData = useCallback(
-    async (page: number = currentPage, filter: "all" | "processing" = taskFilter, size: number = pageSize) => {
+    async (page: number = currentPage, filter: "all" | "processing" = taskFilter, size: number = pageSize, showLoading: boolean = false) => {
       try {
+        if (showLoading) {
+          setIsLoading(true);
+        }
         const [statsResult, tasksResult, weeklyResult, monthlyResult] = await Promise.all([
           fetchDashboardStats(),
           fetchProcessingTasks(page, size, filter),
@@ -100,6 +105,10 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
         }
       } catch (error) {
         console.error(tCommon("refreshDataFailed"), error);
+      } finally {
+        if (showLoading) {
+          setIsLoading(false);
+        }
       }
     },
     [currentPage, taskFilter, tCommon, pageSize],
@@ -118,8 +127,8 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
 
   useEffect(() => {
     // Initial load
-    refreshData(currentPage, taskFilter);
-  }, [currentPage, taskFilter, refreshData]);
+    refreshData(currentPage, taskFilter, pageSize, true);
+  }, [currentPage, taskFilter, refreshData, pageSize]);
 
   useEffect(() => {
     // Auto refresh every 30 seconds
@@ -303,39 +312,50 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
     <div className="space-y-4">
       {/* Statistics Card - Single card with 4 items */}
       <div className="bg-background border rounded-[6px] p-6">
-        <div className="grid grid-cols-4 gap-8">
-          <div className="text-center">
-            <div className="text-[22px] font-semibold leading-[32px]">{formatNumber(stats.totalCompleted)}</div>
-            <div className="flex items-center justify-center gap-[6px] text-xs text-basic-6 mt-1">
-              <span className="size-[5px] bg-[#00E096] rounded-full"></span>
-              <span>{t("totalCompleted")}</span>
-            </div>
+        {isLoading ? (
+          <div className="grid grid-cols-4 gap-8">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="text-center">
+                <Skeleton className="h-8 w-16 mx-auto mb-2" />
+                <Skeleton className="h-4 w-24 mx-auto" />
+              </div>
+            ))}
           </div>
+        ) : (
+          <div className="grid grid-cols-4 gap-8">
+            <div className="text-center">
+              <div className="text-[22px] font-semibold leading-[32px]">{formatNumber(stats.totalCompleted)}</div>
+              <div className="flex items-center justify-center gap-[6px] text-xs text-basic-6 mt-1">
+                <span className="size-[5px] bg-[#00E096] rounded-full"></span>
+                <span>{t("totalCompleted")}</span>
+              </div>
+            </div>
 
-          <div className="text-center">
-            <div className="text-[22px] font-semibold leading-[32px]">{stats.processing}</div>
-            <div className="flex items-center justify-center gap-[6px] text-xs text-basic-6 mt-1">
-              <span className="size-[5px] bg-primary-6 rounded-full"></span>
-              <span>{t("processing")}</span>
+            <div className="text-center">
+              <div className="text-[22px] font-semibold leading-[32px]">{stats.processing}</div>
+              <div className="flex items-center justify-center gap-[6px] text-xs text-basic-6 mt-1">
+                <span className="size-[5px] bg-primary-6 rounded-full"></span>
+                <span>{t("processing")}</span>
+              </div>
             </div>
-          </div>
 
-          <div className="text-center">
-            <div className="text-[22px] font-semibold leading-[32px]">{stats.pending}</div>
-            <div className="flex items-center justify-center gap-[6px] text-xs text-basic-6 mt-1">
-              <span className="size-[5px] bg-warning-6 rounded-full"></span>
-              <span>{t("pending")}</span>
+            <div className="text-center">
+              <div className="text-[22px] font-semibold leading-[32px]">{stats.pending}</div>
+              <div className="flex items-center justify-center gap-[6px] text-xs text-basic-6 mt-1">
+                <span className="size-[5px] bg-warning-6 rounded-full"></span>
+                <span>{t("pending")}</span>
+              </div>
             </div>
-          </div>
 
-          <div className="text-center">
-            <div className="text-[22px] font-semibold leading-[32px]">{stats.failed}</div>
-            <div className="flex items-center justify-center gap-[6px] text-xs text-basic-6 mt-1">
-              <span className="size-[5px] bg-danger-6 rounded-full"></span>
-              <span>{t("failed")}</span>
+            <div className="text-center">
+              <div className="text-[22px] font-semibold leading-[32px]">{stats.failed}</div>
+              <div className="flex items-center justify-center gap-[6px] text-xs text-basic-6 mt-1">
+                <span className="size-[5px] bg-danger-6 rounded-full"></span>
+                <span>{t("failed")}</span>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Task List Section */}
@@ -370,7 +390,20 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
 
         {/* Task Items */}
         <div className="tagging-tasks-list">
-          {tasks.length === 0 ? (
+          {isLoading ? (
+            <div className="max-h-[622px] overflow-y-auto">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="flex items-center gap-[14px] px-4 py-3">
+                  <Skeleton className="shrink-0 size-8 rounded-sm" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-48" />
+                    <Skeleton className="h-3 w-32" />
+                  </div>
+                  <Skeleton className="size-4 rounded-full" />
+                </div>
+              ))}
+            </div>
+          ) : tasks.length === 0 ? (
             <div className="text-center py-12 text-basic-5 text-sm ">
               <Image
                 width={171}
@@ -497,66 +530,72 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
         <div className="col-span-2 bg-background border rounded-[6px]">
           <div className="p-4 border-b flex items-center justify-between">
             <h3 className="font-semibold">{t("processingTrend")}</h3>
-            <div className="flex items-center text-basic-6 gap-4 mt-2">
-              <div className="flex items-center gap-2">
-                <div className="size-[10px] rounded-full bg-[#0FCA7A]" />
-                <span className="text-xs">{t("initiateTasks")}</span>
+            {!isLoading && (
+              <div className="flex items-center text-basic-6 gap-4 mt-2">
+                <div className="flex items-center gap-2">
+                  <div className="size-[10px] rounded-full bg-[#0FCA7A]" />
+                  <span className="text-xs">{t("initiateTasks")}</span>
+                </div>
+                <div className="flex items-center gap-2 ">
+                  <div className="size-[10px] rounded-full bg-[#00C7F2]" />
+                  <span className="text-xs">{t("processTasks")}</span>
+                </div>
               </div>
-              <div className="flex items-center gap-2 ">
-                <div className="size-[10px] rounded-full bg-[#00C7F2]" />
-                <span className="text-xs">{t("processTasks")}</span>
-              </div>
-            </div>
+            )}
           </div>
           <div className="p-4">
-            <ResponsiveContainer width="100%" height={250}>
-              <AreaChart data={monthlyData} margin={{ top: 10, right: 10, left: -30, bottom: -10 }}>
-                <defs>
-                  <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#0FCA7A" stopOpacity={0.6} />
-                    <stop offset="95%" stopColor="#0FCA7A" stopOpacity={0.3} />
-                  </linearGradient>
-                  <linearGradient id="colorCompleted" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#00C7F2" stopOpacity={0.6} />
-                    <stop offset="95%" stopColor="#00C7F2" stopOpacity={0.2} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" strokeOpacity={0.5} />
-                <XAxis
-                  dataKey="month"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: "#6b7280", fontSize: 12 }}
-                />
-                <YAxis
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: "#6b7280", fontSize: 12 }}
-                  tickFormatter={(value) => (value >= 1000 ? `${value / 1000}k` : value)}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "rgba(255, 255, 255, 0.95)",
-                    border: "1px solid #e5e7eb",
-                    borderRadius: "6px",
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="total"
-                  stroke="#0FCA7A"
-                  strokeWidth={2}
-                  fill="url(#colorTotal)"
-                />
-                <Area
-                  type="monotone"
-                  dataKey="completed"
-                  stroke="#00C7F2"
-                  strokeWidth={2}
-                  fill="url(#colorCompleted)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            {isLoading ? (
+              <Skeleton className="w-full h-[250px]" />
+            ) : (
+              <ResponsiveContainer width="100%" height={250}>
+                <AreaChart data={monthlyData} margin={{ top: 10, right: 10, left: -30, bottom: -10 }}>
+                  <defs>
+                    <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#0FCA7A" stopOpacity={0.6} />
+                      <stop offset="95%" stopColor="#0FCA7A" stopOpacity={0.3} />
+                    </linearGradient>
+                    <linearGradient id="colorCompleted" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#00C7F2" stopOpacity={0.6} />
+                      <stop offset="95%" stopColor="#00C7F2" stopOpacity={0.2} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" strokeOpacity={0.5} />
+                  <XAxis
+                    dataKey="month"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: "#6b7280", fontSize: 12 }}
+                  />
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: "#6b7280", fontSize: 12 }}
+                    tickFormatter={(value) => (value >= 1000 ? `${value / 1000}k` : value)}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "rgba(255, 255, 255, 0.95)",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "6px",
+                    }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="total"
+                    stroke="#0FCA7A"
+                    strokeWidth={2}
+                    fill="url(#colorTotal)"
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="completed"
+                    stroke="#00C7F2"
+                    strokeWidth={2}
+                    fill="url(#colorCompleted)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
 
@@ -566,47 +605,51 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
             <h3 className="font-semibold">{t("weeklyTagging")}</h3>
           </div>
           <div className="p-4">
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart
-                data={weeklyData}
-                barGap={8}
-                margin={{ top: 10, right: 10, left: -30, bottom: -10 }}
-              >
-                <defs>
-                  <linearGradient id="colorBar" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.8} />
-                    <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.6} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="#e5e7eb"
-                  strokeOpacity={0.5}
-                  horizontal={true}
-                  vertical={false}
-                />
-                <XAxis
-                  dataKey="day"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: "#6b7280", fontSize: 12 }}
-                />
-                <YAxis
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: "#6b7280", fontSize: 12 }}
-                  tickFormatter={(value) => (value >= 1000 ? `${value / 1000}k` : value)}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "rgba(255, 255, 255, 0.95)",
-                    border: "1px solid #e5e7eb",
-                    borderRadius: "6px",
-                  }}
-                />
-                <Bar dataKey="count" fill="url(#colorBar)" radius={[4, 4, 0, 0]} maxBarSize={40} />
-              </BarChart>
-            </ResponsiveContainer>
+            {isLoading ? (
+              <Skeleton className="w-full h-[250px]" />
+            ) : (
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart
+                  data={weeklyData}
+                  barGap={8}
+                  margin={{ top: 10, right: 10, left: -30, bottom: -10 }}
+                >
+                  <defs>
+                    <linearGradient id="colorBar" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.8} />
+                      <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.6} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="#e5e7eb"
+                    strokeOpacity={0.5}
+                    horizontal={true}
+                    vertical={false}
+                  />
+                  <XAxis
+                    dataKey="day"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: "#6b7280", fontSize: 12 }}
+                  />
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: "#6b7280", fontSize: 12 }}
+                    tickFormatter={(value) => (value >= 1000 ? `${value / 1000}k` : value)}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "rgba(255, 255, 255, 0.95)",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "6px",
+                    }}
+                  />
+                  <Bar dataKey="count" fill="url(#colorBar)" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
       </div>

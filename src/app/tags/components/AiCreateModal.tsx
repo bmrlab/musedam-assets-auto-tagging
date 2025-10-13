@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectTrigger, SelectValue } from "@/components/
 import { Spin } from "@/components/ui/spin";
 import { Textarea } from "@/components/ui/textarea";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { generateTagTreeByLLM } from "../actions";
 import {
@@ -135,6 +135,7 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
     const nameChildList = parseTextToNameChildList(generatedResult);
     console.log("nameChildList", nameChildList);
     if (nameChildList.length === 0) {
+      toast.error(tAI("parseError"));
       return;
     }
     setIsCreating(true);
@@ -188,20 +189,15 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
     setIsPromptModified(!value.length ? false : true);
   };
 
+
   const handleClose = () => {
-    setSelectedIndustry("");
-    setIsOtherSelected(false);
-    setOtherDescription("");
-    setCustomPrompt("");
-    setIsPromptModified(false);
-    setGeneratedResult("");
-    setMode("edit");
+    setMode("preview");
     setVisible(false);
   };
 
   return (
     <Dialog open={visible} onOpenChange={handleClose}>
-      <DialogContent className="w-[1200px] max-w-full max-h-[90%] overflow-hidden px-0 pb-0 gap-0">
+      <DialogContent className="w-[1200px] max-w-[90%] max-h-[90%] overflow-hidden px-0 pb-0 gap-0">
         <DialogHeader className="border-b pb-4 px-5">
           <DialogTitle>{tAI("title")}</DialogTitle>
         </DialogHeader>
@@ -233,14 +229,14 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
                       }}
                     >
                       <SelectTrigger className="w-fit">
-                        <SelectValue placeholder={t("selectTagGroupFirst")}>
+                        <SelectValue placeholder={t("pleaseSelect")}>
                           {getSelectedIndustryDisplay() && (
                             <div className="flex items-center gap-2">
                               <span>
                                 {isOtherSelected
                                   ? "👀"
                                   : industryOptions.find((opt) => opt.value === selectedIndustry)
-                                      ?.icon}
+                                    ?.icon}
                               </span>
                               <span>{getSelectedIndustryDisplay()}</span>
                             </div>
@@ -254,11 +250,10 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
                               <button
                                 key={option.value}
                                 onClick={() => handleIndustrySelect(option.value)}
-                                className={`flex items-center p-3 gap-2 rounded-[8px] border transition-all hover:border-primary-6 ${
-                                  selectedIndustry === option.value
-                                    ? "border-primary-6 bg-primary-1"
-                                    : ""
-                                }`}
+                                className={`flex items-center p-3 gap-2 rounded-[8px] border transition-all hover:border-primary-6 ${selectedIndustry === option.value
+                                  ? "border-primary-6 bg-primary-1"
+                                  : ""
+                                  }`}
                               >
                                 {option.icon}
                                 <span className="text-sm font-medium">{option.label}</span>
@@ -267,9 +262,8 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
                             {/* 其它选项 */}
                             <button
                               onClick={handleOtherSelect}
-                              className={`flex items-center p-3 gap-2 rounded-[8px] border transition-all hover:border-primary-6 ${
-                                isOtherSelected ? "border-primary-6 bg-primary-1" : ""
-                              }`}
+                              className={`flex items-center p-3 gap-2 rounded-[8px] border transition-all hover:border-primary-6 ${isOtherSelected ? "border-primary-6 bg-primary-1" : ""
+                                }`}
                             >
                               👀
                               <span className="text-sm font-medium">{tAI("other")}</span>
@@ -344,7 +338,7 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
             <Card className="border-none p-0 h-full">
               <CardContent className="px-[10px] h-full flex flex-col gap-4">
                 <h3 className="font-semibold">{tAI("result")}</h3>
-                {!generatedResult ? (
+                {(!generatedResult || isGenerating) ? (
                   <div className="flex flex-col items-center justify-center h-full text-center">
                     <div className="font-semibold text-lg mb-[6px] flex items-center gap-2">
                       {isGenerating && <Spin size="small" />}

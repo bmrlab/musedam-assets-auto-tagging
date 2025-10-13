@@ -205,9 +205,8 @@ export const BatchCreateTagsProvider = ({
 
   const handleManualTips2Confirm = async () => {
     if (!pendingNameChildList) return;
-
-    await handleManualTipsOk(1, pendingNameChildList);
     closeManualTips2();
+    await handleManualTipsOk(1, pendingNameChildList);
     closeManualTips();
   };
 
@@ -277,7 +276,7 @@ const ManualCreateTipsModal = () => {
           </RadioGroup>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={closeManualTips}>
+          <Button variant="outline" onClick={closeManualTips} disabled={isCreating}>
             {t("Cancel")}
           </Button>
           <Button
@@ -311,7 +310,7 @@ const ManualCreateTips2Modal = () => {
           <Button variant="outline" onClick={closeManualTips2}>
             {t("Cancel")}
           </Button>
-          <Button variant="destructive" onClick={handleManualTips2Confirm}>
+          <Button variant="dialogDanger" onClick={handleManualTips2Confirm}>
             {t("ClearExistingTagsAndUseNewOnes")}
           </Button>
         </DialogFooter>

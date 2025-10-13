@@ -40,6 +40,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
   const [aiCreateModalVisible, setAiCreateModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   // 移除了 tagExtraChanges 状态，现在使用 Context
 
   // 获取节点的唯一标识符
@@ -260,6 +261,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
     setTagsTree(newTree);
     setOriginalTags(initialTags);
     setDefaultSelection(newTree);
+    setIsLoading(false);
   }, [initialTags, convertToTagNodes, setDefaultSelection]);
 
   // 根据ID查找节点
@@ -386,13 +388,14 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
   // 刷新数据
   const refetchTagsTree = async () => {
     // dispatchMuseDAMClientAction("refetch-tags-tree", {});
-
+    setIsLoading(true);
     const refreshResult = await fetchTeamTags();
     if (refreshResult.success) {
       const newTree = convertToTagNodes(refreshResult.data.tags);
       setTagsTree(newTree);
       setOriginalTags(refreshResult.data.tags);
     }
+    setIsLoading(false);
   };
 
   // 添加标签
@@ -689,6 +692,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
   // };
   // 处理同步完成
   const handleSyncComplete = useCallback(async () => {
+    setIsLoading(true);
     const refreshResult = await fetchTeamTags();
     if (refreshResult.success) {
       const newTree = convertToTagNodes(refreshResult.data.tags);
@@ -727,6 +731,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
       // 认为已完成初始化
       setInitialized(true);
     }
+    setIsLoading(false);
   }, [convertToTagNodes, getNodeId, t]);
 
   // 从原始标签中查找AssetTag
@@ -925,6 +930,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
         showAiTags={true}
         canEdit={!isSearching}
         onSortTags={handleSortTags}
+        loading={isLoading}
       />
     ),
     [
@@ -944,6 +950,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
       getNodeId,
       checkTagDetailChanges,
       isSearching,
+      isLoading,
     ],
   );
 
