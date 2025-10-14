@@ -3,7 +3,6 @@
 import { withAuth } from "@/app/(auth)/withAuth";
 import { TaggingSettingsData } from "@/app/(tagging)/types";
 import { ServerActionResult } from "@/lib/serverAction";
-import { revalidatePath } from "next/cache";
 import { getTaggingSettings, resetTaggingSettings, saveTaggingSettings } from "./lib";
 
 // 获取设置数据
@@ -37,8 +36,10 @@ export async function updateSettings(
     try {
       await saveTaggingSettings(team.id, data);
 
-      // 重新验证页面缓存
-      revalidatePath("/tagging/settings");
+      // 不需要 revalidatePath，因为：
+      // 1. 客户端状态已经通过 useState 更新
+      // 2. 没有其他页面依赖这个路径的缓存
+      // 3. revalidatePath 会导致页面刷新时的语言切换问题
 
       return {
         success: true,
@@ -64,7 +65,7 @@ export async function resetSettingsAction(): Promise<
     try {
       const defaultSettings = await resetTaggingSettings(team.id);
 
-      revalidatePath("/tagging/settings");
+      // 不需要 revalidatePath（同 updateSettings 的原因）
 
       return {
         success: true,

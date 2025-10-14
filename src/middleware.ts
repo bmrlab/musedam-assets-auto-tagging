@@ -40,6 +40,7 @@ function handleLocale(req: NextRequest) {
       : localeCookie?.value === "zh-CN" || localeCookie?.value === "en-US"
         ? (localeCookie?.value as Locale)
         : undefined;
+  // console.log("🔒locale-------", { locale, requestLocale, localeCookie: localeCookie?.value });
   // Create a response object from the request
   const response = NextResponse.next();
   // Set the locale in a header to be accessible in server components
@@ -48,11 +49,12 @@ function handleLocale(req: NextRequest) {
   }
   if (locale && (!localeCookie?.value || localeCookie.value !== locale)) {
     // 只有当前 cookie 没设置过才设置，否则会导致 cookie 一直更新，useTranslation 结果也一直更新，某些页面就会反复刷新
+    // 在 iframe 环境下必须使用 sameSite: "none" 和 secure: true 才能设置第三方 cookie
     response.cookies.set("locale", locale, {
       httpOnly: false, // 允许前端 JavaScript 访问
       expires: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 365 天后过期
-      sameSite: "lax", // 安全性设置
-      secure: process.env.NODE_ENV === "production", // 生产环境使用 HTTPS
+      sameSite: "none", // iframe 环境需要 "none"
+      secure: true, // sameSite: "none" 必须配合 secure: true
     });
   }
   return { response, locale };

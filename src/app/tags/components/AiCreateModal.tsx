@@ -197,136 +197,135 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
 
   return (
     <Dialog open={visible} onOpenChange={handleClose}>
-      <DialogContent className="w-[1200px] max-w-[90%] max-h-[90%] overflow-hidden px-0 pb-0 gap-0">
+      <DialogContent className="w-[1200px] max-w-[90%] max-h-[calc(100%-80px)] h-[600px] overflow-hidden px-0 pb-0 gap-0 flex flex-col">
         <DialogHeader className="border-b pb-4 px-5">
           <DialogTitle>{tAI("title")}</DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden flex gap-5 px-5">
+        <div className="flex-1 h-full overflow-hidden flex gap-5 px-5">
           {/* 左侧：创建设置 */}
-          <div className="flex-1 flex flex-col gap-6 pb-[30px] pt-5">
-            <Card className="p-0 border-none">
-              <CardContent className="px-[10px]">
-                <div className="space-y-4">
-                  <h3 className="font-semibold">{tAI("createSettings")}</h3>
-                  {/* 提示信息 */}
-                  <p className="text-[13px] text-basic-8 border p-4 border-primary-6 bg-primary-1 rounded-[8px]">
-                    {tAI("tip")}
-                  </p>
-                  {/* 行业选择 */}
-                  <div className="space-y-2 flex items-center justify-between">
-                    <Label htmlFor="industry">{tAI("selectIndustry")}</Label>
-                    <Select
-                      open={industrySelectOpen}
-                      onOpenChange={setIndustrySelectOpen}
-                      value={isOtherSelected ? "other" : selectedIndustry}
-                      onValueChange={(value) => {
-                        if (value === "other") {
-                          handleOtherSelect();
-                        } else {
-                          handleIndustrySelect(value);
-                        }
-                      }}
-                    >
-                      <SelectTrigger className="w-fit">
-                        <SelectValue placeholder={t("pleaseSelect")}>
-                          {getSelectedIndustryDisplay() && (
-                            <div className="flex items-center gap-2">
-                              <span>
-                                {isOtherSelected
-                                  ? "👀"
-                                  : industryOptions.find((opt) => opt.value === selectedIndustry)
-                                    ?.icon}
-                              </span>
-                              <span>{getSelectedIndustryDisplay()}</span>
-                            </div>
-                          )}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent className="w-[540px]" align="end">
-                        <div className="p-4">
-                          <div className="grid grid-cols-3 gap-3">
-                            {industryOptions.map((option) => (
-                              <button
-                                key={option.value}
-                                onClick={() => handleIndustrySelect(option.value)}
-                                className={`flex items-center p-3 gap-2 rounded-[8px] border transition-all hover:border-primary-6 ${selectedIndustry === option.value
-                                  ? "border-primary-6 bg-primary-1"
-                                  : ""
-                                  }`}
-                              >
-                                {option.icon}
-                                <span className="text-sm font-medium">{option.label}</span>
-                              </button>
-                            ))}
-                            {/* 其它选项 */}
+          <div className="flex-1 h-full flex flex-col gap-6 pb-[30px] pt-5">
+            <Card className="p-0 border-none h-full bg-background">
+              <CardContent className="px-[10px] space-y-4 h-full flex flex-col overflow-hidden">
+                <h3 className="font-semibold">{tAI("createSettings")}</h3>
+                {/* 提示信息 */}
+                <p className="text-[13px] text-basic-8 border p-4 border-primary-6 bg-primary-1 rounded-[8px]">
+                  {tAI("tip")}
+                </p>
+                {/* 行业选择 */}
+                <div className="space-y-2 flex items-center justify-between">
+                  <Label htmlFor="industry">{tAI("selectIndustry")}</Label>
+                  <Select
+                    open={industrySelectOpen}
+                    onOpenChange={setIndustrySelectOpen}
+                    value={isOtherSelected ? "other" : selectedIndustry}
+                    onValueChange={(value) => {
+                      if (value === "other") {
+                        handleOtherSelect();
+                      } else {
+                        handleIndustrySelect(value);
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="w-fit">
+                      <SelectValue placeholder={t("pleaseSelect")}>
+                        {getSelectedIndustryDisplay() && (
+                          <div className="flex items-center gap-2">
+                            <span>
+                              {isOtherSelected
+                                ? "👀"
+                                : industryOptions.find((opt) => opt.value === selectedIndustry)
+                                  ?.icon}
+                            </span>
+                            <span>{getSelectedIndustryDisplay()}</span>
+                          </div>
+                        )}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent className="w-[540px]" align="end">
+                      <div className="p-4">
+                        <div className="grid grid-cols-3 gap-3">
+                          {industryOptions.map((option) => (
                             <button
-                              onClick={handleOtherSelect}
-                              className={`flex items-center p-3 gap-2 rounded-[8px] border transition-all hover:border-primary-6 ${isOtherSelected ? "border-primary-6 bg-primary-1" : ""
+                              key={option.value}
+                              onClick={() => handleIndustrySelect(option.value)}
+                              className={`flex items-center p-3 gap-2 rounded-[8px] border transition-all hover:border-primary-6 ${selectedIndustry === option.value
+                                ? "border-primary-6 bg-primary-1"
+                                : ""
                                 }`}
                             >
-                              👀
-                              <span className="text-sm font-medium">{tAI("other")}</span>
+                              {option.icon}
+                              <span className="text-sm font-medium">{option.label}</span>
                             </button>
+                          ))}
+                          {/* 其它选项 */}
+                          <button
+                            onClick={handleOtherSelect}
+                            className={`flex items-center p-3 gap-2 rounded-[8px] border transition-all hover:border-primary-6 ${isOtherSelected ? "border-primary-6 bg-primary-1" : ""
+                              }`}
+                          >
+                            👀
+                            <span className="text-sm font-medium">{tAI("other")}</span>
+                          </button>
 
-                            {/* 其它选项的描述输入框 */}
-                            {isOtherSelected && (
-                              <Input
-                                id="other-description"
-                                type="text"
-                                value={otherDescription}
-                                onChange={(e) => setOtherDescription(e.target.value)}
-                                placeholder={tAI("pleaseDescribe")}
-                                className="col-span-2 h-full"
-                              />
-                            )}
-                          </div>
+                          {/* 其它选项的描述输入框 */}
+                          {isOtherSelected && (
+                            <Input
+                              id="other-description"
+                              type="text"
+                              value={otherDescription}
+                              onChange={(e) => setOtherDescription(e.target.value)}
+                              placeholder={tAI("pleaseDescribe")}
+                              className="col-span-2 h-full"
+                            />
+                          )}
                         </div>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {/* 自定义提示词 */}
-                  <div className="space-y-2">
-                    <Label htmlFor="custom-prompt">{tAI("customPrompt")}</Label>
-                    <Textarea
-                      id="custom-prompt"
-                      value={customPrompt}
-                      onChange={(e) => handlePromptChange(e.target.value)}
-                      className="h-[296px] max-h-full resize-none"
-                      placeholderContent={
-                        <div className="space-y-3 text-sm text-basic-5">
-                          <div>{tManual("PleaseCreateLabelsInTheFollowi")}</div>
-                          <div className="space-y-1">
-                            <div className="font-medium">{tManual("FormatInstructions")}</div>
-                            <div className="flex items-start">
-                              <span className="mr-2">{tManual("PrimaryTag")}</span>
-                            </div>
-                            <div className="flex items-start">
-                              <span className="mr-2">{tManual("SecondaryTags")}</span>
-                            </div>
-                            <div className="flex items-start gap-2">
-                              <span>{tManual("Label1")}</span>
-                            </div>
-                            <div className="flex items-start gap-2">
-                              <span>{tManual("Label2")}</span>
-                            </div>
-                          </div>
-                        </div>
-                      }
-                    />
-                  </div>
-                  {/* 生成按钮 */}
-                  <Button
-                    onClick={handleGenerate}
-                    disabled={
-                      (!selectedIndustry && !isOtherSelected && !customPrompt.trim()) ||
-                      isGenerating
-                    }
-                    className="px-3"
-                  >
-                    {isGenerating ? tAI("generating") : tAI("generate")}
-                  </Button>
+                      </div>
+                    </SelectContent>
+                  </Select>
                 </div>
+                {/* 自定义提示词 */}
+                <div className="space-y-2 flex-1 overflow-hidden">
+                  <Label htmlFor="custom-prompt">{tAI("customPrompt")}</Label>
+                  <Textarea
+                    id="custom-prompt"
+                    value={customPrompt}
+                    onChange={(e) => handlePromptChange(e.target.value)}
+                    containerClassName="h-[calc(100%-40px)]"
+                    className="resize-none h-full overflow-scroll"
+                    placeholderContent={
+                      <div className="space-y-3 text-sm text-basic-5">
+                        <div>{tManual("PleaseCreateLabelsInTheFollowi")}</div>
+                        <div className="space-y-1">
+                          <div className="font-medium">{tManual("FormatInstructions")}</div>
+                          <div className="flex items-start">
+                            <span className="mr-2 whitespace-nowrap">{tManual("PrimaryTag")}</span>
+                          </div>
+                          <div className="flex items-start">
+                            <span className="mr-2 whitespace-nowrap">{tManual("SecondaryTags")}</span>
+                          </div>
+                          <div className="flex items-start gap-2">
+                            <span>{tManual("Label1")}</span>
+                          </div>
+                          <div className="flex items-start gap-2">
+                            <span>{tManual("Label2")}</span>
+                          </div>
+                        </div>
+                      </div>
+                    }
+                  />
+                </div>
+                {/* 生成按钮 */}
+                <Button
+                  onClick={handleGenerate}
+                  disabled={
+                    (!selectedIndustry && !isOtherSelected && !customPrompt.trim()) ||
+                    isGenerating
+                  }
+                  className="px-3 w-fit"
+                >
+                  {isGenerating ? tAI("generating") : tAI("generate")}
+                </Button>
               </CardContent>
             </Card>
           </div>
@@ -335,7 +334,7 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
 
           {/* 右侧：生成结果 */}
           <div className="flex-1 flex flex-col  pb-[30px] pt-5">
-            <Card className="border-none p-0 h-full">
+            <Card className="border-none p-0 h-full bg-background">
               <CardContent className="px-[10px] h-full flex flex-col gap-4">
                 <h3 className="font-semibold">{tAI("result")}</h3>
                 {(!generatedResult || isGenerating) ? (
@@ -357,13 +356,13 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
                       </span>
                       <div className="mt-3">
                         <div className="flex items-start">
-                          <span className="mr-2">{tManual("PrimaryTag")}</span>
-                          <span className="text-[#52C41A]">{tManual("PrimaryTagDescription")}</span>
+                          <span className="mr-2 whitespace-nowrap">{tManual("PrimaryTag")}</span>
+                          <span className="text-[#52C41A] text-start">{tManual("PrimaryTagDescription")}</span>
                         </div>
 
                         <div className="flex items-start">
-                          <span className="mr-2">{tManual("SecondaryTags")}</span>
-                          <span className="text-[#1890FF]">
+                          <span className="mr-2 whitespace-nowrap">{tManual("SecondaryTags")}</span>
+                          <span className="text-[#1890FF] text-start">
                             {tManual("SecondaryTagDescription")}
                           </span>
                         </div>

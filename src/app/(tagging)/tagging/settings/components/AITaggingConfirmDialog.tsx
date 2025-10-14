@@ -13,6 +13,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { getTeamHasTags } from "@/app/tags/actions";
@@ -35,8 +36,8 @@ export function AITaggingConfirmDialog({
 }: AITaggingConfirmDialogProps) {
     const t = useTranslations("Tagging.Settings.ConfirmDialog");
     const isEnable = action === "enable";
-    const isDisable = action === "disable";
 
+    const [loading, setLoading] = useState(false);
     const [hasTags, setHasTags] = useState(false);
     const [taskStats, setTaskStats] = useState({ pending: 0, processing: 0, completed: 0, failed: 0 });
 
@@ -44,6 +45,7 @@ export function AITaggingConfirmDialog({
     useEffect(() => {
         if (!open) return;
         const fetchData = async () => {
+            setLoading(true);
             try {
                 // 获取团队是否有标签
                 const hasTagsResult = await getTeamHasTags();
@@ -59,6 +61,8 @@ export function AITaggingConfirmDialog({
                 }
             } catch (error) {
                 console.error("Failed to fetch data:", error);
+            } finally {
+                setLoading(false);
             }
         };
 
@@ -143,46 +147,67 @@ export function AITaggingConfirmDialog({
                         {getTitle()}
                     </AlertDialogTitle>
                 </AlertDialogHeader>
-
-                <div className="space-y-4">
-                    <AlertDialogDescription className="text-sm text-basic-7">
-                        {getDescription()}
-                    </AlertDialogDescription>
-
-                    {/* 开启时的选项 */}
-                    {showRadio && (
-                        <div className="space-y-1">
-                            <RadioGroup defaultValue="autoRealtime" className="space-y-2">
-                                <div className="flex items-center space-x-2">
-                                    <RadioGroupItem value="autoRealtime" id="autoRealtime" />
-                                    <Label htmlFor="autoRealtime" className="text-sm text-basic-7 font-normal">
-                                        {t("autoRealtimeOption")}
-                                    </Label>
-                                </div>
-                            </RadioGroup>
-                            <p className="text-xs text-basic-5 ml-6 leading-4">
-                                {t("autoRealtimeDescription")}
-                            </p>
+                {loading ? (
+                    // 骨架屏
+                    <>
+                        <div className="space-y-4">
+                            <div className="space-y-2">
+                                <Skeleton className="h-4 w-full" />
+                                <Skeleton className="h-4 w-3/4" />
+                            </div>
+                            <Skeleton className="h-12 w-full" />
                         </div>
-                    )}
 
-                    {/* 提示信息 */}
-                    {!showRadio && <div className="flex items-start px-3 py-[14px] rounded-[8px] border border-primary-5 bg-primary-1 text-xs text-basic-8">
-                        💡<span className="font-semibold">{t("tips")}</span>{getHint()}
-                    </div>}
-                </div>
+                        <AlertDialogFooter className="flex-col-reverse sm:flex-row sm:justify-end gap-2">
+                            <Skeleton className="h-8 w-20" />
+                            <Skeleton className="h-8 w-20" />
+                        </AlertDialogFooter>
+                    </>
+                ) : (
+                    // 实际内容
+                    <>
 
-                <AlertDialogFooter className="flex-col-reverse sm:flex-row sm:justify-end gap-2">
-                    <AlertDialogCancel onClick={handleCancel} className="mt-0 w-20">
-                        {!hasTags && isDisable ? t("iUnderstand") : t("cancel")}
-                    </AlertDialogCancel>
-                    {(hasTags || isEnable) && <AlertDialogAction
-                        onClick={handleConfirm}
-                        variant={buttonProps.variant}
-                    >
-                        {buttonProps.text}
-                    </AlertDialogAction>}
-                </AlertDialogFooter>
+                        <div className="space-y-4">
+                            <AlertDialogDescription className="text-sm text-basic-7">
+                                {getDescription()}
+                            </AlertDialogDescription>
+
+                            {/* 开启时的选项 */}
+                            {showRadio && (
+                                <div className="space-y-1">
+                                    <RadioGroup defaultValue="autoRealtime" className="space-y-2">
+                                        <div className="flex items-center space-x-2">
+                                            <RadioGroupItem value="autoRealtime" id="autoRealtime" />
+                                            <Label htmlFor="autoRealtime" className="text-sm text-basic-7 font-normal">
+                                                {t("autoRealtimeOption")}
+                                            </Label>
+                                        </div>
+                                    </RadioGroup>
+                                    <p className="text-xs text-basic-5 ml-6 leading-4">
+                                        {t("autoRealtimeDescription")}
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* 提示信息 */}
+                            {!showRadio && <div className="flex items-start px-3 py-[14px] rounded-[8px] border border-primary-5 bg-primary-1 text-xs text-basic-8 ">
+                                💡<div><span className="font-semibold text-start ">{t("tips")}</span>{getHint()}</div>
+                            </div>}
+                        </div>
+
+                        <AlertDialogFooter className="flex-col-reverse sm:flex-row sm:justify-end gap-2">
+                            <AlertDialogCancel onClick={handleCancel} className="mt-0 min-w-20">
+                                {(!hasTags && isEnable) ? t("iUnderstand") : t("cancel")}
+                            </AlertDialogCancel>
+                            {(hasTags || !isEnable) && <AlertDialogAction
+                                onClick={handleConfirm}
+                                variant={buttonProps.variant}
+                            >
+                                {buttonProps.text}
+                            </AlertDialogAction>}
+                        </AlertDialogFooter>
+                    </>
+                )}
             </AlertDialogContent>
         </AlertDialog>
     );

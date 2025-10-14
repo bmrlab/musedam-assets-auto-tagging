@@ -48,7 +48,7 @@ export default async function RootLayout({
           </ThemeProvider>
         </AuthProvider>
         <Suspense fallback={null}>
-          <Embed />
+          <Embed locale={locale} />
         </Suspense>
       </body>
     </html>
