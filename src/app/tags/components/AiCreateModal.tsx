@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spin } from "@/components/ui/spin";
 import { Textarea } from "@/components/ui/textarea";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { generateTagTreeByLLM } from "../actions";
@@ -76,6 +76,8 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
   const [isPromptModified, setIsPromptModified] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedResult, setGeneratedResult] = useState<string>("");
+  const locale = useLocale()
+  // const [selectedLanguage, setSelectedLanguage] = useState<"zh-CN" | "en-US">("zh-CN");
 
   const [mode, setMode] = useState<"preview" | "edit">("preview");
 
@@ -99,7 +101,7 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
       const industryLabel = isOtherSelected ? tAI("other") : (selectedOption?.label?.trim() ?? "");
       const otherDesc = isOtherSelected ? otherDescription.trim() : "";
       const mergedUserContext = [
-        industryLabel && `行业类型：${industryLabel}`,
+        industryLabel && `${t("AiCreateModal.selectedIndustry")} ${industryLabel}`,
         industryPreset,
         otherDesc,
         customPrompt.trim(),
@@ -111,7 +113,7 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
         userContext: (mergedUserContext || "").trim() || tAI("none"),
       });
       console.log("handleGenerate: 调用 generateTagTreeByLLM");
-      const resp = await generateTagTreeByLLM(finalPrompt);
+      const resp = await generateTagTreeByLLM(finalPrompt, locale);
       if (!resp.success) {
         throw new Error(resp.message || "生成失败");
       }
@@ -212,6 +214,40 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
                 <p className="text-[13px] text-basic-8 border p-4 border-primary-6 bg-primary-1 rounded-[8px]">
                   {tAI("tip")}
                 </p>
+                {/* 语言选择 */}
+                {/* <div className="space-y-2 flex items-center justify-between">
+                  <Label htmlFor="language">{tAI("selectLanguage")}</Label>
+                  <Select
+                    value={selectedLanguage}
+                    onValueChange={(value: "zh-CN" | "en-US") => setSelectedLanguage(value)}
+                  >
+                    <SelectTrigger className="w-fit">
+                      <SelectValue>
+                        <div className="flex items-center gap-2">
+                          <span>{selectedLanguage === "zh-CN" ? "🇨🇳" : "🇺🇸"}</span>
+                          <span>{tAI(`language.${selectedLanguage}`)}</span>
+                        </div>
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent align="end">
+                      <button
+                        onClick={() => setSelectedLanguage("zh-CN")}
+                        className={`flex items-center w-full p-3 gap-2 rounded-[8px] border transition-all hover:border-primary-6 ${selectedLanguage === "zh-CN" ? "border-primary-6 bg-primary-1" : ""}`}
+                      >
+                        <span>🇨🇳</span>
+                        <span className="text-sm font-medium">{tAI("language.zh-CN")}</span>
+                      </button>
+                      <button
+                        onClick={() => setSelectedLanguage("en-US")}
+                        className={`flex items-center w-full p-3 gap-2 rounded-[8px] border transition-all hover:border-primary-6 ${selectedLanguage === "en-US" ? "border-primary-6 bg-primary-1" : ""}`}
+                      >
+                        <span>🇺🇸</span>
+                        <span className="text-sm font-medium">{tAI("language.en-US")}</span>
+                      </button>
+                    </SelectContent>
+                  </Select>
+                </div> */}
+
                 {/* 行业选择 */}
                 <div className="space-y-2 flex items-center justify-between">
                   <Label htmlFor="industry">{tAI("selectIndustry")}</Label>
@@ -255,7 +291,7 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
                                 }`}
                             >
                               {option.icon}
-                              <span className="text-sm font-medium">{option.label}</span>
+                              <span className="text-sm font-medium text-start">{option.label}</span>
                             </button>
                           ))}
                           {/* 其它选项 */}

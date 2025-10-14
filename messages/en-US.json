@@ -130,6 +130,7 @@
     },
     "AiCreateModal": {
       "generateFailed": "Failed to generate tag system",
+      "selectedIndustry": "Industry: ",
       "creating": "Creating..."
     },
     "TagColumn": {
@@ -140,6 +141,7 @@
     "title": "AI Tag System Generator",
     "createSettings": "Creation Settings",
     "tip": "💡 Select an industry to auto-fill a professional scenario description. You can adjust it as needed.",
+    "selectLanguage": "Tag Language",
     "selectIndustry": "Select Industry",
     "other": "Other",
     "pleaseDescribe": "Please describe",
@@ -153,6 +155,10 @@
     "confirmApply": "Apply to System",
     "none": "None",
     "parseError": "The generated tag format is incorrect. Please switch to edit mode to adjust manually",
+    "language": {
+      "zh-CN": "Chinese",
+      "en-US": "English"
+    },
     "tagTreePrompt": {
       "template": "You are an expert in enterprise digital asset tag taxonomies. Based on the following user context, generate a 'tag tree'.\n[User Context]\n{userContext}\n\nYou MUST output strictly in the following format only (no extra explanations, symbols, numbering, blank lines, or additional sections):\n# Level 1 Tag\n## Level 2 Tag\nTag 1\nTag 2\n\nRules:\n- Output only the tag tree itself. Do NOT include any explanations, hints, examples, Markdown code fences, or backticks.\n- Use English for all text. \n- Terms should be professional, mutually exclusive, clear, and geared for practical search. Avoid long sentences.\n- Do NOT output empty headings, numbering, colons, brackets, or any explanatory text.\n- Do NOT add symbols outside the defined levels, such as em dashes, colons, '- ', or numeric lists.\n- Do NOT restate the user context or add a concluding summary."
     },
