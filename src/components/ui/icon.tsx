@@ -1,6 +1,16 @@
 import { cn } from "@/lib/utils";
 import React from "react";
 
+// SVG 缓存存储
+interface SvgCache {
+  content: string;
+  viewBox: string;
+}
+
+const svgCache = new Map<string, SvgCache>();
+// 进行中的请求去重，避免并发重复请求同一资源
+const inFlightRequests = new Map<string, Promise<SvgCache>>();
+
 export interface IconProps extends React.SVGProps<SVGSVGElement> {
   /**
    * 图标大小 - 支持Tailwind CSS类名
@@ -39,19 +49,72 @@ export const SvgIcon = React.forwardRef<SVGSVGElement, SvgIconProps>(
     const [svgViewBox, setSvgViewBox] = React.useState<string>(viewBox || "0 0 24 24");
 
     React.useEffect(() => {
-      fetch(src)
+      let isMounted = true;
+
+      // 1) 命中内存缓存，直接使用
+      const cached = svgCache.get(src);
+      if (cached) {
+        setSvgContent(cached.content);
+        if (!viewBox) {
+          setSvgViewBox(cached.viewBox);
+        }
+        return;
+      }
+
+      // 2) 存在进行中的相同请求，复用 Promise
+      const inFlight = inFlightRequests.get(src);
+      if (inFlight) {
+        inFlight
+          .then((result) => {
+            if (!isMounted) return;
+            setSvgContent(result.content);
+            if (!viewBox) {
+              setSvgViewBox(result.viewBox);
+            }
+          })
+          .catch((error) => {
+            if (!isMounted) return;
+            console.error(`Failed to load SVG: ${src}`, error);
+          });
+        return;
+      }
+
+      // 3) 发起新请求并登记到 inFlightRequests
+      const requestPromise = fetch(src)
         .then((response) => response.text())
         .then((text) => {
-          setSvgContent(text);
-          // 尝试从SVG内容中提取viewBox
           const viewBoxMatch = text.match(/viewBox="([^"]+)"/);
-          if (viewBoxMatch && !viewBox) {
-            setSvgViewBox(viewBoxMatch[1]);
+          const extractedViewBox = viewBoxMatch?.[1] || "0 0 24 24";
+
+          const cacheValue: SvgCache = {
+            content: text,
+            viewBox: extractedViewBox,
+          };
+          svgCache.set(src, cacheValue);
+          return cacheValue;
+        })
+        .finally(() => {
+          inFlightRequests.delete(src);
+        });
+
+      inFlightRequests.set(src, requestPromise);
+
+      requestPromise
+        .then((cacheValue) => {
+          if (!isMounted) return;
+          setSvgContent(cacheValue.content);
+          if (!viewBox) {
+            setSvgViewBox(cacheValue.viewBox);
           }
         })
         .catch((error) => {
+          if (!isMounted) return;
           console.error(`Failed to load SVG: ${src}`, error);
         });
+
+      return () => {
+        isMounted = false;
+      };
     }, [src, viewBox]);
 
     if (!svgContent) {

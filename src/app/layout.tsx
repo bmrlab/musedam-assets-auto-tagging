@@ -8,6 +8,7 @@ import { Embed } from "@/embed/Embed";
 import { NextIntlClientProvider } from "next-intl";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Suspense } from "react";
+import { PageLoadingFallback } from "@/components/PageLoadingFallback";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -34,19 +35,27 @@ export default async function RootLayout({
   return (
     <html lang={locale} suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        <AuthProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="dark"
-            enableSystem={false}
-            disableTransitionOnChange
-          >
-            <NextIntlClientProvider>
-              {children}
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem={false}
+          disableTransitionOnChange
+        >
+          <AuthProvider>
+            <NextIntlClientProvider >
+              <Suspense
+                fallback={
+                  <div className="h-dvh w-dvw flex flex-col items-stretch justify-start bg-background">
+                    <PageLoadingFallback />
+                  </div>
+                }
+              >
+                {children}
+              </Suspense>
               <Toaster richColors={true} offset={20} />
             </NextIntlClientProvider>
-          </ThemeProvider>
-        </AuthProvider>
+          </AuthProvider>
+        </ThemeProvider>
         <Suspense fallback={null}>
           <Embed locale={locale} />
         </Suspense>

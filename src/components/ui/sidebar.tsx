@@ -156,6 +156,11 @@ function Sidebar({
   collapsible?: "offcanvas" | "icon" | "none";
 }) {
   const { isMobile, state, openMobile, setOpenMobile } = useSidebar();
+  const [hasMounted, setHasMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setHasMounted(true);
+  }, []);
 
   if (collapsible === "none") {
     return (
@@ -172,76 +177,78 @@ function Sidebar({
     );
   }
 
-  if (isMobile) {
+  // 在服务端渲染和首次客户端渲染时，总是渲染桌面版本以避免 hydration mismatch
+  if (!hasMounted || !isMobile) {
     return (
-      <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props}>
-        <SheetContent
-          data-sidebar="sidebar"
-          data-slot="sidebar"
-          data-mobile="true"
-          className="bg-sidebar w-(--sidebar-width) p-0 [&>button]:hidden"
-          style={
-            {
-              "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
-            } as React.CSSProperties
-          }
-          side={side}
+      <div
+        className="group peer hidden md:block"
+        data-state={state}
+        data-collapsible={state === "collapsed" ? collapsible : ""}
+        data-variant={variant}
+        data-side={side}
+        data-slot="sidebar"
+      >
+        {/* This is what handles the sidebar gap on desktop */}
+        <div
+          data-slot="sidebar-gap"
+          className={cn(
+            "relative w-(--sidebar-width) bg-transparent transition-all duration-300 ease-in-out",
+            "group-data-[collapsible=offcanvas]:w-0",
+            "group-data-[side=right]:rotate-180",
+            variant === "floating" || variant === "inset"
+              ? "group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4)))]"
+              : "group-data-[collapsible=icon]:w-(--sidebar-width-icon)",
+          )}
+        />
+        <div
+          data-slot="sidebar-container"
+          className={cn(
+            "fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) transition-all duration-300 ease-in-out md:flex",
+            side === "left"
+              ? "left-0 group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)]"
+              : "right-0 group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)]",
+            // Adjust the padding for floating and inset variants.
+            variant === "floating" || variant === "inset"
+              ? "group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4))+2px)]"
+              : "group-data-[collapsible=icon]:w-(--sidebar-width-icon) group-data-[side=left]:border-r group-data-[side=right]:border-l",
+            className,
+          )}
+          {...props}
         >
-          <SheetHeader className="sr-only">
-            <SheetTitle>Sidebar</SheetTitle>
-            <SheetDescription>Displays the mobile sidebar.</SheetDescription>
-          </SheetHeader>
-          <div className="flex h-full w-full flex-col">{children}</div>
-        </SheetContent>
-      </Sheet>
+          <div
+            data-sidebar="sidebar"
+            data-slot="sidebar-inner"
+            className="bg-sidebar group-data-[variant=floating]:border-sidebar-border flex h-full w-full flex-col group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:shadow-sm"
+          >
+            {children}
+          </div>
+        </div>
+      </div>
     );
   }
 
+  // 只有在客户端 hydration 完成且确实是移动设备时才渲染移动版本
   return (
-    <div
-      className="group peer hidden md:block"
-      data-state={state}
-      data-collapsible={state === "collapsed" ? collapsible : ""}
-      data-variant={variant}
-      data-side={side}
-      data-slot="sidebar"
-    >
-      {/* This is what handles the sidebar gap on desktop */}
-      <div
-        data-slot="sidebar-gap"
-        className={cn(
-          "relative w-(--sidebar-width) bg-transparent transition-all duration-300 ease-in-out",
-          "group-data-[collapsible=offcanvas]:w-0",
-          "group-data-[side=right]:rotate-180",
-          variant === "floating" || variant === "inset"
-            ? "group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4)))]"
-            : "group-data-[collapsible=icon]:w-(--sidebar-width-icon)",
-        )}
-      />
-      <div
-        data-slot="sidebar-container"
-        className={cn(
-          "fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) transition-all duration-300 ease-in-out md:flex",
-          side === "left"
-            ? "left-0 group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)]"
-            : "right-0 group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)]",
-          // Adjust the padding for floating and inset variants.
-          variant === "floating" || variant === "inset"
-            ? "group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4))+2px)]"
-            : "group-data-[collapsible=icon]:w-(--sidebar-width-icon) group-data-[side=left]:border-r group-data-[side=right]:border-l",
-          className,
-        )}
-        {...props}
+    <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props}>
+      <SheetContent
+        data-sidebar="sidebar"
+        data-slot="sidebar"
+        data-mobile="true"
+        className="bg-sidebar w-(--sidebar-width) p-0 [&>button]:hidden"
+        style={
+          {
+            "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
+          } as React.CSSProperties
+        }
+        side={side}
       >
-        <div
-          data-sidebar="sidebar"
-          data-slot="sidebar-inner"
-          className="bg-sidebar group-data-[variant=floating]:border-sidebar-border flex h-full w-full flex-col group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:shadow-sm"
-        >
-          {children}
-        </div>
-      </div>
-    </div>
+        <SheetHeader className="sr-only">
+          <SheetTitle>Sidebar</SheetTitle>
+          <SheetDescription>Displays the mobile sidebar.</SheetDescription>
+        </SheetHeader>
+        <div className="flex h-full w-full flex-col">{children}</div>
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -465,7 +472,7 @@ function SidebarMenuItem({ className, ...props }: React.ComponentProps<"li">) {
 }
 
 const sidebarMenuButtonVariants = cva(
-  "transition-all duration-300 ease-in-out peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-hidden ring-sidebar-ring hover:bg-primary-1 dark:hover:bg-basic-3 focus-visible:ring-2 active:bg-primary-1 dark:active:bg-basic-3 active:text-primary-6 disabled:pointer-events-none disabled:opacity-50 group-has-data-[sidebar=menu-action]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:bg-primary-1 dark:data-[active=true]:bg-basic-3 data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground data-[state=open]:hover:bg-primary-1 dark:data-[state=open]:hover:bg-basic-3 data-[state=open]: group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-2! [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0",
+  "transition-all duration-300 ease-in-out peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-hidden ring-sidebar-ring hover:bg-primary-1 dark:hover:bg-basic-3 focus-visible:ring-2 active:bg-primary-1 dark:active:bg-basic-3 disabled:pointer-events-none disabled:opacity-50 group-has-data-[sidebar=menu-action]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:bg-primary-1 dark:data-[active=true]:bg-basic-3 data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground data-[state=open]:hover:bg-primary-1 dark:data-[state=open]:hover:bg-basic-3 data-[state=open]: group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-2! [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0",
   {
     variants: {
       variant: {

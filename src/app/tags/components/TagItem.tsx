@@ -20,7 +20,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { dispatchMuseDAMClientAction } from "@/embed/message";
 import { cn } from "@/lib/utils";
-import { Edit, MoreHorizontal, Search, TagIcon, Trash2Icon } from "lucide-react";
+import { Edit, MoreHorizontal, Trash2Icon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -117,7 +117,7 @@ export function TagItem({
   if (tag.isEditing) {
     return (
       <div className="h-9 flex items-center gap-1 px-2 border rounded-md">
-        <TagIcon className="size-3" />
+        <TagOutlinedIcon className="size-3" />
         <Input
           value={editValue}
           onChange={(e) => setEditValue(e.target.value)}
