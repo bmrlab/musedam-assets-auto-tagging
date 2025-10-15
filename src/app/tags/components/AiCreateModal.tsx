@@ -135,7 +135,7 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
   const handleConfirm = async () => {
     // 解析生成的文本为标签结构
     const nameChildList = parseTextToNameChildList(generatedResult);
-    console.log("nameChildList", nameChildList);
+
     if (nameChildList.length === 0) {
       toast.error(tAI("parseError"));
       return;
@@ -423,6 +423,9 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
                         value={generatedResult}
                         mode={mode}
                         onModeChange={setMode}
+                        onChange={(v) => {
+                          setGeneratedResult(v)
+                        }}
                         showModeSwitcher={true}
                       />
                     </div>
