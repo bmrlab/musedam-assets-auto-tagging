@@ -155,7 +155,7 @@ export const AssetThumbnail = memo(
         const renderAssetThumbnail = useMemo(() => {
             if (!asset.thumbnailUrl) return null;
             return (
-                <Image
+                <img
                     src={asset.thumbnailUrl}
                     alt=""
                     width={maxWidth}
