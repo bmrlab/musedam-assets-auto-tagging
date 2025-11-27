@@ -19,7 +19,9 @@
     "login-url": "tsx scripts/login-url.ts",
     "generate-test-data": "tsx scripts/generate-test-data.ts",
     "queue-processor": "tsx scripts/queue-processor.ts",
-    "scheduled-tagger": "tsx scripts/queue-processor.ts --scheduled-only"
+    "scheduled-tagger": "tsx scripts/queue-processor.ts --scheduled-only",
+    "sync-i18n-from-feishu": "node scripts/sync-i18n-from-feishu.mjs",
+    "sync-i18n-to-feishu": "node scripts/sync-i18n-to-feishu.mjs"
   },
   "dependencies": {
     "@ai-sdk/amazon-bedrock": "^3.0.8",
@@ -47,6 +49,7 @@
     "@vercel/functions": "^2.2.12",
     "ai": "^5.0.12",
     "bcryptjs": "^2.4.3",
+    "chalk": "^5.6.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "js-cookie": "^3.0.5",
