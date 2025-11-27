@@ -11,12 +11,12 @@ async function processScheduledTagging() {
     return false;
   }
 
-  const apiUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const apiUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3002";
   const endpoint = `${apiUrl}/api/tagging/process-scheduled`;
 
   try {
     console.log(`🕐 ${new Date().toISOString()} - Starting scheduled tagging task...`);
-    
+
     const response = await fetch(endpoint, {
       method: "POST",
       headers: {
@@ -39,7 +39,7 @@ async function processScheduledTagging() {
       console.log(`   - Teams processed: ${result.processedTeams}`);
       console.log(`   - Successful: ${result.successCount}`);
       console.log(`   - Failed: ${result.errorCount}`);
-      
+
       if (result.errorCount > 0) {
         console.log("   Errors:");
         result.results.forEach((team: any) => {
@@ -51,7 +51,7 @@ async function processScheduledTagging() {
     } else {
       console.error(`❌ Scheduled tagging failed: ${result.error}`);
     }
-    
+
     return result.success;
   } catch (error) {
     console.error(`❌ Error processing scheduled tagging:`, error);
@@ -102,16 +102,18 @@ async function processQueue() {
 
 async function main() {
   const args = process.argv.slice(2);
-  
+
   // 如果是只运行定时标签模式
-  if (args.includes('--scheduled-only')) {
+  if (args.includes("--scheduled-only")) {
     console.log("🚀 Running scheduled tagging task immediately...");
     await processScheduledTagging();
     process.exit(0);
   }
-  
+
   // 默认模式：队列处理 + 定时标签
-  console.log("🚀 Starting queue processor - will process queue every 10 seconds and scheduled tagging daily");
+  console.log(
+    "🚀 Starting queue processor - will process queue every 10 seconds and scheduled tagging daily",
+  );
   console.log("Press Ctrl+C to stop");
 
   // Process immediately on startup
@@ -123,11 +125,11 @@ async function main() {
   // Set up interval to process every 10 seconds
   const interval = setInterval(async () => {
     await processQueue();
-    
+
     // Check if it's a new day and run scheduled tagging
     const today = new Date().toDateString();
     const now = new Date();
-    
+
     if (scheduledTaggingLastRun !== today && now.getHours() === 0 && now.getMinutes() < 10) {
       console.log(`🕐 It's a new day! Running scheduled tagging...`);
       await processScheduledTagging();

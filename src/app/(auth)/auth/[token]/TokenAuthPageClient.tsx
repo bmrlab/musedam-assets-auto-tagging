@@ -3,6 +3,7 @@ import { PageLoadingFallback } from "@/components/PageLoadingFallback";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLocaleClient } from "@/i18n/client";
 import { signIn } from "next-auth/react";
+import { Locale } from "next-intl";
 import { useTheme } from "next-themes";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -17,7 +18,7 @@ export function TokenAuthPageClient({
   token: string;
   callbackUrl: string;
   theme?: "light" | "dark";
-  locale?: "zh-CN" | "en-US";
+  locale?: string;
 }) {
   const { setTheme } = useTheme();
   const router = useRouter();
@@ -53,7 +54,7 @@ export function TokenAuthPageClient({
 
   useEffect(() => {
     if (locale) {
-      setLocale(locale);
+      setLocale(locale as Locale);
     }
   }, [locale, setLocale]);
 

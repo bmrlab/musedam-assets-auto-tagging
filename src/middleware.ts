@@ -33,15 +33,14 @@ function handleLocale(req: NextRequest) {
   const localeCookie = req.cookies.get("locale");
   const urlObj = new URL(req.url);
   const requestLocale = urlObj.searchParams.get("locale");
+  const validLocales = ["zh-CN", "en-US", "zh-TW", "ja-JP"];
   // url 中的 ?locale= 优先，然后是 cookie 中的
   const locale =
-    requestLocale === "zh-CN" || requestLocale === "en-US"
+    requestLocale && validLocales.includes(requestLocale)
       ? (requestLocale as Locale)
-      : localeCookie?.value === "zh-CN" || localeCookie?.value === "en-US"
+      : localeCookie?.value && validLocales.includes(localeCookie?.value)
         ? (localeCookie?.value as Locale)
         : undefined;
-  // console.log("🔒locale-------", { locale, requestLocale, localeCookie: localeCookie?.value });
-  // Create a response object from the request
   const response = NextResponse.next();
   // Set the locale in a header to be accessible in server components
   if (locale) {

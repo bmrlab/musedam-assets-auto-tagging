@@ -125,7 +125,7 @@ function handleParentConfigUpdate(action: string, args: any) {
     case "updateLocale":
       if (args?.locale && typeof window !== "undefined") {
         // 更新语言设置
-        const validLocales = ["zh-CN", "en-US"];
+        const validLocales = ["zh-CN", "en-US", "zh-TW", "ja-JP"];
         if (validLocales.includes(args.locale)) {
           // 同时尝试设置 cookie（第三方 iframe 需 SameSite=None; Secure，可能仍受浏览器策略限制）
           if (typeof document !== "undefined") {

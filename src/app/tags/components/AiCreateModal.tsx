@@ -112,7 +112,7 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
       const finalPrompt = tAI("tagTreePrompt.template", {
         userContext: (mergedUserContext || "").trim() || tAI("none"),
       });
-      console.log("handleGenerate: 调用 generateTagTreeByLLM");
+
       const resp = await generateTagTreeByLLM(finalPrompt, locale);
       if (!resp.success) {
         throw new Error(resp.message || "生成失败");

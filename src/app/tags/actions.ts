@@ -1095,12 +1095,11 @@ function convertStructuredToText(data: z.infer<typeof tagTreeSchema>): string {
 // 基于大模型生成标签树文本（严格结构化输出）
 export async function generateTagTreeByLLM(
   finalPrompt: string,
-  lang: "zh-CN" | "en-US" = "zh-CN",
+  lang: "zh-CN" | "en-US" | "zh-TW" | "ja-JP" = "zh-CN",
 ): Promise<ServerActionResult<{ text: string; input: string }>> {
   "use server";
 
   return withAuth(async ({ team: { id: teamId } }) => {
-    console.log("lang", lang);
     try {
       rootLogger.info({
         msg: "generateTagTreeByLLM: 开始生成",
@@ -1122,7 +1121,7 @@ export async function generateTagTreeByLLM(
           notes: `注意：
 - 标签名称应简洁、专业、互斥
 - children 为可选字段，没有子标签时可以省略
-- 确保所有标签名称都是有意义的中文文本`,
+- 确保所有标签名称都是有意义的${lang === "zh-CN" ? "中文" : lang === "zh-TW" ? "繁体中文（台湾）" : "日文"}文本`,
         },
         "en-US": {
           schemaName: "TagTree",
@@ -1139,7 +1138,7 @@ export async function generateTagTreeByLLM(
         },
       };
 
-      const config = languageConfig[lang];
+      const config = languageConfig[lang === "en-US" ? "en-US" : "zh-CN"];
 
       // 构建针对结构化输出优化的 prompt
       const structuredPrompt = `${finalPrompt}

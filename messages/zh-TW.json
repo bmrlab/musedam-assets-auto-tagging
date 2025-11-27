@@ -1,0 +1,236 @@
+{
+  "Homepage": {
+    "title": "MuseDAM 資產自動標記系統"
+  },
+  "AiCreateModal": {
+    "aiAnalyzing": "AI 正在分析並生成標籤體系....",
+    "confirmApply": "確認套用至系統",
+    "createSettings": "建立設定",
+    "customPrompt": "自訂提示詞",
+    "generate": "生成標籤體系",
+    "generating": "產生中...",
+    "industry": {
+      "automotive": {
+        "label": "汽車",
+        "prompt": "我們是汽車企業，主要業務包括車型展示、性能演示、試駕體驗、技術解析、生活場景、品牌形象等。需要管理車型外觀圖、內飾細節照、性能測試視頻、試駕體驗片、技術解析圖、生活場景短片等數字媒體資產，希望按照車型展示、性能演示、試駕體驗、技術解析、生活場景、品牌形象等維度建立標籤分類體系。\n這個標籤體系適用於乘用車、商用車、新能源車、汽車配件等汽車行業，幫助企業高效管理從產品展示到駕駛體驗的全場景汽車行銷素材。"
+      },
+      "beauty": {
+        "label": "美妝",
+        "prompt": "我們是美妝企業，主要業務包括產品展示、妝容教程、品牌種草、KOL合作、新產品發布、試色展示等。需要管理產品實拍圖、妝容教程視頻、種草海報、博主合作素材、新產品宣傳圖、試色對比圖等數字媒體資產，希望按照產品展示、妝容教程、品牌種草、KOL合作、新產品發布、試色展示等維度建立標籤分類體系。\n這個標籤體系適用於彩妝、護膚、香水、美容工具等美妝行業，幫助企業高效管理從產品展示到消費者教育的全場景美妝內容素材。"
+      },
+      "ecommerce": {
+        "label": "電商零售",
+        "prompt": "我們是電商零售企業，主要業務包括商品拍攝、詳情頁製作、行銷活動策劃、直播帶貨、跨平台運營、客戶服務等。需要管理商品資訊、訂單數據、行銷素材、直播內容、平台資料、客戶反饋等數位資產，希望按照商品管理、行銷推廣、運營數據、客戶服務等維度建立標籤分類體系。\n這個標籤體系適用於天貓、京東、拼多多、抖音電商等各類電商平台的零售商家，幫助企業高效管理從商品到轉化的全流程視覺素材。"
+      },
+      "electronics": {
+        "label": "3C電子",
+        "prompt": "我們是3C電子企業，主要業務包括產品展示、功能演示、技術科普、評測對比、使用教程、品牌宣傳等。需要管理產品實拍圖、功能演示視頻、技術參數圖表、評測對比素材、使用說明圖、品牌形象片等數字媒體資產，希望按照產品展示、功能演示、技術科普、評測對比、使用教程、品牌宣傳等維度建立標籤分類體系。\n這個標籤體系適用於手機、電腦、家電、數碼配件等3C電子行業，幫助企業高效管理從產品功能到用戶體驗的全鏈路技術行銷素材。"
+      },
+      "fashion": {
+        "label": "鞋服",
+        "prompt": "我們是鞋服企業，主要業務包括產品展示、搭配推薦、時尚大片、模特拍攝、潮流資訊、穿搭教程等。需要管理服裝平鋪圖、模特穿搭照、搭配指南圖、時尚大片、品牌形象片、穿搭教程視頻等數字媒體資產，希望按照產品展示、搭配推薦、時尚大片、模特拍攝、潮流資訊、穿搭教程等維度建立標籤分類體系。\n這個標籤體系適用於服裝、鞋類、箱包、配飾等時尚行業，幫助企業高效管理從產品展示到時尚生活方式傳達的全方位視覺內容素材。"
+      },
+      "fmcg": {
+        "label": "快消品",
+        "prompt": "我們是快消品企業，主要業務包括產品包裝設計、品牌推廣、渠道行銷、促銷活動、新品發布、消費者教育等。需要管理產品包裝圖片、品牌宣傳視頻、促銷海報、渠道物料、新品發布素材、消費者互動內容等數字媒體資產，希望按照產品包裝、品牌推廣、渠道行銷、促銷活動、新品發布、消費者溝通等維度建立標籤分類體系。"
+      },
+      "gaming": {
+        "label": "遊戲",
+        "prompt": "我們是遊戲企業，主要業務包括遊戲宣傳、角色展示、玩法演示、版本更新、電競賽事、社群經營等。需要管理遊戲海報、角色原畫、玩法截圖、宣傳影片、版本預告片、電競賽事素材等數位媒體資產，希望按照遊戲宣傳、角色展示、玩法演示、版本更新、電競賽事、社群經營等維度建立標籤分類體系。\n這個標籤體系適用於手遊、端遊、主機遊戲、VR遊戲等遊戲行業，幫助企業高效管理從遊戲推廣到玩家社群的全生態遊戲行銷素材。"
+      },
+      "general": {
+        "label": "通用行業",
+        "prompt": "我們是行銷宣發驅動型企業，主要業務包括品牌傳播、內容創作、廣告投放、活動策劃、社媒運營、視覺設計、視頻製作、KOL合作等。需要管理產品展示素材、廣告創意圖片、宣傳視頻、活動海報、社交媒體內容、品牌VI素材、包裝設計、推廣物料等數字媒體資產，希望按照品牌宣傳、產品展示、廣告投放、內容行銷、活動推廣、社媒運營、視覺創意、視頻內容等維度建立標籤分類體系。\n這個標籤體系適用於電商、快消品、3C電子、時尚美妝、食品飲料等注重行銷推廣的行業，幫助企業高效管理和復用各類宣發媒體素材。"
+      },
+      "interior": {
+        "label": "室內設計",
+        "prompt": "我們是室內設計企業，主要業務包括空間展示、設計方案、風格呈現、材料展示、施工過程、案例分享等。需要管理空間效果圖、設計方案圖、風格參考圖、材料樣品照、施工過程照、完工實景圖等數位媒體資產，希望按照空間展示、設計方案、風格呈現、材料展示、施工過程、案例分享等維度建立標籤分類體系。\n這個標籤體系適用於住宅設計、商業空間、辦公裝修、軟裝搭配等室內設計行業，幫助企業高效管理從設計構思到空間呈現的全流程視覺設計素材。"
+      },
+      "jewelry": {
+        "label": "珠寶",
+        "prompt": "我們是珠寶企業，主要業務包括珠寶展示、工藝呈現、佩戴效果、收藏價值、定制服務、品牌傳承等。需要管理珠寶細節圖、工藝製作視頻、佩戴展示照、收藏級作品圖、定制過程片、品牌故事視頻等數字媒體資產，希望按照珠寶展示、工藝呈現、佩戴效果、收藏價值、定制服務、品牌傳承等維度建立標籤分類體系。\n這個標籤體系適用於鑽石首飾、黃金飾品、玉石翡翠、珍珠配飾等珠寶行業，幫助企業高效管理從產品工藝到情感價值的全方位珠寶行銷素材。"
+      },
+      "luxury": {
+        "label": "奢侈品",
+        "prompt": "我們是奢侈品企業，主要業務包括產品展示、工藝呈現、品牌故事、生活方式、限量發布、典藏展示等。需要管理產品精拍圖、工藝細節照、品牌故事片、生活方式大片、限量款海報、典藏展示視頻等數字媒體資產，希望按照產品展示、工藝呈現、品牌故事、生活方式、限量發布、典藏展示等維度建立標籤分類體系。\n這個標籤體系適用於高端時裝、珠寶腕錶、皮具箱包、香水化妝品等奢侈品行業，幫助企業高效管理從產品價值到品牌文化的全方位高端視覺素材。"
+      },
+      "theme-park": {
+        "label": "主題公園",
+        "prompt": "我們是主題公園企業，主要業務包括園區展示、遊樂項目、演藝表演、主題活動、餐飲體驗、商品推廣等。需要管理園區風光圖、遊樂設施照、演出現場視頻、節慶活動海報、美食展示圖、主題商品照等數字媒體資產，希望按照園區展示、遊樂項目、演藝表演、主題活動、餐飲體驗、商品推廣等維度建立標籤分類體系。\n這個標籤體系適用於遊樂園、環球影城、水上樂園、文化主題園等主題公園行業，幫助企業高效管理從園區體驗到遊客服務的全場景娛樂行銷素材。"
+      }
+    },
+    "language": {
+      "en-US": "英文",
+      "zh-CN": "中文"
+    },
+    "none": "無",
+    "other": "其他",
+    "parseError": "生成的標籤格式不正確，請切換到編輯模式手動調整",
+    "pleaseDescribe": "請描述",
+    "pleaseSelectOrInput": "請在左側選擇行業或輸入自訂提示詞，點擊生成即可～",
+    "result": "生成結果",
+    "selectIndustry": "選擇行業類型",
+    "selectLanguage": "標籤語言",
+    "tagTreePrompt": {
+      "template": "你是企業數位資產標籤體系的專家，請基於以下用戶需求生成「標籤樹」。\n【用戶需求】\n{userContext}\n\n必須嚴格按照下述唯一格式輸出（不能多任何說明、符號、編號、空行或額外段落）：\n# 一級標籤\n## 二級標籤\n標籤1\n標籤2\n\n生成規範：\n- 全量輸出僅包含標籤樹本身，不要出現「說明/提示/示例/Markdown 程式碼塊標記/反引號」等任何多餘文字。\n- 所有文本使用中文。\n- 詞語應專業、互斥、清晰、面向實際業務檢索，不要使用過長句子。\n- 嚴禁輸出空的標題、編號、序號、冒號、括號或任何說明文字。\n- 不要添加層級之外的符號，比如「—」、「：」、「- 」或數字序號。\n- 不要複述用戶需求或添加結尾總結。"
+    },
+    "tip": "💡 選擇行業類型，系統將自動填充專業化的業務場景描述，您可以在此基礎上進行調整",
+    "title": "AI 智慧建立標籤",
+    "waiting": "等待生成"
+  },
+  "SearchResult": {
+    "noSearchResults": "搜尋結果為空",
+    "tagGroup": "標籤組"
+  },
+  "SmartTags": {
+    "delete": "刪除",
+    "rename": "重新命名",
+    "title": "智能標籤"
+  },
+  "TaggingResultDisplay": {
+    "aiRecognitionMode": "AI 辨識模式",
+    "candidateTags": "候選標籤",
+    "candidateTagsDescription": "信賴度 60%-79%",
+    "confidence": "信賴度",
+    "effectiveTags": "生效標籤",
+    "effectiveTagsDescription": "置信度 80%-100%",
+    "matchingSource": "匹配來源",
+    "overallScore": "綜合得分",
+    "processingTime": "處理時間",
+    "score": "得分"
+  },
+  "TagsPage": {
+    "AiCreateModal": {
+      "creating": "建立中...",
+      "generateFailed": "生成標籤體系失敗",
+      "selectedIndustry": "行業類型:"
+    },
+    "ManualCreateModal": {
+      "Cancel": "取消",
+      "CreateLabelsManually": "手動建立標籤",
+      "CreateNow": "立即建立",
+      "FormatInstructions": "格式說明：",
+      "HereSTheTranslatedTextFollowin": "編輯檢視",
+      "Label1": "標籤1",
+      "Label2": "標籤2",
+      "LabelDescription": "← 具體標籤（如：產品圖片、上裝系列）",
+      "LabelsCreatedSuccessfully": "批次建立標籤成功",
+      "OrdinaryTextIsALevel3Tag": "普通文字為三級標籤",
+      "PleaseCreateLabelsInTheFollowi": "請按以下格式建立標籤，每行一個...",
+      "PreviewView": "預覽檢視",
+      "PrimaryTag": "# 一級標籤",
+      "PrimaryTagDescription": "← 主要分類（如：內容類型、產品系列）",
+      "QuicklyCreateMultipleTagPathsW": "快速建立多組標籤路徑，最多支援三層級標籤聯動",
+      "SecondaryTagDescription": "← 細分類別（如：圖像資產、服裝類別）",
+      "SecondaryTags": "## 二級標籤"
+    },
+    "ManualCreateTips2Modal": {
+      "Cancel": "取消",
+      "ClearExistingTagsAndUseNewOnes": "清空原有標籤，使用新標籤",
+      "ConfirmToUseTheNewTagSystemOnl": "確認僅使用新標籤體系嗎？這將會清空您原有的標籤體系，以及原有標籤下所有的關聯素材。此操作不可恢復，請謹慎操作。",
+      "HereSTheTranslatedVersionFollo": "操作提示"
+    },
+    "ManualCreateTipsModal": {
+      "Cancel": "取消",
+      "ClearExistingTagsKeepOnlyTheNe": "清空現有標籤，僅保留本次建立的標籤",
+      "Confirm": "確認",
+      "CreateTagPrompt": "建立標籤提示",
+      "ExistingTagDataFoundInTheSyste": "系統中已存在標籤資料，請選擇如何處理本次批次建立的標籤。此操作無法撤銷，請謹慎選擇：",
+      "MergeIntoExistingTagSystem": "合併至現有標籤系統",
+      "RetainExistingTagsAndAddNewTag": "保留原有標籤，將新標籤新增至現有標籤體系中",
+      "UnderstoodPleaseProvideTheText": "僅使用新標籤體系"
+    },
+    "TagColumn": {
+      "smartTags": "智能標籤"
+    },
+    "TagDetails": {
+      "add": "新增",
+      "aiAutoTagging": "AI 自動標註",
+      "aiAutoTaggingDisabled": "已禁用，AI 不會識別此標籤",
+      "aiAutoTaggingEnabled": "已啟用，允許 AI 辨識此標籤",
+      "edit": "編輯",
+      "excludeKeywords": "排除關鍵字",
+      "excludeKeywordsTooltip": "新增需要排除的關鍵字，當素材包含這些詞時將不會被打上此標籤",
+      "excludeRule": "排除規則：",
+      "excludeRuleDescription": "當素材的名稱、元資料和所在資料夾包含這些關鍵字時，即使匹配到上述關鍵字也不會自動打標",
+      "inputKeywords": "輸入關鍵字",
+      "matchingKeywords": "匹配關鍵字",
+      "matchingKeywordsTooltip": "添加與此標籤相關的關鍵字，幫助AI更準確地識別此標籤",
+      "matchingRule": "匹配規則：",
+      "matchingRuleDescription": "當素材的名稱、元資料和所在資料夾匹配到上述關鍵字時，AI 將自動為素材打上對應標籤",
+      "modified": "已修改",
+      "selectTagToView": "請選擇一個標籤檢視詳情",
+      "tagDescription": "標籤描述",
+      "tagDescriptionPlaceholder": "選填，新增標籤描述可協助 AI 更好地理解標籤的應用場景",
+      "tagDetails": "標籤詳情",
+      "tagName": "標籤名稱",
+      "tagNamePlaceholder": "海報設計"
+    },
+    "TagItem": {
+      "confirmDelete": "確認刪除",
+      "delete": "刪除",
+      "deleteConfirmDescription": "是否確認刪除標籤「{tagName}」？",
+      "deleteConfirmTitle": "刪除標籤",
+      "edited": "已編輯",
+      "inputTagName": "輸入標籤名",
+      "modified": "已修改",
+      "new": "新增",
+      "rename": "重新命名",
+      "searchRelatedAssets": "搜尋關聯素材",
+      "tagNameRequired": "標籤名不能為空",
+      "toBeDeleted": "將刪除"
+    },
+    "TagSortModal": {
+      "cancel": "取消",
+      "confirm": "確認",
+      "defaultTitle": "標籤",
+      "level1Title": "一級標籤",
+      "level2Title": "二級標籤",
+      "level3Title": "三級標籤",
+      "noSortableTags": "沒有可排序的標籤",
+      "saving": "儲存中...",
+      "sortSaveFailed": "排序儲存失敗",
+      "sortSaveSuccess": "排序儲存成功",
+      "title": "標籤排序"
+    },
+    "TagsClient": {
+      "tagCreatedSuccessfully": "標籤建立成功"
+    },
+    "aiAssistant": "AI 助手",
+    "aiAutoTagging": "AI 自動標記引擎",
+    "aiCreateDesc": "依據行業特性，AI 自動生成專業標籤範本，快速搭建分類體系",
+    "aiCreateLabel": "AI 智慧建立標籤",
+    "batchCreate": "批次建立",
+    "cancel": "取消",
+    "confirmSync": "確認",
+    "confirmSyncDescription": "此操作將：\n• 刪除目前系統中的所有標籤\n• 從 MuseDAM 重新拉取完整的標籤體系\n• 所有本機未儲存的標籤修改將遺失\n\n確定要繼續嗎？",
+    "confirmSyncTitle": "確認同步標籤",
+    "manualCreateDesc": "結合企業獨有的業務場景和知識沉澱，打造專屬標籤架構",
+    "manualCreateLabel": "手動建立標籤",
+    "noSearchResults": "未找到相符的標籤",
+    "noTagGroups": "暫無標籤組",
+    "noTags": "暫無標籤",
+    "pleaseSelect": "請選擇",
+    "recommended": "推薦",
+    "saveChanges": "儲存",
+    "saveDetailsFailed": "儲存標籤詳情失敗",
+    "saveFailed": "儲存失敗",
+    "saveSuccess": "儲存成功",
+    "saving": "儲存中...",
+    "searchPlaceholder": "搜尋標籤",
+    "searchResults": "搜尋結果",
+    "selectCreateMethod": "請選擇建立方式:",
+    "selectSecondLevelFirst": "請先選擇二級標籤",
+    "sortFailed": "標籤排序失敗",
+    "sortSuccess": "標籤排序成功",
+    "syncError": "同步時發生錯誤",
+    "syncFailed": "同步失敗",
+    "syncFromMuseDAM": "從 MuseDAM 同步",
+    "syncSuccess": "從 MuseDAM 同步標籤成功",
+    "syncing": "同步中...",
+    "tag": "標籤",
+    "tagGroup": "標籤組",
+    "tagManagement": "標籤管理",
+    "tagNameExists": "標籤名在同階層中已存在"
+  }
+}

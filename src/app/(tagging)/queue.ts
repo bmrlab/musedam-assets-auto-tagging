@@ -115,7 +115,10 @@ export async function processQueueItem({
       matchingSources: extra?.matchingSources,
       recognitionAccuracy: extra?.recognitionAccuracy,
     });
-    logger.info("processQueueItem completed");
+    logger.info({
+      msg: "processQueueItem completed",
+      tagsWithScoreCount: tagsWithScore.length,
+    });
     const updatedQueueItem = await prisma.taggingQueueItem.update({
       where: { id: queueItem.id },
       data: {
@@ -134,18 +137,44 @@ export async function processQueueItem({
     // 如果是测试内容，不需要进入审核
     if (updatedQueueItem.taskType !== "test") {
       const teamSetting = await getTaggingSettings(queueItem.teamId);
+      // 直接应用
       const isDirect = teamSetting.taggingMode === "direct";
-      await createAuditItems({
+      logger.info({
+        msg: "Creating audit items",
+        isDirect,
+        tagsWithScoreCount: tagsWithScore.length,
+        mode: isDirect ? "direct" : "review",
+      });
+      const createAuditResult = await createAuditItems({
         assetObject,
         taggingQueueItem: updatedQueueItem,
         predictions,
         tagsWithScore,
         status: isDirect ? "approved" : "pending",
-      }).catch(() => {
-        // 忽略 error，createAuditItems 里自己会处理
       });
 
+      if (!createAuditResult.success) {
+        logger.error({
+          msg: "createAuditItems failed",
+          error: createAuditResult.error,
+          mode: isDirect ? "direct" : "review",
+        });
+      } else if (createAuditResult.createdCount === 0) {
+        logger.warn({
+          msg: "createAuditItems: no audit items created",
+          tagsWithScoreCount: tagsWithScore.length,
+          mode: isDirect ? "direct" : "review",
+        });
+      } else {
+        logger.info({
+          msg: "createAuditItems completed successfully",
+          createdCount: createAuditResult.createdCount,
+          mode: isDirect ? "direct" : "review",
+        });
+      }
+
       if (isDirect) {
+        logger.info({ msg: "Direct mode: starting tag application" });
         const team = await prisma.team.findUniqueOrThrow({
           where: { id: queueItem.teamId },
           select: { id: true, slug: true },
@@ -163,30 +192,53 @@ export async function processQueueItem({
           select: { id: true, slug: true },
         });
 
+        logger.info({
+          msg: "Direct mode: found asset tags",
+          requestedTagIds: tagsWithScore.map((tag) => tag.leafTagId),
+          foundAssetTagsCount: approvedAssetTags.length,
+        });
+
         const musedamTagIds = approvedAssetTags.map((tag) => slugToId("assetTag", tag.slug!));
 
         // 如果没有有效的标签，跳过打标
         if (musedamTagIds.length === 0) {
-          logger.warn("No valid tags found for direct tagging, skipping");
+          logger.warn({
+            msg: "No valid tags found for direct tagging, skipping",
+            requestedTagIds: tagsWithScore.map((tag) => tag.leafTagId),
+            foundAssetTagsCount: approvedAssetTags.length,
+          });
           return;
         }
 
         const musedamAssetId = slugToId("assetObject", assetObject.slug);
+        logger.info({
+          msg: "Direct mode: setting tags to MuseDAM",
+          musedamAssetId,
+          musedamTagIdsCount: musedamTagIds.length,
+        });
         await setAssetTagsToMuseDAM({
           musedamAssetId,
           musedamTagIds,
           team,
           append: true,
         });
+        logger.info({ msg: "Direct mode: tags set to MuseDAM successfully" });
 
         // 从 MuseDAM 获取更新后的素材标签并同步到本地数据库
         const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
+        logger.info({ msg: "Direct mode: fetching updated asset from MuseDAM" });
         const assets = await requestMuseDAMAPI<{ id: MuseDAMID }[]>("/api/muse/assets-by-ids", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${musedamTeamApiKey}`,
           },
           body: [musedamAssetId],
+        });
+
+        logger.info({
+          msg: "Direct mode: received assets from MuseDAM",
+          assetsCount: assets?.length ?? 0,
+          hasAssets: !!(assets && assets.length > 0),
         });
 
         if (assets && assets.length > 0) {
@@ -196,10 +248,15 @@ export async function processQueueItem({
           };
           const tags = await buildAssetObjectTags(musedamAsset.tags ?? []);
 
-          // 更新本地素材的 tags 字段
           await prisma.assetObject.update({
             where: { id: assetObject.id },
             data: { tags },
+          });
+          logger.info({ msg: "Direct mode: local asset tags updated successfully" });
+        } else {
+          logger.warn({
+            msg: "Direct mode: assets array is empty or null, skipping local update",
+            assets: assets,
           });
         }
       }
@@ -292,11 +349,43 @@ async function createAuditItems({
   predictions: SourceBasedTagPredictions;
   tagsWithScore: TagWithScore[];
   status?: TaggingAuditStatus;
-}) {
+}): Promise<{ success: boolean; createdCount: number; error?: unknown }> {
+  const logger = rootLogger.child({
+    teamId: assetObject.teamId,
+    assetObjectId: assetObject.id,
+    queueItemId: taggingQueueItem.id,
+  });
+
   try {
+    // 检查 tagsWithScore 是否为空
+    if (tagsWithScore.length === 0) {
+      logger.warn({
+        msg: "createAuditItems: tagsWithScore is empty, no audit items will be created",
+      });
+      return { success: true, createdCount: 0 };
+    }
+
     const data: Prisma.TaggingAuditItemCreateManyInput[] = [];
     // TODO: 要做一下加权，暂时先跳过
     for (const { leafTagId, tagPath, score } of tagsWithScore) {
+      // 验证必要字段
+      if (!leafTagId) {
+        logger.warn({
+          msg: "createAuditItems: skipping tag with missing leafTagId",
+          tagPath,
+          score,
+        });
+        continue;
+      }
+      if (!tagPath || !Array.isArray(tagPath) || tagPath.length === 0) {
+        logger.warn({
+          msg: "createAuditItems: skipping tag with invalid tagPath",
+          leafTagId,
+          tagPath,
+          score,
+        });
+        continue;
+      }
       data.push({
         queueItemId: taggingQueueItem.id,
         assetObjectId: assetObject.id,
@@ -307,14 +396,47 @@ async function createAuditItems({
         leafTagId,
       });
     }
-    await prisma.taggingAuditItem.createMany({
+
+    if (data.length === 0) {
+      logger.warn({
+        msg: "createAuditItems: no valid data after validation, no audit items will be created",
+        originalTagsCount: tagsWithScore.length,
+      });
+      return { success: true, createdCount: 0 };
+    }
+
+    logger.info({
+      msg: "createAuditItems: creating audit items",
+      dataCount: data.length,
+      status: status ?? "pending",
+    });
+
+    const result = await prisma.taggingAuditItem.createMany({
       data,
     });
-  } catch (error) {
-    rootLogger.error({
-      teamId: assetObject.teamId,
-      assetObjectId: assetObject.id,
-      msg: `createAuditItems failed: ${error}`,
+
+    logger.info({
+      msg: "createAuditItems: audit items created successfully",
+      createdCount: result.count,
+      expectedCount: data.length,
     });
+
+    if (result.count !== data.length) {
+      logger.warn({
+        msg: "createAuditItems: created count mismatch",
+        createdCount: result.count,
+        expectedCount: data.length,
+      });
+    }
+
+    return { success: true, createdCount: result.count };
+  } catch (error) {
+    logger.error({
+      msg: `createAuditItems failed: ${error}`,
+      error,
+      tagsWithScoreCount: tagsWithScore.length,
+      status: status ?? "pending",
+    });
+    return { success: false, createdCount: 0, error };
   }
 }

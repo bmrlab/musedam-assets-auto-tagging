@@ -1,5 +1,6 @@
 import { TokenAuthPageClient } from "./TokenAuthPageClient";
 
+const validLocales = ["zh-CN", "en-US", "zh-TW", "ja-JP"];
 export default async function TokenAuthPage({
   params,
   searchParams,
@@ -16,7 +17,7 @@ export default async function TokenAuthPage({
 
   let finalCallbackUrl = callbackUrl ?? "/";
   let theme: "light" | "dark" | undefined = undefined;
-  let locale: "zh-CN" | "en-US" | undefined = undefined;
+  let locale: string | undefined = undefined;
 
   // Append remaining searchParams to callbackUrl if there are any
   if (Object.keys(rest).length > 0) {
@@ -27,7 +28,7 @@ export default async function TokenAuthPage({
     finalCallbackUrl = url.pathname + url.search + url.hash;
   }
 
-  if (rest.locale === "zh-CN" || rest.locale === "en-US") {
+  if (validLocales.includes(rest.locale)) {
     locale = rest.locale;
   }
 
