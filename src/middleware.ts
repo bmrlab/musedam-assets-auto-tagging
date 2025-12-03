@@ -1,5 +1,5 @@
+import { isValidLocale } from "@/i18n/routing";
 import { getRequestClientIp, getRequestOrigin } from "@/lib/request/headers";
-import { Locale } from "next-intl";
 import { NextRequest, NextResponse } from "next/server";
 
 export const config = {
@@ -33,13 +33,12 @@ function handleLocale(req: NextRequest) {
   const localeCookie = req.cookies.get("locale");
   const urlObj = new URL(req.url);
   const requestLocale = urlObj.searchParams.get("locale");
-  const validLocales = ["zh-CN", "en-US", "zh-TW", "ja-JP"];
   // url 中的 ?locale= 优先，然后是 cookie 中的
   const locale =
-    requestLocale && validLocales.includes(requestLocale)
-      ? (requestLocale as Locale)
-      : localeCookie?.value && validLocales.includes(localeCookie?.value)
-        ? (localeCookie?.value as Locale)
+    requestLocale && isValidLocale(requestLocale)
+      ? requestLocale
+      : localeCookie?.value && isValidLocale(localeCookie.value)
+        ? localeCookie.value
         : undefined;
   const response = NextResponse.next();
   // Set the locale in a header to be accessible in server components

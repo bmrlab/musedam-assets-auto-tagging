@@ -1,6 +1,5 @@
 import { TokenAuthPageClient } from "./TokenAuthPageClient";
-
-const validLocales = ["zh-CN", "en-US", "zh-TW", "ja-JP"];
+import { isValidLocale } from "@/i18n/routing";
 export default async function TokenAuthPage({
   params,
   searchParams,
@@ -28,7 +27,7 @@ export default async function TokenAuthPage({
     finalCallbackUrl = url.pathname + url.search + url.hash;
   }
 
-  if (validLocales.includes(rest.locale)) {
+  if (rest.locale && isValidLocale(rest.locale)) {
     locale = rest.locale;
   }
 

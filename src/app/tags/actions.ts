@@ -2,6 +2,7 @@
 
 import { llm } from "@/ai/provider";
 import { withAuth } from "@/app/(auth)/withAuth";
+import { Locale, getLanguageConfig } from "@/i18n/routing";
 import { rootLogger } from "@/lib/logging";
 import { ServerActionResult } from "@/lib/serverAction";
 import { idToSlug } from "@/lib/slug";
@@ -1095,7 +1096,7 @@ function convertStructuredToText(data: z.infer<typeof tagTreeSchema>): string {
 // 基于大模型生成标签树文本（严格结构化输出）
 export async function generateTagTreeByLLM(
   finalPrompt: string,
-  lang: "zh-CN" | "en-US" | "zh-TW" | "ja-JP" = "zh-CN",
+  lang: Locale = "zh-CN",
 ): Promise<ServerActionResult<{ text: string; input: string }>> {
   "use server";
 
@@ -1108,37 +1109,8 @@ export async function generateTagTreeByLLM(
         lang,
       });
 
-      // 根据语言构建不同的配置
-      const languageConfig = {
-        "zh-CN": {
-          schemaName: "TagTree",
-          schemaDescription: "企业数字资产的三层标签分类体系",
-          promptIntro: "请以 JSON 格式返回标签树，结构如下：",
-          level1Label: "一级标签名称",
-          level2Label: "二级标签名称",
-          level3Label1: "三级标签名称1",
-          level3Label2: "三级标签名称2",
-          notes: `注意：
-- 标签名称应简洁、专业、互斥
-- children 为可选字段，没有子标签时可以省略
-- 确保所有标签名称都是有意义的${lang === "zh-CN" ? "中文" : lang === "zh-TW" ? "繁体中文（台湾）" : "日文"}文本`,
-        },
-        "en-US": {
-          schemaName: "TagTree",
-          schemaDescription: "Three-tier tag classification system for enterprise digital assets",
-          promptIntro: "Please return the tag tree in JSON format with the following structure:",
-          level1Label: "Level 1 Tag Name",
-          level2Label: "Level 2 Tag Name",
-          level3Label1: "Level 3 Tag Name 1",
-          level3Label2: "Level 3 Tag Name 2",
-          notes: `Notes:
-- Tag names should be concise, professional, and mutually exclusive
-- children field is optional, omit if there are no sub-tags
-- Ensure all tag names are meaningful English text`,
-        },
-      };
-
-      const config = languageConfig[lang === "en-US" ? "en-US" : "zh-CN"];
+      // 根据语言获取配置
+      const config = getLanguageConfig(lang);
 
       // 构建针对结构化输出优化的 prompt
       const structuredPrompt = `${finalPrompt}

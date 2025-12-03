@@ -1,0 +1,237 @@
+{
+    "Homepage": {
+        "title": "Sistem pelabelan otomatis aset MuseDAM"
+    },
+    "Components": {},
+    "TagsPage": {
+        "sortSuccess": "Tag berhasil diurutkan",
+        "sortFailed": "Gagal mengurutkan tag",
+        "tagManagement": "Manajemen tag",
+        "searchPlaceholder": "Cari tag",
+        "noSearchResults": "Tidak ada tag yang cocok",
+        "searchResults": "Hasil pencarian",
+        "aiAutoTagging": "Pelabelan Otomatis AI",
+        "saveChanges": "Simpan",
+        "saving": "Menyimpan...",
+        "aiAssistant": "Asisten AI",
+        "batchCreate": "Buat Batch",
+        "tagGroup": "Grup Tag",
+        "tag": "Tag",
+        "noTagGroups": "Tidak ada grup tag",
+        "noTags": "Tidak ada tag",
+        "pleaseSelect": "Silakan pilih",
+        "selectSecondLevelFirst": "Silakan pilih tag tingkat kedua terlebih dahulu",
+        "tagNameExists": "Nama tag sudah ada di tingkat yang sama",
+        "saveSuccess": "Berhasil disimpan",
+        "saveFailed": "Gagal menyimpan",
+        "saveDetailsFailed": "Gagal menyimpan detail tag",
+        "syncFromMuseDAM": "Sinkronkan dari MuseDAM",
+        "confirmSyncTitle": "Konfirmasi Sinkronisasi Tag",
+        "confirmSyncDescription": "Operasi ini akan:\n• Menghapus semua tag saat ini di sistem\n• Mengambil ulang hierarki tag lengkap dari MuseDAM\n• Semua modifikasi tag lokal yang belum disimpan akan hilang\n\nApakah Anda yakin ingin melanjutkan?",
+        "cancel": "Batal",
+        "confirmSync": "Konfirmasi Sinkronisasi",
+        "syncing": "Menyinkronkan...",
+        "syncSuccess": "Berhasil menyinkronkan tag dari MuseDAM",
+        "syncFailed": "Sinkronisasi gagal",
+        "syncError": "Terjadi kesalahan saat sinkronisasi",
+        "selectCreateMethod": "Silakan pilih metode pembuatan:",
+        "aiCreateLabel": "Pembuatan Tag AI",
+        "aiCreateDesc": "AI menghasilkan template tag profesional berdasarkan fitur industri",
+        "manualCreateLabel": "Buat tag secara manual",
+        "manualCreateDesc": "Buat taksonomi khusus untuk konteks bisnis unik Anda",
+        "recommended": "Direkomendasikan",
+        "TagItem": {
+            "tagNameRequired": "Nama tag tidak boleh kosong",
+            "inputTagName": "Masukkan nama tag",
+            "new": "Baru",
+            "modified": "Diubah",
+            "toBeDeleted": "Akan dihapus",
+            "edited": "Diedit",
+            "rename": "Ubah nama",
+            "delete": "Hapus",
+            "deleteConfirmTitle": "Hapus Tag",
+            "deleteConfirmDescription": "Apakah Anda yakin ingin menghapus tag \"{tagName}\"?",
+            "confirmDelete": "Konfirmasi Hapus",
+            "searchRelatedAssets": "Cari Aset Terkait"
+        },
+        "TagDetails": {
+            "add": "Tambah",
+            "tagDetails": "Detail Tag",
+            "selectTagToView": "Silakan pilih tag untuk melihat detail",
+            "modified": "Diubah",
+            "tagName": "Nama Tag",
+            "tagDescription": "Deskripsi Tag",
+            "tagDescriptionPlaceholder": "Opsional. Menambahkan deskripsi tag membantu AI lebih memahami skenario penggunaan tag",
+            "aiAutoTagging": "Pelabelan Otomatis AI",
+            "aiAutoTaggingEnabled": "Diaktifkan, memungkinkan AI mengenali tag ini",
+            "aiAutoTaggingDisabled": "Dinonaktifkan, AI tidak akan mengenali tag ini",
+            "matchingKeywords": "Kata Kunci yang Cocok",
+            "matchingKeywordsTooltip": "Tambahkan kata kunci terkait tag ini untuk membantu AI mengidentifikasi tag ini lebih akurat",
+            "inputKeywords": "Masukkan kata kunci",
+            "excludeKeywords": "Kata Kunci Pengecualian",
+            "excludeKeywordsTooltip": "Tambahkan kata kunci untuk dikecualikan. Aset yang mengandung kata-kata ini tidak akan diberi tag dengan tag ini",
+            "edit": "Edit",
+            "matchingRule": "Aturan Pencocokan:",
+            "matchingRuleDescription": "Ketika nama aset, metadata, dan jalur folder cocok dengan kata kunci di atas, AI akan secara otomatis memberi tag pada aset",
+            "excludeRule": "Aturan Pengecualian:",
+            "excludeRuleDescription": "Ketika nama aset, metadata, dan jalur folder mengandung kata kunci ini, meskipun kata kunci yang cocok ditemukan, tag tidak akan diterapkan secara otomatis",
+            "tagNamePlaceholder": "Desain Poster"
+        },
+        "ManualCreateModal": {
+            "LabelsCreatedSuccessfully": "Tag berhasil dibuat",
+            "CreateLabelsManually": "Buat tag secara manual",
+            "CreateNow": "Buat sekarang",
+            "Cancel": "Batal",
+            "QuicklyCreateMultipleTagPathsW": "Buat beberapa jalur tag dengan cepat, mendukung hingga tiga tingkat keterkaitan tag",
+            "PreviewView": "Pratinjau",
+            "HereSTheTranslatedTextFollowin": "Edit",
+            "PleaseCreateLabelsInTheFollowi": "Silakan buat tag dalam format berikut, satu per baris...",
+            "FormatInstructions": "Instruksi format:",
+            "PrimaryTag": "# Tag utama",
+            "SecondaryTags": "## Tag sekunder",
+            "Label1": "Tag 1",
+            "Label2": "Tag 2",
+            "OrdinaryTextIsALevel3Tag": "Teks biasa adalah tag tingkat 3.",
+            "PrimaryTagDescription": "← Kategori utama (mis., jenis konten, seri produk)",
+            "SecondaryTagDescription": "← Sub-kategori (mis., aset gambar, kategori pakaian)",
+            "LabelDescription": "← Tag spesifik (mis., gambar produk, seri atasan)"
+        },
+        "ManualCreateTipsModal": {
+            "CreateTagPrompt": "Tips pembuatan tag",
+            "Confirm": "Konfirmasi",
+            "Cancel": "Batal",
+            "ExistingTagDataFoundInTheSyste": "Data tag yang ada ditemukan di sistem. Pilih cara menangani pembuatan batch. Tindakan ini tidak dapat dibatalkan. Lakukan dengan hati-hati:",
+            "UnderstoodPleaseProvideTheText": "Hanya gunakan sistem tag baru",
+            "ClearExistingTagsKeepOnlyTheNe": "Hapus tag yang ada, simpan hanya yang baru dibuat",
+            "MergeIntoExistingTagSystem": "Gabungkan ke sistem tag yang ada",
+            "RetainExistingTagsAndAddNewTag": "Pertahankan tag yang ada, tambahkan tag baru ke sistem saat ini."
+        },
+        "ManualCreateTips2Modal": {
+            "HereSTheTranslatedVersionFollo": "Tips operasi",
+            "ClearExistingTagsAndUseNewOnes": "Hapus tag yang ada dan gunakan yang baru",
+            "Cancel": "Batal",
+            "ConfirmToUseTheNewTagSystemOnl": "Konfirmasi beralih ke sistem tag baru? Ini akan menghapus tag Anda yang ada dan semua aset terkait. Tindakan ini tidak dapat dibatalkan. Lakukan dengan hati-hati."
+        },
+        "TagSortModal": {
+            "title": "Pengurutan Tag",
+            "noSortableTags": "Tidak ada tag yang dapat diurutkan",
+            "sortSaveSuccess": "Pengurutan berhasil disimpan",
+            "sortSaveFailed": "Gagal menyimpan pengurutan",
+            "cancel": "Batal",
+            "confirm": "Konfirmasi",
+            "saving": "Menyimpan...",
+            "level1Title": "Tag Tingkat 1",
+            "level2Title": "Tag Tingkat 2",
+            "level3Title": "Tag Tingkat 3",
+            "defaultTitle": "Tag"
+        },
+        "TagsClient": {
+            "tagCreatedSuccessfully": "Tag berhasil dibuat"
+        },
+        "AiCreateModal": {
+            "generateFailed": "Gagal menghasilkan sistem tag",
+            "selectedIndustry": "Industri: ",
+            "creating": "Membuat..."
+        },
+        "TagColumn": {
+            "smartTags": "Tag Cerdas"
+        }
+    },
+    "AiCreateModal": {
+        "title": "Generator Sistem Tag AI",
+        "createSettings": "Pengaturan Pembuatan",
+        "tip": "💡 Pilih industri untuk mengisi otomatis deskripsi skenario profesional. Anda dapat menyesuaikannya sesuai kebutuhan.",
+        "selectLanguage": "Bahasa Tag",
+        "selectIndustry": "Pilih Industri",
+        "other": "Lainnya",
+        "pleaseDescribe": "Silakan jelaskan",
+        "customPrompt": "Prompt Kustom",
+        "generate": "Hasilkan Sistem Tag",
+        "generating": "Menghasilkan...",
+        "result": "Hasil yang Dihasilkan",
+        "waiting": "Menunggu",
+        "aiAnalyzing": "AI sedang menganalisis dan menghasilkan sistem tag...",
+        "pleaseSelectOrInput": "Silakan pilih industri atau masukkan prompt kustom di sebelah kiri, lalu klik Hasilkan.",
+        "confirmApply": "Terapkan ke Sistem",
+        "none": "Tidak ada",
+        "parseError": "Format tag yang dihasilkan tidak benar. Silakan beralih ke mode edit untuk menyesuaikan secara manual",
+        "language": {
+            "zh-CN": "Tionghoa",
+            "en-US": "Inggris"
+        },
+        "tagTreePrompt": {
+            "template": "Anda adalah ahli dalam taksonomi tag aset digital perusahaan. Berdasarkan konteks pengguna berikut, hasilkan 'pohon tag'.\n[Konteks Pengguna]\n{userContext}\n\nAnda HARUS menghasilkan secara ketat dalam format berikut saja (tidak ada penjelasan tambahan, simbol, penomoran, baris kosong, atau bagian tambahan):\n# Tag Tingkat 1\n## Tag Tingkat 2\nTag 1\nTag 2\n\nAturan:\n- Hasilkan hanya pohon tag itu sendiri. JANGAN sertakan penjelasan, petunjuk, contoh, pagar kode Markdown, atau backticks.\n- Gunakan bahasa Inggris untuk semua teks.\n- Istilah harus profesional, saling eksklusif, jelas, dan ditujukan untuk pencarian praktis. Hindari kalimat panjang.\n- JANGAN hasilkan judul kosong, penomoran, titik dua, kurung, atau teks penjelasan.\n- JANGAN tambahkan simbol di luar tingkat yang ditentukan, seperti em dash, titik dua, '- ', atau daftar numerik.\n- JANGAN ulangi konteks pengguna atau tambahkan ringkasan kesimpulan."
+        },
+        "industry": {
+            "general": {
+                "label": "Industri Umum",
+                "prompt": "Perusahaan yang digerakkan oleh pemasaran fokus pada storytelling merek, pembuatan konten, periklanan berkinerja, dan kampanye lintas saluran. Aset digital utama meliputi visual merek, kreatif periklanan, video kampanye, konten media sosial, materi promosi, dan template bermerek. Atur aset berdasarkan tujuan pemasaran: kesadaran merek, generasi prospek, optimasi konversi, dan retensi pelanggan.\nSistem ini berlaku untuk industri e-commerce, CPG, perangkat keras teknologi, fashion, dan F&B yang mengutamakan keunggulan pemasaran."
+            },
+            "ecommerce": {
+                "label": "E-commerce & Ritel",
+                "prompt": "Retailer e-commerce fokus pada merchandising produk, optimasi konversi, kehadiran marketplace, dan pemasaran siklus hidup pelanggan. Aset digital utama meliputi fotografi produk, bidikan gaya hidup, demo video, spanduk marketplace, grafik promosi, dan testimonial pelanggan. Atur aset berdasarkan tahapan saluran penjualan: penemuan produk, konten pertimbangan, aset konversi, dan keterlibatan pasca pembelian.\nSistem ini berlaku untuk penjual Amazon, toko Shopify, vendor marketplace, dan retailer omnicannel di platform seperti eBay, Walmart, dan merek direct-to-consumer."
+            },
+            "fmcg": {
+                "label": "Barang Konsumen Kemasan (CPG)",
+                "prompt": "Merek CPG fokus pada daya tarik rak, diferensiasi kategori, kemitraan retailer, dan edukasi konsumen. Aset digital utama meliputi fotografi kemasan, demonstrasi penggunaan, imajeri gaya hidup, materi khusus retailer, kampanye promosi, dan konten edukatif. Atur aset berdasarkan saluran distribusi: kemitraan ritel, kampanye langsung ke konsumen, pemasaran perdagangan, dan inisiatif pembangunan merek."
+            },
+            "beauty": {
+                "label": "Kecantikan & Kosmetik",
+                "prompt": "Merek kecantikan fokus pada edukasi produk, konten yang digerakkan tren, kemitraan influencer, dan pembangunan komunitas. Aset digital utama meliputi fotografi produk, transformasi sebelum/sesudah, video tutorial, konten kolaborasi influencer, ulasan yang dibuat pengguna, dan materi kampanye musiman. Atur aset berdasarkan tahapan saluran pemasaran: kampanye kesadaran, edukasi produk, bukti sosial, dan konten yang berfokus pada konversi.\nSistem ini berlaku untuk merek perawatan kulit, makeup, parfum, dan alat kecantikan yang mengelola konten komprehensif dari showcase produk hingga edukasi konsumen."
+            },
+            "fashion": {
+                "label": "Fashion & Pakaian",
+                "prompt": "Merek fashion fokus pada koleksi musiman, inspirasi gaya, kolaborasi influencer, dan positioning gaya hidup. Aset digital utama meliputi fotografi lookbook, konten runway, video styling, kemitraan influencer, pemotretan model, dan kampanye yang berfokus pada tren. Atur aset berdasarkan strategi konten: storytelling merek, showcase produk, perdagangan sosial, dan keterlibatan komunitas.\nSistem ini berlaku untuk merek pakaian, alas kaki, aksesori, dan fashion mewah yang mengelola konten visual dari peluncuran produk hingga komunikasi gaya hidup."
+            },
+            "electronics": {
+                "label": "Elektronik Konsumen",
+                "prompt": "Merek perangkat keras teknologi fokus pada demonstrasi fitur, perbandingan kinerja, edukasi pengguna, dan storytelling inovasi. Aset digital utama meliputi fotografi produk, video demo, spesifikasi teknis, bagan perbandingan, konten unboxing, dan tutorial pengguna. Atur aset berdasarkan tahapan perjalanan pelanggan: kesadaran produk, edukasi fitur, pertimbangan pembelian, dan onboarding pengguna.\nSistem ini berlaku untuk smartphone, laptop, perangkat rumah pintar, dan aksesori teknologi yang mengelola konten dari fitur produk hingga pengalaman pengguna."
+            },
+            "automotive": {
+                "label": "Otomotif",
+                "prompt": "Merek otomotif fokus pada showcase kendaraan, demonstrasi kinerja, fitur keselamatan, dan integrasi gaya hidup. Aset digital utama meliputi fotografi eksterior, detail interior, rekaman uji mengemudi, demonstrasi keselamatan, skenario gaya hidup, dan pesan keberlanjutan. Atur aset berdasarkan tahapan perjalanan pembelian: pertimbangan merek, perbandingan model, highlight fitur, dan pengalaman kepemilikan.\nSistem ini berlaku untuk kendaraan penumpang, kendaraan listrik, armada komersial, dan suku cadang otomotif yang mengelola konten dari kesadaran merek hingga pengalaman mengemudi."
+            },
+            "interior": {
+                "label": "Desain Interior",
+                "prompt": "Firma desain interior fokus pada showcase proyek, inspirasi desain, transparansi proses, dan testimonial klien. Aset digital utama meliputi fotografi ruang, rendering desain, sampel material, dokumentasi proses, transformasi sebelum/sesudah, dan studi kasus klien. Atur aset berdasarkan siklus hidup proyek: galeri inspirasi, konsep desain, pekerjaan yang sedang berlangsung, dan showcase yang selesai.\nSistem ini berlaku untuk desain residensial, ruang komersial, desain hospitalitas, dan home staging yang mengelola konten visual dari konsep hingga penyelesaian."
+            },
+            "luxury": {
+                "label": "Barang Mewah",
+                "prompt": "Merek mewah fokus pada storytelling warisan, keunggulan kerajinan, positioning eksklusivitas, dan pengalaman premium. Aset digital utama meliputi fotografi artisanal, video kerajinan, konten warisan merek, koleksi eksklusif, dukungan selebritas, dan kampanye eksperiensial. Atur aset berdasarkan pilar merek: storytelling warisan, showcase kerajinan, pemasaran eksklusivitas, dan positioning gaya hidup.\nSistem ini berlaku untuk haute couture, perhiasan halus, jam tangan mewah, dan barang kulit premium yang mengelola konten dari nilai artisanal hingga signifikansi budaya."
+            },
+            "gaming": {
+                "label": "Gaming",
+                "prompt": "Perusahaan gaming fokus pada keterlibatan komunitas, showcase gameplay, esports kompetitif, dan konten yang dibuat pengguna. Aset digital utama meliputi trailer permainan, artwork karakter, rekaman gameplay, highlight esports, konten komunitas, dan materi streaming langsung. Atur aset berdasarkan strategi keterlibatan: promosi permainan, pembangunan komunitas, konten kompetitif, dan retensi pemain.\nSistem ini berlaku untuk permainan seluler, gaming PC, judul konsol, dan pengalaman VR yang mengelola konten dari pemasaran permainan hingga ekosistem komunitas."
+            },
+            "jewelry": {
+                "label": "Perhiasan",
+                "prompt": "Merek perhiasan fokus pada storytelling kerajinan, koneksi emosional, pemasaran kesempatan, dan layanan personalisasi. Aset digital utama meliputi fotografi makro, video kerajinan, imajeri gaya hidup, showcase kustomisasi, konten storytelling emosional, dan kampanye khusus kesempatan. Atur aset berdasarkan pesan emosional: kebanggaan kerajinan, perayaan tonggak, ekspresi pribadi, dan kesempatan pemberian hadiah.\nSistem ini berlaku untuk cincin pertunangan, perhiasan halus, potongan kustom, dan perhiasan fashion yang mengelola konten dari kerajinan artisanal hingga signifikansi emosional."
+            },
+            "theme-park": {
+                "label": "Taman Tema",
+                "prompt": "Tempat hiburan fokus pada pemasaran pengalaman, acara musiman, keterlibatan keluarga, dan storytelling imersif. Aset digital utama meliputi fotografi atraksi, video pengalaman, kampanye musiman, konten di balik layar, testimonial pengunjung, dan komunikasi keselamatan. Atur aset berdasarkan perjalanan pengunjung: perencanaan perjalanan, pengalaman di lokasi, penawaran musiman, dan penciptaan kenangan.\nSistem ini berlaku untuk taman Disney, Universal Studios, taman tema regional, dan kompleks hiburan yang mengelola konten dari daya tarik pengunjung hingga amplifikasi pengalaman."
+            }
+        }
+    },
+    "TaggingResultDisplay": {
+        "processingTime": "Waktu Pemrosesan",
+        "aiRecognitionMode": "Mode Pengenalan AI",
+        "overallScore": "Skor Keseluruhan",
+        "effectiveTags": "Tag Efektif",
+        "effectiveTagsDescription": "Keyakinan 80%-100%",
+        "candidateTags": "Tag Kandidat",
+        "candidateTagsDescription": "Keyakinan 60%-79%",
+        "matchingSource": "Sumber Pencocokan",
+        "confidence": "Keyakinan",
+        "score": "Skor"
+    },
+    "SmartTags": {
+        "title": "Tag Cerdas",
+        "rename": "Ubah nama",
+        "delete": "Hapus"
+    },
+    "SearchResult": {
+        "tagGroup": "Grup Tag",
+        "noSearchResults": "Tidak ada hasil pencarian"
+    }
+}

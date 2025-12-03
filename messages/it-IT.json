@@ -1,0 +1,237 @@
+{
+    "Homepage": {
+        "title": "Sistema di etichettatura automatica risorse MuseDAM"
+    },
+    "Components": {},
+    "TagsPage": {
+        "sortSuccess": "Tag ordinati con successo",
+        "sortFailed": "Impossibile ordinare i tag",
+        "tagManagement": "Gestione tag",
+        "searchPlaceholder": "Cerca tag",
+        "noSearchResults": "Nessun tag corrispondente",
+        "searchResults": "Risultati di ricerca",
+        "aiAutoTagging": "Etichettatura automatica IA",
+        "saveChanges": "Salva",
+        "saving": "Salvataggio...",
+        "aiAssistant": "Assistente IA",
+        "batchCreate": "Crea batch",
+        "tagGroup": "Gruppo tag",
+        "tag": "Tag",
+        "noTagGroups": "Nessun gruppo tag",
+        "noTags": "Nessun tag",
+        "pleaseSelect": "Seleziona",
+        "selectSecondLevelFirst": "Seleziona prima un tag di secondo livello",
+        "tagNameExists": "Il nome del tag esiste già allo stesso livello",
+        "saveSuccess": "Salvato con successo",
+        "saveFailed": "Salvataggio non riuscito",
+        "saveDetailsFailed": "Impossibile salvare i dettagli del tag",
+        "syncFromMuseDAM": "Sincronizza da MuseDAM",
+        "confirmSyncTitle": "Conferma sincronizzazione tag",
+        "confirmSyncDescription": "Questa operazione:\n• Eliminerà tutti i tag attuali nel sistema\n• Reimporterà la gerarchia completa dei tag da MuseDAM\n• Tutte le modifiche locali non salvate andranno perse\n\nSei sicuro di voler continuare?",
+        "cancel": "Annulla",
+        "confirmSync": "Conferma sincronizzazione",
+        "syncing": "Sincronizzazione...",
+        "syncSuccess": "Tag sincronizzati con successo da MuseDAM",
+        "syncFailed": "Sincronizzazione non riuscita",
+        "syncError": "Si è verificato un errore durante la sincronizzazione",
+        "selectCreateMethod": "Scegli un metodo di creazione:",
+        "aiCreateLabel": "Generazione tag IA",
+        "aiCreateDesc": "L'IA genera un modello di tag professionale basato sulle caratteristiche del settore",
+        "manualCreateLabel": "Crea tag manualmente",
+        "manualCreateDesc": "Crea una tassonomia personalizzata per il tuo contesto aziendale unico",
+        "recommended": "Consigliato",
+        "TagItem": {
+            "tagNameRequired": "Il nome del tag non può essere vuoto",
+            "inputTagName": "Inserisci nome tag",
+            "new": "Nuovo",
+            "modified": "Modificato",
+            "toBeDeleted": "Da eliminare",
+            "edited": "Modificato",
+            "rename": "Rinomina",
+            "delete": "Elimina",
+            "deleteConfirmTitle": "Elimina tag",
+            "deleteConfirmDescription": "Sei sicuro di voler eliminare il tag \"{tagName}\"?",
+            "confirmDelete": "Conferma eliminazione",
+            "searchRelatedAssets": "Cerca risorse correlate"
+        },
+        "TagDetails": {
+            "add": "Aggiungi",
+            "tagDetails": "Dettagli tag",
+            "selectTagToView": "Seleziona un tag per visualizzare i dettagli",
+            "modified": "Modificato",
+            "tagName": "Nome tag",
+            "tagDescription": "Descrizione tag",
+            "tagDescriptionPlaceholder": "Opzionale. Aggiungere descrizioni ai tag aiuta l'IA a comprendere meglio gli scenari di applicazione dei tag",
+            "aiAutoTagging": "Etichettatura automatica IA",
+            "aiAutoTaggingEnabled": "Abilitato, consente all'IA di riconoscere questo tag",
+            "aiAutoTaggingDisabled": "Disabilitato, l'IA non riconoscerà questo tag",
+            "matchingKeywords": "Parole chiave di corrispondenza",
+            "matchingKeywordsTooltip": "Aggiungi parole chiave correlate a questo tag per aiutare l'IA a identificarlo con maggiore precisione",
+            "inputKeywords": "Inserisci parole chiave",
+            "excludeKeywords": "Parole chiave di esclusione",
+            "excludeKeywordsTooltip": "Aggiungi parole chiave da escludere. Le risorse contenenti queste parole non saranno etichettate con questo tag",
+            "edit": "Modifica",
+            "matchingRule": "Regola di corrispondenza:",
+            "matchingRuleDescription": "Quando nomi risorse, metadati e percorsi cartelle corrispondono alle parole chiave sopra, l'IA etichetterà automaticamente la risorsa",
+            "excludeRule": "Regola di esclusione:",
+            "excludeRuleDescription": "Quando nomi risorse, metadati e percorsi cartelle contengono queste parole chiave, anche se vengono trovate parole chiave corrispondenti, il tag non verrà applicato automaticamente",
+            "tagNamePlaceholder": "Progettazione poster"
+        },
+        "ManualCreateModal": {
+            "LabelsCreatedSuccessfully": "Tag creati con successo",
+            "CreateLabelsManually": "Crea tag manualmente",
+            "CreateNow": "Crea ora",
+            "Cancel": "Annulla",
+            "QuicklyCreateMultipleTagPathsW": "Crea rapidamente più percorsi di tag, supportando fino a tre livelli di collegamento",
+            "PreviewView": "Anteprima",
+            "HereSTheTranslatedTextFollowin": "Modifica",
+            "PleaseCreateLabelsInTheFollowi": "Crea i tag nel formato seguente, uno per riga...",
+            "FormatInstructions": "Istruzioni formato:",
+            "PrimaryTag": "# Tag principale",
+            "SecondaryTags": "## Tag secondario",
+            "Label1": "Tag 1",
+            "Label2": "Tag 2",
+            "OrdinaryTextIsALevel3Tag": "Il testo normale è un tag di livello 3.",
+            "PrimaryTagDescription": "← Categorie principali (es. tipi di contenuto, serie di prodotti)",
+            "SecondaryTagDescription": "← Sottocategorie (es. risorse immagine, categorie abbigliamento)",
+            "LabelDescription": "← Tag specifici (es. immagini prodotto, serie top)"
+        },
+        "ManualCreateTipsModal": {
+            "CreateTagPrompt": "Suggerimenti creazione tag",
+            "Confirm": "Conferma",
+            "Cancel": "Annulla",
+            "ExistingTagDataFoundInTheSyste": "Dati tag esistenti trovati nel sistema. Scegli come gestire la creazione batch. Questa azione non può essere annullata. Procedi con cautela:",
+            "UnderstoodPleaseProvideTheText": "Usa solo il nuovo sistema di tag",
+            "ClearExistingTagsKeepOnlyTheNe": "Cancella i tag esistenti, mantieni solo quelli appena creati",
+            "MergeIntoExistingTagSystem": "Unisci al sistema di tag esistente",
+            "RetainExistingTagsAndAddNewTag": "Mantieni i tag esistenti, aggiungi i nuovi tag al sistema attuale."
+        },
+        "ManualCreateTips2Modal": {
+            "HereSTheTranslatedVersionFollo": "Suggerimenti operativi",
+            "ClearExistingTagsAndUseNewOnes": "Cancella i tag esistenti e usa quelli nuovi",
+            "Cancel": "Annulla",
+            "ConfirmToUseTheNewTagSystemOnl": "Confermi il passaggio al nuovo sistema di tag? Questo cancellerà i tuoi tag esistenti e tutte le risorse associate. Questa azione non può essere annullata. Procedi con cautela."
+        },
+        "TagSortModal": {
+            "title": "Ordinamento tag",
+            "noSortableTags": "Nessun tag ordinabile",
+            "sortSaveSuccess": "Ordinamento salvato con successo",
+            "sortSaveFailed": "Impossibile salvare l'ordinamento",
+            "cancel": "Annulla",
+            "confirm": "Conferma",
+            "saving": "Salvataggio...",
+            "level1Title": "Tag di livello 1",
+            "level2Title": "Tag di livello 2",
+            "level3Title": "Tag di livello 3",
+            "defaultTitle": "Tag"
+        },
+        "TagsClient": {
+            "tagCreatedSuccessfully": "Tag creati con successo"
+        },
+        "AiCreateModal": {
+            "generateFailed": "Impossibile generare il sistema di tag",
+            "selectedIndustry": "Settore: ",
+            "creating": "Creazione..."
+        },
+        "TagColumn": {
+            "smartTags": "Tag intelligenti"
+        }
+    },
+    "AiCreateModal": {
+        "title": "Generatore sistema tag IA",
+        "createSettings": "Impostazioni creazione",
+        "tip": "💡 Seleziona un settore per compilare automaticamente una descrizione di scenario professionale. Puoi modificarla secondo necessità.",
+        "selectLanguage": "Lingua tag",
+        "selectIndustry": "Seleziona settore",
+        "other": "Altro",
+        "pleaseDescribe": "Descrivi",
+        "customPrompt": "Prompt personalizzato",
+        "generate": "Genera sistema tag",
+        "generating": "Generazione...",
+        "result": "Risultato generato",
+        "waiting": "In attesa",
+        "aiAnalyzing": "L'IA sta analizzando e generando il sistema di tag...",
+        "pleaseSelectOrInput": "Seleziona un settore o inserisci un prompt personalizzato a sinistra, quindi fai clic su Genera.",
+        "confirmApply": "Applica al sistema",
+        "none": "Nessuno",
+        "parseError": "Il formato dei tag generati non è corretto. Passa alla modalità modifica per regolare manualmente",
+        "language": {
+            "zh-CN": "Cinese",
+            "en-US": "Inglese"
+        },
+        "tagTreePrompt": {
+            "template": "Sei un esperto in tassonomie di tag per risorse digitali aziendali. In base al seguente contesto utente, genera un 'albero di tag'.\n[Contesto utente]\n{userContext}\n\nDEVI produrre rigorosamente solo nel formato seguente (nessuna spiegazione aggiuntiva, simboli, numerazione, righe vuote o sezioni aggiuntive):\n# Tag livello 1\n## Tag livello 2\nTag 1\nTag 2\n\nRegole:\n- Produci solo l'albero di tag stesso. NON includere spiegazioni, suggerimenti, esempi, delimitatori di codice Markdown o backtick.\n- Usa l'inglese per tutto il testo.\n- I termini devono essere professionali, mutualmente esclusivi, chiari e orientati alla ricerca pratica. Evita frasi lunghe.\n- NON produrre intestazioni vuote, numerazione, due punti, parentesi o testo esplicativo.\n- NON aggiungere simboli al di fuori dei livelli definiti, come trattini em, due punti, '- ' o elenchi numerici.\n- NON ripetere il contesto utente o aggiungere un riepilogo conclusivo."
+        },
+        "industry": {
+            "general": {
+                "label": "Settore generale",
+                "prompt": "Le aziende orientate al marketing si concentrano sulla narrazione del brand, creazione di contenuti, pubblicità performante e campagne cross-channel. Le risorse digitali chiave includono visual di brand, creatività pubblicitarie, video di campagna, contenuti social media, materiali promozionali e modelli di brand. Organizza le risorse per obiettivi di marketing: consapevolezza del brand, generazione di lead, ottimizzazione della conversione e fidelizzazione dei clienti.\nQuesto sistema si applica a e-commerce, CPG, hardware tecnologico, moda e F&B che danno priorità all'eccellenza del marketing."
+            },
+            "ecommerce": {
+                "label": "E-commerce e vendita al dettaglio",
+                "prompt": "I rivenditori e-commerce si concentrano su merchandising prodotto, ottimizzazione conversione, presenza marketplace e marketing del ciclo di vita del cliente. Le risorse digitali chiave includono fotografia prodotto, scatti lifestyle, demo video, banner marketplace, grafiche promozionali e testimonianze clienti. Organizza le risorse per fasi dell'embudo di vendita: scoperta prodotto, contenuti di considerazione, risorse di conversione e coinvolgimento post-acquisto.\nQuesto sistema si applica a venditori Amazon, negozi Shopify, vendor marketplace e rivenditori omnichannel su piattaforme come eBay, Walmart e brand direct-to-consumer."
+            },
+            "fmcg": {
+                "label": "Beni di consumo confezionati (CPG)",
+                "prompt": "I brand CPG si concentrano su appeal da scaffale, differenziazione di categoria, partnership con rivenditori ed educazione del consumatore. Le risorse digitali chiave includono fotografia confezionamento, dimostrazioni d'uso, immagini lifestyle, materiali specifici per rivenditori, campagne promozionali e contenuti educativi. Organizza le risorse per canali di distribuzione: partnership retail, campagne consumer-direct, marketing commerciale e iniziative di costruzione del brand."
+            },
+            "beauty": {
+                "label": "Bellezza e cosmetici",
+                "prompt": "I brand di bellezza si concentrano su educazione prodotto, contenuti guidati dalle tendenze, partnership con influencer e costruzione della comunità. Le risorse digitali chiave includono fotografia prodotto, trasformazioni prima/dopo, video tutorial, contenuti collaborazione influencer, recensioni generate dagli utenti e materiali di campagna stagionale. Organizza le risorse per fasi dell'embudo di marketing: campagne di consapevolezza, educazione prodotto, prova sociale e contenuti orientati alla conversione.\nQuesto sistema si applica a brand skincare, makeup, profumeria e strumenti di bellezza che gestiscono contenuti completi dalla presentazione prodotto all'educazione del consumatore."
+            },
+            "fashion": {
+                "label": "Moda e abbigliamento",
+                "prompt": "I brand di moda si concentrano su collezioni stagionali, ispirazione stilistica, collaborazioni influencer e posizionamento lifestyle. Le risorse digitali chiave includono fotografia lookbook, contenuti sfilata, video styling, partnership influencer, shooting con modelli e campagne focalizzate sulle tendenze. Organizza le risorse per strategia di contenuto: narrazione del brand, presentazioni prodotto, social commerce e coinvolgimento della comunità.\nQuesto sistema si applica a brand abbigliamento, calzature, accessori e moda di lusso che gestiscono contenuti visivi dai lancio prodotto alla comunicazione lifestyle."
+            },
+            "electronics": {
+                "label": "Elettronica di consumo",
+                "prompt": "I brand di hardware tecnologico si concentrano su dimostrazioni di funzionalità, confronti di prestazioni, educazione dell'utente e narrazione dell'innovazione. Le risorse digitali chiave includono fotografia prodotto, video demo, specifiche tecniche, grafici di confronto, contenuti unboxing e tutorial utente. Organizza le risorse per fasi del percorso cliente: consapevolezza prodotto, educazione funzionalità, considerazione d'acquisto e onboarding utente.\nQuesto sistema si applica a smartphone, laptop, dispositivi smart home e accessori tecnologici che gestiscono contenuti dalle funzionalità prodotto all'esperienza utente."
+            },
+            "automotive": {
+                "label": "Automotive",
+                "prompt": "I brand automotive si concentrano su presentazioni veicolo, dimostrazioni di prestazioni, funzionalità sicurezza e integrazione lifestyle. Le risorse digitali chiave includono fotografia esterna, dettagli interni, riprese test drive, dimostrazioni sicurezza, scenari lifestyle e messaggistica sostenibilità. Organizza le risorse per fasi del percorso d'acquisto: considerazione brand, confronto modelli, highlight funzionalità ed esperienza di proprietà.\nQuesto sistema si applica a veicoli passeggeri, veicoli elettrici, flotte commerciali e componenti automotive che gestiscono contenuti dalla consapevolezza brand all'esperienza di guida."
+            },
+            "interior": {
+                "label": "Design d'interni",
+                "prompt": "Gli studi di design d'interni si concentrano su presentazioni progetto, ispirazione design, trasparenza del processo e testimonianze clienti. Le risorse digitali chiave includono fotografia spazi, rendering design, campioni materiali, documentazione processo, trasformazioni prima/dopo e case study clienti. Organizza le risorse per ciclo di vita progetto: gallerie ispirazione, concetti design, lavori in corso e presentazioni completate.\nQuesto sistema si applica a design residenziale, spazi commerciali, design hospitality e home staging che gestiscono contenuti visivi dal concetto al completamento."
+            },
+            "luxury": {
+                "label": "Beni di lusso",
+                "prompt": "I brand di lusso si concentrano su narrazione del patrimonio, eccellenza artigianale, posizionamento esclusività ed esperienze premium. Le risorse digitali chiave includono fotografia artigianale, video artigianato, contenuti patrimonio brand, collezioni esclusive, endorsement celebrità e campagne esperienziali. Organizza le risorse per pilastri del brand: narrazione patrimonio, presentazione artigianato, marketing esclusività e posizionamento lifestyle.\nQuesto sistema si applica ad alta moda, gioielleria fine, orologi di lusso e articoli in pelle premium che gestiscono contenuti dal valore artigianale al significato culturale."
+            },
+            "gaming": {
+                "label": "Gaming",
+                "prompt": "Le aziende di gaming si concentrano su coinvolgimento della comunità, presentazioni gameplay, esports competitivi e contenuti generati dagli utenti. Le risorse digitali chiave includono trailer di giochi, artwork personaggi, riprese gameplay, highlight esports, contenuti della comunità e materiali streaming live. Organizza le risorse per strategia di coinvolgimento: promozione giochi, costruzione comunità, contenuti competitivi e fidelizzazione giocatori.\nQuesto sistema si applica a giochi mobile, gaming PC, titoli console ed esperienze VR che gestiscono contenuti dal marketing dei giochi all'ecosistema della comunità."
+            },
+            "jewelry": {
+                "label": "Gioielleria",
+                "prompt": "I brand di gioielleria si concentrano su narrazione artigianato, connessioni emotive, marketing occasionale e servizi di personalizzazione. Le risorse digitali chiave includono fotografia macro, video artigianato, immagini lifestyle, presentazioni personalizzazione, contenuti narrativi emotivi e campagne specifiche per occasione. Organizza le risorse per messaggistica emotiva: orgoglio artigianato, celebrazioni traguardi, espressione personale e occasioni regalo.\nQuesto sistema si applica a anelli di fidanzamento, gioielleria fine, pezzi personalizzati e gioielleria fashion che gestiscono contenuti dall'artigianato artigianale al significato emotivo."
+            },
+            "theme-park": {
+                "label": "Parchi a tema",
+                "prompt": "Le strutture di intrattenimento si concentrano su marketing esperienziale, eventi stagionali, coinvolgimento familiare e narrazione immersiva. Le risorse digitali chiave includono fotografia attrazioni, video esperienze, campagne stagionali, contenuti dietro le quinte, testimonianze visitatori e comunicazioni sicurezza. Organizza le risorse per percorso visitatore: pianificazione viaggio, esperienza in loco, offerte stagionali e creazione ricordi.\nQuesto sistema si applica a parchi Disney, Universal Studios, parchi a tema regionali e complessi di intrattenimento che gestiscono contenuti dall'attrazione visitatori all'amplificazione dell'esperienza."
+            }
+        }
+    },
+    "TaggingResultDisplay": {
+        "processingTime": "Tempo di elaborazione",
+        "aiRecognitionMode": "Modalità riconoscimento IA",
+        "overallScore": "Punteggio complessivo",
+        "effectiveTags": "Tag efficaci",
+        "effectiveTagsDescription": "Fiducia 80%-100%",
+        "candidateTags": "Tag candidati",
+        "candidateTagsDescription": "Fiducia 60%-79%",
+        "matchingSource": "Fonte corrispondenza",
+        "confidence": "Fiducia",
+        "score": "Punteggio"
+    },
+    "SmartTags": {
+        "title": "Tag intelligenti",
+        "rename": "Rinomina",
+        "delete": "Elimina"
+    },
+    "SearchResult": {
+        "tagGroup": "Gruppo tag",
+        "noSearchResults": "Nessun risultato di ricerca"
+    }
+}

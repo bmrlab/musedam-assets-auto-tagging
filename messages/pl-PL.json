@@ -1,0 +1,237 @@
+{
+    "Homepage": {
+        "title": "System automatycznego tagowania zasobów MuseDAM"
+    },
+    "Components": {},
+    "TagsPage": {
+        "sortSuccess": "Tagi posortowane pomyślnie",
+        "sortFailed": "Nie udało się posortować tagów",
+        "tagManagement": "Zarządzanie tagami",
+        "searchPlaceholder": "Szukaj tagów",
+        "noSearchResults": "Nie znaleziono pasujących tagów",
+        "searchResults": "Wyniki wyszukiwania",
+        "aiAutoTagging": "Automatyczne tagowanie AI",
+        "saveChanges": "Zapisz",
+        "saving": "Zapisywanie...",
+        "aiAssistant": "Asystent AI",
+        "batchCreate": "Utwórz wsadowo",
+        "tagGroup": "Grupa tagów",
+        "tag": "Tag",
+        "noTagGroups": "Brak grup tagów",
+        "noTags": "Brak tagów",
+        "pleaseSelect": "Proszę wybrać",
+        "selectSecondLevelFirst": "Najpierw wybierz tag drugiego poziomu",
+        "tagNameExists": "Nazwa tagu już istnieje na tym samym poziomie",
+        "saveSuccess": "Zapisano pomyślnie",
+        "saveFailed": "Zapis nie powiódł się",
+        "saveDetailsFailed": "Nie udało się zapisać szczegółów tagu",
+        "syncFromMuseDAM": "Synchronizuj z MuseDAM",
+        "confirmSyncTitle": "Potwierdź synchronizację tagów",
+        "confirmSyncDescription": "Ta operacja:\n• Usunie wszystkie bieżące tagi w systemie\n• Pobierze ponownie pełną hierarchię tagów z MuseDAM\n• Wszystkie niezapisane lokalne modyfikacje tagów zostaną utracone\n\nCzy na pewno chcesz kontynuować?",
+        "cancel": "Anuluj",
+        "confirmSync": "Potwierdź synchronizację",
+        "syncing": "Synchronizowanie...",
+        "syncSuccess": "Pomyślnie zsynchronizowano tagi z MuseDAM",
+        "syncFailed": "Synchronizacja nie powiodła się",
+        "syncError": "Wystąpił błąd podczas synchronizacji",
+        "selectCreateMethod": "Proszę wybrać metodę tworzenia:",
+        "aiCreateLabel": "Generowanie tagów AI",
+        "aiCreateDesc": "AI generuje profesjonalny szablon tagów na podstawie cech branży",
+        "manualCreateLabel": "Utwórz tagi ręcznie",
+        "manualCreateDesc": "Stwórz spersonalizowaną taksonomię dla swojego unikalnego kontekstu biznesowego",
+        "recommended": "Zalecane",
+        "TagItem": {
+            "tagNameRequired": "Nazwa tagu nie może być pusta",
+            "inputTagName": "Wprowadź nazwę tagu",
+            "new": "Nowy",
+            "modified": "Zmodyfikowano",
+            "toBeDeleted": "Do usunięcia",
+            "edited": "Edytowano",
+            "rename": "Zmień nazwę",
+            "delete": "Usuń",
+            "deleteConfirmTitle": "Usuń tag",
+            "deleteConfirmDescription": "Czy na pewno chcesz usunąć tag \"{tagName}\"?",
+            "confirmDelete": "Potwierdź usunięcie",
+            "searchRelatedAssets": "Szukaj powiązanych zasobów"
+        },
+        "TagDetails": {
+            "add": "Dodaj",
+            "tagDetails": "Szczegóły tagu",
+            "selectTagToView": "Proszę wybrać tag, aby zobaczyć szczegóły",
+            "modified": "Zmodyfikowano",
+            "tagName": "Nazwa tagu",
+            "tagDescription": "Opis tagu",
+            "tagDescriptionPlaceholder": "Opcjonalne. Dodanie opisów tagów pomaga AI lepiej zrozumieć scenariusze zastosowania tagów",
+            "aiAutoTagging": "Automatyczne tagowanie AI",
+            "aiAutoTaggingEnabled": "Włączone, pozwala AI rozpoznawać ten tag",
+            "aiAutoTaggingDisabled": "Wyłączone, AI nie rozpozna tego tagu",
+            "matchingKeywords": "Słowa kluczowe dopasowania",
+            "matchingKeywordsTooltip": "Dodaj słowa kluczowe powiązane z tym tagiem, aby pomóc AI dokładniej zidentyfikować ten tag",
+            "inputKeywords": "Wprowadź słowa kluczowe",
+            "excludeKeywords": "Słowa kluczowe wykluczenia",
+            "excludeKeywordsTooltip": "Dodaj słowa kluczowe do wykluczenia. Zasoby zawierające te słowa nie będą oznakowane tym tagiem",
+            "edit": "Edytuj",
+            "matchingRule": "Reguła dopasowania:",
+            "matchingRuleDescription": "Gdy nazwy zasobów, metadane i ścieżki folderów pasują do powyższych słów kluczowych, AI automatycznie oznakuje zasób",
+            "excludeRule": "Reguła wykluczenia:",
+            "excludeRuleDescription": "Gdy nazwy zasobów, metadane i ścieżki folderów zawierają te słowa kluczowe, nawet jeśli znajdą się pasujące słowa kluczowe, tag nie zostanie automatycznie zastosowany",
+            "tagNamePlaceholder": "Projekt plakatu"
+        },
+        "ManualCreateModal": {
+            "LabelsCreatedSuccessfully": "Tagi utworzone pomyślnie",
+            "CreateLabelsManually": "Utwórz tag ręcznie",
+            "CreateNow": "Utwórz teraz",
+            "Cancel": "Anuluj",
+            "QuicklyCreateMultipleTagPathsW": "Szybko twórz wiele ścieżek tagów, obsługując do trzech poziomów powiązania",
+            "PreviewView": "Podgląd",
+            "HereSTheTranslatedTextFollowin": "Edytuj",
+            "PleaseCreateLabelsInTheFollowi": "Proszę tworzyć tagi w następującym formacie, jeden na linię...",
+            "FormatInstructions": "Instrukcje formatowania:",
+            "PrimaryTag": "# Tag główny",
+            "SecondaryTags": "## Tag drugorzędny",
+            "Label1": "Tag 1",
+            "Label2": "Tag 2",
+            "OrdinaryTextIsALevel3Tag": "Zwykły tekst jest tagiem poziomu 3.",
+            "PrimaryTagDescription": "← Kategorie główne (np. typy treści, serie produktów)",
+            "SecondaryTagDescription": "← Podkategorie (np. zasoby obrazów, kategorie odzieży)",
+            "LabelDescription": "← Konkretne tagi (np. obrazy produktów, seria górna)"
+        },
+        "ManualCreateTipsModal": {
+            "CreateTagPrompt": "Wskazówki dotyczące tworzenia tagów",
+            "Confirm": "Potwierdź",
+            "Cancel": "Anuluj",
+            "ExistingTagDataFoundInTheSyste": "Znaleziono istniejące dane tagów w systemie. Wybierz, jak obsłużyć tworzenie wsadowe. Ta operacja jest nieodwracalna. Postępuj ostrożnie:",
+            "UnderstoodPleaseProvideTheText": "Użyj tylko nowego systemu tagów",
+            "ClearExistingTagsKeepOnlyTheNe": "Wyczyść istniejące tagi, zachowaj tylko nowo utworzone",
+            "MergeIntoExistingTagSystem": "Połącz z istniejącym systemem tagów",
+            "RetainExistingTagsAndAddNewTag": "Zachowaj istniejące tagi, dodaj nowe tagi do bieżącego systemu."
+        },
+        "ManualCreateTips2Modal": {
+            "HereSTheTranslatedVersionFollo": "Wskazówki operacyjne",
+            "ClearExistingTagsAndUseNewOnes": "Wyczyść istniejące tagi i użyj nowych",
+            "Cancel": "Anuluj",
+            "ConfirmToUseTheNewTagSystemOnl": "Potwierdź przejście na nowy system tagów? To wyczyści twoje istniejące tagi i wszystkie powiązane zasoby. Ta operacja jest nieodwracalna. Postępuj ostrożnie."
+        },
+        "TagSortModal": {
+            "title": "Sortowanie tagów",
+            "noSortableTags": "Brak tagów do posortowania",
+            "sortSaveSuccess": "Sortowanie zapisane pomyślnie",
+            "sortSaveFailed": "Nie udało się zapisać sortowania",
+            "cancel": "Anuluj",
+            "confirm": "Potwierdź",
+            "saving": "Zapisywanie...",
+            "level1Title": "Tagi poziomu 1",
+            "level2Title": "Tagi poziomu 2",
+            "level3Title": "Tagi poziomu 3",
+            "defaultTitle": "Tagi"
+        },
+        "TagsClient": {
+            "tagCreatedSuccessfully": "Tagi utworzone pomyślnie"
+        },
+        "AiCreateModal": {
+            "generateFailed": "Nie udało się wygenerować systemu tagów",
+            "selectedIndustry": "Branża: ",
+            "creating": "Tworzenie..."
+        },
+        "TagColumn": {
+            "smartTags": "Inteligentne tagi"
+        }
+    },
+    "AiCreateModal": {
+        "title": "Generator systemu tagów AI",
+        "createSettings": "Ustawienia tworzenia",
+        "tip": "💡 Wybierz branżę, aby automatycznie wypełnić profesjonalny opis scenariusza. Możesz go dostosować w razie potrzeby.",
+        "selectLanguage": "Język tagów",
+        "selectIndustry": "Wybierz branżę",
+        "other": "Inne",
+        "pleaseDescribe": "Proszę opisać",
+        "customPrompt": "Własny prompt",
+        "generate": "Generuj system tagów",
+        "generating": "Generowanie...",
+        "result": "Wygenerowany wynik",
+        "waiting": "Oczekiwanie",
+        "aiAnalyzing": "AI analizuje i generuje system tagów...",
+        "pleaseSelectOrInput": "Proszę wybrać branżę lub wprowadzić własny prompt po lewej stronie, a następnie kliknąć Generuj.",
+        "confirmApply": "Zastosuj do systemu",
+        "none": "Brak",
+        "parseError": "Format wygenerowanych tagów jest nieprawidłowy. Przełącz się na tryb edycji, aby dostosować ręcznie",
+        "language": {
+            "zh-CN": "Chiński",
+            "en-US": "Angielski"
+        },
+        "tagTreePrompt": {
+            "template": "Jesteś ekspertem w taksonomiach tagów zasobów cyfrowych przedsiębiorstw. Na podstawie poniższego kontekstu użytkownika wygeneruj 'drzewo tagów'.\n[Kontekst użytkownika]\n{userContext}\n\nMUSISZ wyprowadzić wyłącznie w następującym formacie (bez dodatkowych wyjaśnień, symboli, numerowania, pustych linii lub dodatkowych sekcji):\n# Tag poziomu 1\n## Tag poziomu 2\nTag 1\nTag 2\n\nReguły:\n- Wyprowadź tylko samo drzewo tagów. NIE dołączaj żadnych wyjaśnień, wskazówek, przykładów, znaków kodowania Markdown ani backticków.\n- Używaj angielskiego dla całego tekstu.\n- Terminy powinny być profesjonalne, wzajemnie wykluczające się, jasne i ukierunkowane na praktyczne wyszukiwanie. Unikaj długich zdań.\n- NIE wyprowadzaj pustych nagłówków, numerowania, dwukropków, nawiasów ani żadnego tekstu wyjaśniającego.\n- NIE dodawaj symboli poza zdefiniowanymi poziomami, takich jak em dash, dwukropki, '- ' lub listy numeryczne.\n- NIE powtarzaj kontekstu użytkownika ani nie dodawaj podsumowania końcowego."
+        },
+        "industry": {
+            "general": {
+                "label": "Branża ogólna",
+                "prompt": "Przedsiębiorstwa zorientowane na marketing koncentrują się na opowiadaniu historii marki, tworzeniu treści, reklamie performance i kampaniach cross-channel. Kluczowe zasoby cyfrowe obejmują wizualizacje marki, kreatywy reklamowe, filmy kampanii, treści mediów społecznościowych, materiały promocyjne i szablony marki. Organizuj zasoby według celów marketingowych: świadomość marki, generowanie leadów, optymalizacja konwersji i retencja klientów.\nTen system dotyczy branż e-commerce, CPG, sprzętu technologicznego, mody i F&B, które priorytetyzują doskonałość marketingową."
+            },
+            "ecommerce": {
+                "label": "E-commerce i handel detaliczny",
+                "prompt": "Sprzedawcy e-commerce koncentrują się na merchandisingu produktów, optymalizacji konwersji, obecności na rynkach i marketingu cyklu życia klienta. Kluczowe zasoby cyfrowe obejmują fotografię produktów, zdjęcia lifestyle, dema wideo, banery rynkowe, grafiki promocyjne i referencje klientów. Organizuj zasoby według etapów lejka sprzedaży: odkrywanie produktów, treści rozważania, zasoby konwersji i zaangażowanie po zakupie.\nTen system dotyczy sprzedawców Amazon, sklepów Shopify, sprzedawców rynkowych i detalistów omnichannel na platformach takich jak eBay, Walmart i marki direct-to-consumer."
+            },
+            "fmcg": {
+                "label": "Artykuły spożywcze (CPG)",
+                "prompt": "Marki CPG koncentrują się na atrakcyjności półkowej, różnicowaniu kategorii, partnerstwach handlowych i edukacji konsumentów. Kluczowe zasoby cyfrowe obejmują fotografię opakowań, demonstracje użycia, obrazy lifestyle, materiały specyficzne dla sprzedawców, kampanie promocyjne i treści edukacyjne. Organizuj zasoby według kanałów dystrybucji: partnerstwa handlowe, kampanie bezpośrednie do konsumentów, marketing handlowy i inicjatywy budowania marki."
+            },
+            "beauty": {
+                "label": "Piękno i kosmetyki",
+                "prompt": "Marki beauty koncentrują się na edukacji produktowej, treściach opartych na trendach, partnerstwach z influencerami i budowaniu społeczności. Kluczowe zasoby cyfrowe obejmują fotografię produktów, transformacje przed/po, filmy instruktażowe, treści współpracy z influencerami, recenzje generowane przez użytkowników i materiały kampanii sezonowych. Organizuj zasoby według etapów lejka marketingowego: kampanie świadomościowe, edukacja produktowa, dowód społeczny i treści ukierunkowane na konwersję.\nTen system dotyczy marek kosmetycznych, makijażowych, perfumeryjnych i narzędzi do pielęgnacji, które zarządzają kompleksowymi treściami od prezentacji produktów po edukację konsumentów."
+            },
+            "fashion": {
+                "label": "Moda i odzież",
+                "prompt": "Marki modowe koncentrują się na kolekcjach sezonowych, inspiracjach stylistycznych, współpracy z influencerami i pozycjonowaniu lifestyle. Kluczowe zasoby cyfrowe obejmują fotografię lookbook, treści z wybiegu, filmy stylistyczne, partnerstwa z influencerami, sesje z modelami i kampanie skupione na trendach. Organizuj zasoby według strategii treści: opowiadanie historii marki, prezentacje produktów, handel społeczny i zaangażowanie społeczności.\nTen system dotyczy marek odzieżowych, obuwniczych, akcesoriów i mody luksusowej zarządzających treściami wizualnymi od wprowadzenia produktów po komunikację lifestyle."
+            },
+            "electronics": {
+                "label": "Elektronika użytkowa",
+                "prompt": "Marki sprzętu technologicznego koncentrują się na demonstracjach funkcji, porównaniach wydajności, edukacji użytkowników i opowiadaniu historii innowacji. Kluczowe zasoby cyfrowe obejmują fotografię produktów, filmy demo, specyfikacje techniczne, wykresy porównawcze, treści unboxing i samouczki użytkowników. Organizuj zasoby według etapów podróży klienta: świadomość produktu, edukacja funkcji, rozważenie zakupu i onboarding użytkownika.\nTen system dotyczy smartfonów, laptopów, urządzeń smart home i akcesoriów technologicznych zarządzających treściami od funkcji produktów po doświadczenie użytkownika."
+            },
+            "automotive": {
+                "label": "Motoryzacja",
+                "prompt": "Marki motoryzacyjne koncentrują się na prezentacjach pojazdów, demonstracjach wydajności, funkcjach bezpieczeństwa i integracji lifestyle. Kluczowe zasoby cyfrowe obejmują fotografię zewnętrzną, detale wnętrza, nagrania jazdy testowej, demonstracje bezpieczeństwa, scenariusze lifestyle i komunikację zrównoważonego rozwoju. Organizuj zasoby według etapów podróży zakupowej: rozważenie marki, porównanie modeli, wyróżnienie funkcji i doświadczenie posiadania.\nTen system dotyczy pojazdów osobowych, pojazdów elektrycznych, flot komercyjnych i części motoryzacyjnych zarządzających treściami od świadomości marki po doświadczenie jazdy."
+            },
+            "interior": {
+                "label": "Wzornictwo wnętrz",
+                "prompt": "Firmy projektowe koncentrują się na prezentacjach projektów, inspiracjach projektowych, przejrzystości procesów i referencjach klientów. Kluczowe zasoby cyfrowe obejmują fotografię przestrzeni, renderowanie projektów, próbki materiałów, dokumentację procesów, transformacje przed/po i case study klientów. Organizuj zasoby według cyklu życia projektu: galerie inspiracji, koncepcje projektowe, prace w toku i zakończone prezentacje.\nTen system dotyczy projektowania mieszkaniowego, przestrzeni komercyjnych, projektowania hotelowego i home staging zarządzających treściami wizualnymi od koncepcji do ukończenia."
+            },
+            "luxury": {
+                "label": "Dobra luksusowe",
+                "prompt": "Marki luksusowe koncentrują się na opowiadaniu historii dziedzictwa, doskonałości rzemiosła, pozycjonowaniu ekskluzywności i doświadczeniach premium. Kluczowe zasoby cyfrowe obejmują fotografię rzemieślniczą, filmy rzemieślnicze, treści dziedzictwa marki, ekskluzywne kolekcje, rekomendacje celebrytów i kampanie doświadczalne. Organizuj zasoby według filarów marki: opowiadanie historii dziedzictwa, prezentacja rzemiosła, marketing ekskluzywności i pozycjonowanie lifestyle.\nTen system dotyczy haute couture, biżuterii, zegarków luksusowych i wyrobów skórzanych premium zarządzających treściami od wartości rzemieślniczej po znaczenie kulturowe."
+            },
+            "gaming": {
+                "label": "Gry",
+                "prompt": "Firmy gamingowe koncentrują się na zaangażowaniu społeczności, prezentacjach rozgrywki, konkurencyjnych esportach i treściach generowanych przez użytkowników. Kluczowe zasoby cyfrowe obejmują zwiastuny gier, grafiki postaci, nagrania rozgrywki, wyróżnienia esportowe, treści społecznościowe i materiały streamingu na żywo. Organizuj zasoby według strategii zaangażowania: promocja gier, budowanie społeczności, treści konkurencyjne i retencja graczy.\nTen system dotyczy gier mobilnych, gier PC, tytułów konsolowych i doświadczeń VR zarządzających treściami od marketingu gier po ekosystem społeczności."
+            },
+            "jewelry": {
+                "label": "Biżuteria",
+                "prompt": "Marki biżuteryjne koncentrują się na opowiadaniu historii rzemiosła, połączeniach emocjonalnych, marketingu okazji i usługach personalizacji. Kluczowe zasoby cyfrowe obejmują fotografię makro, filmy rzemieślnicze, obrazy lifestyle, prezentacje personalizacji, treści narracyjne emocjonalne i kampanie specyficzne dla okazji. Organizuj zasoby według komunikacji emocjonalnej: duma z rzemiosła, celebracje kamieni milowych, wyrażanie siebie i okazje do obdarowywania.\nTen system dotyczy pierścionków zaręczynowych, biżuterii, niestandardowych elementów i biżuterii modowej zarządzających treściami od rzemiosła rzemieślniczego po znaczenie emocjonalne."
+            },
+            "theme-park": {
+                "label": "Parki rozrywki",
+                "prompt": "Obiekty rozrywkowe koncentrują się na marketingu doświadczeń, wydarzeniach sezonowych, zaangażowaniu rodzinnym i opowiadaniu historii immersyjnych. Kluczowe zasoby cyfrowe obejmują fotografię atrakcji, filmy doświadczeń, kampanie sezonowe, treści zza kulis, referencje odwiedzających i komunikację bezpieczeństwa. Organizuj zasoby według podróży odwiedzających: planowanie podróży, doświadczenie na miejscu, oferty sezonowe i tworzenie wspomnień.\nTen system dotyczy parków Disney, Universal Studios, regionalnych parków rozrywki i kompleksów rozrywkowych zarządzających treściami od przyciągania odwiedzających po wzmocnienie doświadczenia."
+            }
+        }
+    },
+    "TaggingResultDisplay": {
+        "processingTime": "Czas przetwarzania",
+        "aiRecognitionMode": "Tryb rozpoznawania AI",
+        "overallScore": "Całkowity wynik",
+        "effectiveTags": "Skuteczne tagi",
+        "effectiveTagsDescription": "Pewność 80%-100%",
+        "candidateTags": "Tagi kandydackie",
+        "candidateTagsDescription": "Pewność 60%-79%",
+        "matchingSource": "Źródło dopasowania",
+        "confidence": "Pewność",
+        "score": "Wynik"
+    },
+    "SmartTags": {
+        "title": "Inteligentne tagi",
+        "rename": "Zmień nazwę",
+        "delete": "Usuń"
+    },
+    "SearchResult": {
+        "tagGroup": "Grupa tagów",
+        "noSearchResults": "Brak wyników wyszukiwania"
+    }
+}

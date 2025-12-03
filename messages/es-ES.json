@@ -1,0 +1,236 @@
+{
+  "AiCreateModal": {
+    "aiAnalyzing": "La IA está analizando y generando el sistema de etiquetas...",
+    "confirmApply": "Aplicar al sistema",
+    "createSettings": "Configuración de Creación",
+    "customPrompt": "Prompt personalizado",
+    "generate": "Generar Sistema de Etiquetas",
+    "generating": "Generando...",
+    "industry": {
+      "automotive": {
+        "label": "Automoción",
+        "prompt": "Las marcas automovilísticas se centran en las exposiciones de vehículos, demostraciones de rendimiento, características de seguridad e integración con el estilo de vida. Los activos digitales clave incluyen fotografías exteriores, detalles interiores, material de pruebas de manejo, demostraciones de seguridad, escenas de estilo de vida y mensajes sobre sostenibilidad. Organice los activos por etapas del proceso de compra: consideración de la marca, comparación de modelos, puntos destacados de características y experiencia de propiedad.\n\nEste sistema se aplica a vehículos de pasajeros, vehículos eléctricos, flotas comerciales y piezas automovilísticas, gestionando contenido desde la concienciación de marca hasta la experiencia de conducción."
+      },
+      "beauty": {
+        "label": "Belleza y Cosmética",
+        "prompt": "Las marcas de belleza se centran en la educación sobre productos, contenido basado en tendencias, alianzas con influencers y construcción de comunidad. Los activos digitales clave incluyen fotografía de productos, transformaciones antes/después, videos tutoriales, contenido de colaboraciones con influencers, reseñas generadas por usuarios y materiales de campañas estacionales. Organice los activos por etapas del embudo de marketing: campañas de concienciación, educación sobre productos, prueba social y contenido centrado en la conversión. Este sistema se aplica a marcas de cuidado de la piel, maquillaje, fragancias y herramientas de belleza que gestionan contenido integral desde la presentación de productos hasta la educación del consumidor."
+      },
+      "ecommerce": {
+        "label": "Comercio Electrónico y Retail",
+        "prompt": "Los minoristas de comercio electrónico se centran en la comercialización de productos, la optimización de conversiones, la presencia en marketplaces y el marketing del ciclo de vida del cliente. Los activos digitales clave incluyen fotografía de productos, imágenes de estilo de vida, demostraciones en vídeo, banners de marketplaces, gráficos promocionales y testimonios de clientes. Organice los activos por etapas del embudo de ventas: descubrimiento de productos, contenido de consideración, activos de conversión y engagement post-compra.\n\nEste sistema se aplica a vendedores de Amazon, tiendas de Shopify, proveedores de marketplaces y minoristas omnicanal en plataformas como eBay, Walmart y marcas directas al consumidor."
+      },
+      "electronics": {
+        "label": "Electrónica de Consumo",
+        "prompt": "Las marcas de hardware tecnológico se centran en demostraciones de funciones, comparaciones de rendimiento, educación del usuario y narraciones de innovación. Los activos digitales clave incluyen fotografías de productos, videos de demostración, especificaciones técnicas, gráficos de comparación, contenido de desembalaje y tutoriales para usuarios. Organice los activos por etapas del recorrido del cliente: concienciación del producto, educación sobre funciones, consideración de compra y onboarding del usuario. Este sistema se aplica a smartphones, laptops, dispositivos inteligentes para el hogar y accesorios tecnológicos, gestionando contenido desde las funciones del producto hasta la experiencia del usuario."
+      },
+      "fashion": {
+        "label": "Moda y Ropa",
+        "prompt": "Las marcas de moda se centran en colecciones estacionales, inspiración de estilo, colaboraciones con influencers y posicionamiento de estilo de vida. Los activos digitales clave incluyen fotografía de lookbooks, contenido de pasarela, videos de estilismo, alianzas con influencers, sesiones de modelos y campañas centradas en tendencias. Organice los activos según la estrategia de contenido: narrativa de marca, exposiciones de productos, comercio social y participación de la comunidad.\nEste sistema se aplica a marcas de ropa, calzado, accesorios y moda de lujo que gestionan contenido visual desde lanzamientos de productos hasta comunicación de estilo de vida."
+      },
+      "fmcg": {
+        "label": "Bienes de Consumo Empaquetados (BCE)",
+        "prompt": "Las marcas de CPG se centran en el atractivo en la estantería, la diferenciación por categorías, las alianzas con minoristas y la educación del consumidor. Los activos digitales clave incluyen fotografía de embalaje, demostraciones de uso, imágenes de estilo de vida, materiales específicos para minoristas, campañas promocionales y contenido educativo. Organice los activos por canales de distribución: alianzas minoristas, campañas directas al consumidor, marketing comercial e iniciativas de construcción de marca."
+      },
+      "gaming": {
+        "label": "Juegos",
+        "prompt": "Las empresas de gaming se centran en la participación de la comunidad, las demostraciones de jugabilidad, los esports competitivos y el contenido generado por los usuarios. Los principales activos digitales incluyen tráilers de juegos, arte de personajes, material de jugabilidad, momentos destacados de esports, contenido comunitario y materiales de streams en directo. Organice los activos por estrategia de participación: promoción de juegos, construcción de comunidad, contenido competitivo y retención de jugadores.\n\nEste sistema se aplica a juegos móviles, gaming para PC, títulos de consola y experiencias de RV, gestionando contenido desde el marketing de juegos hasta el ecosistema comunitario."
+      },
+      "general": {
+        "label": "Industria General",
+        "prompt": "Las empresas impulsadas por marketing se centran en la narrativa de marca, la creación de contenido, la publicidad de rendimiento y las campañas multicanal. Los activos digitales clave incluyen imágenes de marca, creatividades publicitarias, videos de campaña, contenido de redes sociales, materiales promocionales y plantillas de marca. Organice los activos por objetivos de marketing: concienciación de marca, generación de leads, optimización de conversiones y retención de clientes.\n\nEste sistema se aplica a las industrias de comercio electrónico, CPG, hardware tecnológico, moda y F&B que priorizan la excelencia en marketing."
+      },
+      "interior": {
+        "label": "Diseño de Interiores",
+        "prompt": "Las empresas de interiorismo se centran en la presentación de proyectos, inspiración de diseño, transparencia del proceso y testimonios de clientes. Los activos digitales clave incluyen fotografías de espacios, renderizados de diseño, muestras de materiales, documentación del proceso, transformaciones antes/después y estudios de casos de clientes. Organice los activos por ciclo de vida del proyecto: galerías de inspiración, conceptos de diseño, trabajo en progreso y presentaciones finalizadas.\n\nEste sistema se aplica al diseño residencial, espacios comerciales, diseño de hostelería y home staging, gestionando contenido visual desde el concepto hasta la finalización."
+      },
+      "jewelry": {
+        "label": "Joyería",
+        "prompt": "Las marcas de joyería se centran en la narración de la artesanía, las conexiones emocionales, el marketing por ocasiones y los servicios de personalización. Los activos digitales clave incluyen fotografía macro, videos de artesanía, imágenes de estilo de vida, vitrinas de personalización, contenido de narración emocional y campañas específicas por ocasiones. Organice los activos por mensajes emocionales: orgullo por la artesanía, celebraciones de hitos, expresión personal y ocasiones de regalo. Este sistema se aplica a anillos de compromiso, joyería fina, piezas personalizadas y joyería de moda, gestionando contenido desde la artesanía hasta el significado emocional."
+      },
+      "luxury": {
+        "label": "Bienes de Lujo",
+        "prompt": "Las marcas de lujo se centran en la narración de herencia, la excelencia en artesanía, el posicionamiento de exclusividad y las experiencias premium. Los activos digitales clave incluyen fotografía artesanal, videos de artesanía, contenido de herencia de marca, colecciones exclusivas, patrocinio de celebridades y campañas experienciales. Organice los activos por pilares de marca: narración de herencia, exhibición de artesanía, marketing de exclusividad y posicionamiento de estilo de vida.\nEste sistema se aplica a la alta costura, joyería fina, relojes de lujo y productos de cuero premium, gestionando contenido desde el valor artesanal hasta el significado cultural."
+      },
+      "theme-park": {
+        "label": "Parques temáticos",
+        "prompt": "Los lugares de entretenimiento se centran en el marketing de experiencias, eventos estacionales, participación familiar y narración inmersiva. Los activos digitales clave incluyen fotografías de atracciones, videos de experiencias, campañas estacionales, contenido exclusivo, testimonios de visitantes y comunicaciones de seguridad. Organice los activos según el recorrido del visitante: planificación del viaje, experiencia en el lugar, ofertas estacionales y creación de recuerdos.\n\nEste sistema se aplica a parques Disney, Universal Studios, parques temáticos regionales y complejos de entretenimiento que gestionan contenido desde la atracción del visitante hasta la amplificación de la experiencia."
+      }
+    },
+    "language": {
+      "en-US": "Inglés",
+      "zh-CN": "Chino"
+    },
+    "none": "Ninguno",
+    "other": "Otro",
+    "parseError": "El formato de la etiqueta generada es incorrecto. Por favor, cambie al modo de edición para ajustarlo manualmente.",
+    "pleaseDescribe": "Por favor, describe",
+    "pleaseSelectOrInput": "Seleccione una industria o introduzca un prompt personalizado a la izquierda, luego haga clic en Generar.",
+    "result": "Resultado generado",
+    "selectIndustry": "Seleccionar Industria",
+    "selectLanguage": "Idioma de Etiqueta",
+    "tagTreePrompt": {
+      "template": "Eres un experto en taxonomías de etiquetas de activos digitales empresariales. Basándote en el siguiente contexto del usuario, genera un \"árbol de etiquetas\".\n[Contexto del Usuario]\n{userContext}\n\nDEBES emitir la salida estrictamente en el siguiente formato solo (sin explicaciones adicionales, símbolos, numeración, líneas en blanco o secciones adicionales):\n# Etiqueta de nivel 1\n## Etiqueta de nivel 2\nEtiqueta 1\nEtiqueta 2\n\nReglas:\n- Solo emite el árbol de etiquetas. NO incluyas explicaciones, pistas, ejemplos, delimitadores de código Markdown o acentos graves.\n- Usa inglés para todo el texto.\n- Los términos deben ser profesionales, mutuamente excluyentes, claros y orientados a búsquedas prácticas. Evita oraciones largas.\n- NO emitas títulos vacíos, numeración, dos puntos, corchetes ni ningún texto explicativo.\n- NO añadas símbolos fuera de los niveles definidos, como guiones largos, dos puntos, '- ' o listas numéricas.\n- NO repitas el contexto del usuario ni añadas un resumen final."
+    },
+    "tip": "💡 Seleccione una industria para rellenar automáticamente una descripción de escenario profesional. Puede ajustarla según sus necesidades.",
+    "title": "Generador de Sistema de Etiquetas de IA",
+    "waiting": "Esperando"
+  },
+  "Homepage": {
+    "title": "Sistema de etiquetado automático de activos MuseDAM"
+  },
+  "SearchResult": {
+    "noSearchResults": "No se encontraron resultados de búsqueda",
+    "tagGroup": "Grupo de etiquetas"
+  },
+  "SmartTags": {
+    "delete": "Eliminar",
+    "rename": "Renombrar",
+    "title": "Etiquetas inteligentes"
+  },
+  "TaggingResultDisplay": {
+    "aiRecognitionMode": "Modo de Reconocimiento AI",
+    "candidateTags": "Etiquetas de Candidato",
+    "candidateTagsDescription": "Confianza entre 60% y 79%",
+    "confidence": "Confianza",
+    "effectiveTags": "Etiquetas efectivas",
+    "effectiveTagsDescription": "Confianza del 80%-100%",
+    "matchingSource": "Fuente de coincidencia",
+    "overallScore": "Puntuación General",
+    "processingTime": "Tiempo de procesamiento",
+    "score": "Puntuación"
+  },
+  "TagsPage": {
+    "AiCreateModal": {
+      "creating": "Creando...",
+      "generateFailed": "Error al generar el sistema de etiquetas",
+      "selectedIndustry": "Industria:"
+    },
+    "ManualCreateModal": {
+      "Cancel": "Cancelar",
+      "CreateLabelsManually": "Crear etiqueta manualmente",
+      "CreateNow": "Crear ahora",
+      "FormatInstructions": "Instrucciones de formato:",
+      "HereSTheTranslatedTextFollowin": "Editar",
+      "Label1": "Etiqueta 1",
+      "Label2": "Etiqueta 2",
+      "LabelDescription": "← Etiquetas específicas (por ejemplo, imágenes de productos, series destacadas)",
+      "LabelsCreatedSuccessfully": "Etiquetas creadas correctamente",
+      "OrdinaryTextIsALevel3Tag": "El texto ordinario es una etiqueta de nivel 3.",
+      "PleaseCreateLabelsInTheFollowi": "Cree etiquetas en el siguiente formato, una por línea...",
+      "PreviewView": "Vista previa",
+      "PrimaryTag": "Etiqueta principal",
+      "PrimaryTagDescription": "← Categorías principales (ej: tipos de contenido, series de productos)",
+      "QuicklyCreateMultipleTagPathsW": "Cree rápidamente múltiples rutas de etiquetas, admitiendo hasta tres niveles de vinculación de etiquetas",
+      "SecondaryTagDescription": "← Subcategorías (ej: activos de imagen, categorías de ropa)",
+      "SecondaryTags": "Etiqueta secundaria"
+    },
+    "ManualCreateTips2Modal": {
+      "Cancel": "Cancelar",
+      "ClearExistingTagsAndUseNewOnes": "Limpiar las etiquetas existentes y usar nuevas",
+      "ConfirmToUseTheNewTagSystemOnl": "¿Confirmar cambio al nuevo sistema de etiquetas? Esto eliminará tus etiquetas existentes y todos los recursos asociados. Esta acción no se puede deshacer. Proceda con precaución.",
+      "HereSTheTranslatedVersionFollo": "Consejos de operación"
+    },
+    "ManualCreateTipsModal": {
+      "Cancel": "Cancelar",
+      "ClearExistingTagsKeepOnlyTheNe": "Borrar las etiquetas existentes, mantener solo las recién creadas",
+      "Confirm": "Confirmar",
+      "CreateTagPrompt": "Consejos para crear etiquetas",
+      "ExistingTagDataFoundInTheSyste": "Se han encontrado datos de etiquetas existentes en el sistema. Elija cómo manejar la creación por lotes. Esta acción no se puede deshacer. Proceda con precaución:",
+      "MergeIntoExistingTagSystem": "Fusionar en el sistema de etiquetas existente",
+      "RetainExistingTagsAndAddNewTag": "Mantener las etiquetas existentes, agregar nuevas etiquetas al sistema actual.",
+      "UnderstoodPleaseProvideTheText": "Solo use el nuevo sistema de etiquetas"
+    },
+    "TagColumn": {
+      "smartTags": "Etiquetas inteligentes"
+    },
+    "TagDetails": {
+      "add": "Añadir",
+      "aiAutoTagging": "Etiquetado automático con IA",
+      "aiAutoTaggingDisabled": "Desactivado, la IA no reconocerá esta etiqueta",
+      "aiAutoTaggingEnabled": "Habilitado, permite que la IA reconozca esta etiqueta",
+      "edit": "Editar",
+      "excludeKeywords": "Excluir palabras clave",
+      "excludeKeywordsTooltip": "Agregue palabras clave para excluir. Los recursos que contengan estas palabras no se etiquetarán con esta etiqueta.",
+      "excludeRule": "Regla de exclusión:",
+      "excludeRuleDescription": "Cuando los nombres de activos, metadatos y rutas de carpetas contengan estas palabras clave, incluso si se encuentran coincidencias, la etiqueta no se aplicará automáticamente",
+      "inputKeywords": "Introduzca palabras clave",
+      "matchingKeywords": "Palabras clave coincidentes",
+      "matchingKeywordsTooltip": "Agregue palabras clave relacionadas con esta etiqueta para ayudar a la IA a identificarla con mayor precisión",
+      "matchingRule": "Regla de coincidencia:",
+      "matchingRuleDescription": "Cuando los nombres de los activos, los metadatos y las rutas de las carpetas coincidan con las palabras clave anteriores, la IA etiquetará automáticamente el activo.",
+      "modified": "Modificado",
+      "selectTagToView": "Seleccione una etiqueta para ver los detalles",
+      "tagDescription": "Descripción de la etiqueta",
+      "tagDescriptionPlaceholder": "Opcional. Añadir descripciones de etiquetas ayuda a la IA a entender mejor los escenarios de aplicación de las etiquetas.",
+      "tagDetails": "Detalles de la Etiqueta",
+      "tagName": "Nombre de Etiqueta",
+      "tagNamePlaceholder": "Diseño de pósteres"
+    },
+    "TagItem": {
+      "confirmDelete": "Confirmar Borrado",
+      "delete": "Eliminar",
+      "deleteConfirmDescription": "¿Está seguro que desea eliminar la etiqueta \"{tagName}\"?",
+      "deleteConfirmTitle": "Eliminar Etiqueta",
+      "edited": "Editado",
+      "inputTagName": "Introduzca el nombre de la etiqueta",
+      "modified": "Modificado",
+      "new": "Nuevo",
+      "rename": "Renombrar",
+      "searchRelatedAssets": "Buscar recursos relacionados",
+      "tagNameRequired": "El nombre de la etiqueta no puede estar vacío",
+      "toBeDeleted": "Por eliminar"
+    },
+    "TagSortModal": {
+      "cancel": "Cancelar",
+      "confirm": "Confirmar",
+      "defaultTitle": "Etiquetas",
+      "level1Title": "Etiquetas de Nivel 1",
+      "level2Title": "Etiquetas de Nivel 2",
+      "level3Title": "Etiquetas de Nivel 3",
+      "noSortableTags": "Etiquetas no ordenables",
+      "saving": "Guardando...",
+      "sortSaveFailed": "Error al guardar el orden",
+      "sortSaveSuccess": "Orden guardado correctamente",
+      "title": "Ordenación de Etiquetas"
+    },
+    "TagsClient": {
+      "tagCreatedSuccessfully": "Etiquetas creadas correctamente"
+    },
+    "aiAssistant": "Asistente de IA",
+    "aiAutoTagging": "Etiquetado automático con IA",
+    "aiCreateDesc": "La IA genera una plantilla de etiquetas profesional basada en las características de la industria",
+    "aiCreateLabel": "Generación de etiquetas AI",
+    "batchCreate": "Crear por lotes",
+    "cancel": "Cancelar",
+    "confirmSync": "Confirmar Sincronización",
+    "confirmSyncDescription": "Esta operación:\n• Eliminará todas las etiquetas actuales del sistema\n• Volverá a recuperar la jerarquía completa de etiquetas desde MuseDAM\n• Se perderán todas las modificaciones locales no guardadas de etiquetas\n\n¿Está seguro que desea continuar?",
+    "confirmSyncTitle": "Confirmar Sincronización de Etiquetas",
+    "manualCreateDesc": "Cree una taxonomía personalizada para el contexto empresarial único de su negocio",
+    "manualCreateLabel": "Crear etiquetas manualmente",
+    "noSearchResults": "No se encontraron etiquetas coincidentes",
+    "noTagGroups": "Sin grupos de etiquetas",
+    "noTags": "Sin etiquetas",
+    "pleaseSelect": "Por favor, seleccione",
+    "recommended": "Recomendado",
+    "saveChanges": "Guardar",
+    "saveDetailsFailed": "No se pudieron guardar los detalles de la etiqueta",
+    "saveFailed": "Guardado fallido",
+    "saveSuccess": "Guardado correctamente",
+    "saving": "Guardando...",
+    "searchPlaceholder": "Buscar etiquetas",
+    "searchResults": "Resultados de búsqueda",
+    "selectCreateMethod": "Por favor, elija un método de creación:",
+    "selectSecondLevelFirst": "Por favor, seleccione primero una etiqueta de segundo nivel",
+    "sortFailed": "No se pudieron ordenar las etiquetas",
+    "sortSuccess": "Etiquetas ordenadas correctamente",
+    "syncError": "Error al sincronizar",
+    "syncFailed": "Sincronización fallida",
+    "syncFromMuseDAM": "Sincronizar desde MuseDAM",
+    "syncSuccess": "Etiquetas sincronizadas correctamente desde MuseDAM",
+    "syncing": "Sincronizando...",
+    "tag": "Etiqueta",
+    "tagGroup": "Grupo de Etiquetas",
+    "tagManagement": "Gestión de etiquetas",
+    "tagNameExists": "El nombre de la etiqueta ya existe en el mismo nivel"
+  }
+}

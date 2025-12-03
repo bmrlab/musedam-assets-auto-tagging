@@ -1,0 +1,236 @@
+{
+  "AiCreateModal": {
+    "aiAnalyzing": "A IA está analisando e gerando o sistema de tags...",
+    "confirmApply": "Aplicar ao Sistema",
+    "createSettings": "Configurações de Criação",
+    "customPrompt": "Prompt Personalizado",
+    "generate": "Gerar Sistema de Etiquetas",
+    "generating": "Gerando...",
+    "industry": {
+      "automotive": {
+        "label": "Automotivo",
+        "prompt": "Marcas automotivas se concentram em mostras de veículos, demonstrações de performance, recursos de segurança e integração com o estilo de vida. Principais ativos digitais incluem fotografias externas, detalhes internos, imagens de test drive, demonstrações de segurança, cenários de estilo de vida e mensagens de sustentabilidade. Organize os ativos por estágios da jornada de compra: consideração da marca, comparação de modelos, destaques de recursos e experiência de posse. Este sistema se aplica a veículos de passageiros, veículos elétricos, frotas comerciais e peças automotivas, gerenciando conteúdo desde a conscientização da marca até a experiência de dirigir."
+      },
+      "beauty": {
+        "label": "Beleza e Cosméticos",
+        "prompt": "As marcas de beleza se concentram em educação sobre produtos, conteúdo impulsionado por tendências, parcerias com influenciadores e construção de comunidade. Os principais ativos digitais incluem fotografia de produtos, transformações antes/depois, vídeos tutoriais, conteúdo de colaboração com influenciadores, avaliações geradas por usuários e materiais de campanhas sazonais. Organize os ativos por estágios do funil de marketing: campanhas de conscientização, educação sobre produtos, prova social e conteúdo focado em conversão. Este sistema se aplica a marcas de skincare, maquiagem, fragrâncias e ferramentas de beleza que gerenciam conteúdo abrangente, desde a exposição de produtos até a educação do consumidor."
+      },
+      "ecommerce": {
+        "label": "Comércio Eletrônico e Varejo",
+        "prompt": "Os varejistas de comércio eletrônico se concentram em merchandising de produtos, otimização de conversão, presença em marketplaces e marketing do ciclo de vida do cliente. Os principais ativos digitais incluem fotografia de produtos, fotos de estilo de vida, demos em vídeo, banners de marketplace, gráficos promocionais e depoimentos de clientes. Organize os ativos por estágios do funil de vendas: descoberta de produtos, conteúdo de consideração, ativos de conversão e engajamento pós-compra.\n\nEste sistema se aplica a vendedores da Amazon, lojas Shopify, fornecedores de marketplaces e varejistas omnicanal em plataformas como eBay, Walmart e marcas diretas para consumidores."
+      },
+      "electronics": {
+        "label": "Eletrônicos para Consumidores",
+        "prompt": "As marcas de hardware tech se concentram em demonstrações de recursos, comparações de performance, educação do usuário e histórias de inovação. Principais ativos digitais incluem fotografias de produtos, vídeos de demonstração, especificações técnicas, gráficos de comparação, conteúdo de desboxing e tutoriais para usuários. Organize os ativos por estágios do jornada do cliente: conscientização do produto, educação sobre recursos, consideração de compra e onboarding do usuário. Este sistema se aplica a smartphones, laptops, dispositivos inteligentes para casa e acessórios tech, gerenciando conteúdo desde recursos do produto até experiência do usuário."
+      },
+      "fashion": {
+        "label": "Moda e Vestuário",
+        "prompt": "Marcas de moda se concentram em coleções sazonais, inspiração de estilo, colaborações com influenciadores e posicionamento de estilo de vida. Principais ativos digitais incluem fotografia de lookbooks, conteúdo de desfiles, vídeos de estilismo, parcerias com influenciadores, sessões de fotos com modelos e campanhas voltadas para tendências. Organize os ativos por estratégia de conteúdo: narrativa da marca, mostras de produtos, comércio social e engajamento comunitário.\nEste sistema se aplica a marcas de roupas, calçados, acessórios e moda de luxo que gerenciam conteúdo visual desde lançamentos de produtos até comunicação de estilo de vida."
+      },
+      "fmcg": {
+        "label": "Bens Consumíveis (CPG)",
+        "prompt": "As marcas CPG se concentram em apelo visual nas prateleiras, diferenciação de categoria, parcerias com varejistas e educação do consumidor. Os principais ativos digitais incluem fotografia de embalagens, demonstrações de uso, imagens de estilo de vida, materiais específicos para varejistas, campanhas promocionais e conteúdo educativo. Organize os ativos por canais de distribuição: parcerias com varejistas, campanhas diretas para consumidores, marketing para varejistas e iniciativas de construção de marca."
+      },
+      "gaming": {
+        "label": "Jogos",
+        "prompt": "As empresas de jogos se concentram em engajamento comunitário, mostras de gameplay, esports competitivos e conteúdo gerado por usuários. Os principais ativos digitais incluem trailers de jogos, arte de personagens, imagens de gameplay, destaques de esports, conteúdo comunitário e materiais de transmissão ao vivo. Organize os ativos por estratégia de engajamento: promoção de jogos, construção de comunidade, conteúdo competitivo e retenção de jogadores.\nEste sistema se aplica a jogos móveis, jogos para PC, títulos de console e experiências de VR, gerenciando conteúdo desde a marketing de jogos até o ecossistema comunitário."
+      },
+      "general": {
+        "label": "Indústria Geral",
+        "prompt": "Empresas orientadas por marketing se concentram em storytelling de marca, criação de conteúdo, publicidade performática e campanhas multicanais. Principais ativos digitais incluem visuais de marca, criativos publicitários, vídeos de campanha, conteúdo de mídia social, materiais promocionais e modelos personalizados. Organize os ativos por objetivos de marketing: conscientização da marca, geração de leads, otimização de conversão e retenção de clientes.\n\nEste sistema se aplica a indústrias de comércio eletrônico, CPG, hardware tech, moda e alimentação e bebidas que priorizam excelência em marketing."
+      },
+      "interior": {
+        "label": "Design de Interiores",
+        "prompt": "As empresas de design de interiores se concentram em mostras de projetos, inspiração de design, transparência do processo e depoimentos de clientes. Os principais ativos digitais incluem fotografias de espaços, renderizações de design, amostras de materiais, documentação do processo, transformações antes/depois e estudos de caso de clientes. Organize os ativos pelo ciclo de vida do projeto: galerias de inspiração, conceitos de design, em andamento e mostras concluídas.\nEste sistema se aplica ao design residencial, espaços comerciais, design de hotelaria e home staging, gerenciando conteúdo visual do conceito à conclusão."
+      },
+      "jewelry": {
+        "label": "Jóias",
+        "prompt": "Marcas de joias se concentram em contar histórias sobre artesanato, conexões emocionais, marketing por ocasião e serviços de personalização. Principais ativos digitais incluem fotografia macro, vídeos de artesanato, imagens de estilo de vida, mostras de customização, conteúdo narrativo emocional e campanhas específicas por ocasião. Organize os ativos por mensagens emocionais: orgulho de artesanato, celebrações de marcos, expressão pessoal e ocasiões de presente. Este sistema se aplica a anéis de noivado, joias finas, peças personalizadas e joias de moda, gerenciando conteúdo desde a arte artesanal até o significado emocional."
+      },
+      "luxury": {
+        "label": "Bens de Luxo",
+        "prompt": "As marcas de luxo se concentram em narrativas de herança, excelência artesanato, posicionamento de exclusividade e experiências premium. Principais ativos digitais incluem fotografia artesanal, vídeos de artesanato, conteúdo de herança da marca, coleções exclusivas, patrocínios de celebridades e campanhas experienciais. Organize os ativos por pilares da marca: narrativa de herança, exposição de artesanato, marketing de exclusividade e posicionamento de estilo de vida. Este sistema se aplica à alta costura, joalheria fina, relógios de luxo e artigos de couro premium, gerenciando conteúdo desde valor artesanal até significado cultural."
+      },
+      "theme-park": {
+        "label": "Parques Temáticos",
+        "prompt": "Os locais de entretenimento se concentram em marketing de experiência, eventos sazonais, engajamento familiar e narrativas imersivas. Os principais ativos digitais incluem fotografias de atrações, vídeos de experiência, campanhas sazonais, conteúdos exclusivos, depoimentos de visitantes e comunicações de segurança. Organize os ativos por jornada do visitante: planejamento da viagem, experiência no local, ofertas sazonais e criação de memórias. Este sistema se aplica a parques da Disney, Universal Studios, parques temáticos regionais e complexos de entretenimento que gerenciam o conteúdo desde a atração do visitante até a ampliação da experiência."
+      }
+    },
+    "language": {
+      "en-US": "Inglês",
+      "zh-CN": "Chinês"
+    },
+    "none": "Nenhum",
+    "other": "Outro",
+    "parseError": "O formato da tag gerada está incorreto. Por favor, altere para o modo de edição para ajustar manualmente.",
+    "pleaseDescribe": "Por favor, descreva",
+    "pleaseSelectOrInput": "Selecione um setor ou insira um prompt personalizado à esquerda, depois clique em Gerar.",
+    "result": "Resultado Gerado",
+    "selectIndustry": "Selecionar Indústria",
+    "selectLanguage": "Idioma da Tag",
+    "tagTreePrompt": {
+      "template": "Você é um especialista em taxonomias de tags de ativos digitais empresariais. Com base no seguinte contexto do usuário, gere uma \"árvore de tags\".\n[Contexto do Usuário]\n{userContext}\n\nVocê DEVE produzir estritamente apenas no seguinte formato (sem explicações extras, símbolos, numeração, linhas em branco ou seções adicionais):\n# Tag de Nível 1\n## Tag de Nível 2\nTag 1\nTag 2\n\nRegras:\n- Produza apenas a própria árvore de tags. NÃO inclua explicações, dicas, exemplos, blocos de código Markdown ou acentos graves.\n- Use o inglês para todo o texto.\n- Os termos devem ser profissionais, mutuamente exclusivos, claros e voltados para busca prática. Evite frases longas.\n- NÃO produza títulos vazios, numeração, dois-pontos, colchetes ou qualquer texto explicativo.\n- NÃO adicione símbolos fora dos níveis definidos, como travessões, dois-pontos, '- ' ou listas numéricas.\n- NÃO repita o contexto do usuário ou adicione um resumo conclusivo."
+    },
+    "tip": "💡 Selecione um setor para preencher automaticamente uma descrição de cenário profissional. Você pode ajustá-la conforme necessário.",
+    "title": "Gerador de Sistema de Tags AI",
+    "waiting": "Aguarde"
+  },
+  "Homepage": {
+    "title": "Sistema de marcação automática de ativos MuseDAM"
+  },
+  "SearchResult": {
+    "noSearchResults": "Nenhum resultado de busca",
+    "tagGroup": "Grupo de Tags"
+  },
+  "SmartTags": {
+    "delete": "Excluir",
+    "rename": "Renomear",
+    "title": "Tags Inteligentes"
+  },
+  "TaggingResultDisplay": {
+    "aiRecognitionMode": "Modo de Reconhecimento AI",
+    "candidateTags": "Tags do Candidato",
+    "candidateTagsDescription": "Confiança de 60%-79%",
+    "confidence": "Confiança",
+    "effectiveTags": "Tags Eficazes",
+    "effectiveTagsDescription": "80%-100% de Confiança",
+    "matchingSource": "Fonte Correspondente",
+    "overallScore": "Pontuação Geral",
+    "processingTime": "Tempo de Processamento",
+    "score": "Pontuação"
+  },
+  "TagsPage": {
+    "AiCreateModal": {
+      "creating": "Criando...",
+      "generateFailed": "Falha ao gerar o sistema de tags",
+      "selectedIndustry": "Indústria:"
+    },
+    "ManualCreateModal": {
+      "Cancel": "Cancelar",
+      "CreateLabelsManually": "Criar rótulo manualmente",
+      "CreateNow": "Criar agora",
+      "FormatInstructions": "Instruções de formatação:",
+      "HereSTheTranslatedTextFollowin": "Editar",
+      "Label1": "Tag 1",
+      "Label2": "Tag 2",
+      "LabelDescription": "← Tags específicas (ex.: imagens de produtos, séries principais)",
+      "LabelsCreatedSuccessfully": "Rótulos criados com sucesso",
+      "OrdinaryTextIsALevel3Tag": "Texto comum é uma tag de nível 3.",
+      "PleaseCreateLabelsInTheFollowi": "Crie tags no seguinte formato, uma por linha...",
+      "PreviewView": "Visualização Prévia",
+      "PrimaryTag": "Tag primária",
+      "PrimaryTagDescription": "← Categorias principais (ex: tipos de conteúdo, séries de produtos)",
+      "QuicklyCreateMultipleTagPathsW": "Crie rapidamente vários caminhos de tags, com suporte a até três níveis de vinculação de tags",
+      "SecondaryTagDescription": "← Subcategorias (ex: ativos de imagem, categorias de roupas)",
+      "SecondaryTags": "Tag secundária"
+    },
+    "ManualCreateTips2Modal": {
+      "Cancel": "Cancelar",
+      "ClearExistingTagsAndUseNewOnes": "Limpar tags existentes e usar novas",
+      "ConfirmToUseTheNewTagSystemOnl": "Confirmar a mudança para o novo sistema de tags? Isso limpará suas tags existentes e todos os ativos associados. Essa ação não pode ser desfeita. Prossiga com cautela.",
+      "HereSTheTranslatedVersionFollo": "Dicas de operação"
+    },
+    "ManualCreateTipsModal": {
+      "Cancel": "Cancelar",
+      "ClearExistingTagsKeepOnlyTheNe": "Limpar as tags existentes, manter apenas as recém-criadas",
+      "Confirm": "Confirmar",
+      "CreateTagPrompt": "Dicas para criar tags",
+      "ExistingTagDataFoundInTheSyste": "Dados de tags existentes encontrados no sistema. Escolha como lidar com a criação em lote. Esta ação não pode ser desfeita. Prossiga com cautela:",
+      "MergeIntoExistingTagSystem": "Fundir no sistema de tags existente",
+      "RetainExistingTagsAndAddNewTag": "Manter as tags existentes, adicionar novas tags ao sistema atual.",
+      "UnderstoodPleaseProvideTheText": "Use apenas o novo sistema de tags"
+    },
+    "TagColumn": {
+      "smartTags": "Tags Inteligentes"
+    },
+    "TagDetails": {
+      "add": "Adicionar",
+      "aiAutoTagging": "Marcação Automática por IA",
+      "aiAutoTaggingDisabled": "Desativado, a IA não reconhecerá esta etiqueta",
+      "aiAutoTaggingEnabled": "Habilitado, permite que a IA reconheça essa tag",
+      "edit": "Editar",
+      "excludeKeywords": "Excluir Palavras-Chave",
+      "excludeKeywordsTooltip": "Adicione palavras-chave para excluir. Ativos que contenham essas palavras não serão marcados com essa tag",
+      "excludeRule": "Regra de Exclusão:",
+      "excludeRuleDescription": "Quando nomes de ativos, metadados e caminhos de pastas contêm essas palavras-chave, mesmo que palavras-chave correspondentes sejam encontradas, a tag não será aplicada automaticamente.",
+      "inputKeywords": "Digite palavras-chave",
+      "matchingKeywords": "Palavras-chave Correspondentes",
+      "matchingKeywordsTooltip": "Adicione palavras-chave relacionadas a essa tag para ajudar a IA a identificar a tag com mais precisão",
+      "matchingRule": "Regra de Correspondência:",
+      "matchingRuleDescription": "Quando nomes de ativos, metadados e caminhos de pastas coincidirem com as palavras-chave acima, a IA rotulará automaticamente o ativo",
+      "modified": "Modificado",
+      "selectTagToView": "Selecione uma tag para ver os detalhes",
+      "tagDescription": "Descrição da Tag",
+      "tagDescriptionPlaceholder": "Opcional. Adicionar descrições de tags ajuda a IA a entender melhor os cenários de aplicação das tags.",
+      "tagDetails": "Detalhes da Tag",
+      "tagName": "Nome da Tag",
+      "tagNamePlaceholder": "Design de Posters"
+    },
+    "TagItem": {
+      "confirmDelete": "Confirmar Exclusão",
+      "delete": "Excluir",
+      "deleteConfirmDescription": "Tem certeza que deseja excluir a tag \"{tagName}\"?",
+      "deleteConfirmTitle": "Excluir Tag",
+      "edited": "Editado",
+      "inputTagName": "Digite o nome da tag",
+      "modified": "Modificado",
+      "new": "Novo",
+      "rename": "Renomear",
+      "searchRelatedAssets": "Buscar Ativos Relacionados",
+      "tagNameRequired": "Nome da tag não pode estar vazio",
+      "toBeDeleted": "A ser excluído"
+    },
+    "TagSortModal": {
+      "cancel": "Cancelar",
+      "confirm": "Confirmar",
+      "defaultTitle": "Tags",
+      "level1Title": "Tags de Nível 1",
+      "level2Title": "Tags de Nível 2",
+      "level3Title": "Tags de Nível 3",
+      "noSortableTags": "Sem tags classificáveis",
+      "saving": "Salvando...",
+      "sortSaveFailed": "Falha ao salvar a ordenação",
+      "sortSaveSuccess": "Ordenação salva com sucesso",
+      "title": "Classificação de Tags"
+    },
+    "TagsClient": {
+      "tagCreatedSuccessfully": "Tags criadas com sucesso"
+    },
+    "aiAssistant": "Assistente de IA",
+    "aiAutoTagging": "Marcação Automática por IA",
+    "aiCreateDesc": "A IA gera um modelo de tag profissional com base nos recursos do setor",
+    "aiCreateLabel": "Geração de Tags por IA",
+    "batchCreate": "Criar em Lote",
+    "cancel": "Cancelar",
+    "confirmSync": "Confirmar Sincronização",
+    "confirmSyncDescription": "Esta operação irá:\n• Excluir todas as tags atuais no sistema\n• Recuperar a hierarquia completa de tags do MuseDAM\n• Todas as modificações locais não salvas nas tags serão perdidas\n\nTem certeza que deseja continuar?",
+    "confirmSyncTitle": "Confirmar Sincronização de Tags",
+    "manualCreateDesc": "Crie uma taxonomia personalizada para o contexto de negócios exclusivo da sua empresa",
+    "manualCreateLabel": "Criar tags manualmente",
+    "noSearchResults": "Nenhuma tag correspondente encontrada",
+    "noTagGroups": "Sem grupos de tags",
+    "noTags": "Sem tags",
+    "pleaseSelect": "Por favor, selecione",
+    "recommended": "Recomendado",
+    "saveChanges": "Salvar",
+    "saveDetailsFailed": "Falha ao salvar detalhes da tag",
+    "saveFailed": "Falha ao salvar",
+    "saveSuccess": "Salvo com sucesso",
+    "saving": "Salvando...",
+    "searchPlaceholder": "Pesquisar tags",
+    "searchResults": "Resultados da Pesquisa",
+    "selectCreateMethod": "Por favor, escolha um método de criação:",
+    "selectSecondLevelFirst": "Por favor, selecione primeiro uma tag de segundo nível",
+    "sortFailed": "Falha ao classificar tags",
+    "sortSuccess": "Tags classificadas com sucesso",
+    "syncError": "Ocorreu um erro durante a sincronização",
+    "syncFailed": "Sincronização falhou",
+    "syncFromMuseDAM": "Sincronizar do MuseDAM",
+    "syncSuccess": "Tags sincronizadas com sucesso do MuseDAM",
+    "syncing": "Sincronizando...",
+    "tag": "Tag",
+    "tagGroup": "Grupo de Tags",
+    "tagManagement": "Gerenciamento de tags",
+    "tagNameExists": "Nome da tag já existe no mesmo nível"
+  }
+}

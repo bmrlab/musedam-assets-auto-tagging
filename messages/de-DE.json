@@ -1,0 +1,236 @@
+{
+  "AiCreateModal": {
+    "aiAnalyzing": "KI analysiert und generiert das Tag-System...",
+    "confirmApply": "An System anwenden",
+    "createSettings": "Erstellungseinstellungen",
+    "customPrompt": "Benutzerdefinierter Prompt",
+    "generate": "Tag-System generieren",
+    "generating": "Generiere...",
+    "industry": {
+      "automotive": {
+        "label": "Automobilindustrie",
+        "prompt": "Automobilmarken konzentrieren sich auf Fahrzeugpräsentationen, Leistungsdemonstrationen, Sicherheitsmerkmale und Lebensstilsintegration. Wichtige digitale Assets umfassen Außenfotografien, Innenraumdetails, Testfahrvideos, Sicherheitsdemonstrationen, Lebensstilszenarien und Sustainability-Nachrichten. Organisieren Sie die Assets nach den Phasen der Kaufreise: Markenberatung, Modellvergleich, Funktionshighlights und Besitzserfahrung. Dieses System gilt für Personenfahrzeuge, Elektrofahrzeuge, kommerzielle Flotten und Automobilteile zur Verwaltung von Inhalten von der Markenbekanntheit bis zur Fahrerfahrung."
+      },
+      "beauty": {
+        "label": "Schönheit & Kosmetik",
+        "prompt": "Beauty-Marken konzentrieren sich auf Produktaufklärung, trendbasierte Inhalte, Influencer-Partnerschaften und Community-Aufbau. Wichtige digitale Assets umfassen Produktfotografien, Vorher-Nachher-Transformationen, Tutorial-Videos, Influencer-Zusammenarbeitseinhalte, nutzergenerierte Rezensionen und saisonale Kampagnenmaterialien. Organisieren Sie Assets nach Marketing-Funnel-Stufen: Awareness-Kampagnen, Produktaufklärung, Social Proof und konversionsorientierte Inhalte.\nDieses System gilt für Skincare-, Make-up-, Parfüm- und Beauty-Tool-Marken, die umfassende Inhalte von der Produktpräsentation bis zur Verbraucheraufklärung verwalten."
+      },
+      "ecommerce": {
+        "label": "E-Commerce & Einzelhandel",
+        "prompt": "E-Commerce-Händler konzentrieren sich auf Produktmerchandising, Conversionsoptimierung, Marktplatzpräsenz und Kundenlebenszyklus-Marketing. Wichtige digitale Assets umfassen Produktfotografien, Lifestyle-Aufnahmen, Video-Demos, Marktplatzbanner, Werbegrafiken und Kundenreferenzen. Organisieren Sie Assets nach Verkaufstrichterstadien: Produktdiscovery, Beratungskontent, Conversions-Assets und Post-Purchase-Engagement.\n\nDieses System gilt für Amazon-Verkäufer, Shopify-Shops, Marktplatz-Händler und Omnichannel-Händler auf Plattformen wie eBay, Walmart sowie Direct-to-Consumer-Marken."
+      },
+      "electronics": {
+        "label": "Verbraucher-Elektronik",
+        "prompt": "Technische Hardware-Marken konzentrieren sich auf Funktionsdemonstrationen, Leistungsvergleiche, Benutzeraufklärung und Innovationsgeschichten. Wichtige digitale Assets umfassen Produktfotografien, Demovideos, technische Spezifikationen, Vergleichstabellen, Unboxing-Inhalte und Benutzertutorials. Organisieren Sie die Assets nach den Phasen der Kundenreise: Produktkenntnis, Funktionsaufklärung, Kaufberatung und Benutzeronboarding. Dieses System gilt für Smartphones, Laptops, Smart-Home-Geräte und Technikzubehör zur Verwaltung von Inhalten von Produktforschriften bis zur Benutzererfahrung."
+      },
+      "fashion": {
+        "label": "Mode & Bekleidung",
+        "prompt": "Modeunternehmen konzentrieren sich auf saisonale Kollektionen, Stilinspiration, Influencer-Zusammenarbeit und Lifestyle-Positionierung. Wichtige digitale Assets umfassen Lookbook-Fotografie, Laufsteg-Inhalte, Styling-Videos, Influencer-Partnerschaften, Modelshoots und trendorientierte Kampagnen. Organisieren Sie Assets nach Content-Strategie: Brand Storytelling, Produktpräsentationen, Social Commerce und Community-Engagement.\nDieses System gilt für Bekleidung, Schuhe, Accessoires und Luxusmodeunternehmen, die visuelle Inhalte von Produktlaunchs bis hin zu Lifestyle-Kommunikation verwalten."
+      },
+      "fmcg": {
+        "label": "Verbraucherpaketwaren (CPG)",
+        "prompt": "CPG-Marken konzentrieren sich auf Regalattraktivität, Kategoriedifferenzierung, Händlerpartnerschaften und Verbrauchererziehung. Wichtige digitale Assets umfassen Verpackungsfotos, Anwendungsdemonstrationen, Lifestyle-Bilder, händlerspezifische Materialien, Werbekampagnen und Bildungsinhalte. Ordnen Sie die Assets nach Vertriebskanälen: Einzelhandelspartnerschaften, konsumentenorientierte Kampagnen, Handelsmarketing und Markenaufbauinitiativen."
+      },
+      "gaming": {
+        "label": "Gaming",
+        "prompt": "Spielunternehmen konzentrieren sich auf Community-Engagement, Gameplay-Vorstellungen, kompetitives Esport und user-generierte Inhalte. Wichtige digitale Assets umfassen Game-Trailer, Charakter-Artworks, Gameplay-Materialien, Esport-Highlights, Community-Inhalte und Live-Stream-Materialien. Organisieren Sie Assets nach Engagement-Strategien: Spielpromotion, Community-Aufbau, kompetitive Inhalte und Spielerbindung.\nDieses System gilt für Mobile Games, PC-Gaming, Konsolentitel und VR-Erlebnisse zur Verwaltung von Inhalten von der Spielmarketing bis zum Community-Ökosystem."
+      },
+      "general": {
+        "label": "Allgemeine Industrie",
+        "prompt": "Marketinggetriebene Unternehmen konzentrieren sich auf Markengeschichtenerzählung, Content-Erstellung, Performance-Werbung und Cross-Channel-Kampagnen. Wichtige digitale Assets umfassen Markenvisuals, Werbekreativien, Kampagnenvideos, Social-Media-Content, Werbematerialien und brandete Vorlagen. Organisieren Sie Assets nach Marketingzielen: Markenbekanntheit, Lead-Generierung, Conversionsoptimierung und Kundenbindung.\n\nDieses System eignet sich für E-Commerce, CPG, Tech-Hardware, Mode und F&B-Branchen, die Marketingexzellenz priorisieren."
+      },
+      "interior": {
+        "label": "Innenarchitektur",
+        "prompt": "Interior Design-Firmen konzentrieren sich auf Projektdarstellungen, Design-Inspiration, Prozesstransparenz und Kundenreferenzen. Wichtige digitale Assets umfassen Raumfotografien, Design-Renderings, Materialproben, Prozessdokumentationen, Vorher-Nachher-Transformationen und Kundenfallstudien. Organisieren Sie Assets nach dem Projektlebenszyklus: Inspirationsgalerien, Designkonzepte, laufende Arbeiten und abgeschlossene Darstellungen. Dieses System适用于 Wohn-Design, Gewerberäume, Hotel-Design und Home Staging zur Verwaltung visueller Inhalte von der Konzeption bis zur Vollendung."
+      },
+      "jewelry": {
+        "label": "Schmuck",
+        "prompt": "Schmuckmarken konzentrieren sich auf Handwerkserzählungen, emotionale Verbindungen, Anlassmarketing und Personalisierungsdienste. Wichtige digitale Assets umfassen Makrofotografien, Handwerksvideos, Lifestyle-Bilder, Customization-Präsentationen, emotionale Geschichten und anlassspezifische Kampagnen. Organisieren Sie Assets nach emotionalen Botschaften: Stolz auf Handwerk, Meilensteinfeierlichkeiten, persönliche Ausdrucksmöglichkeiten und Geschenkanlässe. Dieses System gilt für Verlobungsringe, Feinbijouterie, maßgefertigte Stücke und Mode-Schmuck zur Verwaltung von Inhalten vom handwerklichen Erstellen bis zur emotionalen Bedeutung."
+      },
+      "luxury": {
+        "label": "Luxuswaren",
+        "prompt": "Luxusmarken konzentrieren sich auf Heritage-Geschichtenerzählung, exzellente Handwerkskunst, Exklusivitätspositionierung und Premium-Erlebnisse. Wichtige digitale Assets umfassen handwerkliche Fotografien, Handwerksvideos, Heritage-Inhalte, exklusive Kollektionen, Promi-Endorsements und Erfahrungs-Kampagnen. Ordnen Sie Assets nach Markenpfeilern: Heritage-Geschichtenerzählung, Handwerksschau, Exklusivitätsmarketing und Lifestyle-Positionierung. Dieses System gilt für Haute Couture, Feinjuwelen, Luxusuhrwerk und Premium-Lederbekleidung zur Verwaltung von Inhalten von handwerklichem Wert bis kultureller Bedeutung."
+      },
+      "theme-park": {
+        "label": "Themenparks",
+        "prompt": "Unterhaltungseinrichtungen konzentrieren sich auf Erlebnis-Marketing, saisonale Veranstaltungen, Familienengagement und immersive Storytelling. Wichtige digitale Assets umfassen Attraktionen-Fotografien, Erlebnisvideos, saisonale Kampagnen, Backstage-Inhalte, Besucher-Testimonials und Sicherheitskommunikation. Organisieren Sie Assets nach der Besucher-Journey: Reiseplanung, vor Ort-Erlebnis, saisonale Angebote und Erinnerungsschaffung.\nDieses System gilt für Disney-Parks, Universal Studios, regionale Freizeitparks und Entertainment-Complexe, die Inhalte von der Attraktion der Besucher bis zur Verstärkung des Erlebnisses verwalten."
+      }
+    },
+    "language": {
+      "en-US": "Englisch",
+      "zh-CN": "Chinesisch"
+    },
+    "none": "Keine",
+    "other": "Andere",
+    "parseError": "Das generierte Tag-Format ist nicht korrekt. Bitte wechseln Sie in den Bearbeitungsmodus, um es manuell anzupassen.",
+    "pleaseDescribe": "Bitte beschreiben Sie",
+    "pleaseSelectOrInput": "Bitte wählen Sie eine Branche aus oder geben Sie links eine benutzerdefinierte Eingabe ein, dann klicken Sie auf Generieren.",
+    "result": "Generiertes Ergebnis",
+    "selectIndustry": "Branchenauswahl",
+    "selectLanguage": "Tag-Sprache",
+    "tagTreePrompt": {
+      "template": "Sie sind ein Experte für Taxonomien von Unternehmensdigitale-Asset-Tags. Basierend auf dem folgenden Benutzerkontext generieren Sie einen \"Tag-Baum\".\n[Benutzerkontext]\n{userContext}\n\nSie MÜSSEN streng im folgenden Format ausgeben (keine zusätzlichen Erklärungen, Symbole, Nummerierungen, leere Zeilen oder zusätzlichen Abschnitte):\n# Level 1 Tag\n## Level 2 Tag\nTag 1\nTag 2\n\nRegeln:\n- Geben Sie nur den Tag-Baum selbst aus. FÜGEN SIE KEINE Erklärungen, Hinweise, Beispiele, Markdown-Code-Blöcke oder Backticks hinzu.\n- Verwenden Sie Englisch für alle Texte.\n- Begriffe sollten professionell, gegenseitig ausschließend, klar und für die praktische Suche konzipiert sein. Vermeiden Sie lange Sätze.\n- GEBEN SIE KEINE leeren Überschriften, Nummerierungen, Doppelpunkte, Klammern oder jeglichen erklärenden Text aus.\n- FÜGEN SIE KEINE Symbole außerhalb der definierten Ebenen hinzu, wie Gedankenstriche, Doppelpunkte, '- ' oder nummerierte Listen.\n- Wiederholen Sie den Benutzerkontext NICHT oder fügen Sie eine zusammenfassende Zusammenfassung hinzu."
+    },
+    "tip": "💡 Wählen Sie eine Branche aus, um eine professionelle Szenariobeschreibung automatisch auszufüllen. Sie können sie bei Bedarf anpassen.",
+    "title": "AI-Stichwort-System-Generator",
+    "waiting": "Warten"
+  },
+  "Homepage": {
+    "title": "MuseDAM-Asset-Autotag-System"
+  },
+  "SearchResult": {
+    "noSearchResults": "Keine Suchergebnisse",
+    "tagGroup": "Tag-Gruppe"
+  },
+  "SmartTags": {
+    "delete": "Löschen",
+    "rename": "Umbenennen",
+    "title": "Intelligente Tags"
+  },
+  "TaggingResultDisplay": {
+    "aiRecognitionMode": "KI-Erkennungsmodus",
+    "candidateTags": "Kandidatentags",
+    "candidateTagsDescription": "60%-79% Zuverlässigkeit",
+    "confidence": "Zuverlässigkeit",
+    "effectiveTags": "Effektive Tags",
+    "effectiveTagsDescription": "80%-100% Zuversicht",
+    "matchingSource": "Quellübereinstimmung",
+    "overallScore": "Gesamtwertung",
+    "processingTime": "Verarbeitungszeit",
+    "score": "Punktzahl"
+  },
+  "TagsPage": {
+    "AiCreateModal": {
+      "creating": "Erstellen...",
+      "generateFailed": "Tag-System konnte nicht generiert werden",
+      "selectedIndustry": "Branchen:"
+    },
+    "ManualCreateModal": {
+      "Cancel": "Abbrechen",
+      "CreateLabelsManually": "Etikett manuell erstellen",
+      "CreateNow": "Jetzt erstellen",
+      "FormatInstructions": "Formatierungsanweisungen:",
+      "HereSTheTranslatedTextFollowin": "Bearbeiten",
+      "Label1": "Tag 1",
+      "Label2": "Tag 2",
+      "LabelDescription": "← Spezifische Tags (z. B. Produktbilder, Top-Serien)",
+      "LabelsCreatedSuccessfully": "Etiketten erfolgreich erstellt",
+      "OrdinaryTextIsALevel3Tag": "Normaler Text ist ein Level-3-Tag.",
+      "PleaseCreateLabelsInTheFollowi": "Bitte erstellen Sie Tags im folgenden Format, jeweils eine pro Zeile...",
+      "PreviewView": "Vorschau",
+      "PrimaryTag": "# Haupttag",
+      "PrimaryTagDescription": "← Hauptkategorien (z. B. Inhaltstypen, Produktreihen)",
+      "QuicklyCreateMultipleTagPathsW": "Schnell mehrere Tag-Pfade erstellen, unterstützt bis zu drei Ebenen der Tag-Verknüpfung",
+      "SecondaryTagDescription": "← Unterkategorien (z. B. Bildressourcen, Kleidungskategorien)",
+      "SecondaryTags": "Sekundäres Tag"
+    },
+    "ManualCreateTips2Modal": {
+      "Cancel": "Abbrechen",
+      "ClearExistingTagsAndUseNewOnes": "Vorhandene Tags löschen und neue verwenden",
+      "ConfirmToUseTheNewTagSystemOnl": "Bestätigen Sie den Wechsel zum neuen Tag-System? Dadurch werden Ihre bestehenden Tags und alle zugehörigen Assets gelöscht. Diese Aktion kann nicht rückgängig gemacht werden. Fahren Sie vorsichtig fort.",
+      "HereSTheTranslatedVersionFollo": "Bedienhinweise"
+    },
+    "ManualCreateTipsModal": {
+      "Cancel": "Abbrechen",
+      "ClearExistingTagsKeepOnlyTheNe": "Bestehende Tags löschen, nur die neu erstellten beibehalten",
+      "Confirm": "Bestätigen",
+      "CreateTagPrompt": "Tipps zum Erstellen von Tags",
+      "ExistingTagDataFoundInTheSyste": "Es wurden vorhandene Tag-Daten im System gefunden. Wählen Sie, wie die Stapelanlage behandelt werden soll. Diese Aktion kann nicht rückgängig gemacht werden. Fahren Sie vorsichtig fort:",
+      "MergeIntoExistingTagSystem": "In das bestehende Tag-System zusammenführen",
+      "RetainExistingTagsAndAddNewTag": "Behalten Sie bestehende Tags bei und fügen Sie neue Tags zum aktuellen System hinzu.",
+      "UnderstoodPleaseProvideTheText": "Verwenden Sie ausschließlich das neue Tag-System"
+    },
+    "TagColumn": {
+      "smartTags": "Intelligente Tags"
+    },
+    "TagDetails": {
+      "add": "Hinzufügen",
+      "aiAutoTagging": "KI-Automatische Kennzeichnung",
+      "aiAutoTaggingDisabled": "Deaktiviert, die KI erkennt dieses Tag nicht",
+      "aiAutoTaggingEnabled": "Aktiviert, ermöglicht es der KI, dieses Tag zu erkennen",
+      "edit": "Bearbeiten",
+      "excludeKeywords": "Schlüsselwörter ausschließen",
+      "excludeKeywordsTooltip": "Fügen Sie ausschließende Keywords hinzu. Assets mit diesen Wörtern erhalten nicht dieses Tag.",
+      "excludeRule": "Ausschlussregel:",
+      "excludeRuleDescription": "Wenn Assetnamen, Metadaten und Ordnerpfade diese Schlüsselwörter enthalten, wird das Tag auch dann nicht automatisch zugewiesen, wenn übereinstimmende Schlüsselwörter gefunden werden.",
+      "inputKeywords": "Schlüsselwörter eingeben",
+      "matchingKeywords": "Übereinstimmende Schlüsselwörter",
+      "matchingKeywordsTooltip": "Fügen Sie Schlüsselwörter zu diesem Tag hinzu, um der KI zu helfen, diesen Tag genauer zu identifizieren.",
+      "matchingRule": "Übereinstimmungsregel:",
+      "matchingRuleDescription": "Wenn Assetnamen, Metadaten und Ordnerpfade mit den oben genannten Schlüsselwörtern übereinstimmen, taggt die KI das Asset automatisch.",
+      "modified": "Geändert",
+      "selectTagToView": "Bitte wählen Sie ein Tag aus, um Details anzuzeigen",
+      "tagDescription": "Tag-Beschreibung",
+      "tagDescriptionPlaceholder": "Optional. Das Hinzufügen von Tag-Beschreibungen hilft der KI, die Anwendungsszenarien von Tags besser zu verstehen.",
+      "tagDetails": "Tag-Details",
+      "tagName": "Tag-Name",
+      "tagNamePlaceholder": "Plakatgestaltung"
+    },
+    "TagItem": {
+      "confirmDelete": "Löschen bestätigen",
+      "delete": "Löschen",
+      "deleteConfirmDescription": "Sind Sie sicher, dass Sie das Tag „{tagName}“ löschen möchten?",
+      "deleteConfirmTitle": "Tag löschen",
+      "edited": "Bearbeitet",
+      "inputTagName": "Tag-Name eingeben",
+      "modified": "Geändert",
+      "new": "Neu",
+      "rename": "Umbenennen",
+      "searchRelatedAssets": "Verwandte Assets suchen",
+      "tagNameRequired": "Tag-Name darf nicht leer sein",
+      "toBeDeleted": "Zu löschen"
+    },
+    "TagSortModal": {
+      "cancel": "Abbrechen",
+      "confirm": "Bestätigen",
+      "defaultTitle": "Tags",
+      "level1Title": "Level 1-Tags",
+      "level2Title": "Level-2-Tags",
+      "level3Title": "Stufe 3 Tags",
+      "noSortableTags": "Keine sortierbaren Tags",
+      "saving": "Speichern...",
+      "sortSaveFailed": "Sortierung konnte nicht gespeichert werden",
+      "sortSaveSuccess": "Sortierung erfolgreich gespeichert",
+      "title": "Tag-Sortierung"
+    },
+    "TagsClient": {
+      "tagCreatedSuccessfully": "Tags erfolgreich erstellt"
+    },
+    "aiAssistant": "KI-Assistent",
+    "aiAutoTagging": "KI-Automatisches Taggen",
+    "aiCreateDesc": "KI generiert eine professionelle Tag-Vorlage basierend auf Branchenmerkmalen",
+    "aiCreateLabel": "Künstliche Intelligenz - Tag-Generierung",
+    "batchCreate": "Stapelweise erstellen",
+    "cancel": "Abbrechen",
+    "confirmSync": "Sync bestätigen",
+    "confirmSyncDescription": "Dieser Vorgang wird:\n• Alle aktuellen Tags im System löschen\n• Die vollständige Tag-Hierarchie von MuseDAM erneut abrufen\n• Alle nicht gespeicherten lokalen Tag-Änderungen gehen verloren\n\nMöchten Sie fortfahren?",
+    "confirmSyncTitle": "Bestätigen Sie die Tag-Synchronisierung",
+    "manualCreateDesc": "Erstellen Sie eine maßgeschneiderte Taxonomie für Ihren einzigartigen Geschäfts kontext",
+    "manualCreateLabel": "Tags manuell erstellen",
+    "noSearchResults": "Keine übereinstimmenden Tags gefunden",
+    "noTagGroups": "Keine Tag-Gruppen",
+    "noTags": "Keine Tags",
+    "pleaseSelect": "Bitte auswählen",
+    "recommended": "Empfohlen",
+    "saveChanges": "Speichern",
+    "saveDetailsFailed": "Tag-Details konnten nicht gespeichert werden",
+    "saveFailed": "Speichern fehlgeschlagen",
+    "saveSuccess": "Erfolgreich gespeichert",
+    "saving": "Speichern...",
+    "searchPlaceholder": "Stichwörter suchen",
+    "searchResults": "Suchergebnisse",
+    "selectCreateMethod": "Bitte wählen Sie eine Erstellmethode aus:",
+    "selectSecondLevelFirst": "Bitte wählen Sie zuerst ein Untertag aus",
+    "sortFailed": "Tags konnten nicht sortiert werden",
+    "sortSuccess": "Tags erfolgreich sortiert",
+    "syncError": "Fehler bei der Synchronisierung aufgetreten",
+    "syncFailed": "Synchronisation fehlgeschlagen",
+    "syncFromMuseDAM": "Synchronisiert von MuseDAM",
+    "syncSuccess": "Tags erfolgreich von MuseDAM synchronisiert",
+    "syncing": "Syncronisierung läuft...",
+    "tag": "Tag",
+    "tagGroup": "Tag-Gruppe",
+    "tagManagement": "Tag-Management",
+    "tagNameExists": "Tag-Name existiert bereits auf derselben Ebene"
+  }
+}
