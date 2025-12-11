@@ -16,6 +16,9 @@ import { ThreeTagList } from "./components/ThreeTagList";
 import { TagEditProvider, useTagEdit } from "./contexts/TagEditContext";
 import { SearchTagData, TagNode, TagRecord } from "./types";
 import { PlusIcon, SearchIcon, X } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { useSession } from "next-auth/react";
+import { slugToId } from "@/lib/slug";
 
 interface TagsClientProps {
   initialTags: (AssetTag & { children?: (AssetTag & { children?: AssetTag[] })[] })[];
@@ -25,6 +28,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
   const t = useTranslations("TagsPage");
   // const { editedTags, clearAllEdits, hasAnyEdits } = useTagEdit();
   const { editedTags } = useTagEdit();
+  const { data: session } = useSession();
   const [tagsTree, setTagsTree] = useState<TagNode[]>([]);
   const [originalTags, setOriginalTags] = useState<
     (AssetTag & { children?: (AssetTag & { children?: AssetTag[] })[] })[]
@@ -41,6 +45,20 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+
+  const isAdminUserSlugId = '1632673793052180480';
+
+  // 判断当前登录用户是否是 admin
+  const isAdmin = useMemo(() => {
+    if (!session?.user?.slug) return false;
+    try {
+      const currentUserId = slugToId("user", session.user.slug).toString();
+      return currentUserId === isAdminUserSlugId;
+    } catch {
+      return false;
+    }
+  }, [session?.user?.slug, isAdminUserSlugId]);
+
   // 移除了 tagExtraChanges 状态，现在使用 Context
 
   // 获取节点的唯一标识符
@@ -870,14 +888,12 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
           )}
         </div>
         <div className="flex items-center gap-3">
-          {/* AI自动打标签开关 */}
-          {/* <div className="flex items-center gap-2">
-          <Switch />
-          <span className="text-sm text-basic-5">{t("aiAutoTagging")}</span>
-        </div> */}
-          {/* <div className="flex items-center gap-2">
-            <SyncConfirmDialog onSyncComplete={handleSyncComplete} />
-          </div> */}
+          {/* AI自动打标签-手动同步 */}
+          {isAdmin && <>
+            <div className="flex items-center gap-2">
+              <SyncConfirmDialog onSyncComplete={handleSyncComplete} />
+            </div>
+          </>}
           <Button
             variant="default"
             size="sm"
