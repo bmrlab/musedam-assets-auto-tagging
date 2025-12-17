@@ -30,7 +30,30 @@
       "weeklyTagging": "Gắn thẻ trong tuần",
       "paginationInfo": "{current}/{total} bản ghi",
       "emptyTagErrorMsg": "Chưa có hệ thống nhãn, vui lòng tạo hệ thống nhãn trước~",
-      "noAppropriateTagErrorMsg": "Hệ thống nhãn hiện tại không có nhãn phù hợp"
+      "noAppropriateTagErrorMsg": "Hệ thống nhãn hiện tại không có nhãn phù hợp",
+      "dayNames": {
+        "0": "Chủ nhật",
+        "1": "Thứ hai",
+        "2": "Thứ ba",
+        "3": "Thứ tư",
+        "4": "Thứ năm",
+        "5": "Thứ sáu",
+        "6": "Thứ bảy"
+      },
+      "monthNames": {
+        "0": "Tháng 1",
+        "1": "Tháng 2",
+        "2": "Tháng 3",
+        "3": "Tháng 4",
+        "4": "Tháng 5",
+        "5": "Tháng 6",
+        "6": "Tháng 7",
+        "7": "Tháng 8",
+        "8": "Tháng 9",
+        "9": "Tháng 10",
+        "10": "Tháng 11",
+        "11": "Tháng 12"
+      }
     },
     "Settings": {
       "title": "Cài đặt chung",
