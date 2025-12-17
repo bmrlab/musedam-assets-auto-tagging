@@ -28,7 +28,9 @@
             "initiateTasks": "Rozpocznij zadania",
             "processTasks": "Przetwórz zadania",
             "weeklyTagging": "Tagowanie tygodniowe",
-            "paginationInfo": "{current} / {total} elementów"
+            "paginationInfo": "{current} / {total} elementów",
+            "emptyTagErrorMsg": "Brak systemu tagów. Najpierw utwórz system tagów~",
+            "noAppropriateTagErrorMsg": "W obecnym systemie tagów nie ma odpowiednich tagów"
         },
         "Settings": {
             "title": "Przełącznik tagowania",

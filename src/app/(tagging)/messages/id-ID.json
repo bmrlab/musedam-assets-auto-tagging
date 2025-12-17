@@ -28,7 +28,9 @@
             "initiateTasks": "Mulai Tugas",
             "processTasks": "Proses Tugas",
             "weeklyTagging": "Pelabelan Mingguan",
-            "paginationInfo": "{current} / {total} item"
+            "paginationInfo": "{current} / {total} item",
+            "emptyTagErrorMsg": "Belum ada sistem tag. Silakan buat sistem tag terlebih dahulu~",
+            "noAppropriateTagErrorMsg": "Tidak ada tag yang sesuai dalam sistem tag saat ini"
         },
         "Settings": {
             "title": "Sakelar Pelabelan",

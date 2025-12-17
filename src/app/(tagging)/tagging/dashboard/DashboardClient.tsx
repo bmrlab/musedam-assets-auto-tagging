@@ -419,6 +419,27 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
               {tasks.map((task) => {
 
                 const extra = task.assetObject.extra as AssetObjectExtra | null;
+                const failedReason = (() => {
+                  if (task.status !== "failed") return null;
+                  try {
+                    const result = task.result as unknown as {
+                      error?: string | { code?: string };
+                    } | null;
+                    const code =
+                      typeof result?.error === "string"
+                        ? result.error
+                        : typeof result?.error === "object" && result?.error
+                          ? result.error.code
+                          : null;
+                    if (!code) return null;
+
+                    if (code === "NO_TAG_TREE") return t("emptyTagErrorMsg");
+                    if (code === "NO_VALID_TAGS") return t("noAppropriateTagErrorMsg");
+                    return null;
+                  } catch {
+                    return null;
+                  }
+                })();
                 return (
                   <div
                     key={task.id}
@@ -478,16 +499,27 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
                             </span>
                           )}
                         <>
-                          {task.status === "failed" ? <span className="text-danger-6">
-                            {t("taggingFailed")}
-                          </span> : task.status === "pending" ? (
+                          {task.status === "failed" ? (
+                            <span className="text-danger-6 flex items-center gap-1 min-w-0">
+                              <span>{t("taggingFailed")}</span>
+                              {failedReason ? (
+                                <span className="truncate max-w-[260px]" title={failedReason}>
+                                  · {failedReason}
+                                </span>
+                              ) : null}
+                            </span>
+                          ) : task.status === "pending" ? (
                             <span className="text-xs ">
                               {t("waitingForTagging")}
                             </span>
-                          ) : <span className='flex items-center gap-[3px]'>
-                            {`${t("aiTaggingTime")}: ${formatDuration(task)}`}
-                            {task.status === "completed" && <CheckCircle2 className="size-3 text-[#00E096]" />}
-                          </span>}
+                          ) : (
+                            <span className="flex items-center gap-[3px]">
+                              {`${t("aiTaggingTime")}: ${formatDuration(task)}`}
+                              {task.status === "completed" && (
+                                <CheckCircle2 className="size-3 text-[#00E096]" />
+                              )}
+                            </span>
+                          )}
                         </>
                       </div>
                     </div>

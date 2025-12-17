@@ -59,7 +59,9 @@
       "title": "AI 자동 태깅 중",
       "totalCompleted": "총 성공 태깅 자산",
       "waitingForTagging": "태깅 대기 중...",
-      "weeklyTagging": "이번 주 태깅"
+      "weeklyTagging": "이번 주 태깅",
+      "emptyTagErrorMsg": "태그 체계가 없습니다. 먼저 태그 체계를 생성해 주세요~",
+      "noAppropriateTagErrorMsg": "현재 태그 체계에 적합한 태그가 없습니다"
     },
     "Review": {
       "add": "추가",

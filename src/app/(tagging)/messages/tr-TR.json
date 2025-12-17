@@ -28,7 +28,9 @@
             "initiateTasks": "Görevleri Başlat",
             "processTasks": "Görevleri İşle",
             "weeklyTagging": "Haftalık Etiketleme",
-            "paginationInfo": "{current} / {total} öğe"
+            "paginationInfo": "{current} / {total} öğe",
+            "emptyTagErrorMsg": "Henüz bir etiket sistemi yok. Lütfen önce bir etiket sistemi oluşturun~",
+            "noAppropriateTagErrorMsg": "Mevcut etiket sisteminde uygun etiket yok"
         },
         "Settings": {
             "title": "Etiketleme Anahtarı",

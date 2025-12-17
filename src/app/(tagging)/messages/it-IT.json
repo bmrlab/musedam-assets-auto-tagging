@@ -28,7 +28,9 @@
             "initiateTasks": "Avvia attività",
             "processTasks": "Elabora attività",
             "weeklyTagging": "Etichettatura settimanale",
-            "paginationInfo": "{current} / {total} elementi"
+            "paginationInfo": "{current} / {total} elementi",
+            "emptyTagErrorMsg": "Nessun sistema di tag. Crea prima un sistema di tag~",
+            "noAppropriateTagErrorMsg": "Non ci sono tag adatti nel sistema di tag attuale"
         },
         "Settings": {
             "title": "Interruttore etichettatura",

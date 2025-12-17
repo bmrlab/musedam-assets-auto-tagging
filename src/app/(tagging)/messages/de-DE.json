@@ -59,7 +59,9 @@
       "title": "Künstliche Intelligenz automatische Tagging wird durchgeführt",
       "totalCompleted": "Insgesamt erfolgreich markierte Assets",
       "waitingForTagging": "Warten auf Tagging...",
-      "weeklyTagging": "Wöchentliches Taggen"
+      "weeklyTagging": "Wöchentliches Taggen",
+      "emptyTagErrorMsg": "Kein Tag-System vorhanden. Bitte erstellen Sie zuerst ein Tag-System~",
+      "noAppropriateTagErrorMsg": "Im aktuellen Tag-System gibt es keine passenden Tags"
     },
     "Review": {
       "add": "Hinzufügen",

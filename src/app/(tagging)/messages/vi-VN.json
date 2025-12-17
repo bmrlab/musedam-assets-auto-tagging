@@ -28,7 +28,9 @@
       "initiateTasks": "Khởi tạo nhiệm vụ",
       "processTasks": "Xử lý nhiệm vụ",
       "weeklyTagging": "Gắn thẻ trong tuần",
-      "paginationInfo": "{current}/{total} bản ghi"
+      "paginationInfo": "{current}/{total} bản ghi",
+      "emptyTagErrorMsg": "Chưa có hệ thống nhãn, vui lòng tạo hệ thống nhãn trước~",
+      "noAppropriateTagErrorMsg": "Hệ thống nhãn hiện tại không có nhãn phù hợp"
     },
     "Settings": {
       "title": "Cài đặt chung",

@@ -59,7 +59,9 @@
       "title": "Marcação Automática por IA em Andamento",
       "totalCompleted": "Total de Ativos Marcados com Sucesso",
       "waitingForTagging": "Aguardando marcação...",
-      "weeklyTagging": "Marcação Semanal"
+      "weeklyTagging": "Marcação Semanal",
+      "emptyTagErrorMsg": "Ainda não há sistema de tags. Crie um primeiro~",
+      "noAppropriateTagErrorMsg": "Não há tags adequadas no sistema de tags atual"
     },
     "Review": {
       "add": "Adicionar",

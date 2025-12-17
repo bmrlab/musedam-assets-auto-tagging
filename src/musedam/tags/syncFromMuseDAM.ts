@@ -56,6 +56,7 @@ export async function syncTagsFromMuseDAM({
       orgId: musedamTeamId,
     },
   });
+  // console.log("result", result);
 
   const teamId = team.id;
   const musedamTags = result as MuseDAMTagTree;

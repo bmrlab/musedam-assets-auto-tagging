@@ -59,7 +59,9 @@
       "title": "एआई ऑटो-टैगिंग जारी है",
       "totalCompleted": "कुल सफल टैग किए गए एसेट्स",
       "waitingForTagging": "टैगिंग का इंतजार किया जा रहा है...",
-      "weeklyTagging": "साप्ताहिक टैगिंग"
+      "weeklyTagging": "साप्ताहिक टैगिंग",
+      "emptyTagErrorMsg": "कोई टैग सिस्टम नहीं है, कृपया पहले टैग सिस्टम बनाएं~",
+      "noAppropriateTagErrorMsg": "वर्तमान टैग सिस्टम में उपयुक्त टैग नहीं हैं"
     },
     "Review": {
       "add": "जोड़ें",

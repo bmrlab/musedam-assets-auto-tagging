@@ -28,7 +28,9 @@
       "initiateTasks": "Initiate Tasks",
       "processTasks": "Process Tasks",
       "weeklyTagging": "Weekly Tagging",
-      "paginationInfo": "{current} / {total} items"
+      "paginationInfo": "{current} / {total} items",
+      "emptyTagErrorMsg": "No tag system yet. Please create one first~",
+      "noAppropriateTagErrorMsg": "There are no suitable tags in the current tag system"
     },
     "Settings": {
       "title": "Tagging Switch",

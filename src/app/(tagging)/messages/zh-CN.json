@@ -28,7 +28,9 @@
       "initiateTasks": "发起任务",
       "processTasks": "处理任务",
       "weeklyTagging": "本周打标",
-      "paginationInfo": "{current} / {total} 条"
+      "paginationInfo": "{current} / {total} 条",
+      "emptyTagErrorMsg": "暂无标签体系，请先创建标签体系~",
+      "noAppropriateTagErrorMsg": "当前标签体系没有适合的标签"
     },
     "Settings": {
       "title": "全局设置",
@@ -141,7 +143,7 @@
       "allStatuses": "全部状态",
       "pending": "待审核",
       "approved": "已采纳",
-      "rejected": "已调整",
+      "rejected": "已删除/已拒绝",
       "allConfidence": "全部置信度",
       "precise": "精准 (≥80%)",
       "balanced": "平衡 (60-79%)",

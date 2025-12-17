@@ -30,7 +30,7 @@ import {
 import { CheckIcon, Loader2Icon, Search, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AssetWithAuditItemsBatch, fetchAssetsWithAuditItems, batchApproveAuditItemsAction, batchRejectAuditItemsAction } from "./actions";
 import { ReviewItem } from "./ReviewItem";
 import { useTheme } from "next-themes";
@@ -38,12 +38,16 @@ import Image from "next/image";
 import { dispatchMuseDAMClientAction } from "@/embed/message";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useSession } from "next-auth/react";
+import { isAdminUserSlug } from "@/lib/admin";
 
 type TaggingAuditStatus = "pending" | "approved" | "rejected";
 
 export default function ReviewPageClient() {
   const t = useTranslations("Tagging.Review");
   const tCommon = useTranslations("Tagging.Common");
+  const { data: session } = useSession();
+  const isAdmin = useMemo(() => isAdminUserSlug(session?.user?.slug), [session?.user?.slug]);
   const [assets, setAssets] = useState<AssetWithAuditItemsBatch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<TaggingAuditStatus | "all">("pending");
@@ -312,7 +316,7 @@ export default function ReviewPageClient() {
               <SelectItem value="all">{t("allStatuses")}</SelectItem>
               <SelectItem value="pending">{t("pending")}</SelectItem>
               <SelectItem value="approved">{t("approved")}</SelectItem>
-              {/* <SelectItem value="rejected">{t("rejected")}</SelectItem> */}
+              {isAdmin && <SelectItem value="rejected">{t("rejected")}</SelectItem>}
             </SelectContent>
           </Select>
           <Select

@@ -28,7 +28,9 @@
             "initiateTasks": "เริ่มงาน",
             "processTasks": "ประมวลผลงาน",
             "weeklyTagging": "การติดแท็กรายสัปดาห์",
-            "paginationInfo": "{current} / {total} รายการ"
+            "paginationInfo": "{current} / {total} รายการ",
+            "emptyTagErrorMsg": "ยังไม่มีระบบแท็ก โปรดสร้างระบบแท็กก่อน~",
+            "noAppropriateTagErrorMsg": "ระบบแท็กปัจจุบันไม่มีแท็กที่เหมาะสม"
         },
         "Settings": {
             "title": "สวิตช์การติดแท็ก",

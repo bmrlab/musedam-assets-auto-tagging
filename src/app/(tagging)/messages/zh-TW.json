@@ -59,7 +59,9 @@
       "title": "AI 自動標註中",
       "totalCompleted": "總成功標記資產",
       "waitingForTagging": "等待標註中...",
-      "weeklyTagging": "本週標記"
+      "weeklyTagging": "本週標記",
+      "emptyTagErrorMsg": "暫無標籤體系，請先建立標籤體系~",
+      "noAppropriateTagErrorMsg": "目前標籤體系沒有適合的標籤"
     },
     "Review": {
       "add": "新增",

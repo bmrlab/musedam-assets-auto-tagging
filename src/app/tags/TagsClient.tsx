@@ -18,7 +18,7 @@ import { SearchTagData, TagNode, TagRecord } from "./types";
 import { PlusIcon, SearchIcon, X } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { useSession } from "next-auth/react";
-import { slugToId } from "@/lib/slug";
+import { isAdminUserSlug } from "@/lib/admin";
 
 interface TagsClientProps {
   initialTags: (AssetTag & { children?: (AssetTag & { children?: AssetTag[] })[] })[];
@@ -46,18 +46,10 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
   const [isSearching, setIsSearching] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  const isAdminUserSlugId = '1632673793052180480';
-
   // 判断当前登录用户是否是 admin
   const isAdmin = useMemo(() => {
-    if (!session?.user?.slug) return false;
-    try {
-      const currentUserId = slugToId("user", session.user.slug).toString();
-      return currentUserId === isAdminUserSlugId;
-    } catch {
-      return false;
-    }
-  }, [session?.user?.slug, isAdminUserSlugId]);
+    return isAdminUserSlug(session?.user?.slug);
+  }, [session?.user?.slug]);
 
   // 移除了 tagExtraChanges 状态，现在使用 Context
 
@@ -907,7 +899,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
         </div>
       </div>
     ),
-    [t, searchQuery, handleSearchChange, handleSyncComplete],
+    [t, searchQuery, handleSearchChange, handleSyncComplete, isAdmin],
   );
 
   const TagMainColumns = useMemo(

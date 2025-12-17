@@ -7,7 +7,52 @@ import { generateObject, UserModelMessage } from "ai";
 import z from "zod";
 import { tagPredictionSystemPrompt } from "./prompt";
 import { SourceBasedTagPredictions, tagPredictionSchema, TagWithScore } from "./types";
-import { buildTagStructureText, buildTagKeywordsText, fetchTagsTree } from "./utils";
+import { buildTagKeywordsText, buildTagStructureText, fetchTagsTree } from "./utils";
+
+function taggingPredictError(code: string, message: string) {
+  const err = new Error(message);
+  (err as unknown as { code?: string }).code = code;
+  return err;
+}
+
+function getErrorCode(error: unknown): string | undefined {
+  if (!error || typeof error !== "object") return undefined;
+  const code = (error as { code?: unknown }).code;
+  return typeof code === "string" ? code : undefined;
+}
+function repairToJsonArrayText(text: string): string {
+  const cleaned = (text ?? "")
+    .replace(/\uFEFF/g, "")
+    .replace(/```json\s*/gi, "")
+    .replace(/```\s*/g, "")
+    .trim();
+
+  // 尝试直接解析
+  try {
+    const parsed = JSON.parse(cleaned);
+    return Array.isArray(parsed) ? cleaned : "[]";
+  } catch {}
+
+  // 截取 [] 范围
+  const start = cleaned.indexOf("[");
+  const end = cleaned.lastIndexOf("]");
+  if (start < 0 || end < 0 || end <= start) return "[]";
+
+  let candidate = cleaned.slice(start, end + 1);
+
+  // 兜底：修复常见的 JSON 语法错误
+  candidate = candidate
+    .replace(/,\s*]/g, "]") // 移除末尾多余的逗号
+    .replace(/([{,])\s*(\w+):/g, '$1"$2":') // 补全属性名的引号
+    .replace(/:\s*([^"[\d{,}]+?)([,}])/g, ':"$1"$2'); // 给字符串值补全引号
+
+  try {
+    const parsed = JSON.parse(candidate);
+    return Array.isArray(parsed) ? candidate : "[]";
+  } catch {
+    return "[]";
+  }
+}
 
 // export const WeightOfSource: Record<z.Infer<typeof tagPredictionSchema.shape.source>, number> = {
 //   basicInfo: 35,
@@ -101,6 +146,9 @@ export async function predictAssetTags(
 }> {
   // TODO: 缓存
   const tagsTree = await fetchTagsTree({ teamId: asset.teamId });
+  if (!tagsTree || tagsTree.length === 0) {
+    throw taggingPredictError("NO_TAG_TREE", "No tag tree available");
+  }
   // 构建标签结构的文本描述
   const tagStructureText = buildTagStructureText(tagsTree);
   // 构建标签关键词信息
@@ -133,69 +181,89 @@ ${tagKeywordsText}`,
 ## tagKeywords信息源
 标签关键词匹配：请根据上述标签关键词配置，分析素材信息是否匹配到任何标签的匹配关键词，同时注意排除包含排除关键词的情况。
 
-请按照既定的Step by Step流程进行分析并输出结果。`,
+请按照 system 的 Step by Step 流程进行分析，但【最终只输出纯 JSON 数组】（不要解释、不要 markdown、不要 \`\`\`、不要任何额外文本）。`,
     },
   ];
 
   // 用于返回，记录在数据库里
   const inputPrompt = messages[1].content as string;
 
-  try {
-    const result = await generateObject({
-      // model: llm("claude-sonnet-4"),
-      // model: llm("gpt-5-nano"),
-      model: llm("gpt-5-mini"),
-      providerOptions: {
-        // azure openai provider 这里也是 openai
-        openai: {
-          promptCacheKey: `musedam-t-${asset.teamId}`,
-          reasoningSummary: "auto", // 'auto' | 'detailed'
-          reasoningEffort: "minimal", // 'minimal' | 'low' | 'medium' | 'high'
-        } satisfies OpenAIResponsesProviderOptions,
-      },
-      // output: "array",
-      schema: z.array(tagPredictionSchema),
-      system: tagPredictionSystemPrompt(),
-      messages,
-      // experimental_repairText: async (res) => {
-      //   console.log(JSON.stringify(JSON.parse(res.text)));
-      //   return "[]";
-      // },
-    });
+  const maxAttempts = 3; // 初次 + 重试2次
+  let lastError: unknown;
 
-    // console.log(result.object);
-    // console.log(result.usage, result.providerMetadata);
-    if (!result.object) {
-      throw new Error("AI标签预测失败, result.object is undefined");
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const result = await generateObject({
+        // model: llm("claude-sonnet-4"),
+        // model: llm("gpt-5-nano"),
+        model: llm("gpt-5-mini"),
+        schemaName: "TagPredictions",
+        schemaDescription:
+          '返回 JSON 数组；元素包含 source("basicInfo"|"materializedPath"|"contentAnalysis"|"tagKeywords") 和 tags；tags 元素包含 confidence(0-1)、leafTagId(number)、tagPath(string[])。只输出纯 JSON。',
+        providerOptions: {
+          // azure openai provider 这里也是 openai
+          openai: {
+            promptCacheKey: `musedam-t-${asset.teamId}`,
+            reasoningSummary: "auto", // 'auto' | 'detailed'
+            reasoningEffort: "minimal", // 'minimal' | 'low' | 'medium' | 'high'
+          } satisfies OpenAIResponsesProviderOptions,
+        },
+        schema: z.array(tagPredictionSchema),
+        system: tagPredictionSystemPrompt(),
+        messages,
+        experimental_repairText: async (res: { text: string }) => {
+          // 尝试从模型返回中提取可解析的 JSON 数组，避免因夹带解释/markdown 导致解析失败
+          return repairToJsonArrayText(res.text);
+        },
+      });
+
+      if (!result.object) {
+        throw new Error("AI标签预测失败, result.object is undefined");
+      }
+
+      let predictions = result.object;
+
+      // 根据 matchingSources 过滤结果
+      if (options?.matchingSources) {
+        const enabledSources = Object.entries(options.matchingSources)
+          .filter(([, enabled]) => enabled)
+          .map(([source]) => source as keyof typeof options.matchingSources);
+
+        predictions = predictions.filter((prediction) =>
+          enabledSources.includes(prediction.source as keyof typeof options.matchingSources),
+        );
+      }
+
+      const tagsWithScore = calculateTagScore(predictions);
+
+      // LLM 返回空/不可用结果：重试
+      if (tagsWithScore.length === 0) {
+        throw taggingPredictError("NO_VALID_TAGS", "No valid tags predicted");
+      }
+
+      return {
+        predictions,
+        tagsWithScore,
+        extra: {
+          usage: result.usage,
+          input: inputPrompt,
+          matchingSources: options?.matchingSources,
+          recognitionAccuracy: options?.recognitionAccuracy,
+        },
+      };
+    } catch (error) {
+      // 标签树为空不重试
+      if (getErrorCode(error) === "NO_TAG_TREE") {
+        throw error;
+      }
+      lastError = error;
     }
-
-    let predictions = result.object;
-
-    // 根据 matchingSources 过滤结果
-    if (options?.matchingSources) {
-      const enabledSources = Object.entries(options.matchingSources)
-        .filter(([, enabled]) => enabled)
-        .map(([source]) => source as keyof typeof options.matchingSources);
-
-      predictions = predictions.filter((prediction) =>
-        enabledSources.includes(prediction.source as keyof typeof options.matchingSources),
-      );
-    }
-
-    const tagsWithScore = calculateTagScore(predictions);
-
-    return {
-      predictions,
-      tagsWithScore,
-      extra: {
-        usage: result.usage,
-        input: inputPrompt,
-        matchingSources: options?.matchingSources,
-        recognitionAccuracy: options?.recognitionAccuracy,
-      },
-    };
-  } catch (error) {
-    console.error("AI标签预测失败:", error);
-    throw new Error("AI标签预测失败");
   }
+
+  // NO_VALID_TAGS 属于常见的可预期失败（例如素材信息不足/无匹配标签），避免刷屏打印 stack
+  const lastErrorCode = getErrorCode(lastError);
+  if (lastErrorCode !== "NO_VALID_TAGS") {
+    console.error("AI标签预测失败:", lastError);
+  }
+  throw taggingPredictError("NO_VALID_TAGS", "AI tagging failed: no valid tags");
 }

@@ -59,7 +59,9 @@
       "title": "Etiquetado automático por IA en progreso",
       "totalCompleted": "Total de Activos Etiquetados con Éxito",
       "waitingForTagging": "Esperando etiquetado...",
-      "weeklyTagging": "Etiquetado Semanal"
+      "weeklyTagging": "Etiquetado Semanal",
+      "emptyTagErrorMsg": "No hay sistema de etiquetas. Por favor, crea uno primero~",
+      "noAppropriateTagErrorMsg": "No hay etiquetas adecuadas en el sistema de etiquetas actual"
     },
     "Review": {
       "add": "Añadir",

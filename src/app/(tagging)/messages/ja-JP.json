@@ -59,7 +59,9 @@
       "title": "AI 自動タグ付け中",
       "totalCompleted": "総成功ラベル付け資産",
       "waitingForTagging": "ラベル付け待ち...",
-      "weeklyTagging": "今週のタグ付け"
+      "weeklyTagging": "今週のタグ付け",
+      "emptyTagErrorMsg": "タグ体系がありません。先にタグ体系を作成してください~",
+      "noAppropriateTagErrorMsg": "現在のタグ体系には適切なタグがありません"
     },
     "Review": {
       "add": "追加",

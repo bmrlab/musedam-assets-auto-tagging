@@ -21,6 +21,15 @@ import { predictAssetTags } from "./predict";
 import { getTaggingSettings } from "./tagging/settings/lib";
 import { SourceBasedTagPredictions, TagWithScore } from "./types";
 
+function normalizeTaggingErrorCode(error: unknown): string {
+  if (error && typeof error === "object") {
+    const maybeCode = (error as { code?: unknown }).code;
+    if (typeof maybeCode === "string" && maybeCode.length > 0) return maybeCode;
+  }
+  if (typeof error === "string" && error.length > 0) return error;
+  return "UNKNOWN";
+}
+
 // 辅助函数：从 MuseDAM 标签构建 AssetObjectTags
 async function buildAssetObjectTags(
   musedamTags: { id: MuseDAMID; name: string }[],
@@ -115,39 +124,29 @@ export async function processQueueItem({
       matchingSources: extra?.matchingSources,
       recognitionAccuracy: extra?.recognitionAccuracy,
     });
+    if (tagsWithScore.length === 0) {
+      throw Object.assign(new Error("No valid tags predicted"), { code: "NO_VALID_TAGS" });
+    }
     logger.info({
       msg: "processQueueItem completed",
       tagsWithScoreCount: tagsWithScore.length,
     });
-    const updatedQueueItem = await prisma.taggingQueueItem.update({
-      where: { id: queueItem.id },
-      data: {
-        status: "completed",
-        endsAt: new Date(),
-        result: {
-          predictions,
-          tagsWithScore,
-        } as TaggingQueueItemResult,
-        extra: {
-          ...extra,
-          ...newExtra,
-        },
-      },
-    });
+
     // 如果是测试内容，不需要进入审核
-    if (updatedQueueItem.taskType !== "test") {
+    if (queueItem.taskType !== "test") {
       const teamSetting = await getTaggingSettings(queueItem.teamId);
-      // 直接应用
       const isDirect = teamSetting.taggingMode === "direct";
+
       logger.info({
         msg: "Creating audit items",
         isDirect,
         tagsWithScoreCount: tagsWithScore.length,
         mode: isDirect ? "direct" : "review",
       });
+
       const createAuditResult = await createAuditItems({
         assetObject,
-        taggingQueueItem: updatedQueueItem,
+        taggingQueueItem: queueItem,
         predictions,
         tagsWithScore,
         status: isDirect ? "approved" : "pending",
@@ -159,12 +158,19 @@ export async function processQueueItem({
           error: createAuditResult.error,
           mode: isDirect ? "direct" : "review",
         });
+        // 审核模式依赖 audit items；创建失败则标记任务失败，避免出现“任务完成但审核列表为空”
+        if (!isDirect) {
+          throw new Error("createAuditItems failed");
+        }
       } else if (createAuditResult.createdCount === 0) {
         logger.warn({
           msg: "createAuditItems: no audit items created",
           tagsWithScoreCount: tagsWithScore.length,
           mode: isDirect ? "direct" : "review",
         });
+        if (!isDirect) {
+          throw new Error("createAuditItems createdCount is 0");
+        }
       } else {
         logger.info({
           msg: "createAuditItems completed successfully",
@@ -207,68 +213,95 @@ export async function processQueueItem({
             requestedTagIds: tagsWithScore.map((tag) => tag.leafTagId),
             foundAssetTagsCount: approvedAssetTags.length,
           });
-          return;
-        }
-
-        const musedamAssetId = slugToId("assetObject", assetObject.slug);
-        logger.info({
-          msg: "Direct mode: setting tags to MuseDAM",
-          musedamAssetId,
-          musedamTagIdsCount: musedamTagIds.length,
-        });
-        await setAssetTagsToMuseDAM({
-          musedamAssetId,
-          musedamTagIds,
-          team,
-          append: true,
-        });
-        logger.info({ msg: "Direct mode: tags set to MuseDAM successfully" });
-
-        // 从 MuseDAM 获取更新后的素材标签并同步到本地数据库
-        const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
-        logger.info({ msg: "Direct mode: fetching updated asset from MuseDAM" });
-        const assets = await requestMuseDAMAPI<{ id: MuseDAMID }[]>("/api/muse/assets-by-ids", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${musedamTeamApiKey}`,
-          },
-          body: [musedamAssetId],
-        });
-
-        logger.info({
-          msg: "Direct mode: received assets from MuseDAM",
-          assetsCount: assets?.length ?? 0,
-          hasAssets: !!(assets && assets.length > 0),
-        });
-
-        if (assets && assets.length > 0) {
-          const musedamAsset = assets[0] as {
-            id: MuseDAMID;
-            tags: { id: MuseDAMID; name: string }[] | null;
-          };
-          const tags = await buildAssetObjectTags(musedamAsset.tags ?? []);
-
-          await prisma.assetObject.update({
-            where: { id: assetObject.id },
-            data: { tags },
-          });
-          logger.info({ msg: "Direct mode: local asset tags updated successfully" });
         } else {
-          logger.warn({
-            msg: "Direct mode: assets array is empty or null, skipping local update",
-            assets: assets,
+          const musedamAssetId = slugToId("assetObject", assetObject.slug);
+          logger.info({
+            msg: "Direct mode: setting tags to MuseDAM",
+            musedamAssetId,
+            musedamTagIdsCount: musedamTagIds.length,
           });
+          await setAssetTagsToMuseDAM({
+            musedamAssetId,
+            musedamTagIds,
+            team,
+            append: true,
+          });
+          logger.info({ msg: "Direct mode: tags set to MuseDAM successfully" });
+
+          // 从 MuseDAM 获取更新后的素材标签并同步到本地数据库
+          const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
+          logger.info({ msg: "Direct mode: fetching updated asset from MuseDAM" });
+          const assets = await requestMuseDAMAPI<{ id: MuseDAMID }[]>("/api/muse/assets-by-ids", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${musedamTeamApiKey}`,
+            },
+            body: [musedamAssetId],
+          });
+
+          logger.info({
+            msg: "Direct mode: received assets from MuseDAM",
+            assetsCount: assets?.length ?? 0,
+            hasAssets: !!(assets && assets.length > 0),
+          });
+
+          if (assets && assets.length > 0) {
+            const musedamAsset = assets[0] as {
+              id: MuseDAMID;
+              tags: { id: MuseDAMID; name: string }[] | null;
+            };
+            const tags = await buildAssetObjectTags(musedamAsset.tags ?? []);
+
+            await prisma.assetObject.update({
+              where: { id: assetObject.id },
+              data: { tags },
+            });
+            logger.info({ msg: "Direct mode: local asset tags updated successfully" });
+          } else {
+            logger.warn({
+              msg: "Direct mode: assets array is empty or null, skipping local update",
+              assets: assets,
+            });
+          }
         }
       }
     }
+
+    await prisma.taggingQueueItem.update({
+      where: { id: queueItem.id },
+      data: {
+        status: "completed",
+        endsAt: new Date(),
+        result: {
+          predictions,
+          tagsWithScore,
+        } as TaggingQueueItemResult,
+        extra: {
+          ...extra,
+          ...newExtra,
+        },
+      },
+    });
   } catch (error) {
-    logger.error(`processQueueItem failed: ${error}`);
+    const errorCode = normalizeTaggingErrorCode(error);
+    if (errorCode === "NO_VALID_TAGS" || errorCode === "NO_TAG_TREE") {
+      logger.warn({
+        msg: "processQueueItem failed (expected)",
+        errorCode,
+      });
+    } else {
+      logger.error({
+        msg: "processQueueItem failed",
+        errorCode,
+        error: String(error),
+      });
+    }
     await prisma.taggingQueueItem.update({
       where: { id: queueItem.id },
       data: {
         status: "failed",
         endsAt: new Date(),
-        result: { error } as TaggingQueueItemResult,
+        result: { error: errorCode } as TaggingQueueItemResult,
       },
     });
   }
@@ -357,6 +390,8 @@ async function createAuditItems({
   });
 
   try {
+    const finalStatus = status ?? "pending";
+
     // 检查 tagsWithScore 是否为空
     if (tagsWithScore.length === 0) {
       logger.warn({
@@ -390,7 +425,7 @@ async function createAuditItems({
         queueItemId: taggingQueueItem.id,
         assetObjectId: assetObject.id,
         teamId: assetObject.teamId,
-        status: status ?? "pending",
+        status: finalStatus,
         score,
         tagPath,
         leafTagId,
@@ -408,7 +443,7 @@ async function createAuditItems({
     logger.info({
       msg: "createAuditItems: creating audit items",
       dataCount: data.length,
-      status: status ?? "pending",
+      status: finalStatus,
     });
 
     const result = await prisma.taggingAuditItem.createMany({
