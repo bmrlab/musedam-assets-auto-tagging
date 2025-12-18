@@ -1,11 +1,5 @@
+import { registerLiveTranslationCallbacks, sendPostMessageToParent } from "@/embed/message";
 import { locales, type Locale } from "@/i18n/routing";
-
-/**
- * Get parent origin for postMessage - accepts all origins
- */
-function getParentOrigin(): string {
-  return "*";
-}
 
 /**
  * Message types sent from parent window to iframe
@@ -51,16 +45,13 @@ export type LiveTranslationOutgoingMessage =
 
 /**
  * Helper function to send postMessage to parent window
+ * Uses shared postMessage utility from embed/message.ts
  */
 export function sendLiveTranslationMessage(
   type: LiveTranslationOutgoingMessage["type"],
   payload: LiveTranslationOutgoingMessage["payload"],
 ): void {
-  if (typeof window === "undefined" || !window.parent || window.parent === window) {
-    return;
-  }
-  const parentOrigin = getParentOrigin();
-  window.parent.postMessage({ type, payload }, parentOrigin);
+  sendPostMessageToParent({ type, payload });
 }
 
 /**
@@ -84,7 +75,10 @@ export interface LiveTranslationMessageOptions {
 
 /**
  * Initialize message listener for live translation commands from parent window
- * Returns cleanup function to remove the listener
+ * Uses shared message listener from embed/message.ts
+ * Returns cleanup function to unregister callbacks
+ *
+ * Note: Locale validation is handled automatically in embed/message.ts
  */
 export function initializeLiveTranslationListener(
   options: LiveTranslationMessageOptions,
@@ -93,46 +87,13 @@ export function initializeLiveTranslationListener(
     return () => {};
   }
 
-  const handleMessage = (event: MessageEvent) => {
-    const message = event.data as LiveTranslationIncomingMessage | undefined;
-    if (!message || !message.type) {
-      return;
-    }
-
-    if (message.type === "START_LIVE_TRANSLATION") {
-      const targetLang = message.payload?.targetLang;
-      if (!targetLang) {
-        console.warn("START_LIVE_TRANSLATION: targetLang is required");
-        return;
-      }
-
-      // Validate locale
-      if (!locales.includes(targetLang as Locale)) {
-        console.warn(
-          `START_LIVE_TRANSLATION: Invalid locale "${targetLang}". Supported locales: ${locales.join(", ")}`,
-        );
-        return;
-      }
-      // console.log("Received START_LIVE_TRANSLATION: targetLang = ", targetLang);
-
-      // Start translation
-      options.onStartTranslation(targetLang as Locale);
-    } else if (message.type === "STOP_LIVE_TRANSLATION") {
-      // console.log("Received STOP_LIVE_TRANSLATION");
-      // Stop translation
-      options.onStopTranslation();
-    } else if (message.type === "RESTORE_LIVE_TRANSLATION") {
-      // console.log("Received RESTORE_LIVE_TRANSLATION");
-      // Restore original texts - always send LIVE_TRANSLATION_STOPPED
-      options.onRestoreTranslation();
-    }
-  };
-
-  window.addEventListener("message", handleMessage);
-
-  return () => {
-    window.removeEventListener("message", handleMessage);
-  };
+  // Register callbacks directly with shared message listener
+  // Validation is handled in embed/message.ts
+  return registerLiveTranslationCallbacks({
+    onStartTranslation: options.onStartTranslation,
+    onStopTranslation: options.onStopTranslation,
+    onRestoreTranslation: options.onRestoreTranslation,
+  });
 }
 
 /**

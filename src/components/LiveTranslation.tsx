@@ -7,9 +7,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { locales, type Locale } from "@/i18n/routing";
-import { Languages } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
 import {
   initializeLiveTranslationListener,
   notifyLiveTranslationError,
@@ -18,7 +15,10 @@ import {
   notifyLiveTranslationStarted,
   notifyLiveTranslationStopped,
   setupLiveTranslationMock,
-} from "./live-translation-message";
+} from "@/embed/live-translation-message";
+import { locales, type Locale } from "@/i18n/routing";
+import { Languages } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 // Map locale codes to language names for the translation API
 const localeToLanguageName: Record<Locale, string> = {

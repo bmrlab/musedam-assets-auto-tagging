@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { TagRecord } from "@/app/tags/types";
-import { isValidLocale } from "@/i18n/routing";
+import { isValidLocale, locales, type Locale } from "@/i18n/routing";
 import { MuseDAMID } from "@/musedam/types";
 import Cookies from "js-cookie";
 
@@ -9,6 +9,13 @@ import Cookies from "js-cookie";
 const globalForMessage = global as unknown as {
   musedamMessageQueue:
     | Map<string, { resolve: (result: any) => void; reject: (error: any) => void }>
+    | undefined;
+  liveTranslationCallbacks:
+    | {
+        onStartTranslation?: (targetLang: Locale) => void;
+        onStopTranslation?: () => void;
+        onRestoreTranslation?: () => void;
+      }
     | undefined;
 };
 
@@ -88,6 +95,38 @@ function initializeMessageListener() {
       // } else {
       //   handleParentConfigUpdate(message.action, message.args);
       // }
+    }
+
+    // 处理来自父窗口的实时翻译消息（live translation messages）
+    // Only process if it's not a musedam message (which has source/target fields)
+    if (message.type && typeof message.type === "string" && !message.source && !message.target) {
+      const liveTranslationType = message.type as string;
+      const callbacks = globalForMessage.liveTranslationCallbacks;
+      if (callbacks) {
+        if (liveTranslationType === "START_LIVE_TRANSLATION") {
+          const targetLang = (message as any).payload?.targetLang;
+          if (targetLang) {
+            // Validate locale
+            if (!isValidLocale(targetLang)) {
+              console.warn(
+                `START_LIVE_TRANSLATION: Invalid locale "${targetLang}". Supported locales: ${locales.join(", ")}`,
+              );
+            } else if (callbacks.onStartTranslation) {
+              callbacks.onStartTranslation(targetLang);
+            }
+          } else {
+            console.warn("START_LIVE_TRANSLATION: targetLang is required");
+          }
+        } else if (liveTranslationType === "STOP_LIVE_TRANSLATION") {
+          if (callbacks.onStopTranslation) {
+            callbacks.onStopTranslation();
+          }
+        } else if (liveTranslationType === "RESTORE_LIVE_TRANSLATION") {
+          if (callbacks.onRestoreTranslation) {
+            callbacks.onRestoreTranslation();
+          }
+        }
+      }
     }
   });
 }
@@ -467,4 +506,37 @@ export function triggerTeamSettingsNotification(): void {
       console.error("Failed to trigger team settings notification:", error);
     });
   }
+}
+
+/**
+ * Shared utility function to send postMessage to parent window
+ * Used by both musedam actions and live translation messages
+ */
+export function sendPostMessageToParent(
+  message: Record<string, unknown>,
+  targetOrigin: string = "*",
+): void {
+  if (typeof window === "undefined" || !window.parent || window.parent === window) {
+    return;
+  }
+  window.parent.postMessage(message, targetOrigin);
+}
+
+/**
+ * Register callbacks for live translation messages
+ * Returns cleanup function to unregister callbacks
+ */
+export function registerLiveTranslationCallbacks(callbacks: {
+  onStartTranslation?: (targetLang: Locale) => void;
+  onStopTranslation?: () => void;
+  onRestoreTranslation?: () => void;
+}): () => void {
+  // Ensure message listener is initialized
+  getPendingPromises();
+
+  globalForMessage.liveTranslationCallbacks = callbacks;
+
+  return () => {
+    globalForMessage.liveTranslationCallbacks = undefined;
+  };
 }
