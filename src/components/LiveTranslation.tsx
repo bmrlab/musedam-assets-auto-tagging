@@ -65,6 +65,9 @@ const localeDisplayNames: Record<Locale, string> = {
 const MAX_CACHE_SIZE = 5000;
 const TRANSLATE_BATCH_SIZE = 50;
 
+// DEBUG_ONLY
+const SHOW_TRANSLATE_BUTTON = false;
+
 // Simple in-memory cache for translations
 const translationCache = new Map<string, string>();
 
@@ -88,6 +91,7 @@ interface TextNodeData {
 	node: Node;
 	originalText: string;
 	isPlaceholder?: boolean;
+	isValue?: boolean;
 	inputElement?: HTMLInputElement | HTMLTextAreaElement;
 }
 
@@ -215,14 +219,33 @@ function extractTextNodes(root: Node = document.body): TextNodeData[] {
 		} else if (node.nodeType === Node.ELEMENT_NODE) {
 			const element = node as Element;
 
-			// Handle input placeholders separately
+			// Handle input/textarea elements
 			if (element.tagName === "INPUT" || element.tagName === "TEXTAREA") {
 				const input = element as HTMLInputElement | HTMLTextAreaElement;
+
+				// Handle placeholders
 				if (input.placeholder && input.placeholder.trim().length > 0) {
 					textNodes.push({
 						node: element,
 						originalText: input.placeholder,
 						isPlaceholder: true,
+						inputElement: input,
+					});
+				}
+
+				// Handle values for read-only or disabled inputs (display-only mode)
+				// Also handle inputs with data-translate-value attribute
+				if (
+					input.value &&
+					input.value.trim().length > 0 &&
+					(input.readOnly ||
+						input.disabled ||
+						input.hasAttribute("data-translate-value"))
+				) {
+					textNodes.push({
+						node: element,
+						originalText: input.value,
+						isValue: true,
 						inputElement: input,
 					});
 				}
@@ -241,10 +264,16 @@ export function LiveTranslation({ translationToken }: LiveTranslationProps) {
 	const [selectedLocale, setSelectedLocale] = useState<Locale | null>(null);
 	const [isTranslating, setIsTranslating] = useState(false);
 	const originalTextsRef = useRef<Map<Node, string>>(new Map());
+	// Separate tracking for input placeholders (key: input element)
+	const originalPlaceholdersRef = useRef<Map<Element, string>>(new Map());
+	// Separate tracking for input values (key: input element)
+	const originalValuesRef = useRef<Map<Element, string>>(new Map());
 	const isTranslatedRef = useRef(false);
 	const mutationObserverRef = useRef<MutationObserver | null>(null);
 	const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 	const isTranslatingNewContentRef = useRef(false);
+	// Flag to track if there are pending changes that need re-translation
+	const pendingRetranslateRef = useRef(false);
 
 	// Restore original text when component unmounts or locale changes
 	const restoreOriginalTexts = useCallback(() => {
@@ -260,30 +289,38 @@ export function LiveTranslation({ translationToken }: LiveTranslationProps) {
 			scrollTimeoutRef.current = null;
 		}
 
+		// Restore text nodes
 		for (const [node, originalText] of originalTextsRef.current.entries()) {
 			if (node.nodeType === Node.TEXT_NODE) {
-				// Restore text node content
 				const textNode = node as Text;
 				if (textNode.textContent !== originalText) {
 					textNode.textContent = originalText;
 				}
-			} else if (node.nodeType === Node.ELEMENT_NODE) {
-				// Handle input/textarea placeholders
-				const element = node as unknown as Element;
-				if (element.tagName === "INPUT" || element.tagName === "TEXTAREA") {
-					const input = element as HTMLInputElement | HTMLTextAreaElement;
-					const originalPlaceholder = input.getAttribute(
-						"data-original-placeholder",
-					);
-					if (originalPlaceholder) {
-						input.placeholder = originalPlaceholder;
-						input.removeAttribute("data-original-placeholder");
-					}
-				}
 			}
 		}
+
+		// Restore input/textarea placeholders
+		for (const [element, originalPlaceholder] of originalPlaceholdersRef.current.entries()) {
+			if (element.tagName === "INPUT" || element.tagName === "TEXTAREA") {
+				const input = element as HTMLInputElement | HTMLTextAreaElement;
+				input.placeholder = originalPlaceholder;
+				input.removeAttribute("data-original-placeholder");
+			}
+		}
+
+		// Restore input/textarea values
+		for (const [element, originalValue] of originalValuesRef.current.entries()) {
+			if (element.tagName === "INPUT" || element.tagName === "TEXTAREA") {
+				const input = element as HTMLInputElement | HTMLTextAreaElement;
+				input.value = originalValue;
+				input.removeAttribute("data-original-value");
+			}
+		}
+
 		const wasTranslated = isTranslatedRef.current;
 		originalTextsRef.current.clear();
+		originalPlaceholdersRef.current.clear();
+		originalValuesRef.current.clear();
 		isTranslatedRef.current = false;
 
 		// Send acknowledgment to parent if translation was active
@@ -321,9 +358,15 @@ export function LiveTranslation({ translationToken }: LiveTranslationProps) {
 					return;
 				}
 
-				// Store original texts
-				for (const { node, originalText } of textNodes) {
-					originalTextsRef.current.set(node, originalText);
+				// Store original texts in appropriate Maps based on type
+				for (const { node, originalText, isPlaceholder, isValue, inputElement } of textNodes) {
+					if (isPlaceholder && inputElement) {
+						originalPlaceholdersRef.current.set(inputElement, originalText);
+					} else if (isValue && inputElement) {
+						originalValuesRef.current.set(inputElement, originalText);
+					} else {
+						originalTextsRef.current.set(node, originalText);
+					}
 				}
 
 				// Get target language name
@@ -399,16 +442,12 @@ export function LiveTranslation({ translationToken }: LiveTranslationProps) {
 					node,
 					originalText,
 					isPlaceholder,
+					isValue,
 					inputElement,
 				} of textNodes) {
 					const translated = translationMap.get(originalText) || originalText;
 					if (translated && translated !== originalText) {
-						// Store original text if not already stored
-						if (!originalTextsRef.current.has(node)) {
-							originalTextsRef.current.set(node, originalText);
-						}
-
-						// Update text node or placeholder
+						// Update text node, placeholder, or value
 						if (isPlaceholder && inputElement) {
 							// Handle input/textarea placeholders
 							if (!inputElement.hasAttribute("data-original-placeholder")) {
@@ -418,6 +457,15 @@ export function LiveTranslation({ translationToken }: LiveTranslationProps) {
 								);
 							}
 							inputElement.placeholder = translated;
+						} else if (isValue && inputElement) {
+							// Handle input/textarea values (read-only display)
+							if (!inputElement.hasAttribute("data-original-value")) {
+								inputElement.setAttribute(
+									"data-original-value",
+									inputElement.value,
+								);
+							}
+							inputElement.value = translated;
 						} else if (node.nodeType === Node.TEXT_NODE) {
 							// Update actual text node - this is safe and won't break React's DOM structure
 							const textNode = node as Text;
@@ -454,19 +502,68 @@ export function LiveTranslation({ translationToken }: LiveTranslationProps) {
 		async (targetLocale: Locale) => {
 			// Prevent multiple simultaneous translations
 			if (isTranslatingNewContentRef.current || isTranslating) {
+				// Mark that we need to re-translate after current translation finishes
+				pendingRetranslateRef.current = true;
 				return;
 			}
 
 			isTranslatingNewContentRef.current = true;
+			pendingRetranslateRef.current = false;
 
 			try {
+				// Clean up orphaned nodes (nodes no longer in DOM) from all tracking Maps
+				// This happens when React re-renders and creates new DOM nodes
+				for (const node of originalTextsRef.current.keys()) {
+					if (!document.body.contains(node as Node)) {
+						originalTextsRef.current.delete(node);
+					}
+				}
+				for (const element of originalPlaceholdersRef.current.keys()) {
+					if (!document.body.contains(element)) {
+						originalPlaceholdersRef.current.delete(element);
+					}
+				}
+				for (const element of originalValuesRef.current.keys()) {
+					if (!document.body.contains(element)) {
+						originalValuesRef.current.delete(element);
+					}
+				}
+
 				// Extract all text nodes
 				const allTextNodes = extractTextNodes();
 
-				// Filter out nodes that have already been translated
-				const newTextNodes = allTextNodes.filter(
-					({ node }) => !originalTextsRef.current.has(node),
-				);
+				// Filter to find nodes that need translation:
+				// 1. Nodes not tracked (completely new)
+				// 2. Nodes tracked but with different content (React reused the element with new content)
+				const newTextNodes = allTextNodes.filter(({ node, originalText, isPlaceholder, isValue, inputElement }) => {
+					// Choose the correct Map based on type
+					if (isPlaceholder && inputElement) {
+						const storedOriginal = originalPlaceholdersRef.current.get(inputElement);
+						if (storedOriginal === undefined) return true;
+						if (storedOriginal !== originalText) {
+							originalPlaceholdersRef.current.delete(inputElement);
+							return true;
+						}
+						return false;
+					} else if (isValue && inputElement) {
+						const storedOriginal = originalValuesRef.current.get(inputElement);
+						if (storedOriginal === undefined) return true;
+						if (storedOriginal !== originalText) {
+							originalValuesRef.current.delete(inputElement);
+							return true;
+						}
+						return false;
+					} else {
+						// Regular text node
+						const storedOriginal = originalTextsRef.current.get(node);
+						if (storedOriginal === undefined) return true;
+						if (storedOriginal !== originalText) {
+							originalTextsRef.current.delete(node);
+							return true;
+						}
+						return false;
+					}
+				});
 
 				if (newTextNodes.length === 0) {
 					isTranslatingNewContentRef.current = false;
@@ -538,15 +635,14 @@ export function LiveTranslation({ translationToken }: LiveTranslationProps) {
 					node,
 					originalText,
 					isPlaceholder,
+					isValue,
 					inputElement,
 				} of newTextNodes) {
 					const translatedText = translationMap.get(originalText);
 					if (translatedText && translatedText !== originalText) {
-						// Store original text
-						originalTextsRef.current.set(node, originalText);
-
-						// Update text node or placeholder
+						// Update text node, placeholder, or value and store original in correct Map
 						if (isPlaceholder && inputElement) {
+							originalPlaceholdersRef.current.set(inputElement, originalText);
 							if (!inputElement.hasAttribute("data-original-placeholder")) {
 								inputElement.setAttribute(
 									"data-original-placeholder",
@@ -554,7 +650,17 @@ export function LiveTranslation({ translationToken }: LiveTranslationProps) {
 								);
 							}
 							inputElement.placeholder = translatedText;
+						} else if (isValue && inputElement) {
+							originalValuesRef.current.set(inputElement, originalText);
+							if (!inputElement.hasAttribute("data-original-value")) {
+								inputElement.setAttribute(
+									"data-original-value",
+									inputElement.value,
+								);
+							}
+							inputElement.value = translatedText;
 						} else if (node.nodeType === Node.TEXT_NODE) {
+							originalTextsRef.current.set(node, originalText);
 							const textNode = node as Text;
 							textNode.textContent = translatedText;
 						}
@@ -564,6 +670,15 @@ export function LiveTranslation({ translationToken }: LiveTranslationProps) {
 				console.error("Error translating new content:", error);
 			} finally {
 				isTranslatingNewContentRef.current = false;
+
+				// Check if there are pending changes that need to be translated
+				if (pendingRetranslateRef.current) {
+					pendingRetranslateRef.current = false;
+					// Schedule re-translation after a short delay
+					setTimeout(() => {
+						translateNewContent(targetLocale);
+					}, 100);
+				}
 			}
 		},
 		[isTranslating, translationToken],
@@ -601,7 +716,7 @@ export function LiveTranslation({ translationToken }: LiveTranslationProps) {
 
 		// Set up MutationObserver to watch for DOM changes
 		const observer = new MutationObserver((mutations) => {
-			// Check if any mutations added new text nodes
+			// Check if any mutations added new text nodes or changed content
 			let hasNewContent = false;
 			for (const mutation of mutations) {
 				if (mutation.type === "childList" && mutation.addedNodes.length > 0) {
@@ -610,11 +725,8 @@ export function LiveTranslation({ translationToken }: LiveTranslationProps) {
 						const node = mutation.addedNodes[i];
 						if (node.nodeType === Node.TEXT_NODE) {
 							const text = (node as Text).textContent?.trim();
-							if (
-								text &&
-								text.length > 2 &&
-								!originalTextsRef.current.has(node)
-							) {
+							// Use length > 0 instead of > 2 to capture short texts (e.g., CJK characters)
+							if (text && text.length > 0 && !originalTextsRef.current.has(node)) {
 								hasNewContent = true;
 								break;
 							}
@@ -633,17 +745,27 @@ export function LiveTranslation({ translationToken }: LiveTranslationProps) {
 					}
 					if (hasNewContent) break;
 				} else if (mutation.type === "characterData") {
-					// Text content changed
+					// Text content changed - always treat as new content
+					// Even if node is tracked, content changed so we need to re-evaluate
 					const node = mutation.target;
-					if (
-						node.nodeType === Node.TEXT_NODE &&
-						!originalTextsRef.current.has(node)
-					) {
+					if (node.nodeType === Node.TEXT_NODE) {
 						const text = (node as Text).textContent?.trim();
-						if (text && text.length > 2) {
+						// Use length > 0 instead of > 2 to capture short texts (e.g., CJK characters)
+						if (text && text.length > 0) {
 							hasNewContent = true;
 							break;
 						}
+					}
+				} else if (mutation.type === "attributes") {
+					// Attribute changed - check if it's a value/placeholder change on input
+					const target = mutation.target as Element;
+					if (
+						(target.tagName === "INPUT" || target.tagName === "TEXTAREA") &&
+						(mutation.attributeName === "value" ||
+							mutation.attributeName === "placeholder")
+					) {
+						hasNewContent = true;
+						break;
 					}
 				}
 			}
@@ -664,6 +786,8 @@ export function LiveTranslation({ translationToken }: LiveTranslationProps) {
 			childList: true,
 			subtree: true,
 			characterData: true,
+			attributes: true,
+			attributeFilter: ["value", "placeholder"],
 		});
 
 		mutationObserverRef.current = observer;
@@ -732,6 +856,10 @@ export function LiveTranslation({ translationToken }: LiveTranslationProps) {
 	useEffect(() => {
 		setupLiveTranslationMock();
 	}, []);
+
+	if (!SHOW_TRANSLATE_BUTTON) {
+		return null;
+	}
 
 	return (
 		<div className="fixed bottom-6 right-6 z-50" data-live-translation>

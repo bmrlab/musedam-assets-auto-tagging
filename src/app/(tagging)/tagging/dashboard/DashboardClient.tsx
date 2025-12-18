@@ -580,7 +580,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
               <Skeleton className="w-full h-[250px]" />
             ) : (
               <ResponsiveContainer width="100%" height={250}>
-                <AreaChart data={monthlyData} margin={{ top: 10, right: 10, left: -30, bottom: -10 }}>
+                <AreaChart data={monthlyData} margin={{ top: 10, right: 10, left: -30, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#0FCA7A" stopOpacity={0.6} />
@@ -596,7 +596,23 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
                     dataKey="month"
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: "#6b7280", fontSize: 12 }}
+                    tick={(props) => {
+                      const { x, y, payload } = props;
+                      return (
+                        <g transform={`translate(${x},${y})`} data-no-translate>
+                          <text
+                            x={0}
+                            y={0}
+                            dy={16}
+                            textAnchor="middle"
+                            fill="#6b7280"
+                            fontSize={12}
+                          >
+                            {payload.value}
+                          </text>
+                        </g>
+                      );
+                    }}
                   />
                   <YAxis
                     axisLine={false}
@@ -644,7 +660,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
                 <BarChart
                   data={weeklyData}
                   barGap={8}
-                  margin={{ top: 10, right: 10, left: -30, bottom: -10 }}
+                  margin={{ top: 10, right: 10, left: -30, bottom: 0 }}
                 >
                   <defs>
                     <linearGradient id="colorBar" x1="0" y1="0" x2="0" y2="1">
@@ -663,7 +679,23 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
                     dataKey="day"
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: "#6b7280", fontSize: 12 }}
+                    tick={(props) => {
+                      const { x, y, payload } = props;
+                      return (
+                        <g transform={`translate(${x},${y})`} data-no-translate>
+                          <text
+                            x={0}
+                            y={0}
+                            dy={16}
+                            textAnchor="middle"
+                            fill="#6b7280"
+                            fontSize={12}
+                          >
+                            {payload.value}
+                          </text>
+                        </g>
+                      );
+                    }}
                   />
                   <YAxis
                     axisLine={false}
