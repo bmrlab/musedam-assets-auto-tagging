@@ -60,11 +60,7 @@ export default async function RootLayout({
 				<Suspense fallback={null}>
 					<Embed locale={locale} />
 				</Suspense>
-				{process.env.LIVE_TRANSLATION_TOKEN && (
-					<LiveTranslation
-						translationToken={process.env.LIVE_TRANSLATION_TOKEN}
-					/>
-				)}
+				<LiveTranslation />
 			</body>
 		</html>
 	);
