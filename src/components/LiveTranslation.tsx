@@ -264,15 +264,13 @@ export function LiveTranslation({ translationToken }: LiveTranslationProps) {
 	const [selectedLocale, setSelectedLocale] = useState<Locale | null>(null);
 	const [isTranslating, setIsTranslating] = useState(false);
 	const originalTextsRef = useRef<Map<Node, string>>(new Map());
-	// Separate tracking for input placeholders (key: input element)
 	const originalPlaceholdersRef = useRef<Map<Element, string>>(new Map());
-	// Separate tracking for input values (key: input element)
 	const originalValuesRef = useRef<Map<Element, string>>(new Map());
+	const translationMapRef = useRef<Map<string, string>>(new Map());
 	const isTranslatedRef = useRef(false);
 	const mutationObserverRef = useRef<MutationObserver | null>(null);
 	const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 	const isTranslatingNewContentRef = useRef(false);
-	// Flag to track if there are pending changes that need re-translation
 	const pendingRetranslateRef = useRef(false);
 
 	// Restore original text when component unmounts or locale changes
@@ -321,6 +319,7 @@ export function LiveTranslation({ translationToken }: LiveTranslationProps) {
 		originalTextsRef.current.clear();
 		originalPlaceholdersRef.current.clear();
 		originalValuesRef.current.clear();
+		translationMapRef.current.clear();
 		isTranslatedRef.current = false;
 
 		// Send acknowledgment to parent if translation was active
@@ -346,11 +345,9 @@ export function LiveTranslation({ translationToken }: LiveTranslationProps) {
 					restoreOriginalTexts();
 				}
 
-				// Extract all text nodes
+				// 1. Get all text nodes
 				const textNodes = extractTextNodes();
-
 				if (textNodes.length === 0) {
-					// Even if there are no text nodes, mark as translated and send acknowledgment
 					setSelectedLocale(targetLocale);
 					isTranslatedRef.current = true;
 					notifyLiveTranslationStarted(targetLocale);
@@ -358,7 +355,7 @@ export function LiveTranslation({ translationToken }: LiveTranslationProps) {
 					return;
 				}
 
-				// Store original texts in appropriate Maps based on type
+				// 2. Store original text for text nodes
 				for (const { node, originalText, isPlaceholder, isValue, inputElement } of textNodes) {
 					if (isPlaceholder && inputElement) {
 						originalPlaceholdersRef.current.set(inputElement, originalText);
@@ -369,22 +366,14 @@ export function LiveTranslation({ translationToken }: LiveTranslationProps) {
 					}
 				}
 
-				// Get target language name
+				// 3. Translate new text nodes
 				const targetLang = localeToLanguageName[targetLocale];
-
-				// Extract unique texts to translate (avoid translating duplicates)
 				const uniqueTexts = Array.from(
 					new Set(textNodes.map(({ originalText }) => originalText)),
 				);
-
-				// Translate all texts - don't skip single words as they might be important
-				// (e.g., "title", "save", button labels, etc.)
 				const textsToTranslate = uniqueTexts;
-
-				// Check cache first
 				const cachedTranslations = new Map<string, string>();
 				const uncachedTexts: string[] = [];
-
 				for (const text of textsToTranslate) {
 					const cacheKey = `${targetLang}-${text}`;
 					const cached = getCachedTranslation(cacheKey);
@@ -394,8 +383,6 @@ export function LiveTranslation({ translationToken }: LiveTranslationProps) {
 						uncachedTexts.push(text);
 					}
 				}
-
-				// Batch translate uncached texts
 				const translations: string[] = [];
 				if (uncachedTexts.length > 0) {
 					for (let i = 0; i < uncachedTexts.length; i += TRANSLATE_BATCH_SIZE) {
@@ -406,8 +393,6 @@ export function LiveTranslation({ translationToken }: LiveTranslationProps) {
 							translationToken,
 						);
 						translations.push(...batchTranslations);
-
-						// Cache the new translations
 						for (let index = 0; index < batch.length; index++) {
 							const original = batch[index];
 							const translated = batchTranslations[index] || original;
@@ -416,8 +401,6 @@ export function LiveTranslation({ translationToken }: LiveTranslationProps) {
 						}
 					}
 				}
-
-				// Combine cached and newly translated texts
 				const allTranslations: string[] = [];
 				for (const text of textsToTranslate) {
 					const cached = cachedTranslations.get(text);
@@ -428,16 +411,16 @@ export function LiveTranslation({ translationToken }: LiveTranslationProps) {
 						allTranslations.push(translations[uncachedIndex] || text);
 					}
 				}
-
-				// Create a map for quick lookup
+				// Add to translation map
 				const translationMap = new Map<string, string>();
-				// Add translated texts
 				for (let index = 0; index < textsToTranslate.length; index++) {
 					const original = textsToTranslate[index];
-					translationMap.set(original, allTranslations[index] || original);
+					const translated = allTranslations[index] || original;
+					translationMap.set(original, translated);
+					translationMapRef.current.set(original, translated);
 				}
 
-				// Apply translations to nodes
+				// 4. Apply translations
 				for (const {
 					node,
 					originalText,
@@ -447,9 +430,7 @@ export function LiveTranslation({ translationToken }: LiveTranslationProps) {
 				} of textNodes) {
 					const translated = translationMap.get(originalText) || originalText;
 					if (translated && translated !== originalText) {
-						// Update text node, placeholder, or value
 						if (isPlaceholder && inputElement) {
-							// Handle input/textarea placeholders
 							if (!inputElement.hasAttribute("data-original-placeholder")) {
 								inputElement.setAttribute(
 									"data-original-placeholder",
@@ -458,7 +439,6 @@ export function LiveTranslation({ translationToken }: LiveTranslationProps) {
 							}
 							inputElement.placeholder = translated;
 						} else if (isValue && inputElement) {
-							// Handle input/textarea values (read-only display)
 							if (!inputElement.hasAttribute("data-original-value")) {
 								inputElement.setAttribute(
 									"data-original-value",
@@ -467,7 +447,6 @@ export function LiveTranslation({ translationToken }: LiveTranslationProps) {
 							}
 							inputElement.value = translated;
 						} else if (node.nodeType === Node.TEXT_NODE) {
-							// Update actual text node - this is safe and won't break React's DOM structure
 							const textNode = node as Text;
 							textNode.textContent = translated;
 						}
@@ -476,7 +455,6 @@ export function LiveTranslation({ translationToken }: LiveTranslationProps) {
 
 				setSelectedLocale(targetLocale);
 				isTranslatedRef.current = true;
-
 				// Send acknowledgment to parent
 				notifyLiveTranslationStarted(targetLocale);
 			} catch (error) {
@@ -502,89 +480,54 @@ export function LiveTranslation({ translationToken }: LiveTranslationProps) {
 		async (targetLocale: Locale) => {
 			// Prevent multiple simultaneous translations
 			if (isTranslatingNewContentRef.current || isTranslating) {
-				// Mark that we need to re-translate after current translation finishes
 				pendingRetranslateRef.current = true;
 				return;
 			}
-
 			isTranslatingNewContentRef.current = true;
 			pendingRetranslateRef.current = false;
 
 			try {
-				// Clean up orphaned nodes (nodes no longer in DOM) from all tracking Maps
-				// This happens when React re-renders and creates new DOM nodes
-				for (const node of originalTextsRef.current.keys()) {
-					if (!document.body.contains(node as Node)) {
-						originalTextsRef.current.delete(node);
-					}
-				}
-				for (const element of originalPlaceholdersRef.current.keys()) {
-					if (!document.body.contains(element)) {
-						originalPlaceholdersRef.current.delete(element);
-					}
-				}
-				for (const element of originalValuesRef.current.keys()) {
-					if (!document.body.contains(element)) {
-						originalValuesRef.current.delete(element);
-					}
-				}
-
-				// Extract all text nodes
+				// 1. Get new text nodes
 				const allTextNodes = extractTextNodes();
-
-				// Filter to find nodes that need translation:
-				// 1. Nodes not tracked (completely new)
-				// 2. Nodes tracked but with different content (React reused the element with new content)
 				const newTextNodes = allTextNodes.filter(({ node, originalText, isPlaceholder, isValue, inputElement }) => {
-					// Choose the correct Map based on type
 					if (isPlaceholder && inputElement) {
-						const storedOriginal = originalPlaceholdersRef.current.get(inputElement);
-						if (storedOriginal === undefined) return true;
-						if (storedOriginal !== originalText) {
-							originalPlaceholdersRef.current.delete(inputElement);
-							return true;
-						}
-						return false;
+						return !originalPlaceholdersRef.current.has(inputElement);
 					} else if (isValue && inputElement) {
-						const storedOriginal = originalValuesRef.current.get(inputElement);
-						if (storedOriginal === undefined) return true;
-						if (storedOriginal !== originalText) {
-							originalValuesRef.current.delete(inputElement);
-							return true;
-						}
-						return false;
+						return !originalValuesRef.current.has(inputElement);
 					} else {
-						// Regular text node
-						const storedOriginal = originalTextsRef.current.get(node);
-						if (storedOriginal === undefined) return true;
-						if (storedOriginal !== originalText) {
-							originalTextsRef.current.delete(node);
-							return true;
-						}
-						return false;
+						return !originalTextsRef.current.has(node);
 					}
 				});
-
 				if (newTextNodes.length === 0) {
 					isTranslatingNewContentRef.current = false;
 					return;
 				}
 
-				// Get target language name
-				const targetLang = localeToLanguageName[targetLocale];
+				// 2. Store original text for new text nodes
+				for (const { node, originalText, isPlaceholder, isValue, inputElement } of newTextNodes) {
+					if (isPlaceholder && inputElement) {
+						if (!originalPlaceholdersRef.current.has(inputElement)) {
+							originalPlaceholdersRef.current.set(inputElement, originalText);
+						}
+					} else if (isValue && inputElement) {
+						if (!originalValuesRef.current.has(inputElement)) {
+							originalValuesRef.current.set(inputElement, originalText);
+						}
+					} else if (node.nodeType === Node.TEXT_NODE) {
+						if (!originalTextsRef.current.has(node)) {
+							originalTextsRef.current.set(node, originalText);
+						}
+					}
+				}
 
-				// Extract unique texts for batch translation
+				// 3. Translate new text nodes
+				const targetLang = localeToLanguageName[targetLocale];
 				const uniqueTexts = Array.from(
 					new Set(newTextNodes.map((node) => node.originalText)),
 				);
-
-				// Translate all texts - don't skip single words as they might be important
 				const textsToTranslate = uniqueTexts;
-
-				// Check cache first and separate texts that need translation
 				const cachedTranslations = new Map<string, string>();
 				const uncachedTexts: string[] = [];
-
 				for (const text of textsToTranslate) {
 					const cacheKey = `${targetLang}-${text}`;
 					const cached = getCachedTranslation(cacheKey);
@@ -594,8 +537,6 @@ export function LiveTranslation({ translationToken }: LiveTranslationProps) {
 						uncachedTexts.push(text);
 					}
 				}
-
-				// Translate only texts that aren't cached
 				const translations: string[] = [];
 				if (uncachedTexts.length > 0) {
 					for (let i = 0; i < uncachedTexts.length; i += TRANSLATE_BATCH_SIZE) {
@@ -616,33 +557,29 @@ export function LiveTranslation({ translationToken }: LiveTranslationProps) {
 						}
 					}
 				}
-
-				// Create a map of original text to translated text
-				const translationMap = new Map<string, string>();
-				// Add translated texts
+				// Add to translation map
 				for (const original of uniqueTexts) {
 					const cached = cachedTranslations.get(original);
 					if (cached) {
-						translationMap.set(original, cached);
+						translationMapRef.current.set(original, cached);
 					} else {
 						const index = uncachedTexts.indexOf(original);
-						translationMap.set(original, translations[index] || original);
+						const translated = translations[index] || original;
+						translationMapRef.current.set(original, translated);
 					}
 				}
 
-				// Apply translations to new text nodes only
+				// 4. Apply translations
 				for (const {
 					node,
 					originalText,
 					isPlaceholder,
 					isValue,
 					inputElement,
-				} of newTextNodes) {
-					const translatedText = translationMap.get(originalText);
+				} of allTextNodes) {
+					const translatedText = translationMapRef.current.get(originalText) || originalText;
 					if (translatedText && translatedText !== originalText) {
-						// Update text node, placeholder, or value and store original in correct Map
 						if (isPlaceholder && inputElement) {
-							originalPlaceholdersRef.current.set(inputElement, originalText);
 							if (!inputElement.hasAttribute("data-original-placeholder")) {
 								inputElement.setAttribute(
 									"data-original-placeholder",
@@ -651,7 +588,6 @@ export function LiveTranslation({ translationToken }: LiveTranslationProps) {
 							}
 							inputElement.placeholder = translatedText;
 						} else if (isValue && inputElement) {
-							originalValuesRef.current.set(inputElement, originalText);
 							if (!inputElement.hasAttribute("data-original-value")) {
 								inputElement.setAttribute(
 									"data-original-value",
@@ -660,7 +596,6 @@ export function LiveTranslation({ translationToken }: LiveTranslationProps) {
 							}
 							inputElement.value = translatedText;
 						} else if (node.nodeType === Node.TEXT_NODE) {
-							originalTextsRef.current.set(node, originalText);
 							const textNode = node as Text;
 							textNode.textContent = translatedText;
 						}
@@ -670,7 +605,6 @@ export function LiveTranslation({ translationToken }: LiveTranslationProps) {
 				console.error("Error translating new content:", error);
 			} finally {
 				isTranslatingNewContentRef.current = false;
-
 				// Check if there are pending changes that need to be translated
 				if (pendingRetranslateRef.current) {
 					pendingRetranslateRef.current = false;
