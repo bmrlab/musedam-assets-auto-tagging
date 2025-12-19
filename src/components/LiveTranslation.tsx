@@ -8,15 +8,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  initializeLiveTranslationListener,
-  notifyLiveTranslationError,
-  notifyLiveTranslationInitialized,
-  notifyLiveTranslationReady,
-  notifyLiveTranslationStarted,
-  notifyLiveTranslationStopped,
-  setupLiveTranslationMock,
-} from "@/embed/live-translation-message";
-import { locales, type Locale } from "@/i18n/routing";
+  triggerLiveTranslationCompletedNotification,
+  triggerLiveTranslationRestoredNotification,
+} from "@/embed/message";
+import { mockRestoreLiveTranslation, mockStartLiveTranslation } from "@/embed/mockMessage";
+import { isValidLocale, locales, type Locale } from "@/i18n/routing";
 import { Languages } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -266,7 +262,7 @@ export function LiveTranslation({}: LiveTranslationProps) {
   const pendingRetranslateRef = useRef(false);
 
   // Restore original text when component unmounts or locale changes
-  const restoreOriginalTexts = useCallback(() => {
+  const restoreOriginalTexts = useCallback((isRestoreAction = false) => {
     // Stop observing DOM changes
     if (mutationObserverRef.current) {
       mutationObserverRef.current.disconnect();
@@ -314,9 +310,12 @@ export function LiveTranslation({}: LiveTranslationProps) {
     translationMapRef.current.clear();
     isTranslatedRef.current = false;
 
-    // Send acknowledgment to parent if translation was active
-    if (wasTranslated) {
-      notifyLiveTranslationStopped();
+    // Translation was stopped (no action_result needed for internal stops)
+
+    // If this is a restore action, send action_result and update localStorage
+    if (isRestoreAction) {
+      localStorage.setItem("liveTranslation", "restored");
+      triggerLiveTranslationRestoredNotification(true);
     }
   }, []);
 
@@ -324,9 +323,13 @@ export function LiveTranslation({}: LiveTranslationProps) {
   const translatePage = useCallback(
     async (targetLocale: Locale) => {
       if (isTranslatedRef.current && selectedLocale === targetLocale) {
-        // Send acknowledgment to parent that translation is already active
-        notifyLiveTranslationStarted(targetLocale);
-        return; // Already translated to this locale
+        // Already translated to this locale
+        const dispatchId = localStorage.getItem("liveTranslationDispatchId");
+        if (dispatchId) {
+          localStorage.setItem("liveTranslation", "done");
+          triggerLiveTranslationCompletedNotification(true);
+        }
+        return;
       }
 
       setIsTranslating(true);
@@ -342,7 +345,9 @@ export function LiveTranslation({}: LiveTranslationProps) {
         if (textNodes.length === 0) {
           setSelectedLocale(targetLocale);
           isTranslatedRef.current = true;
-          notifyLiveTranslationStarted(targetLocale);
+          localStorage.setItem("liveTranslation", "done");
+          // Send action_result to parent
+          triggerLiveTranslationCompletedNotification(true);
           setIsTranslating(false);
           return;
         }
@@ -429,14 +434,20 @@ export function LiveTranslation({}: LiveTranslationProps) {
 
         setSelectedLocale(targetLocale);
         isTranslatedRef.current = true;
-        // Send acknowledgment to parent
-        notifyLiveTranslationStarted(targetLocale);
+        // Update localStorage
+        localStorage.setItem("liveTranslation", "done");
+        // Send action_result to parent
+        triggerLiveTranslationCompletedNotification(true);
       } catch (error) {
         console.error("Failed to translate page:", error);
         restoreOriginalTexts();
-
-        // Send error acknowledgment to parent
-        notifyLiveTranslationError(error instanceof Error ? error : new Error("Unknown error"));
+        // Update localStorage on error
+        localStorage.setItem("liveTranslation", "done");
+        // Send action_result to parent
+        triggerLiveTranslationCompletedNotification(
+          false,
+          error instanceof Error ? error : new Error("Unknown error"),
+        );
       } finally {
         setIsTranslating(false);
       }
@@ -713,38 +724,67 @@ export function LiveTranslation({}: LiveTranslationProps) {
     };
   }, [restoreOriginalTexts]);
 
-  // Send ready message to parent when component mounts
+  // Expose mock functions in dev mode only
   useEffect(() => {
-    // Send supported languages to parent
-    notifyLiveTranslationReady();
-    // Send initialized message to indicate live translation has been cleared after page refresh
-    notifyLiveTranslationInitialized();
+    if (process.env.NODE_ENV === "development" && typeof window !== "undefined") {
+      // Expose mock functions to window for easy access in browser console
+      (window as any).__mockLiveTranslation = {
+        start: mockStartLiveTranslation,
+        restore: mockRestoreLiveTranslation,
+      };
+      //   console.log(
+      //     "[DEV] LiveTranslation mocks exposed at window.__mockLiveTranslation",
+      //     "\nUsage:",
+      //     "\n  window.__mockLiveTranslation.start('zh-CN')",
+      //     "\n  window.__mockLiveTranslation.restore()",
+      //   );
+
+      return () => {
+        // Cleanup on unmount
+        delete (window as any).__mockLiveTranslation;
+      };
+    }
   }, []);
 
-  // Listen for postMessage from parent window
+  // Check localStorage for live translation actions
+  // handleParentMessageAction in message.ts updates localStorage, so we check it here
   useEffect(() => {
-    const cleanup = initializeLiveTranslationListener({
-      onStartTranslation: (targetLang: Locale) => {
-        translatePage(targetLang);
-      },
-      onStopTranslation: () => {
-        restoreOriginalTexts();
-        setSelectedLocale(null);
-      },
-      onRestoreTranslation: () => {
-        restoreOriginalTexts();
-        setSelectedLocale(null);
-        notifyLiveTranslationStopped();
-      },
-    });
+    if (typeof window === "undefined") {
+      return;
+    }
 
-    return cleanup;
+    const checkLiveTranslationState = () => {
+      const liveTranslationState = localStorage.getItem("liveTranslation");
+      const targetLanguage = localStorage.getItem("liveTranslationTargetLanguage");
+
+      if (liveTranslationState === "start" && targetLanguage && isValidLocale(targetLanguage)) {
+        // Start translation
+        translatePage(targetLanguage);
+      } else if (liveTranslationState === "restoring") {
+        // Restore original texts
+        restoreOriginalTexts(true);
+        setSelectedLocale(null);
+      }
+    };
+
+    // Check on mount
+    checkLiveTranslationState();
+
+    // Listen for storage changes (when localStorage is updated from message.ts handlers)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "liveTranslation" || e.key === "liveTranslationTargetLanguage") {
+        checkLiveTranslationState();
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    const interval = setInterval(checkLiveTranslationState, 100);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      clearInterval(interval);
+    };
   }, [translatePage, restoreOriginalTexts]);
-
-  // Expose mock functions to window for testing
-  useEffect(() => {
-    setupLiveTranslationMock();
-  }, []);
 
   if (!SHOW_TRANSLATE_BUTTON) {
     return null;

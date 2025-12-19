@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { TagRecord } from "@/app/tags/types";
-import { isValidLocale, locales, type Locale } from "@/i18n/routing";
+import { isValidLocale } from "@/i18n/routing";
 import { MuseDAMID } from "@/musedam/types";
 import Cookies from "js-cookie";
 
@@ -9,13 +9,6 @@ import Cookies from "js-cookie";
 const globalForMessage = global as unknown as {
   musedamMessageQueue:
     | Map<string, { resolve: (result: any) => void; reject: (error: any) => void }>
-    | undefined;
-  liveTranslationCallbacks:
-    | {
-        onStartTranslation?: (targetLang: Locale) => void;
-        onStopTranslation?: () => void;
-        onRestoreTranslation?: () => void;
-      }
     | undefined;
 };
 
@@ -88,45 +81,13 @@ function initializeMessageListener() {
       message.type === "action" &&
       message.action
     ) {
-      handleParentConfigUpdate(message.action, message.args);
+      handleParentMessageAction(message.action, message.args, message.dispatchId);
       // 支持异步返回结果的查询类 action
       // if (message.action === "checkUserPermission") {
       //   handleCheckUserPermission(message.dispatchId);
       // } else {
-      //   handleParentConfigUpdate(message.action, message.args);
+      //   handleParentMessageAction(message.action, message.args);
       // }
-    }
-
-    // 处理来自父窗口的实时翻译消息（live translation messages）
-    // Only process if it's not a musedam message (which has source/target fields)
-    if (message.type && typeof message.type === "string" && !message.source && !message.target) {
-      const liveTranslationType = message.type as string;
-      const callbacks = globalForMessage.liveTranslationCallbacks;
-      if (callbacks) {
-        if (liveTranslationType === "START_LIVE_TRANSLATION") {
-          const targetLang = (message as any).payload?.targetLang;
-          if (targetLang) {
-            // Validate locale
-            if (!isValidLocale(targetLang)) {
-              console.warn(
-                `START_LIVE_TRANSLATION: Invalid locale "${targetLang}". Supported locales: ${locales.join(", ")}`,
-              );
-            } else if (callbacks.onStartTranslation) {
-              callbacks.onStartTranslation(targetLang);
-            }
-          } else {
-            console.warn("START_LIVE_TRANSLATION: targetLang is required");
-          }
-        } else if (liveTranslationType === "STOP_LIVE_TRANSLATION") {
-          if (callbacks.onStopTranslation) {
-            callbacks.onStopTranslation();
-          }
-        } else if (liveTranslationType === "RESTORE_LIVE_TRANSLATION") {
-          if (callbacks.onRestoreTranslation) {
-            callbacks.onRestoreTranslation();
-          }
-        }
-      }
     }
   });
 }
@@ -159,8 +120,8 @@ if (typeof window !== "undefined") {
   }
 }
 
-// 处理来自父项目的配置更新事件
-function handleParentConfigUpdate(action: string, args: any) {
+// 处理来自父项目的Action事件
+function handleParentMessageAction(action: string, args: any, dispatchId?: string) {
   switch (action) {
     case "updateLocale":
       if (args?.locale && typeof window !== "undefined") {
@@ -200,6 +161,27 @@ function handleParentConfigUpdate(action: string, args: any) {
           // 触发主题更新
           const event = new CustomEvent("theme-change", { detail: { theme: args.theme } });
           window.dispatchEvent(event);
+        }
+      }
+      break;
+
+    case "startLiveTranslation":
+      if (args?.targetLanguage && typeof window !== "undefined") {
+        // Update local storage
+        localStorage.setItem("liveTranslation", "start");
+        if (dispatchId) {
+          localStorage.setItem("liveTranslationDispatchId", dispatchId);
+        }
+        localStorage.setItem("liveTranslationTargetLanguage", args.targetLanguage);
+      }
+      break;
+
+    case "restoreLiveTranslation":
+      if (typeof window !== "undefined") {
+        // Update local storage
+        localStorage.setItem("liveTranslation", "restoring");
+        if (dispatchId) {
+          localStorage.setItem("restoreLiveTranslationDispatchId", dispatchId);
         }
       }
       break;
@@ -508,35 +490,92 @@ export function triggerTeamSettingsNotification(): void {
   }
 }
 
-/**
- * Shared utility function to send postMessage to parent window
- * Used by both musedam actions and live translation messages
- */
-export function sendPostMessageToParent(
-  message: Record<string, unknown>,
-  targetOrigin: string = "*",
+// Send action_result for startLiveTranslation
+function notifyStartLiveTranslationResult(
+  dispatchId: string | null,
+  success: boolean,
+  error?: Error,
 ): void {
   if (typeof window === "undefined" || !window.parent || window.parent === window) {
     return;
   }
-  window.parent.postMessage(message, targetOrigin);
+
+  const finalDispatchId = dispatchId || localStorage.getItem("liveTranslationDispatchId");
+  if (!finalDispatchId) {
+    console.warn("No dispatchId available for startLiveTranslation action_result");
+    return;
+  }
+
+  const message = {
+    source: "musedam-app",
+    target: "musedam",
+    type: "action_result",
+    dispatchId: finalDispatchId,
+    action: "startLiveTranslation",
+    result: success
+      ? { success: true, data: {} }
+      : {
+          success: false,
+          message: error?.message || "Failed to start live translation",
+        },
+    timestamp: new Date().toISOString(),
+  } as const;
+  window.parent.postMessage(message, "*");
+  localStorage.removeItem("liveTranslationDispatchId");
+}
+
+// Send action_result for restoreLiveTranslation
+function notifyRestoreLiveTranslationResult(
+  dispatchId: string | null,
+  success: boolean,
+  error?: Error,
+): void {
+  if (typeof window === "undefined" || !window.parent || window.parent === window) {
+    return;
+  }
+
+  const finalDispatchId = dispatchId || localStorage.getItem("restoreLiveTranslationDispatchId");
+
+  if (!finalDispatchId) {
+    console.warn("No dispatchId available for restoreLiveTranslation action_result");
+    return;
+  }
+
+  const message = {
+    source: "musedam-app",
+    target: "musedam",
+    type: "action_result",
+    dispatchId: finalDispatchId,
+    action: "restoreLiveTranslation",
+    result: success
+      ? { success: true, data: {} }
+      : {
+          success: false,
+          message: error?.message || "Failed to restore live translation",
+        },
+    timestamp: new Date().toISOString(),
+  } as const;
+
+  window.parent.postMessage(message, "*");
+  localStorage.removeItem("restoreLiveTranslationDispatchId");
 }
 
 /**
- * Register callbacks for live translation messages
- * Returns cleanup function to unregister callbacks
+ * Trigger live translation completed notification
+ * Sends action_result to parent window after translation completes
  */
-export function registerLiveTranslationCallbacks(callbacks: {
-  onStartTranslation?: (targetLang: Locale) => void;
-  onStopTranslation?: () => void;
-  onRestoreTranslation?: () => void;
-}): () => void {
-  // Ensure message listener is initialized
-  getPendingPromises();
+export function triggerLiveTranslationCompletedNotification(success: boolean, error?: Error): void {
+  if (typeof window !== "undefined") {
+    notifyStartLiveTranslationResult(null, success, error);
+  }
+}
 
-  globalForMessage.liveTranslationCallbacks = callbacks;
-
-  return () => {
-    globalForMessage.liveTranslationCallbacks = undefined;
-  };
+/**
+ * Trigger live translation restored notification
+ * Sends action_result to parent window after restore completes
+ */
+export function triggerLiveTranslationRestoredNotification(success: boolean, error?: Error): void {
+  if (typeof window !== "undefined") {
+    notifyRestoreLiveTranslationResult(null, success, error);
+  }
 }
