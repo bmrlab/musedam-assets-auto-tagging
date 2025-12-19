@@ -1,4 +1,6 @@
+import authOptions from "@/app/(auth)/authOptions";
 import { type Locale } from "@/i18n/routing";
+import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -226,6 +228,18 @@ const requestSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    // Check authentication
+    const session = await getServerSession(authOptions);
+    if (!session?.user || !session?.team) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Unauthorized",
+        },
+        { status: 401 },
+      );
+    }
+
     // Check if token is configured
     const token = process.env.LIVE_TRANSLATION_TOKEN;
     if (!token) {

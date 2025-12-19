@@ -7,14 +7,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  triggerLiveTranslationCompletedNotification,
-  triggerLiveTranslationRestoredNotification,
-} from "@/embed/message";
-import { mockRestoreLiveTranslation, mockStartLiveTranslation } from "@/embed/mockMessage";
+import { dispatchMuseDAMClientActionResult } from "@/embed/message";
 import { isValidLocale, locales, type Locale } from "@/i18n/routing";
 import { Languages } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useLocalStorage } from "usehooks-ts";
+// import { useMockLiveTranslation } from "@/hooks/useMockMessage";
 
 // Map locale codes to language names for the translation API
 const localeToLanguageName: Record<Locale, string> = {
@@ -261,8 +259,11 @@ export function LiveTranslation({}: LiveTranslationProps) {
   const isTranslatingNewContentRef = useRef(false);
   const pendingRetranslateRef = useRef(false);
 
+  // Mock Post Message for test
+  //   useMockLiveTranslation();
+
   // Restore original text when component unmounts or locale changes
-  const restoreOriginalTexts = useCallback((isRestoreAction = false) => {
+  const restoreOriginalTexts = useCallback(() => {
     // Stop observing DOM changes
     if (mutationObserverRef.current) {
       mutationObserverRef.current.disconnect();
@@ -302,21 +303,6 @@ export function LiveTranslation({}: LiveTranslationProps) {
         input.removeAttribute("data-original-value");
       }
     }
-
-    const wasTranslated = isTranslatedRef.current;
-    originalTextsRef.current.clear();
-    originalPlaceholdersRef.current.clear();
-    originalValuesRef.current.clear();
-    translationMapRef.current.clear();
-    isTranslatedRef.current = false;
-
-    // Translation was stopped (no action_result needed for internal stops)
-
-    // If this is a restore action, send action_result and update localStorage
-    if (isRestoreAction) {
-      localStorage.setItem("liveTranslation", "restored");
-      triggerLiveTranslationRestoredNotification(true);
-    }
   }, []);
 
   // Translate the page
@@ -326,9 +312,15 @@ export function LiveTranslation({}: LiveTranslationProps) {
         // Already translated to this locale
         const dispatchId = localStorage.getItem("liveTranslationDispatchId");
         if (dispatchId) {
-          localStorage.setItem("liveTranslation", "done");
-          triggerLiveTranslationCompletedNotification(true);
+          const parsedDispatchId = JSON.parse(dispatchId);
+          setLiveTranslationState("done");
+          dispatchMuseDAMClientActionResult("startLiveTranslation", parsedDispatchId, {
+            success: true,
+            data: {},
+          });
+          localStorage.removeItem("liveTranslationDispatchId");
         }
+
         return;
       }
 
@@ -345,9 +337,17 @@ export function LiveTranslation({}: LiveTranslationProps) {
         if (textNodes.length === 0) {
           setSelectedLocale(targetLocale);
           isTranslatedRef.current = true;
-          localStorage.setItem("liveTranslation", "done");
+          setLiveTranslationState("done");
           // Send action_result to parent
-          triggerLiveTranslationCompletedNotification(true);
+          const dispatchId = localStorage.getItem("liveTranslationDispatchId");
+          if (dispatchId) {
+            const parsedDispatchId = JSON.parse(dispatchId);
+            dispatchMuseDAMClientActionResult("startLiveTranslation", parsedDispatchId, {
+              success: true,
+              data: {},
+            });
+            localStorage.removeItem("liveTranslationDispatchId");
+          }
           setIsTranslating(false);
           return;
         }
@@ -435,19 +435,32 @@ export function LiveTranslation({}: LiveTranslationProps) {
         setSelectedLocale(targetLocale);
         isTranslatedRef.current = true;
         // Update localStorage
-        localStorage.setItem("liveTranslation", "done");
+        setLiveTranslationState("done");
         // Send action_result to parent
-        triggerLiveTranslationCompletedNotification(true);
+        const dispatchId = localStorage.getItem("liveTranslationDispatchId");
+        if (dispatchId) {
+          const parsedDispatchId = JSON.parse(dispatchId);
+          dispatchMuseDAMClientActionResult("startLiveTranslation", parsedDispatchId, {
+            success: true,
+            data: {},
+          });
+          localStorage.removeItem("liveTranslationDispatchId");
+        }
       } catch (error) {
         console.error("Failed to translate page:", error);
         restoreOriginalTexts();
         // Update localStorage on error
-        localStorage.setItem("liveTranslation", "done");
+        setLiveTranslationState("done");
         // Send action_result to parent
-        triggerLiveTranslationCompletedNotification(
-          false,
-          error instanceof Error ? error : new Error("Unknown error"),
-        );
+        const dispatchId = localStorage.getItem("liveTranslationDispatchId");
+        if (dispatchId) {
+          const parsedDispatchId = JSON.parse(dispatchId);
+          dispatchMuseDAMClientActionResult("startLiveTranslation", parsedDispatchId, {
+            success: false,
+            message: error instanceof Error ? error.message : "Unknown error",
+          });
+          localStorage.removeItem("liveTranslationDispatchId");
+        }
       } finally {
         setIsTranslating(false);
       }
@@ -724,67 +737,33 @@ export function LiveTranslation({}: LiveTranslationProps) {
     };
   }, [restoreOriginalTexts]);
 
-  // Expose mock functions in dev mode only
-  useEffect(() => {
-    if (process.env.NODE_ENV === "development" && typeof window !== "undefined") {
-      // Expose mock functions to window for easy access in browser console
-      (window as any).__mockLiveTranslation = {
-        start: mockStartLiveTranslation,
-        restore: mockRestoreLiveTranslation,
-      };
-      //   console.log(
-      //     "[DEV] LiveTranslation mocks exposed at window.__mockLiveTranslation",
-      //     "\nUsage:",
-      //     "\n  window.__mockLiveTranslation.start('zh-CN')",
-      //     "\n  window.__mockLiveTranslation.restore()",
-      //   );
-
-      return () => {
-        // Cleanup on unmount
-        delete (window as any).__mockLiveTranslation;
-      };
-    }
-  }, []);
-
   // Check localStorage for live translation actions
-  // handleParentMessageAction in message.ts updates localStorage, so we check it here
+  const [liveTranslationState, setLiveTranslationState] = useLocalStorage<string | null>(
+    "liveTranslation",
+    null,
+  );
+  const [targetLanguage] = useLocalStorage<string | null>("liveTranslationTargetLanguage", null);
+
   useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
+    if (liveTranslationState === "start" && targetLanguage && isValidLocale(targetLanguage)) {
+      // Start translation
+      translatePage(targetLanguage);
+    } else if (liveTranslationState === "restoring") {
+      // Restore original texts
+      restoreOriginalTexts();
+      setLiveTranslationState("restored");
+      const dispatchId = localStorage.getItem("restoreLiveTranslationDispatchId");
+      if (dispatchId) {
+        const parsedDispatchId = JSON.parse(dispatchId);
+        dispatchMuseDAMClientActionResult("restoreLiveTranslation", parsedDispatchId, {
+          success: true,
+          data: {},
+        });
+        localStorage.removeItem("restoreLiveTranslationDispatchId");
+      }
+      setSelectedLocale(null);
     }
-
-    const checkLiveTranslationState = () => {
-      const liveTranslationState = localStorage.getItem("liveTranslation");
-      const targetLanguage = localStorage.getItem("liveTranslationTargetLanguage");
-
-      if (liveTranslationState === "start" && targetLanguage && isValidLocale(targetLanguage)) {
-        // Start translation
-        translatePage(targetLanguage);
-      } else if (liveTranslationState === "restoring") {
-        // Restore original texts
-        restoreOriginalTexts(true);
-        setSelectedLocale(null);
-      }
-    };
-
-    // Check on mount
-    checkLiveTranslationState();
-
-    // Listen for storage changes (when localStorage is updated from message.ts handlers)
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === "liveTranslation" || e.key === "liveTranslationTargetLanguage") {
-        checkLiveTranslationState();
-      }
-    };
-
-    window.addEventListener("storage", handleStorageChange);
-    const interval = setInterval(checkLiveTranslationState, 100);
-
-    return () => {
-      window.removeEventListener("storage", handleStorageChange);
-      clearInterval(interval);
-    };
-  }, [translatePage, restoreOriginalTexts]);
+  }, [liveTranslationState, targetLanguage, translatePage, restoreOriginalTexts]);
 
   if (!SHOW_TRANSLATE_BUTTON) {
     return null;

@@ -168,20 +168,39 @@ function handleParentMessageAction(action: string, args: any, dispatchId?: strin
     case "startLiveTranslation":
       if (args?.targetLanguage && typeof window !== "undefined") {
         // Update local storage
-        localStorage.setItem("liveTranslation", "start");
+        localStorage.setItem("liveTranslation", JSON.stringify("start"));
+        // Dispatch event for useLocalStorage hook
+        window.dispatchEvent(
+          new CustomEvent("local-storage", { detail: { key: "liveTranslation" } }),
+        );
         if (dispatchId) {
-          localStorage.setItem("liveTranslationDispatchId", dispatchId);
+          localStorage.setItem("liveTranslationDispatchId", JSON.stringify(dispatchId));
+          window.dispatchEvent(
+            new CustomEvent("local-storage", { detail: { key: "liveTranslationDispatchId" } }),
+          );
         }
-        localStorage.setItem("liveTranslationTargetLanguage", args.targetLanguage);
+        localStorage.setItem("liveTranslationTargetLanguage", JSON.stringify(args.targetLanguage));
+        window.dispatchEvent(
+          new CustomEvent("local-storage", { detail: { key: "liveTranslationTargetLanguage" } }),
+        );
       }
       break;
 
     case "restoreLiveTranslation":
       if (typeof window !== "undefined") {
         // Update local storage
-        localStorage.setItem("liveTranslation", "restoring");
+        localStorage.setItem("liveTranslation", JSON.stringify("restoring"));
+        // Dispatch custom event for useLocalStorage hook
+        window.dispatchEvent(
+          new CustomEvent("local-storage", { detail: { key: "liveTranslation" } }),
+        );
         if (dispatchId) {
-          localStorage.setItem("restoreLiveTranslationDispatchId", dispatchId);
+          localStorage.setItem("restoreLiveTranslationDispatchId", JSON.stringify(dispatchId));
+          window.dispatchEvent(
+            new CustomEvent("local-storage", {
+              detail: { key: "restoreLiveTranslationDispatchId" },
+            }),
+          );
         }
       }
       break;
@@ -397,6 +416,44 @@ export function dispatchMuseDAMClientAction<T extends keyof ActionMap>(
 }
 
 /**
+ * 向 MuseDAM 父窗口发送 action 结果
+ * @param action - 要发送结果的 action 名称
+ * @param dispatchId - dispatch ID，用于匹配对应的请求
+ * @param result - 结果对象
+ */
+export function dispatchMuseDAMClientActionResult(
+  action: string,
+  dispatchId: string,
+  result: BaseActionResult,
+): void {
+  // 检查是否在浏览器环境
+  if (typeof window === "undefined") {
+    console.warn("dispatchMuseDAMClientActionResult can only be used in browser environment");
+    return;
+  }
+
+  // 检查是否有父窗口
+  if (!window.parent || window.parent === window) {
+    console.warn("No parent window available for communication");
+    return;
+  }
+
+  // 构建 action_result 消息
+  const message = {
+    source: "musedam-app",
+    target: "musedam",
+    type: "action_result",
+    timestamp: new Date().toISOString(),
+    dispatchId,
+    action,
+    result,
+  };
+
+  // 发送消息到父窗口
+  window.parent.postMessage(message, "*");
+}
+
+/**
  * 获取当前待处理的请求数量（用于调试）
  */
 export function getPendingRequestsCount(): number {
@@ -487,95 +544,5 @@ export function triggerTeamSettingsNotification(): void {
     notifyTeamSettingsReady().catch((error) => {
       console.error("Failed to trigger team settings notification:", error);
     });
-  }
-}
-
-// Send action_result for startLiveTranslation
-function notifyStartLiveTranslationResult(
-  dispatchId: string | null,
-  success: boolean,
-  error?: Error,
-): void {
-  if (typeof window === "undefined" || !window.parent || window.parent === window) {
-    return;
-  }
-
-  const finalDispatchId = dispatchId || localStorage.getItem("liveTranslationDispatchId");
-  if (!finalDispatchId) {
-    console.warn("No dispatchId available for startLiveTranslation action_result");
-    return;
-  }
-
-  const message = {
-    source: "musedam-app",
-    target: "musedam",
-    type: "action_result",
-    dispatchId: finalDispatchId,
-    action: "startLiveTranslation",
-    result: success
-      ? { success: true, data: {} }
-      : {
-          success: false,
-          message: error?.message || "Failed to start live translation",
-        },
-    timestamp: new Date().toISOString(),
-  } as const;
-  window.parent.postMessage(message, "*");
-  localStorage.removeItem("liveTranslationDispatchId");
-}
-
-// Send action_result for restoreLiveTranslation
-function notifyRestoreLiveTranslationResult(
-  dispatchId: string | null,
-  success: boolean,
-  error?: Error,
-): void {
-  if (typeof window === "undefined" || !window.parent || window.parent === window) {
-    return;
-  }
-
-  const finalDispatchId = dispatchId || localStorage.getItem("restoreLiveTranslationDispatchId");
-
-  if (!finalDispatchId) {
-    console.warn("No dispatchId available for restoreLiveTranslation action_result");
-    return;
-  }
-
-  const message = {
-    source: "musedam-app",
-    target: "musedam",
-    type: "action_result",
-    dispatchId: finalDispatchId,
-    action: "restoreLiveTranslation",
-    result: success
-      ? { success: true, data: {} }
-      : {
-          success: false,
-          message: error?.message || "Failed to restore live translation",
-        },
-    timestamp: new Date().toISOString(),
-  } as const;
-
-  window.parent.postMessage(message, "*");
-  localStorage.removeItem("restoreLiveTranslationDispatchId");
-}
-
-/**
- * Trigger live translation completed notification
- * Sends action_result to parent window after translation completes
- */
-export function triggerLiveTranslationCompletedNotification(success: boolean, error?: Error): void {
-  if (typeof window !== "undefined") {
-    notifyStartLiveTranslationResult(null, success, error);
-  }
-}
-
-/**
- * Trigger live translation restored notification
- * Sends action_result to parent window after restore completes
- */
-export function triggerLiveTranslationRestoredNotification(success: boolean, error?: Error): void {
-  if (typeof window !== "undefined") {
-    notifyRestoreLiveTranslationResult(null, success, error);
   }
 }
