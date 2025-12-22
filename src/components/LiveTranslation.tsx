@@ -8,7 +8,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { dispatchMuseDAMClientAction, dispatchMuseDAMClientActionResult } from "@/embed/message";
-import { useMockLiveTranslation } from "@/hooks/useMockMessage";
+// import { useMockLiveTranslation } from "@/hooks/useMockMessage";
 import { isValidLocale, locales, type Locale } from "@/i18n/routing";
 import { Languages } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -260,7 +260,7 @@ export function LiveTranslation({}: LiveTranslationProps) {
   const pendingRetranslateRef = useRef(false);
 
   // Mock Post Message for test
-  useMockLiveTranslation();
+  // useMockLiveTranslation();
 
   // Restore original text when component unmounts or locale changes
   const restoreOriginalTexts = useCallback(() => {
