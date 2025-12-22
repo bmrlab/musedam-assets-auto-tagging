@@ -385,7 +385,7 @@ export function LiveTranslation({}: LiveTranslationProps) {
             const result = await dispatchMuseDAMClientAction("batchTranslation", {
               texts: batch,
               sourceLang: "auto",
-              targetLang: targetLang,
+              targetLang: targetLocale,
             });
             const batchTranslations = result.translatedTexts || batch;
             translations.push(...batchTranslations);
@@ -545,7 +545,7 @@ export function LiveTranslation({}: LiveTranslationProps) {
             const result = await dispatchMuseDAMClientAction("batchTranslation", {
               texts: batch,
               sourceLang: "auto",
-              targetLang: targetLang,
+              targetLang: targetLocale,
             });
             const batchTranslations = result.translatedTexts || batch;
             translations.push(...batchTranslations);
