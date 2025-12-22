@@ -347,6 +347,16 @@ type ActionMap = {
       hasPermission: boolean;
     }>;
   };
+  batchTranslation: {
+    args: {
+      texts: string[];
+      sourceLang: string;
+      targetLang: string;
+    };
+    result: BaseActionResult<{
+      translatedTexts: string[];
+    }>;
+  };
 };
 
 type ExtractSuccessData<T> = T extends { success: true; data: infer U } ? U : never;

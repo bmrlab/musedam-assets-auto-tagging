@@ -7,12 +7,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { dispatchMuseDAMClientActionResult } from "@/embed/message";
+import { dispatchMuseDAMClientAction, dispatchMuseDAMClientActionResult } from "@/embed/message";
+import { useMockLiveTranslation } from "@/hooks/useMockMessage";
 import { isValidLocale, locales, type Locale } from "@/i18n/routing";
 import { Languages } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocalStorage } from "usehooks-ts";
-// import { useMockLiveTranslation } from "@/hooks/useMockMessage";
 
 // Map locale codes to language names for the translation API
 const localeToLanguageName: Record<Locale, string> = {
@@ -260,7 +260,7 @@ export function LiveTranslation({}: LiveTranslationProps) {
   const pendingRetranslateRef = useRef(false);
 
   // Mock Post Message for test
-  //   useMockLiveTranslation();
+  useMockLiveTranslation();
 
   // Restore original text when component unmounts or locale changes
   const restoreOriginalTexts = useCallback(() => {
@@ -382,7 +382,12 @@ export function LiveTranslation({}: LiveTranslationProps) {
         if (uncachedTexts.length > 0) {
           for (let i = 0; i < uncachedTexts.length; i += TRANSLATE_BATCH_SIZE) {
             const batch = uncachedTexts.slice(i, i + TRANSLATE_BATCH_SIZE);
-            const batchTranslations = await translateBatchViaAPI(batch, targetLocale);
+            const result = await dispatchMuseDAMClientAction("batchTranslation", {
+              texts: batch,
+              sourceLang: "auto",
+              targetLang: targetLang,
+            });
+            const batchTranslations = result.translatedTexts || batch;
             translations.push(...batchTranslations);
             for (let index = 0; index < batch.length; index++) {
               const original = batch[index];
@@ -537,7 +542,12 @@ export function LiveTranslation({}: LiveTranslationProps) {
         if (uncachedTexts.length > 0) {
           for (let i = 0; i < uncachedTexts.length; i += TRANSLATE_BATCH_SIZE) {
             const batch = uncachedTexts.slice(i, i + TRANSLATE_BATCH_SIZE);
-            const batchTranslations = await translateBatchViaAPI(batch, targetLocale);
+            const result = await dispatchMuseDAMClientAction("batchTranslation", {
+              texts: batch,
+              sourceLang: "auto",
+              targetLang: targetLang,
+            });
+            const batchTranslations = result.translatedTexts || batch;
             translations.push(...batchTranslations);
 
             // Cache the new translations
@@ -820,38 +830,4 @@ export function LiveTranslation({}: LiveTranslationProps) {
       </DropdownMenu>
     </div>
   );
-}
-
-/**
- * Call backend API to translate a batch of texts
- */
-async function translateBatchViaAPI(texts: string[], targetLocale: Locale): Promise<string[]> {
-  try {
-    const response = await fetch("/api/live-translate", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        texts,
-        targetLocale,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `Translation API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    if (data.success && Array.isArray(data.data)) {
-      return data.data;
-    }
-
-    throw new Error("Invalid response format from translation API");
-  } catch (error) {
-    console.error("Batch translation API error:", error);
-    // Fallback: return failed for all texts if API call fails
-    return texts.map(() => "failed");
-  }
 }
