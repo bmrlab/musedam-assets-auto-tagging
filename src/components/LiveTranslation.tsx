@@ -310,15 +310,13 @@ export function LiveTranslation({}: LiveTranslationProps) {
     async (targetLocale: Locale) => {
       if (isTranslatedRef.current && selectedLocale === targetLocale) {
         // Already translated to this locale
-        const dispatchId = localStorage.getItem("liveTranslationDispatchId");
-        if (dispatchId) {
-          const parsedDispatchId = JSON.parse(dispatchId);
+        if (liveTranslationDispatchId) {
           setLiveTranslationState("done");
-          dispatchMuseDAMClientActionResult("startLiveTranslation", parsedDispatchId, {
+          dispatchMuseDAMClientActionResult("startLiveTranslation", liveTranslationDispatchId, {
             success: true,
             data: {},
           });
-          localStorage.removeItem("liveTranslationDispatchId");
+          setLiveTranslationDispatchId(null);
         }
 
         return;
@@ -339,14 +337,12 @@ export function LiveTranslation({}: LiveTranslationProps) {
           isTranslatedRef.current = true;
           setLiveTranslationState("done");
           // Send action_result to parent
-          const dispatchId = localStorage.getItem("liveTranslationDispatchId");
-          if (dispatchId) {
-            const parsedDispatchId = JSON.parse(dispatchId);
-            dispatchMuseDAMClientActionResult("startLiveTranslation", parsedDispatchId, {
+          if (liveTranslationDispatchId) {
+            dispatchMuseDAMClientActionResult("startLiveTranslation", liveTranslationDispatchId, {
               success: true,
               data: {},
             });
-            localStorage.removeItem("liveTranslationDispatchId");
+            setLiveTranslationDispatchId(null);
           }
           setIsTranslating(false);
           return;
@@ -442,14 +438,12 @@ export function LiveTranslation({}: LiveTranslationProps) {
         // Update localStorage
         setLiveTranslationState("done");
         // Send action_result to parent
-        const dispatchId = localStorage.getItem("liveTranslationDispatchId");
-        if (dispatchId) {
-          const parsedDispatchId = JSON.parse(dispatchId);
-          dispatchMuseDAMClientActionResult("startLiveTranslation", parsedDispatchId, {
+        if (liveTranslationDispatchId) {
+          dispatchMuseDAMClientActionResult("startLiveTranslation", liveTranslationDispatchId, {
             success: true,
             data: {},
           });
-          localStorage.removeItem("liveTranslationDispatchId");
+          setLiveTranslationDispatchId(null);
         }
       } catch (error) {
         console.error("Failed to translate page:", error);
@@ -457,14 +451,12 @@ export function LiveTranslation({}: LiveTranslationProps) {
         // Update localStorage on error
         setLiveTranslationState("done");
         // Send action_result to parent
-        const dispatchId = localStorage.getItem("liveTranslationDispatchId");
-        if (dispatchId) {
-          const parsedDispatchId = JSON.parse(dispatchId);
-          dispatchMuseDAMClientActionResult("startLiveTranslation", parsedDispatchId, {
+        if (liveTranslationDispatchId) {
+          dispatchMuseDAMClientActionResult("startLiveTranslation", liveTranslationDispatchId, {
             success: false,
             message: error instanceof Error ? error.message : "Unknown error",
           });
-          localStorage.removeItem("liveTranslationDispatchId");
+          setLiveTranslationDispatchId(null);
         }
       } finally {
         setIsTranslating(false);
@@ -753,6 +745,13 @@ export function LiveTranslation({}: LiveTranslationProps) {
     null,
   );
   const [targetLanguage] = useLocalStorage<string | null>("liveTranslationTargetLanguage", null);
+  const [liveTranslationDispatchId, setLiveTranslationDispatchId] = useLocalStorage<string | null>(
+    "liveTranslationDispatchId",
+    null,
+  );
+  const [restoreLiveTranslationDispatchId, setRestoreLiveTranslationDispatchId] = useLocalStorage<
+    string | null
+  >("restoreLiveTranslationDispatchId", null);
 
   useEffect(() => {
     if (liveTranslationState === "start" && targetLanguage && isValidLocale(targetLanguage)) {
@@ -762,14 +761,16 @@ export function LiveTranslation({}: LiveTranslationProps) {
       // Restore original texts
       restoreOriginalTexts();
       setLiveTranslationState("restored");
-      const dispatchId = localStorage.getItem("restoreLiveTranslationDispatchId");
-      if (dispatchId) {
-        const parsedDispatchId = JSON.parse(dispatchId);
-        dispatchMuseDAMClientActionResult("restoreLiveTranslation", parsedDispatchId, {
-          success: true,
-          data: {},
-        });
-        localStorage.removeItem("restoreLiveTranslationDispatchId");
+      if (restoreLiveTranslationDispatchId) {
+        dispatchMuseDAMClientActionResult(
+          "restoreLiveTranslation",
+          restoreLiveTranslationDispatchId,
+          {
+            success: true,
+            data: {},
+          },
+        );
+        setRestoreLiveTranslationDispatchId(null);
       }
       setSelectedLocale(null);
     }

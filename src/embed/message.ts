@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { TagRecord } from "@/app/tags/types";
+import { setLocalStorageWithEvent } from "@/hooks/use-local-storage-event";
 import { isValidLocale } from "@/i18n/routing";
 import { MuseDAMID } from "@/musedam/types";
 import Cookies from "js-cookie";
@@ -167,41 +168,16 @@ function handleParentMessageAction(action: string, args: any, dispatchId?: strin
 
     case "startLiveTranslation":
       if (args?.targetLanguage && typeof window !== "undefined") {
-        // Update local storage
-        localStorage.setItem("liveTranslation", JSON.stringify("start"));
-        // Dispatch event for useLocalStorage hook
-        window.dispatchEvent(
-          new CustomEvent("local-storage", { detail: { key: "liveTranslation" } }),
-        );
-        if (dispatchId) {
-          localStorage.setItem("liveTranslationDispatchId", JSON.stringify(dispatchId));
-          window.dispatchEvent(
-            new CustomEvent("local-storage", { detail: { key: "liveTranslationDispatchId" } }),
-          );
-        }
-        localStorage.setItem("liveTranslationTargetLanguage", JSON.stringify(args.targetLanguage));
-        window.dispatchEvent(
-          new CustomEvent("local-storage", { detail: { key: "liveTranslationTargetLanguage" } }),
-        );
+        setLocalStorageWithEvent("liveTranslation", "start");
+        setLocalStorageWithEvent("liveTranslationDispatchId", dispatchId ?? null);
+        setLocalStorageWithEvent("liveTranslationTargetLanguage", args.targetLanguage);
       }
       break;
 
     case "restoreLiveTranslation":
       if (typeof window !== "undefined") {
-        // Update local storage
-        localStorage.setItem("liveTranslation", JSON.stringify("restoring"));
-        // Dispatch custom event for useLocalStorage hook
-        window.dispatchEvent(
-          new CustomEvent("local-storage", { detail: { key: "liveTranslation" } }),
-        );
-        if (dispatchId) {
-          localStorage.setItem("restoreLiveTranslationDispatchId", JSON.stringify(dispatchId));
-          window.dispatchEvent(
-            new CustomEvent("local-storage", {
-              detail: { key: "restoreLiveTranslationDispatchId" },
-            }),
-          );
-        }
+        setLocalStorageWithEvent("liveTranslation", "restoring");
+        setLocalStorageWithEvent("restoreLiveTranslationDispatchId", dispatchId ?? null);
       }
       break;
 
