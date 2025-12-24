@@ -244,9 +244,7 @@ function extractTextNodes(root: Node = document.body): TextNodeData[] {
   return textNodes;
 }
 
-interface LiveTranslationProps {}
-
-export function LiveTranslation({}: LiveTranslationProps) {
+export function LiveTranslation() {
   const [selectedLocale, setSelectedLocale] = useState<Locale | null>(null);
   const [isTranslating, setIsTranslating] = useState(false);
   const originalTextsRef = useRef<Map<Node, string>>(new Map());
@@ -258,6 +256,20 @@ export function LiveTranslation({}: LiveTranslationProps) {
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isTranslatingNewContentRef = useRef(false);
   const pendingRetranslateRef = useRef(false);
+
+  // Check localStorage for live translation actions
+  const [liveTranslationState, setLiveTranslationState] = useLocalStorage<string | null>(
+    "liveTranslation",
+    null,
+  );
+  const [targetLanguage] = useLocalStorage<string | null>("liveTranslationTargetLanguage", null);
+  const [liveTranslationDispatchId, setLiveTranslationDispatchId] = useLocalStorage<string | null>(
+    "liveTranslationDispatchId",
+    null,
+  );
+  const [restoreLiveTranslationDispatchId, setRestoreLiveTranslationDispatchId] = useLocalStorage<
+    string | null
+  >("restoreLiveTranslationDispatchId", null);
 
   // Mock Post Message for test
   // useMockLiveTranslation();
@@ -462,7 +474,13 @@ export function LiveTranslation({}: LiveTranslationProps) {
         setIsTranslating(false);
       }
     },
-    [selectedLocale, restoreOriginalTexts],
+    [
+      selectedLocale,
+      restoreOriginalTexts,
+      liveTranslationDispatchId,
+      setLiveTranslationDispatchId,
+      setLiveTranslationState,
+    ],
   );
 
   /**
@@ -483,14 +501,14 @@ export function LiveTranslation({}: LiveTranslationProps) {
         // 1. Get new text nodes
         const allTextNodes = extractTextNodes();
         const newTextNodes = allTextNodes.filter(
-          ({ node, originalText, isPlaceholder, isValue, inputElement }) => {
+          ({ node, isPlaceholder, isValue, inputElement }) => {
             if (isPlaceholder && inputElement) {
               return !originalPlaceholdersRef.current.has(inputElement);
-            } else if (isValue && inputElement) {
-              return !originalValuesRef.current.has(inputElement);
-            } else {
-              return !originalTextsRef.current.has(node);
             }
+            if (isValue && inputElement) {
+              return !originalValuesRef.current.has(inputElement);
+            }
+            return !originalTextsRef.current.has(node);
           },
         );
         if (newTextNodes.length === 0) {
@@ -739,20 +757,6 @@ export function LiveTranslation({}: LiveTranslationProps) {
     };
   }, [restoreOriginalTexts]);
 
-  // Check localStorage for live translation actions
-  const [liveTranslationState, setLiveTranslationState] = useLocalStorage<string | null>(
-    "liveTranslation",
-    null,
-  );
-  const [targetLanguage] = useLocalStorage<string | null>("liveTranslationTargetLanguage", null);
-  const [liveTranslationDispatchId, setLiveTranslationDispatchId] = useLocalStorage<string | null>(
-    "liveTranslationDispatchId",
-    null,
-  );
-  const [restoreLiveTranslationDispatchId, setRestoreLiveTranslationDispatchId] = useLocalStorage<
-    string | null
-  >("restoreLiveTranslationDispatchId", null);
-
   useEffect(() => {
     if (liveTranslationState === "start" && targetLanguage && isValidLocale(targetLanguage)) {
       // Start translation
@@ -774,7 +778,15 @@ export function LiveTranslation({}: LiveTranslationProps) {
       }
       setSelectedLocale(null);
     }
-  }, [liveTranslationState, targetLanguage, translatePage, restoreOriginalTexts]);
+  }, [
+    liveTranslationState,
+    targetLanguage,
+    translatePage,
+    restoreOriginalTexts,
+    restoreLiveTranslationDispatchId,
+    setLiveTranslationState,
+    setRestoreLiveTranslationDispatchId,
+  ]);
 
   if (!SHOW_TRANSLATE_BUTTON) {
     return null;
