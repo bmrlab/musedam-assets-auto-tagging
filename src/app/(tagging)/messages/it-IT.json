@@ -30,7 +30,30 @@
             "weeklyTagging": "Etichettatura settimanale",
             "paginationInfo": "{current} / {total} elementi",
             "emptyTagErrorMsg": "Nessun sistema di tag. Crea prima un sistema di tag~",
-            "noAppropriateTagErrorMsg": "Non ci sono tag adatti nel sistema di tag attuale"
+            "noAppropriateTagErrorMsg": "Non ci sono tag adatti nel sistema di tag attuale",
+            "dayNames": {
+                "0": "Domenica",
+                "1": "Lunedì",
+                "2": "Martedì",
+                "3": "Mercoledì",
+                "4": "Giovedì",
+                "5": "Venerdì",
+                "6": "Sabato"
+            },
+            "monthNames": {
+                "0": "Gennaio",
+                "1": "Febbraio",
+                "2": "Marzo",
+                "3": "Aprile",
+                "4": "Maggio",
+                "5": "Giugno",
+                "6": "Luglio",
+                "7": "Agosto",
+                "8": "Settembre",
+                "9": "Ottobre",
+                "10": "Novembre",
+                "11": "Dicembre"
+            }
         },
         "Settings": {
             "title": "Interruttore etichettatura",

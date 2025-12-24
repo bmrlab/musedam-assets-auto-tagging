@@ -30,7 +30,30 @@
             "weeklyTagging": "Tagowanie tygodniowe",
             "paginationInfo": "{current} / {total} elementów",
             "emptyTagErrorMsg": "Brak systemu tagów. Najpierw utwórz system tagów~",
-            "noAppropriateTagErrorMsg": "W obecnym systemie tagów nie ma odpowiednich tagów"
+            "noAppropriateTagErrorMsg": "W obecnym systemie tagów nie ma odpowiednich tagów",
+            "dayNames": {
+                "0": "Niedziela",
+                "1": "Poniedziałek",
+                "2": "Wtorek",
+                "3": "Środa",
+                "4": "Czwartek",
+                "5": "Piątek",
+                "6": "Sobota"
+            },
+            "monthNames": {
+                "0": "Styczeń",
+                "1": "Luty",
+                "2": "Marzec",
+                "3": "Kwiecień",
+                "4": "Maj",
+                "5": "Czerwiec",
+                "6": "Lipiec",
+                "7": "Sierpień",
+                "8": "Wrzesień",
+                "9": "Październik",
+                "10": "Listopad",
+                "11": "Grudzień"
+            }
         },
         "Settings": {
             "title": "Przełącznik tagowania",

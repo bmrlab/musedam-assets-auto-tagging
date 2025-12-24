@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { TagRecord } from "@/app/tags/types";
+import { setLocalStorageWithEvent } from "@/hooks/use-local-storage-event";
 import { isValidLocale } from "@/i18n/routing";
 import { MuseDAMID } from "@/musedam/types";
 import Cookies from "js-cookie";
@@ -81,12 +82,12 @@ function initializeMessageListener() {
       message.type === "action" &&
       message.action
     ) {
-      handleParentConfigUpdate(message.action, message.args);
+      handleParentMessageAction(message.action, message.args, message.dispatchId);
       // 支持异步返回结果的查询类 action
       // if (message.action === "checkUserPermission") {
       //   handleCheckUserPermission(message.dispatchId);
       // } else {
-      //   handleParentConfigUpdate(message.action, message.args);
+      //   handleParentMessageAction(message.action, message.args);
       // }
     }
   });
@@ -120,8 +121,8 @@ if (typeof window !== "undefined") {
   }
 }
 
-// 处理来自父项目的配置更新事件
-function handleParentConfigUpdate(action: string, args: any) {
+// 处理来自父项目的Action事件
+function handleParentMessageAction(action: string, args: any, dispatchId?: string) {
   switch (action) {
     case "updateLocale":
       if (args?.locale && typeof window !== "undefined") {
@@ -162,6 +163,21 @@ function handleParentConfigUpdate(action: string, args: any) {
           const event = new CustomEvent("theme-change", { detail: { theme: args.theme } });
           window.dispatchEvent(event);
         }
+      }
+      break;
+
+    case "startLiveTranslation":
+      if (args?.targetLanguage && typeof window !== "undefined") {
+        setLocalStorageWithEvent("liveTranslation", "start");
+        setLocalStorageWithEvent("liveTranslationDispatchId", dispatchId ?? null);
+        setLocalStorageWithEvent("liveTranslationTargetLanguage", args.targetLanguage);
+      }
+      break;
+
+    case "restoreLiveTranslation":
+      if (typeof window !== "undefined") {
+        setLocalStorageWithEvent("liveTranslation", "restoring");
+        setLocalStorageWithEvent("restoreLiveTranslationDispatchId", dispatchId ?? null);
       }
       break;
 
@@ -307,6 +323,16 @@ type ActionMap = {
       hasPermission: boolean;
     }>;
   };
+  batchTranslation: {
+    args: {
+      texts: string[];
+      sourceLang: string;
+      targetLang: string;
+    };
+    result: BaseActionResult<{
+      translatedTexts: string[];
+    }>;
+  };
 };
 
 type ExtractSuccessData<T> = T extends { success: true; data: infer U } ? U : never;
@@ -373,6 +399,44 @@ export function dispatchMuseDAMClientAction<T extends keyof ActionMap>(
   // });
 
   return promise;
+}
+
+/**
+ * 向 MuseDAM 父窗口发送 action 结果
+ * @param action - 要发送结果的 action 名称
+ * @param dispatchId - dispatch ID，用于匹配对应的请求
+ * @param result - 结果对象
+ */
+export function dispatchMuseDAMClientActionResult(
+  action: string,
+  dispatchId: string,
+  result: BaseActionResult,
+): void {
+  // 检查是否在浏览器环境
+  if (typeof window === "undefined") {
+    console.warn("dispatchMuseDAMClientActionResult can only be used in browser environment");
+    return;
+  }
+
+  // 检查是否有父窗口
+  if (!window.parent || window.parent === window) {
+    console.warn("No parent window available for communication");
+    return;
+  }
+
+  // 构建 action_result 消息
+  const message = {
+    source: "musedam-app",
+    target: "musedam",
+    type: "action_result",
+    timestamp: new Date().toISOString(),
+    dispatchId,
+    action,
+    result,
+  };
+
+  // 发送消息到父窗口
+  window.parent.postMessage(message, "*");
 }
 
 /**

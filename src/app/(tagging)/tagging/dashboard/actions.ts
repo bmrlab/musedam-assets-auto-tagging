@@ -8,6 +8,7 @@ import {
   TaggingQueueStatus,
 } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
+import { getTranslations } from "next-intl/server";
 
 export type DashboardStats = {
   totalCompleted: number;
@@ -356,6 +357,7 @@ export async function fetchWeeklyTaggingData(): Promise<
 > {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
+      const t = await getTranslations("Tagging.Dashboard");
       const today = new Date();
       const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
@@ -373,7 +375,15 @@ export async function fetchWeeklyTaggingData(): Promise<
         },
       });
 
-      const dayNames = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+      const dayNames = [
+        t("dayNames.0"),
+        t("dayNames.1"),
+        t("dayNames.2"),
+        t("dayNames.3"),
+        t("dayNames.4"),
+        t("dayNames.5"),
+        t("dayNames.6"),
+      ];
       const data = Array.from({ length: 7 }, (_, i) => {
         const date = new Date(weekAgo);
         date.setDate(weekAgo.getDate() + i);
@@ -505,20 +515,21 @@ export async function fetchMonthlyTrend(): Promise<
 > {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
+      const t = await getTranslations("Tagging.Dashboard");
       const months = [];
       const monthNames = [
-        "1月",
-        "2月",
-        "3月",
-        "4月",
-        "5月",
-        "6月",
-        "7月",
-        "8月",
-        "9月",
-        "10月",
-        "11月",
-        "12月",
+        t("monthNames.0"),
+        t("monthNames.1"),
+        t("monthNames.2"),
+        t("monthNames.3"),
+        t("monthNames.4"),
+        t("monthNames.5"),
+        t("monthNames.6"),
+        t("monthNames.7"),
+        t("monthNames.8"),
+        t("monthNames.9"),
+        t("monthNames.10"),
+        t("monthNames.11"),
       ];
 
       for (let i = 11; i >= 0; i--) {

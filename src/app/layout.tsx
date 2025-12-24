@@ -4,11 +4,12 @@ import type { Metadata } from "next";
 import { getLocale } from "next-intl/server";
 // import { SessionProvider } from "next-auth/react";  // SessionProvider 只能在 client 使用，需要 创建一个新文件 AuthProvider 然后 use client;
 import { AuthProvider } from "@/components/AuthProvider";
+import { LiveTranslation } from "@/components/LiveTranslation";
+import { PageLoadingFallback } from "@/components/PageLoadingFallback";
 import { Embed } from "@/embed/Embed";
 import { NextIntlClientProvider } from "next-intl";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Suspense } from "react";
-import { PageLoadingFallback } from "@/components/PageLoadingFallback";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -42,7 +43,7 @@ export default async function RootLayout({
           disableTransitionOnChange
         >
           <AuthProvider>
-            <NextIntlClientProvider >
+            <NextIntlClientProvider>
               <Suspense
                 fallback={
                   <div className="h-dvh w-dvw flex flex-col items-stretch justify-start bg-background">
@@ -59,6 +60,7 @@ export default async function RootLayout({
         <Suspense fallback={null}>
           <Embed locale={locale} />
         </Suspense>
+        <LiveTranslation />
       </body>
     </html>
   );
