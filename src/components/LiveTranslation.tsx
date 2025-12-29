@@ -244,9 +244,7 @@ function extractTextNodes(root: Node = document.body): TextNodeData[] {
   return textNodes;
 }
 
-interface LiveTranslationProps {}
-
-export function LiveTranslation({}: LiveTranslationProps) {
+export function LiveTranslation() {
   const [selectedLocale, setSelectedLocale] = useState<Locale | null>(null);
   const [isTranslating, setIsTranslating] = useState(false);
   const originalTextsRef = useRef<Map<Node, string>>(new Map());

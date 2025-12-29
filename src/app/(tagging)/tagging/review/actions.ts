@@ -16,9 +16,6 @@ import {
 } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 
-// 设置 Server Action 最大执行时间为 60 秒
-export const maxDuration = 60;
-
 // 辅助函数：从 MuseDAM 标签构建 AssetObjectTags
 async function buildAssetObjectTags(
   musedamTags: { id: MuseDAMID; name: string }[],
@@ -320,7 +317,9 @@ export async function approveAuditItemsAction({
 
       // 从 MuseDAM 获取更新后的素材标签并同步到本地数据库
       const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
-      const assets = await requestMuseDAMAPI<{ id: MuseDAMID; tags?: { id: MuseDAMID; name: string }[] | null }[]>("/api/muse/assets-by-ids", {
+      const assets = await requestMuseDAMAPI<
+        { id: MuseDAMID; tags?: { id: MuseDAMID; name: string }[] | null }[]
+      >("/api/muse/assets-by-ids", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${musedamTeamApiKey}`,
@@ -331,7 +330,7 @@ export async function approveAuditItemsAction({
 
       if (Array.isArray(assets) && assets.length > 0) {
         const musedamAsset = assets[0];
-        
+
         // 检查 tags 字段是否存在且格式正确
         if (musedamAsset?.tags && Array.isArray(musedamAsset.tags)) {
           const tags = await buildAssetObjectTags(musedamAsset.tags);
@@ -360,7 +359,7 @@ export async function approveAuditItemsAction({
     } catch (error) {
       console.error("approveAuditItemsAction 执行失败:", error);
       const errorMessage = error instanceof Error ? error.message : "操作失败，请稍后重试";
-      
+
       // 如果是超时错误，返回更友好的提示
       if (errorMessage.includes("timeout")) {
         return {
@@ -368,7 +367,7 @@ export async function approveAuditItemsAction({
           message: "操作超时，请稍后重试",
         };
       }
-      
+
       return {
         success: false,
         message: errorMessage,
