@@ -449,12 +449,52 @@ export async function batchCreateTags(
           syncResult = syncResponse.data;
         } else {
           console.error("Sync to MuseDAM failed:", syncResponse.message);
+          return {
+            success: false,
+            message: syncResponse.message || "同步到 MuseDAM 失败，无法创建标签",
+          };
         }
       } catch (error) {
         console.error("Sync to MuseDAM error:", error);
-        // MuseDAM 同步失败不影响本地保存结果
+        return {
+          success: false,
+          message:
+            error instanceof Error ? error.message : "同步到 MuseDAM 时发生错误，无法创建标签",
+        };
       }
-      // console.log("syncResult------", syncResult);
+      // 检查所有标签是否都有 slug
+      if (!syncResult || !syncResult.createdTagMapping) {
+        return {
+          success: false,
+          message: "同步结果无效，无法创建标签",
+        };
+      }
+
+      // 递归收集所有需要创建的标签的 tempId
+      const collectTempIds = (nodes: TagNode[]): string[] => {
+        const tempIds: string[] = [];
+        for (const node of nodes) {
+          if (node.verb === "create" && node.tempId) {
+            tempIds.push(node.tempId);
+            if (node.children && node.children.length > 0) {
+              tempIds.push(...collectTempIds(node.children));
+            }
+          }
+        }
+        return tempIds;
+      };
+
+      const allTempIds = collectTempIds(tagsTree);
+      const missingSlugTags = allTempIds.filter(
+        (tempId) => !syncResult.createdTagMapping.has(tempId),
+      );
+
+      if (missingSlugTags.length > 0) {
+        return {
+          success: false,
+          message: `部分标签无法获取 slug，无法创建标签`,
+        };
+      }
       if (addType === 1) {
         // 仅保留新建标签树：删除所有现有标签，然后批量创建新标签
         await prisma.$transaction(
@@ -543,17 +583,26 @@ async function createTagsBatch(
       ? `${tempIdPrefix}_${index}`
       : `batch_${baseTs ?? Date.now()}_${index}`;
 
+    let slug: string | null = null;
     let sortValue: number | undefined = undefined;
     if (syncResult && syncResult.createdTagMapping && musedamSortMap) {
       const musedamId = syncResult.createdTagMapping.get(currentTempId);
-      const idNum = Number(musedamId as unknown as number);
-      if (!Number.isNaN(idNum)) {
-        const s = musedamSortMap.get(idNum);
-        if (typeof s === "number") sortValue = s;
+      if (musedamId) {
+        slug = idToSlug("assetTag", musedamId);
+        const idNum = Number(musedamId as unknown as number);
+        if (!Number.isNaN(idNum)) {
+          const s = musedamSortMap.get(idNum);
+          if (typeof s === "number") sortValue = s;
+        }
       }
       if (sortValue === undefined && syncResult.tags && syncResult.tags.length > 0) {
         sortValue = getSortByTempIdPath(syncResult.tags, currentTempId);
       }
+    }
+
+    // 如果没有 slug，抛出错误
+    if (!slug) {
+      throw new Error(`标签 "${item.name}" 无法获取 slug，无法创建`);
     }
 
     return {
@@ -562,6 +611,7 @@ async function createTagsBatch(
         name: item.name.trim(),
         level,
         parentId,
+        slug,
         ...(sortValue !== undefined ? { sort: sortValue } : {}),
       },
       tempId: currentTempId,
@@ -569,7 +619,7 @@ async function createTagsBatch(
     };
   });
 
-  // 批量创建标签
+  // 批量创建标签（已包含 slug）
   const createdTags = await Promise.all(
     createData.map(async ({ data, tempId, nameChildList }) => {
       const createdTag = await tx.assetTag.create({ data });
@@ -577,24 +627,6 @@ async function createTagsBatch(
       return { createdTag, tempId, nameChildList };
     }),
   );
-
-  // 批量更新 slug（如果有同步结果）
-  if (syncResult && syncResult.createdTagMapping) {
-    const updatePromises = createdTags
-      .filter(({ tempId }) => syncResult.createdTagMapping.has(tempId))
-      .map(async ({ createdTag, tempId }) => {
-        const musedamId = syncResult.createdTagMapping.get(tempId);
-        if (musedamId) {
-          const slug = idToSlug("assetTag", musedamId);
-          return tx.assetTag.update({
-            where: { id: createdTag.id },
-            data: { slug },
-          });
-        }
-      });
-
-    await Promise.all(updatePromises.filter(Boolean));
-  }
 
   // 递归处理子标签
   for (const { createdTag, tempId, nameChildList } of createdTags) {
@@ -623,6 +655,7 @@ type CreateTagData = {
   name: string;
   level: number;
   parentId: number | null;
+  slug: string | null;
   sort?: number;
 };
 
@@ -661,24 +694,35 @@ async function createTagsBatchWithExistingCheck(
       tagIdMap.set(currentTempId, existingId);
     } else {
       // 需要创建新标签
+      let slug: string | null = null;
       let sortValue: number | undefined = undefined;
       if (syncResult && syncResult.createdTagMapping && musedamSortMap) {
         const musedamId = syncResult.createdTagMapping.get(currentTempId);
-        const idNum = Number(musedamId as unknown as number);
-        if (!Number.isNaN(idNum)) {
-          const s = musedamSortMap.get(idNum);
-          if (typeof s === "number") sortValue = s;
+        if (musedamId) {
+          slug = idToSlug("assetTag", musedamId);
+          const idNum = Number(musedamId as unknown as number);
+          if (!Number.isNaN(idNum)) {
+            const s = musedamSortMap.get(idNum);
+            if (typeof s === "number") sortValue = s;
+          }
         }
         if (sortValue === undefined && syncResult.tags && syncResult.tags.length > 0) {
           sortValue = getSortByTempIdPath(syncResult.tags, currentTempId);
         }
       }
+
+      // 如果没有 slug，抛出错误
+      if (!slug) {
+        throw new Error(`标签 "${item.name}" 无法获取 slug，无法创建`);
+      }
+
       createData.push({
         data: {
           teamId,
           name: item.name.trim(),
           level,
           parentId,
+          slug,
           ...(sortValue !== undefined ? { sort: sortValue } : {}),
         },
         tempId: currentTempId,
@@ -688,7 +732,7 @@ async function createTagsBatchWithExistingCheck(
     }
   }
 
-  // 批量创建新标签
+  // 批量创建新标签（已包含 slug）
   if (createData.length > 0) {
     const createdTags = await Promise.all(
       createData.map(async ({ data, tempId, nameChildList, isNew }) => {
@@ -700,25 +744,6 @@ async function createTagsBatchWithExistingCheck(
         return null;
       }),
     );
-
-    // 批量更新 slug
-    if (syncResult && syncResult.createdTagMapping) {
-      const updatePromises = createdTags
-        .filter((item): item is NonNullable<typeof item> => item !== null)
-        .filter(({ tempId }) => syncResult.createdTagMapping.has(tempId))
-        .map(async ({ createdTag, tempId }) => {
-          const musedamId = syncResult.createdTagMapping.get(tempId);
-          if (musedamId) {
-            const slug = idToSlug("assetTag", musedamId);
-            return tx.assetTag.update({
-              where: { id: createdTag.id },
-              data: { slug },
-            });
-          }
-        });
-
-      await Promise.all(updatePromises.filter(Boolean));
-    }
 
     // 递归处理子标签
     for (const item of createdTags.filter(Boolean)) {
