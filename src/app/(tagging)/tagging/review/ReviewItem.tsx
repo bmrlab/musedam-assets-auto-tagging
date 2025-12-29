@@ -113,11 +113,22 @@ export function ReviewItem({ assetObject, batch, onSuccess, CheckboxComponent, b
         return;
       }
       try {
-        await approveAuditItemsAction({
+        const result = await approveAuditItemsAction({
           assetObject,
           auditItems: allAuditItems,
           append,
         });
+        if (!result.success) {
+          const errorMsg = result.message;
+          if (errorMsg === 'Asset not found') {
+            await rejectAuditItemsAction({ assetObject });
+            toast.warning(t("assetDeleted"))
+            onSuccess?.();
+            return
+          }
+          toast.error(errorMsg || t("applyFailed"));
+          return;
+        }
         toast.success(t("applySuccess"));
         onSuccess?.();
       } catch (error: unknown) {

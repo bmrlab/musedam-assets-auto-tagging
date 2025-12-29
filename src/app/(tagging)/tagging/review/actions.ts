@@ -16,6 +16,9 @@ import {
 } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 
+// 设置 Server Action 最大执行时间为 60 秒
+export const maxDuration = 60;
+
 // 辅助函数：从 MuseDAM 标签构建 AssetObjectTags
 async function buildAssetObjectTags(
   musedamTags: { id: MuseDAMID; name: string }[],
@@ -278,79 +281,99 @@ export async function approveAuditItemsAction({
   append?: boolean;
 }): Promise<ServerActionResult<void>> {
   return withAuth(async ({ team: { id: teamId } }) => {
-    const team = await prisma.team.findUniqueOrThrow({
-      where: { id: teamId },
-      select: { id: true, slug: true },
-    });
-
-    const musedamAssetId = slugToId("assetObject", assetObject.slug);
-
-    // 判断素材是否还在素材库
-    await syncSingleAssetFromMuseDAM({
-      musedamAssetId,
-      team,
-    });
-
-    const approvedAsetTags = await prisma.assetTag.findMany({
-      where: {
-        id: {
-          in: auditItems
-            .filter(({ leafTagId, status }) => leafTagId && status === "approved")
-            .map(({ leafTagId }) => leafTagId!),
-        },
-        slug: {
-          not: null,
-        },
-      },
-      select: { id: true, slug: true },
-    });
-
-    const musedamTagIds = approvedAsetTags.map((tag) => slugToId("assetTag", tag.slug!));
-
-    await setAssetTagsToMuseDAM({
-      musedamAssetId,
-      musedamTagIds,
-      team,
-      append,
-    });
-
-    // 从 MuseDAM 获取更新后的素材标签并同步到本地数据库
-    const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
-    const assets = await requestMuseDAMAPI<{ id: MuseDAMID }[]>("/api/muse/assets-by-ids", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${musedamTeamApiKey}`,
-      },
-      body: [musedamAssetId],
-    });
-
-    if (assets && assets.length > 0) {
-      const musedamAsset = assets[0] as {
-        id: MuseDAMID;
-        tags: { id: MuseDAMID; name: string }[] | null;
-      };
-      const tags = await buildAssetObjectTags(musedamAsset.tags ?? []);
-
-      // 更新本地素材的 tags 字段
-      await prisma.assetObject.update({
-        where: { id: assetObject.id },
-        data: { tags },
+    try {
+      const team = await prisma.team.findUniqueOrThrow({
+        where: { id: teamId },
+        select: { id: true, slug: true },
       });
-    }
 
-    await prisma.$transaction(async (tx) => {
-      for (const { id, status } of auditItems) {
-        await tx.taggingAuditItem.update({
-          where: { id },
-          data: { status },
-        });
+      const musedamAssetId = slugToId("assetObject", assetObject.slug);
+
+      // 判断素材是否还在素材库
+      await syncSingleAssetFromMuseDAM({
+        musedamAssetId,
+        team,
+      });
+
+      const approvedAsetTags = await prisma.assetTag.findMany({
+        where: {
+          id: {
+            in: auditItems
+              .filter(({ leafTagId, status }) => leafTagId && status === "approved")
+              .map(({ leafTagId }) => leafTagId!),
+          },
+          slug: {
+            not: null,
+          },
+        },
+        select: { id: true, slug: true },
+      });
+
+      const musedamTagIds = approvedAsetTags.map((tag) => slugToId("assetTag", tag.slug!));
+
+      await setAssetTagsToMuseDAM({
+        musedamAssetId,
+        musedamTagIds,
+        team,
+        append,
+      });
+
+      // 从 MuseDAM 获取更新后的素材标签并同步到本地数据库
+      const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
+      const assets = await requestMuseDAMAPI<{ id: MuseDAMID; tags?: { id: MuseDAMID; name: string }[] | null }[]>("/api/muse/assets-by-ids", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${musedamTeamApiKey}`,
+        },
+        body: [musedamAssetId],
+        timeout: 45000, // 45 秒超时
+      });
+
+      if (Array.isArray(assets) && assets.length > 0) {
+        const musedamAsset = assets[0];
+        
+        // 检查 tags 字段是否存在且格式正确
+        if (musedamAsset?.tags && Array.isArray(musedamAsset.tags)) {
+          const tags = await buildAssetObjectTags(musedamAsset.tags);
+
+          // 更新本地素材的 tags 字段
+          await prisma.assetObject.update({
+            where: { id: assetObject.id },
+            data: { tags },
+          });
+        }
       }
-    });
 
-    return {
-      success: true,
-      data: undefined,
-    };
+      await prisma.$transaction(async (tx) => {
+        for (const { id, status } of auditItems) {
+          await tx.taggingAuditItem.update({
+            where: { id },
+            data: { status },
+          });
+        }
+      });
+
+      return {
+        success: true,
+        data: undefined,
+      };
+    } catch (error) {
+      console.error("approveAuditItemsAction 执行失败:", error);
+      const errorMessage = error instanceof Error ? error.message : "操作失败，请稍后重试";
+      
+      // 如果是超时错误，返回更友好的提示
+      if (errorMessage.includes("timeout")) {
+        return {
+          success: false,
+          message: "操作超时，请稍后重试",
+        };
+      }
+      
+      return {
+        success: false,
+        message: errorMessage,
+      };
+    }
   });
 }
 

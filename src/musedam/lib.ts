@@ -27,7 +27,13 @@ export async function requestMuseDAMAPI<T = unknown>(
     method,
     body,
     headers,
-  }: { method: "POST" | "GET"; body?: unknown; headers?: Record<string, string> },
+    timeout = 30000, // 默认 30 秒超时
+  }: {
+    method: "POST" | "GET";
+    body?: unknown;
+    headers?: Record<string, string>;
+    timeout?: number;
+  },
 ): Promise<T> {
   const url = `${process.env.MUSEDAM_API_BASE_URL}${apiPath}`;
   const requestHeaders = {
@@ -42,21 +48,37 @@ export async function requestMuseDAMAPI<T = unknown>(
   // console.log("🔗 Curl Command:");
   // console.log(curlCommand);
 
-  const response = await fetch(url, {
-    method: method,
-    body: requestBody,
-    headers: requestHeaders,
-  });
-  // console.log("response", response)
-  if (!response.ok) {
-    const errorMsg = `MuseDAM API ${url} request failed, status code: ${response?.status}`;
-    throw new Error(errorMsg);
-  }
-  const result = await response.json();
+  // 使用 AbortController 实现超时
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-  if (result["code"] + "" !== "0") {
-    const errorMsg = `MuseDAM API request failed ${curlCommand}, status code: ${response.status}, message: ${result["message"]}`;
-    throw new Error(errorMsg);
+  try {
+    const response = await fetch(url, {
+      method: method,
+      body: requestBody,
+      headers: requestHeaders,
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    // console.log("response", response)
+    if (!response.ok) {
+      const errorMsg = `MuseDAM API ${url} request failed, status code: ${response?.status}`;
+      throw new Error(errorMsg);
+    }
+    const result = await response.json();
+
+    if (result["code"] + "" !== "0") {
+      const errorMsg = `MuseDAM API request failed ${curlCommand}, status code: ${response.status}, message: ${result["message"]}`;
+      throw new Error(errorMsg);
+    }
+    return (result["result"] ?? result["data"] ?? {}) as T;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error(`MuseDAM API ${url} request timeout after ${timeout}ms`);
+    }
+    throw error;
   }
-  return (result["result"] ?? result["data"] ?? {}) as T;
 }
