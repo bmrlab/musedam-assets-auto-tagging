@@ -15,6 +15,9 @@ export async function GET() {
     return NextResponse.json({ success: true, data: result });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json({ success: false, message }, { status: 500 });
+    // 权限检查失败时返回 403 Forbidden，而不是 500 Internal Server Error
+    // 这样 postmessage 中的 res.ok 会正确返回 false
+    const status = error instanceof Error && error.message === "Permission denied" ? 403 : 500;
+    return NextResponse.json({ success: false, message }, { status });
   }
 }
