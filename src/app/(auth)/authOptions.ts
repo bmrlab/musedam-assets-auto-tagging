@@ -54,6 +54,7 @@ const authOptions: NextAuthOptions = {
             teamSlug: session.team.slug,
           };
         }
+        // 检测到团队切换，需要验证新团队的权限
         // 使用 createUserAndTeam 来处理用户和团队的创建或获取
         // 该函数现在会智能处理已存在的情况
         const { user, team } = await createUserAndTeam({
@@ -64,7 +65,9 @@ const authOptions: NextAuthOptions = {
           await checkUserPermission({ user, team });
         } catch (error) {
           console.log(error);
-          throw error;
+          // 权限检查失败时返回 null，这样 NextAuth 会拒绝登录
+          // 前端需要处理这个错误并清除旧的 session
+          return null;
         }
         return {
           id: user.id,

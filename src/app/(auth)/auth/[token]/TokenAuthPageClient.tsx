@@ -2,7 +2,7 @@
 import { PageLoadingFallback } from "@/components/PageLoadingFallback";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLocaleClient } from "@/i18n/client";
-import { signIn } from "next-auth/react";
+import { signIn, signOut } from "next-auth/react";
 import { Locale } from "next-intl";
 import { useTheme } from "next-themes";
 import Link from "next/link";
@@ -35,7 +35,10 @@ export function TokenAuthPageClient({
     })
       .then((result) => {
         if (result?.error) {
-          setError(result.error);
+          // 如果登录失败，清除旧的 session，避免使用旧团队的数据
+          signOut({ redirect: false }).then(() => {
+            setError(result.error);
+          });
         } else {
           router.replace(callbackUrl);
         }
