@@ -190,6 +190,73 @@ export async function syncSingleAssetFromMuseDAM({
   return { assetObject, musedamAsset };
 }
 
+/**
+ * 批量同步资产的 thumbnailAccessUrl（轻量级，只更新缩略图URL，防止签名过期）
+ */
+export async function batchSyncAssetThumbnails({
+  musedamAssetIds,
+  team,
+}: {
+  musedamAssetIds: MuseDAMID[];
+  team: {
+    id: number;
+    slug: string;
+  };
+}): Promise<void> {
+  if (musedamAssetIds.length === 0) return;
+
+  const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
+
+  // 批量调用 assets-by-ids API 获取所有资产的基本信息
+  const assets = await requestMuseDAMAPI<
+    Array<{
+      id: MuseDAMID;
+      thumbnailAccessUrl: string;
+    }>
+  >("/api/muse/assets-by-ids", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${musedamTeamApiKey}`,
+    },
+    body: musedamAssetIds,
+  });
+
+  if (!assets || assets.length === 0) return;
+
+  // 批量更新数据库中的 thumbnailAccessUrl
+  await Promise.all(
+    assets.map(async (musedamAsset) => {
+      try {
+        const assetSlug = idToSlug("assetObject", musedamAsset.id);
+        const existingAsset = await prisma.assetObject.findUnique({
+          where: {
+            teamId: team.id,
+            slug: assetSlug,
+          },
+          select: { id: true, extra: true },
+        });
+
+        if (existingAsset) {
+          // 只更新 extra 中的 thumbnailAccessUrl，保留其他字段
+          const extra = (existingAsset.extra as Record<string, unknown>) || {};
+          await prisma.assetObject.update({
+            where: { id: existingAsset.id },
+            data: {
+              extra: {
+                ...extra,
+                thumbnailAccessUrl: musedamAsset.thumbnailAccessUrl,
+              },
+            },
+          });
+        }
+      } catch (error) {
+        // 单个资产更新失败不影响其他资产
+        console.error(`更新资产缩略图失败 (assetId: ${musedamAsset.id}):`, error);
+      }
+    }),
+  );
+}
+
 export async function setAssetTagsToMuseDAM({
   musedamAssetId,
   musedamTagIds,

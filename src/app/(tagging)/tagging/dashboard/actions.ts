@@ -1,6 +1,8 @@
 "use server";
 import { withAuth } from "@/app/(auth)/withAuth";
 import { ServerActionResult } from "@/lib/serverAction";
+import { slugToId } from "@/lib/slug";
+import { batchSyncAssetThumbnails } from "@/musedam/assets";
 import {
   AssetObject,
   AssetObjectExtra,
@@ -143,7 +145,7 @@ export async function fetchProcessingTasks(
     limit: number;
   }>
 > {
-  return withAuth(async ({ team: { id: teamId } }) => {
+  return withAuth(async ({ team: { id: teamId, slug: teamSlug } }) => {
     try {
       const offset = (page - 1) * limit;
 
@@ -174,12 +176,55 @@ export async function fetchProcessingTasks(
         }),
       ]);
 
+      // 批量同步资产缩略图URL（防止签名过期）
+      const team = { id: teamId, slug: teamSlug };
+      const musedamAssetIds = tasks
+        .map((task) => {
+          if (!task.assetObject) return null;
+          try {
+            return slugToId("assetObject", task.assetObject.slug);
+          } catch {
+            return null;
+          }
+        })
+        .filter((id): id is NonNullable<typeof id> => id !== null);
+
+      if (musedamAssetIds.length > 0) {
+        await batchSyncAssetThumbnails({
+          musedamAssetIds,
+          team,
+        }).catch((error) => {
+          // 同步失败不影响主流程，只记录错误
+          console.error("批量同步资产缩略图失败:", error);
+        });
+      }
+
+      // 重新查询更新后的任务列表，保持原有顺序
+      const taskIds = tasks.map((t) => t.id);
+      const updatedTasksMap = new Map(
+        (
+          await prisma.taggingQueueItem.findMany({
+            where: {
+              id: { in: taskIds },
+            },
+            include: {
+              assetObject: true,
+            },
+          })
+        ).map((task) => [task.id, task]),
+      );
+
+      // 按照原来的顺序重新组装任务列表
+      const updatedTasks = taskIds
+        .map((id) => updatedTasksMap.get(id))
+        .filter((task): task is NonNullable<typeof task> => task !== undefined);
+
       const hasMore = offset + tasks.length < total;
 
       return {
         success: true,
         data: {
-          tasks: tasks as TaskWithAsset[],
+          tasks: updatedTasks as TaskWithAsset[],
           total,
           hasMore,
           page,

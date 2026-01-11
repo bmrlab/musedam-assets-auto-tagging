@@ -3,7 +3,11 @@ import { withAuth } from "@/app/(auth)/withAuth";
 import { ServerActionResult } from "@/lib/serverAction";
 import { idToSlug, slugToId } from "@/lib/slug";
 import { retrieveTeamCredentials } from "@/musedam/apiKey";
-import { setAssetTagsToMuseDAM, syncSingleAssetFromMuseDAM } from "@/musedam/assets";
+import {
+  batchSyncAssetThumbnails,
+  setAssetTagsToMuseDAM,
+  syncSingleAssetFromMuseDAM,
+} from "@/musedam/assets";
 import { requestMuseDAMAPI } from "@/musedam/lib";
 import { MuseDAMID } from "@/musedam/types";
 import {
@@ -72,7 +76,7 @@ export async function fetchAssetsWithAuditItems(
     totalPages: number;
   }>
 > {
-  return withAuth(async ({ team: { id: teamId } }) => {
+  return withAuth(async ({ team: { id: teamId, slug: teamSlug } }) => {
     try {
       const offset = (page - 1) * limit;
 
@@ -202,10 +206,57 @@ export async function fetchAssetsWithAuditItems(
         },
       });
 
+      // 批量同步资产缩略图URL（防止签名过期）
+      const team = { id: teamId, slug: teamSlug };
+      const musedamAssetIds = assetObjects
+        .map((assetObject) => {
+          try {
+            return slugToId("assetObject", assetObject.slug);
+          } catch {
+            return null;
+          }
+        })
+        .filter((id): id is NonNullable<typeof id> => id !== null);
+
+      if (musedamAssetIds.length > 0) {
+        await batchSyncAssetThumbnails({
+          musedamAssetIds,
+          team,
+        }).catch((error) => {
+          // 同步失败不影响主流程，只记录错误
+          console.error("批量同步资产缩略图失败:", error);
+        });
+      }
+
+      // 重新查询更新后的资产列表，保持原有顺序
+      const updatedAssetObjectsMap = new Map(
+        (
+          await prisma.assetObject.findMany({
+            where: { teamId, id: { in: assetObjectIds } },
+            include: {
+              taggingAuditItems: {
+                include: {
+                  queueItem: true,
+                },
+                orderBy: [{ score: "desc" }, { createdAt: "desc" }],
+              },
+            },
+          })
+        ).map((assetObject) => [assetObject.id, assetObject]),
+      );
+
+      // 按照原来的顺序重新组装资产列表
+      const updatedAssetObjects = assetObjectIds
+        .map((id) => updatedAssetObjectsMap.get(id))
+        .filter(
+          (assetObject): assetObject is NonNullable<typeof assetObject> =>
+            assetObject !== undefined,
+        );
+
       const results: AssetWithAuditItemsBatch[] = [];
 
       for (const assetObjectId of assetObjectIds) {
-        const assetObject = assetObjects.find(({ id }) => id === assetObjectId);
+        const assetObject = updatedAssetObjects.find(({ id }) => id === assetObjectId);
         if (!assetObject) continue;
         const batch: AssetWithAuditItemsBatch["batch"] = [];
         for (const { queueItem, tagPath, ...taggingAuditItem } of assetObject.taggingAuditItems) {
