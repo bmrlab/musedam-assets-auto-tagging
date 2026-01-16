@@ -1,7 +1,7 @@
 import "server-only";
 
 import { TagNode } from "@/app/tags/types";
-import { slugToId } from "@/lib/slug";
+import { idToSlug, slugToId } from "@/lib/slug";
 import { retrieveTeamCredentials } from "@/musedam/apiKey";
 import { AssetTag } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
@@ -279,4 +279,213 @@ export async function syncTagsToMuseDAM({
   await buildMapping(musedamTags, res.tags);
 
   return { tags: res.tags, createdTagMapping };
+}
+
+type MuseDAMTagTree = {
+  id: MuseDAMID;
+  name: string;
+  sort: number;
+  children: MuseDAMTagTree | null;
+}[];
+
+/**
+ * 将数据库中的 AssetTag 转换为 TagNode
+ */
+function convertAssetTagToTagNode(tag: AssetTag & { children?: AssetTag[] }): TagNode {
+  return {
+    id: tag.id,
+    slug: tag.slug,
+    name: tag.name,
+    sort: tag.sort,
+    children: tag.children
+      ? tag.children
+          .sort((a, b) => {
+            if (a.sort !== b.sort) {
+              return b.sort - a.sort;
+            }
+            return a.id - b.id;
+          })
+          .map(convertAssetTagToTagNode)
+      : [],
+  };
+}
+
+/**
+ * 以当前系统为基准同步标签到 MuseDAM
+ * 1. 获取当前系统的标签树
+ * 2. 获取 MuseDAM 的标签树
+ * 3. 对比并标记需要删除（MuseDAM 中存在但当前系统不存在的一级标签）和创建（当前系统没有 slug 的一级标签）的标签
+ * 4. 同步到 MuseDAM
+ * 5. 再次拉取 MuseDAM 标签树，更新当前系统的 slug 和 sort
+ */
+export async function syncTagsToMuseDAMWithCurrentSystemAsBase({
+  team,
+}: {
+  team: {
+    id: number;
+    slug: string;
+  };
+}): Promise<void> {
+  // 1. 获取当前系统中的标签树（一级标签）
+  const currentTags = await prisma.assetTag.findMany({
+    where: {
+      teamId: team.id,
+      parentId: null,
+    },
+    orderBy: [{ sort: "desc" }, { id: "asc" }],
+    include: {
+      children: {
+        orderBy: [{ sort: "desc" }, { id: "asc" }],
+        include: {
+          children: {
+            orderBy: [{ sort: "desc" }, { id: "asc" }],
+          },
+        },
+      },
+    },
+  });
+
+  const currentTagsTree: TagNode[] = currentTags.map(convertAssetTagToTagNode);
+
+  // 2. 获取 MuseDAM 中的标签树
+  const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
+  const musedamTeamId = slugToId("team", team.slug);
+
+  const musedamTagsResult = await requestMuseDAMAPI<MuseDAMTagTree>("/api/muse/query-tag-tree", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${musedamTeamApiKey}`,
+    },
+    body: {
+      orgId: musedamTeamId,
+    },
+  });
+
+  // 3. 构建当前系统中一级标签的 slug 映射（slug -> TagNode）
+  const currentSlugMap = new Map<string, TagNode>();
+  currentTagsTree.forEach((tag) => {
+    if (tag.slug) {
+      currentSlugMap.set(tag.slug, tag);
+    }
+  });
+
+  // 4. 标记需要创建的标签（当前系统没有 slug 的一级标签）
+  currentTagsTree.forEach((tag) => {
+    if (!tag.slug) {
+      // 当前系统没有 slug，标记为创建
+      tag.verb = "create";
+    }
+  });
+
+  // 7. 为需要删除的标签构建 MuseDAM 格式的请求
+  const deleteTags: MuseDAMTagRequest[] = [];
+  musedamTagsResult.forEach((musedamTag) => {
+    const slug = idToSlug("assetTag", musedamTag.id);
+    if (!currentSlugMap.has(slug)) {
+      deleteTags.push({
+        id: Number(musedamTag.id.toString()),
+        name: musedamTag.name,
+        operation: 3, // 删除
+        sort: musedamTag.sort,
+      });
+    }
+  });
+
+  // 8. 为需要创建的标签构建 TagNode（需要包含子标签）
+  const createTags: TagNode[] = [];
+  currentTagsTree.forEach((tag) => {
+    if (!tag.slug && tag.verb === "create") {
+      createTags.push(tag);
+    }
+  });
+
+  // 9. 如果有需要同步的操作，调用同步 API
+  if (deleteTags.length > 0 || createTags.length > 0) {
+    // 清空缓存
+    assetTagCache.clear();
+
+    // 预加载所有相关的 AssetTag 数据
+    await preloadAssetTags(currentTagsTree, team.id);
+
+    // 构建同步请求
+    const syncTags: MuseDAMTagRequest[] = [];
+
+    // 添加删除操作
+    syncTags.push(...deleteTags);
+
+    // 添加创建操作
+    const createdTagMapping = new Map<string, MuseDAMID>();
+    createTags.forEach((tag) => {
+      const musedamTag = convertToMuseDAMFormat(tag, createdTagMapping);
+      if (musedamTag) {
+        syncTags.push(musedamTag);
+      }
+    });
+
+    if (syncTags.length > 0) {
+      // 调用 MuseDAM API
+      await requestMuseDAMAPI<{ tags: MuseDAMTagResponse[] }>("/api/muse/merge-tags", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${musedamTeamApiKey}`,
+        },
+        body: {
+          tags: syncTags,
+        },
+      });
+    }
+  }
+
+  // 10. 再次拉取 MuseDAM 标签树，更新当前系统的 slug 和 sort
+  const updatedMusedamTagsResult = await requestMuseDAMAPI<MuseDAMTagTree>(
+    "/api/muse/query-tag-tree",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${musedamTeamApiKey}`,
+      },
+      body: {
+        orgId: musedamTeamId,
+      },
+    },
+  );
+
+  // 11. 更新当前系统的 slug 和 sort
+  const updateTagSlugAndSort = async (
+    musedamTags: MuseDAMTagTree,
+    parentId: number | null = null,
+  ) => {
+    for (const musedamTag of musedamTags) {
+      const slug = idToSlug("assetTag", musedamTag.id);
+
+      // 查找当前系统中对应的标签（通过 name 和 parentId 匹配）
+      const where = parentId
+        ? { teamId: team.id, parentId, name: musedamTag.name }
+        : { teamId: team.id, name: musedamTag.name, parentId: null };
+
+      const existingTag = await prisma.assetTag.findFirst({ where });
+
+      if (existingTag) {
+        // 更新 slug 和 sort
+        await prisma.assetTag.update({
+          where: { id: existingTag.id },
+          data: {
+            slug,
+            sort: musedamTag.sort,
+          },
+        });
+
+        // 递归处理子标签
+        if (
+          musedamTag.children &&
+          Array.isArray(musedamTag.children) &&
+          musedamTag.children.length > 0
+        ) {
+          await updateTagSlugAndSort(musedamTag.children, existingTag.id);
+        }
+      }
+    }
+  };
+
+  await updateTagSlugAndSort(updatedMusedamTagsResult);
 }

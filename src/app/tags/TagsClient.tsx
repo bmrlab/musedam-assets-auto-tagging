@@ -11,12 +11,12 @@ import { BatchCreateModal } from "./components/BatchCreateModal";
 import { CreateModal } from "./components/CreateModal";
 import { SearchResult } from "./components/SearchResult";
 import { SyncConfirmDialog } from "./components/SyncConfirmDialog";
+import { UpdateToMuseDialog } from "./components/UpdateToMuseDialog";
 import { TagDetails } from "./components/TagDetails";
 import { ThreeTagList } from "./components/ThreeTagList";
 import { TagEditProvider, useTagEdit } from "./contexts/TagEditContext";
 import { SearchTagData, TagNode, TagRecord } from "./types";
 import { PlusIcon, SearchIcon, X } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
 import { useSession } from "next-auth/react";
 import { isAdminUserSlug } from "@/lib/admin";
 
@@ -883,6 +883,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
           {/* AI自动打标签-手动同步 */}
           {isAdmin && <>
             <div className="flex items-center gap-2">
+              <UpdateToMuseDialog onSyncComplete={handleSyncComplete} />
               <SyncConfirmDialog onSyncComplete={handleSyncComplete} />
             </div>
           </>}

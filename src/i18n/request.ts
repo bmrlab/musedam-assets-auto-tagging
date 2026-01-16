@@ -1,16 +1,36 @@
 import { getRequestConfig } from "next-intl/server";
 import { cookies, headers } from "next/headers";
-import { locales } from "./routing";
+import { isValidLocale, locales } from "./routing";
+
+const defaultLocale = "zh-CN" as const;
 
 const getMessages = async (locale: string) => {
-  const [messages, taggingMessages] = await Promise.all([
-    import(`../../messages/${locale}.json`),
-    import(`../app/(tagging)/messages/${locale}.json`),
-  ]);
-  return {
-    ...messages.default,
-    ...taggingMessages.default,
-  };
+  // 验证 locale 是否有效，如果无效则使用默认值
+  const validLocale = isValidLocale(locale) ? locale : defaultLocale;
+  
+  try {
+    const [messages, taggingMessages] = await Promise.all([
+      import(`../../messages/${validLocale}.json`),
+      import(`../app/(tagging)/messages/${validLocale}.json`),
+    ]);
+    return {
+      ...messages.default,
+      ...taggingMessages.default,
+    };
+  } catch (error) {
+    // 如果动态导入失败，回退到默认 locale
+    if (validLocale !== defaultLocale) {
+      const [messages, taggingMessages] = await Promise.all([
+        import(`../../messages/${defaultLocale}.json`),
+        import(`../app/(tagging)/messages/${defaultLocale}.json`),
+      ]);
+      return {
+        ...messages.default,
+        ...taggingMessages.default,
+      };
+    }
+    throw error;
+  }
 };
 
 export default getRequestConfig(async ({ locale }) => {
@@ -19,9 +39,14 @@ export default getRequestConfig(async ({ locale }) => {
     const [cookieLocale, headerLocale] = await Promise.all([cookies(), headers()]).then(
       ([cookies, headers]) => [cookies.get("locale")?.value, headers.get("x-locale")],
     );
-    const defaultLocale = "zh-CN"; // 一定要有默认的 locale，不然后面 getMessages(undefined) 会报错
     locale = (cookieLocale || headerLocale || defaultLocale) as (typeof locales)[number];
   }
+  
+  // 确保 locale 有效
+  if (!isValidLocale(locale)) {
+    locale = defaultLocale;
+  }
+  
   return {
     locale,
     messages: await getMessages(locale),
