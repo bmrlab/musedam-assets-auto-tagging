@@ -7,7 +7,10 @@ import { rootLogger } from "@/lib/logging";
 import { ServerActionResult } from "@/lib/serverAction";
 import { idToSlug } from "@/lib/slug";
 import { syncTagsFromMuseDAM } from "@/musedam/tags/syncFromMuseDAM";
-import { syncTagsToMuseDAM } from "@/musedam/tags/syncToMuseDAM";
+import {
+  syncTagsToMuseDAM,
+  syncTagsToMuseDAMWithCurrentSystemAsBase,
+} from "@/musedam/tags/syncToMuseDAM";
 import { MuseDAMID } from "@/musedam/types";
 import type { AssetTagExtra } from "@/prisma/client";
 import { AssetTag } from "@/prisma/client";
@@ -163,6 +166,31 @@ export async function syncTagsFromMuseDAMAction(): Promise<ServerActionResult<vo
   });
 }
 
+export async function syncTagsToMuseDAMWithCurrentSystemAsBaseAction(): Promise<
+  ServerActionResult<void>
+> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    try {
+      // 获取团队信息
+      const team = await prisma.team.findUniqueOrThrow({
+        where: { id: teamId },
+      });
+
+      await syncTagsToMuseDAMWithCurrentSystemAsBase({ team: { id: teamId, slug: team.slug } });
+      return {
+        success: true,
+        data: undefined,
+      };
+    } catch (error) {
+      console.error("Sync from MuseDAM error:", error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : "从 MuseDAM 同步标签时发生未知错误",
+      };
+    }
+  });
+}
+
 export async function saveTagsTreeToMuseDAM(
   tagsTree: TagNode[],
 ): Promise<ServerActionResult<SyncResult>> {
@@ -172,7 +200,6 @@ export async function saveTagsTreeToMuseDAM(
       const team = await prisma.team.findUniqueOrThrow({
         where: { id: teamId },
       });
-
       const syncResult = await syncTagsToMuseDAM({
         team: { id: teamId, slug: team.slug },
         tagsTree,
