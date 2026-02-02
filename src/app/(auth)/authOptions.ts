@@ -1,5 +1,6 @@
 import "server-only";
 
+import { rootLogger } from "@/lib/logging";
 import { idToSlug } from "@/lib/slug";
 import { getServerSession, type NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
@@ -64,7 +65,12 @@ const authOptions: NextAuthOptions = {
         try {
           await checkUserPermission({ user, team });
         } catch (error) {
-          console.log(error);
+          rootLogger.warn({
+            msg: "用户权限检查失败",
+            userId: user.id,
+            teamId: team.id,
+            error: error instanceof Error ? error.message : String(error),
+          });
           // 权限检查失败时返回 null，这样 NextAuth 会拒绝登录
           // 前端需要处理这个错误并清除旧的 session
           return null;
