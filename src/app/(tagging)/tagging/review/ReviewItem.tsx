@@ -154,7 +154,6 @@ export function ReviewItem({ assetObject, batch, onSuccess, CheckboxComponent, b
       toast.success(t("rejectSuccess"));
       onSuccess?.();
     } catch (error: unknown) {
-      console.log(error);
       toast.error(error instanceof Error ? error.message : t("rejectFailed"));
     } finally {
       setLoading(false);

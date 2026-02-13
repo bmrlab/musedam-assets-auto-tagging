@@ -44,7 +44,6 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
       if (!res) return;
       const { members, departments, groups } = res;
       const allPermissions: AccessPermission[] = [];
-      console.log("member", members)
       // 处理用户 
       if (members && members.length > 0) {
         for (const member of members) {

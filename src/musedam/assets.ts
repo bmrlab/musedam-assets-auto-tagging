@@ -283,7 +283,6 @@ export async function setAssetTagsToMuseDAM({
       remove: !append,
     },
   });
-  console.log("set-assets-tags", result);
   return result;
 }
 

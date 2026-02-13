@@ -39,15 +39,12 @@ export async function requestMuseDAMAPI<T = unknown>(
 
   // 打印curl命令
   const curlCommand = generateCurlCommand(url, method, requestHeaders, requestBody);
-  // console.log("🔗 Curl Command:");
-  // console.log(curlCommand);
 
   const response = await fetch(url, {
     method: method,
     body: requestBody,
     headers: requestHeaders,
   });
-  // console.log("response", response)
   if (!response.ok) {
     const errorMsg = `MuseDAM API ${url} request failed, status code: ${response?.status}`;
     throw new Error(errorMsg);

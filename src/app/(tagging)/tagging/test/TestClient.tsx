@@ -374,7 +374,6 @@ export default function TestClient() {
       setMatchingSources(config.matchingSources);
     }
   };
-  console.log("selectedAssets", selectedAssets)
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

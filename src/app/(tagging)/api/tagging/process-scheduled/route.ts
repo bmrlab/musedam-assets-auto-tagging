@@ -103,7 +103,6 @@ export async function POST(request: NextRequest) {
           },
           body: requestBody,
         });
-        console.log("MuseDAMAPI timing-tag result",result)
         results.push({
           teamId: team.id,
           teamName: team.name,

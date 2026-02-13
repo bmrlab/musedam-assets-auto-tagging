@@ -127,26 +127,6 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
         return;
       }
       const { allMaterials, selectedFolders } = res;
-      // console.log("allMaterials:", allMaterials, "selectedFolders:", selectedFolders);
-      // if (allMaterials) {
-      //   setApplicationScope((prev) => ({
-      //     ...prev,
-      //     scopeType: "all",
-      //     selectedFolders: [],
-      //   }));
-      // } else if (selectedFolders && Array.isArray(selectedFolders) && selectedFolders.length > 0) {
-      //   setApplicationScope((prev) => {
-      //     const scopeType:"all" | "specific" =  allMaterials ? "all" : "specific"
-      //     const newScope = {
-      //       ...prev,
-      //       scopeType:scopeType,
-      //       selectedFolders: selectedFolders.map((folder) => ({
-      //         slug: idToSlug("assetFolder", folder.id),
-      //         name: folder.name,
-      //       })),
-      //     };
-      //     console.log(t("newApplicationScope"), newScope);
-      //     return newScope;
       // });
       // }
 

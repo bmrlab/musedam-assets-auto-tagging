@@ -25,7 +25,6 @@ export default function UserPanel() {
 
   const handleProfileClick = () => {
     // TODO: 实现用户资料页面
-    console.log("Navigate to profile");
   };
 
   if (!session?.user) {

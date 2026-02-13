@@ -32,21 +32,6 @@ export async function syncTagsFromMuseDAM({
   const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
   const musedamTeamId = slugToId("team", team.slug);
 
-  // const url = `${process.env.MUSEDAM_API_BASE_URL}/api/muse/query-tag-tree`;
-  // const requestHeaders = {
-  //   "Content-Type": "application/json",
-  //   "x-asm-prefer-tag": "version-env-06",
-  //   Authorization: `Bearer ${musedamTeamApiKey}`,
-  // };
-  // const requestBody = JSON.stringify({
-  //   orgId: musedamTeamId,
-  // })
-
-  // // 打印curl命令
-  // const curlCommand = generateCurlCommand(url, "POST", requestHeaders, requestBody);
-  // console.log("🔗 Curl Command:");
-  // console.log(curlCommand);
-
   const result = await requestMuseDAMAPI("/api/muse/query-tag-tree", {
     method: "POST",
     headers: {
@@ -56,7 +41,6 @@ export async function syncTagsFromMuseDAM({
       orgId: musedamTeamId,
     },
   });
-  // console.log("result", result);
 
   const teamId = team.id;
   const musedamTags = result as MuseDAMTagTree;
@@ -102,7 +86,6 @@ export async function syncTagsFromMuseDAM({
       parentId: null,
       sort: level1Tag.sort,
     });
-    // console.log(level1Tag, level1AssetTag);
     for (const level2Tag of level1Tag.children ?? []) {
       const level2AssetTag = await upsert({
         name: level2Tag.name,
@@ -111,7 +94,6 @@ export async function syncTagsFromMuseDAM({
         parentId: level1AssetTag.id,
         sort: level2Tag.sort,
       });
-      // console.log(level2Tag, level2AssetTag);
       for (const level3Tag of level2Tag.children ?? []) {
         await upsert({
           name: level3Tag.name,

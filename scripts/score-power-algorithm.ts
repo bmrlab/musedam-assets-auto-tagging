@@ -79,32 +79,32 @@ function calculateScore(sources: SourceScores = {}): number {
  * @returns 最终分数 0-1
  */
 function calculateMultiSourceScore(sources: SourceScores = {}): number {
-  console.log("修正概率独立性计算过程:");
+  // console.log("修正概率独立性计算过程:");
 
   const dampingFactor = 0.8;
   let remaining = 1;
   let maxWeighted = 0;
 
-  console.log("  权重变换 (confidence^weight):");
+  // console.log("  权重变换 (confidence^weight):");
   Object.entries(sources).forEach(([source, confidence]) => {
     if (confidence !== undefined && confidence !== null) {
       const weight = WEIGHTS[source as SourceType];
       const enhanced = Math.pow(confidence, weight);
       maxWeighted = Math.max(maxWeighted, enhanced);
       remaining *= 1 - enhanced * dampingFactor;
-      console.log(`    ${source}: ${confidence}^${weight} = ${enhanced.toFixed(4)}`);
+      // console.log(`    ${source}: ${confidence}^${weight} = ${enhanced.toFixed(4)}`);
     }
   });
 
   const rawScore = 1 - remaining;
   const finalScore = Math.max(rawScore, maxWeighted);
 
-  console.log(`  修正概率独立性: 1 - ${remaining.toFixed(4)} = ${rawScore.toFixed(4)}`);
-  console.log(`  最强单源: ${maxWeighted.toFixed(4)}`);
-  console.log(
-    `  最终分数: max(${rawScore.toFixed(4)}, ${maxWeighted.toFixed(4)}) = ${finalScore.toFixed(4)}`,
-  );
-  console.log(`  百分制: ${Math.round(finalScore * 100)}分\n`);
+  // console.log(`  修正概率独立性: 1 - ${remaining.toFixed(4)} = ${rawScore.toFixed(4)}`);
+  // console.log(`  最强单源: ${maxWeighted.toFixed(4)}`);
+  // console.log(
+  //   `  最终分数: max(${rawScore.toFixed(4)}, ${maxWeighted.toFixed(4)}) = ${finalScore.toFixed(4)}`,
+  // );
+  // console.log(`  百分制: ${Math.round(finalScore * 100)}分\n`);
 
   return finalScore;
 }

@@ -30,7 +30,6 @@ export function verifyTokenLoginCredential(
 
   const payloadParseResult = tokenLoginPayloadSchema.safeParse(payloadData);
   if (!payloadParseResult.success) {
-    console.log("Invalid token payload:", payloadParseResult.error);
     return null;
   }
 

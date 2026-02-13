@@ -481,7 +481,6 @@ export async function batchCreateTags(
         console.error("Sync to MuseDAM error:", error);
         // MuseDAM 同步失败不影响本地保存结果
       }
-      // console.log("syncResult------", syncResult);
       if (addType === 1) {
         // 仅保留新建标签树：删除所有现有标签，然后批量创建新标签
         await prisma.$transaction(

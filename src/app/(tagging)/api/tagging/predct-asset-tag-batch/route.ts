@@ -302,7 +302,6 @@ async function processBatchTagging({
     // 统计跳过（已存在队列项）的数量
     const skippedTasks = successfulSyncs.length - validSyncs.length;
 
-    // console.log("tasks",skippedTasks)
     // 等待所有处理完成
     const results = await Promise.allSettled(processingPromises);
 

@@ -25,20 +25,20 @@ interface SourceScores {
 function calculateMultiSourceScore(sources: SourceScores = {}): number {
   let weightedSum = 0;
 
-  console.log("计算过程:");
+  // console.log("计算过程:");
   Object.entries(sources).forEach(([source, confidence]) => {
     if (confidence !== undefined && confidence !== null) {
       const weight = WEIGHTS[source as SourceType];
       const weighted = confidence * weight;
       weightedSum += weighted;
-      console.log(`  ${source}: ${confidence} × ${weight} = ${weighted.toFixed(4)}`);
+      // console.log(`  ${source}: ${confidence} × ${weight} = ${weighted.toFixed(4)}`);
     }
   });
 
   const finalScore = Math.tanh(weightedSum);
-  console.log(`  加权和: ${weightedSum.toFixed(4)}`);
-  console.log(`  最终分数: tanh(${weightedSum.toFixed(4)}) = ${finalScore.toFixed(4)}`);
-  console.log(`  百分制: ${Math.round(finalScore * 100)}分\n`);
+  // console.log(`  加权和: ${weightedSum.toFixed(4)}`);
+  // console.log(`  最终分数: tanh(${weightedSum.toFixed(4)}) = ${finalScore.toFixed(4)}`);
+  // console.log(`  百分制: ${Math.round(finalScore * 100)}分\n`);
 
   return finalScore;
 }

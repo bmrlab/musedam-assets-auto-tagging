@@ -94,7 +94,6 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
 
     setIsGenerating(true);
     try {
-      console.log("handleGenerate: 开始生成");
       // 组装提示词：将行业预设、其它描述与用户输入合并
       const selectedOption = industryOptions.find((o) => o.value === selectedIndustry);
       const industryPreset = selectedOption?.prompt?.trim() ?? "";

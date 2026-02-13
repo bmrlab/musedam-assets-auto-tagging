@@ -192,21 +192,6 @@ export async function syncTagsToMuseDAM({
   // 获取团队凭证
   const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
 
-  // const url = `${process.env.MUSEDAM_API_BASE_URL}/api/muse/merge-tags`;
-  // const requestHeaders = {
-  //   "Content-Type": "application/json",
-  //   "x-asm-prefer-tag": "version-env-06",
-  //   Authorization: `Bearer ${musedamTeamApiKey}`,
-  // };
-  // const requestBody = JSON.stringify({
-  //   tags: musedamTags,
-  // });
-
-  // // 打印curl命令
-  // const curlCommand = generateCurlCommand(url, "POST", requestHeaders, requestBody);
-  // console.log("🔗 Curl Command:");
-  // console.log(curlCommand);
-
   // 调用 MuseDAM API
   const res = await requestMuseDAMAPI<{ tags: MuseDAMTagResponse[] }>("/api/muse/merge-tags", {
     method: "POST",

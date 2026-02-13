@@ -89,7 +89,6 @@ export function ApplicationScopeSection({
                   )}
                   onClick={() => {
                     const folderId = slugToId("assetFolder", folder.slug);
-                    // console.log("folderId", folderId.toString());
                     dispatchMuseDAMClientAction("goto", {
                       url: `/home/folder/${folderId.toString()}`,
                     });

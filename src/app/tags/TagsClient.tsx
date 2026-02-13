@@ -693,7 +693,6 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
   //       toast.error(result.message || t("saveFailed"));
   //     }
   //   } catch (error) {
-  //     console.error("Save error:", error);
   //     toast.error(t("saveFailed"));
   //   } finally {
   //     setIsSaving(false);
