@@ -114,7 +114,7 @@ export function ReviewItem({ assetObject, batch, onSuccess, CheckboxComponent, b
       }
       try {
         await approveAuditItemsAction({
-          assetObject,
+          assetSlug: assetObject.slug,
           auditItems: allAuditItems,
           append,
         });
@@ -123,7 +123,7 @@ export function ReviewItem({ assetObject, batch, onSuccess, CheckboxComponent, b
       } catch (error: unknown) {
         const errorMsg = error instanceof Error ? error.message : undefined
         if (errorMsg === 'Asset not found') {
-          await rejectAuditItemsAction({ assetObject });
+          await rejectAuditItemsAction({ assetSlug: assetObject.slug });
           toast.warning(t("assetDeleted"))
           onSuccess?.();
           return
@@ -150,7 +150,7 @@ export function ReviewItem({ assetObject, batch, onSuccess, CheckboxComponent, b
   const handleReject = useCallback(async () => {
     setLoading(true);
     try {
-      await rejectAuditItemsAction({ assetObject });
+      await rejectAuditItemsAction({ assetSlug: assetObject.slug });
       toast.success(t("rejectSuccess"));
       onSuccess?.();
     } catch (error: unknown) {

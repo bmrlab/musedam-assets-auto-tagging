@@ -316,11 +316,11 @@ export async function fetchAssetsWithAuditItems(
 }
 
 export async function approveAuditItemsAction({
-  assetObject,
+  assetSlug,
   auditItems,
   append = true,
 }: {
-  assetObject: AssetObject;
+  assetSlug: string;
   auditItems: {
     id: number;
     leafTagId: number | null;
@@ -334,7 +334,7 @@ export async function approveAuditItemsAction({
       select: { id: true, slug: true },
     });
 
-    const musedamAssetId = slugToId("assetObject", assetObject.slug);
+    const musedamAssetId = slugToId("assetObject", assetSlug);
 
     // 判断素材是否还在素材库
     await syncSingleAssetFromMuseDAM({
@@ -384,7 +384,7 @@ export async function approveAuditItemsAction({
 
       // 更新本地素材的 tags 字段
       await prisma.assetObject.update({
-        where: { id: assetObject.id },
+        where: { slug: assetSlug },
         data: { tags },
       });
     }
@@ -406,12 +406,17 @@ export async function approveAuditItemsAction({
 }
 
 export async function rejectAuditItemsAction({
-  assetObject,
+  assetSlug,
 }: {
-  assetObject: AssetObject;
+  assetSlug: string;
 }): Promise<ServerActionResult<void>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
+      const assetObject = await prisma.assetObject.findUniqueOrThrow({
+        where: { slug: assetSlug },
+        select: { id: true },
+      });
+
       await prisma.$transaction(async (tx) => {
         // 将该素材的所有待审核 的 AI 推荐标签都标记为 rejected
         await tx.taggingAuditItem.updateMany({
@@ -548,7 +553,7 @@ export async function batchApproveAuditItemsAction({
         } catch (error) {
           // 素材被删除，从列表移除
           if (error instanceof Error && error.message === "Asset not found") {
-            await rejectAuditItemsAction({ assetObject });
+            await rejectAuditItemsAction({ assetSlug: assetObject.slug });
             deletedCount++;
             continue;
           }
