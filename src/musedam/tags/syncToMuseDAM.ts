@@ -346,7 +346,29 @@ export async function syncTagsToMuseDAMWithCurrentSystemAsBase({
     },
   });
 
-  // 3. 构建当前系统中一级标签的 slug 映射（slug -> TagNode）
+  // 3. 先按名称在 MuseDAM 中查找同层级、同名的标签，如果存在则只更新当前系统的 slug
+  const musedamTopLevelMapByName = new Map<string, (typeof musedamTagsResult)[number]>();
+  musedamTagsResult.forEach((musedamTag) => {
+    musedamTopLevelMapByName.set(musedamTag.name, musedamTag);
+  });
+
+  for (const tag of currentTagsTree) {
+    if (!tag.slug && tag.id) {
+      const musedamTag = musedamTopLevelMapByName.get(tag.name);
+      if (musedamTag) {
+        const slug = idToSlug("assetTag", musedamTag.id);
+        await prisma.assetTag.update({
+          where: { id: tag.id },
+          data: {
+            slug,
+          },
+        });
+        tag.slug = slug;
+      }
+    }
+  }
+
+  // 4. 构建当前系统中一级标签的 slug 映射（slug -> TagNode）
   const currentSlugMap = new Map<string, TagNode>();
   currentTagsTree.forEach((tag) => {
     if (tag.slug) {
@@ -354,7 +376,7 @@ export async function syncTagsToMuseDAMWithCurrentSystemAsBase({
     }
   });
 
-  // 4. 标记需要创建的标签（当前系统没有 slug 的一级标签）
+  // 5. 标记需要创建的标签（当前系统没有 slug 的一级标签）
   currentTagsTree.forEach((tag) => {
     if (!tag.slug) {
       // 当前系统没有 slug，标记为创建
@@ -362,7 +384,7 @@ export async function syncTagsToMuseDAMWithCurrentSystemAsBase({
     }
   });
 
-  // 7. 为需要删除的标签构建 MuseDAM 格式的请求
+  // 6. 为需要删除的标签构建 MuseDAM 格式的请求（仅一级标签）
   const deleteTags: MuseDAMTagRequest[] = [];
   musedamTagsResult.forEach((musedamTag) => {
     const slug = idToSlug("assetTag", musedamTag.id);
@@ -376,6 +398,102 @@ export async function syncTagsToMuseDAMWithCurrentSystemAsBase({
     }
   });
 
+  // 7. 为需要更新的标签（包含子标签的增删改，均以当前系统为准）构建 MuseDAM 格式的请求
+  const buildChildRequests = (
+    currentChildren: TagNode[],
+    musedamChildren: MuseDAMTagTree | null,
+  ): MuseDAMTagRequest[] => {
+    const requests: MuseDAMTagRequest[] = [];
+    const musedamList = musedamChildren ?? [];
+
+    const musedamBySlug = new Map<string, (typeof musedamList)[number]>();
+    const musedamByName = new Map<string, (typeof musedamList)[number]>();
+
+    musedamList.forEach((child) => {
+      const childSlug = idToSlug("assetTag", child.id);
+      musedamBySlug.set(childSlug, child);
+      musedamByName.set(child.name, child);
+    });
+
+    const usedMusedamIds = new Set<string>();
+
+    // 先根据当前系统的子标签生成创建/更新请求
+    currentChildren.forEach((child) => {
+      let matched = child.slug ? musedamBySlug.get(child.slug) : undefined;
+      if (!matched) {
+        matched = musedamByName.get(child.name);
+      }
+
+      if (matched) {
+        // 已存在于 MuseDAM：视为更新，sort 以当前系统为准
+        usedMusedamIds.add(matched.id.toString());
+
+        const childRequest: MuseDAMTagRequest = {
+          id: Number(matched.id.toString()),
+          name: matched.name,
+          operation: 1, // 更新
+          sort: child.sort,
+        };
+
+        const grandChildrenRequests = buildChildRequests(child.children, matched.children);
+        if (grandChildrenRequests.length > 0) {
+          childRequest.children = grandChildrenRequests;
+        }
+
+        requests.push(childRequest);
+      } else {
+        // MuseDAM 中不存在：视为创建
+        const childRequest: MuseDAMTagRequest = {
+          name: child.name,
+          operation: 2, // 创建
+          sort: child.sort,
+        };
+
+        const grandChildrenRequests = buildChildRequests(child.children, null);
+        if (grandChildrenRequests.length > 0) {
+          childRequest.children = grandChildrenRequests;
+        }
+
+        requests.push(childRequest);
+      }
+    });
+
+    // 再为 MuseDAM 中存在但当前系统中已不存在的子标签生成删除请求
+    musedamList.forEach((child) => {
+      if (!usedMusedamIds.has(child.id.toString())) {
+        requests.push({
+          id: Number(child.id.toString()),
+          name: child.name,
+          operation: 3, // 删除
+          sort: child.sort,
+        });
+      }
+    });
+
+    return requests;
+  };
+
+  const updateTags: MuseDAMTagRequest[] = [];
+  musedamTagsResult.forEach((musedamTag) => {
+    const slug = idToSlug("assetTag", musedamTag.id);
+    const currentTag = currentSlugMap.get(slug);
+    if (currentTag) {
+      const updateRequest: MuseDAMTagRequest = {
+        id: Number(musedamTag.id.toString()),
+        name: musedamTag.name,
+        operation: 1, // 更新
+        sort: currentTag.sort,
+      };
+
+      const childRequests = buildChildRequests(currentTag.children, musedamTag.children);
+      if (childRequests.length > 0) {
+        updateRequest.children = childRequests;
+      }
+
+      updateTags.push(updateRequest);
+    }
+  });
+
   // 8. 为需要创建的标签构建 TagNode（需要包含子标签）
   const createTags: TagNode[] = [];
   currentTagsTree.forEach((tag) => {
@@ -385,7 +503,7 @@ export async function syncTagsToMuseDAMWithCurrentSystemAsBase({
   });
 
   // 9. 如果有需要同步的操作，调用同步 API
-  if (deleteTags.length > 0 || createTags.length > 0) {
+  if (deleteTags.length > 0 || updateTags.length > 0 || createTags.length > 0) {
     // 清空缓存
     assetTagCache.clear();
 
@@ -397,6 +515,9 @@ export async function syncTagsToMuseDAMWithCurrentSystemAsBase({
 
     // 添加删除操作
     syncTags.push(...deleteTags);
+
+    // 添加更新 sort 操作
+    syncTags.push(...updateTags);
 
     // 添加创建操作
     const createdTagMapping = new Map<string, MuseDAMID>();
