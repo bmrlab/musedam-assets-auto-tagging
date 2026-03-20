@@ -439,6 +439,7 @@ export async function rejectAuditItemsAction({
       console.error("删除 AI 打标记录失败:", error);
       return {
         success: false,
+        data: undefined,
         message: "删除 AI 打标记录失败",
       };
     }
@@ -668,6 +669,7 @@ export async function batchRejectAuditItemsAction({
       console.error("批量删除 AI 打标记录失败:", error);
       return {
         success: false,
+        data: undefined,
         message: "批量删除 AI 打标记录失败",
       };
     }

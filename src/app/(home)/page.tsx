@@ -29,7 +29,7 @@ export default function Home() {
   useEffect(() => {
     if (session?.user) {
       fetchUserAndTeam().then((result) => {
-        if (result.success) {
+        if (result.success && result.data) {
           const { user, team } = result.data;
           setUser(user);
           setTeam(team);
