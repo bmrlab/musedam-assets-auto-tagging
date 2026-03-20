@@ -13,7 +13,7 @@ import { forbidden, notFound, unauthorized } from "next/navigation";
 export type ServerActionResult<T> =
   | {
       success: true;
-      data: T;
+      data?: T;
       pagination?: {
         page: number;
         pageSize: number;

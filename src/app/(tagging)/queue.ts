@@ -17,6 +17,7 @@ import {
 } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 import { waitUntil } from "@vercel/functions";
+import pLimit from "p-limit";
 import { predictAssetTags } from "./predict";
 import { getTaggingSettings } from "./tagging/settings/lib";
 import { SourceBasedTagPredictions, TagWithScore } from "./types";
@@ -323,45 +324,46 @@ export async function processPendingQueueItems(): Promise<{
     include: {
       assetObject: true,
     },
-    take: 30,
+    take: 10,
   });
 
   let processing = 0;
   let skipped = 0;
 
-  for (const queueItem of pendingItems) {
-    try {
-      const updatedItem = await prisma.taggingQueueItem.updateMany({
-        where: {
-          id: queueItem.id,
-          status: "pending",
-        },
-        data: {
-          status: "processing",
-        },
-      });
+  const limit = pLimit(3);
 
-      if (updatedItem.count > 0) {
-        waitUntil(
-          Promise.any([
-            processQueueItem({ ...queueItem, status: "processing" }),
-            // new Promise((resolve) => setTimeout(resolve, 1000)),
-          ]),
-        );
-        processing++;
-      } else {
+  const processTasks = pendingItems.map((queueItem) =>
+    limit(async () => {
+      try {
+        const updatedItem = await prisma.taggingQueueItem.updateMany({
+          where: {
+            id: queueItem.id,
+            status: "pending",
+          },
+          data: {
+            status: "processing",
+          },
+        });
+
+        if (updatedItem.count > 0) {
+          await processQueueItem({ ...queueItem, status: "processing" });
+          processing++;
+        } else {
+          skipped++;
+        }
+      } catch (error) {
+        rootLogger.error({
+          teamId: queueItem.teamId,
+          assetObjectId: queueItem.assetObjectId,
+          queueItemId: queueItem.id,
+          msg: `Failed to update queue item (pending -> processing): ${error}`,
+        });
         skipped++;
       }
-    } catch (error) {
-      rootLogger.error({
-        teamId: queueItem.teamId,
-        assetObjectId: queueItem.assetObjectId,
-        queueItemId: queueItem.id,
-        msg: `Failed to update queue item (pending -> processing): ${error}`,
-      });
-      skipped++;
-    }
-  }
+    }),
+  );
+
+  await Promise.all(processTasks);
 
   rootLogger.info({
     msg: `processPendingQueueItems, processing: ${processing}, skipped: ${skipped}`,

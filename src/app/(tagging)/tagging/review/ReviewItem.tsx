@@ -113,22 +113,31 @@ export function ReviewItem({ assetObject, batch, onSuccess, CheckboxComponent, b
         return;
       }
       try {
-        await approveAuditItemsAction({
+        const result = await approveAuditItemsAction({
           assetSlug: assetObject.slug,
           auditItems: allAuditItems,
           append,
         });
+        if (!result.success) {
+          if (result.message === 'Asset not found') {
+            const rejectResult = await rejectAuditItemsAction({ assetSlug: assetObject.slug });
+            if (rejectResult.success) {
+              toast.warning(t("assetDeleted"));
+              onSuccess?.();
+            } else {
+              toast.error(rejectResult.message || t("applyFailed"));
+            }
+            return;
+          }
+          toast.error(result.message || t("applyFailed"));
+          return;
+        }
         toast.success(t("applySuccess"));
         onSuccess?.();
       } catch (error: unknown) {
-        const errorMsg = error instanceof Error ? error.message : undefined
-        if (errorMsg === 'Asset not found') {
-          await rejectAuditItemsAction({ assetSlug: assetObject.slug });
-          toast.warning(t("assetDeleted"))
-          onSuccess?.();
-          return
-        }
-        toast.error(error instanceof Error ? error.message : t("applyFailed"));
+        console.error(error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        toast.error(errorMessage || t("applyFailed"));
       } finally {
         setLoading(false);
       }
@@ -150,11 +159,17 @@ export function ReviewItem({ assetObject, batch, onSuccess, CheckboxComponent, b
   const handleReject = useCallback(async () => {
     setLoading(true);
     try {
-      await rejectAuditItemsAction({ assetSlug: assetObject.slug });
-      toast.success(t("rejectSuccess"));
-      onSuccess?.();
+      const result = await rejectAuditItemsAction({ assetSlug: assetObject.slug });
+      if (result.success) {
+        toast.success(t("rejectSuccess"));
+        onSuccess?.();
+      } else {
+        toast.error(result.message || t("rejectFailed"));
+      }
     } catch (error: unknown) {
-      toast.error(error instanceof Error ? error.message : t("rejectFailed"));
+      console.error(error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast.error(errorMessage || t("rejectFailed"));
     } finally {
       setLoading(false);
     }

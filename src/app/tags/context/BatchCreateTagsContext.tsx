@@ -147,7 +147,6 @@ export const BatchCreateTagsProvider = ({
           toast.error(result.message || "创建标签失败");
         }
       } catch (err: unknown) {
-        console.error("Batch create tags error:", err);
         toast.error(err instanceof Error ? err.message : "创建标签时发生错误");
       } finally {
         setIsCreating(false);

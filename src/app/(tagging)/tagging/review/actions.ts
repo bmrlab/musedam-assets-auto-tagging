@@ -400,7 +400,6 @@ export async function approveAuditItemsAction({
 
     return {
       success: true,
-      data: undefined,
     };
   });
 }
@@ -435,7 +434,6 @@ export async function rejectAuditItemsAction({
 
       return {
         success: true,
-        data: undefined,
       };
     } catch (error) {
       console.error("删除 AI 打标记录失败:", error);
@@ -665,7 +663,6 @@ export async function batchRejectAuditItemsAction({
 
       return {
         success: true,
-        data: undefined,
       };
     } catch (error) {
       console.error("批量删除 AI 打标记录失败:", error);

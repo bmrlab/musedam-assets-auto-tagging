@@ -112,7 +112,7 @@ async function main() {
 
   // 默认模式：队列处理 + 定时标签
   console.log(
-    "🚀 Starting queue processor - will process queue every 10 seconds and scheduled tagging daily",
+    "🚀 Starting queue processor - will process queue every 30 seconds and scheduled tagging daily",
   );
   console.log("Press Ctrl+C to stop");
 
@@ -122,7 +122,7 @@ async function main() {
   // Track if scheduled tagging ran today to avoid duplicate runs
   let scheduledTaggingLastRun = new Date().toDateString();
 
-  // Set up interval to process every 10 seconds
+  // Set up interval to process every 30 seconds
   const interval = setInterval(async () => {
     await processQueue();
 
@@ -135,7 +135,7 @@ async function main() {
       await processScheduledTagging();
       scheduledTaggingLastRun = today;
     }
-  }, 10000); // 10 seconds
+  }, 30000); // 30 seconds
 
   // Handle graceful shutdown
   process.on("SIGINT", () => {
