@@ -240,10 +240,21 @@
     },
     "Sidebar": {
       "access": "Mitglieder-Einstellungen",
+      "brand": "Markenkennzeichen",
+      "configuration": "Konfiguration",
       "dashboard": "Dashboard",
+      "featureLibrary": "Merkmalsbibliothek",
       "review": "AI-Tagging-Überprüfung",
       "settings": "Tagging-Einstellungen",
       "test": "Test-Tagging"
+    },
+    "BrandLibrary": {
+      "title": "Bibliothek der Markenkennzeichen",
+      "description": "Verwaltet visuelle Merkmale von Markenlogos, Warenzeichen und anderen Kennzeichen",
+      "searchPlaceholder": "Kennzeichennamen suchen",
+      "importExport": "Batch-Import/Export",
+      "create": "Neues Markenkennzeichen",
+      "empty": "Keine Daten"
     },
     "Test": {
       "archiveMaterial": "Archivmaterial",

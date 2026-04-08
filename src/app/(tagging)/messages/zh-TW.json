@@ -240,10 +240,21 @@
     },
     "Sidebar": {
       "access": "成員設定",
+      "brand": "品牌標識",
+      "configuration": "配置",
       "dashboard": "控制台",
+      "featureLibrary": "特徵庫",
       "review": "AI 標註審核",
       "settings": "AI 標記設定",
       "test": "AI 匹配測試"
+    },
+    "BrandLibrary": {
+      "title": "品牌標識特徵庫",
+      "description": "管理品牌 Logo、商標等視覺標識特徵",
+      "searchPlaceholder": "搜尋標識名稱",
+      "importExport": "批次匯入/匯出",
+      "create": "新建品牌標識",
+      "empty": "暫無資料"
     },
     "Test": {
       "archiveMaterial": "歷史資料",

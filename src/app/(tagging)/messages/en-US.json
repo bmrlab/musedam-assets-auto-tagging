@@ -4,11 +4,22 @@
       "title": "AI Tagging Engine"
     },
     "Sidebar": {
+      "brand": "Brand Identity",
+      "configuration": "Configuration",
       "dashboard": "Dashboard",
+      "featureLibrary": "Feature Library",
       "review": "AI Tagging Review",
       "settings": "Tagging Settings",
       "access": "Members Settings",
       "test": "Test Tagging"
+    },
+    "BrandLibrary": {
+      "title": "Brand Identity Library",
+      "description": "Manage brand logos, trademarks, and other visual identity features",
+      "searchPlaceholder": "Search identity name",
+      "importExport": "Batch Import/Export",
+      "create": "New Brand Identity",
+      "empty": "No data"
     },
     "Dashboard": {
       "title": "AI Auto-Tagging in Progress",

@@ -240,10 +240,21 @@
     },
     "Sidebar": {
       "access": "メンバー設定",
+      "brand": "ブランド識別",
+      "configuration": "設定",
       "dashboard": "コントロールパネル",
+      "featureLibrary": "特徴ライブラリ",
       "review": "AI タグ付け審査",
       "settings": "AI タグ設定",
       "test": "AIマッチングテスト"
+    },
+    "BrandLibrary": {
+      "title": "ブランド識別特徴ライブラリ",
+      "description": "ブランドロゴや商標などの視覚識別特徴を管理",
+      "searchPlaceholder": "識別名を検索",
+      "importExport": "一括インポート/エクスポート",
+      "create": "新しいブランド識別",
+      "empty": "データなし"
     },
     "Test": {
       "archiveMaterial": "履歴資料",

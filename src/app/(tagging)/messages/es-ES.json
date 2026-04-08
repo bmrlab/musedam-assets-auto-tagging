@@ -240,10 +240,21 @@
     },
     "Sidebar": {
       "access": "Configuración de miembros",
+      "brand": "Identidad de marca",
+      "configuration": "Configuración",
       "dashboard": "Panel de control",
+      "featureLibrary": "Biblioteca de características",
       "review": "Revisión de Etiquetado AI",
       "settings": "Configuración de Etiquetado",
       "test": "Etiquetado de Prueba"
+    },
+    "BrandLibrary": {
+      "title": "Biblioteca de identidades de marca",
+      "description": "Administra logotipos, marcas registradas y otras características visuales de identificación de marca",
+      "searchPlaceholder": "Buscar nombre del identificador",
+      "importExport": "Importación/Exportación por lotes",
+      "create": "Nueva identidad de marca",
+      "empty": "Sin datos"
     },
     "Test": {
       "archiveMaterial": "Material Archivado",
