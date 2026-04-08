@@ -59,81 +59,72 @@ export const Icon = ({ name, ...props }: NamedIconProps) => {
   return <SvgIcon src={src} viewBox={viewBox} {...props} />;
 };
 
-// 图标名称常量
-const ICON_NAMES = {
-  DASHBOARD: "dashboard" as const,
-  FOLDERS: "folders" as const,
-  MONITOR: "monitor" as const,
-  SETTING: "setting" as const,
-  TAG_AI: "tag-ai" as const,
-  TAGS: "tags" as const,
-  TEAM: "team" as const,
-} as const;
-
 // 导出所有图标组件，直接使用SvgIcon组件
 export function DashboardIcon(props: IconProps) {
-  return <SvgIcon src="/Icon/Dashboard.svg"  {...props} />;
+  return <SvgIcon src="/Icon/Dashboard.svg" {...props} />;
+}
+
+export function BrandIcon(props: IconProps) {
+  return <SvgIcon src="/Icon/Brand.svg" {...props} />;
 }
 
 export function FoldersIcon(props: IconProps) {
-  return <SvgIcon src="/Icon/folders.svg"  {...props} />;
+  return <SvgIcon src="/Icon/folders.svg" {...props} />;
 }
 
 export function MonitorIcon(props: IconProps) {
-  return <SvgIcon src="/Icon/Monitor.svg"  {...props} />;
+  return <SvgIcon src="/Icon/Monitor.svg" {...props} />;
 }
 
 export function DoubleLeftIcon(props: IconProps) {
-  return <SvgIcon src="/Icon/DoubleLeft.svg"  {...props} />;
+  return <SvgIcon src="/Icon/DoubleLeft.svg" {...props} />;
 }
 
 export function SettingIcon(props: IconProps) {
-  return <SvgIcon src="/Icon/Setting.svg"  {...props} />;
+  return <SvgIcon src="/Icon/Setting.svg" {...props} />;
 }
 
 export function TagOutlinedIcon(props: IconProps) {
-  return <SvgIcon src="/Icon/TagOutlined.svg"  {...props} />;
+  return <SvgIcon src="/Icon/TagOutlined.svg" {...props} />;
 }
 
 export function TagSearchIcon(props: IconProps) {
-  return <SvgIcon src="/Icon/TagSearch.svg"  {...props} />;
+  return <SvgIcon src="/Icon/TagSearch.svg" {...props} />;
 }
-
 
 export function EditIcon(props: IconProps) {
-  return <SvgIcon src="/Icon/Edit.svg"  {...props} />;
+  return <SvgIcon src="/Icon/Edit.svg" {...props} />;
 }
 export function FileImageIcon(props: IconProps) {
-  return <SvgIcon src="/Icon/FileImage.svg"  {...props} />;
+  return <SvgIcon src="/Icon/FileImage.svg" {...props} />;
 }
 
 export function DepartmentIcon(props: IconProps) {
-  return <SvgIcon src="/Icon/Department.svg"  {...props} />;
+  return <SvgIcon src="/Icon/Department.svg" {...props} />;
 }
 
 export function RetryIcon(props: IconProps) {
-  return <SvgIcon src="/Icon/Retry.svg"  {...props} />;
+  return <SvgIcon src="/Icon/Retry.svg" {...props} />;
 }
 
-
 export function VimIcon(props: IconProps) {
-  return <SvgIcon src="/Icon/Vim.svg"  {...props} />;
+  return <SvgIcon src="/Icon/Vim.svg" {...props} />;
 }
 
 export function TagAIIcon(props: IconProps) {
-  return <SvgIcon src="/Icon/TagAI.svg"  {...props} />;
+  return <SvgIcon src="/Icon/TagAI.svg" {...props} />;
 }
 
 export function TagsIcon(props: IconProps) {
-  return <SvgIcon src="/Icon/Tags.svg"  {...props} />;
+  return <SvgIcon src="/Icon/Tags.svg" {...props} />;
 }
 
 export function TeamIcon(props: IconProps) {
-  return <SvgIcon src="/Icon/Team.svg"  {...props} />;
+  return <SvgIcon src="/Icon/Team.svg" {...props} />;
 }
 
 export function ClockCircleIcon(props: IconProps) {
-  return <SvgIcon src="/Icon/ClockCircle.svg"  {...props} />;
+  return <SvgIcon src="/Icon/ClockCircle.svg" {...props} />;
 }
 
 /**

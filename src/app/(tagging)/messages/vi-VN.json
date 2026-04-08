@@ -4,11 +4,22 @@
       "title": "Công cụ gắn thẻ tự động bằng AI"
     },
     "Sidebar": {
+      "brand": "Nhận diện thương hiệu",
+      "configuration": "Cấu hình",
       "dashboard": "Bảng điều khiển",
+      "featureLibrary": "Thư viện đặc trưng",
       "review": "Duyệt gắn thẻ AI",
       "settings": "Cài đặt gắn thẻ AI",
       "access": "Cài đặt thành viên",
       "test": "Kiểm tra khớp AI"
+    },
+    "BrandLibrary": {
+      "title": "Thư viện đặc trưng nhận diện thương hiệu",
+      "description": "Quản lý các đặc trưng nhận diện trực quan như logo thương hiệu và nhãn hiệu",
+      "searchPlaceholder": "Tìm kiếm tên nhận diện",
+      "importExport": "Nhập/Xuất hàng loạt",
+      "create": "Tạo nhận diện thương hiệu",
+      "empty": "Chưa có dữ liệu"
     },
     "Dashboard": {
       "title": "Đang gắn thẻ tự động bằng AI",

@@ -240,10 +240,21 @@
     },
     "Sidebar": {
       "access": "멤버 설정",
+      "brand": "브랜드 식별",
+      "configuration": "구성",
       "dashboard": "컨트롤 패널",
+      "featureLibrary": "특징 라이브러리",
       "review": "AI 태그 검토",
       "settings": "AI 태깅 설정",
       "test": "AI 매칭 테스트"
+    },
+    "BrandLibrary": {
+      "title": "브랜드 식별 특징 라이브러리",
+      "description": "브랜드 로고와 상표 등 시각적 식별 특징을 관리합니다",
+      "searchPlaceholder": "식별 이름 검색",
+      "importExport": "일괄 가져오기/내보내기",
+      "create": "새 브랜드 식별",
+      "empty": "데이터 없음"
     },
     "Test": {
       "archiveMaterial": "역사 자료",

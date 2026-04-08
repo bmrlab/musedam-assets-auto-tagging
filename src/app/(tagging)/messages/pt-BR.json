@@ -240,10 +240,21 @@
     },
     "Sidebar": {
       "access": "Configurações de Membros",
+      "brand": "Identidade da Marca",
+      "configuration": "Configuração",
       "dashboard": "Painel",
+      "featureLibrary": "Biblioteca de Características",
       "review": "Revisão de Marcação por IA",
       "settings": "Configurações de Marcação",
       "test": "Teste de Marcação"
+    },
+    "BrandLibrary": {
+      "title": "Biblioteca de Identidades da Marca",
+      "description": "Gerencie logos, marcas registradas e outros elementos visuais de identificação da marca",
+      "searchPlaceholder": "Pesquisar nome do identificador",
+      "importExport": "Importação/Exportação em lote",
+      "create": "Nova Identidade da Marca",
+      "empty": "Sem dados"
     },
     "Test": {
       "archiveMaterial": "Arquivar Material",
