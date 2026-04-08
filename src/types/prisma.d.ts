@@ -1,8 +1,8 @@
 declare module "@/prisma/client" {
   export * from "@/prisma/client/index";
-  import { Tag } from "@/prisma/client";
+  import { AssetTag } from "@/prisma/client/index";
 
-  export type TagWithChildren = Pick<Tag, "id" | "name" | "extra"> & {
+  export type TagWithChildren = Pick<AssetTag, "id" | "name" | "extra"> & {
     children?: TagWithChildren[];
   };
 

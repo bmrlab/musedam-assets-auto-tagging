@@ -1,6 +1,6 @@
 import "server-only";
 
-import { Prisma, PrismaClient } from "./client";
+import { Prisma, PrismaClient } from "./client/index";
 
 const log: Prisma.LogLevel[] =
   process.env.LOG_LEVEL?.toLowerCase() === "debug"
