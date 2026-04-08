@@ -20,6 +20,8 @@ model Team {
   memberships       Membership[]
   assetTags         AssetTag[]
   assetObjects      AssetObject[]
+  assetLogoTypes    AssetLogoType[]
+  assetLogos        AssetLogo[]
   taggingQueueItems TaggingQueueItem[]
   taggingAuditItems TaggingAuditItem[]
   configs           TeamConfig[]
@@ -99,6 +101,7 @@ model AssetTag {
   createdAt         DateTime           @default(now()) @db.Timestamptz(6)
   updatedAt         DateTime           @updatedAt @db.Timestamptz(6)
   taggingAuditItems TaggingAuditItem[]
+  assetLogoTags     AssetLogoTag[]
 
   // ⚠️ migration.sql 里人工添加了一条 unique 索引，在 parentId 为空的时候，需要确保 teamId,name 唯一
   //    CREATE UNIQUE INDEX "AssetTag_teamId_name_key" ON "public"."AssetTag"("teamId", "name") WHERE "parentId" IS NULL;
@@ -106,6 +109,84 @@ model AssetTag {
   //    目前这样不会导致 Prisma 判断 migration 和 schema 不同步，所以问题不大
   //    如果之后 squash migration，需要再次人工添加上面这个 sql
   @@unique([teamId, parentId, name])
+}
+
+enum AssetLogoProcessStatus {
+  pending
+  processing
+  completed
+  failed
+}
+
+model AssetLogoType {
+  id     Int  @id @default(autoincrement())
+  teamId Int
+  team   Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  name String @db.VarChar(100)
+  sort Int    @default(0)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  logos AssetLogo[]
+}
+
+model AssetLogo {
+  id     Int  @id @default(autoincrement())
+  teamId Int
+  team   Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  slug         String                 @unique @default(cuid()) @db.VarChar(64)
+  name         String                 @db.VarChar(255)
+  logoTypeId   Int?
+  logoType     AssetLogoType?         @relation(fields: [logoTypeId], references: [id], onDelete: SetNull)
+  logoTypeName String                 @db.VarChar(100)
+  status       AssetLogoProcessStatus @default(pending)
+  enabled      Boolean                @default(true)
+  notes        String                 @default("") @db.Text
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  images AssetLogoImage[]
+  tags   AssetLogoTag[]
+
+  @@index([teamId, createdAt])
+  @@index([teamId, status])
+}
+
+model AssetLogoImage {
+  id          Int       @id @default(autoincrement())
+  assetLogoId Int
+  assetLogo   AssetLogo @relation(fields: [assetLogoId], references: [id], onDelete: Cascade)
+
+  objectKey String @db.Text
+  mimeType  String @db.VarChar(255)
+  size      Int
+  sort      Int    @default(0)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  @@index([assetLogoId, sort])
+}
+
+model AssetLogoTag {
+  id          Int       @id @default(autoincrement())
+  assetLogoId Int
+  assetLogo   AssetLogo @relation(fields: [assetLogoId], references: [id], onDelete: Cascade)
+  assetTagId  Int?
+  assetTag    AssetTag? @relation(fields: [assetTagId], references: [id], onDelete: SetNull)
+
+  tagPath Json @default("[]")
+  sort    Int  @default(0)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  @@index([assetLogoId, sort])
+  @@unique([assetLogoId, assetTagId])
 }
 
 enum TaggingQueueStatus {

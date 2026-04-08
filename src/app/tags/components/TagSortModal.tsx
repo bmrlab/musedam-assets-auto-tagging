@@ -1,4 +1,5 @@
 "use client";
+import * as React from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -33,6 +34,13 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
+type SortableContextViewProps = {
+  children: React.ReactNode;
+  items: Array<string | number>;
+  strategy?: typeof verticalListSortingStrategy;
+};
+
+const SortableContextView = SortableContext as unknown as React.ComponentType<SortableContextViewProps>;
 
 interface TagSortModalProps {
   open: boolean;
@@ -226,7 +234,7 @@ export function TagSortModal({
           collisionDetection={closestCenter}
           onDragEnd={handleDragEnd}
         >
-          <SortableContext
+          <SortableContextView
             items={itemIds}
             strategy={verticalListSortingStrategy}
           >
@@ -241,7 +249,7 @@ export function TagSortModal({
                 ))}
               </div>
             </div>
-          </SortableContext>
+          </SortableContextView>
         </DndContext>
 
         <DialogFooter>
