@@ -19,7 +19,31 @@
       "searchPlaceholder": "ค้นหาชื่อสัญลักษณ์",
       "importExport": "นำเข้า/ส่งออกแบบชุด",
       "create": "สร้างการระบุแบรนด์ใหม่",
-      "empty": "ไม่มีข้อมูล"
+      "empty": "ไม่มีข้อมูล",
+      "devClassify": "Dev Classify",
+      "retry": "Retry",
+      "retryStarted": "Processing restarted",
+      "dialogProcessingDescription": "Enter the logo name, type, reference images, and related tags. After saving, vectors will be generated automatically and the processing status will be updated.",
+      "createProcessingSuccess": "Brand identity created, vector generation has started",
+      "updateProcessingSuccess": "Brand identity updated, vector regeneration has started",
+      "retryOnlyFailed": "Only failed brand identities can be retried",
+      "retryFailed": "Failed to retry brand identity processing",
+      "uploadErrors": {
+        "fileTooLarge": "Each image must be 50MB or smaller",
+        "totalTooLarge": "The total size of new uploads must stay under 50MB",
+        "imageLoadFailed": "Failed to read the image. Please try again.",
+        "compressionFailed": "Failed to compress the image. Please try again.",
+        "compressionTargetUnreachable": "The image is still larger than 5MB after compression. Please choose a smaller one."
+      },
+      "processingErrors": {
+        "logoNotFound": "Brand identity no longer exists",
+        "noReferenceImages": "No reference images are available for vector generation",
+        "imageFetchFailed": "Failed to read the reference image",
+        "jinaRequestFailed": "Failed to generate embeddings with Jina",
+        "embeddingCountMismatch": "The number of returned embeddings does not match the number of images",
+        "vectorStoreSyncFailed": "Failed to sync vectors to Qdrant",
+        "unknown": "Brand identity processing failed"
+      }
     },
     "Dashboard": {
       "title": "การติดแท็กอัตโนมัติด้วย AI กำลังดำเนินการ",

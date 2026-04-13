@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import Image from "next/image";
+import Link from "next/link";
 import {
   CheckCircle2,
   ChevronLeft,
@@ -34,7 +35,12 @@ import { useDeferredValue, useEffect, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { deleteAssetLogoAction, setAssetLogoEnabledAction } from "./actions";
+import {
+  deleteAssetLogoAction,
+  pollBrandLogosAction,
+  retryAssetLogoProcessingAction,
+  setAssetLogoEnabledAction,
+} from "./actions";
 import BrandImageHoverCard from "./BrandImageHoverCard";
 import BrandLogoDialog from "./BrandLogoDialog";
 import SignedBrandImage from "./SignedBrandImage";
@@ -124,7 +130,7 @@ export default function BrandLibraryClient({ initialData }: { initialData: Brand
   const [logos, setLogos] = useState(initialData.logos);
   const [logoTypes, setLogoTypes] = useState(initialData.logoTypes);
   const [search, setSearch] = useState("");
-  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [enabledFilter, setEnabledFilter] = useState("all");
@@ -136,7 +142,7 @@ export default function BrandLibraryClient({ initialData }: { initialData: Brand
   const [dialogMode, setDialogMode] = useState<"create" | "edit">("create");
   const [activeLogo, setActiveLogo] = useState<BrandLogoItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<BrandLogoItem | null>(null);
-  const [pendingLogoIds, setPendingLogoIds] = useState<number[]>([]);
+  const [pendingLogoIds, setPendingLogoIds] = useState<string[]>([]);
   const [isPending, startTransition] = useTransition();
   const deferredSearch = useDeferredValue(search.trim().toLowerCase());
 
@@ -195,6 +201,64 @@ export default function BrandLibraryClient({ initialData }: { initialData: Brand
     }
   }, [currentPage, totalPages]);
 
+  useEffect(() => {
+    const pendingIds = logos
+      .filter((logo) => logo.status === "processing" || logo.status === "pending")
+      .map((logo) => logo.id);
+
+    if (pendingIds.length === 0) {
+      return;
+    }
+
+    let disposed = false;
+
+    async function poll() {
+      const result = await pollBrandLogosAction(pendingIds);
+      if (!result.success || disposed) {
+        return;
+      }
+
+      setLogos((current) =>
+        current.map((logo) => result.data.logos.find((item) => item.id === logo.id) ?? logo),
+      );
+    }
+
+    void poll();
+    const timer = window.setInterval(() => {
+      void poll();
+    }, 3000);
+
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+    };
+  }, [logos]);
+
+  function getProcessingErrorMessage(error: string | null) {
+    if (!error) {
+      return null;
+    }
+
+    switch (error) {
+      case "logo_not_found":
+        return t("processingErrors.logoNotFound");
+      case "no_reference_images":
+        return t("processingErrors.noReferenceImages");
+      case "image_fetch_failed":
+        return t("processingErrors.imageFetchFailed");
+      case "jina_request_failed":
+        return t("processingErrors.jinaRequestFailed");
+      case "embedding_count_mismatch":
+        return t("processingErrors.embeddingCountMismatch");
+      case "vector_store_sync_failed":
+        return t("processingErrors.vectorStoreSyncFailed");
+      case "unknown":
+        return t("processingErrors.unknown");
+      default:
+        return error;
+    }
+  }
+
   function updateLogoInList(nextLogo: BrandLogoItem) {
     setLogos((current) => {
       const existing = current.some((logo) => logo.id === nextLogo.id);
@@ -224,7 +288,7 @@ export default function BrandLibraryClient({ initialData }: { initialData: Brand
     setDialogOpen(true);
   }
 
-  function markLogoPending(logoId: number, pending: boolean) {
+  function markLogoPending(logoId: string, pending: boolean) {
     setPendingLogoIds((current) => {
       if (pending) {
         if (current.includes(logoId)) {
@@ -277,13 +341,30 @@ export default function BrandLibraryClient({ initialData }: { initialData: Brand
     });
   }
 
-  function handleTypeRenamed(typeId: number, name: string) {
+  function handleRetryProcessing(logo: BrandLogoItem) {
+    markLogoPending(logo.id, true);
+
+    startTransition(async () => {
+      const result = await retryAssetLogoProcessingAction(logo.id);
+      markLogoPending(logo.id, false);
+
+      if (!result.success) {
+        toast.error(result.message);
+        return;
+      }
+
+      updateLogoInList(result.data.logo);
+      toast.success(t("retryStarted"));
+    });
+  }
+
+  function handleTypeRenamed(typeId: string, name: string) {
     setLogos((current) =>
       current.map((logo) => (logo.logoTypeId === typeId ? { ...logo, logoTypeName: name } : logo)),
     );
   }
 
-  function handleTypeDeleted(typeId: number) {
+  function handleTypeDeleted(typeId: string) {
     setLogos((current) => current.map((logo) => (logo.logoTypeId === typeId ? logo : logo)));
   }
 
@@ -333,6 +414,10 @@ export default function BrandLibraryClient({ initialData }: { initialData: Brand
             <Button type="button" variant="outline" className="h-10 rounded-[8px] px-4" disabled>
               <Upload className="size-4" />
               {t("importExport")}
+            </Button>
+
+            <Button type="button" variant="outline" className="h-10 rounded-[8px] px-4" asChild>
+              <Link href="/tagging/brand/classify">{t("devClassify")}</Link>
             </Button>
 
             <Button type="button" className="h-10 rounded-[8px] px-4" onClick={handleOpenCreate}>
@@ -501,12 +586,31 @@ export default function BrandLibraryClient({ initialData }: { initialData: Brand
                             </div>
                           </td>
                           <td className="px-4 py-5 align-top">
-                            <span
-                              className={`inline-flex items-center gap-1 rounded-[8px] border px-3 py-1 text-sm ${statusMeta.className}`}
-                            >
-                              <StatusIcon className={statusMeta.label === "处理中" ? "size-4 animate-spin" : "size-4"} />
-                              {statusMeta.label}
-                            </span>
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-3">
+                                <span
+                                  className={`inline-flex items-center gap-1 rounded-[8px] border px-3 py-1 text-sm ${statusMeta.className}`}
+                                >
+                                  <StatusIcon className={statusMeta.label === "处理中" ? "size-4 animate-spin" : "size-4"} />
+                                  {statusMeta.label}
+                                </span>
+                                {logo.status === "failed" ? (
+                                  <button
+                                    type="button"
+                                    className="text-sm font-medium text-[#3370ff] transition-colors hover:text-[#1d55d1] disabled:cursor-not-allowed disabled:text-basic-5"
+                                    onClick={() => handleRetryProcessing(logo)}
+                                    disabled={pending}
+                                  >
+                                    {t("retry")}
+                                  </button>
+                                ) : null}
+                              </div>
+                              {logo.status === "failed" && logo.processingError ? (
+                                <p className="text-xs leading-5 text-[#ff4d6a]">
+                                  {getProcessingErrorMessage(logo.processingError)}
+                                </p>
+                              ) : null}
+                            </div>
                           </td>
                           <td className="px-4 py-5 align-top">
                             <Switch

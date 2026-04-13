@@ -1,9 +1,11 @@
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
 -- CreateEnum
 CREATE TYPE "public"."AssetLogoProcessStatus" AS ENUM ('pending', 'processing', 'completed', 'failed');
 
 -- CreateTable
 CREATE TABLE "public"."AssetLogoType" (
-    "id" SERIAL NOT NULL,
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "teamId" INTEGER NOT NULL,
     "name" VARCHAR(100) NOT NULL,
     "sort" INTEGER NOT NULL DEFAULT 0,
@@ -16,11 +18,11 @@ CREATE TABLE "public"."AssetLogoType" (
 
 -- CreateTable
 CREATE TABLE "public"."AssetLogo" (
-    "id" SERIAL NOT NULL,
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "teamId" INTEGER NOT NULL,
     "slug" VARCHAR(64) NOT NULL,
     "name" VARCHAR(255) NOT NULL,
-    "logoTypeId" INTEGER,
+    "logoTypeId" UUID,
     "logoTypeName" VARCHAR(100) NOT NULL,
     "status" "public"."AssetLogoProcessStatus" NOT NULL DEFAULT 'pending',
     "enabled" BOOLEAN NOT NULL DEFAULT true,
@@ -34,8 +36,8 @@ CREATE TABLE "public"."AssetLogo" (
 
 -- CreateTable
 CREATE TABLE "public"."AssetLogoImage" (
-    "id" SERIAL NOT NULL,
-    "assetLogoId" INTEGER NOT NULL,
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "assetLogoId" UUID NOT NULL,
     "objectKey" TEXT NOT NULL,
     "accessUrl" TEXT NOT NULL,
     "originalName" VARCHAR(255) NOT NULL,
@@ -52,8 +54,8 @@ CREATE TABLE "public"."AssetLogoImage" (
 
 -- CreateTable
 CREATE TABLE "public"."AssetLogoTag" (
-    "id" SERIAL NOT NULL,
-    "assetLogoId" INTEGER NOT NULL,
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "assetLogoId" UUID NOT NULL,
     "assetTagId" INTEGER,
     "tagPath" JSONB NOT NULL DEFAULT '[]',
     "sort" INTEGER NOT NULL DEFAULT 0,

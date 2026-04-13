@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
+import { MAX_SERVER_ACTION_UPLOAD_BODY_SIZE_LIMIT } from "./src/lib/brand/upload-constants";
 
 const nextConfig: NextConfig = {
   output: "standalone",
@@ -14,6 +15,9 @@ const nextConfig: NextConfig = {
   experimental: {
     // see https://nextjs.org/docs/app/api-reference/functions/forbidden
     authInterrupts: true,
+    serverActions: {
+      bodySizeLimit: MAX_SERVER_ACTION_UPLOAD_BODY_SIZE_LIMIT,
+    },
   },
   // 限制缓存大小，防止磁盘空间问题
   onDemandEntries: {

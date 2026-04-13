@@ -254,7 +254,31 @@
       "searchPlaceholder": "搜尋標識名稱",
       "importExport": "批次匯入/匯出",
       "create": "新建品牌標識",
-      "empty": "暫無資料"
+      "empty": "暫無資料",
+      "devClassify": "開發分類測試",
+      "retry": "重試",
+      "retryStarted": "已重新發起處理",
+      "dialogProcessingDescription": "輸入 Logo 名稱、類型、參考圖片與關聯標籤，儲存後會自動生成向量並更新處理狀態。",
+      "createProcessingSuccess": "品牌標識已建立，正在生成參考向量",
+      "updateProcessingSuccess": "品牌標識已更新，正在重新生成參考向量",
+      "retryOnlyFailed": "僅已失敗的品牌標識可重試",
+      "retryFailed": "重試品牌標識處理失敗",
+      "uploadErrors": {
+        "fileTooLarge": "單張圖片不能超過 50MB",
+        "totalTooLarge": "本次新上傳圖片總大小不能超過 50MB",
+        "imageLoadFailed": "讀取圖片失敗，請重試",
+        "compressionFailed": "圖片壓縮失敗，請重試",
+        "compressionTargetUnreachable": "圖片壓縮後仍超過 5MB，請換一張更小的圖片"
+      },
+      "processingErrors": {
+        "logoNotFound": "品牌標識不存在或已被刪除",
+        "noReferenceImages": "缺少參考圖片，無法生成向量",
+        "imageFetchFailed": "讀取參考圖片失敗",
+        "jinaRequestFailed": "呼叫 Jina 生成向量失敗",
+        "embeddingCountMismatch": "回傳的向量數量與參考圖片數量不一致",
+        "vectorStoreSyncFailed": "同步向量到 Qdrant 失敗",
+        "unknown": "品牌標識處理失敗"
+      }
     },
     "Test": {
       "archiveMaterial": "歷史資料",

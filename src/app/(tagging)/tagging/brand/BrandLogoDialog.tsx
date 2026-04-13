@@ -12,7 +12,14 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  CLIENT_IMAGE_PREPARATION_ERROR_CODES,
+  getClientImagePreparationErrorCode,
+  prepareClientImageUpload,
+} from "@/lib/brand/browser-image";
+import { MAX_TOTAL_NEW_REFERENCE_UPLOAD_BYTES } from "@/lib/brand/upload-constants";
 import { Info, Loader2, Plus, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { createAssetLogoAction, updateAssetLogoAction } from "./actions";
@@ -23,7 +30,7 @@ import { BrandLogoItem, BrandLogoTypeItem, BrandTagTreeNode } from "./types";
 
 type DraftImage = {
   id: string;
-  existingImageId?: number;
+  existingImageId?: string;
   previewUrl: string;
   signedUrl?: string;
   signedUrlExpiresAt?: number;
@@ -41,8 +48,8 @@ type BrandLogoDialogProps = {
   onOpenChange: (open: boolean) => void;
   onSaved: (logo: BrandLogoItem) => void;
   onLogoTypesChange: (types: BrandLogoTypeItem[]) => void;
-  onLogoTypeRenamed: (typeId: number, name: string) => void;
-  onLogoTypeDeleted: (typeId: number) => void;
+  onLogoTypeRenamed: (typeId: string, name: string) => void;
+  onLogoTypeDeleted: (typeId: string) => void;
 };
 
 function revokeDraftImageUrls(images: DraftImage[]) {
@@ -81,8 +88,9 @@ export default function BrandLogoDialog({
   onLogoTypeRenamed,
   onLogoTypeDeleted,
 }: BrandLogoDialogProps) {
+  const t = useTranslations("Tagging.BrandLibrary");
   const [name, setName] = useState("");
-  const [logoTypeId, setLogoTypeId] = useState<number | null>(null);
+  const [logoTypeId, setLogoTypeId] = useState<string | null>(null);
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
   const [notes, setNotes] = useState("");
   const [images, setImages] = useState<DraftImage[]>([]);
@@ -123,22 +131,49 @@ export default function BrandLogoDialog({
         }
       : null;
 
-  function handleSelectImages(event: React.ChangeEvent<HTMLInputElement>) {
+  function getUploadErrorMessage(error: unknown) {
+    switch (getClientImagePreparationErrorCode(error)) {
+      case CLIENT_IMAGE_PREPARATION_ERROR_CODES.fileTooLarge:
+        return t("uploadErrors.fileTooLarge");
+      case CLIENT_IMAGE_PREPARATION_ERROR_CODES.imageLoadFailed:
+        return t("uploadErrors.imageLoadFailed");
+      case CLIENT_IMAGE_PREPARATION_ERROR_CODES.compressionTargetUnreachable:
+        return t("uploadErrors.compressionTargetUnreachable");
+      case CLIENT_IMAGE_PREPARATION_ERROR_CODES.compressionFailed:
+        return t("uploadErrors.compressionFailed");
+      default:
+        return error instanceof Error ? error.message : t("uploadErrors.compressionFailed");
+    }
+  }
+
+  async function handleSelectImages(event: React.ChangeEvent<HTMLInputElement>) {
     const fileList = Array.from(event.target.files ?? []);
+    event.target.value = "";
+
     if (fileList.length === 0) {
       return;
     }
 
-    const nextImages = fileList.map((file) => ({
-      id: `new-${crypto.randomUUID()}`,
-      previewUrl: URL.createObjectURL(file),
-      name: file.name,
-      file,
-      isNew: true,
-    }));
+    const nextImages: DraftImage[] = [];
 
-    setImages((current) => [...current, ...nextImages]);
-    event.target.value = "";
+    for (const file of fileList) {
+      try {
+        const preparedFile = await prepareClientImageUpload(file);
+        nextImages.push({
+          id: `new-${crypto.randomUUID()}`,
+          previewUrl: URL.createObjectURL(preparedFile),
+          name: preparedFile.name,
+          file: preparedFile,
+          isNew: true,
+        });
+      } catch (error) {
+        toast.error(getUploadErrorMessage(error));
+      }
+    }
+
+    if (nextImages.length > 0) {
+      setImages((current) => [...current, ...nextImages]);
+    }
   }
 
   function removeImage(imageId: string) {
@@ -174,6 +209,12 @@ export default function BrandLogoDialog({
       return;
     }
 
+    const newUploadBytes = images.reduce((total, image) => total + (image.file?.size ?? 0), 0);
+    if (newUploadBytes > MAX_TOTAL_NEW_REFERENCE_UPLOAD_BYTES) {
+      toast.error(t("uploadErrors.totalTooLarge"));
+      return;
+    }
+
     const formData = new FormData();
     if (mode === "edit" && logo) {
       formData.append("id", String(logo.id));
@@ -187,7 +228,7 @@ export default function BrandLogoDialog({
       JSON.stringify(
         images
           .map((image) => image.existingImageId)
-          .filter((imageId): imageId is number => Boolean(imageId)),
+          .filter((imageId): imageId is string => Boolean(imageId)),
       ),
     );
 
@@ -208,7 +249,11 @@ export default function BrandLogoDialog({
 
       onSaved(result.data.logo);
       onOpenChange(false);
-      toast.success(mode === "create" ? "品牌标识创建成功" : "品牌标识已更新");
+      toast.success(
+        mode === "create"
+          ? t("createProcessingSuccess")
+          : t("updateProcessingSuccess"),
+      );
     });
   }
 
@@ -220,7 +265,7 @@ export default function BrandLogoDialog({
             {mode === "create" ? "新建品牌标识特征" : "编辑品牌标识特征"}
           </DialogTitle>
           <DialogDescription>
-            录入 Logo 名称、类型、参考图片与关联标签，创建后处理状态会自动标记为完成。
+            {t("dialogProcessingDescription")}
           </DialogDescription>
         </DialogHeader>
 

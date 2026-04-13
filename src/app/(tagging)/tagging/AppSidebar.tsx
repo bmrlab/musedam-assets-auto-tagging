@@ -85,7 +85,7 @@ function renderMenuItems(items: MenuItem[], pathname: string) {
       <SidebarMenuButton
         className="px-4 h-10"
         asChild
-        isActive={pathname === item.url}
+        isActive={pathname === item.url || pathname.startsWith(`${item.url}/`)}
         tooltip={item.title}
       >
         <Link href={item.url}>
@@ -99,7 +99,9 @@ function renderMenuItems(items: MenuItem[], pathname: string) {
 
 export function getActiveMenuTitle(pathname: string, t: TranslationFunction): string {
   const menuItems = getMenuItems(t);
-  const activeItem = menuItems.find((item) => pathname === item.url);
+  const activeItem = menuItems.find(
+    (item) => pathname === item.url || pathname.startsWith(`${item.url}/`),
+  );
   return activeItem?.title || t("App.title");
 }
 

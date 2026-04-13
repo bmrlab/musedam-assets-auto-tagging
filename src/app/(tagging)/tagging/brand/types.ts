@@ -1,5 +1,5 @@
 export type BrandLogoTypeItem = {
-  id: number;
+  id: string;
   name: string;
   sort: number;
 };
@@ -13,13 +13,13 @@ export type BrandTagTreeNode = {
 };
 
 export type BrandLogoTagItem = {
-  id: number;
+  id: string;
   assetTagId: number | null;
   tagPath: string[];
 };
 
 export type BrandLogoImageItem = {
-  id: number;
+  id: string;
   objectKey: string;
   signedUrl: string;
   signedUrlExpiresAt: number;
@@ -29,12 +29,14 @@ export type BrandLogoImageItem = {
 };
 
 export type BrandLogoItem = {
-  id: number;
+  id: string;
   slug: string;
   name: string;
-  logoTypeId: number | null;
+  logoTypeId: string | null;
   logoTypeName: string;
   status: "pending" | "processing" | "completed" | "failed";
+  processingError: string | null;
+  processedAt: Date | null;
   enabled: boolean;
   notes: string;
   createdAt: Date;
@@ -47,4 +49,38 @@ export type BrandLibraryPageData = {
   logos: BrandLogoItem[];
   logoTypes: BrandLogoTypeItem[];
   tags: BrandTagTreeNode[];
+};
+
+export type BrandDetectionBox = {
+  xMin: number;
+  yMin: number;
+  xMax: number;
+  yMax: number;
+  score: number;
+  label: string;
+};
+
+export type BrandClassificationUploadResult = {
+  objectKey: string;
+  signedUrl: string;
+  signedUrlExpiresAt: number;
+  detections: BrandDetectionBox[];
+  found: boolean;
+};
+
+export type BrandClassificationMatch = {
+  assetLogoId: string;
+  logoName: string;
+  logoTypeId: string | null;
+  logoTypeName: string;
+  similarity: number;
+  confidence: number;
+  detectionIndex: number;
+};
+
+export type BrandClassificationResult = {
+  topMatches: BrandClassificationMatch[];
+  bestMatch: BrandClassificationMatch | null;
+  noConfidentMatch: boolean;
+  winningDetectionIndex: number | null;
 };
