@@ -84,3 +84,7 @@ export function getLogoDetectionServerUrl() {
 export function getLogoDetectionServerToken() {
   return getRequiredEnv("LOGO_DETECTION_SERVER_TOKEN");
 }
+
+export function isDebugPageEnabled() {
+  return getBooleanEnv("DEBUG_PAGE", false);
+}
