@@ -88,7 +88,7 @@ function getLogoStatusMeta(status: BrandLogoItem["status"]) {
 }
 
 function LogoImagesCell({ logo }: { logo: BrandLogoItem }) {
-  const previewImages = logo.images.slice(0, 3);
+  const previewImages = logo.images;
 
   if (previewImages.length === 0) {
     return <span className="text-sm text-basic-5">-</span>;
@@ -546,13 +546,21 @@ export default function BrandLibraryClient({ initialData }: { initialData: Brand
                             <div className="flex items-start gap-3">
                               <div className="mt-0.5 h-10 w-10 overflow-hidden rounded-[10px] bg-basic-2">
                                 {logo.images[0] ? (
-                                  <SignedBrandImage
-                                    imageId={logo.images[0].id}
-                                    signedUrl={logo.images[0].signedUrl}
-                                    signedUrlExpiresAt={logo.images[0].signedUrlExpiresAt}
-                                    alt={`${logo.name} 标识图`}
-                                    className="h-full w-full object-cover"
-                                  />
+                                  <BrandImageHoverCard image={logo.images[0]} alt={`${logo.name} 标识图`}>
+                                    <button
+                                      type="button"
+                                      className="h-full w-full overflow-hidden"
+                                      aria-label={`预览 ${logo.name} 标识图`}
+                                    >
+                                      <SignedBrandImage
+                                        imageId={logo.images[0].id}
+                                        signedUrl={logo.images[0].signedUrl}
+                                        signedUrlExpiresAt={logo.images[0].signedUrlExpiresAt}
+                                        alt={`${logo.name} 标识图`}
+                                        className="h-full w-full object-cover"
+                                      />
+                                    </button>
+                                  </BrandImageHoverCard>
                                 ) : null}
                               </div>
                               <div className="min-w-0 flex-1">
