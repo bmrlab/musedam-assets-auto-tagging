@@ -125,7 +125,13 @@ function LogoImagesCell({ logo }: { logo: BrandLogoItem }) {
   );
 }
 
-export default function BrandLibraryClient({ initialData }: { initialData: BrandLibraryPageData }) {
+export default function BrandLibraryClient({
+  initialData,
+  debugPageEnabled,
+}: {
+  initialData: BrandLibraryPageData;
+  debugPageEnabled: boolean;
+}) {
   const t = useTranslations("Tagging.BrandLibrary");
   const [logos, setLogos] = useState(initialData.logos);
   const [logoTypes, setLogoTypes] = useState(initialData.logoTypes);
@@ -416,9 +422,11 @@ export default function BrandLibraryClient({ initialData }: { initialData: Brand
               {t("importExport")}
             </Button>
 
-            <Button type="button" variant="outline" className="h-10 rounded-[8px] px-4" asChild>
-              <Link href="/tagging/brand/classify">{t("devClassify")}</Link>
-            </Button>
+            {debugPageEnabled ? (
+              <Button type="button" variant="outline" className="h-10 rounded-[8px] px-4" asChild>
+                <Link href="/tagging/brand/classify">{t("devClassify")}</Link>
+              </Button>
+            ) : null}
 
             <Button type="button" className="h-10 rounded-[8px] px-4" onClick={handleOpenCreate}>
               <Plus className="size-4" />

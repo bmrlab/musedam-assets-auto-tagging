@@ -1,4 +1,5 @@
 import authOptions from "@/app/(auth)/authOptions";
+import { isDebugPageEnabled } from "@/lib/brand/env";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { fetchBrandLibraryPageData } from "./actions";
@@ -17,5 +18,7 @@ export default async function BrandPage() {
     throw new Error(result.message || "Failed to fetch brand library data");
   }
 
-  return <BrandLibraryClient initialData={result.data} />;
+  const debugPageEnabled = isDebugPageEnabled();
+
+  return <BrandLibraryClient initialData={result.data} debugPageEnabled={debugPageEnabled} />;
 }
