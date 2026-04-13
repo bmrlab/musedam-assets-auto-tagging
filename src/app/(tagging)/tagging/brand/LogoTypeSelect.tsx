@@ -50,14 +50,14 @@ type SortableContextViewProps = {
 const SortableContextView = SortableContext as unknown as React.ComponentType<SortableContextViewProps>;
 
 type LogoTypeSelectProps = {
-  value: number | null;
+  value: string | null;
   types: BrandLogoTypeItem[];
-  onChange: (typeId: number | null) => void;
+  onChange: (typeId: string | null) => void;
   onTypesChange: (types: BrandLogoTypeItem[]) => void;
-  onTypeRenamed?: (typeId: number, name: string) => void;
-  onTypeDeleted?: (typeId: number) => void;
+  onTypeRenamed?: (typeId: string, name: string) => void;
+  onTypeDeleted?: (typeId: string) => void;
   fallbackType?: {
-    id: number;
+    id: string;
     name: string;
   } | null;
   disabled?: boolean;
@@ -75,7 +75,7 @@ function SortableTypeRow({
   disabled,
 }: {
   type: BrandLogoTypeItem;
-  editingTypeId: number | null;
+  editingTypeId: string | null;
   editingName: string;
   onEditingNameChange: (name: string) => void;
   onStartEdit: (type: BrandLogoTypeItem) => void;
@@ -169,7 +169,7 @@ export default function LogoTypeSelect({
   const [mode, setMode] = useState<"list" | "manage">("list");
   const [isCreating, setIsCreating] = useState(false);
   const [newTypeName, setNewTypeName] = useState("");
-  const [editingTypeId, setEditingTypeId] = useState<number | null>(null);
+  const [editingTypeId, setEditingTypeId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
   const [isPending, startTransition] = useTransition();
   const containerRef = useRef<HTMLDivElement | null>(null);

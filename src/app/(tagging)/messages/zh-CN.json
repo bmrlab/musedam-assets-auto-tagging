@@ -19,7 +19,31 @@
       "searchPlaceholder": "搜索标识名称",
       "importExport": "批量导入/导出",
       "create": "新建品牌标识",
-      "empty": "暂无数据"
+      "empty": "暂无数据",
+      "devClassify": "开发分类测试",
+      "retry": "重试",
+      "retryStarted": "已重新发起处理",
+      "dialogProcessingDescription": "录入 Logo 名称、类型、参考图片与关联标签，保存后会自动生成向量并更新处理状态。",
+      "createProcessingSuccess": "品牌标识已创建，正在生成参考向量",
+      "updateProcessingSuccess": "品牌标识已更新，正在重新生成参考向量",
+      "retryOnlyFailed": "仅已失败的品牌标识可重试",
+      "retryFailed": "重试品牌标识处理失败",
+      "uploadErrors": {
+        "fileTooLarge": "单张图片不能超过 50MB",
+        "totalTooLarge": "本次新上传图片总大小不能超过 50MB",
+        "imageLoadFailed": "读取图片失败，请重试",
+        "compressionFailed": "图片压缩失败，请重试",
+        "compressionTargetUnreachable": "图片压缩后仍超过 5MB，请换一张更小的图片"
+      },
+      "processingErrors": {
+        "logoNotFound": "品牌标识不存在或已被删除",
+        "noReferenceImages": "缺少参考图片，无法生成向量",
+        "imageFetchFailed": "读取参考图片失败",
+        "jinaRequestFailed": "调用 Jina 生成向量失败",
+        "embeddingCountMismatch": "返回的向量数量与参考图片数量不一致",
+        "vectorStoreSyncFailed": "同步向量到 Qdrant 失败",
+        "unknown": "品牌标识处理失败"
+      }
     },
     "Dashboard": {
       "title": "AI 自动打标中",

@@ -119,7 +119,7 @@ enum AssetLogoProcessStatus {
 }
 
 model AssetLogoType {
-  id     Int  @id @default(autoincrement())
+  id     String @id @default(uuid()) @db.Uuid
   teamId Int
   team   Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
@@ -133,16 +133,18 @@ model AssetLogoType {
 }
 
 model AssetLogo {
-  id     Int  @id @default(autoincrement())
+  id     String @id @default(uuid()) @db.Uuid
   teamId Int
   team   Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   slug         String                 @unique @default(cuid()) @db.VarChar(64)
   name         String                 @db.VarChar(255)
-  logoTypeId   Int?
+  logoTypeId   String?                @db.Uuid
   logoType     AssetLogoType?         @relation(fields: [logoTypeId], references: [id], onDelete: SetNull)
   logoTypeName String                 @db.VarChar(100)
   status       AssetLogoProcessStatus @default(pending)
+  processingError String?             @db.Text
+  processedAt      DateTime?          @db.Timestamptz(6)
   enabled      Boolean                @default(true)
   notes        String                 @default("") @db.Text
 
@@ -157,14 +159,17 @@ model AssetLogo {
 }
 
 model AssetLogoImage {
-  id          Int       @id @default(autoincrement())
-  assetLogoId Int
+  id          String    @id @default(uuid()) @db.Uuid
+  assetLogoId String    @db.Uuid
   assetLogo   AssetLogo @relation(fields: [assetLogoId], references: [id], onDelete: Cascade)
 
   objectKey String @db.Text
   mimeType  String @db.VarChar(255)
   size      Int
   sort      Int    @default(0)
+  qdrantPointId  String?   @unique @db.VarChar(64)
+  embeddingModel String?   @db.VarChar(128)
+  embeddedAt     DateTime? @db.Timestamptz(6)
 
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @db.Timestamptz(6)
@@ -173,8 +178,8 @@ model AssetLogoImage {
 }
 
 model AssetLogoTag {
-  id          Int       @id @default(autoincrement())
-  assetLogoId Int
+  id          String    @id @default(uuid()) @db.Uuid
+  assetLogoId String    @db.Uuid
   assetLogo   AssetLogo @relation(fields: [assetLogoId], references: [id], onDelete: Cascade)
   assetTagId  Int?
   assetTag    AssetTag? @relation(fields: [assetTagId], references: [id], onDelete: SetNull)

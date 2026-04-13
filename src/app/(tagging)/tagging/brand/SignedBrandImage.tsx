@@ -7,7 +7,7 @@ import { useSignedAssetLogoImageQuery } from "./useSignedAssetLogoImageQuery";
 const REFRESH_BUFFER_MS = 60 * 1000;
 
 type SignedBrandImageProps = Omit<ImgHTMLAttributes<HTMLImageElement>, "src"> & {
-  imageId: number;
+  imageId: string;
   signedUrl: string;
   signedUrlExpiresAt: number;
 };

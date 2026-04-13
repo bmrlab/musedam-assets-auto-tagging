@@ -1,12 +1,32 @@
 "use server";
 
 import { withAuth } from "@/app/(auth)/withAuth";
+import {
+  BrandDetectionBox,
+  classifyBrandImageCrops,
+  detectBrandLogoBoxes,
+} from "@/lib/brand/logo-classification";
+import {
+  markAssetLogoVectorsProcessing,
+  processAssetLogoReferenceVectors,
+} from "@/lib/brand/logo-processing";
+import { deleteLogoVectorPointsByLogo, setLogoVectorPayloadByLogo } from "@/lib/brand/qdrant";
 import { buildAssetLogoObjectKey, getCachedSignedOssObjectUrl, uploadOssObject } from "@/lib/oss";
 import { ServerActionResult } from "@/lib/serverAction";
-import { AssetLogo, AssetLogoImage, AssetLogoTag, AssetLogoType, AssetTag } from "@/prisma/client/index";
+import {
+  AssetLogo,
+  AssetLogoImage,
+  AssetLogoTag,
+  AssetLogoType,
+  AssetTag,
+} from "@/prisma/client/index";
 import prisma from "@/prisma/prisma";
+import { getTranslations } from "next-intl/server";
+import { after } from "next/server";
 import { z } from "zod";
 import {
+  BrandClassificationResult,
+  BrandClassificationUploadResult,
   BrandLibraryPageData,
   BrandLogoImageItem,
   BrandLogoItem,
@@ -16,12 +36,12 @@ import {
 } from "./types";
 
 const createOrUpdateLogoSchema = z.object({
-  id: z.number().int().positive().optional(),
+  id: z.string().uuid().optional(),
   name: z.string().trim().min(1, "请输入标识名称").max(255, "标识名称不能超过 255 个字符"),
-  logoTypeId: z.number().int().positive(),
+  logoTypeId: z.string().uuid(),
   tagIds: z.array(z.number().int().positive()).max(100),
   notes: z.string().max(5000).default(""),
-  existingImageIds: z.array(z.number().int().positive()).max(100).default([]),
+  existingImageIds: z.array(z.string().uuid()).max(100).default([]),
 });
 
 const logoTypeNameSchema = z
@@ -120,17 +140,19 @@ function normalizeBrandLogo(logo: AssetLogoRecord): BrandLogoItem {
     logoTypeId: logo.logoTypeId,
     logoTypeName: logo.logoTypeName,
     status: logo.status,
+    processingError: logo.processingError,
+    processedAt: logo.processedAt,
     enabled: logo.enabled,
     notes: logo.notes,
     createdAt: logo.createdAt,
     updatedAt: logo.updatedAt,
     images: logo.images
       .slice()
-      .sort((a, b) => a.sort - b.sort || a.id - b.id)
+      .sort((a, b) => a.sort - b.sort || a.id.localeCompare(b.id))
       .map(normalizeBrandLogoImage),
     tags: logo.tags
       .slice()
-      .sort((a, b) => a.sort - b.sort || a.id - b.id)
+      .sort((a, b) => a.sort - b.sort || a.id.localeCompare(b.id))
       .map(normalizeBrandLogoTag),
   };
 }
@@ -197,7 +219,41 @@ async function fetchBrandLogos(teamId: number) {
   return logos.map((logo) => normalizeBrandLogo(logo));
 }
 
-async function resolveLogoType(teamId: number, logoTypeId: number) {
+const DEFAULT_LOGO_DETECTION_PROMPT = "logo . brand logo . emblem . trademark . label";
+
+function buildLogoDetectionPromptName(name: string, logoTypeName: string) {
+  const trimmedName = name.trim();
+  const trimmedTypeName = logoTypeName.trim();
+  return trimmedName;
+}
+
+async function fetchLogoDetectionPromptNames(teamId: number) {
+  const logos = await prisma.assetLogo.findMany({
+    where: {
+      teamId,
+      enabled: true,
+      status: "completed",
+    },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    select: {
+      name: true,
+      logoTypeName: true,
+    },
+  });
+
+  const promptNames = Array.from(
+    new Set(
+      logos
+        .map((logo) => buildLogoDetectionPromptName(logo.name, logo.logoTypeName))
+        .map((name) => name.trim())
+        .filter(Boolean),
+    ),
+  );
+
+  return [DEFAULT_LOGO_DETECTION_PROMPT, ...promptNames].join(" . ");
+}
+
+async function resolveLogoType(teamId: number, logoTypeId: string) {
   const logoType = await prisma.assetLogoType.findFirst({
     where: {
       id: logoTypeId,
@@ -255,13 +311,7 @@ async function resolveSelectedTags(teamId: number, tagIds: number[]) {
   });
 }
 
-async function uploadNewLogoImages({
-  files,
-  teamId,
-}: {
-  files: File[];
-  teamId: number;
-}) {
+async function uploadNewLogoImages({ files, teamId }: { files: File[]; teamId: number }) {
   const uploads: Array<{
     objectKey: string;
     mimeType: string;
@@ -308,18 +358,17 @@ function parseCreateOrUpdateInput(formData: FormData) {
       if (typeof idValue !== "string" || !idValue.trim()) {
         return undefined;
       }
-
-      return Number(idValue);
+      return idValue;
     })(),
     name: formData.get("name"),
-    logoTypeId: Number(formData.get("logoTypeId")),
+    logoTypeId: formData.get("logoTypeId"),
     tagIds: parseJsonField<number[]>(formData.get("tagIds"), []),
     notes: typeof formData.get("notes") === "string" ? formData.get("notes") : "",
-    existingImageIds: parseJsonField<number[]>(formData.get("existingImageIds"), []),
+    existingImageIds: parseJsonField<string[]>(formData.get("existingImageIds"), []),
   });
 }
 
-async function loadBrandLogo(teamId: number, logoId: number) {
+async function loadBrandLogo(teamId: number, logoId: string) {
   const logo = await prisma.assetLogo.findFirst({
     where: {
       id: logoId,
@@ -342,11 +391,60 @@ async function loadBrandLogo(teamId: number, logoId: number) {
   return logo;
 }
 
-export async function refreshAssetLogoImageSignedUrlAction(
-  imageId: number,
-): Promise<
+async function loadBrandLogosByIds(teamId: number, logoIds: string[]) {
+  if (logoIds.length === 0) {
+    return [];
+  }
+
+  const logos = await prisma.assetLogo.findMany({
+    where: {
+      teamId,
+      id: {
+        in: logoIds,
+      },
+    },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    include: {
+      images: {
+        orderBy: [{ sort: "asc" }, { id: "asc" }],
+      },
+      tags: {
+        orderBy: [{ sort: "asc" }, { id: "asc" }],
+      },
+    },
+  });
+
+  return logos.map((logo) => normalizeBrandLogo(logo));
+}
+
+function scheduleAssetLogoProcessing(teamId: number, logoId: string) {
+  after(async () => {
+    try {
+      await processAssetLogoReferenceVectors({
+        teamId,
+        logoId,
+      });
+    } catch (error) {
+      console.error("Failed to process asset logo vectors:", error);
+    }
+  });
+}
+
+const classifyCropSchema = z.object({
+  image: z.string().min(1, "缺少裁剪图片数据"),
+  box: z.object({
+    xMin: z.number().finite(),
+    yMin: z.number().finite(),
+    xMax: z.number().finite(),
+    yMax: z.number().finite(),
+    score: z.number().finite(),
+    label: z.string(),
+  }),
+});
+
+export async function refreshAssetLogoImageSignedUrlAction(imageId: string): Promise<
   ServerActionResult<{
-    imageId: number;
+    imageId: string;
     signedUrl: string;
     signedUrlExpiresAt: number;
   }>
@@ -395,7 +493,9 @@ export async function refreshAssetLogoImageSignedUrlAction(
   });
 }
 
-export async function fetchBrandLibraryPageData(): Promise<ServerActionResult<BrandLibraryPageData>> {
+export async function fetchBrandLibraryPageData(): Promise<
+  ServerActionResult<BrandLibraryPageData>
+> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
       const [logos, logoTypes, tags] = await Promise.all([
@@ -426,8 +526,6 @@ export async function createAssetLogoAction(
   formData: FormData,
 ): Promise<ServerActionResult<{ logo: BrandLogoItem }>> {
   return withAuth(async ({ team }) => {
-    let createdLogoId: number | null = null;
-
     try {
       const input = parseCreateOrUpdateInput(formData);
       const files = extractSubmittedImages(formData);
@@ -444,6 +542,11 @@ export async function createAssetLogoAction(
         resolveSelectedTags(team.id, input.tagIds),
       ]);
 
+      const uploadedImages = await uploadNewLogoImages({
+        files,
+        teamId: team.id,
+      });
+
       const createdLogo = await prisma.assetLogo.create({
         data: {
           teamId: team.id,
@@ -451,47 +554,31 @@ export async function createAssetLogoAction(
           logoTypeId: logoType.id,
           logoTypeName: logoType.name,
           notes: input.notes,
-          status: "pending",
+          status: "processing",
+          processingError: null,
           enabled: true,
+          images: {
+            create: uploadedImages.map((image, index) => ({
+              ...image,
+              sort: index + 1,
+            })),
+          },
+          ...(selectedTags.length > 0
+            ? {
+                tags: {
+                  create: selectedTags.map((tag) => ({
+                    assetTagId: tag.assetTagId,
+                    tagPath: tag.tagPath,
+                    sort: tag.sort,
+                  })),
+                },
+              }
+            : {}),
         },
       });
 
-      createdLogoId = createdLogo.id;
-
-      const uploadedImages = await uploadNewLogoImages({
-        files,
-        teamId: team.id,
-      });
-
-      await prisma.$transaction(async (tx) => {
-        await tx.assetLogo.update({
-          where: {
-            id: createdLogo.id,
-          },
-          data: {
-            status: "completed",
-            images: {
-              create: uploadedImages.map((image, index) => ({
-                ...image,
-                sort: index + 1,
-              })),
-            },
-            ...(selectedTags.length > 0
-              ? {
-                  tags: {
-                    create: selectedTags.map((tag) => ({
-                      assetTagId: tag.assetTagId,
-                      tagPath: tag.tagPath,
-                      sort: tag.sort,
-                    })),
-                  },
-                }
-              : {}),
-          },
-        });
-      });
-
       const logo = await loadBrandLogo(team.id, createdLogo.id);
+      scheduleAssetLogoProcessing(team.id, createdLogo.id);
 
       return {
         success: true,
@@ -500,16 +587,6 @@ export async function createAssetLogoAction(
         },
       };
     } catch (error) {
-      if (createdLogoId) {
-        await prisma.assetLogo
-          .delete({
-            where: {
-              id: createdLogoId,
-            },
-          })
-          .catch(() => undefined);
-      }
-
       console.error("Failed to create asset logo:", error);
       return {
         success: false,
@@ -558,7 +635,9 @@ export async function updateAssetLogoAction(
       ]);
 
       const uniqueExistingImageIds = Array.from(new Set(input.existingImageIds));
-      const retainedImages = logo.images.filter((image) => uniqueExistingImageIds.includes(image.id));
+      const retainedImages = logo.images.filter((image) =>
+        uniqueExistingImageIds.includes(image.id),
+      );
 
       if (retainedImages.length !== uniqueExistingImageIds.length) {
         return {
@@ -589,7 +668,9 @@ export async function updateAssetLogoAction(
             logoTypeId: logoType.id,
             logoTypeName: logoType.name,
             notes: input.notes,
-            status: "completed",
+            status: "processing",
+            processingError: null,
+            processedAt: null,
           },
         });
 
@@ -617,6 +698,9 @@ export async function updateAssetLogoAction(
             },
             data: {
               sort: index + 1,
+              qdrantPointId: null,
+              embeddingModel: null,
+              embeddedAt: null,
             },
           });
         }
@@ -647,7 +731,19 @@ export async function updateAssetLogoAction(
         }
       });
 
+      await setLogoVectorPayloadByLogo({
+        teamId: team.id,
+        assetLogoId: logo.id,
+        payload: {
+          enabled: logo.enabled,
+          status: "processing",
+        },
+      }).catch((error) => {
+        console.warn("Failed to mark logo vectors as processing:", error);
+      });
+
       const updatedLogo = await loadBrandLogo(team.id, logo.id);
+      scheduleAssetLogoProcessing(team.id, logo.id);
 
       return {
         success: true,
@@ -666,7 +762,7 @@ export async function updateAssetLogoAction(
 }
 
 export async function setAssetLogoEnabledAction(
-  logoId: number,
+  logoId: string,
   enabled: boolean,
 ): Promise<ServerActionResult<{ logo: BrandLogoItem }>> {
   return withAuth(async ({ team: { id: teamId } }) => {
@@ -694,6 +790,16 @@ export async function setAssetLogoEnabledAction(
         },
       });
 
+      await setLogoVectorPayloadByLogo({
+        teamId,
+        assetLogoId: logoId,
+        payload: {
+          enabled,
+        },
+      }).catch((error) => {
+        console.warn("Failed to sync logo enabled payload to Qdrant:", error);
+      });
+
       const updatedLogo = await loadBrandLogo(teamId, logoId);
 
       return {
@@ -713,8 +819,8 @@ export async function setAssetLogoEnabledAction(
 }
 
 export async function deleteAssetLogoAction(
-  logoId: number,
-): Promise<ServerActionResult<{ logoId: number }>> {
+  logoId: string,
+): Promise<ServerActionResult<{ logoId: string }>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
       const logo = await prisma.assetLogo.findFirst({
@@ -737,6 +843,11 @@ export async function deleteAssetLogoAction(
         },
       });
 
+      await deleteLogoVectorPointsByLogo({
+        teamId,
+        assetLogoId: logoId,
+      }).catch(() => undefined);
+
       return {
         success: true,
         data: {
@@ -748,6 +859,180 @@ export async function deleteAssetLogoAction(
       return {
         success: false,
         message: "删除品牌标识失败",
+      };
+    }
+  });
+}
+
+export async function retryAssetLogoProcessingAction(
+  logoId: string,
+): Promise<ServerActionResult<{ logo: BrandLogoItem }>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    try {
+      const t = await getTranslations("Tagging.BrandLibrary");
+      const logo = await prisma.assetLogo.findFirst({
+        where: {
+          id: logoId,
+          teamId,
+        },
+      });
+
+      if (!logo) {
+        return {
+          success: false,
+          message: "品牌标识不存在或已被删除",
+        };
+      }
+
+      if (logo.status !== "failed") {
+        return {
+          success: false,
+          message: t("retryOnlyFailed"),
+        };
+      }
+
+      await markAssetLogoVectorsProcessing({
+        teamId,
+        logoId,
+        enabled: logo.enabled,
+      });
+
+      const updatedLogo = await loadBrandLogo(teamId, logoId);
+      scheduleAssetLogoProcessing(teamId, logoId);
+
+      return {
+        success: true,
+        data: {
+          logo: normalizeBrandLogo(updatedLogo),
+        },
+      };
+    } catch (error) {
+      console.error("Failed to retry asset logo processing:", error);
+      return {
+        success: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : (await getTranslations("Tagging.BrandLibrary"))("retryFailed"),
+      };
+    }
+  });
+}
+
+export async function pollBrandLogosAction(
+  logoIds: string[],
+): Promise<ServerActionResult<{ logos: BrandLogoItem[] }>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    try {
+      const uniqueIds = Array.from(new Set(logoIds)).filter(
+        (id) => typeof id === "string" && id.length > 0,
+      );
+      const logos = await loadBrandLogosByIds(teamId, uniqueIds);
+
+      return {
+        success: true,
+        data: {
+          logos,
+        },
+      };
+    } catch (error) {
+      console.error("Failed to poll brand logos:", error);
+      return {
+        success: false,
+        message: "刷新品牌标识状态失败",
+      };
+    }
+  });
+}
+
+export async function prepareBrandClassificationAction(
+  formData: FormData,
+): Promise<ServerActionResult<BrandClassificationUploadResult>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    try {
+      const image = formData.get("image");
+      if (!(image instanceof File) || image.size <= 0) {
+        return {
+          success: false,
+          message: "请上传待分类的商品图片",
+        };
+      }
+
+      if (!isImageFile(image)) {
+        return {
+          success: false,
+          message: "仅支持图片文件",
+        };
+      }
+
+      const objectKey = buildAssetLogoObjectKey({
+        teamId,
+        extension: getFileExtension(image),
+      });
+      const buffer = Buffer.from(await image.arrayBuffer());
+      await uploadOssObject({
+        body: buffer,
+        contentType: image.type || "application/octet-stream",
+        objectKey,
+      });
+
+      const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
+        objectKey,
+        expiresInSeconds: 60 * 60,
+      });
+      const detectionLabelText = await fetchLogoDetectionPromptNames(teamId);
+      const detection = await detectBrandLogoBoxes({
+        teamId,
+        imageUrl: signedUrl,
+        detectionLabelText,
+      });
+
+      return {
+        success: true,
+        data: {
+          objectKey,
+          signedUrl,
+          signedUrlExpiresAt,
+          detections: detection.detections,
+          found: detection.found,
+        },
+      };
+    } catch (error) {
+      console.error("Failed to prepare brand classification:", error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : "商品图片预处理失败",
+      };
+    }
+  });
+}
+
+export async function classifyBrandImageAction(input: {
+  crops: Array<{
+    image: string;
+    box: BrandDetectionBox;
+  }>;
+}): Promise<ServerActionResult<{ result: BrandClassificationResult }>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    try {
+      const crops = z.array(classifyCropSchema).min(1, "请先选择至少一个候选框").parse(input.crops);
+
+      const result = await classifyBrandImageCrops({
+        teamId,
+        crops,
+      });
+
+      return {
+        success: true,
+        data: {
+          result,
+        },
+      };
+    } catch (error) {
+      console.error("Failed to classify brand image:", error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : "Logo 分类失败",
       };
     }
   });
@@ -806,7 +1091,7 @@ export async function createAssetLogoTypeAction(
 }
 
 export async function updateAssetLogoTypeAction(
-  logoTypeId: number,
+  logoTypeId: string,
   name: string,
 ): Promise<ServerActionResult<{ logoType: BrandLogoTypeItem }>> {
   return withAuth(async ({ team: { id: teamId } }) => {
@@ -884,8 +1169,8 @@ export async function updateAssetLogoTypeAction(
 }
 
 export async function softDeleteAssetLogoTypeAction(
-  logoTypeId: number,
-): Promise<ServerActionResult<{ logoTypeId: number }>> {
+  logoTypeId: string,
+): Promise<ServerActionResult<{ logoTypeId: string }>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
       const logoType = await prisma.assetLogoType.findFirst({
@@ -950,8 +1235,8 @@ export async function softDeleteAssetLogoTypeAction(
 }
 
 export async function reorderAssetLogoTypesAction(
-  orderedIds: number[],
-): Promise<ServerActionResult<{ orderedIds: number[] }>> {
+  orderedIds: string[],
+): Promise<ServerActionResult<{ orderedIds: string[] }>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
       const uniqueOrderedIds = Array.from(new Set(orderedIds));

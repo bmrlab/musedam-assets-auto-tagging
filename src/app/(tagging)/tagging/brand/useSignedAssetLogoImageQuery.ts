@@ -6,7 +6,7 @@ import { refreshAssetLogoImageSignedUrlAction } from "./actions";
 const REFRESH_BUFFER_MS = 60 * 1000;
 
 type SignedAssetLogoImageSeed = {
-  imageId: number;
+  imageId: string;
   signedUrl: string;
   signedUrlExpiresAt: number;
 };
@@ -22,7 +22,7 @@ type SignedAssetLogoImageCacheEntry = SignedAssetLogoImageSnapshot & {
   listeners: Set<(snapshot: SignedAssetLogoImageSnapshot) => void>;
 };
 
-const signedAssetLogoImageCache = new Map<number, SignedAssetLogoImageCacheEntry>();
+const signedAssetLogoImageCache = new Map<string, SignedAssetLogoImageCacheEntry>();
 
 function buildSnapshot(entry: SignedAssetLogoImageCacheEntry): SignedAssetLogoImageSnapshot {
   return {
@@ -74,7 +74,7 @@ function emitSignedAssetLogoImageSnapshot(entry: SignedAssetLogoImageCacheEntry)
   }
 }
 
-async function refreshSignedAssetLogoImageQuery(imageId: number) {
+async function refreshSignedAssetLogoImageQuery(imageId: string) {
   const entry = signedAssetLogoImageCache.get(imageId);
   if (!entry) {
     return null;
