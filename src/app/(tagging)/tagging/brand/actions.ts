@@ -42,6 +42,17 @@ const createOrUpdateLogoSchema = z.object({
   tagIds: z.array(z.number().int().positive()).min(1, "请至少选择 1 个关联标签").max(100),
   notes: z.string().max(5000).default(""),
   existingImageIds: z.array(z.string().uuid()).max(100).default([]),
+  assetLibraryDownloadUrls: z.array(z.string().url()).max(100).default([]),
+  assetLibraryUploadedImages: z
+    .array(
+      z.object({
+        objectKey: z.string().min(1),
+        mimeType: z.string().min(1),
+        size: z.number().int().nonnegative(),
+      }),
+    )
+    .max(100)
+    .default([]),
 });
 
 const logoTypeNameSchema = z
@@ -344,6 +355,91 @@ async function uploadNewLogoImages({ files, teamId }: { files: File[]; teamId: n
   return uploads;
 }
 
+function getImageExtensionFromUrlOrContentType({
+  imageUrl,
+  contentType,
+}: {
+  imageUrl: string;
+  contentType: string;
+}) {
+  try {
+    const pathname = new URL(imageUrl).pathname;
+    const match = pathname.match(/\.[a-zA-Z0-9]+$/);
+    if (match) {
+      return match[0].toLowerCase();
+    }
+  } catch {
+    // ignore invalid URL and fall back to content type
+  }
+
+  if (contentType.includes("image/png")) return ".png";
+  if (contentType.includes("image/jpeg")) return ".jpg";
+  if (contentType.includes("image/webp")) return ".webp";
+  if (contentType.includes("image/svg+xml")) return ".svg";
+  if (contentType.includes("image/gif")) return ".gif";
+  return "";
+}
+
+async function uploadAssetLibraryImages({
+  downloadUrls,
+  teamId,
+}: {
+  downloadUrls: string[];
+  teamId: number;
+}) {
+  const uploads: Array<{
+    objectKey: string;
+    mimeType: string;
+    size: number;
+  }> = [];
+
+  for (const downloadUrl of downloadUrls) {
+    const response = await fetch(downloadUrl);
+    if (!response.ok) {
+      throw new Error(`从素材库下载图片失败（${response.status}）`);
+    }
+
+    const contentType = response.headers.get("content-type") || "application/octet-stream";
+    // if (!contentType.startsWith("image/")) {
+    //   throw new Error("素材库文件不是支持的图片格式");
+    // }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const extension = getImageExtensionFromUrlOrContentType({
+      imageUrl: downloadUrl,
+      contentType,
+    });
+    const objectKey = buildAssetLogoObjectKey({
+      teamId,
+      extension,
+    });
+
+    const uploadResult = await uploadOssObject({
+      body: buffer,
+      contentType,
+      objectKey,
+    });
+
+    uploads.push({
+      objectKey: uploadResult.objectKey,
+      mimeType: contentType,
+      size: buffer.byteLength,
+    });
+  }
+
+  return uploads;
+}
+
+type UploadedAssetLibraryImage = {
+  name: string;
+  objectKey: string;
+  mimeType: string;
+  size: number;
+  signedUrl: string;
+  signedUrlExpiresAt: number;
+};
+
 function extractSubmittedImages(formData: FormData) {
   return formData
     .getAll("images")
@@ -365,6 +461,66 @@ function parseCreateOrUpdateInput(formData: FormData) {
     tagIds: parseJsonField<number[]>(formData.get("tagIds"), []),
     notes: typeof formData.get("notes") === "string" ? formData.get("notes") : "",
     existingImageIds: parseJsonField<string[]>(formData.get("existingImageIds"), []),
+    assetLibraryDownloadUrls: parseJsonField<string[]>(
+      formData.get("assetLibraryDownloadUrls"),
+      [],
+    ),
+    assetLibraryUploadedImages: parseJsonField<
+      Array<{ objectKey: string; mimeType: string; size: number }>
+    >(formData.get("assetLibraryUploadedImages"), []),
+  });
+}
+
+export async function prepareAssetLibraryLogoImagesAction(
+  assets: Array<{ name: string; downloadUrl: string }>,
+): Promise<ServerActionResult<{ images: UploadedAssetLibraryImage[] }>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    try {
+      const normalizedAssets = z
+        .array(
+          z.object({
+            name: z.string().trim().min(1).max(255),
+            downloadUrl: z.string().url(),
+          }),
+        )
+        .min(1, "请至少选择 1 个素材")
+        .max(100, "单次最多选择 100 个素材")
+        .parse(assets);
+
+      const uploadedImages = await Promise.all(
+        normalizedAssets.map(async (asset) => {
+          const [uploaded] = await uploadAssetLibraryImages({
+            downloadUrls: [asset.downloadUrl],
+            teamId,
+          });
+          const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
+            objectKey: uploaded.objectKey,
+          });
+
+          return {
+            name: asset.name,
+            objectKey: uploaded.objectKey,
+            mimeType: uploaded.mimeType,
+            size: uploaded.size,
+            signedUrl,
+            signedUrlExpiresAt,
+          };
+        }),
+      );
+
+      return {
+        success: true,
+        data: {
+          images: uploadedImages,
+        },
+      };
+    } catch (error) {
+      console.error("Failed to prepare asset library logo images:", error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : "处理素材库图片失败",
+      };
+    }
   });
 }
 
@@ -529,8 +685,13 @@ export async function createAssetLogoAction(
     try {
       const input = parseCreateOrUpdateInput(formData);
       const files = extractSubmittedImages(formData);
+      const assetLibraryDownloadUrls = Array.from(new Set(input.assetLibraryDownloadUrls));
+      const assetLibraryUploadedImages = input.assetLibraryUploadedImages;
 
-      if (files.length === 0) {
+      if (
+        files.length + assetLibraryDownloadUrls.length + assetLibraryUploadedImages.length ===
+        0
+      ) {
         return {
           success: false,
           message: "请至少上传 1 张标识图片",
@@ -546,6 +707,15 @@ export async function createAssetLogoAction(
         files,
         teamId: team.id,
       });
+      const uploadedAssetLibraryImages = await uploadAssetLibraryImages({
+        downloadUrls: assetLibraryDownloadUrls,
+        teamId: team.id,
+      });
+      const allUploadedImages = [
+        ...uploadedImages,
+        ...assetLibraryUploadedImages,
+        ...uploadedAssetLibraryImages,
+      ];
 
       const createdLogo = await prisma.assetLogo.create({
         data: {
@@ -558,7 +728,7 @@ export async function createAssetLogoAction(
           processingError: null,
           enabled: true,
           images: {
-            create: uploadedImages.map((image, index) => ({
+            create: allUploadedImages.map((image, index) => ({
               ...image,
               sort: index + 1,
             })),
@@ -629,6 +799,8 @@ export async function updateAssetLogoAction(
       }
 
       const files = extractSubmittedImages(formData);
+      const assetLibraryDownloadUrls = Array.from(new Set(input.assetLibraryDownloadUrls));
+      const assetLibraryUploadedImages = input.assetLibraryUploadedImages;
       const [logoType, selectedTags] = await Promise.all([
         resolveLogoType(team.id, input.logoTypeId),
         resolveSelectedTags(team.id, input.tagIds),
@@ -646,7 +818,13 @@ export async function updateAssetLogoAction(
         };
       }
 
-      if (retainedImages.length + files.length === 0) {
+      if (
+        retainedImages.length +
+          files.length +
+          assetLibraryDownloadUrls.length +
+          assetLibraryUploadedImages.length ===
+        0
+      ) {
         return {
           success: false,
           message: "请至少保留 1 张标识图片",
@@ -657,6 +835,15 @@ export async function updateAssetLogoAction(
         files,
         teamId: team.id,
       });
+      const uploadedAssetLibraryImages = await uploadAssetLibraryImages({
+        downloadUrls: assetLibraryDownloadUrls,
+        teamId: team.id,
+      });
+      const allUploadedImages = [
+        ...uploadedImages,
+        ...assetLibraryUploadedImages,
+        ...uploadedAssetLibraryImages,
+      ];
 
       await prisma.$transaction(async (tx) => {
         await tx.assetLogo.update({
@@ -689,7 +876,7 @@ export async function updateAssetLogoAction(
           },
         });
 
-        const finalImages = [...retainedImages, ...uploadedImages];
+        const finalImages = [...retainedImages, ...allUploadedImages];
 
         for (let index = 0; index < retainedImages.length; index += 1) {
           await tx.assetLogoImage.update({
@@ -705,9 +892,9 @@ export async function updateAssetLogoAction(
           });
         }
 
-        if (uploadedImages.length > 0) {
+        if (allUploadedImages.length > 0) {
           await tx.assetLogoImage.createMany({
-            data: uploadedImages.map((image, index) => ({
+            data: allUploadedImages.map((image, index) => ({
               assetLogoId: logo.id,
               ...image,
               sort: retainedImages.length + index + 1,
