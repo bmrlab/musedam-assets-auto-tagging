@@ -89,6 +89,7 @@
     "Review": {
       "add": "Adicionar",
       "aiRecommendedTags": "Tags Recomendadas pela IA",
+      "brandRecommendedTags": "Tags recomendadas de logo da marca",
       "allConfidence": "Toda Confiança",
       "allStatuses": "Todos os Statuses",
       "allTime": "Todo o Tempo",

@@ -89,6 +89,7 @@
     "Review": {
       "add": "Hinzufügen",
       "aiRecommendedTags": "KI-empfohlene Tags",
+      "brandRecommendedTags": "Empfohlene Markenlogo-Tags",
       "allConfidence": "Alle Vertrauen",
       "allStatuses": "Alle Statusse",
       "allTime": "Immer",

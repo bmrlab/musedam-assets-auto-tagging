@@ -39,7 +39,7 @@ const createOrUpdateLogoSchema = z.object({
   id: z.string().uuid().optional(),
   name: z.string().trim().min(1, "请输入标识名称").max(255, "标识名称不能超过 255 个字符"),
   logoTypeId: z.string().uuid(),
-  tagIds: z.array(z.number().int().positive()).max(100),
+  tagIds: z.array(z.number().int().positive()).min(1, "请至少选择 1 个关联标签").max(100),
   notes: z.string().max(5000).default(""),
   existingImageIds: z.array(z.string().uuid()).max(100).default([]),
 });

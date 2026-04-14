@@ -89,6 +89,7 @@
     "Review": {
       "add": "Добавить",
       "aiRecommendedTags": "Теги, рекомендуемые ИИ",
+      "brandRecommendedTags": "Рекомендуемые теги логотипа бренда",
       "allConfidence": "Все доверие",
       "allStatuses": "Все статусы",
       "allTime": "За все время",

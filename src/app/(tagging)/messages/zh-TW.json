@@ -89,6 +89,7 @@
     "Review": {
       "add": "新增",
       "aiRecommendedTags": "AI 推薦標籤",
+      "brandRecommendedTags": "品牌標識推薦標籤",
       "allConfidence": "全部置信度",
       "allStatuses": "全部狀態",
       "allTime": "全部時間",

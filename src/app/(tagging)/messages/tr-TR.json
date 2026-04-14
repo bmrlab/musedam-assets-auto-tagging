@@ -196,6 +196,7 @@
       "assetDeleted": "Varlık silindi",
       "tags": "Etiketler",
       "aiRecommendedTags": "AI Önerilen Etiketler",
+      "brandRecommendedTags": "Marka logosu önerilen etiketleri",
       "basedOnTagSystem": "Etiket sistemi eşleştirmesine dayalı",
       "latest": "En Son",
       "allStatuses": "Tüm Durumlar",

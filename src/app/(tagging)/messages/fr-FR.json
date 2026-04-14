@@ -196,6 +196,7 @@
       "assetDeleted": "Ressource supprimée",
       "tags": "Tags",
       "aiRecommendedTags": "Tags recommandés par IA",
+      "brandRecommendedTags": "Tags recommandés du logo de marque",
       "basedOnTagSystem": "Basé sur la correspondance du système de tags",
       "latest": "Dernier",
       "allStatuses": "Tous les statuts",

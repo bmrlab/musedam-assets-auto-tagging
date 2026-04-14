@@ -1,5 +1,6 @@
 "use server";
 import { withAuth } from "@/app/(auth)/withAuth";
+import { getBrandRecommendationTagIdsFromQueueResult } from "@/app/(tagging)/brand-recommendation";
 import { ServerActionResult } from "@/lib/serverAction";
 import { idToSlug, slugToId } from "@/lib/slug";
 import { retrieveTeamCredentials } from "@/musedam/apiKey";
@@ -320,6 +321,7 @@ export async function fetchAssetsWithAuditItems(
 export async function approveAuditItemsAction({
   assetSlug,
   auditItems,
+  brandTagIds = [],
   append = true,
 }: {
   assetSlug: string;
@@ -328,6 +330,7 @@ export async function approveAuditItemsAction({
     leafTagId: number | null;
     status: TaggingAuditStatus;
   }[];
+  brandTagIds?: number[];
   append?: boolean;
 }): Promise<ServerActionResult<void>> {
   return withAuth(async ({ team: { id: teamId } }) => {
@@ -344,12 +347,19 @@ export async function approveAuditItemsAction({
       team,
     });
 
+    const combinedApprovedTagIds = Array.from(
+      new Set([
+        ...auditItems
+          .filter(({ leafTagId, status }) => leafTagId && status === "approved")
+          .map(({ leafTagId }) => leafTagId!),
+        ...brandTagIds,
+      ]),
+    );
+
     const approvedAsetTags = await prisma.assetTag.findMany({
       where: {
         id: {
-          in: auditItems
-            .filter(({ leafTagId, status }) => leafTagId && status === "approved")
-            .map(({ leafTagId }) => leafTagId!),
+          in: combinedApprovedTagIds,
         },
         slug: {
           not: null,
@@ -358,7 +368,9 @@ export async function approveAuditItemsAction({
       select: { id: true, slug: true },
     });
 
-    const musedamTagIds = approvedAsetTags.map((tag) => slugToId("assetTag", tag.slug!));
+    const musedamTagIds = Array.from(
+      new Set(approvedAsetTags.map((tag) => slugToId("assetTag", tag.slug!))),
+    );
 
     await setAssetTagsToMuseDAM({
       musedamAssetId,
@@ -504,7 +516,6 @@ export async function batchApproveAuditItemsAction({
           teamId,
           assetObjectId: { in: assetRefs.map((a) => a.id) },
           status: "pending",
-          leafTagId: { not: null },
         },
         include: {
           assetObject: true,
@@ -544,6 +555,7 @@ export async function batchApproveAuditItemsAction({
         let hasDefaultBatch = false;
         const filteredOutAuditItems: typeof assetAuditItems = [];
         const finalAuditItems: typeof assetAuditItems = [];
+        const finalGroups: typeof batch = [];
 
         batch.forEach((group) => {
           if (group.queueItem.taskType === "default") {
@@ -553,10 +565,12 @@ export async function batchApproveAuditItemsAction({
             } else {
               hasDefaultBatch = true;
               finalAuditItems.push(...group.taggingAuditItems);
+              finalGroups.push(group);
             }
           } else {
             // 非 default 类型的都保留
             finalAuditItems.push(...group.taggingAuditItems);
+            finalGroups.push(group);
           }
         });
 
@@ -572,8 +586,15 @@ export async function batchApproveAuditItemsAction({
 
         // 用过滤后的 audit items 替代原来的
         const finalAssetAuditItems = finalAuditItems;
+        const brandTagIds = Array.from(
+          new Set(
+            finalGroups.flatMap((group) =>
+              getBrandRecommendationTagIdsFromQueueResult(group.queueItem.result),
+            ),
+          ),
+        );
 
-        if (finalAssetAuditItems.length === 0) {
+        if (finalAssetAuditItems.length === 0 && brandTagIds.length === 0) {
           failedCount++;
           continue;
         }
@@ -584,10 +605,19 @@ export async function batchApproveAuditItemsAction({
           deletedCount++;
           continue;
         }
+        const combinedApprovedTagIds = Array.from(
+          new Set([
+            ...finalAssetAuditItems
+              .map((item) => item.leafTagId)
+              .filter((leafTagId): leafTagId is number => leafTagId !== null),
+            ...brandTagIds,
+          ]),
+        );
+
         const approvedAssetTags = await prisma.assetTag.findMany({
           where: {
             id: {
-              in: finalAssetAuditItems.map((item) => item.leafTagId!),
+              in: combinedApprovedTagIds,
             },
             slug: {
               not: null,
@@ -596,7 +626,9 @@ export async function batchApproveAuditItemsAction({
           select: { id: true, slug: true },
         });
 
-        const musedamTagIds = approvedAssetTags.map((tag) => slugToId("assetTag", tag.slug!));
+        const musedamTagIds = Array.from(
+          new Set(approvedAssetTags.map((tag) => slugToId("assetTag", tag.slug!))),
+        );
 
         // 如果标签ID为空，记为失败并跳过
         if (musedamTagIds.length === 0) {

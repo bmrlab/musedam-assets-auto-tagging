@@ -196,6 +196,7 @@
       "assetDeleted": "素材已被删除",
       "tags": "标签",
       "aiRecommendedTags": "AI 推荐标签",
+      "brandRecommendedTags": "品牌标识推荐标签",
       "basedOnTagSystem": "基于标签体系匹配",
       "latest": "最新",
       "allStatuses": "全部状态",
