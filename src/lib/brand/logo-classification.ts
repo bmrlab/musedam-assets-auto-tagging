@@ -104,6 +104,10 @@ export async function detectBrandLogoBoxes({
 
   const payload = (await response.json().catch(() => null)) as DetectionServiceResponse | null;
   if (!response.ok) {
+    const errorBody = await response.text();
+    console.error(
+      `Logo detection request failed (${response.status}) ${JSON.stringify(errorBody)}`,
+    );
     throw new Error(`Logo detection request failed (${response.status})`);
   }
 

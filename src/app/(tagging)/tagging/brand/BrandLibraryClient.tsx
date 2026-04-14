@@ -105,7 +105,7 @@ function LogoImagesCell({ logo }: { logo: BrandLogoItem }) {
           >
             <button
               type="button"
-              className="relative -ml-2 first:ml-0 h-7 w-7 overflow-hidden rounded-[6px] border border-white bg-basic-2 shadow-sm"
+              className="relative -ml-2 first:ml-0 h-[22px] w-[22px] overflow-hidden rounded-[6px] border border-white bg-basic-2 shadow-sm"
               style={{ zIndex: previewImages.length - index }}
               aria-label={`预览 ${logo.name} 标识图 ${index + 1}`}
             >
@@ -552,7 +552,7 @@ export default function BrandLibraryClient({
                           </td>
                           <td className="px-4 py-5 align-top">
                             <div className="flex items-start gap-3">
-                              <div className="mt-0.5 h-10 w-10 overflow-hidden rounded-[10px] bg-basic-2">
+                              <div className="mt-0.5 h-[30px] w-[30px] overflow-hidden rounded-[10px] bg-basic-2">
                                 {logo.images[0] ? (
                                   <BrandImageHoverCard image={logo.images[0]} alt={`${logo.name} 标识图`}>
                                     <button

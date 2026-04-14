@@ -32,15 +32,132 @@ interface SelectedAsset {
   folderName?: string; // 所在文件夹名称
 }
 
+type DisplayTag = TaggingResult["effectiveTags"][number];
+
+const MATCHING_SOURCE_SEPARATOR = "，";
+
+function buildDisplayTagKey(tagPath: string[], tagId?: number | null) {
+  if (Number.isInteger(tagId) && Number(tagId) > 0) {
+    return `id:${tagId}`;
+  }
+
+  return `path:${tagPath.join(">")}`;
+}
+
+function mergeMatchingSources(current: string, next: string) {
+  const sources = current
+    .split(MATCHING_SOURCE_SEPARATOR)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  if (!sources.includes(next)) {
+    sources.push(next);
+  }
+
+  return sources.join(MATCHING_SOURCE_SEPARATOR);
+}
+
+function buildMergedDisplayTags({
+  aiTags,
+  brandTags,
+  brandConfidence,
+  aiSourceLabel,
+  brandSourceLabel,
+}: {
+  aiTags: Array<{
+    leafTagId?: number;
+    tagPath?: string[];
+    matchingSource?: string;
+    score?: number;
+  }>;
+  brandTags: Array<{
+    assetTagId?: number;
+    tagPath?: string[];
+  }>;
+  brandConfidence: number;
+  aiSourceLabel: string;
+  brandSourceLabel: string;
+}): DisplayTag[] {
+  const mergedTags = new Map<string, DisplayTag & { order: number }>();
+
+  const upsertTag = ({
+    order,
+    tagId,
+    tagPath,
+    sourceLabel,
+    score,
+  }: {
+    order: number;
+    tagId?: number | null;
+    tagPath?: string[];
+    sourceLabel: string;
+    score: number;
+  }) => {
+    if (!tagPath || tagPath.length === 0) {
+      return;
+    }
+
+    const normalizedScore = Math.max(0, Math.min(100, Math.round(score)));
+    const key = buildDisplayTagKey(tagPath, tagId);
+    const existing = mergedTags.get(key);
+
+    if (existing) {
+      existing.matchingSource = mergeMatchingSources(existing.matchingSource, sourceLabel);
+      existing.score = Math.max(existing.score, normalizedScore);
+      existing.confidence = Math.max(existing.confidence, normalizedScore);
+      return;
+    }
+
+    mergedTags.set(key, {
+      tagPath,
+      matchingSource: sourceLabel,
+      confidence: normalizedScore,
+      score: normalizedScore,
+      order,
+    });
+  };
+
+  aiTags.forEach((tag, index) => {
+    upsertTag({
+      order: index,
+      tagId: tag.leafTagId,
+      tagPath: tag.tagPath,
+      sourceLabel: tag.matchingSource || aiSourceLabel,
+      score: tag.score || 0,
+    });
+  });
+
+  brandTags.forEach((tag, index) => {
+    upsertTag({
+      order: aiTags.length + index,
+      tagId: tag.assetTagId,
+      tagPath: tag.tagPath,
+      sourceLabel: brandSourceLabel,
+      score: brandConfidence,
+    });
+  });
+
+  return Array.from(mergedTags.values())
+    .sort((left, right) => right.score - left.score || left.order - right.order)
+    .map((tag) => ({
+      tagPath: tag.tagPath,
+      matchingSource: tag.matchingSource,
+      confidence: tag.confidence,
+      score: tag.score,
+    }));
+}
+
 export default function TestClient() {
   const t = useTranslations("Tagging.Test");
   const tClient = useTranslations("Tagging.TestClient");
+  const tResult = useTranslations("TaggingResultDisplay");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isPolling, setIsPolling] = useState(false);
   const [selectedAssets, setSelectedAssets] = useState<SelectedAsset[]>([]);
   const [taggingResults, setTaggingResults] = useState<TaggingResult[]>([]);
   const [queueItemIds, setQueueItemIds] = useState<number[]>([]);
-  const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
   const pollingRef = useRef<boolean>(false);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // 配置状态
   const [selectedScene, setSelectedScene] = useState("general");
@@ -115,11 +232,13 @@ export default function TestClient() {
   // 停止轮询
   const stopPolling = useCallback(() => {
     pollingRef.current = false;
-    if (pollingInterval) {
-      clearInterval(pollingInterval);
-      setPollingInterval(null);
+    setIsPolling(false);
+
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
     }
-  }, [pollingInterval]);
+  }, []);
 
   // 轮询获取队列状态
   const pollQueueStatus = useCallback(
@@ -161,13 +280,19 @@ export default function TestClient() {
                 brandRecommendation && !brandRecommendation.noConfidentMatch
                   ? brandRecommendation
                   : null;
-              // 按置信度分类标签
               const allTags = resultData?.tagsWithScore || [];
-              const effectiveTags = allTags.filter(
-                (tag: { score?: number }) => (tag.score || 0) >= 80,
-              );
-              const candidateTags = allTags.filter(
-                (tag: { score?: number }) => (tag.score || 0) >= 60 && (tag.score || 0) < 80,
+              const mergedDisplayTags = buildMergedDisplayTags({
+                aiTags: allTags,
+                brandTags: confidentBrandRecommendation?.recommendedTags || [],
+                brandConfidence: Math.round(
+                  confidentBrandRecommendation?.bestMatch?.confidence ?? 0,
+                ),
+                aiSourceLabel: tClient("aiMatching"),
+                brandSourceLabel: tResult("brandRecognition"),
+              });
+              const effectiveTags = mergedDisplayTags.filter((tag) => tag.score >= 80);
+              const candidateTags = mergedDisplayTags.filter(
+                (tag) => tag.score >= 60 && tag.score < 80,
               );
 
               return {
@@ -192,8 +317,8 @@ export default function TestClient() {
                         : tClient("broadMode"),
                 },
                 overallScore: Math.max(
-                  resultData?.tagsWithScore?.[0]?.score || 0,
-                  confidentBrandRecommendation?.bestMatch?.confidence || 0,
+                  mergedDisplayTags[0]?.score || 0,
+                  brandRecommendation?.bestMatch?.confidence || 0,
                 ),
                 brandRecognition: brandRecommendation
                   ? {
@@ -207,24 +332,8 @@ export default function TestClient() {
                         })) || [],
                     }
                   : null,
-                // 生效标签
-                effectiveTags: effectiveTags.map(
-                  (tag: { tagPath?: string[]; matchingSource?: string; score?: number }) => ({
-                    tagPath: tag.tagPath || [],
-                    matchingSource: tag.matchingSource || tClient("aiMatching"),
-                    confidence: Math.floor(tag.score || 0),
-                    score: tag.score || 0,
-                  }),
-                ),
-                // 候选标签
-                candidateTags: candidateTags.map(
-                  (tag: { tagPath?: string[]; matchingSource?: string; score?: number }) => ({
-                    tagPath: tag.tagPath || [],
-                    matchingSource: tag.matchingSource || tClient("aiMatching"),
-                    confidence: Math.floor(tag.score || 0),
-                    score: tag.score || 0,
-                  }),
-                ),
+                effectiveTags,
+                candidateTags,
                 // 策略分析详情 - 从所有标签的confidenceBySources中提取
                 strategyAnalysis: (() => {
                   const strategyMap = new Map<string, { weight: number; score: number }>();
@@ -269,7 +378,7 @@ export default function TestClient() {
         console.error(tClient("pollingQueueStatusFailed"), error);
       }
     },
-    [stopPolling, tClient],
+    [stopPolling, tClient, tResult],
   );
 
   // 开始轮询
@@ -278,6 +387,7 @@ export default function TestClient() {
       if (pollingRef.current) return;
 
       pollingRef.current = true;
+      setIsPolling(true);
       setQueueItemIds(ids);
       // 立即执行一次
       pollQueueStatus(ids);
@@ -287,7 +397,7 @@ export default function TestClient() {
         pollQueueStatus(ids);
       }, 2000);
 
-      setPollingInterval(interval);
+      pollingIntervalRef.current = interval;
     },
     [pollQueueStatus],
   );
@@ -301,7 +411,7 @@ export default function TestClient() {
     return () => {
       stopPolling();
     };
-  }, []);
+  }, [stopPolling]);
 
   const handleAssetSelection = async () => {
     try {
@@ -510,10 +620,10 @@ export default function TestClient() {
               <Button
                 onClick={handleStartTagging}
                 className="gap-2"
-                disabled={isProcessing || pollingRef.current}
+                disabled={isProcessing || isPolling}
                 size="sm"
               >
-                {isProcessing || pollingRef.current ? (
+                {isProcessing || isPolling ? (
                   <>
                     <Loader2 className="size-4 animate-spin" />
                     {t("processing")}
@@ -528,13 +638,13 @@ export default function TestClient() {
               <Button
                 variant="outline"
                 onClick={handleAssetSelection}
-                disabled={isProcessing || pollingRef.current}
+                disabled={isProcessing || isPolling}
                 size="sm"
               >
                 <PlusIcon className="size-4" />
                 {t("selectAssetFiles")}
               </Button>
-              {/* {pollingRef.current && (
+              {/* {isPolling && (
                 <Button
                   variant="outline"
                   onClick={stopPolling}
@@ -548,7 +658,7 @@ export default function TestClient() {
         </div>
 
         {/* 轮询状态显示 */}
-        {pollingRef.current && (
+        {isPolling && (
           <div className="bg-background border rounded-md">
             <div className="px-4 py-3 border-b">
               <h3 className="font-medium text-sm">{tClient("processingStatus")}</h3>
@@ -629,10 +739,9 @@ export default function TestClient() {
                 key: "balanced",
                 label: t("balancedMode"),
                 confidence: t("balancedConfidence"),
-                recommended: true,
               },
               { key: "broad", label: t("broadMode"), confidence: t("broadConfidence") },
-            ].map(({ key, label, confidence, recommended }) => (
+            ].map(({ key, label, confidence }) => (
               <div
                 key={key}
                 className={cn(

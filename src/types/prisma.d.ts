@@ -22,6 +22,7 @@ declare module "@/prisma/client" {
 
   export type AssetObjectExtra = Partial<{
     thumbnailAccessUrl: string;
+    downloadUrl: string;
     size: number;
     extension: string;
   }>;
