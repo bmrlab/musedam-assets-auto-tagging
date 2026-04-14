@@ -18,7 +18,7 @@
       "description": "管理品牌 Logo、商标等视觉标识特征",
       "searchPlaceholder": "搜索标识名称",
       "importExport": "批量导入/导出",
-      "create": "新建品牌标识",
+      "create": "新建标识",
       "empty": "暂无数据",
       "devClassify": "开发分类测试",
       "retry": "重试",
