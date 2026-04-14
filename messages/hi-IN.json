@@ -97,7 +97,15 @@
     "matchingSource": "स्रोत सुमेलित कर रहा है",
     "overallScore": "कुल स्कोर",
     "processingTime": "प्रसंस्करण समय",
-    "score": "स्कोर"
+    "score": "स्कोर",
+    "brandRecognition": "ब्रांड लोगो पहचान",
+    "classifiedLogo": "पहचाना गया लोगो",
+    "confidentMatch": "भरोसेमंद मिलान",
+    "noConfidentMatch": "भरोसेमंद मिलान नहीं",
+    "linkedTags": "संबंधित टैग",
+    "similarity": "समानता",
+    "noLinkedTags": "कोई संबंधित टैग नहीं",
+    "noBrandResult": "कोई ब्रांड पहचान परिणाम नहीं"
   },
   "TagsPage": {
     "AiCreateModal": {

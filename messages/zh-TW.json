@@ -97,7 +97,15 @@
     "matchingSource": "匹配來源",
     "overallScore": "綜合得分",
     "processingTime": "處理時間",
-    "score": "得分"
+    "score": "得分",
+    "brandRecognition": "品牌標識辨識",
+    "classifiedLogo": "辨識品牌",
+    "confidentMatch": "可信命中",
+    "noConfidentMatch": "未命中可靠結果",
+    "linkedTags": "關聯標籤",
+    "similarity": "相似度",
+    "noLinkedTags": "暫無關聯標籤",
+    "noBrandResult": "暫無品牌識別結果"
   },
   "TagsPage": {
     "AiCreateModal": {

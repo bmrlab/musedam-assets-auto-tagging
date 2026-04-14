@@ -97,7 +97,15 @@
     "matchingSource": "출처 매칭",
     "overallScore": "综합 점수",
     "processingTime": "처리 시간",
-    "score": "점수"
+    "score": "점수",
+    "brandRecognition": "브랜드 로고 인식",
+    "classifiedLogo": "인식된 로고",
+    "confidentMatch": "신뢰 가능한 일치",
+    "noConfidentMatch": "신뢰 가능한 일치 없음",
+    "linkedTags": "연결된 태그",
+    "similarity": "유사도",
+    "noLinkedTags": "연결된 태그 없음",
+    "noBrandResult": "브랜드 인식 결과 없음"
   },
   "TagsPage": {
     "AiCreateModal": {

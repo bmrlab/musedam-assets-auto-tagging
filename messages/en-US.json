@@ -223,7 +223,15 @@
     "candidateTagsDescription": "60%-79% Confidence",
     "matchingSource": "Matching Source",
     "confidence": "Confidence",
-    "score": "Score"
+    "score": "Score",
+    "brandRecognition": "Brand Logo Recognition",
+    "classifiedLogo": "Classified Logo",
+    "confidentMatch": "Confident Match",
+    "noConfidentMatch": "No Confident Match",
+    "linkedTags": "Linked Tags",
+    "similarity": "Similarity",
+    "noLinkedTags": "No linked tags",
+    "noBrandResult": "No brand recognition result"
   },
   "SmartTags": {
     "title": "Smart Tags",

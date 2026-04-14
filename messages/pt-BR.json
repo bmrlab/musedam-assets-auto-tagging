@@ -97,7 +97,15 @@
     "matchingSource": "Fonte Correspondente",
     "overallScore": "Pontuação Geral",
     "processingTime": "Tempo de Processamento",
-    "score": "Pontuação"
+    "score": "Pontuação",
+    "brandRecognition": "Reconhecimento do logo da marca",
+    "classifiedLogo": "Logo classificado",
+    "confidentMatch": "Correspondência confiável",
+    "noConfidentMatch": "Sem correspondência confiável",
+    "linkedTags": "Tags vinculadas",
+    "similarity": "Similaridade",
+    "noLinkedTags": "Sem tags vinculadas",
+    "noBrandResult": "Sem resultado de reconhecimento de marca"
   },
   "TagsPage": {
     "AiCreateModal": {

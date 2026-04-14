@@ -1,15 +1,8 @@
 "use client";
 
-import { TagAIIcon, VimIcon } from "@/components/ui";
+import { BrandIcon, TagAIIcon, VimIcon } from "@/components/ui";
 import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  CheckIcon,
-  CircleQuestionMarkIcon,
-  ClockIcon,
-  FolderIcon,
-  ImageIcon,
-  TagIcon,
-} from "lucide-react";
+import { CheckIcon, CircleQuestionMarkIcon, ClockIcon, FolderIcon, ImageIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Image from "next/image";
 
@@ -26,6 +19,15 @@ export interface TaggingResult {
     recognitionMode: string;
   };
   overallScore: number;
+  brandRecognition: {
+    noConfidentMatch: boolean;
+    logoName: string | null;
+    confidence: number | null;
+    similarity: number | null;
+    recommendedTags: {
+      tagPath: string[];
+    }[];
+  } | null;
   effectiveTags: {
     tagPath: string[];
     matchingSource: string;
@@ -56,6 +58,11 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const formatSimilarity = (similarity: number | null) => {
+    if (similarity === null) return null;
+    return `${Math.round(similarity * 100)}%`;
   };
 
   return (
@@ -105,7 +112,10 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
             </div>
             <div className="flex items-center gap-1">
               <VimIcon className="size-[14px] text-[#9254DE]" />
-              <span> {t("aiRecognitionMode")}: {result.asset.recognitionMode}</span>
+              <span>
+                {" "}
+                {t("aiRecognitionMode")}: {result.asset.recognitionMode}
+              </span>
             </div>
           </div>
         </div>
@@ -115,6 +125,79 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
           <div className="text-3xl font-bold text-primary">{result.overallScore}</div>
           <div className="text-sm text-basic-5">{t("overallScore")}</div>
         </div>
+      </div>
+
+      <div>
+        <CardHeader className="pb-2 px-0">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <BrandIcon className="w-4 h-4" />
+            {t("brandRecognition")}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0 px-0">
+          {result.brandRecognition?.logoName ? (
+            <div
+              className={`rounded-md border p-4 ${
+                result.brandRecognition.noConfidentMatch
+                  ? "bg-[#FFF7E6] border-[#FFC069]"
+                  : "bg-[#F6FFED] border-[#95DE64]"
+              }`}
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="text-xs text-basic-5">{t("classifiedLogo")}</div>
+                  <div className="mt-1 text-base font-medium text-basic-8">
+                    {result.brandRecognition.logoName}
+                  </div>
+                </div>
+                <div
+                  className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${
+                    result.brandRecognition.noConfidentMatch
+                      ? "bg-[#FFF1D6] text-[#D46B08]"
+                      : "bg-[#E8F9EE] text-[#389E0D]"
+                  }`}
+                >
+                  {result.brandRecognition.noConfidentMatch
+                    ? t("noConfidentMatch")
+                    : t("confidentMatch")}
+                </div>
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-center gap-4 text-sm text-basic-5">
+                {result.brandRecognition.similarity !== null ? (
+                  <span>
+                    {t("similarity")}: {formatSimilarity(result.brandRecognition.similarity)}
+                  </span>
+                ) : null}
+                {result.brandRecognition.confidence !== null ? (
+                  <span>
+                    {t("confidence")}: {result.brandRecognition.confidence}%
+                  </span>
+                ) : null}
+              </div>
+
+              <div className="mt-4">
+                <div className="text-xs text-basic-5">{t("linkedTags")}</div>
+                {result.brandRecognition.recommendedTags.length > 0 ? (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {result.brandRecognition.recommendedTags.map((tag, index) => (
+                      <div
+                        key={`${tag.tagPath.join(">")}-${index}`}
+                        className="inline-flex items-center rounded-md border border-primary-4 bg-primary-1 px-3 py-2 text-sm text-primary-6"
+                      >
+                        {tag.tagPath.join(" > ")}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="mt-2 text-sm text-basic-5">{t("noLinkedTags")}</div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="text-sm text-basic-5">{t("noBrandResult")}</div>
+          )}
+        </CardContent>
       </div>
 
       {/* 生效标签 */}

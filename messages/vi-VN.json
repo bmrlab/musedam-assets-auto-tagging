@@ -1,1 +1,22 @@
-{}
+{
+  "TaggingResultDisplay": {
+    "processingTime": "Thời gian xử lý",
+    "aiRecognitionMode": "Chế độ nhận diện AI",
+    "overallScore": "Điểm tổng thể",
+    "effectiveTags": "Thẻ hiệu lực",
+    "effectiveTagsDescription": "Độ tin cậy 80%-100%",
+    "candidateTags": "Thẻ ứng viên",
+    "candidateTagsDescription": "Độ tin cậy 60%-79%",
+    "matchingSource": "Nguồn khớp",
+    "confidence": "Độ tin cậy",
+    "score": "Điểm",
+    "brandRecognition": "Nhận diện logo thương hiệu",
+    "classifiedLogo": "Logo được nhận diện",
+    "confidentMatch": "Khớp đáng tin cậy",
+    "noConfidentMatch": "Không có kết quả khớp đáng tin cậy",
+    "linkedTags": "Thẻ liên kết",
+    "similarity": "Độ tương đồng",
+    "noLinkedTags": "Không có thẻ liên kết",
+    "noBrandResult": "Không có kết quả nhận diện thương hiệu"
+  }
+}

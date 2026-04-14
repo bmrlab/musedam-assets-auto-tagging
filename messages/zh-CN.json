@@ -223,7 +223,15 @@
     "candidateTagsDescription": "置信度 60%-79%",
     "matchingSource": "匹配来源",
     "confidence": "置信度",
-    "score": "得分"
+    "score": "得分",
+    "brandRecognition": "品牌标识识别",
+    "classifiedLogo": "识别品牌",
+    "confidentMatch": "可信命中",
+    "noConfidentMatch": "未命中可靠结果",
+    "linkedTags": "关联标签",
+    "similarity": "相似度",
+    "noLinkedTags": "暂无关联标签",
+    "noBrandResult": "暂无品牌识别结果"
   },
   "SmartTags": {
     "title": "智能标签",

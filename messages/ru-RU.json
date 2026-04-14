@@ -97,7 +97,15 @@
     "matchingSource": "Источник сопоставления",
     "overallScore": "Общий балл",
     "processingTime": "Время обработки",
-    "score": "Оценка"
+    "score": "Оценка",
+    "brandRecognition": "Распознавание логотипа бренда",
+    "classifiedLogo": "Распознанный логотип",
+    "confidentMatch": "Надежное совпадение",
+    "noConfidentMatch": "Нет надежного совпадения",
+    "linkedTags": "Связанные теги",
+    "similarity": "Сходство",
+    "noLinkedTags": "Нет связанных тегов",
+    "noBrandResult": "Нет результата распознавания бренда"
   },
   "TagsPage": {
     "AiCreateModal": {

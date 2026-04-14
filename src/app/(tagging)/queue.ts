@@ -140,6 +140,7 @@ export async function processQueueItem({
       matchingSources: extra?.matchingSources,
       recognitionAccuracy: extra?.recognitionAccuracy,
     });
+    // get brand recommendation from thumbnail image
     const brandRecommendation = await classifyAssetBrandRecommendation({
       teamId: queueItem.teamId,
       imageUrl: thumbnailUrl,
