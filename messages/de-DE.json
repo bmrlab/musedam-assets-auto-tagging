@@ -97,7 +97,15 @@
     "matchingSource": "Quellübereinstimmung",
     "overallScore": "Gesamtwertung",
     "processingTime": "Verarbeitungszeit",
-    "score": "Punktzahl"
+    "score": "Punktzahl",
+    "brandRecognition": "Markenlogo-Erkennung",
+    "classifiedLogo": "Erkanntes Logo",
+    "confidentMatch": "Zuverlässiger Treffer",
+    "noConfidentMatch": "Kein zuverlässiger Treffer",
+    "linkedTags": "Verknüpfte Tags",
+    "similarity": "Ähnlichkeit",
+    "noLinkedTags": "Keine verknüpften Tags",
+    "noBrandResult": "Kein Markenlogo-Ergebnis"
   },
   "TagsPage": {
     "AiCreateModal": {

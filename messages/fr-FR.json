@@ -1,237 +1,245 @@
 {
-    "Homepage": {
-        "title": "Système d'étiquetage automatique des ressources MuseDAM"
+  "Homepage": {
+    "title": "Système d'étiquetage automatique des ressources MuseDAM"
+  },
+  "Components": {},
+  "TagsPage": {
+    "sortSuccess": "Étiquettes triées avec succès",
+    "sortFailed": "Échec du tri des étiquettes",
+    "tagManagement": "Gestion des étiquettes",
+    "searchPlaceholder": "Rechercher des étiquettes",
+    "noSearchResults": "Aucune étiquette correspondante",
+    "searchResults": "Résultats de recherche",
+    "aiAutoTagging": "Étiquetage automatique IA",
+    "saveChanges": "Enregistrer",
+    "saving": "Enregistrement...",
+    "aiAssistant": "Assistant IA",
+    "batchCreate": "Création par lot",
+    "tagGroup": "Groupe d'étiquettes",
+    "tag": "Étiquette",
+    "noTagGroups": "Aucun groupe d'étiquettes",
+    "noTags": "Aucune étiquette",
+    "pleaseSelect": "Veuillez sélectionner",
+    "selectSecondLevelFirst": "Veuillez d'abord sélectionner une étiquette de deuxième niveau",
+    "tagNameExists": "Ce nom d'étiquette existe déjà au même niveau",
+    "saveSuccess": "Enregistré avec succès",
+    "saveFailed": "Échec de l'enregistrement",
+    "saveDetailsFailed": "Échec de l'enregistrement des détails de l'étiquette",
+    "syncFromMuseDAM": "Synchroniser depuis MuseDAM",
+    "confirmSyncTitle": "Confirmer la synchronisation des étiquettes",
+    "confirmSyncDescription": "Cette opération va :\n• Supprimer toutes les étiquettes actuelles du système\n• Réimporter la hiérarchie complète des étiquettes depuis MuseDAM\n• Toutes les modifications locales non enregistrées seront perdues\n\nÊtes-vous sûr de vouloir continuer ?",
+    "cancel": "Annuler",
+    "confirmSync": "Confirmer la synchronisation",
+    "syncing": "Synchronisation...",
+    "syncSuccess": "Synchronisation réussie depuis MuseDAM",
+    "syncFailed": "Échec de la synchronisation",
+    "syncError": "Erreur lors de la synchronisation",
+    "selectCreateMethod": "Veuillez choisir une méthode de création :",
+    "aiCreateLabel": "Génération d'étiquettes IA",
+    "aiCreateDesc": "L'IA génère un modèle d'étiquettes professionnel basé sur les caractéristiques du secteur",
+    "manualCreateLabel": "Créer des étiquettes manuellement",
+    "manualCreateDesc": "Construisez une taxonomie personnalisée pour votre contexte métier unique",
+    "recommended": "Recommandé",
+    "TagItem": {
+      "tagNameRequired": "Le nom de l'étiquette ne peut pas être vide",
+      "inputTagName": "Saisir le nom de l'étiquette",
+      "new": "Nouveau",
+      "modified": "Modifié",
+      "toBeDeleted": "À supprimer",
+      "edited": "Modifié",
+      "rename": "Renommer",
+      "delete": "Supprimer",
+      "deleteConfirmTitle": "Supprimer l'étiquette",
+      "deleteConfirmDescription": "Êtes-vous sûr de vouloir supprimer l'étiquette \"{tagName}\" ?",
+      "confirmDelete": "Confirmer la suppression",
+      "searchRelatedAssets": "Rechercher des ressources associées"
     },
-    "Components": {},
-    "TagsPage": {
-        "sortSuccess": "Étiquettes triées avec succès",
-        "sortFailed": "Échec du tri des étiquettes",
-        "tagManagement": "Gestion des étiquettes",
-        "searchPlaceholder": "Rechercher des étiquettes",
-        "noSearchResults": "Aucune étiquette correspondante",
-        "searchResults": "Résultats de recherche",
-        "aiAutoTagging": "Étiquetage automatique IA",
-        "saveChanges": "Enregistrer",
-        "saving": "Enregistrement...",
-        "aiAssistant": "Assistant IA",
-        "batchCreate": "Création par lot",
-        "tagGroup": "Groupe d'étiquettes",
-        "tag": "Étiquette",
-        "noTagGroups": "Aucun groupe d'étiquettes",
-        "noTags": "Aucune étiquette",
-        "pleaseSelect": "Veuillez sélectionner",
-        "selectSecondLevelFirst": "Veuillez d'abord sélectionner une étiquette de deuxième niveau",
-        "tagNameExists": "Ce nom d'étiquette existe déjà au même niveau",
-        "saveSuccess": "Enregistré avec succès",
-        "saveFailed": "Échec de l'enregistrement",
-        "saveDetailsFailed": "Échec de l'enregistrement des détails de l'étiquette",
-        "syncFromMuseDAM": "Synchroniser depuis MuseDAM",
-        "confirmSyncTitle": "Confirmer la synchronisation des étiquettes",
-        "confirmSyncDescription": "Cette opération va :\n• Supprimer toutes les étiquettes actuelles du système\n• Réimporter la hiérarchie complète des étiquettes depuis MuseDAM\n• Toutes les modifications locales non enregistrées seront perdues\n\nÊtes-vous sûr de vouloir continuer ?",
-        "cancel": "Annuler",
-        "confirmSync": "Confirmer la synchronisation",
-        "syncing": "Synchronisation...",
-        "syncSuccess": "Synchronisation réussie depuis MuseDAM",
-        "syncFailed": "Échec de la synchronisation",
-        "syncError": "Erreur lors de la synchronisation",
-        "selectCreateMethod": "Veuillez choisir une méthode de création :",
-        "aiCreateLabel": "Génération d'étiquettes IA",
-        "aiCreateDesc": "L'IA génère un modèle d'étiquettes professionnel basé sur les caractéristiques du secteur",
-        "manualCreateLabel": "Créer des étiquettes manuellement",
-        "manualCreateDesc": "Construisez une taxonomie personnalisée pour votre contexte métier unique",
-        "recommended": "Recommandé",
-        "TagItem": {
-            "tagNameRequired": "Le nom de l'étiquette ne peut pas être vide",
-            "inputTagName": "Saisir le nom de l'étiquette",
-            "new": "Nouveau",
-            "modified": "Modifié",
-            "toBeDeleted": "À supprimer",
-            "edited": "Modifié",
-            "rename": "Renommer",
-            "delete": "Supprimer",
-            "deleteConfirmTitle": "Supprimer l'étiquette",
-            "deleteConfirmDescription": "Êtes-vous sûr de vouloir supprimer l'étiquette \"{tagName}\" ?",
-            "confirmDelete": "Confirmer la suppression",
-            "searchRelatedAssets": "Rechercher des ressources associées"
-        },
-        "TagDetails": {
-            "add": "Ajouter",
-            "tagDetails": "Détails de l'étiquette",
-            "selectTagToView": "Veuillez sélectionner une étiquette pour voir les détails",
-            "modified": "Modifié",
-            "tagName": "Nom de l'étiquette",
-            "tagDescription": "Description de l'étiquette",
-            "tagDescriptionPlaceholder": "Optionnel. Ajouter des descriptions aide l'IA à mieux comprendre les scénarios d'application des étiquettes",
-            "aiAutoTagging": "Étiquetage automatique IA",
-            "aiAutoTaggingEnabled": "Activé, permet à l'IA de reconnaître cette étiquette",
-            "aiAutoTaggingDisabled": "Désactivé, l'IA ne reconnaîtra pas cette étiquette",
-            "matchingKeywords": "Mots-clés de correspondance",
-            "matchingKeywordsTooltip": "Ajoutez des mots-clés liés à cette étiquette pour aider l'IA à l'identifier plus précisément",
-            "inputKeywords": "Saisir des mots-clés",
-            "excludeKeywords": "Mots-clés d'exclusion",
-            "excludeKeywordsTooltip": "Ajoutez des mots-clés à exclure. Les ressources contenant ces mots ne seront pas étiquetées avec cette étiquette",
-            "edit": "Modifier",
-            "matchingRule": "Règle de correspondance :",
-            "matchingRuleDescription": "Lorsque les noms de ressources, métadonnées et chemins de dossiers correspondent aux mots-clés ci-dessus, l'IA étiquettera automatiquement la ressource",
-            "excludeRule": "Règle d'exclusion :",
-            "excludeRuleDescription": "Lorsque les noms de ressources, métadonnées et chemins de dossiers contiennent ces mots-clés, même si des mots-clés correspondants sont trouvés, l'étiquette ne sera pas appliquée automatiquement",
-            "tagNamePlaceholder": "Conception d'affiche"
-        },
-        "ManualCreateModal": {
-            "LabelsCreatedSuccessfully": "Étiquettes créées avec succès",
-            "CreateLabelsManually": "Créer une étiquette manuellement",
-            "CreateNow": "Créer maintenant",
-            "Cancel": "Annuler",
-            "QuicklyCreateMultipleTagPathsW": "Créez rapidement plusieurs chemins d'étiquettes, prenant en charge jusqu'à trois niveaux de liaison",
-            "PreviewView": "Aperçu",
-            "HereSTheTranslatedTextFollowin": "Modifier",
-            "PleaseCreateLabelsInTheFollowi": "Veuillez créer des étiquettes au format suivant, une par ligne...",
-            "FormatInstructions": "Instructions de format :",
-            "PrimaryTag": "# Étiquette principale",
-            "SecondaryTags": "## Étiquette secondaire",
-            "Label1": "Étiquette 1",
-            "Label2": "Étiquette 2",
-            "OrdinaryTextIsALevel3Tag": "Le texte ordinaire est une étiquette de niveau 3.",
-            "PrimaryTagDescription": "← Catégories principales (ex. : types de contenu, séries de produits)",
-            "SecondaryTagDescription": "← Sous-catégories (ex. : ressources image, catégories de vêtements)",
-            "LabelDescription": "← Étiquettes spécifiques (ex. : images produits, série haut)"
-        },
-        "ManualCreateTipsModal": {
-            "CreateTagPrompt": "Conseils de création d'étiquettes",
-            "Confirm": "Confirmer",
-            "Cancel": "Annuler",
-            "ExistingTagDataFoundInTheSyste": "Données d'étiquettes existantes trouvées dans le système. Choisissez comment gérer la création par lot. Cette action est irréversible. Procédez avec prudence :",
-            "UnderstoodPleaseProvideTheText": "Utiliser uniquement le nouveau système d'étiquettes",
-            "ClearExistingTagsKeepOnlyTheNe": "Effacer les étiquettes existantes, ne garder que les nouvelles créées",
-            "MergeIntoExistingTagSystem": "Fusionner dans le système d'étiquettes existant",
-            "RetainExistingTagsAndAddNewTag": "Conserver les étiquettes existantes, ajouter les nouvelles étiquettes au système actuel."
-        },
-        "ManualCreateTips2Modal": {
-            "HereSTheTranslatedVersionFollo": "Conseils d'utilisation",
-            "ClearExistingTagsAndUseNewOnes": "Effacer les étiquettes existantes et utiliser les nouvelles",
-            "Cancel": "Annuler",
-            "ConfirmToUseTheNewTagSystemOnl": "Confirmer le passage au nouveau système d'étiquettes ? Cela effacera vos étiquettes existantes et toutes les ressources associées. Cette action est irréversible. Procédez avec prudence."
-        },
-        "TagSortModal": {
-            "title": "Tri des étiquettes",
-            "noSortableTags": "Aucune étiquette triable",
-            "sortSaveSuccess": "Tri enregistré avec succès",
-            "sortSaveFailed": "Échec de l'enregistrement du tri",
-            "cancel": "Annuler",
-            "confirm": "Confirmer",
-            "saving": "Enregistrement...",
-            "level1Title": "Étiquettes de niveau 1",
-            "level2Title": "Étiquettes de niveau 2",
-            "level3Title": "Étiquettes de niveau 3",
-            "defaultTitle": "Étiquettes"
-        },
-        "TagsClient": {
-            "tagCreatedSuccessfully": "Étiquettes créées avec succès"
-        },
-        "AiCreateModal": {
-            "generateFailed": "Échec de la génération du système d'étiquettes",
-            "selectedIndustry": "Secteur : ",
-            "creating": "Création..."
-        },
-        "TagColumn": {
-            "smartTags": "Étiquettes intelligentes"
-        }
+    "TagDetails": {
+      "add": "Ajouter",
+      "tagDetails": "Détails de l'étiquette",
+      "selectTagToView": "Veuillez sélectionner une étiquette pour voir les détails",
+      "modified": "Modifié",
+      "tagName": "Nom de l'étiquette",
+      "tagDescription": "Description de l'étiquette",
+      "tagDescriptionPlaceholder": "Optionnel. Ajouter des descriptions aide l'IA à mieux comprendre les scénarios d'application des étiquettes",
+      "aiAutoTagging": "Étiquetage automatique IA",
+      "aiAutoTaggingEnabled": "Activé, permet à l'IA de reconnaître cette étiquette",
+      "aiAutoTaggingDisabled": "Désactivé, l'IA ne reconnaîtra pas cette étiquette",
+      "matchingKeywords": "Mots-clés de correspondance",
+      "matchingKeywordsTooltip": "Ajoutez des mots-clés liés à cette étiquette pour aider l'IA à l'identifier plus précisément",
+      "inputKeywords": "Saisir des mots-clés",
+      "excludeKeywords": "Mots-clés d'exclusion",
+      "excludeKeywordsTooltip": "Ajoutez des mots-clés à exclure. Les ressources contenant ces mots ne seront pas étiquetées avec cette étiquette",
+      "edit": "Modifier",
+      "matchingRule": "Règle de correspondance :",
+      "matchingRuleDescription": "Lorsque les noms de ressources, métadonnées et chemins de dossiers correspondent aux mots-clés ci-dessus, l'IA étiquettera automatiquement la ressource",
+      "excludeRule": "Règle d'exclusion :",
+      "excludeRuleDescription": "Lorsque les noms de ressources, métadonnées et chemins de dossiers contiennent ces mots-clés, même si des mots-clés correspondants sont trouvés, l'étiquette ne sera pas appliquée automatiquement",
+      "tagNamePlaceholder": "Conception d'affiche"
+    },
+    "ManualCreateModal": {
+      "LabelsCreatedSuccessfully": "Étiquettes créées avec succès",
+      "CreateLabelsManually": "Créer une étiquette manuellement",
+      "CreateNow": "Créer maintenant",
+      "Cancel": "Annuler",
+      "QuicklyCreateMultipleTagPathsW": "Créez rapidement plusieurs chemins d'étiquettes, prenant en charge jusqu'à trois niveaux de liaison",
+      "PreviewView": "Aperçu",
+      "HereSTheTranslatedTextFollowin": "Modifier",
+      "PleaseCreateLabelsInTheFollowi": "Veuillez créer des étiquettes au format suivant, une par ligne...",
+      "FormatInstructions": "Instructions de format :",
+      "PrimaryTag": "# Étiquette principale",
+      "SecondaryTags": "## Étiquette secondaire",
+      "Label1": "Étiquette 1",
+      "Label2": "Étiquette 2",
+      "OrdinaryTextIsALevel3Tag": "Le texte ordinaire est une étiquette de niveau 3.",
+      "PrimaryTagDescription": "← Catégories principales (ex. : types de contenu, séries de produits)",
+      "SecondaryTagDescription": "← Sous-catégories (ex. : ressources image, catégories de vêtements)",
+      "LabelDescription": "← Étiquettes spécifiques (ex. : images produits, série haut)"
+    },
+    "ManualCreateTipsModal": {
+      "CreateTagPrompt": "Conseils de création d'étiquettes",
+      "Confirm": "Confirmer",
+      "Cancel": "Annuler",
+      "ExistingTagDataFoundInTheSyste": "Données d'étiquettes existantes trouvées dans le système. Choisissez comment gérer la création par lot. Cette action est irréversible. Procédez avec prudence :",
+      "UnderstoodPleaseProvideTheText": "Utiliser uniquement le nouveau système d'étiquettes",
+      "ClearExistingTagsKeepOnlyTheNe": "Effacer les étiquettes existantes, ne garder que les nouvelles créées",
+      "MergeIntoExistingTagSystem": "Fusionner dans le système d'étiquettes existant",
+      "RetainExistingTagsAndAddNewTag": "Conserver les étiquettes existantes, ajouter les nouvelles étiquettes au système actuel."
+    },
+    "ManualCreateTips2Modal": {
+      "HereSTheTranslatedVersionFollo": "Conseils d'utilisation",
+      "ClearExistingTagsAndUseNewOnes": "Effacer les étiquettes existantes et utiliser les nouvelles",
+      "Cancel": "Annuler",
+      "ConfirmToUseTheNewTagSystemOnl": "Confirmer le passage au nouveau système d'étiquettes ? Cela effacera vos étiquettes existantes et toutes les ressources associées. Cette action est irréversible. Procédez avec prudence."
+    },
+    "TagSortModal": {
+      "title": "Tri des étiquettes",
+      "noSortableTags": "Aucune étiquette triable",
+      "sortSaveSuccess": "Tri enregistré avec succès",
+      "sortSaveFailed": "Échec de l'enregistrement du tri",
+      "cancel": "Annuler",
+      "confirm": "Confirmer",
+      "saving": "Enregistrement...",
+      "level1Title": "Étiquettes de niveau 1",
+      "level2Title": "Étiquettes de niveau 2",
+      "level3Title": "Étiquettes de niveau 3",
+      "defaultTitle": "Étiquettes"
+    },
+    "TagsClient": {
+      "tagCreatedSuccessfully": "Étiquettes créées avec succès"
     },
     "AiCreateModal": {
-        "title": "Générateur de système d'étiquettes IA",
-        "createSettings": "Paramètres de création",
-        "tip": "💡 Sélectionnez un secteur pour remplir automatiquement une description de scénario professionnel. Vous pouvez l'ajuster si nécessaire.",
-        "selectLanguage": "Langue des étiquettes",
-        "selectIndustry": "Sélectionner un secteur",
-        "other": "Autre",
-        "pleaseDescribe": "Veuillez décrire",
-        "customPrompt": "Invite personnalisée",
-        "generate": "Générer le système d'étiquettes",
-        "generating": "Génération...",
-        "result": "Résultat généré",
-        "waiting": "En attente",
-        "aiAnalyzing": "L'IA analyse et génère le système d'étiquettes...",
-        "pleaseSelectOrInput": "Veuillez sélectionner un secteur ou saisir une invite personnalisée à gauche, puis cliquez sur Générer.",
-        "confirmApply": "Appliquer au système",
-        "none": "Aucun",
-        "parseError": "Le format des étiquettes générées est incorrect. Veuillez passer en mode édition pour ajuster manuellement",
-        "language": {
-            "zh-CN": "Chinois",
-            "en-US": "Anglais"
-        },
-        "tagTreePrompt": {
-            "template": "Vous êtes un expert en taxonomies d'étiquettes de ressources numériques d'entreprise. Sur la base du contexte utilisateur suivant, générez un 'arbre d'étiquettes'.\n[Contexte utilisateur]\n{userContext}\n\nVous DEVEZ produire strictement au format suivant uniquement (pas d'explications supplémentaires, symboles, numérotation, lignes vides ou sections supplémentaires) :\n# Étiquette de niveau 1\n## Étiquette de niveau 2\nÉtiquette 1\nÉtiquette 2\n\nRègles :\n- Produire uniquement l'arbre d'étiquettes lui-même. N'incluez AUCUNE explication, indication, exemple, délimiteur de code Markdown ou backticks.\n- Utilisez l'anglais pour tout le texte.\n- Les termes doivent être professionnels, mutuellement exclusifs, clairs et orientés pour une recherche pratique. Évitez les phrases longues.\n- Ne produisez PAS de titres vides, de numérotation, de deux-points, de crochets ou de texte explicatif.\n- N'ajoutez PAS de symboles en dehors des niveaux définis, tels que des tirets cadratins, deux-points, '- ' ou listes numériques.\n- Ne répétez PAS le contexte utilisateur ou n'ajoutez pas de résumé de conclusion."
-        },
-        "industry": {
-            "general": {
-                "label": "Secteur général",
-                "prompt": "Les entreprises axées sur le marketing se concentrent sur le storytelling de marque, la création de contenu, la publicité performante et les campagnes cross-canal. Les ressources numériques clés incluent les visuels de marque, créatifs publicitaires, vidéos de campagne, contenu social media, matériaux promotionnels et modèles de marque. Organisez les ressources par objectifs marketing : notoriété de marque, génération de leads, optimisation de conversion et rétention client.\nCe système s'applique aux secteurs e-commerce, CPG, matériel technologique, mode et restauration privilégiant l'excellence marketing."
-            },
-            "ecommerce": {
-                "label": "E-commerce et vente au détail",
-                "prompt": "Les détaillants e-commerce se concentrent sur la marchandisation de produits, l'optimisation de conversion, la présence sur les places de marché et le marketing du cycle de vie client. Les ressources numériques clés incluent la photographie produit, clichés lifestyle, démos vidéo, bannières marketplace, graphiques promotionnels et témoignages clients. Organisez les ressources par étapes de l'entonnoir de vente : découverte produit, contenu de considération, ressources de conversion et engagement post-achat.\nCe système s'applique aux vendeurs Amazon, boutiques Shopify, vendeurs marketplace et détaillants omnicanal sur des plateformes comme eBay, Walmart et marques direct-to-consumer."
-            },
-            "fmcg": {
-                "label": "Biens de consommation courante (CPG)",
-                "prompt": "Les marques CPG se concentrent sur l'attrait en rayon, la différenciation de catégorie, les partenariats détaillants et l'éducation consommateur. Les ressources numériques clés incluent la photographie d'emballage, démonstrations d'utilisation, imagerie lifestyle, matériaux spécifiques détaillants, campagnes promotionnelles et contenu éducatif. Organisez les ressources par canaux de distribution : partenariats détaillants, campagnes direct-to-consumer, marketing commercial et initiatives de construction de marque."
-            },
-            "beauty": {
-                "label": "Beauté et cosmétiques",
-                "prompt": "Les marques beauté se concentrent sur l'éducation produit, le contenu axé sur les tendances, les partenariats influenceurs et la construction de communauté. Les ressources numériques clés incluent la photographie produit, transformations avant/après, vidéos tutoriels, contenu de collaboration influenceur, avis générés par les utilisateurs et matériaux de campagne saisonniers. Organisez les ressources par étapes de l'entonnoir marketing : campagnes de notoriété, éducation produit, preuve sociale et contenu axé sur la conversion.\nCe système s'applique aux marques de soins de la peau, maquillage, parfumerie et outils beauté gérant du contenu complet de présentation produit à l'éducation consommateur."
-            },
-            "fashion": {
-                "label": "Mode et vêtements",
-                "prompt": "Les marques mode se concentrent sur les collections saisonnières, l'inspiration style, collaborations influenceurs et positionnement lifestyle. Les ressources numériques clés incluent la photographie lookbook, contenu défilé, vidéos de style, partenariats influenceurs, shootings modèle et campagnes axées sur les tendances. Organisez les ressources par stratégie de contenu : storytelling de marque, présentations produit, commerce social et engagement communautaire.\nCe système s'applique aux marques de vêtements, chaussures, accessoires et mode de luxe gérant du contenu visuel des lancements produit à la communication lifestyle."
-            },
-            "electronics": {
-                "label": "Électronique grand public",
-                "prompt": "Les marques de matériel technologique se concentrent sur les démonstrations de fonctionnalités, comparaisons de performances, éducation utilisateur et storytelling d'innovation. Les ressources numériques clés incluent la photographie produit, vidéos démo, spécifications techniques, tableaux comparatifs, contenu unboxing et tutoriels utilisateur. Organisez les ressources par étapes du parcours client : notoriété produit, éducation fonctionnalités, considération d'achat et intégration utilisateur.\nCe système s'applique aux smartphones, ordinateurs portables, appareils domotiques et accessoires technologiques gérant du contenu des fonctionnalités produit à l'expérience utilisateur."
-            },
-            "automotive": {
-                "label": "Automobile",
-                "prompt": "Les marques automobiles se concentrent sur les présentations de véhicules, démonstrations de performances, fonctionnalités sécurité et intégration lifestyle. Les ressources numériques clés incluent la photographie extérieure, détails intérieurs, séquences essai routier, démonstrations sécurité, scénarios lifestyle et messagerie durabilité. Organisez les ressources par étapes du parcours d'achat : considération de marque, comparaison de modèles, points forts fonctionnalités et expérience de possession.\nCe système s'applique aux véhicules de tourisme, véhicules électriques, flottes commerciales et pièces automobiles gérant du contenu de notoriété de marque à l'expérience de conduite."
-            },
-            "interior": {
-                "label": "Design d'intérieur",
-                "prompt": "Les cabinets de design d'intérieur se concentrent sur les présentations de projets, inspiration design, transparence processus et témoignages clients. Les ressources numériques clés incluent la photographie d'espaces, rendus design, échantillons de matériaux, documentation processus, transformations avant/après et études de cas clients. Organisez les ressources par cycle de vie projet : galeries d'inspiration, concepts design, travaux en cours et présentations terminées.\nCe système s'applique au design résidentiel, espaces commerciaux, design hôtelier et home staging gérant du contenu visuel du concept à la réalisation."
-            },
-            "luxury": {
-                "label": "Articles de luxe",
-                "prompt": "Les marques de luxe se concentrent sur le storytelling patrimonial, l'excellence artisanale, le positionnement exclusivité et les expériences premium. Les ressources numériques clés incluent la photographie artisanale, vidéos d'artisanat, contenu patrimoine de marque, collections exclusives, endossements célébrités et campagnes expérientielles. Organisez les ressources par piliers de marque : storytelling patrimonial, présentation artisanat, marketing exclusivité et positionnement lifestyle.\nCe système s'applique à la haute couture, joaillerie fine, montres de luxe et articles en cuir premium gérant du contenu de valeur artisanale à signification culturelle."
-            },
-            "gaming": {
-                "label": "Jeux vidéo",
-                "prompt": "Les entreprises de jeux se concentrent sur l'engagement communautaire, présentations de gameplay, esports compétitifs et contenu généré par les utilisateurs. Les ressources numériques clés incluent bandes-annonces de jeux, artwork de personnages, séquences gameplay, temps forts esports, contenu communautaire et matériaux de diffusion en direct. Organisez les ressources par stratégie d'engagement : promotion de jeux, construction communautaire, contenu compétitif et rétention joueur.\nCe système s'applique aux jeux mobiles, jeux PC, titres console et expériences VR gérant du contenu du marketing de jeux à l'écosystème communautaire."
-            },
-            "jewelry": {
-                "label": "Joaillerie",
-                "prompt": "Les marques de joaillerie se concentrent sur le storytelling artisanat, connexions émotionnelles, marketing d'occasion et services de personnalisation. Les ressources numériques clés incluent la photographie macro, vidéos d'artisanat, imagerie lifestyle, présentations de personnalisation, contenu storytelling émotionnel et campagnes spécifiques à l'occasion. Organisez les ressources par messagerie émotionnelle : fierté artisanat, célébrations d'étapes, expression personnelle et occasions de cadeaux.\nCe système s'applique aux alliances, joaillerie fine, pièces personnalisées et joaillerie mode gérant du contenu de l'artisanat artisanal à la signification émotionnelle."
-            },
-            "theme-park": {
-                "label": "Parcs à thème",
-                "prompt": "Les lieux de divertissement se concentrent sur le marketing d'expérience, événements saisonniers, engagement familial et storytelling immersif. Les ressources numériques clés incluent la photographie d'attractions, vidéos d'expérience, campagnes saisonnières, contenu coulisses, témoignages visiteurs et communications sécurité. Organisez les ressources par parcours visiteur : planification voyage, expérience sur site, offres saisonnières et création de souvenirs.\nCe système s'applique aux parcs Disney, Universal Studios, parcs à thème régionaux et complexes de divertissement gérant du contenu de l'attraction visiteur à l'amplification d'expérience."
-            }
-        }
+      "generateFailed": "Échec de la génération du système d'étiquettes",
+      "selectedIndustry": "Secteur : ",
+      "creating": "Création..."
     },
-    "TaggingResultDisplay": {
-        "processingTime": "Temps de traitement",
-        "aiRecognitionMode": "Mode de reconnaissance IA",
-        "overallScore": "Score global",
-        "effectiveTags": "Étiquettes efficaces",
-        "effectiveTagsDescription": "Confiance 80%-100%",
-        "candidateTags": "Étiquettes candidates",
-        "candidateTagsDescription": "Confiance 60%-79%",
-        "matchingSource": "Source de correspondance",
-        "confidence": "Confiance",
-        "score": "Score"
-    },
-    "SmartTags": {
-        "title": "Étiquettes intelligentes",
-        "rename": "Renommer",
-        "delete": "Supprimer"
-    },
-    "SearchResult": {
-        "tagGroup": "Groupe d'étiquettes",
-        "noSearchResults": "Aucun résultat de recherche"
+    "TagColumn": {
+      "smartTags": "Étiquettes intelligentes"
     }
+  },
+  "AiCreateModal": {
+    "title": "Générateur de système d'étiquettes IA",
+    "createSettings": "Paramètres de création",
+    "tip": "💡 Sélectionnez un secteur pour remplir automatiquement une description de scénario professionnel. Vous pouvez l'ajuster si nécessaire.",
+    "selectLanguage": "Langue des étiquettes",
+    "selectIndustry": "Sélectionner un secteur",
+    "other": "Autre",
+    "pleaseDescribe": "Veuillez décrire",
+    "customPrompt": "Invite personnalisée",
+    "generate": "Générer le système d'étiquettes",
+    "generating": "Génération...",
+    "result": "Résultat généré",
+    "waiting": "En attente",
+    "aiAnalyzing": "L'IA analyse et génère le système d'étiquettes...",
+    "pleaseSelectOrInput": "Veuillez sélectionner un secteur ou saisir une invite personnalisée à gauche, puis cliquez sur Générer.",
+    "confirmApply": "Appliquer au système",
+    "none": "Aucun",
+    "parseError": "Le format des étiquettes générées est incorrect. Veuillez passer en mode édition pour ajuster manuellement",
+    "language": {
+      "zh-CN": "Chinois",
+      "en-US": "Anglais"
+    },
+    "tagTreePrompt": {
+      "template": "Vous êtes un expert en taxonomies d'étiquettes de ressources numériques d'entreprise. Sur la base du contexte utilisateur suivant, générez un 'arbre d'étiquettes'.\n[Contexte utilisateur]\n{userContext}\n\nVous DEVEZ produire strictement au format suivant uniquement (pas d'explications supplémentaires, symboles, numérotation, lignes vides ou sections supplémentaires) :\n# Étiquette de niveau 1\n## Étiquette de niveau 2\nÉtiquette 1\nÉtiquette 2\n\nRègles :\n- Produire uniquement l'arbre d'étiquettes lui-même. N'incluez AUCUNE explication, indication, exemple, délimiteur de code Markdown ou backticks.\n- Utilisez l'anglais pour tout le texte.\n- Les termes doivent être professionnels, mutuellement exclusifs, clairs et orientés pour une recherche pratique. Évitez les phrases longues.\n- Ne produisez PAS de titres vides, de numérotation, de deux-points, de crochets ou de texte explicatif.\n- N'ajoutez PAS de symboles en dehors des niveaux définis, tels que des tirets cadratins, deux-points, '- ' ou listes numériques.\n- Ne répétez PAS le contexte utilisateur ou n'ajoutez pas de résumé de conclusion."
+    },
+    "industry": {
+      "general": {
+        "label": "Secteur général",
+        "prompt": "Les entreprises axées sur le marketing se concentrent sur le storytelling de marque, la création de contenu, la publicité performante et les campagnes cross-canal. Les ressources numériques clés incluent les visuels de marque, créatifs publicitaires, vidéos de campagne, contenu social media, matériaux promotionnels et modèles de marque. Organisez les ressources par objectifs marketing : notoriété de marque, génération de leads, optimisation de conversion et rétention client.\nCe système s'applique aux secteurs e-commerce, CPG, matériel technologique, mode et restauration privilégiant l'excellence marketing."
+      },
+      "ecommerce": {
+        "label": "E-commerce et vente au détail",
+        "prompt": "Les détaillants e-commerce se concentrent sur la marchandisation de produits, l'optimisation de conversion, la présence sur les places de marché et le marketing du cycle de vie client. Les ressources numériques clés incluent la photographie produit, clichés lifestyle, démos vidéo, bannières marketplace, graphiques promotionnels et témoignages clients. Organisez les ressources par étapes de l'entonnoir de vente : découverte produit, contenu de considération, ressources de conversion et engagement post-achat.\nCe système s'applique aux vendeurs Amazon, boutiques Shopify, vendeurs marketplace et détaillants omnicanal sur des plateformes comme eBay, Walmart et marques direct-to-consumer."
+      },
+      "fmcg": {
+        "label": "Biens de consommation courante (CPG)",
+        "prompt": "Les marques CPG se concentrent sur l'attrait en rayon, la différenciation de catégorie, les partenariats détaillants et l'éducation consommateur. Les ressources numériques clés incluent la photographie d'emballage, démonstrations d'utilisation, imagerie lifestyle, matériaux spécifiques détaillants, campagnes promotionnelles et contenu éducatif. Organisez les ressources par canaux de distribution : partenariats détaillants, campagnes direct-to-consumer, marketing commercial et initiatives de construction de marque."
+      },
+      "beauty": {
+        "label": "Beauté et cosmétiques",
+        "prompt": "Les marques beauté se concentrent sur l'éducation produit, le contenu axé sur les tendances, les partenariats influenceurs et la construction de communauté. Les ressources numériques clés incluent la photographie produit, transformations avant/après, vidéos tutoriels, contenu de collaboration influenceur, avis générés par les utilisateurs et matériaux de campagne saisonniers. Organisez les ressources par étapes de l'entonnoir marketing : campagnes de notoriété, éducation produit, preuve sociale et contenu axé sur la conversion.\nCe système s'applique aux marques de soins de la peau, maquillage, parfumerie et outils beauté gérant du contenu complet de présentation produit à l'éducation consommateur."
+      },
+      "fashion": {
+        "label": "Mode et vêtements",
+        "prompt": "Les marques mode se concentrent sur les collections saisonnières, l'inspiration style, collaborations influenceurs et positionnement lifestyle. Les ressources numériques clés incluent la photographie lookbook, contenu défilé, vidéos de style, partenariats influenceurs, shootings modèle et campagnes axées sur les tendances. Organisez les ressources par stratégie de contenu : storytelling de marque, présentations produit, commerce social et engagement communautaire.\nCe système s'applique aux marques de vêtements, chaussures, accessoires et mode de luxe gérant du contenu visuel des lancements produit à la communication lifestyle."
+      },
+      "electronics": {
+        "label": "Électronique grand public",
+        "prompt": "Les marques de matériel technologique se concentrent sur les démonstrations de fonctionnalités, comparaisons de performances, éducation utilisateur et storytelling d'innovation. Les ressources numériques clés incluent la photographie produit, vidéos démo, spécifications techniques, tableaux comparatifs, contenu unboxing et tutoriels utilisateur. Organisez les ressources par étapes du parcours client : notoriété produit, éducation fonctionnalités, considération d'achat et intégration utilisateur.\nCe système s'applique aux smartphones, ordinateurs portables, appareils domotiques et accessoires technologiques gérant du contenu des fonctionnalités produit à l'expérience utilisateur."
+      },
+      "automotive": {
+        "label": "Automobile",
+        "prompt": "Les marques automobiles se concentrent sur les présentations de véhicules, démonstrations de performances, fonctionnalités sécurité et intégration lifestyle. Les ressources numériques clés incluent la photographie extérieure, détails intérieurs, séquences essai routier, démonstrations sécurité, scénarios lifestyle et messagerie durabilité. Organisez les ressources par étapes du parcours d'achat : considération de marque, comparaison de modèles, points forts fonctionnalités et expérience de possession.\nCe système s'applique aux véhicules de tourisme, véhicules électriques, flottes commerciales et pièces automobiles gérant du contenu de notoriété de marque à l'expérience de conduite."
+      },
+      "interior": {
+        "label": "Design d'intérieur",
+        "prompt": "Les cabinets de design d'intérieur se concentrent sur les présentations de projets, inspiration design, transparence processus et témoignages clients. Les ressources numériques clés incluent la photographie d'espaces, rendus design, échantillons de matériaux, documentation processus, transformations avant/après et études de cas clients. Organisez les ressources par cycle de vie projet : galeries d'inspiration, concepts design, travaux en cours et présentations terminées.\nCe système s'applique au design résidentiel, espaces commerciaux, design hôtelier et home staging gérant du contenu visuel du concept à la réalisation."
+      },
+      "luxury": {
+        "label": "Articles de luxe",
+        "prompt": "Les marques de luxe se concentrent sur le storytelling patrimonial, l'excellence artisanale, le positionnement exclusivité et les expériences premium. Les ressources numériques clés incluent la photographie artisanale, vidéos d'artisanat, contenu patrimoine de marque, collections exclusives, endossements célébrités et campagnes expérientielles. Organisez les ressources par piliers de marque : storytelling patrimonial, présentation artisanat, marketing exclusivité et positionnement lifestyle.\nCe système s'applique à la haute couture, joaillerie fine, montres de luxe et articles en cuir premium gérant du contenu de valeur artisanale à signification culturelle."
+      },
+      "gaming": {
+        "label": "Jeux vidéo",
+        "prompt": "Les entreprises de jeux se concentrent sur l'engagement communautaire, présentations de gameplay, esports compétitifs et contenu généré par les utilisateurs. Les ressources numériques clés incluent bandes-annonces de jeux, artwork de personnages, séquences gameplay, temps forts esports, contenu communautaire et matériaux de diffusion en direct. Organisez les ressources par stratégie d'engagement : promotion de jeux, construction communautaire, contenu compétitif et rétention joueur.\nCe système s'applique aux jeux mobiles, jeux PC, titres console et expériences VR gérant du contenu du marketing de jeux à l'écosystème communautaire."
+      },
+      "jewelry": {
+        "label": "Joaillerie",
+        "prompt": "Les marques de joaillerie se concentrent sur le storytelling artisanat, connexions émotionnelles, marketing d'occasion et services de personnalisation. Les ressources numériques clés incluent la photographie macro, vidéos d'artisanat, imagerie lifestyle, présentations de personnalisation, contenu storytelling émotionnel et campagnes spécifiques à l'occasion. Organisez les ressources par messagerie émotionnelle : fierté artisanat, célébrations d'étapes, expression personnelle et occasions de cadeaux.\nCe système s'applique aux alliances, joaillerie fine, pièces personnalisées et joaillerie mode gérant du contenu de l'artisanat artisanal à la signification émotionnelle."
+      },
+      "theme-park": {
+        "label": "Parcs à thème",
+        "prompt": "Les lieux de divertissement se concentrent sur le marketing d'expérience, événements saisonniers, engagement familial et storytelling immersif. Les ressources numériques clés incluent la photographie d'attractions, vidéos d'expérience, campagnes saisonnières, contenu coulisses, témoignages visiteurs et communications sécurité. Organisez les ressources par parcours visiteur : planification voyage, expérience sur site, offres saisonnières et création de souvenirs.\nCe système s'applique aux parcs Disney, Universal Studios, parcs à thème régionaux et complexes de divertissement gérant du contenu de l'attraction visiteur à l'amplification d'expérience."
+      }
+    }
+  },
+  "TaggingResultDisplay": {
+    "processingTime": "Temps de traitement",
+    "aiRecognitionMode": "Mode de reconnaissance IA",
+    "overallScore": "Score global",
+    "effectiveTags": "Étiquettes efficaces",
+    "effectiveTagsDescription": "Confiance 80%-100%",
+    "candidateTags": "Étiquettes candidates",
+    "candidateTagsDescription": "Confiance 60%-79%",
+    "matchingSource": "Source de correspondance",
+    "confidence": "Confiance",
+    "score": "Score",
+    "brandRecognition": "Reconnaissance du logo de marque",
+    "classifiedLogo": "Logo classifié",
+    "confidentMatch": "Correspondance fiable",
+    "noConfidentMatch": "Aucune correspondance fiable",
+    "linkedTags": "Tags associés",
+    "similarity": "Similarité",
+    "noLinkedTags": "Aucun tag associé",
+    "noBrandResult": "Aucun résultat de reconnaissance de marque"
+  },
+  "SmartTags": {
+    "title": "Étiquettes intelligentes",
+    "rename": "Renommer",
+    "delete": "Supprimer"
+  },
+  "SearchResult": {
+    "tagGroup": "Groupe d'étiquettes",
+    "noSearchResults": "Aucun résultat de recherche"
+  }
 }

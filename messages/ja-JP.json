@@ -97,7 +97,15 @@
     "matchingSource": "ソースをマッチング",
     "overallScore": "総合スコア",
     "processingTime": "処理時間",
-    "score": "得点"
+    "score": "得点",
+    "brandRecognition": "ブランドロゴ認識",
+    "classifiedLogo": "認識されたロゴ",
+    "confidentMatch": "信頼できる一致",
+    "noConfidentMatch": "信頼できる一致なし",
+    "linkedTags": "関連タグ",
+    "similarity": "類似度",
+    "noLinkedTags": "関連タグなし",
+    "noBrandResult": "ブランド認識結果なし"
   },
   "TagsPage": {
     "AiCreateModal": {

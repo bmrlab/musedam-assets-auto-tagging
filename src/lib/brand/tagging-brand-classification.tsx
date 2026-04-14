@@ -375,6 +375,7 @@ export async function classifyAssetBrandRecommendation({
     return null;
   }
 
+  // get detection boxes
   const detectionLabelText = await fetchLogoDetectionPromptNames(teamId);
   const imageInput = await fetchRemoteImageInput(imageUrl);
   const detection = await detectBrandLogoBoxes({
@@ -387,6 +388,7 @@ export async function classifyAssetBrandRecommendation({
     detection.detections.length > 0 ? detection.detections : [getFallbackBox(imageInput)];
   const normalizedBoxes = candidateBoxes.map((box) => clampBox(box, imageInput));
 
+  // get cropped images from boxes
   const crops = await Promise.all(
     normalizedBoxes.map(async (box) => ({
       box,
@@ -398,6 +400,7 @@ export async function classifyAssetBrandRecommendation({
     })),
   );
 
+  // classify cropped images and score each logo class
   const result = await classifyBrandImageCrops({
     teamId,
     crops,

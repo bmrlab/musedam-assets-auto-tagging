@@ -1,20 +1,20 @@
 "use client";
 
+import { getBrandRecommendationFromQueueResult } from "@/app/(tagging)/brand-recommendation";
+import { AssetThumbnail } from "@/components/AssetThumbnail";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FileImageIcon, TagsIcon } from "@/components/ui/icons";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { dispatchMuseDAMClientAction } from "@/embed/message";
 import { cn } from "@/lib/utils";
 import { MuseDAMID } from "@/musedam/types";
-import Image from "next/image";
-import { FileText, Loader2, PlayIcon, PlusIcon, Trash, X } from "lucide-react";
+import { Loader2, PlayIcon, PlusIcon, Trash } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { startTaggingTasksAction } from "./actions";
 import { TaggingResult, TaggingResultDisplay } from "./components/TaggingResultDisplay";
-import { AssetThumbnail } from "@/components/AssetThumbnail";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface SelectedAsset {
   id: MuseDAMID; // 素材唯一标识
@@ -23,7 +23,7 @@ interface SelectedAsset {
   size: number; // 文件大小（字节）
   url?: string; // 素材访问链接
   thumbnail?: {
-    url?: string// 缩略图链接
+    url?: string; // 缩略图链接
   };
   width?: number; // 图片宽度（图片类型）
   height?: number; // 图片高度（图片类型）
@@ -156,6 +156,11 @@ export default function TestClient() {
             // 转换结果格式以适配TaggingResultDisplay组件
             const formattedResults = completedResults.map((result) => {
               const { assetObject, result: resultData, extra } = result;
+              const brandRecommendation = getBrandRecommendationFromQueueResult(resultData);
+              const confidentBrandRecommendation =
+                brandRecommendation && !brandRecommendation.noConfidentMatch
+                  ? brandRecommendation
+                  : null;
               // 按置信度分类标签
               const allTags = resultData?.tagsWithScore || [];
               const effectiveTags = allTags.filter(
@@ -177,7 +182,7 @@ export default function TestClient() {
                   processingTime:
                     result.startsAt && result.endsAt
                       ? (new Date(result.endsAt).getTime() - new Date(result.startsAt).getTime()) /
-                      1000
+                        1000
                       : 0,
                   recognitionMode:
                     extra?.recognitionAccuracy === "precise"
@@ -186,7 +191,22 @@ export default function TestClient() {
                         ? tClient("balancedMode")
                         : tClient("broadMode"),
                 },
-                overallScore: resultData?.tagsWithScore?.[0]?.score || 0,
+                overallScore: Math.max(
+                  resultData?.tagsWithScore?.[0]?.score || 0,
+                  confidentBrandRecommendation?.bestMatch?.confidence || 0,
+                ),
+                brandRecognition: brandRecommendation
+                  ? {
+                      noConfidentMatch: brandRecommendation.noConfidentMatch,
+                      logoName: brandRecommendation.bestMatch?.logoName || null,
+                      confidence: brandRecommendation.bestMatch?.confidence ?? null,
+                      similarity: brandRecommendation.bestMatch?.similarity ?? null,
+                      recommendedTags:
+                        confidentBrandRecommendation?.recommendedTags.map((tag) => ({
+                          tagPath: tag.tagPath || [],
+                        })) || [],
+                    }
+                  : null,
                 // 生效标签
                 effectiveTags: effectiveTags.map(
                   (tag: { tagPath?: string[]; matchingSource?: string; score?: number }) => ({
@@ -385,7 +405,12 @@ export default function TestClient() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => dispatchMuseDAMClientAction("goto", { url: "/home/dashboard/tag", target: "_blank" })}
+              onClick={() =>
+                dispatchMuseDAMClientAction("goto", {
+                  url: "/home/dashboard/tag",
+                  target: "_blank",
+                })
+              }
             >
               <TagsIcon />
               {tClient("manageTagSystem")}
@@ -407,8 +432,10 @@ export default function TestClient() {
 
             {/* 素材选择区域 */}
             {selectedAssets.length === 0 ? (
-              <div className="w-full h-[200px] flex flex-col justify-center items-center border border-dashed border-basic-4 rounded-md text-center bg-basic-1 hover:border-primary-6 ease-in-out duration-300 transition-all cursor-pointer"
-                onClick={handleAssetSelection}>
+              <div
+                className="w-full h-[200px] flex flex-col justify-center items-center border border-dashed border-basic-4 rounded-md text-center bg-basic-1 hover:border-primary-6 ease-in-out duration-300 transition-all cursor-pointer"
+                onClick={handleAssetSelection}
+              >
                 <FileImageIcon className="size-12 text-primary-6 mb-5" />
                 <h3 className="leading-6 mb-1">{t("selectAssetsFromLibrary")}</h3>
                 <p className="text-xs text-basic-5">{t("testOnlyDescription")}</p>
@@ -435,10 +462,11 @@ export default function TestClient() {
                       className="flex items-center justify-between p-3 border border-basic-4 rounded-md"
                     >
                       <div className="flex items-center gap-3 shrink-0">
-                        <AssetThumbnail asset={{
-                          thumbnailUrl: asset.thumbnail?.url,
-                          extension: asset.extension,
-                        }}
+                        <AssetThumbnail
+                          asset={{
+                            thumbnailUrl: asset.thumbnail?.url,
+                            extension: asset.extension,
+                          }}
                           className="rounded size-8"
                           maxWidth={32}
                           maxHeight={32}
@@ -451,9 +479,6 @@ export default function TestClient() {
                         </div>
                       </div>
 
-
-
-
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -463,7 +488,7 @@ export default function TestClient() {
                               size="sm"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                removeAsset(asset.id)
+                                removeAsset(asset.id);
                               }}
                               className="text-basic-5 size-8 p-0 hover:text-danger-6"
                             >
@@ -643,7 +668,10 @@ export default function TestClient() {
             ].map(({ key, label }) => (
               <div
                 key={key}
-                className={cn("flex items-center gap-2", "py-2 px-3 border rounded-md border-basic-4")}
+                className={cn(
+                  "flex items-center gap-2",
+                  "py-2 px-3 border rounded-md border-basic-4",
+                )}
               >
                 <Checkbox
                   checked={matchingSources[key as keyof typeof matchingSources]}

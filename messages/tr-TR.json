@@ -1,237 +1,245 @@
 {
-    "Homepage": {
-        "title": "MuseDAM varlık otomatik etiketleme sistemi"
+  "Homepage": {
+    "title": "MuseDAM varlık otomatik etiketleme sistemi"
+  },
+  "Components": {},
+  "TagsPage": {
+    "sortSuccess": "Etiketler başarıyla sıralandı",
+    "sortFailed": "Etiketler sıralanamadı",
+    "tagManagement": "Etiket yönetimi",
+    "searchPlaceholder": "Etiket ara",
+    "noSearchResults": "Eşleşen etiket bulunamadı",
+    "searchResults": "Arama sonuçları",
+    "aiAutoTagging": "AI Otomatik Etiketleme",
+    "saveChanges": "Kaydet",
+    "saving": "Kaydediliyor...",
+    "aiAssistant": "AI Asistanı",
+    "batchCreate": "Toplu Oluştur",
+    "tagGroup": "Etiket Grubu",
+    "tag": "Etiket",
+    "noTagGroups": "Etiket grubu yok",
+    "noTags": "Etiket yok",
+    "pleaseSelect": "Lütfen seçin",
+    "selectSecondLevelFirst": "Lütfen önce ikinci seviye bir etiket seçin",
+    "tagNameExists": "Etiket adı aynı seviyede zaten mevcut",
+    "saveSuccess": "Başarıyla kaydedildi",
+    "saveFailed": "Kayıt başarısız",
+    "saveDetailsFailed": "Etiket detayları kaydedilemedi",
+    "syncFromMuseDAM": "MuseDAM'dan senkronize et",
+    "confirmSyncTitle": "Etiket Senkronizasyonunu Onayla",
+    "confirmSyncDescription": "Bu işlem şunları yapacaktır:\n• Sistemdeki tüm mevcut etiketleri silecek\n• MuseDAM'dan tam etiket hiyerarşisini yeniden getirecek\n• Kaydedilmemiş tüm yerel etiket değişiklikleri kaybolacak\n\nDevam etmek istediğinize emin misiniz?",
+    "cancel": "İptal",
+    "confirmSync": "Senkronizasyonu Onayla",
+    "syncing": "Senkronize ediliyor...",
+    "syncSuccess": "MuseDAM'dan etiketler başarıyla senkronize edildi",
+    "syncFailed": "Senkronizasyon başarısız",
+    "syncError": "Senkronizasyon sırasında bir hata oluştu",
+    "selectCreateMethod": "Lütfen bir oluşturma yöntemi seçin:",
+    "aiCreateLabel": "AI Etiket Oluşturma",
+    "aiCreateDesc": "AI, sektör özelliklerine dayalı profesyonel bir etiket şablonu oluşturur",
+    "manualCreateLabel": "Etiketleri manuel oluştur",
+    "manualCreateDesc": "Benzersiz iş bağlamınız için özel bir taksonomi oluşturun",
+    "recommended": "Önerilen",
+    "TagItem": {
+      "tagNameRequired": "Etiket adı boş olamaz",
+      "inputTagName": "Etiket adı girin",
+      "new": "Yeni",
+      "modified": "Değiştirildi",
+      "toBeDeleted": "Silinecek",
+      "edited": "Düzenlendi",
+      "rename": "Yeniden adlandır",
+      "delete": "Sil",
+      "deleteConfirmTitle": "Etiketi Sil",
+      "deleteConfirmDescription": "\"{tagName}\" etiketini silmek istediğinize emin misiniz?",
+      "confirmDelete": "Silme İşlemini Onayla",
+      "searchRelatedAssets": "İlgili Varlıkları Ara"
     },
-    "Components": {},
-    "TagsPage": {
-        "sortSuccess": "Etiketler başarıyla sıralandı",
-        "sortFailed": "Etiketler sıralanamadı",
-        "tagManagement": "Etiket yönetimi",
-        "searchPlaceholder": "Etiket ara",
-        "noSearchResults": "Eşleşen etiket bulunamadı",
-        "searchResults": "Arama sonuçları",
-        "aiAutoTagging": "AI Otomatik Etiketleme",
-        "saveChanges": "Kaydet",
-        "saving": "Kaydediliyor...",
-        "aiAssistant": "AI Asistanı",
-        "batchCreate": "Toplu Oluştur",
-        "tagGroup": "Etiket Grubu",
-        "tag": "Etiket",
-        "noTagGroups": "Etiket grubu yok",
-        "noTags": "Etiket yok",
-        "pleaseSelect": "Lütfen seçin",
-        "selectSecondLevelFirst": "Lütfen önce ikinci seviye bir etiket seçin",
-        "tagNameExists": "Etiket adı aynı seviyede zaten mevcut",
-        "saveSuccess": "Başarıyla kaydedildi",
-        "saveFailed": "Kayıt başarısız",
-        "saveDetailsFailed": "Etiket detayları kaydedilemedi",
-        "syncFromMuseDAM": "MuseDAM'dan senkronize et",
-        "confirmSyncTitle": "Etiket Senkronizasyonunu Onayla",
-        "confirmSyncDescription": "Bu işlem şunları yapacaktır:\n• Sistemdeki tüm mevcut etiketleri silecek\n• MuseDAM'dan tam etiket hiyerarşisini yeniden getirecek\n• Kaydedilmemiş tüm yerel etiket değişiklikleri kaybolacak\n\nDevam etmek istediğinize emin misiniz?",
-        "cancel": "İptal",
-        "confirmSync": "Senkronizasyonu Onayla",
-        "syncing": "Senkronize ediliyor...",
-        "syncSuccess": "MuseDAM'dan etiketler başarıyla senkronize edildi",
-        "syncFailed": "Senkronizasyon başarısız",
-        "syncError": "Senkronizasyon sırasında bir hata oluştu",
-        "selectCreateMethod": "Lütfen bir oluşturma yöntemi seçin:",
-        "aiCreateLabel": "AI Etiket Oluşturma",
-        "aiCreateDesc": "AI, sektör özelliklerine dayalı profesyonel bir etiket şablonu oluşturur",
-        "manualCreateLabel": "Etiketleri manuel oluştur",
-        "manualCreateDesc": "Benzersiz iş bağlamınız için özel bir taksonomi oluşturun",
-        "recommended": "Önerilen",
-        "TagItem": {
-            "tagNameRequired": "Etiket adı boş olamaz",
-            "inputTagName": "Etiket adı girin",
-            "new": "Yeni",
-            "modified": "Değiştirildi",
-            "toBeDeleted": "Silinecek",
-            "edited": "Düzenlendi",
-            "rename": "Yeniden adlandır",
-            "delete": "Sil",
-            "deleteConfirmTitle": "Etiketi Sil",
-            "deleteConfirmDescription": "\"{tagName}\" etiketini silmek istediğinize emin misiniz?",
-            "confirmDelete": "Silme İşlemini Onayla",
-            "searchRelatedAssets": "İlgili Varlıkları Ara"
-        },
-        "TagDetails": {
-            "add": "Ekle",
-            "tagDetails": "Etiket Detayları",
-            "selectTagToView": "Detayları görüntülemek için lütfen bir etiket seçin",
-            "modified": "Değiştirildi",
-            "tagName": "Etiket Adı",
-            "tagDescription": "Etiket Açıklaması",
-            "tagDescriptionPlaceholder": "İsteğe bağlı. Etiket açıklamaları eklemek, AI'nın etiketlerin uygulama senaryolarını daha iyi anlamasına yardımcı olur",
-            "aiAutoTagging": "AI Otomatik Etiketleme",
-            "aiAutoTaggingEnabled": "Etkin, AI'nın bu etiketi tanımasına izin verir",
-            "aiAutoTaggingDisabled": "Devre dışı, AI bu etiketi tanımayacak",
-            "matchingKeywords": "Eşleşen Anahtar Kelimeler",
-            "matchingKeywordsTooltip": "AI'nın bu etiketi daha doğru tanımlamasına yardımcı olmak için bu etiketle ilgili anahtar kelimeler ekleyin",
-            "inputKeywords": "Anahtar kelime girin",
-            "excludeKeywords": "Dışlanacak Anahtar Kelimeler",
-            "excludeKeywordsTooltip": "Dışlanacak anahtar kelimeler ekleyin. Bu kelimeleri içeren varlıklar bu etiketle etiketlenmeyecek",
-            "edit": "Düzenle",
-            "matchingRule": "Eşleşme Kuralı:",
-            "matchingRuleDescription": "Varlık adları, meta veriler ve klasör yolları yukarıdaki anahtar kelimelerle eşleştiğinde, AI varlığı otomatik olarak etiketleyecektir",
-            "excludeRule": "Dışlama Kuralı:",
-            "excludeRuleDescription": "Varlık adları, meta veriler ve klasör yolları bu anahtar kelimeleri içerdiğinde, eşleşen anahtar kelimeler bulunsa bile, etiket otomatik olarak uygulanmayacaktır",
-            "tagNamePlaceholder": "Poster Tasarımı"
-        },
-        "ManualCreateModal": {
-            "LabelsCreatedSuccessfully": "Etiketler başarıyla oluşturuldu",
-            "CreateLabelsManually": "Etiketi manuel oluştur",
-            "CreateNow": "Şimdi oluştur",
-            "Cancel": "İptal",
-            "QuicklyCreateMultipleTagPathsW": "Üç seviyeye kadar etiket bağlantısını destekleyerek hızlıca birden fazla etiket yolu oluşturun",
-            "PreviewView": "Önizleme",
-            "HereSTheTranslatedTextFollowin": "Düzenle",
-            "PleaseCreateLabelsInTheFollowi": "Lütfen aşağıdaki formatta etiketler oluşturun, her satırda bir tane...",
-            "FormatInstructions": "Format talimatları:",
-            "PrimaryTag": "# Birincil etiket",
-            "SecondaryTags": "## İkincil etiket",
-            "Label1": "Etiket 1",
-            "Label2": "Etiket 2",
-            "OrdinaryTextIsALevel3Tag": "Sıradan metin bir seviye 3 etikettir.",
-            "PrimaryTagDescription": "← Ana kategoriler (örn. içerik türleri, ürün serileri)",
-            "SecondaryTagDescription": "← Alt kategoriler (örn. görüntü varlıkları, giyim kategorileri)",
-            "LabelDescription": "← Belirli etiketler (örn. ürün görüntüleri, üst seri)"
-        },
-        "ManualCreateTipsModal": {
-            "CreateTagPrompt": "Etiket oluşturma ipuçları",
-            "Confirm": "Onayla",
-            "Cancel": "İptal",
-            "ExistingTagDataFoundInTheSyste": "Sistemde mevcut etiket verileri bulundu. Toplu oluşturmayı nasıl ele alacağınızı seçin. Bu işlem geri alınamaz. Dikkatli ilerleyin:",
-            "UnderstoodPleaseProvideTheText": "Yalnızca yeni etiket sistemini kullan",
-            "ClearExistingTagsKeepOnlyTheNe": "Mevcut etiketleri temizle, yalnızca yeni oluşturulanları tut",
-            "MergeIntoExistingTagSystem": "Mevcut etiket sistemine birleştir",
-            "RetainExistingTagsAndAddNewTag": "Mevcut etiketleri koru, yeni etiketleri mevcut sisteme ekle."
-        },
-        "ManualCreateTips2Modal": {
-            "HereSTheTranslatedVersionFollo": "İşlem ipuçları",
-            "ClearExistingTagsAndUseNewOnes": "Mevcut etiketleri temizle ve yenilerini kullan",
-            "Cancel": "İptal",
-            "ConfirmToUseTheNewTagSystemOnl": "Yeni etiket sistemine geçmeyi onaylıyor musunuz? Bu, mevcut etiketlerinizi ve tüm ilişkili varlıkları temizleyecektir. Bu işlem geri alınamaz. Dikkatli ilerleyin."
-        },
-        "TagSortModal": {
-            "title": "Etiket Sıralama",
-            "noSortableTags": "Sıralanabilir etiket yok",
-            "sortSaveSuccess": "Sıralama başarıyla kaydedildi",
-            "sortSaveFailed": "Sıralama kaydedilemedi",
-            "cancel": "İptal",
-            "confirm": "Onayla",
-            "saving": "Kaydediliyor...",
-            "level1Title": "Seviye 1 Etiketler",
-            "level2Title": "Seviye 2 Etiketler",
-            "level3Title": "Seviye 3 Etiketler",
-            "defaultTitle": "Etiketler"
-        },
-        "TagsClient": {
-            "tagCreatedSuccessfully": "Etiketler başarıyla oluşturuldu"
-        },
-        "AiCreateModal": {
-            "generateFailed": "Etiket sistemi oluşturulamadı",
-            "selectedIndustry": "Sektör: ",
-            "creating": "Oluşturuluyor..."
-        },
-        "TagColumn": {
-            "smartTags": "Akıllı Etiketler"
-        }
+    "TagDetails": {
+      "add": "Ekle",
+      "tagDetails": "Etiket Detayları",
+      "selectTagToView": "Detayları görüntülemek için lütfen bir etiket seçin",
+      "modified": "Değiştirildi",
+      "tagName": "Etiket Adı",
+      "tagDescription": "Etiket Açıklaması",
+      "tagDescriptionPlaceholder": "İsteğe bağlı. Etiket açıklamaları eklemek, AI'nın etiketlerin uygulama senaryolarını daha iyi anlamasına yardımcı olur",
+      "aiAutoTagging": "AI Otomatik Etiketleme",
+      "aiAutoTaggingEnabled": "Etkin, AI'nın bu etiketi tanımasına izin verir",
+      "aiAutoTaggingDisabled": "Devre dışı, AI bu etiketi tanımayacak",
+      "matchingKeywords": "Eşleşen Anahtar Kelimeler",
+      "matchingKeywordsTooltip": "AI'nın bu etiketi daha doğru tanımlamasına yardımcı olmak için bu etiketle ilgili anahtar kelimeler ekleyin",
+      "inputKeywords": "Anahtar kelime girin",
+      "excludeKeywords": "Dışlanacak Anahtar Kelimeler",
+      "excludeKeywordsTooltip": "Dışlanacak anahtar kelimeler ekleyin. Bu kelimeleri içeren varlıklar bu etiketle etiketlenmeyecek",
+      "edit": "Düzenle",
+      "matchingRule": "Eşleşme Kuralı:",
+      "matchingRuleDescription": "Varlık adları, meta veriler ve klasör yolları yukarıdaki anahtar kelimelerle eşleştiğinde, AI varlığı otomatik olarak etiketleyecektir",
+      "excludeRule": "Dışlama Kuralı:",
+      "excludeRuleDescription": "Varlık adları, meta veriler ve klasör yolları bu anahtar kelimeleri içerdiğinde, eşleşen anahtar kelimeler bulunsa bile, etiket otomatik olarak uygulanmayacaktır",
+      "tagNamePlaceholder": "Poster Tasarımı"
+    },
+    "ManualCreateModal": {
+      "LabelsCreatedSuccessfully": "Etiketler başarıyla oluşturuldu",
+      "CreateLabelsManually": "Etiketi manuel oluştur",
+      "CreateNow": "Şimdi oluştur",
+      "Cancel": "İptal",
+      "QuicklyCreateMultipleTagPathsW": "Üç seviyeye kadar etiket bağlantısını destekleyerek hızlıca birden fazla etiket yolu oluşturun",
+      "PreviewView": "Önizleme",
+      "HereSTheTranslatedTextFollowin": "Düzenle",
+      "PleaseCreateLabelsInTheFollowi": "Lütfen aşağıdaki formatta etiketler oluşturun, her satırda bir tane...",
+      "FormatInstructions": "Format talimatları:",
+      "PrimaryTag": "# Birincil etiket",
+      "SecondaryTags": "## İkincil etiket",
+      "Label1": "Etiket 1",
+      "Label2": "Etiket 2",
+      "OrdinaryTextIsALevel3Tag": "Sıradan metin bir seviye 3 etikettir.",
+      "PrimaryTagDescription": "← Ana kategoriler (örn. içerik türleri, ürün serileri)",
+      "SecondaryTagDescription": "← Alt kategoriler (örn. görüntü varlıkları, giyim kategorileri)",
+      "LabelDescription": "← Belirli etiketler (örn. ürün görüntüleri, üst seri)"
+    },
+    "ManualCreateTipsModal": {
+      "CreateTagPrompt": "Etiket oluşturma ipuçları",
+      "Confirm": "Onayla",
+      "Cancel": "İptal",
+      "ExistingTagDataFoundInTheSyste": "Sistemde mevcut etiket verileri bulundu. Toplu oluşturmayı nasıl ele alacağınızı seçin. Bu işlem geri alınamaz. Dikkatli ilerleyin:",
+      "UnderstoodPleaseProvideTheText": "Yalnızca yeni etiket sistemini kullan",
+      "ClearExistingTagsKeepOnlyTheNe": "Mevcut etiketleri temizle, yalnızca yeni oluşturulanları tut",
+      "MergeIntoExistingTagSystem": "Mevcut etiket sistemine birleştir",
+      "RetainExistingTagsAndAddNewTag": "Mevcut etiketleri koru, yeni etiketleri mevcut sisteme ekle."
+    },
+    "ManualCreateTips2Modal": {
+      "HereSTheTranslatedVersionFollo": "İşlem ipuçları",
+      "ClearExistingTagsAndUseNewOnes": "Mevcut etiketleri temizle ve yenilerini kullan",
+      "Cancel": "İptal",
+      "ConfirmToUseTheNewTagSystemOnl": "Yeni etiket sistemine geçmeyi onaylıyor musunuz? Bu, mevcut etiketlerinizi ve tüm ilişkili varlıkları temizleyecektir. Bu işlem geri alınamaz. Dikkatli ilerleyin."
+    },
+    "TagSortModal": {
+      "title": "Etiket Sıralama",
+      "noSortableTags": "Sıralanabilir etiket yok",
+      "sortSaveSuccess": "Sıralama başarıyla kaydedildi",
+      "sortSaveFailed": "Sıralama kaydedilemedi",
+      "cancel": "İptal",
+      "confirm": "Onayla",
+      "saving": "Kaydediliyor...",
+      "level1Title": "Seviye 1 Etiketler",
+      "level2Title": "Seviye 2 Etiketler",
+      "level3Title": "Seviye 3 Etiketler",
+      "defaultTitle": "Etiketler"
+    },
+    "TagsClient": {
+      "tagCreatedSuccessfully": "Etiketler başarıyla oluşturuldu"
     },
     "AiCreateModal": {
-        "title": "AI Etiket Sistemi Oluşturucu",
-        "createSettings": "Oluşturma Ayarları",
-        "tip": "💡 Profesyonel bir senaryo açıklamasını otomatik olarak doldurmak için bir sektör seçin. İhtiyacınıza göre ayarlayabilirsiniz.",
-        "selectLanguage": "Etiket Dili",
-        "selectIndustry": "Sektör Seç",
-        "other": "Diğer",
-        "pleaseDescribe": "Lütfen açıklayın",
-        "customPrompt": "Özel İstem",
-        "generate": "Etiket Sistemi Oluştur",
-        "generating": "Oluşturuluyor...",
-        "result": "Oluşturulan Sonuç",
-        "waiting": "Bekleniyor",
-        "aiAnalyzing": "AI etiket sistemini analiz edip oluşturuyor...",
-        "pleaseSelectOrInput": "Lütfen sol taraftan bir sektör seçin veya özel bir istem girin, ardından Oluştur'a tıklayın.",
-        "confirmApply": "Sisteme Uygula",
-        "none": "Yok",
-        "parseError": "Oluşturulan etiket formatı yanlış. Manuel olarak ayarlamak için lütfen düzenleme moduna geçin",
-        "language": {
-            "zh-CN": "Çince",
-            "en-US": "İngilizce"
-        },
-        "tagTreePrompt": {
-            "template": "Kurumsal dijital varlık etiket taksonomileri konusunda uzmansınız. Aşağıdaki kullanıcı bağlamına dayanarak bir 'etiket ağacı' oluşturun.\n[Kullanıcı Bağlamı]\n{userContext}\n\nYALNIZCA aşağıdaki formatta kesinlikle çıktı vermelisiniz (ek açıklamalar, semboller, numaralandırma, boş satırlar veya ek bölümler yok):\n# Seviye 1 Etiket\n## Seviye 2 Etiket\nEtiket 1\nEtiket 2\n\nKurallar:\n- Yalnızca etiket ağacının kendisini çıktı verin. Açıklamalar, ipuçları, örnekler, Markdown kod çitleri veya backtick'ler EKLEMEYİN.\n- Tüm metin için İngilizce kullanın.\n- Terimler profesyonel, birbirini dışlayan, net ve pratik arama için uygun olmalıdır. Uzun cümlelerden kaçının.\n- Boş başlıklar, numaralandırma, iki nokta üst üste, parantezler veya açıklayıcı metin ÇIKTI VERMEYİN.\n- Tanımlanan seviyelerin dışında em tire, iki nokta üst üste, '- ' veya sayısal listeler gibi semboller EKLEMEYİN.\n- Kullanıcı bağlamını TEKRARLAMAYIN veya sonuç özeti EKLEMEYİN."
-        },
-        "industry": {
-            "general": {
-                "label": "Genel Sektör",
-                "prompt": "Pazarlama odaklı işletmeler marka hikaye anlatımı, içerik oluşturma, performans reklamcılığı ve çapraz kanal kampanyalarına odaklanır. Temel dijital varlıklar marka görselleri, reklam yaratımları, kampanya videoları, sosyal medya içeriği, promosyon materyalleri ve markalı şablonları içerir. Varlıkları pazarlama hedeflerine göre organize edin: marka bilinirliği, potansiyel müşteri oluşturma, dönüşüm optimizasyonu ve müşteri tutma.\nBu sistem, pazarlama mükemmelliğini önceliklendiren e-ticaret, CPG, teknoloji donanımı, moda ve F&B sektörlerine uygulanır."
-            },
-            "ecommerce": {
-                "label": "E-ticaret ve Perakende",
-                "prompt": "E-ticaret perakendecileri ürün satışı, dönüşüm optimizasyonu, pazar yeri varlığı ve müşteri yaşam döngüsü pazarlamasına odaklanır. Temel dijital varlıklar ürün fotoğrafçılığı, yaşam tarzı çekimleri, video demoları, pazar yeri bannerları, promosyon grafikleri ve müşteri referanslarını içerir. Varlıkları satış hunisi aşamalarına göre organize edin: ürün keşfi, değerlendirme içeriği, dönüşüm varlıkları ve satın alma sonrası katılım.\nBu sistem Amazon satıcıları, Shopify mağazaları, pazar yeri satıcıları ve eBay, Walmart ve doğrudan tüketiciye markalar gibi platformlarda omnichannel perakendecilere uygulanır."
-            },
-            "fmcg": {
-                "label": "Tüketim Ürünleri (CPG)",
-                "prompt": "CPG markaları raf çekiciliği, kategori farklılaştırması, perakende ortaklıkları ve tüketici eğitimine odaklanır. Temel dijital varlıklar ambalaj fotoğrafçılığı, kullanımda gösterimler, yaşam tarzı görselleri, perakendeciye özel materyaller, promosyon kampanyaları ve eğitim içeriğini içerir. Varlıkları dağıtım kanallarına göre organize edin: perakende ortaklıkları, tüketiciye doğrudan kampanyalar, ticari pazarlama ve marka oluşturma girişimleri."
-            },
-            "beauty": {
-                "label": "Güzellik ve Kozmetik",
-                "prompt": "Güzellik markaları ürün eğitimi, trend odaklı içerik, influencer ortaklıkları ve topluluk oluşturmaya odaklanır. Temel dijital varlıklar ürün fotoğrafçılığı, önce/sonra dönüşümler, eğitim videoları, influencer işbirliği içeriği, kullanıcı tarafından oluşturulan incelemeler ve mevsimsel kampanya materyallerini içerir. Varlıkları pazarlama hunisi aşamalarına göre organize edin: bilinçlendirme kampanyaları, ürün eğitimi, sosyal kanıt ve dönüşüm odaklı içerik.\nBu sistem, ürün vitrininden tüketici eğitimine kadar kapsamlı içerik yöneten cilt bakımı, makyaj, parfüm ve güzellik araçları markalarına uygulanır."
-            },
-            "fashion": {
-                "label": "Moda ve Giyim",
-                "prompt": "Moda markaları mevsimsel koleksiyonlar, stil ilhamı, influencer işbirlikleri ve yaşam tarzı konumlandırmaya odaklanır. Temel dijital varlıklar lookbook fotoğrafçılığı, podyum içeriği, stil videoları, influencer ortaklıkları, model çekimleri ve trend odaklı kampanyaları içerir. Varlıkları içerik stratejisine göre organize edin: marka hikaye anlatımı, ürün vitrinleri, sosyal ticaret ve topluluk katılımı.\nBu sistem, ürün lansmanlarından yaşam tarzı iletişimine kadar görsel içerik yöneten giyim, ayakkabı, aksesuar ve lüks moda markalarına uygulanır."
-            },
-            "electronics": {
-                "label": "Tüketici Elektroniği",
-                "prompt": "Teknoloji donanımı markaları özellik gösterileri, performans karşılaştırmaları, kullanıcı eğitimi ve yenilik hikaye anlatımına odaklanır. Temel dijital varlıklar ürün fotoğrafçılığı, demo videoları, teknik özellikler, karşılaştırma grafikleri, kutu açılım içeriği ve kullanıcı öğreticilerini içerir. Varlıkları müşteri yolculuğu aşamalarına göre organize edin: ürün bilinirliği, özellik eğitimi, satın alma değerlendirmesi ve kullanıcı entegrasyonu.\nBu sistem, ürün özelliklerinden kullanıcı deneyimine kadar içerik yöneten akıllı telefonlar, dizüstü bilgisayarlar, akıllı ev cihazları ve teknoloji aksesuarlarına uygulanır."
-            },
-            "automotive": {
-                "label": "Otomotiv",
-                "prompt": "Otomotiv markaları araç vitrinleri, performans gösterileri, güvenlik özellikleri ve yaşam tarzı entegrasyonuna odaklanır. Temel dijital varlıklar dış fotoğrafçılık, iç detaylar, test sürüşü görüntüleri, güvenlik gösterileri, yaşam tarzı senaryoları ve sürdürülebilirlik mesajlaşmasını içerir. Varlıkları satın alma yolculuğu aşamalarına göre organize edin: marka değerlendirmesi, model karşılaştırması, özellik vurguları ve sahiplik deneyimi.\nBu sistem, marka bilinirliğinden sürüş deneyimine kadar içerik yöneten yolcu araçları, elektrikli araçlar, ticari filolar ve otomotiv parçalarına uygulanır."
-            },
-            "interior": {
-                "label": "İç Mimari",
-                "prompt": "İç mimarlık firmaları proje vitrinleri, tasarım ilhamı, süreç şeffaflığı ve müşteri referanslarına odaklanır. Temel dijital varlıklar mekan fotoğrafçılığı, tasarım renderları, malzeme örnekleri, süreç belgeleri, önce/sonra dönüşümler ve müşteri vaka çalışmalarını içerir. Varlıkları proje yaşam döngüsüne göre organize edin: ilham galerileri, tasarım kavramları, devam eden çalışmalar ve tamamlanmış vitrinler.\nBu sistem, kavramdan tamamlanmaya kadar görsel içerik yöneten konut tasarımı, ticari alanlar, konukseverlik tasarımı ve ev stajına uygulanır."
-            },
-            "luxury": {
-                "label": "Lüks Ürünler",
-                "prompt": "Lüks markalar miras hikaye anlatımı, zanaat mükemmelliği, özel konumlandırma ve premium deneyimlere odaklanır. Temel dijital varlıklar zanaat fotoğrafçılığı, zanaat videoları, marka miras içeriği, özel koleksiyonlar, ünlü onayları ve deneyimsel kampanyaları içerir. Varlıkları marka sütunlarına göre organize edin: miras hikaye anlatımı, zanaat vitrini, özel pazarlama ve yaşam tarzı konumlandırma.\nBu sistem, zanaat değerinden kültürel öneme kadar içerik yöneten yüksek moda, ince mücevher, lüks saatler ve premium deri ürünlerine uygulanır."
-            },
-            "gaming": {
-                "label": "Oyun",
-                "prompt": "Oyun şirketleri topluluk katılımı, oynanış vitrinleri, rekabetçi esporlar ve kullanıcı tarafından oluşturulan içeriğe odaklanır. Temel dijital varlıklar oyun fragmanları, karakter sanat eserleri, oynanış görüntüleri, espor öne çıkanları, topluluk içeriği ve canlı yayın materyallerini içerir. Varlıkları katılım stratejisine göre organize edin: oyun promosyonu, topluluk oluşturma, rekabetçi içerik ve oyuncu tutma.\nBu sistem, oyun pazarlamasından topluluk ekosistemine kadar içerik yöneten mobil oyunlar, PC oyunları, konsol başlıkları ve VR deneyimlerine uygulanır."
-            },
-            "jewelry": {
-                "label": "Mücevher",
-                "prompt": "Mücevher markaları zanaat hikaye anlatımı, duygusal bağlantılar, etkinlik pazarlaması ve kişiselleştirme hizmetlerine odaklanır. Temel dijital varlıklar makro fotoğrafçılık, zanaat videoları, yaşam tarzı görselleri, özelleştirme vitrinleri, duygusal hikaye anlatımı içeriği ve etkinliğe özel kampanyaları içerir. Varlıkları duygusal mesajlaşmaya göre organize edin: zanaat gururu, kilometre taşı kutlamaları, kişisel ifade ve hediyeleşme fırsatları.\nBu sistem, zanaat zanaatından duygusal öneme kadar içerik yöneten nişan yüzükleri, ince mücevher, özel parçalar ve moda mücevherine uygulanır."
-            },
-            "theme-park": {
-                "label": "Tema Parkları",
-                "prompt": "Eğlence mekanları deneyim pazarlaması, mevsimsel etkinlikler, aile katılımı ve sürükleyici hikaye anlatımına odaklanır. Temel dijital varlıklar cazibe fotoğrafçılığı, deneyim videoları, mevsimsel kampanyalar, sahne arkası içeriği, ziyaretçi referansları ve güvenlik iletişimlerini içerir. Varlıkları ziyaretçi yolculuğuna göre organize edin: gezi planlama, yerinde deneyim, mevsimsel teklifler ve anı yaratma.\nBu sistem, ziyaretçi çekiciliğinden deneyim amplifikasyonuna kadar içerik yöneten Disney parkları, Universal Studios, bölgesel tema parkları ve eğlence komplekslerine uygulanır."
-            }
-        }
+      "generateFailed": "Etiket sistemi oluşturulamadı",
+      "selectedIndustry": "Sektör: ",
+      "creating": "Oluşturuluyor..."
     },
-    "TaggingResultDisplay": {
-        "processingTime": "İşleme Süresi",
-        "aiRecognitionMode": "AI Tanıma Modu",
-        "overallScore": "Genel Puan",
-        "effectiveTags": "Etkili Etiketler",
-        "effectiveTagsDescription": "%80-%100 Güven",
-        "candidateTags": "Aday Etiketler",
-        "candidateTagsDescription": "%60-%79 Güven",
-        "matchingSource": "Eşleşme Kaynağı",
-        "confidence": "Güven",
-        "score": "Puan"
-    },
-    "SmartTags": {
-        "title": "Akıllı Etiketler",
-        "rename": "Yeniden adlandır",
-        "delete": "Sil"
-    },
-    "SearchResult": {
-        "tagGroup": "Etiket Grubu",
-        "noSearchResults": "Arama sonucu yok"
+    "TagColumn": {
+      "smartTags": "Akıllı Etiketler"
     }
+  },
+  "AiCreateModal": {
+    "title": "AI Etiket Sistemi Oluşturucu",
+    "createSettings": "Oluşturma Ayarları",
+    "tip": "💡 Profesyonel bir senaryo açıklamasını otomatik olarak doldurmak için bir sektör seçin. İhtiyacınıza göre ayarlayabilirsiniz.",
+    "selectLanguage": "Etiket Dili",
+    "selectIndustry": "Sektör Seç",
+    "other": "Diğer",
+    "pleaseDescribe": "Lütfen açıklayın",
+    "customPrompt": "Özel İstem",
+    "generate": "Etiket Sistemi Oluştur",
+    "generating": "Oluşturuluyor...",
+    "result": "Oluşturulan Sonuç",
+    "waiting": "Bekleniyor",
+    "aiAnalyzing": "AI etiket sistemini analiz edip oluşturuyor...",
+    "pleaseSelectOrInput": "Lütfen sol taraftan bir sektör seçin veya özel bir istem girin, ardından Oluştur'a tıklayın.",
+    "confirmApply": "Sisteme Uygula",
+    "none": "Yok",
+    "parseError": "Oluşturulan etiket formatı yanlış. Manuel olarak ayarlamak için lütfen düzenleme moduna geçin",
+    "language": {
+      "zh-CN": "Çince",
+      "en-US": "İngilizce"
+    },
+    "tagTreePrompt": {
+      "template": "Kurumsal dijital varlık etiket taksonomileri konusunda uzmansınız. Aşağıdaki kullanıcı bağlamına dayanarak bir 'etiket ağacı' oluşturun.\n[Kullanıcı Bağlamı]\n{userContext}\n\nYALNIZCA aşağıdaki formatta kesinlikle çıktı vermelisiniz (ek açıklamalar, semboller, numaralandırma, boş satırlar veya ek bölümler yok):\n# Seviye 1 Etiket\n## Seviye 2 Etiket\nEtiket 1\nEtiket 2\n\nKurallar:\n- Yalnızca etiket ağacının kendisini çıktı verin. Açıklamalar, ipuçları, örnekler, Markdown kod çitleri veya backtick'ler EKLEMEYİN.\n- Tüm metin için İngilizce kullanın.\n- Terimler profesyonel, birbirini dışlayan, net ve pratik arama için uygun olmalıdır. Uzun cümlelerden kaçının.\n- Boş başlıklar, numaralandırma, iki nokta üst üste, parantezler veya açıklayıcı metin ÇIKTI VERMEYİN.\n- Tanımlanan seviyelerin dışında em tire, iki nokta üst üste, '- ' veya sayısal listeler gibi semboller EKLEMEYİN.\n- Kullanıcı bağlamını TEKRARLAMAYIN veya sonuç özeti EKLEMEYİN."
+    },
+    "industry": {
+      "general": {
+        "label": "Genel Sektör",
+        "prompt": "Pazarlama odaklı işletmeler marka hikaye anlatımı, içerik oluşturma, performans reklamcılığı ve çapraz kanal kampanyalarına odaklanır. Temel dijital varlıklar marka görselleri, reklam yaratımları, kampanya videoları, sosyal medya içeriği, promosyon materyalleri ve markalı şablonları içerir. Varlıkları pazarlama hedeflerine göre organize edin: marka bilinirliği, potansiyel müşteri oluşturma, dönüşüm optimizasyonu ve müşteri tutma.\nBu sistem, pazarlama mükemmelliğini önceliklendiren e-ticaret, CPG, teknoloji donanımı, moda ve F&B sektörlerine uygulanır."
+      },
+      "ecommerce": {
+        "label": "E-ticaret ve Perakende",
+        "prompt": "E-ticaret perakendecileri ürün satışı, dönüşüm optimizasyonu, pazar yeri varlığı ve müşteri yaşam döngüsü pazarlamasına odaklanır. Temel dijital varlıklar ürün fotoğrafçılığı, yaşam tarzı çekimleri, video demoları, pazar yeri bannerları, promosyon grafikleri ve müşteri referanslarını içerir. Varlıkları satış hunisi aşamalarına göre organize edin: ürün keşfi, değerlendirme içeriği, dönüşüm varlıkları ve satın alma sonrası katılım.\nBu sistem Amazon satıcıları, Shopify mağazaları, pazar yeri satıcıları ve eBay, Walmart ve doğrudan tüketiciye markalar gibi platformlarda omnichannel perakendecilere uygulanır."
+      },
+      "fmcg": {
+        "label": "Tüketim Ürünleri (CPG)",
+        "prompt": "CPG markaları raf çekiciliği, kategori farklılaştırması, perakende ortaklıkları ve tüketici eğitimine odaklanır. Temel dijital varlıklar ambalaj fotoğrafçılığı, kullanımda gösterimler, yaşam tarzı görselleri, perakendeciye özel materyaller, promosyon kampanyaları ve eğitim içeriğini içerir. Varlıkları dağıtım kanallarına göre organize edin: perakende ortaklıkları, tüketiciye doğrudan kampanyalar, ticari pazarlama ve marka oluşturma girişimleri."
+      },
+      "beauty": {
+        "label": "Güzellik ve Kozmetik",
+        "prompt": "Güzellik markaları ürün eğitimi, trend odaklı içerik, influencer ortaklıkları ve topluluk oluşturmaya odaklanır. Temel dijital varlıklar ürün fotoğrafçılığı, önce/sonra dönüşümler, eğitim videoları, influencer işbirliği içeriği, kullanıcı tarafından oluşturulan incelemeler ve mevsimsel kampanya materyallerini içerir. Varlıkları pazarlama hunisi aşamalarına göre organize edin: bilinçlendirme kampanyaları, ürün eğitimi, sosyal kanıt ve dönüşüm odaklı içerik.\nBu sistem, ürün vitrininden tüketici eğitimine kadar kapsamlı içerik yöneten cilt bakımı, makyaj, parfüm ve güzellik araçları markalarına uygulanır."
+      },
+      "fashion": {
+        "label": "Moda ve Giyim",
+        "prompt": "Moda markaları mevsimsel koleksiyonlar, stil ilhamı, influencer işbirlikleri ve yaşam tarzı konumlandırmaya odaklanır. Temel dijital varlıklar lookbook fotoğrafçılığı, podyum içeriği, stil videoları, influencer ortaklıkları, model çekimleri ve trend odaklı kampanyaları içerir. Varlıkları içerik stratejisine göre organize edin: marka hikaye anlatımı, ürün vitrinleri, sosyal ticaret ve topluluk katılımı.\nBu sistem, ürün lansmanlarından yaşam tarzı iletişimine kadar görsel içerik yöneten giyim, ayakkabı, aksesuar ve lüks moda markalarına uygulanır."
+      },
+      "electronics": {
+        "label": "Tüketici Elektroniği",
+        "prompt": "Teknoloji donanımı markaları özellik gösterileri, performans karşılaştırmaları, kullanıcı eğitimi ve yenilik hikaye anlatımına odaklanır. Temel dijital varlıklar ürün fotoğrafçılığı, demo videoları, teknik özellikler, karşılaştırma grafikleri, kutu açılım içeriği ve kullanıcı öğreticilerini içerir. Varlıkları müşteri yolculuğu aşamalarına göre organize edin: ürün bilinirliği, özellik eğitimi, satın alma değerlendirmesi ve kullanıcı entegrasyonu.\nBu sistem, ürün özelliklerinden kullanıcı deneyimine kadar içerik yöneten akıllı telefonlar, dizüstü bilgisayarlar, akıllı ev cihazları ve teknoloji aksesuarlarına uygulanır."
+      },
+      "automotive": {
+        "label": "Otomotiv",
+        "prompt": "Otomotiv markaları araç vitrinleri, performans gösterileri, güvenlik özellikleri ve yaşam tarzı entegrasyonuna odaklanır. Temel dijital varlıklar dış fotoğrafçılık, iç detaylar, test sürüşü görüntüleri, güvenlik gösterileri, yaşam tarzı senaryoları ve sürdürülebilirlik mesajlaşmasını içerir. Varlıkları satın alma yolculuğu aşamalarına göre organize edin: marka değerlendirmesi, model karşılaştırması, özellik vurguları ve sahiplik deneyimi.\nBu sistem, marka bilinirliğinden sürüş deneyimine kadar içerik yöneten yolcu araçları, elektrikli araçlar, ticari filolar ve otomotiv parçalarına uygulanır."
+      },
+      "interior": {
+        "label": "İç Mimari",
+        "prompt": "İç mimarlık firmaları proje vitrinleri, tasarım ilhamı, süreç şeffaflığı ve müşteri referanslarına odaklanır. Temel dijital varlıklar mekan fotoğrafçılığı, tasarım renderları, malzeme örnekleri, süreç belgeleri, önce/sonra dönüşümler ve müşteri vaka çalışmalarını içerir. Varlıkları proje yaşam döngüsüne göre organize edin: ilham galerileri, tasarım kavramları, devam eden çalışmalar ve tamamlanmış vitrinler.\nBu sistem, kavramdan tamamlanmaya kadar görsel içerik yöneten konut tasarımı, ticari alanlar, konukseverlik tasarımı ve ev stajına uygulanır."
+      },
+      "luxury": {
+        "label": "Lüks Ürünler",
+        "prompt": "Lüks markalar miras hikaye anlatımı, zanaat mükemmelliği, özel konumlandırma ve premium deneyimlere odaklanır. Temel dijital varlıklar zanaat fotoğrafçılığı, zanaat videoları, marka miras içeriği, özel koleksiyonlar, ünlü onayları ve deneyimsel kampanyaları içerir. Varlıkları marka sütunlarına göre organize edin: miras hikaye anlatımı, zanaat vitrini, özel pazarlama ve yaşam tarzı konumlandırma.\nBu sistem, zanaat değerinden kültürel öneme kadar içerik yöneten yüksek moda, ince mücevher, lüks saatler ve premium deri ürünlerine uygulanır."
+      },
+      "gaming": {
+        "label": "Oyun",
+        "prompt": "Oyun şirketleri topluluk katılımı, oynanış vitrinleri, rekabetçi esporlar ve kullanıcı tarafından oluşturulan içeriğe odaklanır. Temel dijital varlıklar oyun fragmanları, karakter sanat eserleri, oynanış görüntüleri, espor öne çıkanları, topluluk içeriği ve canlı yayın materyallerini içerir. Varlıkları katılım stratejisine göre organize edin: oyun promosyonu, topluluk oluşturma, rekabetçi içerik ve oyuncu tutma.\nBu sistem, oyun pazarlamasından topluluk ekosistemine kadar içerik yöneten mobil oyunlar, PC oyunları, konsol başlıkları ve VR deneyimlerine uygulanır."
+      },
+      "jewelry": {
+        "label": "Mücevher",
+        "prompt": "Mücevher markaları zanaat hikaye anlatımı, duygusal bağlantılar, etkinlik pazarlaması ve kişiselleştirme hizmetlerine odaklanır. Temel dijital varlıklar makro fotoğrafçılık, zanaat videoları, yaşam tarzı görselleri, özelleştirme vitrinleri, duygusal hikaye anlatımı içeriği ve etkinliğe özel kampanyaları içerir. Varlıkları duygusal mesajlaşmaya göre organize edin: zanaat gururu, kilometre taşı kutlamaları, kişisel ifade ve hediyeleşme fırsatları.\nBu sistem, zanaat zanaatından duygusal öneme kadar içerik yöneten nişan yüzükleri, ince mücevher, özel parçalar ve moda mücevherine uygulanır."
+      },
+      "theme-park": {
+        "label": "Tema Parkları",
+        "prompt": "Eğlence mekanları deneyim pazarlaması, mevsimsel etkinlikler, aile katılımı ve sürükleyici hikaye anlatımına odaklanır. Temel dijital varlıklar cazibe fotoğrafçılığı, deneyim videoları, mevsimsel kampanyalar, sahne arkası içeriği, ziyaretçi referansları ve güvenlik iletişimlerini içerir. Varlıkları ziyaretçi yolculuğuna göre organize edin: gezi planlama, yerinde deneyim, mevsimsel teklifler ve anı yaratma.\nBu sistem, ziyaretçi çekiciliğinden deneyim amplifikasyonuna kadar içerik yöneten Disney parkları, Universal Studios, bölgesel tema parkları ve eğlence komplekslerine uygulanır."
+      }
+    }
+  },
+  "TaggingResultDisplay": {
+    "processingTime": "İşleme Süresi",
+    "aiRecognitionMode": "AI Tanıma Modu",
+    "overallScore": "Genel Puan",
+    "effectiveTags": "Etkili Etiketler",
+    "effectiveTagsDescription": "%80-%100 Güven",
+    "candidateTags": "Aday Etiketler",
+    "candidateTagsDescription": "%60-%79 Güven",
+    "matchingSource": "Eşleşme Kaynağı",
+    "confidence": "Güven",
+    "score": "Puan",
+    "brandRecognition": "Marka logosu tanıma",
+    "classifiedLogo": "Sınıflandırılan logo",
+    "confidentMatch": "Güvenilir eşleşme",
+    "noConfidentMatch": "Güvenilir eşleşme yok",
+    "linkedTags": "Bağlı etiketler",
+    "similarity": "Benzerlik",
+    "noLinkedTags": "Bağlı etiket yok",
+    "noBrandResult": "Marka tanıma sonucu yok"
+  },
+  "SmartTags": {
+    "title": "Akıllı Etiketler",
+    "rename": "Yeniden adlandır",
+    "delete": "Sil"
+  },
+  "SearchResult": {
+    "tagGroup": "Etiket Grubu",
+    "noSearchResults": "Arama sonucu yok"
+  }
 }
