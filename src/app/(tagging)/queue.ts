@@ -132,6 +132,9 @@ export async function processQueueItem({
   try {
     const extra = queueItem.extra as TaggingQueueItemExtra;
     const thumbnailUrl = (assetObject.extra as AssetObjectExtra | null)?.thumbnailAccessUrl;
+    const downloadUrl = (assetObject.extra as AssetObjectExtra | null)?.downloadUrl;
+    // console.log("thumbnailUrl", thumbnailUrl);
+    // console.log("downloadUrl", downloadUrl);
     const {
       predictions,
       tagsWithScore,
