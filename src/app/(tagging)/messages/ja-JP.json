@@ -89,6 +89,7 @@
     "Review": {
       "add": "追加",
       "aiRecommendedTags": "AI 推奨タグ",
+      "brandRecommendedTags": "ブランドロゴ推奨タグ",
       "allConfidence": "全部信頼度",
       "allStatuses": "全てのステータス",
       "allTime": "全時間",

@@ -196,6 +196,7 @@
       "assetDeleted": "ทรัพยากรถูกลบ",
       "tags": "แท็ก",
       "aiRecommendedTags": "แท็กที่แนะนำโดย AI",
+      "brandRecommendedTags": "แท็กแนะนำโลโก้แบรนด์",
       "basedOnTagSystem": "ตามการจับคู่ระบบแท็ก",
       "latest": "ล่าสุด",
       "allStatuses": "สถานะทั้งหมด",

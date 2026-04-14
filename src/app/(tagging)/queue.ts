@@ -1,5 +1,6 @@
 import "server-only";
 
+import { classifyAssetBrandRecommendation } from "@/lib/brand/tagging-brand-classification";
 import { rootLogger } from "@/lib/logging";
 import { idToSlug, slugToId } from "@/lib/slug";
 import { retrieveTeamCredentials } from "@/musedam/apiKey";
@@ -8,15 +9,16 @@ import { requestMuseDAMAPI } from "@/musedam/lib";
 import { MuseDAMID } from "@/musedam/types";
 import {
   AssetObject,
+  AssetObjectExtra,
   AssetObjectTags,
   Prisma,
   TaggingAuditStatus,
+  TaggingBrandRecommendation,
   TaggingQueueItem,
   TaggingQueueItemExtra,
   TaggingQueueItemResult,
 } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
-import { waitUntil } from "@vercel/functions";
 import pLimit from "p-limit";
 import { isTagTreeJob, processTagTreeQueueItem, TAG_TREE_JOB_KIND } from "@/app/tags/tagTreeQueue";
 import { predictAssetTags } from "./predict";
@@ -61,6 +63,17 @@ async function buildAssetObjectTags(
       (item) => item !== undefined,
     ),
   }));
+}
+
+function hasConfidentBrandRecommendedTags(
+  brandRecommendation: TaggingBrandRecommendation | null,
+): brandRecommendation is TaggingBrandRecommendation {
+  return Boolean(
+    brandRecommendation &&
+      !brandRecommendation.noConfidentMatch &&
+      Array.isArray(brandRecommendation.recommendedTags) &&
+      brandRecommendation.recommendedTags.length > 0,
+  );
 }
 
 export async function enqueueTaggingTask({
@@ -118,6 +131,7 @@ export async function processQueueItem({
 
   try {
     const extra = queueItem.extra as TaggingQueueItemExtra;
+    const thumbnailUrl = (assetObject.extra as AssetObjectExtra | null)?.thumbnailAccessUrl;
     const {
       predictions,
       tagsWithScore,
@@ -126,12 +140,29 @@ export async function processQueueItem({
       matchingSources: extra?.matchingSources,
       recognitionAccuracy: extra?.recognitionAccuracy,
     });
-    if (tagsWithScore.length === 0) {
+    const brandRecommendation = await classifyAssetBrandRecommendation({
+      teamId: queueItem.teamId,
+      imageUrl: thumbnailUrl,
+    }).catch((error) => {
+      logger.warn({
+        msg: "brand classification failed, continuing without brand recommendation",
+        error: String(error),
+      });
+      return null;
+    });
+    const hasAiTags = tagsWithScore.length > 0;
+    const confidentBrandRecommendation = hasConfidentBrandRecommendedTags(brandRecommendation)
+      ? brandRecommendation
+      : null;
+    const hasBrandTags = confidentBrandRecommendation !== null;
+
+    if (!hasAiTags && !hasBrandTags) {
       throw Object.assign(new Error("No valid tags predicted"), { code: "NO_VALID_TAGS" });
     }
     logger.info({
       msg: "processQueueItem completed",
       tagsWithScoreCount: tagsWithScore.length,
+      hasBrandTags,
     });
 
     // 如果是测试内容，不需要进入审核
@@ -140,45 +171,75 @@ export async function processQueueItem({
       const isDirect = teamSetting.taggingMode === "direct";
 
       logger.info({
-        msg: "Creating audit items",
+        msg: "Creating review items",
         isDirect,
         tagsWithScoreCount: tagsWithScore.length,
+        hasBrandTags,
         mode: isDirect ? "direct" : "review",
       });
 
-      const createAuditResult = await createAuditItems({
-        assetObject,
-        taggingQueueItem: queueItem,
-        predictions,
-        tagsWithScore,
-        status: isDirect ? "approved" : "pending",
-      });
+      const createAuditResult = hasAiTags
+        ? await createAuditItems({
+            assetObject,
+            taggingQueueItem: queueItem,
+            predictions,
+            tagsWithScore,
+            status: isDirect ? "approved" : "pending",
+          })
+        : null;
 
-      if (!createAuditResult.success) {
-        logger.error({
-          msg: "createAuditItems failed",
-          error: createAuditResult.error,
-          mode: isDirect ? "direct" : "review",
-        });
-        // 审核模式依赖 audit items；创建失败则标记任务失败，避免出现“任务完成但审核列表为空”
-        if (!isDirect) {
-          throw new Error("createAuditItems failed");
+      if (createAuditResult) {
+        if (!createAuditResult.success) {
+          logger.error({
+            msg: "createAuditItems failed",
+            error: createAuditResult.error,
+            mode: isDirect ? "direct" : "review",
+          });
+          // 审核模式依赖 review items；创建失败则标记任务失败，避免出现“任务完成但审核列表为空”
+          if (!isDirect) {
+            throw new Error("createAuditItems failed");
+          }
+        } else if (createAuditResult.createdCount === 0) {
+          logger.warn({
+            msg: "createAuditItems: no audit items created",
+            tagsWithScoreCount: tagsWithScore.length,
+            mode: isDirect ? "direct" : "review",
+          });
+        } else {
+          logger.info({
+            msg: "createAuditItems completed successfully",
+            createdCount: createAuditResult.createdCount,
+            mode: isDirect ? "direct" : "review",
+          });
         }
-      } else if (createAuditResult.createdCount === 0) {
-        logger.warn({
-          msg: "createAuditItems: no audit items created",
-          tagsWithScoreCount: tagsWithScore.length,
-          mode: isDirect ? "direct" : "review",
-        });
-        if (!isDirect) {
-          throw new Error("createAuditItems createdCount is 0");
+      }
+
+      if (!isDirect) {
+        const hasCreatedAiAuditItems =
+          createAuditResult?.success === true && createAuditResult.createdCount > 0;
+
+        if (!hasCreatedAiAuditItems && hasBrandTags) {
+          const brandOnlyReviewResult = await createBrandOnlyReviewItem({
+            assetObject,
+            taggingQueueItem: queueItem,
+            brandRecommendation: confidentBrandRecommendation,
+          });
+
+          if (!brandOnlyReviewResult.success) {
+            logger.error({
+              msg: "createBrandOnlyReviewItem failed",
+              error: brandOnlyReviewResult.error,
+            });
+            throw new Error("createBrandOnlyReviewItem failed");
+          }
+
+          logger.info({
+            msg: "createBrandOnlyReviewItem completed successfully",
+            createdCount: brandOnlyReviewResult.createdCount,
+          });
+        } else if (!hasCreatedAiAuditItems) {
+          throw new Error("No review items created");
         }
-      } else {
-        logger.info({
-          msg: "createAuditItems completed successfully",
-          createdCount: createAuditResult.createdCount,
-          mode: isDirect ? "direct" : "review",
-        });
       }
 
       if (isDirect) {
@@ -187,11 +248,17 @@ export async function processQueueItem({
           where: { id: queueItem.teamId },
           select: { id: true, slug: true },
         });
+        const combinedLeafTagIds = Array.from(
+          new Set([
+            ...tagsWithScore.map((tag) => tag.leafTagId),
+            ...(brandRecommendation?.recommendedTags ?? []).map((tag) => tag.assetTagId),
+          ]),
+        );
         // 先查询对应的 AssetTag 获取 slug
         const approvedAssetTags = await prisma.assetTag.findMany({
           where: {
             id: {
-              in: tagsWithScore.map((tag) => tag.leafTagId),
+              in: combinedLeafTagIds,
             },
             slug: {
               not: null,
@@ -202,17 +269,19 @@ export async function processQueueItem({
 
         logger.info({
           msg: "Direct mode: found asset tags",
-          requestedTagIds: tagsWithScore.map((tag) => tag.leafTagId),
+          requestedTagIds: combinedLeafTagIds,
           foundAssetTagsCount: approvedAssetTags.length,
         });
 
-        const musedamTagIds = approvedAssetTags.map((tag) => slugToId("assetTag", tag.slug!));
+        const musedamTagIds = Array.from(
+          new Set(approvedAssetTags.map((tag) => slugToId("assetTag", tag.slug!))),
+        );
 
         // 如果没有有效的标签，跳过打标
         if (musedamTagIds.length === 0) {
           logger.warn({
             msg: "No valid tags found for direct tagging, skipping",
-            requestedTagIds: tagsWithScore.map((tag) => tag.leafTagId),
+            requestedTagIds: combinedLeafTagIds,
             foundAssetTagsCount: approvedAssetTags.length,
           });
         } else {
@@ -277,6 +346,7 @@ export async function processQueueItem({
         result: {
           predictions,
           tagsWithScore,
+          brandRecommendation,
         } as TaggingQueueItemResult,
         extra: {
           ...extra,
@@ -531,6 +601,65 @@ async function createAuditItems({
       error,
       tagsWithScoreCount: tagsWithScore.length,
       status: status ?? "pending",
+    });
+    return { success: false, createdCount: 0, error };
+  }
+}
+
+async function createBrandOnlyReviewItem({
+  assetObject,
+  taggingQueueItem,
+  brandRecommendation,
+  status = "pending",
+}: {
+  assetObject: AssetObject;
+  taggingQueueItem: TaggingQueueItem;
+  brandRecommendation: TaggingBrandRecommendation;
+  status?: TaggingAuditStatus;
+}): Promise<{ success: boolean; createdCount: number; error?: unknown }> {
+  const logger = rootLogger.child({
+    teamId: assetObject.teamId,
+    assetObjectId: assetObject.id,
+    queueItemId: taggingQueueItem.id,
+  });
+
+  try {
+    if (!hasConfidentBrandRecommendedTags(brandRecommendation)) {
+      logger.warn({
+        msg: "createBrandOnlyReviewItem: no confident brand recommendation available",
+      });
+      return { success: true, createdCount: 0 };
+    }
+
+    const score = Math.max(
+      0,
+      Math.min(100, Math.round(brandRecommendation.bestMatch?.confidence ?? 0)),
+    );
+
+    await prisma.taggingAuditItem.create({
+      data: {
+        queueItemId: taggingQueueItem.id,
+        assetObjectId: assetObject.id,
+        teamId: assetObject.teamId,
+        status,
+        score,
+        tagPath: [],
+        leafTagId: null,
+      },
+    });
+
+    logger.info({
+      msg: "createBrandOnlyReviewItem: placeholder created",
+      score,
+      status,
+    });
+
+    return { success: true, createdCount: 1 };
+  } catch (error) {
+    logger.error({
+      msg: `createBrandOnlyReviewItem failed: ${error}`,
+      error,
+      status,
     });
     return { success: false, createdCount: 0, error };
   }

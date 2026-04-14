@@ -196,6 +196,7 @@
       "assetDeleted": "Aset dihapus",
       "tags": "Tag",
       "aiRecommendedTags": "Tag yang Direkomendasikan AI",
+      "brandRecommendedTags": "Tag Rekomendasi Logo Merek",
       "basedOnTagSystem": "Berdasarkan pencocokan sistem tag",
       "latest": "Terbaru",
       "allStatuses": "Semua Status",

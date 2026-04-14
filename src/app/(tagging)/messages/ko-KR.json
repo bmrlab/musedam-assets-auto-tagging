@@ -89,6 +89,7 @@
     "Review": {
       "add": "추가",
       "aiRecommendedTags": "AI 추천 태그",
+      "brandRecommendedTags": "브랜드 로고 추천 태그",
       "allConfidence": "전체 신뢰도",
       "allStatuses": "전체 상태",
       "allTime": "전체 시간",
