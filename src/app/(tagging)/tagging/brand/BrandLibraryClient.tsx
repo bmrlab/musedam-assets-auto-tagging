@@ -800,7 +800,7 @@ export default function BrandLibraryClient({
             <AlertDialogTitle>删除品牌标识</AlertDialogTitle>
             <AlertDialogDescription>
               {deleteTarget
-                ? `确认删除“${deleteTarget.name}”吗？该操作为软删除，不会移除 OSS 中的图片资源。`
+                ? `确认删除“${deleteTarget.name}”吗？`
                 : ""}
             </AlertDialogDescription>
           </AlertDialogHeader>

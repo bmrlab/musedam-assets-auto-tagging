@@ -135,16 +135,11 @@ export async function processQueueItem({
     const downloadUrl = (assetObject.extra as AssetObjectExtra | null)?.downloadUrl;
     // console.log("thumbnailUrl", thumbnailUrl);
     // console.log("downloadUrl", downloadUrl);
-    const {
-      predictions,
-      tagsWithScore,
-      extra: newExtra,
-    } = await predictAssetTags(assetObject, {
+    const predictTagsPromise = predictAssetTags(assetObject, {
       matchingSources: extra?.matchingSources,
       recognitionAccuracy: extra?.recognitionAccuracy,
     });
-    // get brand recommendation from thumbnail image
-    const brandRecommendation = await classifyAssetBrandRecommendation({
+    const brandRecommendationPromise = classifyAssetBrandRecommendation({
       teamId: queueItem.teamId,
       imageUrl: thumbnailUrl,
     }).catch((error) => {
@@ -154,6 +149,11 @@ export async function processQueueItem({
       });
       return null;
     });
+
+    const [
+      { predictions, tagsWithScore, extra: newExtra },
+      brandRecommendation,
+    ] = await Promise.all([predictTagsPromise, brandRecommendationPromise]);
     const hasAiTags = tagsWithScore.length > 0;
     const confidentBrandRecommendation = hasConfidentBrandRecommendedTags(brandRecommendation)
       ? brandRecommendation

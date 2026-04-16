@@ -4,7 +4,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { ChevronRight, Search } from "lucide-react";
-import { useDeferredValue, useEffect, useState } from "react";
+import { useDeferredValue, useEffect, useRef, useState } from "react";
 import { BrandTagTreeNode } from "./types";
 
 type FlattenedTag = {
@@ -18,6 +18,8 @@ type BrandTagSelectorProps = {
   tags: BrandTagTreeNode[];
   selectedTagIds: number[];
   onChange: (tagIds: number[]) => void;
+  collapsedUntilFocus?: boolean;
+  dialogOpen?: boolean;
 };
 
 function flattenTags(nodes: BrandTagTreeNode[], parentPath: string[] = []) {
@@ -57,7 +59,7 @@ function TagColumn({
 }) {
   return (
     <div className="flex min-h-0 flex-col border-r last:border-r-0">
-      <div className="border-b px-4 py-3 text-base font-semibold text-basic-8">{title}</div>
+      <div className="border-b bg-[#f7f9fd] px-4 py-3 text-base font-medium text-basic-8">{title}</div>
       <div className="min-h-0 flex-1 overflow-y-auto p-2">
         {nodes.length === 0 ? (
           <div className="px-3 py-6 text-sm text-basic-5">暂无可选标签</div>
@@ -71,7 +73,7 @@ function TagColumn({
                 <div
                   key={node.id}
                   className={cn(
-                    "flex items-center gap-3 rounded-[10px] px-3 py-3 text-[15px] text-basic-8 transition-colors",
+                    "flex items-center gap-3 rounded-[8px] px-3 py-2.5 text-[15px] text-basic-8 transition-colors",
                     isActive && "bg-[#eef3ff]",
                     !isActive && "hover:bg-basic-2/60",
                   )}
@@ -105,16 +107,50 @@ export default function BrandTagSelector({
   tags,
   selectedTagIds,
   onChange,
+  collapsedUntilFocus = false,
+  dialogOpen,
 }: BrandTagSelectorProps) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const [keyword, setKeyword] = useState("");
   const [activeLevel1Id, setActiveLevel1Id] = useState<number | null>(tags[0]?.id ?? null);
   const [activeLevel2Id, setActiveLevel2Id] = useState<number | null>(tags[0]?.children[0]?.id ?? null);
+  const [isExpanded, setIsExpanded] = useState(!collapsedUntilFocus);
   const deferredKeyword = useDeferredValue(keyword.trim().toLowerCase());
 
   useEffect(() => {
     setActiveLevel1Id(tags[0]?.id ?? null);
     setActiveLevel2Id(tags[0]?.children[0]?.id ?? null);
   }, [tags]);
+
+  useEffect(() => {
+    if (!dialogOpen) {
+      return;
+    }
+
+    setIsExpanded(!collapsedUntilFocus);
+  }, [collapsedUntilFocus, dialogOpen]);
+
+  useEffect(() => {
+    if (!collapsedUntilFocus || !isExpanded) {
+      return;
+    }
+
+    function handlePointerDown(event: MouseEvent) {
+      const target = event.target;
+      if (!(target instanceof Node)) {
+        return;
+      }
+
+      if (!containerRef.current?.contains(target)) {
+        setIsExpanded(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+    };
+  }, [collapsedUntilFocus, isExpanded]);
 
   const flattenedTags = flattenTags(tags);
   const selectedTags = selectedTagIds
@@ -142,18 +178,20 @@ export default function BrandTagSelector({
   }
 
   return (
-    <div className="space-y-4">
+    <div ref={containerRef} className="space-y-2">
       <div className="relative">
         <Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-basic-5" />
         <Input
           value={keyword}
           onChange={(event) => setKeyword(event.target.value)}
+          onClick={() => setIsExpanded(true)}
+          onFocus={() => setIsExpanded(true)}
           placeholder="输入标签关键词搜索或从下方标签体系选择"
-          className="h-12 rounded-[12px] pl-11 text-sm"
+          className="h-12 rounded-[10px] border-basic-4 pl-11 text-sm placeholder:text-basic-5"
         />
       </div>
 
-      {selectedTags.length > 0 ? (
+      {isExpanded && selectedTags.length > 0 ? (
         <div className="flex flex-wrap gap-2">
           {selectedTags.map((tag) => (
             <button
@@ -168,8 +206,8 @@ export default function BrandTagSelector({
         </div>
       ) : null}
 
-      {deferredKeyword ? (
-        <div className="max-h-[360px] overflow-y-auto rounded-[14px] border">
+      {isExpanded && deferredKeyword ? (
+        <div className="max-h-[360px] overflow-y-auto rounded-[10px] border border-basic-4 bg-white shadow-[0_8px_24px_rgba(31,48,86,0.08)]">
           {searchResults.length === 0 ? (
             <div className="px-4 py-8 text-sm text-basic-5">没有搜索到匹配标签</div>
           ) : (
@@ -189,8 +227,10 @@ export default function BrandTagSelector({
             </div>
           )}
         </div>
-      ) : (
-        <div className="grid h-[360px] grid-cols-1 overflow-hidden rounded-[14px] border md:grid-cols-3">
+      ) : null}
+
+      {isExpanded && !deferredKeyword ? (
+        <div className="grid h-[340px] grid-cols-1 overflow-hidden rounded-[10px] border border-basic-4 bg-white shadow-[0_8px_24px_rgba(31,48,86,0.08)] md:grid-cols-3">
           <TagColumn
             title={`标签组(${tags.length})`}
             nodes={tags}
@@ -220,7 +260,7 @@ export default function BrandTagSelector({
             onActivate={() => undefined}
           />
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
