@@ -148,6 +148,12 @@ export default function BrandLogoDialog({
           name: logo.logoTypeName,
         }
       : null;
+  const trimmedName = name.trim();
+  const hasValidLogoType = Boolean(logoTypeId) && logoTypes.some((type) => type.id === logoTypeId);
+  const hasImages = images.length > 0;
+  const hasSelectedTags = selectedTagIds.length > 0;
+  const isSubmitDisabled =
+    isPending || !trimmedName || !hasValidLogoType || !hasImages || !hasSelectedTags;
 
   function getUploadErrorMessage(error: unknown) {
     switch (getClientImagePreparationErrorCode(error)) {
@@ -265,7 +271,6 @@ export default function BrandLogoDialog({
   }
 
   function handleSubmit() {
-    const trimmedName = name.trim();
     if (!trimmedName) {
       toast.error("请输入标识名称");
       return;
@@ -503,7 +508,7 @@ export default function BrandLogoDialog({
           >
             取消
           </Button>
-          <Button type="button" onClick={handleSubmit} disabled={isPending}>
+          <Button type="button" onClick={handleSubmit} disabled={isSubmitDisabled}>
             {isPending ? (
               <>
                 <Loader2 className="size-4 animate-spin" />
