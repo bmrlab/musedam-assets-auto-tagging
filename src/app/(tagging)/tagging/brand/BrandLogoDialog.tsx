@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -358,7 +357,7 @@ export default function BrandLogoDialog({
           <DialogTitle className="text-[28px] leading-[36px] font-semibold text-basic-8">
             {mode === "create" ? "新建品牌标识特征" : "编辑品牌标识特征"}
           </DialogTitle>
-          <DialogDescription>{t("dialogProcessingDescription")}</DialogDescription>
+          {/* <DialogDescription>{t("dialogProcessingDescription")}</DialogDescription> */}
         </DialogHeader>
 
         <div className="space-y-6">
@@ -477,6 +476,8 @@ export default function BrandLogoDialog({
               tags={tags}
               selectedTagIds={selectedTagIds}
               onChange={setSelectedTagIds}
+              collapsedUntilFocus={mode === "create"}
+              dialogOpen={open}
             />
           </div>
 

@@ -45,6 +45,7 @@ export function ReviewItem({
   const locale = useLocale();
   const [loading, setLoading] = useState(false);
   const [rejectedItems, setRejectedItems] = useState<number[]>([]);
+  const [rejectedBrandItems, setRejectedBrandItems] = useState<number[]>([]);
 
   const realLoading = batchLoading || loading;
 
@@ -102,11 +103,13 @@ export function ReviewItem({
           Array.from(brandRecommendationsByQueueId.values()).flatMap((brandRecommendation) =>
             !brandRecommendation || brandRecommendation.noConfidentMatch
               ? []
-              : brandRecommendation.recommendedTags.map((tag) => tag.assetTagId),
+              : brandRecommendation.recommendedTags
+                  .map((tag) => tag.assetTagId)
+                  .filter((tagId) => !rejectedBrandItems.includes(tagId)),
           ),
         ),
       ),
-    [brandRecommendationsByQueueId],
+    [brandRecommendationsByQueueId, rejectedBrandItems],
   );
 
   const hasPendingAuditItems = useMemo(
@@ -439,17 +442,80 @@ export function ReviewItem({
                         {brandRecommendation.bestMatch.logoName}
                       </span>
                     ) : null}
+                    <span className="ml-auto text-xs text-basic-5 flex items-center gap-1">
+                      <ClockCircleIcon className="size-3" />
+                      {formatDate(queueItem.createdAt)}
+                    </span>
                   </div>
                   {hasBrandTags && brandRecommendation ? (
                     <div className="flex flex-wrap items-center gap-2">
                       {brandRecommendation.recommendedTags.map((tag) => (
                         <div
                           key={`${queueItem.id}-${tag.assetTagId}`}
-                          className="relative py-[6px] px-2 rounded-[6px] border items-center flex gap-2 text-primary-6 bg-primary-1 border-[#A6C1FF]"
+                          className={cn(
+                            "relative py-[6px] px-2 rounded-[6px] border items-center flex gap-2",
+                            {
+                              "border-dashed": rejectedBrandItems.includes(tag.assetTagId),
+                            },
+                            {
+                              "text-primary-6 bg-primary-1 border-[#A6C1FF]":
+                                (brandRecommendation.bestMatch?.confidence ?? 0) >= 80,
+                              "text-[#52C41A] bg-[#F6FFED] border-[#95DE64]":
+                                (brandRecommendation.bestMatch?.confidence ?? 0) >= 70 &&
+                                (brandRecommendation.bestMatch?.confidence ?? 0) < 80,
+                              "text-[#FA8C16] bg-[#FFF7E6] border-[#FFC069]":
+                                (brandRecommendation.bestMatch?.confidence ?? 0) < 70,
+                            },
+                          )}
                         >
                           <div className="font-medium text-[13px] leading-[18px]">
                             {tag.tagPath.join(" > ")}
                           </div>
+                          <div className="flex items-center gap-[6px]">
+                            <Progress
+                              value={brandRecommendation.bestMatch?.confidence ?? 0}
+                              className="bg-current/20 [&>[data-slot=progress-indicator]]:bg-current w-[60px]"
+                            />
+                            <span className="text-[10px]">
+                              {brandRecommendation.bestMatch?.confidence ?? 0}%
+                            </span>
+                          </div>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="size-3 bg-transparent hover:bg-transparent text-basic-5 hover:text-current"
+                                  onClick={() =>
+                                    setRejectedBrandItems((current) => {
+                                      const foundIndex = current.indexOf(tag.assetTagId);
+                                      if (foundIndex >= 0) {
+                                        return [
+                                          ...current.slice(0, foundIndex),
+                                          ...current.slice(foundIndex + 1),
+                                        ];
+                                      }
+                                      return [...current, tag.assetTagId];
+                                    })
+                                  }
+                                >
+                                  {rejectedBrandItems.includes(tag.assetTagId) ? (
+                                    <CheckIcon className="h-3 w-3" />
+                                  ) : (
+                                    <XIcon className="h-3 w-3" />
+                                  )}
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>
+                                  {rejectedBrandItems.includes(tag.assetTagId)
+                                    ? t("tooltipAdd")
+                                    : t("tooltipRemove")}
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         </div>
                       ))}
                     </div>
