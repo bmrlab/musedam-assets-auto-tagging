@@ -1,3 +1,4 @@
+import { getBrandRecommendationFromQueueResult } from "@/app/(tagging)/brand-recommendation";
 import { withAuth } from "@/app/(auth)/withAuth";
 import prisma from "@/prisma/prisma";
 import { NextRequest, NextResponse } from "next/server";
@@ -35,9 +36,33 @@ export async function GET(
                 );
             }
 
+            const brandRecommendation = getBrandRecommendationFromQueueResult(queueItem.result);
+            const assetLogoId = brandRecommendation?.bestMatch?.assetLogoId;
+            const brandLinkedTags = assetLogoId
+                ? await prisma.assetLogoTag.findMany({
+                    where: {
+                        assetLogoId,
+                        assetTagId: {
+                            not: null,
+                        },
+                    },
+                    orderBy: [{ sort: "asc" }, { id: "asc" }],
+                    select: {
+                        assetTagId: true,
+                        tagPath: true,
+                    },
+                })
+                : [];
+
             return NextResponse.json({
                 success: true,
-                data: queueItem,
+                data: {
+                    ...queueItem,
+                    brandLinkedTags: brandLinkedTags.map((tag) => ({
+                        assetTagId: tag.assetTagId,
+                        tagPath: Array.isArray(tag.tagPath) ? tag.tagPath.map(String) : [],
+                    })),
+                },
             });
         } catch (error) {
             console.error("获取队列状态失败:", error);

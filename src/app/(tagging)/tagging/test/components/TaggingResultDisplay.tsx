@@ -1,9 +1,10 @@
 "use client";
 
+import { cn } from "@/lib/utils";
 import { BrandIcon, TagAIIcon, VimIcon } from "@/components/ui";
 import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckIcon, CircleQuestionMarkIcon, ClockIcon, FolderIcon, ImageIcon } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import Image from "next/image";
 
 export interface TaggingResult {
@@ -51,18 +52,56 @@ interface TaggingResultDisplayProps {
   result: TaggingResult;
 }
 
+function getBrandGuidance(locale: string, noConfidentMatch: boolean) {
+  const normalizedLocale = locale.toLowerCase();
+
+  if (normalizedLocale === "zh-tw") {
+    return noConfidentMatch
+      ? {
+          metricNote: "僅供參考",
+          explanation:
+            "目前已識別到可能品牌，但尚未達到可靠命中條件。以下關聯標籤僅供參考，暫不會進入生效標籤；常見原因是分數不足，或與其他候選品牌差距不夠大。",
+        }
+      : {
+          metricNote: "參與生效",
+          explanation: "目前品牌結果已通過可靠性校驗，以下關聯標籤會參與生效標籤計算。",
+        };
+  }
+
+  if (normalizedLocale.startsWith("zh")) {
+    return noConfidentMatch
+      ? {
+          metricNote: "仅供参考",
+          explanation:
+            "当前已识别到可能品牌，但尚未达到可靠命中条件。以下关联标签仅供参考，暂不会进入生效标签；常见原因是分数不足，或与其他候选品牌差距不够大。",
+        }
+      : {
+          metricNote: "参与生效",
+          explanation: "当前品牌结果已通过可靠性校验，以下关联标签会参与生效标签计算。",
+        };
+  }
+
+  return noConfidentMatch
+    ? {
+        metricNote: "Reference only",
+        explanation:
+          "A possible brand was identified, but it did not pass the reliable-hit check. The linked tags below are for reference only and will not enter Effective Tags; common reasons are insufficient score or too little separation from other candidates.",
+      }
+    : {
+        metricNote: "Included",
+        explanation:
+          "This brand result passed the reliability check, so the linked tags below are included in Effective Tags calculation.",
+      };
+}
+
 export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
   const t = useTranslations("TaggingResultDisplay");
+  const locale = useLocale();
 
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
-
-  const formatSimilarity = (similarity: number | null) => {
-    if (similarity === null) return null;
-    return `${Math.round(similarity * 100)}%`;
   };
 
   return (
@@ -136,64 +175,135 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
         </CardHeader>
         <CardContent className="pt-0 px-0">
           {result.brandRecognition?.logoName ? (
-            <div
-              className={`rounded-md border p-4 ${
-                result.brandRecognition.noConfidentMatch
-                  ? "bg-[#FFF7E6] border-[#FFC069]"
-                  : "bg-[#F6FFED] border-[#95DE64]"
-              }`}
-            >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <div className="text-xs text-basic-5">{t("classifiedLogo")}</div>
-                  <div className="mt-1 text-base font-medium text-basic-8">
-                    {result.brandRecognition.logoName}
-                  </div>
-                </div>
+            (() => {
+              const brandGuidance = getBrandGuidance(
+                locale,
+                result.brandRecognition.noConfidentMatch,
+              );
+              const isReferenceOnly = result.brandRecognition.noConfidentMatch;
+
+              return (
                 <div
-                  className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${
-                    result.brandRecognition.noConfidentMatch
-                      ? "bg-[#FFF1D6] text-[#D46B08]"
-                      : "bg-[#E8F9EE] text-[#389E0D]"
-                  }`}
+                  className={cn("rounded-md border p-4", {
+                    "bg-[#FFF7E6] border-[#FFC069]": isReferenceOnly,
+                    "bg-primary-1 border-primary-4": !isReferenceOnly,
+                  })}
                 >
-                  {result.brandRecognition.noConfidentMatch
-                    ? t("noConfidentMatch")
-                    : t("confidentMatch")}
-                </div>
-              </div>
-
-              <div className="mt-3 flex flex-wrap items-center gap-4 text-sm text-basic-5">
-                {result.brandRecognition.similarity !== null ? (
-                  <span>
-                    {t("similarity")}: {formatSimilarity(result.brandRecognition.similarity)}
-                  </span>
-                ) : null}
-                {result.brandRecognition.confidence !== null ? (
-                  <span>
-                    {t("confidence")}: {result.brandRecognition.confidence}%
-                  </span>
-                ) : null}
-              </div>
-
-              <div className="mt-4">
-                <div className="text-xs text-basic-5">{t("linkedTags")}</div>
-                {result.brandRecognition.recommendedTags.length > 0 ? (
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {result.brandRecognition.recommendedTags.map((tag, index) => (
-                      <div
-                        key={`${tag.tagPath.join(">")}-${index}`}
-                        className="inline-flex items-center rounded-md border border-primary-4 bg-primary-1 px-3 py-2 text-sm text-primary-6"
-                      >
-                        {tag.tagPath.join(" > ")}
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <div className="text-xs text-basic-5">{t("classifiedLogo")}</div>
+                      <div className="mt-1 text-base font-medium text-basic-8">
+                        {result.brandRecognition.logoName}
                       </div>
-                    ))}
+                    </div>
+                    <div className="shrink-0 text-right">
+                      {result.brandRecognition.confidence !== null ? (
+                        <div
+                          className={cn("text-sm font-medium", {
+                            "text-[#D46B08]": isReferenceOnly,
+                            "text-primary-6": !isReferenceOnly,
+                          })}
+                        >
+                          {t("confidence")}: {result.brandRecognition.confidence}%
+                        </div>
+                      ) : null}
+                      <div
+                        className={cn("text-xs mt-1", {
+                          "text-[#FA8C16]": isReferenceOnly,
+                          "text-primary-5": !isReferenceOnly,
+                        })}
+                      >
+                        {brandGuidance.metricNote}
+                      </div>
+                    </div>
                   </div>
-                ) : (
-                  <div className="mt-2 text-sm text-basic-5">{t("noLinkedTags")}</div>
-                )}
-              </div>
-            </div>
+
+                  <div className="mt-3">
+                    <div
+                      className={cn(
+                        "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium",
+                        {
+                          "bg-[#FFF1D6] text-[#D46B08]": isReferenceOnly,
+                          "bg-primary-2 text-primary-6": !isReferenceOnly,
+                        },
+                      )}
+                    >
+                      {isReferenceOnly ? t("noConfidentMatch") : t("confidentMatch")}
+                    </div>
+                  </div>
+
+                  <div
+                    className={cn("mt-3 text-sm leading-6", {
+                      "text-[#D46B08]": isReferenceOnly,
+                      "text-primary-6": !isReferenceOnly,
+                    })}
+                  >
+                    {brandGuidance.explanation}
+                  </div>
+
+                  <div className="mt-4">
+                    <div className="text-xs text-basic-5">{t("linkedTags")}</div>
+                    {result.brandRecognition.recommendedTags.length > 0 ? (
+                      <div className="mt-2 space-y-3">
+                        {result.brandRecognition.recommendedTags.map((tag, index) => (
+                          <div
+                            key={`${tag.tagPath.join(">")}-${index}`}
+                            className={cn("flex items-center justify-between p-3 rounded-lg border", {
+                              "bg-[#FFFCF5] border-[#FFD591]": isReferenceOnly,
+                              "bg-background border-primary-4": !isReferenceOnly,
+                            })}
+                          >
+                            {isReferenceOnly ? (
+                              <CircleQuestionMarkIcon className="size-[14px] text-[#FA8C16] mr-2" />
+                            ) : (
+                              <CheckIcon className="size-[14px] text-primary-5 mr-2" />
+                            )}
+                            <div className="flex-1">
+                              <div
+                                className={cn("font-medium text-sm mb-1", {
+                                  "text-[#D46B08]": isReferenceOnly,
+                                  "text-primary-6": !isReferenceOnly,
+                                })}
+                              >
+                                {tag.tagPath.join(" > ")}
+                              </div>
+                              <div
+                                className={cn("text-xs", {
+                                  "text-[#FA8C16]": isReferenceOnly,
+                                  "text-primary-5": !isReferenceOnly,
+                                })}
+                              >
+                                {t("matchingSource")}: {t("brandRecognition")}
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0 pl-4">
+                              <div
+                                className={cn("text-sm font-medium", {
+                                  "text-[#D46B08]": isReferenceOnly,
+                                  "text-primary-6": !isReferenceOnly,
+                                })}
+                              >
+                                {t("confidence")}: {result.brandRecognition.confidence ?? 0}%
+                              </div>
+                              <div
+                                className={cn("text-xs", {
+                                  "text-[#FA8C16]": isReferenceOnly,
+                                  "text-primary-5": !isReferenceOnly,
+                                })}
+                              >
+                                {brandGuidance.metricNote}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="mt-2 text-sm text-basic-5">{t("noLinkedTags")}</div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()
           ) : (
             <div className="text-sm text-basic-5">{t("noBrandResult")}</div>
           )}

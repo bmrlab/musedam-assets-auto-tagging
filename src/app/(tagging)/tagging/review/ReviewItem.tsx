@@ -43,6 +43,13 @@ export function ReviewItem({
 }) {
   const t = useTranslations("Tagging.Review");
   const locale = useLocale();
+  const normalizedLocale = locale.toLowerCase();
+  const noBrandRecommendationText =
+    normalizedLocale === "zh-tw"
+      ? "暫無品牌識別標籤"
+      : normalizedLocale.startsWith("zh")
+        ? "暂无品牌识别标签"
+        : "No brand recognition tags";
   const [loading, setLoading] = useState(false);
   const [rejectedItems, setRejectedItems] = useState<number[]>([]);
   const [rejectedBrandItems, setRejectedBrandItems] = useState<number[]>([]);
@@ -329,6 +336,7 @@ export function ReviewItem({
         <div className="col-span-1 flex flex-col gap-[6px]">
           {finalBatch.map(({ queueItem, taggingAuditItems }, index) => {
             const brandRecommendation = brandRecommendationsByQueueId.get(queueItem.id);
+            const isLatestBatch = finalBatch.length > 1 && index === 0;
             const hasBrandTags = Boolean(
               brandRecommendation &&
                 !brandRecommendation.noConfidentMatch &&
@@ -345,7 +353,7 @@ export function ReviewItem({
                     <TagAIIcon className="size-4" />
                     <span className="text-sm font-medium">{t("aiRecommendedTags")}</span>
                     <span className="text-xs text-basic-5">{t("basedOnTagSystem")}</span>
-                    {finalBatch.length > 1 && index === 0 ? (
+                    {isLatestBatch ? (
                       <span className="ml-2 inline-flex items-center px-[13px] py-[2px] rounded-[4px] text-xs text-danger-6 border border-danger-3 bg-danger-1">
                         {t("latest")}
                       </span>
@@ -428,7 +436,7 @@ export function ReviewItem({
                         </div>
                       ))
                     ) : (
-                      <div className="text-sm text-basic-5">null</div>
+                      <div className="text-sm text-basic-5">{t("noPendingTags")}</div>
                     )}
                   </div>
                 </div>
@@ -437,6 +445,11 @@ export function ReviewItem({
                   <div className="flex items-center gap-2 mb-3">
                     <BrandIcon className="size-4" />
                     <span className="text-sm font-medium">{t("brandRecommendedTags")}</span>
+                    {isLatestBatch ? (
+                      <span className="ml-2 inline-flex items-center px-[13px] py-[2px] rounded-[4px] text-xs text-danger-6 border border-danger-3 bg-danger-1">
+                        {t("latest")}
+                      </span>
+                    ) : null}
                     {hasBrandTags && brandRecommendation?.bestMatch ? (
                       <span className="text-xs text-basic-5">
                         {brandRecommendation.bestMatch.logoName}
@@ -520,7 +533,18 @@ export function ReviewItem({
                       ))}
                     </div>
                   ) : (
-                    <div className="text-sm text-basic-5">null</div>
+                    <div className="space-y-1 text-basic-5">
+                      <div className="text-sm">{noBrandRecommendationText}</div>
+                      {brandRecommendation?.noConfidentMatch && brandRecommendation.bestMatch ? (
+                        <div className="text-xs">
+                          {normalizedLocale === "zh-tw"
+                            ? `目前最佳匹配為 ${brandRecommendation.bestMatch.logoName}（${brandRecommendation.bestMatch.confidence}%），但尚未達到推薦閾值`
+                            : normalizedLocale.startsWith("zh")
+                              ? `当前最佳匹配为 ${brandRecommendation.bestMatch.logoName}（${brandRecommendation.bestMatch.confidence}%），但尚未达到推荐阈值`
+                              : `Best match is ${brandRecommendation.bestMatch.logoName} (${brandRecommendation.bestMatch.confidence}%), but it did not meet the recommendation threshold.`}
+                        </div>
+                      ) : null}
+                    </div>
                   )}
                 </div>
               </div>

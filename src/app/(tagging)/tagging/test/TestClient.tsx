@@ -276,6 +276,10 @@ export default function TestClient() {
             const formattedResults = completedResults.map((result) => {
               const { assetObject, result: resultData, extra } = result;
               const brandRecommendation = getBrandRecommendationFromQueueResult(resultData);
+              const linkedBrandTags =
+                Array.isArray(result.brandLinkedTags) && result.brandLinkedTags.length > 0
+                  ? result.brandLinkedTags
+                  : (brandRecommendation?.recommendedTags ?? []);
               const confidentBrandRecommendation =
                 brandRecommendation && !brandRecommendation.noConfidentMatch
                   ? brandRecommendation
@@ -283,10 +287,8 @@ export default function TestClient() {
               const allTags = resultData?.tagsWithScore || [];
               const mergedDisplayTags = buildMergedDisplayTags({
                 aiTags: allTags,
-                brandTags: confidentBrandRecommendation?.recommendedTags || [],
-                brandConfidence: Math.round(
-                  confidentBrandRecommendation?.bestMatch?.confidence ?? 0,
-                ),
+                brandTags: confidentBrandRecommendation ? linkedBrandTags : [],
+                brandConfidence: Math.round(brandRecommendation?.bestMatch?.confidence ?? 0),
                 aiSourceLabel: tClient("aiMatching"),
                 brandSourceLabel: tResult("brandRecognition"),
               });
@@ -326,10 +328,9 @@ export default function TestClient() {
                       logoName: brandRecommendation.bestMatch?.logoName || null,
                       confidence: brandRecommendation.bestMatch?.confidence ?? null,
                       similarity: brandRecommendation.bestMatch?.similarity ?? null,
-                      recommendedTags:
-                        confidentBrandRecommendation?.recommendedTags.map((tag) => ({
-                          tagPath: tag.tagPath || [],
-                        })) || [],
+                      recommendedTags: linkedBrandTags.map((tag) => ({
+                        tagPath: tag.tagPath || [],
+                      })),
                     }
                   : null,
                 effectiveTags,
