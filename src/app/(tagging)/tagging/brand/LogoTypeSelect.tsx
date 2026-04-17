@@ -61,6 +61,7 @@ type LogoTypeSelectProps = {
     name: string;
   } | null;
   disabled?: boolean;
+  triggerClassName?: string;
 };
 
 function SortableTypeRow({
@@ -100,7 +101,7 @@ function SortableTypeRow({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "flex items-center gap-3 rounded-[12px] px-3 py-3 text-basic-8 transition-colors",
+        "group flex h-8 items-center gap-3 rounded-[6px] px-3 py-0 transition-colors",
         isDragging && "bg-[#eef3ff] shadow-sm",
         !isDragging && "hover:bg-[#eef3ff]",
       )}
@@ -112,7 +113,7 @@ function SortableTypeRow({
         {...listeners}
         disabled={disabled || isEditing}
       >
-        <GripVertical className="size-4" />
+        <GripVertical className="size-[14px]" />
       </button>
 
       {isEditing ? (
@@ -142,13 +143,27 @@ function SortableTypeRow({
         </>
       ) : (
         <>
-          <span className="flex-1 truncate text-[15px]">{type.name}</span>
-          <Button type="button" size="icon" variant="ghost" onClick={() => onStartEdit(type)}>
-            <PencilLine className="size-4 text-basic-5" />
-          </Button>
-          <Button type="button" size="icon" variant="ghost" onClick={() => onDelete(type)}>
-            <Trash2 className="size-4 text-danger-6" />
-          </Button>
+          <span className="flex-1 truncate text-[14px] leading-5 text-[#192038]">{type.name}</span>
+          <div className="ml-2 flex items-center gap-0.5">
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              onClick={() => onStartEdit(type)}
+              className="size-7 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+            >
+              <PencilLine className="size-[14px] text-basic-5" />
+            </Button>
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              onClick={() => onDelete(type)}
+              className="size-7 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+            >
+              <Trash2 className="size-[14px] text-danger-6" />
+            </Button>
+          </div>
         </>
       )}
     </div>
@@ -164,6 +179,7 @@ export default function LogoTypeSelect({
   onTypeDeleted,
   fallbackType,
   disabled,
+  triggerClassName,
 }: LogoTypeSelectProps) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<"list" | "manage">("list");
@@ -206,6 +222,7 @@ export default function LogoTypeSelect({
     (fallbackType && fallbackType.id === value
       ? { ...fallbackType, sort: types.length + 1 }
       : null);
+  const canSubmitNewType = newTypeName.trim().length > 0;
 
   async function handleCreateType() {
     const nextName = newTypeName.trim();
@@ -316,7 +333,8 @@ export default function LogoTypeSelect({
         disabled={disabled}
         onClick={() => setOpen((current) => !current)}
         className={cn(
-          "flex h-12 w-full items-center justify-between rounded-[12px] border border-basic-4 bg-background px-4 text-left text-sm transition-all",
+          "flex h-12 w-full items-center justify-between rounded-[6px] border border-basic-4 bg-background px-4 text-left text-sm transition-all",
+          triggerClassName,
           "hover:border-primary-5",
           open && "border-primary-5 shadow-[0_0_0_2px_rgba(51,102,255,0.2)]",
           disabled && "cursor-not-allowed opacity-50",
@@ -329,13 +347,13 @@ export default function LogoTypeSelect({
       </button>
 
       {open ? (
-        <div className="absolute top-full right-0 left-0 z-50 mt-2 rounded-[16px] border bg-background p-3 shadow-[0_12px_32px_rgba(31,35,41,0.12)]">
+        <div className="absolute top-full right-0 left-0 z-50 mt-2 rounded-[6px] border bg-background p-1 shadow-[0_12px_32px_rgba(31,35,41,0.12)]">
           {mode === "manage" ? (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 px-1">
+            <div className="space-y-1">
+              <div className="flex h-8 items-center gap-2 px-3 py-0">
                 <button
                   type="button"
-                  className="inline-flex items-center text-basic-5 transition-colors hover:text-basic-8"
+                  className="inline-flex h-8 items-center text-basic-5 transition-colors hover:text-basic-8"
                   onClick={() => {
                     setMode("list");
                     setEditingTypeId(null);
@@ -344,10 +362,11 @@ export default function LogoTypeSelect({
                 >
                   <ChevronLeft className="size-4" />
                 </button>
-                <span className="text-[15px] font-semibold text-basic-8">管理类型</span>
+                <span className="text-[14px] leading-5 font-normal text-[#192038]">管理类型</span>
               </div>
+              <div className="h-px w-full bg-[#e4e9f2]" />
 
-              <div className="max-h-[260px] overflow-y-auto rounded-[12px] border">
+              <div className="max-h-[260px] overflow-y-auto rounded-[6px]">
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                   <SortableContextView
                     items={types.map((type) => type.id)}
@@ -380,12 +399,12 @@ export default function LogoTypeSelect({
               </div>
 
               {isCreating ? (
-                <div className="flex items-center gap-2 border-t pt-3">
+                <div className="flex h-12 items-center gap-2 border-t px-3 py-2">
                   <Input
                     value={newTypeName}
                     onChange={(event) => setNewTypeName(event.target.value)}
                     placeholder="请输入新类型"
-                    className="h-10"
+                    className="h-8 px-3 py-0"
                     autoFocus
                     onKeyDown={(event) => {
                       if (event.key === "Enter") {
@@ -394,13 +413,20 @@ export default function LogoTypeSelect({
                       }
                     }}
                   />
-                  <Button type="button" size="icon" onClick={handleCreateType} disabled={isPending}>
+                  <Button
+                    type="button"
+                    size="icon"
+                    onClick={handleCreateType}
+                    disabled={isPending || !canSubmitNewType}
+                    className="size-7"
+                  >
                     {isPending ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
                   </Button>
                   <Button
                     type="button"
                     size="icon"
                     variant="outline"
+                    className="size-7"
                     onClick={() => {
                       setIsCreating(false);
                       setNewTypeName("");
@@ -411,19 +437,24 @@ export default function LogoTypeSelect({
                   </Button>
                 </div>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => setIsCreating(true)}
-                  className="inline-flex items-center gap-2 px-1 text-sm text-primary transition-colors hover:text-primary-5"
-                >
-                  <Plus className="size-4" />
-                  新建类型
-                </button>
+                <div className="space-y-1">
+                  <div className="h-px w-full bg-[#e4e9f2]" />
+                  <div className="flex h-8 items-center px-3 py-0">
+                    <button
+                      type="button"
+                      onClick={() => setIsCreating(true)}
+                      className="inline-flex h-8 items-center gap-2 py-0 text-sm text-primary transition-colors hover:text-primary-5"
+                    >
+                      <Plus className="size-4" />
+                      新建类型
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
           ) : (
             <div className="space-y-3">
-              <div className="max-h-[260px] overflow-y-auto rounded-[12px] border">
+              <div className="max-h-[260px] overflow-y-auto rounded-[6px]">
                 <div className="space-y-1 p-2">
                   {types.map((type) => (
                     <button
@@ -434,23 +465,26 @@ export default function LogoTypeSelect({
                         setOpen(false);
                       }}
                       className={cn(
-                        "flex w-full items-center rounded-[12px] px-4 py-3 text-left text-[15px] text-basic-8 transition-colors hover:bg-[#eef3ff]",
+                        "flex h-8 w-full items-center rounded-[6px] px-3 py-0 text-left text-[14px] leading-5 text-[#192038] transition-colors hover:bg-[#eef3ff]",
                         value === type.id && "bg-[#eef3ff]",
                       )}
                     >
-                      <span className="truncate">{type.name}</span>
+                      <span className="min-w-0 flex-1 truncate text-[14px] leading-5 text-[#192038]">
+                        {type.name}
+                      </span>
+                      {value === type.id ? <Check className="ml-auto size-4 shrink-0 text-primary" /> : null}
                     </button>
                   ))}
                 </div>
               </div>
 
               {isCreating ? (
-                <div className="flex items-center gap-2 border-t pt-3">
+                <div className="flex h-12 items-center gap-2 border-t px-3 py-2">
                   <Input
                     value={newTypeName}
                     onChange={(event) => setNewTypeName(event.target.value)}
                     placeholder="请输入新类型"
-                    className="h-10"
+                    className="h-8 px-3 py-0"
                     autoFocus
                     onKeyDown={(event) => {
                       if (event.key === "Enter") {
@@ -459,13 +493,20 @@ export default function LogoTypeSelect({
                       }
                     }}
                   />
-                  <Button type="button" size="icon" onClick={handleCreateType} disabled={isPending}>
+                  <Button
+                    type="button"
+                    size="icon"
+                    onClick={handleCreateType}
+                    disabled={isPending || !canSubmitNewType}
+                    className="size-7"
+                  >
                     {isPending ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
                   </Button>
                   <Button
                     type="button"
                     size="icon"
                     variant="outline"
+                    className="size-7"
                     onClick={() => {
                       setIsCreating(false);
                       setNewTypeName("");
@@ -476,23 +517,26 @@ export default function LogoTypeSelect({
                   </Button>
                 </div>
               ) : (
-                <div className="flex items-center justify-between border-t pt-3">
-                  <button
-                    type="button"
-                    onClick={() => setIsCreating(true)}
-                    className="inline-flex items-center gap-2 text-sm text-primary transition-colors hover:text-primary-5"
-                  >
-                    <Plus className="size-4" />
-                    新建类型
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setMode("manage")}
-                    className="inline-flex items-center gap-2 text-sm text-basic-5 transition-colors hover:text-basic-8"
-                  >
-                    <Settings className="size-4" />
-                    管理
-                  </button>
+                <div className="space-y-1">
+                  <div className="h-px w-full bg-[#e4e9f2]" />
+                  <div className="flex h-8 items-center justify-between px-3 py-0">
+                    <button
+                      type="button"
+                      onClick={() => setIsCreating(true)}
+                      className="inline-flex h-8 items-center gap-2 py-0 text-sm text-primary transition-colors hover:text-primary-5"
+                    >
+                      <Plus className="size-4" />
+                      新建类型
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMode("manage")}
+                      className="inline-flex h-8 items-center gap-2 py-0 text-sm text-basic-5 transition-colors hover:text-basic-8"
+                    >
+                      <Settings className="size-4" />
+                      管理
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

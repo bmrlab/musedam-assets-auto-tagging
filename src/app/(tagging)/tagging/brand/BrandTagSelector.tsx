@@ -3,7 +3,7 @@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { ChevronRight, Search } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { useDeferredValue, useEffect, useRef, useState } from "react";
 import { BrandTagTreeNode } from "./types";
 
@@ -59,7 +59,9 @@ function TagColumn({
 }) {
   return (
     <div className="flex min-h-0 flex-col border-r last:border-r-0">
-      <div className="border-b bg-[#f7f9fd] px-4 py-3 text-base font-medium text-basic-8">{title}</div>
+      <div className="border-b bg-[#f7f9fd] px-4 py-3 text-base font-medium text-basic-8">
+        {title}
+      </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-2">
         {nodes.length === 0 ? (
           <div className="px-3 py-6 text-sm text-basic-5">暂无可选标签</div>
@@ -113,7 +115,9 @@ export default function BrandTagSelector({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [keyword, setKeyword] = useState("");
   const [activeLevel1Id, setActiveLevel1Id] = useState<number | null>(tags[0]?.id ?? null);
-  const [activeLevel2Id, setActiveLevel2Id] = useState<number | null>(tags[0]?.children[0]?.id ?? null);
+  const [activeLevel2Id, setActiveLevel2Id] = useState<number | null>(
+    tags[0]?.children[0]?.id ?? null,
+  );
   const [isExpanded, setIsExpanded] = useState(!collapsedUntilFocus);
   const deferredKeyword = useDeferredValue(keyword.trim().toLowerCase());
 
@@ -158,9 +162,7 @@ export default function BrandTagSelector({
     .filter((tag): tag is FlattenedTag => Boolean(tag));
 
   const searchResults = deferredKeyword
-    ? flattenedTags.filter((tag) =>
-        tag.path.join(" / ").toLowerCase().includes(deferredKeyword),
-      )
+    ? flattenedTags.filter((tag) => tag.path.join(" / ").toLowerCase().includes(deferredKeyword))
     : [];
 
   const activeLevel1 = tags.find((tag) => tag.id === activeLevel1Id) ?? null;
@@ -180,7 +182,6 @@ export default function BrandTagSelector({
   return (
     <div ref={containerRef} className="space-y-2">
       <div className="relative">
-        <Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-basic-5" />
         <Input
           value={keyword}
           onChange={(event) => setKeyword(event.target.value)}

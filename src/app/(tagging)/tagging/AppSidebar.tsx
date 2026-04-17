@@ -130,7 +130,7 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
         <SidebarGroup className="p-0 pt-6">
           <SidebarGroupLabel
             asChild
-            className="h-auto rounded-none px-4 py-0 text-[13px] leading-[18px] text-[#8f9bb3] font-medium"
+            className="h-[18px] rounded-none px-4 py-0 text-[13px] leading-[18px] text-[#8f9bb3] font-normal"
           >
             <span>{t("Sidebar.featureLibrary")}</span>
           </SidebarGroupLabel>
@@ -141,7 +141,7 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
         <SidebarGroup className="p-0 pt-6">
           <SidebarGroupLabel
             asChild
-            className="h-auto rounded-none px-4 py-0 text-[13px] leading-[18px] text-[#8f9bb3] font-medium"
+            className="h-[18px] rounded-none px-4 py-0 text-[13px] leading-[18px] text-[#8f9bb3] font-normal"
           >
             <span>{t("Sidebar.configuration")}</span>
           </SidebarGroupLabel>
