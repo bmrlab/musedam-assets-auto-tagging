@@ -1,9 +1,7 @@
 "use server";
 
-import { llm } from "@/ai/provider";
 import { withAuth } from "@/app/(auth)/withAuth";
-import { Locale, getLanguageConfig } from "@/i18n/routing";
-import { rootLogger } from "@/lib/logging";
+import { Locale } from "@/i18n/routing";
 import { ServerActionResult } from "@/lib/serverAction";
 import { idToSlug } from "@/lib/slug";
 import { syncTagsFromMuseDAM } from "@/musedam/tags/syncFromMuseDAM";
@@ -16,8 +14,7 @@ import type { AssetTagExtra } from "@/prisma/client";
 import { AssetTag } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 import type { Prisma } from "@prisma/client";
-import { generateObject } from "ai";
-import { z } from "zod";
+import { executeGenerateTagTreeByLLM } from "@/app/tags/generateTagTreeLLM";
 import { TagNode } from "./types";
 
 // 定义 MuseDAM 标签请求的类型（与 syncToMuseDAM 返回的类型匹配）
@@ -478,8 +475,7 @@ export async function batchCreateTags(
           console.error("Sync to MuseDAM failed:", syncResponse.message);
         }
       } catch (error) {
-        console.error("Sync to MuseDAM error:", error);
-        // MuseDAM 同步失败不影响本地保存结果
+        throw error;
       }
       if (addType === 1) {
         // 仅保留新建标签树：删除所有现有标签，然后批量创建新标签
@@ -534,7 +530,7 @@ export async function batchCreateTags(
           },
         );
       }
-
+      await syncTagsToMuseDAMWithCurrentSystemAsBaseAction();
       return {
         success: true,
         data: undefined,
@@ -1071,127 +1067,14 @@ export async function updateTagExtra(
   });
 }
 
-// 定义标签树的 schema（三层结构）
-const tagTreeSchema = z.object({
-  tags: z.array(
-    z.object({
-      name: z.string().describe("一级标签名称"),
-      children: z
-        .array(
-          z.object({
-            name: z.string().describe("二级标签名称"),
-            children: z
-              .array(
-                z.object({
-                  name: z.string().describe("三级标签名称"),
-                }),
-              )
-              .optional()
-              .describe("三级标签列表"),
-          }),
-        )
-        .optional()
-        .describe("二级标签列表"),
-    }),
-  ),
-});
-
-// 将结构化数据转换为文本格式
-function convertStructuredToText(data: z.infer<typeof tagTreeSchema>): string {
-  const lines: string[] = [];
-
-  for (const level1 of data.tags) {
-    lines.push(`# ${level1.name}`);
-
-    if (level1.children && level1.children.length > 0) {
-      for (const level2 of level1.children) {
-        lines.push(`## ${level2.name}`);
-
-        if (level2.children && level2.children.length > 0) {
-          for (const level3 of level2.children) {
-            lines.push(level3.name);
-          }
-        }
-      }
-    }
-  }
-
-  return lines.join("\n");
-}
-
-// 基于大模型生成标签树文本（严格结构化输出）
+// 基于大模型生成标签树文本（严格结构化输出；长耗时场景请优先走 /api/tags/generate-tag-tree）
 export async function generateTagTreeByLLM(
   finalPrompt: string,
   lang: Locale = "zh-CN",
 ): Promise<ServerActionResult<{ text: string; input: string }>> {
   "use server";
 
-  return withAuth(async ({ team: { id: teamId } }) => {
-    try {
-      rootLogger.info({
-        msg: "generateTagTreeByLLM: 开始生成",
-        teamId,
-        promptLength: finalPrompt.length,
-        lang,
-      });
-
-      // 根据语言获取配置
-      const config = getLanguageConfig(lang);
-
-      // 构建针对结构化输出优化的 prompt
-      const structuredPrompt = `${finalPrompt}
-
-${config.promptIntro}
-{
-  "tags": [
-    {
-      "name": "${config.level1Label}",
-      "children": [
-        {
-          "name": "${config.level2Label}",
-          "children": [
-            { "name": "${config.level3Label1}" },
-            { "name": "${config.level3Label2}" }
-          ]
-        }
-      ]
-    }
-  ]
-}
-
-${config.notes}`;
-
-      const result = await generateObject({
-        model: llm("gpt-5-mini"),
-        schema: tagTreeSchema,
-        schemaName: config.schemaName,
-        schemaDescription: config.schemaDescription,
-        prompt: structuredPrompt,
-      });
-
-      // 将结构化数据转换为文本格式
-      const textOutput = convertStructuredToText(result.object);
-
-      rootLogger.info({
-        msg: "generateTagTreeByLLM: 生成成功",
-        structuredData: result.object,
-        textOutput,
-      });
-
-      return {
-        success: true,
-        data: { text: textOutput, input: finalPrompt },
-      };
-    } catch (error) {
-      rootLogger.error({
-        msg: "generateTagTreeByLLM error",
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-      });
-      return {
-        success: false,
-        message: error instanceof Error ? error.message : "生成标签树失败",
-      };
-    }
-  });
+  return withAuth(async ({ team: { id: teamId } }) =>
+    executeGenerateTagTreeByLLM({ finalPrompt, lang, teamId }),
+  );
 }

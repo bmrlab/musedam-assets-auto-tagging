@@ -161,6 +161,11 @@ export async function syncTagsToMuseDAM({
 }> {
   // 过滤出有操作的标签
   const hasOperations = (node: TagNode): boolean => {
+    // 如果节点被标记为删除，只处理该节点本身，不处理子节点
+    // 因为父标签删除时，子标签会被级联删除
+    if (node.verb === "delete") {
+      return true;
+    }
     return !!node.verb || node.children.some(hasOperations);
   };
 
@@ -329,6 +334,10 @@ export async function syncTagsToMuseDAMWithCurrentSystemAsBase({
       },
     },
   });
+
+  // rootLogger.info({
+  //   msg: `teamInfo, id: ${team.id}, slug: ${team.slug}`,
+  // });
 
   const currentTagsTree: TagNode[] = currentTags.map(convertAssetTagToTagNode);
 

@@ -211,6 +211,8 @@ ${tagKeywordsText}`,
         schema: z.array(tagPredictionSchema),
         system: tagPredictionSystemPrompt(),
         messages,
+        // temperature: 0.1,
+        // seed: 42,
         experimental_repairText: async (res: { text: string }) => {
           // 尝试从模型返回中提取可解析的 JSON 数组，避免因夹带解释/markdown 导致解析失败
           return repairToJsonArrayText(res.text);
@@ -222,17 +224,23 @@ ${tagKeywordsText}`,
       }
 
       let predictions = result.object;
-
-      // 根据 matchingSources 过滤结果
+      // 临时测试：只保留 contentAnalysis
       if (options?.matchingSources) {
-        const enabledSources = Object.entries(options.matchingSources)
-          .filter(([, enabled]) => enabled)
-          .map(([source]) => source as keyof typeof options.matchingSources);
-
+        const enabledSources = ["contentAnalysis"]; // 只用一个 source
         predictions = predictions.filter((prediction) =>
-          enabledSources.includes(prediction.source as keyof typeof options.matchingSources),
+          enabledSources.includes(prediction.source),
         );
       }
+      // 根据 matchingSources 过滤结果
+      // if (options?.matchingSources) {
+      //   const enabledSources = Object.entries(options.matchingSources)
+      //     .filter(([, enabled]) => enabled)
+      //     .map(([source]) => source as keyof typeof options.matchingSources);
+
+      //   predictions = predictions.filter((prediction) =>
+      //     enabledSources.includes(prediction.source as keyof typeof options.matchingSources),
+      //   );
+      // }
 
       const tagsWithScore = calculateTagScore(predictions);
 

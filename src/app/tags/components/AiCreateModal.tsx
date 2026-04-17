@@ -10,8 +10,8 @@ import { Spin } from "@/components/ui/spin";
 import { Textarea } from "@/components/ui/textarea";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
+import type { ServerActionResult } from "@/lib/serverAction";
 import { toast } from "sonner";
-import { generateTagTreeByLLM } from "../actions";
 import {
   BatchCreateTagsProvider,
   parseTextToNameChildList,
@@ -112,7 +112,33 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
         userContext: (mergedUserContext || "").trim() || tAI("none"),
       });
 
-      const resp = await generateTagTreeByLLM(finalPrompt, locale);
+      const apiRes = await fetch("/api/tags/generate-tag-tree", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: finalPrompt, lang: locale }),
+        credentials: "same-origin",
+      });
+
+      const ct = apiRes.headers.get("content-type") ?? "";
+      if (!ct.includes("application/json")) {
+        throw new Error(
+          "服务器返回了非 JSON（常见于网关超时或代理改写响应），请稍后重试或联系运维检查反代超时与缓冲设置",
+        );
+      }
+
+      let resp: ServerActionResult<{ text: string; input: string }>;
+      try {
+        resp = (await apiRes.json()) as ServerActionResult<{ text: string; input: string }>;
+      } catch {
+        throw new Error("无法解析服务器 JSON 响应");
+      }
+
+      if (!apiRes.ok) {
+        if (!resp.success) {
+          throw new Error(resp.message);
+        }
+        throw new Error(`请求失败（HTTP ${apiRes.status}）`);
+      }
       if (!resp.success) {
         throw new Error(resp.message || "生成失败");
       }
