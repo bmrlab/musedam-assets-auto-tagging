@@ -359,7 +359,7 @@ export default function BrandLogoDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] max-w-[920px] overflow-y-auto rounded-[20px] p-6 sm:p-6">
         <DialogHeader className="space-y-1">
-          <DialogTitle className="text-[28px] leading-[36px] font-semibold text-basic-8">
+          <DialogTitle className="h-6 text-[16px] leading-6 font-[600] text-[#151A30]">
             {mode === "create" ? "新建品牌标识特征" : "编辑品牌标识特征"}
           </DialogTitle>
           {/* <DialogDescription>{t("dialogProcessingDescription")}</DialogDescription> */}
@@ -368,17 +368,21 @@ export default function BrandLogoDialog({
         <div className="space-y-6">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-basic-8">标识名称</label>
+              <label className="h-5 text-[14px] leading-5 font-normal text-[#222B45]">
+                标识名称
+              </label>
               <Input
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 placeholder="请输入标识名称"
-                className="h-12 rounded-[12px]"
+                className="h-8 rounded-[6px] border border-[#c5cee0] px-3 py-0"
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-basic-8">标识类型</label>
+              <label className="h-5 text-[14px] leading-5 font-normal text-[#222B45]">
+                标识类型
+              </label>
               <LogoTypeSelect
                 value={logoTypeId}
                 onChange={setLogoTypeId}
@@ -388,13 +392,16 @@ export default function BrandLogoDialog({
                 onTypeDeleted={onLogoTypeDeleted}
                 fallbackType={fallbackType}
                 disabled={isPending}
+                triggerClassName="h-8 rounded-[6px] border border-[#c5cee0] px-3 py-0"
               />
             </div>
           </div>
 
           <div className="space-y-3">
             <div className="space-y-1">
-              <label className="text-sm font-medium text-basic-8">标识图片</label>
+              <label className="h-5 text-[14px] leading-5 font-normal text-[#222B45]">
+                标识图片
+              </label>
             </div>
 
             <input
@@ -465,17 +472,18 @@ export default function BrandLogoDialog({
               <Info className="mt-1 size-4 shrink-0 text-[#f5b400]" />
               <p>
                 建议至少上传 2-3 张标识图。为提升 AI
-                识别精度，请尽量覆盖标准版（彩色）、单色版（黑/白）、横版/竖版以及反白版等常见版本，背景建议透明或纯色。
+                识别精度，请在当前条目内尽可能多地涵盖标准版（彩色）、单色版（黑/白）、横版/竖版、以及反白版
+                Logo 等多版本的logo，背景透明或纯色为佳。
               </p>
             </div>
           </div>
 
           <div className="space-y-2">
             <div className="space-y-1">
-              <label className="text-sm font-medium text-basic-8">关联标签</label>
-              <p className="text-sm text-basic-5">
-                识别命中后将自动打上这些标签，可多选且支持任意层级。
-              </p>
+              <label className="h-5 text-[14px] leading-5 font-normal text-[#222B45]">
+                关联标签
+              </label>
+              <p className="text-sm text-basic-5">识别命中后将自动打上这些标签</p>
             </div>
             <BrandTagSelector
               tags={tags}
@@ -487,13 +495,13 @@ export default function BrandLogoDialog({
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-basic-8">
+            <label className="h-5 text-[14px] leading-5 font-normal text-[#222B45]">
               备注信息 <span className="ml-2 text-basic-5">选填</span>
             </label>
             <Textarea
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
-              placeholder="适用场景、特殊说明等"
+              placeholder="如适用场景、特殊说明等"
               className="min-h-[120px] rounded-[12px] border-basic-4"
             />
           </div>
