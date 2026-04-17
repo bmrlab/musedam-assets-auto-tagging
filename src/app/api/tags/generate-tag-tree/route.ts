@@ -1,6 +1,7 @@
 import authOptions from "@/app/(auth)/authOptions";
 import { executeGenerateTagTreeByLLM } from "@/app/tags/generateTagTreeLLM";
 import { isValidLocale, type Locale } from "@/i18n/routing";
+import { rootLogger } from "@/lib/logging";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -43,6 +44,19 @@ export async function POST(request: NextRequest) {
     finalPrompt: prompt,
     lang,
     teamId: session.team.id,
+  });
+
+  rootLogger.info({
+    msg: "generate-tag-tree api response",
+    teamId: session.team.id,
+    userId: session.user.id,
+    lang,
+    success: result.success,
+    message: result.success ? undefined : result.message,
+    // 控制日志体积，避免超长输出影响日志系统
+    textPreview: result.success ? result.data.text.slice(0, 500) : undefined,
+    textLength: result.success ? result.data.text.length : undefined,
+    promptLength: prompt.length,
   });
 
   return NextResponse.json(result);

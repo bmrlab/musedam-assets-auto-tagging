@@ -119,18 +119,17 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
         credentials: "same-origin",
       });
 
-      const ct = apiRes.headers.get("content-type") ?? "";
-      if (!ct.includes("application/json")) {
-        throw new Error(
-          "服务器返回了非 JSON（常见于网关超时或代理改写响应），请稍后重试或联系运维检查反代超时与缓冲设置",
-        );
-      }
-
+      const rawText = await apiRes.text();
       let resp: ServerActionResult<{ text: string; input: string }>;
       try {
-        resp = (await apiRes.json()) as ServerActionResult<{ text: string; input: string }>;
+        resp = JSON.parse(rawText) as ServerActionResult<{ text: string; input: string }>;
       } catch {
-        throw new Error("无法解析服务器 JSON 响应");
+        const snippet = rawText.replace(/\s+/g, " ").trim().slice(0, 180);
+        throw new Error(
+          `服务器返回了非 JSON 响应（HTTP ${apiRes.status}）。` +
+            `${snippet ? ` 响应片段: ${snippet}` : ""}` +
+            "（常见于网关超时或代理改写响应）",
+        );
       }
 
       if (!apiRes.ok) {
