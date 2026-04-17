@@ -99,7 +99,7 @@ ${config.promptIntro}
 ${config.notes}`;
 
     const result = await generateObject({
-      model: llm("gpt-5-mini"),
+      model: llm("claude-sonnet-4"),
       schema: tagTreeSchema,
       schemaName: config.schemaName,
       schemaDescription: config.schemaDescription,

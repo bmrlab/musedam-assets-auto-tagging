@@ -8,6 +8,16 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spin } from "@/components/ui/spin";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -23,6 +33,8 @@ interface AiCreateModalProps {
   setVisible: (visible: boolean) => void;
   onSuccess?: () => void;
 }
+
+type CloseConfirmReason = "generating" | "notApplied" | null;
 
 // （已移除字符串手动替换）提示词直接使用 next-intl 占位变量格式化
 
@@ -75,24 +87,19 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
   const [isPromptModified, setIsPromptModified] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedResult, setGeneratedResult] = useState<string>("");
-  const [currentJobId, setCurrentJobId] = useState<number | null>(null);
   const pollingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const locale = useLocale()
-
-  const JOB_STORAGE_KEY = "tag-tree-pending-job-id";
+  const locale = useLocale();
   // const [selectedLanguage, setSelectedLanguage] = useState<"zh-CN" | "en-US">("zh-CN");
 
   const [mode, setMode] = useState<"preview" | "edit">("preview");
+  const [closeConfirmOpen, setCloseConfirmOpen] = useState(false);
+  const [closeConfirmReason, setCloseConfirmReason] = useState<CloseConfirmReason>(null);
 
   // 控制行业下拉的展开/收起（选择具体行业后收起，“其他”保持展开）
   const [industrySelectOpen, setIndustrySelectOpen] = useState(false);
 
   // 使用提取的 Hook
   const { handleAddTags } = useBatchCreateTagsContext();
-
-  const clearPersistedJob = () => {
-    localStorage.removeItem(JOB_STORAGE_KEY);
-  };
 
   const stopPolling = () => {
     if (pollingTimerRef.current !== null) {
@@ -116,7 +123,6 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
 
         if (!data.success) {
           setIsGenerating(false);
-          clearPersistedJob();
           toast.error(t("AiCreateModal.generateFailed") + ": " + (data.message ?? "查询任务失败"));
           return;
         }
@@ -125,11 +131,9 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
 
         if (status === "completed") {
           setIsGenerating(false);
-          clearPersistedJob();
           setGeneratedResult((result?.text ?? "").trim());
         } else if (status === "failed") {
           setIsGenerating(false);
-          clearPersistedJob();
           toast.error(t("AiCreateModal.generateFailed") + ": " + (result?.error ?? "生成失败，请重试"));
         } else {
           // pending / processing -> 继续轮询
@@ -158,14 +162,16 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
       const industryPreset = selectedOption?.prompt?.trim() ?? "";
       const industryLabel = isOtherSelected ? tAI("other") : (selectedOption?.label?.trim() ?? "");
       const otherDesc = isOtherSelected ? otherDescription.trim() : "";
-      const mergedUserContext = [
+      const customPromptTrimmed = customPrompt.trim();
+      const mergedSegments = [
         industryLabel && `${t("AiCreateModal.selectedIndustry")} ${industryLabel}`,
         industryPreset,
         otherDesc,
-        customPrompt.trim(),
-      ]
-        .filter(Boolean)
-        .join("\n");
+        customPromptTrimmed,
+      ].filter((segment): segment is string => Boolean(segment));
+
+      // 去重后再拼接，避免行业预设和自定义输入重复导致 prompt 过长
+      const mergedUserContext = Array.from(new Set(mergedSegments)).join("\n");
 
       const finalPrompt = tAI("tagTreePrompt.template", {
         userContext: (mergedUserContext || "").trim() || tAI("none"),
@@ -185,8 +191,6 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
       }
 
       const jobId = submitData.data.jobId;
-      setCurrentJobId(jobId);
-      localStorage.setItem(JOB_STORAGE_KEY, String(jobId));
       // 开始轮询
       pollJobStatus(jobId);
     } catch (error) {
@@ -196,23 +200,6 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
       setIsGenerating(false);
     }
   };
-
-  // 弹窗打开时：若 localStorage 有未完成的 jobId，自动恢复轮询
-  useEffect(() => {
-    if (visible) {
-      const savedJobId = localStorage.getItem(JOB_STORAGE_KEY);
-      if (savedJobId) {
-        const jobId = Number(savedJobId);
-        if (!isNaN(jobId)) {
-          setCurrentJobId(jobId);
-          setIsGenerating(true);
-          pollJobStatus(jobId);
-        }
-      }
-    } else {
-      stopPolling();
-    }
-  }, [visible]);
 
   // 组件卸载时停止轮询
   useEffect(() => {
@@ -231,7 +218,6 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
     try {
       // 使用提取的标签创建逻辑
       await handleAddTags(nameChildList);
-      clearPersistedJob();
     } finally {
       setIsCreating(false);
     }
@@ -280,19 +266,52 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
   };
 
 
-  const handleClose = () => {
+  const closeModalDirectly = () => {
+    stopPolling();
     setMode("preview");
     setVisible(false);
   };
 
-  return (
-    <Dialog open={visible} onOpenChange={handleClose}>
-      <DialogContent className="w-[1200px] max-w-[90%] max-h-[calc(100%-80px)] h-[600px] overflow-hidden px-0 pb-0 gap-0 flex flex-col">
-        <DialogHeader className="border-b pb-4 px-5">
-          <DialogTitle>{tAI("title")}</DialogTitle>
-        </DialogHeader>
+  const requestCloseModal = () => {
+    if (isGenerating) {
+      setCloseConfirmReason("generating");
+      setCloseConfirmOpen(true);
+      return;
+    }
+    if (generatedResult.trim()) {
+      setCloseConfirmReason("notApplied");
+      setCloseConfirmOpen(true);
+      return;
+    }
+    closeModalDirectly();
+  };
 
-        <div className="flex-1 h-full overflow-hidden flex gap-5 px-5">
+  const handleConfirmClose = () => {
+    setCloseConfirmOpen(false);
+    setCloseConfirmReason(null);
+    closeModalDirectly();
+  };
+
+  const handleOpenChange = (open: boolean) => {
+    if (!open) {
+      requestCloseModal();
+      return;
+    }
+    setVisible(true);
+  };
+
+  return (
+    <>
+      <Dialog open={visible} onOpenChange={handleOpenChange}>
+        <DialogContent
+          onPointerDownOutside={(event) => event.preventDefault()}
+          className="w-[1200px] max-w-[90%] max-h-[calc(100%-80px)] h-[600px] overflow-hidden px-0 pb-0 gap-0 flex flex-col"
+        >
+          <DialogHeader className="border-b pb-4 px-5">
+            <DialogTitle>{tAI("title")}</DialogTitle>
+          </DialogHeader>
+
+          <div className="flex-1 h-full overflow-hidden flex gap-5 px-5">
           {/* 左侧：创建设置 */}
           <div className="flex-1 h-full flex flex-col gap-6 pb-[30px] pt-5">
             <Card className="p-0 border-none h-full bg-background">
@@ -529,9 +548,27 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
               </CardContent>
             </Card>
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={closeConfirmOpen} onOpenChange={setCloseConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认关闭</AlertDialogTitle>
+            <AlertDialogDescription>
+              {closeConfirmReason === "generating"
+                ? "标签树还在生成中，关闭后将停止当前页面轮询。确认关闭吗？"
+                : "标签树已生成但尚未应用，确认关闭吗？"}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>继续编辑</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmClose}>确认关闭</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 };
 

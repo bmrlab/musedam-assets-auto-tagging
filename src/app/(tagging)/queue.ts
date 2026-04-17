@@ -312,6 +312,38 @@ export async function processQueueItem({
 // 总并发槽数：其中至少 TAG_TREE_RESERVED_CONCURRENCY 个保留给标签树任务
 const TOTAL_CONCURRENCY = 3;
 const TAG_TREE_RESERVED_CONCURRENCY = 1;
+const PROCESSING_STALE_TIMEOUT_MS = Number(process.env.QUEUE_PROCESSING_STALE_TIMEOUT_MS ?? 15 * 60 * 1000);
+
+async function recoverStaleProcessingItems(): Promise<number> {
+  const staleBefore = new Date(Date.now() - PROCESSING_STALE_TIMEOUT_MS);
+  const now = new Date();
+
+  const updated = await prisma.taggingQueueItem.updateMany({
+    where: {
+      status: "processing",
+      updatedAt: { lt: staleBefore },
+    },
+    data: {
+      status: "failed",
+      endsAt: now,
+      result: {
+        error: "PROCESSING_STALE_TIMEOUT",
+        message: `processing 超时超过 ${PROCESSING_STALE_TIMEOUT_MS}ms，自动标记失败`,
+      } as TaggingQueueItemResult,
+    },
+  });
+
+  if (updated.count > 0) {
+    rootLogger.warn({
+      msg: "recoverStaleProcessingItems: stale processing items recovered",
+      recovered: updated.count,
+      staleBefore,
+      timeoutMs: PROCESSING_STALE_TIMEOUT_MS,
+    });
+  }
+
+  return updated.count;
+}
 
 async function tryClaimAndProcess(
   queueItem: TaggingQueueItem & { assetObject?: AssetObject | null },
@@ -349,27 +381,24 @@ export async function processPendingQueueItems(): Promise<{
   skipped: number;
 }> {
   rootLogger.info(`processPendingQueueItems`);
+  await recoverStaleProcessingItems();
 
-  // 优先拉取标签树任务（保留并发槽），再拉取普通打标任务补满剩余槽位
-  const tagTreeItems = await prisma.taggingQueueItem.findMany({
-    where: {
-      status: "pending",
-      extra: { path: ["jobKind"], equals: TAG_TREE_JOB_KIND },
-    },
+  // 一次性捞出足够多的 pending 记录，内存内分流（避免 Prisma JSON path 过滤器的兼容性问题）
+  const candidateItems = await prisma.taggingQueueItem.findMany({
+    where: { status: "pending" },
     orderBy: { startsAt: "asc" },
     include: { assetObject: true },
-    take: TAG_TREE_RESERVED_CONCURRENCY,
+    // 多拉一些，保证两类任务都能填满各自的槽位
+    take: TOTAL_CONCURRENCY * 4,
   });
 
-  const normalItems = await prisma.taggingQueueItem.findMany({
-    where: {
-      status: "pending",
-      NOT: { extra: { path: ["jobKind"], equals: TAG_TREE_JOB_KIND } },
-    },
-    orderBy: { startsAt: "asc" },
-    include: { assetObject: true },
-    take: TOTAL_CONCURRENCY - TAG_TREE_RESERVED_CONCURRENCY,
-  });
+  const tagTreeItems = candidateItems
+    .filter(isTagTreeJob)
+    .slice(0, TAG_TREE_RESERVED_CONCURRENCY);
+
+  const normalItems = candidateItems
+    .filter((item) => !isTagTreeJob(item))
+    .slice(0, TOTAL_CONCURRENCY - TAG_TREE_RESERVED_CONCURRENCY);
 
   const allItems = [...tagTreeItems, ...normalItems];
 
