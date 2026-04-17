@@ -18,6 +18,7 @@ import {
 import prisma from "@/prisma/prisma";
 import { waitUntil } from "@vercel/functions";
 import pLimit from "p-limit";
+import { isTagTreeJob, processTagTreeQueueItem, TAG_TREE_JOB_KIND } from "@/app/tags/tagTreeQueue";
 import { predictAssetTags } from "./predict";
 import { getTaggingSettings } from "./tagging/settings/lib";
 import { SourceBasedTagPredictions, TagWithScore } from "./types";
@@ -308,65 +309,93 @@ export async function processQueueItem({
   }
 }
 
+// 总并发槽数：其中至少 TAG_TREE_RESERVED_CONCURRENCY 个保留给标签树任务
+const TOTAL_CONCURRENCY = 3;
+const TAG_TREE_RESERVED_CONCURRENCY = 1;
+
+async function tryClaimAndProcess(
+  queueItem: TaggingQueueItem & { assetObject?: AssetObject | null },
+  onSuccess: () => void,
+  onSkip: () => void,
+): Promise<void> {
+  try {
+    const updated = await prisma.taggingQueueItem.updateMany({
+      where: { id: queueItem.id, status: "pending" },
+      data: { status: "processing" },
+    });
+    if (updated.count > 0) {
+      if (isTagTreeJob(queueItem)) {
+        await processTagTreeQueueItem({ ...queueItem, status: "processing" });
+      } else {
+        await processQueueItem({ ...(queueItem as TaggingQueueItem & { assetObject: AssetObject | null }), status: "processing" });
+      }
+      onSuccess();
+    } else {
+      onSkip();
+    }
+  } catch (error) {
+    rootLogger.error({
+      teamId: queueItem.teamId,
+      assetObjectId: queueItem.assetObjectId,
+      queueItemId: queueItem.id,
+      msg: `Failed to process queue item: ${error}`,
+    });
+    onSkip();
+  }
+}
+
 export async function processPendingQueueItems(): Promise<{
   processing: number;
   skipped: number;
 }> {
   rootLogger.info(`processPendingQueueItems`);
 
-  const pendingItems = await prisma.taggingQueueItem.findMany({
+  // 优先拉取标签树任务（保留并发槽），再拉取普通打标任务补满剩余槽位
+  const tagTreeItems = await prisma.taggingQueueItem.findMany({
     where: {
       status: "pending",
+      extra: { path: ["jobKind"], equals: TAG_TREE_JOB_KIND },
     },
-    orderBy: {
-      startsAt: "asc",
-    },
-    include: {
-      assetObject: true,
-    },
-    take: 10,
+    orderBy: { startsAt: "asc" },
+    include: { assetObject: true },
+    take: TAG_TREE_RESERVED_CONCURRENCY,
   });
+
+  const normalItems = await prisma.taggingQueueItem.findMany({
+    where: {
+      status: "pending",
+      NOT: { extra: { path: ["jobKind"], equals: TAG_TREE_JOB_KIND } },
+    },
+    orderBy: { startsAt: "asc" },
+    include: { assetObject: true },
+    take: TOTAL_CONCURRENCY - TAG_TREE_RESERVED_CONCURRENCY,
+  });
+
+  const allItems = [...tagTreeItems, ...normalItems];
 
   let processing = 0;
   let skipped = 0;
 
-  const limit = pLimit(3);
+  const limit = pLimit(TOTAL_CONCURRENCY);
 
-  const processTasks = pendingItems.map((queueItem) =>
-    limit(async () => {
-      try {
-        const updatedItem = await prisma.taggingQueueItem.updateMany({
-          where: {
-            id: queueItem.id,
-            status: "pending",
-          },
-          data: {
-            status: "processing",
-          },
-        });
-
-        if (updatedItem.count > 0) {
-          await processQueueItem({ ...queueItem, status: "processing" });
-          processing++;
-        } else {
-          skipped++;
-        }
-      } catch (error) {
-        rootLogger.error({
-          teamId: queueItem.teamId,
-          assetObjectId: queueItem.assetObjectId,
-          queueItemId: queueItem.id,
-          msg: `Failed to update queue item (pending -> processing): ${error}`,
-        });
-        skipped++;
-      }
-    }),
+  const processTasks = allItems.map((queueItem) =>
+    limit(() =>
+      tryClaimAndProcess(
+        queueItem,
+        () => { processing++; },
+        () => { skipped++; },
+      ),
+    ),
   );
 
   await Promise.all(processTasks);
 
   rootLogger.info({
-    msg: `processPendingQueueItems, processing: ${processing}, skipped: ${skipped}`,
+    msg: `processPendingQueueItems`,
+    processing,
+    skipped,
+    tagTreePicked: tagTreeItems.length,
+    normalPicked: normalItems.length,
   });
 
   return { processing, skipped };

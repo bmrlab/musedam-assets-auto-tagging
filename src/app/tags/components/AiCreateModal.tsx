@@ -9,8 +9,7 @@ import { Select, SelectContent, SelectTrigger, SelectValue } from "@/components/
 import { Spin } from "@/components/ui/spin";
 import { Textarea } from "@/components/ui/textarea";
 import { useLocale, useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
-import type { ServerActionResult } from "@/lib/serverAction";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   BatchCreateTagsProvider,
@@ -76,7 +75,11 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
   const [isPromptModified, setIsPromptModified] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedResult, setGeneratedResult] = useState<string>("");
+  const [currentJobId, setCurrentJobId] = useState<number | null>(null);
+  const pollingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const locale = useLocale()
+
+  const JOB_STORAGE_KEY = "tag-tree-pending-job-id";
   // const [selectedLanguage, setSelectedLanguage] = useState<"zh-CN" | "en-US">("zh-CN");
 
   const [mode, setMode] = useState<"preview" | "edit">("preview");
@@ -87,12 +90,68 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
   // 使用提取的 Hook
   const { handleAddTags } = useBatchCreateTagsContext();
 
+  const clearPersistedJob = () => {
+    localStorage.removeItem(JOB_STORAGE_KEY);
+  };
+
+  const stopPolling = () => {
+    if (pollingTimerRef.current !== null) {
+      clearTimeout(pollingTimerRef.current);
+      pollingTimerRef.current = null;
+    }
+  };
+
+  const pollJobStatus = (jobId: number) => {
+    stopPolling();
+    pollingTimerRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/tags/generate-tag-tree/jobs/${jobId}`, {
+          credentials: "same-origin",
+        });
+        const data = await res.json() as {
+          success: boolean;
+          message?: string;
+          data?: { jobId: number; status: string; result?: { text?: string; error?: string } };
+        };
+
+        if (!data.success) {
+          setIsGenerating(false);
+          clearPersistedJob();
+          toast.error(t("AiCreateModal.generateFailed") + ": " + (data.message ?? "查询任务失败"));
+          return;
+        }
+
+        const { status, result } = data.data!;
+
+        if (status === "completed") {
+          setIsGenerating(false);
+          clearPersistedJob();
+          setGeneratedResult((result?.text ?? "").trim());
+        } else if (status === "failed") {
+          setIsGenerating(false);
+          clearPersistedJob();
+          toast.error(t("AiCreateModal.generateFailed") + ": " + (result?.error ?? "生成失败，请重试"));
+        } else {
+          // pending / processing -> 继续轮询
+          pollJobStatus(jobId);
+        }
+      } catch (error) {
+        console.error("polling error:", error);
+        // 网络抖动时继续轮询，不终止
+        pollJobStatus(jobId);
+      }
+    }, 2000);
+  };
+
   const handleGenerate = async () => {
     if (!selectedIndustry && !isOtherSelected && !customPrompt.trim()) {
       return;
     }
 
+    stopPolling();
     setIsGenerating(true);
+    setGeneratedResult("");
+
     try {
       // 组装提示词：将行业预设、其它描述与用户输入合并
       const selectedOption = industryOptions.find((o) => o.value === selectedIndustry);
@@ -112,49 +171,53 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
         userContext: (mergedUserContext || "").trim() || tAI("none"),
       });
 
-      const apiRes = await fetch("/api/tags/generate-tag-tree", {
+      // 提交任务（秒级返回 jobId，不等待 LLM）
+      const submitRes = await fetch("/api/tags/generate-tag-tree/jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: finalPrompt, lang: locale }),
         credentials: "same-origin",
       });
 
-      const rawText = await apiRes.text();
-      let resp: ServerActionResult<{ text: string; input: string }>;
-      try {
-        resp = JSON.parse(rawText) as ServerActionResult<{ text: string; input: string }>;
-      } catch {
-        const snippet = rawText.replace(/\s+/g, " ").trim().slice(0, 180);
-        throw new Error(
-          `服务器返回了非 JSON 响应（HTTP ${apiRes.status}）。` +
-            `${snippet ? ` 响应片段: ${snippet}` : ""}` +
-            "（常见于网关超时或代理改写响应）",
-        );
+      const submitData = await submitRes.json() as { success: boolean; message?: string; data?: { jobId: number } };
+      if (!submitData.success || !submitData.data?.jobId) {
+        throw new Error(submitData.message ?? "提交任务失败");
       }
 
-      if (!apiRes.ok) {
-        if (!resp.success) {
-          throw new Error(resp.message);
-        }
-        throw new Error(`请求失败（HTTP ${apiRes.status}）`);
-      }
-      if (!resp.success) {
-        throw new Error(resp.message || "生成失败");
-      }
-
-      setGeneratedResult(resp.data.text.trim());
+      const jobId = submitData.data.jobId;
+      setCurrentJobId(jobId);
+      localStorage.setItem(JOB_STORAGE_KEY, String(jobId));
+      // 开始轮询
+      pollJobStatus(jobId);
     } catch (error) {
-      console.error("AI generation error:", error);
-      console.error(
-        "AI generation error stack:",
-        error instanceof Error ? error.stack : "No stack",
-      );
+      console.error("AI generation submit error:", error);
       const errorMessage = error instanceof Error ? error.message : "未知错误";
       toast.error(t("AiCreateModal.generateFailed") + ": " + errorMessage);
-    } finally {
       setIsGenerating(false);
     }
   };
+
+  // 弹窗打开时：若 localStorage 有未完成的 jobId，自动恢复轮询
+  useEffect(() => {
+    if (visible) {
+      const savedJobId = localStorage.getItem(JOB_STORAGE_KEY);
+      if (savedJobId) {
+        const jobId = Number(savedJobId);
+        if (!isNaN(jobId)) {
+          setCurrentJobId(jobId);
+          setIsGenerating(true);
+          pollJobStatus(jobId);
+        }
+      }
+    } else {
+      stopPolling();
+    }
+  }, [visible]);
+
+  // 组件卸载时停止轮询
+  useEffect(() => {
+    return () => stopPolling();
+  }, []);
 
   const handleConfirm = async () => {
     // 解析生成的文本为标签结构
@@ -168,6 +231,7 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
     try {
       // 使用提取的标签创建逻辑
       await handleAddTags(nameChildList);
+      clearPersistedJob();
     } finally {
       setIsCreating(false);
     }

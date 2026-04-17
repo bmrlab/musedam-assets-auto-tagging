@@ -58,14 +58,17 @@ export async function executeGenerateTagTreeByLLM({
   finalPrompt,
   lang,
   teamId,
+  requestId,
 }: {
   finalPrompt: string;
   lang: Locale;
   teamId: number;
+  requestId?: string;
 }): Promise<ServerActionResult<{ text: string; input: string }>> {
   try {
     rootLogger.info({
       msg: "generateTagTreeByLLM: 开始生成",
+      requestId,
       teamId,
       promptLength: finalPrompt.length,
       lang,
@@ -107,6 +110,8 @@ ${config.notes}`;
 
     rootLogger.info({
       msg: "generateTagTreeByLLM: 生成成功",
+      requestId,
+      teamId,
       structuredData: result.object,
       textOutput,
     });
@@ -118,6 +123,8 @@ ${config.notes}`;
   } catch (error) {
     rootLogger.error({
       msg: "generateTagTreeByLLM error",
+      requestId,
+      teamId,
       error: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
     });

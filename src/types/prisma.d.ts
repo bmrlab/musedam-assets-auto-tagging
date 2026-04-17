@@ -51,4 +51,20 @@ declare module "@/prisma/client" {
     predictions: SourceBasedTagPredictions;
     tagsWithScore: TagWithScore[];
   }>;
+
+  /** 标签树异步生成任务：存入 taggingQueueItem.extra */
+  export type TagTreeGenerationJobExtra = {
+    jobKind: "tag-tree-generation";
+    prompt: string;
+    lang: string;
+    requestId?: string;
+    userId: number;
+  };
+
+  /** 标签树异步生成任务：存入 taggingQueueItem.result */
+  export type TagTreeGenerationJobResult = {
+    text?: string;
+    input?: string;
+    error?: string;
+  };
 }
