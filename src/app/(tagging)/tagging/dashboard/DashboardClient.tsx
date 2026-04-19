@@ -417,8 +417,9 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
           ) : (
             <div className="max-h-[622px] overflow-y-auto">
               {tasks.map((task) => {
-
-                const extra = task.assetObject.extra as AssetObjectExtra | null;
+                const assetObject = task.assetObject;
+                const extra = (assetObject?.extra ?? null) as AssetObjectExtra | null;
+                const assetName = assetObject?.name || "Unknown Asset";
                 const failedReason = (() => {
                   if (task.status !== "failed") return null;
                   try {
@@ -460,41 +461,18 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
                     {/* File Info */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-baseline gap-2 text-xs">
-                        <span className="font-medium truncate" title={task.assetObject.name}>
-                          {task.assetObject.name}
+                        <span className="font-medium truncate" title={assetName}>
+                          {assetName}
                         </span>
                       </div>
                       <div className="flex items-center gap-2 text-xs mt-0.5 text-basic-6">
                         <span>
-                          {(() => {
-                            try {
-                              const extra = task.assetObject.extra as AssetObjectExtra | null;
-                              return extra?.extension?.toUpperCase() || "UNKNOWN";
-                            } catch {
-                              return "UNKNOWN";
-                            }
-                          })()}
+                          {extra?.extension?.toUpperCase() || "UNKNOWN"}
                         </span>
-                        {(() => {
-                          try {
-                            const extra = task.assetObject.extra as AssetObjectExtra | null;
-                            return extra?.size;
-                          } catch (error) {
-                            return null;
-                          }
-                        })() !== null && (
+                        {extra?.size !== null && extra?.size !== undefined && (
                             <span className="text-basic-5">
                               <span> · </span>
-                              {formatFileSize(
-                                (() => {
-                                  try {
-                                    const extra = task.assetObject.extra as AssetObjectExtra | null;
-                                    return extra?.size || 0;
-                                  } catch (error) {
-                                    return 0;
-                                  }
-                                })(),
-                              )}
+                              {formatFileSize(extra.size)}
                               <span> · </span>
                             </span>
                           )}

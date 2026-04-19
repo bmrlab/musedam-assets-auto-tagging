@@ -46,7 +46,13 @@ export async function requestMuseDAMAPI<T = unknown>(
     headers: requestHeaders,
   });
   if (!response.ok) {
-    const errorMsg = `MuseDAM API ${url} request failed, status code: ${response?.status}`;
+    let responseText = "";
+    try {
+      responseText = await response.text();
+    } catch {
+      responseText = "";
+    }
+    const errorMsg = `MuseDAM API request failed ${curlCommand}, status code: ${response.status}, response: ${responseText || "<empty>"}`;
     throw new Error(errorMsg);
   }
   const result = await response.json();
