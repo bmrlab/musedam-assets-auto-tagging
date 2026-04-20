@@ -41,7 +41,7 @@ import {
 import { useTranslations } from "next-intl";
 import Image from "next/image";
 import Link from "next/link";
-import { useDeferredValue, useEffect, useState, useTransition } from "react";
+import { useDeferredValue, useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
   deleteAssetLogoAction,
@@ -163,6 +163,13 @@ export default function BrandLibraryClient({
   const [pendingLogoIds, setPendingLogoIds] = useState<string[]>([]);
   const [isPending, startTransition] = useTransition();
   const deferredSearch = useDeferredValue(search.trim().toLowerCase());
+  const usedLogoTypeIds = useMemo(
+    () =>
+      Array.from(
+        new Set(logos.map((logo) => logo.logoTypeId).filter((typeId): typeId is string => Boolean(typeId))),
+      ),
+    [logos],
+  );
 
   useEffect(() => {
     setCurrentPage(1);
@@ -967,6 +974,7 @@ export default function BrandLibraryClient({
         mode={dialogMode}
         logo={activeLogo}
         logoTypes={logoTypes}
+        usedLogoTypeIds={usedLogoTypeIds}
         tags={initialData.tags}
         onOpenChange={(nextOpen) => {
           setDialogOpen(nextOpen);
