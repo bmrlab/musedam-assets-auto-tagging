@@ -188,7 +188,7 @@ export default function BrandTagSelector({
           onClick={() => setIsExpanded(true)}
           onFocus={() => setIsExpanded(true)}
           placeholder="输入标签关键词搜索或从下方标签体系选择"
-          className="h-12 rounded-[10px] border-basic-4 pl-11 text-sm placeholder:text-basic-5"
+          className="h-8 rounded-[6px] border border-[#C5CEE0] pl-3 text-[14px] leading-[22px] font-normal placeholder:text-[14px] placeholder:leading-[22px] placeholder:font-normal placeholder:text-[#8F9BB3]"
         />
       </div>
 
