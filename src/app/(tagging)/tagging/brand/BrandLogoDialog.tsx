@@ -60,6 +60,7 @@ type BrandLogoDialogProps = {
   mode: "create" | "edit";
   logo: BrandLogoItem | null;
   logoTypes: BrandLogoTypeItem[];
+  usedLogoTypeIds: string[];
   tags: BrandTagTreeNode[];
   onOpenChange: (open: boolean) => void;
   onSaved: (logo: BrandLogoItem) => void;
@@ -97,6 +98,7 @@ export default function BrandLogoDialog({
   mode,
   logo,
   logoTypes,
+  usedLogoTypeIds,
   tags,
   onOpenChange,
   onSaved,
@@ -388,6 +390,7 @@ export default function BrandLogoDialog({
                 value={logoTypeId}
                 onChange={setLogoTypeId}
                 types={logoTypes}
+                usedTypeIds={usedLogoTypeIds}
                 onTypesChange={onLogoTypesChange}
                 onTypeRenamed={onLogoTypeRenamed}
                 onTypeDeleted={onLogoTypeDeleted}
@@ -498,7 +501,9 @@ export default function BrandLogoDialog({
               <label className="h-[22px] text-[14px] leading-[22px] font-normal text-[#222B45]">
                 关联标签
               </label>
-              <p className="text-[12px] leading-[16px] font-normal text-[#8F9BB3]">识别命中后将自动打上这些标签</p>
+              <p className="text-[12px] leading-[16px] font-normal text-[#8F9BB3]">
+                识别命中后将自动打上这些标签
+              </p>
             </div>
             <BrandTagSelector
               tags={tags}
@@ -512,7 +517,9 @@ export default function BrandLogoDialog({
           <div className="mt-4 space-y-2">
             <label className="h-[22px] text-[14px] leading-[22px] font-normal text-[#222B45]">
               备注信息{" "}
-              <span className="ml-2 text-[12px] leading-[16px] font-normal text-[#8F9BB3]">选填</span>
+              <span className="ml-2 text-[12px] leading-[16px] font-normal text-[#8F9BB3]">
+                选填
+              </span>
             </label>
             <Textarea
               value={notes}
