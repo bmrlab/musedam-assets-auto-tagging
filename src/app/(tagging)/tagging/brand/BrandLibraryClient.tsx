@@ -35,7 +35,7 @@ import {
   Clock3,
   LoaderCircle,
   MoreHorizontal,
-  Trash2,
+  X,
   XCircle,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -566,8 +566,8 @@ export default function BrandLibraryClient({
             </div>
           ) : (
             <>
-              <div className="flex h-[64px] items-center gap-3 rounded-[8px] border border-[#E4E9F2] bg-background px-5">
-                <div className="flex items-center gap-3">
+              <div className="flex min-h-[64px] flex-wrap items-center gap-3 rounded-[8px] border border-[#E4E9F2] bg-background px-5 py-3">
+                <div className="flex min-w-0 flex-wrap items-center gap-[12px]">
                   <Checkbox
                     className="size-4 border-[#C5CEE0] data-[state=checked]:border-[#3366FF] data-[state=checked]:bg-[#3366FF]"
                     checked={allSelectedOnPage}
@@ -575,46 +575,60 @@ export default function BrandLibraryClient({
                     onCheckedChange={(checked) => handleSelectAllOnPage(Boolean(checked))}
                   />
                   <span className="text-[14px] leading-[20px] font-normal text-[#2E3A59]">
-                    选中 {selectedIds.length} / {filteredLogos.length} 项
+                    {hasSelection ? (
+                      <>
+                        选中 <span className="text-[#3366FF]">{selectedIds.length}</span> /{" "}
+                        {filteredLogos.length} 项
+                      </>
+                    ) : (
+                      <>全部 {filteredLogos.length} 项</>
+                    )}
                   </span>
-                </div>
 
-                <div className="ml-auto flex flex-wrap items-center gap-3 ">
                   {hasSelection ? (
-                    <div className="mr-1 flex items-center gap-2">
+                    <div className="mr-1 flex flex-wrap items-center gap-2">
                       <Button
                         type="button"
+                        size="sm"
                         className="h-8 gap-1 rounded-[6px] border border-[#3366FF] bg-[#3366FF] px-3 py-1 text-[14px] leading-[22px] font-normal text-white"
                         onClick={() => handleBatchSetEnabled(true)}
                         disabled={isPending}
                       >
-                        <Check className="h-4 w-4" />
+                        <Check className="h-[14px] w-[14px]" />
                         启用
                       </Button>
                       <Button
                         type="button"
                         variant="outline"
+                        size="sm"
                         className="h-8 gap-1 rounded-[6px] border border-[#FF3D71] bg-white px-3 py-1 text-[14px] leading-[22px] font-normal text-[#FF3D71] hover:bg-[#FFF2F5] hover:text-[#FF3D71]"
                         onClick={() => handleBatchSetEnabled(false)}
                         disabled={isPending}
                       >
+                        <X className="h-[14px] w-[14px]" />
                         禁用
                       </Button>
                       <Button
                         type="button"
                         variant="outline"
+                        size="sm"
                         className="h-8 gap-1 rounded-[6px] border border-[#FF3D71] bg-white px-3 py-1 text-[14px] leading-[22px] font-normal text-[#FF3D71] hover:bg-[#FFF2F5] hover:text-[#FF3D71]"
                         onClick={() => setBatchDeleteOpen(true)}
                         disabled={isPending}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Image src="/Icon/Delete.svg" alt="" width={14} height={14} />
                         删除
                       </Button>
                     </div>
                   ) : null}
+                </div>
 
+                <div className="flex w-full flex-wrap items-center gap-3 md:ml-auto md:w-auto">
                   <Select value={typeFilter} onValueChange={setTypeFilter}>
-                    <SelectTrigger className="h-8 justify-end gap-2 rounded-[6px] border border-[#C5CEE0] px-3 py-1 text-[14px] font-normal text-[#192038]">
+                    <SelectTrigger
+                      size="sm"
+                      className="h-8 justify-end gap-2 rounded-[6px] border border-[#C5CEE0] px-3 py-1 text-[14px] font-normal text-[#192038]"
+                    >
                       <SelectValue placeholder="全部类型" />
                     </SelectTrigger>
                     <SelectContent>
@@ -628,7 +642,10 @@ export default function BrandLibraryClient({
                   </Select>
 
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="h-8 justify-end gap-2 rounded-[6px] border border-[#C5CEE0] px-3 py-1 text-[14px] font-normal text-[#192038]">
+                    <SelectTrigger
+                      size="sm"
+                      className="h-8 justify-end gap-2 rounded-[6px] border border-[#C5CEE0] px-3 py-1 text-[14px] font-normal text-[#192038]"
+                    >
                       <SelectValue placeholder="全部处理状态" />
                     </SelectTrigger>
                     <SelectContent>
@@ -640,7 +657,10 @@ export default function BrandLibraryClient({
                   </Select>
 
                   <Select value={enabledFilter} onValueChange={setEnabledFilter}>
-                    <SelectTrigger className="h-8 justify-end gap-2 rounded-[6px] border border-[#C5CEE0] px-3 py-1 text-[14px] font-normal text-[#192038]">
+                    <SelectTrigger
+                      size="sm"
+                      className="h-8 justify-end gap-2 rounded-[6px] border border-[#C5CEE0] px-3 py-1 text-[14px] font-normal text-[#192038]"
+                    >
                       <SelectValue placeholder="全部启用状态" />
                     </SelectTrigger>
                     <SelectContent>
@@ -656,7 +676,10 @@ export default function BrandLibraryClient({
                       setSortOrder(value as "newest" | "oldest" | "name-asc" | "name-desc")
                     }
                   >
-                    <SelectTrigger className="h-8 justify-end gap-2 rounded-[6px] border border-[#C5CEE0] px-3 py-1 text-[14px] font-normal text-[#192038]">
+                    <SelectTrigger
+                      size="sm"
+                      className="h-8 justify-end gap-2 rounded-[6px] border border-[#C5CEE0] px-3 py-1 text-[14px] font-normal text-[#192038]"
+                    >
                       <SelectValue placeholder="最新创建" />
                     </SelectTrigger>
                     <SelectContent>
@@ -787,35 +810,32 @@ export default function BrandLibraryClient({
                                   </div>
                                 </td>
                                 <td className="h-[58px] px-4 py-0 align-middle">
-                                  <div className="space-y-2">
-                                    <div className="flex items-center gap-3">
-                                      <span
-                                        className={`inline-flex h-[22px] items-center gap-[5px] rounded-[4px] border px-[6px] py-[3px] text-xs ${statusMeta.className}`}
+                                  <div
+                                    className={`flex items-center ${
+                                      logo.status === "failed" ? "gap-[8px]" : "gap-3"
+                                    }`}
+                                  >
+                                    <span
+                                      className={`inline-flex h-[22px] items-center gap-[5px] whitespace-nowrap rounded-[4px] border px-[6px] py-[3px] text-xs ${statusMeta.className}`}
+                                    >
+                                      <StatusIcon
+                                        className={
+                                          statusMeta.label === "处理中"
+                                            ? "size-3.5 animate-spin"
+                                            : "size-3.5"
+                                        }
+                                      />
+                                      {statusMeta.label}
+                                    </span>
+                                    {logo.status === "failed" ? (
+                                      <button
+                                        type="button"
+                                        className="whitespace-nowrap text-[12px] leading-[16px] font-normal text-[#3366FF] transition-colors hover:text-[#1d55d1] disabled:cursor-not-allowed disabled:text-basic-5"
+                                        onClick={() => handleRetryProcessing(logo)}
+                                        disabled={pending}
                                       >
-                                        <StatusIcon
-                                          className={
-                                            statusMeta.label === "处理中"
-                                              ? "size-3.5 animate-spin"
-                                              : "size-3.5"
-                                          }
-                                        />
-                                        {statusMeta.label}
-                                      </span>
-                                      {logo.status === "failed" ? (
-                                        <button
-                                          type="button"
-                                          className="text-sm font-medium text-[#3370ff] transition-colors hover:text-[#1d55d1] disabled:cursor-not-allowed disabled:text-basic-5"
-                                          onClick={() => handleRetryProcessing(logo)}
-                                          disabled={pending}
-                                        >
-                                          {t("retry")}
-                                        </button>
-                                      ) : null}
-                                    </div>
-                                    {logo.status === "failed" && logo.processingError ? (
-                                      <p className="text-xs leading-5 text-[#ff4d6a]">
-                                        {getProcessingErrorMessage(logo.processingError)}
-                                      </p>
+                                        {t("retry")}
+                                      </button>
                                     ) : null}
                                   </div>
                                 </td>
@@ -841,15 +861,33 @@ export default function BrandLibraryClient({
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent
                                       align="end"
-                                      className="w-32 rounded-[12px] p-2"
+                                      className="w-[120px] rounded-[6px] border border-[#E4E9F2] p-1"
                                     >
-                                      <DropdownMenuItem onClick={() => handleOpenEdit(logo)}>
+                                      <DropdownMenuItem
+                                        onClick={() => handleOpenEdit(logo)}
+                                        className="gap-2 px-[10px] py-[5px] text-[14px] font-normal leading-[22px] text-[#192038]"
+                                      >
+                                        <Image
+                                          src="/Icon/Edit.svg"
+                                          alt=""
+                                          width={14}
+                                          height={14}
+                                          aria-hidden="true"
+                                        />
                                         编辑
                                       </DropdownMenuItem>
+                                      <div className="my-1 h-px bg-[#E4E9F2]" />
                                       <DropdownMenuItem
                                         onClick={() => setDeleteTarget(logo)}
-                                        className="text-danger-6 focus:text-danger-6"
+                                        className="gap-2 px-[10px] py-[5px] text-[14px] font-normal leading-[22px] text-[#FF3D71] focus:text-[#FF3D71]"
                                       >
+                                        <Image
+                                          src="/Icon/Delete.svg"
+                                          alt=""
+                                          width={14}
+                                          height={14}
+                                          aria-hidden="true"
+                                        />
                                         删除
                                       </DropdownMenuItem>
                                     </DropdownMenuContent>
@@ -905,7 +943,7 @@ export default function BrandLibraryClient({
                           value={String(pageSize)}
                           onValueChange={(value) => setPageSize(Number(value))}
                         >
-                          <SelectTrigger className="h-8 min-w-[110px] rounded-[8px]">
+                          <SelectTrigger size="sm" className="h-8 min-w-[110px] rounded-[8px]">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
