@@ -25,7 +25,7 @@ import {
   prepareClientImageUpload,
 } from "@/lib/brand/browser-image";
 import { MAX_TOTAL_NEW_REFERENCE_UPLOAD_BYTES } from "@/lib/brand/upload-constants";
-import { FolderOpen, Loader2, Plus, Upload, X } from "lucide-react";
+import { Loader2, Plus, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -431,14 +431,23 @@ export default function BrandLogoDialog({
                     </span>
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-[170px] rounded-[12px] p-2">
-                  <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
-                    <Upload className="mr-2 size-4" />
-                    本地上传
+                <DropdownMenuContent
+                  align="start"
+                  className="flex w-[140px] flex-col gap-[2px] rounded-[8px] border border-[#E4E9F2] p-1"
+                >
+                  <DropdownMenuItem
+                    onClick={() => fileInputRef.current?.click()}
+                    className="h-8 gap-2 rounded-[6px] px-[10px] py-[5px] text-[14px] leading-[22px] font-normal text-[#192038] hover:bg-[#F2F6FF] focus:bg-[#F2F6FF] data-[highlighted]:bg-[#F2F6FF]"
+                  >
+                    <img src="/Icon/export.svg" alt="" className="h-[14px] w-[14px]" />
+                    <span>本地上传</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => void handleSelectImagesFromAssetLibrary()}>
-                    <FolderOpen className="mr-2 size-4" />
-                    从素材库选取
+                  <DropdownMenuItem
+                    onClick={() => void handleSelectImagesFromAssetLibrary()}
+                    className="h-8 gap-2 rounded-[6px] px-[10px] py-[5px] text-[14px] leading-[22px] font-normal text-[#192038] hover:bg-[#F2F6FF] focus:bg-[#F2F6FF] data-[highlighted]:bg-[#F2F6FF]"
+                  >
+                    <img src="/Icon/Image.svg" alt="" className="h-[14px] w-[14px]" />
+                    <span>从素材库选取</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
