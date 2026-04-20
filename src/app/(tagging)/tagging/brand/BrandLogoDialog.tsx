@@ -4,6 +4,7 @@
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogFooter,
   DialogHeader,
@@ -24,7 +25,7 @@ import {
   prepareClientImageUpload,
 } from "@/lib/brand/browser-image";
 import { MAX_TOTAL_NEW_REFERENCE_UPLOAD_BYTES } from "@/lib/brand/upload-constants";
-import { FolderOpen, Info, Loader2, Plus, Upload, X } from "lucide-react";
+import { FolderOpen, Loader2, Plus, Upload, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -109,6 +110,7 @@ export default function BrandLogoDialog({
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
   const [notes, setNotes] = useState("");
   const [images, setImages] = useState<DraftImage[]>([]);
+  const [previewImage, setPreviewImage] = useState<DraftImage | null>(null);
   const [isSelectingAssets, setIsSelectingAssets] = useState(false);
   const [isPending, startTransition] = useTransition();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -357,30 +359,29 @@ export default function BrandLogoDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-[920px] overflow-y-auto rounded-[20px] p-6 sm:p-6">
-        <DialogHeader className="space-y-1">
-          <DialogTitle className="h-6 text-[16px] leading-6 font-[600] text-[#151A30]">
+      <DialogContent className="max-h-[90vh] w-[750px] max-w-[calc(100%-2rem)] gap-0 overflow-y-auto rounded-[20px] p-0">
+        <DialogHeader className="h-14 justify-center gap-0 px-5 py-4">
+          <DialogTitle className="text-[16px] leading-6 font-semibold text-[#151A30]">
             {mode === "create" ? "新建品牌标识特征" : "编辑品牌标识特征"}
           </DialogTitle>
-          {/* <DialogDescription>{t("dialogProcessingDescription")}</DialogDescription> */}
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div className="space-y-4 px-5 pt-0 pb-3">
           <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <label className="h-5 text-[14px] leading-5 font-normal text-[#222B45]">
+            <div className="space-y-1">
+              <label className="h-[22px] text-[14px] leading-[22px] font-normal text-[#222B45]">
                 标识名称
               </label>
               <Input
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 placeholder="请输入标识名称"
-                className="h-8 rounded-[6px] border border-[#c5cee0] px-3 py-0"
+                className="h-8 w-[349px] rounded-[6px] border border-[#C5CEE0] px-3 py-0 text-[14px] leading-[22px] font-normal placeholder:text-[14px] placeholder:leading-[22px] placeholder:font-normal placeholder:text-[#8F9BB3]"
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="h-5 text-[14px] leading-5 font-normal text-[#222B45]">
+            <div className="space-y-1">
+              <label className="h-[22px] text-[14px] leading-[22px] font-normal text-[#222B45]">
                 标识类型
               </label>
               <LogoTypeSelect
@@ -392,14 +393,14 @@ export default function BrandLogoDialog({
                 onTypeDeleted={onLogoTypeDeleted}
                 fallbackType={fallbackType}
                 disabled={isPending}
-                triggerClassName="h-8 rounded-[6px] border border-[#c5cee0] px-3 py-0"
+                triggerClassName="h-8 w-[349px] rounded-[6px] border border-[#C5CEE0] px-3 py-0 text-[14px] leading-[22px] font-normal"
               />
             </div>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2">
             <div className="space-y-1">
-              <label className="h-5 text-[14px] leading-5 font-normal text-[#222B45]">
+              <label className="h-[22px] text-[14px] leading-[22px] font-normal text-[#222B45]">
                 标识图片
               </label>
             </div>
@@ -413,16 +414,18 @@ export default function BrandLogoDialog({
               onChange={handleSelectImages}
             />
 
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
                     type="button"
                     disabled={isPending || isSelectingAssets}
-                    className="flex h-[122px] w-[122px] flex-col items-center justify-center rounded-[16px] border border-dashed border-[#c7d4ea] bg-[#f9fbff] text-basic-5 transition-colors hover:border-primary-5 hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
+                    className="relative flex h-[104px] w-[104px] flex-col items-center justify-center rounded-[6px] border border-[#C5CEE0] border-dashed bg-[#F7F9FC] px-2 py-10 text-[#2E3A59] transition-colors hover:border-primary-5 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    <Plus className="mb-2 size-6" />
-                    <span className="text-sm">添加图片</span>
+                    <span className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2">
+                      <Plus className="h-[14px] w-[14px]" />
+                      <span className="text-[14px] leading-[22px] font-normal">上传图片</span>
+                    </span>
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-[170px] rounded-[12px] p-2">
@@ -440,7 +443,7 @@ export default function BrandLogoDialog({
               {images.map((image) => (
                 <div
                   key={image.id}
-                  className="group relative h-[122px] w-[122px] overflow-hidden rounded-[16px] border bg-basic-2"
+                  className="group relative h-[104px] w-[104px] cursor-pointer overflow-hidden rounded-[6px] border border-[#C5CEE0] bg-[#F7F9FC]"
                 >
                   {image.existingImageId ? (
                     <SignedBrandImage
@@ -457,33 +460,45 @@ export default function BrandLogoDialog({
                       className="h-full w-full object-cover"
                     />
                   )}
-                  <button
-                    type="button"
-                    onClick={() => removeImage(image.id)}
-                    className="absolute top-2 right-2 inline-flex size-7 items-center justify-center rounded-full bg-black/55 text-white opacity-0 transition-opacity group-hover:opacity-100"
-                  >
-                    <X className="size-4" />
-                  </button>
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/45 opacity-0 transition-opacity group-hover:opacity-100">
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        aria-label="查看图片"
+                        onClick={() => setPreviewImage(image)}
+                        className="inline-flex h-4 w-4 items-center justify-center opacity-90 transition-opacity hover:opacity-100"
+                      >
+                        <img src="/Icon/View.svg" alt="" className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="删除图片"
+                        onClick={() => removeImage(image.id)}
+                        className="inline-flex h-4 w-4 items-center justify-center opacity-90 transition-opacity hover:opacity-100"
+                      >
+                        <img src="/Icon/Delete.svg" alt="" className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
 
-            <div className="flex items-start gap-2 rounded-[14px] border border-[#8fb1ff] bg-[#f7fbff] px-4 py-3 text-sm leading-6 text-basic-8">
-              <Info className="mt-1 size-4 shrink-0 text-[#f5b400]" />
-              <p>
-                建议至少上传 2-3 张标识图。为提升 AI
+            <div className="mt-3 flex items-start gap-[10px] rounded-[8px] border border-[#598BFF] bg-[#F2F6FF] px-3 py-[14px] text-[12px] leading-[16px] font-normal text-[#192038]">
+              <p className="text-[12px] leading-[16px] font-normal text-[#192038]">
+                💡 建议至少上传 2-3 张标识图。为提升 AI
                 识别精度，请在当前条目内尽可能多地涵盖标准版（彩色）、单色版（黑/白）、横版/竖版、以及反白版
                 Logo 等多版本的logo，背景透明或纯色为佳。
               </p>
             </div>
           </div>
 
-          <div className="space-y-2">
+          <div className="mt-4 space-y-2">
             <div className="space-y-1">
-              <label className="h-5 text-[14px] leading-5 font-normal text-[#222B45]">
+              <label className="h-[22px] text-[14px] leading-[22px] font-normal text-[#222B45]">
                 关联标签
               </label>
-              <p className="text-sm text-basic-5">识别命中后将自动打上这些标签</p>
+              <p className="text-[12px] leading-[16px] font-normal text-[#8F9BB3]">识别命中后将自动打上这些标签</p>
             </div>
             <BrandTagSelector
               tags={tags}
@@ -494,29 +509,36 @@ export default function BrandLogoDialog({
             />
           </div>
 
-          <div className="space-y-2">
-            <label className="h-5 text-[14px] leading-5 font-normal text-[#222B45]">
-              备注信息 <span className="ml-2 text-basic-5">选填</span>
+          <div className="mt-4 space-y-2">
+            <label className="h-[22px] text-[14px] leading-[22px] font-normal text-[#222B45]">
+              备注信息{" "}
+              <span className="ml-2 text-[12px] leading-[16px] font-normal text-[#8F9BB3]">选填</span>
             </label>
             <Textarea
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
               placeholder="如适用场景、特殊说明等"
-              className="min-h-[120px] rounded-[12px] border-basic-4"
+              className="h-[60px] rounded-[6px] border border-[#C5CEE0] px-4 py-2"
             />
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="min-h-16 gap-[10px] px-5 py-4">
           <Button
             type="button"
             variant="outline"
             onClick={() => onOpenChange(false)}
             disabled={isPending}
+            className="h-8 w-20 rounded-[6px] border border-[#C5CEE0] px-3 py-1"
           >
             取消
           </Button>
-          <Button type="button" onClick={handleSubmit} disabled={isSubmitDisabled}>
+          <Button
+            type="button"
+            onClick={handleSubmit}
+            disabled={isSubmitDisabled}
+            className="h-8 w-20 rounded-[6px] border border-[#C5CEE0] px-3 py-1"
+          >
             {isPending ? (
               <>
                 <Loader2 className="size-4 animate-spin" />
@@ -530,6 +552,33 @@ export default function BrandLogoDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      <Dialog
+        open={Boolean(previewImage)}
+        onOpenChange={(nextOpen) => !nextOpen && setPreviewImage(null)}
+      >
+        <DialogContent
+          showCloseButton={false}
+          className="w-auto max-h-[90vh] max-w-[90vw] overflow-visible border-none bg-transparent p-0 shadow-none"
+        >
+          <DialogTitle className="sr-only">
+            {previewImage ? `${previewImage.name} 预览` : "图片预览"}
+          </DialogTitle>
+          {previewImage ? (
+            <div className="relative inline-flex">
+              <DialogClose className="absolute top-3 right-3 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white transition-colors hover:bg-black/75">
+                <X className="size-4" />
+                <span className="sr-only">关闭预览</span>
+              </DialogClose>
+              <img
+                src={previewImage.previewUrl}
+                alt={previewImage.name}
+                className="block max-h-[90vh] max-w-[90vw] rounded-[8px] object-contain"
+              />
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }
