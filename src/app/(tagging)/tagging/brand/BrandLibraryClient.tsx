@@ -27,6 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Check,
   CheckCircle2,
@@ -159,14 +160,21 @@ export default function BrandLibraryClient({
   const [dialogMode, setDialogMode] = useState<"create" | "edit">("create");
   const [activeLogo, setActiveLogo] = useState<BrandLogoItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<BrandLogoItem | null>(null);
+  const [disableTarget, setDisableTarget] = useState<BrandLogoItem | null>(null);
   const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
+  const [batchEnableOpen, setBatchEnableOpen] = useState(false);
+  const [batchDisableOpen, setBatchDisableOpen] = useState(false);
   const [pendingLogoIds, setPendingLogoIds] = useState<string[]>([]);
   const [isPending, startTransition] = useTransition();
   const deferredSearch = useDeferredValue(search.trim().toLowerCase());
   const usedLogoTypeIds = useMemo(
     () =>
       Array.from(
-        new Set(logos.map((logo) => logo.logoTypeId).filter((typeId): typeId is string => Boolean(typeId))),
+        new Set(
+          logos
+            .map((logo) => logo.logoTypeId)
+            .filter((typeId): typeId is string => Boolean(typeId)),
+        ),
       ),
     [logos],
   );
@@ -353,6 +361,15 @@ export default function BrandLibraryClient({
     });
   }
 
+  function handleConfirmDisableLogo() {
+    if (!disableTarget) {
+      return;
+    }
+
+    handleToggleEnabled(disableTarget, false);
+    setDisableTarget(null);
+  }
+
   function handleDeleteLogo() {
     if (!deleteTarget) {
       return;
@@ -448,6 +465,26 @@ export default function BrandLibraryClient({
 
       toast.error(enabled ? "批量启用失败，请稍后重试" : "批量禁用失败，请稍后重试");
     });
+  }
+
+  function handleBatchDisableSelected() {
+    if (selectedIds.length === 0) {
+      setBatchDisableOpen(false);
+      return;
+    }
+
+    handleBatchSetEnabled(false);
+    setBatchDisableOpen(false);
+  }
+
+  function handleBatchEnableSelected() {
+    if (selectedIds.length === 0) {
+      setBatchEnableOpen(false);
+      return;
+    }
+
+    handleBatchSetEnabled(true);
+    setBatchEnableOpen(false);
   }
 
   function handleBatchDeleteSelected() {
@@ -598,7 +635,7 @@ export default function BrandLibraryClient({
                         type="button"
                         size="sm"
                         className="h-8 gap-1 rounded-[6px] border border-[#3366FF] bg-[#3366FF] px-3 py-1 text-[14px] leading-[22px] font-normal text-white"
-                        onClick={() => handleBatchSetEnabled(true)}
+                        onClick={() => setBatchEnableOpen(true)}
                         disabled={isPending}
                       >
                         <Check className="h-[14px] w-[14px]" />
@@ -609,7 +646,7 @@ export default function BrandLibraryClient({
                         variant="outline"
                         size="sm"
                         className="h-8 gap-1 rounded-[6px] border border-[#FF3D71] bg-white px-3 py-1 text-[14px] leading-[22px] font-normal text-[#FF3D71] hover:bg-[#FFF2F5] hover:text-[#FF3D71]"
-                        onClick={() => handleBatchSetEnabled(false)}
+                        onClick={() => setBatchDisableOpen(true)}
                         disabled={isPending}
                       >
                         <X className="h-[14px] w-[14px]" />
@@ -735,6 +772,7 @@ export default function BrandLibraryClient({
                             const statusMeta = getLogoStatusMeta(logo.status);
                             const pending = pendingLogoIds.includes(logo.id) || isPending;
                             const StatusIcon = statusMeta.icon;
+                            const failedReason = getProcessingErrorMessage(logo.processingError) ?? "未知错误";
 
                             return (
                               <tr key={logo.id} className="h-[58px] border-b last:border-b-0">
@@ -800,7 +838,11 @@ export default function BrandLibraryClient({
                                 <td className="h-[58px] px-4 py-0 align-middle">
                                   <LogoImagesCell logo={logo} />
                                 </td>
-                                <td className="h-[58px] px-4 py-0 align-middle">
+                                <td
+                                  className={`h-[58px] px-4 align-middle ${
+                                    logo.tags.length > 1 ? "py-2" : "py-0"
+                                  }`}
+                                >
                                   <div className="flex flex-wrap gap-[10px]">
                                     {logo.tags.length > 0 ? (
                                       logo.tags.map((tag) => (
@@ -822,18 +864,34 @@ export default function BrandLibraryClient({
                                       logo.status === "failed" ? "gap-[8px]" : "gap-3"
                                     }`}
                                   >
-                                    <span
-                                      className={`inline-flex h-[22px] items-center gap-[5px] whitespace-nowrap rounded-[4px] border px-[6px] py-[3px] text-xs ${statusMeta.className}`}
-                                    >
-                                      <StatusIcon
-                                        className={
-                                          statusMeta.label === "处理中"
-                                            ? "size-3.5 animate-spin"
-                                            : "size-3.5"
-                                        }
-                                      />
-                                      {statusMeta.label}
-                                    </span>
+                                    {logo.status === "failed" ? (
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <span
+                                            className={`inline-flex h-[22px] items-center gap-[5px] whitespace-nowrap rounded-[4px] border px-[6px] py-[3px] text-xs ${statusMeta.className}`}
+                                          >
+                                            <StatusIcon className="size-3.5" />
+                                            {statusMeta.label}
+                                          </span>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="top" sideOffset={8}>
+                                          {`无法提取有效特征：${failedReason}`}
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    ) : (
+                                      <span
+                                        className={`inline-flex h-[22px] items-center gap-[5px] whitespace-nowrap rounded-[4px] border px-[6px] py-[3px] text-xs ${statusMeta.className}`}
+                                      >
+                                        <StatusIcon
+                                          className={
+                                            statusMeta.label === "处理中"
+                                              ? "size-3.5 animate-spin"
+                                              : "size-3.5"
+                                          }
+                                        />
+                                        {statusMeta.label}
+                                      </span>
+                                    )}
                                     {logo.status === "failed" ? (
                                       <button
                                         type="button"
@@ -850,7 +908,9 @@ export default function BrandLibraryClient({
                                   <Switch
                                     checked={logo.enabled}
                                     onCheckedChange={(checked) =>
-                                      handleToggleEnabled(logo, checked)
+                                      checked
+                                        ? handleToggleEnabled(logo, true)
+                                        : setDisableTarget(logo)
                                     }
                                     disabled={pending}
                                     className="h-4 w-7 data-[state=checked]:bg-[#3366FF] [&_[data-slot=switch-thumb]]:size-3 [&_[data-slot=switch-thumb]]:data-[state=checked]:translate-x-[calc(100%+2px)] [&_[data-slot=switch-thumb]]:data-[state=unchecked]:translate-x-[2px]"
@@ -994,15 +1054,39 @@ export default function BrandLibraryClient({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>删除品牌标识</AlertDialogTitle>
+            <AlertDialogTitle>操作提示</AlertDialogTitle>
             <AlertDialogDescription>
-              {deleteTarget ? `确认删除“${deleteTarget.name}”吗？` : ""}
+              {deleteTarget
+                ? `确定要删除“${deleteTarget.name}”吗？删除后将无法恢复，已打上的关联标签不会自动移除。`
+                : ""}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
             <AlertDialogAction variant="dialogDanger" onClick={handleDeleteLogo}>
-              删除
+              确认删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={Boolean(disableTarget)}
+        onOpenChange={(open) => !open && setDisableTarget(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>操作提示</AlertDialogTitle>
+            <AlertDialogDescription>
+              {disableTarget
+                ? `确定要禁用“${disableTarget.name}”吗？禁用后，新上传的素材将不会自动识别该条目并打上关联标签，已完成打标的素材不受影响。`
+                : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction variant="dialogDanger" onClick={handleConfirmDisableLogo}>
+              确认禁用
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1013,13 +1097,47 @@ export default function BrandLibraryClient({
           <AlertDialogHeader>
             <AlertDialogTitle>批量删除品牌标识</AlertDialogTitle>
             <AlertDialogDescription>
-              确认删除已选中的 {selectedIds.length} 项品牌标识吗？该操作不可撤销。
+              确定要删除选中的 {selectedIds.length}{" "}
+              个条目吗？删除后将无法恢复，已打上的关联标签不会自动移除。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
             <AlertDialogAction variant="dialogDanger" onClick={handleBatchDeleteSelected}>
               删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={batchEnableOpen} onOpenChange={setBatchEnableOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>操作提示</AlertDialogTitle>
+            <AlertDialogDescription>
+              确定要启用选中的 {selectedIds.length} 个条目吗？启用后，将参与AI自动识别和打标
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={handleBatchEnableSelected}>确认启用</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={batchDisableOpen} onOpenChange={setBatchDisableOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>操作提示</AlertDialogTitle>
+            <AlertDialogDescription>
+              确定要禁用选中的 {selectedIds.length}{" "}
+              个条目吗？禁用后，新上传的素材将不会自动识别该条目并打上关联标签，已完成打标的素材不受影响。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction variant="dialogDanger" onClick={handleBatchDisableSelected}>
+              确认禁用
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
