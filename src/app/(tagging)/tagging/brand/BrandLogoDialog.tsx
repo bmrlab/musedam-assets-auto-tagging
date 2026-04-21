@@ -16,6 +16,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { TagsIcon } from "@/components/ui/icons";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { dispatchMuseDAMClientAction } from "@/embed/message";
@@ -506,13 +507,28 @@ export default function BrandLogoDialog({
           </div>
 
           <div className="mt-4 space-y-2">
-            <div className="space-y-1">
-              <label className="h-[22px] text-[14px] leading-[22px] font-normal text-[#222B45]">
-                关联标签
-              </label>
-              <p className="text-[12px] leading-[16px] font-normal text-[#8F9BB3]">
-                识别命中后将自动打上这些标签
-              </p>
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-1">
+                <label className="h-[22px] text-[14px] leading-[22px] font-normal text-[#222B45]">
+                  关联标签
+                </label>
+                <p className="text-[12px] leading-[16px] font-normal text-[#8F9BB3]">
+                  识别命中后将自动打上这些标签
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  dispatchMuseDAMClientAction("goto", {
+                    url: "/home/dashboard/tag",
+                    target: "_blank",
+                  })
+                }
+                className="inline-flex items-center gap-1 text-[12px] leading-[16px] font-normal text-[#3366FF] transition-opacity hover:opacity-80"
+              >
+                <TagsIcon />
+                管理标签体系
+              </button>
             </div>
             <BrandTagSelector
               tags={tags}

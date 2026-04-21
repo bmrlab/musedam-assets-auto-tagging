@@ -1,7 +1,6 @@
 "use client";
 
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { ChevronRight } from "lucide-react";
 import { useDeferredValue, useEffect, useRef, useState } from "react";
@@ -59,7 +58,7 @@ function TagColumn({
 }) {
   return (
     <div className="flex min-h-0 flex-col border-r last:border-r-0">
-      <div className="border-b bg-[#f7f9fd] px-4 py-3 text-base font-medium text-basic-8">
+      <div className="border-b bg-white px-4 py-3 text-[12px] leading-[16px] font-medium text-[#8F9BB3]">
         {title}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-2">
@@ -75,8 +74,8 @@ function TagColumn({
                 <div
                   key={node.id}
                   className={cn(
-                    "flex items-center gap-3 rounded-[8px] px-3 py-2.5 text-[15px] text-basic-8 transition-colors",
-                    isActive && "bg-[#eef3ff]",
+                    "flex items-center gap-3 rounded-[8px] px-3 py-2.5 text-[14px] leading-[22px] font-normal text-basic-8 transition-colors",
+                    isActive && "bg-[#F2F6FF] text-[#3366FF]",
                     !isActive && "hover:bg-basic-2/60",
                   )}
                 >
@@ -84,6 +83,7 @@ function TagColumn({
                     checked={checked}
                     onCheckedChange={() => onToggle(node.id)}
                     aria-label={`选择 ${node.name}`}
+                    className="border-[#C5CEE0] data-[state=checked]:border-[#3366FF] data-[state=checked]:bg-[#3366FF]"
                   />
                   <button
                     type="button"
@@ -92,7 +92,9 @@ function TagColumn({
                   >
                     <span className="truncate">{node.name}</span>
                     {node.children.length > 0 ? (
-                      <ChevronRight className="ml-auto size-4 text-basic-5" />
+                      <ChevronRight
+                        className={cn("ml-auto size-4 text-basic-5", isActive && "text-[#3366FF]")}
+                      />
                     ) : null}
                   </button>
                 </div>
@@ -181,31 +183,35 @@ export default function BrandTagSelector({
 
   return (
     <div ref={containerRef} className="space-y-2">
-      <div className="relative">
-        <Input
+      <div
+        className="flex min-h-10 flex-wrap items-center gap-2 rounded-[8px] border border-[#C5CEE0] px-2 py-1.5 transition-colors focus-within:border-[#3366FF]"
+        onClick={() => setIsExpanded(true)}
+      >
+        {selectedTags.map((tag) => (
+          <button
+            key={tag.id}
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              toggleTag(tag.id);
+            }}
+            className="inline-flex h-7 items-center gap-1 rounded-[6px] border border-[#E4E9F2] bg-[#F7F9FC] px-2 text-[14px] leading-[20px] text-[#2E3A59] transition-colors hover:border-[#C5CEE0]"
+          >
+            <span className="max-w-[280px] truncate">{tag.path.join(" > ")}</span>
+            <span className="text-[#8F9BB3]">×</span>
+          </button>
+        ))}
+        <input
+          type="text"
           value={keyword}
           onChange={(event) => setKeyword(event.target.value)}
-          onClick={() => setIsExpanded(true)}
           onFocus={() => setIsExpanded(true)}
-          placeholder="输入标签关键词搜索或从下方标签体系选择"
-          className="h-8 rounded-[6px] border border-[#C5CEE0] pl-3 text-[14px] leading-[22px] font-normal placeholder:text-[14px] placeholder:leading-[22px] placeholder:font-normal placeholder:text-[#8F9BB3]"
+          placeholder={
+            selectedTags.length > 0 ? "继续添加..." : "输入标签关键词搜索或从下方标签体系选择"
+          }
+          className="h-7 min-w-[140px] flex-1 appearance-none bg-transparent px-1 text-[14px] leading-[22px] font-normal text-[#2E3A59] outline-none placeholder:text-[#8F9BB3] !border-0 !shadow-none !ring-0 focus:!border-0 focus:!shadow-none focus:!ring-0 focus-visible:!border-0 focus-visible:!shadow-none focus-visible:!ring-0"
         />
       </div>
-
-      {isExpanded && selectedTags.length > 0 ? (
-        <div className="flex flex-wrap gap-2">
-          {selectedTags.map((tag) => (
-            <button
-              key={tag.id}
-              type="button"
-              onClick={() => toggleTag(tag.id)}
-              className="rounded-full border border-[#d9e2f2] bg-[#f7f9fc] px-3 py-1 text-sm text-basic-8 transition-colors hover:border-primary-5 hover:text-primary"
-            >
-              {tag.path.join(" > ")}
-            </button>
-          ))}
-        </div>
-      ) : null}
 
       {isExpanded && deferredKeyword ? (
         <div className="max-h-[360px] overflow-y-auto rounded-[10px] border border-basic-4 bg-white shadow-[0_8px_24px_rgba(31,48,86,0.08)]">
@@ -221,6 +227,7 @@ export default function BrandTagSelector({
                   <Checkbox
                     checked={selectedTagIds.includes(tag.id)}
                     onCheckedChange={() => toggleTag(tag.id)}
+                    className="border-[#C5CEE0] data-[state=checked]:border-[#3366FF] data-[state=checked]:bg-[#3366FF]"
                   />
                   <span>{tag.path.join(" > ")}</span>
                 </label>
