@@ -21,7 +21,7 @@ import {
   AssetTag,
 } from "@/prisma/client/index";
 import prisma from "@/prisma/prisma";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { after } from "next/server";
 import { z } from "zod";
 import {
@@ -187,6 +187,32 @@ async function fetchActiveLogoTypes(teamId: number) {
     },
     orderBy: [{ sort: "asc" }, { id: "asc" }],
   });
+}
+
+function getDefaultLogoTypeNames(locale: string): string[] {
+  const normalizedLocale = locale.toLowerCase();
+  if (normalizedLocale.startsWith("zh")) {
+    return ["主Logo", "子品牌Logo", "产品Logo", "水印", "商标", "其他"];
+  }
+  return ["MainLogo", "SubLogo", "ProductLogo", "WaterMark", "TradeMark", "Others"];
+}
+
+async function ensureDefaultLogoTypes(teamId: number, locale: string) {
+  const existing = await fetchActiveLogoTypes(teamId);
+  if (existing.length > 0) {
+    return existing;
+  }
+
+  const names = getDefaultLogoTypeNames(locale);
+  await prisma.assetLogoType.createMany({
+    data: names.map((name, index) => ({
+      teamId,
+      name,
+      sort: index + 1,
+    })),
+  });
+
+  return fetchActiveLogoTypes(teamId);
 }
 
 async function fetchBrandTags(teamId: number) {
@@ -654,9 +680,10 @@ export async function fetchBrandLibraryPageData(): Promise<
 > {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
+      const locale = await getLocale();
       const [logos, logoTypes, tags] = await Promise.all([
         fetchBrandLogos(teamId),
-        fetchActiveLogoTypes(teamId),
+        ensureDefaultLogoTypes(teamId, locale),
         fetchBrandTags(teamId),
       ]);
 

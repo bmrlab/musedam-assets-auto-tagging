@@ -1,9 +1,17 @@
 "use client";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { useEffect } from "react";
 import { AppSidebar } from "./AppSidebar";
 import { LayoutHeader } from "./LayoutHeader";
 
 export default function TaggingLayout({ children }: { children: React.ReactNode }) {
+  useEffect(() => {
+    document.body.classList.add("tagging-layout-active");
+    return () => {
+      document.body.classList.remove("tagging-layout-active");
+    };
+  }, []);
+
   return (
     <SidebarProvider className="h-dvh">
       <AppSidebar />

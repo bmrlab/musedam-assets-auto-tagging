@@ -504,6 +504,13 @@ input:focus-visible {
   --unified-shadow: 0px 4px 20px -2px rgba(50, 50, 71, 0.15), 0px 0px 1px 0px rgba(12, 26, 75, 0.1);
 }
 
+@media (min-width: 768px) {
+  body.tagging-layout-active [data-sonner-toaster][data-x-position="center"] {
+    left: calc(50% + 8rem) !important;
+    transform: translateX(-50%) !important;
+  }
+}
+
 [data-sonner-toast] {
   border-radius: 6px !important;
   box-shadow: var(--unified-shadow) !important;
