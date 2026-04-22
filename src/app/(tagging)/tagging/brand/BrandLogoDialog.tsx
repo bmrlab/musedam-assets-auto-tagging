@@ -78,7 +78,7 @@ function revokeDraftImageUrls(images: DraftImage[]) {
   }
 }
 
-function buildDraftImages(logo: BrandLogoItem | null) {
+function buildDraftImages(logo: BrandLogoItem | null, t: ReturnType<typeof useTranslations>) {
   if (!logo) {
     return [];
   }
@@ -89,7 +89,7 @@ function buildDraftImages(logo: BrandLogoItem | null) {
     previewUrl: image.signedUrl,
     signedUrl: image.signedUrl,
     signedUrlExpiresAt: image.signedUrlExpiresAt,
-    name: `${logo.name} 标识图 ${index + 1}`,
+    name: t("imageAltIndex", { name: logo.name, index: index + 1 }),
     shouldRevokePreviewUrl: false,
   }));
 }
@@ -132,7 +132,7 @@ export default function BrandLogoDialog({
     setNotes(logo?.notes ?? "");
     setImages((current) => {
       revokeDraftImageUrls(current);
-      return buildDraftImages(logo);
+      return buildDraftImages(logo, t);
     });
   }, [open, logo]);
 
@@ -216,7 +216,7 @@ export default function BrandLogoDialog({
 
       const assets = res.selectedAssets;
       if (!Array.isArray(assets) || assets.length === 0) {
-        toast.info("未选择任何素材");
+        toast.info(t("uploadErrors.noAssetsSelected"));
         return;
       }
 
@@ -228,7 +228,7 @@ export default function BrandLogoDialog({
         .filter((asset) => Boolean(asset.downloadUrl));
 
       if (validAssets.length === 0) {
-        toast.error("所选素材缺少可用下载地址");
+        toast.error(t("uploadErrors.invalidAssets"));
         return;
       }
 
@@ -258,7 +258,7 @@ export default function BrandLogoDialog({
       setImages((current) => [...current, ...nextImages]);
     } catch (error) {
       console.error("Select assets from library failed", error);
-      toast.error("从素材库选择图片失败，请重试");
+      toast.error(t("uploadErrors.selectFromLibraryFailed"));
     } finally {
       setIsSelectingAssets(false);
     }
@@ -277,28 +277,28 @@ export default function BrandLogoDialog({
 
   function handleSubmit() {
     if (!trimmedName) {
-      toast.error("请输入标识名称");
+      toast.error(t("validation.nameRequired"));
       return;
     }
 
     if (!logoTypeId) {
-      toast.error("请选择标识类型");
+      toast.error(t("validation.typeRequired"));
       return;
     }
 
     if (!logoTypes.some((type) => type.id === logoTypeId)) {
-      toast.error("当前类型已被删除，请重新选择一个有效类型");
+      toast.error(t("validation.typeDeleted"));
       return;
     }
 
     if (images.length === 0) {
-      toast.error("请至少上传 1 张标识图片");
+      toast.error(t("validation.imagesRequired"));
       return;
     }
 
     const newUploadBytes = images.reduce((total, image) => total + (image.file?.size ?? 0), 0);
     if (newUploadBytes > MAX_TOTAL_NEW_REFERENCE_UPLOAD_BYTES) {
-      toast.error(t("uploadErrors.totalTooLarge"));
+      toast.error(t("validation.totalTooLarge"));
       return;
     }
 
@@ -365,7 +365,7 @@ export default function BrandLogoDialog({
       <DialogContent className="max-h-[90vh] w-[750px] max-w-[calc(100%-2rem)] gap-0 overflow-y-auto rounded-[20px] p-0">
         <DialogHeader className="h-14 justify-center gap-0 px-5 py-4">
           <DialogTitle className="text-[16px] leading-6 font-semibold text-[#151A30]">
-            {mode === "create" ? "新建品牌标识特征" : "编辑品牌标识特征"}
+            {mode === "create" ? t("dialog.titleCreate") : t("dialog.titleEdit")}
           </DialogTitle>
         </DialogHeader>
 
@@ -373,19 +373,19 @@ export default function BrandLogoDialog({
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-1">
               <label className="h-[22px] text-[14px] leading-[22px] font-normal text-[#222B45]">
-                标识名称
+                {t("dialog.logoNameLabel")}
               </label>
               <Input
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                placeholder="请输入标识名称"
+                placeholder={t("dialog.logoNamePlaceholder")}
                 className="h-8 w-[349px] rounded-[6px] border border-[#C5CEE0] px-3 py-0 text-[14px] leading-[22px] font-normal placeholder:text-[14px] placeholder:leading-[22px] placeholder:font-normal placeholder:text-[#8F9BB3]"
               />
             </div>
 
             <div className="space-y-1">
               <label className="h-[22px] text-[14px] leading-[22px] font-normal text-[#222B45]">
-                标识类型
+                {t("dialog.logoTypeLabel")}
               </label>
               <LogoTypeSelect
                 value={logoTypeId}
@@ -405,7 +405,7 @@ export default function BrandLogoDialog({
           <div className="space-y-2">
             <div className="space-y-1">
               <label className="h-[22px] text-[14px] leading-[22px] font-normal text-[#222B45]">
-                标识图片
+                {t("dialog.logoImagesLabel")}
               </label>
             </div>
 
@@ -428,7 +428,7 @@ export default function BrandLogoDialog({
                   >
                     <span className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2">
                       <Plus className="h-[14px] w-[14px]" />
-                      <span className="text-[14px] leading-[22px] font-normal">上传图片</span>
+                      <span className="text-[14px] leading-[22px] font-normal">{t("dialog.uploadImage")}</span>
                     </span>
                   </button>
                 </DropdownMenuTrigger>
@@ -441,14 +441,14 @@ export default function BrandLogoDialog({
                     className="h-8 gap-2 rounded-[6px] px-[10px] py-[5px] text-[14px] leading-[22px] font-normal text-[#192038] hover:bg-[#F2F6FF] focus:bg-[#F2F6FF] data-[highlighted]:bg-[#F2F6FF]"
                   >
                     <img src="/Icon/export.svg" alt="" className="h-[14px] w-[14px]" />
-                    <span>本地上传</span>
+                    <span>{t("dialog.uploadLocal")}</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => void handleSelectImagesFromAssetLibrary()}
                     className="h-8 gap-2 rounded-[6px] px-[10px] py-[5px] text-[14px] leading-[22px] font-normal text-[#192038] hover:bg-[#F2F6FF] focus:bg-[#F2F6FF] data-[highlighted]:bg-[#F2F6FF]"
                   >
                     <img src="/Icon/Image.svg" alt="" className="h-[14px] w-[14px]" />
-                    <span>从素材库选取</span>
+                    <span>{t("dialog.uploadFromLibrary")}</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -477,7 +477,7 @@ export default function BrandLogoDialog({
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        aria-label="查看图片"
+                        aria-label={t("dialog.previewImage")}
                         onClick={() => setPreviewImage(image)}
                         className="inline-flex h-4 w-4 items-center justify-center opacity-90 transition-opacity hover:opacity-100"
                       >
@@ -485,7 +485,7 @@ export default function BrandLogoDialog({
                       </button>
                       <button
                         type="button"
-                        aria-label="删除图片"
+                        aria-label={t("delete")}
                         onClick={() => removeImage(image.id)}
                         className="inline-flex h-4 w-4 items-center justify-center opacity-90 transition-opacity hover:opacity-100"
                       >
@@ -499,9 +499,7 @@ export default function BrandLogoDialog({
 
             <div className="mt-3 flex items-start gap-[10px] rounded-[8px] border border-[#598BFF] bg-[#F2F6FF] px-3 py-[14px] text-[12px] leading-[16px] font-normal text-[#192038]">
               <p className="text-[12px] leading-[16px] font-normal text-[#192038]">
-                💡 建议至少上传 2-3 张标识图。为提升 AI
-                识别精度，请在当前条目内尽可能多地涵盖标准版（彩色）、单色版（黑/白）、横版/竖版、以及反白版
-                Logo 等多版本的logo，背景透明或纯色为佳。
+                {t("dialog.uploadHint")}
               </p>
             </div>
           </div>
@@ -509,11 +507,11 @@ export default function BrandLogoDialog({
           <div className="mt-4 space-y-2">
             <div className="space-y-1">
               <label className="h-[22px] text-[14px] leading-[22px] font-normal text-[#222B45]">
-                关联标签
+                {t("dialog.linkedTagsLabel")}
               </label>
               <div className="flex items-center justify-between gap-3">
                 <p className="text-[12px] leading-[16px] font-normal text-[#8F9BB3]">
-                  识别命中后将自动打上这些标签
+                  {t("dialog.linkedTagsHint")}
                 </p>
               <button
                 type="button"
@@ -526,7 +524,7 @@ export default function BrandLogoDialog({
                 className="inline-flex items-center gap-1 text-[12px] leading-[16px] font-normal text-[#3366FF] transition-opacity hover:opacity-80"
               >
                 <TagsIcon />
-                管理标签体系
+                {t("dialog.manageTags")}
               </button>
               </div>
             </div>
@@ -541,15 +539,15 @@ export default function BrandLogoDialog({
 
           <div className="mt-4 space-y-2">
             <label className="h-[22px] text-[14px] leading-[22px] font-normal text-[#222B45]">
-              备注信息{" "}
+              {t("dialog.notesLabel")}{" "}
               <span className="ml-2 text-[12px] leading-[16px] font-normal text-[#8F9BB3]">
-                选填
+                {t("dialog.notesOptional")}
               </span>
             </label>
             <Textarea
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
-              placeholder="如适用场景、特殊说明等"
+              placeholder={t("dialog.notesPlaceholder")}
               className="h-[60px] rounded-[6px] border border-[#C5CEE0] px-4 py-2"
             />
           </div>
@@ -563,7 +561,7 @@ export default function BrandLogoDialog({
             disabled={isPending}
             className="h-8 w-20 rounded-[6px] border border-[#C5CEE0] px-3 py-1"
           >
-            取消
+            {t("dialog.cancel")}
           </Button>
           <Button
             type="button"
@@ -574,12 +572,12 @@ export default function BrandLogoDialog({
             {isPending ? (
               <>
                 <Loader2 className="size-4 animate-spin" />
-                保存中
+                {t("dialog.saving")}
               </>
             ) : mode === "create" ? (
-              "确认"
+              t("dialog.confirm")
             ) : (
-              "保存"
+              t("dialog.save")
             )}
           </Button>
         </DialogFooter>
@@ -594,13 +592,13 @@ export default function BrandLogoDialog({
           className="w-auto max-h-[90vh] max-w-[90vw] overflow-visible border-none bg-transparent p-0 shadow-none"
         >
           <DialogTitle className="sr-only">
-            {previewImage ? `${previewImage.name} 预览` : "图片预览"}
+            {previewImage ? `${previewImage.name} ${t("dialog.previewImage")}` : t("dialog.previewImage")}
           </DialogTitle>
           {previewImage ? (
             <div className="relative inline-flex">
               <DialogClose className="absolute top-3 right-3 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white transition-colors hover:bg-black/75">
                 <X className="size-4" />
-                <span className="sr-only">关闭预览</span>
+                <span className="sr-only">{t("dialog.closePreview")}</span>
               </DialogClose>
               <img
                 src={previewImage.previewUrl}

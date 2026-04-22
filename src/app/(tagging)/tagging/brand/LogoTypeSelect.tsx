@@ -28,6 +28,7 @@ import {
   Settings,
   X,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import * as React from "react";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -195,6 +196,7 @@ export default function LogoTypeSelect({
   disabled,
   triggerClassName,
 }: LogoTypeSelectProps) {
+  const t = useTranslations("Tagging.BrandLibrary");
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<"list" | "manage">("list");
   const [isCreating, setIsCreating] = useState(false);
@@ -241,7 +243,7 @@ export default function LogoTypeSelect({
   async function handleCreateType() {
     const nextName = newTypeName.trim();
     if (!nextName) {
-      toast.error("请输入类型名称");
+      toast.error(t("logoType.typeNameRequired"));
       return;
     }
 
@@ -260,14 +262,14 @@ export default function LogoTypeSelect({
       setIsCreating(false);
       setNewTypeName("");
       setMode("list");
-      toast.success("标识类型已创建");
+      toast.success(t("logoType.created"));
     });
   }
 
   async function handleRenameType(type: BrandLogoTypeItem) {
     const nextName = editingName.trim();
     if (!nextName) {
-      toast.error("请输入类型名称");
+      toast.error(t("logoType.typeNameRequired"));
       return;
     }
 
@@ -282,13 +284,13 @@ export default function LogoTypeSelect({
       onTypeRenamed?.(type.id, result.data.logoType.name);
       setEditingTypeId(null);
       setEditingName("");
-      toast.success("标识类型已更新");
+      toast.success(t("logoType.updated"));
     });
   }
 
   async function handleDeleteType(type: BrandLogoTypeItem) {
     if (usedTypeIds.includes(type.id)) {
-      toast.error("该标识类型正在使用中，无法删除");
+      toast.error(t("logoType.inUse"));
       return;
     }
 
@@ -306,7 +308,7 @@ export default function LogoTypeSelect({
       onTypeDeleted?.(type.id);
       setEditingTypeId(null);
       setEditingName("");
-      toast.success("标识类型已删除");
+      toast.success(t("logoType.deleted"));
     });
   }
 
@@ -356,7 +358,7 @@ export default function LogoTypeSelect({
         )}
       >
         <span className={cn(!selectedType && "text-basic-5")}>
-          {selectedType?.name ?? "请选择"}
+          {selectedType?.name ?? t("logoType.placeholder")}
         </span>
         <ChevronDown
           className={cn("size-4 text-basic-5 transition-transform", open && "rotate-180")}
@@ -378,7 +380,7 @@ export default function LogoTypeSelect({
                   }}
                 >
                   <ChevronLeft className="h-[14px] w-[14px] text-[#8F9BB3]" />
-                  <span className="text-[14px] leading-5 font-medium text-[#192038]">管理类型</span>
+                  <span className="text-[14px] leading-5 font-medium text-[#192038]">{t("logoType.manageTitle")}</span>
                 </button>
               </div>
 
@@ -423,7 +425,7 @@ export default function LogoTypeSelect({
                   <Input
                     value={newTypeName}
                     onChange={(event) => setNewTypeName(event.target.value)}
-                    placeholder="请输入新类型"
+                    placeholder={t("logoType.newTypePlaceholder")}
                     className="h-8 px-3 py-0 focus-visible:border-[#598BFF] focus-visible:ring-0 focus-visible:ring-offset-0"
                     autoFocus
                     onKeyDown={(event) => {
@@ -473,7 +475,7 @@ export default function LogoTypeSelect({
                     >
                       <Plus className="h-[14px] w-[14px] text-[#3366FF]" />
                       <span className="text-[14px] leading-5 font-medium text-[#3366FF]">
-                        新建类型
+                        {t("logoType.create")}
                       </span>
                     </button>
                   </div>
@@ -563,7 +565,7 @@ export default function LogoTypeSelect({
                     >
                       <Plus className="h-[14px] w-[14px] text-[#3366FF]" />
                       <span className="text-[14px] leading-5 font-medium text-[#3366FF]">
-                        新建类型
+                        {t("logoType.create")}
                       </span>
                     </button>
                     <button
@@ -572,7 +574,7 @@ export default function LogoTypeSelect({
                       className="inline-flex h-4 items-center gap-1 text-[#8F9BB3] transition-colors hover:text-[#7B879E]"
                     >
                       <Settings className="h-[12px] w-[12px] text-[#8F9BB3]" />
-                      <span className="text-[12px] leading-4 font-medium text-[#8F9BB3]">管理</span>
+                      <span className="text-[12px] leading-4 font-medium text-[#8F9BB3]">{t("logoType.manageTitle")}</span>
                     </button>
                   </div>
                 </div>

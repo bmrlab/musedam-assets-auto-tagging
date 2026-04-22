@@ -3,6 +3,7 @@
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { ChevronRight } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useDeferredValue, useEffect, useRef, useState } from "react";
 import { BrandTagTreeNode } from "./types";
 
@@ -48,6 +49,7 @@ function TagColumn({
   selectedTagIds,
   onActivate,
   onToggle,
+  t,
 }: {
   title: string;
   nodes: BrandTagTreeNode[];
@@ -55,6 +57,7 @@ function TagColumn({
   selectedTagIds: number[];
   onActivate: (id: number) => void;
   onToggle: (id: number) => void;
+  t: ReturnType<typeof useTranslations>;
 }) {
   return (
     <div className="flex min-h-0 flex-col border-r last:border-r-0">
@@ -63,7 +66,7 @@ function TagColumn({
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-2">
         {nodes.length === 0 ? (
-          <div className="px-3 py-6 text-sm text-basic-5">暂无可选标签</div>
+          <div className="px-3 py-6 text-sm text-basic-5">{t("tagSelector.noSelectableTags")}</div>
         ) : (
           <div className="space-y-1">
             {nodes.map((node) => {
@@ -82,7 +85,7 @@ function TagColumn({
                   <Checkbox
                     checked={checked}
                     onCheckedChange={() => onToggle(node.id)}
-                    aria-label={`选择 ${node.name}`}
+                    aria-label={t("tagSelector.selectTag", { name: node.name })}
                     className="border-[#C5CEE0] data-[state=checked]:border-[#3366FF] data-[state=checked]:bg-[#3366FF]"
                   />
                   <button
@@ -114,6 +117,7 @@ export default function BrandTagSelector({
   collapsedUntilFocus = false,
   dialogOpen,
 }: BrandTagSelectorProps) {
+  const t = useTranslations("Tagging.BrandLibrary");
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [keyword, setKeyword] = useState("");
   const [activeLevel1Id, setActiveLevel1Id] = useState<number | null>(tags[0]?.id ?? null);
@@ -207,7 +211,7 @@ export default function BrandTagSelector({
           onChange={(event) => setKeyword(event.target.value)}
           onFocus={() => setIsExpanded(true)}
           placeholder={
-            selectedTags.length > 0 ? "继续添加..." : "输入标签关键词搜索或从下方标签体系选择"
+            selectedTags.length > 0 ? t("tagSelector.continueAdding") : t("tagSelector.searchPlaceholder")
           }
           className="h-7 min-w-[140px] flex-1 appearance-none bg-transparent px-1 text-[14px] leading-[22px] font-normal text-[#2E3A59] outline-none placeholder:text-[#8F9BB3] !border-0 !shadow-none !ring-0 focus:!border-0 focus:!shadow-none focus:!ring-0 focus-visible:!border-0 focus-visible:!shadow-none focus-visible:!ring-0"
         />
@@ -216,7 +220,7 @@ export default function BrandTagSelector({
       {isExpanded && deferredKeyword ? (
         <div className="max-h-[360px] overflow-y-auto rounded-[10px] border border-basic-4 bg-white shadow-[0_8px_24px_rgba(31,48,86,0.08)]">
           {searchResults.length === 0 ? (
-            <div className="px-4 py-8 text-sm text-basic-5">没有搜索到匹配标签</div>
+            <div className="px-4 py-8 text-sm text-basic-5">{t("tagSelector.noSearchResults")}</div>
           ) : (
             <div className="divide-y">
               {searchResults.map((tag) => (
@@ -240,7 +244,7 @@ export default function BrandTagSelector({
       {isExpanded && !deferredKeyword ? (
         <div className="grid h-[340px] grid-cols-1 overflow-hidden rounded-[10px] border border-basic-4 bg-white shadow-[0_8px_24px_rgba(31,48,86,0.08)] md:grid-cols-3">
           <TagColumn
-            title={`标签组(${tags.length})`}
+            title={t("tagSelector.tagGroups", { count: tags.length })}
             nodes={tags}
             activeId={activeLevel1Id}
             selectedTagIds={selectedTagIds}
@@ -250,22 +254,25 @@ export default function BrandTagSelector({
               const nextLevel2 = tags.find((tag) => tag.id === id)?.children[0]?.id ?? null;
               setActiveLevel2Id(nextLevel2);
             }}
+            t={t}
           />
           <TagColumn
-            title={`标签(${level2Nodes.length})`}
+            title={t("tagSelector.tags", { count: level2Nodes.length })}
             nodes={level2Nodes}
             activeId={activeLevel2Id}
             selectedTagIds={selectedTagIds}
             onToggle={toggleTag}
             onActivate={setActiveLevel2Id}
+            t={t}
           />
           <TagColumn
-            title={`标签(${level3Nodes.length})`}
+            title={t("tagSelector.tags", { count: level3Nodes.length })}
             nodes={level3Nodes}
             activeId={null}
             selectedTagIds={selectedTagIds}
             onToggle={toggleTag}
             onActivate={() => undefined}
+            t={t}
           />
         </div>
       ) : null}
