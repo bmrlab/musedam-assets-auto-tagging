@@ -1,24 +1,24 @@
 "use client";
 
-import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { cn } from "@/lib/utils";
+import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { ReactNode, useEffect, useState } from "react";
-import SignedBrandImage from "./SignedBrandImage";
-import { BrandLogoImageItem } from "./types";
+import SignedIpImage from "./SignedIpImage";
+import { IpImageItem } from "./types";
 
-type BrandImageHoverCardProps = {
-  image: BrandLogoImageItem;
+type IpImageHoverCardProps = {
+  image: IpImageItem;
   alt: string;
   children: ReactNode;
   className?: string;
 };
 
-export default function BrandImageHoverCard({
+export default function IpImageHoverCard({
   image,
   alt,
   children,
   className,
-}: BrandImageHoverCardProps) {
+}: IpImageHoverCardProps) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [previewWidth, setPreviewWidth] = useState(100);
 
@@ -51,7 +51,7 @@ export default function BrandImageHoverCard({
                 {!isLoaded ? (
                   <div className="pointer-events-none absolute inset-0 animate-pulse bg-gradient-to-r from-[#EDF1F7] via-[#F7F9FC] to-[#EDF1F7]" />
                 ) : null}
-                <SignedBrandImage
+                <SignedIpImage
                   imageId={image.id}
                   signedUrl={image.signedUrl}
                   signedUrlExpiresAt={image.signedUrlExpiresAt}

@@ -9,6 +9,7 @@ export {
   FileImageIcon,
   FoldersIcon,
   Icon,
+  IpIcon,
   MonitorIcon,
   RetryIcon,
   SettingIcon,

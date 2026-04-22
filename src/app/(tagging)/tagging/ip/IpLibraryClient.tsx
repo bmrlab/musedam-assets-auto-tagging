@@ -39,24 +39,50 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import Image from "next/image";
 import Link from "next/link";
 import { useDeferredValue, useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
-  deleteAssetLogoAction,
-  pollBrandLogosAction,
-  retryAssetLogoProcessingAction,
-  setAssetLogoEnabledAction,
+  deleteAssetIpAction,
+  pollIpsAction,
+  retryAssetIpProcessingAction,
+  setAssetIpEnabledAction,
 } from "./actions";
-import BrandImageHoverCard from "./BrandImageHoverCard";
-import BrandLogoDialog from "./BrandLogoDialog";
-import SignedBrandImage from "./SignedBrandImage";
-import { BrandLibraryPageData, BrandLogoItem } from "./types";
+import IpDialog from "./IpDialog";
+import IpImageHoverCard from "./IpImageHoverCard";
+import SignedIpImage from "./SignedIpImage";
+import { IpItem, IpLibraryPageData } from "./types";
 
-function formatDate(date: Date | string) {
-  return new Intl.DateTimeFormat("zh-CN", {
+function getCopy(locale: string) {
+  const isChinese = locale.toLowerCase().startsWith("zh");
+
+  if (isChinese) {
+    return {
+      title: "IP形象特征库",
+      description: "管理品牌吉祥物、虚拟形象等IP特征",
+      searchPlaceholder: "搜索IP形象名称",
+      create: "新建 IP",
+      empty: "暂无数据",
+      filteredEmpty: "没有符合当前筛选条件的IP形象",
+      retry: "重试",
+    };
+  }
+
+  return {
+    title: "IP Character Library",
+    description: "Manage brand mascots, virtual characters, and other IP features",
+    searchPlaceholder: "Search IP character name",
+    create: "New IP",
+    empty: "No data",
+    filteredEmpty: "No IP characters match the current filters",
+    retry: "Retry",
+  };
+}
+
+function formatDate(date: Date | string, locale: string) {
+  return new Intl.DateTimeFormat(locale.toLowerCase().startsWith("zh") ? "zh-CN" : "en-US", {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -67,7 +93,7 @@ function formatDate(date: Date | string) {
   }).format(new Date(date));
 }
 
-function getLogoStatusMeta(status: BrandLogoItem["status"]) {
+function getIpStatusMeta(status: IpItem["status"]) {
   switch (status) {
     case "completed":
       return {
@@ -96,8 +122,8 @@ function getLogoStatusMeta(status: BrandLogoItem["status"]) {
   }
 }
 
-function LogoImagesCell({ logo }: { logo: BrandLogoItem }) {
-  const previewImages = logo.images;
+function IpImagesCell({ ip }: { ip: IpItem }) {
+  const previewImages = ip.images;
 
   if (previewImages.length === 0) {
     return <span className="text-[14px] text-basic-5">-</span>;
@@ -107,44 +133,41 @@ function LogoImagesCell({ logo }: { logo: BrandLogoItem }) {
     <div className="flex items-center gap-3">
       <div className="flex items-center">
         {previewImages.map((image, index) => (
-          <BrandImageHoverCard
-            key={image.id}
-            image={image}
-            alt={`${logo.name} 标识图 ${index + 1}`}
-          >
+          <IpImageHoverCard key={image.id} image={image} alt={`${ip.name} IP 图 ${index + 1}`}>
             <button
               type="button"
               className="relative -ml-2 first:ml-0 h-[22px] w-[22px] overflow-hidden rounded-[4px] border border-white bg-basic-2 shadow-sm"
               style={{ zIndex: previewImages.length - index }}
-              aria-label={`预览 ${logo.name} 标识图 ${index + 1}`}
+              aria-label={`预览 ${ip.name} IP 图 ${index + 1}`}
             >
-              <SignedBrandImage
+              <SignedIpImage
                 imageId={image.id}
                 signedUrl={image.signedUrl}
                 signedUrlExpiresAt={image.signedUrlExpiresAt}
-                alt={`${logo.name} 标识图 ${index + 1}`}
+                alt={`${ip.name} IP 图 ${index + 1}`}
                 className="h-full w-full object-cover"
               />
             </button>
-          </BrandImageHoverCard>
+          </IpImageHoverCard>
         ))}
       </div>
-      <span className="text-[14px] text-basic-5">{logo.images.length}张</span>
+      <span className="text-[14px] text-basic-5">{ip.images.length}张</span>
     </div>
   );
 }
 
-export default function BrandLibraryClient({
+export default function IpLibraryClient({
   initialData,
   debugPageEnabled,
 }: {
-  initialData: BrandLibraryPageData;
+  initialData: IpLibraryPageData;
   debugPageEnabled: boolean;
 }) {
-  const t = useTranslations("Tagging.BrandLibrary");
+  const locale = useLocale();
+  const copy = getCopy(locale);
   const tReview = useTranslations("Tagging.Review");
-  const [logos, setLogos] = useState(initialData.logos);
-  const [logoTypes, setLogoTypes] = useState(initialData.logoTypes);
+  const [ips, setIps] = useState(initialData.ips);
+  const [ipTypes, setIpTypes] = useState(initialData.ipTypes);
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [typeFilter, setTypeFilter] = useState("all");
@@ -158,25 +181,21 @@ export default function BrandLibraryClient({
   const [pageInput, setPageInput] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<"create" | "edit">("create");
-  const [activeLogo, setActiveLogo] = useState<BrandLogoItem | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<BrandLogoItem | null>(null);
-  const [disableTarget, setDisableTarget] = useState<BrandLogoItem | null>(null);
+  const [activeIp, setActiveIp] = useState<IpItem | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<IpItem | null>(null);
+  const [disableTarget, setDisableTarget] = useState<IpItem | null>(null);
   const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
   const [batchEnableOpen, setBatchEnableOpen] = useState(false);
   const [batchDisableOpen, setBatchDisableOpen] = useState(false);
-  const [pendingLogoIds, setPendingLogoIds] = useState<string[]>([]);
+  const [pendingIpIds, setPendingIpIds] = useState<string[]>([]);
   const [isPending, startTransition] = useTransition();
   const deferredSearch = useDeferredValue(search.trim().toLowerCase());
-  const usedLogoTypeIds = useMemo(
+  const usedIpTypeIds = useMemo(
     () =>
       Array.from(
-        new Set(
-          logos
-            .map((logo) => logo.logoTypeId)
-            .filter((typeId): typeId is string => Boolean(typeId)),
-        ),
+        new Set(ips.map((ip) => ip.ipTypeId).filter((typeId): typeId is string => Boolean(typeId))),
       ),
-    [logos],
+    [ips],
   );
 
   useEffect(() => {
@@ -184,30 +203,30 @@ export default function BrandLibraryClient({
   }, [deferredSearch, typeFilter, statusFilter, enabledFilter, sortOrder, pageSize]);
 
   useEffect(() => {
-    if (typeFilter !== "all" && !logoTypes.some((type) => String(type.id) === typeFilter)) {
+    if (typeFilter !== "all" && !ipTypes.some((type) => String(type.id) === typeFilter)) {
       setTypeFilter("all");
     }
-  }, [logoTypes, typeFilter]);
+  }, [ipTypes, typeFilter]);
 
-  const filteredLogos = logos
-    .filter((logo) => {
-      if (deferredSearch && !logo.name.toLowerCase().includes(deferredSearch)) {
+  const filteredIps = ips
+    .filter((ip) => {
+      if (deferredSearch && !ip.name.toLowerCase().includes(deferredSearch)) {
         return false;
       }
 
-      if (typeFilter !== "all" && String(logo.logoTypeId ?? "") !== typeFilter) {
+      if (typeFilter !== "all" && String(ip.ipTypeId ?? "") !== typeFilter) {
         return false;
       }
 
-      if (statusFilter !== "all" && logo.status !== statusFilter) {
+      if (statusFilter !== "all" && ip.status !== statusFilter) {
         return false;
       }
 
-      if (enabledFilter === "enabled" && !logo.enabled) {
+      if (enabledFilter === "enabled" && !ip.enabled) {
         return false;
       }
 
-      if (enabledFilter === "disabled" && logo.enabled) {
+      if (enabledFilter === "disabled" && ip.enabled) {
         return false;
       }
 
@@ -227,11 +246,11 @@ export default function BrandLibraryClient({
       return sortOrder === "newest" ? rightTime - leftTime : leftTime - rightTime;
     });
 
-  const totalPages = Math.max(1, Math.ceil(filteredLogos.length / pageSize));
+  const totalPages = Math.max(1, Math.ceil(filteredIps.length / pageSize));
   const safeCurrentPage = Math.min(currentPage, totalPages);
   const pageStart = (safeCurrentPage - 1) * pageSize;
-  const currentPageLogos = filteredLogos.slice(pageStart, pageStart + pageSize);
-  const currentPageIds = currentPageLogos.map((logo) => logo.id);
+  const currentPageIps = filteredIps.slice(pageStart, pageStart + pageSize);
+  const currentPageIds = currentPageIps.map((ip) => ip.id);
   const selectedOnPage = currentPageIds.filter((id) => selectedIds.includes(id));
   const allSelectedOnPage =
     currentPageIds.length > 0 && selectedOnPage.length === currentPageIds.length;
@@ -245,9 +264,9 @@ export default function BrandLibraryClient({
   }, [currentPage, totalPages]);
 
   useEffect(() => {
-    const pendingIds = logos
-      .filter((logo) => logo.status === "processing" || logo.status === "pending")
-      .map((logo) => logo.id);
+    const pendingIds = ips
+      .filter((ip) => ip.status === "processing" || ip.status === "pending")
+      .map((ip) => ip.id);
 
     if (pendingIds.length === 0) {
       return;
@@ -256,13 +275,13 @@ export default function BrandLibraryClient({
     let disposed = false;
 
     async function poll() {
-      const result = await pollBrandLogosAction(pendingIds);
+      const result = await pollIpsAction(pendingIds);
       if (!result.success || disposed) {
         return;
       }
 
-      setLogos((current) =>
-        current.map((logo) => result.data.logos.find((item) => item.id === logo.id) ?? logo),
+      setIps((current) =>
+        current.map((ip) => result.data.ips.find((item) => item.id === ip.id) ?? ip),
       );
     }
 
@@ -275,7 +294,7 @@ export default function BrandLibraryClient({
       disposed = true;
       window.clearInterval(timer);
     };
-  }, [logos]);
+  }, [ips]);
 
   function getProcessingErrorMessage(error: string | null) {
     if (!error) {
@@ -283,85 +302,85 @@ export default function BrandLibraryClient({
     }
 
     switch (error) {
-      case "logo_not_found":
-        return t("processingErrors.logoNotFound");
+      case "ip_not_found":
+        return "IP形象不存在或已被删除";
       case "no_reference_images":
-        return t("processingErrors.noReferenceImages");
+        return "缺少参考图片，无法生成向量";
       case "image_fetch_failed":
-        return t("processingErrors.imageFetchFailed");
+        return "读取参考图片失败";
       case "jina_request_failed":
-        return t("processingErrors.jinaRequestFailed");
+        return "调用 Jina 生成向量失败";
       case "embedding_count_mismatch":
-        return t("processingErrors.embeddingCountMismatch");
+        return "返回的向量数量与参考图片数量不一致";
       case "vector_store_sync_failed":
-        return t("processingErrors.vectorStoreSyncFailed");
+        return "同步向量到 Qdrant 失败";
       case "unknown":
-        return t("processingErrors.unknown");
+        return "IP形象处理失败";
       default:
         return error;
     }
   }
 
-  function updateLogoInList(nextLogo: BrandLogoItem) {
-    setLogos((current) => {
-      const existing = current.some((logo) => logo.id === nextLogo.id);
+  function updateIpInList(nextIp: IpItem) {
+    setIps((current) => {
+      const existing = current.some((ip) => ip.id === nextIp.id);
       if (!existing) {
-        return [nextLogo, ...current];
+        return [nextIp, ...current];
       }
 
-      return current.map((logo) => (logo.id === nextLogo.id ? nextLogo : logo));
+      return current.map((ip) => (ip.id === nextIp.id ? nextIp : ip));
     });
   }
 
-  function handleDialogSaved(logo: BrandLogoItem) {
-    updateLogoInList(logo);
+  function handleDialogSaved(ip: IpItem) {
+    updateIpInList(ip);
     setDialogOpen(false);
-    setActiveLogo(null);
+    setActiveIp(null);
   }
 
   function handleOpenCreate() {
     setDialogMode("create");
-    setActiveLogo(null);
+    setActiveIp(null);
     setDialogOpen(true);
   }
 
-  function handleOpenEdit(logo: BrandLogoItem) {
+  function handleOpenEdit(ip: IpItem) {
     setDialogMode("edit");
-    setActiveLogo(logo);
+    setActiveIp(ip);
     setDialogOpen(true);
   }
 
-  function markLogoPending(logoId: string, pending: boolean) {
-    setPendingLogoIds((current) => {
+  function markIpPending(ipId: string, pending: boolean) {
+    setPendingIpIds((current) => {
       if (pending) {
-        if (current.includes(logoId)) {
+        if (current.includes(ipId)) {
           return current;
         }
-        return [...current, logoId];
+        return [...current, ipId];
       }
 
-      return current.filter((id) => id !== logoId);
+      return current.filter((id) => id !== ipId);
     });
   }
 
-  function handleToggleEnabled(logo: BrandLogoItem, enabled: boolean) {
-    markLogoPending(logo.id, true);
+  function handleToggleEnabled(ip: IpItem, enabled: boolean) {
+    markIpPending(ip.id, true);
 
     startTransition(async () => {
-      const result = await setAssetLogoEnabledAction(logo.id, enabled);
-      markLogoPending(logo.id, false);
+      const result = await setAssetIpEnabledAction(ip.id, enabled);
+      markIpPending(ip.id, false);
 
       if (!result.success) {
         toast.error(result.message);
         return;
       }
 
-      updateLogoInList(result.data.logo);
-      toast.success(enabled ? "品牌标识已启用" : "品牌标识已禁用");
+      updateIpInList(result.data.ip);
+      toast.success(enabled ? "IP形象已启用" : "IP形象已禁用");
     });
   }
 
-  function handleConfirmDisableLogo() {
+  function handleConfirmDisableIp() {
     if (!disableTarget) {
       return;
     }
@@ -370,54 +389,54 @@ export default function BrandLibraryClient({
     setDisableTarget(null);
   }
 
-  function handleDeleteLogo() {
+  function handleDeleteIp() {
     if (!deleteTarget) {
       return;
     }
 
-    markLogoPending(deleteTarget.id, true);
+    markIpPending(deleteTarget.id, true);
 
     startTransition(async () => {
-      const result = await deleteAssetLogoAction(deleteTarget.id);
-      markLogoPending(deleteTarget.id, false);
+      const result = await deleteAssetIpAction(deleteTarget.id);
+      markIpPending(deleteTarget.id, false);
 
       if (!result.success) {
         toast.error(result.message);
         return;
       }
 
-      setLogos((current) => current.filter((logo) => logo.id !== deleteTarget.id));
+      setIps((current) => current.filter((ip) => ip.id !== deleteTarget.id));
       setSelectedIds((current) => current.filter((id) => id !== deleteTarget.id));
       setDeleteTarget(null);
-      toast.success("品牌标识已删除");
+      toast.success("IP形象已删除");
     });
   }
 
-  function handleRetryProcessing(logo: BrandLogoItem) {
-    markLogoPending(logo.id, true);
+  function handleRetryProcessing(ip: IpItem) {
+    markIpPending(ip.id, true);
 
     startTransition(async () => {
-      const result = await retryAssetLogoProcessingAction(logo.id);
-      markLogoPending(logo.id, false);
+      const result = await retryAssetIpProcessingAction(ip.id);
+      markIpPending(ip.id, false);
 
       if (!result.success) {
         toast.error(result.message);
         return;
       }
 
-      updateLogoInList(result.data.logo);
-      toast.success(t("retryStarted"));
+      updateIpInList(result.data.ip);
+      toast.success("已重新发起处理");
     });
   }
 
   function handleTypeRenamed(typeId: string, name: string) {
-    setLogos((current) =>
-      current.map((logo) => (logo.logoTypeId === typeId ? { ...logo, logoTypeName: name } : logo)),
+    setIps((current) =>
+      current.map((ip) => (ip.ipTypeId === typeId ? { ...ip, ipTypeName: name } : ip)),
     );
   }
 
   function handleTypeDeleted(typeId: string) {
-    setLogos((current) => current.map((logo) => (logo.logoTypeId === typeId ? logo : logo)));
+    setIps((current) => current.map((ip) => (ip.ipTypeId === typeId ? ip : ip)));
   }
 
   function handleSelectAllOnPage(checked: boolean) {
@@ -435,31 +454,31 @@ export default function BrandLibraryClient({
     }
 
     const targetIds = [...selectedIds];
-    targetIds.forEach((id) => markLogoPending(id, true));
+    targetIds.forEach((id) => markIpPending(id, true));
 
     startTransition(async () => {
       const results = await Promise.all(
         targetIds.map(async (id) => {
-          const result = await setAssetLogoEnabledAction(id, enabled);
-          markLogoPending(id, false);
+          const result = await setAssetIpEnabledAction(id, enabled);
+          markIpPending(id, false);
           return result;
         }),
       );
 
-      const updatedLogos = results.filter((item) => item.success).map((item) => item.data.logo);
-      if (updatedLogos.length > 0) {
-        const updatedById = new Map(updatedLogos.map((logo) => [logo.id, logo]));
-        setLogos((current) => current.map((logo) => updatedById.get(logo.id) ?? logo));
+      const updatedIps = results.filter((item) => item.success).map((item) => item.data.ip);
+      if (updatedIps.length > 0) {
+        const updatedById = new Map(updatedIps.map((ip) => [ip.id, ip]));
+        setIps((current) => current.map((ip) => updatedById.get(ip.id) ?? ip));
       }
 
-      const failedCount = results.length - updatedLogos.length;
+      const failedCount = results.length - updatedIps.length;
       if (failedCount === 0) {
-        toast.success(enabled ? "已批量启用所选品牌标识" : "已批量禁用所选品牌标识");
+        toast.success(enabled ? "已批量启用所选IP形象" : "已批量禁用所选IP形象");
         return;
       }
 
-      if (updatedLogos.length > 0) {
-        toast.warning(`操作部分成功：成功 ${updatedLogos.length} 项，失败 ${failedCount} 项`);
+      if (updatedIps.length > 0) {
+        toast.warning(`操作部分成功：成功 ${updatedIps.length} 项，失败 ${failedCount} 项`);
         return;
       }
 
@@ -494,13 +513,13 @@ export default function BrandLibraryClient({
     }
 
     const targetIds = [...selectedIds];
-    targetIds.forEach((id) => markLogoPending(id, true));
+    targetIds.forEach((id) => markIpPending(id, true));
 
     startTransition(async () => {
       const results = await Promise.all(
         targetIds.map(async (id) => {
-          const result = await deleteAssetLogoAction(id);
-          markLogoPending(id, false);
+          const result = await deleteAssetIpAction(id);
+          markIpPending(id, false);
           return { id, result };
         }),
       );
@@ -508,13 +527,13 @@ export default function BrandLibraryClient({
       const successIds = results.filter((item) => item.result.success).map((item) => item.id);
       if (successIds.length > 0) {
         const successIdSet = new Set(successIds);
-        setLogos((current) => current.filter((logo) => !successIdSet.has(logo.id)));
+        setIps((current) => current.filter((ip) => !successIdSet.has(ip.id)));
         setSelectedIds((current) => current.filter((id) => !successIdSet.has(id)));
       }
 
       const failedCount = results.length - successIds.length;
       if (failedCount === 0) {
-        toast.success("已批量删除所选品牌标识");
+        toast.success("已批量删除所选IP形象");
       } else if (successIds.length > 0) {
         toast.warning(`删除部分成功：成功 ${successIds.length} 项，失败 ${failedCount} 项`);
       } else {
@@ -537,17 +556,17 @@ export default function BrandLibraryClient({
 
   const emptyText =
     deferredSearch || typeFilter !== "all" || statusFilter !== "all" || enabledFilter !== "all"
-      ? "没有符合当前筛选条件的品牌标识"
-      : t("empty");
-  const isLibraryCompletelyEmpty = logos.length === 0;
+      ? copy.filteredEmpty
+      : copy.empty;
+  const isLibraryCompletelyEmpty = ips.length === 0;
 
   return (
     <>
       <div className="flex min-h-[calc(100dvh-120px)] flex-1 flex-col pb-5">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div>
-            <h2 className="text-xl font-semibold">{t("title")}</h2>
-            <p className="mt-1 text-sm leading-5 text-basic-5">{t("description")}</p>
+            <h2 className="text-xl font-semibold">{copy.title}</h2>
+            <p className="mt-1 text-sm leading-5 text-basic-5">{copy.description}</p>
           </div>
 
           <div className="flex w-full flex-col gap-3 sm:flex-row xl:w-auto">
@@ -561,7 +580,7 @@ export default function BrandLibraryClient({
               />
               <Input
                 className="h-8 w-[200px] rounded-[6px] border border-[#C5CEE0] bg-[#FFFFFF] px-[10px] py-1 pl-[32px] text-[14px] leading-[22px] font-normal text-[#8F9BB3]/80 placeholder:text-[14px] placeholder:leading-[22px] placeholder:font-normal placeholder:text-[#8F9BB3]/80"
-                placeholder={t("searchPlaceholder")}
+                placeholder={copy.searchPlaceholder}
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
               />
@@ -574,12 +593,12 @@ export default function BrandLibraryClient({
               disabled
             >
               <Image src="/Icon/export.svg" alt="" width={14} height={14} />
-              {t("importExport")}
+              批量导入/导出
             </Button>
 
             {debugPageEnabled ? (
               <Button type="button" variant="outline" className="h-8 rounded-[8px] px-4" asChild>
-                <Link href="/tagging/brand/classify">{t("devClassify")}</Link>
+                <Link href="/tagging/ip/classify">开发分类测试</Link>
               </Button>
             ) : null}
 
@@ -589,12 +608,12 @@ export default function BrandLibraryClient({
               onClick={handleOpenCreate}
             >
               <Image src="/Icon/white-plus.svg" alt="" width={14} height={14} />
-              {t("create")}
+              {copy.create}
             </Button>
           </div>
         </div>
 
-        <div className="mt-[20px] flex min-h-0 flex-1 flex-col gap-[10px] ">
+        <div className="mt-[20px] flex min-h-0 flex-1 flex-col gap-[10px]">
           {isLibraryCompletelyEmpty ? (
             <div className="flex min-h-[calc(100dvh-280px)] flex-1 items-center justify-center px-6 py-10">
               <div className="text-center">
@@ -622,10 +641,10 @@ export default function BrandLibraryClient({
                     {hasSelection ? (
                       <>
                         选中 <span className="text-[#3366FF]">{selectedIds.length}</span> /{" "}
-                        {filteredLogos.length} 项
+                        {filteredIps.length} 项
                       </>
                     ) : (
-                      <>全部 {filteredLogos.length} 项</>
+                      <>全部 {filteredIps.length} 项</>
                     )}
                   </span>
 
@@ -677,7 +696,7 @@ export default function BrandLibraryClient({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">全部类型</SelectItem>
-                      {logoTypes.map((type) => (
+                      {ipTypes.map((type) => (
                         <SelectItem key={type.id} value={String(type.id)}>
                           {type.name}
                         </SelectItem>
@@ -737,7 +756,7 @@ export default function BrandLibraryClient({
               </div>
 
               <div className="flex min-h-[calc(100dvh-280px)] flex-1 flex-col rounded-[8px] border bg-background">
-                {filteredLogos.length === 0 ? (
+                {filteredIps.length === 0 ? (
                   <div className="flex min-h-[420px] flex-1 items-center justify-center px-6 py-10">
                     <div className="text-center">
                       <Image
@@ -757,9 +776,9 @@ export default function BrandLibraryClient({
                         <thead>
                           <tr className="h-[45px] border-b text-left text-[14px] leading-[20px] text-[#8F9BB3]">
                             <th className="w-[52px] px-6 py-0"></th>
-                            <th className="w-[320px] px-4 py-0">标识名称</th>
-                            <th className="w-[180px] px-4 py-0">标识类型</th>
-                            <th className="w-[220px] px-4 py-0">标识图片</th>
+                            <th className="w-[320px] px-4 py-0">IP 形象名称</th>
+                            <th className="w-[180px] px-4 py-0">IP 类型</th>
+                            <th className="w-[220px] px-4 py-0">IP 图片</th>
                             <th className="w-[320px] px-4 py-0">关联标签</th>
                             <th className="w-[160px] px-4 py-0">处理状态</th>
                             <th className="w-[140px] px-4 py-0">启用状态</th>
@@ -768,85 +787,83 @@ export default function BrandLibraryClient({
                           </tr>
                         </thead>
                         <tbody>
-                          {currentPageLogos.map((logo) => {
-                            const statusMeta = getLogoStatusMeta(logo.status);
-                            const pending = pendingLogoIds.includes(logo.id) || isPending;
+                          {currentPageIps.map((ip) => {
+                            const statusMeta = getIpStatusMeta(ip.status);
+                            const pending = pendingIpIds.includes(ip.id) || isPending;
                             const StatusIcon = statusMeta.icon;
                             const failedReason =
-                              getProcessingErrorMessage(logo.processingError) ?? "未知错误";
+                              getProcessingErrorMessage(ip.processingError) ?? "未知错误";
+                            const subtitle = ip.description || ip.notes;
 
                             return (
-                              <tr key={logo.id} className="h-[58px] border-b last:border-b-0">
+                              <tr key={ip.id} className="h-[58px] border-b last:border-b-0">
                                 <td className="h-[58px] px-6 py-0 align-middle">
                                   <Checkbox
                                     className="border-[#C5CEE0] data-[state=checked]:border-[#3366FF] data-[state=checked]:bg-[#3366FF]"
-                                    checked={selectedIds.includes(logo.id)}
+                                    checked={selectedIds.includes(ip.id)}
                                     onCheckedChange={(checked) => {
                                       if (checked) {
                                         setSelectedIds((current) =>
-                                          current.includes(logo.id)
-                                            ? current
-                                            : [...current, logo.id],
+                                          current.includes(ip.id) ? current : [...current, ip.id],
                                         );
                                         return;
                                       }
 
                                       setSelectedIds((current) =>
-                                        current.filter((id) => id !== logo.id),
+                                        current.filter((id) => id !== ip.id),
                                       );
                                     }}
                                   />
                                 </td>
-                                <td className="h-[58px] px-4 py-0 align-middle">
-                                  <div className="flex items-center gap-3">
-                                    <div className="h-[30px] w-[30px] overflow-hidden rounded-[4px] bg-basic-2">
-                                      {logo.images[0] ? (
-                                        <BrandImageHoverCard
-                                          image={logo.images[0]}
-                                          alt={`${logo.name} 标识图`}
+                                <td className="h-[58px] px-4 pt-3 pb-2 align-top">
+                                  <div className="flex items-start gap-3">
+                                    <div className="h-[30px] w-[30px] self-center overflow-hidden rounded-[4px] bg-basic-2">
+                                      {ip.images[0] ? (
+                                        <IpImageHoverCard
+                                          image={ip.images[0]}
+                                          alt={`${ip.name} IP 图`}
                                         >
                                           <button
                                             type="button"
                                             className="h-full w-full overflow-hidden"
-                                            aria-label={`预览 ${logo.name} 标识图`}
+                                            aria-label={`预览 ${ip.name} IP 图`}
                                           >
-                                            <SignedBrandImage
-                                              imageId={logo.images[0].id}
-                                              signedUrl={logo.images[0].signedUrl}
-                                              signedUrlExpiresAt={logo.images[0].signedUrlExpiresAt}
-                                              alt={`${logo.name} 标识图`}
+                                            <SignedIpImage
+                                              imageId={ip.images[0].id}
+                                              signedUrl={ip.images[0].signedUrl}
+                                              signedUrlExpiresAt={ip.images[0].signedUrlExpiresAt}
+                                              alt={`${ip.name} IP 图`}
                                               className="h-full w-full object-cover"
                                             />
                                           </button>
-                                        </BrandImageHoverCard>
+                                        </IpImageHoverCard>
                                       ) : null}
                                     </div>
                                     <div className="min-w-0 flex-1">
                                       <div className="truncate text-[14px] leading-[20px] font-medium text-basic-8">
-                                        {logo.name}
+                                        {ip.name}
                                       </div>
-                                      {logo.notes ? (
-                                        <p className="mt-1 line-clamp-2 text-sm text-basic-5">
-                                          {logo.notes}
+                                      {subtitle ? (
+                                        // show first 3 lines of subtitle
+                                        <p className="mt-1.5 line-clamp-3 text-sm leading-[20px] text-basic-5">
+                                          {subtitle}
                                         </p>
                                       ) : null}
                                     </div>
                                   </div>
                                 </td>
                                 <td className="h-[58px] px-4 py-0 align-middle text-[14px] text-basic-8">
-                                  {logo.logoTypeName}
+                                  {ip.ipTypeName}
                                 </td>
                                 <td className="h-[58px] px-4 py-0 align-middle">
-                                  <LogoImagesCell logo={logo} />
+                                  <IpImagesCell ip={ip} />
                                 </td>
                                 <td
-                                  className={`h-[58px] px-4 align-middle ${
-                                    logo.tags.length > 1 ? "py-2" : "py-0"
-                                  }`}
+                                  className={`h-[58px] px-4 align-middle ${ip.tags.length > 1 ? "py-2" : "py-0"}`}
                                 >
                                   <div className="flex flex-wrap gap-2">
-                                    {logo.tags.length > 0 ? (
-                                      logo.tags.map((tag) => (
+                                    {ip.tags.length > 0 ? (
+                                      ip.tags.map((tag) => (
                                         <span
                                           key={tag.id}
                                           className="inline-flex items-center rounded-[4px] border border-[#C5CEE0] px-[6px] py-[3px] text-[12px] font-normal leading-[16px] text-[#101426]"
@@ -861,11 +878,9 @@ export default function BrandLibraryClient({
                                 </td>
                                 <td className="h-[58px] px-4 py-0 align-middle">
                                   <div
-                                    className={`flex items-center ${
-                                      logo.status === "failed" ? "gap-[8px]" : "gap-3"
-                                    }`}
+                                    className={`flex items-center ${ip.status === "failed" ? "gap-[8px]" : "gap-3"}`}
                                   >
-                                    {logo.status === "failed" ? (
+                                    {ip.status === "failed" ? (
                                       <Tooltip>
                                         <TooltipTrigger asChild>
                                           <span
@@ -893,32 +908,30 @@ export default function BrandLibraryClient({
                                         {statusMeta.label}
                                       </span>
                                     )}
-                                    {logo.status === "failed" ? (
+                                    {ip.status === "failed" ? (
                                       <button
                                         type="button"
                                         className="whitespace-nowrap text-[12px] leading-[16px] font-normal text-[#3366FF] transition-colors hover:text-[#1d55d1] disabled:cursor-not-allowed disabled:text-basic-5"
-                                        onClick={() => handleRetryProcessing(logo)}
+                                        onClick={() => handleRetryProcessing(ip)}
                                         disabled={pending}
                                       >
-                                        {t("retry")}
+                                        {copy.retry}
                                       </button>
                                     ) : null}
                                   </div>
                                 </td>
                                 <td className="h-[58px] px-4 py-0 align-middle">
                                   <Switch
-                                    checked={logo.enabled}
+                                    checked={ip.enabled}
                                     onCheckedChange={(checked) =>
-                                      checked
-                                        ? handleToggleEnabled(logo, true)
-                                        : setDisableTarget(logo)
+                                      checked ? handleToggleEnabled(ip, true) : setDisableTarget(ip)
                                     }
                                     disabled={pending}
                                     className="h-4 w-7 data-[state=checked]:bg-[#3366FF] [&_[data-slot=switch-thumb]]:size-3 [&_[data-slot=switch-thumb]]:data-[state=checked]:translate-x-[calc(100%+2px)] [&_[data-slot=switch-thumb]]:data-[state=unchecked]:translate-x-[2px]"
                                   />
                                 </td>
                                 <td className="h-[58px] px-4 py-0 align-middle whitespace-nowrap text-[14px] text-basic-8">
-                                  {formatDate(logo.createdAt)}
+                                  {formatDate(ip.createdAt, locale)}
                                 </td>
                                 <td className="h-[58px] px-4 py-0 align-middle text-right">
                                   <DropdownMenu>
@@ -932,7 +945,7 @@ export default function BrandLibraryClient({
                                       className="w-[120px] rounded-[6px] border border-[#E4E9F2] p-1"
                                     >
                                       <DropdownMenuItem
-                                        onClick={() => handleOpenEdit(logo)}
+                                        onClick={() => handleOpenEdit(ip)}
                                         className="gap-2 px-[10px] py-[5px] text-[14px] font-normal leading-[22px] text-[#192038]"
                                       >
                                         <Image
@@ -946,7 +959,7 @@ export default function BrandLibraryClient({
                                       </DropdownMenuItem>
                                       <div className="my-1 h-px bg-[#E4E9F2]" />
                                       <DropdownMenuItem
-                                        onClick={() => setDeleteTarget(logo)}
+                                        onClick={() => setDeleteTarget(ip)}
                                         className="gap-2 px-[10px] py-[5px] text-[14px] font-normal leading-[22px] text-[#FF3D71] focus:text-[#FF3D71]"
                                       >
                                         <Image
@@ -1030,23 +1043,23 @@ export default function BrandLibraryClient({
         </div>
       </div>
 
-      <BrandLogoDialog
+      <IpDialog
         open={dialogOpen}
         mode={dialogMode}
-        logo={activeLogo}
-        logoTypes={logoTypes}
-        usedLogoTypeIds={usedLogoTypeIds}
+        ip={activeIp}
+        ipTypes={ipTypes}
+        usedIpTypeIds={usedIpTypeIds}
         tags={initialData.tags}
         onOpenChange={(nextOpen) => {
           setDialogOpen(nextOpen);
           if (!nextOpen) {
-            setActiveLogo(null);
+            setActiveIp(null);
           }
         }}
         onSaved={handleDialogSaved}
-        onLogoTypesChange={setLogoTypes}
-        onLogoTypeRenamed={handleTypeRenamed}
-        onLogoTypeDeleted={handleTypeDeleted}
+        onIpTypesChange={setIpTypes}
+        onIpTypeRenamed={handleTypeRenamed}
+        onIpTypeDeleted={handleTypeDeleted}
       />
 
       <AlertDialog
@@ -1064,7 +1077,7 @@ export default function BrandLibraryClient({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction variant="dialogDanger" onClick={handleDeleteLogo}>
+            <AlertDialogAction variant="dialogDanger" onClick={handleDeleteIp}>
               确认删除
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -1086,7 +1099,7 @@ export default function BrandLibraryClient({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction variant="dialogDanger" onClick={handleConfirmDisableLogo}>
+            <AlertDialogAction variant="dialogDanger" onClick={handleConfirmDisableIp}>
               确认禁用
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -1096,7 +1109,7 @@ export default function BrandLibraryClient({
       <AlertDialog open={batchDeleteOpen} onOpenChange={setBatchDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>批量删除品牌标识</AlertDialogTitle>
+            <AlertDialogTitle>批量删除IP形象</AlertDialogTitle>
             <AlertDialogDescription>
               确定要删除选中的 {selectedIds.length}{" "}
               个条目吗？删除后将无法恢复，已打上的关联标签不会自动移除。
