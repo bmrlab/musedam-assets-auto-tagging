@@ -10,6 +10,7 @@ import {
 } from "@/lib/brand/browser-image";
 import { cn } from "@/lib/utils";
 import { ArrowLeft, Loader2, Search, Trophy, Upload } from "lucide-react";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -35,18 +36,18 @@ function formatPercent(value: number) {
   return `${(value * 100).toFixed(1)}%`;
 }
 
-function getUploadErrorMessage(error: unknown) {
+function getUploadErrorMessage(error: unknown, t: ReturnType<typeof useTranslations>) {
   switch (getClientImagePreparationErrorCode(error)) {
     case CLIENT_IMAGE_PREPARATION_ERROR_CODES.fileTooLarge:
-      return "单张图片不能超过 50MB";
+      return t("errors.fileTooLarge");
     case CLIENT_IMAGE_PREPARATION_ERROR_CODES.imageLoadFailed:
-      return "图片读取失败，请重试";
+      return t("errors.imageLoadFailed");
     case CLIENT_IMAGE_PREPARATION_ERROR_CODES.compressionTargetUnreachable:
-      return "图片压缩后仍超过 5MB，请换一张更小的图片";
+      return t("errors.compressionTargetUnreachable");
     case CLIENT_IMAGE_PREPARATION_ERROR_CODES.compressionFailed:
-      return "图片压缩失败，请重试";
+      return t("errors.compressionFailed");
     default:
-      return error instanceof Error ? error.message : "图片处理失败";
+      return error instanceof Error ? error.message : t("errors.processingFailed");
   }
 }
 
@@ -94,7 +95,7 @@ function loadImage(src: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
     const image = new window.Image();
     image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error("图片加载失败"));
+    image.onerror = () => reject(new Error("Failed to load image"));
     image.src = src;
   });
 }
@@ -135,6 +136,7 @@ async function cropImageToDataUrl({
 }
 
 export default function BrandClassifyClient({ initialData }: { initialData: BrandLibraryPageData }) {
+  const t = useTranslations("Tagging.BrandClassify");
   const referenceLogos = useMemo(
     () => initialData.logos.filter((logo) => logo.enabled && logo.status === "completed"),
     [initialData.logos],
@@ -188,18 +190,18 @@ export default function BrandClassifyClient({ initialData }: { initialData: Bran
         URL.revokeObjectURL(objectUrl);
       }
     } catch (error) {
-      toast.error(getUploadErrorMessage(error));
+      toast.error(getUploadErrorMessage(error, t));
     }
   }
 
   async function handleClassify() {
     if (!file || !previewUrl || !imageMeta) {
-      toast.error("请先上传商品图片");
+      toast.error(t("uploadImageFirst"));
       return;
     }
 
     if (referenceLogos.length === 0) {
-      toast.error("当前没有可用的已完成品牌参考向量");
+      toast.error(t("noReferenceLogos"));
       return;
     }
 
@@ -241,11 +243,11 @@ export default function BrandClassifyClient({ initialData }: { initialData: Bran
 
       setResult(classifyResult.data.result);
       toast.success(
-        classifyResult.data.result.noConfidentMatch ? "分类完成，未命中可靠结果" : "分类完成",
+        classifyResult.data.result.noConfidentMatch ? t("classifyCompleteNoMatch") : t("classifyComplete"),
       );
     } catch (error) {
       console.error("Failed to classify brand image:", error);
-      toast.error(error instanceof Error ? error.message : "Logo 分类失败");
+      toast.error(error instanceof Error ? error.message : t("classifyFailed"));
     } finally {
       setIsRunning(false);
     }
@@ -258,21 +260,21 @@ export default function BrandClassifyClient({ initialData }: { initialData: Bran
           <div className="flex items-center gap-2 text-sm text-basic-5">
             <Link href="/tagging/brand" className="inline-flex items-center gap-1 hover:text-basic-8">
               <ArrowLeft className="size-4" />
-              返回品牌库
+              {t("backToLibrary")}
             </Link>
           </div>
           <h2 className="mt-3 text-[28px] leading-[40px] font-semibold text-basic-8">
-            品牌 Logo 分类开发页
+            {t("pageTitle")}
           </h2>
           <p className="mt-1 text-sm leading-6 text-basic-5">
-            上传商品图后，系统会先调用检测服务找可能的 Logo 区域，再用 Jina + Qdrant 做相似度检索。
+            {t("pageDescription")}
           </p>
         </div>
 
         <div className="rounded-[18px] border bg-background px-5 py-4 text-right">
-          <div className="text-sm text-basic-5">可用参考 Logo</div>
+          <div className="text-sm text-basic-5">{t("availableLogos")}</div>
           <div className="mt-1 text-3xl font-semibold text-basic-8">{referenceLogos.length}</div>
-          <div className="mt-1 text-xs text-basic-5">仅统计已启用且已完成向量处理的数据</div>
+          <div className="mt-1 text-xs text-basic-5">{t("statsDescription")}</div>
         </div>
       </div>
 
@@ -284,12 +286,12 @@ export default function BrandClassifyClient({ initialData }: { initialData: Bran
               {isRunning ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />
-                  分类中
+                  {t("classifying")}
                 </>
               ) : (
                 <>
                   <Search className="size-4" />
-                  Classify Logo
+                  {t("classifyButton")}
                 </>
               )}
             </Button>
@@ -302,7 +304,7 @@ export default function BrandClassifyClient({ initialData }: { initialData: Bran
                   <div className="overflow-hidden rounded-[16px] bg-[#eef3fb]">
                     <img
                       src={previewUrl}
-                      alt="待分类商品图"
+                      alt={t("uploadProductImage")}
                       className="block h-auto max-h-[720px] max-w-full"
                     />
                   </div>
@@ -350,7 +352,7 @@ export default function BrandClassifyClient({ initialData }: { initialData: Bran
             ) : (
               <div className="flex min-h-[420px] flex-col items-center justify-center gap-3 text-center text-basic-5">
                 <Upload className="size-10" />
-                <p>上传一张商品图后，这里会显示检测框与最终命中的 Logo。</p>
+                <p>{t("uploadHint")}</p>
               </div>
             )}
           </div>
@@ -360,18 +362,18 @@ export default function BrandClassifyClient({ initialData }: { initialData: Bran
           <div className="rounded-[24px] border bg-background p-6">
             <div className="flex items-center gap-2 text-lg font-semibold text-basic-8">
               <Trophy className="size-5 text-[#ff8f1f]" />
-              最终结果
+              {t("finalResult")}
             </div>
 
             {!result ? (
               <p className="mt-4 text-sm leading-6 text-basic-5">
-                结果区域会展示 winning detection box、最终品牌名，以及 top 3 相似 Logo。
+                {t("resultHint")}
               </p>
             ) : result.noConfidentMatch ? (
               <div className="mt-4 rounded-[18px] border border-[#ffd8a8] bg-[#fff9f2] p-4">
-                <p className="text-base font-medium text-basic-8">未命中可靠品牌</p>
+                <p className="text-base font-medium text-basic-8">{t("noConfidentMatch")}</p>
                 <p className="mt-2 text-sm leading-6 text-basic-5">
-                  当前最佳候选不足够稳定，因此被判定为 no confident match。
+                  {t("noConfidentMatchDesc")}
                 </p>
                 {result.bestMatch ? (
                   <div className="mt-4 rounded-[14px] bg-white/80 px-4 py-3 text-sm">
@@ -385,21 +387,21 @@ export default function BrandClassifyClient({ initialData }: { initialData: Bran
               </div>
             ) : result.bestMatch ? (
               <div className="mt-4 rounded-[18px] border border-[#b8f0ca] bg-[#f4fff7] p-4">
-                <p className="text-sm text-basic-5">Winning logo</p>
+                <p className="text-sm text-basic-5">{t("winningLogo")}</p>
                 <p className="mt-2 text-2xl font-semibold text-basic-8">{result.bestMatch.logoName}</p>
                 <p className="mt-2 text-sm leading-6 text-basic-5">
-                  类型 {result.bestMatch.logoTypeName} · similarity{" "}
-                  {formatPercent(result.bestMatch.similarity)} · confidence {result.bestMatch.confidence}
+                  {t("bestMatchType")} {result.bestMatch.logoTypeName} · {t("similarity")}{" "}
+                  {formatPercent(result.bestMatch.similarity)} · {t("confidence")} {result.bestMatch.confidence}
                 </p>
                 <p className="mt-1 text-sm text-basic-5">
-                  winning detection box: #{result.bestMatch.detectionIndex + 1}
+                  {t("winningBox")}: #{result.bestMatch.detectionIndex + 1}
                 </p>
               </div>
             ) : null}
           </div>
 
           <div className="rounded-[24px] border bg-background p-6">
-            <h3 className="text-lg font-semibold text-basic-8">Top 3 Matches</h3>
+            <h3 className="text-lg font-semibold text-basic-8">{t("topMatches")}</h3>
             <div className="mt-4 space-y-3">
               {result?.topMatches.length ? (
                 result.topMatches.map((match, index) => (
@@ -415,21 +417,21 @@ export default function BrandClassifyClient({ initialData }: { initialData: Bran
                       <div className="text-sm text-basic-5">#{index + 1}</div>
                     </div>
                     <div className="mt-2 text-sm leading-6 text-basic-5">
-                      similarity {formatPercent(match.similarity)} · confidence {match.confidence}
+                      {t("similarity")} {formatPercent(match.similarity)} · {t("confidence")} {match.confidence}
                     </div>
                     <div className="text-sm leading-6 text-basic-5">
-                      type {match.logoTypeName} · box {match.detectionIndex + 1}
+                      {t("bestMatchType")} {match.logoTypeName} · box {match.detectionIndex + 1}
                     </div>
                   </div>
                 ))
               ) : (
-                <p className="text-sm leading-6 text-basic-5">暂无匹配结果。</p>
+                <p className="text-sm leading-6 text-basic-5">{t("noMatches")}</p>
               )}
             </div>
           </div>
 
           <div className="rounded-[24px] border bg-background p-6">
-            <h3 className="text-lg font-semibold text-basic-8">Detection Boxes</h3>
+            <h3 className="text-lg font-semibold text-basic-8">{t("detectionBoxes")}</h3>
             <div className="mt-4 space-y-3">
               {detections.length > 0 ? (
                 detections.map((box, index) => (
@@ -452,7 +454,7 @@ export default function BrandClassifyClient({ initialData }: { initialData: Bran
                   </div>
                 ))
               ) : (
-                <p className="text-sm leading-6 text-basic-5">还没有检测框数据。</p>
+                <p className="text-sm leading-6 text-basic-5">{t("noDetectionData")}</p>
               )}
             </div>
           </div>

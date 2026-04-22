@@ -67,36 +67,36 @@ function formatDate(date: Date | string) {
   }).format(new Date(date));
 }
 
-function getLogoStatusMeta(status: BrandLogoItem["status"]) {
+function getLogoStatusMeta(status: BrandLogoItem["status"], t: ReturnType<typeof useTranslations>) {
   switch (status) {
     case "completed":
       return {
-        label: "已完成",
+        label: t("statusCompleted"),
         icon: CheckCircle2,
         className: "border-[#8cfac7] bg-[#edfff3] text-[#00e096]",
       };
     case "processing":
       return {
-        label: "处理中",
+        label: t("statusProcessing"),
         icon: LoaderCircle,
         className: "border-[#c7e2ff] bg-[#f2f8ff] text-[#0095ff]",
       };
     case "failed":
       return {
-        label: "已失败",
+        label: t("statusFailed"),
         icon: XCircle,
         className: "border-[#ffa8b4] bg-[#fff2f2] text-[#ff3d71]",
       };
     default:
       return {
-        label: "待处理",
+        label: t("statusPending"),
         icon: Clock3,
         className: "border-[#d9e2f2] bg-[#f7f9fc] text-basic-5",
       };
   }
 }
 
-function LogoImagesCell({ logo }: { logo: BrandLogoItem }) {
+function LogoImagesCell({ logo, t }: { logo: BrandLogoItem; t: ReturnType<typeof useTranslations> }) {
   const previewImages = logo.images;
 
   if (previewImages.length === 0) {
@@ -110,26 +110,26 @@ function LogoImagesCell({ logo }: { logo: BrandLogoItem }) {
           <BrandImageHoverCard
             key={image.id}
             image={image}
-            alt={`${logo.name} 标识图 ${index + 1}`}
+            alt={t("imageAltIndex", { name: logo.name, index: index + 1 })}
           >
             <button
               type="button"
               className="relative -ml-2 first:ml-0 h-[22px] w-[22px] overflow-hidden rounded-[4px] border border-white bg-basic-2 shadow-sm"
               style={{ zIndex: previewImages.length - index }}
-              aria-label={`预览 ${logo.name} 标识图 ${index + 1}`}
+              aria-label={t("previewImage", { name: logo.name })}
             >
               <SignedBrandImage
                 imageId={image.id}
                 signedUrl={image.signedUrl}
                 signedUrlExpiresAt={image.signedUrlExpiresAt}
-                alt={`${logo.name} 标识图 ${index + 1}`}
+                alt={t("imageAltIndex", { name: logo.name, index: index + 1 })}
                 className="h-full w-full object-cover"
               />
             </button>
           </BrandImageHoverCard>
         ))}
       </div>
-      <span className="text-[14px] text-basic-5">{logo.images.length}张</span>
+      <span className="text-[14px] text-basic-5">{t("imageCount", { count: logo.images.length })}</span>
     </div>
   );
 }
@@ -357,7 +357,7 @@ export default function BrandLibraryClient({
       }
 
       updateLogoInList(result.data.logo);
-      toast.success(enabled ? "品牌标识已启用" : "品牌标识已禁用");
+      toast.success(enabled ? t("enabledSuccess") : t("disabledSuccess"));
     });
   }
 
@@ -389,7 +389,7 @@ export default function BrandLibraryClient({
       setLogos((current) => current.filter((logo) => logo.id !== deleteTarget.id));
       setSelectedIds((current) => current.filter((id) => id !== deleteTarget.id));
       setDeleteTarget(null);
-      toast.success("品牌标识已删除");
+      toast.success(t("deletedSuccess"));
     });
   }
 
@@ -454,16 +454,16 @@ export default function BrandLibraryClient({
 
       const failedCount = results.length - updatedLogos.length;
       if (failedCount === 0) {
-        toast.success(enabled ? "已批量启用所选品牌标识" : "已批量禁用所选品牌标识");
+        toast.success(enabled ? t("batchEnabledSuccess") : t("batchDisabledSuccess"));
         return;
       }
 
       if (updatedLogos.length > 0) {
-        toast.warning(`操作部分成功：成功 ${updatedLogos.length} 项，失败 ${failedCount} 项`);
+        toast.warning(t("batchPartialSuccess", { success: updatedLogos.length, failed: failedCount }));
         return;
       }
 
-      toast.error(enabled ? "批量启用失败，请稍后重试" : "批量禁用失败，请稍后重试");
+      toast.error(enabled ? t("batchEnableFailed") : t("batchDisableFailed"));
     });
   }
 
@@ -514,11 +514,11 @@ export default function BrandLibraryClient({
 
       const failedCount = results.length - successIds.length;
       if (failedCount === 0) {
-        toast.success("已批量删除所选品牌标识");
+        toast.success(t("batchDeletedSuccess"));
       } else if (successIds.length > 0) {
-        toast.warning(`删除部分成功：成功 ${successIds.length} 项，失败 ${failedCount} 项`);
+        toast.warning(t("batchPartialSuccess", { success: successIds.length, failed: failedCount }));
       } else {
-        toast.error("批量删除失败，请稍后重试");
+        toast.error(t("batchDeleteFailed"));
       }
 
       setBatchDeleteOpen(false);
@@ -537,7 +537,7 @@ export default function BrandLibraryClient({
 
   const emptyText =
     deferredSearch || typeFilter !== "all" || statusFilter !== "all" || enabledFilter !== "all"
-      ? "没有符合当前筛选条件的品牌标识"
+      ? t("emptyFiltered")
       : t("empty");
   const isLibraryCompletelyEmpty = logos.length === 0;
 
@@ -621,11 +621,11 @@ export default function BrandLibraryClient({
                   <span className="text-[14px] leading-[20px] font-normal text-[#2E3A59]">
                     {hasSelection ? (
                       <>
-                        选中 <span className="text-[#3366FF]">{selectedIds.length}</span> /{" "}
-                        {filteredLogos.length} 项
+                        {t("itemsSelected")} <span className="text-[#3366FF]">{selectedIds.length}</span> /{" "}
+                        {filteredLogos.length} {t("itemsCount")}
                       </>
                     ) : (
-                      <>全部 {filteredLogos.length} 项</>
+                      <>{t("itemsTotal")} {filteredLogos.length} {t("itemsCount")}</>
                     )}
                   </span>
 
@@ -639,7 +639,7 @@ export default function BrandLibraryClient({
                         disabled={isPending}
                       >
                         <Check className="h-[14px] w-[14px]" />
-                        启用
+                        {t("enable")}
                       </Button>
                       <Button
                         type="button"
@@ -650,7 +650,7 @@ export default function BrandLibraryClient({
                         disabled={isPending}
                       >
                         <X className="h-[14px] w-[14px]" />
-                        禁用
+                        {t("disable")}
                       </Button>
                       <Button
                         type="button"
@@ -661,7 +661,7 @@ export default function BrandLibraryClient({
                         disabled={isPending}
                       >
                         <Image src="/Icon/Delete.svg" alt="" width={14} height={14} />
-                        删除
+                        {t("delete")}
                       </Button>
                     </div>
                   ) : null}
@@ -673,10 +673,10 @@ export default function BrandLibraryClient({
                       size="sm"
                       className="h-8 justify-end gap-2 rounded-[6px] border border-[#C5CEE0] px-3 py-1 text-[14px] font-normal text-[#192038]"
                     >
-                      <SelectValue placeholder="全部类型" />
+                      <SelectValue placeholder={t("allTypes")} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">全部类型</SelectItem>
+                      <SelectItem value="all">{t("allTypes")}</SelectItem>
                       {logoTypes.map((type) => (
                         <SelectItem key={type.id} value={String(type.id)}>
                           {type.name}
@@ -690,13 +690,13 @@ export default function BrandLibraryClient({
                       size="sm"
                       className="h-8 justify-end gap-2 rounded-[6px] border border-[#C5CEE0] px-3 py-1 text-[14px] font-normal text-[#192038]"
                     >
-                      <SelectValue placeholder="全部处理状态" />
+                      <SelectValue placeholder={t("allStatuses")} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">全部处理状态</SelectItem>
-                      <SelectItem value="completed">已完成</SelectItem>
-                      <SelectItem value="processing">处理中</SelectItem>
-                      <SelectItem value="failed">已失败</SelectItem>
+                      <SelectItem value="all">{t("allStatuses")}</SelectItem>
+                      <SelectItem value="completed">{t("statusCompleted")}</SelectItem>
+                      <SelectItem value="processing">{t("statusProcessing")}</SelectItem>
+                      <SelectItem value="failed">{t("statusFailed")}</SelectItem>
                     </SelectContent>
                   </Select>
 
@@ -705,12 +705,12 @@ export default function BrandLibraryClient({
                       size="sm"
                       className="h-8 justify-end gap-2 rounded-[6px] border border-[#C5CEE0] px-3 py-1 text-[14px] font-normal text-[#192038]"
                     >
-                      <SelectValue placeholder="全部启用状态" />
+                      <SelectValue placeholder={t("allEnabledStatuses")} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">全部启用状态</SelectItem>
-                      <SelectItem value="enabled">已启用</SelectItem>
-                      <SelectItem value="disabled">已禁用</SelectItem>
+                      <SelectItem value="all">{t("allEnabledStatuses")}</SelectItem>
+                      <SelectItem value="enabled">{t("enabled")}</SelectItem>
+                      <SelectItem value="disabled">{t("disabled")}</SelectItem>
                     </SelectContent>
                   </Select>
 
@@ -724,13 +724,13 @@ export default function BrandLibraryClient({
                       size="sm"
                       className="h-8 justify-end gap-2 rounded-[6px] border border-[#C5CEE0] px-3 py-1 text-[14px] font-normal text-[#192038]"
                     >
-                      <SelectValue placeholder="最新创建" />
+                      <SelectValue placeholder={t("sortNewest")} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="newest">最新创建</SelectItem>
-                      <SelectItem value="oldest">最早创建</SelectItem>
-                      <SelectItem value="name-asc">名称 A-Z</SelectItem>
-                      <SelectItem value="name-desc">名称 Z-A</SelectItem>
+                      <SelectItem value="newest">{t("sortNewest")}</SelectItem>
+                      <SelectItem value="oldest">{t("sortOldest")}</SelectItem>
+                      <SelectItem value="name-asc">{t("sortNameAsc")}</SelectItem>
+                      <SelectItem value="name-desc">{t("sortNameDesc")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -757,23 +757,23 @@ export default function BrandLibraryClient({
                         <thead>
                           <tr className="h-[45px] border-b text-left text-[14px] leading-[20px] text-[#8F9BB3]">
                             <th className="w-[52px] px-6 py-0"></th>
-                            <th className="w-[320px] px-4 py-0">标识名称</th>
-                            <th className="w-[180px] px-4 py-0">标识类型</th>
-                            <th className="w-[220px] px-4 py-0">标识图片</th>
-                            <th className="w-[320px] px-4 py-0">关联标签</th>
-                            <th className="w-[160px] px-4 py-0">处理状态</th>
-                            <th className="w-[140px] px-4 py-0">启用状态</th>
-                            <th className="w-[190px] px-4 py-0">创建时间</th>
-                            <th className="w-[90px] px-4 py-0 text-right">操作</th>
+                            <th className="w-[320px] px-4 py-0">{t("columnLogoName")}</th>
+                            <th className="w-[180px] px-4 py-0">{t("columnLogoType")}</th>
+                            <th className="w-[220px] px-4 py-0">{t("columnLogoImages")}</th>
+                            <th className="w-[320px] px-4 py-0">{t("columnLinkedTags")}</th>
+                            <th className="w-[160px] px-4 py-0">{t("columnStatus")}</th>
+                            <th className="w-[140px] px-4 py-0">{t("columnEnabled")}</th>
+                            <th className="w-[190px] px-4 py-0">{t("columnCreatedAt")}</th>
+                            <th className="w-[90px] px-4 py-0 text-right">{t("columnActions")}</th>
                           </tr>
                         </thead>
                         <tbody>
                           {currentPageLogos.map((logo) => {
-                            const statusMeta = getLogoStatusMeta(logo.status);
+                            const statusMeta = getLogoStatusMeta(logo.status, t);
                             const pending = pendingLogoIds.includes(logo.id) || isPending;
                             const StatusIcon = statusMeta.icon;
                             const failedReason =
-                              getProcessingErrorMessage(logo.processingError) ?? "未知错误";
+                              getProcessingErrorMessage(logo.processingError) ?? t("unknownError");
 
                             return (
                               <tr key={logo.id} className="h-[58px] border-b last:border-b-0">
@@ -837,7 +837,7 @@ export default function BrandLibraryClient({
                                   {logo.logoTypeName}
                                 </td>
                                 <td className="h-[58px] px-4 py-0 align-middle">
-                                  <LogoImagesCell logo={logo} />
+                                  <LogoImagesCell logo={logo} t={t} />
                                 </td>
                                 <td
                                   className={`h-[58px] px-4 align-middle ${
@@ -853,10 +853,10 @@ export default function BrandLibraryClient({
                                         >
                                           {tag.tagPath.join(" > ")}
                                         </span>
-                                      ))
-                                    ) : (
-                                      <span className="text-sm text-basic-5">未关联标签</span>
-                                    )}
+                                    ))
+                                  ) : (
+                                    <span className="text-sm text-basic-5">{t("noLinkedTags")}</span>
+                                  )}
                                   </div>
                                 </td>
                                 <td className="h-[58px] px-4 py-0 align-middle">
@@ -876,7 +876,7 @@ export default function BrandLibraryClient({
                                           </span>
                                         </TooltipTrigger>
                                         <TooltipContent side="top" sideOffset={8}>
-                                          {`无法提取有效特征：${failedReason}`}
+                                          {t("processingErrorTooltip", { error: failedReason })}
                                         </TooltipContent>
                                       </Tooltip>
                                     ) : (
@@ -885,7 +885,7 @@ export default function BrandLibraryClient({
                                       >
                                         <StatusIcon
                                           className={
-                                            statusMeta.label === "处理中"
+                                            logo.status === "processing"
                                               ? "size-3.5 animate-spin"
                                               : "size-3.5"
                                           }
@@ -942,7 +942,7 @@ export default function BrandLibraryClient({
                                           height={14}
                                           aria-hidden="true"
                                         />
-                                        编辑
+                                        {t("edit")}
                                       </DropdownMenuItem>
                                       <div className="my-1 h-px bg-[#E4E9F2]" />
                                       <DropdownMenuItem
@@ -956,7 +956,7 @@ export default function BrandLibraryClient({
                                           height={14}
                                           aria-hidden="true"
                                         />
-                                        删除
+                                        {t("delete")}
                                       </DropdownMenuItem>
                                     </DropdownMenuContent>
                                   </DropdownMenu>
@@ -1015,9 +1015,9 @@ export default function BrandLibraryClient({
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="20">20条/页</SelectItem>
-                            <SelectItem value="40">40条/页</SelectItem>
-                            <SelectItem value="80">80条/页</SelectItem>
+                            <SelectItem value="20">{t("itemsPerPage20")}</SelectItem>
+                            <SelectItem value="40">{t("itemsPerPage40")}</SelectItem>
+                            <SelectItem value="80">{t("itemsPerPage80")}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -1055,17 +1055,17 @@ export default function BrandLibraryClient({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>操作提示</AlertDialogTitle>
+            <AlertDialogTitle>{t("confirmDialog.title")}</AlertDialogTitle>
             <AlertDialogDescription>
               {deleteTarget
-                ? `确定要删除“${deleteTarget.name}”吗？删除后将无法恢复，已打上的关联标签不会自动移除。`
+                ? t("confirmDialog.deleteDescription", { name: deleteTarget.name })
                 : ""}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogCancel>{t("confirmDialog.cancel")}</AlertDialogCancel>
             <AlertDialogAction variant="dialogDanger" onClick={handleDeleteLogo}>
-              确认删除
+              {t("confirmDialog.confirmDelete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1077,17 +1077,17 @@ export default function BrandLibraryClient({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>操作提示</AlertDialogTitle>
+            <AlertDialogTitle>{t("confirmDialog.title")}</AlertDialogTitle>
             <AlertDialogDescription>
               {disableTarget
-                ? `确定要禁用“${disableTarget.name}”吗？禁用后，新上传的素材将不会自动识别该条目并打上关联标签，已完成打标的素材不受影响。`
+                ? t("confirmDialog.disableDescription", { name: disableTarget.name })
                 : ""}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogCancel>{t("confirmDialog.cancel")}</AlertDialogCancel>
             <AlertDialogAction variant="dialogDanger" onClick={handleConfirmDisableLogo}>
-              确认禁用
+              {t("confirmDialog.confirmDisable")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1096,16 +1096,15 @@ export default function BrandLibraryClient({
       <AlertDialog open={batchDeleteOpen} onOpenChange={setBatchDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>批量删除品牌标识</AlertDialogTitle>
+            <AlertDialogTitle>{t("batchDialog.deleteTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              确定要删除选中的 {selectedIds.length}{" "}
-              个条目吗？删除后将无法恢复，已打上的关联标签不会自动移除。
+              {t("batchDialog.deleteDescription", { count: selectedIds.length })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogCancel>{t("batchDialog.cancel")}</AlertDialogCancel>
             <AlertDialogAction variant="dialogDanger" onClick={handleBatchDeleteSelected}>
-              删除
+              {t("delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1114,14 +1113,14 @@ export default function BrandLibraryClient({
       <AlertDialog open={batchEnableOpen} onOpenChange={setBatchEnableOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>操作提示</AlertDialogTitle>
+            <AlertDialogTitle>{t("batchDialog.enableTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              确定要启用选中的 {selectedIds.length} 个条目吗？启用后，将参与AI自动识别和打标
+              {t("batchDialog.enableDescription", { count: selectedIds.length })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={handleBatchEnableSelected}>确认启用</AlertDialogAction>
+            <AlertDialogCancel>{t("batchDialog.cancel")}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleBatchEnableSelected}>{t("batchDialog.confirmEnable")}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -1129,16 +1128,15 @@ export default function BrandLibraryClient({
       <AlertDialog open={batchDisableOpen} onOpenChange={setBatchDisableOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>操作提示</AlertDialogTitle>
+            <AlertDialogTitle>{t("batchDialog.disableTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              确定要禁用选中的 {selectedIds.length}{" "}
-              个条目吗？禁用后，新上传的素材将不会自动识别该条目并打上关联标签，已完成打标的素材不受影响。
+              {t("batchDialog.disableDescription", { count: selectedIds.length })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogCancel>{t("batchDialog.cancel")}</AlertDialogCancel>
             <AlertDialogAction variant="dialogDanger" onClick={handleBatchDisableSelected}>
-              确认禁用
+              {t("batchDialog.confirmDisable")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

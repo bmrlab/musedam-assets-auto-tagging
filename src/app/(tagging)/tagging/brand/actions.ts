@@ -35,11 +35,15 @@ import {
   BrandTagTreeNode,
 } from "./types";
 
+async function getBrandLibraryTranslations() {
+  return getTranslations("Tagging.BrandLibrary");
+}
+
 const createOrUpdateLogoSchema = z.object({
   id: z.string().uuid().optional(),
-  name: z.string().trim().min(1, "请输入标识名称").max(255, "标识名称不能超过 255 个字符"),
+  name: z.string().trim().min(1, "nameRequired").max(255, "nameTooLong"),
   logoTypeId: z.string().uuid(),
-  tagIds: z.array(z.number().int().positive()).min(1, "请至少选择 1 个关联标签").max(100),
+  tagIds: z.array(z.number().int().positive()).min(1, "tagsRequired").max(100),
   notes: z.string().max(5000).default(""),
   existingImageIds: z.array(z.string().uuid()).max(100).default([]),
   assetLibraryDownloadUrls: z.array(z.string().url()).max(100).default([]),
@@ -58,8 +62,8 @@ const createOrUpdateLogoSchema = z.object({
 const logoTypeNameSchema = z
   .string()
   .trim()
-  .min(1, "请输入类型名称")
-  .max(100, "类型名称不能超过 100 个字符");
+  .min(1, "typeNameRequired")
+  .max(100, "typeNameTooLong");
 
 type AssetTagWithParents = AssetTag & {
   parent: (AssetTag & { parent: AssetTag | null }) | null;
@@ -709,6 +713,7 @@ export async function createAssetLogoAction(
   formData: FormData,
 ): Promise<ServerActionResult<{ logo: BrandLogoItem }>> {
   return withAuth(async ({ team }) => {
+    const t = await getBrandLibraryTranslations();
     try {
       const input = parseCreateOrUpdateInput(formData);
       const files = extractSubmittedImages(formData);
@@ -721,7 +726,7 @@ export async function createAssetLogoAction(
       ) {
         return {
           success: false,
-          message: "请至少上传 1 张标识图片",
+          message: t("validation.imagesRequired"),
         };
       }
 
@@ -787,7 +792,7 @@ export async function createAssetLogoAction(
       console.error("Failed to create asset logo:", error);
       return {
         success: false,
-        message: error instanceof Error ? error.message : "创建品牌标识失败",
+        message: error instanceof Error ? error.message : t("createFailed"),
       };
     }
   });
@@ -797,12 +802,13 @@ export async function updateAssetLogoAction(
   formData: FormData,
 ): Promise<ServerActionResult<{ logo: BrandLogoItem }>> {
   return withAuth(async ({ team }) => {
+    const t = await getBrandLibraryTranslations();
     try {
       const input = parseCreateOrUpdateInput(formData);
       if (!input.id) {
         return {
           success: false,
-          message: "缺少品牌标识 ID",
+          message: t("validation.missingId"),
         };
       }
 
@@ -821,7 +827,7 @@ export async function updateAssetLogoAction(
       if (!logo) {
         return {
           success: false,
-          message: "品牌标识不存在或已被删除",
+          message: t("processingErrors.logoNotFound"),
         };
       }
 
@@ -841,7 +847,7 @@ export async function updateAssetLogoAction(
       if (retainedImages.length !== uniqueExistingImageIds.length) {
         return {
           success: false,
-          message: "图片列表已过期，请刷新后重试",
+          message: t("validation.imagesExpired"),
         };
       }
 
@@ -854,7 +860,7 @@ export async function updateAssetLogoAction(
       ) {
         return {
           success: false,
-          message: "请至少保留 1 张标识图片",
+          message: t("validation.keepAtLeastOneImage"),
         };
       }
 
@@ -969,7 +975,7 @@ export async function updateAssetLogoAction(
       console.error("Failed to update asset logo:", error);
       return {
         success: false,
-        message: error instanceof Error ? error.message : "更新品牌标识失败",
+        message: error instanceof Error ? error.message : t("updateFailed"),
       };
     }
   });
@@ -980,6 +986,7 @@ export async function setAssetLogoEnabledAction(
   enabled: boolean,
 ): Promise<ServerActionResult<{ logo: BrandLogoItem }>> {
   return withAuth(async ({ team: { id: teamId } }) => {
+    const t = await getBrandLibraryTranslations();
     try {
       const logo = await prisma.assetLogo.findFirst({
         where: {
@@ -991,7 +998,7 @@ export async function setAssetLogoEnabledAction(
       if (!logo) {
         return {
           success: false,
-          message: "品牌标识不存在或已被删除",
+          message: t("processingErrors.logoNotFound"),
         };
       }
 
@@ -1026,7 +1033,7 @@ export async function setAssetLogoEnabledAction(
       console.error("Failed to toggle asset logo enabled:", error);
       return {
         success: false,
-        message: "更新启用状态失败",
+        message: t("toggleEnabledFailed"),
       };
     }
   });
@@ -1036,6 +1043,7 @@ export async function deleteAssetLogoAction(
   logoId: string,
 ): Promise<ServerActionResult<{ logoId: string }>> {
   return withAuth(async ({ team: { id: teamId } }) => {
+    const t = await getBrandLibraryTranslations();
     try {
       const logo = await prisma.assetLogo.findFirst({
         where: {
@@ -1047,7 +1055,7 @@ export async function deleteAssetLogoAction(
       if (!logo) {
         return {
           success: false,
-          message: "品牌标识不存在或已被删除",
+          message: t("processingErrors.logoNotFound"),
         };
       }
 
@@ -1072,7 +1080,7 @@ export async function deleteAssetLogoAction(
       console.error("Failed to delete asset logo:", error);
       return {
         success: false,
-        message: "删除品牌标识失败",
+        message: t("deleteFailed"),
       };
     }
   });
