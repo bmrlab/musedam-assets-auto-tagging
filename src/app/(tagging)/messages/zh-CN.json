@@ -100,8 +100,8 @@
 				"aiGeneratedDesc": "AI 分析文件内容进行智能识别",
 				"customKeywords": "自定义关键词",
 				"customKeywordsDesc": "从自定义关键词库中匹配",
-				"filePathMatching": "文件类路径匹配",
-				"filePathMatchingDesc": "基于素材所在的文件类路径进行标签匹配",
+				"filePathMatching": "文件夹路径匹配",
+				"filePathMatchingDesc": "基于素材所在的文件夹路径进行标签匹配",
 				"assetNameMatching": "素材名称匹配",
 				"assetNameMatchingDesc": "分析文件名称中的关键信息进行匹配"
 			},
@@ -272,7 +272,7 @@
 			"broadConfidence": "60-100% 置信度",
 			"recommended": "推荐",
 			"recommendedMatchingStrategy": "推荐匹配策略",
-			"pathMatching": "文件类路径匹配",
+			"pathMatching": "文件夹路径匹配",
 			"nameMatching": "素材名称匹配",
 			"contentMatching": "素材内容匹配",
 			"tagKeywordMatching": "标签关键词匹配"

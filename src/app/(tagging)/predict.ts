@@ -1,7 +1,12 @@
 import "server-only";
 
 import { llm } from "@/ai/provider";
-import { AssetObject, AssetObjectContentAnalysis, TaggingQueueItemExtra } from "@/prisma/client";
+import {
+  AssetObject,
+  AssetObjectContentAnalysis,
+  TaggingQueueItemExtra,
+  TagWithChildren,
+} from "@/prisma/client";
 import { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 import { generateObject, UserModelMessage } from "ai";
 import z from "zod";
@@ -68,6 +73,102 @@ const SCORING_WEIGHTS: Record<z.Infer<typeof tagPredictionSchema.shape.source>, 
   contentAnalysis: 0.85,
   tagKeywords: 0.95,
 };
+
+const MATERIALIZED_PATH_HARD_MATCH_CONFIDENCE = 0.9;
+const MATERIALIZED_PATH_MAX_ENHANCED_TAGS = 12;
+
+function normalizeForMatch(text: string): string {
+  return (text ?? "").toLowerCase().trim();
+}
+
+function extractTagNameVariants(name: string): string[] {
+  const normalized = normalizeForMatch(name);
+  const parts = normalized
+    .split(/[()（）【】\[\]{}<>《》,，、|\\/>\-\s]+/g)
+    .map((item) => item.trim())
+    .filter(Boolean);
+  return Array.from(new Set([normalized, ...parts]));
+}
+
+function isStrongPathKeyword(keyword: string): boolean {
+  if (!keyword) return false;
+  if (/\d/.test(keyword)) return keyword.length >= 2; // SKU0001 / v2 这类
+  if (/^[a-z0-9]+$/i.test(keyword)) return keyword.length >= 3; // amazon / en
+  // 中日韩字符等非纯英文，至少 2 字
+  return keyword.length >= 2;
+}
+
+function collectLeafTagCandidates(tagsTree: TagWithChildren[]): Array<{
+  leafTagId: number;
+  tagPath: string[];
+  keywords: string[];
+}> {
+  const candidates: Array<{ leafTagId: number; tagPath: string[]; keywords: string[] }> = [];
+  for (const lv1 of tagsTree) {
+    const lv2List = lv1.children ?? [];
+    for (const lv2 of lv2List) {
+      const lv3List = lv2.children ?? [];
+      for (const leaf of lv3List) {
+        const variants = extractTagNameVariants(leaf.name).filter(isStrongPathKeyword);
+        if (variants.length === 0) continue;
+        candidates.push({
+          leafTagId: leaf.id,
+          tagPath: [lv1.name, lv2.name, leaf.name],
+          keywords: variants,
+        });
+      }
+    }
+  }
+  return candidates;
+}
+
+function enhancePredictionsByMaterializedPathHardMatch(
+  predictions: SourceBasedTagPredictions,
+  tagsTree: TagWithChildren[],
+  materializedPath: string,
+): SourceBasedTagPredictions {
+  const normalizedPath = normalizeForMatch(materializedPath);
+  if (!normalizedPath) return predictions;
+
+  const candidates = collectLeafTagCandidates(tagsTree)
+    .map((candidate) => {
+      const matchedKeyword = candidate.keywords.find((keyword) => normalizedPath.includes(keyword));
+      return matchedKeyword
+        ? { ...candidate, matchedKeywordLength: matchedKeyword.length }
+        : undefined;
+    })
+    .filter((item): item is NonNullable<typeof item> => !!item)
+    .sort((a, b) => b.matchedKeywordLength - a.matchedKeywordLength)
+    .slice(0, MATERIALIZED_PATH_MAX_ENHANCED_TAGS);
+
+  if (candidates.length === 0) return predictions;
+
+  const enhanced = predictions.map((prediction) => ({
+    ...prediction,
+    tags: [...prediction.tags],
+  }));
+
+  let materializedPathPrediction = enhanced.find((item) => item.source === "materializedPath");
+  if (!materializedPathPrediction) {
+    materializedPathPrediction = { source: "materializedPath", tags: [] };
+    enhanced.push(materializedPathPrediction);
+  }
+
+  for (const candidate of candidates) {
+    const existed = materializedPathPrediction.tags.find((tag) => tag.leafTagId === candidate.leafTagId);
+    if (existed) {
+      existed.confidence = Math.max(existed.confidence, MATERIALIZED_PATH_HARD_MATCH_CONFIDENCE);
+      continue;
+    }
+    materializedPathPrediction.tags.push({
+      leafTagId: candidate.leafTagId,
+      tagPath: candidate.tagPath,
+      confidence: MATERIALIZED_PATH_HARD_MATCH_CONFIDENCE,
+    });
+  }
+
+  return enhanced;
+}
 
 /**
  * 多源标签分数计算 - 多个信息源识别同一标签时增强置信度而非简单平均
@@ -224,23 +325,31 @@ ${tagKeywordsText}`,
       }
 
       let predictions = result.object;
-      // 临时测试：只保留 contentAnalysis
+      // 根据 matchingSources 过滤结果
       if (options?.matchingSources) {
-        const enabledSources = ["contentAnalysis"]; // 只用一个 source
+        const enabledSources = Object.entries(options.matchingSources)
+          .filter(([, enabled]) => enabled)
+          .map(([source]) => source as keyof typeof options.matchingSources);
+        if (enabledSources.length === 0) {
+          throw taggingPredictError(
+            "NO_MATCHING_SOURCES_ENABLED",
+            "No matching sources enabled",
+          );
+        }
+
         predictions = predictions.filter((prediction) =>
-          enabledSources.includes(prediction.source),
+          enabledSources.includes(prediction.source as keyof typeof options.matchingSources),
         );
       }
-      // 根据 matchingSources 过滤结果
-      // if (options?.matchingSources) {
-      //   const enabledSources = Object.entries(options.matchingSources)
-      //     .filter(([, enabled]) => enabled)
-      //     .map(([source]) => source as keyof typeof options.matchingSources);
 
-      //   predictions = predictions.filter((prediction) =>
-      //     enabledSources.includes(prediction.source as keyof typeof options.matchingSources),
-      //   );
-      // }
+      // 文件夹路径中的强关键词做硬匹配兜底，避免模型漏掉明显路径信号
+      if (options?.matchingSources?.materializedPath) {
+        predictions = enhancePredictionsByMaterializedPathHardMatch(
+          predictions,
+          tagsTree,
+          asset.materializedPath,
+        );
+      }
 
       const tagsWithScore = calculateTagScore(predictions);
 
@@ -261,7 +370,8 @@ ${tagKeywordsText}`,
       };
     } catch (error) {
       // 标签树为空不重试
-      if (getErrorCode(error) === "NO_TAG_TREE") {
+      const code = getErrorCode(error);
+      if (code === "NO_TAG_TREE" || code === "NO_MATCHING_SOURCES_ENABLED") {
         throw error;
       }
       lastError = error;
@@ -270,8 +380,11 @@ ${tagKeywordsText}`,
 
   // NO_VALID_TAGS 属于常见的可预期失败（例如素材信息不足/无匹配标签），避免刷屏打印 stack
   const lastErrorCode = getErrorCode(lastError);
-  if (lastErrorCode !== "NO_VALID_TAGS") {
+  if (lastErrorCode !== "NO_VALID_TAGS" && lastErrorCode !== "NO_MATCHING_SOURCES_ENABLED") {
     console.error("AI标签预测失败:", lastError);
+  }
+  if (lastErrorCode === "NO_MATCHING_SOURCES_ENABLED") {
+    throw taggingPredictError("NO_MATCHING_SOURCES_ENABLED", "AI tagging failed: no source enabled");
   }
   throw taggingPredictError("NO_VALID_TAGS", "AI tagging failed: no valid tags");
 }
