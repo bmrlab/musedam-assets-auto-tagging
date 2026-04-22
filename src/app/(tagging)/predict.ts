@@ -1,5 +1,6 @@
 import "server-only";
 
+import { createHash } from "node:crypto";
 import { llm } from "@/ai/provider";
 import {
   AssetObject,
@@ -69,7 +70,7 @@ function repairToJsonArrayText(text: string): string {
 // 多源标签分数计算权重配置
 const SCORING_WEIGHTS: Record<z.Infer<typeof tagPredictionSchema.shape.source>, number> = {
   basicInfo: 0.7,
-  materializedPath: 0.75,
+  materializedPath: 0.6,
   contentAnalysis: 0.85,
   tagKeywords: 0.95,
 };
@@ -168,6 +169,33 @@ function enhancePredictionsByMaterializedPathHardMatch(
   }
 
   return enhanced;
+}
+
+function buildStableSeed(input: string): number {
+  const hash = createHash("sha256").update(input).digest("hex");
+  // 取前 8 位转 32bit 无符号整数，作为稳定 seed
+  return Number.parseInt(hash.slice(0, 8), 16) >>> 0;
+}
+
+function sortPredictionsDeterministically(
+  predictions: SourceBasedTagPredictions,
+): SourceBasedTagPredictions {
+  const sourceOrder: Record<z.infer<typeof tagPredictionSchema.shape.source>, number> = {
+    basicInfo: 0,
+    materializedPath: 1,
+    contentAnalysis: 2,
+    tagKeywords: 3,
+  };
+  return [...predictions]
+    .map((prediction) => ({
+      ...prediction,
+      tags: [...prediction.tags].sort((a, b) => {
+        if (b.confidence !== a.confidence) return b.confidence - a.confidence;
+        if (a.leafTagId !== b.leafTagId) return a.leafTagId - b.leafTagId;
+        return a.tagPath.join("/").localeCompare(b.tagPath.join("/"));
+      }),
+    }))
+    .sort((a, b) => sourceOrder[a.source] - sourceOrder[b.source]);
 }
 
 /**
@@ -288,6 +316,18 @@ ${tagKeywordsText}`,
 
   // 用于返回，记录在数据库里
   const inputPrompt = messages[1].content as string;
+  const stableSeed = buildStableSeed(
+    JSON.stringify({
+      teamId: asset.teamId,
+      name: asset.name,
+      description: asset.description ?? "",
+      materializedPath: asset.materializedPath,
+      contentAiDescription: (asset.content as AssetObjectContentAnalysis)?.aiDescription ?? "",
+      matchingSources: options?.matchingSources ?? null,
+      recognitionAccuracy: options?.recognitionAccuracy ?? null,
+      tagsTree,
+    }),
+  );
 
   const maxAttempts = 3; // 初次 + 重试2次
   let lastError: unknown;
@@ -312,8 +352,8 @@ ${tagKeywordsText}`,
         schema: z.array(tagPredictionSchema),
         system: tagPredictionSystemPrompt(),
         messages,
-        // temperature: 0.1,
-        // seed: 42,
+        temperature: 0,
+        seed: stableSeed,
         experimental_repairText: async (res: { text: string }) => {
           // 尝试从模型返回中提取可解析的 JSON 数组，避免因夹带解释/markdown 导致解析失败
           return repairToJsonArrayText(res.text);
@@ -350,6 +390,7 @@ ${tagKeywordsText}`,
           asset.materializedPath,
         );
       }
+      predictions = sortPredictionsDeterministically(predictions);
 
       const tagsWithScore = calculateTagScore(predictions);
 
