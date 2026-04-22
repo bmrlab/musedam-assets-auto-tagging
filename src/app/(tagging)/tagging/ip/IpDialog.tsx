@@ -27,18 +27,18 @@ import {
 } from "@/lib/brand/browser-image";
 import { MAX_TOTAL_NEW_REFERENCE_UPLOAD_BYTES } from "@/lib/brand/upload-constants";
 import { Loader2, Plus, X } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
+import BrandTagSelector from "../brand/BrandTagSelector";
 import {
-  createAssetLogoAction,
-  prepareAssetLibraryLogoImagesAction,
-  updateAssetLogoAction,
+  createAssetIpAction,
+  prepareAssetLibraryIpImagesAction,
+  updateAssetIpAction,
 } from "./actions";
-import BrandTagSelector from "./BrandTagSelector";
-import LogoTypeSelect from "./LogoTypeSelect";
-import SignedBrandImage from "./SignedBrandImage";
-import { BrandLogoItem, BrandLogoTypeItem, BrandTagTreeNode } from "./types";
+import IpTypeSelect from "./IpTypeSelect";
+import SignedIpImage from "./SignedIpImage";
+import { IpItem, IpTagTreeNode, IpTypeItem } from "./types";
 
 type DraftImage = {
   id: string;
@@ -56,19 +56,100 @@ type DraftImage = {
   shouldRevokePreviewUrl?: boolean;
 };
 
-type BrandLogoDialogProps = {
+type IpDialogProps = {
   open: boolean;
   mode: "create" | "edit";
-  logo: BrandLogoItem | null;
-  logoTypes: BrandLogoTypeItem[];
-  usedLogoTypeIds: string[];
-  tags: BrandTagTreeNode[];
+  ip: IpItem | null;
+  ipTypes: IpTypeItem[];
+  usedIpTypeIds: string[];
+  tags: IpTagTreeNode[];
   onOpenChange: (open: boolean) => void;
-  onSaved: (logo: BrandLogoItem) => void;
-  onLogoTypesChange: (types: BrandLogoTypeItem[]) => void;
-  onLogoTypeRenamed: (typeId: string, name: string) => void;
-  onLogoTypeDeleted: (typeId: string) => void;
+  onSaved: (ip: IpItem) => void;
+  onIpTypesChange: (types: IpTypeItem[]) => void;
+  onIpTypeRenamed: (typeId: string, name: string) => void;
+  onIpTypeDeleted: (typeId: string) => void;
 };
+
+function getCopy(locale: string) {
+  const isChinese = locale.toLowerCase().startsWith("zh");
+
+  if (isChinese) {
+    return {
+      createTitle: "新建IP形象特征",
+      editTitle: "编辑IP形象特征",
+      nameLabel: "IP名称",
+      namePlaceholder: "请输入IP名称",
+      typeLabel: "IP类型",
+      imageLabel: "IP图片",
+      imageTip:
+        "💡 图片要求：建议至少上传 3-5 张涵盖不同姿势、表情的基础造型图。如有特殊节日款或联名款造型，请统一上传至本条目内。",
+      descriptionLabel: "核心特征描述",
+      optional: "选填",
+      descriptionHint: "请用文字描述该 IP 独有且不易改变的视觉特征",
+      descriptionPlaceholder: "例如：一只红色的狐狸，戴着蓝色护目镜，脸颊有闪电标志。",
+      tagsLabel: "关联标签",
+      tagsHint: "识别命中后将自动打上这些标签",
+      notesLabel: "备注信息",
+      notesPlaceholder: "如IP来源、授权说明等",
+      localUpload: "本地上传",
+      assetLibraryUpload: "从素材库选取",
+      uploadImage: "上传图片",
+      previewImage: "查看图片",
+      removeImage: "删除图片",
+      cancel: "取消",
+      confirm: "确认",
+      save: "保存",
+      saving: "保存中",
+      noAssetsSelected: "未选择任何素材",
+      missingAssetUrl: "所选素材缺少可用下载地址",
+      selectAssetFailed: "从素材库选择图片失败，请重试",
+      enterName: "请输入IP名称",
+      selectType: "请选择IP类型",
+      invalidType: "当前类型已被删除，请重新选择一个有效类型",
+      uploadAtLeastOne: "请至少上传 1 张IP图片",
+      createProcessingSuccess: "IP形象已创建，正在生成参考向量",
+      updateProcessingSuccess: "IP形象已更新，正在重新生成参考向量",
+    };
+  }
+
+  return {
+    createTitle: "Create IP Character Feature",
+    editTitle: "Edit IP Character Feature",
+    nameLabel: "IP Name",
+    namePlaceholder: "Enter IP name",
+    typeLabel: "IP Type",
+    imageLabel: "IP Images",
+    imageTip:
+      "💡 Image requirement: upload 3-5 reference images covering different poses and expressions when possible. If there are seasonal or co-branded variants, keep them within the same entry.",
+    descriptionLabel: "Core Feature Description",
+    optional: "Optional",
+    descriptionHint: "Describe the distinctive visual traits of this IP that do not easily change.",
+    descriptionPlaceholder:
+      "Example: A red fox wearing blue goggles with a lightning mark on its cheek.",
+    tagsLabel: "Related Tags",
+    tagsHint: "These tags will be applied automatically when a match is found",
+    notesLabel: "Notes",
+    notesPlaceholder: "For example: origin, licensing notes, etc.",
+    localUpload: "Upload from device",
+    assetLibraryUpload: "Select from asset library",
+    uploadImage: "Upload images",
+    previewImage: "Preview image",
+    removeImage: "Remove image",
+    cancel: "Cancel",
+    confirm: "Confirm",
+    save: "Save",
+    saving: "Saving",
+    noAssetsSelected: "No assets selected",
+    missingAssetUrl: "The selected assets do not contain a usable download URL",
+    selectAssetFailed: "Failed to select images from the asset library. Please try again.",
+    enterName: "Please enter the IP name",
+    selectType: "Please select an IP type",
+    invalidType: "The selected type was removed. Please choose a valid one.",
+    uploadAtLeastOne: "Please upload at least one IP image",
+    createProcessingSuccess: "IP character created. Vector generation has started.",
+    updateProcessingSuccess: "IP character updated. Vector regeneration has started.",
+  };
+}
 
 function revokeDraftImageUrls(images: DraftImage[]) {
   for (const image of images) {
@@ -78,38 +159,41 @@ function revokeDraftImageUrls(images: DraftImage[]) {
   }
 }
 
-function buildDraftImages(logo: BrandLogoItem | null) {
-  if (!logo) {
+function buildDraftImages(ip: IpItem | null) {
+  if (!ip) {
     return [];
   }
 
-  return logo.images.map((image, index) => ({
+  return ip.images.map((image, index) => ({
     id: `existing-${image.id}`,
     existingImageId: image.id,
     previewUrl: image.signedUrl,
     signedUrl: image.signedUrl,
     signedUrlExpiresAt: image.signedUrlExpiresAt,
-    name: `${logo.name} 标识图 ${index + 1}`,
+    name: `${ip.name} IP 图 ${index + 1}`,
     shouldRevokePreviewUrl: false,
   }));
 }
 
-export default function BrandLogoDialog({
+export default function IpDialog({
   open,
   mode,
-  logo,
-  logoTypes,
-  usedLogoTypeIds,
+  ip,
+  ipTypes,
+  usedIpTypeIds,
   tags,
   onOpenChange,
   onSaved,
-  onLogoTypesChange,
-  onLogoTypeRenamed,
-  onLogoTypeDeleted,
-}: BrandLogoDialogProps) {
+  onIpTypesChange,
+  onIpTypeRenamed,
+  onIpTypeDeleted,
+}: IpDialogProps) {
+  const locale = useLocale();
+  const copy = getCopy(locale);
   const t = useTranslations("Tagging.BrandLibrary");
   const [name, setName] = useState("");
-  const [logoTypeId, setLogoTypeId] = useState<string | null>(null);
+  const [ipTypeId, setIpTypeId] = useState<string | null>(null);
+  const [description, setDescription] = useState("");
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
   const [notes, setNotes] = useState("");
   const [images, setImages] = useState<DraftImage[]>([]);
@@ -124,17 +208,18 @@ export default function BrandLogoDialog({
       return;
     }
 
-    setName(logo?.name ?? "");
-    setLogoTypeId(logo?.logoTypeId ?? null);
+    setName(ip?.name ?? "");
+    setIpTypeId(ip?.ipTypeId ?? null);
+    setDescription(ip?.description ?? "");
     setSelectedTagIds(
-      logo?.tags.map((tag) => tag.assetTagId).filter((id): id is number => Boolean(id)) ?? [],
+      ip?.tags.map((tag) => tag.assetTagId).filter((id): id is number => Boolean(id)) ?? [],
     );
-    setNotes(logo?.notes ?? "");
+    setNotes(ip?.notes ?? "");
     setImages((current) => {
       revokeDraftImageUrls(current);
-      return buildDraftImages(logo);
+      return buildDraftImages(ip);
     });
-  }, [open, logo]);
+  }, [open, ip]);
 
   useEffect(() => {
     imagesRef.current = images;
@@ -147,18 +232,18 @@ export default function BrandLogoDialog({
   }, []);
 
   const fallbackType =
-    logo?.logoTypeId && !logoTypes.some((type) => type.id === logo.logoTypeId)
+    ip?.ipTypeId && !ipTypes.some((type) => type.id === ip.ipTypeId)
       ? {
-          id: logo.logoTypeId,
-          name: logo.logoTypeName,
+          id: ip.ipTypeId,
+          name: ip.ipTypeName,
         }
       : null;
   const trimmedName = name.trim();
-  const hasValidLogoType = Boolean(logoTypeId) && logoTypes.some((type) => type.id === logoTypeId);
+  const hasValidIpType = Boolean(ipTypeId) && ipTypes.some((type) => type.id === ipTypeId);
   const hasImages = images.length > 0;
   const hasSelectedTags = selectedTagIds.length > 0;
   const isSubmitDisabled =
-    isPending || !trimmedName || !hasValidLogoType || !hasImages || !hasSelectedTags;
+    isPending || !trimmedName || !hasValidIpType || !hasImages || !hasSelectedTags;
 
   function getUploadErrorMessage(error: unknown) {
     switch (getClientImagePreparationErrorCode(error)) {
@@ -216,7 +301,7 @@ export default function BrandLogoDialog({
 
       const assets = res.selectedAssets;
       if (!Array.isArray(assets) || assets.length === 0) {
-        toast.info("未选择任何素材");
+        toast.info(copy.noAssetsSelected);
         return;
       }
 
@@ -228,11 +313,11 @@ export default function BrandLogoDialog({
         .filter((asset) => Boolean(asset.downloadUrl));
 
       if (validAssets.length === 0) {
-        toast.error("所选素材缺少可用下载地址");
+        toast.error(copy.missingAssetUrl);
         return;
       }
 
-      const result = await prepareAssetLibraryLogoImagesAction(
+      const result = await prepareAssetLibraryIpImagesAction(
         validAssets as Array<{ name: string; downloadUrl: string }>,
       );
 
@@ -258,7 +343,7 @@ export default function BrandLogoDialog({
       setImages((current) => [...current, ...nextImages]);
     } catch (error) {
       console.error("Select assets from library failed", error);
-      toast.error("从素材库选择图片失败，请重试");
+      toast.error(copy.selectAssetFailed);
     } finally {
       setIsSelectingAssets(false);
     }
@@ -277,22 +362,22 @@ export default function BrandLogoDialog({
 
   function handleSubmit() {
     if (!trimmedName) {
-      toast.error("请输入标识名称");
+      toast.error(copy.enterName);
       return;
     }
 
-    if (!logoTypeId) {
-      toast.error("请选择标识类型");
+    if (!ipTypeId) {
+      toast.error(copy.selectType);
       return;
     }
 
-    if (!logoTypes.some((type) => type.id === logoTypeId)) {
-      toast.error("当前类型已被删除，请重新选择一个有效类型");
+    if (!ipTypes.some((type) => type.id === ipTypeId)) {
+      toast.error(copy.invalidType);
       return;
     }
 
     if (images.length === 0) {
-      toast.error("请至少上传 1 张标识图片");
+      toast.error(copy.uploadAtLeastOne);
       return;
     }
 
@@ -303,11 +388,12 @@ export default function BrandLogoDialog({
     }
 
     const formData = new FormData();
-    if (mode === "edit" && logo) {
-      formData.append("id", String(logo.id));
+    if (mode === "edit" && ip) {
+      formData.append("id", String(ip.id));
     }
     formData.append("name", trimmedName);
-    formData.append("logoTypeId", String(logoTypeId));
+    formData.append("ipTypeId", String(ipTypeId));
+    formData.append("description", description.trim());
     formData.append("tagIds", JSON.stringify(selectedTagIds));
     formData.append("notes", notes.trim());
     formData.append(
@@ -344,18 +430,18 @@ export default function BrandLogoDialog({
     startTransition(async () => {
       const result =
         mode === "create"
-          ? await createAssetLogoAction(formData)
-          : await updateAssetLogoAction(formData);
+          ? await createAssetIpAction(formData)
+          : await updateAssetIpAction(formData);
 
       if (!result.success) {
         toast.error(result.message);
         return;
       }
 
-      onSaved(result.data.logo);
+      onSaved(result.data.ip);
       onOpenChange(false);
       toast.success(
-        mode === "create" ? t("createProcessingSuccess") : t("updateProcessingSuccess"),
+        mode === "create" ? copy.createProcessingSuccess : copy.updateProcessingSuccess,
       );
     });
   }
@@ -365,7 +451,7 @@ export default function BrandLogoDialog({
       <DialogContent className="max-h-[90vh] w-[750px] max-w-[calc(100%-2rem)] gap-0 overflow-y-auto rounded-[20px] p-0">
         <DialogHeader className="h-14 justify-center gap-0 px-5 py-4">
           <DialogTitle className="text-[16px] leading-6 font-semibold text-[#151A30]">
-            {mode === "create" ? "新建品牌标识特征" : "编辑品牌标识特征"}
+            {mode === "create" ? copy.createTitle : copy.editTitle}
           </DialogTitle>
         </DialogHeader>
 
@@ -373,28 +459,28 @@ export default function BrandLogoDialog({
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-1">
               <label className="h-[22px] text-[14px] leading-[22px] font-normal text-[#222B45]">
-                标识名称
+                {copy.nameLabel}
               </label>
               <Input
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                placeholder="请输入标识名称"
+                placeholder={copy.namePlaceholder}
                 className="h-8 w-[349px] rounded-[6px] border border-[#C5CEE0] px-3 py-0 text-[14px] leading-[22px] font-normal placeholder:text-[14px] placeholder:leading-[22px] placeholder:font-normal placeholder:text-[#8F9BB3]"
               />
             </div>
 
             <div className="space-y-1">
               <label className="h-[22px] text-[14px] leading-[22px] font-normal text-[#222B45]">
-                标识类型
+                {copy.typeLabel}
               </label>
-              <LogoTypeSelect
-                value={logoTypeId}
-                onChange={setLogoTypeId}
-                types={logoTypes}
-                usedTypeIds={usedLogoTypeIds}
-                onTypesChange={onLogoTypesChange}
-                onTypeRenamed={onLogoTypeRenamed}
-                onTypeDeleted={onLogoTypeDeleted}
+              <IpTypeSelect
+                value={ipTypeId}
+                onChange={setIpTypeId}
+                types={ipTypes}
+                usedTypeIds={usedIpTypeIds}
+                onTypesChange={onIpTypesChange}
+                onTypeRenamed={onIpTypeRenamed}
+                onTypeDeleted={onIpTypeDeleted}
                 fallbackType={fallbackType}
                 disabled={isPending}
                 triggerClassName="h-8 w-[349px] rounded-[6px] border border-[#C5CEE0] px-3 py-0 text-[14px] leading-[22px] font-normal"
@@ -405,7 +491,7 @@ export default function BrandLogoDialog({
           <div className="space-y-2">
             <div className="space-y-1">
               <label className="h-[22px] text-[14px] leading-[22px] font-normal text-[#222B45]">
-                标识图片
+                {copy.imageLabel}
               </label>
             </div>
 
@@ -428,27 +514,29 @@ export default function BrandLogoDialog({
                   >
                     <span className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2">
                       <Plus className="h-[14px] w-[14px]" />
-                      <span className="text-[14px] leading-[22px] font-normal">上传图片</span>
+                      <span className="text-[14px] leading-[22px] font-normal">
+                        {copy.uploadImage}
+                      </span>
                     </span>
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
                   align="start"
-                  className="flex w-[140px] flex-col gap-[2px] rounded-[8px] border border-[#E4E9F2] p-1"
+                  className="flex w-[160px] flex-col gap-[2px] rounded-[8px] border border-[#E4E9F2] p-1"
                 >
                   <DropdownMenuItem
                     onClick={() => fileInputRef.current?.click()}
                     className="h-8 gap-2 rounded-[6px] px-[10px] py-[5px] text-[14px] leading-[22px] font-normal text-[#192038] hover:bg-[#F2F6FF] focus:bg-[#F2F6FF] data-[highlighted]:bg-[#F2F6FF]"
                   >
                     <img src="/Icon/export.svg" alt="" className="h-[14px] w-[14px]" />
-                    <span>本地上传</span>
+                    <span>{copy.localUpload}</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => void handleSelectImagesFromAssetLibrary()}
                     className="h-8 gap-2 rounded-[6px] px-[10px] py-[5px] text-[14px] leading-[22px] font-normal text-[#192038] hover:bg-[#F2F6FF] focus:bg-[#F2F6FF] data-[highlighted]:bg-[#F2F6FF]"
                   >
                     <img src="/Icon/Image.svg" alt="" className="h-[14px] w-[14px]" />
-                    <span>从素材库选取</span>
+                    <span>{copy.assetLibraryUpload}</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -459,7 +547,7 @@ export default function BrandLogoDialog({
                   className="group relative h-[104px] w-[104px] cursor-pointer overflow-hidden rounded-[6px] border border-[#C5CEE0] bg-[#F7F9FC]"
                 >
                   {image.existingImageId ? (
-                    <SignedBrandImage
+                    <SignedIpImage
                       imageId={image.existingImageId}
                       signedUrl={image.signedUrl!}
                       signedUrlExpiresAt={image.signedUrlExpiresAt!}
@@ -477,7 +565,7 @@ export default function BrandLogoDialog({
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        aria-label="查看图片"
+                        aria-label={copy.previewImage}
                         onClick={() => setPreviewImage(image)}
                         className="inline-flex h-4 w-4 items-center justify-center opacity-90 transition-opacity hover:opacity-100"
                       >
@@ -485,7 +573,7 @@ export default function BrandLogoDialog({
                       </button>
                       <button
                         type="button"
-                        aria-label="删除图片"
+                        aria-label={copy.removeImage}
                         onClick={() => removeImage(image.id)}
                         className="inline-flex h-4 w-4 items-center justify-center opacity-90 transition-opacity hover:opacity-100"
                       >
@@ -499,9 +587,7 @@ export default function BrandLogoDialog({
 
             <div className="mt-3 flex items-start gap-[10px] rounded-[8px] border border-[#598BFF] bg-[#F2F6FF] px-3 py-[14px] text-[12px] leading-[16px] font-normal text-[#192038]">
               <p className="text-[12px] leading-[16px] font-normal text-[#192038]">
-                💡 建议至少上传 2-3 张标识图。为提升 AI
-                识别精度，请在当前条目内尽可能多地涵盖标准版（彩色）、单色版（黑/白）、横版/竖版、以及反白版
-                Logo 等多版本的logo，背景透明或纯色为佳。
+                {copy.imageTip}
               </p>
             </div>
           </div>
@@ -509,11 +595,31 @@ export default function BrandLogoDialog({
           <div className="mt-4 space-y-2">
             <div className="space-y-1">
               <label className="h-[22px] text-[14px] leading-[22px] font-normal text-[#222B45]">
-                关联标签
+                {copy.descriptionLabel}
+                <span className="ml-2 text-[12px] leading-[16px] font-normal text-[#8F9BB3]">
+                  {copy.optional}
+                </span>
+              </label>
+              <p className="text-[12px] leading-[16px] font-normal text-[#8F9BB3]">
+                {copy.descriptionHint}
+              </p>
+            </div>
+            <Textarea
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              placeholder={copy.descriptionPlaceholder}
+              className="h-[92px] rounded-[6px] border border-[#C5CEE0] px-4 py-2"
+            />
+          </div>
+
+          <div className="mt-4 space-y-2">
+            <div className="space-y-1">
+              <label className="h-[22px] text-[14px] leading-[22px] font-normal text-[#222B45]">
+                {copy.tagsLabel}
               </label>
               <div className="flex items-center justify-between gap-3">
                 <p className="text-[12px] leading-[16px] font-normal text-[#8F9BB3]">
-                  识别命中后将自动打上这些标签
+                  {copy.tagsHint}
                 </p>
               <button
                 type="button"
@@ -541,15 +647,15 @@ export default function BrandLogoDialog({
 
           <div className="mt-4 space-y-2">
             <label className="h-[22px] text-[14px] leading-[22px] font-normal text-[#222B45]">
-              备注信息{" "}
+              {copy.notesLabel}
               <span className="ml-2 text-[12px] leading-[16px] font-normal text-[#8F9BB3]">
-                选填
+                {copy.optional}
               </span>
             </label>
             <Textarea
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
-              placeholder="如适用场景、特殊说明等"
+              placeholder={copy.notesPlaceholder}
               className="h-[60px] rounded-[6px] border border-[#C5CEE0] px-4 py-2"
             />
           </div>
@@ -563,7 +669,7 @@ export default function BrandLogoDialog({
             disabled={isPending}
             className="h-8 w-20 rounded-[6px] border border-[#C5CEE0] px-3 py-1"
           >
-            取消
+            {copy.cancel}
           </Button>
           <Button
             type="button"
@@ -574,12 +680,12 @@ export default function BrandLogoDialog({
             {isPending ? (
               <>
                 <Loader2 className="size-4 animate-spin" />
-                保存中
+                {copy.saving}
               </>
             ) : mode === "create" ? (
-              "确认"
+              copy.confirm
             ) : (
-              "保存"
+              copy.save
             )}
           </Button>
         </DialogFooter>
@@ -594,13 +700,13 @@ export default function BrandLogoDialog({
           className="w-auto max-h-[90vh] max-w-[90vw] overflow-visible border-none bg-transparent p-0 shadow-none"
         >
           <DialogTitle className="sr-only">
-            {previewImage ? `${previewImage.name} 预览` : "图片预览"}
+            {previewImage ? `${previewImage.name} preview` : "Image preview"}
           </DialogTitle>
           {previewImage ? (
             <div className="relative inline-flex">
               <DialogClose className="absolute top-3 right-3 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white transition-colors hover:bg-black/75">
                 <X className="size-4" />
-                <span className="sr-only">关闭预览</span>
+                <span className="sr-only">Close preview</span>
               </DialogClose>
               <img
                 src={previewImage.previewUrl}

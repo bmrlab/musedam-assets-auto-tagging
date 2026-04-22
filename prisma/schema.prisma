@@ -22,6 +22,8 @@ model Team {
   assetObjects      AssetObject[]
   assetLogoTypes    AssetLogoType[]
   assetLogos        AssetLogo[]
+  assetIpTypes      AssetIpType[]
+  assetIps          AssetIp[]
   taggingQueueItems TaggingQueueItem[]
   taggingAuditItems TaggingAuditItem[]
   configs           TeamConfig[]
@@ -102,6 +104,7 @@ model AssetTag {
   updatedAt         DateTime           @updatedAt @db.Timestamptz(6)
   taggingAuditItems TaggingAuditItem[]
   assetLogoTags     AssetLogoTag[]
+  assetIpTags       AssetIpTag[]
 
   // ⚠️ migration.sql 里人工添加了一条 unique 索引，在 parentId 为空的时候，需要确保 teamId,name 唯一
   //    CREATE UNIQUE INDEX "AssetTag_teamId_name_key" ON "public"."AssetTag"("teamId", "name") WHERE "parentId" IS NULL;
@@ -121,7 +124,7 @@ enum AssetLogoProcessStatus {
 model AssetLogoType {
   id     String @id @default(uuid()) @db.Uuid
   teamId Int
-  team   Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   name String @db.VarChar(100)
   sort Int    @default(0)
@@ -135,18 +138,18 @@ model AssetLogoType {
 model AssetLogo {
   id     String @id @default(uuid()) @db.Uuid
   teamId Int
-  team   Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
-  slug         String                 @unique @default(cuid()) @db.VarChar(64)
-  name         String                 @db.VarChar(255)
-  logoTypeId   String?                @db.Uuid
-  logoType     AssetLogoType?         @relation(fields: [logoTypeId], references: [id], onDelete: SetNull)
-  logoTypeName String                 @db.VarChar(100)
-  status       AssetLogoProcessStatus @default(pending)
-  processingError String?             @db.Text
-  processedAt      DateTime?          @db.Timestamptz(6)
-  enabled      Boolean                @default(true)
-  notes        String                 @default("") @db.Text
+  slug            String                 @unique @default(cuid()) @db.VarChar(64)
+  name            String                 @db.VarChar(255)
+  logoTypeId      String?                @db.Uuid
+  logoType        AssetLogoType?         @relation(fields: [logoTypeId], references: [id], onDelete: SetNull)
+  logoTypeName    String                 @db.VarChar(100)
+  status          AssetLogoProcessStatus @default(pending)
+  processingError String?                @db.Text
+  processedAt     DateTime?              @db.Timestamptz(6)
+  enabled         Boolean                @default(true)
+  notes           String                 @default("") @db.Text
 
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @db.Timestamptz(6)
@@ -163,10 +166,10 @@ model AssetLogoImage {
   assetLogoId String    @db.Uuid
   assetLogo   AssetLogo @relation(fields: [assetLogoId], references: [id], onDelete: Cascade)
 
-  objectKey String @db.Text
-  mimeType  String @db.VarChar(255)
-  size      Int
-  sort      Int    @default(0)
+  objectKey      String    @db.Text
+  mimeType       String    @db.VarChar(255)
+  size           Int
+  sort           Int       @default(0)
   qdrantPointId  String?   @unique @db.VarChar(64)
   embeddingModel String?   @db.VarChar(128)
   embeddedAt     DateTime? @db.Timestamptz(6)
@@ -190,8 +193,92 @@ model AssetLogoTag {
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @db.Timestamptz(6)
 
-  @@index([assetLogoId, sort])
   @@unique([assetLogoId, assetTagId])
+  @@index([assetLogoId, sort])
+}
+
+enum AssetIpProcessStatus {
+  pending
+  processing
+  completed
+  failed
+}
+
+model AssetIpType {
+  id     String @id @default(uuid()) @db.Uuid
+  teamId Int
+  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  name String @db.VarChar(100)
+  sort Int    @default(0)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  ips AssetIp[]
+}
+
+model AssetIp {
+  id     String @id @default(uuid()) @db.Uuid
+  teamId Int
+  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  slug            String               @unique @default(cuid()) @db.VarChar(64)
+  name            String               @db.VarChar(255)
+  ipTypeId        String?              @db.Uuid
+  ipType          AssetIpType?         @relation(fields: [ipTypeId], references: [id], onDelete: SetNull)
+  ipTypeName      String               @db.VarChar(100)
+  description     String               @default("") @db.Text
+  status          AssetIpProcessStatus @default(pending)
+  processingError String?              @db.Text
+  processedAt     DateTime?            @db.Timestamptz(6)
+  enabled         Boolean              @default(true)
+  notes           String               @default("") @db.Text
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  images AssetIpImage[]
+  tags   AssetIpTag[]
+
+  @@index([teamId, createdAt])
+  @@index([teamId, status])
+}
+
+model AssetIpImage {
+  id        String  @id @default(uuid()) @db.Uuid
+  assetIpId String  @db.Uuid
+  assetIp   AssetIp @relation(fields: [assetIpId], references: [id], onDelete: Cascade)
+
+  objectKey      String    @db.Text
+  mimeType       String    @db.VarChar(255)
+  size           Int
+  sort           Int       @default(0)
+  qdrantPointId  String?   @unique @db.VarChar(64)
+  embeddingModel String?   @db.VarChar(128)
+  embeddedAt     DateTime? @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  @@index([assetIpId, sort])
+}
+
+model AssetIpTag {
+  id         String    @id @default(uuid()) @db.Uuid
+  assetIpId  String    @db.Uuid
+  assetIp    AssetIp   @relation(fields: [assetIpId], references: [id], onDelete: Cascade)
+  assetTagId Int?
+  assetTag   AssetTag? @relation(fields: [assetTagId], references: [id], onDelete: SetNull)
+
+  tagPath Json @default("[]")
+  sort    Int  @default(0)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  @@unique([assetIpId, assetTagId])
+  @@index([assetIpId, sort])
 }
 
 enum TaggingQueueStatus {

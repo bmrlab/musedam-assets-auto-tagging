@@ -10,6 +10,7 @@ type TranslationFunction = ReturnType<typeof useTranslations>;
 import {
   BrandIcon,
   DashboardIcon,
+  IpIcon,
   MonitorIcon,
   SettingIcon,
   TagAIIcon,
@@ -63,6 +64,12 @@ const getMenuItems = (t: TranslationFunction): MenuItem[] => [
     title: t("Sidebar.brand"),
     url: "/tagging/brand",
     icon: BrandIcon,
+    section: "featureLibrary",
+  },
+  {
+    title: "IP 形象",
+    url: "/tagging/ip",
+    icon: IpIcon,
     section: "featureLibrary",
   },
   {

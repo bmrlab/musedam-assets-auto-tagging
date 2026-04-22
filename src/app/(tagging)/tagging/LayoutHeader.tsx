@@ -8,7 +8,7 @@ export function LayoutHeader() {
   const pathname = usePathname();
   const t = useTranslations("Tagging");
 
-  if (pathname.startsWith("/tagging/brand")) {
+  if (pathname.startsWith("/tagging/brand") || pathname.startsWith("/tagging/ip")) {
     return null;
   }
 

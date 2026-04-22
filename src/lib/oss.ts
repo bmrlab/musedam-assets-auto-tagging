@@ -48,6 +48,17 @@ export function buildAssetLogoObjectKey({
   return `auto-tagging/teams-${teamId}-asset-logos-${Date.now()}-${randomUUID()}${safeExtension}`;
 }
 
+export function buildAssetIpObjectKey({
+  teamId,
+  extension,
+}: {
+  teamId: number;
+  extension: string;
+}) {
+  const safeExtension = extension.replace(/[^a-zA-Z0-9.]/g, "").toLowerCase();
+  return `auto-tagging/teams-${teamId}-asset-ips-${Date.now()}-${randomUUID()}${safeExtension}`;
+}
+
 export function getOssObjectUrl(objectKey: string) {
   return buildObjectUrl(getRequiredEnv("OSS_DOMAIN"), objectKey);
 }
