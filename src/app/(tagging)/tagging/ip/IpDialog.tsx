@@ -27,7 +27,7 @@ import {
 } from "@/lib/brand/browser-image";
 import { MAX_TOTAL_NEW_REFERENCE_UPLOAD_BYTES } from "@/lib/brand/upload-constants";
 import { Loader2, Plus, X } from "lucide-react";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import BrandTagSelector from "../brand/BrandTagSelector";
@@ -70,87 +70,6 @@ type IpDialogProps = {
   onIpTypeDeleted: (typeId: string) => void;
 };
 
-function getCopy(locale: string) {
-  const isChinese = locale.toLowerCase().startsWith("zh");
-
-  if (isChinese) {
-    return {
-      createTitle: "新建IP形象特征",
-      editTitle: "编辑IP形象特征",
-      nameLabel: "IP名称",
-      namePlaceholder: "请输入IP名称",
-      typeLabel: "IP类型",
-      imageLabel: "IP图片",
-      imageTip:
-        "💡 图片要求：建议至少上传 3-5 张涵盖不同姿势、表情的基础造型图。如有特殊节日款或联名款造型，请统一上传至本条目内。",
-      descriptionLabel: "核心特征描述",
-      optional: "选填",
-      descriptionHint: "请用文字描述该 IP 独有且不易改变的视觉特征",
-      descriptionPlaceholder: "例如：一只红色的狐狸，戴着蓝色护目镜，脸颊有闪电标志。",
-      tagsLabel: "关联标签",
-      tagsHint: "识别命中后将自动打上这些标签",
-      notesLabel: "备注信息",
-      notesPlaceholder: "如IP来源、授权说明等",
-      localUpload: "本地上传",
-      assetLibraryUpload: "从素材库选取",
-      uploadImage: "上传图片",
-      previewImage: "查看图片",
-      removeImage: "删除图片",
-      cancel: "取消",
-      confirm: "确认",
-      save: "保存",
-      saving: "保存中",
-      noAssetsSelected: "未选择任何素材",
-      missingAssetUrl: "所选素材缺少可用下载地址",
-      selectAssetFailed: "从素材库选择图片失败，请重试",
-      enterName: "请输入IP名称",
-      selectType: "请选择IP类型",
-      invalidType: "当前类型已被删除，请重新选择一个有效类型",
-      uploadAtLeastOne: "请至少上传 1 张IP图片",
-      createProcessingSuccess: "IP形象已创建，正在生成参考向量",
-      updateProcessingSuccess: "IP形象已更新，正在重新生成参考向量",
-    };
-  }
-
-  return {
-    createTitle: "Create IP Character Feature",
-    editTitle: "Edit IP Character Feature",
-    nameLabel: "IP Name",
-    namePlaceholder: "Enter IP name",
-    typeLabel: "IP Type",
-    imageLabel: "IP Images",
-    imageTip:
-      "💡 Image requirement: upload 3-5 reference images covering different poses and expressions when possible. If there are seasonal or co-branded variants, keep them within the same entry.",
-    descriptionLabel: "Core Feature Description",
-    optional: "Optional",
-    descriptionHint: "Describe the distinctive visual traits of this IP that do not easily change.",
-    descriptionPlaceholder:
-      "Example: A red fox wearing blue goggles with a lightning mark on its cheek.",
-    tagsLabel: "Related Tags",
-    tagsHint: "These tags will be applied automatically when a match is found",
-    notesLabel: "Notes",
-    notesPlaceholder: "For example: origin, licensing notes, etc.",
-    localUpload: "Upload from device",
-    assetLibraryUpload: "Select from asset library",
-    uploadImage: "Upload images",
-    previewImage: "Preview image",
-    removeImage: "Remove image",
-    cancel: "Cancel",
-    confirm: "Confirm",
-    save: "Save",
-    saving: "Saving",
-    noAssetsSelected: "No assets selected",
-    missingAssetUrl: "The selected assets do not contain a usable download URL",
-    selectAssetFailed: "Failed to select images from the asset library. Please try again.",
-    enterName: "Please enter the IP name",
-    selectType: "Please select an IP type",
-    invalidType: "The selected type was removed. Please choose a valid one.",
-    uploadAtLeastOne: "Please upload at least one IP image",
-    createProcessingSuccess: "IP character created. Vector generation has started.",
-    updateProcessingSuccess: "IP character updated. Vector regeneration has started.",
-  };
-}
-
 function revokeDraftImageUrls(images: DraftImage[]) {
   for (const image of images) {
     if (image.shouldRevokePreviewUrl) {
@@ -159,7 +78,10 @@ function revokeDraftImageUrls(images: DraftImage[]) {
   }
 }
 
-function buildDraftImages(ip: IpItem | null) {
+function buildDraftImages(
+  ip: IpItem | null,
+  t: (key: string, values?: Record<string, string | number>) => string,
+) {
   if (!ip) {
     return [];
   }
@@ -170,7 +92,7 @@ function buildDraftImages(ip: IpItem | null) {
     previewUrl: image.signedUrl,
     signedUrl: image.signedUrl,
     signedUrlExpiresAt: image.signedUrlExpiresAt,
-    name: `${ip.name} IP 图 ${index + 1}`,
+    name: t("imageAltIndex", { name: ip.name, index: index + 1 }),
     shouldRevokePreviewUrl: false,
   }));
 }
@@ -188,9 +110,8 @@ export default function IpDialog({
   onIpTypeRenamed,
   onIpTypeDeleted,
 }: IpDialogProps) {
-  const locale = useLocale();
-  const copy = getCopy(locale);
-  const t = useTranslations("Tagging.BrandLibrary");
+  const t = useTranslations("Tagging.IpLibrary");
+  const tBrand = useTranslations("Tagging.BrandLibrary");
   const [name, setName] = useState("");
   const [ipTypeId, setIpTypeId] = useState<string | null>(null);
   const [description, setDescription] = useState("");
@@ -217,9 +138,9 @@ export default function IpDialog({
     setNotes(ip?.notes ?? "");
     setImages((current) => {
       revokeDraftImageUrls(current);
-      return buildDraftImages(ip);
+      return buildDraftImages(ip, t);
     });
-  }, [open, ip]);
+  }, [open, ip, t]);
 
   useEffect(() => {
     imagesRef.current = images;
@@ -248,15 +169,15 @@ export default function IpDialog({
   function getUploadErrorMessage(error: unknown) {
     switch (getClientImagePreparationErrorCode(error)) {
       case CLIENT_IMAGE_PREPARATION_ERROR_CODES.fileTooLarge:
-        return t("uploadErrors.fileTooLarge");
+        return tBrand("uploadErrors.fileTooLarge");
       case CLIENT_IMAGE_PREPARATION_ERROR_CODES.imageLoadFailed:
-        return t("uploadErrors.imageLoadFailed");
+        return tBrand("uploadErrors.imageLoadFailed");
       case CLIENT_IMAGE_PREPARATION_ERROR_CODES.compressionTargetUnreachable:
-        return t("uploadErrors.compressionTargetUnreachable");
+        return tBrand("uploadErrors.compressionTargetUnreachable");
       case CLIENT_IMAGE_PREPARATION_ERROR_CODES.compressionFailed:
-        return t("uploadErrors.compressionFailed");
+        return tBrand("uploadErrors.compressionFailed");
       default:
-        return error instanceof Error ? error.message : t("uploadErrors.compressionFailed");
+        return error instanceof Error ? error.message : tBrand("uploadErrors.compressionFailed");
     }
   }
 
@@ -301,7 +222,7 @@ export default function IpDialog({
 
       const assets = res.selectedAssets;
       if (!Array.isArray(assets) || assets.length === 0) {
-        toast.info(copy.noAssetsSelected);
+        toast.info(tBrand("uploadErrors.noAssetsSelected"));
         return;
       }
 
@@ -313,7 +234,7 @@ export default function IpDialog({
         .filter((asset) => Boolean(asset.downloadUrl));
 
       if (validAssets.length === 0) {
-        toast.error(copy.missingAssetUrl);
+        toast.error(tBrand("uploadErrors.invalidAssets"));
         return;
       }
 
@@ -343,7 +264,7 @@ export default function IpDialog({
       setImages((current) => [...current, ...nextImages]);
     } catch (error) {
       console.error("Select assets from library failed", error);
-      toast.error(copy.selectAssetFailed);
+      toast.error(t("uploadErrors.selectFromLibraryFailed"));
     } finally {
       setIsSelectingAssets(false);
     }
@@ -362,28 +283,28 @@ export default function IpDialog({
 
   function handleSubmit() {
     if (!trimmedName) {
-      toast.error(copy.enterName);
+      toast.error(t("validation.nameRequired"));
       return;
     }
 
     if (!ipTypeId) {
-      toast.error(copy.selectType);
+      toast.error(t("validation.typeRequired"));
       return;
     }
 
     if (!ipTypes.some((type) => type.id === ipTypeId)) {
-      toast.error(copy.invalidType);
+      toast.error(t("validation.typeDeleted"));
       return;
     }
 
     if (images.length === 0) {
-      toast.error(copy.uploadAtLeastOne);
+      toast.error(t("validation.imagesRequired"));
       return;
     }
 
     const newUploadBytes = images.reduce((total, image) => total + (image.file?.size ?? 0), 0);
     if (newUploadBytes > MAX_TOTAL_NEW_REFERENCE_UPLOAD_BYTES) {
-      toast.error(t("uploadErrors.totalTooLarge"));
+      toast.error(tBrand("uploadErrors.totalTooLarge"));
       return;
     }
 
@@ -441,7 +362,7 @@ export default function IpDialog({
       onSaved(result.data.ip);
       onOpenChange(false);
       toast.success(
-        mode === "create" ? copy.createProcessingSuccess : copy.updateProcessingSuccess,
+        mode === "create" ? t("createProcessingSuccess") : t("updateProcessingSuccess"),
       );
     });
   }
@@ -451,7 +372,7 @@ export default function IpDialog({
       <DialogContent className="max-h-[90vh] w-[750px] max-w-[calc(100%-2rem)] gap-0 overflow-y-auto rounded-[20px] p-0">
         <DialogHeader className="h-14 justify-center gap-0 px-5 py-4">
           <DialogTitle className="text-[16px] leading-6 font-semibold text-[#151A30]">
-            {mode === "create" ? copy.createTitle : copy.editTitle}
+            {mode === "create" ? t("dialog.titleCreate") : t("dialog.titleEdit")}
           </DialogTitle>
         </DialogHeader>
 
@@ -459,19 +380,19 @@ export default function IpDialog({
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-1">
               <label className="h-[22px] text-[14px] leading-[22px] font-normal text-[#222B45]">
-                {copy.nameLabel}
+                {t("dialog.ipNameLabel")}
               </label>
               <Input
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                placeholder={copy.namePlaceholder}
+                placeholder={t("dialog.ipNamePlaceholder")}
                 className="h-8 w-[349px] rounded-[6px] border border-[#C5CEE0] px-3 py-0 text-[14px] leading-[22px] font-normal placeholder:text-[14px] placeholder:leading-[22px] placeholder:font-normal placeholder:text-[#8F9BB3]"
               />
             </div>
 
             <div className="space-y-1">
               <label className="h-[22px] text-[14px] leading-[22px] font-normal text-[#222B45]">
-                {copy.typeLabel}
+                {t("dialog.ipTypeLabel")}
               </label>
               <IpTypeSelect
                 value={ipTypeId}
@@ -491,7 +412,7 @@ export default function IpDialog({
           <div className="space-y-2">
             <div className="space-y-1">
               <label className="h-[22px] text-[14px] leading-[22px] font-normal text-[#222B45]">
-                {copy.imageLabel}
+                {t("dialog.ipImagesLabel")}
               </label>
             </div>
 
@@ -515,7 +436,7 @@ export default function IpDialog({
                     <span className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2">
                       <Plus className="h-[14px] w-[14px]" />
                       <span className="text-[14px] leading-[22px] font-normal">
-                        {copy.uploadImage}
+                        {t("dialog.uploadImage")}
                       </span>
                     </span>
                   </button>
@@ -529,14 +450,14 @@ export default function IpDialog({
                     className="h-8 gap-2 rounded-[6px] px-[10px] py-[5px] text-[14px] leading-[22px] font-normal text-[#192038] hover:bg-[#F2F6FF] focus:bg-[#F2F6FF] data-[highlighted]:bg-[#F2F6FF]"
                   >
                     <img src="/Icon/export.svg" alt="" className="h-[14px] w-[14px]" />
-                    <span>{copy.localUpload}</span>
+                    <span>{t("dialog.uploadLocal")}</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => void handleSelectImagesFromAssetLibrary()}
                     className="h-8 gap-2 rounded-[6px] px-[10px] py-[5px] text-[14px] leading-[22px] font-normal text-[#192038] hover:bg-[#F2F6FF] focus:bg-[#F2F6FF] data-[highlighted]:bg-[#F2F6FF]"
                   >
                     <img src="/Icon/Image.svg" alt="" className="h-[14px] w-[14px]" />
-                    <span>{copy.assetLibraryUpload}</span>
+                    <span>{t("dialog.uploadFromLibrary")}</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -565,7 +486,7 @@ export default function IpDialog({
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        aria-label={copy.previewImage}
+                        aria-label={t("dialog.previewImage")}
                         onClick={() => setPreviewImage(image)}
                         className="inline-flex h-4 w-4 items-center justify-center opacity-90 transition-opacity hover:opacity-100"
                       >
@@ -573,7 +494,7 @@ export default function IpDialog({
                       </button>
                       <button
                         type="button"
-                        aria-label={copy.removeImage}
+                        aria-label={t("dialog.closePreview")}
                         onClick={() => removeImage(image.id)}
                         className="inline-flex h-4 w-4 items-center justify-center opacity-90 transition-opacity hover:opacity-100"
                       >
@@ -587,7 +508,8 @@ export default function IpDialog({
 
             <div className="mt-3 flex items-start gap-[10px] rounded-[8px] border border-[#598BFF] bg-[#F2F6FF] px-3 py-[14px] text-[12px] leading-[16px] font-normal text-[#192038]">
               <p className="text-[12px] leading-[16px] font-normal text-[#192038]">
-                {copy.imageTip}
+                💡 <span className="font-semibold">{t("dialog.uploadHintTitle")}</span>
+                {t("dialog.uploadHint")}
               </p>
             </div>
           </div>
@@ -595,45 +517,45 @@ export default function IpDialog({
           <div className="mt-4 space-y-2">
             <div className="space-y-1">
               <label className="h-[22px] text-[14px] leading-[22px] font-normal text-[#222B45]">
-                {copy.descriptionLabel}
+                {t("dialog.descriptionLabel")}
                 <span className="ml-2 text-[12px] leading-[16px] font-normal text-[#8F9BB3]">
-                  {copy.optional}
+                  {t("dialog.notesOptional")}
                 </span>
               </label>
               <p className="text-[12px] leading-[16px] font-normal text-[#8F9BB3]">
-                {copy.descriptionHint}
+                {t("dialog.descriptionHint")}
               </p>
             </div>
             <Textarea
               value={description}
               onChange={(event) => setDescription(event.target.value)}
-              placeholder={copy.descriptionPlaceholder}
-              className="h-[92px] rounded-[6px] border border-[#C5CEE0] px-4 py-2"
+              placeholder={t("dialog.descriptionPlaceholder")}
+              className="h-[60px] rounded-[6px] border border-[#C5CEE0] px-4 py-2"
             />
           </div>
 
           <div className="mt-4 space-y-2">
             <div className="space-y-1">
               <label className="h-[22px] text-[14px] leading-[22px] font-normal text-[#222B45]">
-                {copy.tagsLabel}
+                {t("dialog.linkedTagsLabel")}
               </label>
               <div className="flex items-center justify-between gap-3">
                 <p className="text-[12px] leading-[16px] font-normal text-[#8F9BB3]">
-                  {copy.tagsHint}
+                  {t("dialog.linkedTagsHint")}
                 </p>
-              <button
-                type="button"
-                onClick={() =>
-                  dispatchMuseDAMClientAction("goto", {
-                    url: "/home/dashboard/tag",
-                    target: "_blank",
-                  })
-                }
-                className="inline-flex items-center gap-1 text-[12px] leading-[16px] font-normal text-[#3366FF] transition-opacity hover:opacity-80"
-              >
-                <TagsIcon />
-                管理标签体系
-              </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    dispatchMuseDAMClientAction("goto", {
+                      url: "/home/dashboard/tag",
+                      target: "_blank",
+                    })
+                  }
+                  className="inline-flex items-center gap-1 text-[12px] leading-[16px] font-normal text-[#3366FF] transition-opacity hover:opacity-80"
+                >
+                  <TagsIcon />
+                  {t("dialog.manageTags")}
+                </button>
               </div>
             </div>
             <BrandTagSelector
@@ -647,15 +569,15 @@ export default function IpDialog({
 
           <div className="mt-4 space-y-2">
             <label className="h-[22px] text-[14px] leading-[22px] font-normal text-[#222B45]">
-              {copy.notesLabel}
+              {t("dialog.notesLabel")}
               <span className="ml-2 text-[12px] leading-[16px] font-normal text-[#8F9BB3]">
-                {copy.optional}
+                {t("dialog.notesOptional")}
               </span>
             </label>
             <Textarea
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
-              placeholder={copy.notesPlaceholder}
+              placeholder={t("dialog.notesPlaceholder")}
               className="h-[60px] rounded-[6px] border border-[#C5CEE0] px-4 py-2"
             />
           </div>
@@ -669,7 +591,7 @@ export default function IpDialog({
             disabled={isPending}
             className="h-8 w-20 rounded-[6px] border border-[#C5CEE0] px-3 py-1"
           >
-            {copy.cancel}
+            {t("dialog.cancel")}
           </Button>
           <Button
             type="button"
@@ -680,12 +602,12 @@ export default function IpDialog({
             {isPending ? (
               <>
                 <Loader2 className="size-4 animate-spin" />
-                {copy.saving}
+                {t("dialog.saving")}
               </>
             ) : mode === "create" ? (
-              copy.confirm
+              t("dialog.confirm")
             ) : (
-              copy.save
+              t("dialog.save")
             )}
           </Button>
         </DialogFooter>

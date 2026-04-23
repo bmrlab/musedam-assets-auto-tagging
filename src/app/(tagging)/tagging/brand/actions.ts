@@ -194,11 +194,29 @@ async function fetchActiveLogoTypes(teamId: number) {
 }
 
 function getDefaultLogoTypeNames(locale: string): string[] {
-  const normalizedLocale = locale.toLowerCase();
-  if (normalizedLocale.startsWith("zh")) {
-    return ["主Logo", "子品牌Logo", "产品Logo", "水印", "商标", "其他"];
-  }
-  return ["MainLogo", "SubLogo", "ProductLogo", "WaterMark", "TradeMark", "Others"];
+  const normalizedLocale = locale.toLowerCase().replace(/_/g, "-");
+
+  const defaults: Record<string, string[]> = {
+    "zh-cn": ["主Logo", "子品牌Logo", "产品Logo", "水印", "商标", "其他"],
+    "zh-tw": ["主Logo", "子品牌Logo", "產品Logo", "水印", "商標", "其他"],
+    "en-us": ["Main Logo", "Sub-brand Logo", "Product Logo", "Watermark", "Trademark", "Others"],
+    "ja-jp": ["メインLogo", "サブブランドLogo", "製品Logo", "ウォーターマーク", "商標", "その他"],
+    "ko-kr": ["메인 로고", "서브 브랜드 로고", "제품 로고", "워터마크", "상표", "기타"],
+    "fr-fr": ["Logo principal", "Logo de sous-marque", "Logo produit", "Filigrane", "Marque", "Autres"],
+    "de-de": ["Haupt-Logo", "Sub-Brand-Logo", "Produkt-Logo", "Wasserzeichen", "Markenzeichen", "Sonstiges"],
+    "es-es": ["Logo principal", "Logo de submarca", "Logo de producto", "Marca de agua", "Marca comercial", "Otros"],
+    "it-it": ["Logo principale", "Logo secondario", "Logo del prodotto", "Filigrana", "Marchio", "Altri"],
+    "pt-br": ["Logo Principal", "Logo Submarca", "Logo do Produto", "Marca d'Água", "Marca Registrada", "Outros"],
+    "ru-ru": ["Основной логотип", "Логотип суббренда", "Логотип продукта", "Водяной знак", "Торговая марка", "Другие"],
+    "vi-vn": ["Logo chính", "Logo sub-brand", "Logo sản phẩm", "Hình mờ", "Nhãn hiệu", "Khác"],
+    "th-th": ["โลโก้หลัก", "โลโก้ซับแบรนด์", "โลโก้ผลิตภัณฑ์", "ลายน้ำ", "เครื่องหมายการค้า", "อื่น ๆ"],
+    "id-id": ["Logo Utama", "Logo Sub-merek", "Logo Produk", "Watermark", "Merek Dagang", "Lainnya"],
+    "hi-in": ["मुख्य लोगो", "सब-ब्रांड लोगो", "उत्पाद लोगो", "वॉटरमार्क", "ट्रेडमार्क", "अन्य"],
+    "tr-tr": ["Ana Logo", "Alt Marka Logo", "Ürün Logo", "Filigran", "Ticari Marka", "Diğerleri"],
+    "pl-pl": ["Logo główne", "Logo podmarki", "Logo produktu", "Znak wodny", "Znak towarowy", "Inne"],
+  };
+
+  return defaults[normalizedLocale] || defaults["en-us"]!;
 }
 
 async function ensureDefaultLogoTypes(teamId: number, locale: string) {

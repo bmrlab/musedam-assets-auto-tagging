@@ -73,7 +73,7 @@ export function getQdrantConfig() {
   return {
     url: getRequiredEnv("QDRANT_URL").replace(/\/$/, ""),
     apiKey: process.env.QDRANT_API_KEY?.trim() || "",
-    collectionName: getRequiredEnv("QDRANT_COLLECTION_NAME"),
+    collectionBaseName: getRequiredEnv("QDRANT_COLLECTION_BASE_NAME"),
   };
 }
 

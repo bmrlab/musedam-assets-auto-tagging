@@ -11,6 +11,7 @@ import {
 import { cn } from "@/lib/utils";
 import { ArrowLeft, Loader2, Search, Trophy, Upload } from "lucide-react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { classifyIpImageAction, prepareIpClassificationAction } from "../actions";
@@ -31,18 +32,18 @@ function formatPercent(value: number) {
   return `${(value * 100).toFixed(1)}%`;
 }
 
-function getUploadErrorMessage(error: unknown) {
+function getUploadErrorMessage(error: unknown, t: (key: string) => string) {
   switch (getClientImagePreparationErrorCode(error)) {
     case CLIENT_IMAGE_PREPARATION_ERROR_CODES.fileTooLarge:
-      return "单张图片不能超过 50MB";
+      return t("errors.fileTooLarge");
     case CLIENT_IMAGE_PREPARATION_ERROR_CODES.imageLoadFailed:
-      return "图片读取失败，请重试";
+      return t("errors.imageLoadFailed");
     case CLIENT_IMAGE_PREPARATION_ERROR_CODES.compressionTargetUnreachable:
-      return "图片压缩后仍超过 5MB，请换一张更小的图片";
+      return t("errors.compressionTargetUnreachable");
     case CLIENT_IMAGE_PREPARATION_ERROR_CODES.compressionFailed:
-      return "图片压缩失败，请重试";
+      return t("errors.compressionFailed");
     default:
-      return error instanceof Error ? error.message : "图片处理失败";
+      return error instanceof Error ? error.message : t("errors.processingFailed");
   }
 }
 
@@ -86,11 +87,11 @@ function getDetectionLabelPosition(box: IpDetectionBox, meta: ProductImageMeta) 
   };
 }
 
-function loadImage(src: string) {
+function loadImage(src: string, t: (key: string) => string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
     const image = new window.Image();
     image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error("图片加载失败"));
+    image.onerror = () => reject(new Error(t("errors.imageLoadFailed")));
     image.src = src;
   });
 }
@@ -99,12 +100,14 @@ async function cropImageToDataUrl({
   imageSrc,
   meta,
   box,
+  t,
 }: {
   imageSrc: string;
   meta: ProductImageMeta;
   box: IpDetectionBox;
+  t: (key: string) => string;
 }) {
-  const image = await loadImage(imageSrc);
+  const image = await loadImage(imageSrc, t);
   const crop = clampBox(box, meta);
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(1, Math.round(crop.xMax - crop.xMin));
@@ -112,7 +115,7 @@ async function cropImageToDataUrl({
 
   const context = canvas.getContext("2d");
   if (!context) {
-    throw new Error("浏览器不支持 Canvas 裁剪");
+    throw new Error(t("errors.canvasNotSupported"));
   }
 
   context.drawImage(
@@ -131,6 +134,8 @@ async function cropImageToDataUrl({
 }
 
 export default function IpClassifyClient({ initialData }: { initialData: IpLibraryPageData }) {
+  const t = useTranslations("Tagging.IpClassify");
+  const tBrand = useTranslations("Tagging.BrandClassify");
   const referenceIps = useMemo(
     () => initialData.ips.filter((ip) => ip.enabled && ip.status === "completed"),
     [initialData.ips],
@@ -175,7 +180,7 @@ export default function IpClassifyClient({ initialData }: { initialData: IpLibra
 
       const objectUrl = URL.createObjectURL(nextFile);
       try {
-        const image = await loadImage(objectUrl);
+        const image = await loadImage(objectUrl, t);
         setImageMeta({
           width: image.naturalWidth,
           height: image.naturalHeight,
@@ -184,18 +189,18 @@ export default function IpClassifyClient({ initialData }: { initialData: IpLibra
         URL.revokeObjectURL(objectUrl);
       }
     } catch (error) {
-      toast.error(getUploadErrorMessage(error));
+      toast.error(getUploadErrorMessage(error, t));
     }
   }
 
   async function handleClassify() {
     if (!file || !previewUrl || !imageMeta) {
-      toast.error("请先上传待分类图片");
+      toast.error(t("uploadImageFirst"));
       return;
     }
 
     if (referenceIps.length === 0) {
-      toast.error("当前没有可用的已完成IP参考向量");
+      toast.error(t("noReferenceIps"));
       return;
     }
 
@@ -225,6 +230,7 @@ export default function IpClassifyClient({ initialData }: { initialData: IpLibra
             imageSrc: previewUrl,
             meta: imageMeta,
             box,
+            t,
           }),
         })),
       );
@@ -237,11 +243,11 @@ export default function IpClassifyClient({ initialData }: { initialData: IpLibra
 
       setResult(classifyResult.data.result);
       toast.success(
-        classifyResult.data.result.noConfidentMatch ? "分类完成，未命中可靠结果" : "分类完成",
+        classifyResult.data.result.noConfidentMatch ? t("classifyCompleteNoMatch") : t("classifyComplete"),
       );
     } catch (error) {
       console.error("Failed to classify IP image:", error);
-      toast.error(error instanceof Error ? error.message : "IP 分类失败");
+      toast.error(error instanceof Error ? error.message : t("classifyFailed"));
     } finally {
       setIsRunning(false);
     }
@@ -254,22 +260,21 @@ export default function IpClassifyClient({ initialData }: { initialData: IpLibra
           <div className="flex items-center gap-2 text-sm text-basic-5">
             <Link href="/tagging/ip" className="inline-flex items-center gap-1 hover:text-basic-8">
               <ArrowLeft className="size-4" />
-              返回 IP 库
+              {t("backToLibrary")}
             </Link>
           </div>
           <h2 className="mt-3 text-[28px] leading-[40px] font-semibold text-basic-8">
-            IP 形象分类开发页
+            {t("pageTitle")}
           </h2>
           <p className="mt-1 text-sm leading-6 text-basic-5">
-            上传图片后，系统会先调用检测服务找可能的 IP 区域，再用多模态 embedding
-            检索图片与描述向量，按 crop 和模态聚合后给出最终结果。
+            {t("pageDescription")}
           </p>
         </div>
 
         <div className="rounded-[18px] border bg-background px-5 py-4 text-right">
-          <div className="text-sm text-basic-5">可用参考 IP</div>
+          <div className="text-sm text-basic-5">{t("availableIps")}</div>
           <div className="mt-1 text-3xl font-semibold text-basic-8">{referenceIps.length}</div>
-          <div className="mt-1 text-xs text-basic-5">仅统计已启用且已完成向量处理的数据</div>
+          <div className="mt-1 text-xs text-basic-5">{t("statsDescription")}</div>
         </div>
       </div>
 
@@ -290,12 +295,12 @@ export default function IpClassifyClient({ initialData }: { initialData: IpLibra
               {isRunning ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />
-                  分类中
+                  {t("classifying")}
                 </>
               ) : (
                 <>
                   <Search className="size-4" />
-                  Classify IP
+                  {t("classifyButton")}
                 </>
               )}
             </Button>
@@ -305,10 +310,10 @@ export default function IpClassifyClient({ initialData }: { initialData: IpLibra
             {previewUrl && imageMeta ? (
               <div className="flex justify-center">
                 <div className="relative inline-block max-w-full overflow-hidden rounded-[16px] isolate">
-                  <div className="overflow-hidden rounded-[16px] bg-[#eef3fb]">
+                    <div className="overflow-hidden rounded-[16px] bg-[#eef3fb]">
                     <img
                       src={previewUrl}
-                      alt="待分类图片"
+                      alt={t("imageToClassify")}
                       className="block h-auto max-h-[720px] max-w-full"
                     />
                   </div>
@@ -344,7 +349,7 @@ export default function IpClassifyClient({ initialData }: { initialData: IpLibra
                             )}
                             style={labelPosition}
                           >
-                            {active ? "Winning box" : `Box ${index + 1}`} · {box.label}
+                            {active ? t("winningBox") : `${t("box")} ${index + 1}`} · {box.label}
                           </span>
                         </Fragment>
                       );
@@ -355,7 +360,7 @@ export default function IpClassifyClient({ initialData }: { initialData: IpLibra
             ) : (
               <div className="flex min-h-[420px] flex-col items-center justify-center gap-3 text-center text-basic-5">
                 <Upload className="size-10" />
-                <p>上传一张图片后，这里会显示检测框与最终命中的 IP。</p>
+                <p>{t("uploadHint")}</p>
               </div>
             )}
           </div>
@@ -365,42 +370,42 @@ export default function IpClassifyClient({ initialData }: { initialData: IpLibra
           <div className="rounded-[24px] border bg-background p-6">
             <div className="flex items-center gap-2 text-lg font-semibold text-basic-8">
               <Trophy className="size-5 text-[#ff8f1f]" />
-              最终结果
+              {t("finalResult")}
             </div>
 
             {!result ? (
               <p className="mt-4 text-sm leading-6 text-basic-5">
-                结果区域会展示 winning detection box、最终 IP 名称，以及 top 3 相似结果。
+                {t("resultHint")}
               </p>
             ) : result.noConfidentMatch ? (
               <div className="mt-4 rounded-[18px] border border-[#ffd8a8] bg-[#fff9f2] p-4">
-                <p className="text-base font-medium text-basic-8">未命中可靠 IP</p>
+                <p className="text-base font-medium text-basic-8">{t("noConfidentMatch")}</p>
                 <p className="mt-2 text-sm leading-6 text-basic-5">
-                  当前最佳候选不足够稳定，因此被判定为 no confident match。
+                  {t("noConfidentMatchDesc")}
                 </p>
                 {result.bestMatch ? (
                   <div className="mt-4 rounded-[14px] bg-white/80 px-4 py-3 text-sm">
                     <div className="font-medium text-basic-8">{result.bestMatch.ipName}</div>
                     <div className="mt-1 text-basic-5">
-                      similarity {formatPercent(result.bestMatch.similarity)} · confidence{" "}
-                      {result.bestMatch.confidence} · box {result.bestMatch.detectionIndex + 1}
+                      {t("similarity")} {formatPercent(result.bestMatch.similarity)} · {t("confidence")}{" "}
+                      {result.bestMatch.confidence} · {t("box")} {result.bestMatch.detectionIndex + 1}
                     </div>
                   </div>
                 ) : null}
               </div>
             ) : result.bestMatch ? (
               <div className="mt-4 rounded-[18px] border border-[#b8f0ca] bg-[#f4fff7] p-4">
-                <p className="text-sm text-basic-5">Winning IP</p>
+                <p className="text-sm text-basic-5">{t("winningIp")}</p>
                 <p className="mt-2 text-2xl font-semibold text-basic-8">
                   {result.bestMatch.ipName}
                 </p>
                 <p className="mt-2 text-sm leading-6 text-basic-5">
-                  类型 {result.bestMatch.ipTypeName} · similarity{" "}
-                  {formatPercent(result.bestMatch.similarity)} · confidence{" "}
+                  {t("type")} {result.bestMatch.ipTypeName} · {t("similarity")}{" "}
+                  {formatPercent(result.bestMatch.similarity)} · {t("confidence")}{" "}
                   {result.bestMatch.confidence}
                 </p>
                 <p className="mt-1 text-sm text-basic-5">
-                  image {formatPercent(result.bestMatch.imageSimilarity)} · description{" "}
+                  {t("imageSimilarity")} {formatPercent(result.bestMatch.imageSimilarity)} · {t("descriptionSimilarity")}{" "}
                   {formatPercent(result.bestMatch.descriptionSimilarity)}
                 </p>
                 {result.bestMatch.description ? (
@@ -425,7 +430,7 @@ export default function IpClassifyClient({ initialData }: { initialData: IpLibra
           </div>
 
           <div className="rounded-[24px] border bg-background p-6">
-            <h3 className="text-lg font-semibold text-basic-8">Top 3 Matches</h3>
+            <h3 className="text-lg font-semibold text-basic-8">{t("topMatches")}</h3>
             <div className="mt-4 space-y-3">
               {result?.topMatches.length ? (
                 result.topMatches.map((match, index) => (
@@ -443,25 +448,25 @@ export default function IpClassifyClient({ initialData }: { initialData: IpLibra
                       <div className="text-sm text-basic-5">#{index + 1}</div>
                     </div>
                     <div className="mt-2 text-sm leading-6 text-basic-5">
-                      similarity {formatPercent(match.similarity)} · confidence {match.confidence}
+                      {t("similarity")} {formatPercent(match.similarity)} · {t("confidence")} {match.confidence}
                     </div>
                     <div className="text-sm leading-6 text-basic-5">
-                      image {formatPercent(match.imageSimilarity)} · description{" "}
+                      {t("imageSimilarity")} {formatPercent(match.imageSimilarity)} · {t("descriptionSimilarity")}{" "}
                       {formatPercent(match.descriptionSimilarity)}
                     </div>
                     <div className="text-sm leading-6 text-basic-5">
-                      type {match.ipTypeName} · box {match.detectionIndex + 1}
+                      {t("type")} {match.ipTypeName} · {t("box")} {match.detectionIndex + 1}
                     </div>
                   </div>
                 ))
               ) : (
-                <p className="text-sm leading-6 text-basic-5">暂无匹配结果。</p>
+                <p className="text-sm leading-6 text-basic-5">{t("noMatches")}</p>
               )}
             </div>
           </div>
 
           <div className="rounded-[24px] border bg-background p-6">
-            <h3 className="text-lg font-semibold text-basic-8">Detection Boxes</h3>
+            <h3 className="text-lg font-semibold text-basic-8">{t("detectionBoxes")}</h3>
             <div className="mt-4 space-y-3">
               {detections.length > 0 ? (
                 detections.map((box, index) => (
@@ -475,16 +480,16 @@ export default function IpClassifyClient({ initialData }: { initialData: IpLibra
                     )}
                   >
                     <div className="font-medium text-basic-8">
-                      Box {index + 1} · {box.label}
+                      {t("box")} {index + 1} · {box.label}
                     </div>
                     <div className="mt-1 leading-6 text-basic-5">
                       ({Math.round(box.xMin)}, {Math.round(box.yMin)}) to ({Math.round(box.xMax)},{" "}
-                      {Math.round(box.yMax)}) · detector score {formatPercent(box.score)}
+                      {Math.round(box.yMax)}) · {t("detectorScore")} {formatPercent(box.score)}
                     </div>
                   </div>
                 ))
               ) : (
-                <p className="text-sm leading-6 text-basic-5">还没有检测框数据。</p>
+                <p className="text-sm leading-6 text-basic-5">{t("noDetectionData")}</p>
               )}
             </div>
           </div>

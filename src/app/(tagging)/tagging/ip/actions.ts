@@ -15,7 +15,7 @@ import { buildAssetIpObjectKey, getCachedSignedOssObjectUrl, uploadOssObject } f
 import { ServerActionResult } from "@/lib/serverAction";
 import { AssetIp, AssetIpImage, AssetIpTag, AssetIpType, AssetTag } from "@/prisma/client/index";
 import prisma from "@/prisma/prisma";
-import { getLocale } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { after } from "next/server";
 import { z } from "zod";
 import {
@@ -29,32 +29,49 @@ import {
   IpTypeItem,
 } from "./types";
 
-const createOrUpdateIpSchema = z.object({
-  id: z.string().uuid().optional(),
-  name: z.string().trim().min(1, "请输入IP名称").max(255, "IP名称不能超过 255 个字符"),
-  ipTypeId: z.string().uuid(),
-  description: z.string().max(5000).default(""),
-  tagIds: z.array(z.number().int().positive()).min(1, "请至少选择 1 个关联标签").max(100),
-  notes: z.string().max(5000).default(""),
-  existingImageIds: z.array(z.string().uuid()).max(100).default([]),
-  assetLibraryDownloadUrls: z.array(z.string().url()).max(100).default([]),
-  assetLibraryUploadedImages: z
-    .array(
-      z.object({
-        objectKey: z.string().min(1),
-        mimeType: z.string().min(1),
-        size: z.number().int().nonnegative(),
-      }),
-    )
-    .max(100)
-    .default([]),
-});
+async function getIpValidationMessages() {
+  const t = await getTranslations("Tagging.IpLibrary");
+  return {
+    nameRequired: t("validation.nameRequired"),
+    nameTooLong: t("validation.nameTooLong"),
+    tagsRequired: t("validation.tagsRequired"),
+    typeNameRequired: t("ipType.typeNameRequired"),
+    typeNameTooLong: t("ipType.typeNameTooLong"),
+  };
+}
 
-const ipTypeNameSchema = z
-  .string()
-  .trim()
-  .min(1, "请输入类型名称")
-  .max(100, "类型名称不能超过 100 个字符");
+async function getCreateOrUpdateIpSchema() {
+  const messages = await getIpValidationMessages();
+  return z.object({
+    id: z.string().uuid().optional(),
+    name: z.string().trim().min(1, messages.nameRequired).max(255, messages.nameTooLong),
+    ipTypeId: z.string().uuid(),
+    description: z.string().max(5000).default(""),
+    tagIds: z.array(z.number().int().positive()).min(1, messages.tagsRequired).max(100),
+    notes: z.string().max(5000).default(""),
+    existingImageIds: z.array(z.string().uuid()).max(100).default([]),
+    assetLibraryDownloadUrls: z.array(z.string().url()).max(100).default([]),
+    assetLibraryUploadedImages: z
+      .array(
+        z.object({
+          objectKey: z.string().min(1),
+          mimeType: z.string().min(1),
+          size: z.number().int().nonnegative(),
+        }),
+      )
+      .max(100)
+      .default([]),
+  });
+}
+
+async function getIpTypeNameSchema() {
+  const messages = await getIpValidationMessages();
+  return z
+    .string()
+    .trim()
+    .min(1, messages.typeNameRequired)
+    .max(100, messages.typeNameTooLong);
+}
 
 type AssetTagWithParents = AssetTag & {
   parent: (AssetTag & { parent: AssetTag | null }) | null;
@@ -186,11 +203,29 @@ async function fetchActiveIpTypes(teamId: number) {
 }
 
 function getDefaultIpTypeNames(locale: string): string[] {
-  const normalizedLocale = locale.toLowerCase();
-  if (normalizedLocale.startsWith("zh")) {
-    return ["品牌吉祥物", "虚拟偶像", "卡通形象", "联名IP", "其他"];
-  }
-  return ["Brand Mascot", "Virtual Idol", "Cartoon Character", "Co-branded IP", "Other"];
+  const normalizedLocale = locale.toLowerCase().replace(/_/g, "-");
+
+  const defaults: Record<string, string[]> = {
+    "zh-cn": ["品牌吉祥物", "虚拟偶像", "卡通形象", "联名IP", "其他"],
+    "zh-tw": ["品牌吉祥物", "虛擬偶像", "卡通形象", "聯名IP", "其他"],
+    "en-us": ["Brand Mascot", "Virtual Idol", "Cartoon Character", "Co-branded IP", "Other"],
+    "ja-jp": ["ブランドマスコット", "バーチャルアイドル", "カートゥーンキャラクター", "コラボIP", "その他"],
+    "ko-kr": ["브랜드 마스코트", "버추얼 아이돌", "카툰 캐릭터", "콜라보 IP", "기타"],
+    "fr-fr": ["Mascotte de marque", "Idole virtuelle", "Personnage de dessin animé", "IP collaboratif", "Autre"],
+    "de-de": ["Markenmaskottchen", "Virtueller Idol", "Cartoon-Figur", "Co-branded IP", "Sonstiges"],
+    "es-es": ["Mascota de marca", "Ídolo virtual", "Personaje de dibujos animados", "IP colaborativo", "Otros"],
+    "it-it": ["Mascotte del brand", "Idolo virtuale", "Personaggio cartoon", "IP co-branded", "Altro"],
+    "pt-br": ["Mascote da Marca", "Ídolo Virtual", "Personagem de Desenho Animado", "IP Colab", "Outro"],
+    "ru-ru": ["Бренд-маскот", "Виртуальный идол", "Мультяшный персонаж", "Коллаборативный IP", "Другое"],
+    "vi-vn": ["Mascot thương hiệu", "Idol ảo", "Nhân vật hoạt hình", "IP hợp tác", "Khác"],
+    "th-th": ["มาสคอตแบรนด์", "ไอดอลเสมือน", "ตัวละครการ์ตูน", "IP ร่วม", "อื่น ๆ"],
+    "id-id": ["Maskot Brand", "Idol Virtual", "Karakter Kartun", "IP Kolaborasi", "Lainnya"],
+    "hi-in": ["ब्रांड मस्कॉट", "वर्चुअल आइडल", "कार्टून कैरेक्टर", "को-ब्रांडेड आईपी", "अन्य"],
+    "tr-tr": ["Marka Maskotu", "Sanal İdol", "Çizgi Film Karakteri", "İşbirliği IP", "Diğer"],
+    "pl-pl": ["Maskotka marki", "Wirtualny idol", "Postać z kreskówki", "IP współbrandowany", "Inne"],
+  };
+
+  return defaults[normalizedLocale] || defaults["en-us"]!;
 }
 
 async function ensureDefaultIpTypes(teamId: number, locale: string) {
@@ -253,6 +288,7 @@ async function fetchIps(teamId: number) {
 }
 
 async function resolveIpType(teamId: number, ipTypeId: string) {
+  const t = await getTranslations("Tagging.IpLibrary");
   const ipType = await prisma.assetIpType.findFirst({
     where: {
       id: ipTypeId,
@@ -261,13 +297,14 @@ async function resolveIpType(teamId: number, ipTypeId: string) {
   });
 
   if (!ipType) {
-    throw new Error("所选IP类型不存在或已被删除");
+    throw new Error(t("validation.typeDeleted"));
   }
 
   return ipType;
 }
 
 async function resolveSelectedTags(teamId: number, tagIds: number[]) {
+  const t = await getTranslations("Tagging.IpLibrary");
   const uniqueTagIds = Array.from(new Set(tagIds));
 
   if (uniqueTagIds.length === 0) {
@@ -291,7 +328,7 @@ async function resolveSelectedTags(teamId: number, tagIds: number[]) {
   });
 
   if (tags.length !== uniqueTagIds.length) {
-    throw new Error("关联标签中存在无效项，请重新选择");
+    throw new Error(t("validation.tagsRequired"));
   }
 
   const tagMap = new Map(tags.map((tag) => [tag.id, tag as AssetTagWithParents]));
@@ -299,7 +336,7 @@ async function resolveSelectedTags(teamId: number, tagIds: number[]) {
   return uniqueTagIds.map((tagId, index) => {
     const tag = tagMap.get(tagId);
     if (!tag) {
-      throw new Error("关联标签中存在无效项，请重新选择");
+      throw new Error(t("validation.tagsRequired"));
     }
 
     return {
@@ -311,6 +348,7 @@ async function resolveSelectedTags(teamId: number, tagIds: number[]) {
 }
 
 async function uploadNewIpImages({ files, teamId }: { files: File[]; teamId: number }) {
+  const t = await getTranslations("Tagging.BrandLibrary");
   const uploads: Array<{
     objectKey: string;
     mimeType: string;
@@ -319,7 +357,7 @@ async function uploadNewIpImages({ files, teamId }: { files: File[]; teamId: num
 
   for (const file of files) {
     if (!isImageFile(file)) {
-      throw new Error(`文件 ${file.name} 不是支持的图片格式`);
+      throw new Error(`${file.name}: ${t("uploadErrors.imageLoadFailed")}`);
     }
 
     const objectKey = buildAssetIpObjectKey({
@@ -375,6 +413,7 @@ async function uploadAssetLibraryImages({
   downloadUrls: string[];
   teamId: number;
 }) {
+  const t = await getTranslations("Tagging.IpLibrary");
   const uploads: Array<{
     objectKey: string;
     mimeType: string;
@@ -384,7 +423,7 @@ async function uploadAssetLibraryImages({
   for (const downloadUrl of downloadUrls) {
     const response = await fetch(downloadUrl);
     if (!response.ok) {
-      throw new Error(`从素材库下载图片失败（${response.status}）`);
+      throw new Error(t("uploadErrors.selectFromLibraryFailed"));
     }
 
     const contentType = response.headers.get("content-type") || "application/octet-stream";
@@ -431,8 +470,9 @@ function extractSubmittedImages(formData: FormData) {
     .filter((file) => file.size > 0);
 }
 
-function parseCreateOrUpdateInput(formData: FormData) {
-  return createOrUpdateIpSchema.parse({
+async function parseCreateOrUpdateInput(formData: FormData) {
+  const schema = await getCreateOrUpdateIpSchema();
+  return schema.parse({
     id: (() => {
       const idValue = formData.get("id");
       if (typeof idValue !== "string" || !idValue.trim()) {
@@ -461,6 +501,7 @@ export async function prepareAssetLibraryIpImagesAction(
 ): Promise<ServerActionResult<{ images: UploadedAssetLibraryImage[] }>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
+      const t = await getTranslations("Tagging.IpLibrary");
       const normalizedAssets = z
         .array(
           z.object({
@@ -468,8 +509,8 @@ export async function prepareAssetLibraryIpImagesAction(
             downloadUrl: z.string().url(),
           }),
         )
-        .min(1, "请至少选择 1 个素材")
-        .max(100, "单次最多选择 100 个素材")
+        .min(1, t("uploadErrors.noAssetsSelected"))
+        .max(100, "Maximum 100 assets per selection")
         .parse(assets);
 
       const uploadedImages = await Promise.all(
@@ -501,15 +542,17 @@ export async function prepareAssetLibraryIpImagesAction(
       };
     } catch (error) {
       console.error("Failed to prepare asset library IP images:", error);
+      const t = await getTranslations("Tagging.IpLibrary");
       return {
         success: false,
-        message: error instanceof Error ? error.message : "处理素材库图片失败",
+        message: error instanceof Error ? error.message : t("uploadErrors.selectFromLibraryFailed"),
       };
     }
   });
 }
 
 async function loadIp(teamId: number, ipId: string) {
+  const t = await getTranslations("Tagging.IpLibrary");
   const ip = await prisma.assetIp.findFirst({
     where: {
       id: ipId,
@@ -526,7 +569,7 @@ async function loadIp(teamId: number, ipId: string) {
   });
 
   if (!ip) {
-    throw new Error("IP形象不存在或已被删除");
+    throw new Error(t("processingErrors.ipNotFound"));
   }
 
   return ip;
@@ -571,17 +614,20 @@ function scheduleAssetIpProcessing(teamId: number, ipId: string) {
   });
 }
 
-const classifyCropSchema = z.object({
-  image: z.string().min(1, "缺少裁剪图片数据"),
-  box: z.object({
-    xMin: z.number().finite(),
-    yMin: z.number().finite(),
-    xMax: z.number().finite(),
-    yMax: z.number().finite(),
-    score: z.number().finite(),
-    label: z.string(),
-  }),
-});
+async function getClassifyCropSchema() {
+  const t = await getTranslations("Tagging.IpClassify");
+  return z.object({
+    image: z.string().min(1, t("errors.imageLoadFailed")),
+    box: z.object({
+      xMin: z.number().finite(),
+      yMin: z.number().finite(),
+      xMax: z.number().finite(),
+      yMax: z.number().finite(),
+      score: z.number().finite(),
+      label: z.string(),
+    }),
+  });
+}
 
 export async function refreshAssetIpImageSignedUrlAction(imageId: string): Promise<
   ServerActionResult<{
@@ -592,6 +638,7 @@ export async function refreshAssetIpImageSignedUrlAction(imageId: string): Promi
 > {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
+      const t = await getTranslations("Tagging.BrandLibrary");
       const image = await prisma.assetIpImage.findFirst({
         where: {
           id: imageId,
@@ -608,7 +655,7 @@ export async function refreshAssetIpImageSignedUrlAction(imageId: string): Promi
       if (!image) {
         return {
           success: false,
-          message: "图片不存在或已被删除",
+          message: t("uploadErrors.imageLoadFailed"),
         };
       }
 
@@ -626,9 +673,10 @@ export async function refreshAssetIpImageSignedUrlAction(imageId: string): Promi
       };
     } catch (error) {
       console.error("Failed to refresh asset IP image signed url:", error);
+      const t = await getTranslations("Tagging.BrandLibrary");
       return {
         success: false,
-        message: "刷新图片链接失败",
+        message: t("uploadErrors.imageLoadFailed"),
       };
     }
   });
@@ -654,9 +702,10 @@ export async function fetchIpLibraryPageData(): Promise<ServerActionResult<IpLib
       };
     } catch (error) {
       console.error("Failed to fetch IP library data:", error);
+      const t = await getTranslations("Tagging.IpLibrary");
       return {
         success: false,
-        message: "加载IP形象数据失败",
+        message: t("createFailed"),
       };
     }
   });
@@ -667,18 +716,19 @@ export async function prepareIpClassificationAction(
 ): Promise<ServerActionResult<IpClassificationUploadResult>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
+      const t = await getTranslations("Tagging.IpClassify");
       const image = formData.get("image");
       if (!(image instanceof File) || image.size <= 0) {
         return {
           success: false,
-          message: "请上传待分类的图片",
+          message: t("uploadImageFirst"),
         };
       }
 
       if (!isImageFile(image)) {
         return {
           success: false,
-          message: "仅支持图片文件",
+          message: t("errors.imageLoadFailed"),
         };
       }
 
@@ -714,9 +764,10 @@ export async function prepareIpClassificationAction(
       };
     } catch (error) {
       console.error("Failed to prepare IP classification:", error);
+      const t = await getTranslations("Tagging.IpClassify");
       return {
         success: false,
-        message: error instanceof Error ? error.message : "图片预处理失败",
+        message: error instanceof Error ? error.message : t("errors.processingFailed"),
       };
     }
   });
@@ -730,7 +781,9 @@ export async function classifyIpImageAction(input: {
 }): Promise<ServerActionResult<{ result: IpClassificationResult }>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
-      const crops = z.array(classifyCropSchema).min(1, "请先选择至少一个候选框").parse(input.crops);
+      const t = await getTranslations("Tagging.IpClassify");
+      const classifyCropSchema = await getClassifyCropSchema();
+      const crops = z.array(classifyCropSchema).min(1, t("uploadImageFirst")).parse(input.crops);
 
       const result = await classifyIpImageCrops({
         teamId,
@@ -745,9 +798,10 @@ export async function classifyIpImageAction(input: {
       };
     } catch (error) {
       console.error("Failed to classify IP image:", error);
+      const t = await getTranslations("Tagging.IpClassify");
       return {
         success: false,
-        message: error instanceof Error ? error.message : "IP 分类失败",
+        message: error instanceof Error ? error.message : t("classifyFailed"),
       };
     }
   });
@@ -758,7 +812,8 @@ export async function createAssetIpAction(
 ): Promise<ServerActionResult<{ ip: IpItem }>> {
   return withAuth(async ({ team }) => {
     try {
-      const input = parseCreateOrUpdateInput(formData);
+      const t = await getTranslations("Tagging.IpLibrary");
+      const input = await parseCreateOrUpdateInput(formData);
       const files = extractSubmittedImages(formData);
       const assetLibraryDownloadUrls = Array.from(new Set(input.assetLibraryDownloadUrls));
       const assetLibraryUploadedImages = input.assetLibraryUploadedImages;
@@ -769,7 +824,7 @@ export async function createAssetIpAction(
       ) {
         return {
           success: false,
-          message: "请至少上传 1 张IP图片",
+          message: t("validation.imagesRequired"),
         };
       }
 
@@ -834,9 +889,10 @@ export async function createAssetIpAction(
       };
     } catch (error) {
       console.error("Failed to create asset IP:", error);
+      const t = await getTranslations("Tagging.IpLibrary");
       return {
         success: false,
-        message: error instanceof Error ? error.message : "创建IP形象失败",
+        message: error instanceof Error ? error.message : t("createFailed"),
       };
     }
   });
@@ -846,12 +902,13 @@ export async function updateAssetIpAction(
   formData: FormData,
 ): Promise<ServerActionResult<{ ip: IpItem }>> {
   return withAuth(async ({ team }) => {
+    const t = await getTranslations("Tagging.IpLibrary");
     try {
-      const input = parseCreateOrUpdateInput(formData);
+      const input = await parseCreateOrUpdateInput(formData);
       if (!input.id) {
         return {
           success: false,
-          message: "缺少IP形象 ID",
+          message: t("validation.missingId"),
         };
       }
 
@@ -870,7 +927,7 @@ export async function updateAssetIpAction(
       if (!ip) {
         return {
           success: false,
-          message: "IP形象不存在或已被删除",
+          message: t("processingErrors.ipNotFound"),
         };
       }
 
@@ -888,7 +945,7 @@ export async function updateAssetIpAction(
       if (retainedImages.length !== uniqueExistingImageIds.length) {
         return {
           success: false,
-          message: "图片列表已过期，请刷新后重试",
+          message: t("validation.imagesExpired"),
         };
       }
 
@@ -901,7 +958,7 @@ export async function updateAssetIpAction(
       ) {
         return {
           success: false,
-          message: "请至少保留 1 张IP图片",
+          message: t("validation.keepAtLeastOneImage"),
         };
       }
 
@@ -989,7 +1046,7 @@ export async function updateAssetIpAction(
         }
 
         if (finalImages.length === 0) {
-          throw new Error("请至少保留 1 张IP图片");
+          throw new Error(t("validation.keepAtLeastOneImage"));
         }
       });
 
@@ -1017,7 +1074,7 @@ export async function updateAssetIpAction(
       console.error("Failed to update asset IP:", error);
       return {
         success: false,
-        message: error instanceof Error ? error.message : "更新IP形象失败",
+        message: error instanceof Error ? error.message : t("updateFailed"),
       };
     }
   });
@@ -1029,6 +1086,7 @@ export async function setAssetIpEnabledAction(
 ): Promise<ServerActionResult<{ ip: IpItem }>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
+      const t = await getTranslations("Tagging.IpLibrary");
       const ip = await prisma.assetIp.findFirst({
         where: {
           id: ipId,
@@ -1039,7 +1097,7 @@ export async function setAssetIpEnabledAction(
       if (!ip) {
         return {
           success: false,
-          message: "IP形象不存在或已被删除",
+          message: t("processingErrors.ipNotFound"),
         };
       }
 
@@ -1072,9 +1130,10 @@ export async function setAssetIpEnabledAction(
       };
     } catch (error) {
       console.error("Failed to toggle asset IP enabled:", error);
+      const t = await getTranslations("Tagging.IpLibrary");
       return {
         success: false,
-        message: "更新启用状态失败",
+        message: t("toggleEnabledFailed"),
       };
     }
   });
@@ -1085,6 +1144,7 @@ export async function deleteAssetIpAction(
 ): Promise<ServerActionResult<{ ipId: string }>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
+      const t = await getTranslations("Tagging.IpLibrary");
       const ip = await prisma.assetIp.findFirst({
         where: {
           id: ipId,
@@ -1095,7 +1155,7 @@ export async function deleteAssetIpAction(
       if (!ip) {
         return {
           success: false,
-          message: "IP形象不存在或已被删除",
+          message: t("processingErrors.ipNotFound"),
         };
       }
 
@@ -1118,9 +1178,10 @@ export async function deleteAssetIpAction(
       };
     } catch (error) {
       console.error("Failed to delete asset IP:", error);
+      const t = await getTranslations("Tagging.IpLibrary");
       return {
         success: false,
-        message: "删除IP形象失败",
+        message: t("deleteFailed"),
       };
     }
   });
@@ -1131,6 +1192,7 @@ export async function retryAssetIpProcessingAction(
 ): Promise<ServerActionResult<{ ip: IpItem }>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
+      const t = await getTranslations("Tagging.IpLibrary");
       const ip = await prisma.assetIp.findFirst({
         where: {
           id: ipId,
@@ -1141,14 +1203,14 @@ export async function retryAssetIpProcessingAction(
       if (!ip) {
         return {
           success: false,
-          message: "IP形象不存在或已被删除",
+          message: t("processingErrors.ipNotFound"),
         };
       }
 
       if (ip.status !== "failed") {
         return {
           success: false,
-          message: "仅已失败的IP形象可重试",
+          message: t("retryOnlyFailed"),
         };
       }
 
@@ -1171,7 +1233,7 @@ export async function retryAssetIpProcessingAction(
       console.error("Failed to retry asset IP processing:", error);
       return {
         success: false,
-        message: error instanceof Error ? error.message : "重试IP形象处理失败",
+        message: error instanceof Error ? error.message : t("retryFailed"),
       };
     }
   });
@@ -1181,6 +1243,7 @@ export async function pollIpsAction(
   ipIds: string[],
 ): Promise<ServerActionResult<{ ips: IpItem[] }>> {
   return withAuth(async ({ team: { id: teamId } }) => {
+    const t = await getTranslations("Tagging.IpLibrary");
     try {
       const uniqueIds = Array.from(new Set(ipIds)).filter(
         (id) => typeof id === "string" && id.length > 0,
@@ -1197,7 +1260,7 @@ export async function pollIpsAction(
       console.error("Failed to poll IPs:", error);
       return {
         success: false,
-        message: "刷新IP形象状态失败",
+        message: t("createFailed"),
       };
     }
   });
@@ -1207,7 +1270,9 @@ export async function createAssetIpTypeAction(
   name: string,
 ): Promise<ServerActionResult<{ ipType: IpTypeItem }>> {
   return withAuth(async ({ team: { id: teamId } }) => {
+    const t = await getTranslations("Tagging.IpLibrary");
     try {
+      const ipTypeNameSchema = await getIpTypeNameSchema();
       const parsedName = ipTypeNameSchema.parse(name);
 
       const existingType = await prisma.assetIpType.findFirst({
@@ -1220,7 +1285,7 @@ export async function createAssetIpTypeAction(
       if (existingType) {
         return {
           success: false,
-          message: "该IP类型已存在",
+          message: t("ipType.duplicated"),
         };
       }
 
@@ -1249,7 +1314,7 @@ export async function createAssetIpTypeAction(
       console.error("Failed to create asset IP type:", error);
       return {
         success: false,
-        message: error instanceof Error ? error.message : "创建IP类型失败",
+        message: error instanceof Error ? error.message : t("ipType.created"),
       };
     }
   });
@@ -1260,7 +1325,9 @@ export async function updateAssetIpTypeAction(
   name: string,
 ): Promise<ServerActionResult<{ ipType: IpTypeItem }>> {
   return withAuth(async ({ team: { id: teamId } }) => {
+    const t = await getTranslations("Tagging.IpLibrary");
     try {
+      const ipTypeNameSchema = await getIpTypeNameSchema();
       const parsedName = ipTypeNameSchema.parse(name);
 
       const ipType = await prisma.assetIpType.findFirst({
@@ -1273,7 +1340,7 @@ export async function updateAssetIpTypeAction(
       if (!ipType) {
         return {
           success: false,
-          message: "IP类型不存在或已被删除",
+          message: t("ipType.deleted"),
         };
       }
 
@@ -1290,7 +1357,7 @@ export async function updateAssetIpTypeAction(
       if (duplicatedType) {
         return {
           success: false,
-          message: "该IP类型已存在",
+          message: t("ipType.duplicated"),
         };
       }
 
@@ -1327,7 +1394,7 @@ export async function updateAssetIpTypeAction(
       console.error("Failed to update asset IP type:", error);
       return {
         success: false,
-        message: error instanceof Error ? error.message : "更新IP类型失败",
+        message: error instanceof Error ? error.message : t("ipType.updated"),
       };
     }
   });
@@ -1337,6 +1404,7 @@ export async function softDeleteAssetIpTypeAction(
   ipTypeId: string,
 ): Promise<ServerActionResult<{ ipTypeId: string }>> {
   return withAuth(async ({ team: { id: teamId } }) => {
+    const t = await getTranslations("Tagging.IpLibrary");
     try {
       const ipType = await prisma.assetIpType.findFirst({
         where: {
@@ -1348,7 +1416,7 @@ export async function softDeleteAssetIpTypeAction(
       if (!ipType) {
         return {
           success: false,
-          message: "IP类型不存在或已被删除",
+          message: t("ipType.deleted"),
         };
       }
 
@@ -1393,7 +1461,7 @@ export async function softDeleteAssetIpTypeAction(
       console.error("Failed to delete asset IP type:", error);
       return {
         success: false,
-        message: "删除IP类型失败",
+        message: t("ipType.deleted"),
       };
     }
   });
@@ -1403,6 +1471,7 @@ export async function reorderAssetIpTypesAction(
   orderedIds: string[],
 ): Promise<ServerActionResult<{ orderedIds: string[] }>> {
   return withAuth(async ({ team: { id: teamId } }) => {
+    const t = await getTranslations("Tagging.IpLibrary");
     try {
       const uniqueOrderedIds = Array.from(new Set(orderedIds));
 
@@ -1424,7 +1493,7 @@ export async function reorderAssetIpTypesAction(
       ) {
         return {
           success: false,
-          message: "类型排序数据已过期，请刷新后重试",
+          message: t("ipType.reorderFailed"),
         };
       }
 
@@ -1451,7 +1520,7 @@ export async function reorderAssetIpTypesAction(
       console.error("Failed to reorder asset IP types:", error);
       return {
         success: false,
-        message: "更新类型顺序失败",
+        message: t("ipType.reorderFailed"),
       };
     }
   });
