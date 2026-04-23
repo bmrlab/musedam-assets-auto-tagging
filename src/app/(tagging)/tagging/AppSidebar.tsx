@@ -67,7 +67,7 @@ const getMenuItems = (t: TranslationFunction): MenuItem[] => [
     section: "featureLibrary",
   },
   {
-    title: "IP 形象",
+    title: t("Sidebar.ip"),
     url: "/tagging/ip",
     icon: IpIcon,
     section: "featureLibrary",
