@@ -28,7 +28,7 @@ import {
   Settings,
   X,
 } from "lucide-react";
-import { useLocale } from "next-intl";
+import { useTranslations } from "next-intl";
 import * as React from "react";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -65,39 +65,6 @@ type IpTypeSelectProps = {
   triggerClassName?: string;
 };
 
-function getCopy(locale: string) {
-  const isChinese = locale.toLowerCase().startsWith("zh");
-
-  if (isChinese) {
-    return {
-      placeholder: "请选择",
-      manage: "管理",
-      manageTitle: "管理类型",
-      newType: "新建类型",
-      inputPlaceholder: "请输入新类型",
-      enterName: "请输入类型名称",
-      created: "IP类型已创建",
-      updated: "IP类型已更新",
-      deleted: "IP类型已删除",
-      duplicated: "该IP类型已存在",
-      used: "该IP类型正在使用中，无法删除",
-    };
-  }
-
-  return {
-    placeholder: "Please select",
-    manage: "Manage",
-    manageTitle: "Manage types",
-    newType: "New type",
-    inputPlaceholder: "Enter a new type",
-    enterName: "Please enter a type name",
-    created: "IP type created",
-    updated: "IP type updated",
-    deleted: "IP type deleted",
-    duplicated: "The IP type already exists",
-    used: "This IP type is in use and cannot be deleted",
-  };
-}
 
 function SortableTypeRow({
   type,
@@ -235,8 +202,7 @@ export default function IpTypeSelect({
   disabled,
   triggerClassName,
 }: IpTypeSelectProps) {
-  const locale = useLocale();
-  const copy = getCopy(locale);
+  const t = useTranslations("Tagging.IpLibrary.ipType");
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<"list" | "manage">("list");
   const [isCreating, setIsCreating] = useState(false);
@@ -283,7 +249,7 @@ export default function IpTypeSelect({
   async function handleCreateType() {
     const nextName = newTypeName.trim();
     if (!nextName) {
-      toast.error(copy.enterName);
+      toast.error(t("typeNameRequired"));
       return;
     }
 
@@ -302,14 +268,14 @@ export default function IpTypeSelect({
       setIsCreating(false);
       setNewTypeName("");
       setMode("list");
-      toast.success(copy.created);
+      toast.success(t("created"));
     });
   }
 
   async function handleRenameType(type: IpTypeItem) {
     const nextName = editingName.trim();
     if (!nextName) {
-      toast.error(copy.enterName);
+      toast.error(t("typeNameRequired"));
       return;
     }
 
@@ -324,13 +290,13 @@ export default function IpTypeSelect({
       onTypeRenamed?.(type.id, result.data.ipType.name);
       setEditingTypeId(null);
       setEditingName("");
-      toast.success(copy.updated);
+      toast.success(t("updated"));
     });
   }
 
   async function handleDeleteType(type: IpTypeItem) {
     if (usedTypeIds.includes(type.id)) {
-      toast.error(copy.used);
+      toast.error(t("inUse"));
       return;
     }
 
@@ -348,7 +314,7 @@ export default function IpTypeSelect({
       onTypeDeleted?.(type.id);
       setEditingTypeId(null);
       setEditingName("");
-      toast.success(copy.deleted);
+      toast.success(t("deleted"));
     });
   }
 
@@ -398,7 +364,7 @@ export default function IpTypeSelect({
         )}
       >
         <span className={cn(!selectedType && "text-basic-5")}>
-          {selectedType?.name ?? copy.placeholder}
+          {selectedType?.name ?? t("placeholder")}
         </span>
         <ChevronDown
           className={cn("size-4 text-basic-5 transition-transform", open && "rotate-180")}
@@ -421,7 +387,7 @@ export default function IpTypeSelect({
                 >
                   <ChevronLeft className="h-[14px] w-[14px] text-[#8F9BB3]" />
                   <span className="text-[14px] leading-5 font-medium text-[#192038]">
-                    {copy.manageTitle}
+                    {t("manageTitle")}
                   </span>
                 </button>
               </div>
@@ -467,7 +433,7 @@ export default function IpTypeSelect({
                   <Input
                     value={newTypeName}
                     onChange={(event) => setNewTypeName(event.target.value)}
-                    placeholder={copy.inputPlaceholder}
+                    placeholder={t("newTypePlaceholder")}
                     className="h-8 px-3 py-0 focus-visible:border-[#598BFF] focus-visible:ring-0 focus-visible:ring-offset-0"
                     autoFocus
                     onKeyDown={(event) => {
@@ -517,7 +483,7 @@ export default function IpTypeSelect({
                     >
                       <Plus className="h-[14px] w-[14px] text-[#3366FF]" />
                       <span className="text-[14px] leading-5 font-medium text-[#3366FF]">
-                        {copy.newType}
+                        {t("create")}
                       </span>
                     </button>
                   </div>
@@ -557,7 +523,7 @@ export default function IpTypeSelect({
                   <Input
                     value={newTypeName}
                     onChange={(event) => setNewTypeName(event.target.value)}
-                    placeholder={copy.inputPlaceholder}
+                    placeholder={t("newTypePlaceholder")}
                     className="h-8 px-3 py-0 focus-visible:border-[#598BFF] focus-visible:ring-0 focus-visible:ring-offset-0"
                     autoFocus
                     onKeyDown={(event) => {
@@ -607,7 +573,7 @@ export default function IpTypeSelect({
                     >
                       <Plus className="h-[14px] w-[14px] text-[#3366FF]" />
                       <span className="text-[14px] leading-5 font-medium text-[#3366FF]">
-                        {copy.newType}
+                        {t("create")}
                       </span>
                     </button>
                     <button
@@ -617,7 +583,7 @@ export default function IpTypeSelect({
                     >
                       <Settings className="h-[12px] w-[12px] text-[#8F9BB3]" />
                       <span className="text-[12px] leading-4 font-medium text-[#8F9BB3]">
-                        {copy.manage}
+                        {t("manageTitle")}
                       </span>
                     </button>
                   </div>

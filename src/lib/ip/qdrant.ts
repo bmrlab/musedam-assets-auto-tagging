@@ -35,7 +35,7 @@ export type QdrantIpQueryPoint = {
 };
 
 function getIpQdrantCollectionName() {
-  return `${getQdrantConfig().collectionName}_asset_ip`;
+  return `${getQdrantConfig().collectionBaseName}_asset_ip`;
 }
 
 function buildFilter(must: QdrantMatchCondition[]): QdrantFilter {

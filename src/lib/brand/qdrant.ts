@@ -33,6 +33,10 @@ export type QdrantQueryPoint = {
   payload?: Partial<LogoVectorPayload>;
 };
 
+function getLogoQdrantCollectionName() {
+  return `${getQdrantConfig().collectionBaseName}_asset_logo`;
+}
+
 function buildFilter(must: QdrantMatchCondition[]): QdrantFilter {
   return { must };
 }
@@ -69,11 +73,11 @@ async function qdrantRequest<T>({
 }
 
 export async function ensureLogoVectorCollection(vectorSize: number) {
-  const config = getQdrantConfig();
+  const collectionName = getLogoQdrantCollectionName();
 
   try {
     await qdrantRequest({
-      path: `/collections/${encodeURIComponent(config.collectionName)}`,
+      path: `/collections/${encodeURIComponent(collectionName)}`,
     });
     return;
   } catch (error) {
@@ -83,7 +87,7 @@ export async function ensureLogoVectorCollection(vectorSize: number) {
   }
 
   await qdrantRequest({
-    path: `/collections/${encodeURIComponent(config.collectionName)}`,
+    path: `/collections/${encodeURIComponent(collectionName)}`,
     method: "PUT",
     body: {
       vectors: {
@@ -101,11 +105,11 @@ export async function deleteLogoVectorPointsByLogo({
   teamId: number;
   assetLogoId: string;
 }) {
-  const config = getQdrantConfig();
+  const collectionName = getLogoQdrantCollectionName();
 
   try {
     await qdrantRequest({
-      path: `/collections/${encodeURIComponent(config.collectionName)}/points/delete?wait=true`,
+      path: `/collections/${encodeURIComponent(collectionName)}/points/delete?wait=true`,
       method: "POST",
       body: {
         filter: buildFilter([
@@ -136,11 +140,11 @@ export async function setLogoVectorPayloadByLogo({
   assetLogoId: string;
   payload: Partial<LogoVectorPayload>;
 }) {
-  const config = getQdrantConfig();
+  const collectionName = getLogoQdrantCollectionName();
 
   try {
     await qdrantRequest({
-      path: `/collections/${encodeURIComponent(config.collectionName)}/points/payload?wait=true`,
+      path: `/collections/${encodeURIComponent(collectionName)}/points/payload?wait=true`,
       method: "POST",
       body: {
         filter: buildFilter([
@@ -174,9 +178,9 @@ export async function upsertLogoVectorPoints(
     return;
   }
 
-  const config = getQdrantConfig();
+  const collectionName = getLogoQdrantCollectionName();
   await qdrantRequest({
-    path: `/collections/${encodeURIComponent(config.collectionName)}/points?wait=true`,
+    path: `/collections/${encodeURIComponent(collectionName)}/points?wait=true`,
     method: "PUT",
     body: {
       points,
@@ -195,11 +199,11 @@ export async function queryLogoVectorPoints({
   limit: number;
   scoreThreshold?: number;
 }) {
-  const config = getQdrantConfig();
+  const collectionName = getLogoQdrantCollectionName();
 
   try {
     const result = await qdrantRequest<{ points: QdrantQueryPoint[] }>({
-      path: `/collections/${encodeURIComponent(config.collectionName)}/points/query`,
+      path: `/collections/${encodeURIComponent(collectionName)}/points/query`,
       method: "POST",
       body: {
         query: vector,

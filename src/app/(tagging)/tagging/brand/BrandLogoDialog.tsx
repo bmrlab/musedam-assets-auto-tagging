@@ -428,7 +428,9 @@ export default function BrandLogoDialog({
                   >
                     <span className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2">
                       <Plus className="h-[14px] w-[14px]" />
-                      <span className="text-[14px] leading-[22px] font-normal">{t("dialog.uploadImage")}</span>
+                      <span className="text-[14px] leading-[22px] font-normal">
+                        {t("dialog.uploadImage")}
+                      </span>
                     </span>
                   </button>
                 </DropdownMenuTrigger>
@@ -499,6 +501,7 @@ export default function BrandLogoDialog({
 
             <div className="mt-3 flex items-start gap-[10px] rounded-[8px] border border-[#598BFF] bg-[#F2F6FF] px-3 py-[14px] text-[12px] leading-[16px] font-normal text-[#192038]">
               <p className="text-[12px] leading-[16px] font-normal text-[#192038]">
+                💡 <span className="font-semibold">{t("dialog.uploadHintTitle")}</span>
                 {t("dialog.uploadHint")}
               </p>
             </div>
@@ -513,19 +516,19 @@ export default function BrandLogoDialog({
                 <p className="text-[12px] leading-[16px] font-normal text-[#8F9BB3]">
                   {t("dialog.linkedTagsHint")}
                 </p>
-              <button
-                type="button"
-                onClick={() =>
-                  dispatchMuseDAMClientAction("goto", {
-                    url: "/home/dashboard/tag",
-                    target: "_blank",
-                  })
-                }
-                className="inline-flex items-center gap-1 text-[12px] leading-[16px] font-normal text-[#3366FF] transition-opacity hover:opacity-80"
-              >
-                <TagsIcon />
-                {t("dialog.manageTags")}
-              </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    dispatchMuseDAMClientAction("goto", {
+                      url: "/home/dashboard/tag",
+                      target: "_blank",
+                    })
+                  }
+                  className="inline-flex items-center gap-1 text-[12px] leading-[16px] font-normal text-[#3366FF] transition-opacity hover:opacity-80"
+                >
+                  <TagsIcon />
+                  {t("dialog.manageTags")}
+                </button>
               </div>
             </div>
             <BrandTagSelector
@@ -592,7 +595,9 @@ export default function BrandLogoDialog({
           className="w-auto max-h-[90vh] max-w-[90vw] overflow-visible border-none bg-transparent p-0 shadow-none"
         >
           <DialogTitle className="sr-only">
-            {previewImage ? `${previewImage.name} ${t("dialog.previewImage")}` : t("dialog.previewImage")}
+            {previewImage
+              ? `${previewImage.name} ${t("dialog.previewImage")}`
+              : t("dialog.previewImage")}
           </DialogTitle>
           {previewImage ? (
             <div className="relative inline-flex">
