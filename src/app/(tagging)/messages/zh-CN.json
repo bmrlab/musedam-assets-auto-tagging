@@ -8,6 +8,7 @@
       "configuration": "配置",
       "dashboard": "控制面板",
       "featureLibrary": "特征库",
+      "ip": "IP 形象",
       "review": "AI 打标审核",
       "settings": "AI 打标设置",
       "access": "成员设置",
@@ -146,13 +147,6 @@
         "noAssetsSelected": "未选择任何素材",
         "invalidAssets": "所选素材缺少可用下载地址",
         "selectFromLibraryFailed": "从素材库选择图片失败，请重试"
-      },
-      "validation": {
-        "nameRequired": "请输入标识名称",
-        "typeRequired": "请选择标识类型",
-        "typeDeleted": "当前类型已被删除，请重新选择一个有效类型",
-        "imagesRequired": "请至少上传 1 张标识图片",
-        "totalTooLarge": "本次新上传图片总大小不能超过 50MB"
       },
       "processingErrors": {
         "logoNotFound": "品牌标识不存在或已被删除",

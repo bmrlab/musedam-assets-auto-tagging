@@ -362,7 +362,7 @@ export default function BrandLogoDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] w-[750px] max-w-[calc(100%-2rem)] gap-0 overflow-y-auto rounded-[20px] p-0">
+      <DialogContent className="max-h-[92vh] w-[750px] max-w-[calc(100%-2rem)] gap-0 overflow-y-auto rounded-[20px] p-0">
         <DialogHeader className="h-14 justify-center gap-0 px-5 py-4">
           <DialogTitle className="text-[16px] leading-6 font-semibold text-[#151A30]">
             {mode === "create" ? t("dialog.titleCreate") : t("dialog.titleEdit")}
