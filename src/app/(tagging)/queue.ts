@@ -1,6 +1,8 @@
 import "server-only";
 
+import { isTagTreeJob, processTagTreeQueueItem } from "@/app/tags/tagTreeQueue";
 import { classifyAssetBrandRecommendation } from "@/lib/brand/tagging-brand-classification";
+import { classifyAssetIpRecommendation } from "@/lib/ip/tagging-ip-classification";
 import { rootLogger } from "@/lib/logging";
 import { idToSlug, slugToId } from "@/lib/slug";
 import { retrieveTeamCredentials } from "@/musedam/apiKey";
@@ -14,13 +16,13 @@ import {
   Prisma,
   TaggingAuditStatus,
   TaggingBrandRecommendation,
+  TaggingIpRecommendation,
   TaggingQueueItem,
   TaggingQueueItemExtra,
   TaggingQueueItemResult,
 } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 import pLimit from "p-limit";
-import { isTagTreeJob, processTagTreeQueueItem, TAG_TREE_JOB_KIND } from "@/app/tags/tagTreeQueue";
 import { predictAssetTags } from "./predict";
 import { getTaggingSettings } from "./tagging/settings/lib";
 import { SourceBasedTagPredictions, TagWithScore } from "./types";
@@ -73,6 +75,17 @@ function hasConfidentBrandRecommendedTags(
       !brandRecommendation.noConfidentMatch &&
       Array.isArray(brandRecommendation.recommendedTags) &&
       brandRecommendation.recommendedTags.length > 0,
+  );
+}
+
+function hasConfidentIpRecommendedTags(
+  ipRecommendation: TaggingIpRecommendation | null,
+): ipRecommendation is TaggingIpRecommendation {
+  return Boolean(
+    ipRecommendation &&
+      !ipRecommendation.noConfidentMatch &&
+      Array.isArray(ipRecommendation.recommendedTags) &&
+      ipRecommendation.recommendedTags.length > 0,
   );
 }
 
@@ -132,9 +145,7 @@ export async function processQueueItem({
   try {
     const extra = queueItem.extra as TaggingQueueItemExtra;
     const thumbnailUrl = (assetObject.extra as AssetObjectExtra | null)?.thumbnailAccessUrl;
-    const downloadUrl = (assetObject.extra as AssetObjectExtra | null)?.downloadUrl;
     // console.log("thumbnailUrl", thumbnailUrl);
-    // console.log("downloadUrl", downloadUrl);
     const predictTagsPromise = predictAssetTags(assetObject, {
       matchingSources: extra?.matchingSources,
       recognitionAccuracy: extra?.recognitionAccuracy,
@@ -149,24 +160,37 @@ export async function processQueueItem({
       });
       return null;
     });
+    const ipRecommendationPromise = classifyAssetIpRecommendation({
+      teamId: queueItem.teamId,
+      imageUrl: thumbnailUrl,
+    }).catch((error) => {
+      logger.warn({
+        msg: "ip classification failed, continuing without ip recommendation",
+        error: String(error),
+      });
+      return null;
+    });
 
-    const [
-      { predictions, tagsWithScore, extra: newExtra },
-      brandRecommendation,
-    ] = await Promise.all([predictTagsPromise, brandRecommendationPromise]);
+    const [{ predictions, tagsWithScore, extra: newExtra }, brandRecommendation, ipRecommendation] =
+      await Promise.all([predictTagsPromise, brandRecommendationPromise, ipRecommendationPromise]);
     const hasAiTags = tagsWithScore.length > 0;
     const confidentBrandRecommendation = hasConfidentBrandRecommendedTags(brandRecommendation)
       ? brandRecommendation
       : null;
+    const confidentIpRecommendation = hasConfidentIpRecommendedTags(ipRecommendation)
+      ? ipRecommendation
+      : null;
     const hasBrandTags = confidentBrandRecommendation !== null;
+    const hasIpTags = confidentIpRecommendation !== null;
 
-    if (!hasAiTags && !hasBrandTags) {
+    if (!hasAiTags && !hasBrandTags && !hasIpTags) {
       throw Object.assign(new Error("No valid tags predicted"), { code: "NO_VALID_TAGS" });
     }
     logger.info({
       msg: "processQueueItem completed",
       tagsWithScoreCount: tagsWithScore.length,
       hasBrandTags,
+      hasIpTags,
     });
 
     // 如果是测试内容，不需要进入审核
@@ -179,6 +203,7 @@ export async function processQueueItem({
         isDirect,
         tagsWithScoreCount: tagsWithScore.length,
         hasBrandTags,
+        hasIpTags,
         mode: isDirect ? "direct" : "review",
       });
 
@@ -222,24 +247,25 @@ export async function processQueueItem({
         const hasCreatedAiAuditItems =
           createAuditResult?.success === true && createAuditResult.createdCount > 0;
 
-        if (!hasCreatedAiAuditItems && hasBrandTags) {
-          const brandOnlyReviewResult = await createBrandOnlyReviewItem({
+        if (!hasCreatedAiAuditItems && (hasBrandTags || hasIpTags)) {
+          const recommendationOnlyReviewResult = await createRecommendationOnlyReviewItem({
             assetObject,
             taggingQueueItem: queueItem,
             brandRecommendation: confidentBrandRecommendation,
+            ipRecommendation: confidentIpRecommendation,
           });
 
-          if (!brandOnlyReviewResult.success) {
+          if (!recommendationOnlyReviewResult.success) {
             logger.error({
-              msg: "createBrandOnlyReviewItem failed",
-              error: brandOnlyReviewResult.error,
+              msg: "createRecommendationOnlyReviewItem failed",
+              error: recommendationOnlyReviewResult.error,
             });
-            throw new Error("createBrandOnlyReviewItem failed");
+            throw new Error("createRecommendationOnlyReviewItem failed");
           }
 
           logger.info({
-            msg: "createBrandOnlyReviewItem completed successfully",
-            createdCount: brandOnlyReviewResult.createdCount,
+            msg: "createRecommendationOnlyReviewItem completed successfully",
+            createdCount: recommendationOnlyReviewResult.createdCount,
           });
         } else if (!hasCreatedAiAuditItems) {
           throw new Error("No review items created");
@@ -256,6 +282,7 @@ export async function processQueueItem({
           new Set([
             ...tagsWithScore.map((tag) => tag.leafTagId),
             ...(brandRecommendation?.recommendedTags ?? []).map((tag) => tag.assetTagId),
+            ...(ipRecommendation?.recommendedTags ?? []).map((tag) => tag.assetTagId),
           ]),
         );
         // 先查询对应的 AssetTag 获取 slug
@@ -351,6 +378,7 @@ export async function processQueueItem({
           predictions,
           tagsWithScore,
           brandRecommendation,
+          ipRecommendation,
         } as TaggingQueueItemResult,
         extra: {
           ...extra,
@@ -386,7 +414,9 @@ export async function processQueueItem({
 // 总并发槽数：其中至少 TAG_TREE_RESERVED_CONCURRENCY 个保留给标签树任务
 const TOTAL_CONCURRENCY = 3;
 const TAG_TREE_RESERVED_CONCURRENCY = 1;
-const PROCESSING_STALE_TIMEOUT_MS = Number(process.env.QUEUE_PROCESSING_STALE_TIMEOUT_MS ?? 15 * 60 * 1000);
+const PROCESSING_STALE_TIMEOUT_MS = Number(
+  process.env.QUEUE_PROCESSING_STALE_TIMEOUT_MS ?? 15 * 60 * 1000,
+);
 
 async function recoverStaleProcessingItems(): Promise<number> {
   const staleBefore = new Date(Date.now() - PROCESSING_STALE_TIMEOUT_MS);
@@ -433,7 +463,10 @@ async function tryClaimAndProcess(
       if (isTagTreeJob(queueItem)) {
         await processTagTreeQueueItem({ ...queueItem, status: "processing" });
       } else {
-        await processQueueItem({ ...(queueItem as TaggingQueueItem & { assetObject: AssetObject | null }), status: "processing" });
+        await processQueueItem({
+          ...(queueItem as TaggingQueueItem & { assetObject: AssetObject | null }),
+          status: "processing",
+        });
       }
       onSuccess();
     } else {
@@ -466,9 +499,7 @@ export async function processPendingQueueItems(): Promise<{
     take: TOTAL_CONCURRENCY * 4,
   });
 
-  const tagTreeItems = candidateItems
-    .filter(isTagTreeJob)
-    .slice(0, TAG_TREE_RESERVED_CONCURRENCY);
+  const tagTreeItems = candidateItems.filter(isTagTreeJob).slice(0, TAG_TREE_RESERVED_CONCURRENCY);
 
   const normalItems = candidateItems
     .filter((item) => !isTagTreeJob(item))
@@ -485,8 +516,12 @@ export async function processPendingQueueItems(): Promise<{
     limit(() =>
       tryClaimAndProcess(
         queueItem,
-        () => { processing++; },
-        () => { skipped++; },
+        () => {
+          processing++;
+        },
+        () => {
+          skipped++;
+        },
       ),
     ),
   );
@@ -610,15 +645,17 @@ async function createAuditItems({
   }
 }
 
-async function createBrandOnlyReviewItem({
+async function createRecommendationOnlyReviewItem({
   assetObject,
   taggingQueueItem,
   brandRecommendation,
+  ipRecommendation,
   status = "pending",
 }: {
   assetObject: AssetObject;
   taggingQueueItem: TaggingQueueItem;
-  brandRecommendation: TaggingBrandRecommendation;
+  brandRecommendation: TaggingBrandRecommendation | null;
+  ipRecommendation: TaggingIpRecommendation | null;
   status?: TaggingAuditStatus;
 }): Promise<{ success: boolean; createdCount: number; error?: unknown }> {
   const logger = rootLogger.child({
@@ -628,16 +665,27 @@ async function createBrandOnlyReviewItem({
   });
 
   try {
-    if (!hasConfidentBrandRecommendedTags(brandRecommendation)) {
+    const hasBrandRecommendation = hasConfidentBrandRecommendedTags(brandRecommendation);
+    const hasIpRecommendation = hasConfidentIpRecommendedTags(ipRecommendation);
+
+    if (!hasBrandRecommendation && !hasIpRecommendation) {
       logger.warn({
-        msg: "createBrandOnlyReviewItem: no confident brand recommendation available",
+        msg: "createRecommendationOnlyReviewItem: no confident recommendation available",
       });
       return { success: true, createdCount: 0 };
     }
 
     const score = Math.max(
       0,
-      Math.min(100, Math.round(brandRecommendation.bestMatch?.confidence ?? 0)),
+      Math.min(
+        100,
+        Math.round(
+          Math.max(
+            hasBrandRecommendation ? (brandRecommendation.bestMatch?.confidence ?? 0) : 0,
+            hasIpRecommendation ? (ipRecommendation.bestMatch?.confidence ?? 0) : 0,
+          ),
+        ),
+      ),
     );
 
     await prisma.taggingAuditItem.create({
@@ -653,7 +701,7 @@ async function createBrandOnlyReviewItem({
     });
 
     logger.info({
-      msg: "createBrandOnlyReviewItem: placeholder created",
+      msg: "createRecommendationOnlyReviewItem: placeholder created",
       score,
       status,
     });
@@ -661,7 +709,7 @@ async function createBrandOnlyReviewItem({
     return { success: true, createdCount: 1 };
   } catch (error) {
     logger.error({
-      msg: `createBrandOnlyReviewItem failed: ${error}`,
+      msg: `createRecommendationOnlyReviewItem failed: ${error}`,
       error,
       status,
     });

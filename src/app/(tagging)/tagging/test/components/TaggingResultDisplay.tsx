@@ -1,8 +1,8 @@
 "use client";
 
-import { cn } from "@/lib/utils";
-import { BrandIcon, TagAIIcon, VimIcon } from "@/components/ui";
+import { BrandIcon, IpIcon, TagAIIcon, VimIcon } from "@/components/ui";
 import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import { CheckIcon, CircleQuestionMarkIcon, ClockIcon, FolderIcon, ImageIcon } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import Image from "next/image";
@@ -25,6 +25,17 @@ export interface TaggingResult {
     logoName: string | null;
     confidence: number | null;
     similarity: number | null;
+    recommendedTags: {
+      tagPath: string[];
+    }[];
+  } | null;
+  ipRecognition: {
+    noConfidentMatch: boolean;
+    ipName: string | null;
+    confidence: number | null;
+    similarity: number | null;
+    imageSimilarity: number | null;
+    descriptionSimilarity: number | null;
     recommendedTags: {
       tagPath: string[];
     }[];
@@ -94,9 +105,70 @@ function getBrandGuidance(locale: string, noConfidentMatch: boolean) {
       };
 }
 
+function getIpGuidance(locale: string, noConfidentMatch: boolean) {
+  const normalizedLocale = locale.toLowerCase();
+
+  if (normalizedLocale === "zh-tw") {
+    return noConfidentMatch
+      ? {
+          title: "IP 形象識別",
+          metricNote: "僅供參考",
+          entityLabel: "Winning IP",
+          emptyText: "暫無 IP 形象識別結果",
+          explanation:
+            "目前已識別到可能 IP，但尚未達到可靠命中條件。以下關聯標籤僅供參考，暫不會進入生效標籤；常見原因是分數不足，或與其他候選 IP 差距不夠大。",
+        }
+      : {
+          title: "IP 形象識別",
+          metricNote: "參與生效",
+          entityLabel: "Winning IP",
+          emptyText: "暫無 IP 形象識別結果",
+          explanation: "目前 IP 結果已通過可靠性校驗，以下關聯標籤會參與生效標籤計算。",
+        };
+  }
+
+  if (normalizedLocale.startsWith("zh")) {
+    return noConfidentMatch
+      ? {
+          title: "IP 形象识别",
+          metricNote: "仅供参考",
+          entityLabel: "Winning IP",
+          emptyText: "暂无 IP 形象识别结果",
+          explanation:
+            "当前已识别到可能 IP，但尚未达到可靠命中条件。以下关联标签仅供参考，暂不会进入生效标签；常见原因是分数不足，或与其他候选 IP 差距不够大。",
+        }
+      : {
+          title: "IP 形象识别",
+          metricNote: "参与生效",
+          entityLabel: "Winning IP",
+          emptyText: "暂无 IP 形象识别结果",
+          explanation: "当前 IP 结果已通过可靠性校验，以下关联标签会参与生效标签计算。",
+        };
+  }
+
+  return noConfidentMatch
+    ? {
+        title: "IP Character Recognition",
+        metricNote: "Reference only",
+        entityLabel: "Winning IP",
+        emptyText: "No IP character recognition result",
+        explanation:
+          "A possible IP character was identified, but it did not pass the reliable-hit check. The linked tags below are for reference only and will not enter Effective Tags; common reasons are insufficient score or too little separation from other candidates.",
+      }
+    : {
+        title: "IP Character Recognition",
+        metricNote: "Included",
+        entityLabel: "Winning IP",
+        emptyText: "No IP character recognition result",
+        explanation:
+          "This IP result passed the reliability check, so the linked tags below are included in Effective Tags calculation.",
+      };
+}
+
 export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
   const t = useTranslations("TaggingResultDisplay");
   const locale = useLocale();
+  const ipGuidance = getIpGuidance(locale, result.ipRecognition?.noConfidentMatch ?? false);
 
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
@@ -176,11 +248,9 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
         <CardContent className="pt-0 px-0">
           {result.brandRecognition?.logoName ? (
             (() => {
-              const brandGuidance = getBrandGuidance(
-                locale,
-                result.brandRecognition.noConfidentMatch,
-              );
-              const isReferenceOnly = result.brandRecognition.noConfidentMatch;
+              const brandRecognition = result.brandRecognition!;
+              const brandGuidance = getBrandGuidance(locale, brandRecognition.noConfidentMatch);
+              const isReferenceOnly = brandRecognition.noConfidentMatch;
 
               return (
                 <div
@@ -193,18 +263,18 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
                     <div>
                       <div className="text-xs text-basic-5">{t("classifiedLogo")}</div>
                       <div className="mt-1 text-base font-medium text-basic-8">
-                        {result.brandRecognition.logoName}
+                        {brandRecognition.logoName}
                       </div>
                     </div>
                     <div className="shrink-0 text-right">
-                      {result.brandRecognition.confidence !== null ? (
+                      {brandRecognition.confidence !== null ? (
                         <div
                           className={cn("text-sm font-medium", {
                             "text-[#D46B08]": isReferenceOnly,
                             "text-primary-6": !isReferenceOnly,
                           })}
                         >
-                          {t("confidence")}: {result.brandRecognition.confidence}%
+                          {t("confidence")}: {brandRecognition.confidence}%
                         </div>
                       ) : null}
                       <div
@@ -243,15 +313,18 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
 
                   <div className="mt-4">
                     <div className="text-xs text-basic-5">{t("linkedTags")}</div>
-                    {result.brandRecognition.recommendedTags.length > 0 ? (
+                    {brandRecognition.recommendedTags.length > 0 ? (
                       <div className="mt-2 space-y-3">
-                        {result.brandRecognition.recommendedTags.map((tag, index) => (
+                        {brandRecognition.recommendedTags.map((tag, index) => (
                           <div
                             key={`${tag.tagPath.join(">")}-${index}`}
-                            className={cn("flex items-center justify-between p-3 rounded-lg border", {
-                              "bg-[#FFFCF5] border-[#FFD591]": isReferenceOnly,
-                              "bg-background border-primary-4": !isReferenceOnly,
-                            })}
+                            className={cn(
+                              "flex items-center justify-between p-3 rounded-lg border",
+                              {
+                                "bg-[#FFFCF5] border-[#FFD591]": isReferenceOnly,
+                                "bg-background border-primary-4": !isReferenceOnly,
+                              },
+                            )}
                           >
                             {isReferenceOnly ? (
                               <CircleQuestionMarkIcon className="size-[14px] text-[#FA8C16] mr-2" />
@@ -283,7 +356,7 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
                                   "text-primary-6": !isReferenceOnly,
                                 })}
                               >
-                                {t("confidence")}: {result.brandRecognition.confidence ?? 0}%
+                                {t("confidence")}: {brandRecognition.confidence ?? 0}%
                               </div>
                               <div
                                 className={cn("text-xs", {
@@ -306,6 +379,150 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
             })()
           ) : (
             <div className="text-sm text-basic-5">{t("noBrandResult")}</div>
+          )}
+        </CardContent>
+      </div>
+
+      <div>
+        <CardHeader className="pb-2 px-0">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <IpIcon className="w-4 h-4" />
+            {ipGuidance.title}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0 px-0">
+          {result.ipRecognition?.ipName ? (
+            (() => {
+              const ipRecognition = result.ipRecognition!;
+              const isReferenceOnly = ipRecognition.noConfidentMatch;
+
+              return (
+                <div
+                  className={cn("rounded-md border p-4", {
+                    "bg-[#FFF7E6] border-[#FFC069]": isReferenceOnly,
+                    "bg-primary-1 border-primary-4": !isReferenceOnly,
+                  })}
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <div className="text-xs text-basic-5">{ipGuidance.entityLabel}</div>
+                      <div className="mt-1 text-base font-medium text-basic-8">
+                        {ipRecognition.ipName}
+                      </div>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      {ipRecognition.confidence !== null ? (
+                        <div
+                          className={cn("text-sm font-medium", {
+                            "text-[#D46B08]": isReferenceOnly,
+                            "text-primary-6": !isReferenceOnly,
+                          })}
+                        >
+                          {t("confidence")}: {ipRecognition.confidence}%
+                        </div>
+                      ) : null}
+                      <div
+                        className={cn("text-xs mt-1", {
+                          "text-[#FA8C16]": isReferenceOnly,
+                          "text-primary-5": !isReferenceOnly,
+                        })}
+                      >
+                        {ipGuidance.metricNote}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3">
+                    <div
+                      className={cn(
+                        "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium",
+                        {
+                          "bg-[#FFF1D6] text-[#D46B08]": isReferenceOnly,
+                          "bg-primary-2 text-primary-6": !isReferenceOnly,
+                        },
+                      )}
+                    >
+                      {isReferenceOnly ? t("noConfidentMatch") : t("confidentMatch")}
+                    </div>
+                  </div>
+
+                  <div
+                    className={cn("mt-3 text-sm leading-6", {
+                      "text-[#D46B08]": isReferenceOnly,
+                      "text-primary-6": !isReferenceOnly,
+                    })}
+                  >
+                    {ipGuidance.explanation}
+                  </div>
+
+                  <div className="mt-4">
+                    <div className="text-xs text-basic-5">{t("linkedTags")}</div>
+                    {ipRecognition.recommendedTags.length > 0 ? (
+                      <div className="mt-2 space-y-3">
+                        {ipRecognition.recommendedTags.map((tag, index) => (
+                          <div
+                            key={`${tag.tagPath.join(">")}-${index}`}
+                            className={cn(
+                              "flex items-center justify-between p-3 rounded-lg border",
+                              {
+                                "bg-[#FFFCF5] border-[#FFD591]": isReferenceOnly,
+                                "bg-background border-primary-4": !isReferenceOnly,
+                              },
+                            )}
+                          >
+                            {isReferenceOnly ? (
+                              <CircleQuestionMarkIcon className="size-[14px] text-[#FA8C16] mr-2" />
+                            ) : (
+                              <CheckIcon className="size-[14px] text-primary-5 mr-2" />
+                            )}
+                            <div className="flex-1">
+                              <div
+                                className={cn("font-medium text-sm mb-1", {
+                                  "text-[#D46B08]": isReferenceOnly,
+                                  "text-primary-6": !isReferenceOnly,
+                                })}
+                              >
+                                {tag.tagPath.join(" > ")}
+                              </div>
+                              <div
+                                className={cn("text-xs", {
+                                  "text-[#FA8C16]": isReferenceOnly,
+                                  "text-primary-5": !isReferenceOnly,
+                                })}
+                              >
+                                {t("matchingSource")}: {ipGuidance.title}
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0 pl-4">
+                              <div
+                                className={cn("text-sm font-medium", {
+                                  "text-[#D46B08]": isReferenceOnly,
+                                  "text-primary-6": !isReferenceOnly,
+                                })}
+                              >
+                                {t("confidence")}: {ipRecognition.confidence ?? 0}%
+                              </div>
+                              <div
+                                className={cn("text-xs", {
+                                  "text-[#FA8C16]": isReferenceOnly,
+                                  "text-primary-5": !isReferenceOnly,
+                                })}
+                              >
+                                {ipGuidance.metricNote}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="mt-2 text-sm text-basic-5">{t("noLinkedTags")}</div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()
+          ) : (
+            <div className="text-sm text-basic-5">{ipGuidance.emptyText}</div>
           )}
         </CardContent>
       </div>

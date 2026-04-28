@@ -65,12 +65,35 @@ declare module "@/prisma/client" {
     recommendedTags: TaggingBrandRecommendedTag[];
   };
 
+  export type TaggingIpRecommendedTag = {
+    assetTagId: number;
+    tagPath: string[];
+  };
+
+  export type TaggingIpRecommendation = {
+    noConfidentMatch: boolean;
+    bestMatch: null | {
+      assetIpId: string;
+      ipName: string;
+      ipTypeId: string | null;
+      ipTypeName: string;
+      description: string;
+      similarity: number;
+      confidence: number;
+      detectionIndex: number;
+      imageSimilarity: number;
+      descriptionSimilarity: number;
+    };
+    recommendedTags: TaggingIpRecommendedTag[];
+  };
+
   import { SourceBasedTagPredictions, TagWithScore } from "@/app/(tagging)/types";
   export type TaggingQueueItemResult = Partial<{
     error: string;
     predictions: SourceBasedTagPredictions;
     tagsWithScore: TagWithScore[];
     brandRecommendation: TaggingBrandRecommendation | null;
+    ipRecommendation: TaggingIpRecommendation | null;
   }>;
 
   /** 标签树异步生成任务：存入 taggingQueueItem.extra */

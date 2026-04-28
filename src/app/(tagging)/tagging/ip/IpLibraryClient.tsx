@@ -44,6 +44,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useDeferredValue, useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
+import { MAX_PREVIEW_IMAGE_NUM } from "../brand/BrandLibraryClient";
 import {
   deleteAssetIpAction,
   pollIpsAction,
@@ -97,9 +98,9 @@ function getIpStatusMeta(status: IpItem["status"], t: ReturnType<typeof useTrans
 }
 
 function IpImagesCell({ ip, t }: { ip: IpItem; t: ReturnType<typeof useTranslations> }) {
-  const previewImages = ip.images;
+  const previewImages = ip.images.slice(0, MAX_PREVIEW_IMAGE_NUM);
 
-  if (previewImages.length === 0) {
+  if (ip.images.length === 0) {
     return <span className="text-[14px] text-basic-5">-</span>;
   }
 
@@ -129,7 +130,9 @@ function IpImagesCell({ ip, t }: { ip: IpItem; t: ReturnType<typeof useTranslati
           </IpImageHoverCard>
         ))}
       </div>
-      <span className="text-[14px] text-basic-5">{t("imageCount", { count: ip.images.length })}</span>
+      <span className="text-[14px] text-basic-5">
+        {t("imageCount", { count: ip.images.length })}
+      </span>
     </div>
   );
 }
@@ -456,7 +459,9 @@ export default function IpLibraryClient({
       }
 
       if (updatedIps.length > 0) {
-        toast.warning(t("batchPartialSuccess", { success: updatedIps.length, failed: failedCount }));
+        toast.warning(
+          t("batchPartialSuccess", { success: updatedIps.length, failed: failedCount }),
+        );
         return;
       }
 
@@ -513,7 +518,9 @@ export default function IpLibraryClient({
       if (failedCount === 0) {
         toast.success(t("batchDeletedSuccess"));
       } else if (successIds.length > 0) {
-        toast.warning(t("batchPartialSuccess", { success: successIds.length, failed: failedCount }));
+        toast.warning(
+          t("batchPartialSuccess", { success: successIds.length, failed: failedCount }),
+        );
       } else {
         toast.error(t("batchDeleteFailed"));
       }
@@ -853,7 +860,9 @@ export default function IpLibraryClient({
                                         </span>
                                       ))
                                     ) : (
-                                      <span className="text-sm text-basic-5">{t("noLinkedTags")}</span>
+                                      <span className="text-sm text-basic-5">
+                                        {t("noLinkedTags")}
+                                      </span>
                                     )}
                                   </div>
                                 </td>
@@ -1115,7 +1124,9 @@ export default function IpLibraryClient({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t("confirmDialog.cancel")}</AlertDialogCancel>
-            <AlertDialogAction onClick={handleBatchEnableSelected}>{t("batchDialog.confirmEnable")}</AlertDialogAction>
+            <AlertDialogAction onClick={handleBatchEnableSelected}>
+              {t("batchDialog.confirmEnable")}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
