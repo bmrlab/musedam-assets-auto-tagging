@@ -1,6 +1,7 @@
 "use client";
 
 import { getBrandRecommendationFromQueueResult } from "@/app/(tagging)/brand-recommendation";
+import { getIpRecommendationFromQueueResult } from "@/app/(tagging)/ip-recommendation";
 import { AssetThumbnail } from "@/components/AssetThumbnail";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -61,8 +62,11 @@ function buildMergedDisplayTags({
   aiTags,
   brandTags,
   brandConfidence,
+  ipTags,
+  ipConfidence,
   aiSourceLabel,
   brandSourceLabel,
+  ipSourceLabel,
 }: {
   aiTags: Array<{
     leafTagId?: number;
@@ -75,8 +79,14 @@ function buildMergedDisplayTags({
     tagPath?: string[];
   }>;
   brandConfidence: number;
+  ipTags: Array<{
+    assetTagId?: number;
+    tagPath?: string[];
+  }>;
+  ipConfidence: number;
   aiSourceLabel: string;
   brandSourceLabel: string;
+  ipSourceLabel: string;
 }): DisplayTag[] {
   const mergedTags = new Map<string, DisplayTag & { order: number }>();
 
@@ -137,6 +147,16 @@ function buildMergedDisplayTags({
     });
   });
 
+  ipTags.forEach((tag, index) => {
+    upsertTag({
+      order: aiTags.length + brandTags.length + index,
+      tagId: tag.assetTagId,
+      tagPath: tag.tagPath,
+      sourceLabel: ipSourceLabel,
+      score: ipConfidence,
+    });
+  });
+
   return Array.from(mergedTags.values())
     .sort((left, right) => right.score - left.score || left.order - right.order)
     .map((tag) => ({
@@ -151,6 +171,7 @@ export default function TestClient() {
   const t = useTranslations("Tagging.Test");
   const tClient = useTranslations("Tagging.TestClient");
   const tResult = useTranslations("TaggingResultDisplay");
+  const tSidebar = useTranslations("Tagging.Sidebar");
   const [isProcessing, setIsProcessing] = useState(false);
   const [isPolling, setIsPolling] = useState(false);
   const [selectedAssets, setSelectedAssets] = useState<SelectedAsset[]>([]);
@@ -276,21 +297,31 @@ export default function TestClient() {
             const formattedResults = completedResults.map((result) => {
               const { assetObject, result: resultData, extra } = result;
               const brandRecommendation = getBrandRecommendationFromQueueResult(resultData);
-              const linkedBrandTags =
+              const ipRecommendation = getIpRecommendationFromQueueResult(resultData);
+              const linkedBrandTags: Array<{ assetTagId?: number; tagPath?: string[] }> =
                 Array.isArray(result.brandLinkedTags) && result.brandLinkedTags.length > 0
                   ? result.brandLinkedTags
                   : (brandRecommendation?.recommendedTags ?? []);
+              const linkedIpTags: Array<{ assetTagId?: number; tagPath?: string[] }> =
+                Array.isArray(result.ipLinkedTags) && result.ipLinkedTags.length > 0
+                  ? result.ipLinkedTags
+                  : (ipRecommendation?.recommendedTags ?? []);
               const confidentBrandRecommendation =
                 brandRecommendation && !brandRecommendation.noConfidentMatch
                   ? brandRecommendation
                   : null;
+              const confidentIpRecommendation =
+                ipRecommendation && !ipRecommendation.noConfidentMatch ? ipRecommendation : null;
               const allTags = resultData?.tagsWithScore || [];
               const mergedDisplayTags = buildMergedDisplayTags({
                 aiTags: allTags,
                 brandTags: confidentBrandRecommendation ? linkedBrandTags : [],
                 brandConfidence: Math.round(brandRecommendation?.bestMatch?.confidence ?? 0),
+                ipTags: confidentIpRecommendation ? linkedIpTags : [],
+                ipConfidence: Math.round(ipRecommendation?.bestMatch?.confidence ?? 0),
                 aiSourceLabel: tClient("aiMatching"),
                 brandSourceLabel: tResult("brandRecognition"),
+                ipSourceLabel: tSidebar("ip"),
               });
               const effectiveTags = mergedDisplayTags.filter((tag) => tag.score >= 80);
               const candidateTags = mergedDisplayTags.filter(
@@ -321,6 +352,7 @@ export default function TestClient() {
                 overallScore: Math.max(
                   mergedDisplayTags[0]?.score || 0,
                   brandRecommendation?.bestMatch?.confidence || 0,
+                  ipRecommendation?.bestMatch?.confidence || 0,
                 ),
                 brandRecognition: brandRecommendation
                   ? {
@@ -329,6 +361,20 @@ export default function TestClient() {
                       confidence: brandRecommendation.bestMatch?.confidence ?? null,
                       similarity: brandRecommendation.bestMatch?.similarity ?? null,
                       recommendedTags: linkedBrandTags.map((tag) => ({
+                        tagPath: tag.tagPath || [],
+                      })),
+                    }
+                  : null,
+                ipRecognition: ipRecommendation
+                  ? {
+                      noConfidentMatch: ipRecommendation.noConfidentMatch,
+                      ipName: ipRecommendation.bestMatch?.ipName || null,
+                      confidence: ipRecommendation.bestMatch?.confidence ?? null,
+                      similarity: ipRecommendation.bestMatch?.similarity ?? null,
+                      imageSimilarity: ipRecommendation.bestMatch?.imageSimilarity ?? null,
+                      descriptionSimilarity:
+                        ipRecommendation.bestMatch?.descriptionSimilarity ?? null,
+                      recommendedTags: linkedIpTags.map((tag) => ({
                         tagPath: tag.tagPath || [],
                       })),
                     }
@@ -379,7 +425,7 @@ export default function TestClient() {
         console.error(tClient("pollingQueueStatusFailed"), error);
       }
     },
-    [stopPolling, tClient, tResult],
+    [stopPolling, tClient, tResult, tSidebar],
   );
 
   // 开始轮询

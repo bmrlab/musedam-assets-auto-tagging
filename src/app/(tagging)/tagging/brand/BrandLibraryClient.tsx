@@ -55,6 +55,8 @@ import BrandLogoDialog from "./BrandLogoDialog";
 import SignedBrandImage from "./SignedBrandImage";
 import { BrandLibraryPageData, BrandLogoItem } from "./types";
 
+export const MAX_PREVIEW_IMAGE_NUM = 10;
+
 function formatDate(date: Date | string) {
   return new Intl.DateTimeFormat("zh-CN", {
     year: "numeric",
@@ -96,10 +98,16 @@ function getLogoStatusMeta(status: BrandLogoItem["status"], t: ReturnType<typeof
   }
 }
 
-function LogoImagesCell({ logo, t }: { logo: BrandLogoItem; t: ReturnType<typeof useTranslations> }) {
-  const previewImages = logo.images;
+function LogoImagesCell({
+  logo,
+  t,
+}: {
+  logo: BrandLogoItem;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const previewImages = logo.images.slice(0, MAX_PREVIEW_IMAGE_NUM);
 
-  if (previewImages.length === 0) {
+  if (logo.images.length === 0) {
     return <span className="text-[14px] text-basic-5">-</span>;
   }
 
@@ -129,7 +137,9 @@ function LogoImagesCell({ logo, t }: { logo: BrandLogoItem; t: ReturnType<typeof
           </BrandImageHoverCard>
         ))}
       </div>
-      <span className="text-[14px] text-basic-5">{t("imageCount", { count: logo.images.length })}</span>
+      <span className="text-[14px] text-basic-5">
+        {t("imageCount", { count: logo.images.length })}
+      </span>
     </div>
   );
 }
@@ -459,7 +469,9 @@ export default function BrandLibraryClient({
       }
 
       if (updatedLogos.length > 0) {
-        toast.warning(t("batchPartialSuccess", { success: updatedLogos.length, failed: failedCount }));
+        toast.warning(
+          t("batchPartialSuccess", { success: updatedLogos.length, failed: failedCount }),
+        );
         return;
       }
 
@@ -516,7 +528,9 @@ export default function BrandLibraryClient({
       if (failedCount === 0) {
         toast.success(t("batchDeletedSuccess"));
       } else if (successIds.length > 0) {
-        toast.warning(t("batchPartialSuccess", { success: successIds.length, failed: failedCount }));
+        toast.warning(
+          t("batchPartialSuccess", { success: successIds.length, failed: failedCount }),
+        );
       } else {
         toast.error(t("batchDeleteFailed"));
       }
@@ -621,11 +635,14 @@ export default function BrandLibraryClient({
                   <span className="text-[14px] leading-[20px] font-normal text-[#2E3A59]">
                     {hasSelection ? (
                       <>
-                        {t("itemsSelected")} <span className="text-[#3366FF]">{selectedIds.length}</span> /{" "}
+                        {t("itemsSelected")}{" "}
+                        <span className="text-[#3366FF]">{selectedIds.length}</span> /{" "}
                         {filteredLogos.length} {t("itemsCount")}
                       </>
                     ) : (
-                      <>{t("itemsTotal")} {filteredLogos.length} {t("itemsCount")}</>
+                      <>
+                        {t("itemsTotal")} {filteredLogos.length} {t("itemsCount")}
+                      </>
                     )}
                   </span>
 
@@ -853,10 +870,12 @@ export default function BrandLibraryClient({
                                         >
                                           {tag.tagPath.join(" > ")}
                                         </span>
-                                    ))
-                                  ) : (
-                                    <span className="text-sm text-basic-5">{t("noLinkedTags")}</span>
-                                  )}
+                                      ))
+                                    ) : (
+                                      <span className="text-sm text-basic-5">
+                                        {t("noLinkedTags")}
+                                      </span>
+                                    )}
                                   </div>
                                 </td>
                                 <td className="h-[58px] px-4 py-0 align-middle">
@@ -1120,7 +1139,9 @@ export default function BrandLibraryClient({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t("batchDialog.cancel")}</AlertDialogCancel>
-            <AlertDialogAction onClick={handleBatchEnableSelected}>{t("batchDialog.confirmEnable")}</AlertDialogAction>
+            <AlertDialogAction onClick={handleBatchEnableSelected}>
+              {t("batchDialog.confirmEnable")}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -1,6 +1,7 @@
 "use server";
 import { withAuth } from "@/app/(auth)/withAuth";
 import { getBrandRecommendationTagIdsFromQueueResult } from "@/app/(tagging)/brand-recommendation";
+import { getIpRecommendationTagIdsFromQueueResult } from "@/app/(tagging)/ip-recommendation";
 import { ServerActionResult } from "@/lib/serverAction";
 import { idToSlug, slugToId } from "@/lib/slug";
 import { retrieveTeamCredentials } from "@/musedam/apiKey";
@@ -322,6 +323,7 @@ export async function approveAuditItemsAction({
   assetSlug,
   auditItems,
   brandTagIds = [],
+  ipTagIds = [],
   append = true,
 }: {
   assetSlug: string;
@@ -331,6 +333,7 @@ export async function approveAuditItemsAction({
     status: TaggingAuditStatus;
   }[];
   brandTagIds?: number[];
+  ipTagIds?: number[];
   append?: boolean;
 }): Promise<ServerActionResult<void>> {
   return withAuth(async ({ team: { id: teamId } }) => {
@@ -353,6 +356,7 @@ export async function approveAuditItemsAction({
           .filter(({ leafTagId, status }) => leafTagId && status === "approved")
           .map(({ leafTagId }) => leafTagId!),
         ...brandTagIds,
+        ...ipTagIds,
       ]),
     );
 
@@ -593,8 +597,19 @@ export async function batchApproveAuditItemsAction({
             ),
           ),
         );
+        const ipTagIds = Array.from(
+          new Set(
+            finalGroups.flatMap((group) =>
+              getIpRecommendationTagIdsFromQueueResult(group.queueItem.result),
+            ),
+          ),
+        );
 
-        if (finalAssetAuditItems.length === 0 && brandTagIds.length === 0) {
+        if (
+          finalAssetAuditItems.length === 0 &&
+          brandTagIds.length === 0 &&
+          ipTagIds.length === 0
+        ) {
           failedCount++;
           continue;
         }
@@ -611,6 +626,7 @@ export async function batchApproveAuditItemsAction({
               .map((item) => item.leafTagId)
               .filter((leafTagId): leafTagId is number => leafTagId !== null),
             ...brandTagIds,
+            ...ipTagIds,
           ]),
         );
 

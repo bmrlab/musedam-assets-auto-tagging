@@ -1,6 +1,7 @@
 "use client";
 
 import { getBrandRecommendationFromQueueResult } from "@/app/(tagging)/brand-recommendation";
+import { getIpRecommendationFromQueueResult } from "@/app/(tagging)/ip-recommendation";
 import { AssetThumbnail } from "@/components/AssetThumbnail";
 import {
   AlertDialog,
@@ -14,7 +15,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { BrandIcon, ClockCircleIcon, TagAIIcon, TagsIcon } from "@/components/ui/icons";
+import { BrandIcon, ClockCircleIcon, IpIcon, TagAIIcon, TagsIcon } from "@/components/ui/icons";
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { dispatchMuseDAMClientAction } from "@/embed/message";
@@ -31,6 +32,48 @@ import {
   rejectAuditItemsAction,
 } from "./actions";
 
+function getIpRecommendedTagsTitle(locale: string, ipLabel: string) {
+  const normalizedLocale = locale.toLowerCase();
+
+  if (normalizedLocale === "zh-tw") {
+    return `${ipLabel}推薦標籤`;
+  }
+
+  if (normalizedLocale.startsWith("zh")) {
+    return `${ipLabel}推荐标签`;
+  }
+
+  return `${ipLabel} Recommended Tags`;
+}
+
+function getNoIpRecommendationText(locale: string, ipLabel: string) {
+  const normalizedLocale = locale.toLowerCase();
+
+  if (normalizedLocale === "zh-tw") {
+    return `暫無${ipLabel}識別標籤`;
+  }
+
+  if (normalizedLocale.startsWith("zh")) {
+    return `暂无${ipLabel}识别标签`;
+  }
+
+  return `No ${ipLabel} recognition tags`;
+}
+
+function getIpNoConfidentMatchText(locale: string, ipName: string, confidence: number) {
+  const normalizedLocale = locale.toLowerCase();
+
+  if (normalizedLocale === "zh-tw") {
+    return `目前最佳匹配為 ${ipName}（${confidence}%），但尚未達到推薦閾值`;
+  }
+
+  if (normalizedLocale.startsWith("zh")) {
+    return `当前最佳匹配为 ${ipName}（${confidence}%），但尚未达到推荐阈值`;
+  }
+
+  return `Best match is ${ipName} (${confidence}%), but it did not meet the recommendation threshold.`;
+}
+
 export function ReviewItem({
   assetObject,
   batch,
@@ -44,15 +87,20 @@ export function ReviewItem({
   const t = useTranslations("Tagging.Review");
   const locale = useLocale();
   const normalizedLocale = locale.toLowerCase();
+  const tSidebar = useTranslations("Tagging.Sidebar");
+  const ipLabel = tSidebar("ip");
+  const ipRecommendedTagsTitle = getIpRecommendedTagsTitle(locale, ipLabel);
   const noBrandRecommendationText =
     normalizedLocale === "zh-tw"
       ? "暫無品牌識別標籤"
       : normalizedLocale.startsWith("zh")
         ? "暂无品牌识别标签"
         : "No brand recognition tags";
+  const noIpRecommendationText = getNoIpRecommendationText(locale, ipLabel);
   const [loading, setLoading] = useState(false);
   const [rejectedItems, setRejectedItems] = useState<number[]>([]);
   const [rejectedBrandItems, setRejectedBrandItems] = useState<number[]>([]);
+  const [rejectedIpItems, setRejectedIpItems] = useState<number[]>([]);
 
   const realLoading = batchLoading || loading;
 
@@ -102,6 +150,16 @@ export function ReviewItem({
       ),
     [finalBatch],
   );
+  const ipRecommendationsByQueueId = useMemo(
+    () =>
+      new Map(
+        finalBatch.map((group) => [
+          group.queueItem.id,
+          getIpRecommendationFromQueueResult(group.queueItem.result),
+        ]),
+      ),
+    [finalBatch],
+  );
 
   const brandTagIds = useMemo(
     () =>
@@ -117,6 +175,21 @@ export function ReviewItem({
         ),
       ),
     [brandRecommendationsByQueueId, rejectedBrandItems],
+  );
+  const ipTagIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          Array.from(ipRecommendationsByQueueId.values()).flatMap((ipRecommendation) =>
+            !ipRecommendation || ipRecommendation.noConfidentMatch
+              ? []
+              : ipRecommendation.recommendedTags
+                  .map((tag) => tag.assetTagId)
+                  .filter((tagId) => !rejectedIpItems.includes(tagId)),
+          ),
+        ),
+      ),
+    [ipRecommendationsByQueueId, rejectedIpItems],
   );
 
   const hasPendingAuditItems = useMemo(
@@ -146,7 +219,7 @@ export function ReviewItem({
 
       const allAuditItems = [...auditItems, ...filteredOutItems];
 
-      if (!allAuditItems.length && brandTagIds.length === 0) {
+      if (!allAuditItems.length && brandTagIds.length === 0 && ipTagIds.length === 0) {
         toast.error(t("noCorrespondingTag"));
         setLoading(false);
         return;
@@ -157,6 +230,7 @@ export function ReviewItem({
           assetSlug: assetObject.slug,
           auditItems: allAuditItems,
           brandTagIds,
+          ipTagIds,
           append,
         });
 
@@ -191,6 +265,7 @@ export function ReviewItem({
       auditItemsSet,
       brandTagIds,
       filteredOutAuditItems,
+      ipTagIds,
       onSuccess,
       rejectedItems,
       t,
@@ -265,7 +340,7 @@ export function ReviewItem({
         </div>
 
         <div className="flex gap-2">
-          {(hasPendingAuditItems || brandTagIds.length > 0) && (
+          {(hasPendingAuditItems || brandTagIds.length > 0 || ipTagIds.length > 0) && (
             <Button
               size="sm"
               disabled={realLoading}
@@ -336,11 +411,17 @@ export function ReviewItem({
         <div className="col-span-1 flex flex-col gap-[6px]">
           {finalBatch.map(({ queueItem, taggingAuditItems }, index) => {
             const brandRecommendation = brandRecommendationsByQueueId.get(queueItem.id);
+            const ipRecommendation = ipRecommendationsByQueueId.get(queueItem.id);
             const isLatestBatch = finalBatch.length > 1 && index === 0;
             const hasBrandTags = Boolean(
               brandRecommendation &&
                 !brandRecommendation.noConfidentMatch &&
                 brandRecommendation.recommendedTags.length > 0,
+            );
+            const hasIpTags = Boolean(
+              ipRecommendation &&
+                !ipRecommendation.noConfidentMatch &&
+                ipRecommendation.recommendedTags.length > 0,
             );
             const visibleAuditItems = taggingAuditItems.filter(
               (auditItem) => auditItem.leafTagId && auditItem.tagPath.length > 0,
@@ -542,6 +623,113 @@ export function ReviewItem({
                             : normalizedLocale.startsWith("zh")
                               ? `当前最佳匹配为 ${brandRecommendation.bestMatch.logoName}（${brandRecommendation.bestMatch.confidence}%），但尚未达到推荐阈值`
                               : `Best match is ${brandRecommendation.bestMatch.logoName} (${brandRecommendation.bestMatch.confidence}%), but it did not meet the recommendation threshold.`}
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
+                </div>
+
+                <div className="w-full bg-[rgba(247,249,252,0.8)] dark:bg-basic-1 rounded-md p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <IpIcon className="size-4" />
+                    <span className="text-sm font-medium">{ipRecommendedTagsTitle}</span>
+                    {isLatestBatch ? (
+                      <span className="ml-2 inline-flex items-center px-[13px] py-[2px] rounded-[4px] text-xs text-danger-6 border border-danger-3 bg-danger-1">
+                        {t("latest")}
+                      </span>
+                    ) : null}
+                    {hasIpTags && ipRecommendation?.bestMatch ? (
+                      <span className="text-xs text-basic-5">
+                        {ipRecommendation.bestMatch.ipName}
+                      </span>
+                    ) : null}
+                    <span className="ml-auto text-xs text-basic-5 flex items-center gap-1">
+                      <ClockCircleIcon className="size-3" />
+                      {formatDate(queueItem.createdAt)}
+                    </span>
+                  </div>
+                  {hasIpTags && ipRecommendation ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      {ipRecommendation.recommendedTags.map((tag) => (
+                        <div
+                          key={`${queueItem.id}-${tag.assetTagId}`}
+                          className={cn(
+                            "relative py-[6px] px-2 rounded-[6px] border items-center flex gap-2",
+                            {
+                              "border-dashed": rejectedIpItems.includes(tag.assetTagId),
+                            },
+                            {
+                              "text-primary-6 bg-primary-1 border-[#A6C1FF]":
+                                (ipRecommendation.bestMatch?.confidence ?? 0) >= 80,
+                              "text-[#52C41A] bg-[#F6FFED] border-[#95DE64]":
+                                (ipRecommendation.bestMatch?.confidence ?? 0) >= 70 &&
+                                (ipRecommendation.bestMatch?.confidence ?? 0) < 80,
+                              "text-[#FA8C16] bg-[#FFF7E6] border-[#FFC069]":
+                                (ipRecommendation.bestMatch?.confidence ?? 0) < 70,
+                            },
+                          )}
+                        >
+                          <div className="font-medium text-[13px] leading-[18px]">
+                            {tag.tagPath.join(" > ")}
+                          </div>
+                          <div className="flex items-center gap-[6px]">
+                            <Progress
+                              value={ipRecommendation.bestMatch?.confidence ?? 0}
+                              className="bg-current/20 [&>[data-slot=progress-indicator]]:bg-current w-[60px]"
+                            />
+                            <span className="text-[10px]">
+                              {ipRecommendation.bestMatch?.confidence ?? 0}%
+                            </span>
+                          </div>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="size-3 bg-transparent hover:bg-transparent text-basic-5 hover:text-current"
+                                  onClick={() =>
+                                    setRejectedIpItems((current) => {
+                                      const foundIndex = current.indexOf(tag.assetTagId);
+                                      if (foundIndex >= 0) {
+                                        return [
+                                          ...current.slice(0, foundIndex),
+                                          ...current.slice(foundIndex + 1),
+                                        ];
+                                      }
+                                      return [...current, tag.assetTagId];
+                                    })
+                                  }
+                                >
+                                  {rejectedIpItems.includes(tag.assetTagId) ? (
+                                    <CheckIcon className="h-3 w-3" />
+                                  ) : (
+                                    <XIcon className="h-3 w-3" />
+                                  )}
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>
+                                  {rejectedIpItems.includes(tag.assetTagId)
+                                    ? t("tooltipAdd")
+                                    : t("tooltipRemove")}
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="space-y-1 text-basic-5">
+                      <div className="text-sm">{noIpRecommendationText}</div>
+                      {ipRecommendation?.noConfidentMatch && ipRecommendation.bestMatch ? (
+                        <div className="text-xs">
+                          {getIpNoConfidentMatchText(
+                            locale,
+                            ipRecommendation.bestMatch.ipName,
+                            ipRecommendation.bestMatch.confidence,
+                          )}
                         </div>
                       ) : null}
                     </div>

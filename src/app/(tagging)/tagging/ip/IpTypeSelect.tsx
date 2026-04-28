@@ -104,6 +104,7 @@ function SortableTypeRow({
       style={style}
       className={cn(
         "group flex h-8 items-center rounded-[6px] px-[10px] py-2 transition-colors",
+        isEditing ? "gap-2" : "gap-2",
         isDragging && "bg-[#eef3ff] shadow-sm",
         !isDragging && "hover:bg-[#eef3ff]",
       )}
