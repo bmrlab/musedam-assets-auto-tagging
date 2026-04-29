@@ -56,6 +56,8 @@ import IpImageHoverCard from "./IpImageHoverCard";
 import SignedIpImage from "./SignedIpImage";
 import { IpItem, IpLibraryPageData } from "./types";
 
+type TranslationFunction = (key: string, values?: Record<string, string | number>) => string;
+
 function formatDate(date: Date | string, locale: string) {
   return new Intl.DateTimeFormat(locale.toLowerCase().startsWith("zh") ? "zh-CN" : "en-US", {
     year: "numeric",
@@ -68,7 +70,7 @@ function formatDate(date: Date | string, locale: string) {
   }).format(new Date(date));
 }
 
-function getIpStatusMeta(status: IpItem["status"], t: ReturnType<typeof useTranslations>) {
+function getIpStatusMeta(status: IpItem["status"], t: TranslationFunction) {
   switch (status) {
     case "completed":
       return {
@@ -97,7 +99,7 @@ function getIpStatusMeta(status: IpItem["status"], t: ReturnType<typeof useTrans
   }
 }
 
-function IpImagesCell({ ip, t }: { ip: IpItem; t: ReturnType<typeof useTranslations> }) {
+function IpImagesCell({ ip, t }: { ip: IpItem; t: TranslationFunction }) {
   const previewImages = ip.images.slice(0, MAX_PREVIEW_IMAGE_NUM);
 
   if (ip.images.length === 0) {
@@ -145,8 +147,8 @@ export default function IpLibraryClient({
   debugPageEnabled: boolean;
 }) {
   const locale = useLocale();
-  const t = useTranslations("Tagging.IpLibrary");
-  const tReview = useTranslations("Tagging.Review");
+  const t = useTranslations("Tagging.IpLibrary") as TranslationFunction;
+  const tReview = useTranslations("Tagging.Review") as TranslationFunction;
   const [ips, setIps] = useState(initialData.ips);
   const [ipTypes, setIpTypes] = useState(initialData.ipTypes);
   const [search, setSearch] = useState("");

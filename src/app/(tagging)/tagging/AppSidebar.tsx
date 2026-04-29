@@ -5,13 +5,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import * as React from "react";
 
-type TranslationFunction = ReturnType<typeof useTranslations>;
+type TranslationFunction = (key: string) => string;
 
 import {
   BrandIcon,
   DashboardIcon,
   IpIcon,
   MonitorIcon,
+  PersonIcon,
   SettingIcon,
   TagAIIcon,
   TeamIcon,
@@ -73,6 +74,12 @@ const getMenuItems = (t: TranslationFunction): MenuItem[] => [
     section: "featureLibrary",
   },
   {
+    title: t("Sidebar.person"),
+    url: "/tagging/person",
+    icon: PersonIcon,
+    section: "featureLibrary",
+  },
+  {
     title: t("Sidebar.settings"),
     url: "/tagging/settings",
     icon: SettingIcon,
@@ -114,7 +121,7 @@ export function getActiveMenuTitle(pathname: string, t: TranslationFunction): st
 
 export function AppSidebar({ className, ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname();
-  const t = useTranslations("Tagging");
+  const t = useTranslations("Tagging") as TranslationFunction;
   const menuItems = getMenuItems(t);
   const mainMenuItems = menuItems.filter((item) => item.section === "main");
   const featureLibraryMenuItems = menuItems.filter((item) => item.section === "featureLibrary");

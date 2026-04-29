@@ -39,28 +39,27 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import Image from "next/image";
 import Link from "next/link";
 import { useDeferredValue, useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
+import { MAX_PREVIEW_IMAGE_NUM } from "../brand/BrandLibraryClient";
 import {
-  deleteAssetLogoAction,
-  pollBrandLogosAction,
-  retryAssetLogoProcessingAction,
-  setAssetLogoEnabledAction,
+  deleteAssetPersonAction,
+  pollPersonsAction,
+  retryAssetPersonProcessingAction,
+  setAssetPersonEnabledAction,
 } from "./actions";
-import BrandImageHoverCard from "./BrandImageHoverCard";
-import BrandLogoDialog from "./BrandLogoDialog";
-import SignedBrandImage from "./SignedBrandImage";
-import { BrandLibraryPageData, BrandLogoItem } from "./types";
-
-export const MAX_PREVIEW_IMAGE_NUM = 10;
+import PersonDialog from "./PersonDialog";
+import PersonImageHoverCard from "./PersonImageHoverCard";
+import SignedPersonImage from "./SignedPersonImage";
+import { PersonItem, PersonLibraryPageData } from "./types";
 
 type TranslationFunction = (key: string, values?: Record<string, string | number>) => string;
 
-function formatDate(date: Date | string) {
-  return new Intl.DateTimeFormat("zh-CN", {
+function formatDate(date: Date | string, locale: string) {
+  return new Intl.DateTimeFormat(locale.toLowerCase().startsWith("zh") ? "zh-CN" : "en-US", {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -71,7 +70,7 @@ function formatDate(date: Date | string) {
   }).format(new Date(date));
 }
 
-function getLogoStatusMeta(status: BrandLogoItem["status"], t: TranslationFunction) {
+function getPersonStatusMeta(status: PersonItem["status"], t: TranslationFunction) {
   switch (status) {
     case "completed":
       return {
@@ -100,16 +99,16 @@ function getLogoStatusMeta(status: BrandLogoItem["status"], t: TranslationFuncti
   }
 }
 
-function LogoImagesCell({
-  logo,
+function PersonImagesCell({
+  person,
   t,
 }: {
-  logo: BrandLogoItem;
+  person: PersonItem;
   t: TranslationFunction;
 }) {
-  const previewImages = logo.images.slice(0, MAX_PREVIEW_IMAGE_NUM);
+  const previewImages = person.images.slice(0, MAX_PREVIEW_IMAGE_NUM);
 
-  if (logo.images.length === 0) {
+  if (person.images.length === 0) {
     return <span className="text-[14px] text-basic-5">-</span>;
   }
 
@@ -117,46 +116,47 @@ function LogoImagesCell({
     <div className="flex items-center gap-3">
       <div className="flex items-center">
         {previewImages.map((image, index) => (
-          <BrandImageHoverCard
+          <PersonImageHoverCard
             key={image.id}
             image={image}
-            alt={t("imageAltIndex", { name: logo.name, index: index + 1 })}
+            alt={t("imageAltIndex", { name: person.name, index: index + 1 })}
           >
             <button
               type="button"
               className="relative -ml-2 first:ml-0 h-[22px] w-[22px] overflow-hidden rounded-[4px] border border-white bg-basic-2 shadow-sm"
               style={{ zIndex: previewImages.length - index }}
-              aria-label={t("previewImage", { name: logo.name })}
+              aria-label={t("previewImage", { name: person.name, index: index + 1 })}
             >
-              <SignedBrandImage
+              <SignedPersonImage
                 imageId={image.id}
                 signedUrl={image.signedUrl}
                 signedUrlExpiresAt={image.signedUrlExpiresAt}
-                alt={t("imageAltIndex", { name: logo.name, index: index + 1 })}
+                alt={t("imageAltIndex", { name: person.name, index: index + 1 })}
                 className="h-full w-full object-cover"
               />
             </button>
-          </BrandImageHoverCard>
+          </PersonImageHoverCard>
         ))}
       </div>
       <span className="text-[14px] text-basic-5">
-        {t("imageCount", { count: logo.images.length })}
+        {t("imageCount", { count: person.images.length })}
       </span>
     </div>
   );
 }
 
-export default function BrandLibraryClient({
+export default function PersonLibraryClient({
   initialData,
   debugPageEnabled,
 }: {
-  initialData: BrandLibraryPageData;
+  initialData: PersonLibraryPageData;
   debugPageEnabled: boolean;
 }) {
-  const t = useTranslations("Tagging.BrandLibrary") as TranslationFunction;
+  const locale = useLocale();
+  const t = useTranslations("Tagging.PersonLibrary") as TranslationFunction;
   const tReview = useTranslations("Tagging.Review") as TranslationFunction;
-  const [logos, setLogos] = useState(initialData.logos);
-  const [logoTypes, setLogoTypes] = useState(initialData.logoTypes);
+  const [persons, setPersons] = useState(initialData.persons);
+  const [personTypes, setPersonTypes] = useState(initialData.personTypes);
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [typeFilter, setTypeFilter] = useState("all");
@@ -170,25 +170,25 @@ export default function BrandLibraryClient({
   const [pageInput, setPageInput] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<"create" | "edit">("create");
-  const [activeLogo, setActiveLogo] = useState<BrandLogoItem | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<BrandLogoItem | null>(null);
-  const [disableTarget, setDisableTarget] = useState<BrandLogoItem | null>(null);
+  const [activePerson, setActivePerson] = useState<PersonItem | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<PersonItem | null>(null);
+  const [disableTarget, setDisableTarget] = useState<PersonItem | null>(null);
   const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
   const [batchEnableOpen, setBatchEnableOpen] = useState(false);
   const [batchDisableOpen, setBatchDisableOpen] = useState(false);
-  const [pendingLogoIds, setPendingLogoIds] = useState<string[]>([]);
+  const [pendingPersonIds, setPendingPersonIds] = useState<string[]>([]);
   const [isPending, startTransition] = useTransition();
   const deferredSearch = useDeferredValue(search.trim().toLowerCase());
-  const usedLogoTypeIds = useMemo(
+  const usedPersonTypeIds = useMemo(
     () =>
       Array.from(
         new Set(
-          logos
-            .map((logo) => logo.logoTypeId)
+          persons
+            .map((person) => person.personTypeId)
             .filter((typeId): typeId is string => Boolean(typeId)),
         ),
       ),
-    [logos],
+    [persons],
   );
 
   useEffect(() => {
@@ -196,30 +196,30 @@ export default function BrandLibraryClient({
   }, [deferredSearch, typeFilter, statusFilter, enabledFilter, sortOrder, pageSize]);
 
   useEffect(() => {
-    if (typeFilter !== "all" && !logoTypes.some((type) => String(type.id) === typeFilter)) {
+    if (typeFilter !== "all" && !personTypes.some((type) => String(type.id) === typeFilter)) {
       setTypeFilter("all");
     }
-  }, [logoTypes, typeFilter]);
+  }, [personTypes, typeFilter]);
 
-  const filteredLogos = logos
-    .filter((logo) => {
-      if (deferredSearch && !logo.name.toLowerCase().includes(deferredSearch)) {
+  const filteredPersons = persons
+    .filter((person) => {
+      if (deferredSearch && !person.name.toLowerCase().includes(deferredSearch)) {
         return false;
       }
 
-      if (typeFilter !== "all" && String(logo.logoTypeId ?? "") !== typeFilter) {
+      if (typeFilter !== "all" && String(person.personTypeId ?? "") !== typeFilter) {
         return false;
       }
 
-      if (statusFilter !== "all" && logo.status !== statusFilter) {
+      if (statusFilter !== "all" && person.status !== statusFilter) {
         return false;
       }
 
-      if (enabledFilter === "enabled" && !logo.enabled) {
+      if (enabledFilter === "enabled" && !person.enabled) {
         return false;
       }
 
-      if (enabledFilter === "disabled" && logo.enabled) {
+      if (enabledFilter === "disabled" && person.enabled) {
         return false;
       }
 
@@ -239,11 +239,11 @@ export default function BrandLibraryClient({
       return sortOrder === "newest" ? rightTime - leftTime : leftTime - rightTime;
     });
 
-  const totalPages = Math.max(1, Math.ceil(filteredLogos.length / pageSize));
+  const totalPages = Math.max(1, Math.ceil(filteredPersons.length / pageSize));
   const safeCurrentPage = Math.min(currentPage, totalPages);
   const pageStart = (safeCurrentPage - 1) * pageSize;
-  const currentPageLogos = filteredLogos.slice(pageStart, pageStart + pageSize);
-  const currentPageIds = currentPageLogos.map((logo) => logo.id);
+  const currentPagePersons = filteredPersons.slice(pageStart, pageStart + pageSize);
+  const currentPageIds = currentPagePersons.map((person) => person.id);
   const selectedOnPage = currentPageIds.filter((id) => selectedIds.includes(id));
   const allSelectedOnPage =
     currentPageIds.length > 0 && selectedOnPage.length === currentPageIds.length;
@@ -257,9 +257,9 @@ export default function BrandLibraryClient({
   }, [currentPage, totalPages]);
 
   useEffect(() => {
-    const pendingIds = logos
-      .filter((logo) => logo.status === "processing" || logo.status === "pending")
-      .map((logo) => logo.id);
+    const pendingIds = persons
+      .filter((person) => person.status === "processing" || person.status === "pending")
+      .map((person) => person.id);
 
     if (pendingIds.length === 0) {
       return;
@@ -268,13 +268,13 @@ export default function BrandLibraryClient({
     let disposed = false;
 
     async function poll() {
-      const result = await pollBrandLogosAction(pendingIds);
+      const result = await pollPersonsAction(pendingIds);
       if (!result.success || disposed) {
         return;
       }
 
-      setLogos((current) =>
-        current.map((logo) => result.data.logos.find((item) => item.id === logo.id) ?? logo),
+      setPersons((current) =>
+        current.map((person) => result.data.persons.find((item) => item.id === person.id) ?? person),
       );
     }
 
@@ -287,7 +287,7 @@ export default function BrandLibraryClient({
       disposed = true;
       window.clearInterval(timer);
     };
-  }, [logos]);
+  }, [persons]);
 
   function getProcessingErrorMessage(error: string | null) {
     if (!error) {
@@ -295,16 +295,16 @@ export default function BrandLibraryClient({
     }
 
     switch (error) {
-      case "logo_not_found":
-        return t("processingErrors.logoNotFound");
+      case "person_not_found":
+        return t("processingErrors.personNotFound");
       case "no_reference_images":
         return t("processingErrors.noReferenceImages");
-      case "image_fetch_failed":
-        return t("processingErrors.imageFetchFailed");
-      case "jina_request_failed":
-        return t("processingErrors.jinaRequestFailed");
-      case "embedding_count_mismatch":
-        return t("processingErrors.embeddingCountMismatch");
+      case "face_count_not_one":
+        return t("processingErrors.faceCountNotOne");
+      case "face_detection_failed":
+        return t("processingErrors.faceDetectionFailed");
+      case "generate_embedding_failed":
+        return t("processingErrors.generateEmbeddingFailed");
       case "vector_store_sync_failed":
         return t("processingErrors.vectorStoreSyncFailed");
       case "unknown":
@@ -314,66 +314,66 @@ export default function BrandLibraryClient({
     }
   }
 
-  function updateLogoInList(nextLogo: BrandLogoItem) {
-    setLogos((current) => {
-      const existing = current.some((logo) => logo.id === nextLogo.id);
+  function updatePersonInList(nextPerson: PersonItem) {
+    setPersons((current) => {
+      const existing = current.some((person) => person.id === nextPerson.id);
       if (!existing) {
-        return [nextLogo, ...current];
+        return [nextPerson, ...current];
       }
 
-      return current.map((logo) => (logo.id === nextLogo.id ? nextLogo : logo));
+      return current.map((person) => (person.id === nextPerson.id ? nextPerson : person));
     });
   }
 
-  function handleDialogSaved(logo: BrandLogoItem) {
-    updateLogoInList(logo);
+  function handleDialogSaved(person: PersonItem) {
+    updatePersonInList(person);
     setDialogOpen(false);
-    setActiveLogo(null);
+    setActivePerson(null);
   }
 
   function handleOpenCreate() {
     setDialogMode("create");
-    setActiveLogo(null);
+    setActivePerson(null);
     setDialogOpen(true);
   }
 
-  function handleOpenEdit(logo: BrandLogoItem) {
+  function handleOpenEdit(person: PersonItem) {
     setDialogMode("edit");
-    setActiveLogo(logo);
+    setActivePerson(person);
     setDialogOpen(true);
   }
 
-  function markLogoPending(logoId: string, pending: boolean) {
-    setPendingLogoIds((current) => {
+  function markPersonPending(personId: string, pending: boolean) {
+    setPendingPersonIds((current) => {
       if (pending) {
-        if (current.includes(logoId)) {
+        if (current.includes(personId)) {
           return current;
         }
-        return [...current, logoId];
+        return [...current, personId];
       }
 
-      return current.filter((id) => id !== logoId);
+      return current.filter((id) => id !== personId);
     });
   }
 
-  function handleToggleEnabled(logo: BrandLogoItem, enabled: boolean) {
-    markLogoPending(logo.id, true);
+  function handleToggleEnabled(person: PersonItem, enabled: boolean) {
+    markPersonPending(person.id, true);
 
     startTransition(async () => {
-      const result = await setAssetLogoEnabledAction(logo.id, enabled);
-      markLogoPending(logo.id, false);
+      const result = await setAssetPersonEnabledAction(person.id, enabled);
+      markPersonPending(person.id, false);
 
       if (!result.success) {
         toast.error(result.message);
         return;
       }
 
-      updateLogoInList(result.data.logo);
+      updatePersonInList(result.data.person);
       toast.success(enabled ? t("enabledSuccess") : t("disabledSuccess"));
     });
   }
 
-  function handleConfirmDisableLogo() {
+  function handleConfirmDisablePerson() {
     if (!disableTarget) {
       return;
     }
@@ -382,54 +382,56 @@ export default function BrandLibraryClient({
     setDisableTarget(null);
   }
 
-  function handleDeleteLogo() {
+  function handleDeletePerson() {
     if (!deleteTarget) {
       return;
     }
 
-    markLogoPending(deleteTarget.id, true);
+    markPersonPending(deleteTarget.id, true);
 
     startTransition(async () => {
-      const result = await deleteAssetLogoAction(deleteTarget.id);
-      markLogoPending(deleteTarget.id, false);
+      const result = await deleteAssetPersonAction(deleteTarget.id);
+      markPersonPending(deleteTarget.id, false);
 
       if (!result.success) {
         toast.error(result.message);
         return;
       }
 
-      setLogos((current) => current.filter((logo) => logo.id !== deleteTarget.id));
+      setPersons((current) => current.filter((person) => person.id !== deleteTarget.id));
       setSelectedIds((current) => current.filter((id) => id !== deleteTarget.id));
       setDeleteTarget(null);
       toast.success(t("deletedSuccess"));
     });
   }
 
-  function handleRetryProcessing(logo: BrandLogoItem) {
-    markLogoPending(logo.id, true);
+  function handleRetryProcessing(person: PersonItem) {
+    markPersonPending(person.id, true);
 
     startTransition(async () => {
-      const result = await retryAssetLogoProcessingAction(logo.id);
-      markLogoPending(logo.id, false);
+      const result = await retryAssetPersonProcessingAction(person.id);
+      markPersonPending(person.id, false);
 
       if (!result.success) {
         toast.error(result.message);
         return;
       }
 
-      updateLogoInList(result.data.logo);
+      updatePersonInList(result.data.person);
       toast.success(t("retryStarted"));
     });
   }
 
   function handleTypeRenamed(typeId: string, name: string) {
-    setLogos((current) =>
-      current.map((logo) => (logo.logoTypeId === typeId ? { ...logo, logoTypeName: name } : logo)),
+    setPersons((current) =>
+      current.map((person) =>
+        person.personTypeId === typeId ? { ...person, personTypeName: name } : person,
+      ),
     );
   }
 
-  function handleTypeDeleted(typeId: string) {
-    setLogos((current) => current.map((logo) => (logo.logoTypeId === typeId ? logo : logo)));
+  function handleTypeDeleted() {
+    setPersons((current) => current.map((person) => person));
   }
 
   function handleSelectAllOnPage(checked: boolean) {
@@ -447,32 +449,32 @@ export default function BrandLibraryClient({
     }
 
     const targetIds = [...selectedIds];
-    targetIds.forEach((id) => markLogoPending(id, true));
+    targetIds.forEach((id) => markPersonPending(id, true));
 
     startTransition(async () => {
       const results = await Promise.all(
         targetIds.map(async (id) => {
-          const result = await setAssetLogoEnabledAction(id, enabled);
-          markLogoPending(id, false);
+          const result = await setAssetPersonEnabledAction(id, enabled);
+          markPersonPending(id, false);
           return result;
         }),
       );
 
-      const updatedLogos = results.filter((item) => item.success).map((item) => item.data.logo);
-      if (updatedLogos.length > 0) {
-        const updatedById = new Map(updatedLogos.map((logo) => [logo.id, logo]));
-        setLogos((current) => current.map((logo) => updatedById.get(logo.id) ?? logo));
+      const updatedPersons = results.filter((item) => item.success).map((item) => item.data.person);
+      if (updatedPersons.length > 0) {
+        const updatedById = new Map(updatedPersons.map((person) => [person.id, person]));
+        setPersons((current) => current.map((person) => updatedById.get(person.id) ?? person));
       }
 
-      const failedCount = results.length - updatedLogos.length;
+      const failedCount = results.length - updatedPersons.length;
       if (failedCount === 0) {
         toast.success(enabled ? t("batchEnabledSuccess") : t("batchDisabledSuccess"));
         return;
       }
 
-      if (updatedLogos.length > 0) {
+      if (updatedPersons.length > 0) {
         toast.warning(
-          t("batchPartialSuccess", { success: updatedLogos.length, failed: failedCount }),
+          t("batchPartialSuccess", { success: updatedPersons.length, failed: failedCount }),
         );
         return;
       }
@@ -508,13 +510,13 @@ export default function BrandLibraryClient({
     }
 
     const targetIds = [...selectedIds];
-    targetIds.forEach((id) => markLogoPending(id, true));
+    targetIds.forEach((id) => markPersonPending(id, true));
 
     startTransition(async () => {
       const results = await Promise.all(
         targetIds.map(async (id) => {
-          const result = await deleteAssetLogoAction(id);
-          markLogoPending(id, false);
+          const result = await deleteAssetPersonAction(id);
+          markPersonPending(id, false);
           return { id, result };
         }),
       );
@@ -522,7 +524,7 @@ export default function BrandLibraryClient({
       const successIds = results.filter((item) => item.result.success).map((item) => item.id);
       if (successIds.length > 0) {
         const successIdSet = new Set(successIds);
-        setLogos((current) => current.filter((logo) => !successIdSet.has(logo.id)));
+        setPersons((current) => current.filter((person) => !successIdSet.has(person.id)));
         setSelectedIds((current) => current.filter((id) => !successIdSet.has(id)));
       }
 
@@ -553,9 +555,9 @@ export default function BrandLibraryClient({
 
   const emptyText =
     deferredSearch || typeFilter !== "all" || statusFilter !== "all" || enabledFilter !== "all"
-      ? t("emptyFiltered")
+      ? t("filteredEmpty")
       : t("empty");
-  const isLibraryCompletelyEmpty = logos.length === 0;
+  const isLibraryCompletelyEmpty = persons.length === 0;
 
   return (
     <>
@@ -595,7 +597,7 @@ export default function BrandLibraryClient({
 
             {debugPageEnabled ? (
               <Button type="button" variant="outline" className="h-8 rounded-[8px] px-4" asChild>
-                <Link href="/tagging/brand/classify">{t("devClassify")}</Link>
+                <Link href="/tagging/person/classify">{t("devClassify")}</Link>
               </Button>
             ) : null}
 
@@ -610,7 +612,7 @@ export default function BrandLibraryClient({
           </div>
         </div>
 
-        <div className="mt-[20px] flex min-h-0 flex-1 flex-col gap-[10px] ">
+        <div className="mt-[20px] flex min-h-0 flex-1 flex-col gap-[10px]">
           {isLibraryCompletelyEmpty ? (
             <div className="flex min-h-[calc(100dvh-280px)] flex-1 items-center justify-center px-6 py-10">
               <div className="text-center">
@@ -639,11 +641,11 @@ export default function BrandLibraryClient({
                       <>
                         {t("itemsSelected")}{" "}
                         <span className="text-[#3366FF]">{selectedIds.length}</span> /{" "}
-                        {filteredLogos.length} {t("itemsCount")}
+                        {filteredPersons.length} {t("itemsCount")}
                       </>
                     ) : (
                       <>
-                        {t("itemsTotal")} {filteredLogos.length} {t("itemsCount")}
+                        {t("itemsTotal")} {filteredPersons.length} {t("itemsCount")}
                       </>
                     )}
                   </span>
@@ -696,7 +698,7 @@ export default function BrandLibraryClient({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">{t("allTypes")}</SelectItem>
-                      {logoTypes.map((type) => (
+                      {personTypes.map((type) => (
                         <SelectItem key={type.id} value={String(type.id)}>
                           {type.name}
                         </SelectItem>
@@ -756,7 +758,7 @@ export default function BrandLibraryClient({
               </div>
 
               <div className="flex min-h-[calc(100dvh-280px)] flex-1 flex-col rounded-[8px] border bg-background">
-                {filteredLogos.length === 0 ? (
+                {filteredPersons.length === 0 ? (
                   <div className="flex min-h-[420px] flex-1 items-center justify-center px-6 py-10">
                     <div className="text-center">
                       <Image
@@ -776,9 +778,9 @@ export default function BrandLibraryClient({
                         <thead>
                           <tr className="h-[45px] border-b text-left text-[14px] leading-[20px] text-[#8F9BB3]">
                             <th className="w-[52px] px-6 py-0"></th>
-                            <th className="w-[320px] px-4 py-0">{t("columnLogoName")}</th>
-                            <th className="w-[180px] px-4 py-0">{t("columnLogoType")}</th>
-                            <th className="w-[220px] px-4 py-0">{t("columnLogoImages")}</th>
+                            <th className="w-[320px] px-4 py-0">{t("columnPersonName")}</th>
+                            <th className="w-[180px] px-4 py-0">{t("columnPersonType")}</th>
+                            <th className="w-[220px] px-4 py-0">{t("columnPersonImages")}</th>
                             <th className="w-[320px] px-4 py-0">{t("columnLinkedTags")}</th>
                             <th className="w-[160px] px-4 py-0">{t("columnStatus")}</th>
                             <th className="w-[140px] px-4 py-0">{t("columnEnabled")}</th>
@@ -787,85 +789,83 @@ export default function BrandLibraryClient({
                           </tr>
                         </thead>
                         <tbody>
-                          {currentPageLogos.map((logo) => {
-                            const statusMeta = getLogoStatusMeta(logo.status, t);
-                            const pending = pendingLogoIds.includes(logo.id) || isPending;
+                          {currentPagePersons.map((ip) => {
+                            const statusMeta = getPersonStatusMeta(ip.status, t);
+                            const pending = pendingPersonIds.includes(ip.id) || isPending;
                             const StatusIcon = statusMeta.icon;
                             const failedReason =
-                              getProcessingErrorMessage(logo.processingError) ?? t("unknownError");
+                              getProcessingErrorMessage(ip.processingError) ?? t("unknownError");
+                            const subtitle = ip.notes;
 
                             return (
-                              <tr key={logo.id} className="h-[58px] border-b last:border-b-0">
+                              <tr key={ip.id} className="h-[58px] border-b last:border-b-0">
                                 <td className="h-[58px] px-6 py-0 align-middle">
                                   <Checkbox
                                     className="border-[#C5CEE0] data-[state=checked]:border-[#3366FF] data-[state=checked]:bg-[#3366FF]"
-                                    checked={selectedIds.includes(logo.id)}
+                                    checked={selectedIds.includes(ip.id)}
                                     onCheckedChange={(checked) => {
                                       if (checked) {
                                         setSelectedIds((current) =>
-                                          current.includes(logo.id)
-                                            ? current
-                                            : [...current, logo.id],
+                                          current.includes(ip.id) ? current : [...current, ip.id],
                                         );
                                         return;
                                       }
 
                                       setSelectedIds((current) =>
-                                        current.filter((id) => id !== logo.id),
+                                        current.filter((id) => id !== ip.id),
                                       );
                                     }}
                                   />
                                 </td>
                                 <td className="h-[58px] px-4 py-0 align-middle">
                                   <div className="flex items-center gap-3">
-                                    <div className="h-[30px] w-[30px] overflow-hidden rounded-[4px] bg-basic-2">
-                                      {logo.images[0] ? (
-                                        <BrandImageHoverCard
-                                          image={logo.images[0]}
-                                          alt={`${logo.name} 标识图`}
+                                    <div className="h-[30px] w-[30px] self-center overflow-hidden rounded-full bg-basic-2">
+                                      {ip.images[0] ? (
+                                        <PersonImageHoverCard
+                                          image={ip.images[0]}
+                                          alt={t("imageAlt", { name: ip.name })}
                                         >
                                           <button
                                             type="button"
                                             className="h-full w-full overflow-hidden"
-                                            aria-label={`预览 ${logo.name} 标识图`}
+                                            aria-label={t("previewImage", { name: ip.name })}
                                           >
-                                            <SignedBrandImage
-                                              imageId={logo.images[0].id}
-                                              signedUrl={logo.images[0].signedUrl}
-                                              signedUrlExpiresAt={logo.images[0].signedUrlExpiresAt}
-                                              alt={`${logo.name} 标识图`}
+                                            <SignedPersonImage
+                                              imageId={ip.images[0].id}
+                                              signedUrl={ip.images[0].signedUrl}
+                                              signedUrlExpiresAt={ip.images[0].signedUrlExpiresAt}
+                                              alt={t("imageAlt", { name: ip.name })}
                                               className="h-full w-full object-cover"
                                             />
                                           </button>
-                                        </BrandImageHoverCard>
+                                        </PersonImageHoverCard>
                                       ) : null}
                                     </div>
                                     <div className="min-w-0 flex-1">
                                       <div className="truncate text-[14px] leading-[20px] font-medium text-basic-8">
-                                        {logo.name}
+                                        {ip.name}
                                       </div>
-                                      {logo.notes ? (
-                                        <p className="mt-1 line-clamp-2 text-sm text-basic-5">
-                                          {logo.notes}
+                                      {subtitle ? (
+                                        // show first 3 lines of subtitle
+                                        <p className="mt-1.5 line-clamp-3 text-sm leading-[20px] text-basic-5">
+                                          {subtitle}
                                         </p>
                                       ) : null}
                                     </div>
                                   </div>
                                 </td>
                                 <td className="h-[58px] px-4 py-0 align-middle text-[14px] text-basic-8">
-                                  {logo.logoTypeName}
+                                  {ip.personTypeName}
                                 </td>
                                 <td className="h-[58px] px-4 py-0 align-middle">
-                                  <LogoImagesCell logo={logo} t={t} />
+                                  <PersonImagesCell person={ip} t={t} />
                                 </td>
                                 <td
-                                  className={`h-[58px] px-4 align-middle ${
-                                    logo.tags.length > 1 ? "py-2" : "py-0"
-                                  }`}
+                                  className={`h-[58px] px-4 align-middle ${ip.tags.length > 1 ? "py-2" : "py-0"}`}
                                 >
                                   <div className="flex flex-wrap gap-2">
-                                    {logo.tags.length > 0 ? (
-                                      logo.tags.map((tag) => (
+                                    {ip.tags.length > 0 ? (
+                                      ip.tags.map((tag) => (
                                         <span
                                           key={tag.id}
                                           className="inline-flex items-center rounded-[4px] border border-[#C5CEE0] px-[6px] py-[3px] text-[12px] font-normal leading-[16px] text-[#101426]"
@@ -882,11 +882,9 @@ export default function BrandLibraryClient({
                                 </td>
                                 <td className="h-[58px] px-4 py-0 align-middle">
                                   <div
-                                    className={`flex items-center ${
-                                      logo.status === "failed" ? "gap-[8px]" : "gap-3"
-                                    }`}
+                                    className={`flex items-center ${ip.status === "failed" ? "gap-[8px]" : "gap-3"}`}
                                   >
-                                    {logo.status === "failed" ? (
+                                    {ip.status === "failed" ? (
                                       <Tooltip>
                                         <TooltipTrigger asChild>
                                           <span
@@ -906,7 +904,7 @@ export default function BrandLibraryClient({
                                       >
                                         <StatusIcon
                                           className={
-                                            logo.status === "processing"
+                                            ip.status === "processing"
                                               ? "size-3.5 animate-spin"
                                               : "size-3.5"
                                           }
@@ -914,11 +912,11 @@ export default function BrandLibraryClient({
                                         {statusMeta.label}
                                       </span>
                                     )}
-                                    {logo.status === "failed" ? (
+                                    {ip.status === "failed" ? (
                                       <button
                                         type="button"
                                         className="whitespace-nowrap text-[12px] leading-[16px] font-normal text-[#3366FF] transition-colors hover:text-[#1d55d1] disabled:cursor-not-allowed disabled:text-basic-5"
-                                        onClick={() => handleRetryProcessing(logo)}
+                                        onClick={() => handleRetryProcessing(ip)}
                                         disabled={pending}
                                       >
                                         {t("retry")}
@@ -928,18 +926,16 @@ export default function BrandLibraryClient({
                                 </td>
                                 <td className="h-[58px] px-4 py-0 align-middle">
                                   <Switch
-                                    checked={logo.enabled}
+                                    checked={ip.enabled}
                                     onCheckedChange={(checked) =>
-                                      checked
-                                        ? handleToggleEnabled(logo, true)
-                                        : setDisableTarget(logo)
+                                      checked ? handleToggleEnabled(ip, true) : setDisableTarget(ip)
                                     }
                                     disabled={pending}
                                     className="h-4 w-7 data-[state=checked]:bg-[#3366FF] [&_[data-slot=switch-thumb]]:size-3 [&_[data-slot=switch-thumb]]:data-[state=checked]:translate-x-[calc(100%+2px)] [&_[data-slot=switch-thumb]]:data-[state=unchecked]:translate-x-[2px]"
                                   />
                                 </td>
                                 <td className="h-[58px] px-4 py-0 align-middle whitespace-nowrap text-[14px] text-basic-8">
-                                  {formatDate(logo.createdAt)}
+                                  {formatDate(ip.createdAt, locale)}
                                 </td>
                                 <td className="h-[58px] px-4 py-0 align-middle text-right">
                                   <DropdownMenu>
@@ -953,7 +949,7 @@ export default function BrandLibraryClient({
                                       className="w-[120px] rounded-[6px] border border-[#E4E9F2] p-1"
                                     >
                                       <DropdownMenuItem
-                                        onClick={() => handleOpenEdit(logo)}
+                                        onClick={() => handleOpenEdit(ip)}
                                         className="gap-2 px-[10px] py-[5px] text-[14px] font-normal leading-[22px] text-[#192038]"
                                       >
                                         <Image
@@ -967,7 +963,7 @@ export default function BrandLibraryClient({
                                       </DropdownMenuItem>
                                       <div className="my-1 h-px bg-[#E4E9F2]" />
                                       <DropdownMenuItem
-                                        onClick={() => setDeleteTarget(logo)}
+                                        onClick={() => setDeleteTarget(ip)}
                                         className="gap-2 px-[10px] py-[5px] text-[14px] font-normal leading-[22px] text-[#FF3D71] focus:text-[#FF3D71]"
                                       >
                                         <Image
@@ -1051,23 +1047,23 @@ export default function BrandLibraryClient({
         </div>
       </div>
 
-      <BrandLogoDialog
+      <PersonDialog
         open={dialogOpen}
         mode={dialogMode}
-        logo={activeLogo}
-        logoTypes={logoTypes}
-        usedLogoTypeIds={usedLogoTypeIds}
+        person={activePerson}
+        personTypes={personTypes}
+        usedPersonTypeIds={usedPersonTypeIds}
         tags={initialData.tags}
         onOpenChange={(nextOpen) => {
           setDialogOpen(nextOpen);
           if (!nextOpen) {
-            setActiveLogo(null);
+            setActivePerson(null);
           }
         }}
         onSaved={handleDialogSaved}
-        onLogoTypesChange={setLogoTypes}
-        onLogoTypeRenamed={handleTypeRenamed}
-        onLogoTypeDeleted={handleTypeDeleted}
+        onPersonTypesChange={setPersonTypes}
+        onPersonTypeRenamed={handleTypeRenamed}
+        onPersonTypeDeleted={handleTypeDeleted}
       />
 
       <AlertDialog
@@ -1085,7 +1081,7 @@ export default function BrandLibraryClient({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t("confirmDialog.cancel")}</AlertDialogCancel>
-            <AlertDialogAction variant="dialogDanger" onClick={handleDeleteLogo}>
+            <AlertDialogAction variant="dialogDanger" onClick={handleDeletePerson}>
               {t("confirmDialog.confirmDelete")}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -1107,7 +1103,7 @@ export default function BrandLibraryClient({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t("confirmDialog.cancel")}</AlertDialogCancel>
-            <AlertDialogAction variant="dialogDanger" onClick={handleConfirmDisableLogo}>
+            <AlertDialogAction variant="dialogDanger" onClick={handleConfirmDisablePerson}>
               {t("confirmDialog.confirmDisable")}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -1123,7 +1119,7 @@ export default function BrandLibraryClient({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t("batchDialog.cancel")}</AlertDialogCancel>
+            <AlertDialogCancel>{t("confirmDialog.cancel")}</AlertDialogCancel>
             <AlertDialogAction variant="dialogDanger" onClick={handleBatchDeleteSelected}>
               {t("delete")}
             </AlertDialogAction>
@@ -1134,13 +1130,13 @@ export default function BrandLibraryClient({
       <AlertDialog open={batchEnableOpen} onOpenChange={setBatchEnableOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t("batchDialog.enableTitle")}</AlertDialogTitle>
+            <AlertDialogTitle>{t("confirmDialog.title")}</AlertDialogTitle>
             <AlertDialogDescription>
               {t("batchDialog.enableDescription", { count: selectedIds.length })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t("batchDialog.cancel")}</AlertDialogCancel>
+            <AlertDialogCancel>{t("confirmDialog.cancel")}</AlertDialogCancel>
             <AlertDialogAction onClick={handleBatchEnableSelected}>
               {t("batchDialog.confirmEnable")}
             </AlertDialogAction>
@@ -1151,15 +1147,15 @@ export default function BrandLibraryClient({
       <AlertDialog open={batchDisableOpen} onOpenChange={setBatchDisableOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t("batchDialog.disableTitle")}</AlertDialogTitle>
+            <AlertDialogTitle>{t("confirmDialog.title")}</AlertDialogTitle>
             <AlertDialogDescription>
               {t("batchDialog.disableDescription", { count: selectedIds.length })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t("batchDialog.cancel")}</AlertDialogCancel>
+            <AlertDialogCancel>{t("confirmDialog.cancel")}</AlertDialogCancel>
             <AlertDialogAction variant="dialogDanger" onClick={handleBatchDisableSelected}>
-              {t("batchDialog.confirmDisable")}
+              {t("confirmDialog.confirmDisable")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

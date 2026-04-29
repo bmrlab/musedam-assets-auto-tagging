@@ -40,6 +40,8 @@ import LogoTypeSelect from "./LogoTypeSelect";
 import SignedBrandImage from "./SignedBrandImage";
 import { BrandLogoItem, BrandLogoTypeItem, BrandTagTreeNode } from "./types";
 
+type TranslationFunction = (key: string, values?: Record<string, string | number>) => string;
+
 type DraftImage = {
   id: string;
   existingImageId?: string;
@@ -78,7 +80,7 @@ function revokeDraftImageUrls(images: DraftImage[]) {
   }
 }
 
-function buildDraftImages(logo: BrandLogoItem | null, t: ReturnType<typeof useTranslations>) {
+function buildDraftImages(logo: BrandLogoItem | null, t: TranslationFunction) {
   if (!logo) {
     return [];
   }
@@ -107,7 +109,7 @@ export default function BrandLogoDialog({
   onLogoTypeRenamed,
   onLogoTypeDeleted,
 }: BrandLogoDialogProps) {
-  const t = useTranslations("Tagging.BrandLibrary");
+  const t = useTranslations("Tagging.BrandLibrary") as TranslationFunction;
   const [name, setName] = useState("");
   const [logoTypeId, setLogoTypeId] = useState<string | null>(null);
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
@@ -134,7 +136,7 @@ export default function BrandLogoDialog({
       revokeDraftImageUrls(current);
       return buildDraftImages(logo, t);
     });
-  }, [open, logo]);
+  }, [open, logo, t]);
 
   useEffect(() => {
     imagesRef.current = images;
@@ -535,7 +537,7 @@ export default function BrandLogoDialog({
               tags={tags}
               selectedTagIds={selectedTagIds}
               onChange={setSelectedTagIds}
-              collapsedUntilFocus={mode === "create"}
+              collapsedUntilFocus
               dialogOpen={open}
             />
           </div>

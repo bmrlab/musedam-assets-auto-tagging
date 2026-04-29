@@ -22,6 +22,8 @@ type BrandTagSelectorProps = {
   dialogOpen?: boolean;
 };
 
+type TranslationFunction = (key: string, values?: Record<string, string | number>) => string;
+
 function flattenTags(nodes: BrandTagTreeNode[], parentPath: string[] = []) {
   const results: FlattenedTag[] = [];
 
@@ -57,7 +59,7 @@ function TagColumn({
   selectedTagIds: number[];
   onActivate: (id: number) => void;
   onToggle: (id: number) => void;
-  t: ReturnType<typeof useTranslations>;
+  t: TranslationFunction;
 }) {
   return (
     <div className="flex min-h-0 flex-col border-r last:border-r-0">
@@ -117,7 +119,7 @@ export default function BrandTagSelector({
   collapsedUntilFocus = false,
   dialogOpen,
 }: BrandTagSelectorProps) {
-  const t = useTranslations("Tagging.BrandLibrary");
+  const t = useTranslations("Tagging.BrandLibrary") as TranslationFunction;
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [keyword, setKeyword] = useState("");
   const [activeLevel1Id, setActiveLevel1Id] = useState<number | null>(tags[0]?.id ?? null);
@@ -141,7 +143,7 @@ export default function BrandTagSelector({
   }, [collapsedUntilFocus, dialogOpen]);
 
   useEffect(() => {
-    if (!collapsedUntilFocus || !isExpanded) {
+    if (!isExpanded) {
       return;
     }
 
@@ -160,7 +162,7 @@ export default function BrandTagSelector({
     return () => {
       document.removeEventListener("mousedown", handlePointerDown);
     };
-  }, [collapsedUntilFocus, isExpanded]);
+  }, [isExpanded]);
 
   const flattenedTags = flattenTags(tags);
   const selectedTags = selectedTagIds

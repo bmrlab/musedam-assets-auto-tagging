@@ -32,13 +32,13 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import BrandTagSelector from "../brand/BrandTagSelector";
 import {
-  createAssetIpAction,
-  prepareAssetLibraryIpImagesAction,
-  updateAssetIpAction,
+  createAssetPersonAction,
+  prepareAssetLibraryPersonImagesAction,
+  updateAssetPersonAction,
 } from "./actions";
-import IpTypeSelect from "./IpTypeSelect";
-import SignedIpImage from "./SignedIpImage";
-import { IpItem, IpTagTreeNode, IpTypeItem } from "./types";
+import PersonTypeSelect from "./PersonTypeSelect";
+import SignedPersonImage from "./SignedPersonImage";
+import { PersonItem, PersonTagTreeNode, PersonTypeItem } from "./types";
 
 type DraftImage = {
   id: string;
@@ -47,6 +47,7 @@ type DraftImage = {
     objectKey: string;
     mimeType: string;
     size: number;
+    name: string;
   };
   previewUrl: string;
   signedUrl?: string;
@@ -58,18 +59,18 @@ type DraftImage = {
 
 type TranslationFunction = (key: string, values?: Record<string, string | number>) => string;
 
-type IpDialogProps = {
+type PersonDialogProps = {
   open: boolean;
   mode: "create" | "edit";
-  ip: IpItem | null;
-  ipTypes: IpTypeItem[];
-  usedIpTypeIds: string[];
-  tags: IpTagTreeNode[];
+  person: PersonItem | null;
+  personTypes: PersonTypeItem[];
+  usedPersonTypeIds: string[];
+  tags: PersonTagTreeNode[];
   onOpenChange: (open: boolean) => void;
-  onSaved: (ip: IpItem) => void;
-  onIpTypesChange: (types: IpTypeItem[]) => void;
-  onIpTypeRenamed: (typeId: string, name: string) => void;
-  onIpTypeDeleted: (typeId: string) => void;
+  onSaved: (person: PersonItem) => void;
+  onPersonTypesChange: (types: PersonTypeItem[]) => void;
+  onPersonTypeRenamed: (typeId: string, name: string) => void;
+  onPersonTypeDeleted: (typeId: string) => void;
 };
 
 function revokeDraftImageUrls(images: DraftImage[]) {
@@ -81,42 +82,41 @@ function revokeDraftImageUrls(images: DraftImage[]) {
 }
 
 function buildDraftImages(
-  ip: IpItem | null,
+  person: PersonItem | null,
   t: TranslationFunction,
 ) {
-  if (!ip) {
+  if (!person) {
     return [];
   }
 
-  return ip.images.map((image, index) => ({
+  return person.images.map((image, index) => ({
     id: `existing-${image.id}`,
     existingImageId: image.id,
     previewUrl: image.signedUrl,
     signedUrl: image.signedUrl,
     signedUrlExpiresAt: image.signedUrlExpiresAt,
-    name: t("imageAltIndex", { name: ip.name, index: index + 1 }),
+    name: t("imageAltIndex", { name: person.name, index: index + 1 }),
     shouldRevokePreviewUrl: false,
   }));
 }
 
-export default function IpDialog({
+export default function PersonDialog({
   open,
   mode,
-  ip,
-  ipTypes,
-  usedIpTypeIds,
+  person,
+  personTypes,
+  usedPersonTypeIds,
   tags,
   onOpenChange,
   onSaved,
-  onIpTypesChange,
-  onIpTypeRenamed,
-  onIpTypeDeleted,
-}: IpDialogProps) {
-  const t = useTranslations("Tagging.IpLibrary") as TranslationFunction;
+  onPersonTypesChange,
+  onPersonTypeRenamed,
+  onPersonTypeDeleted,
+}: PersonDialogProps) {
+  const t = useTranslations("Tagging.PersonLibrary") as TranslationFunction;
   const tBrand = useTranslations("Tagging.BrandLibrary") as TranslationFunction;
   const [name, setName] = useState("");
-  const [ipTypeId, setIpTypeId] = useState<string | null>(null);
-  const [description, setDescription] = useState("");
+  const [personTypeId, setPersonTypeId] = useState<string | null>(null);
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
   const [notes, setNotes] = useState("");
   const [images, setImages] = useState<DraftImage[]>([]);
@@ -131,18 +131,17 @@ export default function IpDialog({
       return;
     }
 
-    setName(ip?.name ?? "");
-    setIpTypeId(ip?.ipTypeId ?? null);
-    setDescription(ip?.description ?? "");
+    setName(person?.name ?? "");
+    setPersonTypeId(person?.personTypeId ?? null);
     setSelectedTagIds(
-      ip?.tags.map((tag) => tag.assetTagId).filter((id): id is number => Boolean(id)) ?? [],
+      person?.tags.map((tag) => tag.assetTagId).filter((id): id is number => Boolean(id)) ?? [],
     );
-    setNotes(ip?.notes ?? "");
+    setNotes(person?.notes ?? "");
     setImages((current) => {
       revokeDraftImageUrls(current);
-      return buildDraftImages(ip, t);
+      return buildDraftImages(person, t);
     });
-  }, [open, ip, t]);
+  }, [open, person, t]);
 
   useEffect(() => {
     imagesRef.current = images;
@@ -155,18 +154,18 @@ export default function IpDialog({
   }, []);
 
   const fallbackType =
-    ip?.ipTypeId && !ipTypes.some((type) => type.id === ip.ipTypeId)
+    person?.personTypeId && !personTypes.some((type) => type.id === person.personTypeId)
       ? {
-          id: ip.ipTypeId,
-          name: ip.ipTypeName,
+          id: person.personTypeId,
+          name: person.personTypeName,
         }
       : null;
   const trimmedName = name.trim();
-  const hasValidIpType = Boolean(ipTypeId) && ipTypes.some((type) => type.id === ipTypeId);
+  const hasValidPersonType = Boolean(personTypeId) && personTypes.some((type) => type.id === personTypeId);
   const hasImages = images.length > 0;
   const hasSelectedTags = selectedTagIds.length > 0;
   const isSubmitDisabled =
-    isPending || !trimmedName || !hasValidIpType || !hasImages || !hasSelectedTags;
+    isPending || !trimmedName || !hasValidPersonType || !hasImages || !hasSelectedTags;
 
   function getUploadErrorMessage(error: unknown) {
     switch (getClientImagePreparationErrorCode(error)) {
@@ -240,7 +239,7 @@ export default function IpDialog({
         return;
       }
 
-      const result = await prepareAssetLibraryIpImagesAction(
+      const result = await prepareAssetLibraryPersonImagesAction(
         validAssets as Array<{ name: string; downloadUrl: string }>,
       );
 
@@ -255,6 +254,7 @@ export default function IpDialog({
           objectKey: image.objectKey,
           mimeType: image.mimeType,
           size: image.size,
+          name: image.name,
         },
         previewUrl: image.signedUrl,
         signedUrl: image.signedUrl,
@@ -289,12 +289,12 @@ export default function IpDialog({
       return;
     }
 
-    if (!ipTypeId) {
+    if (!personTypeId) {
       toast.error(t("validation.typeRequired"));
       return;
     }
 
-    if (!ipTypes.some((type) => type.id === ipTypeId)) {
+    if (!personTypes.some((type) => type.id === personTypeId)) {
       toast.error(t("validation.typeDeleted"));
       return;
     }
@@ -311,12 +311,11 @@ export default function IpDialog({
     }
 
     const formData = new FormData();
-    if (mode === "edit" && ip) {
-      formData.append("id", String(ip.id));
+    if (mode === "edit" && person) {
+      formData.append("id", String(person.id));
     }
     formData.append("name", trimmedName);
-    formData.append("ipTypeId", String(ipTypeId));
-    formData.append("description", description.trim());
+    formData.append("personTypeId", String(personTypeId));
     formData.append("tagIds", JSON.stringify(selectedTagIds));
     formData.append("notes", notes.trim());
     formData.append(
@@ -339,6 +338,7 @@ export default function IpDialog({
               objectKey: string;
               mimeType: string;
               size: number;
+              name: string;
             } => Boolean(value),
           ),
       ),
@@ -353,15 +353,15 @@ export default function IpDialog({
     startTransition(async () => {
       const result =
         mode === "create"
-          ? await createAssetIpAction(formData)
-          : await updateAssetIpAction(formData);
+          ? await createAssetPersonAction(formData)
+          : await updateAssetPersonAction(formData);
 
       if (!result.success) {
         toast.error(result.message);
         return;
       }
 
-      onSaved(result.data.ip);
+      onSaved(result.data.person);
       onOpenChange(false);
       toast.success(
         mode === "create" ? t("createProcessingSuccess") : t("updateProcessingSuccess"),
@@ -382,28 +382,28 @@ export default function IpDialog({
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-1">
               <label className="h-[22px] text-[14px] leading-[22px] font-normal text-[#222B45]">
-                {t("dialog.ipNameLabel")}
+                {t("dialog.personNameLabel")}
               </label>
               <Input
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                placeholder={t("dialog.ipNamePlaceholder")}
+                placeholder={t("dialog.personNamePlaceholder")}
                 className="h-8 w-[349px] rounded-[6px] border border-[#C5CEE0] px-3 py-0 text-[14px] leading-[22px] font-normal placeholder:text-[14px] placeholder:leading-[22px] placeholder:font-normal placeholder:text-[#8F9BB3]"
               />
             </div>
 
             <div className="space-y-1">
               <label className="h-[22px] text-[14px] leading-[22px] font-normal text-[#222B45]">
-                {t("dialog.ipTypeLabel")}
+                {t("dialog.personTypeLabel")}
               </label>
-              <IpTypeSelect
-                value={ipTypeId}
-                onChange={setIpTypeId}
-                types={ipTypes}
-                usedTypeIds={usedIpTypeIds}
-                onTypesChange={onIpTypesChange}
-                onTypeRenamed={onIpTypeRenamed}
-                onTypeDeleted={onIpTypeDeleted}
+              <PersonTypeSelect
+                value={personTypeId}
+                onChange={setPersonTypeId}
+                types={personTypes}
+                usedTypeIds={usedPersonTypeIds}
+                onTypesChange={onPersonTypesChange}
+                onTypeRenamed={onPersonTypeRenamed}
+                onTypeDeleted={onPersonTypeDeleted}
                 fallbackType={fallbackType}
                 disabled={isPending}
                 triggerClassName="h-8 w-[349px] rounded-[6px] border border-[#C5CEE0] px-3 py-0 text-[14px] leading-[22px] font-normal"
@@ -414,7 +414,7 @@ export default function IpDialog({
           <div className="space-y-2">
             <div className="space-y-1">
               <label className="h-[22px] text-[14px] leading-[22px] font-normal text-[#222B45]">
-                {t("dialog.ipImagesLabel")}
+                {t("dialog.personImagesLabel")}
               </label>
             </div>
 
@@ -470,7 +470,7 @@ export default function IpDialog({
                   className="group relative h-[104px] w-[104px] cursor-pointer overflow-hidden rounded-[6px] border border-[#C5CEE0] bg-[#F7F9FC]"
                 >
                   {image.existingImageId ? (
-                    <SignedIpImage
+                    <SignedPersonImage
                       imageId={image.existingImageId}
                       signedUrl={image.signedUrl!}
                       signedUrlExpiresAt={image.signedUrlExpiresAt!}
@@ -514,26 +514,6 @@ export default function IpDialog({
                 {t("dialog.uploadHint")}
               </p>
             </div>
-          </div>
-
-          <div className="mt-4 space-y-2">
-            <div className="space-y-1">
-              <label className="h-[22px] text-[14px] leading-[22px] font-normal text-[#222B45]">
-                {t("dialog.descriptionLabel")}
-                <span className="ml-2 text-[12px] leading-[16px] font-normal text-[#8F9BB3]">
-                  {t("dialog.notesOptional")}
-                </span>
-              </label>
-              <p className="text-[12px] leading-[16px] font-normal text-[#8F9BB3]">
-                {t("dialog.descriptionHint")}
-              </p>
-            </div>
-            <Textarea
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-              placeholder={t("dialog.descriptionPlaceholder")}
-              className="h-[60px] rounded-[6px] border border-[#C5CEE0] px-4 py-2"
-            />
           </div>
 
           <div className="mt-4 space-y-2">

@@ -26,6 +26,8 @@ type ProductImageMeta = {
   height: number;
 };
 
+type TranslationFunction = (key: string) => string;
+
 function revokeUrl(url: string | null) {
   if (url) {
     URL.revokeObjectURL(url);
@@ -36,7 +38,7 @@ function formatPercent(value: number) {
   return `${(value * 100).toFixed(1)}%`;
 }
 
-function getUploadErrorMessage(error: unknown, t: ReturnType<typeof useTranslations>) {
+function getUploadErrorMessage(error: unknown, t: TranslationFunction) {
   switch (getClientImagePreparationErrorCode(error)) {
     case CLIENT_IMAGE_PREPARATION_ERROR_CODES.fileTooLarge:
       return t("errors.fileTooLarge");
@@ -136,7 +138,7 @@ async function cropImageToDataUrl({
 }
 
 export default function BrandClassifyClient({ initialData }: { initialData: BrandLibraryPageData }) {
-  const t = useTranslations("Tagging.BrandClassify");
+  const t = useTranslations("Tagging.BrandClassify") as TranslationFunction;
   const referenceLogos = useMemo(
     () => initialData.logos.filter((logo) => logo.enabled && logo.status === "completed"),
     [initialData.logos],

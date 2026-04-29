@@ -72,6 +72,10 @@ export function IpIcon(props: IconProps) {
   return <SvgIcon src="/Icon/IP.svg" {...props} />;
 }
 
+export function PersonIcon(props: IconProps) {
+  return <SvgIcon src="/Icon/SquareUserRound.svg" {...props} />;
+}
+
 export function FoldersIcon(props: IconProps) {
   return <SvgIcon src="/Icon/folders.svg" {...props} />;
 }
