@@ -87,6 +87,47 @@ declare module "@/prisma/client" {
     recommendedTags: TaggingIpRecommendedTag[];
   };
 
+  export type TaggingPersonRecommendedTag = {
+    assetTagId: number;
+    tagPath: string[];
+    assetPersonId: string;
+    personName: string;
+    detectionIndex: number;
+    confidence: number;
+  };
+
+  export type TaggingPersonMatch = {
+    assetPersonId: string;
+    personName: string;
+    personTypeId: string | null;
+    personTypeName: string;
+    similarity: number;
+    confidence: number;
+    detectionIndex: number;
+    supportingReferenceCount: number;
+    recommendedTags: TaggingPersonRecommendedTag[];
+  };
+
+  export type TaggingPersonRecommendation = {
+    noConfidentMatch: boolean;
+    faceCount: number;
+    faces: Array<{
+      detectionIndex: number;
+      box: {
+        xMin: number;
+        yMin: number;
+        xMax: number;
+        yMax: number;
+        score: number;
+        label: string;
+      };
+      topMatches: TaggingPersonMatch[];
+      bestMatch: TaggingPersonMatch | null;
+      noConfidentMatch: boolean;
+    }>;
+    recommendedTags: TaggingPersonRecommendedTag[];
+  };
+
   import { SourceBasedTagPredictions, TagWithScore } from "@/app/(tagging)/types";
   export type TaggingQueueItemResult = Partial<{
     error: string;
@@ -94,6 +135,7 @@ declare module "@/prisma/client" {
     tagsWithScore: TagWithScore[];
     brandRecommendation: TaggingBrandRecommendation | null;
     ipRecommendation: TaggingIpRecommendation | null;
+    personRecommendation: TaggingPersonRecommendation | null;
   }>;
 
   /** 标签树异步生成任务：存入 taggingQueueItem.extra */

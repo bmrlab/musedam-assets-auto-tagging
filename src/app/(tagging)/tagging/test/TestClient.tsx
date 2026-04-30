@@ -2,6 +2,7 @@
 
 import { getBrandRecommendationFromQueueResult } from "@/app/(tagging)/brand-recommendation";
 import { getIpRecommendationFromQueueResult } from "@/app/(tagging)/ip-recommendation";
+import { getPersonRecommendationFromQueueResult } from "@/app/(tagging)/person-recommendation";
 import { AssetThumbnail } from "@/components/AssetThumbnail";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -64,9 +65,11 @@ function buildMergedDisplayTags({
   brandConfidence,
   ipTags,
   ipConfidence,
+  personTags,
   aiSourceLabel,
   brandSourceLabel,
   ipSourceLabel,
+  personSourceLabel,
 }: {
   aiTags: Array<{
     leafTagId?: number;
@@ -84,9 +87,15 @@ function buildMergedDisplayTags({
     tagPath?: string[];
   }>;
   ipConfidence: number;
+  personTags: Array<{
+    assetTagId?: number;
+    tagPath?: string[];
+    confidence?: number;
+  }>;
   aiSourceLabel: string;
   brandSourceLabel: string;
   ipSourceLabel: string;
+  personSourceLabel: string;
 }): DisplayTag[] {
   const mergedTags = new Map<string, DisplayTag & { order: number }>();
 
@@ -154,6 +163,16 @@ function buildMergedDisplayTags({
       tagPath: tag.tagPath,
       sourceLabel: ipSourceLabel,
       score: ipConfidence,
+    });
+  });
+
+  personTags.forEach((tag, index) => {
+    upsertTag({
+      order: aiTags.length + brandTags.length + ipTags.length + index,
+      tagId: tag.assetTagId,
+      tagPath: tag.tagPath,
+      sourceLabel: personSourceLabel,
+      score: tag.confidence ?? 0,
     });
   });
 
@@ -298,6 +317,7 @@ export default function TestClient() {
               const { assetObject, result: resultData, extra } = result;
               const brandRecommendation = getBrandRecommendationFromQueueResult(resultData);
               const ipRecommendation = getIpRecommendationFromQueueResult(resultData);
+              const personRecommendation = getPersonRecommendationFromQueueResult(resultData);
               const linkedBrandTags: Array<{ assetTagId?: number; tagPath?: string[] }> =
                 Array.isArray(result.brandLinkedTags) && result.brandLinkedTags.length > 0
                   ? result.brandLinkedTags
@@ -306,12 +326,54 @@ export default function TestClient() {
                 Array.isArray(result.ipLinkedTags) && result.ipLinkedTags.length > 0
                   ? result.ipLinkedTags
                   : (ipRecommendation?.recommendedTags ?? []);
+              const linkedPersonTags: Array<{
+                assetPersonId?: string;
+                assetTagId?: number;
+                tagPath?: string[];
+              }> = Array.isArray(result.personLinkedTags) ? result.personLinkedTags : [];
               const confidentBrandRecommendation =
                 brandRecommendation && !brandRecommendation.noConfidentMatch
                   ? brandRecommendation
                   : null;
               const confidentIpRecommendation =
                 ipRecommendation && !ipRecommendation.noConfidentMatch ? ipRecommendation : null;
+              const personRecognitionFaces =
+                personRecommendation?.faces.map((face) => {
+                  const bestMatch = face.bestMatch;
+                  const refreshedTags =
+                    bestMatch && linkedPersonTags.length > 0
+                      ? linkedPersonTags.filter(
+                          (tag) => tag.assetPersonId === bestMatch.assetPersonId,
+                        )
+                      : [];
+                  const recommendedTags =
+                    refreshedTags.length > 0 ? refreshedTags : (bestMatch?.recommendedTags ?? []);
+
+                  return {
+                    detectionIndex: face.detectionIndex,
+                    noConfidentMatch: face.noConfidentMatch,
+                    personName: bestMatch?.personName ?? null,
+                    personTypeName: bestMatch?.personTypeName ?? null,
+                    confidence: bestMatch?.confidence ?? null,
+                    similarity: bestMatch?.similarity ?? null,
+                    recommendedTags: recommendedTags.map((tag) => ({
+                      assetTagId: tag.assetTagId,
+                      tagPath: tag.tagPath || [],
+                    })),
+                  };
+                }) ?? [];
+              const confidentPersonTags = personRecognitionFaces.flatMap((face) =>
+                face.noConfidentMatch
+                  ? []
+                  : face.recommendedTags.map((tag) => ({
+                      ...tag,
+                      confidence: face.confidence ?? 0,
+                    })),
+              );
+              const bestPersonConfidence = Math.max(
+                0,
+                ...personRecognitionFaces.map((face) => face.confidence ?? 0),
+              );
               const allTags = resultData?.tagsWithScore || [];
               const mergedDisplayTags = buildMergedDisplayTags({
                 aiTags: allTags,
@@ -319,9 +381,11 @@ export default function TestClient() {
                 brandConfidence: Math.round(brandRecommendation?.bestMatch?.confidence ?? 0),
                 ipTags: confidentIpRecommendation ? linkedIpTags : [],
                 ipConfidence: Math.round(ipRecommendation?.bestMatch?.confidence ?? 0),
+                personTags: confidentPersonTags,
                 aiSourceLabel: tClient("aiMatching"),
                 brandSourceLabel: tResult("brandRecognition"),
                 ipSourceLabel: tSidebar("ip"),
+                personSourceLabel: tSidebar("person"),
               });
               const effectiveTags = mergedDisplayTags.filter((tag) => tag.score >= 80);
               const candidateTags = mergedDisplayTags.filter(
@@ -353,6 +417,7 @@ export default function TestClient() {
                   mergedDisplayTags[0]?.score || 0,
                   brandRecommendation?.bestMatch?.confidence || 0,
                   ipRecommendation?.bestMatch?.confidence || 0,
+                  bestPersonConfidence,
                 ),
                 brandRecognition: brandRecommendation
                   ? {
@@ -377,6 +442,13 @@ export default function TestClient() {
                       recommendedTags: linkedIpTags.map((tag) => ({
                         tagPath: tag.tagPath || [],
                       })),
+                    }
+                  : null,
+                personRecognition: personRecommendation
+                  ? {
+                      noConfidentMatch: personRecommendation.noConfidentMatch,
+                      faceCount: personRecommendation.faceCount,
+                      faces: personRecognitionFaces,
                     }
                   : null,
                 effectiveTags,

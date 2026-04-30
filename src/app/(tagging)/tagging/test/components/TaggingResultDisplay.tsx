@@ -1,6 +1,6 @@
 "use client";
 
-import { BrandIcon, IpIcon, TagAIIcon, VimIcon } from "@/components/ui";
+import { BrandIcon, IpIcon, PersonIcon, TagAIIcon, VimIcon } from "@/components/ui";
 import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { CheckIcon, CircleQuestionMarkIcon, ClockIcon, FolderIcon, ImageIcon } from "lucide-react";
@@ -38,6 +38,21 @@ export interface TaggingResult {
     descriptionSimilarity: number | null;
     recommendedTags: {
       tagPath: string[];
+    }[];
+  } | null;
+  personRecognition: {
+    noConfidentMatch: boolean;
+    faceCount: number;
+    faces: {
+      detectionIndex: number;
+      noConfidentMatch: boolean;
+      personName: string | null;
+      personTypeName: string | null;
+      confidence: number | null;
+      similarity: number | null;
+      recommendedTags: {
+        tagPath: string[];
+      }[];
     }[];
   } | null;
   effectiveTags: {
@@ -165,10 +180,74 @@ function getIpGuidance(locale: string, noConfidentMatch: boolean) {
       };
 }
 
+function getPersonGuidance(locale: string, noConfidentMatch: boolean) {
+  const normalizedLocale = locale.toLowerCase();
+
+  if (normalizedLocale === "zh-tw") {
+    return noConfidentMatch
+      ? {
+          title: "人物識別",
+          metricNote: "僅供參考",
+          entityLabel: "人物",
+          emptyText: "暫無人物識別結果",
+          explanation:
+            "目前已識別到可能人物，但尚未達到可靠命中條件。以下關聯標籤僅供參考，暫不會進入生效標籤。",
+        }
+      : {
+          title: "人物識別",
+          metricNote: "參與生效",
+          entityLabel: "人物",
+          emptyText: "暫無人物識別結果",
+          explanation: "人物結果已通過可靠性校驗，以下關聯標籤會參與生效標籤計算。",
+        };
+  }
+
+  if (normalizedLocale.startsWith("zh")) {
+    return noConfidentMatch
+      ? {
+          title: "人物识别",
+          metricNote: "仅供参考",
+          entityLabel: "人物",
+          emptyText: "暂无人物识别结果",
+          explanation:
+            "当前已识别到可能人物，但尚未达到可靠命中条件。以下关联标签仅供参考，暂不会进入生效标签。",
+        }
+      : {
+          title: "人物识别",
+          metricNote: "参与生效",
+          entityLabel: "人物",
+          emptyText: "暂无人物识别结果",
+          explanation: "人物结果已通过可靠性校验，以下关联标签会参与生效标签计算。",
+        };
+  }
+
+  return noConfidentMatch
+    ? {
+        title: "Person Recognition",
+        metricNote: "Reference only",
+        entityLabel: "Person",
+        emptyText: "No person recognition result",
+        explanation:
+          "A possible person was identified, but it did not pass the reliable-hit check. The linked tags below are for reference only and will not enter Effective Tags.",
+      }
+    : {
+        title: "Person Recognition",
+        metricNote: "Included",
+        entityLabel: "Person",
+        emptyText: "No person recognition result",
+        explanation:
+          "This person result passed the reliability check, so the linked tags below are included in Effective Tags calculation.",
+      };
+}
+
 export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
   const t = useTranslations("TaggingResultDisplay");
   const locale = useLocale();
   const ipGuidance = getIpGuidance(locale, result.ipRecognition?.noConfidentMatch ?? false);
+  const personGuidance = getPersonGuidance(
+    locale,
+    result.personRecognition?.noConfidentMatch ?? false,
+  );
 
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
@@ -523,6 +602,157 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
             })()
           ) : (
             <div className="text-sm text-basic-5">{ipGuidance.emptyText}</div>
+          )}
+        </CardContent>
+      </div>
+
+      <div>
+        <CardHeader className="pb-2 px-0">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <PersonIcon className="w-4 h-4" />
+            {personGuidance.title}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0 px-0">
+          {result.personRecognition?.faces.length ? (
+            <div className="space-y-3">
+              {result.personRecognition.faces.map((face) => {
+                const isReferenceOnly = face.noConfidentMatch;
+
+                return (
+                  <div
+                    key={face.detectionIndex}
+                    className={cn("rounded-md border p-4", {
+                      "bg-[#FFF7E6] border-[#FFC069]": isReferenceOnly,
+                      "bg-primary-1 border-primary-4": !isReferenceOnly,
+                    })}
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <div className="text-xs text-basic-5">
+                          {personGuidance.entityLabel} #{face.detectionIndex + 1}
+                        </div>
+                        <div className="mt-1 text-base font-medium text-basic-8">
+                          {face.personName ?? personGuidance.emptyText}
+                        </div>
+                        {face.personTypeName ? (
+                          <div className="mt-1 text-xs text-basic-5">{face.personTypeName}</div>
+                        ) : null}
+                      </div>
+                      <div className="shrink-0 text-right">
+                        {face.confidence !== null ? (
+                          <div
+                            className={cn("text-sm font-medium", {
+                              "text-[#D46B08]": isReferenceOnly,
+                              "text-primary-6": !isReferenceOnly,
+                            })}
+                          >
+                            {t("confidence")}: {face.confidence}%
+                          </div>
+                        ) : null}
+                        <div
+                          className={cn("text-xs mt-1", {
+                            "text-[#FA8C16]": isReferenceOnly,
+                            "text-primary-5": !isReferenceOnly,
+                          })}
+                        >
+                          {personGuidance.metricNote}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-3">
+                      <div
+                        className={cn(
+                          "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium",
+                          {
+                            "bg-[#FFF1D6] text-[#D46B08]": isReferenceOnly,
+                            "bg-primary-2 text-primary-6": !isReferenceOnly,
+                          },
+                        )}
+                      >
+                        {isReferenceOnly ? t("noConfidentMatch") : t("confidentMatch")}
+                      </div>
+                    </div>
+
+                    <div
+                      className={cn("mt-3 text-sm leading-6", {
+                        "text-[#D46B08]": isReferenceOnly,
+                        "text-primary-6": !isReferenceOnly,
+                      })}
+                    >
+                      {personGuidance.explanation}
+                    </div>
+
+                    <div className="mt-4">
+                      <div className="text-xs text-basic-5">{t("linkedTags")}</div>
+                      {face.recommendedTags.length > 0 ? (
+                        <div className="mt-2 space-y-3">
+                          {face.recommendedTags.map((tag, index) => (
+                            <div
+                              key={`${face.detectionIndex}-${tag.tagPath.join(">")}-${index}`}
+                              className={cn(
+                                "flex items-center justify-between p-3 rounded-lg border",
+                                {
+                                  "bg-[#FFFCF5] border-[#FFD591]": isReferenceOnly,
+                                  "bg-background border-primary-4": !isReferenceOnly,
+                                },
+                              )}
+                            >
+                              {isReferenceOnly ? (
+                                <CircleQuestionMarkIcon className="size-[14px] text-[#FA8C16] mr-2" />
+                              ) : (
+                                <CheckIcon className="size-[14px] text-primary-5 mr-2" />
+                              )}
+                              <div className="flex-1">
+                                <div
+                                  className={cn("font-medium text-sm mb-1", {
+                                    "text-[#D46B08]": isReferenceOnly,
+                                    "text-primary-6": !isReferenceOnly,
+                                  })}
+                                >
+                                  {tag.tagPath.join(" > ")}
+                                </div>
+                                <div
+                                  className={cn("text-xs", {
+                                    "text-[#FA8C16]": isReferenceOnly,
+                                    "text-primary-5": !isReferenceOnly,
+                                  })}
+                                >
+                                  {t("matchingSource")}: {personGuidance.title}
+                                </div>
+                              </div>
+                              <div className="text-right shrink-0 pl-4">
+                                <div
+                                  className={cn("text-sm font-medium", {
+                                    "text-[#D46B08]": isReferenceOnly,
+                                    "text-primary-6": !isReferenceOnly,
+                                  })}
+                                >
+                                  {t("confidence")}: {face.confidence ?? 0}%
+                                </div>
+                                <div
+                                  className={cn("text-xs", {
+                                    "text-[#FA8C16]": isReferenceOnly,
+                                    "text-primary-5": !isReferenceOnly,
+                                  })}
+                                >
+                                  {personGuidance.metricNote}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="mt-2 text-sm text-basic-5">{t("noLinkedTags")}</div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-sm text-basic-5">{personGuidance.emptyText}</div>
           )}
         </CardContent>
       </div>

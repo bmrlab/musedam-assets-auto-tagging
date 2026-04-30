@@ -2,6 +2,7 @@
 import { withAuth } from "@/app/(auth)/withAuth";
 import { getBrandRecommendationTagIdsFromQueueResult } from "@/app/(tagging)/brand-recommendation";
 import { getIpRecommendationTagIdsFromQueueResult } from "@/app/(tagging)/ip-recommendation";
+import { getPersonRecommendationTagIdsFromQueueResult } from "@/app/(tagging)/person-recommendation";
 import { ServerActionResult } from "@/lib/serverAction";
 import { idToSlug, slugToId } from "@/lib/slug";
 import { retrieveTeamCredentials } from "@/musedam/apiKey";
@@ -324,6 +325,7 @@ export async function approveAuditItemsAction({
   auditItems,
   brandTagIds = [],
   ipTagIds = [],
+  personTagIds = [],
   append = true,
 }: {
   assetSlug: string;
@@ -334,6 +336,7 @@ export async function approveAuditItemsAction({
   }[];
   brandTagIds?: number[];
   ipTagIds?: number[];
+  personTagIds?: number[];
   append?: boolean;
 }): Promise<ServerActionResult<void>> {
   return withAuth(async ({ team: { id: teamId } }) => {
@@ -357,6 +360,7 @@ export async function approveAuditItemsAction({
           .map(({ leafTagId }) => leafTagId!),
         ...brandTagIds,
         ...ipTagIds,
+        ...personTagIds,
       ]),
     );
 
@@ -604,11 +608,19 @@ export async function batchApproveAuditItemsAction({
             ),
           ),
         );
+        const personTagIds = Array.from(
+          new Set(
+            finalGroups.flatMap((group) =>
+              getPersonRecommendationTagIdsFromQueueResult(group.queueItem.result),
+            ),
+          ),
+        );
 
         if (
           finalAssetAuditItems.length === 0 &&
           brandTagIds.length === 0 &&
-          ipTagIds.length === 0
+          ipTagIds.length === 0 &&
+          personTagIds.length === 0
         ) {
           failedCount++;
           continue;
@@ -627,6 +639,7 @@ export async function batchApproveAuditItemsAction({
               .filter((leafTagId): leafTagId is number => leafTagId !== null),
             ...brandTagIds,
             ...ipTagIds,
+            ...personTagIds,
           ]),
         );
 

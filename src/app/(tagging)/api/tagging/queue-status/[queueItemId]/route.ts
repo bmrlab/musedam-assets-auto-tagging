@@ -1,6 +1,7 @@
 import { withAuth } from "@/app/(auth)/withAuth";
 import { getBrandRecommendationFromQueueResult } from "@/app/(tagging)/brand-recommendation";
 import { getIpRecommendationFromQueueResult } from "@/app/(tagging)/ip-recommendation";
+import { getPersonRecommendationFromQueueResult } from "@/app/(tagging)/person-recommendation";
 import prisma from "@/prisma/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -41,6 +42,16 @@ export async function GET(
       const assetLogoId = brandRecommendation?.bestMatch?.assetLogoId;
       const ipRecommendation = getIpRecommendationFromQueueResult(queueItem.result);
       const assetIpId = ipRecommendation?.bestMatch?.assetIpId;
+      const personRecommendation = getPersonRecommendationFromQueueResult(queueItem.result);
+      const assetPersonIds = Array.from(
+        new Set(
+          personRecommendation?.faces
+            .map((face) =>
+              !face.noConfidentMatch && face.bestMatch ? face.bestMatch.assetPersonId : null,
+            )
+            .filter((id): id is string => Boolean(id)) ?? [],
+        ),
+      );
       const brandLinkedTags = assetLogoId
         ? await prisma.assetLogoTag.findMany({
             where: {
@@ -71,6 +82,25 @@ export async function GET(
             },
           })
         : [];
+      const personLinkedTags =
+        assetPersonIds.length > 0
+          ? await prisma.assetPersonTag.findMany({
+              where: {
+                assetPersonId: {
+                  in: assetPersonIds,
+                },
+                assetTagId: {
+                  not: null,
+                },
+              },
+              orderBy: [{ sort: "asc" }, { id: "asc" }],
+              select: {
+                assetPersonId: true,
+                assetTagId: true,
+                tagPath: true,
+              },
+            })
+          : [];
 
       return NextResponse.json({
         success: true,
@@ -81,6 +111,11 @@ export async function GET(
             tagPath: Array.isArray(tag.tagPath) ? tag.tagPath.map(String) : [],
           })),
           ipLinkedTags: ipLinkedTags.map((tag) => ({
+            assetTagId: tag.assetTagId,
+            tagPath: Array.isArray(tag.tagPath) ? tag.tagPath.map(String) : [],
+          })),
+          personLinkedTags: personLinkedTags.map((tag) => ({
+            assetPersonId: tag.assetPersonId,
             assetTagId: tag.assetTagId,
             tagPath: Array.isArray(tag.tagPath) ? tag.tagPath.map(String) : [],
           })),
