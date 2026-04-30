@@ -99,13 +99,7 @@ function getPersonStatusMeta(status: PersonItem["status"], t: TranslationFunctio
   }
 }
 
-function PersonImagesCell({
-  person,
-  t,
-}: {
-  person: PersonItem;
-  t: TranslationFunction;
-}) {
+function PersonImagesCell({ person, t }: { person: PersonItem; t: TranslationFunction }) {
   const previewImages = person.images.slice(0, MAX_PREVIEW_IMAGE_NUM);
 
   if (person.images.length === 0) {
@@ -155,6 +149,7 @@ export default function PersonLibraryClient({
   const locale = useLocale();
   const t = useTranslations("Tagging.PersonLibrary") as TranslationFunction;
   const tReview = useTranslations("Tagging.Review") as TranslationFunction;
+  const isChineseLocale = locale === "zh-CN" || locale === "zh-TW";
   const [persons, setPersons] = useState(initialData.persons);
   const [personTypes, setPersonTypes] = useState(initialData.personTypes);
   const [search, setSearch] = useState("");
@@ -274,7 +269,9 @@ export default function PersonLibraryClient({
       }
 
       setPersons((current) =>
-        current.map((person) => result.data.persons.find((item) => item.id === person.id) ?? person),
+        current.map(
+          (person) => result.data.persons.find((item) => item.id === person.id) ?? person,
+        ),
       );
     }
 
@@ -995,7 +992,7 @@ export default function PersonLibraryClient({
                           }
                         }}
                         placeholder={tReview("pageInputPlaceholder")}
-                        className="h-8 w-[180px] rounded-[6px] border border-[#C5CEE0] px-3 py-[5px] gap-1"
+                        className={`h-8 ${isChineseLocale ? "w-[180px]" : "w-[300px]"} rounded-[6px] border border-[#C5CEE0] px-3 py-[5px] gap-1`}
                       />
 
                       <div className="flex items-center gap-3 self-end">

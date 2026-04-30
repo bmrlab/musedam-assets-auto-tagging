@@ -39,7 +39,7 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import Image from "next/image";
 import Link from "next/link";
 import { useDeferredValue, useEffect, useMemo, useState, useTransition } from "react";
@@ -100,13 +100,7 @@ function getLogoStatusMeta(status: BrandLogoItem["status"], t: TranslationFuncti
   }
 }
 
-function LogoImagesCell({
-  logo,
-  t,
-}: {
-  logo: BrandLogoItem;
-  t: TranslationFunction;
-}) {
+function LogoImagesCell({ logo, t }: { logo: BrandLogoItem; t: TranslationFunction }) {
   const previewImages = logo.images.slice(0, MAX_PREVIEW_IMAGE_NUM);
 
   if (logo.images.length === 0) {
@@ -153,8 +147,10 @@ export default function BrandLibraryClient({
   initialData: BrandLibraryPageData;
   debugPageEnabled: boolean;
 }) {
+  const locale = useLocale();
   const t = useTranslations("Tagging.BrandLibrary") as TranslationFunction;
   const tReview = useTranslations("Tagging.Review") as TranslationFunction;
+  const isChineseLocale = locale === "zh-CN" || locale === "zh-TW";
   const [logos, setLogos] = useState(initialData.logos);
   const [logoTypes, setLogoTypes] = useState(initialData.logoTypes);
   const [search, setSearch] = useState("");
@@ -999,7 +995,7 @@ export default function BrandLibraryClient({
                           }
                         }}
                         placeholder={tReview("pageInputPlaceholder")}
-                        className="h-8 w-[180px] rounded-[6px] border border-[#C5CEE0] px-3 py-[5px] gap-1"
+                        className={`h-8 ${isChineseLocale ? "w-[180px]" : "w-[300px]"} rounded-[6px] border border-[#C5CEE0] px-3 py-[5px] gap-1`}
                       />
 
                       <div className="flex items-center gap-3 self-end">

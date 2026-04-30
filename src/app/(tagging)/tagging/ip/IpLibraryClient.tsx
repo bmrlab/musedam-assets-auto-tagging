@@ -149,6 +149,7 @@ export default function IpLibraryClient({
   const locale = useLocale();
   const t = useTranslations("Tagging.IpLibrary") as TranslationFunction;
   const tReview = useTranslations("Tagging.Review") as TranslationFunction;
+  const isChineseLocale = locale === "zh-CN" || locale === "zh-TW";
   const [ips, setIps] = useState(initialData.ips);
   const [ipTypes, setIpTypes] = useState(initialData.ipTypes);
   const [search, setSearch] = useState("");
@@ -983,7 +984,7 @@ export default function IpLibraryClient({
                           }
                         }}
                         placeholder={tReview("pageInputPlaceholder")}
-                        className="h-8 w-[180px] rounded-[6px] border border-[#C5CEE0] px-3 py-[5px] gap-1"
+                        className={`h-8 ${isChineseLocale ? "w-[180px]" : "w-[300px]"} rounded-[6px] border border-[#C5CEE0] px-3 py-[5px] gap-1`}
                       />
 
                       <div className="flex items-center gap-3 self-end">
