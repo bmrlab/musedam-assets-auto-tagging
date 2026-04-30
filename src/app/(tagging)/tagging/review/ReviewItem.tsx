@@ -2,6 +2,7 @@
 
 import { getBrandRecommendationFromQueueResult } from "@/app/(tagging)/brand-recommendation";
 import { getIpRecommendationFromQueueResult } from "@/app/(tagging)/ip-recommendation";
+import { getPersonRecommendationFromQueueResult } from "@/app/(tagging)/person-recommendation";
 import { AssetThumbnail } from "@/components/AssetThumbnail";
 import {
   AlertDialog,
@@ -15,7 +16,14 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { BrandIcon, ClockCircleIcon, IpIcon, TagAIIcon, TagsIcon } from "@/components/ui/icons";
+import {
+  BrandIcon,
+  ClockCircleIcon,
+  IpIcon,
+  PersonIcon,
+  TagAIIcon,
+  TagsIcon,
+} from "@/components/ui/icons";
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { dispatchMuseDAMClientAction } from "@/embed/message";
@@ -74,6 +82,48 @@ function getIpNoConfidentMatchText(locale: string, ipName: string, confidence: n
   return `Best match is ${ipName} (${confidence}%), but it did not meet the recommendation threshold.`;
 }
 
+function getPersonRecommendedTagsTitle(locale: string) {
+  const normalizedLocale = locale.toLowerCase();
+
+  if (normalizedLocale === "zh-tw") {
+    return "人物推薦標籤";
+  }
+
+  if (normalizedLocale.startsWith("zh")) {
+    return "人物推荐标签";
+  }
+
+  return "Person Recommended Tags";
+}
+
+function getNoPersonRecommendationText(locale: string) {
+  const normalizedLocale = locale.toLowerCase();
+
+  if (normalizedLocale === "zh-tw") {
+    return "暫無人物識別標籤";
+  }
+
+  if (normalizedLocale.startsWith("zh")) {
+    return "暂无人物识别标签";
+  }
+
+  return "No person recognition tags";
+}
+
+function getPersonNoConfidentMatchText(locale: string, personName: string, confidence: number) {
+  const normalizedLocale = locale.toLowerCase();
+
+  if (normalizedLocale === "zh-tw") {
+    return `目前最佳匹配為 ${personName}（${confidence}%），但尚未達到推薦閾值`;
+  }
+
+  if (normalizedLocale.startsWith("zh")) {
+    return `当前最佳匹配为 ${personName}（${confidence}%），但尚未达到推荐阈值`;
+  }
+
+  return `Best match is ${personName} (${confidence}%), but it did not meet the recommendation threshold.`;
+}
+
 export function ReviewItem({
   assetObject,
   batch,
@@ -90,6 +140,7 @@ export function ReviewItem({
   const tSidebar = useTranslations("Tagging.Sidebar");
   const ipLabel = tSidebar("ip");
   const ipRecommendedTagsTitle = getIpRecommendedTagsTitle(locale, ipLabel);
+  const personRecommendedTagsTitle = getPersonRecommendedTagsTitle(locale);
   const noBrandRecommendationText =
     normalizedLocale === "zh-tw"
       ? "暫無品牌識別標籤"
@@ -97,10 +148,12 @@ export function ReviewItem({
         ? "暂无品牌识别标签"
         : "No brand recognition tags";
   const noIpRecommendationText = getNoIpRecommendationText(locale, ipLabel);
+  const noPersonRecommendationText = getNoPersonRecommendationText(locale);
   const [loading, setLoading] = useState(false);
   const [rejectedItems, setRejectedItems] = useState<number[]>([]);
   const [rejectedBrandItems, setRejectedBrandItems] = useState<number[]>([]);
   const [rejectedIpItems, setRejectedIpItems] = useState<number[]>([]);
+  const [rejectedPersonItems, setRejectedPersonItems] = useState<number[]>([]);
 
   const realLoading = batchLoading || loading;
 
@@ -160,6 +213,16 @@ export function ReviewItem({
       ),
     [finalBatch],
   );
+  const personRecommendationsByQueueId = useMemo(
+    () =>
+      new Map(
+        finalBatch.map((group) => [
+          group.queueItem.id,
+          getPersonRecommendationFromQueueResult(group.queueItem.result),
+        ]),
+      ),
+    [finalBatch],
+  );
 
   const brandTagIds = useMemo(
     () =>
@@ -191,6 +254,21 @@ export function ReviewItem({
       ),
     [ipRecommendationsByQueueId, rejectedIpItems],
   );
+  const personTagIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          Array.from(personRecommendationsByQueueId.values()).flatMap((personRecommendation) =>
+            !personRecommendation || personRecommendation.noConfidentMatch
+              ? []
+              : personRecommendation.recommendedTags
+                  .map((tag) => tag.assetTagId)
+                  .filter((tagId) => !rejectedPersonItems.includes(tagId)),
+          ),
+        ),
+      ),
+    [personRecommendationsByQueueId, rejectedPersonItems],
+  );
 
   const hasPendingAuditItems = useMemo(
     () => Array.from(auditItemsSet).some((auditItem) => auditItem.status === "pending"),
@@ -219,7 +297,12 @@ export function ReviewItem({
 
       const allAuditItems = [...auditItems, ...filteredOutItems];
 
-      if (!allAuditItems.length && brandTagIds.length === 0 && ipTagIds.length === 0) {
+      if (
+        !allAuditItems.length &&
+        brandTagIds.length === 0 &&
+        ipTagIds.length === 0 &&
+        personTagIds.length === 0
+      ) {
         toast.error(t("noCorrespondingTag"));
         setLoading(false);
         return;
@@ -231,6 +314,7 @@ export function ReviewItem({
           auditItems: allAuditItems,
           brandTagIds,
           ipTagIds,
+          personTagIds,
           append,
         });
 
@@ -267,6 +351,7 @@ export function ReviewItem({
       filteredOutAuditItems,
       ipTagIds,
       onSuccess,
+      personTagIds,
       rejectedItems,
       t,
     ],
@@ -340,7 +425,10 @@ export function ReviewItem({
         </div>
 
         <div className="flex gap-2">
-          {(hasPendingAuditItems || brandTagIds.length > 0 || ipTagIds.length > 0) && (
+          {(hasPendingAuditItems ||
+            brandTagIds.length > 0 ||
+            ipTagIds.length > 0 ||
+            personTagIds.length > 0) && (
             <Button
               size="sm"
               disabled={realLoading}
@@ -412,6 +500,7 @@ export function ReviewItem({
           {finalBatch.map(({ queueItem, taggingAuditItems }, index) => {
             const brandRecommendation = brandRecommendationsByQueueId.get(queueItem.id);
             const ipRecommendation = ipRecommendationsByQueueId.get(queueItem.id);
+            const personRecommendation = personRecommendationsByQueueId.get(queueItem.id);
             const isLatestBatch = finalBatch.length > 1 && index === 0;
             const hasBrandTags = Boolean(
               brandRecommendation &&
@@ -423,6 +512,15 @@ export function ReviewItem({
                 !ipRecommendation.noConfidentMatch &&
                 ipRecommendation.recommendedTags.length > 0,
             );
+            const hasPersonTags = Boolean(
+              personRecommendation &&
+                !personRecommendation.noConfidentMatch &&
+                personRecommendation.recommendedTags.length > 0,
+            );
+            const personBestMatches =
+              personRecommendation?.faces.flatMap((face) =>
+                face.bestMatch ? [face.bestMatch] : [],
+              ) ?? [];
             const visibleAuditItems = taggingAuditItems.filter(
               (auditItem) => auditItem.leafTagId && auditItem.tagPath.length > 0,
             );
@@ -730,6 +828,121 @@ export function ReviewItem({
                             ipRecommendation.bestMatch.ipName,
                             ipRecommendation.bestMatch.confidence,
                           )}
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
+                </div>
+
+                <div className="w-full bg-[rgba(247,249,252,0.8)] dark:bg-basic-1 rounded-md p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <PersonIcon className="size-4" />
+                    <span className="text-sm font-medium">{personRecommendedTagsTitle}</span>
+                    {isLatestBatch ? (
+                      <span className="ml-2 inline-flex items-center px-[13px] py-[2px] rounded-[4px] text-xs text-danger-6 border border-danger-3 bg-danger-1">
+                        {t("latest")}
+                      </span>
+                    ) : null}
+                    {personBestMatches.length > 0 ? (
+                      <span className="text-xs text-basic-5 truncate">
+                        {personBestMatches
+                          .map((match, matchIndex) => `${match.personName} #${matchIndex + 1}`)
+                          .join(" / ")}
+                      </span>
+                    ) : null}
+                    <span className="ml-auto text-xs text-basic-5 flex items-center gap-1">
+                      <ClockCircleIcon className="size-3" />
+                      {formatDate(queueItem.createdAt)}
+                    </span>
+                  </div>
+                  {hasPersonTags && personRecommendation ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      {personRecommendation.recommendedTags.map((tag) => (
+                        <div
+                          key={`${queueItem.id}-${tag.detectionIndex}-${tag.assetPersonId}-${tag.assetTagId}`}
+                          className={cn(
+                            "relative py-[6px] px-2 rounded-[6px] border items-center flex gap-2",
+                            {
+                              "border-dashed": rejectedPersonItems.includes(tag.assetTagId),
+                            },
+                            {
+                              "text-primary-6 bg-primary-1 border-[#A6C1FF]": tag.confidence >= 80,
+                              "text-[#52C41A] bg-[#F6FFED] border-[#95DE64]":
+                                tag.confidence >= 70 && tag.confidence < 80,
+                              "text-[#FA8C16] bg-[#FFF7E6] border-[#FFC069]": tag.confidence < 70,
+                            },
+                          )}
+                        >
+                          <div className="flex min-w-0 flex-col">
+                            <div className="font-medium text-[13px] leading-[18px]">
+                              {tag.tagPath.join(" > ")}
+                            </div>
+                            <div className="text-[10px] text-current/75">
+                              {tag.personName} #{tag.detectionIndex + 1}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-[6px]">
+                            <Progress
+                              value={tag.confidence}
+                              className="bg-current/20 [&>[data-slot=progress-indicator]]:bg-current w-[60px]"
+                            />
+                            <span className="text-[10px]">{tag.confidence}%</span>
+                          </div>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="size-3 bg-transparent hover:bg-transparent text-basic-5 hover:text-current"
+                                  onClick={() =>
+                                    setRejectedPersonItems((current) => {
+                                      const foundIndex = current.indexOf(tag.assetTagId);
+                                      if (foundIndex >= 0) {
+                                        return [
+                                          ...current.slice(0, foundIndex),
+                                          ...current.slice(foundIndex + 1),
+                                        ];
+                                      }
+                                      return [...current, tag.assetTagId];
+                                    })
+                                  }
+                                >
+                                  {rejectedPersonItems.includes(tag.assetTagId) ? (
+                                    <CheckIcon className="h-3 w-3" />
+                                  ) : (
+                                    <XIcon className="h-3 w-3" />
+                                  )}
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>
+                                  {rejectedPersonItems.includes(tag.assetTagId)
+                                    ? t("tooltipAdd")
+                                    : t("tooltipRemove")}
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="space-y-1 text-basic-5">
+                      <div className="text-sm">{noPersonRecommendationText}</div>
+                      {personBestMatches.length > 0 ? (
+                        <div className="space-y-0.5 text-xs">
+                          {personBestMatches.map((match) => (
+                            <div
+                              key={`${queueItem.id}-${match.detectionIndex}-${match.assetPersonId}`}
+                            >
+                              {getPersonNoConfidentMatchText(
+                                locale,
+                                match.personName,
+                                match.confidence,
+                              )}
+                            </div>
+                          ))}
                         </div>
                       ) : null}
                     </div>

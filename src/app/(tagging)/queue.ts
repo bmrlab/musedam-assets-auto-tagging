@@ -4,6 +4,7 @@ import { isTagTreeJob, processTagTreeQueueItem } from "@/app/tags/tagTreeQueue";
 import { classifyAssetBrandRecommendation } from "@/lib/brand/tagging-brand-classification";
 import { classifyAssetIpRecommendation } from "@/lib/ip/tagging-ip-classification";
 import { rootLogger } from "@/lib/logging";
+import { classifyAssetPersonRecommendation } from "@/lib/person/tagging-person-classification";
 import { idToSlug, slugToId } from "@/lib/slug";
 import { retrieveTeamCredentials } from "@/musedam/apiKey";
 import { setAssetTagsToMuseDAM } from "@/musedam/assets";
@@ -17,6 +18,7 @@ import {
   TaggingAuditStatus,
   TaggingBrandRecommendation,
   TaggingIpRecommendation,
+  TaggingPersonRecommendation,
   TaggingQueueItem,
   TaggingQueueItemExtra,
   TaggingQueueItemResult,
@@ -86,6 +88,26 @@ function hasConfidentIpRecommendedTags(
       !ipRecommendation.noConfidentMatch &&
       Array.isArray(ipRecommendation.recommendedTags) &&
       ipRecommendation.recommendedTags.length > 0,
+  );
+}
+
+function hasConfidentPersonRecommendedTags(
+  personRecommendation: TaggingPersonRecommendation | null,
+): personRecommendation is TaggingPersonRecommendation {
+  return Boolean(
+    personRecommendation &&
+      !personRecommendation.noConfidentMatch &&
+      Array.isArray(personRecommendation.recommendedTags) &&
+      personRecommendation.recommendedTags.length > 0,
+  );
+}
+
+function getBestPersonRecommendationConfidence(
+  personRecommendation: TaggingPersonRecommendation | null,
+) {
+  return Math.max(
+    0,
+    ...(personRecommendation?.faces.map((face) => face.bestMatch?.confidence ?? 0) ?? []),
   );
 }
 
@@ -170,9 +192,28 @@ export async function processQueueItem({
       });
       return null;
     });
+    const personRecommendationPromise = classifyAssetPersonRecommendation({
+      teamId: queueItem.teamId,
+      imageUrl: thumbnailUrl,
+    }).catch((error) => {
+      logger.warn({
+        msg: "person classification failed, continuing without person recommendation",
+        error: String(error),
+      });
+      return null;
+    });
 
-    const [{ predictions, tagsWithScore, extra: newExtra }, brandRecommendation, ipRecommendation] =
-      await Promise.all([predictTagsPromise, brandRecommendationPromise, ipRecommendationPromise]);
+    const [
+      { predictions, tagsWithScore, extra: newExtra },
+      brandRecommendation,
+      ipRecommendation,
+      personRecommendation,
+    ] = await Promise.all([
+      predictTagsPromise,
+      brandRecommendationPromise,
+      ipRecommendationPromise,
+      personRecommendationPromise,
+    ]);
     const hasAiTags = tagsWithScore.length > 0;
     const confidentBrandRecommendation = hasConfidentBrandRecommendedTags(brandRecommendation)
       ? brandRecommendation
@@ -180,10 +221,14 @@ export async function processQueueItem({
     const confidentIpRecommendation = hasConfidentIpRecommendedTags(ipRecommendation)
       ? ipRecommendation
       : null;
+    const confidentPersonRecommendation = hasConfidentPersonRecommendedTags(personRecommendation)
+      ? personRecommendation
+      : null;
     const hasBrandTags = confidentBrandRecommendation !== null;
     const hasIpTags = confidentIpRecommendation !== null;
+    const hasPersonTags = confidentPersonRecommendation !== null;
 
-    if (!hasAiTags && !hasBrandTags && !hasIpTags) {
+    if (!hasAiTags && !hasBrandTags && !hasIpTags && !hasPersonTags) {
       throw Object.assign(new Error("No valid tags predicted"), { code: "NO_VALID_TAGS" });
     }
     logger.info({
@@ -191,6 +236,7 @@ export async function processQueueItem({
       tagsWithScoreCount: tagsWithScore.length,
       hasBrandTags,
       hasIpTags,
+      hasPersonTags,
     });
 
     // 如果是测试内容，不需要进入审核
@@ -204,6 +250,7 @@ export async function processQueueItem({
         tagsWithScoreCount: tagsWithScore.length,
         hasBrandTags,
         hasIpTags,
+        hasPersonTags,
         mode: isDirect ? "direct" : "review",
       });
 
@@ -247,12 +294,13 @@ export async function processQueueItem({
         const hasCreatedAiAuditItems =
           createAuditResult?.success === true && createAuditResult.createdCount > 0;
 
-        if (!hasCreatedAiAuditItems && (hasBrandTags || hasIpTags)) {
+        if (!hasCreatedAiAuditItems && (hasBrandTags || hasIpTags || hasPersonTags)) {
           const recommendationOnlyReviewResult = await createRecommendationOnlyReviewItem({
             assetObject,
             taggingQueueItem: queueItem,
             brandRecommendation: confidentBrandRecommendation,
             ipRecommendation: confidentIpRecommendation,
+            personRecommendation: confidentPersonRecommendation,
           });
 
           if (!recommendationOnlyReviewResult.success) {
@@ -283,6 +331,7 @@ export async function processQueueItem({
             ...tagsWithScore.map((tag) => tag.leafTagId),
             ...(brandRecommendation?.recommendedTags ?? []).map((tag) => tag.assetTagId),
             ...(ipRecommendation?.recommendedTags ?? []).map((tag) => tag.assetTagId),
+            ...(personRecommendation?.recommendedTags ?? []).map((tag) => tag.assetTagId),
           ]),
         );
         // 先查询对应的 AssetTag 获取 slug
@@ -379,6 +428,7 @@ export async function processQueueItem({
           tagsWithScore,
           brandRecommendation,
           ipRecommendation,
+          personRecommendation,
         } as TaggingQueueItemResult,
         extra: {
           ...extra,
@@ -650,12 +700,14 @@ async function createRecommendationOnlyReviewItem({
   taggingQueueItem,
   brandRecommendation,
   ipRecommendation,
+  personRecommendation,
   status = "pending",
 }: {
   assetObject: AssetObject;
   taggingQueueItem: TaggingQueueItem;
   brandRecommendation: TaggingBrandRecommendation | null;
   ipRecommendation: TaggingIpRecommendation | null;
+  personRecommendation: TaggingPersonRecommendation | null;
   status?: TaggingAuditStatus;
 }): Promise<{ success: boolean; createdCount: number; error?: unknown }> {
   const logger = rootLogger.child({
@@ -667,8 +719,9 @@ async function createRecommendationOnlyReviewItem({
   try {
     const hasBrandRecommendation = hasConfidentBrandRecommendedTags(brandRecommendation);
     const hasIpRecommendation = hasConfidentIpRecommendedTags(ipRecommendation);
+    const hasPersonRecommendation = hasConfidentPersonRecommendedTags(personRecommendation);
 
-    if (!hasBrandRecommendation && !hasIpRecommendation) {
+    if (!hasBrandRecommendation && !hasIpRecommendation && !hasPersonRecommendation) {
       logger.warn({
         msg: "createRecommendationOnlyReviewItem: no confident recommendation available",
       });
@@ -683,6 +736,9 @@ async function createRecommendationOnlyReviewItem({
           Math.max(
             hasBrandRecommendation ? (brandRecommendation.bestMatch?.confidence ?? 0) : 0,
             hasIpRecommendation ? (ipRecommendation.bestMatch?.confidence ?? 0) : 0,
+            hasPersonRecommendation
+              ? getBestPersonRecommendationConfidence(personRecommendation)
+              : 0,
           ),
         ),
       ),
