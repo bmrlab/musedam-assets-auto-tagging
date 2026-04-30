@@ -445,7 +445,7 @@ export default function PersonDialog({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
                   align="start"
-                  className="flex w-[160px] flex-col gap-[2px] rounded-[8px] border border-[#E4E9F2] p-1"
+                  className="flex min-w-[180px] flex-col gap-[2px] rounded-[8px] border border-[#E4E9F2] p-1"
                 >
                   <DropdownMenuItem
                     onClick={() => fileInputRef.current?.click()}
