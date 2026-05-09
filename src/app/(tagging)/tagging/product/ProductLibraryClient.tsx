@@ -807,9 +807,9 @@ export default function ProductLibraryClient({
                                     }}
                                   />
                                 </td>
-                                <td className="h-[58px] px-4 pt-3 pb-2 align-top">
-                                  <div className="flex items-start gap-3">
-                                    <div className="h-[30px] w-[30px] self-center overflow-hidden rounded-[4px] bg-basic-2">
+                                <td className="h-[58px] px-4 py-0 align-middle">
+                                  <div className="flex items-center gap-3">
+                                    <div className="h-[30px] w-[30px] overflow-hidden rounded-[4px] bg-basic-2">
                                       {product.images[0] ? (
                                         <ProductImageHoverCard
                                           image={product.images[0]}
