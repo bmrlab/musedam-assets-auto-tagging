@@ -12,6 +12,7 @@ export {
   IpIcon,
   MonitorIcon,
   PersonIcon,
+  ProductIcon,
   RetryIcon,
   SettingIcon,
   SvgIcon,

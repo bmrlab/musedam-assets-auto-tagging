@@ -24,6 +24,8 @@ model Team {
   assetLogos        AssetLogo[]
   assetIpTypes      AssetIpType[]
   assetIps          AssetIp[]
+  assetProductTypes AssetProductType[]
+  assetProducts     AssetProduct[]
   assetPersonTypes  AssetPersonType[]
   assetPersons      AssetPerson[]
   taggingQueueItems TaggingQueueItem[]
@@ -107,6 +109,7 @@ model AssetTag {
   taggingAuditItems TaggingAuditItem[]
   assetLogoTags     AssetLogoTag[]
   assetIpTags       AssetIpTag[]
+  assetProductTags  AssetProductTag[]
   assetPersonTags   AssetPersonTag[]
 
   // ⚠️ migration.sql 里人工添加了一条 unique 索引，在 parentId 为空的时候，需要确保 teamId,name 唯一
@@ -282,6 +285,92 @@ model AssetIpTag {
 
   @@unique([assetIpId, assetTagId])
   @@index([assetIpId, sort])
+}
+
+enum AssetProductProcessStatus {
+  pending
+  processing
+  completed
+  failed
+}
+
+model AssetProductType {
+  id     String @id @default(uuid()) @db.Uuid
+  teamId Int
+  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  name String @db.VarChar(100)
+  sort Int    @default(0)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  products AssetProduct[]
+}
+
+model AssetProduct {
+  id     String @id @default(uuid()) @db.Uuid
+  teamId Int
+  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  slug            String                    @unique @default(cuid()) @db.VarChar(64)
+  name            String                    @db.VarChar(255)
+  productTypeId   String?                   @db.Uuid
+  productType     AssetProductType?         @relation(fields: [productTypeId], references: [id], onDelete: SetNull)
+  productTypeName String                    @db.VarChar(100)
+  description     String                    @default("") @db.Text
+  generalCategory String                    @default("") @db.VarChar(100)
+  status          AssetProductProcessStatus @default(pending)
+  processingError String?                   @db.Text
+  processedAt     DateTime?                 @db.Timestamptz(6)
+  enabled         Boolean                   @default(true)
+  notes           String                    @default("") @db.Text
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  images AssetProductImage[]
+  tags   AssetProductTag[]
+
+  @@index([teamId, createdAt])
+  @@index([teamId, status])
+  @@index([teamId, generalCategory])
+}
+
+model AssetProductImage {
+  id             String       @id @default(uuid()) @db.Uuid
+  assetProductId String       @db.Uuid
+  assetProduct   AssetProduct @relation(fields: [assetProductId], references: [id], onDelete: Cascade)
+
+  objectKey      String    @db.Text
+  mimeType       String    @db.VarChar(255)
+  size           Int
+  sort           Int       @default(0)
+  qdrantPointId  String?   @unique @db.VarChar(64)
+  embeddingModel String?   @db.VarChar(128)
+  embeddedAt     DateTime? @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  @@index([assetProductId, sort])
+}
+
+model AssetProductTag {
+  id             String       @id @default(uuid()) @db.Uuid
+  assetProductId String       @db.Uuid
+  assetProduct   AssetProduct @relation(fields: [assetProductId], references: [id], onDelete: Cascade)
+  assetTagId     Int?
+  assetTag       AssetTag?    @relation(fields: [assetTagId], references: [id], onDelete: SetNull)
+
+  tagPath Json @default("[]")
+  sort    Int  @default(0)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  @@unique([assetProductId, assetTagId])
+  @@index([assetProductId, sort])
 }
 
 enum AssetPersonProcessStatus {

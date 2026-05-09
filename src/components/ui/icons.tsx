@@ -68,6 +68,10 @@ export function BrandIcon(props: IconProps) {
   return <SvgIcon src="/Icon/Brand.svg" {...props} />;
 }
 
+export function ProductIcon(props: IconProps) {
+  return <SvgIcon src="/Icon/Package.svg" {...props} />;
+}
+
 export function IpIcon(props: IconProps) {
   return <SvgIcon src="/Icon/IP.svg" {...props} />;
 }

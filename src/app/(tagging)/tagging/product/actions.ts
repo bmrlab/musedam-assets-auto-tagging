@@ -1,0 +1,1512 @@
+"use server";
+
+import { withAuth } from "@/app/(auth)/withAuth";
+import {
+  ProductDetectionBox,
+  classifyProductImageCrops,
+  detectProductFigureBoxes,
+} from "@/lib/product/product-classification";
+import {
+  markAssetProductVectorsProcessing,
+  processAssetProductReferenceVectors,
+} from "@/lib/product/product-processing";
+import { deleteProductVectorPointsByProduct, setProductVectorPayloadByProduct } from "@/lib/product/qdrant";
+import { buildAssetProductObjectKey, getCachedSignedOssObjectUrl, uploadOssObject } from "@/lib/oss";
+import { ServerActionResult } from "@/lib/serverAction";
+import { AssetProduct, AssetProductImage, AssetProductTag, AssetProductType, AssetTag } from "@/prisma/client/index";
+import prisma from "@/prisma/prisma";
+import { getLocale, getTranslations } from "next-intl/server";
+import { after } from "next/server";
+import { z } from "zod";
+import {
+  ProductClassificationResult,
+  ProductClassificationUploadResult,
+  ProductImageItem,
+  ProductItem,
+  ProductLibraryPageData,
+  ProductTagItem,
+  ProductTagTreeNode,
+  ProductTypeItem,
+} from "./types";
+
+async function getProductValidationMessages() {
+  const t = await getTranslations("Tagging.ProductLibrary");
+  return {
+    nameRequired: t("validation.nameRequired"),
+    nameTooLong: t("validation.nameTooLong"),
+    tagsRequired: t("validation.tagsRequired"),
+    typeNameRequired: t("productType.typeNameRequired"),
+    typeNameTooLong: t("productType.typeNameTooLong"),
+  };
+}
+
+async function getCreateOrUpdateProductSchema() {
+  const messages = await getProductValidationMessages();
+  return z.object({
+    id: z.string().uuid().optional(),
+    name: z.string().trim().min(1, messages.nameRequired).max(255, messages.nameTooLong),
+    productTypeId: z.string().uuid(),
+    description: z.string().max(5000).default(""),
+    tagIds: z.array(z.number().int().positive()).min(1, messages.tagsRequired).max(100),
+    notes: z.string().max(5000).default(""),
+    existingImageIds: z.array(z.string().uuid()).max(100).default([]),
+    assetLibraryDownloadUrls: z.array(z.string().url()).max(100).default([]),
+    assetLibraryUploadedImages: z
+      .array(
+        z.object({
+          objectKey: z.string().min(1),
+          mimeType: z.string().min(1),
+          size: z.number().int().nonnegative(),
+        }),
+      )
+      .max(100)
+      .default([]),
+  });
+}
+
+async function getProductTypeNameSchema() {
+  const messages = await getProductValidationMessages();
+  return z
+    .string()
+    .trim()
+    .min(1, messages.typeNameRequired)
+    .max(100, messages.typeNameTooLong);
+}
+
+type AssetTagWithParents = AssetTag & {
+  parent: (AssetTag & { parent: AssetTag | null }) | null;
+};
+
+type AssetProductRecord = AssetProduct & {
+  images: AssetProductImage[];
+  tags: AssetProductTag[];
+};
+
+function parseJsonField<T>(value: FormDataEntryValue | null, fallback: T): T {
+  if (typeof value !== "string" || !value.trim()) {
+    return fallback;
+  }
+
+  return JSON.parse(value) as T;
+}
+
+function isImageFile(file: File) {
+  return file.type.startsWith("image/") || file.name.toLowerCase().endsWith(".svg");
+}
+
+function getFileExtension(file: File) {
+  const match = file.name.match(/\.[a-zA-Z0-9]+$/);
+  if (match) {
+    return match[0].toLowerCase();
+  }
+
+  if (file.type === "image/png") return ".png";
+  if (file.type === "image/jpeg") return ".jpg";
+  if (file.type === "image/webp") return ".webp";
+  if (file.type === "image/svg+xml") return ".svg";
+  if (file.type === "image/gif") return ".gif";
+  return "";
+}
+
+function buildTagPath(tag: AssetTagWithParents) {
+  const path: string[] = [];
+  let current: AssetTagWithParents | AssetTag | null = tag;
+
+  while (current) {
+    path.unshift(current.name);
+    current =
+      "parent" in current && current.parent
+        ? (current.parent as AssetTagWithParents | AssetTag)
+        : null;
+  }
+
+  return path;
+}
+
+function normalizeProductType(type: AssetProductType): ProductTypeItem {
+  return {
+    id: type.id,
+    name: type.name,
+    sort: type.sort,
+  };
+}
+
+function normalizeProductImage(image: AssetProductImage): ProductImageItem {
+  const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
+    objectKey: image.objectKey,
+  });
+
+  return {
+    id: image.id,
+    objectKey: image.objectKey,
+    signedUrl,
+    signedUrlExpiresAt,
+    mimeType: image.mimeType,
+    size: image.size,
+    sort: image.sort,
+  };
+}
+
+function normalizeProductTag(tag: AssetProductTag): ProductTagItem {
+  return {
+    id: tag.id,
+    assetTagId: tag.assetTagId,
+    tagPath: Array.isArray(tag.tagPath) ? tag.tagPath.map(String) : [],
+  };
+}
+
+function normalizeProduct(product: AssetProductRecord): ProductItem {
+  return {
+    id: product.id,
+    slug: product.slug,
+    name: product.name,
+    productTypeId: product.productTypeId,
+    productTypeName: product.productTypeName,
+    description: product.description,
+    generalCategory: product.generalCategory,
+    status: product.status,
+    processingError: product.processingError,
+    processedAt: product.processedAt,
+    enabled: product.enabled,
+    notes: product.notes,
+    createdAt: product.createdAt,
+    updatedAt: product.updatedAt,
+    images: product.images
+      .slice()
+      .sort((a, b) => a.sort - b.sort || a.id.localeCompare(b.id))
+      .map(normalizeProductImage),
+    tags: product.tags
+      .slice()
+      .sort((a, b) => a.sort - b.sort || a.id.localeCompare(b.id))
+      .map(normalizeProductTag),
+  };
+}
+
+function normalizeProductTagTreeNode(
+  tag: AssetTag & { children?: (AssetTag & { children?: AssetTag[] })[] },
+): ProductTagTreeNode {
+  return {
+    id: tag.id,
+    name: tag.name,
+    level: tag.level,
+    parentId: tag.parentId,
+    children: (tag.children ?? []).map((child) => normalizeProductTagTreeNode(child)),
+  };
+}
+
+async function fetchActiveProductTypes(teamId: number) {
+  return prisma.assetProductType.findMany({
+    where: {
+      teamId,
+    },
+    orderBy: [{ sort: "asc" }, { id: "asc" }],
+  });
+}
+
+function getDefaultProductTypeNames(locale: string): string[] {
+  const normalizedLocale = locale.toLowerCase().replace(/_/g, "-");
+
+  if (normalizedLocale === "zh-cn" || normalizedLocale === "zh-tw") {
+    return ["主推产品", "系列产品", "限定款", "联名款", "配件", "其他"];
+  }
+
+  return ["Hero Product", "Product Series", "Limited Edition", "Co-branded", "Accessory", "Other"];
+}
+
+async function ensureDefaultProductTypes(teamId: number, locale: string) {
+  const existing = await fetchActiveProductTypes(teamId);
+  if (existing.length > 0) {
+    return existing;
+  }
+
+  const names = getDefaultProductTypeNames(locale);
+  await prisma.assetProductType.createMany({
+    data: names.map((name, index) => ({
+      teamId,
+      name,
+      sort: index + 1,
+    })),
+  });
+
+  return fetchActiveProductTypes(teamId);
+}
+
+async function fetchProductTags(teamId: number) {
+  const tags = await prisma.assetTag.findMany({
+    where: {
+      teamId,
+      parentId: null,
+    },
+    orderBy: [{ sort: "desc" }, { name: "asc" }],
+    include: {
+      children: {
+        orderBy: [{ sort: "desc" }, { name: "asc" }],
+        include: {
+          children: {
+            orderBy: [{ sort: "desc" }, { name: "asc" }],
+          },
+        },
+      },
+    },
+  });
+
+  return tags.map((tag) => normalizeProductTagTreeNode(tag));
+}
+
+async function fetchProducts(teamId: number) {
+  const products = await prisma.assetProduct.findMany({
+    where: {
+      teamId,
+    },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    include: {
+      images: {
+        orderBy: [{ sort: "asc" }, { id: "asc" }],
+      },
+      tags: {
+        orderBy: [{ sort: "asc" }, { id: "asc" }],
+      },
+    },
+  });
+
+  return products.map((product) => normalizeProduct(product));
+}
+
+async function resolveProductType(teamId: number, productTypeId: string) {
+  const t = await getTranslations("Tagging.ProductLibrary");
+  const productType = await prisma.assetProductType.findFirst({
+    where: {
+      id: productTypeId,
+      teamId,
+    },
+  });
+
+  if (!productType) {
+    throw new Error(t("validation.typeDeleted"));
+  }
+
+  return productType;
+}
+
+async function resolveSelectedTags(teamId: number, tagIds: number[]) {
+  const t = await getTranslations("Tagging.ProductLibrary");
+  const uniqueTagIds = Array.from(new Set(tagIds));
+
+  if (uniqueTagIds.length === 0) {
+    return [];
+  }
+
+  const tags = await prisma.assetTag.findMany({
+    where: {
+      teamId,
+      id: {
+        in: uniqueTagIds,
+      },
+    },
+    include: {
+      parent: {
+        include: {
+          parent: true,
+        },
+      },
+    },
+  });
+
+  if (tags.length !== uniqueTagIds.length) {
+    throw new Error(t("validation.tagsRequired"));
+  }
+
+  const tagMap = new Map(tags.map((tag) => [tag.id, tag as AssetTagWithParents]));
+
+  return uniqueTagIds.map((tagId, index) => {
+    const tag = tagMap.get(tagId);
+    if (!tag) {
+      throw new Error(t("validation.tagsRequired"));
+    }
+
+    return {
+      assetTagId: tag.id,
+      sort: index + 1,
+      tagPath: buildTagPath(tag),
+    };
+  });
+}
+
+async function uploadNewProductImages({ files, teamId }: { files: File[]; teamId: number }) {
+  const t = await getTranslations("Tagging.BrandLibrary");
+  const uploads: Array<{
+    objectKey: string;
+    mimeType: string;
+    size: number;
+  }> = [];
+
+  for (const file of files) {
+    if (!isImageFile(file)) {
+      throw new Error(`${file.name}: ${t("uploadErrors.imageLoadFailed")}`);
+    }
+
+    const objectKey = buildAssetProductObjectKey({
+      teamId,
+      extension: getFileExtension(file),
+    });
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const uploadResult = await uploadOssObject({
+      body: buffer,
+      contentType: file.type || "application/octet-stream",
+      objectKey,
+    });
+
+    uploads.push({
+      objectKey: uploadResult.objectKey,
+      mimeType: file.type || "application/octet-stream",
+      size: file.size,
+    });
+  }
+
+  return uploads;
+}
+
+function getImageExtensionFromUrlOrContentType({
+  imageUrl,
+  contentType,
+}: {
+  imageUrl: string;
+  contentType: string;
+}) {
+  try {
+    const pathname = new URL(imageUrl).pathname;
+    const match = pathname.match(/\.[a-zA-Z0-9]+$/);
+    if (match) {
+      return match[0].toLowerCase();
+    }
+  } catch {
+    // ignore invalid URL and fall back to content type
+  }
+
+  if (contentType.includes("image/png")) return ".png";
+  if (contentType.includes("image/jpeg")) return ".jpg";
+  if (contentType.includes("image/webp")) return ".webp";
+  if (contentType.includes("image/svg+xml")) return ".svg";
+  if (contentType.includes("image/gif")) return ".gif";
+  return "";
+}
+
+async function uploadAssetLibraryImages({
+  downloadUrls,
+  teamId,
+}: {
+  downloadUrls: string[];
+  teamId: number;
+}) {
+  const t = await getTranslations("Tagging.ProductLibrary");
+  const uploads: Array<{
+    objectKey: string;
+    mimeType: string;
+    size: number;
+  }> = [];
+
+  for (const downloadUrl of downloadUrls) {
+    const response = await fetch(downloadUrl);
+    if (!response.ok) {
+      throw new Error(t("uploadErrors.selectFromLibraryFailed"));
+    }
+
+    const contentType = response.headers.get("content-type") || "application/octet-stream";
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const extension = getImageExtensionFromUrlOrContentType({
+      imageUrl: downloadUrl,
+      contentType,
+    });
+    const objectKey = buildAssetProductObjectKey({
+      teamId,
+      extension,
+    });
+
+    const uploadResult = await uploadOssObject({
+      body: buffer,
+      contentType,
+      objectKey,
+    });
+
+    uploads.push({
+      objectKey: uploadResult.objectKey,
+      mimeType: contentType,
+      size: buffer.byteLength,
+    });
+  }
+
+  return uploads;
+}
+
+type UploadedAssetLibraryImage = {
+  name: string;
+  objectKey: string;
+  mimeType: string;
+  size: number;
+  signedUrl: string;
+  signedUrlExpiresAt: number;
+};
+
+function extractSubmittedImages(formData: FormData) {
+  return formData
+    .getAll("images")
+    .filter((value): value is File => value instanceof File)
+    .filter((file) => file.size > 0);
+}
+
+async function parseCreateOrUpdateInput(formData: FormData) {
+  const schema = await getCreateOrUpdateProductSchema();
+  return schema.parse({
+    id: (() => {
+      const idValue = formData.get("id");
+      if (typeof idValue !== "string" || !idValue.trim()) {
+        return undefined;
+      }
+      return idValue;
+    })(),
+    name: formData.get("name"),
+    productTypeId: formData.get("productTypeId"),
+    description: typeof formData.get("description") === "string" ? formData.get("description") : "",
+    tagIds: parseJsonField<number[]>(formData.get("tagIds"), []),
+    notes: typeof formData.get("notes") === "string" ? formData.get("notes") : "",
+    existingImageIds: parseJsonField<string[]>(formData.get("existingImageIds"), []),
+    assetLibraryDownloadUrls: parseJsonField<string[]>(
+      formData.get("assetLibraryDownloadUrls"),
+      [],
+    ),
+    assetLibraryUploadedImages: parseJsonField<
+      Array<{ objectKey: string; mimeType: string; size: number }>
+    >(formData.get("assetLibraryUploadedImages"), []),
+  });
+}
+
+export async function prepareAssetLibraryProductImagesAction(
+  assets: Array<{ name: string; downloadUrl: string }>,
+): Promise<ServerActionResult<{ images: UploadedAssetLibraryImage[] }>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    try {
+      const t = await getTranslations("Tagging.ProductLibrary");
+      const normalizedAssets = z
+        .array(
+          z.object({
+            name: z.string().trim().min(1).max(255),
+            downloadUrl: z.string().url(),
+          }),
+        )
+        .min(1, t("uploadErrors.noAssetsSelected"))
+        .max(100, "Maximum 100 assets per selection")
+        .parse(assets);
+
+      const uploadedImages = await Promise.all(
+        normalizedAssets.map(async (asset) => {
+          const [uploaded] = await uploadAssetLibraryImages({
+            downloadUrls: [asset.downloadUrl],
+            teamId,
+          });
+          const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
+            objectKey: uploaded.objectKey,
+          });
+
+          return {
+            name: asset.name,
+            objectKey: uploaded.objectKey,
+            mimeType: uploaded.mimeType,
+            size: uploaded.size,
+            signedUrl,
+            signedUrlExpiresAt,
+          };
+        }),
+      );
+
+      return {
+        success: true,
+        data: {
+          images: uploadedImages,
+        },
+      };
+    } catch (error) {
+      console.error("Failed to prepare asset library Product images:", error);
+      const t = await getTranslations("Tagging.ProductLibrary");
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : t("uploadErrors.selectFromLibraryFailed"),
+      };
+    }
+  });
+}
+
+async function loadProduct(teamId: number, productId: string) {
+  const t = await getTranslations("Tagging.ProductLibrary");
+  const product = await prisma.assetProduct.findFirst({
+    where: {
+      id: productId,
+      teamId,
+    },
+    include: {
+      images: {
+        orderBy: [{ sort: "asc" }, { id: "asc" }],
+      },
+      tags: {
+        orderBy: [{ sort: "asc" }, { id: "asc" }],
+      },
+    },
+  });
+
+  if (!product) {
+    throw new Error(t("processingErrors.productNotFound"));
+  }
+
+  return product;
+}
+
+async function loadProductsByIds(teamId: number, productIds: string[]) {
+  if (productIds.length === 0) {
+    return [];
+  }
+
+  const products = await prisma.assetProduct.findMany({
+    where: {
+      teamId,
+      id: {
+        in: productIds,
+      },
+    },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    include: {
+      images: {
+        orderBy: [{ sort: "asc" }, { id: "asc" }],
+      },
+      tags: {
+        orderBy: [{ sort: "asc" }, { id: "asc" }],
+      },
+    },
+  });
+
+  return products.map((product) => normalizeProduct(product));
+}
+
+function scheduleAssetProductProcessing(teamId: number, productId: string) {
+  after(async () => {
+    try {
+      await processAssetProductReferenceVectors({
+        teamId,
+        productId,
+      });
+    } catch (error) {
+      console.error("Failed to process asset Product vectors:", error);
+    }
+  });
+}
+
+async function getClassifyCropSchema() {
+  const t = await getTranslations("Tagging.ProductClassify");
+  return z.object({
+    image: z.string().min(1, t("errors.imageLoadFailed")),
+    box: z.object({
+      xMin: z.number().finite(),
+      yMin: z.number().finite(),
+      xMax: z.number().finite(),
+      yMax: z.number().finite(),
+      score: z.number().finite(),
+      label: z.string(),
+    }),
+  });
+}
+
+export async function refreshAssetProductImageSignedUrlAction(imageId: string): Promise<
+  ServerActionResult<{
+    imageId: string;
+    signedUrl: string;
+    signedUrlExpiresAt: number;
+  }>
+> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    try {
+      const t = await getTranslations("Tagging.ProductLibrary");
+      const image = await prisma.assetProductImage.findFirst({
+        where: {
+          id: imageId,
+          assetProduct: {
+            teamId,
+          },
+        },
+        select: {
+          id: true,
+          objectKey: true,
+        },
+      });
+
+      if (!image) {
+        return {
+          success: false,
+          message: t("uploadErrors.imageLoadFailed"),
+        };
+      }
+
+      const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
+        objectKey: image.objectKey,
+      });
+
+      return {
+        success: true,
+        data: {
+          imageId: image.id,
+          signedUrl,
+          signedUrlExpiresAt,
+        },
+      };
+    } catch (error) {
+      console.error("Failed to refresh asset Product image signed url:", error);
+      const t = await getTranslations("Tagging.ProductLibrary");
+      return {
+        success: false,
+        message: t("uploadErrors.imageLoadFailed"),
+      };
+    }
+  });
+}
+
+export async function fetchProductLibraryPageData(): Promise<ServerActionResult<ProductLibraryPageData>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    try {
+      const locale = await getLocale();
+      const [products, productTypes, tags] = await Promise.all([
+        fetchProducts(teamId),
+        ensureDefaultProductTypes(teamId, locale),
+        fetchProductTags(teamId),
+      ]);
+
+      return {
+        success: true,
+        data: {
+          products,
+          productTypes: productTypes.map(normalizeProductType),
+          tags,
+        },
+      };
+    } catch (error) {
+      console.error("Failed to fetch Product library data:", error);
+      const t = await getTranslations("Tagging.ProductLibrary");
+      return {
+        success: false,
+        message: t("createFailed"),
+      };
+    }
+  });
+}
+
+export async function prepareProductClassificationAction(
+  formData: FormData,
+): Promise<ServerActionResult<ProductClassificationUploadResult>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    try {
+      const t = await getTranslations("Tagging.ProductClassify");
+      const image = formData.get("image");
+      if (!(image instanceof File) || image.size <= 0) {
+        return {
+          success: false,
+          message: t("uploadImageFirst"),
+        };
+      }
+
+      if (!isImageFile(image)) {
+        return {
+          success: false,
+          message: t("errors.imageLoadFailed"),
+        };
+      }
+
+      const objectKey = buildAssetProductObjectKey({
+        teamId,
+        extension: getFileExtension(image),
+      });
+      const buffer = Buffer.from(await image.arrayBuffer());
+      await uploadOssObject({
+        body: buffer,
+        contentType: image.type || "application/octet-stream",
+        objectKey,
+      });
+
+      const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
+        objectKey,
+        expiresInSeconds: 60 * 60,
+      });
+      const detection = await detectProductFigureBoxes({
+        teamId,
+        imageUrl: signedUrl,
+      });
+
+      return {
+        success: true,
+        data: {
+          objectKey,
+          signedUrl,
+          signedUrlExpiresAt,
+          detections: detection.detections,
+          found: detection.found,
+        },
+      };
+    } catch (error) {
+      console.error("Failed to prepare Product classification:", error);
+      const t = await getTranslations("Tagging.ProductClassify");
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : t("errors.processingFailed"),
+      };
+    }
+  });
+}
+
+export async function classifyProductImageAction(input: {
+  crops: Array<{
+    image: string;
+    box: ProductDetectionBox;
+  }>;
+}): Promise<ServerActionResult<{ result: ProductClassificationResult }>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    try {
+      const t = await getTranslations("Tagging.ProductClassify");
+      const classifyCropSchema = await getClassifyCropSchema();
+      const crops = z.array(classifyCropSchema).min(1, t("uploadImageFirst")).parse(input.crops);
+
+      const result = await classifyProductImageCrops({
+        teamId,
+        crops,
+      });
+
+      return {
+        success: true,
+        data: {
+          result,
+        },
+      };
+    } catch (error) {
+      console.error("Failed to classify Product image:", error);
+      const t = await getTranslations("Tagging.ProductClassify");
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : t("classifyFailed"),
+      };
+    }
+  });
+}
+
+export async function createAssetProductAction(
+  formData: FormData,
+): Promise<ServerActionResult<{ product: ProductItem }>> {
+  return withAuth(async ({ team }) => {
+    try {
+      const t = await getTranslations("Tagging.ProductLibrary");
+      const input = await parseCreateOrUpdateInput(formData);
+      const files = extractSubmittedImages(formData);
+      const assetLibraryDownloadUrls = Array.from(new Set(input.assetLibraryDownloadUrls));
+      const assetLibraryUploadedImages = input.assetLibraryUploadedImages;
+
+      if (
+        files.length + assetLibraryDownloadUrls.length + assetLibraryUploadedImages.length ===
+        0
+      ) {
+        return {
+          success: false,
+          message: t("validation.imagesRequired"),
+        };
+      }
+
+      const [productType, selectedTags] = await Promise.all([
+        resolveProductType(team.id, input.productTypeId),
+        resolveSelectedTags(team.id, input.tagIds),
+      ]);
+
+      const uploadedImages = await uploadNewProductImages({
+        files,
+        teamId: team.id,
+      });
+      const uploadedAssetLibraryImages = await uploadAssetLibraryImages({
+        downloadUrls: assetLibraryDownloadUrls,
+        teamId: team.id,
+      });
+      const allUploadedImages = [
+        ...uploadedImages,
+        ...assetLibraryUploadedImages,
+        ...uploadedAssetLibraryImages,
+      ];
+
+      const createdProduct = await prisma.assetProduct.create({
+        data: {
+          teamId: team.id,
+          name: input.name,
+          productTypeId: productType.id,
+          productTypeName: productType.name,
+          description: input.description.trim(),
+          notes: input.notes,
+          status: "processing",
+          processingError: null,
+          enabled: true,
+          images: {
+            create: allUploadedImages.map((image, index) => ({
+              ...image,
+              sort: index + 1,
+            })),
+          },
+          ...(selectedTags.length > 0
+            ? {
+                tags: {
+                  create: selectedTags.map((tag) => ({
+                    assetTagId: tag.assetTagId,
+                    tagPath: tag.tagPath,
+                    sort: tag.sort,
+                  })),
+                },
+              }
+            : {}),
+        },
+      });
+
+      const product = await loadProduct(team.id, createdProduct.id);
+      scheduleAssetProductProcessing(team.id, createdProduct.id);
+
+      return {
+        success: true,
+        data: {
+          product: normalizeProduct(product),
+        },
+      };
+    } catch (error) {
+      console.error("Failed to create asset Product:", error);
+      const t = await getTranslations("Tagging.ProductLibrary");
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : t("createFailed"),
+      };
+    }
+  });
+}
+
+export async function updateAssetProductAction(
+  formData: FormData,
+): Promise<ServerActionResult<{ product: ProductItem }>> {
+  return withAuth(async ({ team }) => {
+    const t = await getTranslations("Tagging.ProductLibrary");
+    try {
+      const input = await parseCreateOrUpdateInput(formData);
+      if (!input.id) {
+        return {
+          success: false,
+          message: t("validation.missingId"),
+        };
+      }
+
+      const product = await prisma.assetProduct.findFirst({
+        where: {
+          id: input.id,
+          teamId: team.id,
+        },
+        include: {
+          images: {
+            orderBy: [{ sort: "asc" }, { id: "asc" }],
+          },
+        },
+      });
+
+      if (!product) {
+        return {
+          success: false,
+          message: t("processingErrors.productNotFound"),
+        };
+      }
+
+      const files = extractSubmittedImages(formData);
+      const assetLibraryDownloadUrls = Array.from(new Set(input.assetLibraryDownloadUrls));
+      const assetLibraryUploadedImages = input.assetLibraryUploadedImages;
+      const [productType, selectedTags] = await Promise.all([
+        resolveProductType(team.id, input.productTypeId),
+        resolveSelectedTags(team.id, input.tagIds),
+      ]);
+
+      const uniqueExistingImageIds = Array.from(new Set(input.existingImageIds));
+      const retainedImages = product.images.filter((image) => uniqueExistingImageIds.includes(image.id));
+
+      if (retainedImages.length !== uniqueExistingImageIds.length) {
+        return {
+          success: false,
+          message: t("validation.imagesExpired"),
+        };
+      }
+
+      if (
+        retainedImages.length +
+          files.length +
+          assetLibraryDownloadUrls.length +
+          assetLibraryUploadedImages.length ===
+        0
+      ) {
+        return {
+          success: false,
+          message: t("validation.keepAtLeastOneImage"),
+        };
+      }
+
+      const uploadedImages = await uploadNewProductImages({
+        files,
+        teamId: team.id,
+      });
+      const uploadedAssetLibraryImages = await uploadAssetLibraryImages({
+        downloadUrls: assetLibraryDownloadUrls,
+        teamId: team.id,
+      });
+      const allUploadedImages = [
+        ...uploadedImages,
+        ...assetLibraryUploadedImages,
+        ...uploadedAssetLibraryImages,
+      ];
+
+      await prisma.$transaction(async (tx) => {
+        await tx.assetProduct.update({
+          where: {
+            id: product.id,
+          },
+          data: {
+            name: input.name,
+            productTypeId: productType.id,
+            productTypeName: productType.name,
+            description: input.description.trim(),
+            notes: input.notes,
+            status: "processing",
+            processingError: null,
+            processedAt: null,
+          },
+        });
+
+        await tx.assetProductImage.deleteMany({
+          where: {
+            assetProductId: product.id,
+            id: {
+              notIn: retainedImages.map((image) => image.id),
+            },
+          },
+        });
+
+        await tx.assetProductTag.deleteMany({
+          where: {
+            assetProductId: product.id,
+          },
+        });
+
+        const finalImages = [...retainedImages, ...allUploadedImages];
+
+        for (let index = 0; index < retainedImages.length; index += 1) {
+          await tx.assetProductImage.update({
+            where: {
+              id: retainedImages[index].id,
+            },
+            data: {
+              sort: index + 1,
+              qdrantPointId: null,
+              embeddingModel: null,
+              embeddedAt: null,
+            },
+          });
+        }
+
+        if (allUploadedImages.length > 0) {
+          await tx.assetProductImage.createMany({
+            data: allUploadedImages.map((image, index) => ({
+              assetProductId: product.id,
+              ...image,
+              sort: retainedImages.length + index + 1,
+            })),
+          });
+        }
+
+        if (selectedTags.length > 0) {
+          await tx.assetProductTag.createMany({
+            data: selectedTags.map((tag) => ({
+              assetProductId: product.id,
+              assetTagId: tag.assetTagId,
+              sort: tag.sort,
+              tagPath: tag.tagPath,
+            })),
+          });
+        }
+
+        if (finalImages.length === 0) {
+          throw new Error(t("validation.keepAtLeastOneImage"));
+        }
+      });
+
+      await setProductVectorPayloadByProduct({
+        teamId: team.id,
+        assetProductId: product.id,
+        payload: {
+          enabled: product.enabled,
+          status: "processing",
+        },
+      }).catch((error) => {
+        console.warn("Failed to mark Product vectors as processing:", error);
+      });
+
+      const updatedProduct = await loadProduct(team.id, product.id);
+      scheduleAssetProductProcessing(team.id, product.id);
+
+      return {
+        success: true,
+        data: {
+          product: normalizeProduct(updatedProduct),
+        },
+      };
+    } catch (error) {
+      console.error("Failed to update asset Product:", error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : t("updateFailed"),
+      };
+    }
+  });
+}
+
+export async function setAssetProductEnabledAction(
+  productId: string,
+  enabled: boolean,
+): Promise<ServerActionResult<{ product: ProductItem }>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    try {
+      const t = await getTranslations("Tagging.ProductLibrary");
+      const product = await prisma.assetProduct.findFirst({
+        where: {
+          id: productId,
+          teamId,
+        },
+      });
+
+      if (!product) {
+        return {
+          success: false,
+          message: t("processingErrors.productNotFound"),
+        };
+      }
+
+      await prisma.assetProduct.update({
+        where: {
+          id: productId,
+        },
+        data: {
+          enabled,
+        },
+      });
+
+      await setProductVectorPayloadByProduct({
+        teamId,
+        assetProductId: productId,
+        payload: {
+          enabled,
+        },
+      }).catch((error) => {
+        console.warn("Failed to sync Product enabled payload to Qdrant:", error);
+      });
+
+      const updatedProduct = await loadProduct(teamId, productId);
+
+      return {
+        success: true,
+        data: {
+          product: normalizeProduct(updatedProduct),
+        },
+      };
+    } catch (error) {
+      console.error("Failed to toggle asset Product enabled:", error);
+      const t = await getTranslations("Tagging.ProductLibrary");
+      return {
+        success: false,
+        message: t("toggleEnabledFailed"),
+      };
+    }
+  });
+}
+
+export async function deleteAssetProductAction(
+  productId: string,
+): Promise<ServerActionResult<{ productId: string }>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    try {
+      const t = await getTranslations("Tagging.ProductLibrary");
+      const product = await prisma.assetProduct.findFirst({
+        where: {
+          id: productId,
+          teamId,
+        },
+      });
+
+      if (!product) {
+        return {
+          success: false,
+          message: t("processingErrors.productNotFound"),
+        };
+      }
+
+      await prisma.assetProduct.delete({
+        where: {
+          id: productId,
+        },
+      });
+
+      await deleteProductVectorPointsByProduct({
+        teamId,
+        assetProductId: productId,
+      }).catch(() => undefined);
+
+      return {
+        success: true,
+        data: {
+          productId,
+        },
+      };
+    } catch (error) {
+      console.error("Failed to delete asset Product:", error);
+      const t = await getTranslations("Tagging.ProductLibrary");
+      return {
+        success: false,
+        message: t("deleteFailed"),
+      };
+    }
+  });
+}
+
+export async function retryAssetProductProcessingAction(
+  productId: string,
+): Promise<ServerActionResult<{ product: ProductItem }>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    const t = await getTranslations("Tagging.ProductLibrary");
+    try {
+      const product = await prisma.assetProduct.findFirst({
+        where: {
+          id: productId,
+          teamId,
+        },
+      });
+
+      if (!product) {
+        return {
+          success: false,
+          message: t("processingErrors.productNotFound"),
+        };
+      }
+
+      if (product.status !== "failed") {
+        return {
+          success: false,
+          message: t("retryOnlyFailed"),
+        };
+      }
+
+      await markAssetProductVectorsProcessing({
+        teamId,
+        productId,
+        enabled: product.enabled,
+      });
+
+      const updatedProduct = await loadProduct(teamId, productId);
+      scheduleAssetProductProcessing(teamId, productId);
+
+      return {
+        success: true,
+        data: {
+          product: normalizeProduct(updatedProduct),
+        },
+      };
+    } catch (error) {
+      console.error("Failed to retry asset Product processing:", error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : t("retryFailed"),
+      };
+    }
+  });
+}
+
+export async function pollProductsAction(
+  productIds: string[],
+): Promise<ServerActionResult<{ products: ProductItem[] }>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    const t = await getTranslations("Tagging.ProductLibrary");
+    try {
+      const uniqueIds = Array.from(new Set(productIds)).filter(
+        (id) => typeof id === "string" && id.length > 0,
+      );
+      const products = await loadProductsByIds(teamId, uniqueIds);
+
+      return {
+        success: true,
+        data: {
+          products,
+        },
+      };
+    } catch (error) {
+      console.error("Failed to poll Products:", error);
+      return {
+        success: false,
+        message: t("createFailed"),
+      };
+    }
+  });
+}
+
+export async function createAssetProductTypeAction(
+  name: string,
+): Promise<ServerActionResult<{ productType: ProductTypeItem }>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    const t = await getTranslations("Tagging.ProductLibrary");
+    try {
+      const productTypeNameSchema = await getProductTypeNameSchema();
+      const parsedName = productTypeNameSchema.parse(name);
+
+      const existingType = await prisma.assetProductType.findFirst({
+        where: {
+          teamId,
+          name: parsedName,
+        },
+      });
+
+      if (existingType) {
+        return {
+          success: false,
+          message: t("productType.duplicated"),
+        };
+      }
+
+      const lastType = await prisma.assetProductType.findFirst({
+        where: {
+          teamId,
+        },
+        orderBy: [{ sort: "desc" }, { id: "desc" }],
+      });
+
+      const productType = await prisma.assetProductType.create({
+        data: {
+          teamId,
+          name: parsedName,
+          sort: (lastType?.sort ?? 0) + 1,
+        },
+      });
+
+      return {
+        success: true,
+        data: {
+          productType: normalizeProductType(productType),
+        },
+      };
+    } catch (error) {
+      console.error("Failed to create asset Product type:", error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : t("productType.created"),
+      };
+    }
+  });
+}
+
+export async function updateAssetProductTypeAction(
+  productTypeId: string,
+  name: string,
+): Promise<ServerActionResult<{ productType: ProductTypeItem }>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    const t = await getTranslations("Tagging.ProductLibrary");
+    try {
+      const productTypeNameSchema = await getProductTypeNameSchema();
+      const parsedName = productTypeNameSchema.parse(name);
+
+      const productType = await prisma.assetProductType.findFirst({
+        where: {
+          id: productTypeId,
+          teamId,
+        },
+      });
+
+      if (!productType) {
+        return {
+          success: false,
+          message: t("productType.deleted"),
+        };
+      }
+
+      const duplicatedType = await prisma.assetProductType.findFirst({
+        where: {
+          teamId,
+          name: parsedName,
+          id: {
+            not: productTypeId,
+          },
+        },
+      });
+
+      if (duplicatedType) {
+        return {
+          success: false,
+          message: t("productType.duplicated"),
+        };
+      }
+
+      const updatedType = await prisma.$transaction(async (tx) => {
+        const nextType = await tx.assetProductType.update({
+          where: {
+            id: productTypeId,
+          },
+          data: {
+            name: parsedName,
+          },
+        });
+
+        await tx.assetProduct.updateMany({
+          where: {
+            teamId,
+            productTypeId,
+          },
+          data: {
+            productTypeName: parsedName,
+          },
+        });
+
+        return nextType;
+      });
+
+      return {
+        success: true,
+        data: {
+          productType: normalizeProductType(updatedType),
+        },
+      };
+    } catch (error) {
+      console.error("Failed to update asset Product type:", error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : t("productType.updated"),
+      };
+    }
+  });
+}
+
+export async function softDeleteAssetProductTypeAction(
+  productTypeId: string,
+): Promise<ServerActionResult<{ productTypeId: string }>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    const t = await getTranslations("Tagging.ProductLibrary");
+    try {
+      const productType = await prisma.assetProductType.findFirst({
+        where: {
+          id: productTypeId,
+          teamId,
+        },
+      });
+
+      if (!productType) {
+        return {
+          success: false,
+          message: t("productType.deleted"),
+        };
+      }
+
+      await prisma.$transaction(async (tx) => {
+        await tx.assetProductType.delete({
+          where: {
+            id: productTypeId,
+          },
+        });
+
+        const remainingTypes = await tx.assetProductType.findMany({
+          where: {
+            teamId,
+          },
+          select: {
+            id: true,
+          },
+          orderBy: [{ sort: "asc" }, { id: "asc" }],
+        });
+
+        await Promise.all(
+          remainingTypes.map((type, index) =>
+            tx.assetProductType.update({
+              where: {
+                id: type.id,
+              },
+              data: {
+                sort: index + 1,
+              },
+            }),
+          ),
+        );
+      });
+
+      return {
+        success: true,
+        data: {
+          productTypeId,
+        },
+      };
+    } catch (error) {
+      console.error("Failed to delete asset Product type:", error);
+      return {
+        success: false,
+        message: t("productType.deleted"),
+      };
+    }
+  });
+}
+
+export async function reorderAssetProductTypesAction(
+  orderedIds: string[],
+): Promise<ServerActionResult<{ orderedIds: string[] }>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    const t = await getTranslations("Tagging.ProductLibrary");
+    try {
+      const uniqueOrderedIds = Array.from(new Set(orderedIds));
+
+      const activeTypes = await prisma.assetProductType.findMany({
+        where: {
+          teamId,
+        },
+        select: {
+          id: true,
+        },
+        orderBy: [{ sort: "asc" }, { id: "asc" }],
+      });
+
+      const activeIds = activeTypes.map((type) => type.id);
+
+      if (
+        activeIds.length !== uniqueOrderedIds.length ||
+        activeIds.some((id) => !uniqueOrderedIds.includes(id))
+      ) {
+        return {
+          success: false,
+          message: t("productType.reorderFailed"),
+        };
+      }
+
+      await prisma.$transaction(
+        uniqueOrderedIds.map((id, index) =>
+          prisma.assetProductType.update({
+            where: {
+              id,
+            },
+            data: {
+              sort: index + 1,
+            },
+          }),
+        ),
+      );
+
+      return {
+        success: true,
+        data: {
+          orderedIds: uniqueOrderedIds,
+        },
+      };
+    } catch (error) {
+      console.error("Failed to reorder asset Product types:", error);
+      return {
+        success: false,
+        message: t("productType.reorderFailed"),
+      };
+    }
+  });
+}

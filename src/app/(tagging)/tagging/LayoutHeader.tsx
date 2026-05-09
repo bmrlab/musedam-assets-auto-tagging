@@ -11,7 +11,8 @@ export function LayoutHeader() {
   if (
     pathname.startsWith("/tagging/brand") ||
     pathname.startsWith("/tagging/ip") ||
-    pathname.startsWith("/tagging/person")
+    pathname.startsWith("/tagging/person") ||
+    pathname.startsWith("/tagging/product")
   ) {
     return null;
   }
