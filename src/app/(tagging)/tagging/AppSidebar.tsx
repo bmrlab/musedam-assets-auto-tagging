@@ -13,6 +13,7 @@ import {
   IpIcon,
   MonitorIcon,
   PersonIcon,
+  ProductIcon,
   SettingIcon,
   TagAIIcon,
   TeamIcon,
@@ -68,15 +69,21 @@ const getMenuItems = (t: TranslationFunction): MenuItem[] => [
     section: "featureLibrary",
   },
   {
-    title: t("Sidebar.ip"),
-    url: "/tagging/ip",
-    icon: IpIcon,
+    title: t("Sidebar.product"),
+    url: "/tagging/product",
+    icon: ProductIcon,
     section: "featureLibrary",
   },
   {
     title: t("Sidebar.person"),
     url: "/tagging/person",
     icon: PersonIcon,
+    section: "featureLibrary",
+  },
+  {
+    title: t("Sidebar.ip"),
+    url: "/tagging/ip",
+    icon: IpIcon,
     section: "featureLibrary",
   },
   {

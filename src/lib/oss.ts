@@ -59,6 +59,17 @@ export function buildAssetIpObjectKey({
   return `auto-tagging/teams-${teamId}-asset-ips-${Date.now()}-${randomUUID()}${safeExtension}`;
 }
 
+export function buildAssetProductObjectKey({
+  teamId,
+  extension,
+}: {
+  teamId: number;
+  extension: string;
+}) {
+  const safeExtension = extension.replace(/[^a-zA-Z0-9.]/g, "").toLowerCase();
+  return `auto-tagging/teams-${teamId}-asset-products-${Date.now()}-${randomUUID()}${safeExtension}`;
+}
+
 export function buildAssetPersonObjectKey({
   teamId,
   extension,

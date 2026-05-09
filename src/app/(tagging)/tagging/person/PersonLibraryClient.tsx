@@ -566,7 +566,7 @@ export default function PersonLibraryClient({
           </div>
 
           <div className="flex w-full flex-col gap-3 sm:flex-row xl:w-auto">
-            <div className="relative w-[200px]">
+            <div className="relative w-[260px]">
               <Image
                 src="/Icon/Search.svg"
                 alt=""
@@ -575,7 +575,7 @@ export default function PersonLibraryClient({
                 className="pointer-events-none absolute top-1/2 left-[10px] -translate-y-1/2"
               />
               <Input
-                className="h-8 w-[200px] rounded-[6px] border border-[#C5CEE0] bg-[#FFFFFF] px-[10px] py-1 pl-[32px] text-[14px] leading-[22px] font-normal text-[#8F9BB3]/80 placeholder:text-[14px] placeholder:leading-[22px] placeholder:font-normal placeholder:text-[#8F9BB3]/80"
+                className="h-8 w-[260px] rounded-[6px] border border-[#C5CEE0] bg-[#FFFFFF] px-[10px] py-1 pl-[32px] text-[14px] leading-[22px] font-normal text-[#8F9BB3]/80 placeholder:text-[14px] placeholder:leading-[22px] placeholder:font-normal placeholder:text-[#8F9BB3]/80"
                 placeholder={t("searchPlaceholder")}
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}

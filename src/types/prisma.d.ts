@@ -87,6 +87,29 @@ declare module "@/prisma/client" {
     recommendedTags: TaggingIpRecommendedTag[];
   };
 
+  export type TaggingProductRecommendedTag = {
+    assetTagId: number;
+    tagPath: string[];
+  };
+
+  export type TaggingProductRecommendation = {
+    noConfidentMatch: boolean;
+    bestMatch: null | {
+      assetProductId: string;
+      productName: string;
+      productTypeId: string | null;
+      productTypeName: string;
+      description: string;
+      generalCategory: string;
+      similarity: number;
+      confidence: number;
+      detectionIndex: number;
+      imageSimilarity: number;
+      descriptionSimilarity: number;
+    };
+    recommendedTags: TaggingProductRecommendedTag[];
+  };
+
   export type TaggingPersonRecommendedTag = {
     assetTagId: number;
     tagPath: string[];
@@ -135,6 +158,7 @@ declare module "@/prisma/client" {
     tagsWithScore: TagWithScore[];
     brandRecommendation: TaggingBrandRecommendation | null;
     ipRecommendation: TaggingIpRecommendation | null;
+    productRecommendation: TaggingProductRecommendation | null;
     personRecommendation: TaggingPersonRecommendation | null;
   }>;
 
