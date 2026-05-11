@@ -17,6 +17,22 @@
     "linkedTags": "Thẻ liên kết",
     "similarity": "Độ tương đồng",
     "noLinkedTags": "Không có thẻ liên kết",
-    "noBrandResult": "Không có kết quả nhận diện thương hiệu"
+    "noBrandResult": "Không có kết quả nhận diện thương hiệu",
+    "recognizedTags": "Thẻ đã nhận diện",
+    "recognizedFeatures": "Đặc trưng đã nhận diện",
+    "totalItems": "{count} mục",
+    "effectiveFeatures": "Đặc trưng hiệu lực",
+    "effectiveFeaturesDescription": "Độ tin cậy 80%-100%",
+    "candidateFeatures": "Đặc trưng ứng viên",
+    "candidateFeaturesDescription": "Độ tin cậy 60%-79%",
+    "noRecognizedTags": "Không có thẻ đã nhận diện",
+    "noRecognizedFeatures": "Không có đặc trưng đã nhận diện",
+    "featureClassBrand": "Logo thương hiệu",
+    "featureClassIp": "Nhân vật IP",
+    "featureClassPerson": "Người",
+    "featureClassProduct": "Sản phẩm",
+    "ipRecognition": "Nhận diện nhân vật IP",
+    "personRecognition": "Nhận diện người",
+    "productRecognition": "Nhận diện sản phẩm"
   }
 }

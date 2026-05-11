@@ -151,7 +151,7 @@ function buildMergedDisplayTags({
       order: index,
       tagId: tag.leafTagId,
       tagPath: tag.tagPath,
-      sourceLabel: tag.matchingSource || aiSourceLabel,
+      sourceLabel: aiSourceLabel,
       score: tag.score || 0,
     });
   });
@@ -356,16 +356,6 @@ export default function TestClient() {
                 assetTagId?: number;
                 tagPath?: string[];
               }> = Array.isArray(result.personLinkedTags) ? result.personLinkedTags : [];
-              const confidentBrandRecommendation =
-                brandRecommendation && !brandRecommendation.noConfidentMatch
-                  ? brandRecommendation
-                  : null;
-              const confidentIpRecommendation =
-                ipRecommendation && !ipRecommendation.noConfidentMatch ? ipRecommendation : null;
-              const confidentProductRecommendation =
-                productRecommendation && !productRecommendation.noConfidentMatch
-                  ? productRecommendation
-                  : null;
               const personRecognitionFaces =
                 personRecommendation?.faces.map((face) => {
                   const bestMatch = face.bestMatch;
@@ -391,36 +381,28 @@ export default function TestClient() {
                     })),
                   };
                 }) ?? [];
-              const confidentPersonTags = personRecognitionFaces.flatMap((face) =>
-                face.noConfidentMatch
-                  ? []
-                  : face.recommendedTags.map((tag) => ({
-                      ...tag,
-                      confidence: face.confidence ?? 0,
-                    })),
-              );
               const bestPersonConfidence = Math.max(
                 0,
                 ...personRecognitionFaces.map((face) => face.confidence ?? 0),
               );
               const allTags = resultData?.tagsWithScore || [];
-              const mergedDisplayTags = buildMergedDisplayTags({
+              const aiDisplayTags = buildMergedDisplayTags({
                 aiTags: allTags,
-                brandTags: confidentBrandRecommendation ? linkedBrandTags : [],
+                brandTags: [],
                 brandConfidence: Math.round(brandRecommendation?.bestMatch?.confidence ?? 0),
-                ipTags: confidentIpRecommendation ? linkedIpTags : [],
+                ipTags: [],
                 ipConfidence: Math.round(ipRecommendation?.bestMatch?.confidence ?? 0),
-                productTags: confidentProductRecommendation ? linkedProductTags : [],
+                productTags: [],
                 productConfidence: Math.round(productRecommendation?.bestMatch?.confidence ?? 0),
-                personTags: confidentPersonTags,
+                personTags: [],
                 aiSourceLabel: tClient("aiMatching"),
                 brandSourceLabel: tResult("brandRecognition"),
                 ipSourceLabel: tSidebar("ip"),
                 productSourceLabel: tSidebar("product"),
                 personSourceLabel: tSidebar("person"),
               });
-              const effectiveTags = mergedDisplayTags.filter((tag) => tag.score >= 80);
-              const candidateTags = mergedDisplayTags.filter(
+              const effectiveTags = aiDisplayTags.filter((tag) => tag.score >= 80);
+              const candidateTags = aiDisplayTags.filter(
                 (tag) => tag.score >= 60 && tag.score < 80,
               );
 
@@ -446,7 +428,7 @@ export default function TestClient() {
                         : tClient("broadMode"),
                 },
                 overallScore: Math.max(
-                  mergedDisplayTags[0]?.score || 0,
+                  aiDisplayTags[0]?.score || 0,
                   brandRecommendation?.bestMatch?.confidence || 0,
                   ipRecommendation?.bestMatch?.confidence || 0,
                   productRecommendation?.bestMatch?.confidence || 0,
@@ -456,6 +438,7 @@ export default function TestClient() {
                   ? {
                       noConfidentMatch: brandRecommendation.noConfidentMatch,
                       logoName: brandRecommendation.bestMatch?.logoName || null,
+                      logoTypeName: brandRecommendation.bestMatch?.logoTypeName || null,
                       confidence: brandRecommendation.bestMatch?.confidence ?? null,
                       similarity: brandRecommendation.bestMatch?.similarity ?? null,
                       recommendedTags: linkedBrandTags.map((tag) => ({
@@ -467,6 +450,7 @@ export default function TestClient() {
                   ? {
                       noConfidentMatch: ipRecommendation.noConfidentMatch,
                       ipName: ipRecommendation.bestMatch?.ipName || null,
+                      ipTypeName: ipRecommendation.bestMatch?.ipTypeName || null,
                       confidence: ipRecommendation.bestMatch?.confidence ?? null,
                       similarity: ipRecommendation.bestMatch?.similarity ?? null,
                       imageSimilarity: ipRecommendation.bestMatch?.imageSimilarity ?? null,

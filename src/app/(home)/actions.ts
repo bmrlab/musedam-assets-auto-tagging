@@ -12,9 +12,18 @@ export async function fetchUserAndTeam(): Promise<
 > {
   return withAuth(async ({ user: { id: userId }, team: { id: teamId } }) => {
     const [user, team] = await Promise.all([
-      prisma.user.findUniqueOrThrow({ where: { id: userId } }),
-      prisma.team.findUniqueOrThrow({ where: { id: teamId } }),
+      prisma.user.findUnique({ where: { id: userId } }),
+      prisma.team.findUnique({ where: { id: teamId } }),
     ]);
+
+    if (!user || !team) {
+      return {
+        success: false,
+        code: "not_found",
+        message: "Session user or team no longer exists",
+      };
+    }
+
     return {
       success: true,
       data: { user, team },
