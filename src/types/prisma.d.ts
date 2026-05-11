@@ -51,17 +51,20 @@ declare module "@/prisma/client" {
     tagPath: string[];
   };
 
+export type TaggingBrandBestMatch = {
+  assetLogoId: string;
+  logoName: string;
+  logoTypeId: string | null;
+  logoTypeName: string;
+  similarity: number;
+  confidence: number;
+  detectionIndex: number;
+  recommendedTags: TaggingBrandRecommendedTag[];
+};
+
   export type TaggingBrandRecommendation = {
     noConfidentMatch: boolean;
-    bestMatch: null | {
-      assetLogoId: string;
-      logoName: string;
-      logoTypeId: string | null;
-      logoTypeName: string;
-      similarity: number;
-      confidence: number;
-      detectionIndex: number;
-    };
+    bestMatch: TaggingBrandBestMatch | null;
     recommendedTags: TaggingBrandRecommendedTag[];
   };
 
@@ -70,20 +73,23 @@ declare module "@/prisma/client" {
     tagPath: string[];
   };
 
+export type TaggingIpBestMatch = {
+  assetIpId: string;
+  ipName: string;
+  ipTypeId: string | null;
+  ipTypeName: string;
+  description: string;
+  similarity: number;
+  confidence: number;
+  detectionIndex: number;
+  imageSimilarity: number;
+  descriptionSimilarity: number;
+  recommendedTags: TaggingIpRecommendedTag[];
+};
+
   export type TaggingIpRecommendation = {
     noConfidentMatch: boolean;
-    bestMatch: null | {
-      assetIpId: string;
-      ipName: string;
-      ipTypeId: string | null;
-      ipTypeName: string;
-      description: string;
-      similarity: number;
-      confidence: number;
-      detectionIndex: number;
-      imageSimilarity: number;
-      descriptionSimilarity: number;
-    };
+    bestMatch: TaggingIpBestMatch | null;
     recommendedTags: TaggingIpRecommendedTag[];
   };
 
@@ -92,21 +98,24 @@ declare module "@/prisma/client" {
     tagPath: string[];
   };
 
+export type TaggingProductBestMatch = {
+  assetProductId: string;
+  productName: string;
+  productTypeId: string | null;
+  productTypeName: string;
+  description: string;
+  generalCategory: string;
+  similarity: number;
+  confidence: number;
+  detectionIndex: number;
+  imageSimilarity: number;
+  descriptionSimilarity: number;
+  recommendedTags: TaggingProductRecommendedTag[];
+};
+
   export type TaggingProductRecommendation = {
     noConfidentMatch: boolean;
-    bestMatch: null | {
-      assetProductId: string;
-      productName: string;
-      productTypeId: string | null;
-      productTypeName: string;
-      description: string;
-      generalCategory: string;
-      similarity: number;
-      confidence: number;
-      detectionIndex: number;
-      imageSimilarity: number;
-      descriptionSimilarity: number;
-    };
+    bestMatch: TaggingProductBestMatch | null;
     recommendedTags: TaggingProductRecommendedTag[];
   };
 
@@ -119,17 +128,17 @@ declare module "@/prisma/client" {
     confidence: number;
   };
 
-  export type TaggingPersonMatch = {
-    assetPersonId: string;
-    personName: string;
-    personTypeId: string | null;
-    personTypeName: string;
-    similarity: number;
-    confidence: number;
-    detectionIndex: number;
-    supportingReferenceCount: number;
-    recommendedTags: TaggingPersonRecommendedTag[];
-  };
+export type TaggingPersonMatch = {
+  assetPersonId: string;
+  personName: string;
+  personTypeId: string | null;
+  personTypeName: string;
+  similarity: number;
+  confidence: number;
+  detectionIndex: number;
+  supportingReferenceCount: number;
+  recommendedTags: TaggingPersonRecommendedTag[];
+};
 
   export type TaggingPersonRecommendation = {
     noConfidentMatch: boolean;

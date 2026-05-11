@@ -117,6 +117,7 @@ export async function classifyAssetPersonRecommendation({
   });
 
   const faceMap = new Map(result.faces.map((face) => [face.detectionIndex, face]));
+
   const recommendationFaces = detection.detections.map((box, detectionIndex) => {
     const face = faceMap.get(detectionIndex);
 
@@ -139,8 +140,9 @@ export async function classifyAssetPersonRecommendation({
     };
   });
 
+  // Include tags from all faces with bestMatch, regardless of confidence level
   const recommendedTags = recommendationFaces.flatMap((face) =>
-    face.noConfidentMatch || !face.bestMatch ? [] : face.bestMatch.recommendedTags,
+    face.bestMatch?.recommendedTags ?? [],
   );
 
   return {

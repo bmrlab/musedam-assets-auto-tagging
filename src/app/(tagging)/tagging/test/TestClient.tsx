@@ -356,6 +356,7 @@ export default function TestClient() {
                 assetTagId?: number;
                 tagPath?: string[];
               }> = Array.isArray(result.personLinkedTags) ? result.personLinkedTags : [];
+              const totalPersonFaces = personRecommendation?.faces.filter((f) => f.bestMatch).length ?? 0;
               const personRecognitionFaces =
                 personRecommendation?.faces.map((face) => {
                   const bestMatch = face.bestMatch;
@@ -368,13 +369,20 @@ export default function TestClient() {
                   const recommendedTags =
                     refreshedTags.length > 0 ? refreshedTags : (bestMatch?.recommendedTags ?? []);
 
+                  // Format: "人物N: personName" when multiple people, or just "personName" when single
+                  const personDisplayName =
+                    totalPersonFaces > 1 && bestMatch?.personName
+                      ? `${tResult("featureClassPerson")}${face.detectionIndex + 1}: ${bestMatch.personName}`
+                      : (bestMatch?.personName ?? null);
+
                   return {
                     detectionIndex: face.detectionIndex,
                     noConfidentMatch: face.noConfidentMatch,
-                    personName: bestMatch?.personName ?? null,
+                    personName: personDisplayName,
                     personTypeName: bestMatch?.personTypeName ?? null,
                     confidence: bestMatch?.confidence ?? null,
                     similarity: bestMatch?.similarity ?? null,
+                    assetPersonId: bestMatch?.assetPersonId,
                     recommendedTags: recommendedTags.map((tag) => ({
                       assetTagId: tag.assetTagId,
                       tagPath: tag.tagPath || [],
@@ -441,6 +449,7 @@ export default function TestClient() {
                       logoTypeName: brandRecommendation.bestMatch?.logoTypeName || null,
                       confidence: brandRecommendation.bestMatch?.confidence ?? null,
                       similarity: brandRecommendation.bestMatch?.similarity ?? null,
+                      assetLogoId: brandRecommendation.bestMatch?.assetLogoId,
                       recommendedTags: linkedBrandTags.map((tag) => ({
                         tagPath: tag.tagPath || [],
                       })),
@@ -456,6 +465,7 @@ export default function TestClient() {
                       imageSimilarity: ipRecommendation.bestMatch?.imageSimilarity ?? null,
                       descriptionSimilarity:
                         ipRecommendation.bestMatch?.descriptionSimilarity ?? null,
+                      assetIpId: ipRecommendation.bestMatch?.assetIpId,
                       recommendedTags: linkedIpTags.map((tag) => ({
                         tagPath: tag.tagPath || [],
                       })),
@@ -471,6 +481,7 @@ export default function TestClient() {
                       imageSimilarity: productRecommendation.bestMatch?.imageSimilarity ?? null,
                       descriptionSimilarity:
                         productRecommendation.bestMatch?.descriptionSimilarity ?? null,
+                      assetProductId: productRecommendation.bestMatch?.assetProductId,
                       recommendedTags: linkedProductTags.map((tag) => ({
                         tagPath: tag.tagPath || [],
                       })),
