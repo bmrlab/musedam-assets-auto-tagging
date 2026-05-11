@@ -71,45 +71,41 @@ async function buildAssetObjectTags(
   }));
 }
 
-function hasConfidentBrandRecommendedTags(
+function hasBrandRecommendedTags(
   brandRecommendation: TaggingBrandRecommendation | null,
 ): brandRecommendation is TaggingBrandRecommendation {
   return Boolean(
     brandRecommendation &&
-      !brandRecommendation.noConfidentMatch &&
       Array.isArray(brandRecommendation.recommendedTags) &&
       brandRecommendation.recommendedTags.length > 0,
   );
 }
 
-function hasConfidentIpRecommendedTags(
+function hasIpRecommendedTags(
   ipRecommendation: TaggingIpRecommendation | null,
 ): ipRecommendation is TaggingIpRecommendation {
   return Boolean(
     ipRecommendation &&
-      !ipRecommendation.noConfidentMatch &&
       Array.isArray(ipRecommendation.recommendedTags) &&
       ipRecommendation.recommendedTags.length > 0,
   );
 }
 
-function hasConfidentProductRecommendedTags(
+function hasProductRecommendedTags(
   productRecommendation: TaggingProductRecommendation | null,
 ): productRecommendation is TaggingProductRecommendation {
   return Boolean(
     productRecommendation &&
-      !productRecommendation.noConfidentMatch &&
       Array.isArray(productRecommendation.recommendedTags) &&
       productRecommendation.recommendedTags.length > 0,
   );
 }
 
-function hasConfidentPersonRecommendedTags(
+function hasPersonRecommendedTags(
   personRecommendation: TaggingPersonRecommendation | null,
 ): personRecommendation is TaggingPersonRecommendation {
   return Boolean(
     personRecommendation &&
-      !personRecommendation.noConfidentMatch &&
       Array.isArray(personRecommendation.recommendedTags) &&
       personRecommendation.recommendedTags.length > 0,
   );
@@ -240,22 +236,22 @@ export async function processQueueItem({
       personRecommendationPromise,
     ]);
     const hasAiTags = tagsWithScore.length > 0;
-    const confidentBrandRecommendation = hasConfidentBrandRecommendedTags(brandRecommendation)
+    const brandRecommendationWithTags = hasBrandRecommendedTags(brandRecommendation)
       ? brandRecommendation
       : null;
-    const confidentIpRecommendation = hasConfidentIpRecommendedTags(ipRecommendation)
+    const ipRecommendationWithTags = hasIpRecommendedTags(ipRecommendation)
       ? ipRecommendation
       : null;
-    const confidentProductRecommendation = hasConfidentProductRecommendedTags(productRecommendation)
+    const productRecommendationWithTags = hasProductRecommendedTags(productRecommendation)
       ? productRecommendation
       : null;
-    const confidentPersonRecommendation = hasConfidentPersonRecommendedTags(personRecommendation)
+    const personRecommendationWithTags = hasPersonRecommendedTags(personRecommendation)
       ? personRecommendation
       : null;
-    const hasBrandTags = confidentBrandRecommendation !== null;
-    const hasIpTags = confidentIpRecommendation !== null;
-    const hasProductTags = confidentProductRecommendation !== null;
-    const hasPersonTags = confidentPersonRecommendation !== null;
+    const hasBrandTags = brandRecommendationWithTags !== null;
+    const hasIpTags = ipRecommendationWithTags !== null;
+    const hasProductTags = productRecommendationWithTags !== null;
+    const hasPersonTags = personRecommendationWithTags !== null;
 
     if (!hasAiTags && !hasBrandTags && !hasIpTags && !hasProductTags && !hasPersonTags) {
       throw Object.assign(new Error("No valid tags predicted"), { code: "NO_VALID_TAGS" });
@@ -332,10 +328,10 @@ export async function processQueueItem({
           const recommendationOnlyReviewResult = await createRecommendationOnlyReviewItem({
             assetObject,
             taggingQueueItem: queueItem,
-            brandRecommendation: confidentBrandRecommendation,
-            ipRecommendation: confidentIpRecommendation,
-            productRecommendation: confidentProductRecommendation,
-            personRecommendation: confidentPersonRecommendation,
+            brandRecommendation: brandRecommendationWithTags,
+            ipRecommendation: ipRecommendationWithTags,
+            productRecommendation: productRecommendationWithTags,
+            personRecommendation: personRecommendationWithTags,
           });
 
           if (!recommendationOnlyReviewResult.success) {
@@ -756,10 +752,10 @@ async function createRecommendationOnlyReviewItem({
   });
 
   try {
-    const hasBrandRecommendation = hasConfidentBrandRecommendedTags(brandRecommendation);
-    const hasIpRecommendation = hasConfidentIpRecommendedTags(ipRecommendation);
-    const hasProductRecommendation = hasConfidentProductRecommendedTags(productRecommendation);
-    const hasPersonRecommendation = hasConfidentPersonRecommendedTags(personRecommendation);
+    const hasBrandRecommendation = hasBrandRecommendedTags(brandRecommendation);
+    const hasIpRecommendation = hasIpRecommendedTags(ipRecommendation);
+    const hasProductRecommendation = hasProductRecommendedTags(productRecommendation);
+    const hasPersonRecommendation = hasPersonRecommendedTags(personRecommendation);
 
     if (
       !hasBrandRecommendation &&

@@ -86,14 +86,15 @@ export async function classifyAssetBrandRecommendation({
     crops,
   });
 
-  if (!result.bestMatch || result.noConfidentMatch) {
+  if (!result.bestMatch) {
     return {
       noConfidentMatch: true,
-      bestMatch: result.bestMatch,
+      bestMatch: null,
       recommendedTags: [],
     };
   }
 
+  // Fetch logo tags regardless of confidence level
   const logoTags = await prisma.assetLogoTag.findMany({
     where: {
       assetLogoId: result.bestMatch.assetLogoId,
@@ -108,9 +109,14 @@ export async function classifyAssetBrandRecommendation({
     },
   });
 
+  const normalizedTags = normalizeRecommendedTags(logoTags);
+
   return {
-    noConfidentMatch: false,
-    bestMatch: result.bestMatch,
-    recommendedTags: normalizeRecommendedTags(logoTags),
+    noConfidentMatch: result.noConfidentMatch ?? false,
+    bestMatch: {
+      ...result.bestMatch,
+      recommendedTags: normalizedTags,
+    },
+    recommendedTags: normalizedTags,
   };
 }

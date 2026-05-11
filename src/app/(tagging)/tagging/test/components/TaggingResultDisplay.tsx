@@ -13,6 +13,7 @@ import {
 import { useTranslations } from "next-intl";
 import Image from "next/image";
 import type { ReactNode } from "react";
+import { FeatureThumbnail } from "./FeatureThumbnail";
 
 export interface TaggingResult {
   asset: {
@@ -33,6 +34,7 @@ export interface TaggingResult {
     logoTypeName: string | null;
     confidence: number | null;
     similarity: number | null;
+    assetLogoId?: string;
     recommendedTags: {
       tagPath: string[];
     }[];
@@ -45,6 +47,7 @@ export interface TaggingResult {
     similarity: number | null;
     imageSimilarity: number | null;
     descriptionSimilarity: number | null;
+    assetIpId?: string;
     recommendedTags: {
       tagPath: string[];
     }[];
@@ -57,6 +60,7 @@ export interface TaggingResult {
     similarity: number | null;
     imageSimilarity: number | null;
     descriptionSimilarity: number | null;
+    assetProductId?: string;
     recommendedTags: {
       tagPath: string[];
     }[];
@@ -71,6 +75,7 @@ export interface TaggingResult {
       personTypeName: string | null;
       confidence: number | null;
       similarity: number | null;
+      assetPersonId?: string;
       recommendedTags: {
         tagPath: string[];
       }[];
@@ -110,6 +115,8 @@ interface RecognitionFeature {
   matchingSource: string;
   confidence: number;
   score: number;
+  featureTypeId: "brand" | "ip" | "product" | "person";
+  featureId: string;
 }
 
 const EFFECTIVE_SCORE_MIN = 80;
@@ -233,11 +240,9 @@ function TagResultRow({ tag, variant }: { tag: DisplayTag; variant: ResultVarian
 
 function FeatureResultRow({
   feature,
-  thumbnail,
   variant,
 }: {
   feature: RecognitionFeature;
-  thumbnail?: string;
   variant: ResultVariant;
 }) {
   const t = useTranslations("TaggingResultDisplay");
@@ -249,13 +254,12 @@ function FeatureResultRow({
     >
       <CheckIcon className={cn("size-[14px] shrink-0", classes.icon)} />
       <div className="relative size-12 shrink-0 overflow-hidden rounded bg-background/70">
-        {thumbnail ? (
-          <Image src={thumbnail} alt={feature.title} fill className="object-cover" />
-        ) : (
-          <div className="flex size-full items-center justify-center">
-            <ImageIcon className="size-5 text-basic-5" />
-          </div>
-        )}
+        <FeatureThumbnail
+          featureType={feature.featureTypeId}
+          featureId={feature.featureId}
+          alt={feature.title}
+          className="h-full w-full"
+        />
       </div>
       <div className="min-w-0 flex-1">
         <div className={cn("mb-1 truncate text-sm font-medium", classes.title)}>
@@ -288,7 +292,7 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
 
   const recognitionFeatures: RecognitionFeature[] = [];
 
-  if (result.productRecognition?.productName) {
+  if (result.productRecognition?.productName && result.productRecognition.assetProductId) {
     const score = normalizeScore(result.productRecognition.confidence);
     recognitionFeatures.push({
       key: "product",
@@ -298,10 +302,12 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
       matchingSource: t("productRecognition"),
       confidence: score,
       score,
+      featureTypeId: "product",
+      featureId: result.productRecognition.assetProductId,
     });
   }
 
-  if (result.brandRecognition?.logoName) {
+  if (result.brandRecognition?.logoName && result.brandRecognition.assetLogoId) {
     const score = normalizeScore(result.brandRecognition.confidence);
     recognitionFeatures.push({
       key: "brand",
@@ -311,10 +317,12 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
       matchingSource: t("brandRecognition"),
       confidence: score,
       score,
+      featureTypeId: "brand",
+      featureId: result.brandRecognition.assetLogoId,
     });
   }
 
-  if (result.ipRecognition?.ipName) {
+  if (result.ipRecognition?.ipName && result.ipRecognition.assetIpId) {
     const score = normalizeScore(result.ipRecognition.confidence);
     recognitionFeatures.push({
       key: "ip",
@@ -324,14 +332,17 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
       matchingSource: t("ipRecognition"),
       confidence: score,
       score,
+      featureTypeId: "ip",
+      featureId: result.ipRecognition.assetIpId,
     });
   }
 
   result.personRecognition?.faces.forEach((face) => {
-    if (!face.personName) {
+    if (!face.personName || !face.assetPersonId) {
       return;
     }
 
+    // personName is already formatted in TestClient.tsx (e.g., "人物1: 王一博" or just "王一博")
     const score = normalizeScore(face.confidence);
     recognitionFeatures.push({
       key: `person-${face.detectionIndex}`,
@@ -341,6 +352,8 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
       matchingSource: t("personRecognition"),
       confidence: score,
       score,
+      featureTypeId: "person",
+      featureId: face.assetPersonId,
     });
   });
 
@@ -453,12 +466,7 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
           variant="effective"
         >
           {effectiveFeatures.map((feature) => (
-            <FeatureResultRow
-              key={feature.key}
-              feature={feature}
-              thumbnail={result.asset.thumbnail}
-              variant="effective"
-            />
+            <FeatureResultRow key={feature.key} feature={feature} variant="effective" />
           ))}
         </ResultGroup>
 
@@ -469,12 +477,7 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
           variant="candidate"
         >
           {candidateFeatures.map((feature) => (
-            <FeatureResultRow
-              key={feature.key}
-              feature={feature}
-              thumbnail={result.asset.thumbnail}
-              variant="candidate"
-            />
+            <FeatureResultRow key={feature.key} feature={feature} variant="candidate" />
           ))}
         </ResultGroup>
 

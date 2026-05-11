@@ -49,29 +49,18 @@ export async function classifyAssetIpRecommendation({
     crops,
   });
 
-  if (!result.bestMatch || result.noConfidentMatch) {
+  if (!result.bestMatch) {
     return {
       noConfidentMatch: true,
-      bestMatch: result.bestMatch
-        ? {
-            assetIpId: result.bestMatch.assetIpId,
-            ipName: result.bestMatch.ipName,
-            ipTypeId: result.bestMatch.ipTypeId,
-            ipTypeName: result.bestMatch.ipTypeName,
-            description: result.bestMatch.description,
-            similarity: result.bestMatch.similarity,
-            confidence: result.bestMatch.confidence,
-            detectionIndex: result.bestMatch.detectionIndex,
-            imageSimilarity: result.bestMatch.imageSimilarity,
-            descriptionSimilarity: result.bestMatch.descriptionSimilarity,
-          }
-        : null,
+      bestMatch: null,
       recommendedTags: [],
     };
   }
 
+  const normalizedTags = normalizeRecommendedTags(result.bestMatch.recommendedTags);
+
   return {
-    noConfidentMatch: false,
+    noConfidentMatch: result.noConfidentMatch ?? false,
     bestMatch: {
       assetIpId: result.bestMatch.assetIpId,
       ipName: result.bestMatch.ipName,
@@ -83,7 +72,8 @@ export async function classifyAssetIpRecommendation({
       detectionIndex: result.bestMatch.detectionIndex,
       imageSimilarity: result.bestMatch.imageSimilarity,
       descriptionSimilarity: result.bestMatch.descriptionSimilarity,
+      recommendedTags: normalizedTags,
     },
-    recommendedTags: normalizeRecommendedTags(result.bestMatch.recommendedTags),
+    recommendedTags: normalizedTags,
   };
 }

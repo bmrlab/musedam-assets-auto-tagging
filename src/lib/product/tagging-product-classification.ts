@@ -49,30 +49,18 @@ export async function classifyAssetProductRecommendation({
     crops,
   });
 
-  if (!result.bestMatch || result.noConfidentMatch) {
+  if (!result.bestMatch) {
     return {
       noConfidentMatch: true,
-      bestMatch: result.bestMatch
-        ? {
-            assetProductId: result.bestMatch.assetProductId,
-            productName: result.bestMatch.productName,
-            productTypeId: result.bestMatch.productTypeId,
-            productTypeName: result.bestMatch.productTypeName,
-            description: result.bestMatch.description,
-            generalCategory: result.bestMatch.generalCategory,
-            similarity: result.bestMatch.similarity,
-            confidence: result.bestMatch.confidence,
-            detectionIndex: result.bestMatch.detectionIndex,
-            imageSimilarity: result.bestMatch.imageSimilarity,
-            descriptionSimilarity: result.bestMatch.descriptionSimilarity,
-          }
-        : null,
+      bestMatch: null,
       recommendedTags: [],
     };
   }
 
+  const normalizedTags = normalizeRecommendedTags(result.bestMatch.recommendedTags);
+
   return {
-    noConfidentMatch: false,
+    noConfidentMatch: result.noConfidentMatch ?? false,
     bestMatch: {
       assetProductId: result.bestMatch.assetProductId,
       productName: result.bestMatch.productName,
@@ -85,7 +73,8 @@ export async function classifyAssetProductRecommendation({
       detectionIndex: result.bestMatch.detectionIndex,
       imageSimilarity: result.bestMatch.imageSimilarity,
       descriptionSimilarity: result.bestMatch.descriptionSimilarity,
+      recommendedTags: normalizedTags,
     },
-    recommendedTags: normalizeRecommendedTags(result.bestMatch.recommendedTags),
+    recommendedTags: normalizedTags,
   };
 }
