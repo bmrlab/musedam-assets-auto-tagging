@@ -105,7 +105,23 @@
     "linkedTags": "關聯標籤",
     "similarity": "相似度",
     "noLinkedTags": "暫無關聯標籤",
-    "noBrandResult": "暫無品牌識別結果"
+    "noBrandResult": "暫無品牌識別結果",
+    "recognizedTags": "識別標籤",
+    "recognizedFeatures": "識別特徵",
+    "totalItems": "共 {count} 條",
+    "effectiveFeatures": "生效特徵",
+    "effectiveFeaturesDescription": "置信度 80%-100%",
+    "candidateFeatures": "候選特徵",
+    "candidateFeaturesDescription": "信賴度 60%-79%",
+    "noRecognizedTags": "暫無識別標籤",
+    "noRecognizedFeatures": "暫無識別特徵",
+    "featureClassBrand": "品牌標識",
+    "featureClassIp": "IP 形象",
+    "featureClassPerson": "人物",
+    "featureClassProduct": "商品",
+    "ipRecognition": "IP 形象辨識",
+    "personRecognition": "人物辨識",
+    "productRecognition": "商品辨識"
   },
   "TagsPage": {
     "AiCreateModal": {

@@ -105,7 +105,23 @@
     "linkedTags": "Связанные теги",
     "similarity": "Сходство",
     "noLinkedTags": "Нет связанных тегов",
-    "noBrandResult": "Нет результата распознавания бренда"
+    "noBrandResult": "Нет результата распознавания бренда",
+    "recognizedTags": "Распознанные теги",
+    "recognizedFeatures": "Распознанные признаки",
+    "totalItems": "{count} элементов",
+    "effectiveFeatures": "Действующие признаки",
+    "effectiveFeaturesDescription": "Уверенность 80%-100%",
+    "candidateFeatures": "Кандидатные признаки",
+    "candidateFeaturesDescription": "Уверенность 60%-79%",
+    "noRecognizedTags": "Нет распознанных тегов",
+    "noRecognizedFeatures": "Нет распознанных признаков",
+    "featureClassBrand": "Логотип бренда",
+    "featureClassIp": "IP-персонаж",
+    "featureClassPerson": "Персона",
+    "featureClassProduct": "Товар",
+    "ipRecognition": "Распознавание IP-персонажа",
+    "personRecognition": "Распознавание персоны",
+    "productRecognition": "Распознавание товара"
   },
   "TagsPage": {
     "AiCreateModal": {

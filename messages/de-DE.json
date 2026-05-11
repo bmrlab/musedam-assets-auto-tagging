@@ -105,7 +105,23 @@
     "linkedTags": "Verknüpfte Tags",
     "similarity": "Ähnlichkeit",
     "noLinkedTags": "Keine verknüpften Tags",
-    "noBrandResult": "Kein Markenlogo-Ergebnis"
+    "noBrandResult": "Kein Markenlogo-Ergebnis",
+    "recognizedTags": "Erkannte Tags",
+    "recognizedFeatures": "Erkannte Merkmale",
+    "totalItems": "{count} Elemente",
+    "effectiveFeatures": "Wirksame Merkmale",
+    "effectiveFeaturesDescription": "80%-100% Zuversicht",
+    "candidateFeatures": "Kandidatenmerkmale",
+    "candidateFeaturesDescription": "60%-79% Zuversicht",
+    "noRecognizedTags": "Keine erkannten Tags",
+    "noRecognizedFeatures": "Keine erkannten Merkmale",
+    "featureClassBrand": "Markenlogo",
+    "featureClassIp": "IP-Charakter",
+    "featureClassPerson": "Person",
+    "featureClassProduct": "Produkt",
+    "ipRecognition": "IP-Charaktererkennung",
+    "personRecognition": "Personenerkennung",
+    "productRecognition": "Produkterkennung"
   },
   "TagsPage": {
     "AiCreateModal": {

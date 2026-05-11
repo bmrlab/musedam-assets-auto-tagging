@@ -105,7 +105,23 @@
     "linkedTags": "関連タグ",
     "similarity": "類似度",
     "noLinkedTags": "関連タグなし",
-    "noBrandResult": "ブランド認識結果なし"
+    "noBrandResult": "ブランド認識結果なし",
+    "recognizedTags": "認識タグ",
+    "recognizedFeatures": "認識特徴",
+    "totalItems": "全 {count} 件",
+    "effectiveFeatures": "有効特徴",
+    "effectiveFeaturesDescription": "信頼度 80%-100%",
+    "candidateFeatures": "候補特徴",
+    "candidateFeaturesDescription": "信頼度 60%-79%",
+    "noRecognizedTags": "認識タグはありません",
+    "noRecognizedFeatures": "認識特徴はありません",
+    "featureClassBrand": "ブランドロゴ",
+    "featureClassIp": "IPキャラクター",
+    "featureClassPerson": "人物",
+    "featureClassProduct": "商品",
+    "ipRecognition": "IPキャラクター認識",
+    "personRecognition": "人物認識",
+    "productRecognition": "商品認識"
   },
   "TagsPage": {
     "AiCreateModal": {

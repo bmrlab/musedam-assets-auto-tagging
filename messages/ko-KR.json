@@ -105,7 +105,23 @@
     "linkedTags": "연결된 태그",
     "similarity": "유사도",
     "noLinkedTags": "연결된 태그 없음",
-    "noBrandResult": "브랜드 인식 결과 없음"
+    "noBrandResult": "브랜드 인식 결과 없음",
+    "recognizedTags": "인식 태그",
+    "recognizedFeatures": "인식 특징",
+    "totalItems": "총 {count}개",
+    "effectiveFeatures": "유효 특징",
+    "effectiveFeaturesDescription": "신뢰도 80%-100%",
+    "candidateFeatures": "후보 특징",
+    "candidateFeaturesDescription": "신뢰도 60%-79%",
+    "noRecognizedTags": "인식된 태그가 없습니다",
+    "noRecognizedFeatures": "인식된 특징이 없습니다",
+    "featureClassBrand": "브랜드 로고",
+    "featureClassIp": "IP 캐릭터",
+    "featureClassPerson": "인물",
+    "featureClassProduct": "상품",
+    "ipRecognition": "IP 캐릭터 인식",
+    "personRecognition": "인물 인식",
+    "productRecognition": "상품 인식"
   },
   "TagsPage": {
     "AiCreateModal": {
