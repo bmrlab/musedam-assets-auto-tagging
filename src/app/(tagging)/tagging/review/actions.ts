@@ -3,6 +3,7 @@ import { withAuth } from "@/app/(auth)/withAuth";
 import { getBrandRecommendationTagIdsFromQueueResult } from "@/app/(tagging)/brand-recommendation";
 import { getIpRecommendationTagIdsFromQueueResult } from "@/app/(tagging)/ip-recommendation";
 import { getPersonRecommendationTagIdsFromQueueResult } from "@/app/(tagging)/person-recommendation";
+import { getProductRecommendationTagIdsFromQueueResult } from "@/app/(tagging)/product-recommendation";
 import { ServerActionResult } from "@/lib/serverAction";
 import { idToSlug, slugToId } from "@/lib/slug";
 import { retrieveTeamCredentials } from "@/musedam/apiKey";
@@ -325,6 +326,7 @@ export async function approveAuditItemsAction({
   auditItems,
   brandTagIds = [],
   ipTagIds = [],
+  productTagIds = [],
   personTagIds = [],
   append = true,
 }: {
@@ -336,6 +338,7 @@ export async function approveAuditItemsAction({
   }[];
   brandTagIds?: number[];
   ipTagIds?: number[];
+  productTagIds?: number[];
   personTagIds?: number[];
   append?: boolean;
 }): Promise<ServerActionResult<void>> {
@@ -360,6 +363,7 @@ export async function approveAuditItemsAction({
           .map(({ leafTagId }) => leafTagId!),
         ...brandTagIds,
         ...ipTagIds,
+        ...productTagIds,
         ...personTagIds,
       ]),
     );
@@ -608,6 +612,13 @@ export async function batchApproveAuditItemsAction({
             ),
           ),
         );
+        const productTagIds = Array.from(
+          new Set(
+            finalGroups.flatMap((group) =>
+              getProductRecommendationTagIdsFromQueueResult(group.queueItem.result),
+            ),
+          ),
+        );
         const personTagIds = Array.from(
           new Set(
             finalGroups.flatMap((group) =>
@@ -620,6 +631,7 @@ export async function batchApproveAuditItemsAction({
           finalAssetAuditItems.length === 0 &&
           brandTagIds.length === 0 &&
           ipTagIds.length === 0 &&
+          productTagIds.length === 0 &&
           personTagIds.length === 0
         ) {
           failedCount++;
@@ -639,6 +651,7 @@ export async function batchApproveAuditItemsAction({
               .filter((leafTagId): leafTagId is number => leafTagId !== null),
             ...brandTagIds,
             ...ipTagIds,
+            ...productTagIds,
             ...personTagIds,
           ]),
         );

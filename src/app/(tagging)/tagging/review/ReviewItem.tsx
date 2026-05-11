@@ -3,6 +3,7 @@
 import { getBrandRecommendationFromQueueResult } from "@/app/(tagging)/brand-recommendation";
 import { getIpRecommendationFromQueueResult } from "@/app/(tagging)/ip-recommendation";
 import { getPersonRecommendationFromQueueResult } from "@/app/(tagging)/person-recommendation";
+import { getProductRecommendationFromQueueResult } from "@/app/(tagging)/product-recommendation";
 import { AssetThumbnail } from "@/components/AssetThumbnail";
 import {
   AlertDialog,
@@ -21,6 +22,7 @@ import {
   ClockCircleIcon,
   IpIcon,
   PersonIcon,
+  ProductIcon,
   TagAIIcon,
   TagsIcon,
 } from "@/components/ui/icons";
@@ -124,6 +126,48 @@ function getPersonNoConfidentMatchText(locale: string, personName: string, confi
   return `Best match is ${personName} (${confidence}%), but it did not meet the recommendation threshold.`;
 }
 
+function getProductRecommendedTagsTitle(locale: string, productLabel: string) {
+  const normalizedLocale = locale.toLowerCase();
+
+  if (normalizedLocale === "zh-tw") {
+    return `${productLabel}推薦標籤`;
+  }
+
+  if (normalizedLocale.startsWith("zh")) {
+    return `${productLabel}推荐标签`;
+  }
+
+  return `${productLabel} Recommended Tags`;
+}
+
+function getNoProductRecommendationText(locale: string, productLabel: string) {
+  const normalizedLocale = locale.toLowerCase();
+
+  if (normalizedLocale === "zh-tw") {
+    return `暫無${productLabel}識別標籤`;
+  }
+
+  if (normalizedLocale.startsWith("zh")) {
+    return `暂无${productLabel}识别标签`;
+  }
+
+  return `No ${productLabel} recognition tags`;
+}
+
+function getProductNoConfidentMatchText(locale: string, productName: string, confidence: number) {
+  const normalizedLocale = locale.toLowerCase();
+
+  if (normalizedLocale === "zh-tw") {
+    return `目前最佳匹配為 ${productName}（${confidence}%），但尚未達到推薦閾值`;
+  }
+
+  if (normalizedLocale.startsWith("zh")) {
+    return `当前最佳匹配为 ${productName}（${confidence}%），但尚未达到推荐阈值`;
+  }
+
+  return `Best match is ${productName} (${confidence}%), but it did not meet the recommendation threshold.`;
+}
+
 export function ReviewItem({
   assetObject,
   batch,
@@ -139,7 +183,9 @@ export function ReviewItem({
   const normalizedLocale = locale.toLowerCase();
   const tSidebar = useTranslations("Tagging.Sidebar");
   const ipLabel = tSidebar("ip");
+  const productLabel = tSidebar("product");
   const ipRecommendedTagsTitle = getIpRecommendedTagsTitle(locale, ipLabel);
+  const productRecommendedTagsTitle = getProductRecommendedTagsTitle(locale, productLabel);
   const personRecommendedTagsTitle = getPersonRecommendedTagsTitle(locale);
   const noBrandRecommendationText =
     normalizedLocale === "zh-tw"
@@ -148,11 +194,13 @@ export function ReviewItem({
         ? "暂无品牌识别标签"
         : "No brand recognition tags";
   const noIpRecommendationText = getNoIpRecommendationText(locale, ipLabel);
+  const noProductRecommendationText = getNoProductRecommendationText(locale, productLabel);
   const noPersonRecommendationText = getNoPersonRecommendationText(locale);
   const [loading, setLoading] = useState(false);
   const [rejectedItems, setRejectedItems] = useState<number[]>([]);
   const [rejectedBrandItems, setRejectedBrandItems] = useState<number[]>([]);
   const [rejectedIpItems, setRejectedIpItems] = useState<number[]>([]);
+  const [rejectedProductItems, setRejectedProductItems] = useState<number[]>([]);
   const [rejectedPersonItems, setRejectedPersonItems] = useState<number[]>([]);
 
   const realLoading = batchLoading || loading;
@@ -213,6 +261,16 @@ export function ReviewItem({
       ),
     [finalBatch],
   );
+  const productRecommendationsByQueueId = useMemo(
+    () =>
+      new Map(
+        finalBatch.map((group) => [
+          group.queueItem.id,
+          getProductRecommendationFromQueueResult(group.queueItem.result),
+        ]),
+      ),
+    [finalBatch],
+  );
   const personRecommendationsByQueueId = useMemo(
     () =>
       new Map(
@@ -269,6 +327,21 @@ export function ReviewItem({
       ),
     [personRecommendationsByQueueId, rejectedPersonItems],
   );
+  const productTagIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          Array.from(productRecommendationsByQueueId.values()).flatMap((productRecommendation) =>
+            !productRecommendation || productRecommendation.noConfidentMatch
+              ? []
+              : productRecommendation.recommendedTags
+                  .map((tag) => tag.assetTagId)
+                  .filter((tagId) => !rejectedProductItems.includes(tagId)),
+          ),
+        ),
+      ),
+    [productRecommendationsByQueueId, rejectedProductItems],
+  );
 
   const hasPendingAuditItems = useMemo(
     () => Array.from(auditItemsSet).some((auditItem) => auditItem.status === "pending"),
@@ -301,6 +374,7 @@ export function ReviewItem({
         !allAuditItems.length &&
         brandTagIds.length === 0 &&
         ipTagIds.length === 0 &&
+        productTagIds.length === 0 &&
         personTagIds.length === 0
       ) {
         toast.error(t("noCorrespondingTag"));
@@ -314,6 +388,7 @@ export function ReviewItem({
           auditItems: allAuditItems,
           brandTagIds,
           ipTagIds,
+          productTagIds,
           personTagIds,
           append,
         });
@@ -352,6 +427,7 @@ export function ReviewItem({
       ipTagIds,
       onSuccess,
       personTagIds,
+      productTagIds,
       rejectedItems,
       t,
     ],
@@ -428,6 +504,7 @@ export function ReviewItem({
           {(hasPendingAuditItems ||
             brandTagIds.length > 0 ||
             ipTagIds.length > 0 ||
+            productTagIds.length > 0 ||
             personTagIds.length > 0) && (
             <Button
               size="sm"
@@ -500,6 +577,7 @@ export function ReviewItem({
           {finalBatch.map(({ queueItem, taggingAuditItems }, index) => {
             const brandRecommendation = brandRecommendationsByQueueId.get(queueItem.id);
             const ipRecommendation = ipRecommendationsByQueueId.get(queueItem.id);
+            const productRecommendation = productRecommendationsByQueueId.get(queueItem.id);
             const personRecommendation = personRecommendationsByQueueId.get(queueItem.id);
             const isLatestBatch = finalBatch.length > 1 && index === 0;
             const hasBrandTags = Boolean(
@@ -511,6 +589,11 @@ export function ReviewItem({
               ipRecommendation &&
                 !ipRecommendation.noConfidentMatch &&
                 ipRecommendation.recommendedTags.length > 0,
+            );
+            const hasProductTags = Boolean(
+              productRecommendation &&
+                !productRecommendation.noConfidentMatch &&
+                productRecommendation.recommendedTags.length > 0,
             );
             const hasPersonTags = Boolean(
               personRecommendation &&
@@ -827,6 +910,114 @@ export function ReviewItem({
                             locale,
                             ipRecommendation.bestMatch.ipName,
                             ipRecommendation.bestMatch.confidence,
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
+                </div>
+
+                <div className="w-full bg-[rgba(247,249,252,0.8)] dark:bg-basic-1 rounded-md p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <ProductIcon className="size-4" />
+                    <span className="text-sm font-medium">{productRecommendedTagsTitle}</span>
+                    {isLatestBatch ? (
+                      <span className="ml-2 inline-flex items-center px-[13px] py-[2px] rounded-[4px] text-xs text-danger-6 border border-danger-3 bg-danger-1">
+                        {t("latest")}
+                      </span>
+                    ) : null}
+                    {hasProductTags && productRecommendation?.bestMatch ? (
+                      <span className="text-xs text-basic-5">
+                        {productRecommendation.bestMatch.productName}
+                      </span>
+                    ) : null}
+                    <span className="ml-auto text-xs text-basic-5 flex items-center gap-1">
+                      <ClockCircleIcon className="size-3" />
+                      {formatDate(queueItem.createdAt)}
+                    </span>
+                  </div>
+                  {hasProductTags && productRecommendation ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      {productRecommendation.recommendedTags.map((tag) => (
+                        <div
+                          key={`${queueItem.id}-${tag.assetTagId}`}
+                          className={cn(
+                            "relative py-[6px] px-2 rounded-[6px] border items-center flex gap-2",
+                            {
+                              "border-dashed": rejectedProductItems.includes(tag.assetTagId),
+                            },
+                            {
+                              "text-primary-6 bg-primary-1 border-[#A6C1FF]":
+                                (productRecommendation.bestMatch?.confidence ?? 0) >= 80,
+                              "text-[#52C41A] bg-[#F6FFED] border-[#95DE64]":
+                                (productRecommendation.bestMatch?.confidence ?? 0) >= 70 &&
+                                (productRecommendation.bestMatch?.confidence ?? 0) < 80,
+                              "text-[#FA8C16] bg-[#FFF7E6] border-[#FFC069]":
+                                (productRecommendation.bestMatch?.confidence ?? 0) < 70,
+                            },
+                          )}
+                        >
+                          <div className="font-medium text-[13px] leading-[18px]">
+                            {tag.tagPath.join(" > ")}
+                          </div>
+                          <div className="flex items-center gap-[6px]">
+                            <Progress
+                              value={productRecommendation.bestMatch?.confidence ?? 0}
+                              className="bg-current/20 [&>[data-slot=progress-indicator]]:bg-current w-[60px]"
+                            />
+                            <span className="text-[10px]">
+                              {productRecommendation.bestMatch?.confidence ?? 0}%
+                            </span>
+                          </div>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="size-3 bg-transparent hover:bg-transparent text-basic-5 hover:text-current"
+                                  onClick={() =>
+                                    setRejectedProductItems((current) => {
+                                      const foundIndex = current.indexOf(tag.assetTagId);
+                                      if (foundIndex >= 0) {
+                                        return [
+                                          ...current.slice(0, foundIndex),
+                                          ...current.slice(foundIndex + 1),
+                                        ];
+                                      }
+                                      return [...current, tag.assetTagId];
+                                    })
+                                  }
+                                >
+                                  {rejectedProductItems.includes(tag.assetTagId) ? (
+                                    <CheckIcon className="h-3 w-3" />
+                                  ) : (
+                                    <XIcon className="h-3 w-3" />
+                                  )}
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>
+                                  {rejectedProductItems.includes(tag.assetTagId)
+                                    ? t("tooltipAdd")
+                                    : t("tooltipRemove")}
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="space-y-1 text-basic-5">
+                      <div className="text-sm">{noProductRecommendationText}</div>
+                      {productRecommendation?.noConfidentMatch &&
+                      productRecommendation.bestMatch ? (
+                        <div className="text-xs">
+                          {getProductNoConfidentMatchText(
+                            locale,
+                            productRecommendation.bestMatch.productName,
+                            productRecommendation.bestMatch.confidence,
                           )}
                         </div>
                       ) : null}

@@ -8,7 +8,7 @@ import { rootLogger } from "./logging";
  */
 export async function cleanupTempFiles(): Promise<void> {
   const logger = rootLogger.child({ service: "file-cleanup" });
-  
+
   try {
     // 清理 Next.js 缓存目录（如果存在）
     const nextCacheDir = join(process.cwd(), ".next", "cache");
@@ -17,7 +17,7 @@ export async function cleanupTempFiles(): Promise<void> {
       if (stats.isDirectory()) {
         const files = await fs.readdir(nextCacheDir);
         let cleanedCount = 0;
-        
+
         for (const file of files) {
           const filePath = join(nextCacheDir, file);
           try {
@@ -33,7 +33,7 @@ export async function cleanupTempFiles(): Promise<void> {
             logger.warn({ file: file, error: String(error) }, "Failed to clean cache file");
           }
         }
-        
+
         if (cleanedCount > 0) {
           logger.info({ cleanedCount, cacheDir: nextCacheDir }, "Cleaned old cache files");
         }
@@ -58,7 +58,7 @@ export async function cleanupTempFiles(): Promise<void> {
         if (stats.isDirectory()) {
           const files = await fs.readdir(tempDir);
           let cleanedCount = 0;
-          
+
           for (const file of files) {
             const filePath = join(tempDir, file);
             try {
@@ -73,7 +73,7 @@ export async function cleanupTempFiles(): Promise<void> {
               logger.warn({ file: file, error: String(error) }, "Failed to clean temp file");
             }
           }
-          
+
           if (cleanedCount > 0) {
             logger.info({ cleanedCount, tempDir }, "Cleaned old temp files");
           }
@@ -98,18 +98,21 @@ export async function cleanupTempFiles(): Promise<void> {
  */
 export function initFileCleanup(): void {
   const logger = rootLogger.child({ service: "file-cleanup-init" });
-  
+
   // 应用启动时立即清理一次
   cleanupTempFiles().catch((error) => {
     logger.error({ err: error }, "Initial file cleanup failed");
   });
 
   // 每 6 小时清理一次
-  const cleanupInterval = setInterval(() => {
-    cleanupTempFiles().catch((error) => {
-      logger.error({ err: error }, "Scheduled file cleanup failed");
-    });
-  }, 6 * 60 * 60 * 1000); // 6 小时
+  const cleanupInterval = setInterval(
+    () => {
+      cleanupTempFiles().catch((error) => {
+        logger.error({ err: error }, "Scheduled file cleanup failed");
+      });
+    },
+    6 * 60 * 60 * 1000,
+  ); // 6 小时
 
   // 进程退出时清理
   // 注意：在 Kubernetes 环境中，SIGTERM 信号会由 Kubernetes 管理，不需要手动 exit
@@ -122,7 +125,7 @@ export function initFileCleanup(): void {
         cleanupTempFiles(),
         new Promise((resolve) => setTimeout(resolve, 5000)), // 最多等待 5 秒
       ]);
-      logger.info("File cleanup completed on exit");
+      // logger.info("File cleanup completed on exit");
     } catch (error) {
       logger.error({ err: error }, "File cleanup failed on exit");
       // 不调用 process.exit，让 Kubernetes 管理进程退出
@@ -134,12 +137,11 @@ export function initFileCleanup(): void {
   process.on("SIGTERM", cleanupOnExit);
   // SIGINT: Ctrl+C 或本地开发时的终止信号
   process.on("SIGINT", cleanupOnExit);
-  
+
   // 正常退出时清理定时器
   process.on("exit", () => {
     clearInterval(cleanupInterval);
   });
 
-  logger.info("File cleanup mechanism initialized");
+  // logger.info("File cleanup mechanism initialized");
 }
-

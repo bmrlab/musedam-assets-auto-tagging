@@ -5,6 +5,7 @@ import { classifyAssetBrandRecommendation } from "@/lib/brand/tagging-brand-clas
 import { classifyAssetIpRecommendation } from "@/lib/ip/tagging-ip-classification";
 import { rootLogger } from "@/lib/logging";
 import { classifyAssetPersonRecommendation } from "@/lib/person/tagging-person-classification";
+import { classifyAssetProductRecommendation } from "@/lib/product/tagging-product-classification";
 import { idToSlug, slugToId } from "@/lib/slug";
 import { retrieveTeamCredentials } from "@/musedam/apiKey";
 import { setAssetTagsToMuseDAM } from "@/musedam/assets";
@@ -19,6 +20,7 @@ import {
   TaggingBrandRecommendation,
   TaggingIpRecommendation,
   TaggingPersonRecommendation,
+  TaggingProductRecommendation,
   TaggingQueueItem,
   TaggingQueueItemExtra,
   TaggingQueueItemResult,
@@ -88,6 +90,17 @@ function hasConfidentIpRecommendedTags(
       !ipRecommendation.noConfidentMatch &&
       Array.isArray(ipRecommendation.recommendedTags) &&
       ipRecommendation.recommendedTags.length > 0,
+  );
+}
+
+function hasConfidentProductRecommendedTags(
+  productRecommendation: TaggingProductRecommendation | null,
+): productRecommendation is TaggingProductRecommendation {
+  return Boolean(
+    productRecommendation &&
+      !productRecommendation.noConfidentMatch &&
+      Array.isArray(productRecommendation.recommendedTags) &&
+      productRecommendation.recommendedTags.length > 0,
   );
 }
 
@@ -192,6 +205,16 @@ export async function processQueueItem({
       });
       return null;
     });
+    const productRecommendationPromise = classifyAssetProductRecommendation({
+      teamId: queueItem.teamId,
+      imageUrl: thumbnailUrl,
+    }).catch((error) => {
+      logger.warn({
+        msg: "product classification failed, continuing without product recommendation",
+        error: String(error),
+      });
+      return null;
+    });
     const personRecommendationPromise = classifyAssetPersonRecommendation({
       teamId: queueItem.teamId,
       imageUrl: thumbnailUrl,
@@ -207,11 +230,13 @@ export async function processQueueItem({
       { predictions, tagsWithScore, extra: newExtra },
       brandRecommendation,
       ipRecommendation,
+      productRecommendation,
       personRecommendation,
     ] = await Promise.all([
       predictTagsPromise,
       brandRecommendationPromise,
       ipRecommendationPromise,
+      productRecommendationPromise,
       personRecommendationPromise,
     ]);
     const hasAiTags = tagsWithScore.length > 0;
@@ -221,14 +246,18 @@ export async function processQueueItem({
     const confidentIpRecommendation = hasConfidentIpRecommendedTags(ipRecommendation)
       ? ipRecommendation
       : null;
+    const confidentProductRecommendation = hasConfidentProductRecommendedTags(productRecommendation)
+      ? productRecommendation
+      : null;
     const confidentPersonRecommendation = hasConfidentPersonRecommendedTags(personRecommendation)
       ? personRecommendation
       : null;
     const hasBrandTags = confidentBrandRecommendation !== null;
     const hasIpTags = confidentIpRecommendation !== null;
+    const hasProductTags = confidentProductRecommendation !== null;
     const hasPersonTags = confidentPersonRecommendation !== null;
 
-    if (!hasAiTags && !hasBrandTags && !hasIpTags && !hasPersonTags) {
+    if (!hasAiTags && !hasBrandTags && !hasIpTags && !hasProductTags && !hasPersonTags) {
       throw Object.assign(new Error("No valid tags predicted"), { code: "NO_VALID_TAGS" });
     }
     logger.info({
@@ -236,6 +265,7 @@ export async function processQueueItem({
       tagsWithScoreCount: tagsWithScore.length,
       hasBrandTags,
       hasIpTags,
+      hasProductTags,
       hasPersonTags,
     });
 
@@ -250,6 +280,7 @@ export async function processQueueItem({
         tagsWithScoreCount: tagsWithScore.length,
         hasBrandTags,
         hasIpTags,
+        hasProductTags,
         hasPersonTags,
         mode: isDirect ? "direct" : "review",
       });
@@ -294,12 +325,16 @@ export async function processQueueItem({
         const hasCreatedAiAuditItems =
           createAuditResult?.success === true && createAuditResult.createdCount > 0;
 
-        if (!hasCreatedAiAuditItems && (hasBrandTags || hasIpTags || hasPersonTags)) {
+        if (
+          !hasCreatedAiAuditItems &&
+          (hasBrandTags || hasIpTags || hasProductTags || hasPersonTags)
+        ) {
           const recommendationOnlyReviewResult = await createRecommendationOnlyReviewItem({
             assetObject,
             taggingQueueItem: queueItem,
             brandRecommendation: confidentBrandRecommendation,
             ipRecommendation: confidentIpRecommendation,
+            productRecommendation: confidentProductRecommendation,
             personRecommendation: confidentPersonRecommendation,
           });
 
@@ -331,6 +366,7 @@ export async function processQueueItem({
             ...tagsWithScore.map((tag) => tag.leafTagId),
             ...(brandRecommendation?.recommendedTags ?? []).map((tag) => tag.assetTagId),
             ...(ipRecommendation?.recommendedTags ?? []).map((tag) => tag.assetTagId),
+            ...(productRecommendation?.recommendedTags ?? []).map((tag) => tag.assetTagId),
             ...(personRecommendation?.recommendedTags ?? []).map((tag) => tag.assetTagId),
           ]),
         );
@@ -428,6 +464,7 @@ export async function processQueueItem({
           tagsWithScore,
           brandRecommendation,
           ipRecommendation,
+          productRecommendation,
           personRecommendation,
         } as TaggingQueueItemResult,
         extra: {
@@ -700,6 +737,7 @@ async function createRecommendationOnlyReviewItem({
   taggingQueueItem,
   brandRecommendation,
   ipRecommendation,
+  productRecommendation,
   personRecommendation,
   status = "pending",
 }: {
@@ -707,6 +745,7 @@ async function createRecommendationOnlyReviewItem({
   taggingQueueItem: TaggingQueueItem;
   brandRecommendation: TaggingBrandRecommendation | null;
   ipRecommendation: TaggingIpRecommendation | null;
+  productRecommendation: TaggingProductRecommendation | null;
   personRecommendation: TaggingPersonRecommendation | null;
   status?: TaggingAuditStatus;
 }): Promise<{ success: boolean; createdCount: number; error?: unknown }> {
@@ -719,9 +758,15 @@ async function createRecommendationOnlyReviewItem({
   try {
     const hasBrandRecommendation = hasConfidentBrandRecommendedTags(brandRecommendation);
     const hasIpRecommendation = hasConfidentIpRecommendedTags(ipRecommendation);
+    const hasProductRecommendation = hasConfidentProductRecommendedTags(productRecommendation);
     const hasPersonRecommendation = hasConfidentPersonRecommendedTags(personRecommendation);
 
-    if (!hasBrandRecommendation && !hasIpRecommendation && !hasPersonRecommendation) {
+    if (
+      !hasBrandRecommendation &&
+      !hasIpRecommendation &&
+      !hasProductRecommendation &&
+      !hasPersonRecommendation
+    ) {
       logger.warn({
         msg: "createRecommendationOnlyReviewItem: no confident recommendation available",
       });
@@ -736,6 +781,7 @@ async function createRecommendationOnlyReviewItem({
           Math.max(
             hasBrandRecommendation ? (brandRecommendation.bestMatch?.confidence ?? 0) : 0,
             hasIpRecommendation ? (ipRecommendation.bestMatch?.confidence ?? 0) : 0,
+            hasProductRecommendation ? (productRecommendation.bestMatch?.confidence ?? 0) : 0,
             hasPersonRecommendation
               ? getBestPersonRecommendationConfidence(personRecommendation)
               : 0,

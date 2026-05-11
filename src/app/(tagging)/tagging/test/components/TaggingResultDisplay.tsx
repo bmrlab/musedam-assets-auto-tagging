@@ -1,6 +1,6 @@
 "use client";
 
-import { BrandIcon, IpIcon, PersonIcon, TagAIIcon, VimIcon } from "@/components/ui";
+import { BrandIcon, IpIcon, PersonIcon, ProductIcon, TagAIIcon, VimIcon } from "@/components/ui";
 import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { CheckIcon, CircleQuestionMarkIcon, ClockIcon, FolderIcon, ImageIcon } from "lucide-react";
@@ -32,6 +32,18 @@ export interface TaggingResult {
   ipRecognition: {
     noConfidentMatch: boolean;
     ipName: string | null;
+    confidence: number | null;
+    similarity: number | null;
+    imageSimilarity: number | null;
+    descriptionSimilarity: number | null;
+    recommendedTags: {
+      tagPath: string[];
+    }[];
+  } | null;
+  productRecognition: {
+    noConfidentMatch: boolean;
+    productName: string | null;
+    productTypeName: string | null;
     confidence: number | null;
     similarity: number | null;
     imageSimilarity: number | null;
@@ -240,10 +252,74 @@ function getPersonGuidance(locale: string, noConfidentMatch: boolean) {
       };
 }
 
+function getProductGuidance(locale: string, noConfidentMatch: boolean) {
+  const normalizedLocale = locale.toLowerCase();
+
+  if (normalizedLocale === "zh-tw") {
+    return noConfidentMatch
+      ? {
+          title: "商品識別",
+          metricNote: "僅供參考",
+          entityLabel: "Winning Product",
+          emptyText: "暫無商品識別結果",
+          explanation:
+            "目前已識別到可能商品，但尚未達到可靠命中條件。以下關聯標籤僅供參考，暫不會進入生效標籤；常見原因是分數不足，或與其他候選商品差距不夠大。",
+        }
+      : {
+          title: "商品識別",
+          metricNote: "參與生效",
+          entityLabel: "Winning Product",
+          emptyText: "暫無商品識別結果",
+          explanation: "目前商品結果已通過可靠性校驗，以下關聯標籤會參與生效標籤計算。",
+        };
+  }
+
+  if (normalizedLocale.startsWith("zh")) {
+    return noConfidentMatch
+      ? {
+          title: "商品识别",
+          metricNote: "仅供参考",
+          entityLabel: "Winning Product",
+          emptyText: "暂无商品识别结果",
+          explanation:
+            "当前已识别到可能商品，但尚未达到可靠命中条件。以下关联标签仅供参考，暂不会进入生效标签；常见原因是分数不足，或与其他候选商品差距不够大。",
+        }
+      : {
+          title: "商品识别",
+          metricNote: "参与生效",
+          entityLabel: "Winning Product",
+          emptyText: "暂无商品识别结果",
+          explanation: "当前商品结果已通过可靠性校验，以下关联标签会参与生效标签计算。",
+        };
+  }
+
+  return noConfidentMatch
+    ? {
+        title: "Product Recognition",
+        metricNote: "Reference only",
+        entityLabel: "Winning Product",
+        emptyText: "No product recognition result",
+        explanation:
+          "A possible product was identified, but it did not pass the reliable-hit check. The linked tags below are for reference only and will not enter Effective Tags; common reasons are insufficient score or too little separation from other candidates.",
+      }
+    : {
+        title: "Product Recognition",
+        metricNote: "Included",
+        entityLabel: "Winning Product",
+        emptyText: "No product recognition result",
+        explanation:
+          "This product result passed the reliability check, so the linked tags below are included in Effective Tags calculation.",
+      };
+}
+
 export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
   const t = useTranslations("TaggingResultDisplay");
   const locale = useLocale();
   const ipGuidance = getIpGuidance(locale, result.ipRecognition?.noConfidentMatch ?? false);
+  const productGuidance = getProductGuidance(
+    locale,
+    result.productRecognition?.noConfidentMatch ?? false,
+  );
   const personGuidance = getPersonGuidance(
     locale,
     result.personRecognition?.noConfidentMatch ?? false,
@@ -315,6 +391,155 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
           <div className="text-3xl font-bold text-primary">{result.overallScore}</div>
           <div className="text-sm text-basic-5">{t("overallScore")}</div>
         </div>
+      </div>
+
+      <div>
+        <CardHeader className="pb-2 px-0">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <ProductIcon className="w-4 h-4" />
+            {productGuidance.title}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0 px-0">
+          {result.productRecognition?.productName ? (
+            (() => {
+              const productRecognition = result.productRecognition!;
+              const isReferenceOnly = productRecognition.noConfidentMatch;
+
+              return (
+                <div
+                  className={cn("rounded-md border p-4", {
+                    "bg-[#FFF7E6] border-[#FFC069]": isReferenceOnly,
+                    "bg-primary-1 border-primary-4": !isReferenceOnly,
+                  })}
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <div className="text-xs text-basic-5">{productGuidance.entityLabel}</div>
+                      <div className="mt-1 text-base font-medium text-basic-8">
+                        {productRecognition.productName}
+                      </div>
+                      {productRecognition.productTypeName ? (
+                        <div className="mt-1 text-xs text-basic-5">
+                          {productRecognition.productTypeName}
+                        </div>
+                      ) : null}
+                    </div>
+                    <div className="shrink-0 text-right">
+                      {productRecognition.confidence !== null ? (
+                        <div
+                          className={cn("text-sm font-medium", {
+                            "text-[#D46B08]": isReferenceOnly,
+                            "text-primary-6": !isReferenceOnly,
+                          })}
+                        >
+                          {t("confidence")}: {productRecognition.confidence}%
+                        </div>
+                      ) : null}
+                      <div
+                        className={cn("text-xs mt-1", {
+                          "text-[#FA8C16]": isReferenceOnly,
+                          "text-primary-5": !isReferenceOnly,
+                        })}
+                      >
+                        {productGuidance.metricNote}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3">
+                    <div
+                      className={cn(
+                        "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium",
+                        {
+                          "bg-[#FFF1D6] text-[#D46B08]": isReferenceOnly,
+                          "bg-primary-2 text-primary-6": !isReferenceOnly,
+                        },
+                      )}
+                    >
+                      {isReferenceOnly ? t("noConfidentMatch") : t("confidentMatch")}
+                    </div>
+                  </div>
+
+                  <div
+                    className={cn("mt-3 text-sm leading-6", {
+                      "text-[#D46B08]": isReferenceOnly,
+                      "text-primary-6": !isReferenceOnly,
+                    })}
+                  >
+                    {productGuidance.explanation}
+                  </div>
+
+                  <div className="mt-4">
+                    <div className="text-xs text-basic-5">{t("linkedTags")}</div>
+                    {productRecognition.recommendedTags.length > 0 ? (
+                      <div className="mt-2 space-y-3">
+                        {productRecognition.recommendedTags.map((tag, index) => (
+                          <div
+                            key={`${tag.tagPath.join(">")}-${index}`}
+                            className={cn(
+                              "flex items-center justify-between p-3 rounded-lg border",
+                              {
+                                "bg-[#FFFCF5] border-[#FFD591]": isReferenceOnly,
+                                "bg-background border-primary-4": !isReferenceOnly,
+                              },
+                            )}
+                          >
+                            {isReferenceOnly ? (
+                              <CircleQuestionMarkIcon className="size-[14px] text-[#FA8C16] mr-2" />
+                            ) : (
+                              <CheckIcon className="size-[14px] text-primary-5 mr-2" />
+                            )}
+                            <div className="flex-1">
+                              <div
+                                className={cn("font-medium text-sm mb-1", {
+                                  "text-[#D46B08]": isReferenceOnly,
+                                  "text-primary-6": !isReferenceOnly,
+                                })}
+                              >
+                                {tag.tagPath.join(" > ")}
+                              </div>
+                              <div
+                                className={cn("text-xs", {
+                                  "text-[#FA8C16]": isReferenceOnly,
+                                  "text-primary-5": !isReferenceOnly,
+                                })}
+                              >
+                                {t("matchingSource")}: {productGuidance.title}
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0 pl-4">
+                              <div
+                                className={cn("text-sm font-medium", {
+                                  "text-[#D46B08]": isReferenceOnly,
+                                  "text-primary-6": !isReferenceOnly,
+                                })}
+                              >
+                                {t("confidence")}: {productRecognition.confidence ?? 0}%
+                              </div>
+                              <div
+                                className={cn("text-xs", {
+                                  "text-[#FA8C16]": isReferenceOnly,
+                                  "text-primary-5": !isReferenceOnly,
+                                })}
+                              >
+                                {productGuidance.metricNote}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="mt-2 text-sm text-basic-5">{t("noLinkedTags")}</div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()
+          ) : (
+            <div className="text-sm text-basic-5">{productGuidance.emptyText}</div>
+          )}
+        </CardContent>
       </div>
 
       <div>
