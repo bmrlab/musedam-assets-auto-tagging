@@ -3,6 +3,7 @@
 import { getBrandRecommendationFromQueueResult } from "@/app/(tagging)/brand-recommendation";
 import { getIpRecommendationFromQueueResult } from "@/app/(tagging)/ip-recommendation";
 import { getPersonRecommendationFromQueueResult } from "@/app/(tagging)/person-recommendation";
+import { getProductRecommendationFromQueueResult } from "@/app/(tagging)/product-recommendation";
 import { AssetThumbnail } from "@/components/AssetThumbnail";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -65,10 +66,13 @@ function buildMergedDisplayTags({
   brandConfidence,
   ipTags,
   ipConfidence,
+  productTags,
+  productConfidence,
   personTags,
   aiSourceLabel,
   brandSourceLabel,
   ipSourceLabel,
+  productSourceLabel,
   personSourceLabel,
 }: {
   aiTags: Array<{
@@ -87,6 +91,11 @@ function buildMergedDisplayTags({
     tagPath?: string[];
   }>;
   ipConfidence: number;
+  productTags: Array<{
+    assetTagId?: number;
+    tagPath?: string[];
+  }>;
+  productConfidence: number;
   personTags: Array<{
     assetTagId?: number;
     tagPath?: string[];
@@ -95,6 +104,7 @@ function buildMergedDisplayTags({
   aiSourceLabel: string;
   brandSourceLabel: string;
   ipSourceLabel: string;
+  productSourceLabel: string;
   personSourceLabel: string;
 }): DisplayTag[] {
   const mergedTags = new Map<string, DisplayTag & { order: number }>();
@@ -166,9 +176,19 @@ function buildMergedDisplayTags({
     });
   });
 
-  personTags.forEach((tag, index) => {
+  productTags.forEach((tag, index) => {
     upsertTag({
       order: aiTags.length + brandTags.length + ipTags.length + index,
+      tagId: tag.assetTagId,
+      tagPath: tag.tagPath,
+      sourceLabel: productSourceLabel,
+      score: productConfidence,
+    });
+  });
+
+  personTags.forEach((tag, index) => {
+    upsertTag({
+      order: aiTags.length + brandTags.length + ipTags.length + productTags.length + index,
       tagId: tag.assetTagId,
       tagPath: tag.tagPath,
       sourceLabel: personSourceLabel,
@@ -317,6 +337,7 @@ export default function TestClient() {
               const { assetObject, result: resultData, extra } = result;
               const brandRecommendation = getBrandRecommendationFromQueueResult(resultData);
               const ipRecommendation = getIpRecommendationFromQueueResult(resultData);
+              const productRecommendation = getProductRecommendationFromQueueResult(resultData);
               const personRecommendation = getPersonRecommendationFromQueueResult(resultData);
               const linkedBrandTags: Array<{ assetTagId?: number; tagPath?: string[] }> =
                 Array.isArray(result.brandLinkedTags) && result.brandLinkedTags.length > 0
@@ -326,6 +347,10 @@ export default function TestClient() {
                 Array.isArray(result.ipLinkedTags) && result.ipLinkedTags.length > 0
                   ? result.ipLinkedTags
                   : (ipRecommendation?.recommendedTags ?? []);
+              const linkedProductTags: Array<{ assetTagId?: number; tagPath?: string[] }> =
+                Array.isArray(result.productLinkedTags) && result.productLinkedTags.length > 0
+                  ? result.productLinkedTags
+                  : (productRecommendation?.recommendedTags ?? []);
               const linkedPersonTags: Array<{
                 assetPersonId?: string;
                 assetTagId?: number;
@@ -337,6 +362,10 @@ export default function TestClient() {
                   : null;
               const confidentIpRecommendation =
                 ipRecommendation && !ipRecommendation.noConfidentMatch ? ipRecommendation : null;
+              const confidentProductRecommendation =
+                productRecommendation && !productRecommendation.noConfidentMatch
+                  ? productRecommendation
+                  : null;
               const personRecognitionFaces =
                 personRecommendation?.faces.map((face) => {
                   const bestMatch = face.bestMatch;
@@ -381,10 +410,13 @@ export default function TestClient() {
                 brandConfidence: Math.round(brandRecommendation?.bestMatch?.confidence ?? 0),
                 ipTags: confidentIpRecommendation ? linkedIpTags : [],
                 ipConfidence: Math.round(ipRecommendation?.bestMatch?.confidence ?? 0),
+                productTags: confidentProductRecommendation ? linkedProductTags : [],
+                productConfidence: Math.round(productRecommendation?.bestMatch?.confidence ?? 0),
                 personTags: confidentPersonTags,
                 aiSourceLabel: tClient("aiMatching"),
                 brandSourceLabel: tResult("brandRecognition"),
                 ipSourceLabel: tSidebar("ip"),
+                productSourceLabel: tSidebar("product"),
                 personSourceLabel: tSidebar("person"),
               });
               const effectiveTags = mergedDisplayTags.filter((tag) => tag.score >= 80);
@@ -417,6 +449,7 @@ export default function TestClient() {
                   mergedDisplayTags[0]?.score || 0,
                   brandRecommendation?.bestMatch?.confidence || 0,
                   ipRecommendation?.bestMatch?.confidence || 0,
+                  productRecommendation?.bestMatch?.confidence || 0,
                   bestPersonConfidence,
                 ),
                 brandRecognition: brandRecommendation
@@ -440,6 +473,21 @@ export default function TestClient() {
                       descriptionSimilarity:
                         ipRecommendation.bestMatch?.descriptionSimilarity ?? null,
                       recommendedTags: linkedIpTags.map((tag) => ({
+                        tagPath: tag.tagPath || [],
+                      })),
+                    }
+                  : null,
+                productRecognition: productRecommendation
+                  ? {
+                      noConfidentMatch: productRecommendation.noConfidentMatch,
+                      productName: productRecommendation.bestMatch?.productName || null,
+                      productTypeName: productRecommendation.bestMatch?.productTypeName || null,
+                      confidence: productRecommendation.bestMatch?.confidence ?? null,
+                      similarity: productRecommendation.bestMatch?.similarity ?? null,
+                      imageSimilarity: productRecommendation.bestMatch?.imageSimilarity ?? null,
+                      descriptionSimilarity:
+                        productRecommendation.bestMatch?.descriptionSimilarity ?? null,
+                      recommendedTags: linkedProductTags.map((tag) => ({
                         tagPath: tag.tagPath || [],
                       })),
                     }
