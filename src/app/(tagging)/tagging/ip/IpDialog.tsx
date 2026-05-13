@@ -665,7 +665,7 @@ export default function IpDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92vh] w-[960px] max-w-[calc(100%-2rem)] gap-0 overflow-y-auto rounded-[20px] p-0">
+      <DialogContent className="max-h-[92vh] w-[750px] max-w-[calc(100%-2rem)] gap-0 overflow-y-auto rounded-[20px] p-0">
         <DialogHeader className="h-14 justify-center gap-0 px-5 py-4">
           <DialogTitle className="text-[16px] leading-6 font-semibold text-[#151A30]">
             {mode === "create" ? t("dialog.titleCreate") : t("dialog.titleEdit")}
@@ -714,52 +714,50 @@ export default function IpDialog({
                 {t("dialog.matchPatternDescription")}
               </p>
             </div>
-            <div className="grid gap-3 md:grid-cols-2">
+            <div className="grid w-full grid-cols-2 gap-[12px]">
               <button
                 type="button"
                 onClick={() => setMatchPattern("whole")}
                 disabled={isPending}
                 className={cn(
-                  "flex min-h-[92px] items-start gap-3 rounded-[8px] border bg-white p-3 text-left transition-all",
+                  "flex min-w-0 w-full flex-col gap-[6px] rounded-[8px] border border-[#C5CEE0] bg-white p-[12.5px] text-left transition-all",
                   matchPattern === "whole"
-                    ? "border-[#3366FF] bg-[#F2F6FF] shadow-[0_0_0_2px_rgba(51,102,255,0.12)]"
-                    : "border-[#C5CEE0] hover:border-[#598BFF]",
+                    ? "border-[rgba(51,102,255,1)] bg-[rgba(242,246,255,1)]"
+                    : "hover:border-[#598BFF]",
                 )}
               >
-                <span
-                  className={cn(
-                    "mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[6px]",
-                    matchPattern === "whole"
-                      ? "bg-[#E6EEFF] text-[#3366FF]"
-                      : "bg-[#F2F6FF] text-[#2E3A59]",
-                  )}
-                >
-                  <ImageIcon className="size-5" />
+                <span className="flex min-w-0 items-center gap-[6px]">
+                  <span
+                    className={cn(
+                      "inline-flex size-[20px] shrink-0 items-center justify-center rounded-[6px]",
+                      matchPattern === "whole"
+                        ? "bg-[#E6EEFF] text-[#3366FF]"
+                        : "bg-[#F2F6FF] text-[#2E3A59]",
+                    )}
+                  >
+                    <ImageIcon className="h-[20px] w-[20px]" />
+                  </span>
+                  <span className="min-w-0 flex-1 text-[14px] font-medium leading-[20px] text-[rgba(25,32,56,1)]">
+                    {t("dialog.matchWholeTitle")}
+                  </span>
+                  <span
+                    className={cn(
+                      "inline-flex size-[16px] shrink-0 items-center justify-center rounded-full border",
+                      matchPattern === "whole"
+                        ? "border-[#3366FF] bg-[#3366FF]"
+                        : "border-[#C5CEE0]",
+                    )}
+                  >
+                    {matchPattern === "whole" ? (
+                      <span className="h-2 w-2 rounded-full bg-white" />
+                    ) : null}
+                  </span>
                 </span>
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-center justify-between gap-3">
-                    <span className="text-[15px] leading-[22px] font-semibold text-[#192038]">
-                      {t("dialog.matchWholeTitle")}
-                    </span>
-                    <span
-                      className={cn(
-                        "inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border",
-                        matchPattern === "whole"
-                          ? "border-[#3366FF] bg-[#3366FF]"
-                          : "border-[#C5CEE0]",
-                      )}
-                    >
-                      {matchPattern === "whole" ? (
-                        <span className="h-2 w-2 rounded-full bg-white" />
-                      ) : null}
-                    </span>
-                  </span>
-                  <span className="mt-2 block text-[13px] leading-[19px] text-[#2E3A59]">
-                    {t("dialog.matchWholeDescription")}
-                  </span>
-                  <span className="mt-2 block text-[12px] leading-[16px] text-[#8F9BB3]">
-                    {t("dialog.matchWholeApplies")}
-                  </span>
+                <span className="block text-[12px] font-normal leading-[18px] text-[rgba(46,58,89,1)]">
+                  {t("dialog.matchWholeDescription")}
+                </span>
+                <span className="block text-[11px] font-normal leading-[16px] text-[rgba(143,155,179,1)]">
+                  {t("dialog.matchWholeApplies")}
                 </span>
               </button>
 
@@ -774,46 +772,44 @@ export default function IpDialog({
                 }}
                 disabled={isPending}
                 className={cn(
-                  "flex min-h-[92px] items-start gap-3 rounded-[8px] border bg-white p-3 text-left transition-all",
+                  "flex min-w-0 w-full flex-col gap-[6px] rounded-[8px] border border-[#C5CEE0] bg-white p-[12.5px] text-left transition-all",
                   matchPattern === "partial"
-                    ? "border-[#3366FF] bg-[#F2F6FF] shadow-[0_0_0_2px_rgba(51,102,255,0.12)]"
-                    : "border-[#C5CEE0] hover:border-[#598BFF]",
+                    ? "border-[rgba(51,102,255,1)] bg-[rgba(242,246,255,1)]"
+                    : "hover:border-[#598BFF]",
                 )}
               >
-                <span
-                  className={cn(
-                    "mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[6px]",
-                    matchPattern === "partial"
-                      ? "bg-[#E6EEFF] text-[#3366FF]"
-                      : "bg-[#F2F6FF] text-[#2E3A59]",
-                  )}
-                >
-                  <BoxSelect className="size-5" />
+                <span className="flex min-w-0 items-center gap-[6px]">
+                  <span
+                    className={cn(
+                      "inline-flex size-[20px] shrink-0 items-center justify-center rounded-[6px]",
+                      matchPattern === "partial"
+                        ? "bg-[#E6EEFF] text-[#3366FF]"
+                        : "bg-[#F2F6FF] text-[#2E3A59]",
+                    )}
+                  >
+                    <BoxSelect className="h-[20px] w-[20px]" />
+                  </span>
+                  <span className="min-w-0 flex-1 text-[14px] font-medium leading-[20px] text-[rgba(25,32,56,1)]">
+                    {t("dialog.matchPartialTitle")}
+                  </span>
+                  <span
+                    className={cn(
+                      "inline-flex size-[16px] shrink-0 items-center justify-center rounded-full border",
+                      matchPattern === "partial"
+                        ? "border-[#3366FF] bg-[#3366FF]"
+                        : "border-[#C5CEE0]",
+                    )}
+                  >
+                    {matchPattern === "partial" ? (
+                      <span className="h-2 w-2 rounded-full bg-white" />
+                    ) : null}
+                  </span>
                 </span>
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-center justify-between gap-3">
-                    <span className="text-[15px] leading-[22px] font-semibold text-[#192038]">
-                      {t("dialog.matchPartialTitle")}
-                    </span>
-                    <span
-                      className={cn(
-                        "inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border",
-                        matchPattern === "partial"
-                          ? "border-[#3366FF] bg-[#3366FF]"
-                          : "border-[#C5CEE0]",
-                      )}
-                    >
-                      {matchPattern === "partial" ? (
-                        <span className="h-2 w-2 rounded-full bg-white" />
-                      ) : null}
-                    </span>
-                  </span>
-                  <span className="mt-2 block text-[13px] leading-[19px] text-[#2E3A59]">
-                    {t("dialog.matchPartialDescription")}
-                  </span>
-                  <span className="mt-2 block text-[12px] leading-[16px] text-[#8F9BB3]">
-                    {t("dialog.matchPartialApplies")}
-                  </span>
+                <span className="block text-[12px] font-normal leading-[18px] text-[rgba(46,58,89,1)]">
+                  {t("dialog.matchPartialDescription")}
+                </span>
+                <span className="block text-[11px] font-normal leading-[16px] text-[rgba(143,155,179,1)]">
+                  {t("dialog.matchPartialApplies")}
                 </span>
               </button>
             </div>

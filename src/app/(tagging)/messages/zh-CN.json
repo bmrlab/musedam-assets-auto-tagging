@@ -278,7 +278,7 @@
         "uploadFromLibrary": "从素材库选取",
         "uploadHintTitle": "图片要求：",
         "uploadHint": "建议至少上传 3-5 张涵盖不同姿势、表情的基础造型图。如有特殊节日款或联名款造型，请统一上传至本条目内。",
-        "uploadHintPartial": "建议至少上传 3-5 张图。每张图上传完后会弹出 特征框选，算法会先画出推荐框，你可直接确认或手动调整，以锁定最稳定不变的脸/头部等区域。",
+        "uploadHintPartial": "建议至少上传 3-5 张图。每张图上传完后会弹出特征框选，算法会先画出推荐框，你可直接确认或手动调整，以锁定最稳定不变的脸/头部等区域。",
         "matchPatternTitle": "匹配模式",
         "matchPatternDescription": "不同 IP 的视觉规律不同，请选择更合适的策略以提升识别准确率",
         "matchWholeTitle": "整体外观匹配",
