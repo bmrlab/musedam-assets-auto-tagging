@@ -789,6 +789,7 @@ export default function BrandLibraryClient({
                             const StatusIcon = statusMeta.icon;
                             const failedReason =
                               getProcessingErrorMessage(logo.processingError) ?? t("unknownError");
+                            const subtitle = logo.notes.trim();
 
                             return (
                               <tr key={logo.id} className="h-[58px] border-b last:border-b-0">
@@ -812,9 +813,25 @@ export default function BrandLibraryClient({
                                     }}
                                   />
                                 </td>
-                                <td className="h-[58px] px-4 py-0 align-middle">
-                                  <div className="flex items-center gap-3">
-                                    <div className="h-[30px] w-[30px] overflow-hidden rounded-[4px] bg-basic-2">
+                                <td
+                                  className={
+                                    subtitle
+                                      ? "h-[58px] px-4 pt-3 pb-2 align-top"
+                                      : "h-[58px] px-4 py-0 align-middle"
+                                  }
+                                >
+                                  <div
+                                    className={
+                                      subtitle ? "flex items-start gap-3" : "flex items-center gap-3"
+                                    }
+                                  >
+                                    <div
+                                      className={
+                                        subtitle
+                                          ? "h-[30px] w-[30px] self-center overflow-hidden rounded-[4px] bg-basic-2"
+                                          : "h-[30px] w-[30px] overflow-hidden rounded-[4px] bg-basic-2"
+                                      }
+                                    >
                                       {logo.images[0] ? (
                                         <BrandImageHoverCard
                                           image={logo.images[0]}
@@ -840,9 +857,9 @@ export default function BrandLibraryClient({
                                       <div className="truncate text-[14px] leading-[20px] font-medium text-basic-8">
                                         {logo.name}
                                       </div>
-                                      {logo.notes ? (
-                                        <p className="mt-1 line-clamp-2 text-sm text-basic-5">
-                                          {logo.notes}
+                                      {subtitle ? (
+                                        <p className="mt-1.5 line-clamp-3 text-sm leading-[20px] text-basic-5">
+                                          {subtitle}
                                         </p>
                                       ) : null}
                                     </div>
