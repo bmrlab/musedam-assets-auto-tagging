@@ -196,13 +196,36 @@ export async function queryProductVectorPoints({
   vector,
   limit,
   scoreThreshold,
+  sourceType,
 }: {
   teamId: number;
   vector: number[];
   limit: number;
   scoreThreshold?: number;
+  sourceType?: ProductVectorPayload["sourceType"];
 }) {
   const collectionName = getProductQdrantCollectionName();
+  const filterConditions: QdrantMatchCondition[] = [
+    {
+      key: "teamId",
+      match: { value: teamId },
+    },
+    {
+      key: "enabled",
+      match: { value: true },
+    },
+    {
+      key: "status",
+      match: { value: "completed" },
+    },
+  ];
+
+  if (sourceType) {
+    filterConditions.push({
+      key: "sourceType",
+      match: { value: sourceType },
+    });
+  }
 
   try {
     const result = await qdrantRequest<{ points: QdrantProductQueryPoint[] }>({
@@ -213,20 +236,7 @@ export async function queryProductVectorPoints({
         limit,
         with_payload: true,
         score_threshold: scoreThreshold,
-        filter: buildFilter([
-          {
-            key: "teamId",
-            match: { value: teamId },
-          },
-          {
-            key: "enabled",
-            match: { value: true },
-          },
-          {
-            key: "status",
-            match: { value: "completed" },
-          },
-        ]),
+        filter: buildFilter(filterConditions),
       },
     });
 
