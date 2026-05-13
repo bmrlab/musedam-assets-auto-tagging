@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getLogoDetectionServerToken, getLogoDetectionServerUrl } from "@/lib/brand/env";
+import { normalizeDetectionText } from "@/lib/utils";
 import { createJinaImageEmbeddings } from "@/lib/brand/jina";
 import { queryIpVectorPoints } from "@/lib/ip/qdrant";
 import prisma from "@/prisma/prisma";
@@ -158,7 +159,12 @@ export async function detectIpFigureBoxes({
 }) {
   const baseUrl = getLogoDetectionServerUrl();
   const token = getLogoDetectionServerToken();
-  const detectionLabelText = await fetchIpDetectionPromptNames(teamId);
+  const detectionLabelText = normalizeDetectionText(
+    await fetchIpDetectionPromptNames(teamId),
+  );
+  if (!detectionLabelText) {
+    throw new Error("IP detection_label_text is empty after normalization");
+  }
   const response = await fetch(`${baseUrl}/object_detection_groundingDINO`, {
     method: "POST",
     headers: {
