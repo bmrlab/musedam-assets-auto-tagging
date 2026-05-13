@@ -4,6 +4,7 @@ import { getJinaConfig } from "@/lib/brand/env";
 import { bufferToDataUrl } from "@/lib/brand/image";
 import { createJinaImageEmbeddings, createJinaTextEmbeddings } from "@/lib/brand/jina";
 import { getCachedSignedOssObjectUrl } from "@/lib/oss";
+import { cropImageToDataUrl as cropClassificationImageToDataUrl } from "@/lib/tagging/classification-image";
 import { translateTextToEnglish } from "@/lib/translation/service";
 import prisma from "@/prisma/prisma";
 import { randomUUID } from "crypto";
@@ -69,6 +70,70 @@ async function fetchImageAsDataUrl(objectKey: string, mimeType: string) {
 
   const buffer = Buffer.from(await response.arrayBuffer());
   return bufferToDataUrl(buffer, mimeType);
+}
+
+function hasPartialCrop(image: {
+  partialMatchPatternName: string | null;
+  cropXMin: number | null;
+  cropYMin: number | null;
+  cropXMax: number | null;
+  cropYMax: number | null;
+  cropImageWidth: number | null;
+  cropImageHeight: number | null;
+}) {
+  return (
+    Boolean(image.partialMatchPatternName) &&
+    typeof image.cropXMin === "number" &&
+    typeof image.cropYMin === "number" &&
+    typeof image.cropXMax === "number" &&
+    typeof image.cropYMax === "number" &&
+    typeof image.cropImageWidth === "number" &&
+    typeof image.cropImageHeight === "number"
+  );
+}
+
+async function buildReferenceImageInput({
+  matchPattern,
+  image,
+}: {
+  matchPattern: "whole" | "partial";
+  image: {
+    objectKey: string;
+    mimeType: string;
+    partialMatchPatternName: string | null;
+    cropXMin: number | null;
+    cropYMin: number | null;
+    cropXMax: number | null;
+    cropYMax: number | null;
+    cropImageWidth: number | null;
+    cropImageHeight: number | null;
+  };
+}) {
+  const dataUrl = await fetchImageAsDataUrl(image.objectKey, image.mimeType);
+
+  if (matchPattern !== "partial") {
+    return dataUrl;
+  }
+
+  if (!hasPartialCrop(image)) {
+    throw createProcessingError(IP_PROCESSING_ERROR_CODES.noReferenceImages);
+  }
+
+  return cropClassificationImageToDataUrl({
+    imageDataUrl: dataUrl,
+    meta: {
+      width: image.cropImageWidth!,
+      height: image.cropImageHeight!,
+    },
+    box: {
+      xMin: image.cropXMin!,
+      yMin: image.cropYMin!,
+      xMax: image.cropXMax!,
+      yMax: image.cropYMax!,
+      score: 1,
+      label: image.partialMatchPatternName!,
+    },
+  });
 }
 
 export async function markAssetIpVectorsProcessing({
@@ -145,7 +210,12 @@ export async function processAssetIpReferenceVectors({
     }
 
     const imageInputs = await Promise.all(
-      ip.images.map((image) => fetchImageAsDataUrl(image.objectKey, image.mimeType)),
+      ip.images.map((image) =>
+        buildReferenceImageInput({
+          matchPattern: ip.matchPattern,
+          image,
+        }),
+      ),
     );
     const imageEmbeddings = await createJinaImageEmbeddings({
       images: imageInputs,
@@ -183,6 +253,8 @@ export async function processAssetIpReferenceVectors({
         assetIpImageId: string | null;
         ipTypeId: string | null;
         enabled: boolean;
+        matchPattern: "whole" | "partial";
+        partialMatchPatternName: string | null;
         status: "completed";
         sourceType: "image" | "description";
       };
@@ -195,6 +267,9 @@ export async function processAssetIpReferenceVectors({
         assetIpImageId: image.id,
         ipTypeId: ip.ipTypeId,
         enabled: ip.enabled,
+        matchPattern: ip.matchPattern,
+        partialMatchPatternName:
+          ip.matchPattern === "partial" ? image.partialMatchPatternName : null,
         status: "completed",
         sourceType: "image",
       },
@@ -210,6 +285,8 @@ export async function processAssetIpReferenceVectors({
           assetIpImageId: null,
           ipTypeId: ip.ipTypeId,
           enabled: ip.enabled,
+          matchPattern: ip.matchPattern,
+          partialMatchPatternName: null,
           status: "completed" as const,
           sourceType: "description" as const,
         },

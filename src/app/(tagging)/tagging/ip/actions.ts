@@ -5,14 +5,21 @@ import {
   IpDetectionBox,
   classifyIpImageCrops,
   detectIpFigureBoxes,
+  detectIpPartialFeatureBoxes,
 } from "@/lib/ip/ip-classification";
 import {
   markAssetIpVectorsProcessing,
   processAssetIpReferenceVectors,
 } from "@/lib/ip/ip-processing";
+import {
+  ASSET_IP_MATCH_PATTERNS,
+  DEFAULT_IP_PARTIAL_MATCH_PATTERN_NAME,
+  IP_PARTIAL_MATCH_PATTERN_OPTIONS,
+} from "@/lib/ip/match-pattern";
 import { deleteIpVectorPointsByIp, setIpVectorPayloadByIp } from "@/lib/ip/qdrant";
 import { buildAssetIpObjectKey, getCachedSignedOssObjectUrl, uploadOssObject } from "@/lib/oss";
 import { ServerActionResult } from "@/lib/serverAction";
+import { fetchRemoteImageInput, getFallbackBox } from "@/lib/tagging/classification-image";
 import { AssetIp, AssetIpImage, AssetIpTag, AssetIpType, AssetTag } from "@/prisma/client/index";
 import prisma from "@/prisma/prisma";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -24,6 +31,8 @@ import {
   IpImageItem,
   IpItem,
   IpLibraryPageData,
+  IpPartialFeatureDetectionResult,
+  IpPartialFeatureUploadResult,
   IpTagItem,
   IpTagTreeNode,
   IpTypeItem,
@@ -47,9 +56,28 @@ async function getCreateOrUpdateIpSchema() {
     name: z.string().trim().min(1, messages.nameRequired).max(255, messages.nameTooLong),
     ipTypeId: z.string().uuid(),
     description: z.string().max(5000).default(""),
+    matchPattern: z.enum(ASSET_IP_MATCH_PATTERNS).default("whole"),
     tagIds: z.array(z.number().int().positive()).min(1, messages.tagsRequired).max(100),
     notes: z.string().max(5000).default(""),
     existingImageIds: z.array(z.string().uuid()).max(100).default([]),
+    existingImagePartialSelections: z
+      .array(
+        z.object({
+          id: z.string().uuid(),
+          partialMatchPatternName: z.enum(IP_PARTIAL_MATCH_PATTERN_OPTIONS),
+          cropXMin: z.number().finite(),
+          cropYMin: z.number().finite(),
+          cropXMax: z.number().finite(),
+          cropYMax: z.number().finite(),
+          cropImageWidth: z.number().finite().positive(),
+          cropImageHeight: z.number().finite().positive(),
+          cropSource: z.enum(["algorithm", "manual"]),
+          cropDetectionLabel: z.string().max(100).nullable().optional(),
+          cropDetectionScore: z.number().finite().nullable().optional(),
+        }),
+      )
+      .max(100)
+      .default([]),
     assetLibraryDownloadUrls: z.array(z.string().url()).max(100).default([]),
     assetLibraryUploadedImages: z
       .array(
@@ -57,6 +85,16 @@ async function getCreateOrUpdateIpSchema() {
           objectKey: z.string().min(1),
           mimeType: z.string().min(1),
           size: z.number().int().nonnegative(),
+          partialMatchPatternName: z.enum(IP_PARTIAL_MATCH_PATTERN_OPTIONS).optional(),
+          cropXMin: z.number().finite().optional(),
+          cropYMin: z.number().finite().optional(),
+          cropXMax: z.number().finite().optional(),
+          cropYMax: z.number().finite().optional(),
+          cropImageWidth: z.number().finite().positive().optional(),
+          cropImageHeight: z.number().finite().positive().optional(),
+          cropSource: z.enum(["algorithm", "manual"]).optional(),
+          cropDetectionLabel: z.string().max(100).nullable().optional(),
+          cropDetectionScore: z.number().finite().nullable().optional(),
         }),
       )
       .max(100)
@@ -81,6 +119,27 @@ type AssetIpRecord = AssetIp & {
   images: AssetIpImage[];
   tags: AssetIpTag[];
 };
+
+type AssetIpMatchPatternInput = (typeof ASSET_IP_MATCH_PATTERNS)[number];
+
+type ImagePartialSelectionInput = {
+  partialMatchPatternName: (typeof IP_PARTIAL_MATCH_PATTERN_OPTIONS)[number];
+  cropXMin: number;
+  cropYMin: number;
+  cropXMax: number;
+  cropYMax: number;
+  cropImageWidth: number;
+  cropImageHeight: number;
+  cropSource: "algorithm" | "manual";
+  cropDetectionLabel?: string | null;
+  cropDetectionScore?: number | null;
+};
+
+type UploadedIpImageInput = {
+  objectKey: string;
+  mimeType: string;
+  size: number;
+} & Partial<ImagePartialSelectionInput>;
 
 function parseJsonField<T>(value: FormDataEntryValue | null, fallback: T): T {
   if (typeof value !== "string" || !value.trim()) {
@@ -144,6 +203,16 @@ function normalizeIpImage(image: AssetIpImage): IpImageItem {
     mimeType: image.mimeType,
     size: image.size,
     sort: image.sort,
+    partialMatchPatternName: image.partialMatchPatternName,
+    cropXMin: image.cropXMin,
+    cropYMin: image.cropYMin,
+    cropXMax: image.cropXMax,
+    cropYMax: image.cropYMax,
+    cropImageWidth: image.cropImageWidth,
+    cropImageHeight: image.cropImageHeight,
+    cropSource: image.cropSource,
+    cropDetectionLabel: image.cropDetectionLabel,
+    cropDetectionScore: image.cropDetectionScore,
   };
 }
 
@@ -163,6 +232,7 @@ function normalizeIp(ip: AssetIpRecord): IpItem {
     ipTypeId: ip.ipTypeId,
     ipTypeName: ip.ipTypeName,
     description: ip.description,
+    matchPattern: ip.matchPattern,
     status: ip.status,
     processingError: ip.processingError,
     processedAt: ip.processedAt,
@@ -454,6 +524,100 @@ async function uploadAssetLibraryImages({
   return uploads;
 }
 
+function getUploadedImageCropInput(image: UploadedIpImageInput): ImagePartialSelectionInput | null {
+  if (
+    !image.partialMatchPatternName ||
+    typeof image.cropXMin !== "number" ||
+    typeof image.cropYMin !== "number" ||
+    typeof image.cropXMax !== "number" ||
+    typeof image.cropYMax !== "number" ||
+    typeof image.cropImageWidth !== "number" ||
+    typeof image.cropImageHeight !== "number" ||
+    !image.cropSource
+  ) {
+    return null;
+  }
+
+  return {
+    partialMatchPatternName: image.partialMatchPatternName,
+    cropXMin: image.cropXMin,
+    cropYMin: image.cropYMin,
+    cropXMax: image.cropXMax,
+    cropYMax: image.cropYMax,
+    cropImageWidth: image.cropImageWidth,
+    cropImageHeight: image.cropImageHeight,
+    cropSource: image.cropSource,
+    cropDetectionLabel: image.cropDetectionLabel ?? null,
+    cropDetectionScore: image.cropDetectionScore ?? null,
+  };
+}
+
+function buildImageCropData({
+  matchPattern,
+  crop,
+  missingMessage,
+}: {
+  matchPattern: AssetIpMatchPatternInput;
+  crop: ImagePartialSelectionInput | null | undefined;
+  missingMessage: string;
+}) {
+  if (matchPattern === "whole") {
+    return {
+      partialMatchPatternName: null,
+      cropXMin: null,
+      cropYMin: null,
+      cropXMax: null,
+      cropYMax: null,
+      cropImageWidth: null,
+      cropImageHeight: null,
+      cropSource: null,
+      cropDetectionLabel: null,
+      cropDetectionScore: null,
+    };
+  }
+
+  if (!crop) {
+    throw new Error(missingMessage);
+  }
+
+  return {
+    partialMatchPatternName: crop.partialMatchPatternName,
+    cropXMin: crop.cropXMin,
+    cropYMin: crop.cropYMin,
+    cropXMax: crop.cropXMax,
+    cropYMax: crop.cropYMax,
+    cropImageWidth: crop.cropImageWidth,
+    cropImageHeight: crop.cropImageHeight,
+    cropSource: crop.cropSource,
+    cropDetectionLabel: crop.cropDetectionLabel ?? null,
+    cropDetectionScore: crop.cropDetectionScore ?? null,
+  };
+}
+
+function buildUploadedImageCreateData({
+  image,
+  sort,
+  matchPattern,
+  missingMessage,
+}: {
+  image: UploadedIpImageInput;
+  sort: number;
+  matchPattern: AssetIpMatchPatternInput;
+  missingMessage: string;
+}) {
+  return {
+    objectKey: image.objectKey,
+    mimeType: image.mimeType,
+    size: image.size,
+    sort,
+    ...buildImageCropData({
+      matchPattern,
+      crop: getUploadedImageCropInput(image),
+      missingMessage,
+    }),
+  };
+}
+
 type UploadedAssetLibraryImage = {
   name: string;
   objectKey: string;
@@ -483,16 +647,22 @@ async function parseCreateOrUpdateInput(formData: FormData) {
     name: formData.get("name"),
     ipTypeId: formData.get("ipTypeId"),
     description: typeof formData.get("description") === "string" ? formData.get("description") : "",
+    matchPattern:
+      typeof formData.get("matchPattern") === "string" ? formData.get("matchPattern") : "whole",
     tagIds: parseJsonField<number[]>(formData.get("tagIds"), []),
     notes: typeof formData.get("notes") === "string" ? formData.get("notes") : "",
     existingImageIds: parseJsonField<string[]>(formData.get("existingImageIds"), []),
+    existingImagePartialSelections: parseJsonField<
+      Array<{ id: string } & ImagePartialSelectionInput>
+    >(formData.get("existingImagePartialSelections"), []),
     assetLibraryDownloadUrls: parseJsonField<string[]>(
       formData.get("assetLibraryDownloadUrls"),
       [],
     ),
-    assetLibraryUploadedImages: parseJsonField<
-      Array<{ objectKey: string; mimeType: string; size: number }>
-    >(formData.get("assetLibraryUploadedImages"), []),
+    assetLibraryUploadedImages: parseJsonField<UploadedIpImageInput[]>(
+      formData.get("assetLibraryUploadedImages"),
+      [],
+    ),
   });
 }
 
@@ -542,6 +712,130 @@ export async function prepareAssetLibraryIpImagesAction(
       };
     } catch (error) {
       console.error("Failed to prepare asset library IP images:", error);
+      const t = await getTranslations("Tagging.IpLibrary");
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : t("uploadErrors.selectFromLibraryFailed"),
+      };
+    }
+  });
+}
+
+async function detectPartialFeatureForObjectKey({
+  objectKey,
+  partialMatchPatternName,
+}: {
+  objectKey: string;
+  partialMatchPatternName: (typeof IP_PARTIAL_MATCH_PATTERN_OPTIONS)[number];
+}): Promise<IpPartialFeatureDetectionResult> {
+  const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
+    objectKey,
+    expiresInSeconds: 60 * 60,
+  });
+
+  const [imageInput, detection] = await Promise.all([
+    fetchRemoteImageInput(signedUrl, "IP partial feature"),
+    detectIpPartialFeatureBoxes({
+      imageUrl: signedUrl,
+      partialMatchPatternName,
+    }),
+  ]);
+
+  return {
+    signedUrl,
+    signedUrlExpiresAt,
+    imageWidth: imageInput.width,
+    imageHeight: imageInput.height,
+    detections:
+      detection.detections.length > 0
+        ? detection.detections
+        : [
+            {
+              ...getFallbackBox(imageInput, `${partialMatchPatternName} fallback`),
+              label: partialMatchPatternName,
+            },
+          ],
+    found: detection.found,
+  };
+}
+
+export async function preparePartialAssetIpImageAction(
+  formData: FormData,
+): Promise<ServerActionResult<IpPartialFeatureUploadResult>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    try {
+      const t = await getTranslations("Tagging.IpLibrary");
+      const image = formData.get("image");
+      const partialMatchPatternName = z
+        .enum(IP_PARTIAL_MATCH_PATTERN_OPTIONS)
+        .parse(formData.get("partialMatchPatternName") || DEFAULT_IP_PARTIAL_MATCH_PATTERN_NAME);
+
+      if (!(image instanceof File) || image.size <= 0) {
+        return {
+          success: false,
+          message: t("validation.imagesRequired"),
+        };
+      }
+
+      if (!isImageFile(image)) {
+        return {
+          success: false,
+          message: t("uploadErrors.imageLoadFailed"),
+        };
+      }
+
+      const [uploadedImage] = await uploadNewIpImages({
+        files: [image],
+        teamId,
+      });
+      const detection = await detectPartialFeatureForObjectKey({
+        objectKey: uploadedImage.objectKey,
+        partialMatchPatternName,
+      });
+
+      return {
+        success: true,
+        data: {
+          objectKey: uploadedImage.objectKey,
+          mimeType: uploadedImage.mimeType,
+          size: uploadedImage.size,
+          partialMatchPatternName,
+          ...detection,
+        },
+      };
+    } catch (error) {
+      console.error("Failed to prepare partial IP image:", error);
+      const t = await getTranslations("Tagging.IpLibrary");
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : t("uploadErrors.selectFromLibraryFailed"),
+      };
+    }
+  });
+}
+
+export async function detectAssetIpPartialFeatureAction(input: {
+  objectKey: string;
+  partialMatchPatternName: string;
+}): Promise<ServerActionResult<IpPartialFeatureDetectionResult>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    try {
+      const parsed = z
+        .object({
+          objectKey: z.string().min(1),
+          partialMatchPatternName: z.enum(IP_PARTIAL_MATCH_PATTERN_OPTIONS),
+        })
+        .parse(input);
+      if (!parsed.objectKey.includes(`teams-${teamId}-asset-ips-`)) {
+        throw new Error("Invalid IP image object key");
+      }
+
+      return {
+        success: true,
+        data: await detectPartialFeatureForObjectKey(parsed),
+      };
+    } catch (error) {
+      console.error("Failed to detect partial IP feature:", error);
       const t = await getTranslations("Tagging.IpLibrary");
       return {
         success: false,
@@ -817,6 +1111,7 @@ export async function createAssetIpAction(
       const files = extractSubmittedImages(formData);
       const assetLibraryDownloadUrls = Array.from(new Set(input.assetLibraryDownloadUrls));
       const assetLibraryUploadedImages = input.assetLibraryUploadedImages;
+      const missingPartialSelectionMessage = t("validation.partialSelectionsRequired");
 
       if (
         files.length + assetLibraryDownloadUrls.length + assetLibraryUploadedImages.length ===
@@ -854,15 +1149,20 @@ export async function createAssetIpAction(
           ipTypeId: ipType.id,
           ipTypeName: ipType.name,
           description: input.description.trim(),
+          matchPattern: input.matchPattern,
           notes: input.notes,
           status: "processing",
           processingError: null,
           enabled: true,
           images: {
-            create: allUploadedImages.map((image, index) => ({
-              ...image,
-              sort: index + 1,
-            })),
+            create: allUploadedImages.map((image, index) =>
+              buildUploadedImageCreateData({
+                image,
+                sort: index + 1,
+                matchPattern: input.matchPattern,
+                missingMessage: missingPartialSelectionMessage,
+              }),
+            ),
           },
           ...(selectedTags.length > 0
             ? {
@@ -934,6 +1234,7 @@ export async function updateAssetIpAction(
       const files = extractSubmittedImages(formData);
       const assetLibraryDownloadUrls = Array.from(new Set(input.assetLibraryDownloadUrls));
       const assetLibraryUploadedImages = input.assetLibraryUploadedImages;
+      const missingPartialSelectionMessage = t("validation.partialSelectionsRequired");
       const [ipType, selectedTags] = await Promise.all([
         resolveIpType(team.id, input.ipTypeId),
         resolveSelectedTags(team.id, input.tagIds),
@@ -941,6 +1242,9 @@ export async function updateAssetIpAction(
 
       const uniqueExistingImageIds = Array.from(new Set(input.existingImageIds));
       const retainedImages = ip.images.filter((image) => uniqueExistingImageIds.includes(image.id));
+      const existingImagePartialSelectionMap = new Map(
+        input.existingImagePartialSelections.map((selection) => [selection.id, selection]),
+      );
 
       if (retainedImages.length !== uniqueExistingImageIds.length) {
         return {
@@ -986,6 +1290,7 @@ export async function updateAssetIpAction(
             ipTypeId: ipType.id,
             ipTypeName: ipType.name,
             description: input.description.trim(),
+            matchPattern: input.matchPattern,
             notes: input.notes,
             status: "processing",
             processingError: null,
@@ -1020,6 +1325,11 @@ export async function updateAssetIpAction(
               qdrantPointId: null,
               embeddingModel: null,
               embeddedAt: null,
+              ...buildImageCropData({
+                matchPattern: input.matchPattern,
+                crop: existingImagePartialSelectionMap.get(retainedImages[index].id),
+                missingMessage: missingPartialSelectionMessage,
+              }),
             },
           });
         }
@@ -1028,8 +1338,12 @@ export async function updateAssetIpAction(
           await tx.assetIpImage.createMany({
             data: allUploadedImages.map((image, index) => ({
               assetIpId: ip.id,
-              ...image,
-              sort: retainedImages.length + index + 1,
+              ...buildUploadedImageCreateData({
+                image,
+                sort: retainedImages.length + index + 1,
+                matchPattern: input.matchPattern,
+                missingMessage: missingPartialSelectionMessage,
+              }),
             })),
           });
         }

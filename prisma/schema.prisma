@@ -210,6 +210,11 @@ enum AssetIpProcessStatus {
   failed
 }
 
+enum AssetIpMatchPattern {
+  whole
+  partial
+}
+
 model AssetIpType {
   id     String @id @default(uuid()) @db.Uuid
   teamId Int
@@ -235,6 +240,7 @@ model AssetIp {
   ipType          AssetIpType?         @relation(fields: [ipTypeId], references: [id], onDelete: SetNull)
   ipTypeName      String               @db.VarChar(100)
   description     String               @default("") @db.Text
+  matchPattern    AssetIpMatchPattern  @default(whole)
   status          AssetIpProcessStatus @default(pending)
   processingError String?              @db.Text
   processedAt     DateTime?            @db.Timestamptz(6)
@@ -249,6 +255,7 @@ model AssetIp {
 
   @@index([teamId, createdAt])
   @@index([teamId, status])
+  @@index([matchPattern])
 }
 
 model AssetIpImage {
@@ -256,18 +263,29 @@ model AssetIpImage {
   assetIpId String  @db.Uuid
   assetIp   AssetIp @relation(fields: [assetIpId], references: [id], onDelete: Cascade)
 
-  objectKey      String    @db.Text
-  mimeType       String    @db.VarChar(255)
-  size           Int
-  sort           Int       @default(0)
-  qdrantPointId  String?   @unique @db.VarChar(64)
-  embeddingModel String?   @db.VarChar(128)
-  embeddedAt     DateTime? @db.Timestamptz(6)
+  objectKey               String    @db.Text
+  mimeType                String    @db.VarChar(255)
+  size                    Int
+  sort                    Int       @default(0)
+  partialMatchPatternName String?   @db.VarChar(64)
+  cropXMin                Float?
+  cropYMin                Float?
+  cropXMax                Float?
+  cropYMax                Float?
+  cropImageWidth          Float?
+  cropImageHeight         Float?
+  cropSource              String?   @db.VarChar(32)
+  cropDetectionLabel      String?   @db.VarChar(100)
+  cropDetectionScore      Float?
+  qdrantPointId           String?   @unique @db.VarChar(64)
+  embeddingModel          String?   @db.VarChar(128)
+  embeddedAt              DateTime? @db.Timestamptz(6)
 
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @db.Timestamptz(6)
 
   @@index([assetIpId, sort])
+  @@index([partialMatchPatternName])
 }
 
 model AssetIpTag {

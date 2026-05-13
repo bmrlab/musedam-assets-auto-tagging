@@ -26,23 +26,45 @@ import {
   prepareClientImageUpload,
 } from "@/lib/brand/browser-image";
 import { MAX_TOTAL_NEW_REFERENCE_UPLOAD_BYTES } from "@/lib/brand/upload-constants";
-import { Loader2, Plus, X } from "lucide-react";
+import {
+  AssetIpMatchPattern,
+  DEFAULT_IP_PARTIAL_MATCH_PATTERN_NAME,
+  IpPartialMatchPatternName,
+  isIpPartialMatchPatternName,
+} from "@/lib/ip/match-pattern";
+import { cn } from "@/lib/utils";
+import {
+  AlertCircle,
+  BoxSelect,
+  ImageIcon,
+  Loader2,
+  Plus,
+  SquareDashedMousePointer,
+  X,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import BrandTagSelector from "../brand/BrandTagSelector";
 import {
   createAssetIpAction,
+  detectAssetIpPartialFeatureAction,
   prepareAssetLibraryIpImagesAction,
+  preparePartialAssetIpImageAction,
   updateAssetIpAction,
 } from "./actions";
+import IpPartialFeatureCropDialog, {
+  PartialFeatureCropDialogImage,
+  PartialFeatureCropSelection,
+} from "./IpPartialFeatureCropDialog";
 import IpTypeSelect from "./IpTypeSelect";
 import SignedIpImage from "./SignedIpImage";
-import { IpItem, IpTagTreeNode, IpTypeItem } from "./types";
+import { IpDetectionBox, IpImageItem, IpItem, IpTagTreeNode, IpTypeItem } from "./types";
 
 type DraftImage = {
   id: string;
   existingImageId?: string;
+  objectKey?: string;
   assetLibraryUploadedImage?: {
     objectKey: string;
     mimeType: string;
@@ -54,6 +76,11 @@ type DraftImage = {
   name: string;
   file?: File;
   shouldRevokePreviewUrl?: boolean;
+  partialMatchPatternName?: IpPartialMatchPatternName;
+  imageWidth?: number;
+  imageHeight?: number;
+  detections?: IpDetectionBox[];
+  cropSelection?: PartialFeatureCropSelection | null;
 };
 
 type TranslationFunction = (key: string, values?: Record<string, string | number>) => string;
@@ -80,23 +107,60 @@ function revokeDraftImageUrls(images: DraftImage[]) {
   }
 }
 
-function buildDraftImages(
-  ip: IpItem | null,
-  t: TranslationFunction,
-) {
+function buildCropSelectionFromImage(image: IpImageItem): PartialFeatureCropSelection | null {
+  if (
+    !image.partialMatchPatternName ||
+    !isIpPartialMatchPatternName(image.partialMatchPatternName) ||
+    typeof image.cropXMin !== "number" ||
+    typeof image.cropYMin !== "number" ||
+    typeof image.cropXMax !== "number" ||
+    typeof image.cropYMax !== "number" ||
+    typeof image.cropImageWidth !== "number" ||
+    typeof image.cropImageHeight !== "number"
+  ) {
+    return null;
+  }
+
+  return {
+    partialMatchPatternName: image.partialMatchPatternName,
+    cropXMin: image.cropXMin,
+    cropYMin: image.cropYMin,
+    cropXMax: image.cropXMax,
+    cropYMax: image.cropYMax,
+    cropImageWidth: image.cropImageWidth,
+    cropImageHeight: image.cropImageHeight,
+    cropSource: image.cropSource === "manual" ? "manual" : "algorithm",
+    cropDetectionLabel: image.cropDetectionLabel,
+    cropDetectionScore: image.cropDetectionScore,
+  };
+}
+
+function buildDraftImages(ip: IpItem | null, t: TranslationFunction) {
   if (!ip) {
     return [];
   }
 
-  return ip.images.map((image, index) => ({
-    id: `existing-${image.id}`,
-    existingImageId: image.id,
-    previewUrl: image.signedUrl,
-    signedUrl: image.signedUrl,
-    signedUrlExpiresAt: image.signedUrlExpiresAt,
-    name: t("imageAltIndex", { name: ip.name, index: index + 1 }),
-    shouldRevokePreviewUrl: false,
-  }));
+  return ip.images.map((image, index) => {
+    const rawPartialMatchPatternName = image.partialMatchPatternName ?? "";
+    const partialMatchPatternName = isIpPartialMatchPatternName(rawPartialMatchPatternName)
+      ? rawPartialMatchPatternName
+      : DEFAULT_IP_PARTIAL_MATCH_PATTERN_NAME;
+
+    return {
+      id: `existing-${image.id}`,
+      existingImageId: image.id,
+      objectKey: image.objectKey,
+      previewUrl: image.signedUrl,
+      signedUrl: image.signedUrl,
+      signedUrlExpiresAt: image.signedUrlExpiresAt,
+      name: t("imageAltIndex", { name: ip.name, index: index + 1 }),
+      shouldRevokePreviewUrl: false,
+      partialMatchPatternName,
+      imageWidth: image.cropImageWidth ?? undefined,
+      imageHeight: image.cropImageHeight ?? undefined,
+      cropSelection: buildCropSelectionFromImage(image),
+    };
+  });
 }
 
 export default function IpDialog({
@@ -117,10 +181,13 @@ export default function IpDialog({
   const [name, setName] = useState("");
   const [ipTypeId, setIpTypeId] = useState<string | null>(null);
   const [description, setDescription] = useState("");
+  const [matchPattern, setMatchPattern] = useState<AssetIpMatchPattern>("whole");
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
   const [notes, setNotes] = useState("");
   const [images, setImages] = useState<DraftImage[]>([]);
   const [previewImage, setPreviewImage] = useState<DraftImage | null>(null);
+  const [cropImageId, setCropImageId] = useState<string | null>(null);
+  const [isPreparingCrop, setIsPreparingCrop] = useState(false);
   const [isSelectingAssets, setIsSelectingAssets] = useState(false);
   const [isPending, startTransition] = useTransition();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -134,6 +201,7 @@ export default function IpDialog({
     setName(ip?.name ?? "");
     setIpTypeId(ip?.ipTypeId ?? null);
     setDescription(ip?.description ?? "");
+    setMatchPattern(ip?.matchPattern ?? "whole");
     setSelectedTagIds(
       ip?.tags.map((tag) => tag.assetTagId).filter((id): id is number => Boolean(id)) ?? [],
     );
@@ -165,8 +233,16 @@ export default function IpDialog({
   const hasValidIpType = Boolean(ipTypeId) && ipTypes.some((type) => type.id === ipTypeId);
   const hasImages = images.length > 0;
   const hasSelectedTags = selectedTagIds.length > 0;
+  const pendingPartialCropImages = images.filter((image) => !image.cropSelection);
+  const pendingPartialCropCount = matchPattern === "partial" ? pendingPartialCropImages.length : 0;
   const isSubmitDisabled =
-    isPending || !trimmedName || !hasValidIpType || !hasImages || !hasSelectedTags;
+    isPending ||
+    isPreparingCrop ||
+    !trimmedName ||
+    !hasValidIpType ||
+    !hasImages ||
+    !hasSelectedTags ||
+    pendingPartialCropCount > 0;
 
   function getUploadErrorMessage(error: unknown) {
     switch (getClientImagePreparationErrorCode(error)) {
@@ -180,6 +256,149 @@ export default function IpDialog({
         return tBrand("uploadErrors.compressionFailed");
       default:
         return error instanceof Error ? error.message : tBrand("uploadErrors.compressionFailed");
+    }
+  }
+
+  function patchDraftImage(imageId: string, patch: Partial<DraftImage>) {
+    setImages((current) => {
+      const next = current.map((image) =>
+        image.id === imageId
+          ? {
+              ...image,
+              ...patch,
+            }
+          : image,
+      );
+      imagesRef.current = next;
+      return next;
+    });
+  }
+
+  async function prepareImageForPartialCrop(
+    image: DraftImage,
+    partialMatchPatternName: IpPartialMatchPatternName,
+  ) {
+    if (image.assetLibraryUploadedImage?.objectKey || image.existingImageId) {
+      const objectKey = image.assetLibraryUploadedImage?.objectKey ?? image.objectKey;
+      if (!objectKey) {
+        throw new Error(t("uploadErrors.imageLoadFailed"));
+      }
+
+      const result = await detectAssetIpPartialFeatureAction({
+        objectKey,
+        partialMatchPatternName,
+      });
+
+      if (!result.success) {
+        throw new Error(result.message);
+      }
+
+      return {
+        partialMatchPatternName,
+        previewUrl: image.shouldRevokePreviewUrl ? image.previewUrl : result.data.signedUrl,
+        signedUrl: result.data.signedUrl,
+        signedUrlExpiresAt: result.data.signedUrlExpiresAt,
+        imageWidth: result.data.imageWidth,
+        imageHeight: result.data.imageHeight,
+        detections: result.data.detections,
+      } satisfies Partial<DraftImage>;
+    }
+
+    if (!image.file) {
+      throw new Error(t("uploadErrors.imageLoadFailed"));
+    }
+
+    const formData = new FormData();
+    formData.append("image", image.file);
+    formData.append("partialMatchPatternName", partialMatchPatternName);
+
+    const result = await preparePartialAssetIpImageAction(formData);
+    if (!result.success) {
+      throw new Error(result.message);
+    }
+
+    return {
+      partialMatchPatternName,
+      file: undefined,
+      assetLibraryUploadedImage: {
+        objectKey: result.data.objectKey,
+        mimeType: result.data.mimeType,
+        size: result.data.size,
+      },
+      objectKey: result.data.objectKey,
+      signedUrl: result.data.signedUrl,
+      signedUrlExpiresAt: result.data.signedUrlExpiresAt,
+      imageWidth: result.data.imageWidth,
+      imageHeight: result.data.imageHeight,
+      detections: result.data.detections,
+    } satisfies Partial<DraftImage>;
+  }
+
+  async function openPartialCropDialog(imageId: string, featureName?: IpPartialMatchPatternName) {
+    const target = imagesRef.current.find((image) => image.id === imageId);
+    if (!target) {
+      return;
+    }
+
+    const partialMatchPatternName =
+      featureName ?? target.partialMatchPatternName ?? DEFAULT_IP_PARTIAL_MATCH_PATTERN_NAME;
+
+    setIsPreparingCrop(true);
+    try {
+      const patch = await prepareImageForPartialCrop(target, partialMatchPatternName);
+      patchDraftImage(imageId, {
+        ...patch,
+        cropSelection:
+          featureName && featureName !== target.cropSelection?.partialMatchPatternName
+            ? null
+            : target.cropSelection,
+      });
+      setCropImageId(imageId);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("uploadErrors.imageLoadFailed"));
+    } finally {
+      setIsPreparingCrop(false);
+    }
+  }
+
+  async function handleCropFeatureChange(featureName: IpPartialMatchPatternName) {
+    if (!cropImageId) {
+      return;
+    }
+
+    await openPartialCropDialog(cropImageId, featureName);
+  }
+
+  function handleConfirmPartialCrop(selection: PartialFeatureCropSelection) {
+    if (!cropImageId) {
+      return;
+    }
+
+    const nextImages = imagesRef.current.map((image) =>
+      image.id === cropImageId
+        ? {
+            ...image,
+            partialMatchPatternName: selection.partialMatchPatternName,
+            cropSelection: selection,
+          }
+        : image,
+    );
+    const nextPending = nextImages.find((image) => !image.cropSelection);
+
+    imagesRef.current = nextImages;
+    setImages(nextImages);
+    setCropImageId(null);
+
+    if (matchPattern === "partial" && nextPending) {
+      window.setTimeout(() => {
+        void openPartialCropDialog(nextPending.id);
+      }, 0);
+    }
+  }
+
+  function handleCropDialogOpenChange(nextOpen: boolean) {
+    if (!nextOpen) {
+      setCropImageId(null);
     }
   }
 
@@ -201,6 +420,7 @@ export default function IpDialog({
           previewUrl: URL.createObjectURL(preparedFile),
           name: preparedFile.name,
           file: preparedFile,
+          partialMatchPatternName: DEFAULT_IP_PARTIAL_MATCH_PATTERN_NAME,
           shouldRevokePreviewUrl: true,
         });
       } catch (error) {
@@ -209,7 +429,14 @@ export default function IpDialog({
     }
 
     if (nextImages.length > 0) {
-      setImages((current) => [...current, ...nextImages]);
+      setImages((current) => {
+        const next = [...current, ...nextImages];
+        imagesRef.current = next;
+        return next;
+      });
+      if (matchPattern === "partial") {
+        void openPartialCropDialog(nextImages[0].id);
+      }
     }
   }
 
@@ -256,14 +483,23 @@ export default function IpDialog({
           mimeType: image.mimeType,
           size: image.size,
         },
+        objectKey: image.objectKey,
         previewUrl: image.signedUrl,
         signedUrl: image.signedUrl,
         signedUrlExpiresAt: image.signedUrlExpiresAt,
         name: image.name,
+        partialMatchPatternName: DEFAULT_IP_PARTIAL_MATCH_PATTERN_NAME,
         shouldRevokePreviewUrl: false,
       }));
 
-      setImages((current) => [...current, ...nextImages]);
+      setImages((current) => {
+        const next = [...current, ...nextImages];
+        imagesRef.current = next;
+        return next;
+      });
+      if (matchPattern === "partial") {
+        void openPartialCropDialog(nextImages[0].id);
+      }
     } catch (error) {
       console.error("Select assets from library failed", error);
       toast.error(t("uploadErrors.selectFromLibraryFailed"));
@@ -279,8 +515,13 @@ export default function IpDialog({
         URL.revokeObjectURL(target.previewUrl);
       }
 
-      return current.filter((image) => image.id !== imageId);
+      const next = current.filter((image) => image.id !== imageId);
+      imagesRef.current = next;
+      return next;
     });
+    if (cropImageId === imageId) {
+      setCropImageId(null);
+    }
   }
 
   function handleSubmit() {
@@ -304,6 +545,11 @@ export default function IpDialog({
       return;
     }
 
+    if (matchPattern === "partial" && pendingPartialCropCount > 0) {
+      toast.error(t("validation.partialSelectionsRequired"));
+      return;
+    }
+
     const newUploadBytes = images.reduce((total, image) => total + (image.file?.size ?? 0), 0);
     if (newUploadBytes > MAX_TOTAL_NEW_REFERENCE_UPLOAD_BYTES) {
       toast.error(tBrand("uploadErrors.totalTooLarge"));
@@ -317,6 +563,7 @@ export default function IpDialog({
     formData.append("name", trimmedName);
     formData.append("ipTypeId", String(ipTypeId));
     formData.append("description", description.trim());
+    formData.append("matchPattern", matchPattern);
     formData.append("tagIds", JSON.stringify(selectedTagIds));
     formData.append("notes", notes.trim());
     formData.append(
@@ -343,9 +590,36 @@ export default function IpDialog({
           ),
       ),
     );
+    formData.append(
+      "existingImagePartialSelections",
+      JSON.stringify(
+        matchPattern === "partial"
+          ? images
+              .filter((image) => image.existingImageId && image.cropSelection)
+              .map((image) => ({
+                id: image.existingImageId,
+                ...image.cropSelection,
+              }))
+          : [],
+      ),
+    );
+
+    if (matchPattern === "partial") {
+      formData.set(
+        "assetLibraryUploadedImages",
+        JSON.stringify(
+          images
+            .filter((image) => image.assetLibraryUploadedImage)
+            .map((image) => ({
+              ...image.assetLibraryUploadedImage!,
+              ...image.cropSelection,
+            })),
+        ),
+      );
+    }
 
     for (const image of images) {
-      if (image.file) {
+      if (image.file && matchPattern === "whole") {
         formData.append("images", image.file);
       }
     }
@@ -369,9 +643,29 @@ export default function IpDialog({
     });
   }
 
+  const cropDialogDraftImage = cropImageId
+    ? (images.find((image) => image.id === cropImageId) ?? null)
+    : null;
+  const cropDialogImage: PartialFeatureCropDialogImage | null =
+    cropDialogDraftImage &&
+    cropDialogDraftImage.imageWidth &&
+    cropDialogDraftImage.imageHeight &&
+    cropDialogDraftImage.detections
+      ? {
+          id: cropDialogDraftImage.id,
+          name: cropDialogDraftImage.name,
+          previewUrl: cropDialogDraftImage.previewUrl,
+          partialMatchPatternName:
+            cropDialogDraftImage.partialMatchPatternName ?? DEFAULT_IP_PARTIAL_MATCH_PATTERN_NAME,
+          imageWidth: cropDialogDraftImage.imageWidth,
+          imageHeight: cropDialogDraftImage.imageHeight,
+          detections: cropDialogDraftImage.detections,
+        }
+      : null;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92vh] w-[750px] max-w-[calc(100%-2rem)] gap-0 overflow-y-auto rounded-[20px] p-0">
+      <DialogContent className="max-h-[92vh] w-[960px] max-w-[calc(100%-2rem)] gap-0 overflow-y-auto rounded-[20px] p-0">
         <DialogHeader className="h-14 justify-center gap-0 px-5 py-4">
           <DialogTitle className="text-[16px] leading-6 font-semibold text-[#151A30]">
             {mode === "create" ? t("dialog.titleCreate") : t("dialog.titleEdit")}
@@ -408,6 +702,120 @@ export default function IpDialog({
                 disabled={isPending}
                 triggerClassName="h-8 w-[349px] rounded-[6px] border border-[#C5CEE0] px-3 py-0 text-[14px] leading-[22px] font-normal"
               />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div>
+              <label className="h-[22px] text-[14px] leading-[22px] font-normal text-[#222B45]">
+                {t("dialog.matchPatternTitle")}
+              </label>
+              <p className="mt-1 text-[12px] leading-[16px] text-[#8F9BB3]">
+                {t("dialog.matchPatternDescription")}
+              </p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => setMatchPattern("whole")}
+                disabled={isPending}
+                className={cn(
+                  "flex min-h-[92px] items-start gap-3 rounded-[8px] border bg-white p-3 text-left transition-all",
+                  matchPattern === "whole"
+                    ? "border-[#3366FF] bg-[#F2F6FF] shadow-[0_0_0_2px_rgba(51,102,255,0.12)]"
+                    : "border-[#C5CEE0] hover:border-[#598BFF]",
+                )}
+              >
+                <span
+                  className={cn(
+                    "mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[6px]",
+                    matchPattern === "whole"
+                      ? "bg-[#E6EEFF] text-[#3366FF]"
+                      : "bg-[#F2F6FF] text-[#2E3A59]",
+                  )}
+                >
+                  <ImageIcon className="size-5" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center justify-between gap-3">
+                    <span className="text-[15px] leading-[22px] font-semibold text-[#192038]">
+                      {t("dialog.matchWholeTitle")}
+                    </span>
+                    <span
+                      className={cn(
+                        "inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border",
+                        matchPattern === "whole"
+                          ? "border-[#3366FF] bg-[#3366FF]"
+                          : "border-[#C5CEE0]",
+                      )}
+                    >
+                      {matchPattern === "whole" ? (
+                        <span className="h-2 w-2 rounded-full bg-white" />
+                      ) : null}
+                    </span>
+                  </span>
+                  <span className="mt-2 block text-[13px] leading-[19px] text-[#2E3A59]">
+                    {t("dialog.matchWholeDescription")}
+                  </span>
+                  <span className="mt-2 block text-[12px] leading-[16px] text-[#8F9BB3]">
+                    {t("dialog.matchWholeApplies")}
+                  </span>
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMatchPattern("partial");
+                  const firstPending = imagesRef.current.find((image) => !image.cropSelection);
+                  if (firstPending) {
+                    void openPartialCropDialog(firstPending.id);
+                  }
+                }}
+                disabled={isPending}
+                className={cn(
+                  "flex min-h-[92px] items-start gap-3 rounded-[8px] border bg-white p-3 text-left transition-all",
+                  matchPattern === "partial"
+                    ? "border-[#3366FF] bg-[#F2F6FF] shadow-[0_0_0_2px_rgba(51,102,255,0.12)]"
+                    : "border-[#C5CEE0] hover:border-[#598BFF]",
+                )}
+              >
+                <span
+                  className={cn(
+                    "mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[6px]",
+                    matchPattern === "partial"
+                      ? "bg-[#E6EEFF] text-[#3366FF]"
+                      : "bg-[#F2F6FF] text-[#2E3A59]",
+                  )}
+                >
+                  <BoxSelect className="size-5" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center justify-between gap-3">
+                    <span className="text-[15px] leading-[22px] font-semibold text-[#192038]">
+                      {t("dialog.matchPartialTitle")}
+                    </span>
+                    <span
+                      className={cn(
+                        "inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border",
+                        matchPattern === "partial"
+                          ? "border-[#3366FF] bg-[#3366FF]"
+                          : "border-[#C5CEE0]",
+                      )}
+                    >
+                      {matchPattern === "partial" ? (
+                        <span className="h-2 w-2 rounded-full bg-white" />
+                      ) : null}
+                    </span>
+                  </span>
+                  <span className="mt-2 block text-[13px] leading-[19px] text-[#2E3A59]">
+                    {t("dialog.matchPartialDescription")}
+                  </span>
+                  <span className="mt-2 block text-[12px] leading-[16px] text-[#8F9BB3]">
+                    {t("dialog.matchPartialApplies")}
+                  </span>
+                </span>
+              </button>
             </div>
           </div>
 
@@ -484,6 +892,32 @@ export default function IpDialog({
                       className="h-full w-full object-cover"
                     />
                   )}
+                  {matchPattern === "partial" ? (
+                    <button
+                      type="button"
+                      onClick={() => void openPartialCropDialog(image.id)}
+                      className={cn(
+                        "absolute top-1 left-1 z-10 inline-flex max-w-[94px] items-center gap-1 rounded-[4px] px-2 py-1 text-[12px] leading-4 font-semibold text-white shadow-sm",
+                        image.cropSelection ? "bg-[#3366FF]" : "bg-[#FF3D71]",
+                      )}
+                    >
+                      {image.cropSelection ? (
+                        <>
+                          <BoxSelect className="size-3" />
+                          <span className="truncate">
+                            {t(
+                              `dialog.partialOptions.${image.cropSelection.partialMatchPatternName}`,
+                            )}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span>!</span>
+                          <span>{t("dialog.pendingCropBadge")}</span>
+                        </>
+                      )}
+                    </button>
+                  ) : null}
                   <div className="absolute inset-0 flex items-center justify-center bg-black/45 opacity-0 transition-opacity group-hover:opacity-100">
                     <div className="flex items-center gap-2">
                       <button
@@ -494,6 +928,16 @@ export default function IpDialog({
                       >
                         <img src="/Icon/View.svg" alt="" className="h-4 w-4" />
                       </button>
+                      {matchPattern === "partial" ? (
+                        <button
+                          type="button"
+                          aria-label={t("dialog.cropImage")}
+                          onClick={() => void openPartialCropDialog(image.id)}
+                          className="inline-flex h-4 w-4 items-center justify-center opacity-90 transition-opacity hover:opacity-100"
+                        >
+                          <SquareDashedMousePointer className="h-4 w-4 text-white" />
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         aria-label={t("dialog.closePreview")}
@@ -511,9 +955,32 @@ export default function IpDialog({
             <div className="mt-3 flex items-start gap-[10px] rounded-[8px] border border-[#598BFF] bg-[#F2F6FF] px-3 py-[14px] text-[12px] leading-[16px] font-normal text-[#192038]">
               <p className="text-[12px] leading-[16px] font-normal text-[#192038]">
                 💡 <span className="font-semibold">{t("dialog.uploadHintTitle")}</span>
-                {t("dialog.uploadHint")}
+                {matchPattern === "partial"
+                  ? t("dialog.uploadHintPartial")
+                  : t("dialog.uploadHint")}
               </p>
             </div>
+
+            {pendingPartialCropCount > 0 ? (
+              <div className="mt-3 flex items-center justify-between gap-3 rounded-[8px] border border-[#FF3D71] bg-[#FFF2F5] px-3 py-[12px] text-[13px] leading-[18px] text-[#FF3D71]">
+                <span className="inline-flex items-center gap-2">
+                  <AlertCircle className="size-4 shrink-0" />
+                  {t("dialog.pendingCropWarning", { count: pendingPartialCropCount })}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const firstPending = pendingPartialCropImages[0];
+                    if (firstPending) {
+                      void openPartialCropDialog(firstPending.id);
+                    }
+                  }}
+                  className="shrink-0 text-[13px] leading-[18px] font-semibold text-[#FF3D71] hover:text-[#db2c5d]"
+                >
+                  {t("dialog.goCrop")}
+                </button>
+              </div>
+            ) : null}
           </div>
 
           <div className="mt-4 space-y-2">
@@ -641,6 +1108,15 @@ export default function IpDialog({
           ) : null}
         </DialogContent>
       </Dialog>
+      <IpPartialFeatureCropDialog
+        open={Boolean(cropImageId)}
+        image={cropDialogImage}
+        detecting={isPreparingCrop}
+        t={t}
+        onOpenChange={handleCropDialogOpenChange}
+        onFeatureChange={(featureName) => void handleCropFeatureChange(featureName)}
+        onConfirm={handleConfirmPartialCrop}
+      />
     </Dialog>
   );
 }

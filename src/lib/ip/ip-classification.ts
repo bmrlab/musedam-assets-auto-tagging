@@ -1,10 +1,11 @@
 import "server-only";
 
 import { getLogoDetectionServerToken, getLogoDetectionServerUrl } from "@/lib/brand/env";
-import { normalizeDetectionText } from "@/lib/utils";
 import { createJinaImageEmbeddings } from "@/lib/brand/jina";
 import { queryIpVectorPoints } from "@/lib/ip/qdrant";
+import { normalizeDetectionText } from "@/lib/utils";
 import prisma from "@/prisma/prisma";
+import { DEFAULT_IP_PARTIAL_MATCH_PATTERN_NAME } from "./match-pattern";
 
 const IP_IMAGE_VECTOR_QUERY_LIMIT = 20;
 const IP_IMAGE_VECTOR_SCORE_THRESHOLD = 0.34;
@@ -114,6 +115,16 @@ async function fetchIpDetectionPromptNames(teamId: number) {
     select: {
       name: true,
       ipTypeName: true,
+      images: {
+        where: {
+          partialMatchPatternName: {
+            not: null,
+          },
+        },
+        select: {
+          partialMatchPatternName: true,
+        },
+      },
     },
     take: 40,
   });
@@ -127,7 +138,22 @@ async function fetchIpDetectionPromptNames(teamId: number) {
     ),
   );
 
-  return [DEFAULT_IP_DETECTION_PROMPT, ...promptNames].join(" . ");
+  const partialPatternNames = Array.from(
+    new Set(
+      ips
+        .flatMap((ip) => ip.images.map((image) => image.partialMatchPatternName))
+        .map((value) => normalizeDetectionPromptTerm(value ?? ""))
+        .filter(Boolean),
+    ),
+  );
+  console.log(
+    "final prompt = ",
+    [DEFAULT_IP_DETECTION_PROMPT, ...promptNames, ...partialPatternNames].join(" . "),
+  );
+  console.log("prompt names = ", promptNames);
+  console.log("partial pattern names = ", partialPatternNames);
+
+  return [DEFAULT_IP_DETECTION_PROMPT, ...promptNames, ...partialPatternNames].join(" . ");
 }
 
 type CropAggregation = {
@@ -157,14 +183,51 @@ export async function detectIpFigureBoxes({
   teamId: number;
   imageUrl: string;
 }) {
-  const baseUrl = getLogoDetectionServerUrl();
-  const token = getLogoDetectionServerToken();
-  const detectionLabelText = normalizeDetectionText(
-    await fetchIpDetectionPromptNames(teamId),
-  );
+  const detectionLabelText = normalizeDetectionText(await fetchIpDetectionPromptNames(teamId));
   if (!detectionLabelText) {
     throw new Error("IP detection_label_text is empty after normalization");
   }
+
+  return requestIpDetection({
+    imageUrl,
+    detectionLabelText,
+    errorPrefix: "IP detection",
+  });
+}
+
+export async function detectIpPartialFeatureBoxes({
+  imageUrl,
+  partialMatchPatternName = DEFAULT_IP_PARTIAL_MATCH_PATTERN_NAME,
+}: {
+  imageUrl: string;
+  partialMatchPatternName?: string;
+}) {
+  const detectionLabelText =
+    normalizeDetectionText(partialMatchPatternName) ||
+    normalizeDetectionText(DEFAULT_IP_PARTIAL_MATCH_PATTERN_NAME);
+
+  if (!detectionLabelText) {
+    throw new Error("IP partial feature detection_label_text is empty after normalization");
+  }
+
+  return requestIpDetection({
+    imageUrl,
+    detectionLabelText,
+    errorPrefix: "IP partial feature detection",
+  });
+}
+
+async function requestIpDetection({
+  imageUrl,
+  detectionLabelText,
+  errorPrefix,
+}: {
+  imageUrl: string;
+  detectionLabelText: string;
+  errorPrefix: string;
+}) {
+  const baseUrl = getLogoDetectionServerUrl();
+  const token = getLogoDetectionServerToken();
   const response = await fetch(`${baseUrl}/object_detection_groundingDINO`, {
     method: "POST",
     headers: {
@@ -177,11 +240,18 @@ export async function detectIpFigureBoxes({
     }),
   });
 
-  const payload = (await response.json().catch(() => null)) as DetectionServiceResponse | null;
+  const responseText = await response.text();
+  const payload = (() => {
+    try {
+      return JSON.parse(responseText) as DetectionServiceResponse;
+    } catch {
+      return null;
+    }
+  })();
+
   if (!response.ok) {
-    const errorBody = await response.text();
-    console.error(`IP detection request failed (${response.status}) ${JSON.stringify(errorBody)}`);
-    throw new Error(`IP detection request failed (${response.status})`);
+    console.error(`${errorPrefix} request failed (${response.status}) ${responseText}`);
+    throw new Error(`${errorPrefix} request failed (${response.status})`);
   }
 
   return {

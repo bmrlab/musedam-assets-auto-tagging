@@ -26,6 +26,16 @@ export type IpImageItem = {
   mimeType: string;
   size: number;
   sort: number;
+  partialMatchPatternName: string | null;
+  cropXMin: number | null;
+  cropYMin: number | null;
+  cropXMax: number | null;
+  cropYMax: number | null;
+  cropImageWidth: number | null;
+  cropImageHeight: number | null;
+  cropSource: string | null;
+  cropDetectionLabel: string | null;
+  cropDetectionScore: number | null;
 };
 
 export type IpItem = {
@@ -35,6 +45,7 @@ export type IpItem = {
   ipTypeId: string | null;
   ipTypeName: string;
   description: string;
+  matchPattern: "whole" | "partial";
   status: "pending" | "processing" | "completed" | "failed";
   processingError: string | null;
   processedAt: Date | null;
@@ -67,6 +78,22 @@ export type IpClassificationUploadResult = {
   signedUrlExpiresAt: number;
   detections: IpDetectionBox[];
   found: boolean;
+};
+
+export type IpPartialFeatureDetectionResult = {
+  signedUrl: string;
+  signedUrlExpiresAt: number;
+  imageWidth: number;
+  imageHeight: number;
+  detections: IpDetectionBox[];
+  found: boolean;
+};
+
+export type IpPartialFeatureUploadResult = IpPartialFeatureDetectionResult & {
+  objectKey: string;
+  mimeType: string;
+  size: number;
+  partialMatchPatternName: string;
 };
 
 export type IpClassificationMatch = {

@@ -24,6 +24,8 @@ export type IpVectorPayload = {
   assetIpImageId: string | null;
   ipTypeId: string | null;
   enabled: boolean;
+  matchPattern: "whole" | "partial";
+  partialMatchPatternName: string | null;
   status: "pending" | "processing" | "completed" | "failed";
   sourceType: "image" | "description";
 };
