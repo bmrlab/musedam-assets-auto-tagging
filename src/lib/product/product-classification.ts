@@ -5,8 +5,11 @@ import { createJinaImageEmbeddings } from "@/lib/brand/jina";
 import { queryProductVectorPoints } from "@/lib/product/qdrant";
 import prisma from "@/prisma/prisma";
 
-const PRODUCT_VECTOR_QUERY_LIMIT = 20;
-const PRODUCT_VECTOR_SCORE_THRESHOLD = 0.34;
+const PRODUCT_IMAGE_VECTOR_QUERY_LIMIT = 20;
+const PRODUCT_IMAGE_VECTOR_SCORE_THRESHOLD = 0.34;
+const PRODUCT_DESCRIPTION_VECTOR_QUERY_LIMIT = 60;
+const DESCRIPTION_SUPPORT_WEIGHT = 0.2;
+const DESCRIPTION_ONLY_WEIGHT = 0.7;
 const MULTI_CROP_SUPPORT_BONUS = 0.02;
 const MAX_SUPPORT_BONUS = 0.06;
 const SUPPORTING_CROP_THRESHOLD = 0.46;
@@ -144,14 +147,17 @@ type CropAggregation = {
 
 function computeCropScore(aggregation: CropAggregation) {
   if (aggregation.imageSimilarity > 0 && aggregation.descriptionSimilarity > 0) {
-    return aggregation.imageSimilarity * 0.82 + aggregation.descriptionSimilarity * 0.18;
+    return Math.min(
+      0.99,
+      aggregation.imageSimilarity + aggregation.descriptionSimilarity * DESCRIPTION_SUPPORT_WEIGHT,
+    );
   }
 
   if (aggregation.imageSimilarity > 0) {
     return aggregation.imageSimilarity;
   }
 
-  return aggregation.descriptionSimilarity * 0.92;
+  return aggregation.descriptionSimilarity * DESCRIPTION_ONLY_WEIGHT;
 }
 
 export async function detectProductFigureBoxes({
@@ -235,16 +241,28 @@ export async function classifyProductImageCrops({
   >();
 
   for (let index = 0; index < embeddings.length; index += 1) {
-    const matches = await queryProductVectorPoints({
+    const imageMatches = await queryProductVectorPoints({
       teamId,
       vector: embeddings[index],
-      limit: PRODUCT_VECTOR_QUERY_LIMIT,
-      scoreThreshold: PRODUCT_VECTOR_SCORE_THRESHOLD,
+      limit: PRODUCT_IMAGE_VECTOR_QUERY_LIMIT,
+      scoreThreshold: PRODUCT_IMAGE_VECTOR_SCORE_THRESHOLD,
+      sourceType: "image",
     });
+    const descriptionMatches = await queryProductVectorPoints({
+      teamId,
+      vector: embeddings[index],
+      limit: PRODUCT_DESCRIPTION_VECTOR_QUERY_LIMIT,
+      sourceType: "description",
+    });
+    const matches = [...imageMatches, ...descriptionMatches];
 
     const cropMatches = new Map<string, CropAggregation>();
 
     for (const match of matches) {
+      if (match.score <= 0) {
+        continue;
+      }
+
       const assetProductId = match.payload?.assetProductId;
       if (!assetProductId || typeof assetProductId !== "string") {
         continue;

@@ -195,13 +195,36 @@ export async function queryIpVectorPoints({
   vector,
   limit,
   scoreThreshold,
+  sourceType,
 }: {
   teamId: number;
   vector: number[];
   limit: number;
   scoreThreshold?: number;
+  sourceType?: IpVectorPayload["sourceType"];
 }) {
   const collectionName = getIpQdrantCollectionName();
+  const filterConditions: QdrantMatchCondition[] = [
+    {
+      key: "teamId",
+      match: { value: teamId },
+    },
+    {
+      key: "enabled",
+      match: { value: true },
+    },
+    {
+      key: "status",
+      match: { value: "completed" },
+    },
+  ];
+
+  if (sourceType) {
+    filterConditions.push({
+      key: "sourceType",
+      match: { value: sourceType },
+    });
+  }
 
   try {
     const result = await qdrantRequest<{ points: QdrantIpQueryPoint[] }>({
@@ -212,20 +235,7 @@ export async function queryIpVectorPoints({
         limit,
         with_payload: true,
         score_threshold: scoreThreshold,
-        filter: buildFilter([
-          {
-            key: "teamId",
-            match: { value: teamId },
-          },
-          {
-            key: "enabled",
-            match: { value: true },
-          },
-          {
-            key: "status",
-            match: { value: "completed" },
-          },
-        ]),
+        filter: buildFilter(filterConditions),
       },
     });
 

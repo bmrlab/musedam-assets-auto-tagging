@@ -4,6 +4,7 @@ import { getJinaConfig } from "@/lib/brand/env";
 import { bufferToDataUrl } from "@/lib/brand/image";
 import { createJinaImageEmbeddings, createJinaTextEmbeddings } from "@/lib/brand/jina";
 import { getCachedSignedOssObjectUrl } from "@/lib/oss";
+import { translateTextToEnglish } from "@/lib/translation/service";
 import prisma from "@/prisma/prisma";
 import { randomUUID } from "crypto";
 import {
@@ -157,7 +158,7 @@ export async function processAssetIpReferenceVectors({
     const normalizedDescription = ip.description.trim();
     const descriptionEmbeddings = normalizedDescription
       ? await createJinaTextEmbeddings({
-          texts: [normalizedDescription],
+          texts: [await translateTextToEnglish(normalizedDescription)],
         })
       : [];
 
