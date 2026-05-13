@@ -22,7 +22,7 @@ import {
   IpPartialMatchPatternName,
 } from "@/lib/ip/match-pattern";
 import { cn } from "@/lib/utils";
-import { Loader2, RotateCcw, X } from "lucide-react";
+import { Loader2, RotateCcw } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { IpDetectionBox } from "./types";
 
@@ -264,32 +264,21 @@ export default function IpPartialFeatureCropDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        showCloseButton={false}
-        className="max-h-[92vh] w-[880px] max-w-[calc(100%-2rem)] gap-0 overflow-hidden rounded-[18px] p-0"
-      >
-        <DialogHeader className="flex h-[72px] flex-row items-center justify-between border-b px-6 py-0">
-          <DialogTitle className="text-[18px] leading-7 font-semibold text-[#151A30]">
+      <DialogContent className="max-h-[95vh] w-[680px] max-w-[calc(100%-2rem)] gap-0 overflow-y-auto rounded-[20px] p-0">
+        <DialogHeader className="h-14 justify-center gap-0 px-5 py-4">
+          <DialogTitle className="text-[16px] leading-6 font-semibold text-[#151A30]">
             {t("dialog.cropTitle")}
           </DialogTitle>
-          <button
-            type="button"
-            onClick={() => onOpenChange(false)}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-[#8F9BB3] hover:bg-[#F7F9FC] hover:text-[#2E3A59]"
-          >
-            <X className="size-5" />
-            <span className="sr-only">{t("dialog.closePreview")}</span>
-          </button>
         </DialogHeader>
 
-        <div className="space-y-4 px-6 py-5">
-          <div className="rounded-[8px] border border-[#598BFF] bg-[#F2F6FF] px-4 py-3 text-[13px] leading-5 text-[#192038]">
+        <div className="space-y-4 px-5 pt-0 pb-3">
+          <div className="rounded-[8px] border border-[#598BFF] bg-[#F2F6FF] px-4 py-3 text-[12px] font-normal leading-[18px] text-[rgba(46,58,89,1)]">
             💡 {t("dialog.cropInstruction")}
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <span className="text-[14px] leading-[22px] text-[#222B45]">
+              <span className="h-[22px] text-[14px] leading-[22px] font-normal text-[#222B45]">
                 {t("dialog.partialFeatureLabel")}
               </span>
               <Select
@@ -297,7 +286,7 @@ export default function IpPartialFeatureCropDialog({
                 onValueChange={(value) => onFeatureChange(value as IpPartialMatchPatternName)}
                 disabled={!image || detecting}
               >
-                <SelectTrigger className="h-8 w-[160px] rounded-[6px] border-[#C5CEE0] text-[14px]">
+                <SelectTrigger className="h-8 w-[160px] rounded-[6px] border border-[#C5CEE0] px-3 py-0 text-[14px] leading-[22px] font-normal">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -309,7 +298,7 @@ export default function IpPartialFeatureCropDialog({
                 </SelectContent>
               </Select>
               {detecting ? (
-                <span className="inline-flex items-center gap-1 text-[12px] text-[#8F9BB3]">
+                <span className="inline-flex items-center gap-1 text-[12px] leading-[16px] font-normal text-[#8F9BB3]">
                   <Loader2 className="size-3.5 animate-spin" />
                   {t("dialog.detectingRecommendation")}
                 </span>
@@ -321,7 +310,7 @@ export default function IpPartialFeatureCropDialog({
               variant="ghost"
               onClick={handleResetRecommendation}
               disabled={!recommendation || detecting}
-              className="h-8 gap-2 px-3 text-[#2E3A59]"
+              className="h-8 gap-2 px-3 text-[14px] leading-[22px] font-normal text-[#2E3A59]"
             >
               <RotateCcw className="size-4" />
               {t("dialog.resetRecommendation")}
@@ -330,100 +319,102 @@ export default function IpPartialFeatureCropDialog({
 
           <div className="flex justify-center overflow-auto rounded-[8px] bg-[#F7F9FC] p-0">
             {image ? (
-              <div className="relative max-h-[62vh] max-w-full select-none overflow-hidden bg-[#EEF3FB]">
-                <img
-                  ref={imageRef}
-                  src={image.previewUrl}
-                  alt={image.name}
-                  className="block max-h-[62vh] max-w-full"
-                  draggable={false}
-                />
-                {boxStyle ? (
-                  <div className="absolute inset-0">
-                    <div
-                      className="absolute left-0 right-0 top-0 bg-black/60"
-                      style={{ height: `${boxStyle.top}%` }}
-                    />
-                    <div
-                      className="absolute left-0 bg-black/60"
-                      style={{
-                        top: `${boxStyle.top}%`,
-                        width: `${boxStyle.left}%`,
-                        height: `${boxStyle.height}%`,
-                      }}
-                    />
-                    <div
-                      className="absolute right-0 bg-black/60"
-                      style={{
-                        top: `${boxStyle.top}%`,
-                        left: `${boxStyle.left + boxStyle.width}%`,
-                        height: `${boxStyle.height}%`,
-                      }}
-                    />
-                    <div
-                      className="absolute bottom-0 left-0 right-0 bg-black/60"
-                      style={{ top: `${boxStyle.top + boxStyle.height}%` }}
-                    />
+              <div className="pb-0.5 pt-5">
+                <div className="relative inline-block max-h-[62vh] max-w-full select-none bg-[#EEF3FB]">
+                  <img
+                    ref={imageRef}
+                    src={image.previewUrl}
+                    alt={image.name}
+                    className="block max-h-[62vh] max-w-full"
+                    draggable={false}
+                  />
+                  {boxStyle ? (
+                    <div className="absolute inset-0">
+                      <div
+                        className="absolute left-0 right-0 top-0 bg-black/60"
+                        style={{ height: `${boxStyle.top}%` }}
+                      />
+                      <div
+                        className="absolute left-0 bg-black/60"
+                        style={{
+                          top: `${boxStyle.top}%`,
+                          width: `${boxStyle.left}%`,
+                          height: `${boxStyle.height}%`,
+                        }}
+                      />
+                      <div
+                        className="absolute right-0 bg-black/60"
+                        style={{
+                          top: `${boxStyle.top}%`,
+                          left: `${boxStyle.left + boxStyle.width}%`,
+                          height: `${boxStyle.height}%`,
+                        }}
+                      />
+                      <div
+                        className="absolute bottom-0 left-0 right-0 bg-black/60"
+                        style={{ top: `${boxStyle.top + boxStyle.height}%` }}
+                      />
 
-                    <div
-                      role="presentation"
-                      className={cn(
-                        "absolute cursor-move border-2",
-                        source === "manual"
-                          ? "border-[#00B887] shadow-[0_0_0_1px_rgba(0,184,135,0.24)]"
-                          : "border-[#3366FF] shadow-[0_0_0_1px_rgba(51,102,255,0.24)]",
-                      )}
-                      style={{
-                        left: `${boxStyle.left}%`,
-                        top: `${boxStyle.top}%`,
-                        width: `${boxStyle.width}%`,
-                        height: `${boxStyle.height}%`,
-                      }}
-                      onPointerDown={(event) => startDrag("move", event)}
-                    >
-                      <span
+                      <div
+                        role="presentation"
                         className={cn(
-                          "absolute left-1 top-0 -translate-y-full rounded-t-[4px] px-2 py-1 text-[12px] leading-4 font-semibold text-white",
-                          source === "manual" ? "bg-[#00B887]" : "bg-[#3366FF]",
+                          "absolute cursor-move border-2",
+                          source === "manual"
+                            ? "border-[#00B887] shadow-[0_0_0_1px_rgba(0,184,135,0.24)]"
+                            : "border-[#3366FF] shadow-[0_0_0_1px_rgba(51,102,255,0.24)]",
                         )}
+                        style={{
+                          left: `${boxStyle.left}%`,
+                          top: `${boxStyle.top}%`,
+                          width: `${boxStyle.width}%`,
+                          height: `${boxStyle.height}%`,
+                        }}
+                        onPointerDown={(event) => startDrag("move", event)}
                       >
-                        {source === "manual"
-                          ? t("dialog.manualAdjusted")
-                          : t("dialog.algorithmRecommended")}
-                      </span>
-                      {(["nw", "ne", "sw", "se"] as DragMode[]).map((mode) => (
                         <span
-                          key={mode}
-                          role="presentation"
                           className={cn(
-                            "absolute h-3 w-3 rounded-[2px] border-2 bg-white",
-                            source === "manual" ? "border-[#00B887]" : "border-[#3366FF]",
-                            mode === "nw" &&
-                              "left-0 top-0 -translate-x-1/2 -translate-y-1/2 cursor-nwse-resize",
-                            mode === "ne" &&
-                              "right-0 top-0 translate-x-1/2 -translate-y-1/2 cursor-nesw-resize",
-                            mode === "sw" &&
-                              "left-0 bottom-0 -translate-x-1/2 translate-y-1/2 cursor-nesw-resize",
-                            mode === "se" &&
-                              "right-0 bottom-0 translate-x-1/2 translate-y-1/2 cursor-nwse-resize",
+                            "absolute left-1 top-0 -translate-y-full rounded-t-[4px] px-2 py-1 text-[12px] leading-4 font-semibold text-white",
+                            source === "manual" ? "bg-[#00B887]" : "bg-[#3366FF]",
                           )}
-                          onPointerDown={(event) => startDrag(mode, event)}
-                        />
-                      ))}
+                        >
+                          {source === "manual"
+                            ? t("dialog.manualAdjusted")
+                            : t("dialog.algorithmRecommended")}
+                        </span>
+                        {(["nw", "ne", "sw", "se"] as DragMode[]).map((mode) => (
+                          <span
+                            key={mode}
+                            role="presentation"
+                            className={cn(
+                              "absolute h-3 w-3 rounded-[2px] border-2 bg-white",
+                              source === "manual" ? "border-[#00B887]" : "border-[#3366FF]",
+                              mode === "nw" &&
+                                "left-0 top-0 -translate-x-1/2 -translate-y-1/2 cursor-nwse-resize",
+                              mode === "ne" &&
+                                "right-0 top-0 translate-x-1/2 -translate-y-1/2 cursor-nesw-resize",
+                              mode === "sw" &&
+                                "left-0 bottom-0 -translate-x-1/2 translate-y-1/2 cursor-nesw-resize",
+                              mode === "se" &&
+                                "right-0 bottom-0 translate-x-1/2 translate-y-1/2 cursor-nwse-resize",
+                            )}
+                            onPointerDown={(event) => startDrag(mode, event)}
+                          />
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ) : null}
+                  ) : null}
+                </div>
               </div>
             ) : null}
           </div>
         </div>
 
-        <DialogFooter className="min-h-16 gap-3 border-t px-6 py-4">
+        <DialogFooter className="min-h-16 gap-[10px] px-5 py-4">
           <Button
             type="button"
             variant="outline"
             onClick={() => onOpenChange(false)}
-            className="h-8 min-w-20 rounded-[6px]"
+            className="h-8 w-20 rounded-[6px] border border-[#C5CEE0] px-3 py-1"
           >
             {t("dialog.cancel")}
           </Button>
@@ -431,7 +422,7 @@ export default function IpPartialFeatureCropDialog({
             type="button"
             onClick={handleConfirm}
             disabled={!image || !box || detecting}
-            className="h-8 min-w-[112px] rounded-[6px] bg-[#3366FF] text-white hover:bg-[#2756e6]"
+            className="h-8 min-w-20 rounded-[6px] border border-[#C5CEE0] px-3 py-1"
           >
             {t("dialog.confirmAndSave")}
           </Button>
