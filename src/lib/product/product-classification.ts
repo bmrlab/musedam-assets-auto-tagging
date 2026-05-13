@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getLogoDetectionServerToken, getLogoDetectionServerUrl } from "@/lib/brand/env";
+import { normalizeDetectionText } from "@/lib/utils";
 import { createJinaImageEmbeddings } from "@/lib/brand/jina";
 import { queryProductVectorPoints } from "@/lib/product/qdrant";
 import prisma from "@/prisma/prisma";
@@ -169,7 +170,12 @@ export async function detectProductFigureBoxes({
 }) {
   const baseUrl = getLogoDetectionServerUrl();
   const token = getLogoDetectionServerToken();
-  const detectionLabelText = await fetchProductDetectionPromptNames(teamId);
+  const detectionLabelText = normalizeDetectionText(
+    await fetchProductDetectionPromptNames(teamId),
+  );
+  if (!detectionLabelText) {
+    throw new Error("Product detection_label_text is empty after normalization");
+  }
   const response = await fetch(`${baseUrl}/object_detection_groundingDINO`, {
     method: "POST",
     headers: {
