@@ -784,7 +784,7 @@ export default function IpLibraryClient({
                             const StatusIcon = statusMeta.icon;
                             const failedReason =
                               getProcessingErrorMessage(ip.processingError) ?? t("unknownError");
-                            const subtitle = ip.description || ip.notes;
+                            const subtitle = (ip.description || ip.notes).trim();
 
                             return (
                               <tr key={ip.id} className="h-[58px] border-b last:border-b-0">
@@ -806,9 +806,25 @@ export default function IpLibraryClient({
                                     }}
                                   />
                                 </td>
-                                <td className="h-[58px] px-4 pt-3 pb-2 align-top">
-                                  <div className="flex items-start gap-3">
-                                    <div className="h-[30px] w-[30px] self-center overflow-hidden rounded-[4px] bg-basic-2">
+                                <td
+                                  className={
+                                    subtitle
+                                      ? "h-[58px] px-4 pt-3 pb-2 align-top"
+                                      : "h-[58px] px-4 py-0 align-middle"
+                                  }
+                                >
+                                  <div
+                                    className={
+                                      subtitle ? "flex items-start gap-3" : "flex items-center gap-3"
+                                    }
+                                  >
+                                    <div
+                                      className={
+                                        subtitle
+                                          ? "h-[30px] w-[30px] self-center overflow-hidden rounded-[4px] bg-basic-2"
+                                          : "h-[30px] w-[30px] overflow-hidden rounded-[4px] bg-basic-2"
+                                      }
+                                    >
                                       {ip.images[0] ? (
                                         <IpImageHoverCard
                                           image={ip.images[0]}
