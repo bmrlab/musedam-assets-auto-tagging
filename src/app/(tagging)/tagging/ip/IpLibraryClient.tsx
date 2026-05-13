@@ -29,11 +29,13 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
+  BoxSelect,
   Check,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Clock3,
+  ImageIcon,
   LoaderCircle,
   MoreHorizontal,
   X,
@@ -815,7 +817,9 @@ export default function IpLibraryClient({
                                 >
                                   <div
                                     className={
-                                      subtitle ? "flex items-start gap-3" : "flex items-center gap-3"
+                                      subtitle
+                                        ? "flex items-start gap-3"
+                                        : "flex items-center gap-3"
                                     }
                                   >
                                     <div
@@ -860,7 +864,25 @@ export default function IpLibraryClient({
                                   </div>
                                 </td>
                                 <td className="h-[58px] px-4 py-0 align-middle text-[14px] text-basic-8">
-                                  {ip.ipTypeName}
+                                  <div className="space-y-2">
+                                    <div>{ip.ipTypeName}</div>
+                                    <span
+                                      className={`inline-flex h-[22px] items-center gap-1 rounded-[4px] border px-[6px] py-[3px] text-[12px] leading-[16px] ${
+                                        ip.matchPattern === "partial"
+                                          ? "border-[#ADC8FF] bg-[#F2F6FF] text-[#3366FF]"
+                                          : "border-[#E4E9F2] bg-[#F7F9FC] text-[#8F9BB3]"
+                                      }`}
+                                    >
+                                      {ip.matchPattern === "partial" ? (
+                                        <BoxSelect className="size-3.5" />
+                                      ) : (
+                                        <ImageIcon className="size-3.5" />
+                                      )}
+                                      {ip.matchPattern === "partial"
+                                        ? t("matchPatternPartial")
+                                        : t("matchPatternWhole")}
+                                    </span>
+                                  </div>
                                 </td>
                                 <td className="h-[58px] px-4 py-0 align-middle">
                                   <IpImagesCell ip={ip} t={t} />

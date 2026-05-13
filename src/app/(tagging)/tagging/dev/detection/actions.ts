@@ -85,7 +85,6 @@ export async function detectLogoBoxesAction(
         teamId,
         imageUrl: signedUrl,
         detectionLabelText,
-        rawDetectionLabelText: true,
       });
 
       return {
