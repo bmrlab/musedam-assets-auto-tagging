@@ -1,6 +1,7 @@
 "use server";
 
 import { withAuth } from "@/app/(auth)/withAuth";
+import { fetchLogoDetectionLabelText } from "@/lib/brand/logo-detection-prompt";
 import {
   BrandDetectionBox,
   classifyBrandImageCrops,
@@ -276,40 +277,6 @@ async function fetchBrandLogos(teamId: number) {
   });
 
   return logos.map((logo) => normalizeBrandLogo(logo));
-}
-
-const DEFAULT_LOGO_DETECTION_PROMPT = "logo . brand logo . emblem . trademark . label";
-
-function buildLogoDetectionPromptName(name: string, logoTypeName: string) {
-  const trimmedName = name.trim();
-  const trimmedTypeName = logoTypeName.trim();
-  return trimmedName;
-}
-
-async function fetchLogoDetectionPromptNames(teamId: number) {
-  const logos = await prisma.assetLogo.findMany({
-    where: {
-      teamId,
-      enabled: true,
-      status: "completed",
-    },
-    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-    select: {
-      name: true,
-      logoTypeName: true,
-    },
-  });
-
-  const promptNames = Array.from(
-    new Set(
-      logos
-        .map((logo) => buildLogoDetectionPromptName(logo.name, logo.logoTypeName))
-        .map((name) => name.trim())
-        .filter(Boolean),
-    ),
-  );
-
-  return [DEFAULT_LOGO_DETECTION_PROMPT, ...promptNames].join(" . ");
 }
 
 async function resolveLogoType(teamId: number, logoTypeId: string) {
@@ -1220,7 +1187,7 @@ export async function prepareBrandClassificationAction(
         objectKey,
         expiresInSeconds: 60 * 60,
       });
-      const detectionLabelText = await fetchLogoDetectionPromptNames(teamId);
+      const detectionLabelText = await fetchLogoDetectionLabelText(teamId);
       const detection = await detectBrandLogoBoxes({
         teamId,
         imageUrl: signedUrl,

@@ -80,3 +80,28 @@ export async function translateTextToEnglish(input: string) {
 
   return translatedText;
 }
+
+/** Each unique term is translated via `translateTextToEnglish` for Grounding DINO labels. */
+export async function translateDetectionTermsToEnglish(orderedTerms: string[]): Promise<string[]> {
+  const keys = orderedTerms.map((term) => term.trim()).filter(Boolean);
+  if (keys.length === 0) {
+    return [];
+  }
+
+  const unique = [...new Set(keys)];
+  const translatedByTerm = new Map<string, string>();
+
+  await Promise.all(
+    unique.map(async (term) => {
+      try {
+        const translated = (await translateTextToEnglish(term)).trim();
+        translatedByTerm.set(term, translated || term);
+      } catch (error) {
+        console.error("translateDetectionTermsToEnglish failed for term:", term, error);
+        translatedByTerm.set(term, term);
+      }
+    }),
+  );
+
+  return keys.map((term) => translatedByTerm.get(term) ?? term);
+}
