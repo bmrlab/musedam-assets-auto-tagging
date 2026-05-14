@@ -1,6 +1,7 @@
 import "server-only";
 
 import { classifyBrandImageCrops, detectBrandLogoBoxes } from "@/lib/brand/logo-classification";
+import { fetchLogoDetectionLabelText } from "@/lib/brand/logo-detection-prompt";
 import {
   clampBox,
   cropImageToDataUrl,
@@ -10,37 +11,6 @@ import {
 } from "@/lib/tagging/classification-image";
 import { TaggingBrandRecommendation } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
-
-const DEFAULT_LOGO_DETECTION_PROMPT = "logo . brand logo . emblem . trademark . label";
-
-function buildLogoDetectionPromptName(name: string) {
-  return name.trim();
-}
-
-async function fetchLogoDetectionPromptNames(teamId: number) {
-  const logos = await prisma.assetLogo.findMany({
-    where: {
-      teamId,
-      enabled: true,
-      status: "completed",
-    },
-    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-    select: {
-      name: true,
-    },
-  });
-
-  const promptNames = Array.from(
-    new Set(
-      logos
-        .map((logo) => buildLogoDetectionPromptName(logo.name))
-        .map((name) => name.trim())
-        .filter(Boolean),
-    ),
-  );
-
-  return [DEFAULT_LOGO_DETECTION_PROMPT, ...promptNames].join(" . ");
-}
 
 export async function classifyAssetBrandRecommendation({
   teamId,
@@ -54,7 +24,7 @@ export async function classifyAssetBrandRecommendation({
   }
 
   // get detection boxes
-  const detectionLabelText = await fetchLogoDetectionPromptNames(teamId);
+  const detectionLabelText = await fetchLogoDetectionLabelText(teamId);
   const imageInput = await fetchRemoteImageInput(imageUrl, "brand classification");
   const detection = await detectBrandLogoBoxes({
     teamId,

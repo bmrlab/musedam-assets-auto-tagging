@@ -3,6 +3,7 @@ import "server-only";
 import { getLogoDetectionServerToken, getLogoDetectionServerUrl } from "@/lib/brand/env";
 import { createJinaImageEmbeddings } from "@/lib/brand/jina";
 import { queryIpVectorPoints } from "@/lib/ip/qdrant";
+import { translateDetectionTermsToEnglish } from "@/lib/translation/service";
 import { normalizeDetectionText } from "@/lib/utils";
 import prisma from "@/prisma/prisma";
 import { DEFAULT_IP_PARTIAL_MATCH_PATTERN_NAME } from "./match-pattern";
@@ -146,14 +147,16 @@ async function fetchIpDetectionPromptNames(teamId: number) {
         .filter(Boolean),
     ),
   );
-  console.log(
-    "final prompt = ",
-    [DEFAULT_IP_DETECTION_PROMPT, ...promptNames, ...partialPatternNames].join(" . "),
-  );
-  console.log("prompt names = ", promptNames);
-  console.log("partial pattern names = ", partialPatternNames);
 
-  return [DEFAULT_IP_DETECTION_PROMPT, ...promptNames, ...partialPatternNames].join(" . ");
+  const translatedPromptNames = (
+    await translateDetectionTermsToEnglish(promptNames)
+  )
+    .map((value) => normalizeDetectionPromptTerm(value))
+    .filter(Boolean);
+
+  return [...partialPatternNames, DEFAULT_IP_DETECTION_PROMPT, ...translatedPromptNames].join(
+    " . ",
+  );
 }
 
 type CropAggregation = {
