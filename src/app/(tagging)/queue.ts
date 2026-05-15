@@ -8,7 +8,8 @@ import { classifyAssetPersonRecommendation } from "@/lib/person/tagging-person-c
 import { classifyAssetProductRecommendation } from "@/lib/product/tagging-product-classification";
 import { idToSlug, slugToId } from "@/lib/slug";
 import { retrieveTeamCredentials } from "@/musedam/apiKey";
-import { setAssetTagsToMuseDAM } from "@/musedam/assets";
+import { bindFeatureIdentifiersToMuseDAMMaterial, setAssetTagsToMuseDAM } from "@/musedam/assets";
+import { collectMuseFeatureIdentifierIdsForQueueItem } from "@/musedam/collect-muse-feature-identifier-ids";
 import { requestMuseDAMAPI } from "@/musedam/lib";
 import { MuseDAMID } from "@/musedam/types";
 import {
@@ -410,6 +411,35 @@ export async function processQueueItem({
             append: true,
           });
           logger.info({ msg: "Direct mode: tags set to MuseDAM successfully" });
+
+          const approvedTagSet = new Set(combinedLeafTagIds);
+          const brandTagIdsForBind = (brandRecommendation?.recommendedTags ?? [])
+            .map((t) => t.assetTagId)
+            .filter((id) => approvedTagSet.has(id));
+          const ipTagIdsForBind = (ipRecommendation?.recommendedTags ?? [])
+            .map((t) => t.assetTagId)
+            .filter((id) => approvedTagSet.has(id));
+          const productTagIdsForBind = (productRecommendation?.recommendedTags ?? [])
+            .map((t) => t.assetTagId)
+            .filter((id) => approvedTagSet.has(id));
+          const personTagIdsForBind = (personRecommendation?.recommendedTags ?? [])
+            .map((t) => t.assetTagId)
+            .filter((id) => approvedTagSet.has(id));
+
+          await bindFeatureIdentifiersToMuseDAMMaterial({
+            team,
+            musedamAssetId,
+            identifierIds: collectMuseFeatureIdentifierIdsForQueueItem({
+              brandRecommendation: brandRecommendation ?? undefined,
+              ipRecommendation: ipRecommendation ?? undefined,
+              productRecommendation: productRecommendation ?? undefined,
+              personRecommendation: personRecommendation ?? undefined,
+              brandTagIds: brandTagIdsForBind,
+              ipTagIds: ipTagIdsForBind,
+              productTagIds: productTagIdsForBind,
+              personTagIds: personTagIdsForBind,
+            }),
+          });
 
           // 从 MuseDAM 获取更新后的素材标签并同步到本地数据库
           const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });

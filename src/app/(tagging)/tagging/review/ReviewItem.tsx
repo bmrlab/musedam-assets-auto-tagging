@@ -23,6 +23,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { dispatchMuseDAMClientAction } from "@/embed/message";
 import { slugToId } from "@/lib/slug";
+import { collectMuseFeatureIdentifierIdsForQueueItem } from "@/musedam/collect-muse-feature-identifier-ids";
 import { cn, formatSize } from "@/lib/utils";
 import { AssetObjectExtra, AssetObjectTags, TaggingAuditStatus } from "@/prisma/client";
 import { CheckIcon, DotIcon, Loader2Icon, StarIcon, XIcon } from "lucide-react";
@@ -319,6 +320,52 @@ export function ReviewItem({
     [productRecommendationsByQueueId, rejectedProductItems],
   );
 
+  const museFeatureIdentifierIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const { queueItem } of finalBatch) {
+      const br = brandRecommendationsByQueueId.get(queueItem.id);
+      const ir = ipRecommendationsByQueueId.get(queueItem.id);
+      const pr = productRecommendationsByQueueId.get(queueItem.id);
+      const per = personRecommendationsByQueueId.get(queueItem.id);
+
+      const brandTagIdsForQueue =
+        br?.recommendedTags?.map((t) => t.assetTagId).filter((id) => !rejectedBrandItems.includes(id)) ??
+        [];
+      const ipTagIdsForQueue =
+        ir?.recommendedTags?.map((t) => t.assetTagId).filter((id) => !rejectedIpItems.includes(id)) ?? [];
+      const productTagIdsForQueue =
+        pr?.recommendedTags?.map((t) => t.assetTagId).filter((id) => !rejectedProductItems.includes(id)) ??
+        [];
+      const personTagIdsForQueue =
+        per?.recommendedTags?.map((t) => t.assetTagId).filter((id) => !rejectedPersonItems.includes(id)) ??
+        [];
+
+      for (const id of collectMuseFeatureIdentifierIdsForQueueItem({
+        brandRecommendation: br ?? undefined,
+        ipRecommendation: ir ?? undefined,
+        productRecommendation: pr ?? undefined,
+        personRecommendation: per ?? undefined,
+        brandTagIds: brandTagIdsForQueue,
+        ipTagIds: ipTagIdsForQueue,
+        productTagIds: productTagIdsForQueue,
+        personTagIds: personTagIdsForQueue,
+      })) {
+        ids.add(id);
+      }
+    }
+    return [...ids];
+  }, [
+    finalBatch,
+    brandRecommendationsByQueueId,
+    ipRecommendationsByQueueId,
+    productRecommendationsByQueueId,
+    personRecommendationsByQueueId,
+    rejectedBrandItems,
+    rejectedIpItems,
+    rejectedProductItems,
+    rejectedPersonItems,
+  ]);
+
   const hasPendingAuditItems = useMemo(
     () => Array.from(auditItemsSet).some((auditItem) => auditItem.status === "pending"),
     [auditItemsSet],
@@ -366,6 +413,7 @@ export function ReviewItem({
           ipTagIds,
           productTagIds,
           personTagIds,
+          museFeatureIdentifierIds,
           append,
         });
 
@@ -401,6 +449,7 @@ export function ReviewItem({
       brandTagIds,
       filteredOutAuditItems,
       ipTagIds,
+      museFeatureIdentifierIds,
       onSuccess,
       personTagIds,
       productTagIds,

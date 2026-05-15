@@ -14,6 +14,7 @@ import {
 import { deleteLogoVectorPointsByLogo, setLogoVectorPayloadByLogo } from "@/lib/brand/qdrant";
 import { buildAssetLogoObjectKey, getCachedSignedOssObjectUrl, uploadOssObject } from "@/lib/oss";
 import { ServerActionResult } from "@/lib/serverAction";
+import { schedulePushFeatureToMuseDAM } from "@/musedam/push-feature-to-musedam";
 import {
   AssetLogo,
   AssetLogoImage,
@@ -766,6 +767,16 @@ export async function createAssetLogoAction(
 
       const logo = await loadBrandLogo(team.id, createdLogo.id);
       scheduleAssetLogoProcessing(team.id, createdLogo.id);
+      schedulePushFeatureToMuseDAM({
+        team,
+        featureType: "brand",
+        identifierId: logo.id,
+        identifierName: logo.name,
+        identifierTypeId: logoType.id,
+        identifierTypeName: logoType.name,
+        firstImageObjectKey: logo.images[0]?.objectKey,
+        internalAssetTagIds: input.tagIds,
+      });
 
       return {
         success: true,
@@ -949,6 +960,16 @@ export async function updateAssetLogoAction(
 
       const updatedLogo = await loadBrandLogo(team.id, logo.id);
       scheduleAssetLogoProcessing(team.id, logo.id);
+      schedulePushFeatureToMuseDAM({
+        team,
+        featureType: "brand",
+        identifierId: updatedLogo.id,
+        identifierName: updatedLogo.name,
+        identifierTypeId: logoType.id,
+        identifierTypeName: logoType.name,
+        firstImageObjectKey: updatedLogo.images[0]?.objectKey,
+        internalAssetTagIds: input.tagIds,
+      });
 
       return {
         success: true,
