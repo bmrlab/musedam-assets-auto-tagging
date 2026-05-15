@@ -85,6 +85,11 @@ export function getOssObjectUrl(objectKey: string) {
   return buildObjectUrl(getRequiredEnv("OSS_DOMAIN"), objectKey);
 }
 
+/** Public object URL on the CDN origin (uses OSS_CDN_URL, not OSS_DOMAIN). */
+export function getCDNUrl(objectKey: string) {
+  return buildObjectUrl(getRequiredEnv("OSS_CDN_URL"), objectKey);
+}
+
 export function signOssObjectUrl({
   objectKey,
   expiresInSeconds = DEFAULT_OSS_SIGNED_URL_TTL_SECONDS,
@@ -167,4 +172,39 @@ export async function uploadOssObject({ body, contentType, objectKey }: UploadOs
   return {
     objectKey,
   };
+}
+
+/**
+ * Sets the object ACL to public-read so the object URL is readable without signing.
+ * Uses OSS PutObjectACL (PUT ?acl) with the same V1 header signature as uploads.
+ */
+export async function setOssObjectAclPublicRead({ objectKey }: { objectKey: string }): Promise<void> {
+  const domain = getRequiredEnv("OSS_DOMAIN");
+  const bucketName = getRequiredEnv("OSS_BUCKET_NAME");
+  const accessKey = getRequiredEnv("OSS_ACCESS_KEY");
+  const secretKey = getRequiredEnv("OSS_SECRET_KEY");
+
+  const date = new Date().toUTCString();
+  const aclValue = "public-read";
+  const aclHeader = "x-oss-object-acl";
+  const canonicalizedOssHeaders = `${aclHeader}:${aclValue}\n`;
+  const canonicalResource = `/${bucketName}/${objectKey}?acl`;
+  const stringToSign = `PUT\n\n\n${date}\n${canonicalizedOssHeaders}${canonicalResource}`;
+  const signature = createHmac("sha1", secretKey).update(stringToSign).digest("base64");
+  const url = `${buildObjectUrl(domain, objectKey)}?acl`;
+
+  const response = await fetch(url, {
+    method: "PUT",
+    headers: {
+      Authorization: `OSS ${accessKey}:${signature}`,
+      Date: date,
+      [aclHeader]: aclValue,
+      "Content-Length": "0",
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => "");
+    throw new Error(`OSS PutObjectACL failed (${response.status}): ${errorText || "unknown error"}`);
+  }
 }

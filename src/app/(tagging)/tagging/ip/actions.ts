@@ -19,6 +19,7 @@ import {
 import { deleteIpVectorPointsByIp, setIpVectorPayloadByIp } from "@/lib/ip/qdrant";
 import { buildAssetIpObjectKey, getCachedSignedOssObjectUrl, uploadOssObject } from "@/lib/oss";
 import { ServerActionResult } from "@/lib/serverAction";
+import { schedulePushFeatureToMuseDAM } from "@/musedam/push-feature-to-musedam";
 import { fetchRemoteImageInput, getFallbackBox } from "@/lib/tagging/classification-image";
 import { AssetIp, AssetIpImage, AssetIpTag, AssetIpType, AssetTag } from "@/prisma/client/index";
 import prisma from "@/prisma/prisma";
@@ -1180,6 +1181,16 @@ export async function createAssetIpAction(
 
       const ip = await loadIp(team.id, createdIp.id);
       scheduleAssetIpProcessing(team.id, createdIp.id);
+      schedulePushFeatureToMuseDAM({
+        team,
+        featureType: "ip",
+        identifierId: ip.id,
+        identifierName: ip.name,
+        identifierTypeId: ipType.id,
+        identifierTypeName: ipType.name,
+        firstImageObjectKey: ip.images[0]?.objectKey,
+        internalAssetTagIds: input.tagIds,
+      });
 
       return {
         success: true,
@@ -1377,6 +1388,16 @@ export async function updateAssetIpAction(
 
       const updatedIp = await loadIp(team.id, ip.id);
       scheduleAssetIpProcessing(team.id, ip.id);
+      schedulePushFeatureToMuseDAM({
+        team,
+        featureType: "ip",
+        identifierId: updatedIp.id,
+        identifierName: updatedIp.name,
+        identifierTypeId: ipType.id,
+        identifierTypeName: ipType.name,
+        firstImageObjectKey: updatedIp.images[0]?.objectKey,
+        internalAssetTagIds: input.tagIds,
+      });
 
       return {
         success: true,

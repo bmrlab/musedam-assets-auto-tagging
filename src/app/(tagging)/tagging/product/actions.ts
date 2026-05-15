@@ -13,6 +13,7 @@ import {
 import { deleteProductVectorPointsByProduct, setProductVectorPayloadByProduct } from "@/lib/product/qdrant";
 import { buildAssetProductObjectKey, getCachedSignedOssObjectUrl, uploadOssObject } from "@/lib/oss";
 import { ServerActionResult } from "@/lib/serverAction";
+import { schedulePushFeatureToMuseDAM } from "@/musedam/push-feature-to-musedam";
 import { AssetProduct, AssetProductImage, AssetProductTag, AssetProductType, AssetTag } from "@/prisma/client/index";
 import prisma from "@/prisma/prisma";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -865,6 +866,16 @@ export async function createAssetProductAction(
 
       const product = await loadProduct(team.id, createdProduct.id);
       scheduleAssetProductProcessing(team.id, createdProduct.id);
+      schedulePushFeatureToMuseDAM({
+        team,
+        featureType: "product",
+        identifierId: product.id,
+        identifierName: product.name,
+        identifierTypeId: productType.id,
+        identifierTypeName: productType.name,
+        firstImageObjectKey: product.images[0]?.objectKey,
+        internalAssetTagIds: input.tagIds,
+      });
 
       return {
         success: true,
@@ -1048,6 +1059,16 @@ export async function updateAssetProductAction(
 
       const updatedProduct = await loadProduct(team.id, product.id);
       scheduleAssetProductProcessing(team.id, product.id);
+      schedulePushFeatureToMuseDAM({
+        team,
+        featureType: "product",
+        identifierId: updatedProduct.id,
+        identifierName: updatedProduct.name,
+        identifierTypeId: productType.id,
+        identifierTypeName: productType.name,
+        firstImageObjectKey: updatedProduct.images[0]?.objectKey,
+        internalAssetTagIds: input.tagIds,
+      });
 
       return {
         success: true,

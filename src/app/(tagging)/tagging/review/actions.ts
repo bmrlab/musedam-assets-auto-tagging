@@ -1,17 +1,25 @@
 "use server";
 import { withAuth } from "@/app/(auth)/withAuth";
-import { getBrandRecommendationTagIdsFromQueueResult } from "@/app/(tagging)/brand-recommendation";
+import {
+  getBrandRecommendationFromQueueResult,
+  getBrandRecommendationTagIdsFromQueueResult,
+} from "@/app/(tagging)/brand-recommendation";
+import { getIpRecommendationFromQueueResult } from "@/app/(tagging)/ip-recommendation";
 import { getIpRecommendationTagIdsFromQueueResult } from "@/app/(tagging)/ip-recommendation";
+import { getPersonRecommendationFromQueueResult } from "@/app/(tagging)/person-recommendation";
 import { getPersonRecommendationTagIdsFromQueueResult } from "@/app/(tagging)/person-recommendation";
+import { getProductRecommendationFromQueueResult } from "@/app/(tagging)/product-recommendation";
 import { getProductRecommendationTagIdsFromQueueResult } from "@/app/(tagging)/product-recommendation";
 import { ServerActionResult } from "@/lib/serverAction";
 import { idToSlug, slugToId } from "@/lib/slug";
 import { retrieveTeamCredentials } from "@/musedam/apiKey";
 import {
   batchSyncAssetThumbnails,
+  bindFeatureIdentifiersToMuseDAMMaterial,
   setAssetTagsToMuseDAM,
   syncSingleAssetFromMuseDAM,
 } from "@/musedam/assets";
+import { collectMuseFeatureIdentifierIdsForQueueItem } from "@/musedam/collect-muse-feature-identifier-ids";
 import { requestMuseDAMAPI } from "@/musedam/lib";
 import { MuseDAMID } from "@/musedam/types";
 import {
@@ -328,6 +336,7 @@ export async function approveAuditItemsAction({
   ipTagIds = [],
   productTagIds = [],
   personTagIds = [],
+  museFeatureIdentifierIds = [],
   append = true,
 }: {
   assetSlug: string;
@@ -340,6 +349,7 @@ export async function approveAuditItemsAction({
   ipTagIds?: number[];
   productTagIds?: number[];
   personTagIds?: number[];
+  museFeatureIdentifierIds?: string[];
   append?: boolean;
 }): Promise<ServerActionResult<void>> {
   return withAuth(async ({ team: { id: teamId } }) => {
@@ -389,6 +399,12 @@ export async function approveAuditItemsAction({
       musedamTagIds,
       team,
       append,
+    });
+
+    await bindFeatureIdentifiersToMuseDAMMaterial({
+      team,
+      musedamAssetId,
+      identifierIds: museFeatureIdentifierIds,
     });
 
     // 从 MuseDAM 获取更新后的素材标签并同步到本地数据库
@@ -685,8 +701,58 @@ export async function batchApproveAuditItemsAction({
             team,
             append,
           });
+
+          const museFeatureIdentifierIds = new Set<string>();
+          for (const group of finalGroups) {
+            const { result } = group.queueItem;
+            const brandTagIdsForGroup = getBrandRecommendationTagIdsFromQueueResult(result);
+            const ipTagIdsForGroup = getIpRecommendationTagIdsFromQueueResult(result);
+            const productTagIdsForGroup = getProductRecommendationTagIdsFromQueueResult(result);
+            const personTagIdsForGroup = getPersonRecommendationTagIdsFromQueueResult(result);
+            for (const id of collectMuseFeatureIdentifierIdsForQueueItem({
+              brandRecommendation: getBrandRecommendationFromQueueResult(result),
+              ipRecommendation: getIpRecommendationFromQueueResult(result),
+              productRecommendation: getProductRecommendationFromQueueResult(result),
+              personRecommendation: getPersonRecommendationFromQueueResult(result),
+              brandTagIds: brandTagIdsForGroup,
+              ipTagIds: ipTagIdsForGroup,
+              productTagIds: productTagIdsForGroup,
+              personTagIds: personTagIdsForGroup,
+            })) {
+              museFeatureIdentifierIds.add(id);
+            }
+          }
+          await bindFeatureIdentifiersToMuseDAMMaterial({
+            team,
+            musedamAssetId,
+            identifierIds: [...museFeatureIdentifierIds],
+          });
+
+          // 从 MuseDAM 获取更新后的素材标签并同步到本地数据库
+          const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
+          const assets = await requestMuseDAMAPI<{ id: MuseDAMID }[]>("/api/muse/assets-by-ids", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${musedamTeamApiKey}`,
+            },
+            body: [musedamAssetId],
+          });
+
+          if (assets && assets.length > 0) {
+            const musedamAsset = assets[0] as {
+              id: MuseDAMID;
+              tags: { id: MuseDAMID; name: string }[] | null;
+            };
+            const tags = await buildAssetObjectTags(musedamAsset.tags ?? []);
+
+            // 更新本地素材的 tags 字段
+            await prisma.assetObject.update({
+              where: { id: assetObject.id },
+              data: { tags },
+            });
+          }
         } catch (error) {
-          console.error("设置素材标签失败:", error);
+          console.error("设置素材标签或绑定素材特征失败:", error);
           failedCount++;
           continue;
         }

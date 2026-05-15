@@ -2,7 +2,12 @@ import { idToSlug } from "@/lib/slug";
 import { AssetObjectTags } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 import { retrieveTeamCredentials } from "./apiKey";
+import type {
+  MuseDAMBindFeatureMaterialInputBody,
+  MuseDAMBindFeatureMaterialOutput,
+} from "./bind-feature-material-types";
 import { requestMuseDAMAPI } from "./lib";
+import type { SaveFeatureToMuseDAMInput, SaveFeatureToMuseDAMOutput } from "./save-feature-types";
 import { MuseDAMID } from "./types";
 
 /**
@@ -84,6 +89,28 @@ async function fetchContentAnalysisFromMuseDAM({
     body: [musedamAssetId],
   });
   return result[musedamAssetId.toString()];
+}
+
+/**
+ * Push feature metadata to MuseDAM after the user finishes adding or updating a feature.
+ */
+export async function saveFeatureToMuseDAM({
+  team,
+  ...body
+}: {
+  team: {
+    id: number;
+    slug: string;
+  };
+} & SaveFeatureToMuseDAMInput): Promise<SaveFeatureToMuseDAMOutput> {
+  const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
+  return requestMuseDAMAPI<SaveFeatureToMuseDAMOutput>("/api/muse/save-feature", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${musedamTeamApiKey}`,
+    },
+    body,
+  });
 }
 
 // build AssetObjectTags from tags response from musedam
@@ -271,6 +298,8 @@ export async function setAssetTagsToMuseDAM({
     slug: string;
   };
 }) {
+  // console.log("setTag musedamAssetId = ", musedamAssetId);
+  // console.log("setTag musedamTagIds = ", musedamTagIds);
   const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
   const result = await requestMuseDAMAPI("/api/muse/set-assets-tags", {
     method: "POST",
@@ -286,7 +315,62 @@ export async function setAssetTagsToMuseDAM({
   return result;
 }
 
-// setting-assets-tags
+export async function bindFeatureMaterialToMuseDAM({
+  team,
+  identifierId,
+  materialId,
+}: {
+  team: {
+    id: number;
+    slug: string;
+  };
+  identifierId: string;
+  materialId: number;
+}): Promise<MuseDAMBindFeatureMaterialOutput> {
+  const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
+  const body: MuseDAMBindFeatureMaterialInputBody = { identifierId, materialId };
+  return requestMuseDAMAPI<MuseDAMBindFeatureMaterialOutput>("/api/muse/bind-feature-material", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${musedamTeamApiKey}`,
+    },
+    body,
+  });
+}
+
+/**
+ * Best-effort: bind each feature id to the MuseDAM material. Failures are logged and do not throw.
+ */
+export async function bindFeatureIdentifiersToMuseDAMMaterial({
+  team,
+  musedamAssetId,
+  identifierIds,
+}: {
+  team: {
+    id: number;
+    slug: string;
+  };
+  musedamAssetId: MuseDAMID;
+  identifierIds: string[];
+}): Promise<void> {
+  const materialId = Number(musedamAssetId.toString());
+  const unique = [...new Set(identifierIds.filter((id) => id.length > 0))];
+  if (unique.length === 0) {
+    return;
+  }
+  // console.log("musedamAssetId = ", musedamAssetId);
+  // console.log("identifierIds = ", identifierIds);
+  for (const identifierId of unique) {
+    try {
+      await bindFeatureMaterialToMuseDAM({ team, identifierId, materialId });
+    } catch (error) {
+      console.warn("[MuseDAM] bind-feature-material failed (non-blocking):", {
+        identifierId,
+        error,
+      });
+    }
+  }
+}
 
 /**
  * For testing purposes.

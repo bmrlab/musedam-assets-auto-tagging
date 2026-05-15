@@ -17,6 +17,7 @@ import {
 } from "@/lib/person/qdrant";
 import { buildAssetPersonObjectKey, getCachedSignedOssObjectUrl, uploadOssObject } from "@/lib/oss";
 import { ServerActionResult } from "@/lib/serverAction";
+import { schedulePushFeatureToMuseDAM } from "@/musedam/push-feature-to-musedam";
 import {
   AssetPerson,
   AssetPersonImage,
@@ -965,6 +966,16 @@ export async function createAssetPersonAction(
 
       const person = await loadPerson(team.id, createdPerson.id);
       scheduleAssetPersonProcessing(team.id, createdPerson.id);
+      schedulePushFeatureToMuseDAM({
+        team,
+        featureType: "person",
+        identifierId: person.id,
+        identifierName: person.name,
+        identifierTypeId: personType.id,
+        identifierTypeName: personType.name,
+        firstImageObjectKey: person.images[0]?.objectKey,
+        internalAssetTagIds: input.tagIds,
+      });
 
       return {
         success: true,
@@ -1153,6 +1164,16 @@ export async function updateAssetPersonAction(
 
       const updatedPerson = await loadPerson(team.id, person.id);
       scheduleAssetPersonProcessing(team.id, person.id);
+      schedulePushFeatureToMuseDAM({
+        team,
+        featureType: "person",
+        identifierId: updatedPerson.id,
+        identifierName: updatedPerson.name,
+        identifierTypeId: personType.id,
+        identifierTypeName: personType.name,
+        firstImageObjectKey: updatedPerson.images[0]?.objectKey,
+        internalAssetTagIds: input.tagIds,
+      });
 
       return {
         success: true,
