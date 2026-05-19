@@ -50,10 +50,11 @@ import {
   retryAssetLogoProcessingAction,
   setAssetLogoEnabledAction,
 } from "./actions";
+import BrandBatchImportExportDialog from "./BrandBatchImportExportDialog";
 import BrandImageHoverCard from "./BrandImageHoverCard";
 import BrandLogoDialog from "./BrandLogoDialog";
 import SignedBrandImage from "./SignedBrandImage";
-import { BrandLibraryPageData, BrandLogoItem } from "./types";
+import { BrandLibraryPageData, BrandLogoBatchImportResult, BrandLogoItem } from "./types";
 
 export const MAX_PREVIEW_IMAGE_NUM = 10;
 
@@ -172,6 +173,7 @@ export default function BrandLibraryClient({
   const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
   const [batchEnableOpen, setBatchEnableOpen] = useState(false);
   const [batchDisableOpen, setBatchDisableOpen] = useState(false);
+  const [batchImportExportOpen, setBatchImportExportOpen] = useState(false);
   const [pendingLogoIds, setPendingLogoIds] = useState<string[]>([]);
   const [isPending, startTransition] = useTransition();
   const deferredSearch = useDeferredValue(search.trim().toLowerCase());
@@ -325,6 +327,13 @@ export default function BrandLibraryClient({
     updateLogoInList(logo);
     setDialogOpen(false);
     setActiveLogo(null);
+  }
+
+  function handleBatchImported(result: BrandLogoBatchImportResult) {
+    if (result.createdLogos.length > 0) {
+      setLogos((current) => [...result.createdLogos, ...current]);
+    }
+    setLogoTypes(result.logoTypes);
   }
 
   function handleOpenCreate() {
@@ -583,9 +592,22 @@ export default function BrandLibraryClient({
               type="button"
               variant="outline"
               className="h-8 gap-1 rounded-[6px] border border-[#C5CEE0] bg-[#FFFFFF] px-3 py-1 text-[14px] leading-[22px] font-normal text-[#101426]"
-              disabled
+              onClick={() => setBatchImportExportOpen(true)}
             >
-              <Image src="/Icon/export.svg" alt="" width={14} height={14} />
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 14 14"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className="shrink-0"
+                aria-hidden
+              >
+                <path
+                  d="M2.21875 8.78638C2.28738 8.78652 2.34375 8.84272 2.34375 8.91138V11.3176H11.6562V8.91138C11.6562 8.84263 11.7125 8.78638 11.7812 8.78638H12.7188C12.7874 8.78652 12.8438 8.84272 12.8438 8.91138V12.0051C12.8437 12.2816 12.6202 12.505 12.3438 12.5051H1.65625C1.3797 12.5051 1.15627 12.2817 1.15625 12.0051V8.91138C1.15625 8.84263 1.2125 8.78638 1.28125 8.78638H2.21875ZM7.05469 1.51685C7.07164 1.52515 7.087 1.53714 7.09863 1.552L8.84863 3.76782C8.91217 3.849 8.85436 3.96879 8.75 3.96899H7.5918V9.25513C7.59177 9.32386 7.53553 9.38013 7.4668 9.38013H6.5293C6.46062 9.38006 6.40432 9.32382 6.4043 9.25513V3.96899H5.25C5.14531 3.96899 5.0873 3.84868 5.15137 3.76587L6.90137 1.552C6.91306 1.53707 6.92826 1.52515 6.94531 1.51685C6.96232 1.50859 6.9811 1.50415 7 1.50415C7.01888 1.50419 7.03771 1.50858 7.05469 1.51685Z"
+                  fill="currentColor"
+                />
+              </svg>
               {t("importExport")}
             </Button>
 
@@ -660,7 +682,7 @@ export default function BrandLibraryClient({
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="h-8 gap-1 rounded-[6px] border border-[#FF3D71] bg-white px-3 py-1 text-[14px] leading-[22px] font-normal text-[#FF3D71] hover:bg-[#FFF2F5] hover:text-[#FF3D71]"
+                        className="h-8 gap-1 rounded-[6px] border border-[#FF3D71] bg-white px-3 py-1 text-[14px] leading-[22px] font-normal text-[#FF3D71] hover:border-[#FF3D71] hover:bg-[#FFF2F5] hover:text-[#FF3D71]"
                         onClick={() => setBatchDisableOpen(true)}
                         disabled={isPending}
                       >
@@ -671,7 +693,7 @@ export default function BrandLibraryClient({
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="h-8 gap-1 rounded-[6px] border border-[#FF3D71] bg-white px-3 py-1 text-[14px] leading-[22px] font-normal text-[#FF3D71] hover:bg-[#FFF2F5] hover:text-[#FF3D71]"
+                        className="h-8 gap-1 rounded-[6px] border border-[#FF3D71] bg-white px-3 py-1 text-[14px] leading-[22px] font-normal text-[#FF3D71] hover:border-[#FF3D71] hover:bg-[#FFF2F5] hover:text-[#FF3D71]"
                         onClick={() => setBatchDeleteOpen(true)}
                         disabled={isPending}
                       >
@@ -822,7 +844,9 @@ export default function BrandLibraryClient({
                                 >
                                   <div
                                     className={
-                                      subtitle ? "flex items-start gap-3" : "flex items-center gap-3"
+                                      subtitle
+                                        ? "flex items-start gap-3"
+                                        : "flex items-center gap-3"
                                     }
                                   >
                                     <div
@@ -1081,6 +1105,12 @@ export default function BrandLibraryClient({
         onLogoTypesChange={setLogoTypes}
         onLogoTypeRenamed={handleTypeRenamed}
         onLogoTypeDeleted={handleTypeDeleted}
+      />
+
+      <BrandBatchImportExportDialog
+        open={batchImportExportOpen}
+        onOpenChange={setBatchImportExportOpen}
+        onImported={handleBatchImported}
       />
 
       <AlertDialog

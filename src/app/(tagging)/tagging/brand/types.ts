@@ -51,6 +51,27 @@ export type BrandLibraryPageData = {
   tags: BrandTagTreeNode[];
 };
 
+export type BrandLogoBatchImportFailure = {
+  rowNumber: number;
+  name: string | null;
+  message: string;
+};
+
+export type BrandLogoBatchImportResult = {
+  createdLogos: BrandLogoItem[];
+  logoTypes: BrandLogoTypeItem[];
+  successCount: number;
+  failedCount: number;
+  skippedCount: number;
+  failures: BrandLogoBatchImportFailure[];
+};
+
+export type BrandLogoBatchFileResult = {
+  filename: string;
+  mimeType: string;
+  base64: string;
+};
+
 export type BrandDetectionBox = {
   xMin: number;
   yMin: number;
