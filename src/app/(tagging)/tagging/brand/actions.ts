@@ -1,12 +1,12 @@
 "use server";
 
 import { withAuth } from "@/app/(auth)/withAuth";
-import { fetchLogoDetectionLabelText } from "@/lib/brand/logo-detection-prompt";
 import {
   BrandDetectionBox,
   classifyBrandImageCrops,
   detectBrandLogoBoxes,
 } from "@/lib/brand/logo-classification";
+import { fetchLogoDetectionLabelText } from "@/lib/brand/logo-detection-prompt";
 import {
   markAssetLogoVectorsProcessing,
   processAssetLogoReferenceVectors,
@@ -27,9 +27,27 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { after } from "next/server";
 import { z } from "zod";
 import {
+  BRAND_BATCH_ENABLED_VALUES,
+  BrandBatchFileErrorMessages,
+  BrandBatchFileFormat,
+  buildBrandBatchExportRows,
+  buildBrandBatchTemplateRows,
+  getBrandBatchColumns,
+  encodeCsv,
+  encodeXlsx,
+  parseBrandBatchRows,
+  parseCsv,
+  ParsedBrandBatchRow,
+  parseXlsx,
+  splitBrandBatchValues,
+} from "./batchFile";
+import {
   BrandClassificationResult,
   BrandClassificationUploadResult,
   BrandLibraryPageData,
+  BrandLogoBatchFileResult,
+  BrandLogoBatchImportFailure,
+  BrandLogoBatchImportResult,
   BrandLogoImageItem,
   BrandLogoItem,
   BrandLogoTagItem,
@@ -39,6 +57,18 @@ import {
 
 async function getBrandLibraryTranslations() {
   return getTranslations("Tagging.BrandLibrary");
+}
+
+type BrandLibraryTranslationFn = Awaited<ReturnType<typeof getBrandLibraryTranslations>>;
+
+function getBrandBatchFileErrors(t: BrandLibraryTranslationFn): BrandBatchFileErrorMessages {
+  return {
+    missingHeader: t("batchImportExport.fileErrors.missingHeader"),
+    noDataRows: t("batchImportExport.fileErrors.noDataRows"),
+    excelMissingWorksheet: t("batchImportExport.fileErrors.excelMissingWorksheet"),
+    excelInvalidStructure: t("batchImportExport.fileErrors.excelInvalidStructure"),
+    excelUnsupportedCompression: t("batchImportExport.fileErrors.excelUnsupportedCompression"),
+  };
 }
 
 const createOrUpdateLogoSchema = z.object({
@@ -61,11 +91,7 @@ const createOrUpdateLogoSchema = z.object({
     .default([]),
 });
 
-const logoTypeNameSchema = z
-  .string()
-  .trim()
-  .min(1, "typeNameRequired")
-  .max(100, "typeNameTooLong");
+const logoTypeNameSchema = z.string().trim().min(1, "typeNameRequired").max(100, "typeNameTooLong");
 
 type AssetTagWithParents = AssetTag & {
   parent: (AssetTag & { parent: AssetTag | null }) | null;
@@ -204,18 +230,81 @@ function getDefaultLogoTypeNames(locale: string): string[] {
     "en-us": ["Main Logo", "Sub-brand Logo", "Product Logo", "Watermark", "Trademark", "Others"],
     "ja-jp": ["メインLogo", "サブブランドLogo", "製品Logo", "ウォーターマーク", "商標", "その他"],
     "ko-kr": ["메인 로고", "서브 브랜드 로고", "제품 로고", "워터마크", "상표", "기타"],
-    "fr-fr": ["Logo principal", "Logo de sous-marque", "Logo produit", "Filigrane", "Marque", "Autres"],
-    "de-de": ["Haupt-Logo", "Sub-Brand-Logo", "Produkt-Logo", "Wasserzeichen", "Markenzeichen", "Sonstiges"],
-    "es-es": ["Logo principal", "Logo de submarca", "Logo de producto", "Marca de agua", "Marca comercial", "Otros"],
-    "it-it": ["Logo principale", "Logo secondario", "Logo del prodotto", "Filigrana", "Marchio", "Altri"],
-    "pt-br": ["Logo Principal", "Logo Submarca", "Logo do Produto", "Marca d'Água", "Marca Registrada", "Outros"],
-    "ru-ru": ["Основной логотип", "Логотип суббренда", "Логотип продукта", "Водяной знак", "Торговая марка", "Другие"],
+    "fr-fr": [
+      "Logo principal",
+      "Logo de sous-marque",
+      "Logo produit",
+      "Filigrane",
+      "Marque",
+      "Autres",
+    ],
+    "de-de": [
+      "Haupt-Logo",
+      "Sub-Brand-Logo",
+      "Produkt-Logo",
+      "Wasserzeichen",
+      "Markenzeichen",
+      "Sonstiges",
+    ],
+    "es-es": [
+      "Logo principal",
+      "Logo de submarca",
+      "Logo de producto",
+      "Marca de agua",
+      "Marca comercial",
+      "Otros",
+    ],
+    "it-it": [
+      "Logo principale",
+      "Logo secondario",
+      "Logo del prodotto",
+      "Filigrana",
+      "Marchio",
+      "Altri",
+    ],
+    "pt-br": [
+      "Logo Principal",
+      "Logo Submarca",
+      "Logo do Produto",
+      "Marca d'Água",
+      "Marca Registrada",
+      "Outros",
+    ],
+    "ru-ru": [
+      "Основной логотип",
+      "Логотип суббренда",
+      "Логотип продукта",
+      "Водяной знак",
+      "Торговая марка",
+      "Другие",
+    ],
     "vi-vn": ["Logo chính", "Logo sub-brand", "Logo sản phẩm", "Hình mờ", "Nhãn hiệu", "Khác"],
-    "th-th": ["โลโก้หลัก", "โลโก้ซับแบรนด์", "โลโก้ผลิตภัณฑ์", "ลายน้ำ", "เครื่องหมายการค้า", "อื่น ๆ"],
-    "id-id": ["Logo Utama", "Logo Sub-merek", "Logo Produk", "Watermark", "Merek Dagang", "Lainnya"],
+    "th-th": [
+      "โลโก้หลัก",
+      "โลโก้ซับแบรนด์",
+      "โลโก้ผลิตภัณฑ์",
+      "ลายน้ำ",
+      "เครื่องหมายการค้า",
+      "อื่น ๆ",
+    ],
+    "id-id": [
+      "Logo Utama",
+      "Logo Sub-merek",
+      "Logo Produk",
+      "Watermark",
+      "Merek Dagang",
+      "Lainnya",
+    ],
     "hi-in": ["मुख्य लोगो", "सब-ब्रांड लोगो", "उत्पाद लोगो", "वॉटरमार्क", "ट्रेडमार्क", "अन्य"],
     "tr-tr": ["Ana Logo", "Alt Marka Logo", "Ürün Logo", "Filigran", "Ticari Marka", "Diğerleri"],
-    "pl-pl": ["Logo główne", "Logo podmarki", "Logo produktu", "Znak wodny", "Znak towarowy", "Inne"],
+    "pl-pl": [
+      "Logo główne",
+      "Logo podmarki",
+      "Logo produktu",
+      "Znak wodny",
+      "Znak towarowy",
+      "Inne",
+    ],
   };
 
   return defaults[normalizedLocale] || defaults["en-us"]!;
@@ -445,6 +534,427 @@ async function uploadAssetLibraryImages({
   }
 
   return uploads;
+}
+
+function getImageExtensionFromObjectKeyOrContentType({
+  objectKey,
+  contentType,
+}: {
+  objectKey: string;
+  contentType: string;
+}) {
+  const match = objectKey.split("?")[0].match(/\.[a-zA-Z0-9]+$/);
+  if (match) {
+    return match[0].toLowerCase();
+  }
+
+  if (contentType.includes("image/png")) return ".png";
+  if (contentType.includes("image/jpeg")) return ".jpg";
+  if (contentType.includes("image/webp")) return ".webp";
+  if (contentType.includes("image/svg+xml")) return ".svg";
+  if (contentType.includes("image/gif")) return ".gif";
+  return "";
+}
+
+async function cloneLogoImageFromObjectKey({
+  objectKey,
+  teamId,
+  t,
+}: {
+  objectKey: string;
+  teamId: number;
+  t: BrandLibraryTranslationFn;
+}) {
+  const { signedUrl } = getCachedSignedOssObjectUrl({
+    objectKey,
+    expiresInSeconds: 60 * 60,
+  });
+  const response = await fetch(signedUrl);
+
+  if (!response.ok) {
+    throw new Error(t("batchImportExport.importErrors.ossKeyUnreadable", { objectKey }));
+  }
+
+  const contentType = response.headers.get("content-type") || "application/octet-stream";
+  const buffer = Buffer.from(await response.arrayBuffer());
+  const extension = getImageExtensionFromObjectKeyOrContentType({
+    objectKey,
+    contentType,
+  });
+  const newObjectKey = buildAssetLogoObjectKey({
+    teamId,
+    extension,
+  });
+
+  const uploadResult = await uploadOssObject({
+    body: buffer,
+    contentType,
+    objectKey: newObjectKey,
+  });
+
+  return {
+    objectKey: uploadResult.objectKey,
+    mimeType: contentType,
+    size: buffer.byteLength,
+  };
+}
+
+function getBatchFileName(prefix: string, format: BrandBatchFileFormat) {
+  const timestamp = new Date()
+    .toISOString()
+    .replace(/[-:]/g, "")
+    .replace(/\.\d{3}Z$/, "");
+  return `${prefix}-${timestamp}.${format}`;
+}
+
+function encodeBrandBatchFile({
+  rows,
+  format,
+}: {
+  rows: string[][];
+  format: BrandBatchFileFormat;
+}) {
+  if (format === "csv") {
+    return {
+      buffer: encodeCsv(rows),
+      mimeType: "text/csv;charset=utf-8",
+    };
+  }
+
+  return {
+    buffer: encodeXlsx(rows),
+    mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  };
+}
+
+function parseBrandBatchFile({
+  file,
+  buffer,
+  t,
+  fileErrors,
+}: {
+  file: File;
+  buffer: Buffer;
+  t: BrandLibraryTranslationFn;
+  fileErrors: BrandBatchFileErrorMessages;
+}) {
+  const lowerName = file.name.toLowerCase();
+  const mimeType = file.type.toLowerCase();
+
+  if (lowerName.endsWith(".csv") || mimeType.includes("csv")) {
+    return parseCsv(buffer);
+  }
+
+  if (
+    lowerName.endsWith(".xlsx") ||
+    mimeType.includes("spreadsheetml") ||
+    mimeType.includes("excel")
+  ) {
+    return parseXlsx(buffer, fileErrors);
+  }
+
+  throw new Error(t("batchImportExport.unsupportedFileType"));
+}
+
+function normalizeTagPathKey(value: string) {
+  return value
+    .split(">")
+    .map((part) => part.trim().toLowerCase())
+    .filter(Boolean)
+    .join(">");
+}
+
+async function buildTagPathLookup(teamId: number) {
+  const tags = await prisma.assetTag.findMany({
+    where: {
+      teamId,
+    },
+    include: {
+      parent: {
+        include: {
+          parent: true,
+        },
+      },
+    },
+  });
+  const tagLookup = new Map<
+    string,
+    {
+      assetTagId: number;
+      tagPath: string[];
+    }
+  >();
+
+  for (const tag of tags) {
+    const tagPath = buildTagPath(tag as AssetTagWithParents);
+    tagLookup.set(normalizeTagPathKey(tagPath.join(" > ")), {
+      assetTagId: tag.id,
+      tagPath,
+    });
+  }
+
+  return tagLookup;
+}
+
+function resolveImportedTags({
+  value,
+  tagLookup,
+  t,
+}: {
+  value: string;
+  tagLookup: Map<string, { assetTagId: number; tagPath: string[] }>;
+  t: BrandLibraryTranslationFn;
+}) {
+  const tagPathValues = splitBrandBatchValues(value);
+  if (tagPathValues.length === 0) {
+    throw new Error(t("batchImportExport.importErrors.tagsRequired"));
+  }
+
+  if (tagPathValues.length > 100) {
+    throw new Error(t("batchImportExport.importErrors.tagsTooMany"));
+  }
+
+  const missingTagPaths: string[] = [];
+  const selectedTags: Array<{
+    assetTagId: number;
+    sort: number;
+    tagPath: string[];
+  }> = [];
+  const selectedTagIds = new Set<number>();
+
+  for (const tagPathValue of tagPathValues) {
+    const tag = tagLookup.get(normalizeTagPathKey(tagPathValue));
+    if (!tag) {
+      missingTagPaths.push(tagPathValue);
+      continue;
+    }
+
+    if (selectedTagIds.has(tag.assetTagId)) {
+      continue;
+    }
+
+    selectedTagIds.add(tag.assetTagId);
+    selectedTags.push({
+      assetTagId: tag.assetTagId,
+      sort: selectedTags.length + 1,
+      tagPath: tag.tagPath,
+    });
+  }
+
+  if (missingTagPaths.length > 0) {
+    throw new Error(
+      t("batchImportExport.importErrors.tagsNotFound", {
+        tags: missingTagPaths.join(t("batchImportExport.listSeparator")),
+      }),
+    );
+  }
+
+  return selectedTags;
+}
+
+function parseImportedEnabled(value: string, t: BrandLibraryTranslationFn) {
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) {
+    return true;
+  }
+
+  if (["true", "1", "yes", "y", "enabled"].includes(normalized)) {
+    return true;
+  }
+
+  if (["false", "0", "no", "n", "disabled"].includes(normalized)) {
+    return false;
+  }
+
+  throw new Error(
+    t("batchImportExport.importErrors.enabledInvalid", {
+      enabled: BRAND_BATCH_ENABLED_VALUES.enabled,
+      disabled: BRAND_BATCH_ENABLED_VALUES.disabled,
+    }),
+  );
+}
+
+function getUniqueImportedLogoName(
+  baseName: string,
+  existingNames: Set<string>,
+  t: BrandLibraryTranslationFn,
+) {
+  if (!existingNames.has(baseName)) {
+    return baseName;
+  }
+
+  for (let index = 1; index < 10000; index += 1) {
+    const suffix = `(${index})`;
+    const candidate = `${baseName.slice(0, 255 - suffix.length)}${suffix}`;
+
+    if (!existingNames.has(candidate)) {
+      return candidate;
+    }
+  }
+
+  throw new Error(t("batchImportExport.importErrors.uniqueNameFailed"));
+}
+
+async function ensureImportedLogoType({
+  teamId,
+  name,
+  logoTypeCache,
+}: {
+  teamId: number;
+  name: string;
+  logoTypeCache: Map<string, AssetLogoType>;
+}) {
+  const cacheKey = name.toLowerCase();
+  const cached = logoTypeCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  const existingType = await prisma.assetLogoType.findFirst({
+    where: {
+      teamId,
+      name,
+    },
+  });
+
+  if (existingType) {
+    logoTypeCache.set(cacheKey, existingType);
+    return existingType;
+  }
+
+  const lastType = await prisma.assetLogoType.findFirst({
+    where: {
+      teamId,
+    },
+    orderBy: [{ sort: "desc" }, { id: "desc" }],
+  });
+  const logoType = await prisma.assetLogoType.create({
+    data: {
+      teamId,
+      name,
+      sort: (lastType?.sort ?? 0) + 1,
+    },
+  });
+
+  logoTypeCache.set(cacheKey, logoType);
+  return logoType;
+}
+
+async function importBrandBatchRow({
+  team,
+  row,
+  tagLookup,
+  logoTypeCache,
+  existingNames,
+  t,
+}: {
+  team: { id: number; slug: string };
+  row: ParsedBrandBatchRow;
+  tagLookup: Map<string, { assetTagId: number; tagPath: string[] }>;
+  logoTypeCache: Map<string, AssetLogoType>;
+  existingNames: Set<string>;
+  t: BrandLibraryTranslationFn;
+}) {
+  const baseName = row.name.trim();
+  const logoTypeName = row.logoTypeName.trim();
+  const notes = row.notes.trim();
+  const imageObjectKeys = splitBrandBatchValues(row.imageObjectKeys);
+
+  if (!baseName) {
+    throw new Error(t("batchImportExport.importErrors.nameRequired"));
+  }
+
+  if (baseName.length > 255) {
+    throw new Error(t("batchImportExport.importErrors.nameTooLong"));
+  }
+
+  if (!logoTypeName) {
+    throw new Error(t("batchImportExport.importErrors.typeRequired"));
+  }
+
+  if (logoTypeName.length > 100) {
+    throw new Error(t("batchImportExport.importErrors.typeTooLong"));
+  }
+
+  if (notes.length > 5000) {
+    throw new Error(t("batchImportExport.importErrors.notesTooLong"));
+  }
+
+  if (imageObjectKeys.length === 0) {
+    throw new Error(t("batchImportExport.importErrors.imageKeysRequired"));
+  }
+
+  if (imageObjectKeys.length > 100) {
+    throw new Error(t("batchImportExport.importErrors.imagesTooMany"));
+  }
+
+  const selectedTags = resolveImportedTags({
+    value: row.tagPaths,
+    tagLookup,
+    t,
+  });
+  const enabled = parseImportedEnabled(row.enabled, t);
+  const uploadedImages = [];
+
+  for (const objectKey of imageObjectKeys) {
+    uploadedImages.push(
+      await cloneLogoImageFromObjectKey({
+        objectKey,
+        teamId: team.id,
+        t,
+      }),
+    );
+  }
+
+  const logoType = await ensureImportedLogoType({
+    teamId: team.id,
+    name: logoTypeName,
+    logoTypeCache,
+  });
+  const logoName = getUniqueImportedLogoName(baseName, existingNames, t);
+
+  const createdLogo = await prisma.assetLogo.create({
+    data: {
+      teamId: team.id,
+      name: logoName,
+      logoTypeId: logoType.id,
+      logoTypeName: logoType.name,
+      notes,
+      status: "processing",
+      processingError: null,
+      enabled,
+      images: {
+        create: uploadedImages.map((image, index) => ({
+          ...image,
+          sort: index + 1,
+        })),
+      },
+      tags: {
+        create: selectedTags.map((tag) => ({
+          assetTagId: tag.assetTagId,
+          tagPath: tag.tagPath,
+          sort: tag.sort,
+        })),
+      },
+    },
+  });
+
+  existingNames.add(logoName);
+
+  const logo = await loadBrandLogo(team.id, createdLogo.id);
+  scheduleAssetLogoProcessing(team.id, createdLogo.id);
+  schedulePushFeatureToMuseDAM({
+    team,
+    featureType: "brand",
+    identifierId: logo.id,
+    identifierName: logo.name,
+    identifierTypeId: logoType.id,
+    identifierTypeName: logoType.name,
+    firstImageObjectKey: logo.images[0]?.objectKey,
+    internalAssetTagIds: selectedTags.map((tag) => tag.assetTagId),
+  });
+
+  return normalizeBrandLogo(logo);
 }
 
 type UploadedAssetLibraryImage = {
@@ -690,6 +1200,187 @@ export async function fetchBrandLibraryPageData(): Promise<
       return {
         success: false,
         message: "加载品牌标识数据失败",
+      };
+    }
+  });
+}
+
+export async function exportBrandLogosAction(
+  format: BrandBatchFileFormat,
+): Promise<ServerActionResult<BrandLogoBatchFileResult>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    const t = await getBrandLibraryTranslations();
+
+    try {
+      const parsedFormat = z.enum(["csv", "xlsx"]).parse(format);
+      const logos = await fetchBrandLogos(teamId);
+      const rows = buildBrandBatchExportRows({ logos });
+      const { buffer, mimeType } = encodeBrandBatchFile({
+        rows,
+        format: parsedFormat,
+      });
+
+      return {
+        success: true,
+        data: {
+          filename: getBatchFileName("brand-library", parsedFormat),
+          mimeType,
+          base64: buffer.toString("base64"),
+        },
+      };
+    } catch (error) {
+      console.error("Failed to export brand logos:", error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : t("batchImportExport.exportFailed"),
+      };
+    }
+  });
+}
+
+export async function downloadBrandImportTemplateAction(
+  format: BrandBatchFileFormat = "xlsx",
+): Promise<ServerActionResult<BrandLogoBatchFileResult>> {
+  return withAuth(async () => {
+    const t = await getBrandLibraryTranslations();
+
+    try {
+      const parsedFormat = z.enum(["csv", "xlsx"]).parse(format);
+      const { buffer, mimeType } = encodeBrandBatchFile({
+        rows: buildBrandBatchTemplateRows(),
+        format: parsedFormat,
+      });
+
+      return {
+        success: true,
+        data: {
+          filename: `brand-import-template.${parsedFormat}`,
+          mimeType,
+          base64: buffer.toString("base64"),
+        },
+      };
+    } catch (error) {
+      console.error("Failed to build brand import template:", error);
+      return {
+        success: false,
+        message:
+          error instanceof Error ? error.message : t("batchImportExport.templateDownloadFailed"),
+      };
+    }
+  });
+}
+
+export async function importBrandLogosAction(
+  formData: FormData,
+): Promise<ServerActionResult<BrandLogoBatchImportResult>> {
+  return withAuth(async ({ team }) => {
+    const t = await getBrandLibraryTranslations();
+    const fileErrors = getBrandBatchFileErrors(t);
+    const columns = getBrandBatchColumns();
+
+    try {
+      const file = formData.get("file");
+
+      if (!(file instanceof File) || file.size <= 0) {
+        return {
+          success: false,
+          message: t("batchImportExport.selectImportFile"),
+        };
+      }
+
+      const buffer = Buffer.from(await file.arrayBuffer());
+      const tableRows = parseBrandBatchFile({
+        file,
+        buffer,
+        t,
+        fileErrors,
+      });
+      const parsedRows = parseBrandBatchRows({
+        rows: tableRows,
+        columns,
+        fileErrors,
+        listSeparator: t("batchImportExport.listSeparator"),
+        formatMissingRequiredColumns: (columnNames) =>
+          t("batchImportExport.fileErrors.missingRequiredColumns", { columns: columnNames }),
+      });
+      const logoTypes = await fetchActiveLogoTypes(team.id);
+
+      if (parsedRows.errors.length > 0) {
+        return {
+          success: true,
+          data: {
+            createdLogos: [],
+            logoTypes: logoTypes.map(normalizeBrandLogoType),
+            successCount: 0,
+            failedCount: parsedRows.errors.length,
+            skippedCount: 0,
+            failures: parsedRows.errors.map((error) => ({
+              rowNumber: error.rowNumber,
+              name: null,
+              message: error.message,
+            })),
+          },
+        };
+      }
+
+      const [tagLookup, existingLogos, activeLogoTypes] = await Promise.all([
+        buildTagPathLookup(team.id),
+        prisma.assetLogo.findMany({
+          where: {
+            teamId: team.id,
+          },
+          select: {
+            name: true,
+          },
+        }),
+        fetchActiveLogoTypes(team.id),
+      ]);
+      const existingNames = new Set(existingLogos.map((logo) => logo.name));
+      const logoTypeCache = new Map(
+        activeLogoTypes.map((logoType) => [logoType.name.toLowerCase(), logoType] as const),
+      );
+      const createdLogos: BrandLogoItem[] = [];
+      const failures: BrandLogoBatchImportFailure[] = [];
+
+      for (const row of parsedRows.records) {
+        try {
+          const logo = await importBrandBatchRow({
+            team,
+            row,
+            tagLookup,
+            logoTypeCache,
+            existingNames,
+            t,
+          });
+          createdLogos.push(logo);
+        } catch (error) {
+          failures.push({
+            rowNumber: row.rowNumber,
+            name: row.name.trim() || null,
+            message:
+              error instanceof Error ? error.message : t("batchImportExport.rowImportFailed"),
+          });
+        }
+      }
+
+      const nextLogoTypes = await fetchActiveLogoTypes(team.id);
+
+      return {
+        success: true,
+        data: {
+          createdLogos,
+          logoTypes: nextLogoTypes.map(normalizeBrandLogoType),
+          successCount: createdLogos.length,
+          failedCount: failures.length,
+          skippedCount: 0,
+          failures,
+        },
+      };
+    } catch (error) {
+      console.error("Failed to import brand logos:", error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : t("batchImportExport.importFailed"),
       };
     }
   });

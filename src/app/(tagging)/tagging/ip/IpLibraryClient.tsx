@@ -657,7 +657,7 @@ export default function IpLibraryClient({
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="h-8 gap-1 rounded-[6px] border border-[#FF3D71] bg-white px-3 py-1 text-[14px] leading-[22px] font-normal text-[#FF3D71] hover:bg-[#FFF2F5] hover:text-[#FF3D71]"
+                        className="h-8 gap-1 rounded-[6px] border border-[#FF3D71] bg-white px-3 py-1 text-[14px] leading-[22px] font-normal text-[#FF3D71] hover:border-[#FF3D71] hover:bg-[#FFF2F5] hover:text-[#FF3D71]"
                         onClick={() => setBatchDisableOpen(true)}
                         disabled={isPending}
                       >
@@ -668,7 +668,7 @@ export default function IpLibraryClient({
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="h-8 gap-1 rounded-[6px] border border-[#FF3D71] bg-white px-3 py-1 text-[14px] leading-[22px] font-normal text-[#FF3D71] hover:bg-[#FFF2F5] hover:text-[#FF3D71]"
+                        className="h-8 gap-1 rounded-[6px] border border-[#FF3D71] bg-white px-3 py-1 text-[14px] leading-[22px] font-normal text-[#FF3D71] hover:border-[#FF3D71] hover:bg-[#FFF2F5] hover:text-[#FF3D71]"
                         onClick={() => setBatchDeleteOpen(true)}
                         disabled={isPending}
                       >
