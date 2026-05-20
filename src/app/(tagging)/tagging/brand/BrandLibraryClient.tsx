@@ -600,7 +600,7 @@ export default function BrandLibraryClient({
                 viewBox="0 0 14 14"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
-                className="shrink-0"
+                className="size-[14px] shrink-0"
                 aria-hidden
               >
                 <path
