@@ -43,13 +43,13 @@ export default function PersonImageHoverCard({
               className,
             )}
           >
-            <div className="inline-flex overflow-hidden rounded-[18px] border border-white bg-white p-2 shadow-[0_20px_48px_rgba(15,23,42,0.18)]">
+            <div className="inline-flex overflow-hidden rounded-[18px] border border-basic-3 bg-background p-2 shadow-[var(--ant-box-shadow)]">
               <div
-                className="relative h-[100px] overflow-hidden rounded-[14px] bg-[#f7f9fc]"
+                className="relative h-[100px] overflow-hidden rounded-[14px] bg-basic-1"
                 style={{ width: `${previewWidth}px` }}
               >
                 {!isLoaded ? (
-                  <div className="pointer-events-none absolute inset-0 animate-pulse bg-gradient-to-r from-[#EDF1F7] via-[#F7F9FC] to-[#EDF1F7]" />
+                  <div className="pointer-events-none absolute inset-0 animate-pulse bg-gradient-to-r from-basic-2 via-basic-1 to-basic-2" />
                 ) : null}
                 <SignedPersonImage
                   imageId={image.id}

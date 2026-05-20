@@ -287,7 +287,7 @@ export default function PersonClassifyClient({
             </Button>
           </div>
 
-          <div className="rounded-[20px] border border-dashed border-[#d9e2f2] bg-[#f8fbff] p-4">
+          <div className="rounded-[20px] border border-dashed border-basic-3 bg-basic-1 p-4">
             {previewUrl && imageMeta ? (
               <div className="flex justify-center">
                 <div className="relative isolate inline-block max-w-full overflow-hidden rounded-[16px]">
@@ -368,7 +368,7 @@ export default function PersonClassifyClient({
             {!result ? (
               <p className="mt-4 text-sm leading-6 text-basic-5">{t("resultHint")}</p>
             ) : result.faces.length === 0 ? (
-              <div className="mt-4 rounded-[18px] border border-[#ffd8a8] bg-[#fff9f2] p-4">
+              <div className="mt-4 rounded-[18px] border border-warning-4 bg-warning-1 p-4">
                 <p className="text-base font-medium text-basic-8">{t("noFacesDetected")}</p>
               </div>
             ) : (
@@ -379,8 +379,8 @@ export default function PersonClassifyClient({
                     className={cn(
                       "rounded-[18px] border p-4",
                       face.bestMatch && !face.noConfidentMatch
-                        ? "border-[#b8f0ca] bg-[#f4fff7]"
-                        : "border-[#ffd8a8] bg-[#fff9f2]",
+                        ? "border-success-4 bg-success-1"
+                        : "border-warning-4 bg-warning-1",
                     )}
                   >
                     <p className="text-sm text-basic-5">
@@ -406,7 +406,7 @@ export default function PersonClassifyClient({
                             {face.bestMatch.recommendedTags.map((tag) => (
                               <span
                                 key={tag.id}
-                                className="inline-flex items-center rounded-[6px] border border-[#C5CEE0] bg-white px-2 py-1 text-xs text-basic-8"
+                                className="inline-flex items-center rounded-[6px] border border-basic-4 bg-background px-2 py-1 text-xs text-basic-8"
                               >
                                 {tag.tagPath.join(" > ")}
                               </span>
@@ -441,8 +441,8 @@ export default function PersonClassifyClient({
                           className={cn(
                             "rounded-[18px] border px-4 py-3",
                             index === 0
-                              ? "border-[#ffd8a8] bg-[#fffaf4]"
-                              : "border-[#d9e2f2] bg-[#fafcff]",
+                              ? "border-warning-4 bg-warning-1"
+                              : "border-basic-3 bg-basic-1",
                           )}
                         >
                           <div className="flex items-center justify-between gap-3">
@@ -480,8 +480,8 @@ export default function PersonClassifyClient({
                     className={cn(
                       "rounded-[16px] border px-4 py-3 text-sm",
                       getFaceResult(result, index)?.bestMatch
-                        ? "border-[#ff8f1f] bg-[#fff8ef]"
-                        : "border-[#d9e2f2] bg-[#fafcff]",
+                        ? "border-warning-4 bg-warning-1"
+                        : "border-basic-3 bg-basic-1",
                     )}
                   >
                     <div className="font-medium text-basic-8">
