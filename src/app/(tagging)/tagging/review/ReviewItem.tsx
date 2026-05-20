@@ -44,10 +44,10 @@ function getScoreToneClass(score: number) {
   }
 
   if (score >= 70) {
-    return "text-[#52C41A] bg-[#F6FFED] border-[#95DE64]";
+    return "text-[#52C41A] bg-[#F6FFED] border-[#95DE64] dark:text-success-6 dark:bg-success-1 dark:border-success-3";
   }
 
-  return "text-[#FA8C16] bg-[#FFF7E6] border-[#FFC069]";
+  return "text-[#FA8C16] bg-[#FFF7E6] border-[#FFC069] dark:text-warning-6 dark:bg-warning-1 dark:border-warning-4";
 }
 
 function normalizeConfidence(confidence: number | null | undefined) {
@@ -637,9 +637,10 @@ export function ReviewItem({
                             },
                             {
                               "text-primary-6 bg-primary-1 border-[#A6C1FF]": auditItem.score >= 80,
-                              "text-[#52C41A] bg-[#F6FFED] border-[#95DE64]":
+                              "text-[#52C41A] bg-[#F6FFED] border-[#95DE64] dark:text-success-6 dark:bg-success-1 dark:border-success-3":
                                 auditItem.score >= 70 && auditItem.score < 80,
-                              "text-[#FA8C16] bg-[#FFF7E6] border-[#FFC069]": auditItem.score < 70,
+                              "text-[#FA8C16] bg-[#FFF7E6] border-[#FFC069] dark:text-warning-6 dark:bg-warning-1 dark:border-warning-4":
+                                auditItem.score < 70,
                             },
                           )}
                         >

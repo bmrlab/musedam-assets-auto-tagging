@@ -14,7 +14,11 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { classifyIpImageAction, prepareIpClassificationAction } from "../actions";
+import {
+  classifyIpImageAction,
+  prepareIpClassificationAction,
+  prepareIpImageUploadAction,
+} from "../actions";
 import { IpClassificationResult, IpDetectionBox, IpLibraryPageData } from "../types";
 
 type ProductImageMeta = {
@@ -207,10 +211,34 @@ export default function IpClassifyClient({ initialData }: { initialData: IpLibra
 
     setIsRunning(true);
     try {
-      const formData = new FormData();
-      formData.append("image", file);
+      const contentType = file.type || "application/octet-stream";
+      const uploadPrepareResult = await prepareIpImageUploadAction({
+        name: file.name,
+        mimeType: contentType,
+        size: file.size,
+      });
+      if (!uploadPrepareResult.success) {
+        toast.error(uploadPrepareResult.message);
+        return;
+      }
 
-      const prepareResult = await prepareIpClassificationAction(formData);
+      const uploadResponse = await fetch(uploadPrepareResult.data.image.uploadUrl, {
+        method: "PUT",
+        headers: {
+          "Content-Type": uploadPrepareResult.data.image.mimeType,
+        },
+        body: file,
+      });
+      if (!uploadResponse.ok) {
+        toast.error(t("errors.imageLoadFailed"));
+        return;
+      }
+
+      const prepareResult = await prepareIpClassificationAction({
+        objectKey: uploadPrepareResult.data.image.objectKey,
+        mimeType: uploadPrepareResult.data.image.mimeType,
+        size: uploadPrepareResult.data.image.size,
+      });
       if (!prepareResult.success) {
         toast.error(prepareResult.message);
         return;

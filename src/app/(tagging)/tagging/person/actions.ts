@@ -1,7 +1,13 @@
 "use server";
 
 import { withAuth } from "@/app/(auth)/withAuth";
-import { buildAssetPersonObjectKey, getCachedSignedOssObjectUrl, uploadOssObject } from "@/lib/oss";
+import { MAX_CLIENT_IMAGE_UPLOAD_BYTES } from "@/lib/brand/upload-constants";
+import {
+  buildAssetPersonObjectKey,
+  getCachedSignedOssObjectUrl,
+  signOssObjectUploadUrl,
+  uploadOssObject,
+} from "@/lib/oss";
 import {
   classifyPersonFaceEmbeddings,
   detectPersonFaceBoxes,
@@ -144,6 +150,30 @@ function getFileExtension(file: File) {
   if (file.type === "image/svg+xml") return ".svg";
   if (file.type === "image/gif") return ".gif";
   return "";
+}
+
+function getFileExtensionFromNameOrContentType({
+  name,
+  contentType,
+}: {
+  name: string;
+  contentType: string;
+}) {
+  const match = name.match(/\.[a-zA-Z0-9]+$/);
+  if (match) {
+    return match[0].toLowerCase();
+  }
+
+  if (contentType === "image/png") return ".png";
+  if (contentType === "image/jpeg") return ".jpg";
+  if (contentType === "image/webp") return ".webp";
+  if (contentType === "image/svg+xml") return ".svg";
+  if (contentType === "image/gif") return ".gif";
+  return "";
+}
+
+function isTeamPersonObjectKey(objectKey: string, teamId: number) {
+  return objectKey.startsWith(`auto-tagging/teams-${teamId}-asset-persons-`);
 }
 
 function buildTagPath(tag: AssetTagWithParents) {
@@ -739,12 +769,39 @@ type UploadedAssetLibraryImage = {
   signedUrlExpiresAt: number;
 };
 
+type PreparedPersonImageUpload = {
+  name: string;
+  objectKey: string;
+  mimeType: string;
+  size: number;
+  uploadUrl: string;
+  uploadUrlExpiresAt: number;
+  signedUrl: string;
+  signedUrlExpiresAt: number;
+};
+
 type UploadedPersonImage = {
   objectKey: string;
   mimeType: string;
   size: number;
   name?: string;
 };
+
+async function validateUploadedPersonImageObjectKeys({
+  images,
+  teamId,
+}: {
+  images: UploadedPersonImage[];
+  teamId: number;
+}) {
+  const t = await getTranslations("Tagging.PersonLibrary");
+
+  for (const image of images) {
+    if (!isTeamPersonObjectKey(image.objectKey, teamId)) {
+      throw new Error(t("uploadErrors.imageLoadFailed"));
+    }
+  }
+}
 
 async function validateSingleFaceReferenceImages(images: UploadedPersonImage[]) {
   for (const image of images) {
@@ -1020,6 +1077,73 @@ export async function prepareAssetLibraryPersonImagesAction(
       return {
         success: false,
         message: error instanceof Error ? error.message : t("uploadErrors.selectFromLibraryFailed"),
+      };
+    }
+  });
+}
+
+export async function preparePersonImageUploadAction(input: {
+  name: string;
+  mimeType: string;
+  size: number;
+}): Promise<ServerActionResult<{ image: PreparedPersonImageUpload }>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    try {
+      const t = await getTranslations("Tagging.PersonLibrary");
+      const metadata = z
+        .object({
+          name: z.string().trim().min(1).max(255),
+          mimeType: z.string().trim().min(1).max(255),
+          size: z.number().int().positive().max(MAX_CLIENT_IMAGE_UPLOAD_BYTES),
+        })
+        .parse(input);
+
+      if (!metadata.mimeType.startsWith("image/") && !metadata.name.toLowerCase().endsWith(".svg")) {
+        return {
+          success: false,
+          message: t("uploadErrors.imageLoadFailed"),
+        };
+      }
+
+      const contentType = metadata.mimeType || "application/octet-stream";
+      const objectKey = buildAssetPersonObjectKey({
+        teamId,
+        extension: getFileExtensionFromNameOrContentType({
+          name: metadata.name,
+          contentType,
+        }),
+      });
+      const { signedUrl: uploadUrl, signedUrlExpiresAt: uploadUrlExpiresAt } =
+        signOssObjectUploadUrl({
+          objectKey,
+          contentType,
+        });
+      const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
+        objectKey,
+        expiresInSeconds: 60 * 60,
+      });
+
+      return {
+        success: true,
+        data: {
+          image: {
+            name: metadata.name,
+            objectKey,
+            mimeType: contentType,
+            size: metadata.size,
+            uploadUrl,
+            uploadUrlExpiresAt,
+            signedUrl,
+            signedUrlExpiresAt,
+          },
+        },
+      };
+    } catch (error) {
+      console.error("Failed to prepare Person image upload:", error);
+      const t = await getTranslations("Tagging.PersonLibrary");
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : t("uploadErrors.imageLoadFailed"),
       };
     }
   });
@@ -1377,40 +1501,41 @@ export async function importPersonsAction(
   });
 }
 
-export async function preparePersonClassificationAction(
-  formData: FormData,
-): Promise<ServerActionResult<PersonClassificationUploadResult>> {
+export async function preparePersonClassificationAction(input: {
+  objectKey: string;
+  mimeType: string;
+  size: number;
+}): Promise<ServerActionResult<PersonClassificationUploadResult>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
       const t = await getTranslations("Tagging.PersonClassify");
-      const image = formData.get("image");
-      if (!(image instanceof File) || image.size <= 0) {
-        return {
-          success: false,
-          message: t("uploadImageFirst"),
-        };
-      }
+      const metadata = z
+        .object({
+          objectKey: z.string().trim().min(1),
+          mimeType: z.string().trim().min(1).max(255),
+          size: z.number().int().positive().max(MAX_CLIENT_IMAGE_UPLOAD_BYTES),
+        })
+        .parse(input);
 
-      if (!isImageFile(image)) {
+      if (!isTeamPersonObjectKey(metadata.objectKey, teamId)) {
         return {
           success: false,
           message: t("errors.imageLoadFailed"),
         };
       }
 
-      const objectKey = buildAssetPersonObjectKey({
-        teamId,
-        extension: getFileExtension(image),
-      });
-      const buffer = Buffer.from(await image.arrayBuffer());
-      await uploadOssObject({
-        body: buffer,
-        contentType: image.type || "application/octet-stream",
-        objectKey,
-      });
+      if (
+        !metadata.mimeType.startsWith("image/") &&
+        !metadata.objectKey.toLowerCase().endsWith(".svg")
+      ) {
+        return {
+          success: false,
+          message: t("errors.imageLoadFailed"),
+        };
+      }
 
       const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
-        objectKey,
+        objectKey: metadata.objectKey,
         expiresInSeconds: 60 * 60,
       });
       const detection = await detectPersonFaceBoxes({
@@ -1421,7 +1546,7 @@ export async function preparePersonClassificationAction(
       return {
         success: true,
         data: {
-          objectKey,
+          objectKey: metadata.objectKey,
           signedUrl,
           signedUrlExpiresAt,
           detections: detection.detections,
@@ -1514,6 +1639,10 @@ export async function createAssetPersonAction(
         ...assetLibraryUploadedImages,
         ...uploadedAssetLibraryImages,
       ];
+      await validateUploadedPersonImageObjectKeys({
+        images: allUploadedImages,
+        teamId: team.id,
+      });
       await validateSingleFaceReferenceImages(allUploadedImages);
 
       const createdPerson = await prisma.assetPerson.create({
@@ -1660,6 +1789,10 @@ export async function updateAssetPersonAction(
         ...uploadedAssetLibraryImages,
       ];
       const finalImages = [...retainedImages, ...allUploadedImages];
+      await validateUploadedPersonImageObjectKeys({
+        images: allUploadedImages,
+        teamId: team.id,
+      });
       await validateSingleFaceReferenceImages(finalImages);
 
       await prisma.$transaction(async (tx) => {
