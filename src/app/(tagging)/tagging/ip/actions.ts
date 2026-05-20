@@ -17,7 +17,13 @@ import {
   IP_PARTIAL_MATCH_PATTERN_OPTIONS,
 } from "@/lib/ip/match-pattern";
 import { deleteIpVectorPointsByIp, setIpVectorPayloadByIp } from "@/lib/ip/qdrant";
-import { buildAssetIpObjectKey, getCachedSignedOssObjectUrl, uploadOssObject } from "@/lib/oss";
+import { MAX_CLIENT_IMAGE_UPLOAD_BYTES } from "@/lib/brand/upload-constants";
+import {
+  buildAssetIpObjectKey,
+  getCachedSignedOssObjectUrl,
+  signOssObjectUploadUrl,
+  uploadOssObject,
+} from "@/lib/oss";
 import { ServerActionResult } from "@/lib/serverAction";
 import { fetchRemoteImageInput, getFallbackBox } from "@/lib/tagging/classification-image";
 import { schedulePushFeatureToMuseDAM } from "@/musedam/push-feature-to-musedam";
@@ -193,6 +199,30 @@ function getFileExtension(file: File) {
   if (file.type === "image/svg+xml") return ".svg";
   if (file.type === "image/gif") return ".gif";
   return "";
+}
+
+function getFileExtensionFromNameOrContentType({
+  name,
+  contentType,
+}: {
+  name: string;
+  contentType: string;
+}) {
+  const match = name.match(/\.[a-zA-Z0-9]+$/);
+  if (match) {
+    return match[0].toLowerCase();
+  }
+
+  if (contentType === "image/png") return ".png";
+  if (contentType === "image/jpeg") return ".jpg";
+  if (contentType === "image/webp") return ".webp";
+  if (contentType === "image/svg+xml") return ".svg";
+  if (contentType === "image/gif") return ".gif";
+  return "";
+}
+
+function isTeamIpObjectKey(objectKey: string, teamId: number) {
+  return objectKey.startsWith(`auto-tagging/teams-${teamId}-asset-ips-`);
 }
 
 function buildTagPath(tag: AssetTagWithParents) {
@@ -1113,6 +1143,33 @@ type UploadedAssetLibraryImage = {
   signedUrlExpiresAt: number;
 };
 
+type PreparedIpImageUpload = {
+  name: string;
+  objectKey: string;
+  mimeType: string;
+  size: number;
+  uploadUrl: string;
+  uploadUrlExpiresAt: number;
+  signedUrl: string;
+  signedUrlExpiresAt: number;
+};
+
+async function validateUploadedIpImageObjectKeys({
+  images,
+  teamId,
+}: {
+  images: UploadedIpImageInput[];
+  teamId: number;
+}) {
+  const t = await getTranslations("Tagging.IpLibrary");
+
+  for (const image of images) {
+    if (!isTeamIpObjectKey(image.objectKey, teamId)) {
+      throw new Error(t("uploadErrors.imageLoadFailed"));
+    }
+  }
+}
+
 function extractSubmittedImages(formData: FormData) {
   return formData
     .getAll("images")
@@ -1202,6 +1259,73 @@ export async function prepareAssetLibraryIpImagesAction(
       return {
         success: false,
         message: error instanceof Error ? error.message : t("uploadErrors.selectFromLibraryFailed"),
+      };
+    }
+  });
+}
+
+export async function prepareIpImageUploadAction(input: {
+  name: string;
+  mimeType: string;
+  size: number;
+}): Promise<ServerActionResult<{ image: PreparedIpImageUpload }>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    try {
+      const t = await getTranslations("Tagging.IpLibrary");
+      const metadata = z
+        .object({
+          name: z.string().trim().min(1).max(255),
+          mimeType: z.string().trim().min(1).max(255),
+          size: z.number().int().positive().max(MAX_CLIENT_IMAGE_UPLOAD_BYTES),
+        })
+        .parse(input);
+
+      if (!metadata.mimeType.startsWith("image/") && !metadata.name.toLowerCase().endsWith(".svg")) {
+        return {
+          success: false,
+          message: t("uploadErrors.imageLoadFailed"),
+        };
+      }
+
+      const contentType = metadata.mimeType || "application/octet-stream";
+      const objectKey = buildAssetIpObjectKey({
+        teamId,
+        extension: getFileExtensionFromNameOrContentType({
+          name: metadata.name,
+          contentType,
+        }),
+      });
+      const { signedUrl: uploadUrl, signedUrlExpiresAt: uploadUrlExpiresAt } =
+        signOssObjectUploadUrl({
+          objectKey,
+          contentType,
+        });
+      const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
+        objectKey,
+        expiresInSeconds: 60 * 60,
+      });
+
+      return {
+        success: true,
+        data: {
+          image: {
+            name: metadata.name,
+            objectKey,
+            mimeType: contentType,
+            size: metadata.size,
+            uploadUrl,
+            uploadUrlExpiresAt,
+            signedUrl,
+            signedUrlExpiresAt,
+          },
+        },
+      };
+    } catch (error) {
+      console.error("Failed to prepare IP image upload:", error);
+      const t = await getTranslations("Tagging.IpLibrary");
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : t("uploadErrors.imageLoadFailed"),
       };
     }
   });
@@ -1676,40 +1800,41 @@ export async function importIpsAction(
   });
 }
 
-export async function prepareIpClassificationAction(
-  formData: FormData,
-): Promise<ServerActionResult<IpClassificationUploadResult>> {
+export async function prepareIpClassificationAction(input: {
+  objectKey: string;
+  mimeType: string;
+  size: number;
+}): Promise<ServerActionResult<IpClassificationUploadResult>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
       const t = await getTranslations("Tagging.IpClassify");
-      const image = formData.get("image");
-      if (!(image instanceof File) || image.size <= 0) {
-        return {
-          success: false,
-          message: t("uploadImageFirst"),
-        };
-      }
+      const metadata = z
+        .object({
+          objectKey: z.string().trim().min(1),
+          mimeType: z.string().trim().min(1).max(255),
+          size: z.number().int().positive().max(MAX_CLIENT_IMAGE_UPLOAD_BYTES),
+        })
+        .parse(input);
 
-      if (!isImageFile(image)) {
+      if (!isTeamIpObjectKey(metadata.objectKey, teamId)) {
         return {
           success: false,
           message: t("errors.imageLoadFailed"),
         };
       }
 
-      const objectKey = buildAssetIpObjectKey({
-        teamId,
-        extension: getFileExtension(image),
-      });
-      const buffer = Buffer.from(await image.arrayBuffer());
-      await uploadOssObject({
-        body: buffer,
-        contentType: image.type || "application/octet-stream",
-        objectKey,
-      });
+      if (
+        !metadata.mimeType.startsWith("image/") &&
+        !metadata.objectKey.toLowerCase().endsWith(".svg")
+      ) {
+        return {
+          success: false,
+          message: t("errors.imageLoadFailed"),
+        };
+      }
 
       const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
-        objectKey,
+        objectKey: metadata.objectKey,
         expiresInSeconds: 60 * 60,
       });
       const detection = await detectIpFigureBoxes({
@@ -1720,7 +1845,7 @@ export async function prepareIpClassificationAction(
       return {
         success: true,
         data: {
-          objectKey,
+          objectKey: metadata.objectKey,
           signedUrl,
           signedUrlExpiresAt,
           detections: detection.detections,
@@ -1812,6 +1937,10 @@ export async function createAssetIpAction(
         ...assetLibraryUploadedImages,
         ...uploadedAssetLibraryImages,
       ];
+      await validateUploadedIpImageObjectKeys({
+        images: allUploadedImages,
+        teamId: team.id,
+      });
 
       const createdIp = await prisma.assetIp.create({
         data: {
@@ -1960,6 +2089,10 @@ export async function updateAssetIpAction(
         ...assetLibraryUploadedImages,
         ...uploadedAssetLibraryImages,
       ];
+      await validateUploadedIpImageObjectKeys({
+        images: allUploadedImages,
+        teamId: team.id,
+      });
 
       await prisma.$transaction(async (tx) => {
         await tx.assetIp.update({

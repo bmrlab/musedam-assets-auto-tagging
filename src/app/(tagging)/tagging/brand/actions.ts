@@ -12,7 +12,13 @@ import {
   processAssetLogoReferenceVectors,
 } from "@/lib/brand/logo-processing";
 import { deleteLogoVectorPointsByLogo, setLogoVectorPayloadByLogo } from "@/lib/brand/qdrant";
-import { buildAssetLogoObjectKey, getCachedSignedOssObjectUrl, uploadOssObject } from "@/lib/oss";
+import { MAX_CLIENT_IMAGE_UPLOAD_BYTES } from "@/lib/brand/upload-constants";
+import {
+  buildAssetLogoObjectKey,
+  getCachedSignedOssObjectUrl,
+  signOssObjectUploadUrl,
+  uploadOssObject,
+} from "@/lib/oss";
 import { ServerActionResult } from "@/lib/serverAction";
 import { schedulePushFeatureToMuseDAM } from "@/musedam/push-feature-to-musedam";
 import {
@@ -126,6 +132,30 @@ function getFileExtension(file: File) {
   if (file.type === "image/svg+xml") return ".svg";
   if (file.type === "image/gif") return ".gif";
   return "";
+}
+
+function getFileExtensionFromNameOrContentType({
+  name,
+  contentType,
+}: {
+  name: string;
+  contentType: string;
+}) {
+  const match = name.match(/\.[a-zA-Z0-9]+$/);
+  if (match) {
+    return match[0].toLowerCase();
+  }
+
+  if (contentType === "image/png") return ".png";
+  if (contentType === "image/jpeg") return ".jpg";
+  if (contentType === "image/webp") return ".webp";
+  if (contentType === "image/svg+xml") return ".svg";
+  if (contentType === "image/gif") return ".gif";
+  return "";
+}
+
+function isTeamLogoObjectKey(objectKey: string, teamId: number) {
+  return objectKey.startsWith(`auto-tagging/teams-${teamId}-asset-logos-`);
 }
 
 function buildTagPath(tag: AssetTagWithParents) {
@@ -966,6 +996,39 @@ type UploadedAssetLibraryImage = {
   signedUrlExpiresAt: number;
 };
 
+type PreparedLogoImageUpload = {
+  name: string;
+  objectKey: string;
+  mimeType: string;
+  size: number;
+  uploadUrl: string;
+  uploadUrlExpiresAt: number;
+  signedUrl: string;
+  signedUrlExpiresAt: number;
+};
+
+type UploadedLogoImageInput = {
+  objectKey: string;
+  mimeType: string;
+  size: number;
+};
+
+async function validateUploadedLogoImageObjectKeys({
+  images,
+  teamId,
+}: {
+  images: UploadedLogoImageInput[];
+  teamId: number;
+}) {
+  const t = await getBrandLibraryTranslations();
+
+  for (const image of images) {
+    if (!isTeamLogoObjectKey(image.objectKey, teamId)) {
+      throw new Error(t("uploadErrors.imageLoadFailed"));
+    }
+  }
+}
+
 function extractSubmittedImages(formData: FormData) {
   return formData
     .getAll("images")
@@ -991,9 +1054,10 @@ function parseCreateOrUpdateInput(formData: FormData) {
       formData.get("assetLibraryDownloadUrls"),
       [],
     ),
-    assetLibraryUploadedImages: parseJsonField<
-      Array<{ objectKey: string; mimeType: string; size: number }>
-    >(formData.get("assetLibraryUploadedImages"), []),
+    assetLibraryUploadedImages: parseJsonField<UploadedLogoImageInput[]>(
+      formData.get("assetLibraryUploadedImages"),
+      [],
+    ),
   });
 }
 
@@ -1045,6 +1109,72 @@ export async function prepareAssetLibraryLogoImagesAction(
       return {
         success: false,
         message: error instanceof Error ? error.message : "处理素材库图片失败",
+      };
+    }
+  });
+}
+
+export async function prepareLogoImageUploadAction(input: {
+  name: string;
+  mimeType: string;
+  size: number;
+}): Promise<ServerActionResult<{ image: PreparedLogoImageUpload }>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    const t = await getBrandLibraryTranslations();
+    try {
+      const metadata = z
+        .object({
+          name: z.string().trim().min(1).max(255),
+          mimeType: z.string().trim().min(1).max(255),
+          size: z.number().int().positive().max(MAX_CLIENT_IMAGE_UPLOAD_BYTES),
+        })
+        .parse(input);
+
+      if (!metadata.mimeType.startsWith("image/") && !metadata.name.toLowerCase().endsWith(".svg")) {
+        return {
+          success: false,
+          message: t("uploadErrors.imageLoadFailed"),
+        };
+      }
+
+      const contentType = metadata.mimeType || "application/octet-stream";
+      const objectKey = buildAssetLogoObjectKey({
+        teamId,
+        extension: getFileExtensionFromNameOrContentType({
+          name: metadata.name,
+          contentType,
+        }),
+      });
+      const { signedUrl: uploadUrl, signedUrlExpiresAt: uploadUrlExpiresAt } =
+        signOssObjectUploadUrl({
+          objectKey,
+          contentType,
+        });
+      const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
+        objectKey,
+        expiresInSeconds: 60 * 60,
+      });
+
+      return {
+        success: true,
+        data: {
+          image: {
+            name: metadata.name,
+            objectKey,
+            mimeType: contentType,
+            size: metadata.size,
+            uploadUrl,
+            uploadUrlExpiresAt,
+            signedUrl,
+            signedUrlExpiresAt,
+          },
+        },
+      };
+    } catch (error) {
+      console.error("Failed to prepare logo image upload:", error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : t("uploadErrors.imageLoadFailed"),
       };
     }
   });
@@ -1425,6 +1555,10 @@ export async function createAssetLogoAction(
         ...assetLibraryUploadedImages,
         ...uploadedAssetLibraryImages,
       ];
+      await validateUploadedLogoImageObjectKeys({
+        images: allUploadedImages,
+        teamId: team.id,
+      });
 
       const createdLogo = await prisma.assetLogo.create({
         data: {
@@ -1564,6 +1698,10 @@ export async function updateAssetLogoAction(
         ...assetLibraryUploadedImages,
         ...uploadedAssetLibraryImages,
       ];
+      await validateUploadedLogoImageObjectKeys({
+        images: allUploadedImages,
+        teamId: team.id,
+      });
 
       await prisma.$transaction(async (tx) => {
         await tx.assetLogo.update({
@@ -1864,39 +2002,40 @@ export async function pollBrandLogosAction(
   });
 }
 
-export async function prepareBrandClassificationAction(
-  formData: FormData,
-): Promise<ServerActionResult<BrandClassificationUploadResult>> {
+export async function prepareBrandClassificationAction(input: {
+  objectKey: string;
+  mimeType: string;
+  size: number;
+}): Promise<ServerActionResult<BrandClassificationUploadResult>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
-      const image = formData.get("image");
-      if (!(image instanceof File) || image.size <= 0) {
-        return {
-          success: false,
-          message: "请上传待分类的商品图片",
-        };
-      }
+      const metadata = z
+        .object({
+          objectKey: z.string().trim().min(1),
+          mimeType: z.string().trim().min(1).max(255),
+          size: z.number().int().positive().max(MAX_CLIENT_IMAGE_UPLOAD_BYTES),
+        })
+        .parse(input);
 
-      if (!isImageFile(image)) {
+      if (!isTeamLogoObjectKey(metadata.objectKey, teamId)) {
         return {
           success: false,
           message: "仅支持图片文件",
         };
       }
 
-      const objectKey = buildAssetLogoObjectKey({
-        teamId,
-        extension: getFileExtension(image),
-      });
-      const buffer = Buffer.from(await image.arrayBuffer());
-      await uploadOssObject({
-        body: buffer,
-        contentType: image.type || "application/octet-stream",
-        objectKey,
-      });
+      if (
+        !metadata.mimeType.startsWith("image/") &&
+        !metadata.objectKey.toLowerCase().endsWith(".svg")
+      ) {
+        return {
+          success: false,
+          message: "仅支持图片文件",
+        };
+      }
 
       const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
-        objectKey,
+        objectKey: metadata.objectKey,
         expiresInSeconds: 60 * 60,
       });
       const detectionLabelText = await fetchLogoDetectionLabelText(teamId);
@@ -1909,7 +2048,7 @@ export async function prepareBrandClassificationAction(
       return {
         success: true,
         data: {
-          objectKey,
+          objectKey: metadata.objectKey,
           signedUrl,
           signedUrlExpiresAt,
           detections: detection.detections,

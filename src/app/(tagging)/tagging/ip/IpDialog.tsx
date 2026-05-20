@@ -50,6 +50,7 @@ import {
   createAssetIpAction,
   detectAssetIpPartialFeatureAction,
   prepareAssetLibraryIpImagesAction,
+  prepareIpImageUploadAction,
   preparePartialAssetIpImageAction,
   updateAssetIpAction,
 } from "./actions";
@@ -524,6 +525,55 @@ export default function IpDialog({
     }
   }
 
+  async function uploadLocalDraftImage(image: DraftImage): Promise<DraftImage> {
+    if (!image.file) {
+      return image;
+    }
+
+    const contentType = image.file.type || "application/octet-stream";
+    const result = await prepareIpImageUploadAction({
+      name: image.file.name,
+      mimeType: contentType,
+      size: image.file.size,
+    });
+
+    if (!result.success) {
+      throw new Error(result.message);
+    }
+
+    const uploadResponse = await fetch(result.data.image.uploadUrl, {
+      method: "PUT",
+      headers: {
+        "Content-Type": result.data.image.mimeType,
+      },
+      body: image.file,
+    });
+
+    if (!uploadResponse.ok) {
+      throw new Error(t("uploadErrors.imageLoadFailed"));
+    }
+
+    return {
+      ...image,
+      file: undefined,
+      objectKey: result.data.image.objectKey,
+      assetLibraryUploadedImage: {
+        objectKey: result.data.image.objectKey,
+        mimeType: result.data.image.mimeType,
+        size: result.data.image.size,
+      },
+      signedUrl: result.data.image.signedUrl,
+      signedUrlExpiresAt: result.data.image.signedUrlExpiresAt,
+    };
+  }
+
+  async function uploadLocalDraftImages(draftImages: DraftImage[]) {
+    const nextImages = await Promise.all(draftImages.map((image) => uploadLocalDraftImage(image)));
+    setImages(nextImages);
+    imagesRef.current = nextImages;
+    return nextImages;
+  }
+
   function handleSubmit() {
     if (!trimmedName) {
       toast.error(t("validation.nameRequired"));
@@ -556,75 +606,79 @@ export default function IpDialog({
       return;
     }
 
-    const formData = new FormData();
-    if (mode === "edit" && ip) {
-      formData.append("id", String(ip.id));
-    }
-    formData.append("name", trimmedName);
-    formData.append("ipTypeId", String(ipTypeId));
-    formData.append("description", description.trim());
-    formData.append("matchPattern", matchPattern);
-    formData.append("tagIds", JSON.stringify(selectedTagIds));
-    formData.append("notes", notes.trim());
-    formData.append(
-      "existingImageIds",
-      JSON.stringify(
-        images
-          .map((image) => image.existingImageId)
-          .filter((imageId): imageId is string => Boolean(imageId)),
-      ),
-    );
-    formData.append(
-      "assetLibraryUploadedImages",
-      JSON.stringify(
-        images
-          .map((image) => image.assetLibraryUploadedImage)
-          .filter(
-            (
-              value,
-            ): value is {
-              objectKey: string;
-              mimeType: string;
-              size: number;
-            } => Boolean(value),
-          ),
-      ),
-    );
-    formData.append(
-      "existingImagePartialSelections",
-      JSON.stringify(
-        matchPattern === "partial"
-          ? images
-              .filter((image) => image.existingImageId && image.cropSelection)
-              .map((image) => ({
-                id: image.existingImageId,
-                ...image.cropSelection,
-              }))
-          : [],
-      ),
-    );
+    startTransition(async () => {
+      let submitImages = images;
+      if (matchPattern === "whole") {
+        try {
+          submitImages = await uploadLocalDraftImages(images);
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : t("uploadErrors.imageLoadFailed"));
+          return;
+        }
+      }
 
-    if (matchPattern === "partial") {
-      formData.set(
-        "assetLibraryUploadedImages",
+      const formData = new FormData();
+      if (mode === "edit" && ip) {
+        formData.append("id", String(ip.id));
+      }
+      formData.append("name", trimmedName);
+      formData.append("ipTypeId", String(ipTypeId));
+      formData.append("description", description.trim());
+      formData.append("matchPattern", matchPattern);
+      formData.append("tagIds", JSON.stringify(selectedTagIds));
+      formData.append("notes", notes.trim());
+      formData.append(
+        "existingImageIds",
         JSON.stringify(
-          images
-            .filter((image) => image.assetLibraryUploadedImage)
-            .map((image) => ({
-              ...image.assetLibraryUploadedImage!,
-              ...image.cropSelection,
-            })),
+          submitImages
+            .map((image) => image.existingImageId)
+            .filter((imageId): imageId is string => Boolean(imageId)),
         ),
       );
-    }
+      formData.append(
+        "assetLibraryUploadedImages",
+        JSON.stringify(
+          submitImages
+            .map((image) => image.assetLibraryUploadedImage)
+            .filter(
+              (
+                value,
+              ): value is {
+                objectKey: string;
+                mimeType: string;
+                size: number;
+              } => Boolean(value),
+            ),
+        ),
+      );
+      formData.append(
+        "existingImagePartialSelections",
+        JSON.stringify(
+          matchPattern === "partial"
+            ? submitImages
+                .filter((image) => image.existingImageId && image.cropSelection)
+                .map((image) => ({
+                  id: image.existingImageId,
+                  ...image.cropSelection,
+                }))
+            : [],
+        ),
+      );
 
-    for (const image of images) {
-      if (image.file && matchPattern === "whole") {
-        formData.append("images", image.file);
+      if (matchPattern === "partial") {
+        formData.set(
+          "assetLibraryUploadedImages",
+          JSON.stringify(
+            submitImages
+              .filter((image) => image.assetLibraryUploadedImage)
+              .map((image) => ({
+                ...image.assetLibraryUploadedImage!,
+                ...image.cropSelection,
+              })),
+          ),
+        );
       }
-    }
 
-    startTransition(async () => {
       const result =
         mode === "create"
           ? await createAssetIpAction(formData)

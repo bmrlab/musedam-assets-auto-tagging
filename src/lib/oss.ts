@@ -18,6 +18,12 @@ type UploadOssObjectOptions = {
   body: Buffer;
 };
 
+type SignOssObjectUploadUrlOptions = {
+  contentType: string;
+  objectKey: string;
+  expiresInSeconds?: number;
+};
+
 function getRequiredEnv(name: string) {
   const value = process.env[name];
   if (!value) {
@@ -27,7 +33,8 @@ function getRequiredEnv(name: string) {
 }
 
 function normalizeOssDomain(domain: string) {
-  return domain.endsWith("/") ? domain.slice(0, -1) : domain;
+  const normalizedDomain = domain.endsWith("/") ? domain.slice(0, -1) : domain;
+  return normalizedDomain.replace(/^http:\/\//i, "https://");
 }
 
 function buildObjectUrl(domain: string, objectKey: string) {
@@ -139,6 +146,32 @@ export function getCachedSignedOssObjectUrl({
 
   signedOssObjectUrlCache.set(cacheKey, nextSignedUrl);
   return nextSignedUrl;
+}
+
+export function signOssObjectUploadUrl({
+  objectKey,
+  contentType,
+  expiresInSeconds = 60 * 10,
+}: SignOssObjectUploadUrlOptions) {
+  const domain = getRequiredEnv("OSS_DOMAIN");
+  const bucketName = getRequiredEnv("OSS_BUCKET_NAME");
+  const accessKey = getRequiredEnv("OSS_ACCESS_KEY");
+  const secretKey = getRequiredEnv("OSS_SECRET_KEY");
+  const expires = Math.floor(Date.now() / 1000) + expiresInSeconds;
+  const canonicalResource = `/${bucketName}/${objectKey}`;
+  const stringToSign = ["PUT", "", contentType, String(expires), canonicalResource].join("\n");
+  const signature = createHmac("sha1", secretKey).update(stringToSign).digest("base64");
+  const unsignedUrl = buildObjectUrl(domain, objectKey);
+  const signedUrl = new URL(unsignedUrl);
+
+  signedUrl.searchParams.set("OSSAccessKeyId", accessKey);
+  signedUrl.searchParams.set("Expires", String(expires));
+  signedUrl.searchParams.set("Signature", signature);
+
+  return {
+    signedUrl: signedUrl.toString(),
+    signedUrlExpiresAt: expires * 1000,
+  };
 }
 
 export async function uploadOssObject({ body, contentType, objectKey }: UploadOssObjectOptions) {

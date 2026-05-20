@@ -34,6 +34,7 @@ import BrandTagSelector from "../brand/BrandTagSelector";
 import {
   createAssetProductAction,
   prepareAssetLibraryProductImagesAction,
+  prepareProductImageUploadAction,
   updateAssetProductAction,
 } from "./actions";
 import ProductTypeSelect from "./ProductTypeSelect";
@@ -283,6 +284,53 @@ export default function ProductDialog({
     });
   }
 
+  async function uploadLocalDraftImage(image: DraftImage): Promise<DraftImage> {
+    if (!image.file) {
+      return image;
+    }
+
+    const contentType = image.file.type || "application/octet-stream";
+    const result = await prepareProductImageUploadAction({
+      name: image.file.name,
+      mimeType: contentType,
+      size: image.file.size,
+    });
+
+    if (!result.success) {
+      throw new Error(result.message);
+    }
+
+    const uploadResponse = await fetch(result.data.image.uploadUrl, {
+      method: "PUT",
+      headers: {
+        "Content-Type": result.data.image.mimeType,
+      },
+      body: image.file,
+    });
+
+    if (!uploadResponse.ok) {
+      throw new Error(t("uploadErrors.imageLoadFailed"));
+    }
+
+    return {
+      ...image,
+      file: undefined,
+      assetLibraryUploadedImage: {
+        objectKey: result.data.image.objectKey,
+        mimeType: result.data.image.mimeType,
+        size: result.data.image.size,
+      },
+      signedUrl: result.data.image.signedUrl,
+      signedUrlExpiresAt: result.data.image.signedUrlExpiresAt,
+    };
+  }
+
+  async function uploadLocalDraftImages(draftImages: DraftImage[]) {
+    const nextImages = await Promise.all(draftImages.map((image) => uploadLocalDraftImage(image)));
+    setImages(nextImages);
+    return nextImages;
+  }
+
   function handleSubmit() {
     if (!trimmedName) {
       toast.error(t("validation.nameRequired"));
@@ -310,47 +358,49 @@ export default function ProductDialog({
       return;
     }
 
-    const formData = new FormData();
-    if (mode === "edit" && product) {
-      formData.append("id", String(product.id));
-    }
-    formData.append("name", trimmedName);
-    formData.append("productTypeId", String(productTypeId));
-    formData.append("description", description.trim());
-    formData.append("tagIds", JSON.stringify(selectedTagIds));
-    formData.append("notes", notes.trim());
-    formData.append(
-      "existingImageIds",
-      JSON.stringify(
-        images
-          .map((image) => image.existingImageId)
-          .filter((imageId): imageId is string => Boolean(imageId)),
-      ),
-    );
-    formData.append(
-      "assetLibraryUploadedImages",
-      JSON.stringify(
-        images
-          .map((image) => image.assetLibraryUploadedImage)
-          .filter(
-            (
-              value,
-            ): value is {
-              objectKey: string;
-              mimeType: string;
-              size: number;
-            } => Boolean(value),
-          ),
-      ),
-    );
-
-    for (const image of images) {
-      if (image.file) {
-        formData.append("images", image.file);
-      }
-    }
-
     startTransition(async () => {
+      let submitImages = images;
+      try {
+        submitImages = await uploadLocalDraftImages(images);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : t("uploadErrors.imageLoadFailed"));
+        return;
+      }
+
+      const formData = new FormData();
+      if (mode === "edit" && product) {
+        formData.append("id", String(product.id));
+      }
+      formData.append("name", trimmedName);
+      formData.append("productTypeId", String(productTypeId));
+      formData.append("description", description.trim());
+      formData.append("tagIds", JSON.stringify(selectedTagIds));
+      formData.append("notes", notes.trim());
+      formData.append(
+        "existingImageIds",
+        JSON.stringify(
+          submitImages
+            .map((image) => image.existingImageId)
+            .filter((imageId): imageId is string => Boolean(imageId)),
+        ),
+      );
+      formData.append(
+        "assetLibraryUploadedImages",
+        JSON.stringify(
+          submitImages
+            .map((image) => image.assetLibraryUploadedImage)
+            .filter(
+              (
+                value,
+              ): value is {
+                objectKey: string;
+                mimeType: string;
+                size: number;
+              } => Boolean(value),
+            ),
+        ),
+      );
+
       const result =
         mode === "create"
           ? await createAssetProductAction(formData)
