@@ -244,10 +244,18 @@
           "nameTooLong": "Identity name cannot exceed 255 characters",
           "typeRequired": "Identity type cannot be empty",
           "typeTooLong": "Identity type cannot exceed 100 characters",
+          "descriptionTooLong": "{descriptionColumn} cannot exceed 5000 characters",
           "notesTooLong": "Notes cannot exceed 5000 characters",
           "imageKeysRequired": "Identity image OSS Key cannot be empty",
-          "imagesTooMany": "Identity images cannot exceed 100"
-        }
+          "imagesTooMany": "Identity images cannot exceed 100",
+          "matchPatternInvalid": "{matchPatternColumn} only supports: {whole}/{partial}",
+          "partialImportUnsupported": "Partial IP import is not supported in batch files. Use whole match rows or create partial IP entries manually."
+        },
+        "entityName": "Identity Name",
+        "entityNamePlural": "Identity Name",
+        "templateEntityName": "Identity Name",
+        "enabledValue": "Enabled",
+        "disabledValue": "Disabled"
       }
     },
     "IpLibrary": {
@@ -456,6 +464,46 @@
         "noSearchResults": "No matching tags found",
         "tagGroups": "Tag Groups ({count})",
         "tags": "Tags ({count})"
+      },
+      "batchImportExport": {
+        "entityName": "IP Character Name",
+        "entityNamePlural": "IP Character Name",
+        "templateEntityName": "IP Character Name",
+        "enabledValue": "Enabled",
+        "disabledValue": "Disabled",
+        "listSeparator": ", ",
+        "matchPatterns": {
+          "whole": "Whole",
+          "partial": "Partial"
+        },
+        "columns": {
+          "name": "IP Character Name",
+          "ipTypeName": "IP Type",
+          "description": "Core Feature Description",
+          "matchPattern": "Match Pattern",
+          "tagPaths": "Linked Tags",
+          "imageObjectKeys": "IP Images OSS Key",
+          "notes": "Notes",
+          "enabled": "Enabled Status"
+        },
+        "importErrors": {
+          "ossKeyUnreadable": "{imageKeyColumn} is not readable: {objectKey}",
+          "tagsRequired": "{tagsColumn} cannot be empty",
+          "tagsTooMany": "{tagsColumn} cannot exceed 100",
+          "tagsNotFound": "{tagsColumn} not found: {tags}",
+          "enabledInvalid": "Enabled status only supports: {enabled}/{disabled}, true/false, 1/0",
+          "uniqueNameFailed": "Unable to generate a unique {nameColumn}",
+          "nameRequired": "{nameColumn} cannot be empty",
+          "nameTooLong": "{nameColumn} cannot exceed 255 characters",
+          "typeRequired": "{typeColumn} cannot be empty",
+          "typeTooLong": "{typeColumn} cannot exceed 100 characters",
+          "descriptionTooLong": "{descriptionColumn} cannot exceed 5000 characters",
+          "notesTooLong": "{notesColumn} cannot exceed 5000 characters",
+          "imageKeysRequired": "{imageKeyColumn} cannot be empty",
+          "imagesTooMany": "{imageKeyColumn} cannot exceed 100 images",
+          "matchPatternInvalid": "{matchPatternColumn} only supports: {whole}/{partial}",
+          "partialImportUnsupported": "Partial IP import is not supported in batch files. Use whole match rows or create partial IP entries manually."
+        }
       }
     },
     "BrandClassify": {
@@ -993,6 +1041,40 @@
         "noSearchResults": "No matching tags found",
         "tagGroups": "Tag Groups ({count})",
         "tags": "Tags ({count})"
+      },
+      "batchImportExport": {
+        "entityName": "Person Name",
+        "entityNamePlural": "Person Name",
+        "templateEntityName": "Person Name",
+        "enabledValue": "Enabled",
+        "disabledValue": "Disabled",
+        "listSeparator": ", ",
+        "columns": {
+          "name": "Person Name",
+          "personTypeName": "Identity / Role",
+          "tagPaths": "Linked Tags",
+          "imageObjectKeys": "Face Photos OSS Key",
+          "notes": "Notes",
+          "enabled": "Enabled Status"
+        },
+        "importErrors": {
+          "ossKeyUnreadable": "{imageKeyColumn} is not readable: {objectKey}",
+          "tagsRequired": "{tagsColumn} cannot be empty",
+          "tagsTooMany": "{tagsColumn} cannot exceed 100",
+          "tagsNotFound": "{tagsColumn} not found: {tags}",
+          "enabledInvalid": "Enabled status only supports: {enabled}/{disabled}, true/false, 1/0",
+          "uniqueNameFailed": "Unable to generate a unique {nameColumn}",
+          "nameRequired": "{nameColumn} cannot be empty",
+          "nameTooLong": "{nameColumn} cannot exceed 255 characters",
+          "typeRequired": "{typeColumn} cannot be empty",
+          "typeTooLong": "{typeColumn} cannot exceed 100 characters",
+          "descriptionTooLong": "{descriptionColumn} cannot exceed 5000 characters",
+          "notesTooLong": "{notesColumn} cannot exceed 5000 characters",
+          "imageKeysRequired": "{imageKeyColumn} cannot be empty",
+          "imagesTooMany": "{imageKeyColumn} cannot exceed 100 images",
+          "matchPatternInvalid": "{matchPatternColumn} only supports: {whole}/{partial}",
+          "partialImportUnsupported": "Partial IP import is not supported in batch files. Use whole match rows or create partial IP entries manually."
+        }
       }
     },
     "PersonClassify": {
@@ -1204,6 +1286,41 @@
         "noSearchResults": "No matching tags found",
         "tagGroups": "Tag Groups ({count})",
         "tags": "Tags ({count})"
+      },
+      "batchImportExport": {
+        "entityName": "Product Name",
+        "entityNamePlural": "Product Name",
+        "templateEntityName": "Product Name",
+        "enabledValue": "Enabled",
+        "disabledValue": "Disabled",
+        "listSeparator": ", ",
+        "columns": {
+          "name": "Product Name",
+          "productTypeName": "Product Type",
+          "description": "Core Feature Description",
+          "tagPaths": "Linked Tags",
+          "imageObjectKeys": "Product Images OSS Key",
+          "notes": "Notes",
+          "enabled": "Enabled Status"
+        },
+        "importErrors": {
+          "ossKeyUnreadable": "{imageKeyColumn} is not readable: {objectKey}",
+          "tagsRequired": "{tagsColumn} cannot be empty",
+          "tagsTooMany": "{tagsColumn} cannot exceed 100",
+          "tagsNotFound": "{tagsColumn} not found: {tags}",
+          "enabledInvalid": "Enabled status only supports: {enabled}/{disabled}, true/false, 1/0",
+          "uniqueNameFailed": "Unable to generate a unique {nameColumn}",
+          "nameRequired": "{nameColumn} cannot be empty",
+          "nameTooLong": "{nameColumn} cannot exceed 255 characters",
+          "typeRequired": "{typeColumn} cannot be empty",
+          "typeTooLong": "{typeColumn} cannot exceed 100 characters",
+          "descriptionTooLong": "{descriptionColumn} cannot exceed 5000 characters",
+          "notesTooLong": "{notesColumn} cannot exceed 5000 characters",
+          "imageKeysRequired": "{imageKeyColumn} cannot be empty",
+          "imagesTooMany": "{imageKeyColumn} cannot exceed 100 images",
+          "matchPatternInvalid": "{matchPatternColumn} only supports: {whole}/{partial}",
+          "partialImportUnsupported": "Partial IP import is not supported in batch files. Use whole match rows or create partial IP entries manually."
+        }
       }
     },
     "ProductClassify": {
@@ -1248,6 +1365,72 @@
       },
       "fallbackBox": "whole image fallback",
       "coordinateTo": "to"
+    },
+    "BatchImportExport": {
+      "title": "Batch Import/Export",
+      "srDescription": "Batch import or export feature library data",
+      "failureSrDescription": "Import failure reasons",
+      "tabImport": "Import",
+      "tabExport": "Export",
+      "cancel": "Cancel",
+      "confirm": "Confirm",
+      "unsupportedFileType": "Only Excel (.xlsx) or CSV (.csv) files are supported",
+      "selectFileFirst": "Please select a file first",
+      "selectImportFile": "Please select an Excel (.xlsx) or CSV (.csv) file first",
+      "exportDownloadStarted": "Download has started",
+      "partialImportWarning": "Partial import failed: {success} succeeded, {failed} failed",
+      "importSuccess": "Successfully imported {count} items",
+      "partialImportFailedTitle": "Partial Import Failed",
+      "importFailedTitle": "Import Failed",
+      "partialImportFailedHint": "Partial import failure notice",
+      "importFailedHint": "Import failure notice",
+      "partialImportFailedDesc": "{success} imported successfully. The following {failed} failed. Please fix and re-import:",
+      "importFailedDesc": "The following import errors were found. Please fix and re-import:",
+      "downloadTemplate": "Download Import Template",
+      "retryImport": "Re-import",
+      "exportFormatLabel": "Download current table as",
+      "exportHint": "After exporting, you can batch edit the data locally and import it again.",
+      "uploadHintLine1": "Select or drag and drop Excel (.xlsx) or CSV (.csv)",
+      "uploadHintLine2": "Name is used as the unique ID. New records are created by default.",
+      "selectFile": "Select File",
+      "downloadSampleTemplate": "Download spreadsheet sample",
+      "failureRow": "Row {row}{name}: {message}",
+      "failureRowName": " ({name})",
+      "exportFailed": "Export failed",
+      "templateDownloadFailed": "Failed to download import template",
+      "importFailed": "Import failed",
+      "rowImportFailed": "Failed to import this row",
+      "listSeparator": ", ",
+      "rowErrorPrefix": "Row {row}: {message}",
+      "fileErrors": {
+        "missingHeader": "File is missing a header row",
+        "missingRequiredColumns": "File is missing required columns: {columns}",
+        "noDataRows": "No importable data found",
+        "excelMissingWorksheet": "Excel file is missing a worksheet",
+        "excelInvalidStructure": "Invalid Excel file structure",
+        "excelUnsupportedCompression": "Excel file uses an unsupported compression method"
+      },
+      "importErrors": {
+        "ossKeyUnreadable": "{imageKeyColumn} is not readable: {objectKey}",
+        "tagsRequired": "{tagsColumn} cannot be empty",
+        "tagsTooMany": "{tagsColumn} cannot exceed 100",
+        "tagsNotFound": "{tagsColumn} not found: {tags}",
+        "enabledInvalid": "Enabled status only supports: {enabled}/{disabled}, true/false, 1/0",
+        "uniqueNameFailed": "Unable to generate a unique {nameColumn}",
+        "nameRequired": "{nameColumn} cannot be empty",
+        "nameTooLong": "{nameColumn} cannot exceed 255 characters",
+        "typeRequired": "{typeColumn} cannot be empty",
+        "typeTooLong": "{typeColumn} cannot exceed 100 characters",
+        "descriptionTooLong": "{descriptionColumn} cannot exceed 5000 characters",
+        "notesTooLong": "{notesColumn} cannot exceed 5000 characters",
+        "imageKeysRequired": "{imageKeyColumn} cannot be empty",
+        "imagesTooMany": "{imageKeyColumn} cannot exceed 100 images",
+        "matchPatternInvalid": "{matchPatternColumn} only supports: {whole}/{partial}",
+        "partialImportUnsupported": "Partial IP import is not supported in batch files. Use whole match rows or create partial IP entries manually."
+      },
+      "formatExcel": "Excel",
+      "formatCsv": "CSV",
+      "spreadsheetBadge": "XLS"
     }
   }
 }

@@ -483,10 +483,18 @@
           "nameTooLong": "Название идентификатора не может превышать 255 символов",
           "typeRequired": "Тип идентификатора не может быть пустым",
           "typeTooLong": "Тип идентификатора не может превышать 100 символов",
+          "descriptionTooLong": "{descriptionColumn} cannot exceed 5000 characters",
           "notesTooLong": "Примечания не могут превышать 5000 символов",
           "imageKeysRequired": "OSS Key изображения идентификатора не может быть пустым",
-          "imagesTooMany": "Количество изображений идентификатора не может превышать 100"
-        }
+          "imagesTooMany": "Количество изображений идентификатора не может превышать 100",
+          "matchPatternInvalid": "{matchPatternColumn} only supports: {whole}/{partial}",
+          "partialImportUnsupported": "Partial IP import is not supported in batch files. Use whole match rows or create partial IP entries manually."
+        },
+        "entityName": "Название идентификатора",
+        "entityNamePlural": "Название идентификатора",
+        "templateEntityName": "Название идентификатора",
+        "enabledValue": "Включено",
+        "disabledValue": "Отключено"
       }
     },
     "IpLibrary": {
@@ -695,6 +703,46 @@
         "noSearchResults": "Соответствующих тегов не найдено",
         "tagGroups": "Группы тегов ({count})",
         "tags": "Теги ({count})"
+      },
+      "batchImportExport": {
+        "entityName": "Имя Персонажа IP",
+        "entityNamePlural": "Имя Персонажа IP",
+        "templateEntityName": "Имя Персонажа IP",
+        "enabledValue": "Включено",
+        "disabledValue": "Отключено",
+        "listSeparator": ", ",
+        "matchPatterns": {
+          "whole": "Целиком",
+          "partial": "Частично"
+        },
+        "columns": {
+          "name": "Имя Персонажа IP",
+          "ipTypeName": "Тип IP",
+          "description": "Описание основных особенностей",
+          "matchPattern": "Режим сопоставления",
+          "tagPaths": "Связанные теги",
+          "imageObjectKeys": "Изображения IP OSS Key",
+          "notes": "Примечания",
+          "enabled": "Статус включения"
+        },
+        "importErrors": {
+          "ossKeyUnreadable": "Не удалось прочитать {imageKeyColumn}: {objectKey}",
+          "tagsRequired": "{tagsColumn} не может быть пустым",
+          "tagsTooMany": "{tagsColumn} не может превышать 100",
+          "tagsNotFound": "{tagsColumn} не найдено: {tags}",
+          "enabledInvalid": "Статус включения поддерживает только: {enabled}/{disabled}, true/false, 1/0",
+          "uniqueNameFailed": "Не удалось создать уникальное значение для {nameColumn}",
+          "nameRequired": "{nameColumn} не может быть пустым",
+          "nameTooLong": "{nameColumn} не может превышать 255 символов",
+          "typeRequired": "{typeColumn} не может быть пустым",
+          "typeTooLong": "{typeColumn} не может превышать 100 символов",
+          "descriptionTooLong": "{descriptionColumn} не может превышать 5000 символов",
+          "notesTooLong": "{notesColumn} не может превышать 5000 символов",
+          "imageKeysRequired": "{imageKeyColumn} не может быть пустым",
+          "imagesTooMany": "{imageKeyColumn} не может превышать 100 изображений",
+          "matchPatternInvalid": "{matchPatternColumn} поддерживает только: {whole}/{partial}",
+          "partialImportUnsupported": "Импорт IP с частичным совпадением не поддерживается в пакетных файлах. Используйте строки полного совпадения или создайте такие IP вручную."
+        }
       }
     },
     "IpClassify": {
@@ -993,6 +1041,40 @@
         "noSearchResults": "Совпадений не найдено",
         "tagGroups": "Группы тегов ({count})",
         "tags": "Теги ({count})"
+      },
+      "batchImportExport": {
+        "entityName": "Имя",
+        "entityNamePlural": "Имя",
+        "templateEntityName": "Имя",
+        "enabledValue": "Активно",
+        "disabledValue": "Отключено",
+        "listSeparator": ", ",
+        "columns": {
+          "name": "Имя",
+          "personTypeName": "Роль",
+          "tagPaths": "Связанные теги",
+          "imageObjectKeys": "Фото лица OSS Key",
+          "notes": "Примечания",
+          "enabled": "Статус активности"
+        },
+        "importErrors": {
+          "ossKeyUnreadable": "Не удалось прочитать {imageKeyColumn}: {objectKey}",
+          "tagsRequired": "{tagsColumn} не может быть пустым",
+          "tagsTooMany": "{tagsColumn} не может превышать 100",
+          "tagsNotFound": "{tagsColumn} не найдено: {tags}",
+          "enabledInvalid": "Статус включения поддерживает только: {enabled}/{disabled}, true/false, 1/0",
+          "uniqueNameFailed": "Не удалось создать уникальное значение для {nameColumn}",
+          "nameRequired": "{nameColumn} не может быть пустым",
+          "nameTooLong": "{nameColumn} не может превышать 255 символов",
+          "typeRequired": "{typeColumn} не может быть пустым",
+          "typeTooLong": "{typeColumn} не может превышать 100 символов",
+          "descriptionTooLong": "{descriptionColumn} не может превышать 5000 символов",
+          "notesTooLong": "{notesColumn} не может превышать 5000 символов",
+          "imageKeysRequired": "{imageKeyColumn} не может быть пустым",
+          "imagesTooMany": "{imageKeyColumn} не может превышать 100 изображений",
+          "matchPatternInvalid": "{matchPatternColumn} поддерживает только: {whole}/{partial}",
+          "partialImportUnsupported": "Импорт IP с частичным совпадением не поддерживается в пакетных файлах. Используйте строки полного совпадения или создайте такие IP вручную."
+        }
       }
     },
     "PersonClassify": {
@@ -1204,6 +1286,41 @@
         "noSearchResults": "Соответствующих тегов не найдено",
         "tagGroups": "Группы тегов ({count})",
         "tags": "Теги ({count})"
+      },
+      "batchImportExport": {
+        "entityName": "Название товара",
+        "entityNamePlural": "Название товара",
+        "templateEntityName": "Название товара",
+        "enabledValue": "Включено",
+        "disabledValue": "Отключено",
+        "listSeparator": ", ",
+        "columns": {
+          "name": "Название товара",
+          "productTypeName": "Тип товара",
+          "description": "Описание основных признаков",
+          "tagPaths": "Связанные теги",
+          "imageObjectKeys": "Изображения товара OSS Key",
+          "notes": "Примечания",
+          "enabled": "Статус включения"
+        },
+        "importErrors": {
+          "ossKeyUnreadable": "Не удалось прочитать {imageKeyColumn}: {objectKey}",
+          "tagsRequired": "{tagsColumn} не может быть пустым",
+          "tagsTooMany": "{tagsColumn} не может превышать 100",
+          "tagsNotFound": "{tagsColumn} не найдено: {tags}",
+          "enabledInvalid": "Статус включения поддерживает только: {enabled}/{disabled}, true/false, 1/0",
+          "uniqueNameFailed": "Не удалось создать уникальное значение для {nameColumn}",
+          "nameRequired": "{nameColumn} не может быть пустым",
+          "nameTooLong": "{nameColumn} не может превышать 255 символов",
+          "typeRequired": "{typeColumn} не может быть пустым",
+          "typeTooLong": "{typeColumn} не может превышать 100 символов",
+          "descriptionTooLong": "{descriptionColumn} не может превышать 5000 символов",
+          "notesTooLong": "{notesColumn} не может превышать 5000 символов",
+          "imageKeysRequired": "{imageKeyColumn} не может быть пустым",
+          "imagesTooMany": "{imageKeyColumn} не может превышать 100 изображений",
+          "matchPatternInvalid": "{matchPatternColumn} поддерживает только: {whole}/{partial}",
+          "partialImportUnsupported": "Импорт IP с частичным совпадением не поддерживается в пакетных файлах. Используйте строки полного совпадения или создайте такие IP вручную."
+        }
       }
     },
     "ProductClassify": {
@@ -1248,6 +1365,72 @@
       },
       "fallbackBox": "резервное целое изображение",
       "coordinateTo": "до"
+    },
+    "BatchImportExport": {
+      "title": "Пакетный импорт/экспорт",
+      "srDescription": "Пакетный импорт или экспорт данных библиотеки признаков",
+      "failureSrDescription": "Причины ошибки импорта",
+      "tabImport": "Импорт",
+      "tabExport": "Экспорт",
+      "cancel": "Отмена",
+      "confirm": "Подтвердить",
+      "unsupportedFileType": "Поддерживаются только файлы Excel (.xlsx) или CSV (.csv)",
+      "selectFileFirst": "Сначала выберите файл",
+      "selectImportFile": "Сначала выберите файл Excel (.xlsx) или CSV (.csv)",
+      "exportDownloadStarted": "Загрузка началась",
+      "partialImportWarning": "Частичный сбой импорта: успешно {success}, ошибок {failed}",
+      "importSuccess": "Успешно импортировано: {count}",
+      "partialImportFailedTitle": "Частичный сбой импорта",
+      "importFailedTitle": "Импорт не удался",
+      "partialImportFailedHint": "Уведомление о частичном сбое импорта",
+      "importFailedHint": "Уведомление об ошибке импорта",
+      "partialImportFailedDesc": "Успешно импортировано: {success}. Следующие {failed} не удалось импортировать. Исправьте и повторите импорт:",
+      "importFailedDesc": "Обнаружены следующие ошибки импорта. Исправьте и повторите импорт:",
+      "downloadTemplate": "Скачать шаблон для импорта",
+      "retryImport": "Повторить импорт",
+      "exportFormatLabel": "Скачать текущую таблицу в формате",
+      "exportHint": "После экспорта можно массово отредактировать данные локально и импортировать их снова.",
+      "uploadHintLine1": "Выберите или перетащите файл Excel (.xlsx) или CSV (.csv)",
+      "uploadHintLine2": "Название используется как уникальный идентификатор. По умолчанию создаются новые записи.",
+      "selectFile": "Выбрать файл",
+      "downloadSampleTemplate": "Скачать пример таблицы",
+      "failureRow": "Строка {row}{name}: {message}",
+      "failureRowName": " ({name})",
+      "exportFailed": "Ошибка экспорта",
+      "templateDownloadFailed": "Не удалось скачать шаблон импорта",
+      "importFailed": "Ошибка импорта",
+      "rowImportFailed": "Не удалось импортировать эту строку",
+      "listSeparator": ", ",
+      "rowErrorPrefix": "Строка {row}: {message}",
+      "fileErrors": {
+        "missingHeader": "В файле отсутствует строка заголовков",
+        "missingRequiredColumns": "В файле отсутствуют обязательные столбцы: {columns}",
+        "noDataRows": "Не найдено данных для импорта",
+        "excelMissingWorksheet": "В файле Excel отсутствует рабочий лист",
+        "excelInvalidStructure": "Недопустимая структура файла Excel",
+        "excelUnsupportedCompression": "Файл Excel использует неподдерживаемый метод сжатия"
+      },
+      "importErrors": {
+        "ossKeyUnreadable": "Не удалось прочитать {imageKeyColumn}: {objectKey}",
+        "tagsRequired": "{tagsColumn} не может быть пустым",
+        "tagsTooMany": "{tagsColumn} не может превышать 100",
+        "tagsNotFound": "{tagsColumn} не найдено: {tags}",
+        "enabledInvalid": "Статус включения поддерживает только: {enabled}/{disabled}, true/false, 1/0",
+        "uniqueNameFailed": "Не удалось создать уникальное значение для {nameColumn}",
+        "nameRequired": "{nameColumn} не может быть пустым",
+        "nameTooLong": "{nameColumn} не может превышать 255 символов",
+        "typeRequired": "{typeColumn} не может быть пустым",
+        "typeTooLong": "{typeColumn} не может превышать 100 символов",
+        "descriptionTooLong": "{descriptionColumn} не может превышать 5000 символов",
+        "notesTooLong": "{notesColumn} не может превышать 5000 символов",
+        "imageKeysRequired": "{imageKeyColumn} не может быть пустым",
+        "imagesTooMany": "{imageKeyColumn} не может превышать 100 изображений",
+        "matchPatternInvalid": "{matchPatternColumn} поддерживает только: {whole}/{partial}",
+        "partialImportUnsupported": "Импорт IP с частичным совпадением не поддерживается в пакетных файлах. Используйте строки полного совпадения или создайте такие IP вручную."
+      },
+      "formatExcel": "Excel",
+      "formatCsv": "CSV",
+      "spreadsheetBadge": "XLS"
     }
   }
 }

@@ -479,10 +479,18 @@
           "nameTooLong": "पहचान नाम 255 अक्षरों से अधिक नहीं हो सकता",
           "typeRequired": "पहचान प्रकार खाली नहीं हो सकता",
           "typeTooLong": "पहचान प्रकार 100 अक्षरों से अधिक नहीं हो सकता",
+          "descriptionTooLong": "{descriptionColumn} cannot exceed 5000 characters",
           "notesTooLong": "नोट्स 5000 अक्षरों से अधिक नहीं हो सकते",
           "imageKeysRequired": "पहचान चित्र OSS Key खाली नहीं हो सकता",
-          "imagesTooMany": "पहचान चित्र 100 से अधिक नहीं हो सकते"
-        }
+          "imagesTooMany": "पहचान चित्र 100 से अधिक नहीं हो सकते",
+          "matchPatternInvalid": "{matchPatternColumn} only supports: {whole}/{partial}",
+          "partialImportUnsupported": "Partial IP import is not supported in batch files. Use whole match rows or create partial IP entries manually."
+        },
+        "entityName": "पहचान नाम",
+        "entityNamePlural": "पहचान नाम",
+        "templateEntityName": "पहचान नाम",
+        "enabledValue": "सक्षम",
+        "disabledValue": "अक्षम"
       }
     },
     "IpLibrary": {
@@ -691,6 +699,46 @@
         "noSearchResults": "मेल खाते टैग नहीं मिले",
         "tagGroups": "टैग समूह ({count})",
         "tags": "टैग ({count})"
+      },
+      "batchImportExport": {
+        "entityName": "IP पात्र नाम",
+        "entityNamePlural": "IP पात्र नाम",
+        "templateEntityName": "IP पात्र नाम",
+        "enabledValue": "सक्षम",
+        "disabledValue": "अक्षम",
+        "listSeparator": ", ",
+        "matchPatterns": {
+          "whole": "पूर्ण चित्र",
+          "partial": "आंशिक"
+        },
+        "columns": {
+          "name": "IP पात्र नाम",
+          "ipTypeName": "IP प्रकार",
+          "description": "मुख्य फ़ीचर विवरण",
+          "matchPattern": "मिलान मोड",
+          "tagPaths": "लिंक्ड टैग",
+          "imageObjectKeys": "IP चित्र OSS Key",
+          "notes": "नोट्स",
+          "enabled": "सक्षम स्थिति"
+        },
+        "importErrors": {
+          "ossKeyUnreadable": "{imageKeyColumn} पढ़ा नहीं जा सकता: {objectKey}",
+          "tagsRequired": "{tagsColumn} खाली नहीं हो सकता",
+          "tagsTooMany": "{tagsColumn} 100 से अधिक नहीं हो सकता",
+          "tagsNotFound": "{tagsColumn} नहीं मिला: {tags}",
+          "enabledInvalid": "सक्षम स्थिति केवल समर्थन करती है: {enabled}/{disabled}, true/false, 1/0",
+          "uniqueNameFailed": "एक अद्वितीय {nameColumn} नहीं बनाया जा सका",
+          "nameRequired": "{nameColumn} खाली नहीं हो सकता",
+          "nameTooLong": "{nameColumn} 255 अक्षरों से अधिक नहीं हो सकता",
+          "typeRequired": "{typeColumn} खाली नहीं हो सकता",
+          "typeTooLong": "{typeColumn} 100 अक्षरों से अधिक नहीं हो सकता",
+          "descriptionTooLong": "{descriptionColumn} 5000 अक्षरों से अधिक नहीं हो सकता",
+          "notesTooLong": "{notesColumn} 5000 अक्षरों से अधिक नहीं हो सकता",
+          "imageKeysRequired": "{imageKeyColumn} खाली नहीं हो सकता",
+          "imagesTooMany": "{imageKeyColumn} 100 छवियों से अधिक नहीं हो सकता",
+          "matchPatternInvalid": "{matchPatternColumn} केवल समर्थन करता है: {whole}/{partial}",
+          "partialImportUnsupported": "बैच फ़ाइलों में आंशिक IP आयात समर्थित नहीं है। पूर्ण मिलान वाली पंक्तियों का उपयोग करें या आंशिक IP प्रविष्टियाँ मैन्युअली बनाएँ।"
+        }
       }
     },
     "BrandClassify": {
@@ -948,6 +996,40 @@
         "noSearchResults": "कोई मिलते-जुलते टैग नहीं मिले",
         "tagGroups": "टैग समूह ({count})",
         "tags": "टैग ({count})"
+      },
+      "batchImportExport": {
+        "entityName": "व्यक्ति का नाम",
+        "entityNamePlural": "व्यक्ति का नाम",
+        "templateEntityName": "व्यक्ति का नाम",
+        "enabledValue": "सक्षम",
+        "disabledValue": "अक्षम",
+        "listSeparator": ", ",
+        "columns": {
+          "name": "व्यक्ति का नाम",
+          "personTypeName": "पहचान / भूमिका",
+          "tagPaths": "लिंक्ड टैग",
+          "imageObjectKeys": "चेहरे की तस्वीरें OSS Key",
+          "notes": "नोट्स",
+          "enabled": "सक्षम स्थिति"
+        },
+        "importErrors": {
+          "ossKeyUnreadable": "{imageKeyColumn} पढ़ा नहीं जा सकता: {objectKey}",
+          "tagsRequired": "{tagsColumn} खाली नहीं हो सकता",
+          "tagsTooMany": "{tagsColumn} 100 से अधिक नहीं हो सकता",
+          "tagsNotFound": "{tagsColumn} नहीं मिला: {tags}",
+          "enabledInvalid": "सक्षम स्थिति केवल समर्थन करती है: {enabled}/{disabled}, true/false, 1/0",
+          "uniqueNameFailed": "एक अद्वितीय {nameColumn} नहीं बनाया जा सका",
+          "nameRequired": "{nameColumn} खाली नहीं हो सकता",
+          "nameTooLong": "{nameColumn} 255 अक्षरों से अधिक नहीं हो सकता",
+          "typeRequired": "{typeColumn} खाली नहीं हो सकता",
+          "typeTooLong": "{typeColumn} 100 अक्षरों से अधिक नहीं हो सकता",
+          "descriptionTooLong": "{descriptionColumn} 5000 अक्षरों से अधिक नहीं हो सकता",
+          "notesTooLong": "{notesColumn} 5000 अक्षरों से अधिक नहीं हो सकता",
+          "imageKeysRequired": "{imageKeyColumn} खाली नहीं हो सकता",
+          "imagesTooMany": "{imageKeyColumn} 100 छवियों से अधिक नहीं हो सकता",
+          "matchPatternInvalid": "{matchPatternColumn} केवल समर्थन करता है: {whole}/{partial}",
+          "partialImportUnsupported": "बैच फ़ाइलों में आंशिक IP आयात समर्थित नहीं है। पूर्ण मिलान वाली पंक्तियों का उपयोग करें या आंशिक IP प्रविष्टियाँ मैन्युअली बनाएँ।"
+        }
       }
     },
     "PersonClassify": {
@@ -1159,6 +1241,41 @@
         "noSearchResults": "मेल खाते टैग नहीं मिले",
         "tagGroups": "टैग समूह ({count})",
         "tags": "टैग ({count})"
+      },
+      "batchImportExport": {
+        "entityName": "उत्पाद नाम",
+        "entityNamePlural": "उत्पाद नाम",
+        "templateEntityName": "उत्पाद नाम",
+        "enabledValue": "सक्षम",
+        "disabledValue": "अक्षम",
+        "listSeparator": ", ",
+        "columns": {
+          "name": "उत्पाद नाम",
+          "productTypeName": "उत्पाद प्रकार",
+          "description": "मुख्य विशेषता विवरण",
+          "tagPaths": "लिंक्ड टैग",
+          "imageObjectKeys": "उत्पाद चित्र OSS Key",
+          "notes": "नोट्स",
+          "enabled": "सक्षम स्थिति"
+        },
+        "importErrors": {
+          "ossKeyUnreadable": "{imageKeyColumn} पढ़ा नहीं जा सकता: {objectKey}",
+          "tagsRequired": "{tagsColumn} खाली नहीं हो सकता",
+          "tagsTooMany": "{tagsColumn} 100 से अधिक नहीं हो सकता",
+          "tagsNotFound": "{tagsColumn} नहीं मिला: {tags}",
+          "enabledInvalid": "सक्षम स्थिति केवल समर्थन करती है: {enabled}/{disabled}, true/false, 1/0",
+          "uniqueNameFailed": "एक अद्वितीय {nameColumn} नहीं बनाया जा सका",
+          "nameRequired": "{nameColumn} खाली नहीं हो सकता",
+          "nameTooLong": "{nameColumn} 255 अक्षरों से अधिक नहीं हो सकता",
+          "typeRequired": "{typeColumn} खाली नहीं हो सकता",
+          "typeTooLong": "{typeColumn} 100 अक्षरों से अधिक नहीं हो सकता",
+          "descriptionTooLong": "{descriptionColumn} 5000 अक्षरों से अधिक नहीं हो सकता",
+          "notesTooLong": "{notesColumn} 5000 अक्षरों से अधिक नहीं हो सकता",
+          "imageKeysRequired": "{imageKeyColumn} खाली नहीं हो सकता",
+          "imagesTooMany": "{imageKeyColumn} 100 छवियों से अधिक नहीं हो सकता",
+          "matchPatternInvalid": "{matchPatternColumn} केवल समर्थन करता है: {whole}/{partial}",
+          "partialImportUnsupported": "बैच फ़ाइलों में आंशिक IP आयात समर्थित नहीं है। पूर्ण मिलान वाली पंक्तियों का उपयोग करें या आंशिक IP प्रविष्टियाँ मैन्युअली बनाएँ।"
+        }
       }
     },
     "ProductClassify": {
@@ -1203,6 +1320,72 @@
       },
       "fallbackBox": "पूर्ण चित्र फॉलबैक",
       "coordinateTo": "से"
+    },
+    "BatchImportExport": {
+      "title": "बैच आयात/निर्यात",
+      "srDescription": "फ़ीचर लाइब्रेरी डेटा को बैच में आयात या निर्यात करें",
+      "failureSrDescription": "आयात विफलता के कारण",
+      "tabImport": "आयात",
+      "tabExport": "निर्यात",
+      "cancel": "रद्द करें",
+      "confirm": "पुष्टि करें",
+      "unsupportedFileType": "केवल Excel (.xlsx) या CSV (.csv) फ़ाइलें समर्थित हैं",
+      "selectFileFirst": "कृपया पहले एक फ़ाइल चुनें",
+      "selectImportFile": "कृपया पहले Excel (.xlsx) या CSV (.csv) फ़ाइल चुनें",
+      "exportDownloadStarted": "डाउनलोड शुरू हो गया है",
+      "partialImportWarning": "आंशिक आयात विफल: {success} सफल, {failed} विफल",
+      "importSuccess": "{count} आइटम सफलतापूर्वक आयात किए गए",
+      "partialImportFailedTitle": "आंशिक आयात विफल",
+      "importFailedTitle": "आयात विफल",
+      "partialImportFailedHint": "आंशिक आयात विफलता सूचना",
+      "importFailedHint": "आयात विफलता सूचना",
+      "partialImportFailedDesc": "{success} सफलतापूर्वक आयात किए गए। निम्न {failed} विफल रहे। कृपया ठीक करके पुनः आयात करें:",
+      "importFailedDesc": "निम्न आयात त्रुटियाँ मिलीं। कृपया ठीक करके पुनः आयात करें:",
+      "downloadTemplate": "आयात टेम्पलेट डाउनलोड करें",
+      "retryImport": "पुनः आयात करें",
+      "exportFormatLabel": "वर्तमान तालिका इस रूप में डाउनलोड करें",
+      "exportHint": "निर्यात के बाद, आप डेटा को स्थानीय रूप से बैच में संपादित करके फिर से आयात कर सकते हैं।",
+      "uploadHintLine1": "Excel (.xlsx) या CSV (.csv) चुनें या खींचकर छोड़ें",
+      "uploadHintLine2": "नाम को अद्वितीय ID के रूप में उपयोग किया जाता है। डिफ़ॉल्ट रूप से नए रिकॉर्ड बनाए जाते हैं।",
+      "selectFile": "फ़ाइल चुनें",
+      "downloadSampleTemplate": "स्प्रेडशीट नमूना डाउनलोड करें",
+      "failureRow": "पंक्ति {row}{name}: {message}",
+      "failureRowName": " ({name})",
+      "exportFailed": "निर्यात विफल",
+      "templateDownloadFailed": "आयात टेम्पलेट डाउनलोड विफल",
+      "importFailed": "आयात विफल",
+      "rowImportFailed": "यह पंक्ति आयात नहीं हो सकी",
+      "listSeparator": ", ",
+      "rowErrorPrefix": "पंक्ति {row}: {message}",
+      "fileErrors": {
+        "missingHeader": "फ़ाइल में हेडर पंक्ति गायब है",
+        "missingRequiredColumns": "फ़ाइल में आवश्यक कॉलम गायब हैं: {columns}",
+        "noDataRows": "कोई आयात योग्य डेटा नहीं मिला",
+        "excelMissingWorksheet": "Excel फ़ाइल में वर्कशीट गायब है",
+        "excelInvalidStructure": "Excel फ़ाइल संरचना अमान्य है",
+        "excelUnsupportedCompression": "Excel फ़ाइल असमर्थित संपीड़न विधि का उपयोग करती है"
+      },
+      "importErrors": {
+        "ossKeyUnreadable": "{imageKeyColumn} पढ़ा नहीं जा सकता: {objectKey}",
+        "tagsRequired": "{tagsColumn} खाली नहीं हो सकता",
+        "tagsTooMany": "{tagsColumn} 100 से अधिक नहीं हो सकता",
+        "tagsNotFound": "{tagsColumn} नहीं मिला: {tags}",
+        "enabledInvalid": "सक्षम स्थिति केवल समर्थन करती है: {enabled}/{disabled}, true/false, 1/0",
+        "uniqueNameFailed": "एक अद्वितीय {nameColumn} नहीं बनाया जा सका",
+        "nameRequired": "{nameColumn} खाली नहीं हो सकता",
+        "nameTooLong": "{nameColumn} 255 अक्षरों से अधिक नहीं हो सकता",
+        "typeRequired": "{typeColumn} खाली नहीं हो सकता",
+        "typeTooLong": "{typeColumn} 100 अक्षरों से अधिक नहीं हो सकता",
+        "descriptionTooLong": "{descriptionColumn} 5000 अक्षरों से अधिक नहीं हो सकता",
+        "notesTooLong": "{notesColumn} 5000 अक्षरों से अधिक नहीं हो सकता",
+        "imageKeysRequired": "{imageKeyColumn} खाली नहीं हो सकता",
+        "imagesTooMany": "{imageKeyColumn} 100 छवियों से अधिक नहीं हो सकता",
+        "matchPatternInvalid": "{matchPatternColumn} केवल समर्थन करता है: {whole}/{partial}",
+        "partialImportUnsupported": "बैच फ़ाइलों में आंशिक IP आयात समर्थित नहीं है। पूर्ण मिलान वाली पंक्तियों का उपयोग करें या आंशिक IP प्रविष्टियाँ मैन्युअली बनाएँ।"
+      },
+      "formatExcel": "Excel",
+      "formatCsv": "CSV",
+      "spreadsheetBadge": "XLS"
     }
   }
 }

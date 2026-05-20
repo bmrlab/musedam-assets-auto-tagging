@@ -244,10 +244,18 @@
           "nameTooLong": "Le nom de l'identité ne peut pas dépasser 255 caractères",
           "typeRequired": "Le type d'identité ne peut pas être vide",
           "typeTooLong": "Le type d'identité ne peut pas dépasser 100 caractères",
+          "descriptionTooLong": "{descriptionColumn} cannot exceed 5000 characters",
           "notesTooLong": "Les notes ne peuvent pas dépasser 5000 caractères",
           "imageKeysRequired": "La clé OSS de l'image d'identité ne peut pas être vide",
-          "imagesTooMany": "Les images d'identité ne peuvent pas dépasser 100"
-        }
+          "imagesTooMany": "Les images d'identité ne peuvent pas dépasser 100",
+          "matchPatternInvalid": "{matchPatternColumn} only supports: {whole}/{partial}",
+          "partialImportUnsupported": "Partial IP import is not supported in batch files. Use whole match rows or create partial IP entries manually."
+        },
+        "entityName": "Nom de l'identité",
+        "entityNamePlural": "Nom de l'identité",
+        "templateEntityName": "Nom de l'identité",
+        "enabledValue": "Activé",
+        "disabledValue": "Désactivé"
       }
     },
     "Dashboard": {
@@ -789,6 +797,46 @@
         "noSearchResults": "Aucun tag correspondant trouvé",
         "tagGroups": "Groupes de tags ({count})",
         "tags": "Tags ({count})"
+      },
+      "batchImportExport": {
+        "entityName": "Nom du personnage IP",
+        "entityNamePlural": "Nom du personnage IP",
+        "templateEntityName": "Nom du personnage IP",
+        "enabledValue": "Activé",
+        "disabledValue": "Désactivé",
+        "listSeparator": ", ",
+        "matchPatterns": {
+          "whole": "Image entière",
+          "partial": "Partielle"
+        },
+        "columns": {
+          "name": "Nom du personnage IP",
+          "ipTypeName": "Type d'IP",
+          "description": "Description des caractéristiques principales",
+          "matchPattern": "Mode de correspondance",
+          "tagPaths": "Tags associés",
+          "imageObjectKeys": "Images d'IP OSS Key",
+          "notes": "Notes",
+          "enabled": "Statut d'activation"
+        },
+        "importErrors": {
+          "ossKeyUnreadable": "{imageKeyColumn} est illisible : {objectKey}",
+          "tagsRequired": "{tagsColumn} ne peut pas être vide",
+          "tagsTooMany": "{tagsColumn} ne peut pas dépasser 100",
+          "tagsNotFound": "{tagsColumn} introuvable : {tags}",
+          "enabledInvalid": "Le statut activé prend uniquement en charge : {enabled}/{disabled}, true/false, 1/0",
+          "uniqueNameFailed": "Impossible de générer un {nameColumn} unique",
+          "nameRequired": "{nameColumn} ne peut pas être vide",
+          "nameTooLong": "{nameColumn} ne peut pas dépasser 255 caractères",
+          "typeRequired": "{typeColumn} ne peut pas être vide",
+          "typeTooLong": "{typeColumn} ne peut pas dépasser 100 caractères",
+          "descriptionTooLong": "{descriptionColumn} ne peut pas dépasser 5000 caractères",
+          "notesTooLong": "{notesColumn} ne peut pas dépasser 5000 caractères",
+          "imageKeysRequired": "{imageKeyColumn} ne peut pas être vide",
+          "imagesTooMany": "{imageKeyColumn} ne peut pas dépasser 100 images",
+          "matchPatternInvalid": "{matchPatternColumn} prend uniquement en charge : {whole}/{partial}",
+          "partialImportUnsupported": "L’import IP en correspondance partielle n’est pas pris en charge dans les fichiers batch. Utilisez des lignes en correspondance globale ou créez-les manuellement."
+        }
       }
     },
     "IpClassify": {
@@ -993,6 +1041,40 @@
         "noSearchResults": "Aucun tag correspondant trouvé",
         "tagGroups": "Groupes de tags ({count})",
         "tags": "Tags ({count})"
+      },
+      "batchImportExport": {
+        "entityName": "Nom de la personne",
+        "entityNamePlural": "Nom de la personne",
+        "templateEntityName": "Nom de la personne",
+        "enabledValue": "Activé",
+        "disabledValue": "Désactivé",
+        "listSeparator": ", ",
+        "columns": {
+          "name": "Nom de la personne",
+          "personTypeName": "Identité / Rôle",
+          "tagPaths": "Tags liés",
+          "imageObjectKeys": "Photos du visage OSS Key",
+          "notes": "Notes",
+          "enabled": "Statut d'activation"
+        },
+        "importErrors": {
+          "ossKeyUnreadable": "{imageKeyColumn} est illisible : {objectKey}",
+          "tagsRequired": "{tagsColumn} ne peut pas être vide",
+          "tagsTooMany": "{tagsColumn} ne peut pas dépasser 100",
+          "tagsNotFound": "{tagsColumn} introuvable : {tags}",
+          "enabledInvalid": "Le statut activé prend uniquement en charge : {enabled}/{disabled}, true/false, 1/0",
+          "uniqueNameFailed": "Impossible de générer un {nameColumn} unique",
+          "nameRequired": "{nameColumn} ne peut pas être vide",
+          "nameTooLong": "{nameColumn} ne peut pas dépasser 255 caractères",
+          "typeRequired": "{typeColumn} ne peut pas être vide",
+          "typeTooLong": "{typeColumn} ne peut pas dépasser 100 caractères",
+          "descriptionTooLong": "{descriptionColumn} ne peut pas dépasser 5000 caractères",
+          "notesTooLong": "{notesColumn} ne peut pas dépasser 5000 caractères",
+          "imageKeysRequired": "{imageKeyColumn} ne peut pas être vide",
+          "imagesTooMany": "{imageKeyColumn} ne peut pas dépasser 100 images",
+          "matchPatternInvalid": "{matchPatternColumn} prend uniquement en charge : {whole}/{partial}",
+          "partialImportUnsupported": "L’import IP en correspondance partielle n’est pas pris en charge dans les fichiers batch. Utilisez des lignes en correspondance globale ou créez-les manuellement."
+        }
       }
     },
     "PersonClassify": {
@@ -1204,6 +1286,41 @@
         "noSearchResults": "Aucun tag correspondant trouvé",
         "tagGroups": "Groupes de tags ({count})",
         "tags": "Tags ({count})"
+      },
+      "batchImportExport": {
+        "entityName": "Nom du produit",
+        "entityNamePlural": "Nom du produit",
+        "templateEntityName": "Nom du produit",
+        "enabledValue": "Activé",
+        "disabledValue": "Désactivé",
+        "listSeparator": ", ",
+        "columns": {
+          "name": "Nom du produit",
+          "productTypeName": "Type de produit",
+          "description": "Description des caractéristiques principales",
+          "tagPaths": "Tags associés",
+          "imageObjectKeys": "Images du produit OSS Key",
+          "notes": "Notes",
+          "enabled": "Statut d'activation"
+        },
+        "importErrors": {
+          "ossKeyUnreadable": "{imageKeyColumn} est illisible : {objectKey}",
+          "tagsRequired": "{tagsColumn} ne peut pas être vide",
+          "tagsTooMany": "{tagsColumn} ne peut pas dépasser 100",
+          "tagsNotFound": "{tagsColumn} introuvable : {tags}",
+          "enabledInvalid": "Le statut activé prend uniquement en charge : {enabled}/{disabled}, true/false, 1/0",
+          "uniqueNameFailed": "Impossible de générer un {nameColumn} unique",
+          "nameRequired": "{nameColumn} ne peut pas être vide",
+          "nameTooLong": "{nameColumn} ne peut pas dépasser 255 caractères",
+          "typeRequired": "{typeColumn} ne peut pas être vide",
+          "typeTooLong": "{typeColumn} ne peut pas dépasser 100 caractères",
+          "descriptionTooLong": "{descriptionColumn} ne peut pas dépasser 5000 caractères",
+          "notesTooLong": "{notesColumn} ne peut pas dépasser 5000 caractères",
+          "imageKeysRequired": "{imageKeyColumn} ne peut pas être vide",
+          "imagesTooMany": "{imageKeyColumn} ne peut pas dépasser 100 images",
+          "matchPatternInvalid": "{matchPatternColumn} prend uniquement en charge : {whole}/{partial}",
+          "partialImportUnsupported": "L’import IP en correspondance partielle n’est pas pris en charge dans les fichiers batch. Utilisez des lignes en correspondance globale ou créez-les manuellement."
+        }
       }
     },
     "ProductClassify": {
@@ -1248,6 +1365,72 @@
       },
       "fallbackBox": "recours à l'image entière",
       "coordinateTo": "à"
+    },
+    "BatchImportExport": {
+      "title": "Import/Export en lot",
+      "srDescription": "Importer ou exporter en lot les données de la bibliothèque de caractéristiques",
+      "failureSrDescription": "Raisons d'échec de l'import",
+      "tabImport": "Import",
+      "tabExport": "Export",
+      "cancel": "Annuler",
+      "confirm": "Confirmer",
+      "unsupportedFileType": "Seuls les fichiers Excel (.xlsx) ou CSV (.csv) sont pris en charge",
+      "selectFileFirst": "Veuillez d'abord sélectionner un fichier",
+      "selectImportFile": "Veuillez d'abord sélectionner un fichier Excel (.xlsx) ou CSV (.csv)",
+      "exportDownloadStarted": "Le téléchargement a commencé",
+      "partialImportWarning": "Import partiellement échoué : {success} succès, {failed} échecs",
+      "importSuccess": "{count} éléments importés avec succès",
+      "partialImportFailedTitle": "Échec d'import partiel",
+      "importFailedTitle": "Échec de l'import",
+      "partialImportFailedHint": "Avis d'échec d'import partiel",
+      "importFailedHint": "Avis d'échec d'import",
+      "partialImportFailedDesc": "{success} importée(s) avec succès. Les {failed} lignes suivantes ont échoué. Veuillez corriger et réimporter :",
+      "importFailedDesc": "Les erreurs d'import suivantes ont été détectées. Veuillez corriger et réimporter :",
+      "downloadTemplate": "Télécharger le modèle d'import",
+      "retryImport": "Réimporter",
+      "exportFormatLabel": "Télécharger le tableau actuel au format",
+      "exportHint": "Après export, vous pouvez modifier les données en lot localement puis les réimporter.",
+      "uploadHintLine1": "Sélectionnez ou glissez-déposez un fichier Excel (.xlsx) ou CSV (.csv)",
+      "uploadHintLine2": "Le nom sert d'identifiant unique. Les nouvelles entrées sont créées par défaut.",
+      "selectFile": "Sélectionner un fichier",
+      "downloadSampleTemplate": "Télécharger un exemple de feuille de calcul",
+      "failureRow": "Ligne {row}{name} : {message}",
+      "failureRowName": " ({name})",
+      "exportFailed": "Échec de l'export",
+      "templateDownloadFailed": "Échec du téléchargement du modèle d'import",
+      "importFailed": "Échec de l'import",
+      "rowImportFailed": "Échec de l'import de cette ligne",
+      "listSeparator": ", ",
+      "rowErrorPrefix": "Ligne {row} : {message}",
+      "fileErrors": {
+        "missingHeader": "Le fichier ne contient pas de ligne d'en-tête",
+        "missingRequiredColumns": "Le fichier ne contient pas les colonnes obligatoires : {columns}",
+        "noDataRows": "Aucune donnée importable trouvée",
+        "excelMissingWorksheet": "Le fichier Excel ne contient pas de feuille de calcul",
+        "excelInvalidStructure": "Structure du fichier Excel invalide",
+        "excelUnsupportedCompression": "Le fichier Excel utilise une méthode de compression non prise en charge"
+      },
+      "importErrors": {
+        "ossKeyUnreadable": "{imageKeyColumn} est illisible : {objectKey}",
+        "tagsRequired": "{tagsColumn} ne peut pas être vide",
+        "tagsTooMany": "{tagsColumn} ne peut pas dépasser 100",
+        "tagsNotFound": "{tagsColumn} introuvable : {tags}",
+        "enabledInvalid": "Le statut activé prend uniquement en charge : {enabled}/{disabled}, true/false, 1/0",
+        "uniqueNameFailed": "Impossible de générer un {nameColumn} unique",
+        "nameRequired": "{nameColumn} ne peut pas être vide",
+        "nameTooLong": "{nameColumn} ne peut pas dépasser 255 caractères",
+        "typeRequired": "{typeColumn} ne peut pas être vide",
+        "typeTooLong": "{typeColumn} ne peut pas dépasser 100 caractères",
+        "descriptionTooLong": "{descriptionColumn} ne peut pas dépasser 5000 caractères",
+        "notesTooLong": "{notesColumn} ne peut pas dépasser 5000 caractères",
+        "imageKeysRequired": "{imageKeyColumn} ne peut pas être vide",
+        "imagesTooMany": "{imageKeyColumn} ne peut pas dépasser 100 images",
+        "matchPatternInvalid": "{matchPatternColumn} prend uniquement en charge : {whole}/{partial}",
+        "partialImportUnsupported": "L’import IP en correspondance partielle n’est pas pris en charge dans les fichiers batch. Utilisez des lignes en correspondance globale ou créez-les manuellement."
+      },
+      "formatExcel": "Excel",
+      "formatCsv": "CSV",
+      "spreadsheetBadge": "XLS"
     }
   }
 }

@@ -244,10 +244,18 @@
           "nameTooLong": "ชื่อการระบุตัวตนต้องไม่เกิน 255 ตัวอักษร",
           "typeRequired": "ประเภทการระบุตัวตนต้องไม่ว่างเปล่า",
           "typeTooLong": "ประเภทการระบุตัวตนต้องไม่เกิน 100 ตัวอักษร",
+          "descriptionTooLong": "{descriptionColumn} cannot exceed 5000 characters",
           "notesTooLong": "ข้อมูลบันทึกต้องไม่เกิน 5000 ตัวอักษร",
           "imageKeysRequired": "OSS Key ภาพการระบุตัวตนต้องไม่ว่างเปล่า",
-          "imagesTooMany": "ภาพการระบุตัวตนต้องไม่เกิน 100 ภาพ"
-        }
+          "imagesTooMany": "ภาพการระบุตัวตนต้องไม่เกิน 100 ภาพ",
+          "matchPatternInvalid": "{matchPatternColumn} only supports: {whole}/{partial}",
+          "partialImportUnsupported": "Partial IP import is not supported in batch files. Use whole match rows or create partial IP entries manually."
+        },
+        "entityName": "ชื่อการระบุตัวตน",
+        "entityNamePlural": "ชื่อการระบุตัวตน",
+        "templateEntityName": "ชื่อการระบุตัวตน",
+        "enabledValue": "เปิดใช้งานแล้ว",
+        "disabledValue": "ปิดใช้งานแล้ว"
       }
     },
     "Dashboard": {
@@ -789,6 +797,46 @@
         "noSearchResults": "ไม่พบแท็กที่ตรงกัน",
         "tagGroups": "กลุ่มแท็ก ({count})",
         "tags": "แท็ก ({count})"
+      },
+      "batchImportExport": {
+        "entityName": "ชื่อตัวละคร IP",
+        "entityNamePlural": "ชื่อตัวละคร IP",
+        "templateEntityName": "ชื่อตัวละคร IP",
+        "enabledValue": "เปิดใช้งานแล้ว",
+        "disabledValue": "ปิดใช้งานแล้ว",
+        "listSeparator": ", ",
+        "matchPatterns": {
+          "whole": "ทั้งภาพ",
+          "partial": "บางส่วน"
+        },
+        "columns": {
+          "name": "ชื่อตัวละคร IP",
+          "ipTypeName": "ประเภท IP",
+          "description": "คำอธิบายลักษณะเด่น",
+          "matchPattern": "โหมดการจับคู่",
+          "tagPaths": "แท็กที่เกี่ยวข้อง",
+          "imageObjectKeys": "รูปภาพ IP OSS Key",
+          "notes": "ข้อมูลบันทึก",
+          "enabled": "สถานะเปิดใช้งาน"
+        },
+        "importErrors": {
+          "ossKeyUnreadable": "ไม่สามารถอ่าน {imageKeyColumn}: {objectKey}",
+          "tagsRequired": "{tagsColumn} ต้องไม่ว่าง",
+          "tagsTooMany": "{tagsColumn} ต้องไม่เกิน 100",
+          "tagsNotFound": "ไม่พบ {tagsColumn}: {tags}",
+          "enabledInvalid": "สถานะเปิดใช้งานรองรับเฉพาะ: {enabled}/{disabled}, true/false, 1/0",
+          "uniqueNameFailed": "ไม่สามารถสร้าง {nameColumn} ที่ไม่ซ้ำได้",
+          "nameRequired": "{nameColumn} ต้องไม่ว่าง",
+          "nameTooLong": "{nameColumn} ต้องไม่เกิน 255 อักขระ",
+          "typeRequired": "{typeColumn} ต้องไม่ว่าง",
+          "typeTooLong": "{typeColumn} ต้องไม่เกิน 100 อักขระ",
+          "descriptionTooLong": "{descriptionColumn} ต้องไม่เกิน 5000 อักขระ",
+          "notesTooLong": "{notesColumn} ต้องไม่เกิน 5000 อักขระ",
+          "imageKeysRequired": "{imageKeyColumn} ต้องไม่ว่าง",
+          "imagesTooMany": "{imageKeyColumn} ต้องไม่เกิน 100 รูป",
+          "matchPatternInvalid": "{matchPatternColumn} รองรับเฉพาะ: {whole}/{partial}",
+          "partialImportUnsupported": "ไฟล์แบบชุดยังไม่รองรับการนำเข้า IP แบบจับคู่บางส่วน โปรดใช้แถวจับคู่ทั้งภาพหรือสร้างรายการ IP แบบบางส่วนด้วยตนเอง"
+        }
       }
     },
     "IpClassify": {
@@ -993,6 +1041,40 @@
         "noSearchResults": "ไม่พบแท็กที่ตรงกัน",
         "tagGroups": "กลุ่มแท็ก ({count})",
         "tags": "แท็ก ({count})"
+      },
+      "batchImportExport": {
+        "entityName": "ชื่อบุคคล",
+        "entityNamePlural": "ชื่อบุคคล",
+        "templateEntityName": "ชื่อบุคคล",
+        "enabledValue": "เปิดใช้งาน",
+        "disabledValue": "ปิดใช้งาน",
+        "listSeparator": ", ",
+        "columns": {
+          "name": "ชื่อบุคคล",
+          "personTypeName": "ตัวตน/บทบาท",
+          "tagPaths": "แท็กที่เชื่อมโยง",
+          "imageObjectKeys": "รูปภาพใบหน้า OSS Key",
+          "notes": "บันทึก",
+          "enabled": "สถานะการเปิดใช้งาน"
+        },
+        "importErrors": {
+          "ossKeyUnreadable": "ไม่สามารถอ่าน {imageKeyColumn}: {objectKey}",
+          "tagsRequired": "{tagsColumn} ต้องไม่ว่าง",
+          "tagsTooMany": "{tagsColumn} ต้องไม่เกิน 100",
+          "tagsNotFound": "ไม่พบ {tagsColumn}: {tags}",
+          "enabledInvalid": "สถานะเปิดใช้งานรองรับเฉพาะ: {enabled}/{disabled}, true/false, 1/0",
+          "uniqueNameFailed": "ไม่สามารถสร้าง {nameColumn} ที่ไม่ซ้ำได้",
+          "nameRequired": "{nameColumn} ต้องไม่ว่าง",
+          "nameTooLong": "{nameColumn} ต้องไม่เกิน 255 อักขระ",
+          "typeRequired": "{typeColumn} ต้องไม่ว่าง",
+          "typeTooLong": "{typeColumn} ต้องไม่เกิน 100 อักขระ",
+          "descriptionTooLong": "{descriptionColumn} ต้องไม่เกิน 5000 อักขระ",
+          "notesTooLong": "{notesColumn} ต้องไม่เกิน 5000 อักขระ",
+          "imageKeysRequired": "{imageKeyColumn} ต้องไม่ว่าง",
+          "imagesTooMany": "{imageKeyColumn} ต้องไม่เกิน 100 รูป",
+          "matchPatternInvalid": "{matchPatternColumn} รองรับเฉพาะ: {whole}/{partial}",
+          "partialImportUnsupported": "ไฟล์แบบชุดยังไม่รองรับการนำเข้า IP แบบจับคู่บางส่วน โปรดใช้แถวจับคู่ทั้งภาพหรือสร้างรายการ IP แบบบางส่วนด้วยตนเอง"
+        }
       }
     },
     "PersonClassify": {
@@ -1204,6 +1286,41 @@
         "noSearchResults": "ไม่พบแท็กที่ตรงกัน",
         "tagGroups": "กลุ่มแท็ก ({count})",
         "tags": "แท็ก ({count})"
+      },
+      "batchImportExport": {
+        "entityName": "ชื่อสินค้า",
+        "entityNamePlural": "ชื่อสินค้า",
+        "templateEntityName": "ชื่อสินค้า",
+        "enabledValue": "เปิดใช้งานแล้ว",
+        "disabledValue": "ปิดใช้งานแล้ว",
+        "listSeparator": ", ",
+        "columns": {
+          "name": "ชื่อสินค้า",
+          "productTypeName": "ประเภทสินค้า",
+          "description": "คำอธิบายคุณลักษณะหลัก",
+          "tagPaths": "แท็กที่เกี่ยวข้อง",
+          "imageObjectKeys": "รูปภาพสินค้า OSS Key",
+          "notes": "ข้อมูลบันทึก",
+          "enabled": "สถานะเปิดใช้งาน"
+        },
+        "importErrors": {
+          "ossKeyUnreadable": "ไม่สามารถอ่าน {imageKeyColumn}: {objectKey}",
+          "tagsRequired": "{tagsColumn} ต้องไม่ว่าง",
+          "tagsTooMany": "{tagsColumn} ต้องไม่เกิน 100",
+          "tagsNotFound": "ไม่พบ {tagsColumn}: {tags}",
+          "enabledInvalid": "สถานะเปิดใช้งานรองรับเฉพาะ: {enabled}/{disabled}, true/false, 1/0",
+          "uniqueNameFailed": "ไม่สามารถสร้าง {nameColumn} ที่ไม่ซ้ำได้",
+          "nameRequired": "{nameColumn} ต้องไม่ว่าง",
+          "nameTooLong": "{nameColumn} ต้องไม่เกิน 255 อักขระ",
+          "typeRequired": "{typeColumn} ต้องไม่ว่าง",
+          "typeTooLong": "{typeColumn} ต้องไม่เกิน 100 อักขระ",
+          "descriptionTooLong": "{descriptionColumn} ต้องไม่เกิน 5000 อักขระ",
+          "notesTooLong": "{notesColumn} ต้องไม่เกิน 5000 อักขระ",
+          "imageKeysRequired": "{imageKeyColumn} ต้องไม่ว่าง",
+          "imagesTooMany": "{imageKeyColumn} ต้องไม่เกิน 100 รูป",
+          "matchPatternInvalid": "{matchPatternColumn} รองรับเฉพาะ: {whole}/{partial}",
+          "partialImportUnsupported": "ไฟล์แบบชุดยังไม่รองรับการนำเข้า IP แบบจับคู่บางส่วน โปรดใช้แถวจับคู่ทั้งภาพหรือสร้างรายการ IP แบบบางส่วนด้วยตนเอง"
+        }
       }
     },
     "ProductClassify": {
@@ -1248,6 +1365,72 @@
       },
       "fallbackBox": "กรอบสำรองทั้งภาพ",
       "coordinateTo": "ถึง"
+    },
+    "BatchImportExport": {
+      "title": "นำเข้า/ส่งออกเป็นชุด",
+      "srDescription": "นำเข้าหรือส่งออกข้อมูลคลังฟีเจอร์เป็นชุด",
+      "failureSrDescription": "สาเหตุที่นำเข้าไม่สำเร็จ",
+      "tabImport": "นำเข้า",
+      "tabExport": "ส่งออก",
+      "cancel": "ยกเลิก",
+      "confirm": "ยืนยัน",
+      "unsupportedFileType": "รองรับเฉพาะไฟล์ Excel (.xlsx) หรือ CSV (.csv) เท่านั้น",
+      "selectFileFirst": "กรุณาเลือกไฟล์ก่อน",
+      "selectImportFile": "กรุณาเลือกไฟล์ Excel (.xlsx) หรือ CSV (.csv) ก่อน",
+      "exportDownloadStarted": "เริ่มดาวน์โหลดแล้ว",
+      "partialImportWarning": "นำเข้าสำเร็จบางส่วน: สำเร็จ {success} รายการ ล้มเหลว {failed} รายการ",
+      "importSuccess": "นำเข้าสำเร็จ {count} รายการ",
+      "partialImportFailedTitle": "นำเข้าสำเร็จบางส่วน",
+      "importFailedTitle": "นำเข้าล้มเหลว",
+      "partialImportFailedHint": "แจ้งเตือนการนำเข้าสำเร็จบางส่วน",
+      "importFailedHint": "แจ้งเตือนการนำเข้าล้มเหลว",
+      "partialImportFailedDesc": "นำเข้าสำเร็จ {success} รายการ รายการต่อไปนี้ล้มเหลว {failed} รายการ กรุณาแก้ไขแล้วนำเข้าใหม่:",
+      "importFailedDesc": "พบข้อผิดพลาดการนำเข้าดังต่อไปนี้ กรุณาแก้ไขแล้วนำเข้าใหม่:",
+      "downloadTemplate": "ดาวน์โหลดเทมเพลตนำเข้า",
+      "retryImport": "นำเข้าใหม่",
+      "exportFormatLabel": "ดาวน์โหลดตารางปัจจุบันเป็น",
+      "exportHint": "หลังส่งออก คุณสามารถแก้ไขข้อมูลเป็นชุดในเครื่องแล้วนำเข้ากลับมาได้",
+      "uploadHintLine1": "เลือกหรือลากและวางไฟล์ Excel (.xlsx) หรือ CSV (.csv)",
+      "uploadHintLine2": "ใช้ชื่อเป็น ID เฉพาะ ค่าเริ่มต้นจะสร้างรายการใหม่",
+      "selectFile": "เลือกไฟล์",
+      "downloadSampleTemplate": "ดาวน์โหลดตัวอย่างสเปรดชีต",
+      "failureRow": "แถว {row}{name}: {message}",
+      "failureRowName": " ({name})",
+      "exportFailed": "ส่งออกไม่สำเร็จ",
+      "templateDownloadFailed": "ดาวน์โหลดเทมเพลตนำเข้าไม่สำเร็จ",
+      "importFailed": "นำเข้าไม่สำเร็จ",
+      "rowImportFailed": "นำเข้าแถวนี้ไม่สำเร็จ",
+      "listSeparator": ", ",
+      "rowErrorPrefix": "แถว {row}: {message}",
+      "fileErrors": {
+        "missingHeader": "ไฟล์ขาดแถวหัวตาราง",
+        "missingRequiredColumns": "ไฟล์ขาดคอลัมน์ที่จำเป็น: {columns}",
+        "noDataRows": "ไม่พบข้อมูลที่นำเข้าได้",
+        "excelMissingWorksheet": "ไฟล์ Excel ขาดแผ่นงาน",
+        "excelInvalidStructure": "โครงสร้างไฟล์ Excel ไม่ถูกต้อง",
+        "excelUnsupportedCompression": "ไฟล์ Excel ใช้วิธีการบีบอัดที่ไม่รองรับ"
+      },
+      "importErrors": {
+        "ossKeyUnreadable": "ไม่สามารถอ่าน {imageKeyColumn}: {objectKey}",
+        "tagsRequired": "{tagsColumn} ต้องไม่ว่าง",
+        "tagsTooMany": "{tagsColumn} ต้องไม่เกิน 100",
+        "tagsNotFound": "ไม่พบ {tagsColumn}: {tags}",
+        "enabledInvalid": "สถานะเปิดใช้งานรองรับเฉพาะ: {enabled}/{disabled}, true/false, 1/0",
+        "uniqueNameFailed": "ไม่สามารถสร้าง {nameColumn} ที่ไม่ซ้ำได้",
+        "nameRequired": "{nameColumn} ต้องไม่ว่าง",
+        "nameTooLong": "{nameColumn} ต้องไม่เกิน 255 อักขระ",
+        "typeRequired": "{typeColumn} ต้องไม่ว่าง",
+        "typeTooLong": "{typeColumn} ต้องไม่เกิน 100 อักขระ",
+        "descriptionTooLong": "{descriptionColumn} ต้องไม่เกิน 5000 อักขระ",
+        "notesTooLong": "{notesColumn} ต้องไม่เกิน 5000 อักขระ",
+        "imageKeysRequired": "{imageKeyColumn} ต้องไม่ว่าง",
+        "imagesTooMany": "{imageKeyColumn} ต้องไม่เกิน 100 รูป",
+        "matchPatternInvalid": "{matchPatternColumn} รองรับเฉพาะ: {whole}/{partial}",
+        "partialImportUnsupported": "ไฟล์แบบชุดยังไม่รองรับการนำเข้า IP แบบจับคู่บางส่วน โปรดใช้แถวจับคู่ทั้งภาพหรือสร้างรายการ IP แบบบางส่วนด้วยตนเอง"
+      },
+      "formatExcel": "Excel",
+      "formatCsv": "CSV",
+      "spreadsheetBadge": "XLS"
     }
   }
 }

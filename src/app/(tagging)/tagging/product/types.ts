@@ -53,6 +53,27 @@ export type ProductLibraryPageData = {
   tags: ProductTagTreeNode[];
 };
 
+export type ProductBatchImportFailure = {
+  rowNumber: number;
+  name: string | null;
+  message: string;
+};
+
+export type ProductBatchImportResult = {
+  createdProducts: ProductItem[];
+  productTypes: ProductTypeItem[];
+  successCount: number;
+  failedCount: number;
+  skippedCount: number;
+  failures: ProductBatchImportFailure[];
+};
+
+export type ProductBatchFileResult = {
+  filename: string;
+  mimeType: string;
+  base64: string;
+};
+
 export type ProductDetectionBox = {
   xMin: number;
   yMin: number;

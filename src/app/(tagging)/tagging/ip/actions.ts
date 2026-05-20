@@ -2,10 +2,10 @@
 
 import { withAuth } from "@/app/(auth)/withAuth";
 import {
-  IpDetectionBox,
   classifyIpImageCrops,
   detectIpFigureBoxes,
   detectIpPartialFeatureBoxes,
+  IpDetectionBox,
 } from "@/lib/ip/ip-classification";
 import {
   markAssetIpVectorsProcessing,
@@ -19,14 +19,33 @@ import {
 import { deleteIpVectorPointsByIp, setIpVectorPayloadByIp } from "@/lib/ip/qdrant";
 import { buildAssetIpObjectKey, getCachedSignedOssObjectUrl, uploadOssObject } from "@/lib/oss";
 import { ServerActionResult } from "@/lib/serverAction";
-import { schedulePushFeatureToMuseDAM } from "@/musedam/push-feature-to-musedam";
 import { fetchRemoteImageInput, getFallbackBox } from "@/lib/tagging/classification-image";
+import { schedulePushFeatureToMuseDAM } from "@/musedam/push-feature-to-musedam";
 import { AssetIp, AssetIpImage, AssetIpTag, AssetIpType, AssetTag } from "@/prisma/client/index";
 import prisma from "@/prisma/prisma";
 import { getLocale, getTranslations } from "next-intl/server";
 import { after } from "next/server";
 import { z } from "zod";
 import {
+  BatchFileErrorMessages,
+  BatchFileFormat,
+  encodeBatchFile,
+  getBatchFileName,
+  parseBatchFile,
+  parseImportedEnabled,
+  splitBatchValues,
+} from "../batchFile";
+import {
+  buildIpBatchExportRows,
+  buildIpBatchTemplateRows,
+  getIpBatchColumns,
+  ParsedIpBatchRow,
+  parseIpBatchRows,
+} from "./batchFile";
+import {
+  IpBatchFileResult,
+  IpBatchImportFailure,
+  IpBatchImportResult,
   IpClassificationResult,
   IpClassificationUploadResult,
   IpImageItem,
@@ -38,6 +57,18 @@ import {
   IpTagTreeNode,
   IpTypeItem,
 } from "./types";
+
+type TranslationFunction = (key: string, values?: Record<string, string | number>) => string;
+
+function getIpBatchFileErrors(t: TranslationFunction): BatchFileErrorMessages {
+  return {
+    missingHeader: t("fileErrors.missingHeader"),
+    noDataRows: t("fileErrors.noDataRows"),
+    excelMissingWorksheet: t("fileErrors.excelMissingWorksheet"),
+    excelInvalidStructure: t("fileErrors.excelInvalidStructure"),
+    excelUnsupportedCompression: t("fileErrors.excelUnsupportedCompression"),
+  };
+}
 
 async function getIpValidationMessages() {
   const t = await getTranslations("Tagging.IpLibrary");
@@ -105,11 +136,7 @@ async function getCreateOrUpdateIpSchema() {
 
 async function getIpTypeNameSchema() {
   const messages = await getIpValidationMessages();
-  return z
-    .string()
-    .trim()
-    .min(1, messages.typeNameRequired)
-    .max(100, messages.typeNameTooLong);
+  return z.string().trim().min(1, messages.typeNameRequired).max(100, messages.typeNameTooLong);
 }
 
 type AssetTagWithParents = AssetTag & {
@@ -280,20 +307,68 @@ function getDefaultIpTypeNames(locale: string): string[] {
     "zh-cn": ["品牌吉祥物", "虚拟偶像", "卡通形象", "联名IP", "其他"],
     "zh-tw": ["品牌吉祥物", "虛擬偶像", "卡通形象", "聯名IP", "其他"],
     "en-us": ["Brand Mascot", "Virtual Idol", "Cartoon Character", "Co-branded IP", "Other"],
-    "ja-jp": ["ブランドマスコット", "バーチャルアイドル", "カートゥーンキャラクター", "コラボIP", "その他"],
+    "ja-jp": [
+      "ブランドマスコット",
+      "バーチャルアイドル",
+      "カートゥーンキャラクター",
+      "コラボIP",
+      "その他",
+    ],
     "ko-kr": ["브랜드 마스코트", "버추얼 아이돌", "카툰 캐릭터", "콜라보 IP", "기타"],
-    "fr-fr": ["Mascotte de marque", "Idole virtuelle", "Personnage de dessin animé", "IP collaboratif", "Autre"],
-    "de-de": ["Markenmaskottchen", "Virtueller Idol", "Cartoon-Figur", "Co-branded IP", "Sonstiges"],
-    "es-es": ["Mascota de marca", "Ídolo virtual", "Personaje de dibujos animados", "IP colaborativo", "Otros"],
-    "it-it": ["Mascotte del brand", "Idolo virtuale", "Personaggio cartoon", "IP co-branded", "Altro"],
-    "pt-br": ["Mascote da Marca", "Ídolo Virtual", "Personagem de Desenho Animado", "IP Colab", "Outro"],
-    "ru-ru": ["Бренд-маскот", "Виртуальный идол", "Мультяшный персонаж", "Коллаборативный IP", "Другое"],
+    "fr-fr": [
+      "Mascotte de marque",
+      "Idole virtuelle",
+      "Personnage de dessin animé",
+      "IP collaboratif",
+      "Autre",
+    ],
+    "de-de": [
+      "Markenmaskottchen",
+      "Virtueller Idol",
+      "Cartoon-Figur",
+      "Co-branded IP",
+      "Sonstiges",
+    ],
+    "es-es": [
+      "Mascota de marca",
+      "Ídolo virtual",
+      "Personaje de dibujos animados",
+      "IP colaborativo",
+      "Otros",
+    ],
+    "it-it": [
+      "Mascotte del brand",
+      "Idolo virtuale",
+      "Personaggio cartoon",
+      "IP co-branded",
+      "Altro",
+    ],
+    "pt-br": [
+      "Mascote da Marca",
+      "Ídolo Virtual",
+      "Personagem de Desenho Animado",
+      "IP Colab",
+      "Outro",
+    ],
+    "ru-ru": [
+      "Бренд-маскот",
+      "Виртуальный идол",
+      "Мультяшный персонаж",
+      "Коллаборативный IP",
+      "Другое",
+    ],
     "vi-vn": ["Mascot thương hiệu", "Idol ảo", "Nhân vật hoạt hình", "IP hợp tác", "Khác"],
     "th-th": ["มาสคอตแบรนด์", "ไอดอลเสมือน", "ตัวละครการ์ตูน", "IP ร่วม", "อื่น ๆ"],
     "id-id": ["Maskot Brand", "Idol Virtual", "Karakter Kartun", "IP Kolaborasi", "Lainnya"],
     "hi-in": ["ब्रांड मस्कॉट", "वर्चुअल आइडल", "कार्टून कैरेक्टर", "को-ब्रांडेड आईपी", "अन्य"],
     "tr-tr": ["Marka Maskotu", "Sanal İdol", "Çizgi Film Karakteri", "İşbirliği IP", "Diğer"],
-    "pl-pl": ["Maskotka marki", "Wirtualny idol", "Postać z kreskówki", "IP współbrandowany", "Inne"],
+    "pl-pl": [
+      "Maskotka marki",
+      "Wirtualny idol",
+      "Postać z kreskówki",
+      "IP współbrandowany",
+      "Inne",
+    ],
   };
 
   return defaults[normalizedLocale] || defaults["en-us"]!;
@@ -315,6 +390,200 @@ async function ensureDefaultIpTypes(teamId: number, locale: string) {
   });
 
   return fetchActiveIpTypes(teamId);
+}
+
+function getIpBatchTranslator(t: TranslationFunction) {
+  return (key: string, values?: Record<string, string | number>) =>
+    t(`batchImportExport.${key}`, values);
+}
+
+function normalizeTagPathKey(value: string) {
+  return value
+    .split(">")
+    .map((part) => part.trim().toLowerCase())
+    .filter(Boolean)
+    .join(">");
+}
+
+async function buildTagPathLookup(teamId: number) {
+  const tags = await prisma.assetTag.findMany({
+    where: {
+      teamId,
+    },
+    include: {
+      parent: {
+        include: {
+          parent: true,
+        },
+      },
+    },
+  });
+  const tagLookup = new Map<
+    string,
+    {
+      assetTagId: number;
+      tagPath: string[];
+    }
+  >();
+
+  for (const tag of tags) {
+    const tagPath = buildTagPath(tag as AssetTagWithParents);
+    tagLookup.set(normalizeTagPathKey(tagPath.join(" > ")), {
+      assetTagId: tag.id,
+      tagPath,
+    });
+  }
+
+  return tagLookup;
+}
+
+function resolveImportedTags({
+  value,
+  tagLookup,
+  t,
+}: {
+  value: string;
+  tagLookup: Map<string, { assetTagId: number; tagPath: string[] }>;
+  t: TranslationFunction;
+}) {
+  const tagPathValues = splitBatchValues(value);
+  if (tagPathValues.length === 0) {
+    throw new Error(t("importErrors.tagsRequired", { tagsColumn: t("columns.tagPaths") }));
+  }
+
+  if (tagPathValues.length > 100) {
+    throw new Error(t("importErrors.tagsTooMany", { tagsColumn: t("columns.tagPaths") }));
+  }
+
+  const missingTagPaths: string[] = [];
+  const selectedTags: Array<{
+    assetTagId: number;
+    sort: number;
+    tagPath: string[];
+  }> = [];
+  const selectedTagIds = new Set<number>();
+
+  for (const tagPathValue of tagPathValues) {
+    const tag = tagLookup.get(normalizeTagPathKey(tagPathValue));
+    if (!tag) {
+      missingTagPaths.push(tagPathValue);
+      continue;
+    }
+
+    if (selectedTagIds.has(tag.assetTagId)) {
+      continue;
+    }
+
+    selectedTagIds.add(tag.assetTagId);
+    selectedTags.push({
+      assetTagId: tag.assetTagId,
+      sort: selectedTags.length + 1,
+      tagPath: tag.tagPath,
+    });
+  }
+
+  if (missingTagPaths.length > 0) {
+    throw new Error(
+      t("importErrors.tagsNotFound", {
+        tagsColumn: t("columns.tagPaths"),
+        tags: missingTagPaths.join(t("listSeparator")),
+      }),
+    );
+  }
+
+  return selectedTags;
+}
+
+function getUniqueImportedIpName(
+  baseName: string,
+  existingNames: Set<string>,
+  t: TranslationFunction,
+) {
+  if (!existingNames.has(baseName)) {
+    return baseName;
+  }
+
+  for (let index = 1; index < 10000; index += 1) {
+    const suffix = `(${index})`;
+    const candidate = `${baseName.slice(0, 255 - suffix.length)}${suffix}`;
+
+    if (!existingNames.has(candidate)) {
+      return candidate;
+    }
+  }
+
+  throw new Error(t("importErrors.uniqueNameFailed", { nameColumn: t("columns.name") }));
+}
+
+async function ensureImportedIpType({
+  teamId,
+  name,
+  ipTypeCache,
+}: {
+  teamId: number;
+  name: string;
+  ipTypeCache: Map<string, AssetIpType>;
+}) {
+  const cacheKey = name.toLowerCase();
+  const cached = ipTypeCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  const existingType = await prisma.assetIpType.findFirst({
+    where: {
+      teamId,
+      name,
+    },
+  });
+
+  if (existingType) {
+    ipTypeCache.set(cacheKey, existingType);
+    return existingType;
+  }
+
+  const lastType = await prisma.assetIpType.findFirst({
+    where: {
+      teamId,
+    },
+    orderBy: [{ sort: "desc" }, { id: "desc" }],
+  });
+  const ipType = await prisma.assetIpType.create({
+    data: {
+      teamId,
+      name,
+      sort: (lastType?.sort ?? 0) + 1,
+    },
+  });
+
+  ipTypeCache.set(cacheKey, ipType);
+  return ipType;
+}
+
+function parseImportedMatchPattern(
+  value: string,
+  t: TranslationFunction,
+): AssetIpMatchPatternInput {
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) {
+    return "whole";
+  }
+
+  if (["whole", t("matchPatterns.whole").toLowerCase()].includes(normalized)) {
+    return "whole";
+  }
+
+  if (["partial", t("matchPatterns.partial").toLowerCase()].includes(normalized)) {
+    return "partial";
+  }
+
+  throw new Error(
+    t("importErrors.matchPatternInvalid", {
+      matchPatternColumn: t("columns.matchPattern"),
+      whole: t("matchPatterns.whole"),
+      partial: t("matchPatterns.partial"),
+    }),
+  );
 }
 
 async function fetchIpTags(teamId: number) {
@@ -523,6 +792,222 @@ async function uploadAssetLibraryImages({
   }
 
   return uploads;
+}
+
+function getImageExtensionFromObjectKeyOrContentType({
+  objectKey,
+  contentType,
+}: {
+  objectKey: string;
+  contentType: string;
+}) {
+  const match = objectKey.split("?")[0].match(/\.[a-zA-Z0-9]+$/);
+  if (match) {
+    return match[0].toLowerCase();
+  }
+
+  if (contentType.includes("image/png")) return ".png";
+  if (contentType.includes("image/jpeg")) return ".jpg";
+  if (contentType.includes("image/webp")) return ".webp";
+  if (contentType.includes("image/svg+xml")) return ".svg";
+  if (contentType.includes("image/gif")) return ".gif";
+  return "";
+}
+
+async function cloneIpImageFromObjectKey({
+  objectKey,
+  teamId,
+  t,
+}: {
+  objectKey: string;
+  teamId: number;
+  t: TranslationFunction;
+}) {
+  const { signedUrl } = getCachedSignedOssObjectUrl({
+    objectKey,
+    expiresInSeconds: 60 * 60,
+  });
+  const response = await fetch(signedUrl);
+
+  if (!response.ok) {
+    throw new Error(
+      t("importErrors.ossKeyUnreadable", {
+        imageKeyColumn: t("columns.imageObjectKeys"),
+        objectKey,
+      }),
+    );
+  }
+
+  const contentType = response.headers.get("content-type") || "application/octet-stream";
+  const buffer = Buffer.from(await response.arrayBuffer());
+  const extension = getImageExtensionFromObjectKeyOrContentType({
+    objectKey,
+    contentType,
+  });
+  const newObjectKey = buildAssetIpObjectKey({
+    teamId,
+    extension,
+  });
+
+  const uploadResult = await uploadOssObject({
+    body: buffer,
+    contentType,
+    objectKey: newObjectKey,
+  });
+
+  return {
+    objectKey: uploadResult.objectKey,
+    mimeType: contentType,
+    size: buffer.byteLength,
+  };
+}
+
+async function importIpBatchRow({
+  team,
+  row,
+  tagLookup,
+  ipTypeCache,
+  existingNames,
+  t,
+}: {
+  team: { id: number; slug: string };
+  row: ParsedIpBatchRow;
+  tagLookup: Map<string, { assetTagId: number; tagPath: string[] }>;
+  ipTypeCache: Map<string, AssetIpType>;
+  existingNames: Set<string>;
+  t: TranslationFunction;
+}) {
+  const baseName = row.name.trim();
+  const ipTypeName = row.ipTypeName.trim();
+  const description = row.description.trim();
+  const notes = row.notes.trim();
+  const imageObjectKeys = splitBatchValues(row.imageObjectKeys);
+  const matchPattern = parseImportedMatchPattern(row.matchPattern, t);
+
+  if (!baseName) {
+    throw new Error(t("importErrors.nameRequired", { nameColumn: t("columns.name") }));
+  }
+
+  if (baseName.length > 255) {
+    throw new Error(t("importErrors.nameTooLong", { nameColumn: t("columns.name") }));
+  }
+
+  if (!ipTypeName) {
+    throw new Error(t("importErrors.typeRequired", { typeColumn: t("columns.ipTypeName") }));
+  }
+
+  if (ipTypeName.length > 100) {
+    throw new Error(t("importErrors.typeTooLong", { typeColumn: t("columns.ipTypeName") }));
+  }
+
+  if (description.length > 5000) {
+    throw new Error(
+      t("importErrors.descriptionTooLong", { descriptionColumn: t("columns.description") }),
+    );
+  }
+
+  if (notes.length > 5000) {
+    throw new Error(t("importErrors.notesTooLong", { notesColumn: t("columns.notes") }));
+  }
+
+  if (imageObjectKeys.length === 0) {
+    throw new Error(
+      t("importErrors.imageKeysRequired", { imageKeyColumn: t("columns.imageObjectKeys") }),
+    );
+  }
+
+  if (imageObjectKeys.length > 100) {
+    throw new Error(
+      t("importErrors.imagesTooMany", { imageKeyColumn: t("columns.imageObjectKeys") }),
+    );
+  }
+
+  if (matchPattern === "partial") {
+    throw new Error(t("importErrors.partialImportUnsupported"));
+  }
+
+  const selectedTags = resolveImportedTags({
+    value: row.tagPaths,
+    tagLookup,
+    t,
+  });
+  const enabled = parseImportedEnabled({
+    value: row.enabled,
+    enabledLabel: t("enabledValue"),
+    disabledLabel: t("disabledValue"),
+    formatError: (enabledLabel, disabledLabel) =>
+      t("importErrors.enabledInvalid", {
+        enabled: enabledLabel,
+        disabled: disabledLabel,
+      }),
+  });
+  const uploadedImages = [];
+
+  for (const objectKey of imageObjectKeys) {
+    uploadedImages.push(
+      await cloneIpImageFromObjectKey({
+        objectKey,
+        teamId: team.id,
+        t,
+      }),
+    );
+  }
+
+  const ipType = await ensureImportedIpType({
+    teamId: team.id,
+    name: ipTypeName,
+    ipTypeCache,
+  });
+  const ipName = getUniqueImportedIpName(baseName, existingNames, t);
+
+  const createdIp = await prisma.assetIp.create({
+    data: {
+      teamId: team.id,
+      name: ipName,
+      ipTypeId: ipType.id,
+      ipTypeName: ipType.name,
+      description,
+      matchPattern,
+      notes,
+      status: "processing",
+      processingError: null,
+      enabled,
+      images: {
+        create: uploadedImages.map((image, index) =>
+          buildUploadedImageCreateData({
+            image,
+            sort: index + 1,
+            matchPattern,
+            missingMessage: t("importErrors.partialImportUnsupported"),
+          }),
+        ),
+      },
+      tags: {
+        create: selectedTags.map((tag) => ({
+          assetTagId: tag.assetTagId,
+          tagPath: tag.tagPath,
+          sort: tag.sort,
+        })),
+      },
+    },
+  });
+
+  existingNames.add(ipName);
+
+  const ip = await loadIp(team.id, createdIp.id);
+  scheduleAssetIpProcessing(team.id, createdIp.id);
+  schedulePushFeatureToMuseDAM({
+    team,
+    featureType: "ip",
+    identifierId: ip.id,
+    identifierName: ip.name,
+    identifierTypeId: ipType.id,
+    identifierTypeName: ipType.name,
+    firstImageObjectKey: ip.images[0]?.objectKey,
+    internalAssetTagIds: selectedTags.map((tag) => tag.assetTagId),
+  });
+
+  return normalizeIp(ip);
 }
 
 function getUploadedImageCropInput(image: UploadedIpImageInput): ImagePartialSelectionInput | null {
@@ -1001,6 +1486,191 @@ export async function fetchIpLibraryPageData(): Promise<ServerActionResult<IpLib
       return {
         success: false,
         message: t("createFailed"),
+      };
+    }
+  });
+}
+
+export async function exportIpsAction(
+  format: BatchFileFormat,
+): Promise<ServerActionResult<IpBatchFileResult>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    const tBatch = (await getTranslations("Tagging.BatchImportExport")) as TranslationFunction;
+
+    try {
+      const parsedFormat = z.enum(["csv", "xlsx"]).parse(format);
+      const ips = await fetchIps(teamId);
+      const rows = buildIpBatchExportRows({
+        ips,
+        columns: getIpBatchColumns(),
+      });
+      const { buffer, mimeType } = encodeBatchFile({
+        rows,
+        format: parsedFormat,
+      });
+
+      return {
+        success: true,
+        data: {
+          filename: getBatchFileName("ip-library", parsedFormat),
+          mimeType,
+          base64: buffer.toString("base64"),
+        },
+      };
+    } catch (error) {
+      console.error("Failed to export IPs:", error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : tBatch("exportFailed"),
+      };
+    }
+  });
+}
+
+export async function downloadIpImportTemplateAction(
+  format: BatchFileFormat = "xlsx",
+): Promise<ServerActionResult<IpBatchFileResult>> {
+  return withAuth(async () => {
+    const tBatch = (await getTranslations("Tagging.BatchImportExport")) as TranslationFunction;
+
+    try {
+      const parsedFormat = z.enum(["csv", "xlsx"]).parse(format);
+      const { buffer, mimeType } = encodeBatchFile({
+        rows: buildIpBatchTemplateRows(getIpBatchColumns()),
+        format: parsedFormat,
+      });
+
+      return {
+        success: true,
+        data: {
+          filename: `ip-import-template.${parsedFormat}`,
+          mimeType,
+          base64: buffer.toString("base64"),
+        },
+      };
+    } catch (error) {
+      console.error("Failed to build IP import template:", error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : tBatch("templateDownloadFailed"),
+      };
+    }
+  });
+}
+
+export async function importIpsAction(
+  formData: FormData,
+): Promise<ServerActionResult<IpBatchImportResult>> {
+  return withAuth(async ({ team }) => {
+    const t = getIpBatchTranslator(
+      (await getTranslations("Tagging.IpLibrary")) as TranslationFunction,
+    );
+    const tBatch = (await getTranslations("Tagging.BatchImportExport")) as TranslationFunction;
+    const fileErrors = getIpBatchFileErrors(tBatch);
+    const columns = getIpBatchColumns();
+
+    try {
+      const file = formData.get("file");
+
+      if (!(file instanceof File) || file.size <= 0) {
+        return {
+          success: false,
+          message: tBatch("selectImportFile"),
+        };
+      }
+
+      const buffer = Buffer.from(await file.arrayBuffer());
+      const tableRows = parseBatchFile({
+        file,
+        buffer,
+        fileErrors,
+        unsupportedFileTypeMessage: tBatch("unsupportedFileType"),
+      });
+      const parsedRows = parseIpBatchRows({
+        rows: tableRows,
+        columns,
+        fileErrors,
+        listSeparator: t("listSeparator"),
+        formatMissingRequiredColumns: (columnNames) =>
+          tBatch("fileErrors.missingRequiredColumns", { columns: columnNames }),
+      });
+      const ipTypes = await fetchActiveIpTypes(team.id);
+
+      if (parsedRows.errors.length > 0) {
+        return {
+          success: true,
+          data: {
+            createdIps: [],
+            ipTypes: ipTypes.map(normalizeIpType),
+            successCount: 0,
+            failedCount: parsedRows.errors.length,
+            skippedCount: 0,
+            failures: parsedRows.errors.map((error) => ({
+              rowNumber: error.rowNumber,
+              name: null,
+              message: error.message,
+            })),
+          },
+        };
+      }
+
+      const [tagLookup, existingIps, activeIpTypes] = await Promise.all([
+        buildTagPathLookup(team.id),
+        prisma.assetIp.findMany({
+          where: {
+            teamId: team.id,
+          },
+          select: {
+            name: true,
+          },
+        }),
+        fetchActiveIpTypes(team.id),
+      ]);
+      const existingNames = new Set(existingIps.map((ip) => ip.name));
+      const ipTypeCache = new Map(
+        activeIpTypes.map((ipType) => [ipType.name.toLowerCase(), ipType] as const),
+      );
+      const createdIps: IpItem[] = [];
+      const failures: IpBatchImportFailure[] = [];
+
+      for (const row of parsedRows.records) {
+        try {
+          const ip = await importIpBatchRow({
+            team,
+            row,
+            tagLookup,
+            ipTypeCache,
+            existingNames,
+            t,
+          });
+          createdIps.push(ip);
+        } catch (error) {
+          failures.push({
+            rowNumber: row.rowNumber,
+            name: row.name.trim() || null,
+            message: error instanceof Error ? error.message : tBatch("rowImportFailed"),
+          });
+        }
+      }
+
+      const nextIpTypes = await fetchActiveIpTypes(team.id);
+
+      return {
+        success: true,
+        data: {
+          createdIps,
+          ipTypes: nextIpTypes.map(normalizeIpType),
+          successCount: createdIps.length,
+          failedCount: failures.length,
+          skippedCount: 0,
+          failures,
+        },
+      };
+    } catch (error) {
+      console.error("Failed to import IPs:", error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : tBatch("importFailed"),
       };
     }
   });

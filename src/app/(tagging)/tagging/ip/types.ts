@@ -63,6 +63,27 @@ export type IpLibraryPageData = {
   tags: IpTagTreeNode[];
 };
 
+export type IpBatchImportFailure = {
+  rowNumber: number;
+  name: string | null;
+  message: string;
+};
+
+export type IpBatchImportResult = {
+  createdIps: IpItem[];
+  ipTypes: IpTypeItem[];
+  successCount: number;
+  failedCount: number;
+  skippedCount: number;
+  failures: IpBatchImportFailure[];
+};
+
+export type IpBatchFileResult = {
+  filename: string;
+  mimeType: string;
+  base64: string;
+};
+
 export type IpDetectionBox = {
   xMin: number;
   yMin: number;

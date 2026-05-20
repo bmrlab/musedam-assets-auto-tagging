@@ -483,10 +483,18 @@
           "nameTooLong": "識別名は255文字を超えることはできません",
           "typeRequired": "識別タイプは空にできません",
           "typeTooLong": "識別タイプは100文字を超えることはできません",
+          "descriptionTooLong": "{descriptionColumn} cannot exceed 5000 characters",
           "notesTooLong": "メモは5000文字を超えることはできません",
           "imageKeysRequired": "識別画像 OSS Key は空にできません",
-          "imagesTooMany": "識別画像は100枚を超えることはできません"
-        }
+          "imagesTooMany": "識別画像は100枚を超えることはできません",
+          "matchPatternInvalid": "{matchPatternColumn} only supports: {whole}/{partial}",
+          "partialImportUnsupported": "Partial IP import is not supported in batch files. Use whole match rows or create partial IP entries manually."
+        },
+        "entityName": "識別名",
+        "entityNamePlural": "識別名",
+        "templateEntityName": "識別名",
+        "enabledValue": "有効",
+        "disabledValue": "無効"
       }
     },
     "Test": {
@@ -789,6 +797,46 @@
         "noSearchResults": "一致するタグが見つかりません",
         "tagGroups": "タググループ({count})",
         "tags": "タグ({count})"
+      },
+      "batchImportExport": {
+        "entityName": "IPキャラクター名",
+        "entityNamePlural": "IPキャラクター名",
+        "templateEntityName": "IPキャラクター名",
+        "enabledValue": "有効",
+        "disabledValue": "無効",
+        "listSeparator": "、",
+        "matchPatterns": {
+          "whole": "全体",
+          "partial": "一部"
+        },
+        "columns": {
+          "name": "IPキャラクター名",
+          "ipTypeName": "IPタイプ",
+          "description": "主要な特徴の説明",
+          "matchPattern": "マッチング方式",
+          "tagPaths": "関連タグ",
+          "imageObjectKeys": "IP画像 OSS Key",
+          "notes": "メモ",
+          "enabled": "有効状態"
+        },
+        "importErrors": {
+          "ossKeyUnreadable": "{imageKeyColumn} を読み取れません: {objectKey}",
+          "tagsRequired": "{tagsColumn} は必須です",
+          "tagsTooMany": "{tagsColumn} は 100 件を超えられません",
+          "tagsNotFound": "{tagsColumn} が見つかりません: {tags}",
+          "enabledInvalid": "有効状態は {enabled}/{disabled}、true/false、1/0 のみ対応しています",
+          "uniqueNameFailed": "一意の {nameColumn} を生成できません",
+          "nameRequired": "{nameColumn} は必須です",
+          "nameTooLong": "{nameColumn} は 255 文字以内にしてください",
+          "typeRequired": "{typeColumn} は必須です",
+          "typeTooLong": "{typeColumn} は 100 文字以内にしてください",
+          "descriptionTooLong": "{descriptionColumn} は 5000 文字以内にしてください",
+          "notesTooLong": "{notesColumn} は 5000 文字以内にしてください",
+          "imageKeysRequired": "{imageKeyColumn} は必須です",
+          "imagesTooMany": "{imageKeyColumn} は 100 枚を超えられません",
+          "matchPatternInvalid": "{matchPatternColumn} は {whole}/{partial} のみ対応しています",
+          "partialImportUnsupported": "一括ファイルでは部分一致 IP のインポートに対応していません。全体一致の行を使用するか、部分一致 IP を手動で作成してください。"
+        }
       }
     },
     "IpClassify": {
@@ -993,6 +1041,40 @@
         "noSearchResults": "一致するタグが見つかりません",
         "tagGroups": "タググループ({count})",
         "tags": "タグ({count})"
+      },
+      "batchImportExport": {
+        "entityName": "人物名",
+        "entityNamePlural": "人物名",
+        "templateEntityName": "人物名",
+        "enabledValue": "有効",
+        "disabledValue": "無効",
+        "listSeparator": "、",
+        "columns": {
+          "name": "人物名",
+          "personTypeName": "役割/身分",
+          "tagPaths": "関連タグ",
+          "imageObjectKeys": "顔写真 OSS Key",
+          "notes": "備考",
+          "enabled": "有効状態"
+        },
+        "importErrors": {
+          "ossKeyUnreadable": "{imageKeyColumn} を読み取れません: {objectKey}",
+          "tagsRequired": "{tagsColumn} は必須です",
+          "tagsTooMany": "{tagsColumn} は 100 件を超えられません",
+          "tagsNotFound": "{tagsColumn} が見つかりません: {tags}",
+          "enabledInvalid": "有効状態は {enabled}/{disabled}、true/false、1/0 のみ対応しています",
+          "uniqueNameFailed": "一意の {nameColumn} を生成できません",
+          "nameRequired": "{nameColumn} は必須です",
+          "nameTooLong": "{nameColumn} は 255 文字以内にしてください",
+          "typeRequired": "{typeColumn} は必須です",
+          "typeTooLong": "{typeColumn} は 100 文字以内にしてください",
+          "descriptionTooLong": "{descriptionColumn} は 5000 文字以内にしてください",
+          "notesTooLong": "{notesColumn} は 5000 文字以内にしてください",
+          "imageKeysRequired": "{imageKeyColumn} は必須です",
+          "imagesTooMany": "{imageKeyColumn} は 100 枚を超えられません",
+          "matchPatternInvalid": "{matchPatternColumn} は {whole}/{partial} のみ対応しています",
+          "partialImportUnsupported": "一括ファイルでは部分一致 IP のインポートに対応していません。全体一致の行を使用するか、部分一致 IP を手動で作成してください。"
+        }
       }
     },
     "PersonClassify": {
@@ -1204,6 +1286,41 @@
         "noSearchResults": "一致するタグが見つかりません",
         "tagGroups": "タググループ({count})",
         "tags": "タグ({count})"
+      },
+      "batchImportExport": {
+        "entityName": "商品名",
+        "entityNamePlural": "商品名",
+        "templateEntityName": "商品名",
+        "enabledValue": "有効",
+        "disabledValue": "無効",
+        "listSeparator": "、",
+        "columns": {
+          "name": "商品名",
+          "productTypeName": "商品タイプ",
+          "description": "主要な特徴の説明",
+          "tagPaths": "関連タグ",
+          "imageObjectKeys": "商品画像 OSS Key",
+          "notes": "メモ",
+          "enabled": "有効状態"
+        },
+        "importErrors": {
+          "ossKeyUnreadable": "{imageKeyColumn} を読み取れません: {objectKey}",
+          "tagsRequired": "{tagsColumn} は必須です",
+          "tagsTooMany": "{tagsColumn} は 100 件を超えられません",
+          "tagsNotFound": "{tagsColumn} が見つかりません: {tags}",
+          "enabledInvalid": "有効状態は {enabled}/{disabled}、true/false、1/0 のみ対応しています",
+          "uniqueNameFailed": "一意の {nameColumn} を生成できません",
+          "nameRequired": "{nameColumn} は必須です",
+          "nameTooLong": "{nameColumn} は 255 文字以内にしてください",
+          "typeRequired": "{typeColumn} は必須です",
+          "typeTooLong": "{typeColumn} は 100 文字以内にしてください",
+          "descriptionTooLong": "{descriptionColumn} は 5000 文字以内にしてください",
+          "notesTooLong": "{notesColumn} は 5000 文字以内にしてください",
+          "imageKeysRequired": "{imageKeyColumn} は必須です",
+          "imagesTooMany": "{imageKeyColumn} は 100 枚を超えられません",
+          "matchPatternInvalid": "{matchPatternColumn} は {whole}/{partial} のみ対応しています",
+          "partialImportUnsupported": "一括ファイルでは部分一致 IP のインポートに対応していません。全体一致の行を使用するか、部分一致 IP を手動で作成してください。"
+        }
       }
     },
     "ProductClassify": {
@@ -1248,6 +1365,72 @@
       },
       "fallbackBox": "全体画像フォールバック",
       "coordinateTo": "から"
+    },
+    "BatchImportExport": {
+      "title": "一括インポート/エクスポート",
+      "srDescription": "特徴ライブラリデータの一括インポートまたはエクスポート",
+      "failureSrDescription": "インポート失敗理由",
+      "tabImport": "インポート",
+      "tabExport": "エクスポート",
+      "cancel": "キャンセル",
+      "confirm": "確認",
+      "unsupportedFileType": "Excel (.xlsx) または CSV (.csv) ファイルのみ対応しています",
+      "selectFileFirst": "先にファイルを選択してください",
+      "selectImportFile": "先に Excel (.xlsx) または CSV (.csv) ファイルを選択してください",
+      "exportDownloadStarted": "ダウンロードを開始しました",
+      "partialImportWarning": "一部のインポートに失敗しました：成功 {success} 件、失敗 {failed} 件",
+      "importSuccess": "{count} 件のデータをインポートしました",
+      "partialImportFailedTitle": "一部インポート失敗",
+      "importFailedTitle": "インポート失敗",
+      "partialImportFailedHint": "一部インポート失敗のお知らせ",
+      "importFailedHint": "インポート失敗のお知らせ",
+      "partialImportFailedDesc": "{success} 件のインポートに成功しました。以下の {failed} 件が失敗しました。修正して再インポートしてください：",
+      "importFailedDesc": "以下のインポートエラーが見つかりました。修正して再インポートしてください：",
+      "downloadTemplate": "インポートテンプレートをダウンロード",
+      "retryImport": "再インポート",
+      "exportFormatLabel": "現在の表を次の形式でダウンロード",
+      "exportHint": "エクスポート後、ローカルでデータを一括編集して再インポートできます。",
+      "uploadHintLine1": "Excel (.xlsx) または CSV (.csv) を選択するか、ドラッグ＆ドロップしてください",
+      "uploadHintLine2": "名称を一意のIDとして使用します。デフォルトでは新規レコードが作成されます。",
+      "selectFile": "ファイルを選択",
+      "downloadSampleTemplate": "スプレッドシートサンプルをダウンロード",
+      "failureRow": "{row}行目{name}：{message}",
+      "failureRowName": "（{name}）",
+      "exportFailed": "エクスポートに失敗しました",
+      "templateDownloadFailed": "インポートテンプレートのダウンロードに失敗しました",
+      "importFailed": "インポートに失敗しました",
+      "rowImportFailed": "この行のインポートに失敗しました",
+      "listSeparator": "、",
+      "rowErrorPrefix": "{row}行目：{message}",
+      "fileErrors": {
+        "missingHeader": "ファイルにヘッダー行がありません",
+        "missingRequiredColumns": "ファイルに必須列がありません：{columns}",
+        "noDataRows": "インポート可能なデータが見つかりません",
+        "excelMissingWorksheet": "Excel ファイルにワークシートがありません",
+        "excelInvalidStructure": "Excel ファイルの構造が無効です",
+        "excelUnsupportedCompression": "Excel ファイルの圧縮方式はサポートされていません"
+      },
+      "importErrors": {
+        "ossKeyUnreadable": "{imageKeyColumn} を読み取れません: {objectKey}",
+        "tagsRequired": "{tagsColumn} は必須です",
+        "tagsTooMany": "{tagsColumn} は 100 件を超えられません",
+        "tagsNotFound": "{tagsColumn} が見つかりません: {tags}",
+        "enabledInvalid": "有効状態は {enabled}/{disabled}、true/false、1/0 のみ対応しています",
+        "uniqueNameFailed": "一意の {nameColumn} を生成できません",
+        "nameRequired": "{nameColumn} は必須です",
+        "nameTooLong": "{nameColumn} は 255 文字以内にしてください",
+        "typeRequired": "{typeColumn} は必須です",
+        "typeTooLong": "{typeColumn} は 100 文字以内にしてください",
+        "descriptionTooLong": "{descriptionColumn} は 5000 文字以内にしてください",
+        "notesTooLong": "{notesColumn} は 5000 文字以内にしてください",
+        "imageKeysRequired": "{imageKeyColumn} は必須です",
+        "imagesTooMany": "{imageKeyColumn} は 100 枚を超えられません",
+        "matchPatternInvalid": "{matchPatternColumn} は {whole}/{partial} のみ対応しています",
+        "partialImportUnsupported": "一括ファイルでは部分一致 IP のインポートに対応していません。全体一致の行を使用するか、部分一致 IP を手動で作成してください。"
+      },
+      "formatExcel": "Excel",
+      "formatCsv": "CSV",
+      "spreadsheetBadge": "XLS"
     }
   }
 }

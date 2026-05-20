@@ -244,10 +244,18 @@
           "nameTooLong": "Tên nhận dạng không được vượt quá 255 ký tự",
           "typeRequired": "Loại nhận dạng không được để trống",
           "typeTooLong": "Loại nhận dạng không được vượt quá 100 ký tự",
+          "descriptionTooLong": "{descriptionColumn} cannot exceed 5000 characters",
           "notesTooLong": "Ghi chú không được vượt quá 5000 ký tự",
           "imageKeysRequired": "OSS Key hình ảnh nhận dạng không được để trống",
-          "imagesTooMany": "Hình ảnh nhận dạng không được vượt quá 100"
-        }
+          "imagesTooMany": "Hình ảnh nhận dạng không được vượt quá 100",
+          "matchPatternInvalid": "{matchPatternColumn} only supports: {whole}/{partial}",
+          "partialImportUnsupported": "Partial IP import is not supported in batch files. Use whole match rows or create partial IP entries manually."
+        },
+        "entityName": "Tên nhận dạng",
+        "entityNamePlural": "Tên nhận dạng",
+        "templateEntityName": "Tên nhận dạng",
+        "enabledValue": "Đã kích hoạt",
+        "disabledValue": "Đã vô hiệu hóa"
       }
     },
     "IpLibrary": {
@@ -456,6 +464,46 @@
         "noSearchResults": "Không tìm thấy thẻ phù hợp",
         "tagGroups": "Nhóm thẻ ({count})",
         "tags": "Thẻ ({count})"
+      },
+      "batchImportExport": {
+        "entityName": "Tên Nhân vật IP",
+        "entityNamePlural": "Tên Nhân vật IP",
+        "templateEntityName": "Tên Nhân vật IP",
+        "enabledValue": "Đã bật",
+        "disabledValue": "Đã tắt",
+        "listSeparator": ", ",
+        "matchPatterns": {
+          "whole": "Toàn ảnh",
+          "partial": "Cục bộ"
+        },
+        "columns": {
+          "name": "Tên Nhân vật IP",
+          "ipTypeName": "Loại IP",
+          "description": "Mô tả đặc trưng cốt lõi",
+          "matchPattern": "Chế độ khớp",
+          "tagPaths": "Thẻ liên kết",
+          "imageObjectKeys": "Hình ảnh IP OSS Key",
+          "notes": "Ghi chú",
+          "enabled": "Trạng thái bật/tắt"
+        },
+        "importErrors": {
+          "ossKeyUnreadable": "Không đọc được {imageKeyColumn}: {objectKey}",
+          "tagsRequired": "{tagsColumn} không được để trống",
+          "tagsTooMany": "{tagsColumn} không được vượt quá 100",
+          "tagsNotFound": "Không tìm thấy {tagsColumn}: {tags}",
+          "enabledInvalid": "Trạng thái bật chỉ hỗ trợ: {enabled}/{disabled}, true/false, 1/0",
+          "uniqueNameFailed": "Không thể tạo {nameColumn} duy nhất",
+          "nameRequired": "{nameColumn} không được để trống",
+          "nameTooLong": "{nameColumn} không được vượt quá 255 ký tự",
+          "typeRequired": "{typeColumn} không được để trống",
+          "typeTooLong": "{typeColumn} không được vượt quá 100 ký tự",
+          "descriptionTooLong": "{descriptionColumn} không được vượt quá 5000 ký tự",
+          "notesTooLong": "{notesColumn} không được vượt quá 5000 ký tự",
+          "imageKeysRequired": "{imageKeyColumn} không được để trống",
+          "imagesTooMany": "{imageKeyColumn} không được vượt quá 100 ảnh",
+          "matchPatternInvalid": "{matchPatternColumn} chỉ hỗ trợ: {whole}/{partial}",
+          "partialImportUnsupported": "Tệp hàng loạt chưa hỗ trợ nhập IP khớp một phần. Hãy dùng dòng khớp toàn bộ hoặc tạo IP khớp một phần thủ công."
+        }
       }
     },
     "Dashboard": {
@@ -993,6 +1041,40 @@
         "noSearchResults": "Không tìm thấy thẻ phù hợp",
         "tagGroups": "Nhóm thẻ ({count})",
         "tags": "Thẻ ({count})"
+      },
+      "batchImportExport": {
+        "entityName": "Tên nhân vật",
+        "entityNamePlural": "Tên nhân vật",
+        "templateEntityName": "Tên nhân vật",
+        "enabledValue": "Đã kích hoạt",
+        "disabledValue": "Đã vô hiệu hóa",
+        "listSeparator": ", ",
+        "columns": {
+          "name": "Tên nhân vật",
+          "personTypeName": "Vai trò",
+          "tagPaths": "Thẻ liên kết",
+          "imageObjectKeys": "Ảnh khuôn mặt OSS Key",
+          "notes": "Ghi chú",
+          "enabled": "Trạng thái kích hoạt"
+        },
+        "importErrors": {
+          "ossKeyUnreadable": "Không đọc được {imageKeyColumn}: {objectKey}",
+          "tagsRequired": "{tagsColumn} không được để trống",
+          "tagsTooMany": "{tagsColumn} không được vượt quá 100",
+          "tagsNotFound": "Không tìm thấy {tagsColumn}: {tags}",
+          "enabledInvalid": "Trạng thái bật chỉ hỗ trợ: {enabled}/{disabled}, true/false, 1/0",
+          "uniqueNameFailed": "Không thể tạo {nameColumn} duy nhất",
+          "nameRequired": "{nameColumn} không được để trống",
+          "nameTooLong": "{nameColumn} không được vượt quá 255 ký tự",
+          "typeRequired": "{typeColumn} không được để trống",
+          "typeTooLong": "{typeColumn} không được vượt quá 100 ký tự",
+          "descriptionTooLong": "{descriptionColumn} không được vượt quá 5000 ký tự",
+          "notesTooLong": "{notesColumn} không được vượt quá 5000 ký tự",
+          "imageKeysRequired": "{imageKeyColumn} không được để trống",
+          "imagesTooMany": "{imageKeyColumn} không được vượt quá 100 ảnh",
+          "matchPatternInvalid": "{matchPatternColumn} chỉ hỗ trợ: {whole}/{partial}",
+          "partialImportUnsupported": "Tệp hàng loạt chưa hỗ trợ nhập IP khớp một phần. Hãy dùng dòng khớp toàn bộ hoặc tạo IP khớp một phần thủ công."
+        }
       }
     },
     "PersonClassify": {
@@ -1204,6 +1286,41 @@
         "noSearchResults": "Không tìm thấy thẻ phù hợp",
         "tagGroups": "Nhóm thẻ ({count})",
         "tags": "Thẻ ({count})"
+      },
+      "batchImportExport": {
+        "entityName": "Tên Sản phẩm",
+        "entityNamePlural": "Tên Sản phẩm",
+        "templateEntityName": "Tên Sản phẩm",
+        "enabledValue": "Đã kích hoạt",
+        "disabledValue": "Đã vô hiệu hóa",
+        "listSeparator": ", ",
+        "columns": {
+          "name": "Tên Sản phẩm",
+          "productTypeName": "Loại Sản phẩm",
+          "description": "Mô tả đặc trưng cốt lõi",
+          "tagPaths": "Thẻ liên kết",
+          "imageObjectKeys": "Hình ảnh Sản phẩm OSS Key",
+          "notes": "Ghi chú",
+          "enabled": "Trạng thái kích hoạt"
+        },
+        "importErrors": {
+          "ossKeyUnreadable": "Không đọc được {imageKeyColumn}: {objectKey}",
+          "tagsRequired": "{tagsColumn} không được để trống",
+          "tagsTooMany": "{tagsColumn} không được vượt quá 100",
+          "tagsNotFound": "Không tìm thấy {tagsColumn}: {tags}",
+          "enabledInvalid": "Trạng thái bật chỉ hỗ trợ: {enabled}/{disabled}, true/false, 1/0",
+          "uniqueNameFailed": "Không thể tạo {nameColumn} duy nhất",
+          "nameRequired": "{nameColumn} không được để trống",
+          "nameTooLong": "{nameColumn} không được vượt quá 255 ký tự",
+          "typeRequired": "{typeColumn} không được để trống",
+          "typeTooLong": "{typeColumn} không được vượt quá 100 ký tự",
+          "descriptionTooLong": "{descriptionColumn} không được vượt quá 5000 ký tự",
+          "notesTooLong": "{notesColumn} không được vượt quá 5000 ký tự",
+          "imageKeysRequired": "{imageKeyColumn} không được để trống",
+          "imagesTooMany": "{imageKeyColumn} không được vượt quá 100 ảnh",
+          "matchPatternInvalid": "{matchPatternColumn} chỉ hỗ trợ: {whole}/{partial}",
+          "partialImportUnsupported": "Tệp hàng loạt chưa hỗ trợ nhập IP khớp một phần. Hãy dùng dòng khớp toàn bộ hoặc tạo IP khớp một phần thủ công."
+        }
       }
     },
     "ProductClassify": {
@@ -1248,6 +1365,72 @@
       },
       "fallbackBox": "dự phòng toàn bộ hình ảnh",
       "coordinateTo": "đến"
+    },
+    "BatchImportExport": {
+      "title": "Nhập/Xuất hàng loạt",
+      "srDescription": "Nhập hoặc xuất hàng loạt dữ liệu thư viện đặc trưng",
+      "failureSrDescription": "Lý do nhập thất bại",
+      "tabImport": "Nhập",
+      "tabExport": "Xuất",
+      "cancel": "Hủy",
+      "confirm": "Xác nhận",
+      "unsupportedFileType": "Chỉ hỗ trợ tệp Excel (.xlsx) hoặc CSV (.csv)",
+      "selectFileFirst": "Vui lòng chọn tệp trước",
+      "selectImportFile": "Vui lòng chọn tệp Excel (.xlsx) hoặc CSV (.csv) trước",
+      "exportDownloadStarted": "Tải xuống đã bắt đầu",
+      "partialImportWarning": "Nhập một phần thất bại: {success} thành công, {failed} thất bại",
+      "importSuccess": "Đã nhập thành công {count} mục",
+      "partialImportFailedTitle": "Nhập một phần thất bại",
+      "importFailedTitle": "Nhập thất bại",
+      "partialImportFailedHint": "Thông báo nhập một phần thất bại",
+      "importFailedHint": "Thông báo nhập thất bại",
+      "partialImportFailedDesc": "Đã nhập thành công {success} mục. {failed} mục sau đây thất bại. Vui lòng sửa và nhập lại:",
+      "importFailedDesc": "Các lỗi nhập sau đây đã được phát hiện. Vui lòng sửa và nhập lại:",
+      "downloadTemplate": "Tải mẫu nhập",
+      "retryImport": "Nhập lại",
+      "exportFormatLabel": "Tải bảng hiện tại dưới dạng",
+      "exportHint": "Sau khi xuất, bạn có thể chỉnh sửa dữ liệu hàng loạt cục bộ rồi nhập lại.",
+      "uploadHintLine1": "Chọn hoặc kéo thả tệp Excel (.xlsx) hoặc CSV (.csv)",
+      "uploadHintLine2": "Tên được dùng làm ID duy nhất. Mặc định tạo bản ghi mới.",
+      "selectFile": "Chọn tệp",
+      "downloadSampleTemplate": "Tải mẫu bảng tính",
+      "failureRow": "Dòng {row}{name}: {message}",
+      "failureRowName": " ({name})",
+      "exportFailed": "Xuất thất bại",
+      "templateDownloadFailed": "Tải mẫu nhập thất bại",
+      "importFailed": "Nhập thất bại",
+      "rowImportFailed": "Nhập dòng này thất bại",
+      "listSeparator": ", ",
+      "rowErrorPrefix": "Dòng {row}: {message}",
+      "fileErrors": {
+        "missingHeader": "Tệp thiếu hàng tiêu đề",
+        "missingRequiredColumns": "Tệp thiếu các cột bắt buộc: {columns}",
+        "noDataRows": "Không tìm thấy dữ liệu có thể nhập",
+        "excelMissingWorksheet": "Tệp Excel thiếu bảng tính",
+        "excelInvalidStructure": "Cấu trúc tệp Excel không hợp lệ",
+        "excelUnsupportedCompression": "Tệp Excel sử dụng phương thức nén không được hỗ trợ"
+      },
+      "importErrors": {
+        "ossKeyUnreadable": "Không đọc được {imageKeyColumn}: {objectKey}",
+        "tagsRequired": "{tagsColumn} không được để trống",
+        "tagsTooMany": "{tagsColumn} không được vượt quá 100",
+        "tagsNotFound": "Không tìm thấy {tagsColumn}: {tags}",
+        "enabledInvalid": "Trạng thái bật chỉ hỗ trợ: {enabled}/{disabled}, true/false, 1/0",
+        "uniqueNameFailed": "Không thể tạo {nameColumn} duy nhất",
+        "nameRequired": "{nameColumn} không được để trống",
+        "nameTooLong": "{nameColumn} không được vượt quá 255 ký tự",
+        "typeRequired": "{typeColumn} không được để trống",
+        "typeTooLong": "{typeColumn} không được vượt quá 100 ký tự",
+        "descriptionTooLong": "{descriptionColumn} không được vượt quá 5000 ký tự",
+        "notesTooLong": "{notesColumn} không được vượt quá 5000 ký tự",
+        "imageKeysRequired": "{imageKeyColumn} không được để trống",
+        "imagesTooMany": "{imageKeyColumn} không được vượt quá 100 ảnh",
+        "matchPatternInvalid": "{matchPatternColumn} chỉ hỗ trợ: {whole}/{partial}",
+        "partialImportUnsupported": "Tệp hàng loạt chưa hỗ trợ nhập IP khớp một phần. Hãy dùng dòng khớp toàn bộ hoặc tạo IP khớp một phần thủ công."
+      },
+      "formatExcel": "Excel",
+      "formatCsv": "CSV",
+      "spreadsheetBadge": "XLS"
     }
   }
 }

@@ -1,10 +1,11 @@
 "use server";
 
 import { withAuth } from "@/app/(auth)/withAuth";
+import { buildAssetPersonObjectKey, getCachedSignedOssObjectUrl, uploadOssObject } from "@/lib/oss";
 import {
-  PersonDetectionBox,
   classifyPersonFaceEmbeddings,
   detectPersonFaceBoxes,
+  PersonDetectionBox,
 } from "@/lib/person/person-classification";
 import {
   assertSingleFaceReferenceImage,
@@ -15,7 +16,6 @@ import {
   deletePersonVectorPointsByPerson,
   setPersonVectorPayloadByPerson,
 } from "@/lib/person/qdrant";
-import { buildAssetPersonObjectKey, getCachedSignedOssObjectUrl, uploadOssObject } from "@/lib/oss";
 import { ServerActionResult } from "@/lib/serverAction";
 import { schedulePushFeatureToMuseDAM } from "@/musedam/push-feature-to-musedam";
 import {
@@ -30,6 +30,25 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { after } from "next/server";
 import { z } from "zod";
 import {
+  BatchFileErrorMessages,
+  BatchFileFormat,
+  encodeBatchFile,
+  getBatchFileName,
+  parseBatchFile,
+  parseImportedEnabled,
+  splitBatchValues,
+} from "../batchFile";
+import {
+  buildPersonBatchExportRows,
+  buildPersonBatchTemplateRows,
+  getPersonBatchColumns,
+  ParsedPersonBatchRow,
+  parsePersonBatchRows,
+} from "./batchFile";
+import {
+  PersonBatchFileResult,
+  PersonBatchImportFailure,
+  PersonBatchImportResult,
   PersonClassificationResult,
   PersonClassificationUploadResult,
   PersonImageItem,
@@ -39,6 +58,18 @@ import {
   PersonTagTreeNode,
   PersonTypeItem,
 } from "./types";
+
+type TranslationFunction = (key: string, values?: Record<string, string | number>) => string;
+
+function getPersonBatchFileErrors(t: TranslationFunction): BatchFileErrorMessages {
+  return {
+    missingHeader: t("fileErrors.missingHeader"),
+    noDataRows: t("fileErrors.noDataRows"),
+    excelMissingWorksheet: t("fileErrors.excelMissingWorksheet"),
+    excelInvalidStructure: t("fileErrors.excelInvalidStructure"),
+    excelUnsupportedCompression: t("fileErrors.excelUnsupportedCompression"),
+  };
+}
 
 async function getPersonValidationMessages() {
   const t = await getTranslations("Tagging.PersonLibrary");
@@ -77,11 +108,7 @@ async function getCreateOrUpdatePersonSchema() {
 
 async function getPersonTypeNameSchema() {
   const messages = await getPersonValidationMessages();
-  return z
-    .string()
-    .trim()
-    .min(1, messages.typeNameRequired)
-    .max(100, messages.typeNameTooLong);
+  return z.string().trim().min(1, messages.typeNameRequired).max(100, messages.typeNameTooLong);
 }
 
 type AssetTagWithParents = AssetTag & {
@@ -240,6 +267,174 @@ async function ensureDefaultPersonTypes(teamId: number, locale: string) {
   });
 
   return fetchActivePersonTypes(teamId);
+}
+
+function getPersonBatchTranslator(t: TranslationFunction) {
+  return (key: string, values?: Record<string, string | number>) =>
+    t(`batchImportExport.${key}`, values);
+}
+
+function normalizeTagPathKey(value: string) {
+  return value
+    .split(">")
+    .map((part) => part.trim().toLowerCase())
+    .filter(Boolean)
+    .join(">");
+}
+
+async function buildTagPathLookup(teamId: number) {
+  const tags = await prisma.assetTag.findMany({
+    where: {
+      teamId,
+    },
+    include: {
+      parent: {
+        include: {
+          parent: true,
+        },
+      },
+    },
+  });
+  const tagLookup = new Map<
+    string,
+    {
+      assetTagId: number;
+      tagPath: string[];
+    }
+  >();
+
+  for (const tag of tags) {
+    const tagPath = buildTagPath(tag as AssetTagWithParents);
+    tagLookup.set(normalizeTagPathKey(tagPath.join(" > ")), {
+      assetTagId: tag.id,
+      tagPath,
+    });
+  }
+
+  return tagLookup;
+}
+
+function resolveImportedTags({
+  value,
+  tagLookup,
+  t,
+}: {
+  value: string;
+  tagLookup: Map<string, { assetTagId: number; tagPath: string[] }>;
+  t: TranslationFunction;
+}) {
+  const tagPathValues = splitBatchValues(value);
+  if (tagPathValues.length === 0) {
+    throw new Error(t("importErrors.tagsRequired", { tagsColumn: t("columns.tagPaths") }));
+  }
+
+  if (tagPathValues.length > 100) {
+    throw new Error(t("importErrors.tagsTooMany", { tagsColumn: t("columns.tagPaths") }));
+  }
+
+  const missingTagPaths: string[] = [];
+  const selectedTags: Array<{
+    assetTagId: number;
+    sort: number;
+    tagPath: string[];
+  }> = [];
+  const selectedTagIds = new Set<number>();
+
+  for (const tagPathValue of tagPathValues) {
+    const tag = tagLookup.get(normalizeTagPathKey(tagPathValue));
+    if (!tag) {
+      missingTagPaths.push(tagPathValue);
+      continue;
+    }
+
+    if (selectedTagIds.has(tag.assetTagId)) {
+      continue;
+    }
+
+    selectedTagIds.add(tag.assetTagId);
+    selectedTags.push({
+      assetTagId: tag.assetTagId,
+      sort: selectedTags.length + 1,
+      tagPath: tag.tagPath,
+    });
+  }
+
+  if (missingTagPaths.length > 0) {
+    throw new Error(
+      t("importErrors.tagsNotFound", {
+        tagsColumn: t("columns.tagPaths"),
+        tags: missingTagPaths.join(t("listSeparator")),
+      }),
+    );
+  }
+
+  return selectedTags;
+}
+
+function getUniqueImportedPersonName(
+  baseName: string,
+  existingNames: Set<string>,
+  t: TranslationFunction,
+) {
+  if (!existingNames.has(baseName)) {
+    return baseName;
+  }
+
+  for (let index = 1; index < 10000; index += 1) {
+    const suffix = `(${index})`;
+    const candidate = `${baseName.slice(0, 255 - suffix.length)}${suffix}`;
+
+    if (!existingNames.has(candidate)) {
+      return candidate;
+    }
+  }
+
+  throw new Error(t("importErrors.uniqueNameFailed", { nameColumn: t("columns.name") }));
+}
+
+async function ensureImportedPersonType({
+  teamId,
+  name,
+  personTypeCache,
+}: {
+  teamId: number;
+  name: string;
+  personTypeCache: Map<string, AssetPersonType>;
+}) {
+  const cacheKey = name.toLowerCase();
+  const cached = personTypeCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  const existingType = await prisma.assetPersonType.findFirst({
+    where: {
+      teamId,
+      name,
+    },
+  });
+
+  if (existingType) {
+    personTypeCache.set(cacheKey, existingType);
+    return existingType;
+  }
+
+  const lastType = await prisma.assetPersonType.findFirst({
+    where: {
+      teamId,
+    },
+    orderBy: [{ sort: "desc" }, { id: "desc" }],
+  });
+  const personType = await prisma.assetPersonType.create({
+    data: {
+      teamId,
+      name,
+      sort: (lastType?.sort ?? 0) + 1,
+    },
+  });
+
+  personTypeCache.set(cacheKey, personType);
+  return personType;
 }
 
 async function fetchPersonTags(teamId: number) {
@@ -466,6 +661,75 @@ async function uploadAssetLibraryImages({
   return uploads;
 }
 
+function getImageExtensionFromObjectKeyOrContentType({
+  objectKey,
+  contentType,
+}: {
+  objectKey: string;
+  contentType: string;
+}) {
+  const match = objectKey.split("?")[0].match(/\.[a-zA-Z0-9]+$/);
+  if (match) {
+    return match[0].toLowerCase();
+  }
+
+  if (contentType.includes("image/png")) return ".png";
+  if (contentType.includes("image/jpeg")) return ".jpg";
+  if (contentType.includes("image/webp")) return ".webp";
+  if (contentType.includes("image/svg+xml")) return ".svg";
+  if (contentType.includes("image/gif")) return ".gif";
+  return "";
+}
+
+async function clonePersonImageFromObjectKey({
+  objectKey,
+  teamId,
+  t,
+}: {
+  objectKey: string;
+  teamId: number;
+  t: TranslationFunction;
+}) {
+  const { signedUrl } = getCachedSignedOssObjectUrl({
+    objectKey,
+    expiresInSeconds: 60 * 60,
+  });
+  const response = await fetch(signedUrl);
+
+  if (!response.ok) {
+    throw new Error(
+      t("importErrors.ossKeyUnreadable", {
+        imageKeyColumn: t("columns.imageObjectKeys"),
+        objectKey,
+      }),
+    );
+  }
+
+  const contentType = response.headers.get("content-type") || "application/octet-stream";
+  const buffer = Buffer.from(await response.arrayBuffer());
+  const extension = getImageExtensionFromObjectKeyOrContentType({
+    objectKey,
+    contentType,
+  });
+  const newObjectKey = buildAssetPersonObjectKey({
+    teamId,
+    extension,
+  });
+
+  const uploadResult = await uploadOssObject({
+    body: buffer,
+    contentType,
+    objectKey: newObjectKey,
+  });
+
+  return {
+    objectKey: uploadResult.objectKey,
+    mimeType: contentType,
+    size: buffer.byteLength,
+    name: objectKey,
+  };
+}
+
 type UploadedAssetLibraryImage = {
   name: string;
   objectKey: string;
@@ -511,10 +775,7 @@ async function validateSingleFaceReferenceImages(images: UploadedPersonImage[]) 
   }
 }
 
-function getReferenceValidationErrorMessage(
-  error: unknown,
-  t: unknown,
-) {
+function getReferenceValidationErrorMessage(error: unknown, t: unknown) {
   if (!(error instanceof Error)) {
     return null;
   }
@@ -541,6 +802,140 @@ function getReferenceValidationErrorMessage(
     default:
       return null;
   }
+}
+
+async function importPersonBatchRow({
+  team,
+  row,
+  tagLookup,
+  personTypeCache,
+  existingNames,
+  t,
+}: {
+  team: { id: number; slug: string };
+  row: ParsedPersonBatchRow;
+  tagLookup: Map<string, { assetTagId: number; tagPath: string[] }>;
+  personTypeCache: Map<string, AssetPersonType>;
+  existingNames: Set<string>;
+  t: TranslationFunction;
+}) {
+  const baseName = row.name.trim();
+  const personTypeName = row.personTypeName.trim();
+  const notes = row.notes.trim();
+  const imageObjectKeys = splitBatchValues(row.imageObjectKeys);
+
+  if (!baseName) {
+    throw new Error(t("importErrors.nameRequired", { nameColumn: t("columns.name") }));
+  }
+
+  if (baseName.length > 255) {
+    throw new Error(t("importErrors.nameTooLong", { nameColumn: t("columns.name") }));
+  }
+
+  if (!personTypeName) {
+    throw new Error(t("importErrors.typeRequired", { typeColumn: t("columns.personTypeName") }));
+  }
+
+  if (personTypeName.length > 100) {
+    throw new Error(t("importErrors.typeTooLong", { typeColumn: t("columns.personTypeName") }));
+  }
+
+  if (notes.length > 5000) {
+    throw new Error(t("importErrors.notesTooLong", { notesColumn: t("columns.notes") }));
+  }
+
+  if (imageObjectKeys.length === 0) {
+    throw new Error(
+      t("importErrors.imageKeysRequired", { imageKeyColumn: t("columns.imageObjectKeys") }),
+    );
+  }
+
+  if (imageObjectKeys.length > 100) {
+    throw new Error(
+      t("importErrors.imagesTooMany", { imageKeyColumn: t("columns.imageObjectKeys") }),
+    );
+  }
+
+  const selectedTags = resolveImportedTags({
+    value: row.tagPaths,
+    tagLookup,
+    t,
+  });
+  const enabled = parseImportedEnabled({
+    value: row.enabled,
+    enabledLabel: t("enabledValue"),
+    disabledLabel: t("disabledValue"),
+    formatError: (enabledLabel, disabledLabel) =>
+      t("importErrors.enabledInvalid", {
+        enabled: enabledLabel,
+        disabled: disabledLabel,
+      }),
+  });
+  const uploadedImages = [];
+
+  for (const objectKey of imageObjectKeys) {
+    uploadedImages.push(
+      await clonePersonImageFromObjectKey({
+        objectKey,
+        teamId: team.id,
+        t,
+      }),
+    );
+  }
+
+  await validateSingleFaceReferenceImages(uploadedImages);
+
+  const personType = await ensureImportedPersonType({
+    teamId: team.id,
+    name: personTypeName,
+    personTypeCache,
+  });
+  const personName = getUniqueImportedPersonName(baseName, existingNames, t);
+
+  const createdPerson = await prisma.assetPerson.create({
+    data: {
+      teamId: team.id,
+      name: personName,
+      personTypeId: personType.id,
+      personTypeName: personType.name,
+      notes,
+      status: "processing",
+      processingError: null,
+      enabled,
+      images: {
+        create: uploadedImages.map((image, index) => ({
+          objectKey: image.objectKey,
+          mimeType: image.mimeType,
+          size: image.size,
+          sort: index + 1,
+        })),
+      },
+      tags: {
+        create: selectedTags.map((tag) => ({
+          assetTagId: tag.assetTagId,
+          tagPath: tag.tagPath,
+          sort: tag.sort,
+        })),
+      },
+    },
+  });
+
+  existingNames.add(personName);
+
+  const person = await loadPerson(team.id, createdPerson.id);
+  scheduleAssetPersonProcessing(team.id, createdPerson.id);
+  schedulePushFeatureToMuseDAM({
+    team,
+    featureType: "person",
+    identifierId: person.id,
+    identifierName: person.name,
+    identifierTypeId: personType.id,
+    identifierTypeName: personType.name,
+    firstImageObjectKey: person.images[0]?.objectKey,
+    internalAssetTagIds: selectedTags.map((tag) => tag.assetTagId),
+  });
+
+  return normalizePerson(person);
 }
 
 function extractSubmittedImages(formData: FormData) {
@@ -764,7 +1159,9 @@ export async function refreshAssetPersonImageSignedUrlAction(imageId: string): P
   });
 }
 
-export async function fetchPersonLibraryPageData(): Promise<ServerActionResult<PersonLibraryPageData>> {
+export async function fetchPersonLibraryPageData(): Promise<
+  ServerActionResult<PersonLibraryPageData>
+> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
       const locale = await getLocale();
@@ -788,6 +1185,193 @@ export async function fetchPersonLibraryPageData(): Promise<ServerActionResult<P
       return {
         success: false,
         message: t("createFailed"),
+      };
+    }
+  });
+}
+
+export async function exportPersonsAction(
+  format: BatchFileFormat,
+): Promise<ServerActionResult<PersonBatchFileResult>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    const tBatch = (await getTranslations("Tagging.BatchImportExport")) as TranslationFunction;
+
+    try {
+      const parsedFormat = z.enum(["csv", "xlsx"]).parse(format);
+      const persons = await fetchPersons(teamId);
+      const rows = buildPersonBatchExportRows({
+        persons,
+        columns: getPersonBatchColumns(),
+      });
+      const { buffer, mimeType } = encodeBatchFile({
+        rows,
+        format: parsedFormat,
+      });
+
+      return {
+        success: true,
+        data: {
+          filename: getBatchFileName("person-library", parsedFormat),
+          mimeType,
+          base64: buffer.toString("base64"),
+        },
+      };
+    } catch (error) {
+      console.error("Failed to export persons:", error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : tBatch("exportFailed"),
+      };
+    }
+  });
+}
+
+export async function downloadPersonImportTemplateAction(
+  format: BatchFileFormat = "xlsx",
+): Promise<ServerActionResult<PersonBatchFileResult>> {
+  return withAuth(async () => {
+    const tBatch = (await getTranslations("Tagging.BatchImportExport")) as TranslationFunction;
+
+    try {
+      const parsedFormat = z.enum(["csv", "xlsx"]).parse(format);
+      const { buffer, mimeType } = encodeBatchFile({
+        rows: buildPersonBatchTemplateRows(getPersonBatchColumns()),
+        format: parsedFormat,
+      });
+
+      return {
+        success: true,
+        data: {
+          filename: `person-import-template.${parsedFormat}`,
+          mimeType,
+          base64: buffer.toString("base64"),
+        },
+      };
+    } catch (error) {
+      console.error("Failed to build person import template:", error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : tBatch("templateDownloadFailed"),
+      };
+    }
+  });
+}
+
+export async function importPersonsAction(
+  formData: FormData,
+): Promise<ServerActionResult<PersonBatchImportResult>> {
+  return withAuth(async ({ team }) => {
+    const t = getPersonBatchTranslator(
+      (await getTranslations("Tagging.PersonLibrary")) as TranslationFunction,
+    );
+    const tBatch = (await getTranslations("Tagging.BatchImportExport")) as TranslationFunction;
+    const fileErrors = getPersonBatchFileErrors(tBatch);
+    const columns = getPersonBatchColumns();
+
+    try {
+      const file = formData.get("file");
+
+      if (!(file instanceof File) || file.size <= 0) {
+        return {
+          success: false,
+          message: tBatch("selectImportFile"),
+        };
+      }
+
+      const buffer = Buffer.from(await file.arrayBuffer());
+      const tableRows = parseBatchFile({
+        file,
+        buffer,
+        fileErrors,
+        unsupportedFileTypeMessage: tBatch("unsupportedFileType"),
+      });
+      const parsedRows = parsePersonBatchRows({
+        rows: tableRows,
+        columns,
+        fileErrors,
+        listSeparator: t("listSeparator"),
+        formatMissingRequiredColumns: (columnNames) =>
+          tBatch("fileErrors.missingRequiredColumns", { columns: columnNames }),
+      });
+      const personTypes = await fetchActivePersonTypes(team.id);
+
+      if (parsedRows.errors.length > 0) {
+        return {
+          success: true,
+          data: {
+            createdPersons: [],
+            personTypes: personTypes.map(normalizePersonType),
+            successCount: 0,
+            failedCount: parsedRows.errors.length,
+            skippedCount: 0,
+            failures: parsedRows.errors.map((error) => ({
+              rowNumber: error.rowNumber,
+              name: null,
+              message: error.message,
+            })),
+          },
+        };
+      }
+
+      const [tagLookup, existingPersons, activePersonTypes] = await Promise.all([
+        buildTagPathLookup(team.id),
+        prisma.assetPerson.findMany({
+          where: {
+            teamId: team.id,
+          },
+          select: {
+            name: true,
+          },
+        }),
+        fetchActivePersonTypes(team.id),
+      ]);
+      const existingNames = new Set(existingPersons.map((person) => person.name));
+      const personTypeCache = new Map(
+        activePersonTypes.map((personType) => [personType.name.toLowerCase(), personType] as const),
+      );
+      const createdPersons: PersonItem[] = [];
+      const failures: PersonBatchImportFailure[] = [];
+
+      for (const row of parsedRows.records) {
+        try {
+          const person = await importPersonBatchRow({
+            team,
+            row,
+            tagLookup,
+            personTypeCache,
+            existingNames,
+            t,
+          });
+          createdPersons.push(person);
+        } catch (error) {
+          failures.push({
+            rowNumber: row.rowNumber,
+            name: row.name.trim() || null,
+            message:
+              getReferenceValidationErrorMessage(error, t) ??
+              (error instanceof Error ? error.message : tBatch("rowImportFailed")),
+          });
+        }
+      }
+
+      const nextPersonTypes = await fetchActivePersonTypes(team.id);
+
+      return {
+        success: true,
+        data: {
+          createdPersons,
+          personTypes: nextPersonTypes.map(normalizePersonType),
+          successCount: createdPersons.length,
+          failedCount: failures.length,
+          skippedCount: 0,
+          failures,
+        },
+      };
+    } catch (error) {
+      console.error("Failed to import persons:", error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : tBatch("importFailed"),
       };
     }
   });

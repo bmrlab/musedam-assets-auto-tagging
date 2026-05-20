@@ -483,10 +483,18 @@
           "nameTooLong": "標識名稱不能超過 255 個字元",
           "typeRequired": "標識類型不能為空",
           "typeTooLong": "標識類型不能超過 100 個字元",
+          "descriptionTooLong": "{descriptionColumn} cannot exceed 5000 characters",
           "notesTooLong": "備註不能超過 5000 個字元",
           "imageKeysRequired": "標識圖片 OSS Key 不能為空",
-          "imagesTooMany": "標識圖片不能超過 100 張"
-        }
+          "imagesTooMany": "標識圖片不能超過 100 張",
+          "matchPatternInvalid": "{matchPatternColumn} only supports: {whole}/{partial}",
+          "partialImportUnsupported": "Partial IP import is not supported in batch files. Use whole match rows or create partial IP entries manually."
+        },
+        "entityName": "標識名稱",
+        "entityNamePlural": "標識名稱",
+        "templateEntityName": "標識名稱",
+        "enabledValue": "已啟用",
+        "disabledValue": "已停用"
       }
     },
     "Test": {
@@ -789,6 +797,46 @@
         "noSearchResults": "沒有搜尋到匹配標籤",
         "tagGroups": "標籤組({count})",
         "tags": "標籤({count})"
+      },
+      "batchImportExport": {
+        "entityName": "IP 形象名稱",
+        "entityNamePlural": "IP 形象名稱",
+        "templateEntityName": "IP 形象名稱",
+        "enabledValue": "已啟用",
+        "disabledValue": "已停用",
+        "listSeparator": "、",
+        "matchPatterns": {
+          "whole": "整圖",
+          "partial": "局部"
+        },
+        "columns": {
+          "name": "IP 形象名稱",
+          "ipTypeName": "IP 類型",
+          "description": "核心特徵描述",
+          "matchPattern": "匹配模式",
+          "tagPaths": "關聯標籤",
+          "imageObjectKeys": "IP 圖片 OSS Key",
+          "notes": "備註資訊",
+          "enabled": "啟用狀態"
+        },
+        "importErrors": {
+          "ossKeyUnreadable": "{imageKeyColumn} 無法讀取：{objectKey}",
+          "tagsRequired": "{tagsColumn}不可為空",
+          "tagsTooMany": "{tagsColumn}不可超過 100 個",
+          "tagsNotFound": "找不到{tagsColumn}：{tags}",
+          "enabledInvalid": "啟用狀態僅支援：{enabled}/{disabled}、true/false、1/0",
+          "uniqueNameFailed": "無法產生不重複的{nameColumn}",
+          "nameRequired": "{nameColumn}不可為空",
+          "nameTooLong": "{nameColumn}不可超過 255 個字元",
+          "typeRequired": "{typeColumn}不可為空",
+          "typeTooLong": "{typeColumn}不可超過 100 個字元",
+          "descriptionTooLong": "{descriptionColumn}不可超過 5000 個字元",
+          "notesTooLong": "{notesColumn}不可超過 5000 個字元",
+          "imageKeysRequired": "{imageKeyColumn}不可為空",
+          "imagesTooMany": "{imageKeyColumn}不可超過 100 張",
+          "matchPatternInvalid": "{matchPatternColumn}僅支援：{whole}/{partial}",
+          "partialImportUnsupported": "批次檔案暫不支援匯入局部匹配 IP。請使用整體匹配列，或手動建立局部匹配 IP。"
+        }
       }
     },
     "IpClassify": {
@@ -993,6 +1041,40 @@
         "noSearchResults": "沒有搜尋到匹配標籤",
         "tagGroups": "標籤組({count})",
         "tags": "標籤({count})"
+      },
+      "batchImportExport": {
+        "entityName": "人物姓名",
+        "entityNamePlural": "人物姓名",
+        "templateEntityName": "人物姓名",
+        "enabledValue": "已啟用",
+        "disabledValue": "已停用",
+        "listSeparator": "、",
+        "columns": {
+          "name": "人物姓名",
+          "personTypeName": "身份/角色",
+          "tagPaths": "關聯標籤",
+          "imageObjectKeys": "人臉照片 OSS Key",
+          "notes": "備註資訊",
+          "enabled": "啟用狀態"
+        },
+        "importErrors": {
+          "ossKeyUnreadable": "{imageKeyColumn} 無法讀取：{objectKey}",
+          "tagsRequired": "{tagsColumn}不可為空",
+          "tagsTooMany": "{tagsColumn}不可超過 100 個",
+          "tagsNotFound": "找不到{tagsColumn}：{tags}",
+          "enabledInvalid": "啟用狀態僅支援：{enabled}/{disabled}、true/false、1/0",
+          "uniqueNameFailed": "無法產生不重複的{nameColumn}",
+          "nameRequired": "{nameColumn}不可為空",
+          "nameTooLong": "{nameColumn}不可超過 255 個字元",
+          "typeRequired": "{typeColumn}不可為空",
+          "typeTooLong": "{typeColumn}不可超過 100 個字元",
+          "descriptionTooLong": "{descriptionColumn}不可超過 5000 個字元",
+          "notesTooLong": "{notesColumn}不可超過 5000 個字元",
+          "imageKeysRequired": "{imageKeyColumn}不可為空",
+          "imagesTooMany": "{imageKeyColumn}不可超過 100 張",
+          "matchPatternInvalid": "{matchPatternColumn}僅支援：{whole}/{partial}",
+          "partialImportUnsupported": "批次檔案暫不支援匯入局部匹配 IP。請使用整體匹配列，或手動建立局部匹配 IP。"
+        }
       }
     },
     "PersonClassify": {
@@ -1204,6 +1286,41 @@
         "noSearchResults": "沒有搜尋到匹配標籤",
         "tagGroups": "標籤組({count})",
         "tags": "標籤({count})"
+      },
+      "batchImportExport": {
+        "entityName": "商品名稱",
+        "entityNamePlural": "商品名稱",
+        "templateEntityName": "商品名稱",
+        "enabledValue": "已啟用",
+        "disabledValue": "已停用",
+        "listSeparator": "、",
+        "columns": {
+          "name": "商品名稱",
+          "productTypeName": "商品類型",
+          "description": "核心特徵描述",
+          "tagPaths": "關聯標籤",
+          "imageObjectKeys": "商品圖片 OSS Key",
+          "notes": "備註資訊",
+          "enabled": "啟用狀態"
+        },
+        "importErrors": {
+          "ossKeyUnreadable": "{imageKeyColumn} 無法讀取：{objectKey}",
+          "tagsRequired": "{tagsColumn}不可為空",
+          "tagsTooMany": "{tagsColumn}不可超過 100 個",
+          "tagsNotFound": "找不到{tagsColumn}：{tags}",
+          "enabledInvalid": "啟用狀態僅支援：{enabled}/{disabled}、true/false、1/0",
+          "uniqueNameFailed": "無法產生不重複的{nameColumn}",
+          "nameRequired": "{nameColumn}不可為空",
+          "nameTooLong": "{nameColumn}不可超過 255 個字元",
+          "typeRequired": "{typeColumn}不可為空",
+          "typeTooLong": "{typeColumn}不可超過 100 個字元",
+          "descriptionTooLong": "{descriptionColumn}不可超過 5000 個字元",
+          "notesTooLong": "{notesColumn}不可超過 5000 個字元",
+          "imageKeysRequired": "{imageKeyColumn}不可為空",
+          "imagesTooMany": "{imageKeyColumn}不可超過 100 張",
+          "matchPatternInvalid": "{matchPatternColumn}僅支援：{whole}/{partial}",
+          "partialImportUnsupported": "批次檔案暫不支援匯入局部匹配 IP。請使用整體匹配列，或手動建立局部匹配 IP。"
+        }
       }
     },
     "ProductClassify": {
@@ -1248,6 +1365,72 @@
       },
       "fallbackBox": "整圖兜底",
       "coordinateTo": "到"
+    },
+    "BatchImportExport": {
+      "title": "批次匯入/匯出",
+      "srDescription": "批次匯入或匯出特徵庫資料",
+      "failureSrDescription": "匯入失敗原因清單",
+      "tabImport": "匯入",
+      "tabExport": "匯出",
+      "cancel": "取消",
+      "confirm": "確認",
+      "unsupportedFileType": "僅支援上傳 Excel (.xlsx) 或 CSV (.csv) 檔案",
+      "selectFileFirst": "請先選擇檔案",
+      "selectImportFile": "請先選擇 Excel (.xlsx) 或 CSV (.csv) 檔案",
+      "exportDownloadStarted": "檔案已開始下載",
+      "partialImportWarning": "部分匯入失敗：成功 {success} 筆，失敗 {failed} 筆",
+      "importSuccess": "成功匯入 {count} 筆資料",
+      "partialImportFailedTitle": "部分匯入失敗",
+      "importFailedTitle": "匯入失敗",
+      "partialImportFailedHint": "部分匯入失敗提示",
+      "importFailedHint": "匯入失敗提示",
+      "partialImportFailedDesc": "已成功匯入 {success} 筆，以下 {failed} 筆匯入失敗，請修改後重新匯入：",
+      "importFailedDesc": "以下為匯入失敗原因，請修改後重新匯入：",
+      "downloadTemplate": "下載匯入範本",
+      "retryImport": "重新匯入",
+      "exportFormatLabel": "目前表格下載為",
+      "exportHint": "匯出後可在本機批次編輯資料，完成後再匯入。",
+      "uploadHintLine1": "選擇或拖曳上傳 Excel (.xlsx)、CSV (.csv)",
+      "uploadHintLine2": "以名稱作為唯一 ID 識別，預設新增不存在的資料",
+      "selectFile": "選擇檔案",
+      "downloadSampleTemplate": "下載試算表示例",
+      "failureRow": "第{row}行{name}：{message}",
+      "failureRowName": "（{name}）",
+      "exportFailed": "匯出失敗",
+      "templateDownloadFailed": "下載匯入範本失敗",
+      "importFailed": "匯入失敗",
+      "rowImportFailed": "匯入此列失敗",
+      "listSeparator": "、",
+      "rowErrorPrefix": "第{row}行：{message}",
+      "fileErrors": {
+        "missingHeader": "檔案缺少表頭",
+        "missingRequiredColumns": "檔案缺少必填欄：{columns}",
+        "noDataRows": "未找到可匯入的資料",
+        "excelMissingWorksheet": "Excel 檔案缺少工作表",
+        "excelInvalidStructure": "Excel 檔案結構無效",
+        "excelUnsupportedCompression": "Excel 檔案包含暫不支援的壓縮方式"
+      },
+      "importErrors": {
+        "ossKeyUnreadable": "{imageKeyColumn} 無法讀取：{objectKey}",
+        "tagsRequired": "{tagsColumn}不可為空",
+        "tagsTooMany": "{tagsColumn}不可超過 100 個",
+        "tagsNotFound": "找不到{tagsColumn}：{tags}",
+        "enabledInvalid": "啟用狀態僅支援：{enabled}/{disabled}、true/false、1/0",
+        "uniqueNameFailed": "無法產生不重複的{nameColumn}",
+        "nameRequired": "{nameColumn}不可為空",
+        "nameTooLong": "{nameColumn}不可超過 255 個字元",
+        "typeRequired": "{typeColumn}不可為空",
+        "typeTooLong": "{typeColumn}不可超過 100 個字元",
+        "descriptionTooLong": "{descriptionColumn}不可超過 5000 個字元",
+        "notesTooLong": "{notesColumn}不可超過 5000 個字元",
+        "imageKeysRequired": "{imageKeyColumn}不可為空",
+        "imagesTooMany": "{imageKeyColumn}不可超過 100 張",
+        "matchPatternInvalid": "{matchPatternColumn}僅支援：{whole}/{partial}",
+        "partialImportUnsupported": "批次檔案暫不支援匯入局部匹配 IP。請使用整體匹配列，或手動建立局部匹配 IP。"
+      },
+      "formatExcel": "Excel",
+      "formatCsv": "CSV",
+      "spreadsheetBadge": "XLS"
     }
   }
 }
