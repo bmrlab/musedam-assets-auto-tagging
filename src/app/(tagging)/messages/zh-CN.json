@@ -244,10 +244,18 @@
           "nameTooLong": "标识名称不能超过 255 个字符",
           "typeRequired": "标识类型不能为空",
           "typeTooLong": "标识类型不能超过 100 个字符",
+          "descriptionTooLong": "{descriptionColumn} cannot exceed 5000 characters",
           "notesTooLong": "备注不能超过 5000 个字符",
           "imageKeysRequired": "标识图片 OSS Key 不能为空",
-          "imagesTooMany": "标识图片不能超过 100 张"
-        }
+          "imagesTooMany": "标识图片不能超过 100 张",
+          "matchPatternInvalid": "{matchPatternColumn} only supports: {whole}/{partial}",
+          "partialImportUnsupported": "Partial IP import is not supported in batch files. Use whole match rows or create partial IP entries manually."
+        },
+        "entityName": "标识名称",
+        "entityNamePlural": "标识名称",
+        "templateEntityName": "标识名称",
+        "enabledValue": "已启用",
+        "disabledValue": "已禁用"
       }
     },
     "IpLibrary": {
@@ -456,6 +464,46 @@
         "noSearchResults": "没有搜索到匹配标签",
         "tagGroups": "标签组({count})",
         "tags": "标签({count})"
+      },
+      "batchImportExport": {
+        "entityName": "IP 形象名称",
+        "entityNamePlural": "IP 形象名称",
+        "templateEntityName": "IP 形象名称",
+        "enabledValue": "已启用",
+        "disabledValue": "已禁用",
+        "listSeparator": "、",
+        "matchPatterns": {
+          "whole": "整图",
+          "partial": "局部"
+        },
+        "columns": {
+          "name": "IP 形象名称",
+          "ipTypeName": "IP 类型",
+          "description": "核心特征描述",
+          "matchPattern": "匹配模式",
+          "tagPaths": "关联标签",
+          "imageObjectKeys": "IP 图片 OSS Key",
+          "notes": "备注信息",
+          "enabled": "启用状态"
+        },
+        "importErrors": {
+          "ossKeyUnreadable": "{imageKeyColumn} 不可读取：{objectKey}",
+          "tagsRequired": "{tagsColumn}不能为空",
+          "tagsTooMany": "{tagsColumn}不能超过 100 个",
+          "tagsNotFound": "{tagsColumn}不存在：{tags}",
+          "enabledInvalid": "启用状态仅支持：{enabled}/{disabled}、true/false、1/0",
+          "uniqueNameFailed": "无法生成不重复的{nameColumn}",
+          "nameRequired": "{nameColumn}不能为空",
+          "nameTooLong": "{nameColumn}不能超过 255 个字符",
+          "typeRequired": "{typeColumn}不能为空",
+          "typeTooLong": "{typeColumn}不能超过 100 个字符",
+          "descriptionTooLong": "{descriptionColumn}不能超过 5000 个字符",
+          "notesTooLong": "{notesColumn}不能超过 5000 个字符",
+          "imageKeysRequired": "{imageKeyColumn}不能为空",
+          "imagesTooMany": "{imageKeyColumn}不能超过 100 张",
+          "matchPatternInvalid": "{matchPatternColumn}仅支持：{whole}/{partial}",
+          "partialImportUnsupported": "批量文件暂不支持导入局部匹配 IP。请使用整体匹配行，或手动创建局部匹配 IP。"
+        }
       }
     },
     "BrandClassify": {
@@ -993,6 +1041,40 @@
         "noSearchResults": "没有搜索到匹配标签",
         "tagGroups": "标签组({count})",
         "tags": "标签({count})"
+      },
+      "batchImportExport": {
+        "entityName": "人物姓名",
+        "entityNamePlural": "人物姓名",
+        "templateEntityName": "人物姓名",
+        "enabledValue": "已启用",
+        "disabledValue": "已禁用",
+        "listSeparator": "、",
+        "columns": {
+          "name": "人物姓名",
+          "personTypeName": "身份/角色",
+          "tagPaths": "关联标签",
+          "imageObjectKeys": "商品图片 OSS Key",
+          "notes": "备注信息",
+          "enabled": "启用状态"
+        },
+        "importErrors": {
+          "ossKeyUnreadable": "{imageKeyColumn} 不可读取：{objectKey}",
+          "tagsRequired": "{tagsColumn}不能为空",
+          "tagsTooMany": "{tagsColumn}不能超过 100 个",
+          "tagsNotFound": "{tagsColumn}不存在：{tags}",
+          "enabledInvalid": "启用状态仅支持：{enabled}/{disabled}、true/false、1/0",
+          "uniqueNameFailed": "无法生成不重复的{nameColumn}",
+          "nameRequired": "{nameColumn}不能为空",
+          "nameTooLong": "{nameColumn}不能超过 255 个字符",
+          "typeRequired": "{typeColumn}不能为空",
+          "typeTooLong": "{typeColumn}不能超过 100 个字符",
+          "descriptionTooLong": "{descriptionColumn}不能超过 5000 个字符",
+          "notesTooLong": "{notesColumn}不能超过 5000 个字符",
+          "imageKeysRequired": "{imageKeyColumn}不能为空",
+          "imagesTooMany": "{imageKeyColumn}不能超过 100 张",
+          "matchPatternInvalid": "{matchPatternColumn}仅支持：{whole}/{partial}",
+          "partialImportUnsupported": "批量文件暂不支持导入局部匹配 IP。请使用整体匹配行，或手动创建局部匹配 IP。"
+        }
       }
     },
     "PersonClassify": {
@@ -1204,6 +1286,41 @@
         "noSearchResults": "没有搜索到匹配标签",
         "tagGroups": "标签组({count})",
         "tags": "标签({count})"
+      },
+      "batchImportExport": {
+        "entityName": "商品名称",
+        "entityNamePlural": "商品名称",
+        "templateEntityName": "商品名称",
+        "enabledValue": "已启用",
+        "disabledValue": "已禁用",
+        "listSeparator": "、",
+        "columns": {
+          "name": "商品名称",
+          "productTypeName": "商品类型",
+          "description": "核心特征描述",
+          "tagPaths": "关联标签",
+          "imageObjectKeys": "商品图片 OSS Key",
+          "notes": "备注信息",
+          "enabled": "启用状态"
+        },
+        "importErrors": {
+          "ossKeyUnreadable": "{imageKeyColumn} 不可读取：{objectKey}",
+          "tagsRequired": "{tagsColumn}不能为空",
+          "tagsTooMany": "{tagsColumn}不能超过 100 个",
+          "tagsNotFound": "{tagsColumn}不存在：{tags}",
+          "enabledInvalid": "启用状态仅支持：{enabled}/{disabled}、true/false、1/0",
+          "uniqueNameFailed": "无法生成不重复的{nameColumn}",
+          "nameRequired": "{nameColumn}不能为空",
+          "nameTooLong": "{nameColumn}不能超过 255 个字符",
+          "typeRequired": "{typeColumn}不能为空",
+          "typeTooLong": "{typeColumn}不能超过 100 个字符",
+          "descriptionTooLong": "{descriptionColumn}不能超过 5000 个字符",
+          "notesTooLong": "{notesColumn}不能超过 5000 个字符",
+          "imageKeysRequired": "{imageKeyColumn}不能为空",
+          "imagesTooMany": "{imageKeyColumn}不能超过 100 张",
+          "matchPatternInvalid": "{matchPatternColumn}仅支持：{whole}/{partial}",
+          "partialImportUnsupported": "批量文件暂不支持导入局部匹配 IP。请使用整体匹配行，或手动创建局部匹配 IP。"
+        }
       }
     },
     "ProductClassify": {
@@ -1248,6 +1365,72 @@
       },
       "fallbackBox": "整图兜底",
       "coordinateTo": "到"
+    },
+    "BatchImportExport": {
+      "title": "批量导入/导出",
+      "srDescription": "批量导入或导出特征库数据",
+      "failureSrDescription": "导入失败原因列表",
+      "tabImport": "导入",
+      "tabExport": "导出",
+      "cancel": "取消",
+      "confirm": "确认",
+      "unsupportedFileType": "仅支持上传 Excel (.xlsx) 或 CSV (.csv) 文件",
+      "selectFileFirst": "请先选择文件",
+      "selectImportFile": "请先选择 Excel (.xlsx) 或 CSV (.csv) 文件",
+      "exportDownloadStarted": "文件已开始下载",
+      "partialImportWarning": "部分导入失败：成功 {success} 条，失败 {failed} 条",
+      "importSuccess": "成功导入 {count} 条数据",
+      "partialImportFailedTitle": "部分导入失败",
+      "importFailedTitle": "导入失败",
+      "partialImportFailedHint": "部分导入失败提示",
+      "importFailedHint": "导入失败提示",
+      "partialImportFailedDesc": "已成功导入 {success} 条，以下 {failed} 条导入失败，请修改后重新导入：",
+      "importFailedDesc": "以下为导入失败原因，请修改后重新导入：",
+      "downloadTemplate": "下载导入模板",
+      "retryImport": "重新导入",
+      "exportFormatLabel": "当前表格下载为",
+      "exportHint": "导出后可在本地批量编辑数据，完成后再导入。",
+      "uploadHintLine1": "选择或拖拽上传 Excel (.xlsx)、CSV (.csv)",
+      "uploadHintLine2": "以名称作为唯一ID识别，默认新增不存在的数据",
+      "selectFile": "选择文件",
+      "downloadSampleTemplate": "下载表格示例",
+      "failureRow": "第{row}行{name}：{message}",
+      "failureRowName": "（{name}）",
+      "exportFailed": "导出失败",
+      "templateDownloadFailed": "下载导入模板失败",
+      "importFailed": "导入失败",
+      "rowImportFailed": "导入该行失败",
+      "listSeparator": "、",
+      "rowErrorPrefix": "第{row}行：{message}",
+      "fileErrors": {
+        "missingHeader": "文件缺少表头",
+        "missingRequiredColumns": "文件缺少必填列：{columns}",
+        "noDataRows": "未找到可导入的数据",
+        "excelMissingWorksheet": "Excel 文件缺少工作表",
+        "excelInvalidStructure": "Excel 文件结构无效",
+        "excelUnsupportedCompression": "Excel 文件包含暂不支持的压缩方式"
+      },
+      "importErrors": {
+        "ossKeyUnreadable": "{imageKeyColumn} 不可读取：{objectKey}",
+        "tagsRequired": "{tagsColumn}不能为空",
+        "tagsTooMany": "{tagsColumn}不能超过 100 个",
+        "tagsNotFound": "{tagsColumn}不存在：{tags}",
+        "enabledInvalid": "启用状态仅支持：{enabled}/{disabled}、true/false、1/0",
+        "uniqueNameFailed": "无法生成不重复的{nameColumn}",
+        "nameRequired": "{nameColumn}不能为空",
+        "nameTooLong": "{nameColumn}不能超过 255 个字符",
+        "typeRequired": "{typeColumn}不能为空",
+        "typeTooLong": "{typeColumn}不能超过 100 个字符",
+        "descriptionTooLong": "{descriptionColumn}不能超过 5000 个字符",
+        "notesTooLong": "{notesColumn}不能超过 5000 个字符",
+        "imageKeysRequired": "{imageKeyColumn}不能为空",
+        "imagesTooMany": "{imageKeyColumn}不能超过 100 张",
+        "matchPatternInvalid": "{matchPatternColumn}仅支持：{whole}/{partial}",
+        "partialImportUnsupported": "批量文件暂不支持导入局部匹配 IP。请使用整体匹配行，或手动创建局部匹配 IP。"
+      },
+      "formatExcel": "Excel",
+      "formatCsv": "CSV",
+      "spreadsheetBadge": "XLS"
     }
   }
 }

@@ -53,10 +53,11 @@ import {
   retryAssetIpProcessingAction,
   setAssetIpEnabledAction,
 } from "./actions";
+import IpBatchImportExportDialog from "./IpBatchImportExportDialog";
 import IpDialog from "./IpDialog";
 import IpImageHoverCard from "./IpImageHoverCard";
 import SignedIpImage from "./SignedIpImage";
-import { IpItem, IpLibraryPageData } from "./types";
+import { IpBatchImportResult, IpItem, IpLibraryPageData } from "./types";
 
 type TranslationFunction = (key: string, values?: Record<string, string | number>) => string;
 
@@ -173,6 +174,7 @@ export default function IpLibraryClient({
   const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
   const [batchEnableOpen, setBatchEnableOpen] = useState(false);
   const [batchDisableOpen, setBatchDisableOpen] = useState(false);
+  const [batchImportExportOpen, setBatchImportExportOpen] = useState(false);
   const [pendingIpIds, setPendingIpIds] = useState<string[]>([]);
   const [isPending, startTransition] = useTransition();
   const deferredSearch = useDeferredValue(search.trim().toLowerCase());
@@ -322,6 +324,13 @@ export default function IpLibraryClient({
     updateIpInList(ip);
     setDialogOpen(false);
     setActiveIp(null);
+  }
+
+  function handleBatchImported(result: IpBatchImportResult) {
+    if (result.createdIps.length > 0) {
+      setIps((current) => [...result.createdIps, ...current]);
+    }
+    setIpTypes(result.ipTypes);
   }
 
   function handleOpenCreate() {
@@ -580,7 +589,7 @@ export default function IpLibraryClient({
               type="button"
               variant="outline"
               className="h-8 gap-1 rounded-[6px] border border-[#C5CEE0] bg-[#FFFFFF] px-3 py-1 text-[14px] leading-[22px] font-normal text-[#101426]"
-              disabled
+              onClick={() => setBatchImportExportOpen(true)}
             >
               <Image src="/Icon/export.svg" alt="" width={14} height={14} />
               {t("importExport")}
@@ -1091,6 +1100,12 @@ export default function IpLibraryClient({
         onIpTypesChange={setIpTypes}
         onIpTypeRenamed={handleTypeRenamed}
         onIpTypeDeleted={handleTypeDeleted}
+      />
+
+      <IpBatchImportExportDialog
+        open={batchImportExportOpen}
+        onOpenChange={setBatchImportExportOpen}
+        onImported={handleBatchImported}
       />
 
       <AlertDialog

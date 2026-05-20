@@ -483,10 +483,18 @@
           "nameTooLong": "식별 이름은 255자를 초과할 수 없습니다",
           "typeRequired": "식별 유형은 비워 둘 수 없습니다",
           "typeTooLong": "식별 유형은 100자를 초과할 수 없습니다",
+          "descriptionTooLong": "{descriptionColumn} cannot exceed 5000 characters",
           "notesTooLong": "메모는 5000자를 초과할 수 없습니다",
           "imageKeysRequired": "식별 이미지 OSS Key는 비워 둘 수 없습니다",
-          "imagesTooMany": "식별 이미지는 100개를 초과할 수 없습니다"
-        }
+          "imagesTooMany": "식별 이미지는 100개를 초과할 수 없습니다",
+          "matchPatternInvalid": "{matchPatternColumn} only supports: {whole}/{partial}",
+          "partialImportUnsupported": "Partial IP import is not supported in batch files. Use whole match rows or create partial IP entries manually."
+        },
+        "entityName": "식별 이름",
+        "entityNamePlural": "식별 이름",
+        "templateEntityName": "식별 이름",
+        "enabledValue": "활성화됨",
+        "disabledValue": "비활성화됨"
       }
     },
     "Test": {
@@ -787,6 +795,46 @@
         "noSearchResults": "일치하는 태그를 찾을 수 없습니다",
         "tagGroups": "태그 그룹({count})",
         "tags": "태그({count})"
+      },
+      "batchImportExport": {
+        "entityName": "IP 캐릭터 이름",
+        "entityNamePlural": "IP 캐릭터 이름",
+        "templateEntityName": "IP 캐릭터 이름",
+        "enabledValue": "활성화됨",
+        "disabledValue": "비활성화됨",
+        "listSeparator": ", ",
+        "matchPatterns": {
+          "whole": "전체",
+          "partial": "부분"
+        },
+        "columns": {
+          "name": "IP 캐릭터 이름",
+          "ipTypeName": "IP 유형",
+          "description": "핵심 특징 설명",
+          "matchPattern": "매칭 방식",
+          "tagPaths": "연결된 태그",
+          "imageObjectKeys": "IP 이미지 OSS Key",
+          "notes": "메모",
+          "enabled": "활성화 상태"
+        },
+        "importErrors": {
+          "ossKeyUnreadable": "{imageKeyColumn}을(를) 읽을 수 없습니다: {objectKey}",
+          "tagsRequired": "{tagsColumn}은(는) 비워 둘 수 없습니다",
+          "tagsTooMany": "{tagsColumn}은(는) 100개를 초과할 수 없습니다",
+          "tagsNotFound": "{tagsColumn}을(를) 찾을 수 없습니다: {tags}",
+          "enabledInvalid": "활성 상태는 {enabled}/{disabled}, true/false, 1/0만 지원합니다",
+          "uniqueNameFailed": "고유한 {nameColumn}을(를) 생성할 수 없습니다",
+          "nameRequired": "{nameColumn}은(는) 비워 둘 수 없습니다",
+          "nameTooLong": "{nameColumn}은(는) 255자를 초과할 수 없습니다",
+          "typeRequired": "{typeColumn}은(는) 비워 둘 수 없습니다",
+          "typeTooLong": "{typeColumn}은(는) 100자를 초과할 수 없습니다",
+          "descriptionTooLong": "{descriptionColumn}은(는) 5000자를 초과할 수 없습니다",
+          "notesTooLong": "{notesColumn}은(는) 5000자를 초과할 수 없습니다",
+          "imageKeysRequired": "{imageKeyColumn}은(는) 비워 둘 수 없습니다",
+          "imagesTooMany": "{imageKeyColumn}은(는) 100장을 초과할 수 없습니다",
+          "matchPatternInvalid": "{matchPatternColumn}은(는) {whole}/{partial}만 지원합니다",
+          "partialImportUnsupported": "배치 파일에서는 부분 매칭 IP 가져오기를 지원하지 않습니다. 전체 매칭 행을 사용하거나 부분 매칭 IP를 수동으로 생성하세요."
+        }
       }
     },
     "IpClassify": {
@@ -991,6 +1039,40 @@
         "noSearchResults": "일치하는 태그를 찾을 수 없습니다",
         "tagGroups": "태그 그룹({count})",
         "tags": "태그({count})"
+      },
+      "batchImportExport": {
+        "entityName": "인물 이름",
+        "entityNamePlural": "인물 이름",
+        "templateEntityName": "인물 이름",
+        "enabledValue": "활성화됨",
+        "disabledValue": "비활성화됨",
+        "listSeparator": ", ",
+        "columns": {
+          "name": "인물 이름",
+          "personTypeName": "신분/역할",
+          "tagPaths": "연결된 태그",
+          "imageObjectKeys": "상품 이미지 OSS Key",
+          "notes": "비고 정보",
+          "enabled": "활성화 상태"
+        },
+        "importErrors": {
+          "ossKeyUnreadable": "{imageKeyColumn}을(를) 읽을 수 없습니다: {objectKey}",
+          "tagsRequired": "{tagsColumn}은(는) 비워 둘 수 없습니다",
+          "tagsTooMany": "{tagsColumn}은(는) 100개를 초과할 수 없습니다",
+          "tagsNotFound": "{tagsColumn}을(를) 찾을 수 없습니다: {tags}",
+          "enabledInvalid": "활성 상태는 {enabled}/{disabled}, true/false, 1/0만 지원합니다",
+          "uniqueNameFailed": "고유한 {nameColumn}을(를) 생성할 수 없습니다",
+          "nameRequired": "{nameColumn}은(는) 비워 둘 수 없습니다",
+          "nameTooLong": "{nameColumn}은(는) 255자를 초과할 수 없습니다",
+          "typeRequired": "{typeColumn}은(는) 비워 둘 수 없습니다",
+          "typeTooLong": "{typeColumn}은(는) 100자를 초과할 수 없습니다",
+          "descriptionTooLong": "{descriptionColumn}은(는) 5000자를 초과할 수 없습니다",
+          "notesTooLong": "{notesColumn}은(는) 5000자를 초과할 수 없습니다",
+          "imageKeysRequired": "{imageKeyColumn}은(는) 비워 둘 수 없습니다",
+          "imagesTooMany": "{imageKeyColumn}은(는) 100장을 초과할 수 없습니다",
+          "matchPatternInvalid": "{matchPatternColumn}은(는) {whole}/{partial}만 지원합니다",
+          "partialImportUnsupported": "배치 파일에서는 부분 매칭 IP 가져오기를 지원하지 않습니다. 전체 매칭 행을 사용하거나 부분 매칭 IP를 수동으로 생성하세요."
+        }
       }
     },
     "PersonClassify": {
@@ -1202,6 +1284,41 @@
         "noSearchResults": "일치하는 태그를 찾을 수 없습니다",
         "tagGroups": "태그 그룹({count})",
         "tags": "태그({count})"
+      },
+      "batchImportExport": {
+        "entityName": "상품 이름",
+        "entityNamePlural": "상품 이름",
+        "templateEntityName": "상품 이름",
+        "enabledValue": "활성화됨",
+        "disabledValue": "비활성화됨",
+        "listSeparator": ", ",
+        "columns": {
+          "name": "상품 이름",
+          "productTypeName": "상품 유형",
+          "description": "핵심 특징 설명",
+          "tagPaths": "연결된 태그",
+          "imageObjectKeys": "상품 이미지 OSS Key",
+          "notes": "비고 정보",
+          "enabled": "활성화 상태"
+        },
+        "importErrors": {
+          "ossKeyUnreadable": "{imageKeyColumn}을(를) 읽을 수 없습니다: {objectKey}",
+          "tagsRequired": "{tagsColumn}은(는) 비워 둘 수 없습니다",
+          "tagsTooMany": "{tagsColumn}은(는) 100개를 초과할 수 없습니다",
+          "tagsNotFound": "{tagsColumn}을(를) 찾을 수 없습니다: {tags}",
+          "enabledInvalid": "활성 상태는 {enabled}/{disabled}, true/false, 1/0만 지원합니다",
+          "uniqueNameFailed": "고유한 {nameColumn}을(를) 생성할 수 없습니다",
+          "nameRequired": "{nameColumn}은(는) 비워 둘 수 없습니다",
+          "nameTooLong": "{nameColumn}은(는) 255자를 초과할 수 없습니다",
+          "typeRequired": "{typeColumn}은(는) 비워 둘 수 없습니다",
+          "typeTooLong": "{typeColumn}은(는) 100자를 초과할 수 없습니다",
+          "descriptionTooLong": "{descriptionColumn}은(는) 5000자를 초과할 수 없습니다",
+          "notesTooLong": "{notesColumn}은(는) 5000자를 초과할 수 없습니다",
+          "imageKeysRequired": "{imageKeyColumn}은(는) 비워 둘 수 없습니다",
+          "imagesTooMany": "{imageKeyColumn}은(는) 100장을 초과할 수 없습니다",
+          "matchPatternInvalid": "{matchPatternColumn}은(는) {whole}/{partial}만 지원합니다",
+          "partialImportUnsupported": "배치 파일에서는 부분 매칭 IP 가져오기를 지원하지 않습니다. 전체 매칭 행을 사용하거나 부분 매칭 IP를 수동으로 생성하세요."
+        }
       }
     },
     "ProductClassify": {
@@ -1246,6 +1363,72 @@
       },
       "fallbackBox": "전체 이미지 대체",
       "coordinateTo": "~"
+    },
+    "BatchImportExport": {
+      "title": "일괄 가져오기/보내기",
+      "srDescription": "특징 라이브러리 데이터 일괄 가져오기 또는 내보내기",
+      "failureSrDescription": "가져오기 실패 사유",
+      "tabImport": "가져오기",
+      "tabExport": "보내기",
+      "cancel": "취소",
+      "confirm": "확인",
+      "unsupportedFileType": "Excel (.xlsx) 또는 CSV (.csv) 파일만 지원합니다",
+      "selectFileFirst": "먼저 파일을 선택하세요",
+      "selectImportFile": "먼저 Excel (.xlsx) 또는 CSV (.csv) 파일을 선택하세요",
+      "exportDownloadStarted": "다운로드가 시작되었습니다",
+      "partialImportWarning": "일부 가져오기 실패: 성공 {success}건, 실패 {failed}건",
+      "importSuccess": "{count}개 항목을 가져왔습니다",
+      "partialImportFailedTitle": "일부 가져오기 실패",
+      "importFailedTitle": "가져오기 실패",
+      "partialImportFailedHint": "일부 가져오기 실패 안내",
+      "importFailedHint": "가져오기 실패 안내",
+      "partialImportFailedDesc": "{success}건을 성공적으로 가져왔습니다. 다음 {failed}건은 실패했습니다. 수정 후 다시 가져오세요:",
+      "importFailedDesc": "다음 가져오기 오류가 발생했습니다. 수정 후 다시 가져오세요:",
+      "downloadTemplate": "가져오기 템플릿 다운로드",
+      "retryImport": "다시 가져오기",
+      "exportFormatLabel": "현재 표를 다음 형식으로 다운로드",
+      "exportHint": "내보낸 후 로컬에서 데이터를 일괄 편집하고 다시 가져올 수 있습니다.",
+      "uploadHintLine1": "Excel (.xlsx) 또는 CSV (.csv) 파일을 선택하거나 끌어다 놓으세요",
+      "uploadHintLine2": "이름을 고유 ID로 사용합니다. 기본적으로 새 레코드가 생성됩니다.",
+      "selectFile": "파일 선택",
+      "downloadSampleTemplate": "스프레드시트 샘플 다운로드",
+      "failureRow": "{row}행{name}: {message}",
+      "failureRowName": " ({name})",
+      "exportFailed": "내보내기 실패",
+      "templateDownloadFailed": "가져오기 템플릿 다운로드 실패",
+      "importFailed": "가져오기 실패",
+      "rowImportFailed": "이 행을 가져오지 못했습니다",
+      "listSeparator": ", ",
+      "rowErrorPrefix": "{row}행: {message}",
+      "fileErrors": {
+        "missingHeader": "파일에 헤더 행이 없습니다",
+        "missingRequiredColumns": "파일에 필수 열이 없습니다: {columns}",
+        "noDataRows": "가져올 수 있는 데이터가 없습니다",
+        "excelMissingWorksheet": "Excel 파일에 워크시트가 없습니다",
+        "excelInvalidStructure": "Excel 파일 구조가 올바르지 않습니다",
+        "excelUnsupportedCompression": "Excel 파일이 지원하지 않는 압축 방식을 사용합니다"
+      },
+      "importErrors": {
+        "ossKeyUnreadable": "{imageKeyColumn}을(를) 읽을 수 없습니다: {objectKey}",
+        "tagsRequired": "{tagsColumn}은(는) 비워 둘 수 없습니다",
+        "tagsTooMany": "{tagsColumn}은(는) 100개를 초과할 수 없습니다",
+        "tagsNotFound": "{tagsColumn}을(를) 찾을 수 없습니다: {tags}",
+        "enabledInvalid": "활성 상태는 {enabled}/{disabled}, true/false, 1/0만 지원합니다",
+        "uniqueNameFailed": "고유한 {nameColumn}을(를) 생성할 수 없습니다",
+        "nameRequired": "{nameColumn}은(는) 비워 둘 수 없습니다",
+        "nameTooLong": "{nameColumn}은(는) 255자를 초과할 수 없습니다",
+        "typeRequired": "{typeColumn}은(는) 비워 둘 수 없습니다",
+        "typeTooLong": "{typeColumn}은(는) 100자를 초과할 수 없습니다",
+        "descriptionTooLong": "{descriptionColumn}은(는) 5000자를 초과할 수 없습니다",
+        "notesTooLong": "{notesColumn}은(는) 5000자를 초과할 수 없습니다",
+        "imageKeysRequired": "{imageKeyColumn}은(는) 비워 둘 수 없습니다",
+        "imagesTooMany": "{imageKeyColumn}은(는) 100장을 초과할 수 없습니다",
+        "matchPatternInvalid": "{matchPatternColumn}은(는) {whole}/{partial}만 지원합니다",
+        "partialImportUnsupported": "배치 파일에서는 부분 매칭 IP 가져오기를 지원하지 않습니다. 전체 매칭 행을 사용하거나 부분 매칭 IP를 수동으로 생성하세요."
+      },
+      "formatExcel": "Excel",
+      "formatCsv": "CSV",
+      "spreadsheetBadge": "XLS"
     }
   }
 }

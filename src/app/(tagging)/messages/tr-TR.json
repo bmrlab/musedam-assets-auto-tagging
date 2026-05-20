@@ -244,10 +244,18 @@
           "nameTooLong": "Kimlik adı 255 karakteri aşamaz",
           "typeRequired": "Kimlik türü boş olamaz",
           "typeTooLong": "Kimlik türü 100 karakteri aşamaz",
+          "descriptionTooLong": "{descriptionColumn} cannot exceed 5000 characters",
           "notesTooLong": "Notlar 5000 karakteri aşamaz",
           "imageKeysRequired": "Kimlik resmi OSS Key boş olamaz",
-          "imagesTooMany": "Kimlik resimleri 100'ü aşamaz"
-        }
+          "imagesTooMany": "Kimlik resimleri 100'ü aşamaz",
+          "matchPatternInvalid": "{matchPatternColumn} only supports: {whole}/{partial}",
+          "partialImportUnsupported": "Partial IP import is not supported in batch files. Use whole match rows or create partial IP entries manually."
+        },
+        "entityName": "Kimlik Adı",
+        "entityNamePlural": "Kimlik Adı",
+        "templateEntityName": "Kimlik Adı",
+        "enabledValue": "Etkin",
+        "disabledValue": "Devre Dışı"
       }
     },
     "IpLibrary": {
@@ -456,6 +464,46 @@
         "noSearchResults": "Eşleşen etiket bulunamadı",
         "tagGroups": "Etiket Grupları ({count})",
         "tags": "Etiketler ({count})"
+      },
+      "batchImportExport": {
+        "entityName": "IP Karakteri Adı",
+        "entityNamePlural": "IP Karakteri Adı",
+        "templateEntityName": "IP Karakteri Adı",
+        "enabledValue": "Etkin",
+        "disabledValue": "Devre Dışı",
+        "listSeparator": ", ",
+        "matchPatterns": {
+          "whole": "Tüm görüntü",
+          "partial": "Kısmi"
+        },
+        "columns": {
+          "name": "IP Karakteri Adı",
+          "ipTypeName": "IP Türü",
+          "description": "Temel Özellik Açıklaması",
+          "matchPattern": "Eşleştirme modu",
+          "tagPaths": "Bağlı Etiketler",
+          "imageObjectKeys": "IP Görselleri OSS Key",
+          "notes": "Notlar",
+          "enabled": "Etkin Durum"
+        },
+        "importErrors": {
+          "ossKeyUnreadable": "{imageKeyColumn} okunamıyor: {objectKey}",
+          "tagsRequired": "{tagsColumn} boş olamaz",
+          "tagsTooMany": "{tagsColumn} 100 değerini aşamaz",
+          "tagsNotFound": "{tagsColumn} bulunamadı: {tags}",
+          "enabledInvalid": "Etkin durumu yalnızca şunları destekler: {enabled}/{disabled}, true/false, 1/0",
+          "uniqueNameFailed": "Benzersiz {nameColumn} oluşturulamadı",
+          "nameRequired": "{nameColumn} boş olamaz",
+          "nameTooLong": "{nameColumn} 255 karakteri aşamaz",
+          "typeRequired": "{typeColumn} boş olamaz",
+          "typeTooLong": "{typeColumn} 100 karakteri aşamaz",
+          "descriptionTooLong": "{descriptionColumn} 5000 karakteri aşamaz",
+          "notesTooLong": "{notesColumn} 5000 karakteri aşamaz",
+          "imageKeysRequired": "{imageKeyColumn} boş olamaz",
+          "imagesTooMany": "{imageKeyColumn} 100 görseli aşamaz",
+          "matchPatternInvalid": "{matchPatternColumn} yalnızca şunları destekler: {whole}/{partial}",
+          "partialImportUnsupported": "Kısmi eşleşme IP içe aktarımı toplu dosyalarda desteklenmez. Tam eşleşme satırları kullanın veya kısmi IP kayıtlarını elle oluşturun."
+        }
       }
     },
     "Dashboard": {
@@ -993,6 +1041,40 @@
         "noSearchResults": "Eşleşen etiket bulunamadı",
         "tagGroups": "Etiket Grupları({count})",
         "tags": "Etiketler({count})"
+      },
+      "batchImportExport": {
+        "entityName": "Kişi Adı",
+        "entityNamePlural": "Kişi Adı",
+        "templateEntityName": "Kişi Adı",
+        "enabledValue": "Etkin",
+        "disabledValue": "Devre Dışı",
+        "listSeparator": ", ",
+        "columns": {
+          "name": "Kişi Adı",
+          "personTypeName": "Kimlik/Rol",
+          "tagPaths": "Bağlı Etiketler",
+          "imageObjectKeys": "Ürün Görüntüleri OSS Key",
+          "notes": "Not Bilgileri",
+          "enabled": "Etkin Durum"
+        },
+        "importErrors": {
+          "ossKeyUnreadable": "{imageKeyColumn} okunamıyor: {objectKey}",
+          "tagsRequired": "{tagsColumn} boş olamaz",
+          "tagsTooMany": "{tagsColumn} 100 değerini aşamaz",
+          "tagsNotFound": "{tagsColumn} bulunamadı: {tags}",
+          "enabledInvalid": "Etkin durumu yalnızca şunları destekler: {enabled}/{disabled}, true/false, 1/0",
+          "uniqueNameFailed": "Benzersiz {nameColumn} oluşturulamadı",
+          "nameRequired": "{nameColumn} boş olamaz",
+          "nameTooLong": "{nameColumn} 255 karakteri aşamaz",
+          "typeRequired": "{typeColumn} boş olamaz",
+          "typeTooLong": "{typeColumn} 100 karakteri aşamaz",
+          "descriptionTooLong": "{descriptionColumn} 5000 karakteri aşamaz",
+          "notesTooLong": "{notesColumn} 5000 karakteri aşamaz",
+          "imageKeysRequired": "{imageKeyColumn} boş olamaz",
+          "imagesTooMany": "{imageKeyColumn} 100 görseli aşamaz",
+          "matchPatternInvalid": "{matchPatternColumn} yalnızca şunları destekler: {whole}/{partial}",
+          "partialImportUnsupported": "Kısmi eşleşme IP içe aktarımı toplu dosyalarda desteklenmez. Tam eşleşme satırları kullanın veya kısmi IP kayıtlarını elle oluşturun."
+        }
       }
     },
     "PersonClassify": {
@@ -1204,6 +1286,41 @@
         "noSearchResults": "Eşleşen etiket bulunamadı",
         "tagGroups": "Etiket Grupları ({count})",
         "tags": "Etiketler ({count})"
+      },
+      "batchImportExport": {
+        "entityName": "Ürün Adı",
+        "entityNamePlural": "Ürün Adı",
+        "templateEntityName": "Ürün Adı",
+        "enabledValue": "Etkin",
+        "disabledValue": "Devre Dışı",
+        "listSeparator": ", ",
+        "columns": {
+          "name": "Ürün Adı",
+          "productTypeName": "Ürün Türü",
+          "description": "Temel Özellik Açıklaması",
+          "tagPaths": "Bağlı Etiketler",
+          "imageObjectKeys": "Ürün Resimleri OSS Key",
+          "notes": "Notlar",
+          "enabled": "Etkin Durum"
+        },
+        "importErrors": {
+          "ossKeyUnreadable": "{imageKeyColumn} okunamıyor: {objectKey}",
+          "tagsRequired": "{tagsColumn} boş olamaz",
+          "tagsTooMany": "{tagsColumn} 100 değerini aşamaz",
+          "tagsNotFound": "{tagsColumn} bulunamadı: {tags}",
+          "enabledInvalid": "Etkin durumu yalnızca şunları destekler: {enabled}/{disabled}, true/false, 1/0",
+          "uniqueNameFailed": "Benzersiz {nameColumn} oluşturulamadı",
+          "nameRequired": "{nameColumn} boş olamaz",
+          "nameTooLong": "{nameColumn} 255 karakteri aşamaz",
+          "typeRequired": "{typeColumn} boş olamaz",
+          "typeTooLong": "{typeColumn} 100 karakteri aşamaz",
+          "descriptionTooLong": "{descriptionColumn} 5000 karakteri aşamaz",
+          "notesTooLong": "{notesColumn} 5000 karakteri aşamaz",
+          "imageKeysRequired": "{imageKeyColumn} boş olamaz",
+          "imagesTooMany": "{imageKeyColumn} 100 görseli aşamaz",
+          "matchPatternInvalid": "{matchPatternColumn} yalnızca şunları destekler: {whole}/{partial}",
+          "partialImportUnsupported": "Kısmi eşleşme IP içe aktarımı toplu dosyalarda desteklenmez. Tam eşleşme satırları kullanın veya kısmi IP kayıtlarını elle oluşturun."
+        }
       }
     },
     "ProductClassify": {
@@ -1248,6 +1365,72 @@
       },
       "fallbackBox": "tam resim yedek",
       "coordinateTo": "ila"
+    },
+    "BatchImportExport": {
+      "title": "Toplu İçe Aktar/Dışa Aktar",
+      "srDescription": "Özellik kitaplığı verilerini toplu içe veya dışa aktar",
+      "failureSrDescription": "İçe aktarma hata nedenleri",
+      "tabImport": "İçe Aktar",
+      "tabExport": "Dışa Aktar",
+      "cancel": "İptal",
+      "confirm": "Onayla",
+      "unsupportedFileType": "Yalnızca Excel (.xlsx) veya CSV (.csv) dosyaları desteklenir",
+      "selectFileFirst": "Lütfen önce bir dosya seçin",
+      "selectImportFile": "Lütfen önce bir Excel (.xlsx) veya CSV (.csv) dosyası seçin",
+      "exportDownloadStarted": "İndirme başladı",
+      "partialImportWarning": "Kısmi içe aktarma başarısız: {success} başarılı, {failed} başarısız",
+      "importSuccess": "{count} öğe başarıyla içe aktarıldı",
+      "partialImportFailedTitle": "Kısmi İçe Aktarma Başarısız",
+      "importFailedTitle": "İçe Aktarma Başarısız",
+      "partialImportFailedHint": "Kısmi içe aktarma hatası bildirimi",
+      "importFailedHint": "İçe aktarma hatası bildirimi",
+      "partialImportFailedDesc": "{success} başarıyla içe aktarıldı. Aşağıdaki {failed} başarısız oldu. Lütfen düzeltip yeniden içe aktarın:",
+      "importFailedDesc": "Aşağıdaki içe aktarma hataları bulundu. Lütfen düzeltip yeniden içe aktarın:",
+      "downloadTemplate": "İçe Aktarma Şablonunu İndir",
+      "retryImport": "Yeniden İçe Aktar",
+      "exportFormatLabel": "Mevcut tabloyu şu formatta indir",
+      "exportHint": "Dışa aktardıktan sonra verileri yerelde toplu düzenleyip yeniden içe aktarabilirsiniz.",
+      "uploadHintLine1": "Excel (.xlsx) veya CSV (.csv) dosyasını seçin veya sürükleyip bırakın",
+      "uploadHintLine2": "Ad benzersiz kimlik olarak kullanılır. Varsayılan olarak yeni kayıtlar oluşturulur.",
+      "selectFile": "Dosya Seç",
+      "downloadSampleTemplate": "Elektronik tablo örneğini indir",
+      "failureRow": "Satır {row}{name}: {message}",
+      "failureRowName": " ({name})",
+      "exportFailed": "Dışa aktarma başarısız",
+      "templateDownloadFailed": "İçe aktarma şablonu indirilemedi",
+      "importFailed": "İçe aktarma başarısız",
+      "rowImportFailed": "Bu satır içe aktarılamadı",
+      "listSeparator": ", ",
+      "rowErrorPrefix": "Satır {row}: {message}",
+      "fileErrors": {
+        "missingHeader": "Dosyada başlık satırı eksik",
+        "missingRequiredColumns": "Dosyada zorunlu sütunlar eksik: {columns}",
+        "noDataRows": "İçe aktarılabilir veri bulunamadı",
+        "excelMissingWorksheet": "Excel dosyasında çalışma sayfası eksik",
+        "excelInvalidStructure": "Geçersiz Excel dosya yapısı",
+        "excelUnsupportedCompression": "Excel dosyası desteklenmeyen bir sıkıştırma yöntemi kullanıyor"
+      },
+      "importErrors": {
+        "ossKeyUnreadable": "{imageKeyColumn} okunamıyor: {objectKey}",
+        "tagsRequired": "{tagsColumn} boş olamaz",
+        "tagsTooMany": "{tagsColumn} 100 değerini aşamaz",
+        "tagsNotFound": "{tagsColumn} bulunamadı: {tags}",
+        "enabledInvalid": "Etkin durumu yalnızca şunları destekler: {enabled}/{disabled}, true/false, 1/0",
+        "uniqueNameFailed": "Benzersiz {nameColumn} oluşturulamadı",
+        "nameRequired": "{nameColumn} boş olamaz",
+        "nameTooLong": "{nameColumn} 255 karakteri aşamaz",
+        "typeRequired": "{typeColumn} boş olamaz",
+        "typeTooLong": "{typeColumn} 100 karakteri aşamaz",
+        "descriptionTooLong": "{descriptionColumn} 5000 karakteri aşamaz",
+        "notesTooLong": "{notesColumn} 5000 karakteri aşamaz",
+        "imageKeysRequired": "{imageKeyColumn} boş olamaz",
+        "imagesTooMany": "{imageKeyColumn} 100 görseli aşamaz",
+        "matchPatternInvalid": "{matchPatternColumn} yalnızca şunları destekler: {whole}/{partial}",
+        "partialImportUnsupported": "Kısmi eşleşme IP içe aktarımı toplu dosyalarda desteklenmez. Tam eşleşme satırları kullanın veya kısmi IP kayıtlarını elle oluşturun."
+      },
+      "formatExcel": "Excel",
+      "formatCsv": "CSV",
+      "spreadsheetBadge": "XLS"
     }
   }
 }

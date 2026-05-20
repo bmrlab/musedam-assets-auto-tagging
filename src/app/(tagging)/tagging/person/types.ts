@@ -51,6 +51,27 @@ export type PersonLibraryPageData = {
   tags: PersonTagTreeNode[];
 };
 
+export type PersonBatchImportFailure = {
+  rowNumber: number;
+  name: string | null;
+  message: string;
+};
+
+export type PersonBatchImportResult = {
+  createdPersons: PersonItem[];
+  personTypes: PersonTypeItem[];
+  successCount: number;
+  failedCount: number;
+  skippedCount: number;
+  failures: PersonBatchImportFailure[];
+};
+
+export type PersonBatchFileResult = {
+  filename: string;
+  mimeType: string;
+  base64: string;
+};
+
 export type PersonDetectionBox = {
   xMin: number;
   yMin: number;

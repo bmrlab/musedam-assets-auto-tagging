@@ -2,6 +2,11 @@
 
 import { withAuth } from "@/app/(auth)/withAuth";
 import {
+  buildAssetProductObjectKey,
+  getCachedSignedOssObjectUrl,
+  uploadOssObject,
+} from "@/lib/oss";
+import {
   ProductDetectionBox,
   classifyProductImageCrops,
   detectProductFigureBoxes,
@@ -10,16 +15,43 @@ import {
   markAssetProductVectorsProcessing,
   processAssetProductReferenceVectors,
 } from "@/lib/product/product-processing";
-import { deleteProductVectorPointsByProduct, setProductVectorPayloadByProduct } from "@/lib/product/qdrant";
-import { buildAssetProductObjectKey, getCachedSignedOssObjectUrl, uploadOssObject } from "@/lib/oss";
+import {
+  deleteProductVectorPointsByProduct,
+  setProductVectorPayloadByProduct,
+} from "@/lib/product/qdrant";
 import { ServerActionResult } from "@/lib/serverAction";
 import { schedulePushFeatureToMuseDAM } from "@/musedam/push-feature-to-musedam";
-import { AssetProduct, AssetProductImage, AssetProductTag, AssetProductType, AssetTag } from "@/prisma/client/index";
+import {
+  AssetProduct,
+  AssetProductImage,
+  AssetProductTag,
+  AssetProductType,
+  AssetTag,
+} from "@/prisma/client/index";
 import prisma from "@/prisma/prisma";
 import { getLocale, getTranslations } from "next-intl/server";
 import { after } from "next/server";
 import { z } from "zod";
 import {
+  BatchFileErrorMessages,
+  BatchFileFormat,
+  encodeBatchFile,
+  getBatchFileName,
+  parseBatchFile,
+  parseImportedEnabled,
+  splitBatchValues,
+} from "../batchFile";
+import {
+  ParsedProductBatchRow,
+  buildProductBatchExportRows,
+  buildProductBatchTemplateRows,
+  getProductBatchColumns,
+  parseProductBatchRows,
+} from "./batchFile";
+import {
+  ProductBatchFileResult,
+  ProductBatchImportFailure,
+  ProductBatchImportResult,
   ProductClassificationResult,
   ProductClassificationUploadResult,
   ProductImageItem,
@@ -29,6 +61,18 @@ import {
   ProductTagTreeNode,
   ProductTypeItem,
 } from "./types";
+
+type TranslationFunction = (key: string, values?: Record<string, string | number>) => string;
+
+function getProductBatchFileErrors(t: TranslationFunction): BatchFileErrorMessages {
+  return {
+    missingHeader: t("fileErrors.missingHeader"),
+    noDataRows: t("fileErrors.noDataRows"),
+    excelMissingWorksheet: t("fileErrors.excelMissingWorksheet"),
+    excelInvalidStructure: t("fileErrors.excelInvalidStructure"),
+    excelUnsupportedCompression: t("fileErrors.excelUnsupportedCompression"),
+  };
+}
 
 async function getProductValidationMessages() {
   const t = await getTranslations("Tagging.ProductLibrary");
@@ -67,11 +111,7 @@ async function getCreateOrUpdateProductSchema() {
 
 async function getProductTypeNameSchema() {
   const messages = await getProductValidationMessages();
-  return z
-    .string()
-    .trim()
-    .min(1, messages.typeNameRequired)
-    .max(100, messages.typeNameTooLong);
+  return z.string().trim().min(1, messages.typeNameRequired).max(100, messages.typeNameTooLong);
 }
 
 type AssetTagWithParents = AssetTag & {
@@ -230,6 +270,174 @@ async function ensureDefaultProductTypes(teamId: number, locale: string) {
   });
 
   return fetchActiveProductTypes(teamId);
+}
+
+function getProductBatchTranslator(t: TranslationFunction) {
+  return (key: string, values?: Record<string, string | number>) =>
+    t(`batchImportExport.${key}`, values);
+}
+
+function normalizeTagPathKey(value: string) {
+  return value
+    .split(">")
+    .map((part) => part.trim().toLowerCase())
+    .filter(Boolean)
+    .join(">");
+}
+
+async function buildTagPathLookup(teamId: number) {
+  const tags = await prisma.assetTag.findMany({
+    where: {
+      teamId,
+    },
+    include: {
+      parent: {
+        include: {
+          parent: true,
+        },
+      },
+    },
+  });
+  const tagLookup = new Map<
+    string,
+    {
+      assetTagId: number;
+      tagPath: string[];
+    }
+  >();
+
+  for (const tag of tags) {
+    const tagPath = buildTagPath(tag as AssetTagWithParents);
+    tagLookup.set(normalizeTagPathKey(tagPath.join(" > ")), {
+      assetTagId: tag.id,
+      tagPath,
+    });
+  }
+
+  return tagLookup;
+}
+
+function resolveImportedTags({
+  value,
+  tagLookup,
+  t,
+}: {
+  value: string;
+  tagLookup: Map<string, { assetTagId: number; tagPath: string[] }>;
+  t: TranslationFunction;
+}) {
+  const tagPathValues = splitBatchValues(value);
+  if (tagPathValues.length === 0) {
+    throw new Error(t("importErrors.tagsRequired", { tagsColumn: t("columns.tagPaths") }));
+  }
+
+  if (tagPathValues.length > 100) {
+    throw new Error(t("importErrors.tagsTooMany", { tagsColumn: t("columns.tagPaths") }));
+  }
+
+  const missingTagPaths: string[] = [];
+  const selectedTags: Array<{
+    assetTagId: number;
+    sort: number;
+    tagPath: string[];
+  }> = [];
+  const selectedTagIds = new Set<number>();
+
+  for (const tagPathValue of tagPathValues) {
+    const tag = tagLookup.get(normalizeTagPathKey(tagPathValue));
+    if (!tag) {
+      missingTagPaths.push(tagPathValue);
+      continue;
+    }
+
+    if (selectedTagIds.has(tag.assetTagId)) {
+      continue;
+    }
+
+    selectedTagIds.add(tag.assetTagId);
+    selectedTags.push({
+      assetTagId: tag.assetTagId,
+      sort: selectedTags.length + 1,
+      tagPath: tag.tagPath,
+    });
+  }
+
+  if (missingTagPaths.length > 0) {
+    throw new Error(
+      t("importErrors.tagsNotFound", {
+        tagsColumn: t("columns.tagPaths"),
+        tags: missingTagPaths.join(t("listSeparator")),
+      }),
+    );
+  }
+
+  return selectedTags;
+}
+
+function getUniqueImportedProductName(
+  baseName: string,
+  existingNames: Set<string>,
+  t: TranslationFunction,
+) {
+  if (!existingNames.has(baseName)) {
+    return baseName;
+  }
+
+  for (let index = 1; index < 10000; index += 1) {
+    const suffix = `(${index})`;
+    const candidate = `${baseName.slice(0, 255 - suffix.length)}${suffix}`;
+
+    if (!existingNames.has(candidate)) {
+      return candidate;
+    }
+  }
+
+  throw new Error(t("importErrors.uniqueNameFailed", { nameColumn: t("columns.name") }));
+}
+
+async function ensureImportedProductType({
+  teamId,
+  name,
+  productTypeCache,
+}: {
+  teamId: number;
+  name: string;
+  productTypeCache: Map<string, AssetProductType>;
+}) {
+  const cacheKey = name.toLowerCase();
+  const cached = productTypeCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  const existingType = await prisma.assetProductType.findFirst({
+    where: {
+      teamId,
+      name,
+    },
+  });
+
+  if (existingType) {
+    productTypeCache.set(cacheKey, existingType);
+    return existingType;
+  }
+
+  const lastType = await prisma.assetProductType.findFirst({
+    where: {
+      teamId,
+    },
+    orderBy: [{ sort: "desc" }, { id: "desc" }],
+  });
+  const productType = await prisma.assetProductType.create({
+    data: {
+      teamId,
+      name,
+      sort: (lastType?.sort ?? 0) + 1,
+    },
+  });
+
+  productTypeCache.set(cacheKey, productType);
+  return productType;
 }
 
 async function fetchProductTags(teamId: number) {
@@ -438,6 +646,212 @@ async function uploadAssetLibraryImages({
   }
 
   return uploads;
+}
+
+function getImageExtensionFromObjectKeyOrContentType({
+  objectKey,
+  contentType,
+}: {
+  objectKey: string;
+  contentType: string;
+}) {
+  const match = objectKey.split("?")[0].match(/\.[a-zA-Z0-9]+$/);
+  if (match) {
+    return match[0].toLowerCase();
+  }
+
+  if (contentType.includes("image/png")) return ".png";
+  if (contentType.includes("image/jpeg")) return ".jpg";
+  if (contentType.includes("image/webp")) return ".webp";
+  if (contentType.includes("image/svg+xml")) return ".svg";
+  if (contentType.includes("image/gif")) return ".gif";
+  return "";
+}
+
+async function cloneProductImageFromObjectKey({
+  objectKey,
+  teamId,
+  t,
+}: {
+  objectKey: string;
+  teamId: number;
+  t: TranslationFunction;
+}) {
+  const { signedUrl } = getCachedSignedOssObjectUrl({
+    objectKey,
+    expiresInSeconds: 60 * 60,
+  });
+  const response = await fetch(signedUrl);
+
+  if (!response.ok) {
+    throw new Error(
+      t("importErrors.ossKeyUnreadable", {
+        imageKeyColumn: t("columns.imageObjectKeys"),
+        objectKey,
+      }),
+    );
+  }
+
+  const contentType = response.headers.get("content-type") || "application/octet-stream";
+  const buffer = Buffer.from(await response.arrayBuffer());
+  const extension = getImageExtensionFromObjectKeyOrContentType({
+    objectKey,
+    contentType,
+  });
+  const newObjectKey = buildAssetProductObjectKey({
+    teamId,
+    extension,
+  });
+
+  const uploadResult = await uploadOssObject({
+    body: buffer,
+    contentType,
+    objectKey: newObjectKey,
+  });
+
+  return {
+    objectKey: uploadResult.objectKey,
+    mimeType: contentType,
+    size: buffer.byteLength,
+  };
+}
+
+async function importProductBatchRow({
+  team,
+  row,
+  tagLookup,
+  productTypeCache,
+  existingNames,
+  t,
+}: {
+  team: { id: number; slug: string };
+  row: ParsedProductBatchRow;
+  tagLookup: Map<string, { assetTagId: number; tagPath: string[] }>;
+  productTypeCache: Map<string, AssetProductType>;
+  existingNames: Set<string>;
+  t: TranslationFunction;
+}) {
+  const baseName = row.name.trim();
+  const productTypeName = row.productTypeName.trim();
+  const description = row.description.trim();
+  const notes = row.notes.trim();
+  const imageObjectKeys = splitBatchValues(row.imageObjectKeys);
+
+  if (!baseName) {
+    throw new Error(t("importErrors.nameRequired", { nameColumn: t("columns.name") }));
+  }
+
+  if (baseName.length > 255) {
+    throw new Error(t("importErrors.nameTooLong", { nameColumn: t("columns.name") }));
+  }
+
+  if (!productTypeName) {
+    throw new Error(t("importErrors.typeRequired", { typeColumn: t("columns.productTypeName") }));
+  }
+
+  if (productTypeName.length > 100) {
+    throw new Error(t("importErrors.typeTooLong", { typeColumn: t("columns.productTypeName") }));
+  }
+
+  if (description.length > 5000) {
+    throw new Error(
+      t("importErrors.descriptionTooLong", { descriptionColumn: t("columns.description") }),
+    );
+  }
+
+  if (notes.length > 5000) {
+    throw new Error(t("importErrors.notesTooLong", { notesColumn: t("columns.notes") }));
+  }
+
+  if (imageObjectKeys.length === 0) {
+    throw new Error(
+      t("importErrors.imageKeysRequired", { imageKeyColumn: t("columns.imageObjectKeys") }),
+    );
+  }
+
+  if (imageObjectKeys.length > 100) {
+    throw new Error(
+      t("importErrors.imagesTooMany", { imageKeyColumn: t("columns.imageObjectKeys") }),
+    );
+  }
+
+  const selectedTags = resolveImportedTags({
+    value: row.tagPaths,
+    tagLookup,
+    t,
+  });
+  const enabled = parseImportedEnabled({
+    value: row.enabled,
+    enabledLabel: t("enabledValue"),
+    disabledLabel: t("disabledValue"),
+    formatError: (enabledLabel, disabledLabel) =>
+      t("importErrors.enabledInvalid", {
+        enabled: enabledLabel,
+        disabled: disabledLabel,
+      }),
+  });
+  const uploadedImages = [];
+
+  for (const objectKey of imageObjectKeys) {
+    uploadedImages.push(
+      await cloneProductImageFromObjectKey({
+        objectKey,
+        teamId: team.id,
+        t,
+      }),
+    );
+  }
+
+  const productType = await ensureImportedProductType({
+    teamId: team.id,
+    name: productTypeName,
+    productTypeCache,
+  });
+  const productName = getUniqueImportedProductName(baseName, existingNames, t);
+
+  const createdProduct = await prisma.assetProduct.create({
+    data: {
+      teamId: team.id,
+      name: productName,
+      productTypeId: productType.id,
+      productTypeName: productType.name,
+      description,
+      notes,
+      status: "processing",
+      processingError: null,
+      enabled,
+      images: {
+        create: uploadedImages.map((image, index) => ({
+          ...image,
+          sort: index + 1,
+        })),
+      },
+      tags: {
+        create: selectedTags.map((tag) => ({
+          assetTagId: tag.assetTagId,
+          tagPath: tag.tagPath,
+          sort: tag.sort,
+        })),
+      },
+    },
+  });
+
+  existingNames.add(productName);
+
+  const product = await loadProduct(team.id, createdProduct.id);
+  scheduleAssetProductProcessing(team.id, createdProduct.id);
+  schedulePushFeatureToMuseDAM({
+    team,
+    featureType: "product",
+    identifierId: product.id,
+    identifierName: product.name,
+    identifierTypeId: productType.id,
+    identifierTypeName: productType.name,
+    firstImageObjectKey: product.images[0]?.objectKey,
+    internalAssetTagIds: selectedTags.map((tag) => tag.assetTagId),
+  });
+
+  return normalizeProduct(product);
 }
 
 type UploadedAssetLibraryImage = {
@@ -668,7 +1082,9 @@ export async function refreshAssetProductImageSignedUrlAction(imageId: string): 
   });
 }
 
-export async function fetchProductLibraryPageData(): Promise<ServerActionResult<ProductLibraryPageData>> {
+export async function fetchProductLibraryPageData(): Promise<
+  ServerActionResult<ProductLibraryPageData>
+> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
       const locale = await getLocale();
@@ -692,6 +1108,193 @@ export async function fetchProductLibraryPageData(): Promise<ServerActionResult<
       return {
         success: false,
         message: t("createFailed"),
+      };
+    }
+  });
+}
+
+export async function exportProductsAction(
+  format: BatchFileFormat,
+): Promise<ServerActionResult<ProductBatchFileResult>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    const tBatch = (await getTranslations("Tagging.BatchImportExport")) as TranslationFunction;
+
+    try {
+      const parsedFormat = z.enum(["csv", "xlsx"]).parse(format);
+      const products = await fetchProducts(teamId);
+      const rows = buildProductBatchExportRows({
+        products,
+        columns: getProductBatchColumns(),
+      });
+      const { buffer, mimeType } = encodeBatchFile({
+        rows,
+        format: parsedFormat,
+      });
+
+      return {
+        success: true,
+        data: {
+          filename: getBatchFileName("product-library", parsedFormat),
+          mimeType,
+          base64: buffer.toString("base64"),
+        },
+      };
+    } catch (error) {
+      console.error("Failed to export products:", error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : tBatch("exportFailed"),
+      };
+    }
+  });
+}
+
+export async function downloadProductImportTemplateAction(
+  format: BatchFileFormat = "xlsx",
+): Promise<ServerActionResult<ProductBatchFileResult>> {
+  return withAuth(async () => {
+    const tBatch = (await getTranslations("Tagging.BatchImportExport")) as TranslationFunction;
+
+    try {
+      const parsedFormat = z.enum(["csv", "xlsx"]).parse(format);
+      const { buffer, mimeType } = encodeBatchFile({
+        rows: buildProductBatchTemplateRows(getProductBatchColumns()),
+        format: parsedFormat,
+      });
+
+      return {
+        success: true,
+        data: {
+          filename: `product-import-template.${parsedFormat}`,
+          mimeType,
+          base64: buffer.toString("base64"),
+        },
+      };
+    } catch (error) {
+      console.error("Failed to build product import template:", error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : tBatch("templateDownloadFailed"),
+      };
+    }
+  });
+}
+
+export async function importProductsAction(
+  formData: FormData,
+): Promise<ServerActionResult<ProductBatchImportResult>> {
+  return withAuth(async ({ team }) => {
+    const t = getProductBatchTranslator(
+      (await getTranslations("Tagging.ProductLibrary")) as TranslationFunction,
+    );
+    const tBatch = (await getTranslations("Tagging.BatchImportExport")) as TranslationFunction;
+    const fileErrors = getProductBatchFileErrors(tBatch);
+    const columns = getProductBatchColumns();
+
+    try {
+      const file = formData.get("file");
+
+      if (!(file instanceof File) || file.size <= 0) {
+        return {
+          success: false,
+          message: tBatch("selectImportFile"),
+        };
+      }
+
+      const buffer = Buffer.from(await file.arrayBuffer());
+      const tableRows = parseBatchFile({
+        file,
+        buffer,
+        fileErrors,
+        unsupportedFileTypeMessage: tBatch("unsupportedFileType"),
+      });
+      const parsedRows = parseProductBatchRows({
+        rows: tableRows,
+        columns,
+        fileErrors,
+        listSeparator: t("listSeparator"),
+        formatMissingRequiredColumns: (columnNames) =>
+          tBatch("fileErrors.missingRequiredColumns", { columns: columnNames }),
+      });
+      const productTypes = await fetchActiveProductTypes(team.id);
+
+      if (parsedRows.errors.length > 0) {
+        return {
+          success: true,
+          data: {
+            createdProducts: [],
+            productTypes: productTypes.map(normalizeProductType),
+            successCount: 0,
+            failedCount: parsedRows.errors.length,
+            skippedCount: 0,
+            failures: parsedRows.errors.map((error) => ({
+              rowNumber: error.rowNumber,
+              name: null,
+              message: error.message,
+            })),
+          },
+        };
+      }
+
+      const [tagLookup, existingProducts, activeProductTypes] = await Promise.all([
+        buildTagPathLookup(team.id),
+        prisma.assetProduct.findMany({
+          where: {
+            teamId: team.id,
+          },
+          select: {
+            name: true,
+          },
+        }),
+        fetchActiveProductTypes(team.id),
+      ]);
+      const existingNames = new Set(existingProducts.map((product) => product.name));
+      const productTypeCache = new Map(
+        activeProductTypes.map(
+          (productType) => [productType.name.toLowerCase(), productType] as const,
+        ),
+      );
+      const createdProducts: ProductItem[] = [];
+      const failures: ProductBatchImportFailure[] = [];
+
+      for (const row of parsedRows.records) {
+        try {
+          const product = await importProductBatchRow({
+            team,
+            row,
+            tagLookup,
+            productTypeCache,
+            existingNames,
+            t,
+          });
+          createdProducts.push(product);
+        } catch (error) {
+          failures.push({
+            rowNumber: row.rowNumber,
+            name: row.name.trim() || null,
+            message: error instanceof Error ? error.message : tBatch("rowImportFailed"),
+          });
+        }
+      }
+
+      const nextProductTypes = await fetchActiveProductTypes(team.id);
+
+      return {
+        success: true,
+        data: {
+          createdProducts,
+          productTypes: nextProductTypes.map(normalizeProductType),
+          successCount: createdProducts.length,
+          failedCount: failures.length,
+          skippedCount: 0,
+          failures,
+        },
+      };
+    } catch (error) {
+      console.error("Failed to import products:", error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : tBatch("importFailed"),
       };
     }
   });
@@ -936,7 +1539,9 @@ export async function updateAssetProductAction(
       ]);
 
       const uniqueExistingImageIds = Array.from(new Set(input.existingImageIds));
-      const retainedImages = product.images.filter((image) => uniqueExistingImageIds.includes(image.id));
+      const retainedImages = product.images.filter((image) =>
+        uniqueExistingImageIds.includes(image.id),
+      );
 
       if (retainedImages.length !== uniqueExistingImageIds.length) {
         return {

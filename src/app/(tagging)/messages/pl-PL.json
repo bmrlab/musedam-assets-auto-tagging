@@ -244,10 +244,18 @@
           "nameTooLong": "Nazwa identyfikacji nie może przekraczać 255 znaków",
           "typeRequired": "Typ identyfikacji nie może być pusty",
           "typeTooLong": "Typ identyfikacji nie może przekraczać 100 znaków",
+          "descriptionTooLong": "{descriptionColumn} cannot exceed 5000 characters",
           "notesTooLong": "Notatki nie mogą przekraczać 5000 znaków",
           "imageKeysRequired": "Klucz OSS obrazu identyfikacji nie może być pusty",
-          "imagesTooMany": "Obrazy identyfikacji nie mogą przekraczać 100"
-        }
+          "imagesTooMany": "Obrazy identyfikacji nie mogą przekraczać 100",
+          "matchPatternInvalid": "{matchPatternColumn} only supports: {whole}/{partial}",
+          "partialImportUnsupported": "Partial IP import is not supported in batch files. Use whole match rows or create partial IP entries manually."
+        },
+        "entityName": "Nazwa identyfikacji",
+        "entityNamePlural": "Nazwa identyfikacji",
+        "templateEntityName": "Nazwa identyfikacji",
+        "enabledValue": "Włączony",
+        "disabledValue": "Wyłączony"
       }
     },
     "IpLibrary": {
@@ -456,6 +464,46 @@
         "noSearchResults": "Nie znaleziono pasujących tagów",
         "tagGroups": "Grupy tagów ({count})",
         "tags": "Tagi ({count})"
+      },
+      "batchImportExport": {
+        "entityName": "Nazwa postaci IP",
+        "entityNamePlural": "Nazwa postaci IP",
+        "templateEntityName": "Nazwa postaci IP",
+        "enabledValue": "Włączone",
+        "disabledValue": "Wyłączone",
+        "listSeparator": ", ",
+        "matchPatterns": {
+          "whole": "Cały obraz",
+          "partial": "Częściowy"
+        },
+        "columns": {
+          "name": "Nazwa postaci IP",
+          "ipTypeName": "Typ IP",
+          "description": "Opis podstawowych cech",
+          "matchPattern": "Tryb dopasowania",
+          "tagPaths": "Powiązane tagi",
+          "imageObjectKeys": "Obrazy IP OSS Key",
+          "notes": "Notatki",
+          "enabled": "Status włączenia"
+        },
+        "importErrors": {
+          "ossKeyUnreadable": "Nie można odczytać {imageKeyColumn}: {objectKey}",
+          "tagsRequired": "{tagsColumn} nie może być puste",
+          "tagsTooMany": "{tagsColumn} nie może przekraczać 100",
+          "tagsNotFound": "Nie znaleziono {tagsColumn}: {tags}",
+          "enabledInvalid": "Status włączenia obsługuje tylko: {enabled}/{disabled}, true/false, 1/0",
+          "uniqueNameFailed": "Nie można wygenerować unikalnej wartości dla {nameColumn}",
+          "nameRequired": "{nameColumn} nie może być puste",
+          "nameTooLong": "{nameColumn} nie może przekraczać 255 znaków",
+          "typeRequired": "{typeColumn} nie może być puste",
+          "typeTooLong": "{typeColumn} nie może przekraczać 100 znaków",
+          "descriptionTooLong": "{descriptionColumn} nie może przekraczać 5000 znaków",
+          "notesTooLong": "{notesColumn} nie może przekraczać 5000 znaków",
+          "imageKeysRequired": "{imageKeyColumn} nie może być puste",
+          "imagesTooMany": "{imageKeyColumn} nie może przekraczać 100 obrazów",
+          "matchPatternInvalid": "{matchPatternColumn} obsługuje tylko: {whole}/{partial}",
+          "partialImportUnsupported": "Import IP z dopasowaniem częściowym nie jest obsługiwany w plikach wsadowych. Użyj wierszy z dopasowaniem całościowym albo utwórz takie IP ręcznie."
+        }
       }
     },
     "Dashboard": {
@@ -993,6 +1041,40 @@
         "noSearchResults": "Nie znaleziono pasujących tagów",
         "tagGroups": "Grupy tagów ({count})",
         "tags": "Tagi ({count})"
+      },
+      "batchImportExport": {
+        "entityName": "Nazwa osoby",
+        "entityNamePlural": "Nazwa osoby",
+        "templateEntityName": "Nazwa osoby",
+        "enabledValue": "Włączona",
+        "disabledValue": "Wyłączona",
+        "listSeparator": ", ",
+        "columns": {
+          "name": "Nazwa osoby",
+          "personTypeName": "Tożsamość / Rola",
+          "tagPaths": "Powiązane tagi",
+          "imageObjectKeys": "Zdjęcia twarzy OSS Key",
+          "notes": "Notatki",
+          "enabled": "Status włączenia"
+        },
+        "importErrors": {
+          "ossKeyUnreadable": "Nie można odczytać {imageKeyColumn}: {objectKey}",
+          "tagsRequired": "{tagsColumn} nie może być puste",
+          "tagsTooMany": "{tagsColumn} nie może przekraczać 100",
+          "tagsNotFound": "Nie znaleziono {tagsColumn}: {tags}",
+          "enabledInvalid": "Status włączenia obsługuje tylko: {enabled}/{disabled}, true/false, 1/0",
+          "uniqueNameFailed": "Nie można wygenerować unikalnej wartości dla {nameColumn}",
+          "nameRequired": "{nameColumn} nie może być puste",
+          "nameTooLong": "{nameColumn} nie może przekraczać 255 znaków",
+          "typeRequired": "{typeColumn} nie może być puste",
+          "typeTooLong": "{typeColumn} nie może przekraczać 100 znaków",
+          "descriptionTooLong": "{descriptionColumn} nie może przekraczać 5000 znaków",
+          "notesTooLong": "{notesColumn} nie może przekraczać 5000 znaków",
+          "imageKeysRequired": "{imageKeyColumn} nie może być puste",
+          "imagesTooMany": "{imageKeyColumn} nie może przekraczać 100 obrazów",
+          "matchPatternInvalid": "{matchPatternColumn} obsługuje tylko: {whole}/{partial}",
+          "partialImportUnsupported": "Import IP z dopasowaniem częściowym nie jest obsługiwany w plikach wsadowych. Użyj wierszy z dopasowaniem całościowym albo utwórz takie IP ręcznie."
+        }
       }
     },
     "PersonClassify": {
@@ -1204,6 +1286,41 @@
         "noSearchResults": "Nie znaleziono pasujących tagów",
         "tagGroups": "Grupy tagów ({count})",
         "tags": "Tagi ({count})"
+      },
+      "batchImportExport": {
+        "entityName": "Nazwa produktu",
+        "entityNamePlural": "Nazwa produktu",
+        "templateEntityName": "Nazwa produktu",
+        "enabledValue": "Włączony",
+        "disabledValue": "Wyłączony",
+        "listSeparator": ", ",
+        "columns": {
+          "name": "Nazwa produktu",
+          "productTypeName": "Typ produktu",
+          "description": "Opis podstawowych cech",
+          "tagPaths": "Powiązane tagi",
+          "imageObjectKeys": "Obrazy produktu OSS Key",
+          "notes": "Notatki",
+          "enabled": "Status włączenia"
+        },
+        "importErrors": {
+          "ossKeyUnreadable": "Nie można odczytać {imageKeyColumn}: {objectKey}",
+          "tagsRequired": "{tagsColumn} nie może być puste",
+          "tagsTooMany": "{tagsColumn} nie może przekraczać 100",
+          "tagsNotFound": "Nie znaleziono {tagsColumn}: {tags}",
+          "enabledInvalid": "Status włączenia obsługuje tylko: {enabled}/{disabled}, true/false, 1/0",
+          "uniqueNameFailed": "Nie można wygenerować unikalnej wartości dla {nameColumn}",
+          "nameRequired": "{nameColumn} nie może być puste",
+          "nameTooLong": "{nameColumn} nie może przekraczać 255 znaków",
+          "typeRequired": "{typeColumn} nie może być puste",
+          "typeTooLong": "{typeColumn} nie może przekraczać 100 znaków",
+          "descriptionTooLong": "{descriptionColumn} nie może przekraczać 5000 znaków",
+          "notesTooLong": "{notesColumn} nie może przekraczać 5000 znaków",
+          "imageKeysRequired": "{imageKeyColumn} nie może być puste",
+          "imagesTooMany": "{imageKeyColumn} nie może przekraczać 100 obrazów",
+          "matchPatternInvalid": "{matchPatternColumn} obsługuje tylko: {whole}/{partial}",
+          "partialImportUnsupported": "Import IP z dopasowaniem częściowym nie jest obsługiwany w plikach wsadowych. Użyj wierszy z dopasowaniem całościowym albo utwórz takie IP ręcznie."
+        }
       }
     },
     "ProductClassify": {
@@ -1248,6 +1365,72 @@
       },
       "fallbackBox": "zastępcza ramka całego obrazu",
       "coordinateTo": "do"
+    },
+    "BatchImportExport": {
+      "title": "Import/Eksport zbiorczy",
+      "srDescription": "Zbiorczy import lub eksport danych biblioteki cech",
+      "failureSrDescription": "Przyczyny niepowodzenia importu",
+      "tabImport": "Import",
+      "tabExport": "Eksport",
+      "cancel": "Anuluj",
+      "confirm": "Potwierdź",
+      "unsupportedFileType": "Obsługiwane są tylko pliki Excel (.xlsx) lub CSV (.csv)",
+      "selectFileFirst": "Najpierw wybierz plik",
+      "selectImportFile": "Najpierw wybierz plik Excel (.xlsx) lub CSV (.csv)",
+      "exportDownloadStarted": "Pobieranie rozpoczęte",
+      "partialImportWarning": "Częściowy import nie powiódł się: {success} udanych, {failed} nieudanych",
+      "importSuccess": "Pomyślnie zaimportowano {count} elementów",
+      "partialImportFailedTitle": "Częściowy import nie powiódł się",
+      "importFailedTitle": "Import nie powiódł się",
+      "partialImportFailedHint": "Powiadomienie o częściowym niepowodzeniu importu",
+      "importFailedHint": "Powiadomienie o niepowodzeniu importu",
+      "partialImportFailedDesc": "Pomyślnie zaimportowano {success}. Następujące {failed} nie powiodły się. Popraw dane i zaimportuj ponownie:",
+      "importFailedDesc": "Wykryto następujące błędy importu. Popraw dane i zaimportuj ponownie:",
+      "downloadTemplate": "Pobierz szablon importu",
+      "retryImport": "Importuj ponownie",
+      "exportFormatLabel": "Pobierz bieżącą tabelę jako",
+      "exportHint": "Po eksporcie możesz zbiorczo edytować dane lokalnie i ponownie je zaimportować.",
+      "uploadHintLine1": "Wybierz lub przeciągnij plik Excel (.xlsx) lub CSV (.csv)",
+      "uploadHintLine2": "Nazwa służy jako unikalny identyfikator. Domyślnie tworzone są nowe rekordy.",
+      "selectFile": "Wybierz plik",
+      "downloadSampleTemplate": "Pobierz przykładowy arkusz",
+      "failureRow": "Wiersz {row}{name}: {message}",
+      "failureRowName": " ({name})",
+      "exportFailed": "Eksport nie powiódł się",
+      "templateDownloadFailed": "Nie udało się pobrać szablonu importu",
+      "importFailed": "Import nie powiódł się",
+      "rowImportFailed": "Nie udało się zaimportować tego wiersza",
+      "listSeparator": ", ",
+      "rowErrorPrefix": "Wiersz {row}: {message}",
+      "fileErrors": {
+        "missingHeader": "Plik nie zawiera wiersza nagłówkowego",
+        "missingRequiredColumns": "W pliku brakuje wymaganych kolumn: {columns}",
+        "noDataRows": "Nie znaleziono danych do importu",
+        "excelMissingWorksheet": "Plik Excel nie zawiera arkusza",
+        "excelInvalidStructure": "Nieprawidłowa struktura pliku Excel",
+        "excelUnsupportedCompression": "Plik Excel używa nieobsługiwanej metody kompresji"
+      },
+      "importErrors": {
+        "ossKeyUnreadable": "Nie można odczytać {imageKeyColumn}: {objectKey}",
+        "tagsRequired": "{tagsColumn} nie może być puste",
+        "tagsTooMany": "{tagsColumn} nie może przekraczać 100",
+        "tagsNotFound": "Nie znaleziono {tagsColumn}: {tags}",
+        "enabledInvalid": "Status włączenia obsługuje tylko: {enabled}/{disabled}, true/false, 1/0",
+        "uniqueNameFailed": "Nie można wygenerować unikalnej wartości dla {nameColumn}",
+        "nameRequired": "{nameColumn} nie może być puste",
+        "nameTooLong": "{nameColumn} nie może przekraczać 255 znaków",
+        "typeRequired": "{typeColumn} nie może być puste",
+        "typeTooLong": "{typeColumn} nie może przekraczać 100 znaków",
+        "descriptionTooLong": "{descriptionColumn} nie może przekraczać 5000 znaków",
+        "notesTooLong": "{notesColumn} nie może przekraczać 5000 znaków",
+        "imageKeysRequired": "{imageKeyColumn} nie może być puste",
+        "imagesTooMany": "{imageKeyColumn} nie może przekraczać 100 obrazów",
+        "matchPatternInvalid": "{matchPatternColumn} obsługuje tylko: {whole}/{partial}",
+        "partialImportUnsupported": "Import IP z dopasowaniem częściowym nie jest obsługiwany w plikach wsadowych. Użyj wierszy z dopasowaniem całościowym albo utwórz takie IP ręcznie."
+      },
+      "formatExcel": "Excel",
+      "formatCsv": "CSV",
+      "spreadsheetBadge": "XLS"
     }
   }
 }

@@ -244,10 +244,18 @@
           "nameTooLong": "Nama identitas tidak boleh lebih dari 255 karakter",
           "typeRequired": "Tipe identitas tidak boleh kosong",
           "typeTooLong": "Tipe identitas tidak boleh lebih dari 100 karakter",
+          "descriptionTooLong": "{descriptionColumn} cannot exceed 5000 characters",
           "notesTooLong": "Catatan tidak boleh lebih dari 5000 karakter",
           "imageKeysRequired": "Kunci OSS gambar identitas tidak boleh kosong",
-          "imagesTooMany": "Gambar identitas tidak boleh lebih dari 100"
-        }
+          "imagesTooMany": "Gambar identitas tidak boleh lebih dari 100",
+          "matchPatternInvalid": "{matchPatternColumn} only supports: {whole}/{partial}",
+          "partialImportUnsupported": "Partial IP import is not supported in batch files. Use whole match rows or create partial IP entries manually."
+        },
+        "entityName": "Nama Identitas",
+        "entityNamePlural": "Nama Identitas",
+        "templateEntityName": "Nama Identitas",
+        "enabledValue": "Diaktifkan",
+        "disabledValue": "Dinonaktifkan"
       }
     },
     "IpLibrary": {
@@ -456,6 +464,46 @@
         "noSearchResults": "Tidak ada tag yang cocok ditemukan",
         "tagGroups": "Grup Tag ({count})",
         "tags": "Tag ({count})"
+      },
+      "batchImportExport": {
+        "entityName": "Nama Karakter IP",
+        "entityNamePlural": "Nama Karakter IP",
+        "templateEntityName": "Nama Karakter IP",
+        "enabledValue": "Diaktifkan",
+        "disabledValue": "Dinonaktifkan",
+        "listSeparator": ", ",
+        "matchPatterns": {
+          "whole": "Penuh",
+          "partial": "Sebagian"
+        },
+        "columns": {
+          "name": "Nama Karakter IP",
+          "ipTypeName": "Tipe IP",
+          "description": "Deskripsi Fitur Inti",
+          "matchPattern": "Mode pencocokan",
+          "tagPaths": "Tag Terkait",
+          "imageObjectKeys": "Gambar IP OSS Key",
+          "notes": "Catatan",
+          "enabled": "Status Aktif"
+        },
+        "importErrors": {
+          "ossKeyUnreadable": "{imageKeyColumn} tidak dapat dibaca: {objectKey}",
+          "tagsRequired": "{tagsColumn} tidak boleh kosong",
+          "tagsTooMany": "{tagsColumn} tidak boleh lebih dari 100",
+          "tagsNotFound": "{tagsColumn} tidak ditemukan: {tags}",
+          "enabledInvalid": "Status aktif hanya mendukung: {enabled}/{disabled}, true/false, 1/0",
+          "uniqueNameFailed": "Tidak dapat membuat {nameColumn} yang unik",
+          "nameRequired": "{nameColumn} tidak boleh kosong",
+          "nameTooLong": "{nameColumn} tidak boleh lebih dari 255 karakter",
+          "typeRequired": "{typeColumn} tidak boleh kosong",
+          "typeTooLong": "{typeColumn} tidak boleh lebih dari 100 karakter",
+          "descriptionTooLong": "{descriptionColumn} tidak boleh lebih dari 5000 karakter",
+          "notesTooLong": "{notesColumn} tidak boleh lebih dari 5000 karakter",
+          "imageKeysRequired": "{imageKeyColumn} tidak boleh kosong",
+          "imagesTooMany": "{imageKeyColumn} tidak boleh lebih dari 100 gambar",
+          "matchPatternInvalid": "{matchPatternColumn} hanya mendukung: {whole}/{partial}",
+          "partialImportUnsupported": "Impor IP parsial tidak didukung dalam file batch. Gunakan baris pencocokan utuh atau buat entri IP parsial secara manual."
+        }
       }
     },
     "IpClassify": {
@@ -993,6 +1041,40 @@
         "noSearchResults": "Tidak ada tag yang cocok ditemukan",
         "tagGroups": "Grup Tag ({count})",
         "tags": "Tag ({count})"
+      },
+      "batchImportExport": {
+        "entityName": "Nama Person",
+        "entityNamePlural": "Nama Person",
+        "templateEntityName": "Nama Person",
+        "enabledValue": "Diaktifkan",
+        "disabledValue": "Dinonaktifkan",
+        "listSeparator": ", ",
+        "columns": {
+          "name": "Nama Person",
+          "personTypeName": "Identitas/Peran",
+          "tagPaths": "Tag Terkait",
+          "imageObjectKeys": "Foto Wajah OSS Key",
+          "notes": "Catatan",
+          "enabled": "Status Aktif"
+        },
+        "importErrors": {
+          "ossKeyUnreadable": "{imageKeyColumn} tidak dapat dibaca: {objectKey}",
+          "tagsRequired": "{tagsColumn} tidak boleh kosong",
+          "tagsTooMany": "{tagsColumn} tidak boleh lebih dari 100",
+          "tagsNotFound": "{tagsColumn} tidak ditemukan: {tags}",
+          "enabledInvalid": "Status aktif hanya mendukung: {enabled}/{disabled}, true/false, 1/0",
+          "uniqueNameFailed": "Tidak dapat membuat {nameColumn} yang unik",
+          "nameRequired": "{nameColumn} tidak boleh kosong",
+          "nameTooLong": "{nameColumn} tidak boleh lebih dari 255 karakter",
+          "typeRequired": "{typeColumn} tidak boleh kosong",
+          "typeTooLong": "{typeColumn} tidak boleh lebih dari 100 karakter",
+          "descriptionTooLong": "{descriptionColumn} tidak boleh lebih dari 5000 karakter",
+          "notesTooLong": "{notesColumn} tidak boleh lebih dari 5000 karakter",
+          "imageKeysRequired": "{imageKeyColumn} tidak boleh kosong",
+          "imagesTooMany": "{imageKeyColumn} tidak boleh lebih dari 100 gambar",
+          "matchPatternInvalid": "{matchPatternColumn} hanya mendukung: {whole}/{partial}",
+          "partialImportUnsupported": "Impor IP parsial tidak didukung dalam file batch. Gunakan baris pencocokan utuh atau buat entri IP parsial secara manual."
+        }
       }
     },
     "PersonClassify": {
@@ -1204,6 +1286,41 @@
         "noSearchResults": "Tidak ada tag yang cocok ditemukan",
         "tagGroups": "Grup Tag ({count})",
         "tags": "Tag ({count})"
+      },
+      "batchImportExport": {
+        "entityName": "Nama Produk",
+        "entityNamePlural": "Nama Produk",
+        "templateEntityName": "Nama Produk",
+        "enabledValue": "Diaktifkan",
+        "disabledValue": "Dinonaktifkan",
+        "listSeparator": ", ",
+        "columns": {
+          "name": "Nama Produk",
+          "productTypeName": "Tipe Produk",
+          "description": "Deskripsi Fitur Inti",
+          "tagPaths": "Tag Terkait",
+          "imageObjectKeys": "Gambar Produk OSS Key",
+          "notes": "Catatan",
+          "enabled": "Status Aktif"
+        },
+        "importErrors": {
+          "ossKeyUnreadable": "{imageKeyColumn} tidak dapat dibaca: {objectKey}",
+          "tagsRequired": "{tagsColumn} tidak boleh kosong",
+          "tagsTooMany": "{tagsColumn} tidak boleh lebih dari 100",
+          "tagsNotFound": "{tagsColumn} tidak ditemukan: {tags}",
+          "enabledInvalid": "Status aktif hanya mendukung: {enabled}/{disabled}, true/false, 1/0",
+          "uniqueNameFailed": "Tidak dapat membuat {nameColumn} yang unik",
+          "nameRequired": "{nameColumn} tidak boleh kosong",
+          "nameTooLong": "{nameColumn} tidak boleh lebih dari 255 karakter",
+          "typeRequired": "{typeColumn} tidak boleh kosong",
+          "typeTooLong": "{typeColumn} tidak boleh lebih dari 100 karakter",
+          "descriptionTooLong": "{descriptionColumn} tidak boleh lebih dari 5000 karakter",
+          "notesTooLong": "{notesColumn} tidak boleh lebih dari 5000 karakter",
+          "imageKeysRequired": "{imageKeyColumn} tidak boleh kosong",
+          "imagesTooMany": "{imageKeyColumn} tidak boleh lebih dari 100 gambar",
+          "matchPatternInvalid": "{matchPatternColumn} hanya mendukung: {whole}/{partial}",
+          "partialImportUnsupported": "Impor IP parsial tidak didukung dalam file batch. Gunakan baris pencocokan utuh atau buat entri IP parsial secara manual."
+        }
       }
     },
     "ProductClassify": {
@@ -1248,6 +1365,72 @@
       },
       "fallbackBox": "cadangan gambar utuh",
       "coordinateTo": "ke"
+    },
+    "BatchImportExport": {
+      "title": "Impor/Ekspor Massal",
+      "srDescription": "Impor atau ekspor data pustaka fitur secara massal",
+      "failureSrDescription": "Alasan kegagalan impor",
+      "tabImport": "Impor",
+      "tabExport": "Ekspor",
+      "cancel": "Batal",
+      "confirm": "Konfirmasi",
+      "unsupportedFileType": "Hanya file Excel (.xlsx) atau CSV (.csv) yang didukung",
+      "selectFileFirst": "Silakan pilih file terlebih dahulu",
+      "selectImportFile": "Silakan pilih file Excel (.xlsx) atau CSV (.csv) terlebih dahulu",
+      "exportDownloadStarted": "Unduhan telah dimulai",
+      "partialImportWarning": "Sebagian impor gagal: {success} berhasil, {failed} gagal",
+      "importSuccess": "Berhasil mengimpor {count} item",
+      "partialImportFailedTitle": "Sebagian Impor Gagal",
+      "importFailedTitle": "Impor Gagal",
+      "partialImportFailedHint": "Pemberitahuan kegagalan impor sebagian",
+      "importFailedHint": "Pemberitahuan kegagalan impor",
+      "partialImportFailedDesc": "{success} berhasil diimpor. Berikut {failed} yang gagal. Silakan perbaiki lalu impor ulang:",
+      "importFailedDesc": "Ditemukan kesalahan impor berikut. Silakan perbaiki lalu impor ulang:",
+      "downloadTemplate": "Unduh Template Impor",
+      "retryImport": "Impor Ulang",
+      "exportFormatLabel": "Unduh tabel saat ini sebagai",
+      "exportHint": "Setelah diekspor, Anda dapat mengedit data secara massal di lokal lalu mengimpornya kembali.",
+      "uploadHintLine1": "Pilih atau seret dan lepas Excel (.xlsx) atau CSV (.csv)",
+      "uploadHintLine2": "Nama digunakan sebagai ID unik. Secara default, data baru akan ditambahkan.",
+      "selectFile": "Pilih File",
+      "downloadSampleTemplate": "Unduh contoh spreadsheet",
+      "failureRow": "Baris {row}{name}: {message}",
+      "failureRowName": " ({name})",
+      "exportFailed": "Gagal mengekspor",
+      "templateDownloadFailed": "Gagal mengunduh templat impor",
+      "importFailed": "Gagal mengimpor",
+      "rowImportFailed": "Gagal mengimpor baris ini",
+      "listSeparator": ", ",
+      "rowErrorPrefix": "Baris {row}: {message}",
+      "fileErrors": {
+        "missingHeader": "File tidak memiliki baris header",
+        "missingRequiredColumns": "File tidak memiliki kolom wajib: {columns}",
+        "noDataRows": "Tidak ada data yang dapat diimpor",
+        "excelMissingWorksheet": "File Excel tidak memiliki lembar kerja",
+        "excelInvalidStructure": "Struktur file Excel tidak valid",
+        "excelUnsupportedCompression": "File Excel menggunakan metode kompresi yang tidak didukung"
+      },
+      "importErrors": {
+        "ossKeyUnreadable": "{imageKeyColumn} tidak dapat dibaca: {objectKey}",
+        "tagsRequired": "{tagsColumn} tidak boleh kosong",
+        "tagsTooMany": "{tagsColumn} tidak boleh lebih dari 100",
+        "tagsNotFound": "{tagsColumn} tidak ditemukan: {tags}",
+        "enabledInvalid": "Status aktif hanya mendukung: {enabled}/{disabled}, true/false, 1/0",
+        "uniqueNameFailed": "Tidak dapat membuat {nameColumn} yang unik",
+        "nameRequired": "{nameColumn} tidak boleh kosong",
+        "nameTooLong": "{nameColumn} tidak boleh lebih dari 255 karakter",
+        "typeRequired": "{typeColumn} tidak boleh kosong",
+        "typeTooLong": "{typeColumn} tidak boleh lebih dari 100 karakter",
+        "descriptionTooLong": "{descriptionColumn} tidak boleh lebih dari 5000 karakter",
+        "notesTooLong": "{notesColumn} tidak boleh lebih dari 5000 karakter",
+        "imageKeysRequired": "{imageKeyColumn} tidak boleh kosong",
+        "imagesTooMany": "{imageKeyColumn} tidak boleh lebih dari 100 gambar",
+        "matchPatternInvalid": "{matchPatternColumn} hanya mendukung: {whole}/{partial}",
+        "partialImportUnsupported": "Impor IP parsial tidak didukung dalam file batch. Gunakan baris pencocokan utuh atau buat entri IP parsial secara manual."
+      },
+      "formatExcel": "Excel",
+      "formatCsv": "CSV",
+      "spreadsheetBadge": "XLS"
     }
   }
 }

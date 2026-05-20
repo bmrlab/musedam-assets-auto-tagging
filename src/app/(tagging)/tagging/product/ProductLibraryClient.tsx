@@ -51,10 +51,11 @@ import {
   retryAssetProductProcessingAction,
   setAssetProductEnabledAction,
 } from "./actions";
+import ProductBatchImportExportDialog from "./ProductBatchImportExportDialog";
 import ProductDialog from "./ProductDialog";
 import ProductImageHoverCard from "./ProductImageHoverCard";
 import SignedProductImage from "./SignedProductImage";
-import { ProductItem, ProductLibraryPageData } from "./types";
+import { ProductBatchImportResult, ProductItem, ProductLibraryPageData } from "./types";
 
 type TranslationFunction = (key: string, values?: Record<string, string | number>) => string;
 
@@ -171,13 +172,18 @@ export default function ProductLibraryClient({
   const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
   const [batchEnableOpen, setBatchEnableOpen] = useState(false);
   const [batchDisableOpen, setBatchDisableOpen] = useState(false);
+  const [batchImportExportOpen, setBatchImportExportOpen] = useState(false);
   const [pendingProductIds, setPendingProductIds] = useState<string[]>([]);
   const [isPending, startTransition] = useTransition();
   const deferredSearch = useDeferredValue(search.trim().toLowerCase());
   const usedProductTypeIds = useMemo(
     () =>
       Array.from(
-        new Set(products.map((product) => product.productTypeId).filter((typeId): typeId is string => Boolean(typeId))),
+        new Set(
+          products
+            .map((product) => product.productTypeId)
+            .filter((typeId): typeId is string => Boolean(typeId)),
+        ),
       ),
     [products],
   );
@@ -265,7 +271,9 @@ export default function ProductLibraryClient({
       }
 
       setProducts((current) =>
-        current.map((product) => result.data.products.find((item) => item.id === product.id) ?? product),
+        current.map(
+          (product) => result.data.products.find((item) => item.id === product.id) ?? product,
+        ),
       );
     }
 
@@ -322,6 +330,13 @@ export default function ProductLibraryClient({
     updateProductInList(product);
     setDialogOpen(false);
     setActiveProduct(null);
+  }
+
+  function handleBatchImported(result: ProductBatchImportResult) {
+    if (result.createdProducts.length > 0) {
+      setProducts((current) => [...result.createdProducts, ...current]);
+    }
+    setProductTypes(result.productTypes);
   }
 
   function handleOpenCreate() {
@@ -417,12 +432,16 @@ export default function ProductLibraryClient({
 
   function handleTypeRenamed(typeId: string, name: string) {
     setProducts((current) =>
-      current.map((product) => (product.productTypeId === typeId ? { ...product, productTypeName: name } : product)),
+      current.map((product) =>
+        product.productTypeId === typeId ? { ...product, productTypeName: name } : product,
+      ),
     );
   }
 
   function handleTypeDeleted(typeId: string) {
-    setProducts((current) => current.map((product) => (product.productTypeId === typeId ? product : product)));
+    setProducts((current) =>
+      current.map((product) => (product.productTypeId === typeId ? product : product)),
+    );
   }
 
   function handleSelectAllOnPage(checked: boolean) {
@@ -451,7 +470,9 @@ export default function ProductLibraryClient({
         }),
       );
 
-      const updatedProducts = results.filter((item) => item.success).map((item) => item.data.product);
+      const updatedProducts = results
+        .filter((item) => item.success)
+        .map((item) => item.data.product);
       if (updatedProducts.length > 0) {
         const updatedById = new Map(updatedProducts.map((product) => [product.id, product]));
         setProducts((current) => current.map((product) => updatedById.get(product.id) ?? product));
@@ -580,7 +601,7 @@ export default function ProductLibraryClient({
               type="button"
               variant="outline"
               className="h-8 gap-1 rounded-[6px] border border-[#C5CEE0] bg-[#FFFFFF] px-3 py-1 text-[14px] leading-[22px] font-normal text-[#101426]"
-              disabled
+              onClick={() => setBatchImportExportOpen(true)}
             >
               <Image src="/Icon/export.svg" alt="" width={14} height={14} />
               {t("importExport")}
@@ -785,7 +806,8 @@ export default function ProductLibraryClient({
                             const pending = pendingProductIds.includes(product.id) || isPending;
                             const StatusIcon = statusMeta.icon;
                             const failedReason =
-                              getProcessingErrorMessage(product.processingError) ?? t("unknownError");
+                              getProcessingErrorMessage(product.processingError) ??
+                              t("unknownError");
                             const subtitle = (product.description || product.notes).trim();
 
                             return (
@@ -797,7 +819,9 @@ export default function ProductLibraryClient({
                                     onCheckedChange={(checked) => {
                                       if (checked) {
                                         setSelectedIds((current) =>
-                                          current.includes(product.id) ? current : [...current, product.id],
+                                          current.includes(product.id)
+                                            ? current
+                                            : [...current, product.id],
                                         );
                                         return;
                                       }
@@ -817,7 +841,9 @@ export default function ProductLibraryClient({
                                 >
                                   <div
                                     className={
-                                      subtitle ? "flex items-start gap-3" : "flex items-center gap-3"
+                                      subtitle
+                                        ? "flex items-start gap-3"
+                                        : "flex items-center gap-3"
                                     }
                                   >
                                     <div
@@ -840,7 +866,9 @@ export default function ProductLibraryClient({
                                             <SignedProductImage
                                               imageId={product.images[0].id}
                                               signedUrl={product.images[0].signedUrl}
-                                              signedUrlExpiresAt={product.images[0].signedUrlExpiresAt}
+                                              signedUrlExpiresAt={
+                                                product.images[0].signedUrlExpiresAt
+                                              }
                                               alt={t("imageAlt", { name: product.name })}
                                               className="h-full w-full object-cover"
                                             />
@@ -934,7 +962,9 @@ export default function ProductLibraryClient({
                                   <Switch
                                     checked={product.enabled}
                                     onCheckedChange={(checked) =>
-                                      checked ? handleToggleEnabled(product, true) : setDisableTarget(product)
+                                      checked
+                                        ? handleToggleEnabled(product, true)
+                                        : setDisableTarget(product)
                                     }
                                     disabled={pending}
                                     className="h-4 w-7 data-[state=checked]:bg-[#3366FF] [&_[data-slot=switch-thumb]]:size-3 [&_[data-slot=switch-thumb]]:data-[state=checked]:translate-x-[calc(100%+2px)] [&_[data-slot=switch-thumb]]:data-[state=unchecked]:translate-x-[2px]"
@@ -1070,6 +1100,12 @@ export default function ProductLibraryClient({
         onProductTypesChange={setProductTypes}
         onProductTypeRenamed={handleTypeRenamed}
         onProductTypeDeleted={handleTypeDeleted}
+      />
+
+      <ProductBatchImportExportDialog
+        open={batchImportExportOpen}
+        onOpenChange={setBatchImportExportOpen}
+        onImported={handleBatchImported}
       />
 
       <AlertDialog

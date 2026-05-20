@@ -51,10 +51,11 @@ import {
   retryAssetPersonProcessingAction,
   setAssetPersonEnabledAction,
 } from "./actions";
+import PersonBatchImportExportDialog from "./PersonBatchImportExportDialog";
 import PersonDialog from "./PersonDialog";
 import PersonImageHoverCard from "./PersonImageHoverCard";
 import SignedPersonImage from "./SignedPersonImage";
-import { PersonItem, PersonLibraryPageData } from "./types";
+import { PersonBatchImportResult, PersonItem, PersonLibraryPageData } from "./types";
 
 type TranslationFunction = (key: string, values?: Record<string, string | number>) => string;
 
@@ -171,6 +172,7 @@ export default function PersonLibraryClient({
   const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
   const [batchEnableOpen, setBatchEnableOpen] = useState(false);
   const [batchDisableOpen, setBatchDisableOpen] = useState(false);
+  const [batchImportExportOpen, setBatchImportExportOpen] = useState(false);
   const [pendingPersonIds, setPendingPersonIds] = useState<string[]>([]);
   const [isPending, startTransition] = useTransition();
   const deferredSearch = useDeferredValue(search.trim().toLowerCase());
@@ -326,6 +328,13 @@ export default function PersonLibraryClient({
     updatePersonInList(person);
     setDialogOpen(false);
     setActivePerson(null);
+  }
+
+  function handleBatchImported(result: PersonBatchImportResult) {
+    if (result.createdPersons.length > 0) {
+      setPersons((current) => [...result.createdPersons, ...current]);
+    }
+    setPersonTypes(result.personTypes);
   }
 
   function handleOpenCreate() {
@@ -586,7 +595,7 @@ export default function PersonLibraryClient({
               type="button"
               variant="outline"
               className="h-8 gap-1 rounded-[6px] border border-[#C5CEE0] bg-[#FFFFFF] px-3 py-1 text-[14px] leading-[22px] font-normal text-[#101426]"
-              disabled
+              onClick={() => setBatchImportExportOpen(true)}
             >
               <Image src="/Icon/export.svg" alt="" width={14} height={14} />
               {t("importExport")}
@@ -823,7 +832,9 @@ export default function PersonLibraryClient({
                                 >
                                   <div
                                     className={
-                                      subtitle ? "flex items-start gap-3" : "flex items-center gap-3"
+                                      subtitle
+                                        ? "flex items-start gap-3"
+                                        : "flex items-center gap-3"
                                     }
                                   >
                                     <div
@@ -1076,6 +1087,12 @@ export default function PersonLibraryClient({
         onPersonTypesChange={setPersonTypes}
         onPersonTypeRenamed={handleTypeRenamed}
         onPersonTypeDeleted={handleTypeDeleted}
+      />
+
+      <PersonBatchImportExportDialog
+        open={batchImportExportOpen}
+        onOpenChange={setBatchImportExportOpen}
+        onImported={handleBatchImported}
       />
 
       <AlertDialog

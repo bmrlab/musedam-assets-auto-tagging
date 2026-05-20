@@ -483,10 +483,18 @@
           "nameTooLong": "Identitätsname darf 255 Zeichen nicht überschreiten",
           "typeRequired": "Identitätstyp darf nicht leer sein",
           "typeTooLong": "Identitätstyp darf 100 Zeichen nicht überschreiten",
+          "descriptionTooLong": "{descriptionColumn} cannot exceed 5000 characters",
           "notesTooLong": "Notizen dürfen 5000 Zeichen nicht überschreiten",
           "imageKeysRequired": "OSS-Schlüssel des Identitätsbilds darf nicht leer sein",
-          "imagesTooMany": "Identitätsbilder dürfen 100 nicht überschreiten"
-        }
+          "imagesTooMany": "Identitätsbilder dürfen 100 nicht überschreiten",
+          "matchPatternInvalid": "{matchPatternColumn} only supports: {whole}/{partial}",
+          "partialImportUnsupported": "Partial IP import is not supported in batch files. Use whole match rows or create partial IP entries manually."
+        },
+        "entityName": "Identitätsname",
+        "entityNamePlural": "Identitätsname",
+        "templateEntityName": "Identitätsname",
+        "enabledValue": "Aktiviert",
+        "disabledValue": "Deaktiviert"
       }
     },
     "Test": {
@@ -789,6 +797,46 @@
         "noSearchResults": "Keine passenden Tags gefunden",
         "tagGroups": "Tag-Gruppen ({count})",
         "tags": "Tags ({count})"
+      },
+      "batchImportExport": {
+        "entityName": "IP-Charakter-Name",
+        "entityNamePlural": "IP-Charakter-Name",
+        "templateEntityName": "IP-Charakter-Name",
+        "enabledValue": "Aktiviert",
+        "disabledValue": "Deaktiviert",
+        "listSeparator": ", ",
+        "matchPatterns": {
+          "whole": "Gesamtbild",
+          "partial": "Teilbereich"
+        },
+        "columns": {
+          "name": "IP-Charakter-Name",
+          "ipTypeName": "IP-Typ",
+          "description": "Kernmerkmalsbeschreibung",
+          "matchPattern": "Abgleichmodus",
+          "tagPaths": "Verknüpfte Tags",
+          "imageObjectKeys": "IP-Bilder OSS Key",
+          "notes": "Notizen",
+          "enabled": "Aktivierungsstatus"
+        },
+        "importErrors": {
+          "ossKeyUnreadable": "{imageKeyColumn} kann nicht gelesen werden: {objectKey}",
+          "tagsRequired": "{tagsColumn} darf nicht leer sein",
+          "tagsTooMany": "{tagsColumn} darf 100 nicht überschreiten",
+          "tagsNotFound": "{tagsColumn} nicht gefunden: {tags}",
+          "enabledInvalid": "Aktivierungsstatus unterstützt nur: {enabled}/{disabled}, true/false, 1/0",
+          "uniqueNameFailed": "Eindeutiger Wert für {nameColumn} konnte nicht erzeugt werden",
+          "nameRequired": "{nameColumn} darf nicht leer sein",
+          "nameTooLong": "{nameColumn} darf höchstens 255 Zeichen haben",
+          "typeRequired": "{typeColumn} darf nicht leer sein",
+          "typeTooLong": "{typeColumn} darf höchstens 100 Zeichen haben",
+          "descriptionTooLong": "{descriptionColumn} darf höchstens 5000 Zeichen haben",
+          "notesTooLong": "{notesColumn} darf höchstens 5000 Zeichen haben",
+          "imageKeysRequired": "{imageKeyColumn} darf nicht leer sein",
+          "imagesTooMany": "{imageKeyColumn} darf höchstens 100 Bilder enthalten",
+          "matchPatternInvalid": "{matchPatternColumn} unterstützt nur: {whole}/{partial}",
+          "partialImportUnsupported": "Teilübereinstimmende IPs werden in Batch-Dateien nicht unterstützt. Verwenden Sie Zeilen mit Gesamtübereinstimmung oder erstellen Sie sie manuell."
+        }
       }
     },
     "IpClassify": {
@@ -993,6 +1041,40 @@
         "noSearchResults": "Keine passenden Tags gefunden",
         "tagGroups": "Tag-Gruppen ({count})",
         "tags": "Tags ({count})"
+      },
+      "batchImportExport": {
+        "entityName": "Personenname",
+        "entityNamePlural": "Personenname",
+        "templateEntityName": "Personenname",
+        "enabledValue": "Aktiviert",
+        "disabledValue": "Deaktiviert",
+        "listSeparator": ", ",
+        "columns": {
+          "name": "Personenname",
+          "personTypeName": "Identität / Rolle",
+          "tagPaths": "Verknüpfte Tags",
+          "imageObjectKeys": "Gesichtsfotos OSS Key",
+          "notes": "Notizen",
+          "enabled": "Aktivierungsstatus"
+        },
+        "importErrors": {
+          "ossKeyUnreadable": "{imageKeyColumn} kann nicht gelesen werden: {objectKey}",
+          "tagsRequired": "{tagsColumn} darf nicht leer sein",
+          "tagsTooMany": "{tagsColumn} darf 100 nicht überschreiten",
+          "tagsNotFound": "{tagsColumn} nicht gefunden: {tags}",
+          "enabledInvalid": "Aktivierungsstatus unterstützt nur: {enabled}/{disabled}, true/false, 1/0",
+          "uniqueNameFailed": "Eindeutiger Wert für {nameColumn} konnte nicht erzeugt werden",
+          "nameRequired": "{nameColumn} darf nicht leer sein",
+          "nameTooLong": "{nameColumn} darf höchstens 255 Zeichen haben",
+          "typeRequired": "{typeColumn} darf nicht leer sein",
+          "typeTooLong": "{typeColumn} darf höchstens 100 Zeichen haben",
+          "descriptionTooLong": "{descriptionColumn} darf höchstens 5000 Zeichen haben",
+          "notesTooLong": "{notesColumn} darf höchstens 5000 Zeichen haben",
+          "imageKeysRequired": "{imageKeyColumn} darf nicht leer sein",
+          "imagesTooMany": "{imageKeyColumn} darf höchstens 100 Bilder enthalten",
+          "matchPatternInvalid": "{matchPatternColumn} unterstützt nur: {whole}/{partial}",
+          "partialImportUnsupported": "Teilübereinstimmende IPs werden in Batch-Dateien nicht unterstützt. Verwenden Sie Zeilen mit Gesamtübereinstimmung oder erstellen Sie sie manuell."
+        }
       }
     },
     "PersonClassify": {
@@ -1204,6 +1286,41 @@
         "noSearchResults": "Keine passenden Tags gefunden",
         "tagGroups": "Tag-Gruppen ({count})",
         "tags": "Tags ({count})"
+      },
+      "batchImportExport": {
+        "entityName": "Produktname",
+        "entityNamePlural": "Produktname",
+        "templateEntityName": "Produktname",
+        "enabledValue": "Aktiviert",
+        "disabledValue": "Deaktiviert",
+        "listSeparator": ", ",
+        "columns": {
+          "name": "Produktname",
+          "productTypeName": "Produkttyp",
+          "description": "Kernmerkmalsbeschreibung",
+          "tagPaths": "Verknüpfte Tags",
+          "imageObjectKeys": "Produktbilder OSS Key",
+          "notes": "Notizen",
+          "enabled": "Aktivierungsstatus"
+        },
+        "importErrors": {
+          "ossKeyUnreadable": "{imageKeyColumn} kann nicht gelesen werden: {objectKey}",
+          "tagsRequired": "{tagsColumn} darf nicht leer sein",
+          "tagsTooMany": "{tagsColumn} darf 100 nicht überschreiten",
+          "tagsNotFound": "{tagsColumn} nicht gefunden: {tags}",
+          "enabledInvalid": "Aktivierungsstatus unterstützt nur: {enabled}/{disabled}, true/false, 1/0",
+          "uniqueNameFailed": "Eindeutiger Wert für {nameColumn} konnte nicht erzeugt werden",
+          "nameRequired": "{nameColumn} darf nicht leer sein",
+          "nameTooLong": "{nameColumn} darf höchstens 255 Zeichen haben",
+          "typeRequired": "{typeColumn} darf nicht leer sein",
+          "typeTooLong": "{typeColumn} darf höchstens 100 Zeichen haben",
+          "descriptionTooLong": "{descriptionColumn} darf höchstens 5000 Zeichen haben",
+          "notesTooLong": "{notesColumn} darf höchstens 5000 Zeichen haben",
+          "imageKeysRequired": "{imageKeyColumn} darf nicht leer sein",
+          "imagesTooMany": "{imageKeyColumn} darf höchstens 100 Bilder enthalten",
+          "matchPatternInvalid": "{matchPatternColumn} unterstützt nur: {whole}/{partial}",
+          "partialImportUnsupported": "Teilübereinstimmende IPs werden in Batch-Dateien nicht unterstützt. Verwenden Sie Zeilen mit Gesamtübereinstimmung oder erstellen Sie sie manuell."
+        }
       }
     },
     "ProductClassify": {
@@ -1248,6 +1365,72 @@
       },
       "fallbackBox": "Gesamtbild-Fallback",
       "coordinateTo": "bis"
+    },
+    "BatchImportExport": {
+      "title": "Massenimport/-export",
+      "srDescription": "Feature-Bibliotheksdaten gesammelt importieren oder exportieren",
+      "failureSrDescription": "Gründe für Importfehler",
+      "tabImport": "Import",
+      "tabExport": "Export",
+      "cancel": "Abbrechen",
+      "confirm": "Bestätigen",
+      "unsupportedFileType": "Nur Excel- (.xlsx) oder CSV-Dateien (.csv) werden unterstützt",
+      "selectFileFirst": "Bitte wählen Sie zuerst eine Datei aus",
+      "selectImportFile": "Bitte wählen Sie zuerst eine Excel- (.xlsx) oder CSV-Datei (.csv) aus",
+      "exportDownloadStarted": "Download wurde gestartet",
+      "partialImportWarning": "Teilimport fehlgeschlagen: {success} erfolgreich, {failed} fehlgeschlagen",
+      "importSuccess": "{count} Einträge erfolgreich importiert",
+      "partialImportFailedTitle": "Teilimport fehlgeschlagen",
+      "importFailedTitle": "Import fehlgeschlagen",
+      "partialImportFailedHint": "Hinweis zum teilweise fehlgeschlagenen Import",
+      "importFailedHint": "Hinweis zum fehlgeschlagenen Import",
+      "partialImportFailedDesc": "{success} erfolgreich importiert. Die folgenden {failed} sind fehlgeschlagen. Bitte korrigieren und erneut importieren:",
+      "importFailedDesc": "Die folgenden Importfehler wurden gefunden. Bitte korrigieren und erneut importieren:",
+      "downloadTemplate": "Importvorlage herunterladen",
+      "retryImport": "Erneut importieren",
+      "exportFormatLabel": "Aktuelle Tabelle herunterladen als",
+      "exportHint": "Nach dem Export können Sie die Daten lokal gesammelt bearbeiten und erneut importieren.",
+      "uploadHintLine1": "Excel (.xlsx) oder CSV (.csv) auswählen oder per Drag-and-drop ablegen",
+      "uploadHintLine2": "Der Name dient als eindeutige ID. Standardmäßig werden neue Datensätze angelegt.",
+      "selectFile": "Datei auswählen",
+      "downloadSampleTemplate": "Tabellenbeispiel herunterladen",
+      "failureRow": "Zeile {row}{name}: {message}",
+      "failureRowName": " ({name})",
+      "exportFailed": "Export fehlgeschlagen",
+      "templateDownloadFailed": "Importvorlage konnte nicht heruntergeladen werden",
+      "importFailed": "Import fehlgeschlagen",
+      "rowImportFailed": "Diese Zeile konnte nicht importiert werden",
+      "listSeparator": ", ",
+      "rowErrorPrefix": "Zeile {row}: {message}",
+      "fileErrors": {
+        "missingHeader": "Die Datei enthält keine Kopfzeile",
+        "missingRequiredColumns": "In der Datei fehlen Pflichtspalten: {columns}",
+        "noDataRows": "Keine importierbaren Daten gefunden",
+        "excelMissingWorksheet": "Die Excel-Datei enthält kein Arbeitsblatt",
+        "excelInvalidStructure": "Ungültige Excel-Dateistruktur",
+        "excelUnsupportedCompression": "Die Excel-Datei verwendet eine nicht unterstützte Komprimierungsmethode"
+      },
+      "importErrors": {
+        "ossKeyUnreadable": "{imageKeyColumn} kann nicht gelesen werden: {objectKey}",
+        "tagsRequired": "{tagsColumn} darf nicht leer sein",
+        "tagsTooMany": "{tagsColumn} darf 100 nicht überschreiten",
+        "tagsNotFound": "{tagsColumn} nicht gefunden: {tags}",
+        "enabledInvalid": "Aktivierungsstatus unterstützt nur: {enabled}/{disabled}, true/false, 1/0",
+        "uniqueNameFailed": "Eindeutiger Wert für {nameColumn} konnte nicht erzeugt werden",
+        "nameRequired": "{nameColumn} darf nicht leer sein",
+        "nameTooLong": "{nameColumn} darf höchstens 255 Zeichen haben",
+        "typeRequired": "{typeColumn} darf nicht leer sein",
+        "typeTooLong": "{typeColumn} darf höchstens 100 Zeichen haben",
+        "descriptionTooLong": "{descriptionColumn} darf höchstens 5000 Zeichen haben",
+        "notesTooLong": "{notesColumn} darf höchstens 5000 Zeichen haben",
+        "imageKeysRequired": "{imageKeyColumn} darf nicht leer sein",
+        "imagesTooMany": "{imageKeyColumn} darf höchstens 100 Bilder enthalten",
+        "matchPatternInvalid": "{matchPatternColumn} unterstützt nur: {whole}/{partial}",
+        "partialImportUnsupported": "Teilübereinstimmende IPs werden in Batch-Dateien nicht unterstützt. Verwenden Sie Zeilen mit Gesamtübereinstimmung oder erstellen Sie sie manuell."
+      },
+      "formatExcel": "Excel",
+      "formatCsv": "CSV",
+      "spreadsheetBadge": "XLS"
     }
   }
 }
