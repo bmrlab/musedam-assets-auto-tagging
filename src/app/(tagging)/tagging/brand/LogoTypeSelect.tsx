@@ -104,8 +104,8 @@ function SortableTypeRow({
       className={cn(
         "group flex h-8 items-center rounded-[6px] px-[10px] py-2 transition-colors",
         isEditing ? "gap-2" : "gap-2",
-        isDragging && "bg-[#eef3ff] shadow-sm",
-        !isDragging && "hover:bg-[#eef3ff]",
+        isDragging && "bg-primary-1 shadow-sm",
+        !isDragging && "hover:bg-primary-1",
       )}
     >
       <button
@@ -123,7 +123,7 @@ function SortableTypeRow({
           <Input
             value={editingName}
             onChange={(event) => onEditingNameChange(event.target.value)}
-            className="h-[30px] flex-1 rounded-[6px] px-3 py-[5px] focus-visible:border-[#598BFF] focus-visible:ring-0 focus-visible:ring-offset-0"
+            className="h-[30px] flex-1 rounded-[6px] px-3 py-[5px] focus-visible:border-primary-5 focus-visible:ring-0 focus-visible:ring-offset-0"
             autoFocus
             onKeyDown={(event) => {
               if (event.key === "Enter") {
@@ -141,7 +141,7 @@ function SortableTypeRow({
               type="button"
               size="icon"
               variant="default"
-              className="size-7 bg-[#3366FF] text-white hover:bg-[#2457F5]"
+              className="size-7 bg-primary-6 text-white hover:bg-primary-7"
               onClick={() => onSubmitEdit(type)}
             >
               <Check className="size-4" />
@@ -153,7 +153,7 @@ function SortableTypeRow({
         </>
       ) : (
         <>
-          <span className="flex-1 truncate text-[14px] leading-[22px] font-normal text-[#101426]">
+          <span className="flex-1 truncate text-[14px] leading-[22px] font-normal text-basic-8">
             {type.name}
           </span>
           <div className="ml-2 flex items-center gap-3">
@@ -164,7 +164,7 @@ function SortableTypeRow({
             >
               <span
                 aria-hidden="true"
-                className="block h-4 w-4 bg-[#8F9BB3] [mask-image:url('/Icon/Edit.svg')] [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain]"
+                className="block h-4 w-4 bg-basic-5 [mask-image:url('/Icon/Edit.svg')] [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain]"
               />
             </button>
             <button
@@ -174,7 +174,7 @@ function SortableTypeRow({
             >
               <span
                 aria-hidden="true"
-                className="block h-4 w-4 bg-[#FF3D71] [mask-image:url('/Icon/Delete.svg')] [mask-position:center] [mask-repeat:no-repeat] [mask-size:100%_100%]"
+                className="block h-4 w-4 bg-danger-6 [mask-image:url('/Icon/Delete.svg')] [mask-position:center] [mask-repeat:no-repeat] [mask-size:100%_100%]"
               />
             </button>
           </div>
@@ -366,10 +366,10 @@ export default function LogoTypeSelect({
       </button>
 
       {open ? (
-        <div className="absolute top-full left-0 z-50 mt-2 w-[350px] rounded-[6px] border border-[#E4E9F2] bg-background p-1 shadow-[0_12px_32px_rgba(31,35,41,0.12)]">
+        <div className="absolute top-full left-0 z-50 mt-2 w-[350px] rounded-[6px] border border-basic-3 bg-background p-1 shadow-[0_12px_32px_rgba(31,35,41,0.12)]">
           {mode === "manage" ? (
             <div className="space-y-1">
-              <div className="flex h-[37px] items-center border-b border-[#E4E9F2] px-3 py-2">
+              <div className="flex h-[37px] items-center border-b border-basic-3 px-3 py-2">
                 <button
                   type="button"
                   className="inline-flex items-center gap-2 transition-colors hover:opacity-80"
@@ -379,8 +379,8 @@ export default function LogoTypeSelect({
                     setEditingName("");
                   }}
                 >
-                  <ChevronLeft className="h-[14px] w-[14px] text-[#8F9BB3]" />
-                  <span className="text-[14px] leading-5 font-medium text-[#192038]">{t("logoType.manageTitle")}</span>
+                  <ChevronLeft className="h-[14px] w-[14px] text-basic-5" />
+                  <span className="text-[14px] leading-5 font-medium text-basic-8">{t("logoType.manageTitle")}</span>
                 </button>
               </div>
 
@@ -426,7 +426,7 @@ export default function LogoTypeSelect({
                     value={newTypeName}
                     onChange={(event) => setNewTypeName(event.target.value)}
                     placeholder={t("logoType.newTypePlaceholder")}
-                    className="h-8 px-3 py-0 focus-visible:border-[#598BFF] focus-visible:ring-0 focus-visible:ring-offset-0"
+                    className="h-8 px-3 py-0 focus-visible:border-primary-5 focus-visible:ring-0 focus-visible:ring-offset-0"
                     autoFocus
                     onKeyDown={(event) => {
                       if (event.key === "Enter") {
@@ -441,7 +441,7 @@ export default function LogoTypeSelect({
                       size="icon"
                       onClick={handleCreateType}
                       disabled={isPending || !canSubmitNewType}
-                      className="size-7 bg-[#3366FF] text-white hover:bg-[#2457F5]"
+                      className="size-7 bg-primary-6 text-white hover:bg-primary-7"
                     >
                       {isPending ? (
                         <Loader2 className="size-4 animate-spin" />
@@ -466,15 +466,15 @@ export default function LogoTypeSelect({
                 </div>
               ) : (
                 <div className="space-y-1">
-                  <div className="h-px w-full bg-[#e4e9f2]" />
+                  <div className="h-px w-full bg-basic-3" />
                   <div className="flex h-9 items-center px-3 py-2">
                     <button
                       type="button"
                       onClick={() => setIsCreating(true)}
-                      className="inline-flex h-5 items-center gap-[6px] text-[#3366FF] transition-colors hover:text-[#2457F5]"
+                      className="inline-flex h-5 items-center gap-[6px] text-primary-6 transition-colors hover:text-primary-7"
                     >
-                      <Plus className="h-[14px] w-[14px] text-[#3366FF]" />
-                      <span className="text-[14px] leading-5 font-medium text-[#3366FF]">
+                      <Plus className="h-[14px] w-[14px] text-primary-6" />
+                      <span className="text-[14px] leading-5 font-medium text-primary-6">
                         {t("logoType.create")}
                       </span>
                     </button>
@@ -495,15 +495,15 @@ export default function LogoTypeSelect({
                         setOpen(false);
                       }}
                       className={cn(
-                        "flex h-8 w-full items-center rounded-[6px] px-[10px] py-[5px] text-left text-[14px] leading-[22px] font-normal text-[#101426] transition-colors hover:bg-[#F2F6FF]",
-                        value === type.id && "bg-[#F2F6FF]",
+                        "flex h-8 w-full items-center rounded-[6px] px-[10px] py-[5px] text-left text-[14px] leading-[22px] font-normal text-basic-8 transition-colors hover:bg-primary-1",
+                        value === type.id && "bg-primary-1",
                       )}
                     >
-                      <span className="min-w-0 flex-1 truncate text-[14px] leading-[22px] font-normal text-[#101426]">
+                      <span className="min-w-0 flex-1 truncate text-[14px] leading-[22px] font-normal text-basic-8">
                         {type.name}
                       </span>
                       {value === type.id ? (
-                        <Check className="ml-auto h-[14px] w-[14px] shrink-0 text-[#3366FF]" />
+                        <Check className="ml-auto h-[14px] w-[14px] shrink-0 text-primary-6" />
                       ) : null}
                     </button>
                   ))}
@@ -516,7 +516,7 @@ export default function LogoTypeSelect({
                     value={newTypeName}
                     onChange={(event) => setNewTypeName(event.target.value)}
                     placeholder="请输入新类型"
-                    className="h-8 px-3 py-0 focus-visible:border-[#598BFF] focus-visible:ring-0 focus-visible:ring-offset-0"
+                    className="h-8 px-3 py-0 focus-visible:border-primary-5 focus-visible:ring-0 focus-visible:ring-offset-0"
                     autoFocus
                     onKeyDown={(event) => {
                       if (event.key === "Enter") {
@@ -531,7 +531,7 @@ export default function LogoTypeSelect({
                       size="icon"
                       onClick={handleCreateType}
                       disabled={isPending || !canSubmitNewType}
-                      className="size-7 bg-[#3366FF] text-white hover:bg-[#2457F5]"
+                      className="size-7 bg-primary-6 text-white hover:bg-primary-7"
                     >
                       {isPending ? (
                         <Loader2 className="size-4 animate-spin" />
@@ -556,25 +556,25 @@ export default function LogoTypeSelect({
                 </div>
               ) : (
                 <div className="space-y-1">
-                  <div className="h-px w-full bg-[#e4e9f2]" />
+                  <div className="h-px w-full bg-basic-3" />
                   <div className="flex h-9 items-center justify-between px-3 py-2">
                     <button
                       type="button"
                       onClick={() => setIsCreating(true)}
-                      className="inline-flex h-5 items-center gap-[6px] text-[#3366FF] transition-colors hover:text-[#2457F5]"
+                      className="inline-flex h-5 items-center gap-[6px] text-primary-6 transition-colors hover:text-primary-7"
                     >
-                      <Plus className="h-[14px] w-[14px] text-[#3366FF]" />
-                      <span className="text-[14px] leading-5 font-medium text-[#3366FF]">
+                      <Plus className="h-[14px] w-[14px] text-primary-6" />
+                      <span className="text-[14px] leading-5 font-medium text-primary-6">
                         {t("logoType.create")}
                       </span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setMode("manage")}
-                      className="inline-flex h-4 items-center gap-1 text-[#8F9BB3] transition-colors hover:text-[#7B879E]"
+                      className="inline-flex h-4 items-center gap-1 text-basic-5 transition-colors hover:text-basic-6"
                     >
-                      <Settings className="h-[12px] w-[12px] text-[#8F9BB3]" />
-                      <span className="text-[12px] leading-4 font-medium text-[#8F9BB3]">{t("logoType.manageTitle")}</span>
+                      <Settings className="h-[12px] w-[12px] text-basic-5" />
+                      <span className="text-[12px] leading-4 font-medium text-basic-5">{t("logoType.manageTitle")}</span>
                     </button>
                   </div>
                 </div>

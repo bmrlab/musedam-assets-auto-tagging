@@ -373,7 +373,7 @@ export default function ProductDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[92vh] w-[750px] max-w-[calc(100%-2rem)] gap-0 overflow-y-auto rounded-[20px] p-0">
         <DialogHeader className="h-14 justify-center gap-0 px-5 py-4">
-          <DialogTitle className="text-[16px] leading-6 font-semibold text-[#151A30]">
+          <DialogTitle className="text-[16px] leading-6 font-semibold text-basic-9">
             {mode === "create" ? t("dialog.titleCreate") : t("dialog.titleEdit")}
           </DialogTitle>
         </DialogHeader>
@@ -381,19 +381,19 @@ export default function ProductDialog({
         <div className="space-y-4 px-5 pt-0 pb-3">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-1">
-              <label className="h-[22px] text-[14px] leading-[22px] font-normal text-[#222B45]">
+              <label className="h-[22px] text-[14px] leading-[22px] font-normal text-basic-8">
                 {t("dialog.productNameLabel")}
               </label>
               <Input
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 placeholder={t("dialog.productNamePlaceholder")}
-                className="h-8 w-[349px] rounded-[6px] border border-[#C5CEE0] px-3 py-0 text-[14px] leading-[22px] font-normal placeholder:text-[14px] placeholder:leading-[22px] placeholder:font-normal placeholder:text-[#8F9BB3]"
+                className="h-8 w-[349px] rounded-[6px] border border-basic-4 px-3 py-0 text-[14px] leading-[22px] font-normal placeholder:text-[14px] placeholder:leading-[22px] placeholder:font-normal placeholder:text-basic-5"
               />
             </div>
 
             <div className="space-y-1">
-              <label className="h-[22px] text-[14px] leading-[22px] font-normal text-[#222B45]">
+              <label className="h-[22px] text-[14px] leading-[22px] font-normal text-basic-8">
                 {t("dialog.productTypeLabel")}
               </label>
               <ProductTypeSelect
@@ -406,14 +406,14 @@ export default function ProductDialog({
                 onTypeDeleted={onProductTypeDeleted}
                 fallbackType={fallbackType}
                 disabled={isPending}
-                triggerClassName="h-8 w-[349px] rounded-[6px] border border-[#C5CEE0] px-3 py-0 text-[14px] leading-[22px] font-normal"
+                triggerClassName="h-8 w-[349px] rounded-[6px] border border-basic-4 px-3 py-0 text-[14px] leading-[22px] font-normal"
               />
             </div>
           </div>
 
           <div className="space-y-2">
             <div className="space-y-1">
-              <label className="h-[22px] text-[14px] leading-[22px] font-normal text-[#222B45]">
+              <label className="h-[22px] text-[14px] leading-[22px] font-normal text-basic-8">
                 {t("dialog.productImagesLabel")}
               </label>
             </div>
@@ -433,7 +433,7 @@ export default function ProductDialog({
                   <button
                     type="button"
                     disabled={isPending || isSelectingAssets}
-                    className="relative flex h-[104px] w-[104px] flex-col items-center justify-center rounded-[6px] border border-[#C5CEE0] border-dashed bg-[#F7F9FC] px-2 py-10 text-[#2E3A59] transition-colors hover:border-primary-5 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="relative flex h-[104px] w-[104px] flex-col items-center justify-center rounded-[6px] border border-basic-4 border-dashed bg-basic-1 px-2 py-10 text-basic-8 transition-colors hover:border-primary-5 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <span className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2">
                       <Plus className="h-[14px] w-[14px]" />
@@ -445,20 +445,26 @@ export default function ProductDialog({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
                   align="start"
-                  className="flex min-w-[180px] flex-col gap-[2px] rounded-[8px] border border-[#E4E9F2] p-1"
+                  className="flex min-w-[180px] flex-col gap-[2px] rounded-[8px] border border-basic-3 p-1"
                 >
                   <DropdownMenuItem
                     onClick={() => fileInputRef.current?.click()}
-                    className="h-8 gap-2 rounded-[6px] px-[10px] py-[5px] text-[14px] leading-[22px] font-normal text-[#192038] hover:bg-[#F2F6FF] focus:bg-[#F2F6FF] data-[highlighted]:bg-[#F2F6FF]"
+                    className="h-8 gap-2 rounded-[6px] px-[10px] py-[5px] text-[14px] leading-[22px] font-normal text-basic-8 hover:bg-primary-1 focus:bg-primary-1 data-[highlighted]:bg-primary-1"
                   >
-                    <img src="/Icon/export.svg" alt="" className="h-[14px] w-[14px]" />
+                    <span
+                      aria-hidden="true"
+                      className="block h-[14px] w-[14px] shrink-0 bg-current [mask-image:url('/Icon/export.svg')] [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain]"
+                    />
                     <span>{t("dialog.uploadLocal")}</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => void handleSelectImagesFromAssetLibrary()}
-                    className="h-8 gap-2 rounded-[6px] px-[10px] py-[5px] text-[14px] leading-[22px] font-normal text-[#192038] hover:bg-[#F2F6FF] focus:bg-[#F2F6FF] data-[highlighted]:bg-[#F2F6FF]"
+                    className="h-8 gap-2 rounded-[6px] px-[10px] py-[5px] text-[14px] leading-[22px] font-normal text-basic-8 hover:bg-primary-1 focus:bg-primary-1 data-[highlighted]:bg-primary-1"
                   >
-                    <img src="/Icon/Image.svg" alt="" className="h-[14px] w-[14px]" />
+                    <span
+                      aria-hidden="true"
+                      className="block h-[14px] w-[14px] shrink-0 bg-current [mask-image:url('/Icon/Image.svg')] [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain]"
+                    />
                     <span>{t("dialog.uploadFromLibrary")}</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -467,7 +473,7 @@ export default function ProductDialog({
               {images.map((image) => (
                 <div
                   key={image.id}
-                  className="group relative h-[104px] w-[104px] cursor-pointer overflow-hidden rounded-[6px] border border-[#C5CEE0] bg-[#F7F9FC]"
+                  className="group relative h-[104px] w-[104px] cursor-pointer overflow-hidden rounded-[6px] border border-basic-4 bg-basic-1"
                 >
                   {image.existingImageId ? (
                     <SignedProductImage
@@ -500,7 +506,10 @@ export default function ProductDialog({
                         onClick={() => removeImage(image.id)}
                         className="inline-flex h-4 w-4 items-center justify-center opacity-90 transition-opacity hover:opacity-100"
                       >
-                        <img src="/Icon/Delete.svg" alt="" className="h-4 w-4" />
+                        <span
+                          aria-hidden="true"
+                          className="block h-4 w-4 shrink-0 bg-white [mask-image:url('/Icon/Delete.svg')] [mask-position:center] [mask-repeat:no-repeat] [mask-size:100%_100%]"
+                        />
                       </button>
                     </div>
                   </div>
@@ -508,8 +517,8 @@ export default function ProductDialog({
               ))}
             </div>
 
-            <div className="mt-3 flex items-start gap-[10px] rounded-[8px] border border-[#598BFF] bg-[#F2F6FF] px-3 py-[14px] text-[12px] leading-[16px] font-normal text-[#192038]">
-              <p className="text-[12px] leading-[16px] font-normal text-[#192038]">
+            <div className="mt-3 flex items-start gap-[10px] rounded-[8px] border border-primary-5 bg-primary-1 px-3 py-[14px] text-[12px] leading-[16px] font-normal text-basic-8">
+              <p className="text-[12px] leading-[16px] font-normal text-basic-8">
                 💡 <span className="font-semibold">{t("dialog.uploadHintTitle")}</span>
                 {t("dialog.uploadHint")}
               </p>
@@ -518,13 +527,13 @@ export default function ProductDialog({
 
           <div className="mt-4 space-y-2">
             <div className="space-y-1">
-              <label className="h-[22px] text-[14px] leading-[22px] font-normal text-[#222B45]">
+              <label className="h-[22px] text-[14px] leading-[22px] font-normal text-basic-8">
                 {t("dialog.descriptionLabel")}
-                <span className="ml-2 text-[12px] leading-[16px] font-normal text-[#8F9BB3]">
+                <span className="ml-2 text-[12px] leading-[16px] font-normal text-basic-5">
                   {t("dialog.notesOptional")}
                 </span>
               </label>
-              <p className="text-[12px] leading-[16px] font-normal text-[#8F9BB3]">
+              <p className="text-[12px] leading-[16px] font-normal text-basic-5">
                 {t("dialog.descriptionHint")}
               </p>
             </div>
@@ -532,17 +541,17 @@ export default function ProductDialog({
               value={description}
               onChange={(event) => setDescription(event.target.value)}
               placeholder={t("dialog.descriptionPlaceholder")}
-              className="h-[60px] rounded-[6px] border border-[#C5CEE0] px-4 py-2"
+              className="h-[60px] rounded-[6px] border border-basic-4 px-4 py-2"
             />
           </div>
 
           <div className="mt-4 space-y-2">
             <div className="space-y-1">
-              <label className="h-[22px] text-[14px] leading-[22px] font-normal text-[#222B45]">
+              <label className="h-[22px] text-[14px] leading-[22px] font-normal text-basic-8">
                 {t("dialog.linkedTagsLabel")}
               </label>
               <div className="flex items-center justify-between gap-3">
-                <p className="text-[12px] leading-[16px] font-normal text-[#8F9BB3]">
+                <p className="text-[12px] leading-[16px] font-normal text-basic-5">
                   {t("dialog.linkedTagsHint")}
                 </p>
                 <button
@@ -553,7 +562,7 @@ export default function ProductDialog({
                       target: "_blank",
                     })
                   }
-                  className="inline-flex items-center gap-1 text-[12px] leading-[16px] font-normal text-[#3366FF] transition-opacity hover:opacity-80"
+                  className="inline-flex items-center gap-1 text-[12px] leading-[16px] font-normal text-primary-6 transition-opacity hover:opacity-80"
                 >
                   <TagsIcon />
                   {t("dialog.manageTags")}
@@ -570,9 +579,9 @@ export default function ProductDialog({
           </div>
 
           <div className="mt-4 space-y-2">
-            <label className="h-[22px] text-[14px] leading-[22px] font-normal text-[#222B45]">
+            <label className="h-[22px] text-[14px] leading-[22px] font-normal text-basic-8">
               {t("dialog.notesLabel")}
-              <span className="ml-2 text-[12px] leading-[16px] font-normal text-[#8F9BB3]">
+              <span className="ml-2 text-[12px] leading-[16px] font-normal text-basic-5">
                 {t("dialog.notesOptional")}
               </span>
             </label>
@@ -580,7 +589,7 @@ export default function ProductDialog({
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
               placeholder={t("dialog.notesPlaceholder")}
-              className="h-[60px] rounded-[6px] border border-[#C5CEE0] px-4 py-2"
+              className="h-[60px] rounded-[6px] border border-basic-4 px-4 py-2"
             />
           </div>
         </div>
@@ -591,7 +600,7 @@ export default function ProductDialog({
             variant="outline"
             onClick={() => onOpenChange(false)}
             disabled={isPending}
-            className="h-8 w-20 rounded-[6px] border border-[#C5CEE0] px-3 py-1"
+            className="h-8 w-20 rounded-[6px] border border-basic-4 px-3 py-1"
           >
             {t("dialog.cancel")}
           </Button>
@@ -599,7 +608,7 @@ export default function ProductDialog({
             type="button"
             onClick={handleSubmit}
             disabled={isSubmitDisabled}
-            className="h-8 w-20 rounded-[6px] border border-[#C5CEE0] px-3 py-1"
+            className="h-8 w-20 rounded-[6px] border border-basic-4 px-3 py-1"
           >
             {isPending ? (
               <>

@@ -248,7 +248,7 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
         {isFailureView && failureResult ? (
           <>
             <DialogHeader className="gap-0 p-0">
-              <DialogTitle className="text-[16px] leading-6 font-semibold text-[#151A30]">
+              <DialogTitle className="text-[16px] leading-6 font-semibold text-basic-9">
                 {failureResult.successCount > 0
                   ? t("partialImportFailedTitle")
                   : t("importFailedTitle")}
@@ -259,18 +259,18 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
             </DialogHeader>
 
             <div className="flex flex-col gap-5">
-              <div className="flex flex-col items-center justify-center rounded-[8px] bg-[#F7F9FC] px-4 py-8">
+              <div className="flex flex-col items-center justify-center rounded-[8px] bg-basic-1 px-4 py-8">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#FFF4DF] text-[#F7B23B]">
                   <AlertCircle className="h-5 w-5" />
                 </div>
-                <div className="mt-4 text-[14px] leading-[22px] font-semibold text-[#192038]">
+                <div className="mt-4 text-[14px] leading-[22px] font-semibold text-basic-8">
                   {failureResult.successCount > 0
                     ? t("partialImportFailedHint")
                     : t("importFailedHint")}
                 </div>
               </div>
 
-              <p className="text-[12px] leading-[16px] font-normal text-[#8F9BB3]">
+              <p className="text-[12px] leading-[16px] font-normal text-basic-5">
                 {failureResult.successCount > 0
                   ? t("partialImportFailedDesc", {
                       success: failureResult.successCount,
@@ -279,8 +279,8 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
                   : t("importFailedDesc")}
               </p>
 
-              <div className="max-h-[160px] overflow-y-auto rounded-[8px] bg-[#F7F9FC] px-4 py-3">
-                <ul className="list-disc space-y-2 pl-4 text-[14px] leading-[22px] font-normal text-[#192038]">
+              <div className="max-h-[160px] overflow-y-auto rounded-[8px] bg-basic-1 px-4 py-3">
+                <ul className="list-disc space-y-2 pl-4 text-[14px] leading-[22px] font-normal text-basic-8">
                   {failureResult.failures.map((failure, index) => (
                     <li key={`${failure.rowNumber}-${index}`}>{formatFailureMessage(failure)}</li>
                   ))}
@@ -294,7 +294,7 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
                 variant="outline"
                 onClick={handleDownloadTemplate}
                 disabled={isPending}
-                className="h-8 rounded-[6px] border border-[#C5CEE0] px-3 py-1 text-[14px] leading-[22px]"
+                className="h-8 rounded-[6px] border border-basic-4 px-3 py-1 text-[14px] leading-[22px]"
               >
                 {t("downloadTemplate")}
               </Button>
@@ -302,7 +302,7 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
                 type="button"
                 onClick={handleRetryImport}
                 disabled={isPending}
-                className="h-8 rounded-[6px] bg-[#3366FF] px-3 py-1 text-[14px] leading-[22px]"
+                className="h-8 rounded-[6px] bg-primary-6 px-3 py-1 text-[14px] leading-[22px]"
               >
                 {t("retryImport")}
               </Button>
@@ -311,7 +311,7 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
         ) : (
           <>
             <DialogHeader className="gap-0 p-0">
-              <DialogTitle className="text-[16px] leading-6 font-semibold text-[#151A30]">
+              <DialogTitle className="text-[16px] leading-6 font-semibold text-basic-9">
                 {t("title")}
               </DialogTitle>
               <DialogDescription className="sr-only">
@@ -320,7 +320,7 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
             </DialogHeader>
 
             <div className="flex flex-col gap-5">
-              <div className="grid w-full grid-cols-2 rounded-[8px] bg-[#F7F9FC] p-1">
+              <div className="grid w-full grid-cols-2 rounded-[8px] bg-basic-1 p-1">
                 {(["import", "export"] as const).map((item) => (
                   <button
                     key={item}
@@ -328,9 +328,9 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
                     onClick={() => setMode(item)}
                     disabled={isPending}
                     className={cn(
-                      "h-8 rounded-[6px] text-[14px] leading-[22px] font-semibold text-[#101426] transition-colors",
+                      "h-8 rounded-[6px] text-[14px] leading-[22px] font-semibold text-basic-8 transition-colors",
                       mode === item
-                        ? "bg-white shadow-[0_1px_5px_0_rgba(0,0,0,0.18)]"
+                        ? "bg-background shadow-[0_1px_5px_0_rgba(0,0,0,0.18)]"
                         : "bg-transparent",
                     )}
                   >
@@ -341,24 +341,24 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
 
               {mode === "export" ? (
                 <div className="flex flex-col gap-5">
-                  <p className="text-[14px] leading-[22px] font-normal text-[#222B45]">
+                  <p className="text-[14px] leading-[22px] font-normal text-basic-8">
                     {t("exportFormatLabel")}
                   </p>
                   <RadioGroup
                     value={exportFormat}
                     onValueChange={(value) => setExportFormat(value as ExportFormat)}
-                    className="flex items-center gap-8 rounded-[8px] border border-[#E4E9F2] px-4 py-3"
+                    className="flex items-center gap-8 rounded-[8px] border border-basic-3 px-4 py-3"
                   >
-                    <label className="flex cursor-pointer items-center gap-2 text-[14px] leading-[22px] font-normal text-[#192038]">
+                    <label className="flex cursor-pointer items-center gap-2 text-[14px] leading-[22px] font-normal text-basic-8">
                       <RadioGroupItem value="xlsx" className="size-4" />
                       {t("formatExcel")}
                     </label>
-                    <label className="flex cursor-pointer items-center gap-2 text-[14px] leading-[22px] font-normal text-[#192038]">
+                    <label className="flex cursor-pointer items-center gap-2 text-[14px] leading-[22px] font-normal text-basic-8">
                       <RadioGroupItem value="csv" className="size-4" />
                       {t("formatCsv")}
                     </label>
                   </RadioGroup>
-                  <div className="flex items-start gap-2 text-[12px] leading-[16px] font-normal text-[#8F9BB3]">
+                  <div className="flex items-start gap-2 text-[12px] leading-[16px] font-normal text-basic-5">
                     <span>{t("exportHint", { entity: entityName })}</span>
                   </div>
                 </div>
@@ -382,7 +382,7 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
                     }}
                     onDragOver={(event) => event.preventDefault()}
                     onDrop={handleDrop}
-                    className="flex min-h-[240px] cursor-pointer flex-col items-center justify-center rounded-[8px] bg-[#F7F9FC] px-4 py-6 text-center outline-none ring-[#3366FF]/40 transition-shadow focus-visible:ring-4"
+                    className="flex min-h-[240px] cursor-pointer flex-col items-center justify-center rounded-[8px] bg-basic-1 px-4 py-6 text-center outline-none ring-[#3366FF]/40 transition-shadow focus-visible:ring-4"
                   >
                     <div className="relative">
                       <FileSpreadsheet className="h-12 w-12 text-[#7BDCB5]" />
@@ -390,7 +390,7 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
                         {t("spreadsheetBadge")}
                       </span>
                     </div>
-                    <p className="mt-4 text-[12px] leading-[16px] font-normal text-[#8F9BB3]">
+                    <p className="mt-4 text-[12px] leading-[16px] font-normal text-basic-5">
                       {t("uploadHintLine1")}
                       <br />
                       {t("uploadHintLine2")}
@@ -398,7 +398,7 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
                     <Button
                       type="button"
                       variant="outline"
-                      className="mt-4 h-8 rounded-[6px] border border-[#C5CEE0] px-3 py-1 text-[14px] leading-[22px] text-[#192038]"
+                      className="mt-4 h-8 rounded-[6px] border border-basic-4 px-3 py-1 text-[14px] leading-[22px] text-basic-8"
                       onClick={(event) => {
                         event.stopPropagation();
                         fileInputRef.current?.click();
@@ -408,13 +408,13 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
                       {t("selectFile")}
                     </Button>
                     {selectedFile ? (
-                      <div className="mt-3 max-w-full truncate text-[14px] leading-[22px] font-normal text-[#192038]">
+                      <div className="mt-3 max-w-full truncate text-[14px] leading-[22px] font-normal text-basic-8">
                         {selectedFile.name}
                       </div>
                     ) : null}
                     <button
                       type="button"
-                      className="mt-4 text-[12px] leading-[16px] font-normal text-[#3366FF] transition-opacity hover:opacity-80"
+                      className="mt-4 text-[12px] leading-[16px] font-normal text-primary-6 transition-opacity hover:opacity-80"
                       onClick={(event) => {
                         event.stopPropagation();
                         handleDownloadTemplate();
@@ -434,7 +434,7 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
                 variant="outline"
                 onClick={() => handleOpenChange(false)}
                 disabled={isPending}
-                className="h-8 shrink-0 rounded-[6px] border border-[#C5CEE0] px-3 py-1 text-[14px] leading-[22px]"
+                className="h-8 shrink-0 rounded-[6px] border border-basic-4 px-3 py-1 text-[14px] leading-[22px]"
               >
                 {t("cancel")}
               </Button>
@@ -442,7 +442,7 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
                 type="button"
                 onClick={handleConfirm}
                 disabled={isConfirmDisabled}
-                className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-[6px] bg-[#3366FF] px-3 py-1 text-[14px] leading-[22px]"
+                className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-[6px] bg-primary-6 px-3 py-1 text-[14px] leading-[22px]"
               >
                 {isPending ? <Loader2 className="size-4 shrink-0 animate-spin" /> : null}
                 {t("confirm")}

@@ -299,7 +299,7 @@ export default function BrandClassifyClient({ initialData }: { initialData: Bran
             </Button>
           </div>
 
-          <div className="rounded-[20px] border border-dashed border-[#d9e2f2] bg-[#f8fbff] p-4">
+          <div className="rounded-[20px] border border-dashed border-basic-3 bg-basic-1 p-4">
             {previewUrl && imageMeta ? (
               <div className="flex justify-center">
                 <div className="relative inline-block max-w-full overflow-hidden rounded-[16px] isolate">
@@ -372,13 +372,13 @@ export default function BrandClassifyClient({ initialData }: { initialData: Bran
                 {t("resultHint")}
               </p>
             ) : result.noConfidentMatch ? (
-              <div className="mt-4 rounded-[18px] border border-[#ffd8a8] bg-[#fff9f2] p-4">
+              <div className="mt-4 rounded-[18px] border border-warning-4 bg-warning-1 p-4">
                 <p className="text-base font-medium text-basic-8">{t("noConfidentMatch")}</p>
                 <p className="mt-2 text-sm leading-6 text-basic-5">
                   {t("noConfidentMatchDesc")}
                 </p>
                 {result.bestMatch ? (
-                  <div className="mt-4 rounded-[14px] bg-white/80 px-4 py-3 text-sm">
+                  <div className="mt-4 rounded-[14px] border border-basic-3 bg-background/80 px-4 py-3 text-sm">
                     <div className="font-medium text-basic-8">{result.bestMatch.logoName}</div>
                     <div className="mt-1 text-basic-5">
                       similarity {formatPercent(result.bestMatch.similarity)} · confidence{" "}
@@ -388,7 +388,7 @@ export default function BrandClassifyClient({ initialData }: { initialData: Bran
                 ) : null}
               </div>
             ) : result.bestMatch ? (
-              <div className="mt-4 rounded-[18px] border border-[#b8f0ca] bg-[#f4fff7] p-4">
+              <div className="mt-4 rounded-[18px] border border-success-4 bg-success-1 p-4">
                 <p className="text-sm text-basic-5">{t("winningLogo")}</p>
                 <p className="mt-2 text-2xl font-semibold text-basic-8">{result.bestMatch.logoName}</p>
                 <p className="mt-2 text-sm leading-6 text-basic-5">
@@ -411,7 +411,7 @@ export default function BrandClassifyClient({ initialData }: { initialData: Bran
                     key={`${match.assetLogoId}-${index}`}
                     className={cn(
                       "rounded-[18px] border px-4 py-3",
-                      index === 0 ? "border-[#ffd8a8] bg-[#fffaf4]" : "border-[#d9e2f2] bg-[#fafcff]",
+                      index === 0 ? "border-warning-4 bg-warning-1" : "border-basic-3 bg-basic-1",
                     )}
                   >
                     <div className="flex items-center justify-between gap-3">
@@ -442,8 +442,8 @@ export default function BrandClassifyClient({ initialData }: { initialData: Bran
                     className={cn(
                       "rounded-[16px] border px-4 py-3 text-sm",
                       result?.winningDetectionIndex === index
-                        ? "border-[#ff8f1f] bg-[#fff8ef]"
-                        : "border-[#d9e2f2] bg-[#fafcff]",
+                        ? "border-warning-4 bg-warning-1"
+                        : "border-basic-3 bg-basic-1",
                     )}
                   >
                     <div className="font-medium text-basic-8">

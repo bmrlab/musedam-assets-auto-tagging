@@ -667,7 +667,7 @@ export default function IpDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[92vh] w-[750px] max-w-[calc(100%-2rem)] gap-0 overflow-y-auto rounded-[20px] p-0">
         <DialogHeader className="h-14 justify-center gap-0 px-5 py-4">
-          <DialogTitle className="text-[16px] leading-6 font-semibold text-[#151A30]">
+          <DialogTitle className="text-[16px] leading-6 font-semibold text-basic-9">
             {mode === "create" ? t("dialog.titleCreate") : t("dialog.titleEdit")}
           </DialogTitle>
         </DialogHeader>
@@ -675,19 +675,19 @@ export default function IpDialog({
         <div className="space-y-4 px-5 pt-0 pb-3">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-1">
-              <label className="h-[22px] text-[14px] leading-[22px] font-normal text-[#222B45]">
+              <label className="h-[22px] text-[14px] leading-[22px] font-normal text-basic-8">
                 {t("dialog.ipNameLabel")}
               </label>
               <Input
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 placeholder={t("dialog.ipNamePlaceholder")}
-                className="h-8 w-[349px] rounded-[6px] border border-[#C5CEE0] px-3 py-0 text-[14px] leading-[22px] font-normal placeholder:text-[14px] placeholder:leading-[22px] placeholder:font-normal placeholder:text-[#8F9BB3]"
+                className="h-8 w-[349px] rounded-[6px] border border-basic-4 px-3 py-0 text-[14px] leading-[22px] font-normal placeholder:text-[14px] placeholder:leading-[22px] placeholder:font-normal placeholder:text-basic-5"
               />
             </div>
 
             <div className="space-y-1">
-              <label className="h-[22px] text-[14px] leading-[22px] font-normal text-[#222B45]">
+              <label className="h-[22px] text-[14px] leading-[22px] font-normal text-basic-8">
                 {t("dialog.ipTypeLabel")}
               </label>
               <IpTypeSelect
@@ -700,17 +700,17 @@ export default function IpDialog({
                 onTypeDeleted={onIpTypeDeleted}
                 fallbackType={fallbackType}
                 disabled={isPending}
-                triggerClassName="h-8 w-[349px] rounded-[6px] border border-[#C5CEE0] px-3 py-0 text-[14px] leading-[22px] font-normal"
+                triggerClassName="h-8 w-[349px] rounded-[6px] border border-basic-4 px-3 py-0 text-[14px] leading-[22px] font-normal"
               />
             </div>
           </div>
 
           <div className="space-y-2">
             <div>
-              <label className="h-[22px] text-[14px] leading-[22px] font-normal text-[#222B45]">
+              <label className="h-[22px] text-[14px] leading-[22px] font-normal text-basic-8">
                 {t("dialog.matchPatternTitle")}
               </label>
-              <p className="mt-1 text-[12px] leading-[16px] text-[#8F9BB3]">
+              <p className="mt-1 text-[12px] leading-[16px] text-basic-5">
                 {t("dialog.matchPatternDescription")}
               </p>
             </div>
@@ -720,10 +720,8 @@ export default function IpDialog({
                 onClick={() => setMatchPattern("whole")}
                 disabled={isPending}
                 className={cn(
-                  "flex min-w-0 w-full flex-col gap-[6px] rounded-[8px] border border-[#C5CEE0] bg-white p-[12.5px] text-left transition-all",
-                  matchPattern === "whole"
-                    ? "border-[rgba(51,102,255,1)] bg-[rgba(242,246,255,1)]"
-                    : "hover:border-[#598BFF]",
+                  "flex min-w-0 w-full flex-col gap-[6px] rounded-[8px] border border-basic-4 bg-background p-[12.5px] text-left transition-all",
+                  matchPattern === "whole" ? "border-primary-5 bg-primary-1" : "hover:border-primary-5",
                 )}
               >
                 <span className="flex min-w-0 items-center gap-[6px]">
@@ -731,21 +729,21 @@ export default function IpDialog({
                     className={cn(
                       "inline-flex size-[20px] shrink-0 items-center justify-center rounded-[6px]",
                       matchPattern === "whole"
-                        ? "bg-[#E6EEFF] text-[#3366FF]"
-                        : "bg-[#F2F6FF] text-[#2E3A59]",
+                        ? "bg-primary-1 text-primary-6"
+                        : "bg-primary-1 text-basic-8",
                     )}
                   >
                     <ImageIcon className="h-[20px] w-[20px]" />
                   </span>
-                  <span className="min-w-0 flex-1 text-[14px] font-medium leading-[20px] text-[rgba(25,32,56,1)]">
+                  <span className="min-w-0 flex-1 text-[14px] font-medium leading-[20px] text-basic-8">
                     {t("dialog.matchWholeTitle")}
                   </span>
                   <span
                     className={cn(
                       "inline-flex size-[16px] shrink-0 items-center justify-center rounded-full border",
                       matchPattern === "whole"
-                        ? "border-[#3366FF] bg-[#3366FF]"
-                        : "border-[#C5CEE0]",
+                        ? "border-primary-6 bg-primary-6"
+                        : "border-basic-4",
                     )}
                   >
                     {matchPattern === "whole" ? (
@@ -753,10 +751,10 @@ export default function IpDialog({
                     ) : null}
                   </span>
                 </span>
-                <span className="block text-[12px] font-normal leading-[18px] text-[rgba(46,58,89,1)]">
+                <span className="block text-[12px] font-normal leading-[18px] text-basic-6">
                   {t("dialog.matchWholeDescription")}
                 </span>
-                <span className="block text-[11px] font-normal leading-[16px] text-[rgba(143,155,179,1)]">
+                <span className="block text-[11px] font-normal leading-[16px] text-basic-5">
                   {t("dialog.matchWholeApplies")}
                 </span>
               </button>
@@ -772,10 +770,10 @@ export default function IpDialog({
                 }}
                 disabled={isPending}
                 className={cn(
-                  "flex min-w-0 w-full flex-col gap-[6px] rounded-[8px] border border-[#C5CEE0] bg-white p-[12.5px] text-left transition-all",
+                  "flex min-w-0 w-full flex-col gap-[6px] rounded-[8px] border border-basic-4 bg-background p-[12.5px] text-left transition-all",
                   matchPattern === "partial"
-                    ? "border-[rgba(51,102,255,1)] bg-[rgba(242,246,255,1)]"
-                    : "hover:border-[#598BFF]",
+                    ? "border-primary-5 bg-primary-1"
+                    : "hover:border-primary-5",
                 )}
               >
                 <span className="flex min-w-0 items-center gap-[6px]">
@@ -783,21 +781,21 @@ export default function IpDialog({
                     className={cn(
                       "inline-flex size-[20px] shrink-0 items-center justify-center rounded-[6px]",
                       matchPattern === "partial"
-                        ? "bg-[#E6EEFF] text-[#3366FF]"
-                        : "bg-[#F2F6FF] text-[#2E3A59]",
+                        ? "bg-primary-1 text-primary-6"
+                        : "bg-primary-1 text-basic-8",
                     )}
                   >
                     <BoxSelect className="h-[20px] w-[20px]" />
                   </span>
-                  <span className="min-w-0 flex-1 text-[14px] font-medium leading-[20px] text-[rgba(25,32,56,1)]">
+                  <span className="min-w-0 flex-1 text-[14px] font-medium leading-[20px] text-basic-8">
                     {t("dialog.matchPartialTitle")}
                   </span>
                   <span
                     className={cn(
                       "inline-flex size-[16px] shrink-0 items-center justify-center rounded-full border",
                       matchPattern === "partial"
-                        ? "border-[#3366FF] bg-[#3366FF]"
-                        : "border-[#C5CEE0]",
+                        ? "border-primary-6 bg-primary-6"
+                        : "border-basic-4",
                     )}
                   >
                     {matchPattern === "partial" ? (
@@ -805,10 +803,10 @@ export default function IpDialog({
                     ) : null}
                   </span>
                 </span>
-                <span className="block text-[12px] font-normal leading-[18px] text-[rgba(46,58,89,1)]">
+                <span className="block text-[12px] font-normal leading-[18px] text-basic-6">
                   {t("dialog.matchPartialDescription")}
                 </span>
-                <span className="block text-[11px] font-normal leading-[16px] text-[rgba(143,155,179,1)]">
+                <span className="block text-[11px] font-normal leading-[16px] text-basic-5">
                   {t("dialog.matchPartialApplies")}
                 </span>
               </button>
@@ -817,7 +815,7 @@ export default function IpDialog({
 
           <div className="space-y-2">
             <div className="space-y-1">
-              <label className="h-[22px] text-[14px] leading-[22px] font-normal text-[#222B45]">
+              <label className="h-[22px] text-[14px] leading-[22px] font-normal text-basic-8">
                 {t("dialog.ipImagesLabel")}
               </label>
             </div>
@@ -837,7 +835,7 @@ export default function IpDialog({
                   <button
                     type="button"
                     disabled={isPending || isSelectingAssets}
-                    className="relative flex h-[104px] w-[104px] flex-col items-center justify-center rounded-[6px] border border-[#C5CEE0] border-dashed bg-[#F7F9FC] px-2 py-10 text-[#2E3A59] transition-colors hover:border-primary-5 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="relative flex h-[104px] w-[104px] flex-col items-center justify-center rounded-[6px] border border-basic-4 border-dashed bg-basic-1 px-2 py-10 text-basic-8 transition-colors hover:border-primary-5 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <span className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2">
                       <Plus className="h-[14px] w-[14px]" />
@@ -849,20 +847,26 @@ export default function IpDialog({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
                   align="start"
-                  className="flex min-w-[180px] flex-col gap-[2px] rounded-[8px] border border-[#E4E9F2] p-1"
+                  className="flex min-w-[180px] flex-col gap-[2px] rounded-[8px] border border-basic-3 p-1"
                 >
                   <DropdownMenuItem
                     onClick={() => fileInputRef.current?.click()}
-                    className="h-8 gap-2 rounded-[6px] px-[10px] py-[5px] text-[14px] leading-[22px] font-normal text-[#192038] hover:bg-[#F2F6FF] focus:bg-[#F2F6FF] data-[highlighted]:bg-[#F2F6FF]"
+                    className="h-8 gap-2 rounded-[6px] px-[10px] py-[5px] text-[14px] leading-[22px] font-normal text-basic-8 hover:bg-primary-1 focus:bg-primary-1 data-[highlighted]:bg-primary-1"
                   >
-                    <img src="/Icon/export.svg" alt="" className="h-[14px] w-[14px]" />
+                    <span
+                      aria-hidden="true"
+                      className="block h-[14px] w-[14px] shrink-0 bg-current [mask-image:url('/Icon/export.svg')] [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain]"
+                    />
                     <span>{t("dialog.uploadLocal")}</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => void handleSelectImagesFromAssetLibrary()}
-                    className="h-8 gap-2 rounded-[6px] px-[10px] py-[5px] text-[14px] leading-[22px] font-normal text-[#192038] hover:bg-[#F2F6FF] focus:bg-[#F2F6FF] data-[highlighted]:bg-[#F2F6FF]"
+                    className="h-8 gap-2 rounded-[6px] px-[10px] py-[5px] text-[14px] leading-[22px] font-normal text-basic-8 hover:bg-primary-1 focus:bg-primary-1 data-[highlighted]:bg-primary-1"
                   >
-                    <img src="/Icon/Image.svg" alt="" className="h-[14px] w-[14px]" />
+                    <span
+                      aria-hidden="true"
+                      className="block h-[14px] w-[14px] shrink-0 bg-current [mask-image:url('/Icon/Image.svg')] [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain]"
+                    />
                     <span>{t("dialog.uploadFromLibrary")}</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -871,7 +875,7 @@ export default function IpDialog({
               {images.map((image) => (
                 <div
                   key={image.id}
-                  className="group relative h-[104px] w-[104px] cursor-pointer overflow-hidden rounded-[6px] border border-[#C5CEE0] bg-[#F7F9FC]"
+                  className="group relative h-[104px] w-[104px] cursor-pointer overflow-hidden rounded-[6px] border border-basic-4 bg-basic-1"
                 >
                   {image.existingImageId ? (
                     <SignedIpImage
@@ -894,7 +898,7 @@ export default function IpDialog({
                       onClick={() => void openPartialCropDialog(image.id)}
                       className={cn(
                         "absolute top-1 left-1 z-10 inline-flex max-w-[94px] items-center gap-1 rounded-[4px] px-2 py-1 text-[12px] leading-4 font-semibold text-white shadow-sm",
-                        image.cropSelection ? "bg-[#3366FF]" : "bg-[#FF3D71]",
+                        image.cropSelection ? "bg-primary-6" : "bg-danger-6",
                       )}
                     >
                       {image.cropSelection ? (
@@ -940,7 +944,10 @@ export default function IpDialog({
                         onClick={() => removeImage(image.id)}
                         className="inline-flex h-4 w-4 items-center justify-center opacity-90 transition-opacity hover:opacity-100"
                       >
-                        <img src="/Icon/Delete.svg" alt="" className="h-4 w-4" />
+                        <span
+                          aria-hidden="true"
+                          className="block h-4 w-4 shrink-0 bg-white [mask-image:url('/Icon/Delete.svg')] [mask-position:center] [mask-repeat:no-repeat] [mask-size:100%_100%]"
+                        />
                       </button>
                     </div>
                   </div>
@@ -948,8 +955,8 @@ export default function IpDialog({
               ))}
             </div>
 
-            <div className="mt-3 flex items-start gap-[10px] rounded-[8px] border border-[#598BFF] bg-[#F2F6FF] px-3 py-[14px] text-[12px] leading-[16px] font-normal text-[#192038]">
-              <p className="text-[12px] leading-[16px] font-normal text-[#192038]">
+            <div className="mt-3 flex items-start gap-[10px] rounded-[8px] border border-primary-5 bg-primary-1 px-3 py-[14px] text-[12px] leading-[16px] font-normal text-basic-8">
+              <p className="text-[12px] leading-[16px] font-normal text-basic-8">
                 💡 <span className="font-semibold">{t("dialog.uploadHintTitle")}</span>
                 {matchPattern === "partial"
                   ? t("dialog.uploadHintPartial")
@@ -958,7 +965,7 @@ export default function IpDialog({
             </div>
 
             {pendingPartialCropCount > 0 ? (
-              <div className="mt-3 flex items-center justify-between gap-3 rounded-[8px] border border-[#FF3D71] bg-[#FFF2F5] px-3 py-[12px] text-[13px] leading-[18px] text-[#FF3D71]">
+              <div className="mt-3 flex items-center justify-between gap-3 rounded-[8px] border border-danger-6 bg-danger-1 px-3 py-[12px] text-[13px] leading-[18px] text-danger-6">
                 <span className="inline-flex items-center gap-2">
                   <AlertCircle className="size-4 shrink-0" />
                   {t("dialog.pendingCropWarning", { count: pendingPartialCropCount })}
@@ -971,7 +978,7 @@ export default function IpDialog({
                       void openPartialCropDialog(firstPending.id);
                     }
                   }}
-                  className="shrink-0 text-[13px] leading-[18px] font-semibold text-[#FF3D71] hover:text-[#db2c5d]"
+                  className="shrink-0 text-[13px] leading-[18px] font-semibold text-danger-6 hover:text-danger-7"
                 >
                   {t("dialog.goCrop")}
                 </button>
@@ -981,13 +988,13 @@ export default function IpDialog({
 
           <div className="mt-4 space-y-2">
             <div className="space-y-1">
-              <label className="h-[22px] text-[14px] leading-[22px] font-normal text-[#222B45]">
+              <label className="h-[22px] text-[14px] leading-[22px] font-normal text-basic-8">
                 {t("dialog.descriptionLabel")}
-                <span className="ml-2 text-[12px] leading-[16px] font-normal text-[#8F9BB3]">
+                <span className="ml-2 text-[12px] leading-[16px] font-normal text-basic-5">
                   {t("dialog.notesOptional")}
                 </span>
               </label>
-              <p className="text-[12px] leading-[16px] font-normal text-[#8F9BB3]">
+              <p className="text-[12px] leading-[16px] font-normal text-basic-5">
                 {t("dialog.descriptionHint")}
               </p>
             </div>
@@ -995,17 +1002,17 @@ export default function IpDialog({
               value={description}
               onChange={(event) => setDescription(event.target.value)}
               placeholder={t("dialog.descriptionPlaceholder")}
-              className="h-[60px] rounded-[6px] border border-[#C5CEE0] px-4 py-2"
+              className="h-[60px] rounded-[6px] border border-basic-4 px-4 py-2"
             />
           </div>
 
           <div className="mt-4 space-y-2">
             <div className="space-y-1">
-              <label className="h-[22px] text-[14px] leading-[22px] font-normal text-[#222B45]">
+              <label className="h-[22px] text-[14px] leading-[22px] font-normal text-basic-8">
                 {t("dialog.linkedTagsLabel")}
               </label>
               <div className="flex items-center justify-between gap-3">
-                <p className="text-[12px] leading-[16px] font-normal text-[#8F9BB3]">
+                <p className="text-[12px] leading-[16px] font-normal text-basic-5">
                   {t("dialog.linkedTagsHint")}
                 </p>
                 <button
@@ -1016,7 +1023,7 @@ export default function IpDialog({
                       target: "_blank",
                     })
                   }
-                  className="inline-flex items-center gap-1 text-[12px] leading-[16px] font-normal text-[#3366FF] transition-opacity hover:opacity-80"
+                  className="inline-flex items-center gap-1 text-[12px] leading-[16px] font-normal text-primary-6 transition-opacity hover:opacity-80"
                 >
                   <TagsIcon />
                   {t("dialog.manageTags")}
@@ -1033,9 +1040,9 @@ export default function IpDialog({
           </div>
 
           <div className="mt-4 space-y-2">
-            <label className="h-[22px] text-[14px] leading-[22px] font-normal text-[#222B45]">
+            <label className="h-[22px] text-[14px] leading-[22px] font-normal text-basic-8">
               {t("dialog.notesLabel")}
-              <span className="ml-2 text-[12px] leading-[16px] font-normal text-[#8F9BB3]">
+              <span className="ml-2 text-[12px] leading-[16px] font-normal text-basic-5">
                 {t("dialog.notesOptional")}
               </span>
             </label>
@@ -1043,7 +1050,7 @@ export default function IpDialog({
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
               placeholder={t("dialog.notesPlaceholder")}
-              className="h-[60px] rounded-[6px] border border-[#C5CEE0] px-4 py-2"
+              className="h-[60px] rounded-[6px] border border-basic-4 px-4 py-2"
             />
           </div>
         </div>
@@ -1054,7 +1061,7 @@ export default function IpDialog({
             variant="outline"
             onClick={() => onOpenChange(false)}
             disabled={isPending}
-            className="h-8 w-20 rounded-[6px] border border-[#C5CEE0] px-3 py-1"
+            className="h-8 w-20 rounded-[6px] border border-basic-4 px-3 py-1"
           >
             {t("dialog.cancel")}
           </Button>
@@ -1062,7 +1069,7 @@ export default function IpDialog({
             type="button"
             onClick={handleSubmit}
             disabled={isSubmitDisabled}
-            className="h-8 w-20 rounded-[6px] border border-[#C5CEE0] px-3 py-1"
+            className="h-8 w-20 rounded-[6px] border border-basic-4 px-3 py-1"
           >
             {isPending ? (
               <>

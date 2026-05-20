@@ -63,7 +63,7 @@ function TagColumn({
 }) {
   return (
     <div className="flex min-h-0 flex-col border-r last:border-r-0">
-      <div className="border-b bg-white px-4 py-3 text-[12px] leading-[16px] font-medium text-[#8F9BB3]">
+      <div className="border-b bg-basic-1 px-4 py-3 text-[12px] leading-[16px] font-medium text-basic-5">
         {title}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-2">
@@ -80,7 +80,7 @@ function TagColumn({
                   key={node.id}
                   className={cn(
                     "flex items-center gap-3 rounded-[8px] px-3 py-2.5 text-[14px] leading-[22px] font-normal text-basic-8 transition-colors",
-                    isActive && "bg-[#F2F6FF] text-[#3366FF]",
+                    isActive && "bg-primary-1 text-primary-6",
                     !isActive && "hover:bg-basic-2/60",
                   )}
                 >
@@ -88,7 +88,7 @@ function TagColumn({
                     checked={checked}
                     onCheckedChange={() => onToggle(node.id)}
                     aria-label={t("tagSelector.selectTag", { name: node.name })}
-                    className="border-[#C5CEE0] data-[state=checked]:border-[#3366FF] data-[state=checked]:bg-[#3366FF]"
+                    className="border-basic-4 data-[state=checked]:border-primary-6 data-[state=checked]:bg-primary-6"
                   />
                   <button
                     type="button"
@@ -98,7 +98,7 @@ function TagColumn({
                     <span className="truncate">{node.name}</span>
                     {node.children.length > 0 ? (
                       <ChevronRight
-                        className={cn("ml-auto size-4 text-basic-5", isActive && "text-[#3366FF]")}
+                        className={cn("ml-auto size-4 text-basic-5", isActive && "text-primary-6")}
                       />
                     ) : null}
                   </button>
@@ -190,7 +190,7 @@ export default function BrandTagSelector({
   return (
     <div ref={containerRef} className="space-y-2">
       <div
-        className="flex min-h-10 flex-wrap items-center gap-2 rounded-[8px] border border-[#C5CEE0] px-2 py-1.5 transition-colors focus-within:border-[#3366FF]"
+        className="flex min-h-10 flex-wrap items-center gap-2 rounded-[8px] border border-basic-4 px-2 py-1.5 transition-colors focus-within:border-primary-6"
         onClick={() => setIsExpanded(true)}
       >
         {selectedTags.map((tag) => (
@@ -201,10 +201,10 @@ export default function BrandTagSelector({
               event.stopPropagation();
               toggleTag(tag.id);
             }}
-            className="inline-flex h-7 items-center gap-1 rounded-[6px] border border-[#E4E9F2] bg-[#F7F9FC] px-2 text-[14px] leading-[20px] text-[#2E3A59] transition-colors hover:border-[#C5CEE0]"
+            className="inline-flex h-7 items-center gap-1 rounded-[6px] border border-basic-3 bg-basic-1 px-2 text-[14px] leading-[20px] text-basic-8 transition-colors hover:border-basic-4"
           >
             <span className="max-w-[280px] truncate">{tag.path.join(" > ")}</span>
-            <span className="text-[#8F9BB3]">×</span>
+            <span className="text-basic-5">×</span>
           </button>
         ))}
         <input
@@ -215,12 +215,12 @@ export default function BrandTagSelector({
           placeholder={
             selectedTags.length > 0 ? t("tagSelector.continueAdding") : t("tagSelector.searchPlaceholder")
           }
-          className="h-7 min-w-[140px] flex-1 appearance-none bg-transparent px-1 text-[14px] leading-[22px] font-normal text-[#2E3A59] outline-none placeholder:text-[#8F9BB3] !border-0 !shadow-none !ring-0 focus:!border-0 focus:!shadow-none focus:!ring-0 focus-visible:!border-0 focus-visible:!shadow-none focus-visible:!ring-0"
+          className="h-7 min-w-[140px] flex-1 appearance-none bg-transparent px-1 text-[14px] leading-[22px] font-normal text-basic-8 outline-none placeholder:text-basic-5 !border-0 !shadow-none !ring-0 focus:!border-0 focus:!shadow-none focus:!ring-0 focus-visible:!border-0 focus-visible:!shadow-none focus-visible:!ring-0"
         />
       </div>
 
       {isExpanded && deferredKeyword ? (
-        <div className="max-h-[360px] overflow-y-auto rounded-[10px] border border-basic-4 bg-white shadow-[0_8px_24px_rgba(31,48,86,0.08)]">
+        <div className="max-h-[360px] overflow-y-auto rounded-[10px] border border-basic-4 bg-background shadow-[0_8px_24px_rgba(31,48,86,0.08)]">
           {searchResults.length === 0 ? (
             <div className="px-4 py-8 text-sm text-basic-5">{t("tagSelector.noSearchResults")}</div>
           ) : (
@@ -233,7 +233,7 @@ export default function BrandTagSelector({
                   <Checkbox
                     checked={selectedTagIds.includes(tag.id)}
                     onCheckedChange={() => toggleTag(tag.id)}
-                    className="border-[#C5CEE0] data-[state=checked]:border-[#3366FF] data-[state=checked]:bg-[#3366FF]"
+                    className="border-basic-4 data-[state=checked]:border-primary-6 data-[state=checked]:bg-primary-6"
                   />
                   <span>{tag.path.join(" > ")}</span>
                 </label>
@@ -244,7 +244,7 @@ export default function BrandTagSelector({
       ) : null}
 
       {isExpanded && !deferredKeyword ? (
-        <div className="grid h-[340px] grid-cols-1 overflow-hidden rounded-[10px] border border-basic-4 bg-white shadow-[0_8px_24px_rgba(31,48,86,0.08)] md:grid-cols-3">
+        <div className="grid h-[340px] grid-cols-1 overflow-hidden rounded-[10px] border border-basic-4 bg-background shadow-[0_8px_24px_rgba(31,48,86,0.08)] md:grid-cols-3">
           <TagColumn
             title={t("tagSelector.tagGroups", { count: tags.length })}
             nodes={tags}

@@ -77,25 +77,25 @@ function getPersonStatusMeta(status: PersonItem["status"], t: TranslationFunctio
       return {
         label: t("statusCompleted"),
         icon: CheckCircle2,
-        className: "border-[#8cfac7] bg-[#edfff3] text-[#00e096]",
+        className: "border-success-4 bg-success-1 text-success-6",
       };
     case "processing":
       return {
         label: t("statusProcessing"),
         icon: LoaderCircle,
-        className: "border-[#c7e2ff] bg-[#f2f8ff] text-[#0095ff]",
+        className: "border-primary-3 bg-primary-1 text-primary-6",
       };
     case "failed":
       return {
         label: t("statusFailed"),
         icon: XCircle,
-        className: "border-[#ffa8b4] bg-[#fff2f2] text-[#ff3d71]",
+        className: "border-danger-4 bg-danger-1 text-danger-6",
       };
     default:
       return {
         label: t("statusPending"),
         icon: Clock3,
-        className: "border-[#d9e2f2] bg-[#f7f9fc] text-basic-5",
+        className: "border-basic-4 bg-basic-1 text-basic-5",
       };
   }
 }
@@ -118,7 +118,7 @@ function PersonImagesCell({ person, t }: { person: PersonItem; t: TranslationFun
           >
             <button
               type="button"
-              className="relative -ml-2 first:ml-0 h-[22px] w-[22px] overflow-hidden rounded-[4px] border border-white bg-basic-2 shadow-sm"
+              className="relative -ml-2 first:ml-0 h-[22px] w-[22px] overflow-hidden rounded-[4px] border border-background bg-basic-2 shadow-sm"
               style={{ zIndex: previewImages.length - index }}
               aria-label={t("previewImage", { name: person.name, index: index + 1 })}
             >
@@ -584,7 +584,7 @@ export default function PersonLibraryClient({
                 className="pointer-events-none absolute top-1/2 left-[10px] -translate-y-1/2"
               />
               <Input
-                className="h-8 w-[260px] rounded-[6px] border border-[#C5CEE0] bg-[#FFFFFF] px-[10px] py-1 pl-[32px] text-[14px] leading-[22px] font-normal text-[#8F9BB3]/80 placeholder:text-[14px] placeholder:leading-[22px] placeholder:font-normal placeholder:text-[#8F9BB3]/80"
+                className="h-8 w-[260px] rounded-[6px] border border-basic-4 bg-background px-[10px] py-1 pl-[32px] text-[14px] leading-[22px] font-normal text-basic-5/80 placeholder:text-[14px] placeholder:leading-[22px] placeholder:font-normal placeholder:text-basic-5/80"
                 placeholder={t("searchPlaceholder")}
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
@@ -594,7 +594,7 @@ export default function PersonLibraryClient({
             <Button
               type="button"
               variant="outline"
-              className="h-8 gap-1 rounded-[6px] border border-[#C5CEE0] bg-[#FFFFFF] px-3 py-1 text-[14px] leading-[22px] font-normal text-[#101426]"
+              className="h-8 gap-1 rounded-[6px] border border-basic-4 bg-background px-3 py-1 text-[14px] leading-[22px] font-normal text-basic-8"
               onClick={() => setBatchImportExportOpen(true)}
             >
               <svg
@@ -622,7 +622,8 @@ export default function PersonLibraryClient({
 
             <Button
               type="button"
-              className="h-8 gap-1 rounded-[6px] border border-[#3366FF] bg-[#3366FF] px-3 py-1 text-[14px] leading-[22px] font-normal text-[#FFFFFF]"
+              variant="default"
+              className="h-8 gap-1 rounded-[6px] px-3 py-1 text-[14px] leading-[22px] font-normal"
               onClick={handleOpenCreate}
             >
               <Image src="/Icon/white-plus.svg" alt="" width={14} height={14} />
@@ -647,19 +648,19 @@ export default function PersonLibraryClient({
             </div>
           ) : (
             <>
-              <div className="flex min-h-[64px] flex-wrap items-center gap-3 rounded-[8px] border border-[#E4E9F2] bg-background px-5 py-3">
+              <div className="flex min-h-[64px] flex-wrap items-center gap-3 rounded-[8px] border border-basic-3 bg-background px-5 py-3">
                 <div className="flex min-w-0 flex-wrap items-center gap-[12px]">
                   <Checkbox
-                    className="size-4 border-[#C5CEE0] data-[state=checked]:border-[#3366FF] data-[state=checked]:bg-[#3366FF]"
+                    className="size-4 border-basic-4"
                     checked={allSelectedOnPage}
                     indeterminate={someSelectedOnPage}
                     onCheckedChange={(checked) => handleSelectAllOnPage(Boolean(checked))}
                   />
-                  <span className="text-[14px] leading-[20px] font-normal text-[#2E3A59]">
+                  <span className="text-[14px] leading-[20px] font-normal text-basic-8">
                     {hasSelection ? (
                       <>
                         {t("itemsSelected")}{" "}
-                        <span className="text-[#3366FF]">{selectedIds.length}</span> /{" "}
+                        <span className="text-primary-6">{selectedIds.length}</span> /{" "}
                         {filteredPersons.length} {t("itemsCount")}
                       </>
                     ) : (
@@ -673,8 +674,9 @@ export default function PersonLibraryClient({
                     <div className="mr-1 flex flex-wrap items-center gap-2">
                       <Button
                         type="button"
+                        variant="default"
                         size="sm"
-                        className="h-8 gap-1 rounded-[6px] border border-[#3366FF] bg-[#3366FF] px-3 py-1 text-[14px] leading-[22px] font-normal text-white"
+                        className="text-[14px] leading-[22px] font-normal"
                         onClick={() => setBatchEnableOpen(true)}
                         disabled={isPending}
                       >
@@ -685,7 +687,7 @@ export default function PersonLibraryClient({
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="h-8 gap-1 rounded-[6px] border border-[#FF3D71] bg-white px-3 py-1 text-[14px] leading-[22px] font-normal text-[#FF3D71] hover:border-[#FF3D71] hover:bg-[#FFF2F5] hover:text-[#FF3D71]"
+                        className="h-8 gap-1 rounded-[6px] border border-danger-6 bg-background px-3 py-1 text-[14px] leading-[22px] font-normal text-danger-6 hover:border-danger-6 hover:bg-danger-1 hover:text-danger-6"
                         onClick={() => setBatchDisableOpen(true)}
                         disabled={isPending}
                       >
@@ -696,11 +698,14 @@ export default function PersonLibraryClient({
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="h-8 gap-1 rounded-[6px] border border-[#FF3D71] bg-white px-3 py-1 text-[14px] leading-[22px] font-normal text-[#FF3D71] hover:border-[#FF3D71] hover:bg-[#FFF2F5] hover:text-[#FF3D71]"
+                        className="h-8 gap-1 rounded-[6px] border border-danger-6 bg-background px-3 py-1 text-[14px] leading-[22px] font-normal text-danger-6 hover:border-danger-6 hover:bg-danger-1 hover:text-danger-6"
                         onClick={() => setBatchDeleteOpen(true)}
                         disabled={isPending}
                       >
-                        <Image src="/Icon/Delete.svg" alt="" width={14} height={14} />
+                        <span
+                          aria-hidden="true"
+                          className="block h-[14px] w-[14px] shrink-0 bg-current [mask-image:url('/Icon/Delete.svg')] [mask-position:center] [mask-repeat:no-repeat] [mask-size:100%_100%]"
+                        />
                         {t("delete")}
                       </Button>
                     </div>
@@ -711,7 +716,7 @@ export default function PersonLibraryClient({
                   <Select value={typeFilter} onValueChange={setTypeFilter}>
                     <SelectTrigger
                       size="sm"
-                      className="h-8 justify-end gap-2 rounded-[6px] border border-[#C5CEE0] px-3 py-1 text-[14px] font-normal text-[#192038]"
+                      className="h-8 justify-end gap-2 rounded-[6px] border border-basic-4 px-3 py-1 text-[14px] font-normal text-basic-8"
                     >
                       <SelectValue placeholder={t("allTypes")} />
                     </SelectTrigger>
@@ -728,7 +733,7 @@ export default function PersonLibraryClient({
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
                     <SelectTrigger
                       size="sm"
-                      className="h-8 justify-end gap-2 rounded-[6px] border border-[#C5CEE0] px-3 py-1 text-[14px] font-normal text-[#192038]"
+                      className="h-8 justify-end gap-2 rounded-[6px] border border-basic-4 px-3 py-1 text-[14px] font-normal text-basic-8"
                     >
                       <SelectValue placeholder={t("allStatuses")} />
                     </SelectTrigger>
@@ -743,7 +748,7 @@ export default function PersonLibraryClient({
                   <Select value={enabledFilter} onValueChange={setEnabledFilter}>
                     <SelectTrigger
                       size="sm"
-                      className="h-8 justify-end gap-2 rounded-[6px] border border-[#C5CEE0] px-3 py-1 text-[14px] font-normal text-[#192038]"
+                      className="h-8 justify-end gap-2 rounded-[6px] border border-basic-4 px-3 py-1 text-[14px] font-normal text-basic-8"
                     >
                       <SelectValue placeholder={t("allEnabledStatuses")} />
                     </SelectTrigger>
@@ -762,7 +767,7 @@ export default function PersonLibraryClient({
                   >
                     <SelectTrigger
                       size="sm"
-                      className="h-8 justify-end gap-2 rounded-[6px] border border-[#C5CEE0] px-3 py-1 text-[14px] font-normal text-[#192038]"
+                      className="h-8 justify-end gap-2 rounded-[6px] border border-basic-4 px-3 py-1 text-[14px] font-normal text-basic-8"
                     >
                       <SelectValue placeholder={t("sortNewest")} />
                     </SelectTrigger>
@@ -795,7 +800,7 @@ export default function PersonLibraryClient({
                     <div className="flex-1 overflow-x-auto">
                       <table className="min-w-full table-fixed [&_th]:font-medium [&_th]:leading-5 [&_th]:align-middle [&_td]:leading-5 [&_td]:align-middle">
                         <thead>
-                          <tr className="h-[45px] border-b text-left text-[14px] leading-[20px] text-[#8F9BB3]">
+                          <tr className="h-[45px] border-b text-left text-[14px] leading-[20px] text-basic-5">
                             <th className="w-[52px] px-6 py-0"></th>
                             <th className="w-[320px] px-4 py-0">{t("columnPersonName")}</th>
                             <th className="w-[180px] px-4 py-0">{t("columnPersonType")}</th>
@@ -820,7 +825,7 @@ export default function PersonLibraryClient({
                               <tr key={ip.id} className="h-[58px] border-b last:border-b-0">
                                 <td className="h-[58px] px-6 py-0 align-middle">
                                   <Checkbox
-                                    className="border-[#C5CEE0] data-[state=checked]:border-[#3366FF] data-[state=checked]:bg-[#3366FF]"
+                                    className="border-basic-4"
                                     checked={selectedIds.includes(ip.id)}
                                     onCheckedChange={(checked) => {
                                       if (checked) {
@@ -904,7 +909,7 @@ export default function PersonLibraryClient({
                                       ip.tags.map((tag) => (
                                         <span
                                           key={tag.id}
-                                          className="inline-flex items-center rounded-[4px] border border-[#C5CEE0] px-[6px] py-[3px] text-[12px] font-normal leading-[16px] text-[#101426]"
+                                          className="inline-flex items-center rounded-[4px] border border-basic-4 px-[6px] py-[3px] text-[12px] font-normal leading-[16px] text-basic-8"
                                         >
                                           {tag.tagPath.join(" > ")}
                                         </span>
@@ -951,7 +956,7 @@ export default function PersonLibraryClient({
                                     {ip.status === "failed" ? (
                                       <button
                                         type="button"
-                                        className="whitespace-nowrap text-[12px] leading-[16px] font-normal text-[#3366FF] transition-colors hover:text-[#1d55d1] disabled:cursor-not-allowed disabled:text-basic-5"
+                                        className="whitespace-nowrap text-[12px] leading-[16px] font-normal text-primary-6 transition-colors hover:text-primary-7 disabled:cursor-not-allowed disabled:text-basic-5"
                                         onClick={() => handleRetryProcessing(ip)}
                                         disabled={pending}
                                       >
@@ -967,7 +972,7 @@ export default function PersonLibraryClient({
                                       checked ? handleToggleEnabled(ip, true) : setDisableTarget(ip)
                                     }
                                     disabled={pending}
-                                    className="h-4 w-7 data-[state=checked]:bg-[#3366FF] [&_[data-slot=switch-thumb]]:size-3 [&_[data-slot=switch-thumb]]:data-[state=checked]:translate-x-[calc(100%+2px)] [&_[data-slot=switch-thumb]]:data-[state=unchecked]:translate-x-[2px]"
+                                    className="h-4 w-7 [&_[data-slot=switch-thumb]]:size-3 [&_[data-slot=switch-thumb]]:data-[state=checked]:translate-x-[calc(100%+2px)] [&_[data-slot=switch-thumb]]:data-[state=unchecked]:translate-x-[2px]"
                                   />
                                 </td>
                                 <td className="h-[58px] px-4 py-0 align-middle whitespace-nowrap text-[14px] text-basic-8">
@@ -982,32 +987,26 @@ export default function PersonLibraryClient({
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent
                                       align="end"
-                                      className="w-[120px] rounded-[6px] border border-[#E4E9F2] p-1"
+                                      className="w-[120px] rounded-[6px] border border-basic-3 p-1"
                                     >
                                       <DropdownMenuItem
                                         onClick={() => handleOpenEdit(ip)}
-                                        className="gap-2 px-[10px] py-[5px] text-[14px] font-normal leading-[22px] text-[#192038]"
+                                        className="gap-2 px-[10px] py-[5px] text-[14px] font-normal leading-[22px] text-basic-8"
                                       >
-                                        <Image
-                                          src="/Icon/Edit.svg"
-                                          alt=""
-                                          width={14}
-                                          height={14}
+                                        <span
                                           aria-hidden="true"
+                                          className="block h-[14px] w-[14px] shrink-0 bg-current [mask-image:url('/Icon/Edit.svg')] [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain]"
                                         />
                                         {t("edit")}
                                       </DropdownMenuItem>
-                                      <div className="my-1 h-px bg-[#E4E9F2]" />
+                                      <div className="my-1 h-px bg-basic-3" />
                                       <DropdownMenuItem
                                         onClick={() => setDeleteTarget(ip)}
-                                        className="gap-2 px-[10px] py-[5px] text-[14px] font-normal leading-[22px] text-[#FF3D71] focus:text-[#FF3D71]"
+                                        className="gap-2 px-[10px] py-[5px] text-[14px] font-normal leading-[22px] text-danger-6 focus:text-danger-6"
                                       >
-                                        <Image
-                                          src="/Icon/Delete.svg"
-                                          alt=""
-                                          width={14}
-                                          height={14}
+                                        <span
                                           aria-hidden="true"
+                                          className="block h-[14px] w-[14px] shrink-0 bg-current [mask-image:url('/Icon/Delete.svg')] [mask-position:center] [mask-repeat:no-repeat] [mask-size:100%_100%]"
                                         />
                                         {t("delete")}
                                       </DropdownMenuItem>
@@ -1031,7 +1030,7 @@ export default function PersonLibraryClient({
                           }
                         }}
                         placeholder={tReview("pageInputPlaceholder")}
-                        className={`h-8 ${isChineseLocale ? "w-[180px]" : "w-[300px]"} rounded-[6px] border border-[#C5CEE0] px-3 py-[5px] gap-1`}
+                        className={`h-8 ${isChineseLocale ? "w-[180px]" : "w-[300px]"} rounded-[6px] border border-basic-4 px-3 py-[5px] gap-1`}
                       />
 
                       <div className="flex items-center gap-3 self-end">
@@ -1046,7 +1045,7 @@ export default function PersonLibraryClient({
                           >
                             <ChevronLeft className="size-4" />
                           </Button>
-                          <div className="inline-flex h-8 min-w-8 items-center justify-center rounded-[8px] border border-[#3366FF] px-3 text-sm text-[#3366FF]">
+                          <div className="inline-flex h-8 min-w-8 items-center justify-center rounded-[8px] border border-primary-6 px-3 text-sm text-primary-6">
                             {safeCurrentPage}
                           </div>
                           <Button
