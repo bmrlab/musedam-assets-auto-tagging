@@ -16,9 +16,11 @@ import { retrieveTeamCredentials } from "@/musedam/apiKey";
 import {
   batchSyncAssetThumbnails,
   bindFeatureIdentifiersToMuseDAMMaterial,
+  getFeatureByAssetFromMuseDAM,
   setAssetTagsToMuseDAM,
   syncSingleAssetFromMuseDAM,
 } from "@/musedam/assets";
+import type { MuseDAMMaterialFeatureSnapshot } from "@/musedam/query-features-by-materials-types";
 import { collectMuseFeatureIdentifierIdsForQueueItem } from "@/musedam/collect-muse-feature-identifier-ids";
 import { requestMuseDAMAPI } from "@/musedam/lib";
 import { MuseDAMID } from "@/musedam/types";
@@ -65,6 +67,7 @@ async function buildAssetObjectTags(
 
 export type AssetWithAuditItemsBatch = {
   assetObject: AssetObject;
+  existingFeatures: MuseDAMMaterialFeatureSnapshot[];
   batch: {
     queueItem: TaggingQueueItem;
     taggingAuditItems: (Omit<TaggingAuditItem, "tagPath"> & { tagPath: string[] })[];
@@ -267,6 +270,34 @@ export async function fetchAssetsWithAuditItems(
             assetObject !== undefined,
         );
 
+      const materialIdByAssetObjectId = new Map<number, MuseDAMID>();
+      for (const assetObject of updatedAssetObjects) {
+        try {
+          materialIdByAssetObjectId.set(
+            assetObject.id,
+            slugToId("assetObject", assetObject.slug),
+          );
+        } catch {
+          // skip assets without a valid MuseDAM slug
+        }
+      }
+
+      const featuresByMaterialId = new Map<number, MuseDAMMaterialFeatureSnapshot[]>();
+      const materialIdsForFeatures = [...materialIdByAssetObjectId.values()];
+      if (materialIdsForFeatures.length > 0) {
+        try {
+          const featureEntries = await getFeatureByAssetFromMuseDAM({
+            team,
+            materialIds: materialIdsForFeatures,
+          });
+          for (const entry of featureEntries) {
+            featuresByMaterialId.set(entry.materialId, entry.features ?? []);
+          }
+        } catch (error) {
+          console.error("批量获取资产已有特征失败:", error);
+        }
+      }
+
       const results: AssetWithAuditItemsBatch[] = [];
 
       for (const assetObjectId of assetObjectIds) {
@@ -302,8 +333,15 @@ export async function fetchAssetsWithAuditItems(
 
         // 只有当有有效的 batch 时才添加到结果中
         if (filteredBatch.length > 0) {
+          const materialId = materialIdByAssetObjectId.get(assetObject.id);
+          const existingFeatures =
+            materialId !== undefined
+              ? (featuresByMaterialId.get(Number(materialId.toString())) ?? [])
+              : [];
+
           results.push({
             assetObject,
+            existingFeatures,
             batch: filteredBatch,
           });
         }

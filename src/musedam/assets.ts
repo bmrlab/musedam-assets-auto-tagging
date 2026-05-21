@@ -7,6 +7,7 @@ import type {
   MuseDAMBindFeatureMaterialOutput,
 } from "./bind-feature-material-types";
 import { requestMuseDAMAPI } from "./lib";
+import type { QueryFeaturesByMaterialsOutput } from "./query-features-by-materials-types";
 import type { SaveFeatureToMuseDAMInput, SaveFeatureToMuseDAMOutput } from "./save-feature-types";
 import { MuseDAMID } from "./types";
 
@@ -111,6 +112,38 @@ export async function saveFeatureToMuseDAM({
     },
     body,
   });
+}
+
+/**
+ * Fetch feature snapshots already bound to MuseDAM materials (read-only).
+ */
+export async function getFeatureByAssetFromMuseDAM({
+  team,
+  materialIds,
+}: {
+  team: {
+    id: number;
+    slug: string;
+  };
+  materialIds: MuseDAMID[];
+}): Promise<QueryFeaturesByMaterialsOutput> {
+  if (materialIds.length === 0) {
+    return [];
+  }
+
+  const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
+  return requestMuseDAMAPI<QueryFeaturesByMaterialsOutput>(
+    "/api/muse/query-features-by-materials",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${musedamTeamApiKey}`,
+      },
+      body: {
+        materialIds: materialIds.map((id) => Number(id.toString())),
+      },
+    },
+  );
 }
 
 // build AssetObjectTags from tags response from musedam

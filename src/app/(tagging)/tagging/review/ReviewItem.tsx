@@ -30,6 +30,7 @@ import { CheckIcon, DotIcon, Loader2Icon, StarIcon, XIcon } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
+import type { MuseDAMMaterialFeatureSnapshot } from "@/musedam/query-features-by-materials-types";
 import {
   approveAuditItemsAction,
   AssetWithAuditItemsBatch,
@@ -56,6 +57,58 @@ function normalizeConfidence(confidence: number | null | undefined) {
   }
 
   return Math.max(0, Math.min(100, Math.round(confidence)));
+}
+
+function formatSnapshotTagPath(tagPath: string) {
+  return tagPath.replace(/\s*->\s*/g, " > ");
+}
+
+function ExistingFeatureSnapshotRow({
+  feature,
+  featureClass,
+}: {
+  feature: MuseDAMMaterialFeatureSnapshot;
+  featureClass: string;
+}) {
+  return (
+    <div className="flex items-start gap-3 rounded-md border border-basic-3 bg-background p-3">
+      <div className="relative size-10 shrink-0 overflow-hidden rounded bg-basic-2">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={feature.identifierImagePath}
+          alt={feature.identifierName}
+          className="h-full w-full object-cover"
+        />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div
+          className="truncate text-[13px] font-medium leading-[18px]"
+          title={feature.identifierName}
+        >
+          {feature.identifierName}
+        </div>
+        <div
+          className="mt-1 truncate text-xs text-basic-5"
+          title={`${featureClass} > ${feature.identifierTypeName || "-"}`}
+        >
+          {featureClass} &gt; {feature.identifierTypeName || "-"}
+        </div>
+        {feature.tagPaths.length > 0 ? (
+          <div className="mt-2 flex flex-wrap gap-1">
+            {feature.tagPaths.map((tagPath, index) => (
+              <span
+                key={`${feature.id}-${index}`}
+                className="inline-flex max-w-full items-center truncate rounded-sm border bg-background px-2 py-0.5 text-[10px] text-basic-5"
+                title={formatSnapshotTagPath(tagPath)}
+              >
+                {formatSnapshotTagPath(tagPath)}
+              </span>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
 }
 
 function toggleTagIds(current: number[], tagIds: number[]) {
@@ -162,6 +215,7 @@ function FeatureRecognitionRow({
 
 export function ReviewItem({
   assetObject,
+  existingFeatures = [],
   batch,
   onSuccess,
   CheckboxComponent,
@@ -173,6 +227,24 @@ export function ReviewItem({
   const t = useTranslations("Tagging.Review");
   const tResult = useTranslations("TaggingResultDisplay");
   const locale = useLocale();
+
+  const getFeatureClassLabel = useCallback(
+    (featureType: MuseDAMMaterialFeatureSnapshot["featureType"]) => {
+      switch (featureType) {
+        case "brand":
+          return tResult("featureClassBrand");
+        case "ip":
+          return tResult("featureClassIp");
+        case "product":
+          return tResult("featureClassProduct");
+        case "person":
+          return tResult("featureClassPerson");
+        default:
+          return featureType;
+      }
+    },
+    [tResult],
+  );
   const [loading, setLoading] = useState(false);
   const [rejectedItems, setRejectedItems] = useState<number[]>([]);
   const [rejectedBrandItems, setRejectedBrandItems] = useState<number[]>([]);
@@ -711,6 +783,17 @@ export function ReviewItem({
           <div className="mb-2 flex items-center gap-2">
             <StarIcon className="size-4" />
             <span className="text-sm font-medium">{t("features")}</span>
+          </div>
+          <div className="space-y-2">
+            {existingFeatures.length > 0 ? (
+              existingFeatures.map((feature) => (
+                <ExistingFeatureSnapshotRow
+                  key={`${feature.featureType}-${feature.identifierId}-${feature.id}`}
+                  feature={feature}
+                  featureClass={getFeatureClassLabel(feature.featureType)}
+                />
+              ))
+            ) : null}
           </div>
         </div>
 
