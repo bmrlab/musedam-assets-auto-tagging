@@ -1,8 +1,8 @@
-/* eslint-disable @next/next/no-img-element */
 import "server-only";
 
 import { bufferToDataUrl } from "@/lib/brand/image";
-import { ImageResponse } from "next/og";
+import { rootLogger } from "@/lib/logging";
+import sharp from "sharp";
 
 export type ClassificationImageMeta = {
   width: number;
@@ -11,6 +11,8 @@ export type ClassificationImageMeta = {
 
 export type ClassificationRemoteImageInput = ClassificationImageMeta & {
   mimeType: string;
+  byteLength: number;
+  buffer: Buffer;
   dataUrl: string;
 };
 
@@ -250,76 +252,162 @@ function getImageDimensions(buffer: Buffer, mimeType: string): ClassificationIma
   throw new Error(`Unsupported image format: ${mimeType || "unknown"}`);
 }
 
+function summarizeImageUrl(imageUrl: string) {
+  try {
+    const parsed = new URL(imageUrl);
+    return {
+      imageUrlOrigin: parsed.origin,
+      imageUrlPathname: parsed.pathname,
+      imageUrlSearchKeys: Array.from(parsed.searchParams.keys()).slice(0, 10),
+    };
+  } catch {
+    return {
+      imageUrlKind: imageUrl.startsWith("data:") ? "data-url" : "unparseable-url",
+    };
+  }
+}
+
+function serializeError(error: unknown) {
+  if (error instanceof Error) {
+    return {
+      err: error,
+      errorName: error.name,
+      errorMessage: error.message,
+    };
+  }
+
+  return {
+    err: String(error),
+    errorMessage: String(error),
+  };
+}
+
+function dataUrlToBuffer(dataUrl: string) {
+  const match = dataUrl.match(/^data:[^;]+;base64,(.+)$/);
+  if (!match) {
+    throw new Error("Expected a base64 data URL for image crop input");
+  }
+
+  return Buffer.from(match[1], "base64");
+}
+
 export async function fetchRemoteImageInput(
   imageUrl: string,
   failureContext: string,
 ): Promise<ClassificationRemoteImageInput> {
-  const response = await fetch(imageUrl);
+  let response: Response;
+  try {
+    response = await fetch(imageUrl);
+  } catch (error) {
+    rootLogger.warn({
+      msg: "fetchRemoteImageInput failed while fetching image",
+      fn: "fetchRemoteImageInput",
+      failureContext,
+      ...summarizeImageUrl(imageUrl),
+      ...serializeError(error),
+    });
+    throw error;
+  }
 
   if (!response.ok) {
+    rootLogger.warn({
+      msg: "fetchRemoteImageInput received non-OK image response",
+      fn: "fetchRemoteImageInput",
+      failureContext,
+      status: response.status,
+      contentType: response.headers.get("content-type"),
+      contentLength: response.headers.get("content-length"),
+      ...summarizeImageUrl(imageUrl),
+    });
     throw new Error(`Failed to fetch ${failureContext} image (${response.status})`);
   }
 
   const mimeType =
     response.headers.get("content-type")?.split(";")[0]?.trim() || "application/octet-stream";
   const buffer = Buffer.from(await response.arrayBuffer());
-  const meta = getImageDimensions(buffer, mimeType);
+  let meta: ClassificationImageMeta;
+  try {
+    meta = getImageDimensions(buffer, mimeType);
+  } catch (error) {
+    rootLogger.warn({
+      msg: "fetchRemoteImageInput failed while parsing image dimensions",
+      fn: "fetchRemoteImageInput",
+      failureContext,
+      mimeType,
+      byteLength: buffer.length,
+      headerHex: buffer.subarray(0, 16).toString("hex"),
+      ...summarizeImageUrl(imageUrl),
+      ...serializeError(error),
+    });
+    throw error;
+  }
 
   return {
     ...meta,
     mimeType,
+    byteLength: buffer.length,
+    buffer,
     dataUrl: bufferToDataUrl(buffer, mimeType),
   };
 }
 
 export async function cropImageToDataUrl({
   imageDataUrl,
+  imageBuffer,
+  sourceMimeType,
   meta,
   box,
 }: {
   imageDataUrl: string;
+  imageBuffer?: Buffer;
+  sourceMimeType?: string;
   meta: ClassificationImageMeta;
   box: ClassificationDetectionBox;
 }) {
   const crop = clampBox(box, meta);
-  const width = Math.max(1, Math.round(crop.xMax - crop.xMin));
-  const height = Math.max(1, Math.round(crop.yMax - crop.yMin));
+  const sourceBuffer = imageBuffer ?? dataUrlToBuffer(imageDataUrl);
+  const imageWidth = Math.max(1, Math.round(meta.width));
+  const imageHeight = Math.max(1, Math.round(meta.height));
+  const left = Math.max(0, Math.min(imageWidth - 1, Math.floor(crop.xMin)));
+  const top = Math.max(0, Math.min(imageHeight - 1, Math.floor(crop.yMin)));
+  const right = Math.max(left + 1, Math.min(imageWidth, Math.ceil(crop.xMax)));
+  const bottom = Math.max(top + 1, Math.min(imageHeight, Math.ceil(crop.yMax)));
+  const width = Math.max(1, right - left);
+  const height = Math.max(1, bottom - top);
 
-  const response = new ImageResponse(
-    (
-      <div
-        style={{
-          width: `${width}px`,
-          height: `${height}px`,
-          display: "flex",
-          position: "relative",
-          overflow: "hidden",
-          backgroundColor: "white",
-        }}
-      >
-        <img
-          alt=""
-          src={imageDataUrl}
-          width={meta.width}
-          height={meta.height}
-          style={{
-            position: "absolute",
-            left: `${-crop.xMin}px`,
-            top: `${-crop.yMin}px`,
-            width: `${meta.width}px`,
-            height: `${meta.height}px`,
-          }}
-        />
-      </div>
-    ),
-    {
-      width,
-      height,
-    },
-  );
+  try {
+    const pngBuffer = await sharp(sourceBuffer)
+      .extract({
+        left,
+        top,
+        width,
+        height,
+      })
+      .flatten({ background: "#fff" })
+      .png()
+      .toBuffer();
 
-  const pngBuffer = Buffer.from(await response.arrayBuffer());
-  return bufferToDataUrl(pngBuffer, "image/png");
+    return bufferToDataUrl(pngBuffer, "image/png");
+  } catch (error) {
+    rootLogger.warn({
+      msg: "cropImageToDataUrl failed",
+      fn: "cropImageToDataUrl",
+      sourceMimeType,
+      imageWidth,
+      imageHeight,
+      sourceByteLength: sourceBuffer.length,
+      crop: {
+        left,
+        top,
+        width,
+        height,
+        label: crop.label,
+        score: crop.score,
+      },
+      ...serializeError(error),
+    });
+    throw error;
+  }
 }
 
 export function normalizeRecommendedTags(

@@ -38,6 +38,8 @@ export async function classifyAssetProductRecommendation({
       box,
       image: await cropImageToDataUrl({
         imageDataUrl: imageInput.dataUrl,
+        imageBuffer: imageInput.buffer,
+        sourceMimeType: imageInput.mimeType,
         meta: imageInput,
         box,
       }),

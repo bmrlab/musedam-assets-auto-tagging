@@ -188,7 +188,9 @@ export async function processQueueItem({
     }).catch((error) => {
       logger.warn({
         msg: "brand classification failed, continuing without brand recommendation",
-        error: String(error),
+        classificationFn: "classifyAssetBrandRecommendation",
+        err: error,
+        error: error instanceof Error ? error.message : String(error),
       });
       return null;
     });
@@ -198,7 +200,9 @@ export async function processQueueItem({
     }).catch((error) => {
       logger.warn({
         msg: "ip classification failed, continuing without ip recommendation",
-        error: String(error),
+        classificationFn: "classifyAssetIpRecommendation",
+        err: error,
+        error: error instanceof Error ? error.message : String(error),
       });
       return null;
     });
@@ -208,7 +212,9 @@ export async function processQueueItem({
     }).catch((error) => {
       logger.warn({
         msg: "product classification failed, continuing without product recommendation",
-        error: String(error),
+        classificationFn: "classifyAssetProductRecommendation",
+        err: error,
+        error: error instanceof Error ? error.message : String(error),
       });
       return null;
     });
@@ -218,7 +224,9 @@ export async function processQueueItem({
     }).catch((error) => {
       logger.warn({
         msg: "person classification failed, continuing without person recommendation",
-        error: String(error),
+        classificationFn: "classifyAssetPersonRecommendation",
+        err: error,
+        error: error instanceof Error ? error.message : String(error),
       });
       return null;
     });
