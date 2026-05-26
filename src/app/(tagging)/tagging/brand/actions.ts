@@ -20,6 +20,11 @@ import {
   uploadOssObject,
 } from "@/lib/oss";
 import { ServerActionResult } from "@/lib/serverAction";
+import {
+  clampBox as clampClassificationBox,
+  cropImageToDataUrl as cropClassificationImageToDataUrl,
+  fetchRemoteImageInput,
+} from "@/lib/tagging/classification-image";
 import { schedulePushFeatureToMuseDAM } from "@/musedam/push-feature-to-musedam";
 import {
   AssetLogo,
@@ -38,9 +43,9 @@ import {
   BrandBatchFileFormat,
   buildBrandBatchExportRows,
   buildBrandBatchTemplateRows,
-  getBrandBatchColumns,
   encodeCsv,
   encodeXlsx,
+  getBrandBatchColumns,
   parseBrandBatchRows,
   parseCsv,
   ParsedBrandBatchRow,
@@ -1130,7 +1135,10 @@ export async function prepareLogoImageUploadAction(input: {
         })
         .parse(input);
 
-      if (!metadata.mimeType.startsWith("image/") && !metadata.name.toLowerCase().endsWith(".svg")) {
+      if (
+        !metadata.mimeType.startsWith("image/") &&
+        !metadata.name.toLowerCase().endsWith(".svg")
+      ) {
         return {
           success: false,
           message: t("uploadErrors.imageLoadFailed"),
@@ -1242,16 +1250,13 @@ function scheduleAssetLogoProcessing(teamId: number, logoId: string) {
   });
 }
 
-const classifyCropSchema = z.object({
-  image: z.string().min(1, "缺少裁剪图片数据"),
-  box: z.object({
-    xMin: z.number().finite(),
-    yMin: z.number().finite(),
-    xMax: z.number().finite(),
-    yMax: z.number().finite(),
-    score: z.number().finite(),
-    label: z.string(),
-  }),
+const classifyBoxSchema = z.object({
+  xMin: z.number().finite(),
+  yMin: z.number().finite(),
+  xMax: z.number().finite(),
+  yMax: z.number().finite(),
+  score: z.number().finite(),
+  label: z.string(),
 });
 
 export async function refreshAssetLogoImageSignedUrlAction(imageId: string): Promise<
@@ -2066,14 +2071,60 @@ export async function prepareBrandClassificationAction(input: {
 }
 
 export async function classifyBrandImageAction(input: {
-  crops: Array<{
-    image: string;
-    box: BrandDetectionBox;
-  }>;
+  objectKey: string;
+  mimeType: string;
+  size: number;
+  boxes: BrandDetectionBox[];
 }): Promise<ServerActionResult<{ result: BrandClassificationResult }>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
-      const crops = z.array(classifyCropSchema).min(1, "请先选择至少一个候选框").parse(input.crops);
+      const metadata = z
+        .object({
+          objectKey: z.string().trim().min(1),
+          mimeType: z.string().trim().min(1).max(255),
+          size: z.number().int().positive().max(MAX_CLIENT_IMAGE_UPLOAD_BYTES),
+          boxes: z.array(classifyBoxSchema).min(1, "请先选择至少一个候选框"),
+        })
+        .parse(input);
+
+      if (!isTeamLogoObjectKey(metadata.objectKey, teamId)) {
+        return {
+          success: false,
+          message: "仅支持图片文件",
+        };
+      }
+
+      if (
+        !metadata.mimeType.startsWith("image/") &&
+        !metadata.objectKey.toLowerCase().endsWith(".svg")
+      ) {
+        return {
+          success: false,
+          message: "仅支持图片文件",
+        };
+      }
+
+      const { signedUrl } = getCachedSignedOssObjectUrl({
+        objectKey: metadata.objectKey,
+        expiresInSeconds: 60 * 60,
+      });
+      const imageInput = await fetchRemoteImageInput(signedUrl, "brand classification upload");
+      const crops = await Promise.all(
+        metadata.boxes.map(async (box) => {
+          const normalizedBox = clampClassificationBox(box, imageInput);
+
+          return {
+            box: normalizedBox,
+            image: await cropClassificationImageToDataUrl({
+              imageDataUrl: imageInput.dataUrl,
+              imageBuffer: imageInput.buffer,
+              sourceMimeType: imageInput.mimeType,
+              meta: imageInput,
+              box: normalizedBox,
+            }),
+          };
+        }),
+      );
 
       const result = await classifyBrandImageCrops({
         teamId,

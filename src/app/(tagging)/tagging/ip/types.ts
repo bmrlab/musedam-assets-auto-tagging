@@ -110,13 +110,6 @@ export type IpPartialFeatureDetectionResult = {
   found: boolean;
 };
 
-export type IpPartialFeatureUploadResult = IpPartialFeatureDetectionResult & {
-  objectKey: string;
-  mimeType: string;
-  size: number;
-  partialMatchPatternName: string;
-};
-
 export type IpClassificationMatch = {
   assetIpId: string;
   ipName: string;

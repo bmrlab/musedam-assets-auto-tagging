@@ -10,8 +10,8 @@ import {
 } from "@/lib/brand/browser-image";
 import { cn } from "@/lib/utils";
 import { ArrowLeft, Loader2, Search, Trophy, Upload } from "lucide-react";
-import Link from "next/link";
 import { useTranslations } from "next-intl";
+import Link from "next/link";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -100,43 +100,6 @@ function loadImage(src: string, t: (key: string) => string) {
     image.onerror = () => reject(new Error(t("errors.imageLoadFailed")));
     image.src = src;
   });
-}
-
-async function cropImageToDataUrl({
-  imageSrc,
-  meta,
-  box,
-  t,
-}: {
-  imageSrc: string;
-  meta: ProductImageMeta;
-  box: IpDetectionBox;
-  t: (key: string) => string;
-}) {
-  const image = await loadImage(imageSrc, t);
-  const crop = clampBox(box, meta);
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.max(1, Math.round(crop.xMax - crop.xMin));
-  canvas.height = Math.max(1, Math.round(crop.yMax - crop.yMin));
-
-  const context = canvas.getContext("2d");
-  if (!context) {
-    throw new Error(t("errors.canvasNotSupported"));
-  }
-
-  context.drawImage(
-    image,
-    crop.xMin,
-    crop.yMin,
-    crop.xMax - crop.xMin,
-    crop.yMax - crop.yMin,
-    0,
-    0,
-    canvas.width,
-    canvas.height,
-  );
-
-  return canvas.toDataURL("image/png");
 }
 
 export default function IpClassifyClient({ initialData }: { initialData: IpLibraryPageData }) {
@@ -252,19 +215,12 @@ export default function IpClassifyClient({ initialData }: { initialData: IpLibra
       const normalizedBoxes = candidateBoxes.map((box) => clampBox(box, imageMeta));
       setDetections(normalizedBoxes);
 
-      const crops = await Promise.all(
-        normalizedBoxes.map(async (box) => ({
-          box,
-          image: await cropImageToDataUrl({
-            imageSrc: previewUrl,
-            meta: imageMeta,
-            box,
-            t,
-          }),
-        })),
-      );
-
-      const classifyResult = await classifyIpImageAction({ crops });
+      const classifyResult = await classifyIpImageAction({
+        objectKey: uploadPrepareResult.data.image.objectKey,
+        mimeType: uploadPrepareResult.data.image.mimeType,
+        size: uploadPrepareResult.data.image.size,
+        boxes: normalizedBoxes,
+      });
       if (!classifyResult.success) {
         toast.error(classifyResult.message);
         return;
@@ -272,7 +228,9 @@ export default function IpClassifyClient({ initialData }: { initialData: IpLibra
 
       setResult(classifyResult.data.result);
       toast.success(
-        classifyResult.data.result.noConfidentMatch ? t("classifyCompleteNoMatch") : t("classifyComplete"),
+        classifyResult.data.result.noConfidentMatch
+          ? t("classifyCompleteNoMatch")
+          : t("classifyComplete"),
       );
     } catch (error) {
       console.error("Failed to classify IP image:", error);
@@ -295,9 +253,7 @@ export default function IpClassifyClient({ initialData }: { initialData: IpLibra
           <h2 className="mt-3 text-[28px] leading-[40px] font-semibold text-basic-8">
             {t("pageTitle")}
           </h2>
-          <p className="mt-1 text-sm leading-6 text-basic-5">
-            {t("pageDescription")}
-          </p>
+          <p className="mt-1 text-sm leading-6 text-basic-5">{t("pageDescription")}</p>
         </div>
 
         <div className="rounded-[18px] border bg-background px-5 py-4 text-right">
@@ -339,7 +295,7 @@ export default function IpClassifyClient({ initialData }: { initialData: IpLibra
             {previewUrl && imageMeta ? (
               <div className="flex justify-center">
                 <div className="relative inline-block max-w-full overflow-hidden rounded-[16px] isolate">
-                    <div className="overflow-hidden rounded-[16px] bg-[#eef3fb]">
+                  <div className="overflow-hidden rounded-[16px] bg-[#eef3fb]">
                     <img
                       src={previewUrl}
                       alt={t("imageToClassify")}
@@ -403,21 +359,18 @@ export default function IpClassifyClient({ initialData }: { initialData: IpLibra
             </div>
 
             {!result ? (
-              <p className="mt-4 text-sm leading-6 text-basic-5">
-                {t("resultHint")}
-              </p>
+              <p className="mt-4 text-sm leading-6 text-basic-5">{t("resultHint")}</p>
             ) : result.noConfidentMatch ? (
               <div className="mt-4 rounded-[18px] border border-warning-4 bg-warning-1 p-4">
                 <p className="text-base font-medium text-basic-8">{t("noConfidentMatch")}</p>
-                <p className="mt-2 text-sm leading-6 text-basic-5">
-                  {t("noConfidentMatchDesc")}
-                </p>
+                <p className="mt-2 text-sm leading-6 text-basic-5">{t("noConfidentMatchDesc")}</p>
                 {result.bestMatch ? (
                   <div className="mt-4 rounded-[14px] border border-basic-3 bg-background/80 px-4 py-3 text-sm">
                     <div className="font-medium text-basic-8">{result.bestMatch.ipName}</div>
                     <div className="mt-1 text-basic-5">
-                      {t("similarity")} {formatPercent(result.bestMatch.similarity)} · {t("confidence")}{" "}
-                      {result.bestMatch.confidence} · {t("box")} {result.bestMatch.detectionIndex + 1}
+                      {t("similarity")} {formatPercent(result.bestMatch.similarity)} ·{" "}
+                      {t("confidence")} {result.bestMatch.confidence} · {t("box")}{" "}
+                      {result.bestMatch.detectionIndex + 1}
                     </div>
                   </div>
                 ) : null}
@@ -434,7 +387,8 @@ export default function IpClassifyClient({ initialData }: { initialData: IpLibra
                   {result.bestMatch.confidence}
                 </p>
                 <p className="mt-1 text-sm text-basic-5">
-                  {t("imageSimilarity")} {formatPercent(result.bestMatch.imageSimilarity)} · {t("descriptionSimilarity")}{" "}
+                  {t("imageSimilarity")} {formatPercent(result.bestMatch.imageSimilarity)} ·{" "}
+                  {t("descriptionSimilarity")}{" "}
                   {formatPercent(result.bestMatch.descriptionSimilarity)}
                 </p>
                 {result.bestMatch.description ? (
@@ -475,11 +429,12 @@ export default function IpClassifyClient({ initialData }: { initialData: IpLibra
                       <div className="text-sm text-basic-5">#{index + 1}</div>
                     </div>
                     <div className="mt-2 text-sm leading-6 text-basic-5">
-                      {t("similarity")} {formatPercent(match.similarity)} · {t("confidence")} {match.confidence}
+                      {t("similarity")} {formatPercent(match.similarity)} · {t("confidence")}{" "}
+                      {match.confidence}
                     </div>
                     <div className="text-sm leading-6 text-basic-5">
-                      {t("imageSimilarity")} {formatPercent(match.imageSimilarity)} · {t("descriptionSimilarity")}{" "}
-                      {formatPercent(match.descriptionSimilarity)}
+                      {t("imageSimilarity")} {formatPercent(match.imageSimilarity)} ·{" "}
+                      {t("descriptionSimilarity")} {formatPercent(match.descriptionSimilarity)}
                     </div>
                     <div className="text-sm leading-6 text-basic-5">
                       {t("type")} {match.ipTypeName} · {t("box")} {match.detectionIndex + 1}

@@ -1,6 +1,7 @@
 "use server";
 
 import { withAuth } from "@/app/(auth)/withAuth";
+import { MAX_CLIENT_IMAGE_UPLOAD_BYTES } from "@/lib/brand/upload-constants";
 import {
   classifyIpImageCrops,
   detectIpFigureBoxes,
@@ -11,13 +12,8 @@ import {
   markAssetIpVectorsProcessing,
   processAssetIpReferenceVectors,
 } from "@/lib/ip/ip-processing";
-import {
-  ASSET_IP_MATCH_PATTERNS,
-  DEFAULT_IP_PARTIAL_MATCH_PATTERN_NAME,
-  IP_PARTIAL_MATCH_PATTERN_OPTIONS,
-} from "@/lib/ip/match-pattern";
+import { ASSET_IP_MATCH_PATTERNS, IP_PARTIAL_MATCH_PATTERN_OPTIONS } from "@/lib/ip/match-pattern";
 import { deleteIpVectorPointsByIp, setIpVectorPayloadByIp } from "@/lib/ip/qdrant";
-import { MAX_CLIENT_IMAGE_UPLOAD_BYTES } from "@/lib/brand/upload-constants";
 import {
   buildAssetIpObjectKey,
   getCachedSignedOssObjectUrl,
@@ -25,7 +21,12 @@ import {
   uploadOssObject,
 } from "@/lib/oss";
 import { ServerActionResult } from "@/lib/serverAction";
-import { fetchRemoteImageInput, getFallbackBox } from "@/lib/tagging/classification-image";
+import {
+  clampBox as clampClassificationBox,
+  cropImageToDataUrl as cropClassificationImageToDataUrl,
+  fetchRemoteImageInput,
+  getFallbackBox,
+} from "@/lib/tagging/classification-image";
 import { schedulePushFeatureToMuseDAM } from "@/musedam/push-feature-to-musedam";
 import { AssetIp, AssetIpImage, AssetIpTag, AssetIpType, AssetTag } from "@/prisma/client/index";
 import prisma from "@/prisma/prisma";
@@ -58,7 +59,6 @@ import {
   IpItem,
   IpLibraryPageData,
   IpPartialFeatureDetectionResult,
-  IpPartialFeatureUploadResult,
   IpTagItem,
   IpTagTreeNode,
   IpTypeItem,
@@ -1280,7 +1280,10 @@ export async function prepareIpImageUploadAction(input: {
         })
         .parse(input);
 
-      if (!metadata.mimeType.startsWith("image/") && !metadata.name.toLowerCase().endsWith(".svg")) {
+      if (
+        !metadata.mimeType.startsWith("image/") &&
+        !metadata.name.toLowerCase().endsWith(".svg")
+      ) {
         return {
           success: false,
           message: t("uploadErrors.imageLoadFailed"),
@@ -1367,61 +1370,6 @@ async function detectPartialFeatureForObjectKey({
           ],
     found: detection.found,
   };
-}
-
-export async function preparePartialAssetIpImageAction(
-  formData: FormData,
-): Promise<ServerActionResult<IpPartialFeatureUploadResult>> {
-  return withAuth(async ({ team: { id: teamId } }) => {
-    try {
-      const t = await getTranslations("Tagging.IpLibrary");
-      const image = formData.get("image");
-      const partialMatchPatternName = z
-        .enum(IP_PARTIAL_MATCH_PATTERN_OPTIONS)
-        .parse(formData.get("partialMatchPatternName") || DEFAULT_IP_PARTIAL_MATCH_PATTERN_NAME);
-
-      if (!(image instanceof File) || image.size <= 0) {
-        return {
-          success: false,
-          message: t("validation.imagesRequired"),
-        };
-      }
-
-      if (!isImageFile(image)) {
-        return {
-          success: false,
-          message: t("uploadErrors.imageLoadFailed"),
-        };
-      }
-
-      const [uploadedImage] = await uploadNewIpImages({
-        files: [image],
-        teamId,
-      });
-      const detection = await detectPartialFeatureForObjectKey({
-        objectKey: uploadedImage.objectKey,
-        partialMatchPatternName,
-      });
-
-      return {
-        success: true,
-        data: {
-          objectKey: uploadedImage.objectKey,
-          mimeType: uploadedImage.mimeType,
-          size: uploadedImage.size,
-          partialMatchPatternName,
-          ...detection,
-        },
-      };
-    } catch (error) {
-      console.error("Failed to prepare partial IP image:", error);
-      const t = await getTranslations("Tagging.IpLibrary");
-      return {
-        success: false,
-        message: error instanceof Error ? error.message : t("uploadErrors.selectFromLibraryFailed"),
-      };
-    }
-  });
 }
 
 export async function detectAssetIpPartialFeatureAction(input: {
@@ -1518,18 +1466,14 @@ function scheduleAssetIpProcessing(teamId: number, ipId: string) {
   });
 }
 
-async function getClassifyCropSchema() {
-  const t = await getTranslations("Tagging.IpClassify");
+function getClassifyBoxSchema() {
   return z.object({
-    image: z.string().min(1, t("errors.imageLoadFailed")),
-    box: z.object({
-      xMin: z.number().finite(),
-      yMin: z.number().finite(),
-      xMax: z.number().finite(),
-      yMax: z.number().finite(),
-      score: z.number().finite(),
-      label: z.string(),
-    }),
+    xMin: z.number().finite(),
+    yMin: z.number().finite(),
+    xMax: z.number().finite(),
+    yMax: z.number().finite(),
+    score: z.number().finite(),
+    label: z.string(),
   });
 }
 
@@ -1864,16 +1808,62 @@ export async function prepareIpClassificationAction(input: {
 }
 
 export async function classifyIpImageAction(input: {
-  crops: Array<{
-    image: string;
-    box: IpDetectionBox;
-  }>;
+  objectKey: string;
+  mimeType: string;
+  size: number;
+  boxes: IpDetectionBox[];
 }): Promise<ServerActionResult<{ result: IpClassificationResult }>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
       const t = await getTranslations("Tagging.IpClassify");
-      const classifyCropSchema = await getClassifyCropSchema();
-      const crops = z.array(classifyCropSchema).min(1, t("uploadImageFirst")).parse(input.crops);
+      const classifyBoxSchema = getClassifyBoxSchema();
+      const metadata = z
+        .object({
+          objectKey: z.string().trim().min(1),
+          mimeType: z.string().trim().min(1).max(255),
+          size: z.number().int().positive().max(MAX_CLIENT_IMAGE_UPLOAD_BYTES),
+          boxes: z.array(classifyBoxSchema).min(1, t("uploadImageFirst")),
+        })
+        .parse(input);
+
+      if (!isTeamIpObjectKey(metadata.objectKey, teamId)) {
+        return {
+          success: false,
+          message: t("errors.imageLoadFailed"),
+        };
+      }
+
+      if (
+        !metadata.mimeType.startsWith("image/") &&
+        !metadata.objectKey.toLowerCase().endsWith(".svg")
+      ) {
+        return {
+          success: false,
+          message: t("errors.imageLoadFailed"),
+        };
+      }
+
+      const { signedUrl } = getCachedSignedOssObjectUrl({
+        objectKey: metadata.objectKey,
+        expiresInSeconds: 60 * 60,
+      });
+      const imageInput = await fetchRemoteImageInput(signedUrl, "IP classification upload");
+      const crops = await Promise.all(
+        metadata.boxes.map(async (box) => {
+          const normalizedBox = clampClassificationBox(box, imageInput);
+
+          return {
+            box: normalizedBox,
+            image: await cropClassificationImageToDataUrl({
+              imageDataUrl: imageInput.dataUrl,
+              imageBuffer: imageInput.buffer,
+              sourceMimeType: imageInput.mimeType,
+              meta: imageInput,
+              box: normalizedBox,
+            }),
+          };
+        }),
+      );
 
       const result = await classifyIpImageCrops({
         teamId,

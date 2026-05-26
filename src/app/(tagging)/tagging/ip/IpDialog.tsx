@@ -51,7 +51,6 @@ import {
   detectAssetIpPartialFeatureAction,
   prepareAssetLibraryIpImagesAction,
   prepareIpImageUploadAction,
-  preparePartialAssetIpImageAction,
   updateAssetIpAction,
 } from "./actions";
 import IpPartialFeatureCropDialog, {
@@ -305,28 +304,22 @@ export default function IpDialog({
       } satisfies Partial<DraftImage>;
     }
 
-    if (!image.file) {
+    const uploadedImage = await uploadLocalDraftImage(image);
+    if (!uploadedImage.objectKey) {
       throw new Error(t("uploadErrors.imageLoadFailed"));
     }
 
-    const formData = new FormData();
-    formData.append("image", image.file);
-    formData.append("partialMatchPatternName", partialMatchPatternName);
-
-    const result = await preparePartialAssetIpImageAction(formData);
+    const result = await detectAssetIpPartialFeatureAction({
+      objectKey: uploadedImage.objectKey,
+      partialMatchPatternName,
+    });
     if (!result.success) {
       throw new Error(result.message);
     }
 
     return {
+      ...uploadedImage,
       partialMatchPatternName,
-      file: undefined,
-      assetLibraryUploadedImage: {
-        objectKey: result.data.objectKey,
-        mimeType: result.data.mimeType,
-        size: result.data.size,
-      },
-      objectKey: result.data.objectKey,
       signedUrl: result.data.signedUrl,
       signedUrlExpiresAt: result.data.signedUrlExpiresAt,
       imageWidth: result.data.imageWidth,
@@ -775,7 +768,9 @@ export default function IpDialog({
                 disabled={isPending}
                 className={cn(
                   "flex min-w-0 w-full flex-col gap-[6px] rounded-[8px] border border-basic-4 bg-background p-[12.5px] text-left transition-all",
-                  matchPattern === "whole" ? "border-primary-5 bg-primary-1" : "hover:border-primary-5",
+                  matchPattern === "whole"
+                    ? "border-primary-5 bg-primary-1"
+                    : "hover:border-primary-5",
                 )}
               >
                 <span className="flex min-w-0 items-center gap-[6px]">
@@ -795,9 +790,7 @@ export default function IpDialog({
                   <span
                     className={cn(
                       "inline-flex size-[16px] shrink-0 items-center justify-center rounded-full border",
-                      matchPattern === "whole"
-                        ? "border-primary-6 bg-primary-6"
-                        : "border-basic-4",
+                      matchPattern === "whole" ? "border-primary-6 bg-primary-6" : "border-basic-4",
                     )}
                   >
                     {matchPattern === "whole" ? (

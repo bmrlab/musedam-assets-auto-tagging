@@ -11,7 +11,6 @@ import { FileImageIcon, TagsIcon } from "@/components/ui/icons";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { dispatchMuseDAMClientAction } from "@/embed/message";
 import { cn } from "@/lib/utils";
-import { MuseDAMID } from "@/musedam/types";
 import { Loader2, PlayIcon, PlusIcon, Trash } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -20,7 +19,7 @@ import { startTaggingTasksAction } from "./actions";
 import { TaggingResult, TaggingResultDisplay } from "./components/TaggingResultDisplay";
 
 interface SelectedAsset {
-  id: MuseDAMID; // 素材唯一标识
+  id: string; // 素材唯一标识
   name: string; // 素材名称
   extension: string; // 文件扩展名
   size: number; // 文件大小（字节）
@@ -31,13 +30,68 @@ interface SelectedAsset {
   width?: number; // 图片宽度（图片类型）
   height?: number; // 图片高度（图片类型）
   type?: string; // 素材类型
-  folderId?: MuseDAMID; // 所在文件夹ID
+  folderId?: string; // 所在文件夹ID
   folderName?: string; // 所在文件夹名称
 }
 
 type DisplayTag = TaggingResult["effectiveTags"][number];
 
 const MATCHING_SOURCE_SEPARATOR = "，";
+
+function toPlainString(value: unknown): string {
+  if (typeof value === "string" || typeof value === "number" || typeof value === "bigint") {
+    return String(value);
+  }
+
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    if (
+      typeof record.value === "string" ||
+      typeof record.value === "number" ||
+      typeof record.value === "bigint"
+    ) {
+      return String(record.value);
+    }
+  }
+
+  return "";
+}
+
+function toPlainNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function normalizeSelectedAsset(asset: unknown): SelectedAsset | null {
+  if (!asset || typeof asset !== "object") {
+    return null;
+  }
+
+  const record = asset as Record<string, unknown>;
+  const id = toPlainString(record.id);
+  if (!id) {
+    return null;
+  }
+
+  const thumbnail = record.thumbnail;
+  const thumbnailUrl =
+    thumbnail && typeof thumbnail === "object"
+      ? toPlainString((thumbnail as Record<string, unknown>).url)
+      : "";
+
+  return {
+    id,
+    name: toPlainString(record.name),
+    extension: toPlainString(record.extension),
+    size: toPlainNumber(record.size) ?? 0,
+    url: toPlainString(record.url || record.downloadUrl) || undefined,
+    thumbnail: thumbnailUrl ? { url: thumbnailUrl } : undefined,
+    width: toPlainNumber(record.width),
+    height: toPlainNumber(record.height),
+    type: toPlainString(record.type) || undefined,
+    folderId: toPlainString(record.folderId) || undefined,
+    folderName: toPlainString(record.folderName) || undefined,
+  };
+}
 
 function buildDisplayTagKey(tagPath: string[], tagId?: number | null) {
   if (Number.isInteger(tagId) && Number(tagId) > 0) {
@@ -356,7 +410,8 @@ export default function TestClient() {
                 assetTagId?: number;
                 tagPath?: string[];
               }> = Array.isArray(result.personLinkedTags) ? result.personLinkedTags : [];
-              const totalPersonFaces = personRecommendation?.faces.filter((f) => f.bestMatch).length ?? 0;
+              const totalPersonFaces =
+                personRecommendation?.faces.filter((f) => f.bestMatch).length ?? 0;
               const personRecognitionFaces =
                 personRecommendation?.faces.map((face) => {
                   const bestMatch = face.bestMatch;
@@ -582,13 +637,16 @@ export default function TestClient() {
       if (!res) return;
       const { selectedAssets: assets } = res;
       if (assets && Array.isArray(assets) && assets.length > 0) {
-        // 转换 assets 中的 id 为 MuseDAMID 类型
-        const convertedAssets = assets.map((asset) => ({
-          ...asset,
-          id: new MuseDAMID(asset.id),
-        }));
+        const convertedAssets = assets
+          .map((asset) => normalizeSelectedAsset(asset))
+          .filter((asset): asset is SelectedAsset => Boolean(asset));
+        if (convertedAssets.length === 0) {
+          toast.info(t("noAssetsSelected"));
+          return;
+        }
+
         setSelectedAssets(convertedAssets);
-        toast.success(t("assetsSelectedSuccess", { count: assets.length }));
+        toast.success(t("assetsSelectedSuccess", { count: convertedAssets.length }));
       } else {
         toast.info(t("noAssetsSelected"));
       }
@@ -650,7 +708,7 @@ export default function TestClient() {
     }
   }, [selectedAssets, matchingSources, recognitionAccuracy, startPolling, t]);
 
-  const removeAsset = (assetId: MuseDAMID) => {
+  const removeAsset = (assetId: string) => {
     setSelectedAssets((prev) => prev.filter((asset) => asset.id !== assetId));
   };
 

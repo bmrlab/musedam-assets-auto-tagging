@@ -15,3 +15,16 @@ export type DetectionUploadResult = {
   found: boolean;
   detectionLabelText: string;
 };
+
+export type DetectionImageUploadResult = {
+  image: {
+    objectKey: string;
+    name: string;
+    mimeType: string;
+    size: number;
+    uploadUrl: string;
+    uploadUrlExpiresAt: number;
+    signedUrl: string;
+    signedUrlExpiresAt: number;
+  };
+};

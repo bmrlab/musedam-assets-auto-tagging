@@ -19,11 +19,7 @@ import {
   prepareBrandClassificationAction,
   prepareLogoImageUploadAction,
 } from "../actions";
-import {
-  BrandClassificationResult,
-  BrandDetectionBox,
-  BrandLibraryPageData,
-} from "../types";
+import { BrandClassificationResult, BrandDetectionBox, BrandLibraryPageData } from "../types";
 
 type ProductImageMeta = {
   width: number;
@@ -106,42 +102,11 @@ function loadImage(src: string) {
   });
 }
 
-async function cropImageToDataUrl({
-  imageSrc,
-  meta,
-  box,
+export default function BrandClassifyClient({
+  initialData,
 }: {
-  imageSrc: string;
-  meta: ProductImageMeta;
-  box: BrandDetectionBox;
+  initialData: BrandLibraryPageData;
 }) {
-  const image = await loadImage(imageSrc);
-  const crop = clampBox(box, meta);
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.max(1, Math.round(crop.xMax - crop.xMin));
-  canvas.height = Math.max(1, Math.round(crop.yMax - crop.yMin));
-
-  const context = canvas.getContext("2d");
-  if (!context) {
-    throw new Error("浏览器不支持 Canvas 裁剪");
-  }
-
-  context.drawImage(
-    image,
-    crop.xMin,
-    crop.yMin,
-    crop.xMax - crop.xMin,
-    crop.yMax - crop.yMin,
-    0,
-    0,
-    canvas.width,
-    canvas.height,
-  );
-
-  return canvas.toDataURL("image/png");
-}
-
-export default function BrandClassifyClient({ initialData }: { initialData: BrandLibraryPageData }) {
   const t = useTranslations("Tagging.BrandClassify") as TranslationFunction;
   const referenceLogos = useMemo(
     () => initialData.logos.filter((logo) => logo.enabled && logo.status === "completed"),
@@ -254,18 +219,12 @@ export default function BrandClassifyClient({ initialData }: { initialData: Bran
       const normalizedBoxes = candidateBoxes.map((box) => clampBox(box, imageMeta));
       setDetections(normalizedBoxes);
 
-      const crops = await Promise.all(
-        normalizedBoxes.map(async (box) => ({
-          box,
-          image: await cropImageToDataUrl({
-            imageSrc: previewUrl,
-            meta: imageMeta,
-            box,
-          }),
-        })),
-      );
-
-      const classifyResult = await classifyBrandImageAction({ crops });
+      const classifyResult = await classifyBrandImageAction({
+        objectKey: uploadPrepareResult.data.image.objectKey,
+        mimeType: uploadPrepareResult.data.image.mimeType,
+        size: uploadPrepareResult.data.image.size,
+        boxes: normalizedBoxes,
+      });
       if (!classifyResult.success) {
         toast.error(classifyResult.message);
         return;
@@ -273,7 +232,9 @@ export default function BrandClassifyClient({ initialData }: { initialData: Bran
 
       setResult(classifyResult.data.result);
       toast.success(
-        classifyResult.data.result.noConfidentMatch ? t("classifyCompleteNoMatch") : t("classifyComplete"),
+        classifyResult.data.result.noConfidentMatch
+          ? t("classifyCompleteNoMatch")
+          : t("classifyComplete"),
       );
     } catch (error) {
       console.error("Failed to classify brand image:", error);
@@ -288,7 +249,10 @@ export default function BrandClassifyClient({ initialData }: { initialData: Bran
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div>
           <div className="flex items-center gap-2 text-sm text-basic-5">
-            <Link href="/tagging/brand" className="inline-flex items-center gap-1 hover:text-basic-8">
+            <Link
+              href="/tagging/brand"
+              className="inline-flex items-center gap-1 hover:text-basic-8"
+            >
               <ArrowLeft className="size-4" />
               {t("backToLibrary")}
             </Link>
@@ -296,9 +260,7 @@ export default function BrandClassifyClient({ initialData }: { initialData: Bran
           <h2 className="mt-3 text-[28px] leading-[40px] font-semibold text-basic-8">
             {t("pageTitle")}
           </h2>
-          <p className="mt-1 text-sm leading-6 text-basic-5">
-            {t("pageDescription")}
-          </p>
+          <p className="mt-1 text-sm leading-6 text-basic-5">{t("pageDescription")}</p>
         </div>
 
         <div className="rounded-[18px] border bg-background px-5 py-4 text-right">
@@ -311,8 +273,17 @@ export default function BrandClassifyClient({ initialData }: { initialData: Bran
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_380px]">
         <div className="space-y-6 rounded-[24px] border bg-background p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-            <Input type="file" accept="image/*,.svg" onChange={handleFileChange} className="max-w-[320px]" />
-            <Button type="button" onClick={handleClassify} disabled={isRunning || !file || referenceLogos.length === 0}>
+            <Input
+              type="file"
+              accept="image/*,.svg"
+              onChange={handleFileChange}
+              className="max-w-[320px]"
+            />
+            <Button
+              type="button"
+              onClick={handleClassify}
+              disabled={isRunning || !file || referenceLogos.length === 0}
+            >
               {isRunning ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />
@@ -396,15 +367,11 @@ export default function BrandClassifyClient({ initialData }: { initialData: Bran
             </div>
 
             {!result ? (
-              <p className="mt-4 text-sm leading-6 text-basic-5">
-                {t("resultHint")}
-              </p>
+              <p className="mt-4 text-sm leading-6 text-basic-5">{t("resultHint")}</p>
             ) : result.noConfidentMatch ? (
               <div className="mt-4 rounded-[18px] border border-warning-4 bg-warning-1 p-4">
                 <p className="text-base font-medium text-basic-8">{t("noConfidentMatch")}</p>
-                <p className="mt-2 text-sm leading-6 text-basic-5">
-                  {t("noConfidentMatchDesc")}
-                </p>
+                <p className="mt-2 text-sm leading-6 text-basic-5">{t("noConfidentMatchDesc")}</p>
                 {result.bestMatch ? (
                   <div className="mt-4 rounded-[14px] border border-basic-3 bg-background/80 px-4 py-3 text-sm">
                     <div className="font-medium text-basic-8">{result.bestMatch.logoName}</div>
@@ -418,10 +385,13 @@ export default function BrandClassifyClient({ initialData }: { initialData: Bran
             ) : result.bestMatch ? (
               <div className="mt-4 rounded-[18px] border border-success-4 bg-success-1 p-4">
                 <p className="text-sm text-basic-5">{t("winningLogo")}</p>
-                <p className="mt-2 text-2xl font-semibold text-basic-8">{result.bestMatch.logoName}</p>
+                <p className="mt-2 text-2xl font-semibold text-basic-8">
+                  {result.bestMatch.logoName}
+                </p>
                 <p className="mt-2 text-sm leading-6 text-basic-5">
                   {t("bestMatchType")} {result.bestMatch.logoTypeName} · {t("similarity")}{" "}
-                  {formatPercent(result.bestMatch.similarity)} · {t("confidence")} {result.bestMatch.confidence}
+                  {formatPercent(result.bestMatch.similarity)} · {t("confidence")}{" "}
+                  {result.bestMatch.confidence}
                 </p>
                 <p className="mt-1 text-sm text-basic-5">
                   {t("winningBox")}: #{result.bestMatch.detectionIndex + 1}
@@ -447,7 +417,8 @@ export default function BrandClassifyClient({ initialData }: { initialData: Bran
                       <div className="text-sm text-basic-5">#{index + 1}</div>
                     </div>
                     <div className="mt-2 text-sm leading-6 text-basic-5">
-                      {t("similarity")} {formatPercent(match.similarity)} · {t("confidence")} {match.confidence}
+                      {t("similarity")} {formatPercent(match.similarity)} · {t("confidence")}{" "}
+                      {match.confidence}
                     </div>
                     <div className="text-sm leading-6 text-basic-5">
                       {t("bestMatchType")} {match.logoTypeName} · box {match.detectionIndex + 1}

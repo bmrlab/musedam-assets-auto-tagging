@@ -22,6 +22,11 @@ import {
   setProductVectorPayloadByProduct,
 } from "@/lib/product/qdrant";
 import { ServerActionResult } from "@/lib/serverAction";
+import {
+  clampBox as clampClassificationBox,
+  cropImageToDataUrl as cropClassificationImageToDataUrl,
+  fetchRemoteImageInput,
+} from "@/lib/tagging/classification-image";
 import { schedulePushFeatureToMuseDAM } from "@/musedam/push-feature-to-musedam";
 import {
   AssetProduct,
@@ -1027,7 +1032,10 @@ export async function prepareProductImageUploadAction(input: {
         })
         .parse(input);
 
-      if (!metadata.mimeType.startsWith("image/") && !metadata.name.toLowerCase().endsWith(".svg")) {
+      if (
+        !metadata.mimeType.startsWith("image/") &&
+        !metadata.name.toLowerCase().endsWith(".svg")
+      ) {
         return {
           success: false,
           message: t("uploadErrors.imageLoadFailed"),
@@ -1141,18 +1149,14 @@ function scheduleAssetProductProcessing(teamId: number, productId: string) {
   });
 }
 
-async function getClassifyCropSchema() {
-  const t = await getTranslations("Tagging.ProductClassify");
+function getClassifyBoxSchema() {
   return z.object({
-    image: z.string().min(1, t("errors.imageLoadFailed")),
-    box: z.object({
-      xMin: z.number().finite(),
-      yMin: z.number().finite(),
-      xMax: z.number().finite(),
-      yMax: z.number().finite(),
-      score: z.number().finite(),
-      label: z.string(),
-    }),
+    xMin: z.number().finite(),
+    yMin: z.number().finite(),
+    xMax: z.number().finite(),
+    yMax: z.number().finite(),
+    score: z.number().finite(),
+    label: z.string(),
   });
 }
 
@@ -1491,16 +1495,62 @@ export async function prepareProductClassificationAction(input: {
 }
 
 export async function classifyProductImageAction(input: {
-  crops: Array<{
-    image: string;
-    box: ProductDetectionBox;
-  }>;
+  objectKey: string;
+  mimeType: string;
+  size: number;
+  boxes: ProductDetectionBox[];
 }): Promise<ServerActionResult<{ result: ProductClassificationResult }>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
       const t = await getTranslations("Tagging.ProductClassify");
-      const classifyCropSchema = await getClassifyCropSchema();
-      const crops = z.array(classifyCropSchema).min(1, t("uploadImageFirst")).parse(input.crops);
+      const classifyBoxSchema = getClassifyBoxSchema();
+      const metadata = z
+        .object({
+          objectKey: z.string().trim().min(1),
+          mimeType: z.string().trim().min(1).max(255),
+          size: z.number().int().positive().max(MAX_CLIENT_IMAGE_UPLOAD_BYTES),
+          boxes: z.array(classifyBoxSchema).min(1, t("uploadImageFirst")),
+        })
+        .parse(input);
+
+      if (!isTeamProductObjectKey(metadata.objectKey, teamId)) {
+        return {
+          success: false,
+          message: t("errors.imageLoadFailed"),
+        };
+      }
+
+      if (
+        !metadata.mimeType.startsWith("image/") &&
+        !metadata.objectKey.toLowerCase().endsWith(".svg")
+      ) {
+        return {
+          success: false,
+          message: t("errors.imageLoadFailed"),
+        };
+      }
+
+      const { signedUrl } = getCachedSignedOssObjectUrl({
+        objectKey: metadata.objectKey,
+        expiresInSeconds: 60 * 60,
+      });
+      const imageInput = await fetchRemoteImageInput(signedUrl, "product classification upload");
+      const crops = await Promise.all(
+        metadata.boxes.map(async (box) => {
+          const normalizedBox = clampClassificationBox(box, imageInput);
+
+          return {
+            box: normalizedBox,
+            image: await cropClassificationImageToDataUrl({
+              imageDataUrl: imageInput.dataUrl,
+              imageBuffer: imageInput.buffer,
+              sourceMimeType: imageInput.mimeType,
+              meta: imageInput,
+              box: normalizedBox,
+            }),
+          };
+        }),
+      );
 
       const result = await classifyProductImageCrops({
         teamId,

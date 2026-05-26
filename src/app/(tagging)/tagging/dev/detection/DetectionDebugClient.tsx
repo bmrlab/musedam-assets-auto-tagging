@@ -13,7 +13,7 @@ import { ArrowLeft, Loader2, Search, Upload } from "lucide-react";
 import Link from "next/link";
 import { Fragment, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { detectLogoBoxesAction } from "./actions";
+import { detectLogoBoxesAction, prepareDetectionImageUploadAction } from "./actions";
 import { DetectionBox, DetectionUploadResult } from "./types";
 
 type DetectionImageMeta = {
@@ -156,11 +156,33 @@ export default function DetectionDebugClient() {
     setDetections([]);
 
     try {
-      const formData = new FormData();
-      formData.append("image", file);
-      formData.append("detection_label_text", normalizedDetectionLabelText);
+      const contentType = file.type || "application/octet-stream";
+      const uploadPrepareResult = await prepareDetectionImageUploadAction({
+        name: file.name,
+        mimeType: contentType,
+        size: file.size,
+      });
+      if (!uploadPrepareResult.success) {
+        toast.error(uploadPrepareResult.message);
+        return;
+      }
 
-      const detectionResult = await detectLogoBoxesAction(formData);
+      const uploadResponse = await fetch(uploadPrepareResult.data.image.uploadUrl, {
+        method: "PUT",
+        headers: {
+          "Content-Type": uploadPrepareResult.data.image.mimeType,
+        },
+        body: file,
+      });
+      if (!uploadResponse.ok) {
+        toast.error("Failed to upload the selected image.");
+        return;
+      }
+
+      const detectionResult = await detectLogoBoxesAction({
+        objectKey: uploadPrepareResult.data.image.objectKey,
+        detectionLabelText: normalizedDetectionLabelText,
+      });
       if (!detectionResult.success) {
         toast.error(detectionResult.message);
         return;
