@@ -13,8 +13,12 @@ type QdrantFilter = {
   must: QdrantMatchCondition[];
 };
 
+type QdrantStatus = {
+  error?: string;
+};
+
 type QdrantResponse<T> = {
-  status?: string;
+  status?: string | QdrantStatus;
   result?: T;
 };
 
@@ -66,7 +70,14 @@ async function qdrantRequest<T>({
 
   const payload = (await response.json().catch(() => null)) as QdrantResponse<T> | null;
   if (!response.ok) {
-    throw new Error(`Qdrant request failed (${response.status}) for ${path}`);
+    const status = payload?.status;
+    const errorDetails =
+      typeof status === "object" && status?.error
+        ? status.error
+        : JSON.stringify(payload);
+    throw new Error(
+      `Qdrant request failed (${response.status}) for ${path}: ${errorDetails}`,
+    );
   }
 
   return payload?.result as T;

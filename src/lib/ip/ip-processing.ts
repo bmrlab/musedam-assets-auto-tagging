@@ -60,7 +60,7 @@ function getProcessingErrorCode(error: unknown): IpProcessingErrorCode {
   return IP_PROCESSING_ERROR_CODES.unknown;
 }
 
-async function fetchImageAsDataUrl(objectKey: string, mimeType: string) {
+async function fetchImageAsDataUrl(objectKey: string, mimeType: string): Promise<{ dataUrl: string; buffer: Buffer }> {
   const { signedUrl } = getCachedSignedOssObjectUrl({ objectKey });
   const response = await fetch(signedUrl);
 
@@ -69,7 +69,7 @@ async function fetchImageAsDataUrl(objectKey: string, mimeType: string) {
   }
 
   const buffer = Buffer.from(await response.arrayBuffer());
-  return bufferToDataUrl(buffer, mimeType);
+  return { dataUrl: bufferToDataUrl(buffer, mimeType), buffer };
 }
 
 function hasPartialCrop(image: {
@@ -109,7 +109,7 @@ async function buildReferenceImageInput({
     cropImageHeight: number | null;
   };
 }) {
-  const dataUrl = await fetchImageAsDataUrl(image.objectKey, image.mimeType);
+  const { dataUrl, buffer } = await fetchImageAsDataUrl(image.objectKey, image.mimeType);
 
   if (matchPattern !== "partial") {
     return dataUrl;
@@ -121,6 +121,8 @@ async function buildReferenceImageInput({
 
   return cropClassificationImageToDataUrl({
     imageDataUrl: dataUrl,
+    imageBuffer: buffer,
+    sourceMimeType: image.mimeType,
     meta: {
       width: image.cropImageWidth!,
       height: image.cropImageHeight!,
