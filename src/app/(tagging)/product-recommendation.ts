@@ -1,3 +1,4 @@
+import { meetsFeatureConfidenceThreshold } from "@/lib/tagging/feature-confidence";
 import { TaggingProductRecommendation, TaggingQueueItemResult } from "@/prisma/client";
 
 export function getProductRecommendationFromQueueResult(
@@ -17,7 +18,8 @@ export function getProductRecommendationTagIdsFromQueueResult(result: unknown): 
 
   if (
     !productRecommendation ||
-    productRecommendation.noConfidentMatch ||
+    !productRecommendation.bestMatch ||
+    !meetsFeatureConfidenceThreshold("product", productRecommendation.bestMatch.confidence) ||
     !Array.isArray(productRecommendation.recommendedTags)
   ) {
     return [];

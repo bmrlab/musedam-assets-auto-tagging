@@ -1,6 +1,11 @@
 "use client";
 
 import { TagOutlinedIcon, VimIcon } from "@/components/ui";
+import {
+  getFeatureConfidenceToneClass,
+  meetsFeatureConfidenceThreshold,
+  normalizeFeatureConfidence,
+} from "@/lib/tagging/feature-confidence";
 import { cn } from "@/lib/utils";
 import {
   CheckIcon,
@@ -119,9 +124,6 @@ interface RecognitionFeature {
   featureId: string;
 }
 
-const EFFECTIVE_SCORE_MIN = 80;
-const CANDIDATE_SCORE_MIN = 60;
-
 function formatFileSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -238,21 +240,18 @@ function TagResultRow({ tag, variant }: { tag: DisplayTag; variant: ResultVarian
   );
 }
 
-function FeatureResultRow({
-  feature,
-  variant,
-}: {
-  feature: RecognitionFeature;
-  variant: ResultVariant;
-}) {
+function FeatureResultRow({ feature }: { feature: RecognitionFeature }) {
   const t = useTranslations("TaggingResultDisplay");
-  const classes = getVariantClasses(variant);
+  const toneClass = getFeatureConfidenceToneClass(feature.confidence);
 
   return (
     <div
-      className={cn("flex items-center justify-between gap-3 rounded-md border p-3", classes.row)}
+      className={cn(
+        "flex items-center justify-between gap-3 rounded-md border p-3",
+        toneClass,
+      )}
     >
-      <CheckIcon className={cn("size-[14px] shrink-0", classes.icon)} />
+      <CheckIcon className="size-[14px] shrink-0 text-current" />
       <div className="relative size-12 shrink-0 overflow-hidden rounded bg-background/70">
         <FeatureThumbnail
           featureType={feature.featureTypeId}
@@ -262,24 +261,22 @@ function FeatureResultRow({
         />
       </div>
       <div className="min-w-0 flex-1">
-        <div className={cn("mb-1 truncate text-sm font-medium", classes.title)}>
-          {feature.title}
-        </div>
+        <div className="mb-1 truncate text-sm font-medium text-current">{feature.title}</div>
         <div
-          className={cn("mb-1 truncate text-xs", classes.meta)}
+          className="mb-1 truncate text-xs text-current/75"
           title={`${feature.featureName} > ${feature.featureType}`}
         >
           {feature.featureName} &gt; {feature.featureType}
         </div>
-        <div className={cn("text-xs", classes.meta)}>
+        <div className="text-xs text-current/60">
           {t("matchingSource")}: {feature.matchingSource}
         </div>
       </div>
       <div className="shrink-0 text-right">
-        <div className={cn("text-sm font-medium", classes.title)}>
+        <div className="text-sm font-medium text-current">
           {t("confidence")}: {feature.confidence}%
         </div>
-        <div className={cn("text-xs", classes.meta)}>
+        <div className="text-xs text-current/75">
           {t("score")}: {feature.score}
         </div>
       </div>
@@ -292,8 +289,12 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
 
   const recognitionFeatures: RecognitionFeature[] = [];
 
-  if (result.productRecognition?.productName && result.productRecognition.assetProductId) {
-    const score = normalizeScore(result.productRecognition.confidence);
+  if (
+    result.productRecognition?.productName &&
+    result.productRecognition.assetProductId &&
+    meetsFeatureConfidenceThreshold("product", result.productRecognition.confidence)
+  ) {
+    const score = normalizeFeatureConfidence(result.productRecognition.confidence);
     recognitionFeatures.push({
       key: "product",
       title: result.productRecognition.productName,
@@ -307,8 +308,12 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
     });
   }
 
-  if (result.brandRecognition?.logoName && result.brandRecognition.assetLogoId) {
-    const score = normalizeScore(result.brandRecognition.confidence);
+  if (
+    result.brandRecognition?.logoName &&
+    result.brandRecognition.assetLogoId &&
+    meetsFeatureConfidenceThreshold("brand", result.brandRecognition.confidence)
+  ) {
+    const score = normalizeFeatureConfidence(result.brandRecognition.confidence);
     recognitionFeatures.push({
       key: "brand",
       title: result.brandRecognition.logoName,
@@ -322,8 +327,12 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
     });
   }
 
-  if (result.ipRecognition?.ipName && result.ipRecognition.assetIpId) {
-    const score = normalizeScore(result.ipRecognition.confidence);
+  if (
+    result.ipRecognition?.ipName &&
+    result.ipRecognition.assetIpId &&
+    meetsFeatureConfidenceThreshold("ip", result.ipRecognition.confidence)
+  ) {
+    const score = normalizeFeatureConfidence(result.ipRecognition.confidence);
     recognitionFeatures.push({
       key: "ip",
       title: result.ipRecognition.ipName,
@@ -338,12 +347,15 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
   }
 
   result.personRecognition?.faces.forEach((face) => {
-    if (!face.personName || !face.assetPersonId) {
+    if (
+      !face.personName ||
+      !face.assetPersonId ||
+      !meetsFeatureConfidenceThreshold("person", face.confidence)
+    ) {
       return;
     }
 
-    // personName is already formatted in TestClient.tsx (e.g., "人物1: 王一博" or just "王一博")
-    const score = normalizeScore(face.confidence);
+    const score = normalizeFeatureConfidence(face.confidence);
     recognitionFeatures.push({
       key: `person-${face.detectionIndex}`,
       title: face.personName,
@@ -357,13 +369,8 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
     });
   });
 
-  const effectiveFeatures = recognitionFeatures.filter(
-    (feature) => feature.score >= EFFECTIVE_SCORE_MIN,
-  );
-  const candidateFeatures = recognitionFeatures.filter(
-    (feature) => feature.score >= CANDIDATE_SCORE_MIN && feature.score < EFFECTIVE_SCORE_MIN,
-  );
-  const visibleFeatureCount = effectiveFeatures.length + candidateFeatures.length;
+  recognitionFeatures.sort((left, right) => right.confidence - left.confidence);
+  const visibleFeatureCount = recognitionFeatures.length;
   const tagCount = result.effectiveTags.length + result.candidateTags.length;
 
   return (
@@ -375,6 +382,7 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
               src={result.asset.thumbnail}
               alt={result.asset.name}
               fill
+              sizes="80px"
               className="object-cover"
             />
           ) : (
@@ -459,31 +467,15 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
         title={t("recognizedFeatures")}
         count={visibleFeatureCount}
       >
-        <ResultGroup
-          title={t("effectiveFeatures")}
-          description={t("effectiveFeaturesDescription")}
-          count={effectiveFeatures.length}
-          variant="effective"
-        >
-          {effectiveFeatures.map((feature) => (
-            <FeatureResultRow key={feature.key} feature={feature} variant="effective" />
-          ))}
-        </ResultGroup>
-
-        <ResultGroup
-          title={t("candidateFeatures")}
-          description={t("candidateFeaturesDescription")}
-          count={candidateFeatures.length}
-          variant="candidate"
-        >
-          {candidateFeatures.map((feature) => (
-            <FeatureResultRow key={feature.key} feature={feature} variant="candidate" />
-          ))}
-        </ResultGroup>
-
-        {visibleFeatureCount === 0 ? (
+        {recognitionFeatures.length > 0 ? (
+          <div className="space-y-3">
+            {recognitionFeatures.map((feature) => (
+              <FeatureResultRow key={feature.key} feature={feature} />
+            ))}
+          </div>
+        ) : (
           <div className="text-sm text-basic-5">{t("noRecognizedFeatures")}</div>
-        ) : null}
+        )}
       </SectionShell>
     </div>
   );

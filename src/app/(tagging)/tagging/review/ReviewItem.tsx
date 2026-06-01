@@ -22,6 +22,11 @@ import { ClockCircleIcon, TagAIIcon, TagsIcon } from "@/components/ui/icons";
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { dispatchMuseDAMClientAction } from "@/embed/message";
+import {
+  getFeatureConfidenceToneClass,
+  meetsFeatureConfidenceThreshold,
+  normalizeFeatureConfidence,
+} from "@/lib/tagging/feature-confidence";
 import { slugToId } from "@/lib/slug";
 import { collectMuseFeatureIdentifierIdsForQueueItem } from "@/musedam/collect-muse-feature-identifier-ids";
 import { cn, formatSize } from "@/lib/utils";
@@ -38,26 +43,6 @@ import {
 } from "./actions";
 
 type ReviewAssetObject = AssetWithAuditItemsBatch["assetObject"];
-
-function getScoreToneClass(score: number) {
-  if (score >= 80) {
-    return "text-primary-6 bg-primary-1 border-[#A6C1FF]";
-  }
-
-  if (score >= 70) {
-    return "text-[#52C41A] bg-[#F6FFED] border-[#95DE64] dark:text-success-6 dark:bg-success-1 dark:border-success-3";
-  }
-
-  return "text-[#FA8C16] bg-[#FFF7E6] border-[#FFC069] dark:text-warning-6 dark:bg-warning-1 dark:border-warning-4";
-}
-
-function normalizeConfidence(confidence: number | null | undefined) {
-  if (typeof confidence !== "number" || !Number.isFinite(confidence)) {
-    return 0;
-  }
-
-  return Math.max(0, Math.min(100, Math.round(confidence)));
-}
 
 function formatSnapshotTagPath(tagPath: string) {
   return tagPath.replace(/\s*->\s*/g, " > ");
@@ -158,7 +143,7 @@ function FeatureRecognitionRow({
     <div
       className={cn(
         "flex items-center justify-between gap-3 rounded-md border p-3",
-        getScoreToneClass(confidence),
+        getFeatureConfidenceToneClass(confidence),
         {
           "border-dashed": isRejected,
         },
@@ -335,13 +320,19 @@ export function ReviewItem({
     () =>
       Array.from(
         new Set(
-          Array.from(brandRecommendationsByQueueId.values()).flatMap((brandRecommendation) =>
-            !brandRecommendation || !brandRecommendation.recommendedTags
-              ? []
-              : brandRecommendation.recommendedTags
-                  .map((tag) => tag.assetTagId)
-                  .filter((tagId) => !rejectedBrandItems.includes(tagId)),
-          ),
+          Array.from(brandRecommendationsByQueueId.values()).flatMap((brandRecommendation) => {
+            if (
+              !brandRecommendation?.bestMatch ||
+              !meetsFeatureConfidenceThreshold("brand", brandRecommendation.bestMatch.confidence) ||
+              !brandRecommendation.recommendedTags
+            ) {
+              return [];
+            }
+
+            return brandRecommendation.recommendedTags
+              .map((tag) => tag.assetTagId)
+              .filter((tagId) => !rejectedBrandItems.includes(tagId));
+          }),
         ),
       ),
     [brandRecommendationsByQueueId, rejectedBrandItems],
@@ -350,13 +341,19 @@ export function ReviewItem({
     () =>
       Array.from(
         new Set(
-          Array.from(ipRecommendationsByQueueId.values()).flatMap((ipRecommendation) =>
-            !ipRecommendation || !ipRecommendation.recommendedTags
-              ? []
-              : ipRecommendation.recommendedTags
-                  .map((tag) => tag.assetTagId)
-                  .filter((tagId) => !rejectedIpItems.includes(tagId)),
-          ),
+          Array.from(ipRecommendationsByQueueId.values()).flatMap((ipRecommendation) => {
+            if (
+              !ipRecommendation?.bestMatch ||
+              !meetsFeatureConfidenceThreshold("ip", ipRecommendation.bestMatch.confidence) ||
+              !ipRecommendation.recommendedTags
+            ) {
+              return [];
+            }
+
+            return ipRecommendation.recommendedTags
+              .map((tag) => tag.assetTagId)
+              .filter((tagId) => !rejectedIpItems.includes(tagId));
+          }),
         ),
       ),
     [ipRecommendationsByQueueId, rejectedIpItems],
@@ -365,13 +362,33 @@ export function ReviewItem({
     () =>
       Array.from(
         new Set(
-          Array.from(personRecommendationsByQueueId.values()).flatMap((personRecommendation) =>
-            !personRecommendation || !personRecommendation.recommendedTags
-              ? []
-              : personRecommendation.recommendedTags
-                  .map((tag) => tag.assetTagId)
-                  .filter((tagId) => !rejectedPersonItems.includes(tagId)),
-          ),
+          Array.from(personRecommendationsByQueueId.values()).flatMap((personRecommendation) => {
+            if (!personRecommendation?.faces) {
+              return [];
+            }
+
+            const tagIds: number[] = [];
+            for (const face of personRecommendation.faces) {
+              if (
+                !face.bestMatch ||
+                !meetsFeatureConfidenceThreshold("person", face.bestMatch.confidence)
+              ) {
+                continue;
+              }
+
+              for (const tag of face.bestMatch.recommendedTags ?? []) {
+                if (
+                  Number.isInteger(tag.assetTagId) &&
+                  tag.assetTagId > 0 &&
+                  !rejectedPersonItems.includes(tag.assetTagId)
+                ) {
+                  tagIds.push(tag.assetTagId);
+                }
+              }
+            }
+
+            return tagIds;
+          }),
         ),
       ),
     [personRecommendationsByQueueId, rejectedPersonItems],
@@ -380,13 +397,22 @@ export function ReviewItem({
     () =>
       Array.from(
         new Set(
-          Array.from(productRecommendationsByQueueId.values()).flatMap((productRecommendation) =>
-            !productRecommendation || !productRecommendation.recommendedTags
-              ? []
-              : productRecommendation.recommendedTags
-                  .map((tag) => tag.assetTagId)
-                  .filter((tagId) => !rejectedProductItems.includes(tagId)),
-          ),
+          Array.from(productRecommendationsByQueueId.values()).flatMap((productRecommendation) => {
+            if (
+              !productRecommendation?.bestMatch ||
+              !meetsFeatureConfidenceThreshold(
+                "product",
+                productRecommendation.bestMatch.confidence,
+              ) ||
+              !productRecommendation.recommendedTags
+            ) {
+              return [];
+            }
+
+            return productRecommendation.recommendedTags
+              .map((tag) => tag.assetTagId)
+              .filter((tagId) => !rejectedProductItems.includes(tagId));
+          }),
         ),
       ),
     [productRecommendationsByQueueId, rejectedProductItems],
@@ -401,16 +427,40 @@ export function ReviewItem({
       const per = personRecommendationsByQueueId.get(queueItem.id);
 
       const brandTagIdsForQueue =
-        br?.recommendedTags?.map((t) => t.assetTagId).filter((id) => !rejectedBrandItems.includes(id)) ??
-        [];
+        br?.bestMatch &&
+        meetsFeatureConfidenceThreshold("brand", br.bestMatch.confidence)
+          ? (br.recommendedTags
+              ?.map((t) => t.assetTagId)
+              .filter((id) => !rejectedBrandItems.includes(id)) ?? [])
+          : [];
       const ipTagIdsForQueue =
-        ir?.recommendedTags?.map((t) => t.assetTagId).filter((id) => !rejectedIpItems.includes(id)) ?? [];
+        ir?.bestMatch && meetsFeatureConfidenceThreshold("ip", ir.bestMatch.confidence)
+          ? (ir.recommendedTags
+              ?.map((t) => t.assetTagId)
+              .filter((id) => !rejectedIpItems.includes(id)) ?? [])
+          : [];
       const productTagIdsForQueue =
-        pr?.recommendedTags?.map((t) => t.assetTagId).filter((id) => !rejectedProductItems.includes(id)) ??
-        [];
+        pr?.bestMatch &&
+        meetsFeatureConfidenceThreshold("product", pr.bestMatch.confidence)
+          ? (pr.recommendedTags
+              ?.map((t) => t.assetTagId)
+              .filter((id) => !rejectedProductItems.includes(id)) ?? [])
+          : [];
       const personTagIdsForQueue =
-        per?.recommendedTags?.map((t) => t.assetTagId).filter((id) => !rejectedPersonItems.includes(id)) ??
-        [];
+        per?.faces.flatMap((face) => {
+          if (
+            !face.bestMatch ||
+            !meetsFeatureConfidenceThreshold("person", face.bestMatch.confidence)
+          ) {
+            return [];
+          }
+
+          return (
+            face.bestMatch.recommendedTags
+              ?.map((t) => t.assetTagId)
+              .filter((id) => !rejectedPersonItems.includes(id)) ?? []
+          );
+        }) ?? [];
 
       for (const id of collectMuseFeatureIdentifierIdsForQueueItem({
         brandRecommendation: br ?? undefined,
@@ -817,7 +867,10 @@ export function ReviewItem({
               onToggleTagIds: (tagIds: number[]) => void;
             }[] = [];
 
-            if (brandRecommendation?.bestMatch) {
+            if (
+              brandRecommendation?.bestMatch &&
+              meetsFeatureConfidenceThreshold("brand", brandRecommendation.bestMatch.confidence)
+            ) {
               featureRows.push({
                 key: "brand",
                 featureType: "brand",
@@ -825,7 +878,7 @@ export function ReviewItem({
                 featureClass: tResult("featureClassBrand"),
                 featureTypeName: brandRecommendation.bestMatch.logoTypeName,
                 classifiedName: brandRecommendation.bestMatch.logoName,
-                confidence: normalizeConfidence(brandRecommendation.bestMatch.confidence),
+                confidence: normalizeFeatureConfidence(brandRecommendation.bestMatch.confidence),
                 tagIds: brandRecommendation.bestMatch.recommendedTags?.map((tag) => tag.assetTagId) ?? [],
                 rejectedTagIds: rejectedBrandItems,
                 onToggleTagIds: (tagIds) =>
@@ -833,7 +886,10 @@ export function ReviewItem({
               });
             }
 
-            if (ipRecommendation?.bestMatch) {
+            if (
+              ipRecommendation?.bestMatch &&
+              meetsFeatureConfidenceThreshold("ip", ipRecommendation.bestMatch.confidence)
+            ) {
               featureRows.push({
                 key: "ip",
                 featureType: "ip",
@@ -841,7 +897,7 @@ export function ReviewItem({
                 featureClass: tResult("featureClassIp"),
                 featureTypeName: ipRecommendation.bestMatch.ipTypeName,
                 classifiedName: ipRecommendation.bestMatch.ipName,
-                confidence: normalizeConfidence(ipRecommendation.bestMatch.confidence),
+                confidence: normalizeFeatureConfidence(ipRecommendation.bestMatch.confidence),
                 tagIds: ipRecommendation.bestMatch.recommendedTags?.map((tag) => tag.assetTagId) ?? [],
                 rejectedTagIds: rejectedIpItems,
                 onToggleTagIds: (tagIds) =>
@@ -849,7 +905,10 @@ export function ReviewItem({
               });
             }
 
-            if (productRecommendation?.bestMatch) {
+            if (
+              productRecommendation?.bestMatch &&
+              meetsFeatureConfidenceThreshold("product", productRecommendation.bestMatch.confidence)
+            ) {
               featureRows.push({
                 key: "product",
                 featureType: "product",
@@ -857,7 +916,7 @@ export function ReviewItem({
                 featureClass: tResult("featureClassProduct"),
                 featureTypeName: productRecommendation.bestMatch.productTypeName,
                 classifiedName: productRecommendation.bestMatch.productName,
-                confidence: normalizeConfidence(productRecommendation.bestMatch.confidence),
+                confidence: normalizeFeatureConfidence(productRecommendation.bestMatch.confidence),
                 tagIds: productRecommendation.bestMatch.recommendedTags?.map((tag) => tag.assetTagId) ?? [],
                 rejectedTagIds: rejectedProductItems,
                 onToggleTagIds: (tagIds) =>
@@ -867,7 +926,10 @@ export function ReviewItem({
 
             const totalPersonFaces = personRecommendation?.faces.filter((f) => f.bestMatch).length ?? 0;
             personRecommendation?.faces.forEach((face) => {
-              if (!face.bestMatch) {
+              if (
+                !face.bestMatch ||
+                !meetsFeatureConfidenceThreshold("person", face.bestMatch.confidence)
+              ) {
                 return;
               }
 
@@ -884,7 +946,7 @@ export function ReviewItem({
                 featureClass: tResult("featureClassPerson"),
                 featureTypeName: face.bestMatch.personTypeName,
                 classifiedName: personDisplayName,
-                confidence: normalizeConfidence(face.bestMatch.confidence),
+                confidence: normalizeFeatureConfidence(face.bestMatch.confidence),
                 tagIds: face.bestMatch.recommendedTags?.map((tag) => tag.assetTagId) ?? [],
                 rejectedTagIds: rejectedPersonItems,
                 onToggleTagIds: (tagIds) =>

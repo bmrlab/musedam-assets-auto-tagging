@@ -1,3 +1,4 @@
+import { meetsFeatureConfidenceThreshold } from "@/lib/tagging/feature-confidence";
 import type {
   TaggingBrandRecommendation,
   TaggingIpRecommendation,
@@ -42,7 +43,10 @@ export function collectMuseFeatureIdentifierIdsForQueueItem({
   const ids = new Set<string>();
 
   const brand = brandRecommendation;
-  if (brand?.bestMatch) {
+  if (
+    brand?.bestMatch &&
+    meetsFeatureConfidenceThreshold("brand", brand.bestMatch.confidence)
+  ) {
     const tagRows = [
       ...(brand.bestMatch.recommendedTags ?? []),
       ...(brand.recommendedTags ?? []),
@@ -53,7 +57,7 @@ export function collectMuseFeatureIdentifierIdsForQueueItem({
   }
 
   const ip = ipRecommendation;
-  if (ip?.bestMatch) {
+  if (ip?.bestMatch && meetsFeatureConfidenceThreshold("ip", ip.bestMatch.confidence)) {
     const tagRows = [...(ip.bestMatch.recommendedTags ?? []), ...(ip.recommendedTags ?? [])];
     if (approvedTagsOverlap(ipTagIds, tagRows)) {
       ids.add(ip.bestMatch.assetIpId);
@@ -61,7 +65,10 @@ export function collectMuseFeatureIdentifierIdsForQueueItem({
   }
 
   const product = productRecommendation;
-  if (product?.bestMatch) {
+  if (
+    product?.bestMatch &&
+    meetsFeatureConfidenceThreshold("product", product.bestMatch.confidence)
+  ) {
     const tagRows = [
       ...(product.bestMatch.recommendedTags ?? []),
       ...(product.recommendedTags ?? []),
@@ -80,7 +87,7 @@ export function collectMuseFeatureIdentifierIdsForQueueItem({
     }
     for (const face of person.faces ?? []) {
       const bm = face.bestMatch;
-      if (!bm) {
+      if (!bm || !meetsFeatureConfidenceThreshold("person", bm.confidence)) {
         continue;
       }
       if (approvedTagsOverlap(personTagIds, bm.recommendedTags)) {

@@ -1,3 +1,4 @@
+import { meetsFeatureConfidenceThreshold } from "@/lib/tagging/feature-confidence";
 import { TaggingIpRecommendation, TaggingQueueItemResult } from "@/prisma/client";
 
 export function getIpRecommendationFromQueueResult(
@@ -17,7 +18,8 @@ export function getIpRecommendationTagIdsFromQueueResult(result: unknown): numbe
 
   if (
     !ipRecommendation ||
-    ipRecommendation.noConfidentMatch ||
+    !ipRecommendation.bestMatch ||
+    !meetsFeatureConfidenceThreshold("ip", ipRecommendation.bestMatch.confidence) ||
     !Array.isArray(ipRecommendation.recommendedTags)
   ) {
     return [];
