@@ -3,7 +3,7 @@ import "server-only";
 import { getLogoDetectionServerToken, getLogoDetectionServerUrl } from "@/lib/brand/env";
 import { createJinaImageEmbeddings } from "@/lib/brand/jina";
 import { queryIpVectorPoints } from "@/lib/ip/qdrant";
-import { translateDetectionTermsToEnglish } from "@/lib/translation/service";
+import { translateDetectionLabelText } from "@/lib/translation/service";
 import { normalizeDetectionText } from "@/lib/utils";
 import prisma from "@/prisma/prisma";
 import { DEFAULT_IP_PARTIAL_MATCH_PATTERN_NAME } from "./match-pattern";
@@ -130,33 +130,20 @@ async function fetchIpDetectionPromptNames(teamId: number) {
     take: 40,
   });
 
-  const promptNames = Array.from(
+  const customPromptTerms = Array.from(
     new Set(
       ips
-        .flatMap((ip) => [ip.name, ip.ipTypeName])
-        .map((value) => normalizeDetectionPromptTerm(value))
-        .filter(Boolean),
-    ),
-  );
-
-  const partialPatternNames = Array.from(
-    new Set(
-      ips
-        .flatMap((ip) => ip.images.map((image) => image.partialMatchPatternName))
+        .flatMap((ip) => [
+          ip.name,
+          ip.ipTypeName,
+          ...ip.images.map((image) => image.partialMatchPatternName),
+        ])
         .map((value) => normalizeDetectionPromptTerm(value ?? ""))
         .filter(Boolean),
     ),
   );
 
-  const translatedPromptNames = (
-    await translateDetectionTermsToEnglish(promptNames)
-  )
-    .map((value) => normalizeDetectionPromptTerm(value))
-    .filter(Boolean);
-
-  return [...partialPatternNames, DEFAULT_IP_DETECTION_PROMPT, ...translatedPromptNames].join(
-    " . ",
-  );
+  return [DEFAULT_IP_DETECTION_PROMPT, ...customPromptTerms].join(" . ");
 }
 
 type CropAggregation = {
@@ -186,7 +173,9 @@ export async function detectIpFigureBoxes({
   teamId: number;
   imageUrl: string;
 }) {
-  const detectionLabelText = normalizeDetectionText(await fetchIpDetectionPromptNames(teamId));
+  const detectionLabelText = normalizeDetectionText(
+    await translateDetectionLabelText(await fetchIpDetectionPromptNames(teamId)),
+  );
   if (!detectionLabelText) {
     throw new Error("IP detection_label_text is empty after normalization");
   }
@@ -205,8 +194,14 @@ export async function detectIpPartialFeatureBoxes({
   imageUrl: string;
   partialMatchPatternName?: string;
 }) {
+  const normalizedPatternName = normalizeDetectionPromptTerm(partialMatchPatternName);
+  const rawPatternLabelText =
+    normalizedPatternName || normalizeDetectionPromptTerm(DEFAULT_IP_PARTIAL_MATCH_PATTERN_NAME);
+  const translatedPatternLabelText = rawPatternLabelText
+    ? await translateDetectionLabelText(rawPatternLabelText)
+    : "";
   const detectionLabelText =
-    normalizeDetectionText(partialMatchPatternName) ||
+    normalizeDetectionText(translatedPatternLabelText || rawPatternLabelText) ||
     normalizeDetectionText(DEFAULT_IP_PARTIAL_MATCH_PATTERN_NAME);
 
   if (!detectionLabelText) {

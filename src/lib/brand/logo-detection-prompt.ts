@@ -1,6 +1,6 @@
 import "server-only";
 
-import { translateDetectionTermsToEnglish } from "@/lib/translation/service";
+import { translateDetectionLabelText } from "@/lib/translation/service";
 import prisma from "@/prisma/prisma";
 
 const DEFAULT_LOGO_DETECTION_PROMPT = "logo . brand logo . emblem . trademark . label";
@@ -23,10 +23,10 @@ export async function fetchLogoDetectionLabelText(teamId: number): Promise<strin
   });
 
   const promptNames = Array.from(new Set(logos.map((logo) => logo.name.trim()).filter(Boolean)));
-
-  const translated = await translateDetectionTermsToEnglish(promptNames);
-  const translatedNames = translated
+  const normalizedNames = promptNames
     .map((value) => normalizeLogoDetectionPromptTerm(value))
     .filter(Boolean);
-  return [DEFAULT_LOGO_DETECTION_PROMPT, ...translatedNames].join(" . ");
+  const rawLabelText = [DEFAULT_LOGO_DETECTION_PROMPT, ...normalizedNames].join(" . ");
+
+  return translateDetectionLabelText(rawLabelText);
 }

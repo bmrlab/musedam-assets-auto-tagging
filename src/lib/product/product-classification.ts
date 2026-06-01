@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getLogoDetectionServerToken, getLogoDetectionServerUrl } from "@/lib/brand/env";
+import { translateDetectionLabelText } from "@/lib/translation/service";
 import { normalizeDetectionText } from "@/lib/utils";
 import { createJinaImageEmbeddings } from "@/lib/brand/jina";
 import { queryProductVectorPoints } from "@/lib/product/qdrant";
@@ -125,6 +126,7 @@ async function fetchProductDetectionPromptNames(teamId: number) {
     },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     select: {
+      name: true,
       generalCategory: true,
     },
     take: 40,
@@ -133,7 +135,8 @@ async function fetchProductDetectionPromptNames(teamId: number) {
   const promptNames = Array.from(
     new Set(
       products
-        .map((product) => normalizeDetectionPromptTerm(product.generalCategory))
+        .flatMap((product) => [product.name, product.generalCategory])
+        .map((value) => normalizeDetectionPromptTerm(value))
         .filter(Boolean),
     ),
   );
@@ -171,7 +174,7 @@ export async function detectProductFigureBoxes({
   const baseUrl = getLogoDetectionServerUrl();
   const token = getLogoDetectionServerToken();
   const detectionLabelText = normalizeDetectionText(
-    await fetchProductDetectionPromptNames(teamId),
+    await translateDetectionLabelText(await fetchProductDetectionPromptNames(teamId)),
   );
   if (!detectionLabelText) {
     throw new Error("Product detection_label_text is empty after normalization");

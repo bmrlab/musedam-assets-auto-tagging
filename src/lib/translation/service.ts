@@ -1,5 +1,7 @@
 import "server-only";
 
+import pLimit from "p-limit";
+
 type TranslationServiceResponse = {
   choices?: Array<{
     message?: {
@@ -11,6 +13,12 @@ type TranslationServiceResponse = {
   };
   message?: string;
 };
+
+const DETECTION_BATCH_SEPARATOR = "<======>";
+const DETECTION_BATCH_SEPARATOR_PATTERN = `${DETECTION_BATCH_SEPARATOR}\n`;
+const DETECTION_TRANSLATION_CONCURRENCY = 2;
+
+const detectionBatchTranslationLimit = pLimit(DETECTION_TRANSLATION_CONCURRENCY);
 
 function getRequiredEnv(name: string) {
   const value = process.env[name]?.trim();
@@ -81,27 +89,94 @@ export async function translateTextToEnglish(input: string) {
   return translatedText;
 }
 
-/** Each unique term is translated via `translateTextToEnglish` for Grounding DINO labels. */
-export async function translateDetectionTermsToEnglish(orderedTerms: string[]): Promise<string[]> {
-  const keys = orderedTerms.map((term) => term.trim()).filter(Boolean);
-  if (keys.length === 0) {
+function splitDetectionPromptTerms(prompt: string) {
+  return prompt
+    .split(/\s*\.\s*/)
+    .map((term) => term.trim())
+    .filter(Boolean);
+}
+
+function joinDetectionPromptTerms(terms: string[]) {
+  return terms
+    .map((term) => term.trim())
+    .filter(Boolean)
+    .join(" . ");
+}
+
+function splitBatchTranslatedText(translatedText: string, expectedCount: number) {
+  let normalized = translatedText;
+
+  const separatorPatternIndex = normalized.indexOf(DETECTION_BATCH_SEPARATOR_PATTERN);
+  if (separatorPatternIndex !== -1) {
+    normalized = normalized.substring(separatorPatternIndex);
+  } else {
+    const separatorIndex = normalized.indexOf(DETECTION_BATCH_SEPARATOR);
+    if (separatorIndex !== -1) {
+      const beforeSeparatorIndex = normalized.lastIndexOf("\n", separatorIndex);
+      normalized =
+        beforeSeparatorIndex !== -1
+          ? normalized.substring(beforeSeparatorIndex + 1)
+          : normalized.substring(separatorIndex);
+    }
+  }
+
+  const translations = normalized
+    .split(DETECTION_BATCH_SEPARATOR_PATTERN)
+    .map((text) => text.trim())
+    .filter(Boolean);
+
+  if (translations.length === expectedCount) {
+    return translations;
+  }
+
+  console.warn(
+    `Detection batch translation count mismatch: expected ${expectedCount}, got ${translations.length}`,
+  );
+
+  const padded = [...translations];
+  while (padded.length < expectedCount) {
+    padded.push("");
+  }
+
+  return padded.slice(0, expectedCount);
+}
+
+async function translateDetectionBatchToEnglish(texts: string[]): Promise<string[]> {
+  const combinedText = texts.map((text) => `\n${DETECTION_BATCH_SEPARATOR}\n${text}`).join("");
+  const translatedCombined = await translateTextToEnglish(combinedText);
+  return splitBatchTranslatedText(translatedCombined, texts.length);
+}
+
+async function translateDetectionTermsToEnglish(orderedTerms: string[]): Promise<string[]> {
+  const terms = orderedTerms.map((term) => term.trim()).filter(Boolean);
+  if (terms.length === 0) {
     return [];
   }
 
-  const unique = [...new Set(keys)];
-  const translatedByTerm = new Map<string, string>();
+  const uniqueTerms = [...new Set(terms)];
 
-  await Promise.all(
-    unique.map(async (term) => {
-      try {
-        const translated = (await translateTextToEnglish(term)).trim();
-        translatedByTerm.set(term, translated || term);
-      } catch (error) {
-        console.error("translateDetectionTermsToEnglish failed for term:", term, error);
-        translatedByTerm.set(term, term);
-      }
-    }),
-  );
+  try {
+    const translations = await detectionBatchTranslationLimit(() =>
+      translateDetectionBatchToEnglish(uniqueTerms),
+    );
+    const translatedByTerm = new Map(
+      uniqueTerms.map((term, index) => [term, translations[index]?.trim() || term]),
+    );
 
-  return keys.map((term) => translatedByTerm.get(term) ?? term);
+    return terms.map((term) => translatedByTerm.get(term) ?? term);
+  } catch (error) {
+    console.error("translateDetectionTermsToEnglish batch failed:", error);
+    return terms;
+  }
+}
+
+/** Split a Grounding DINO label prompt, batch-translate once, and rejoin with ` . `. */
+export async function translateDetectionLabelText(labelText: string): Promise<string> {
+  const terms = splitDetectionPromptTerms(labelText);
+  if (terms.length === 0) {
+    return "";
+  }
+
+  const translatedTerms = await translateDetectionTermsToEnglish(terms);
+  return joinDetectionPromptTerms(translatedTerms);
 }
