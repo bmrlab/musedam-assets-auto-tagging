@@ -45,6 +45,7 @@ import Link from "next/link";
 import { useDeferredValue, useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { MAX_PREVIEW_IMAGE_NUM } from "../brand/BrandLibraryClient";
+import LinkedTagsOverflow from "../components/LinkedTagsOverflow";
 import {
   deleteAssetPersonAction,
   pollPersonsAction,
@@ -801,15 +802,15 @@ export default function PersonLibraryClient({
                       <table className="min-w-full table-fixed [&_th]:font-medium [&_th]:leading-5 [&_th]:align-middle [&_td]:leading-5 [&_td]:align-middle">
                         <thead>
                           <tr className="h-[45px] border-b text-left text-[14px] leading-[20px] text-basic-5">
-                            <th className="w-[52px] px-6 py-0"></th>
-                            <th className="w-[320px] px-4 py-0">{t("columnPersonName")}</th>
-                            <th className="w-[180px] px-4 py-0">{t("columnPersonType")}</th>
+                            <th className="w-[40px] px-3 py-0"></th>
+                            <th className="w-[300px] px-3 py-0">{t("columnPersonName")}</th>
+                            <th className="w-[170px] px-4 py-0">{t("columnPersonType")}</th>
                             <th className="w-[220px] px-4 py-0">{t("columnPersonImages")}</th>
-                            <th className="w-[320px] px-4 py-0">{t("columnLinkedTags")}</th>
-                            <th className="w-[160px] px-4 py-0">{t("columnStatus")}</th>
-                            <th className="w-[140px] px-4 py-0">{t("columnEnabled")}</th>
-                            <th className="w-[190px] px-4 py-0">{t("columnCreatedAt")}</th>
-                            <th className="w-[90px] px-4 py-0 text-right">{t("columnActions")}</th>
+                            <th className="w-[420px] px-4 py-0">{t("columnLinkedTags")}</th>
+                            <th className="w-[150px] px-4 py-0">{t("columnStatus")}</th>
+                            <th className="w-[120px] px-4 py-0">{t("columnEnabled")}</th>
+                            <th className="w-[170px] px-4 py-0">{t("columnCreatedAt")}</th>
+                            <th className="w-[80px] px-4 py-0 text-right">{t("columnActions")}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -823,7 +824,7 @@ export default function PersonLibraryClient({
 
                             return (
                               <tr key={ip.id} className="h-[58px] border-b last:border-b-0">
-                                <td className="h-[58px] px-6 py-0 align-middle">
+                                <td className="h-[58px] px-3 py-0 align-middle">
                                   <Checkbox
                                     className="border-basic-4"
                                     checked={selectedIds.includes(ip.id)}
@@ -844,8 +845,8 @@ export default function PersonLibraryClient({
                                 <td
                                   className={
                                     subtitle
-                                      ? "h-[58px] px-4 pt-3 pb-2 align-top"
-                                      : "h-[58px] px-4 py-0 align-middle"
+                                      ? "h-[58px] px-3 pt-3 pb-2 align-top"
+                                      : "h-[58px] px-3 py-0 align-middle"
                                   }
                                 >
                                   <div
@@ -904,22 +905,7 @@ export default function PersonLibraryClient({
                                 <td
                                   className={`h-[58px] px-4 align-middle ${ip.tags.length > 1 ? "py-2" : "py-0"}`}
                                 >
-                                  <div className="flex flex-wrap gap-2">
-                                    {ip.tags.length > 0 ? (
-                                      ip.tags.map((tag) => (
-                                        <span
-                                          key={tag.id}
-                                          className="inline-flex items-center rounded-[4px] border border-basic-4 px-[6px] py-[3px] text-[12px] font-normal leading-[16px] text-basic-8"
-                                        >
-                                          {tag.tagPath.join(" > ")}
-                                        </span>
-                                      ))
-                                    ) : (
-                                      <span className="text-sm text-basic-5">
-                                        {t("noLinkedTags")}
-                                      </span>
-                                    )}
-                                  </div>
+                                  <LinkedTagsOverflow tags={ip.tags} emptyText={t("noLinkedTags")} />
                                 </td>
                                 <td className="h-[58px] px-4 py-0 align-middle">
                                   <div

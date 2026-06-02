@@ -424,7 +424,7 @@ export default function IpPartialFeatureCropDialog({
             type="button"
             onClick={handleConfirm}
             disabled={!image || !box || detecting}
-            className="h-8 min-w-20 rounded-[6px] border border-basic-4 px-3 py-1"
+            className="h-8 min-w-20 rounded-[6px] px-3 py-1"
           >
             {t("dialog.confirmAndSave")}
           </Button>

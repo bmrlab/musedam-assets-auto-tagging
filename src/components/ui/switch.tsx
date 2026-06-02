@@ -11,7 +11,7 @@ function Switch({ className, ...props }: React.ComponentProps<typeof SwitchPrimi
       data-slot="switch"
       className={cn(
         "active:blur-2xl",
-        "peer data-[state=checked]:bg-primary data-[state=unchecked]:bg-basic-4 focus-visible:border-ring focus-visible:ring-ring/50  inline-flex h-[22px] w-[44px] shrink-0 items-center rounded-full border border-transparent shadow-xs transition-all outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50",
+        "peer data-[state=checked]:bg-primary-6 data-[state=unchecked]:bg-basic-4 focus-visible:border-ring focus-visible:ring-ring/50  inline-flex h-[22px] w-[44px] shrink-0 items-center rounded-full border border-transparent shadow-xs transition-all outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50",
         className,
       )}
       {...props}
