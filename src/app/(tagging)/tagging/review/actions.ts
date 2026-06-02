@@ -60,6 +60,8 @@ export type AssetWithAuditItemsBatch = {
   onSuccess?: () => void;
 };
 
+type BatchApproveAssetRef = Pick<AssetObject, "id" | "slug">;
+
 export async function fetchAssetsWithAuditItems(
   page: number = 1,
   limit: number = 10,
@@ -452,7 +454,7 @@ export async function batchApproveAuditItemsAction({
   assetObjects,
   append = true,
 }: {
-  assetObjects: AssetObject[];
+  assetObjects: BatchApproveAssetRef[];
   append?: boolean;
 }): Promise<ServerActionResult<{ failedCount: number; deletedCount: number }>> {
   return withAuth(async ({ team: { id: teamId } }) => {
@@ -464,12 +466,43 @@ export async function batchApproveAuditItemsAction({
 
       let failedCount = 0;
       let deletedCount = 0;
+      const assetRefs = assetObjects
+        .map((assetObject) => {
+          try {
+            return {
+              ...assetObject,
+              musedamAssetId: slugToId("assetObject", assetObject.slug),
+            };
+          } catch {
+            failedCount++;
+            return null;
+          }
+        })
+        .filter((assetRef): assetRef is BatchApproveAssetRef & { musedamAssetId: MuseDAMID } =>
+          assetRef !== null,
+        );
+
+      const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
+      const existingMuseDAMAssets = await requestMuseDAMAPI<Array<{ id: MuseDAMID }>>(
+        "/api/muse/assets-by-ids",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${musedamTeamApiKey}`,
+          },
+          body: assetRefs.map(({ musedamAssetId }) => musedamAssetId),
+        },
+      );
+      const existingMuseDAMAssetIds = new Set(
+        existingMuseDAMAssets.map((asset) => asset.id.toString()),
+      );
+      const approvedAssetRefs: typeof assetRefs = [];
 
       // 获取所有待审核的审核项
       const auditItems = await prisma.taggingAuditItem.findMany({
         where: {
           teamId,
-          assetObjectId: { in: assetObjects.map((a) => a.id) },
+          assetObjectId: { in: assetRefs.map((a) => a.id) },
           status: "pending",
           leafTagId: { not: null },
         },
@@ -479,7 +512,7 @@ export async function batchApproveAuditItemsAction({
         },
       });
       // 按资产分组处理
-      for (const assetObject of assetObjects) {
+      for (const assetObject of assetRefs) {
         const assetAuditItems = auditItems.filter((item) => item.assetObjectId === assetObject.id);
 
         // 参考 fetchAssetsWithAuditItems 的 batch 分组逻辑
@@ -544,22 +577,12 @@ export async function batchApproveAuditItemsAction({
           failedCount++;
           continue;
         }
-        const musedamAssetId = slugToId("assetObject", assetObject.slug);
+        const { musedamAssetId } = assetObject;
 
-        try {
-          await syncSingleAssetFromMuseDAM({
-            musedamAssetId,
-            team,
-          });
-        } catch (error) {
-          // 素材被删除，从列表移除
-          if (error instanceof Error && error.message === "Asset not found") {
-            await rejectAuditItemsAction({ assetSlug: assetObject.slug });
-            deletedCount++;
-            continue;
-          }
-          // 如果是其他错误，重新抛出
-          throw error;
+        if (!existingMuseDAMAssetIds.has(musedamAssetId.toString())) {
+          await rejectAuditItemsAction({ assetSlug: assetObject.slug });
+          deletedCount++;
+          continue;
         }
         const approvedAssetTags = await prisma.assetTag.findMany({
           where: {
@@ -581,40 +604,17 @@ export async function batchApproveAuditItemsAction({
           continue;
         }
 
-        await setAssetTagsToMuseDAM({
-          musedamAssetId,
-          musedamTagIds,
-          team,
-          append,
-        });
-
-        // 从 MuseDAM 获取更新后的素材标签并同步到本地数据库
         try {
-          const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
-          const assets = await requestMuseDAMAPI<{ id: MuseDAMID }[]>("/api/muse/assets-by-ids", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${musedamTeamApiKey}`,
-            },
-            body: [musedamAssetId],
+          await setAssetTagsToMuseDAM({
+            musedamAssetId,
+            musedamTagIds,
+            team,
+            append,
           });
-
-          if (assets && assets.length > 0) {
-            const musedamAsset = assets[0] as {
-              id: MuseDAMID;
-              tags: { id: MuseDAMID; name: string }[] | null;
-            };
-            const tags = await buildAssetObjectTags(musedamAsset.tags ?? []);
-
-            // 更新本地素材的 tags 字段
-            await prisma.assetObject.update({
-              where: { id: assetObject.id },
-              data: { tags },
-            });
-          }
         } catch (error) {
-          console.error("更新素材标签失败:", error);
-          // 不影响主流程，继续执行
+          console.error("设置素材标签失败:", error);
+          failedCount++;
+          continue;
         }
 
         await prisma.$transaction(async (tx) => {
@@ -625,6 +625,42 @@ export async function batchApproveAuditItemsAction({
             data: { status: "approved" },
           });
         });
+        approvedAssetRefs.push(assetObject);
+      }
+
+      // 从 MuseDAM 批量获取更新后的素材标签并同步到本地数据库
+      if (approvedAssetRefs.length > 0) {
+        try {
+          const assets = await requestMuseDAMAPI<
+            Array<{ id: MuseDAMID; tags: { id: MuseDAMID; name: string }[] | null }>
+          >("/api/muse/assets-by-ids", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${musedamTeamApiKey}`,
+            },
+            body: approvedAssetRefs.map(({ musedamAssetId }) => musedamAssetId),
+          });
+
+          const assetRefByMuseDAMId = new Map(
+            approvedAssetRefs.map((assetRef) => [assetRef.musedamAssetId.toString(), assetRef]),
+          );
+
+          await Promise.all(
+            assets.map(async (musedamAsset) => {
+              const assetRef = assetRefByMuseDAMId.get(musedamAsset.id.toString());
+              if (!assetRef) return;
+
+              const tags = await buildAssetObjectTags(musedamAsset.tags ?? []);
+              await prisma.assetObject.update({
+                where: { id: assetRef.id },
+                data: { tags },
+              });
+            }),
+          );
+        } catch (error) {
+          console.error("批量更新素材标签失败:", error);
+          // 不影响主流程，审核状态已经更新成功
+        }
       }
 
       return {

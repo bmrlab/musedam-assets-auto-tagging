@@ -42,6 +42,7 @@ import { useSession } from "next-auth/react";
 import { isAdminUserSlug } from "@/lib/admin";
 
 type TaggingAuditStatus = "pending" | "approved" | "rejected";
+const BATCH_APPROVE_CHUNK_SIZE = 10;
 
 export default function ReviewPageClient() {
   const t = useTranslations("Tagging.Review");
@@ -183,25 +184,36 @@ export default function ReviewPageClient() {
 
     setLoading(true);
     try {
-      const result = await batchApproveAuditItemsAction({
-        assetObjects: selectedAssets.map(asset => asset.assetObject),
-        append: true,
-      });
+      let failedCount = 0;
+      let deletedCount = 0;
 
-      if (result.success && result.data) {
-        const { failedCount, deletedCount } = result.data;
-        const successCount = selectedAssets.length - failedCount - deletedCount;
+      for (let start = 0; start < selectedAssets.length; start += BATCH_APPROVE_CHUNK_SIZE) {
+        const chunk = selectedAssets.slice(start, start + BATCH_APPROVE_CHUNK_SIZE);
+        const result = await batchApproveAuditItemsAction({
+          assetObjects: chunk.map(({ assetObject }) => ({
+            id: assetObject.id,
+            slug: assetObject.slug,
+          })),
+          append: true,
+        });
 
-        if (failedCount === 0) {
-          toast.success(t("batchApproveSuccess"));
-        } else if (successCount === 0) {
-          toast.error(t("noCorrespondingTag"))
-          return;
+        if (result.success && result.data) {
+          failedCount += result.data.failedCount;
+          deletedCount += result.data.deletedCount;
         } else {
-          toast.warning(t("batchApprovePartialSuccess", { successCount }) + (failedCount > 0 ? t("batchFailedCount", { failedCount }) : "") + (deletedCount > 0 ? t("batchDeletedCount", { deletedCount }) : ""));
+          failedCount += chunk.length;
         }
+      }
+
+      const successCount = selectedAssets.length - failedCount - deletedCount;
+
+      if (failedCount === 0) {
+        toast.success(t("batchApproveSuccess"));
+      } else if (successCount === 0) {
+        toast.error(t("noCorrespondingTag"))
+        return;
       } else {
-        toast.error(t("batchApproveFailed"));
+        toast.warning(t("batchApprovePartialSuccess", { successCount }) + (failedCount > 0 ? t("batchFailedCount", { failedCount }) : "") + (deletedCount > 0 ? t("batchDeletedCount", { deletedCount }) : ""));
       }
 
       setCurrentPage(1)

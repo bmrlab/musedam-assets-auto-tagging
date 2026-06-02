@@ -134,6 +134,29 @@ export async function POST(request: NextRequest) {
         );
       }
     }
+
+    if (triggerType === "default") {
+      const existingDefaultQueueItem = await prisma.taggingQueueItem.findFirst({
+        where: {
+          teamId: team.id,
+          assetObjectId: assetObject.id,
+          taskType: "default",
+        },
+        select: { id: true },
+      });
+
+      if (existingDefaultQueueItem) {
+        return NextResponse.json({
+          success: true,
+          data: {
+            message: "Default tagging task already exists for asset",
+            queueItemId: null,
+            status: null,
+          },
+        });
+      }
+    }
+
     // 2. 发起 AI 打标任务
     try {
       const taggingQueueItem = await enqueueTaggingTask({
