@@ -81,10 +81,7 @@ function revokeDraftImageUrls(images: DraftImage[]) {
   }
 }
 
-function buildDraftImages(
-  product: ProductItem | null,
-  t: TranslationFunction,
-) {
+function buildDraftImages(product: ProductItem | null, t: TranslationFunction) {
   if (!product) {
     return [];
   }
@@ -163,7 +160,8 @@ export default function ProductDialog({
         }
       : null;
   const trimmedName = name.trim();
-  const hasValidProductType = Boolean(productTypeId) && productTypes.some((type) => type.id === productTypeId);
+  const hasValidProductType =
+    Boolean(productTypeId) && productTypes.some((type) => type.id === productTypeId);
   const hasImages = images.length > 0;
   const hasSelectedTags = selectedTagIds.length > 0;
   const isSubmitDisabled =
@@ -421,16 +419,17 @@ export default function ProductDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92vh] w-[750px] max-w-[calc(100%-2rem)] gap-0 overflow-y-auto rounded-[20px] p-0">
+      <DialogContent className="flex max-h-[92vh] w-[750px] max-w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden rounded-[16px] shadow-lg p-0">
         <DialogHeader className="h-14 justify-center gap-0 px-5 py-4">
           <DialogTitle className="text-[16px] leading-6 font-semibold text-basic-9">
             {mode === "create" ? t("dialog.titleCreate") : t("dialog.titleEdit")}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 px-5 pt-0 pb-3">
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="space-y-4 px-5 pt-0 pb-3">
           <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-1">
+            <div className="flex flex-col gap-2">
               <label className="h-[22px] text-[14px] leading-[22px] font-normal text-basic-8">
                 {t("dialog.productNameLabel")}
               </label>
@@ -442,7 +441,7 @@ export default function ProductDialog({
               />
             </div>
 
-            <div className="space-y-1">
+            <div className="flex flex-col gap-2">
               <label className="h-[22px] text-[14px] leading-[22px] font-normal text-basic-8">
                 {t("dialog.productTypeLabel")}
               </label>
@@ -575,7 +574,7 @@ export default function ProductDialog({
             </div>
           </div>
 
-          <div className="mt-4 space-y-2">
+          <div className="mt-4 flex flex-col gap-2">
             <div className="space-y-1">
               <label className="h-[22px] text-[14px] leading-[22px] font-normal text-basic-8">
                 {t("dialog.descriptionLabel")}
@@ -629,7 +628,7 @@ export default function ProductDialog({
           </div>
 
           <div className="mt-4 space-y-2">
-            <label className="h-[22px] text-[14px] leading-[22px] font-normal text-basic-8">
+            <label className="mb-2 block h-[22px] text-[14px] leading-[22px] font-normal text-basic-8">
               {t("dialog.notesLabel")}
               <span className="ml-2 text-[12px] leading-[16px] font-normal text-basic-5">
                 {t("dialog.notesOptional")}
@@ -641,6 +640,7 @@ export default function ProductDialog({
               placeholder={t("dialog.notesPlaceholder")}
               className="h-[60px] rounded-[6px] border border-basic-4 px-4 py-2"
             />
+          </div>
           </div>
         </div>
 

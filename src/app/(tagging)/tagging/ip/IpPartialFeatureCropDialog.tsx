@@ -264,14 +264,15 @@ export default function IpPartialFeatureCropDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[95vh] w-[680px] max-w-[calc(100%-2rem)] gap-0 overflow-y-auto rounded-[20px] p-0">
+      <DialogContent className="flex max-h-[95vh] w-[680px] max-w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden rounded-[16px] shadow-lg p-0">
         <DialogHeader className="h-14 justify-center gap-0 px-5 py-4">
           <DialogTitle className="text-[16px] leading-6 font-semibold text-basic-9">
             {t("dialog.cropTitle")}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 px-5 pt-0 pb-3">
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="space-y-4 px-5 pt-0 pb-3">
           <div className="rounded-[8px] border border-primary-5 bg-primary-1 px-4 py-3 text-[12px] font-normal leading-[18px] text-basic-6">
             💡 {t("dialog.cropInstruction")}
           </div>
@@ -406,6 +407,7 @@ export default function IpPartialFeatureCropDialog({
                 </div>
               </div>
             ) : null}
+          </div>
           </div>
         </div>
 

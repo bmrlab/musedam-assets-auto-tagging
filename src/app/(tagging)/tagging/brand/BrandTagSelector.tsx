@@ -52,6 +52,7 @@ function TagColumn({
   onActivate,
   onToggle,
   t,
+  highlightSelected = false,
 }: {
   title: string;
   nodes: BrandTagTreeNode[];
@@ -60,48 +61,60 @@ function TagColumn({
   onActivate: (id: number) => void;
   onToggle: (id: number) => void;
   t: TranslationFunction;
+  highlightSelected?: boolean;
 }) {
   return (
-    <div className="flex min-h-0 flex-col border-r last:border-r-0">
-      <div className="border-b bg-basic-1 px-4 py-3 text-[12px] leading-[16px] font-medium text-basic-5">
+    <div className="flex h-full min-h-0 flex-col border-r border-[rgba(228,233,242,1)] last:border-r-0">
+      <div className="h-[33px] border-b border-[rgba(228,233,242,1)] px-3 py-2 text-[12px] leading-[16px] font-medium tracking-[0] text-[rgba(143,155,179,1)]">
         {title}
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto p-2">
+      <div className="min-h-0 flex-1 overflow-y-auto">
         {nodes.length === 0 ? (
           <div className="px-3 py-6 text-sm text-basic-5">{t("tagSelector.noSelectableTags")}</div>
         ) : (
-          <div className="space-y-1">
+          <div>
             {nodes.map((node) => {
               const checked = selectedTagIds.includes(node.id);
               const isActive = activeId === node.id;
+              const isHighlighted = isActive || (highlightSelected && checked);
 
               return (
                 <div
                   key={node.id}
                   className={cn(
-                    "flex items-center gap-3 rounded-[8px] px-3 py-2.5 text-[14px] leading-[22px] font-normal text-basic-8 transition-colors",
-                    isActive && "bg-primary-1 text-primary-6",
-                    !isActive && "hover:bg-basic-2/60",
+                    "flex h-9 items-center justify-between px-3 py-2 transition-colors",
+                    isHighlighted && "bg-[rgba(242,246,255,1)]",
+                    !isHighlighted && "hover:bg-basic-2/60",
                   )}
                 >
-                  <Checkbox
-                    checked={checked}
-                    onCheckedChange={() => onToggle(node.id)}
-                    aria-label={t("tagSelector.selectTag", { name: node.name })}
-                    className="border-basic-4 data-[state=checked]:border-primary-6 data-[state=checked]:bg-primary-6"
-                  />
-                  <button
-                    type="button"
-                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
-                    onClick={() => onActivate(node.id)}
-                  >
-                    <span className="truncate">{node.name}</span>
-                    {node.children.length > 0 ? (
-                      <ChevronRight
-                        className={cn("ml-auto size-4 text-basic-5", isActive && "text-primary-6")}
-                      />
-                    ) : null}
-                  </button>
+                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                    <Checkbox
+                      checked={checked}
+                      onCheckedChange={() => onToggle(node.id)}
+                      aria-label={t("tagSelector.selectTag", { name: node.name })}
+                      className="size-4 border-basic-4 data-[state=checked]:border-[rgba(51,102,255,1)] data-[state=checked]:bg-[rgba(51,102,255,1)]"
+                    />
+                    <button
+                      type="button"
+                      className={cn(
+                        "min-w-0 flex-1 truncate text-left text-[14px] leading-[20px] font-normal",
+                        isHighlighted ? "text-[rgba(51,102,255,1)]" : "text-[rgba(25,32,56,1)]",
+                      )}
+                      onClick={() => onActivate(node.id)}
+                    >
+                      {node.name}
+                    </button>
+                  </div>
+                  {node.children.length > 0 ? (
+                    <button
+                      type="button"
+                      className="ml-2 inline-flex h-4 w-4 items-center justify-center"
+                      onClick={() => onActivate(node.id)}
+                      aria-label={t("tagSelector.selectTag", { name: node.name })}
+                    >
+                      <ChevronRight className="size-4 text-basic-5" />
+                    </button>
+                  ) : null}
                 </div>
               );
             })}
@@ -188,7 +201,7 @@ export default function BrandTagSelector({
   }
 
   return (
-    <div ref={containerRef} className="space-y-2">
+    <div ref={containerRef} className="w-full space-y-2">
       <div
         className="flex min-h-10 flex-wrap items-center gap-2 rounded-[8px] border border-basic-4 px-2 py-1.5 transition-colors focus-within:border-primary-6"
         onClick={() => setIsExpanded(true)}
@@ -220,7 +233,7 @@ export default function BrandTagSelector({
       </div>
 
       {isExpanded && deferredKeyword ? (
-        <div className="max-h-[360px] overflow-y-auto rounded-[10px] border border-basic-4 bg-background shadow-[0_8px_24px_rgba(31,48,86,0.08)]">
+        <div className="h-[320px] w-full overflow-y-auto rounded-[6px] border border-[rgba(228,233,242,1)] bg-[rgba(255,255,255,1)] shadow-[0_6px_16px_0_rgba(87,98,114,0.12)]">
           {searchResults.length === 0 ? (
             <div className="px-4 py-8 text-sm text-basic-5">{t("tagSelector.noSearchResults")}</div>
           ) : (
@@ -244,7 +257,7 @@ export default function BrandTagSelector({
       ) : null}
 
       {isExpanded && !deferredKeyword ? (
-        <div className="grid h-[340px] grid-cols-1 overflow-hidden rounded-[10px] border border-basic-4 bg-background shadow-[0_8px_24px_rgba(31,48,86,0.08)] md:grid-cols-3">
+        <div className="grid h-[320px] w-full grid-cols-[200px_180px_minmax(0,1fr)] overflow-hidden rounded-[6px] border border-[rgba(228,233,242,1)] bg-[rgba(255,255,255,1)] shadow-[0_6px_16px_0_rgba(87,98,114,0.12)]">
           <TagColumn
             title={t("tagSelector.tagGroups", { count: tags.length })}
             nodes={tags}
@@ -275,6 +288,7 @@ export default function BrandTagSelector({
             onToggle={toggleTag}
             onActivate={() => undefined}
             t={t}
+            highlightSelected
           />
         </div>
       ) : null}

@@ -5,14 +5,9 @@ export type AssetIpMatchPattern = (typeof ASSET_IP_MATCH_PATTERNS)[number];
 export const IP_PARTIAL_MATCH_PATTERN_OPTIONS = [
   "head",
   "face",
-  "eye",
-  "nose",
-  "mouth",
-  "ear",
-  "hair",
+  "body",
   "hand",
   "feet",
-  "body",
   "logo",
 ] as const;
 

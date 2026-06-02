@@ -244,7 +244,7 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="flex max-h-[92vh] w-[512px] max-w-[calc(100%-2rem)] flex-col gap-5 overflow-y-auto rounded-[16px] border p-5">
+      <DialogContent className="flex max-h-[92vh] w-[512px] max-w-[calc(100%-2rem)] flex-col gap-5 overflow-hidden rounded-[16px] border p-5">
         {isFailureView && failureResult ? (
           <>
             <DialogHeader className="gap-0 p-0">
@@ -258,33 +258,35 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
               </DialogDescription>
             </DialogHeader>
 
-            <div className="flex flex-col gap-5">
-              <div className="flex flex-col items-center justify-center rounded-[8px] bg-basic-1 px-4 py-8">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#FFF4DF] text-[#F7B23B]">
-                  <AlertCircle className="h-5 w-5" />
-                </div>
-                <div className="mt-4 text-[14px] leading-[22px] font-semibold text-basic-8">
-                  {failureResult.successCount > 0
-                    ? t("partialImportFailedHint")
-                    : t("importFailedHint")}
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <div className="flex flex-col gap-5">
+                <div className="flex flex-col items-center justify-center rounded-[8px] bg-basic-1 px-4 py-8">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#FFF4DF] text-[#F7B23B]">
+                    <AlertCircle className="h-5 w-5" />
+                  </div>
+                  <div className="mt-4 text-[14px] leading-[22px] font-semibold text-basic-8">
+                    {failureResult.successCount > 0
+                      ? t("partialImportFailedHint")
+                      : t("importFailedHint")}
                 </div>
               </div>
 
-              <p className="text-[12px] leading-[16px] font-normal text-basic-5">
-                {failureResult.successCount > 0
-                  ? t("partialImportFailedDesc", {
-                      success: failureResult.successCount,
-                      failed: failureResult.failedCount,
-                    })
-                  : t("importFailedDesc")}
-              </p>
+                <p className="text-[12px] leading-[16px] font-normal text-basic-5">
+                  {failureResult.successCount > 0
+                    ? t("partialImportFailedDesc", {
+                        success: failureResult.successCount,
+                        failed: failureResult.failedCount,
+                      })
+                    : t("importFailedDesc")}
+                </p>
 
-              <div className="max-h-[160px] overflow-y-auto rounded-[8px] bg-basic-1 px-4 py-3">
-                <ul className="list-disc space-y-2 pl-4 text-[14px] leading-[22px] font-normal text-basic-8">
-                  {failureResult.failures.map((failure, index) => (
-                    <li key={`${failure.rowNumber}-${index}`}>{formatFailureMessage(failure)}</li>
-                  ))}
-                </ul>
+                <div className="max-h-[160px] overflow-y-auto rounded-[8px] bg-basic-1 px-4 py-3">
+                  <ul className="list-disc space-y-2 pl-4 text-[14px] leading-[22px] font-normal text-basic-8">
+                    {failureResult.failures.map((failure, index) => (
+                      <li key={`${failure.rowNumber}-${index}`}>{formatFailureMessage(failure)}</li>
+                    ))}
+                  </ul>
+                </div>
               </div>
             </div>
 
@@ -319,113 +321,115 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
               </DialogDescription>
             </DialogHeader>
 
-            <div className="flex flex-col gap-5">
-              <div className="grid w-full grid-cols-2 rounded-[8px] bg-basic-1 p-1">
-                {(["import", "export"] as const).map((item) => (
-                  <button
-                    key={item}
-                    type="button"
-                    onClick={() => setMode(item)}
-                    disabled={isPending}
-                    className={cn(
-                      "h-8 rounded-[6px] text-[14px] leading-[22px] font-semibold text-basic-8 transition-colors",
-                      mode === item
-                        ? "bg-background shadow-[0_1px_5px_0_rgba(0,0,0,0.18)]"
-                        : "bg-transparent",
-                    )}
-                  >
-                    {item === "import" ? t("tabImport") : t("tabExport")}
-                  </button>
-                ))}
-              </div>
-
-              {mode === "export" ? (
-                <div className="flex flex-col gap-5">
-                  <p className="text-[14px] leading-[22px] font-normal text-basic-8">
-                    {t("exportFormatLabel")}
-                  </p>
-                  <RadioGroup
-                    value={exportFormat}
-                    onValueChange={(value) => setExportFormat(value as ExportFormat)}
-                    className="flex items-center gap-8 rounded-[8px] border border-basic-3 px-4 py-3"
-                  >
-                    <label className="flex cursor-pointer items-center gap-2 text-[14px] leading-[22px] font-normal text-basic-8">
-                      <RadioGroupItem value="xlsx" className="size-4" />
-                      {t("formatExcel")}
-                    </label>
-                    <label className="flex cursor-pointer items-center gap-2 text-[14px] leading-[22px] font-normal text-basic-8">
-                      <RadioGroupItem value="csv" className="size-4" />
-                      {t("formatCsv")}
-                    </label>
-                  </RadioGroup>
-                  <div className="flex items-start gap-2 text-[12px] leading-[16px] font-normal text-basic-5">
-                    <span>{t("exportHint", { entity: entityName })}</span>
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".xlsx,.csv"
-                    className="hidden"
-                    onChange={(event) => handleSelectFile(event.target.files?.[0] ?? null)}
-                  />
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => fileInputRef.current?.click()}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        fileInputRef.current?.click();
-                      }
-                    }}
-                    onDragOver={(event) => event.preventDefault()}
-                    onDrop={handleDrop}
-                    className="flex min-h-[240px] cursor-pointer flex-col items-center justify-center rounded-[8px] bg-basic-1 px-4 py-6 text-center outline-none ring-[#3366FF]/40 transition-shadow focus-visible:ring-4"
-                  >
-                    <div className="relative">
-                      <FileSpreadsheet className="h-12 w-12 text-[#7BDCB5]" />
-                      <span className="absolute -top-1 -right-4 rounded-[4px] bg-[#2DBB7F] px-1.5 py-0.5 text-[10px] leading-4 text-white">
-                        {t("spreadsheetBadge")}
-                      </span>
-                    </div>
-                    <p className="mt-4 text-[12px] leading-[16px] font-normal text-basic-5">
-                      {t("uploadHintLine1")}
-                      <br />
-                      {t("uploadHintLine2")}
-                    </p>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="mt-4 h-8 rounded-[6px] border border-basic-4 px-3 py-1 text-[14px] leading-[22px] text-basic-8"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        fileInputRef.current?.click();
-                      }}
-                      disabled={isPending}
-                    >
-                      {t("selectFile")}
-                    </Button>
-                    {selectedFile ? (
-                      <div className="mt-3 max-w-full truncate text-[14px] leading-[22px] font-normal text-basic-8">
-                        {selectedFile.name}
-                      </div>
-                    ) : null}
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <div className="flex flex-col gap-5">
+                <div className="grid w-full grid-cols-2 rounded-[8px] bg-basic-1 p-1">
+                  {(["import", "export"] as const).map((item) => (
                     <button
+                      key={item}
                       type="button"
-                      className="mt-4 text-[12px] leading-[16px] font-normal text-primary-6 transition-opacity hover:opacity-80"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        handleDownloadTemplate();
-                      }}
+                      onClick={() => setMode(item)}
                       disabled={isPending}
+                      className={cn(
+                        "h-8 rounded-[6px] text-[14px] leading-[22px] font-semibold text-basic-8 transition-colors",
+                        mode === item
+                          ? "bg-background shadow-[0_1px_5px_0_rgba(0,0,0,0.18)]"
+                          : "bg-transparent",
+                      )}
                     >
-                      {t("downloadSampleTemplate", { entity: templateEntityName })}
+                      {item === "import" ? t("tabImport") : t("tabExport")}
                     </button>
-                  </div>
+                  ))}
                 </div>
-              )}
+
+                {mode === "export" ? (
+                  <div className="flex flex-col gap-5">
+                    <p className="text-[14px] leading-[22px] font-normal text-basic-8">
+                      {t("exportFormatLabel")}
+                    </p>
+                    <RadioGroup
+                      value={exportFormat}
+                      onValueChange={(value) => setExportFormat(value as ExportFormat)}
+                      className="flex items-center gap-8 rounded-[8px] border border-basic-3 px-4 py-3"
+                    >
+                      <label className="flex cursor-pointer items-center gap-2 text-[14px] leading-[22px] font-normal text-basic-8">
+                        <RadioGroupItem value="xlsx" className="size-4" />
+                        {t("formatExcel")}
+                      </label>
+                      <label className="flex cursor-pointer items-center gap-2 text-[14px] leading-[22px] font-normal text-basic-8">
+                        <RadioGroupItem value="csv" className="size-4" />
+                        {t("formatCsv")}
+                      </label>
+                    </RadioGroup>
+                    <div className="flex items-start gap-2 text-[12px] leading-[16px] font-normal text-basic-5">
+                      <span>{t("exportHint", { entity: entityName })}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".xlsx,.csv"
+                      className="hidden"
+                      onChange={(event) => handleSelectFile(event.target.files?.[0] ?? null)}
+                    />
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => fileInputRef.current?.click()}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          fileInputRef.current?.click();
+                        }
+                      }}
+                      onDragOver={(event) => event.preventDefault()}
+                      onDrop={handleDrop}
+                      className="flex min-h-[240px] cursor-pointer flex-col items-center justify-center rounded-[8px] bg-basic-1 px-4 py-6 text-center outline-none ring-[#3366FF]/40 transition-shadow focus-visible:ring-4"
+                    >
+                      <div className="relative">
+                        <FileSpreadsheet className="h-12 w-12 text-[#7BDCB5]" />
+                        <span className="absolute -top-1 -right-4 rounded-[4px] bg-[#2DBB7F] px-1.5 py-0.5 text-[10px] leading-4 text-white">
+                          {t("spreadsheetBadge")}
+                        </span>
+                      </div>
+                      <p className="mt-4 text-[12px] leading-[16px] font-normal text-basic-5">
+                        {t("uploadHintLine1")}
+                        <br />
+                        {t("uploadHintLine2")}
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="mt-4 h-8 rounded-[6px] border border-basic-4 px-3 py-1 text-[14px] leading-[22px] text-basic-8"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          fileInputRef.current?.click();
+                        }}
+                        disabled={isPending}
+                      >
+                        {t("selectFile")}
+                      </Button>
+                      {selectedFile ? (
+                        <div className="mt-3 max-w-full truncate text-[14px] leading-[22px] font-normal text-basic-8">
+                          {selectedFile.name}
+                        </div>
+                      ) : null}
+                      <button
+                        type="button"
+                        className="mt-4 text-[12px] leading-[16px] font-normal text-primary-6 transition-opacity hover:opacity-80"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleDownloadTemplate();
+                        }}
+                        disabled={isPending}
+                      >
+                        {t("downloadSampleTemplate", { entity: templateEntityName })}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             <DialogFooter className="gap-[10px] p-0">
