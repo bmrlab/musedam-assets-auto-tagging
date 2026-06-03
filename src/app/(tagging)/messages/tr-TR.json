@@ -801,7 +801,8 @@
         "goToPreviousPage": "Önceki sayfaya git",
         "goToNextPage": "Sonraki sayfaya git",
         "morePages": "Daha fazla sayfa"
-      }
+      },
+      "allLinkedTagsTitle": "Tüm bağlantılı etiketler ({count})"
     },
     "BrandClassify": {
       "backToLibrary": "Marka Kütüphanesine Dön",

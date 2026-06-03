@@ -39,7 +39,8 @@
       "refreshDataFailed": "データの更新に失敗しました:",
       "retryFailed": "失敗を再試行",
       "retryTasksSuccess": "失敗したタスク {count} 件を再試行しました",
-      "taskAddedToQueue": "タスクがキューに再追加されました"
+      "taskAddedToQueue": "タスクがキューに再追加されました",
+      "allLinkedTagsTitle": "すべての関連タグ ({count})"
     },
     "Dashboard": {
       "aiTaggingTime": "AIタグ付け時間",

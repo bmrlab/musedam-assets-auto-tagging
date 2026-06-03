@@ -39,7 +39,8 @@
       "refreshDataFailed": "Falha ao atualizar os dados",
       "retryFailed": "Tentar novamente falhou",
       "retryTasksSuccess": "{count} tarefas com falha foram reexecutadas",
-      "taskAddedToQueue": "A tarefa foi adicionada novamente à fila"
+      "taskAddedToQueue": "A tarefa foi adicionada novamente à fila",
+      "allLinkedTagsTitle": "Todas as tags vinculadas ({count})"
     },
     "Dashboard": {
       "aiTaggingTime": "Tempo de Marcação por IA",

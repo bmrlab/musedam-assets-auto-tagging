@@ -39,7 +39,8 @@
       "refreshDataFailed": "डेटा रिफ्रेश करने में विफल रहा",
       "retryFailed": "विफल हुआ पुनः प्रयास करें",
       "retryTasksSuccess": "{count} विफल कार्यों का पुनः प्रयास किया गया है",
-      "taskAddedToQueue": "कार्य को वापस कतार में जोड़ा गया है"
+      "taskAddedToQueue": "कार्य को वापस कतार में जोड़ा गया है",
+      "allLinkedTagsTitle": "सभी लिंक किए गए टैग ({count})"
     },
     "Dashboard": {
       "aiTaggingTime": "एआई टैगिंग टाइम",

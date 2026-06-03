@@ -553,7 +553,8 @@
         "goToPreviousPage": "ไปที่หน้าก่อนหน้า",
         "goToNextPage": "ไปที่หน้าถัดไป",
         "morePages": "หน้าอื่นๆ"
-      }
+      },
+      "allLinkedTagsTitle": "แท็กที่เชื่อมโยงทั้งหมด ({count})"
     },
     "BrandClassify": {
       "backToLibrary": "กลับไปที่คลังแบรนด์",

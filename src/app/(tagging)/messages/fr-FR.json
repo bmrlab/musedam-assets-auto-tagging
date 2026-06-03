@@ -553,7 +553,8 @@
         "goToPreviousPage": "Aller à la page précédente",
         "goToNextPage": "Aller à la page suivante",
         "morePages": "Plus de pages"
-      }
+      },
+      "allLinkedTagsTitle": "Toutes les balises liées ({count})"
     },
     "BrandClassify": {
       "backToLibrary": "Retour à la bibliothèque de marque",

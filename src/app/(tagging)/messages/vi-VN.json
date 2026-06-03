@@ -801,7 +801,8 @@
         "goToPreviousPage": "Tới trang trước",
         "goToNextPage": "Tới trang sau",
         "morePages": "Thêm trang khác"
-      }
+      },
+      "allLinkedTagsTitle": "Tất cả thẻ liên kết ({count})"
     },
     "BrandClassify": {
       "backToLibrary": "Quay lại thư viện thương hiệu",

@@ -39,7 +39,8 @@
       "refreshDataFailed": "데이터 새로 고침 실패:",
       "retryFailed": "재시도 실패",
       "retryTasksSuccess": "{count}개의 실패한 작업을 다시 시도했습니다",
-      "taskAddedToQueue": "작업이 다시 큐에 추가되었습니다"
+      "taskAddedToQueue": "작업이 다시 큐에 추가되었습니다",
+      "allLinkedTagsTitle": "모든 연결 태그 ({count})"
     },
     "Dashboard": {
       "aiTaggingTime": "AI 태깅 시간",

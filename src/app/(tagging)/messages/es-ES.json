@@ -39,7 +39,8 @@
       "refreshDataFailed": "No se pudo actualizar los datos",
       "retryFailed": "Volver a intentar fallido",
       "retryTasksSuccess": "Se han reintentado {count} tareas fallidas",
-      "taskAddedToQueue": "La tarea ha vuelto a ser agregada a la cola"
+      "taskAddedToQueue": "La tarea ha vuelto a ser agregada a la cola",
+      "allLinkedTagsTitle": "Todas las etiquetas vinculadas ({count})"
     },
     "Dashboard": {
       "aiTaggingTime": "Tiempo de Etiquetado con IA",

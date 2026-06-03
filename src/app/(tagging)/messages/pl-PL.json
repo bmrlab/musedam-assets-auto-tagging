@@ -801,7 +801,8 @@
         "goToPreviousPage": "Przejdź do poprzedniej strony",
         "goToNextPage": "Przejdź do następnej strony",
         "morePages": "Więcej stron"
-      }
+      },
+      "allLinkedTagsTitle": "Wszystkie połączone tagi ({count})"
     },
     "BrandClassify": {
       "backToLibrary": "Powrót do biblioteki marki",

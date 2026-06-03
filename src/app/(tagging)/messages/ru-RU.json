@@ -39,7 +39,8 @@
       "refreshDataFailed": "Не удалось обновить данные",
       "retryFailed": "Повторить неудачную попытку",
       "retryTasksSuccess": "{count} неудачных задач перезапущены",
-      "taskAddedToQueue": "Задача возвращена в очередь"
+      "taskAddedToQueue": "Задача возвращена в очередь",
+      "allLinkedTagsTitle": "Все связанные теги ({count})"
     },
     "Dashboard": {
       "aiTaggingTime": "Время тегирования AI",

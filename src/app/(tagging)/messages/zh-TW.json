@@ -39,7 +39,8 @@
       "refreshDataFailed": "重新整理資料失敗:",
       "retryFailed": "重試失敗",
       "retryTasksSuccess": "已重試 {count} 個失敗任務",
-      "taskAddedToQueue": "任務已重新加入佇列"
+      "taskAddedToQueue": "任務已重新加入佇列",
+      "allLinkedTagsTitle": "全部關聯標籤 ({count})"
     },
     "Dashboard": {
       "aiTaggingTime": "AI 標記時間",

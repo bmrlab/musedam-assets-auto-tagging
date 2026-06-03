@@ -878,7 +878,8 @@
         "goToPreviousPage": "Go to previous page",
         "goToNextPage": "Go to next page",
         "morePages": "More pages"
-      }
+      },
+      "allLinkedTagsTitle": "All linked tags ({count})"
     },
     "PersonLibrary": {
       "title": "Person Feature Library",

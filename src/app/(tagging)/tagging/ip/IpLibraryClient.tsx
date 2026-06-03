@@ -47,6 +47,7 @@ import Link from "next/link";
 import { useDeferredValue, useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { MAX_PREVIEW_IMAGE_NUM } from "../brand/BrandLibraryClient";
+import { linkedTagsColumnCellClassName, linkedTagsColumnHeaderClassName } from "../components/linked-tags-column";
 import LinkedTagsOverflow from "../components/LinkedTagsOverflow";
 import {
   deleteAssetIpAction,
@@ -80,19 +81,19 @@ function getIpStatusMeta(status: IpItem["status"], t: TranslationFunction) {
       return {
         label: t("statusCompleted"),
         icon: CheckCircle2,
-        className: "border-success-4 bg-success-1 text-success-6",
+        className: "border-[#8CFAC7] bg-[#EDFFF3] text-[#00E096]",
       };
     case "processing":
       return {
         label: t("statusProcessing"),
         icon: LoaderCircle,
-        className: "border-primary-3 bg-primary-1 text-primary-6",
+        className: "border-[#C7E2FF] bg-[#F2F8FF] text-[#0095FF]",
       };
     case "failed":
       return {
         label: t("statusFailed"),
         icon: XCircle,
-        className: "border-danger-4 bg-danger-1 text-danger-6",
+        className: "border-[#FFA8B4] bg-[#FFF2F2] text-[#FF3D71]",
       };
     default:
       return {
@@ -798,9 +799,9 @@ export default function IpLibraryClient({
                           <tr className="h-[45px] border-b text-left text-[14px] leading-[20px] text-basic-5">
                             <th className="w-[40px] px-3 py-0"></th>
                             <th className="w-[300px] px-3 py-0">{t("columnIpName")}</th>
-                            <th className="w-[170px] px-4 py-0">{t("columnIpType")}</th>
+                            <th className="w-[130px] px-3 py-0">{t("columnIpType")}</th>
                             <th className="w-[220px] px-4 py-0">{t("columnIpImages")}</th>
-                            <th className="w-[420px] px-4 py-0">{t("columnLinkedTags")}</th>
+                            <th className={linkedTagsColumnHeaderClassName}>{t("columnLinkedTags")}</th>
                             <th className="w-[150px] px-4 py-0">{t("columnStatus")}</th>
                             <th className="w-[120px] px-4 py-0">{t("columnEnabled")}</th>
                             <th className="w-[170px] px-4 py-0">{t("columnCreatedAt")}</th>
@@ -891,7 +892,7 @@ export default function IpLibraryClient({
                                     </div>
                                   </div>
                                 </td>
-                                <td className="h-[58px] px-4 py-0 align-middle text-[14px] text-basic-8">
+                                <td className="h-[58px] px-3 py-0 align-middle text-[14px] text-basic-8">
                                   <div className="space-y-2">
                                     <div>{ip.ipTypeName}</div>
                                     <span
@@ -916,7 +917,7 @@ export default function IpLibraryClient({
                                   <IpImagesCell ip={ip} t={t} />
                                 </td>
                                 <td
-                                  className={`h-[58px] px-4 align-middle ${ip.tags.length > 1 ? "py-2" : "py-0"}`}
+                                  className={`h-[58px] px-4 align-middle ${linkedTagsColumnCellClassName} ${ip.tags.length > 1 ? "py-2" : "py-0"}`}
                                 >
                                   <LinkedTagsOverflow tags={ip.tags} emptyText={t("noLinkedTags")} />
                                 </td>

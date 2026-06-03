@@ -553,7 +553,8 @@
         "goToPreviousPage": "Vai alla pagina precedente",
         "goToNextPage": "Vai alla pagina successiva",
         "morePages": "Più pagine"
-      }
+      },
+      "allLinkedTagsTitle": "Tutti i tag collegati ({count})"
     },
     "BrandClassify": {
       "backToLibrary": "Torna alla Libreria Marchio",

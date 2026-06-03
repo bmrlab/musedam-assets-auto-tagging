@@ -39,7 +39,8 @@
       "refreshDataFailed": "Datenaktualisierung fehlgeschlagen",
       "retryFailed": "Wiederholung fehlgeschlagen",
       "retryTasksSuccess": "{count} fehlgeschlagene Aufgaben wurden wiederholt",
-      "taskAddedToQueue": "Aufgabe wurde wieder zur Warteschlange hinzugefügt"
+      "taskAddedToQueue": "Aufgabe wurde wieder zur Warteschlange hinzugefügt",
+      "allLinkedTagsTitle": "Alle verknüpften Tags ({count})"
     },
     "Dashboard": {
       "aiTaggingTime": "AI-Tagging-Zeit",

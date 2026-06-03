@@ -842,7 +842,8 @@
         "goToPreviousPage": "Ke halaman sebelumnya",
         "goToNextPage": "Ke halaman berikutnya",
         "morePages": "Lebih banyak halaman"
-      }
+      },
+      "allLinkedTagsTitle": "Semua tag tertaut ({count})"
     },
     "BrandClassify": {
       "backToLibrary": "Kembali ke Perpustakaan Merek",

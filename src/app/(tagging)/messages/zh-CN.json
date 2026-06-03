@@ -878,7 +878,8 @@
         "goToPreviousPage": "转到上一页",
         "goToNextPage": "转到下一页",
         "morePages": "更多页面"
-      }
+      },
+      "allLinkedTagsTitle": "全部关联标签 ({count})"
     },
     "PersonLibrary": {
       "title": "人物特征库",
