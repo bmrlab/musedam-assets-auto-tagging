@@ -1,5 +1,6 @@
 import { enqueueTaggingTask } from "@/app/(tagging)/queue";
 import { getTaggingSettings } from "@/app/(tagging)/tagging/settings/lib";
+import { getFeatureLibraryEnabledFromRequest } from "@/lib/feature-library-server";
 import { idToSlug, slugToId } from "@/lib/slug";
 import { fetchMuseDAMFolderSubIds, syncSingleAssetFromMuseDAM } from "@/musedam/assets";
 import { MuseDAMID } from "@/musedam/types";
@@ -27,6 +28,7 @@ const requestSchema = z.object({
     }),
   triggerType: z.enum(["default", "manual", "scheduled"]).optional().default("default"),
   recognitionAccuracy: z.enum(["precise", "balanced", "broad"]).optional().default("balanced"),
+  featureLibrary: z.enum(["on", "off"]).optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -39,7 +41,9 @@ export async function POST(request: NextRequest) {
       matchingSources,
       recognitionAccuracy,
       triggerType,
+      featureLibrary,
     } = requestSchema.parse(body);
+    const featureClassify = getFeatureLibraryEnabledFromRequest(request, featureLibrary);
 
     // 根据 teamId 构造 team slug 并查询 team
     const teamSlug = idToSlug("team", new MuseDAMID(musedamTeamId));
@@ -141,6 +145,7 @@ export async function POST(request: NextRequest) {
         assetObject,
         matchingSources,
         recognitionAccuracy,
+        featureClassify,
         taskType: triggerType,
       });
 

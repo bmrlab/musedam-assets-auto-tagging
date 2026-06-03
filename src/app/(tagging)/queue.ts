@@ -125,6 +125,7 @@ export async function enqueueTaggingTask({
   assetObject,
   matchingSources,
   recognitionAccuracy,
+  featureClassify = false,
   taskType = "default",
 }: {
   assetObject: AssetObject;
@@ -135,6 +136,7 @@ export async function enqueueTaggingTask({
     tagKeywords: boolean;
   };
   recognitionAccuracy?: "precise" | "balanced" | "broad";
+  featureClassify?: boolean;
   taskType?: "default" | "test" | "manual" | "scheduled";
 }): Promise<TaggingQueueItem> {
   const teamId = assetObject.teamId;
@@ -149,6 +151,7 @@ export async function enqueueTaggingTask({
       extra: {
         matchingSources,
         recognitionAccuracy,
+        featureClassify,
       } as TaggingQueueItemExtra,
     },
   });
@@ -176,60 +179,69 @@ export async function processQueueItem({
 
   try {
     const extra = queueItem.extra as TaggingQueueItemExtra;
+    const featureClassify = extra?.featureClassify === true;
     const thumbnailUrl = (assetObject.extra as AssetObjectExtra | null)?.thumbnailAccessUrl;
     // console.log("thumbnailUrl", thumbnailUrl);
     const predictTagsPromise = predictAssetTags(assetObject, {
       matchingSources: extra?.matchingSources,
       recognitionAccuracy: extra?.recognitionAccuracy,
     });
-    const brandRecommendationPromise = classifyAssetBrandRecommendation({
-      teamId: queueItem.teamId,
-      imageUrl: thumbnailUrl,
-    }).catch((error) => {
-      logger.warn({
-        msg: "brand classification failed, continuing without brand recommendation",
-        classificationFn: "classifyAssetBrandRecommendation",
-        err: error,
-        error: error instanceof Error ? error.message : String(error),
-      });
-      return null;
-    });
-    const ipRecommendationPromise = classifyAssetIpRecommendation({
-      teamId: queueItem.teamId,
-      imageUrl: thumbnailUrl,
-    }).catch((error) => {
-      logger.warn({
-        msg: "ip classification failed, continuing without ip recommendation",
-        classificationFn: "classifyAssetIpRecommendation",
-        err: error,
-        error: error instanceof Error ? error.message : String(error),
-      });
-      return null;
-    });
-    const productRecommendationPromise = classifyAssetProductRecommendation({
-      teamId: queueItem.teamId,
-      imageUrl: thumbnailUrl,
-    }).catch((error) => {
-      logger.warn({
-        msg: "product classification failed, continuing without product recommendation",
-        classificationFn: "classifyAssetProductRecommendation",
-        err: error,
-        error: error instanceof Error ? error.message : String(error),
-      });
-      return null;
-    });
-    const personRecommendationPromise = classifyAssetPersonRecommendation({
-      teamId: queueItem.teamId,
-      imageUrl: thumbnailUrl,
-    }).catch((error) => {
-      logger.warn({
-        msg: "person classification failed, continuing without person recommendation",
-        classificationFn: "classifyAssetPersonRecommendation",
-        err: error,
-        error: error instanceof Error ? error.message : String(error),
-      });
-      return null;
-    });
+    const brandRecommendationPromise = featureClassify
+      ? classifyAssetBrandRecommendation({
+          teamId: queueItem.teamId,
+          imageUrl: thumbnailUrl,
+        }).catch((error) => {
+          logger.warn({
+            msg: "brand classification failed, continuing without brand recommendation",
+            classificationFn: "classifyAssetBrandRecommendation",
+            err: error,
+            error: error instanceof Error ? error.message : String(error),
+          });
+          return null;
+        })
+      : Promise.resolve(null);
+    const ipRecommendationPromise = featureClassify
+      ? classifyAssetIpRecommendation({
+          teamId: queueItem.teamId,
+          imageUrl: thumbnailUrl,
+        }).catch((error) => {
+          logger.warn({
+            msg: "ip classification failed, continuing without ip recommendation",
+            classificationFn: "classifyAssetIpRecommendation",
+            err: error,
+            error: error instanceof Error ? error.message : String(error),
+          });
+          return null;
+        })
+      : Promise.resolve(null);
+    const productRecommendationPromise = featureClassify
+      ? classifyAssetProductRecommendation({
+          teamId: queueItem.teamId,
+          imageUrl: thumbnailUrl,
+        }).catch((error) => {
+          logger.warn({
+            msg: "product classification failed, continuing without product recommendation",
+            classificationFn: "classifyAssetProductRecommendation",
+            err: error,
+            error: error instanceof Error ? error.message : String(error),
+          });
+          return null;
+        })
+      : Promise.resolve(null);
+    const personRecommendationPromise = featureClassify
+      ? classifyAssetPersonRecommendation({
+          teamId: queueItem.teamId,
+          imageUrl: thumbnailUrl,
+        }).catch((error) => {
+          logger.warn({
+            msg: "person classification failed, continuing without person recommendation",
+            classificationFn: "classifyAssetPersonRecommendation",
+            err: error,
+            error: error instanceof Error ? error.message : String(error),
+          });
+          return null;
+        })
+      : Promise.resolve(null);
 
     const [
       { predictions, tagsWithScore, extra: newExtra },
@@ -268,6 +280,7 @@ export async function processQueueItem({
     logger.info({
       msg: "processQueueItem completed",
       tagsWithScoreCount: tagsWithScore.length,
+      featureClassify,
       hasBrandTags,
       hasIpTags,
       hasProductTags,
@@ -434,20 +447,22 @@ export async function processQueueItem({
             .map((t) => t.assetTagId)
             .filter((id) => approvedTagSet.has(id));
 
-          await bindFeatureIdentifiersToMuseDAMMaterial({
-            team,
-            musedamAssetId,
-            identifierIds: collectMuseFeatureIdentifierIdsForQueueItem({
-              brandRecommendation: brandRecommendation ?? undefined,
-              ipRecommendation: ipRecommendation ?? undefined,
-              productRecommendation: productRecommendation ?? undefined,
-              personRecommendation: personRecommendation ?? undefined,
-              brandTagIds: brandTagIdsForBind,
-              ipTagIds: ipTagIdsForBind,
-              productTagIds: productTagIdsForBind,
-              personTagIds: personTagIdsForBind,
-            }),
-          });
+          if (featureClassify) {
+            await bindFeatureIdentifiersToMuseDAMMaterial({
+              team,
+              musedamAssetId,
+              identifierIds: collectMuseFeatureIdentifierIdsForQueueItem({
+                brandRecommendation: brandRecommendation ?? undefined,
+                ipRecommendation: ipRecommendation ?? undefined,
+                productRecommendation: productRecommendation ?? undefined,
+                personRecommendation: personRecommendation ?? undefined,
+                brandTagIds: brandTagIdsForBind,
+                ipTagIds: ipTagIdsForBind,
+                productTagIds: productTagIdsForBind,
+                personTagIds: personTagIdsForBind,
+              }),
+            });
+          }
 
           // 从 MuseDAM 获取更新后的素材标签并同步到本地数据库
           const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
@@ -504,6 +519,7 @@ export async function processQueueItem({
         extra: {
           ...extra,
           ...newExtra,
+          featureClassify,
         },
       },
     });

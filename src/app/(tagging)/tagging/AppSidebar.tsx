@@ -32,6 +32,7 @@ import {
   SidebarRail,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
+import { useFeatureLibraryEnabled } from "@/hooks/use-feature-library";
 import { cn } from "@/lib/utils";
 
 type SidebarSection = "main" | "featureLibrary" | "configuration";
@@ -129,9 +130,12 @@ export function getActiveMenuTitle(pathname: string, t: TranslationFunction): st
 export function AppSidebar({ className, ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname();
   const t = useTranslations("Tagging") as TranslationFunction;
+  const featureLibraryEnabled = useFeatureLibraryEnabled();
   const menuItems = getMenuItems(t);
   const mainMenuItems = menuItems.filter((item) => item.section === "main");
-  const featureLibraryMenuItems = menuItems.filter((item) => item.section === "featureLibrary");
+  const featureLibraryMenuItems = featureLibraryEnabled
+    ? menuItems.filter((item) => item.section === "featureLibrary")
+    : [];
   const configurationMenuItems = menuItems.filter((item) => item.section === "configuration");
 
   return (
@@ -148,17 +152,19 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
             <SidebarMenu>{renderMenuItems(mainMenuItems, pathname)}</SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-        <SidebarGroup className="p-0 pt-6">
-          <SidebarGroupLabel
-            asChild
-            className="h-[18px] rounded-none px-4 py-0 text-[13px] leading-[18px] text-[#8f9bb3] font-normal"
-          >
-            <span>{t("Sidebar.featureLibrary")}</span>
-          </SidebarGroupLabel>
-          <SidebarGroupContent className="pt-2">
-            <SidebarMenu>{renderMenuItems(featureLibraryMenuItems, pathname)}</SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {featureLibraryMenuItems.length > 0 ? (
+          <SidebarGroup className="p-0 pt-6">
+            <SidebarGroupLabel
+              asChild
+              className="h-[18px] rounded-none px-4 py-0 text-[13px] leading-[18px] text-[#8f9bb3] font-normal"
+            >
+              <span>{t("Sidebar.featureLibrary")}</span>
+            </SidebarGroupLabel>
+            <SidebarGroupContent className="pt-2">
+              <SidebarMenu>{renderMenuItems(featureLibraryMenuItems, pathname)}</SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ) : null}
         <SidebarGroup className="p-0 pt-6">
           <SidebarGroupLabel
             asChild

@@ -3,6 +3,8 @@ import { getBrandRecommendationFromQueueResult } from "@/app/(tagging)/brand-rec
 import { getIpRecommendationFromQueueResult } from "@/app/(tagging)/ip-recommendation";
 import { getPersonRecommendationFromQueueResult } from "@/app/(tagging)/person-recommendation";
 import { getProductRecommendationFromQueueResult } from "@/app/(tagging)/product-recommendation";
+import { stripFeatureLibraryRecommendations } from "@/lib/feature-library";
+import { getFeatureLibraryEnabledFromRequest } from "@/lib/feature-library-server";
 import prisma from "@/prisma/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -19,6 +21,7 @@ export async function GET(
     try {
       const resolvedParams = await params;
       const { queueItemId } = paramsSchema.parse(resolvedParams);
+      const featureClassify = getFeatureLibraryEnabledFromRequest(request);
 
       const queueItem = await prisma.taggingQueueItem.findFirst({
         where: {
@@ -39,13 +42,21 @@ export async function GET(
         );
       }
 
-      const brandRecommendation = getBrandRecommendationFromQueueResult(queueItem.result);
+      const brandRecommendation = featureClassify
+        ? getBrandRecommendationFromQueueResult(queueItem.result)
+        : null;
       const assetLogoId = brandRecommendation?.bestMatch?.assetLogoId;
-      const ipRecommendation = getIpRecommendationFromQueueResult(queueItem.result);
+      const ipRecommendation = featureClassify
+        ? getIpRecommendationFromQueueResult(queueItem.result)
+        : null;
       const assetIpId = ipRecommendation?.bestMatch?.assetIpId;
-      const productRecommendation = getProductRecommendationFromQueueResult(queueItem.result);
+      const productRecommendation = featureClassify
+        ? getProductRecommendationFromQueueResult(queueItem.result)
+        : null;
       const assetProductId = productRecommendation?.bestMatch?.assetProductId;
-      const personRecommendation = getPersonRecommendationFromQueueResult(queueItem.result);
+      const personRecommendation = featureClassify
+        ? getPersonRecommendationFromQueueResult(queueItem.result)
+        : null;
       const assetPersonIds = Array.from(
         new Set(
           personRecommendation?.faces
@@ -124,6 +135,9 @@ export async function GET(
         success: true,
         data: {
           ...queueItem,
+          result: featureClassify
+            ? queueItem.result
+            : stripFeatureLibraryRecommendations(queueItem.result),
           brandLinkedTags: brandLinkedTags.map((tag) => ({
             assetTagId: tag.assetTagId,
             tagPath: Array.isArray(tag.tagPath) ? tag.tagPath.map(String) : [],

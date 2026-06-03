@@ -44,6 +44,7 @@ declare module "@/prisma/client" {
       tagKeywords: boolean;
     };
     recognitionAccuracy: "precise" | "balanced" | "broad";
+    featureClassify: boolean;
   }>;
 
   export type TaggingBrandRecommendedTag = {

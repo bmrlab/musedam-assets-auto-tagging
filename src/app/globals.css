@@ -438,9 +438,9 @@ input:focus-visible {
   --ant-primary-3: rgba(26, 52, 184, 1);
   --ant-primary-4: rgba(39, 75, 219, 1);
   --ant-primary-5: rgba(51, 102, 255, 1);
-  --ant-primary-6: rgba(89, 139, 255, 1);
-  /* 在暗色主题中，primary-6 变成了较亮的蓝色 */
-  --ant-primary-7: rgba(115, 157, 255, 1);
+  --ant-primary-6: rgba(51, 102, 255, 1);
+  /* 主色调 #3366FF，与浅色主题一致 */
+  --ant-primary-7: rgba(39, 75, 219, 1);
   --ant-primary-8: rgba(166, 193, 255, 1);
   --ant-primary-9: rgba(217, 228, 255, 1);
   --ant-primary-10: rgba(242, 246, 255, 1);

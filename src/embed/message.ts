@@ -3,6 +3,13 @@
 import { TagRecord } from "@/app/tags/types";
 import { setLocalStorageWithEvent } from "@/hooks/use-local-storage-event";
 import { isValidLocale } from "@/i18n/routing";
+import {
+  FEATURE_LIBRARY_COOKIE,
+  FEATURE_LIBRARY_PARAM,
+  FEATURE_LIBRARY_STORAGE_KEY,
+  isFeatureLibraryRoute,
+  isFeatureLibraryValue,
+} from "@/lib/feature-library";
 import { MuseDAMID } from "@/musedam/types";
 import Cookies from "js-cookie";
 
@@ -162,6 +169,33 @@ function handleParentMessageAction(action: string, args: any, dispatchId?: strin
           // 触发主题更新
           const event = new CustomEvent("theme-change", { detail: { theme: args.theme } });
           window.dispatchEvent(event);
+        }
+      }
+      break;
+
+    case "updateFeatureLibrary":
+      if (isFeatureLibraryValue(args?.featureLibrary) && typeof window !== "undefined") {
+        localStorage.setItem(FEATURE_LIBRARY_STORAGE_KEY, args.featureLibrary);
+        Cookies.set(FEATURE_LIBRARY_COOKIE, args.featureLibrary, {
+          expires: 365,
+          sameSite: "None" as any,
+          secure: true,
+        });
+        window.dispatchEvent(
+          new CustomEvent("feature-library-change", {
+            detail: { featureLibrary: args.featureLibrary },
+          }),
+        );
+
+        try {
+          const url = new URL(window.location.href);
+          url.searchParams.set(FEATURE_LIBRARY_PARAM, args.featureLibrary);
+          if (args.featureLibrary === "off" && isFeatureLibraryRoute(url.pathname)) {
+            url.pathname = "/tagging/dashboard";
+          }
+          window.location.replace(url.toString());
+        } catch {
+          window.location.reload();
         }
       }
       break;

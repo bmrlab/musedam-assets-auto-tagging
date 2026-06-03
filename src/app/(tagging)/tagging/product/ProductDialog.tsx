@@ -658,7 +658,7 @@ export default function ProductDialog({
             type="button"
             onClick={handleSubmit}
             disabled={isSubmitDisabled}
-            className="h-8 w-20 rounded-[6px] px-3 py-1"
+            className="h-8 w-20 rounded-[6px] border border-primary-6 px-3 py-1 hover:border-primary-7"
           >
             {isPending ? (
               <>

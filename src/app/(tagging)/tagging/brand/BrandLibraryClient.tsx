@@ -44,8 +44,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { useDeferredValue, useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { linkedTagsColumnCellClassName, linkedTagsColumnHeaderClassName } from "../components/linked-tags-column";
+import {
+  linkedTagsColumnCellClassName,
+  linkedTagsColumnHeaderClassName,
+} from "../components/linked-tags-column";
 import LinkedTagsOverflow from "../components/LinkedTagsOverflow";
+import { PROCESS_STATE_BADGE_CLASS_NAMES } from "../components/process-state-badge-classes";
 import {
   deleteAssetLogoAction,
   pollBrandLogosAction,
@@ -80,19 +84,19 @@ function getLogoStatusMeta(status: BrandLogoItem["status"], t: TranslationFuncti
       return {
         label: t("statusCompleted"),
         icon: CheckCircle2,
-        className: "border-[#8CFAC7] bg-[#EDFFF3] text-[#00E096]",
+        className: PROCESS_STATE_BADGE_CLASS_NAMES.completed,
       };
     case "processing":
       return {
         label: t("statusProcessing"),
         icon: LoaderCircle,
-        className: "border-[#C7E2FF] bg-[#F2F8FF] text-[#0095FF]",
+        className: PROCESS_STATE_BADGE_CLASS_NAMES.processing,
       };
     case "failed":
       return {
         label: t("statusFailed"),
         icon: XCircle,
-        className: "border-[#FFA8B4] bg-[#FFF2F2] text-[#FF3D71]",
+        className: PROCESS_STATE_BADGE_CLASS_NAMES.failed,
       };
     default:
       return {
@@ -804,7 +808,9 @@ export default function BrandLibraryClient({
                             <th className="w-[300px] px-3 py-0">{t("columnLogoName")}</th>
                             <th className="w-[120px] px-3 py-0">{t("columnLogoType")}</th>
                             <th className="w-[220px] px-4 py-0">{t("columnLogoImages")}</th>
-                            <th className={linkedTagsColumnHeaderClassName}>{t("columnLinkedTags")}</th>
+                            <th className={linkedTagsColumnHeaderClassName}>
+                              {t("columnLinkedTags")}
+                            </th>
                             <th className="w-[150px] px-4 py-0">{t("columnStatus")}</th>
                             <th className="w-[120px] px-4 py-0">{t("columnEnabled")}</th>
                             <th className="w-[170px] px-4 py-0">{t("columnCreatedAt")}</th>
@@ -907,7 +913,10 @@ export default function BrandLibraryClient({
                                     logo.tags.length > 1 ? "py-2" : "py-0"
                                   }`}
                                 >
-                                  <LinkedTagsOverflow tags={logo.tags} emptyText={t("noLinkedTags")} />
+                                  <LinkedTagsOverflow
+                                    tags={logo.tags}
+                                    emptyText={t("noLinkedTags")}
+                                  />
                                 </td>
                                 <td className="h-[58px] px-4 py-0 align-middle">
                                   <div

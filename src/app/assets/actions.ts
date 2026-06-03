@@ -2,6 +2,7 @@
 import { withAuth } from "@/app/(auth)/withAuth";
 import { enqueueTaggingTask } from "@/app/(tagging)/queue";
 import { SourceBasedTagPredictions } from "@/app/(tagging)/types";
+import { getServerFeatureLibraryEnabled } from "@/lib/feature-library-server";
 import { ServerActionResult } from "@/lib/serverAction";
 import { syncAssetsFromMuseDAM } from "@/musedam/assets";
 import { AssetObject } from "@/prisma/client";
@@ -39,6 +40,7 @@ export async function predictAssetTagsAction(
   },
 ): Promise<ServerActionResult<void>> {
   return withAuth(async ({ team: { id: teamId } }) => {
+    const featureClassify = await getServerFeatureLibraryEnabled();
     const assetObject = await prisma.assetObject.findUniqueOrThrow({
       where: { id: assetId, teamId },
     });
@@ -46,6 +48,7 @@ export async function predictAssetTagsAction(
       assetObject,
       matchingSources: options?.matchingSources,
       recognitionAccuracy: options?.recognitionAccuracy,
+      featureClassify,
     });
     return {
       success: true,
@@ -68,6 +71,7 @@ export async function predictAssetTagsAndWaitAction(
 ): Promise<ServerActionResult<{ predictions: SourceBasedTagPredictions }>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
+      const featureClassify = await getServerFeatureLibraryEnabled();
       const assetObject = await prisma.assetObject.findUnique({
         where: { id: assetId, teamId },
       });
@@ -83,6 +87,7 @@ export async function predictAssetTagsAndWaitAction(
         assetObject,
         matchingSources: options?.matchingSources,
         recognitionAccuracy: options?.recognitionAccuracy,
+        featureClassify,
       });
 
       // 轮询队列项状态，每5秒检查一次

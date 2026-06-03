@@ -1,6 +1,7 @@
 "use client";
 
 import { TagOutlinedIcon, VimIcon } from "@/components/ui";
+import { useFeatureLibraryEnabled } from "@/hooks/use-feature-library";
 import {
   getFeatureConfidenceToneClass,
   meetsFeatureConfidenceThreshold,
@@ -245,12 +246,7 @@ function FeatureResultRow({ feature }: { feature: RecognitionFeature }) {
   const toneClass = getFeatureConfidenceToneClass(feature.confidence);
 
   return (
-    <div
-      className={cn(
-        "flex items-center justify-between gap-3 rounded-md border p-3",
-        toneClass,
-      )}
-    >
+    <div className={cn("flex items-center justify-between gap-3 rounded-md border p-3", toneClass)}>
       <CheckIcon className="size-[14px] shrink-0 text-current" />
       <div className="relative size-12 shrink-0 overflow-hidden rounded bg-background/70">
         <FeatureThumbnail
@@ -286,10 +282,12 @@ function FeatureResultRow({ feature }: { feature: RecognitionFeature }) {
 
 export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
   const t = useTranslations("TaggingResultDisplay");
+  const featureLibraryEnabled = useFeatureLibraryEnabled();
 
   const recognitionFeatures: RecognitionFeature[] = [];
 
   if (
+    featureLibraryEnabled &&
     result.productRecognition?.productName &&
     result.productRecognition.assetProductId &&
     meetsFeatureConfidenceThreshold("product", result.productRecognition.confidence)
@@ -309,6 +307,7 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
   }
 
   if (
+    featureLibraryEnabled &&
     result.brandRecognition?.logoName &&
     result.brandRecognition.assetLogoId &&
     meetsFeatureConfidenceThreshold("brand", result.brandRecognition.confidence)
@@ -328,6 +327,7 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
   }
 
   if (
+    featureLibraryEnabled &&
     result.ipRecognition?.ipName &&
     result.ipRecognition.assetIpId &&
     meetsFeatureConfidenceThreshold("ip", result.ipRecognition.confidence)
@@ -346,28 +346,30 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
     });
   }
 
-  result.personRecognition?.faces.forEach((face) => {
-    if (
-      !face.personName ||
-      !face.assetPersonId ||
-      !meetsFeatureConfidenceThreshold("person", face.confidence)
-    ) {
-      return;
-    }
+  if (featureLibraryEnabled) {
+    result.personRecognition?.faces.forEach((face) => {
+      if (
+        !face.personName ||
+        !face.assetPersonId ||
+        !meetsFeatureConfidenceThreshold("person", face.confidence)
+      ) {
+        return;
+      }
 
-    const score = normalizeFeatureConfidence(face.confidence);
-    recognitionFeatures.push({
-      key: `person-${face.detectionIndex}`,
-      title: face.personName,
-      featureName: t("featureClassPerson"),
-      featureType: face.personTypeName || "-",
-      matchingSource: t("personRecognition"),
-      confidence: score,
-      score,
-      featureTypeId: "person",
-      featureId: face.assetPersonId,
+      const score = normalizeFeatureConfidence(face.confidence);
+      recognitionFeatures.push({
+        key: `person-${face.detectionIndex}`,
+        title: face.personName,
+        featureName: t("featureClassPerson"),
+        featureType: face.personTypeName || "-",
+        matchingSource: t("personRecognition"),
+        confidence: score,
+        score,
+        featureTypeId: "person",
+        featureId: face.assetPersonId,
+      });
     });
-  });
+  }
 
   recognitionFeatures.sort((left, right) => right.confidence - left.confidence);
   const visibleFeatureCount = recognitionFeatures.length;
@@ -462,21 +464,23 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
         ) : null}
       </SectionShell>
 
-      <SectionShell
-        icon={<StarIcon className="size-5" />}
-        title={t("recognizedFeatures")}
-        count={visibleFeatureCount}
-      >
-        {recognitionFeatures.length > 0 ? (
-          <div className="space-y-3">
-            {recognitionFeatures.map((feature) => (
-              <FeatureResultRow key={feature.key} feature={feature} />
-            ))}
-          </div>
-        ) : (
-          <div className="text-sm text-basic-5">{t("noRecognizedFeatures")}</div>
-        )}
-      </SectionShell>
+      {featureLibraryEnabled ? (
+        <SectionShell
+          icon={<StarIcon className="size-5" />}
+          title={t("recognizedFeatures")}
+          count={visibleFeatureCount}
+        >
+          {recognitionFeatures.length > 0 ? (
+            <div className="space-y-3">
+              {recognitionFeatures.map((feature) => (
+                <FeatureResultRow key={feature.key} feature={feature} />
+              ))}
+            </div>
+          ) : (
+            <div className="text-sm text-basic-5">{t("noRecognizedFeatures")}</div>
+          )}
+        </SectionShell>
+      ) : null}
     </div>
   );
 }

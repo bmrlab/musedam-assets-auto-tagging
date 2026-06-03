@@ -1,11 +1,12 @@
 import { enqueueTaggingTask } from "@/app/(tagging)/queue";
 import { getTaggingSettings } from "@/app/(tagging)/tagging/settings/lib";
 import { TaggingSettingsData } from "@/app/(tagging)/types";
+import { getFeatureLibraryEnabledFromRequest } from "@/lib/feature-library-server";
 import { idToSlug, slugToId } from "@/lib/slug";
-import prisma from "@/prisma/prisma";
-import { JsonValue } from "@/prisma/client/runtime/library";
 import { syncSingleAssetFromMuseDAM } from "@/musedam/assets";
 import { MuseDAMID } from "@/musedam/types";
+import { JsonValue } from "@/prisma/client/runtime/library";
+import prisma from "@/prisma/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -15,6 +16,7 @@ const requestSchema = z.object({
   assetIds: z.array(z.number().positive()).optional(),
   // 可选参数，指定每批处理的数量，默认100
   batchSize: z.number().min(1).max(500).optional().default(100),
+  featureLibrary: z.enum(["on", "off"]).optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -25,7 +27,9 @@ export async function POST(request: NextRequest) {
       teamId: musedamTeamId,
       assetIds,
       batchSize,
+      featureLibrary,
     } = requestSchema.parse(body);
+    const featureClassify = getFeatureLibraryEnabledFromRequest(request, featureLibrary);
 
     // 根据 teamId 构造 team slug 并查询 team
     const teamSlug = idToSlug("team", new MuseDAMID(musedamTeamId));
@@ -74,6 +78,7 @@ export async function POST(request: NextRequest) {
       settings,
       assetIds,
       batchSize,
+      featureClassify,
     });
 
     // 返回结果
@@ -89,10 +94,13 @@ export async function POST(request: NextRequest) {
         },
       });
     } else {
-      return NextResponse.json({
-        success: false,
-        error: result.errors.join("; "),
-      }, { status: 400 });
+      return NextResponse.json(
+        {
+          success: false,
+          error: result.errors.join("; "),
+        },
+        { status: 400 },
+      );
     }
   } catch (error) {
     console.error("API request failed:", error);
@@ -126,11 +134,13 @@ async function processBatchTagging({
   settings,
   assetIds,
   batchSize = 100,
+  featureClassify,
 }: {
   team: { id: number; slug: string };
   settings: TaggingSettingsData;
   assetIds?: number[];
   batchSize?: number;
+  featureClassify: boolean;
 }): Promise<{
   success: boolean;
   totalAssets: number;
@@ -194,37 +204,39 @@ async function processBatchTagging({
 
     const syncResults = await Promise.allSettled(syncPromises);
     const successfulSyncs = syncResults
-      .filter((result): result is PromiseFulfilledResult<{
-        success: boolean;
-        musedamAssetId: number;
-        assetObject: {
-          teamId: number;
-          name: string;
-          id: number;
-          slug: string;
-          createdAt: Date;
-          updatedAt: Date;
-          extra: JsonValue;
-          materializedPath: string;
-          description: string;
-          tags: JsonValue;
-          content: JsonValue;
-        };
-        musedamAsset: {
-          id: MuseDAMID;
-          name: string;
-          parentIds: MuseDAMID[];
-          description: string | null;
-          tags: { id: MuseDAMID; name: string }[] | null;
-          thumbnailAccessUrl: string;
-        };
-      }> => 
-        result.status === "fulfilled" && result.value.success
+      .filter(
+        (
+          result,
+        ): result is PromiseFulfilledResult<{
+          success: boolean;
+          musedamAssetId: number;
+          assetObject: {
+            teamId: number;
+            name: string;
+            id: number;
+            slug: string;
+            createdAt: Date;
+            updatedAt: Date;
+            extra: JsonValue;
+            materializedPath: string;
+            description: string;
+            tags: JsonValue;
+            content: JsonValue;
+          };
+          musedamAsset: {
+            id: MuseDAMID;
+            name: string;
+            parentIds: MuseDAMID[];
+            description: string | null;
+            tags: { id: MuseDAMID; name: string }[] | null;
+            thumbnailAccessUrl: string;
+          };
+        }> => result.status === "fulfilled" && result.value.success,
       )
-      .map(result => result.value);
+      .map((result) => result.value);
 
     // 步骤2: 批量查询已存在的队列项，避免重复创建任务
-    const assetObjectIds = successfulSyncs.map(sync => sync.assetObject.id);
+    const assetObjectIds = successfulSyncs.map((sync) => sync.assetObject.id);
     const existingQueueItems = await prisma.taggingQueueItem.findMany({
       where: {
         teamId: team.id,
@@ -240,11 +252,11 @@ async function processBatchTagging({
       },
     });
 
-    const existingAssetObjectIds = new Set(existingQueueItems.map(item => item.assetObjectId));
+    const existingAssetObjectIds = new Set(existingQueueItems.map((item) => item.assetObjectId));
 
     // 步骤3: 过滤掉已存在队列项的资产
-    const validSyncs = successfulSyncs.filter(sync => 
-      !existingAssetObjectIds.has(sync.assetObject.id)
+    const validSyncs = successfulSyncs.filter(
+      (sync) => !existingAssetObjectIds.has(sync.assetObject.id),
     );
 
     // 步骤4: 批量处理有效资产（创建打标任务）
@@ -260,7 +272,7 @@ async function processBatchTagging({
           const hasIntersection = musedamAsset.parentIds.some((parentId: MuseDAMID) =>
             musedamFolderIds.some((folderId) => folderId.toString() === String(parentId)),
           );
-          
+
           if (!hasIntersection) {
             return { success: false, reason: "Asset not in selected folders" };
           }
@@ -271,6 +283,7 @@ async function processBatchTagging({
           assetObject,
           matchingSources: settings.matchingSources,
           recognitionAccuracy: settings.recognitionAccuracy,
+          featureClassify,
           taskType: "default",
         });
 
@@ -285,19 +298,19 @@ async function processBatchTagging({
     });
 
     // 统计同步失败的数量
-    const syncFailures = syncResults
-      .filter((result): result is PromiseFulfilledResult<{
+    const syncFailures = syncResults.filter(
+      (
+        result,
+      ): result is PromiseFulfilledResult<{
         success: boolean;
         musedamAssetId: number;
         error: string;
-      }> => 
-        result.status === "fulfilled" && !result.value.success
-      ).length;
+      }> => result.status === "fulfilled" && !result.value.success,
+    ).length;
 
-    const rejectedSyncs = syncResults
-      .filter((result): result is PromiseRejectedResult => 
-        result.status === "rejected"
-      ).length;
+    const rejectedSyncs = syncResults.filter(
+      (result): result is PromiseRejectedResult => result.status === "rejected",
+    ).length;
 
     // 统计跳过（已存在队列项）的数量
     const skippedTasks = successfulSyncs.length - validSyncs.length;

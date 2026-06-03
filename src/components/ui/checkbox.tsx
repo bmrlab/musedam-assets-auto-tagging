@@ -35,7 +35,7 @@ const Checkbox = React.forwardRef<
         className="flex items-center justify-center text-current"
       >
         {indeterminate ? (
-          <div className="size-[10px] rounded-[2px] bg-[#36f]" />
+          <div className="size-[10px] rounded-[2px] bg-primary-6" />
         ) : (
           <CheckIcon className="size-3" strokeWidth={3} />
         )}
