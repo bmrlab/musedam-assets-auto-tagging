@@ -5,7 +5,6 @@ import { getIpRecommendationFromQueueResult } from "@/app/(tagging)/ip-recommend
 import { getPersonRecommendationFromQueueResult } from "@/app/(tagging)/person-recommendation";
 import { getProductRecommendationFromQueueResult } from "@/app/(tagging)/product-recommendation";
 import { AssetThumbnail } from "@/components/AssetThumbnail";
-import { FeatureThumbnail } from "./components/FeatureThumbnail";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,25 +21,26 @@ import { ClockCircleIcon, TagAIIcon, TagsIcon } from "@/components/ui/icons";
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { dispatchMuseDAMClientAction } from "@/embed/message";
+import { slugToId } from "@/lib/slug";
 import {
   getFeatureConfidenceToneClass,
   meetsFeatureConfidenceThreshold,
   normalizeFeatureConfidence,
 } from "@/lib/tagging/feature-confidence";
-import { slugToId } from "@/lib/slug";
-import { collectMuseFeatureIdentifierIdsForQueueItem } from "@/musedam/collect-muse-feature-identifier-ids";
 import { cn, formatSize } from "@/lib/utils";
+import { collectMuseFeatureIdentifierIdsForQueueItem } from "@/musedam/collect-muse-feature-identifier-ids";
+import type { MuseDAMMaterialFeatureSnapshot } from "@/musedam/query-features-by-materials-types";
 import { AssetObjectExtra, AssetObjectTags, TaggingAuditStatus } from "@/prisma/client";
 import { CheckIcon, DotIcon, Loader2Icon, StarIcon, XIcon } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
-import type { MuseDAMMaterialFeatureSnapshot } from "@/musedam/query-features-by-materials-types";
 import {
   approveAuditItemsAction,
   AssetWithAuditItemsBatch,
   rejectAuditItemsAction,
 } from "./actions";
+import { FeatureThumbnail } from "./components/FeatureThumbnail";
 
 type ReviewAssetObject = AssetWithAuditItemsBatch["assetObject"];
 
@@ -161,7 +161,10 @@ function FeatureRecognitionRow({
         <div className="truncate text-[13px] font-medium leading-[18px]" title={classifiedName}>
           {classifiedName}
         </div>
-        <div className="mt-1 truncate text-xs text-current/75" title={`${featureClass} > ${featureTypeName || "-"}`}>
+        <div
+          className="mt-1 truncate text-xs text-current/75"
+          title={`${featureClass} > ${featureTypeName || "-"}`}
+        >
           {featureClass} &gt; {featureTypeName || "-"}
         </div>
         <div className="mt-0.5 truncate text-[10px] text-current/60">
@@ -201,6 +204,7 @@ function FeatureRecognitionRow({
 export function ReviewItem({
   assetObject,
   existingFeatures = [],
+  availableFeatureIds,
   batch,
   onSuccess,
   CheckboxComponent,
@@ -238,6 +242,25 @@ export function ReviewItem({
   const [rejectedPersonItems, setRejectedPersonItems] = useState<number[]>([]);
 
   const realLoading = batchLoading || loading;
+  const availableFeatureIdSets = useMemo(
+    () => ({
+      brand: new Set(availableFeatureIds.brand),
+      ip: new Set(availableFeatureIds.ip),
+      product: new Set(availableFeatureIds.product),
+      person: new Set(availableFeatureIds.person),
+    }),
+    [availableFeatureIds],
+  );
+  const availableMuseFeatureIdentifierIds = useMemo(
+    () =>
+      new Set([
+        ...availableFeatureIds.brand,
+        ...availableFeatureIds.ip,
+        ...availableFeatureIds.product,
+        ...availableFeatureIds.person,
+      ]),
+    [availableFeatureIds],
+  );
 
   const finalBatch = useMemo(() => {
     let hasDefaultBatch = false;
@@ -324,6 +347,7 @@ export function ReviewItem({
             if (
               !brandRecommendation?.bestMatch ||
               !meetsFeatureConfidenceThreshold("brand", brandRecommendation.bestMatch.confidence) ||
+              !availableFeatureIdSets.brand.has(brandRecommendation.bestMatch.assetLogoId) ||
               !brandRecommendation.recommendedTags
             ) {
               return [];
@@ -335,7 +359,7 @@ export function ReviewItem({
           }),
         ),
       ),
-    [brandRecommendationsByQueueId, rejectedBrandItems],
+    [availableFeatureIdSets, brandRecommendationsByQueueId, rejectedBrandItems],
   );
   const ipTagIds = useMemo(
     () =>
@@ -345,6 +369,7 @@ export function ReviewItem({
             if (
               !ipRecommendation?.bestMatch ||
               !meetsFeatureConfidenceThreshold("ip", ipRecommendation.bestMatch.confidence) ||
+              !availableFeatureIdSets.ip.has(ipRecommendation.bestMatch.assetIpId) ||
               !ipRecommendation.recommendedTags
             ) {
               return [];
@@ -356,7 +381,7 @@ export function ReviewItem({
           }),
         ),
       ),
-    [ipRecommendationsByQueueId, rejectedIpItems],
+    [availableFeatureIdSets, ipRecommendationsByQueueId, rejectedIpItems],
   );
   const personTagIds = useMemo(
     () =>
@@ -371,7 +396,8 @@ export function ReviewItem({
             for (const face of personRecommendation.faces) {
               if (
                 !face.bestMatch ||
-                !meetsFeatureConfidenceThreshold("person", face.bestMatch.confidence)
+                !meetsFeatureConfidenceThreshold("person", face.bestMatch.confidence) ||
+                !availableFeatureIdSets.person.has(face.bestMatch.assetPersonId)
               ) {
                 continue;
               }
@@ -391,7 +417,7 @@ export function ReviewItem({
           }),
         ),
       ),
-    [personRecommendationsByQueueId, rejectedPersonItems],
+    [availableFeatureIdSets, personRecommendationsByQueueId, rejectedPersonItems],
   );
   const productTagIds = useMemo(
     () =>
@@ -404,6 +430,7 @@ export function ReviewItem({
                 "product",
                 productRecommendation.bestMatch.confidence,
               ) ||
+              !availableFeatureIdSets.product.has(productRecommendation.bestMatch.assetProductId) ||
               !productRecommendation.recommendedTags
             ) {
               return [];
@@ -415,7 +442,7 @@ export function ReviewItem({
           }),
         ),
       ),
-    [productRecommendationsByQueueId, rejectedProductItems],
+    [availableFeatureIdSets, productRecommendationsByQueueId, rejectedProductItems],
   );
 
   const museFeatureIdentifierIds = useMemo(() => {
@@ -428,20 +455,24 @@ export function ReviewItem({
 
       const brandTagIdsForQueue =
         br?.bestMatch &&
-        meetsFeatureConfidenceThreshold("brand", br.bestMatch.confidence)
+        meetsFeatureConfidenceThreshold("brand", br.bestMatch.confidence) &&
+        availableFeatureIdSets.brand.has(br.bestMatch.assetLogoId)
           ? (br.recommendedTags
               ?.map((t) => t.assetTagId)
               .filter((id) => !rejectedBrandItems.includes(id)) ?? [])
           : [];
       const ipTagIdsForQueue =
-        ir?.bestMatch && meetsFeatureConfidenceThreshold("ip", ir.bestMatch.confidence)
+        ir?.bestMatch &&
+        meetsFeatureConfidenceThreshold("ip", ir.bestMatch.confidence) &&
+        availableFeatureIdSets.ip.has(ir.bestMatch.assetIpId)
           ? (ir.recommendedTags
               ?.map((t) => t.assetTagId)
               .filter((id) => !rejectedIpItems.includes(id)) ?? [])
           : [];
       const productTagIdsForQueue =
         pr?.bestMatch &&
-        meetsFeatureConfidenceThreshold("product", pr.bestMatch.confidence)
+        meetsFeatureConfidenceThreshold("product", pr.bestMatch.confidence) &&
+        availableFeatureIdSets.product.has(pr.bestMatch.assetProductId)
           ? (pr.recommendedTags
               ?.map((t) => t.assetTagId)
               .filter((id) => !rejectedProductItems.includes(id)) ?? [])
@@ -450,7 +481,8 @@ export function ReviewItem({
         per?.faces.flatMap((face) => {
           if (
             !face.bestMatch ||
-            !meetsFeatureConfidenceThreshold("person", face.bestMatch.confidence)
+            !meetsFeatureConfidenceThreshold("person", face.bestMatch.confidence) ||
+            !availableFeatureIdSets.person.has(face.bestMatch.assetPersonId)
           ) {
             return [];
           }
@@ -472,11 +504,15 @@ export function ReviewItem({
         productTagIds: productTagIdsForQueue,
         personTagIds: personTagIdsForQueue,
       })) {
-        ids.add(id);
+        if (availableMuseFeatureIdentifierIds.has(id)) {
+          ids.add(id);
+        }
       }
     }
     return [...ids];
   }, [
+    availableFeatureIdSets,
+    availableMuseFeatureIdentifierIds,
     finalBatch,
     brandRecommendationsByQueueId,
     ipRecommendationsByQueueId,
@@ -835,15 +871,15 @@ export function ReviewItem({
             <span className="text-sm font-medium">{t("features")}</span>
           </div>
           <div className="space-y-2">
-            {existingFeatures.length > 0 ? (
-              existingFeatures.map((feature) => (
-                <ExistingFeatureSnapshotRow
-                  key={`${feature.featureType}-${feature.identifierId}-${feature.id}`}
-                  feature={feature}
-                  featureClass={getFeatureClassLabel(feature.featureType)}
-                />
-              ))
-            ) : null}
+            {existingFeatures.length > 0
+              ? existingFeatures.map((feature) => (
+                  <ExistingFeatureSnapshotRow
+                    key={`${feature.featureType}-${feature.identifierId}-${feature.id}`}
+                    feature={feature}
+                    featureClass={getFeatureClassLabel(feature.featureType)}
+                  />
+                ))
+              : null}
           </div>
         </div>
 
@@ -869,7 +905,8 @@ export function ReviewItem({
 
             if (
               brandRecommendation?.bestMatch &&
-              meetsFeatureConfidenceThreshold("brand", brandRecommendation.bestMatch.confidence)
+              meetsFeatureConfidenceThreshold("brand", brandRecommendation.bestMatch.confidence) &&
+              availableFeatureIdSets.brand.has(brandRecommendation.bestMatch.assetLogoId)
             ) {
               featureRows.push({
                 key: "brand",
@@ -879,7 +916,8 @@ export function ReviewItem({
                 featureTypeName: brandRecommendation.bestMatch.logoTypeName,
                 classifiedName: brandRecommendation.bestMatch.logoName,
                 confidence: normalizeFeatureConfidence(brandRecommendation.bestMatch.confidence),
-                tagIds: brandRecommendation.bestMatch.recommendedTags?.map((tag) => tag.assetTagId) ?? [],
+                tagIds:
+                  brandRecommendation.bestMatch.recommendedTags?.map((tag) => tag.assetTagId) ?? [],
                 rejectedTagIds: rejectedBrandItems,
                 onToggleTagIds: (tagIds) =>
                   setRejectedBrandItems((current) => toggleTagIds(current, tagIds)),
@@ -888,7 +926,8 @@ export function ReviewItem({
 
             if (
               ipRecommendation?.bestMatch &&
-              meetsFeatureConfidenceThreshold("ip", ipRecommendation.bestMatch.confidence)
+              meetsFeatureConfidenceThreshold("ip", ipRecommendation.bestMatch.confidence) &&
+              availableFeatureIdSets.ip.has(ipRecommendation.bestMatch.assetIpId)
             ) {
               featureRows.push({
                 key: "ip",
@@ -898,7 +937,8 @@ export function ReviewItem({
                 featureTypeName: ipRecommendation.bestMatch.ipTypeName,
                 classifiedName: ipRecommendation.bestMatch.ipName,
                 confidence: normalizeFeatureConfidence(ipRecommendation.bestMatch.confidence),
-                tagIds: ipRecommendation.bestMatch.recommendedTags?.map((tag) => tag.assetTagId) ?? [],
+                tagIds:
+                  ipRecommendation.bestMatch.recommendedTags?.map((tag) => tag.assetTagId) ?? [],
                 rejectedTagIds: rejectedIpItems,
                 onToggleTagIds: (tagIds) =>
                   setRejectedIpItems((current) => toggleTagIds(current, tagIds)),
@@ -907,7 +947,11 @@ export function ReviewItem({
 
             if (
               productRecommendation?.bestMatch &&
-              meetsFeatureConfidenceThreshold("product", productRecommendation.bestMatch.confidence)
+              meetsFeatureConfidenceThreshold(
+                "product",
+                productRecommendation.bestMatch.confidence,
+              ) &&
+              availableFeatureIdSets.product.has(productRecommendation.bestMatch.assetProductId)
             ) {
               featureRows.push({
                 key: "product",
@@ -917,18 +961,24 @@ export function ReviewItem({
                 featureTypeName: productRecommendation.bestMatch.productTypeName,
                 classifiedName: productRecommendation.bestMatch.productName,
                 confidence: normalizeFeatureConfidence(productRecommendation.bestMatch.confidence),
-                tagIds: productRecommendation.bestMatch.recommendedTags?.map((tag) => tag.assetTagId) ?? [],
+                tagIds:
+                  productRecommendation.bestMatch.recommendedTags?.map((tag) => tag.assetTagId) ??
+                  [],
                 rejectedTagIds: rejectedProductItems,
                 onToggleTagIds: (tagIds) =>
                   setRejectedProductItems((current) => toggleTagIds(current, tagIds)),
               });
             }
 
-            const totalPersonFaces = personRecommendation?.faces.filter((f) => f.bestMatch).length ?? 0;
+            const totalPersonFaces =
+              personRecommendation?.faces.filter(
+                (f) => f.bestMatch && availableFeatureIdSets.person.has(f.bestMatch.assetPersonId),
+              ).length ?? 0;
             personRecommendation?.faces.forEach((face) => {
               if (
                 !face.bestMatch ||
-                !meetsFeatureConfidenceThreshold("person", face.bestMatch.confidence)
+                !meetsFeatureConfidenceThreshold("person", face.bestMatch.confidence) ||
+                !availableFeatureIdSets.person.has(face.bestMatch.assetPersonId)
               ) {
                 return;
               }

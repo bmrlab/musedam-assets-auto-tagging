@@ -4,12 +4,18 @@ import {
   getBrandRecommendationFromQueueResult,
   getBrandRecommendationTagIdsFromQueueResult,
 } from "@/app/(tagging)/brand-recommendation";
-import { getIpRecommendationFromQueueResult } from "@/app/(tagging)/ip-recommendation";
-import { getIpRecommendationTagIdsFromQueueResult } from "@/app/(tagging)/ip-recommendation";
-import { getPersonRecommendationFromQueueResult } from "@/app/(tagging)/person-recommendation";
-import { getPersonRecommendationTagIdsFromQueueResult } from "@/app/(tagging)/person-recommendation";
-import { getProductRecommendationFromQueueResult } from "@/app/(tagging)/product-recommendation";
-import { getProductRecommendationTagIdsFromQueueResult } from "@/app/(tagging)/product-recommendation";
+import {
+  getIpRecommendationFromQueueResult,
+  getIpRecommendationTagIdsFromQueueResult,
+} from "@/app/(tagging)/ip-recommendation";
+import {
+  getPersonRecommendationFromQueueResult,
+  getPersonRecommendationTagIdsFromQueueResult,
+} from "@/app/(tagging)/person-recommendation";
+import {
+  getProductRecommendationFromQueueResult,
+  getProductRecommendationTagIdsFromQueueResult,
+} from "@/app/(tagging)/product-recommendation";
 import { ServerActionResult } from "@/lib/serverAction";
 import { idToSlug, slugToId } from "@/lib/slug";
 import { retrieveTeamCredentials } from "@/musedam/apiKey";
@@ -20,9 +26,9 @@ import {
   setAssetTagsToMuseDAM,
   syncSingleAssetFromMuseDAM,
 } from "@/musedam/assets";
-import type { MuseDAMMaterialFeatureSnapshot } from "@/musedam/query-features-by-materials-types";
 import { collectMuseFeatureIdentifierIdsForQueueItem } from "@/musedam/collect-muse-feature-identifier-ids";
 import { requestMuseDAMAPI } from "@/musedam/lib";
+import type { MuseDAMMaterialFeatureSnapshot } from "@/musedam/query-features-by-materials-types";
 import { MuseDAMID } from "@/musedam/types";
 import {
   AssetObject,
@@ -33,6 +39,139 @@ import {
   TaggingQueueItem,
 } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
+
+export type ReviewAvailableFeatureIds = {
+  brand: string[];
+  ip: string[];
+  product: string[];
+  person: string[];
+};
+
+type ReviewAvailableFeatureIdSets = {
+  brand: Set<string>;
+  ip: Set<string>;
+  product: Set<string>;
+  person: Set<string>;
+};
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function createReviewAvailableFeatureIdSets(): ReviewAvailableFeatureIdSets {
+  return {
+    brand: new Set<string>(),
+    ip: new Set<string>(),
+    product: new Set<string>(),
+    person: new Set<string>(),
+  };
+}
+
+function addQueueResultFeatureIds(
+  featureIds: ReviewAvailableFeatureIdSets,
+  result: Prisma.JsonValue,
+) {
+  const brandRecommendation = getBrandRecommendationFromQueueResult(result);
+  if (brandRecommendation?.bestMatch?.assetLogoId) {
+    featureIds.brand.add(brandRecommendation.bestMatch.assetLogoId);
+  }
+
+  const ipRecommendation = getIpRecommendationFromQueueResult(result);
+  if (ipRecommendation?.bestMatch?.assetIpId) {
+    featureIds.ip.add(ipRecommendation.bestMatch.assetIpId);
+  }
+
+  const productRecommendation = getProductRecommendationFromQueueResult(result);
+  if (productRecommendation?.bestMatch?.assetProductId) {
+    featureIds.product.add(productRecommendation.bestMatch.assetProductId);
+  }
+
+  const personRecommendation = getPersonRecommendationFromQueueResult(result);
+  for (const row of personRecommendation?.recommendedTags ?? []) {
+    if (row.assetPersonId) {
+      featureIds.person.add(row.assetPersonId);
+    }
+  }
+  for (const face of personRecommendation?.faces ?? []) {
+    if (face.bestMatch?.assetPersonId) {
+      featureIds.person.add(face.bestMatch.assetPersonId);
+    }
+  }
+}
+
+function toUuidList(ids: Iterable<string>) {
+  return [...ids].filter((id) => UUID_PATTERN.test(id));
+}
+
+async function loadExistingReviewAvailableFeatureIds(
+  teamId: number,
+  featureIds: ReviewAvailableFeatureIdSets,
+): Promise<ReviewAvailableFeatureIds> {
+  const [brands, ips, products, persons] = await Promise.all([
+    prisma.assetLogo.findMany({
+      where: { teamId, id: { in: toUuidList(featureIds.brand) } },
+      select: { id: true },
+    }),
+    prisma.assetIp.findMany({
+      where: { teamId, id: { in: toUuidList(featureIds.ip) } },
+      select: { id: true },
+    }),
+    prisma.assetProduct.findMany({
+      where: { teamId, id: { in: toUuidList(featureIds.product) } },
+      select: { id: true },
+    }),
+    prisma.assetPerson.findMany({
+      where: { teamId, id: { in: toUuidList(featureIds.person) } },
+      select: { id: true },
+    }),
+  ]);
+
+  return {
+    brand: brands.map(({ id }) => id),
+    ip: ips.map(({ id }) => id),
+    product: products.map(({ id }) => id),
+    person: persons.map(({ id }) => id),
+  };
+}
+
+async function filterExistingMuseFeatureIdentifierIds({
+  teamId,
+  identifierIds,
+}: {
+  teamId: number;
+  identifierIds: string[];
+}) {
+  const unique = [...new Set(identifierIds)].filter((id) => UUID_PATTERN.test(id));
+  if (unique.length === 0) {
+    return [];
+  }
+
+  const [brands, ips, products, persons] = await Promise.all([
+    prisma.assetLogo.findMany({
+      where: { teamId, id: { in: unique } },
+      select: { id: true },
+    }),
+    prisma.assetIp.findMany({
+      where: { teamId, id: { in: unique } },
+      select: { id: true },
+    }),
+    prisma.assetProduct.findMany({
+      where: { teamId, id: { in: unique } },
+      select: { id: true },
+    }),
+    prisma.assetPerson.findMany({
+      where: { teamId, id: { in: unique } },
+      select: { id: true },
+    }),
+  ]);
+
+  const existingIds = new Set([
+    ...brands.map(({ id }) => id),
+    ...ips.map(({ id }) => id),
+    ...products.map(({ id }) => id),
+    ...persons.map(({ id }) => id),
+  ]);
+
+  return unique.filter((id) => existingIds.has(id));
+}
 
 // 辅助函数：从 MuseDAM 标签构建 AssetObjectTags
 async function buildAssetObjectTags(
@@ -68,6 +207,7 @@ async function buildAssetObjectTags(
 export type AssetWithAuditItemsBatch = {
   assetObject: AssetObject;
   existingFeatures: MuseDAMMaterialFeatureSnapshot[];
+  availableFeatureIds: ReviewAvailableFeatureIds;
   batch: {
     queueItem: TaggingQueueItem;
     taggingAuditItems: (Omit<TaggingAuditItem, "tagPath"> & { tagPath: string[] })[];
@@ -270,13 +410,24 @@ export async function fetchAssetsWithAuditItems(
             assetObject !== undefined,
         );
 
+      const featureIdsForPage = createReviewAvailableFeatureIdSets();
+      for (const assetObject of updatedAssetObjects) {
+        for (const { queueItem, ...taggingAuditItem } of assetObject.taggingAuditItems) {
+          if (!queueItem || taggingAuditItem.status === "rejected") {
+            continue;
+          }
+          addQueueResultFeatureIds(featureIdsForPage, queueItem.result);
+        }
+      }
+      const availableFeatureIds = await loadExistingReviewAvailableFeatureIds(
+        teamId,
+        featureIdsForPage,
+      );
+
       const materialIdByAssetObjectId = new Map<number, MuseDAMID>();
       for (const assetObject of updatedAssetObjects) {
         try {
-          materialIdByAssetObjectId.set(
-            assetObject.id,
-            slugToId("assetObject", assetObject.slug),
-          );
+          materialIdByAssetObjectId.set(assetObject.id, slugToId("assetObject", assetObject.slug));
         } catch {
           // skip assets without a valid MuseDAM slug
         }
@@ -342,6 +493,7 @@ export async function fetchAssetsWithAuditItems(
           results.push({
             assetObject,
             existingFeatures,
+            availableFeatureIds,
             batch: filteredBatch,
           });
         }
@@ -439,10 +591,15 @@ export async function approveAuditItemsAction({
       append,
     });
 
+    const existingMuseFeatureIdentifierIds = await filterExistingMuseFeatureIdentifierIds({
+      teamId,
+      identifierIds: museFeatureIdentifierIds,
+    });
+
     await bindFeatureIdentifiersToMuseDAMMaterial({
       team,
       musedamAssetId,
-      identifierIds: museFeatureIdentifierIds,
+      identifierIds: existingMuseFeatureIdentifierIds,
     });
 
     // 从 MuseDAM 获取更新后的素材标签并同步到本地数据库
@@ -556,8 +713,9 @@ export async function batchApproveAuditItemsAction({
             return null;
           }
         })
-        .filter((assetRef): assetRef is BatchApproveAssetRef & { musedamAssetId: MuseDAMID } =>
-          assetRef !== null,
+        .filter(
+          (assetRef): assetRef is BatchApproveAssetRef & { musedamAssetId: MuseDAMID } =>
+            assetRef !== null,
         );
 
       const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
@@ -760,10 +918,15 @@ export async function batchApproveAuditItemsAction({
               museFeatureIdentifierIds.add(id);
             }
           }
+          const existingMuseFeatureIdentifierIds = await filterExistingMuseFeatureIdentifierIds({
+            teamId,
+            identifierIds: [...museFeatureIdentifierIds],
+          });
+
           await bindFeatureIdentifiersToMuseDAMMaterial({
             team,
             musedamAssetId,
-            identifierIds: [...museFeatureIdentifierIds],
+            identifierIds: existingMuseFeatureIdentifierIds,
           });
 
           // 从 MuseDAM 获取更新后的素材标签并同步到本地数据库
