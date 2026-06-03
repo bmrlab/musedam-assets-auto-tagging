@@ -1,5 +1,6 @@
 import "server-only";
 
+import { getLocalizedBatchColumns } from "../batchColumnTranslations";
 import {
   buildBatchTemplateRows,
   getBatchHeaders,
@@ -32,7 +33,7 @@ export type ProductBatchColumnKey =
   | "notes"
   | "enabled";
 
-/** Canonical English headers for templates, exports, and import parsing (all locales). */
+/** Canonical English headers for fallback and backwards-compatible import parsing. */
 export const PRODUCT_BATCH_ENGLISH_HEADERS: Record<ProductBatchColumnKey, string> = {
   name: "Product Name",
   productTypeName: "Product Type",
@@ -71,6 +72,14 @@ export function getProductBatchColumns() {
     header: PRODUCT_BATCH_ENGLISH_HEADERS[key],
     aliases: [PRODUCT_BATCH_ENGLISH_HEADERS[key]],
   })) satisfies BatchColumnDefinition<ProductBatchColumnKey>[];
+}
+
+export function getLocalizedProductBatchColumns() {
+  return getLocalizedBatchColumns({
+    namespace: "ProductLibrary",
+    columnKeys: PRODUCT_BATCH_COLUMN_ORDER,
+    fallbackHeaders: PRODUCT_BATCH_ENGLISH_HEADERS,
+  });
 }
 
 export function buildProductBatchExportRows({

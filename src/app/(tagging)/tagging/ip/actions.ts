@@ -45,7 +45,7 @@ import {
 import {
   buildIpBatchExportRows,
   buildIpBatchTemplateRows,
-  getIpBatchColumns,
+  getLocalizedIpBatchColumns,
   ParsedIpBatchRow,
   parseIpBatchRows,
 } from "./batchFile";
@@ -1570,7 +1570,7 @@ export async function exportIpsAction(
       const ips = await fetchIps(teamId);
       const rows = buildIpBatchExportRows({
         ips,
-        columns: getIpBatchColumns(),
+        columns: await getLocalizedIpBatchColumns(),
       });
       const { buffer, mimeType } = encodeBatchFile({
         rows,
@@ -1603,8 +1603,9 @@ export async function downloadIpImportTemplateAction(
 
     try {
       const parsedFormat = z.enum(["csv", "xlsx"]).parse(format);
+      const columns = await getLocalizedIpBatchColumns();
       const { buffer, mimeType } = encodeBatchFile({
-        rows: buildIpBatchTemplateRows(getIpBatchColumns()),
+        rows: buildIpBatchTemplateRows(columns),
         format: parsedFormat,
       });
 
@@ -1635,7 +1636,7 @@ export async function importIpsAction(
     );
     const tBatch = (await getTranslations("Tagging.BatchImportExport")) as TranslationFunction;
     const fileErrors = getIpBatchFileErrors(tBatch);
-    const columns = getIpBatchColumns();
+    const columns = await getLocalizedIpBatchColumns();
 
     try {
       const file = formData.get("file");

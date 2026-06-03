@@ -47,7 +47,7 @@ import {
 import {
   buildPersonBatchExportRows,
   buildPersonBatchTemplateRows,
-  getPersonBatchColumns,
+  getLocalizedPersonBatchColumns,
   ParsedPersonBatchRow,
   parsePersonBatchRows,
 } from "./batchFile";
@@ -1098,7 +1098,10 @@ export async function preparePersonImageUploadAction(input: {
         })
         .parse(input);
 
-      if (!metadata.mimeType.startsWith("image/") && !metadata.name.toLowerCase().endsWith(".svg")) {
+      if (
+        !metadata.mimeType.startsWith("image/") &&
+        !metadata.name.toLowerCase().endsWith(".svg")
+      ) {
         return {
           success: false,
           message: t("uploadErrors.imageLoadFailed"),
@@ -1325,7 +1328,7 @@ export async function exportPersonsAction(
       const persons = await fetchPersons(teamId);
       const rows = buildPersonBatchExportRows({
         persons,
-        columns: getPersonBatchColumns(),
+        columns: await getLocalizedPersonBatchColumns(),
       });
       const { buffer, mimeType } = encodeBatchFile({
         rows,
@@ -1358,8 +1361,9 @@ export async function downloadPersonImportTemplateAction(
 
     try {
       const parsedFormat = z.enum(["csv", "xlsx"]).parse(format);
+      const columns = await getLocalizedPersonBatchColumns();
       const { buffer, mimeType } = encodeBatchFile({
-        rows: buildPersonBatchTemplateRows(getPersonBatchColumns()),
+        rows: buildPersonBatchTemplateRows(columns),
         format: parsedFormat,
       });
 
@@ -1390,7 +1394,7 @@ export async function importPersonsAction(
     );
     const tBatch = (await getTranslations("Tagging.BatchImportExport")) as TranslationFunction;
     const fileErrors = getPersonBatchFileErrors(tBatch);
-    const columns = getPersonBatchColumns();
+    const columns = await getLocalizedPersonBatchColumns();
 
     try {
       const file = formData.get("file");

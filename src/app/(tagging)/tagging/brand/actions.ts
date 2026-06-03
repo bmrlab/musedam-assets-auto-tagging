@@ -45,7 +45,7 @@ import {
   buildBrandBatchTemplateRows,
   encodeCsv,
   encodeXlsx,
-  getBrandBatchColumns,
+  getLocalizedBrandBatchColumns,
   parseBrandBatchRows,
   parseCsv,
   ParsedBrandBatchRow,
@@ -1349,7 +1349,10 @@ export async function exportBrandLogosAction(
     try {
       const parsedFormat = z.enum(["csv", "xlsx"]).parse(format);
       const logos = await fetchBrandLogos(teamId);
-      const rows = buildBrandBatchExportRows({ logos });
+      const rows = buildBrandBatchExportRows({
+        logos,
+        columns: await getLocalizedBrandBatchColumns(),
+      });
       const { buffer, mimeType } = encodeBrandBatchFile({
         rows,
         format: parsedFormat,
@@ -1381,8 +1384,9 @@ export async function downloadBrandImportTemplateAction(
 
     try {
       const parsedFormat = z.enum(["csv", "xlsx"]).parse(format);
+      const columns = await getLocalizedBrandBatchColumns();
       const { buffer, mimeType } = encodeBrandBatchFile({
-        rows: buildBrandBatchTemplateRows(),
+        rows: buildBrandBatchTemplateRows(columns),
         format: parsedFormat,
       });
 
@@ -1411,7 +1415,7 @@ export async function importBrandLogosAction(
   return withAuth(async ({ team }) => {
     const t = await getBrandLibraryTranslations();
     const fileErrors = getBrandBatchFileErrors(t);
-    const columns = getBrandBatchColumns();
+    const columns = await getLocalizedBrandBatchColumns();
 
     try {
       const file = formData.get("file");

@@ -52,7 +52,7 @@ import {
   ParsedProductBatchRow,
   buildProductBatchExportRows,
   buildProductBatchTemplateRows,
-  getProductBatchColumns,
+  getLocalizedProductBatchColumns,
   parseProductBatchRows,
 } from "./batchFile";
 import {
@@ -1255,7 +1255,7 @@ export async function exportProductsAction(
       const products = await fetchProducts(teamId);
       const rows = buildProductBatchExportRows({
         products,
-        columns: getProductBatchColumns(),
+        columns: await getLocalizedProductBatchColumns(),
       });
       const { buffer, mimeType } = encodeBatchFile({
         rows,
@@ -1288,8 +1288,9 @@ export async function downloadProductImportTemplateAction(
 
     try {
       const parsedFormat = z.enum(["csv", "xlsx"]).parse(format);
+      const columns = await getLocalizedProductBatchColumns();
       const { buffer, mimeType } = encodeBatchFile({
-        rows: buildProductBatchTemplateRows(getProductBatchColumns()),
+        rows: buildProductBatchTemplateRows(columns),
         format: parsedFormat,
       });
 
@@ -1320,7 +1321,7 @@ export async function importProductsAction(
     );
     const tBatch = (await getTranslations("Tagging.BatchImportExport")) as TranslationFunction;
     const fileErrors = getProductBatchFileErrors(tBatch);
-    const columns = getProductBatchColumns();
+    const columns = await getLocalizedProductBatchColumns();
 
     try {
       const file = formData.get("file");

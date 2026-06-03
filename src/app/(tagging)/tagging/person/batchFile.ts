@@ -1,5 +1,6 @@
 import "server-only";
 
+import { getLocalizedBatchColumns } from "../batchColumnTranslations";
 import {
   buildBatchTemplateRows,
   getBatchHeaders,
@@ -30,7 +31,7 @@ export type PersonBatchColumnKey =
   | "notes"
   | "enabled";
 
-/** Canonical English headers for templates, exports, and import parsing (all locales). */
+/** Canonical English headers for fallback and backwards-compatible import parsing. */
 export const PERSON_BATCH_ENGLISH_HEADERS: Record<PersonBatchColumnKey, string> = {
   name: "Person Name",
   personTypeName: "Identity / Role",
@@ -67,6 +68,14 @@ export function getPersonBatchColumns() {
     header: PERSON_BATCH_ENGLISH_HEADERS[key],
     aliases: [PERSON_BATCH_ENGLISH_HEADERS[key]],
   })) satisfies BatchColumnDefinition<PersonBatchColumnKey>[];
+}
+
+export function getLocalizedPersonBatchColumns() {
+  return getLocalizedBatchColumns({
+    namespace: "PersonLibrary",
+    columnKeys: PERSON_BATCH_COLUMN_ORDER,
+    fallbackHeaders: PERSON_BATCH_ENGLISH_HEADERS,
+  });
 }
 
 export function buildPersonBatchExportRows({

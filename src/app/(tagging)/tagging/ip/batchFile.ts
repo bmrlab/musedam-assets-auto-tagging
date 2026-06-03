@@ -1,5 +1,6 @@
 import "server-only";
 
+import { getLocalizedBatchColumns } from "../batchColumnTranslations";
 import {
   buildBatchTemplateRows,
   getBatchHeaders,
@@ -34,7 +35,7 @@ export type IpBatchColumnKey =
   | "notes"
   | "enabled";
 
-/** Canonical English headers for templates, exports, and import parsing (all locales). */
+/** Canonical English headers for fallback and backwards-compatible import parsing. */
 export const IP_BATCH_ENGLISH_HEADERS: Record<IpBatchColumnKey, string> = {
   name: "IP Character Name",
   ipTypeName: "IP Type",
@@ -80,6 +81,14 @@ export function getIpBatchColumns() {
     header: IP_BATCH_ENGLISH_HEADERS[key],
     aliases: [IP_BATCH_ENGLISH_HEADERS[key]],
   })) satisfies BatchColumnDefinition<IpBatchColumnKey>[];
+}
+
+export function getLocalizedIpBatchColumns() {
+  return getLocalizedBatchColumns({
+    namespace: "IpLibrary",
+    columnKeys: IP_BATCH_COLUMN_ORDER,
+    fallbackHeaders: IP_BATCH_ENGLISH_HEADERS,
+  });
 }
 
 export function buildIpBatchExportRows({

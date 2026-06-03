@@ -2,6 +2,7 @@ import "server-only";
 
 import { inflateRawSync } from "node:zlib";
 
+import { getLocalizedBatchColumns } from "../batchColumnTranslations";
 import type { BrandLogoItem } from "./types";
 
 export type BrandBatchFileFormat = "csv" | "xlsx";
@@ -30,7 +31,7 @@ export type BrandBatchColumnDefinition = {
   aliases: string[];
 };
 
-/** Canonical English headers for templates, exports, and import parsing (all locales). */
+/** Canonical English headers for fallback and backwards-compatible import parsing. */
 export const BRAND_BATCH_ENGLISH_HEADERS: Record<BrandBatchColumnKey, string> = {
   name: "Identity Name",
   logoTypeName: "Identity Type",
@@ -69,6 +70,14 @@ const BRAND_BATCH_COLUMNS: BrandBatchColumnDefinition[] = BRAND_BATCH_COLUMN_ORD
 
 export function getBrandBatchColumns() {
   return BRAND_BATCH_COLUMNS;
+}
+
+export function getLocalizedBrandBatchColumns() {
+  return getLocalizedBatchColumns({
+    namespace: "BrandLibrary",
+    columnKeys: BRAND_BATCH_COLUMN_ORDER,
+    fallbackHeaders: BRAND_BATCH_ENGLISH_HEADERS,
+  });
 }
 
 export type BrandBatchParseError = {
@@ -130,7 +139,9 @@ export function buildBrandBatchExportRows({
   ];
 }
 
-export function buildBrandBatchTemplateRows(columns: BrandBatchColumnDefinition[] = getBrandBatchColumns()) {
+export function buildBrandBatchTemplateRows(
+  columns: BrandBatchColumnDefinition[] = getBrandBatchColumns(),
+) {
   return [getBrandBatchHeaders(columns)];
 }
 
