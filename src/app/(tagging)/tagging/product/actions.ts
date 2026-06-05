@@ -1475,9 +1475,10 @@ export async function prepareProductClassificationAction(input: {
         objectKey: metadata.objectKey,
         expiresInSeconds: 60 * 60,
       });
+      const imageInput = await fetchRemoteImageInput(detectionImageUrl, "product classification");
       const detection = await detectProductFigureBoxes({
         teamId,
-        imageUrl: detectionImageUrl,
+        imageBase64: imageInput.dataUrl,
       });
 
       return {

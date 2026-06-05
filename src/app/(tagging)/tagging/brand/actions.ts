@@ -2054,9 +2054,10 @@ export async function prepareBrandClassificationAction(input: {
         expiresInSeconds: 60 * 60,
       });
       const detectionLabelText = await fetchLogoDetectionLabelText(teamId);
+      const imageInput = await fetchRemoteImageInput(detectionImageUrl, "brand classification");
       const detection = await detectBrandLogoBoxes({
         teamId,
-        imageUrl: detectionImageUrl,
+        imageBase64: imageInput.dataUrl,
         detectionLabelText,
       });
 

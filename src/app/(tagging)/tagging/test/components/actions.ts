@@ -1,7 +1,7 @@
 "use server";
 
 import { withAuth } from "@/app/(auth)/withAuth";
-import { getCachedSignedS3ObjectUrl } from "@/lib/s3";
+import { getCachedBrowserS3ObjectUrl } from "@/lib/s3";
 import { ServerActionResult } from "@/lib/serverAction";
 import prisma from "@/prisma/prisma";
 
@@ -82,7 +82,7 @@ export async function getFeatureThumbnailAction(
         };
       }
 
-      const { signedUrl, signedUrlExpiresAt } = getCachedSignedS3ObjectUrl({
+      const { signedUrl, signedUrlExpiresAt } = getCachedBrowserS3ObjectUrl({
         objectKey,
       });
 

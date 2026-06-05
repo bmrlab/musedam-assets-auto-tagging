@@ -41,6 +41,7 @@ export async function predictAssetTagsAction(
 ): Promise<ServerActionResult<void>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     const featureClassify = await getServerFeatureLibraryEnabled();
+    // console.log("featureClassify = ", featureClassify);
     const assetObject = await prisma.assetObject.findUniqueOrThrow({
       where: { id: assetId, teamId },
     });

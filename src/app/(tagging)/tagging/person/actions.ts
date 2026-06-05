@@ -25,6 +25,7 @@ import {
   uploadS3Object,
 } from "@/lib/s3";
 import { ServerActionResult } from "@/lib/serverAction";
+import { fetchRemoteImageInput } from "@/lib/tagging/classification-image";
 import { schedulePushFeatureToMuseDAM } from "@/musedam/push-feature-to-musedam";
 import {
   AssetPerson,
@@ -1548,8 +1549,9 @@ export async function preparePersonClassificationAction(input: {
         objectKey: metadata.objectKey,
         expiresInSeconds: 60 * 60,
       });
+      const imageInput = await fetchRemoteImageInput(detectionImageUrl, "person classification");
       const detection = await detectPersonFaceBoxes({
-        imageUrl: detectionImageUrl,
+        imageBase64: imageInput.dataUrl,
         includeEmbedding: true,
       });
 

@@ -73,14 +73,14 @@ function isConfidentWinner(topMatches: PersonTopMatch[]) {
 }
 
 export async function detectPersonFaceBoxes({
-  imageUrl,
+  imageBase64,
   includeEmbedding = false,
 }: {
-  imageUrl: string;
+  imageBase64: string;
   includeEmbedding?: boolean;
 }) {
   const detection = await detectPersonFaces({
-    imageUrl,
+    imageBase64,
     includeEmbedding,
   });
 

@@ -1352,13 +1352,11 @@ async function detectPartialFeatureForObjectKey({
     expiresInSeconds: 60 * 60,
   });
 
-  const [imageInput, detection] = await Promise.all([
-    fetchRemoteImageInput(detectionImageUrl, "IP partial feature"),
-    detectIpPartialFeatureBoxes({
-      imageUrl: detectionImageUrl,
-      partialMatchPatternName,
-    }),
-  ]);
+  const imageInput = await fetchRemoteImageInput(detectionImageUrl, "IP partial feature");
+  const detection = await detectIpPartialFeatureBoxes({
+    imageBase64: imageInput.dataUrl,
+    partialMatchPatternName,
+  });
 
   return {
     signedUrl,
@@ -1792,9 +1790,10 @@ export async function prepareIpClassificationAction(input: {
         objectKey: metadata.objectKey,
         expiresInSeconds: 60 * 60,
       });
+      const imageInput = await fetchRemoteImageInput(detectionImageUrl, "IP classification");
       const detection = await detectIpFigureBoxes({
         teamId,
-        imageUrl: detectionImageUrl,
+        imageBase64: imageInput.dataUrl,
       });
 
       return {

@@ -6,6 +6,7 @@ import {
   classifyPersonFaceEmbeddings,
   detectPersonFaceBoxes,
 } from "@/lib/person/person-classification";
+import { fetchRemoteImageInput } from "@/lib/tagging/classification-image";
 import type { TaggingPersonRecommendation, TaggingPersonRecommendedTag } from "@/prisma/client";
 
 function normalizePersonRecommendedTags({
@@ -76,8 +77,9 @@ export async function classifyAssetPersonRecommendation({
     return null;
   }
 
+  const imageInput = await fetchRemoteImageInput(imageUrl, "person classification");
   const detection = await detectPersonFaceBoxes({
-    imageUrl,
+    imageBase64: imageInput.dataUrl,
     includeEmbedding: true,
   });
 

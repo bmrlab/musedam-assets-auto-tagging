@@ -125,7 +125,7 @@ export async function enqueueTaggingTask({
   assetObject,
   matchingSources,
   recognitionAccuracy,
-  featureClassify = false,
+  featureClassify = true,
   taskType = "default",
 }: {
   assetObject: AssetObject;

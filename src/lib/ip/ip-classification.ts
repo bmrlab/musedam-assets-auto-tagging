@@ -168,10 +168,10 @@ function computeCropScore(aggregation: CropAggregation) {
 
 export async function detectIpFigureBoxes({
   teamId,
-  imageUrl,
+  imageBase64,
 }: {
   teamId: number;
-  imageUrl: string;
+  imageBase64: string;
 }) {
   const detectionLabelText = normalizeDetectionText(
     await translateDetectionLabelText(await fetchIpDetectionPromptNames(teamId)),
@@ -181,17 +181,17 @@ export async function detectIpFigureBoxes({
   }
 
   return requestIpDetection({
-    imageUrl,
+    imageBase64,
     detectionLabelText,
     errorPrefix: "IP detection",
   });
 }
 
 export async function detectIpPartialFeatureBoxes({
-  imageUrl,
+  imageBase64,
   partialMatchPatternName = DEFAULT_IP_PARTIAL_MATCH_PATTERN_NAME,
 }: {
-  imageUrl: string;
+  imageBase64: string;
   partialMatchPatternName?: string;
 }) {
   const normalizedPatternName = normalizeDetectionPromptTerm(partialMatchPatternName);
@@ -209,18 +209,18 @@ export async function detectIpPartialFeatureBoxes({
   }
 
   return requestIpDetection({
-    imageUrl,
+    imageBase64,
     detectionLabelText,
     errorPrefix: "IP partial feature detection",
   });
 }
 
 async function requestIpDetection({
-  imageUrl,
+  imageBase64,
   detectionLabelText,
   errorPrefix,
 }: {
-  imageUrl: string;
+  imageBase64: string;
   detectionLabelText: string;
   errorPrefix: string;
 }) {
@@ -233,7 +233,7 @@ async function requestIpDetection({
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      image_url: imageUrl,
+      image_base64: imageBase64,
       detection_label_text: detectionLabelText,
     }),
   });

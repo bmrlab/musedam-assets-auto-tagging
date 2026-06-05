@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getCachedSignedS3ObjectUrl } from "@/lib/s3";
+import { fetchRemoteImageInput } from "@/lib/tagging/classification-image";
 import prisma from "@/prisma/prisma";
 import { randomUUID } from "crypto";
 import { detectPersonFaces, generateFaceEmbedding } from "./face-api";
@@ -73,8 +74,9 @@ export async function assertSingleFaceReferenceImage({
   identifier?: string;
 }) {
   const { signedUrl } = getCachedSignedS3ObjectUrl({ objectKey });
+  const imageInput = await fetchRemoteImageInput(signedUrl, "person face detection");
   const detection = await detectPersonFaces({
-    imageUrl: signedUrl,
+    imageBase64: imageInput.dataUrl,
     includeEmbedding: false,
   });
 
@@ -169,8 +171,9 @@ export async function processAssetPersonReferenceVectors({
         const { signedUrl, face } = await assertSingleFaceReferenceImage({
           objectKey: image.objectKey,
         });
+        const imageInput = await fetchRemoteImageInput(signedUrl, "person face embedding");
         const embedding = await generateFaceEmbedding({
-          imageUrl: signedUrl,
+          imageBase64: imageInput.dataUrl,
           face,
         });
 

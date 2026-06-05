@@ -4,6 +4,7 @@ import { withAuth } from "@/app/(auth)/withAuth";
 import { isDebugPageEnabled } from "@/lib/brand/env";
 import { detectBrandLogoBoxes } from "@/lib/brand/logo-classification";
 import { MAX_CLIENT_IMAGE_UPLOAD_BYTES } from "@/lib/brand/upload-constants";
+import { fetchRemoteImageInput } from "@/lib/tagging/classification-image";
 import {
   buildAssetLogoObjectKey,
   getCachedSignedS3ObjectUrl,
@@ -144,9 +145,10 @@ export async function detectLogoBoxesAction(input: {
         objectKey: parsed.objectKey,
         expiresInSeconds: 60 * 60,
       });
+      const imageInput = await fetchRemoteImageInput(signedUrl, "logo detection debug");
       const detection = await detectBrandLogoBoxes({
         teamId,
-        imageUrl: signedUrl,
+        imageBase64: imageInput.dataUrl,
         detectionLabelText: parsed.detectionLabelText,
       });
 

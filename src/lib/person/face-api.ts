@@ -76,10 +76,10 @@ function mapFaceDetectionBox(face: FaceDetectionResponseItem): PersonFaceDetecti
 }
 
 export async function detectPersonFaces({
-  imageUrl,
+  imageBase64,
   includeEmbedding = false,
 }: {
-  imageUrl: string;
+  imageBase64: string;
   includeEmbedding?: boolean;
 }) {
   const baseUrl = getLogoDetectionServerUrl();
@@ -91,7 +91,7 @@ export async function detectPersonFaces({
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      image_url: imageUrl,
+      image_base64: imageBase64,
       include_embedding: includeEmbedding,
     }),
   });
@@ -114,10 +114,10 @@ export async function detectPersonFaces({
 }
 
 export async function generateFaceEmbedding({
-  imageUrl,
+  imageBase64,
   face,
 }: {
-  imageUrl: string;
+  imageBase64: string;
   face: FaceDetectionResponseItem;
 }) {
   const baseUrl = getLogoDetectionServerUrl();
@@ -129,7 +129,7 @@ export async function generateFaceEmbedding({
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      image_url: imageUrl,
+      image_base64: imageBase64,
       face,
     }),
   });
@@ -138,7 +138,8 @@ export async function generateFaceEmbedding({
     .json()
     .catch(() => null)) as GenerateFaceEmbeddingServiceResponse | null;
   if (!response.ok || !payload?.embedding?.vector?.length) {
-    throw new Error(`Generate face embedding request failed (${response.status})${await readErrorBody(response)}`);
+    const errorBody = await response.text().catch(() => "");
+    throw new Error(`Generate face embedding request failed (${response.status})${errorBody ? ` ${errorBody}` : ""}`);
   }
 
   return payload;

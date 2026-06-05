@@ -28,7 +28,7 @@ export async function classifyAssetBrandRecommendation({
   const imageInput = await fetchRemoteImageInput(imageUrl, "brand classification");
   const detection = await detectBrandLogoBoxes({
     teamId,
-    imageUrl,
+    imageBase64: imageInput.dataUrl,
     detectionLabelText,
   });
 

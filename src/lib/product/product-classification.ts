@@ -166,10 +166,10 @@ function computeCropScore(aggregation: CropAggregation) {
 
 export async function detectProductFigureBoxes({
   teamId,
-  imageUrl,
+  imageBase64,
 }: {
   teamId: number;
-  imageUrl: string;
+  imageBase64: string;
 }) {
   const baseUrl = getLogoDetectionServerUrl();
   const token = getLogoDetectionServerToken();
@@ -186,7 +186,7 @@ export async function detectProductFigureBoxes({
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      image_url: imageUrl,
+      image_base64: imageBase64,
       detection_label_text: detectionLabelText,
     }),
   });

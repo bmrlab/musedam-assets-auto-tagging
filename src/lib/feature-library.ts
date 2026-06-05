@@ -35,7 +35,7 @@ export function resolveFeatureLibraryEnabled(
     return featureLibraryValueToEnabled(fallbackValue);
   }
 
-  return false;
+  return true;
 }
 
 export function resolveFeatureLibraryValue(
