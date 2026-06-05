@@ -26,7 +26,7 @@ function persistFeatureLibraryValue(value: FeatureLibraryValue) {
   window.localStorage.setItem(FEATURE_LIBRARY_STORAGE_KEY, value);
   Cookies.set(FEATURE_LIBRARY_COOKIE, value, {
     expires: 365,
-    sameSite: "None" as any,
+    sameSite: "None",
     secure: true,
   });
 }

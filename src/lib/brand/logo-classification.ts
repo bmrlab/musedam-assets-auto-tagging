@@ -80,11 +80,10 @@ function isConfidentWinner(topMatches: BrandTopMatch[]) {
 }
 
 export async function detectBrandLogoBoxes({
-  teamId: _teamId,
   imageBase64,
   detectionLabelText = "",
 }: {
-  teamId: number;
+  teamId?: number;
   imageBase64: string;
   detectionLabelText?: string;
 }) {

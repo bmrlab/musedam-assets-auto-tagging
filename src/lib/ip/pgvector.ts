@@ -112,7 +112,6 @@ export async function upsertIpVectorPoints(
   }
 
   // Build multi-value insert with conflict resolution
-  const valuePlaceholders: string[] = [];
   const params: (string | number | boolean | null)[] = [];
 
   const valueTuples: string[] = [];

@@ -96,10 +96,6 @@ export async function middleware(req: NextRequest) {
   }
 
   const requestFeatureLibrary = req.nextUrl.searchParams.get(FEATURE_LIBRARY_PARAM);
-  const featureLibraryEnabled = resolveFeatureLibraryEnabled(
-    requestFeatureLibrary,
-    req.cookies.get(FEATURE_LIBRARY_COOKIE)?.value,
-  );
 
   const response = NextResponse.next();
 
