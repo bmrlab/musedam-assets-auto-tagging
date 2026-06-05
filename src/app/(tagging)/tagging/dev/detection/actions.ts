@@ -6,9 +6,9 @@ import { detectBrandLogoBoxes } from "@/lib/brand/logo-classification";
 import { MAX_CLIENT_IMAGE_UPLOAD_BYTES } from "@/lib/brand/upload-constants";
 import {
   buildAssetLogoObjectKey,
-  getCachedSignedOssObjectUrl,
-  signOssObjectUploadUrl,
-} from "@/lib/oss";
+  getCachedSignedS3ObjectUrl,
+  signS3ObjectUploadUrl,
+} from "@/lib/s3";
 import { ServerActionResult } from "@/lib/serverAction";
 import { z } from "zod";
 import { DetectionImageUploadResult, DetectionUploadResult } from "./types";
@@ -78,12 +78,12 @@ export async function prepareDetectionImageUploadAction(input: {
         }),
       });
       const { signedUrl: uploadUrl, signedUrlExpiresAt: uploadUrlExpiresAt } =
-        signOssObjectUploadUrl({
+        signS3ObjectUploadUrl({
           objectKey,
           contentType: metadata.mimeType,
           expiresInSeconds: 10 * 60,
         });
-      const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
+      const { signedUrl, signedUrlExpiresAt } = getCachedSignedS3ObjectUrl({
         objectKey,
         expiresInSeconds: 60 * 60,
       });
@@ -140,7 +140,7 @@ export async function detectLogoBoxesAction(input: {
         };
       }
 
-      const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
+      const { signedUrl, signedUrlExpiresAt } = getCachedSignedS3ObjectUrl({
         objectKey: parsed.objectKey,
         expiresInSeconds: 60 * 60,
       });

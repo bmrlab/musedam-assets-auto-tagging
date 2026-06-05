@@ -3,12 +3,6 @@
 import { withAuth } from "@/app/(auth)/withAuth";
 import { MAX_CLIENT_IMAGE_UPLOAD_BYTES } from "@/lib/brand/upload-constants";
 import {
-  buildAssetPersonObjectKey,
-  getCachedSignedOssObjectUrl,
-  signOssObjectUploadUrl,
-  uploadOssObject,
-} from "@/lib/oss";
-import {
   classifyPersonFaceEmbeddings,
   detectPersonFaceBoxes,
   PersonDetectionBox,
@@ -22,6 +16,14 @@ import {
   deletePersonVectorPointsByPerson,
   setPersonVectorPayloadByPerson,
 } from "@/lib/person/qdrant";
+import {
+  buildAssetPersonObjectKey,
+  getBrowserS3ObjectUploadUrl,
+  getCachedBrowserS3ObjectUrl,
+  getCachedSignedS3ObjectUrl,
+  isTeamS3ObjectKey,
+  uploadS3Object,
+} from "@/lib/s3";
 import { ServerActionResult } from "@/lib/serverAction";
 import { schedulePushFeatureToMuseDAM } from "@/musedam/push-feature-to-musedam";
 import {
@@ -173,7 +175,7 @@ function getFileExtensionFromNameOrContentType({
 }
 
 function isTeamPersonObjectKey(objectKey: string, teamId: number) {
-  return objectKey.startsWith(`auto-tagging/teams-${teamId}-asset-persons-`);
+  return isTeamS3ObjectKey({ kind: "persons", objectKey, teamId });
 }
 
 function buildTagPath(tag: AssetTagWithParents) {
@@ -200,7 +202,7 @@ function normalizePersonType(type: AssetPersonType): PersonTypeItem {
 }
 
 function normalizePersonImage(image: AssetPersonImage): PersonImageItem {
-  const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
+  const { signedUrl, signedUrlExpiresAt } = getCachedBrowserS3ObjectUrl({
     objectKey: image.objectKey,
   });
 
@@ -587,7 +589,7 @@ async function uploadNewPersonImages({ files, teamId }: { files: File[]; teamId:
       extension: getFileExtension(file),
     });
     const buffer = Buffer.from(await file.arrayBuffer());
-    const uploadResult = await uploadOssObject({
+    const uploadResult = await uploadS3Object({
       body: buffer,
       contentType: file.type || "application/octet-stream",
       objectKey,
@@ -662,7 +664,7 @@ async function uploadAssetLibraryImages({
       extension,
     });
 
-    const uploadResult = await uploadOssObject({
+    const uploadResult = await uploadS3Object({
       body: buffer,
       contentType,
       objectKey,
@@ -720,7 +722,7 @@ async function clonePersonImageFromObjectKey({
   teamId: number;
   t: TranslationFunction;
 }) {
-  const { signedUrl } = getCachedSignedOssObjectUrl({
+  const { signedUrl } = getCachedSignedS3ObjectUrl({
     objectKey,
     expiresInSeconds: 60 * 60,
   });
@@ -746,7 +748,7 @@ async function clonePersonImageFromObjectKey({
     extension,
   });
 
-  const uploadResult = await uploadOssObject({
+  const uploadResult = await uploadS3Object({
     body: buffer,
     contentType,
     objectKey: newObjectKey,
@@ -1050,7 +1052,7 @@ export async function prepareAssetLibraryPersonImagesAction(
             assets: [{ downloadUrl: asset.downloadUrl, name: asset.name }],
             teamId,
           });
-          const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
+          const { signedUrl, signedUrlExpiresAt } = getCachedBrowserS3ObjectUrl({
             objectKey: uploaded.objectKey,
           });
 
@@ -1117,11 +1119,11 @@ export async function preparePersonImageUploadAction(input: {
         }),
       });
       const { signedUrl: uploadUrl, signedUrlExpiresAt: uploadUrlExpiresAt } =
-        signOssObjectUploadUrl({
+        getBrowserS3ObjectUploadUrl({
           objectKey,
           contentType,
         });
-      const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
+      const { signedUrl, signedUrlExpiresAt } = getCachedBrowserS3ObjectUrl({
         objectKey,
         expiresInSeconds: 60 * 60,
       });
@@ -1263,7 +1265,7 @@ export async function refreshAssetPersonImageSignedUrlAction(imageId: string): P
         };
       }
 
-      const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
+      const { signedUrl, signedUrlExpiresAt } = getCachedBrowserS3ObjectUrl({
         objectKey: image.objectKey,
       });
 
@@ -1538,12 +1540,16 @@ export async function preparePersonClassificationAction(input: {
         };
       }
 
-      const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
+      const { signedUrl: detectionImageUrl } = getCachedSignedS3ObjectUrl({
+        objectKey: metadata.objectKey,
+        expiresInSeconds: 60 * 60,
+      });
+      const { signedUrl, signedUrlExpiresAt } = getCachedBrowserS3ObjectUrl({
         objectKey: metadata.objectKey,
         expiresInSeconds: 60 * 60,
       });
       const detection = await detectPersonFaceBoxes({
-        imageUrl: signedUrl,
+        imageUrl: detectionImageUrl,
         includeEmbedding: true,
       });
 

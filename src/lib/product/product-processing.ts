@@ -4,7 +4,7 @@ import { llm, LLMModelName } from "@/ai/provider";
 import { getJinaConfig } from "@/lib/brand/env";
 import { bufferToDataUrl } from "@/lib/brand/image";
 import { createJinaImageEmbeddings, createJinaTextEmbeddings } from "@/lib/brand/jina";
-import { getCachedSignedOssObjectUrl } from "@/lib/oss";
+import { getCachedSignedS3ObjectUrl } from "@/lib/s3";
 import { translateTextToEnglish } from "@/lib/translation/service";
 import prisma from "@/prisma/prisma";
 import { generateObject, UserModelMessage } from "ai";
@@ -68,7 +68,7 @@ function getProcessingErrorCode(error: unknown): ProductProcessingErrorCode {
 }
 
 async function fetchImageAsDataUrl(objectKey: string, mimeType: string) {
-  const { signedUrl } = getCachedSignedOssObjectUrl({ objectKey });
+  const { signedUrl } = getCachedSignedS3ObjectUrl({ objectKey });
   const response = await fetch(signedUrl);
 
   if (!response.ok) {

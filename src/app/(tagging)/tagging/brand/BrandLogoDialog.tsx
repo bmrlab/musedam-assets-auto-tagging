@@ -26,6 +26,7 @@ import {
   prepareClientImageUpload,
 } from "@/lib/brand/browser-image";
 import { MAX_TOTAL_NEW_REFERENCE_UPLOAD_BYTES } from "@/lib/brand/upload-constants";
+import { uploadS3ObjectFromBrowser } from "@/lib/s3-browser-upload";
 import { Loader2, Plus, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState, useTransition } from "react";
@@ -294,12 +295,10 @@ export default function BrandLogoDialog({
       throw new Error(result.message);
     }
 
-    const uploadResponse = await fetch(result.data.image.uploadUrl, {
-      method: "PUT",
-      headers: {
-        "Content-Type": result.data.image.mimeType,
-      },
-      body: image.file,
+    const uploadResponse = await uploadS3ObjectFromBrowser({
+      uploadUrl: result.data.image.uploadUrl,
+      file: image.file,
+      contentType: result.data.image.mimeType,
     });
 
     if (!uploadResponse.ok) {

@@ -221,7 +221,7 @@
           "name": "标识名称",
           "logoTypeName": "标识类型",
           "tagPaths": "关联标签",
-          "imageObjectKeys": "标识图片 OSS Key",
+          "imageObjectKeys": "标识图片 S3 Key",
           "notes": "备注",
           "enabled": "启用状态"
         },
@@ -234,7 +234,7 @@
           "excelUnsupportedCompression": "Excel 文件包含暂不支持的压缩方式"
         },
         "importErrors": {
-          "ossKeyUnreadable": "图片 OSS Key 不可读取：{objectKey}",
+          "ossKeyUnreadable": "图片 S3 Key 不可读取：{objectKey}",
           "tagsRequired": "关联标签不能为空",
           "tagsTooMany": "关联标签不能超过 100 个",
           "tagsNotFound": "关联标签不存在：{tags}",
@@ -246,7 +246,7 @@
           "typeTooLong": "标识类型不能超过 100 个字符",
           "descriptionTooLong": "{descriptionColumn} cannot exceed 5000 characters",
           "notesTooLong": "备注不能超过 5000 个字符",
-          "imageKeysRequired": "标识图片 OSS Key 不能为空",
+          "imageKeysRequired": "标识图片 S3 Key 不能为空",
           "imagesTooMany": "标识图片不能超过 100 张",
           "matchPatternInvalid": "{matchPatternColumn} only supports: {whole}/{partial}",
           "partialImportUnsupported": "Partial IP import is not supported in batch files. Use whole match rows or create partial IP entries manually."
@@ -482,7 +482,7 @@
           "description": "核心特征描述",
           "matchPattern": "匹配模式",
           "tagPaths": "关联标签",
-          "imageObjectKeys": "IP 图片 OSS Key",
+          "imageObjectKeys": "IP 图片 S3 Key",
           "notes": "备注信息",
           "enabled": "启用状态"
         },
@@ -1054,7 +1054,7 @@
           "name": "人物姓名",
           "personTypeName": "身份/角色",
           "tagPaths": "关联标签",
-          "imageObjectKeys": "商品图片 OSS Key",
+          "imageObjectKeys": "商品图片 S3 Key",
           "notes": "备注信息",
           "enabled": "启用状态"
         },
@@ -1300,7 +1300,7 @@
           "productTypeName": "商品类型",
           "description": "核心特征描述",
           "tagPaths": "关联标签",
-          "imageObjectKeys": "商品图片 OSS Key",
+          "imageObjectKeys": "商品图片 S3 Key",
           "notes": "备注信息",
           "enabled": "启用状态"
         },

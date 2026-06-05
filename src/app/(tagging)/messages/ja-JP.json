@@ -461,7 +461,7 @@
           "name": "識別名",
           "logoTypeName": "識別タイプ",
           "tagPaths": "関連タグ",
-          "imageObjectKeys": "識別画像 OSS Key",
+          "imageObjectKeys": "識別画像 S3 Key",
           "notes": "メモ",
           "enabled": "有効状態"
         },
@@ -474,7 +474,7 @@
           "excelUnsupportedCompression": "Excel ファイルの圧縮方式はサポートされていません"
         },
         "importErrors": {
-          "ossKeyUnreadable": "画像 OSS Key を読み取れません：{objectKey}",
+          "ossKeyUnreadable": "画像 S3 Key を読み取れません：{objectKey}",
           "tagsRequired": "関連タグは空にできません",
           "tagsTooMany": "関連タグは100件を超えることはできません",
           "tagsNotFound": "関連タグが見つかりません：{tags}",
@@ -486,7 +486,7 @@
           "typeTooLong": "識別タイプは100文字を超えることはできません",
           "descriptionTooLong": "{descriptionColumn} cannot exceed 5000 characters",
           "notesTooLong": "メモは5000文字を超えることはできません",
-          "imageKeysRequired": "識別画像 OSS Key は空にできません",
+          "imageKeysRequired": "識別画像 S3 Key は空にできません",
           "imagesTooMany": "識別画像は100枚を超えることはできません",
           "matchPatternInvalid": "{matchPatternColumn} only supports: {whole}/{partial}",
           "partialImportUnsupported": "Partial IP import is not supported in batch files. Use whole match rows or create partial IP entries manually."
@@ -816,7 +816,7 @@
           "description": "主要な特徴の説明",
           "matchPattern": "マッチング方式",
           "tagPaths": "関連タグ",
-          "imageObjectKeys": "IP画像 OSS Key",
+          "imageObjectKeys": "IP画像 S3 Key",
           "notes": "メモ",
           "enabled": "有効状態"
         },
@@ -1054,7 +1054,7 @@
           "name": "人物名",
           "personTypeName": "役割/身分",
           "tagPaths": "関連タグ",
-          "imageObjectKeys": "顔写真 OSS Key",
+          "imageObjectKeys": "顔写真 S3 Key",
           "notes": "備考",
           "enabled": "有効状態"
         },
@@ -1300,7 +1300,7 @@
           "productTypeName": "商品タイプ",
           "description": "主要な特徴の説明",
           "tagPaths": "関連タグ",
-          "imageObjectKeys": "商品画像 OSS Key",
+          "imageObjectKeys": "商品画像 S3 Key",
           "notes": "メモ",
           "enabled": "有効状態"
         },

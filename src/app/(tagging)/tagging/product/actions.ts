@@ -3,12 +3,6 @@
 import { withAuth } from "@/app/(auth)/withAuth";
 import { MAX_CLIENT_IMAGE_UPLOAD_BYTES } from "@/lib/brand/upload-constants";
 import {
-  buildAssetProductObjectKey,
-  getCachedSignedOssObjectUrl,
-  signOssObjectUploadUrl,
-  uploadOssObject,
-} from "@/lib/oss";
-import {
   ProductDetectionBox,
   classifyProductImageCrops,
   detectProductFigureBoxes,
@@ -21,6 +15,14 @@ import {
   deleteProductVectorPointsByProduct,
   setProductVectorPayloadByProduct,
 } from "@/lib/product/qdrant";
+import {
+  buildAssetProductObjectKey,
+  getBrowserS3ObjectUploadUrl,
+  getCachedBrowserS3ObjectUrl,
+  getCachedSignedS3ObjectUrl,
+  isTeamS3ObjectKey,
+  uploadS3Object,
+} from "@/lib/s3";
 import { ServerActionResult } from "@/lib/serverAction";
 import {
   clampBox as clampClassificationBox,
@@ -177,7 +179,7 @@ function getFileExtensionFromNameOrContentType({
 }
 
 function isTeamProductObjectKey(objectKey: string, teamId: number) {
-  return objectKey.startsWith(`auto-tagging/teams-${teamId}-asset-products-`);
+  return isTeamS3ObjectKey({ kind: "products", objectKey, teamId });
 }
 
 function buildTagPath(tag: AssetTagWithParents) {
@@ -204,7 +206,7 @@ function normalizeProductType(type: AssetProductType): ProductTypeItem {
 }
 
 function normalizeProductImage(image: AssetProductImage): ProductImageItem {
-  const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
+  const { signedUrl, signedUrlExpiresAt } = getCachedBrowserS3ObjectUrl({
     objectKey: image.objectKey,
   });
 
@@ -590,7 +592,7 @@ async function uploadNewProductImages({ files, teamId }: { files: File[]; teamId
       extension: getFileExtension(file),
     });
     const buffer = Buffer.from(await file.arrayBuffer());
-    const uploadResult = await uploadOssObject({
+    const uploadResult = await uploadS3Object({
       body: buffer,
       contentType: file.type || "application/octet-stream",
       objectKey,
@@ -663,7 +665,7 @@ async function uploadAssetLibraryImages({
       extension,
     });
 
-    const uploadResult = await uploadOssObject({
+    const uploadResult = await uploadS3Object({
       body: buffer,
       contentType,
       objectKey,
@@ -708,7 +710,7 @@ async function cloneProductImageFromObjectKey({
   teamId: number;
   t: TranslationFunction;
 }) {
-  const { signedUrl } = getCachedSignedOssObjectUrl({
+  const { signedUrl } = getCachedSignedS3ObjectUrl({
     objectKey,
     expiresInSeconds: 60 * 60,
   });
@@ -734,7 +736,7 @@ async function cloneProductImageFromObjectKey({
     extension,
   });
 
-  const uploadResult = await uploadOssObject({
+  const uploadResult = await uploadS3Object({
     body: buffer,
     contentType,
     objectKey: newObjectKey,
@@ -984,7 +986,7 @@ export async function prepareAssetLibraryProductImagesAction(
             downloadUrls: [asset.downloadUrl],
             teamId,
           });
-          const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
+          const { signedUrl, signedUrlExpiresAt } = getCachedBrowserS3ObjectUrl({
             objectKey: uploaded.objectKey,
           });
 
@@ -1051,11 +1053,11 @@ export async function prepareProductImageUploadAction(input: {
         }),
       });
       const { signedUrl: uploadUrl, signedUrlExpiresAt: uploadUrlExpiresAt } =
-        signOssObjectUploadUrl({
+        getBrowserS3ObjectUploadUrl({
           objectKey,
           contentType,
         });
-      const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
+      const { signedUrl, signedUrlExpiresAt } = getCachedBrowserS3ObjectUrl({
         objectKey,
         expiresInSeconds: 60 * 60,
       });
@@ -1190,7 +1192,7 @@ export async function refreshAssetProductImageSignedUrlAction(imageId: string): 
         };
       }
 
-      const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
+      const { signedUrl, signedUrlExpiresAt } = getCachedBrowserS3ObjectUrl({
         objectKey: image.objectKey,
       });
 
@@ -1465,13 +1467,17 @@ export async function prepareProductClassificationAction(input: {
         };
       }
 
-      const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
+      const { signedUrl: detectionImageUrl } = getCachedSignedS3ObjectUrl({
+        objectKey: metadata.objectKey,
+        expiresInSeconds: 60 * 60,
+      });
+      const { signedUrl, signedUrlExpiresAt } = getCachedBrowserS3ObjectUrl({
         objectKey: metadata.objectKey,
         expiresInSeconds: 60 * 60,
       });
       const detection = await detectProductFigureBoxes({
         teamId,
-        imageUrl: signedUrl,
+        imageUrl: detectionImageUrl,
       });
 
       return {
@@ -1531,7 +1537,7 @@ export async function classifyProductImageAction(input: {
         };
       }
 
-      const { signedUrl } = getCachedSignedOssObjectUrl({
+      const { signedUrl } = getCachedSignedS3ObjectUrl({
         objectKey: metadata.objectKey,
         expiresInSeconds: 60 * 60,
       });

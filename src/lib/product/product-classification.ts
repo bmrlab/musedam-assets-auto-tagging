@@ -191,14 +191,15 @@ export async function detectProductFigureBoxes({
     }),
   });
 
-  const payload = (await response.json().catch(() => null)) as DetectionServiceResponse | null;
   if (!response.ok) {
-    const errorBody = await response.text();
+    const errorBody = await response.text().catch(() => null);
     console.error(
       `Product detection request failed (${response.status}) ${JSON.stringify(errorBody)}`,
     );
     throw new Error(`Product detection request failed (${response.status})`);
   }
+
+  const payload = (await response.json().catch(() => null)) as DetectionServiceResponse | null;
 
   return {
     detections:

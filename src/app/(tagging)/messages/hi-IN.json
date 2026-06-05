@@ -457,7 +457,7 @@
           "name": "पहचान नाम",
           "logoTypeName": "पहचान प्रकार",
           "tagPaths": "लिंक्ड टैग",
-          "imageObjectKeys": "पहचान चित्र OSS Key",
+          "imageObjectKeys": "पहचान चित्र S3 Key",
           "notes": "नोट्स",
           "enabled": "सक्षम स्थिति"
         },
@@ -470,7 +470,7 @@
           "excelUnsupportedCompression": "Excel फ़ाइल असमर्थित संपीड़न विधि का उपयोग करती है"
         },
         "importErrors": {
-          "ossKeyUnreadable": "चित्र OSS Key पढ़ा नहीं जा सकता: {objectKey}",
+          "ossKeyUnreadable": "चित्र S3 Key पढ़ा नहीं जा सकता: {objectKey}",
           "tagsRequired": "लिंक्ड टैग खाली नहीं हो सकते",
           "tagsTooMany": "लिंक्ड टैग 100 से अधिक नहीं हो सकते",
           "tagsNotFound": "लिंक्ड टैग नहीं मिले: {tags}",
@@ -482,7 +482,7 @@
           "typeTooLong": "पहचान प्रकार 100 अक्षरों से अधिक नहीं हो सकता",
           "descriptionTooLong": "{descriptionColumn} cannot exceed 5000 characters",
           "notesTooLong": "नोट्स 5000 अक्षरों से अधिक नहीं हो सकते",
-          "imageKeysRequired": "पहचान चित्र OSS Key खाली नहीं हो सकता",
+          "imageKeysRequired": "पहचान चित्र S3 Key खाली नहीं हो सकता",
           "imagesTooMany": "पहचान चित्र 100 से अधिक नहीं हो सकते",
           "matchPatternInvalid": "{matchPatternColumn} only supports: {whole}/{partial}",
           "partialImportUnsupported": "Partial IP import is not supported in batch files. Use whole match rows or create partial IP entries manually."
@@ -718,7 +718,7 @@
           "description": "मुख्य फ़ीचर विवरण",
           "matchPattern": "मिलान मोड",
           "tagPaths": "लिंक्ड टैग",
-          "imageObjectKeys": "IP चित्र OSS Key",
+          "imageObjectKeys": "IP चित्र S3 Key",
           "notes": "नोट्स",
           "enabled": "सक्षम स्थिति"
         },
@@ -1009,7 +1009,7 @@
           "name": "व्यक्ति का नाम",
           "personTypeName": "पहचान / भूमिका",
           "tagPaths": "लिंक्ड टैग",
-          "imageObjectKeys": "चेहरे की तस्वीरें OSS Key",
+          "imageObjectKeys": "चेहरे की तस्वीरें S3 Key",
           "notes": "नोट्स",
           "enabled": "सक्षम स्थिति"
         },
@@ -1255,7 +1255,7 @@
           "productTypeName": "उत्पाद प्रकार",
           "description": "मुख्य विशेषता विवरण",
           "tagPaths": "लिंक्ड टैग",
-          "imageObjectKeys": "उत्पाद चित्र OSS Key",
+          "imageObjectKeys": "उत्पाद चित्र S3 Key",
           "notes": "नोट्स",
           "enabled": "सक्षम स्थिति"
         },

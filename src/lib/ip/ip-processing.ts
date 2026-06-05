@@ -3,7 +3,7 @@ import "server-only";
 import { getJinaConfig } from "@/lib/brand/env";
 import { bufferToDataUrl } from "@/lib/brand/image";
 import { createJinaImageEmbeddings, createJinaTextEmbeddings } from "@/lib/brand/jina";
-import { getCachedSignedOssObjectUrl } from "@/lib/oss";
+import { getCachedSignedS3ObjectUrl } from "@/lib/s3";
 import { cropImageToDataUrl as cropClassificationImageToDataUrl } from "@/lib/tagging/classification-image";
 import { translateTextToEnglish } from "@/lib/translation/service";
 import prisma from "@/prisma/prisma";
@@ -61,7 +61,7 @@ function getProcessingErrorCode(error: unknown): IpProcessingErrorCode {
 }
 
 async function fetchImageAsDataUrl(objectKey: string, mimeType: string): Promise<{ dataUrl: string; buffer: Buffer }> {
-  const { signedUrl } = getCachedSignedOssObjectUrl({ objectKey });
+  const { signedUrl } = getCachedSignedS3ObjectUrl({ objectKey });
   const response = await fetch(signedUrl);
 
   if (!response.ok) {

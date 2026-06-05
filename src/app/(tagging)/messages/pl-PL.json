@@ -221,7 +221,7 @@
           "name": "Nazwa identyfikacji",
           "logoTypeName": "Typ identyfikacji",
           "tagPaths": "Powiązane tagi",
-          "imageObjectKeys": "Klucz OSS obrazu identyfikacji",
+          "imageObjectKeys": "Klucz S3 obrazu identyfikacji",
           "notes": "Notatki",
           "enabled": "Status włączenia"
         },
@@ -234,7 +234,7 @@
           "excelUnsupportedCompression": "Plik Excel używa nieobsługiwanej metody kompresji"
         },
         "importErrors": {
-          "ossKeyUnreadable": "Nie można odczytać klucza OSS obrazu: {objectKey}",
+          "ossKeyUnreadable": "Nie można odczytać klucza S3 obrazu: {objectKey}",
           "tagsRequired": "Powiązane tagi nie mogą być puste",
           "tagsTooMany": "Powiązane tagi nie mogą przekraczać 100",
           "tagsNotFound": "Nie znaleziono powiązanych tagów: {tags}",
@@ -246,7 +246,7 @@
           "typeTooLong": "Typ identyfikacji nie może przekraczać 100 znaków",
           "descriptionTooLong": "{descriptionColumn} cannot exceed 5000 characters",
           "notesTooLong": "Notatki nie mogą przekraczać 5000 znaków",
-          "imageKeysRequired": "Klucz OSS obrazu identyfikacji nie może być pusty",
+          "imageKeysRequired": "Klucz S3 obrazu identyfikacji nie może być pusty",
           "imagesTooMany": "Obrazy identyfikacji nie mogą przekraczać 100",
           "matchPatternInvalid": "{matchPatternColumn} only supports: {whole}/{partial}",
           "partialImportUnsupported": "Partial IP import is not supported in batch files. Use whole match rows or create partial IP entries manually."
@@ -482,7 +482,7 @@
           "description": "Opis podstawowych cech",
           "matchPattern": "Tryb dopasowania",
           "tagPaths": "Powiązane tagi",
-          "imageObjectKeys": "Obrazy IP OSS Key",
+          "imageObjectKeys": "Obrazy IP S3 Key",
           "notes": "Notatki",
           "enabled": "Status włączenia"
         },
@@ -1054,7 +1054,7 @@
           "name": "Nazwa osoby",
           "personTypeName": "Tożsamość / Rola",
           "tagPaths": "Powiązane tagi",
-          "imageObjectKeys": "Zdjęcia twarzy OSS Key",
+          "imageObjectKeys": "Zdjęcia twarzy S3 Key",
           "notes": "Notatki",
           "enabled": "Status włączenia"
         },
@@ -1300,7 +1300,7 @@
           "productTypeName": "Typ produktu",
           "description": "Opis podstawowych cech",
           "tagPaths": "Powiązane tagi",
-          "imageObjectKeys": "Obrazy produktu OSS Key",
+          "imageObjectKeys": "Obrazy produktu S3 Key",
           "notes": "Notatki",
           "enabled": "Status włączenia"
         },

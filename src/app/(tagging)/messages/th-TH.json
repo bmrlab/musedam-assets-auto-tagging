@@ -221,7 +221,7 @@
           "name": "ชื่อการระบุตัวตน",
           "logoTypeName": "ประเภทการระบุตัวตน",
           "tagPaths": "แท็กที่เกี่ยวข้อง",
-          "imageObjectKeys": "OSS Key ภาพการระบุตัวตน",
+          "imageObjectKeys": "S3 Key ภาพการระบุตัวตน",
           "notes": "ข้อมูลบันทึก",
           "enabled": "สถานะเปิดใช้งาน"
         },
@@ -234,7 +234,7 @@
           "excelUnsupportedCompression": "ไฟล์ Excel ใช้วิธีการบีบอัดที่ไม่รองรับ"
         },
         "importErrors": {
-          "ossKeyUnreadable": "ไม่สามารถอ่าน OSS Key ของภาพได้: {objectKey}",
+          "ossKeyUnreadable": "ไม่สามารถอ่าน S3 Key ของภาพได้: {objectKey}",
           "tagsRequired": "แท็กที่เกี่ยวข้องต้องไม่ว่างเปล่า",
           "tagsTooMany": "แท็กที่เกี่ยวข้องต้องไม่เกิน 100 รายการ",
           "tagsNotFound": "ไม่พบแท็กที่เกี่ยวข้อง: {tags}",
@@ -246,7 +246,7 @@
           "typeTooLong": "ประเภทการระบุตัวตนต้องไม่เกิน 100 ตัวอักษร",
           "descriptionTooLong": "{descriptionColumn} cannot exceed 5000 characters",
           "notesTooLong": "ข้อมูลบันทึกต้องไม่เกิน 5000 ตัวอักษร",
-          "imageKeysRequired": "OSS Key ภาพการระบุตัวตนต้องไม่ว่างเปล่า",
+          "imageKeysRequired": "S3 Key ภาพการระบุตัวตนต้องไม่ว่างเปล่า",
           "imagesTooMany": "ภาพการระบุตัวตนต้องไม่เกิน 100 ภาพ",
           "matchPatternInvalid": "{matchPatternColumn} only supports: {whole}/{partial}",
           "partialImportUnsupported": "Partial IP import is not supported in batch files. Use whole match rows or create partial IP entries manually."
@@ -816,7 +816,7 @@
           "description": "คำอธิบายลักษณะเด่น",
           "matchPattern": "โหมดการจับคู่",
           "tagPaths": "แท็กที่เกี่ยวข้อง",
-          "imageObjectKeys": "รูปภาพ IP OSS Key",
+          "imageObjectKeys": "รูปภาพ IP S3 Key",
           "notes": "ข้อมูลบันทึก",
           "enabled": "สถานะเปิดใช้งาน"
         },
@@ -1054,7 +1054,7 @@
           "name": "ชื่อบุคคล",
           "personTypeName": "ตัวตน/บทบาท",
           "tagPaths": "แท็กที่เชื่อมโยง",
-          "imageObjectKeys": "รูปภาพใบหน้า OSS Key",
+          "imageObjectKeys": "รูปภาพใบหน้า S3 Key",
           "notes": "บันทึก",
           "enabled": "สถานะการเปิดใช้งาน"
         },
@@ -1300,7 +1300,7 @@
           "productTypeName": "ประเภทสินค้า",
           "description": "คำอธิบายคุณลักษณะหลัก",
           "tagPaths": "แท็กที่เกี่ยวข้อง",
-          "imageObjectKeys": "รูปภาพสินค้า OSS Key",
+          "imageObjectKeys": "รูปภาพสินค้า S3 Key",
           "notes": "ข้อมูลบันทึก",
           "enabled": "สถานะเปิดใช้งาน"
         },

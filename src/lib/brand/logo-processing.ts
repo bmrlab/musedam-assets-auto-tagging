@@ -13,7 +13,7 @@ import {
   setLogoVectorPayloadByLogo,
   upsertLogoVectorPoints,
 } from "@/lib/brand/qdrant";
-import { getCachedSignedOssObjectUrl } from "@/lib/oss";
+import { getCachedSignedS3ObjectUrl } from "@/lib/s3";
 import prisma from "@/prisma/prisma";
 import { randomUUID } from "crypto";
 
@@ -50,7 +50,7 @@ function getProcessingErrorCode(error: unknown): BrandProcessingErrorCode {
 }
 
 async function fetchImageAsDataUrl(objectKey: string, mimeType: string) {
-  const { signedUrl } = getCachedSignedOssObjectUrl({ objectKey });
+  const { signedUrl } = getCachedSignedS3ObjectUrl({ objectKey });
   const response = await fetch(signedUrl);
 
   if (!response.ok) {

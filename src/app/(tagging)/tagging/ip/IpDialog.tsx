@@ -32,6 +32,7 @@ import {
   IpPartialMatchPatternName,
   isIpPartialMatchPatternName,
 } from "@/lib/ip/match-pattern";
+import { uploadS3ObjectFromBrowser } from "@/lib/s3-browser-upload";
 import { cn } from "@/lib/utils";
 import {
   AlertCircle,
@@ -534,12 +535,10 @@ export default function IpDialog({
       throw new Error(result.message);
     }
 
-    const uploadResponse = await fetch(result.data.image.uploadUrl, {
-      method: "PUT",
-      headers: {
-        "Content-Type": result.data.image.mimeType,
-      },
-      body: image.file,
+    const uploadResponse = await uploadS3ObjectFromBrowser({
+      uploadUrl: result.data.image.uploadUrl,
+      file: image.file,
+      contentType: result.data.image.mimeType,
     });
 
     if (!uploadResponse.ok) {

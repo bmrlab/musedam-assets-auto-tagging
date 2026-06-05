@@ -221,7 +221,7 @@
           "name": "Nom de l'identité",
           "logoTypeName": "Type d'identité",
           "tagPaths": "Tags associés",
-          "imageObjectKeys": "Clé OSS de l'image d'identité",
+          "imageObjectKeys": "Clé S3 de l'image d'identité",
           "notes": "Notes",
           "enabled": "Statut d'activation"
         },
@@ -234,7 +234,7 @@
           "excelUnsupportedCompression": "Le fichier Excel utilise une méthode de compression non prise en charge"
         },
         "importErrors": {
-          "ossKeyUnreadable": "La clé OSS de l'image n'est pas lisible : {objectKey}",
+          "ossKeyUnreadable": "La clé S3 de l'image n'est pas lisible : {objectKey}",
           "tagsRequired": "Les tags associés ne peuvent pas être vides",
           "tagsTooMany": "Les tags associés ne peuvent pas dépasser 100",
           "tagsNotFound": "Tags associés introuvables : {tags}",
@@ -246,7 +246,7 @@
           "typeTooLong": "Le type d'identité ne peut pas dépasser 100 caractères",
           "descriptionTooLong": "{descriptionColumn} cannot exceed 5000 characters",
           "notesTooLong": "Les notes ne peuvent pas dépasser 5000 caractères",
-          "imageKeysRequired": "La clé OSS de l'image d'identité ne peut pas être vide",
+          "imageKeysRequired": "La clé S3 de l'image d'identité ne peut pas être vide",
           "imagesTooMany": "Les images d'identité ne peuvent pas dépasser 100",
           "matchPatternInvalid": "{matchPatternColumn} only supports: {whole}/{partial}",
           "partialImportUnsupported": "Partial IP import is not supported in batch files. Use whole match rows or create partial IP entries manually."
@@ -816,7 +816,7 @@
           "description": "Description des caractéristiques principales",
           "matchPattern": "Mode de correspondance",
           "tagPaths": "Tags associés",
-          "imageObjectKeys": "Images d'IP OSS Key",
+          "imageObjectKeys": "Images d'IP S3 Key",
           "notes": "Notes",
           "enabled": "Statut d'activation"
         },
@@ -1054,7 +1054,7 @@
           "name": "Nom de la personne",
           "personTypeName": "Identité / Rôle",
           "tagPaths": "Tags liés",
-          "imageObjectKeys": "Photos du visage OSS Key",
+          "imageObjectKeys": "Photos du visage S3 Key",
           "notes": "Notes",
           "enabled": "Statut d'activation"
         },
@@ -1300,7 +1300,7 @@
           "productTypeName": "Type de produit",
           "description": "Description des caractéristiques principales",
           "tagPaths": "Tags associés",
-          "imageObjectKeys": "Images du produit OSS Key",
+          "imageObjectKeys": "Images du produit S3 Key",
           "notes": "Notes",
           "enabled": "Statut d'activation"
         },

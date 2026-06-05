@@ -221,7 +221,7 @@
           "name": "Nama Identitas",
           "logoTypeName": "Tipe Identitas",
           "tagPaths": "Tag Terkait",
-          "imageObjectKeys": "Kunci OSS Gambar Identitas",
+          "imageObjectKeys": "Kunci S3 Gambar Identitas",
           "notes": "Catatan",
           "enabled": "Status Aktif"
         },
@@ -234,7 +234,7 @@
           "excelUnsupportedCompression": "File Excel menggunakan metode kompresi yang tidak didukung"
         },
         "importErrors": {
-          "ossKeyUnreadable": "Kunci OSS gambar tidak dapat dibaca: {objectKey}",
+          "ossKeyUnreadable": "Kunci S3 gambar tidak dapat dibaca: {objectKey}",
           "tagsRequired": "Tag terkait tidak boleh kosong",
           "tagsTooMany": "Tag terkait tidak boleh lebih dari 100",
           "tagsNotFound": "Tag terkait tidak ditemukan: {tags}",
@@ -246,7 +246,7 @@
           "typeTooLong": "Tipe identitas tidak boleh lebih dari 100 karakter",
           "descriptionTooLong": "{descriptionColumn} cannot exceed 5000 characters",
           "notesTooLong": "Catatan tidak boleh lebih dari 5000 karakter",
-          "imageKeysRequired": "Kunci OSS gambar identitas tidak boleh kosong",
+          "imageKeysRequired": "Kunci S3 gambar identitas tidak boleh kosong",
           "imagesTooMany": "Gambar identitas tidak boleh lebih dari 100",
           "matchPatternInvalid": "{matchPatternColumn} only supports: {whole}/{partial}",
           "partialImportUnsupported": "Partial IP import is not supported in batch files. Use whole match rows or create partial IP entries manually."
@@ -482,7 +482,7 @@
           "description": "Deskripsi Fitur Inti",
           "matchPattern": "Mode pencocokan",
           "tagPaths": "Tag Terkait",
-          "imageObjectKeys": "Gambar IP OSS Key",
+          "imageObjectKeys": "Gambar IP S3 Key",
           "notes": "Catatan",
           "enabled": "Status Aktif"
         },
@@ -1054,7 +1054,7 @@
           "name": "Nama Person",
           "personTypeName": "Identitas/Peran",
           "tagPaths": "Tag Terkait",
-          "imageObjectKeys": "Foto Wajah OSS Key",
+          "imageObjectKeys": "Foto Wajah S3 Key",
           "notes": "Catatan",
           "enabled": "Status Aktif"
         },
@@ -1300,7 +1300,7 @@
           "productTypeName": "Tipe Produk",
           "description": "Deskripsi Fitur Inti",
           "tagPaths": "Tag Terkait",
-          "imageObjectKeys": "Gambar Produk OSS Key",
+          "imageObjectKeys": "Gambar Produk S3 Key",
           "notes": "Catatan",
           "enabled": "Status Aktif"
         },

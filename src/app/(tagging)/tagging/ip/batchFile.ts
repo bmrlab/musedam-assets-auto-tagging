@@ -42,7 +42,7 @@ export const IP_BATCH_ENGLISH_HEADERS: Record<IpBatchColumnKey, string> = {
   description: "Core Feature Description",
   matchPattern: "Match Pattern",
   tagPaths: "Linked Tags",
-  imageObjectKeys: "IP Image OSS Key",
+  imageObjectKeys: "IP Image S3 Key",
   notes: "Notes",
   enabled: "Enabled Status",
 };

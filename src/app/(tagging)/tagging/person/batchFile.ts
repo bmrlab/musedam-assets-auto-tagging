@@ -36,7 +36,7 @@ export const PERSON_BATCH_ENGLISH_HEADERS: Record<PersonBatchColumnKey, string> 
   name: "Person Name",
   personTypeName: "Identity / Role",
   tagPaths: "Linked Tags",
-  imageObjectKeys: "Face Photo OSS Key",
+  imageObjectKeys: "Face Photo S3 Key",
   notes: "Notes",
   enabled: "Enabled Status",
 };

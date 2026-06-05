@@ -461,7 +461,7 @@
           "name": "Nombre de identidad",
           "logoTypeName": "Tipo de identidad",
           "tagPaths": "Etiquetas vinculadas",
-          "imageObjectKeys": "Clave OSS de la imagen de identidad",
+          "imageObjectKeys": "Clave S3 de la imagen de identidad",
           "notes": "Notas",
           "enabled": "Estado de activación"
         },
@@ -474,7 +474,7 @@
           "excelUnsupportedCompression": "El archivo Excel utiliza un método de compresión no compatible"
         },
         "importErrors": {
-          "ossKeyUnreadable": "La clave OSS de la imagen no es legible: {objectKey}",
+          "ossKeyUnreadable": "La clave S3 de la imagen no es legible: {objectKey}",
           "tagsRequired": "Las etiquetas vinculadas no pueden estar vacías",
           "tagsTooMany": "Las etiquetas vinculadas no pueden exceder 100",
           "tagsNotFound": "Etiquetas vinculadas no encontradas: {tags}",
@@ -486,7 +486,7 @@
           "typeTooLong": "El tipo de identidad no puede exceder 100 caracteres",
           "descriptionTooLong": "{descriptionColumn} cannot exceed 5000 characters",
           "notesTooLong": "Las notas no pueden exceder 5000 caracteres",
-          "imageKeysRequired": "La clave OSS de la imagen de identidad no puede estar vacía",
+          "imageKeysRequired": "La clave S3 de la imagen de identidad no puede estar vacía",
           "imagesTooMany": "Las imágenes de identidad no pueden exceder 100",
           "matchPatternInvalid": "{matchPatternColumn} only supports: {whole}/{partial}",
           "partialImportUnsupported": "Partial IP import is not supported in batch files. Use whole match rows or create partial IP entries manually."
@@ -816,7 +816,7 @@
           "description": "Descripción de características principales",
           "matchPattern": "Modo de coincidencia",
           "tagPaths": "Etiquetas vinculadas",
-          "imageObjectKeys": "Imágenes de IP OSS Key",
+          "imageObjectKeys": "Imágenes de IP S3 Key",
           "notes": "Notas",
           "enabled": "Estado de habilitación"
         },
@@ -1054,7 +1054,7 @@
           "name": "Nombre de persona",
           "personTypeName": "Identidad / Rol",
           "tagPaths": "Etiquetas vinculadas",
-          "imageObjectKeys": "Fotos faciales OSS Key",
+          "imageObjectKeys": "Fotos faciales S3 Key",
           "notes": "Notas",
           "enabled": "Estado de habilitación"
         },
@@ -1300,7 +1300,7 @@
           "productTypeName": "Tipo de producto",
           "description": "Descripción de características principales",
           "tagPaths": "Etiquetas vinculadas",
-          "imageObjectKeys": "Imágenes del producto OSS Key",
+          "imageObjectKeys": "Imágenes del producto S3 Key",
           "notes": "Notas",
           "enabled": "Estado de activación"
         },

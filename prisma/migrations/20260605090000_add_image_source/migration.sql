@@ -1,0 +1,4 @@
+ALTER TABLE "AssetLogoImage" ADD COLUMN "source" VARCHAR(32) DEFAULT 's3';
+ALTER TABLE "AssetIpImage" ADD COLUMN "source" VARCHAR(32) DEFAULT 's3';
+ALTER TABLE "AssetProductImage" ADD COLUMN "source" VARCHAR(32) DEFAULT 's3';
+ALTER TABLE "AssetPersonImage" ADD COLUMN "source" VARCHAR(32) DEFAULT 's3';

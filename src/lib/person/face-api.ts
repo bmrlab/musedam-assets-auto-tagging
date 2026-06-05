@@ -75,11 +75,6 @@ function mapFaceDetectionBox(face: FaceDetectionResponseItem): PersonFaceDetecti
   };
 }
 
-async function readErrorBody(response: Response) {
-  const text = await response.text().catch(() => "");
-  return text ? ` ${text}` : "";
-}
-
 export async function detectPersonFaces({
   imageUrl,
   includeEmbedding = false,
@@ -101,10 +96,12 @@ export async function detectPersonFaces({
     }),
   });
 
-  const payload = (await response.json().catch(() => null)) as FaceDetectionServiceResponse | null;
   if (!response.ok) {
-    throw new Error(`Face detection request failed (${response.status})${await readErrorBody(response)}`);
+    const errorBody = await response.text().catch(() => "");
+    throw new Error(`Face detection request failed (${response.status})${errorBody ? ` ${errorBody}` : ""}`);
   }
+
+  const payload = (await response.json().catch(() => null)) as FaceDetectionServiceResponse | null;
 
   const detections = payload?.detections ?? [];
 

@@ -221,7 +221,7 @@
           "name": "Kimlik Adı",
           "logoTypeName": "Kimlik Türü",
           "tagPaths": "Bağlı Etiketler",
-          "imageObjectKeys": "Kimlik Resmi OSS Key",
+          "imageObjectKeys": "Kimlik Resmi S3 Key",
           "notes": "Notlar",
           "enabled": "Etkin Durum"
         },
@@ -234,7 +234,7 @@
           "excelUnsupportedCompression": "Excel dosyası desteklenmeyen bir sıkıştırma yöntemi kullanıyor"
         },
         "importErrors": {
-          "ossKeyUnreadable": "Resim OSS Key okunamıyor: {objectKey}",
+          "ossKeyUnreadable": "Resim S3 Key okunamıyor: {objectKey}",
           "tagsRequired": "Bağlı etiketler boş olamaz",
           "tagsTooMany": "Bağlı etiketler 100'ü aşamaz",
           "tagsNotFound": "Bağlı etiketler bulunamadı: {tags}",
@@ -246,7 +246,7 @@
           "typeTooLong": "Kimlik türü 100 karakteri aşamaz",
           "descriptionTooLong": "{descriptionColumn} cannot exceed 5000 characters",
           "notesTooLong": "Notlar 5000 karakteri aşamaz",
-          "imageKeysRequired": "Kimlik resmi OSS Key boş olamaz",
+          "imageKeysRequired": "Kimlik resmi S3 Key boş olamaz",
           "imagesTooMany": "Kimlik resimleri 100'ü aşamaz",
           "matchPatternInvalid": "{matchPatternColumn} only supports: {whole}/{partial}",
           "partialImportUnsupported": "Partial IP import is not supported in batch files. Use whole match rows or create partial IP entries manually."
@@ -482,7 +482,7 @@
           "description": "Temel Özellik Açıklaması",
           "matchPattern": "Eşleştirme modu",
           "tagPaths": "Bağlı Etiketler",
-          "imageObjectKeys": "IP Görselleri OSS Key",
+          "imageObjectKeys": "IP Görselleri S3 Key",
           "notes": "Notlar",
           "enabled": "Etkin Durum"
         },
@@ -1054,7 +1054,7 @@
           "name": "Kişi Adı",
           "personTypeName": "Kimlik/Rol",
           "tagPaths": "Bağlı Etiketler",
-          "imageObjectKeys": "Ürün Görüntüleri OSS Key",
+          "imageObjectKeys": "Ürün Görüntüleri S3 Key",
           "notes": "Not Bilgileri",
           "enabled": "Etkin Durum"
         },
@@ -1300,7 +1300,7 @@
           "productTypeName": "Ürün Türü",
           "description": "Temel Özellik Açıklaması",
           "tagPaths": "Bağlı Etiketler",
-          "imageObjectKeys": "Ürün Resimleri OSS Key",
+          "imageObjectKeys": "Ürün Resimleri S3 Key",
           "notes": "Notlar",
           "enabled": "Etkin Durum"
         },

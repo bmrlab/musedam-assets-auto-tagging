@@ -39,7 +39,7 @@ export const PRODUCT_BATCH_ENGLISH_HEADERS: Record<ProductBatchColumnKey, string
   productTypeName: "Product Type",
   description: "Core Feature Description",
   tagPaths: "Linked Tags",
-  imageObjectKeys: "Product Image OSS Key",
+  imageObjectKeys: "Product Image S3 Key",
   notes: "Notes",
   enabled: "Enabled Status",
 };

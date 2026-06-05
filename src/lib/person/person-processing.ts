@@ -1,6 +1,6 @@
 import "server-only";
 
-import { getCachedSignedOssObjectUrl } from "@/lib/oss";
+import { getCachedSignedS3ObjectUrl } from "@/lib/s3";
 import prisma from "@/prisma/prisma";
 import { randomUUID } from "crypto";
 import { detectPersonFaces, generateFaceEmbedding } from "./face-api";
@@ -72,7 +72,7 @@ export async function assertSingleFaceReferenceImage({
   objectKey: string;
   identifier?: string;
 }) {
-  const { signedUrl } = getCachedSignedOssObjectUrl({ objectKey });
+  const { signedUrl } = getCachedSignedS3ObjectUrl({ objectKey });
   const detection = await detectPersonFaces({
     imageUrl: signedUrl,
     includeEmbedding: false,

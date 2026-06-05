@@ -8,6 +8,7 @@ import {
   getClientImagePreparationErrorCode,
   prepareClientImageUpload,
 } from "@/lib/brand/browser-image";
+import { uploadS3ObjectFromBrowser } from "@/lib/s3-browser-upload";
 import { cn } from "@/lib/utils";
 import { ArrowLeft, Loader2, Search, Trophy, Upload } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -190,12 +191,10 @@ export default function PersonClassifyClient({
         return;
       }
 
-      const uploadResponse = await fetch(uploadPrepareResult.data.image.uploadUrl, {
-        method: "PUT",
-        headers: {
-          "Content-Type": uploadPrepareResult.data.image.mimeType,
-        },
-        body: file,
+      const uploadResponse = await uploadS3ObjectFromBrowser({
+        uploadUrl: uploadPrepareResult.data.image.uploadUrl,
+        file,
+        contentType: uploadPrepareResult.data.image.mimeType,
       });
       if (!uploadResponse.ok) {
         toast.error(t("errors.imageLoadFailed"));

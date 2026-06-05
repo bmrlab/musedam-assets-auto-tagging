@@ -1,6 +1,6 @@
 import "server-only";
 
-import { getCDNUrl, setOssObjectAclPublicRead } from "@/lib/oss";
+import { getS3PublicObjectUrl } from "@/lib/s3";
 import { slugToId } from "@/lib/slug";
 import prisma from "@/prisma/prisma";
 
@@ -74,7 +74,6 @@ export function schedulePushFeatureToMuseDAM(payload: {
   void (async () => {
     try {
       const tagIdList = await resolveMuseDAMTagIdsForAssetTags(team.id, internalAssetTagIds);
-      await setOssObjectAclPublicRead({ objectKey: firstImageObjectKey });
       await saveFeatureToMuseDAM({
         team,
         featureType,
@@ -82,7 +81,7 @@ export function schedulePushFeatureToMuseDAM(payload: {
         identifierName,
         identifierTypeId,
         identifierTypeName,
-        identifierImagePath: getCDNUrl(firstImageObjectKey),
+        identifierImagePath: getS3PublicObjectUrl(firstImageObjectKey),
         tagIdList,
       });
     } catch (error) {

@@ -221,7 +221,7 @@
           "name": "Nome Identità",
           "logoTypeName": "Tipo Identità",
           "tagPaths": "Tag Collegati",
-          "imageObjectKeys": "Chiave OSS Immagine Identità",
+          "imageObjectKeys": "Chiave S3 Immagine Identità",
           "notes": "Note",
           "enabled": "Stato Abilitazione"
         },
@@ -234,7 +234,7 @@
           "excelUnsupportedCompression": "Il file Excel utilizza un metodo di compressione non supportato"
         },
         "importErrors": {
-          "ossKeyUnreadable": "La chiave OSS dell'immagine non è leggibile: {objectKey}",
+          "ossKeyUnreadable": "La chiave S3 dell'immagine non è leggibile: {objectKey}",
           "tagsRequired": "I tag collegati non possono essere vuoti",
           "tagsTooMany": "I tag collegati non possono superare 100",
           "tagsNotFound": "Tag collegati non trovati: {tags}",
@@ -246,7 +246,7 @@
           "typeTooLong": "Il tipo di identità non può superare 100 caratteri",
           "descriptionTooLong": "{descriptionColumn} cannot exceed 5000 characters",
           "notesTooLong": "Le note non possono superare 5000 caratteri",
-          "imageKeysRequired": "La chiave OSS dell'immagine di identità non può essere vuota",
+          "imageKeysRequired": "La chiave S3 dell'immagine di identità non può essere vuota",
           "imagesTooMany": "Le immagini di identità non possono superare 100",
           "matchPatternInvalid": "{matchPatternColumn} only supports: {whole}/{partial}",
           "partialImportUnsupported": "Partial IP import is not supported in batch files. Use whole match rows or create partial IP entries manually."
@@ -816,7 +816,7 @@
           "description": "Descrizione Caratteristiche Principali",
           "matchPattern": "Modalità di corrispondenza",
           "tagPaths": "Tag Collegati",
-          "imageObjectKeys": "Immagini IP OSS Key",
+          "imageObjectKeys": "Immagini IP S3 Key",
           "notes": "Note",
           "enabled": "Stato Abilitazione"
         },
@@ -1054,7 +1054,7 @@
           "name": "Nome Persona",
           "personTypeName": "Identità/Ruolo",
           "tagPaths": "Tag Collegati",
-          "imageObjectKeys": "Foto Volto OSS Key",
+          "imageObjectKeys": "Foto Volto S3 Key",
           "notes": "Note",
           "enabled": "Stato Abilitazione"
         },
@@ -1300,7 +1300,7 @@
           "productTypeName": "Tipo Prodotto",
           "description": "Descrizione Caratteristiche Principali",
           "tagPaths": "Tag Collegati",
-          "imageObjectKeys": "Immagini Prodotto OSS Key",
+          "imageObjectKeys": "Immagini Prodotto S3 Key",
           "notes": "Note",
           "enabled": "Stato Abilitazione"
         },

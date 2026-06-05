@@ -461,7 +461,7 @@
           "name": "Название идентификатора",
           "logoTypeName": "Тип идентификатора",
           "tagPaths": "Связанные теги",
-          "imageObjectKeys": "OSS Key изображения идентификатора",
+          "imageObjectKeys": "S3 Key изображения идентификатора",
           "notes": "Примечания",
           "enabled": "Статус включения"
         },
@@ -474,7 +474,7 @@
           "excelUnsupportedCompression": "Файл Excel использует неподдерживаемый метод сжатия"
         },
         "importErrors": {
-          "ossKeyUnreadable": "OSS Key изображения недоступен для чтения: {objectKey}",
+          "ossKeyUnreadable": "S3 Key изображения недоступен для чтения: {objectKey}",
           "tagsRequired": "Связанные теги не могут быть пустыми",
           "tagsTooMany": "Количество связанных тегов не может превышать 100",
           "tagsNotFound": "Связанные теги не найдены: {tags}",
@@ -486,7 +486,7 @@
           "typeTooLong": "Тип идентификатора не может превышать 100 символов",
           "descriptionTooLong": "{descriptionColumn} cannot exceed 5000 characters",
           "notesTooLong": "Примечания не могут превышать 5000 символов",
-          "imageKeysRequired": "OSS Key изображения идентификатора не может быть пустым",
+          "imageKeysRequired": "S3 Key изображения идентификатора не может быть пустым",
           "imagesTooMany": "Количество изображений идентификатора не может превышать 100",
           "matchPatternInvalid": "{matchPatternColumn} only supports: {whole}/{partial}",
           "partialImportUnsupported": "Partial IP import is not supported in batch files. Use whole match rows or create partial IP entries manually."
@@ -722,7 +722,7 @@
           "description": "Описание основных особенностей",
           "matchPattern": "Режим сопоставления",
           "tagPaths": "Связанные теги",
-          "imageObjectKeys": "Изображения IP OSS Key",
+          "imageObjectKeys": "Изображения IP S3 Key",
           "notes": "Примечания",
           "enabled": "Статус включения"
         },
@@ -1054,7 +1054,7 @@
           "name": "Имя",
           "personTypeName": "Роль",
           "tagPaths": "Связанные теги",
-          "imageObjectKeys": "Фото лица OSS Key",
+          "imageObjectKeys": "Фото лица S3 Key",
           "notes": "Примечания",
           "enabled": "Статус активности"
         },
@@ -1300,7 +1300,7 @@
           "productTypeName": "Тип товара",
           "description": "Описание основных признаков",
           "tagPaths": "Связанные теги",
-          "imageObjectKeys": "Изображения товара OSS Key",
+          "imageObjectKeys": "Изображения товара S3 Key",
           "notes": "Примечания",
           "enabled": "Статус включения"
         },

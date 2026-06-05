@@ -15,10 +15,12 @@ import { deleteLogoVectorPointsByLogo, setLogoVectorPayloadByLogo } from "@/lib/
 import { MAX_CLIENT_IMAGE_UPLOAD_BYTES } from "@/lib/brand/upload-constants";
 import {
   buildAssetLogoObjectKey,
-  getCachedSignedOssObjectUrl,
-  signOssObjectUploadUrl,
-  uploadOssObject,
-} from "@/lib/oss";
+  getBrowserS3ObjectUploadUrl,
+  getCachedBrowserS3ObjectUrl,
+  getCachedSignedS3ObjectUrl,
+  isTeamS3ObjectKey,
+  uploadS3Object,
+} from "@/lib/s3";
 import { ServerActionResult } from "@/lib/serverAction";
 import {
   clampBox as clampClassificationBox,
@@ -160,7 +162,7 @@ function getFileExtensionFromNameOrContentType({
 }
 
 function isTeamLogoObjectKey(objectKey: string, teamId: number) {
-  return objectKey.startsWith(`auto-tagging/teams-${teamId}-asset-logos-`);
+  return isTeamS3ObjectKey({ kind: "logos", objectKey, teamId });
 }
 
 function buildTagPath(tag: AssetTagWithParents) {
@@ -187,7 +189,7 @@ function normalizeBrandLogoType(type: AssetLogoType): BrandLogoTypeItem {
 }
 
 function normalizeBrandLogoImage(image: AssetLogoImage): BrandLogoImageItem {
-  const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
+  const { signedUrl, signedUrlExpiresAt } = getCachedBrowserS3ObjectUrl({
     objectKey: image.objectKey,
   });
 
@@ -479,7 +481,7 @@ async function uploadNewLogoImages({ files, teamId }: { files: File[]; teamId: n
       extension: getFileExtension(file),
     });
     const buffer = Buffer.from(await file.arrayBuffer());
-    const uploadResult = await uploadOssObject({
+    const uploadResult = await uploadS3Object({
       body: buffer,
       contentType: file.type || "application/octet-stream",
       objectKey,
@@ -555,7 +557,7 @@ async function uploadAssetLibraryImages({
       extension,
     });
 
-    const uploadResult = await uploadOssObject({
+    const uploadResult = await uploadS3Object({
       body: buffer,
       contentType,
       objectKey,
@@ -600,7 +602,7 @@ async function cloneLogoImageFromObjectKey({
   teamId: number;
   t: BrandLibraryTranslationFn;
 }) {
-  const { signedUrl } = getCachedSignedOssObjectUrl({
+  const { signedUrl } = getCachedSignedS3ObjectUrl({
     objectKey,
     expiresInSeconds: 60 * 60,
   });
@@ -621,7 +623,7 @@ async function cloneLogoImageFromObjectKey({
     extension,
   });
 
-  const uploadResult = await uploadOssObject({
+  const uploadResult = await uploadS3Object({
     body: buffer,
     contentType,
     objectKey: newObjectKey,
@@ -1088,7 +1090,7 @@ export async function prepareAssetLibraryLogoImagesAction(
             downloadUrls: [asset.downloadUrl],
             teamId,
           });
-          const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
+          const { signedUrl, signedUrlExpiresAt } = getCachedBrowserS3ObjectUrl({
             objectKey: uploaded.objectKey,
           });
 
@@ -1154,11 +1156,11 @@ export async function prepareLogoImageUploadAction(input: {
         }),
       });
       const { signedUrl: uploadUrl, signedUrlExpiresAt: uploadUrlExpiresAt } =
-        signOssObjectUploadUrl({
+        getBrowserS3ObjectUploadUrl({
           objectKey,
           contentType,
         });
-      const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
+      const { signedUrl, signedUrlExpiresAt } = getCachedBrowserS3ObjectUrl({
         objectKey,
         expiresInSeconds: 60 * 60,
       });
@@ -1288,7 +1290,7 @@ export async function refreshAssetLogoImageSignedUrlAction(imageId: string): Pro
         };
       }
 
-      const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
+      const { signedUrl, signedUrlExpiresAt } = getCachedBrowserS3ObjectUrl({
         objectKey: image.objectKey,
       });
 
@@ -2043,14 +2045,18 @@ export async function prepareBrandClassificationAction(input: {
         };
       }
 
-      const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
+      const { signedUrl: detectionImageUrl } = getCachedSignedS3ObjectUrl({
+        objectKey: metadata.objectKey,
+        expiresInSeconds: 60 * 60,
+      });
+      const { signedUrl, signedUrlExpiresAt } = getCachedBrowserS3ObjectUrl({
         objectKey: metadata.objectKey,
         expiresInSeconds: 60 * 60,
       });
       const detectionLabelText = await fetchLogoDetectionLabelText(teamId);
       const detection = await detectBrandLogoBoxes({
         teamId,
-        imageUrl: signedUrl,
+        imageUrl: detectionImageUrl,
         detectionLabelText,
       });
 
@@ -2108,7 +2114,7 @@ export async function classifyBrandImageAction(input: {
         };
       }
 
-      const { signedUrl } = getCachedSignedOssObjectUrl({
+      const { signedUrl } = getCachedSignedS3ObjectUrl({
         objectKey: metadata.objectKey,
         expiresInSeconds: 60 * 60,
       });

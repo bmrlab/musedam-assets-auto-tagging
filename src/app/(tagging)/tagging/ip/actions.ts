@@ -16,10 +16,12 @@ import { ASSET_IP_MATCH_PATTERNS, IP_PARTIAL_MATCH_PATTERN_OPTIONS } from "@/lib
 import { deleteIpVectorPointsByIp, setIpVectorPayloadByIp } from "@/lib/ip/qdrant";
 import {
   buildAssetIpObjectKey,
-  getCachedSignedOssObjectUrl,
-  signOssObjectUploadUrl,
-  uploadOssObject,
-} from "@/lib/oss";
+  getBrowserS3ObjectUploadUrl,
+  getCachedBrowserS3ObjectUrl,
+  getCachedSignedS3ObjectUrl,
+  isTeamS3ObjectKey,
+  uploadS3Object,
+} from "@/lib/s3";
 import { ServerActionResult } from "@/lib/serverAction";
 import {
   clampBox as clampClassificationBox,
@@ -222,7 +224,7 @@ function getFileExtensionFromNameOrContentType({
 }
 
 function isTeamIpObjectKey(objectKey: string, teamId: number) {
-  return objectKey.startsWith(`auto-tagging/teams-${teamId}-asset-ips-`);
+  return isTeamS3ObjectKey({ kind: "ips", objectKey, teamId });
 }
 
 function buildTagPath(tag: AssetTagWithParents) {
@@ -249,7 +251,7 @@ function normalizeIpType(type: AssetIpType): IpTypeItem {
 }
 
 function normalizeIpImage(image: AssetIpImage): IpImageItem {
-  const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
+  const { signedUrl, signedUrlExpiresAt } = getCachedBrowserS3ObjectUrl({
     objectKey: image.objectKey,
   });
 
@@ -735,7 +737,7 @@ async function uploadNewIpImages({ files, teamId }: { files: File[]; teamId: num
       extension: getFileExtension(file),
     });
     const buffer = Buffer.from(await file.arrayBuffer());
-    const uploadResult = await uploadOssObject({
+    const uploadResult = await uploadS3Object({
       body: buffer,
       contentType: file.type || "application/octet-stream",
       objectKey,
@@ -808,7 +810,7 @@ async function uploadAssetLibraryImages({
       extension,
     });
 
-    const uploadResult = await uploadOssObject({
+    const uploadResult = await uploadS3Object({
       body: buffer,
       contentType,
       objectKey,
@@ -853,7 +855,7 @@ async function cloneIpImageFromObjectKey({
   teamId: number;
   t: TranslationFunction;
 }) {
-  const { signedUrl } = getCachedSignedOssObjectUrl({
+  const { signedUrl } = getCachedSignedS3ObjectUrl({
     objectKey,
     expiresInSeconds: 60 * 60,
   });
@@ -879,7 +881,7 @@ async function cloneIpImageFromObjectKey({
     extension,
   });
 
-  const uploadResult = await uploadOssObject({
+  const uploadResult = await uploadS3Object({
     body: buffer,
     contentType,
     objectKey: newObjectKey,
@@ -1232,7 +1234,7 @@ export async function prepareAssetLibraryIpImagesAction(
             downloadUrls: [asset.downloadUrl],
             teamId,
           });
-          const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
+          const { signedUrl, signedUrlExpiresAt } = getCachedBrowserS3ObjectUrl({
             objectKey: uploaded.objectKey,
           });
 
@@ -1299,11 +1301,11 @@ export async function prepareIpImageUploadAction(input: {
         }),
       });
       const { signedUrl: uploadUrl, signedUrlExpiresAt: uploadUrlExpiresAt } =
-        signOssObjectUploadUrl({
+        getBrowserS3ObjectUploadUrl({
           objectKey,
           contentType,
         });
-      const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
+      const { signedUrl, signedUrlExpiresAt } = getCachedBrowserS3ObjectUrl({
         objectKey,
         expiresInSeconds: 60 * 60,
       });
@@ -1341,15 +1343,19 @@ async function detectPartialFeatureForObjectKey({
   objectKey: string;
   partialMatchPatternName: (typeof IP_PARTIAL_MATCH_PATTERN_OPTIONS)[number];
 }): Promise<IpPartialFeatureDetectionResult> {
-  const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
+  const { signedUrl: detectionImageUrl } = getCachedSignedS3ObjectUrl({
+    objectKey,
+    expiresInSeconds: 60 * 60,
+  });
+  const { signedUrl, signedUrlExpiresAt } = getCachedBrowserS3ObjectUrl({
     objectKey,
     expiresInSeconds: 60 * 60,
   });
 
   const [imageInput, detection] = await Promise.all([
-    fetchRemoteImageInput(signedUrl, "IP partial feature"),
+    fetchRemoteImageInput(detectionImageUrl, "IP partial feature"),
     detectIpPartialFeatureBoxes({
-      imageUrl: signedUrl,
+      imageUrl: detectionImageUrl,
       partialMatchPatternName,
     }),
   ]);
@@ -1507,7 +1513,7 @@ export async function refreshAssetIpImageSignedUrlAction(imageId: string): Promi
         };
       }
 
-      const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
+      const { signedUrl, signedUrlExpiresAt } = getCachedBrowserS3ObjectUrl({
         objectKey: image.objectKey,
       });
 
@@ -1778,13 +1784,17 @@ export async function prepareIpClassificationAction(input: {
         };
       }
 
-      const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
+      const { signedUrl: detectionImageUrl } = getCachedSignedS3ObjectUrl({
+        objectKey: metadata.objectKey,
+        expiresInSeconds: 60 * 60,
+      });
+      const { signedUrl, signedUrlExpiresAt } = getCachedBrowserS3ObjectUrl({
         objectKey: metadata.objectKey,
         expiresInSeconds: 60 * 60,
       });
       const detection = await detectIpFigureBoxes({
         teamId,
-        imageUrl: signedUrl,
+        imageUrl: detectionImageUrl,
       });
 
       return {
@@ -1844,7 +1854,7 @@ export async function classifyIpImageAction(input: {
         };
       }
 
-      const { signedUrl } = getCachedSignedOssObjectUrl({
+      const { signedUrl } = getCachedSignedS3ObjectUrl({
         objectKey: metadata.objectKey,
         expiresInSeconds: 60 * 60,
       });

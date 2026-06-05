@@ -9,6 +9,7 @@ import {
   getClientImagePreparationErrorCode,
   prepareClientImageUpload,
 } from "@/lib/brand/browser-image";
+import { uploadS3ObjectFromBrowser } from "@/lib/s3-browser-upload";
 import { ArrowLeft, Loader2, Search, Upload } from "lucide-react";
 import Link from "next/link";
 import { Fragment, useEffect, useState } from "react";
@@ -167,12 +168,10 @@ export default function DetectionDebugClient() {
         return;
       }
 
-      const uploadResponse = await fetch(uploadPrepareResult.data.image.uploadUrl, {
-        method: "PUT",
-        headers: {
-          "Content-Type": uploadPrepareResult.data.image.mimeType,
-        },
-        body: file,
+      const uploadResponse = await uploadS3ObjectFromBrowser({
+        uploadUrl: uploadPrepareResult.data.image.uploadUrl,
+        file,
+        contentType: uploadPrepareResult.data.image.mimeType,
       });
       if (!uploadResponse.ok) {
         toast.error("Failed to upload the selected image.");

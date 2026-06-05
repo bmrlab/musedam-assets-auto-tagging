@@ -221,7 +221,7 @@
           "name": "Tên nhận dạng",
           "logoTypeName": "Loại nhận dạng",
           "tagPaths": "Thẻ liên kết",
-          "imageObjectKeys": "OSS Key hình ảnh nhận dạng",
+          "imageObjectKeys": "S3 Key hình ảnh nhận dạng",
           "notes": "Ghi chú",
           "enabled": "Trạng thái kích hoạt"
         },
@@ -234,7 +234,7 @@
           "excelUnsupportedCompression": "Tệp Excel sử dụng phương thức nén không được hỗ trợ"
         },
         "importErrors": {
-          "ossKeyUnreadable": "OSS Key hình ảnh không thể đọc: {objectKey}",
+          "ossKeyUnreadable": "S3 Key hình ảnh không thể đọc: {objectKey}",
           "tagsRequired": "Thẻ liên kết không được để trống",
           "tagsTooMany": "Thẻ liên kết không được vượt quá 100",
           "tagsNotFound": "Không tìm thấy thẻ liên kết: {tags}",
@@ -246,7 +246,7 @@
           "typeTooLong": "Loại nhận dạng không được vượt quá 100 ký tự",
           "descriptionTooLong": "{descriptionColumn} cannot exceed 5000 characters",
           "notesTooLong": "Ghi chú không được vượt quá 5000 ký tự",
-          "imageKeysRequired": "OSS Key hình ảnh nhận dạng không được để trống",
+          "imageKeysRequired": "S3 Key hình ảnh nhận dạng không được để trống",
           "imagesTooMany": "Hình ảnh nhận dạng không được vượt quá 100",
           "matchPatternInvalid": "{matchPatternColumn} only supports: {whole}/{partial}",
           "partialImportUnsupported": "Partial IP import is not supported in batch files. Use whole match rows or create partial IP entries manually."
@@ -482,7 +482,7 @@
           "description": "Mô tả đặc trưng cốt lõi",
           "matchPattern": "Chế độ khớp",
           "tagPaths": "Thẻ liên kết",
-          "imageObjectKeys": "Hình ảnh IP OSS Key",
+          "imageObjectKeys": "Hình ảnh IP S3 Key",
           "notes": "Ghi chú",
           "enabled": "Trạng thái bật/tắt"
         },
@@ -1054,7 +1054,7 @@
           "name": "Tên nhân vật",
           "personTypeName": "Vai trò",
           "tagPaths": "Thẻ liên kết",
-          "imageObjectKeys": "Ảnh khuôn mặt OSS Key",
+          "imageObjectKeys": "Ảnh khuôn mặt S3 Key",
           "notes": "Ghi chú",
           "enabled": "Trạng thái kích hoạt"
         },
@@ -1300,7 +1300,7 @@
           "productTypeName": "Loại Sản phẩm",
           "description": "Mô tả đặc trưng cốt lõi",
           "tagPaths": "Thẻ liên kết",
-          "imageObjectKeys": "Hình ảnh Sản phẩm OSS Key",
+          "imageObjectKeys": "Hình ảnh Sản phẩm S3 Key",
           "notes": "Ghi chú",
           "enabled": "Trạng thái kích hoạt"
         },

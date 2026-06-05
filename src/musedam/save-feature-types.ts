@@ -13,7 +13,7 @@ export type SaveFeatureToMuseDAMInput = {
   /** e.g. AssetPersonType.id */
   identifierTypeId: string;
   identifierTypeName: string;
-  /** Permanent public URL from OSS without signing */
+  /** Permanent public URL from S3 without signing */
   identifierImagePath: string;
   tagIdList: number[];
 };

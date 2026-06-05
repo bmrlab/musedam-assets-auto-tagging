@@ -36,7 +36,7 @@ export const BRAND_BATCH_ENGLISH_HEADERS: Record<BrandBatchColumnKey, string> = 
   name: "Identity Name",
   logoTypeName: "Identity Type",
   tagPaths: "Linked Tags",
-  imageObjectKeys: "Identity Image OSS Key",
+  imageObjectKeys: "Identity Image S3 Key",
   notes: "Notes",
   enabled: "Enabled Status",
 };

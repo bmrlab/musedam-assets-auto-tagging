@@ -221,7 +221,7 @@
           "name": "Identity Name",
           "logoTypeName": "Identity Type",
           "tagPaths": "Linked Tags",
-          "imageObjectKeys": "Identity Image OSS Key",
+          "imageObjectKeys": "Identity Image S3 Key",
           "notes": "Notes",
           "enabled": "Enabled Status"
         },
@@ -234,7 +234,7 @@
           "excelUnsupportedCompression": "Excel file uses an unsupported compression method"
         },
         "importErrors": {
-          "ossKeyUnreadable": "Image OSS Key is not readable: {objectKey}",
+          "ossKeyUnreadable": "Image S3 Key is not readable: {objectKey}",
           "tagsRequired": "Linked tags cannot be empty",
           "tagsTooMany": "Linked tags cannot exceed 100",
           "tagsNotFound": "Linked tags not found: {tags}",
@@ -246,7 +246,7 @@
           "typeTooLong": "Identity type cannot exceed 100 characters",
           "descriptionTooLong": "{descriptionColumn} cannot exceed 5000 characters",
           "notesTooLong": "Notes cannot exceed 5000 characters",
-          "imageKeysRequired": "Identity image OSS Key cannot be empty",
+          "imageKeysRequired": "Identity image S3 Key cannot be empty",
           "imagesTooMany": "Identity images cannot exceed 100",
           "matchPatternInvalid": "{matchPatternColumn} only supports: {whole}/{partial}",
           "partialImportUnsupported": "Partial IP import is not supported in batch files. Use whole match rows or create partial IP entries manually."
@@ -482,7 +482,7 @@
           "description": "Core Feature Description",
           "matchPattern": "Match Pattern",
           "tagPaths": "Linked Tags",
-          "imageObjectKeys": "IP Images OSS Key",
+          "imageObjectKeys": "IP Images S3 Key",
           "notes": "Notes",
           "enabled": "Enabled Status"
         },
@@ -1054,7 +1054,7 @@
           "name": "Person Name",
           "personTypeName": "Identity / Role",
           "tagPaths": "Linked Tags",
-          "imageObjectKeys": "Face Photos OSS Key",
+          "imageObjectKeys": "Face Photos S3 Key",
           "notes": "Notes",
           "enabled": "Enabled Status"
         },
@@ -1300,7 +1300,7 @@
           "productTypeName": "Product Type",
           "description": "Core Feature Description",
           "tagPaths": "Linked Tags",
-          "imageObjectKeys": "Product Images OSS Key",
+          "imageObjectKeys": "Product Images S3 Key",
           "notes": "Notes",
           "enabled": "Enabled Status"
         },
