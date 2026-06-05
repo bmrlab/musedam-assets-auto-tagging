@@ -3,15 +3,11 @@
 import { withAuth } from "@/app/(auth)/withAuth";
 import { MAX_CLIENT_IMAGE_UPLOAD_BYTES } from "@/lib/brand/upload-constants";
 import {
-  assertObjectKeyMatchesUploadToken,
   buildAssetProductObjectKey,
   getCachedSignedOssObjectUrl,
-  getCurrentOssUploadLocation,
   signOssObjectUploadUrl,
   uploadOssObject,
 } from "@/lib/oss";
-import type { OssObjectIdentity, UploadedOssImageInput } from "@/lib/oss-types";
-import { getCurrentOssUploadToken } from "@/lib/oss-upload-token";
 import {
   ProductDetectionBox,
   classifyProductImageCrops,
@@ -111,9 +107,6 @@ async function getCreateOrUpdateProductSchema() {
       .array(
         z.object({
           objectKey: z.string().min(1),
-          ossBucket: z.string().min(1),
-          ossEndpoint: z.string().url(),
-          ossRegion: z.string().min(1),
           mimeType: z.string().min(1),
           size: z.number().int().nonnegative(),
         }),
@@ -136,21 +129,6 @@ type AssetProductRecord = AssetProduct & {
   images: AssetProductImage[];
   tags: AssetProductTag[];
 };
-
-function getFirstProductImageIdentity(images: AssetProductImage[]): OssObjectIdentity | undefined {
-  const image = images[0];
-
-  if (!image) {
-    return undefined;
-  }
-
-  return {
-    objectKey: image.objectKey,
-    ossBucket: image.ossBucket,
-    ossEndpoint: image.ossEndpoint,
-    ossRegion: image.ossRegion,
-  };
-}
 
 function parseJsonField<T>(value: FormDataEntryValue | null, fallback: T): T {
   if (typeof value !== "string" || !value.trim()) {
@@ -198,6 +176,10 @@ function getFileExtensionFromNameOrContentType({
   return "";
 }
 
+function isTeamProductObjectKey(objectKey: string, teamId: number) {
+  return objectKey.startsWith(`auto-tagging/teams-${teamId}-asset-products-`);
+}
+
 function buildTagPath(tag: AssetTagWithParents) {
   const path: string[] = [];
   let current: AssetTagWithParents | AssetTag | null = tag;
@@ -221,22 +203,14 @@ function normalizeProductType(type: AssetProductType): ProductTypeItem {
   };
 }
 
-async function normalizeProductImage(image: AssetProductImage): Promise<ProductImageItem> {
-  const { signedUrl, signedUrlExpiresAt } = await getCachedSignedOssObjectUrl({
+function normalizeProductImage(image: AssetProductImage): ProductImageItem {
+  const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
     objectKey: image.objectKey,
-    location: {
-      ossBucket: image.ossBucket,
-      ossEndpoint: image.ossEndpoint,
-      ossRegion: image.ossRegion,
-    },
   });
 
   return {
     id: image.id,
     objectKey: image.objectKey,
-    ossBucket: image.ossBucket,
-    ossEndpoint: image.ossEndpoint,
-    ossRegion: image.ossRegion,
     signedUrl,
     signedUrlExpiresAt,
     mimeType: image.mimeType,
@@ -253,7 +227,7 @@ function normalizeProductTag(tag: AssetProductTag): ProductTagItem {
   };
 }
 
-async function normalizeProduct(product: AssetProductRecord): Promise<ProductItem> {
+function normalizeProduct(product: AssetProductRecord): ProductItem {
   return {
     id: product.id,
     slug: product.slug,
@@ -269,12 +243,10 @@ async function normalizeProduct(product: AssetProductRecord): Promise<ProductIte
     notes: product.notes,
     createdAt: product.createdAt,
     updatedAt: product.updatedAt,
-    images: await Promise.all(
-      product.images
-        .slice()
-        .sort((a, b) => a.sort - b.sort || a.id.localeCompare(b.id))
-        .map(normalizeProductImage),
-    ),
+    images: product.images
+      .slice()
+      .sort((a, b) => a.sort - b.sort || a.id.localeCompare(b.id))
+      .map(normalizeProductImage),
     tags: product.tags
       .slice()
       .sort((a, b) => a.sort - b.sort || a.id.localeCompare(b.id))
@@ -537,7 +509,7 @@ async function fetchProducts(teamId: number) {
     },
   });
 
-  return Promise.all(products.map((product) => normalizeProduct(product)));
+  return products.map((product) => normalizeProduct(product));
 }
 
 async function resolveProductType(teamId: number, productTypeId: string) {
@@ -600,10 +572,13 @@ async function resolveSelectedTags(teamId: number, tagIds: number[]) {
   });
 }
 
-async function uploadNewProductImages({ files }: { files: File[] }) {
+async function uploadNewProductImages({ files, teamId }: { files: File[]; teamId: number }) {
   const t = await getTranslations("Tagging.BrandLibrary");
-  const { token, location } = await getCurrentOssUploadLocation();
-  const uploads: UploadedOssImageInput[] = [];
+  const uploads: Array<{
+    objectKey: string;
+    mimeType: string;
+    size: number;
+  }> = [];
 
   for (const file of files) {
     if (!isImageFile(file)) {
@@ -611,6 +586,7 @@ async function uploadNewProductImages({ files }: { files: File[] }) {
     }
 
     const objectKey = buildAssetProductObjectKey({
+      teamId,
       extension: getFileExtension(file),
     });
     const buffer = Buffer.from(await file.arrayBuffer());
@@ -618,15 +594,10 @@ async function uploadNewProductImages({ files }: { files: File[] }) {
       body: buffer,
       contentType: file.type || "application/octet-stream",
       objectKey,
-      token,
-      ...location,
     });
 
     uploads.push({
       objectKey: uploadResult.objectKey,
-      ossBucket: uploadResult.ossBucket,
-      ossEndpoint: uploadResult.ossEndpoint,
-      ossRegion: uploadResult.ossRegion,
       mimeType: file.type || "application/octet-stream",
       size: file.size,
     });
@@ -660,10 +631,19 @@ function getImageExtensionFromUrlOrContentType({
   return "";
 }
 
-async function uploadAssetLibraryImages({ downloadUrls }: { downloadUrls: string[] }) {
+async function uploadAssetLibraryImages({
+  downloadUrls,
+  teamId,
+}: {
+  downloadUrls: string[];
+  teamId: number;
+}) {
   const t = await getTranslations("Tagging.ProductLibrary");
-  const { token, location } = await getCurrentOssUploadLocation();
-  const uploads: UploadedOssImageInput[] = [];
+  const uploads: Array<{
+    objectKey: string;
+    mimeType: string;
+    size: number;
+  }> = [];
 
   for (const downloadUrl of downloadUrls) {
     const response = await fetch(downloadUrl);
@@ -679,6 +659,7 @@ async function uploadAssetLibraryImages({ downloadUrls }: { downloadUrls: string
       contentType,
     });
     const objectKey = buildAssetProductObjectKey({
+      teamId,
       extension,
     });
 
@@ -686,15 +667,10 @@ async function uploadAssetLibraryImages({ downloadUrls }: { downloadUrls: string
       body: buffer,
       contentType,
       objectKey,
-      token,
-      ...location,
     });
 
     uploads.push({
       objectKey: uploadResult.objectKey,
-      ossBucket: uploadResult.ossBucket,
-      ossEndpoint: uploadResult.ossEndpoint,
-      ossRegion: uploadResult.ossRegion,
       mimeType: contentType,
       size: buffer.byteLength,
     });
@@ -725,16 +701,16 @@ function getImageExtensionFromObjectKeyOrContentType({
 
 async function cloneProductImageFromObjectKey({
   objectKey,
+  teamId,
   t,
 }: {
   objectKey: string;
+  teamId: number;
   t: TranslationFunction;
 }) {
-  const { token, location } = await getCurrentOssUploadLocation();
-  const { signedUrl } = await getCachedSignedOssObjectUrl({
+  const { signedUrl } = getCachedSignedOssObjectUrl({
     objectKey,
     expiresInSeconds: 60 * 60,
-    location,
   });
   const response = await fetch(signedUrl);
 
@@ -754,6 +730,7 @@ async function cloneProductImageFromObjectKey({
     contentType,
   });
   const newObjectKey = buildAssetProductObjectKey({
+    teamId,
     extension,
   });
 
@@ -761,15 +738,10 @@ async function cloneProductImageFromObjectKey({
     body: buffer,
     contentType,
     objectKey: newObjectKey,
-    token,
-    ...location,
   });
 
   return {
     objectKey: uploadResult.objectKey,
-    ossBucket: uploadResult.ossBucket,
-    ossEndpoint: uploadResult.ossEndpoint,
-    ossRegion: uploadResult.ossRegion,
     mimeType: contentType,
     size: buffer.byteLength,
   };
@@ -855,6 +827,7 @@ async function importProductBatchRow({
     uploadedImages.push(
       await cloneProductImageFromObjectKey({
         objectKey,
+        teamId: team.id,
         t,
       }),
     );
@@ -897,8 +870,7 @@ async function importProductBatchRow({
   existingNames.add(productName);
 
   const product = await loadProduct(team.id, createdProduct.id);
-  const uploadToken = await getCurrentOssUploadToken();
-  scheduleAssetProductProcessing(team.id, createdProduct.id, uploadToken);
+  scheduleAssetProductProcessing(team.id, createdProduct.id);
   schedulePushFeatureToMuseDAM({
     team,
     featureType: "product",
@@ -906,44 +878,50 @@ async function importProductBatchRow({
     identifierName: product.name,
     identifierTypeId: productType.id,
     identifierTypeName: productType.name,
-    firstImage: getFirstProductImageIdentity(product.images),
+    firstImageObjectKey: product.images[0]?.objectKey,
     internalAssetTagIds: selectedTags.map((tag) => tag.assetTagId),
-    uploadToken,
   });
 
   return normalizeProduct(product);
 }
 
-type UploadedAssetLibraryImage = UploadedOssImageInput & {
+type UploadedAssetLibraryImage = {
   name: string;
+  objectKey: string;
+  mimeType: string;
+  size: number;
   signedUrl: string;
   signedUrlExpiresAt: number;
 };
 
-type PreparedProductImageUpload = UploadedOssImageInput & {
+type PreparedProductImageUpload = {
   name: string;
+  objectKey: string;
+  mimeType: string;
+  size: number;
   uploadUrl: string;
   uploadUrlExpiresAt: number;
   signedUrl: string;
   signedUrlExpiresAt: number;
 };
 
-async function validateUploadedProductImages({ images }: { images: UploadedOssImageInput[] }) {
+type UploadedProductImageInput = {
+  objectKey: string;
+  mimeType: string;
+  size: number;
+};
+
+async function validateUploadedProductImageObjectKeys({
+  images,
+  teamId,
+}: {
+  images: UploadedProductImageInput[];
+  teamId: number;
+}) {
   const t = await getTranslations("Tagging.ProductLibrary");
-  const { token, location } = await getCurrentOssUploadLocation();
 
   for (const image of images) {
-    try {
-      assertObjectKeyMatchesUploadToken(image.objectKey);
-    } catch {
-      throw new Error(t("uploadErrors.imageLoadFailed"));
-    }
-
-    if (
-      image.ossBucket !== location.ossBucket ||
-      image.ossEndpoint !== location.ossEndpoint ||
-      image.ossRegion !== location.ossRegion
-    ) {
+    if (!isTeamProductObjectKey(image.objectKey, teamId)) {
       throw new Error(t("uploadErrors.imageLoadFailed"));
     }
   }
@@ -976,7 +954,7 @@ async function parseCreateOrUpdateInput(formData: FormData) {
       formData.get("assetLibraryDownloadUrls"),
       [],
     ),
-    assetLibraryUploadedImages: parseJsonField<UploadedOssImageInput[]>(
+    assetLibraryUploadedImages: parseJsonField<UploadedProductImageInput[]>(
       formData.get("assetLibraryUploadedImages"),
       [],
     ),
@@ -986,7 +964,7 @@ async function parseCreateOrUpdateInput(formData: FormData) {
 export async function prepareAssetLibraryProductImagesAction(
   assets: Array<{ name: string; downloadUrl: string }>,
 ): Promise<ServerActionResult<{ images: UploadedAssetLibraryImage[] }>> {
-  return withAuth(async () => {
+  return withAuth(async ({ team: { id: teamId } }) => {
     try {
       const t = await getTranslations("Tagging.ProductLibrary");
       const normalizedAssets = z
@@ -1004,22 +982,15 @@ export async function prepareAssetLibraryProductImagesAction(
         normalizedAssets.map(async (asset) => {
           const [uploaded] = await uploadAssetLibraryImages({
             downloadUrls: [asset.downloadUrl],
+            teamId,
           });
-          const { signedUrl, signedUrlExpiresAt } = await getCachedSignedOssObjectUrl({
+          const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
             objectKey: uploaded.objectKey,
-            location: {
-              ossBucket: uploaded.ossBucket,
-              ossEndpoint: uploaded.ossEndpoint,
-              ossRegion: uploaded.ossRegion,
-            },
           });
 
           return {
             name: asset.name,
             objectKey: uploaded.objectKey,
-            ossBucket: uploaded.ossBucket,
-            ossEndpoint: uploaded.ossEndpoint,
-            ossRegion: uploaded.ossRegion,
             mimeType: uploaded.mimeType,
             size: uploaded.size,
             signedUrl,
@@ -1050,7 +1021,7 @@ export async function prepareProductImageUploadAction(input: {
   mimeType: string;
   size: number;
 }): Promise<ServerActionResult<{ image: PreparedProductImageUpload }>> {
-  return withAuth(async () => {
+  return withAuth(async ({ team: { id: teamId } }) => {
     try {
       const t = await getTranslations("Tagging.ProductLibrary");
       const metadata = z
@@ -1072,23 +1043,21 @@ export async function prepareProductImageUploadAction(input: {
       }
 
       const contentType = metadata.mimeType || "application/octet-stream";
-      const { token, location } = await getCurrentOssUploadLocation();
       const objectKey = buildAssetProductObjectKey({
+        teamId,
         extension: getFileExtensionFromNameOrContentType({
           name: metadata.name,
           contentType,
         }),
       });
       const { signedUrl: uploadUrl, signedUrlExpiresAt: uploadUrlExpiresAt } =
-        await signOssObjectUploadUrl({
+        signOssObjectUploadUrl({
           objectKey,
           contentType,
-          location,
         });
-      const { signedUrl, signedUrlExpiresAt } = await getCachedSignedOssObjectUrl({
+      const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
         objectKey,
         expiresInSeconds: 60 * 60,
-        location,
       });
 
       return {
@@ -1097,9 +1066,6 @@ export async function prepareProductImageUploadAction(input: {
           image: {
             name: metadata.name,
             objectKey,
-            ossBucket: location.ossBucket,
-            ossEndpoint: location.ossEndpoint,
-            ossRegion: location.ossRegion,
             mimeType: contentType,
             size: metadata.size,
             uploadUrl,
@@ -1167,20 +1133,15 @@ async function loadProductsByIds(teamId: number, productIds: string[]) {
     },
   });
 
-  return Promise.all(products.map((product) => normalizeProduct(product)));
+  return products.map((product) => normalizeProduct(product));
 }
 
-function scheduleAssetProductProcessing(
-  teamId: number,
-  productId: string,
-  uploadToken: Awaited<ReturnType<typeof getCurrentOssUploadToken>>,
-) {
+function scheduleAssetProductProcessing(teamId: number, productId: string) {
   after(async () => {
     try {
       await processAssetProductReferenceVectors({
         teamId,
         productId,
-        uploadToken,
       });
     } catch (error) {
       console.error("Failed to process asset Product vectors:", error);
@@ -1219,9 +1180,6 @@ export async function refreshAssetProductImageSignedUrlAction(imageId: string): 
         select: {
           id: true,
           objectKey: true,
-          ossBucket: true,
-          ossEndpoint: true,
-          ossRegion: true,
         },
       });
 
@@ -1232,13 +1190,8 @@ export async function refreshAssetProductImageSignedUrlAction(imageId: string): 
         };
       }
 
-      const { signedUrl, signedUrlExpiresAt } = await getCachedSignedOssObjectUrl({
+      const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
         objectKey: image.objectKey,
-        location: {
-          ossBucket: image.ossBucket,
-          ossEndpoint: image.ossEndpoint,
-          ossRegion: image.ossRegion,
-        },
       });
 
       return {
@@ -1495,10 +1448,7 @@ export async function prepareProductClassificationAction(input: {
         })
         .parse(input);
 
-      const { token, location } = await getCurrentOssUploadLocation();
-      try {
-        assertObjectKeyMatchesUploadToken(metadata.objectKey);
-      } catch {
+      if (!isTeamProductObjectKey(metadata.objectKey, teamId)) {
         return {
           success: false,
           message: t("errors.imageLoadFailed"),
@@ -1515,10 +1465,9 @@ export async function prepareProductClassificationAction(input: {
         };
       }
 
-      const { signedUrl, signedUrlExpiresAt } = await getCachedSignedOssObjectUrl({
+      const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
         objectKey: metadata.objectKey,
         expiresInSeconds: 60 * 60,
-        location,
       });
       const detection = await detectProductFigureBoxes({
         teamId,
@@ -1565,10 +1514,7 @@ export async function classifyProductImageAction(input: {
         })
         .parse(input);
 
-      const { token, location } = await getCurrentOssUploadLocation();
-      try {
-        assertObjectKeyMatchesUploadToken(metadata.objectKey);
-      } catch {
+      if (!isTeamProductObjectKey(metadata.objectKey, teamId)) {
         return {
           success: false,
           message: t("errors.imageLoadFailed"),
@@ -1585,10 +1531,9 @@ export async function classifyProductImageAction(input: {
         };
       }
 
-      const { signedUrl } = await getCachedSignedOssObjectUrl({
+      const { signedUrl } = getCachedSignedOssObjectUrl({
         objectKey: metadata.objectKey,
         expiresInSeconds: 60 * 60,
-        location,
       });
       const imageInput = await fetchRemoteImageInput(signedUrl, "product classification upload");
       const crops = await Promise.all(
@@ -1658,17 +1603,20 @@ export async function createAssetProductAction(
 
       const uploadedImages = await uploadNewProductImages({
         files,
+        teamId: team.id,
       });
       const uploadedAssetLibraryImages = await uploadAssetLibraryImages({
         downloadUrls: assetLibraryDownloadUrls,
+        teamId: team.id,
       });
       const allUploadedImages = [
         ...uploadedImages,
         ...assetLibraryUploadedImages,
         ...uploadedAssetLibraryImages,
       ];
-      await validateUploadedProductImages({
+      await validateUploadedProductImageObjectKeys({
         images: allUploadedImages,
+        teamId: team.id,
       });
 
       const createdProduct = await prisma.assetProduct.create({
@@ -1703,8 +1651,7 @@ export async function createAssetProductAction(
       });
 
       const product = await loadProduct(team.id, createdProduct.id);
-      const uploadToken = await getCurrentOssUploadToken();
-      scheduleAssetProductProcessing(team.id, createdProduct.id, uploadToken);
+      scheduleAssetProductProcessing(team.id, createdProduct.id);
       schedulePushFeatureToMuseDAM({
         team,
         featureType: "product",
@@ -1712,15 +1659,14 @@ export async function createAssetProductAction(
         identifierName: product.name,
         identifierTypeId: productType.id,
         identifierTypeName: productType.name,
-        firstImage: getFirstProductImageIdentity(product.images),
+        firstImageObjectKey: product.images[0]?.objectKey,
         internalAssetTagIds: input.tagIds,
-        uploadToken,
       });
 
       return {
         success: true,
         data: {
-          product: await normalizeProduct(product),
+          product: normalizeProduct(product),
         },
       };
     } catch (error) {
@@ -1802,17 +1748,20 @@ export async function updateAssetProductAction(
 
       const uploadedImages = await uploadNewProductImages({
         files,
+        teamId: team.id,
       });
       const uploadedAssetLibraryImages = await uploadAssetLibraryImages({
         downloadUrls: assetLibraryDownloadUrls,
+        teamId: team.id,
       });
       const allUploadedImages = [
         ...uploadedImages,
         ...assetLibraryUploadedImages,
         ...uploadedAssetLibraryImages,
       ];
-      await validateUploadedProductImages({
+      await validateUploadedProductImageObjectKeys({
         images: allUploadedImages,
+        teamId: team.id,
       });
 
       await prisma.$transaction(async (tx) => {
@@ -1901,8 +1850,7 @@ export async function updateAssetProductAction(
       });
 
       const updatedProduct = await loadProduct(team.id, product.id);
-      const uploadToken = await getCurrentOssUploadToken();
-      scheduleAssetProductProcessing(team.id, product.id, uploadToken);
+      scheduleAssetProductProcessing(team.id, product.id);
       schedulePushFeatureToMuseDAM({
         team,
         featureType: "product",
@@ -1910,15 +1858,14 @@ export async function updateAssetProductAction(
         identifierName: updatedProduct.name,
         identifierTypeId: productType.id,
         identifierTypeName: productType.name,
-        firstImage: getFirstProductImageIdentity(updatedProduct.images),
+        firstImageObjectKey: updatedProduct.images[0]?.objectKey,
         internalAssetTagIds: input.tagIds,
-        uploadToken,
       });
 
       return {
         success: true,
         data: {
-          product: await normalizeProduct(updatedProduct),
+          product: normalizeProduct(updatedProduct),
         },
       };
     } catch (error) {
@@ -1976,7 +1923,7 @@ export async function setAssetProductEnabledAction(
       return {
         success: true,
         data: {
-          product: await normalizeProduct(updatedProduct),
+          product: normalizeProduct(updatedProduct),
         },
       };
     } catch (error) {
@@ -2072,13 +2019,12 @@ export async function retryAssetProductProcessingAction(
       });
 
       const updatedProduct = await loadProduct(teamId, productId);
-      const uploadToken = await getCurrentOssUploadToken();
-      scheduleAssetProductProcessing(teamId, productId, uploadToken);
+      scheduleAssetProductProcessing(teamId, productId);
 
       return {
         success: true,
         data: {
-          product: await normalizeProduct(updatedProduct),
+          product: normalizeProduct(updatedProduct),
         },
       };
     } catch (error) {

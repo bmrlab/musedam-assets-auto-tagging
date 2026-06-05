@@ -21,9 +21,6 @@ export type PersonTagItem = {
 export type PersonImageItem = {
   id: string;
   objectKey: string;
-  ossBucket: string;
-  ossEndpoint: string;
-  ossRegion: string;
   signedUrl: string;
   signedUrlExpiresAt: number;
   mimeType: string;

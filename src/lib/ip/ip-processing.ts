@@ -4,7 +4,6 @@ import { getJinaConfig } from "@/lib/brand/env";
 import { bufferToDataUrl } from "@/lib/brand/image";
 import { createJinaImageEmbeddings, createJinaTextEmbeddings } from "@/lib/brand/jina";
 import { getCachedSignedOssObjectUrl } from "@/lib/oss";
-import type { OssUploadToken } from "@/lib/oss-upload-token";
 import { cropImageToDataUrl as cropClassificationImageToDataUrl } from "@/lib/tagging/classification-image";
 import { translateTextToEnglish } from "@/lib/translation/service";
 import prisma from "@/prisma/prisma";
@@ -61,35 +60,16 @@ function getProcessingErrorCode(error: unknown): IpProcessingErrorCode {
   return IP_PROCESSING_ERROR_CODES.unknown;
 }
 
-async function fetchImageAsDataUrl(
-  image: {
-    objectKey: string;
-    ossBucket: string;
-    ossEndpoint: string;
-    ossRegion: string;
-    mimeType: string;
-  },
-  uploadToken: OssUploadToken,
-): Promise<{ dataUrl: string; buffer: Buffer }> {
-  const { signedUrl } = await getCachedSignedOssObjectUrl({
-    objectKey: image.objectKey,
-    location: {
-      ossBucket: image.ossBucket,
-      ossEndpoint: image.ossEndpoint,
-      ossRegion: image.ossRegion,
-    },
-    token: uploadToken,
-  });
+async function fetchImageAsDataUrl(objectKey: string, mimeType: string): Promise<{ dataUrl: string; buffer: Buffer }> {
+  const { signedUrl } = getCachedSignedOssObjectUrl({ objectKey });
   const response = await fetch(signedUrl);
 
   if (!response.ok) {
-    const error = createProcessingError(IP_PROCESSING_ERROR_CODES.imageFetchFailed);
-    error.cause = new Error(`OSS image fetch failed (${response.status})`);
-    throw error;
+    throw createProcessingError(IP_PROCESSING_ERROR_CODES.imageFetchFailed);
   }
 
   const buffer = Buffer.from(await response.arrayBuffer());
-  return { dataUrl: bufferToDataUrl(buffer, image.mimeType), buffer };
+  return { dataUrl: bufferToDataUrl(buffer, mimeType), buffer };
 }
 
 function hasPartialCrop(image: {
@@ -115,15 +95,10 @@ function hasPartialCrop(image: {
 async function buildReferenceImageInput({
   matchPattern,
   image,
-  uploadToken,
 }: {
   matchPattern: "whole" | "partial";
-  uploadToken: OssUploadToken;
   image: {
     objectKey: string;
-    ossBucket: string;
-    ossEndpoint: string;
-    ossRegion: string;
     mimeType: string;
     partialMatchPatternName: string | null;
     cropXMin: number | null;
@@ -134,7 +109,7 @@ async function buildReferenceImageInput({
     cropImageHeight: number | null;
   };
 }) {
-  const { dataUrl, buffer } = await fetchImageAsDataUrl(image, uploadToken);
+  const { dataUrl, buffer } = await fetchImageAsDataUrl(image.objectKey, image.mimeType);
 
   if (matchPattern !== "partial") {
     return dataUrl;
@@ -211,11 +186,9 @@ export async function markAssetIpVectorsProcessing({
 export async function processAssetIpReferenceVectors({
   teamId,
   ipId,
-  uploadToken,
 }: {
   teamId: number;
   ipId: string;
-  uploadToken: OssUploadToken;
 }) {
   try {
     const ip = await prisma.assetIp.findFirst({
@@ -243,7 +216,6 @@ export async function processAssetIpReferenceVectors({
         buildReferenceImageInput({
           matchPattern: ip.matchPattern,
           image,
-          uploadToken,
         }),
       ),
     );

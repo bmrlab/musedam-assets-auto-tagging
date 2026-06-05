@@ -14,7 +14,6 @@ import {
   upsertLogoVectorPoints,
 } from "@/lib/brand/qdrant";
 import { getCachedSignedOssObjectUrl } from "@/lib/oss";
-import type { OssUploadToken } from "@/lib/oss-upload-token";
 import prisma from "@/prisma/prisma";
 import { randomUUID } from "crypto";
 
@@ -50,35 +49,16 @@ function getProcessingErrorCode(error: unknown): BrandProcessingErrorCode {
   return BRAND_PROCESSING_ERROR_CODES.unknown;
 }
 
-async function fetchImageAsDataUrl(
-  image: {
-    objectKey: string;
-    ossBucket: string;
-    ossEndpoint: string;
-    ossRegion: string;
-    mimeType: string;
-  },
-  uploadToken: OssUploadToken,
-) {
-  const { signedUrl } = await getCachedSignedOssObjectUrl({
-    objectKey: image.objectKey,
-    location: {
-      ossBucket: image.ossBucket,
-      ossEndpoint: image.ossEndpoint,
-      ossRegion: image.ossRegion,
-    },
-    token: uploadToken,
-  });
+async function fetchImageAsDataUrl(objectKey: string, mimeType: string) {
+  const { signedUrl } = getCachedSignedOssObjectUrl({ objectKey });
   const response = await fetch(signedUrl);
 
   if (!response.ok) {
-    const error = createProcessingError(BRAND_PROCESSING_ERROR_CODES.imageFetchFailed);
-    error.cause = new Error(`OSS image fetch failed (${response.status})`);
-    throw error;
+    throw createProcessingError(BRAND_PROCESSING_ERROR_CODES.imageFetchFailed);
   }
 
   const buffer = Buffer.from(await response.arrayBuffer());
-  return bufferToDataUrl(buffer, image.mimeType);
+  return bufferToDataUrl(buffer, mimeType);
 }
 
 export async function markAssetLogoVectorsProcessing({
@@ -129,11 +109,9 @@ export async function markAssetLogoVectorsProcessing({
 export async function processAssetLogoReferenceVectors({
   teamId,
   logoId,
-  uploadToken,
 }: {
   teamId: number;
   logoId: string;
-  uploadToken: OssUploadToken;
 }) {
   try {
     const logo = await prisma.assetLogo.findFirst({
@@ -157,7 +135,7 @@ export async function processAssetLogoReferenceVectors({
     }
 
     const imageInputs = await Promise.all(
-      logo.images.map((image) => fetchImageAsDataUrl(image, uploadToken)),
+      logo.images.map((image) => fetchImageAsDataUrl(image.objectKey, image.mimeType)),
     );
     const embeddings = await createJinaImageEmbeddings({
       images: imageInputs,

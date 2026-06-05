@@ -173,9 +173,6 @@ model AssetLogoImage {
   assetLogo   AssetLogo @relation(fields: [assetLogoId], references: [id], onDelete: Cascade)
 
   objectKey      String    @db.Text
-  ossBucket      String    @db.VarChar(255)
-  ossEndpoint    String    @db.Text
-  ossRegion      String    @db.VarChar(64)
   mimeType       String    @db.VarChar(255)
   size           Int
   sort           Int       @default(0)
@@ -267,9 +264,6 @@ model AssetIpImage {
   assetIp   AssetIp @relation(fields: [assetIpId], references: [id], onDelete: Cascade)
 
   objectKey               String    @db.Text
-  ossBucket               String    @db.VarChar(255)
-  ossEndpoint             String    @db.Text
-  ossRegion               String    @db.VarChar(64)
   mimeType                String    @db.VarChar(255)
   size                    Int
   sort                    Int       @default(0)
@@ -367,9 +361,6 @@ model AssetProductImage {
   assetProduct   AssetProduct @relation(fields: [assetProductId], references: [id], onDelete: Cascade)
 
   objectKey      String    @db.Text
-  ossBucket      String    @db.VarChar(255)
-  ossEndpoint    String    @db.Text
-  ossRegion      String    @db.VarChar(64)
   mimeType       String    @db.VarChar(255)
   size           Int
   sort           Int       @default(0)
@@ -453,9 +444,6 @@ model AssetPersonImage {
   assetPerson   AssetPerson @relation(fields: [assetPersonId], references: [id], onDelete: Cascade)
 
   objectKey      String    @db.Text
-  ossBucket      String    @db.VarChar(255)
-  ossEndpoint    String    @db.Text
-  ossRegion      String    @db.VarChar(64)
   mimeType       String    @db.VarChar(255)
   size           Int
   sort           Int       @default(0)
@@ -470,11 +458,11 @@ model AssetPersonImage {
 }
 
 model AssetPersonTag {
-  id            String      @id @default(uuid()) @db.Uuid
-  assetPersonId String      @db.Uuid
-  assetPerson   AssetPerson @relation(fields: [assetPersonId], references: [id], onDelete: Cascade)
+  id            String       @id @default(uuid()) @db.Uuid
+  assetPersonId String       @db.Uuid
+  assetPerson   AssetPerson  @relation(fields: [assetPersonId], references: [id], onDelete: Cascade)
   assetTagId    Int?
-  assetTag      AssetTag?   @relation(fields: [assetTagId], references: [id], onDelete: SetNull)
+  assetTag      AssetTag?    @relation(fields: [assetTagId], references: [id], onDelete: SetNull)
 
   tagPath Json @default("[]")
   sort    Int  @default(0)

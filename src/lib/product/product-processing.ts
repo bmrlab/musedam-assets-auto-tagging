@@ -5,7 +5,6 @@ import { getJinaConfig } from "@/lib/brand/env";
 import { bufferToDataUrl } from "@/lib/brand/image";
 import { createJinaImageEmbeddings, createJinaTextEmbeddings } from "@/lib/brand/jina";
 import { getCachedSignedOssObjectUrl } from "@/lib/oss";
-import type { OssUploadToken } from "@/lib/oss-upload-token";
 import { translateTextToEnglish } from "@/lib/translation/service";
 import prisma from "@/prisma/prisma";
 import { generateObject, UserModelMessage } from "ai";
@@ -68,35 +67,16 @@ function getProcessingErrorCode(error: unknown): ProductProcessingErrorCode {
   return PRODUCT_PROCESSING_ERROR_CODES.unknown;
 }
 
-async function fetchImageAsDataUrl(
-  image: {
-    objectKey: string;
-    ossBucket: string;
-    ossEndpoint: string;
-    ossRegion: string;
-    mimeType: string;
-  },
-  uploadToken: OssUploadToken,
-) {
-  const { signedUrl } = await getCachedSignedOssObjectUrl({
-    objectKey: image.objectKey,
-    location: {
-      ossBucket: image.ossBucket,
-      ossEndpoint: image.ossEndpoint,
-      ossRegion: image.ossRegion,
-    },
-    token: uploadToken,
-  });
+async function fetchImageAsDataUrl(objectKey: string, mimeType: string) {
+  const { signedUrl } = getCachedSignedOssObjectUrl({ objectKey });
   const response = await fetch(signedUrl);
 
   if (!response.ok) {
-    const error = createProcessingError(PRODUCT_PROCESSING_ERROR_CODES.imageFetchFailed);
-    error.cause = new Error(`OSS image fetch failed (${response.status})`);
-    throw error;
+    throw createProcessingError(PRODUCT_PROCESSING_ERROR_CODES.imageFetchFailed);
   }
 
   const buffer = Buffer.from(await response.arrayBuffer());
-  return bufferToDataUrl(buffer, image.mimeType);
+  return bufferToDataUrl(buffer, mimeType);
 }
 
 function getProductCategoryPredictModel(): LLMModelName {
@@ -235,11 +215,9 @@ export async function markAssetProductVectorsProcessing({
 export async function processAssetProductReferenceVectors({
   teamId,
   productId,
-  uploadToken,
 }: {
   teamId: number;
   productId: string;
-  uploadToken: OssUploadToken;
 }) {
   try {
     const product = await prisma.assetProduct.findFirst({
@@ -263,7 +241,7 @@ export async function processAssetProductReferenceVectors({
     }
 
     const imageInputs = await Promise.all(
-      product.images.map((image) => fetchImageAsDataUrl(image, uploadToken)),
+      product.images.map((image) => fetchImageAsDataUrl(image.objectKey, image.mimeType)),
     );
     const imageEmbeddings = await createJinaImageEmbeddings({
       images: imageInputs,

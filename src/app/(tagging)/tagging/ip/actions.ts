@@ -15,15 +15,11 @@ import {
 import { ASSET_IP_MATCH_PATTERNS, IP_PARTIAL_MATCH_PATTERN_OPTIONS } from "@/lib/ip/match-pattern";
 import { deleteIpVectorPointsByIp, setIpVectorPayloadByIp } from "@/lib/ip/qdrant";
 import {
-  assertObjectKeyMatchesUploadToken,
   buildAssetIpObjectKey,
   getCachedSignedOssObjectUrl,
-  getCurrentOssUploadLocation,
   signOssObjectUploadUrl,
   uploadOssObject,
 } from "@/lib/oss";
-import type { OssObjectIdentity, OssObjectLocation, UploadedOssImageInput } from "@/lib/oss-types";
-import { getCurrentOssUploadToken } from "@/lib/oss-upload-token";
 import { ServerActionResult } from "@/lib/serverAction";
 import {
   clampBox as clampClassificationBox,
@@ -125,9 +121,6 @@ async function getCreateOrUpdateIpSchema() {
       .array(
         z.object({
           objectKey: z.string().min(1),
-          ossBucket: z.string().min(1),
-          ossEndpoint: z.string().url(),
-          ossRegion: z.string().min(1),
           mimeType: z.string().min(1),
           size: z.number().int().nonnegative(),
           partialMatchPatternName: z.enum(IP_PARTIAL_MATCH_PATTERN_OPTIONS).optional(),
@@ -161,21 +154,6 @@ type AssetIpRecord = AssetIp & {
   tags: AssetIpTag[];
 };
 
-function getFirstIpImageIdentity(images: AssetIpImage[]): OssObjectIdentity | undefined {
-  const image = images[0];
-
-  if (!image) {
-    return undefined;
-  }
-
-  return {
-    objectKey: image.objectKey,
-    ossBucket: image.ossBucket,
-    ossEndpoint: image.ossEndpoint,
-    ossRegion: image.ossRegion,
-  };
-}
-
 type AssetIpMatchPatternInput = (typeof ASSET_IP_MATCH_PATTERNS)[number];
 
 type ImagePartialSelectionInput = {
@@ -191,7 +169,11 @@ type ImagePartialSelectionInput = {
   cropDetectionScore?: number | null;
 };
 
-type UploadedIpImageInput = UploadedOssImageInput & Partial<ImagePartialSelectionInput>;
+type UploadedIpImageInput = {
+  objectKey: string;
+  mimeType: string;
+  size: number;
+} & Partial<ImagePartialSelectionInput>;
 
 function parseJsonField<T>(value: FormDataEntryValue | null, fallback: T): T {
   if (typeof value !== "string" || !value.trim()) {
@@ -239,6 +221,10 @@ function getFileExtensionFromNameOrContentType({
   return "";
 }
 
+function isTeamIpObjectKey(objectKey: string, teamId: number) {
+  return objectKey.startsWith(`auto-tagging/teams-${teamId}-asset-ips-`);
+}
+
 function buildTagPath(tag: AssetTagWithParents) {
   const path: string[] = [];
   let current: AssetTagWithParents | AssetTag | null = tag;
@@ -262,22 +248,14 @@ function normalizeIpType(type: AssetIpType): IpTypeItem {
   };
 }
 
-async function normalizeIpImage(image: AssetIpImage): Promise<IpImageItem> {
-  const { signedUrl, signedUrlExpiresAt } = await getCachedSignedOssObjectUrl({
+function normalizeIpImage(image: AssetIpImage): IpImageItem {
+  const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
     objectKey: image.objectKey,
-    location: {
-      ossBucket: image.ossBucket,
-      ossEndpoint: image.ossEndpoint,
-      ossRegion: image.ossRegion,
-    },
   });
 
   return {
     id: image.id,
     objectKey: image.objectKey,
-    ossBucket: image.ossBucket,
-    ossEndpoint: image.ossEndpoint,
-    ossRegion: image.ossRegion,
     signedUrl,
     signedUrlExpiresAt,
     mimeType: image.mimeType,
@@ -304,7 +282,7 @@ function normalizeIpTag(tag: AssetIpTag): IpTagItem {
   };
 }
 
-async function normalizeIp(ip: AssetIpRecord): Promise<IpItem> {
+function normalizeIp(ip: AssetIpRecord): IpItem {
   return {
     id: ip.id,
     slug: ip.slug,
@@ -320,12 +298,10 @@ async function normalizeIp(ip: AssetIpRecord): Promise<IpItem> {
     notes: ip.notes,
     createdAt: ip.createdAt,
     updatedAt: ip.updatedAt,
-    images: await Promise.all(
-      ip.images
-        .slice()
-        .sort((a, b) => a.sort - b.sort || a.id.localeCompare(b.id))
-        .map(normalizeIpImage),
-    ),
+    images: ip.images
+      .slice()
+      .sort((a, b) => a.sort - b.sort || a.id.localeCompare(b.id))
+      .map(normalizeIpImage),
     tags: ip.tags
       .slice()
       .sort((a, b) => a.sort - b.sort || a.id.localeCompare(b.id))
@@ -678,7 +654,7 @@ async function fetchIps(teamId: number) {
     },
   });
 
-  return Promise.all(ips.map((ip) => normalizeIp(ip)));
+  return ips.map((ip) => normalizeIp(ip));
 }
 
 async function resolveIpType(teamId: number, ipTypeId: string) {
@@ -741,10 +717,13 @@ async function resolveSelectedTags(teamId: number, tagIds: number[]) {
   });
 }
 
-async function uploadNewIpImages({ files }: { files: File[] }) {
+async function uploadNewIpImages({ files, teamId }: { files: File[]; teamId: number }) {
   const t = await getTranslations("Tagging.BrandLibrary");
-  const { token, location } = await getCurrentOssUploadLocation();
-  const uploads: UploadedOssImageInput[] = [];
+  const uploads: Array<{
+    objectKey: string;
+    mimeType: string;
+    size: number;
+  }> = [];
 
   for (const file of files) {
     if (!isImageFile(file)) {
@@ -752,6 +731,7 @@ async function uploadNewIpImages({ files }: { files: File[] }) {
     }
 
     const objectKey = buildAssetIpObjectKey({
+      teamId,
       extension: getFileExtension(file),
     });
     const buffer = Buffer.from(await file.arrayBuffer());
@@ -759,15 +739,10 @@ async function uploadNewIpImages({ files }: { files: File[] }) {
       body: buffer,
       contentType: file.type || "application/octet-stream",
       objectKey,
-      token,
-      ...location,
     });
 
     uploads.push({
       objectKey: uploadResult.objectKey,
-      ossBucket: uploadResult.ossBucket,
-      ossEndpoint: uploadResult.ossEndpoint,
-      ossRegion: uploadResult.ossRegion,
       mimeType: file.type || "application/octet-stream",
       size: file.size,
     });
@@ -801,10 +776,19 @@ function getImageExtensionFromUrlOrContentType({
   return "";
 }
 
-async function uploadAssetLibraryImages({ downloadUrls }: { downloadUrls: string[] }) {
+async function uploadAssetLibraryImages({
+  downloadUrls,
+  teamId,
+}: {
+  downloadUrls: string[];
+  teamId: number;
+}) {
   const t = await getTranslations("Tagging.IpLibrary");
-  const { token, location } = await getCurrentOssUploadLocation();
-  const uploads: UploadedOssImageInput[] = [];
+  const uploads: Array<{
+    objectKey: string;
+    mimeType: string;
+    size: number;
+  }> = [];
 
   for (const downloadUrl of downloadUrls) {
     const response = await fetch(downloadUrl);
@@ -820,6 +804,7 @@ async function uploadAssetLibraryImages({ downloadUrls }: { downloadUrls: string
       contentType,
     });
     const objectKey = buildAssetIpObjectKey({
+      teamId,
       extension,
     });
 
@@ -827,15 +812,10 @@ async function uploadAssetLibraryImages({ downloadUrls }: { downloadUrls: string
       body: buffer,
       contentType,
       objectKey,
-      token,
-      ...location,
     });
 
     uploads.push({
       objectKey: uploadResult.objectKey,
-      ossBucket: uploadResult.ossBucket,
-      ossEndpoint: uploadResult.ossEndpoint,
-      ossRegion: uploadResult.ossRegion,
       mimeType: contentType,
       size: buffer.byteLength,
     });
@@ -866,16 +846,16 @@ function getImageExtensionFromObjectKeyOrContentType({
 
 async function cloneIpImageFromObjectKey({
   objectKey,
+  teamId,
   t,
 }: {
   objectKey: string;
+  teamId: number;
   t: TranslationFunction;
 }) {
-  const { token, location } = await getCurrentOssUploadLocation();
-  const { signedUrl } = await getCachedSignedOssObjectUrl({
+  const { signedUrl } = getCachedSignedOssObjectUrl({
     objectKey,
     expiresInSeconds: 60 * 60,
-    location,
   });
   const response = await fetch(signedUrl);
 
@@ -895,6 +875,7 @@ async function cloneIpImageFromObjectKey({
     contentType,
   });
   const newObjectKey = buildAssetIpObjectKey({
+    teamId,
     extension,
   });
 
@@ -902,15 +883,10 @@ async function cloneIpImageFromObjectKey({
     body: buffer,
     contentType,
     objectKey: newObjectKey,
-    token,
-    ...location,
   });
 
   return {
     objectKey: uploadResult.objectKey,
-    ossBucket: uploadResult.ossBucket,
-    ossEndpoint: uploadResult.ossEndpoint,
-    ossRegion: uploadResult.ossRegion,
     mimeType: contentType,
     size: buffer.byteLength,
   };
@@ -1001,6 +977,7 @@ async function importIpBatchRow({
     uploadedImages.push(
       await cloneIpImageFromObjectKey({
         objectKey,
+        teamId: team.id,
         t,
       }),
     );
@@ -1048,8 +1025,7 @@ async function importIpBatchRow({
   existingNames.add(ipName);
 
   const ip = await loadIp(team.id, createdIp.id);
-  const uploadToken = await getCurrentOssUploadToken();
-  scheduleAssetIpProcessing(team.id, createdIp.id, uploadToken);
+  scheduleAssetIpProcessing(team.id, createdIp.id);
   schedulePushFeatureToMuseDAM({
     team,
     featureType: "ip",
@@ -1057,9 +1033,8 @@ async function importIpBatchRow({
     identifierName: ip.name,
     identifierTypeId: ipType.id,
     identifierTypeName: ipType.name,
-    firstImage: getFirstIpImageIdentity(ip.images),
+    firstImageObjectKey: ip.images[0]?.objectKey,
     internalAssetTagIds: selectedTags.map((tag) => tag.assetTagId),
-    uploadToken,
   });
 
   return normalizeIp(ip);
@@ -1148,9 +1123,6 @@ function buildUploadedImageCreateData({
 }) {
   return {
     objectKey: image.objectKey,
-    ossBucket: image.ossBucket,
-    ossEndpoint: image.ossEndpoint,
-    ossRegion: image.ossRegion,
     mimeType: image.mimeType,
     size: image.size,
     sort,
@@ -1162,36 +1134,37 @@ function buildUploadedImageCreateData({
   };
 }
 
-type UploadedAssetLibraryImage = UploadedOssImageInput & {
+type UploadedAssetLibraryImage = {
   name: string;
+  objectKey: string;
+  mimeType: string;
+  size: number;
   signedUrl: string;
   signedUrlExpiresAt: number;
 };
 
-type PreparedIpImageUpload = UploadedOssImageInput & {
+type PreparedIpImageUpload = {
   name: string;
+  objectKey: string;
+  mimeType: string;
+  size: number;
   uploadUrl: string;
   uploadUrlExpiresAt: number;
   signedUrl: string;
   signedUrlExpiresAt: number;
 };
 
-async function validateUploadedIpImages({ images }: { images: UploadedIpImageInput[] }) {
+async function validateUploadedIpImageObjectKeys({
+  images,
+  teamId,
+}: {
+  images: UploadedIpImageInput[];
+  teamId: number;
+}) {
   const t = await getTranslations("Tagging.IpLibrary");
-  const { token, location } = await getCurrentOssUploadLocation();
 
   for (const image of images) {
-    try {
-      assertObjectKeyMatchesUploadToken(image.objectKey);
-    } catch {
-      throw new Error(t("uploadErrors.imageLoadFailed"));
-    }
-
-    if (
-      image.ossBucket !== location.ossBucket ||
-      image.ossEndpoint !== location.ossEndpoint ||
-      image.ossRegion !== location.ossRegion
-    ) {
+    if (!isTeamIpObjectKey(image.objectKey, teamId)) {
       throw new Error(t("uploadErrors.imageLoadFailed"));
     }
   }
@@ -1239,7 +1212,7 @@ async function parseCreateOrUpdateInput(formData: FormData) {
 export async function prepareAssetLibraryIpImagesAction(
   assets: Array<{ name: string; downloadUrl: string }>,
 ): Promise<ServerActionResult<{ images: UploadedAssetLibraryImage[] }>> {
-  return withAuth(async () => {
+  return withAuth(async ({ team: { id: teamId } }) => {
     try {
       const t = await getTranslations("Tagging.IpLibrary");
       const normalizedAssets = z
@@ -1257,22 +1230,15 @@ export async function prepareAssetLibraryIpImagesAction(
         normalizedAssets.map(async (asset) => {
           const [uploaded] = await uploadAssetLibraryImages({
             downloadUrls: [asset.downloadUrl],
+            teamId,
           });
-          const { signedUrl, signedUrlExpiresAt } = await getCachedSignedOssObjectUrl({
+          const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
             objectKey: uploaded.objectKey,
-            location: {
-              ossBucket: uploaded.ossBucket,
-              ossEndpoint: uploaded.ossEndpoint,
-              ossRegion: uploaded.ossRegion,
-            },
           });
 
           return {
             name: asset.name,
             objectKey: uploaded.objectKey,
-            ossBucket: uploaded.ossBucket,
-            ossEndpoint: uploaded.ossEndpoint,
-            ossRegion: uploaded.ossRegion,
             mimeType: uploaded.mimeType,
             size: uploaded.size,
             signedUrl,
@@ -1303,7 +1269,7 @@ export async function prepareIpImageUploadAction(input: {
   mimeType: string;
   size: number;
 }): Promise<ServerActionResult<{ image: PreparedIpImageUpload }>> {
-  return withAuth(async () => {
+  return withAuth(async ({ team: { id: teamId } }) => {
     try {
       const t = await getTranslations("Tagging.IpLibrary");
       const metadata = z
@@ -1325,23 +1291,21 @@ export async function prepareIpImageUploadAction(input: {
       }
 
       const contentType = metadata.mimeType || "application/octet-stream";
-      const { token, location } = await getCurrentOssUploadLocation();
       const objectKey = buildAssetIpObjectKey({
-    extension: getFileExtensionFromNameOrContentType({
+        teamId,
+        extension: getFileExtensionFromNameOrContentType({
           name: metadata.name,
           contentType,
         }),
       });
       const { signedUrl: uploadUrl, signedUrlExpiresAt: uploadUrlExpiresAt } =
-        await signOssObjectUploadUrl({
+        signOssObjectUploadUrl({
           objectKey,
           contentType,
-          location,
         });
-      const { signedUrl, signedUrlExpiresAt } = await getCachedSignedOssObjectUrl({
+      const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
         objectKey,
         expiresInSeconds: 60 * 60,
-        location,
       });
 
       return {
@@ -1350,9 +1314,6 @@ export async function prepareIpImageUploadAction(input: {
           image: {
             name: metadata.name,
             objectKey,
-            ossBucket: location.ossBucket,
-            ossEndpoint: location.ossEndpoint,
-            ossRegion: location.ossRegion,
             mimeType: contentType,
             size: metadata.size,
             uploadUrl,
@@ -1376,24 +1337,13 @@ export async function prepareIpImageUploadAction(input: {
 async function detectPartialFeatureForObjectKey({
   objectKey,
   partialMatchPatternName,
-  location,
 }: {
   objectKey: string;
   partialMatchPatternName: (typeof IP_PARTIAL_MATCH_PATTERN_OPTIONS)[number];
-  location?: OssObjectLocation;
 }): Promise<IpPartialFeatureDetectionResult> {
-  let signingLocation = location;
-
-  if (!signingLocation) {
-    const currentUpload = await getCurrentOssUploadLocation();
-    assertObjectKeyMatchesUploadToken(objectKey);
-    signingLocation = currentUpload.location;
-  }
-
-  const { signedUrl, signedUrlExpiresAt } = await getCachedSignedOssObjectUrl({
+  const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
     objectKey,
     expiresInSeconds: 60 * 60,
-    location: signingLocation,
   });
 
   const [imageInput, detection] = await Promise.all([
@@ -1424,7 +1374,6 @@ async function detectPartialFeatureForObjectKey({
 
 export async function detectAssetIpPartialFeatureAction(input: {
   objectKey: string;
-  imageId?: string;
   partialMatchPatternName: string;
 }): Promise<ServerActionResult<IpPartialFeatureDetectionResult>> {
   return withAuth(async ({ team: { id: teamId } }) => {
@@ -1432,43 +1381,11 @@ export async function detectAssetIpPartialFeatureAction(input: {
       const parsed = z
         .object({
           objectKey: z.string().min(1),
-          imageId: z.string().uuid().optional(),
           partialMatchPatternName: z.enum(IP_PARTIAL_MATCH_PATTERN_OPTIONS),
         })
         .parse(input);
-
-      if (parsed.imageId) {
-        const image = await prisma.assetIpImage.findFirst({
-          where: {
-            id: parsed.imageId,
-            assetIp: {
-              teamId,
-            },
-          },
-          select: {
-            objectKey: true,
-            ossBucket: true,
-            ossEndpoint: true,
-            ossRegion: true,
-          },
-        });
-
-        if (!image || image.objectKey !== parsed.objectKey) {
-          throw new Error("Invalid IP image object key");
-        }
-
-        return {
-          success: true,
-          data: await detectPartialFeatureForObjectKey({
-            objectKey: image.objectKey,
-            partialMatchPatternName: parsed.partialMatchPatternName,
-            location: {
-              ossBucket: image.ossBucket,
-              ossEndpoint: image.ossEndpoint,
-              ossRegion: image.ossRegion,
-            },
-          }),
-        };
+      if (!parsed.objectKey.includes(`teams-${teamId}-asset-ips-`)) {
+        throw new Error("Invalid IP image object key");
       }
 
       return {
@@ -1533,20 +1450,15 @@ async function loadIpsByIds(teamId: number, ipIds: string[]) {
     },
   });
 
-  return Promise.all(ips.map((ip) => normalizeIp(ip)));
+  return ips.map((ip) => normalizeIp(ip));
 }
 
-function scheduleAssetIpProcessing(
-  teamId: number,
-  ipId: string,
-  uploadToken: Awaited<ReturnType<typeof getCurrentOssUploadToken>>,
-) {
+function scheduleAssetIpProcessing(teamId: number, ipId: string) {
   after(async () => {
     try {
       await processAssetIpReferenceVectors({
         teamId,
         ipId,
-        uploadToken,
       });
     } catch (error) {
       console.error("Failed to process asset IP vectors:", error);
@@ -1585,9 +1497,6 @@ export async function refreshAssetIpImageSignedUrlAction(imageId: string): Promi
         select: {
           id: true,
           objectKey: true,
-          ossBucket: true,
-          ossEndpoint: true,
-          ossRegion: true,
         },
       });
 
@@ -1598,13 +1507,8 @@ export async function refreshAssetIpImageSignedUrlAction(imageId: string): Promi
         };
       }
 
-      const { signedUrl, signedUrlExpiresAt } = await getCachedSignedOssObjectUrl({
+      const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
         objectKey: image.objectKey,
-        location: {
-          ossBucket: image.ossBucket,
-          ossEndpoint: image.ossEndpoint,
-          ossRegion: image.ossRegion,
-        },
       });
 
       return {
@@ -1857,10 +1761,7 @@ export async function prepareIpClassificationAction(input: {
         })
         .parse(input);
 
-      const { token, location } = await getCurrentOssUploadLocation();
-      try {
-        assertObjectKeyMatchesUploadToken(metadata.objectKey);
-      } catch {
+      if (!isTeamIpObjectKey(metadata.objectKey, teamId)) {
         return {
           success: false,
           message: t("errors.imageLoadFailed"),
@@ -1877,10 +1778,9 @@ export async function prepareIpClassificationAction(input: {
         };
       }
 
-      const { signedUrl, signedUrlExpiresAt } = await getCachedSignedOssObjectUrl({
+      const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
         objectKey: metadata.objectKey,
         expiresInSeconds: 60 * 60,
-        location,
       });
       const detection = await detectIpFigureBoxes({
         teamId,
@@ -1927,10 +1827,7 @@ export async function classifyIpImageAction(input: {
         })
         .parse(input);
 
-      const { token, location } = await getCurrentOssUploadLocation();
-      try {
-        assertObjectKeyMatchesUploadToken(metadata.objectKey);
-      } catch {
+      if (!isTeamIpObjectKey(metadata.objectKey, teamId)) {
         return {
           success: false,
           message: t("errors.imageLoadFailed"),
@@ -1947,10 +1844,9 @@ export async function classifyIpImageAction(input: {
         };
       }
 
-      const { signedUrl } = await getCachedSignedOssObjectUrl({
+      const { signedUrl } = getCachedSignedOssObjectUrl({
         objectKey: metadata.objectKey,
         expiresInSeconds: 60 * 60,
-        location,
       });
       const imageInput = await fetchRemoteImageInput(signedUrl, "IP classification upload");
       const crops = await Promise.all(
@@ -2021,17 +1917,20 @@ export async function createAssetIpAction(
 
       const uploadedImages = await uploadNewIpImages({
         files,
+        teamId: team.id,
       });
       const uploadedAssetLibraryImages = await uploadAssetLibraryImages({
         downloadUrls: assetLibraryDownloadUrls,
+        teamId: team.id,
       });
       const allUploadedImages = [
         ...uploadedImages,
         ...assetLibraryUploadedImages,
         ...uploadedAssetLibraryImages,
       ];
-      await validateUploadedIpImages({
+      await validateUploadedIpImageObjectKeys({
         images: allUploadedImages,
+        teamId: team.id,
       });
 
       const createdIp = await prisma.assetIp.create({
@@ -2071,8 +1970,7 @@ export async function createAssetIpAction(
       });
 
       const ip = await loadIp(team.id, createdIp.id);
-      const uploadToken = await getCurrentOssUploadToken();
-      scheduleAssetIpProcessing(team.id, createdIp.id, uploadToken);
+      scheduleAssetIpProcessing(team.id, createdIp.id);
       schedulePushFeatureToMuseDAM({
         team,
         featureType: "ip",
@@ -2080,15 +1978,14 @@ export async function createAssetIpAction(
         identifierName: ip.name,
         identifierTypeId: ipType.id,
         identifierTypeName: ipType.name,
-        firstImage: getFirstIpImageIdentity(ip.images),
+        firstImageObjectKey: ip.images[0]?.objectKey,
         internalAssetTagIds: input.tagIds,
-        uploadToken,
       });
 
       return {
         success: true,
         data: {
-          ip: await normalizeIp(ip),
+          ip: normalizeIp(ip),
         },
       };
     } catch (error) {
@@ -2172,17 +2069,20 @@ export async function updateAssetIpAction(
 
       const uploadedImages = await uploadNewIpImages({
         files,
+        teamId: team.id,
       });
       const uploadedAssetLibraryImages = await uploadAssetLibraryImages({
         downloadUrls: assetLibraryDownloadUrls,
+        teamId: team.id,
       });
       const allUploadedImages = [
         ...uploadedImages,
         ...assetLibraryUploadedImages,
         ...uploadedAssetLibraryImages,
       ];
-      await validateUploadedIpImages({
+      await validateUploadedIpImageObjectKeys({
         images: allUploadedImages,
+        teamId: team.id,
       });
 
       await prisma.$transaction(async (tx) => {
@@ -2281,8 +2181,7 @@ export async function updateAssetIpAction(
       });
 
       const updatedIp = await loadIp(team.id, ip.id);
-      const uploadToken = await getCurrentOssUploadToken();
-      scheduleAssetIpProcessing(team.id, ip.id, uploadToken);
+      scheduleAssetIpProcessing(team.id, ip.id);
       schedulePushFeatureToMuseDAM({
         team,
         featureType: "ip",
@@ -2290,15 +2189,14 @@ export async function updateAssetIpAction(
         identifierName: updatedIp.name,
         identifierTypeId: ipType.id,
         identifierTypeName: ipType.name,
-        firstImage: getFirstIpImageIdentity(updatedIp.images),
+        firstImageObjectKey: updatedIp.images[0]?.objectKey,
         internalAssetTagIds: input.tagIds,
-        uploadToken,
       });
 
       return {
         success: true,
         data: {
-          ip: await normalizeIp(updatedIp),
+          ip: normalizeIp(updatedIp),
         },
       };
     } catch (error) {
@@ -2356,7 +2254,7 @@ export async function setAssetIpEnabledAction(
       return {
         success: true,
         data: {
-          ip: await normalizeIp(updatedIp),
+          ip: normalizeIp(updatedIp),
         },
       };
     } catch (error) {
@@ -2452,13 +2350,12 @@ export async function retryAssetIpProcessingAction(
       });
 
       const updatedIp = await loadIp(teamId, ipId);
-      const uploadToken = await getCurrentOssUploadToken();
-      scheduleAssetIpProcessing(teamId, ipId, uploadToken);
+      scheduleAssetIpProcessing(teamId, ipId);
 
       return {
         success: true,
         data: {
-          ip: await normalizeIp(updatedIp),
+          ip: normalizeIp(updatedIp),
         },
       };
     } catch (error) {

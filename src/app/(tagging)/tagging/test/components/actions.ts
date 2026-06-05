@@ -2,7 +2,6 @@
 
 import { withAuth } from "@/app/(auth)/withAuth";
 import { getCachedSignedOssObjectUrl } from "@/lib/oss";
-import type { OssObjectIdentity } from "@/lib/oss-types";
 import { ServerActionResult } from "@/lib/serverAction";
 import prisma from "@/prisma/prisma";
 
@@ -19,7 +18,7 @@ export async function getFeatureThumbnailAction(
 > {
   return withAuth(async () => {
     try {
-      let imageIdentity: OssObjectIdentity | null = null;
+      let objectKey: string | null = null;
 
       switch (featureType) {
         case "brand": {
@@ -30,12 +29,9 @@ export async function getFeatureThumbnailAction(
             orderBy: [{ sort: "asc" }, { id: "asc" }],
             select: {
               objectKey: true,
-              ossBucket: true,
-              ossEndpoint: true,
-              ossRegion: true,
             },
           });
-          imageIdentity = image ?? null;
+          objectKey = image?.objectKey ?? null;
           break;
         }
         case "ip": {
@@ -46,12 +42,9 @@ export async function getFeatureThumbnailAction(
             orderBy: [{ sort: "asc" }, { id: "asc" }],
             select: {
               objectKey: true,
-              ossBucket: true,
-              ossEndpoint: true,
-              ossRegion: true,
             },
           });
-          imageIdentity = image ?? null;
+          objectKey = image?.objectKey ?? null;
           break;
         }
         case "product": {
@@ -62,12 +55,9 @@ export async function getFeatureThumbnailAction(
             orderBy: [{ sort: "asc" }, { id: "asc" }],
             select: {
               objectKey: true,
-              ossBucket: true,
-              ossEndpoint: true,
-              ossRegion: true,
             },
           });
-          imageIdentity = image ?? null;
+          objectKey = image?.objectKey ?? null;
           break;
         }
         case "person": {
@@ -78,30 +68,22 @@ export async function getFeatureThumbnailAction(
             orderBy: [{ sort: "asc" }, { id: "asc" }],
             select: {
               objectKey: true,
-              ossBucket: true,
-              ossEndpoint: true,
-              ossRegion: true,
             },
           });
-          imageIdentity = image ?? null;
+          objectKey = image?.objectKey ?? null;
           break;
         }
       }
 
-      if (!imageIdentity) {
+      if (!objectKey) {
         return {
           success: false,
           message: "No image found for this feature",
         };
       }
 
-      const { signedUrl, signedUrlExpiresAt } = await getCachedSignedOssObjectUrl({
-        objectKey: imageIdentity.objectKey,
-        location: {
-          ossBucket: imageIdentity.ossBucket,
-          ossEndpoint: imageIdentity.ossEndpoint,
-          ossRegion: imageIdentity.ossRegion,
-        },
+      const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
+        objectKey,
       });
 
       return {

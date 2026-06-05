@@ -48,9 +48,6 @@ type DraftImage = {
   existingImageId?: string;
   assetLibraryUploadedImage?: {
     objectKey: string;
-    ossBucket: string;
-    ossEndpoint: string;
-    ossRegion: string;
     mimeType: string;
     size: number;
   };
@@ -251,9 +248,6 @@ export default function BrandLogoDialog({
         id: `asset-library-${crypto.randomUUID()}`,
         assetLibraryUploadedImage: {
           objectKey: image.objectKey,
-          ossBucket: image.ossBucket,
-          ossEndpoint: image.ossEndpoint,
-          ossRegion: image.ossRegion,
           mimeType: image.mimeType,
           size: image.size,
         },
@@ -317,9 +311,6 @@ export default function BrandLogoDialog({
       file: undefined,
       assetLibraryUploadedImage: {
         objectKey: result.data.image.objectKey,
-        ossBucket: result.data.image.ossBucket,
-        ossEndpoint: result.data.image.ossEndpoint,
-        ossRegion: result.data.image.ossRegion,
         mimeType: result.data.image.mimeType,
         size: result.data.image.size,
       },
@@ -396,9 +387,6 @@ export default function BrandLogoDialog({
                 value,
               ): value is {
                 objectKey: string;
-                ossBucket: string;
-                ossEndpoint: string;
-                ossRegion: string;
                 mimeType: string;
                 size: number;
               } => Boolean(value),
@@ -435,199 +423,199 @@ export default function BrandLogoDialog({
 
         <div className="min-h-0 flex-1 overflow-y-auto">
           <div className="space-y-4 px-5 pt-0 pb-3">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="flex flex-col gap-2">
-                <label className="h-[22px] text-[14px] leading-[22px] font-normal text-basic-8">
-                  {t("dialog.logoNameLabel")}
-                </label>
-                <Input
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  placeholder={t("dialog.logoNamePlaceholder")}
-                  className="h-8 w-[349px] rounded-[6px] border border-basic-4 px-3 py-0 text-[14px] leading-[22px] font-normal placeholder:text-[14px] placeholder:leading-[22px] placeholder:font-normal placeholder:text-basic-5"
-                />
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <label className="h-[22px] text-[14px] leading-[22px] font-normal text-basic-8">
-                  {t("dialog.logoTypeLabel")}
-                </label>
-                <LogoTypeSelect
-                  value={logoTypeId}
-                  onChange={setLogoTypeId}
-                  types={logoTypes}
-                  usedTypeIds={usedLogoTypeIds}
-                  onTypesChange={onLogoTypesChange}
-                  onTypeRenamed={onLogoTypeRenamed}
-                  onTypeDeleted={onLogoTypeDeleted}
-                  fallbackType={fallbackType}
-                  disabled={isPending}
-                  triggerClassName="h-8 w-[349px] rounded-[6px] border border-basic-4 px-3 py-0 text-[14px] leading-[22px] font-normal"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <div className="space-y-1">
-                <label className="h-[22px] text-[14px] leading-[22px] font-normal text-basic-8">
-                  {t("dialog.logoImagesLabel")}
-                </label>
-              </div>
-
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*,.svg"
-                multiple
-                className="hidden"
-                onChange={handleSelectImages}
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="flex flex-col gap-2">
+              <label className="h-[22px] text-[14px] leading-[22px] font-normal text-basic-8">
+                {t("dialog.logoNameLabel")}
+              </label>
+              <Input
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder={t("dialog.logoNamePlaceholder")}
+                className="h-8 w-[349px] rounded-[6px] border border-basic-4 px-3 py-0 text-[14px] leading-[22px] font-normal placeholder:text-[14px] placeholder:leading-[22px] placeholder:font-normal placeholder:text-basic-5"
               />
-
-              <div className="flex flex-wrap gap-2">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      type="button"
-                      disabled={isPending || isSelectingAssets}
-                      className="relative flex h-[104px] w-[104px] flex-col items-center justify-center rounded-[6px] border border-basic-4 border-dashed bg-basic-1 px-2 py-10 text-basic-8 transition-colors hover:border-primary-5 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      <span className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2">
-                        <Plus className="h-[14px] w-[14px]" />
-                        <span className="text-[14px] leading-[22px] font-normal">
-                          {t("dialog.uploadImage")}
-                        </span>
-                      </span>
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    align="start"
-                    className="flex min-w-[180px] flex-col gap-[2px] rounded-[8px] border border-basic-3 p-1"
-                  >
-                    <DropdownMenuItem
-                      onClick={() => fileInputRef.current?.click()}
-                      className="h-8 gap-2 rounded-[6px] px-[10px] py-[5px] text-[14px] leading-[22px] font-normal text-basic-8 hover:bg-primary-1 focus:bg-primary-1 data-[highlighted]:bg-primary-1"
-                    >
-                      <span
-                        aria-hidden="true"
-                        className="block h-[14px] w-[14px] shrink-0 bg-current [mask-image:url('/Icon/export.svg')] [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain]"
-                      />
-                      <span>{t("dialog.uploadLocal")}</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => void handleSelectImagesFromAssetLibrary()}
-                      className="h-8 gap-2 rounded-[6px] px-[10px] py-[5px] text-[14px] leading-[22px] font-normal text-basic-8 hover:bg-primary-1 focus:bg-primary-1 data-[highlighted]:bg-primary-1"
-                    >
-                      <span
-                        aria-hidden="true"
-                        className="block h-[14px] w-[14px] shrink-0 bg-current [mask-image:url('/Icon/Image.svg')] [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain]"
-                      />
-                      <span>{t("dialog.uploadFromLibrary")}</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-
-                {images.map((image) => (
-                  <div
-                    key={image.id}
-                    className="group relative h-[104px] w-[104px] cursor-pointer overflow-hidden rounded-[6px] border border-basic-4 bg-basic-1"
-                  >
-                    {image.existingImageId ? (
-                      <SignedBrandImage
-                        imageId={image.existingImageId}
-                        signedUrl={image.signedUrl!}
-                        signedUrlExpiresAt={image.signedUrlExpiresAt!}
-                        alt={image.name}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <img
-                        src={image.previewUrl}
-                        alt={image.name}
-                        className="h-full w-full object-cover"
-                      />
-                    )}
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/45 opacity-0 transition-opacity group-hover:opacity-100">
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          aria-label={t("dialog.previewImage")}
-                          onClick={() => setPreviewImage(image)}
-                          className="inline-flex h-4 w-4 items-center justify-center opacity-90 transition-opacity hover:opacity-100"
-                        >
-                          <img src="/Icon/View.svg" alt="" className="h-4 w-4" />
-                        </button>
-                        <button
-                          type="button"
-                          aria-label={t("delete")}
-                          onClick={() => removeImage(image.id)}
-                          className="inline-flex h-4 w-4 items-center justify-center opacity-90 transition-opacity hover:opacity-100"
-                        >
-                          <span
-                            aria-hidden="true"
-                            className="block h-4 w-4 shrink-0 bg-white [mask-image:url('/Icon/Delete.svg')] [mask-position:center] [mask-repeat:no-repeat] [mask-size:100%_100%]"
-                          />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-3 flex items-start gap-[10px] rounded-[8px] border border-primary-5 bg-primary-1 px-3 py-[14px] text-[12px] leading-[16px] font-normal text-basic-8">
-                <p className="text-[12px] leading-[16px] font-normal text-basic-8">
-                  💡 <span className="font-semibold">{t("dialog.uploadHintTitle")}</span>
-                  {t("dialog.uploadHint")}
-                </p>
-              </div>
             </div>
 
-            <div className="mt-4 flex flex-col gap-2">
-              <div className="space-y-1">
-                <label className="h-[22px] text-[14px] leading-[22px] font-normal text-basic-8">
-                  {t("dialog.linkedTagsLabel")}
-                </label>
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-[12px] leading-[16px] font-normal text-basic-5">
-                    {t("dialog.linkedTagsHint")}
-                  </p>
+            <div className="flex flex-col gap-2">
+              <label className="h-[22px] text-[14px] leading-[22px] font-normal text-basic-8">
+                {t("dialog.logoTypeLabel")}
+              </label>
+              <LogoTypeSelect
+                value={logoTypeId}
+                onChange={setLogoTypeId}
+                types={logoTypes}
+                usedTypeIds={usedLogoTypeIds}
+                onTypesChange={onLogoTypesChange}
+                onTypeRenamed={onLogoTypeRenamed}
+                onTypeDeleted={onLogoTypeDeleted}
+                fallbackType={fallbackType}
+                disabled={isPending}
+                triggerClassName="h-8 w-[349px] rounded-[6px] border border-basic-4 px-3 py-0 text-[14px] leading-[22px] font-normal"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="space-y-1">
+              <label className="h-[22px] text-[14px] leading-[22px] font-normal text-basic-8">
+                {t("dialog.logoImagesLabel")}
+              </label>
+            </div>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,.svg"
+              multiple
+              className="hidden"
+              onChange={handleSelectImages}
+            />
+
+            <div className="flex flex-wrap gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
                   <button
                     type="button"
-                    onClick={() =>
-                      dispatchMuseDAMClientAction("goto", {
-                        url: "/home/dashboard/tag",
-                        target: "_blank",
-                      })
-                    }
-                    className="inline-flex items-center gap-1 text-[12px] leading-[16px] font-normal text-primary-6 transition-opacity hover:opacity-80"
+                    disabled={isPending || isSelectingAssets}
+                    className="relative flex h-[104px] w-[104px] flex-col items-center justify-center rounded-[6px] border border-basic-4 border-dashed bg-basic-1 px-2 py-10 text-basic-8 transition-colors hover:border-primary-5 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    <TagsIcon />
-                    {t("dialog.manageTags")}
+                    <span className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2">
+                      <Plus className="h-[14px] w-[14px]" />
+                      <span className="text-[14px] leading-[22px] font-normal">
+                        {t("dialog.uploadImage")}
+                      </span>
+                    </span>
                   </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="start"
+                  className="flex min-w-[180px] flex-col gap-[2px] rounded-[8px] border border-basic-3 p-1"
+                >
+                  <DropdownMenuItem
+                    onClick={() => fileInputRef.current?.click()}
+                    className="h-8 gap-2 rounded-[6px] px-[10px] py-[5px] text-[14px] leading-[22px] font-normal text-basic-8 hover:bg-primary-1 focus:bg-primary-1 data-[highlighted]:bg-primary-1"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="block h-[14px] w-[14px] shrink-0 bg-current [mask-image:url('/Icon/export.svg')] [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain]"
+                    />
+                    <span>{t("dialog.uploadLocal")}</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => void handleSelectImagesFromAssetLibrary()}
+                    className="h-8 gap-2 rounded-[6px] px-[10px] py-[5px] text-[14px] leading-[22px] font-normal text-basic-8 hover:bg-primary-1 focus:bg-primary-1 data-[highlighted]:bg-primary-1"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="block h-[14px] w-[14px] shrink-0 bg-current [mask-image:url('/Icon/Image.svg')] [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain]"
+                    />
+                    <span>{t("dialog.uploadFromLibrary")}</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {images.map((image) => (
+                <div
+                  key={image.id}
+                  className="group relative h-[104px] w-[104px] cursor-pointer overflow-hidden rounded-[6px] border border-basic-4 bg-basic-1"
+                >
+                  {image.existingImageId ? (
+                    <SignedBrandImage
+                      imageId={image.existingImageId}
+                      signedUrl={image.signedUrl!}
+                      signedUrlExpiresAt={image.signedUrlExpiresAt!}
+                      alt={image.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <img
+                      src={image.previewUrl}
+                      alt={image.name}
+                      className="h-full w-full object-cover"
+                    />
+                  )}
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/45 opacity-0 transition-opacity group-hover:opacity-100">
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        aria-label={t("dialog.previewImage")}
+                        onClick={() => setPreviewImage(image)}
+                        className="inline-flex h-4 w-4 items-center justify-center opacity-90 transition-opacity hover:opacity-100"
+                      >
+                        <img src="/Icon/View.svg" alt="" className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={t("delete")}
+                        onClick={() => removeImage(image.id)}
+                        className="inline-flex h-4 w-4 items-center justify-center opacity-90 transition-opacity hover:opacity-100"
+                      >
+                        <span
+                          aria-hidden="true"
+                          className="block h-4 w-4 shrink-0 bg-white [mask-image:url('/Icon/Delete.svg')] [mask-position:center] [mask-repeat:no-repeat] [mask-size:100%_100%]"
+                        />
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <BrandTagSelector
-                tags={tags}
-                selectedTagIds={selectedTagIds}
-                onChange={setSelectedTagIds}
-                collapsedUntilFocus
-                dialogOpen={open}
-              />
+              ))}
             </div>
 
-            <div className="mt-4 space-y-2">
-              <label className="mb-2 block h-[22px] text-[14px] leading-[22px] font-normal text-basic-8">
-                {t("dialog.notesLabel")}{" "}
-                <span className="ml-2 text-[12px] leading-[16px] font-normal text-basic-5">
-                  {t("dialog.notesOptional")}
-                </span>
-              </label>
-              <Textarea
-                value={notes}
-                onChange={(event) => setNotes(event.target.value)}
-                placeholder={t("dialog.notesPlaceholder")}
-                className="h-[60px] rounded-[6px] border border-basic-4 px-4 py-2"
-              />
+            <div className="mt-3 flex items-start gap-[10px] rounded-[8px] border border-primary-5 bg-primary-1 px-3 py-[14px] text-[12px] leading-[16px] font-normal text-basic-8">
+              <p className="text-[12px] leading-[16px] font-normal text-basic-8">
+                💡 <span className="font-semibold">{t("dialog.uploadHintTitle")}</span>
+                {t("dialog.uploadHint")}
+              </p>
             </div>
+          </div>
+
+          <div className="mt-4 flex flex-col gap-2">
+            <div className="space-y-1">
+              <label className="h-[22px] text-[14px] leading-[22px] font-normal text-basic-8">
+                {t("dialog.linkedTagsLabel")}
+              </label>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-[12px] leading-[16px] font-normal text-basic-5">
+                  {t("dialog.linkedTagsHint")}
+                </p>
+                <button
+                  type="button"
+                  onClick={() =>
+                    dispatchMuseDAMClientAction("goto", {
+                      url: "/home/dashboard/tag",
+                      target: "_blank",
+                    })
+                  }
+                  className="inline-flex items-center gap-1 text-[12px] leading-[16px] font-normal text-primary-6 transition-opacity hover:opacity-80"
+                >
+                  <TagsIcon />
+                  {t("dialog.manageTags")}
+                </button>
+              </div>
+            </div>
+            <BrandTagSelector
+              tags={tags}
+              selectedTagIds={selectedTagIds}
+              onChange={setSelectedTagIds}
+              collapsedUntilFocus
+              dialogOpen={open}
+            />
+          </div>
+
+          <div className="mt-4 space-y-2">
+            <label className="mb-2 block h-[22px] text-[14px] leading-[22px] font-normal text-basic-8">
+              {t("dialog.notesLabel")}{" "}
+              <span className="ml-2 text-[12px] leading-[16px] font-normal text-basic-5">
+                {t("dialog.notesOptional")}
+              </span>
+            </label>
+            <Textarea
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+              placeholder={t("dialog.notesPlaceholder")}
+              className="h-[60px] rounded-[6px] border border-basic-4 px-4 py-2"
+            />
+          </div>
           </div>
         </div>
 

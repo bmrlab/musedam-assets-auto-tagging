@@ -67,9 +67,6 @@ type DraftImage = {
   objectKey?: string;
   assetLibraryUploadedImage?: {
     objectKey: string;
-    ossBucket: string;
-    ossEndpoint: string;
-    ossRegion: string;
     mimeType: string;
     size: number;
   };
@@ -289,7 +286,6 @@ export default function IpDialog({
 
       const result = await detectAssetIpPartialFeatureAction({
         objectKey,
-        imageId: image.existingImageId,
         partialMatchPatternName,
       });
 
@@ -478,9 +474,6 @@ export default function IpDialog({
         id: `asset-library-${crypto.randomUUID()}`,
         assetLibraryUploadedImage: {
           objectKey: image.objectKey,
-          ossBucket: image.ossBucket,
-          ossEndpoint: image.ossEndpoint,
-          ossRegion: image.ossRegion,
           mimeType: image.mimeType,
           size: image.size,
         },
@@ -559,9 +552,6 @@ export default function IpDialog({
       objectKey: result.data.image.objectKey,
       assetLibraryUploadedImage: {
         objectKey: result.data.image.objectKey,
-        ossBucket: result.data.image.ossBucket,
-        ossEndpoint: result.data.image.ossEndpoint,
-        ossRegion: result.data.image.ossRegion,
         mimeType: result.data.image.mimeType,
         size: result.data.image.size,
       },
@@ -648,9 +638,6 @@ export default function IpDialog({
                 value,
               ): value is {
                 objectKey: string;
-                ossBucket: string;
-                ossEndpoint: string;
-                ossRegion: string;
                 mimeType: string;
                 size: number;
               } => Boolean(value),
@@ -734,388 +721,386 @@ export default function IpDialog({
 
         <div className="min-h-0 flex-1 overflow-y-auto">
           <div className="space-y-4 px-5 pt-0 pb-3">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="flex flex-col gap-2">
-                <label className="h-[22px] text-[14px] leading-[22px] font-normal text-basic-8">
-                  {t("dialog.ipNameLabel")}
-                </label>
-                <Input
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  placeholder={t("dialog.ipNamePlaceholder")}
-                  className="h-8 w-[349px] rounded-[6px] border border-basic-4 px-3 py-0 text-[14px] leading-[22px] font-normal placeholder:text-[14px] placeholder:leading-[22px] placeholder:font-normal placeholder:text-basic-5"
-                />
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <label className="h-[22px] text-[14px] leading-[22px] font-normal text-basic-8">
-                  {t("dialog.ipTypeLabel")}
-                </label>
-                <IpTypeSelect
-                  value={ipTypeId}
-                  onChange={setIpTypeId}
-                  types={ipTypes}
-                  usedTypeIds={usedIpTypeIds}
-                  onTypesChange={onIpTypesChange}
-                  onTypeRenamed={onIpTypeRenamed}
-                  onTypeDeleted={onIpTypeDeleted}
-                  fallbackType={fallbackType}
-                  disabled={isPending}
-                  triggerClassName="h-8 w-[349px] rounded-[6px] border border-basic-4 px-3 py-0 text-[14px] leading-[22px] font-normal"
-                />
-              </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="flex flex-col gap-2">
+              <label className="h-[22px] text-[14px] leading-[22px] font-normal text-basic-8">
+                {t("dialog.ipNameLabel")}
+              </label>
+              <Input
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder={t("dialog.ipNamePlaceholder")}
+                className="h-8 w-[349px] rounded-[6px] border border-basic-4 px-3 py-0 text-[14px] leading-[22px] font-normal placeholder:text-[14px] placeholder:leading-[22px] placeholder:font-normal placeholder:text-basic-5"
+              />
             </div>
 
-            <div className="space-y-2">
-              <div>
-                <label className="h-[22px] text-[14px] leading-[22px] font-normal text-basic-8">
-                  {t("dialog.matchPatternTitle")}
-                </label>
-                <p className="mt-1 text-[12px] leading-[16px] text-basic-5">
-                  {t("dialog.matchPatternDescription")}
-                </p>
-              </div>
-              <div className="grid w-full grid-cols-2 gap-[12px]">
-                <button
-                  type="button"
-                  onClick={() => setMatchPattern("whole")}
-                  disabled={isPending}
-                  className={cn(
-                    "flex min-w-0 w-full flex-col gap-[6px] rounded-[8px] border border-basic-4 bg-background p-[12.5px] text-left transition-all",
-                    matchPattern === "whole"
-                      ? "border-primary-5 bg-primary-1"
-                      : "hover:border-primary-5",
-                  )}
-                >
-                  <span className="flex min-w-0 items-center gap-[6px]">
-                    <span
-                      className={cn(
-                        "inline-flex size-[20px] shrink-0 items-center justify-center rounded-[6px]",
-                        matchPattern === "whole"
-                          ? "bg-primary-1 text-primary-6"
-                          : "bg-primary-1 text-basic-8",
-                      )}
-                    >
-                      <ImageIcon className="h-[20px] w-[20px]" />
-                    </span>
-                    <span className="min-w-0 flex-1 text-[14px] font-medium leading-[20px] text-basic-8">
-                      {t("dialog.matchWholeTitle")}
-                    </span>
-                    <span
-                      className={cn(
-                        "inline-flex size-[16px] shrink-0 items-center justify-center rounded-full border",
-                        matchPattern === "whole"
-                          ? "border-primary-6 bg-primary-6"
-                          : "border-basic-4",
-                      )}
-                    >
-                      {matchPattern === "whole" ? (
-                        <span className="h-2 w-2 rounded-full bg-white" />
-                      ) : null}
-                    </span>
-                  </span>
-                  <span className="block text-[12px] font-normal leading-[18px] text-basic-6">
-                    {t("dialog.matchWholeDescription")}
-                  </span>
-                  <span className="block text-[11px] font-normal leading-[16px] text-basic-5">
-                    {t("dialog.matchWholeApplies")}
-                  </span>
-                </button>
+            <div className="flex flex-col gap-2">
+              <label className="h-[22px] text-[14px] leading-[22px] font-normal text-basic-8">
+                {t("dialog.ipTypeLabel")}
+              </label>
+              <IpTypeSelect
+                value={ipTypeId}
+                onChange={setIpTypeId}
+                types={ipTypes}
+                usedTypeIds={usedIpTypeIds}
+                onTypesChange={onIpTypesChange}
+                onTypeRenamed={onIpTypeRenamed}
+                onTypeDeleted={onIpTypeDeleted}
+                fallbackType={fallbackType}
+                disabled={isPending}
+                triggerClassName="h-8 w-[349px] rounded-[6px] border border-basic-4 px-3 py-0 text-[14px] leading-[22px] font-normal"
+              />
+            </div>
+          </div>
 
+          <div className="space-y-2">
+            <div>
+              <label className="h-[22px] text-[14px] leading-[22px] font-normal text-basic-8">
+                {t("dialog.matchPatternTitle")}
+              </label>
+              <p className="mt-1 text-[12px] leading-[16px] text-basic-5">
+                {t("dialog.matchPatternDescription")}
+              </p>
+            </div>
+            <div className="grid w-full grid-cols-2 gap-[12px]">
+              <button
+                type="button"
+                onClick={() => setMatchPattern("whole")}
+                disabled={isPending}
+                className={cn(
+                  "flex min-w-0 w-full flex-col gap-[6px] rounded-[8px] border border-basic-4 bg-background p-[12.5px] text-left transition-all",
+                  matchPattern === "whole"
+                    ? "border-primary-5 bg-primary-1"
+                    : "hover:border-primary-5",
+                )}
+              >
+                <span className="flex min-w-0 items-center gap-[6px]">
+                  <span
+                    className={cn(
+                      "inline-flex size-[20px] shrink-0 items-center justify-center rounded-[6px]",
+                      matchPattern === "whole"
+                        ? "bg-primary-1 text-primary-6"
+                        : "bg-primary-1 text-basic-8",
+                    )}
+                  >
+                    <ImageIcon className="h-[20px] w-[20px]" />
+                  </span>
+                  <span className="min-w-0 flex-1 text-[14px] font-medium leading-[20px] text-basic-8">
+                    {t("dialog.matchWholeTitle")}
+                  </span>
+                  <span
+                    className={cn(
+                      "inline-flex size-[16px] shrink-0 items-center justify-center rounded-full border",
+                      matchPattern === "whole" ? "border-primary-6 bg-primary-6" : "border-basic-4",
+                    )}
+                  >
+                    {matchPattern === "whole" ? (
+                      <span className="h-2 w-2 rounded-full bg-white" />
+                    ) : null}
+                  </span>
+                </span>
+                <span className="block text-[12px] font-normal leading-[18px] text-basic-6">
+                  {t("dialog.matchWholeDescription")}
+                </span>
+                <span className="block text-[11px] font-normal leading-[16px] text-basic-5">
+                  {t("dialog.matchWholeApplies")}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMatchPattern("partial");
+                  const firstPending = imagesRef.current.find((image) => !image.cropSelection);
+                  if (firstPending) {
+                    void openPartialCropDialog(firstPending.id);
+                  }
+                }}
+                disabled={isPending}
+                className={cn(
+                  "flex min-w-0 w-full flex-col gap-[6px] rounded-[8px] border border-basic-4 bg-background p-[12.5px] text-left transition-all",
+                  matchPattern === "partial"
+                    ? "border-primary-5 bg-primary-1"
+                    : "hover:border-primary-5",
+                )}
+              >
+                <span className="flex min-w-0 items-center gap-[6px]">
+                  <span
+                    className={cn(
+                      "inline-flex size-[20px] shrink-0 items-center justify-center rounded-[6px]",
+                      matchPattern === "partial"
+                        ? "bg-primary-1 text-primary-6"
+                        : "bg-primary-1 text-basic-8",
+                    )}
+                  >
+                    <BoxSelect className="h-[20px] w-[20px]" />
+                  </span>
+                  <span className="min-w-0 flex-1 text-[14px] font-medium leading-[20px] text-basic-8">
+                    {t("dialog.matchPartialTitle")}
+                  </span>
+                  <span
+                    className={cn(
+                      "inline-flex size-[16px] shrink-0 items-center justify-center rounded-full border",
+                      matchPattern === "partial"
+                        ? "border-primary-6 bg-primary-6"
+                        : "border-basic-4",
+                    )}
+                  >
+                    {matchPattern === "partial" ? (
+                      <span className="h-2 w-2 rounded-full bg-white" />
+                    ) : null}
+                  </span>
+                </span>
+                <span className="block text-[12px] font-normal leading-[18px] text-basic-6">
+                  {t("dialog.matchPartialDescription")}
+                </span>
+                <span className="block text-[11px] font-normal leading-[16px] text-basic-5">
+                  {t("dialog.matchPartialApplies")}
+                </span>
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="space-y-1">
+              <label className="h-[22px] text-[14px] leading-[22px] font-normal text-basic-8">
+                {t("dialog.ipImagesLabel")}
+              </label>
+            </div>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,.svg"
+              multiple
+              className="hidden"
+              onChange={handleSelectImages}
+            />
+
+            <div className="flex flex-wrap gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    disabled={isPending || isSelectingAssets}
+                    className="relative flex h-[104px] w-[104px] flex-col items-center justify-center rounded-[6px] border border-basic-4 border-dashed bg-basic-1 px-2 py-10 text-basic-8 transition-colors hover:border-primary-5 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <span className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2">
+                      <Plus className="h-[14px] w-[14px]" />
+                      <span className="text-[14px] leading-[22px] font-normal">
+                        {t("dialog.uploadImage")}
+                      </span>
+                    </span>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="start"
+                  className="flex min-w-[180px] flex-col gap-[2px] rounded-[8px] border border-basic-3 p-1"
+                >
+                  <DropdownMenuItem
+                    onClick={() => fileInputRef.current?.click()}
+                    className="h-8 gap-2 rounded-[6px] px-[10px] py-[5px] text-[14px] leading-[22px] font-normal text-basic-8 hover:bg-primary-1 focus:bg-primary-1 data-[highlighted]:bg-primary-1"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="block h-[14px] w-[14px] shrink-0 bg-current [mask-image:url('/Icon/export.svg')] [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain]"
+                    />
+                    <span>{t("dialog.uploadLocal")}</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => void handleSelectImagesFromAssetLibrary()}
+                    className="h-8 gap-2 rounded-[6px] px-[10px] py-[5px] text-[14px] leading-[22px] font-normal text-basic-8 hover:bg-primary-1 focus:bg-primary-1 data-[highlighted]:bg-primary-1"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="block h-[14px] w-[14px] shrink-0 bg-current [mask-image:url('/Icon/Image.svg')] [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain]"
+                    />
+                    <span>{t("dialog.uploadFromLibrary")}</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {images.map((image) => (
+                <div
+                  key={image.id}
+                  className="group relative h-[104px] w-[104px] cursor-pointer overflow-hidden rounded-[6px] border border-basic-4 bg-basic-1"
+                >
+                  {image.existingImageId ? (
+                    <SignedIpImage
+                      imageId={image.existingImageId}
+                      signedUrl={image.signedUrl!}
+                      signedUrlExpiresAt={image.signedUrlExpiresAt!}
+                      alt={image.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <img
+                      src={image.previewUrl}
+                      alt={image.name}
+                      className="h-full w-full object-cover"
+                    />
+                  )}
+                  {matchPattern === "partial" ? (
+                    <button
+                      type="button"
+                      onClick={() => void openPartialCropDialog(image.id)}
+                      className={cn(
+                        "absolute top-1 left-1 z-10 inline-flex max-w-[94px] items-center gap-1 rounded-[4px] px-2 py-1 text-[12px] leading-4 font-semibold text-white shadow-sm",
+                        image.cropSelection ? "bg-primary-6" : "bg-danger-6",
+                      )}
+                    >
+                      {image.cropSelection ? (
+                        <>
+                          <BoxSelect className="size-3" />
+                          <span className="truncate">
+                            {t(
+                              `dialog.partialOptions.${image.cropSelection.partialMatchPatternName}`,
+                            )}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span>!</span>
+                          <span>{t("dialog.pendingCropBadge")}</span>
+                        </>
+                      )}
+                    </button>
+                  ) : null}
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/45 opacity-0 transition-opacity group-hover:opacity-100">
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        aria-label={t("dialog.previewImage")}
+                        onClick={() => setPreviewImage(image)}
+                        className="inline-flex h-4 w-4 items-center justify-center opacity-90 transition-opacity hover:opacity-100"
+                      >
+                        <img src="/Icon/View.svg" alt="" className="h-4 w-4" />
+                      </button>
+                      {matchPattern === "partial" ? (
+                        <button
+                          type="button"
+                          aria-label={t("dialog.cropImage")}
+                          onClick={() => void openPartialCropDialog(image.id)}
+                          className="inline-flex h-4 w-4 items-center justify-center opacity-90 transition-opacity hover:opacity-100"
+                        >
+                          <SquareDashedMousePointer className="h-4 w-4 text-white" />
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        aria-label={t("dialog.closePreview")}
+                        onClick={() => removeImage(image.id)}
+                        className="inline-flex h-4 w-4 items-center justify-center opacity-90 transition-opacity hover:opacity-100"
+                      >
+                        <span
+                          aria-hidden="true"
+                          className="block h-4 w-4 shrink-0 bg-white [mask-image:url('/Icon/Delete.svg')] [mask-position:center] [mask-repeat:no-repeat] [mask-size:100%_100%]"
+                        />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-3 flex items-start gap-[10px] rounded-[8px] border border-primary-5 bg-primary-1 px-3 py-[14px] text-[12px] leading-[16px] font-normal text-basic-8">
+              <p className="text-[12px] leading-[16px] font-normal text-basic-8">
+                💡 <span className="font-semibold">{t("dialog.uploadHintTitle")}</span>
+                {matchPattern === "partial"
+                  ? t("dialog.uploadHintPartial")
+                  : t("dialog.uploadHint")}
+              </p>
+            </div>
+
+            {pendingPartialCropCount > 0 ? (
+              <div className="mt-3 flex items-center justify-between gap-3 rounded-[8px] border border-danger-6 bg-danger-1 px-3 py-[12px] text-[13px] leading-[18px] text-danger-6">
+                <span className="inline-flex items-center gap-2">
+                  <AlertCircle className="size-4 shrink-0" />
+                  {t("dialog.pendingCropWarning", { count: pendingPartialCropCount })}
+                </span>
                 <button
                   type="button"
                   onClick={() => {
-                    setMatchPattern("partial");
-                    const firstPending = imagesRef.current.find((image) => !image.cropSelection);
+                    const firstPending = pendingPartialCropImages[0];
                     if (firstPending) {
                       void openPartialCropDialog(firstPending.id);
                     }
                   }}
-                  disabled={isPending}
-                  className={cn(
-                    "flex min-w-0 w-full flex-col gap-[6px] rounded-[8px] border border-basic-4 bg-background p-[12.5px] text-left transition-all",
-                    matchPattern === "partial"
-                      ? "border-primary-5 bg-primary-1"
-                      : "hover:border-primary-5",
-                  )}
+                  className="shrink-0 text-[13px] leading-[18px] font-semibold text-danger-6 hover:text-danger-7"
                 >
-                  <span className="flex min-w-0 items-center gap-[6px]">
-                    <span
-                      className={cn(
-                        "inline-flex size-[20px] shrink-0 items-center justify-center rounded-[6px]",
-                        matchPattern === "partial"
-                          ? "bg-primary-1 text-primary-6"
-                          : "bg-primary-1 text-basic-8",
-                      )}
-                    >
-                      <BoxSelect className="h-[20px] w-[20px]" />
-                    </span>
-                    <span className="min-w-0 flex-1 text-[14px] font-medium leading-[20px] text-basic-8">
-                      {t("dialog.matchPartialTitle")}
-                    </span>
-                    <span
-                      className={cn(
-                        "inline-flex size-[16px] shrink-0 items-center justify-center rounded-full border",
-                        matchPattern === "partial"
-                          ? "border-primary-6 bg-primary-6"
-                          : "border-basic-4",
-                      )}
-                    >
-                      {matchPattern === "partial" ? (
-                        <span className="h-2 w-2 rounded-full bg-white" />
-                      ) : null}
-                    </span>
-                  </span>
-                  <span className="block text-[12px] font-normal leading-[18px] text-basic-6">
-                    {t("dialog.matchPartialDescription")}
-                  </span>
-                  <span className="block text-[11px] font-normal leading-[16px] text-basic-5">
-                    {t("dialog.matchPartialApplies")}
-                  </span>
+                  {t("dialog.goCrop")}
                 </button>
               </div>
-            </div>
+            ) : null}
+          </div>
 
-            <div className="space-y-2">
-              <div className="space-y-1">
-                <label className="h-[22px] text-[14px] leading-[22px] font-normal text-basic-8">
-                  {t("dialog.ipImagesLabel")}
-                </label>
-              </div>
-
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*,.svg"
-                multiple
-                className="hidden"
-                onChange={handleSelectImages}
-              />
-
-              <div className="flex flex-wrap gap-2">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      type="button"
-                      disabled={isPending || isSelectingAssets}
-                      className="relative flex h-[104px] w-[104px] flex-col items-center justify-center rounded-[6px] border border-basic-4 border-dashed bg-basic-1 px-2 py-10 text-basic-8 transition-colors hover:border-primary-5 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      <span className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2">
-                        <Plus className="h-[14px] w-[14px]" />
-                        <span className="text-[14px] leading-[22px] font-normal">
-                          {t("dialog.uploadImage")}
-                        </span>
-                      </span>
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    align="start"
-                    className="flex min-w-[180px] flex-col gap-[2px] rounded-[8px] border border-basic-3 p-1"
-                  >
-                    <DropdownMenuItem
-                      onClick={() => fileInputRef.current?.click()}
-                      className="h-8 gap-2 rounded-[6px] px-[10px] py-[5px] text-[14px] leading-[22px] font-normal text-basic-8 hover:bg-primary-1 focus:bg-primary-1 data-[highlighted]:bg-primary-1"
-                    >
-                      <span
-                        aria-hidden="true"
-                        className="block h-[14px] w-[14px] shrink-0 bg-current [mask-image:url('/Icon/export.svg')] [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain]"
-                      />
-                      <span>{t("dialog.uploadLocal")}</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => void handleSelectImagesFromAssetLibrary()}
-                      className="h-8 gap-2 rounded-[6px] px-[10px] py-[5px] text-[14px] leading-[22px] font-normal text-basic-8 hover:bg-primary-1 focus:bg-primary-1 data-[highlighted]:bg-primary-1"
-                    >
-                      <span
-                        aria-hidden="true"
-                        className="block h-[14px] w-[14px] shrink-0 bg-current [mask-image:url('/Icon/Image.svg')] [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain]"
-                      />
-                      <span>{t("dialog.uploadFromLibrary")}</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-
-                {images.map((image) => (
-                  <div
-                    key={image.id}
-                    className="group relative h-[104px] w-[104px] cursor-pointer overflow-hidden rounded-[6px] border border-basic-4 bg-basic-1"
-                  >
-                    {image.existingImageId ? (
-                      <SignedIpImage
-                        imageId={image.existingImageId}
-                        signedUrl={image.signedUrl!}
-                        signedUrlExpiresAt={image.signedUrlExpiresAt!}
-                        alt={image.name}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <img
-                        src={image.previewUrl}
-                        alt={image.name}
-                        className="h-full w-full object-cover"
-                      />
-                    )}
-                    {matchPattern === "partial" ? (
-                      <button
-                        type="button"
-                        onClick={() => void openPartialCropDialog(image.id)}
-                        className={cn(
-                          "absolute top-1 left-1 z-10 inline-flex max-w-[94px] items-center gap-1 rounded-[4px] px-2 py-1 text-[12px] leading-4 font-semibold text-white shadow-sm",
-                          image.cropSelection ? "bg-primary-6" : "bg-danger-6",
-                        )}
-                      >
-                        {image.cropSelection ? (
-                          <>
-                            <BoxSelect className="size-3" />
-                            <span className="truncate">
-                              {t(
-                                `dialog.partialOptions.${image.cropSelection.partialMatchPatternName}`,
-                              )}
-                            </span>
-                          </>
-                        ) : (
-                          <>
-                            <span>!</span>
-                            <span>{t("dialog.pendingCropBadge")}</span>
-                          </>
-                        )}
-                      </button>
-                    ) : null}
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/45 opacity-0 transition-opacity group-hover:opacity-100">
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          aria-label={t("dialog.previewImage")}
-                          onClick={() => setPreviewImage(image)}
-                          className="inline-flex h-4 w-4 items-center justify-center opacity-90 transition-opacity hover:opacity-100"
-                        >
-                          <img src="/Icon/View.svg" alt="" className="h-4 w-4" />
-                        </button>
-                        {matchPattern === "partial" ? (
-                          <button
-                            type="button"
-                            aria-label={t("dialog.cropImage")}
-                            onClick={() => void openPartialCropDialog(image.id)}
-                            className="inline-flex h-4 w-4 items-center justify-center opacity-90 transition-opacity hover:opacity-100"
-                          >
-                            <SquareDashedMousePointer className="h-4 w-4 text-white" />
-                          </button>
-                        ) : null}
-                        <button
-                          type="button"
-                          aria-label={t("dialog.closePreview")}
-                          onClick={() => removeImage(image.id)}
-                          className="inline-flex h-4 w-4 items-center justify-center opacity-90 transition-opacity hover:opacity-100"
-                        >
-                          <span
-                            aria-hidden="true"
-                            className="block h-4 w-4 shrink-0 bg-white [mask-image:url('/Icon/Delete.svg')] [mask-position:center] [mask-repeat:no-repeat] [mask-size:100%_100%]"
-                          />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-3 flex items-start gap-[10px] rounded-[8px] border border-primary-5 bg-primary-1 px-3 py-[14px] text-[12px] leading-[16px] font-normal text-basic-8">
-                <p className="text-[12px] leading-[16px] font-normal text-basic-8">
-                  💡 <span className="font-semibold">{t("dialog.uploadHintTitle")}</span>
-                  {matchPattern === "partial"
-                    ? t("dialog.uploadHintPartial")
-                    : t("dialog.uploadHint")}
-                </p>
-              </div>
-
-              {pendingPartialCropCount > 0 ? (
-                <div className="mt-3 flex items-center justify-between gap-3 rounded-[8px] border border-danger-6 bg-danger-1 px-3 py-[12px] text-[13px] leading-[18px] text-danger-6">
-                  <span className="inline-flex items-center gap-2">
-                    <AlertCircle className="size-4 shrink-0" />
-                    {t("dialog.pendingCropWarning", { count: pendingPartialCropCount })}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const firstPending = pendingPartialCropImages[0];
-                      if (firstPending) {
-                        void openPartialCropDialog(firstPending.id);
-                      }
-                    }}
-                    className="shrink-0 text-[13px] leading-[18px] font-semibold text-danger-6 hover:text-danger-7"
-                  >
-                    {t("dialog.goCrop")}
-                  </button>
-                </div>
-              ) : null}
-            </div>
-
-            <div className="mt-4 flex flex-col gap-2">
-              <div className="space-y-1">
-                <label className="h-[22px] text-[14px] leading-[22px] font-normal text-basic-8">
-                  {t("dialog.descriptionLabel")}
-                  <span className="ml-2 text-[12px] leading-[16px] font-normal text-basic-5">
-                    {t("dialog.notesOptional")}
-                  </span>
-                </label>
-                <p className="text-[12px] leading-[16px] font-normal text-basic-5">
-                  {t("dialog.descriptionHint")}
-                </p>
-              </div>
-              <Textarea
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                placeholder={t("dialog.descriptionPlaceholder")}
-                className="h-[60px] rounded-[6px] border border-basic-4 px-4 py-2"
-              />
-            </div>
-
-            <div className="mt-4 space-y-2">
-              <div className="space-y-1">
-                <label className="h-[22px] text-[14px] leading-[22px] font-normal text-basic-8">
-                  {t("dialog.linkedTagsLabel")}
-                </label>
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-[12px] leading-[16px] font-normal text-basic-5">
-                    {t("dialog.linkedTagsHint")}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      dispatchMuseDAMClientAction("goto", {
-                        url: "/home/dashboard/tag",
-                        target: "_blank",
-                      })
-                    }
-                    className="inline-flex items-center gap-1 text-[12px] leading-[16px] font-normal text-primary-6 transition-opacity hover:opacity-80"
-                  >
-                    <TagsIcon />
-                    {t("dialog.manageTags")}
-                  </button>
-                </div>
-              </div>
-              <BrandTagSelector
-                tags={tags}
-                selectedTagIds={selectedTagIds}
-                onChange={setSelectedTagIds}
-                collapsedUntilFocus
-                dialogOpen={open}
-              />
-            </div>
-
-            <div className="mt-4 space-y-2">
-              <label className="mb-2 block h-[22px] text-[14px] leading-[22px] font-normal text-basic-8">
-                {t("dialog.notesLabel")}
+          <div className="mt-4 flex flex-col gap-2">
+            <div className="space-y-1">
+              <label className="h-[22px] text-[14px] leading-[22px] font-normal text-basic-8">
+                {t("dialog.descriptionLabel")}
                 <span className="ml-2 text-[12px] leading-[16px] font-normal text-basic-5">
                   {t("dialog.notesOptional")}
                 </span>
               </label>
-              <Textarea
-                value={notes}
-                onChange={(event) => setNotes(event.target.value)}
-                placeholder={t("dialog.notesPlaceholder")}
-                className="h-[60px] rounded-[6px] border border-basic-4 px-4 py-2"
-              />
+              <p className="text-[12px] leading-[16px] font-normal text-basic-5">
+                {t("dialog.descriptionHint")}
+              </p>
             </div>
+            <Textarea
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              placeholder={t("dialog.descriptionPlaceholder")}
+              className="h-[60px] rounded-[6px] border border-basic-4 px-4 py-2"
+            />
+          </div>
+
+          <div className="mt-4 space-y-2">
+            <div className="space-y-1">
+              <label className="h-[22px] text-[14px] leading-[22px] font-normal text-basic-8">
+                {t("dialog.linkedTagsLabel")}
+              </label>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-[12px] leading-[16px] font-normal text-basic-5">
+                  {t("dialog.linkedTagsHint")}
+                </p>
+                <button
+                  type="button"
+                  onClick={() =>
+                    dispatchMuseDAMClientAction("goto", {
+                      url: "/home/dashboard/tag",
+                      target: "_blank",
+                    })
+                  }
+                  className="inline-flex items-center gap-1 text-[12px] leading-[16px] font-normal text-primary-6 transition-opacity hover:opacity-80"
+                >
+                  <TagsIcon />
+                  {t("dialog.manageTags")}
+                </button>
+              </div>
+            </div>
+            <BrandTagSelector
+              tags={tags}
+              selectedTagIds={selectedTagIds}
+              onChange={setSelectedTagIds}
+              collapsedUntilFocus
+              dialogOpen={open}
+            />
+          </div>
+
+          <div className="mt-4 space-y-2">
+            <label className="mb-2 block h-[22px] text-[14px] leading-[22px] font-normal text-basic-8">
+              {t("dialog.notesLabel")}
+              <span className="ml-2 text-[12px] leading-[16px] font-normal text-basic-5">
+                {t("dialog.notesOptional")}
+              </span>
+            </label>
+            <Textarea
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+              placeholder={t("dialog.notesPlaceholder")}
+              className="h-[60px] rounded-[6px] border border-basic-4 px-4 py-2"
+            />
+          </div>
           </div>
         </div>
 
