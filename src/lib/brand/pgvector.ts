@@ -48,7 +48,7 @@ export async function setLogoVectorPayloadByLogo({
   payload: Partial<LogoVectorPayload>;
 }): Promise<void> {
   const setFields: string[] = [];
-  const params: (string | number | boolean)[] = [];
+  const params: (string | number | boolean | null)[] = [];
   let paramIndex = 1;
 
   if (payload.enabled !== undefined) {
