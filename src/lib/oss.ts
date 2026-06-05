@@ -2,6 +2,16 @@ import "server-only";
 
 import { createHmac, randomUUID } from "crypto";
 
+import type { OssObjectIdentity, OssObjectLocation } from "./oss-types";
+import {
+  getCurrentOssUploadToken,
+  getOssLocationFromUploadToken,
+  getUploadTokenBoundedExpiresInSeconds,
+  type OssUploadToken,
+} from "./oss-upload-token";
+
+export const FEATURE_LIBRARY_OBJECT_KEY_PREFIX = "feature-library";
+
 const DEFAULT_OSS_SIGNED_URL_TTL_SECONDS = 60 * 30;
 const SIGNED_URL_REFRESH_BUFFER_MS = 60 * 1000;
 const signedOssObjectUrlCache = new Map<
@@ -12,112 +22,162 @@ const signedOssObjectUrlCache = new Map<
   }
 >();
 
-type UploadOssObjectOptions = {
+type UploadOssObjectOptions = OssObjectIdentity & {
   contentType: string;
-  objectKey: string;
   body: Buffer;
+  token: OssUploadToken;
 };
 
-type SignOssObjectUploadUrlOptions = {
+type SignOssObjectUploadUrlOptions = OssObjectIdentity & {
   contentType: string;
-  objectKey: string;
+  token: OssUploadToken;
   expiresInSeconds?: number;
 };
 
-function getRequiredEnv(name: string) {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`Missing OSS config: ${name}`);
+function normalizeOssEndpoint(endpoint: string) {
+  const normalizedEndpoint = endpoint.trim().endsWith("/")
+    ? endpoint.trim().slice(0, -1)
+    : endpoint.trim();
+  return normalizedEndpoint.replace(/^http:\/\//i, "https://");
+}
+
+function buildBucketDomain(location: OssObjectLocation) {
+  const endpointUrl = new URL(normalizeOssEndpoint(location.ossEndpoint));
+
+  if (!endpointUrl.hostname.startsWith(`${location.ossBucket}.`)) {
+    endpointUrl.hostname = `${location.ossBucket}.${endpointUrl.hostname}`;
   }
-  return value;
+
+  endpointUrl.pathname = "";
+  endpointUrl.search = "";
+  endpointUrl.hash = "";
+
+  return endpointUrl.toString().replace(/\/$/, "");
 }
 
-function normalizeOssDomain(domain: string) {
-  const normalizedDomain = domain.endsWith("/") ? domain.slice(0, -1) : domain;
-  return normalizedDomain.replace(/^http:\/\//i, "https://");
-}
-
-function buildObjectUrl(domain: string, objectKey: string) {
-  return `${normalizeOssDomain(domain)}/${objectKey
+function buildObjectUrl(location: OssObjectLocation, objectKey: string) {
+  return `${buildBucketDomain(location)}/${objectKey
     .split("/")
     .map((segment) => encodeURIComponent(segment))
     .join("/")}`;
 }
 
-export function buildAssetLogoObjectKey({
-  teamId,
-  extension,
-}: {
-  teamId: number;
-  extension: string;
-}) {
-  const safeExtension = extension.replace(/[^a-zA-Z0-9.]/g, "").toLowerCase();
-  return `auto-tagging/teams-${teamId}-asset-logos-${Date.now()}-${randomUUID()}${safeExtension}`;
+function createSafeExtension(extension: string) {
+  return extension.replace(/[^a-zA-Z0-9.]/g, "").toLowerCase();
 }
 
-export function buildAssetIpObjectKey({
-  teamId,
-  extension,
-}: {
-  teamId: number;
-  extension: string;
-}) {
-  const safeExtension = extension.replace(/[^a-zA-Z0-9.]/g, "").toLowerCase();
-  return `auto-tagging/teams-${teamId}-asset-ips-${Date.now()}-${randomUUID()}${safeExtension}`;
+function normalizeObjectKeyPrefix(prefix: string) {
+  return prefix
+    .trim()
+    .replace(/\\/g, "/")
+    .replace(/^\/+|\/+$/g, "")
+    .replace(/\/{2,}/g, "/");
 }
 
-export function buildAssetProductObjectKey({
-  teamId,
-  extension,
-}: {
-  teamId: number;
-  extension: string;
-}) {
-  const safeExtension = extension.replace(/[^a-zA-Z0-9.]/g, "").toLowerCase();
-  return `auto-tagging/teams-${teamId}-asset-products-${Date.now()}-${randomUUID()}${safeExtension}`;
+function buildAssetObjectKey({ category, extension }: { category: string; extension: string }) {
+  const safePrefix = normalizeObjectKeyPrefix(FEATURE_LIBRARY_OBJECT_KEY_PREFIX);
+
+  if (!safePrefix) {
+    throw new Error("Missing OSS object key prefix.");
+  }
+
+  return `${safePrefix}/${category}/${Date.now()}-${randomUUID()}${createSafeExtension(extension)}`;
 }
 
-export function buildAssetPersonObjectKey({
-  teamId,
-  extension,
-}: {
-  teamId: number;
-  extension: string;
-}) {
-  const safeExtension = extension.replace(/[^a-zA-Z0-9.]/g, "").toLowerCase();
-  return `auto-tagging/teams-${teamId}-asset-persons-${Date.now()}-${randomUUID()}${safeExtension}`;
+export function buildAssetLogoObjectKey({ extension }: { extension: string }) {
+  return buildAssetObjectKey({ category: "asset-logos", extension });
 }
 
-export function getOssObjectUrl(objectKey: string) {
-  return buildObjectUrl(getRequiredEnv("OSS_DOMAIN"), objectKey);
+export function buildAssetIpObjectKey({ extension }: { extension: string }) {
+  return buildAssetObjectKey({ category: "asset-ips", extension });
 }
 
-/** Public object URL on the CDN origin (uses OSS_CDN_URL, not OSS_DOMAIN). */
-export function getCDNUrl(objectKey: string) {
-  return buildObjectUrl(getRequiredEnv("OSS_CDN_URL"), objectKey);
+export function buildAssetProductObjectKey({ extension }: { extension: string }) {
+  return buildAssetObjectKey({ category: "asset-products", extension });
 }
 
-export function signOssObjectUrl({
+export function buildAssetPersonObjectKey({ extension }: { extension: string }) {
+  return buildAssetObjectKey({ category: "asset-persons", extension });
+}
+
+export function assertObjectKeyMatchesUploadToken(objectKey: string) {
+  const prefix = normalizeObjectKeyPrefix(FEATURE_LIBRARY_OBJECT_KEY_PREFIX);
+
+  if (!prefix || !objectKey.startsWith(`${prefix}/`)) {
+    throw new Error("OSS object key does not match the feature library prefix.");
+  }
+}
+
+export function getOssObjectUrl(identity: OssObjectIdentity) {
+  return buildObjectUrl(identity, identity.objectKey);
+}
+
+function buildCanonicalizedOssHeaders(headers: Record<string, string>) {
+  return Object.entries(headers)
+    .map(([name, value]) => [name.toLowerCase().trim(), value.trim()] as const)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([name, value]) => `${name}:${value}\n`)
+    .join("");
+}
+
+function buildCanonicalResource({
   objectKey,
-  expiresInSeconds = DEFAULT_OSS_SIGNED_URL_TTL_SECONDS,
-}: {
-  objectKey: string;
-  expiresInSeconds?: number;
+  ossBucket,
+  subresources,
+}: Pick<OssObjectIdentity, "objectKey" | "ossBucket"> & {
+  subresources?: Record<string, string | undefined>;
 }) {
-  const domain = getRequiredEnv("OSS_DOMAIN");
-  const bucketName = getRequiredEnv("OSS_BUCKET_NAME");
-  const accessKey = getRequiredEnv("OSS_ACCESS_KEY");
-  const secretKey = getRequiredEnv("OSS_SECRET_KEY");
-  const expires = Math.floor(Date.now() / 1000) + expiresInSeconds;
-  const canonicalResource = `/${bucketName}/${objectKey}`;
-  const stringToSign = ["GET", "", "", String(expires), canonicalResource].join("\n");
-  const signature = createHmac("sha1", secretKey).update(stringToSign).digest("base64");
-  const unsignedUrl = buildObjectUrl(domain, objectKey);
-  const signedUrl = new URL(unsignedUrl);
+  const resource = `/${ossBucket}/${objectKey}`;
+  const entries = Object.entries(subresources ?? {})
+    .filter((entry): entry is [string, string] => typeof entry[1] === "string")
+    .sort(([left], [right]) => left.localeCompare(right));
 
-  signedUrl.searchParams.set("OSSAccessKeyId", accessKey);
+  if (entries.length === 0) {
+    return resource;
+  }
+
+  return `${resource}?${entries
+    .map(([name, value]) => (value ? `${name}=${value}` : name))
+    .join("&")}`;
+}
+
+function signV1(secretKey: string, stringToSign: string) {
+  return createHmac("sha1", secretKey).update(stringToSign).digest("base64");
+}
+
+function buildSignedUrl({
+  method,
+  contentType = "",
+  identity,
+  token,
+  expiresInSeconds,
+}: {
+  method: "GET" | "PUT";
+  contentType?: string;
+  identity: OssObjectIdentity;
+  token: OssUploadToken;
+  expiresInSeconds: number;
+}) {
+  const boundedExpiresInSeconds = getUploadTokenBoundedExpiresInSeconds({
+    token,
+    requestedExpiresInSeconds: expiresInSeconds,
+  });
+  const expires = Math.floor(Date.now() / 1000) + boundedExpiresInSeconds;
+  const canonicalResource = buildCanonicalResource({
+    ossBucket: identity.ossBucket,
+    objectKey: identity.objectKey,
+    subresources: {
+      "security-token": token.stsAccessSecurityToken,
+    },
+  });
+  const stringToSign = [method, "", contentType, String(expires), canonicalResource].join("\n");
+  const signature = signV1(token.stsAccessKeySecret, stringToSign);
+  const signedUrl = new URL(buildObjectUrl(identity, identity.objectKey));
+
+  signedUrl.searchParams.set("OSSAccessKeyId", token.stsAccessKeyId);
   signedUrl.searchParams.set("Expires", String(expires));
   signedUrl.searchParams.set("Signature", signature);
+  signedUrl.searchParams.set("security-token", token.stsAccessSecurityToken);
 
   return {
     signedUrl: signedUrl.toString(),
@@ -125,22 +185,65 @@ export function signOssObjectUrl({
   };
 }
 
-export function getCachedSignedOssObjectUrl({
+export async function signOssObjectUrl({
   objectKey,
   expiresInSeconds = DEFAULT_OSS_SIGNED_URL_TTL_SECONDS,
+  location,
+  token: providedToken,
 }: {
   objectKey: string;
   expiresInSeconds?: number;
+  location: OssObjectLocation;
+  token?: OssUploadToken;
 }) {
-  const cacheKey = `${objectKey}:${expiresInSeconds}`;
+  const token = providedToken ?? (await getCurrentOssUploadToken());
+
+  return buildSignedUrl({
+    method: "GET",
+    identity: {
+      ...location,
+      objectKey,
+    },
+    token,
+    expiresInSeconds,
+  });
+}
+
+export async function getCachedSignedOssObjectUrl({
+  objectKey,
+  expiresInSeconds = DEFAULT_OSS_SIGNED_URL_TTL_SECONDS,
+  location,
+  token: providedToken,
+}: {
+  objectKey: string;
+  expiresInSeconds?: number;
+  location: OssObjectLocation;
+  token?: OssUploadToken;
+}) {
+  const token = providedToken ?? (await getCurrentOssUploadToken());
+  const cacheKey = [
+    "v2",
+    location.ossBucket,
+    location.ossEndpoint,
+    location.ossRegion,
+    objectKey,
+    token.stsAccessKeyId,
+    token.updatedAt,
+    expiresInSeconds,
+  ].join(":");
   const cached = signedOssObjectUrlCache.get(cacheKey);
 
   if (cached && cached.signedUrlExpiresAt > Date.now() + SIGNED_URL_REFRESH_BUFFER_MS) {
     return cached;
   }
 
-  const nextSignedUrl = signOssObjectUrl({
-    objectKey,
+  const nextSignedUrl = buildSignedUrl({
+    method: "GET",
+    identity: {
+      ...location,
+      objectKey,
+    },
+    token,
     expiresInSeconds,
   });
 
@@ -148,51 +251,71 @@ export function getCachedSignedOssObjectUrl({
   return nextSignedUrl;
 }
 
-export function signOssObjectUploadUrl({
+export async function signOssObjectUploadUrl({
   objectKey,
   contentType,
   expiresInSeconds = 60 * 10,
-}: SignOssObjectUploadUrlOptions) {
-  const domain = getRequiredEnv("OSS_DOMAIN");
-  const bucketName = getRequiredEnv("OSS_BUCKET_NAME");
-  const accessKey = getRequiredEnv("OSS_ACCESS_KEY");
-  const secretKey = getRequiredEnv("OSS_SECRET_KEY");
-  const expires = Math.floor(Date.now() / 1000) + expiresInSeconds;
-  const canonicalResource = `/${bucketName}/${objectKey}`;
-  const stringToSign = ["PUT", "", contentType, String(expires), canonicalResource].join("\n");
-  const signature = createHmac("sha1", secretKey).update(stringToSign).digest("base64");
-  const unsignedUrl = buildObjectUrl(domain, objectKey);
-  const signedUrl = new URL(unsignedUrl);
+  location,
+  token: providedToken,
+}: {
+  objectKey: string;
+  contentType: string;
+  expiresInSeconds?: number;
+  location: OssObjectLocation;
+  token?: OssUploadToken;
+}) {
+  const token = providedToken ?? (await getCurrentOssUploadToken());
 
-  signedUrl.searchParams.set("OSSAccessKeyId", accessKey);
-  signedUrl.searchParams.set("Expires", String(expires));
-  signedUrl.searchParams.set("Signature", signature);
+  return buildSignedUrl({
+    method: "PUT",
+    contentType,
+    identity: {
+      ...location,
+      objectKey,
+    },
+    token,
+    expiresInSeconds,
+  });
+}
+
+export async function getCurrentOssUploadLocation() {
+  const token = await getCurrentOssUploadToken();
 
   return {
-    signedUrl: signedUrl.toString(),
-    signedUrlExpiresAt: expires * 1000,
+    token,
+    location: getOssLocationFromUploadToken(token),
   };
 }
 
-export async function uploadOssObject({ body, contentType, objectKey }: UploadOssObjectOptions) {
-  const domain = getRequiredEnv("OSS_DOMAIN");
-  const bucketName = getRequiredEnv("OSS_BUCKET_NAME");
-  const accessKey = getRequiredEnv("OSS_ACCESS_KEY");
-  const secretKey = getRequiredEnv("OSS_SECRET_KEY");
-
+export async function uploadOssObject({
+  body,
+  contentType,
+  objectKey,
+  token,
+  ossBucket,
+  ossEndpoint,
+  ossRegion,
+}: UploadOssObjectOptions) {
   const date = new Date().toUTCString();
-  const canonicalResource = `/${bucketName}/${objectKey}`;
-  const stringToSign = ["PUT", "", contentType, date, canonicalResource].join("\n");
-  const signature = createHmac("sha1", secretKey).update(stringToSign).digest("base64");
-  const url = buildObjectUrl(domain, objectKey);
+  const canonicalizedOssHeaders = buildCanonicalizedOssHeaders({
+    "x-oss-security-token": token.stsAccessSecurityToken,
+  });
+  const canonicalResource = buildCanonicalResource({
+    ossBucket,
+    objectKey,
+  });
+  const stringToSign = `PUT\n\n${contentType}\n${date}\n${canonicalizedOssHeaders}${canonicalResource}`;
+  const signature = signV1(token.stsAccessKeySecret, stringToSign);
+  const url = buildObjectUrl({ ossBucket, ossEndpoint, ossRegion }, objectKey);
 
   const response = await fetch(url, {
     method: "PUT",
     headers: {
-      Authorization: `OSS ${accessKey}:${signature}`,
+      Authorization: `OSS ${token.stsAccessKeyId}:${signature}`,
       "Content-Length": body.byteLength.toString(),
       "Content-Type": contentType,
       Date: date,
+      "x-oss-security-token": token.stsAccessSecurityToken,
     },
     body: new Uint8Array(body),
   });
@@ -204,40 +327,51 @@ export async function uploadOssObject({ body, contentType, objectKey }: UploadOs
 
   return {
     objectKey,
+    ossBucket,
+    ossEndpoint,
+    ossRegion,
   };
 }
 
 /**
- * Sets the object ACL to public-read so the object URL is readable without signing.
- * Uses OSS PutObjectACL (PUT ?acl) with the same V1 header signature as uploads.
+ * Sets the object ACL to public-read so MuseDAM can download the reference image.
  */
-export async function setOssObjectAclPublicRead({ objectKey }: { objectKey: string }): Promise<void> {
-  const domain = getRequiredEnv("OSS_DOMAIN");
-  const bucketName = getRequiredEnv("OSS_BUCKET_NAME");
-  const accessKey = getRequiredEnv("OSS_ACCESS_KEY");
-  const secretKey = getRequiredEnv("OSS_SECRET_KEY");
-
+export async function setOssObjectAclPublicRead(
+  identity: OssObjectIdentity,
+  token: OssUploadToken,
+): Promise<void> {
   const date = new Date().toUTCString();
   const aclValue = "public-read";
-  const aclHeader = "x-oss-object-acl";
-  const canonicalizedOssHeaders = `${aclHeader}:${aclValue}\n`;
-  const canonicalResource = `/${bucketName}/${objectKey}?acl`;
+  const canonicalizedOssHeaders = buildCanonicalizedOssHeaders({
+    "x-oss-object-acl": aclValue,
+    "x-oss-security-token": token.stsAccessSecurityToken,
+  });
+  const canonicalResource = buildCanonicalResource({
+    ossBucket: identity.ossBucket,
+    objectKey: identity.objectKey,
+    subresources: {
+      acl: "",
+    },
+  });
   const stringToSign = `PUT\n\n\n${date}\n${canonicalizedOssHeaders}${canonicalResource}`;
-  const signature = createHmac("sha1", secretKey).update(stringToSign).digest("base64");
-  const url = `${buildObjectUrl(domain, objectKey)}?acl`;
+  const signature = signV1(token.stsAccessKeySecret, stringToSign);
+  const url = `${buildObjectUrl(identity, identity.objectKey)}?acl`;
 
   const response = await fetch(url, {
     method: "PUT",
     headers: {
-      Authorization: `OSS ${accessKey}:${signature}`,
+      Authorization: `OSS ${token.stsAccessKeyId}:${signature}`,
       Date: date,
-      [aclHeader]: aclValue,
+      "x-oss-object-acl": aclValue,
+      "x-oss-security-token": token.stsAccessSecurityToken,
       "Content-Length": "0",
     },
   });
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => "");
-    throw new Error(`OSS PutObjectACL failed (${response.status}): ${errorText || "unknown error"}`);
+    throw new Error(
+      `OSS PutObjectACL failed (${response.status}): ${errorText || "unknown error"}`,
+    );
   }
 }

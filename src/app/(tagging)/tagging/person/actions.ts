@@ -3,11 +3,15 @@
 import { withAuth } from "@/app/(auth)/withAuth";
 import { MAX_CLIENT_IMAGE_UPLOAD_BYTES } from "@/lib/brand/upload-constants";
 import {
+  assertObjectKeyMatchesUploadToken,
   buildAssetPersonObjectKey,
   getCachedSignedOssObjectUrl,
+  getCurrentOssUploadLocation,
   signOssObjectUploadUrl,
   uploadOssObject,
 } from "@/lib/oss";
+import type { OssObjectIdentity, UploadedOssImageInput } from "@/lib/oss-types";
+import { getCurrentOssUploadToken } from "@/lib/oss-upload-token";
 import {
   classifyPersonFaceEmbeddings,
   detectPersonFaceBoxes,
@@ -102,6 +106,9 @@ async function getCreateOrUpdatePersonSchema() {
       .array(
         z.object({
           objectKey: z.string().min(1),
+          ossBucket: z.string().min(1),
+          ossEndpoint: z.string().url(),
+          ossRegion: z.string().min(1),
           mimeType: z.string().min(1),
           size: z.number().int().nonnegative(),
           name: z.string().optional(),
@@ -125,6 +132,21 @@ type AssetPersonRecord = AssetPerson & {
   images: AssetPersonImage[];
   tags: AssetPersonTag[];
 };
+
+function getFirstPersonImageIdentity(images: AssetPersonImage[]): OssObjectIdentity | undefined {
+  const image = images[0];
+
+  if (!image) {
+    return undefined;
+  }
+
+  return {
+    objectKey: image.objectKey,
+    ossBucket: image.ossBucket,
+    ossEndpoint: image.ossEndpoint,
+    ossRegion: image.ossRegion,
+  };
+}
 
 function parseJsonField<T>(value: FormDataEntryValue | null, fallback: T): T {
   if (typeof value !== "string" || !value.trim()) {
@@ -172,10 +194,6 @@ function getFileExtensionFromNameOrContentType({
   return "";
 }
 
-function isTeamPersonObjectKey(objectKey: string, teamId: number) {
-  return objectKey.startsWith(`auto-tagging/teams-${teamId}-asset-persons-`);
-}
-
 function buildTagPath(tag: AssetTagWithParents) {
   const path: string[] = [];
   let current: AssetTagWithParents | AssetTag | null = tag;
@@ -199,14 +217,22 @@ function normalizePersonType(type: AssetPersonType): PersonTypeItem {
   };
 }
 
-function normalizePersonImage(image: AssetPersonImage): PersonImageItem {
-  const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
+async function normalizePersonImage(image: AssetPersonImage): Promise<PersonImageItem> {
+  const { signedUrl, signedUrlExpiresAt } = await getCachedSignedOssObjectUrl({
     objectKey: image.objectKey,
+    location: {
+      ossBucket: image.ossBucket,
+      ossEndpoint: image.ossEndpoint,
+      ossRegion: image.ossRegion,
+    },
   });
 
   return {
     id: image.id,
     objectKey: image.objectKey,
+    ossBucket: image.ossBucket,
+    ossEndpoint: image.ossEndpoint,
+    ossRegion: image.ossRegion,
     signedUrl,
     signedUrlExpiresAt,
     mimeType: image.mimeType,
@@ -223,7 +249,7 @@ function normalizePersonTag(tag: AssetPersonTag): PersonTagItem {
   };
 }
 
-function normalizePerson(person: AssetPersonRecord): PersonItem {
+async function normalizePerson(person: AssetPersonRecord): Promise<PersonItem> {
   return {
     id: person.id,
     slug: person.slug,
@@ -237,10 +263,12 @@ function normalizePerson(person: AssetPersonRecord): PersonItem {
     notes: person.notes,
     createdAt: person.createdAt,
     updatedAt: person.updatedAt,
-    images: person.images
-      .slice()
-      .sort((a, b) => a.sort - b.sort || a.id.localeCompare(b.id))
-      .map(normalizePersonImage),
+    images: await Promise.all(
+      person.images
+        .slice()
+        .sort((a, b) => a.sort - b.sort || a.id.localeCompare(b.id))
+        .map(normalizePersonImage),
+    ),
     tags: person.tags
       .slice()
       .sort((a, b) => a.sort - b.sort || a.id.localeCompare(b.id))
@@ -505,7 +533,7 @@ async function fetchPersons(teamId: number) {
     },
   });
 
-  return persons.map((ip) => normalizePerson(ip));
+  return Promise.all(persons.map((person) => normalizePerson(person)));
 }
 
 async function resolvePersonType(teamId: number, personTypeId: string) {
@@ -568,14 +596,10 @@ async function resolveSelectedTags(teamId: number, tagIds: number[]) {
   });
 }
 
-async function uploadNewPersonImages({ files, teamId }: { files: File[]; teamId: number }) {
+async function uploadNewPersonImages({ files }: { files: File[] }) {
   const t = await getTranslations("Tagging.PersonLibrary");
-  const uploads: Array<{
-    objectKey: string;
-    mimeType: string;
-    size: number;
-    name: string;
-  }> = [];
+  const { token, location } = await getCurrentOssUploadLocation();
+  const uploads: Array<UploadedOssImageInput & { name: string }> = [];
 
   for (const file of files) {
     if (!isImageFile(file)) {
@@ -583,7 +607,6 @@ async function uploadNewPersonImages({ files, teamId }: { files: File[]; teamId:
     }
 
     const objectKey = buildAssetPersonObjectKey({
-      teamId,
       extension: getFileExtension(file),
     });
     const buffer = Buffer.from(await file.arrayBuffer());
@@ -591,10 +614,15 @@ async function uploadNewPersonImages({ files, teamId }: { files: File[]; teamId:
       body: buffer,
       contentType: file.type || "application/octet-stream",
       objectKey,
+      token,
+      ...location,
     });
 
     uploads.push({
       objectKey: uploadResult.objectKey,
+      ossBucket: uploadResult.ossBucket,
+      ossEndpoint: uploadResult.ossEndpoint,
+      ossRegion: uploadResult.ossRegion,
       mimeType: file.type || "application/octet-stream",
       size: file.size,
       name: file.name,
@@ -631,18 +659,12 @@ function getImageExtensionFromUrlOrContentType({
 
 async function uploadAssetLibraryImages({
   assets,
-  teamId,
 }: {
   assets: Array<{ downloadUrl: string; name?: string }>;
-  teamId: number;
 }) {
   const t = await getTranslations("Tagging.PersonLibrary");
-  const uploads: Array<{
-    objectKey: string;
-    mimeType: string;
-    size: number;
-    name: string;
-  }> = [];
+  const { token, location } = await getCurrentOssUploadLocation();
+  const uploads: Array<UploadedOssImageInput & { name: string }> = [];
 
   for (const asset of assets) {
     const response = await fetch(asset.downloadUrl);
@@ -658,7 +680,6 @@ async function uploadAssetLibraryImages({
       contentType,
     });
     const objectKey = buildAssetPersonObjectKey({
-      teamId,
       extension,
     });
 
@@ -666,6 +687,8 @@ async function uploadAssetLibraryImages({
       body: buffer,
       contentType,
       objectKey,
+      token,
+      ...location,
     });
 
     // Extract filename from URL if name not provided
@@ -682,6 +705,9 @@ async function uploadAssetLibraryImages({
 
     uploads.push({
       objectKey: uploadResult.objectKey,
+      ossBucket: uploadResult.ossBucket,
+      ossEndpoint: uploadResult.ossEndpoint,
+      ossRegion: uploadResult.ossRegion,
       mimeType: contentType,
       size: buffer.byteLength,
       name: assetName,
@@ -713,16 +739,16 @@ function getImageExtensionFromObjectKeyOrContentType({
 
 async function clonePersonImageFromObjectKey({
   objectKey,
-  teamId,
   t,
 }: {
   objectKey: string;
-  teamId: number;
   t: TranslationFunction;
 }) {
-  const { signedUrl } = getCachedSignedOssObjectUrl({
+  const { token, location } = await getCurrentOssUploadLocation();
+  const { signedUrl } = await getCachedSignedOssObjectUrl({
     objectKey,
     expiresInSeconds: 60 * 60,
+    location,
   });
   const response = await fetch(signedUrl);
 
@@ -742,7 +768,6 @@ async function clonePersonImageFromObjectKey({
     contentType,
   });
   const newObjectKey = buildAssetPersonObjectKey({
-    teamId,
     extension,
   });
 
@@ -750,54 +775,55 @@ async function clonePersonImageFromObjectKey({
     body: buffer,
     contentType,
     objectKey: newObjectKey,
+    token,
+    ...location,
   });
 
   return {
     objectKey: uploadResult.objectKey,
+    ossBucket: uploadResult.ossBucket,
+    ossEndpoint: uploadResult.ossEndpoint,
+    ossRegion: uploadResult.ossRegion,
     mimeType: contentType,
     size: buffer.byteLength,
     name: objectKey,
   };
 }
 
-type UploadedAssetLibraryImage = {
+type UploadedAssetLibraryImage = UploadedOssImageInput & {
   name: string;
-  objectKey: string;
-  mimeType: string;
-  size: number;
   signedUrl: string;
   signedUrlExpiresAt: number;
 };
 
-type PreparedPersonImageUpload = {
+type PreparedPersonImageUpload = UploadedOssImageInput & {
   name: string;
-  objectKey: string;
-  mimeType: string;
-  size: number;
   uploadUrl: string;
   uploadUrlExpiresAt: number;
   signedUrl: string;
   signedUrlExpiresAt: number;
 };
 
-type UploadedPersonImage = {
-  objectKey: string;
-  mimeType: string;
-  size: number;
+type UploadedPersonImage = UploadedOssImageInput & {
   name?: string;
 };
 
-async function validateUploadedPersonImageObjectKeys({
-  images,
-  teamId,
-}: {
-  images: UploadedPersonImage[];
-  teamId: number;
-}) {
+async function validateUploadedPersonImages({ images }: { images: UploadedPersonImage[] }) {
   const t = await getTranslations("Tagging.PersonLibrary");
+  const { token, location } = await getCurrentOssUploadLocation();
 
   for (const image of images) {
-    if (!isTeamPersonObjectKey(image.objectKey, teamId)) {
+    try {
+      assertObjectKeyMatchesUploadToken(image.objectKey);
+    } catch {
+      throw new Error(t("uploadErrors.imageLoadFailed"));
+    }
+
+    if (
+      image.ossBucket !== location.ossBucket ||
+      image.ossEndpoint !== location.ossEndpoint ||
+      image.ossRegion !== location.ossRegion
+    ) {
       throw new Error(t("uploadErrors.imageLoadFailed"));
     }
   }
@@ -807,7 +833,7 @@ async function validateSingleFaceReferenceImages(images: UploadedPersonImage[]) 
   for (const image of images) {
     try {
       await assertSingleFaceReferenceImage({
-        objectKey: image.objectKey,
+        image,
         identifier: image.name || image.objectKey,
       });
     } catch (error) {
@@ -934,7 +960,6 @@ async function importPersonBatchRow({
     uploadedImages.push(
       await clonePersonImageFromObjectKey({
         objectKey,
-        teamId: team.id,
         t,
       }),
     );
@@ -962,6 +987,9 @@ async function importPersonBatchRow({
       images: {
         create: uploadedImages.map((image, index) => ({
           objectKey: image.objectKey,
+          ossBucket: image.ossBucket,
+          ossEndpoint: image.ossEndpoint,
+          ossRegion: image.ossRegion,
           mimeType: image.mimeType,
           size: image.size,
           sort: index + 1,
@@ -980,7 +1008,8 @@ async function importPersonBatchRow({
   existingNames.add(personName);
 
   const person = await loadPerson(team.id, createdPerson.id);
-  scheduleAssetPersonProcessing(team.id, createdPerson.id);
+  const uploadToken = await getCurrentOssUploadToken();
+  scheduleAssetPersonProcessing(team.id, createdPerson.id, uploadToken);
   schedulePushFeatureToMuseDAM({
     team,
     featureType: "person",
@@ -988,8 +1017,9 @@ async function importPersonBatchRow({
     identifierName: person.name,
     identifierTypeId: personType.id,
     identifierTypeName: personType.name,
-    firstImageObjectKey: person.images[0]?.objectKey,
+    firstImage: getFirstPersonImageIdentity(person.images),
     internalAssetTagIds: selectedTags.map((tag) => tag.assetTagId),
+    uploadToken,
   });
 
   return normalizePerson(person);
@@ -1021,9 +1051,10 @@ async function parseCreateOrUpdateInput(formData: FormData) {
       formData.get("assetLibraryDownloadUrls"),
       [],
     ),
-    assetLibraryUploadedImages: parseJsonField<
-      Array<{ objectKey: string; mimeType: string; size: number; name?: string }>
-    >(formData.get("assetLibraryUploadedImages"), []),
+    assetLibraryUploadedImages: parseJsonField<UploadedPersonImage[]>(
+      formData.get("assetLibraryUploadedImages"),
+      [],
+    ),
   });
 }
 
@@ -1048,15 +1079,22 @@ export async function prepareAssetLibraryPersonImagesAction(
         normalizedAssets.map(async (asset) => {
           const [uploaded] = await uploadAssetLibraryImages({
             assets: [{ downloadUrl: asset.downloadUrl, name: asset.name }],
-            teamId,
           });
-          const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
+          const { signedUrl, signedUrlExpiresAt } = await getCachedSignedOssObjectUrl({
             objectKey: uploaded.objectKey,
+            location: {
+              ossBucket: uploaded.ossBucket,
+              ossEndpoint: uploaded.ossEndpoint,
+              ossRegion: uploaded.ossRegion,
+            },
           });
 
           return {
             name: uploaded.name,
             objectKey: uploaded.objectKey,
+            ossBucket: uploaded.ossBucket,
+            ossEndpoint: uploaded.ossEndpoint,
+            ossRegion: uploaded.ossRegion,
             mimeType: uploaded.mimeType,
             size: uploaded.size,
             signedUrl,
@@ -1109,21 +1147,23 @@ export async function preparePersonImageUploadAction(input: {
       }
 
       const contentType = metadata.mimeType || "application/octet-stream";
+      const { token, location } = await getCurrentOssUploadLocation();
       const objectKey = buildAssetPersonObjectKey({
-        teamId,
         extension: getFileExtensionFromNameOrContentType({
           name: metadata.name,
           contentType,
         }),
       });
       const { signedUrl: uploadUrl, signedUrlExpiresAt: uploadUrlExpiresAt } =
-        signOssObjectUploadUrl({
+        await signOssObjectUploadUrl({
           objectKey,
           contentType,
+          location,
         });
-      const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
+      const { signedUrl, signedUrlExpiresAt } = await getCachedSignedOssObjectUrl({
         objectKey,
         expiresInSeconds: 60 * 60,
+        location,
       });
 
       return {
@@ -1132,6 +1172,9 @@ export async function preparePersonImageUploadAction(input: {
           image: {
             name: metadata.name,
             objectKey,
+            ossBucket: location.ossBucket,
+            ossEndpoint: location.ossEndpoint,
+            ossRegion: location.ossRegion,
             mimeType: contentType,
             size: metadata.size,
             uploadUrl,
@@ -1199,15 +1242,20 @@ async function loadPersonsByIds(teamId: number, personIds: string[]) {
     },
   });
 
-  return persons.map((ip) => normalizePerson(ip));
+  return Promise.all(persons.map((person) => normalizePerson(person)));
 }
 
-function scheduleAssetPersonProcessing(teamId: number, personId: string) {
+function scheduleAssetPersonProcessing(
+  teamId: number,
+  personId: string,
+  uploadToken: Awaited<ReturnType<typeof getCurrentOssUploadToken>>,
+) {
   after(async () => {
     try {
       await processAssetPersonReferenceVectors({
         teamId,
         personId,
+        uploadToken,
       });
     } catch (error) {
       console.error("Failed to process asset Person vectors:", error);
@@ -1253,6 +1301,9 @@ export async function refreshAssetPersonImageSignedUrlAction(imageId: string): P
         select: {
           id: true,
           objectKey: true,
+          ossBucket: true,
+          ossEndpoint: true,
+          ossRegion: true,
         },
       });
 
@@ -1263,8 +1314,13 @@ export async function refreshAssetPersonImageSignedUrlAction(imageId: string): P
         };
       }
 
-      const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
+      const { signedUrl, signedUrlExpiresAt } = await getCachedSignedOssObjectUrl({
         objectKey: image.objectKey,
+        location: {
+          ossBucket: image.ossBucket,
+          ossEndpoint: image.ossEndpoint,
+          ossRegion: image.ossRegion,
+        },
       });
 
       return {
@@ -1521,7 +1577,10 @@ export async function preparePersonClassificationAction(input: {
         })
         .parse(input);
 
-      if (!isTeamPersonObjectKey(metadata.objectKey, teamId)) {
+      const { token, location } = await getCurrentOssUploadLocation();
+      try {
+        assertObjectKeyMatchesUploadToken(metadata.objectKey);
+      } catch {
         return {
           success: false,
           message: t("errors.imageLoadFailed"),
@@ -1538,9 +1597,10 @@ export async function preparePersonClassificationAction(input: {
         };
       }
 
-      const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
+      const { signedUrl, signedUrlExpiresAt } = await getCachedSignedOssObjectUrl({
         objectKey: metadata.objectKey,
         expiresInSeconds: 60 * 60,
+        location,
       });
       const detection = await detectPersonFaceBoxes({
         imageUrl: signedUrl,
@@ -1632,20 +1692,17 @@ export async function createAssetPersonAction(
 
       const uploadedImages = await uploadNewPersonImages({
         files,
-        teamId: team.id,
       });
       const uploadedAssetLibraryImages = await uploadAssetLibraryImages({
         assets: assetLibraryDownloadUrls.map((url) => ({ downloadUrl: url })),
-        teamId: team.id,
       });
       const allUploadedImages = [
         ...uploadedImages,
         ...assetLibraryUploadedImages,
         ...uploadedAssetLibraryImages,
       ];
-      await validateUploadedPersonImageObjectKeys({
+      await validateUploadedPersonImages({
         images: allUploadedImages,
-        teamId: team.id,
       });
       await validateSingleFaceReferenceImages(allUploadedImages);
 
@@ -1662,6 +1719,9 @@ export async function createAssetPersonAction(
           images: {
             create: allUploadedImages.map((image, index) => ({
               objectKey: image.objectKey,
+              ossBucket: image.ossBucket,
+              ossEndpoint: image.ossEndpoint,
+              ossRegion: image.ossRegion,
               mimeType: image.mimeType,
               size: image.size,
               sort: index + 1,
@@ -1682,7 +1742,8 @@ export async function createAssetPersonAction(
       });
 
       const person = await loadPerson(team.id, createdPerson.id);
-      scheduleAssetPersonProcessing(team.id, createdPerson.id);
+      const uploadToken = await getCurrentOssUploadToken();
+      scheduleAssetPersonProcessing(team.id, createdPerson.id, uploadToken);
       schedulePushFeatureToMuseDAM({
         team,
         featureType: "person",
@@ -1690,14 +1751,15 @@ export async function createAssetPersonAction(
         identifierName: person.name,
         identifierTypeId: personType.id,
         identifierTypeName: personType.name,
-        firstImageObjectKey: person.images[0]?.objectKey,
+        firstImage: getFirstPersonImageIdentity(person.images),
         internalAssetTagIds: input.tagIds,
+        uploadToken,
       });
 
       return {
         success: true,
         data: {
-          person: normalizePerson(person),
+          person: await normalizePerson(person),
         },
       };
     } catch (error) {
@@ -1781,11 +1843,9 @@ export async function updateAssetPersonAction(
 
       const uploadedImages = await uploadNewPersonImages({
         files,
-        teamId: team.id,
       });
       const uploadedAssetLibraryImages = await uploadAssetLibraryImages({
         assets: assetLibraryDownloadUrls.map((url) => ({ downloadUrl: url })),
-        teamId: team.id,
       });
       const allUploadedImages = [
         ...uploadedImages,
@@ -1793,9 +1853,8 @@ export async function updateAssetPersonAction(
         ...uploadedAssetLibraryImages,
       ];
       const finalImages = [...retainedImages, ...allUploadedImages];
-      await validateUploadedPersonImageObjectKeys({
+      await validateUploadedPersonImages({
         images: allUploadedImages,
-        teamId: team.id,
       });
       await validateSingleFaceReferenceImages(finalImages);
 
@@ -1849,6 +1908,9 @@ export async function updateAssetPersonAction(
             data: allUploadedImages.map((image, index) => ({
               assetPersonId: person.id,
               objectKey: image.objectKey,
+              ossBucket: image.ossBucket,
+              ossEndpoint: image.ossEndpoint,
+              ossRegion: image.ossRegion,
               mimeType: image.mimeType,
               size: image.size,
               sort: retainedImages.length + index + 1,
@@ -1884,7 +1946,8 @@ export async function updateAssetPersonAction(
       });
 
       const updatedPerson = await loadPerson(team.id, person.id);
-      scheduleAssetPersonProcessing(team.id, person.id);
+      const uploadToken = await getCurrentOssUploadToken();
+      scheduleAssetPersonProcessing(team.id, person.id, uploadToken);
       schedulePushFeatureToMuseDAM({
         team,
         featureType: "person",
@@ -1892,14 +1955,15 @@ export async function updateAssetPersonAction(
         identifierName: updatedPerson.name,
         identifierTypeId: personType.id,
         identifierTypeName: personType.name,
-        firstImageObjectKey: updatedPerson.images[0]?.objectKey,
+        firstImage: getFirstPersonImageIdentity(updatedPerson.images),
         internalAssetTagIds: input.tagIds,
+        uploadToken,
       });
 
       return {
         success: true,
         data: {
-          person: normalizePerson(updatedPerson),
+          person: await normalizePerson(updatedPerson),
         },
       };
     } catch (error) {
@@ -1959,7 +2023,7 @@ export async function setAssetPersonEnabledAction(
       return {
         success: true,
         data: {
-          person: normalizePerson(updatedPerson),
+          person: await normalizePerson(updatedPerson),
         },
       };
     } catch (error) {
@@ -2055,12 +2119,13 @@ export async function retryAssetPersonProcessingAction(
       });
 
       const updatedPerson = await loadPerson(teamId, personId);
-      scheduleAssetPersonProcessing(teamId, personId);
+      const uploadToken = await getCurrentOssUploadToken();
+      scheduleAssetPersonProcessing(teamId, personId, uploadToken);
 
       return {
         success: true,
         data: {
-          person: normalizePerson(updatedPerson),
+          person: await normalizePerson(updatedPerson),
         },
       };
     } catch (error) {

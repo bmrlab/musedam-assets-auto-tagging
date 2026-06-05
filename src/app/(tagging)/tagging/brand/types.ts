@@ -21,6 +21,9 @@ export type BrandLogoTagItem = {
 export type BrandLogoImageItem = {
   id: string;
   objectKey: string;
+  ossBucket: string;
+  ossEndpoint: string;
+  ossRegion: string;
   signedUrl: string;
   signedUrlExpiresAt: number;
   mimeType: string;

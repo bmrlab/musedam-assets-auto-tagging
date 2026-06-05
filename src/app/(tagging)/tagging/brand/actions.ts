@@ -14,11 +14,15 @@ import {
 import { deleteLogoVectorPointsByLogo, setLogoVectorPayloadByLogo } from "@/lib/brand/qdrant";
 import { MAX_CLIENT_IMAGE_UPLOAD_BYTES } from "@/lib/brand/upload-constants";
 import {
+  assertObjectKeyMatchesUploadToken,
   buildAssetLogoObjectKey,
   getCachedSignedOssObjectUrl,
+  getCurrentOssUploadLocation,
   signOssObjectUploadUrl,
   uploadOssObject,
 } from "@/lib/oss";
+import type { OssObjectIdentity, UploadedOssImageInput } from "@/lib/oss-types";
+import { getCurrentOssUploadToken } from "@/lib/oss-upload-token";
 import { ServerActionResult } from "@/lib/serverAction";
 import {
   clampBox as clampClassificationBox,
@@ -94,6 +98,9 @@ const createOrUpdateLogoSchema = z.object({
     .array(
       z.object({
         objectKey: z.string().min(1),
+        ossBucket: z.string().min(1),
+        ossEndpoint: z.string().url(),
+        ossRegion: z.string().min(1),
         mimeType: z.string().min(1),
         size: z.number().int().nonnegative(),
       }),
@@ -112,6 +119,21 @@ type AssetLogoRecord = AssetLogo & {
   images: AssetLogoImage[];
   tags: AssetLogoTag[];
 };
+
+function getFirstLogoImageIdentity(images: AssetLogoImage[]): OssObjectIdentity | undefined {
+  const image = images[0];
+
+  if (!image) {
+    return undefined;
+  }
+
+  return {
+    objectKey: image.objectKey,
+    ossBucket: image.ossBucket,
+    ossEndpoint: image.ossEndpoint,
+    ossRegion: image.ossRegion,
+  };
+}
 
 function parseJsonField<T>(value: FormDataEntryValue | null, fallback: T): T {
   if (typeof value !== "string" || !value.trim()) {
@@ -159,10 +181,6 @@ function getFileExtensionFromNameOrContentType({
   return "";
 }
 
-function isTeamLogoObjectKey(objectKey: string, teamId: number) {
-  return objectKey.startsWith(`auto-tagging/teams-${teamId}-asset-logos-`);
-}
-
 function buildTagPath(tag: AssetTagWithParents) {
   const path: string[] = [];
   let current: AssetTagWithParents | AssetTag | null = tag;
@@ -186,14 +204,22 @@ function normalizeBrandLogoType(type: AssetLogoType): BrandLogoTypeItem {
   };
 }
 
-function normalizeBrandLogoImage(image: AssetLogoImage): BrandLogoImageItem {
-  const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
+async function normalizeBrandLogoImage(image: AssetLogoImage): Promise<BrandLogoImageItem> {
+  const { signedUrl, signedUrlExpiresAt } = await getCachedSignedOssObjectUrl({
     objectKey: image.objectKey,
+    location: {
+      ossBucket: image.ossBucket,
+      ossEndpoint: image.ossEndpoint,
+      ossRegion: image.ossRegion,
+    },
   });
 
   return {
     id: image.id,
     objectKey: image.objectKey,
+    ossBucket: image.ossBucket,
+    ossEndpoint: image.ossEndpoint,
+    ossRegion: image.ossRegion,
     signedUrl,
     signedUrlExpiresAt,
     mimeType: image.mimeType,
@@ -210,7 +236,7 @@ function normalizeBrandLogoTag(tag: AssetLogoTag): BrandLogoTagItem {
   };
 }
 
-function normalizeBrandLogo(logo: AssetLogoRecord): BrandLogoItem {
+async function normalizeBrandLogo(logo: AssetLogoRecord): Promise<BrandLogoItem> {
   return {
     id: logo.id,
     slug: logo.slug,
@@ -224,10 +250,12 @@ function normalizeBrandLogo(logo: AssetLogoRecord): BrandLogoItem {
     notes: logo.notes,
     createdAt: logo.createdAt,
     updatedAt: logo.updatedAt,
-    images: logo.images
-      .slice()
-      .sort((a, b) => a.sort - b.sort || a.id.localeCompare(b.id))
-      .map(normalizeBrandLogoImage),
+    images: await Promise.all(
+      logo.images
+        .slice()
+        .sort((a, b) => a.sort - b.sort || a.id.localeCompare(b.id))
+        .map(normalizeBrandLogoImage),
+    ),
     tags: logo.tags
       .slice()
       .sort((a, b) => a.sort - b.sort || a.id.localeCompare(b.id))
@@ -401,7 +429,7 @@ async function fetchBrandLogos(teamId: number) {
     },
   });
 
-  return logos.map((logo) => normalizeBrandLogo(logo));
+  return Promise.all(logos.map((logo) => normalizeBrandLogo(logo)));
 }
 
 async function resolveLogoType(teamId: number, logoTypeId: string) {
@@ -462,12 +490,9 @@ async function resolveSelectedTags(teamId: number, tagIds: number[]) {
   });
 }
 
-async function uploadNewLogoImages({ files, teamId }: { files: File[]; teamId: number }) {
-  const uploads: Array<{
-    objectKey: string;
-    mimeType: string;
-    size: number;
-  }> = [];
+async function uploadNewLogoImages({ files }: { files: File[] }) {
+  const { token, location } = await getCurrentOssUploadLocation();
+  const uploads: UploadedOssImageInput[] = [];
 
   for (const file of files) {
     if (!isImageFile(file)) {
@@ -475,7 +500,6 @@ async function uploadNewLogoImages({ files, teamId }: { files: File[]; teamId: n
     }
 
     const objectKey = buildAssetLogoObjectKey({
-      teamId,
       extension: getFileExtension(file),
     });
     const buffer = Buffer.from(await file.arrayBuffer());
@@ -483,10 +507,15 @@ async function uploadNewLogoImages({ files, teamId }: { files: File[]; teamId: n
       body: buffer,
       contentType: file.type || "application/octet-stream",
       objectKey,
+      token,
+      ...location,
     });
 
     uploads.push({
       objectKey: uploadResult.objectKey,
+      ossBucket: uploadResult.ossBucket,
+      ossEndpoint: uploadResult.ossEndpoint,
+      ossRegion: uploadResult.ossRegion,
       mimeType: file.type || "application/octet-stream",
       size: file.size,
     });
@@ -520,18 +549,9 @@ function getImageExtensionFromUrlOrContentType({
   return "";
 }
 
-async function uploadAssetLibraryImages({
-  downloadUrls,
-  teamId,
-}: {
-  downloadUrls: string[];
-  teamId: number;
-}) {
-  const uploads: Array<{
-    objectKey: string;
-    mimeType: string;
-    size: number;
-  }> = [];
+async function uploadAssetLibraryImages({ downloadUrls }: { downloadUrls: string[] }) {
+  const { token, location } = await getCurrentOssUploadLocation();
+  const uploads: UploadedOssImageInput[] = [];
 
   for (const downloadUrl of downloadUrls) {
     const response = await fetch(downloadUrl);
@@ -551,7 +571,6 @@ async function uploadAssetLibraryImages({
       contentType,
     });
     const objectKey = buildAssetLogoObjectKey({
-      teamId,
       extension,
     });
 
@@ -559,10 +578,15 @@ async function uploadAssetLibraryImages({
       body: buffer,
       contentType,
       objectKey,
+      token,
+      ...location,
     });
 
     uploads.push({
       objectKey: uploadResult.objectKey,
+      ossBucket: uploadResult.ossBucket,
+      ossEndpoint: uploadResult.ossEndpoint,
+      ossRegion: uploadResult.ossRegion,
       mimeType: contentType,
       size: buffer.byteLength,
     });
@@ -593,16 +617,16 @@ function getImageExtensionFromObjectKeyOrContentType({
 
 async function cloneLogoImageFromObjectKey({
   objectKey,
-  teamId,
   t,
 }: {
   objectKey: string;
-  teamId: number;
   t: BrandLibraryTranslationFn;
 }) {
-  const { signedUrl } = getCachedSignedOssObjectUrl({
+  const { token, location } = await getCurrentOssUploadLocation();
+  const { signedUrl } = await getCachedSignedOssObjectUrl({
     objectKey,
     expiresInSeconds: 60 * 60,
+    location,
   });
   const response = await fetch(signedUrl);
 
@@ -617,7 +641,6 @@ async function cloneLogoImageFromObjectKey({
     contentType,
   });
   const newObjectKey = buildAssetLogoObjectKey({
-    teamId,
     extension,
   });
 
@@ -625,10 +648,15 @@ async function cloneLogoImageFromObjectKey({
     body: buffer,
     contentType,
     objectKey: newObjectKey,
+    token,
+    ...location,
   });
 
   return {
     objectKey: uploadResult.objectKey,
+    ossBucket: uploadResult.ossBucket,
+    ossEndpoint: uploadResult.ossEndpoint,
+    ossRegion: uploadResult.ossRegion,
     mimeType: contentType,
     size: buffer.byteLength,
   };
@@ -935,7 +963,6 @@ async function importBrandBatchRow({
     uploadedImages.push(
       await cloneLogoImageFromObjectKey({
         objectKey,
-        teamId: team.id,
         t,
       }),
     );
@@ -977,7 +1004,8 @@ async function importBrandBatchRow({
   existingNames.add(logoName);
 
   const logo = await loadBrandLogo(team.id, createdLogo.id);
-  scheduleAssetLogoProcessing(team.id, createdLogo.id);
+  const uploadToken = await getCurrentOssUploadToken();
+  scheduleAssetLogoProcessing(team.id, createdLogo.id, uploadToken);
   schedulePushFeatureToMuseDAM({
     team,
     featureType: "brand",
@@ -985,50 +1013,44 @@ async function importBrandBatchRow({
     identifierName: logo.name,
     identifierTypeId: logoType.id,
     identifierTypeName: logoType.name,
-    firstImageObjectKey: logo.images[0]?.objectKey,
+    firstImage: getFirstLogoImageIdentity(logo.images),
     internalAssetTagIds: selectedTags.map((tag) => tag.assetTagId),
+    uploadToken,
   });
 
   return normalizeBrandLogo(logo);
 }
 
-type UploadedAssetLibraryImage = {
+type UploadedAssetLibraryImage = UploadedOssImageInput & {
   name: string;
-  objectKey: string;
-  mimeType: string;
-  size: number;
   signedUrl: string;
   signedUrlExpiresAt: number;
 };
 
-type PreparedLogoImageUpload = {
+type PreparedLogoImageUpload = UploadedOssImageInput & {
   name: string;
-  objectKey: string;
-  mimeType: string;
-  size: number;
   uploadUrl: string;
   uploadUrlExpiresAt: number;
   signedUrl: string;
   signedUrlExpiresAt: number;
 };
 
-type UploadedLogoImageInput = {
-  objectKey: string;
-  mimeType: string;
-  size: number;
-};
-
-async function validateUploadedLogoImageObjectKeys({
-  images,
-  teamId,
-}: {
-  images: UploadedLogoImageInput[];
-  teamId: number;
-}) {
+async function validateUploadedLogoImages({ images }: { images: UploadedOssImageInput[] }) {
   const t = await getBrandLibraryTranslations();
+  const { token, location } = await getCurrentOssUploadLocation();
 
   for (const image of images) {
-    if (!isTeamLogoObjectKey(image.objectKey, teamId)) {
+    try {
+      assertObjectKeyMatchesUploadToken(image.objectKey);
+    } catch {
+      throw new Error(t("uploadErrors.imageLoadFailed"));
+    }
+
+    if (
+      image.ossBucket !== location.ossBucket ||
+      image.ossEndpoint !== location.ossEndpoint ||
+      image.ossRegion !== location.ossRegion
+    ) {
       throw new Error(t("uploadErrors.imageLoadFailed"));
     }
   }
@@ -1059,7 +1081,7 @@ function parseCreateOrUpdateInput(formData: FormData) {
       formData.get("assetLibraryDownloadUrls"),
       [],
     ),
-    assetLibraryUploadedImages: parseJsonField<UploadedLogoImageInput[]>(
+    assetLibraryUploadedImages: parseJsonField<UploadedOssImageInput[]>(
       formData.get("assetLibraryUploadedImages"),
       [],
     ),
@@ -1069,7 +1091,7 @@ function parseCreateOrUpdateInput(formData: FormData) {
 export async function prepareAssetLibraryLogoImagesAction(
   assets: Array<{ name: string; downloadUrl: string }>,
 ): Promise<ServerActionResult<{ images: UploadedAssetLibraryImage[] }>> {
-  return withAuth(async ({ team: { id: teamId } }) => {
+  return withAuth(async () => {
     try {
       const normalizedAssets = z
         .array(
@@ -1086,15 +1108,22 @@ export async function prepareAssetLibraryLogoImagesAction(
         normalizedAssets.map(async (asset) => {
           const [uploaded] = await uploadAssetLibraryImages({
             downloadUrls: [asset.downloadUrl],
-            teamId,
           });
-          const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
+          const { signedUrl, signedUrlExpiresAt } = await getCachedSignedOssObjectUrl({
             objectKey: uploaded.objectKey,
+            location: {
+              ossBucket: uploaded.ossBucket,
+              ossEndpoint: uploaded.ossEndpoint,
+              ossRegion: uploaded.ossRegion,
+            },
           });
 
           return {
             name: asset.name,
             objectKey: uploaded.objectKey,
+            ossBucket: uploaded.ossBucket,
+            ossEndpoint: uploaded.ossEndpoint,
+            ossRegion: uploaded.ossRegion,
             mimeType: uploaded.mimeType,
             size: uploaded.size,
             signedUrl,
@@ -1124,7 +1153,7 @@ export async function prepareLogoImageUploadAction(input: {
   mimeType: string;
   size: number;
 }): Promise<ServerActionResult<{ image: PreparedLogoImageUpload }>> {
-  return withAuth(async ({ team: { id: teamId } }) => {
+  return withAuth(async () => {
     const t = await getBrandLibraryTranslations();
     try {
       const metadata = z
@@ -1146,21 +1175,25 @@ export async function prepareLogoImageUploadAction(input: {
       }
 
       const contentType = metadata.mimeType || "application/octet-stream";
+      const { token, location } = await getCurrentOssUploadLocation();
       const objectKey = buildAssetLogoObjectKey({
-        teamId,
         extension: getFileExtensionFromNameOrContentType({
           name: metadata.name,
           contentType,
         }),
       });
       const { signedUrl: uploadUrl, signedUrlExpiresAt: uploadUrlExpiresAt } =
-        signOssObjectUploadUrl({
+        await signOssObjectUploadUrl({
           objectKey,
           contentType,
+          location,
+          token,
         });
-      const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
+      const { signedUrl, signedUrlExpiresAt } = await getCachedSignedOssObjectUrl({
         objectKey,
         expiresInSeconds: 60 * 60,
+        location,
+        token,
       });
 
       return {
@@ -1169,6 +1202,9 @@ export async function prepareLogoImageUploadAction(input: {
           image: {
             name: metadata.name,
             objectKey,
+            ossBucket: location.ossBucket,
+            ossEndpoint: location.ossEndpoint,
+            ossRegion: location.ossRegion,
             mimeType: contentType,
             size: metadata.size,
             uploadUrl,
@@ -1234,15 +1270,20 @@ async function loadBrandLogosByIds(teamId: number, logoIds: string[]) {
     },
   });
 
-  return logos.map((logo) => normalizeBrandLogo(logo));
+  return Promise.all(logos.map((logo) => normalizeBrandLogo(logo)));
 }
 
-function scheduleAssetLogoProcessing(teamId: number, logoId: string) {
+function scheduleAssetLogoProcessing(
+  teamId: number,
+  logoId: string,
+  uploadToken: Awaited<ReturnType<typeof getCurrentOssUploadToken>>,
+) {
   after(async () => {
     try {
       await processAssetLogoReferenceVectors({
         teamId,
         logoId,
+        uploadToken,
       });
     } catch (error) {
       console.error("Failed to process asset logo vectors:", error);
@@ -1278,6 +1319,9 @@ export async function refreshAssetLogoImageSignedUrlAction(imageId: string): Pro
         select: {
           id: true,
           objectKey: true,
+          ossBucket: true,
+          ossEndpoint: true,
+          ossRegion: true,
         },
       });
 
@@ -1288,8 +1332,13 @@ export async function refreshAssetLogoImageSignedUrlAction(imageId: string): Pro
         };
       }
 
-      const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
+      const { signedUrl, signedUrlExpiresAt } = await getCachedSignedOssObjectUrl({
         objectKey: image.objectKey,
+        location: {
+          ossBucket: image.ossBucket,
+          ossEndpoint: image.ossEndpoint,
+          ossRegion: image.ossRegion,
+        },
       });
 
       return {
@@ -1553,20 +1602,17 @@ export async function createAssetLogoAction(
 
       const uploadedImages = await uploadNewLogoImages({
         files,
-        teamId: team.id,
       });
       const uploadedAssetLibraryImages = await uploadAssetLibraryImages({
         downloadUrls: assetLibraryDownloadUrls,
-        teamId: team.id,
       });
       const allUploadedImages = [
         ...uploadedImages,
         ...assetLibraryUploadedImages,
         ...uploadedAssetLibraryImages,
       ];
-      await validateUploadedLogoImageObjectKeys({
+      await validateUploadedLogoImages({
         images: allUploadedImages,
-        teamId: team.id,
       });
 
       const createdLogo = await prisma.assetLogo.create({
@@ -1600,7 +1646,8 @@ export async function createAssetLogoAction(
       });
 
       const logo = await loadBrandLogo(team.id, createdLogo.id);
-      scheduleAssetLogoProcessing(team.id, createdLogo.id);
+      const uploadToken = await getCurrentOssUploadToken();
+      scheduleAssetLogoProcessing(team.id, createdLogo.id, uploadToken);
       schedulePushFeatureToMuseDAM({
         team,
         featureType: "brand",
@@ -1608,14 +1655,15 @@ export async function createAssetLogoAction(
         identifierName: logo.name,
         identifierTypeId: logoType.id,
         identifierTypeName: logoType.name,
-        firstImageObjectKey: logo.images[0]?.objectKey,
+        firstImage: getFirstLogoImageIdentity(logo.images),
         internalAssetTagIds: input.tagIds,
+        uploadToken,
       });
 
       return {
         success: true,
         data: {
-          logo: normalizeBrandLogo(logo),
+          logo: await normalizeBrandLogo(logo),
         },
       };
     } catch (error) {
@@ -1696,20 +1744,17 @@ export async function updateAssetLogoAction(
 
       const uploadedImages = await uploadNewLogoImages({
         files,
-        teamId: team.id,
       });
       const uploadedAssetLibraryImages = await uploadAssetLibraryImages({
         downloadUrls: assetLibraryDownloadUrls,
-        teamId: team.id,
       });
       const allUploadedImages = [
         ...uploadedImages,
         ...assetLibraryUploadedImages,
         ...uploadedAssetLibraryImages,
       ];
-      await validateUploadedLogoImageObjectKeys({
+      await validateUploadedLogoImages({
         images: allUploadedImages,
-        teamId: team.id,
       });
 
       await prisma.$transaction(async (tx) => {
@@ -1797,7 +1842,8 @@ export async function updateAssetLogoAction(
       });
 
       const updatedLogo = await loadBrandLogo(team.id, logo.id);
-      scheduleAssetLogoProcessing(team.id, logo.id);
+      const uploadToken = await getCurrentOssUploadToken();
+      scheduleAssetLogoProcessing(team.id, logo.id, uploadToken);
       schedulePushFeatureToMuseDAM({
         team,
         featureType: "brand",
@@ -1805,14 +1851,15 @@ export async function updateAssetLogoAction(
         identifierName: updatedLogo.name,
         identifierTypeId: logoType.id,
         identifierTypeName: logoType.name,
-        firstImageObjectKey: updatedLogo.images[0]?.objectKey,
+        firstImage: getFirstLogoImageIdentity(updatedLogo.images),
         internalAssetTagIds: input.tagIds,
+        uploadToken,
       });
 
       return {
         success: true,
         data: {
-          logo: normalizeBrandLogo(updatedLogo),
+          logo: await normalizeBrandLogo(updatedLogo),
         },
       };
     } catch (error) {
@@ -1870,7 +1917,7 @@ export async function setAssetLogoEnabledAction(
       return {
         success: true,
         data: {
-          logo: normalizeBrandLogo(updatedLogo),
+          logo: await normalizeBrandLogo(updatedLogo),
         },
       };
     } catch (error) {
@@ -1964,12 +2011,13 @@ export async function retryAssetLogoProcessingAction(
       });
 
       const updatedLogo = await loadBrandLogo(teamId, logoId);
-      scheduleAssetLogoProcessing(teamId, logoId);
+      const uploadToken = await getCurrentOssUploadToken();
+      scheduleAssetLogoProcessing(teamId, logoId, uploadToken);
 
       return {
         success: true,
         data: {
-          logo: normalizeBrandLogo(updatedLogo),
+          logo: await normalizeBrandLogo(updatedLogo),
         },
       };
     } catch (error) {
@@ -2026,7 +2074,10 @@ export async function prepareBrandClassificationAction(input: {
         })
         .parse(input);
 
-      if (!isTeamLogoObjectKey(metadata.objectKey, teamId)) {
+      const { token, location } = await getCurrentOssUploadLocation();
+      try {
+        assertObjectKeyMatchesUploadToken(metadata.objectKey);
+      } catch {
         return {
           success: false,
           message: "仅支持图片文件",
@@ -2043,9 +2094,10 @@ export async function prepareBrandClassificationAction(input: {
         };
       }
 
-      const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
+      const { signedUrl, signedUrlExpiresAt } = await getCachedSignedOssObjectUrl({
         objectKey: metadata.objectKey,
         expiresInSeconds: 60 * 60,
+        location,
       });
       const detectionLabelText = await fetchLogoDetectionLabelText(teamId);
       const detection = await detectBrandLogoBoxes({
@@ -2091,7 +2143,10 @@ export async function classifyBrandImageAction(input: {
         })
         .parse(input);
 
-      if (!isTeamLogoObjectKey(metadata.objectKey, teamId)) {
+      const { token, location } = await getCurrentOssUploadLocation();
+      try {
+        assertObjectKeyMatchesUploadToken(metadata.objectKey);
+      } catch {
         return {
           success: false,
           message: "仅支持图片文件",
@@ -2108,9 +2163,10 @@ export async function classifyBrandImageAction(input: {
         };
       }
 
-      const { signedUrl } = getCachedSignedOssObjectUrl({
+      const { signedUrl } = await getCachedSignedOssObjectUrl({
         objectKey: metadata.objectKey,
         expiresInSeconds: 60 * 60,
+        location,
       });
       const imageInput = await fetchRemoteImageInput(signedUrl, "brand classification upload");
       const crops = await Promise.all(

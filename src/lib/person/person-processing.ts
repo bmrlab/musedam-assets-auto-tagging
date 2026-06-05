@@ -1,6 +1,8 @@
 import "server-only";
 
 import { getCachedSignedOssObjectUrl } from "@/lib/oss";
+import type { OssUploadToken } from "@/lib/oss-upload-token";
+import type { OssObjectIdentity } from "@/lib/oss-types";
 import prisma from "@/prisma/prisma";
 import { randomUUID } from "crypto";
 import { detectPersonFaces, generateFaceEmbedding } from "./face-api";
@@ -32,7 +34,10 @@ export type PersonProcessingError = Error & {
   actualFaceCount?: number;
 };
 
-function createProcessingError(code: PersonProcessingErrorCode, cause?: unknown): PersonProcessingError {
+function createProcessingError(
+  code: PersonProcessingErrorCode,
+  cause?: unknown,
+): PersonProcessingError {
   const error = new Error(code) as PersonProcessingError;
   error.personProcessingErrorCode = code;
   error.cause = cause;
@@ -66,13 +71,23 @@ function getProcessingErrorCode(error: unknown): PersonProcessingErrorCode {
 }
 
 export async function assertSingleFaceReferenceImage({
-  objectKey,
+  image,
   identifier,
+  uploadToken,
 }: {
-  objectKey: string;
+  image: OssObjectIdentity;
   identifier?: string;
+  uploadToken?: OssUploadToken;
 }) {
-  const { signedUrl } = getCachedSignedOssObjectUrl({ objectKey });
+  const { signedUrl } = await getCachedSignedOssObjectUrl({
+    objectKey: image.objectKey,
+    location: {
+      ossBucket: image.ossBucket,
+      ossEndpoint: image.ossEndpoint,
+      ossRegion: image.ossRegion,
+    },
+    token: uploadToken,
+  });
   const detection = await detectPersonFaces({
     imageUrl: signedUrl,
     includeEmbedding: false,
@@ -80,7 +95,7 @@ export async function assertSingleFaceReferenceImage({
 
   if (detection.faceCount !== 1 || detection.detections.length !== 1) {
     const error = createProcessingError(PERSON_PROCESSING_ERROR_CODES.faceCountNotOne);
-    error.identifier = identifier || objectKey;
+    error.identifier = identifier || image.objectKey;
     error.actualFaceCount = detection.faceCount;
     throw error;
   }
@@ -139,9 +154,11 @@ export async function markAssetPersonVectorsProcessing({
 export async function processAssetPersonReferenceVectors({
   teamId,
   personId,
+  uploadToken,
 }: {
   teamId: number;
   personId: string;
+  uploadToken: OssUploadToken;
 }) {
   try {
     const person = await prisma.assetPerson.findFirst({
@@ -167,7 +184,8 @@ export async function processAssetPersonReferenceVectors({
     const embeddingResults = await Promise.all(
       person.images.map(async (image) => {
         const { signedUrl, face } = await assertSingleFaceReferenceImage({
-          objectKey: image.objectKey,
+          image,
+          uploadToken,
         });
         const embedding = await generateFaceEmbedding({
           imageUrl: signedUrl,

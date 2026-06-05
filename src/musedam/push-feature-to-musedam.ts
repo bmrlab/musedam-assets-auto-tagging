@@ -1,8 +1,11 @@
 import "server-only";
 
-import { getCDNUrl, setOssObjectAclPublicRead } from "@/lib/oss";
+import { getOssObjectUrl, setOssObjectAclPublicRead } from "@/lib/oss";
+import type { OssObjectIdentity } from "@/lib/oss-types";
+import type { OssUploadToken } from "@/lib/oss-upload-token";
 import { slugToId } from "@/lib/slug";
 import prisma from "@/prisma/prisma";
+import { after } from "next/server";
 
 import { saveFeatureToMuseDAM } from "./assets";
 import type { MuseDAMSaveFeatureType } from "./save-feature-types";
@@ -53,8 +56,9 @@ export function schedulePushFeatureToMuseDAM(payload: {
   identifierName: string;
   identifierTypeId: string;
   identifierTypeName: string;
-  firstImageObjectKey: string | undefined;
+  firstImage: OssObjectIdentity | undefined;
   internalAssetTagIds: number[];
+  uploadToken: OssUploadToken;
 }): void {
   const {
     team,
@@ -63,18 +67,19 @@ export function schedulePushFeatureToMuseDAM(payload: {
     identifierName,
     identifierTypeId,
     identifierTypeName,
-    firstImageObjectKey,
+    firstImage,
     internalAssetTagIds,
+    uploadToken,
   } = payload;
 
-  if (!firstImageObjectKey) {
+  if (!firstImage) {
     return;
   }
 
-  void (async () => {
+  after(async () => {
     try {
       const tagIdList = await resolveMuseDAMTagIdsForAssetTags(team.id, internalAssetTagIds);
-      await setOssObjectAclPublicRead({ objectKey: firstImageObjectKey });
+      await setOssObjectAclPublicRead(firstImage, uploadToken);
       await saveFeatureToMuseDAM({
         team,
         featureType,
@@ -82,11 +87,11 @@ export function schedulePushFeatureToMuseDAM(payload: {
         identifierName,
         identifierTypeId,
         identifierTypeName,
-        identifierImagePath: getCDNUrl(firstImageObjectKey),
+        identifierImagePath: getOssObjectUrl(firstImage),
         tagIdList,
       });
     } catch (error) {
       console.warn("[MuseDAM] save-feature failed (non-blocking):", error);
     }
-  })();
+  });
 }

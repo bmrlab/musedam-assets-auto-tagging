@@ -5,8 +5,10 @@ import { isDebugPageEnabled } from "@/lib/brand/env";
 import { detectBrandLogoBoxes } from "@/lib/brand/logo-classification";
 import { MAX_CLIENT_IMAGE_UPLOAD_BYTES } from "@/lib/brand/upload-constants";
 import {
+  assertObjectKeyMatchesUploadToken,
   buildAssetLogoObjectKey,
   getCachedSignedOssObjectUrl,
+  getCurrentOssUploadLocation,
   signOssObjectUploadUrl,
 } from "@/lib/oss";
 import { ServerActionResult } from "@/lib/serverAction";
@@ -33,16 +35,12 @@ function getFileExtensionFromNameOrContentType({
   return "";
 }
 
-function isTeamLogoObjectKey(objectKey: string, teamId: number) {
-  return objectKey.startsWith(`auto-tagging/teams-${teamId}-asset-logos-`);
-}
-
 export async function prepareDetectionImageUploadAction(input: {
   name: string;
   mimeType: string;
   size: number;
 }): Promise<ServerActionResult<DetectionImageUploadResult>> {
-  return withAuth(async ({ team: { id: teamId } }) => {
+  return withAuth(async () => {
     try {
       if (!isDebugPageEnabled()) {
         return {
@@ -70,22 +68,24 @@ export async function prepareDetectionImageUploadAction(input: {
         };
       }
 
+      const { token, location } = await getCurrentOssUploadLocation();
       const objectKey = buildAssetLogoObjectKey({
-        teamId,
         extension: getFileExtensionFromNameOrContentType({
           name: metadata.name,
           contentType: metadata.mimeType,
         }),
       });
       const { signedUrl: uploadUrl, signedUrlExpiresAt: uploadUrlExpiresAt } =
-        signOssObjectUploadUrl({
+        await signOssObjectUploadUrl({
           objectKey,
           contentType: metadata.mimeType,
           expiresInSeconds: 10 * 60,
+          location,
         });
-      const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
+      const { signedUrl, signedUrlExpiresAt } = await getCachedSignedOssObjectUrl({
         objectKey,
         expiresInSeconds: 60 * 60,
+        location,
       });
 
       return {
@@ -133,16 +133,20 @@ export async function detectLogoBoxesAction(input: {
           detectionLabelText: z.string().trim().min(1),
         })
         .parse(input);
-      if (!isTeamLogoObjectKey(parsed.objectKey, teamId)) {
+      const { token, location } = await getCurrentOssUploadLocation();
+      try {
+        assertObjectKeyMatchesUploadToken(parsed.objectKey);
+      } catch {
         return {
           success: false,
           message: "Only image files are supported.",
         };
       }
 
-      const { signedUrl, signedUrlExpiresAt } = getCachedSignedOssObjectUrl({
+      const { signedUrl, signedUrlExpiresAt } = await getCachedSignedOssObjectUrl({
         objectKey: parsed.objectKey,
         expiresInSeconds: 60 * 60,
+        location,
       });
       const detection = await detectBrandLogoBoxes({
         teamId,

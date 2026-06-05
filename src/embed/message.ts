@@ -173,6 +173,33 @@ function handleParentMessageAction(action: string, args: any, dispatchId?: strin
       }
       break;
 
+    case "updateUploadToken":
+      if (args && typeof window !== "undefined") {
+        console.log("args from postmessage iframe = ", JSON.stringify(args));
+        void fetch("/api/embed/upload-token", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify(args),
+        })
+          .then(async (response) => {
+            if (!response.ok) {
+              const payload = (await response.json().catch(() => null)) as {
+                message?: string;
+              } | null;
+              throw new Error(
+                payload?.message ?? `Failed to update OSS upload token (${response.status})`,
+              );
+            }
+          })
+          .catch((error) => {
+            console.error("Failed to update OSS upload token:", error);
+          });
+      }
+      break;
+
     case "updateFeatureLibrary":
       if (isFeatureLibraryValue(args?.featureLibrary) && typeof window !== "undefined") {
         localStorage.setItem(FEATURE_LIBRARY_STORAGE_KEY, args.featureLibrary);
