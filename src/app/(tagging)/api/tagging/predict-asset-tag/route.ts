@@ -28,14 +28,26 @@ const requestSchema = z.object({
     }),
   triggerType: z.enum(["default", "manual", "scheduled"]).optional().default("default"),
   recognitionAccuracy: z.enum(["precise", "balanced", "broad"]).optional().default("balanced"),
-  featureLibrary: z.enum(["on", "off"]).optional(),
+  featureLibrary: z.preprocess(
+    (val) => {
+      if (typeof val === "number") {
+        return val === 1 ? "on" : val === 0 ? "off" : val;
+      }
+      if (typeof val === "string") {
+        if (val === "1") return "on";
+        if (val === "0") return "off";
+      }
+      return val;
+    },
+    z.enum(["on", "off"]).optional(),
+  ),
 });
 
 export async function POST(request: NextRequest) {
   try {
     // 解析请求体
     const body = await request.json();
-    console.log("body = ", JSON.stringify(body, null, 2));
+    // console.log("body = ", JSON.stringify(body, null, 2));
     const {
       teamId: musedamTeamId,
       assetId: musedamAssetId,

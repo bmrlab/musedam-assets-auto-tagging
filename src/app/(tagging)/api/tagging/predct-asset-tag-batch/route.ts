@@ -16,14 +16,26 @@ const requestSchema = z.object({
   assetIds: z.array(z.number().positive()).optional(),
   // 可选参数，指定每批处理的数量，默认100
   batchSize: z.number().min(1).max(500).optional().default(100),
-  featureLibrary: z.enum(["on", "off"]).optional(),
+  featureLibrary: z.preprocess(
+    (val) => {
+      if (typeof val === "number") {
+        return val === 1 ? "on" : val === 0 ? "off" : val;
+      }
+      if (typeof val === "string") {
+        if (val === "1") return "on";
+        if (val === "0") return "off";
+      }
+      return val;
+    },
+    z.enum(["on", "off"]).optional(),
+  ),
 });
 
 export async function POST(request: NextRequest) {
   try {
     // 解析请求体
     const body = await request.json();
-    // console.log("body = ", JSON.stringify(body, null, 2));
+    // console.log("body batch = ", JSON.stringify(body, null, 2));
     const {
       teamId: musedamTeamId,
       assetIds,
