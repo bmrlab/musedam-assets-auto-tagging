@@ -40,6 +40,7 @@ export type LLMModelName =
   | "gpt-5"
   | "gpt-5-mini"
   | "gpt-5-nano"
+  | "qwen3-vl-flash"
   | "claude-3-7-sonnet"
   | "claude-sonnet-4";
 
@@ -64,6 +65,8 @@ export function llm(modelName: LLMModelName) {
       } else {
         return openai(modelName);
       }
+    case "qwen3-vl-flash":
+      return openai.chat(modelName);
   }
   switch (modelName) {
     case "gpt-5":
