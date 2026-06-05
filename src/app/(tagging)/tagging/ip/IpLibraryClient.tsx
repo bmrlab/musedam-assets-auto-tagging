@@ -798,7 +798,7 @@ export default function IpLibraryClient({
                 ) : (
                   <div className="flex min-h-0 flex-1 flex-col">
                     <div className="flex-1 overflow-x-auto">
-                      <table className="min-w-full table-fixed [&_th]:font-medium [&_th]:leading-5 [&_th]:align-middle [&_td]:leading-5 [&_td]:align-middle">
+                      <table className="min-w-full table-auto [&_th]:font-medium [&_th]:leading-5 [&_th]:align-middle [&_td]:leading-5 [&_td]:align-middle [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap">
                         <thead>
                           <tr className="h-[45px] border-b text-left text-[14px] leading-[20px] text-basic-5">
                             <th className="w-[40px] px-3 py-0"></th>
@@ -898,7 +898,7 @@ export default function IpLibraryClient({
                                     </div>
                                   </div>
                                 </td>
-                                <td className="h-[58px] px-3 py-0 align-middle text-[14px] text-basic-8">
+                                <td className="h-[58px] px-3 py-2 align-middle text-[14px] text-basic-8">
                                   <div className="space-y-2">
                                     <div>{ip.ipTypeName}</div>
                                     <span
