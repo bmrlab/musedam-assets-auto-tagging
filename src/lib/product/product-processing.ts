@@ -12,10 +12,9 @@ import { randomUUID } from "crypto";
 import { z } from "zod";
 import {
   deleteProductVectorPointsByProduct,
-  ensureProductVectorCollection,
   setProductVectorPayloadByProduct,
   upsertProductVectorPoints,
-} from "./qdrant";
+} from "./pgvector";
 
 const PRODUCT_PROCESSING_ERROR_CODES = {
   categoryPredictionFailed: "category_prediction_failed",
@@ -60,7 +59,7 @@ function getProcessingErrorCode(error: unknown): ProductProcessingErrorCode {
     return PRODUCT_PROCESSING_ERROR_CODES.jinaRequestFailed;
   }
 
-  if (message.includes("Qdrant request failed")) {
+  if (message.includes("pgvector") || message.includes("vector")) {
     return PRODUCT_PROCESSING_ERROR_CODES.vectorStoreSyncFailed;
   }
 
@@ -193,7 +192,7 @@ export async function markAssetProductVectorsProcessing({
         assetProductId: productId,
       },
       data: {
-        qdrantPointId: null,
+        pgvectorPointId: null,
         embeddingModel: null,
         embeddedAt: null,
       },
@@ -268,7 +267,6 @@ export async function processAssetProductReferenceVectors({
       imageInputs,
     });
 
-    await ensureProductVectorCollection(vectorSize);
     await deleteProductVectorPointsByProduct({
       teamId,
       assetProductId: product.id,
@@ -345,7 +343,7 @@ export async function processAssetProductReferenceVectors({
               id: image.id,
             },
             data: {
-              qdrantPointId: imagePointIds[index],
+              pgvectorPointId: imagePointIds[index],
               embeddingModel,
               embeddedAt: processedAt,
             },

@@ -156,7 +156,7 @@
         "imageFetchFailed": "Lettura immagine di riferimento fallita",
         "jinaRequestFailed": "Chiamata Jina per generazione vettori fallita",
         "embeddingCountMismatch": "Il numero di vettori restituiti non corrisponde al numero di immagini di riferimento",
-        "vectorStoreSyncFailed": "Sincronizzazione vettori su Qdrant fallita",
+        "vectorStoreSyncFailed": "Sincronizzazione vettori su pgvector fallita",
         "unknown": "Elaborazione identità del marchio fallita"
       },
       "logoType": {
@@ -559,7 +559,7 @@
     "BrandClassify": {
       "backToLibrary": "Torna alla Libreria Marchio",
       "pageTitle": "Pagina Dev Classificazione Logo Marchio",
-      "pageDescription": "Dopo aver caricato un'immagine prodotto, il sistema prima chiamerà il servizio di rilevamento per trovare possibili aree di logo, poi userà Jina + Qdrant per la ricerca di similarità.",
+      "pageDescription": "Dopo aver caricato un'immagine prodotto, il sistema prima chiamerà il servizio di rilevamento per trovare possibili aree di logo, poi userà Jina + pgvector per la ricerca di similarità.",
       "availableLogos": "Loghi di Riferimento Disponibili",
       "statsDescription": "Solo conteggio dati di elaborazione vettori abilitati e completati",
       "uploadProductImage": "Carica l'immagine del prodotto da classificare",
@@ -773,7 +773,7 @@
         "imageFetchFailed": "Lettura immagine di riferimento fallita",
         "jinaRequestFailed": "Generazione embeddings con Jina fallita",
         "embeddingCountMismatch": "Il numero di embeddings restituiti non corrisponde al numero di immagini",
-        "vectorStoreSyncFailed": "Sincronizzazione vettori su Qdrant fallita",
+        "vectorStoreSyncFailed": "Sincronizzazione vettori su pgvector fallita",
         "unknown": "Elaborazione personaggio IP fallita"
       },
       "ipType": {
@@ -1017,7 +1017,7 @@
         "faceCountNotOne": "\"{identifier}\" ha rilevato {count} volti. Ogni foto di riferimento deve contenere esattamente 1 volto",
         "faceDetectionFailed": "Richiesta rilevamento volto fallita",
         "generateEmbeddingFailed": "Generazione embedding volto fallita",
-        "vectorStoreSyncFailed": "Sincronizzazione vettori su Qdrant fallita",
+        "vectorStoreSyncFailed": "Sincronizzazione vettori su pgvector fallita",
         "unknown": "Elaborazione persona fallita"
       },
       "personType": {
@@ -1262,7 +1262,7 @@
         "jinaRequestFailed": "Chiamata Jina per generazione vettori fallita",
         "embeddingCountMismatch": "Il numero di vettori restituiti non corrisponde al numero di immagini",
         "categoryPredictionFailed": "Predizione categoria generale prodotto fallita",
-        "vectorStoreSyncFailed": "Sincronizzazione vettori su Qdrant fallita",
+        "vectorStoreSyncFailed": "Sincronizzazione vettori su pgvector fallita",
         "unknown": "Elaborazione prodotto fallita"
       },
       "productType": {

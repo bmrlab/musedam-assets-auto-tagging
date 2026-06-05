@@ -156,7 +156,7 @@
         "imageFetchFailed": "读取参考图片失败",
         "jinaRequestFailed": "调用 Jina 生成向量失败",
         "embeddingCountMismatch": "返回的向量数量与参考图片数量不一致",
-        "vectorStoreSyncFailed": "同步向量到 Qdrant 失败",
+        "vectorStoreSyncFailed": "同步向量到 pgvector 失败",
         "unknown": "品牌标识处理失败"
       },
       "logoType": {
@@ -439,7 +439,7 @@
         "imageFetchFailed": "读取参考图片失败",
         "jinaRequestFailed": "调用 Jina 生成向量失败",
         "embeddingCountMismatch": "返回的向量数量与参考图片数量不一致",
-        "vectorStoreSyncFailed": "同步向量到 Qdrant 失败",
+        "vectorStoreSyncFailed": "同步向量到 pgvector 失败",
         "unknown": "IP形象处理失败"
       },
       "ipType": {
@@ -509,7 +509,7 @@
     "BrandClassify": {
       "backToLibrary": "返回品牌库",
       "pageTitle": "品牌 Logo 分类开发页",
-      "pageDescription": "上传商品图后，系统会先调用检测服务找可能的 Logo 区域，再用 Jina + Qdrant 做相似度检索。",
+      "pageDescription": "上传商品图后，系统会先调用检测服务找可能的 Logo 区域，再用 Jina + pgvector 做相似度检索。",
       "availableLogos": "可用参考 Logo",
       "statsDescription": "仅统计已启用且已完成向量处理的数据",
       "uploadProductImage": "请上传待分类的商品图片",
@@ -1017,7 +1017,7 @@
         "faceCountNotOne": "\"{identifier}\" 检测到 {count} 张人脸。每张参考照片必须且只能包含 1 张人脸",
         "faceDetectionFailed": "调用人脸检测失败",
         "generateEmbeddingFailed": "生成人脸向量失败",
-        "vectorStoreSyncFailed": "同步向量到 Qdrant 失败",
+        "vectorStoreSyncFailed": "同步向量到 pgvector 失败",
         "unknown": "人物处理失败"
       },
       "personType": {
@@ -1262,7 +1262,7 @@
         "jinaRequestFailed": "调用 Jina 生成向量失败",
         "embeddingCountMismatch": "返回的向量数量与参考图片数量不一致",
         "categoryPredictionFailed": "预测商品通用类目失败",
-        "vectorStoreSyncFailed": "同步向量到 Qdrant 失败",
+        "vectorStoreSyncFailed": "同步向量到 pgvector 失败",
         "unknown": "商品处理失败"
       },
       "productType": {

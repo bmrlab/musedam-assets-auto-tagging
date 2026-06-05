@@ -3,7 +3,6 @@ import {
   FEATURE_LIBRARY_COOKIE,
   FEATURE_LIBRARY_PARAM,
   featureLibraryEnabledToValue,
-  isFeatureLibraryRoute,
   isFeatureLibraryValue,
   resolveFeatureLibraryEnabled,
 } from "@/lib/feature-library";
@@ -102,14 +101,7 @@ export async function middleware(req: NextRequest) {
     req.cookies.get(FEATURE_LIBRARY_COOKIE)?.value,
   );
 
-  let response: NextResponse;
-  if (!featureLibraryEnabled && isFeatureLibraryRoute(req.nextUrl.pathname)) {
-    const redirectUrl = req.nextUrl.clone();
-    redirectUrl.pathname = "/tagging/dashboard";
-    response = NextResponse.redirect(redirectUrl);
-  } else {
-    response = NextResponse.next();
-  }
+  const response = NextResponse.next();
 
   handleLocale(req, response);
   handleFeatureLibrary(req, response);

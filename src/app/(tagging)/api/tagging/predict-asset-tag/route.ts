@@ -35,6 +35,7 @@ export async function POST(request: NextRequest) {
   try {
     // 解析请求体
     const body = await request.json();
+    console.log("body = ", JSON.stringify(body, null, 2));
     const {
       teamId: musedamTeamId,
       assetId: musedamAssetId,

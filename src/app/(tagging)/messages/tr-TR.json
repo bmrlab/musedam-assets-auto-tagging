@@ -156,7 +156,7 @@
         "imageFetchFailed": "Referans resim okuma başarısız",
         "jinaRequestFailed": "Jina ile vektör üretimi çağrısı başarısız",
         "embeddingCountMismatch": "Dönen vektör sayısı referans resim sayısıyla uyuşmuyor",
-        "vectorStoreSyncFailed": "Vektörleri Qdrant'a senkronize etme başarısız",
+        "vectorStoreSyncFailed": "Vektörleri pgvector'a senkronize etme başarısız",
         "unknown": "Marka kimliği işleme başarısız"
       },
       "logoType": {
@@ -439,7 +439,7 @@
         "imageFetchFailed": "Referans resim okuma başarısız",
         "jinaRequestFailed": "Jina ile vektör üretimi çağrısı başarısız",
         "embeddingCountMismatch": "Dönen vektör sayısı referans resim sayısıyla uyuşmuyor",
-        "vectorStoreSyncFailed": "Vektörleri Qdrant'a senkronize etme başarısız",
+        "vectorStoreSyncFailed": "Vektörleri pgvector'a senkronize etme başarısız",
         "unknown": "IP karakteri işleme başarısız"
       },
       "ipType": {
@@ -807,7 +807,7 @@
     "BrandClassify": {
       "backToLibrary": "Marka Kütüphanesine Dön",
       "pageTitle": "Marka Logo Sınıflandırma Geliştirme Sayfası",
-      "pageDescription": "Ürün resmi yüklendikten sonra sistem önce tespit servisini çağırarak olası Logo bölgelerini bulur, ardından Jina + Qdrant kullanarak benzerlik araması yapar.",
+      "pageDescription": "Ürün resmi yüklendikten sonra sistem önce tespit servisini çağırarak olası Logo bölgelerini bulur, ardından Jina + pgvector kullanarak benzerlik araması yapar.",
       "availableLogos": "Kullanılabilir Referans Logolar",
       "statsDescription": "Yalnızca etkinleştirilmiş ve vektör işleme tamamlanmış veriler istatistiklere dahil edilir",
       "uploadProductImage": "Sınıflandırma için ürün resmi yükleyin",
@@ -1017,7 +1017,7 @@
         "faceCountNotOne": "\"{identifier}\" {count} yüz algılandı. Her referans fotoğrafında tam olarak 1 yüz olmalı",
         "faceDetectionFailed": "Yüz algılama çağrısı başarısız",
         "generateEmbeddingFailed": "Yüz vektörü oluşturma başarısız",
-        "vectorStoreSyncFailed": "Vektör Qdrant'a senkronizasyonu başarısız",
+        "vectorStoreSyncFailed": "Vektör pgvector'a senkronizasyonu başarısız",
         "unknown": "Kişi işleme başarısız"
       },
       "personType": {
@@ -1262,7 +1262,7 @@
         "jinaRequestFailed": "Jina ile vektör üretimi çağrısı başarısız",
         "embeddingCountMismatch": "Dönen vektör sayısı referans resim sayısıyla uyuşmuyor",
         "categoryPredictionFailed": "Ürün genel kategorisi tahmini başarısız",
-        "vectorStoreSyncFailed": "Vektörleri Qdrant'a senkronize etme başarısız",
+        "vectorStoreSyncFailed": "Vektörleri pgvector'a senkronize etme başarısız",
         "unknown": "Ürün işleme başarısız"
       },
       "productType": {

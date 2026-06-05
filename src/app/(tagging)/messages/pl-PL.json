@@ -156,7 +156,7 @@
         "imageFetchFailed": "Nie udało się wczytać obrazu referencyjnego",
         "jinaRequestFailed": "Nie udało się wygenerować wektorów za pomocą Jina",
         "embeddingCountMismatch": "Liczba zwróconych wektorów nie zgadza się z liczbą obrazów referencyjnych",
-        "vectorStoreSyncFailed": "Nie udało się zsynchronizować wektorów z Qdrant",
+        "vectorStoreSyncFailed": "Nie udało się zsynchronizować wektorów z pgvector",
         "unknown": "Przetwarzanie identyfikacji marki nie powiodło się"
       },
       "logoType": {
@@ -439,7 +439,7 @@
         "imageFetchFailed": "Nie udało się wczytać obrazu referencyjnego",
         "jinaRequestFailed": "Nie udało się wygenerować wektorów za pomocą Jina",
         "embeddingCountMismatch": "Liczba zwróconych wektorów nie zgadza się z liczbą obrazów referencyjnych",
-        "vectorStoreSyncFailed": "Nie udało się zsynchronizować wektorów z Qdrant",
+        "vectorStoreSyncFailed": "Nie udało się zsynchronizować wektorów z pgvector",
         "unknown": "Przetwarzanie postaci IP nie powiodło się"
       },
       "ipType": {
@@ -807,7 +807,7 @@
     "BrandClassify": {
       "backToLibrary": "Powrót do biblioteki marki",
       "pageTitle": "Strona deweloperska klasyfikacji logo marki",
-      "pageDescription": "Po przesłaniu obrazu produktu system najpierw wywoła usługę detekcji w celu znalezienia potencjalnych obszarów logo, a następnie użyje Jina + Qdrant do wyszukiwania podobieństwa.",
+      "pageDescription": "Po przesłaniu obrazu produktu system najpierw wywoła usługę detekcji w celu znalezienia potencjalnych obszarów logo, a następnie użyje Jina + pgvector do wyszukiwania podobieństwa.",
       "availableLogos": "Dostępne loga referencyjne",
       "statsDescription": "Liczone są tylko dane włączone i z zakończonym przetwarzaniem wektorów",
       "uploadProductImage": "Prześlij obraz produktu do klasyfikacji",
@@ -1017,7 +1017,7 @@
         "faceCountNotOne": "\"{identifier}\" wykryto {count} twarzy. Każde zdjęcie referencyjne musi zawierać dokładnie 1 twarz",
         "faceDetectionFailed": "Żądanie wykrywania twarzy nie powiodło się",
         "generateEmbeddingFailed": "Generowanie wektorów twarzy nie powiodło się",
-        "vectorStoreSyncFailed": "Nie udało się zsynchronizować wektorów z Qdrant",
+        "vectorStoreSyncFailed": "Nie udało się zsynchronizować wektorów z pgvector",
         "unknown": "Przetwarzanie osoby nie powiodło się"
       },
       "personType": {
@@ -1262,7 +1262,7 @@
         "jinaRequestFailed": "Nie udało się wygenerować wektorów za pomocą Jina",
         "embeddingCountMismatch": "Liczba zwróconych wektorów nie zgadza się z liczbą obrazów referencyjnych",
         "categoryPredictionFailed": "Nie udało się przewidzieć ogólnej kategorii produktu",
-        "vectorStoreSyncFailed": "Nie udało się zsynchronizować wektorów z Qdrant",
+        "vectorStoreSyncFailed": "Nie udało się zsynchronizować wektorów z pgvector",
         "unknown": "Przetwarzanie produktu nie powiodło się"
       },
       "productType": {

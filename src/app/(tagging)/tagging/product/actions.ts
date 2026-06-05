@@ -3,6 +3,10 @@
 import { withAuth } from "@/app/(auth)/withAuth";
 import { MAX_CLIENT_IMAGE_UPLOAD_BYTES } from "@/lib/brand/upload-constants";
 import {
+  deleteProductVectorPointsByProduct,
+  setProductVectorPayloadByProduct,
+} from "@/lib/product/pgvector";
+import {
   ProductDetectionBox,
   classifyProductImageCrops,
   detectProductFigureBoxes,
@@ -11,10 +15,6 @@ import {
   markAssetProductVectorsProcessing,
   processAssetProductReferenceVectors,
 } from "@/lib/product/product-processing";
-import {
-  deleteProductVectorPointsByProduct,
-  setProductVectorPayloadByProduct,
-} from "@/lib/product/qdrant";
 import {
   buildAssetProductObjectKey,
   getBrowserS3ObjectUploadUrl,
@@ -1812,7 +1812,7 @@ export async function updateAssetProductAction(
             },
             data: {
               sort: index + 1,
-              qdrantPointId: null,
+              pgvectorPointId: null,
               embeddingModel: null,
               embeddedAt: null,
             },
@@ -1922,7 +1922,7 @@ export async function setAssetProductEnabledAction(
           enabled,
         },
       }).catch((error) => {
-        console.warn("Failed to sync Product enabled payload to Qdrant:", error);
+        console.warn("Failed to sync Product enabled payload to pgvector:", error);
       });
 
       const updatedProduct = await loadProduct(teamId, productId);

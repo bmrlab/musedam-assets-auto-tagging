@@ -396,7 +396,7 @@
         "imageFetchFailed": "참조 이미지 읽기 실패",
         "jinaRequestFailed": "Jina로 임베딩 생성 실패",
         "embeddingCountMismatch": "반환된 임베딩 수가 이미지 수와 일치하지 않습니다",
-        "vectorStoreSyncFailed": "Qdrant에 벡터 동기화 실패",
+        "vectorStoreSyncFailed": "pgvector에 벡터 동기화 실패",
         "unknown": "브랜드 식별 처리 실패"
       },
       "logoType": {
@@ -558,7 +558,7 @@
     "BrandClassify": {
       "backToLibrary": "브랜드 라이브러리로 돌아가기",
       "pageTitle": "브랜드 로고 분류 개발 페이지",
-      "pageDescription": "상품 이미지를 업로드하면 시스템이 먼저 감지 서비스를 호출하여 잠재적 로고 영역을 찾은 다음 Jina + Qdrant를 사용하여 유사도 검색을 수행합니다.",
+      "pageDescription": "상품 이미지를 업로드하면 시스템이 먼저 감지 서비스를 호출하여 잠재적 로고 영역을 찾은 다음 Jina + pgvector를 사용하여 유사도 검색을 수행합니다.",
       "availableLogos": "사용 가능한 참조 로고",
       "statsDescription": "활성화되고 완료된 벡터 처리 데이터만 통계합니다",
       "uploadProductImage": "분류할 상품 이미지를 업로드하세요",
@@ -772,7 +772,7 @@
         "imageFetchFailed": "참조 이미지 읽기 실패",
         "jinaRequestFailed": "Jina로 임베딩 생성 실패",
         "embeddingCountMismatch": "반환된 임베딩 수가 이미지 수와 일치하지 않습니다",
-        "vectorStoreSyncFailed": "Qdrant에 벡터 동기화 실패",
+        "vectorStoreSyncFailed": "pgvector에 벡터 동기화 실패",
         "unknown": "IP 캐릭터 처리 실패"
       },
       "ipType": {
@@ -1015,7 +1015,7 @@
         "faceCountNotOne": "\"{identifier}\"에서 {count}개의 얼굴을 감지했습니다. 각 참조 사진에는 정확히 1개의 얼굴이 있어야 합니다",
         "faceDetectionFailed": "얼굴 감지 요청에 실패했습니다",
         "generateEmbeddingFailed": "얼굴 임베딩 생성에 실패했습니다",
-        "vectorStoreSyncFailed": "Qdrant로 벡터 동기화에 실패했습니다",
+        "vectorStoreSyncFailed": "pgvector로 벡터 동기화에 실패했습니다",
         "unknown": "인물 처리에 실패했습니다"
       },
       "personType": {
@@ -1260,7 +1260,7 @@
         "jinaRequestFailed": "Jina로 임베딩 생성에 실패했습니다",
         "embeddingCountMismatch": "반환된 임베딩 수가 이미지 수와 일치하지 않습니다",
         "categoryPredictionFailed": "상품 일반 카테고리 예측에 실패했습니다",
-        "vectorStoreSyncFailed": "Qdrant로 벡터 동기화에 실패했습니다",
+        "vectorStoreSyncFailed": "pgvector로 벡터 동기화에 실패했습니다",
         "unknown": "상품 처리에 실패했습니다"
       },
       "productType": {

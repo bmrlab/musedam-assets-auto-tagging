@@ -6,12 +6,11 @@ import {
   FEATURE_LIBRARY_STORAGE_KEY,
   FeatureLibraryValue,
   featureLibraryEnabledToValue,
-  isFeatureLibraryRoute,
   isFeatureLibraryValue,
   resolveFeatureLibraryEnabled,
 } from "@/lib/feature-library";
 import Cookies from "js-cookie";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 function readBrowserFeatureLibraryEnabled() {
@@ -44,8 +43,6 @@ export function setFeatureLibraryValue(value: FeatureLibraryValue) {
 }
 
 export function useFeatureLibraryEnabled() {
-  const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
   const [enabled, setEnabled] = useState(false);
 
@@ -74,21 +71,11 @@ export function useFeatureLibraryEnabled() {
 
       const nextEnabled = value !== "off";
       setEnabled(nextEnabled);
-
-      if (!nextEnabled && isFeatureLibraryRoute(pathname)) {
-        router.replace("/tagging/dashboard");
-      }
     };
 
     window.addEventListener("feature-library-change", handleFeatureLibraryChange);
     return () => window.removeEventListener("feature-library-change", handleFeatureLibraryChange);
-  }, [pathname, router]);
-
-  useEffect(() => {
-    if (!enabled && isFeatureLibraryRoute(pathname)) {
-      router.replace("/tagging/dashboard");
-    }
-  }, [enabled, pathname, router]);
+  }, []);
 
   return enabled;
 }

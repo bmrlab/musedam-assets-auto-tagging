@@ -7,7 +7,6 @@ import {
   FEATURE_LIBRARY_COOKIE,
   FEATURE_LIBRARY_PARAM,
   FEATURE_LIBRARY_STORAGE_KEY,
-  isFeatureLibraryRoute,
   isFeatureLibraryValue,
 } from "@/lib/feature-library";
 import { MuseDAMID } from "@/musedam/types";
@@ -190,9 +189,6 @@ function handleParentMessageAction(action: string, args: any, dispatchId?: strin
         try {
           const url = new URL(window.location.href);
           url.searchParams.set(FEATURE_LIBRARY_PARAM, args.featureLibrary);
-          if (args.featureLibrary === "off" && isFeatureLibraryRoute(url.pathname)) {
-            url.pathname = "/tagging/dashboard";
-          }
           window.location.replace(url.toString());
         } catch {
           window.location.reload();

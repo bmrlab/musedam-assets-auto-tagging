@@ -1,6 +1,6 @@
 import "server-only";
 
-import { queryPersonVectorPoints } from "@/lib/person/qdrant";
+import { queryPersonVectorPoints } from "@/lib/person/pgvector";
 import prisma from "@/prisma/prisma";
 import { PersonFaceDetectionBox, detectPersonFaces } from "./face-api";
 

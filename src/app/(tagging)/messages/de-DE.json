@@ -396,7 +396,7 @@
         "imageFetchFailed": "Referenzbild konnte nicht gelesen werden",
         "jinaRequestFailed": "Fehler bei der Erzeugung von Embeddings mit Jina",
         "embeddingCountMismatch": "Die Anzahl der zurückgegebenen Embeddings stimmt nicht mit der Anzahl der Bilder überein",
-        "vectorStoreSyncFailed": "Synchronisation der Vektoren zu Qdrant fehlgeschlagen",
+        "vectorStoreSyncFailed": "Synchronisation der Vektoren zu pgvector fehlgeschlagen",
         "unknown": "Verarbeitung der Markenidentität fehlgeschlagen"
       },
       "logoType": {
@@ -559,7 +559,7 @@
     "BrandClassify": {
       "backToLibrary": "Zurück zur Markenbibliothek",
       "pageTitle": "Entwicklungsseite zur Markenlogo-Klassifizierung",
-      "pageDescription": "Nach dem Hochladen eines Produktbildes ruft das System zuerst den Erkennungsdienst auf, um potenzielle Logobereiche zu finden, und verwendet dann Jina + Qdrant für eine Ähnlichkeitssuche.",
+      "pageDescription": "Nach dem Hochladen eines Produktbildes ruft das System zuerst den Erkennungsdienst auf, um potenzielle Logobereiche zu finden, und verwendet dann Jina + pgvector für eine Ähnlichkeitssuche.",
       "availableLogos": "Verfügbare Referenz-Logos",
       "statsDescription": "Statistik nur für aktivierte und abgeschlossene Vektorverarbeitungsdaten",
       "uploadProductImage": "Bitte laden Sie ein zu klassifizierendes Produktbild hoch",
@@ -773,7 +773,7 @@
         "imageFetchFailed": "Referenzbild konnte nicht gelesen werden",
         "jinaRequestFailed": "Fehler bei der Erzeugung von Embeddings mit Jina",
         "embeddingCountMismatch": "Die Anzahl der zurückgegebenen Embeddings stimmt nicht mit der Anzahl der Bilder überein",
-        "vectorStoreSyncFailed": "Synchronisation der Vektoren zu Qdrant fehlgeschlagen",
+        "vectorStoreSyncFailed": "Synchronisation der Vektoren zu pgvector fehlgeschlagen",
         "unknown": "IP-Charakter-Verarbeitung fehlgeschlagen"
       },
       "ipType": {
@@ -1017,7 +1017,7 @@
         "faceCountNotOne": "\"{identifier}\" hat {count} Gesichter erkannt. Jedes Referenzfoto muss genau 1 Gesicht enthalten",
         "faceDetectionFailed": "Gesichtserkennungsanfrage fehlgeschlagen",
         "generateEmbeddingFailed": "Gesichts-Einbettungsgenerierung fehlgeschlagen",
-        "vectorStoreSyncFailed": "Synchronisierung der Vektoren mit Qdrant fehlgeschlagen",
+        "vectorStoreSyncFailed": "Synchronisierung der Vektoren mit pgvector fehlgeschlagen",
         "unknown": "Personenverarbeitung fehlgeschlagen"
       },
       "personType": {
@@ -1262,7 +1262,7 @@
         "jinaRequestFailed": "Fehler bei der Erzeugung von Embeddings mit Jina",
         "embeddingCountMismatch": "Die Anzahl der zurückgegebenen Embeddings stimmt nicht mit der Anzahl der Bilder überein",
         "categoryPredictionFailed": "Vorhersage der allgemeinen Produktkategorie fehlgeschlagen",
-        "vectorStoreSyncFailed": "Synchronisation der Vektoren zu Qdrant fehlgeschlagen",
+        "vectorStoreSyncFailed": "Synchronisation der Vektoren zu pgvector fehlgeschlagen",
         "unknown": "Produktverarbeitung fehlgeschlagen"
       },
       "productType": {

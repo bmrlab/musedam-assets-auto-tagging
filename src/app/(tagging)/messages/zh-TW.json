@@ -396,7 +396,7 @@
         "imageFetchFailed": "讀取參考圖片失敗",
         "jinaRequestFailed": "呼叫 Jina 產生向量失敗",
         "embeddingCountMismatch": "回傳的向量數量與參考圖片數量不一致",
-        "vectorStoreSyncFailed": "同步向量到 Qdrant 失敗",
+        "vectorStoreSyncFailed": "同步向量到 pgvector 失敗",
         "unknown": "品牌標識處理失敗"
       },
       "logoType": {
@@ -559,7 +559,7 @@
     "BrandClassify": {
       "backToLibrary": "返回品牌庫",
       "pageTitle": "品牌 Logo 分類開發頁",
-      "pageDescription": "上傳商品圖後，系統會先呼叫檢測服務找可能的 Logo 區域，再用 Jina + Qdrant 做相似度檢索。",
+      "pageDescription": "上傳商品圖後，系統會先呼叫檢測服務找可能的 Logo 區域，再用 Jina + pgvector 做相似度檢索。",
       "availableLogos": "可用參考 Logo",
       "statsDescription": "僅統計已啟用且已完成向量處理的資料",
       "uploadProductImage": "請上傳待分類的商品圖片",
@@ -773,7 +773,7 @@
         "imageFetchFailed": "讀取參考圖片失敗",
         "jinaRequestFailed": "呼叫 Jina 產生向量失敗",
         "embeddingCountMismatch": "回傳的向量數量與參考圖片數量不一致",
-        "vectorStoreSyncFailed": "同步向量到 Qdrant 失敗",
+        "vectorStoreSyncFailed": "同步向量到 pgvector 失敗",
         "unknown": "IP 形象處理失敗"
       },
       "ipType": {
@@ -1017,7 +1017,7 @@
         "faceCountNotOne": "「{identifier}」檢測到 {count} 張人臉。每張參考照片必須且只能包含 1 張人臉",
         "faceDetectionFailed": "呼叫人臉檢測失敗",
         "generateEmbeddingFailed": "產生人臉向量失敗",
-        "vectorStoreSyncFailed": "同步向量到 Qdrant 失敗",
+        "vectorStoreSyncFailed": "同步向量到 pgvector 失敗",
         "unknown": "人物處理失敗"
       },
       "personType": {
@@ -1262,7 +1262,7 @@
         "jinaRequestFailed": "呼叫 Jina 產生向量失敗",
         "embeddingCountMismatch": "回傳的向量數量與參考圖片數量不一致",
         "categoryPredictionFailed": "預測商品通用類目失敗",
-        "vectorStoreSyncFailed": "同步向量到 Qdrant 失敗",
+        "vectorStoreSyncFailed": "同步向量到 pgvector 失敗",
         "unknown": "商品處理失敗"
       },
       "productType": {

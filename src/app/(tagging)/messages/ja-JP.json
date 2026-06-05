@@ -396,7 +396,7 @@
         "imageFetchFailed": "参照画像の読み込みに失敗しました",
         "jinaRequestFailed": "Jinaでの埋め込み生成に失敗しました",
         "embeddingCountMismatch": "返された埋め込み数が画像数と一致しません",
-        "vectorStoreSyncFailed": "Qdrantへのベクター同期に失敗しました",
+        "vectorStoreSyncFailed": "pgvectorへのベクター同期に失敗しました",
         "unknown": "ブランド識別処理に失敗しました"
       },
       "logoType": {
@@ -559,7 +559,7 @@
     "BrandClassify": {
       "backToLibrary": "ブランドライブラリに戻る",
       "pageTitle": "ブランドロゴ分類開発ページ",
-      "pageDescription": "商品画像をアップロードすると、システムはまず検出サービスを呼び出して潜在的なロゴ領域を見つけ、次にJina + Qdrantを使用して類似度検索を実行します。",
+      "pageDescription": "商品画像をアップロードすると、システムはまず検出サービスを呼び出して潜在的なロゴ領域を見つけ、次にJina + pgvectorを使用して類似度検索を実行します。",
       "availableLogos": "使用可能な参照ロゴ",
       "statsDescription": "有効化され完了したベクター処理データのみを統計します",
       "uploadProductImage": "分類する商品画像をアップロードしてください",
@@ -773,7 +773,7 @@
         "imageFetchFailed": "参照画像の読み込みに失敗しました",
         "jinaRequestFailed": "Jinaでの埋め込み生成に失敗しました",
         "embeddingCountMismatch": "返された埋め込み数が画像数と一致しません",
-        "vectorStoreSyncFailed": "Qdrantへのベクター同期に失敗しました",
+        "vectorStoreSyncFailed": "pgvectorへのベクター同期に失敗しました",
         "unknown": "IPキャラクター処理に失敗しました"
       },
       "ipType": {
@@ -1017,7 +1017,7 @@
         "faceCountNotOne": "「{identifier}」は{count}枚の顔を検出しました。各参照写真には正確に1つの顔が含まれている必要があります",
         "faceDetectionFailed": "顔検出リクエストに失敗しました",
         "generateEmbeddingFailed": "顔特徴ベクターの生成に失敗しました",
-        "vectorStoreSyncFailed": "Qdrantへのベクター同期に失敗しました",
+        "vectorStoreSyncFailed": "pgvectorへのベクター同期に失敗しました",
         "unknown": "人物処理に失敗しました"
       },
       "personType": {
@@ -1262,7 +1262,7 @@
         "jinaRequestFailed": "Jinaでの埋め込み生成に失敗しました",
         "embeddingCountMismatch": "返された埋め込み数が画像数と一致しません",
         "categoryPredictionFailed": "商品の一般的カテゴリ予測に失敗しました",
-        "vectorStoreSyncFailed": "Qdrantへのベクター同期に失敗しました",
+        "vectorStoreSyncFailed": "pgvectorへのベクター同期に失敗しました",
         "unknown": "商品処理に失敗しました"
       },
       "productType": {

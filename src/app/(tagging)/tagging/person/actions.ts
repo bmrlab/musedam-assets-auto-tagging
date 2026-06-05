@@ -15,7 +15,7 @@ import {
 import {
   deletePersonVectorPointsByPerson,
   setPersonVectorPayloadByPerson,
-} from "@/lib/person/qdrant";
+} from "@/lib/person/pgvector";
 import {
   buildAssetPersonObjectKey,
   getBrowserS3ObjectUploadUrl,
@@ -1655,7 +1655,6 @@ export async function createAssetPersonAction(
         images: allUploadedImages,
         teamId: team.id,
       });
-      await validateSingleFaceReferenceImages(allUploadedImages);
 
       const createdPerson = await prisma.assetPerson.create({
         data: {
@@ -1805,7 +1804,6 @@ export async function updateAssetPersonAction(
         images: allUploadedImages,
         teamId: team.id,
       });
-      await validateSingleFaceReferenceImages(finalImages);
 
       await prisma.$transaction(async (tx) => {
         await tx.assetPerson.update({
@@ -1845,7 +1843,7 @@ export async function updateAssetPersonAction(
             },
             data: {
               sort: index + 1,
-              qdrantPointId: null,
+              pgvectorPointId: null,
               embeddingModel: null,
               embeddedAt: null,
             },
@@ -1959,7 +1957,7 @@ export async function setAssetPersonEnabledAction(
           enabled,
         },
       }).catch((error) => {
-        console.warn("Failed to sync Person enabled payload to Qdrant:", error);
+        console.warn("Failed to sync Person enabled payload to pgvector:", error);
       });
 
       const updatedPerson = await loadPerson(teamId, personId);

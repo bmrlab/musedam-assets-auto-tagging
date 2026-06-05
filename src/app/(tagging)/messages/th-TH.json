@@ -156,7 +156,7 @@
         "imageFetchFailed": "ดึงภาพอ้างอิงล้มเหลว",
         "jinaRequestFailed": "เรียกใช้ Jina เพื่อสร้างเวกเตอร์ล้มเหลว",
         "embeddingCountMismatch": "จำนวนเวกเตอร์ที่ส่งคืนไม่ตรงกับจำนวนภาพอ้างอิง",
-        "vectorStoreSyncFailed": "ซิงค์เวกเตอร์ไปยัง Qdrant ล้มเหลว",
+        "vectorStoreSyncFailed": "ซิงค์เวกเตอร์ไปยัง pgvector ล้มเหลว",
         "unknown": "การประมวลผลการระบุตัวตนแบรนด์ล้มเหลว"
       },
       "logoType": {
@@ -559,7 +559,7 @@
     "BrandClassify": {
       "backToLibrary": "กลับไปที่คลังแบรนด์",
       "pageTitle": "หน้าพัฒนาการจำแนกโลโก้แบรนด์",
-      "pageDescription": "หลังจากอัปโหลดภาพสินค้า ระบบจะเรียกบริการตรวจจับเพื่อหาพื้นที่โลโก้ที่อาจเป็นไปได้ก่อน จากนั้นใช้ Jina + Qdrant ในการค้นหาความคล้ายคลึง",
+      "pageDescription": "หลังจากอัปโหลดภาพสินค้า ระบบจะเรียกบริการตรวจจับเพื่อหาพื้นที่โลโก้ที่อาจเป็นไปได้ก่อน จากนั้นใช้ Jina + pgvector ในการค้นหาความคล้ายคลึง",
       "availableLogos": "โลโก้อ้างอิงที่มีอยู่",
       "statsDescription": "นับเฉพาะข้อมูลที่เปิดใช้งานและประมวลผลเวกเตอร์เสร็จสมบูรณ์",
       "uploadProductImage": "กรุณาอัปโหลดภาพสินค้าเพื่อจำแนก",
@@ -773,7 +773,7 @@
         "imageFetchFailed": "ไม่สามารถอ่านรูปภาพอ้างอิง",
         "jinaRequestFailed": "ไม่สามารถสร้าง embeddings ด้วย Jina",
         "embeddingCountMismatch": "จำนวน embeddings ที่ส่งคืนไม่ตรงกับจำนวนรูปภาพ",
-        "vectorStoreSyncFailed": "ไม่สามารถซิงค์เวกเตอร์ไปยัง Qdrant",
+        "vectorStoreSyncFailed": "ไม่สามารถซิงค์เวกเตอร์ไปยัง pgvector",
         "unknown": "การประมวลผลตัวละคร IP ล้มเหลว"
       },
       "ipType": {
@@ -1017,7 +1017,7 @@
         "faceCountNotOne": "\"{identifier}\" ตรวจพบ {count} ใบหน้า แต่ละรูปอ้างอิงต้องมี 1 ใบหน้าเท่านั้น",
         "faceDetectionFailed": "การตรวจจับใบหน้าล้มเหลว",
         "generateEmbeddingFailed": "การสร้างเวกเตอร์ใบหน้าล้มเหลว",
-        "vectorStoreSyncFailed": "ซิงค์เวกเตอร์ไปยัง Qdrant ล้มเหลว",
+        "vectorStoreSyncFailed": "ซิงค์เวกเตอร์ไปยัง pgvector ล้มเหลว",
         "unknown": "การประมวลผลบุคคลล้มเหลว"
       },
       "personType": {
@@ -1262,7 +1262,7 @@
         "jinaRequestFailed": "ไม่สามารถสร้าง embeddings ด้วย Jina",
         "embeddingCountMismatch": "จำนวน embeddings ที่ส่งคืนไม่ตรงกับจำนวนรูปภาพ",
         "categoryPredictionFailed": "ไม่สามารถทำนายหมวดหมู่ทั่วไปของสินค้า",
-        "vectorStoreSyncFailed": "ไม่สามารถซิงค์เวกเตอร์ไปยัง Qdrant",
+        "vectorStoreSyncFailed": "ไม่สามารถซิงค์เวกเตอร์ไปยัง pgvector",
         "unknown": "การประมวลผลสินค้าล้มเหลว"
       },
       "productType": {

@@ -13,7 +13,7 @@ import {
   processAssetIpReferenceVectors,
 } from "@/lib/ip/ip-processing";
 import { ASSET_IP_MATCH_PATTERNS, IP_PARTIAL_MATCH_PATTERN_OPTIONS } from "@/lib/ip/match-pattern";
-import { deleteIpVectorPointsByIp, setIpVectorPayloadByIp } from "@/lib/ip/qdrant";
+import { deleteIpVectorPointsByIp, setIpVectorPayloadByIp } from "@/lib/ip/pgvector";
 import {
   buildAssetIpObjectKey,
   getBrowserS3ObjectUploadUrl,
@@ -2136,7 +2136,7 @@ export async function updateAssetIpAction(
             },
             data: {
               sort: index + 1,
-              qdrantPointId: null,
+              pgvectorPointId: null,
               embeddingModel: null,
               embeddedAt: null,
               ...buildImageCropData({
@@ -2255,7 +2255,7 @@ export async function setAssetIpEnabledAction(
           enabled,
         },
       }).catch((error) => {
-        console.warn("Failed to sync IP enabled payload to Qdrant:", error);
+        console.warn("Failed to sync IP enabled payload to pgvector:", error);
       });
 
       const updatedIp = await loadIp(teamId, ipId);

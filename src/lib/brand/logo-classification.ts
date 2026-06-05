@@ -2,7 +2,7 @@ import "server-only";
 
 import { getLogoDetectionServerToken, getLogoDetectionServerUrl } from "@/lib/brand/env";
 import { createJinaImageEmbeddings } from "@/lib/brand/jina";
-import { queryLogoVectorPoints } from "@/lib/brand/qdrant";
+import { queryLogoVectorPoints } from "@/lib/brand/pgvector";
 import { normalizeDetectionText } from "@/lib/utils";
 import prisma from "@/prisma/prisma";
 

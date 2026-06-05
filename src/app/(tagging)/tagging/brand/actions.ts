@@ -11,7 +11,7 @@ import {
   markAssetLogoVectorsProcessing,
   processAssetLogoReferenceVectors,
 } from "@/lib/brand/logo-processing";
-import { deleteLogoVectorPointsByLogo, setLogoVectorPayloadByLogo } from "@/lib/brand/qdrant";
+import { deleteLogoVectorPointsByLogo, setLogoVectorPayloadByLogo } from "@/lib/brand/pgvector";
 import { MAX_CLIENT_IMAGE_UPLOAD_BYTES } from "@/lib/brand/upload-constants";
 import {
   buildAssetLogoObjectKey,
@@ -1754,7 +1754,7 @@ export async function updateAssetLogoAction(
             },
             data: {
               sort: index + 1,
-              qdrantPointId: null,
+              pgvectorPointId: null,
               embeddingModel: null,
               embeddedAt: null,
             },
@@ -1864,7 +1864,7 @@ export async function setAssetLogoEnabledAction(
           enabled,
         },
       }).catch((error) => {
-        console.warn("Failed to sync logo enabled payload to Qdrant:", error);
+        console.warn("Failed to sync logo enabled payload to pgvector:", error);
       });
 
       const updatedLogo = await loadBrandLogo(teamId, logoId);

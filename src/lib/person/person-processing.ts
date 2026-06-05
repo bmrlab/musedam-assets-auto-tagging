@@ -7,10 +7,9 @@ import { randomUUID } from "crypto";
 import { detectPersonFaces, generateFaceEmbedding } from "./face-api";
 import {
   deletePersonVectorPointsByPerson,
-  ensurePersonVectorCollection,
   setPersonVectorPayloadByPerson,
   upsertPersonVectorPoints,
-} from "./qdrant";
+} from "./pgvector";
 
 export const PERSON_PROCESSING_ERROR_CODES = {
   faceCountNotOne: "face_count_not_one",
@@ -59,7 +58,7 @@ function getProcessingErrorCode(error: unknown): PersonProcessingErrorCode {
     return PERSON_PROCESSING_ERROR_CODES.generateEmbeddingFailed;
   }
 
-  if (message.includes("Qdrant request failed")) {
+  if (message.includes("pgvector") || message.includes("vector")) {
     return PERSON_PROCESSING_ERROR_CODES.vectorStoreSyncFailed;
   }
 
@@ -119,7 +118,7 @@ export async function markAssetPersonVectorsProcessing({
         assetPersonId: personId,
       },
       data: {
-        qdrantPointId: null,
+        pgvectorPointId: null,
         embeddingModel: null,
         embeddedAt: null,
       },
@@ -189,7 +188,6 @@ export async function processAssetPersonReferenceVectors({
       throw createProcessingError(PERSON_PROCESSING_ERROR_CODES.generateEmbeddingFailed);
     }
 
-    await ensurePersonVectorCollection(vectorSize);
     await deletePersonVectorPointsByPerson({
       teamId,
       assetPersonId: person.id,
@@ -232,7 +230,7 @@ export async function processAssetPersonReferenceVectors({
               id: image.id,
             },
             data: {
-              qdrantPointId: pointIds[index],
+              pgvectorPointId: pointIds[index],
               embeddingModel: embedding.embedding.model_name,
               embeddedAt: processedAt,
             },

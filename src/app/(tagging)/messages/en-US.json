@@ -156,7 +156,7 @@
         "imageFetchFailed": "Failed to read the reference image",
         "jinaRequestFailed": "Failed to generate embeddings with Jina",
         "embeddingCountMismatch": "The number of returned embeddings does not match the number of images",
-        "vectorStoreSyncFailed": "Failed to sync vectors to Qdrant",
+        "vectorStoreSyncFailed": "Failed to sync vectors to pgvector",
         "unknown": "Brand identity processing failed"
       },
       "logoType": {
@@ -439,7 +439,7 @@
         "imageFetchFailed": "Failed to read the reference image",
         "jinaRequestFailed": "Failed to generate embeddings with Jina",
         "embeddingCountMismatch": "The number of returned embeddings does not match the number of images",
-        "vectorStoreSyncFailed": "Failed to sync vectors to Qdrant",
+        "vectorStoreSyncFailed": "Failed to sync vectors to pgvector",
         "unknown": "IP character processing failed"
       },
       "ipType": {
@@ -509,7 +509,7 @@
     "BrandClassify": {
       "backToLibrary": "Back to Brand Library",
       "pageTitle": "Brand Logo Classification Dev Page",
-      "pageDescription": "After uploading a product image, the system will first call the detection service to find potential logo areas, then use Jina + Qdrant for similarity search.",
+      "pageDescription": "After uploading a product image, the system will first call the detection service to find potential logo areas, then use Jina + pgvector for similarity search.",
       "availableLogos": "Available Reference Logos",
       "statsDescription": "Only counting enabled and completed vector processing data",
       "uploadProductImage": "Please upload product image to classify",
@@ -1017,7 +1017,7 @@
         "faceCountNotOne": "\"{identifier}\" has {count, plural, =0 {no faces} =1 {1 face} other {{count} faces}}. Each reference photo must contain exactly 1 face",
         "faceDetectionFailed": "Face detection request failed",
         "generateEmbeddingFailed": "Face embedding generation failed",
-        "vectorStoreSyncFailed": "Failed to sync vectors to Qdrant",
+        "vectorStoreSyncFailed": "Failed to sync vectors to pgvector",
         "unknown": "Person processing failed"
       },
       "personType": {
@@ -1262,7 +1262,7 @@
         "jinaRequestFailed": "Failed to generate embeddings with Jina",
         "embeddingCountMismatch": "The number of returned embeddings does not match the number of images",
         "categoryPredictionFailed": "Failed to predict product general category",
-        "vectorStoreSyncFailed": "Failed to sync vectors to Qdrant",
+        "vectorStoreSyncFailed": "Failed to sync vectors to pgvector",
         "unknown": "Product processing failed"
       },
       "productType": {

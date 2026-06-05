@@ -10,10 +10,9 @@ import prisma from "@/prisma/prisma";
 import { randomUUID } from "crypto";
 import {
   deleteIpVectorPointsByIp,
-  ensureIpVectorCollection,
   setIpVectorPayloadByIp,
   upsertIpVectorPoints,
-} from "./qdrant";
+} from "./pgvector";
 
 const IP_PROCESSING_ERROR_CODES = {
   embeddingCountMismatch: "embedding_count_mismatch",
@@ -53,7 +52,7 @@ function getProcessingErrorCode(error: unknown): IpProcessingErrorCode {
     return IP_PROCESSING_ERROR_CODES.jinaRequestFailed;
   }
 
-  if (message.includes("Qdrant request failed")) {
+  if (message.includes("pgvector") || message.includes("vector")) {
     return IP_PROCESSING_ERROR_CODES.vectorStoreSyncFailed;
   }
 
@@ -164,7 +163,7 @@ export async function markAssetIpVectorsProcessing({
         assetIpId: ipId,
       },
       data: {
-        qdrantPointId: null,
+        pgvectorPointId: null,
         embeddingModel: null,
         embeddedAt: null,
       },
@@ -239,7 +238,6 @@ export async function processAssetIpReferenceVectors({
       throw createProcessingError(IP_PROCESSING_ERROR_CODES.embeddingCountMismatch);
     }
 
-    await ensureIpVectorCollection(vectorSize);
     await deleteIpVectorPointsByIp({
       teamId,
       assetIpId: ip.id,
@@ -319,7 +317,7 @@ export async function processAssetIpReferenceVectors({
               id: image.id,
             },
             data: {
-              qdrantPointId: imagePointIds[index],
+              pgvectorPointId: imagePointIds[index],
               embeddingModel,
               embeddedAt: processedAt,
             },

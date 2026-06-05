@@ -396,7 +396,7 @@
         "imageFetchFailed": "Falha ao ler imagem de referência",
         "jinaRequestFailed": "Falha ao chamar Jina para gerar vetores",
         "embeddingCountMismatch": "A quantidade de vetores retornados não corresponde à quantidade de imagens de referência",
-        "vectorStoreSyncFailed": "Falha ao sincronizar vetores para Qdrant",
+        "vectorStoreSyncFailed": "Falha ao sincronizar vetores para pgvector",
         "unknown": "Falha no processamento da identidade de marca"
       },
       "logoType": {
@@ -559,7 +559,7 @@
     "BrandClassify": {
       "backToLibrary": "Voltar para a Biblioteca de Marca",
       "pageTitle": "Página de Desenvolvimento de Classificação de Logo da Marca",
-      "pageDescription": "Após carregar uma imagem de produto, o sistema primeiro chamará o serviço de detecção para encontrar possíveis áreas de logo, depois usará Jina + Qdrant para busca por similaridade.",
+      "pageDescription": "Após carregar uma imagem de produto, o sistema primeiro chamará o serviço de detecção para encontrar possíveis áreas de logo, depois usará Jina + pgvector para busca por similaridade.",
       "availableLogos": "Logos de Referência Disponíveis",
       "statsDescription": "Apenas contando dados de processamento de vetor habilitados e concluídos",
       "uploadProductImage": "Por favor, carregue a imagem do produto para classificar",
@@ -773,7 +773,7 @@
         "imageFetchFailed": "Falha ao ler a imagem de referência",
         "jinaRequestFailed": "Falha ao gerar embeddings com Jina",
         "embeddingCountMismatch": "O número de embeddings retornados não corresponde ao número de imagens",
-        "vectorStoreSyncFailed": "Falha ao sincronizar vetores para Qdrant",
+        "vectorStoreSyncFailed": "Falha ao sincronizar vetores para pgvector",
         "unknown": "Falha no processamento do personagem IP"
       },
       "ipType": {
@@ -1017,7 +1017,7 @@
         "faceCountNotOne": "\"{identifier}\" detectou {count} rostos. Cada foto de referência deve conter exatamente 1 rosto",
         "faceDetectionFailed": "Falha na solicitação de detecção facial",
         "generateEmbeddingFailed": "Falha na geração de embedding facial",
-        "vectorStoreSyncFailed": "Falha ao sincronizar vetores com o Qdrant",
+        "vectorStoreSyncFailed": "Falha ao sincronizar vetores com o pgvector",
         "unknown": "Falha no processamento da pessoa"
       },
       "personType": {
@@ -1262,7 +1262,7 @@
         "jinaRequestFailed": "Falha ao chamar Jina para gerar vetores",
         "embeddingCountMismatch": "A quantidade de vetores retornados não corresponde à quantidade de imagens de referência",
         "categoryPredictionFailed": "Falha ao prever categoria geral do produto",
-        "vectorStoreSyncFailed": "Falha ao sincronizar vetores para Qdrant",
+        "vectorStoreSyncFailed": "Falha ao sincronizar vetores para pgvector",
         "unknown": "Falha no processamento do produto"
       },
       "productType": {

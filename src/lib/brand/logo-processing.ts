@@ -9,10 +9,9 @@ import {
 } from "@/lib/brand/processing-errors";
 import {
   deleteLogoVectorPointsByLogo,
-  ensureLogoVectorCollection,
   setLogoVectorPayloadByLogo,
   upsertLogoVectorPoints,
-} from "@/lib/brand/qdrant";
+} from "@/lib/brand/pgvector";
 import { getCachedSignedS3ObjectUrl } from "@/lib/s3";
 import prisma from "@/prisma/prisma";
 import { randomUUID } from "crypto";
@@ -42,7 +41,7 @@ function getProcessingErrorCode(error: unknown): BrandProcessingErrorCode {
     return BRAND_PROCESSING_ERROR_CODES.jinaRequestFailed;
   }
 
-  if (message.includes("Qdrant request failed")) {
+  if (message.includes("pgvector") || message.includes("vector")) {
     return BRAND_PROCESSING_ERROR_CODES.vectorStoreSyncFailed;
   }
 
@@ -87,7 +86,7 @@ export async function markAssetLogoVectorsProcessing({
         assetLogoId: logoId,
       },
       data: {
-        qdrantPointId: null,
+        pgvectorPointId: null,
         embeddingModel: null,
         embeddedAt: null,
       },
@@ -102,7 +101,7 @@ export async function markAssetLogoVectorsProcessing({
       status: "processing",
     },
   }).catch((error) => {
-    console.warn("Failed to mark Qdrant payload as processing:", error);
+    console.warn("Failed to mark vector payload as processing:", error);
   });
 }
 
@@ -145,7 +144,6 @@ export async function processAssetLogoReferenceVectors({
       throw createProcessingError(BRAND_PROCESSING_ERROR_CODES.embeddingCountMismatch);
     }
 
-    await ensureLogoVectorCollection(embeddings[0].length);
     await deleteLogoVectorPointsByLogo({
       teamId,
       assetLogoId: logo.id,
@@ -189,7 +187,7 @@ export async function processAssetLogoReferenceVectors({
               id: image.id,
             },
             data: {
-              qdrantPointId: pointIds[index],
+              pgvectorPointId: pointIds[index],
               embeddingModel,
               embeddedAt: processedAt,
             },

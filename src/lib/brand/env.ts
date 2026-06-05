@@ -69,14 +69,6 @@ export function getJinaConfig() {
   };
 }
 
-export function getQdrantConfig() {
-  return {
-    url: getRequiredEnv("QDRANT_URL").replace(/\/$/, ""),
-    apiKey: process.env.QDRANT_API_KEY?.trim() || "",
-    collectionBaseName: getRequiredEnv("QDRANT_COLLECTION_BASE_NAME"),
-  };
-}
-
 export function getLogoDetectionServerUrl() {
   return getRequiredEnv("LOGO_DETECTION_SERVER_URL").replace(/\/$/, "");
 }

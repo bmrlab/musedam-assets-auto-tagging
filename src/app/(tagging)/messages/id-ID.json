@@ -156,7 +156,7 @@
         "imageFetchFailed": "Gagal mengambil gambar referensi",
         "jinaRequestFailed": "Gagal memanggil Jina untuk menghasilkan vektor",
         "embeddingCountMismatch": "Jumlah vektor yang dikembalikan tidak sesuai dengan jumlah gambar referensi",
-        "vectorStoreSyncFailed": "Gagal menyinkronkan vektor ke Qdrant",
+        "vectorStoreSyncFailed": "Gagal menyinkronkan vektor ke pgvector",
         "unknown": "Pemrosesan identitas merek gagal"
       },
       "logoType": {
@@ -439,7 +439,7 @@
         "imageFetchFailed": "Gagal membaca gambar referensi",
         "jinaRequestFailed": "Gagal menghasilkan embeddings dengan Jina",
         "embeddingCountMismatch": "Jumlah embeddings yang dikembalikan tidak cocok dengan jumlah gambar",
-        "vectorStoreSyncFailed": "Gagal menyinkronkan vektor ke Qdrant",
+        "vectorStoreSyncFailed": "Gagal menyinkronkan vektor ke pgvector",
         "unknown": "Pemrosesan karakter IP gagal"
       },
       "ipType": {
@@ -848,7 +848,7 @@
     "BrandClassify": {
       "backToLibrary": "Kembali ke Perpustakaan Merek",
       "pageTitle": "Halaman Dev Klasifikasi Logo Merek",
-      "pageDescription": "Setelah mengunggah gambar produk, sistem akan memanggil layanan deteksi untuk menemukan area logo potensial terlebih dahulu, kemudian menggunakan Jina + Qdrant untuk pencarian kemiripan.",
+      "pageDescription": "Setelah mengunggah gambar produk, sistem akan memanggil layanan deteksi untuk menemukan area logo potensial terlebih dahulu, kemudian menggunakan Jina + pgvector untuk pencarian kemiripan.",
       "availableLogos": "Logo Referensi Tersedia",
       "statsDescription": "Hanya menghitung data yang diaktifkan dan telah selesai pemrosesan vektor",
       "uploadProductImage": "Silakan unggah gambar produk untuk diklasifikasikan",
@@ -1017,7 +1017,7 @@
         "faceCountNotOne": "\"{identifier}\" mendeteksi {count} wajah. Setiap foto referensi harus berisi tepat 1 wajah",
         "faceDetectionFailed": "Permintaan deteksi wajah gagal",
         "generateEmbeddingFailed": "Pembuatan embedding wajah gagal",
-        "vectorStoreSyncFailed": "Gagal menyinkronkan vektor ke Qdrant",
+        "vectorStoreSyncFailed": "Gagal menyinkronkan vektor ke pgvector",
         "unknown": "Pemrosesan person gagal"
       },
       "personType": {
@@ -1262,7 +1262,7 @@
         "jinaRequestFailed": "Gagal menghasilkan embeddings dengan Jina",
         "embeddingCountMismatch": "Jumlah embeddings yang dikembalikan tidak cocok dengan jumlah gambar",
         "categoryPredictionFailed": "Gagal memprediksi kategori umum produk",
-        "vectorStoreSyncFailed": "Gagal menyinkronkan vektor ke Qdrant",
+        "vectorStoreSyncFailed": "Gagal menyinkronkan vektor ke pgvector",
         "unknown": "Pemrosesan produk gagal"
       },
       "productType": {

@@ -156,7 +156,7 @@
         "imageFetchFailed": "Tải hình ảnh tham chiếu thất bại",
         "jinaRequestFailed": "Gọi Jina để tạo vector thất bại",
         "embeddingCountMismatch": "Số lượng vector trả về không khớp với số lượng hình ảnh tham chiếu",
-        "vectorStoreSyncFailed": "Đồng bộ vector đến Qdrant thất bại",
+        "vectorStoreSyncFailed": "Đồng bộ vector đến pgvector thất bại",
         "unknown": "Xử lý nhận diện thương hiệu thất bại"
       },
       "logoType": {
@@ -439,7 +439,7 @@
         "imageFetchFailed": "Tải hình ảnh tham chiếu thất bại",
         "jinaRequestFailed": "Gọi Jina để tạo embedding thất bại",
         "embeddingCountMismatch": "Số lượng embedding trả về không khớp với số lượng hình ảnh",
-        "vectorStoreSyncFailed": "Đồng bộ vector đến Qdrant thất bại",
+        "vectorStoreSyncFailed": "Đồng bộ vector đến pgvector thất bại",
         "unknown": "Xử lý nhân vật IP thất bại"
       },
       "ipType": {
@@ -807,7 +807,7 @@
     "BrandClassify": {
       "backToLibrary": "Quay lại thư viện thương hiệu",
       "pageTitle": "Trang phát triển phân loại Logo thương hiệu",
-      "pageDescription": "Sau khi tải lên hình ảnh sản phẩm, hệ thống sẽ gọi dịch vụ phát hiện để tìm khu vực logo tiềm năng trước, sau đó sử dụng Jina + Qdrant để tìm kiếm độ tương đồng.",
+      "pageDescription": "Sau khi tải lên hình ảnh sản phẩm, hệ thống sẽ gọi dịch vụ phát hiện để tìm khu vực logo tiềm năng trước, sau đó sử dụng Jina + pgvector để tìm kiếm độ tương đồng.",
       "availableLogos": "Logo tham chiếu có sẵn",
       "statsDescription": "Chỉ thống kê dữ liệu đã kích hoạt và hoàn thành xử lý vector",
       "uploadProductImage": "Vui lòng tải lên hình ảnh sản phẩm để phân loại",
@@ -1017,7 +1017,7 @@
         "faceCountNotOne": "\"{identifier}\" phát hiện {count} khuôn mặt. Mỗi ảnh tham chiếu phải chứa đúng 1 khuôn mặt",
         "faceDetectionFailed": "Yêu cầu phát hiện khuôn mặt thất bại",
         "generateEmbeddingFailed": "Tạo vector khuôn mặt thất bại",
-        "vectorStoreSyncFailed": "Đồng bộ vector đến Qdrant thất bại",
+        "vectorStoreSyncFailed": "Đồng bộ vector đến pgvector thất bại",
         "unknown": "Xử lý nhân vật thất bại"
       },
       "personType": {
@@ -1262,7 +1262,7 @@
         "jinaRequestFailed": "Gọi Jina để tạo embedding thất bại",
         "embeddingCountMismatch": "Số lượng embedding trả về không khớp với số lượng hình ảnh",
         "categoryPredictionFailed": "Dự đoán danh mục chung của sản phẩm thất bại",
-        "vectorStoreSyncFailed": "Đồng bộ vector đến Qdrant thất bại",
+        "vectorStoreSyncFailed": "Đồng bộ vector đến pgvector thất bại",
         "unknown": "Xử lý sản phẩm thất bại"
       },
       "productType": {

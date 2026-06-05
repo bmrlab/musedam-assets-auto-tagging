@@ -392,7 +392,7 @@
         "imageFetchFailed": "संदर्भ चित्र पढ़ने में विफल",
         "jinaRequestFailed": "Jina से वेक्टर जनरेट करने में विफल",
         "embeddingCountMismatch": "वापस आए वेक्टर की संख्या संदर्भ चित्रों से मेल नहीं खाती",
-        "vectorStoreSyncFailed": "Qdrant में वेक्टर सिंक करने में विफल",
+        "vectorStoreSyncFailed": "pgvector में वेक्टर सिंक करने में विफल",
         "unknown": "ब्रांड पहचान प्रोसेसिंग विफल"
       },
       "logoType": {
@@ -675,7 +675,7 @@
         "imageFetchFailed": "संदर्भ चित्र पढ़ने में विफल",
         "jinaRequestFailed": "Jina से वेक्टर जनरेट करने में विफल",
         "embeddingCountMismatch": "वापस आए वेक्टर की संख्या संदर्भ चित्रों से मेल नहीं खाती",
-        "vectorStoreSyncFailed": "Qdrant में वेक्टर सिंक करने में विफल",
+        "vectorStoreSyncFailed": "pgvector में वेक्टर सिंक करने में विफल",
         "unknown": "IP पात्र प्रोसेसिंग विफल"
       },
       "ipType": {
@@ -745,7 +745,7 @@
     "BrandClassify": {
       "backToLibrary": "返回品牌库",
       "pageTitle": "品牌 Logo 分类开发页",
-      "pageDescription": "上传商品图后，系统会先调用检测服务找可能的 Logo 区域，再用 Jina + Qdrant 做相似度检索。",
+      "pageDescription": "上传商品图后，系统会先调用检测服务找可能的 Logo 区域，再用 Jina + pgvector 做相似度检索。",
       "availableLogos": "可用参考 Logo",
       "statsDescription": "仅统计已启用且已完成向量处理的数据",
       "uploadProductImage": "请上传待分类的商品图片",
@@ -972,7 +972,7 @@
         "faceCountNotOne": "\"{identifier}\" में {count} चेहरे मिले। प्रत्येक संदर्भ फोटो में केवल 1 चेहरा होना चाहिए",
         "faceDetectionFailed": "चेहरा पहचान अनुरोध विफल",
         "generateEmbeddingFailed": "चेहरा एम्बेडिंग जनरेशन विफल",
-        "vectorStoreSyncFailed": "Qdrant में वेक्टर सिंक करने में विफल",
+        "vectorStoreSyncFailed": "pgvector में वेक्टर सिंक करने में विफल",
         "unknown": "व्यक्ति प्रोसेसिंग विफल"
       },
       "personType": {
@@ -1217,7 +1217,7 @@
         "jinaRequestFailed": "Jina से वेक्टर जनरेट करने में विफल",
         "embeddingCountMismatch": "वापस आए वेक्टर की संख्या संदर्भ चित्रों से मेल नहीं खाती",
         "categoryPredictionFailed": "उत्पाद सामान्य श्रेणी की भविष्यवाणी करने में विफल",
-        "vectorStoreSyncFailed": "Qdrant में वेक्टर सिंक करने में विफल",
+        "vectorStoreSyncFailed": "pgvector में वेक्टर सिंक करने में विफल",
         "unknown": "उत्पाद प्रोसेसिंग विफल"
       },
       "productType": {

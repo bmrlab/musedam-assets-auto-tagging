@@ -4,7 +4,7 @@ import { getLogoDetectionServerToken, getLogoDetectionServerUrl } from "@/lib/br
 import { translateDetectionLabelText } from "@/lib/translation/service";
 import { normalizeDetectionText } from "@/lib/utils";
 import { createJinaImageEmbeddings } from "@/lib/brand/jina";
-import { queryProductVectorPoints } from "@/lib/product/qdrant";
+import { queryProductVectorPoints } from "@/lib/product/pgvector";
 import prisma from "@/prisma/prisma";
 
 const PRODUCT_IMAGE_VECTOR_QUERY_LIMIT = 20;

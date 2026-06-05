@@ -177,7 +177,7 @@ model AssetLogoImage {
   mimeType       String    @db.VarChar(255)
   size           Int
   sort           Int       @default(0)
-  qdrantPointId  String?   @unique @db.VarChar(64)
+  pgvectorPointId  String?   @unique @db.VarChar(64)
   embeddingModel String?   @db.VarChar(128)
   embeddedAt     DateTime? @db.Timestamptz(6)
 
@@ -279,7 +279,7 @@ model AssetIpImage {
   cropSource              String?   @db.VarChar(32)
   cropDetectionLabel      String?   @db.VarChar(100)
   cropDetectionScore      Float?
-  qdrantPointId           String?   @unique @db.VarChar(64)
+  pgvectorPointId         String?   @unique @db.VarChar(64)
   embeddingModel          String?   @db.VarChar(128)
   embeddedAt              DateTime? @db.Timestamptz(6)
 
@@ -362,14 +362,14 @@ model AssetProductImage {
   assetProductId String       @db.Uuid
   assetProduct   AssetProduct @relation(fields: [assetProductId], references: [id], onDelete: Cascade)
 
-  objectKey      String    @db.Text
-  source         String?   @default("s3") @db.VarChar(32)
-  mimeType       String    @db.VarChar(255)
-  size           Int
-  sort           Int       @default(0)
-  qdrantPointId  String?   @unique @db.VarChar(64)
-  embeddingModel String?   @db.VarChar(128)
-  embeddedAt     DateTime? @db.Timestamptz(6)
+  objectKey        String    @db.Text
+  source           String?   @default("s3") @db.VarChar(32)
+  mimeType         String    @db.VarChar(255)
+  size             Int
+  sort             Int       @default(0)
+  pgvectorPointId  String?   @unique @db.VarChar(64)
+  embeddingModel   String?   @db.VarChar(128)
+  embeddedAt       DateTime? @db.Timestamptz(6)
 
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @db.Timestamptz(6)
@@ -446,14 +446,14 @@ model AssetPersonImage {
   assetPersonId String      @db.Uuid
   assetPerson   AssetPerson @relation(fields: [assetPersonId], references: [id], onDelete: Cascade)
 
-  objectKey      String    @db.Text
-  source         String?   @default("s3") @db.VarChar(32)
-  mimeType       String    @db.VarChar(255)
-  size           Int
-  sort           Int       @default(0)
-  qdrantPointId  String?   @unique @db.VarChar(64)
-  embeddingModel String?   @db.VarChar(128)
-  embeddedAt     DateTime? @db.Timestamptz(6)
+  objectKey        String    @db.Text
+  source           String?   @default("s3") @db.VarChar(32)
+  mimeType         String    @db.VarChar(255)
+  size             Int
+  sort             Int       @default(0)
+  pgvectorPointId  String?   @unique @db.VarChar(64)
+  embeddingModel   String?   @db.VarChar(128)
+  embeddedAt       DateTime? @db.Timestamptz(6)
 
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @db.Timestamptz(6)
@@ -476,6 +476,82 @@ model AssetPersonTag {
 
   @@unique([assetPersonId, assetTagId])
   @@index([assetPersonId, sort])
+}
+
+// Vector tables for pgvector embeddings
+model LogoVector {
+  id               String    @id @db.VarChar(64)
+  teamId           Int
+  assetLogoId      String    @db.Uuid
+  assetLogoImageId String    @db.Uuid
+  logoTypeId       String?   @db.Uuid
+  enabled          Boolean   @default(true)
+  status           String    @db.VarChar(20)
+  embedding        Unsupported("vector(1024)")
+  embeddingModel   String?   @db.VarChar(128)
+  createdAt        DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @db.Timestamptz(6)
+
+  @@index([teamId, status, enabled])
+  @@index([assetLogoId])
+}
+
+model IpVector {
+  id                      String    @id @db.VarChar(64)
+  teamId                  Int
+  assetIpId               String    @db.Uuid
+  assetIpImageId          String?   @db.Uuid
+  ipTypeId                String?   @db.Uuid
+  enabled                 Boolean   @default(true)
+  matchPattern            String    @db.VarChar(20)
+  partialMatchPatternName String?   @db.VarChar(64)
+  status                  String    @db.VarChar(20)
+  sourceType              String?   @db.VarChar(20)
+  embedding               Unsupported("vector(768)")
+  embeddingModel          String?   @db.VarChar(128)
+  createdAt               DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt               DateTime  @updatedAt @db.Timestamptz(6)
+
+  @@index([teamId, status, enabled])
+  @@index([teamId, sourceType, status, enabled])
+  @@index([assetIpId])
+}
+
+model ProductVector {
+  id                 String    @id @db.VarChar(64)
+  teamId             Int
+  assetProductId     String    @db.Uuid
+  assetProductImageId String?  @db.Uuid
+  productTypeId      String?   @db.Uuid
+  generalCategory    String    @db.VarChar(100)
+  enabled            Boolean   @default(true)
+  status             String    @db.VarChar(20)
+  sourceType         String?   @db.VarChar(20)
+  embedding          Unsupported("vector(768)")
+  embeddingModel     String?   @db.VarChar(128)
+  createdAt          DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime  @updatedAt @db.Timestamptz(6)
+
+  @@index([teamId, status, enabled])
+  @@index([teamId, sourceType, status, enabled])
+  @@index([assetProductId])
+}
+
+model PersonVector {
+  id                 String    @id @db.VarChar(64)
+  teamId             Int
+  assetPersonId      String    @db.Uuid
+  assetPersonImageId String    @db.Uuid
+  personTypeId       String?   @db.Uuid
+  enabled            Boolean   @default(true)
+  status             String    @db.VarChar(20)
+  embedding          Unsupported("vector(512)")
+  embeddingModel     String?   @db.VarChar(128)
+  createdAt          DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime  @updatedAt @db.Timestamptz(6)
+
+  @@index([teamId, status, enabled])
+  @@index([assetPersonId])
 }
 
 enum TaggingQueueStatus {
