@@ -12,7 +12,9 @@ function isLocalS3ObjectProxyUrl(uploadUrl: string) {
 }
 
 function createUploadId() {
-  return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return (
+    globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  );
 }
 
 export async function uploadS3ObjectFromBrowser({
@@ -25,6 +27,7 @@ export async function uploadS3ObjectFromBrowser({
       method: "PUT",
       headers: {
         "Content-Type": contentType,
+        "x-amz-acl": "public-read",
       },
       body: file,
     });

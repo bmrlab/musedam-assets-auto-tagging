@@ -126,11 +126,7 @@ function buildBrowserS3ObjectProxyUrl({
   expiresInSeconds: number;
 }) {
   const signedUrlExpiresAt = (Math.floor(Date.now() / 1000) + expiresInSeconds) * 1000;
-  const objectPath = objectKey
-    .replace(/^\/+/, "")
-    .split("/")
-    .map(encodeURIComponent)
-    .join("/");
+  const objectPath = objectKey.replace(/^\/+/, "").split("/").map(encodeURIComponent).join("/");
   const url = new URL(`${BROWSER_S3_OBJECT_PROXY_PATH}/${objectPath}`, "http://localhost");
 
   url.searchParams.set("expiresAt", String(signedUrlExpiresAt));
@@ -291,18 +287,21 @@ function signS3Url({
   method,
   objectKey,
   expiresInSeconds,
-  acl,
+  requestHeaders = {},
 }: {
   method: string;
   objectKey: string;
   expiresInSeconds: number;
-  acl?: string;
+  requestHeaders?: Record<string, string>;
 }) {
   const config = getS3Config();
   const url = buildS3ObjectUrl(objectKey);
   const { amzDate, dateStamp } = formatAmzDate();
   const credentialScope = `${dateStamp}/${config.region}/s3/aws4_request`;
-  const signedHeaders = "host";
+  const { canonicalHeaders, signedHeaders } = createCanonicalHeaders({
+    host: url.host,
+    ...requestHeaders,
+  });
   const queryParams: Array<[string, string]> = [
     ["X-Amz-Algorithm", "AWS4-HMAC-SHA256"],
     ["X-Amz-Credential", `${config.accessKeyId}/${credentialScope}`],
@@ -310,10 +309,6 @@ function signS3Url({
     ["X-Amz-Expires", String(expiresInSeconds)],
     ["X-Amz-SignedHeaders", signedHeaders],
   ];
-
-  if (acl) {
-    queryParams.push(["x-amz-acl", acl]);
-  }
 
   if (config.sessionToken) {
     queryParams.push(["X-Amz-Security-Token", config.sessionToken]);
@@ -323,7 +318,7 @@ function signS3Url({
     method,
     url.pathname,
     canonicalizeQueryParams(queryParams),
-    `host:${url.host}\n`,
+    canonicalHeaders,
     signedHeaders,
     "UNSIGNED-PAYLOAD",
   ].join("\n");
@@ -508,7 +503,7 @@ export function signS3ObjectUploadUrl({
     method: "PUT",
     objectKey,
     expiresInSeconds,
-    acl,
+    requestHeaders: acl ? { "x-amz-acl": acl } : {},
   });
 }
 

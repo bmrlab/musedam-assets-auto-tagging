@@ -179,6 +179,7 @@ export async function PUT(request: NextRequest, context: S3ObjectRouteContext) {
     method: "PUT",
     headers: {
       "Content-Type": contentType,
+      "x-amz-acl": "public-read",
     },
     body: uploadBody,
     duplex: "half",
@@ -201,7 +202,7 @@ export async function PUT(request: NextRequest, context: S3ObjectRouteContext) {
     headers.set("ETag", etag);
   }
 
-return new Response(null, {
+  return new Response(null, {
     status: response.status,
     headers,
   });
