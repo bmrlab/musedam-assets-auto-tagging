@@ -31,6 +31,7 @@ type SignS3ObjectUploadUrlOptions = {
   contentType: string;
   objectKey: string;
   expiresInSeconds?: number;
+  acl?: string;
 };
 
 type S3Config = {
@@ -290,10 +291,12 @@ function signS3Url({
   method,
   objectKey,
   expiresInSeconds,
+  acl,
 }: {
   method: string;
   objectKey: string;
   expiresInSeconds: number;
+  acl?: string;
 }) {
   const config = getS3Config();
   const url = buildS3ObjectUrl(objectKey);
@@ -307,6 +310,10 @@ function signS3Url({
     ["X-Amz-Expires", String(expiresInSeconds)],
     ["X-Amz-SignedHeaders", signedHeaders],
   ];
+
+  if (acl) {
+    queryParams.push(["x-amz-acl", acl]);
+  }
 
   if (config.sessionToken) {
     queryParams.push(["X-Amz-Security-Token", config.sessionToken]);
@@ -495,11 +502,13 @@ export function getBrowserS3ObjectUploadUrl({
 export function signS3ObjectUploadUrl({
   objectKey,
   expiresInSeconds = 60 * 10,
+  acl = "public-read",
 }: SignS3ObjectUploadUrlOptions) {
   return signS3Url({
     method: "PUT",
     objectKey,
     expiresInSeconds,
+    acl,
   });
 }
 
@@ -511,6 +520,7 @@ export async function uploadS3Object({ body, contentType, objectKey }: UploadS3O
     payloadHash,
     requestHeaders: {
       "Content-Type": contentType,
+      "x-amz-acl": "public-read",
     },
     url,
   });
