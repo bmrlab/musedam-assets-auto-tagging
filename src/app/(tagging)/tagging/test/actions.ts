@@ -1,24 +1,25 @@
 "use server";
 import { withAuth } from "@/app/(auth)/withAuth";
 import { enqueueTaggingTask } from "@/app/(tagging)/queue";
+import { getServerFeatureLibraryEnabled } from "@/lib/feature-library-server";
 import { ServerActionResult } from "@/lib/serverAction";
 import { syncSingleAssetFromMuseDAM } from "@/musedam/assets";
 import { MuseDAMID } from "@/musedam/types";
 import prisma from "@/prisma/prisma";
 
 interface SelectedAsset {
-  id: MuseDAMID; // 素材唯一标识
+  id: string; // 素材唯一标识
   name: string; // 素材名称
   extension: string; // 文件扩展名
   size: number; // 文件大小（字节）
   url?: string; // 素材访问链接
   thumbnail?: {
-    url?:string // 缩略图链接
-  }; 
+    url?: string; // 缩略图链接
+  };
   width?: number; // 图片宽度（图片类型）
   height?: number; // 图片高度（图片类型）
   type?: string; // 素材类型
-  folderId?: MuseDAMID; // 所在文件夹ID
+  folderId?: string; // 所在文件夹ID
   folderName?: string; // 所在文件夹名称
 }
 
@@ -47,11 +48,12 @@ export async function startTaggingTasksAction(
       let failedCount = 0;
       const failedAssets: string[] = [];
       const queueItemIds: number[] = [];
+      const featureClassify = await getServerFeatureLibraryEnabled();
 
       // 批量发起打标任务
       for (const asset of selectedAssets) {
         try {
-          const musedamAssetId = asset.id;
+          const musedamAssetId = MuseDAMID.from(asset.id);
 
           // 获取完整的team信息
           const team = await prisma.team.findUniqueOrThrow({
@@ -70,6 +72,7 @@ export async function startTaggingTasksAction(
             assetObject,
             matchingSources: options?.matchingSources,
             recognitionAccuracy: options?.recognitionAccuracy,
+            featureClassify,
             taskType: "test",
           });
 

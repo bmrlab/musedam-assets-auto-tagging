@@ -1,4 +1,11 @@
 import { isValidLocale } from "@/i18n/routing";
+import {
+  FEATURE_LIBRARY_COOKIE,
+  FEATURE_LIBRARY_PARAM,
+  featureLibraryEnabledToValue,
+  isFeatureLibraryValue,
+  resolveFeatureLibraryEnabled,
+} from "@/lib/feature-library";
 import { getRequestClientIp, getRequestOrigin } from "@/lib/request/headers";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -28,7 +35,7 @@ async function handlePingRequest(req: NextRequest) {
   );
 }
 
-function handleLocale(req: NextRequest) {
+function handleLocale(req: NextRequest, response: NextResponse) {
   // Get the locale from cookies
   const localeCookie = req.cookies.get("locale");
   const urlObj = new URL(req.url);
@@ -40,7 +47,6 @@ function handleLocale(req: NextRequest) {
       : localeCookie?.value && isValidLocale(localeCookie.value)
         ? localeCookie.value
         : undefined;
-  const response = NextResponse.next();
   // Set the locale in a header to be accessible in server components
   if (locale) {
     response.headers.set("x-locale", locale);
@@ -55,7 +61,33 @@ function handleLocale(req: NextRequest) {
       secure: true, // sameSite: "none" 必须配合 secure: true
     });
   }
-  return { response, locale };
+  return locale;
+}
+
+function handleFeatureLibrary(req: NextRequest, response: NextResponse) {
+  const featureLibraryCookie = req.cookies.get(FEATURE_LIBRARY_COOKIE);
+  const requestFeatureLibrary = req.nextUrl.searchParams.get(FEATURE_LIBRARY_PARAM);
+  const featureLibraryEnabled = resolveFeatureLibraryEnabled(
+    requestFeatureLibrary,
+    featureLibraryCookie?.value,
+  );
+  const featureLibraryValue = featureLibraryEnabledToValue(featureLibraryEnabled);
+
+  response.headers.set("x-feature-library", featureLibraryValue);
+
+  if (
+    isFeatureLibraryValue(requestFeatureLibrary) &&
+    featureLibraryCookie?.value !== requestFeatureLibrary
+  ) {
+    response.cookies.set(FEATURE_LIBRARY_COOKIE, requestFeatureLibrary, {
+      httpOnly: false,
+      expires: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+      sameSite: "none",
+      secure: true,
+    });
+  }
+
+  return featureLibraryEnabled;
 }
 
 export async function middleware(req: NextRequest) {
@@ -63,10 +95,12 @@ export async function middleware(req: NextRequest) {
     return await handlePingRequest(req);
   }
 
-  const {
-    response,
-    // locale,
-  } = handleLocale(req);
+  const requestFeatureLibrary = req.nextUrl.searchParams.get(FEATURE_LIBRARY_PARAM);
+
+  const response = NextResponse.next();
+
+  handleLocale(req, response);
+  handleFeatureLibrary(req, response);
 
   // Set security headers dynamically at runtime
   response.headers.set("X-Frame-Options", "SAMEORIGIN");

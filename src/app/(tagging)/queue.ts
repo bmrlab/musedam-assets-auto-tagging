@@ -1,24 +1,33 @@
 import "server-only";
 
+import { isTagTreeJob, processTagTreeQueueItem } from "@/app/tags/tagTreeQueue";
+import { classifyAssetBrandRecommendation } from "@/lib/brand/tagging-brand-classification";
+import { classifyAssetIpRecommendation } from "@/lib/ip/tagging-ip-classification";
 import { rootLogger } from "@/lib/logging";
+import { classifyAssetPersonRecommendation } from "@/lib/person/tagging-person-classification";
+import { classifyAssetProductRecommendation } from "@/lib/product/tagging-product-classification";
 import { idToSlug, slugToId } from "@/lib/slug";
 import { retrieveTeamCredentials } from "@/musedam/apiKey";
-import { setAssetTagsToMuseDAM } from "@/musedam/assets";
+import { bindFeatureIdentifiersToMuseDAMMaterial, setAssetTagsToMuseDAM } from "@/musedam/assets";
+import { collectMuseFeatureIdentifierIdsForQueueItem } from "@/musedam/collect-muse-feature-identifier-ids";
 import { requestMuseDAMAPI } from "@/musedam/lib";
 import { MuseDAMID } from "@/musedam/types";
 import {
   AssetObject,
+  AssetObjectExtra,
   AssetObjectTags,
   Prisma,
   TaggingAuditStatus,
+  TaggingBrandRecommendation,
+  TaggingIpRecommendation,
+  TaggingPersonRecommendation,
+  TaggingProductRecommendation,
   TaggingQueueItem,
   TaggingQueueItemExtra,
   TaggingQueueItemResult,
 } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
-import { waitUntil } from "@vercel/functions";
 import pLimit from "p-limit";
-import { isTagTreeJob, processTagTreeQueueItem, TAG_TREE_JOB_KIND } from "@/app/tags/tagTreeQueue";
 import { predictAssetTags } from "./predict";
 import { getTaggingSettings } from "./tagging/settings/lib";
 import { SourceBasedTagPredictions, TagWithScore } from "./types";
@@ -63,10 +72,60 @@ async function buildAssetObjectTags(
   }));
 }
 
+function hasBrandRecommendedTags(
+  brandRecommendation: TaggingBrandRecommendation | null,
+): brandRecommendation is TaggingBrandRecommendation {
+  return Boolean(
+    brandRecommendation &&
+      Array.isArray(brandRecommendation.recommendedTags) &&
+      brandRecommendation.recommendedTags.length > 0,
+  );
+}
+
+function hasIpRecommendedTags(
+  ipRecommendation: TaggingIpRecommendation | null,
+): ipRecommendation is TaggingIpRecommendation {
+  return Boolean(
+    ipRecommendation &&
+      Array.isArray(ipRecommendation.recommendedTags) &&
+      ipRecommendation.recommendedTags.length > 0,
+  );
+}
+
+function hasProductRecommendedTags(
+  productRecommendation: TaggingProductRecommendation | null,
+): productRecommendation is TaggingProductRecommendation {
+  return Boolean(
+    productRecommendation &&
+      Array.isArray(productRecommendation.recommendedTags) &&
+      productRecommendation.recommendedTags.length > 0,
+  );
+}
+
+function hasPersonRecommendedTags(
+  personRecommendation: TaggingPersonRecommendation | null,
+): personRecommendation is TaggingPersonRecommendation {
+  return Boolean(
+    personRecommendation &&
+      Array.isArray(personRecommendation.recommendedTags) &&
+      personRecommendation.recommendedTags.length > 0,
+  );
+}
+
+function getBestPersonRecommendationConfidence(
+  personRecommendation: TaggingPersonRecommendation | null,
+) {
+  return Math.max(
+    0,
+    ...(personRecommendation?.faces.map((face) => face.bestMatch?.confidence ?? 0) ?? []),
+  );
+}
+
 export async function enqueueTaggingTask({
   assetObject,
   matchingSources,
   recognitionAccuracy,
+  featureClassify = true,
   taskType = "default",
 }: {
   assetObject: AssetObject;
@@ -77,6 +136,7 @@ export async function enqueueTaggingTask({
     tagKeywords: boolean;
   };
   recognitionAccuracy?: "precise" | "balanced" | "broad";
+  featureClassify?: boolean;
   taskType?: "default" | "test" | "manual" | "scheduled";
 }): Promise<TaggingQueueItem> {
   const teamId = assetObject.teamId;
@@ -91,6 +151,7 @@ export async function enqueueTaggingTask({
       extra: {
         matchingSources,
         recognitionAccuracy,
+        featureClassify,
       } as TaggingQueueItemExtra,
     },
   });
@@ -118,20 +179,112 @@ export async function processQueueItem({
 
   try {
     const extra = queueItem.extra as TaggingQueueItemExtra;
-    const {
-      predictions,
-      tagsWithScore,
-      extra: newExtra,
-    } = await predictAssetTags(assetObject, {
+    const featureClassify = extra?.featureClassify === true;
+    const thumbnailUrl = (assetObject.extra as AssetObjectExtra | null)?.thumbnailAccessUrl;
+    // console.log("thumbnailUrl", thumbnailUrl);
+    const predictTagsPromise = predictAssetTags(assetObject, {
       matchingSources: extra?.matchingSources,
       recognitionAccuracy: extra?.recognitionAccuracy,
     });
-    if (tagsWithScore.length === 0) {
+    const brandRecommendationPromise = featureClassify
+      ? classifyAssetBrandRecommendation({
+          teamId: queueItem.teamId,
+          imageUrl: thumbnailUrl,
+        }).catch((error) => {
+          logger.warn({
+            msg: "brand classification failed, continuing without brand recommendation",
+            classificationFn: "classifyAssetBrandRecommendation",
+            err: error,
+            error: error instanceof Error ? error.message : String(error),
+          });
+          return null;
+        })
+      : Promise.resolve(null);
+    const ipRecommendationPromise = featureClassify
+      ? classifyAssetIpRecommendation({
+          teamId: queueItem.teamId,
+          imageUrl: thumbnailUrl,
+        }).catch((error) => {
+          logger.warn({
+            msg: "ip classification failed, continuing without ip recommendation",
+            classificationFn: "classifyAssetIpRecommendation",
+            err: error,
+            error: error instanceof Error ? error.message : String(error),
+          });
+          return null;
+        })
+      : Promise.resolve(null);
+    const productRecommendationPromise = featureClassify
+      ? classifyAssetProductRecommendation({
+          teamId: queueItem.teamId,
+          imageUrl: thumbnailUrl,
+        }).catch((error) => {
+          logger.warn({
+            msg: "product classification failed, continuing without product recommendation",
+            classificationFn: "classifyAssetProductRecommendation",
+            err: error,
+            error: error instanceof Error ? error.message : String(error),
+          });
+          return null;
+        })
+      : Promise.resolve(null);
+    const personRecommendationPromise = featureClassify
+      ? classifyAssetPersonRecommendation({
+          teamId: queueItem.teamId,
+          imageUrl: thumbnailUrl,
+        }).catch((error) => {
+          logger.warn({
+            msg: "person classification failed, continuing without person recommendation",
+            classificationFn: "classifyAssetPersonRecommendation",
+            err: error,
+            error: error instanceof Error ? error.message : String(error),
+          });
+          return null;
+        })
+      : Promise.resolve(null);
+
+    const [
+      { predictions, tagsWithScore, extra: newExtra },
+      brandRecommendation,
+      ipRecommendation,
+      productRecommendation,
+      personRecommendation,
+    ] = await Promise.all([
+      predictTagsPromise,
+      brandRecommendationPromise,
+      ipRecommendationPromise,
+      productRecommendationPromise,
+      personRecommendationPromise,
+    ]);
+    const hasAiTags = tagsWithScore.length > 0;
+    const brandRecommendationWithTags = hasBrandRecommendedTags(brandRecommendation)
+      ? brandRecommendation
+      : null;
+    const ipRecommendationWithTags = hasIpRecommendedTags(ipRecommendation)
+      ? ipRecommendation
+      : null;
+    const productRecommendationWithTags = hasProductRecommendedTags(productRecommendation)
+      ? productRecommendation
+      : null;
+    const personRecommendationWithTags = hasPersonRecommendedTags(personRecommendation)
+      ? personRecommendation
+      : null;
+    const hasBrandTags = brandRecommendationWithTags !== null;
+    const hasIpTags = ipRecommendationWithTags !== null;
+    const hasProductTags = productRecommendationWithTags !== null;
+    const hasPersonTags = personRecommendationWithTags !== null;
+
+    if (!hasAiTags && !hasBrandTags && !hasIpTags && !hasProductTags && !hasPersonTags) {
       throw Object.assign(new Error("No valid tags predicted"), { code: "NO_VALID_TAGS" });
     }
     logger.info({
       msg: "processQueueItem completed",
       tagsWithScoreCount: tagsWithScore.length,
+      featureClassify,
+      hasBrandTags,
+      hasIpTags,
+      hasProductTags,
+      hasPersonTags,
     });
 
     // 如果是测试内容，不需要进入审核
@@ -140,45 +293,84 @@ export async function processQueueItem({
       const isDirect = teamSetting.taggingMode === "direct";
 
       logger.info({
-        msg: "Creating audit items",
+        msg: "Creating review items",
         isDirect,
         tagsWithScoreCount: tagsWithScore.length,
+        hasBrandTags,
+        hasIpTags,
+        hasProductTags,
+        hasPersonTags,
         mode: isDirect ? "direct" : "review",
       });
 
-      const createAuditResult = await createAuditItems({
-        assetObject,
-        taggingQueueItem: queueItem,
-        predictions,
-        tagsWithScore,
-        status: isDirect ? "approved" : "pending",
-      });
+      const createAuditResult = hasAiTags
+        ? await createAuditItems({
+            assetObject,
+            taggingQueueItem: queueItem,
+            predictions,
+            tagsWithScore,
+            status: isDirect ? "approved" : "pending",
+          })
+        : null;
 
-      if (!createAuditResult.success) {
-        logger.error({
-          msg: "createAuditItems failed",
-          error: createAuditResult.error,
-          mode: isDirect ? "direct" : "review",
-        });
-        // 审核模式依赖 audit items；创建失败则标记任务失败，避免出现“任务完成但审核列表为空”
-        if (!isDirect) {
-          throw new Error("createAuditItems failed");
+      if (createAuditResult) {
+        if (!createAuditResult.success) {
+          logger.error({
+            msg: "createAuditItems failed",
+            error: createAuditResult.error,
+            mode: isDirect ? "direct" : "review",
+          });
+          // 审核模式依赖 review items；创建失败则标记任务失败，避免出现“任务完成但审核列表为空”
+          if (!isDirect) {
+            throw new Error("createAuditItems failed");
+          }
+        } else if (createAuditResult.createdCount === 0) {
+          logger.warn({
+            msg: "createAuditItems: no audit items created",
+            tagsWithScoreCount: tagsWithScore.length,
+            mode: isDirect ? "direct" : "review",
+          });
+        } else {
+          logger.info({
+            msg: "createAuditItems completed successfully",
+            createdCount: createAuditResult.createdCount,
+            mode: isDirect ? "direct" : "review",
+          });
         }
-      } else if (createAuditResult.createdCount === 0) {
-        logger.warn({
-          msg: "createAuditItems: no audit items created",
-          tagsWithScoreCount: tagsWithScore.length,
-          mode: isDirect ? "direct" : "review",
-        });
-        if (!isDirect) {
-          throw new Error("createAuditItems createdCount is 0");
+      }
+
+      if (!isDirect) {
+        const hasCreatedAiAuditItems =
+          createAuditResult?.success === true && createAuditResult.createdCount > 0;
+
+        if (
+          !hasCreatedAiAuditItems &&
+          (hasBrandTags || hasIpTags || hasProductTags || hasPersonTags)
+        ) {
+          const recommendationOnlyReviewResult = await createRecommendationOnlyReviewItem({
+            assetObject,
+            taggingQueueItem: queueItem,
+            brandRecommendation: brandRecommendationWithTags,
+            ipRecommendation: ipRecommendationWithTags,
+            productRecommendation: productRecommendationWithTags,
+            personRecommendation: personRecommendationWithTags,
+          });
+
+          if (!recommendationOnlyReviewResult.success) {
+            logger.error({
+              msg: "createRecommendationOnlyReviewItem failed",
+              error: recommendationOnlyReviewResult.error,
+            });
+            throw new Error("createRecommendationOnlyReviewItem failed");
+          }
+
+          logger.info({
+            msg: "createRecommendationOnlyReviewItem completed successfully",
+            createdCount: recommendationOnlyReviewResult.createdCount,
+          });
+        } else if (!hasCreatedAiAuditItems) {
+          throw new Error("No review items created");
         }
-      } else {
-        logger.info({
-          msg: "createAuditItems completed successfully",
-          createdCount: createAuditResult.createdCount,
-          mode: isDirect ? "direct" : "review",
-        });
       }
 
       if (isDirect) {
@@ -187,11 +379,20 @@ export async function processQueueItem({
           where: { id: queueItem.teamId },
           select: { id: true, slug: true },
         });
+        const combinedLeafTagIds = Array.from(
+          new Set([
+            ...tagsWithScore.map((tag) => tag.leafTagId),
+            ...(brandRecommendation?.recommendedTags ?? []).map((tag) => tag.assetTagId),
+            ...(ipRecommendation?.recommendedTags ?? []).map((tag) => tag.assetTagId),
+            ...(productRecommendation?.recommendedTags ?? []).map((tag) => tag.assetTagId),
+            ...(personRecommendation?.recommendedTags ?? []).map((tag) => tag.assetTagId),
+          ]),
+        );
         // 先查询对应的 AssetTag 获取 slug
         const approvedAssetTags = await prisma.assetTag.findMany({
           where: {
             id: {
-              in: tagsWithScore.map((tag) => tag.leafTagId),
+              in: combinedLeafTagIds,
             },
             slug: {
               not: null,
@@ -202,17 +403,19 @@ export async function processQueueItem({
 
         logger.info({
           msg: "Direct mode: found asset tags",
-          requestedTagIds: tagsWithScore.map((tag) => tag.leafTagId),
+          requestedTagIds: combinedLeafTagIds,
           foundAssetTagsCount: approvedAssetTags.length,
         });
 
-        const musedamTagIds = approvedAssetTags.map((tag) => slugToId("assetTag", tag.slug!));
+        const musedamTagIds = Array.from(
+          new Set(approvedAssetTags.map((tag) => slugToId("assetTag", tag.slug!))),
+        );
 
         // 如果没有有效的标签，跳过打标
         if (musedamTagIds.length === 0) {
           logger.warn({
             msg: "No valid tags found for direct tagging, skipping",
-            requestedTagIds: tagsWithScore.map((tag) => tag.leafTagId),
+            requestedTagIds: combinedLeafTagIds,
             foundAssetTagsCount: approvedAssetTags.length,
           });
         } else {
@@ -229,6 +432,37 @@ export async function processQueueItem({
             append: true,
           });
           logger.info({ msg: "Direct mode: tags set to MuseDAM successfully" });
+
+          const approvedTagSet = new Set(combinedLeafTagIds);
+          const brandTagIdsForBind = (brandRecommendation?.recommendedTags ?? [])
+            .map((t) => t.assetTagId)
+            .filter((id) => approvedTagSet.has(id));
+          const ipTagIdsForBind = (ipRecommendation?.recommendedTags ?? [])
+            .map((t) => t.assetTagId)
+            .filter((id) => approvedTagSet.has(id));
+          const productTagIdsForBind = (productRecommendation?.recommendedTags ?? [])
+            .map((t) => t.assetTagId)
+            .filter((id) => approvedTagSet.has(id));
+          const personTagIdsForBind = (personRecommendation?.recommendedTags ?? [])
+            .map((t) => t.assetTagId)
+            .filter((id) => approvedTagSet.has(id));
+
+          if (featureClassify) {
+            await bindFeatureIdentifiersToMuseDAMMaterial({
+              team,
+              musedamAssetId,
+              identifierIds: collectMuseFeatureIdentifierIdsForQueueItem({
+                brandRecommendation: brandRecommendation ?? undefined,
+                ipRecommendation: ipRecommendation ?? undefined,
+                productRecommendation: productRecommendation ?? undefined,
+                personRecommendation: personRecommendation ?? undefined,
+                brandTagIds: brandTagIdsForBind,
+                ipTagIds: ipTagIdsForBind,
+                productTagIds: productTagIdsForBind,
+                personTagIds: personTagIdsForBind,
+              }),
+            });
+          }
 
           // 从 MuseDAM 获取更新后的素材标签并同步到本地数据库
           const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
@@ -277,10 +511,15 @@ export async function processQueueItem({
         result: {
           predictions,
           tagsWithScore,
+          brandRecommendation,
+          ipRecommendation,
+          productRecommendation,
+          personRecommendation,
         } as TaggingQueueItemResult,
         extra: {
           ...extra,
           ...newExtra,
+          featureClassify,
         },
       },
     });
@@ -312,7 +551,9 @@ export async function processQueueItem({
 // 总并发槽数：其中至少 TAG_TREE_RESERVED_CONCURRENCY 个保留给标签树任务
 const TOTAL_CONCURRENCY = 3;
 const TAG_TREE_RESERVED_CONCURRENCY = 1;
-const PROCESSING_STALE_TIMEOUT_MS = Number(process.env.QUEUE_PROCESSING_STALE_TIMEOUT_MS ?? 15 * 60 * 1000);
+const PROCESSING_STALE_TIMEOUT_MS = Number(
+  process.env.QUEUE_PROCESSING_STALE_TIMEOUT_MS ?? 15 * 60 * 1000,
+);
 
 async function recoverStaleProcessingItems(): Promise<number> {
   const staleBefore = new Date(Date.now() - PROCESSING_STALE_TIMEOUT_MS);
@@ -359,7 +600,10 @@ async function tryClaimAndProcess(
       if (isTagTreeJob(queueItem)) {
         await processTagTreeQueueItem({ ...queueItem, status: "processing" });
       } else {
-        await processQueueItem({ ...(queueItem as TaggingQueueItem & { assetObject: AssetObject | null }), status: "processing" });
+        await processQueueItem({
+          ...(queueItem as TaggingQueueItem & { assetObject: AssetObject | null }),
+          status: "processing",
+        });
       }
       onSuccess();
     } else {
@@ -392,9 +636,7 @@ export async function processPendingQueueItems(): Promise<{
     take: TOTAL_CONCURRENCY * 4,
   });
 
-  const tagTreeItems = candidateItems
-    .filter(isTagTreeJob)
-    .slice(0, TAG_TREE_RESERVED_CONCURRENCY);
+  const tagTreeItems = candidateItems.filter(isTagTreeJob).slice(0, TAG_TREE_RESERVED_CONCURRENCY);
 
   const normalItems = candidateItems
     .filter((item) => !isTagTreeJob(item))
@@ -411,8 +653,12 @@ export async function processPendingQueueItems(): Promise<{
     limit(() =>
       tryClaimAndProcess(
         queueItem,
-        () => { processing++; },
-        () => { skipped++; },
+        () => {
+          processing++;
+        },
+        () => {
+          skipped++;
+        },
       ),
     ),
   );
@@ -531,6 +777,93 @@ async function createAuditItems({
       error,
       tagsWithScoreCount: tagsWithScore.length,
       status: status ?? "pending",
+    });
+    return { success: false, createdCount: 0, error };
+  }
+}
+
+async function createRecommendationOnlyReviewItem({
+  assetObject,
+  taggingQueueItem,
+  brandRecommendation,
+  ipRecommendation,
+  productRecommendation,
+  personRecommendation,
+  status = "pending",
+}: {
+  assetObject: AssetObject;
+  taggingQueueItem: TaggingQueueItem;
+  brandRecommendation: TaggingBrandRecommendation | null;
+  ipRecommendation: TaggingIpRecommendation | null;
+  productRecommendation: TaggingProductRecommendation | null;
+  personRecommendation: TaggingPersonRecommendation | null;
+  status?: TaggingAuditStatus;
+}): Promise<{ success: boolean; createdCount: number; error?: unknown }> {
+  const logger = rootLogger.child({
+    teamId: assetObject.teamId,
+    assetObjectId: assetObject.id,
+    queueItemId: taggingQueueItem.id,
+  });
+
+  try {
+    const hasBrandRecommendation = hasBrandRecommendedTags(brandRecommendation);
+    const hasIpRecommendation = hasIpRecommendedTags(ipRecommendation);
+    const hasProductRecommendation = hasProductRecommendedTags(productRecommendation);
+    const hasPersonRecommendation = hasPersonRecommendedTags(personRecommendation);
+
+    if (
+      !hasBrandRecommendation &&
+      !hasIpRecommendation &&
+      !hasProductRecommendation &&
+      !hasPersonRecommendation
+    ) {
+      logger.warn({
+        msg: "createRecommendationOnlyReviewItem: no confident recommendation available",
+      });
+      return { success: true, createdCount: 0 };
+    }
+
+    const score = Math.max(
+      0,
+      Math.min(
+        100,
+        Math.round(
+          Math.max(
+            hasBrandRecommendation ? (brandRecommendation.bestMatch?.confidence ?? 0) : 0,
+            hasIpRecommendation ? (ipRecommendation.bestMatch?.confidence ?? 0) : 0,
+            hasProductRecommendation ? (productRecommendation.bestMatch?.confidence ?? 0) : 0,
+            hasPersonRecommendation
+              ? getBestPersonRecommendationConfidence(personRecommendation)
+              : 0,
+          ),
+        ),
+      ),
+    );
+
+    await prisma.taggingAuditItem.create({
+      data: {
+        queueItemId: taggingQueueItem.id,
+        assetObjectId: assetObject.id,
+        teamId: assetObject.teamId,
+        status,
+        score,
+        tagPath: [],
+        leafTagId: null,
+      },
+    });
+
+    logger.info({
+      msg: "createRecommendationOnlyReviewItem: placeholder created",
+      score,
+      status,
+    });
+
+    return { success: true, createdCount: 1 };
+  } catch (error) {
+    logger.error({
+      msg: `createRecommendationOnlyReviewItem failed: ${error}`,
+      error,
+      status,
     });
     return { success: false, createdCount: 0, error };
   }

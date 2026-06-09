@@ -6,8 +6,19 @@ import { getActiveMenuTitle } from "./AppSidebar";
 
 export function LayoutHeader() {
   const pathname = usePathname();
-  const t = useTranslations("Tagging");
+  const t = useTranslations("Tagging") as (key: string) => string;
+
+  if (
+    pathname.startsWith("/tagging/brand") ||
+    pathname.startsWith("/tagging/ip") ||
+    pathname.startsWith("/tagging/person") ||
+    pathname.startsWith("/tagging/product")
+  ) {
+    return null;
+  }
+
   const activeTitle = getActiveMenuTitle(pathname, t);
+
   return (
     <header
       className={cn(

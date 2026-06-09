@@ -1,46 +1,279 @@
 "use client";
 
+import { getBrandRecommendationFromQueueResult } from "@/app/(tagging)/brand-recommendation";
+import { getIpRecommendationFromQueueResult } from "@/app/(tagging)/ip-recommendation";
+import { getPersonRecommendationFromQueueResult } from "@/app/(tagging)/person-recommendation";
+import { getProductRecommendationFromQueueResult } from "@/app/(tagging)/product-recommendation";
+import { AssetThumbnail } from "@/components/AssetThumbnail";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FileImageIcon, TagsIcon } from "@/components/ui/icons";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { dispatchMuseDAMClientAction } from "@/embed/message";
+import { useFeatureLibraryEnabled } from "@/hooks/use-feature-library";
 import { cn } from "@/lib/utils";
-import { MuseDAMID } from "@/musedam/types";
-import Image from "next/image";
-import { FileText, Loader2, PlayIcon, PlusIcon, Trash, X } from "lucide-react";
+import { Loader2, PlayIcon, PlusIcon, Trash } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { startTaggingTasksAction } from "./actions";
 import { TaggingResult, TaggingResultDisplay } from "./components/TaggingResultDisplay";
-import { AssetThumbnail } from "@/components/AssetThumbnail";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface SelectedAsset {
-  id: MuseDAMID; // 素材唯一标识
+  id: string; // 素材唯一标识
   name: string; // 素材名称
   extension: string; // 文件扩展名
   size: number; // 文件大小（字节）
   url?: string; // 素材访问链接
   thumbnail?: {
-    url?: string// 缩略图链接
+    url?: string; // 缩略图链接
   };
   width?: number; // 图片宽度（图片类型）
   height?: number; // 图片高度（图片类型）
   type?: string; // 素材类型
-  folderId?: MuseDAMID; // 所在文件夹ID
+  folderId?: string; // 所在文件夹ID
   folderName?: string; // 所在文件夹名称
+}
+
+type DisplayTag = TaggingResult["effectiveTags"][number];
+
+const MATCHING_SOURCE_SEPARATOR = "，";
+
+function toPlainString(value: unknown): string {
+  if (typeof value === "string" || typeof value === "number" || typeof value === "bigint") {
+    return String(value);
+  }
+
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    if (
+      typeof record.value === "string" ||
+      typeof record.value === "number" ||
+      typeof record.value === "bigint"
+    ) {
+      return String(record.value);
+    }
+  }
+
+  return "";
+}
+
+function toPlainNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function normalizeSelectedAsset(asset: unknown): SelectedAsset | null {
+  if (!asset || typeof asset !== "object") {
+    return null;
+  }
+
+  const record = asset as Record<string, unknown>;
+  const id = toPlainString(record.id);
+  if (!id) {
+    return null;
+  }
+
+  const thumbnail = record.thumbnail;
+  const thumbnailUrl =
+    thumbnail && typeof thumbnail === "object"
+      ? toPlainString((thumbnail as Record<string, unknown>).url)
+      : "";
+
+  return {
+    id,
+    name: toPlainString(record.name),
+    extension: toPlainString(record.extension),
+    size: toPlainNumber(record.size) ?? 0,
+    url: toPlainString(record.url || record.downloadUrl) || undefined,
+    thumbnail: thumbnailUrl ? { url: thumbnailUrl } : undefined,
+    width: toPlainNumber(record.width),
+    height: toPlainNumber(record.height),
+    type: toPlainString(record.type) || undefined,
+    folderId: toPlainString(record.folderId) || undefined,
+    folderName: toPlainString(record.folderName) || undefined,
+  };
+}
+
+function buildDisplayTagKey(tagPath: string[], tagId?: number | null) {
+  if (Number.isInteger(tagId) && Number(tagId) > 0) {
+    return `id:${tagId}`;
+  }
+
+  return `path:${tagPath.join(">")}`;
+}
+
+function mergeMatchingSources(current: string, next: string) {
+  const sources = current
+    .split(MATCHING_SOURCE_SEPARATOR)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  if (!sources.includes(next)) {
+    sources.push(next);
+  }
+
+  return sources.join(MATCHING_SOURCE_SEPARATOR);
+}
+
+function buildMergedDisplayTags({
+  aiTags,
+  brandTags,
+  brandConfidence,
+  ipTags,
+  ipConfidence,
+  productTags,
+  productConfidence,
+  personTags,
+  aiSourceLabel,
+  brandSourceLabel,
+  ipSourceLabel,
+  productSourceLabel,
+  personSourceLabel,
+}: {
+  aiTags: Array<{
+    leafTagId?: number;
+    tagPath?: string[];
+    matchingSource?: string;
+    score?: number;
+  }>;
+  brandTags: Array<{
+    assetTagId?: number;
+    tagPath?: string[];
+  }>;
+  brandConfidence: number;
+  ipTags: Array<{
+    assetTagId?: number;
+    tagPath?: string[];
+  }>;
+  ipConfidence: number;
+  productTags: Array<{
+    assetTagId?: number;
+    tagPath?: string[];
+  }>;
+  productConfidence: number;
+  personTags: Array<{
+    assetTagId?: number;
+    tagPath?: string[];
+    confidence?: number;
+  }>;
+  aiSourceLabel: string;
+  brandSourceLabel: string;
+  ipSourceLabel: string;
+  productSourceLabel: string;
+  personSourceLabel: string;
+}): DisplayTag[] {
+  const mergedTags = new Map<string, DisplayTag & { order: number }>();
+
+  const upsertTag = ({
+    order,
+    tagId,
+    tagPath,
+    sourceLabel,
+    score,
+  }: {
+    order: number;
+    tagId?: number | null;
+    tagPath?: string[];
+    sourceLabel: string;
+    score: number;
+  }) => {
+    if (!tagPath || tagPath.length === 0) {
+      return;
+    }
+
+    const normalizedScore = Math.max(0, Math.min(100, Math.round(score)));
+    const key = buildDisplayTagKey(tagPath, tagId);
+    const existing = mergedTags.get(key);
+
+    if (existing) {
+      existing.matchingSource = mergeMatchingSources(existing.matchingSource, sourceLabel);
+      existing.score = Math.max(existing.score, normalizedScore);
+      existing.confidence = Math.max(existing.confidence, normalizedScore);
+      return;
+    }
+
+    mergedTags.set(key, {
+      tagPath,
+      matchingSource: sourceLabel,
+      confidence: normalizedScore,
+      score: normalizedScore,
+      order,
+    });
+  };
+
+  aiTags.forEach((tag, index) => {
+    upsertTag({
+      order: index,
+      tagId: tag.leafTagId,
+      tagPath: tag.tagPath,
+      sourceLabel: aiSourceLabel,
+      score: tag.score || 0,
+    });
+  });
+
+  brandTags.forEach((tag, index) => {
+    upsertTag({
+      order: aiTags.length + index,
+      tagId: tag.assetTagId,
+      tagPath: tag.tagPath,
+      sourceLabel: brandSourceLabel,
+      score: brandConfidence,
+    });
+  });
+
+  ipTags.forEach((tag, index) => {
+    upsertTag({
+      order: aiTags.length + brandTags.length + index,
+      tagId: tag.assetTagId,
+      tagPath: tag.tagPath,
+      sourceLabel: ipSourceLabel,
+      score: ipConfidence,
+    });
+  });
+
+  productTags.forEach((tag, index) => {
+    upsertTag({
+      order: aiTags.length + brandTags.length + ipTags.length + index,
+      tagId: tag.assetTagId,
+      tagPath: tag.tagPath,
+      sourceLabel: productSourceLabel,
+      score: productConfidence,
+    });
+  });
+
+  personTags.forEach((tag, index) => {
+    upsertTag({
+      order: aiTags.length + brandTags.length + ipTags.length + productTags.length + index,
+      tagId: tag.assetTagId,
+      tagPath: tag.tagPath,
+      sourceLabel: personSourceLabel,
+      score: tag.confidence ?? 0,
+    });
+  });
+
+  return Array.from(mergedTags.values())
+    .sort((left, right) => right.score - left.score || left.order - right.order)
+    .map((tag) => ({
+      tagPath: tag.tagPath,
+      matchingSource: tag.matchingSource,
+      confidence: tag.confidence,
+      score: tag.score,
+    }));
 }
 
 export default function TestClient() {
   const t = useTranslations("Tagging.Test");
   const tClient = useTranslations("Tagging.TestClient");
+  const tResult = useTranslations("TaggingResultDisplay");
+  const tSidebar = useTranslations("Tagging.Sidebar");
+  const featureLibraryEnabled = useFeatureLibraryEnabled();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isPolling, setIsPolling] = useState(false);
   const [selectedAssets, setSelectedAssets] = useState<SelectedAsset[]>([]);
   const [taggingResults, setTaggingResults] = useState<TaggingResult[]>([]);
   const [queueItemIds, setQueueItemIds] = useState<number[]>([]);
-  const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
   const pollingRef = useRef<boolean>(false);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // 配置状态
   const [selectedScene, setSelectedScene] = useState("general");
@@ -115,11 +348,13 @@ export default function TestClient() {
   // 停止轮询
   const stopPolling = useCallback(() => {
     pollingRef.current = false;
-    if (pollingInterval) {
-      clearInterval(pollingInterval);
-      setPollingInterval(null);
+    setIsPolling(false);
+
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
     }
-  }, [pollingInterval]);
+  }, []);
 
   // 轮询获取队列状态
   const pollQueueStatus = useCallback(
@@ -156,13 +391,92 @@ export default function TestClient() {
             // 转换结果格式以适配TaggingResultDisplay组件
             const formattedResults = completedResults.map((result) => {
               const { assetObject, result: resultData, extra } = result;
-              // 按置信度分类标签
-              const allTags = resultData?.tagsWithScore || [];
-              const effectiveTags = allTags.filter(
-                (tag: { score?: number }) => (tag.score || 0) >= 80,
+              const brandRecommendation = featureLibraryEnabled
+                ? getBrandRecommendationFromQueueResult(resultData)
+                : null;
+              const ipRecommendation = featureLibraryEnabled
+                ? getIpRecommendationFromQueueResult(resultData)
+                : null;
+              const productRecommendation = featureLibraryEnabled
+                ? getProductRecommendationFromQueueResult(resultData)
+                : null;
+              const personRecommendation = featureLibraryEnabled
+                ? getPersonRecommendationFromQueueResult(resultData)
+                : null;
+              const linkedBrandTags: Array<{ assetTagId?: number; tagPath?: string[] }> =
+                Array.isArray(result.brandLinkedTags) && result.brandLinkedTags.length > 0
+                  ? result.brandLinkedTags
+                  : (brandRecommendation?.recommendedTags ?? []);
+              const linkedIpTags: Array<{ assetTagId?: number; tagPath?: string[] }> =
+                Array.isArray(result.ipLinkedTags) && result.ipLinkedTags.length > 0
+                  ? result.ipLinkedTags
+                  : (ipRecommendation?.recommendedTags ?? []);
+              const linkedProductTags: Array<{ assetTagId?: number; tagPath?: string[] }> =
+                Array.isArray(result.productLinkedTags) && result.productLinkedTags.length > 0
+                  ? result.productLinkedTags
+                  : (productRecommendation?.recommendedTags ?? []);
+              const linkedPersonTags: Array<{
+                assetPersonId?: string;
+                assetTagId?: number;
+                tagPath?: string[];
+              }> = Array.isArray(result.personLinkedTags) ? result.personLinkedTags : [];
+              const totalPersonFaces =
+                personRecommendation?.faces.filter((f) => f.bestMatch).length ?? 0;
+              const personRecognitionFaces =
+                personRecommendation?.faces.map((face) => {
+                  const bestMatch = face.bestMatch;
+                  const refreshedTags =
+                    bestMatch && linkedPersonTags.length > 0
+                      ? linkedPersonTags.filter(
+                          (tag) => tag.assetPersonId === bestMatch.assetPersonId,
+                        )
+                      : [];
+                  const recommendedTags =
+                    refreshedTags.length > 0 ? refreshedTags : (bestMatch?.recommendedTags ?? []);
+
+                  // Format: "人物N: personName" when multiple people, or just "personName" when single
+                  const personDisplayName =
+                    totalPersonFaces > 1 && bestMatch?.personName
+                      ? `${tResult("featureClassPerson")}${face.detectionIndex + 1}: ${bestMatch.personName}`
+                      : (bestMatch?.personName ?? null);
+
+                  return {
+                    detectionIndex: face.detectionIndex,
+                    noConfidentMatch: face.noConfidentMatch,
+                    personName: personDisplayName,
+                    personTypeName: bestMatch?.personTypeName ?? null,
+                    confidence: bestMatch?.confidence ?? null,
+                    similarity: bestMatch?.similarity ?? null,
+                    assetPersonId: bestMatch?.assetPersonId,
+                    recommendedTags: recommendedTags.map((tag) => ({
+                      assetTagId: tag.assetTagId,
+                      tagPath: tag.tagPath || [],
+                    })),
+                  };
+                }) ?? [];
+              const bestPersonConfidence = Math.max(
+                0,
+                ...personRecognitionFaces.map((face) => face.confidence ?? 0),
               );
-              const candidateTags = allTags.filter(
-                (tag: { score?: number }) => (tag.score || 0) >= 60 && (tag.score || 0) < 80,
+              const allTags = resultData?.tagsWithScore || [];
+              const aiDisplayTags = buildMergedDisplayTags({
+                aiTags: allTags,
+                brandTags: [],
+                brandConfidence: Math.round(brandRecommendation?.bestMatch?.confidence ?? 0),
+                ipTags: [],
+                ipConfidence: Math.round(ipRecommendation?.bestMatch?.confidence ?? 0),
+                productTags: [],
+                productConfidence: Math.round(productRecommendation?.bestMatch?.confidence ?? 0),
+                personTags: [],
+                aiSourceLabel: tClient("aiMatching"),
+                brandSourceLabel: tResult("brandRecognition"),
+                ipSourceLabel: tSidebar("ip"),
+                productSourceLabel: tSidebar("product"),
+                personSourceLabel: tSidebar("person"),
+              });
+              const effectiveTags = aiDisplayTags.filter((tag) => tag.score >= 80);
+              const candidateTags = aiDisplayTags.filter(
+                (tag) => tag.score >= 60 && tag.score < 80,
               );
 
               return {
@@ -177,7 +491,7 @@ export default function TestClient() {
                   processingTime:
                     result.startsAt && result.endsAt
                       ? (new Date(result.endsAt).getTime() - new Date(result.startsAt).getTime()) /
-                      1000
+                        1000
                       : 0,
                   recognitionMode:
                     extra?.recognitionAccuracy === "precise"
@@ -186,25 +500,67 @@ export default function TestClient() {
                         ? tClient("balancedMode")
                         : tClient("broadMode"),
                 },
-                overallScore: resultData?.tagsWithScore?.[0]?.score || 0,
-                // 生效标签
-                effectiveTags: effectiveTags.map(
-                  (tag: { tagPath?: string[]; matchingSource?: string; score?: number }) => ({
-                    tagPath: tag.tagPath || [],
-                    matchingSource: tag.matchingSource || tClient("aiMatching"),
-                    confidence: Math.floor(tag.score || 0),
-                    score: tag.score || 0,
-                  }),
+                overallScore: Math.max(
+                  aiDisplayTags[0]?.score || 0,
+                  brandRecommendation?.bestMatch?.confidence || 0,
+                  ipRecommendation?.bestMatch?.confidence || 0,
+                  productRecommendation?.bestMatch?.confidence || 0,
+                  bestPersonConfidence,
                 ),
-                // 候选标签
-                candidateTags: candidateTags.map(
-                  (tag: { tagPath?: string[]; matchingSource?: string; score?: number }) => ({
-                    tagPath: tag.tagPath || [],
-                    matchingSource: tag.matchingSource || tClient("aiMatching"),
-                    confidence: Math.floor(tag.score || 0),
-                    score: tag.score || 0,
-                  }),
-                ),
+                brandRecognition: brandRecommendation
+                  ? {
+                      noConfidentMatch: brandRecommendation.noConfidentMatch,
+                      logoName: brandRecommendation.bestMatch?.logoName || null,
+                      logoTypeName: brandRecommendation.bestMatch?.logoTypeName || null,
+                      confidence: brandRecommendation.bestMatch?.confidence ?? null,
+                      similarity: brandRecommendation.bestMatch?.similarity ?? null,
+                      assetLogoId: brandRecommendation.bestMatch?.assetLogoId,
+                      recommendedTags: linkedBrandTags.map((tag) => ({
+                        tagPath: tag.tagPath || [],
+                      })),
+                    }
+                  : null,
+                ipRecognition: ipRecommendation
+                  ? {
+                      noConfidentMatch: ipRecommendation.noConfidentMatch,
+                      ipName: ipRecommendation.bestMatch?.ipName || null,
+                      ipTypeName: ipRecommendation.bestMatch?.ipTypeName || null,
+                      confidence: ipRecommendation.bestMatch?.confidence ?? null,
+                      similarity: ipRecommendation.bestMatch?.similarity ?? null,
+                      imageSimilarity: ipRecommendation.bestMatch?.imageSimilarity ?? null,
+                      descriptionSimilarity:
+                        ipRecommendation.bestMatch?.descriptionSimilarity ?? null,
+                      assetIpId: ipRecommendation.bestMatch?.assetIpId,
+                      recommendedTags: linkedIpTags.map((tag) => ({
+                        tagPath: tag.tagPath || [],
+                      })),
+                    }
+                  : null,
+                productRecognition: productRecommendation
+                  ? {
+                      noConfidentMatch: productRecommendation.noConfidentMatch,
+                      productName: productRecommendation.bestMatch?.productName || null,
+                      productTypeName: productRecommendation.bestMatch?.productTypeName || null,
+                      confidence: productRecommendation.bestMatch?.confidence ?? null,
+                      similarity: productRecommendation.bestMatch?.similarity ?? null,
+                      imageSimilarity: productRecommendation.bestMatch?.imageSimilarity ?? null,
+                      descriptionSimilarity:
+                        productRecommendation.bestMatch?.descriptionSimilarity ?? null,
+                      assetProductId: productRecommendation.bestMatch?.assetProductId,
+                      recommendedTags: linkedProductTags.map((tag) => ({
+                        tagPath: tag.tagPath || [],
+                      })),
+                    }
+                  : null,
+                personRecognition: personRecommendation
+                  ? {
+                      noConfidentMatch: personRecommendation.noConfidentMatch,
+                      faceCount: personRecommendation.faceCount,
+                      faces: personRecognitionFaces,
+                    }
+                  : null,
+                effectiveTags,
+                candidateTags,
                 // 策略分析详情 - 从所有标签的confidenceBySources中提取
                 strategyAnalysis: (() => {
                   const strategyMap = new Map<string, { weight: number; score: number }>();
@@ -249,7 +605,7 @@ export default function TestClient() {
         console.error(tClient("pollingQueueStatusFailed"), error);
       }
     },
-    [stopPolling, tClient],
+    [featureLibraryEnabled, stopPolling, tClient, tResult, tSidebar],
   );
 
   // 开始轮询
@@ -258,6 +614,7 @@ export default function TestClient() {
       if (pollingRef.current) return;
 
       pollingRef.current = true;
+      setIsPolling(true);
       setQueueItemIds(ids);
       // 立即执行一次
       pollQueueStatus(ids);
@@ -267,7 +624,7 @@ export default function TestClient() {
         pollQueueStatus(ids);
       }, 2000);
 
-      setPollingInterval(interval);
+      pollingIntervalRef.current = interval;
     },
     [pollQueueStatus],
   );
@@ -281,7 +638,7 @@ export default function TestClient() {
     return () => {
       stopPolling();
     };
-  }, []);
+  }, [stopPolling]);
 
   const handleAssetSelection = async () => {
     try {
@@ -290,13 +647,16 @@ export default function TestClient() {
       if (!res) return;
       const { selectedAssets: assets } = res;
       if (assets && Array.isArray(assets) && assets.length > 0) {
-        // 转换 assets 中的 id 为 MuseDAMID 类型
-        const convertedAssets = assets.map((asset) => ({
-          ...asset,
-          id: new MuseDAMID(asset.id),
-        }));
+        const convertedAssets = assets
+          .map((asset) => normalizeSelectedAsset(asset))
+          .filter((asset): asset is SelectedAsset => Boolean(asset));
+        if (convertedAssets.length === 0) {
+          toast.info(t("noAssetsSelected"));
+          return;
+        }
+
         setSelectedAssets(convertedAssets);
-        toast.success(t("assetsSelectedSuccess", { count: assets.length }));
+        toast.success(t("assetsSelectedSuccess", { count: convertedAssets.length }));
       } else {
         toast.info(t("noAssetsSelected"));
       }
@@ -358,7 +718,7 @@ export default function TestClient() {
     }
   }, [selectedAssets, matchingSources, recognitionAccuracy, startPolling, t]);
 
-  const removeAsset = (assetId: MuseDAMID) => {
+  const removeAsset = (assetId: string) => {
     setSelectedAssets((prev) => prev.filter((asset) => asset.id !== assetId));
   };
 
@@ -385,7 +745,12 @@ export default function TestClient() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => dispatchMuseDAMClientAction("goto", { url: "/home/dashboard/tag", target: "_blank" })}
+              onClick={() =>
+                dispatchMuseDAMClientAction("goto", {
+                  url: "/home/dashboard/tag",
+                  target: "_blank",
+                })
+              }
             >
               <TagsIcon />
               {tClient("manageTagSystem")}
@@ -407,8 +772,10 @@ export default function TestClient() {
 
             {/* 素材选择区域 */}
             {selectedAssets.length === 0 ? (
-              <div className="w-full h-[200px] flex flex-col justify-center items-center border border-dashed border-basic-4 rounded-md text-center bg-basic-1 hover:border-primary-6 ease-in-out duration-300 transition-all cursor-pointer"
-                onClick={handleAssetSelection}>
+              <div
+                className="w-full h-[200px] flex flex-col justify-center items-center border border-dashed border-basic-4 rounded-md text-center bg-basic-1 hover:border-primary-6 ease-in-out duration-300 transition-all cursor-pointer"
+                onClick={handleAssetSelection}
+              >
                 <FileImageIcon className="size-12 text-primary-6 mb-5" />
                 <h3 className="leading-6 mb-1">{t("selectAssetsFromLibrary")}</h3>
                 <p className="text-xs text-basic-5">{t("testOnlyDescription")}</p>
@@ -435,10 +802,11 @@ export default function TestClient() {
                       className="flex items-center justify-between p-3 border border-basic-4 rounded-md"
                     >
                       <div className="flex items-center gap-3 shrink-0">
-                        <AssetThumbnail asset={{
-                          thumbnailUrl: asset.thumbnail?.url,
-                          extension: asset.extension,
-                        }}
+                        <AssetThumbnail
+                          asset={{
+                            thumbnailUrl: asset.thumbnail?.url,
+                            extension: asset.extension,
+                          }}
                           className="rounded size-8"
                           maxWidth={32}
                           maxHeight={32}
@@ -451,9 +819,6 @@ export default function TestClient() {
                         </div>
                       </div>
 
-
-
-
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -463,7 +828,7 @@ export default function TestClient() {
                               size="sm"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                removeAsset(asset.id)
+                                removeAsset(asset.id);
                               }}
                               className="text-basic-5 size-8 p-0 hover:text-danger-6"
                             >
@@ -485,10 +850,10 @@ export default function TestClient() {
               <Button
                 onClick={handleStartTagging}
                 className="gap-2"
-                disabled={isProcessing || pollingRef.current}
+                disabled={isProcessing || isPolling}
                 size="sm"
               >
-                {isProcessing || pollingRef.current ? (
+                {isProcessing || isPolling ? (
                   <>
                     <Loader2 className="size-4 animate-spin" />
                     {t("processing")}
@@ -503,13 +868,13 @@ export default function TestClient() {
               <Button
                 variant="outline"
                 onClick={handleAssetSelection}
-                disabled={isProcessing || pollingRef.current}
+                disabled={isProcessing || isPolling}
                 size="sm"
               >
                 <PlusIcon className="size-4" />
                 {t("selectAssetFiles")}
               </Button>
-              {/* {pollingRef.current && (
+              {/* {isPolling && (
                 <Button
                   variant="outline"
                   onClick={stopPolling}
@@ -523,7 +888,7 @@ export default function TestClient() {
         </div>
 
         {/* 轮询状态显示 */}
-        {pollingRef.current && (
+        {isPolling && (
           <div className="bg-background border rounded-md">
             <div className="px-4 py-3 border-b">
               <h3 className="font-medium text-sm">{tClient("processingStatus")}</h3>
@@ -604,10 +969,9 @@ export default function TestClient() {
                 key: "balanced",
                 label: t("balancedMode"),
                 confidence: t("balancedConfidence"),
-                recommended: true,
               },
               { key: "broad", label: t("broadMode"), confidence: t("broadConfidence") },
-            ].map(({ key, label, confidence, recommended }) => (
+            ].map(({ key, label, confidence }) => (
               <div
                 key={key}
                 className={cn(
@@ -643,7 +1007,10 @@ export default function TestClient() {
             ].map(({ key, label }) => (
               <div
                 key={key}
-                className={cn("flex items-center gap-2", "py-2 px-3 border rounded-md border-basic-4")}
+                className={cn(
+                  "flex items-center gap-2",
+                  "py-2 px-3 border rounded-md border-basic-4",
+                )}
               >
                 <Checkbox
                   checked={matchingSources[key as keyof typeof matchingSources]}

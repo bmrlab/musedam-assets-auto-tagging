@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createHash } from "node:crypto";
-import { llm } from "@/ai/provider";
+import { llm, LLMModelName } from "@/ai/provider";
 import {
   AssetObject,
   AssetObjectContentAnalysis,
@@ -26,6 +26,24 @@ function getErrorCode(error: unknown): string | undefined {
   const code = (error as { code?: unknown }).code;
   return typeof code === "string" ? code : undefined;
 }
+
+function getTaggingPredictModel(): LLMModelName {
+  return (process.env.TAGGING_PREDICT_MODEL?.trim() || "gpt-5-mini") as LLMModelName;
+}
+
+function getTaggingPredictProviderOptions(modelName: LLMModelName, teamId: string | number) {
+  if (!modelName.startsWith("gpt-5")) return undefined;
+
+  return {
+    // azure openai provider 这里也是 openai
+    openai: {
+      promptCacheKey: `musedam-t-${teamId}`,
+      reasoningSummary: "auto", // 'auto' | 'detailed'
+      reasoningEffort: "minimal", // 'minimal' | 'low' | 'medium' | 'high'
+    } satisfies OpenAIResponsesProviderOptions,
+  };
+}
+
 function repairToJsonArrayText(text: string): string {
   const cleaned = (text ?? "")
     .replace(/\uFEFF/g, "")
@@ -173,8 +191,8 @@ function enhancePredictionsByMaterializedPathHardMatch(
 
 function buildStableSeed(input: string): number {
   const hash = createHash("sha256").update(input).digest("hex");
-  // 取前 8 位转 32bit 无符号整数，作为稳定 seed
-  return Number.parseInt(hash.slice(0, 8), 16) >>> 0;
+  // 取前 8 位转正整数，作为稳定 seed；部分 OpenAI-compatible 后端不接受 unsigned 32bit 上界。
+  return Number.parseInt(hash.slice(0, 8), 16) & 0x7fffffff;
 }
 
 function sortPredictionsDeterministically(
@@ -334,21 +352,15 @@ ${tagKeywordsText}`,
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
+      const modelName = getTaggingPredictModel();
       const result = await generateObject({
         // model: llm("claude-sonnet-4"),
         // model: llm("gpt-5-nano"),
-        model: llm("gpt-5-mini"),
+        model: llm(modelName),
         schemaName: "TagPredictions",
         schemaDescription:
           '返回 JSON 数组；元素包含 source("basicInfo"|"materializedPath"|"contentAnalysis"|"tagKeywords") 和 tags；tags 元素包含 confidence(0-1)、leafTagId(number)、tagPath(string[])。只输出纯 JSON。',
-        providerOptions: {
-          // azure openai provider 这里也是 openai
-          openai: {
-            promptCacheKey: `musedam-t-${asset.teamId}`,
-            reasoningSummary: "auto", // 'auto' | 'detailed'
-            reasoningEffort: "minimal", // 'minimal' | 'low' | 'medium' | 'high'
-          } satisfies OpenAIResponsesProviderOptions,
-        },
+        providerOptions: getTaggingPredictProviderOptions(modelName, asset.teamId),
         schema: z.array(tagPredictionSchema),
         system: tagPredictionSystemPrompt(),
         messages,

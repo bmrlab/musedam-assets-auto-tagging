@@ -1,8 +1,8 @@
 declare module "@/prisma/client" {
   export * from "@/prisma/client/index";
-  import { Tag } from "@/prisma/client";
+  import { AssetTag } from "@/prisma/client/index";
 
-  export type TagWithChildren = Pick<Tag, "id" | "name" | "extra"> & {
+  export type TagWithChildren = Pick<AssetTag, "id" | "name" | "extra"> & {
     children?: TagWithChildren[];
   };
 
@@ -22,6 +22,7 @@ declare module "@/prisma/client" {
 
   export type AssetObjectExtra = Partial<{
     thumbnailAccessUrl: string;
+    downloadUrl: string;
     size: number;
     extension: string;
   }>;
@@ -43,13 +44,132 @@ declare module "@/prisma/client" {
       tagKeywords: boolean;
     };
     recognitionAccuracy: "precise" | "balanced" | "broad";
+    featureClassify: boolean;
   }>;
+
+  export type TaggingBrandRecommendedTag = {
+    assetTagId: number;
+    tagPath: string[];
+  };
+
+export type TaggingBrandBestMatch = {
+  assetLogoId: string;
+  logoName: string;
+  logoTypeId: string | null;
+  logoTypeName: string;
+  similarity: number;
+  confidence: number;
+  detectionIndex: number;
+  recommendedTags: TaggingBrandRecommendedTag[];
+};
+
+  export type TaggingBrandRecommendation = {
+    noConfidentMatch: boolean;
+    bestMatch: TaggingBrandBestMatch | null;
+    recommendedTags: TaggingBrandRecommendedTag[];
+  };
+
+  export type TaggingIpRecommendedTag = {
+    assetTagId: number;
+    tagPath: string[];
+  };
+
+export type TaggingIpBestMatch = {
+  assetIpId: string;
+  ipName: string;
+  ipTypeId: string | null;
+  ipTypeName: string;
+  description: string;
+  similarity: number;
+  confidence: number;
+  detectionIndex: number;
+  imageSimilarity: number;
+  descriptionSimilarity: number;
+  recommendedTags: TaggingIpRecommendedTag[];
+};
+
+  export type TaggingIpRecommendation = {
+    noConfidentMatch: boolean;
+    bestMatch: TaggingIpBestMatch | null;
+    recommendedTags: TaggingIpRecommendedTag[];
+  };
+
+  export type TaggingProductRecommendedTag = {
+    assetTagId: number;
+    tagPath: string[];
+  };
+
+export type TaggingProductBestMatch = {
+  assetProductId: string;
+  productName: string;
+  productTypeId: string | null;
+  productTypeName: string;
+  description: string;
+  generalCategory: string;
+  similarity: number;
+  confidence: number;
+  detectionIndex: number;
+  imageSimilarity: number;
+  descriptionSimilarity: number;
+  recommendedTags: TaggingProductRecommendedTag[];
+};
+
+  export type TaggingProductRecommendation = {
+    noConfidentMatch: boolean;
+    bestMatch: TaggingProductBestMatch | null;
+    recommendedTags: TaggingProductRecommendedTag[];
+  };
+
+  export type TaggingPersonRecommendedTag = {
+    assetTagId: number;
+    tagPath: string[];
+    assetPersonId: string;
+    personName: string;
+    detectionIndex: number;
+    confidence: number;
+  };
+
+export type TaggingPersonMatch = {
+  assetPersonId: string;
+  personName: string;
+  personTypeId: string | null;
+  personTypeName: string;
+  similarity: number;
+  confidence: number;
+  detectionIndex: number;
+  supportingReferenceCount: number;
+  recommendedTags: TaggingPersonRecommendedTag[];
+};
+
+  export type TaggingPersonRecommendation = {
+    noConfidentMatch: boolean;
+    faceCount: number;
+    faces: Array<{
+      detectionIndex: number;
+      box: {
+        xMin: number;
+        yMin: number;
+        xMax: number;
+        yMax: number;
+        score: number;
+        label: string;
+      };
+      topMatches: TaggingPersonMatch[];
+      bestMatch: TaggingPersonMatch | null;
+      noConfidentMatch: boolean;
+    }>;
+    recommendedTags: TaggingPersonRecommendedTag[];
+  };
 
   import { SourceBasedTagPredictions, TagWithScore } from "@/app/(tagging)/types";
   export type TaggingQueueItemResult = Partial<{
     error: string;
     predictions: SourceBasedTagPredictions;
     tagsWithScore: TagWithScore[];
+    brandRecommendation: TaggingBrandRecommendation | null;
+    ipRecommendation: TaggingIpRecommendation | null;
+    productRecommendation: TaggingProductRecommendation | null;
+    personRecommendation: TaggingPersonRecommendation | null;
   }>;
 
   /** 标签树异步生成任务：存入 taggingQueueItem.extra */

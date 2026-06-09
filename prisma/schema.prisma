@@ -20,6 +20,14 @@ model Team {
   memberships       Membership[]
   assetTags         AssetTag[]
   assetObjects      AssetObject[]
+  assetLogoTypes    AssetLogoType[]
+  assetLogos        AssetLogo[]
+  assetIpTypes      AssetIpType[]
+  assetIps          AssetIp[]
+  assetProductTypes AssetProductType[]
+  assetProducts     AssetProduct[]
+  assetPersonTypes  AssetPersonType[]
+  assetPersons      AssetPerson[]
   taggingQueueItems TaggingQueueItem[]
   taggingAuditItems TaggingAuditItem[]
   configs           TeamConfig[]
@@ -99,6 +107,10 @@ model AssetTag {
   createdAt         DateTime           @default(now()) @db.Timestamptz(6)
   updatedAt         DateTime           @updatedAt @db.Timestamptz(6)
   taggingAuditItems TaggingAuditItem[]
+  assetLogoTags     AssetLogoTag[]
+  assetIpTags       AssetIpTag[]
+  assetProductTags  AssetProductTag[]
+  assetPersonTags   AssetPersonTag[]
 
   // ⚠️ migration.sql 里人工添加了一条 unique 索引，在 parentId 为空的时候，需要确保 teamId,name 唯一
   //    CREATE UNIQUE INDEX "AssetTag_teamId_name_key" ON "public"."AssetTag"("teamId", "name") WHERE "parentId" IS NULL;
@@ -106,6 +118,440 @@ model AssetTag {
   //    目前这样不会导致 Prisma 判断 migration 和 schema 不同步，所以问题不大
   //    如果之后 squash migration，需要再次人工添加上面这个 sql
   @@unique([teamId, parentId, name])
+}
+
+enum AssetLogoProcessStatus {
+  pending
+  processing
+  completed
+  failed
+}
+
+model AssetLogoType {
+  id     String @id @default(uuid()) @db.Uuid
+  teamId Int
+  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  name String @db.VarChar(100)
+  sort Int    @default(0)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  logos AssetLogo[]
+}
+
+model AssetLogo {
+  id     String @id @default(uuid()) @db.Uuid
+  teamId Int
+  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  slug            String                 @unique @default(cuid()) @db.VarChar(64)
+  name            String                 @db.VarChar(255)
+  logoTypeId      String?                @db.Uuid
+  logoType        AssetLogoType?         @relation(fields: [logoTypeId], references: [id], onDelete: SetNull)
+  logoTypeName    String                 @db.VarChar(100)
+  status          AssetLogoProcessStatus @default(pending)
+  processingError String?                @db.Text
+  processedAt     DateTime?              @db.Timestamptz(6)
+  enabled         Boolean                @default(true)
+  notes           String                 @default("") @db.Text
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  images AssetLogoImage[]
+  tags   AssetLogoTag[]
+
+  @@index([teamId, createdAt])
+  @@index([teamId, status])
+}
+
+model AssetLogoImage {
+  id          String    @id @default(uuid()) @db.Uuid
+  assetLogoId String    @db.Uuid
+  assetLogo   AssetLogo @relation(fields: [assetLogoId], references: [id], onDelete: Cascade)
+
+  objectKey      String    @db.Text
+  source         String?   @default("s3") @db.VarChar(32)
+  mimeType       String    @db.VarChar(255)
+  size           Int
+  sort           Int       @default(0)
+  pgvectorPointId  String?   @unique @db.VarChar(64)
+  embeddingModel String?   @db.VarChar(128)
+  embeddedAt     DateTime? @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  @@index([assetLogoId, sort])
+}
+
+model AssetLogoTag {
+  id          String    @id @default(uuid()) @db.Uuid
+  assetLogoId String    @db.Uuid
+  assetLogo   AssetLogo @relation(fields: [assetLogoId], references: [id], onDelete: Cascade)
+  assetTagId  Int?
+  assetTag    AssetTag? @relation(fields: [assetTagId], references: [id], onDelete: SetNull)
+
+  tagPath Json @default("[]")
+  sort    Int  @default(0)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  @@unique([assetLogoId, assetTagId])
+  @@index([assetLogoId, sort])
+}
+
+enum AssetIpProcessStatus {
+  pending
+  processing
+  completed
+  failed
+}
+
+enum AssetIpMatchPattern {
+  whole
+  partial
+}
+
+model AssetIpType {
+  id     String @id @default(uuid()) @db.Uuid
+  teamId Int
+  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  name String @db.VarChar(100)
+  sort Int    @default(0)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  ips AssetIp[]
+}
+
+model AssetIp {
+  id     String @id @default(uuid()) @db.Uuid
+  teamId Int
+  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  slug            String               @unique @default(cuid()) @db.VarChar(64)
+  name            String               @db.VarChar(255)
+  ipTypeId        String?              @db.Uuid
+  ipType          AssetIpType?         @relation(fields: [ipTypeId], references: [id], onDelete: SetNull)
+  ipTypeName      String               @db.VarChar(100)
+  description     String               @default("") @db.Text
+  matchPattern    AssetIpMatchPattern  @default(whole)
+  status          AssetIpProcessStatus @default(pending)
+  processingError String?              @db.Text
+  processedAt     DateTime?            @db.Timestamptz(6)
+  enabled         Boolean              @default(true)
+  notes           String               @default("") @db.Text
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  images AssetIpImage[]
+  tags   AssetIpTag[]
+
+  @@index([teamId, createdAt])
+  @@index([teamId, status])
+  @@index([matchPattern])
+}
+
+model AssetIpImage {
+  id        String  @id @default(uuid()) @db.Uuid
+  assetIpId String  @db.Uuid
+  assetIp   AssetIp @relation(fields: [assetIpId], references: [id], onDelete: Cascade)
+
+  objectKey               String    @db.Text
+  source                  String?   @default("s3") @db.VarChar(32)
+  mimeType                String    @db.VarChar(255)
+  size                    Int
+  sort                    Int       @default(0)
+  partialMatchPatternName String?   @db.VarChar(64)
+  cropXMin                Float?
+  cropYMin                Float?
+  cropXMax                Float?
+  cropYMax                Float?
+  cropImageWidth          Float?
+  cropImageHeight         Float?
+  cropSource              String?   @db.VarChar(32)
+  cropDetectionLabel      String?   @db.VarChar(100)
+  cropDetectionScore      Float?
+  pgvectorPointId         String?   @unique @db.VarChar(64)
+  embeddingModel          String?   @db.VarChar(128)
+  embeddedAt              DateTime? @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  @@index([assetIpId, sort])
+  @@index([partialMatchPatternName])
+}
+
+model AssetIpTag {
+  id         String    @id @default(uuid()) @db.Uuid
+  assetIpId  String    @db.Uuid
+  assetIp    AssetIp   @relation(fields: [assetIpId], references: [id], onDelete: Cascade)
+  assetTagId Int?
+  assetTag   AssetTag? @relation(fields: [assetTagId], references: [id], onDelete: SetNull)
+
+  tagPath Json @default("[]")
+  sort    Int  @default(0)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  @@unique([assetIpId, assetTagId])
+  @@index([assetIpId, sort])
+}
+
+enum AssetProductProcessStatus {
+  pending
+  processing
+  completed
+  failed
+}
+
+model AssetProductType {
+  id     String @id @default(uuid()) @db.Uuid
+  teamId Int
+  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  name String @db.VarChar(100)
+  sort Int    @default(0)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  products AssetProduct[]
+}
+
+model AssetProduct {
+  id     String @id @default(uuid()) @db.Uuid
+  teamId Int
+  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  slug            String                    @unique @default(cuid()) @db.VarChar(64)
+  name            String                    @db.VarChar(255)
+  productTypeId   String?                   @db.Uuid
+  productType     AssetProductType?         @relation(fields: [productTypeId], references: [id], onDelete: SetNull)
+  productTypeName String                    @db.VarChar(100)
+  description     String                    @default("") @db.Text
+  generalCategory String                    @default("") @db.VarChar(100)
+  status          AssetProductProcessStatus @default(pending)
+  processingError String?                   @db.Text
+  processedAt     DateTime?                 @db.Timestamptz(6)
+  enabled         Boolean                   @default(true)
+  notes           String                    @default("") @db.Text
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  images AssetProductImage[]
+  tags   AssetProductTag[]
+
+  @@index([teamId, createdAt])
+  @@index([teamId, status])
+  @@index([teamId, generalCategory])
+}
+
+model AssetProductImage {
+  id             String       @id @default(uuid()) @db.Uuid
+  assetProductId String       @db.Uuid
+  assetProduct   AssetProduct @relation(fields: [assetProductId], references: [id], onDelete: Cascade)
+
+  objectKey        String    @db.Text
+  source           String?   @default("s3") @db.VarChar(32)
+  mimeType         String    @db.VarChar(255)
+  size             Int
+  sort             Int       @default(0)
+  pgvectorPointId  String?   @unique @db.VarChar(64)
+  embeddingModel   String?   @db.VarChar(128)
+  embeddedAt       DateTime? @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  @@index([assetProductId, sort])
+}
+
+model AssetProductTag {
+  id             String       @id @default(uuid()) @db.Uuid
+  assetProductId String       @db.Uuid
+  assetProduct   AssetProduct @relation(fields: [assetProductId], references: [id], onDelete: Cascade)
+  assetTagId     Int?
+  assetTag       AssetTag?    @relation(fields: [assetTagId], references: [id], onDelete: SetNull)
+
+  tagPath Json @default("[]")
+  sort    Int  @default(0)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  @@unique([assetProductId, assetTagId])
+  @@index([assetProductId, sort])
+}
+
+enum AssetPersonProcessStatus {
+  pending
+  processing
+  completed
+  failed
+}
+
+model AssetPersonType {
+  id     String @id @default(uuid()) @db.Uuid
+  teamId Int
+  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  name String @db.VarChar(100)
+  sort Int    @default(0)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  persons AssetPerson[]
+}
+
+model AssetPerson {
+  id     String @id @default(uuid()) @db.Uuid
+  teamId Int
+  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  slug            String                   @unique @default(cuid()) @db.VarChar(64)
+  name            String                   @db.VarChar(255)
+  personTypeId    String?                  @db.Uuid
+  personType      AssetPersonType?         @relation(fields: [personTypeId], references: [id], onDelete: SetNull)
+  personTypeName  String                   @db.VarChar(100)
+  status          AssetPersonProcessStatus @default(pending)
+  processingError String?                  @db.Text
+  processedAt     DateTime?                @db.Timestamptz(6)
+  enabled         Boolean                  @default(true)
+  notes           String                   @default("") @db.Text
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  images AssetPersonImage[]
+  tags   AssetPersonTag[]
+
+  @@index([teamId, createdAt])
+  @@index([teamId, status])
+}
+
+model AssetPersonImage {
+  id            String      @id @default(uuid()) @db.Uuid
+  assetPersonId String      @db.Uuid
+  assetPerson   AssetPerson @relation(fields: [assetPersonId], references: [id], onDelete: Cascade)
+
+  objectKey        String    @db.Text
+  source           String?   @default("s3") @db.VarChar(32)
+  mimeType         String    @db.VarChar(255)
+  size             Int
+  sort             Int       @default(0)
+  pgvectorPointId  String?   @unique @db.VarChar(64)
+  embeddingModel   String?   @db.VarChar(128)
+  embeddedAt       DateTime? @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  @@index([assetPersonId, sort])
+}
+
+model AssetPersonTag {
+  id            String      @id @default(uuid()) @db.Uuid
+  assetPersonId String      @db.Uuid
+  assetPerson   AssetPerson @relation(fields: [assetPersonId], references: [id], onDelete: Cascade)
+  assetTagId    Int?
+  assetTag      AssetTag?   @relation(fields: [assetTagId], references: [id], onDelete: SetNull)
+
+  tagPath Json @default("[]")
+  sort    Int  @default(0)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  @@unique([assetPersonId, assetTagId])
+  @@index([assetPersonId, sort])
+}
+
+// Vector tables for pgvector embeddings
+model LogoVector {
+  id               String    @id @db.VarChar(64)
+  teamId           Int
+  assetLogoId      String    @db.Uuid
+  assetLogoImageId String    @db.Uuid
+  logoTypeId       String?   @db.Uuid
+  enabled          Boolean   @default(true)
+  status           String    @db.VarChar(20)
+  embedding        Unsupported("vector(1024)")
+  embeddingModel   String?   @db.VarChar(128)
+  createdAt        DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @db.Timestamptz(6)
+
+  @@index([teamId, status, enabled])
+  @@index([assetLogoId])
+}
+
+model IpVector {
+  id                      String    @id @db.VarChar(64)
+  teamId                  Int
+  assetIpId               String    @db.Uuid
+  assetIpImageId          String?   @db.Uuid
+  ipTypeId                String?   @db.Uuid
+  enabled                 Boolean   @default(true)
+  matchPattern            String    @db.VarChar(20)
+  partialMatchPatternName String?   @db.VarChar(64)
+  status                  String    @db.VarChar(20)
+  sourceType              String?   @db.VarChar(20)
+  embedding               Unsupported("vector(768)")
+  embeddingModel          String?   @db.VarChar(128)
+  createdAt               DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt               DateTime  @updatedAt @db.Timestamptz(6)
+
+  @@index([teamId, status, enabled])
+  @@index([teamId, sourceType, status, enabled])
+  @@index([assetIpId])
+}
+
+model ProductVector {
+  id                 String    @id @db.VarChar(64)
+  teamId             Int
+  assetProductId     String    @db.Uuid
+  assetProductImageId String?  @db.Uuid
+  productTypeId      String?   @db.Uuid
+  generalCategory    String    @db.VarChar(100)
+  enabled            Boolean   @default(true)
+  status             String    @db.VarChar(20)
+  sourceType         String?   @db.VarChar(20)
+  embedding          Unsupported("vector(768)")
+  embeddingModel     String?   @db.VarChar(128)
+  createdAt          DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime  @updatedAt @db.Timestamptz(6)
+
+  @@index([teamId, status, enabled])
+  @@index([teamId, sourceType, status, enabled])
+  @@index([assetProductId])
+}
+
+model PersonVector {
+  id                 String    @id @db.VarChar(64)
+  teamId             Int
+  assetPersonId      String    @db.Uuid
+  assetPersonImageId String    @db.Uuid
+  personTypeId       String?   @db.Uuid
+  enabled            Boolean   @default(true)
+  status             String    @db.VarChar(20)
+  embedding          Unsupported("vector(512)")
+  embeddingModel     String?   @db.VarChar(128)
+  createdAt          DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime  @updatedAt @db.Timestamptz(6)
+
+  @@index([teamId, status, enabled])
+  @@index([assetPersonId])
 }
 
 enum TaggingQueueStatus {

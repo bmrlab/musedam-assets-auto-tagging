@@ -1,14 +1,35 @@
 "use server";
 import { withAuth } from "@/app/(auth)/withAuth";
+import {
+  getBrandRecommendationFromQueueResult,
+  getBrandRecommendationTagIdsFromQueueResult,
+} from "@/app/(tagging)/brand-recommendation";
+import {
+  getIpRecommendationFromQueueResult,
+  getIpRecommendationTagIdsFromQueueResult,
+} from "@/app/(tagging)/ip-recommendation";
+import {
+  getPersonRecommendationFromQueueResult,
+  getPersonRecommendationTagIdsFromQueueResult,
+} from "@/app/(tagging)/person-recommendation";
+import {
+  getProductRecommendationFromQueueResult,
+  getProductRecommendationTagIdsFromQueueResult,
+} from "@/app/(tagging)/product-recommendation";
+import { getServerFeatureLibraryEnabled } from "@/lib/feature-library-server";
 import { ServerActionResult } from "@/lib/serverAction";
 import { idToSlug, slugToId } from "@/lib/slug";
 import { retrieveTeamCredentials } from "@/musedam/apiKey";
 import {
   batchSyncAssetThumbnails,
+  bindFeatureIdentifiersToMuseDAMMaterial,
+  getFeatureByAssetFromMuseDAM,
   setAssetTagsToMuseDAM,
   syncSingleAssetFromMuseDAM,
 } from "@/musedam/assets";
+import { collectMuseFeatureIdentifierIdsForQueueItem } from "@/musedam/collect-muse-feature-identifier-ids";
 import { requestMuseDAMAPI } from "@/musedam/lib";
+import type { MuseDAMMaterialFeatureSnapshot } from "@/musedam/query-features-by-materials-types";
 import { MuseDAMID } from "@/musedam/types";
 import {
   AssetObject,
@@ -19,6 +40,146 @@ import {
   TaggingQueueItem,
 } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
+
+export type ReviewAvailableFeatureIds = {
+  brand: string[];
+  ip: string[];
+  product: string[];
+  person: string[];
+};
+
+const EMPTY_REVIEW_AVAILABLE_FEATURE_IDS: ReviewAvailableFeatureIds = {
+  brand: [],
+  ip: [],
+  product: [],
+  person: [],
+};
+
+type ReviewAvailableFeatureIdSets = {
+  brand: Set<string>;
+  ip: Set<string>;
+  product: Set<string>;
+  person: Set<string>;
+};
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function createReviewAvailableFeatureIdSets(): ReviewAvailableFeatureIdSets {
+  return {
+    brand: new Set<string>(),
+    ip: new Set<string>(),
+    product: new Set<string>(),
+    person: new Set<string>(),
+  };
+}
+
+function addQueueResultFeatureIds(
+  featureIds: ReviewAvailableFeatureIdSets,
+  result: Prisma.JsonValue,
+) {
+  const brandRecommendation = getBrandRecommendationFromQueueResult(result);
+  if (brandRecommendation?.bestMatch?.assetLogoId) {
+    featureIds.brand.add(brandRecommendation.bestMatch.assetLogoId);
+  }
+
+  const ipRecommendation = getIpRecommendationFromQueueResult(result);
+  if (ipRecommendation?.bestMatch?.assetIpId) {
+    featureIds.ip.add(ipRecommendation.bestMatch.assetIpId);
+  }
+
+  const productRecommendation = getProductRecommendationFromQueueResult(result);
+  if (productRecommendation?.bestMatch?.assetProductId) {
+    featureIds.product.add(productRecommendation.bestMatch.assetProductId);
+  }
+
+  const personRecommendation = getPersonRecommendationFromQueueResult(result);
+  for (const row of personRecommendation?.recommendedTags ?? []) {
+    if (row.assetPersonId) {
+      featureIds.person.add(row.assetPersonId);
+    }
+  }
+  for (const face of personRecommendation?.faces ?? []) {
+    if (face.bestMatch?.assetPersonId) {
+      featureIds.person.add(face.bestMatch.assetPersonId);
+    }
+  }
+}
+
+function toUuidList(ids: Iterable<string>) {
+  return [...ids].filter((id) => UUID_PATTERN.test(id));
+}
+
+async function loadExistingReviewAvailableFeatureIds(
+  teamId: number,
+  featureIds: ReviewAvailableFeatureIdSets,
+): Promise<ReviewAvailableFeatureIds> {
+  const [brands, ips, products, persons] = await Promise.all([
+    prisma.assetLogo.findMany({
+      where: { teamId, id: { in: toUuidList(featureIds.brand) } },
+      select: { id: true },
+    }),
+    prisma.assetIp.findMany({
+      where: { teamId, id: { in: toUuidList(featureIds.ip) } },
+      select: { id: true },
+    }),
+    prisma.assetProduct.findMany({
+      where: { teamId, id: { in: toUuidList(featureIds.product) } },
+      select: { id: true },
+    }),
+    prisma.assetPerson.findMany({
+      where: { teamId, id: { in: toUuidList(featureIds.person) } },
+      select: { id: true },
+    }),
+  ]);
+
+  return {
+    brand: brands.map(({ id }) => id),
+    ip: ips.map(({ id }) => id),
+    product: products.map(({ id }) => id),
+    person: persons.map(({ id }) => id),
+  };
+}
+
+async function filterExistingMuseFeatureIdentifierIds({
+  teamId,
+  identifierIds,
+}: {
+  teamId: number;
+  identifierIds: string[];
+}) {
+  const unique = [...new Set(identifierIds)].filter((id) => UUID_PATTERN.test(id));
+  if (unique.length === 0) {
+    return [];
+  }
+
+  const [brands, ips, products, persons] = await Promise.all([
+    prisma.assetLogo.findMany({
+      where: { teamId, id: { in: unique } },
+      select: { id: true },
+    }),
+    prisma.assetIp.findMany({
+      where: { teamId, id: { in: unique } },
+      select: { id: true },
+    }),
+    prisma.assetProduct.findMany({
+      where: { teamId, id: { in: unique } },
+      select: { id: true },
+    }),
+    prisma.assetPerson.findMany({
+      where: { teamId, id: { in: unique } },
+      select: { id: true },
+    }),
+  ]);
+
+  const existingIds = new Set([
+    ...brands.map(({ id }) => id),
+    ...ips.map(({ id }) => id),
+    ...products.map(({ id }) => id),
+    ...persons.map(({ id }) => id),
+  ]);
+
+  return unique.filter((id) => existingIds.has(id));
+}
 
 // 辅助函数：从 MuseDAM 标签构建 AssetObjectTags
 async function buildAssetObjectTags(
@@ -53,6 +214,8 @@ async function buildAssetObjectTags(
 
 export type AssetWithAuditItemsBatch = {
   assetObject: AssetObject;
+  existingFeatures: MuseDAMMaterialFeatureSnapshot[];
+  availableFeatureIds: ReviewAvailableFeatureIds;
   batch: {
     queueItem: TaggingQueueItem;
     taggingAuditItems: (Omit<TaggingAuditItem, "tagPath"> & { tagPath: string[] })[];
@@ -80,6 +243,7 @@ export async function fetchAssetsWithAuditItems(
 > {
   return withAuth(async ({ team: { id: teamId, slug: teamSlug } }) => {
     try {
+      const featureClassify = await getServerFeatureLibraryEnabled();
       const offset = (page - 1) * limit;
 
       const auditItemWhere: Prisma.TaggingAuditItemWhereInput = {
@@ -87,6 +251,9 @@ export async function fetchAssetsWithAuditItems(
         assetObjectId: { not: null },
         queueItemId: { not: null },
       };
+      if (!featureClassify) {
+        auditItemWhere.leafTagId = { not: null };
+      }
 
       if (statusFilter) {
         auditItemWhere.status = statusFilter;
@@ -255,6 +422,51 @@ export async function fetchAssetsWithAuditItems(
             assetObject !== undefined,
         );
 
+      const availableFeatureIds = featureClassify
+        ? await (async () => {
+            const featureIdsForPage = createReviewAvailableFeatureIdSets();
+            for (const assetObject of updatedAssetObjects) {
+              for (const { queueItem, ...taggingAuditItem } of assetObject.taggingAuditItems) {
+                if (!queueItem || taggingAuditItem.status === "rejected") {
+                  continue;
+                }
+                addQueueResultFeatureIds(featureIdsForPage, queueItem.result);
+              }
+            }
+            return loadExistingReviewAvailableFeatureIds(teamId, featureIdsForPage);
+          })()
+        : EMPTY_REVIEW_AVAILABLE_FEATURE_IDS;
+
+      const materialIdByAssetObjectId = new Map<number, MuseDAMID>();
+      if (featureClassify) {
+        for (const assetObject of updatedAssetObjects) {
+          try {
+            materialIdByAssetObjectId.set(
+              assetObject.id,
+              slugToId("assetObject", assetObject.slug),
+            );
+          } catch {
+            // skip assets without a valid MuseDAM slug
+          }
+        }
+      }
+
+      const featuresByMaterialId = new Map<number, MuseDAMMaterialFeatureSnapshot[]>();
+      const materialIdsForFeatures = [...materialIdByAssetObjectId.values()];
+      if (featureClassify && materialIdsForFeatures.length > 0) {
+        try {
+          const featureEntries = await getFeatureByAssetFromMuseDAM({
+            team,
+            materialIds: materialIdsForFeatures,
+          });
+          for (const entry of featureEntries) {
+            featuresByMaterialId.set(entry.materialId, entry.features ?? []);
+          }
+        } catch (error) {
+          console.error("批量获取资产已有特征失败:", error);
+        }
+      }
+
       const results: AssetWithAuditItemsBatch[] = [];
 
       for (const assetObjectId of assetObjectIds) {
@@ -265,6 +477,7 @@ export async function fetchAssetsWithAuditItems(
           if (!queueItem) continue;
           // 过滤掉状态为 rejected 的审核项
           if (taggingAuditItem.status === "rejected") continue;
+          if (!featureClassify && !taggingAuditItem.leafTagId) continue;
 
           let group = batch.find((group) => group.queueItem.id === queueItem.id);
           if (!group) {
@@ -290,8 +503,16 @@ export async function fetchAssetsWithAuditItems(
 
         // 只有当有有效的 batch 时才添加到结果中
         if (filteredBatch.length > 0) {
+          const materialId = materialIdByAssetObjectId.get(assetObject.id);
+          const existingFeatures =
+            featureClassify && materialId !== undefined
+              ? (featuresByMaterialId.get(Number(materialId.toString())) ?? [])
+              : [];
+
           results.push({
             assetObject,
+            existingFeatures,
+            availableFeatureIds,
             batch: filteredBatch,
           });
         }
@@ -320,6 +541,11 @@ export async function fetchAssetsWithAuditItems(
 export async function approveAuditItemsAction({
   assetSlug,
   auditItems,
+  brandTagIds = [],
+  ipTagIds = [],
+  productTagIds = [],
+  personTagIds = [],
+  museFeatureIdentifierIds = [],
   append = true,
 }: {
   assetSlug: string;
@@ -328,9 +554,15 @@ export async function approveAuditItemsAction({
     leafTagId: number | null;
     status: TaggingAuditStatus;
   }[];
+  brandTagIds?: number[];
+  ipTagIds?: number[];
+  productTagIds?: number[];
+  personTagIds?: number[];
+  museFeatureIdentifierIds?: string[];
   append?: boolean;
 }): Promise<ServerActionResult<void>> {
   return withAuth(async ({ team: { id: teamId } }) => {
+    const featureClassify = await getServerFeatureLibraryEnabled();
     const team = await prisma.team.findUniqueOrThrow({
       where: { id: teamId },
       select: { id: true, slug: true },
@@ -344,12 +576,22 @@ export async function approveAuditItemsAction({
       team,
     });
 
+    const combinedApprovedTagIds = Array.from(
+      new Set([
+        ...auditItems
+          .filter(({ leafTagId, status }) => leafTagId && status === "approved")
+          .map(({ leafTagId }) => leafTagId!),
+        ...(featureClassify ? brandTagIds : []),
+        ...(featureClassify ? ipTagIds : []),
+        ...(featureClassify ? productTagIds : []),
+        ...(featureClassify ? personTagIds : []),
+      ]),
+    );
+
     const approvedAsetTags = await prisma.assetTag.findMany({
       where: {
         id: {
-          in: auditItems
-            .filter(({ leafTagId, status }) => leafTagId && status === "approved")
-            .map(({ leafTagId }) => leafTagId!),
+          in: combinedApprovedTagIds,
         },
         slug: {
           not: null,
@@ -358,7 +600,9 @@ export async function approveAuditItemsAction({
       select: { id: true, slug: true },
     });
 
-    const musedamTagIds = approvedAsetTags.map((tag) => slugToId("assetTag", tag.slug!));
+    const musedamTagIds = Array.from(
+      new Set(approvedAsetTags.map((tag) => slugToId("assetTag", tag.slug!))),
+    );
 
     await setAssetTagsToMuseDAM({
       musedamAssetId,
@@ -366,6 +610,19 @@ export async function approveAuditItemsAction({
       team,
       append,
     });
+
+    if (featureClassify) {
+      const existingMuseFeatureIdentifierIds = await filterExistingMuseFeatureIdentifierIds({
+        teamId,
+        identifierIds: museFeatureIdentifierIds,
+      });
+
+      await bindFeatureIdentifiersToMuseDAMMaterial({
+        team,
+        musedamAssetId,
+        identifierIds: existingMuseFeatureIdentifierIds,
+      });
+    }
 
     // 从 MuseDAM 获取更新后的素材标签并同步到本地数据库
     const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
@@ -463,6 +720,7 @@ export async function batchApproveAuditItemsAction({
         where: { id: teamId },
         select: { id: true, slug: true },
       });
+      const featureClassify = await getServerFeatureLibraryEnabled();
 
       let failedCount = 0;
       let deletedCount = 0;
@@ -478,8 +736,9 @@ export async function batchApproveAuditItemsAction({
             return null;
           }
         })
-        .filter((assetRef): assetRef is BatchApproveAssetRef & { musedamAssetId: MuseDAMID } =>
-          assetRef !== null,
+        .filter(
+          (assetRef): assetRef is BatchApproveAssetRef & { musedamAssetId: MuseDAMID } =>
+            assetRef !== null,
         );
 
       const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
@@ -504,7 +763,6 @@ export async function batchApproveAuditItemsAction({
           teamId,
           assetObjectId: { in: assetRefs.map((a) => a.id) },
           status: "pending",
-          leafTagId: { not: null },
         },
         include: {
           assetObject: true,
@@ -513,7 +771,10 @@ export async function batchApproveAuditItemsAction({
       });
       // 按资产分组处理
       for (const assetObject of assetRefs) {
-        const assetAuditItems = auditItems.filter((item) => item.assetObjectId === assetObject.id);
+        const assetAuditItems = auditItems.filter(
+          (item) =>
+            item.assetObjectId === assetObject.id && (featureClassify || item.leafTagId !== null),
+        );
 
         // 参考 fetchAssetsWithAuditItems 的 batch 分组逻辑
         const batch: {
@@ -544,6 +805,7 @@ export async function batchApproveAuditItemsAction({
         let hasDefaultBatch = false;
         const filteredOutAuditItems: typeof assetAuditItems = [];
         const finalAuditItems: typeof assetAuditItems = [];
+        const finalGroups: typeof batch = [];
 
         batch.forEach((group) => {
           if (group.queueItem.taskType === "default") {
@@ -553,10 +815,12 @@ export async function batchApproveAuditItemsAction({
             } else {
               hasDefaultBatch = true;
               finalAuditItems.push(...group.taggingAuditItems);
+              finalGroups.push(group);
             }
           } else {
             // 非 default 类型的都保留
             finalAuditItems.push(...group.taggingAuditItems);
+            finalGroups.push(group);
           }
         });
 
@@ -572,8 +836,50 @@ export async function batchApproveAuditItemsAction({
 
         // 用过滤后的 audit items 替代原来的
         const finalAssetAuditItems = finalAuditItems;
+        const brandTagIds = featureClassify
+          ? Array.from(
+              new Set(
+                finalGroups.flatMap((group) =>
+                  getBrandRecommendationTagIdsFromQueueResult(group.queueItem.result),
+                ),
+              ),
+            )
+          : [];
+        const ipTagIds = featureClassify
+          ? Array.from(
+              new Set(
+                finalGroups.flatMap((group) =>
+                  getIpRecommendationTagIdsFromQueueResult(group.queueItem.result),
+                ),
+              ),
+            )
+          : [];
+        const productTagIds = featureClassify
+          ? Array.from(
+              new Set(
+                finalGroups.flatMap((group) =>
+                  getProductRecommendationTagIdsFromQueueResult(group.queueItem.result),
+                ),
+              ),
+            )
+          : [];
+        const personTagIds = featureClassify
+          ? Array.from(
+              new Set(
+                finalGroups.flatMap((group) =>
+                  getPersonRecommendationTagIdsFromQueueResult(group.queueItem.result),
+                ),
+              ),
+            )
+          : [];
 
-        if (finalAssetAuditItems.length === 0) {
+        if (
+          finalAssetAuditItems.length === 0 &&
+          brandTagIds.length === 0 &&
+          ipTagIds.length === 0 &&
+          productTagIds.length === 0 &&
+          personTagIds.length === 0
+        ) {
           failedCount++;
           continue;
         }
@@ -584,10 +890,22 @@ export async function batchApproveAuditItemsAction({
           deletedCount++;
           continue;
         }
+        const combinedApprovedTagIds = Array.from(
+          new Set([
+            ...finalAssetAuditItems
+              .map((item) => item.leafTagId)
+              .filter((leafTagId): leafTagId is number => leafTagId !== null),
+            ...brandTagIds,
+            ...ipTagIds,
+            ...productTagIds,
+            ...personTagIds,
+          ]),
+        );
+
         const approvedAssetTags = await prisma.assetTag.findMany({
           where: {
             id: {
-              in: finalAssetAuditItems.map((item) => item.leafTagId!),
+              in: combinedApprovedTagIds,
             },
             slug: {
               not: null,
@@ -596,7 +914,9 @@ export async function batchApproveAuditItemsAction({
           select: { id: true, slug: true },
         });
 
-        const musedamTagIds = approvedAssetTags.map((tag) => slugToId("assetTag", tag.slug!));
+        const musedamTagIds = Array.from(
+          new Set(approvedAssetTags.map((tag) => slugToId("assetTag", tag.slug!))),
+        );
 
         // 如果标签ID为空，记为失败并跳过
         if (musedamTagIds.length === 0) {
@@ -611,8 +931,65 @@ export async function batchApproveAuditItemsAction({
             team,
             append,
           });
+
+          if (featureClassify) {
+            const museFeatureIdentifierIds = new Set<string>();
+            for (const group of finalGroups) {
+              const { result } = group.queueItem;
+              const brandTagIdsForGroup = getBrandRecommendationTagIdsFromQueueResult(result);
+              const ipTagIdsForGroup = getIpRecommendationTagIdsFromQueueResult(result);
+              const productTagIdsForGroup = getProductRecommendationTagIdsFromQueueResult(result);
+              const personTagIdsForGroup = getPersonRecommendationTagIdsFromQueueResult(result);
+              for (const id of collectMuseFeatureIdentifierIdsForQueueItem({
+                brandRecommendation: getBrandRecommendationFromQueueResult(result),
+                ipRecommendation: getIpRecommendationFromQueueResult(result),
+                productRecommendation: getProductRecommendationFromQueueResult(result),
+                personRecommendation: getPersonRecommendationFromQueueResult(result),
+                brandTagIds: brandTagIdsForGroup,
+                ipTagIds: ipTagIdsForGroup,
+                productTagIds: productTagIdsForGroup,
+                personTagIds: personTagIdsForGroup,
+              })) {
+                museFeatureIdentifierIds.add(id);
+              }
+            }
+            const existingMuseFeatureIdentifierIds = await filterExistingMuseFeatureIdentifierIds({
+              teamId,
+              identifierIds: [...museFeatureIdentifierIds],
+            });
+
+            await bindFeatureIdentifiersToMuseDAMMaterial({
+              team,
+              musedamAssetId,
+              identifierIds: existingMuseFeatureIdentifierIds,
+            });
+          }
+
+          // 从 MuseDAM 获取更新后的素材标签并同步到本地数据库
+          const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
+          const assets = await requestMuseDAMAPI<{ id: MuseDAMID }[]>("/api/muse/assets-by-ids", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${musedamTeamApiKey}`,
+            },
+            body: [musedamAssetId],
+          });
+
+          if (assets && assets.length > 0) {
+            const musedamAsset = assets[0] as {
+              id: MuseDAMID;
+              tags: { id: MuseDAMID; name: string }[] | null;
+            };
+            const tags = await buildAssetObjectTags(musedamAsset.tags ?? []);
+
+            // 更新本地素材的 tags 字段
+            await prisma.assetObject.update({
+              where: { id: assetObject.id },
+              data: { tags },
+            });
+          }
         } catch (error) {
-          console.error("设置素材标签失败:", error);
+          console.error("设置素材标签或绑定素材特征失败:", error);
           failedCount++;
           continue;
         }

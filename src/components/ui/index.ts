@@ -1,5 +1,6 @@
 // 导出所有图标相关的组件和类型
 export {
+  BrandIcon,
   ClockCircleIcon,
   DashboardIcon,
   DepartmentIcon,
@@ -8,7 +9,10 @@ export {
   FileImageIcon,
   FoldersIcon,
   Icon,
+  IpIcon,
   MonitorIcon,
+  PersonIcon,
+  ProductIcon,
   RetryIcon,
   SettingIcon,
   SvgIcon,

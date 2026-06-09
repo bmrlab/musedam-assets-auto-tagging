@@ -15,7 +15,7 @@ const Checkbox = React.forwardRef<
   CheckboxProps
 >(({ className, indeterminate, checked, ...props }, ref) => {
   // 当 indeterminate 为 true 时，使用 'indeterminate' 作为 checked 值
-  const effectiveChecked = indeterminate ? 'indeterminate' : checked;
+  const effectiveChecked = indeterminate ? "indeterminate" : checked;
 
   return (
     <CheckboxPrimitive.Root
@@ -23,8 +23,8 @@ const Checkbox = React.forwardRef<
       data-slot="checkbox"
       checked={effectiveChecked}
       className={cn(
-        "cursor-pointer ease-in-out transition-all duration-300 hover:border-primary-5",
-        "peer border-basic-4 data-[state=checked]:bg-primary data-[state=checked]:border-primary-5 data-[state=checked]:text-white focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive size-4 shrink-0 rounded-[4px] border outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50",
+        "cursor-pointer ease-in-out transition-all duration-300 hover:border-primary-6",
+        "peer border-basic-4 data-[state=checked]:bg-primary-6 data-[state=checked]:border-primary-6 data-[state=checked]:text-white focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive size-4 shrink-0 rounded-[4px] border outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50",
         // indeterminate && "bg-[#36f] text-white",
         className,
       )}
@@ -35,7 +35,7 @@ const Checkbox = React.forwardRef<
         className="flex items-center justify-center text-current"
       >
         {indeterminate ? (
-          <div className="size-[10px] rounded-[2px] bg-[#36f]" />
+          <div className="size-[10px] rounded-[2px] bg-primary-6" />
         ) : (
           <CheckIcon className="size-3" strokeWidth={3} />
         )}

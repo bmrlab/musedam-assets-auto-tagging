@@ -3,6 +3,12 @@
 import { TagRecord } from "@/app/tags/types";
 import { setLocalStorageWithEvent } from "@/hooks/use-local-storage-event";
 import { isValidLocale } from "@/i18n/routing";
+import {
+  FEATURE_LIBRARY_COOKIE,
+  FEATURE_LIBRARY_PARAM,
+  FEATURE_LIBRARY_STORAGE_KEY,
+  isFeatureLibraryValue,
+} from "@/lib/feature-library";
 import { MuseDAMID } from "@/musedam/types";
 import Cookies from "js-cookie";
 
@@ -166,6 +172,30 @@ function handleParentMessageAction(action: string, args: any, dispatchId?: strin
       }
       break;
 
+    case "updateFeatureLibrary":
+      if (isFeatureLibraryValue(args?.featureLibrary) && typeof window !== "undefined") {
+        localStorage.setItem(FEATURE_LIBRARY_STORAGE_KEY, args.featureLibrary);
+        Cookies.set(FEATURE_LIBRARY_COOKIE, args.featureLibrary, {
+          expires: 365,
+          sameSite: "None" as any,
+          secure: true,
+        });
+        window.dispatchEvent(
+          new CustomEvent("feature-library-change", {
+            detail: { featureLibrary: args.featureLibrary },
+          }),
+        );
+
+        try {
+          const url = new URL(window.location.href);
+          url.searchParams.set(FEATURE_LIBRARY_PARAM, args.featureLibrary);
+          window.location.replace(url.toString());
+        } catch {
+          window.location.reload();
+        }
+      }
+      break;
+
     case "startLiveTranslation":
       if (args?.targetLanguage && typeof window !== "undefined") {
         setLocalStorageWithEvent("liveTranslation", "start");
@@ -264,6 +294,7 @@ type ActionMap = {
         extension: string; // 文件扩展名
         size: number; // 文件大小（字节）
         url?: string; // 素材访问链接
+        downloadUrl?: string; // 素材下载链接
         thumbnail?: { url?: string }; // 缩略图链接
         width?: number; // 图片宽度（图片类型）
         height?: number; // 图片高度（图片类型）

@@ -438,9 +438,9 @@ input:focus-visible {
   --ant-primary-3: rgba(26, 52, 184, 1);
   --ant-primary-4: rgba(39, 75, 219, 1);
   --ant-primary-5: rgba(51, 102, 255, 1);
-  --ant-primary-6: rgba(89, 139, 255, 1);
-  /* 在暗色主题中，primary-6 变成了较亮的蓝色 */
-  --ant-primary-7: rgba(115, 157, 255, 1);
+  --ant-primary-6: rgba(51, 102, 255, 1);
+  /* 主色调 #3366FF，与浅色主题一致 */
+  --ant-primary-7: rgba(39, 75, 219, 1);
   --ant-primary-8: rgba(166, 193, 255, 1);
   --ant-primary-9: rgba(217, 228, 255, 1);
   --ant-primary-10: rgba(242, 246, 255, 1);
@@ -502,6 +502,13 @@ input:focus-visible {
   --unified-bg: var(--ant-basic-0);
   --unified-text: var(--ant-basic-6);
   --unified-shadow: 0px 4px 20px -2px rgba(50, 50, 71, 0.15), 0px 0px 1px 0px rgba(12, 26, 75, 0.1);
+}
+
+@media (min-width: 768px) {
+  body.tagging-layout-active [data-sonner-toaster][data-x-position="center"] {
+    left: calc(50% + 8rem) !important;
+    transform: translateX(-50%) !important;
+  }
 }
 
 [data-sonner-toast] {
