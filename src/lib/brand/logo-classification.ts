@@ -160,14 +160,19 @@ export async function classifyBrandImageCrops({
     }
   >();
 
-  for (let index = 0; index < embeddings.length; index += 1) {
-    const matches = await queryLogoVectorPoints({
-      teamId,
-      vector: embeddings[index],
-      limit: LOGO_VECTOR_QUERY_LIMIT,
-      scoreThreshold: LOGO_VECTOR_SCORE_THRESHOLD,
-    });
+  const matchGroups = await Promise.all(
+    embeddings.map(async (vector, index) => ({
+      index,
+      matches: await queryLogoVectorPoints({
+        teamId,
+        vector,
+        limit: LOGO_VECTOR_QUERY_LIMIT,
+        scoreThreshold: LOGO_VECTOR_SCORE_THRESHOLD,
+      }),
+    })),
+  );
 
+  for (const { index, matches } of matchGroups) {
     for (const match of matches) {
       const assetLogoId = match.payload?.assetLogoId;
       if (!assetLogoId || typeof assetLogoId !== "string") {

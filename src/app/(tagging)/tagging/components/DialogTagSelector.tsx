@@ -5,7 +5,15 @@ import { cn } from "@/lib/utils";
 import { ChevronRight } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useDeferredValue, useEffect, useRef, useState } from "react";
-import { BrandTagTreeNode } from "./types";
+import type { RefObject } from "react";
+
+export type TagTreeNode = {
+  id: number;
+  name: string;
+  level: number;
+  parentId: number | null;
+  children: TagTreeNode[];
+};
 
 type FlattenedTag = {
   id: number;
@@ -14,8 +22,8 @@ type FlattenedTag = {
   path: string[];
 };
 
-type BrandTagSelectorProps = {
-  tags: BrandTagTreeNode[];
+type DialogTagSelectorProps = {
+  tags: TagTreeNode[];
   selectedTagIds: number[];
   onChange: (tagIds: number[]) => void;
   collapsedUntilFocus?: boolean;
@@ -24,7 +32,7 @@ type BrandTagSelectorProps = {
 
 type TranslationFunction = (key: string, values?: Record<string, string | number>) => string;
 
-function flattenTags(nodes: BrandTagTreeNode[], parentPath: string[] = []) {
+function flattenTags(nodes: TagTreeNode[], parentPath: string[] = []) {
   const results: FlattenedTag[] = [];
 
   for (const node of nodes) {
@@ -53,22 +61,24 @@ function TagColumn({
   onToggle,
   t,
   highlightSelected = false,
+  scrollContainerRef,
 }: {
   title: string;
-  nodes: BrandTagTreeNode[];
+  nodes: TagTreeNode[];
   activeId: number | null;
   selectedTagIds: number[];
   onActivate: (id: number) => void;
   onToggle: (id: number) => void;
   t: TranslationFunction;
   highlightSelected?: boolean;
+  scrollContainerRef?: RefObject<HTMLDivElement | null>;
 }) {
   return (
     <div className="flex h-full min-h-0 flex-col border-r border-[rgba(228,233,242,1)] last:border-r-0">
       <div className="h-[33px] border-b border-[rgba(228,233,242,1)] px-3 py-2 text-[12px] leading-[16px] font-medium tracking-[0] text-[rgba(143,155,179,1)]">
         {title}
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div ref={scrollContainerRef} className="min-h-0 flex-1 overflow-y-auto">
         {nodes.length === 0 ? (
           <div className="px-3 py-6 text-sm text-basic-5">{t("tagSelector.noSelectableTags")}</div>
         ) : (
@@ -81,6 +91,7 @@ function TagColumn({
               return (
                 <div
                   key={node.id}
+                  data-tag-id={node.id}
                   className={cn(
                     "flex h-9 items-center justify-between px-3 py-2 transition-colors",
                     isHighlighted && "bg-[rgba(242,246,255,1)]",
@@ -125,15 +136,18 @@ function TagColumn({
   );
 }
 
-export default function BrandTagSelector({
+export default function DialogTagSelector({
   tags,
   selectedTagIds,
   onChange,
   collapsedUntilFocus = false,
   dialogOpen,
-}: BrandTagSelectorProps) {
+}: DialogTagSelectorProps) {
   const t = useTranslations("Tagging.BrandLibrary") as TranslationFunction;
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const level1ScrollRef = useRef<HTMLDivElement | null>(null);
+  const level2ScrollRef = useRef<HTMLDivElement | null>(null);
+  const level3ScrollRef = useRef<HTMLDivElement | null>(null);
   const [keyword, setKeyword] = useState("");
   const [activeLevel1Id, setActiveLevel1Id] = useState<number | null>(tags[0]?.id ?? null);
   const [activeLevel2Id, setActiveLevel2Id] = useState<number | null>(
@@ -141,11 +155,71 @@ export default function BrandTagSelector({
   );
   const [isExpanded, setIsExpanded] = useState(!collapsedUntilFocus);
   const deferredKeyword = useDeferredValue(keyword.trim().toLowerCase());
+  const latestSelectedTagId = selectedTagIds.at(-1) ?? null;
+
+  function getDefaultNavigation() {
+    return {
+      level1Id: tags[0]?.id ?? null,
+      level2Id: tags[0]?.children[0]?.id ?? null,
+    };
+  }
+
+  function getNavigationForTagId(tagId: number) {
+    for (const l1 of tags) {
+      if (l1.id === tagId) {
+        return { level1Id: l1.id, level2Id: l1.children[0]?.id ?? null };
+      }
+      for (const l2 of l1.children) {
+        if (l2.id === tagId) {
+          return { level1Id: l1.id, level2Id: l2.id };
+        }
+        if (l2.children.some((child) => child.id === tagId)) {
+          return { level1Id: l1.id, level2Id: l2.id };
+        }
+      }
+    }
+    return getDefaultNavigation();
+  }
+
+  function applyNavigation(tagId: number | null) {
+    const navigation = tagId === null ? getDefaultNavigation() : getNavigationForTagId(tagId);
+    setActiveLevel1Id(navigation.level1Id);
+    setActiveLevel2Id(navigation.level2Id);
+  }
+
+  function scrollPanelsToActive(
+    level1Id: number | null,
+    level2Id: number | null,
+    level3Id: number | null,
+  ) {
+    if (level1Id && level1ScrollRef.current) {
+      level1ScrollRef.current
+        .querySelector(`[data-tag-id="${level1Id}"]`)
+        ?.scrollIntoView({ block: "nearest" });
+    }
+    if (level2Id && level2ScrollRef.current) {
+      level2ScrollRef.current
+        .querySelector(`[data-tag-id="${level2Id}"]`)
+        ?.scrollIntoView({ block: "nearest" });
+    }
+    if (level3Id && level3ScrollRef.current) {
+      level3ScrollRef.current
+        .querySelector(`[data-tag-id="${level3Id}"]`)
+        ?.scrollIntoView({ block: "nearest" });
+    }
+  }
+
+  function openPanel() {
+    const wasCollapsed = !isExpanded;
+    setIsExpanded(true);
+    if (wasCollapsed && !keyword.trim()) {
+      applyNavigation(latestSelectedTagId);
+    }
+  }
 
   useEffect(() => {
-    setActiveLevel1Id(tags[0]?.id ?? null);
-    setActiveLevel2Id(tags[0]?.children[0]?.id ?? null);
-  }, [tags]);
+    applyNavigation(latestSelectedTagId);
+  }, [latestSelectedTagId, tags]);
 
   useEffect(() => {
     if (!dialogOpen) {
@@ -177,6 +251,22 @@ export default function BrandTagSelector({
     };
   }, [isExpanded]);
 
+  useEffect(() => {
+    if (!isExpanded || deferredKeyword) {
+      return;
+    }
+
+    const frame = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        scrollPanelsToActive(activeLevel1Id, activeLevel2Id, latestSelectedTagId);
+      });
+    });
+
+    return () => {
+      cancelAnimationFrame(frame);
+    };
+  }, [isExpanded, deferredKeyword, activeLevel1Id, activeLevel2Id, latestSelectedTagId]);
+
   const flattenedTags = flattenTags(tags);
   const selectedTags = selectedTagIds
     .map((tagId) => flattenedTags.find((tag) => tag.id === tagId))
@@ -191,20 +281,29 @@ export default function BrandTagSelector({
   const activeLevel2 = level2Nodes.find((tag) => tag.id === activeLevel2Id) ?? null;
   const level3Nodes = activeLevel2?.children ?? [];
 
-  function toggleTag(tagId: number) {
-    if (selectedTagIds.includes(tagId)) {
-      onChange(selectedTagIds.filter((id) => id !== tagId));
-      return;
+  function toggleTag(tagId: number, options?: { clearKeyword?: boolean }) {
+    const nextSelected = selectedTagIds.includes(tagId)
+      ? selectedTagIds.filter((id) => id !== tagId)
+      : [...selectedTagIds, tagId];
+    const prevLatest = selectedTagIds.at(-1) ?? null;
+    const nextLatest = nextSelected.at(-1) ?? null;
+
+    if (options?.clearKeyword) {
+      setKeyword("");
     }
 
-    onChange([...selectedTagIds, tagId]);
+    onChange(nextSelected);
+
+    if (nextLatest !== prevLatest) {
+      applyNavigation(nextLatest);
+    }
   }
 
   return (
     <div ref={containerRef} className="w-full space-y-2">
       <div
         className="flex min-h-10 flex-wrap items-center gap-2 rounded-[8px] border border-basic-4 px-2 py-1.5 transition-colors focus-within:border-primary-6"
-        onClick={() => setIsExpanded(true)}
+        onClick={() => openPanel()}
       >
         {selectedTags.map((tag) => (
           <button
@@ -224,7 +323,8 @@ export default function BrandTagSelector({
           type="text"
           value={keyword}
           onChange={(event) => setKeyword(event.target.value)}
-          onFocus={() => setIsExpanded(true)}
+          onFocus={() => openPanel()}
+          onClick={() => openPanel()}
           placeholder={
             selectedTags.length > 0 ? t("tagSelector.continueAdding") : t("tagSelector.searchPlaceholder")
           }
@@ -235,7 +335,9 @@ export default function BrandTagSelector({
       {isExpanded && deferredKeyword ? (
         <div className="h-[320px] w-full overflow-y-auto rounded-[6px] border border-[rgba(228,233,242,1)] bg-[rgba(255,255,255,1)] shadow-[0_6px_16px_0_rgba(87,98,114,0.12)]">
           {searchResults.length === 0 ? (
-            <div className="px-4 py-8 text-sm text-basic-5">{t("tagSelector.noSearchResults")}</div>
+            <div className="flex h-full items-center justify-center px-4 text-sm text-basic-5">
+              {t("tagSelector.noSearchResults")}
+            </div>
           ) : (
             <div className="divide-y">
               {searchResults.map((tag) => (
@@ -245,7 +347,7 @@ export default function BrandTagSelector({
                 >
                   <Checkbox
                     checked={selectedTagIds.includes(tag.id)}
-                    onCheckedChange={() => toggleTag(tag.id)}
+                    onCheckedChange={() => toggleTag(tag.id, { clearKeyword: true })}
                     className="border-basic-4 data-[state=checked]:border-primary-6 data-[state=checked]:bg-primary-6"
                   />
                   <span>{tag.path.join(" > ")}</span>
@@ -270,6 +372,7 @@ export default function BrandTagSelector({
               setActiveLevel2Id(nextLevel2);
             }}
             t={t}
+            scrollContainerRef={level1ScrollRef}
           />
           <TagColumn
             title={t("tagSelector.tags", { count: level2Nodes.length })}
@@ -279,6 +382,7 @@ export default function BrandTagSelector({
             onToggle={toggleTag}
             onActivate={setActiveLevel2Id}
             t={t}
+            scrollContainerRef={level2ScrollRef}
           />
           <TagColumn
             title={t("tagSelector.tags", { count: level3Nodes.length })}
@@ -289,6 +393,7 @@ export default function BrandTagSelector({
             onActivate={() => undefined}
             t={t}
             highlightSelected
+            scrollContainerRef={level3ScrollRef}
           />
         </div>
       ) : null}

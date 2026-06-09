@@ -31,7 +31,7 @@ import { Loader2, Plus, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
-import BrandTagSelector from "../brand/BrandTagSelector";
+import DialogTagSelector from "../components/DialogTagSelector";
 import {
   createAssetPersonAction,
   prepareAssetLibraryPersonImagesAction,
@@ -598,7 +598,7 @@ export default function PersonDialog({
                 </button>
               </div>
             </div>
-            <BrandTagSelector
+            <DialogTagSelector
               tags={tags}
               selectedTagIds={selectedTagIds}
               onChange={setSelectedTagIds}

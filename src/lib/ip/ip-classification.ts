@@ -301,49 +301,59 @@ export async function classifyIpImageCrops({
     }
   >();
 
-  for (let index = 0; index < embeddings.length; index += 1) {
-    const imageMatches = await queryIpVectorPoints({
-      teamId,
-      vector: embeddings[index],
-      limit: IP_IMAGE_VECTOR_QUERY_LIMIT,
-      scoreThreshold: IP_IMAGE_VECTOR_SCORE_THRESHOLD,
-      sourceType: "image",
-    });
-    const descriptionMatches = await queryIpVectorPoints({
-      teamId,
-      vector: embeddings[index],
-      limit: IP_DESCRIPTION_VECTOR_QUERY_LIMIT,
-      sourceType: "description",
-    });
-    const matches = [...imageMatches, ...descriptionMatches];
+  const cropMatchGroups = await Promise.all(
+    embeddings.map(async (vector, index) => {
+      const [imageMatches, descriptionMatches] = await Promise.all([
+        queryIpVectorPoints({
+          teamId,
+          vector,
+          limit: IP_IMAGE_VECTOR_QUERY_LIMIT,
+          scoreThreshold: IP_IMAGE_VECTOR_SCORE_THRESHOLD,
+          sourceType: "image",
+        }),
+        queryIpVectorPoints({
+          teamId,
+          vector,
+          limit: IP_DESCRIPTION_VECTOR_QUERY_LIMIT,
+          sourceType: "description",
+        }),
+      ]);
+      const matches = [...imageMatches, ...descriptionMatches];
+      const cropMatches = new Map<string, CropAggregation>();
 
-    const cropMatches = new Map<string, CropAggregation>();
+      for (const match of matches) {
+        if (match.score <= 0) {
+          continue;
+        }
 
-    for (const match of matches) {
-      if (match.score <= 0) {
-        continue;
+        const assetIpId = match.payload?.assetIpId;
+        if (!assetIpId || typeof assetIpId !== "string") {
+          continue;
+        }
+
+        const sourceType = match.payload?.sourceType === "description" ? "description" : "image";
+        const current = cropMatches.get(assetIpId) ?? {
+          imageSimilarity: 0,
+          descriptionSimilarity: 0,
+        };
+
+        if (sourceType === "description") {
+          current.descriptionSimilarity = Math.max(current.descriptionSimilarity, match.score);
+        } else {
+          current.imageSimilarity = Math.max(current.imageSimilarity, match.score);
+        }
+
+        cropMatches.set(assetIpId, current);
       }
 
-      const assetIpId = match.payload?.assetIpId;
-      if (!assetIpId || typeof assetIpId !== "string") {
-        continue;
-      }
-
-      const sourceType = match.payload?.sourceType === "description" ? "description" : "image";
-      const current = cropMatches.get(assetIpId) ?? {
-        imageSimilarity: 0,
-        descriptionSimilarity: 0,
+      return {
+        index,
+        cropMatches,
       };
+    }),
+  );
 
-      if (sourceType === "description") {
-        current.descriptionSimilarity = Math.max(current.descriptionSimilarity, match.score);
-      } else {
-        current.imageSimilarity = Math.max(current.imageSimilarity, match.score);
-      }
-
-      cropMatches.set(assetIpId, current);
-    }
-
+  for (const { index, cropMatches } of cropMatchGroups) {
     for (const [assetIpId, aggregation] of cropMatches.entries()) {
       const cropScore = computeCropScore(aggregation);
       const current = rankedByIp.get(assetIpId) ?? {

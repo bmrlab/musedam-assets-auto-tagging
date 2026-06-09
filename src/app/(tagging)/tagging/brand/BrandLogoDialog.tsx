@@ -37,7 +37,7 @@ import {
   prepareLogoImageUploadAction,
   updateAssetLogoAction,
 } from "./actions";
-import BrandTagSelector from "./BrandTagSelector";
+import DialogTagSelector from "../components/DialogTagSelector";
 import LogoTypeSelect from "./LogoTypeSelect";
 import SignedBrandImage from "./SignedBrandImage";
 import { BrandLogoItem, BrandLogoTypeItem, BrandTagTreeNode } from "./types";
@@ -592,7 +592,7 @@ export default function BrandLogoDialog({
                 </button>
               </div>
             </div>
-            <BrandTagSelector
+            <DialogTagSelector
               tags={tags}
               selectedTagIds={selectedTagIds}
               onChange={setSelectedTagIds}

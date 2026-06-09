@@ -250,49 +250,59 @@ export async function classifyProductImageCrops({
     }
   >();
 
-  for (let index = 0; index < embeddings.length; index += 1) {
-    const imageMatches = await queryProductVectorPoints({
-      teamId,
-      vector: embeddings[index],
-      limit: PRODUCT_IMAGE_VECTOR_QUERY_LIMIT,
-      scoreThreshold: PRODUCT_IMAGE_VECTOR_SCORE_THRESHOLD,
-      sourceType: "image",
-    });
-    const descriptionMatches = await queryProductVectorPoints({
-      teamId,
-      vector: embeddings[index],
-      limit: PRODUCT_DESCRIPTION_VECTOR_QUERY_LIMIT,
-      sourceType: "description",
-    });
-    const matches = [...imageMatches, ...descriptionMatches];
+  const cropMatchGroups = await Promise.all(
+    embeddings.map(async (vector, index) => {
+      const [imageMatches, descriptionMatches] = await Promise.all([
+        queryProductVectorPoints({
+          teamId,
+          vector,
+          limit: PRODUCT_IMAGE_VECTOR_QUERY_LIMIT,
+          scoreThreshold: PRODUCT_IMAGE_VECTOR_SCORE_THRESHOLD,
+          sourceType: "image",
+        }),
+        queryProductVectorPoints({
+          teamId,
+          vector,
+          limit: PRODUCT_DESCRIPTION_VECTOR_QUERY_LIMIT,
+          sourceType: "description",
+        }),
+      ]);
+      const matches = [...imageMatches, ...descriptionMatches];
+      const cropMatches = new Map<string, CropAggregation>();
 
-    const cropMatches = new Map<string, CropAggregation>();
+      for (const match of matches) {
+        if (match.score <= 0) {
+          continue;
+        }
 
-    for (const match of matches) {
-      if (match.score <= 0) {
-        continue;
+        const assetProductId = match.payload?.assetProductId;
+        if (!assetProductId || typeof assetProductId !== "string") {
+          continue;
+        }
+
+        const sourceType = match.payload?.sourceType === "description" ? "description" : "image";
+        const current = cropMatches.get(assetProductId) ?? {
+          imageSimilarity: 0,
+          descriptionSimilarity: 0,
+        };
+
+        if (sourceType === "description") {
+          current.descriptionSimilarity = Math.max(current.descriptionSimilarity, match.score);
+        } else {
+          current.imageSimilarity = Math.max(current.imageSimilarity, match.score);
+        }
+
+        cropMatches.set(assetProductId, current);
       }
 
-      const assetProductId = match.payload?.assetProductId;
-      if (!assetProductId || typeof assetProductId !== "string") {
-        continue;
-      }
-
-      const sourceType = match.payload?.sourceType === "description" ? "description" : "image";
-      const current = cropMatches.get(assetProductId) ?? {
-        imageSimilarity: 0,
-        descriptionSimilarity: 0,
+      return {
+        index,
+        cropMatches,
       };
+    }),
+  );
 
-      if (sourceType === "description") {
-        current.descriptionSimilarity = Math.max(current.descriptionSimilarity, match.score);
-      } else {
-        current.imageSimilarity = Math.max(current.imageSimilarity, match.score);
-      }
-
-      cropMatches.set(assetProductId, current);
-    }
-
+  for (const { index, cropMatches } of cropMatchGroups) {
     for (const [assetProductId, aggregation] of cropMatches.entries()) {
       const cropScore = computeCropScore(aggregation);
       const current = rankedByProduct.get(assetProductId) ?? {

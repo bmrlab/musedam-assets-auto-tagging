@@ -46,7 +46,7 @@ import {
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
-import BrandTagSelector from "../brand/BrandTagSelector";
+import DialogTagSelector from "../components/DialogTagSelector";
 import {
   createAssetIpAction,
   detectAssetIpPartialFeatureAction,
@@ -1077,7 +1077,7 @@ export default function IpDialog({
                 </button>
               </div>
             </div>
-            <BrandTagSelector
+            <DialogTagSelector
               tags={tags}
               selectedTagIds={selectedTagIds}
               onChange={setSelectedTagIds}
