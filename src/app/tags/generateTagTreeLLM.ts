@@ -57,6 +57,8 @@ function getTagTreeGenerateModel(): LLMModelName {
   return (process.env.TAG_TREE_GENERATE_MODEL?.trim() || "claude-sonnet-4-6") as LLMModelName;
 }
 
+const TAG_TREE_GENERATE_RETRY_TIMES = Number(process.env.TAG_TREE_GENERATE_RETRY_TIMES ?? 3);
+
 /** 供 Server Action 与 HTTP API 共用，避免长耗时走 RSC Flight 被网关/代理破坏 */
 export async function executeGenerateTagTreeByLLM({
   finalPrompt,
@@ -81,7 +83,7 @@ export async function executeGenerateTagTreeByLLM({
 
     const config = getLanguageConfig(lang);
 
-    const structuredPrompt = `${finalPrompt}
+    const baseStructuredPrompt = `${finalPrompt}
 
 ${config.promptIntro}
 {
@@ -104,21 +106,51 @@ ${config.promptIntro}
 ${config.notes}`;
 
     const modelName = getTagTreeGenerateModel();
-    const result = await generateObject({
-      model: llm(modelName),
-      schema: tagTreeSchema,
-      schemaName: config.schemaName,
-      schemaDescription: config.schemaDescription,
-      prompt: structuredPrompt,
-    });
+    let lastError: unknown;
+    let textOutput = "";
+    let structuredData: z.infer<typeof tagTreeSchema> | null = null;
 
-    const textOutput = convertStructuredToText(result.object);
+    for (let attempt = 1; attempt <= TAG_TREE_GENERATE_RETRY_TIMES; attempt++) {
+      try {
+        const structuredPrompt = `${baseStructuredPrompt}
+
+必须严格返回一个 JSON 对象，不要返回 markdown 代码块，不要返回解释文本。`;
+        const result = await generateObject({
+          model: llm(modelName),
+          mode: "json",
+          schema: tagTreeSchema,
+          schemaName: config.schemaName,
+          schemaDescription: config.schemaDescription,
+          prompt: structuredPrompt,
+        });
+
+        structuredData = result.object;
+        textOutput = convertStructuredToText(result.object);
+        break;
+      } catch (error) {
+        lastError = error;
+        rootLogger.warn({
+          msg: "generateTagTreeByLLM: 结构化解析失败，准备重试",
+          requestId,
+          teamId,
+          attempt,
+          maxAttempts: TAG_TREE_GENERATE_RETRY_TIMES,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    if (!structuredData) {
+      throw lastError instanceof Error
+        ? lastError
+        : new Error("TAG_TREE_GENERATE_FAILED_AFTER_RETRIES");
+    }
 
     rootLogger.info({
       msg: "generateTagTreeByLLM: 生成成功",
       requestId,
       teamId,
-      structuredData: result.object,
+      structuredData,
       textOutput,
     });
 
