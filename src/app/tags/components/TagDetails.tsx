@@ -198,6 +198,10 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
 
   // 检查是否被编辑过
   const hasChanges = selectedTag.tag.id ? isTagEdited(selectedTag.tag.id) : false;
+  const hasChildTags = Array.isArray((selectedTag.tag as AssetTag & { children?: AssetTag[] }).children)
+    ? ((selectedTag.tag as AssetTag & { children?: AssetTag[] }).children?.length ?? 0) > 0
+    : false;
+  const shouldShowRequiredSwitch = showSwitch && (hasChildTags || required);
 
   const handleStartEdit = () => {
     setIsEditing(true);
@@ -311,7 +315,7 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
           </div>
         </div>
 
-        {showSwitch && (
+        {shouldShowRequiredSwitch && (
           <div className="space-y-2">
             <div className="flex justify-between items-center">
               <Label className="text-sm font-medium">{t("requiredForInventoryEntry")}</Label>
