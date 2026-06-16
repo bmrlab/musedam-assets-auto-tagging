@@ -75,6 +75,7 @@
       "matchingRuleDescription": "When asset names, metadata, and folder paths match the above keywords, AI will automatically tag the asset",
       "excludeRule": "Exclude Rule:",
       "excludeRuleDescription": "When asset names, metadata, and folder paths contain these keywords, even if matching keywords are found, the tag will not be automatically applied",
+      "requiredForInventoryEntry": "Required for inventory entry",
       "tagNamePlaceholder": "Poster Design"
     },
     "ManualCreateModal": {

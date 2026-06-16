@@ -188,6 +188,7 @@
       "tagDescriptionPlaceholder": "वैकल्पिक। टैग विवरण जोड़ने से AI को टैगों के अनुप्रयोग परिदृश्यों को बेहतर ढंग से समझने में मदद मिलती है",
       "tagDetails": "टैग विवरण",
       "tagName": "टैग नाम",
+      "requiredForInventoryEntry": "इन्वेंट्री में प्रवेश के लिए आवश्यक",
       "tagNamePlaceholder": "पोस्टर डिज़ाइन"
     },
     "TagItem": {

@@ -75,6 +75,7 @@
       "matchingRuleDescription": "Ketika nama aset, metadata, dan jalur folder cocok dengan kata kunci di atas, AI akan secara otomatis memberi tag pada aset",
       "excludeRule": "Aturan Pengecualian:",
       "excludeRuleDescription": "Ketika nama aset, metadata, dan jalur folder mengandung kata kunci ini, meskipun kata kunci yang cocok ditemukan, tag tidak akan diterapkan secara otomatis",
+      "requiredForInventoryEntry": "Wajib diisi untuk penyimpanan",
       "tagNamePlaceholder": "Desain Poster"
     },
     "ManualCreateModal": {

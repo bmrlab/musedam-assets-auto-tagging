@@ -188,6 +188,7 @@
       "tagDescriptionPlaceholder": "Opcional. Adicionar descrições de tags ajuda a IA a entender melhor os cenários de aplicação das tags.",
       "tagDetails": "Detalhes da Tag",
       "tagName": "Nome da Tag",
+      "requiredForInventoryEntry": "Obrigatório para entrada de inventário",
       "tagNamePlaceholder": "Design de Posters"
     },
     "TagItem": {

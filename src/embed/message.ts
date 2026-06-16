@@ -211,6 +211,27 @@ function handleParentMessageAction(action: string, args: any, dispatchId?: strin
       }
       break;
 
+    case "updatePendingInboundConfig":
+      // console.log("updatePendingInboundConfig-iframe", args);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("pending-inbound-config-change", {
+            detail: {
+              enabled: !!args?.enabled,
+              uncategorizedName:
+                typeof args?.uncategorizedName === "string" ? args.uncategorizedName : "未分类",
+            },
+          }),
+        );
+        if (dispatchId) {
+          dispatchMuseDAMClientActionResult("updatePendingInboundConfig", dispatchId, {
+            success: true,
+            data: {},
+          });
+        }
+      }
+      break;
+
     default:
       // 忽略未知的 action
       break;
@@ -363,6 +384,26 @@ type ActionMap = {
     result: BaseActionResult<{
       translatedTexts: string[];
     }>;
+  };
+  "list-tag-pending-inbound-required": {
+    args: Record<string, never>;
+    result: BaseActionResult<{
+      list: Array<{
+        id: number;
+        requiredType: number;
+        metadataFieldId: string;
+        tagId: number;
+        roleIds: number[];
+      }>;
+    }>;
+  };
+  "set-tag-pending-inbound-required": {
+    args: {
+      tagId: number;
+      required: boolean;
+      configId?: number;
+    };
+    result: BaseActionResult<Record<string, never>>;
   };
 };
 

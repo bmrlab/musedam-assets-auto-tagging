@@ -75,6 +75,7 @@
       "matchingRuleDescription": "Lorsque les noms de ressources, métadonnées et chemins de dossiers correspondent aux mots-clés ci-dessus, l'IA étiquettera automatiquement la ressource",
       "excludeRule": "Règle d'exclusion :",
       "excludeRuleDescription": "Lorsque les noms de ressources, métadonnées et chemins de dossiers contiennent ces mots-clés, même si des mots-clés correspondants sont trouvés, l'étiquette ne sera pas appliquée automatiquement",
+      "requiredForInventoryEntry": "Champ obligatoire pour l'entrée de stock",
       "tagNamePlaceholder": "Conception d'affiche"
     },
     "ManualCreateModal": {

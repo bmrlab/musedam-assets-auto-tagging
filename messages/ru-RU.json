@@ -188,6 +188,7 @@
       "tagDescriptionPlaceholder": "Необязательно. Добавление описаний тегов помогает ИИ лучше понять сценарии их использования.",
       "tagDetails": "Детали тега",
       "tagName": "Название тега",
+      "requiredForInventoryEntry": "Обязательно для ввода в инвентаризацию",
       "tagNamePlaceholder": "Дизайн постера"
     },
     "TagItem": {

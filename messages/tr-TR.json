@@ -75,6 +75,7 @@
       "matchingRuleDescription": "Varlık adları, meta veriler ve klasör yolları yukarıdaki anahtar kelimelerle eşleştiğinde, AI varlığı otomatik olarak etiketleyecektir",
       "excludeRule": "Dışlama Kuralı:",
       "excludeRuleDescription": "Varlık adları, meta veriler ve klasör yolları bu anahtar kelimeleri içerdiğinde, eşleşen anahtar kelimeler bulunsa bile, etiket otomatik olarak uygulanmayacaktır",
+      "requiredForInventoryEntry": "Depo girişi için gerekli",
       "tagNamePlaceholder": "Poster Tasarımı"
     },
     "ManualCreateModal": {

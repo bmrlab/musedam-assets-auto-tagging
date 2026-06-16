@@ -188,6 +188,7 @@
       "tagDescriptionPlaceholder": "オプションです。タグの説明を追加することで、AIがタグの使用シーンをよりよく理解するのに役立ちます。",
       "tagDetails": "タグ詳細",
       "tagName": "タグ名",
+      "requiredForInventoryEntry": "入庫時に必須です",
       "tagNamePlaceholder": "ポスターデザイン"
     },
     "TagItem": {

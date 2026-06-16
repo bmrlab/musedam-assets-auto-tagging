@@ -188,6 +188,7 @@
       "tagDescriptionPlaceholder": "Opcional. Añadir descripciones de etiquetas ayuda a la IA a entender mejor los escenarios de aplicación de las etiquetas.",
       "tagDetails": "Detalles de la Etiqueta",
       "tagName": "Nombre de Etiqueta",
+      "requiredForInventoryEntry": "Requerido para la entrada de inventario",
       "tagNamePlaceholder": "Diseño de pósteres"
     },
     "TagItem": {

@@ -1,4 +1,5 @@
 "use client";
+import "@/embed/message";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AssetTag } from "@/prisma/client";

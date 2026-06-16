@@ -75,6 +75,7 @@
       "matchingRuleDescription": "Gdy nazwy zasobów, metadane i ścieżki folderów pasują do powyższych słów kluczowych, AI automatycznie oznakuje zasób",
       "excludeRule": "Reguła wykluczenia:",
       "excludeRuleDescription": "Gdy nazwy zasobów, metadane i ścieżki folderów zawierają te słowa kluczowe, nawet jeśli znajdą się pasujące słowa kluczowe, tag nie zostanie automatycznie zastosowany",
+      "requiredForInventoryEntry": "Wymagane przy wprowadzaniu do magazynu",
       "tagNamePlaceholder": "Projekt plakatu"
     },
     "ManualCreateModal": {

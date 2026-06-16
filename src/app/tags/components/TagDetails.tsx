@@ -13,6 +13,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { updateTagExtra } from "../actions";
 import { TagEditData, useTagEdit } from "../contexts/TagEditContext";
+import { usePendingInboundTagRequired } from "../hooks/usePendingInboundTagRequired";
 import { EditIcon } from "@/components/ui";
 
 // 组件Props类型
@@ -25,6 +26,8 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
   const t = useTranslations("TagsPage.TagDetails");
   const tRoot = useTranslations("TagsPage");
   const { getTagEditData, isTagEdited } = useTagEdit();
+  const { showSwitch, required, loading: pendingRequiredLoading, handleToggle } =
+    usePendingInboundTagRequired(selectedTag);
 
   // 本地表单状态
   const [formData, setFormData] = useState<TagEditData>({
@@ -307,6 +310,20 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
             </span>
           </div>
         </div>
+
+        {showSwitch && (
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <Label className="text-sm font-medium">{t("requiredForInventoryEntry")}</Label>
+              <Switch
+                checked={required}
+                disabled={pendingRequiredLoading}
+                onCheckedChange={handleToggle}
+                aria-label={t("requiredForInventoryEntry")}
+              />
+            </div>
+          </div>
+        )}
 
         {/* 匹配关键词 */}
         <div className="space-y-2">

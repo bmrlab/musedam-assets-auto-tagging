@@ -188,6 +188,7 @@
       "tagDescriptionPlaceholder": "Optional. Das Hinzufügen von Tag-Beschreibungen hilft der KI, die Anwendungsszenarien von Tags besser zu verstehen.",
       "tagDetails": "Tag-Details",
       "tagName": "Tag-Name",
+      "requiredForInventoryEntry": "Pflichtfeld für die Wareneingabe",
       "tagNamePlaceholder": "Plakatgestaltung"
     },
     "TagItem": {

@@ -75,6 +75,7 @@
       "matchingRuleDescription": "当素材的名称、元数据和所在文件夹匹配到上述关键词时，AI 将自动为素材打上对应标签",
       "excludeRule": "排除规则：",
       "excludeRuleDescription": "当素材的名称、元数据和所在文件夹包含这些关键词时，即使匹配到上述关键词也不会自动打标",
+      "requiredForInventoryEntry": "入库必填",
       "tagNamePlaceholder": "海报设计"
     },
     "ManualCreateModal": {

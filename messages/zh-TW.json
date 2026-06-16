@@ -188,6 +188,7 @@
       "tagDescriptionPlaceholder": "選填，新增標籤描述可協助 AI 更好地理解標籤的應用場景",
       "tagDetails": "標籤詳情",
       "tagName": "標籤名稱",
+      "requiredForInventoryEntry": "入庫必填",
       "tagNamePlaceholder": "海報設計"
     },
     "TagItem": {
