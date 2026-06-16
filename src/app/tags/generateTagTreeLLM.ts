@@ -1,6 +1,6 @@
 import "server-only";
 
-import { llm } from "@/ai/provider";
+import { llm, LLMModelName } from "@/ai/provider";
 import { Locale, getLanguageConfig } from "@/i18n/routing";
 import { rootLogger } from "@/lib/logging";
 import type { ServerActionResult } from "@/lib/serverAction";
@@ -53,6 +53,10 @@ function convertStructuredToText(data: z.infer<typeof tagTreeSchema>): string {
   return lines.join("\n");
 }
 
+function getTagTreeGenerateModel(): LLMModelName {
+  return (process.env.TAG_TREE_GENERATE_MODEL?.trim() || "claude-sonnet-4-6") as LLMModelName;
+}
+
 /** 供 Server Action 与 HTTP API 共用，避免长耗时走 RSC Flight 被网关/代理破坏 */
 export async function executeGenerateTagTreeByLLM({
   finalPrompt,
@@ -72,6 +76,7 @@ export async function executeGenerateTagTreeByLLM({
       teamId,
       promptLength: finalPrompt.length,
       lang,
+      model: getTagTreeGenerateModel(),
     });
 
     const config = getLanguageConfig(lang);
@@ -98,8 +103,9 @@ ${config.promptIntro}
 
 ${config.notes}`;
 
+    const modelName = getTagTreeGenerateModel();
     const result = await generateObject({
-      model: llm("claude-sonnet-4"),
+      model: llm(modelName),
       schema: tagTreeSchema,
       schemaName: config.schemaName,
       schemaDescription: config.schemaDescription,

@@ -42,7 +42,8 @@ export type LLMModelName =
   | "gpt-5-nano"
   | "qwen3-vl-flash"
   | "claude-3-7-sonnet"
-  | "claude-sonnet-4";
+  | "claude-sonnet-4"
+  | "claude-sonnet-4-6";
 
 export function llm(modelName: LLMModelName) {
   switch (modelName) {
@@ -60,6 +61,7 @@ export function llm(modelName: LLMModelName) {
       }
     case "claude-3-7-sonnet":
     case "claude-sonnet-4":
+    case "claude-sonnet-4-6":
       if (process.env.AWS_BEDROCK_ACCESS_KEY_ID) {
         break;
       } else {
@@ -82,5 +84,7 @@ export function llm(modelName: LLMModelName) {
       return bedrock("us.anthropic.claude-3-7-sonnet-20250219-v1:0");
     case "claude-sonnet-4":
       return bedrock("us.anthropic.claude-sonnet-4-20250514-v1:0");
+    case "claude-sonnet-4-6":
+      return bedrock("us.anthropic.claude-sonnet-4-6");
   }
 }
