@@ -651,7 +651,6 @@ export async function processPendingQueueItems(): Promise<{
   processing: number;
   skipped: number;
 }> {
-  rootLogger.info(`processPendingQueueItems`);
   await recoverStaleProcessingItems();
 
   // 一次性捞出足够多的 pending 记录，内存内分流（避免 Prisma JSON path 过滤器的兼容性问题）
@@ -690,13 +689,16 @@ export async function processPendingQueueItems(): Promise<{
 
   await Promise.all(processTasks);
 
-  rootLogger.info({
-    msg: `processPendingQueueItems`,
-    processing,
-    skipped,
-    tagTreePicked: tagTreeItems.length,
-    normalPicked: normalItems.length,
-  });
+  // 只在确实有任务时记录，避免空轮询每 30s 刷无意义的 processing:0 日志
+  if (processing > 0 || skipped > 0 || allItems.length > 0) {
+    rootLogger.info({
+      msg: `processPendingQueueItems`,
+      processing,
+      skipped,
+      tagTreePicked: tagTreeItems.length,
+      normalPicked: normalItems.length,
+    });
+  }
 
   return { processing, skipped };
 }

@@ -90,9 +90,12 @@ async function processQueue() {
     }
 
     const result = await response.json();
-    console.log(
-      `✅ ${new Date().toISOString()} - Queue processing completed: ${result.processing} processing, ${result.skipped} skipped`,
-    );
+    // 只在有任务时打印，避免空轮询每 30s 刷无意义的 0 processing 日志
+    if (result.processing > 0 || result.skipped > 0) {
+      console.log(
+        `✅ ${new Date().toISOString()} - Queue processing completed: ${result.processing} processing, ${result.skipped} skipped`,
+      );
+    }
     return true;
   } catch (error) {
     console.error(`❌ ${new Date().toISOString()} - Error processing queue:`, error);
