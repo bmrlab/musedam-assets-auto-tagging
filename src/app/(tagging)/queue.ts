@@ -6,6 +6,7 @@ import { classifyAssetIpRecommendation } from "@/lib/ip/tagging-ip-classificatio
 import { rootLogger } from "@/lib/logging";
 import { classifyAssetPersonRecommendation } from "@/lib/person/tagging-person-classification";
 import { classifyAssetProductRecommendation } from "@/lib/product/tagging-product-classification";
+import { fetchRemoteImageInput } from "@/lib/tagging/classification-image";
 import { idToSlug, slugToId } from "@/lib/slug";
 import { retrieveTeamCredentials } from "@/musedam/apiKey";
 import { bindFeatureIdentifiersToMuseDAMMaterial, setAssetTagsToMuseDAM } from "@/musedam/assets";
@@ -186,62 +187,85 @@ export async function processQueueItem({
       matchingSources: extra?.matchingSources,
       recognitionAccuracy: extra?.recognitionAccuracy,
     });
-    const brandRecommendationPromise = featureClassify
-      ? classifyAssetBrandRecommendation({
-          teamId: queueItem.teamId,
-          imageUrl: thumbnailUrl,
-        }).catch((error) => {
+
+    // 特征分类（品牌/IP/商品/人物）。
+    // 关键优化：
+    // 1) 先用 4 次廉价的向量计数判断各特征库是否有可用参考，全空则完全不下载图片；
+    // 2) 整图只下载/降采样一次，在各分类器之间复用，避免重复下载与多份内存拷贝。
+    const teamId = queueItem.teamId;
+    let brandRecommendationPromise: Promise<
+      Awaited<ReturnType<typeof classifyAssetBrandRecommendation>>
+    > = Promise.resolve(null);
+    let ipRecommendationPromise: Promise<
+      Awaited<ReturnType<typeof classifyAssetIpRecommendation>>
+    > = Promise.resolve(null);
+    let productRecommendationPromise: Promise<
+      Awaited<ReturnType<typeof classifyAssetProductRecommendation>>
+    > = Promise.resolve(null);
+    let personRecommendationPromise: Promise<
+      Awaited<ReturnType<typeof classifyAssetPersonRecommendation>>
+    > = Promise.resolve(null);
+
+    if (featureClassify && thumbnailUrl) {
+      const [logoCount, productCount, ipCount, personCount] = await Promise.all([
+        prisma.logoVector.count({ where: { teamId, enabled: true, status: "completed" } }),
+        prisma.productVector.count({ where: { teamId, enabled: true, status: "completed" } }),
+        prisma.ipVector.count({ where: { teamId, enabled: true, status: "completed" } }),
+        prisma.personVector.count({ where: { teamId, enabled: true, status: "completed" } }),
+      ]);
+
+      if (logoCount + productCount + ipCount + personCount > 0) {
+        const sharedImageInput = await fetchRemoteImageInput(
+          thumbnailUrl,
+          "feature classification",
+        ).catch((error) => {
           logger.warn({
-            msg: "brand classification failed, continuing without brand recommendation",
-            classificationFn: "classifyAssetBrandRecommendation",
+            msg: "feature classification image fetch failed, skipping feature classification",
             err: error,
             error: error instanceof Error ? error.message : String(error),
           });
           return null;
-        })
-      : Promise.resolve(null);
-    const ipRecommendationPromise = featureClassify
-      ? classifyAssetIpRecommendation({
-          teamId: queueItem.teamId,
-          imageUrl: thumbnailUrl,
-        }).catch((error) => {
-          logger.warn({
-            msg: "ip classification failed, continuing without ip recommendation",
-            classificationFn: "classifyAssetIpRecommendation",
-            err: error,
-            error: error instanceof Error ? error.message : String(error),
-          });
-          return null;
-        })
-      : Promise.resolve(null);
-    const productRecommendationPromise = featureClassify
-      ? classifyAssetProductRecommendation({
-          teamId: queueItem.teamId,
-          imageUrl: thumbnailUrl,
-        }).catch((error) => {
-          logger.warn({
-            msg: "product classification failed, continuing without product recommendation",
-            classificationFn: "classifyAssetProductRecommendation",
-            err: error,
-            error: error instanceof Error ? error.message : String(error),
-          });
-          return null;
-        })
-      : Promise.resolve(null);
-    const personRecommendationPromise = featureClassify
-      ? classifyAssetPersonRecommendation({
-          teamId: queueItem.teamId,
-          imageUrl: thumbnailUrl,
-        }).catch((error) => {
-          logger.warn({
-            msg: "person classification failed, continuing without person recommendation",
-            classificationFn: "classifyAssetPersonRecommendation",
-            err: error,
-            error: error instanceof Error ? error.message : String(error),
-          });
-          return null;
-        })
-      : Promise.resolve(null);
+        });
+
+        if (sharedImageInput) {
+          const withFallback = <T>(p: Promise<T>, fn: string): Promise<T | null> =>
+            p.catch((error) => {
+              logger.warn({
+                msg: `${fn} failed, continuing without recommendation`,
+                classificationFn: fn,
+                err: error,
+                error: error instanceof Error ? error.message : String(error),
+              });
+              return null;
+            });
+
+          if (logoCount > 0) {
+            brandRecommendationPromise = withFallback(
+              classifyAssetBrandRecommendation({ teamId, imageInput: sharedImageInput }),
+              "classifyAssetBrandRecommendation",
+            );
+          }
+          if (ipCount > 0) {
+            ipRecommendationPromise = withFallback(
+              classifyAssetIpRecommendation({ teamId, imageInput: sharedImageInput }),
+              "classifyAssetIpRecommendation",
+            );
+          }
+          if (productCount > 0) {
+            productRecommendationPromise = withFallback(
+              classifyAssetProductRecommendation({ teamId, imageInput: sharedImageInput }),
+              "classifyAssetProductRecommendation",
+            );
+          }
+          if (personCount > 0) {
+            personRecommendationPromise = withFallback(
+              classifyAssetPersonRecommendation({ teamId, imageInput: sharedImageInput }),
+              "classifyAssetPersonRecommendation",
+            );
+          }
+        }
+      }
+    }
 
     const [
       { predictions, tagsWithScore, extra: newExtra },
@@ -551,6 +575,9 @@ export async function processQueueItem({
 // 总并发槽数：其中至少 TAG_TREE_RESERVED_CONCURRENCY 个保留给标签树任务
 const TOTAL_CONCURRENCY = 3;
 const TAG_TREE_RESERVED_CONCURRENCY = 1;
+// 进程级单例并发闸：保证即使有多个重叠的 processPendingQueueItems 调用，
+// 全局同时处理的队列项也不会超过 TOTAL_CONCURRENCY（每次调用新建 pLimit 无法做到这点）。
+const queueConcurrencyLimit = pLimit(TOTAL_CONCURRENCY);
 const PROCESSING_STALE_TIMEOUT_MS = Number(
   process.env.QUEUE_PROCESSING_STALE_TIMEOUT_MS ?? 15 * 60 * 1000,
 );
@@ -647,10 +674,8 @@ export async function processPendingQueueItems(): Promise<{
   let processing = 0;
   let skipped = 0;
 
-  const limit = pLimit(TOTAL_CONCURRENCY);
-
   const processTasks = allItems.map((queueItem) =>
-    limit(() =>
+    queueConcurrencyLimit(() =>
       tryClaimAndProcess(
         queueItem,
         () => {

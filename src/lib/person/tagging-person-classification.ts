@@ -6,8 +6,13 @@ import {
   classifyPersonFaceEmbeddings,
   detectPersonFaceBoxes,
 } from "@/lib/person/person-classification";
-import { fetchRemoteImageInput } from "@/lib/tagging/classification-image";
+import {
+  ClassificationRemoteImageInput,
+  fetchRemoteImageInput,
+  MAX_DETECTION_CROPS,
+} from "@/lib/tagging/classification-image";
 import type { TaggingPersonRecommendation, TaggingPersonRecommendedTag } from "@/prisma/client";
+import prisma from "@/prisma/prisma";
 
 function normalizePersonRecommendedTags({
   tags,
@@ -69,15 +74,27 @@ function serializeDetectionBox(box: PersonDetectionBox) {
 export async function classifyAssetPersonRecommendation({
   imageUrl,
   teamId,
+  imageInput: providedImageInput,
 }: {
   teamId: number;
   imageUrl?: string | null;
+  imageInput?: ClassificationRemoteImageInput | null;
 }): Promise<TaggingPersonRecommendation | null> {
-  if (!imageUrl) {
+  if (!providedImageInput && !imageUrl) {
     return null;
   }
 
-  const imageInput = await fetchRemoteImageInput(imageUrl, "person classification");
+  // 空库守卫：没有任何可用的人脸向量时直接返回
+  const referenceCount = await prisma.personVector.count({
+    where: { teamId, enabled: true, status: "completed" },
+  });
+  if (referenceCount === 0) {
+    return null;
+  }
+
+  const imageInput =
+    providedImageInput ??
+    (await fetchRemoteImageInput(imageUrl as string, "person classification"));
   const detection = await detectPersonFaceBoxes({
     imageBase64: imageInput.dataUrl,
     includeEmbedding: true,
@@ -96,7 +113,9 @@ export async function classifyAssetPersonRecommendation({
     .filter(
       (face): face is { detectionIndex: number; box: PersonDetectionBox; embedding: number[] } =>
         Boolean(face),
-    );
+    )
+    // 限制单图处理的人脸数，避免大量人脸触发过多 embedding 与向量查询
+    .slice(0, MAX_DETECTION_CROPS);
 
   if (faces.length === 0) {
     return {

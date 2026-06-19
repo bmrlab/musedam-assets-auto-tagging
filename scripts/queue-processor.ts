@@ -122,18 +122,32 @@ async function main() {
   // Track if scheduled tagging ran today to avoid duplicate runs
   let scheduledTaggingLastRun = new Date().toDateString();
 
+  // 防重入：上一轮还没跑完就跳过本次 tick，避免请求堆叠导致后端并发失控
+  let isTickRunning = false;
+
   // Set up interval to process every 30 seconds
   const interval = setInterval(async () => {
-    await processQueue();
+    if (isTickRunning) {
+      console.log(
+        `⏳ ${new Date().toISOString()} - Previous queue run still in progress, skipping this tick`,
+      );
+      return;
+    }
+    isTickRunning = true;
+    try {
+      await processQueue();
 
-    // Check if it's a new day and run scheduled tagging
-    const today = new Date().toDateString();
-    const now = new Date();
+      // Check if it's a new day and run scheduled tagging
+      const today = new Date().toDateString();
+      const now = new Date();
 
-    if (scheduledTaggingLastRun !== today && now.getHours() === 0 && now.getMinutes() < 10) {
-      console.log(`🕐 It's a new day! Running scheduled tagging...`);
-      await processScheduledTagging();
-      scheduledTaggingLastRun = today;
+      if (scheduledTaggingLastRun !== today && now.getHours() === 0 && now.getMinutes() < 10) {
+        console.log(`🕐 It's a new day! Running scheduled tagging...`);
+        await processScheduledTagging();
+        scheduledTaggingLastRun = today;
+      }
+    } finally {
+      isTickRunning = false;
     }
   }, 30000); // 30 seconds
 

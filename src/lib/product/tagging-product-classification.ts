@@ -3,34 +3,50 @@ import "server-only";
 import { classifyProductImageCrops, detectProductFigureBoxes } from "@/lib/product/product-classification";
 import {
   clampBox,
+  ClassificationRemoteImageInput,
   cropImageToDataUrl,
   fetchRemoteImageInput,
   getFallbackBox,
+  MAX_DETECTION_CROPS,
   normalizeRecommendedTags,
 } from "@/lib/tagging/classification-image";
 import { TaggingProductRecommendation } from "@/prisma/client";
+import prisma from "@/prisma/prisma";
 
 export async function classifyAssetProductRecommendation({
   teamId,
   imageUrl,
+  imageInput: providedImageInput,
 }: {
   teamId: number;
   imageUrl?: string | null;
+  imageInput?: ClassificationRemoteImageInput | null;
 }): Promise<TaggingProductRecommendation | null> {
-  if (!imageUrl) {
+  if (!providedImageInput && !imageUrl) {
     return null;
   }
 
-  const imageInput = await fetchRemoteImageInput(imageUrl, "Product classification");
+  // 空库守卫：没有任何可用的商品向量时直接返回
+  const referenceCount = await prisma.productVector.count({
+    where: { teamId, enabled: true, status: "completed" },
+  });
+  if (referenceCount === 0) {
+    return null;
+  }
+
+  const imageInput =
+    providedImageInput ??
+    (await fetchRemoteImageInput(imageUrl as string, "Product classification"));
   const detection = await detectProductFigureBoxes({
     teamId,
     imageBase64: imageInput.dataUrl,
   });
 
-  const candidateBoxes =
+  const candidateBoxes = (
     detection.detections.length > 0
       ? detection.detections
-      : [getFallbackBox(imageInput, "whole image fallback")];
+      : [getFallbackBox(imageInput, "whole image fallback")]
+  ).slice(0, MAX_DETECTION_CROPS);
   const normalizedBoxes = candidateBoxes.map((box) => clampBox(box, imageInput));
 
   const crops = await Promise.all(

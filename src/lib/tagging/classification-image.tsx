@@ -4,6 +4,14 @@ import { bufferToDataUrl } from "@/lib/brand/image";
 import { rootLogger } from "@/lib/logging";
 import sharp from "sharp";
 
+// 下载即降采样 / 裁剪输出的统一配置（可用环境变量覆盖）
+// 目的：避免把全分辨率原图整张读进内存再 PNG 编码，显著降低 CPU/内存峰值
+const MAX_IMAGE_DIMENSION = Number(process.env.TAGGING_MAX_IMAGE_DIMENSION ?? 1280);
+const MAX_CROP_DIMENSION = Number(process.env.TAGGING_MAX_CROP_DIMENSION ?? 768);
+const IMAGE_JPEG_QUALITY = Number(process.env.TAGGING_IMAGE_JPEG_QUALITY ?? 82);
+// 单张图最多裁剪多少个检测框，防止一张图裁出几十个框导致内存/CPU 失控
+export const MAX_DETECTION_CROPS = Number(process.env.TAGGING_MAX_DETECTION_CROPS ?? 8);
+
 export type ClassificationImageMeta = {
   width: number;
   height: number;
@@ -322,20 +330,57 @@ export async function fetchRemoteImageInput(
     throw new Error(`Failed to fetch ${failureContext} image (${response.status})`);
   }
 
-  const mimeType =
+  const sourceMimeType =
     response.headers.get("content-type")?.split(";")[0]?.trim() || "application/octet-stream";
-  const buffer = Buffer.from(await response.arrayBuffer());
+  const originalBuffer = Buffer.from(await response.arrayBuffer());
+
+  // 下载即降采样：限制最大边长并统一转成 JPEG。后续检测/裁剪/embedding 都基于这张
+  // 缩小后的图，坐标系一致；内存占用从“原图 buffer + base64”降到缩略图级别。
+  try {
+    const { data, info } = await sharp(originalBuffer)
+      .rotate() // 按 EXIF 方向校正，避免裁剪坐标错位
+      .resize({
+        width: MAX_IMAGE_DIMENSION,
+        height: MAX_IMAGE_DIMENSION,
+        fit: "inside",
+        withoutEnlargement: true,
+      })
+      .flatten({ background: "#fff" })
+      .jpeg({ quality: IMAGE_JPEG_QUALITY })
+      .toBuffer({ resolveWithObject: true });
+
+    return {
+      width: info.width,
+      height: info.height,
+      mimeType: "image/jpeg",
+      byteLength: data.length,
+      buffer: data,
+      dataUrl: bufferToDataUrl(data, "image/jpeg"),
+    };
+  } catch (error) {
+    rootLogger.warn({
+      msg: "fetchRemoteImageInput downscale failed, falling back to original buffer",
+      fn: "fetchRemoteImageInput",
+      failureContext,
+      sourceMimeType,
+      byteLength: originalBuffer.length,
+      ...summarizeImageUrl(imageUrl),
+      ...serializeError(error),
+    });
+  }
+
+  // 回退：sharp 无法处理时（极少数格式）沿用原图，保证功能不退化
   let meta: ClassificationImageMeta;
   try {
-    meta = getImageDimensions(buffer, mimeType);
+    meta = getImageDimensions(originalBuffer, sourceMimeType);
   } catch (error) {
     rootLogger.warn({
       msg: "fetchRemoteImageInput failed while parsing image dimensions",
       fn: "fetchRemoteImageInput",
       failureContext,
-      mimeType,
-      byteLength: buffer.length,
-      headerHex: buffer.subarray(0, 16).toString("hex"),
+      mimeType: sourceMimeType,
+      byteLength: originalBuffer.length,
+      headerHex: originalBuffer.subarray(0, 16).toString("hex"),
       ...summarizeImageUrl(imageUrl),
       ...serializeError(error),
     });
@@ -344,10 +389,10 @@ export async function fetchRemoteImageInput(
 
   return {
     ...meta,
-    mimeType,
-    byteLength: buffer.length,
-    buffer,
-    dataUrl: bufferToDataUrl(buffer, mimeType),
+    mimeType: sourceMimeType,
+    byteLength: originalBuffer.length,
+    buffer: originalBuffer,
+    dataUrl: bufferToDataUrl(originalBuffer, sourceMimeType),
   };
 }
 
@@ -376,7 +421,7 @@ export async function cropImageToDataUrl({
   const height = Math.max(1, bottom - top);
 
   try {
-    const pngBuffer = await sharp(sourceBuffer)
+    const jpegBuffer = await sharp(sourceBuffer)
       .extract({
         left,
         top,
@@ -384,10 +429,16 @@ export async function cropImageToDataUrl({
         height,
       })
       .flatten({ background: "#fff" })
-      .png()
+      .resize({
+        width: MAX_CROP_DIMENSION,
+        height: MAX_CROP_DIMENSION,
+        fit: "inside",
+        withoutEnlargement: true,
+      })
+      .jpeg({ quality: IMAGE_JPEG_QUALITY })
       .toBuffer();
 
-    return bufferToDataUrl(pngBuffer, "image/png");
+    return bufferToDataUrl(jpegBuffer, "image/jpeg");
   } catch (error) {
     rootLogger.warn({
       msg: "cropImageToDataUrl failed",
