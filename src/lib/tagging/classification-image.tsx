@@ -4,6 +4,12 @@ import { bufferToDataUrl } from "@/lib/brand/image";
 import { rootLogger } from "@/lib/logging";
 import sharp from "sharp";
 
+// 约束 sharp(libvips)的堆外内存：关闭操作缓存、把原生线程数收到 1。
+// 多并发图片处理时,sharp 的原生内存不计入 V8 堆(NODE_OPTIONS 管不到),
+// 累积/峰值过高会直接撑爆容器内存上限触发 OOMKilled。
+sharp.cache(false);
+sharp.concurrency(1);
+
 // 下载即降采样 / 裁剪输出的统一配置（可用环境变量覆盖）
 // 目的：避免把全分辨率原图整张读进内存再 PNG 编码，显著降低 CPU/内存峰值
 const MAX_IMAGE_DIMENSION = Number(process.env.TAGGING_MAX_IMAGE_DIMENSION ?? 1280);

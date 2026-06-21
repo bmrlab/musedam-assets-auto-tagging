@@ -572,8 +572,12 @@ export async function processQueueItem({
   }
 }
 
-// 总并发槽数：其中至少 TAG_TREE_RESERVED_CONCURRENCY 个保留给标签树任务
-const TOTAL_CONCURRENCY = 3;
+// 总并发槽数：其中至少 TAG_TREE_RESERVED_CONCURRENCY 个保留给标签树任务。
+// 单 pod 只有 1 核，图片处理（sharp/检测/embedding）并发越高，堆外内存峰值越大、
+// 事件循环卡顿越久（会撑爆内存触发 OOM，或拖垮 liveness 探针）。默认压到 2
+// （= 1 个普通任务 + 1 个标签树任务）。CPU 扩容后可用环境变量上调。
+// 注意：必须 ≥2，否则普通任务拿不到槽位（普通槽 = TOTAL - RESERVED）。
+const TOTAL_CONCURRENCY = Math.max(2, Number(process.env.TAGGING_QUEUE_CONCURRENCY ?? 2));
 const TAG_TREE_RESERVED_CONCURRENCY = 1;
 // 进程级单例并发闸：保证即使有多个重叠的 processPendingQueueItems 调用，
 // 全局同时处理的队列项也不会超过 TOTAL_CONCURRENCY（每次调用新建 pLimit 无法做到这点）。

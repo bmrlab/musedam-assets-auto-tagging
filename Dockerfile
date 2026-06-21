@@ -51,10 +51,12 @@ USER nextjs
 EXPOSE 3000
 
 ENV PORT=3000
-# 限制 V8 老生代堆上限，让其在容器 cgroup 触发 OOM Kill 之前主动 GC。
-# 生产容器内存 limit = 1Gi（request==limit，无突发空间），堆上限设 640MB，
-# 其余约 384MB 留给 Next.js 基础 RSS、sharp 原生内存与系统开销。
-# 若后续把容器内存调大，可同步上调此值（约取上限的 ~65%）。可在部署层用环境变量覆盖。
+# 限制 V8 老生代堆上限。生产容器内存 limit 当前为 2Gi。
+# 注意：图片处理(sharp/libvips)与图片 Buffer 属于【堆外内存】，不受此参数约束，
+# 它们才是 OOMKilled 的主因——控制堆外内存靠"降低图片并发 + sharp.cache(false)/
+# concurrency(1)"(见 queue.ts / classification-image.tsx)，而不是调高这个值。
+# 故此处刻意保守(640MB)，给堆外的 sharp/Buffer 留足空间；待内存曲线稳定且有富余后，
+# 可在部署层用环境变量上调。
 ENV NODE_OPTIONS="--max-old-space-size=640"
 
 # server.js is created by next build from the standalone output
