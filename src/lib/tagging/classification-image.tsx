@@ -18,6 +18,16 @@ const IMAGE_JPEG_QUALITY = Number(process.env.TAGGING_IMAGE_JPEG_QUALITY ?? 82);
 // 单张图最多裁剪多少个检测框，防止一张图裁出几十个框导致内存/CPU 失控
 export const MAX_DETECTION_CROPS = Number(process.env.TAGGING_MAX_DETECTION_CROPS ?? 8);
 
+// 单图内存硬上限：防止"超大原图"或"像素炸弹(文件小但解码后巨大)"撑爆容器内存。
+// 这些是 OOMKilled 的直接元凶，且不受 NODE_OPTIONS 约束（属堆外/原生内存）。
+const MAX_DOWNLOAD_BYTES = Number(process.env.TAGGING_MAX_DOWNLOAD_BYTES ?? 25 * 1024 * 1024);
+// sharp/libvips 解码像素上限（宽×高）。默认 5000 万像素（约 7000×7000），
+// 超过直接抛错（被上层 withFallback 捕获、跳过该图），而不是分配数 GB 原生内存。
+const MAX_INPUT_PIXELS = Number(process.env.TAGGING_MAX_INPUT_PIXELS ?? 50_000_000);
+const DOWNLOAD_TIMEOUT_MS = Number(process.env.TAGGING_DOWNLOAD_TIMEOUT_MS ?? 20_000);
+// 统一的 sharp 输入选项：限制解码像素、只取首帧（动图/多页图避免全帧解码）
+const SHARP_INPUT_OPTIONS = { limitInputPixels: MAX_INPUT_PIXELS, pages: 1 } as const;
+
 export type ClassificationImageMeta = {
   width: number;
   height: number;
@@ -311,7 +321,8 @@ export async function fetchRemoteImageInput(
 ): Promise<ClassificationRemoteImageInput> {
   let response: Response;
   try {
-    response = await fetch(imageUrl);
+    // 加超时：避免慢/卡住的源把半截响应体长期挂在内存里累积
+    response = await fetch(imageUrl, { signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS) });
   } catch (error) {
     rootLogger.warn({
       msg: "fetchRemoteImageInput failed while fetching image",
@@ -336,14 +347,41 @@ export async function fetchRemoteImageInput(
     throw new Error(`Failed to fetch ${failureContext} image (${response.status})`);
   }
 
+  // 下载大小上限（先看 Content-Length，能在读 body 前就拒绝超大图）
+  const declaredLength = Number(response.headers.get("content-length"));
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_DOWNLOAD_BYTES) {
+    rootLogger.warn({
+      msg: "fetchRemoteImageInput rejected oversized image (content-length)",
+      fn: "fetchRemoteImageInput",
+      failureContext,
+      contentLength: declaredLength,
+      maxDownloadBytes: MAX_DOWNLOAD_BYTES,
+      ...summarizeImageUrl(imageUrl),
+    });
+    throw new Error(`Image too large: ${declaredLength} bytes > ${MAX_DOWNLOAD_BYTES}`);
+  }
+
   const sourceMimeType =
     response.headers.get("content-type")?.split(";")[0]?.trim() || "application/octet-stream";
   const originalBuffer = Buffer.from(await response.arrayBuffer());
 
+  // 兜底：Content-Length 可能缺失或不准，读完后再按实际大小卡一次
+  if (originalBuffer.length > MAX_DOWNLOAD_BYTES) {
+    rootLogger.warn({
+      msg: "fetchRemoteImageInput rejected oversized image (actual bytes)",
+      fn: "fetchRemoteImageInput",
+      failureContext,
+      byteLength: originalBuffer.length,
+      maxDownloadBytes: MAX_DOWNLOAD_BYTES,
+      ...summarizeImageUrl(imageUrl),
+    });
+    throw new Error(`Image too large: ${originalBuffer.length} bytes > ${MAX_DOWNLOAD_BYTES}`);
+  }
+
   // 下载即降采样：限制最大边长并统一转成 JPEG。后续检测/裁剪/embedding 都基于这张
   // 缩小后的图，坐标系一致；内存占用从“原图 buffer + base64”降到缩略图级别。
   try {
-    const { data, info } = await sharp(originalBuffer)
+    const { data, info } = await sharp(originalBuffer, SHARP_INPUT_OPTIONS)
       .rotate() // 按 EXIF 方向校正，避免裁剪坐标错位
       .resize({
         width: MAX_IMAGE_DIMENSION,
@@ -427,7 +465,7 @@ export async function cropImageToDataUrl({
   const height = Math.max(1, bottom - top);
 
   try {
-    const jpegBuffer = await sharp(sourceBuffer)
+    const jpegBuffer = await sharp(sourceBuffer, SHARP_INPUT_OPTIONS)
       .extract({
         left,
         top,
