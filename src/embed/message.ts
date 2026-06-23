@@ -212,7 +212,7 @@ function handleParentMessageAction(action: string, args: any, dispatchId?: strin
       break;
 
     case "updatePendingInboundConfig":
-      // console.log("updatePendingInboundConfig-iframe", args);
+      console.log("updatePendingInboundConfig-iframe", args);
       if (typeof window !== "undefined") {
         window.dispatchEvent(
           new CustomEvent("pending-inbound-config-change", {
