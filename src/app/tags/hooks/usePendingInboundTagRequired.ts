@@ -1,15 +1,14 @@
-import { dispatchMuseDAMClientAction } from "@/embed/message";
+import {
+  ackPendingInboundConfigIfNeeded,
+  dispatchMuseDAMClientAction,
+  getPendingInboundConfig,
+} from "@/embed/message";
 import { slugToId } from "@/lib/slug";
 import { AssetTag } from "@/prisma/client";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 const DEFAULT_UNCATEGORIZED_NAME = "未分类";
-
-type PendingInboundConfig = {
-  enabled: boolean;
-  uncategorizedName: string;
-};
 
 type PendingInboundRequiredItem = {
   id: number;
@@ -33,9 +32,10 @@ function getMuseDamTagId(tag: AssetTag): number | null {
 export function usePendingInboundTagRequired(
   selectedTag: { tag: AssetTag; level: number } | null,
 ) {
-  const [config, setConfig] = useState<PendingInboundConfig>({
-    enabled: false,
-    uncategorizedName: DEFAULT_UNCATEGORIZED_NAME,
+  const [config, setConfig] = useState(() => {
+    const initialConfig = { ...getPendingInboundConfig() };
+    console.log("[pending-inbound-config] hook init from memory", initialConfig);
+    return initialConfig;
   });
   const [required, setRequired] = useState(false);
   const [configId, setConfigId] = useState<number | undefined>();
@@ -43,14 +43,19 @@ export function usePendingInboundTagRequired(
 
   useEffect(() => {
     const handleConfigChange = (event: Event) => {
-      const detail = (event as CustomEvent<Partial<PendingInboundConfig>>).detail;
-      setConfig({
+      const detail = (event as CustomEvent<Partial<ReturnType<typeof getPendingInboundConfig>>>).detail;
+      const nextConfig = {
         enabled: !!detail?.enabled,
         uncategorizedName: detail?.uncategorizedName ?? DEFAULT_UNCATEGORIZED_NAME,
-      });
+      };
+      console.log("[pending-inbound-config] hook updated via event", nextConfig);
+      setConfig(nextConfig);
+      ackPendingInboundConfigIfNeeded();
     };
 
+    console.log("[pending-inbound-config] hook mounted, current config", getPendingInboundConfig());
     window.addEventListener("pending-inbound-config-change", handleConfigChange);
+    ackPendingInboundConfigIfNeeded();
     return () => window.removeEventListener("pending-inbound-config-change", handleConfigChange);
   }, []);
 

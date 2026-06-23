@@ -12,6 +12,67 @@ import {
 import { MuseDAMID } from "@/musedam/types";
 import Cookies from "js-cookie";
 
+export type PendingInboundConfig = {
+  enabled: boolean;
+  uncategorizedName: string;
+};
+
+const DEFAULT_PENDING_INBOUND_CONFIG: PendingInboundConfig = {
+  enabled: false,
+  uncategorizedName: "未分类",
+};
+
+// 仅当前 iframe 会话有效，团队切换由父项目重新 postMessage 更新
+let pendingInboundConfig: PendingInboundConfig = { ...DEFAULT_PENDING_INBOUND_CONFIG };
+let pendingInboundConfigDispatchId: string | null = null;
+
+function normalizePendingInboundConfig(
+  args: Partial<PendingInboundConfig> | undefined,
+): PendingInboundConfig {
+  return {
+    enabled: !!args?.enabled,
+    uncategorizedName:
+      typeof args?.uncategorizedName === "string"
+        ? args.uncategorizedName
+        : DEFAULT_PENDING_INBOUND_CONFIG.uncategorizedName,
+  };
+}
+
+export function getPendingInboundConfig(): PendingInboundConfig {
+  return pendingInboundConfig;
+}
+
+function applyPendingInboundConfig(
+  args: Partial<PendingInboundConfig> | undefined,
+  dispatchId?: string,
+): void {
+  pendingInboundConfig = normalizePendingInboundConfig(args);
+  pendingInboundConfigDispatchId = dispatchId ?? null;
+  console.log("[pending-inbound-config] applied in message.ts", {
+    dispatchId: pendingInboundConfigDispatchId,
+    config: pendingInboundConfig,
+  });
+  window.dispatchEvent(
+    new CustomEvent("pending-inbound-config-change", {
+      detail: pendingInboundConfig,
+    }),
+  );
+}
+
+/** React 消费配置后再 ack，避免父项目在 hook 挂载前停止重试 */
+export function ackPendingInboundConfigIfNeeded(): void {
+  if (!pendingInboundConfigDispatchId) return;
+  console.log("[pending-inbound-config] ack to parent", {
+    dispatchId: pendingInboundConfigDispatchId,
+    config: pendingInboundConfig,
+  });
+  dispatchMuseDAMClientActionResult("updatePendingInboundConfig", pendingInboundConfigDispatchId, {
+    success: true,
+    data: {},
+  });
+  pendingInboundConfigDispatchId = null;
+}
+
 // 定义全局类型
 const globalForMessage = global as unknown as {
   musedamMessageQueue:
@@ -212,23 +273,9 @@ function handleParentMessageAction(action: string, args: any, dispatchId?: strin
       break;
 
     case "updatePendingInboundConfig":
-      console.log("updatePendingInboundConfig-iframe", args);
+      console.log("[pending-inbound-config] received from parent", { dispatchId, args });
       if (typeof window !== "undefined") {
-        window.dispatchEvent(
-          new CustomEvent("pending-inbound-config-change", {
-            detail: {
-              enabled: !!args?.enabled,
-              uncategorizedName:
-                typeof args?.uncategorizedName === "string" ? args.uncategorizedName : "未分类",
-            },
-          }),
-        );
-        if (dispatchId) {
-          dispatchMuseDAMClientActionResult("updatePendingInboundConfig", dispatchId, {
-            success: true,
-            data: {},
-          });
-        }
+        applyPendingInboundConfig(args, dispatchId);
       }
       break;
 
