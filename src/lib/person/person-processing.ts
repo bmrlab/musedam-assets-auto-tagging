@@ -32,7 +32,10 @@ export type PersonProcessingError = Error & {
   actualFaceCount?: number;
 };
 
-function createProcessingError(code: PersonProcessingErrorCode, cause?: unknown): PersonProcessingError {
+function createProcessingError(
+  code: PersonProcessingErrorCode,
+  cause?: unknown,
+): PersonProcessingError {
   const error = new Error(code) as PersonProcessingError;
   error.personProcessingErrorCode = code;
   error.cause = cause;
@@ -63,6 +66,24 @@ function getProcessingErrorCode(error: unknown): PersonProcessingErrorCode {
   }
 
   return PERSON_PROCESSING_ERROR_CODES.unknown;
+}
+
+function serializeProcessingError(error: unknown) {
+  const code = getProcessingErrorCode(error);
+
+  if (code !== PERSON_PROCESSING_ERROR_CODES.faceCountNotOne || !(error instanceof Error)) {
+    return code;
+  }
+
+  const personError = error as Partial<PersonProcessingError>;
+  return JSON.stringify({
+    code,
+    ...(typeof personError.identifier === "string" ? { identifier: personError.identifier } : {}),
+    ...(typeof personError.actualFaceCount === "number" &&
+    Number.isFinite(personError.actualFaceCount)
+      ? { actualFaceCount: personError.actualFaceCount }
+      : {}),
+  });
 }
 
 export async function assertSingleFaceReferenceImage({
@@ -166,9 +187,10 @@ export async function processAssetPersonReferenceVectors({
     }
 
     const embeddingResults = await Promise.all(
-      person.images.map(async (image) => {
+      person.images.map(async (image, index) => {
         const { signedUrl, face } = await assertSingleFaceReferenceImage({
           objectKey: image.objectKey,
+          identifier: `image ${index + 1}`,
         });
         const imageInput = await fetchRemoteImageInput(signedUrl, "person face embedding");
         const embedding = await generateFaceEmbedding({
@@ -239,7 +261,7 @@ export async function processAssetPersonReferenceVectors({
       );
     });
   } catch (error) {
-    const message = getProcessingErrorCode(error);
+    const message = serializeProcessingError(error);
 
     await prisma.assetPerson
       .update({

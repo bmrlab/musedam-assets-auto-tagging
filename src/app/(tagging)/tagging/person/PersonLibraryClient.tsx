@@ -65,6 +65,47 @@ import { PersonBatchImportResult, PersonItem, PersonLibraryPageData } from "./ty
 
 type TranslationFunction = (key: string, values?: Record<string, string | number>) => string;
 
+type ParsedProcessingError = {
+  code: string;
+  identifier?: string;
+  actualFaceCount?: number;
+};
+
+function parseProcessingError(error: string): ParsedProcessingError {
+  try {
+    const parsed = JSON.parse(error) as unknown;
+    if (parsed && typeof parsed === "object" && "code" in parsed) {
+      const details = parsed as {
+        code?: unknown;
+        identifier?: unknown;
+        actualFaceCount?: unknown;
+        count?: unknown;
+      };
+
+      if (typeof details.code === "string") {
+        const actualFaceCount =
+          typeof details.actualFaceCount === "number"
+            ? details.actualFaceCount
+            : typeof details.count === "number"
+              ? details.count
+              : undefined;
+
+        return {
+          code: details.code,
+          ...(typeof details.identifier === "string" ? { identifier: details.identifier } : {}),
+          ...(typeof actualFaceCount === "number" && Number.isFinite(actualFaceCount)
+            ? { actualFaceCount }
+            : {}),
+        };
+      }
+    }
+  } catch {
+    // Older records store only the bare processing error code.
+  }
+
+  return { code: error };
+}
+
 function formatDate(date: Date | string, locale: string) {
   return new Intl.DateTimeFormat(locale.toLowerCase().startsWith("zh") ? "zh-CN" : "en-US", {
     year: "numeric",
@@ -299,13 +340,18 @@ export default function PersonLibraryClient({
       return null;
     }
 
-    switch (error) {
+    const parsedError = parseProcessingError(error);
+
+    switch (parsedError.code) {
       case "person_not_found":
         return t("processingErrors.personNotFound");
       case "no_reference_images":
         return t("processingErrors.noReferenceImages");
       case "face_count_not_one":
-        return t("processingErrors.faceCountNotOne");
+        return t("processingErrors.faceCountNotOne", {
+          identifier: parsedError.identifier ?? "image",
+          count: parsedError.actualFaceCount ?? 0,
+        });
       case "face_detection_failed":
         return t("processingErrors.faceDetectionFailed");
       case "generate_embedding_failed":
