@@ -87,6 +87,8 @@ export type ProductClassificationUploadResult = {
   objectKey: string;
   signedUrl: string;
   signedUrlExpiresAt: number;
+  imageWidth: number;
+  imageHeight: number;
   detections: ProductDetectionBox[];
   found: boolean;
 };

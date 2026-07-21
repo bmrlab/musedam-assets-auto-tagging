@@ -87,6 +87,8 @@ export type PersonClassificationUploadResult = {
   objectKey: string;
   signedUrl: string;
   signedUrlExpiresAt: number;
+  imageWidth: number;
+  imageHeight: number;
   detections: PersonDetectionBox[];
   faceCount: number;
   found: boolean;

@@ -1,6 +1,9 @@
 import "server-only";
 
 import { getJinaConfig } from "@/lib/brand/env";
+import { REFERENCE_IMAGE_PREPARATION_CONCURRENCY } from "@/lib/brand/upload-constants";
+import { prepareJinaImageDataUrl } from "@/lib/tagging/reference-image";
+import pLimit from "p-limit";
 import { ProxyAgent, fetch as nodeFetch } from "undici";
 
 type JinaEmbeddingRecord = {
@@ -15,6 +18,7 @@ type JinaResponse = {
 
 const JINA_MAX_RETRIES = 5;
 const JINA_RETRY_BASE_DELAY_MS = 500;
+const JINA_MAX_IMAGE_BATCH_SIZE = 4;
 
 function sleep(ms: number) {
   return new Promise((resolve) => {
@@ -46,9 +50,15 @@ export async function createJinaImageEmbeddings({
   const config = getJinaConfig();
   const embeddings: number[][] = [];
   const proxyAgent = config.useProxy ? new ProxyAgent(config.proxyUrl) : undefined;
+  const imageBatchSize = Math.min(config.batchSize, JINA_MAX_IMAGE_BATCH_SIZE);
+  const prepareImage = pLimit(REFERENCE_IMAGE_PREPARATION_CONCURRENCY);
 
-  for (let start = 0; start < images.length; start += config.batchSize) {
-    const batch = images.slice(start, start + config.batchSize);
+  for (let start = 0; start < images.length; start += imageBatchSize) {
+    const batch = await Promise.all(
+      images
+        .slice(start, start + imageBatchSize)
+        .map((image) => prepareImage(() => prepareJinaImageDataUrl(image))),
+    );
     let response: Awaited<ReturnType<typeof nodeFetch>> | null = null;
     let payload: JinaResponse | null = null;
     let lastError: unknown = null;

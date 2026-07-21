@@ -154,7 +154,7 @@
         "logoNotFound": "品牌标识不存在或已被删除",
         "noReferenceImages": "缺少参考图片，无法生成向量",
         "imageFetchFailed": "读取参考图片失败",
-        "jinaRequestFailed": "调用 Jina 生成向量失败",
+        "jinaRequestFailed": "调用API生成向量失败",
         "embeddingCountMismatch": "返回的向量数量与参考图片数量不一致",
         "vectorStoreSyncFailed": "同步向量到 pgvector 失败",
         "unknown": "品牌标识处理失败"
@@ -437,7 +437,7 @@
         "ipNotFound": "IP形象不存在或已被删除",
         "noReferenceImages": "缺少参考图片，无法生成向量",
         "imageFetchFailed": "读取参考图片失败",
-        "jinaRequestFailed": "调用 Jina 生成向量失败",
+        "jinaRequestFailed": "调用API生成向量失败",
         "embeddingCountMismatch": "返回的向量数量与参考图片数量不一致",
         "vectorStoreSyncFailed": "同步向量到 pgvector 失败",
         "unknown": "IP形象处理失败"
@@ -1275,7 +1275,7 @@
         "productNotFound": "商品不存在或已被删除",
         "noReferenceImages": "缺少参考图片，无法生成向量",
         "imageFetchFailed": "读取参考图片失败",
-        "jinaRequestFailed": "调用 Jina 生成向量失败",
+        "jinaRequestFailed": "调用API生成向量失败",
         "embeddingCountMismatch": "返回的向量数量与参考图片数量不一致",
         "categoryPredictionFailed": "预测商品通用类目失败",
         "vectorStoreSyncFailed": "同步向量到 pgvector 失败",

@@ -1,7 +1,10 @@
 "use server";
 
 import { withAuth } from "@/app/(auth)/withAuth";
-import { MAX_CLIENT_IMAGE_UPLOAD_BYTES } from "@/lib/brand/upload-constants";
+import {
+  MAX_CLIENT_IMAGE_UPLOAD_BYTES,
+  REFERENCE_IMAGE_PREPARATION_CONCURRENCY,
+} from "@/lib/brand/upload-constants";
 import {
   deleteProductVectorPointsByProduct,
   setProductVectorPayloadByProduct,
@@ -29,6 +32,7 @@ import {
   cropImageToDataUrl as cropClassificationImageToDataUrl,
   fetchRemoteImageInput,
 } from "@/lib/tagging/classification-image";
+import { prepareReferenceImageBuffer } from "@/lib/tagging/reference-image";
 import { schedulePushFeatureToMuseDAM } from "@/musedam/push-feature-to-musedam";
 import {
   AssetProduct,
@@ -40,6 +44,7 @@ import {
 import prisma from "@/prisma/prisma";
 import { getLocale, getTranslations } from "next-intl/server";
 import { after } from "next/server";
+import pLimit from "p-limit";
 import { z } from "zod";
 import {
   BatchFileErrorMessages,
@@ -608,31 +613,6 @@ async function uploadNewProductImages({ files, teamId }: { files: File[]; teamId
   return uploads;
 }
 
-function getImageExtensionFromUrlOrContentType({
-  imageUrl,
-  contentType,
-}: {
-  imageUrl: string;
-  contentType: string;
-}) {
-  try {
-    const pathname = new URL(imageUrl).pathname;
-    const match = pathname.match(/\.[a-zA-Z0-9]+$/);
-    if (match) {
-      return match[0].toLowerCase();
-    }
-  } catch {
-    // ignore invalid URL and fall back to content type
-  }
-
-  if (contentType.includes("image/png")) return ".png";
-  if (contentType.includes("image/jpeg")) return ".jpg";
-  if (contentType.includes("image/webp")) return ".webp";
-  if (contentType.includes("image/svg+xml")) return ".svg";
-  if (contentType.includes("image/gif")) return ".gif";
-  return "";
-}
-
 async function uploadAssetLibraryImages({
   downloadUrls,
   teamId,
@@ -653,28 +633,28 @@ async function uploadAssetLibraryImages({
       throw new Error(t("uploadErrors.selectFromLibraryFailed"));
     }
 
-    const contentType = response.headers.get("content-type") || "application/octet-stream";
     const arrayBuffer = await response.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    const extension = getImageExtensionFromUrlOrContentType({
-      imageUrl: downloadUrl,
-      contentType,
-    });
+    const originalBuffer = Buffer.from(arrayBuffer);
+    if (originalBuffer.byteLength > MAX_CLIENT_IMAGE_UPLOAD_BYTES) {
+      throw new Error(t("uploadErrors.fileTooLarge"));
+    }
+
+    const preparedImage = await prepareReferenceImageBuffer(originalBuffer);
     const objectKey = buildAssetProductObjectKey({
       teamId,
-      extension,
+      extension: ".jpg",
     });
 
     const uploadResult = await uploadS3Object({
-      body: buffer,
-      contentType,
+      body: preparedImage.buffer,
+      contentType: preparedImage.mimeType,
       objectKey,
     });
 
     uploads.push({
       objectKey: uploadResult.objectKey,
-      mimeType: contentType,
-      size: buffer.byteLength,
+      mimeType: preparedImage.mimeType,
+      size: preparedImage.byteLength,
     });
   }
 
@@ -980,25 +960,28 @@ export async function prepareAssetLibraryProductImagesAction(
         .max(100, "Maximum 100 assets per selection")
         .parse(assets);
 
+      const prepareImage = pLimit(REFERENCE_IMAGE_PREPARATION_CONCURRENCY);
       const uploadedImages = await Promise.all(
-        normalizedAssets.map(async (asset) => {
-          const [uploaded] = await uploadAssetLibraryImages({
-            downloadUrls: [asset.downloadUrl],
-            teamId,
-          });
-          const { signedUrl, signedUrlExpiresAt } = getCachedBrowserS3ObjectUrl({
-            objectKey: uploaded.objectKey,
-          });
+        normalizedAssets.map((asset) =>
+          prepareImage(async () => {
+            const [uploaded] = await uploadAssetLibraryImages({
+              downloadUrls: [asset.downloadUrl],
+              teamId,
+            });
+            const { signedUrl, signedUrlExpiresAt } = getCachedBrowserS3ObjectUrl({
+              objectKey: uploaded.objectKey,
+            });
 
-          return {
-            name: asset.name,
-            objectKey: uploaded.objectKey,
-            mimeType: uploaded.mimeType,
-            size: uploaded.size,
-            signedUrl,
-            signedUrlExpiresAt,
-          };
-        }),
+            return {
+              name: asset.name,
+              objectKey: uploaded.objectKey,
+              mimeType: uploaded.mimeType,
+              size: uploaded.size,
+              signedUrl,
+              signedUrlExpiresAt,
+            };
+          }),
+        ),
       );
 
       return {
@@ -1487,6 +1470,8 @@ export async function prepareProductClassificationAction(input: {
           objectKey: metadata.objectKey,
           signedUrl,
           signedUrlExpiresAt,
+          imageWidth: imageInput.width,
+          imageHeight: imageInput.height,
           detections: detection.detections,
           found: detection.found,
         },

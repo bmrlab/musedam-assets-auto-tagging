@@ -4,11 +4,14 @@ import { llm, LLMModelName } from "@/ai/provider";
 import { getJinaConfig } from "@/lib/brand/env";
 import { bufferToDataUrl } from "@/lib/brand/image";
 import { createJinaImageEmbeddings, createJinaTextEmbeddings } from "@/lib/brand/jina";
+import { REFERENCE_IMAGE_PREPARATION_CONCURRENCY } from "@/lib/brand/upload-constants";
 import { getCachedSignedS3ObjectUrl } from "@/lib/s3";
+import { prepareReferenceImageBuffer } from "@/lib/tagging/reference-image";
 import { translateTextToEnglish } from "@/lib/translation/service";
 import prisma from "@/prisma/prisma";
 import { generateObject, UserModelMessage } from "ai";
 import { randomUUID } from "crypto";
+import pLimit from "p-limit";
 import { z } from "zod";
 import {
   deleteProductVectorPointsByProduct,
@@ -66,7 +69,7 @@ function getProcessingErrorCode(error: unknown): ProductProcessingErrorCode {
   return PRODUCT_PROCESSING_ERROR_CODES.unknown;
 }
 
-async function fetchImageAsDataUrl(objectKey: string, mimeType: string) {
+async function fetchImageAsDataUrl(objectKey: string) {
   const { signedUrl } = getCachedSignedS3ObjectUrl({ objectKey });
   const response = await fetch(signedUrl);
 
@@ -75,7 +78,8 @@ async function fetchImageAsDataUrl(objectKey: string, mimeType: string) {
   }
 
   const buffer = Buffer.from(await response.arrayBuffer());
-  return bufferToDataUrl(buffer, mimeType);
+  const preparedImage = await prepareReferenceImageBuffer(buffer);
+  return bufferToDataUrl(preparedImage.buffer, preparedImage.mimeType);
 }
 
 function getProductCategoryPredictModel(): LLMModelName {
@@ -239,8 +243,9 @@ export async function processAssetProductReferenceVectors({
       throw createProcessingError(PRODUCT_PROCESSING_ERROR_CODES.noReferenceImages);
     }
 
+    const prepareImage = pLimit(REFERENCE_IMAGE_PREPARATION_CONCURRENCY);
     const imageInputs = await Promise.all(
-      product.images.map((image) => fetchImageAsDataUrl(image.objectKey, image.mimeType)),
+      product.images.map((image) => prepareImage(() => fetchImageAsDataUrl(image.objectKey))),
     );
     const imageEmbeddings = await createJinaImageEmbeddings({
       images: imageInputs,

@@ -1,6 +1,13 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
+import {
+  clampClassificationBox,
+  ClassificationImageMeta,
+  getClassificationBoxPercentages,
+  getClassificationImageFrameStyle,
+  getClassificationLabelPosition,
+} from "@/app/(tagging)/tagging/components/classification-image-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -9,10 +16,10 @@ import {
   prepareClientImageUpload,
 } from "@/lib/brand/browser-image";
 import {
-  PERSON_AUTO_TAG_MIN_RAW_SIMILARITY,
-  PERSON_AUTO_TAG_MIN_RUNNER_UP_MARGIN,
   evaluatePersonMatchCandidates,
   isAcceptedPersonFace,
+  PERSON_AUTO_TAG_MIN_RAW_SIMILARITY,
+  PERSON_AUTO_TAG_MIN_RUNNER_UP_MARGIN,
 } from "@/lib/person/person-match-policy";
 import { uploadS3ObjectFromBrowser } from "@/lib/s3-browser-upload";
 import { cn } from "@/lib/utils";
@@ -32,11 +39,6 @@ import {
   PersonFaceClassificationResult,
   PersonLibraryPageData,
 } from "../types";
-
-type ProductImageMeta = {
-  width: number;
-  height: number;
-};
 
 type TranslationFunction = (key: string) => string;
 
@@ -96,35 +98,6 @@ function getUploadErrorMessage(error: unknown, t: (key: string) => string) {
   }
 }
 
-function clampBox(box: PersonDetectionBox, meta: ProductImageMeta) {
-  const xMin = Math.max(0, Math.min(meta.width, box.xMin));
-  const yMin = Math.max(0, Math.min(meta.height, box.yMin));
-  const xMax = Math.max(xMin + 1, Math.min(meta.width, box.xMax));
-  const yMax = Math.max(yMin + 1, Math.min(meta.height, box.yMax));
-
-  return {
-    ...box,
-    xMin,
-    yMin,
-    xMax,
-    yMax,
-  };
-}
-
-function getDetectionLabelPosition(box: PersonDetectionBox, meta: ProductImageMeta) {
-  const left = (box.xMin / meta.width) * 100;
-  const top = (box.yMin / meta.height) * 100;
-  const bottom = (box.yMax / meta.height) * 100;
-  const placeBelow = top < 10;
-
-  return {
-    left: `min(calc(${left}% + 8px), calc(100% - 12px))`,
-    top: placeBelow ? `calc(${bottom}% + 8px)` : `calc(${top}% - 8px)`,
-    transform: placeBelow ? "translateY(0)" : "translateY(-100%)",
-    maxWidth: `min(320px, calc(100% - ${left}% - 12px))`,
-  };
-}
-
 function loadImage(src: string, t: (key: string) => string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
     const image = new window.Image();
@@ -153,7 +126,10 @@ export default function PersonClassifyClient({
   );
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [imageMeta, setImageMeta] = useState<ProductImageMeta | null>(null);
+  const [imageMeta, setImageMeta] = useState<ClassificationImageMeta | null>(null);
+  const [detectionImageMeta, setDetectionImageMeta] = useState<ClassificationImageMeta | null>(
+    null,
+  );
   const [detections, setDetections] = useState<PersonDetectionBox[]>([]);
   const [result, setResult] = useState<PersonClassificationResult | null>(null);
   const [isRunning, setIsRunning] = useState(false);
@@ -171,6 +147,7 @@ export default function PersonClassifyClient({
     setDetections([]);
     setResult(null);
     setImageMeta(null);
+    setDetectionImageMeta(null);
     setFile(null);
     setPreviewUrl((current) => {
       revokeUrl(current);
@@ -248,7 +225,14 @@ export default function PersonClassifyClient({
         return;
       }
 
-      const normalizedBoxes = prepareResult.data.detections.map((box) => clampBox(box, imageMeta));
+      const nextDetectionImageMeta = {
+        width: prepareResult.data.imageWidth,
+        height: prepareResult.data.imageHeight,
+      };
+      const normalizedBoxes = prepareResult.data.detections.map((box) =>
+        clampClassificationBox(box, nextDetectionImageMeta),
+      );
+      setDetectionImageMeta(nextDetectionImageMeta);
       setDetections(normalizedBoxes);
 
       if (normalizedBoxes.length === 0) {
@@ -295,6 +279,8 @@ export default function PersonClassifyClient({
       setIsRunning(false);
     }
   }
+
+  const boxImageMeta = detectionImageMeta ?? imageMeta;
 
   return (
     <div className="flex min-h-[720px] flex-1 flex-col gap-6 px-1 py-5">
@@ -351,26 +337,24 @@ export default function PersonClassifyClient({
           </div>
 
           <div className="rounded-[20px] border border-dashed border-basic-3 bg-basic-1 p-4">
-            {previewUrl && imageMeta ? (
+            {previewUrl && imageMeta && boxImageMeta ? (
               <div className="flex justify-center">
-                <div className="relative isolate inline-block max-w-full overflow-hidden rounded-[16px]">
-                  <div className="overflow-hidden rounded-[16px] bg-[#eef3fb]">
-                    <img
-                      src={previewUrl}
-                      alt={t("imageToClassify")}
-                      className="block h-auto max-h-[720px] max-w-full"
-                    />
-                  </div>
+                <div
+                  className="relative isolate overflow-hidden rounded-[16px] bg-[#eef3fb]"
+                  style={getClassificationImageFrameStyle(imageMeta)}
+                >
+                  <img
+                    src={previewUrl}
+                    alt={t("imageToClassify")}
+                    className="block h-full w-full object-contain"
+                  />
                   <div className="pointer-events-none absolute inset-0">
                     {detections.map((box, index) => {
                       const faceResult = getFaceResult(result, index);
                       const hasConfidentMatch =
                         Boolean(faceResult?.bestMatch) && !faceResult?.noConfidentMatch;
-                      const left = (box.xMin / imageMeta.width) * 100;
-                      const top = (box.yMin / imageMeta.height) * 100;
-                      const width = ((box.xMax - box.xMin) / imageMeta.width) * 100;
-                      const height = ((box.yMax - box.yMin) / imageMeta.height) * 100;
-                      const labelPosition = getDetectionLabelPosition(box, imageMeta);
+                      const boxStyle = getClassificationBoxPercentages(box, boxImageMeta);
+                      const labelPosition = getClassificationLabelPosition(box, boxImageMeta, 320);
                       const label = faceResult?.bestMatch
                         ? `${faceResult.bestMatch.personName} · ${formatPercent(faceResult.bestMatch.rawSimilarity)}`
                         : `${t("face")} ${index + 1}`;
@@ -387,10 +371,10 @@ export default function PersonClassifyClient({
                                   : "border-[#3370ff]/70",
                             )}
                             style={{
-                              left: `${left}%`,
-                              top: `${top}%`,
-                              width: `${width}%`,
-                              height: `${height}%`,
+                              left: `${boxStyle.left}%`,
+                              top: `${boxStyle.top}%`,
+                              width: `${boxStyle.width}%`,
+                              height: `${boxStyle.height}%`,
                             }}
                           />
                           <span

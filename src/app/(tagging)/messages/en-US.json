@@ -154,7 +154,7 @@
         "logoNotFound": "Brand identity no longer exists or has been deleted",
         "noReferenceImages": "No reference images are available for vector generation",
         "imageFetchFailed": "Failed to read the reference image",
-        "jinaRequestFailed": "Failed to generate embeddings with Jina",
+        "jinaRequestFailed": "Failed to generate embeddings with API",
         "embeddingCountMismatch": "The number of returned embeddings does not match the number of images",
         "vectorStoreSyncFailed": "Failed to sync vectors to pgvector",
         "unknown": "Brand identity processing failed"
@@ -437,7 +437,7 @@
         "ipNotFound": "IP character no longer exists or has been deleted",
         "noReferenceImages": "No reference images are available for vector generation",
         "imageFetchFailed": "Failed to read the reference image",
-        "jinaRequestFailed": "Failed to generate embeddings with Jina",
+        "jinaRequestFailed": "Failed to generate embeddings with API",
         "embeddingCountMismatch": "The number of returned embeddings does not match the number of images",
         "vectorStoreSyncFailed": "Failed to sync vectors to pgvector",
         "unknown": "IP character processing failed"
@@ -1275,7 +1275,7 @@
         "productNotFound": "Product no longer exists or has been deleted",
         "noReferenceImages": "No reference images are available for vector generation",
         "imageFetchFailed": "Failed to read the reference image",
-        "jinaRequestFailed": "Failed to generate embeddings with Jina",
+        "jinaRequestFailed": "Failed to generate embeddings with API",
         "embeddingCountMismatch": "The number of returned embeddings does not match the number of images",
         "categoryPredictionFailed": "Failed to predict product general category",
         "vectorStoreSyncFailed": "Failed to sync vectors to pgvector",

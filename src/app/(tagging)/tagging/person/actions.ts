@@ -1561,6 +1561,8 @@ export async function preparePersonClassificationAction(input: {
           objectKey: metadata.objectKey,
           signedUrl,
           signedUrlExpiresAt,
+          imageWidth: imageInput.width,
+          imageHeight: imageInput.height,
           detections: detection.detections,
           faceCount: detection.faceCount,
           found: detection.found,

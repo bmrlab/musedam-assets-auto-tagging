@@ -1,6 +1,13 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
+import {
+  clampClassificationBox,
+  ClassificationImageMeta,
+  getClassificationBoxPercentages,
+  getClassificationImageFrameStyle,
+  getClassificationLabelPosition,
+} from "@/app/(tagging)/tagging/components/classification-image-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -21,11 +28,6 @@ import {
   prepareProductImageUploadAction,
 } from "../actions";
 import { ProductClassificationResult, ProductDetectionBox, ProductLibraryPageData } from "../types";
-
-type ProductImageMeta = {
-  width: number;
-  height: number;
-};
 
 type TranslationFunction = (key: string) => string;
 
@@ -54,7 +56,10 @@ function getUploadErrorMessage(error: unknown, t: (key: string) => string) {
   }
 }
 
-function getFallbackBox(meta: ProductImageMeta, t: TranslationFunction): ProductDetectionBox {
+function getFallbackBox(
+  meta: ClassificationImageMeta,
+  t: TranslationFunction,
+): ProductDetectionBox {
   return {
     xMin: 0,
     yMin: 0,
@@ -62,35 +67,6 @@ function getFallbackBox(meta: ProductImageMeta, t: TranslationFunction): Product
     yMax: meta.height,
     score: 1,
     label: t("fallbackBox"),
-  };
-}
-
-function clampBox(box: ProductDetectionBox, meta: ProductImageMeta) {
-  const xMin = Math.max(0, Math.min(meta.width, box.xMin));
-  const yMin = Math.max(0, Math.min(meta.height, box.yMin));
-  const xMax = Math.max(xMin + 1, Math.min(meta.width, box.xMax));
-  const yMax = Math.max(yMin + 1, Math.min(meta.height, box.yMax));
-
-  return {
-    ...box,
-    xMin,
-    yMin,
-    xMax,
-    yMax,
-  };
-}
-
-function getDetectionLabelPosition(box: ProductDetectionBox, meta: ProductImageMeta) {
-  const left = (box.xMin / meta.width) * 100;
-  const top = (box.yMin / meta.height) * 100;
-  const bottom = (box.yMax / meta.height) * 100;
-  const placeBelow = top < 10;
-
-  return {
-    left: `min(calc(${left}% + 8px), calc(100% - 12px))`,
-    top: placeBelow ? `calc(${bottom}% + 8px)` : `calc(${top}% - 8px)`,
-    transform: placeBelow ? "translateY(0)" : "translateY(-100%)",
-    maxWidth: `min(280px, calc(100% - ${left}% - 12px))`,
   };
 }
 
@@ -116,7 +92,10 @@ export default function ProductClassifyClient({
   );
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [imageMeta, setImageMeta] = useState<ProductImageMeta | null>(null);
+  const [imageMeta, setImageMeta] = useState<ClassificationImageMeta | null>(null);
+  const [detectionImageMeta, setDetectionImageMeta] = useState<ClassificationImageMeta | null>(
+    null,
+  );
   const [detections, setDetections] = useState<ProductDetectionBox[]>([]);
   const [result, setResult] = useState<ProductClassificationResult | null>(null);
   const [isRunning, setIsRunning] = useState(false);
@@ -134,6 +113,7 @@ export default function ProductClassifyClient({
     setDetections([]);
     setResult(null);
     setImageMeta(null);
+    setDetectionImageMeta(null);
     setFile(null);
     setPreviewUrl((current) => {
       revokeUrl(current);
@@ -211,12 +191,19 @@ export default function ProductClassifyClient({
         return;
       }
 
+      const nextDetectionImageMeta = {
+        width: prepareResult.data.imageWidth,
+        height: prepareResult.data.imageHeight,
+      };
       const candidateBoxes =
         prepareResult.data.detections.length > 0
           ? prepareResult.data.detections
-          : [getFallbackBox(imageMeta, t)];
+          : [getFallbackBox(nextDetectionImageMeta, t)];
 
-      const normalizedBoxes = candidateBoxes.map((box) => clampBox(box, imageMeta));
+      const normalizedBoxes = candidateBoxes.map((box) =>
+        clampClassificationBox(box, nextDetectionImageMeta),
+      );
+      setDetectionImageMeta(nextDetectionImageMeta);
       setDetections(normalizedBoxes);
 
       const classifyResult = await classifyProductImageAction({
@@ -243,6 +230,8 @@ export default function ProductClassifyClient({
       setIsRunning(false);
     }
   }
+
+  const boxImageMeta = detectionImageMeta ?? imageMeta;
 
   return (
     <div className="flex min-h-[720px] flex-1 flex-col gap-6 px-1 py-5">
@@ -299,24 +288,22 @@ export default function ProductClassifyClient({
           </div>
 
           <div className="rounded-[20px] border border-dashed border-basic-3 bg-basic-1 p-4">
-            {previewUrl && imageMeta ? (
+            {previewUrl && imageMeta && boxImageMeta ? (
               <div className="flex justify-center">
-                <div className="relative inline-block max-w-full overflow-hidden rounded-[16px] isolate">
-                  <div className="overflow-hidden rounded-[16px] bg-[#eef3fb]">
-                    <img
-                      src={previewUrl}
-                      alt={t("imageToClassify")}
-                      className="block h-auto max-h-[720px] max-w-full"
-                    />
-                  </div>
+                <div
+                  className="relative isolate overflow-hidden rounded-[16px] bg-[#eef3fb]"
+                  style={getClassificationImageFrameStyle(imageMeta)}
+                >
+                  <img
+                    src={previewUrl}
+                    alt={t("imageToClassify")}
+                    className="block h-full w-full object-contain"
+                  />
                   <div className="pointer-events-none absolute inset-0">
                     {detections.map((box, index) => {
                       const active = result?.winningDetectionIndex === index;
-                      const left = (box.xMin / imageMeta.width) * 100;
-                      const top = (box.yMin / imageMeta.height) * 100;
-                      const width = ((box.xMax - box.xMin) / imageMeta.width) * 100;
-                      const height = ((box.yMax - box.yMin) / imageMeta.height) * 100;
-                      const labelPosition = getDetectionLabelPosition(box, imageMeta);
+                      const boxStyle = getClassificationBoxPercentages(box, boxImageMeta);
+                      const labelPosition = getClassificationLabelPosition(box, boxImageMeta);
 
                       return (
                         <Fragment key={`${box.label}-${index}`}>
@@ -328,10 +315,10 @@ export default function ProductClassifyClient({
                                 : "border-[#3370ff]/70",
                             )}
                             style={{
-                              left: `${left}%`,
-                              top: `${top}%`,
-                              width: `${width}%`,
-                              height: `${height}%`,
+                              left: `${boxStyle.left}%`,
+                              top: `${boxStyle.top}%`,
+                              width: `${boxStyle.width}%`,
+                              height: `${boxStyle.height}%`,
                             }}
                           />
                           <span

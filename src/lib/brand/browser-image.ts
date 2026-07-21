@@ -2,6 +2,7 @@
 
 import {
   MAX_CLIENT_IMAGE_UPLOAD_BYTES,
+  REFERENCE_IMAGE_MAX_DIMENSION,
   TARGET_COMPRESSED_IMAGE_BYTES,
 } from "@/lib/brand/upload-constants";
 
@@ -15,7 +16,6 @@ export const CLIENT_IMAGE_PREPARATION_ERROR_CODES = {
 export type ClientImagePreparationErrorCode =
   (typeof CLIENT_IMAGE_PREPARATION_ERROR_CODES)[keyof typeof CLIENT_IMAGE_PREPARATION_ERROR_CODES];
 
-const MAX_CLIENT_IMAGE_DIMENSION = 4096;
 const MAX_COMPRESSION_ATTEMPTS = 10;
 const INITIAL_COMPRESSION_QUALITY = 0.9;
 const MIN_COMPRESSION_QUALITY = 0.45;
@@ -98,19 +98,40 @@ export function getClientImagePreparationErrorCode(error: unknown) {
   return null;
 }
 
+export function shouldCompressClientImage({
+  fileSize,
+  width,
+  height,
+}: {
+  fileSize: number;
+  width: number;
+  height: number;
+}) {
+  return (
+    fileSize > TARGET_COMPRESSED_IMAGE_BYTES ||
+    Math.max(width, height) > REFERENCE_IMAGE_MAX_DIMENSION
+  );
+}
+
 export async function prepareClientImageUpload(file: File) {
   if (file.size > MAX_CLIENT_IMAGE_UPLOAD_BYTES) {
     throw createPreparationError(CLIENT_IMAGE_PREPARATION_ERROR_CODES.fileTooLarge);
   }
 
-  if (file.size <= TARGET_COMPRESSED_IMAGE_BYTES) {
+  const image = await loadImageFromFile(file);
+  if (
+    !shouldCompressClientImage({
+      fileSize: file.size,
+      width: image.naturalWidth,
+      height: image.naturalHeight,
+    })
+  ) {
     return file;
   }
 
-  const image = await loadImageFromFile(file);
   const outputMimeType = getOutputMimeType(file);
   const maxEdge = Math.max(image.naturalWidth, image.naturalHeight);
-  let scale = maxEdge > 0 ? Math.min(1, MAX_CLIENT_IMAGE_DIMENSION / maxEdge) : 1;
+  let scale = maxEdge > 0 ? Math.min(1, REFERENCE_IMAGE_MAX_DIMENSION / maxEdge) : 1;
   let quality = INITIAL_COMPRESSION_QUALITY;
   let bestBlob: Blob | null = null;
 

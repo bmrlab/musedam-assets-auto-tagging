@@ -85,6 +85,8 @@ export type BrandClassificationUploadResult = {
   objectKey: string;
   signedUrl: string;
   signedUrlExpiresAt: number;
+  imageWidth: number;
+  imageHeight: number;
   detections: BrandDetectionBox[];
   found: boolean;
 };

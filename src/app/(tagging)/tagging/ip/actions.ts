@@ -1802,6 +1802,8 @@ export async function prepareIpClassificationAction(input: {
           objectKey: metadata.objectKey,
           signedUrl,
           signedUrlExpiresAt,
+          imageWidth: imageInput.width,
+          imageHeight: imageInput.height,
           detections: detection.detections,
           found: detection.found,
         },

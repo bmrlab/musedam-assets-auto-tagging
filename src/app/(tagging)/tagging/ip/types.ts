@@ -97,6 +97,8 @@ export type IpClassificationUploadResult = {
   objectKey: string;
   signedUrl: string;
   signedUrlExpiresAt: number;
+  imageWidth: number;
+  imageHeight: number;
   detections: IpDetectionBox[];
   found: boolean;
 };

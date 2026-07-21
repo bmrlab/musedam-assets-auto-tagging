@@ -62,8 +62,8 @@ export function getJinaConfig() {
     apiKey: getRequiredEnv("JINA_API_KEY"),
     embeddingsUrl: process.env.JINA_EMBEDDINGS_URL?.trim() || "https://api.jina.ai/v1/embeddings",
     model: process.env.JINA_EMBEDDING_MODEL?.trim() || "jina-clip-v2",
-    batchSize: getNumberEnv("JINA_BATCH_SIZE", 8),
-    timeoutMs: getNumberEnv("JINA_TIMEOUT_SECONDS", 30) * 1000,
+    batchSize: getNumberEnv("JINA_BATCH_SIZE", 4),
+    timeoutMs: getNumberEnv("JINA_TIMEOUT_SECONDS", 60) * 1000,
     useProxy,
     proxyUrl,
   };
