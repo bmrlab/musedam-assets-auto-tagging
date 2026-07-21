@@ -1,3 +1,4 @@
+import { isAcceptedPersonFace } from "@/lib/person/person-match-policy";
 import { meetsFeatureConfidenceThreshold } from "@/lib/tagging/feature-confidence";
 import type {
   TaggingBrandRecommendation,
@@ -80,14 +81,9 @@ export function collectMuseFeatureIdentifierIdsForQueueItem({
 
   const person = personRecommendation;
   if (person) {
-    for (const row of person.recommendedTags ?? []) {
-      if (personTagIds.includes(row.assetTagId) && row.assetPersonId) {
-        ids.add(row.assetPersonId);
-      }
-    }
     for (const face of person.faces ?? []) {
       const bm = face.bestMatch;
-      if (!bm || !meetsFeatureConfidenceThreshold("person", bm.confidence)) {
+      if (!bm || !isAcceptedPersonFace(face)) {
         continue;
       }
       if (approvedTagsOverlap(personTagIds, bm.recommendedTags)) {

@@ -1,11 +1,12 @@
 import "server-only";
 
 import {
-  PersonDetectionBox,
-  PersonTopMatch,
   classifyPersonFaceEmbeddings,
   detectPersonFaceBoxes,
+  PersonDetectionBox,
+  PersonTopMatch,
 } from "@/lib/person/person-classification";
+import { isAcceptedPersonFace } from "@/lib/person/person-match-policy";
 import {
   ClassificationRemoteImageInput,
   fetchRemoteImageInput,
@@ -49,6 +50,7 @@ function normalizePersonMatch(match: PersonTopMatch) {
     personName: match.personName,
     personTypeId: match.personTypeId,
     personTypeName: match.personTypeName,
+    rawSimilarity: match.rawSimilarity,
     similarity: match.similarity,
     confidence: match.confidence,
     detectionIndex: match.detectionIndex,
@@ -161,13 +163,11 @@ export async function classifyAssetPersonRecommendation({
     };
   });
 
-  // Include tags from all faces with bestMatch, regardless of confidence level
-  const recommendedTags = recommendationFaces.flatMap((face) =>
-    face.bestMatch?.recommendedTags ?? [],
-  );
+  const acceptedFaces = recommendationFaces.filter(isAcceptedPersonFace);
+  const recommendedTags = acceptedFaces.flatMap((face) => face.bestMatch?.recommendedTags ?? []);
 
   return {
-    noConfidentMatch: recommendedTags.length === 0,
+    noConfidentMatch: acceptedFaces.length === 0,
     faceCount: detection.faceCount,
     faces: recommendationFaces,
     recommendedTags,

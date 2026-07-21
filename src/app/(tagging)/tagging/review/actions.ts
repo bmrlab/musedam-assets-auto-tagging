@@ -93,11 +93,6 @@ function addQueueResultFeatureIds(
   }
 
   const personRecommendation = getPersonRecommendationFromQueueResult(result);
-  for (const row of personRecommendation?.recommendedTags ?? []) {
-    if (row.assetPersonId) {
-      featureIds.person.add(row.assetPersonId);
-    }
-  }
   for (const face of personRecommendation?.faces ?? []) {
     if (face.bestMatch?.assetPersonId) {
       featureIds.person.add(face.bestMatch.assetPersonId);
@@ -576,6 +571,55 @@ export async function approveAuditItemsAction({
       team,
     });
 
+    // The browser controls selection state, but the server remains the safety
+    // boundary. Rebuild the set of acceptable person tags from the persisted
+    // classifier results so stale or manipulated client payloads cannot bypass
+    // the person-match policy.
+    const queueResults = featureClassify
+      ? (
+          await prisma.taggingAuditItem.findMany({
+            where: {
+              id: { in: auditItems.map(({ id }) => id) },
+              teamId,
+              assetObject: { slug: assetSlug },
+            },
+            select: {
+              queueItem: {
+                select: { id: true, result: true },
+              },
+            },
+          })
+        )
+          .flatMap(({ queueItem }) => (queueItem ? [queueItem] : []))
+          .filter(
+            (queueItem, index, rows) =>
+              rows.findIndex((candidate) => candidate.id === queueItem.id) === index,
+          )
+      : [];
+    const allowedPersonTagIds = new Set(
+      queueResults.flatMap(({ result }) => getPersonRecommendationTagIdsFromQueueResult(result)),
+    );
+    const acceptedPersonTagIds = personTagIds.filter((tagId) => allowedPersonTagIds.has(tagId));
+
+    const allowedMuseFeatureIdentifierIds = new Set<string>();
+    for (const { result } of queueResults) {
+      for (const identifierId of collectMuseFeatureIdentifierIdsForQueueItem({
+        brandRecommendation: getBrandRecommendationFromQueueResult(result),
+        ipRecommendation: getIpRecommendationFromQueueResult(result),
+        productRecommendation: getProductRecommendationFromQueueResult(result),
+        personRecommendation: getPersonRecommendationFromQueueResult(result),
+        brandTagIds,
+        ipTagIds,
+        productTagIds,
+        personTagIds: acceptedPersonTagIds,
+      })) {
+        allowedMuseFeatureIdentifierIds.add(identifierId);
+      }
+    }
+    const acceptedMuseFeatureIdentifierIds = museFeatureIdentifierIds.filter((identifierId) =>
+      allowedMuseFeatureIdentifierIds.has(identifierId),
+    );
+
     const combinedApprovedTagIds = Array.from(
       new Set([
         ...auditItems
@@ -584,7 +628,7 @@ export async function approveAuditItemsAction({
         ...(featureClassify ? brandTagIds : []),
         ...(featureClassify ? ipTagIds : []),
         ...(featureClassify ? productTagIds : []),
-        ...(featureClassify ? personTagIds : []),
+        ...(featureClassify ? acceptedPersonTagIds : []),
       ]),
     );
 
@@ -614,7 +658,7 @@ export async function approveAuditItemsAction({
     if (featureClassify) {
       const existingMuseFeatureIdentifierIds = await filterExistingMuseFeatureIdentifierIds({
         teamId,
-        identifierIds: museFeatureIdentifierIds,
+        identifierIds: acceptedMuseFeatureIdentifierIds,
       });
 
       await bindFeatureIdentifiersToMuseDAMMaterial({

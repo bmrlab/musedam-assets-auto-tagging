@@ -22,6 +22,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { dispatchMuseDAMClientAction } from "@/embed/message";
 import { useFeatureLibraryEnabled } from "@/hooks/use-feature-library";
+import { isAcceptedPersonFace } from "@/lib/person/person-match-policy";
 import { slugToId } from "@/lib/slug";
 import {
   getFeatureConfidenceToneClass,
@@ -400,8 +401,8 @@ export function ReviewItem({
           const tagIds: number[] = [];
           for (const face of personRecommendation.faces) {
             if (
+              !isAcceptedPersonFace(face) ||
               !face.bestMatch ||
-              !meetsFeatureConfidenceThreshold("person", face.bestMatch.confidence) ||
               !availableFeatureIdSets.person.has(face.bestMatch.assetPersonId)
             ) {
               continue;
@@ -495,8 +496,8 @@ export function ReviewItem({
       const personTagIdsForQueue =
         per?.faces.flatMap((face) => {
           if (
+            !isAcceptedPersonFace(face) ||
             !face.bestMatch ||
-            !meetsFeatureConfidenceThreshold("person", face.bestMatch.confidence) ||
             !availableFeatureIdSets.person.has(face.bestMatch.assetPersonId)
           ) {
             return [];
@@ -996,12 +997,14 @@ export function ReviewItem({
               const totalPersonFaces =
                 personRecommendation?.faces.filter(
                   (f) =>
-                    f.bestMatch && availableFeatureIdSets.person.has(f.bestMatch.assetPersonId),
+                    isAcceptedPersonFace(f) &&
+                    f.bestMatch &&
+                    availableFeatureIdSets.person.has(f.bestMatch.assetPersonId),
                 ).length ?? 0;
               personRecommendation?.faces.forEach((face) => {
                 if (
+                  !isAcceptedPersonFace(face) ||
                   !face.bestMatch ||
-                  !meetsFeatureConfidenceThreshold("person", face.bestMatch.confidence) ||
                   !availableFeatureIdSets.person.has(face.bestMatch.assetPersonId)
                 ) {
                   return;

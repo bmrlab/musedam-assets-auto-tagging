@@ -11,6 +11,7 @@ import { FileImageIcon, TagsIcon } from "@/components/ui/icons";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { dispatchMuseDAMClientAction } from "@/embed/message";
 import { useFeatureLibraryEnabled } from "@/hooks/use-feature-library";
+import { isAcceptedPersonFace } from "@/lib/person/person-match-policy";
 import { cn } from "@/lib/utils";
 import { Loader2, PlayIcon, PlusIcon, Trash } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -421,18 +422,23 @@ export default function TestClient() {
                 tagPath?: string[];
               }> = Array.isArray(result.personLinkedTags) ? result.personLinkedTags : [];
               const totalPersonFaces =
-                personRecommendation?.faces.filter((f) => f.bestMatch).length ?? 0;
+                personRecommendation?.faces.filter(isAcceptedPersonFace).length ?? 0;
               const personRecognitionFaces =
                 personRecommendation?.faces.map((face) => {
                   const bestMatch = face.bestMatch;
+                  const accepted = isAcceptedPersonFace(face);
                   const refreshedTags =
-                    bestMatch && linkedPersonTags.length > 0
+                    accepted && bestMatch && linkedPersonTags.length > 0
                       ? linkedPersonTags.filter(
                           (tag) => tag.assetPersonId === bestMatch.assetPersonId,
                         )
                       : [];
                   const recommendedTags =
-                    refreshedTags.length > 0 ? refreshedTags : (bestMatch?.recommendedTags ?? []);
+                    accepted && refreshedTags.length > 0
+                      ? refreshedTags
+                      : accepted
+                        ? (bestMatch?.recommendedTags ?? [])
+                        : [];
 
                   // Format: "人物N: personName" when multiple people, or just "personName" when single
                   const personDisplayName =
@@ -442,7 +448,7 @@ export default function TestClient() {
 
                   return {
                     detectionIndex: face.detectionIndex,
-                    noConfidentMatch: face.noConfidentMatch,
+                    noConfidentMatch: !accepted,
                     personName: personDisplayName,
                     personTypeName: bestMatch?.personTypeName ?? null,
                     confidence: bestMatch?.confidence ?? null,

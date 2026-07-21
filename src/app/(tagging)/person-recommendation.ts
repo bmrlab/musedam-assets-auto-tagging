@@ -1,4 +1,4 @@
-import { meetsFeatureConfidenceThreshold } from "@/lib/tagging/feature-confidence";
+import { isAcceptedPersonFace } from "@/lib/person/person-match-policy";
 import type { TaggingPersonRecommendation, TaggingQueueItemResult } from "@/prisma/client";
 
 export function getPersonRecommendationFromQueueResult(
@@ -13,9 +13,9 @@ export function getPersonRecommendationFromQueueResult(
   return personRecommendation as TaggingPersonRecommendation;
 }
 
-export function getPersonRecommendationTagIdsFromQueueResult(result: unknown): number[] {
-  const personRecommendation = getPersonRecommendationFromQueueResult(result);
-
+export function getAcceptedPersonRecommendationTagIds(
+  personRecommendation: TaggingPersonRecommendation | null | undefined,
+): number[] {
   if (!personRecommendation || !Array.isArray(personRecommendation.faces)) {
     return [];
   }
@@ -23,10 +23,7 @@ export function getPersonRecommendationTagIdsFromQueueResult(result: unknown): n
   const tagIds = new Set<number>();
 
   for (const face of personRecommendation.faces) {
-    if (
-      !face.bestMatch ||
-      !meetsFeatureConfidenceThreshold("person", face.bestMatch.confidence)
-    ) {
+    if (!isAcceptedPersonFace(face) || !face.bestMatch) {
       continue;
     }
 
@@ -38,4 +35,8 @@ export function getPersonRecommendationTagIdsFromQueueResult(result: unknown): n
   }
 
   return [...tagIds];
+}
+
+export function getPersonRecommendationTagIdsFromQueueResult(result: unknown): number[] {
+  return getAcceptedPersonRecommendationTagIds(getPersonRecommendationFromQueueResult(result));
 }

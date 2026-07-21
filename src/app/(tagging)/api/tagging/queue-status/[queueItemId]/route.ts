@@ -5,6 +5,7 @@ import { getPersonRecommendationFromQueueResult } from "@/app/(tagging)/person-r
 import { getProductRecommendationFromQueueResult } from "@/app/(tagging)/product-recommendation";
 import { stripFeatureLibraryRecommendations } from "@/lib/feature-library";
 import { getFeatureLibraryEnabledFromRequest } from "@/lib/feature-library-server";
+import { isAcceptedPersonFace } from "@/lib/person/person-match-policy";
 import prisma from "@/prisma/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -61,7 +62,7 @@ export async function GET(
         new Set(
           personRecommendation?.faces
             .map((face) =>
-              !face.noConfidentMatch && face.bestMatch ? face.bestMatch.assetPersonId : null,
+              isAcceptedPersonFace(face) && face.bestMatch ? face.bestMatch.assetPersonId : null,
             )
             .filter((id): id is string => Boolean(id)) ?? [],
         ),

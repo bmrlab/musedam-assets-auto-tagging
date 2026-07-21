@@ -8,9 +8,15 @@ import {
   getClientImagePreparationErrorCode,
   prepareClientImageUpload,
 } from "@/lib/brand/browser-image";
+import {
+  PERSON_AUTO_TAG_MIN_RAW_SIMILARITY,
+  PERSON_AUTO_TAG_MIN_RUNNER_UP_MARGIN,
+  evaluatePersonMatchCandidates,
+  isAcceptedPersonFace,
+} from "@/lib/person/person-match-policy";
 import { uploadS3ObjectFromBrowser } from "@/lib/s3-browser-upload";
 import { cn } from "@/lib/utils";
-import { ArrowLeft, Loader2, Search, Trophy, Upload } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Loader2, Search, Trophy, Upload, XCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { Fragment, useEffect, useMemo, useState } from "react";
@@ -42,6 +48,37 @@ function revokeUrl(url: string | null) {
 
 function formatPercent(value: number) {
   return `${(value * 100).toFixed(1)}%`;
+}
+
+function formatSignedPercent(value: number) {
+  return `${value >= 0 ? "+" : ""}${formatPercent(value)}`;
+}
+
+function MatchMetric({
+  label,
+  value,
+  requirement,
+  passed,
+}: {
+  label: string;
+  value: string;
+  requirement?: string;
+  passed?: boolean;
+}) {
+  return (
+    <div className="rounded-[12px] border border-basic-3 bg-background px-3 py-2.5">
+      <div className="text-xs text-basic-5">{label}</div>
+      <div className="mt-1 flex items-center justify-between gap-2">
+        <span className="font-medium text-basic-8">{value}</span>
+        {passed === undefined ? null : passed ? (
+          <CheckCircle2 className="size-4 shrink-0 text-success-6" />
+        ) : (
+          <XCircle className="size-4 shrink-0 text-warning-6" />
+        )}
+      </div>
+      {requirement ? <div className="mt-1 text-[11px] text-basic-5">{requirement}</div> : null}
+    </div>
+  );
 }
 
 function getUploadErrorMessage(error: unknown, t: (key: string) => string) {
@@ -231,7 +268,9 @@ export default function PersonClassifyClient({
             : null,
         )
         .filter(
-          (face): face is { detectionIndex: number; box: PersonDetectionBox; embedding: number[] } =>
+          (
+            face,
+          ): face is { detectionIndex: number; box: PersonDetectionBox; embedding: number[] } =>
             Boolean(face),
         );
 
@@ -247,12 +286,8 @@ export default function PersonClassifyClient({
       }
 
       setResult(classifyResult.data.result);
-      const confidentCount = classifyResult.data.result.faces.filter(
-        (face) => !face.noConfidentMatch && face.bestMatch,
-      ).length;
-      toast.success(
-        confidentCount > 0 ? t("classifyComplete") : t("classifyCompleteNoMatch"),
-      );
+      const confidentCount = classifyResult.data.result.faces.filter(isAcceptedPersonFace).length;
+      toast.success(confidentCount > 0 ? t("classifyComplete") : t("classifyCompleteNoMatch"));
     } catch (error) {
       console.error("Failed to classify person image:", error);
       toast.error(error instanceof Error ? error.message : t("classifyFailed"));
@@ -266,7 +301,10 @@ export default function PersonClassifyClient({
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div>
           <div className="flex items-center gap-2 text-sm text-basic-5">
-            <Link href="/tagging/person" className="inline-flex items-center gap-1 hover:text-basic-8">
+            <Link
+              href="/tagging/person"
+              className="inline-flex items-center gap-1 hover:text-basic-8"
+            >
               <ArrowLeft className="size-4" />
               {t("backToLibrary")}
             </Link>
@@ -279,9 +317,7 @@ export default function PersonClassifyClient({
 
         <div className="rounded-[18px] border bg-background px-5 py-4 text-right">
           <div className="text-sm text-basic-5">{t("availablePersons")}</div>
-          <div className="mt-1 text-3xl font-semibold text-basic-8">
-            {referencePersons.length}
-          </div>
+          <div className="mt-1 text-3xl font-semibold text-basic-8">{referencePersons.length}</div>
           <div className="mt-1 text-xs text-basic-5">{t("statsDescription")}</div>
         </div>
       </div>
@@ -336,7 +372,7 @@ export default function PersonClassifyClient({
                       const height = ((box.yMax - box.yMin) / imageMeta.height) * 100;
                       const labelPosition = getDetectionLabelPosition(box, imageMeta);
                       const label = faceResult?.bestMatch
-                        ? `${faceResult.bestMatch.personName} · ${faceResult.bestMatch.confidence}`
+                        ? `${faceResult.bestMatch.personName} · ${formatPercent(faceResult.bestMatch.rawSimilarity)}`
                         : `${t("face")} ${index + 1}`;
 
                       return (
@@ -391,6 +427,11 @@ export default function PersonClassifyClient({
               <Trophy className="size-5 text-[#ff8f1f]" />
               {t("finalResult")}
             </div>
+            <div className="mt-3 rounded-[14px] border border-basic-3 bg-basic-1 px-3 py-2 text-xs leading-5 text-basic-5">
+              {t("acceptanceRule")}: {t("rawSimilarity")} ≥{" "}
+              {formatPercent(PERSON_AUTO_TAG_MIN_RAW_SIMILARITY)} · {t("winnerMargin")} ≥{" "}
+              {formatPercent(PERSON_AUTO_TAG_MIN_RUNNER_UP_MARGIN)}
+            </div>
 
             {!result ? (
               <p className="mt-4 text-sm leading-6 text-basic-5">{t("resultHint")}</p>
@@ -400,54 +441,121 @@ export default function PersonClassifyClient({
               </div>
             ) : (
               <div className="mt-4 space-y-4">
-                {result.faces.map((face) => (
-                  <div
-                    key={face.detectionIndex}
-                    className={cn(
-                      "rounded-[18px] border p-4",
-                      face.bestMatch && !face.noConfidentMatch
-                        ? "border-success-4 bg-success-1"
-                        : "border-warning-4 bg-warning-1",
-                    )}
-                  >
-                    <p className="text-sm text-basic-5">
-                      {t("face")} {face.detectionIndex + 1}
-                    </p>
-                    {face.bestMatch ? (
-                      <>
-                        <p className="mt-2 text-2xl font-semibold text-basic-8">
-                          {face.bestMatch.personName}
+                {result.faces.map((face) => {
+                  const decision = evaluatePersonMatchCandidates(face.topMatches);
+                  const bestMatch = face.bestMatch;
+                  const supportBonus = bestMatch
+                    ? Math.max(0, bestMatch.similarity - bestMatch.rawSimilarity)
+                    : 0;
+                  const similarityPassed =
+                    decision.bestRawSimilarity !== null &&
+                    decision.bestRawSimilarity >= PERSON_AUTO_TAG_MIN_RAW_SIMILARITY;
+                  const marginPassed =
+                    decision.runnerUpRawSimilarity === null ||
+                    (decision.margin !== null &&
+                      decision.margin >= PERSON_AUTO_TAG_MIN_RUNNER_UP_MARGIN);
+
+                  return (
+                    <div
+                      key={face.detectionIndex}
+                      className={cn(
+                        "rounded-[18px] border p-4",
+                        decision.accepted
+                          ? "border-success-4 bg-success-1"
+                          : "border-warning-4 bg-warning-1",
+                      )}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm text-basic-5">
+                          {t("face")} {face.detectionIndex + 1}
                         </p>
-                        <p className="mt-2 text-sm leading-6 text-basic-5">
-                          {t("type")} {face.bestMatch.personTypeName} · {t("similarity")}{" "}
-                          {formatPercent(face.bestMatch.similarity)} · {t("confidence")}{" "}
-                          {face.bestMatch.confidence}
-                        </p>
-                        {face.noConfidentMatch ? (
-                          <p className="mt-2 text-sm leading-6 text-basic-5">
-                            {t("noConfidentMatchDesc")}
+                        <span
+                          className={cn(
+                            "inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs font-medium",
+                            decision.accepted
+                              ? "border-success-4 bg-background text-success-7"
+                              : "border-warning-4 bg-background text-warning-7",
+                          )}
+                        >
+                          {decision.accepted ? (
+                            <CheckCircle2 className="size-3.5" />
+                          ) : (
+                            <XCircle className="size-3.5" />
+                          )}
+                          {decision.accepted ? t("autoTagAccepted") : t("autoTagRejected")}
+                        </span>
+                      </div>
+                      {bestMatch ? (
+                        <>
+                          <p className="mt-2 text-2xl font-semibold text-basic-8">
+                            {bestMatch.personName}
                           </p>
-                        ) : null}
-                        {face.bestMatch.recommendedTags.length > 0 ? (
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {face.bestMatch.recommendedTags.map((tag) => (
-                              <span
-                                key={tag.id}
-                                className="inline-flex items-center rounded-[6px] border border-basic-4 bg-background px-2 py-1 text-xs text-basic-8"
-                              >
-                                {tag.tagPath.join(" > ")}
-                              </span>
-                            ))}
+                          <p className="mt-1 text-sm leading-6 text-basic-5">
+                            {t("type")} {bestMatch.personTypeName}
+                          </p>
+
+                          <div className="mt-3 grid grid-cols-2 gap-2">
+                            <MatchMetric
+                              label={t("rawSimilarity")}
+                              value={formatPercent(bestMatch.rawSimilarity)}
+                              requirement={`${t("required")} ≥ ${formatPercent(PERSON_AUTO_TAG_MIN_RAW_SIMILARITY)}`}
+                              passed={similarityPassed}
+                            />
+                            <MatchMetric
+                              label={t("winnerMargin")}
+                              value={
+                                decision.runnerUpRawSimilarity === null
+                                  ? t("noRunnerUp")
+                                  : formatPercent(decision.margin ?? 0)
+                              }
+                              requirement={`${t("required")} ≥ ${formatPercent(PERSON_AUTO_TAG_MIN_RUNNER_UP_MARGIN)}`}
+                              passed={marginPassed}
+                            />
+                            <MatchMetric
+                              label={t("rankingSimilarity")}
+                              value={formatPercent(bestMatch.similarity)}
+                            />
+                            <MatchMetric
+                              label={t("supportBonus")}
+                              value={formatSignedPercent(supportBonus)}
+                            />
                           </div>
-                        ) : null}
-                      </>
-                    ) : (
-                      <p className="mt-2 text-sm leading-6 text-basic-5">
-                        {t("noConfidentMatch")}
-                      </p>
-                    )}
-                  </div>
-                ))}
+
+                          <p
+                            className={cn(
+                              "mt-3 text-sm leading-6",
+                              decision.accepted ? "text-success-7" : "text-warning-7",
+                            )}
+                          >
+                            {t(`decisionReasons.${decision.reason}`)}
+                          </p>
+
+                          {decision.accepted && bestMatch.recommendedTags.length > 0 ? (
+                            <div className="mt-3">
+                              <div className="mb-2 text-xs text-basic-5">
+                                {t("autoTagCandidates")}
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                {bestMatch.recommendedTags.map((tag) => (
+                                  <span
+                                    key={tag.id}
+                                    className="inline-flex items-center rounded-[6px] border border-basic-4 bg-background px-2 py-1 text-xs text-basic-8"
+                                  >
+                                    {tag.tagPath.join(" > ")}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          ) : null}
+                        </>
+                      ) : (
+                        <p className="mt-2 text-sm leading-6 text-basic-5">
+                          {t("noConfidentMatch")}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -462,30 +570,41 @@ export default function PersonClassifyClient({
                       {t("face")} {face.detectionIndex + 1}
                     </h4>
                     {face.topMatches.length > 0 ? (
-                      face.topMatches.map((match, index) => (
-                        <div
-                          key={`${match.assetPersonId}-${face.detectionIndex}-${index}`}
-                          className={cn(
-                            "rounded-[18px] border px-4 py-3",
-                            index === 0
-                              ? "border-warning-4 bg-warning-1"
-                              : "border-basic-3 bg-basic-1",
-                          )}
-                        >
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="font-medium text-basic-8">{match.personName}</div>
-                            <div className="text-sm text-basic-5">#{index + 1}</div>
+                      face.topMatches.map((match, index) => {
+                        const supportBonus = Math.max(0, match.similarity - match.rawSimilarity);
+
+                        return (
+                          <div
+                            key={`${match.assetPersonId}-${face.detectionIndex}-${index}`}
+                            className={cn(
+                              "rounded-[18px] border px-4 py-3",
+                              index === 0 && !face.noConfidentMatch
+                                ? "border-success-4 bg-success-1"
+                                : index === 0
+                                  ? "border-warning-4 bg-warning-1"
+                                  : "border-basic-3 bg-basic-1",
+                            )}
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="font-medium text-basic-8">{match.personName}</div>
+                              <div className="text-sm text-basic-5">#{index + 1}</div>
+                            </div>
+                            <div className="mt-2 text-sm leading-6 text-basic-5">
+                              {t("rawSimilarity")} {formatPercent(match.rawSimilarity)}
+                              {supportBonus > 0
+                                ? ` · ${t("supportBonus")} ${formatSignedPercent(supportBonus)}`
+                                : ""}
+                            </div>
+                            <div className="text-sm leading-6 text-basic-5">
+                              {t("rankingSimilarity")} {formatPercent(match.similarity)} ·{" "}
+                              {t("type")} {match.personTypeName}
+                            </div>
+                            <div className="text-sm leading-6 text-basic-5">
+                              {t("supportingReferences")} {match.supportingReferenceCount}
+                            </div>
                           </div>
-                          <div className="mt-2 text-sm leading-6 text-basic-5">
-                            {t("similarity")} {formatPercent(match.similarity)} ·{" "}
-                            {t("confidence")} {match.confidence}
-                          </div>
-                          <div className="text-sm leading-6 text-basic-5">
-                            {t("type")} {match.personTypeName} · {t("supportingReferences")}{" "}
-                            {match.supportingReferenceCount}
-                          </div>
-                        </div>
-                      ))
+                        );
+                      })
                     ) : (
                       <p className="text-sm leading-6 text-basic-5">{t("noMatches")}</p>
                     )}

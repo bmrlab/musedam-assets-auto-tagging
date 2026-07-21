@@ -4,10 +4,14 @@ import { isTagTreeJob, processTagTreeQueueItem } from "@/app/tags/tagTreeQueue";
 import { classifyAssetBrandRecommendation } from "@/lib/brand/tagging-brand-classification";
 import { classifyAssetIpRecommendation } from "@/lib/ip/tagging-ip-classification";
 import { rootLogger } from "@/lib/logging";
+import {
+  evaluatePersonMatchCandidates,
+  isAcceptedPersonFace,
+} from "@/lib/person/person-match-policy";
 import { classifyAssetPersonRecommendation } from "@/lib/person/tagging-person-classification";
 import { classifyAssetProductRecommendation } from "@/lib/product/tagging-product-classification";
-import { fetchRemoteImageInput } from "@/lib/tagging/classification-image";
 import { idToSlug, slugToId } from "@/lib/slug";
+import { fetchRemoteImageInput } from "@/lib/tagging/classification-image";
 import { retrieveTeamCredentials } from "@/musedam/apiKey";
 import { bindFeatureIdentifiersToMuseDAMMaterial, setAssetTagsToMuseDAM } from "@/musedam/assets";
 import { collectMuseFeatureIdentifierIdsForQueueItem } from "@/musedam/collect-muse-feature-identifier-ids";
@@ -29,6 +33,7 @@ import {
 } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 import pLimit from "p-limit";
+import { getAcceptedPersonRecommendationTagIds } from "./person-recommendation";
 import { predictAssetTags } from "./predict";
 import { getTaggingSettings } from "./tagging/settings/lib";
 import { SourceBasedTagPredictions, TagWithScore } from "./types";
@@ -106,11 +111,7 @@ function hasProductRecommendedTags(
 function hasPersonRecommendedTags(
   personRecommendation: TaggingPersonRecommendation | null,
 ): personRecommendation is TaggingPersonRecommendation {
-  return Boolean(
-    personRecommendation &&
-      Array.isArray(personRecommendation.recommendedTags) &&
-      personRecommendation.recommendedTags.length > 0,
-  );
+  return getAcceptedPersonRecommendationTagIds(personRecommendation).length > 0;
 }
 
 function getBestPersonRecommendationConfidence(
@@ -118,7 +119,9 @@ function getBestPersonRecommendationConfidence(
 ) {
   return Math.max(
     0,
-    ...(personRecommendation?.faces.map((face) => face.bestMatch?.confidence ?? 0) ?? []),
+    ...(personRecommendation?.faces
+      .filter(isAcceptedPersonFace)
+      .map((face) => face.bestMatch?.confidence ?? 0) ?? []),
   );
 }
 
@@ -281,6 +284,19 @@ export async function processQueueItem({
       personRecommendationPromise,
     ]);
     const hasAiTags = tagsWithScore.length > 0;
+    const acceptedPersonTagIds = getAcceptedPersonRecommendationTagIds(personRecommendation);
+    if (personRecommendation?.faces.length) {
+      logger.info({
+        msg: "Person match acceptance evaluated",
+        acceptedFaceCount: personRecommendation.faces.filter(isAcceptedPersonFace).length,
+        detectedFaceCount: personRecommendation.faceCount,
+        faceDecisions: personRecommendation.faces.map((face) => ({
+          detectionIndex: face.detectionIndex,
+          classifierRejected: face.noConfidentMatch,
+          ...evaluatePersonMatchCandidates(face.topMatches),
+        })),
+      });
+    }
     const brandRecommendationWithTags = hasBrandRecommendedTags(brandRecommendation)
       ? brandRecommendation
       : null;
@@ -409,7 +425,7 @@ export async function processQueueItem({
             ...(brandRecommendation?.recommendedTags ?? []).map((tag) => tag.assetTagId),
             ...(ipRecommendation?.recommendedTags ?? []).map((tag) => tag.assetTagId),
             ...(productRecommendation?.recommendedTags ?? []).map((tag) => tag.assetTagId),
-            ...(personRecommendation?.recommendedTags ?? []).map((tag) => tag.assetTagId),
+            ...acceptedPersonTagIds,
           ]),
         );
         // 先查询对应的 AssetTag 获取 slug
@@ -467,9 +483,7 @@ export async function processQueueItem({
           const productTagIdsForBind = (productRecommendation?.recommendedTags ?? [])
             .map((t) => t.assetTagId)
             .filter((id) => approvedTagSet.has(id));
-          const personTagIdsForBind = (personRecommendation?.recommendedTags ?? [])
-            .map((t) => t.assetTagId)
-            .filter((id) => approvedTagSet.has(id));
+          const personTagIdsForBind = acceptedPersonTagIds.filter((id) => approvedTagSet.has(id));
 
           if (featureClassify) {
             await bindFeatureIdentifiersToMuseDAMMaterial({

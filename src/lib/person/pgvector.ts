@@ -1,6 +1,7 @@
 import "server-only";
 
-import { querySimilarVectors, deletePointsByFilter, executeRawInsert, executeRawUpdate } from "@/lib/pgvector/client";
+import { deletePointsByFilter, executeRawInsert, executeRawUpdate } from "@/lib/pgvector/client";
+import prisma from "@/prisma/prisma";
 
 export type PersonVectorPayload = {
   teamId: number;
@@ -11,17 +12,73 @@ export type PersonVectorPayload = {
   status: "pending" | "processing" | "completed" | "failed";
 };
 
-export type PgVectorPersonQueryPoint = {
-  id: string;
-  score: number;
-  payload?: Partial<PersonVectorPayload>;
+export type PgVectorPersonCandidate = {
+  assetPersonId: string;
+  rawSimilarity: number;
+  supportingReferenceCount: number;
 };
 
 const TABLE_NAME = "PersonVector";
 
 // Convert a float array to a pgvector literal string: '[a,b,c]'::vector
 function vectorToSql(vector: number[]): string {
+  if (vector.length === 0 || vector.some((value) => !Number.isFinite(value))) {
+    throw new Error("Person embedding must contain finite numeric values");
+  }
+
   return `'[${vector.join(",")}]'::vector`;
+}
+
+/**
+ * Rank identities rather than individual reference images. Applying LIMIT
+ * after GROUP BY prevents a person with many references from hiding the true
+ * runner-up identity and creating an artificially large acceptance margin.
+ */
+export async function queryPersonVectorCandidates({
+  teamId,
+  vector,
+  limit,
+  candidateScoreFloor,
+  supportingScoreThreshold,
+}: {
+  teamId: number;
+  vector: number[];
+  limit: number;
+  candidateScoreFloor: number;
+  supportingScoreThreshold: number;
+}): Promise<PgVectorPersonCandidate[]> {
+  const query = `
+    WITH scored AS MATERIALIZED (
+      SELECT
+        "assetPersonId",
+        1 - ("embedding" <=> ${vectorToSql(vector)}) AS similarity
+      FROM "${TABLE_NAME}"
+      WHERE "teamId" = $1 AND "enabled" = true AND "status" = 'completed'
+    )
+    SELECT
+      "assetPersonId",
+      MAX(similarity)::double precision AS "rawSimilarity",
+      COUNT(*) FILTER (WHERE similarity >= $3)::integer AS "supportingReferenceCount"
+    FROM scored
+    WHERE similarity >= $2
+    GROUP BY "assetPersonId"
+    ORDER BY "rawSimilarity" DESC
+    LIMIT $4
+  `;
+
+  const rows = await prisma.$queryRawUnsafe<
+    Array<{
+      assetPersonId: string;
+      rawSimilarity: number;
+      supportingReferenceCount: number;
+    }>
+  >(query, teamId, candidateScoreFloor, supportingScoreThreshold, limit);
+
+  return rows.map((row) => ({
+    assetPersonId: row.assetPersonId,
+    rawSimilarity: Number(row.rawSimilarity),
+    supportingReferenceCount: Number(row.supportingReferenceCount),
+  }));
 }
 
 export async function deletePersonVectorPointsByPerson({
@@ -31,11 +88,10 @@ export async function deletePersonVectorPointsByPerson({
   teamId: number;
   assetPersonId: string;
 }): Promise<void> {
-  await deletePointsByFilter(
-    TABLE_NAME,
-    `"teamId" = $1 AND "assetPersonId" = $2::uuid`,
-    [teamId, assetPersonId],
-  );
+  await deletePointsByFilter(TABLE_NAME, `"teamId" = $1 AND "assetPersonId" = $2::uuid`, [
+    teamId,
+    assetPersonId,
+  ]);
 }
 
 export async function setPersonVectorPayloadByPerson({
@@ -101,7 +157,7 @@ export async function upsertPersonVectorPoints(
     const base = i * 7 + 1;
     const p = points[i];
     valuePlaceholders.push(
-      `($${base}, $${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}::uuid, $${base + 5}::uuid, $${base + 6}::uuid)`
+      `($${base}, $${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}::uuid, $${base + 5}::uuid, $${base + 6}::uuid)`,
     );
     params.push(
       p.id,
@@ -116,10 +172,12 @@ export async function upsertPersonVectorPoints(
 
   const query = `
     INSERT INTO "${TABLE_NAME}" ("id", "teamId", "enabled", "status", "assetPersonId", "assetPersonImageId", "personTypeId", "embedding", "createdAt", "updatedAt")
-    VALUES ${valuePlaceholders.map((ph, idx) => {
-      const p = points[idx];
-      return `${ph.slice(0, -1)}, ${vectorToSql(p.vector)}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`;
-    }).join(", ")}
+    VALUES ${valuePlaceholders
+      .map((ph, idx) => {
+        const p = points[idx];
+        return `${ph.slice(0, -1)}, ${vectorToSql(p.vector)}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`;
+      })
+      .join(", ")}
     ON CONFLICT ("id") DO UPDATE SET
       "teamId" = EXCLUDED."teamId",
       "enabled" = EXCLUDED."enabled",
@@ -132,41 +190,4 @@ export async function upsertPersonVectorPoints(
   `;
 
   await executeRawInsert(query, params);
-}
-
-export async function queryPersonVectorPoints({
-  teamId,
-  vector,
-  limit,
-  scoreThreshold,
-}: {
-  teamId: number;
-  vector: number[];
-  limit: number;
-  scoreThreshold?: number;
-}): Promise<PgVectorPersonQueryPoint[]> {
-  const results = await querySimilarVectors(
-    TABLE_NAME,
-    {
-      vector,
-      limit,
-      scoreThreshold,
-      whereClause: `"teamId" = $1 AND "enabled" = true AND "status" = 'completed'`,
-      params: [teamId],
-      columns: ["id", "teamId", "enabled", "status", "assetPersonId", "assetPersonImageId", "personTypeId", "embeddingModel", "createdAt", "updatedAt"],
-    },
-  );
-
-  return results.map((r) => ({
-    id: r.id,
-    score: r.score,
-    payload: {
-      teamId: r.payload.teamId as number,
-      assetPersonId: r.payload.assetPersonId as string,
-      assetPersonImageId: r.payload.assetPersonImageId as string,
-      personTypeId: r.payload.personTypeId as string | null,
-      enabled: r.payload.enabled as boolean,
-      status: r.payload.status as PersonVectorPayload["status"],
-    },
-  }));
 }

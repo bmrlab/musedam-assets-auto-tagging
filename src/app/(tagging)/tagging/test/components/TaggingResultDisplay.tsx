@@ -349,6 +349,7 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
   if (featureLibraryEnabled) {
     result.personRecognition?.faces.forEach((face) => {
       if (
+        face.noConfidentMatch ||
         !face.personName ||
         !face.assetPersonId ||
         !meetsFeatureConfidenceThreshold("person", face.confidence)

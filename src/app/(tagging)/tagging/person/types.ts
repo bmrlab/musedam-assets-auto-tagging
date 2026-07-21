@@ -97,6 +97,7 @@ export type PersonClassificationMatch = {
   personName: string;
   personTypeId: string | null;
   personTypeName: string;
+  rawSimilarity: number;
   similarity: number;
   confidence: number;
   detectionIndex: number;
