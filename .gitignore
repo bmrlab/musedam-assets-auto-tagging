@@ -12,6 +12,9 @@
 
 # testing
 /coverage
+/development/person-test-scripts/fiw-person-tagging-results/
+__pycache__/
+*.py[cod]
 
 # next.js
 /.next/
