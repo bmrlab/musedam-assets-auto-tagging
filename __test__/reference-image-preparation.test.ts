@@ -1,4 +1,4 @@
-import { shouldCompressClientImage } from "@/lib/brand/browser-image";
+import { prepareClientImageUpload, shouldCompressClientImage } from "@/lib/brand/browser-image";
 import {
   BYTES_PER_MB,
   JINA_IMAGE_MAX_DIMENSION,
@@ -16,6 +16,19 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 describe("reference image preparation", () => {
+  it("keeps person uploads byte-for-byte original when requested", async () => {
+    const original = new File(["original-person-image"], "student-id.jpg", {
+      type: "image/jpeg",
+    });
+
+    const prepared = await prepareClientImageUpload(original, { preserveOriginal: true });
+
+    expect(prepared).toBe(original);
+    expect(prepared.name).toBe("student-id.jpg");
+    expect(prepared.size).toBe(original.size);
+    expect(prepared.type).toBe("image/jpeg");
+  });
+
   it("requires compression for a small-file, high-resolution local image", () => {
     expect(
       shouldCompressClientImage({

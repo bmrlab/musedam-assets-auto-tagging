@@ -191,10 +191,8 @@ export async function processQueueItem({
       recognitionAccuracy: extra?.recognitionAccuracy,
     });
 
-    // 特征分类（品牌/IP/商品/人物）。
-    // 关键优化：
-    // 1) 先用 4 次廉价的向量计数判断各特征库是否有可用参考，全空则完全不下载图片；
-    // 2) 整图只下载/降采样一次，在各分类器之间复用，避免重复下载与多份内存拷贝。
+    // Feature classification (brand/IP/product/person): first skip empty feature libraries.
+    // Brand/IP/product share one bounded image; person independently keeps the source dimensions.
     const teamId = queueItem.teamId;
     let brandRecommendationPromise: Promise<
       Awaited<ReturnType<typeof classifyAssetBrandRecommendation>>
@@ -218,53 +216,58 @@ export async function processQueueItem({
       ]);
 
       if (logoCount + productCount + ipCount + personCount > 0) {
-        const sharedImageInput = await fetchRemoteImageInput(
-          thumbnailUrl,
-          "feature classification",
-        ).catch((error) => {
-          logger.warn({
-            msg: "feature classification image fetch failed, skipping feature classification",
-            err: error,
-            error: error instanceof Error ? error.message : String(error),
-          });
-          return null;
-        });
-
-        if (sharedImageInput) {
-          const withFallback = <T>(p: Promise<T>, fn: string): Promise<T | null> =>
-            p.catch((error) => {
-              logger.warn({
-                msg: `${fn} failed, continuing without recommendation`,
-                classificationFn: fn,
-                err: error,
-                error: error instanceof Error ? error.message : String(error),
-              });
-              return null;
+        const withFallback = <T>(p: Promise<T>, fn: string): Promise<T | null> =>
+          p.catch((error) => {
+            logger.warn({
+              msg: `${fn} failed, continuing without recommendation`,
+              classificationFn: fn,
+              err: error,
+              error: error instanceof Error ? error.message : String(error),
             });
+            return null;
+          });
 
-          if (logoCount > 0) {
-            brandRecommendationPromise = withFallback(
-              classifyAssetBrandRecommendation({ teamId, imageInput: sharedImageInput }),
-              "classifyAssetBrandRecommendation",
-            );
-          }
-          if (ipCount > 0) {
-            ipRecommendationPromise = withFallback(
-              classifyAssetIpRecommendation({ teamId, imageInput: sharedImageInput }),
-              "classifyAssetIpRecommendation",
-            );
-          }
-          if (productCount > 0) {
-            productRecommendationPromise = withFallback(
-              classifyAssetProductRecommendation({ teamId, imageInput: sharedImageInput }),
-              "classifyAssetProductRecommendation",
-            );
-          }
-          if (personCount > 0) {
-            personRecommendationPromise = withFallback(
-              classifyAssetPersonRecommendation({ teamId, imageInput: sharedImageInput }),
-              "classifyAssetPersonRecommendation",
-            );
+        // Person classification fetches the same thumbnail URL independently so it can preserve
+        // the full source dimensions instead of reusing the shared 1280px classification image.
+        if (personCount > 0) {
+          personRecommendationPromise = withFallback(
+            classifyAssetPersonRecommendation({ teamId, imageUrl: thumbnailUrl }),
+            "classifyAssetPersonRecommendation",
+          );
+        }
+
+        if (logoCount + productCount + ipCount > 0) {
+          const sharedImageInput = await fetchRemoteImageInput(
+            thumbnailUrl,
+            "feature classification",
+          ).catch((error) => {
+            logger.warn({
+              msg: "feature classification image fetch failed, skipping feature classification",
+              err: error,
+              error: error instanceof Error ? error.message : String(error),
+            });
+            return null;
+          });
+
+          if (sharedImageInput) {
+            if (logoCount > 0) {
+              brandRecommendationPromise = withFallback(
+                classifyAssetBrandRecommendation({ teamId, imageInput: sharedImageInput }),
+                "classifyAssetBrandRecommendation",
+              );
+            }
+            if (ipCount > 0) {
+              ipRecommendationPromise = withFallback(
+                classifyAssetIpRecommendation({ teamId, imageInput: sharedImageInput }),
+                "classifyAssetIpRecommendation",
+              );
+            }
+            if (productCount > 0) {
+              productRecommendationPromise = withFallback(
+                classifyAssetProductRecommendation({ teamId, imageInput: sharedImageInput }),
+                "classifyAssetProductRecommendation",
+              );
+            }
           }
         }
       }

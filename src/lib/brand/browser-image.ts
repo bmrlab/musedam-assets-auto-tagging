@@ -113,9 +113,16 @@ export function shouldCompressClientImage({
   );
 }
 
-export async function prepareClientImageUpload(file: File) {
+export async function prepareClientImageUpload(
+  file: File,
+  { preserveOriginal = false }: { preserveOriginal?: boolean } = {},
+) {
   if (file.size > MAX_CLIENT_IMAGE_UPLOAD_BYTES) {
     throw createPreparationError(CLIENT_IMAGE_PREPARATION_ERROR_CODES.fileTooLarge);
+  }
+
+  if (preserveOriginal) {
+    return file;
   }
 
   const image = await loadImageFromFile(file);

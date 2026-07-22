@@ -4,12 +4,13 @@ import { bufferToDataUrl } from "@/lib/brand/image";
 import { rootLogger } from "@/lib/logging";
 import sharp from "sharp";
 
-// 下载即降采样 / 裁剪输出的统一配置（可用环境变量覆盖）
-// 目的：避免把全分辨率原图整张读进内存再 PNG 编码，显著降低 CPU/内存峰值
+// Shared non-person downsampling and crop-output settings. Person detection uses a separate
+// full-resolution path below so small faces are not lost before SCRFD/ArcFace processing.
 const MAX_IMAGE_DIMENSION = Number(process.env.TAGGING_MAX_IMAGE_DIMENSION ?? 1280);
 const MAX_CROP_DIMENSION = Number(process.env.TAGGING_MAX_CROP_DIMENSION ?? 768);
 const IMAGE_JPEG_QUALITY = Number(process.env.TAGGING_IMAGE_JPEG_QUALITY ?? 82);
-// 单张图最多裁剪多少个检测框，防止一张图裁出几十个框导致内存/CPU 失控
+const PERSON_IMAGE_JPEG_QUALITY = 95;
+// Brand/IP/product retain a bounded number of detection crops. Person faces are not capped.
 export const MAX_DETECTION_CROPS = Number(process.env.TAGGING_MAX_DETECTION_CROPS ?? 8);
 
 export type ClassificationImageMeta = {
@@ -299,9 +300,16 @@ function dataUrlToBuffer(dataUrl: string) {
   return Buffer.from(match[1], "base64");
 }
 
-export async function fetchRemoteImageInput(
+async function fetchRemoteImageInputWithOptions(
   imageUrl: string,
   failureContext: string,
+  {
+    maxDimension,
+    jpegQuality,
+  }: {
+    maxDimension: number | null;
+    jpegQuality: number;
+  },
 ): Promise<ClassificationRemoteImageInput> {
   let response: Response;
   try {
@@ -334,19 +342,22 @@ export async function fetchRemoteImageInput(
     response.headers.get("content-type")?.split(";")[0]?.trim() || "application/octet-stream";
   const originalBuffer = Buffer.from(await response.arrayBuffer());
 
-  // 下载即降采样：限制最大边长并统一转成 JPEG。后续检测/裁剪/embedding 都基于这张
-  // 缩小后的图，坐标系一致；内存占用从“原图 buffer + base64”降到缩略图级别。
+  // Normalize EXIF orientation and output format so detector coordinates, browser display, and
+  // server-side crops use the same coordinate system. Person inputs deliberately skip resize.
   try {
-    const { data, info } = await sharp(originalBuffer)
-      .rotate() // 按 EXIF 方向校正，避免裁剪坐标错位
-      .resize({
-        width: MAX_IMAGE_DIMENSION,
-        height: MAX_IMAGE_DIMENSION,
+    let pipeline = sharp(originalBuffer).rotate();
+    if (maxDimension !== null) {
+      pipeline = pipeline.resize({
+        width: maxDimension,
+        height: maxDimension,
         fit: "inside",
         withoutEnlargement: true,
-      })
+      });
+    }
+
+    const { data, info } = await pipeline
       .flatten({ background: "#fff" })
-      .jpeg({ quality: IMAGE_JPEG_QUALITY })
+      .jpeg({ quality: jpegQuality })
       .toBuffer({ resolveWithObject: true });
 
     return {
@@ -359,7 +370,7 @@ export async function fetchRemoteImageInput(
     };
   } catch (error) {
     rootLogger.warn({
-      msg: "fetchRemoteImageInput downscale failed, falling back to original buffer",
+      msg: "fetchRemoteImageInput preparation failed, falling back to original buffer",
       fn: "fetchRemoteImageInput",
       failureContext,
       sourceMimeType,
@@ -394,6 +405,30 @@ export async function fetchRemoteImageInput(
     buffer: originalBuffer,
     dataUrl: bufferToDataUrl(originalBuffer, sourceMimeType),
   };
+}
+
+export async function fetchRemoteImageInput(
+  imageUrl: string,
+  failureContext: string,
+): Promise<ClassificationRemoteImageInput> {
+  return fetchRemoteImageInputWithOptions(imageUrl, failureContext, {
+    maxDimension: MAX_IMAGE_DIMENSION,
+    jpegQuality: IMAGE_JPEG_QUALITY,
+  });
+}
+
+/**
+ * Fetches an orientation-corrected person image without reducing its pixel dimensions.
+ * The source object is only read; the original stored image is never overwritten.
+ */
+export async function fetchRemotePersonImageInput(
+  imageUrl: string,
+  failureContext: string,
+): Promise<ClassificationRemoteImageInput> {
+  return fetchRemoteImageInputWithOptions(imageUrl, failureContext, {
+    maxDimension: null,
+    jpegQuality: PERSON_IMAGE_JPEG_QUALITY,
+  });
 }
 
 export async function cropImageToDataUrl({

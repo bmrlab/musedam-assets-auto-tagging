@@ -9,8 +9,7 @@ import {
 import { isAcceptedPersonFace } from "@/lib/person/person-match-policy";
 import {
   ClassificationRemoteImageInput,
-  fetchRemoteImageInput,
-  MAX_DETECTION_CROPS,
+  fetchRemotePersonImageInput,
 } from "@/lib/tagging/classification-image";
 import type { TaggingPersonRecommendation, TaggingPersonRecommendedTag } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
@@ -96,7 +95,7 @@ export async function classifyAssetPersonRecommendation({
 
   const imageInput =
     providedImageInput ??
-    (await fetchRemoteImageInput(imageUrl as string, "person classification"));
+    (await fetchRemotePersonImageInput(imageUrl as string, "person classification"));
   const detection = await detectPersonFaceBoxes({
     imageBase64: imageInput.dataUrl,
     includeEmbedding: true,
@@ -115,9 +114,7 @@ export async function classifyAssetPersonRecommendation({
     .filter(
       (face): face is { detectionIndex: number; box: PersonDetectionBox; embedding: number[] } =>
         Boolean(face),
-    )
-    // 限制单图处理的人脸数，避免大量人脸触发过多 embedding 与向量查询
-    .slice(0, MAX_DETECTION_CROPS);
+    );
 
   if (faces.length === 0) {
     return {

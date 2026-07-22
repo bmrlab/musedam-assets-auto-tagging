@@ -1,7 +1,7 @@
 import "server-only";
 
 import { getCachedSignedS3ObjectUrl } from "@/lib/s3";
-import { fetchRemoteImageInput } from "@/lib/tagging/classification-image";
+import { fetchRemotePersonImageInput } from "@/lib/tagging/classification-image";
 import prisma from "@/prisma/prisma";
 import { randomUUID } from "crypto";
 import { detectPersonFaces, generateFaceEmbedding } from "./face-api";
@@ -94,7 +94,7 @@ export async function assertSingleFaceReferenceImage({
   identifier?: string;
 }) {
   const { signedUrl } = getCachedSignedS3ObjectUrl({ objectKey });
-  const imageInput = await fetchRemoteImageInput(signedUrl, "person face detection");
+  const imageInput = await fetchRemotePersonImageInput(signedUrl, "person face detection");
   const detection = await detectPersonFaces({
     imageBase64: imageInput.dataUrl,
     includeEmbedding: false,
@@ -110,6 +110,7 @@ export async function assertSingleFaceReferenceImage({
   return {
     signedUrl,
     face: detection.detections[0],
+    imageInput,
   };
 }
 
@@ -188,11 +189,10 @@ export async function processAssetPersonReferenceVectors({
 
     const embeddingResults = await Promise.all(
       person.images.map(async (image, index) => {
-        const { signedUrl, face } = await assertSingleFaceReferenceImage({
+        const { face, imageInput } = await assertSingleFaceReferenceImage({
           objectKey: image.objectKey,
           identifier: `image ${index + 1}`,
         });
-        const imageInput = await fetchRemoteImageInput(signedUrl, "person face embedding");
         const embedding = await generateFaceEmbedding({
           imageBase64: imageInput.dataUrl,
           face,
