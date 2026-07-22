@@ -1,5 +1,52 @@
 # Development benchmarks
 
+## AgeDB cross-age person-tagging benchmark
+
+`evaluate_agedb_person_tagging.py` evaluates the current production person
+matcher against the separated `reference/` and `test/` folders in
+`AgeDB_young_padded_split`. It enrolls every reference image for each parsed
+person name, groups matches at the identity level, applies the production
+multi-reference support bonus, and evaluates the current raw similarity `0.55`
+plus identity runner-up margin `0.06` auto-tag policy.
+
+The report also includes accuracy by minimum reference/test age gap, a
+first-reference-only baseline, exact file-content leakage checks, per-identity
+results, confusion pairs, and a closed-set threshold sweep. AgeDB has no
+unknown-person split here, so the benchmark intentionally does not claim an
+open-set false-accept rate.
+
+Run a smoke benchmark:
+
+```bash
+/Users/jayson/Downloads/Work/10_auto-tag-gpu-service/.venv/bin/python \
+  development/person-test-scripts/evaluate_agedb_person_tagging.py \
+  --max-identities 20 \
+  --max-tests 50 \
+  --run-name smoke
+```
+
+Run the complete benchmark:
+
+```bash
+/Users/jayson/Downloads/Work/10_auto-tag-gpu-service/.venv/bin/python \
+  development/person-test-scripts/evaluate_agedb_person_tagging.py \
+  --run-name full
+```
+
+The default input is
+`/Users/jayson/Downloads/Datasets/AgeDataset/AgeDB_young_padded_split` and
+outputs are written under `agedb-person-tagging-results/`. Embeddings are
+cached outside each named run, so later analyses normally reuse them.
+The completed interpretation is in
+[`AGEDB_BENCHMARK.md`](./AGEDB_BENCHMARK.md).
+
+Run the offline regression tests (no API calls):
+
+```bash
+/Users/jayson/Downloads/Work/10_auto-tag-gpu-service/.venv/bin/python \
+  -m unittest development/person-test-scripts/test_evaluate_agedb_person_tagging.py -v
+```
+
 ## FIW person-tagging benchmark
 
 `evaluate_fiw_person_tagging.py` enrolls the naturally sorted first image from
