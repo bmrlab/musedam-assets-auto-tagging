@@ -12,6 +12,7 @@
 
 # testing
 /coverage
+/development/person-test-scripts/fgnet-person-tagging-results/
 /development/person-test-scripts/fiw-person-tagging-results/
 /development/person-test-scripts/agedb-person-tagging-results/
 __pycache__/

@@ -1,5 +1,54 @@
 # Development benchmarks
 
+## FG-NET cross-age person-tagging benchmark
+
+`evaluate_fgnet_person_tagging.py` parses `personIDAage[variant].JPG`, groups
+images by the zero-padded person ID, and sorts each person by age. By default,
+it enrolls three evenly spread references and queries every unselected image.
+For six images, positions 1, 3, and 5 are references while positions 2, 4, and
+6 are tests. Use `--references-per-person 1`, `2`, or `3` to change the
+gallery size.
+
+Matching, support bonuses, and automatic-acceptance thresholds reproduce the
+current production policy. Reports include the exact reference selection,
+per-query and per-identity results, age-gap slices, confusion pairs, threshold
+diagnostics, a youngest-selected-reference ablation, and data-quality checks.
+FG-NET is closed-set in this protocol, so it does not measure unknown-person
+false accepts.
+
+Run a smoke benchmark:
+
+```bash
+/Users/jayson/Downloads/Work/10_auto-tag-gpu-service/.venv/bin/python \
+  development/person-test-scripts/evaluate_fgnet_person_tagging.py \
+  --max-identities 5 \
+  --max-tests 30 \
+  --run-name smoke
+```
+
+Run the complete three-reference benchmark:
+
+```bash
+/Users/jayson/Downloads/Work/10_auto-tag-gpu-service/.venv/bin/python \
+  development/person-test-scripts/evaluate_fgnet_person_tagging.py \
+  --run-name full \
+  --concurrency 16
+```
+
+The default input is
+`/Users/jayson/Downloads/Datasets/AgeDataset/FGNET_padded/images` and outputs
+are written under `fgnet-person-tagging-results/`. Embeddings are cached, so
+the one-, two-, and three-reference protocols can reuse the same API results.
+The completed interpretation is in
+[`FGNET_BENCHMARK.md`](./FGNET_BENCHMARK.md).
+
+Run the offline regression tests (no API calls):
+
+```bash
+/Users/jayson/Downloads/Work/10_auto-tag-gpu-service/.venv/bin/python \
+  -m unittest development/person-test-scripts/test_evaluate_fgnet_person_tagging.py -v
+```
+
 ## AgeDB cross-age person-tagging benchmark
 
 `evaluate_agedb_person_tagging.py` evaluates the current production person
