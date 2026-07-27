@@ -7,6 +7,7 @@ import { PersonFaceDetectionBox, detectPersonFaces } from "./face-api";
 import {
   PERSON_VECTOR_CANDIDATE_SCORE_FLOOR,
   evaluatePersonMatchCandidates,
+  personSimilarityToConfidence,
 } from "./person-match-policy";
 
 const PERSON_CANDIDATE_IDENTITY_LIMIT = 24;
@@ -44,15 +45,6 @@ export type PersonFaceClassificationResult = {
 export type PersonClassificationResult = {
   faces: PersonFaceClassificationResult[];
 };
-
-function clampConfidence(value: number) {
-  return Math.max(0, Math.min(100, Math.round(value)));
-}
-
-function similarityToConfidence(similarity: number) {
-  const calibrated = 1 / (1 + Math.exp(-12 * (similarity - 0.38)));
-  return clampConfidence(calibrated * 100);
-}
 
 export async function detectPersonFaceBoxes({
   imageBase64,
@@ -175,7 +167,7 @@ export async function classifyPersonFaceEmbeddings({
               personTypeName: person.personTypeName,
               rawSimilarity,
               similarity,
-              confidence: similarityToConfidence(similarity),
+              confidence: personSimilarityToConfidence(similarity),
               detectionIndex: face.detectionIndex,
               supportingReferenceCount: stats.supportingReferenceCount,
               recommendedTags: person.tags.map((tag) => ({

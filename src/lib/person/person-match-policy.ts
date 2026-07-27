@@ -5,8 +5,12 @@
  */
 export const PERSON_VECTOR_CANDIDATE_SCORE_FLOOR = 0.25;
 
+/** Review candidates use the secondary threshold; direct tagging uses the primary threshold. */
+export const PRIMARY_FACE_SIM_THRESHOLD = 0.55;
+export const SECONDARY_FACE_SIM_THRESHOLD = 0.4;
+
 /** Precision-first defaults for direct tagging against large person galleries. */
-export const PERSON_AUTO_TAG_MIN_RAW_SIMILARITY = 0.55;
+export const PERSON_AUTO_TAG_MIN_RAW_SIMILARITY = PRIMARY_FACE_SIM_THRESHOLD;
 export const PERSON_AUTO_TAG_MIN_RUNNER_UP_MARGIN = 0.06;
 
 // Older persisted recommendations only contain the support-adjusted similarity.
@@ -43,6 +47,15 @@ function finiteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
+export function personSimilarityToConfidence(similarity: number): number {
+  if (!finiteNumber(similarity)) {
+    return 0;
+  }
+
+  const calibrated = 1 / (1 + Math.exp(-12 * (similarity - 0.38)));
+  return Math.max(0, Math.min(100, Math.round(calibrated * 100)));
+}
+
 export function getPersonCandidateRawSimilarity(candidate: PersonMatchPolicyCandidate): number {
   if (finiteNumber(candidate.rawSimilarity)) {
     return candidate.rawSimilarity;
@@ -53,6 +66,34 @@ export function getPersonCandidateRawSimilarity(candidate: PersonMatchPolicyCand
   }
 
   return Number.NEGATIVE_INFINITY;
+}
+
+export function getPersonFaceBestRawSimilarity(face: PersonMatchPolicyFace): number | null {
+  if (!face.bestMatch || !Array.isArray(face.topMatches)) {
+    return null;
+  }
+
+  const rankedBest = face.topMatches[0];
+  if (!rankedBest) {
+    return null;
+  }
+
+  if (
+    face.bestMatch.assetPersonId &&
+    rankedBest.assetPersonId &&
+    face.bestMatch.assetPersonId !== rankedBest.assetPersonId
+  ) {
+    return null;
+  }
+
+  const rawSimilarity = getPersonCandidateRawSimilarity(rankedBest);
+  return Number.isFinite(rawSimilarity) ? rawSimilarity : null;
+}
+
+/** A review candidate may be below the automatic-tag threshold or be ambiguous. */
+export function isReviewablePersonFace(face: PersonMatchPolicyFace): boolean {
+  const rawSimilarity = getPersonFaceBestRawSimilarity(face);
+  return rawSimilarity !== null && rawSimilarity >= SECONDARY_FACE_SIM_THRESHOLD;
 }
 
 export function evaluatePersonMatchCandidates(
@@ -122,20 +163,7 @@ export function evaluatePersonMatchCandidates(
  * fail closed.
  */
 export function isAcceptedPersonFace(face: PersonMatchPolicyFace): boolean {
-  if (face.noConfidentMatch !== false || !face.bestMatch || !Array.isArray(face.topMatches)) {
-    return false;
-  }
-
-  const rankedBest = face.topMatches[0];
-  if (!rankedBest) {
-    return false;
-  }
-
-  if (
-    face.bestMatch.assetPersonId &&
-    rankedBest.assetPersonId &&
-    face.bestMatch.assetPersonId !== rankedBest.assetPersonId
-  ) {
+  if (face.noConfidentMatch !== false || getPersonFaceBestRawSimilarity(face) === null) {
     return false;
   }
 

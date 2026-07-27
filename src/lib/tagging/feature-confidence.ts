@@ -1,3 +1,5 @@
+import { PRIMARY_FACE_SIM_THRESHOLD } from "@/lib/person/person-match-policy";
+
 export const FEATURE_CONFIDENCE_MIN = {
   brand: 85,
   ip: 85,
@@ -39,4 +41,15 @@ export function getFeatureConfidenceToneClass(confidence: number): string {
   }
 
   return ORANGE_TONE_CLASS;
+}
+
+export function getPersonReviewConfidenceToneClass(
+  rawSimilarity: number,
+  confidence: number,
+): string {
+  if (rawSimilarity < PRIMARY_FACE_SIM_THRESHOLD) {
+    return ORANGE_TONE_CLASS;
+  }
+
+  return confidence >= 95 ? BLUE_TONE_CLASS : GREEN_TONE_CLASS;
 }

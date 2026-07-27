@@ -10,7 +10,7 @@ import {
 } from "@/app/(tagging)/ip-recommendation";
 import {
   getPersonRecommendationFromQueueResult,
-  getPersonRecommendationTagIdsFromQueueResult,
+  getReviewablePersonRecommendationTagIdsFromQueueResult,
 } from "@/app/(tagging)/person-recommendation";
 import {
   getProductRecommendationFromQueueResult,
@@ -597,7 +597,9 @@ export async function approveAuditItemsAction({
           )
       : [];
     const allowedPersonTagIds = new Set(
-      queueResults.flatMap(({ result }) => getPersonRecommendationTagIdsFromQueueResult(result)),
+      queueResults.flatMap(({ result }) =>
+        getReviewablePersonRecommendationTagIdsFromQueueResult(result),
+      ),
     );
     const acceptedPersonTagIds = personTagIds.filter((tagId) => allowedPersonTagIds.has(tagId));
 
@@ -612,6 +614,7 @@ export async function approveAuditItemsAction({
         ipTagIds,
         productTagIds,
         personTagIds: acceptedPersonTagIds,
+        personMatchMode: "review",
       })) {
         allowedMuseFeatureIdentifierIds.add(identifierId);
       }
@@ -911,7 +914,7 @@ export async function batchApproveAuditItemsAction({
           ? Array.from(
               new Set(
                 finalGroups.flatMap((group) =>
-                  getPersonRecommendationTagIdsFromQueueResult(group.queueItem.result),
+                  getReviewablePersonRecommendationTagIdsFromQueueResult(group.queueItem.result),
                 ),
               ),
             )
@@ -983,7 +986,8 @@ export async function batchApproveAuditItemsAction({
               const brandTagIdsForGroup = getBrandRecommendationTagIdsFromQueueResult(result);
               const ipTagIdsForGroup = getIpRecommendationTagIdsFromQueueResult(result);
               const productTagIdsForGroup = getProductRecommendationTagIdsFromQueueResult(result);
-              const personTagIdsForGroup = getPersonRecommendationTagIdsFromQueueResult(result);
+              const personTagIdsForGroup =
+                getReviewablePersonRecommendationTagIdsFromQueueResult(result);
               for (const id of collectMuseFeatureIdentifierIdsForQueueItem({
                 brandRecommendation: getBrandRecommendationFromQueueResult(result),
                 ipRecommendation: getIpRecommendationFromQueueResult(result),
@@ -993,6 +997,7 @@ export async function batchApproveAuditItemsAction({
                 ipTagIds: ipTagIdsForGroup,
                 productTagIds: productTagIdsForGroup,
                 personTagIds: personTagIdsForGroup,
+                personMatchMode: "review",
               })) {
                 museFeatureIdentifierIds.add(id);
               }

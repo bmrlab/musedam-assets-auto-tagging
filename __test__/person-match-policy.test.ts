@@ -1,9 +1,18 @@
-import { getAcceptedPersonRecommendationTagIds } from "@/app/(tagging)/person-recommendation";
+import {
+  getAcceptedPersonRecommendationTagIds,
+  getReviewablePersonRecommendationTagIds,
+} from "@/app/(tagging)/person-recommendation";
 import {
   evaluatePersonMatchCandidates,
   isAcceptedPersonFace,
+  isReviewablePersonFace,
+  personSimilarityToConfidence,
   type PersonMatchPolicyCandidate,
 } from "@/lib/person/person-match-policy";
+import {
+  getFeatureConfidenceToneClass,
+  getPersonReviewConfidenceToneClass,
+} from "@/lib/tagging/feature-confidence";
 import { collectMuseFeatureIdentifierIdsForQueueItem } from "@/musedam/collect-muse-feature-identifier-ids";
 import type { TaggingPersonRecommendation } from "@/prisma/client";
 import { describe, expect, it } from "vitest";
@@ -155,7 +164,62 @@ describe("person automatic-match policy", () => {
   });
 });
 
+describe("person review-match policy", () => {
+  it("renders a secondary-threshold match even when it is not auto-accepted", () => {
+    const best = match({
+      assetPersonId: "review-only",
+      rawSimilarity: 0.4,
+      tagId: 11,
+      detectionIndex: 0,
+    });
+    const reviewFace = face({ best, noConfidentMatch: true });
+
+    expect(isReviewablePersonFace(reviewFace)).toBe(true);
+    expect(isAcceptedPersonFace(reviewFace)).toBe(false);
+  });
+
+  it("does not render a match below the secondary threshold", () => {
+    const best = match({
+      assetPersonId: "too-weak",
+      rawSimilarity: 0.399,
+      tagId: 12,
+      detectionIndex: 0,
+    });
+
+    expect(isReviewablePersonFace(face({ best, noConfidentMatch: true }))).toBe(false);
+  });
+
+  it("converts raw similarity to the review confidence percentage", () => {
+    expect(personSimilarityToConfidence(0.4)).toBe(56);
+    expect(personSimilarityToConfidence(0.55)).toBe(88);
+  });
+
+  it("uses warning below primary and a high-confidence tone at primary", () => {
+    expect(getPersonReviewConfidenceToneClass(0.54, 87)).toBe(getFeatureConfidenceToneClass(87));
+    expect(getPersonReviewConfidenceToneClass(0.55, 88)).toBe(getFeatureConfidenceToneClass(90));
+    expect(getPersonReviewConfidenceToneClass(0.7, 98)).toBe(getFeatureConfidenceToneClass(98));
+  });
+});
+
 describe("accepted person recommendation tags", () => {
+  it("includes secondary-threshold tags only in the reviewable set", () => {
+    const reviewOnly = match({
+      assetPersonId: "review-only",
+      rawSimilarity: 0.4,
+      tagId: 91,
+      detectionIndex: 0,
+    });
+    const recommendation = {
+      noConfidentMatch: true,
+      faceCount: 1,
+      faces: [face({ best: reviewOnly, noConfidentMatch: true })],
+      recommendedTags: [],
+    } satisfies TaggingPersonRecommendation;
+
+    expect(getAcceptedPersonRecommendationTagIds(recommendation)).toEqual([]);
+    expect(getReviewablePersonRecommendationTagIds(recommendation)).toEqual([91]);
+  });
+
   it("keeps only tags from accepted faces in a mixed multi-face result", () => {
     const acceptedBest = match({
       assetPersonId: "accepted",
@@ -276,5 +340,19 @@ describe("accepted person recommendation tags", () => {
         personTagIds: [401, 402],
       }),
     ).toEqual(["accepted-id"]);
+
+    expect(
+      collectMuseFeatureIdentifierIdsForQueueItem({
+        brandRecommendation: null,
+        ipRecommendation: null,
+        productRecommendation: null,
+        personRecommendation: recommendation,
+        brandTagIds: [],
+        ipTagIds: [],
+        productTagIds: [],
+        personTagIds: [401, 402],
+        personMatchMode: "review",
+      }),
+    ).toEqual(["accepted-id", "ambiguous-id"]);
   });
 });

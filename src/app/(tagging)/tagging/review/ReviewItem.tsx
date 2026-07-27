@@ -22,10 +22,15 @@ import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { dispatchMuseDAMClientAction } from "@/embed/message";
 import { useFeatureLibraryEnabled } from "@/hooks/use-feature-library";
-import { isAcceptedPersonFace } from "@/lib/person/person-match-policy";
+import {
+  getPersonFaceBestRawSimilarity,
+  isReviewablePersonFace,
+  personSimilarityToConfidence,
+} from "@/lib/person/person-match-policy";
 import { slugToId } from "@/lib/slug";
 import {
   getFeatureConfidenceToneClass,
+  getPersonReviewConfidenceToneClass,
   meetsFeatureConfidenceThreshold,
   normalizeFeatureConfidence,
 } from "@/lib/tagging/feature-confidence";
@@ -120,6 +125,7 @@ function FeatureRecognitionRow({
   featureTypeName,
   classifiedName,
   confidence,
+  rawSimilarity,
   tagIds,
   rejectedTagIds,
   onToggleTagIds,
@@ -132,6 +138,7 @@ function FeatureRecognitionRow({
   featureTypeName?: string | null;
   classifiedName: string;
   confidence: number;
+  rawSimilarity?: number;
   tagIds: number[];
   rejectedTagIds: number[];
   onToggleTagIds: (tagIds: number[]) => void;
@@ -145,7 +152,9 @@ function FeatureRecognitionRow({
     <div
       className={cn(
         "flex items-center justify-between gap-3 rounded-md border p-3",
-        getFeatureConfidenceToneClass(confidence),
+        rawSimilarity === undefined
+          ? getFeatureConfidenceToneClass(confidence)
+          : getPersonReviewConfidenceToneClass(rawSimilarity, confidence),
         {
           "border-dashed": isRejected,
         },
@@ -401,7 +410,7 @@ export function ReviewItem({
           const tagIds: number[] = [];
           for (const face of personRecommendation.faces) {
             if (
-              !isAcceptedPersonFace(face) ||
+              !isReviewablePersonFace(face) ||
               !face.bestMatch ||
               !availableFeatureIdSets.person.has(face.bestMatch.assetPersonId)
             ) {
@@ -496,7 +505,7 @@ export function ReviewItem({
       const personTagIdsForQueue =
         per?.faces.flatMap((face) => {
           if (
-            !isAcceptedPersonFace(face) ||
+            !isReviewablePersonFace(face) ||
             !face.bestMatch ||
             !availableFeatureIdSets.person.has(face.bestMatch.assetPersonId)
           ) {
@@ -519,6 +528,7 @@ export function ReviewItem({
         ipTagIds: ipTagIdsForQueue,
         productTagIds: productTagIdsForQueue,
         personTagIds: personTagIdsForQueue,
+        personMatchMode: "review",
       })) {
         if (availableMuseFeatureIdentifierIds.has(id)) {
           ids.add(id);
@@ -916,6 +926,7 @@ export function ReviewItem({
                 featureTypeName?: string | null;
                 classifiedName: string;
                 confidence: number;
+                rawSimilarity?: number;
                 tagIds: number[];
                 rejectedTagIds: number[];
                 onToggleTagIds: (tagIds: number[]) => void;
@@ -997,13 +1008,13 @@ export function ReviewItem({
               const totalPersonFaces =
                 personRecommendation?.faces.filter(
                   (f) =>
-                    isAcceptedPersonFace(f) &&
+                    isReviewablePersonFace(f) &&
                     f.bestMatch &&
                     availableFeatureIdSets.person.has(f.bestMatch.assetPersonId),
                 ).length ?? 0;
               personRecommendation?.faces.forEach((face) => {
                 if (
-                  !isAcceptedPersonFace(face) ||
+                  !isReviewablePersonFace(face) ||
                   !face.bestMatch ||
                   !availableFeatureIdSets.person.has(face.bestMatch.assetPersonId)
                 ) {
@@ -1016,6 +1027,11 @@ export function ReviewItem({
                     ? `${tResult("featureClassPerson")}${face.detectionIndex + 1}: ${face.bestMatch.personName}`
                     : face.bestMatch.personName;
 
+                const rawSimilarity = getPersonFaceBestRawSimilarity(face);
+                if (rawSimilarity === null) {
+                  return;
+                }
+
                 featureRows.push({
                   key: `person-${face.detectionIndex}-${face.bestMatch.assetPersonId}`,
                   featureType: "person",
@@ -1023,7 +1039,8 @@ export function ReviewItem({
                   featureClass: tResult("featureClassPerson"),
                   featureTypeName: face.bestMatch.personTypeName,
                   classifiedName: personDisplayName,
-                  confidence: normalizeFeatureConfidence(face.bestMatch.confidence),
+                  confidence: personSimilarityToConfidence(rawSimilarity),
+                  rawSimilarity,
                   tagIds: face.bestMatch.recommendedTags?.map((tag) => tag.assetTagId) ?? [],
                   rejectedTagIds: rejectedPersonItems,
                   onToggleTagIds: (tagIds) =>
@@ -1064,6 +1081,7 @@ export function ReviewItem({
                           featureTypeName={feature.featureTypeName}
                           classifiedName={feature.classifiedName}
                           confidence={feature.confidence}
+                          rawSimilarity={feature.rawSimilarity}
                           tagIds={feature.tagIds}
                           rejectedTagIds={feature.rejectedTagIds}
                           onToggleTagIds={feature.onToggleTagIds}

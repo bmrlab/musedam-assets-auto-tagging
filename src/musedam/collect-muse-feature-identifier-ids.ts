@@ -1,4 +1,4 @@
-import { isAcceptedPersonFace } from "@/lib/person/person-match-policy";
+import { isAcceptedPersonFace, isReviewablePersonFace } from "@/lib/person/person-match-policy";
 import { meetsFeatureConfidenceThreshold } from "@/lib/tagging/feature-confidence";
 import type {
   TaggingBrandRecommendation,
@@ -31,6 +31,7 @@ export function collectMuseFeatureIdentifierIdsForQueueItem({
   ipTagIds,
   productTagIds,
   personTagIds,
+  personMatchMode = "automatic",
 }: {
   brandRecommendation: TaggingBrandRecommendation | null | undefined;
   ipRecommendation: TaggingIpRecommendation | null | undefined;
@@ -40,18 +41,13 @@ export function collectMuseFeatureIdentifierIdsForQueueItem({
   ipTagIds: number[];
   productTagIds: number[];
   personTagIds: number[];
+  personMatchMode?: "automatic" | "review";
 }): string[] {
   const ids = new Set<string>();
 
   const brand = brandRecommendation;
-  if (
-    brand?.bestMatch &&
-    meetsFeatureConfidenceThreshold("brand", brand.bestMatch.confidence)
-  ) {
-    const tagRows = [
-      ...(brand.bestMatch.recommendedTags ?? []),
-      ...(brand.recommendedTags ?? []),
-    ];
+  if (brand?.bestMatch && meetsFeatureConfidenceThreshold("brand", brand.bestMatch.confidence)) {
+    const tagRows = [...(brand.bestMatch.recommendedTags ?? []), ...(brand.recommendedTags ?? [])];
     if (approvedTagsOverlap(brandTagIds, tagRows)) {
       ids.add(brand.bestMatch.assetLogoId);
     }
@@ -83,7 +79,9 @@ export function collectMuseFeatureIdentifierIdsForQueueItem({
   if (person) {
     for (const face of person.faces ?? []) {
       const bm = face.bestMatch;
-      if (!bm || !isAcceptedPersonFace(face)) {
+      const isEligible =
+        personMatchMode === "review" ? isReviewablePersonFace(face) : isAcceptedPersonFace(face);
+      if (!bm || !isEligible) {
         continue;
       }
       if (approvedTagsOverlap(personTagIds, bm.recommendedTags)) {

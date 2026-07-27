@@ -6,7 +6,10 @@ import { classifyAssetIpRecommendation } from "@/lib/ip/tagging-ip-classificatio
 import { rootLogger } from "@/lib/logging";
 import {
   evaluatePersonMatchCandidates,
+  getPersonFaceBestRawSimilarity,
   isAcceptedPersonFace,
+  isReviewablePersonFace,
+  personSimilarityToConfidence,
 } from "@/lib/person/person-match-policy";
 import { classifyAssetPersonRecommendation } from "@/lib/person/tagging-person-classification";
 import { classifyAssetProductRecommendation } from "@/lib/product/tagging-product-classification";
@@ -33,7 +36,10 @@ import {
 } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 import pLimit from "p-limit";
-import { getAcceptedPersonRecommendationTagIds } from "./person-recommendation";
+import {
+  getAcceptedPersonRecommendationTagIds,
+  getReviewablePersonRecommendationTagIds,
+} from "./person-recommendation";
 import { predictAssetTags } from "./predict";
 import { getTaggingSettings } from "./tagging/settings/lib";
 import { SourceBasedTagPredictions, TagWithScore } from "./types";
@@ -111,7 +117,7 @@ function hasProductRecommendedTags(
 function hasPersonRecommendedTags(
   personRecommendation: TaggingPersonRecommendation | null,
 ): personRecommendation is TaggingPersonRecommendation {
-  return getAcceptedPersonRecommendationTagIds(personRecommendation).length > 0;
+  return getReviewablePersonRecommendationTagIds(personRecommendation).length > 0;
 }
 
 function getBestPersonRecommendationConfidence(
@@ -120,8 +126,10 @@ function getBestPersonRecommendationConfidence(
   return Math.max(
     0,
     ...(personRecommendation?.faces
-      .filter(isAcceptedPersonFace)
-      .map((face) => face.bestMatch?.confidence ?? 0) ?? []),
+      .filter(isReviewablePersonFace)
+      .map((face) =>
+        personSimilarityToConfidence(getPersonFaceBestRawSimilarity(face) ?? Number.NaN),
+      ) ?? []),
   );
 }
 
