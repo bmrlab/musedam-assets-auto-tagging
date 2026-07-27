@@ -275,6 +275,8 @@
       "processingTrend": "Tendance de traitement",
       "initiateTasks": "Lancer des tâches",
       "processTasks": "Traiter des tâches",
+      "total": "Total",
+      "completed": "Terminées",
       "weeklyTagging": "Étiquetage hebdomadaire",
       "paginationInfo": "{current} / {total} éléments",
       "emptyTagErrorMsg": "Aucun système de tags. Veuillez d'abord créer un système de tags~",

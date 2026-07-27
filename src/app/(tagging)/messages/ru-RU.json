@@ -52,6 +52,8 @@
       "paginationInfo": "{current} / {total} элементов",
       "pending": "Ожидает разметки",
       "processTasks": "Обработка задач",
+      "total": "Всего",
+      "completed": "Завершено",
       "processing": "Обработка",
       "processingTrend": "Тенденция обработки",
       "remainingTasks": "Осталось {count} из {total} элементов, приблизительное время завершения {minutes} минут",

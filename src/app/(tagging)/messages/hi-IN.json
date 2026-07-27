@@ -52,6 +52,8 @@
       "paginationInfo": "{current} / {total} वस्तुएँ",
       "pending": "टैगिंग का इंतजार है",
       "processTasks": "कार्यों को संसाधित करें",
+      "total": "कुल",
+      "completed": "पूर्ण",
       "processing": "प्रोसेसिंग कर रहा है",
       "processingTrend": "प्रोसेसिंग ट्रेंड",
       "remainingTasks": "शेष {count} / {total} वस्तुएँ, पूरा होने में अनुमानित {minutes} मिनट",

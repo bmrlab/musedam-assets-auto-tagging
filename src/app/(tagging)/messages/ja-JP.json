@@ -52,6 +52,8 @@
       "paginationInfo": "{current}/{total} 件",
       "pending": "タグ付け待ち",
       "processTasks": "タスクを処理する",
+      "total": "合計",
+      "completed": "完了",
       "processing": "タグ付け中",
       "processingTrend": "処理量トレンド",
       "remainingTasks": "残り {count} / {total} 件、完了予定 {minutes} 分後",

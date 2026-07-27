@@ -600,6 +600,8 @@
       "processingTrend": "Processing Trend",
       "initiateTasks": "Initiate Tasks",
       "processTasks": "Process Tasks",
+      "total": "Total",
+      "completed": "Completed",
       "weeklyTagging": "Weekly Tagging",
       "paginationInfo": "{current} / {total} items",
       "emptyTagErrorMsg": "No tag system yet. Please create one first~",

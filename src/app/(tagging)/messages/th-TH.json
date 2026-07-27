@@ -275,6 +275,8 @@
       "processingTrend": "แนวโน้มการประมวลผล",
       "initiateTasks": "เริ่มงาน",
       "processTasks": "ประมวลผลงาน",
+      "total": "ทั้งหมด",
+      "completed": "เสร็จสิ้น",
       "weeklyTagging": "การติดแท็กรายสัปดาห์",
       "paginationInfo": "{current} / {total} รายการ",
       "emptyTagErrorMsg": "ยังไม่มีระบบแท็ก โปรดสร้างระบบแท็กก่อน~",

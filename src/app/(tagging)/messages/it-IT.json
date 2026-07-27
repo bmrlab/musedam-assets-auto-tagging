@@ -275,6 +275,8 @@
       "processingTrend": "Tendenza elaborazione",
       "initiateTasks": "Avvia attività",
       "processTasks": "Elabora attività",
+      "total": "Totale",
+      "completed": "Completate",
       "weeklyTagging": "Etichettatura settimanale",
       "paginationInfo": "{current} / {total} elementi",
       "emptyTagErrorMsg": "Nessun sistema di tag. Crea prima un sistema di tag~",

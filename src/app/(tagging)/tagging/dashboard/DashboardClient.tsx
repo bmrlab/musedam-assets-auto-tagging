@@ -608,6 +608,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
                   <Area
                     type="monotone"
                     dataKey="total"
+                    name={t("total")}
                     stroke="#0FCA7A"
                     strokeWidth={2}
                     fill="url(#colorTotal)"
@@ -615,6 +616,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
                   <Area
                     type="monotone"
                     dataKey="completed"
+                    name={t("completed")}
                     stroke="#00C7F2"
                     strokeWidth={2}
                     fill="url(#colorCompleted)"

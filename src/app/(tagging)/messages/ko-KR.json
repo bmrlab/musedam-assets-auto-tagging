@@ -52,6 +52,8 @@
       "paginationInfo": "{current} / {total} 개",
       "pending": "라벨링 대기 중",
       "processTasks": "작업 처리",
+      "total": "전체",
+      "completed": "완료",
       "processing": "현재 태깅 중입니다",
       "processingTrend": "처리량 추이",
       "remainingTasks": "남은 {count} / {total} 항목, 예상 {minutes}분 후 완료",

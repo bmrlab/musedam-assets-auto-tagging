@@ -523,6 +523,8 @@
       "processingTrend": "İşleme Trendi",
       "initiateTasks": "Görevleri Başlat",
       "processTasks": "Görevleri İşle",
+      "total": "Toplam",
+      "completed": "Tamamlanan",
       "weeklyTagging": "Haftalık Etiketleme",
       "paginationInfo": "{current} / {total} öğe",
       "emptyTagErrorMsg": "Henüz bir etiket sistemi yok. Lütfen önce bir etiket sistemi oluşturun~",

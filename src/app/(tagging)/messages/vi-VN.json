@@ -523,6 +523,8 @@
       "processingTrend": "Xu hướng xử lý",
       "initiateTasks": "Khởi tạo nhiệm vụ",
       "processTasks": "Xử lý nhiệm vụ",
+      "total": "Tổng cộng",
+      "completed": "Đã hoàn thành",
       "weeklyTagging": "Gắn thẻ trong tuần",
       "paginationInfo": "{current}/{total} bản ghi",
       "emptyTagErrorMsg": "Chưa có hệ thống nhãn, vui lòng tạo hệ thống nhãn trước~",

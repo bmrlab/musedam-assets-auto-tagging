@@ -564,6 +564,8 @@
       "processingTrend": "Tren Pemrosesan",
       "initiateTasks": "Mulai Tugas",
       "processTasks": "Proses Tugas",
+      "total": "Total",
+      "completed": "Selesai",
       "weeklyTagging": "Pelabelan Mingguan",
       "paginationInfo": "{current} / {total} item",
       "emptyTagErrorMsg": "Belum ada sistem tag. Silakan buat sistem tag terlebih dahulu~",

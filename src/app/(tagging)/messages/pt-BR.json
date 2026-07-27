@@ -52,6 +52,8 @@
       "paginationInfo": "{item atual} / {total de itens}",
       "pending": "Aguardando Marcação",
       "processTasks": "Processar Tarefas",
+      "total": "Total",
+      "completed": "Concluídas",
       "processing": "Processando",
       "processingTrend": "Tendência de Processamento",
       "remainingTasks": "Restantes {count} / {total} itens, estimativa de {minutes} minutos para conclusão",

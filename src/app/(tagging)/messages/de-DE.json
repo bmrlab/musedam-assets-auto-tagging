@@ -52,6 +52,8 @@
       "paginationInfo": "{current} / {total} Elemente",
       "pending": "Warten auf Kennzeichnung",
       "processTasks": "Prozesstasks",
+      "total": "Gesamt",
+      "completed": "Abgeschlossen",
       "processing": "Verarbeitung läuft",
       "processingTrend": "Verarbeitungs-Trend",
       "remainingTasks": "Verbleibende {count} / {total} Elemente, geschätzte {minutes} Minuten zur Fertigstellung",

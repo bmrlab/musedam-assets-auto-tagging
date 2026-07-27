@@ -523,6 +523,8 @@
       "processingTrend": "Trend przetwarzania",
       "initiateTasks": "Rozpocznij zadania",
       "processTasks": "Przetwórz zadania",
+      "total": "Łącznie",
+      "completed": "Ukończone",
       "weeklyTagging": "Tagowanie tygodniowe",
       "paginationInfo": "{current} / {total} elementów",
       "emptyTagErrorMsg": "Brak systemu tagów. Najpierw utwórz system tagów~",

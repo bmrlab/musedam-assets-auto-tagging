@@ -600,6 +600,8 @@
       "processingTrend": "处理量趋势",
       "initiateTasks": "发起任务",
       "processTasks": "处理任务",
+      "total": "总计",
+      "completed": "已完成",
       "weeklyTagging": "本周打标",
       "paginationInfo": "{current} / {total} 条",
       "emptyTagErrorMsg": "暂无标签体系，请先创建标签体系~",

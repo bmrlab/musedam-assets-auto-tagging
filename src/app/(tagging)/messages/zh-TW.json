@@ -52,6 +52,8 @@
       "paginationInfo": "{current} / {total} 條",
       "pending": "等待標記",
       "processTasks": "處理任務",
+      "total": "總計",
+      "completed": "已完成",
       "processing": "正在標記中",
       "processingTrend": "處理量趨勢",
       "remainingTasks": "剩餘 {count} / {total} 項，預計 {minutes} 分鐘後完成",
