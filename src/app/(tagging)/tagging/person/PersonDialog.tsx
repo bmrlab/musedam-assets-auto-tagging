@@ -29,7 +29,7 @@ import { MAX_TOTAL_NEW_REFERENCE_UPLOAD_BYTES } from "@/lib/brand/upload-constan
 import { uploadS3ObjectFromBrowser } from "@/lib/s3-browser-upload";
 import { Loader2, Plus, X } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import DialogTagSelector from "../components/DialogTagSelector";
 import {
@@ -121,7 +121,7 @@ export default function PersonDialog({
   const [images, setImages] = useState<DraftImage[]>([]);
   const [previewImage, setPreviewImage] = useState<DraftImage | null>(null);
   const [isSelectingAssets, setIsSelectingAssets] = useState(false);
-  const [isPending, startTransition] = useTransition();
+  const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const imagesRef = useRef<DraftImage[]>([]);
 
@@ -165,7 +165,7 @@ export default function PersonDialog({
   const hasImages = images.length > 0;
   const hasSelectedTags = selectedTagIds.length > 0;
   const isSubmitDisabled =
-    isPending || !trimmedName || !hasValidPersonType || !hasImages || !hasSelectedTags;
+    isSaving || !trimmedName || !hasValidPersonType || !hasImages || !hasSelectedTags;
 
   function getUploadErrorMessage(error: unknown) {
     switch (getClientImagePreparationErrorCode(error)) {
@@ -329,7 +329,7 @@ export default function PersonDialog({
     return nextImages;
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!trimmedName) {
       toast.error(t("validation.nameRequired"));
       return;
@@ -356,7 +356,8 @@ export default function PersonDialog({
       return;
     }
 
-    startTransition(async () => {
+    setIsSaving(true);
+    try {
       let submitImages = images;
       try {
         submitImages = await uploadLocalDraftImages(images);
@@ -414,7 +415,9 @@ export default function PersonDialog({
       toast.success(
         mode === "create" ? t("createProcessingSuccess") : t("updateProcessingSuccess"),
       );
-    });
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   return (
@@ -454,7 +457,7 @@ export default function PersonDialog({
                 onTypeRenamed={onPersonTypeRenamed}
                 onTypeDeleted={onPersonTypeDeleted}
                 fallbackType={fallbackType}
-                disabled={isPending}
+                disabled={isSaving}
                 triggerClassName="h-8 w-[349px] rounded-[6px] border border-basic-4 px-3 py-0 text-[14px] leading-[22px] font-normal"
               />
             </div>
@@ -481,7 +484,7 @@ export default function PersonDialog({
                 <DropdownMenuTrigger asChild>
                   <button
                     type="button"
-                    disabled={isPending || isSelectingAssets}
+                    disabled={isSaving || isSelectingAssets}
                     className="relative flex h-[104px] w-[104px] flex-col items-center justify-center rounded-[6px] border border-basic-4 border-dashed bg-basic-1 px-2 py-10 text-basic-8 transition-colors hover:border-primary-5 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <span className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2">
@@ -629,7 +632,7 @@ export default function PersonDialog({
             type="button"
             variant="outline"
             onClick={() => onOpenChange(false)}
-            disabled={isPending}
+            disabled={isSaving}
             className="h-8 w-20 rounded-[6px] border border-basic-4 px-3 py-1"
           >
             {t("dialog.cancel")}
@@ -640,7 +643,7 @@ export default function PersonDialog({
             disabled={isSubmitDisabled}
             className="h-8 w-20 rounded-[6px] border border-primary-6 px-3 py-1 hover:border-primary-7"
           >
-            {isPending ? (
+            {isSaving ? (
               <>
                 <Loader2 className="size-4 animate-spin" />
                 {t("dialog.saving")}

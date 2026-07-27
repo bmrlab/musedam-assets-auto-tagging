@@ -44,7 +44,7 @@ import {
   X,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import DialogTagSelector from "../components/DialogTagSelector";
 import {
@@ -190,7 +190,7 @@ export default function IpDialog({
   const [cropImageId, setCropImageId] = useState<string | null>(null);
   const [isPreparingCrop, setIsPreparingCrop] = useState(false);
   const [isSelectingAssets, setIsSelectingAssets] = useState(false);
-  const [isPending, startTransition] = useTransition();
+  const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const imagesRef = useRef<DraftImage[]>([]);
 
@@ -237,7 +237,7 @@ export default function IpDialog({
   const pendingPartialCropImages = images.filter((image) => !image.cropSelection);
   const pendingPartialCropCount = matchPattern === "partial" ? pendingPartialCropImages.length : 0;
   const isSubmitDisabled =
-    isPending ||
+    isSaving ||
     isPreparingCrop ||
     !trimmedName ||
     !hasValidIpType ||
@@ -566,7 +566,7 @@ export default function IpDialog({
     return nextImages;
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!trimmedName) {
       toast.error(t("validation.nameRequired"));
       return;
@@ -598,7 +598,8 @@ export default function IpDialog({
       return;
     }
 
-    startTransition(async () => {
+    setIsSaving(true);
+    try {
       let submitImages = images;
       if (matchPattern === "whole") {
         try {
@@ -686,7 +687,9 @@ export default function IpDialog({
       toast.success(
         mode === "create" ? t("createProcessingSuccess") : t("updateProcessingSuccess"),
       );
-    });
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   const cropDialogDraftImage = cropImageId
@@ -746,7 +749,7 @@ export default function IpDialog({
                 onTypeRenamed={onIpTypeRenamed}
                 onTypeDeleted={onIpTypeDeleted}
                 fallbackType={fallbackType}
-                disabled={isPending}
+                disabled={isSaving}
                 triggerClassName="h-8 w-[349px] rounded-[6px] border border-basic-4 px-3 py-0 text-[14px] leading-[22px] font-normal"
               />
             </div>
@@ -765,7 +768,7 @@ export default function IpDialog({
               <button
                 type="button"
                 onClick={() => setMatchPattern("whole")}
-                disabled={isPending}
+                disabled={isSaving}
                 className={cn(
                   "flex min-w-0 w-full flex-col gap-[6px] rounded-[8px] border border-basic-4 bg-background p-[12.5px] text-left transition-all",
                   matchPattern === "whole"
@@ -815,7 +818,7 @@ export default function IpDialog({
                     void openPartialCropDialog(firstPending.id);
                   }
                 }}
-                disabled={isPending}
+                disabled={isSaving}
                 className={cn(
                   "flex min-w-0 w-full flex-col gap-[6px] rounded-[8px] border border-basic-4 bg-background p-[12.5px] text-left transition-all",
                   matchPattern === "partial"
@@ -881,7 +884,7 @@ export default function IpDialog({
                 <DropdownMenuTrigger asChild>
                   <button
                     type="button"
-                    disabled={isPending || isSelectingAssets}
+                    disabled={isSaving || isSelectingAssets}
                     className="relative flex h-[104px] w-[104px] flex-col items-center justify-center rounded-[6px] border border-basic-4 border-dashed bg-basic-1 px-2 py-10 text-basic-8 transition-colors hover:border-primary-5 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <span className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2">
@@ -1108,7 +1111,7 @@ export default function IpDialog({
             type="button"
             variant="outline"
             onClick={() => onOpenChange(false)}
-            disabled={isPending}
+            disabled={isSaving}
             className="h-8 w-20 rounded-[6px] border border-basic-4 px-3 py-1"
           >
             {t("dialog.cancel")}
@@ -1119,7 +1122,7 @@ export default function IpDialog({
             disabled={isSubmitDisabled}
             className="h-8 w-20 rounded-[6px] border border-primary-6 px-3 py-1 hover:border-primary-7"
           >
-            {isPending ? (
+            {isSaving ? (
               <>
                 <Loader2 className="size-4 animate-spin" />
                 {t("dialog.saving")}
