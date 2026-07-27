@@ -1,4 +1,5 @@
 "use client";
+import { QUEUE_ITEM_HEADROOM_SECONDS } from "@/app/(tagging)/queue-config";
 import { Button } from "@/components/ui/button";
 import {
   Pagination,
@@ -202,7 +203,9 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
       return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
     }
     if (task.status === "completed" && task.startsAt && task.endsAt) {
-      const seconds = Math.round((task.endsAt.getTime() - task.startsAt.getTime()) / 1000);
+      const seconds =
+        Math.round((task.endsAt.getTime() - task.startsAt.getTime()) / 1000) +
+        QUEUE_ITEM_HEADROOM_SECONDS;
       if (seconds < 60) return `${seconds}s`;
       return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
     }

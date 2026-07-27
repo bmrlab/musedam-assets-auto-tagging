@@ -1,3 +1,5 @@
+import { QUEUE_ITEM_HEADROOM_SECONDS } from "@/app/(tagging)/queue-config";
+
 export const RECENT_PROCESSING_TIME_SAMPLE_SIZE = 20;
 
 type CompletedTaskTiming = {
@@ -14,8 +16,10 @@ export function calculateAverageProcessingTimeSeconds(tasks: CompletedTaskTiming
   const durations = tasks.flatMap((task) => {
     if (!task.startsAt || !task.endsAt) return [];
 
-    const durationMs = task.endsAt.getTime() - task.startsAt.getTime();
-    return durationMs >= 0 ? [durationMs] : [];
+    const processingDurationMs = task.endsAt.getTime() - task.startsAt.getTime();
+    if (processingDurationMs < 0) return [];
+
+    return [processingDurationMs + QUEUE_ITEM_HEADROOM_SECONDS * 1000];
   });
 
   if (durations.length === 0) return 0;

@@ -17,7 +17,7 @@ describe("dashboard queue timing", () => {
     expect(hasProcessingTimingVersion(null, 2)).toBe(false);
   });
 
-  it("averages each item's startsAt-to-endsAt duration", () => {
+  it("adds 20 seconds of service headroom to every completed-item duration", () => {
     expect(
       calculateAverageProcessingTimeSeconds([
         { startsAt: new Date(1_000), endsAt: new Date(11_000) },
@@ -25,7 +25,7 @@ describe("dashboard queue timing", () => {
         { startsAt: null, endsAt: new Date(30_000) },
         { startsAt: new Date(40_000), endsAt: new Date(30_000) },
       ]),
-    ).toBe(15);
+    ).toBe(35);
   });
 
   it("converts remaining serial work into wall time using worker concurrency", () => {
