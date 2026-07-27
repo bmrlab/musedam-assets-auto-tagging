@@ -38,7 +38,6 @@ export async function createTagTreeJob({
       teamId,
       status: "pending",
       taskType: "manual",
-      startsAt: new Date(),
       extra: extra as object,
       result: {},
     },

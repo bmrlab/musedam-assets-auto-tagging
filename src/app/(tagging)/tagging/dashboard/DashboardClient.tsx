@@ -367,7 +367,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
               {t("remainingTasks", {
                 count: notFinishedTasks,
                 total: taskFilter === "processing" ? notFinishedTasks : totalTasks,
-                minutes: Math.ceil((notFinishedTasks * stats.avgProcessingTime) / 60),
+                minutes: Math.ceil(stats.estimatedRemainingTime / 60),
               })}
             </p>
           </div>

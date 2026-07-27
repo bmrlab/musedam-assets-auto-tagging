@@ -41,6 +41,11 @@ import {
   getReviewablePersonRecommendationTagIds,
 } from "./person-recommendation";
 import { predictAssetTags } from "./predict";
+import {
+  PROCESSING_TIMING_VERSION,
+  TAG_TREE_RESERVED_CONCURRENCY,
+  TOTAL_QUEUE_CONCURRENCY,
+} from "./queue-config";
 import { getTaggingSettings } from "./tagging/settings/lib";
 import { SourceBasedTagPredictions, TagWithScore } from "./types";
 
@@ -159,7 +164,6 @@ export async function enqueueTaggingTask({
       assetObjectId: assetObject.id,
       status: "pending",
       taskType,
-      startsAt: new Date(),
       extra: {
         matchingSources,
         recognitionAccuracy,
@@ -597,12 +601,9 @@ export async function processQueueItem({
   }
 }
 
-// 总并发槽数：其中至少 TAG_TREE_RESERVED_CONCURRENCY 个保留给标签树任务
-const TOTAL_CONCURRENCY = 3;
-const TAG_TREE_RESERVED_CONCURRENCY = 1;
 // 进程级单例并发闸：保证即使有多个重叠的 processPendingQueueItems 调用，
-// 全局同时处理的队列项也不会超过 TOTAL_CONCURRENCY（每次调用新建 pLimit 无法做到这点）。
-const queueConcurrencyLimit = pLimit(TOTAL_CONCURRENCY);
+// 全局同时处理的队列项也不会超过 TOTAL_QUEUE_CONCURRENCY（每次调用新建 pLimit 无法做到这点）。
+const queueConcurrencyLimit = pLimit(TOTAL_QUEUE_CONCURRENCY);
 const PROCESSING_STALE_TIMEOUT_MS = Number(
   process.env.QUEUE_PROCESSING_STALE_TIMEOUT_MS ?? 15 * 60 * 1000,
 );
@@ -644,17 +645,29 @@ async function tryClaimAndProcess(
   onSkip: () => void,
 ): Promise<void> {
   try {
+    const startsAt = new Date();
+    const extra = {
+      ...(queueItem.extra as TaggingQueueItemExtra),
+      processingTimingVersion: PROCESSING_TIMING_VERSION,
+    } as TaggingQueueItemExtra & { processingTimingVersion: number };
     const updated = await prisma.taggingQueueItem.updateMany({
       where: { id: queueItem.id, status: "pending" },
-      data: { status: "processing" },
+      data: {
+        status: "processing",
+        startsAt,
+        endsAt: null,
+        extra,
+      },
     });
     if (updated.count > 0) {
       if (isTagTreeJob(queueItem)) {
-        await processTagTreeQueueItem({ ...queueItem, status: "processing" });
+        await processTagTreeQueueItem({ ...queueItem, status: "processing", startsAt, extra });
       } else {
         await processQueueItem({
           ...(queueItem as TaggingQueueItem & { assetObject: AssetObject | null }),
           status: "processing",
+          startsAt,
+          extra,
         });
       }
       onSuccess();
@@ -682,17 +695,17 @@ export async function processPendingQueueItems(): Promise<{
   // 一次性捞出足够多的 pending 记录，内存内分流（避免 Prisma JSON path 过滤器的兼容性问题）
   const candidateItems = await prisma.taggingQueueItem.findMany({
     where: { status: "pending" },
-    orderBy: { startsAt: "asc" },
+    orderBy: { createdAt: "asc" },
     include: { assetObject: true },
     // 多拉一些，保证两类任务都能填满各自的槽位
-    take: TOTAL_CONCURRENCY * 4,
+    take: TOTAL_QUEUE_CONCURRENCY * 4,
   });
 
   const tagTreeItems = candidateItems.filter(isTagTreeJob).slice(0, TAG_TREE_RESERVED_CONCURRENCY);
 
   const normalItems = candidateItems
     .filter((item) => !isTagTreeJob(item))
-    .slice(0, TOTAL_CONCURRENCY - TAG_TREE_RESERVED_CONCURRENCY);
+    .slice(0, TOTAL_QUEUE_CONCURRENCY - TAG_TREE_RESERVED_CONCURRENCY);
 
   const allItems = [...tagTreeItems, ...normalItems];
 

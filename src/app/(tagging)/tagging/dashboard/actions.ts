@@ -1,5 +1,6 @@
 "use server";
 import { withAuth } from "@/app/(auth)/withAuth";
+import { ASSET_TAGGING_CONCURRENCY, PROCESSING_TIMING_VERSION } from "@/app/(tagging)/queue-config";
 import { ServerActionResult } from "@/lib/serverAction";
 import { slugToId } from "@/lib/slug";
 import { batchSyncAssetThumbnails } from "@/musedam/assets";
@@ -11,6 +12,12 @@ import {
 } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 import { getTranslations } from "next-intl/server";
+import {
+  calculateAverageProcessingTimeSeconds,
+  calculateEstimatedRemainingTimeSeconds,
+  hasProcessingTimingVersion,
+  RECENT_PROCESSING_TIME_SAMPLE_SIZE,
+} from "./queue-timing";
 
 export type DashboardStats = {
   totalCompleted: number;
@@ -21,6 +28,7 @@ export type DashboardStats = {
   monthlyCompleted: number;
   dailyCompleted: number;
   avgProcessingTime: number; // 平均处理时间（秒）
+  estimatedRemainingTime: number; // 预计剩余时间（秒）
 };
 
 export type TaskWithAsset = Omit<TaggingQueueItem, "assetObject"> & {
@@ -39,16 +47,16 @@ export async function fetchDashboardStats(): Promise<
       // 获取基础统计
       const [totalCompleted, processing, pending, failed, totalAssets] = await Promise.all([
         prisma.taggingQueueItem.count({
-          where: { teamId, status: "completed" },
+          where: { teamId, assetObjectId: { not: null }, status: "completed" },
         }),
         prisma.taggingQueueItem.count({
-          where: { teamId, status: "processing" },
+          where: { teamId, assetObjectId: { not: null }, status: "processing" },
         }),
         prisma.taggingQueueItem.count({
-          where: { teamId, status: "pending" },
+          where: { teamId, assetObjectId: { not: null }, status: "pending" },
         }),
         prisma.taggingQueueItem.count({
-          where: { teamId, status: "failed" },
+          where: { teamId, assetObjectId: { not: null }, status: "failed" },
         }),
         prisma.assetObject.count({
           where: { teamId },
@@ -63,6 +71,7 @@ export async function fetchDashboardStats(): Promise<
       const monthlyCompleted = await prisma.taggingQueueItem.count({
         where: {
           teamId,
+          assetObjectId: { not: null },
           status: "completed",
           endsAt: {
             gte: startOfMonth,
@@ -77,6 +86,7 @@ export async function fetchDashboardStats(): Promise<
       const dailyCompleted = await prisma.taggingQueueItem.count({
         where: {
           teamId,
+          assetObjectId: { not: null },
           status: "completed",
           endsAt: {
             gte: startOfDay,
@@ -84,28 +94,35 @@ export async function fetchDashboardStats(): Promise<
         },
       });
 
-      // 计算平均处理时间（获取最近100个完成的任务）
+      // 使用最近完成的资产任务估算单项耗时。startsAt 在任务被 worker claim 时写入，
+      // 因此这里只计算真正的处理时间，不包含 pending 队列中的等待时间。
       const recentCompletedTasks = await prisma.taggingQueueItem.findMany({
         where: {
           teamId,
+          assetObjectId: { not: null },
           status: "completed",
           startsAt: { not: null },
           endsAt: { not: null },
         },
         orderBy: { endsAt: "desc" },
-        take: 100,
+        take: RECENT_PROCESSING_TIME_SAMPLE_SIZE,
+        select: {
+          startsAt: true,
+          endsAt: true,
+          extra: true,
+        },
       });
 
-      let avgProcessingTime = 0;
-      if (recentCompletedTasks.length > 0) {
-        const totalProcessingTime = recentCompletedTasks.reduce((sum, task) => {
-          if (task.startsAt && task.endsAt) {
-            return sum + (task.endsAt.getTime() - task.startsAt.getTime());
-          }
-          return sum;
-        }, 0);
-        avgProcessingTime = Math.round(totalProcessingTime / recentCompletedTasks.length / 1000); // 转换为秒
-      }
+      const correctlyTimedTasks = recentCompletedTasks.filter((task) =>
+        hasProcessingTimingVersion(task.extra, PROCESSING_TIMING_VERSION),
+      );
+      const avgProcessingTime = calculateAverageProcessingTimeSeconds(correctlyTimedTasks);
+      const estimatedRemainingTime = calculateEstimatedRemainingTimeSeconds({
+        averageProcessingTimeSeconds: avgProcessingTime,
+        pending,
+        processing,
+        concurrency: ASSET_TAGGING_CONCURRENCY,
+      });
 
       const stats: DashboardStats = {
         totalCompleted,
@@ -116,6 +133,7 @@ export async function fetchDashboardStats(): Promise<
         monthlyCompleted,
         dailyCompleted,
         avgProcessingTime,
+        estimatedRemainingTime,
       };
 
       return {
@@ -151,9 +169,10 @@ export async function fetchProcessingTasks(
 
       const whereClause =
         filter === "all"
-          ? { teamId }
+          ? { teamId, assetObjectId: { not: null } }
           : {
               teamId,
+              assetObjectId: { not: null },
               status: { in: ["processing", "pending"] as TaggingQueueStatus[] },
             };
 
