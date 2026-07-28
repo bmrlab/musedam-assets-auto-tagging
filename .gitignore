@@ -15,6 +15,7 @@
 /development/person-test-scripts/fgnet-person-tagging-results/
 /development/person-test-scripts/fiw-person-tagging-results/
 /development/person-test-scripts/agedb-person-tagging-results/
+/development/person-test-scripts/ifad-person-tagging-results/
 __pycache__/
 *.py[cod]
 
