@@ -12,7 +12,7 @@ import {
 import { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 import { generateObject, UserModelMessage } from "ai";
 import z from "zod";
-import { buildFaceFeaturesPromptSection } from "./face-features";
+import { buildFaceFeaturesPromptSection, collectPeopleCountTagPaths } from "./face-features";
 import { tagPredictionSystemPrompt } from "./prompt";
 import { SourceBasedTagPredictions, tagPredictionSchema, TagWithScore } from "./types";
 import { buildTagKeywordsText, buildTagStructureText, fetchTagsTree } from "./utils";
@@ -303,7 +303,13 @@ export async function predictAssetTags(
   const tagStructureText = buildTagStructureText(tagsTree);
   // 构建标签关键词信息
   const tagKeywordsText = buildTagKeywordsText(tagsTree);
-  const faceFeaturesSection = buildFaceFeaturesPromptSection(options?.faceFeatures);
+  const peopleCountTagPaths = options?.faceFeatures
+    ? collectPeopleCountTagPaths(tagsTree)
+    : [];
+  const faceFeaturesSection = buildFaceFeaturesPromptSection(
+    options?.faceFeatures,
+    peopleCountTagPaths,
+  );
 
   const messages: UserModelMessage[] = [
     {
