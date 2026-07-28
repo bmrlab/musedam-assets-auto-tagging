@@ -5,12 +5,14 @@ import { llm, LLMModelName } from "@/ai/provider";
 import {
   AssetObject,
   AssetObjectContentAnalysis,
+  TaggingFaceFeatures,
   TaggingQueueItemExtra,
   TagWithChildren,
 } from "@/prisma/client";
 import { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 import { generateObject, UserModelMessage } from "ai";
 import z from "zod";
+import { buildFaceFeaturesPromptSection } from "./face-features";
 import { tagPredictionSystemPrompt } from "./prompt";
 import { SourceBasedTagPredictions, tagPredictionSchema, TagWithScore } from "./types";
 import { buildTagKeywordsText, buildTagStructureText, fetchTagsTree } from "./utils";
@@ -285,6 +287,7 @@ export async function predictAssetTags(
       tagKeywords: boolean;
     };
     recognitionAccuracy?: "precise" | "balanced" | "broad";
+    faceFeatures?: TaggingFaceFeatures;
   },
 ): Promise<{
   predictions: SourceBasedTagPredictions;
@@ -300,6 +303,7 @@ export async function predictAssetTags(
   const tagStructureText = buildTagStructureText(tagsTree);
   // 构建标签关键词信息
   const tagKeywordsText = buildTagKeywordsText(tagsTree);
+  const faceFeaturesSection = buildFaceFeaturesPromptSection(options?.faceFeatures);
 
   const messages: UserModelMessage[] = [
     {
@@ -326,7 +330,7 @@ ${tagKeywordsText}`,
 内容分析：${(asset.content as AssetObjectContentAnalysis)?.aiDescription || "无有效内容数据"}
 
 ## tagKeywords信息源
-标签关键词匹配：请根据上述标签关键词配置，分析素材信息是否匹配到任何标签的匹配关键词，同时注意排除包含排除关键词的情况。
+标签关键词匹配：请根据上述标签关键词配置，分析素材信息是否匹配到任何标签的匹配关键词，同时注意排除包含排除关键词的情况。${faceFeaturesSection}
 
 请按照 system 的 Step by Step 流程进行分析，但【最终只输出纯 JSON 数组】（不要解释、不要 markdown、不要 \`\`\`、不要任何额外文本）。`,
     },
@@ -343,6 +347,8 @@ ${tagKeywordsText}`,
       contentAiDescription: (asset.content as AssetObjectContentAnalysis)?.aiDescription ?? "",
       matchingSources: options?.matchingSources ?? null,
       recognitionAccuracy: options?.recognitionAccuracy ?? null,
+      // Only include when present so existing no-faceFeatures calls keep the same seed.
+      ...(options?.faceFeatures ? { faceFeatures: options.faceFeatures } : {}),
       tagsTree,
     }),
   );
@@ -419,6 +425,7 @@ ${tagKeywordsText}`,
           input: inputPrompt,
           matchingSources: options?.matchingSources,
           recognitionAccuracy: options?.recognitionAccuracy,
+          ...(options?.faceFeatures ? { faceFeatures: options.faceFeatures } : {}),
         },
       };
     } catch (error) {

@@ -11,7 +11,10 @@ import {
   isReviewablePersonFace,
   personSimilarityToConfidence,
 } from "@/lib/person/person-match-policy";
-import { classifyAssetPersonRecommendation } from "@/lib/person/tagging-person-classification";
+import {
+  classifyAssetPersonRecommendation,
+  detectAssetPersonFaces,
+} from "@/lib/person/tagging-person-classification";
 import { classifyAssetProductRecommendation } from "@/lib/product/tagging-product-classification";
 import { idToSlug, slugToId } from "@/lib/slug";
 import { fetchRemoteImageInput } from "@/lib/tagging/classification-image";
@@ -27,6 +30,7 @@ import {
   Prisma,
   TaggingAuditStatus,
   TaggingBrandRecommendation,
+  TaggingFaceFeatures,
   TaggingIpRecommendation,
   TaggingPersonRecommendation,
   TaggingProductRecommendation,
@@ -197,15 +201,20 @@ export async function processQueueItem({
     const extra = queueItem.extra as TaggingQueueItemExtra;
     const featureClassify = extra?.featureClassify === true;
     const thumbnailUrl = (assetObject.extra as AssetObjectExtra | null)?.thumbnailAccessUrl;
-    // console.log("thumbnailUrl", thumbnailUrl);
-    const predictTagsPromise = predictAssetTags(assetObject, {
-      matchingSources: extra?.matchingSources,
-      recognitionAccuracy: extra?.recognitionAccuracy,
-    });
-
     // Feature classification (brand/IP/product/person): first skip empty feature libraries.
     // Brand/IP/product share one bounded image; person independently keeps the source dimensions.
+    // Person path only: detect faces first (for AI faceFeatures + reused matching), then run AI
+    // tagging in parallel with person matching. Other paths keep starting AI tagging early.
     const teamId = queueItem.teamId;
+    const predictOptionsBase = {
+      matchingSources: extra?.matchingSources,
+      recognitionAccuracy: extra?.recognitionAccuracy,
+    };
+    // Defer AI tagging only when person face features may be needed; otherwise preserve old timing.
+    const mayNeedFaceFeatures = featureClassify && Boolean(thumbnailUrl);
+    let predictTagsPromise: ReturnType<typeof predictAssetTags> | null = mayNeedFaceFeatures
+      ? null
+      : predictAssetTags(assetObject, predictOptionsBase);
     let brandRecommendationPromise: Promise<
       Awaited<ReturnType<typeof classifyAssetBrandRecommendation>>
     > = Promise.resolve(null);
@@ -239,17 +248,9 @@ export async function processQueueItem({
             return null;
           });
 
-        // Person classification fetches the same thumbnail URL independently so it can preserve
-        // the full source dimensions instead of reusing the shared 1280px classification image.
-        if (personCount > 0) {
-          personRecommendationPromise = withFallback(
-            classifyAssetPersonRecommendation({ teamId, imageUrl: thumbnailUrl }),
-            "classifyAssetPersonRecommendation",
-          );
-        }
-
+        // Kick off brand/IP/product without waiting for face detection.
         if (logoCount + productCount + ipCount > 0) {
-          const sharedImageInput = await fetchRemoteImageInput(
+          const sharedImagePromise = fetchRemoteImageInput(
             thumbnailUrl,
             "feature classification",
           ).catch((error) => {
@@ -261,27 +262,76 @@ export async function processQueueItem({
             return null;
           });
 
-          if (sharedImageInput) {
-            if (logoCount > 0) {
-              brandRecommendationPromise = withFallback(
-                classifyAssetBrandRecommendation({ teamId, imageInput: sharedImageInput }),
-                "classifyAssetBrandRecommendation",
-              );
-            }
-            if (ipCount > 0) {
-              ipRecommendationPromise = withFallback(
-                classifyAssetIpRecommendation({ teamId, imageInput: sharedImageInput }),
-                "classifyAssetIpRecommendation",
-              );
-            }
-            if (productCount > 0) {
-              productRecommendationPromise = withFallback(
-                classifyAssetProductRecommendation({ teamId, imageInput: sharedImageInput }),
-                "classifyAssetProductRecommendation",
-              );
-            }
+          if (logoCount > 0) {
+            brandRecommendationPromise = sharedImagePromise.then((sharedImageInput) =>
+              sharedImageInput
+                ? withFallback(
+                    classifyAssetBrandRecommendation({ teamId, imageInput: sharedImageInput }),
+                    "classifyAssetBrandRecommendation",
+                  )
+                : null,
+            );
+          }
+          if (ipCount > 0) {
+            ipRecommendationPromise = sharedImagePromise.then((sharedImageInput) =>
+              sharedImageInput
+                ? withFallback(
+                    classifyAssetIpRecommendation({ teamId, imageInput: sharedImageInput }),
+                    "classifyAssetIpRecommendation",
+                  )
+                : null,
+            );
+          }
+          if (productCount > 0) {
+            productRecommendationPromise = sharedImagePromise.then((sharedImageInput) =>
+              sharedImageInput
+                ? withFallback(
+                    classifyAssetProductRecommendation({ teamId, imageInput: sharedImageInput }),
+                    "classifyAssetProductRecommendation",
+                  )
+                : null,
+            );
           }
         }
+
+        // Person: detect once, feed faceCount into AI tagging, reuse detection for matching.
+        if (personCount > 0) {
+          const personDetection = await detectAssetPersonFaces({ imageUrl: thumbnailUrl }).catch(
+            (error) => {
+              logger.warn({
+                msg: "detectAssetPersonFaces failed, continuing without person face features",
+                err: error,
+                error: error instanceof Error ? error.message : String(error),
+              });
+              return null;
+            },
+          );
+
+          let faceFeatures: TaggingFaceFeatures | undefined;
+          if (personDetection) {
+            faceFeatures = {
+              faceCount: personDetection.faceCount,
+              found: personDetection.found,
+            };
+            personRecommendationPromise = withFallback(
+              classifyAssetPersonRecommendation({
+                teamId,
+                imageUrl: thumbnailUrl,
+                detection: personDetection,
+              }),
+              "classifyAssetPersonRecommendation",
+            );
+          }
+          predictTagsPromise = predictAssetTags(assetObject, {
+            ...predictOptionsBase,
+            ...(faceFeatures ? { faceFeatures } : {}),
+          });
+        } else {
+          // No person library: keep legacy timing — start AI tagging without waiting on detection.
+          predictTagsPromise = predictAssetTags(assetObject, predictOptionsBase);
+        }
+      } else {
+        predictTagsPromise = predictAssetTags(assetObject, predictOptionsBase);
       }
     }
 
@@ -292,7 +342,7 @@ export async function processQueueItem({
       productRecommendation,
       personRecommendation,
     ] = await Promise.all([
-      predictTagsPromise,
+      predictTagsPromise ?? predictAssetTags(assetObject, predictOptionsBase),
       brandRecommendationPromise,
       ipRecommendationPromise,
       productRecommendationPromise,

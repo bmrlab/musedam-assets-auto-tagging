@@ -72,35 +72,44 @@ function serializeDetectionBox(box: PersonDetectionBox) {
   };
 }
 
-export async function classifyAssetPersonRecommendation({
+export type PersonFaceDetectionForClassification = {
+  detections: PersonDetectionBox[];
+  faceCount: number;
+  found: boolean;
+};
+
+/**
+ * Fetch the person image and run face detection (+ embeddings).
+ * Call this once, then reuse the result for AI tagging inputs and person matching.
+ */
+export async function detectAssetPersonFaces({
   imageUrl,
-  teamId,
   imageInput: providedImageInput,
 }: {
-  teamId: number;
   imageUrl?: string | null;
   imageInput?: ClassificationRemoteImageInput | null;
-}): Promise<TaggingPersonRecommendation | null> {
+}): Promise<PersonFaceDetectionForClassification | null> {
   if (!providedImageInput && !imageUrl) {
-    return null;
-  }
-
-  // 空库守卫：没有任何可用的人脸向量时直接返回
-  const referenceCount = await prisma.personVector.count({
-    where: { teamId, enabled: true, status: "completed" },
-  });
-  if (referenceCount === 0) {
     return null;
   }
 
   const imageInput =
     providedImageInput ??
     (await fetchRemotePersonImageInput(imageUrl as string, "person classification"));
-  const detection = await detectPersonFaceBoxes({
+
+  return detectPersonFaceBoxes({
     imageBase64: imageInput.dataUrl,
     includeEmbedding: true,
   });
+}
 
+async function buildPersonRecommendationFromDetection({
+  teamId,
+  detection,
+}: {
+  teamId: number;
+  detection: PersonFaceDetectionForClassification;
+}): Promise<TaggingPersonRecommendation> {
   const faces = detection.detections
     .map((box: PersonDetectionBox, detectionIndex: number) =>
       box.embedding
@@ -169,4 +178,42 @@ export async function classifyAssetPersonRecommendation({
     faces: recommendationFaces,
     recommendedTags,
   };
+}
+
+export async function classifyAssetPersonRecommendation({
+  imageUrl,
+  teamId,
+  imageInput: providedImageInput,
+  detection: providedDetection,
+}: {
+  teamId: number;
+  imageUrl?: string | null;
+  imageInput?: ClassificationRemoteImageInput | null;
+  /** Precomputed detection; skips a second face-detection call when provided. */
+  detection?: PersonFaceDetectionForClassification | null;
+}): Promise<TaggingPersonRecommendation | null> {
+  if (!providedDetection && !providedImageInput && !imageUrl) {
+    return null;
+  }
+
+  // 空库守卫：没有任何可用的人脸向量时直接返回
+  const referenceCount = await prisma.personVector.count({
+    where: { teamId, enabled: true, status: "completed" },
+  });
+  if (referenceCount === 0) {
+    return null;
+  }
+
+  const detection =
+    providedDetection ??
+    (await detectAssetPersonFaces({
+      imageUrl,
+      imageInput: providedImageInput,
+    }));
+
+  if (!detection) {
+    return null;
+  }
+
+  return buildPersonRecommendationFromDetection({ teamId, detection });
 }

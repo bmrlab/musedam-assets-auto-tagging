@@ -33,6 +33,11 @@ declare module "@/prisma/client" {
     negativeKeywords: string[];
   }>;
 
+  export type TaggingFaceFeatures = {
+    faceCount: number;
+    found: boolean;
+  };
+
   export type TaggingQueueItemExtra = Partial<{
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     usage: any; // LLM 返回的 usage 信息
@@ -45,6 +50,8 @@ declare module "@/prisma/client" {
     };
     recognitionAccuracy: "precise" | "balanced" | "broad";
     featureClassify: boolean;
+    /** Face-detection signals fed into AI tagging (from person feature recognition). */
+    faceFeatures: TaggingFaceFeatures;
   }>;
 
   export type TaggingBrandRecommendedTag = {
