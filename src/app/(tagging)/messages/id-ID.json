@@ -691,6 +691,9 @@
     },
     "Review": {
       "add": "Tambah",
+      "openInMuseDAM": "Lihat halaman aset",
+      "previewImage": "Pratinjau {name}",
+      "closePreview": "Tutup pratinjau",
       "replace": "Ganti",
       "delete": "Hapus",
       "reject": "Tolak",

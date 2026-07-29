@@ -91,6 +91,9 @@
     },
     "Review": {
       "add": "추가",
+      "openInMuseDAM": "소재 페이지 보기",
+      "previewImage": "{name} 미리보기",
+      "closePreview": "미리보기 닫기",
       "aiRecommendedTags": "AI 추천 태그",
       "brandRecommendedTags": "브랜드 로고 추천 태그",
       "allConfidence": "전체 신뢰도",

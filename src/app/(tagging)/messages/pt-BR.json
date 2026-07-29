@@ -91,6 +91,9 @@
     },
     "Review": {
       "add": "Adicionar",
+      "openInMuseDAM": "Ver página do ativo",
+      "previewImage": "Visualizar {name}",
+      "closePreview": "Fechar visualização",
       "aiRecommendedTags": "Tags Recomendadas pela IA",
       "brandRecommendedTags": "Tags recomendadas de logo da marca",
       "allConfidence": "Toda Confiança",

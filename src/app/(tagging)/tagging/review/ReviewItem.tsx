@@ -17,6 +17,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { ClockCircleIcon, TagAIIcon, TagsIcon } from "@/components/ui/icons";
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -38,7 +39,7 @@ import { cn, formatSize } from "@/lib/utils";
 import { collectMuseFeatureIdentifierIdsForQueueItem } from "@/musedam/collect-muse-feature-identifier-ids";
 import type { MuseDAMMaterialFeatureSnapshot } from "@/musedam/query-features-by-materials-types";
 import { AssetObjectExtra, AssetObjectTags, TaggingAuditStatus } from "@/prisma/client";
-import { CheckIcon, DotIcon, Loader2Icon, StarIcon, XIcon } from "lucide-react";
+import { CheckIcon, DotIcon, ExternalLinkIcon, Loader2Icon, StarIcon, XIcon } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -50,6 +51,42 @@ import {
 import { FeatureThumbnail } from "./components/FeatureThumbnail";
 
 type ReviewAssetObject = AssetWithAuditItemsBatch["assetObject"];
+type PreviewImage = { src: string; alt: string };
+
+function ImagePreviewDialog({
+  image,
+  closeLabel,
+  onOpenChange,
+}: {
+  image: PreviewImage | null;
+  closeLabel: string;
+  onOpenChange: (open: boolean) => void;
+}) {
+  return (
+    <Dialog open={Boolean(image)} onOpenChange={onOpenChange}>
+      <DialogContent
+        showCloseButton={false}
+        className="max-h-[90vh] w-auto max-w-[90vw] overflow-visible rounded-[12px] border-none bg-black/10 p-1 shadow-[0_24px_80px_rgba(0,0,0,0.45)] backdrop-blur-sm"
+      >
+        <DialogTitle className="sr-only">{image?.alt}</DialogTitle>
+        {image ? (
+          <div className="relative inline-flex">
+            <DialogClose className="absolute top-3 right-3 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white transition-colors hover:bg-black/75">
+              <XIcon className="size-4" />
+              <span className="sr-only">{closeLabel}</span>
+            </DialogClose>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={image.src}
+              alt={image.alt}
+              className="block max-h-[90vh] max-w-[90vw] rounded-[8px] object-contain"
+            />
+          </div>
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 function formatSnapshotTagPath(tagPath: string) {
   return tagPath.replace(/\s*->\s*/g, " > ");
@@ -58,20 +95,29 @@ function formatSnapshotTagPath(tagPath: string) {
 function ExistingFeatureSnapshotRow({
   feature,
   featureClass,
+  onPreview,
 }: {
   feature: MuseDAMMaterialFeatureSnapshot;
   featureClass: string;
+  onPreview: (image: PreviewImage) => void;
 }) {
+  const t = useTranslations("Tagging.Review");
+
   return (
     <div className="flex items-start gap-3 rounded-md border border-basic-3 bg-background p-3">
-      <div className="relative size-10 shrink-0 overflow-hidden rounded bg-basic-2">
+      <button
+        type="button"
+        aria-label={t("previewImage", { name: feature.identifierName })}
+        className="relative size-10 shrink-0 cursor-zoom-in overflow-hidden rounded bg-basic-2"
+        onClick={() => onPreview({ src: feature.identifierImagePath, alt: feature.identifierName })}
+      >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={feature.identifierImagePath}
           alt={feature.identifierName}
           className="h-full w-full object-cover"
         />
-      </div>
+      </button>
       <div className="min-w-0 flex-1">
         <div
           className="truncate text-[13px] font-medium leading-[18px]"
@@ -131,6 +177,7 @@ function FeatureRecognitionRow({
   onToggleTagIds,
   tooltipAdd,
   tooltipRemove,
+  onPreview,
 }: {
   featureType: "brand" | "ip" | "product" | "person";
   featureId: string;
@@ -144,9 +191,11 @@ function FeatureRecognitionRow({
   onToggleTagIds: (tagIds: number[]) => void;
   tooltipAdd: string;
   tooltipRemove: string;
+  onPreview: (image: PreviewImage) => void;
 }) {
   const isRejected = tagIds.length > 0 && tagIds.every((tagId) => rejectedTagIds.includes(tagId));
   const tResult = useTranslations("TaggingResultDisplay");
+  const t = useTranslations("Tagging.Review");
 
   return (
     <div
@@ -166,6 +215,8 @@ function FeatureRecognitionRow({
           featureId={featureId}
           alt={classifiedName}
           className="h-full w-full"
+          previewLabel={t("previewImage", { name: classifiedName })}
+          onPreview={(imageUrl) => onPreview({ src: imageUrl, alt: classifiedName })}
         />
       </div>
       <div className="min-w-0 flex-1">
@@ -252,6 +303,10 @@ export function ReviewItem({
   const [rejectedIpItems, setRejectedIpItems] = useState<number[]>([]);
   const [rejectedProductItems, setRejectedProductItems] = useState<number[]>([]);
   const [rejectedPersonItems, setRejectedPersonItems] = useState<number[]>([]);
+  const [previewImage, setPreviewImage] = useState<PreviewImage | null>(null);
+
+  const assetExtra = assetObject.extra as AssetObjectExtra | null;
+  const assetPreviewUrl = assetExtra?.thumbnailAccessUrl;
 
   const realLoading = batchLoading || loading;
   const availableFeatureIdSets = useMemo(
@@ -676,38 +731,49 @@ export function ReviewItem({
     <div className="bg-background border rounded-[6px] px-6 pt-8 pb-6 space-y-6">
       <div className="flex items-center gap-4">
         {CheckboxComponent}
-        <div
-          className="shrink-0 size-[86px] cursor-pointer relative"
-          onClick={() => {
-            const assetId = slugToId("assetObject", assetObject.slug);
-            dispatchMuseDAMClientAction("goto", {
-              url: `/detail/${assetId.toString()}`,
-              target: "_blank",
-            });
-          }}
+        <button
+          type="button"
+          aria-label={t("previewImage", { name: assetObject.name })}
+          className="relative size-[86px] shrink-0 cursor-zoom-in disabled:cursor-default"
+          disabled={!assetPreviewUrl}
+          onClick={() =>
+            assetPreviewUrl && setPreviewImage({ src: assetPreviewUrl, alt: assetObject.name })
+          }
         >
           <AssetThumbnail
             asset={{
-              thumbnailUrl: (assetObject.extra as AssetObjectExtra | null)?.thumbnailAccessUrl,
-              extension: (assetObject.extra as AssetObjectExtra | null)?.extension,
+              thumbnailUrl: assetExtra?.thumbnailAccessUrl,
+              extension: assetExtra?.extension,
             }}
             maxWidth={86}
             maxHeight={86}
             className="rounded-[10px] size-[86px]"
           />
-        </div>
+        </button>
 
         <div className="flex-1 min-w-0">
           <h3 className="font-semibold text-basic" title={assetObject.name}>
             {assetObject.name}
           </h3>
           <div className="flex items-center gap-0.5 text-xs text-basic-5 mt-1">
-            <span>{(assetObject.extra as AssetObjectExtra).extension?.toUpperCase()}</span>
+            <span>{assetExtra?.extension?.toUpperCase()}</span>
             <DotIcon className="size-3" />
-            <span>
-              {formatSize((assetObject.extra as AssetObjectExtra).size)?.toLocaleString()}
-            </span>
+            <span>{formatSize(assetExtra?.size)?.toLocaleString()}</span>
           </div>
+          <button
+            type="button"
+            className="mt-2 inline-flex items-center gap-1 text-xs text-primary-6 transition-opacity hover:opacity-80"
+            onClick={() => {
+              const assetId = slugToId("assetObject", assetObject.slug);
+              dispatchMuseDAMClientAction("goto", {
+                url: `/detail/${assetId.toString()}`,
+                target: "_blank",
+              });
+            }}
+          >
+            <ExternalLinkIcon className="size-3" />
+            {t("openInMuseDAM")}
+          </button>
         </div>
 
         <div className="flex gap-2">
@@ -905,6 +971,7 @@ export function ReviewItem({
                       key={`${feature.featureType}-${feature.identifierId}-${feature.id}`}
                       feature={feature}
                       featureClass={getFeatureClassLabel(feature.featureType)}
+                      onPreview={setPreviewImage}
                     />
                   ))
                 : null}
@@ -1087,6 +1154,7 @@ export function ReviewItem({
                           onToggleTagIds={feature.onToggleTagIds}
                           tooltipAdd={t("tooltipAdd")}
                           tooltipRemove={t("tooltipRemove")}
+                          onPreview={setPreviewImage}
                         />
                       ))
                     ) : (
@@ -1099,6 +1167,11 @@ export function ReviewItem({
           </div>
         </div>
       ) : null}
+      <ImagePreviewDialog
+        image={previewImage}
+        closeLabel={t("closePreview")}
+        onOpenChange={(open) => !open && setPreviewImage(null)}
+      />
     </div>
   );
 }

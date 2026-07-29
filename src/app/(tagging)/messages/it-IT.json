@@ -402,6 +402,9 @@
     },
     "Review": {
       "add": "Aggiungi",
+      "openInMuseDAM": "Visualizza pagina risorsa",
+      "previewImage": "Anteprima di {name}",
+      "closePreview": "Chiudi anteprima",
       "replace": "Sostituisci",
       "delete": "Elimina",
       "reject": "Rifiuta",

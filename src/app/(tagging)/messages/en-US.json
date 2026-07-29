@@ -727,6 +727,9 @@
     },
     "Review": {
       "add": "Add",
+      "openInMuseDAM": "View asset page",
+      "previewImage": "Preview {name}",
+      "closePreview": "Close preview",
       "replace": "Replace",
       "delete": "Delete",
       "reject": "Reject",

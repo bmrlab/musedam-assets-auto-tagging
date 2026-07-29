@@ -650,6 +650,9 @@
     },
     "Review": {
       "add": "Thêm",
+      "openInMuseDAM": "Xem trang tài nguyên",
+      "previewImage": "Xem trước {name}",
+      "closePreview": "Đóng bản xem trước",
       "replace": "Ghi đè",
       "delete": "Xóa",
       "reject": "Từ chối",

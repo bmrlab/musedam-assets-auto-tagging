@@ -650,6 +650,9 @@
     },
     "Review": {
       "add": "Ekle",
+      "openInMuseDAM": "Varlık sayfasını görüntüle",
+      "previewImage": "{name} önizlemesi",
+      "closePreview": "Önizlemeyi kapat",
       "replace": "Değiştir",
       "delete": "Sil",
       "reject": "Reddet",

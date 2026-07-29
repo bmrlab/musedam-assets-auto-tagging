@@ -91,6 +91,9 @@
     },
     "Review": {
       "add": "Añadir",
+      "openInMuseDAM": "Ver página del recurso",
+      "previewImage": "Vista previa de {name}",
+      "closePreview": "Cerrar vista previa",
       "aiRecommendedTags": "Etiquetas Recomendadas por IA",
       "brandRecommendedTags": "Etiquetas recomendadas de logo de marca",
       "allConfidence": "Total Confianza",

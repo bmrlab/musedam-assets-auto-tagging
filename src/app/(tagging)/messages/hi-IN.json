@@ -91,6 +91,9 @@
     },
     "Review": {
       "add": "जोड़ें",
+      "openInMuseDAM": "एसेट पेज देखें",
+      "previewImage": "{name} का पूर्वावलोकन करें",
+      "closePreview": "पूर्वावलोकन बंद करें",
       "aiRecommendedTags": "ऐआई अनुशंसित टैग",
       "brandRecommendedTags": "ब्रांड लोगो अनुशंसित टैग",
       "allConfidence": "पूर्ण विश्वास",

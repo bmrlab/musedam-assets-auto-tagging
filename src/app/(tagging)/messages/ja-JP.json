@@ -91,6 +91,9 @@
     },
     "Review": {
       "add": "追加",
+      "openInMuseDAM": "素材ページを表示",
+      "previewImage": "{name}をプレビュー",
+      "closePreview": "プレビューを閉じる",
       "aiRecommendedTags": "AI 推奨タグ",
       "brandRecommendedTags": "ブランドロゴ推奨タグ",
       "allConfidence": "全部信頼度",

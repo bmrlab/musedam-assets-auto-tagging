@@ -91,6 +91,9 @@
     },
     "Review": {
       "add": "Добавить",
+      "openInMuseDAM": "Просмотреть страницу ресурса",
+      "previewImage": "Предпросмотр: {name}",
+      "closePreview": "Закрыть предпросмотр",
       "aiRecommendedTags": "Теги, рекомендуемые ИИ",
       "brandRecommendedTags": "Рекомендуемые теги логотипа бренда",
       "allConfidence": "Все доверие",

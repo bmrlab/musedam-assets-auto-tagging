@@ -727,6 +727,9 @@
     },
     "Review": {
       "add": "添加",
+      "openInMuseDAM": "查看素材页",
+      "previewImage": "预览{name}",
+      "closePreview": "关闭预览",
       "replace": "覆盖",
       "delete": "删除",
       "reject": "拒绝",

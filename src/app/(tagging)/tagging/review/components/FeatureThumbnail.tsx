@@ -2,6 +2,7 @@
 "use client";
 
 import { getFeatureThumbnailAction } from "@/app/(tagging)/tagging/test/components/actions";
+import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 
 type FeatureType = "brand" | "ip" | "product" | "person";
@@ -11,6 +12,8 @@ type FeatureThumbnailProps = {
   featureId: string;
   alt: string;
   className?: string;
+  onPreview?: (imageUrl: string) => void;
+  previewLabel?: string;
 };
 
 const REFRESH_BUFFER_MS = 60 * 1000;
@@ -20,6 +23,8 @@ export function FeatureThumbnail({
   featureId,
   alt,
   className,
+  onPreview,
+  previewLabel,
 }: FeatureThumbnailProps) {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [expiresAt, setExpiresAt] = useState<number>(0);
@@ -93,11 +98,11 @@ export function FeatureThumbnail({
     );
   }
 
-  return (
+  const image = (
     <img
       src={imageUrl}
       alt={alt}
-      className={`${className} object-cover`}
+      className={cn("h-full w-full object-cover", !onPreview && className)}
       onError={() => {
         // If URL expired, refresh it
         if (Date.now() >= expiresAt - REFRESH_BUFFER_MS) {
@@ -107,5 +112,20 @@ export function FeatureThumbnail({
         }
       }}
     />
+  );
+
+  if (!onPreview) {
+    return image;
+  }
+
+  return (
+    <button
+      type="button"
+      aria-label={previewLabel ?? alt}
+      className={cn("block cursor-zoom-in overflow-hidden", className)}
+      onClick={() => onPreview(imageUrl)}
+    >
+      {image}
+    </button>
   );
 }

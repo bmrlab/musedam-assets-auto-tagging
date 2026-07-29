@@ -91,6 +91,9 @@
     },
     "Review": {
       "add": "Hinzufügen",
+      "openInMuseDAM": "Asset-Seite anzeigen",
+      "previewImage": "Vorschau von {name}",
+      "closePreview": "Vorschau schließen",
       "aiRecommendedTags": "KI-empfohlene Tags",
       "brandRecommendedTags": "Empfohlene Markenlogo-Tags",
       "allConfidence": "Alle Vertrauen",

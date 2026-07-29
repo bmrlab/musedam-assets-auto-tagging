@@ -402,6 +402,9 @@
     },
     "Review": {
       "add": "เพิ่ม",
+      "openInMuseDAM": "ดูหน้าสินทรัพย์",
+      "previewImage": "แสดงตัวอย่าง {name}",
+      "closePreview": "ปิดตัวอย่าง",
       "replace": "แทนที่",
       "delete": "ลบ",
       "reject": "ปฏิเสธ",

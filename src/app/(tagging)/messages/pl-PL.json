@@ -650,6 +650,9 @@
     },
     "Review": {
       "add": "Dodaj",
+      "openInMuseDAM": "Wyświetl stronę zasobu",
+      "previewImage": "Podgląd: {name}",
+      "closePreview": "Zamknij podgląd",
       "replace": "Zastąp",
       "delete": "Usuń",
       "reject": "Odrzuć",
