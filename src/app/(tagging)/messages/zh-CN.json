@@ -950,7 +950,7 @@
       "itemsPerPage80": "80条/页",
       "columnPersonName": "人物姓名",
       "columnPersonType": "身份/角色",
-      "columnPersonImages": "商品图片",
+      "columnPersonImages": "人物照片",
       "columnLinkedTags": "关联标签",
       "columnStatus": "处理状态",
       "columnEnabled": "启用状态",
