@@ -1,5 +1,91 @@
 # Development benchmarks
 
+## WIDER FACE validation face-count benchmark
+
+`evaluate_wider_person_detection.py` sends all WIDER FACE validation images to
+the deployed `/face_detection` endpoint and compares image-level face counts.
+The primary ground truth excludes invalid and nonpositive-size annotations; a
+secondary result includes every raw annotation row. Reports include processing
+and face-found coverage, count-proxy precision/recall/F1, tolerance accuracy,
+MAE/RMSE, density buckets, face-size diagnostics, saturation, failures, and
+per-image results.
+
+The precision/recall values are explicitly count proxies: they use
+`min(predicted_count, ground_truth_count)` and do not spatially match boxes.
+They therefore cannot measure localization accuracy or distinguish a missed
+face from an extra detection when both occur in the same image.
+
+Run the complete benchmark:
+
+```bash
+/Users/jayson/Downloads/Work/10_auto-tag-gpu-service/.venv/bin/python \
+  development/person-test-scripts/evaluate_wider_person_detection.py \
+  --run-name full \
+  --concurrency 16
+```
+
+The default input is
+`/Users/jayson/Downloads/Datasets/CrowdedPhotoDataset/wider-validation` and
+outputs are written under `wider-person-detection-results/`. API responses are cached
+outside each named run. Use `--force` to ignore the cache or
+`--retry-failures` to retry only failed cached calls.
+
+Run a two-image smoke benchmark with `--max-images 2 --run-name smoke`.
+Run the offline regression tests (no API calls):
+
+```bash
+/Users/jayson/Downloads/Work/10_auto-tag-gpu-service/.venv/bin/python \
+  -m unittest development/person-test-scripts/test_evaluate_wider_person_detection.py -v
+```
+
+## IFAD cross-age person-tagging benchmark
+
+`evaluate_ifad_person_tagging.py` parses `imageID-personID-age.jpg`, groups
+images by numeric person ID, and sorts each person by age. By default, it
+enrolls three evenly spread references and queries every unselected image. For
+six images, positions 1, 3, and 5 are references while positions 2, 4, and 6
+are tests. Use `--references-per-person 1`, `2`, or `3` to change the gallery
+size.
+
+The report includes rank-1/top-k identification accuracy, auto-tag precision,
+recall, coverage, and F1, age-gap slices, exact reference selection,
+per-identity results, confusion pairs, threshold diagnostics, embedding
+failures, and filename/data-leakage checks. IFAD is evaluated as a closed set,
+so the report does not claim an unknown-person false-accept rate.
+
+Run a smoke benchmark:
+
+```bash
+/Users/jayson/Downloads/Work/10_auto-tag-gpu-service/.venv/bin/python \
+  development/person-test-scripts/evaluate_ifad_person_tagging.py \
+  --max-identities 3 \
+  --max-tests 30 \
+  --run-name smoke
+```
+
+Run the complete three-reference benchmark:
+
+```bash
+/Users/jayson/Downloads/Work/10_auto-tag-gpu-service/.venv/bin/python \
+  development/person-test-scripts/evaluate_ifad_person_tagging.py \
+  --run-name full \
+  --concurrency 16
+```
+
+The default input is
+`/Users/jayson/Downloads/Datasets/AgeDataset/IFAD_padded` and outputs are
+written under `ifad-person-tagging-results/`. Embeddings are cached outside
+each named run so later analyses and one-/two-reference runs can reuse them.
+The completed interpretation is in
+[`IFAD_BENCHMARK.md`](./IFAD_BENCHMARK.md).
+
+Run the offline regression tests (no API calls):
+
+```bash
+/Users/jayson/Downloads/Work/10_auto-tag-gpu-service/.venv/bin/python \
+  -m unittest development/person-test-scripts/test_evaluate_ifad_person_tagging.py -v
+```
+
 ## FG-NET cross-age person-tagging benchmark
 
 `evaluate_fgnet_person_tagging.py` parses `personIDAage[variant].JPG`, groups
