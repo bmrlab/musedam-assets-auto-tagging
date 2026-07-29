@@ -1,5 +1,43 @@
 # Development benchmarks
 
+## WIDER FACE validation face-count benchmark
+
+`evaluate_wider_person_detection.py` sends all WIDER FACE validation images to
+the deployed `/face_detection` endpoint and compares image-level face counts.
+The primary ground truth excludes invalid and nonpositive-size annotations; a
+secondary result includes every raw annotation row. Reports include processing
+and face-found coverage, count-proxy precision/recall/F1, tolerance accuracy,
+MAE/RMSE, density buckets, face-size diagnostics, saturation, failures, and
+per-image results.
+
+The precision/recall values are explicitly count proxies: they use
+`min(predicted_count, ground_truth_count)` and do not spatially match boxes.
+They therefore cannot measure localization accuracy or distinguish a missed
+face from an extra detection when both occur in the same image.
+
+Run the complete benchmark:
+
+```bash
+/Users/jayson/Downloads/Work/10_auto-tag-gpu-service/.venv/bin/python \
+  development/person-test-scripts/evaluate_wider_person_detection.py \
+  --run-name full \
+  --concurrency 16
+```
+
+The default input is
+`/Users/jayson/Downloads/Datasets/CrowdedPhotoDataset/wider-validation` and
+outputs are written under `wider-person-detection-results/`. API responses are cached
+outside each named run. Use `--force` to ignore the cache or
+`--retry-failures` to retry only failed cached calls.
+
+Run a two-image smoke benchmark with `--max-images 2 --run-name smoke`.
+Run the offline regression tests (no API calls):
+
+```bash
+/Users/jayson/Downloads/Work/10_auto-tag-gpu-service/.venv/bin/python \
+  -m unittest development/person-test-scripts/test_evaluate_wider_person_detection.py -v
+```
+
 ## IFAD cross-age person-tagging benchmark
 
 `evaluate_ifad_person_tagging.py` parses `imageID-personID-age.jpg`, groups
