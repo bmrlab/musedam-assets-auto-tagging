@@ -14,18 +14,38 @@ const authOptions: NextAuthOptions = {
   session: {
     strategy: "jwt",
   },
+  // AutoTag is embedded cross-site by MuseDAM. Partition these cookies by the
+  // top-level site so WebKit can retain the iframe session without granting
+  // access to an unpartitioned third-party cookie.
   cookies: {
     sessionToken: {
       name: "auto-tagging.next-auth.session-token",
-      options: { httpOnly: true, sameSite: "none", path: "/", secure: true },
+      options: {
+        httpOnly: true,
+        sameSite: "none",
+        path: "/",
+        secure: true,
+        partitioned: true,
+      },
     },
     callbackUrl: {
       name: "auto-tagging.next-auth.callback-url",
-      options: { sameSite: "none", path: "/", secure: true },
+      options: {
+        sameSite: "none",
+        path: "/",
+        secure: true,
+        partitioned: true,
+      },
     },
     csrfToken: {
       name: "auto-tagging.next-auth.csrf-token",
-      options: { httpOnly: true, sameSite: "none", path: "/", secure: true },
+      options: {
+        httpOnly: true,
+        sameSite: "none",
+        path: "/",
+        secure: true,
+        partitioned: true,
+      },
     },
   },
   providers: [

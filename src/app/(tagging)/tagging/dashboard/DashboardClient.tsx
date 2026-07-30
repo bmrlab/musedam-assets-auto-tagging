@@ -11,7 +11,6 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import { ExtractServerActionData } from "@/lib/serverAction";
-import { cn } from "@/lib/utils";
 import { AssetObjectExtra } from "@/prisma/client";
 import { CheckCircle2 } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -78,11 +77,8 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
   const isDark = theme === "dark";
 
   const refreshData = useCallback(
-    async (page: number = currentPage, filter: "all" | "processing" = taskFilter, size: number = pageSize, showLoading: boolean = false) => {
+    async (page: number, filter: "all" | "processing", size: number) => {
       try {
-        if (showLoading) {
-          setIsLoading(true);
-        }
         const [statsResult, tasksResult, weeklyResult, monthlyResult] = await Promise.all([
           fetchDashboardStats(),
           fetchProcessingTasks(page, size, filter),
@@ -105,36 +101,29 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
           setMonthlyData(monthlyResult.data.data);
         }
       } catch (error) {
-        console.error(tCommon("refreshDataFailed"), error);
+        console.error("Failed to refresh dashboard data", error);
       } finally {
-        if (showLoading) {
-          setIsLoading(false);
-        }
+        setIsLoading(false);
       }
     },
-    [currentPage, taskFilter, tCommon, pageSize],
+    [],
   );
 
-
-  const handlePageSizeChange = useCallback(
-    (newPageSize: string) => {
-      const size = parseInt(newPageSize);
-      setPageSize(size);
-      setCurrentPage(1);
-      refreshData(1, taskFilter, size);
-    },
-    [taskFilter, refreshData],
-  );
+  const handlePageSizeChange = useCallback((newPageSize: string) => {
+    const size = parseInt(newPageSize);
+    setPageSize(size);
+    setCurrentPage(1);
+  }, []);
 
   useEffect(() => {
     // Initial load
-    refreshData(currentPage, taskFilter, pageSize, true);
+    void refreshData(currentPage, taskFilter, pageSize);
   }, [currentPage, taskFilter, refreshData, pageSize]);
 
   useEffect(() => {
     // Auto refresh every 30 seconds
     const refreshInterval = setInterval(() => {
-      refreshData();
+      void refreshData(currentPage, taskFilter, pageSize);
     }, 30000);
 
     // Update current time every second for processing duration
@@ -146,25 +135,23 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
       clearInterval(refreshInterval);
       clearInterval(timeInterval);
     };
-  }, [refreshData]);
+  }, [currentPage, pageSize, refreshData, taskFilter]);
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
-    refreshData(page);
   };
 
   const handleFilterChange = (value: string) => {
     const filter = value as "all" | "processing";
     setTaskFilter(filter);
     setCurrentPage(1);
-    refreshData(1, filter);
   };
 
   const handleRetryTask = async (taskId: number) => {
     const result = await retryFailedTask(taskId);
     if (result.success) {
       toast.success(tCommon("taskAddedToQueue"));
-      await refreshData();
+      await refreshData(currentPage, taskFilter, pageSize);
     } else {
       toast.error(tCommon("retryFailed"));
     }
@@ -174,7 +161,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
     const result = await retryAllFailedTasks();
     if (result.success) {
       toast.success(tCommon("retryTasksSuccess", { count: result.data.count }));
-      await refreshData();
+      await refreshData(currentPage, taskFilter, pageSize);
     } else {
       toast.error(tCommon("retryFailed"));
     }
@@ -316,7 +303,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
       {/* Statistics Card - Single card with 4 items */}
       <div className="bg-background border rounded-[6px] p-6">
         {isLoading ? (
-          <div className="grid grid-cols-4 gap-8">
+          <div className="grid grid-cols-2 gap-6 sm:grid-cols-4 sm:gap-8">
             {[1, 2, 3, 4].map((i) => (
               <div key={i} className="text-center">
                 <Skeleton className="h-8 w-16 mx-auto mb-2" />
@@ -325,7 +312,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-4 gap-8">
+          <div className="grid grid-cols-2 gap-6 sm:grid-cols-4 sm:gap-8">
             <div className="text-center">
               <div className="text-[22px] font-semibold leading-[32px]">{formatNumber(stats.totalCompleted)}</div>
               <div className="flex items-center justify-center gap-[6px] text-xs text-basic-6 mt-1">
@@ -363,8 +350,8 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
 
       {/* Task List Section */}
       <div className="bg-background border rounded-[6px]">
-        <div className="flex items-center justify-between py-3 px-5 border-b">
-          <div className=" flex items-center gap-4">
+        <div className="flex flex-col gap-3 py-3 px-5 border-b sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-center sm:gap-4">
             <h2 className="font-semibold">{t("title")}</h2>
             <p className="text-sm text-basic-5">
               {t("remainingTasks", {
@@ -374,7 +361,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
               })}
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <Select value={taskFilter} onValueChange={handleFilterChange}>
               <SelectTrigger className="!h-8 w-[120px]">
                 <SelectValue placeholder={t("filterAll")} />
@@ -538,9 +525,9 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
       </div>
 
       {/* Charts Side by Side - 2:1 ratio */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         {/* Monthly Trend Chart - Takes 2 columns */}
-        <div className="col-span-2 bg-background border rounded-[6px]">
+        <div className="bg-background border rounded-[6px] lg:col-span-2">
           <div className="p-4 border-b flex items-center justify-between">
             <h3 className="font-semibold">{t("processingTrend")}</h3>
             {!isLoading && (
