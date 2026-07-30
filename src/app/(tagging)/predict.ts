@@ -46,7 +46,7 @@ function getTaggingPredictProviderOptions(modelName: LLMModelName, teamId: strin
   };
 }
 
-function repairToJsonArrayText(text: string): string {
+function repairToPredictionEnvelopeText(text: string): string {
   const cleaned = (text ?? "")
     .replace(/\uFEFF/g, "")
     .replace(/```json\s*/gi, "")
@@ -56,13 +56,23 @@ function repairToJsonArrayText(text: string): string {
   // 尝试直接解析
   try {
     const parsed = JSON.parse(cleaned);
-    return Array.isArray(parsed) ? cleaned : "[]";
+    if (Array.isArray(parsed)) {
+      return JSON.stringify({ predictions: parsed });
+    }
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      Array.isArray((parsed as { predictions?: unknown }).predictions)
+    ) {
+      return cleaned;
+    }
+    return '{"predictions":[]}';
   } catch {}
 
   // 截取 [] 范围
   const start = cleaned.indexOf("[");
   const end = cleaned.lastIndexOf("]");
-  if (start < 0 || end < 0 || end <= start) return "[]";
+  if (start < 0 || end < 0 || end <= start) return '{"predictions":[]}';
 
   let candidate = cleaned.slice(start, end + 1);
 
@@ -74,11 +84,17 @@ function repairToJsonArrayText(text: string): string {
 
   try {
     const parsed = JSON.parse(candidate);
-    return Array.isArray(parsed) ? candidate : "[]";
+    return Array.isArray(parsed)
+      ? JSON.stringify({ predictions: parsed })
+      : '{"predictions":[]}';
   } catch {
-    return "[]";
+    return '{"predictions":[]}';
   }
 }
+
+const tagPredictionsResponseSchema = z.object({
+  predictions: z.array(tagPredictionSchema),
+});
 
 // export const WeightOfSource: Record<z.Infer<typeof tagPredictionSchema.shape.source>, number> = {
 //   basicInfo: 35,
@@ -338,7 +354,7 @@ ${tagKeywordsText}`,
 ## tagKeywords信息源
 标签关键词匹配：请根据上述标签关键词配置，分析素材信息是否匹配到任何标签的匹配关键词，同时注意排除包含排除关键词的情况。${faceFeaturesSection}
 
-请按照 system 的 Step by Step 流程进行分析，但【最终只输出纯 JSON 数组】（不要解释、不要 markdown、不要 \`\`\`、不要任何额外文本）。`,
+请按照 system 的 Step by Step 流程进行分析，但【最终只输出包含 predictions 数组的纯 JSON 对象】（不要解释、不要 markdown、不要 \`\`\`、不要任何额外文本）。`,
     },
   ];
 
@@ -371,16 +387,16 @@ ${tagKeywordsText}`,
         model: llm(modelName),
         schemaName: "TagPredictions",
         schemaDescription:
-          '返回 JSON 数组；元素包含 source("basicInfo"|"materializedPath"|"contentAnalysis"|"tagKeywords") 和 tags；tags 元素包含 confidence(0-1)、leafTagId(number)、tagPath(string[])。只输出纯 JSON。',
+          '返回 JSON 对象 {"predictions":[...]}；predictions 元素包含 source("basicInfo"|"materializedPath"|"contentAnalysis"|"tagKeywords") 和 tags；tags 元素包含 confidence(0-1)、leafTagId(number)、tagPath(string[])。只输出纯 JSON。',
         providerOptions: getTaggingPredictProviderOptions(modelName, asset.teamId),
-        schema: z.array(tagPredictionSchema),
+        schema: tagPredictionsResponseSchema,
         system: tagPredictionSystemPrompt(),
         messages,
         temperature: 0,
         seed: stableSeed,
         experimental_repairText: async (res: { text: string }) => {
-          // 尝试从模型返回中提取可解析的 JSON 数组，避免因夹带解释/markdown 导致解析失败
-          return repairToJsonArrayText(res.text);
+          // 尝试提取并包装为对象，满足 OpenAI Structured Outputs 的根 schema 限制
+          return repairToPredictionEnvelopeText(res.text);
         },
       });
 
@@ -388,7 +404,7 @@ ${tagKeywordsText}`,
         throw new Error("AI标签预测失败, result.object is undefined");
       }
 
-      let predictions = result.object;
+      let predictions = result.object.predictions;
       // 根据 matchingSources 过滤结果
       if (options?.matchingSources) {
         const enabledSources = Object.entries(options.matchingSources)
