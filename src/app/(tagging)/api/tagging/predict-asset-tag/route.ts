@@ -152,6 +152,30 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // 同一素材的 default 任务只入队一次：调用方按 queueItemId 扣点，重复请求返回 null 不扣点。
+    // 必须在 enqueue 之前判断，否则刚创建的任务会被当成「已存在」并错误返回 null。
+    if (triggerType === "default") {
+      const existingDefaultQueueItem = await prisma.taggingQueueItem.findFirst({
+        where: {
+          teamId: team.id,
+          assetObjectId: assetObject.id,
+          taskType: "default",
+        },
+        select: { id: true },
+      });
+
+      if (existingDefaultQueueItem) {
+        return NextResponse.json({
+          success: true,
+          data: {
+            message: "Default tagging task already exists for asset",
+            queueItemId: null,
+            status: null,
+          },
+        });
+      }
+    }
+
     // 2. 发起 AI 打标任务
     try {
       const taggingQueueItem = await enqueueTaggingTask({
@@ -161,29 +185,6 @@ export async function POST(request: NextRequest) {
         featureClassify,
         taskType: triggerType,
       });
-
-      // 如果发起的是默认打标任务，检查是否已经存在默认打标任务
-      if (triggerType === "default") {
-        const existingDefaultQueueItem = await prisma.taggingQueueItem.findFirst({
-          where: {
-            teamId: team.id,
-            assetObjectId: assetObject.id,
-            taskType: "default",
-          },
-          select: { id: true },
-        });
-
-        if (existingDefaultQueueItem) {
-          return NextResponse.json({
-            success: true,
-            data: {
-              message: "Default tagging task already exists for asset",
-              queueItemId: null,
-              status: null,
-            },
-          });
-        }
-      }
 
       return NextResponse.json({
         success: true,
