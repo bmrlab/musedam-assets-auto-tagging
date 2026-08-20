@@ -1,7 +1,10 @@
 "use server";
 
 import { withAuth } from "@/app/(auth)/withAuth";
-import { MAX_CLIENT_IMAGE_UPLOAD_BYTES } from "@/lib/brand/upload-constants";
+import {
+  MAX_CLIENT_IMAGE_UPLOAD_BYTES,
+  MAX_TOTAL_NEW_REFERENCE_UPLOAD_BYTES,
+} from "@/lib/brand/upload-constants";
 import {
   classifyIpImageCrops,
   detectIpFigureBoxes,
@@ -23,6 +26,10 @@ import {
   uploadS3Object,
 } from "@/lib/s3";
 import { ServerActionResult } from "@/lib/serverAction";
+import {
+  BatchReferenceImageError,
+  downloadAndPrepareBatchReferenceImage,
+} from "@/lib/tagging/batch-reference-image";
 import {
   clampBox as clampClassificationBox,
   cropImageToDataUrl as cropClassificationImageToDataUrl,
@@ -826,71 +833,55 @@ async function uploadAssetLibraryImages({
   return uploads;
 }
 
-function getImageExtensionFromObjectKeyOrContentType({
-  objectKey,
-  contentType,
-}: {
-  objectKey: string;
-  contentType: string;
-}) {
-  const match = objectKey.split("?")[0].match(/\.[a-zA-Z0-9]+$/);
-  if (match) {
-    return match[0].toLowerCase();
-  }
-
-  if (contentType.includes("image/png")) return ".png";
-  if (contentType.includes("image/jpeg")) return ".jpg";
-  if (contentType.includes("image/webp")) return ".webp";
-  if (contentType.includes("image/svg+xml")) return ".svg";
-  if (contentType.includes("image/gif")) return ".gif";
-  return "";
-}
-
-async function cloneIpImageFromObjectKey({
-  objectKey,
+async function importIpImageFromUrl({
+  imageUrl,
   teamId,
+  libraryT,
   t,
 }: {
-  objectKey: string;
+  imageUrl: string;
   teamId: number;
+  libraryT: TranslationFunction;
   t: TranslationFunction;
 }) {
-  const { signedUrl } = getCachedSignedS3ObjectUrl({
-    objectKey,
-    expiresInSeconds: 60 * 60,
-  });
-  const response = await fetch(signedUrl);
-
-  if (!response.ok) {
+  let preparedImage;
+  try {
+    preparedImage = await downloadAndPrepareBatchReferenceImage(imageUrl);
+  } catch (error) {
+    if (error instanceof BatchReferenceImageError) {
+      if (error.code === "file_too_large") {
+        throw new Error(libraryT("uploadErrors.fileTooLarge"));
+      }
+      if (error.code === "invalid_image") {
+        throw new Error(libraryT("uploadErrors.imageLoadFailed"));
+      }
+      if (error.code === "compression_failed") {
+        throw new Error(libraryT("uploadErrors.compressionTargetUnreachable"));
+      }
+    }
     throw new Error(
-      t("importErrors.ossKeyUnreadable", {
-        imageKeyColumn: t("columns.imageObjectKeys"),
-        objectKey,
+      t("importErrors.imageUrlUnreadable", {
+        imageUrlColumn: t("columns.imageUrls"),
+        imageUrl,
       }),
     );
   }
 
-  const contentType = response.headers.get("content-type") || "application/octet-stream";
-  const buffer = Buffer.from(await response.arrayBuffer());
-  const extension = getImageExtensionFromObjectKeyOrContentType({
-    objectKey,
-    contentType,
-  });
   const newObjectKey = buildAssetIpObjectKey({
     teamId,
-    extension,
+    extension: preparedImage.extension,
   });
 
   const uploadResult = await uploadS3Object({
-    body: buffer,
-    contentType,
+    body: preparedImage.buffer,
+    contentType: preparedImage.mimeType,
     objectKey: newObjectKey,
   });
 
   return {
     objectKey: uploadResult.objectKey,
-    mimeType: contentType,
-    size: buffer.byteLength,
+    mimeType: preparedImage.mimeType,
+    size: preparedImage.byteLength,
   };
 }
 
@@ -900,6 +891,7 @@ async function importIpBatchRow({
   tagLookup,
   ipTypeCache,
   existingNames,
+  libraryT,
   t,
 }: {
   team: { id: number; slug: string };
@@ -907,13 +899,14 @@ async function importIpBatchRow({
   tagLookup: Map<string, { assetTagId: number; tagPath: string[] }>;
   ipTypeCache: Map<string, AssetIpType>;
   existingNames: Set<string>;
+  libraryT: TranslationFunction;
   t: TranslationFunction;
 }) {
   const baseName = row.name.trim();
   const ipTypeName = row.ipTypeName.trim();
   const description = row.description.trim();
   const notes = row.notes.trim();
-  const imageObjectKeys = splitBatchValues(row.imageObjectKeys);
+  const imageUrls = splitBatchValues(row.imageUrls);
   const matchPattern = parseImportedMatchPattern(row.matchPattern, t);
 
   if (!baseName) {
@@ -942,16 +935,14 @@ async function importIpBatchRow({
     throw new Error(t("importErrors.notesTooLong", { notesColumn: t("columns.notes") }));
   }
 
-  if (imageObjectKeys.length === 0) {
+  if (imageUrls.length === 0) {
     throw new Error(
-      t("importErrors.imageKeysRequired", { imageKeyColumn: t("columns.imageObjectKeys") }),
+      t("importErrors.imageUrlsRequired", { imageUrlColumn: t("columns.imageUrls") }),
     );
   }
 
-  if (imageObjectKeys.length > 100) {
-    throw new Error(
-      t("importErrors.imagesTooMany", { imageKeyColumn: t("columns.imageObjectKeys") }),
-    );
+  if (imageUrls.length > 100) {
+    throw new Error(t("importErrors.imagesTooMany", { imageUrlColumn: t("columns.imageUrls") }));
   }
 
   if (matchPattern === "partial") {
@@ -974,15 +965,20 @@ async function importIpBatchRow({
       }),
   });
   const uploadedImages = [];
+  let totalUploadBytes = 0;
 
-  for (const objectKey of imageObjectKeys) {
-    uploadedImages.push(
-      await cloneIpImageFromObjectKey({
-        objectKey,
-        teamId: team.id,
-        t,
-      }),
-    );
+  for (const imageUrl of imageUrls) {
+    const uploadedImage = await importIpImageFromUrl({
+      imageUrl,
+      teamId: team.id,
+      libraryT,
+      t,
+    });
+    totalUploadBytes += uploadedImage.size;
+    if (totalUploadBytes > MAX_TOTAL_NEW_REFERENCE_UPLOAD_BYTES) {
+      throw new Error(libraryT("validation.totalTooLarge"));
+    }
+    uploadedImages.push(uploadedImage);
   }
 
   const ipType = await ensureImportedIpType({
@@ -1635,9 +1631,8 @@ export async function importIpsAction(
   formData: FormData,
 ): Promise<ServerActionResult<IpBatchImportResult>> {
   return withAuth(async ({ team }) => {
-    const t = getIpBatchTranslator(
-      (await getTranslations("Tagging.IpLibrary")) as TranslationFunction,
-    );
+    const libraryT = (await getTranslations("Tagging.IpLibrary")) as TranslationFunction;
+    const t = getIpBatchTranslator(libraryT);
     const tBatch = (await getTranslations("Tagging.BatchImportExport")) as TranslationFunction;
     const fileErrors = getIpBatchFileErrors(tBatch);
     const columns = await getLocalizedIpBatchColumns();
@@ -1714,6 +1709,7 @@ export async function importIpsAction(
             tagLookup,
             ipTypeCache,
             existingNames,
+            libraryT,
             t,
           });
           createdIps.push(ip);

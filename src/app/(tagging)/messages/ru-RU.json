@@ -466,7 +466,7 @@
           "name": "Название идентификатора",
           "logoTypeName": "Тип идентификатора",
           "tagPaths": "Связанные теги",
-          "imageObjectKeys": "S3 Key изображения идентификатора",
+          "imageUrls": "URL для скачивания изображения",
           "notes": "Примечания",
           "enabled": "Статус включения"
         },
@@ -479,7 +479,7 @@
           "excelUnsupportedCompression": "Файл Excel использует неподдерживаемый метод сжатия"
         },
         "importErrors": {
-          "ossKeyUnreadable": "S3 Key изображения недоступен для чтения: {objectKey}",
+          "imageUrlUnreadable": "Не удалось скачать {imageUrlColumn}: {imageUrl}",
           "tagsRequired": "Связанные теги не могут быть пустыми",
           "tagsTooMany": "Количество связанных тегов не может превышать 100",
           "tagsNotFound": "Связанные теги не найдены: {tags}",
@@ -491,7 +491,7 @@
           "typeTooLong": "Тип идентификатора не может превышать 100 символов",
           "descriptionTooLong": "{descriptionColumn} cannot exceed 5000 characters",
           "notesTooLong": "Примечания не могут превышать 5000 символов",
-          "imageKeysRequired": "S3 Key изображения идентификатора не может быть пустым",
+          "imageUrlsRequired": "{imageUrlColumn} не может быть пустым",
           "imagesTooMany": "Количество изображений идентификатора не может превышать 100",
           "matchPatternInvalid": "{matchPatternColumn} only supports: {whole}/{partial}",
           "partialImportUnsupported": "Partial IP import is not supported in batch files. Use whole match rows or create partial IP entries manually."
@@ -727,12 +727,12 @@
           "description": "Описание основных особенностей",
           "matchPattern": "Режим сопоставления",
           "tagPaths": "Связанные теги",
-          "imageObjectKeys": "Изображения IP S3 Key",
+          "imageUrls": "URL для скачивания изображения",
           "notes": "Примечания",
           "enabled": "Статус включения"
         },
         "importErrors": {
-          "ossKeyUnreadable": "Не удалось прочитать {imageKeyColumn}: {objectKey}",
+          "imageUrlUnreadable": "Не удалось скачать {imageUrlColumn}: {imageUrl}",
           "tagsRequired": "{tagsColumn} не может быть пустым",
           "tagsTooMany": "{tagsColumn} не может превышать 100",
           "tagsNotFound": "{tagsColumn} не найдено: {tags}",
@@ -744,8 +744,8 @@
           "typeTooLong": "{typeColumn} не может превышать 100 символов",
           "descriptionTooLong": "{descriptionColumn} не может превышать 5000 символов",
           "notesTooLong": "{notesColumn} не может превышать 5000 символов",
-          "imageKeysRequired": "{imageKeyColumn} не может быть пустым",
-          "imagesTooMany": "{imageKeyColumn} не может превышать 100 изображений",
+          "imageUrlsRequired": "{imageUrlColumn} не может быть пустым",
+          "imagesTooMany": "{imageUrlColumn} не может превышать 100 изображений",
           "matchPatternInvalid": "{matchPatternColumn} поддерживает только: {whole}/{partial}",
           "partialImportUnsupported": "Импорт IP с частичным совпадением не поддерживается в пакетных файлах. Используйте строки полного совпадения или создайте такие IP вручную."
         }
@@ -1059,12 +1059,12 @@
           "name": "Имя",
           "personTypeName": "Роль",
           "tagPaths": "Связанные теги",
-          "imageObjectKeys": "Фото лица S3 Key",
+          "imageUrls": "URL для скачивания изображения",
           "notes": "Примечания",
           "enabled": "Статус активности"
         },
         "importErrors": {
-          "ossKeyUnreadable": "Не удалось прочитать {imageKeyColumn}: {objectKey}",
+          "imageUrlUnreadable": "Не удалось скачать {imageUrlColumn}: {imageUrl}",
           "tagsRequired": "{tagsColumn} не может быть пустым",
           "tagsTooMany": "{tagsColumn} не может превышать 100",
           "tagsNotFound": "{tagsColumn} не найдено: {tags}",
@@ -1076,8 +1076,8 @@
           "typeTooLong": "{typeColumn} не может превышать 100 символов",
           "descriptionTooLong": "{descriptionColumn} не может превышать 5000 символов",
           "notesTooLong": "{notesColumn} не может превышать 5000 символов",
-          "imageKeysRequired": "{imageKeyColumn} не может быть пустым",
-          "imagesTooMany": "{imageKeyColumn} не может превышать 100 изображений",
+          "imageUrlsRequired": "{imageUrlColumn} не может быть пустым",
+          "imagesTooMany": "{imageUrlColumn} не может превышать 100 изображений",
           "matchPatternInvalid": "{matchPatternColumn} поддерживает только: {whole}/{partial}",
           "partialImportUnsupported": "Импорт IP с частичным совпадением не поддерживается в пакетных файлах. Используйте строки полного совпадения или создайте такие IP вручную."
         }
@@ -1321,12 +1321,12 @@
           "productTypeName": "Тип товара",
           "description": "Описание основных признаков",
           "tagPaths": "Связанные теги",
-          "imageObjectKeys": "Изображения товара S3 Key",
+          "imageUrls": "URL для скачивания изображения",
           "notes": "Примечания",
           "enabled": "Статус включения"
         },
         "importErrors": {
-          "ossKeyUnreadable": "Не удалось прочитать {imageKeyColumn}: {objectKey}",
+          "imageUrlUnreadable": "Не удалось скачать {imageUrlColumn}: {imageUrl}",
           "tagsRequired": "{tagsColumn} не может быть пустым",
           "tagsTooMany": "{tagsColumn} не может превышать 100",
           "tagsNotFound": "{tagsColumn} не найдено: {tags}",
@@ -1338,8 +1338,8 @@
           "typeTooLong": "{typeColumn} не может превышать 100 символов",
           "descriptionTooLong": "{descriptionColumn} не может превышать 5000 символов",
           "notesTooLong": "{notesColumn} не может превышать 5000 символов",
-          "imageKeysRequired": "{imageKeyColumn} не может быть пустым",
-          "imagesTooMany": "{imageKeyColumn} не может превышать 100 изображений",
+          "imageUrlsRequired": "{imageUrlColumn} не может быть пустым",
+          "imagesTooMany": "{imageUrlColumn} не может превышать 100 изображений",
           "matchPatternInvalid": "{matchPatternColumn} поддерживает только: {whole}/{partial}",
           "partialImportUnsupported": "Импорт IP с частичным совпадением не поддерживается в пакетных файлах. Используйте строки полного совпадения или создайте такие IP вручную."
         }
@@ -1433,7 +1433,7 @@
         "excelUnsupportedCompression": "Файл Excel использует неподдерживаемый метод сжатия"
       },
       "importErrors": {
-        "ossKeyUnreadable": "Не удалось прочитать {imageKeyColumn}: {objectKey}",
+        "imageUrlUnreadable": "Не удалось скачать {imageUrlColumn}: {imageUrl}",
         "tagsRequired": "{tagsColumn} не может быть пустым",
         "tagsTooMany": "{tagsColumn} не может превышать 100",
         "tagsNotFound": "{tagsColumn} не найдено: {tags}",
@@ -1445,8 +1445,8 @@
         "typeTooLong": "{typeColumn} не может превышать 100 символов",
         "descriptionTooLong": "{descriptionColumn} не может превышать 5000 символов",
         "notesTooLong": "{notesColumn} не может превышать 5000 символов",
-        "imageKeysRequired": "{imageKeyColumn} не может быть пустым",
-        "imagesTooMany": "{imageKeyColumn} не может превышать 100 изображений",
+        "imageUrlsRequired": "{imageUrlColumn} не может быть пустым",
+        "imagesTooMany": "{imageUrlColumn} не может превышать 100 изображений",
         "matchPatternInvalid": "{matchPatternColumn} поддерживает только: {whole}/{partial}",
         "partialImportUnsupported": "Импорт IP с частичным совпадением не поддерживается в пакетных файлах. Используйте строки полного совпадения или создайте такие IP вручную."
       },

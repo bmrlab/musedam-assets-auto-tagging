@@ -462,7 +462,7 @@
           "name": "पहचान नाम",
           "logoTypeName": "पहचान प्रकार",
           "tagPaths": "लिंक्ड टैग",
-          "imageObjectKeys": "पहचान चित्र S3 Key",
+          "imageUrls": "छवि डाउनलोड URL",
           "notes": "नोट्स",
           "enabled": "सक्षम स्थिति"
         },
@@ -475,7 +475,7 @@
           "excelUnsupportedCompression": "Excel फ़ाइल असमर्थित संपीड़न विधि का उपयोग करती है"
         },
         "importErrors": {
-          "ossKeyUnreadable": "चित्र S3 Key पढ़ा नहीं जा सकता: {objectKey}",
+          "imageUrlUnreadable": "{imageUrlColumn} डाउनलोड नहीं किया जा सका: {imageUrl}",
           "tagsRequired": "लिंक्ड टैग खाली नहीं हो सकते",
           "tagsTooMany": "लिंक्ड टैग 100 से अधिक नहीं हो सकते",
           "tagsNotFound": "लिंक्ड टैग नहीं मिले: {tags}",
@@ -487,7 +487,7 @@
           "typeTooLong": "पहचान प्रकार 100 अक्षरों से अधिक नहीं हो सकता",
           "descriptionTooLong": "{descriptionColumn} cannot exceed 5000 characters",
           "notesTooLong": "नोट्स 5000 अक्षरों से अधिक नहीं हो सकते",
-          "imageKeysRequired": "पहचान चित्र S3 Key खाली नहीं हो सकता",
+          "imageUrlsRequired": "{imageUrlColumn} खाली नहीं हो सकता",
           "imagesTooMany": "पहचान चित्र 100 से अधिक नहीं हो सकते",
           "matchPatternInvalid": "{matchPatternColumn} only supports: {whole}/{partial}",
           "partialImportUnsupported": "Partial IP import is not supported in batch files. Use whole match rows or create partial IP entries manually."
@@ -723,12 +723,12 @@
           "description": "मुख्य फ़ीचर विवरण",
           "matchPattern": "मिलान मोड",
           "tagPaths": "लिंक्ड टैग",
-          "imageObjectKeys": "IP चित्र S3 Key",
+          "imageUrls": "छवि डाउनलोड URL",
           "notes": "नोट्स",
           "enabled": "सक्षम स्थिति"
         },
         "importErrors": {
-          "ossKeyUnreadable": "{imageKeyColumn} पढ़ा नहीं जा सकता: {objectKey}",
+          "imageUrlUnreadable": "{imageUrlColumn} डाउनलोड नहीं किया जा सका: {imageUrl}",
           "tagsRequired": "{tagsColumn} खाली नहीं हो सकता",
           "tagsTooMany": "{tagsColumn} 100 से अधिक नहीं हो सकता",
           "tagsNotFound": "{tagsColumn} नहीं मिला: {tags}",
@@ -740,8 +740,8 @@
           "typeTooLong": "{typeColumn} 100 अक्षरों से अधिक नहीं हो सकता",
           "descriptionTooLong": "{descriptionColumn} 5000 अक्षरों से अधिक नहीं हो सकता",
           "notesTooLong": "{notesColumn} 5000 अक्षरों से अधिक नहीं हो सकता",
-          "imageKeysRequired": "{imageKeyColumn} खाली नहीं हो सकता",
-          "imagesTooMany": "{imageKeyColumn} 100 छवियों से अधिक नहीं हो सकता",
+          "imageUrlsRequired": "{imageUrlColumn} खाली नहीं हो सकता",
+          "imagesTooMany": "{imageUrlColumn} 100 छवियों से अधिक नहीं हो सकता",
           "matchPatternInvalid": "{matchPatternColumn} केवल समर्थन करता है: {whole}/{partial}",
           "partialImportUnsupported": "बैच फ़ाइलों में आंशिक IP आयात समर्थित नहीं है। पूर्ण मिलान वाली पंक्तियों का उपयोग करें या आंशिक IP प्रविष्टियाँ मैन्युअली बनाएँ।"
         }
@@ -1014,12 +1014,12 @@
           "name": "व्यक्ति का नाम",
           "personTypeName": "पहचान / भूमिका",
           "tagPaths": "लिंक्ड टैग",
-          "imageObjectKeys": "चेहरे की तस्वीरें S3 Key",
+          "imageUrls": "छवि डाउनलोड URL",
           "notes": "नोट्स",
           "enabled": "सक्षम स्थिति"
         },
         "importErrors": {
-          "ossKeyUnreadable": "{imageKeyColumn} पढ़ा नहीं जा सकता: {objectKey}",
+          "imageUrlUnreadable": "{imageUrlColumn} डाउनलोड नहीं किया जा सका: {imageUrl}",
           "tagsRequired": "{tagsColumn} खाली नहीं हो सकता",
           "tagsTooMany": "{tagsColumn} 100 से अधिक नहीं हो सकता",
           "tagsNotFound": "{tagsColumn} नहीं मिला: {tags}",
@@ -1031,8 +1031,8 @@
           "typeTooLong": "{typeColumn} 100 अक्षरों से अधिक नहीं हो सकता",
           "descriptionTooLong": "{descriptionColumn} 5000 अक्षरों से अधिक नहीं हो सकता",
           "notesTooLong": "{notesColumn} 5000 अक्षरों से अधिक नहीं हो सकता",
-          "imageKeysRequired": "{imageKeyColumn} खाली नहीं हो सकता",
-          "imagesTooMany": "{imageKeyColumn} 100 छवियों से अधिक नहीं हो सकता",
+          "imageUrlsRequired": "{imageUrlColumn} खाली नहीं हो सकता",
+          "imagesTooMany": "{imageUrlColumn} 100 छवियों से अधिक नहीं हो सकता",
           "matchPatternInvalid": "{matchPatternColumn} केवल समर्थन करता है: {whole}/{partial}",
           "partialImportUnsupported": "बैच फ़ाइलों में आंशिक IP आयात समर्थित नहीं है। पूर्ण मिलान वाली पंक्तियों का उपयोग करें या आंशिक IP प्रविष्टियाँ मैन्युअली बनाएँ।"
         }
@@ -1276,12 +1276,12 @@
           "productTypeName": "उत्पाद प्रकार",
           "description": "मुख्य विशेषता विवरण",
           "tagPaths": "लिंक्ड टैग",
-          "imageObjectKeys": "उत्पाद चित्र S3 Key",
+          "imageUrls": "छवि डाउनलोड URL",
           "notes": "नोट्स",
           "enabled": "सक्षम स्थिति"
         },
         "importErrors": {
-          "ossKeyUnreadable": "{imageKeyColumn} पढ़ा नहीं जा सकता: {objectKey}",
+          "imageUrlUnreadable": "{imageUrlColumn} डाउनलोड नहीं किया जा सका: {imageUrl}",
           "tagsRequired": "{tagsColumn} खाली नहीं हो सकता",
           "tagsTooMany": "{tagsColumn} 100 से अधिक नहीं हो सकता",
           "tagsNotFound": "{tagsColumn} नहीं मिला: {tags}",
@@ -1293,8 +1293,8 @@
           "typeTooLong": "{typeColumn} 100 अक्षरों से अधिक नहीं हो सकता",
           "descriptionTooLong": "{descriptionColumn} 5000 अक्षरों से अधिक नहीं हो सकता",
           "notesTooLong": "{notesColumn} 5000 अक्षरों से अधिक नहीं हो सकता",
-          "imageKeysRequired": "{imageKeyColumn} खाली नहीं हो सकता",
-          "imagesTooMany": "{imageKeyColumn} 100 छवियों से अधिक नहीं हो सकता",
+          "imageUrlsRequired": "{imageUrlColumn} खाली नहीं हो सकता",
+          "imagesTooMany": "{imageUrlColumn} 100 छवियों से अधिक नहीं हो सकता",
           "matchPatternInvalid": "{matchPatternColumn} केवल समर्थन करता है: {whole}/{partial}",
           "partialImportUnsupported": "बैच फ़ाइलों में आंशिक IP आयात समर्थित नहीं है। पूर्ण मिलान वाली पंक्तियों का उपयोग करें या आंशिक IP प्रविष्टियाँ मैन्युअली बनाएँ।"
         }
@@ -1388,7 +1388,7 @@
         "excelUnsupportedCompression": "Excel फ़ाइल असमर्थित संपीड़न विधि का उपयोग करती है"
       },
       "importErrors": {
-        "ossKeyUnreadable": "{imageKeyColumn} पढ़ा नहीं जा सकता: {objectKey}",
+        "imageUrlUnreadable": "{imageUrlColumn} डाउनलोड नहीं किया जा सका: {imageUrl}",
         "tagsRequired": "{tagsColumn} खाली नहीं हो सकता",
         "tagsTooMany": "{tagsColumn} 100 से अधिक नहीं हो सकता",
         "tagsNotFound": "{tagsColumn} नहीं मिला: {tags}",
@@ -1400,8 +1400,8 @@
         "typeTooLong": "{typeColumn} 100 अक्षरों से अधिक नहीं हो सकता",
         "descriptionTooLong": "{descriptionColumn} 5000 अक्षरों से अधिक नहीं हो सकता",
         "notesTooLong": "{notesColumn} 5000 अक्षरों से अधिक नहीं हो सकता",
-        "imageKeysRequired": "{imageKeyColumn} खाली नहीं हो सकता",
-        "imagesTooMany": "{imageKeyColumn} 100 छवियों से अधिक नहीं हो सकता",
+        "imageUrlsRequired": "{imageUrlColumn} खाली नहीं हो सकता",
+        "imagesTooMany": "{imageUrlColumn} 100 छवियों से अधिक नहीं हो सकता",
         "matchPatternInvalid": "{matchPatternColumn} केवल समर्थन करता है: {whole}/{partial}",
         "partialImportUnsupported": "बैच फ़ाइलों में आंशिक IP आयात समर्थित नहीं है। पूर्ण मिलान वाली पंक्तियों का उपयोग करें या आंशिक IP प्रविष्टियाँ मैन्युअली बनाएँ।"
       },

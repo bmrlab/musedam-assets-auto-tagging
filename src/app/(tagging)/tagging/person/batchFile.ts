@@ -1,5 +1,6 @@
 import "server-only";
 
+import { getS3PublicObjectUrl } from "@/lib/s3";
 import { getLocalizedBatchColumns } from "../batchColumnTranslations";
 import {
   buildBatchTemplateRows,
@@ -18,7 +19,7 @@ export type ParsedPersonBatchRow = {
   name: string;
   personTypeName: string;
   tagPaths: string;
-  imageObjectKeys: string;
+  imageUrls: string;
   notes: string;
   enabled: string;
 };
@@ -27,7 +28,7 @@ export type PersonBatchColumnKey =
   | "name"
   | "personTypeName"
   | "tagPaths"
-  | "imageObjectKeys"
+  | "imageUrls"
   | "notes"
   | "enabled";
 
@@ -36,7 +37,7 @@ export const PERSON_BATCH_ENGLISH_HEADERS: Record<PersonBatchColumnKey, string> 
   name: "Person Name",
   personTypeName: "Identity / Role",
   tagPaths: "Linked Tags",
-  imageObjectKeys: "Face Photo S3 Key",
+  imageUrls: "Face Photo Download URL",
   notes: "Notes",
   enabled: "Enabled Status",
 };
@@ -50,7 +51,7 @@ const PERSON_BATCH_COLUMN_ORDER: PersonBatchColumnKey[] = [
   "name",
   "personTypeName",
   "tagPaths",
-  "imageObjectKeys",
+  "imageUrls",
   "notes",
   "enabled",
 ];
@@ -59,7 +60,7 @@ const REQUIRED_PERSON_BATCH_COLUMNS: PersonBatchColumnKey[] = [
   "name",
   "personTypeName",
   "tagPaths",
-  "imageObjectKeys",
+  "imageUrls",
 ];
 
 export function getPersonBatchColumns() {
@@ -91,7 +92,7 @@ export function buildPersonBatchExportRows({
       person.name,
       person.personTypeName,
       person.tags.map((tag) => tag.tagPath.join(" > ")).join("; "),
-      person.images.map((image) => image.objectKey).join("; "),
+      person.images.map((image) => getS3PublicObjectUrl(image.objectKey)).join("; "),
       person.notes,
       person.enabled ? PERSON_BATCH_ENABLED_VALUES.enabled : PERSON_BATCH_ENABLED_VALUES.disabled,
     ]),

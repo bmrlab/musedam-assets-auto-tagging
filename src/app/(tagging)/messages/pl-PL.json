@@ -221,7 +221,7 @@
           "name": "Nazwa identyfikacji",
           "logoTypeName": "Typ identyfikacji",
           "tagPaths": "Powiązane tagi",
-          "imageObjectKeys": "Klucz S3 obrazu identyfikacji",
+          "imageUrls": "URL pobierania obrazu",
           "notes": "Notatki",
           "enabled": "Status włączenia"
         },
@@ -234,7 +234,7 @@
           "excelUnsupportedCompression": "Plik Excel używa nieobsługiwanej metody kompresji"
         },
         "importErrors": {
-          "ossKeyUnreadable": "Nie można odczytać klucza S3 obrazu: {objectKey}",
+          "imageUrlUnreadable": "Nie można pobrać {imageUrlColumn}: {imageUrl}",
           "tagsRequired": "Powiązane tagi nie mogą być puste",
           "tagsTooMany": "Powiązane tagi nie mogą przekraczać 100",
           "tagsNotFound": "Nie znaleziono powiązanych tagów: {tags}",
@@ -246,7 +246,7 @@
           "typeTooLong": "Typ identyfikacji nie może przekraczać 100 znaków",
           "descriptionTooLong": "{descriptionColumn} cannot exceed 5000 characters",
           "notesTooLong": "Notatki nie mogą przekraczać 5000 znaków",
-          "imageKeysRequired": "Klucz S3 obrazu identyfikacji nie może być pusty",
+          "imageUrlsRequired": "{imageUrlColumn} nie może być pusty",
           "imagesTooMany": "Obrazy identyfikacji nie mogą przekraczać 100",
           "matchPatternInvalid": "{matchPatternColumn} only supports: {whole}/{partial}",
           "partialImportUnsupported": "Partial IP import is not supported in batch files. Use whole match rows or create partial IP entries manually."
@@ -482,12 +482,12 @@
           "description": "Opis podstawowych cech",
           "matchPattern": "Tryb dopasowania",
           "tagPaths": "Powiązane tagi",
-          "imageObjectKeys": "Obrazy IP S3 Key",
+          "imageUrls": "URL pobierania obrazu",
           "notes": "Notatki",
           "enabled": "Status włączenia"
         },
         "importErrors": {
-          "ossKeyUnreadable": "Nie można odczytać {imageKeyColumn}: {objectKey}",
+          "imageUrlUnreadable": "Nie można pobrać {imageUrlColumn}: {imageUrl}",
           "tagsRequired": "{tagsColumn} nie może być puste",
           "tagsTooMany": "{tagsColumn} nie może przekraczać 100",
           "tagsNotFound": "Nie znaleziono {tagsColumn}: {tags}",
@@ -499,8 +499,8 @@
           "typeTooLong": "{typeColumn} nie może przekraczać 100 znaków",
           "descriptionTooLong": "{descriptionColumn} nie może przekraczać 5000 znaków",
           "notesTooLong": "{notesColumn} nie może przekraczać 5000 znaków",
-          "imageKeysRequired": "{imageKeyColumn} nie może być puste",
-          "imagesTooMany": "{imageKeyColumn} nie może przekraczać 100 obrazów",
+          "imageUrlsRequired": "{imageUrlColumn} nie może być pusty",
+          "imagesTooMany": "{imageUrlColumn} nie może przekraczać 100 obrazów",
           "matchPatternInvalid": "{matchPatternColumn} obsługuje tylko: {whole}/{partial}",
           "partialImportUnsupported": "Import IP z dopasowaniem częściowym nie jest obsługiwany w plikach wsadowych. Użyj wierszy z dopasowaniem całościowym albo utwórz takie IP ręcznie."
         }
@@ -1059,12 +1059,12 @@
           "name": "Nazwa osoby",
           "personTypeName": "Tożsamość / Rola",
           "tagPaths": "Powiązane tagi",
-          "imageObjectKeys": "Zdjęcia twarzy S3 Key",
+          "imageUrls": "URL pobierania obrazu",
           "notes": "Notatki",
           "enabled": "Status włączenia"
         },
         "importErrors": {
-          "ossKeyUnreadable": "Nie można odczytać {imageKeyColumn}: {objectKey}",
+          "imageUrlUnreadable": "Nie można pobrać {imageUrlColumn}: {imageUrl}",
           "tagsRequired": "{tagsColumn} nie może być puste",
           "tagsTooMany": "{tagsColumn} nie może przekraczać 100",
           "tagsNotFound": "Nie znaleziono {tagsColumn}: {tags}",
@@ -1076,8 +1076,8 @@
           "typeTooLong": "{typeColumn} nie może przekraczać 100 znaków",
           "descriptionTooLong": "{descriptionColumn} nie może przekraczać 5000 znaków",
           "notesTooLong": "{notesColumn} nie może przekraczać 5000 znaków",
-          "imageKeysRequired": "{imageKeyColumn} nie może być puste",
-          "imagesTooMany": "{imageKeyColumn} nie może przekraczać 100 obrazów",
+          "imageUrlsRequired": "{imageUrlColumn} nie może być pusty",
+          "imagesTooMany": "{imageUrlColumn} nie może przekraczać 100 obrazów",
           "matchPatternInvalid": "{matchPatternColumn} obsługuje tylko: {whole}/{partial}",
           "partialImportUnsupported": "Import IP z dopasowaniem częściowym nie jest obsługiwany w plikach wsadowych. Użyj wierszy z dopasowaniem całościowym albo utwórz takie IP ręcznie."
         }
@@ -1321,12 +1321,12 @@
           "productTypeName": "Typ produktu",
           "description": "Opis podstawowych cech",
           "tagPaths": "Powiązane tagi",
-          "imageObjectKeys": "Obrazy produktu S3 Key",
+          "imageUrls": "URL pobierania obrazu",
           "notes": "Notatki",
           "enabled": "Status włączenia"
         },
         "importErrors": {
-          "ossKeyUnreadable": "Nie można odczytać {imageKeyColumn}: {objectKey}",
+          "imageUrlUnreadable": "Nie można pobrać {imageUrlColumn}: {imageUrl}",
           "tagsRequired": "{tagsColumn} nie może być puste",
           "tagsTooMany": "{tagsColumn} nie może przekraczać 100",
           "tagsNotFound": "Nie znaleziono {tagsColumn}: {tags}",
@@ -1338,8 +1338,8 @@
           "typeTooLong": "{typeColumn} nie może przekraczać 100 znaków",
           "descriptionTooLong": "{descriptionColumn} nie może przekraczać 5000 znaków",
           "notesTooLong": "{notesColumn} nie może przekraczać 5000 znaków",
-          "imageKeysRequired": "{imageKeyColumn} nie może być puste",
-          "imagesTooMany": "{imageKeyColumn} nie może przekraczać 100 obrazów",
+          "imageUrlsRequired": "{imageUrlColumn} nie może być pusty",
+          "imagesTooMany": "{imageUrlColumn} nie może przekraczać 100 obrazów",
           "matchPatternInvalid": "{matchPatternColumn} obsługuje tylko: {whole}/{partial}",
           "partialImportUnsupported": "Import IP z dopasowaniem częściowym nie jest obsługiwany w plikach wsadowych. Użyj wierszy z dopasowaniem całościowym albo utwórz takie IP ręcznie."
         }
@@ -1433,7 +1433,7 @@
         "excelUnsupportedCompression": "Plik Excel używa nieobsługiwanej metody kompresji"
       },
       "importErrors": {
-        "ossKeyUnreadable": "Nie można odczytać {imageKeyColumn}: {objectKey}",
+        "imageUrlUnreadable": "Nie można pobrać {imageUrlColumn}: {imageUrl}",
         "tagsRequired": "{tagsColumn} nie może być puste",
         "tagsTooMany": "{tagsColumn} nie może przekraczać 100",
         "tagsNotFound": "Nie znaleziono {tagsColumn}: {tags}",
@@ -1445,8 +1445,8 @@
         "typeTooLong": "{typeColumn} nie może przekraczać 100 znaków",
         "descriptionTooLong": "{descriptionColumn} nie może przekraczać 5000 znaków",
         "notesTooLong": "{notesColumn} nie może przekraczać 5000 znaków",
-        "imageKeysRequired": "{imageKeyColumn} nie może być puste",
-        "imagesTooMany": "{imageKeyColumn} nie może przekraczać 100 obrazów",
+        "imageUrlsRequired": "{imageUrlColumn} nie może być pusty",
+        "imagesTooMany": "{imageUrlColumn} nie może przekraczać 100 obrazów",
         "matchPatternInvalid": "{matchPatternColumn} obsługuje tylko: {whole}/{partial}",
         "partialImportUnsupported": "Import IP z dopasowaniem częściowym nie jest obsługiwany w plikach wsadowych. Użyj wierszy z dopasowaniem całościowym albo utwórz takie IP ręcznie."
       },

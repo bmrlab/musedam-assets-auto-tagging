@@ -1,5 +1,6 @@
 import "server-only";
 
+import { getS3PublicObjectUrl } from "@/lib/s3";
 import { inflateRawSync } from "node:zlib";
 
 import { getLocalizedBatchColumns } from "../batchColumnTranslations";
@@ -12,7 +13,7 @@ export type ParsedBrandBatchRow = {
   name: string;
   logoTypeName: string;
   tagPaths: string;
-  imageObjectKeys: string;
+  imageUrls: string;
   notes: string;
   enabled: string;
 };
@@ -21,7 +22,7 @@ export type BrandBatchColumnKey =
   | "name"
   | "logoTypeName"
   | "tagPaths"
-  | "imageObjectKeys"
+  | "imageUrls"
   | "notes"
   | "enabled";
 
@@ -36,7 +37,7 @@ export const BRAND_BATCH_ENGLISH_HEADERS: Record<BrandBatchColumnKey, string> = 
   name: "Identity Name",
   logoTypeName: "Identity Type",
   tagPaths: "Linked Tags",
-  imageObjectKeys: "Identity Image S3 Key",
+  imageUrls: "Identity Image Download URL",
   notes: "Notes",
   enabled: "Enabled Status",
 };
@@ -50,7 +51,7 @@ const BRAND_BATCH_COLUMN_ORDER: BrandBatchColumnKey[] = [
   "name",
   "logoTypeName",
   "tagPaths",
-  "imageObjectKeys",
+  "imageUrls",
   "notes",
   "enabled",
 ];
@@ -59,7 +60,7 @@ const REQUIRED_BRAND_BATCH_COLUMNS: BrandBatchColumnKey[] = [
   "name",
   "logoTypeName",
   "tagPaths",
-  "imageObjectKeys",
+  "imageUrls",
 ];
 
 const BRAND_BATCH_COLUMNS: BrandBatchColumnDefinition[] = BRAND_BATCH_COLUMN_ORDER.map((key) => ({
@@ -132,7 +133,7 @@ export function buildBrandBatchExportRows({
       logo.name,
       logo.logoTypeName,
       logo.tags.map((tag) => tag.tagPath.join(" > ")).join("; "),
-      logo.images.map((image) => image.objectKey).join("; "),
+      logo.images.map((image) => getS3PublicObjectUrl(image.objectKey)).join("; "),
       logo.notes,
       logo.enabled ? BRAND_BATCH_ENABLED_VALUES.enabled : BRAND_BATCH_ENABLED_VALUES.disabled,
     ]),
@@ -276,7 +277,7 @@ export function parseBrandBatchRows({
       name: getCell(row, headerMap.name),
       logoTypeName: getCell(row, headerMap.logoTypeName),
       tagPaths: getCell(row, headerMap.tagPaths),
-      imageObjectKeys: getCell(row, headerMap.imageObjectKeys),
+      imageUrls: getCell(row, headerMap.imageUrls),
       notes: getCell(row, headerMap.notes),
       enabled: getCell(row, headerMap.enabled),
     }));

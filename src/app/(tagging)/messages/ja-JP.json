@@ -466,7 +466,7 @@
           "name": "識別名",
           "logoTypeName": "識別タイプ",
           "tagPaths": "関連タグ",
-          "imageObjectKeys": "識別画像 S3 Key",
+          "imageUrls": "画像ダウンロード URL",
           "notes": "メモ",
           "enabled": "有効状態"
         },
@@ -479,7 +479,7 @@
           "excelUnsupportedCompression": "Excel ファイルの圧縮方式はサポートされていません"
         },
         "importErrors": {
-          "ossKeyUnreadable": "画像 S3 Key を読み取れません：{objectKey}",
+          "imageUrlUnreadable": "{imageUrlColumn} をダウンロードできません: {imageUrl}",
           "tagsRequired": "関連タグは空にできません",
           "tagsTooMany": "関連タグは100件を超えることはできません",
           "tagsNotFound": "関連タグが見つかりません：{tags}",
@@ -491,7 +491,7 @@
           "typeTooLong": "識別タイプは100文字を超えることはできません",
           "descriptionTooLong": "{descriptionColumn} cannot exceed 5000 characters",
           "notesTooLong": "メモは5000文字を超えることはできません",
-          "imageKeysRequired": "識別画像 S3 Key は空にできません",
+          "imageUrlsRequired": "{imageUrlColumn} は空にできません",
           "imagesTooMany": "識別画像は100枚を超えることはできません",
           "matchPatternInvalid": "{matchPatternColumn} only supports: {whole}/{partial}",
           "partialImportUnsupported": "Partial IP import is not supported in batch files. Use whole match rows or create partial IP entries manually."
@@ -821,12 +821,12 @@
           "description": "主要な特徴の説明",
           "matchPattern": "マッチング方式",
           "tagPaths": "関連タグ",
-          "imageObjectKeys": "IP画像 S3 Key",
+          "imageUrls": "画像ダウンロード URL",
           "notes": "メモ",
           "enabled": "有効状態"
         },
         "importErrors": {
-          "ossKeyUnreadable": "{imageKeyColumn} を読み取れません: {objectKey}",
+          "imageUrlUnreadable": "{imageUrlColumn} をダウンロードできません: {imageUrl}",
           "tagsRequired": "{tagsColumn} は必須です",
           "tagsTooMany": "{tagsColumn} は 100 件を超えられません",
           "tagsNotFound": "{tagsColumn} が見つかりません: {tags}",
@@ -838,8 +838,8 @@
           "typeTooLong": "{typeColumn} は 100 文字以内にしてください",
           "descriptionTooLong": "{descriptionColumn} は 5000 文字以内にしてください",
           "notesTooLong": "{notesColumn} は 5000 文字以内にしてください",
-          "imageKeysRequired": "{imageKeyColumn} は必須です",
-          "imagesTooMany": "{imageKeyColumn} は 100 枚を超えられません",
+          "imageUrlsRequired": "{imageUrlColumn} は空にできません",
+          "imagesTooMany": "{imageUrlColumn} は 100 枚を超えられません",
           "matchPatternInvalid": "{matchPatternColumn} は {whole}/{partial} のみ対応しています",
           "partialImportUnsupported": "一括ファイルでは部分一致 IP のインポートに対応していません。全体一致の行を使用するか、部分一致 IP を手動で作成してください。"
         }
@@ -1059,12 +1059,12 @@
           "name": "人物名",
           "personTypeName": "役割/身分",
           "tagPaths": "関連タグ",
-          "imageObjectKeys": "顔写真 S3 Key",
+          "imageUrls": "画像ダウンロード URL",
           "notes": "備考",
           "enabled": "有効状態"
         },
         "importErrors": {
-          "ossKeyUnreadable": "{imageKeyColumn} を読み取れません: {objectKey}",
+          "imageUrlUnreadable": "{imageUrlColumn} をダウンロードできません: {imageUrl}",
           "tagsRequired": "{tagsColumn} は必須です",
           "tagsTooMany": "{tagsColumn} は 100 件を超えられません",
           "tagsNotFound": "{tagsColumn} が見つかりません: {tags}",
@@ -1076,8 +1076,8 @@
           "typeTooLong": "{typeColumn} は 100 文字以内にしてください",
           "descriptionTooLong": "{descriptionColumn} は 5000 文字以内にしてください",
           "notesTooLong": "{notesColumn} は 5000 文字以内にしてください",
-          "imageKeysRequired": "{imageKeyColumn} は必須です",
-          "imagesTooMany": "{imageKeyColumn} は 100 枚を超えられません",
+          "imageUrlsRequired": "{imageUrlColumn} は空にできません",
+          "imagesTooMany": "{imageUrlColumn} は 100 枚を超えられません",
           "matchPatternInvalid": "{matchPatternColumn} は {whole}/{partial} のみ対応しています",
           "partialImportUnsupported": "一括ファイルでは部分一致 IP のインポートに対応していません。全体一致の行を使用するか、部分一致 IP を手動で作成してください。"
         }
@@ -1321,12 +1321,12 @@
           "productTypeName": "商品タイプ",
           "description": "主要な特徴の説明",
           "tagPaths": "関連タグ",
-          "imageObjectKeys": "商品画像 S3 Key",
+          "imageUrls": "画像ダウンロード URL",
           "notes": "メモ",
           "enabled": "有効状態"
         },
         "importErrors": {
-          "ossKeyUnreadable": "{imageKeyColumn} を読み取れません: {objectKey}",
+          "imageUrlUnreadable": "{imageUrlColumn} をダウンロードできません: {imageUrl}",
           "tagsRequired": "{tagsColumn} は必須です",
           "tagsTooMany": "{tagsColumn} は 100 件を超えられません",
           "tagsNotFound": "{tagsColumn} が見つかりません: {tags}",
@@ -1338,8 +1338,8 @@
           "typeTooLong": "{typeColumn} は 100 文字以内にしてください",
           "descriptionTooLong": "{descriptionColumn} は 5000 文字以内にしてください",
           "notesTooLong": "{notesColumn} は 5000 文字以内にしてください",
-          "imageKeysRequired": "{imageKeyColumn} は必須です",
-          "imagesTooMany": "{imageKeyColumn} は 100 枚を超えられません",
+          "imageUrlsRequired": "{imageUrlColumn} は空にできません",
+          "imagesTooMany": "{imageUrlColumn} は 100 枚を超えられません",
           "matchPatternInvalid": "{matchPatternColumn} は {whole}/{partial} のみ対応しています",
           "partialImportUnsupported": "一括ファイルでは部分一致 IP のインポートに対応していません。全体一致の行を使用するか、部分一致 IP を手動で作成してください。"
         }
@@ -1433,7 +1433,7 @@
         "excelUnsupportedCompression": "Excel ファイルの圧縮方式はサポートされていません"
       },
       "importErrors": {
-        "ossKeyUnreadable": "{imageKeyColumn} を読み取れません: {objectKey}",
+        "imageUrlUnreadable": "{imageUrlColumn} をダウンロードできません: {imageUrl}",
         "tagsRequired": "{tagsColumn} は必須です",
         "tagsTooMany": "{tagsColumn} は 100 件を超えられません",
         "tagsNotFound": "{tagsColumn} が見つかりません: {tags}",
@@ -1445,8 +1445,8 @@
         "typeTooLong": "{typeColumn} は 100 文字以内にしてください",
         "descriptionTooLong": "{descriptionColumn} は 5000 文字以内にしてください",
         "notesTooLong": "{notesColumn} は 5000 文字以内にしてください",
-        "imageKeysRequired": "{imageKeyColumn} は必須です",
-        "imagesTooMany": "{imageKeyColumn} は 100 枚を超えられません",
+        "imageUrlsRequired": "{imageUrlColumn} は空にできません",
+        "imagesTooMany": "{imageUrlColumn} は 100 枚を超えられません",
         "matchPatternInvalid": "{matchPatternColumn} は {whole}/{partial} のみ対応しています",
         "partialImportUnsupported": "一括ファイルでは部分一致 IP のインポートに対応していません。全体一致の行を使用するか、部分一致 IP を手動で作成してください。"
       },

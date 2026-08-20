@@ -466,7 +466,7 @@
           "name": "식별 이름",
           "logoTypeName": "식별 유형",
           "tagPaths": "연결된 태그",
-          "imageObjectKeys": "식별 이미지 S3 Key",
+          "imageUrls": "이미지 다운로드 URL",
           "notes": "메모",
           "enabled": "활성화 상태"
         },
@@ -479,7 +479,7 @@
           "excelUnsupportedCompression": "Excel 파일이 지원하지 않는 압축 방식을 사용합니다"
         },
         "importErrors": {
-          "ossKeyUnreadable": "이미지 S3 Key를 읽을 수 없습니다: {objectKey}",
+          "imageUrlUnreadable": "{imageUrlColumn}을(를) 다운로드할 수 없습니다: {imageUrl}",
           "tagsRequired": "연결된 태그는 비워 둘 수 없습니다",
           "tagsTooMany": "연결된 태그는 100개를 초과할 수 없습니다",
           "tagsNotFound": "연결된 태그를 찾을 수 없습니다: {tags}",
@@ -491,7 +491,7 @@
           "typeTooLong": "식별 유형은 100자를 초과할 수 없습니다",
           "descriptionTooLong": "{descriptionColumn} cannot exceed 5000 characters",
           "notesTooLong": "메모는 5000자를 초과할 수 없습니다",
-          "imageKeysRequired": "식별 이미지 S3 Key는 비워 둘 수 없습니다",
+          "imageUrlsRequired": "{imageUrlColumn}은(는) 비워 둘 수 없습니다",
           "imagesTooMany": "식별 이미지는 100개를 초과할 수 없습니다",
           "matchPatternInvalid": "{matchPatternColumn} only supports: {whole}/{partial}",
           "partialImportUnsupported": "Partial IP import is not supported in batch files. Use whole match rows or create partial IP entries manually."
@@ -819,12 +819,12 @@
           "description": "핵심 특징 설명",
           "matchPattern": "매칭 방식",
           "tagPaths": "연결된 태그",
-          "imageObjectKeys": "IP 이미지 S3 Key",
+          "imageUrls": "이미지 다운로드 URL",
           "notes": "메모",
           "enabled": "활성화 상태"
         },
         "importErrors": {
-          "ossKeyUnreadable": "{imageKeyColumn}을(를) 읽을 수 없습니다: {objectKey}",
+          "imageUrlUnreadable": "{imageUrlColumn}을(를) 다운로드할 수 없습니다: {imageUrl}",
           "tagsRequired": "{tagsColumn}은(는) 비워 둘 수 없습니다",
           "tagsTooMany": "{tagsColumn}은(는) 100개를 초과할 수 없습니다",
           "tagsNotFound": "{tagsColumn}을(를) 찾을 수 없습니다: {tags}",
@@ -836,8 +836,8 @@
           "typeTooLong": "{typeColumn}은(는) 100자를 초과할 수 없습니다",
           "descriptionTooLong": "{descriptionColumn}은(는) 5000자를 초과할 수 없습니다",
           "notesTooLong": "{notesColumn}은(는) 5000자를 초과할 수 없습니다",
-          "imageKeysRequired": "{imageKeyColumn}은(는) 비워 둘 수 없습니다",
-          "imagesTooMany": "{imageKeyColumn}은(는) 100장을 초과할 수 없습니다",
+          "imageUrlsRequired": "{imageUrlColumn}은(는) 비워 둘 수 없습니다",
+          "imagesTooMany": "{imageUrlColumn}은(는) 100장을 초과할 수 없습니다",
           "matchPatternInvalid": "{matchPatternColumn}은(는) {whole}/{partial}만 지원합니다",
           "partialImportUnsupported": "배치 파일에서는 부분 매칭 IP 가져오기를 지원하지 않습니다. 전체 매칭 행을 사용하거나 부분 매칭 IP를 수동으로 생성하세요."
         }
@@ -1057,12 +1057,12 @@
           "name": "인물 이름",
           "personTypeName": "신분/역할",
           "tagPaths": "연결된 태그",
-          "imageObjectKeys": "상품 이미지 S3 Key",
+          "imageUrls": "이미지 다운로드 URL",
           "notes": "비고 정보",
           "enabled": "활성화 상태"
         },
         "importErrors": {
-          "ossKeyUnreadable": "{imageKeyColumn}을(를) 읽을 수 없습니다: {objectKey}",
+          "imageUrlUnreadable": "{imageUrlColumn}을(를) 다운로드할 수 없습니다: {imageUrl}",
           "tagsRequired": "{tagsColumn}은(는) 비워 둘 수 없습니다",
           "tagsTooMany": "{tagsColumn}은(는) 100개를 초과할 수 없습니다",
           "tagsNotFound": "{tagsColumn}을(를) 찾을 수 없습니다: {tags}",
@@ -1074,8 +1074,8 @@
           "typeTooLong": "{typeColumn}은(는) 100자를 초과할 수 없습니다",
           "descriptionTooLong": "{descriptionColumn}은(는) 5000자를 초과할 수 없습니다",
           "notesTooLong": "{notesColumn}은(는) 5000자를 초과할 수 없습니다",
-          "imageKeysRequired": "{imageKeyColumn}은(는) 비워 둘 수 없습니다",
-          "imagesTooMany": "{imageKeyColumn}은(는) 100장을 초과할 수 없습니다",
+          "imageUrlsRequired": "{imageUrlColumn}은(는) 비워 둘 수 없습니다",
+          "imagesTooMany": "{imageUrlColumn}은(는) 100장을 초과할 수 없습니다",
           "matchPatternInvalid": "{matchPatternColumn}은(는) {whole}/{partial}만 지원합니다",
           "partialImportUnsupported": "배치 파일에서는 부분 매칭 IP 가져오기를 지원하지 않습니다. 전체 매칭 행을 사용하거나 부분 매칭 IP를 수동으로 생성하세요."
         }
@@ -1319,12 +1319,12 @@
           "productTypeName": "상품 유형",
           "description": "핵심 특징 설명",
           "tagPaths": "연결된 태그",
-          "imageObjectKeys": "상품 이미지 S3 Key",
+          "imageUrls": "이미지 다운로드 URL",
           "notes": "비고 정보",
           "enabled": "활성화 상태"
         },
         "importErrors": {
-          "ossKeyUnreadable": "{imageKeyColumn}을(를) 읽을 수 없습니다: {objectKey}",
+          "imageUrlUnreadable": "{imageUrlColumn}을(를) 다운로드할 수 없습니다: {imageUrl}",
           "tagsRequired": "{tagsColumn}은(는) 비워 둘 수 없습니다",
           "tagsTooMany": "{tagsColumn}은(는) 100개를 초과할 수 없습니다",
           "tagsNotFound": "{tagsColumn}을(를) 찾을 수 없습니다: {tags}",
@@ -1336,8 +1336,8 @@
           "typeTooLong": "{typeColumn}은(는) 100자를 초과할 수 없습니다",
           "descriptionTooLong": "{descriptionColumn}은(는) 5000자를 초과할 수 없습니다",
           "notesTooLong": "{notesColumn}은(는) 5000자를 초과할 수 없습니다",
-          "imageKeysRequired": "{imageKeyColumn}은(는) 비워 둘 수 없습니다",
-          "imagesTooMany": "{imageKeyColumn}은(는) 100장을 초과할 수 없습니다",
+          "imageUrlsRequired": "{imageUrlColumn}은(는) 비워 둘 수 없습니다",
+          "imagesTooMany": "{imageUrlColumn}은(는) 100장을 초과할 수 없습니다",
           "matchPatternInvalid": "{matchPatternColumn}은(는) {whole}/{partial}만 지원합니다",
           "partialImportUnsupported": "배치 파일에서는 부분 매칭 IP 가져오기를 지원하지 않습니다. 전체 매칭 행을 사용하거나 부분 매칭 IP를 수동으로 생성하세요."
         }
@@ -1431,7 +1431,7 @@
         "excelUnsupportedCompression": "Excel 파일이 지원하지 않는 압축 방식을 사용합니다"
       },
       "importErrors": {
-        "ossKeyUnreadable": "{imageKeyColumn}을(를) 읽을 수 없습니다: {objectKey}",
+        "imageUrlUnreadable": "{imageUrlColumn}을(를) 다운로드할 수 없습니다: {imageUrl}",
         "tagsRequired": "{tagsColumn}은(는) 비워 둘 수 없습니다",
         "tagsTooMany": "{tagsColumn}은(는) 100개를 초과할 수 없습니다",
         "tagsNotFound": "{tagsColumn}을(를) 찾을 수 없습니다: {tags}",
@@ -1443,8 +1443,8 @@
         "typeTooLong": "{typeColumn}은(는) 100자를 초과할 수 없습니다",
         "descriptionTooLong": "{descriptionColumn}은(는) 5000자를 초과할 수 없습니다",
         "notesTooLong": "{notesColumn}은(는) 5000자를 초과할 수 없습니다",
-        "imageKeysRequired": "{imageKeyColumn}은(는) 비워 둘 수 없습니다",
-        "imagesTooMany": "{imageKeyColumn}은(는) 100장을 초과할 수 없습니다",
+        "imageUrlsRequired": "{imageUrlColumn}은(는) 비워 둘 수 없습니다",
+        "imagesTooMany": "{imageUrlColumn}은(는) 100장을 초과할 수 없습니다",
         "matchPatternInvalid": "{matchPatternColumn}은(는) {whole}/{partial}만 지원합니다",
         "partialImportUnsupported": "배치 파일에서는 부분 매칭 IP 가져오기를 지원하지 않습니다. 전체 매칭 행을 사용하거나 부분 매칭 IP를 수동으로 생성하세요."
       },

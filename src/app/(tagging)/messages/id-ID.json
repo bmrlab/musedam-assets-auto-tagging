@@ -221,7 +221,7 @@
           "name": "Nama Identitas",
           "logoTypeName": "Tipe Identitas",
           "tagPaths": "Tag Terkait",
-          "imageObjectKeys": "Kunci S3 Gambar Identitas",
+          "imageUrls": "URL Unduhan Gambar",
           "notes": "Catatan",
           "enabled": "Status Aktif"
         },
@@ -234,7 +234,7 @@
           "excelUnsupportedCompression": "File Excel menggunakan metode kompresi yang tidak didukung"
         },
         "importErrors": {
-          "ossKeyUnreadable": "Kunci S3 gambar tidak dapat dibaca: {objectKey}",
+          "imageUrlUnreadable": "{imageUrlColumn} tidak dapat diunduh: {imageUrl}",
           "tagsRequired": "Tag terkait tidak boleh kosong",
           "tagsTooMany": "Tag terkait tidak boleh lebih dari 100",
           "tagsNotFound": "Tag terkait tidak ditemukan: {tags}",
@@ -246,7 +246,7 @@
           "typeTooLong": "Tipe identitas tidak boleh lebih dari 100 karakter",
           "descriptionTooLong": "{descriptionColumn} cannot exceed 5000 characters",
           "notesTooLong": "Catatan tidak boleh lebih dari 5000 karakter",
-          "imageKeysRequired": "Kunci S3 gambar identitas tidak boleh kosong",
+          "imageUrlsRequired": "{imageUrlColumn} tidak boleh kosong",
           "imagesTooMany": "Gambar identitas tidak boleh lebih dari 100",
           "matchPatternInvalid": "{matchPatternColumn} only supports: {whole}/{partial}",
           "partialImportUnsupported": "Partial IP import is not supported in batch files. Use whole match rows or create partial IP entries manually."
@@ -482,12 +482,12 @@
           "description": "Deskripsi Fitur Inti",
           "matchPattern": "Mode pencocokan",
           "tagPaths": "Tag Terkait",
-          "imageObjectKeys": "Gambar IP S3 Key",
+          "imageUrls": "URL Unduhan Gambar",
           "notes": "Catatan",
           "enabled": "Status Aktif"
         },
         "importErrors": {
-          "ossKeyUnreadable": "{imageKeyColumn} tidak dapat dibaca: {objectKey}",
+          "imageUrlUnreadable": "{imageUrlColumn} tidak dapat diunduh: {imageUrl}",
           "tagsRequired": "{tagsColumn} tidak boleh kosong",
           "tagsTooMany": "{tagsColumn} tidak boleh lebih dari 100",
           "tagsNotFound": "{tagsColumn} tidak ditemukan: {tags}",
@@ -499,8 +499,8 @@
           "typeTooLong": "{typeColumn} tidak boleh lebih dari 100 karakter",
           "descriptionTooLong": "{descriptionColumn} tidak boleh lebih dari 5000 karakter",
           "notesTooLong": "{notesColumn} tidak boleh lebih dari 5000 karakter",
-          "imageKeysRequired": "{imageKeyColumn} tidak boleh kosong",
-          "imagesTooMany": "{imageKeyColumn} tidak boleh lebih dari 100 gambar",
+          "imageUrlsRequired": "{imageUrlColumn} tidak boleh kosong",
+          "imagesTooMany": "{imageUrlColumn} tidak boleh lebih dari 100 gambar",
           "matchPatternInvalid": "{matchPatternColumn} hanya mendukung: {whole}/{partial}",
           "partialImportUnsupported": "Impor IP parsial tidak didukung dalam file batch. Gunakan baris pencocokan utuh atau buat entri IP parsial secara manual."
         }
@@ -1059,12 +1059,12 @@
           "name": "Nama Person",
           "personTypeName": "Identitas/Peran",
           "tagPaths": "Tag Terkait",
-          "imageObjectKeys": "Foto Wajah S3 Key",
+          "imageUrls": "URL Unduhan Gambar",
           "notes": "Catatan",
           "enabled": "Status Aktif"
         },
         "importErrors": {
-          "ossKeyUnreadable": "{imageKeyColumn} tidak dapat dibaca: {objectKey}",
+          "imageUrlUnreadable": "{imageUrlColumn} tidak dapat diunduh: {imageUrl}",
           "tagsRequired": "{tagsColumn} tidak boleh kosong",
           "tagsTooMany": "{tagsColumn} tidak boleh lebih dari 100",
           "tagsNotFound": "{tagsColumn} tidak ditemukan: {tags}",
@@ -1076,8 +1076,8 @@
           "typeTooLong": "{typeColumn} tidak boleh lebih dari 100 karakter",
           "descriptionTooLong": "{descriptionColumn} tidak boleh lebih dari 5000 karakter",
           "notesTooLong": "{notesColumn} tidak boleh lebih dari 5000 karakter",
-          "imageKeysRequired": "{imageKeyColumn} tidak boleh kosong",
-          "imagesTooMany": "{imageKeyColumn} tidak boleh lebih dari 100 gambar",
+          "imageUrlsRequired": "{imageUrlColumn} tidak boleh kosong",
+          "imagesTooMany": "{imageUrlColumn} tidak boleh lebih dari 100 gambar",
           "matchPatternInvalid": "{matchPatternColumn} hanya mendukung: {whole}/{partial}",
           "partialImportUnsupported": "Impor IP parsial tidak didukung dalam file batch. Gunakan baris pencocokan utuh atau buat entri IP parsial secara manual."
         }
@@ -1321,12 +1321,12 @@
           "productTypeName": "Tipe Produk",
           "description": "Deskripsi Fitur Inti",
           "tagPaths": "Tag Terkait",
-          "imageObjectKeys": "Gambar Produk S3 Key",
+          "imageUrls": "URL Unduhan Gambar",
           "notes": "Catatan",
           "enabled": "Status Aktif"
         },
         "importErrors": {
-          "ossKeyUnreadable": "{imageKeyColumn} tidak dapat dibaca: {objectKey}",
+          "imageUrlUnreadable": "{imageUrlColumn} tidak dapat diunduh: {imageUrl}",
           "tagsRequired": "{tagsColumn} tidak boleh kosong",
           "tagsTooMany": "{tagsColumn} tidak boleh lebih dari 100",
           "tagsNotFound": "{tagsColumn} tidak ditemukan: {tags}",
@@ -1338,8 +1338,8 @@
           "typeTooLong": "{typeColumn} tidak boleh lebih dari 100 karakter",
           "descriptionTooLong": "{descriptionColumn} tidak boleh lebih dari 5000 karakter",
           "notesTooLong": "{notesColumn} tidak boleh lebih dari 5000 karakter",
-          "imageKeysRequired": "{imageKeyColumn} tidak boleh kosong",
-          "imagesTooMany": "{imageKeyColumn} tidak boleh lebih dari 100 gambar",
+          "imageUrlsRequired": "{imageUrlColumn} tidak boleh kosong",
+          "imagesTooMany": "{imageUrlColumn} tidak boleh lebih dari 100 gambar",
           "matchPatternInvalid": "{matchPatternColumn} hanya mendukung: {whole}/{partial}",
           "partialImportUnsupported": "Impor IP parsial tidak didukung dalam file batch. Gunakan baris pencocokan utuh atau buat entri IP parsial secara manual."
         }
@@ -1433,7 +1433,7 @@
         "excelUnsupportedCompression": "File Excel menggunakan metode kompresi yang tidak didukung"
       },
       "importErrors": {
-        "ossKeyUnreadable": "{imageKeyColumn} tidak dapat dibaca: {objectKey}",
+        "imageUrlUnreadable": "{imageUrlColumn} tidak dapat diunduh: {imageUrl}",
         "tagsRequired": "{tagsColumn} tidak boleh kosong",
         "tagsTooMany": "{tagsColumn} tidak boleh lebih dari 100",
         "tagsNotFound": "{tagsColumn} tidak ditemukan: {tags}",
@@ -1445,8 +1445,8 @@
         "typeTooLong": "{typeColumn} tidak boleh lebih dari 100 karakter",
         "descriptionTooLong": "{descriptionColumn} tidak boleh lebih dari 5000 karakter",
         "notesTooLong": "{notesColumn} tidak boleh lebih dari 5000 karakter",
-        "imageKeysRequired": "{imageKeyColumn} tidak boleh kosong",
-        "imagesTooMany": "{imageKeyColumn} tidak boleh lebih dari 100 gambar",
+        "imageUrlsRequired": "{imageUrlColumn} tidak boleh kosong",
+        "imagesTooMany": "{imageUrlColumn} tidak boleh lebih dari 100 gambar",
         "matchPatternInvalid": "{matchPatternColumn} hanya mendukung: {whole}/{partial}",
         "partialImportUnsupported": "Impor IP parsial tidak didukung dalam file batch. Gunakan baris pencocokan utuh atau buat entri IP parsial secara manual."
       },

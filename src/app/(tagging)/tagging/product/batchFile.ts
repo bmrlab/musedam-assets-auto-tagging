@@ -1,5 +1,6 @@
 import "server-only";
 
+import { getS3PublicObjectUrl } from "@/lib/s3";
 import { getLocalizedBatchColumns } from "../batchColumnTranslations";
 import {
   buildBatchTemplateRows,
@@ -19,7 +20,7 @@ export type ParsedProductBatchRow = {
   productTypeName: string;
   description: string;
   tagPaths: string;
-  imageObjectKeys: string;
+  imageUrls: string;
   notes: string;
   enabled: string;
 };
@@ -29,7 +30,7 @@ export type ProductBatchColumnKey =
   | "productTypeName"
   | "description"
   | "tagPaths"
-  | "imageObjectKeys"
+  | "imageUrls"
   | "notes"
   | "enabled";
 
@@ -39,7 +40,7 @@ export const PRODUCT_BATCH_ENGLISH_HEADERS: Record<ProductBatchColumnKey, string
   productTypeName: "Product Type",
   description: "Core Feature Description",
   tagPaths: "Linked Tags",
-  imageObjectKeys: "Product Image S3 Key",
+  imageUrls: "Product Image Download URL",
   notes: "Notes",
   enabled: "Enabled Status",
 };
@@ -54,7 +55,7 @@ const PRODUCT_BATCH_COLUMN_ORDER: ProductBatchColumnKey[] = [
   "productTypeName",
   "description",
   "tagPaths",
-  "imageObjectKeys",
+  "imageUrls",
   "notes",
   "enabled",
 ];
@@ -63,7 +64,7 @@ const REQUIRED_PRODUCT_BATCH_COLUMNS: ProductBatchColumnKey[] = [
   "name",
   "productTypeName",
   "tagPaths",
-  "imageObjectKeys",
+  "imageUrls",
 ];
 
 export function getProductBatchColumns() {
@@ -96,7 +97,7 @@ export function buildProductBatchExportRows({
       product.productTypeName,
       product.description,
       product.tags.map((tag) => tag.tagPath.join(" > ")).join("; "),
-      product.images.map((image) => image.objectKey).join("; "),
+      product.images.map((image) => getS3PublicObjectUrl(image.objectKey)).join("; "),
       product.notes,
       product.enabled
         ? PRODUCT_BATCH_ENABLED_VALUES.enabled

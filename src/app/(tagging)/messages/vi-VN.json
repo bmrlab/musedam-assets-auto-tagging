@@ -221,7 +221,7 @@
           "name": "Tên nhận dạng",
           "logoTypeName": "Loại nhận dạng",
           "tagPaths": "Thẻ liên kết",
-          "imageObjectKeys": "S3 Key hình ảnh nhận dạng",
+          "imageUrls": "URL tải xuống hình ảnh",
           "notes": "Ghi chú",
           "enabled": "Trạng thái kích hoạt"
         },
@@ -234,7 +234,7 @@
           "excelUnsupportedCompression": "Tệp Excel sử dụng phương thức nén không được hỗ trợ"
         },
         "importErrors": {
-          "ossKeyUnreadable": "S3 Key hình ảnh không thể đọc: {objectKey}",
+          "imageUrlUnreadable": "Không thể tải xuống {imageUrlColumn}: {imageUrl}",
           "tagsRequired": "Thẻ liên kết không được để trống",
           "tagsTooMany": "Thẻ liên kết không được vượt quá 100",
           "tagsNotFound": "Không tìm thấy thẻ liên kết: {tags}",
@@ -246,7 +246,7 @@
           "typeTooLong": "Loại nhận dạng không được vượt quá 100 ký tự",
           "descriptionTooLong": "{descriptionColumn} cannot exceed 5000 characters",
           "notesTooLong": "Ghi chú không được vượt quá 5000 ký tự",
-          "imageKeysRequired": "S3 Key hình ảnh nhận dạng không được để trống",
+          "imageUrlsRequired": "{imageUrlColumn} không được để trống",
           "imagesTooMany": "Hình ảnh nhận dạng không được vượt quá 100",
           "matchPatternInvalid": "{matchPatternColumn} only supports: {whole}/{partial}",
           "partialImportUnsupported": "Partial IP import is not supported in batch files. Use whole match rows or create partial IP entries manually."
@@ -482,12 +482,12 @@
           "description": "Mô tả đặc trưng cốt lõi",
           "matchPattern": "Chế độ khớp",
           "tagPaths": "Thẻ liên kết",
-          "imageObjectKeys": "Hình ảnh IP S3 Key",
+          "imageUrls": "URL tải xuống hình ảnh",
           "notes": "Ghi chú",
           "enabled": "Trạng thái bật/tắt"
         },
         "importErrors": {
-          "ossKeyUnreadable": "Không đọc được {imageKeyColumn}: {objectKey}",
+          "imageUrlUnreadable": "Không thể tải xuống {imageUrlColumn}: {imageUrl}",
           "tagsRequired": "{tagsColumn} không được để trống",
           "tagsTooMany": "{tagsColumn} không được vượt quá 100",
           "tagsNotFound": "Không tìm thấy {tagsColumn}: {tags}",
@@ -499,8 +499,8 @@
           "typeTooLong": "{typeColumn} không được vượt quá 100 ký tự",
           "descriptionTooLong": "{descriptionColumn} không được vượt quá 5000 ký tự",
           "notesTooLong": "{notesColumn} không được vượt quá 5000 ký tự",
-          "imageKeysRequired": "{imageKeyColumn} không được để trống",
-          "imagesTooMany": "{imageKeyColumn} không được vượt quá 100 ảnh",
+          "imageUrlsRequired": "{imageUrlColumn} không được để trống",
+          "imagesTooMany": "{imageUrlColumn} không được vượt quá 100 ảnh",
           "matchPatternInvalid": "{matchPatternColumn} chỉ hỗ trợ: {whole}/{partial}",
           "partialImportUnsupported": "Tệp hàng loạt chưa hỗ trợ nhập IP khớp một phần. Hãy dùng dòng khớp toàn bộ hoặc tạo IP khớp một phần thủ công."
         }
@@ -1059,12 +1059,12 @@
           "name": "Tên nhân vật",
           "personTypeName": "Vai trò",
           "tagPaths": "Thẻ liên kết",
-          "imageObjectKeys": "Ảnh khuôn mặt S3 Key",
+          "imageUrls": "URL tải xuống hình ảnh",
           "notes": "Ghi chú",
           "enabled": "Trạng thái kích hoạt"
         },
         "importErrors": {
-          "ossKeyUnreadable": "Không đọc được {imageKeyColumn}: {objectKey}",
+          "imageUrlUnreadable": "Không thể tải xuống {imageUrlColumn}: {imageUrl}",
           "tagsRequired": "{tagsColumn} không được để trống",
           "tagsTooMany": "{tagsColumn} không được vượt quá 100",
           "tagsNotFound": "Không tìm thấy {tagsColumn}: {tags}",
@@ -1076,8 +1076,8 @@
           "typeTooLong": "{typeColumn} không được vượt quá 100 ký tự",
           "descriptionTooLong": "{descriptionColumn} không được vượt quá 5000 ký tự",
           "notesTooLong": "{notesColumn} không được vượt quá 5000 ký tự",
-          "imageKeysRequired": "{imageKeyColumn} không được để trống",
-          "imagesTooMany": "{imageKeyColumn} không được vượt quá 100 ảnh",
+          "imageUrlsRequired": "{imageUrlColumn} không được để trống",
+          "imagesTooMany": "{imageUrlColumn} không được vượt quá 100 ảnh",
           "matchPatternInvalid": "{matchPatternColumn} chỉ hỗ trợ: {whole}/{partial}",
           "partialImportUnsupported": "Tệp hàng loạt chưa hỗ trợ nhập IP khớp một phần. Hãy dùng dòng khớp toàn bộ hoặc tạo IP khớp một phần thủ công."
         }
@@ -1321,12 +1321,12 @@
           "productTypeName": "Loại Sản phẩm",
           "description": "Mô tả đặc trưng cốt lõi",
           "tagPaths": "Thẻ liên kết",
-          "imageObjectKeys": "Hình ảnh Sản phẩm S3 Key",
+          "imageUrls": "URL tải xuống hình ảnh",
           "notes": "Ghi chú",
           "enabled": "Trạng thái kích hoạt"
         },
         "importErrors": {
-          "ossKeyUnreadable": "Không đọc được {imageKeyColumn}: {objectKey}",
+          "imageUrlUnreadable": "Không thể tải xuống {imageUrlColumn}: {imageUrl}",
           "tagsRequired": "{tagsColumn} không được để trống",
           "tagsTooMany": "{tagsColumn} không được vượt quá 100",
           "tagsNotFound": "Không tìm thấy {tagsColumn}: {tags}",
@@ -1338,8 +1338,8 @@
           "typeTooLong": "{typeColumn} không được vượt quá 100 ký tự",
           "descriptionTooLong": "{descriptionColumn} không được vượt quá 5000 ký tự",
           "notesTooLong": "{notesColumn} không được vượt quá 5000 ký tự",
-          "imageKeysRequired": "{imageKeyColumn} không được để trống",
-          "imagesTooMany": "{imageKeyColumn} không được vượt quá 100 ảnh",
+          "imageUrlsRequired": "{imageUrlColumn} không được để trống",
+          "imagesTooMany": "{imageUrlColumn} không được vượt quá 100 ảnh",
           "matchPatternInvalid": "{matchPatternColumn} chỉ hỗ trợ: {whole}/{partial}",
           "partialImportUnsupported": "Tệp hàng loạt chưa hỗ trợ nhập IP khớp một phần. Hãy dùng dòng khớp toàn bộ hoặc tạo IP khớp một phần thủ công."
         }
@@ -1433,7 +1433,7 @@
         "excelUnsupportedCompression": "Tệp Excel sử dụng phương thức nén không được hỗ trợ"
       },
       "importErrors": {
-        "ossKeyUnreadable": "Không đọc được {imageKeyColumn}: {objectKey}",
+        "imageUrlUnreadable": "Không thể tải xuống {imageUrlColumn}: {imageUrl}",
         "tagsRequired": "{tagsColumn} không được để trống",
         "tagsTooMany": "{tagsColumn} không được vượt quá 100",
         "tagsNotFound": "Không tìm thấy {tagsColumn}: {tags}",
@@ -1445,8 +1445,8 @@
         "typeTooLong": "{typeColumn} không được vượt quá 100 ký tự",
         "descriptionTooLong": "{descriptionColumn} không được vượt quá 5000 ký tự",
         "notesTooLong": "{notesColumn} không được vượt quá 5000 ký tự",
-        "imageKeysRequired": "{imageKeyColumn} không được để trống",
-        "imagesTooMany": "{imageKeyColumn} không được vượt quá 100 ảnh",
+        "imageUrlsRequired": "{imageUrlColumn} không được để trống",
+        "imagesTooMany": "{imageUrlColumn} không được vượt quá 100 ảnh",
         "matchPatternInvalid": "{matchPatternColumn} chỉ hỗ trợ: {whole}/{partial}",
         "partialImportUnsupported": "Tệp hàng loạt chưa hỗ trợ nhập IP khớp một phần. Hãy dùng dòng khớp toàn bộ hoặc tạo IP khớp một phần thủ công."
       },

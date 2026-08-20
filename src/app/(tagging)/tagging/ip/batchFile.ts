@@ -1,5 +1,6 @@
 import "server-only";
 
+import { getS3PublicObjectUrl } from "@/lib/s3";
 import { getLocalizedBatchColumns } from "../batchColumnTranslations";
 import {
   buildBatchTemplateRows,
@@ -20,7 +21,7 @@ export type ParsedIpBatchRow = {
   description: string;
   matchPattern: string;
   tagPaths: string;
-  imageObjectKeys: string;
+  imageUrls: string;
   notes: string;
   enabled: string;
 };
@@ -31,7 +32,7 @@ export type IpBatchColumnKey =
   | "description"
   | "matchPattern"
   | "tagPaths"
-  | "imageObjectKeys"
+  | "imageUrls"
   | "notes"
   | "enabled";
 
@@ -42,7 +43,7 @@ export const IP_BATCH_ENGLISH_HEADERS: Record<IpBatchColumnKey, string> = {
   description: "Core Feature Description",
   matchPattern: "Match Pattern",
   tagPaths: "Linked Tags",
-  imageObjectKeys: "IP Image S3 Key",
+  imageUrls: "IP Image Download URL",
   notes: "Notes",
   enabled: "Enabled Status",
 };
@@ -63,7 +64,7 @@ const IP_BATCH_COLUMN_ORDER: IpBatchColumnKey[] = [
   "description",
   "matchPattern",
   "tagPaths",
-  "imageObjectKeys",
+  "imageUrls",
   "notes",
   "enabled",
 ];
@@ -72,7 +73,7 @@ const REQUIRED_IP_BATCH_COLUMNS: IpBatchColumnKey[] = [
   "name",
   "ipTypeName",
   "tagPaths",
-  "imageObjectKeys",
+  "imageUrls",
 ];
 
 export function getIpBatchColumns() {
@@ -108,7 +109,7 @@ export function buildIpBatchExportRows({
         ? IP_BATCH_MATCH_PATTERN_VALUES.partial
         : IP_BATCH_MATCH_PATTERN_VALUES.whole,
       ip.tags.map((tag) => tag.tagPath.join(" > ")).join("; "),
-      ip.images.map((image) => image.objectKey).join("; "),
+      ip.images.map((image) => getS3PublicObjectUrl(image.objectKey)).join("; "),
       ip.notes,
       ip.enabled ? IP_BATCH_ENABLED_VALUES.enabled : IP_BATCH_ENABLED_VALUES.disabled,
     ]),

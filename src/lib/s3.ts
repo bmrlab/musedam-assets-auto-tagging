@@ -406,6 +406,28 @@ export function getS3PublicObjectUrl(objectKey: string) {
   return getS3ObjectUrl(objectKey);
 }
 
+export function isConfiguredS3PublicObjectUrl(value: string | URL) {
+  let url: URL;
+  try {
+    url = value instanceof URL ? value : new URL(value);
+  } catch {
+    return false;
+  }
+
+  let publicObjectBase: URL;
+  try {
+    publicObjectBase = buildS3ObjectUrl(buildStorageObjectKey(""));
+  } catch {
+    return false;
+  }
+  return (
+    url.protocol === publicObjectBase.protocol &&
+    url.host === publicObjectBase.host &&
+    url.pathname.startsWith(publicObjectBase.pathname) &&
+    url.pathname.length > publicObjectBase.pathname.length
+  );
+}
+
 export function signS3ObjectUrl({
   objectKey,
   expiresInSeconds = DEFAULT_S3_SIGNED_URL_TTL_SECONDS,

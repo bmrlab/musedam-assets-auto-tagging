@@ -466,7 +466,7 @@
           "name": "標識名稱",
           "logoTypeName": "標識類型",
           "tagPaths": "關聯標籤",
-          "imageObjectKeys": "標識圖片 S3 Key",
+          "imageUrls": "圖片下載 URL",
           "notes": "備註",
           "enabled": "啟用狀態"
         },
@@ -479,7 +479,7 @@
           "excelUnsupportedCompression": "Excel 檔案包含暫不支援的壓縮方式"
         },
         "importErrors": {
-          "ossKeyUnreadable": "圖片 S3 Key 無法讀取：{objectKey}",
+          "imageUrlUnreadable": "{imageUrlColumn}無法下載：{imageUrl}",
           "tagsRequired": "關聯標籤不能為空",
           "tagsTooMany": "關聯標籤不能超過 100 個",
           "tagsNotFound": "關聯標籤不存在：{tags}",
@@ -491,7 +491,7 @@
           "typeTooLong": "標識類型不能超過 100 個字元",
           "descriptionTooLong": "{descriptionColumn} cannot exceed 5000 characters",
           "notesTooLong": "備註不能超過 5000 個字元",
-          "imageKeysRequired": "標識圖片 S3 Key 不能為空",
+          "imageUrlsRequired": "{imageUrlColumn}不可為空",
           "imagesTooMany": "標識圖片不能超過 100 張",
           "matchPatternInvalid": "{matchPatternColumn} only supports: {whole}/{partial}",
           "partialImportUnsupported": "Partial IP import is not supported in batch files. Use whole match rows or create partial IP entries manually."
@@ -821,12 +821,12 @@
           "description": "核心特徵描述",
           "matchPattern": "匹配模式",
           "tagPaths": "關聯標籤",
-          "imageObjectKeys": "IP 圖片 S3 Key",
+          "imageUrls": "圖片下載 URL",
           "notes": "備註資訊",
           "enabled": "啟用狀態"
         },
         "importErrors": {
-          "ossKeyUnreadable": "{imageKeyColumn} 無法讀取：{objectKey}",
+          "imageUrlUnreadable": "{imageUrlColumn}無法下載：{imageUrl}",
           "tagsRequired": "{tagsColumn}不可為空",
           "tagsTooMany": "{tagsColumn}不可超過 100 個",
           "tagsNotFound": "找不到{tagsColumn}：{tags}",
@@ -838,8 +838,8 @@
           "typeTooLong": "{typeColumn}不可超過 100 個字元",
           "descriptionTooLong": "{descriptionColumn}不可超過 5000 個字元",
           "notesTooLong": "{notesColumn}不可超過 5000 個字元",
-          "imageKeysRequired": "{imageKeyColumn}不可為空",
-          "imagesTooMany": "{imageKeyColumn}不可超過 100 張",
+          "imageUrlsRequired": "{imageUrlColumn}不可為空",
+          "imagesTooMany": "{imageUrlColumn}不可超過 100 張",
           "matchPatternInvalid": "{matchPatternColumn}僅支援：{whole}/{partial}",
           "partialImportUnsupported": "批次檔案暫不支援匯入局部匹配 IP。請使用整體匹配列，或手動建立局部匹配 IP。"
         }
@@ -1059,12 +1059,12 @@
           "name": "人物姓名",
           "personTypeName": "身份/角色",
           "tagPaths": "關聯標籤",
-          "imageObjectKeys": "人臉照片 S3 Key",
+          "imageUrls": "圖片下載 URL",
           "notes": "備註資訊",
           "enabled": "啟用狀態"
         },
         "importErrors": {
-          "ossKeyUnreadable": "{imageKeyColumn} 無法讀取：{objectKey}",
+          "imageUrlUnreadable": "{imageUrlColumn}無法下載：{imageUrl}",
           "tagsRequired": "{tagsColumn}不可為空",
           "tagsTooMany": "{tagsColumn}不可超過 100 個",
           "tagsNotFound": "找不到{tagsColumn}：{tags}",
@@ -1076,8 +1076,8 @@
           "typeTooLong": "{typeColumn}不可超過 100 個字元",
           "descriptionTooLong": "{descriptionColumn}不可超過 5000 個字元",
           "notesTooLong": "{notesColumn}不可超過 5000 個字元",
-          "imageKeysRequired": "{imageKeyColumn}不可為空",
-          "imagesTooMany": "{imageKeyColumn}不可超過 100 張",
+          "imageUrlsRequired": "{imageUrlColumn}不可為空",
+          "imagesTooMany": "{imageUrlColumn}不可超過 100 張",
           "matchPatternInvalid": "{matchPatternColumn}僅支援：{whole}/{partial}",
           "partialImportUnsupported": "批次檔案暫不支援匯入局部匹配 IP。請使用整體匹配列，或手動建立局部匹配 IP。"
         }
@@ -1321,12 +1321,12 @@
           "productTypeName": "商品類型",
           "description": "核心特徵描述",
           "tagPaths": "關聯標籤",
-          "imageObjectKeys": "商品圖片 S3 Key",
+          "imageUrls": "圖片下載 URL",
           "notes": "備註資訊",
           "enabled": "啟用狀態"
         },
         "importErrors": {
-          "ossKeyUnreadable": "{imageKeyColumn} 無法讀取：{objectKey}",
+          "imageUrlUnreadable": "{imageUrlColumn}無法下載：{imageUrl}",
           "tagsRequired": "{tagsColumn}不可為空",
           "tagsTooMany": "{tagsColumn}不可超過 100 個",
           "tagsNotFound": "找不到{tagsColumn}：{tags}",
@@ -1338,8 +1338,8 @@
           "typeTooLong": "{typeColumn}不可超過 100 個字元",
           "descriptionTooLong": "{descriptionColumn}不可超過 5000 個字元",
           "notesTooLong": "{notesColumn}不可超過 5000 個字元",
-          "imageKeysRequired": "{imageKeyColumn}不可為空",
-          "imagesTooMany": "{imageKeyColumn}不可超過 100 張",
+          "imageUrlsRequired": "{imageUrlColumn}不可為空",
+          "imagesTooMany": "{imageUrlColumn}不可超過 100 張",
           "matchPatternInvalid": "{matchPatternColumn}僅支援：{whole}/{partial}",
           "partialImportUnsupported": "批次檔案暫不支援匯入局部匹配 IP。請使用整體匹配列，或手動建立局部匹配 IP。"
         }
@@ -1433,7 +1433,7 @@
         "excelUnsupportedCompression": "Excel 檔案包含暫不支援的壓縮方式"
       },
       "importErrors": {
-        "ossKeyUnreadable": "{imageKeyColumn} 無法讀取：{objectKey}",
+        "imageUrlUnreadable": "{imageUrlColumn}無法下載：{imageUrl}",
         "tagsRequired": "{tagsColumn}不可為空",
         "tagsTooMany": "{tagsColumn}不可超過 100 個",
         "tagsNotFound": "找不到{tagsColumn}：{tags}",
@@ -1445,8 +1445,8 @@
         "typeTooLong": "{typeColumn}不可超過 100 個字元",
         "descriptionTooLong": "{descriptionColumn}不可超過 5000 個字元",
         "notesTooLong": "{notesColumn}不可超過 5000 個字元",
-        "imageKeysRequired": "{imageKeyColumn}不可為空",
-        "imagesTooMany": "{imageKeyColumn}不可超過 100 張",
+        "imageUrlsRequired": "{imageUrlColumn}不可為空",
+        "imagesTooMany": "{imageUrlColumn}不可超過 100 張",
         "matchPatternInvalid": "{matchPatternColumn}僅支援：{whole}/{partial}",
         "partialImportUnsupported": "批次檔案暫不支援匯入局部匹配 IP。請使用整體匹配列，或手動建立局部匹配 IP。"
       },

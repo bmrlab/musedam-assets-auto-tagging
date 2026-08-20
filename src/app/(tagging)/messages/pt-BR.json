@@ -466,7 +466,7 @@
           "name": "Nome da Identidade",
           "logoTypeName": "Tipo da Identidade",
           "tagPaths": "Tags Associadas",
-          "imageObjectKeys": "Chave S3 da Imagem da Identidade",
+          "imageUrls": "URL de download da imagem",
           "notes": "Notas",
           "enabled": "Status de Habilitação"
         },
@@ -479,7 +479,7 @@
           "excelUnsupportedCompression": "O arquivo Excel usa um método de compressão não suportado"
         },
         "importErrors": {
-          "ossKeyUnreadable": "A chave S3 da imagem não é legível: {objectKey}",
+          "imageUrlUnreadable": "Não foi possível baixar {imageUrlColumn}: {imageUrl}",
           "tagsRequired": "As tags associadas não podem estar vazias",
           "tagsTooMany": "As tags associadas não podem exceder 100",
           "tagsNotFound": "Tags associadas não encontradas: {tags}",
@@ -491,7 +491,7 @@
           "typeTooLong": "O tipo de identidade não pode exceder 100 caracteres",
           "descriptionTooLong": "{descriptionColumn} cannot exceed 5000 characters",
           "notesTooLong": "As notas não podem exceder 5000 caracteres",
-          "imageKeysRequired": "A chave S3 da imagem da identidade não pode estar vazia",
+          "imageUrlsRequired": "{imageUrlColumn} não pode ficar vazio",
           "imagesTooMany": "As imagens da identidade não podem exceder 100",
           "matchPatternInvalid": "{matchPatternColumn} only supports: {whole}/{partial}",
           "partialImportUnsupported": "Partial IP import is not supported in batch files. Use whole match rows or create partial IP entries manually."
@@ -821,12 +821,12 @@
           "description": "Descrição de Características Principais",
           "matchPattern": "Modo de correspondência",
           "tagPaths": "Tags Associadas",
-          "imageObjectKeys": "Imagens do IP S3 Key",
+          "imageUrls": "URL de download da imagem",
           "notes": "Notas",
           "enabled": "Status de Habilitação"
         },
         "importErrors": {
-          "ossKeyUnreadable": "{imageKeyColumn} não pode ser lido: {objectKey}",
+          "imageUrlUnreadable": "Não foi possível baixar {imageUrlColumn}: {imageUrl}",
           "tagsRequired": "{tagsColumn} não pode ficar vazio",
           "tagsTooMany": "{tagsColumn} não pode exceder 100",
           "tagsNotFound": "{tagsColumn} não encontrado: {tags}",
@@ -838,8 +838,8 @@
           "typeTooLong": "{typeColumn} não pode exceder 100 caracteres",
           "descriptionTooLong": "{descriptionColumn} não pode exceder 5000 caracteres",
           "notesTooLong": "{notesColumn} não pode exceder 5000 caracteres",
-          "imageKeysRequired": "{imageKeyColumn} não pode ficar vazio",
-          "imagesTooMany": "{imageKeyColumn} não pode exceder 100 imagens",
+          "imageUrlsRequired": "{imageUrlColumn} não pode ficar vazio",
+          "imagesTooMany": "{imageUrlColumn} não pode exceder 100 imagens",
           "matchPatternInvalid": "{matchPatternColumn} só aceita: {whole}/{partial}",
           "partialImportUnsupported": "A importação de IP parcial não é suportada em arquivos em lote. Use linhas de correspondência completa ou crie entradas parciais manualmente."
         }
@@ -1059,12 +1059,12 @@
           "name": "Nome da Pessoa",
           "personTypeName": "Identidade/Função",
           "tagPaths": "Tags Vinculadas",
-          "imageObjectKeys": "Fotos Faciais S3 Key",
+          "imageUrls": "URL de download da imagem",
           "notes": "Observações",
           "enabled": "Status de Habilitação"
         },
         "importErrors": {
-          "ossKeyUnreadable": "{imageKeyColumn} não pode ser lido: {objectKey}",
+          "imageUrlUnreadable": "Não foi possível baixar {imageUrlColumn}: {imageUrl}",
           "tagsRequired": "{tagsColumn} não pode ficar vazio",
           "tagsTooMany": "{tagsColumn} não pode exceder 100",
           "tagsNotFound": "{tagsColumn} não encontrado: {tags}",
@@ -1076,8 +1076,8 @@
           "typeTooLong": "{typeColumn} não pode exceder 100 caracteres",
           "descriptionTooLong": "{descriptionColumn} não pode exceder 5000 caracteres",
           "notesTooLong": "{notesColumn} não pode exceder 5000 caracteres",
-          "imageKeysRequired": "{imageKeyColumn} não pode ficar vazio",
-          "imagesTooMany": "{imageKeyColumn} não pode exceder 100 imagens",
+          "imageUrlsRequired": "{imageUrlColumn} não pode ficar vazio",
+          "imagesTooMany": "{imageUrlColumn} não pode exceder 100 imagens",
           "matchPatternInvalid": "{matchPatternColumn} só aceita: {whole}/{partial}",
           "partialImportUnsupported": "A importação de IP parcial não é suportada em arquivos em lote. Use linhas de correspondência completa ou crie entradas parciais manualmente."
         }
@@ -1321,12 +1321,12 @@
           "productTypeName": "Tipo de Produto",
           "description": "Descrição de Características Principais",
           "tagPaths": "Tags Associadas",
-          "imageObjectKeys": "Imagens do Produto S3 Key",
+          "imageUrls": "URL de download da imagem",
           "notes": "Notas",
           "enabled": "Status de Habilitação"
         },
         "importErrors": {
-          "ossKeyUnreadable": "{imageKeyColumn} não pode ser lido: {objectKey}",
+          "imageUrlUnreadable": "Não foi possível baixar {imageUrlColumn}: {imageUrl}",
           "tagsRequired": "{tagsColumn} não pode ficar vazio",
           "tagsTooMany": "{tagsColumn} não pode exceder 100",
           "tagsNotFound": "{tagsColumn} não encontrado: {tags}",
@@ -1338,8 +1338,8 @@
           "typeTooLong": "{typeColumn} não pode exceder 100 caracteres",
           "descriptionTooLong": "{descriptionColumn} não pode exceder 5000 caracteres",
           "notesTooLong": "{notesColumn} não pode exceder 5000 caracteres",
-          "imageKeysRequired": "{imageKeyColumn} não pode ficar vazio",
-          "imagesTooMany": "{imageKeyColumn} não pode exceder 100 imagens",
+          "imageUrlsRequired": "{imageUrlColumn} não pode ficar vazio",
+          "imagesTooMany": "{imageUrlColumn} não pode exceder 100 imagens",
           "matchPatternInvalid": "{matchPatternColumn} só aceita: {whole}/{partial}",
           "partialImportUnsupported": "A importação de IP parcial não é suportada em arquivos em lote. Use linhas de correspondência completa ou crie entradas parciais manualmente."
         }
@@ -1433,7 +1433,7 @@
         "excelUnsupportedCompression": "O arquivo Excel usa um método de compressão não suportado"
       },
       "importErrors": {
-        "ossKeyUnreadable": "{imageKeyColumn} não pode ser lido: {objectKey}",
+        "imageUrlUnreadable": "Não foi possível baixar {imageUrlColumn}: {imageUrl}",
         "tagsRequired": "{tagsColumn} não pode ficar vazio",
         "tagsTooMany": "{tagsColumn} não pode exceder 100",
         "tagsNotFound": "{tagsColumn} não encontrado: {tags}",
@@ -1445,8 +1445,8 @@
         "typeTooLong": "{typeColumn} não pode exceder 100 caracteres",
         "descriptionTooLong": "{descriptionColumn} não pode exceder 5000 caracteres",
         "notesTooLong": "{notesColumn} não pode exceder 5000 caracteres",
-        "imageKeysRequired": "{imageKeyColumn} não pode ficar vazio",
-        "imagesTooMany": "{imageKeyColumn} não pode exceder 100 imagens",
+        "imageUrlsRequired": "{imageUrlColumn} não pode ficar vazio",
+        "imagesTooMany": "{imageUrlColumn} não pode exceder 100 imagens",
         "matchPatternInvalid": "{matchPatternColumn} só aceita: {whole}/{partial}",
         "partialImportUnsupported": "A importação de IP parcial não é suportada em arquivos em lote. Use linhas de correspondência completa ou crie entradas parciais manualmente."
       },

@@ -221,7 +221,7 @@
           "name": "Kimlik Adı",
           "logoTypeName": "Kimlik Türü",
           "tagPaths": "Bağlı Etiketler",
-          "imageObjectKeys": "Kimlik Resmi S3 Key",
+          "imageUrls": "Görsel İndirme URL’si",
           "notes": "Notlar",
           "enabled": "Etkin Durum"
         },
@@ -234,7 +234,7 @@
           "excelUnsupportedCompression": "Excel dosyası desteklenmeyen bir sıkıştırma yöntemi kullanıyor"
         },
         "importErrors": {
-          "ossKeyUnreadable": "Resim S3 Key okunamıyor: {objectKey}",
+          "imageUrlUnreadable": "{imageUrlColumn} indirilemiyor: {imageUrl}",
           "tagsRequired": "Bağlı etiketler boş olamaz",
           "tagsTooMany": "Bağlı etiketler 100'ü aşamaz",
           "tagsNotFound": "Bağlı etiketler bulunamadı: {tags}",
@@ -246,7 +246,7 @@
           "typeTooLong": "Kimlik türü 100 karakteri aşamaz",
           "descriptionTooLong": "{descriptionColumn} cannot exceed 5000 characters",
           "notesTooLong": "Notlar 5000 karakteri aşamaz",
-          "imageKeysRequired": "Kimlik resmi S3 Key boş olamaz",
+          "imageUrlsRequired": "{imageUrlColumn} boş olamaz",
           "imagesTooMany": "Kimlik resimleri 100'ü aşamaz",
           "matchPatternInvalid": "{matchPatternColumn} only supports: {whole}/{partial}",
           "partialImportUnsupported": "Partial IP import is not supported in batch files. Use whole match rows or create partial IP entries manually."
@@ -482,12 +482,12 @@
           "description": "Temel Özellik Açıklaması",
           "matchPattern": "Eşleştirme modu",
           "tagPaths": "Bağlı Etiketler",
-          "imageObjectKeys": "IP Görselleri S3 Key",
+          "imageUrls": "Görsel İndirme URL’si",
           "notes": "Notlar",
           "enabled": "Etkin Durum"
         },
         "importErrors": {
-          "ossKeyUnreadable": "{imageKeyColumn} okunamıyor: {objectKey}",
+          "imageUrlUnreadable": "{imageUrlColumn} indirilemiyor: {imageUrl}",
           "tagsRequired": "{tagsColumn} boş olamaz",
           "tagsTooMany": "{tagsColumn} 100 değerini aşamaz",
           "tagsNotFound": "{tagsColumn} bulunamadı: {tags}",
@@ -499,8 +499,8 @@
           "typeTooLong": "{typeColumn} 100 karakteri aşamaz",
           "descriptionTooLong": "{descriptionColumn} 5000 karakteri aşamaz",
           "notesTooLong": "{notesColumn} 5000 karakteri aşamaz",
-          "imageKeysRequired": "{imageKeyColumn} boş olamaz",
-          "imagesTooMany": "{imageKeyColumn} 100 görseli aşamaz",
+          "imageUrlsRequired": "{imageUrlColumn} boş olamaz",
+          "imagesTooMany": "{imageUrlColumn} 100 görseli aşamaz",
           "matchPatternInvalid": "{matchPatternColumn} yalnızca şunları destekler: {whole}/{partial}",
           "partialImportUnsupported": "Kısmi eşleşme IP içe aktarımı toplu dosyalarda desteklenmez. Tam eşleşme satırları kullanın veya kısmi IP kayıtlarını elle oluşturun."
         }
@@ -1059,12 +1059,12 @@
           "name": "Kişi Adı",
           "personTypeName": "Kimlik/Rol",
           "tagPaths": "Bağlı Etiketler",
-          "imageObjectKeys": "Ürün Görüntüleri S3 Key",
+          "imageUrls": "Görsel İndirme URL’si",
           "notes": "Not Bilgileri",
           "enabled": "Etkin Durum"
         },
         "importErrors": {
-          "ossKeyUnreadable": "{imageKeyColumn} okunamıyor: {objectKey}",
+          "imageUrlUnreadable": "{imageUrlColumn} indirilemiyor: {imageUrl}",
           "tagsRequired": "{tagsColumn} boş olamaz",
           "tagsTooMany": "{tagsColumn} 100 değerini aşamaz",
           "tagsNotFound": "{tagsColumn} bulunamadı: {tags}",
@@ -1076,8 +1076,8 @@
           "typeTooLong": "{typeColumn} 100 karakteri aşamaz",
           "descriptionTooLong": "{descriptionColumn} 5000 karakteri aşamaz",
           "notesTooLong": "{notesColumn} 5000 karakteri aşamaz",
-          "imageKeysRequired": "{imageKeyColumn} boş olamaz",
-          "imagesTooMany": "{imageKeyColumn} 100 görseli aşamaz",
+          "imageUrlsRequired": "{imageUrlColumn} boş olamaz",
+          "imagesTooMany": "{imageUrlColumn} 100 görseli aşamaz",
           "matchPatternInvalid": "{matchPatternColumn} yalnızca şunları destekler: {whole}/{partial}",
           "partialImportUnsupported": "Kısmi eşleşme IP içe aktarımı toplu dosyalarda desteklenmez. Tam eşleşme satırları kullanın veya kısmi IP kayıtlarını elle oluşturun."
         }
@@ -1321,12 +1321,12 @@
           "productTypeName": "Ürün Türü",
           "description": "Temel Özellik Açıklaması",
           "tagPaths": "Bağlı Etiketler",
-          "imageObjectKeys": "Ürün Resimleri S3 Key",
+          "imageUrls": "Görsel İndirme URL’si",
           "notes": "Notlar",
           "enabled": "Etkin Durum"
         },
         "importErrors": {
-          "ossKeyUnreadable": "{imageKeyColumn} okunamıyor: {objectKey}",
+          "imageUrlUnreadable": "{imageUrlColumn} indirilemiyor: {imageUrl}",
           "tagsRequired": "{tagsColumn} boş olamaz",
           "tagsTooMany": "{tagsColumn} 100 değerini aşamaz",
           "tagsNotFound": "{tagsColumn} bulunamadı: {tags}",
@@ -1338,8 +1338,8 @@
           "typeTooLong": "{typeColumn} 100 karakteri aşamaz",
           "descriptionTooLong": "{descriptionColumn} 5000 karakteri aşamaz",
           "notesTooLong": "{notesColumn} 5000 karakteri aşamaz",
-          "imageKeysRequired": "{imageKeyColumn} boş olamaz",
-          "imagesTooMany": "{imageKeyColumn} 100 görseli aşamaz",
+          "imageUrlsRequired": "{imageUrlColumn} boş olamaz",
+          "imagesTooMany": "{imageUrlColumn} 100 görseli aşamaz",
           "matchPatternInvalid": "{matchPatternColumn} yalnızca şunları destekler: {whole}/{partial}",
           "partialImportUnsupported": "Kısmi eşleşme IP içe aktarımı toplu dosyalarda desteklenmez. Tam eşleşme satırları kullanın veya kısmi IP kayıtlarını elle oluşturun."
         }
@@ -1433,7 +1433,7 @@
         "excelUnsupportedCompression": "Excel dosyası desteklenmeyen bir sıkıştırma yöntemi kullanıyor"
       },
       "importErrors": {
-        "ossKeyUnreadable": "{imageKeyColumn} okunamıyor: {objectKey}",
+        "imageUrlUnreadable": "{imageUrlColumn} indirilemiyor: {imageUrl}",
         "tagsRequired": "{tagsColumn} boş olamaz",
         "tagsTooMany": "{tagsColumn} 100 değerini aşamaz",
         "tagsNotFound": "{tagsColumn} bulunamadı: {tags}",
@@ -1445,8 +1445,8 @@
         "typeTooLong": "{typeColumn} 100 karakteri aşamaz",
         "descriptionTooLong": "{descriptionColumn} 5000 karakteri aşamaz",
         "notesTooLong": "{notesColumn} 5000 karakteri aşamaz",
-        "imageKeysRequired": "{imageKeyColumn} boş olamaz",
-        "imagesTooMany": "{imageKeyColumn} 100 görseli aşamaz",
+        "imageUrlsRequired": "{imageUrlColumn} boş olamaz",
+        "imagesTooMany": "{imageUrlColumn} 100 görseli aşamaz",
         "matchPatternInvalid": "{matchPatternColumn} yalnızca şunları destekler: {whole}/{partial}",
         "partialImportUnsupported": "Kısmi eşleşme IP içe aktarımı toplu dosyalarda desteklenmez. Tam eşleşme satırları kullanın veya kısmi IP kayıtlarını elle oluşturun."
       },

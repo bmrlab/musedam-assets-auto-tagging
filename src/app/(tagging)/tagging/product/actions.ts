@@ -3,6 +3,7 @@
 import { withAuth } from "@/app/(auth)/withAuth";
 import {
   MAX_CLIENT_IMAGE_UPLOAD_BYTES,
+  MAX_TOTAL_NEW_REFERENCE_UPLOAD_BYTES,
   REFERENCE_IMAGE_PREPARATION_CONCURRENCY,
 } from "@/lib/brand/upload-constants";
 import {
@@ -27,6 +28,10 @@ import {
   uploadS3Object,
 } from "@/lib/s3";
 import { ServerActionResult } from "@/lib/serverAction";
+import {
+  BatchReferenceImageError,
+  downloadAndPrepareBatchReferenceImage,
+} from "@/lib/tagging/batch-reference-image";
 import {
   clampBox as clampClassificationBox,
   cropImageToDataUrl as cropClassificationImageToDataUrl,
@@ -661,71 +666,55 @@ async function uploadAssetLibraryImages({
   return uploads;
 }
 
-function getImageExtensionFromObjectKeyOrContentType({
-  objectKey,
-  contentType,
-}: {
-  objectKey: string;
-  contentType: string;
-}) {
-  const match = objectKey.split("?")[0].match(/\.[a-zA-Z0-9]+$/);
-  if (match) {
-    return match[0].toLowerCase();
-  }
-
-  if (contentType.includes("image/png")) return ".png";
-  if (contentType.includes("image/jpeg")) return ".jpg";
-  if (contentType.includes("image/webp")) return ".webp";
-  if (contentType.includes("image/svg+xml")) return ".svg";
-  if (contentType.includes("image/gif")) return ".gif";
-  return "";
-}
-
-async function cloneProductImageFromObjectKey({
-  objectKey,
+async function importProductImageFromUrl({
+  imageUrl,
   teamId,
+  libraryT,
   t,
 }: {
-  objectKey: string;
+  imageUrl: string;
   teamId: number;
+  libraryT: TranslationFunction;
   t: TranslationFunction;
 }) {
-  const { signedUrl } = getCachedSignedS3ObjectUrl({
-    objectKey,
-    expiresInSeconds: 60 * 60,
-  });
-  const response = await fetch(signedUrl);
-
-  if (!response.ok) {
+  let preparedImage;
+  try {
+    preparedImage = await downloadAndPrepareBatchReferenceImage(imageUrl);
+  } catch (error) {
+    if (error instanceof BatchReferenceImageError) {
+      if (error.code === "file_too_large") {
+        throw new Error(libraryT("uploadErrors.fileTooLarge"));
+      }
+      if (error.code === "invalid_image") {
+        throw new Error(libraryT("uploadErrors.imageLoadFailed"));
+      }
+      if (error.code === "compression_failed") {
+        throw new Error(libraryT("uploadErrors.compressionTargetUnreachable"));
+      }
+    }
     throw new Error(
-      t("importErrors.ossKeyUnreadable", {
-        imageKeyColumn: t("columns.imageObjectKeys"),
-        objectKey,
+      t("importErrors.imageUrlUnreadable", {
+        imageUrlColumn: t("columns.imageUrls"),
+        imageUrl,
       }),
     );
   }
 
-  const contentType = response.headers.get("content-type") || "application/octet-stream";
-  const buffer = Buffer.from(await response.arrayBuffer());
-  const extension = getImageExtensionFromObjectKeyOrContentType({
-    objectKey,
-    contentType,
-  });
   const newObjectKey = buildAssetProductObjectKey({
     teamId,
-    extension,
+    extension: preparedImage.extension,
   });
 
   const uploadResult = await uploadS3Object({
-    body: buffer,
-    contentType,
+    body: preparedImage.buffer,
+    contentType: preparedImage.mimeType,
     objectKey: newObjectKey,
   });
 
   return {
     objectKey: uploadResult.objectKey,
-    mimeType: contentType,
-    size: buffer.byteLength,
+    mimeType: preparedImage.mimeType,
+    size: preparedImage.byteLength,
   };
 }
 
@@ -735,6 +724,7 @@ async function importProductBatchRow({
   tagLookup,
   productTypeCache,
   existingNames,
+  libraryT,
   t,
 }: {
   team: { id: number; slug: string };
@@ -742,13 +732,14 @@ async function importProductBatchRow({
   tagLookup: Map<string, { assetTagId: number; tagPath: string[] }>;
   productTypeCache: Map<string, AssetProductType>;
   existingNames: Set<string>;
+  libraryT: TranslationFunction;
   t: TranslationFunction;
 }) {
   const baseName = row.name.trim();
   const productTypeName = row.productTypeName.trim();
   const description = row.description.trim();
   const notes = row.notes.trim();
-  const imageObjectKeys = splitBatchValues(row.imageObjectKeys);
+  const imageUrls = splitBatchValues(row.imageUrls);
 
   if (!baseName) {
     throw new Error(t("importErrors.nameRequired", { nameColumn: t("columns.name") }));
@@ -776,16 +767,14 @@ async function importProductBatchRow({
     throw new Error(t("importErrors.notesTooLong", { notesColumn: t("columns.notes") }));
   }
 
-  if (imageObjectKeys.length === 0) {
+  if (imageUrls.length === 0) {
     throw new Error(
-      t("importErrors.imageKeysRequired", { imageKeyColumn: t("columns.imageObjectKeys") }),
+      t("importErrors.imageUrlsRequired", { imageUrlColumn: t("columns.imageUrls") }),
     );
   }
 
-  if (imageObjectKeys.length > 100) {
-    throw new Error(
-      t("importErrors.imagesTooMany", { imageKeyColumn: t("columns.imageObjectKeys") }),
-    );
+  if (imageUrls.length > 100) {
+    throw new Error(t("importErrors.imagesTooMany", { imageUrlColumn: t("columns.imageUrls") }));
   }
 
   const selectedTags = resolveImportedTags({
@@ -804,15 +793,20 @@ async function importProductBatchRow({
       }),
   });
   const uploadedImages = [];
+  let totalUploadBytes = 0;
 
-  for (const objectKey of imageObjectKeys) {
-    uploadedImages.push(
-      await cloneProductImageFromObjectKey({
-        objectKey,
-        teamId: team.id,
-        t,
-      }),
-    );
+  for (const imageUrl of imageUrls) {
+    const uploadedImage = await importProductImageFromUrl({
+      imageUrl,
+      teamId: team.id,
+      libraryT,
+      t,
+    });
+    totalUploadBytes += uploadedImage.size;
+    if (totalUploadBytes > MAX_TOTAL_NEW_REFERENCE_UPLOAD_BYTES) {
+      throw new Error(libraryT("validation.totalTooLarge"));
+    }
+    uploadedImages.push(uploadedImage);
   }
 
   const productType = await ensureImportedProductType({
@@ -1301,9 +1295,8 @@ export async function importProductsAction(
   formData: FormData,
 ): Promise<ServerActionResult<ProductBatchImportResult>> {
   return withAuth(async ({ team }) => {
-    const t = getProductBatchTranslator(
-      (await getTranslations("Tagging.ProductLibrary")) as TranslationFunction,
-    );
+    const libraryT = (await getTranslations("Tagging.ProductLibrary")) as TranslationFunction;
+    const t = getProductBatchTranslator(libraryT);
     const tBatch = (await getTranslations("Tagging.BatchImportExport")) as TranslationFunction;
     const fileErrors = getProductBatchFileErrors(tBatch);
     const columns = await getLocalizedProductBatchColumns();
@@ -1382,6 +1375,7 @@ export async function importProductsAction(
             tagLookup,
             productTypeCache,
             existingNames,
+            libraryT,
             t,
           });
           createdProducts.push(product);
