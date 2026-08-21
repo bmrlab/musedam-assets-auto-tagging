@@ -43,6 +43,26 @@ function getBooleanEnv(name: string, fallback: boolean) {
 }
 
 export function getJinaConfig() {
+  const isGlobal = getBooleanEnv("IS_GLOBAL", false);
+  const commonConfig = {
+    isGlobal,
+    model: process.env.JINA_EMBEDDING_MODEL?.trim() || "jina-clip-v2",
+    batchSize: getNumberEnv("JINA_BATCH_SIZE", 4),
+    timeoutMs: getNumberEnv("JINA_TIMEOUT_SECONDS", 60) * 1000,
+  };
+
+  if (!isGlobal) {
+    return {
+      ...commonConfig,
+      isGlobal: false as const,
+      accessKeyId: getRequiredEnv("SAGEMAKER_AWS_ACCESS_KEY_ID"),
+      endpointName: process.env.SAGEMAKER_ENDPOINT_NAME?.trim() || "Endpoint-Jina-CLIP-v2-1",
+      region: getRequiredEnv("SAGEMAKER_AWS_REGION"),
+      secretAccessKey: getRequiredEnv("SAGEMAKER_AWS_SECRET_ACCESS_KEY"),
+      sessionToken: process.env.SAGEMAKER_AWS_SESSION_TOKEN?.trim() || undefined,
+    };
+  }
+
   const useProxy = getBooleanEnv("JINA_USE_PROXY", false);
   const proxyUrl =
     process.env.JINA_PROXY_URL?.trim() ||
@@ -59,11 +79,10 @@ export function getJinaConfig() {
   }
 
   return {
+    ...commonConfig,
+    isGlobal: true as const,
     apiKey: getRequiredEnv("JINA_API_KEY"),
     embeddingsUrl: process.env.JINA_EMBEDDINGS_URL?.trim() || "https://api.jina.ai/v1/embeddings",
-    model: process.env.JINA_EMBEDDING_MODEL?.trim() || "jina-clip-v2",
-    batchSize: getNumberEnv("JINA_BATCH_SIZE", 4),
-    timeoutMs: getNumberEnv("JINA_TIMEOUT_SECONDS", 60) * 1000,
     useProxy,
     proxyUrl,
   };
