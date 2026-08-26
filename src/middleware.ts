@@ -1,10 +1,9 @@
 import { isValidLocale } from "@/i18n/routing";
 import {
-  FEATURE_LIBRARY_COOKIE,
-  FEATURE_LIBRARY_PARAM,
+  FEATURE_LIBRARY_TOGGLE_NAMES,
   featureLibraryEnabledToValue,
   isFeatureLibraryValue,
-  resolveFeatureLibraryEnabled,
+  resolveFeatureLibraryFeatures,
 } from "@/lib/feature-library";
 import { getRequestClientIp, getRequestOrigin } from "@/lib/request/headers";
 import { NextRequest, NextResponse } from "next/server";
@@ -65,37 +64,38 @@ function handleLocale(req: NextRequest, response: NextResponse) {
 }
 
 function handleFeatureLibrary(req: NextRequest, response: NextResponse) {
-  const featureLibraryCookie = req.cookies.get(FEATURE_LIBRARY_COOKIE);
-  const requestFeatureLibrary = req.nextUrl.searchParams.get(FEATURE_LIBRARY_PARAM);
-  const featureLibraryEnabled = resolveFeatureLibraryEnabled(
-    requestFeatureLibrary,
-    featureLibraryCookie?.value,
+  const requestValues = Object.fromEntries(
+    FEATURE_LIBRARY_TOGGLE_NAMES.map((name) => [name, req.nextUrl.searchParams.get(name)]),
   );
-  const featureLibraryValue = featureLibraryEnabledToValue(featureLibraryEnabled);
+  const cookieValues = Object.fromEntries(
+    FEATURE_LIBRARY_TOGGLE_NAMES.map((name) => [name, req.cookies.get(name)?.value]),
+  );
+  const features = resolveFeatureLibraryFeatures(requestValues, cookieValues);
 
-  response.headers.set("x-feature-library", featureLibraryValue);
+  for (const name of FEATURE_LIBRARY_TOGGLE_NAMES) {
+    response.headers.set(
+      `x-${name.replace(/([A-Z])/g, "-$1").toLowerCase()}`,
+      featureLibraryEnabledToValue(features[name]),
+    );
 
-  if (
-    isFeatureLibraryValue(requestFeatureLibrary) &&
-    featureLibraryCookie?.value !== requestFeatureLibrary
-  ) {
-    response.cookies.set(FEATURE_LIBRARY_COOKIE, requestFeatureLibrary, {
-      httpOnly: false,
-      expires: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
-      sameSite: "none",
-      secure: true,
-    });
+    const requestValue = requestValues[name];
+    if (isFeatureLibraryValue(requestValue) && cookieValues[name] !== requestValue) {
+      response.cookies.set(name, requestValue, {
+        httpOnly: false,
+        expires: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+        sameSite: "none",
+        secure: true,
+      });
+    }
   }
 
-  return featureLibraryEnabled;
+  return features;
 }
 
 export async function middleware(req: NextRequest) {
   if (req.nextUrl.pathname.endsWith(".ping")) {
     return await handlePingRequest(req);
   }
-
-  const requestFeatureLibrary = req.nextUrl.searchParams.get(FEATURE_LIBRARY_PARAM);
 
   const response = NextResponse.next();
 

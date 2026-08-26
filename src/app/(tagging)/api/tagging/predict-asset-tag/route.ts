@@ -1,6 +1,7 @@
 import { enqueueTaggingTask } from "@/app/(tagging)/queue";
 import { getTaggingSettings } from "@/app/(tagging)/tagging/settings/lib";
-import { getFeatureLibraryEnabledFromRequest } from "@/lib/feature-library-server";
+import { toFeatureClassificationFlags } from "@/lib/feature-library";
+import { getFeatureLibraryFeaturesFromRequest } from "@/lib/feature-library-server";
 import { idToSlug, slugToId } from "@/lib/slug";
 import { fetchMuseDAMFolderSubIds, syncSingleAssetFromMuseDAM } from "@/musedam/assets";
 import { MuseDAMID } from "@/musedam/types";
@@ -8,6 +9,20 @@ import { AssetObject } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+
+const featureToggleSchema = z.preprocess(
+  (val) => {
+    if (typeof val === "number") {
+      return val === 1 ? "on" : val === 0 ? "off" : val;
+    }
+    if (typeof val === "string") {
+      if (val === "1") return "on";
+      if (val === "0") return "off";
+    }
+    return val;
+  },
+  z.enum(["on", "off"]).optional(),
+);
 
 const requestSchema = z.object({
   teamId: z.coerce.bigint().positive(),
@@ -28,19 +43,11 @@ const requestSchema = z.object({
     }),
   triggerType: z.enum(["default", "manual", "scheduled"]).optional().default("default"),
   recognitionAccuracy: z.enum(["precise", "balanced", "broad"]).optional().default("balanced"),
-  featureLibrary: z.preprocess(
-    (val) => {
-      if (typeof val === "number") {
-        return val === 1 ? "on" : val === 0 ? "off" : val;
-      }
-      if (typeof val === "string") {
-        if (val === "1") return "on";
-        if (val === "0") return "off";
-      }
-      return val;
-    },
-    z.enum(["on", "off"]).optional(),
-  ),
+  featureLibrary: featureToggleSchema,
+  featureBrand: featureToggleSchema,
+  featureProduct: featureToggleSchema,
+  featurePerson: featureToggleSchema,
+  featureIp: featureToggleSchema,
 });
 
 export async function POST(request: NextRequest) {
@@ -55,8 +62,20 @@ export async function POST(request: NextRequest) {
       recognitionAccuracy,
       triggerType,
       featureLibrary,
+      featureBrand,
+      featureProduct,
+      featurePerson,
+      featureIp,
     } = requestSchema.parse(body);
-    const featureClassify = getFeatureLibraryEnabledFromRequest(request, featureLibrary);
+    const featureLibraryFeatures = getFeatureLibraryFeaturesFromRequest(request, {
+      featureLibrary,
+      featureBrand,
+      featureProduct,
+      featurePerson,
+      featureIp,
+    });
+    const featureClassify = featureLibraryFeatures.featureLibrary;
+    const featureClassifications = toFeatureClassificationFlags(featureLibraryFeatures);
 
     // 根据 teamId 构造 team slug 并查询 team
     const teamSlug = idToSlug("team", new MuseDAMID(musedamTeamId));
@@ -183,6 +202,7 @@ export async function POST(request: NextRequest) {
         matchingSources,
         recognitionAccuracy,
         featureClassify,
+        featureClassifications,
         taskType: triggerType,
       });
 
