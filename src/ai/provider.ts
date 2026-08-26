@@ -45,6 +45,20 @@ export type LLMModelName =
   | "claude-sonnet-4"
   | "claude-sonnet-4-6";
 
+// Private deployments call back into our hosted model gateway (OPENAI_BASE_URL) instead of
+// AWS Bedrock / Azure OpenAI directly — that's the intended fallback path below when
+// AWS_BEDROCK_ACCESS_KEY_ID / AZURE_EASTUS2_API_KEY are left unset. Fail fast with a clear
+// error here instead of letting ai-sdk surface an opaque auth error deep in the request.
+function assertOpenAIGatewayConfigured(modelName: LLMModelName) {
+  if (!process.env.OPENAI_BASE_URL || !process.env.OPENAI_API_KEY) {
+    throw new Error(
+      `Missing model gateway config for "${modelName}": set OPENAI_BASE_URL and OPENAI_API_KEY ` +
+        `to point at the hosted model gateway (required whenever AWS_BEDROCK_ACCESS_KEY_ID / ` +
+        `AZURE_EASTUS2_API_KEY are not configured, e.g. private deployments).`,
+    );
+  }
+}
+
 export function llm(modelName: LLMModelName) {
   switch (modelName) {
     case "gpt-5":
@@ -53,6 +67,7 @@ export function llm(modelName: LLMModelName) {
       if (process.env.AZURE_EASTUS2_API_KEY) {
         break;
       } else {
+        assertOpenAIGatewayConfigured(modelName);
         return openai.chat(modelName);
       }
     case "claude-3-7-sonnet":
@@ -61,9 +76,11 @@ export function llm(modelName: LLMModelName) {
       if (process.env.AWS_BEDROCK_ACCESS_KEY_ID) {
         break;
       } else {
+        assertOpenAIGatewayConfigured(modelName);
         return openai(modelName);
       }
     case "qwen3-vl-flash":
+      assertOpenAIGatewayConfigured(modelName);
       return openai.chat(modelName);
   }
   switch (modelName) {
