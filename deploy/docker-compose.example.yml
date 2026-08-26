@@ -1,0 +1,46 @@
+# Reference docker-compose for private deployments. Not wired into CI — customers may run this
+# directly, or translate it into their own orchestrator (K8s, Nomad, bare docker run, ...).
+#
+# Usage:
+#   cp .env.example .env   # fill in DATABASE_URL, S3_*/AWS_*, OPENAI_BASE_URL, etc.
+#                          # see docs/private-deployment.md for the full variable matrix
+#   docker build -t musedam-auto-tagging:local --build-arg NEXT_SERVER_ACTIONS_ENCRYPTION_KEY=$(openssl rand -hex 32) .
+#   docker compose -f deploy/docker-compose.example.yml up -d
+
+services:
+  app:
+    image: musedam-auto-tagging:local
+    env_file:
+      - ../.env
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+  # Drives the two internal cron endpoints instead of packaging the tsx-based
+  # `pnpm queue-processor` script (which isn't in the production standalone image).
+  # See docs/private-deployment.md#4-定时队列任务
+  scheduler:
+    image: alpine:3.20
+    depends_on:
+      - app
+    env_file:
+      - ../.env
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        apk add --no-cache curl >/dev/null
+        LAST_SCHEDULED_DAY=""
+        while true; do
+          curl -fsS -X POST "http://app:3000/api/tagging/process-queue" \
+            -H "Authorization: Bearer $$INTERNAL_API_KEY" || true
+          TODAY=$$(date -u +%Y-%m-%d)
+          HOUR=$$(date -u +%H)
+          if [ "$$HOUR" = "00" ] && [ "$$LAST_SCHEDULED_DAY" != "$$TODAY" ]; then
+            curl -fsS -X POST "http://app:3000/api/tagging/process-scheduled" \
+              -H "Authorization: Bearer $$INTERNAL_API_KEY" || true
+            LAST_SCHEDULED_DAY="$$TODAY"
+          fi
+          sleep 10
+        done
+    restart: unless-stopped
