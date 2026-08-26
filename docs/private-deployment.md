@@ -70,7 +70,26 @@ npx prisma migrate deploy
 
 参考 compose 示例：`deploy/docker-compose.example.yml`。
 
-## 5. 已知待验证项（阿里云 OSS 联调时确认）
+## 5. 特征库（`S3_FOLDER=feature-library`）—— 上线前必须验证的一项
 
-- `x-amz-acl` header 在 OSS S3 兼容层上是否生效（决定 `S3_SEND_ACL_HEADER` 取值）
-- 批量导出功能依赖的匿名可读 URL，在 OSS 上需要用 bucket policy 而不是逐对象 ACL 授权
+批量导入/导出（`src/app/(tagging)/tagging/{brand,ip,person,product}/batchFile.ts`）和推送给
+MuseDAM（`src/musedam/push-feature-to-musedam.ts`）都调用 `getS3PublicObjectUrl()`，产出的是
+**不带签名的裸 URL**，不是临时授权的 signed URL。这意味着对象**必须匿名公开可读**，这不是可选项而是硬性功能依赖：
+
+- 导出的 Excel 里的图片链接要能在用户浏览器里直接打开
+- `push-feature-to-musedam.ts` 把这个裸 URL 推给 MuseDAM 后端，**MuseDAM 侧的服务器必须能访问到这个 URL**（可能和客户私部环境不在同一网络里）
+- 批量导入（`src/lib/tagging/batch-reference-image.ts`）在识别出"这是我们自己配置的存储桶对象"时会跳过额外的 SSRF 私网地址校验，这依赖 `isConfiguredS3PublicObjectUrl()` 与实际生成的 URL 保持一致（已用测试覆盖 path-style 和 virtual-hosted-style 两种寻址方式，见 `__test__/s3-storage-config.test.ts`）
+
+**接入新的对象存储厂商（尤其阿里云 OSS）前，必须做一次端到端验证再上线**：
+
+1. 上传一个测试对象（走 `uploadS3Object`，即正常的图片上传路径）
+2. 用 `getS3PublicObjectUrl()` 拿到裸 URL，**不带任何签名/token**，用另一台机器（不在客户 VPC 内）直接 `curl` 这个 URL
+3. 确认能公网访问：
+   - 如果 `x-amz-acl: public-read` 在该厂商的 S3 兼容层上不生效 → 设置 `S3_SEND_ACL_HEADER=false`，改为在 bucket 层面配置匿名读策略（只开放给 `S3_FOLDER` 这个前缀，不要对整个 bucket 开放）
+   - 确认 `S3_ENDPOINT_URL` 配置的是**公网 endpoint**，不是内网/VPC endpoint —— 否则即使 ACL 没问题，MuseDAM 和用户浏览器仍然访问不到
+
+这一步之前出过一次从 OSS 切回 AWS S3 的历史（见 `git log 1b9a4a5`），commit message 没写原因；不确定是否正是这里踩过坑，接入 OSS 时建议重点排查这一条。
+
+## 6. 其他已知待验证项
+
+- 火山引擎 TOS / 腾讯云 COS 的 S3 兼容层细节（寻址方式、ACL header 支持度）尚未验证，接入前重复第 5 节的端到端检查

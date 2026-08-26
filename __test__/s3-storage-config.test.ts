@@ -77,3 +77,80 @@ describe("s3 storage config", () => {
     expect(() => getS3ObjectUrl("teams-1-asset-logos-abc.png")).toThrow(/Invalid boolean env/);
   });
 });
+
+// "特征库" (feature library, S3_FOLDER=feature-library): batch export/import and
+// push-feature-to-musedam all hand out *unsigned* object URLs (getS3PublicObjectUrl) that must
+// be anonymously readable — there is no signature to fall back on. These tests verify the
+// actual upload request honors S3_SEND_ACL_HEADER, and that the "is this our own object" check
+// still recognizes our URLs once path-style/ACL become configurable (both are load-bearing:
+// wrong behavior here means exported/pushed image links silently 404 for everyone outside the
+// storage account, since batch export/import and MuseDAM push all key off them).
+describe("feature-library public object URLs", () => {
+  const originalEnv = { ...process.env };
+  const originalFetch = global.fetch;
+
+  beforeEach(() => {
+    process.env = { ...originalEnv, ...BASE_ENV, S3_FOLDER: "feature-library" };
+  });
+
+  afterEach(() => {
+    process.env = { ...originalEnv };
+    global.fetch = originalFetch;
+  });
+
+  it("sends x-amz-acl: public-read on upload by default (AWS S3 behavior)", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const { uploadS3Object } = await importS3Module();
+    await uploadS3Object({
+      body: Buffer.from("fake-image-bytes"),
+      contentType: "image/png",
+      objectKey: "teams-1-asset-logos-abc.png",
+    });
+
+    const [, requestInit] = fetchMock.mock.calls[0];
+    const headers = requestInit.headers as Record<string, string>;
+    expect(headers["x-amz-acl"]).toBe("public-read");
+  });
+
+  it("omits x-amz-acl on upload when S3_SEND_ACL_HEADER=false (provider needs bucket policy instead)", async () => {
+    process.env.S3_SEND_ACL_HEADER = "false";
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const { uploadS3Object } = await importS3Module();
+    await uploadS3Object({
+      body: Buffer.from("fake-image-bytes"),
+      contentType: "image/png",
+      objectKey: "teams-1-asset-logos-abc.png",
+    });
+
+    const [, requestInit] = fetchMock.mock.calls[0];
+    const headers = requestInit.headers as Record<string, string>;
+    expect(headers["x-amz-acl"]).toBeUndefined();
+  });
+
+  it("recognizes its own public object URLs under path-style addressing", async () => {
+    const { getS3PublicObjectUrl, isConfiguredS3PublicObjectUrl } = await importS3Module();
+    const publicUrl = getS3PublicObjectUrl("feature-library/teams-1-asset-logos-abc.png");
+    expect(publicUrl).toBe(
+      "https://s3.us-east-1.amazonaws.com/test-bucket/feature-library/teams-1-asset-logos-abc.png",
+    );
+    expect(isConfiguredS3PublicObjectUrl(publicUrl)).toBe(true);
+    expect(isConfiguredS3PublicObjectUrl("https://evil.example.com/feature-library/x.png")).toBe(
+      false,
+    );
+  });
+
+  it("recognizes its own public object URLs under virtual-hosted-style addressing (e.g. Aliyun OSS)", async () => {
+    process.env.S3_FORCE_PATH_STYLE = "false";
+    process.env.S3_ENDPOINT_URL = "https://oss-cn-hangzhou.aliyuncs.com";
+    const { getS3PublicObjectUrl, isConfiguredS3PublicObjectUrl } = await importS3Module();
+    const publicUrl = getS3PublicObjectUrl("feature-library/teams-1-asset-logos-abc.png");
+    expect(publicUrl).toBe(
+      "https://test-bucket.oss-cn-hangzhou.aliyuncs.com/feature-library/teams-1-asset-logos-abc.png",
+    );
+    expect(isConfiguredS3PublicObjectUrl(publicUrl)).toBe(true);
+  });
+});
