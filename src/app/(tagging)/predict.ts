@@ -1291,6 +1291,7 @@ export async function predictAssetTags(
     faceFeatures?: TaggingFaceFeatures;
     /** 调用方已加载好的标签树（如队列同一批次内按团队复用），传入时跳过数据库查询。 */
     tagsTree?: TagWithChildren[];
+    modelOverride?: LLMModelName;
   },
 ): Promise<{
   predictions: SourceBasedTagPredictions;
@@ -1427,7 +1428,7 @@ ${sourceSections.join("\n\n")}
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      const modelName = getTaggingPredictModel();
+      const modelName = options?.modelOverride ?? getTaggingPredictModel();
       const result = await generateObject({
         // model: llm("claude-sonnet-4"),
         // model: llm("gpt-5-nano"),

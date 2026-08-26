@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { dispatchMuseDAMClientAction } from "@/embed/message";
 import type { AssetTagExtra } from "@/prisma/client";
 import { AssetTag } from "@/prisma/client";
 import { InfoIcon, Plus, X } from "lucide-react";
@@ -15,6 +16,13 @@ import { toast } from "sonner";
 import { updateTagExtra } from "../actions";
 import { TagEditData, useTagEdit } from "../contexts/TagEditContext";
 import { usePendingInboundTagRequired } from "../hooks/usePendingInboundTagRequired";
+import { TagVisibilityDisplay, VisibilitySelection } from "./TagVisibilityDisplay";
+
+const EMPTY_VISIBILITY_SELECTION: VisibilitySelection = {
+  members: [],
+  departments: [],
+  groups: [],
+};
 
 // 组件Props类型
 interface TagDetailsProps {
@@ -46,6 +54,10 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
 
   // 编辑态
   const [isEditing, setIsEditing] = useState(false);
+  const [visibilityByTagId, setVisibilityByTagId] = useState<Record<number, VisibilitySelection>>(
+    {},
+  );
+  const [isSelectingVisibility, setIsSelectingVisibility] = useState(false);
 
   // 关键词输入状态
   const [keywordsInputValue, setKeywordsInputValue] = useState("");
@@ -214,6 +226,48 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
     ? ((selectedTag.tag as AssetTag & { children?: AssetTag[] }).children?.length ?? 0) > 0
     : false;
   const shouldShowRequiredSwitch = showSwitch && (hasChildTags || required);
+  const visibilitySelection = selectedTag.tag.id
+    ? visibilityByTagId[selectedTag.tag.id] || EMPTY_VISIBILITY_SELECTION
+    : EMPTY_VISIBILITY_SELECTION;
+  const handleVisibilitySelection = async () => {
+    if (!selectedTag.tag.id) return;
+    try {
+      setIsSelectingVisibility(true);
+      const result = await dispatchMuseDAMClientAction("member-selector-modal-open", {
+        canSelectMe: true,
+        title: t.has("selectVisibleMembers")
+          ? t("selectVisibleMembers")
+          : "Select members who can view this tag",
+        selectedItems: {
+          members: visibilitySelection.members.map((item) => ({
+            id: String(item.id),
+            name: item.name,
+          })),
+          departments: visibilitySelection.departments.map((item) => ({
+            id: String(item.id),
+            name: item.name,
+          })),
+          groups: visibilitySelection.groups.map((item) => ({
+            id: String(item.id),
+            name: item.name,
+          })),
+        },
+      });
+      setVisibilityByTagId((current) => ({
+        ...current,
+        [selectedTag.tag.id]: result,
+      }));
+    } catch (error) {
+      if (error instanceof Error && error.message === "用户取消操作") return;
+      toast.error(
+        t.has("selectVisibleMembersFailed")
+          ? t("selectVisibleMembersFailed")
+          : "Failed to select members",
+      );
+    } finally {
+      setIsSelectingVisibility(false);
+    }
+  };
 
   const handleStartEdit = () => {
     setIsEditing(true);
@@ -414,6 +468,16 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
             </div>
           </div>
         )}
+
+        <TagVisibilityDisplay
+          label={t.has("tagVisibilityRange") ? t("tagVisibilityRange") : "Tag visibility"}
+          allMembersVisibleText={
+            t.has("allMembersVisible") ? t("allMembersVisible") : "Visible to all members"
+          }
+          selection={visibilitySelection}
+          loading={isSelectingVisibility}
+          onSelect={handleVisibilitySelection}
+        />
 
         {/* 匹配关键词 */}
         <div className="space-y-2">
