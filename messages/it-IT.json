@@ -76,6 +76,10 @@
       "excludeRule": "Regola di esclusione:",
       "excludeRuleDescription": "Quando nomi risorse, metadati e percorsi cartelle contengono queste parole chiave, anche se vengono trovate parole chiave corrispondenti, il tag non verrà applicato automaticamente",
       "requiredForInventoryEntry": "Obbligatorio per l'entrata in magazzino",
+      "tagVisibilityRange": "Tag visibility",
+      "allMembersVisible": "Visible to all members",
+      "selectVisibleMembers": "Select members who can view this tag",
+      "selectVisibleMembersFailed": "Failed to select members",
       "tagNamePlaceholder": "Progettazione poster"
     },
     "ManualCreateModal": {

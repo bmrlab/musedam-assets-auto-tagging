@@ -304,6 +304,8 @@ export async function predictAssetTags(
     };
     recognitionAccuracy?: "precise" | "balanced" | "broad";
     faceFeatures?: TaggingFaceFeatures;
+    tagsTreeOverride?: TagWithChildren[];
+    modelOverride?: LLMModelName;
   },
 ): Promise<{
   predictions: SourceBasedTagPredictions;
@@ -311,7 +313,7 @@ export async function predictAssetTags(
   extra: TaggingQueueItemExtra;
 }> {
   // TODO: 缓存
-  const tagsTree = await fetchTagsTree({ teamId: asset.teamId });
+  const tagsTree = options?.tagsTreeOverride ?? (await fetchTagsTree({ teamId: asset.teamId }));
   if (!tagsTree || tagsTree.length === 0) {
     throw taggingPredictError("NO_TAG_TREE", "No tag tree available");
   }
@@ -380,7 +382,7 @@ ${tagKeywordsText}`,
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      const modelName = getTaggingPredictModel();
+      const modelName = options?.modelOverride ?? getTaggingPredictModel();
       const result = await generateObject({
         // model: llm("claude-sonnet-4"),
         // model: llm("gpt-5-nano"),

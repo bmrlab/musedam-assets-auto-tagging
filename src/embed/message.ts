@@ -331,6 +331,8 @@ type ActionMap = {
         departments?: Array<{ id: string; name: string }>;
         groups?: Array<{ id: string; name: string }>;
       };
+      title?: string;
+      canSelectMe?: boolean;
     };
     result: BaseActionResult<{
       members: {

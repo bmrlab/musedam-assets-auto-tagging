@@ -189,6 +189,10 @@
       "tagDetails": "Детали тега",
       "tagName": "Название тега",
       "requiredForInventoryEntry": "Обязательно для ввода в инвентаризацию",
+      "tagVisibilityRange": "Tag visibility",
+      "allMembersVisible": "Visible to all members",
+      "selectVisibleMembers": "Select members who can view this tag",
+      "selectVisibleMembersFailed": "Failed to select members",
       "tagNamePlaceholder": "Дизайн постера"
     },
     "TagItem": {

@@ -76,6 +76,10 @@
       "excludeRule": "Règle d'exclusion :",
       "excludeRuleDescription": "Lorsque les noms de ressources, métadonnées et chemins de dossiers contiennent ces mots-clés, même si des mots-clés correspondants sont trouvés, l'étiquette ne sera pas appliquée automatiquement",
       "requiredForInventoryEntry": "Champ obligatoire pour l'entrée de stock",
+      "tagVisibilityRange": "Tag visibility",
+      "allMembersVisible": "Visible to all members",
+      "selectVisibleMembers": "Select members who can view this tag",
+      "selectVisibleMembersFailed": "Failed to select members",
       "tagNamePlaceholder": "Conception d'affiche"
     },
     "ManualCreateModal": {
