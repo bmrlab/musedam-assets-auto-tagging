@@ -1,24 +1,51 @@
 import "server-only";
 
 import {
-  FEATURE_LIBRARY_COOKIE,
-  FEATURE_LIBRARY_PARAM,
-  resolveFeatureLibraryEnabled,
+  FEATURE_LIBRARY_TOGGLE_NAMES,
+  FeatureLibraryToggleName,
+  resolveFeatureLibraryFeatures,
 } from "@/lib/feature-library";
 import { cookies } from "next/headers";
 import type { NextRequest } from "next/server";
 
-export async function getServerFeatureLibraryEnabled() {
+type ExplicitFeatureValues = Partial<Record<FeatureLibraryToggleName, string | null | undefined>>;
+
+export async function getServerFeatureLibraryFeatures() {
   const cookieStore = await cookies();
-  return resolveFeatureLibraryEnabled(undefined, cookieStore.get(FEATURE_LIBRARY_COOKIE)?.value);
+  return resolveFeatureLibraryFeatures(
+    {},
+    Object.fromEntries(
+      FEATURE_LIBRARY_TOGGLE_NAMES.map((name) => [name, cookieStore.get(name)?.value]),
+    ),
+  );
+}
+
+export async function getServerFeatureLibraryEnabled() {
+  return (await getServerFeatureLibraryFeatures()).featureLibrary;
+}
+
+export function getFeatureLibraryFeaturesFromRequest(
+  request: NextRequest,
+  explicitValues: ExplicitFeatureValues = {},
+) {
+  return resolveFeatureLibraryFeatures(
+    Object.fromEntries(
+      FEATURE_LIBRARY_TOGGLE_NAMES.map((name) => [
+        name,
+        explicitValues[name] ?? request.nextUrl.searchParams.get(name),
+      ]),
+    ),
+    Object.fromEntries(
+      FEATURE_LIBRARY_TOGGLE_NAMES.map((name) => [name, request.cookies.get(name)?.value]),
+    ),
+  );
 }
 
 export function getFeatureLibraryEnabledFromRequest(
   request: NextRequest,
   explicitValue?: string | null,
 ) {
-  return resolveFeatureLibraryEnabled(
-    explicitValue ?? request.nextUrl.searchParams.get(FEATURE_LIBRARY_PARAM),
-    request.cookies.get(FEATURE_LIBRARY_COOKIE)?.value,
-  );
+  return getFeatureLibraryFeaturesFromRequest(request, {
+    featureLibrary: explicitValue,
+  }).featureLibrary;
 }

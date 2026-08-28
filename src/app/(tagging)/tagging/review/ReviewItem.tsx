@@ -22,7 +22,8 @@ import { ClockCircleIcon, TagAIIcon, TagsIcon } from "@/components/ui/icons";
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { dispatchMuseDAMClientAction } from "@/embed/message";
-import { useFeatureLibraryEnabled } from "@/hooks/use-feature-library";
+import { useFeatureLibraryFeatures } from "@/hooks/use-feature-library";
+import { isFeatureTypeEnabled } from "@/lib/feature-library";
 import {
   getPersonFaceBestRawSimilarity,
   isReviewablePersonFace,
@@ -278,7 +279,12 @@ export function ReviewItem({
   const t = useTranslations("Tagging.Review");
   const tResult = useTranslations("TaggingResultDisplay");
   const locale = useLocale();
-  const featureLibraryEnabled = useFeatureLibraryEnabled();
+  const featureLibraryFeatures = useFeatureLibraryFeatures();
+  const hasEnabledFeatures =
+    featureLibraryFeatures.featureBrand ||
+    featureLibraryFeatures.featureIp ||
+    featureLibraryFeatures.featureProduct ||
+    featureLibraryFeatures.featurePerson;
 
   const getFeatureClassLabel = useCallback(
     (featureType: MuseDAMMaterialFeatureSnapshot["featureType"]) => {
@@ -311,22 +317,22 @@ export function ReviewItem({
   const realLoading = batchLoading || loading;
   const availableFeatureIdSets = useMemo(
     () => ({
-      brand: new Set(featureLibraryEnabled ? availableFeatureIds.brand : []),
-      ip: new Set(featureLibraryEnabled ? availableFeatureIds.ip : []),
-      product: new Set(featureLibraryEnabled ? availableFeatureIds.product : []),
-      person: new Set(featureLibraryEnabled ? availableFeatureIds.person : []),
+      brand: new Set(featureLibraryFeatures.featureBrand ? availableFeatureIds.brand : []),
+      ip: new Set(featureLibraryFeatures.featureIp ? availableFeatureIds.ip : []),
+      product: new Set(featureLibraryFeatures.featureProduct ? availableFeatureIds.product : []),
+      person: new Set(featureLibraryFeatures.featurePerson ? availableFeatureIds.person : []),
     }),
-    [availableFeatureIds, featureLibraryEnabled],
+    [availableFeatureIds, featureLibraryFeatures],
   );
   const availableMuseFeatureIdentifierIds = useMemo(
     () =>
       new Set([
-        ...(featureLibraryEnabled ? availableFeatureIds.brand : []),
-        ...(featureLibraryEnabled ? availableFeatureIds.ip : []),
-        ...(featureLibraryEnabled ? availableFeatureIds.product : []),
-        ...(featureLibraryEnabled ? availableFeatureIds.person : []),
+        ...(featureLibraryFeatures.featureBrand ? availableFeatureIds.brand : []),
+        ...(featureLibraryFeatures.featureIp ? availableFeatureIds.ip : []),
+        ...(featureLibraryFeatures.featureProduct ? availableFeatureIds.product : []),
+        ...(featureLibraryFeatures.featurePerson ? availableFeatureIds.person : []),
       ]),
-    [availableFeatureIds, featureLibraryEnabled],
+    [availableFeatureIds, featureLibraryFeatures],
   );
 
   const finalBatch = useMemo(() => {
@@ -407,7 +413,7 @@ export function ReviewItem({
   );
 
   const brandTagIds = useMemo(() => {
-    if (!featureLibraryEnabled) return [];
+    if (!featureLibraryFeatures.featureBrand) return [];
     return Array.from(
       new Set(
         Array.from(brandRecommendationsByQueueId.values()).flatMap((brandRecommendation) => {
@@ -429,11 +435,11 @@ export function ReviewItem({
   }, [
     availableFeatureIdSets,
     brandRecommendationsByQueueId,
-    featureLibraryEnabled,
+    featureLibraryFeatures.featureBrand,
     rejectedBrandItems,
   ]);
   const ipTagIds = useMemo(() => {
-    if (!featureLibraryEnabled) return [];
+    if (!featureLibraryFeatures.featureIp) return [];
     return Array.from(
       new Set(
         Array.from(ipRecommendationsByQueueId.values()).flatMap((ipRecommendation) => {
@@ -452,9 +458,14 @@ export function ReviewItem({
         }),
       ),
     );
-  }, [availableFeatureIdSets, featureLibraryEnabled, ipRecommendationsByQueueId, rejectedIpItems]);
+  }, [
+    availableFeatureIdSets,
+    featureLibraryFeatures.featureIp,
+    ipRecommendationsByQueueId,
+    rejectedIpItems,
+  ]);
   const personTagIds = useMemo(() => {
-    if (!featureLibraryEnabled) return [];
+    if (!featureLibraryFeatures.featurePerson) return [];
     return Array.from(
       new Set(
         Array.from(personRecommendationsByQueueId.values()).flatMap((personRecommendation) => {
@@ -489,12 +500,12 @@ export function ReviewItem({
     );
   }, [
     availableFeatureIdSets,
-    featureLibraryEnabled,
+    featureLibraryFeatures.featurePerson,
     personRecommendationsByQueueId,
     rejectedPersonItems,
   ]);
   const productTagIds = useMemo(() => {
-    if (!featureLibraryEnabled) return [];
+    if (!featureLibraryFeatures.featureProduct) return [];
     return Array.from(
       new Set(
         Array.from(productRecommendationsByQueueId.values()).flatMap((productRecommendation) => {
@@ -518,13 +529,13 @@ export function ReviewItem({
     );
   }, [
     availableFeatureIdSets,
-    featureLibraryEnabled,
+    featureLibraryFeatures.featureProduct,
     productRecommendationsByQueueId,
     rejectedProductItems,
   ]);
 
   const museFeatureIdentifierIds = useMemo(() => {
-    if (!featureLibraryEnabled) return [];
+    if (!hasEnabledFeatures) return [];
 
     const ids = new Set<string>();
     for (const { queueItem } of finalBatch) {
@@ -594,7 +605,7 @@ export function ReviewItem({
   }, [
     availableFeatureIdSets,
     availableMuseFeatureIdentifierIds,
-    featureLibraryEnabled,
+    hasEnabledFeatures,
     finalBatch,
     brandRecommendationsByQueueId,
     ipRecommendationsByQueueId,
@@ -957,7 +968,7 @@ export function ReviewItem({
         </div>
       </div>
 
-      {featureLibraryEnabled ? (
+      {hasEnabledFeatures ? (
         <div className="grid grid-cols-2 gap-4">
           <div className="col-span-1 rounded-md bg-[rgba(247,249,252,0.8)] p-4 dark:bg-basic-1">
             <div className="mb-2 flex items-center gap-2">
@@ -966,14 +977,18 @@ export function ReviewItem({
             </div>
             <div className="space-y-2">
               {existingFeatures.length > 0
-                ? existingFeatures.map((feature) => (
-                    <ExistingFeatureSnapshotRow
-                      key={`${feature.featureType}-${feature.identifierId}-${feature.id}`}
-                      feature={feature}
-                      featureClass={getFeatureClassLabel(feature.featureType)}
-                      onPreview={setPreviewImage}
-                    />
-                  ))
+                ? existingFeatures
+                    .filter((feature) =>
+                      isFeatureTypeEnabled(featureLibraryFeatures, feature.featureType),
+                    )
+                    .map((feature) => (
+                      <ExistingFeatureSnapshotRow
+                        key={`${feature.featureType}-${feature.identifierId}-${feature.id}`}
+                        feature={feature}
+                        featureClass={getFeatureClassLabel(feature.featureType)}
+                        onPreview={setPreviewImage}
+                      />
+                    ))
                 : null}
             </div>
           </div>
@@ -1000,6 +1015,7 @@ export function ReviewItem({
               }[] = [];
 
               if (
+                featureLibraryFeatures.featureBrand &&
                 brandRecommendation?.bestMatch &&
                 meetsFeatureConfidenceThreshold(
                   "brand",
@@ -1025,6 +1041,7 @@ export function ReviewItem({
               }
 
               if (
+                featureLibraryFeatures.featureIp &&
                 ipRecommendation?.bestMatch &&
                 meetsFeatureConfidenceThreshold("ip", ipRecommendation.bestMatch.confidence) &&
                 availableFeatureIdSets.ip.has(ipRecommendation.bestMatch.assetIpId)
@@ -1046,6 +1063,7 @@ export function ReviewItem({
               }
 
               if (
+                featureLibraryFeatures.featureProduct &&
                 productRecommendation?.bestMatch &&
                 meetsFeatureConfidenceThreshold(
                   "product",
@@ -1072,48 +1090,50 @@ export function ReviewItem({
                 });
               }
 
-              const totalPersonFaces =
-                personRecommendation?.faces.filter(
-                  (f) =>
-                    isReviewablePersonFace(f) &&
-                    f.bestMatch &&
-                    availableFeatureIdSets.person.has(f.bestMatch.assetPersonId),
-                ).length ?? 0;
-              personRecommendation?.faces.forEach((face) => {
-                if (
-                  !isReviewablePersonFace(face) ||
-                  !face.bestMatch ||
-                  !availableFeatureIdSets.person.has(face.bestMatch.assetPersonId)
-                ) {
-                  return;
-                }
+              const totalPersonFaces = featureLibraryFeatures.featurePerson
+                ? (personRecommendation?.faces.filter(
+                    (f) =>
+                      isReviewablePersonFace(f) &&
+                      f.bestMatch &&
+                      availableFeatureIdSets.person.has(f.bestMatch.assetPersonId),
+                  ).length ?? 0)
+                : 0;
+              if (featureLibraryFeatures.featurePerson)
+                personRecommendation?.faces.forEach((face) => {
+                  if (
+                    !isReviewablePersonFace(face) ||
+                    !face.bestMatch ||
+                    !availableFeatureIdSets.person.has(face.bestMatch.assetPersonId)
+                  ) {
+                    return;
+                  }
 
-                // Format: "人物N: personName" when multiple people, or just "personName" when single
-                const personDisplayName =
-                  totalPersonFaces > 1
-                    ? `${tResult("featureClassPerson")}${face.detectionIndex + 1}: ${face.bestMatch.personName}`
-                    : face.bestMatch.personName;
+                  // Format: "人物N: personName" when multiple people, or just "personName" when single
+                  const personDisplayName =
+                    totalPersonFaces > 1
+                      ? `${tResult("featureClassPerson")}${face.detectionIndex + 1}: ${face.bestMatch.personName}`
+                      : face.bestMatch.personName;
 
-                const rawSimilarity = getPersonFaceBestRawSimilarity(face);
-                if (rawSimilarity === null) {
-                  return;
-                }
+                  const rawSimilarity = getPersonFaceBestRawSimilarity(face);
+                  if (rawSimilarity === null) {
+                    return;
+                  }
 
-                featureRows.push({
-                  key: `person-${face.detectionIndex}-${face.bestMatch.assetPersonId}`,
-                  featureType: "person",
-                  featureId: face.bestMatch.assetPersonId,
-                  featureClass: tResult("featureClassPerson"),
-                  featureTypeName: face.bestMatch.personTypeName,
-                  classifiedName: personDisplayName,
-                  confidence: personSimilarityToConfidence(rawSimilarity),
-                  rawSimilarity,
-                  tagIds: face.bestMatch.recommendedTags?.map((tag) => tag.assetTagId) ?? [],
-                  rejectedTagIds: rejectedPersonItems,
-                  onToggleTagIds: (tagIds) =>
-                    setRejectedPersonItems((current) => toggleTagIds(current, tagIds)),
+                  featureRows.push({
+                    key: `person-${face.detectionIndex}-${face.bestMatch.assetPersonId}`,
+                    featureType: "person",
+                    featureId: face.bestMatch.assetPersonId,
+                    featureClass: tResult("featureClassPerson"),
+                    featureTypeName: face.bestMatch.personTypeName,
+                    classifiedName: personDisplayName,
+                    confidence: personSimilarityToConfidence(rawSimilarity),
+                    rawSimilarity,
+                    tagIds: face.bestMatch.recommendedTags?.map((tag) => tag.assetTagId) ?? [],
+                    rejectedTagIds: rejectedPersonItems,
+                    onToggleTagIds: (tagIds) =>
+                      setRejectedPersonItems((current) => toggleTagIds(current, tagIds)),
+                  });
                 });
-              });
 
               // Sort features by confidence (high to low)
               featureRows.sort((a, b) => b.confidence - a.confidence);
