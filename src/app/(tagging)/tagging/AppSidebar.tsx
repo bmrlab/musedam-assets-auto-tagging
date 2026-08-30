@@ -32,7 +32,8 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { useFeatureLibraryEnabled } from "@/hooks/use-feature-library";
+import { useFeatureLibraryFeatures } from "@/hooks/use-feature-library";
+import { FeatureType, isFeatureTypeEnabled } from "@/lib/feature-library";
 import { cn } from "@/lib/utils";
 
 type SidebarSection = "main" | "featureLibrary" | "configuration";
@@ -42,6 +43,7 @@ type MenuItem = {
   url: string;
   icon: React.ComponentType<{ className?: string }>;
   section: SidebarSection;
+  featureType?: FeatureType;
 };
 
 const getMenuItems = (t: TranslationFunction): MenuItem[] => [
@@ -68,24 +70,28 @@ const getMenuItems = (t: TranslationFunction): MenuItem[] => [
     url: "/tagging/brand",
     icon: BrandIcon,
     section: "featureLibrary",
+    featureType: "brand",
   },
   {
     title: t("Sidebar.product"),
     url: "/tagging/product",
     icon: ProductIcon,
     section: "featureLibrary",
+    featureType: "product",
   },
   {
     title: t("Sidebar.person"),
     url: "/tagging/person",
     icon: PersonIcon,
     section: "featureLibrary",
+    featureType: "person",
   },
   {
     title: t("Sidebar.ip"),
     url: "/tagging/ip",
     icon: IpIcon,
     section: "featureLibrary",
+    featureType: "ip",
   },
   {
     title: t("Sidebar.settings"),
@@ -134,11 +140,16 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
   const pathname = usePathname();
   const t = useTranslations("Tagging") as TranslationFunction;
   const { isMobile, setOpenMobile } = useSidebar();
-  const featureLibraryEnabled = useFeatureLibraryEnabled();
+  const featureLibraryFeatures = useFeatureLibraryFeatures();
   const menuItems = getMenuItems(t);
   const mainMenuItems = menuItems.filter((item) => item.section === "main");
-  const featureLibraryMenuItems = featureLibraryEnabled
-    ? menuItems.filter((item) => item.section === "featureLibrary")
+  const featureLibraryMenuItems = featureLibraryFeatures.featureLibrary
+    ? menuItems.filter(
+        (item) =>
+          item.section === "featureLibrary" &&
+          item.featureType &&
+          isFeatureTypeEnabled(featureLibraryFeatures, item.featureType),
+      )
     : [];
   const configurationMenuItems = menuItems.filter((item) => item.section === "configuration");
   const handleNavigate = React.useCallback(() => {

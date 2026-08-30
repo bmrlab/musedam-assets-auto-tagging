@@ -1,7 +1,7 @@
 "use client";
 
 import { TagOutlinedIcon, VimIcon } from "@/components/ui";
-import { useFeatureLibraryEnabled } from "@/hooks/use-feature-library";
+import { useFeatureLibraryFeatures } from "@/hooks/use-feature-library";
 import {
   getFeatureConfidenceToneClass,
   meetsFeatureConfidenceThreshold,
@@ -282,12 +282,17 @@ function FeatureResultRow({ feature }: { feature: RecognitionFeature }) {
 
 export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
   const t = useTranslations("TaggingResultDisplay");
-  const featureLibraryEnabled = useFeatureLibraryEnabled();
+  const featureLibraryFeatures = useFeatureLibraryFeatures();
+  const hasEnabledFeatures =
+    featureLibraryFeatures.featureBrand ||
+    featureLibraryFeatures.featureIp ||
+    featureLibraryFeatures.featureProduct ||
+    featureLibraryFeatures.featurePerson;
 
   const recognitionFeatures: RecognitionFeature[] = [];
 
   if (
-    featureLibraryEnabled &&
+    featureLibraryFeatures.featureProduct &&
     result.productRecognition?.productName &&
     result.productRecognition.assetProductId &&
     meetsFeatureConfidenceThreshold("product", result.productRecognition.confidence)
@@ -307,7 +312,7 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
   }
 
   if (
-    featureLibraryEnabled &&
+    featureLibraryFeatures.featureBrand &&
     result.brandRecognition?.logoName &&
     result.brandRecognition.assetLogoId &&
     meetsFeatureConfidenceThreshold("brand", result.brandRecognition.confidence)
@@ -327,7 +332,7 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
   }
 
   if (
-    featureLibraryEnabled &&
+    featureLibraryFeatures.featureIp &&
     result.ipRecognition?.ipName &&
     result.ipRecognition.assetIpId &&
     meetsFeatureConfidenceThreshold("ip", result.ipRecognition.confidence)
@@ -346,7 +351,7 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
     });
   }
 
-  if (featureLibraryEnabled) {
+  if (featureLibraryFeatures.featurePerson) {
     result.personRecognition?.faces.forEach((face) => {
       if (
         face.noConfidentMatch ||
@@ -465,7 +470,7 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
         ) : null}
       </SectionShell>
 
-      {featureLibraryEnabled ? (
+      {hasEnabledFeatures ? (
         <SectionShell
           icon={<StarIcon className="size-5" />}
           title={t("recognizedFeatures")}

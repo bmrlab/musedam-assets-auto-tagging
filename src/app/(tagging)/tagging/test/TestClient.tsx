@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { FileImageIcon, TagsIcon } from "@/components/ui/icons";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { dispatchMuseDAMClientAction } from "@/embed/message";
-import { useFeatureLibraryEnabled } from "@/hooks/use-feature-library";
+import { useFeatureLibraryFeatures } from "@/hooks/use-feature-library";
 import { isAcceptedPersonFace } from "@/lib/person/person-match-policy";
 import { cn } from "@/lib/utils";
 import { Loader2, PlayIcon, PlusIcon, Trash } from "lucide-react";
@@ -267,7 +267,7 @@ export default function TestClient() {
   const tClient = useTranslations("Tagging.TestClient");
   const tResult = useTranslations("TaggingResultDisplay");
   const tSidebar = useTranslations("Tagging.Sidebar");
-  const featureLibraryEnabled = useFeatureLibraryEnabled();
+  const featureLibraryFeatures = useFeatureLibraryFeatures();
   const [isProcessing, setIsProcessing] = useState(false);
   const [isPolling, setIsPolling] = useState(false);
   const [selectedAssets, setSelectedAssets] = useState<SelectedAsset[]>([]);
@@ -392,16 +392,16 @@ export default function TestClient() {
             // 转换结果格式以适配TaggingResultDisplay组件
             const formattedResults = completedResults.map((result) => {
               const { assetObject, result: resultData, extra } = result;
-              const brandRecommendation = featureLibraryEnabled
+              const brandRecommendation = featureLibraryFeatures.featureBrand
                 ? getBrandRecommendationFromQueueResult(resultData)
                 : null;
-              const ipRecommendation = featureLibraryEnabled
+              const ipRecommendation = featureLibraryFeatures.featureIp
                 ? getIpRecommendationFromQueueResult(resultData)
                 : null;
-              const productRecommendation = featureLibraryEnabled
+              const productRecommendation = featureLibraryFeatures.featureProduct
                 ? getProductRecommendationFromQueueResult(resultData)
                 : null;
-              const personRecommendation = featureLibraryEnabled
+              const personRecommendation = featureLibraryFeatures.featurePerson
                 ? getPersonRecommendationFromQueueResult(resultData)
                 : null;
               const linkedBrandTags: Array<{ assetTagId?: number; tagPath?: string[] }> =
@@ -611,7 +611,7 @@ export default function TestClient() {
         console.error(tClient("pollingQueueStatusFailed"), error);
       }
     },
-    [featureLibraryEnabled, stopPolling, tClient, tResult, tSidebar],
+    [featureLibraryFeatures, stopPolling, tClient, tResult, tSidebar],
   );
 
   // 开始轮询

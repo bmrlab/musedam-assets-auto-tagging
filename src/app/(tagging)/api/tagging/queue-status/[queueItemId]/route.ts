@@ -3,8 +3,8 @@ import { getBrandRecommendationFromQueueResult } from "@/app/(tagging)/brand-rec
 import { getIpRecommendationFromQueueResult } from "@/app/(tagging)/ip-recommendation";
 import { getPersonRecommendationFromQueueResult } from "@/app/(tagging)/person-recommendation";
 import { getProductRecommendationFromQueueResult } from "@/app/(tagging)/product-recommendation";
-import { stripFeatureLibraryRecommendations } from "@/lib/feature-library";
-import { getFeatureLibraryEnabledFromRequest } from "@/lib/feature-library-server";
+import { filterFeatureLibraryRecommendations } from "@/lib/feature-library";
+import { getFeatureLibraryFeaturesFromRequest } from "@/lib/feature-library-server";
 import { isAcceptedPersonFace } from "@/lib/person/person-match-policy";
 import prisma from "@/prisma/prisma";
 import { NextRequest, NextResponse } from "next/server";
@@ -22,7 +22,7 @@ export async function GET(
     try {
       const resolvedParams = await params;
       const { queueItemId } = paramsSchema.parse(resolvedParams);
-      const featureClassify = getFeatureLibraryEnabledFromRequest(request);
+      const featureLibraryFeatures = getFeatureLibraryFeaturesFromRequest(request);
 
       const queueItem = await prisma.taggingQueueItem.findFirst({
         where: {
@@ -43,19 +43,19 @@ export async function GET(
         );
       }
 
-      const brandRecommendation = featureClassify
+      const brandRecommendation = featureLibraryFeatures.featureBrand
         ? getBrandRecommendationFromQueueResult(queueItem.result)
         : null;
       const assetLogoId = brandRecommendation?.bestMatch?.assetLogoId;
-      const ipRecommendation = featureClassify
+      const ipRecommendation = featureLibraryFeatures.featureIp
         ? getIpRecommendationFromQueueResult(queueItem.result)
         : null;
       const assetIpId = ipRecommendation?.bestMatch?.assetIpId;
-      const productRecommendation = featureClassify
+      const productRecommendation = featureLibraryFeatures.featureProduct
         ? getProductRecommendationFromQueueResult(queueItem.result)
         : null;
       const assetProductId = productRecommendation?.bestMatch?.assetProductId;
-      const personRecommendation = featureClassify
+      const personRecommendation = featureLibraryFeatures.featurePerson
         ? getPersonRecommendationFromQueueResult(queueItem.result)
         : null;
       const assetPersonIds = Array.from(
@@ -136,9 +136,7 @@ export async function GET(
         success: true,
         data: {
           ...queueItem,
-          result: featureClassify
-            ? queueItem.result
-            : stripFeatureLibraryRecommendations(queueItem.result),
+          result: filterFeatureLibraryRecommendations(queueItem.result, featureLibraryFeatures),
           brandLinkedTags: brandLinkedTags.map((tag) => ({
             assetTagId: tag.assetTagId,
             tagPath: Array.isArray(tag.tagPath) ? tag.tagPath.map(String) : [],

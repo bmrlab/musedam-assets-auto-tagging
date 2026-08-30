@@ -1,7 +1,8 @@
 "use server";
 import { withAuth } from "@/app/(auth)/withAuth";
 import { enqueueTaggingTask } from "@/app/(tagging)/queue";
-import { getServerFeatureLibraryEnabled } from "@/lib/feature-library-server";
+import { toFeatureClassificationFlags } from "@/lib/feature-library";
+import { getServerFeatureLibraryFeatures } from "@/lib/feature-library-server";
 import { ServerActionResult } from "@/lib/serverAction";
 import { syncSingleAssetFromMuseDAM } from "@/musedam/assets";
 import { MuseDAMID } from "@/musedam/types";
@@ -48,7 +49,7 @@ export async function startTaggingTasksAction(
       let failedCount = 0;
       const failedAssets: string[] = [];
       const queueItemIds: number[] = [];
-      const featureClassify = await getServerFeatureLibraryEnabled();
+      const featureLibraryFeatures = await getServerFeatureLibraryFeatures();
 
       // 批量发起打标任务
       for (const asset of selectedAssets) {
@@ -72,7 +73,8 @@ export async function startTaggingTasksAction(
             assetObject,
             matchingSources: options?.matchingSources,
             recognitionAccuracy: options?.recognitionAccuracy,
-            featureClassify,
+            featureClassify: featureLibraryFeatures.featureLibrary,
+            featureClassifications: toFeatureClassificationFlags(featureLibraryFeatures),
             taskType: "test",
           });
 

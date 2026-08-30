@@ -50,6 +50,10 @@ declare module "@/prisma/client" {
     };
     recognitionAccuracy: "precise" | "balanced" | "broad";
     featureClassify: boolean;
+    featureBrand: boolean;
+    featureProduct: boolean;
+    featurePerson: boolean;
+    featureIp: boolean;
     /** Face-detection signals fed into AI tagging (from person feature recognition). */
     faceFeatures: TaggingFaceFeatures;
   }>;

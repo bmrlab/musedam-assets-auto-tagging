@@ -26,26 +26,43 @@ Content-Type: application/json
 {
   "teamId": 135,
   "assetId": 6908914,
+  "featureLibrary": 1,
+  "featureToggle": {
+    "featureBrand": 1,
+    "featureProduct": 0,
+    "featurePerson": 1,
+    "featureIp": 0
+  },
   "matchingSources": {
     "basicInfo": true,
     "materializedPath": true,
     "contentAnalysis": false,
     "tagKeywords": true
   },
-  "recognitionAccuracy": "balanced"
+  "recognitionAccuracy": "accurate",
+  "triggerType": "manual"
 }
 ```
 
-| 参数名              | 类型    | 必填 | 描述                                                                                                    |
-| ------------------- | ------- | ---- | ------------------------------------------------------------------------------------------------------- |
-| teamId              | number  | 是   | MuseDAM 团队 ID                                                                                         |
-| assetId             | number  | 是   | MuseDAM 系统中的素材 ID                                                                                 |
-| matchingSources     | object  | 否   | 打标数据源配置对象，包含各数据源的启用状态。不填写时默认所有数据源都启用                                |
-| └─ basicInfo        | boolean | 否   | 是否启用基础信息数据源，默认 `true`                                                                     |
-| └─ materializedPath | boolean | 否   | 是否启用文件路径数据源，默认 `true`                                                                     |
-| └─ contentAnalysis  | boolean | 否   | 是否启用内容分析数据源，默认 `true`                                                                     |
-| └─ tagKeywords      | boolean | 否   | 是否启用标签关键词数据源，默认 `true`                                                                   |
-| recognitionAccuracy | string  | 否   | 识别精度模式，可选值：`precise`（精确）、`balanced`（平衡）、`broad`（广泛）。不填写时默认为 `balanced` |
+| 参数名              | 类型    | 必填 | 描述                                                                                                      |
+| ------------------- | ------- | ---- | --------------------------------------------------------------------------------------------------------- |
+| teamId              | number  | 是   | MuseDAM 团队 ID                                                                                           |
+| assetId             | number  | 是   | MuseDAM 系统中的素材 ID                                                                                   |
+| featureLibrary      | 0 \| 1  | 否   | 是否启用整个特征库分类。`0` 会关闭下面四种分类；兼容值为 `"on"` / `"off"`。不填写时保持旧行为（默认启用） |
+| featureToggle       | object  | 否   | 四种特征分类开关。提供此对象时必须包含下面四个字段；关闭的分类不会进入后端识别流程                        |
+| └─ featureBrand     | 0 \| 1  | 条件 | 是否运行品牌分类                                                                                          |
+| └─ featureProduct   | 0 \| 1  | 条件 | 是否运行产品分类                                                                                          |
+| └─ featurePerson    | 0 \| 1  | 条件 | 是否运行人物分类                                                                                          |
+| └─ featureIp        | 0 \| 1  | 条件 | 是否运行 IP 分类                                                                                          |
+| matchingSources     | object  | 否   | 打标数据源配置对象，包含各数据源的启用状态。不填写时默认所有数据源都启用                                  |
+| └─ basicInfo        | boolean | 否   | 是否启用基础信息数据源，默认 `true`                                                                       |
+| └─ materializedPath | boolean | 否   | 是否启用文件路径数据源，默认 `true`                                                                       |
+| └─ contentAnalysis  | boolean | 否   | 是否启用内容分析数据源，默认 `true`                                                                       |
+| └─ tagKeywords      | boolean | 否   | 是否启用标签关键词数据源，默认 `true`                                                                     |
+| recognitionAccuracy | string  | 否   | 识别精度模式：`precise`（或别名 `accurate`）、`balanced`、`broad`。不填写时默认为 `balanced`              |
+| triggerType         | string  | 否   | 触发方式：`default`、`manual` 或 `scheduled`。不填写时默认为 `default`                                    |
+
+“条件”表示仅在提供 `featureToggle` 对象时必填。为了兼容旧调用方，原有的顶层 `featureBrand`、`featureProduct`、`featurePerson`、`featureIp` 字段仍可使用；如果同时提供，嵌套对象中的值优先。
 
 #### 响应格式
 

@@ -3,12 +3,7 @@
 import { TagRecord } from "@/app/tags/types";
 import { setLocalStorageWithEvent } from "@/hooks/use-local-storage-event";
 import { isValidLocale } from "@/i18n/routing";
-import {
-  FEATURE_LIBRARY_COOKIE,
-  FEATURE_LIBRARY_PARAM,
-  FEATURE_LIBRARY_STORAGE_KEY,
-  isFeatureLibraryValue,
-} from "@/lib/feature-library";
+import { FEATURE_LIBRARY_TOGGLE_NAMES, isFeatureLibraryValue } from "@/lib/feature-library";
 import { MuseDAMID } from "@/musedam/types";
 import Cookies from "js-cookie";
 
@@ -234,22 +229,29 @@ function handleParentMessageAction(action: string, args: any, dispatchId?: strin
       break;
 
     case "updateFeatureLibrary":
-      if (isFeatureLibraryValue(args?.featureLibrary) && typeof window !== "undefined") {
-        localStorage.setItem(FEATURE_LIBRARY_STORAGE_KEY, args.featureLibrary);
-        Cookies.set(FEATURE_LIBRARY_COOKIE, args.featureLibrary, {
-          expires: 365,
-          sameSite: "None" as any,
-          secure: true,
-        });
-        window.dispatchEvent(
-          new CustomEvent("feature-library-change", {
-            detail: { featureLibrary: args.featureLibrary },
-          }),
+      if (typeof window !== "undefined") {
+        const updates = Object.fromEntries(
+          FEATURE_LIBRARY_TOGGLE_NAMES.flatMap((name) =>
+            isFeatureLibraryValue(args?.[name]) ? [[name, args[name]]] : [],
+          ),
         );
+        if (Object.keys(updates).length === 0) break;
+
+        for (const [name, value] of Object.entries(updates)) {
+          localStorage.setItem(name, value);
+          Cookies.set(name, value, {
+            expires: 365,
+            sameSite: "None" as any,
+            secure: true,
+          });
+        }
+        window.dispatchEvent(new CustomEvent("feature-library-change", { detail: updates }));
 
         try {
           const url = new URL(window.location.href);
-          url.searchParams.set(FEATURE_LIBRARY_PARAM, args.featureLibrary);
+          for (const [name, value] of Object.entries(updates)) {
+            url.searchParams.set(name, value);
+          }
           window.location.replace(url.toString());
         } catch {
           window.location.reload();

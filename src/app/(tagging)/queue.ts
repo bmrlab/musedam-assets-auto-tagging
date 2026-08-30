@@ -2,6 +2,10 @@ import "server-only";
 
 import { isTagTreeJob, processTagTreeQueueItem } from "@/app/tags/tagTreeQueue";
 import { classifyAssetBrandRecommendation } from "@/lib/brand/tagging-brand-classification";
+import {
+  FeatureClassificationFlags,
+  resolveFeatureClassificationFlags,
+} from "@/lib/feature-library";
 import { classifyAssetIpRecommendation } from "@/lib/ip/tagging-ip-classification";
 import { rootLogger } from "@/lib/logging";
 import {
@@ -147,6 +151,7 @@ export async function enqueueTaggingTask({
   matchingSources,
   recognitionAccuracy,
   featureClassify = true,
+  featureClassifications,
   taskType = "default",
 }: {
   assetObject: AssetObject;
@@ -158,9 +163,14 @@ export async function enqueueTaggingTask({
   };
   recognitionAccuracy?: "precise" | "balanced" | "broad";
   featureClassify?: boolean;
+  featureClassifications?: Partial<FeatureClassificationFlags>;
   taskType?: "default" | "test" | "manual" | "scheduled";
 }): Promise<TaggingQueueItem> {
   const teamId = assetObject.teamId;
+  const classifications = resolveFeatureClassificationFlags(
+    featureClassify,
+    featureClassifications,
+  );
 
   const taggingQueueItem = await prisma.taggingQueueItem.create({
     data: {
@@ -172,6 +182,10 @@ export async function enqueueTaggingTask({
         matchingSources,
         recognitionAccuracy,
         featureClassify,
+        featureBrand: classifications.brand,
+        featureProduct: classifications.product,
+        featurePerson: classifications.person,
+        featureIp: classifications.ip,
       } as TaggingQueueItemExtra,
     },
   });
@@ -200,6 +214,14 @@ export async function processQueueItem({
   try {
     const extra = queueItem.extra as TaggingQueueItemExtra;
     const featureClassify = extra?.featureClassify === true;
+    // Missing child fields are legacy queue items, for which all classifications were enabled.
+    const featureClassifications = resolveFeatureClassificationFlags(featureClassify, {
+      brand: extra?.featureBrand,
+      product: extra?.featureProduct,
+      person: extra?.featurePerson,
+      ip: extra?.featureIp,
+    });
+    const hasFeatureClassifications = Object.values(featureClassifications).some(Boolean);
     const thumbnailUrl = (assetObject.extra as AssetObjectExtra | null)?.thumbnailAccessUrl;
     // Feature classification (brand/IP/product/person): first skip empty feature libraries.
     // Brand/IP/product share one bounded image; person independently keeps the source dimensions.
@@ -211,7 +233,7 @@ export async function processQueueItem({
       recognitionAccuracy: extra?.recognitionAccuracy,
     };
     // Defer AI tagging only when person face features may be needed; otherwise preserve old timing.
-    const mayNeedFaceFeatures = featureClassify && Boolean(thumbnailUrl);
+    const mayNeedFaceFeatures = featureClassifications.person && Boolean(thumbnailUrl);
     let predictTagsPromise: ReturnType<typeof predictAssetTags> | null = mayNeedFaceFeatures
       ? null
       : predictAssetTags(assetObject, predictOptionsBase);
@@ -228,12 +250,20 @@ export async function processQueueItem({
       Awaited<ReturnType<typeof classifyAssetPersonRecommendation>>
     > = Promise.resolve(null);
 
-    if (featureClassify && thumbnailUrl) {
+    if (hasFeatureClassifications && thumbnailUrl) {
       const [logoCount, productCount, ipCount, personCount] = await Promise.all([
-        prisma.logoVector.count({ where: { teamId, enabled: true, status: "completed" } }),
-        prisma.productVector.count({ where: { teamId, enabled: true, status: "completed" } }),
-        prisma.ipVector.count({ where: { teamId, enabled: true, status: "completed" } }),
-        prisma.personVector.count({ where: { teamId, enabled: true, status: "completed" } }),
+        featureClassifications.brand
+          ? prisma.logoVector.count({ where: { teamId, enabled: true, status: "completed" } })
+          : 0,
+        featureClassifications.product
+          ? prisma.productVector.count({ where: { teamId, enabled: true, status: "completed" } })
+          : 0,
+        featureClassifications.ip
+          ? prisma.ipVector.count({ where: { teamId, enabled: true, status: "completed" } })
+          : 0,
+        featureClassifications.person
+          ? prisma.personVector.count({ where: { teamId, enabled: true, status: "completed" } })
+          : 0,
       ]);
 
       if (logoCount + productCount + ipCount + personCount > 0) {
@@ -386,6 +416,7 @@ export async function processQueueItem({
       msg: "processQueueItem completed",
       tagsWithScoreCount: tagsWithScore.length,
       featureClassify,
+      featureClassifications,
       hasBrandTags,
       hasIpTags,
       hasProductTags,
@@ -550,7 +581,7 @@ export async function processQueueItem({
             .filter((id) => approvedTagSet.has(id));
           const personTagIdsForBind = acceptedPersonTagIds.filter((id) => approvedTagSet.has(id));
 
-          if (featureClassify) {
+          if (hasFeatureClassifications) {
             await bindFeatureIdentifiersToMuseDAMMaterial({
               team,
               musedamAssetId,
@@ -623,6 +654,10 @@ export async function processQueueItem({
           ...extra,
           ...newExtra,
           featureClassify,
+          featureBrand: featureClassifications.brand,
+          featureProduct: featureClassifications.product,
+          featurePerson: featureClassifications.person,
+          featureIp: featureClassifications.ip,
         },
       },
     });

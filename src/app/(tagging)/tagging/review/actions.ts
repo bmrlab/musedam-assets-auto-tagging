@@ -16,7 +16,12 @@ import {
   getProductRecommendationFromQueueResult,
   getProductRecommendationTagIdsFromQueueResult,
 } from "@/app/(tagging)/product-recommendation";
-import { getServerFeatureLibraryEnabled } from "@/lib/feature-library-server";
+import {
+  FeatureLibraryFeatures,
+  filterFeatureLibraryRecommendations,
+  isFeatureTypeEnabled,
+} from "@/lib/feature-library";
+import { getServerFeatureLibraryFeatures } from "@/lib/feature-library-server";
 import { ServerActionResult } from "@/lib/serverAction";
 import { idToSlug, slugToId } from "@/lib/slug";
 import { retrieveTeamCredentials } from "@/musedam/apiKey";
@@ -76,28 +81,47 @@ function createReviewAvailableFeatureIdSets(): ReviewAvailableFeatureIdSets {
 function addQueueResultFeatureIds(
   featureIds: ReviewAvailableFeatureIdSets,
   result: Prisma.JsonValue,
+  features: FeatureLibraryFeatures,
 ) {
-  const brandRecommendation = getBrandRecommendationFromQueueResult(result);
+  const brandRecommendation = features.featureBrand
+    ? getBrandRecommendationFromQueueResult(result)
+    : null;
   if (brandRecommendation?.bestMatch?.assetLogoId) {
     featureIds.brand.add(brandRecommendation.bestMatch.assetLogoId);
   }
 
-  const ipRecommendation = getIpRecommendationFromQueueResult(result);
+  const ipRecommendation = features.featureIp ? getIpRecommendationFromQueueResult(result) : null;
   if (ipRecommendation?.bestMatch?.assetIpId) {
     featureIds.ip.add(ipRecommendation.bestMatch.assetIpId);
   }
 
-  const productRecommendation = getProductRecommendationFromQueueResult(result);
+  const productRecommendation = features.featureProduct
+    ? getProductRecommendationFromQueueResult(result)
+    : null;
   if (productRecommendation?.bestMatch?.assetProductId) {
     featureIds.product.add(productRecommendation.bestMatch.assetProductId);
   }
 
-  const personRecommendation = getPersonRecommendationFromQueueResult(result);
+  const personRecommendation = features.featurePerson
+    ? getPersonRecommendationFromQueueResult(result)
+    : null;
   for (const face of personRecommendation?.faces ?? []) {
     if (face.bestMatch?.assetPersonId) {
       featureIds.person.add(face.bestMatch.assetPersonId);
     }
   }
+}
+
+function hasEnabledFeatureRecommendation(
+  result: Prisma.JsonValue,
+  features: FeatureLibraryFeatures,
+) {
+  return Boolean(
+    (features.featureBrand && getBrandRecommendationFromQueueResult(result)) ||
+      (features.featureIp && getIpRecommendationFromQueueResult(result)) ||
+      (features.featureProduct && getProductRecommendationFromQueueResult(result)) ||
+      (features.featurePerson && getPersonRecommendationFromQueueResult(result)),
+  );
 }
 
 function toUuidList(ids: Iterable<string>) {
@@ -238,7 +262,12 @@ export async function fetchAssetsWithAuditItems(
 > {
   return withAuth(async ({ team: { id: teamId, slug: teamSlug } }) => {
     try {
-      const featureClassify = await getServerFeatureLibraryEnabled();
+      const featureLibraryFeatures = await getServerFeatureLibraryFeatures();
+      const hasEnabledFeatures =
+        featureLibraryFeatures.featureBrand ||
+        featureLibraryFeatures.featureIp ||
+        featureLibraryFeatures.featureProduct ||
+        featureLibraryFeatures.featurePerson;
       const offset = (page - 1) * limit;
 
       const auditItemWhere: Prisma.TaggingAuditItemWhereInput = {
@@ -246,7 +275,7 @@ export async function fetchAssetsWithAuditItems(
         assetObjectId: { not: null },
         queueItemId: { not: null },
       };
-      if (!featureClassify) {
+      if (!hasEnabledFeatures) {
         auditItemWhere.leafTagId = { not: null };
       }
 
@@ -417,7 +446,7 @@ export async function fetchAssetsWithAuditItems(
             assetObject !== undefined,
         );
 
-      const availableFeatureIds = featureClassify
+      const availableFeatureIds = hasEnabledFeatures
         ? await (async () => {
             const featureIdsForPage = createReviewAvailableFeatureIdSets();
             for (const assetObject of updatedAssetObjects) {
@@ -425,7 +454,11 @@ export async function fetchAssetsWithAuditItems(
                 if (!queueItem || taggingAuditItem.status === "rejected") {
                   continue;
                 }
-                addQueueResultFeatureIds(featureIdsForPage, queueItem.result);
+                addQueueResultFeatureIds(
+                  featureIdsForPage,
+                  queueItem.result,
+                  featureLibraryFeatures,
+                );
               }
             }
             return loadExistingReviewAvailableFeatureIds(teamId, featureIdsForPage);
@@ -433,7 +466,7 @@ export async function fetchAssetsWithAuditItems(
         : EMPTY_REVIEW_AVAILABLE_FEATURE_IDS;
 
       const materialIdByAssetObjectId = new Map<number, MuseDAMID>();
-      if (featureClassify) {
+      if (hasEnabledFeatures) {
         for (const assetObject of updatedAssetObjects) {
           try {
             materialIdByAssetObjectId.set(
@@ -448,14 +481,19 @@ export async function fetchAssetsWithAuditItems(
 
       const featuresByMaterialId = new Map<number, MuseDAMMaterialFeatureSnapshot[]>();
       const materialIdsForFeatures = [...materialIdByAssetObjectId.values()];
-      if (featureClassify && materialIdsForFeatures.length > 0) {
+      if (hasEnabledFeatures && materialIdsForFeatures.length > 0) {
         try {
           const featureEntries = await getFeatureByAssetFromMuseDAM({
             team,
             materialIds: materialIdsForFeatures,
           });
           for (const entry of featureEntries) {
-            featuresByMaterialId.set(entry.materialId, entry.features ?? []);
+            featuresByMaterialId.set(
+              entry.materialId,
+              (entry.features ?? []).filter((feature) =>
+                isFeatureTypeEnabled(featureLibraryFeatures, feature.featureType),
+              ),
+            );
           }
         } catch (error) {
           console.error("批量获取资产已有特征失败:", error);
@@ -472,11 +510,25 @@ export async function fetchAssetsWithAuditItems(
           if (!queueItem) continue;
           // 过滤掉状态为 rejected 的审核项
           if (taggingAuditItem.status === "rejected") continue;
-          if (!featureClassify && !taggingAuditItem.leafTagId) continue;
+          if (
+            !taggingAuditItem.leafTagId &&
+            !hasEnabledFeatureRecommendation(queueItem.result, featureLibraryFeatures)
+          ) {
+            continue;
+          }
 
           let group = batch.find((group) => group.queueItem.id === queueItem.id);
           if (!group) {
-            group = { queueItem, taggingAuditItems: [] };
+            group = {
+              queueItem: {
+                ...queueItem,
+                result: filterFeatureLibraryRecommendations(
+                  queueItem.result,
+                  featureLibraryFeatures,
+                ),
+              },
+              taggingAuditItems: [],
+            };
             batch.push(group);
           }
           group.taggingAuditItems.push({
@@ -500,7 +552,7 @@ export async function fetchAssetsWithAuditItems(
         if (filteredBatch.length > 0) {
           const materialId = materialIdByAssetObjectId.get(assetObject.id);
           const existingFeatures =
-            featureClassify && materialId !== undefined
+            hasEnabledFeatures && materialId !== undefined
               ? (featuresByMaterialId.get(Number(materialId.toString())) ?? [])
               : [];
 
@@ -557,7 +609,12 @@ export async function approveAuditItemsAction({
   append?: boolean;
 }): Promise<ServerActionResult<void>> {
   return withAuth(async ({ team: { id: teamId } }) => {
-    const featureClassify = await getServerFeatureLibraryEnabled();
+    const featureLibraryFeatures = await getServerFeatureLibraryFeatures();
+    const hasEnabledFeatures =
+      featureLibraryFeatures.featureBrand ||
+      featureLibraryFeatures.featureIp ||
+      featureLibraryFeatures.featureProduct ||
+      featureLibraryFeatures.featurePerson;
     const team = await prisma.team.findUniqueOrThrow({
       where: { id: teamId },
       select: { id: true, slug: true },
@@ -575,7 +632,7 @@ export async function approveAuditItemsAction({
     // boundary. Rebuild the set of acceptable person tags from the persisted
     // classifier results so stale or manipulated client payloads cannot bypass
     // the person-match policy.
-    const queueResults = featureClassify
+    const queueResults = hasEnabledFeatures
       ? (
           await prisma.taggingAuditItem.findMany({
             where: {
@@ -601,18 +658,28 @@ export async function approveAuditItemsAction({
         getReviewablePersonRecommendationTagIdsFromQueueResult(result),
       ),
     );
-    const acceptedPersonTagIds = personTagIds.filter((tagId) => allowedPersonTagIds.has(tagId));
+    const acceptedPersonTagIds = featureLibraryFeatures.featurePerson
+      ? personTagIds.filter((tagId) => allowedPersonTagIds.has(tagId))
+      : [];
 
     const allowedMuseFeatureIdentifierIds = new Set<string>();
     for (const { result } of queueResults) {
       for (const identifierId of collectMuseFeatureIdentifierIdsForQueueItem({
-        brandRecommendation: getBrandRecommendationFromQueueResult(result),
-        ipRecommendation: getIpRecommendationFromQueueResult(result),
-        productRecommendation: getProductRecommendationFromQueueResult(result),
-        personRecommendation: getPersonRecommendationFromQueueResult(result),
-        brandTagIds,
-        ipTagIds,
-        productTagIds,
+        brandRecommendation: featureLibraryFeatures.featureBrand
+          ? getBrandRecommendationFromQueueResult(result)
+          : null,
+        ipRecommendation: featureLibraryFeatures.featureIp
+          ? getIpRecommendationFromQueueResult(result)
+          : null,
+        productRecommendation: featureLibraryFeatures.featureProduct
+          ? getProductRecommendationFromQueueResult(result)
+          : null,
+        personRecommendation: featureLibraryFeatures.featurePerson
+          ? getPersonRecommendationFromQueueResult(result)
+          : null,
+        brandTagIds: featureLibraryFeatures.featureBrand ? brandTagIds : [],
+        ipTagIds: featureLibraryFeatures.featureIp ? ipTagIds : [],
+        productTagIds: featureLibraryFeatures.featureProduct ? productTagIds : [],
         personTagIds: acceptedPersonTagIds,
         personMatchMode: "review",
       })) {
@@ -628,10 +695,10 @@ export async function approveAuditItemsAction({
         ...auditItems
           .filter(({ leafTagId, status }) => leafTagId && status === "approved")
           .map(({ leafTagId }) => leafTagId!),
-        ...(featureClassify ? brandTagIds : []),
-        ...(featureClassify ? ipTagIds : []),
-        ...(featureClassify ? productTagIds : []),
-        ...(featureClassify ? acceptedPersonTagIds : []),
+        ...(featureLibraryFeatures.featureBrand ? brandTagIds : []),
+        ...(featureLibraryFeatures.featureIp ? ipTagIds : []),
+        ...(featureLibraryFeatures.featureProduct ? productTagIds : []),
+        ...acceptedPersonTagIds,
       ]),
     );
 
@@ -658,7 +725,7 @@ export async function approveAuditItemsAction({
       append,
     });
 
-    if (featureClassify) {
+    if (hasEnabledFeatures) {
       const existingMuseFeatureIdentifierIds = await filterExistingMuseFeatureIdentifierIds({
         teamId,
         identifierIds: acceptedMuseFeatureIdentifierIds,
@@ -767,7 +834,12 @@ export async function batchApproveAuditItemsAction({
         where: { id: teamId },
         select: { id: true, slug: true },
       });
-      const featureClassify = await getServerFeatureLibraryEnabled();
+      const featureLibraryFeatures = await getServerFeatureLibraryFeatures();
+      const hasEnabledFeatures =
+        featureLibraryFeatures.featureBrand ||
+        featureLibraryFeatures.featureIp ||
+        featureLibraryFeatures.featureProduct ||
+        featureLibraryFeatures.featurePerson;
 
       let failedCount = 0;
       let deletedCount = 0;
@@ -820,7 +892,11 @@ export async function batchApproveAuditItemsAction({
       for (const assetObject of assetRefs) {
         const assetAuditItems = auditItems.filter(
           (item) =>
-            item.assetObjectId === assetObject.id && (featureClassify || item.leafTagId !== null),
+            item.assetObjectId === assetObject.id &&
+            (item.leafTagId !== null ||
+              (hasEnabledFeatures &&
+                item.queueItem &&
+                hasEnabledFeatureRecommendation(item.queueItem.result, featureLibraryFeatures))),
         );
 
         // 参考 fetchAssetsWithAuditItems 的 batch 分组逻辑
@@ -883,7 +959,7 @@ export async function batchApproveAuditItemsAction({
 
         // 用过滤后的 audit items 替代原来的
         const finalAssetAuditItems = finalAuditItems;
-        const brandTagIds = featureClassify
+        const brandTagIds = featureLibraryFeatures.featureBrand
           ? Array.from(
               new Set(
                 finalGroups.flatMap((group) =>
@@ -892,7 +968,7 @@ export async function batchApproveAuditItemsAction({
               ),
             )
           : [];
-        const ipTagIds = featureClassify
+        const ipTagIds = featureLibraryFeatures.featureIp
           ? Array.from(
               new Set(
                 finalGroups.flatMap((group) =>
@@ -901,7 +977,7 @@ export async function batchApproveAuditItemsAction({
               ),
             )
           : [];
-        const productTagIds = featureClassify
+        const productTagIds = featureLibraryFeatures.featureProduct
           ? Array.from(
               new Set(
                 finalGroups.flatMap((group) =>
@@ -910,7 +986,7 @@ export async function batchApproveAuditItemsAction({
               ),
             )
           : [];
-        const personTagIds = featureClassify
+        const personTagIds = featureLibraryFeatures.featurePerson
           ? Array.from(
               new Set(
                 finalGroups.flatMap((group) =>
@@ -979,20 +1055,35 @@ export async function batchApproveAuditItemsAction({
             append,
           });
 
-          if (featureClassify) {
+          if (hasEnabledFeatures) {
             const museFeatureIdentifierIds = new Set<string>();
             for (const group of finalGroups) {
               const { result } = group.queueItem;
-              const brandTagIdsForGroup = getBrandRecommendationTagIdsFromQueueResult(result);
-              const ipTagIdsForGroup = getIpRecommendationTagIdsFromQueueResult(result);
-              const productTagIdsForGroup = getProductRecommendationTagIdsFromQueueResult(result);
-              const personTagIdsForGroup =
-                getReviewablePersonRecommendationTagIdsFromQueueResult(result);
+              const brandTagIdsForGroup = featureLibraryFeatures.featureBrand
+                ? getBrandRecommendationTagIdsFromQueueResult(result)
+                : [];
+              const ipTagIdsForGroup = featureLibraryFeatures.featureIp
+                ? getIpRecommendationTagIdsFromQueueResult(result)
+                : [];
+              const productTagIdsForGroup = featureLibraryFeatures.featureProduct
+                ? getProductRecommendationTagIdsFromQueueResult(result)
+                : [];
+              const personTagIdsForGroup = featureLibraryFeatures.featurePerson
+                ? getReviewablePersonRecommendationTagIdsFromQueueResult(result)
+                : [];
               for (const id of collectMuseFeatureIdentifierIdsForQueueItem({
-                brandRecommendation: getBrandRecommendationFromQueueResult(result),
-                ipRecommendation: getIpRecommendationFromQueueResult(result),
-                productRecommendation: getProductRecommendationFromQueueResult(result),
-                personRecommendation: getPersonRecommendationFromQueueResult(result),
+                brandRecommendation: featureLibraryFeatures.featureBrand
+                  ? getBrandRecommendationFromQueueResult(result)
+                  : null,
+                ipRecommendation: featureLibraryFeatures.featureIp
+                  ? getIpRecommendationFromQueueResult(result)
+                  : null,
+                productRecommendation: featureLibraryFeatures.featureProduct
+                  ? getProductRecommendationFromQueueResult(result)
+                  : null,
+                personRecommendation: featureLibraryFeatures.featurePerson
+                  ? getPersonRecommendationFromQueueResult(result)
+                  : null,
                 brandTagIds: brandTagIdsForGroup,
                 ipTagIds: ipTagIdsForGroup,
                 productTagIds: productTagIdsForGroup,

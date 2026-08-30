@@ -1,7 +1,8 @@
 import { enqueueTaggingTask } from "@/app/(tagging)/queue";
 import { getTaggingSettings } from "@/app/(tagging)/tagging/settings/lib";
 import { TaggingSettingsData } from "@/app/(tagging)/types";
-import { getFeatureLibraryEnabledFromRequest } from "@/lib/feature-library-server";
+import { FeatureClassificationFlags, toFeatureClassificationFlags } from "@/lib/feature-library";
+import { getFeatureLibraryFeaturesFromRequest } from "@/lib/feature-library-server";
 import { idToSlug, slugToId } from "@/lib/slug";
 import { syncSingleAssetFromMuseDAM } from "@/musedam/assets";
 import { MuseDAMID } from "@/musedam/types";
@@ -10,25 +11,31 @@ import prisma from "@/prisma/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
+const featureToggleSchema = z.preprocess(
+  (val) => {
+    if (typeof val === "number") {
+      return val === 1 ? "on" : val === 0 ? "off" : val;
+    }
+    if (typeof val === "string") {
+      if (val === "1") return "on";
+      if (val === "0") return "off";
+    }
+    return val;
+  },
+  z.enum(["on", "off"]).optional(),
+);
+
 const requestSchema = z.object({
   teamId: z.coerce.bigint().positive(),
   // 可选参数，指定要处理的资产ID列表
   assetIds: z.array(z.number().positive()).optional(),
   // 可选参数，指定每批处理的数量，默认100
   batchSize: z.number().min(1).max(500).optional().default(100),
-  featureLibrary: z.preprocess(
-    (val) => {
-      if (typeof val === "number") {
-        return val === 1 ? "on" : val === 0 ? "off" : val;
-      }
-      if (typeof val === "string") {
-        if (val === "1") return "on";
-        if (val === "0") return "off";
-      }
-      return val;
-    },
-    z.enum(["on", "off"]).optional(),
-  ),
+  featureLibrary: featureToggleSchema,
+  featureBrand: featureToggleSchema,
+  featureProduct: featureToggleSchema,
+  featurePerson: featureToggleSchema,
+  featureIp: featureToggleSchema,
 });
 
 export async function POST(request: NextRequest) {
@@ -41,8 +48,20 @@ export async function POST(request: NextRequest) {
       assetIds,
       batchSize,
       featureLibrary,
+      featureBrand,
+      featureProduct,
+      featurePerson,
+      featureIp,
     } = requestSchema.parse(body);
-    const featureClassify = getFeatureLibraryEnabledFromRequest(request, featureLibrary);
+    const featureLibraryFeatures = getFeatureLibraryFeaturesFromRequest(request, {
+      featureLibrary,
+      featureBrand,
+      featureProduct,
+      featurePerson,
+      featureIp,
+    });
+    const featureClassify = featureLibraryFeatures.featureLibrary;
+    const featureClassifications = toFeatureClassificationFlags(featureLibraryFeatures);
 
     // 根据 teamId 构造 team slug 并查询 team
     const teamSlug = idToSlug("team", new MuseDAMID(musedamTeamId));
@@ -92,6 +111,7 @@ export async function POST(request: NextRequest) {
       assetIds,
       batchSize,
       featureClassify,
+      featureClassifications,
     });
 
     // 返回结果
@@ -148,12 +168,14 @@ async function processBatchTagging({
   assetIds,
   batchSize = 100,
   featureClassify,
+  featureClassifications,
 }: {
   team: { id: number; slug: string };
   settings: TaggingSettingsData;
   assetIds?: number[];
   batchSize?: number;
   featureClassify: boolean;
+  featureClassifications: FeatureClassificationFlags;
 }): Promise<{
   success: boolean;
   totalAssets: number;
@@ -297,6 +319,7 @@ async function processBatchTagging({
           matchingSources: settings.matchingSources,
           recognitionAccuracy: settings.recognitionAccuracy,
           featureClassify,
+          featureClassifications,
           taskType: "default",
         });
 
