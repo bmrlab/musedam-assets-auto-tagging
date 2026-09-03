@@ -41,10 +41,9 @@ type S3Config = {
   region: string;
   secretAccessKey: string;
   sessionToken?: string;
-  // Path-style (`endpoint/bucket/key`) works on AWS S3 and on S3-compatible
-  // providers (Aliyun OSS, Volcengine TOS) alike, so it's the safe default.
-  // Some providers/buckets require virtual-hosted-style (`bucket.endpoint/key`)
-  // instead — flip via S3_FORCE_PATH_STYLE=false without touching code.
+  // Addressing style is provider-specific. AWS/minIO may use path-style
+  // (`endpoint/bucket/key`), while Aliyun OSS's S3-compatible endpoint requires
+  // virtual-hosted-style (`bucket.endpoint/key`).
   forcePathStyle: boolean;
   // AWS S3 honors `x-amz-acl` on PUT to grant per-object ACLs. Some
   // S3-compatible providers' compatibility layers don't support this header

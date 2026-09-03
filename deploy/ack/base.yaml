@@ -1,0 +1,193 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: musedam-auto-tagging-prod
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: musedam-auto-tagging-config
+  namespace: musedam-auto-tagging-prod
+data:
+  AUTH_TRUST_HOST: "true"
+  DEBUG_PAGE: "false"
+  LOCAL_DEV: "false"
+  STORAGE_PROVIDER: aliyun-oss
+  S3_ENDPOINT_URL: https://s3.oss-cn-hangzhou.aliyuncs.com
+  S3_REGION: cn-hangzhou
+  S3_BUCKET: replace-with-customer-bucket
+  S3_FOLDER: auto-tagging/feature-library
+  S3_FORCE_PATH_STYLE: "false"
+  S3_SEND_ACL_HEADER: "true"
+  IFRAME_ALLOWED_ORIGINS: "'self' https://replace-with-musedam-domain.example.com"
+  MUSEDAM_API_BASE_URL: https://replace-with-musedam-api.example.com
+  OPENAI_BASE_URL: https://replace-with-model-gateway.example.com/v1
+  JINA_EMBEDDINGS_URL: https://replace-with-jina-endpoint.example.com/v1/embeddings
+  JINA_EMBEDDING_MODEL: jina-clip-v2
+  JINA_BATCH_SIZE: "4"
+  JINA_TIMEOUT_SECONDS: "60"
+  LOGO_DETECTION_SERVER_URL: http://replace-with-detection-service:3002
+  TRANSLATION_SERVICE_URL: https://replace-with-translation-endpoint.example.com/v1/chat/completions
+  TRANSLATION_SERVICE_MODEL: qwen-mt-flash
+  TAGGING_PREDICT_MODEL: qwen3-vl-flash
+  PRODUCT_CATEGORY_PREDICT_MODEL: qwen3-vl-flash
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: musedam-auto-tagging-web
+  namespace: musedam-auto-tagging-prod
+spec:
+  # Phase 1 deliberately uses one replica because queue concurrency is still
+  # process-local. Increase only after the worker/concurrency refactor.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: musedam-auto-tagging-web
+  template:
+    metadata:
+      labels:
+        app: musedam-auto-tagging-web
+    spec:
+      containers:
+        - name: web
+          image: registry.example.com/musedam-auto-tagging-web:replace-version
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: musedam-auto-tagging-config
+            - secretRef:
+                name: musedam-auto-tagging-secrets
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: "1"
+              memory: 2Gi
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            runAsNonRoot: true
+      terminationGracePeriodSeconds: 60
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: musedam-auto-tagging-web
+  namespace: musedam-auto-tagging-prod
+spec:
+  selector:
+    app: musedam-auto-tagging-web
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: musedam-auto-tagging-queue-scheduler
+  namespace: musedam-auto-tagging-prod
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: musedam-auto-tagging-queue-scheduler
+  template:
+    metadata:
+      labels:
+        app: musedam-auto-tagging-queue-scheduler
+    spec:
+      containers:
+        - name: scheduler
+          image: registry.example.com/musedam-auto-tagging-scheduler:replace-version
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: APP_INTERNAL_URL
+              value: http://musedam-auto-tagging-web:3000
+            - name: QUEUE_POLL_INTERVAL_MS
+              value: "30000"
+          envFrom:
+            - secretRef:
+                name: musedam-auto-tagging-secrets
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            runAsNonRoot: true
+      terminationGracePeriodSeconds: 30
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: musedam-auto-tagging-scheduled
+  namespace: musedam-auto-tagging-prod
+spec:
+  schedule: "0 0 * * *"
+  timeZone: Asia/Shanghai
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 1800
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: scheduled-tagging
+              image: registry.example.com/musedam-auto-tagging-scheduler:replace-version
+              imagePullPolicy: IfNotPresent
+              args: ["--scheduled-only"]
+              env:
+                - name: APP_INTERNAL_URL
+                  value: http://musedam-auto-tagging-web:3000
+              envFrom:
+                - secretRef:
+                    name: musedam-auto-tagging-secrets
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 250m
+                  memory: 256Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]
+                runAsNonRoot: true

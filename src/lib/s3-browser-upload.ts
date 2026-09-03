@@ -11,6 +11,15 @@ function isLocalS3ObjectProxyUrl(uploadUrl: string) {
   return uploadUrl.startsWith(LOCAL_S3_OBJECT_PROXY_PATH);
 }
 
+function signedUploadRequiresPublicReadAcl(uploadUrl: string) {
+  try {
+    const signedHeaders = new URL(uploadUrl).searchParams.get("X-Amz-SignedHeaders");
+    return signedHeaders?.split(";").some((header) => header.trim().toLowerCase() === "x-amz-acl");
+  } catch {
+    return false;
+  }
+}
+
 function createUploadId() {
   return (
     globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
@@ -23,12 +32,19 @@ export async function uploadS3ObjectFromBrowser({
   contentType,
 }: UploadS3ObjectFromBrowserOptions) {
   if (!isLocalS3ObjectProxyUrl(uploadUrl)) {
+    const headers: Record<string, string> = {
+      "Content-Type": contentType,
+    };
+
+    // Every x-amz-* header sent to OSS/S3 must also be part of the SigV4
+    // signature. Only send the ACL header when the server signed it.
+    if (signedUploadRequiresPublicReadAcl(uploadUrl)) {
+      headers["x-amz-acl"] = "public-read";
+    }
+
     return fetch(uploadUrl, {
       method: "PUT",
-      headers: {
-        "Content-Type": contentType,
-        "x-amz-acl": "public-read",
-      },
+      headers,
       body: file,
     });
   }

@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: musedam-auto-tagging
+  namespace: musedam-auto-tagging-prod
+spec:
+  # Confirm the installed ACK ingress controller before applying. Common values
+  # are "alb" and "nginx".
+  ingressClassName: alb
+  tls:
+    - hosts:
+        - tagging.customer.example.com
+      secretName: musedam-auto-tagging-tls
+  rules:
+    - host: tagging.customer.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: musedam-auto-tagging-web
+                port:
+                  number: 3000

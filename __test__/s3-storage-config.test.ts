@@ -26,7 +26,7 @@ describe("s3 storage config", () => {
     process.env = { ...originalEnv };
   });
 
-  it("defaults to path-style addressing (AWS S3 / OSS / TOS compatible)", async () => {
+  it("defaults to path-style addressing for AWS S3 and compatible providers that allow it", async () => {
     const { getS3ObjectUrl } = await importS3Module();
     expect(getS3ObjectUrl("teams-1-asset-logos-abc.png")).toBe(
       "https://s3.us-east-1.amazonaws.com/test-bucket/teams-1-asset-logos-abc.png",
@@ -145,11 +145,11 @@ describe("feature-library public object URLs", () => {
 
   it("recognizes its own public object URLs under virtual-hosted-style addressing (e.g. Aliyun OSS)", async () => {
     process.env.S3_FORCE_PATH_STYLE = "false";
-    process.env.S3_ENDPOINT_URL = "https://oss-cn-hangzhou.aliyuncs.com";
+    process.env.S3_ENDPOINT_URL = "https://s3.oss-cn-hangzhou.aliyuncs.com";
     const { getS3PublicObjectUrl, isConfiguredS3PublicObjectUrl } = await importS3Module();
     const publicUrl = getS3PublicObjectUrl("feature-library/teams-1-asset-logos-abc.png");
     expect(publicUrl).toBe(
-      "https://test-bucket.oss-cn-hangzhou.aliyuncs.com/feature-library/teams-1-asset-logos-abc.png",
+      "https://test-bucket.s3.oss-cn-hangzhou.aliyuncs.com/feature-library/teams-1-asset-logos-abc.png",
     );
     expect(isConfiguredS3PublicObjectUrl(publicUrl)).toBe(true);
   });
