@@ -51,6 +51,7 @@ import {
 } from "../components/linked-tags-column";
 import LinkedTagsOverflow from "../components/LinkedTagsOverflow";
 import { PROCESS_STATE_BADGE_CLASS_NAMES } from "../components/process-state-badge-classes";
+import TruncatedDescription from "../components/TruncatedDescription";
 import {
   deleteAssetProductAction,
   pollProductsAction,
@@ -861,8 +862,8 @@ export default function ProductLibraryClient({
                                 <td
                                   className={
                                     subtitle
-                                      ? "h-[58px] px-3 pt-3 pb-2 align-top"
-                                      : "h-[58px] px-3 py-0 align-middle"
+                                      ? "h-[58px] max-w-[300px] px-3 pt-3 pb-2 align-top"
+                                      : "h-[58px] max-w-[300px] px-3 py-0 align-middle"
                                   }
                                 >
                                   <div
@@ -906,11 +907,7 @@ export default function ProductLibraryClient({
                                       <div className="truncate text-[14px] leading-[20px] font-medium text-basic-8">
                                         {product.name}
                                       </div>
-                                      {subtitle ? (
-                                        <p className="mt-1.5 line-clamp-3 text-sm leading-[20px] text-basic-5">
-                                          {subtitle}
-                                        </p>
-                                      ) : null}
+                                      {subtitle ? <TruncatedDescription text={subtitle} /> : null}
                                     </div>
                                   </div>
                                 </td>
