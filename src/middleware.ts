@@ -5,34 +5,19 @@ import {
   isFeatureLibraryValue,
   resolveFeatureLibraryFeatures,
 } from "@/lib/feature-library";
-import { getRequestClientIp, getRequestOrigin } from "@/lib/request/headers";
 import { NextRequest, NextResponse } from "next/server";
+
+const PRODUCTION_ONLY_DISABLED_PATH_PREFIXES = [
+  "/store-inspection",
+  "/tagging/dev",
+  "/tagging/test",
+];
 
 export const config = {
   matcher: [
     "/((?!api|_next/static|_next/image|_public|_pages|favicon.ico|manifest.json|sitemap.xml|robots.txt|llm.txt).*)",
   ],
 };
-
-async function handlePingRequest(req: NextRequest) {
-  const path = req.nextUrl.pathname;
-  const clientIp = await getRequestClientIp();
-  const requestOrigin = await getRequestOrigin();
-  const headers = Object.fromEntries(req.headers);
-  return new NextResponse(
-    JSON.stringify({
-      path,
-      clientIp,
-      requestOrigin,
-      headers,
-      nextUrl: req.nextUrl,
-    }),
-    {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    },
-  );
-}
 
 function handleLocale(req: NextRequest, response: NextResponse) {
   // Get the locale from cookies
@@ -93,8 +78,12 @@ function handleFeatureLibrary(req: NextRequest, response: NextResponse) {
 }
 
 export async function middleware(req: NextRequest) {
-  if (req.nextUrl.pathname.endsWith(".ping")) {
-    return await handlePingRequest(req);
+  if (
+    process.env.NODE_ENV === "production" &&
+    process.env.DEBUG_PAGE !== "true" &&
+    PRODUCTION_ONLY_DISABLED_PATH_PREFIXES.some((path) => req.nextUrl.pathname.startsWith(path))
+  ) {
+    return new NextResponse("Not Found", { status: 404 });
   }
 
   const response = NextResponse.next();
@@ -102,12 +91,14 @@ export async function middleware(req: NextRequest) {
   handleLocale(req, response);
   handleFeatureLibrary(req, response);
 
-  // Set security headers dynamically at runtime
-  response.headers.set("X-Frame-Options", "SAMEORIGIN");
+  // CSP frame-ancestors is the source of truth for MuseDAM's cross-origin
+  // iframe embedding. X-Frame-Options: SAMEORIGIN would block that use case.
   response.headers.set(
     "Content-Security-Policy",
     `frame-ancestors ${process.env.IFRAME_ALLOWED_ORIGINS || "'self'"}`,
   );
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
 
   return response;
 }

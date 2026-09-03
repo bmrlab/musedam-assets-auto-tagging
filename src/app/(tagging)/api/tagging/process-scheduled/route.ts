@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getTaggingSettings } from "@/app/(tagging)/tagging/settings/lib";
-import { generateCurlCommand, requestMuseDAMAPI } from "@/musedam/lib";
-import { retrieveTeamCredentials } from "@/musedam/apiKey";
-import prisma from "@/prisma/prisma";
 import { rootLogger } from "@/lib/logging";
 import { slugToId } from "@/lib/slug";
+import { retrieveTeamCredentials } from "@/musedam/apiKey";
+import { requestMuseDAMAPI } from "@/musedam/lib";
+import prisma from "@/prisma/prisma";
 
 // 日志器
 const logger = rootLogger.child({ service: "process-scheduled-tagging" });
@@ -19,7 +19,7 @@ function validateApiKey(request: NextRequest): boolean {
 
   const token = authHeader.substring(7);
   const internalApiKey = process.env.INTERNAL_API_KEY;
-  
+
   if (!internalApiKey) {
     logger.error("INTERNAL_API_KEY not configured in environment");
     return false;
@@ -86,8 +86,10 @@ export async function POST(request: NextRequest) {
 
         // 构造请求体
         const requestBody = {
-          folderIds: settings.applicationScope.selectedFolders.map(folder => slugToId("assetFolder", folder.slug)),
-          isAll: settings.applicationScope.scopeType === 'all',
+          folderIds: settings.applicationScope.selectedFolders.map((folder) =>
+            slugToId("assetFolder", folder.slug),
+          ),
+          isAll: settings.applicationScope.scopeType === "all",
         };
 
         logger.info(`调用 ${team.name} 的定时标签 API: ${JSON.stringify(requestBody)}`);
@@ -113,7 +115,6 @@ export async function POST(request: NextRequest) {
 
         successCount++;
         logger.info(`团队 ${team.name} 定时标签任务发起成功`);
-
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "未知错误";
         logger.error(`团队 ${team.name} 定时标签任务失败: ${errorMessage}`);
@@ -142,14 +143,16 @@ export async function POST(request: NextRequest) {
     logger.info(`定时标签任务处理完成: ${JSON.stringify(summary)}`);
 
     return NextResponse.json(summary);
-
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "未知错误";
     logger.error("定时标签任务处理失败: " + errorMessage);
 
-    return NextResponse.json({
-      success: false,
-      error: errorMessage,
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        success: false,
+        error: errorMessage,
+      },
+      { status: 500 },
+    );
   }
 }
