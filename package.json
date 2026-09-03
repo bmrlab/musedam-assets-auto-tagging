@@ -11,6 +11,7 @@
     "postinstall": "prisma generate",
     "dev": "next dev --turbopack",
     "build": "next build",
+    "build:test": "next build",
     "start": "next start",
     "test": "vitest",
     "lint": "next lint",
