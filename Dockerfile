@@ -10,7 +10,7 @@ WORKDIR /app
 COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* ./
 # prisma generate need this folder
 COPY prisma ./prisma
-RUN npm install -g pnpm@10.6.2
+RUN npm install -g pnpm@9.12.3
 RUN pnpm i --frozen-lockfile
 
 # Rebuild the source code only when needed
@@ -23,7 +23,7 @@ COPY --from=deps /app/src/prisma/client ./src/prisma/client
 # Accept the encryption key as a build argument
 ARG NEXT_SERVER_ACTIONS_ENCRYPTION_KEY
 ENV NEXT_SERVER_ACTIONS_ENCRYPTION_KEY=$NEXT_SERVER_ACTIONS_ENCRYPTION_KEY
-RUN npm install -g pnpm@10.6.2
+RUN npm install -g pnpm@9.12.3
 RUN pnpm run build
 
 # Production image, copy all the files and run next
