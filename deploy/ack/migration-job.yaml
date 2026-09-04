@@ -1,9 +1,8 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  # Give every migration run a unique, versioned name -- Jobs are immutable,
-  # so re-running the same name for a new deploy will fail to apply.
-  name: musedam-auto-tagging-migration-replace-version
+  # TODO(运维替换): 每次发版都要换成唯一版本号，Job 名字不可复用/不可重复 apply
+  name: musedam-auto-tagging-migration-v1.0.0
   namespace: musedam-auto-tagging-prod
   labels:
     app.kubernetes.io/name: musedam-auto-tagging
@@ -20,6 +19,10 @@ spec:
         app.kubernetes.io/component: migration
     spec:
       automountServiceAccountToken: false
+      # TODO(运维替换): 如果客户集群按 nodeSelector 划分节点池，取消下面注释并填真实标签；
+      # 没有节点池划分要求就保持注释掉
+      # nodeSelector:
+      #   projectname: musedam-auto-tagging
       restartPolicy: Never
       securityContext:
         runAsNonRoot: true
@@ -27,13 +30,18 @@ spec:
         runAsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
-      # Uncomment and set if the customer ACR requires an image pull secret.
+      # TODO(运维替换): 如果客户镜像仓库需要拉取密钥，取消下面注释并填真实 secret 名字；
+      # 如果镜像仓库是公开/免密的，保持注释掉即可
       # imagePullSecrets:
       #   - name: musedam-auto-tagging-registry
       containers:
         - name: migration
-          image: registry.example.com/musedam-auto-tagging-migration:replace-version
+          # TODO(运维替换): 换成推到客户 ACR 的真实镜像地址和版本号
+          # 构建命令: docker build -f Dockerfile.job -t <客户ACR地址>/musedam-auto-tagging-migration:<version> .
+          image: registry.example.com/musedam-auto-tagging-migration:v1.0.0
           imagePullPolicy: IfNotPresent
+          # Secret 需要提前在该 namespace 下创建好（内容见 secret.example.yaml），
+          # 这里整体引用，和运维发的 gea-migrate 模板保持一致
           envFrom:
             - secretRef:
                 name: musedam-auto-tagging-secrets

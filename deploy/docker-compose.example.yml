@@ -13,7 +13,7 @@ services:
     env_file:
       - ../.env
     ports:
-      - "3000:3000"
+      - "3000:8080"
     restart: unless-stopped
 
   # Drives the two internal cron endpoints instead of packaging the tsx-based
@@ -32,12 +32,12 @@ services:
         apk add --no-cache curl >/dev/null
         LAST_SCHEDULED_DAY=""
         while true; do
-          curl -fsS -X POST "http://app:3000/api/tagging/process-queue" \
+          curl -fsS -X POST "http://app:8080/api/tagging/process-queue" \
             -H "Authorization: Bearer $$INTERNAL_API_KEY" || true
           TODAY=$$(date -u +%Y-%m-%d)
           HOUR=$$(date -u +%H)
           if [ "$$HOUR" = "00" ] && [ "$$LAST_SCHEDULED_DAY" != "$$TODAY" ]; then
-            curl -fsS -X POST "http://app:3000/api/tagging/process-scheduled" \
+            curl -fsS -X POST "http://app:8080/api/tagging/process-scheduled" \
               -H "Authorization: Bearer $$INTERNAL_API_KEY" || true
             LAST_SCHEDULED_DAY="$$TODAY"
           fi

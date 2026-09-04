@@ -21,4 +21,4 @@ spec:
               service:
                 name: musedam-auto-tagging-web
                 port:
-                  number: 3000
+                  number: 8080

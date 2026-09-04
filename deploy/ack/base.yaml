@@ -55,7 +55,7 @@ spec:
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
-              containerPort: 3000
+              containerPort: 8080
           envFrom:
             - configMapRef:
                 name: musedam-auto-tagging-config
@@ -103,7 +103,7 @@ spec:
     app: musedam-auto-tagging-web
   ports:
     - name: http
-      port: 3000
+      port: 8080
       targetPort: http
   type: ClusterIP
 ---
@@ -130,7 +130,7 @@ spec:
           imagePullPolicy: IfNotPresent
           env:
             - name: APP_INTERNAL_URL
-              value: http://musedam-auto-tagging-web:3000
+              value: http://musedam-auto-tagging-web:8080
             - name: QUEUE_POLL_INTERVAL_MS
               value: "30000"
           envFrom:
@@ -175,7 +175,7 @@ spec:
               args: ["--scheduled-only"]
               env:
                 - name: APP_INTERNAL_URL
-                  value: http://musedam-auto-tagging-web:3000
+                  value: http://musedam-auto-tagging-web:8080
               envFrom:
                 - secretRef:
                     name: musedam-auto-tagging-secrets
