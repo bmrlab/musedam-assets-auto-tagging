@@ -74,8 +74,8 @@ function TagColumn({
   scrollContainerRef?: RefObject<HTMLDivElement | null>;
 }) {
   return (
-    <div className="flex h-full min-h-0 flex-col border-r border-[rgba(228,233,242,1)] last:border-r-0">
-      <div className="h-[33px] border-b border-[rgba(228,233,242,1)] px-3 py-2 text-[12px] leading-[16px] font-medium tracking-[0] text-[rgba(143,155,179,1)]">
+    <div className="flex h-full min-h-0 flex-col border-r border-basic-3 last:border-r-0">
+      <div className="h-[33px] border-b border-basic-3 px-3 py-2 text-[12px] leading-[16px] font-medium tracking-[0] text-basic-5">
         {title}
       </div>
       <div ref={scrollContainerRef} className="min-h-0 flex-1 overflow-y-auto">
@@ -94,8 +94,8 @@ function TagColumn({
                   data-tag-id={node.id}
                   className={cn(
                     "flex h-9 items-center justify-between px-3 py-2 transition-colors",
-                    isHighlighted && "bg-[rgba(242,246,255,1)]",
-                    !isHighlighted && "hover:bg-basic-2/60",
+                    isHighlighted && "bg-primary-1",
+                    !isHighlighted && "hover:bg-basic-2",
                   )}
                 >
                   <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -103,13 +103,13 @@ function TagColumn({
                       checked={checked}
                       onCheckedChange={() => onToggle(node.id)}
                       aria-label={t("tagSelector.selectTag", { name: node.name })}
-                      className="size-4 border-basic-4 data-[state=checked]:border-[rgba(51,102,255,1)] data-[state=checked]:bg-[rgba(51,102,255,1)]"
+                      className="size-4 border-basic-4 data-[state=checked]:border-primary-6 data-[state=checked]:bg-primary-6"
                     />
                     <button
                       type="button"
                       className={cn(
                         "min-w-0 flex-1 truncate text-left text-[14px] leading-[20px] font-normal",
-                        isHighlighted ? "text-[rgba(51,102,255,1)]" : "text-[rgba(25,32,56,1)]",
+                        isHighlighted ? "text-primary-6" : "text-basic-8",
                       )}
                       onClick={() => onActivate(node.id)}
                     >
@@ -333,17 +333,17 @@ export default function DialogTagSelector({
       </div>
 
       {isExpanded && deferredKeyword ? (
-        <div className="h-[320px] w-full overflow-y-auto rounded-[6px] border border-[rgba(228,233,242,1)] bg-[rgba(255,255,255,1)] shadow-[0_6px_16px_0_rgba(87,98,114,0.12)]">
+        <div className="h-[320px] w-full overflow-y-auto rounded-[6px] border border-basic-3 bg-background shadow-[0_6px_16px_0_rgba(87,98,114,0.12)] dark:shadow-[0_6px_16px_0_rgba(0,0,0,0.4)]">
           {searchResults.length === 0 ? (
             <div className="flex h-full items-center justify-center px-4 text-sm text-basic-5">
               {t("tagSelector.noSearchResults")}
             </div>
           ) : (
-            <div className="divide-y">
+            <div className="divide-y divide-basic-3">
               {searchResults.map((tag) => (
                 <label
                   key={tag.id}
-                  className="flex cursor-pointer items-center gap-3 px-4 py-3 text-sm text-basic-8"
+                  className="flex cursor-pointer items-center gap-3 px-4 py-3 text-sm text-basic-8 hover:bg-basic-2"
                 >
                   <Checkbox
                     checked={selectedTagIds.includes(tag.id)}
@@ -359,7 +359,7 @@ export default function DialogTagSelector({
       ) : null}
 
       {isExpanded && !deferredKeyword ? (
-        <div className="grid h-[320px] w-full grid-cols-[200px_180px_minmax(0,1fr)] overflow-hidden rounded-[6px] border border-[rgba(228,233,242,1)] bg-[rgba(255,255,255,1)] shadow-[0_6px_16px_0_rgba(87,98,114,0.12)]">
+        <div className="grid h-[320px] w-full grid-cols-[200px_180px_minmax(0,1fr)] overflow-hidden rounded-[6px] border border-basic-3 bg-background shadow-[0_6px_16px_0_rgba(87,98,114,0.12)] dark:shadow-[0_6px_16px_0_rgba(0,0,0,0.4)]">
           <TagColumn
             title={t("tagSelector.tagGroups", { count: tags.length })}
             nodes={tags}
