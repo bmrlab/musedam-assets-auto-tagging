@@ -36,65 +36,69 @@ export const providerOptions = {
   },
 };
 
-export type LLMModelName =
+// Known names are for the SaaS/cloud path (Bedrock/Azure need a real vendor model id — see the
+// cloud branch of llm() below). Anything else is treated as an opaque gateway-native model id
+// and sent through as-is — e.g. a private deployment sets TAGGING_PREDICT_MODEL directly to a
+// CR alias (CR's own model code, not a vendor name) with no extra mapping layer in this file.
+type KnownLLMModelName =
   | "gpt-5"
   | "gpt-5-mini"
   | "gpt-5-nano"
-  | "qwen3-vl-flash"
   | "claude-3-7-sonnet"
   | "claude-sonnet-4"
   | "claude-sonnet-4-6";
+export type LLMModelName = KnownLLMModelName | (string & {});
 
-// Private deployments call back into our hosted model gateway (OPENAI_BASE_URL) instead of
-// AWS Bedrock / Azure OpenAI directly — that's the intended fallback path below when
-// AWS_BEDROCK_ACCESS_KEY_ID / AZURE_EASTUS2_API_KEY are left unset. Fail fast with a clear
-// error here instead of letting ai-sdk surface an opaque auth error deep in the request.
+const OPENAI_CLOUD_MODELS = new Set<string>(["gpt-5", "gpt-5-mini", "gpt-5-nano"]);
+const BEDROCK_MODEL_ID: Record<string, string> = {
+  "claude-3-7-sonnet": "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
+  "claude-sonnet-4": "us.anthropic.claude-sonnet-4-20250514-v1:0",
+  "claude-sonnet-4-6": "us.anthropic.claude-sonnet-4-6",
+};
+
+// LLM_PROVIDER is optional. Set it to pin the backend explicitly ("cloud" = Bedrock/Azure,
+// "gateway" = OPENAI_BASE_URL-compatible gateway). Left unset, behavior is unchanged from
+// before this was added: per model family, cloud is used if its cloud key is present,
+// otherwise gateway — so existing deployments that only ever set OPENAI_BASE_URL/OPENAI_API_KEY
+// keep working with no new required env vars.
+export type LLMProvider = "cloud" | "gateway";
+
+export function getLLMProviderOverride(): LLMProvider | undefined {
+  const value = process.env.LLM_PROVIDER?.trim();
+  if (!value) return undefined;
+  if (value === "cloud" || value === "gateway") return value;
+  throw new Error(`Invalid LLM_PROVIDER "${value}": expected "cloud" or "gateway".`);
+}
+
 function assertOpenAIGatewayConfigured(modelName: LLMModelName) {
   if (!process.env.OPENAI_BASE_URL || !process.env.OPENAI_API_KEY) {
     throw new Error(
       `Missing model gateway config for "${modelName}": set OPENAI_BASE_URL and OPENAI_API_KEY ` +
-        `to point at the hosted model gateway (required whenever AWS_BEDROCK_ACCESS_KEY_ID / ` +
-        `AZURE_EASTUS2_API_KEY are not configured, e.g. private deployments).`,
+        `to point at the hosted model gateway.`,
     );
   }
 }
 
 export function llm(modelName: LLMModelName) {
-  switch (modelName) {
-    case "gpt-5":
-    case "gpt-5-mini":
-    case "gpt-5-nano":
-      if (process.env.AZURE_EASTUS2_API_KEY) {
-        break;
-      } else {
-        assertOpenAIGatewayConfigured(modelName);
-        return openai.chat(modelName);
-      }
-    case "claude-3-7-sonnet":
-    case "claude-sonnet-4":
-    case "claude-sonnet-4-6":
-      if (process.env.AWS_BEDROCK_ACCESS_KEY_ID) {
-        break;
-      } else {
-        assertOpenAIGatewayConfigured(modelName);
-        return openai(modelName);
-      }
-    case "qwen3-vl-flash":
-      assertOpenAIGatewayConfigured(modelName);
-      return openai.chat(modelName);
+  const override = getLLMProviderOverride();
+  const isKnownClaude = modelName in BEDROCK_MODEL_ID;
+
+  if (OPENAI_CLOUD_MODELS.has(modelName)) {
+    const useCloud = override ? override === "cloud" : Boolean(process.env.AZURE_EASTUS2_API_KEY);
+    if (useCloud) return azureEastUS2.chat(modelName);
+  } else if (isKnownClaude) {
+    const useCloud = override ? override === "cloud" : Boolean(process.env.AWS_BEDROCK_ACCESS_KEY_ID);
+    if (useCloud) return bedrock(BEDROCK_MODEL_ID[modelName]);
+  } else if (override === "cloud") {
+    throw new Error(
+      `"${modelName}" has no LLM_PROVIDER=cloud mapping — set LLM_PROVIDER=gateway (or unset it) ` +
+        `to use it.`,
+    );
   }
-  switch (modelName) {
-    case "gpt-5":
-      return azureEastUS2.chat("gpt-5");
-    case "gpt-5-mini":
-      return azureEastUS2.chat("gpt-5-mini");
-    case "gpt-5-nano":
-      return azureEastUS2.chat("gpt-5-nano");
-    case "claude-3-7-sonnet":
-      return bedrock("us.anthropic.claude-3-7-sonnet-20250219-v1:0");
-    case "claude-sonnet-4":
-      return bedrock("us.anthropic.claude-sonnet-4-20250514-v1:0");
-    case "claude-sonnet-4-6":
-      return bedrock("us.anthropic.claude-sonnet-4-6");
-  }
+
+  // Gateway: send modelName straight through, unmodified — either one of the known names above
+  // (if the gateway happens to register models under these) or an opaque gateway-native model
+  // id, e.g. a CR alias, for private deployments that must not reveal the underlying vendor.
+  assertOpenAIGatewayConfigured(modelName);
+  return isKnownClaude ? openai(modelName) : openai.chat(modelName);
 }

@@ -21,16 +21,24 @@ data:
   S3_SEND_ACL_HEADER: "true"
   IFRAME_ALLOWED_ORIGINS: "'self' https://replace-with-musedam-domain.example.com"
   MUSEDAM_API_BASE_URL: https://replace-with-musedam-api.example.com
+  LLM_PROVIDER: gateway
   OPENAI_BASE_URL: https://replace-with-model-gateway.example.com/v1
-  JINA_EMBEDDINGS_URL: https://replace-with-jina-endpoint.example.com/v1/embeddings
-  JINA_EMBEDDING_MODEL: jina-clip-v2
   JINA_BATCH_SIZE: "4"
   JINA_TIMEOUT_SECONDS: "60"
   LOGO_DETECTION_SERVER_URL: http://replace-with-detection-service:3002
   TRANSLATION_SERVICE_URL: https://replace-with-translation-endpoint.example.com/v1/chat/completions
   TRANSLATION_SERVICE_MODEL: qwen-mt-flash
-  TAGGING_PREDICT_MODEL: qwen3-vl-flash
-  PRODUCT_CATEGORY_PREDICT_MODEL: qwen3-vl-flash
+  # These take the model gateway's own model id/alias directly (no extra mapping layer — see
+  # src/ai/provider.ts) — fill in the real code from the gateway's model catalog, do not use a
+  # vendor-revealing name here (this ConfigMap ships to the customer).
+  TAGGING_PREDICT_MODEL: replace-with-gateway-model-id
+  PRODUCT_CATEGORY_PREDICT_MODEL: replace-with-gateway-model-id
+  TAG_TREE_GENERATE_MODEL: replace-with-gateway-model-id
+  # LLM_PROVIDER=gateway also routes embeddings through OPENAI_BASE_URL/OPENAI_API_KEY above
+  # (Creative Reasoning's /unified/v1/embeddings is Jina-request-compatible — see
+  # src/lib/brand/env.ts); only the gateway's own embedding model id is needed here. Its vectors
+  # won't match jina-clip-v2's, so switching requires reindexing existing embeddings.
+  JINA_EMBEDDING_MODEL: replace-with-gateway-model-id
 ---
 apiVersion: apps/v1
 kind: Deployment

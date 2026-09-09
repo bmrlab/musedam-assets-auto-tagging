@@ -1,5 +1,7 @@
 import "server-only";
 
+import { getLLMProviderOverride } from "@/ai/provider";
+
 function getRequiredEnv(name: string) {
   const value = process.env[name]?.trim();
 
@@ -42,7 +44,26 @@ function getBooleanEnv(name: string, fallback: boolean) {
   throw new Error(`Invalid boolean env: ${name}`);
 }
 
+// LLM_PROVIDER=gateway routes embeddings through OPENAI_BASE_URL/OPENAI_API_KEY too — the
+// gateway's /unified/v1/embeddings (e.g. CR's) accepts the same Jina-shaped request/response
+// fields (task, normalized, data[].embedding — see
+// https://creative-reasoning.com/docs/zh/api-reference), so no separate mapping var is needed:
+// JINA_EMBEDDING_MODEL just holds that gateway's own model code directly. Its vectors won't
+// match jina-clip-v2's, so switching requires reindexing existing embeddings. LLM_PROVIDER
+// unset/"cloud" keeps calling Jina directly, unaffected.
 export function getJinaConfig() {
+  if (getLLMProviderOverride() === "gateway") {
+    return {
+      apiKey: getRequiredEnv("OPENAI_API_KEY"),
+      embeddingsUrl: `${getRequiredEnv("OPENAI_BASE_URL").replace(/\/$/, "")}/embeddings`,
+      model: getRequiredEnv("JINA_EMBEDDING_MODEL"),
+      batchSize: getNumberEnv("JINA_BATCH_SIZE", 4),
+      timeoutMs: getNumberEnv("JINA_TIMEOUT_SECONDS", 60) * 1000,
+      useProxy: false,
+      proxyUrl: "",
+    };
+  }
+
   const useProxy = getBooleanEnv("JINA_USE_PROXY", false);
   const proxyUrl =
     process.env.JINA_PROXY_URL?.trim() ||

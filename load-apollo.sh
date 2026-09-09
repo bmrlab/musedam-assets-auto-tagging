@@ -9,4 +9,7 @@ done
 
 export NODE_ENV=production
 
+echo "Running database migrations..."
+pnpm run db:deploy
+
 exec "$@"
