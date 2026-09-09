@@ -12,6 +12,11 @@ data:
   AUTH_TRUST_HOST: "true"
   DEBUG_PAGE: "false"
   LOCAL_DEV: "false"
+  # Set to "true" (and drop the queue-scheduler Deployment + CronJob below) for
+  # single-service deployments where only the web Deployment can be provisioned.
+  # The web process then polls/processes its own tagging queue in-process
+  # (src/instrumentation.ts) instead of relying on the standalone scheduler.
+  EMBEDDED_QUEUE_SCHEDULER: "false"
   STORAGE_PROVIDER: aliyun-oss
   S3_ENDPOINT_URL: https://s3.oss-cn-hangzhou.aliyuncs.com
   S3_REGION: cn-hangzhou
