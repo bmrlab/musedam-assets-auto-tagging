@@ -12,6 +12,7 @@
 // imported sharp / Prisma / fs modules.
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
-    await import("./instrumentation-node");
+    const instrumentationNode = await import("./instrumentation-node");
+    await instrumentationNode.register();
   }
 }
