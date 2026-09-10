@@ -1,55 +1,17 @@
 // Optional in-process replacement for the standalone queue-scheduler/CronJob
-// deployment (deploy/ack/base.yaml). Set EMBEDDED_QUEUE_SCHEDULER=true on the
-// web service to have it poll+process its own queue, so single-service
-// private deployments don't need to run a separate scheduler container.
-// Leave it unset/false when the queue-scheduler Deployment + CronJob are
-// deployed alongside the web service, to avoid double polling.
+// deployment (deploy/ack/base.yaml). See instrumentation-node.ts for details.
+//
+// instrumentation.ts is compiled for both the Node.js and Edge runtimes
+// (this app has middleware.ts, so an Edge build always runs). Node-only
+// logic must live in a separate module behind exactly this
+// `if (process.env.NEXT_RUNTIME === "nodejs")` shape -- Next's build only
+// excludes the dynamically imported module from the Edge bundle when it
+// recognizes this pattern; anything else (an early return, a negated
+// check, inlining the logic here) still gets pulled into the Edge compile
+// and fails there, since Edge has no Node polyfills for the transitively
+// imported sharp / Prisma / fs modules.
 export async function register() {
-  if (process.env.NEXT_RUNTIME !== "nodejs") return;
-  if (process.env.EMBEDDED_QUEUE_SCHEDULER !== "true") return;
-
-  // Guarded on `global` so dev-mode hot reload can't stack up duplicate intervals.
-  const globalForScheduler = global as unknown as { __embeddedQueueSchedulerStarted?: boolean };
-  if (globalForScheduler.__embeddedQueueSchedulerStarted) return;
-  globalForScheduler.__embeddedQueueSchedulerStarted = true;
-
-  const { rootLogger } = await import("@/lib/logging");
-  const { processPendingQueueItems } = await import("@/app/(tagging)/queue");
-  const { runScheduledTagging } = await import("@/app/(tagging)/scheduled-tagging");
-
-  const logger = rootLogger.child({ service: "embedded-queue-scheduler" });
-  const pollIntervalMs = Number(process.env.QUEUE_POLL_INTERVAL_MS ?? 30_000);
-
-  logger.info({ msg: "Embedded queue scheduler starting", pollIntervalMs });
-
-  let scheduledTaggingLastRun = new Date().toDateString();
-  let isTickRunning = false;
-
-  setInterval(() => {
-    if (isTickRunning) return;
-    isTickRunning = true;
-
-    void (async () => {
-      try {
-        const result = await processPendingQueueItems();
-        logger.info({ msg: "Embedded queue tick completed", ...result });
-
-        const now = new Date();
-        const today = now.toDateString();
-        if (
-          scheduledTaggingLastRun !== today &&
-          now.getHours() === 0 &&
-          now.getMinutes() < 10
-        ) {
-          scheduledTaggingLastRun = today;
-          const summary = await runScheduledTagging();
-          logger.info({ msg: "Embedded scheduled tagging completed", ...summary });
-        }
-      } catch (error) {
-        logger.error({ msg: "Embedded queue tick failed", err: error });
-      } finally {
-        isTickRunning = false;
-      }
-    })();
-  }, pollIntervalMs);
+  if (process.env.NEXT_RUNTIME === "nodejs") {
+    await import("./instrumentation-node");
+  }
 }
