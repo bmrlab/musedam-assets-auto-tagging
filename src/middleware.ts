@@ -7,11 +7,7 @@ import {
 } from "@/lib/feature-library";
 import { NextRequest, NextResponse } from "next/server";
 
-const PRODUCTION_ONLY_DISABLED_PATH_PREFIXES = [
-  "/store-inspection",
-  "/tagging/dev",
-  "/tagging/test",
-];
+const PRODUCTION_ONLY_DISABLED_PATH_PREFIXES = ["/store-inspection", "/tagging/dev"];
 
 export const config = {
   matcher: [
