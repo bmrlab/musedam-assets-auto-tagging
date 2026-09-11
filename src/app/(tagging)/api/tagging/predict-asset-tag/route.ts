@@ -10,7 +10,7 @@ import {
 } from "@/lib/tagging-api-options";
 import { fetchMuseDAMFolderSubIds, syncSingleAssetFromMuseDAM } from "@/musedam/assets";
 import { MuseDAMID } from "@/musedam/types";
-import { AssetObject } from "@/prisma/client";
+import { AssetObject, TaggingQueueItemExtra } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -164,6 +164,14 @@ export async function POST(request: NextRequest) {
 
     // 同一素材的 default 任务只入队一次：调用方按 queueItemId 扣点，重复请求返回 null 不扣点。
     // 必须在 enqueue 之前判断，否则刚创建的任务会被当成「已存在」并错误返回 null。
+    //
+    // 上游可能对同一素材发起两次 default 打标（智能解析完成前一次、完成后一次），我们只应该
+    // 扣一次点，但要以“最新一次”的素材数据为准：
+    // - 已存在的任务还是 pending/processing：不用管，worker 处理时会用当前这次请求刚同步好的
+    //   最新 assetObject 数据（下方 processQueueItem 读的是数据库里的实时快照，不是入队时的快照）。
+    // - 已存在的任务是 completed/failed：说明上一轮已经跑完/跑失败，直接把这条任务重置回
+    //   pending 让它用这次最新同步的数据重新跑一次，不新建队列项、不返回新的 queueItemId，
+    //   避免重复扣点；同时清掉上一轮生成的审核项，防止同一批标签在审核列表里出现重复行。
     if (triggerType === "default") {
       const existingDefaultQueueItem = await prisma.taggingQueueItem.findFirst({
         where: {
@@ -171,10 +179,48 @@ export async function POST(request: NextRequest) {
           assetObjectId: assetObject.id,
           taskType: "default",
         },
-        select: { id: true },
+        orderBy: { createdAt: "desc" },
       });
 
       if (existingDefaultQueueItem) {
+        if (
+          existingDefaultQueueItem.status === "completed" ||
+          existingDefaultQueueItem.status === "failed"
+        ) {
+          await prisma.$transaction([
+            prisma.taggingAuditItem.deleteMany({
+              where: { queueItemId: existingDefaultQueueItem.id },
+            }),
+            prisma.taggingQueueItem.update({
+              where: { id: existingDefaultQueueItem.id },
+              data: {
+                status: "pending",
+                startsAt: null,
+                endsAt: null,
+                result: {},
+                extra: {
+                  matchingSources,
+                  recognitionAccuracy,
+                  featureClassify,
+                  featureBrand: featureClassifications.brand,
+                  featureProduct: featureClassifications.product,
+                  featurePerson: featureClassifications.person,
+                  featureIp: featureClassifications.ip,
+                } satisfies TaggingQueueItemExtra,
+              },
+            }),
+          ]);
+
+          return NextResponse.json({
+            success: true,
+            data: {
+              message: "Default tagging task re-queued with latest asset data",
+              queueItemId: null,
+              status: null,
+            },
+          });
+        }
+
         return NextResponse.json({
           success: true,
           data: {
