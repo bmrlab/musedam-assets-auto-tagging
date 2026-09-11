@@ -31,8 +31,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import {
   Check,
   CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
   Clock3,
   LoaderCircle,
   MoreHorizontal,
@@ -44,6 +42,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useDeferredValue, useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
+import LibraryPagination from "../components/LibraryPagination";
 import {
   linkedTagsColumnCellClassName,
   linkedTagsColumnHeaderClassName,
@@ -1036,31 +1035,11 @@ export default function BrandLibraryClient({
                       />
 
                       <div className="flex items-center gap-3 self-end">
-                        <div className="flex items-center gap-1">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 border-0 shadow-none hover:bg-transparent"
-                            onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
-                            disabled={safeCurrentPage <= 1}
-                          >
-                            <ChevronLeft className="size-4" />
-                          </Button>
-                          <div className="inline-flex h-8 min-w-8 items-center justify-center rounded-[8px] border border-primary-6 px-3 text-sm text-primary-6">
-                            {safeCurrentPage}
-                          </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 border-0 shadow-none hover:bg-transparent"
-                            onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
-                            disabled={safeCurrentPage >= totalPages}
-                          >
-                            <ChevronRight className="size-4" />
-                          </Button>
-                        </div>
+                        <LibraryPagination
+                          currentPage={safeCurrentPage}
+                          totalPages={totalPages}
+                          onPageChange={setCurrentPage}
+                        />
                         <Select
                           value={String(pageSize)}
                           onValueChange={(value) => setPageSize(Number(value))}
