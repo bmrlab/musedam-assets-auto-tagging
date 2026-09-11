@@ -174,6 +174,7 @@ function FeatureRecognitionRow({
   confidence,
   rawSimilarity,
   tagIds,
+  tagPaths,
   rejectedTagIds,
   onToggleTagIds,
   tooltipAdd,
@@ -188,6 +189,7 @@ function FeatureRecognitionRow({
   confidence: number;
   rawSimilarity?: number;
   tagIds: number[];
+  tagPaths: string[][];
   rejectedTagIds: number[];
   onToggleTagIds: (tagIds: number[]) => void;
   tooltipAdd: string;
@@ -233,6 +235,18 @@ function FeatureRecognitionRow({
         <div className="mt-0.5 truncate text-[10px] text-current/60">
           {tResult("matchingSource")}: {tResult(`${featureType}Recognition`)}
         </div>
+        {tagPaths.length > 0 ? (
+          <div className="mt-1 flex flex-wrap gap-1">
+            {tagPaths.map((tagPath, index) => (
+              <span
+                key={index}
+                className="inline-flex items-center rounded-sm border border-current/30 bg-background/60 px-1.5 py-0.5 text-[10px] text-current/80"
+              >
+                {tagPath.join(" > ")}
+              </span>
+            ))}
+          </div>
+        ) : null}
       </div>
       <div className="flex shrink-0 items-center gap-[6px]">
         <Progress
@@ -1010,6 +1024,7 @@ export function ReviewItem({
                 confidence: number;
                 rawSimilarity?: number;
                 tagIds: number[];
+                tagPaths: string[][];
                 rejectedTagIds: number[];
                 onToggleTagIds: (tagIds: number[]) => void;
               }[] = [];
@@ -1034,6 +1049,8 @@ export function ReviewItem({
                   tagIds:
                     brandRecommendation.bestMatch.recommendedTags?.map((tag) => tag.assetTagId) ??
                     [],
+                  tagPaths:
+                    brandRecommendation.bestMatch.recommendedTags?.map((tag) => tag.tagPath) ?? [],
                   rejectedTagIds: rejectedBrandItems,
                   onToggleTagIds: (tagIds) =>
                     setRejectedBrandItems((current) => toggleTagIds(current, tagIds)),
@@ -1056,6 +1073,8 @@ export function ReviewItem({
                   confidence: normalizeFeatureConfidence(ipRecommendation.bestMatch.confidence),
                   tagIds:
                     ipRecommendation.bestMatch.recommendedTags?.map((tag) => tag.assetTagId) ?? [],
+                  tagPaths:
+                    ipRecommendation.bestMatch.recommendedTags?.map((tag) => tag.tagPath) ?? [],
                   rejectedTagIds: rejectedIpItems,
                   onToggleTagIds: (tagIds) =>
                     setRejectedIpItems((current) => toggleTagIds(current, tagIds)),
@@ -1083,6 +1102,9 @@ export function ReviewItem({
                   ),
                   tagIds:
                     productRecommendation.bestMatch.recommendedTags?.map((tag) => tag.assetTagId) ??
+                    [],
+                  tagPaths:
+                    productRecommendation.bestMatch.recommendedTags?.map((tag) => tag.tagPath) ??
                     [],
                   rejectedTagIds: rejectedProductItems,
                   onToggleTagIds: (tagIds) =>
@@ -1129,6 +1151,7 @@ export function ReviewItem({
                     confidence: personSimilarityToConfidence(rawSimilarity),
                     rawSimilarity,
                     tagIds: face.bestMatch.recommendedTags?.map((tag) => tag.assetTagId) ?? [],
+                    tagPaths: face.bestMatch.recommendedTags?.map((tag) => tag.tagPath) ?? [],
                     rejectedTagIds: rejectedPersonItems,
                     onToggleTagIds: (tagIds) =>
                       setRejectedPersonItems((current) => toggleTagIds(current, tagIds)),
@@ -1170,6 +1193,7 @@ export function ReviewItem({
                           confidence={feature.confidence}
                           rawSimilarity={feature.rawSimilarity}
                           tagIds={feature.tagIds}
+                          tagPaths={feature.tagPaths}
                           rejectedTagIds={feature.rejectedTagIds}
                           onToggleTagIds={feature.onToggleTagIds}
                           tooltipAdd={t("tooltipAdd")}
