@@ -1,11 +1,13 @@
 import "server-only";
 
 import { getLogoDetectionServerToken, getLogoDetectionServerUrl } from "@/lib/brand/env";
-import { translateDetectionLabelText } from "@/lib/translation/service";
-import { normalizeDetectionText } from "@/lib/utils";
 import { createJinaImageEmbeddings } from "@/lib/brand/jina";
 import { queryProductVectorPoints } from "@/lib/product/pgvector";
 import prisma from "@/prisma/prisma";
+import {
+  buildProductDetectionLabelText,
+  normalizeProductDetectionPromptTerm,
+} from "./detection-prompt";
 
 const PRODUCT_IMAGE_VECTOR_QUERY_LIMIT = 20;
 const PRODUCT_IMAGE_VECTOR_SCORE_THRESHOLD = 0.34;
@@ -96,17 +98,9 @@ function isConfidentWinner(topMatches: ProductTopMatch[]) {
   return margin >= CONFIDENT_WINNER_MIN_MARGIN;
 }
 
-function normalizeDetectionPromptTerm(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .replace(/[。！!？?]/g, " ")
-    .trim();
-}
-
 function categoriesAlign(category: string, label: string) {
-  const normalizedCategory = normalizeDetectionPromptTerm(category);
-  const normalizedLabel = normalizeDetectionPromptTerm(label);
+  const normalizedCategory = normalizeProductDetectionPromptTerm(category);
+  const normalizedLabel = normalizeProductDetectionPromptTerm(label);
 
   if (!normalizedCategory || !normalizedLabel) {
     return false;
@@ -117,8 +111,8 @@ function categoriesAlign(category: string, label: string) {
   );
 }
 
-async function fetchProductDetectionPromptNames(teamId: number) {
-  const products = await prisma.assetProduct.findMany({
+async function fetchProductDetectionPromptSources(teamId: number) {
+  return prisma.assetProduct.findMany({
     where: {
       teamId,
       enabled: true,
@@ -131,17 +125,6 @@ async function fetchProductDetectionPromptNames(teamId: number) {
     },
     take: 40,
   });
-
-  const promptNames = Array.from(
-    new Set(
-      products
-        .flatMap((product) => [product.name, product.generalCategory])
-        .map((value) => normalizeDetectionPromptTerm(value))
-        .filter(Boolean),
-    ),
-  );
-
-  return promptNames.length > 0 ? promptNames.join(" . ") : "product";
 }
 
 type CropAggregation = {
@@ -173,8 +156,8 @@ export async function detectProductFigureBoxes({
 }) {
   const baseUrl = getLogoDetectionServerUrl();
   const token = getLogoDetectionServerToken();
-  const detectionLabelText = normalizeDetectionText(
-    await translateDetectionLabelText(await fetchProductDetectionPromptNames(teamId)),
+  const detectionLabelText = await buildProductDetectionLabelText(
+    await fetchProductDetectionPromptSources(teamId),
   );
   if (!detectionLabelText) {
     throw new Error("Product detection_label_text is empty after normalization");

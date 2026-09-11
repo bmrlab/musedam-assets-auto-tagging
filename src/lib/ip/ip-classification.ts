@@ -2,6 +2,7 @@ import "server-only";
 
 import { getLogoDetectionServerToken, getLogoDetectionServerUrl } from "@/lib/brand/env";
 import { createJinaImageEmbeddings } from "@/lib/brand/jina";
+import { truncateDetectionLabelToTokenLimit } from "@/lib/detection-label";
 import { queryIpVectorPoints } from "@/lib/ip/pgvector";
 import { translateDetectionLabelText } from "@/lib/translation/service";
 import { normalizeDetectionText } from "@/lib/utils";
@@ -226,6 +227,10 @@ async function requestIpDetection({
 }) {
   const baseUrl = getLogoDetectionServerUrl();
   const token = getLogoDetectionServerToken();
+  const boundedDetectionLabelText = truncateDetectionLabelToTokenLimit(detectionLabelText);
+  if (!boundedDetectionLabelText) {
+    throw new Error(`${errorPrefix} detection_label_text is empty after limiting`);
+  }
   const response = await fetch(`${baseUrl}/object_detection_groundingDINO`, {
     method: "POST",
     headers: {
@@ -234,7 +239,7 @@ async function requestIpDetection({
     },
     body: JSON.stringify({
       image_base64: imageBase64,
-      detection_label_text: detectionLabelText,
+      detection_label_text: boundedDetectionLabelText,
     }),
   });
 

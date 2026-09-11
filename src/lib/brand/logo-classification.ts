@@ -3,6 +3,7 @@ import "server-only";
 import { getLogoDetectionServerToken, getLogoDetectionServerUrl } from "@/lib/brand/env";
 import { createJinaImageEmbeddings } from "@/lib/brand/jina";
 import { queryLogoVectorPoints } from "@/lib/brand/pgvector";
+import { truncateDetectionLabelToTokenLimit } from "@/lib/detection-label";
 import { normalizeDetectionText } from "@/lib/utils";
 import prisma from "@/prisma/prisma";
 
@@ -90,7 +91,8 @@ export async function detectBrandLogoBoxes({
   const baseUrl = getLogoDetectionServerUrl();
   const token = getLogoDetectionServerToken();
   const rawDetectionLabelText = detectionLabelText.trim() || "logo";
-  const normalizedDetectionLabelText = normalizeDetectionText(rawDetectionLabelText) || "logo .";
+  const normalizedDetectionLabelText =
+    truncateDetectionLabelToTokenLimit(normalizeDetectionText(rawDetectionLabelText)) || "logo .";
   const response = await fetch(`${baseUrl}/object_detection_groundingDINO`, {
     method: "POST",
     headers: {
