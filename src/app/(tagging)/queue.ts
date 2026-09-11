@@ -770,6 +770,44 @@ async function tryClaimAndProcess(
   }
 }
 
+// 候选池大小：需要足够大，才能在"某个团队短时间内堆积大量任务"时，
+// 仍然覆盖到其他团队较早创建的任务，避免被单一团队的任务淹没（见 selectRoundRobinByTeam）。
+const CANDIDATE_POOL_SIZE = 200;
+
+// 按 teamId 轮询挑选：每一轮从每个团队各取一条最早的任务，直到取满 limit 或候选池耗尽。
+// items 需已按 createdAt asc 排序；返回顺序即为轮询顺序（不是严格的全局时间顺序），
+// 目的是避免某个团队的任务把其他团队的任务永远挤在候选池之外/槽位之外。
+function selectRoundRobinByTeam<T extends { teamId: number }>(items: T[], limit: number): T[] {
+  if (limit <= 0) return [];
+  const byTeam = new Map<number, T[]>();
+  for (const item of items) {
+    const queue = byTeam.get(item.teamId);
+    if (queue) {
+      queue.push(item);
+    } else {
+      byTeam.set(item.teamId, [item]);
+    }
+  }
+  // Map 的插入顺序 = 各团队最早任务在全局按 createdAt 排序中的先后顺序。
+  const teamIds = [...byTeam.keys()];
+
+  const selected: T[] = [];
+  let madeProgress = true;
+  while (selected.length < limit && madeProgress) {
+    madeProgress = false;
+    for (const teamId of teamIds) {
+      if (selected.length >= limit) break;
+      const queue = byTeam.get(teamId)!;
+      const next = queue.shift();
+      if (next) {
+        selected.push(next);
+        madeProgress = true;
+      }
+    }
+  }
+  return selected;
+}
+
 export async function processPendingQueueItems(): Promise<{
   processing: number;
   skipped: number;
@@ -782,15 +820,20 @@ export async function processPendingQueueItems(): Promise<{
     where: { status: "pending" },
     orderBy: { createdAt: "asc" },
     include: { assetObject: true },
-    // 多拉一些，保证两类任务都能填满各自的槽位
-    take: TOTAL_QUEUE_CONCURRENCY * 4,
+    // 多拉一些，保证两类任务都能填满各自的槽位，同时覆盖足够多的团队用于轮询
+    take: CANDIDATE_POOL_SIZE,
   });
 
-  const tagTreeItems = candidateItems.filter(isTagTreeJob).slice(0, TAG_TREE_RESERVED_CONCURRENCY);
+  // 按团队轮询挑选，避免某个团队短时间内堆积大量任务时把其他团队"饿死"。
+  const tagTreeItems = selectRoundRobinByTeam(
+    candidateItems.filter(isTagTreeJob),
+    TAG_TREE_RESERVED_CONCURRENCY,
+  );
 
-  const normalItems = candidateItems
-    .filter((item) => !isTagTreeJob(item))
-    .slice(0, TOTAL_QUEUE_CONCURRENCY - TAG_TREE_RESERVED_CONCURRENCY);
+  const normalItems = selectRoundRobinByTeam(
+    candidateItems.filter((item) => !isTagTreeJob(item)),
+    TOTAL_QUEUE_CONCURRENCY - TAG_TREE_RESERVED_CONCURRENCY,
+  );
 
   const allItems = [...tagTreeItems, ...normalItems];
 
