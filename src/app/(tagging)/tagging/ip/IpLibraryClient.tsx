@@ -162,6 +162,7 @@ export default function IpLibraryClient({
   const isChineseLocale = locale === "zh-CN" || locale === "zh-TW";
   const [ips, setIps] = useState(initialData.ips);
   const [ipTypes, setIpTypes] = useState(initialData.ipTypes);
+  const [tags, setTags] = useState(initialData.tags);
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [typeFilter, setTypeFilter] = useState("all");
@@ -338,6 +339,9 @@ export default function IpLibraryClient({
       setIps((current) => [...result.createdIps, ...current]);
     }
     setIpTypes(result.ipTypes);
+    if (result.tagTree) {
+      setTags(result.tagTree);
+    }
   }
 
   function handleOpenCreate() {
@@ -1093,7 +1097,7 @@ export default function IpLibraryClient({
         ip={activeIp}
         ipTypes={ipTypes}
         usedIpTypeIds={usedIpTypeIds}
-        tags={initialData.tags}
+        tags={tags}
         onOpenChange={(nextOpen) => {
           setDialogOpen(nextOpen);
           if (!nextOpen) {

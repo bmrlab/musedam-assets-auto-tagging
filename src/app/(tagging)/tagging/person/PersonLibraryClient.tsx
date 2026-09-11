@@ -201,6 +201,7 @@ export default function PersonLibraryClient({
   const isChineseLocale = locale === "zh-CN" || locale === "zh-TW";
   const [persons, setPersons] = useState(initialData.persons);
   const [personTypes, setPersonTypes] = useState(initialData.personTypes);
+  const [tags, setTags] = useState(initialData.tags);
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [typeFilter, setTypeFilter] = useState("all");
@@ -388,6 +389,9 @@ export default function PersonLibraryClient({
       setPersons((current) => [...result.createdPersons, ...current]);
     }
     setPersonTypes(result.personTypes);
+    if (result.tagTree) {
+      setTags(result.tagTree);
+    }
   }
 
   function handleOpenCreate() {
@@ -1127,7 +1131,7 @@ export default function PersonLibraryClient({
         person={activePerson}
         personTypes={personTypes}
         usedPersonTypeIds={usedPersonTypeIds}
-        tags={initialData.tags}
+        tags={tags}
         onOpenChange={(nextOpen) => {
           setDialogOpen(nextOpen);
           if (!nextOpen) {

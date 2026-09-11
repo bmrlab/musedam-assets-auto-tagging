@@ -161,6 +161,7 @@ export default function BrandLibraryClient({
   const isChineseLocale = locale === "zh-CN" || locale === "zh-TW";
   const [logos, setLogos] = useState(initialData.logos);
   const [logoTypes, setLogoTypes] = useState(initialData.logoTypes);
+  const [tags, setTags] = useState(initialData.tags);
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [typeFilter, setTypeFilter] = useState("all");
@@ -341,6 +342,9 @@ export default function BrandLibraryClient({
       setLogos((current) => [...result.createdLogos, ...current]);
     }
     setLogoTypes(result.logoTypes);
+    if (result.tagTree) {
+      setTags(result.tagTree);
+    }
   }
 
   function handleOpenCreate() {
@@ -1086,7 +1090,7 @@ export default function BrandLibraryClient({
         logo={activeLogo}
         logoTypes={logoTypes}
         usedLogoTypeIds={usedLogoTypeIds}
-        tags={initialData.tags}
+        tags={tags}
         onOpenChange={(nextOpen) => {
           setDialogOpen(nextOpen);
           if (!nextOpen) {

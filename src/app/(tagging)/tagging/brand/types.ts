@@ -60,6 +60,8 @@ export type BrandLogoBatchImportFailure = {
 export type BrandLogoBatchImportResult = {
   createdLogos: BrandLogoItem[];
   logoTypes: BrandLogoTypeItem[];
+  tagTree?: BrandTagTreeNode[];
+  missingTagPaths?: string[];
   successCount: number;
   failedCount: number;
   skippedCount: number;

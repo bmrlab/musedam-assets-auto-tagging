@@ -19,6 +19,7 @@ import { toast } from "sonner";
 
 type BatchMode = "import" | "export";
 type ExportFormat = "xlsx" | "csv";
+type MissingTagsImportChoice = "create" | "existing-only";
 
 export type BatchFileResult = {
   filename: string;
@@ -37,6 +38,7 @@ export type BatchImportResultBase = {
   failedCount: number;
   skippedCount: number;
   failures: BatchImportFailure[];
+  missingTagPaths?: string[];
 };
 
 type BatchImportExportDialogProps<TResult extends BatchImportResultBase> = {
@@ -94,6 +96,9 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
   const [exportFormat, setExportFormat] = useState<ExportFormat>("xlsx");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [failureResult, setFailureResult] = useState<TResult | null>(null);
+  const [missingTagsResult, setMissingTagsResult] = useState<TResult | null>(null);
+  const [pendingMissingTagsChoice, setPendingMissingTagsChoice] =
+    useState<MissingTagsImportChoice | null>(null);
   const [isPending, startTransition] = useTransition();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -107,6 +112,7 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
   }
 
   const isFailureView = Boolean(failureResult?.failures.length);
+  const isMissingTagsConfirmationView = Boolean(missingTagsResult?.missingTagPaths?.length);
   const isConfirmDisabled =
     isPending || (mode === "import" && !selectedFile) || (mode === "export" && !exportFormat);
 
@@ -115,6 +121,8 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
     setExportFormat("xlsx");
     setSelectedFile(null);
     setFailureResult(null);
+    setMissingTagsResult(null);
+    setPendingMissingTagsChoice(null);
   }
 
   function handleOpenChange(nextOpen: boolean) {
@@ -161,7 +169,13 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
     });
   }
 
-  function handleImport() {
+  function handleImport({
+    createMissingTags = false,
+    importExistingTagsOnly = false,
+  }: {
+    createMissingTags?: boolean;
+    importExistingTagsOnly?: boolean;
+  } = {}) {
     if (!selectedFile) {
       toast.error(t("selectFileFirst"));
       return;
@@ -169,9 +183,22 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
 
     const formData = new FormData();
     formData.append("file", selectedFile);
+    if (createMissingTags) {
+      formData.append("createMissingTags", "true");
+    }
+    if (importExistingTagsOnly) {
+      formData.append("importExistingTagsOnly", "true");
+    }
+    if (createMissingTags || importExistingTagsOnly) {
+      setPendingMissingTagsChoice(createMissingTags ? "create" : "existing-only");
+    }
 
     startTransition(async () => {
       const result = await importAction(formData);
+      setPendingMissingTagsChoice(null);
+      if (createMissingTags || importExistingTagsOnly) {
+        setMissingTagsResult(null);
+      }
 
       if (!result.success) {
         setFailureResult({
@@ -189,9 +216,12 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
         return;
       }
 
-      if (result.data.successCount > 0) {
-        onImported(result.data);
+      if (result.data.missingTagPaths?.length) {
+        setMissingTagsResult(result.data);
+        return;
       }
+
+      onImported(result.data);
 
       if (result.data.failures.length > 0) {
         setFailureResult(result.data);
@@ -245,7 +275,66 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="flex max-h-[92vh] w-[512px] max-w-[calc(100%-2rem)] flex-col gap-5 overflow-hidden rounded-[16px] border p-5">
-        {isFailureView && failureResult ? (
+        {isMissingTagsConfirmationView && missingTagsResult ? (
+          <>
+            <DialogHeader className="gap-2 p-0">
+              <DialogTitle className="text-[16px] leading-6 font-semibold text-basic-9">
+                {t("missingTagsConfirmTitle")}
+              </DialogTitle>
+              <DialogDescription className="text-[14px] leading-[22px] text-basic-6">
+                {t("missingTagsConfirmDescription")}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <p className="mb-2 text-[12px] leading-[16px] font-normal text-basic-5">
+                {t("missingTagsListLabel")}
+              </p>
+              <div className="max-h-[240px] overflow-y-auto rounded-[8px] bg-basic-1 px-4 py-3">
+                <ul className="list-disc space-y-2 pl-4 text-[14px] leading-[22px] font-normal text-basic-8">
+                  {missingTagsResult.missingTagPaths?.map((tagPath) => (
+                    <li key={tagPath}>{tagPath}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            <DialogFooter className="gap-[10px] p-0 sm:flex-wrap">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setMissingTagsResult(null)}
+                disabled={isPending}
+                className="h-8 shrink-0 rounded-[6px] border border-basic-4 px-3 py-1 text-[14px] leading-[22px]"
+              >
+                {t("cancel")}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleImport({ importExistingTagsOnly: true })}
+                disabled={isPending}
+                className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-[6px] border border-basic-4 px-3 py-1 text-[14px] leading-[22px]"
+              >
+                {isPending && pendingMissingTagsChoice === "existing-only" ? (
+                  <Loader2 className="size-4 shrink-0 animate-spin" />
+                ) : null}
+                {t("importExistingTagsOnly")}
+              </Button>
+              <Button
+                type="button"
+                onClick={() => handleImport({ createMissingTags: true })}
+                disabled={isPending}
+                className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-[6px] bg-primary-6 px-3 py-1 text-[14px] leading-[22px]"
+              >
+                {isPending && pendingMissingTagsChoice === "create" ? (
+                  <Loader2 className="size-4 shrink-0 animate-spin" />
+                ) : null}
+                {t("createTagsAndImport")}
+              </Button>
+            </DialogFooter>
+          </>
+        ) : isFailureView && failureResult ? (
           <>
             <DialogHeader className="gap-0 p-0">
               <DialogTitle className="text-[16px] leading-6 font-semibold text-basic-9">
@@ -268,8 +357,8 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
                     {failureResult.successCount > 0
                       ? t("partialImportFailedHint")
                       : t("importFailedHint")}
+                  </div>
                 </div>
-              </div>
 
                 <p className="text-[12px] leading-[16px] font-normal text-basic-5">
                   {failureResult.successCount > 0

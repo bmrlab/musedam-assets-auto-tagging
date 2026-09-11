@@ -29,6 +29,11 @@ import {
 } from "@/lib/s3";
 import { ServerActionResult } from "@/lib/serverAction";
 import {
+  createMissingBatchImportTagTrees,
+  findMissingBatchImportTagPaths,
+  normalizeBatchImportTagPath,
+} from "@/lib/tagging/batch-import-tags";
+import {
   BatchReferenceImageError,
   downloadAndPrepareBatchReferenceImage,
 } from "@/lib/tagging/batch-reference-image";
@@ -320,14 +325,6 @@ function getProductBatchTranslator(t: TranslationFunction) {
     t(`batchImportExport.${key}`, values);
 }
 
-function normalizeTagPathKey(value: string) {
-  return value
-    .split(">")
-    .map((part) => part.trim().toLowerCase())
-    .filter(Boolean)
-    .join(">");
-}
-
 async function buildTagPathLookup(teamId: number) {
   const tags = await prisma.assetTag.findMany({
     where: {
@@ -351,7 +348,7 @@ async function buildTagPathLookup(teamId: number) {
 
   for (const tag of tags) {
     const tagPath = buildTagPath(tag as AssetTagWithParents);
-    tagLookup.set(normalizeTagPathKey(tagPath.join(" > ")), {
+    tagLookup.set(normalizeBatchImportTagPath(tagPath.join(" > ")), {
       assetTagId: tag.id,
       tagPath,
     });
@@ -387,7 +384,7 @@ function resolveImportedTags({
   const selectedTagIds = new Set<number>();
 
   for (const tagPathValue of tagPathValues) {
-    const tag = tagLookup.get(normalizeTagPathKey(tagPathValue));
+    const tag = tagLookup.get(normalizeBatchImportTagPath(tagPathValue));
     if (!tag) {
       missingTagPaths.push(tagPathValue);
       continue;
@@ -1311,6 +1308,9 @@ export async function importProductsAction(
         };
       }
 
+      const shouldCreateMissingTags = formData.get("createMissingTags") === "true";
+      const shouldImportExistingTagsOnly = formData.get("importExistingTagsOnly") === "true";
+
       const buffer = Buffer.from(await file.arrayBuffer());
       const tableRows = parseBatchFile({
         file,
@@ -1346,7 +1346,7 @@ export async function importProductsAction(
         };
       }
 
-      const [tagLookup, existingProducts, activeProductTypes] = await Promise.all([
+      const [initialTagLookup, existingProducts, activeProductTypes] = await Promise.all([
         buildTagPathLookup(team.id),
         prisma.assetProduct.findMany({
           where: {
@@ -1358,6 +1358,35 @@ export async function importProductsAction(
         }),
         fetchActiveProductTypes(team.id),
       ]);
+      let tagLookup = initialTagLookup;
+      const missingTagPaths = findMissingBatchImportTagPaths({
+        tagPathValues: parsedRows.records.flatMap((row) => splitBatchValues(row.tagPaths)),
+        tagLookup,
+      });
+
+      if (missingTagPaths.length > 0 && !shouldCreateMissingTags && !shouldImportExistingTagsOnly) {
+        return {
+          success: true,
+          data: {
+            createdProducts: [],
+            productTypes: activeProductTypes.map(normalizeProductType),
+            missingTagPaths,
+            successCount: 0,
+            failedCount: 0,
+            skippedCount: 0,
+            failures: [],
+          },
+        };
+      }
+
+      if (missingTagPaths.length > 0 && shouldCreateMissingTags) {
+        await createMissingBatchImportTagTrees({
+          teamId: team.id,
+          tagPaths: missingTagPaths,
+        });
+        tagLookup = await buildTagPathLookup(team.id);
+      }
+
       const existingNames = new Set(existingProducts.map((product) => product.name));
       const productTypeCache = new Map(
         activeProductTypes.map(
@@ -1388,13 +1417,17 @@ export async function importProductsAction(
         }
       }
 
-      const nextProductTypes = await fetchActiveProductTypes(team.id);
+      const [nextProductTypes, tagTree] = await Promise.all([
+        fetchActiveProductTypes(team.id),
+        shouldCreateMissingTags ? fetchProductTags(team.id) : Promise.resolve(undefined),
+      ]);
 
       return {
         success: true,
         data: {
           createdProducts,
           productTypes: nextProductTypes.map(normalizeProductType),
+          tagTree,
           successCount: createdProducts.length,
           failedCount: failures.length,
           skippedCount: 0,

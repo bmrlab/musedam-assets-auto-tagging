@@ -62,6 +62,8 @@ export type ProductBatchImportFailure = {
 export type ProductBatchImportResult = {
   createdProducts: ProductItem[];
   productTypes: ProductTypeItem[];
+  tagTree?: ProductTagTreeNode[];
+  missingTagPaths?: string[];
   successCount: number;
   failedCount: number;
   skippedCount: number;

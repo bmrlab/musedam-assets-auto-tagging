@@ -160,6 +160,7 @@ export default function ProductLibraryClient({
   const isChineseLocale = locale === "zh-CN" || locale === "zh-TW";
   const [products, setProducts] = useState(initialData.products);
   const [productTypes, setProductTypes] = useState(initialData.productTypes);
+  const [tags, setTags] = useState(initialData.tags);
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [typeFilter, setTypeFilter] = useState("all");
@@ -344,6 +345,9 @@ export default function ProductLibraryClient({
       setProducts((current) => [...result.createdProducts, ...current]);
     }
     setProductTypes(result.productTypes);
+    if (result.tagTree) {
+      setTags(result.tagTree);
+    }
   }
 
   function handleOpenCreate() {
@@ -1094,7 +1098,7 @@ export default function ProductLibraryClient({
         product={activeProduct}
         productTypes={productTypes}
         usedProductTypeIds={usedProductTypeIds}
-        tags={initialData.tags}
+        tags={tags}
         onOpenChange={(nextOpen) => {
           setDialogOpen(nextOpen);
           if (!nextOpen) {

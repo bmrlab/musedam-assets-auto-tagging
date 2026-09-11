@@ -26,6 +26,11 @@ import {
 } from "@/lib/s3";
 import { ServerActionResult } from "@/lib/serverAction";
 import {
+  createMissingBatchImportTagTrees,
+  findMissingBatchImportTagPaths,
+  normalizeBatchImportTagPath,
+} from "@/lib/tagging/batch-import-tags";
+import {
   BatchReferenceImageError,
   downloadAndPrepareBatchReferenceImage,
 } from "@/lib/tagging/batch-reference-image";
@@ -687,14 +692,6 @@ function parseBrandBatchFile({
   throw new Error(t("batchImportExport.unsupportedFileType"));
 }
 
-function normalizeTagPathKey(value: string) {
-  return value
-    .split(">")
-    .map((part) => part.trim().toLowerCase())
-    .filter(Boolean)
-    .join(">");
-}
-
 async function buildTagPathLookup(teamId: number) {
   const tags = await prisma.assetTag.findMany({
     where: {
@@ -718,7 +715,7 @@ async function buildTagPathLookup(teamId: number) {
 
   for (const tag of tags) {
     const tagPath = buildTagPath(tag as AssetTagWithParents);
-    tagLookup.set(normalizeTagPathKey(tagPath.join(" > ")), {
+    tagLookup.set(normalizeBatchImportTagPath(tagPath.join(" > ")), {
       assetTagId: tag.id,
       tagPath,
     });
@@ -754,7 +751,7 @@ function resolveImportedTags({
   const selectedTagIds = new Set<number>();
 
   for (const tagPathValue of tagPathValues) {
-    const tag = tagLookup.get(normalizeTagPathKey(tagPathValue));
+    const tag = tagLookup.get(normalizeBatchImportTagPath(tagPathValue));
     if (!tag) {
       missingTagPaths.push(tagPathValue);
       continue;
@@ -1433,6 +1430,9 @@ export async function importBrandLogosAction(
         };
       }
 
+      const shouldCreateMissingTags = formData.get("createMissingTags") === "true";
+      const shouldImportExistingTagsOnly = formData.get("importExistingTagsOnly") === "true";
+
       const buffer = Buffer.from(await file.arrayBuffer());
       const tableRows = parseBrandBatchFile({
         file,
@@ -1468,7 +1468,7 @@ export async function importBrandLogosAction(
         };
       }
 
-      const [tagLookup, existingLogos, activeLogoTypes] = await Promise.all([
+      const [initialTagLookup, existingLogos, activeLogoTypes] = await Promise.all([
         buildTagPathLookup(team.id),
         prisma.assetLogo.findMany({
           where: {
@@ -1480,6 +1480,35 @@ export async function importBrandLogosAction(
         }),
         fetchActiveLogoTypes(team.id),
       ]);
+      let tagLookup = initialTagLookup;
+      const missingTagPaths = findMissingBatchImportTagPaths({
+        tagPathValues: parsedRows.records.flatMap((row) => splitBrandBatchValues(row.tagPaths)),
+        tagLookup,
+      });
+
+      if (missingTagPaths.length > 0 && !shouldCreateMissingTags && !shouldImportExistingTagsOnly) {
+        return {
+          success: true,
+          data: {
+            createdLogos: [],
+            logoTypes: activeLogoTypes.map(normalizeBrandLogoType),
+            missingTagPaths,
+            successCount: 0,
+            failedCount: 0,
+            skippedCount: 0,
+            failures: [],
+          },
+        };
+      }
+
+      if (missingTagPaths.length > 0 && shouldCreateMissingTags) {
+        await createMissingBatchImportTagTrees({
+          teamId: team.id,
+          tagPaths: missingTagPaths,
+        });
+        tagLookup = await buildTagPathLookup(team.id);
+      }
+
       const existingNames = new Set(existingLogos.map((logo) => logo.name));
       const logoTypeCache = new Map(
         activeLogoTypes.map((logoType) => [logoType.name.toLowerCase(), logoType] as const),
@@ -1509,13 +1538,17 @@ export async function importBrandLogosAction(
         }
       }
 
-      const nextLogoTypes = await fetchActiveLogoTypes(team.id);
+      const [nextLogoTypes, tagTree] = await Promise.all([
+        fetchActiveLogoTypes(team.id),
+        shouldCreateMissingTags ? fetchBrandTags(team.id) : Promise.resolve(undefined),
+      ]);
 
       return {
         success: true,
         data: {
           createdLogos,
           logoTypes: nextLogoTypes.map(normalizeBrandLogoType),
+          tagTree,
           successCount: createdLogos.length,
           failedCount: failures.length,
           skippedCount: 0,

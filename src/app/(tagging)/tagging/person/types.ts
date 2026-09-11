@@ -60,6 +60,8 @@ export type PersonBatchImportFailure = {
 export type PersonBatchImportResult = {
   createdPersons: PersonItem[];
   personTypes: PersonTypeItem[];
+  tagTree?: PersonTagTreeNode[];
+  missingTagPaths?: string[];
   successCount: number;
   failedCount: number;
   skippedCount: number;

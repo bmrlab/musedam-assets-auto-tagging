@@ -72,6 +72,8 @@ export type IpBatchImportFailure = {
 export type IpBatchImportResult = {
   createdIps: IpItem[];
   ipTypes: IpTypeItem[];
+  tagTree?: IpTagTreeNode[];
+  missingTagPaths?: string[];
   successCount: number;
   failedCount: number;
   skippedCount: number;
