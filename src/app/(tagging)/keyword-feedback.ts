@@ -78,6 +78,35 @@ export async function recordKeywordRejectionFeedback({
 }
 
 /**
+ * 客户在标签设置页手动编辑"排除关键词"时调用：把这次列表里被删掉的关键词，
+ * 从 keywordRejectionCounts 累计计数里一并清掉。否则删除只是清空展示，
+ * 底层计数器还停留在旧值，之后哪怕只被拒绝 1 次也会立刻重新触发自动拉黑，
+ * 客户会觉得"删了跟没删一样"。
+ */
+export function pruneRejectionCountsForRemovedKeywords(
+  extra: Pick<AssetTagExtra, "negativeKeywords" | "keywordRejectionCounts">,
+  nextNegativeKeywords: string[],
+): Pick<AssetTagExtra, "negativeKeywords" | "keywordRejectionCounts"> {
+  const previousNegativeKeywords = (extra.negativeKeywords ?? []).map((keyword) =>
+    normalizeForMatch(keyword),
+  );
+  const nextNormalizedSet = new Set(nextNegativeKeywords.map((keyword) => normalizeForMatch(keyword)));
+  const removedKeywords = previousNegativeKeywords.filter(
+    (keyword) => !nextNormalizedSet.has(keyword),
+  );
+
+  if (removedKeywords.length === 0 || !extra.keywordRejectionCounts) {
+    return { negativeKeywords: nextNegativeKeywords, keywordRejectionCounts: extra.keywordRejectionCounts };
+  }
+
+  const keywordRejectionCounts = { ...extra.keywordRejectionCounts };
+  for (const keyword of removedKeywords) {
+    delete keywordRejectionCounts[keyword];
+  }
+  return { negativeKeywords: nextNegativeKeywords, keywordRejectionCounts };
+}
+
+/**
  * 批量处理一批（leafTagId, 拒绝原因所属素材）反馈，内部串行执行、单条失败不影响其他条目。
  */
 export async function recordKeywordRejectionFeedbackBatch(
