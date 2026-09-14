@@ -21,6 +21,7 @@ import {
   filterFeatureLibraryRecommendations,
   isFeatureTypeEnabled,
 } from "@/lib/feature-library";
+import { recordKeywordRejectionFeedbackBatch } from "@/app/(tagging)/keyword-feedback";
 import { getServerFeatureLibraryFeatures } from "@/lib/feature-library-server";
 import { ServerActionResult } from "@/lib/serverAction";
 import { idToSlug, slugToId } from "@/lib/slug";
@@ -770,6 +771,30 @@ export async function approveAuditItemsAction({
         });
       }
     });
+
+    // 审核反馈闭环：单条标签被人工拒绝时，尝试反推是否由自动拆词关键词硬匹配触发，
+    // 并累计拒绝次数；同一（标签, 关键词）拒绝达到阈值后自动加入该标签的排除关键词，
+    // 避免同类误判反复出现（例如 "POPUP" 误命中 "POP-UP视频"）。失败不影响审核主流程。
+    const rejectedLeafTagIds = auditItems
+      .filter(({ leafTagId, status }) => leafTagId && status === "rejected")
+      .map(({ leafTagId }) => leafTagId!);
+
+    if (rejectedLeafTagIds.length > 0) {
+      const localAsset = await prisma.assetObject.findUnique({
+        where: { slug: assetSlug },
+        select: { materializedPath: true, name: true },
+      });
+      if (localAsset) {
+        await recordKeywordRejectionFeedbackBatch(
+          rejectedLeafTagIds.map((leafTagId) => ({
+            teamId,
+            leafTagId,
+            materializedPath: localAsset.materializedPath,
+            assetName: localAsset.name,
+          })),
+        );
+      }
+    }
 
     return {
       success: true,

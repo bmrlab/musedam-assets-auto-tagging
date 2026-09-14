@@ -65,6 +65,35 @@ describe("enhancePredictionsByMaterializedPathHardMatch", () => {
     const matched = result.flatMap((p) => p.tags).find((t) => t.leafTagId === 3);
     expect(matched).toBeDefined();
   });
+
+  it("skips a candidate keyword that review feedback has added to the tag's negativeKeywords", () => {
+    const tagsTreeWithNegativeKeyword: TagWithChildren[] = [
+      {
+        id: 1,
+        name: "素材类型",
+        extra: null,
+        children: [
+          {
+            id: 2,
+            name: "线下物料",
+            extra: null,
+            children: [
+              { id: 3, name: "POP-UP视频", extra: { negativeKeywords: ["pop"] } },
+            ],
+          },
+        ],
+      },
+    ];
+
+    const predictions: SourceBasedTagPredictions = [];
+    const result = enhancePredictionsByMaterializedPathHardMatch(
+      predictions,
+      tagsTreeWithNegativeKeyword,
+      "assets/pop-up/video-01.mp4",
+    );
+    const matched = result.flatMap((p) => p.tags).find((t) => t.leafTagId === 3);
+    expect(matched).toBeUndefined();
+  });
 });
 
 describe("filterPredictionsByRealExtension", () => {

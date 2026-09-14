@@ -31,6 +31,8 @@ declare module "@/prisma/client" {
     description: string;
     keywords: string[];
     negativeKeywords: string[];
+    /** 审核拒绝反馈：命中该标签自动关键词、但被人工拒绝的累计次数，达到阈值后关键词会被自动写入 negativeKeywords */
+    keywordRejectionCounts: Record<string, number>;
   }>;
 
   export type TaggingFaceFeatures = {
