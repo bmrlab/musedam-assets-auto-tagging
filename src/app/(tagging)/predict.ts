@@ -6,6 +6,7 @@ import {
   AssetObject,
   AssetObjectContentAnalysis,
   AssetObjectExtra,
+  AssetTagExtra,
   TaggingFaceFeatures,
   TaggingQueueItemExtra,
   TagWithChildren,
@@ -115,7 +116,7 @@ const SCORING_WEIGHTS: Record<z.Infer<typeof tagPredictionSchema.shape.source>, 
 const MATERIALIZED_PATH_HARD_MATCH_CONFIDENCE = 0.9;
 const MATERIALIZED_PATH_MAX_ENHANCED_TAGS = 12;
 
-function normalizeForMatch(text: string): string {
+export function normalizeForMatch(text: string): string {
   return (text ?? "").toLowerCase().trim();
 }
 
@@ -153,6 +154,14 @@ function isStrongPathKeyword(keyword: string): boolean {
   return keyword.length >= 2;
 }
 
+/**
+ * 由标签名自动拆词得到的"强关键词"候选集合。审核反馈模块（keyword-feedback.ts）
+ * 复用同一套规则，反推出人工拒绝某个标签时，究竟是哪个自动关键词导致了命中。
+ */
+export function getStrongKeywordVariantsForTagName(name: string): string[] {
+  return extractTagNameVariants(name).filter(isStrongPathKeyword);
+}
+
 function collectLeafTagCandidates(tagsTree: TagWithChildren[]): Array<{
   leafTagId: number;
   tagPath: string[];
@@ -164,7 +173,16 @@ function collectLeafTagCandidates(tagsTree: TagWithChildren[]): Array<{
     for (const lv2 of lv2List) {
       const lv3List = lv2.children ?? [];
       for (const leaf of lv3List) {
-        const variants = extractTagNameVariants(leaf.name).filter(isStrongPathKeyword);
+        // 排除掉被审核反馈（或人工配置）标记为"排除关键词"的自动拆词候选，
+        // 否则硬匹配会绕开 negativeKeywords，反复复现同一个误判（如 POPUP -> POP-UP视频）。
+        const negativeKeywords = new Set(
+          ((leaf.extra as AssetTagExtra)?.negativeKeywords ?? []).map((keyword) =>
+            normalizeForMatch(keyword),
+          ),
+        );
+        const variants = extractTagNameVariants(leaf.name)
+          .filter(isStrongPathKeyword)
+          .filter((keyword) => !negativeKeywords.has(keyword));
         if (variants.length === 0) continue;
         candidates.push({
           leafTagId: leaf.id,
