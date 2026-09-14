@@ -23,20 +23,20 @@ export function AIRecognitionSection({
       {
         key: "precise",
         title: t("precise"),
-        confidence: "80-100%",
+        confidence: "≥80%",
         des: t("preciseDesc"),
       },
       {
         key: "balanced",
         title: t("balanced"),
-        confidence: "70-100%",
+        confidence: "≥60%",
         des: t("balancedDesc"),
         isRecommended: true,
       },
       {
         key: "broad",
         title: t("broad"),
-        confidence: "60-100%",
+        confidence: "≥40%",
         des: t("broadDesc"),
       },
     ];

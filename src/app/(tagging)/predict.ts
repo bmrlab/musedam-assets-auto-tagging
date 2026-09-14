@@ -15,7 +15,11 @@ import { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 import { generateObject, UserModelMessage } from "ai";
 import z from "zod";
 import { buildFaceFeaturesPromptSection, collectPeopleCountTagPaths } from "./face-features";
-import { tagPredictionSystemPrompt } from "./prompt";
+import {
+  RECOGNITION_ACCURACY_CONFIG,
+  RecognitionAccuracyMode,
+  tagPredictionSystemPrompt,
+} from "./prompt";
 import { SourceBasedTagPredictions, tagPredictionSchema, TagWithScore } from "./types";
 import { buildTagKeywordsText, buildTagStructureText, fetchTagsTree } from "./utils";
 
@@ -425,6 +429,19 @@ export function calculateTagScore(predictions: SourceBasedTagPredictions) {
 }
 
 /**
+ * 用识别模式（precise/balanced/broad）对应的最低置信度门槛过滤最终结果。
+ * 独立于 prompt 里给模型的门槛指令之外做一次代码层面兜底，
+ * 避免"精准模式只出高置信度标签"完全依赖模型是否严格遵守 system prompt。
+ */
+export function filterTagsWithScoreByRecognitionAccuracy(
+  tagsWithScore: TagWithScore[],
+  mode: RecognitionAccuracyMode = "balanced",
+): TagWithScore[] {
+  const minScore = Math.round(RECOGNITION_ACCURACY_CONFIG[mode].minConfidence * 100);
+  return tagsWithScore.filter((tag) => tag.score >= minScore);
+}
+
+/**
  * 使用AI预测内容素材的最适合标签
  * @param asset 内容素材对象
  * @param availableTags 可用的标签列表（包含层级关系）
@@ -439,7 +456,7 @@ export async function predictAssetTags(
       contentAnalysis: boolean;
       tagKeywords: boolean;
     };
-    recognitionAccuracy?: "precise" | "balanced" | "broad";
+    recognitionAccuracy?: RecognitionAccuracyMode;
     faceFeatures?: TaggingFaceFeatures;
   },
 ): Promise<{
@@ -447,6 +464,9 @@ export async function predictAssetTags(
   tagsWithScore: TagWithScore[];
   extra: TaggingQueueItemExtra;
 }> {
+  // 识别模式：决定 system prompt 的语气引导，以及最终产出标签的最低置信度门槛
+  const recognitionAccuracyMode = options?.recognitionAccuracy ?? "balanced";
+
   // TODO: 缓存
   const tagsTree = await fetchTagsTree({ teamId: asset.teamId });
   if (!tagsTree || tagsTree.length === 0) {
@@ -527,7 +547,7 @@ ${tagKeywordsText}`,
           '返回 JSON 对象 {"predictions":[...]}；predictions 元素包含 source("basicInfo"|"materializedPath"|"contentAnalysis"|"tagKeywords") 和 tags；tags 元素包含 confidence(0-1)、leafTagId(number)、tagPath(string[])。只输出纯 JSON。',
         providerOptions: getTaggingPredictProviderOptions(modelName, asset.teamId),
         schema: tagPredictionsResponseSchema,
-        system: tagPredictionSystemPrompt(),
+        system: tagPredictionSystemPrompt(recognitionAccuracyMode),
         messages,
         temperature: 0,
         seed: stableSeed,
@@ -574,7 +594,12 @@ ${tagKeywordsText}`,
       );
       predictions = sortPredictionsDeterministically(predictions);
 
-      const tagsWithScore = calculateTagScore(predictions);
+      // 按识别模式的最低置信度门槛过滤：LLM 不一定严格遵守 prompt 里的门槛要求，
+      // 这里做代码层面的兜底，确保"精准模式只出高置信度标签"是硬约束而非纯靠模型自觉。
+      const tagsWithScore = filterTagsWithScoreByRecognitionAccuracy(
+        calculateTagScore(predictions),
+        recognitionAccuracyMode,
+      );
 
       // LLM 返回空/不可用结果：重试
       if (tagsWithScore.length === 0) {

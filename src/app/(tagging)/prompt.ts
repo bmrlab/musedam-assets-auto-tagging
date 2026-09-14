@@ -1,4 +1,41 @@
-export const tagPredictionSystemPrompt = () => `
+export type RecognitionAccuracyMode = "precise" | "balanced" | "broad";
+
+/**
+ * 识别模式 -> 最低置信度门槛 + 给模型的语气引导。
+ * 门槛数值需要和设置页/测试页展示给客户的置信度区间（精准≥80%、平衡≥60%、宽泛≥40%）保持一致，
+ * 这里是唯一数据源；调整任何一档的含义时只需要改这里，UI 文案和 predict.ts 的过滤逻辑都引用同一份配置。
+ */
+export const RECOGNITION_ACCURACY_CONFIG: Record<
+  RecognitionAccuracyMode,
+  { label: string; minConfidence: number; guidance: string }
+> = {
+  precise: {
+    label: "精准模式",
+    minConfidence: 0.8,
+    guidance:
+      "当前使用【精准模式】：优先准确性。只输出证据充分、把握很大的高置信度标签（≥0.80），宁可少标、不标，也不要给出证据不足的推测性标签。",
+  },
+  balanced: {
+    label: "平衡模式",
+    minConfidence: 0.6,
+    guidance:
+      "当前使用【平衡模式】：兼顾准确性与覆盖度。允许输出有合理推断依据的中等置信度标签（≥0.60），不要求每个标签都是直接匹配。",
+  },
+  broad: {
+    label: "宽泛模式",
+    minConfidence: 0.4,
+    guidance:
+      "当前使用【宽泛模式】：优先覆盖度。允许输出证据相对较弱、但仍有一定合理性的推测性标签（≥0.40），目的是尽量不遗漏潜在相关标签，交给人工审核环节做最终筛选。",
+  },
+};
+
+export const tagPredictionSystemPrompt = (mode: RecognitionAccuracyMode = "balanced") => {
+  const { label, minConfidence, guidance } = RECOGNITION_ACCURACY_CONFIG[mode];
+
+  return `
+# 识别模式
+${guidance}
+
 # 输出硬约束（必须遵守）
 你必须【只输出】一个可被 JSON.parse 解析的 JSON 对象（第一字符必须是 "{"，最后字符必须是 "}"），对象只包含 predictions 数组。
 - 禁止输出任何解释、推理过程、自然语言、标题、markdown、代码块标记（例如 \`\`\`）、注释、前后缀文字。
@@ -118,7 +155,8 @@ export const tagPredictionSystemPrompt = () => `
 ## 置信度评分要求
 - **严格执行**: 必须严格按照上述置信度评分标准进行评估
 - **保持一致**: 相同质量的匹配必须给出相同区间的置信度
-- **最低门槛**: 只输出置信度≥0.5的预测，低于此值的直接丢弃
+- **最低门槛（${label}）**: 只输出置信度≥${minConfidence}的预测，低于此值的直接丢弃
 - **客观评分**: 置信度反映信息匹配程度，不受标签类型或重要性影响
 - **证据支撑**: 每个置信度评分都必须有明确的匹配证据
 `;
+};
