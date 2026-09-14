@@ -5,6 +5,7 @@ import { llm, LLMModelName } from "@/ai/provider";
 import {
   AssetObject,
   AssetObjectContentAnalysis,
+  AssetObjectExtra,
   TaggingFaceFeatures,
   TaggingQueueItemExtra,
   TagWithChildren,
@@ -118,6 +119,23 @@ function normalizeForMatch(text: string): string {
   return (text ?? "").toLowerCase().trim();
 }
 
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * 纯字母数字关键词要求命中位置左右都不是字母数字，避免 "pop" 这类短关键词
+ * 命中 "popup" 这种子串（曾导致图片素材因文件名含 "POPUP" 被误判为 "POP-UP视频"）。
+ * 中日韩等非纯 ASCII 关键词没有天然词边界，维持原有子串匹配。
+ */
+export function pathIncludesKeyword(normalizedPath: string, keyword: string): boolean {
+  if (/^[a-z0-9]+$/i.test(keyword)) {
+    const boundaryRegex = new RegExp(`(?<![a-z0-9])${escapeRegExp(keyword)}(?![a-z0-9])`, "i");
+    return boundaryRegex.test(normalizedPath);
+  }
+  return normalizedPath.includes(keyword);
+}
+
 function extractTagNameVariants(name: string): string[] {
   const normalized = normalizeForMatch(name);
   const parts = normalized
@@ -159,7 +177,7 @@ function collectLeafTagCandidates(tagsTree: TagWithChildren[]): Array<{
   return candidates;
 }
 
-function enhancePredictionsByMaterializedPathHardMatch(
+export function enhancePredictionsByMaterializedPathHardMatch(
   predictions: SourceBasedTagPredictions,
   tagsTree: TagWithChildren[],
   materializedPath: string,
@@ -169,7 +187,9 @@ function enhancePredictionsByMaterializedPathHardMatch(
 
   const candidates = collectLeafTagCandidates(tagsTree)
     .map((candidate) => {
-      const matchedKeyword = candidate.keywords.find((keyword) => normalizedPath.includes(keyword));
+      const matchedKeyword = candidate.keywords.find((keyword) =>
+        pathIncludesKeyword(normalizedPath, keyword),
+      );
       return matchedKeyword
         ? { ...candidate, matchedKeywordLength: matchedKeyword.length }
         : undefined;
@@ -205,6 +225,105 @@ function enhancePredictionsByMaterializedPathHardMatch(
   }
 
   return enhanced;
+}
+
+// 常见图片/视频扩展名 -> 归一化格式标识，用于和标签路径里提到的具体格式关键词做一致性校验
+const FORMAT_TAG_EXTENSION_ALIASES: Record<string, string> = {
+  jpg: "jpg",
+  jpeg: "jpg",
+  png: "png",
+  gif: "gif",
+  webp: "webp",
+  bmp: "bmp",
+  svg: "svg",
+  tif: "tif",
+  tiff: "tif",
+  heic: "heic",
+  heif: "heic",
+  avif: "avif",
+  mp4: "mp4",
+  mov: "mov",
+  avi: "avi",
+  wmv: "wmv",
+  flv: "flv",
+  mkv: "mkv",
+  webm: "webm",
+  m4v: "m4v",
+};
+
+const IMAGE_EXTENSIONS = new Set([
+  "png",
+  "jpg",
+  "jpeg",
+  "gif",
+  "webp",
+  "bmp",
+  "svg",
+  "tif",
+  "tiff",
+  "heic",
+  "heif",
+  "avif",
+]);
+
+const VIDEO_EXTENSIONS = new Set([
+  "mp4",
+  "mov",
+  "avi",
+  "wmv",
+  "flv",
+  "mkv",
+  "webm",
+  "m4v",
+  "3gp",
+  "mpg",
+  "mpeg",
+]);
+
+function normalizeExtension(extension?: string | null): string | undefined {
+  const ext = (extension ?? "").toLowerCase().replace(/^\./, "").trim();
+  if (!ext) return undefined;
+  return FORMAT_TAG_EXTENSION_ALIASES[ext] ?? ext;
+}
+
+function getRealAssetMediaKind(extension: string): "image" | "video" | undefined {
+  if (IMAGE_EXTENSIONS.has(extension)) return "image";
+  if (VIDEO_EXTENSIONS.has(extension)) return "video";
+  return undefined;
+}
+
+/**
+ * 用真实文件扩展名（asset.extra.extension，来自 MuseDAM）过滤掉与实际格式/媒体类型矛盾的预测标签。
+ * 此前 LLM 和关键词硬匹配都不校验真实元数据，导致出现过 PNG 素材被打上"JPG"格式标签、
+ * 图片素材因文件名包含 "POPUP" 被误判为"视频资产"这类幻觉标签。
+ */
+export function filterPredictionsByRealExtension(
+  predictions: SourceBasedTagPredictions,
+  rawExtension?: string | null,
+): SourceBasedTagPredictions {
+  const realExtension = normalizeExtension(rawExtension);
+  if (!realExtension) return predictions;
+  const realMediaKind = getRealAssetMediaKind(realExtension);
+
+  const isTagContradictory = (tagPath: string[]): boolean => {
+    const pathText = tagPath.join(">").toLowerCase();
+
+    for (const [keyword, ext] of Object.entries(FORMAT_TAG_EXTENSION_ALIASES)) {
+      if (ext === realExtension) continue;
+      const boundaryRegex = new RegExp(`(?<![a-z0-9])${keyword}(?![a-z0-9])`, "i");
+      if (boundaryRegex.test(pathText)) return true;
+    }
+
+    if (realMediaKind === "image" && /(视频|video)/i.test(pathText)) return true;
+    if (realMediaKind === "video" && /(图片|image|照片)/i.test(pathText)) return true;
+
+    return false;
+  };
+
+  return predictions.map((prediction) => ({
+    ...prediction,
+    tags: prediction.tags.filter((tag) => !isTagContradictory(tag.tagPath)),
+  }));
 }
 
 function buildStableSeed(input: string): number {
@@ -430,6 +549,11 @@ ${tagKeywordsText}`,
           asset.materializedPath,
         );
       }
+      // 用真实文件扩展名兜底过滤，避免格式/媒体类型（图片 vs 视频）与实际元数据矛盾的幻觉标签
+      predictions = filterPredictionsByRealExtension(
+        predictions,
+        (asset.extra as AssetObjectExtra | null)?.extension,
+      );
       predictions = sortPredictionsDeterministically(predictions);
 
       const tagsWithScore = calculateTagScore(predictions);
