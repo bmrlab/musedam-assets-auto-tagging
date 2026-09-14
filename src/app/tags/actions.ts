@@ -1,6 +1,7 @@
 "use server";
 
 import { withAuth } from "@/app/(auth)/withAuth";
+import { pruneRejectionCountsForRemovedKeywords } from "@/app/(tagging)/keyword-feedback";
 import { Locale } from "@/i18n/routing";
 import { ServerActionResult } from "@/lib/serverAction";
 import { idToSlug } from "@/lib/slug";
@@ -1131,7 +1132,10 @@ export async function updateTagExtra(
         newExtra.keywords = data.keywords;
       }
       if (data.negativeKeywords !== undefined) {
-        newExtra.negativeKeywords = data.negativeKeywords;
+        Object.assign(
+          newExtra,
+          pruneRejectionCountsForRemovedKeywords(currentExtra, data.negativeKeywords),
+        );
       }
 
       updateData.extra = newExtra;

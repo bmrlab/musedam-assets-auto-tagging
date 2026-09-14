@@ -12,6 +12,7 @@ vi.mock("@/prisma/prisma", () => ({
 
 import {
   KEYWORD_REJECTION_AUTO_EXCLUDE_THRESHOLD,
+  pruneRejectionCountsForRemovedKeywords,
   recordKeywordRejectionFeedback,
 } from "@/app/(tagging)/keyword-feedback";
 import prisma from "@/prisma/prisma";
@@ -131,5 +132,37 @@ describe("recordKeywordRejectionFeedback", () => {
 
     expect(result).toEqual({});
     expect(prisma.assetTag.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("pruneRejectionCountsForRemovedKeywords", () => {
+  it("clears the rejection counter for a keyword removed from negativeKeywords", () => {
+    const result = pruneRejectionCountsForRemovedKeywords(
+      { negativeKeywords: ["pop", "sale"], keywordRejectionCounts: { pop: 5, sale: 2 } },
+      ["sale"],
+    );
+
+    expect(result).toEqual({
+      negativeKeywords: ["sale"],
+      keywordRejectionCounts: { sale: 2 },
+    });
+  });
+
+  it("leaves counters untouched when nothing was removed", () => {
+    const result = pruneRejectionCountsForRemovedKeywords(
+      { negativeKeywords: ["pop"], keywordRejectionCounts: { pop: 5 } },
+      ["pop", "sale"],
+    );
+
+    expect(result).toEqual({
+      negativeKeywords: ["pop", "sale"],
+      keywordRejectionCounts: { pop: 5 },
+    });
+  });
+
+  it("is a no-op when there is no rejection-count history yet", () => {
+    const result = pruneRejectionCountsForRemovedKeywords({ negativeKeywords: ["pop"] }, []);
+
+    expect(result).toEqual({ negativeKeywords: [], keywordRejectionCounts: undefined });
   });
 });
