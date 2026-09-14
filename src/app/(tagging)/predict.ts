@@ -438,7 +438,15 @@ export function filterTagsWithScoreByRecognitionAccuracy(
   mode: RecognitionAccuracyMode = "balanced",
 ): TagWithScore[] {
   const minScore = Math.round(RECOGNITION_ACCURACY_CONFIG[mode].minConfidence * 100);
-  return tagsWithScore.filter((tag) => tag.score >= minScore);
+  const filtered = tagsWithScore.filter((tag) => tag.score >= minScore);
+  if (filtered.length > 0 || tagsWithScore.length === 0) {
+    return filtered;
+  }
+  // 兜底：模型确实找到了候选，只是没有一个达到当前模式的门槛（常见于精准模式 + 证据本来就不够强的素材）。
+  // 这种情况下不让素材彻底"零标签"，保留分数最高的那一个，交给人工审核去判断要不要采纳，
+  // 比起什么都不给、逼着客户去查日志才发现"AI 其实是有猜测的，只是被门槛过滤掉了"要更可用。
+  const best = [...tagsWithScore].sort((a, b) => b.score - a.score)[0];
+  return [best];
 }
 
 /**
