@@ -281,6 +281,7 @@
       "paginationInfo": "{current} / {total} elementi",
       "emptyTagErrorMsg": "Nessun sistema di tag. Crea prima un sistema di tag~",
       "noAppropriateTagErrorMsg": "Non ci sono tag adatti nel sistema di tag attuale",
+      "noMatchingSourceErrorMsg": "Non riuscito: nessuna fonte di corrispondenza è abilitata nelle impostazioni di etichettatura",
       "dayNames": {
         "0": "Domenica",
         "1": "Lunedì",
@@ -311,6 +312,7 @@
       "saving": "Salvataggio...",
       "settingsSaved": "Impostazioni salvate",
       "saveSettingsFailed": "Impossibile salvare le impostazioni",
+      "atLeastOneSourceRequired": "Deve rimanere attiva almeno una fonte di corrispondenza",
       "selectFoldersFailed": "Impossibile selezionare le cartelle",
       "newApplicationScope": "Nuovo stato ambito applicazione:",
       "selectedFoldersCount": "Conteggio cartelle selezionate:",

@@ -570,6 +570,7 @@
       "paginationInfo": "{current} / {total} item",
       "emptyTagErrorMsg": "Belum ada sistem tag. Silakan buat sistem tag terlebih dahulu~",
       "noAppropriateTagErrorMsg": "Tidak ada tag yang sesuai dalam sistem tag saat ini",
+      "noMatchingSourceErrorMsg": "Gagal: tidak ada sumber pencocokan yang diaktifkan dalam pengaturan pelabelan",
       "dayNames": {
         "0": "Minggu",
         "1": "Senin",
@@ -600,6 +601,7 @@
       "saving": "Menyimpan...",
       "settingsSaved": "Pengaturan disimpan",
       "saveSettingsFailed": "Gagal menyimpan pengaturan",
+      "atLeastOneSourceRequired": "Setidaknya satu sumber pencocokan harus tetap diaktifkan",
       "selectFoldersFailed": "Gagal memilih folder",
       "newApplicationScope": "Status ruang lingkup aplikasi baru:",
       "selectedFoldersCount": "Jumlah folder yang dipilih:",

@@ -65,6 +65,7 @@
       "weeklyTagging": "Marcação Semanal",
       "emptyTagErrorMsg": "Ainda não há sistema de tags. Crie um primeiro~",
       "noAppropriateTagErrorMsg": "Não há tags adequadas no sistema de tags atual",
+      "noMatchingSourceErrorMsg": "Falha: nenhuma fonte de correspondência está habilitada nas configurações de marcação",
       "dayNames": {
         "0": "Domingo",
         "1": "Segunda-feira",
@@ -242,6 +243,7 @@
       "newApplicationScope": "Novo estado do escopo do aplicativo:",
       "saveSettings": "Salvar Configurações",
       "saveSettingsFailed": "Falha ao salvar configurações",
+      "atLeastOneSourceRequired": "Pelo menos uma fonte de correspondência deve permanecer ativada",
       "saving": "Salvando...",
       "selectFoldersFailed": "Falha ao selecionar pastas",
       "selectedFoldersCount": "Quantidade de pastas selecionadas:",

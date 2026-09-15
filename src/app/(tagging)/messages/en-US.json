@@ -606,6 +606,7 @@
       "paginationInfo": "{current} / {total} items",
       "emptyTagErrorMsg": "No tag system yet. Please create one first~",
       "noAppropriateTagErrorMsg": "There are no suitable tags in the current tag system",
+      "noMatchingSourceErrorMsg": "Failed: no matching source is enabled in tagging settings",
       "dayNames": {
         "0": "Sunday",
         "1": "Monday",
@@ -636,6 +637,7 @@
       "saving": "Saving...",
       "settingsSaved": "Settings saved",
       "saveSettingsFailed": "Failed to save settings",
+      "atLeastOneSourceRequired": "At least one matching source must stay enabled",
       "selectFoldersFailed": "Failed to select folders",
       "newApplicationScope": "New application scope state:",
       "selectedFoldersCount": "Selected folders count:",

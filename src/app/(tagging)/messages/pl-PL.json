@@ -529,6 +529,7 @@
       "paginationInfo": "{current} / {total} elementów",
       "emptyTagErrorMsg": "Brak systemu tagów. Najpierw utwórz system tagów~",
       "noAppropriateTagErrorMsg": "W obecnym systemie tagów nie ma odpowiednich tagów",
+      "noMatchingSourceErrorMsg": "Niepowodzenie: w ustawieniach tagowania nie włączono żadnego źródła dopasowania",
       "dayNames": {
         "0": "Niedziela",
         "1": "Poniedziałek",
@@ -559,6 +560,7 @@
       "saving": "Zapisywanie...",
       "settingsSaved": "Ustawienia zapisane",
       "saveSettingsFailed": "Nie udało się zapisać ustawień",
+      "atLeastOneSourceRequired": "Co najmniej jedno źródło dopasowania musi pozostać włączone",
       "selectFoldersFailed": "Nie udało się wybrać folderów",
       "newApplicationScope": "Nowy stan zakresu aplikacji:",
       "selectedFoldersCount": "Liczba wybranych folderów:",

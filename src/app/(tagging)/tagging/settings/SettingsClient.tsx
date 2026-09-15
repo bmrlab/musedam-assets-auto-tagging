@@ -33,11 +33,14 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
 
 
   const handleSourceChange = (source: keyof typeof matchingSources, checked: boolean) => {
-    setMatchingSources((prev) => ({
-      ...prev,
-      [source]: checked,
-    }));
-    handleSaveSettings();
+    const next = { ...matchingSources, [source]: checked };
+    // 打标至少需要一个有效信息源，否则会导致该素材直接打标失败，且失败原因不直观。
+    if (!Object.values(next).some(Boolean)) {
+      toast.error(t("atLeastOneSourceRequired"));
+      return;
+    }
+    setMatchingSources(next);
+    handleSaveSettings({ matchingSources: next });
   };
 
   const handleSaveSettings = async (overrides?: Partial<TaggingSettingsData>) => {

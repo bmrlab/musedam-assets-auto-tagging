@@ -65,6 +65,7 @@
       "weeklyTagging": "साप्ताहिक टैगिंग",
       "emptyTagErrorMsg": "कोई टैग सिस्टम नहीं है, कृपया पहले टैग सिस्टम बनाएं~",
       "noAppropriateTagErrorMsg": "वर्तमान टैग सिस्टम में उपयुक्त टैग नहीं हैं",
+      "noMatchingSourceErrorMsg": "विफल: टैगिंग सेटिंग्स में कोई मिलान स्रोत सक्षम नहीं है",
       "dayNames": {
         "0": "रविवार",
         "1": "सोमवार",
@@ -242,6 +243,7 @@
       "newApplicationScope": "नया एप्लिकेशन स्कोप स्टेट:",
       "saveSettings": "सेटिंग्स सहेजें",
       "saveSettingsFailed": "सेटिंग्स सहेजने में विफल रहा",
+      "atLeastOneSourceRequired": "कम से कम एक मिलान स्रोत सक्षम रहना चाहिए",
       "saving": "सेविंग...",
       "selectFoldersFailed": "फोल्डर्स का चयन करने में विफल रहा",
       "selectedFoldersCount": "चयनित फोल्डरों की संख्या:",

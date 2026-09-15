@@ -65,6 +65,7 @@
       "weeklyTagging": "Etiquetado Semanal",
       "emptyTagErrorMsg": "No hay sistema de etiquetas. Por favor, crea uno primero~",
       "noAppropriateTagErrorMsg": "No hay etiquetas adecuadas en el sistema de etiquetas actual",
+      "noMatchingSourceErrorMsg": "Fallido: no hay ninguna fuente de coincidencia habilitada en la configuración de etiquetado",
       "dayNames": {
         "0": "Domingo",
         "1": "Lunes",
@@ -242,6 +243,7 @@
       "newApplicationScope": "Nuevo estado del ámbito de la aplicación:",
       "saveSettings": "Guardar Configuraciones",
       "saveSettingsFailed": "No se pudieron guardar la configuración",
+      "atLeastOneSourceRequired": "Debe mantener al menos una fuente de coincidencia habilitada",
       "saving": "Guardando...",
       "selectFoldersFailed": "No se pudieron seleccionar las carpetas",
       "selectedFoldersCount": "Recuento de carpetas seleccionadas:",

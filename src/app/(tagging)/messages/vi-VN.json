@@ -529,6 +529,7 @@
       "paginationInfo": "{current}/{total} bản ghi",
       "emptyTagErrorMsg": "Chưa có hệ thống nhãn, vui lòng tạo hệ thống nhãn trước~",
       "noAppropriateTagErrorMsg": "Hệ thống nhãn hiện tại không có nhãn phù hợp",
+      "noMatchingSourceErrorMsg": "Thất bại: chưa bật nguồn khớp nào trong cài đặt gắn nhãn",
       "dayNames": {
         "0": "Chủ nhật",
         "1": "Thứ hai",
@@ -559,6 +560,7 @@
       "saving": "Đang lưu...",
       "settingsSaved": "Đã lưu cài đặt",
       "saveSettingsFailed": "Lưu cài đặt thất bại",
+      "atLeastOneSourceRequired": "Phải giữ bật ít nhất một nguồn khớp",
       "selectFoldersFailed": "Chọn thư mục thất bại",
       "newApplicationScope": "Trạng thái phạm vi áp dụng mới:",
       "selectedFoldersCount": "Số lượng thư mục đã chọn:",
