@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 import {
+  enforceLiteralEvidenceForMetadataTags,
   enhancePredictionsByMaterializedPathHardMatch,
   filterPredictionsByRealExtension,
   pathIncludesKeyword,
@@ -157,6 +158,98 @@ describe("filterPredictionsByRealExtension", () => {
 
   it("stays a no-op when the real extension is missing and fallback text carries no format signal either", () => {
     const result = filterPredictionsByRealExtension(predictions, undefined, "夏日新品上市");
+    expect(result).toEqual(predictions);
+  });
+});
+
+describe("enforceLiteralEvidenceForMetadataTags", () => {
+  const tagsTree: TagWithChildren[] = [
+    {
+      id: 1,
+      name: "渠道触点",
+      extra: null,
+      children: [
+        {
+          id: 2,
+          name: "触点",
+          extra: null,
+          children: [
+            { id: 3, name: "抖音", extra: null },
+            { id: 4, name: "小红书", extra: { keywords: ["种草笔记"] } },
+          ],
+        },
+      ],
+    },
+    {
+      id: 5,
+      name: "品牌产品线",
+      extra: null,
+      children: [
+        {
+          id: 6,
+          name: "品牌",
+          extra: null,
+          children: [{ id: 7, name: "兰芝", extra: null }],
+        },
+      ],
+    },
+  ];
+
+  const predictionsWithHallucinatedChannel: SourceBasedTagPredictions = [
+    {
+      source: "contentAnalysis",
+      tags: [
+        { leafTagId: 3, tagPath: ["渠道触点", "触点", "抖音"], confidence: 0.9 },
+        { leafTagId: 7, tagPath: ["品牌产品线", "品牌", "兰芝"], confidence: 0.95 },
+      ],
+    },
+    {
+      source: "tagKeywords",
+      tags: [{ leafTagId: 4, tagPath: ["渠道触点", "触点", "小红书"], confidence: 0.9 }],
+    },
+  ];
+
+  it("drops contentAnalysis-sourced channel tag when the platform name never literally appears in the analysis text", () => {
+    const result = enforceLiteralEvidenceForMetadataTags(predictionsWithHallucinatedChannel, tagsTree, {
+      contentAnalysis: "视频画面充满活力与趣味，色彩鲜艳，适合吸引年轻消费者关注快闪活动",
+      tagKeywords: "laneige x sephora pop-up-confirm version",
+    });
+    const contentAnalysisIds = result
+      .find((p) => p.source === "contentAnalysis")
+      ?.tags.map((t) => t.leafTagId);
+    expect(contentAnalysisIds).not.toContain(3); // 抖音: no literal evidence, dropped
+    expect(contentAnalysisIds).toContain(7); // 兰芝: not a metadata tag, untouched
+
+    const tagKeywordsIds = result.find((p) => p.source === "tagKeywords")?.tags.map((t) => t.leafTagId);
+    expect(tagKeywordsIds).not.toContain(4); // 小红书: configured keyword "种草笔记" not present literally
+  });
+
+  it("keeps a contentAnalysis channel tag when the platform name literally appears in the analysis text (e.g. visible watermark)", () => {
+    const result = enforceLiteralEvidenceForMetadataTags(predictionsWithHallucinatedChannel, tagsTree, {
+      contentAnalysis: "画面右下角出现抖音的水印标识",
+    });
+    const contentAnalysisIds = result
+      .find((p) => p.source === "contentAnalysis")
+      ?.tags.map((t) => t.leafTagId);
+    expect(contentAnalysisIds).toContain(3);
+  });
+
+  it("keeps a tagKeywords channel tag when the configured keyword literally appears in filename/description/path text", () => {
+    const result = enforceLiteralEvidenceForMetadataTags(predictionsWithHallucinatedChannel, tagsTree, {
+      tagKeywords: "小红书种草笔记合集.mp4",
+    });
+    const tagKeywordsIds = result.find((p) => p.source === "tagKeywords")?.tags.map((t) => t.leafTagId);
+    expect(tagKeywordsIds).toContain(4);
+  });
+
+  it("is a no-op for basicInfo/materializedPath sources regardless of evidence text", () => {
+    const predictions: SourceBasedTagPredictions = [
+      {
+        source: "basicInfo",
+        tags: [{ leafTagId: 3, tagPath: ["渠道触点", "触点", "抖音"], confidence: 0.9 }],
+      },
+    ];
+    const result = enforceLiteralEvidenceForMetadataTags(predictions, tagsTree, {});
     expect(result).toEqual(predictions);
   });
 });

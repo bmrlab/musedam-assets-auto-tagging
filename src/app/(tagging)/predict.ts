@@ -141,6 +141,72 @@ export function pathIncludesKeyword(normalizedPath: string, keyword: string): bo
   return normalizedPath.includes(keyword);
 }
 
+// 用于识别"元数据类标签"（渠道/投放触点等素材之外的业务安排，而非画面内容本身，
+// 参见 prompt.ts Step 2.4）所在的分类：只要一级或二级分类名包含以下关键词即命中。
+// prompt.ts 已经要求模型自觉遵守"这类标签的 contentAnalysis/tagKeywords 命中必须有字面证据"，
+// 但那只是文字指令、没有代码强制——这里做代码层面的兜底校验，而不是继续加 prompt 描述。
+const METADATA_CATEGORY_KEYWORDS = ["渠道"];
+
+function isMetadataCategoryTagPath(tagPath: string[]): boolean {
+  // 只看一级/二级分类名，不看叶子标签自身名字（叶子名字通常是具体渠道名如"抖音"，
+  // 本身不含"渠道"二字，需要靠上级分类名判断这是不是"渠道类"标签）。
+  return tagPath
+    .slice(0, Math.max(tagPath.length - 1, 1))
+    .some((name) => METADATA_CATEGORY_KEYWORDS.some((keyword) => name.includes(keyword)));
+}
+
+/**
+ * 元数据类标签（如渠道触点）在 contentAnalysis / tagKeywords 来源下必须有字面证据支撑，
+ * 否则丢弃该来源对该标签的贡献。字面证据 = 标签名自动拆词得到的强关键词，或标签手动配置的
+ * matching keywords，实际以文字形式出现在对应来源的证据文本里
+ * （contentAnalysis 来源看视觉分析文本本身是否直接出现了渠道名/平台标识这类可见证据；
+ * tagKeywords 来源看文件名/描述/路径文本，不看视觉分析文本——与 prompt Step 4 的字面匹配要求一致）。
+ * 不影响 basicInfo / materializedPath 来源，也不影响非元数据类标签。
+ */
+export function enforceLiteralEvidenceForMetadataTags(
+  predictions: SourceBasedTagPredictions,
+  tagsTree: TagWithChildren[],
+  evidenceTextBySource: Partial<
+    Record<Extract<z.infer<typeof tagPredictionSchema.shape.source>, "contentAnalysis" | "tagKeywords">, string>
+  >,
+): SourceBasedTagPredictions {
+  const leafInfoById = new Map<number, { tagPath: string[]; keywords: string[] }>();
+  for (const lv1 of tagsTree) {
+    for (const lv2 of lv1.children ?? []) {
+      for (const leaf of lv2.children ?? []) {
+        const tagPath = [lv1.name, lv2.name, leaf.name];
+        if (!isMetadataCategoryTagPath(tagPath)) continue;
+        const configuredKeywords = ((leaf.extra as AssetTagExtra)?.keywords ?? []).map(
+          normalizeForMatch,
+        );
+        leafInfoById.set(leaf.id, {
+          tagPath,
+          keywords: Array.from(
+            new Set([...getStrongKeywordVariantsForTagName(leaf.name), ...configuredKeywords]),
+          ).filter(Boolean),
+        });
+      }
+    }
+  }
+  if (leafInfoById.size === 0) return predictions;
+
+  return predictions.map((prediction) => {
+    if (prediction.source !== "contentAnalysis" && prediction.source !== "tagKeywords") {
+      return prediction;
+    }
+    const evidenceText = evidenceTextBySource[prediction.source];
+    return {
+      ...prediction,
+      tags: prediction.tags.filter((tag) => {
+        const info = leafInfoById.get(tag.leafTagId);
+        if (!info) return true; // 不是元数据类标签，不受此规则约束
+        if (!evidenceText) return false; // 元数据类标签但没有可用证据文本，直接丢弃该来源贡献
+        return info.keywords.some((keyword) => pathIncludesKeyword(evidenceText, keyword));
+      }),
+    };
+  });
+}
+
 function extractTagNameVariants(name: string): string[] {
   const normalized = normalizeForMatch(name);
   const parts = normalized
@@ -561,7 +627,10 @@ export async function predictAssetTags(
     ? `该素材的真实文件格式为：${realMediaKind === "video" ? "视频" : realMediaKind === "image" ? "图片" : "未知类型"}（.${realExtension}）。这是系统确定性事实，请以此为准判断素材类型/格式相关标签，不要仅凭文件名或标签名称中恰好出现的文字（如"视频"二字恰好是某个标签名称的一部分）来推断格式，若标签暗示的格式与该事实矛盾，禁止选用该标签。`
     : "该素材的真实文件格式未知（系统未提供）。请对格式类标签更加谨慎，不要仅凭文件名或标签名称中的字面文字武断下结论。";
 
-  const aiTags = (asset.content as AssetObjectContentAnalysis)?.aiTags;
+  // aiTags 是同一次视觉分析产出的通用标签自由文本，和 aiDescription 内容高度重叠，
+  // 却给了模型更多"风格/氛围类"词汇去误推元数据类标签（如渠道）——只保留 aiDescription，
+  // 不再把 aiTags 拼进 prompt，减少无关文本对模型的干扰。
+  const aiDescription = (asset.content as AssetObjectContentAnalysis)?.aiDescription;
 
   // 每个信息源的文本只在对应设置启用时才拼进 prompt——被关闭的信息源必须真正"不可见"，
   // 而不是喂给模型之后再事后过滤模型自报的 source 标签（那样关闭形同虚设，见下方 matchingSources 过滤）。
@@ -578,8 +647,7 @@ export async function predictAssetTags(
   }
   if (enabled.contentAnalysis) {
     sourceSections.push(`## contentAnalysis信息源
-内容分析：${(asset.content as AssetObjectContentAnalysis)?.aiDescription || "无有效内容数据"}
-AI通用标签：${aiTags || "无"}（与上面的内容分析同属一次视觉分析结果，不构成独立于内容分析之外的另一条证据）`);
+内容分析：${aiDescription || "无有效内容数据"}`);
   }
   if (enabled.tagKeywords) {
     sourceSections.push(`## tagKeywords信息源
@@ -620,8 +688,7 @@ ${sourceSections.join("\n\n")}
       name: asset.name,
       description: asset.description ?? "",
       materializedPath: asset.materializedPath,
-      contentAiDescription: (asset.content as AssetObjectContentAnalysis)?.aiDescription ?? "",
-      contentAiTags: aiTags ?? "",
+      contentAiDescription: aiDescription ?? "",
       realExtension: realExtension ?? "",
       matchingSources: options?.matchingSources ?? null,
       recognitionAccuracy: options?.recognitionAccuracy ?? null,
@@ -677,6 +744,18 @@ ${sourceSections.join("\n\n")}
           enabledSources.includes(prediction.source as keyof typeof options.matchingSources),
         );
       }
+
+      // 元数据类标签（如渠道触点）的 contentAnalysis/tagKeywords 命中必须有字面证据兜底，
+      // 不能只靠 prompt 指令让模型自觉——contentAnalysis 证据文本就是喂给模型的视觉分析原文，
+      // tagKeywords 证据文本按 prompt Step 4 的字面匹配要求，只看文件名/描述/路径，不看视觉分析文本。
+      predictions = enforceLiteralEvidenceForMetadataTags(predictions, tagsTree, {
+        contentAnalysis: enabled.contentAnalysis ? normalizeForMatch(aiDescription ?? "") : undefined,
+        tagKeywords: enabled.tagKeywords
+          ? normalizeForMatch(
+              [asset.name, asset.description, asset.materializedPath].filter(Boolean).join(" "),
+            )
+          : undefined,
+      });
 
       // 文件夹路径中的强关键词做硬匹配兜底，避免模型漏掉明显路径信号
       if (options?.matchingSources?.materializedPath) {
