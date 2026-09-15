@@ -242,6 +242,7 @@
     "candidateFeaturesDescription": "Pewność 60%-79%",
     "noRecognizedTags": "Brak rozpoznanych tagów",
     "noRecognizedFeatures": "Brak rozpoznanych cech",
+    "videoFeatureLibraryUnsupported": "Biblioteka cech obecnie nie obsługuje plików wideo.",
     "featureClassBrand": "Logo marki",
     "featureClassIp": "Postać IP",
     "featureClassPerson": "Osoba",

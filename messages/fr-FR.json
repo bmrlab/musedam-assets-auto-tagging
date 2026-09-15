@@ -242,6 +242,7 @@
     "candidateFeaturesDescription": "Confiance 60%-79%",
     "noRecognizedTags": "Aucun tag reconnu",
     "noRecognizedFeatures": "Aucune caractéristique reconnue",
+    "videoFeatureLibraryUnsupported": "La bibliothèque de caractéristiques ne prend actuellement pas en charge les fichiers vidéo.",
     "featureClassBrand": "Logo de marque",
     "featureClassIp": "Personnage IP",
     "featureClassPerson": "Personne",

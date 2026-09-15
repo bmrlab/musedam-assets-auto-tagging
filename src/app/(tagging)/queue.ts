@@ -4,6 +4,7 @@ import { isTagTreeJob, processTagTreeQueueItem } from "@/app/tags/tagTreeQueue";
 import { classifyAssetBrandRecommendation } from "@/lib/brand/tagging-brand-classification";
 import {
   FeatureClassificationFlags,
+  isFeatureLibrarySupportedAsset,
   resolveFeatureClassificationFlags,
 } from "@/lib/feature-library";
 import { classifyAssetIpRecommendation } from "@/lib/ip/tagging-ip-classification";
@@ -221,8 +222,11 @@ export async function processQueueItem({
       person: extra?.featurePerson,
       ip: extra?.featureIp,
     });
-    const hasFeatureClassifications = Object.values(featureClassifications).some(Boolean);
-    const thumbnailUrl = (assetObject.extra as AssetObjectExtra | null)?.thumbnailAccessUrl;
+    const assetExtra = assetObject.extra as AssetObjectExtra | null;
+    const supportsFeatureClassification = isFeatureLibrarySupportedAsset(assetExtra?.extension);
+    const hasFeatureClassifications =
+      supportsFeatureClassification && Object.values(featureClassifications).some(Boolean);
+    const thumbnailUrl = assetExtra?.thumbnailAccessUrl;
     // Feature classification (brand/IP/product/person): first skip empty feature libraries.
     // Brand/IP/product share one bounded image; person independently keeps the source dimensions.
     // Person path only: detect faces first (for AI faceFeatures + reused matching), then run AI
@@ -233,7 +237,8 @@ export async function processQueueItem({
       recognitionAccuracy: extra?.recognitionAccuracy,
     };
     // Defer AI tagging only when person face features may be needed; otherwise preserve old timing.
-    const mayNeedFaceFeatures = featureClassifications.person && Boolean(thumbnailUrl);
+    const mayNeedFaceFeatures =
+      supportsFeatureClassification && featureClassifications.person && Boolean(thumbnailUrl);
     let predictTagsPromise: ReturnType<typeof predictAssetTags> | null = mayNeedFaceFeatures
       ? null
       : predictAssetTags(assetObject, predictOptionsBase);

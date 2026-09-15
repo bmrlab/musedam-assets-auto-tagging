@@ -23,7 +23,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { dispatchMuseDAMClientAction } from "@/embed/message";
 import { useFeatureLibraryFeatures } from "@/hooks/use-feature-library";
-import { isFeatureTypeEnabled } from "@/lib/feature-library";
+import { isFeatureTypeEnabled, isVideoAssetExtension } from "@/lib/feature-library";
 import {
   getPersonFaceBestRawSimilarity,
   isReviewablePersonFace,
@@ -327,6 +327,7 @@ export function ReviewItem({
 
   const assetExtra = assetObject.extra as AssetObjectExtra | null;
   const assetPreviewUrl = assetExtra?.thumbnailAccessUrl;
+  const isVideoAsset = isVideoAssetExtension(assetExtra?.extension);
 
   const realLoading = batchLoading || loading;
   const availableFeatureIdSets = useMemo(
@@ -1202,7 +1203,11 @@ export function ReviewItem({
                         />
                       ))
                     ) : (
-                      <div className="text-sm text-basic-5">{tResult("noRecognizedFeatures")}</div>
+                      <div className="text-sm text-basic-5">
+                        {tResult(
+                          isVideoAsset ? "videoFeatureLibraryUnsupported" : "noRecognizedFeatures",
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>

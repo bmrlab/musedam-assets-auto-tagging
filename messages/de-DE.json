@@ -115,6 +115,7 @@
     "candidateFeaturesDescription": "60%-79% Zuversicht",
     "noRecognizedTags": "Keine erkannten Tags",
     "noRecognizedFeatures": "Keine erkannten Merkmale",
+    "videoFeatureLibraryUnsupported": "Die Merkmalsbibliothek unterstützt derzeit keine Videodateien.",
     "featureClassBrand": "Markenlogo",
     "featureClassIp": "IP-Charakter",
     "featureClassPerson": "Person",

@@ -31,6 +31,48 @@ export type FeatureClassificationFlags = {
   ip: boolean;
 };
 
+const FEATURE_LIBRARY_IMAGE_EXTENSIONS = new Set([
+  "avif",
+  "bmp",
+  "gif",
+  "heic",
+  "heif",
+  "jpeg",
+  "jpg",
+  "png",
+  "svg",
+  "tif",
+  "tiff",
+  "webp",
+]);
+
+const VIDEO_EXTENSIONS = new Set([
+  "3gp",
+  "avi",
+  "flv",
+  "m4v",
+  "mkv",
+  "mov",
+  "mp4",
+  "mpeg",
+  "mpg",
+  "webm",
+  "wmv",
+]);
+
+function normalizeAssetExtension(extension?: string | null) {
+  return (extension ?? "").trim().toLowerCase().replace(/^\./, "");
+}
+
+/** Feature-library classifiers currently accept image assets only. */
+export function isFeatureLibrarySupportedAsset(extension?: string | null) {
+  return FEATURE_LIBRARY_IMAGE_EXTENSIONS.has(normalizeAssetExtension(extension));
+}
+
+export function isVideoAssetExtension(extension?: string | null) {
+  return VIDEO_EXTENSIONS.has(normalizeAssetExtension(extension));
+}
+
 export const FEATURE_LIBRARY_TOGGLE_NAMES: readonly FeatureLibraryToggleName[] = [
   FEATURE_LIBRARY_PARAM,
   FEATURE_BRAND_PARAM,

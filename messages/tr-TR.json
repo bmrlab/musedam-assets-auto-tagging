@@ -242,6 +242,7 @@
     "candidateFeaturesDescription": "%60-%79 Güven",
     "noRecognizedTags": "Tanınan etiket yok",
     "noRecognizedFeatures": "Tanınan özellik yok",
+    "videoFeatureLibraryUnsupported": "Özellik kitaplığı şu anda video dosyalarını desteklemiyor.",
     "featureClassBrand": "Marka Logosu",
     "featureClassIp": "IP Karakteri",
     "featureClassPerson": "Kişi",

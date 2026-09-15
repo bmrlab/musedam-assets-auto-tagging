@@ -242,6 +242,7 @@
     "candidateFeaturesDescription": "Fiducia 60%-79%",
     "noRecognizedTags": "Nessun tag riconosciuto",
     "noRecognizedFeatures": "Nessuna caratteristica riconosciuta",
+    "videoFeatureLibraryUnsupported": "La libreria delle caratteristiche non supporta attualmente i file video.",
     "featureClassBrand": "Logo del brand",
     "featureClassIp": "Personaggio IP",
     "featureClassPerson": "Persona",

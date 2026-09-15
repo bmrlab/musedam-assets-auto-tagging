@@ -242,6 +242,7 @@
     "candidateFeaturesDescription": "Keyakinan 60%-79%",
     "noRecognizedTags": "Tidak ada tag yang dikenali",
     "noRecognizedFeatures": "Tidak ada fitur yang dikenali",
+    "videoFeatureLibraryUnsupported": "Pustaka fitur saat ini belum mendukung file video.",
     "featureClassBrand": "Logo merek",
     "featureClassIp": "Karakter IP",
     "featureClassPerson": "Orang",

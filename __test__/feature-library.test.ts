@@ -1,5 +1,7 @@
 import {
   filterFeatureLibraryRecommendations,
+  isFeatureLibrarySupportedAsset,
+  isVideoAssetExtension,
   resolveFeatureClassificationFlags,
   resolveFeatureLibraryFeatures,
   toFeatureClassificationFlags,
@@ -113,5 +115,19 @@ describe("feature library toggles", () => {
       personRecommendation: null,
       ipRecommendation: null,
     });
+  });
+
+  it("allows feature classification for images only", () => {
+    expect(isFeatureLibrarySupportedAsset("jpg")).toBe(true);
+    expect(isFeatureLibrarySupportedAsset(".WEBP")).toBe(true);
+    expect(isFeatureLibrarySupportedAsset("mp4")).toBe(false);
+    expect(isFeatureLibrarySupportedAsset("pdf")).toBe(false);
+    expect(isFeatureLibrarySupportedAsset(undefined)).toBe(false);
+  });
+
+  it("identifies common video extensions for the unsupported notice", () => {
+    expect(isVideoAssetExtension("mp4")).toBe(true);
+    expect(isVideoAssetExtension(".MOV")).toBe(true);
+    expect(isVideoAssetExtension("png")).toBe(false);
   });
 });

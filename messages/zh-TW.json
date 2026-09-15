@@ -115,6 +115,7 @@
     "candidateFeaturesDescription": "信賴度 60%-79%",
     "noRecognizedTags": "暫無識別標籤",
     "noRecognizedFeatures": "暫無識別特徵",
+    "videoFeatureLibraryUnsupported": "目前特徵庫暫不支援影片檔案",
     "featureClassBrand": "品牌標識",
     "featureClassIp": "IP 形象",
     "featureClassPerson": "人物",

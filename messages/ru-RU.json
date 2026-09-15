@@ -115,6 +115,7 @@
     "candidateFeaturesDescription": "Уверенность 60%-79%",
     "noRecognizedTags": "Нет распознанных тегов",
     "noRecognizedFeatures": "Нет распознанных признаков",
+    "videoFeatureLibraryUnsupported": "В настоящее время библиотека признаков не поддерживает видеофайлы.",
     "featureClassBrand": "Логотип бренда",
     "featureClassIp": "IP-персонаж",
     "featureClassPerson": "Персона",

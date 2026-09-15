@@ -115,6 +115,7 @@
     "candidateFeaturesDescription": "信頼度 60%-79%",
     "noRecognizedTags": "認識タグはありません",
     "noRecognizedFeatures": "認識特徴はありません",
+    "videoFeatureLibraryUnsupported": "現在、特徴ライブラリは動画ファイルに対応していません",
     "featureClassBrand": "ブランドロゴ",
     "featureClassIp": "IPキャラクター",
     "featureClassPerson": "人物",

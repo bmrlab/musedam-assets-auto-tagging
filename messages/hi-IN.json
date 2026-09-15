@@ -115,6 +115,7 @@
     "candidateFeaturesDescription": "60%-79% विश्वास",
     "noRecognizedTags": "कोई पहचाना गया टैग नहीं",
     "noRecognizedFeatures": "कोई पहचानी गई विशेषता नहीं",
+    "videoFeatureLibraryUnsupported": "फ़ीचर लाइब्रेरी फ़िलहाल वीडियो फ़ाइलों का समर्थन नहीं करती है।",
     "featureClassBrand": "ब्रांड लोगो",
     "featureClassIp": "IP कैरेक्टर",
     "featureClassPerson": "व्यक्ति",
