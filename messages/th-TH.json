@@ -242,6 +242,7 @@
     "candidateFeaturesDescription": "ความมั่นใจ 60%-79%",
     "noRecognizedTags": "ไม่มีแท็กที่รู้จำ",
     "noRecognizedFeatures": "ไม่มีคุณลักษณะที่รู้จำ",
+    "featureConfidenceNotCredible": "รูปภาพปัจจุบันยังไม่ตรงกับคุณลักษณะในคลังคุณลักษณะที่มีอยู่ คุณลักษณะนี้อาจยังไม่ถูกรวบรวม",
     "videoFeatureLibraryUnsupported": "ขณะนี้คลังคุณลักษณะยังไม่รองรับไฟล์วิดีโอ",
     "featureClassBrand": "โลโก้แบรนด์",
     "featureClassIp": "ตัวละคร IP",

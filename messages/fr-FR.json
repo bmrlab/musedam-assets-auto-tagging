@@ -242,6 +242,7 @@
     "candidateFeaturesDescription": "Confiance 60%-79%",
     "noRecognizedTags": "Aucun tag reconnu",
     "noRecognizedFeatures": "Aucune caractéristique reconnue",
+    "featureConfidenceNotCredible": "Aucune caractéristique correspondante n’a été trouvée dans la bibliothèque de caractéristiques existante pour cette image ; cette caractéristique n’est peut-être pas encore répertoriée.",
     "videoFeatureLibraryUnsupported": "La bibliothèque de caractéristiques ne prend actuellement pas en charge les fichiers vidéo.",
     "featureClassBrand": "Logo de marque",
     "featureClassIp": "Personnage IP",

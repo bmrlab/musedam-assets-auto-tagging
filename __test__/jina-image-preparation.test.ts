@@ -15,6 +15,7 @@ vi.mock("@/lib/brand/env", () => ({
     model: "jina-clip-v2",
     batchSize: 8,
     timeoutMs: 30_000,
+    isDirectJina: false,
     useProxy: false,
     proxyUrl: "",
   }),
@@ -40,6 +41,7 @@ describe("Jina image preparation boundary", () => {
       return {
         ok: true,
         status: 200,
+        headers: new Headers(),
         json: async () => ({
           data: body.input.map((_item, index) => ({ index, embedding: [index] })),
         }),
@@ -61,5 +63,32 @@ describe("Jina image preparation boundary", () => {
       images.slice(0, 4).map((image) => ({ image: `prepared:${image}` })),
     );
     expect(secondBody.input).toEqual([{ image: "prepared:five" }]);
+  });
+
+  it("serializes Jina requests made by concurrent embedding jobs", async () => {
+    let activeRequests = 0;
+    let maximumActiveRequests = 0;
+
+    mocks.fetch.mockImplementation(async () => {
+      activeRequests += 1;
+      maximumActiveRequests = Math.max(maximumActiveRequests, activeRequests);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      activeRequests -= 1;
+
+      return {
+        ok: true,
+        status: 200,
+        headers: new Headers(),
+        json: async () => ({ data: [{ index: 0, embedding: [1] }] }),
+      };
+    });
+
+    await Promise.all([
+      createJinaImageEmbeddings({ images: ["one"] }),
+      createJinaImageEmbeddings({ images: ["two"] }),
+      createJinaImageEmbeddings({ images: ["three"] }),
+    ]);
+
+    expect(maximumActiveRequests).toBe(1);
   });
 });

@@ -242,6 +242,7 @@
     "candidateFeaturesDescription": "60%-79% Confidence",
     "noRecognizedTags": "No recognized tags",
     "noRecognizedFeatures": "No recognized features",
+    "featureConfidenceNotCredible": "No matching feature was found in the existing feature library for this image; the feature may not have been indexed yet.",
     "videoFeatureLibraryUnsupported": "The feature library does not currently support video files.",
     "featureClassBrand": "Brand Logo",
     "featureClassIp": "IP Character",

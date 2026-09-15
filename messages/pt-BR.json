@@ -115,6 +115,7 @@
     "candidateFeaturesDescription": "60%-79% de confiança",
     "noRecognizedTags": "Nenhuma tag reconhecida",
     "noRecognizedFeatures": "Nenhuma característica reconhecida",
+    "featureConfidenceNotCredible": "Nenhuma característica correspondente foi encontrada na biblioteca de características existente para esta imagem; a característica pode ainda não ter sido registrada.",
     "videoFeatureLibraryUnsupported": "No momento, a biblioteca de características não oferece suporte a arquivos de vídeo.",
     "featureClassBrand": "Logo da marca",
     "featureClassIp": "Personagem IP",

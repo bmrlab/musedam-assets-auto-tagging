@@ -88,6 +88,9 @@ import {
 
 type TranslationFunction = (key: string, values?: Record<string, string | number>) => string;
 
+const PRODUCT_VECTOR_PROCESSING_BATCH_SIZE = 2;
+const assetProductProcessingLimit = pLimit(PRODUCT_VECTOR_PROCESSING_BATCH_SIZE);
+
 function getProductBatchFileErrors(t: TranslationFunction): BatchFileErrorMessages {
   return {
     missingHeader: t("fileErrors.missingHeader"),
@@ -843,7 +846,6 @@ async function importProductBatchRow({
   existingNames.add(productName);
 
   const product = await loadProduct(team.id, createdProduct.id);
-  scheduleAssetProductProcessing(team.id, createdProduct.id);
   schedulePushFeatureToMuseDAM({
     team,
     featureType: "product",
@@ -1112,17 +1114,34 @@ async function loadProductsByIds(teamId: number, productIds: string[]) {
   return products.map((product) => normalizeProduct(product));
 }
 
-function scheduleAssetProductProcessing(teamId: number, productId: string) {
+function scheduleAssetProductBatchProcessing(teamId: number, productIds: string[]) {
+  if (productIds.length === 0) {
+    return;
+  }
+
   after(async () => {
-    try {
-      await processAssetProductReferenceVectors({
-        teamId,
-        productId,
-      });
-    } catch (error) {
-      console.error("Failed to process asset Product vectors:", error);
+    for (let start = 0; start < productIds.length; start += PRODUCT_VECTOR_PROCESSING_BATCH_SIZE) {
+      const productBatch = productIds.slice(start, start + PRODUCT_VECTOR_PROCESSING_BATCH_SIZE);
+      await Promise.all(
+        productBatch.map((productId) =>
+          assetProductProcessingLimit(async () => {
+            try {
+              await processAssetProductReferenceVectors({
+                teamId,
+                productId,
+              });
+            } catch (error) {
+              console.error(`Failed to process asset Product vectors (${productId}):`, error);
+            }
+          }),
+        ),
+      );
     }
   });
+}
+
+function scheduleAssetProductProcessing(teamId: number, productId: string) {
+  scheduleAssetProductBatchProcessing(teamId, [productId]);
 }
 
 function getClassifyBoxSchema() {
@@ -1416,6 +1435,11 @@ export async function importProductsAction(
           });
         }
       }
+
+      scheduleAssetProductBatchProcessing(
+        team.id,
+        createdProducts.map((product) => product.id),
+      );
 
       const [nextProductTypes, tagTree] = await Promise.all([
         fetchActiveProductTypes(team.id),

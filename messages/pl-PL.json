@@ -242,6 +242,7 @@
     "candidateFeaturesDescription": "Pewność 60%-79%",
     "noRecognizedTags": "Brak rozpoznanych tagów",
     "noRecognizedFeatures": "Brak rozpoznanych cech",
+    "featureConfidenceNotCredible": "Dla bieżącego obrazu nie znaleziono dopasowania w istniejącej bibliotece cech; ta cecha mogła nie zostać jeszcze zarejestrowana.",
     "videoFeatureLibraryUnsupported": "Biblioteka cech obecnie nie obsługuje plików wideo.",
     "featureClassBrand": "Logo marki",
     "featureClassIp": "Postać IP",

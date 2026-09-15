@@ -1015,6 +1015,37 @@ export function ReviewItem({
               const productRecommendation = productRecommendationsByQueueId.get(queueItem.id);
               const personRecommendation = personRecommendationsByQueueId.get(queueItem.id);
               const isLatestBatch = finalBatch.length > 1 && index === 0;
+              const hasFeatureBelowConfidenceThreshold =
+                (featureLibraryFeatures.featureBrand &&
+                  brandRecommendation?.bestMatch &&
+                  availableFeatureIdSets.brand.has(brandRecommendation.bestMatch.assetLogoId) &&
+                  !meetsFeatureConfidenceThreshold(
+                    "brand",
+                    brandRecommendation.bestMatch.confidence,
+                  )) ||
+                (featureLibraryFeatures.featureIp &&
+                  ipRecommendation?.bestMatch &&
+                  availableFeatureIdSets.ip.has(ipRecommendation.bestMatch.assetIpId) &&
+                  !meetsFeatureConfidenceThreshold("ip", ipRecommendation.bestMatch.confidence)) ||
+                (featureLibraryFeatures.featureProduct &&
+                  productRecommendation?.bestMatch &&
+                  availableFeatureIdSets.product.has(
+                    productRecommendation.bestMatch.assetProductId,
+                  ) &&
+                  !meetsFeatureConfidenceThreshold(
+                    "product",
+                    productRecommendation.bestMatch.confidence,
+                  )) ||
+                (featureLibraryFeatures.featurePerson &&
+                  personRecommendation?.faces.some((face) => {
+                    const rawSimilarity = getPersonFaceBestRawSimilarity(face);
+                    return (
+                      face.bestMatch !== null &&
+                      availableFeatureIdSets.person.has(face.bestMatch.assetPersonId) &&
+                      rawSimilarity !== null &&
+                      !isReviewablePersonFace(face)
+                    );
+                  }));
               const featureRows: {
                 key: string;
                 featureType: "brand" | "ip" | "product" | "person";
@@ -1205,7 +1236,11 @@ export function ReviewItem({
                     ) : (
                       <div className="text-sm text-basic-5">
                         {tResult(
-                          isVideoAsset ? "videoFeatureLibraryUnsupported" : "noRecognizedFeatures",
+                          isVideoAsset
+                            ? "videoFeatureLibraryUnsupported"
+                            : hasFeatureBelowConfidenceThreshold
+                              ? "featureConfidenceNotCredible"
+                              : "noRecognizedFeatures",
                         )}
                       </div>
                     )}

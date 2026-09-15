@@ -19,6 +19,10 @@ type JinaResponse = {
 const JINA_MAX_RETRIES = 5;
 const JINA_RETRY_BASE_DELAY_MS = 500;
 const JINA_MAX_IMAGE_BATCH_SIZE = 4;
+const JINA_REQUEST_INTERVAL_MS = 2_500;
+const JINA_RATE_LIMIT_RETRY_DELAY_MS = 60_000;
+const jinaRequestLimit = pLimit(1);
+let nextJinaRequestAt = 0;
 
 function sleep(ms: number) {
   return new Promise((resolve) => {
@@ -34,6 +38,66 @@ function shouldRetryJinaRequest(error: unknown) {
     message.includes("ETIMEDOUT") ||
     message.includes("ENOTFOUND")
   );
+}
+
+function getRetryAfterMs(response: Awaited<ReturnType<typeof nodeFetch>>) {
+  const retryAfter = response.headers.get("retry-after")?.trim();
+  if (!retryAfter) {
+    return null;
+  }
+
+  const seconds = Number(retryAfter);
+  if (Number.isFinite(seconds) && seconds >= 0) {
+    return seconds * 1000;
+  }
+
+  const retryAt = Date.parse(retryAfter);
+  return Number.isFinite(retryAt) ? Math.max(0, retryAt - Date.now()) : null;
+}
+
+async function sendJinaEmbeddingRequest({
+  config,
+  body,
+  proxyAgent,
+}: {
+  config: ReturnType<typeof getJinaConfig>;
+  body: Record<string, unknown>;
+  proxyAgent: ProxyAgent | undefined;
+}) {
+  return jinaRequestLimit(async () => {
+    const queueDelayMs = Math.max(0, nextJinaRequestAt - Date.now());
+    if (queueDelayMs > 0) {
+      await sleep(queueDelayMs);
+    }
+
+    try {
+      const response = await nodeFetch(config.embeddingsUrl, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${config.apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(config.timeoutMs),
+        dispatcher: proxyAgent,
+      });
+      const payload = (await response.json().catch(() => null)) as JinaResponse | null;
+      const nextDelayMs =
+        response.status === 429
+          ? (getRetryAfterMs(response) ?? JINA_RATE_LIMIT_RETRY_DELAY_MS)
+          : config.isDirectJina
+            ? JINA_REQUEST_INTERVAL_MS
+            : 0;
+
+      nextJinaRequestAt = Math.max(nextJinaRequestAt, Date.now() + nextDelayMs);
+      return { response, payload };
+    } catch (error) {
+      if (config.isDirectJina) {
+        nextJinaRequestAt = Math.max(nextJinaRequestAt, Date.now() + JINA_REQUEST_INTERVAL_MS);
+      }
+      throw error;
+    }
+  });
 }
 
 export async function createJinaImageEmbeddings({
@@ -65,22 +129,17 @@ export async function createJinaImageEmbeddings({
 
     for (let attempt = 1; attempt <= JINA_MAX_RETRIES; attempt += 1) {
       try {
-        response = await nodeFetch(config.embeddingsUrl, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${config.apiKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
+        const result = await sendJinaEmbeddingRequest({
+          config,
+          proxyAgent,
+          body: {
             model: config.model,
             ...(task ? { task } : {}),
             input: batch.map((image) => ({ image })),
-          }),
-          signal: AbortSignal.timeout(config.timeoutMs),
-          dispatcher: proxyAgent,
+          },
         });
-
-        payload = (await response.json().catch(() => null)) as JinaResponse | null;
+        response = result.response;
+        payload = result.payload;
 
         const retryableStatus = response.status >= 500 || response.status === 429;
         if (response.ok && payload?.data) {
@@ -147,22 +206,17 @@ export async function createJinaTextEmbeddings({
 
     for (let attempt = 1; attempt <= JINA_MAX_RETRIES; attempt += 1) {
       try {
-        response = await nodeFetch(config.embeddingsUrl, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${config.apiKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
+        const result = await sendJinaEmbeddingRequest({
+          config,
+          proxyAgent,
+          body: {
             model: config.model,
             ...(task ? { task } : {}),
             input: batch,
-          }),
-          signal: AbortSignal.timeout(config.timeoutMs),
-          dispatcher: proxyAgent,
+          },
         });
-
-        payload = (await response.json().catch(() => null)) as JinaResponse | null;
+        response = result.response;
+        payload = result.payload;
 
         const retryableStatus = response.status >= 500 || response.status === 429;
         if (response.ok && payload?.data) {

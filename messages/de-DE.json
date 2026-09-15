@@ -115,6 +115,7 @@
     "candidateFeaturesDescription": "60%-79% Zuversicht",
     "noRecognizedTags": "Keine erkannten Tags",
     "noRecognizedFeatures": "Keine erkannten Merkmale",
+    "featureConfidenceNotCredible": "Für dieses Bild wurde kein passendes Merkmal in der vorhandenen Merkmalsbibliothek gefunden; das Merkmal ist möglicherweise noch nicht erfasst.",
     "videoFeatureLibraryUnsupported": "Die Merkmalsbibliothek unterstützt derzeit keine Videodateien.",
     "featureClassBrand": "Markenlogo",
     "featureClassIp": "IP-Charakter",

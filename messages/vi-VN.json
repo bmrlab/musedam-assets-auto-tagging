@@ -27,6 +27,7 @@
     "candidateFeaturesDescription": "Độ tin cậy 60%-79%",
     "noRecognizedTags": "Không có thẻ đã nhận diện",
     "noRecognizedFeatures": "Không có đặc trưng đã nhận diện",
+    "featureConfidenceNotCredible": "Hình ảnh hiện tại chưa khớp với đặc trưng nào trong thư viện đặc trưng hiện có; đặc trưng này có thể chưa được thu thập.",
     "videoFeatureLibraryUnsupported": "Thư viện đặc trưng hiện chưa hỗ trợ tệp video.",
     "featureClassBrand": "Logo thương hiệu",
     "featureClassIp": "Nhân vật IP",

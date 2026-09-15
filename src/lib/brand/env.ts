@@ -59,6 +59,7 @@ export function getJinaConfig() {
       model: getRequiredEnv("JINA_EMBEDDING_MODEL"),
       batchSize: getNumberEnv("JINA_BATCH_SIZE", 4),
       timeoutMs: getNumberEnv("JINA_TIMEOUT_SECONDS", 60) * 1000,
+      isDirectJina: false,
       useProxy: false,
       proxyUrl: "",
     };
@@ -85,6 +86,7 @@ export function getJinaConfig() {
     model: process.env.JINA_EMBEDDING_MODEL?.trim() || "jina-clip-v2",
     batchSize: getNumberEnv("JINA_BATCH_SIZE", 4),
     timeoutMs: getNumberEnv("JINA_TIMEOUT_SECONDS", 60) * 1000,
+    isDirectJina: true,
     useProxy,
     proxyUrl,
   };

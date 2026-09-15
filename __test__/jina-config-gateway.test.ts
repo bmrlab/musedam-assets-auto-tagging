@@ -32,6 +32,7 @@ describe("getJinaConfig() LLM_PROVIDER routing", () => {
     expect(config.apiKey).toBe("test-jina-key");
     expect(config.embeddingsUrl).toBe("https://api.jina.ai/v1/embeddings");
     expect(config.model).toBe("jina-clip-v2");
+    expect(config.isDirectJina).toBe(true);
   });
 
   it("throws when LLM_PROVIDER=gateway but OPENAI_BASE_URL/KEY are not set", async () => {
@@ -59,5 +60,6 @@ describe("getJinaConfig() LLM_PROVIDER routing", () => {
     expect(config.apiKey).toBe("test-key");
     expect(config.embeddingsUrl).toBe("https://gateway.example.com/unified/v1/embeddings");
     expect(config.model).toBe("crr-d-vl-embedding-20260107");
+    expect(config.isDirectJina).toBe(false);
   });
 });
