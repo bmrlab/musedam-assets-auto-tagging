@@ -117,8 +117,10 @@ const SCORING_WEIGHTS: Record<z.Infer<typeof tagPredictionSchema.shape.source>, 
   tagKeywords: 0.95,
 };
 
-const MATERIALIZED_PATH_HARD_MATCH_CONFIDENCE = 0.9;
-const MATERIALIZED_PATH_MAX_ENHANCED_TAGS = 12;
+// 硬匹配（关键词字面命中）统一使用的置信度和单次最多注入的标签数量上限，
+// materializedPath（文件夹路径）和 basicInfo（文件名/描述）两个文本类来源共用。
+const TEXT_HARD_MATCH_CONFIDENCE = 0.9;
+const TEXT_HARD_MATCH_MAX_ENHANCED_TAGS = 12;
 
 export function normalizeForMatch(text: string): string {
   return (text ?? "").toLowerCase().trim();
@@ -273,34 +275,47 @@ function collectLeafTagCandidates(tagsTree: TagWithChildren[]): Array<{
   return candidates;
 }
 
-export function enhancePredictionsByMaterializedPathHardMatch(
-  predictions: SourceBasedTagPredictions,
+/**
+ * 在一段归一化后的文本（文件夹路径 / 文件名+描述）里找出所有能被标签名自动拆词
+ * 强关键词字面命中的叶子标签，materializedPath 和 basicInfo 两个硬匹配入口共用。
+ */
+function computeTextHardMatchCandidates(
   tagsTree: TagWithChildren[],
-  materializedPath: string,
-): SourceBasedTagPredictions {
-  const normalizedPath = normalizeForMatch(materializedPath);
-  if (!normalizedPath) return predictions;
-
-  // 路径整体是否独立提到了图片/视频这类格式概念（不局限于命中关键词所在的那个片段），
+  normalizedText: string,
+): Array<{
+  leafTagId: number;
+  tagPath: string[];
+  keywords: string[];
+  formatKind?: "image" | "video";
+  matchedKeywordLength: number;
+}> {
+  // 文本整体是否独立提到了图片/视频这类格式概念（不局限于命中关键词所在的那个片段），
   // 用于校验"标签名带格式关键词、但命中片段本身不带"的情况（如标签"POP-UP视频"被
-  // 路径里的"pop-up"片段命中，但路径其他地方（如"video-01.mp4"）确实也提到了视频，才算数）。
-  const pathFormatKind = detectFormatKindInText(normalizedPath);
+  // 文本里的"pop-up"片段命中，但文本其他地方（如"video-01.mp4"）确实也提到了视频，才算数）。
+  const textFormatKind = detectFormatKindInText(normalizedText);
 
-  const candidates = collectLeafTagCandidates(tagsTree)
+  return collectLeafTagCandidates(tagsTree)
     .map((candidate) => {
       const matchedKeyword = candidate.keywords.find((keyword) =>
-        pathIncludesKeyword(normalizedPath, keyword),
+        pathIncludesKeyword(normalizedText, keyword),
       );
       if (!matchedKeyword) return undefined;
-      // 标签名暗示了具体格式（图片/视频），但路径整体并未独立提到同一种格式概念——
+      // 标签名暗示了具体格式（图片/视频），但文本整体并未独立提到同一种格式概念——
       // 说明命中的只是标签名里跟格式无关的片段（如"POP-UP视频"里的"POP"），不足以采信。
-      if (candidate.formatKind && candidate.formatKind !== pathFormatKind) return undefined;
+      if (candidate.formatKind && candidate.formatKind !== textFormatKind) return undefined;
       return { ...candidate, matchedKeywordLength: matchedKeyword.length };
     })
     .filter((item): item is NonNullable<typeof item> => !!item)
     .sort((a, b) => b.matchedKeywordLength - a.matchedKeywordLength)
-    .slice(0, MATERIALIZED_PATH_MAX_ENHANCED_TAGS);
+    .slice(0, TEXT_HARD_MATCH_MAX_ENHANCED_TAGS);
+}
 
+function injectHardMatchPredictions(
+  predictions: SourceBasedTagPredictions,
+  source: z.infer<typeof tagPredictionSchema.shape.source>,
+  candidates: ReturnType<typeof computeTextHardMatchCandidates>,
+  confidence: number,
+): SourceBasedTagPredictions {
   if (candidates.length === 0) return predictions;
 
   const enhanced = predictions.map((prediction) => ({
@@ -308,26 +323,54 @@ export function enhancePredictionsByMaterializedPathHardMatch(
     tags: [...prediction.tags],
   }));
 
-  let materializedPathPrediction = enhanced.find((item) => item.source === "materializedPath");
-  if (!materializedPathPrediction) {
-    materializedPathPrediction = { source: "materializedPath", tags: [] };
-    enhanced.push(materializedPathPrediction);
+  let bucket = enhanced.find((item) => item.source === source);
+  if (!bucket) {
+    bucket = { source, tags: [] };
+    enhanced.push(bucket);
   }
 
   for (const candidate of candidates) {
-    const existed = materializedPathPrediction.tags.find((tag) => tag.leafTagId === candidate.leafTagId);
+    const existed = bucket.tags.find((tag) => tag.leafTagId === candidate.leafTagId);
     if (existed) {
-      existed.confidence = Math.max(existed.confidence, MATERIALIZED_PATH_HARD_MATCH_CONFIDENCE);
+      existed.confidence = Math.max(existed.confidence, confidence);
       continue;
     }
-    materializedPathPrediction.tags.push({
+    bucket.tags.push({
       leafTagId: candidate.leafTagId,
       tagPath: candidate.tagPath,
-      confidence: MATERIALIZED_PATH_HARD_MATCH_CONFIDENCE,
+      confidence,
     });
   }
 
   return enhanced;
+}
+
+export function enhancePredictionsByMaterializedPathHardMatch(
+  predictions: SourceBasedTagPredictions,
+  tagsTree: TagWithChildren[],
+  materializedPath: string,
+): SourceBasedTagPredictions {
+  const normalizedPath = normalizeForMatch(materializedPath);
+  if (!normalizedPath) return predictions;
+  const candidates = computeTextHardMatchCandidates(tagsTree, normalizedPath);
+  return injectHardMatchPredictions(predictions, "materializedPath", candidates, TEXT_HARD_MATCH_CONFIDENCE);
+}
+
+/**
+ * 文件名/描述（basicInfo）里的强关键词做硬匹配兜底，逻辑与 materializedPath 完全对称：
+ * 此前只有文件夹路径有这层代码兜底，导致文件名里明明字面出现了"Pop-up"这类关键词，
+ * 却完全依赖模型是否"恰好"也从 basicInfo 角度独立给出同一个预测——模型给了就命中，
+ * 没给就只能靠路径命中单独撑分，容易让人误以为"名称匹配"没生效。
+ */
+export function enhancePredictionsByBasicInfoHardMatch(
+  predictions: SourceBasedTagPredictions,
+  tagsTree: TagWithChildren[],
+  basicInfoText: string,
+): SourceBasedTagPredictions {
+  const normalizedText = normalizeForMatch(basicInfoText);
+  if (!normalizedText) return predictions;
+  const candidates = computeTextHardMatchCandidates(tagsTree, normalizedText);
+  return injectHardMatchPredictions(predictions, "basicInfo", candidates, TEXT_HARD_MATCH_CONFIDENCE);
 }
 
 // 常见图片/视频扩展名 -> 归一化格式标识，用于和标签路径里提到的具体格式关键词做一致性校验
@@ -763,6 +806,16 @@ ${sourceSections.join("\n\n")}
           predictions,
           tagsTree,
           asset.materializedPath,
+        );
+      }
+      // 文件名/描述中的强关键词同样做硬匹配兜底，逻辑与上面路径硬匹配对称——
+      // 避免"文件名里明明写着 Pop-up"却因为模型没有独立从 basicInfo 角度给出预测，
+      // 导致该标签只挂了 materializedPath 一个来源，显得"名称没匹配上"。
+      if (enabled.basicInfo) {
+        predictions = enhancePredictionsByBasicInfoHardMatch(
+          predictions,
+          tagsTree,
+          [asset.name, asset.description].filter(Boolean).join(" "),
         );
       }
       // 用真实文件扩展名兜底过滤，避免格式/媒体类型（图片 vs 视频）与实际元数据矛盾的幻觉标签；

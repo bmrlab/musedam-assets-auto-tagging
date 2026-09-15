@@ -4,6 +4,7 @@ vi.mock("server-only", () => ({}));
 
 import {
   enforceLiteralEvidenceForMetadataTags,
+  enhancePredictionsByBasicInfoHardMatch,
   enhancePredictionsByMaterializedPathHardMatch,
   filterPredictionsByRealExtension,
   pathIncludesKeyword,
@@ -105,6 +106,77 @@ describe("enhancePredictionsByMaterializedPathHardMatch", () => {
     );
     const matched = result.flatMap((p) => p.tags).find((t) => t.leafTagId === 3);
     expect(matched).toBeUndefined();
+  });
+});
+
+describe("enhancePredictionsByBasicInfoHardMatch", () => {
+  const tagsTree: TagWithChildren[] = [
+    {
+      id: 1,
+      name: "素材类型",
+      extra: null,
+      children: [
+        {
+          id: 2,
+          name: "线下物料",
+          extra: null,
+          children: [{ id: 3, name: "POP-UP", extra: null }],
+        },
+      ],
+    },
+  ];
+
+  it("hard-matches a tag whose keyword literally appears in the filename (real customer case)", () => {
+    const predictions: SourceBasedTagPredictions = [];
+    const result = enhancePredictionsByBasicInfoHardMatch(
+      predictions,
+      tagsTree,
+      "LANEIGE x Sephora Pop-up-Confirm Version",
+    );
+    const matched = result.find((p) => p.source === "basicInfo")?.tags.find((t) => t.leafTagId === 3);
+    expect(matched).toBeDefined();
+    expect(matched?.confidence).toBe(0.9);
+  });
+
+  it("does not force-add the POP-UP视频 tag for a filename that merely contains 'popup' as a substring", () => {
+    const tagsTreeWithVideoTag: TagWithChildren[] = [
+      {
+        id: 1,
+        name: "素材类型",
+        extra: null,
+        children: [
+          {
+            id: 2,
+            name: "线下物料",
+            extra: null,
+            children: [{ id: 3, name: "POP-UP视频", extra: null }],
+          },
+        ],
+      },
+    ];
+    const result = enhancePredictionsByBasicInfoHardMatch(
+      [],
+      tagsTreeWithVideoTag,
+      "20260728_TM_SWS_POPUP_门面.png",
+    );
+    const matched = result.flatMap((p) => p.tags).find((t) => t.leafTagId === 3);
+    expect(matched).toBeUndefined();
+  });
+
+  it("merges into an existing basicInfo prediction from the model rather than duplicating it", () => {
+    const predictions: SourceBasedTagPredictions = [
+      { source: "basicInfo", tags: [{ leafTagId: 3, tagPath: ["素材类型", "线下物料", "POP-UP"], confidence: 0.6 }] },
+    ];
+    const result = enhancePredictionsByBasicInfoHardMatch(predictions, tagsTree, "Sephora Pop-up.mp4");
+    const basicInfoTags = result.find((p) => p.source === "basicInfo")?.tags;
+    expect(basicInfoTags).toHaveLength(1);
+    expect(basicInfoTags?.[0].confidence).toBe(0.9);
+  });
+
+  it("is a no-op when the filename/description text carries no keyword hit", () => {
+    const predictions: SourceBasedTagPredictions = [];
+    const result = enhancePredictionsByBasicInfoHardMatch(predictions, tagsTree, "夏日新品上市.mp4");
+    expect(result).toEqual(predictions);
   });
 });
 
