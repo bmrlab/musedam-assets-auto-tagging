@@ -591,7 +591,7 @@ export default function BrandLibraryClient({
                 className="pointer-events-none absolute top-1/2 left-[10px] -translate-y-1/2"
               />
               <Input
-                className="h-8 w-[260px] rounded-[6px] border border-basic-4 bg-background px-[10px] py-1 pl-[32px] text-[14px] leading-[22px] font-normal text-basic-5/80 placeholder:text-[14px] placeholder:leading-[22px] placeholder:font-normal placeholder:text-basic-5/80"
+                className="h-8 w-[260px] rounded-[6px] border border-basic-4 bg-background px-[10px] py-1 pl-[32px] text-[14px] leading-[22px] font-normal text-basic-8 placeholder:text-[14px] placeholder:leading-[22px] placeholder:font-normal placeholder:text-basic-5/80"
                 placeholder={t("searchPlaceholder")}
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
@@ -657,12 +657,6 @@ export default function BrandLibraryClient({
             <>
               <div className="flex min-h-[64px] flex-wrap items-center gap-3 rounded-[8px] border border-basic-3 bg-background px-5 py-3">
                 <div className="flex min-w-0 flex-wrap items-center gap-[12px]">
-                  <Checkbox
-                    className="size-4 border-basic-4"
-                    checked={allSelectedOnPage}
-                    indeterminate={someSelectedOnPage}
-                    onCheckedChange={(checked) => handleSelectAllOnPage(Boolean(checked))}
-                  />
                   <span className="text-[14px] leading-[20px] font-normal text-basic-8">
                     {hasSelection ? (
                       <>
@@ -679,6 +673,16 @@ export default function BrandLibraryClient({
 
                   {hasSelection ? (
                     <div className="mr-1 flex flex-wrap items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 gap-1 px-1 text-[14px] leading-[22px] font-normal text-basic-5 hover:bg-transparent dark:hover:bg-transparent"
+                        onClick={() => setSelectedIds([])}
+                      >
+                        <X className="size-[14px]" />
+                        {t("clearSelection")}
+                      </Button>
                       <Button
                         type="button"
                         variant="default"
@@ -722,12 +726,13 @@ export default function BrandLibraryClient({
                 <div className="flex w-full flex-wrap items-center gap-3 md:ml-auto md:w-auto">
                   <Select value={typeFilter} onValueChange={setTypeFilter}>
                     <SelectTrigger
+                      highlighted
                       size="sm"
-                      className="h-8 justify-end gap-2 rounded-[6px] border border-basic-4 px-3 py-1 text-[14px] font-normal text-basic-8"
+                      className="h-8 justify-end gap-1 rounded-[6px] border border-transparent px-3 py-1 text-[14px] font-normal text-basic-8 hover:border-transparent"
                     >
                       <SelectValue placeholder={t("allTypes")} />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent highlightSelected>
                       <SelectItem value="all">{t("allTypes")}</SelectItem>
                       {logoTypes.map((type) => (
                         <SelectItem key={type.id} value={String(type.id)}>
@@ -739,12 +744,13 @@ export default function BrandLibraryClient({
 
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
                     <SelectTrigger
+                      highlighted
                       size="sm"
-                      className="h-8 justify-end gap-2 rounded-[6px] border border-basic-4 px-3 py-1 text-[14px] font-normal text-basic-8"
+                      className="h-8 justify-end gap-1 rounded-[6px] border border-transparent px-3 py-1 text-[14px] font-normal text-basic-8 hover:border-transparent"
                     >
                       <SelectValue placeholder={t("allStatuses")} />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent highlightSelected>
                       <SelectItem value="all">{t("allStatuses")}</SelectItem>
                       <SelectItem value="completed">{t("statusCompleted")}</SelectItem>
                       <SelectItem value="processing">{t("statusProcessing")}</SelectItem>
@@ -754,12 +760,13 @@ export default function BrandLibraryClient({
 
                   <Select value={enabledFilter} onValueChange={setEnabledFilter}>
                     <SelectTrigger
+                      highlighted
                       size="sm"
-                      className="h-8 justify-end gap-2 rounded-[6px] border border-basic-4 px-3 py-1 text-[14px] font-normal text-basic-8"
+                      className="h-8 justify-end gap-1 rounded-[6px] border border-transparent px-3 py-1 text-[14px] font-normal text-basic-8 hover:border-transparent"
                     >
                       <SelectValue placeholder={t("allEnabledStatuses")} />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent highlightSelected>
                       <SelectItem value="all">{t("allEnabledStatuses")}</SelectItem>
                       <SelectItem value="enabled">{t("enabled")}</SelectItem>
                       <SelectItem value="disabled">{t("disabled")}</SelectItem>
@@ -773,12 +780,13 @@ export default function BrandLibraryClient({
                     }
                   >
                     <SelectTrigger
+                      highlighted
                       size="sm"
-                      className="h-8 justify-end gap-2 rounded-[6px] border border-basic-4 px-3 py-1 text-[14px] font-normal text-basic-8"
+                      className="h-8 justify-end gap-1 rounded-[6px] border border-transparent px-3 py-1 text-[14px] font-normal text-basic-8 hover:border-transparent"
                     >
                       <SelectValue placeholder={t("sortNewest")} />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent highlightSelected>
                       <SelectItem value="newest">{t("sortNewest")}</SelectItem>
                       <SelectItem value="oldest">{t("sortOldest")}</SelectItem>
                       <SelectItem value="name-asc">{t("sortNameAsc")}</SelectItem>
@@ -808,7 +816,18 @@ export default function BrandLibraryClient({
                       <table className="min-w-full table-auto [&_th]:font-medium [&_th]:leading-5 [&_th]:align-middle [&_td]:leading-5 [&_td]:align-middle [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap">
                         <thead>
                           <tr className="h-[45px] border-b text-left text-[14px] leading-[20px] text-basic-5">
-                            <th className="w-[40px] px-3 py-0"></th>
+                            <th className="w-[40px] px-3 py-0 text-center">
+                              <div className="flex h-[45px] w-full items-center justify-center">
+                                <Checkbox
+                                  className="size-4 border-basic-4"
+                                  checked={allSelectedOnPage}
+                                  indeterminate={someSelectedOnPage}
+                                  onCheckedChange={(checked) =>
+                                    handleSelectAllOnPage(Boolean(checked))
+                                  }
+                                />
+                              </div>
+                            </th>
                             <th className="w-[300px] px-3 py-0">{t("columnLogoName")}</th>
                             <th className="w-[120px] px-3 py-0">{t("columnLogoType")}</th>
                             <th className="w-[220px] px-4 py-0">{t("columnLogoImages")}</th>
@@ -832,25 +851,27 @@ export default function BrandLibraryClient({
 
                             return (
                               <tr key={logo.id} className="h-[58px] border-b last:border-b-0">
-                                <td className="h-[58px] px-3 py-0 align-middle">
-                                  <Checkbox
-                                    className="border-basic-4"
-                                    checked={selectedIds.includes(logo.id)}
-                                    onCheckedChange={(checked) => {
-                                      if (checked) {
-                                        setSelectedIds((current) =>
-                                          current.includes(logo.id)
-                                            ? current
-                                            : [...current, logo.id],
-                                        );
-                                        return;
-                                      }
+                                <td className="h-[58px] px-3 py-0 text-center align-middle">
+                                  <div className="flex h-[58px] w-full items-center justify-center">
+                                    <Checkbox
+                                      className="border-basic-4"
+                                      checked={selectedIds.includes(logo.id)}
+                                      onCheckedChange={(checked) => {
+                                        if (checked) {
+                                          setSelectedIds((current) =>
+                                            current.includes(logo.id)
+                                              ? current
+                                              : [...current, logo.id],
+                                          );
+                                          return;
+                                        }
 
-                                      setSelectedIds((current) =>
-                                        current.filter((id) => id !== logo.id),
-                                      );
-                                    }}
-                                  />
+                                        setSelectedIds((current) =>
+                                          current.filter((id) => id !== logo.id),
+                                        );
+                                      }}
+                                    />
+                                  </div>
                                 </td>
                                 <td
                                   className={
