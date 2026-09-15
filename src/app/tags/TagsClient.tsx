@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { AssetTag } from "@/prisma/client";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { fetchTeamTags, saveTagsTree, saveTagsTreeToMuseDAM } from "./actions";
 import { AiCreateModal } from "./components/AiCreateModal";
@@ -25,18 +26,96 @@ interface TagsClientProps {
   initialTags: (AssetTag & { children?: (AssetTag & { children?: AssetTag[] })[] })[];
 }
 
+const SMART_TAGS_ID = "-1";
+
+function persistableTagId(id: string | null): string | null {
+  if (!id || id.startsWith("temp_")) return null;
+  return id;
+}
+
+function writeSelectionToUrl(l1: string | null, l2: string | null, l3: string | null) {
+  if (typeof window === "undefined") return;
+
+  const params = new URLSearchParams(window.location.search);
+  const nextL1 = persistableTagId(l1);
+  const nextL2 = nextL1 && nextL1 !== SMART_TAGS_ID ? persistableTagId(l2) : null;
+  const nextL3 = nextL2 ? persistableTagId(l3) : null;
+
+  const apply = (key: string, value: string | null) => {
+    if (value) params.set(key, value);
+    else params.delete(key);
+  };
+  apply("l1", nextL1);
+  apply("l2", nextL2);
+  apply("l3", nextL3);
+
+  const search = params.toString();
+  const nextUrl = `${window.location.pathname}${search ? `?${search}` : ""}${window.location.hash}`;
+  const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  if (nextUrl === currentUrl) return;
+
+  window.history.replaceState(window.history.state, "", nextUrl);
+}
+
+function resolveSelection(
+  tree: TagNode[],
+  getNodeId: (node: TagNode) => string,
+  requested: { l1: string | null; l2: string | null; l3: string | null },
+  fallbackToFirst: boolean,
+): { l1: string | null; l2: string | null; l3: string | null } {
+  if (requested.l1 === SMART_TAGS_ID) {
+    return { l1: SMART_TAGS_ID, l2: null, l3: null };
+  }
+
+  const level1 = requested.l1 ? tree.find((node) => getNodeId(node) === requested.l1) : undefined;
+  if (!level1) {
+    if (!fallbackToFirst || tree.length === 0) {
+      return { l1: null, l2: null, l3: null };
+    }
+    const firstLevel1 = tree[0];
+    const firstLevel2 = firstLevel1.children[0];
+    const firstLevel3 = firstLevel2?.children[0];
+    return {
+      l1: getNodeId(firstLevel1),
+      l2: firstLevel2 ? getNodeId(firstLevel2) : null,
+      l3: firstLevel3 ? getNodeId(firstLevel3) : null,
+    };
+  }
+
+  const level2 = requested.l2
+    ? level1.children.find((node) => getNodeId(node) === requested.l2)
+    : undefined;
+  const level3 =
+    requested.l3 && level2
+      ? level2.children.find((node) => getNodeId(node) === requested.l3)
+      : undefined;
+
+  return {
+    l1: getNodeId(level1),
+    l2: level2 ? getNodeId(level2) : null,
+    l3: level3 ? getNodeId(level3) : null,
+  };
+}
+
 function TagsClientInner({ initialTags }: TagsClientProps) {
   const t = useTranslations("TagsPage");
   // const { editedTags, clearAllEdits, hasAnyEdits } = useTagEdit();
   const { editedTags } = useTagEdit();
   const { data: session } = useSession();
+  const searchParams = useSearchParams();
   const [tagsTree, setTagsTree] = useState<TagNode[]>([]);
   const [originalTags, setOriginalTags] = useState<
     (AssetTag & { children?: (AssetTag & { children?: AssetTag[] })[] })[]
   >([]);
-  const [selectedLevel1Id, setSelectedLevel1Id] = useState<string | null>(null);
-  const [selectedLevel2Id, setSelectedLevel2Id] = useState<string | null>(null);
-  const [selectedLevel3Id, setSelectedLevel3Id] = useState<string | null>(null);
+  const [selectedLevel1Id, setSelectedLevel1Id] = useState<string | null>(
+    () => searchParams.get("l1"),
+  );
+  const [selectedLevel2Id, setSelectedLevel2Id] = useState<string | null>(
+    () => searchParams.get("l2"),
+  );
+  const [selectedLevel3Id, setSelectedLevel3Id] = useState<string | null>(
+    () => searchParams.get("l3"),
+  );
   const [isSaving, setIsSaving] = useState(false);
   const [nextTempId, setNextTempId] = useState(1);
   const [initialized, setInitialized] = useState(false);
@@ -58,6 +137,18 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
   const getNodeId = useCallback((node: TagNode): string => {
     return node.id ? node.id.toString() : node.tempId!;
   }, []);
+
+  const applySelection = useCallback(
+    (l1: string | null, l2: string | null, l3: string | null, persist = true) => {
+      setSelectedLevel1Id(l1);
+      setSelectedLevel2Id(l2);
+      setSelectedLevel3Id(l3);
+      if (persist) {
+        writeSelectionToUrl(l1, l2, l3);
+      }
+    },
+    [],
+  );
 
   // 搜索标签函数
   const searchTags = (tags: TagNode[], query: string): TagNode[] => {
@@ -141,31 +232,8 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
     (value: string) => {
       setSearchQuery(value);
       setIsSearching(value.trim().length > 0);
-
-      // 如果开始搜索，清除当前选择
-      if (value.trim().length > 0) {
-        setSelectedLevel1Id(null);
-        setSelectedLevel2Id(null);
-        setSelectedLevel3Id(null);
-      } else {
-        // 搜索清空时，恢复默认选择
-        if (tagsTree.length > 0) {
-          const firstLevel1 = tagsTree[0];
-          setSelectedLevel1Id(getNodeId(firstLevel1));
-
-          if (firstLevel1.children.length > 0) {
-            const firstLevel2 = firstLevel1.children[0];
-            setSelectedLevel2Id(getNodeId(firstLevel2));
-
-            if (firstLevel2.children.length > 0) {
-              const firstLevel3 = firstLevel2.children[0];
-              setSelectedLevel3Id(getNodeId(firstLevel3));
-            }
-          }
-        }
-      }
     },
-    [tagsTree, getNodeId],
+    [],
   );
 
   // 处理搜索结果点击
@@ -179,32 +247,21 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
       const findAndSelectTag = (nodes: TagNode[], targetId: number): boolean => {
         for (const node of nodes) {
           if (node.id === targetId) {
-            // 找到目标节点，设置选中状态
-            setSelectedLevel1Id(getNodeId(node));
-            setSelectedLevel2Id(null);
-            setSelectedLevel3Id(null);
+            applySelection(getNodeId(node), null, null);
             return true;
           }
 
-          // 递归查找子节点
           if (node.children.length > 0) {
             for (const child of node.children) {
               if (child.id === targetId) {
-                // 找到二级标签
-                setSelectedLevel1Id(getNodeId(node));
-                setSelectedLevel2Id(getNodeId(child));
-                setSelectedLevel3Id(null);
+                applySelection(getNodeId(node), getNodeId(child), null);
                 return true;
               }
 
-              // 查找三级标签
               if (child.children.length > 0) {
                 for (const grandChild of child.children) {
                   if (grandChild.id === targetId) {
-                    // 找到三级标签
-                    setSelectedLevel1Id(getNodeId(node));
-                    setSelectedLevel2Id(getNodeId(child));
-                    setSelectedLevel3Id(getNodeId(grandChild));
+                    applySelection(getNodeId(node), getNodeId(child), getNodeId(grandChild));
                     return true;
                   }
                 }
@@ -218,7 +275,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
       // 在标签树中查找并选中对应的标签
       findAndSelectTag(tagsTree, data.id);
     },
-    [tagsTree, getNodeId],
+    [tagsTree, getNodeId, applySelection],
   );
 
   // 将 Prisma 数据转换为 TagNode 格式并按sort排序（数字越大越靠前），sort相同时按id升序排序
@@ -245,26 +302,27 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
     [],
   );
 
-  // 设置默认选中状态
+  const restoreSelection = useCallback(
+    (tree: TagNode[], requested: { l1: string | null; l2: string | null; l3: string | null }) => {
+      const resolved = resolveSelection(tree, getNodeId, requested, true);
+      applySelection(resolved.l1, resolved.l2, resolved.l3);
+    },
+    [getNodeId, applySelection],
+  );
+
+  // 设置默认选中状态（优先恢复 URL 中的选中）
   const setDefaultSelection = useCallback(
     (tree: TagNode[]) => {
       if (tree.length > 0 && !initialized) {
-        const firstLevel1 = tree[0];
-        setSelectedLevel1Id(getNodeId(firstLevel1));
-
-        if (firstLevel1.children.length > 0) {
-          const firstLevel2 = firstLevel1.children[0];
-          setSelectedLevel2Id(getNodeId(firstLevel2));
-
-          if (firstLevel2.children.length > 0) {
-            const firstLevel3 = firstLevel2.children[0];
-            setSelectedLevel3Id(getNodeId(firstLevel3));
-          }
-        }
+        restoreSelection(tree, {
+          l1: selectedLevel1Id,
+          l2: selectedLevel2Id,
+          l3: selectedLevel3Id,
+        });
         setInitialized(true);
       }
     },
-    [initialized],
+    [initialized, restoreSelection, selectedLevel1Id, selectedLevel2Id, selectedLevel3Id],
   );
 
   useEffect(() => {
@@ -567,14 +625,11 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
 
     // 如果删除的是当前选中的标签，清除选择
     if (nodeId === selectedLevel1Id) {
-      setSelectedLevel1Id(null);
-      setSelectedLevel2Id(null);
-      setSelectedLevel3Id(null);
+      applySelection(null, null, null);
     } else if (nodeId === selectedLevel2Id) {
-      setSelectedLevel2Id(null);
-      setSelectedLevel3Id(null);
+      applySelection(selectedLevel1Id, null, null);
     } else if (nodeId === selectedLevel3Id) {
-      setSelectedLevel3Id(null);
+      applySelection(selectedLevel1Id, selectedLevel2Id, null);
     }
 
     // 整棵树保存
@@ -709,39 +764,24 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
       toast.success(t("TagsClient.tagCreatedSuccessfully"));
       setOriginalTags(refreshResult.data.tags);
 
-      // 基于最新的 newTree 直接重置并设置默认选中，避免依赖 initialized 的旧值
-      if (newTree.length > 0) {
-        const firstLevel1 = newTree[0];
-        const level1Id = getNodeId(firstLevel1);
-        setSelectedLevel1Id(level1Id);
-
-        if (firstLevel1.children.length > 0) {
-          const firstLevel2 = firstLevel1.children[0];
-          const level2Id = getNodeId(firstLevel2);
-          setSelectedLevel2Id(level2Id);
-
-          if (firstLevel2.children.length > 0) {
-            const firstLevel3 = firstLevel2.children[0];
-            const level3Id = getNodeId(firstLevel3);
-            setSelectedLevel3Id(level3Id);
-          } else {
-            setSelectedLevel3Id(null);
-          }
-        } else {
-          setSelectedLevel2Id(null);
-          setSelectedLevel3Id(null);
-        }
-      } else {
-        setSelectedLevel1Id(null);
-        setSelectedLevel2Id(null);
-        setSelectedLevel3Id(null);
-      }
+      restoreSelection(newTree, {
+        l1: selectedLevel1Id,
+        l2: selectedLevel2Id,
+        l3: selectedLevel3Id,
+      });
 
       // 认为已完成初始化
       setInitialized(true);
     }
     setIsLoading(false);
-  }, [convertToTagNodes, getNodeId, t]);
+  }, [
+    convertToTagNodes,
+    restoreSelection,
+    selectedLevel1Id,
+    selectedLevel2Id,
+    selectedLevel3Id,
+    t,
+  ]);
 
   // 从原始标签中查找AssetTag
   const findOriginalTag = (
@@ -916,16 +956,9 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
         selectedLevel1Id={selectedLevel1Id}
         selectedLevel2Id={selectedLevel2Id}
         selectedLevel3Id={selectedLevel3Id}
-        onSelectLevel1={(nodeId) => {
-          setSelectedLevel1Id(nodeId);
-          setSelectedLevel2Id(null);
-          setSelectedLevel3Id(null);
-        }}
-        onSelectLevel2={(nodeId) => {
-          setSelectedLevel2Id(nodeId);
-          setSelectedLevel3Id(null);
-        }}
-        onSelectLevel3={(nodeId) => setSelectedLevel3Id(nodeId)}
+        onSelectLevel1={(nodeId) => applySelection(nodeId, null, null)}
+        onSelectLevel2={(nodeId) => applySelection(selectedLevel1Id, nodeId, null)}
+        onSelectLevel3={(nodeId) => applySelection(selectedLevel1Id, selectedLevel2Id, nodeId)}
         onEdit={updateTagName}
         onStartEdit={startEdit}
         onCancelEdit={cancelEdit}
@@ -949,6 +982,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
       selectedLevel1Id,
       selectedLevel2Id,
       selectedLevel3Id,
+      applySelection,
       updateTagName,
       startEdit,
       cancelEdit,
