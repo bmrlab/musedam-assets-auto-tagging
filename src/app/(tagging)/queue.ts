@@ -663,7 +663,11 @@ export async function processQueueItem({
     });
   } catch (error) {
     const errorCode = normalizeTaggingErrorCode(error);
-    if (errorCode === "NO_VALID_TAGS" || errorCode === "NO_TAG_TREE") {
+    if (
+      errorCode === "NO_VALID_TAGS" ||
+      errorCode === "NO_TAG_TREE" ||
+      errorCode === "NO_MATCHING_SOURCES_ENABLED"
+    ) {
       logger.warn({
         msg: "processQueueItem failed (expected)",
         errorCode,

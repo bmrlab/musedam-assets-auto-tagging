@@ -606,6 +606,7 @@
       "paginationInfo": "{current} / {total} 条",
       "emptyTagErrorMsg": "暂无标签体系，请先创建标签体系~",
       "noAppropriateTagErrorMsg": "当前标签体系没有适合的标签",
+      "noMatchingSourceErrorMsg": "打标失败：未启用任何匹配信息源，请检查打标设置",
       "dayNames": {
         "0": "周日",
         "1": "周一",
@@ -636,6 +637,7 @@
       "saving": "保存中...",
       "settingsSaved": "设置已保存",
       "saveSettingsFailed": "保存设置失败",
+      "atLeastOneSourceRequired": "至少需要启用一个匹配信息源",
       "selectFoldersFailed": "选择文件夹失败",
       "newApplicationScope": "新的应用范围状态:",
       "selectedFoldersCount": "选择的文件夹数量:",

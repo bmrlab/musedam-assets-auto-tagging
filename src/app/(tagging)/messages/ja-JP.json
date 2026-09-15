@@ -65,6 +65,7 @@
       "weeklyTagging": "今週のタグ付け",
       "emptyTagErrorMsg": "タグ体系がありません。先にタグ体系を作成してください~",
       "noAppropriateTagErrorMsg": "現在のタグ体系には適切なタグがありません",
+      "noMatchingSourceErrorMsg": "失敗：タグ付け設定でマッチング情報源が有効になっていません",
       "dayNames": {
         "0": "日曜日",
         "1": "月曜日",
@@ -242,6 +243,7 @@
       "newApplicationScope": "新しいアプリケーション範囲の状態:",
       "saveSettings": "設定を保存",
       "saveSettingsFailed": "設定の保存に失敗しました",
+      "atLeastOneSourceRequired": "少なくとも1つのマッチング情報源を有効にしてください",
       "saving": "保存中...",
       "selectFoldersFailed": "フォルダーの選択に失敗しました",
       "selectedFoldersCount": "選択したフォルダー数:",

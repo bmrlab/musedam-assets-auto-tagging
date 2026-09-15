@@ -281,6 +281,7 @@
       "paginationInfo": "{current} / {total} รายการ",
       "emptyTagErrorMsg": "ยังไม่มีระบบแท็ก โปรดสร้างระบบแท็กก่อน~",
       "noAppropriateTagErrorMsg": "ระบบแท็กปัจจุบันไม่มีแท็กที่เหมาะสม",
+      "noMatchingSourceErrorMsg": "ล้มเหลว: ไม่มีการเปิดใช้งานแหล่งที่มาการจับคู่ในการตั้งค่าการติดแท็ก",
       "dayNames": {
         "0": "วันอาทิตย์",
         "1": "วันจันทร์",
@@ -311,6 +312,7 @@
       "saving": "กำลังบันทึก...",
       "settingsSaved": "บันทึกการตั้งค่าแล้ว",
       "saveSettingsFailed": "บันทึกการตั้งค่าไม่สำเร็จ",
+      "atLeastOneSourceRequired": "ต้องเปิดใช้งานแหล่งที่มาการจับคู่อย่างน้อยหนึ่งรายการ",
       "selectFoldersFailed": "เลือกโฟลเดอร์ไม่สำเร็จ",
       "newApplicationScope": "สถานะขอบเขตการใช้งานใหม่:",
       "selectedFoldersCount": "จำนวนโฟลเดอร์ที่เลือก:",

@@ -529,6 +529,7 @@
       "paginationInfo": "{current} / {total} öğe",
       "emptyTagErrorMsg": "Henüz bir etiket sistemi yok. Lütfen önce bir etiket sistemi oluşturun~",
       "noAppropriateTagErrorMsg": "Mevcut etiket sisteminde uygun etiket yok",
+      "noMatchingSourceErrorMsg": "Başarısız: etiketleme ayarlarında hiçbir eşleştirme kaynağı etkin değil",
       "dayNames": {
         "0": "Pazar",
         "1": "Pazartesi",
@@ -559,6 +560,7 @@
       "saving": "Kaydediliyor...",
       "settingsSaved": "Ayarlar kaydedildi",
       "saveSettingsFailed": "Ayarlar kaydedilemedi",
+      "atLeastOneSourceRequired": "En az bir eşleştirme kaynağı etkin kalmalıdır",
       "selectFoldersFailed": "Klasörler seçilemedi",
       "newApplicationScope": "Yeni uygulama kapsamı durumu:",
       "selectedFoldersCount": "Seçilen klasör sayısı:",

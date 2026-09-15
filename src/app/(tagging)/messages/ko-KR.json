@@ -65,6 +65,7 @@
       "weeklyTagging": "이번 주 태깅",
       "emptyTagErrorMsg": "태그 체계가 없습니다. 먼저 태그 체계를 생성해 주세요~",
       "noAppropriateTagErrorMsg": "현재 태그 체계에 적합한 태그가 없습니다",
+      "noMatchingSourceErrorMsg": "실패: 태깅 설정에서 활성화된 매칭 소스가 없습니다",
       "dayNames": {
         "0": "일요일",
         "1": "월요일",
@@ -242,6 +243,7 @@
       "newApplicationScope": "새로운 애플리케이션 범위 상태:",
       "saveSettings": "설정 저장",
       "saveSettingsFailed": "설정 저장에 실패했습니다",
+      "atLeastOneSourceRequired": "최소 하나의 매칭 소스를 활성화해야 합니다",
       "saving": "저장 중...",
       "selectFoldersFailed": "폴더 선택 실패",
       "selectedFoldersCount": "선택한 폴더 수:",

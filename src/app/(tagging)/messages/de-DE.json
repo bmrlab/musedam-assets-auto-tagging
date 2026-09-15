@@ -65,6 +65,7 @@
       "weeklyTagging": "Wöchentliches Taggen",
       "emptyTagErrorMsg": "Kein Tag-System vorhanden. Bitte erstellen Sie zuerst ein Tag-System~",
       "noAppropriateTagErrorMsg": "Im aktuellen Tag-System gibt es keine passenden Tags",
+      "noMatchingSourceErrorMsg": "Fehlgeschlagen: Keine Abgleichsquelle in den Taggingeinstellungen aktiviert",
       "dayNames": {
         "0": "Sonntag",
         "1": "Montag",
@@ -242,6 +243,7 @@
       "newApplicationScope": "Neuer Anwendungsbereichsstatus:",
       "saveSettings": "Einstellungen speichern",
       "saveSettingsFailed": "Einstellungen konnten nicht gespeichert werden",
+      "atLeastOneSourceRequired": "Mindestens eine Abgleichsquelle muss aktiviert bleiben",
       "saving": "Speichern...",
       "selectFoldersFailed": "Ordnerauswahl fehlgeschlagen",
       "selectedFoldersCount": "Ausgewählte Ordneranzahl:",

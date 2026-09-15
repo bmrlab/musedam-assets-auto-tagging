@@ -65,6 +65,7 @@
       "weeklyTagging": "本週標記",
       "emptyTagErrorMsg": "暫無標籤體系，請先建立標籤體系~",
       "noAppropriateTagErrorMsg": "目前標籤體系沒有適合的標籤",
+      "noMatchingSourceErrorMsg": "打標失敗：未啟用任何匹配資訊來源，請檢查打標設定",
       "dayNames": {
         "0": "週日",
         "1": "週一",
@@ -242,6 +243,7 @@
       "newApplicationScope": "新的應用範圍狀態:",
       "saveSettings": "儲存設定",
       "saveSettingsFailed": "儲存設定失敗",
+      "atLeastOneSourceRequired": "至少需要啟用一個匹配資訊來源",
       "saving": "儲存中...",
       "selectFoldersFailed": "選擇資料夾失敗",
       "selectedFoldersCount": "選擇的資料夾數量:",

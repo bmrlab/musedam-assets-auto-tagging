@@ -281,6 +281,7 @@
       "paginationInfo": "{current} / {total} éléments",
       "emptyTagErrorMsg": "Aucun système de tags. Veuillez d'abord créer un système de tags~",
       "noAppropriateTagErrorMsg": "Il n'y a pas de tags appropriés dans le système de tags actuel",
+      "noMatchingSourceErrorMsg": "Échec : aucune source de correspondance n'est activée dans les paramètres de marquage",
       "dayNames": {
         "0": "Dimanche",
         "1": "Lundi",
@@ -311,6 +312,7 @@
       "saving": "Enregistrement...",
       "settingsSaved": "Paramètres enregistrés",
       "saveSettingsFailed": "Échec de l'enregistrement des paramètres",
+      "atLeastOneSourceRequired": "Au moins une source de correspondance doit rester activée",
       "selectFoldersFailed": "Échec de la sélection des dossiers",
       "newApplicationScope": "Nouvel état de portée d'application :",
       "selectedFoldersCount": "Nombre de dossiers sélectionnés :",

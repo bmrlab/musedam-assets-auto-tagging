@@ -426,6 +426,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
 
                     if (code === "NO_TAG_TREE") return t("emptyTagErrorMsg");
                     if (code === "NO_VALID_TAGS") return t("noAppropriateTagErrorMsg");
+                    if (code === "NO_MATCHING_SOURCES_ENABLED") return t("noMatchingSourceErrorMsg");
                     return null;
                   } catch {
                     return null;
