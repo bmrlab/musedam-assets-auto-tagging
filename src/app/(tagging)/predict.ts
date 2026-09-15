@@ -170,8 +170,15 @@ function collectLeafTagCandidates(tagsTree: TagWithChildren[]): Array<{
   leafTagId: number;
   tagPath: string[];
   keywords: string[];
+  // 标签全名本身暗示的格式类别（如"POP-UP视频"→video），无则为 undefined。
+  formatKind?: "image" | "video";
 }> {
-  const candidates: Array<{ leafTagId: number; tagPath: string[]; keywords: string[] }> = [];
+  const candidates: Array<{
+    leafTagId: number;
+    tagPath: string[];
+    keywords: string[];
+    formatKind?: "image" | "video";
+  }> = [];
   for (const lv1 of tagsTree) {
     const lv2List = lv1.children ?? [];
     for (const lv2 of lv2List) {
@@ -192,6 +199,7 @@ function collectLeafTagCandidates(tagsTree: TagWithChildren[]): Array<{
           leafTagId: leaf.id,
           tagPath: [lv1.name, lv2.name, leaf.name],
           keywords: variants,
+          formatKind: detectFormatKindInText(leaf.name),
         });
       }
     }
@@ -207,14 +215,21 @@ export function enhancePredictionsByMaterializedPathHardMatch(
   const normalizedPath = normalizeForMatch(materializedPath);
   if (!normalizedPath) return predictions;
 
+  // 路径整体是否独立提到了图片/视频这类格式概念（不局限于命中关键词所在的那个片段），
+  // 用于校验"标签名带格式关键词、但命中片段本身不带"的情况（如标签"POP-UP视频"被
+  // 路径里的"pop-up"片段命中，但路径其他地方（如"video-01.mp4"）确实也提到了视频，才算数）。
+  const pathFormatKind = detectFormatKindInText(normalizedPath);
+
   const candidates = collectLeafTagCandidates(tagsTree)
     .map((candidate) => {
       const matchedKeyword = candidate.keywords.find((keyword) =>
         pathIncludesKeyword(normalizedPath, keyword),
       );
-      return matchedKeyword
-        ? { ...candidate, matchedKeywordLength: matchedKeyword.length }
-        : undefined;
+      if (!matchedKeyword) return undefined;
+      // 标签名暗示了具体格式（图片/视频），但路径整体并未独立提到同一种格式概念——
+      // 说明命中的只是标签名里跟格式无关的片段（如"POP-UP视频"里的"POP"），不足以采信。
+      if (candidate.formatKind && candidate.formatKind !== pathFormatKind) return undefined;
+      return { ...candidate, matchedKeywordLength: matchedKeyword.length };
     })
     .filter((item): item is NonNullable<typeof item> => !!item)
     .sort((a, b) => b.matchedKeywordLength - a.matchedKeywordLength)
@@ -302,6 +317,29 @@ const VIDEO_EXTENSIONS = new Set([
   "mpeg",
 ]);
 
+// 格式类关键词的同义词组：用于在没有真实扩展名可用时，从文本（文件名/路径/标签名）里
+// 识别出"这段文字暗示的是图片还是视频"，把常见格式后缀（mp4/jpg 等）和中英文词
+// （视频/video/图片/image）都归一化到同一个概念下，避免"文件名写 mp4 却被当成没提到视频"。
+const FORMAT_KEYWORD_GROUPS: Record<"image" | "video", string[]> = {
+  image: ["图片", "照片", "image", ...Array.from(IMAGE_EXTENSIONS)],
+  video: ["视频", "video", ...Array.from(VIDEO_EXTENSIONS)],
+};
+
+/**
+ * 判断一段文本里是否包含图片/视频相关的格式关键词（含同义词/常见扩展名），
+ * 纯字母数字关键词按词边界匹配，避免子串误命中。
+ */
+function detectFormatKindInText(text: string): "image" | "video" | undefined {
+  const normalized = normalizeForMatch(text);
+  if (!normalized) return undefined;
+  for (const kind of ["image", "video"] as const) {
+    for (const keyword of FORMAT_KEYWORD_GROUPS[kind]) {
+      if (pathIncludesKeyword(normalized, keyword)) return kind;
+    }
+  }
+  return undefined;
+}
+
 function normalizeExtension(extension?: string | null): string | undefined {
   const ext = (extension ?? "").toLowerCase().replace(/^\./, "").trim();
   if (!ext) return undefined;
@@ -322,22 +360,35 @@ function getRealAssetMediaKind(extension: string): "image" | "video" | undefined
 export function filterPredictionsByRealExtension(
   predictions: SourceBasedTagPredictions,
   rawExtension?: string | null,
+  // 真实扩展名缺失时的兜底证据（文件名/描述/路径等文本）：不能验证就直接放行，
+  // 会让"POP_UP_视频"这类靠标签名片段幻觉出来的格式标签在扩展名缺失时完全不受约束。
+  // 退而求其次，从这些文本里找一个"格式概念"当作可信依据。
+  fallbackEvidenceText?: string,
 ): SourceBasedTagPredictions {
   const realExtension = normalizeExtension(rawExtension);
-  if (!realExtension) return predictions;
-  const realMediaKind = getRealAssetMediaKind(realExtension);
+  const realMediaKind = realExtension ? getRealAssetMediaKind(realExtension) : undefined;
+  const evidenceMediaKind =
+    !realMediaKind && fallbackEvidenceText ? detectFormatKindInText(fallbackEvidenceText) : undefined;
+  const trustedMediaKind = realMediaKind ?? evidenceMediaKind;
+
+  // 真实扩展名和兜底证据都拿不到任何格式信号，无法验证，只能放行（不引入新的误伤）。
+  if (!trustedMediaKind) return predictions;
 
   const isTagContradictory = (tagPath: string[]): boolean => {
     const pathText = tagPath.join(">").toLowerCase();
 
-    for (const [keyword, ext] of Object.entries(FORMAT_TAG_EXTENSION_ALIASES)) {
-      if (ext === realExtension) continue;
-      const boundaryRegex = new RegExp(`(?<![a-z0-9])${keyword}(?![a-z0-9])`, "i");
-      if (boundaryRegex.test(pathText)) return true;
+    // 具体扩展名层面的矛盾校验（如标签写"jpg"但真实是"png"）只在有真实扩展名时才有意义，
+    // 仅靠文本兜底证据推断不出这么精确的结论。
+    if (realExtension) {
+      for (const [keyword, ext] of Object.entries(FORMAT_TAG_EXTENSION_ALIASES)) {
+        if (ext === realExtension) continue;
+        const boundaryRegex = new RegExp(`(?<![a-z0-9])${keyword}(?![a-z0-9])`, "i");
+        if (boundaryRegex.test(pathText)) return true;
+      }
     }
 
-    if (realMediaKind === "image" && /(视频|video)/i.test(pathText)) return true;
-    if (realMediaKind === "video" && /(图片|image|照片)/i.test(pathText)) return true;
+    if (trustedMediaKind === "image" && /(视频|video)/i.test(pathText)) return true;
+    if (trustedMediaKind === "video" && /(图片|image|照片)/i.test(pathText)) return true;
 
     return false;
   };
@@ -475,6 +526,17 @@ export async function predictAssetTags(
   // 识别模式：决定 system prompt 的语气引导，以及最终产出标签的最低置信度门槛
   const recognitionAccuracyMode = options?.recognitionAccuracy ?? "balanced";
 
+  // 未显式传入时视为全部启用，保持旧调用方（如测试页）不受影响。
+  const enabled = options?.matchingSources ?? {
+    basicInfo: true,
+    materializedPath: true,
+    contentAnalysis: true,
+    tagKeywords: true,
+  };
+  if (!enabled.basicInfo && !enabled.materializedPath && !enabled.contentAnalysis && !enabled.tagKeywords) {
+    throw taggingPredictError("NO_MATCHING_SOURCES_ENABLED", "No matching sources enabled");
+  }
+
   // TODO: 缓存
   const tagsTree = await fetchTagsTree({ teamId: asset.teamId });
   if (!tagsTree || tagsTree.length === 0) {
@@ -482,8 +544,9 @@ export async function predictAssetTags(
   }
   // 构建标签结构的文本描述
   const tagStructureText = buildTagStructureText(tagsTree);
-  // 构建标签关键词信息
-  const tagKeywordsText = buildTagKeywordsText(tagsTree);
+  // 构建标签关键词信息：仅在 tagKeywords 信息源启用时才需要，否则不应该出现在 prompt 里
+  // ——不然即使用户关闭了"已有标签匹配"，模型依然会看到完整关键词库并可能受其影响。
+  const tagKeywordsText = enabled.tagKeywords ? buildTagKeywordsText(tagsTree) : undefined;
   const peopleCountTagPaths = options?.faceFeatures
     ? collectPeopleCountTagPaths(tagsTree)
     : [];
@@ -492,32 +555,58 @@ export async function predictAssetTags(
     peopleCountTagPaths,
   );
 
+  const realExtension = normalizeExtension((asset.extra as AssetObjectExtra | null)?.extension);
+  const realMediaKind = realExtension ? getRealAssetMediaKind(realExtension) : undefined;
+  const realFormatFactText = realExtension
+    ? `该素材的真实文件格式为：${realMediaKind === "video" ? "视频" : realMediaKind === "image" ? "图片" : "未知类型"}（.${realExtension}）。这是系统确定性事实，请以此为准判断素材类型/格式相关标签，不要仅凭文件名或标签名称中恰好出现的文字（如"视频"二字恰好是某个标签名称的一部分）来推断格式，若标签暗示的格式与该事实矛盾，禁止选用该标签。`
+    : "该素材的真实文件格式未知（系统未提供）。请对格式类标签更加谨慎，不要仅凭文件名或标签名称中的字面文字武断下结论。";
+
+  const aiTags = (asset.content as AssetObjectContentAnalysis)?.aiTags;
+
+  // 每个信息源的文本只在对应设置启用时才拼进 prompt——被关闭的信息源必须真正"不可见"，
+  // 而不是喂给模型之后再事后过滤模型自报的 source 标签（那样关闭形同虚设，见下方 matchingSources 过滤）。
+  const sourceSections: string[] = [];
+  if (enabled.basicInfo) {
+    sourceSections.push(`## basicInfo信息源
+文件名：${asset.name}
+文件描述：${asset.description || "无"}
+真实文件格式事实：${realFormatFactText}`);
+  }
+  if (enabled.materializedPath) {
+    sourceSections.push(`## materializedPath信息源
+文件路径：${asset.materializedPath}`);
+  }
+  if (enabled.contentAnalysis) {
+    sourceSections.push(`## contentAnalysis信息源
+内容分析：${(asset.content as AssetObjectContentAnalysis)?.aiDescription || "无有效内容数据"}
+AI通用标签：${aiTags || "无"}（与上面的内容分析同属一次视觉分析结果，不构成独立于内容分析之外的另一条证据）`);
+  }
+  if (enabled.tagKeywords) {
+    sourceSections.push(`## tagKeywords信息源
+标签关键词匹配：请根据上述标签关键词配置，分析素材信息是否匹配到任何标签的匹配关键词，同时注意排除包含排除关键词的情况。${faceFeaturesSection}`);
+  }
+
   const messages: UserModelMessage[] = [
     {
       role: "user",
       content: `# 可用标签体系
-${tagStructureText}
+${tagStructureText}${
+        tagKeywordsText
+          ? `
 
 # 标签关键词配置
-${tagKeywordsText}`,
+${tagKeywordsText}`
+          : ""
+      }`,
       providerOptions: { bedrock: { cachePoint: { type: "default" } } },
     },
     {
       role: "user",
       content: `# 待分析内容素材信息
 
-## basicInfo信息源
-文件名：${asset.name}
-文件描述：${asset.description || "无"}
+本次仅启用以下信息源，未列出的信息源视为未启用，不参与本次分析、也不应出现在输出的 predictions 里。
 
-## materializedPath信息源
-文件路径：${asset.materializedPath}
-
-## contentAnalysis信息源
-内容分析：${(asset.content as AssetObjectContentAnalysis)?.aiDescription || "无有效内容数据"}
-
-## tagKeywords信息源
-标签关键词匹配：请根据上述标签关键词配置，分析素材信息是否匹配到任何标签的匹配关键词，同时注意排除包含排除关键词的情况。${faceFeaturesSection}
+${sourceSections.join("\n\n")}
 
 请按照 system 的 Step by Step 流程进行分析，但【最终只输出包含 predictions 数组的纯 JSON 对象】（不要解释、不要 markdown、不要 \`\`\`、不要任何额外文本）。`,
     },
@@ -532,6 +621,8 @@ ${tagKeywordsText}`,
       description: asset.description ?? "",
       materializedPath: asset.materializedPath,
       contentAiDescription: (asset.content as AssetObjectContentAnalysis)?.aiDescription ?? "",
+      contentAiTags: aiTags ?? "",
+      realExtension: realExtension ?? "",
       matchingSources: options?.matchingSources ?? null,
       recognitionAccuracy: options?.recognitionAccuracy ?? null,
       // Only include when present so existing no-faceFeatures calls keep the same seed.
@@ -595,10 +686,12 @@ ${tagKeywordsText}`,
           asset.materializedPath,
         );
       }
-      // 用真实文件扩展名兜底过滤，避免格式/媒体类型（图片 vs 视频）与实际元数据矛盾的幻觉标签
+      // 用真实文件扩展名兜底过滤，避免格式/媒体类型（图片 vs 视频）与实际元数据矛盾的幻觉标签；
+      // 真实扩展名缺失时，退而求其次用文件名/描述/路径文本做兜底证据，而不是直接放弃校验。
       predictions = filterPredictionsByRealExtension(
         predictions,
         (asset.extra as AssetObjectExtra | null)?.extension,
+        [asset.name, asset.description, asset.materializedPath].filter(Boolean).join(" "),
       );
       predictions = sortPredictionsDeterministically(predictions);
 
