@@ -1232,7 +1232,7 @@
         "uploadLocal": "Unggah dari Lokal",
         "uploadFromLibrary": "Pilih dari Perpustakaan Aset",
         "uploadHintTitle": "Persyaratan gambar: ",
-        "uploadHint": "Unggah 3-5 gambar produk yang mencakup depan, samping, belakang, dan sudut lainnya dengan kualitas jelas dan gaya pemotretan yang konsisten. Sertakan gambar produk standar dengan latar belakang solid dan gambar adegan penggunaan nyata untuk meningkatkan akurasi pengenalan AI.",
+        "uploadHint": "Unggah 3-5 gambar produk yang mencakup depan, samping, belakang, dan sudut lainnya dengan kualitas jelas dan gaya pemotretan yang konsisten. Sertakan gambar produk standar dengan latar belakang solid untuk meningkatkan akurasi pengenalan AI.",
         "linkedTagsLabel": "Tag Terkait",
         "linkedTagsHint": "Tag ini akan otomatis diterapkan saat kecocokan ditemukan",
         "manageTags": "Kelola Sistem Tag",

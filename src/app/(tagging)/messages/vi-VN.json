@@ -1232,7 +1232,7 @@
         "uploadLocal": "Tải lên từ máy tính",
         "uploadFromLibrary": "Chọn từ thư viện tài sản",
         "uploadHintTitle": "Yêu cầu hình ảnh: ",
-        "uploadHint": "Nên tải lên 3-5 hình ảnh sản phẩm, bao gồm các góc độ mặt trước, mặt bên, mặt sau với chất lượng rõ nét và phong cách chụp ảnh thống nhất. Nên bao gồm hình ảnh sản phẩm chuẩn trên nền đơn sắc và cảnh sử dụng thực tế để cải thiện độ chính xác nhận diện AI.",
+        "uploadHint": "Nên tải lên 3-5 hình ảnh sản phẩm, bao gồm các góc độ mặt trước, mặt bên, mặt sau với chất lượng rõ nét và phong cách chụp ảnh thống nhất. Nên bao gồm hình ảnh sản phẩm chuẩn trên nền đơn sắc để cải thiện độ chính xác nhận diện AI.",
         "linkedTagsLabel": "Thẻ liên kết",
         "linkedTagsHint": "Các thẻ này sẽ được tự động áp dụng khi tìm thấy kết quả khớp",
         "manageTags": "Quản lý hệ thống thẻ",

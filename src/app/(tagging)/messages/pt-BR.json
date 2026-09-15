@@ -1232,7 +1232,7 @@
         "uploadLocal": "Carregar do Local",
         "uploadFromLibrary": "Selecionar da Biblioteca de Ativos",
         "uploadHintTitle": "Requisitos da imagem: ",
-        "uploadHint": "Carregue 3-5 imagens do produto quando possível, cobrindo frente, lado, verso e outros ângulos com qualidade clara e estilo de fotografia consistente. Inclua imagens padrão do produto em fundos sólidos e cenas de uso real para melhorar a precisão do reconhecimento por IA.",
+        "uploadHint": "Carregue 3-5 imagens do produto quando possível, cobrindo frente, lado, verso e outros ângulos com qualidade clara e estilo de fotografia consistente. Inclua imagens padrão do produto em fundos sólidos para melhorar a precisão do reconhecimento por IA.",
         "linkedTagsLabel": "Tags Associadas",
         "linkedTagsHint": "Estas tags serão aplicadas automaticamente quando uma correspondência for encontrada",
         "manageTags": "Gerenciar Sistema de Tags",

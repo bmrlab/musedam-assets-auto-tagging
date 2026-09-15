@@ -1232,7 +1232,7 @@
         "uploadLocal": "Prześlij z lokalnego",
         "uploadFromLibrary": "Wybierz z biblioteki zasobów",
         "uploadHintTitle": "Wymagania dotyczące obrazu: ",
-        "uploadHint": "Prześlij 3-5 obrazów produktu pokrywających przód, boki, tył i inne kąty, zachowując wysoką jakość i spójny styl fotografowania. Zaleca się dołączenie standardowych obrazów produktów na jednolitym tle oraz rzeczywistych scen użycia, aby zwiększyć dokładność rozpoznawania AI.",
+        "uploadHint": "Prześlij 3-5 obrazów produktu pokrywających przód, boki, tył i inne kąty, zachowując wysoką jakość i spójny styl fotografowania. Zaleca się dołączenie standardowych obrazów produktów na jednolitym tle, aby zwiększyć dokładność rozpoznawania AI.",
         "linkedTagsLabel": "Powiązane tagi",
         "linkedTagsHint": "Te tagi zostaną automatycznie zastosowane po znalezieniu dopasowania",
         "manageTags": "Zarządzaj systemem tagów",

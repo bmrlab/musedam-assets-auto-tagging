@@ -1232,7 +1232,7 @@
         "uploadLocal": "Lokal hochladen",
         "uploadFromLibrary": "Aus Asset-Bibliothek auswählen",
         "uploadHintTitle": "Bildanforderungen:",
-        "uploadHint": "Laden Sie 3-5 Produktbilder hoch, die Vorderseite, Seite, Rückseite und andere Winkel mit klarer Qualität und einheitlichem Aufnahmestil zeigen. Fügen Sie Standardproduktbilder mit einfarbigem Hintergrund und reale Verwendungsszenen hinzu, um die KI-Erkennungsgenauigkeit zu verbessern.",
+        "uploadHint": "Laden Sie 3-5 Produktbilder hoch, die Vorderseite, Seite, Rückseite und andere Winkel mit klarer Qualität und einheitlichem Aufnahmestil zeigen. Fügen Sie Standardproduktbilder mit einfarbigem Hintergrund hinzu, um die KI-Erkennungsgenauigkeit zu verbessern.",
         "linkedTagsLabel": "Verknüpfte Tags",
         "linkedTagsHint": "Diese Tags werden automatisch angewendet, wenn eine Übereinstimmung gefunden wird",
         "manageTags": "Tag-System verwalten",

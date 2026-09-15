@@ -1232,7 +1232,7 @@
         "uploadLocal": "Subir desde local",
         "uploadFromLibrary": "Seleccionar desde la biblioteca de activos",
         "uploadHintTitle": "Requisitos de imagen: ",
-        "uploadHint": "Suba 3-5 imágenes de producto cuando sea posible, cubriendo diferentes ángulos como frontal, lateral, trasero, con calidad nítida y estilo de fotografía consistente. Incluya imágenes estándar de productos con fondos sólidos y escenas de uso real para mejorar la precisión del reconocimiento de IA.",
+        "uploadHint": "Suba 3-5 imágenes de producto cuando sea posible, cubriendo diferentes ángulos como frontal, lateral, trasero, con calidad nítida y estilo de fotografía consistente. Incluya imágenes estándar de productos con fondos sólidos para mejorar la precisión del reconocimiento de IA.",
         "linkedTagsLabel": "Etiquetas vinculadas",
         "linkedTagsHint": "Estas etiquetas se aplicarán automáticamente cuando se encuentre una coincidencia",
         "manageTags": "Gestionar sistema de etiquetas",

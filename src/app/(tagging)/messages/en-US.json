@@ -1232,7 +1232,7 @@
         "uploadLocal": "Upload from Local",
         "uploadFromLibrary": "Select from Asset Library",
         "uploadHintTitle": "Image requirements: ",
-        "uploadHint": "Upload 3-5 product images when possible, covering front, side, back, and other angles with clear quality and consistent shooting style. Include standard product images on solid backgrounds and real usage scenes to improve AI recognition accuracy.",
+        "uploadHint": "Upload 3-5 product images when possible, covering front, side, back, and other angles with clear quality and consistent shooting style. Include standard product images on solid backgrounds to improve AI recognition accuracy.",
         "linkedTagsLabel": "Linked Tags",
         "linkedTagsHint": "These tags will be automatically applied when a match is found",
         "manageTags": "Manage Tag System",

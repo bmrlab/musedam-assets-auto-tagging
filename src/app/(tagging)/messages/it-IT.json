@@ -1232,7 +1232,7 @@
         "uploadLocal": "Carica da Locale",
         "uploadFromLibrary": "Seleziona dalla Libreria Asset",
         "uploadHintTitle": "Requisiti immagine: ",
-        "uploadHint": "Carica 3-5 immagini prodotto quando possibile, coprendo fronte, lato, retro e altre angolazioni con qualità chiara e stile di ripresa coerente. Includi immagini prodotto standard su sfondi solidi e scene di uso reale per migliorare la precisione del riconoscimento IA.",
+        "uploadHint": "Carica 3-5 immagini prodotto quando possibile, coprendo fronte, lato, retro e altre angolazioni con qualità chiara e stile di ripresa coerente. Includi immagini prodotto standard su sfondi solidi per migliorare la precisione del riconoscimento IA.",
         "linkedTagsLabel": "Tag Collegati",
         "linkedTagsHint": "Questi tag verranno applicati automaticamente quando viene trovata una corrispondenza",
         "manageTags": "Gestisci Sistema di Tag",

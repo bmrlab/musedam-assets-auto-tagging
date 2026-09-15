@@ -1232,7 +1232,7 @@
         "uploadLocal": "Télécharger depuis l'ordinateur",
         "uploadFromLibrary": "Sélectionner depuis la bibliothèque d'actifs",
         "uploadHintTitle": "Exigences d'image : ",
-        "uploadHint": "Téléchargez 3 à 5 images de produit si possible, couvrant les angles avant, latéral, arrière et autres. Assurez-vous d'une qualité claire et d'un style de prise de vue cohérent. Incluez des images de produit standard sur fond uni et des scènes d'utilisation réelle pour améliorer la précision de la reconnaissance IA.",
+        "uploadHint": "Téléchargez 3 à 5 images de produit si possible, couvrant les angles avant, latéral, arrière et autres. Assurez-vous d'une qualité claire et d'un style de prise de vue cohérent. Incluez des images de produit standard sur fond uni pour améliorer la précision de la reconnaissance IA.",
         "linkedTagsLabel": "Tags associés",
         "linkedTagsHint": "Ces tags seront automatiquement appliqués lorsqu'une correspondance est trouvée",
         "manageTags": "Gérer le système de tags",

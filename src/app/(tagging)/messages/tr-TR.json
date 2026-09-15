@@ -1232,7 +1232,7 @@
         "uploadLocal": "Yerelden Yükle",
         "uploadFromLibrary": "Varlık Kütüphanesinden Seç",
         "uploadHintTitle": "Görüntü gereksinimleri: ",
-        "uploadHint": "Mümkün olduğunca 3-5 ürün resmi yükleyin, ön, yan, arka ve diğer açıları kapsayan net kaliteli ve tutarlı çekim stili. Düz arka planlı standart ürün resimleri ve gerçek kullanım sahnelerini içerin, AI tanıma doğruluğunu artırır.",
+        "uploadHint": "Mümkün olduğunca 3-5 ürün resmi yükleyin, ön, yan, arka ve diğer açıları kapsayan net kaliteli ve tutarlı çekim stili. Düz arka planlı standart ürün resimleri ekleyin, AI tanıma doğruluğunu artırır.",
         "linkedTagsLabel": "Bağlı Etiketler",
         "linkedTagsHint": "Eşleşme bulunduğunda bu etiketler otomatik olarak uygulanacaktır",
         "manageTags": "Etiket Sistemini Yönet",
