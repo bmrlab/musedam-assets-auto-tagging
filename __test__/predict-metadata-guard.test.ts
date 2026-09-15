@@ -55,6 +55,17 @@ describe("enhancePredictionsByMaterializedPathHardMatch", () => {
     expect(matched).toBeUndefined();
   });
 
+  it("does not hard-match POP-UP视频 for a path that mentions pop-up but never video (real customer bug)", () => {
+    const predictions: SourceBasedTagPredictions = [];
+    const result = enhancePredictionsByMaterializedPathHardMatch(
+      predictions,
+      tagsTree,
+      "assets/pop_up/product-shot.png",
+    );
+    const matched = result.flatMap((p) => p.tags).find((t) => t.leafTagId === 3);
+    expect(matched).toBeUndefined();
+  });
+
   it("still hard-matches when the keyword appears as a standalone token", () => {
     const predictions: SourceBasedTagPredictions = [];
     const result = enhancePredictionsByMaterializedPathHardMatch(
@@ -128,8 +139,24 @@ describe("filterPredictionsByRealExtension", () => {
     expect(ids).toContain(4);
   });
 
-  it("is a no-op when the real extension is unknown", () => {
+  it("is a no-op when the real extension is unknown and no fallback text is given", () => {
     const result = filterPredictionsByRealExtension(predictions, undefined);
+    expect(result).toEqual(predictions);
+  });
+
+  it("falls back to filename/description text to drop a 视频 tag when the real extension is missing", () => {
+    const result = filterPredictionsByRealExtension(
+      predictions,
+      undefined,
+      "product_shot_final.png 棉片产品图",
+    );
+    const ids = result.flatMap((p) => p.tags).map((t) => t.leafTagId);
+    expect(ids).not.toContain(3);
+    expect(ids).toContain(4);
+  });
+
+  it("stays a no-op when the real extension is missing and fallback text carries no format signal either", () => {
+    const result = filterPredictionsByRealExtension(predictions, undefined, "夏日新品上市");
     expect(result).toEqual(predictions);
   });
 });
