@@ -116,6 +116,10 @@ function mergeMatchingSources(current: string, next: string) {
   return sources.join(MATCHING_SOURCE_SEPARATOR);
 }
 
+// tagPredictionSchema.shape.source 的四个取值 -> 测试页展示用的中文标签，
+// 用于把每条标签实际命中的信息源（可能不止一个）如实展示出来，而不是统一显示成"AI 匹配"。
+const AI_SOURCE_KEYS = ["basicInfo", "materializedPath", "contentAnalysis", "tagKeywords"] as const;
+
 function buildMergedDisplayTags({
   aiTags,
   brandTags,
@@ -125,7 +129,8 @@ function buildMergedDisplayTags({
   productTags,
   productConfidence,
   personTags,
-  aiSourceLabel,
+  aiSourceLabels,
+  aiFallbackSourceLabel,
   brandSourceLabel,
   ipSourceLabel,
   productSourceLabel,
@@ -134,7 +139,7 @@ function buildMergedDisplayTags({
   aiTags: Array<{
     leafTagId?: number;
     tagPath?: string[];
-    matchingSource?: string;
+    confidenceBySources?: Partial<Record<(typeof AI_SOURCE_KEYS)[number], number>>;
     score?: number;
   }>;
   brandTags: Array<{
@@ -157,7 +162,8 @@ function buildMergedDisplayTags({
     tagPath?: string[];
     confidence?: number;
   }>;
-  aiSourceLabel: string;
+  aiSourceLabels: Record<(typeof AI_SOURCE_KEYS)[number], string>;
+  aiFallbackSourceLabel: string;
   brandSourceLabel: string;
   ipSourceLabel: string;
   productSourceLabel: string;
@@ -203,11 +209,19 @@ function buildMergedDisplayTags({
   };
 
   aiTags.forEach((tag, index) => {
+    const contributingSourceLabels = AI_SOURCE_KEYS.filter(
+      (source) => tag.confidenceBySources?.[source] !== undefined,
+    ).map((source) => aiSourceLabels[source]);
+
     upsertTag({
       order: index,
       tagId: tag.leafTagId,
       tagPath: tag.tagPath,
-      sourceLabel: aiSourceLabel,
+      // 如实展示这条标签实际是被哪个/哪些信息源命中的（可能不止一个），
+      // 而不是笼统地都显示成"AI 匹配"。理论上不应该出现空的情况，兜底用回旧的通用文案。
+      sourceLabel: contributingSourceLabels.length > 0
+        ? contributingSourceLabels.join(MATCHING_SOURCE_SEPARATOR)
+        : aiFallbackSourceLabel,
       score: tag.score || 0,
     });
   });
@@ -474,7 +488,13 @@ export default function TestClient() {
                 productTags: [],
                 productConfidence: Math.round(productRecommendation?.bestMatch?.confidence ?? 0),
                 personTags: [],
-                aiSourceLabel: tClient("aiMatching"),
+                aiSourceLabels: {
+                  basicInfo: t("nameMatching"),
+                  materializedPath: t("pathMatching"),
+                  contentAnalysis: t("contentMatching"),
+                  tagKeywords: t("tagKeywordMatching"),
+                },
+                aiFallbackSourceLabel: tClient("aiMatching"),
                 brandSourceLabel: tResult("brandRecognition"),
                 ipSourceLabel: tSidebar("ip"),
                 productSourceLabel: tSidebar("product"),

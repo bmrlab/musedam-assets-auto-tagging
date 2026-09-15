@@ -20,7 +20,7 @@ describe("tagPredictionSystemPrompt", () => {
     // 否则精准模式下模型会把 0.8 以下的候选直接吞掉，代码层就没有候选可以兜底，导致素材彻底不打标。
     for (const mode of ["precise", "balanced", "broad"] as const) {
       const prompt = tagPredictionSystemPrompt(mode);
-      expect(prompt).toContain("只输出置信度≥0.4的预测");
+      expect(prompt).toContain("低于 0.40 视为噪声，不要输出");
       expect(prompt).toContain("不是你的工作");
     }
   });
