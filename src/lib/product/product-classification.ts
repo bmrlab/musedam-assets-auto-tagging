@@ -162,7 +162,7 @@ export async function detectProductFigureBoxes({
   if (!detectionLabelText) {
     throw new Error("Product detection_label_text is empty after normalization");
   }
-  const response = await fetch(`${baseUrl}/object_detection_groundingDINO`, {
+  const response = await fetch(`${baseUrl}/object_detection_llm`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,

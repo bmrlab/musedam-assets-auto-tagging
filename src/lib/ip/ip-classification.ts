@@ -231,7 +231,7 @@ async function requestIpDetection({
   if (!boundedDetectionLabelText) {
     throw new Error(`${errorPrefix} detection_label_text is empty after limiting`);
   }
-  const response = await fetch(`${baseUrl}/object_detection_groundingDINO`, {
+  const response = await fetch(`${baseUrl}/object_detection_llm`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,

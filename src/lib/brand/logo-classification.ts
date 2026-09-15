@@ -93,7 +93,7 @@ export async function detectBrandLogoBoxes({
   const rawDetectionLabelText = detectionLabelText.trim() || "logo";
   const normalizedDetectionLabelText =
     truncateDetectionLabelToTokenLimit(normalizeDetectionText(rawDetectionLabelText)) || "logo .";
-  const response = await fetch(`${baseUrl}/object_detection_groundingDINO`, {
+  const response = await fetch(`${baseUrl}/object_detection_llm`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
