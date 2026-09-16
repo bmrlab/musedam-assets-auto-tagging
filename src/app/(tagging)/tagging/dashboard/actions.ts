@@ -37,6 +37,10 @@ export type TaskWithAsset = Omit<TaggingQueueItem, "assetObject"> & {
   };
 };
 
+// 控制面板只统计 / 展示正式打标任务：匹配测试页发起的 taskType=test 任务不进审核、不写回 MuseDAM，
+// 也不应该混进统计数字与任务列表里。
+const DASHBOARD_TASK_FILTER = { taskType: { not: "test" as const } };
+
 export async function fetchDashboardStats(): Promise<
   ServerActionResult<{
     stats: DashboardStats;
@@ -47,16 +51,36 @@ export async function fetchDashboardStats(): Promise<
       // 获取基础统计
       const [totalCompleted, processing, pending, failed, totalAssets] = await Promise.all([
         prisma.taggingQueueItem.count({
-          where: { teamId, assetObjectId: { not: null }, status: "completed" },
+          where: {
+            teamId,
+            ...DASHBOARD_TASK_FILTER,
+            assetObjectId: { not: null },
+            status: "completed",
+          },
         }),
         prisma.taggingQueueItem.count({
-          where: { teamId, assetObjectId: { not: null }, status: "processing" },
+          where: {
+            teamId,
+            ...DASHBOARD_TASK_FILTER,
+            assetObjectId: { not: null },
+            status: "processing",
+          },
         }),
         prisma.taggingQueueItem.count({
-          where: { teamId, assetObjectId: { not: null }, status: "pending" },
+          where: {
+            teamId,
+            ...DASHBOARD_TASK_FILTER,
+            assetObjectId: { not: null },
+            status: "pending",
+          },
         }),
         prisma.taggingQueueItem.count({
-          where: { teamId, assetObjectId: { not: null }, status: "failed" },
+          where: {
+            teamId,
+            ...DASHBOARD_TASK_FILTER,
+            assetObjectId: { not: null },
+            status: "failed",
+          },
         }),
         prisma.assetObject.count({
           where: { teamId },
@@ -71,6 +95,7 @@ export async function fetchDashboardStats(): Promise<
       const monthlyCompleted = await prisma.taggingQueueItem.count({
         where: {
           teamId,
+          ...DASHBOARD_TASK_FILTER,
           assetObjectId: { not: null },
           status: "completed",
           endsAt: {
@@ -86,6 +111,7 @@ export async function fetchDashboardStats(): Promise<
       const dailyCompleted = await prisma.taggingQueueItem.count({
         where: {
           teamId,
+          ...DASHBOARD_TASK_FILTER,
           assetObjectId: { not: null },
           status: "completed",
           endsAt: {
@@ -99,6 +125,7 @@ export async function fetchDashboardStats(): Promise<
       const recentCompletedTasks = await prisma.taggingQueueItem.findMany({
         where: {
           teamId,
+          ...DASHBOARD_TASK_FILTER,
           assetObjectId: { not: null },
           status: "completed",
           startsAt: { not: null },
@@ -169,9 +196,10 @@ export async function fetchProcessingTasks(
 
       const whereClause =
         filter === "all"
-          ? { teamId, assetObjectId: { not: null } }
+          ? { teamId, ...DASHBOARD_TASK_FILTER, assetObjectId: { not: null } }
           : {
               teamId,
+              ...DASHBOARD_TASK_FILTER,
               assetObjectId: { not: null },
               status: { in: ["processing", "pending"] as TaggingQueueStatus[] },
             };
@@ -273,6 +301,7 @@ export async function fetchContentTypeStats(): Promise<
       const recentTasks = await prisma.taggingQueueItem.findMany({
         where: {
           teamId,
+          ...DASHBOARD_TASK_FILTER,
           status: "completed",
           startsAt: { not: null },
           endsAt: { not: null },
@@ -350,7 +379,7 @@ export async function retryFailedTask(taskId: number): Promise<ServerActionResul
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
       const task = await prisma.taggingQueueItem.findFirst({
-        where: { id: taskId, teamId, status: "failed" },
+        where: { id: taskId, teamId, ...DASHBOARD_TASK_FILTER, status: "failed" },
       });
 
       if (!task) {
@@ -388,7 +417,7 @@ export async function retryAllFailedTasks(): Promise<ServerActionResult<{ count:
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
       const result = await prisma.taggingQueueItem.updateMany({
-        where: { teamId, status: "failed" },
+        where: { teamId, ...DASHBOARD_TASK_FILTER, status: "failed" },
         data: {
           status: "pending",
           startsAt: null,
@@ -428,6 +457,7 @@ export async function fetchWeeklyTaggingData(): Promise<
       const tasks = await prisma.taggingQueueItem.findMany({
         where: {
           teamId,
+          ...DASHBOARD_TASK_FILTER,
           status: "completed",
           endsAt: {
             gte: weekAgo,
@@ -495,6 +525,7 @@ export async function fetchStrategyDistribution(): Promise<
       const tasks = await prisma.taggingQueueItem.findMany({
         where: {
           teamId,
+          ...DASHBOARD_TASK_FILTER,
           status: "completed",
         },
         select: {
@@ -606,6 +637,7 @@ export async function fetchMonthlyTrend(): Promise<
           prisma.taggingQueueItem.count({
             where: {
               teamId,
+              ...DASHBOARD_TASK_FILTER,
               status: "completed",
               endsAt: {
                 gte: monthStart,
@@ -616,6 +648,7 @@ export async function fetchMonthlyTrend(): Promise<
           prisma.taggingQueueItem.count({
             where: {
               teamId,
+              ...DASHBOARD_TASK_FILTER,
               createdAt: {
                 gte: monthStart,
                 lte: monthEnd,

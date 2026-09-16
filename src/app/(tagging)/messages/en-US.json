@@ -874,7 +874,32 @@
       "processingStatus": "Processing Status",
       "processingTasks": "Processing {count} tagging tasks",
       "pollingDescription": "Checking status every 2 seconds, results will be displayed automatically when completed",
-      "aiMatching": "AI Matching"
+      "aiMatching": "AI Matching",
+      "progressCount": "{done}/{total} done",
+      "queueWaitEstimate": "Estimated wait: about {duration}",
+      "elapsed": "Elapsed: {duration}",
+      "queueAhead": "Queued, {count} tasks ahead",
+      "processingFor": "Processing for {duration}",
+      "durationMinutes": "{minutes} min {seconds} s",
+      "durationSeconds": "{seconds} s",
+      "pollingErrorStopped": "Failed to fetch processing status ({message}). Auto refresh stopped.",
+      "pollingTimeout": "Tasks did not finish in time. Auto refresh stopped; check the status again later or contact an administrator.",
+      "retryPolling": "Check status again",
+      "workerIdleWarning": "Tasks have been queued for a long time while the queue is idle. The background tagging worker may not be running; please contact an administrator.",
+      "failedResultsTitle": "Failed assets ({count})",
+      "status": {
+        "pending": "Queued",
+        "processing": "Processing",
+        "completed": "Completed",
+        "failed": "Failed"
+      },
+      "errorReason": {
+        "NO_VALID_TAGS": "No valid tags matched (insufficient asset information or no suitable tag in the tag system)",
+        "NO_TAG_TREE": "The tag system is empty. Please create tags first.",
+        "NO_MATCHING_SOURCES_ENABLED": "No matching strategy is enabled",
+        "PROCESSING_STALE_TIMEOUT": "Processing timed out and was marked as failed automatically",
+        "UNKNOWN": "Backend processing error. Please check the service logs."
+      }
     },
     "Common": {
       "refreshDataFailed": "Failed to refresh data",

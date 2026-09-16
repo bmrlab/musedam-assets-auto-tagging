@@ -838,7 +838,32 @@
       "processingStatus": "Status Pemrosesan",
       "processingTasks": "Memproses {count} tugas pelabelan",
       "pollingDescription": "Memeriksa status setiap 2 detik, hasil akan ditampilkan secara otomatis saat selesai",
-      "aiMatching": "Pencocokan AI"
+      "aiMatching": "Pencocokan AI",
+      "progressCount": "{done}/{total} selesai",
+      "queueWaitEstimate": "Perkiraan waktu tunggu: sekitar {duration}",
+      "elapsed": "Berlalu: {duration}",
+      "queueAhead": "Dalam antrean, {count} tugas di depan",
+      "processingFor": "Sedang diproses selama {duration}",
+      "durationMinutes": "{minutes} mnt {seconds} dtk",
+      "durationSeconds": "{seconds} dtk",
+      "pollingErrorStopped": "Gagal mengambil status pemrosesan ({message}). Penyegaran otomatis dihentikan.",
+      "pollingTimeout": "Tugas tidak selesai tepat waktu. Penyegaran otomatis dihentikan; periksa status lagi nanti atau hubungi administrator.",
+      "retryPolling": "Periksa status lagi",
+      "workerIdleWarning": "Tugas sudah lama dalam antrean padahal antrean kosong. Layanan penandaan latar belakang mungkin tidak berjalan; hubungi administrator.",
+      "failedResultsTitle": "Aset gagal ({count})",
+      "status": {
+        "pending": "Dalam antrean",
+        "processing": "Diproses",
+        "completed": "Selesai",
+        "failed": "Gagal"
+      },
+      "errorReason": {
+        "NO_VALID_TAGS": "Tidak ada tag valid yang cocok (informasi aset tidak cukup atau tidak ada tag yang sesuai di sistem tag)",
+        "NO_TAG_TREE": "Sistem tag kosong. Buat tag terlebih dahulu.",
+        "NO_MATCHING_SOURCES_ENABLED": "Tidak ada strategi pencocokan yang diaktifkan",
+        "PROCESSING_STALE_TIMEOUT": "Pemrosesan melebihi batas waktu dan otomatis ditandai gagal",
+        "UNKNOWN": "Kesalahan pemrosesan backend. Periksa log layanan."
+      }
     },
     "Common": {
       "refreshDataFailed": "Gagal menyegarkan data",

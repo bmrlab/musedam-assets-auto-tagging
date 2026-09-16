@@ -888,7 +888,32 @@
       "preciseMode": "Точный режим",
       "processingStatus": "Статус обработки",
       "processingTasks": "Обработка {count} задач тегирования",
-      "taggingCompleted": "Тегирование завершено! Успешно: {successCount}, неудачно: {failedCount}"
+      "taggingCompleted": "Тегирование завершено! Успешно: {successCount}, неудачно: {failedCount}",
+      "progressCount": "Завершено {done}/{total}",
+      "queueWaitEstimate": "Ожидание: около {duration}",
+      "elapsed": "Прошло: {duration}",
+      "queueAhead": "В очереди, впереди задач: {count}",
+      "processingFor": "Обрабатывается уже {duration}",
+      "durationMinutes": "{minutes} мин {seconds} с",
+      "durationSeconds": "{seconds} с",
+      "pollingErrorStopped": "Не удалось получить статус обработки ({message}). Автообновление остановлено.",
+      "pollingTimeout": "Задачи не завершились вовремя. Автообновление остановлено; проверьте статус позже или обратитесь к администратору.",
+      "retryPolling": "Проверить статус снова",
+      "workerIdleWarning": "Задачи долго находятся в очереди, хотя очередь свободна. Возможно, фоновый сервис тегирования не запущен; обратитесь к администратору.",
+      "failedResultsTitle": "Неудачные материалы ({count})",
+      "status": {
+        "pending": "В очереди",
+        "processing": "Обработка",
+        "completed": "Завершено",
+        "failed": "Ошибка"
+      },
+      "errorReason": {
+        "NO_VALID_TAGS": "Подходящие теги не найдены (недостаточно информации о материале или нет подходящего тега в системе тегов)",
+        "NO_TAG_TREE": "Система тегов пуста. Сначала создайте теги.",
+        "NO_MATCHING_SOURCES_ENABLED": "Не включена ни одна стратегия сопоставления",
+        "PROCESSING_STALE_TIMEOUT": "Время обработки истекло, задача автоматически помечена как неудачная",
+        "UNKNOWN": "Ошибка обработки на сервере. Проверьте журналы сервиса."
+      }
     },
     "PersonLibrary": {
       "title": "Библиотека черт лица",

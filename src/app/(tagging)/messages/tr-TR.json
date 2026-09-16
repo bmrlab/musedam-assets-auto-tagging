@@ -797,7 +797,32 @@
       "processingStatus": "İşleme Durumu",
       "processingTasks": "{count} etiketleme görevi işleniyor",
       "pollingDescription": "Durum her 2 saniyede bir kontrol ediliyor, sonuçlar tamamlandığında otomatik olarak görüntülenecektir",
-      "aiMatching": "AI Eşleştirme"
+      "aiMatching": "AI Eşleştirme",
+      "progressCount": "{done}/{total} tamamlandı",
+      "queueWaitEstimate": "Tahmini bekleme: yaklaşık {duration}",
+      "elapsed": "Geçen süre: {duration}",
+      "queueAhead": "Sırada, önünde {count} görev var",
+      "processingFor": "{duration} süredir işleniyor",
+      "durationMinutes": "{minutes} dk {seconds} sn",
+      "durationSeconds": "{seconds} sn",
+      "pollingErrorStopped": "İşlem durumu alınamadı ({message}). Otomatik yenileme durduruldu.",
+      "pollingTimeout": "Görevler zamanında tamamlanmadı. Otomatik yenileme durduruldu; durumu daha sonra tekrar kontrol edin veya bir yöneticiyle iletişime geçin.",
+      "retryPolling": "Durumu tekrar kontrol et",
+      "workerIdleWarning": "Kuyruk boş olmasına rağmen görevler uzun süredir sırada bekliyor. Arka plan etiketleme servisi çalışmıyor olabilir; lütfen bir yöneticiyle iletişime geçin.",
+      "failedResultsTitle": "Başarısız varlıklar ({count})",
+      "status": {
+        "pending": "Sırada",
+        "processing": "İşleniyor",
+        "completed": "Tamamlandı",
+        "failed": "Başarısız"
+      },
+      "errorReason": {
+        "NO_VALID_TAGS": "Geçerli etiket bulunamadı (varlık bilgisi yetersiz veya etiket sisteminde uygun etiket yok)",
+        "NO_TAG_TREE": "Etiket sistemi boş. Lütfen önce etiket oluşturun.",
+        "NO_MATCHING_SOURCES_ENABLED": "Etkin bir eşleştirme stratejisi yok",
+        "PROCESSING_STALE_TIMEOUT": "İşlem zaman aşımına uğradı ve otomatik olarak başarısız olarak işaretlendi",
+        "UNKNOWN": "Arka uç işleme hatası. Lütfen servis günlüklerini kontrol edin."
+      }
     },
     "Common": {
       "refreshDataFailed": "Veriler yenilenemedi",

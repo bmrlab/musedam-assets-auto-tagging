@@ -562,7 +562,32 @@
       "preciseMode": "精準模式",
       "processingStatus": "處理狀態",
       "processingTasks": "正在處理 {count} 個標記任務",
-      "taggingCompleted": "標記完成！成功 {successCount} 個，失敗 {failedCount} 個"
+      "taggingCompleted": "標記完成！成功 {successCount} 個，失敗 {failedCount} 個",
+      "progressCount": "已完成 {done}/{total}",
+      "queueWaitEstimate": "預計還需等待約 {duration}",
+      "elapsed": "已用時 {duration}",
+      "queueAhead": "排隊中，前面還有 {count} 個任務",
+      "processingFor": "處理中，已處理 {duration}",
+      "durationMinutes": "{minutes} 分 {seconds} 秒",
+      "durationSeconds": "{seconds} 秒",
+      "pollingErrorStopped": "取得處理狀態失敗（{message}），已停止自動重新整理",
+      "pollingTimeout": "任務長時間未完成，已停止自動重新整理，請稍後重新檢查狀態或聯絡管理員",
+      "retryPolling": "重新檢查狀態",
+      "workerIdleWarning": "任務長時間處於排隊狀態且佇列閒置，後台打標服務可能未執行，請聯絡管理員檢查",
+      "failedResultsTitle": "失敗的素材（{count}）",
+      "status": {
+        "pending": "排隊中",
+        "processing": "處理中",
+        "completed": "已完成",
+        "failed": "失敗"
+      },
+      "errorReason": {
+        "NO_VALID_TAGS": "未匹配到有效標籤（素材資訊不足或標籤體系中沒有合適的標籤）",
+        "NO_TAG_TREE": "標籤體系為空，請先建立標籤",
+        "NO_MATCHING_SOURCES_ENABLED": "未啟用任何匹配策略",
+        "PROCESSING_STALE_TIMEOUT": "處理逾時，已被系統自動標記為失敗",
+        "UNKNOWN": "後端處理異常，請查看服務日誌"
+      }
     },
     "BrandClassify": {
       "backToLibrary": "返回品牌庫",

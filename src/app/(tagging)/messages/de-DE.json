@@ -562,7 +562,32 @@
       "preciseMode": "Präzisionsmodus",
       "processingStatus": "Verarbeitungsstatus",
       "processingTasks": "Verarbeite {count} Tagging-Aufgaben",
-      "taggingCompleted": "Tagging abgeschlossen! {successCount} erfolgreich, {failedCount} fehlgeschlagen"
+      "taggingCompleted": "Tagging abgeschlossen! {successCount} erfolgreich, {failedCount} fehlgeschlagen",
+      "progressCount": "{done}/{total} abgeschlossen",
+      "queueWaitEstimate": "Geschätzte Wartezeit: ca. {duration}",
+      "elapsed": "Verstrichen: {duration}",
+      "queueAhead": "In der Warteschlange, {count} Aufgaben davor",
+      "processingFor": "In Bearbeitung seit {duration}",
+      "durationMinutes": "{minutes} Min. {seconds} Sek.",
+      "durationSeconds": "{seconds} Sek.",
+      "pollingErrorStopped": "Verarbeitungsstatus konnte nicht abgerufen werden ({message}). Automatische Aktualisierung gestoppt.",
+      "pollingTimeout": "Die Aufgaben wurden nicht rechtzeitig abgeschlossen. Automatische Aktualisierung gestoppt; prüfen Sie den Status später erneut oder wenden Sie sich an einen Administrator.",
+      "retryPolling": "Status erneut prüfen",
+      "workerIdleWarning": "Die Aufgaben warten seit langem, obwohl die Warteschlange leer ist. Der Hintergrunddienst für das Tagging läuft möglicherweise nicht; bitte wenden Sie sich an einen Administrator.",
+      "failedResultsTitle": "Fehlgeschlagene Assets ({count})",
+      "status": {
+        "pending": "Wartend",
+        "processing": "In Bearbeitung",
+        "completed": "Abgeschlossen",
+        "failed": "Fehlgeschlagen"
+      },
+      "errorReason": {
+        "NO_VALID_TAGS": "Keine gültigen Tags gefunden (unzureichende Asset-Informationen oder kein passender Tag im Tag-System)",
+        "NO_TAG_TREE": "Das Tag-System ist leer. Bitte erstellen Sie zuerst Tags.",
+        "NO_MATCHING_SOURCES_ENABLED": "Keine Matching-Strategie aktiviert",
+        "PROCESSING_STALE_TIMEOUT": "Zeitüberschreitung bei der Verarbeitung, automatisch als fehlgeschlagen markiert",
+        "UNKNOWN": "Backend-Verarbeitungsfehler. Bitte prüfen Sie die Dienstprotokolle."
+      }
     },
     "BrandClassify": {
       "backToLibrary": "Zurück zur Markenbibliothek",

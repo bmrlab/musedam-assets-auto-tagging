@@ -548,7 +548,32 @@
       "processingStatus": "Statut de traitement",
       "processingTasks": "Traitement de {count} tâches d'étiquetage",
       "pollingDescription": "Vérification du statut toutes les 2 secondes, les résultats seront affichés automatiquement à la fin",
-      "aiMatching": "Correspondance IA"
+      "aiMatching": "Correspondance IA",
+      "progressCount": "{done}/{total} terminés",
+      "queueWaitEstimate": "Attente estimée : env. {duration}",
+      "elapsed": "Écoulé : {duration}",
+      "queueAhead": "En file d'attente, {count} tâches devant",
+      "processingFor": "En cours depuis {duration}",
+      "durationMinutes": "{minutes} min {seconds} s",
+      "durationSeconds": "{seconds} s",
+      "pollingErrorStopped": "Impossible de récupérer l'état du traitement ({message}). Actualisation automatique arrêtée.",
+      "pollingTimeout": "Les tâches ne se sont pas terminées à temps. Actualisation automatique arrêtée ; vérifiez à nouveau l'état plus tard ou contactez un administrateur.",
+      "retryPolling": "Vérifier à nouveau l'état",
+      "workerIdleWarning": "Les tâches sont en attente depuis longtemps alors que la file est inactive. Le service d'étiquetage en arrière-plan ne fonctionne peut-être pas ; contactez un administrateur.",
+      "failedResultsTitle": "Ressources en échec ({count})",
+      "status": {
+        "pending": "En attente",
+        "processing": "En cours",
+        "completed": "Terminé",
+        "failed": "Échec"
+      },
+      "errorReason": {
+        "NO_VALID_TAGS": "Aucune étiquette valide trouvée (informations insuffisantes sur la ressource ou aucune étiquette adaptée dans le système)",
+        "NO_TAG_TREE": "Le système d'étiquettes est vide. Veuillez d'abord créer des étiquettes.",
+        "NO_MATCHING_SOURCES_ENABLED": "Aucune stratégie de correspondance activée",
+        "PROCESSING_STALE_TIMEOUT": "Le traitement a expiré et a été automatiquement marqué comme échoué",
+        "UNKNOWN": "Erreur de traitement côté serveur. Consultez les journaux du service."
+      }
     },
     "Common": {
       "refreshDataFailed": "Échec de l'actualisation des données",

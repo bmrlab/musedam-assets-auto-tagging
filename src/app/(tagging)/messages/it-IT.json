@@ -548,7 +548,32 @@
       "processingStatus": "Stato elaborazione",
       "processingTasks": "Elaborazione {count} attività etichettatura",
       "pollingDescription": "Controllo stato ogni 2 secondi, risultati verranno visualizzati automaticamente al completamento",
-      "aiMatching": "Corrispondenza IA"
+      "aiMatching": "Corrispondenza IA",
+      "progressCount": "{done}/{total} completati",
+      "queueWaitEstimate": "Attesa stimata: circa {duration}",
+      "elapsed": "Trascorso: {duration}",
+      "queueAhead": "In coda, {count} attività davanti",
+      "processingFor": "In elaborazione da {duration}",
+      "durationMinutes": "{minutes} min {seconds} s",
+      "durationSeconds": "{seconds} s",
+      "pollingErrorStopped": "Impossibile recuperare lo stato dell'elaborazione ({message}). Aggiornamento automatico interrotto.",
+      "pollingTimeout": "Le attività non sono terminate in tempo. Aggiornamento automatico interrotto; ricontrolla lo stato più tardi o contatta un amministratore.",
+      "retryPolling": "Ricontrolla lo stato",
+      "workerIdleWarning": "Le attività sono in coda da molto tempo mentre la coda è inattiva. Il servizio di tagging in background potrebbe non essere in esecuzione; contatta un amministratore.",
+      "failedResultsTitle": "Risorse non riuscite ({count})",
+      "status": {
+        "pending": "In coda",
+        "processing": "In elaborazione",
+        "completed": "Completato",
+        "failed": "Non riuscito"
+      },
+      "errorReason": {
+        "NO_VALID_TAGS": "Nessun tag valido trovato (informazioni sulla risorsa insufficienti o nessun tag adatto nel sistema di tag)",
+        "NO_TAG_TREE": "Il sistema di tag è vuoto. Crea prima i tag.",
+        "NO_MATCHING_SOURCES_ENABLED": "Nessuna strategia di corrispondenza abilitata",
+        "PROCESSING_STALE_TIMEOUT": "Elaborazione scaduta e contrassegnata automaticamente come non riuscita",
+        "UNKNOWN": "Errore di elaborazione del backend. Controlla i log del servizio."
+      }
     },
     "Common": {
       "refreshDataFailed": "Impossibile aggiornare i dati",

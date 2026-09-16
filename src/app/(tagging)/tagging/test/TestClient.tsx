@@ -4,6 +4,7 @@ import { getBrandRecommendationFromQueueResult } from "@/app/(tagging)/brand-rec
 import { getIpRecommendationFromQueueResult } from "@/app/(tagging)/ip-recommendation";
 import { getPersonRecommendationFromQueueResult } from "@/app/(tagging)/person-recommendation";
 import { getProductRecommendationFromQueueResult } from "@/app/(tagging)/product-recommendation";
+import { PROCESS_STATE_BADGE_CLASS_NAMES } from "@/app/(tagging)/tagging/components/process-state-badge-classes";
 import { AssetThumbnail } from "@/components/AssetThumbnail";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -13,9 +14,9 @@ import { dispatchMuseDAMClientAction } from "@/embed/message";
 import { useFeatureLibraryFeatures } from "@/hooks/use-feature-library";
 import { isAcceptedPersonFace } from "@/lib/person/person-match-policy";
 import { cn } from "@/lib/utils";
-import { Loader2, PlayIcon, PlusIcon, Trash } from "lucide-react";
+import { AlertCircleIcon, Loader2, PlayIcon, PlusIcon, RefreshCwIcon, Trash } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { startTaggingTasksAction } from "./actions";
 import { TaggingResult, TaggingResultDisplay } from "./components/TaggingResultDisplay";
@@ -219,9 +220,10 @@ function buildMergedDisplayTags({
       tagPath: tag.tagPath,
       // 如实展示这条标签实际是被哪个/哪些信息源命中的（可能不止一个），
       // 而不是笼统地都显示成"AI 匹配"。理论上不应该出现空的情况，兜底用回旧的通用文案。
-      sourceLabel: contributingSourceLabels.length > 0
-        ? contributingSourceLabels.join(MATCHING_SOURCE_SEPARATOR)
-        : aiFallbackSourceLabel,
+      sourceLabel:
+        contributingSourceLabels.length > 0
+          ? contributingSourceLabels.join(MATCHING_SOURCE_SEPARATOR)
+          : aiFallbackSourceLabel,
       score: tag.score || 0,
     });
   });
@@ -276,6 +278,149 @@ function buildMergedDisplayTags({
     }));
 }
 
+type QueueItemStatus = "pending" | "processing" | "completed" | "failed";
+
+// 轮询接口返回的、用于展示进度的最小信息
+interface QueueProgressItem {
+  id: number;
+  status: QueueItemStatus;
+  assetName: string;
+  createdAt?: string;
+  startsAt?: string | null;
+  endsAt?: string | null;
+  queueEstimate?: {
+    aheadCount: number;
+    processingCount: number;
+    avgProcessingSeconds: number;
+    estimatedWaitSeconds: number;
+  } | null;
+  errorCode?: string;
+  errorMessage?: string;
+}
+
+interface FailedTaggingResult {
+  assetName: string;
+  errorCode?: string;
+  errorMessage?: string;
+}
+
+// 后端 processQueueItem / recoverStaleProcessingItems 会写入 result.error 的已知错误码
+const KNOWN_ERROR_CODES = [
+  "NO_VALID_TAGS",
+  "NO_TAG_TREE",
+  "NO_MATCHING_SOURCES_ENABLED",
+  "PROCESSING_STALE_TIMEOUT",
+  "UNKNOWN",
+] as const;
+type KnownErrorCode = (typeof KNOWN_ERROR_CODES)[number];
+
+function isKnownErrorCode(code: unknown): code is KnownErrorCode {
+  return typeof code === "string" && (KNOWN_ERROR_CODES as readonly string[]).includes(code);
+}
+
+// 连续多少次拉取状态失败后停止轮询并提示（2 秒一次，5 次 ≈ 10 秒）
+const MAX_CONSECUTIVE_POLL_FAILURES = 5;
+// 轮询兜底上限：超过这个时长仍未全部完成，停止轮询并提示（避免后台服务不可用时无限转圈）
+const MAX_POLLING_DURATION_MS = 30 * 60 * 1000;
+// 排队超过该时长且前面没有任务、也没有任务在处理中，提示后台处理服务可能未运行
+const WORKER_IDLE_WARNING_MS = 3 * 60 * 1000;
+
+// 切换页面 / 刷新后恢复测试页状态用（sessionStorage 仅限当前标签页，关闭即清理）
+const TEST_PAGE_STATE_STORAGE_KEY = "musedam-tagging-test-page-state";
+const TEST_PAGE_STATE_VERSION = 1;
+
+interface PersistedTestPageState {
+  version: number;
+  selectedAssets: SelectedAsset[];
+  taggingResults: TaggingResult[];
+  failedResults: FailedTaggingResult[];
+  queueItemIds: number[];
+  isPolling: boolean;
+  pollingStartedAt: number | null;
+  selectedScene: string;
+  recognitionAccuracy: "precise" | "balanced" | "broad";
+  matchingSources: {
+    basicInfo: boolean;
+    materializedPath: boolean;
+    contentAnalysis: boolean;
+    tagKeywords: boolean;
+  };
+}
+
+function loadPersistedTestPageState(): PersistedTestPageState | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.sessionStorage.getItem(TEST_PAGE_STATE_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<PersistedTestPageState> | null;
+    if (!parsed || parsed.version !== TEST_PAGE_STATE_VERSION) return null;
+    return {
+      version: TEST_PAGE_STATE_VERSION,
+      selectedAssets: Array.isArray(parsed.selectedAssets) ? parsed.selectedAssets : [],
+      taggingResults: Array.isArray(parsed.taggingResults) ? parsed.taggingResults : [],
+      failedResults: Array.isArray(parsed.failedResults) ? parsed.failedResults : [],
+      queueItemIds: Array.isArray(parsed.queueItemIds)
+        ? parsed.queueItemIds.filter((id): id is number => Number.isInteger(id))
+        : [],
+      isPolling: parsed.isPolling === true,
+      pollingStartedAt:
+        typeof parsed.pollingStartedAt === "number" ? parsed.pollingStartedAt : null,
+      selectedScene: typeof parsed.selectedScene === "string" ? parsed.selectedScene : "general",
+      recognitionAccuracy:
+        parsed.recognitionAccuracy === "precise" ||
+        parsed.recognitionAccuracy === "balanced" ||
+        parsed.recognitionAccuracy === "broad"
+          ? parsed.recognitionAccuracy
+          : "balanced",
+      matchingSources: {
+        basicInfo: parsed.matchingSources?.basicInfo ?? true,
+        materializedPath: parsed.matchingSources?.materializedPath ?? true,
+        contentAnalysis: parsed.matchingSources?.contentAnalysis ?? true,
+        tagKeywords: parsed.matchingSources?.tagKeywords ?? true,
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
+function savePersistedTestPageState(state: PersistedTestPageState) {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(TEST_PAGE_STATE_STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // 存储不可用（隐私模式 / 配额）时静默忽略，不影响主流程
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type QueueStatusPayload = Record<string, any>;
+
+async function fetchQueueItemStatus(id: number): Promise<QueueStatusPayload> {
+  const response = await fetch(`/api/tagging/queue-status/${id}`);
+  let payload: {
+    success?: boolean;
+    data?: QueueStatusPayload;
+    error?: string;
+    message?: string;
+  } = {};
+  try {
+    payload = await response.json();
+  } catch {
+    // 非 JSON 响应（网关 502 页面等），走下面的 status 提示
+  }
+  if (!response.ok || !payload.success || !payload.data) {
+    const detail = payload.message || payload.error || `HTTP ${response.status}`;
+    throw new Error(`#${id}: ${detail}`);
+  }
+  return payload.data;
+}
+
+function formatDurationParts(totalSeconds: number) {
+  const safe = Math.max(0, Math.round(totalSeconds));
+  return { minutes: Math.floor(safe / 60), seconds: safe % 60 };
+}
+
 export default function TestClient() {
   const t = useTranslations("Tagging.Test");
   const tClient = useTranslations("Tagging.TestClient");
@@ -286,9 +431,20 @@ export default function TestClient() {
   const [isPolling, setIsPolling] = useState(false);
   const [selectedAssets, setSelectedAssets] = useState<SelectedAsset[]>([]);
   const [taggingResults, setTaggingResults] = useState<TaggingResult[]>([]);
+  const [failedResults, setFailedResults] = useState<FailedTaggingResult[]>([]);
   const [queueItemIds, setQueueItemIds] = useState<number[]>([]);
+  // 每个队列任务的实时进度（排队位置 / 预估等待 / 失败原因）
+  const [queueProgress, setQueueProgress] = useState<Record<number, QueueProgressItem>>({});
+  // 轮询被异常中断的原因（拉取状态连续失败 / 超时），非空时展示错误与"重新检查"按钮
+  const [pollingError, setPollingError] = useState<string | null>(null);
+  const [pollingStartedAt, setPollingStartedAt] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
   const pollingRef = useRef<boolean>(false);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const consecutivePollFailuresRef = useRef(0);
+  const pollingStartedAtRef = useRef<number | null>(null);
+  // 是否已从 sessionStorage 恢复过状态；恢复前不要把默认值写回去覆盖已保存的内容
+  const [hydrated, setHydrated] = useState(false);
 
   // 配置状态
   const [selectedScene, setSelectedScene] = useState("general");
@@ -377,30 +533,74 @@ export default function TestClient() {
       if (!pollingRef.current || ids.length === 0) return;
 
       try {
-        const promises = ids.map(async (id) => {
-          const response = await fetch(`/api/tagging/queue-status/${id}`);
-          if (!response.ok) {
-            throw new Error(`Failed to fetch queue status for ${id}`);
-          }
-          const data = await response.json();
-          return data.success ? data.data : null;
-        });
+        const validResults = await Promise.all(ids.map((id) => fetchQueueItemStatus(id)));
+        consecutivePollFailuresRef.current = 0;
 
-        const results = await Promise.all(promises);
-        const validResults = results.filter(Boolean);
+        // 更新进度面板：排队位置 / 预估等待 / 失败原因
+        setQueueProgress(
+          Object.fromEntries(
+            validResults.map((item) => [
+              item.id,
+              {
+                id: item.id,
+                status: item.status as QueueItemStatus,
+                assetName: item.assetObject?.name || `#${item.id}`,
+                createdAt: item.createdAt,
+                startsAt: item.startsAt,
+                endsAt: item.endsAt,
+                queueEstimate: item.queueEstimate ?? null,
+                errorCode: item.result?.error,
+                errorMessage: item.result?.message,
+              } satisfies QueueProgressItem,
+            ]),
+          ),
+        );
 
         // 检查是否所有任务都已完成
         const allCompleted = validResults.every(
           (result) => result.status === "completed" || result.status === "failed",
         );
 
+        if (!allCompleted) {
+          // 兜底：轮询时间过长（后台处理服务不可用等）时停止，并明确告知用户
+          const startedAt = pollingStartedAtRef.current;
+          if (startedAt && Date.now() - startedAt > MAX_POLLING_DURATION_MS) {
+            stopPolling();
+            const message = tClient("pollingTimeout");
+            setPollingError(message);
+            toast.error(message);
+          }
+          return;
+        }
+
         if (allCompleted) {
           // 停止轮询
           stopPolling();
+          setPollingError(null);
 
           // 处理完成的结果
           const completedResults = validResults.filter((result) => result.status === "completed");
-          const failedResults = validResults.filter((result) => result.status === "failed");
+          const failedQueueItems = validResults.filter((result) => result.status === "failed");
+          const failedDetails: FailedTaggingResult[] = failedQueueItems.map((item) => ({
+            assetName: item.assetObject?.name || `#${item.id}`,
+            errorCode: typeof item.result?.error === "string" ? item.result.error : undefined,
+            errorMessage:
+              typeof item.result?.message === "string" ? item.result.message : undefined,
+          }));
+          setFailedResults(failedDetails);
+          const failedDescription =
+            failedDetails.length > 0
+              ? failedDetails
+                  .map(
+                    (item) =>
+                      `${item.assetName}: ${
+                        isKnownErrorCode(item.errorCode)
+                          ? tClient(`errorReason.${item.errorCode}`)
+                          : item.errorMessage || item.errorCode || tClient("errorReason.UNKNOWN")
+                      }`,
+                  )
+                  .join("\n")
+              : undefined;
 
           if (completedResults.length > 0) {
             // 转换结果格式以适配TaggingResultDisplay组件
@@ -617,21 +817,36 @@ export default function TestClient() {
               };
             });
             setTaggingResults(formattedResults);
-            toast.success(
-              tClient("taggingCompleted", {
-                successCount: completedResults.length,
-                failedCount: failedResults.length,
-              }),
-            );
+            const completedMessage = tClient("taggingCompleted", {
+              successCount: completedResults.length,
+              failedCount: failedQueueItems.length,
+            });
+            if (failedQueueItems.length > 0) {
+              toast.warning(completedMessage, { description: failedDescription });
+            } else {
+              toast.success(completedMessage);
+            }
           } else {
-            toast.error(tClient("allTaggingTasksFailed"));
+            toast.error(tClient("allTaggingTasksFailed"), { description: failedDescription });
           }
         }
       } catch (error) {
         console.error(tClient("pollingQueueStatusFailed"), error);
+        consecutivePollFailuresRef.current += 1;
+        if (consecutivePollFailuresRef.current >= MAX_CONSECUTIVE_POLL_FAILURES) {
+          // 后端接口持续异常：不再无声地转圈，停止轮询并把错误原因展示出来
+          stopPolling();
+          const message = tClient("pollingErrorStopped", {
+            message: error instanceof Error ? error.message : String(error),
+          });
+          setPollingError(message);
+          toast.error(tClient("pollingQueueStatusFailed"), {
+            description: error instanceof Error ? error.message : String(error),
+          });
+        }
       }
     },
-    [featureLibraryFeatures, stopPolling, tClient, tResult, tSidebar],
+    [featureLibraryFeatures, stopPolling, t, tClient, tResult, tSidebar],
   );
 
   // 开始轮询
@@ -640,8 +855,10 @@ export default function TestClient() {
       if (pollingRef.current) return;
 
       pollingRef.current = true;
+      consecutivePollFailuresRef.current = 0;
       setIsPolling(true);
       setQueueItemIds(ids);
+      setPollingError(null);
       // 立即执行一次
       pollQueueStatus(ids);
 
@@ -655,16 +872,131 @@ export default function TestClient() {
     [pollQueueStatus],
   );
 
-  // useEffect(() => {
-  //   startPolling([19, 20]);
-  // }, [])
+  // 重新开始一轮轮询（首次发起 / 从其它页面切回来恢复 / 拉取状态失败后手动重试）
+  const beginPollingSession = useCallback(
+    (ids: number[], startedAt: number) => {
+      pollingStartedAtRef.current = startedAt;
+      setPollingStartedAt(startedAt);
+      startPolling(ids);
+    },
+    [startPolling],
+  );
 
-  // 组件卸载时清理轮询
+  // 首次挂载：从 sessionStorage 恢复上一次的选择、结果与进行中的任务，切页回来不丢
+  useEffect(() => {
+    const persisted = loadPersistedTestPageState();
+    if (persisted) {
+      setSelectedAssets(persisted.selectedAssets);
+      setTaggingResults(persisted.taggingResults);
+      setFailedResults(persisted.failedResults);
+      setQueueItemIds(persisted.queueItemIds);
+      setSelectedScene(persisted.selectedScene);
+      setRecognitionAccuracy(persisted.recognitionAccuracy);
+      setMatchingSources(persisted.matchingSources);
+      if (persisted.isPolling && persisted.queueItemIds.length > 0) {
+        beginPollingSession(persisted.queueItemIds, persisted.pollingStartedAt ?? Date.now());
+      }
+    }
+    setHydrated(true);
+    // 仅在挂载时恢复一次
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 状态变化时写回 sessionStorage
+  useEffect(() => {
+    if (!hydrated) return;
+    savePersistedTestPageState({
+      version: TEST_PAGE_STATE_VERSION,
+      selectedAssets,
+      taggingResults,
+      failedResults,
+      queueItemIds,
+      isPolling,
+      pollingStartedAt,
+      selectedScene,
+      recognitionAccuracy,
+      matchingSources,
+    });
+  }, [
+    hydrated,
+    selectedAssets,
+    taggingResults,
+    failedResults,
+    queueItemIds,
+    isPolling,
+    pollingStartedAt,
+    selectedScene,
+    recognitionAccuracy,
+    matchingSources,
+  ]);
+
+  // 轮询期间每秒刷新一次"已用时"
+  useEffect(() => {
+    if (!isPolling) return;
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [isPolling]);
+
+  // 组件卸载时清理轮询（isPolling 已持久化，切回页面会自动恢复）
   useEffect(() => {
     return () => {
       stopPolling();
     };
   }, [stopPolling]);
+
+  const formatDuration = useCallback(
+    (totalSeconds: number) => {
+      const { minutes, seconds } = formatDurationParts(totalSeconds);
+      return minutes > 0
+        ? tClient("durationMinutes", { minutes, seconds })
+        : tClient("durationSeconds", { seconds });
+    },
+    [tClient],
+  );
+
+  const describeFailure = useCallback(
+    (item: { errorCode?: string; errorMessage?: string }) => {
+      if (isKnownErrorCode(item.errorCode) && item.errorCode !== "UNKNOWN") {
+        return tClient(`errorReason.${item.errorCode}`);
+      }
+      return item.errorMessage || item.errorCode || tClient("errorReason.UNKNOWN");
+    },
+    [tClient],
+  );
+
+  // 进度汇总：完成数、最长预估等待、是否疑似后台服务未运行
+  const progressSummary = useMemo(() => {
+    const items = queueItemIds
+      .map((id) => queueProgress[id])
+      .filter((item): item is QueueProgressItem => Boolean(item));
+    const doneCount = items.filter(
+      (item) => item.status === "completed" || item.status === "failed",
+    ).length;
+    const activeItems = items.filter(
+      (item) => item.status === "pending" || item.status === "processing",
+    );
+    const estimatedWaitSeconds = activeItems.reduce(
+      (max, item) => Math.max(max, item.queueEstimate?.estimatedWaitSeconds ?? 0),
+      0,
+    );
+    const elapsedMs = pollingStartedAt ? Math.max(0, now - pollingStartedAt) : 0;
+    const workerMayBeIdle =
+      elapsedMs > WORKER_IDLE_WARNING_MS &&
+      activeItems.length > 0 &&
+      activeItems.every(
+        (item) =>
+          item.status === "pending" &&
+          (item.queueEstimate?.aheadCount ?? 0) === 0 &&
+          (item.queueEstimate?.processingCount ?? 0) === 0,
+      );
+    return { items, doneCount, estimatedWaitSeconds, elapsedMs, workerMayBeIdle };
+  }, [queueItemIds, queueProgress, pollingStartedAt, now]);
+
+  const handleRetryPolling = useCallback(() => {
+    if (queueItemIds.length === 0) return;
+    beginPollingSession(queueItemIds, pollingStartedAtRef.current ?? Date.now());
+  }, [beginPollingSession, queueItemIds]);
 
   const handleAssetSelection = async () => {
     try {
@@ -703,6 +1035,9 @@ export default function TestClient() {
     try {
       setIsProcessing(true);
       setTaggingResults([]); // 清空之前的结果
+      setFailedResults([]);
+      setQueueProgress({});
+      setPollingError(null);
 
       const result = await startTaggingTasksAction(selectedAssets, {
         matchingSources,
@@ -718,15 +1053,20 @@ export default function TestClient() {
           toast.warning(t("taggingTasksPartialSuccess", { successCount, failedCount }), {
             description:
               failedAssets.length > 0
-                ? t("failedAssets", { assets: failedAssets.join(", ") })
+                ? t("failedAssets", {
+                    assets: failedAssets.map((item) => `${item.name}（${item.reason}）`).join(", "),
+                  })
                 : undefined,
           });
+          // 发起阶段就失败的素材也列入失败结果，避免用户只看到数字看不到原因
+          setFailedResults(
+            failedAssets.map((item) => ({ assetName: item.name, errorMessage: item.reason })),
+          );
         }
 
         // 开始轮询队列状态
         if (queueItemIds.length > 0) {
-          startPolling(queueItemIds);
-          // toast.info("正在处理中，请稍候...");
+          beginPollingSession(queueItemIds, Date.now());
         }
 
         // 不再跳转到review页面，而是在当前页面显示结果
@@ -742,7 +1082,7 @@ export default function TestClient() {
     } finally {
       setIsProcessing(false);
     }
-  }, [selectedAssets, matchingSources, recognitionAccuracy, startPolling, t]);
+  }, [selectedAssets, matchingSources, recognitionAccuracy, beginPollingSession, t]);
 
   const removeAsset = (assetId: string) => {
     setSelectedAssets((prev) => prev.filter((asset) => asset.id !== assetId));
@@ -910,6 +1250,118 @@ export default function TestClient() {
                 </Button>
               )} */}
             </div>
+
+            {/* 处理进度：排队位置 / 预估等待时长 / 每个素材的状态与失败原因 */}
+            {(isPolling || pollingError || progressSummary.items.length > 0) &&
+              queueItemIds.length > 0 && (
+                <div className="border border-basic-4 rounded-md">
+                  <div className="px-4 py-3 border-b flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      {isPolling && <Loader2 className="size-4 animate-spin text-primary-6" />}
+                      <span>{tClient("processingStatus")}</span>
+                      <span className="text-basic-5 font-normal">
+                        {tClient("progressCount", {
+                          done: progressSummary.doneCount,
+                          total: queueItemIds.length,
+                        })}
+                      </span>
+                    </div>
+                    {isPolling && (
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-basic-5">
+                        {progressSummary.estimatedWaitSeconds > 0 && (
+                          <span>
+                            {tClient("queueWaitEstimate", {
+                              duration: formatDuration(progressSummary.estimatedWaitSeconds),
+                            })}
+                          </span>
+                        )}
+                        <span>
+                          {tClient("elapsed", {
+                            duration: formatDuration(progressSummary.elapsedMs / 1000),
+                          })}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-4 space-y-3">
+                    {pollingError && (
+                      <div className="flex items-start gap-2 rounded-md border border-danger-6/40 bg-danger-1 px-3 py-2 text-xs text-danger-6">
+                        <AlertCircleIcon className="size-4 shrink-0 mt-0.5" />
+                        <div className="flex-1 space-y-2">
+                          <p>{pollingError}</p>
+                          <Button size="sm" variant="outline" onClick={handleRetryPolling}>
+                            <RefreshCwIcon className="size-3.5" />
+                            {tClient("retryPolling")}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                    {isPolling && progressSummary.workerMayBeIdle && (
+                      <div className="flex items-start gap-2 rounded-md border border-warning-6/40 bg-warning-1 px-3 py-2 text-xs text-warning-6">
+                        <AlertCircleIcon className="size-4 shrink-0 mt-0.5" />
+                        <p>{tClient("workerIdleWarning")}</p>
+                      </div>
+                    )}
+                    {isPolling && progressSummary.items.length === 0 && (
+                      <p className="text-xs text-basic-5">{tClient("pollingDescription")}</p>
+                    )}
+                    {progressSummary.items.length > 0 && (
+                      <ul className="space-y-2">
+                        {progressSummary.items.map((item) => {
+                          const statusLabel = tClient(`status.${item.status}`);
+                          let detail: string | null = null;
+                          if (item.status === "pending") {
+                            detail = tClient("queueAhead", {
+                              count: item.queueEstimate?.aheadCount ?? 0,
+                            });
+                          } else if (item.status === "processing") {
+                            const startedAtMs = item.startsAt
+                              ? new Date(item.startsAt).getTime()
+                              : NaN;
+                            detail = Number.isFinite(startedAtMs)
+                              ? tClient("processingFor", {
+                                  duration: formatDuration((now - startedAtMs) / 1000),
+                                })
+                              : null;
+                          } else if (item.status === "failed") {
+                            detail = describeFailure(item);
+                          }
+                          return (
+                            <li
+                              key={item.id}
+                              className="flex items-start justify-between gap-3 text-xs"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate font-medium text-sm">{item.assetName}</p>
+                                {detail && (
+                                  <p
+                                    className={cn(
+                                      "mt-0.5 break-all",
+                                      item.status === "failed" ? "text-danger-6" : "text-basic-5",
+                                    )}
+                                  >
+                                    {detail}
+                                  </p>
+                                )}
+                              </div>
+                              <span
+                                className={cn(
+                                  "shrink-0 rounded border px-2 py-0.5",
+                                  item.status === "pending"
+                                    ? "border-basic-4 bg-basic-1 text-basic-6"
+                                    : PROCESS_STATE_BADGE_CLASS_NAMES[item.status],
+                                )}
+                              >
+                                {statusLabel}
+                              </span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              )}
           </div>
         </div>
 
@@ -930,6 +1382,27 @@ export default function TestClient() {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* 失败的素材：把后端的失败原因展示出来，而不是只有一句"失败 N 个" */}
+        {!isPolling && failedResults.length > 0 && (
+          <div className="bg-background border rounded-md">
+            <div className="px-4 py-3 border-b flex items-center gap-2">
+              <AlertCircleIcon className="size-4 text-danger-6" />
+              <h3 className="font-medium text-sm">
+                {tClient("failedResultsTitle", { count: failedResults.length })}
+              </h3>
+            </div>
+            <ul className="p-4 space-y-2">
+              {failedResults.map((item, index) => (
+                <li key={`${item.assetName}-${index}`} className="text-sm">
+                  <span className="font-medium">{item.assetName}</span>
+                  <span className="text-basic-5">：</span>
+                  <span className="text-danger-6 break-all">{describeFailure(item)}</span>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 

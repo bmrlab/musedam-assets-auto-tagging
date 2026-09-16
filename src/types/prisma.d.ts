@@ -178,6 +178,8 @@ export type TaggingPersonMatch = {
   import { SourceBasedTagPredictions, TagWithScore } from "@/app/(tagging)/types";
   export type TaggingQueueItemResult = Partial<{
     error: string;
+    /** 失败时的可读错误信息（error 为错误码，message 为原始异常信息） */
+    message: string;
     predictions: SourceBasedTagPredictions;
     tagsWithScore: TagWithScore[];
     brandRecommendation: TaggingBrandRecommendation | null;

@@ -3,6 +3,7 @@ import { getBrandRecommendationFromQueueResult } from "@/app/(tagging)/brand-rec
 import { getIpRecommendationFromQueueResult } from "@/app/(tagging)/ip-recommendation";
 import { getPersonRecommendationFromQueueResult } from "@/app/(tagging)/person-recommendation";
 import { getProductRecommendationFromQueueResult } from "@/app/(tagging)/product-recommendation";
+import { getQueueWaitEstimate } from "@/app/(tagging)/queue-estimate";
 import { filterFeatureLibraryRecommendations } from "@/lib/feature-library";
 import { getFeatureLibraryFeaturesFromRequest } from "@/lib/feature-library-server";
 import { isAcceptedPersonFace } from "@/lib/person/person-match-policy";
@@ -42,6 +43,17 @@ export async function GET(
           { status: 404 },
         );
       }
+
+      // 排队 / 处理中的任务：附带排队位置与预估等待时长，供测试页展示"还要等多久"
+      const queueEstimate =
+        queueItem.status === "pending" || queueItem.status === "processing"
+          ? await getQueueWaitEstimate({
+              teamId,
+              queueItemId: queueItem.id,
+              createdAt: queueItem.createdAt,
+              status: queueItem.status,
+            })
+          : null;
 
       const brandRecommendation = featureLibraryFeatures.featureBrand
         ? getBrandRecommendationFromQueueResult(queueItem.result)
@@ -136,6 +148,7 @@ export async function GET(
         success: true,
         data: {
           ...queueItem,
+          queueEstimate,
           result: filterFeatureLibraryRecommendations(queueItem.result, featureLibraryFeatures),
           brandLinkedTags: brandLinkedTags.map((tag) => ({
             assetTagId: tag.assetTagId,
@@ -162,6 +175,7 @@ export async function GET(
         {
           success: false,
           error: "获取队列状态失败",
+          message: error instanceof Error ? error.message : String(error),
         },
         { status: 500 },
       );

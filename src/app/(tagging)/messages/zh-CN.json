@@ -874,7 +874,32 @@
       "processingStatus": "处理状态",
       "processingTasks": "正在处理 {count} 个打标任务",
       "pollingDescription": "每2秒检查一次状态，完成后将自动显示结果",
-      "aiMatching": "AI 匹配"
+      "aiMatching": "AI 匹配",
+      "progressCount": "已完成 {done}/{total}",
+      "queueWaitEstimate": "预计还需等待约 {duration}",
+      "elapsed": "已用时 {duration}",
+      "queueAhead": "排队中，前面还有 {count} 个任务",
+      "processingFor": "处理中，已处理 {duration}",
+      "durationMinutes": "{minutes} 分 {seconds} 秒",
+      "durationSeconds": "{seconds} 秒",
+      "pollingErrorStopped": "获取处理状态失败（{message}），已停止自动刷新",
+      "pollingTimeout": "任务长时间未完成，已停止自动刷新，请稍后重新检查状态或联系管理员",
+      "retryPolling": "重新检查状态",
+      "workerIdleWarning": "任务长时间处于排队状态且队列空闲，后台打标服务可能未运行，请联系管理员检查",
+      "failedResultsTitle": "失败的素材（{count}）",
+      "status": {
+        "pending": "排队中",
+        "processing": "处理中",
+        "completed": "已完成",
+        "failed": "失败"
+      },
+      "errorReason": {
+        "NO_VALID_TAGS": "未匹配到有效标签（素材信息不足或标签体系中没有合适的标签）",
+        "NO_TAG_TREE": "标签体系为空，请先创建标签",
+        "NO_MATCHING_SOURCES_ENABLED": "未启用任何匹配策略",
+        "PROCESSING_STALE_TIMEOUT": "处理超时，已被系统自动标记为失败",
+        "UNKNOWN": "后端处理异常，请查看服务日志"
+      }
     },
     "Common": {
       "refreshDataFailed": "刷新数据失败:",

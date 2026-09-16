@@ -39,7 +39,7 @@ export async function startTaggingTasksAction(
   ServerActionResult<{
     successCount: number;
     failedCount: number;
-    failedAssets: string[];
+    failedAssets: { name: string; reason: string }[];
     queueItemIds: number[];
   }>
 > {
@@ -47,7 +47,7 @@ export async function startTaggingTasksAction(
     try {
       let successCount = 0;
       let failedCount = 0;
-      const failedAssets: string[] = [];
+      const failedAssets: { name: string; reason: string }[] = [];
       const queueItemIds: number[] = [];
       const featureLibraryFeatures = await getServerFeatureLibraryFeatures();
 
@@ -83,7 +83,10 @@ export async function startTaggingTasksAction(
         } catch (error) {
           console.error(`Error starting tagging for asset ${asset.name} (${asset.id}):`, error);
           failedCount++;
-          failedAssets.push(asset.name);
+          failedAssets.push({
+            name: asset.name || asset.id,
+            reason: error instanceof Error ? error.message : String(error),
+          });
         }
       }
 
@@ -100,7 +103,7 @@ export async function startTaggingTasksAction(
       console.error("批量发起打标任务失败:", error);
       return {
         success: false,
-        message: "批量发起打标任务失败",
+        message: error instanceof Error ? error.message : String(error),
       };
     }
   });

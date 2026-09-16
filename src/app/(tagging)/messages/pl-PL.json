@@ -797,7 +797,32 @@
       "processingStatus": "Status przetwarzania",
       "processingTasks": "Przetwarzanie {count} zadań tagowania",
       "pollingDescription": "Sprawdzanie statusu co 2 sekundy, wyniki będą wyświetlane automatycznie po ukończeniu",
-      "aiMatching": "Dopasowanie AI"
+      "aiMatching": "Dopasowanie AI",
+      "progressCount": "Ukończono {done}/{total}",
+      "queueWaitEstimate": "Szacowany czas oczekiwania: ok. {duration}",
+      "elapsed": "Upłynęło: {duration}",
+      "queueAhead": "W kolejce, zadań przed tobą: {count}",
+      "processingFor": "Przetwarzanie trwa {duration}",
+      "durationMinutes": "{minutes} min {seconds} s",
+      "durationSeconds": "{seconds} s",
+      "pollingErrorStopped": "Nie udało się pobrać stanu przetwarzania ({message}). Automatyczne odświeżanie zatrzymane.",
+      "pollingTimeout": "Zadania nie zakończyły się na czas. Automatyczne odświeżanie zatrzymane; sprawdź stan później lub skontaktuj się z administratorem.",
+      "retryPolling": "Sprawdź stan ponownie",
+      "workerIdleWarning": "Zadania od dłuższego czasu czekają w kolejce, mimo że kolejka jest pusta. Usługa tagowania w tle może nie działać; skontaktuj się z administratorem.",
+      "failedResultsTitle": "Nieudane zasoby ({count})",
+      "status": {
+        "pending": "W kolejce",
+        "processing": "Przetwarzanie",
+        "completed": "Ukończono",
+        "failed": "Niepowodzenie"
+      },
+      "errorReason": {
+        "NO_VALID_TAGS": "Nie znaleziono prawidłowych tagów (niewystarczające informacje o zasobie lub brak odpowiedniego tagu w systemie tagów)",
+        "NO_TAG_TREE": "System tagów jest pusty. Najpierw utwórz tagi.",
+        "NO_MATCHING_SOURCES_ENABLED": "Nie włączono żadnej strategii dopasowania",
+        "PROCESSING_STALE_TIMEOUT": "Przekroczono limit czasu przetwarzania, zadanie automatycznie oznaczono jako nieudane",
+        "UNKNOWN": "Błąd przetwarzania po stronie serwera. Sprawdź logi usługi."
+      }
     },
     "Common": {
       "refreshDataFailed": "Nie udało się odświeżyć danych",

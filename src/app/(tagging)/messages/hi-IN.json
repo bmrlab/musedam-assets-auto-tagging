@@ -843,7 +843,32 @@
       "preciseMode": "सटीक मोड",
       "processingStatus": "प्रोसेसिंग स्थिति",
       "processingTasks": "{count} टैगिंग कार्य प्रोसेसिंग किए जा रहे हैं",
-      "taggingCompleted": "टैगिंग पूरी हुई! {successCount} सफल, {failedCount} विफल"
+      "taggingCompleted": "टैगिंग पूरी हुई! {successCount} सफल, {failedCount} विफल",
+      "progressCount": "{done}/{total} पूर्ण",
+      "queueWaitEstimate": "अनुमानित प्रतीक्षा: लगभग {duration}",
+      "elapsed": "बीता समय: {duration}",
+      "queueAhead": "कतार में, आगे {count} कार्य हैं",
+      "processingFor": "{duration} से प्रोसेस हो रहा है",
+      "durationMinutes": "{minutes} मिनट {seconds} सेकंड",
+      "durationSeconds": "{seconds} सेकंड",
+      "pollingErrorStopped": "प्रोसेसिंग स्थिति प्राप्त नहीं हो सकी ({message})। स्वचालित रिफ़्रेश रोक दिया गया।",
+      "pollingTimeout": "कार्य समय पर पूरे नहीं हुए। स्वचालित रिफ़्रेश रोक दिया गया; बाद में स्थिति फिर जाँचें या व्यवस्थापक से संपर्क करें।",
+      "retryPolling": "स्थिति फिर जाँचें",
+      "workerIdleWarning": "कतार खाली होने के बावजूद कार्य लंबे समय से कतार में हैं। पृष्ठभूमि टैगिंग सेवा शायद नहीं चल रही; कृपया व्यवस्थापक से संपर्क करें।",
+      "failedResultsTitle": "विफल संपत्तियाँ ({count})",
+      "status": {
+        "pending": "कतार में",
+        "processing": "प्रोसेस हो रहा है",
+        "completed": "पूर्ण",
+        "failed": "विफल"
+      },
+      "errorReason": {
+        "NO_VALID_TAGS": "कोई मान्य टैग नहीं मिला (संपत्ति की जानकारी अपर्याप्त या टैग सिस्टम में उपयुक्त टैग नहीं)",
+        "NO_TAG_TREE": "टैग सिस्टम खाली है। कृपया पहले टैग बनाएँ।",
+        "NO_MATCHING_SOURCES_ENABLED": "कोई मिलान रणनीति सक्षम नहीं है",
+        "PROCESSING_STALE_TIMEOUT": "प्रोसेसिंग का समय समाप्त हो गया और इसे स्वतः विफल चिह्नित किया गया",
+        "UNKNOWN": "बैकएंड प्रोसेसिंग त्रुटि। कृपया सेवा लॉग जाँचें।"
+      }
     },
     "PersonLibrary": {
       "title": "व्यक्ति विशेषता लाइब्रेरी",

@@ -562,7 +562,32 @@
       "preciseMode": "Modo Preciso",
       "processingStatus": "Estado de Procesamiento",
       "processingTasks": "Procesando {count} tareas de etiquetado",
-      "taggingCompleted": "Etiquetado completado. {successCount} correctos, {failedCount} fallidos"
+      "taggingCompleted": "Etiquetado completado. {successCount} correctos, {failedCount} fallidos",
+      "progressCount": "{done}/{total} completados",
+      "queueWaitEstimate": "Espera estimada: aprox. {duration}",
+      "elapsed": "Transcurrido: {duration}",
+      "queueAhead": "En cola, {count} tareas por delante",
+      "processingFor": "Procesando desde hace {duration}",
+      "durationMinutes": "{minutes} min {seconds} s",
+      "durationSeconds": "{seconds} s",
+      "pollingErrorStopped": "No se pudo obtener el estado del procesamiento ({message}). Actualización automática detenida.",
+      "pollingTimeout": "Las tareas no terminaron a tiempo. Actualización automática detenida; vuelve a comprobar el estado más tarde o contacta con un administrador.",
+      "retryPolling": "Comprobar estado de nuevo",
+      "workerIdleWarning": "Las tareas llevan mucho tiempo en cola aunque la cola está inactiva. Es posible que el servicio de etiquetado en segundo plano no esté en ejecución; contacta con un administrador.",
+      "failedResultsTitle": "Recursos fallidos ({count})",
+      "status": {
+        "pending": "En cola",
+        "processing": "Procesando",
+        "completed": "Completado",
+        "failed": "Fallido"
+      },
+      "errorReason": {
+        "NO_VALID_TAGS": "No se encontraron etiquetas válidas (información insuficiente del recurso o ninguna etiqueta adecuada en el sistema de etiquetas)",
+        "NO_TAG_TREE": "El sistema de etiquetas está vacío. Crea etiquetas primero.",
+        "NO_MATCHING_SOURCES_ENABLED": "No hay ninguna estrategia de coincidencia activada",
+        "PROCESSING_STALE_TIMEOUT": "El procesamiento superó el tiempo límite y se marcó automáticamente como fallido",
+        "UNKNOWN": "Error de procesamiento en el backend. Revisa los registros del servicio."
+      }
     },
     "BrandClassify": {
       "backToLibrary": "Volver a la biblioteca de marca",

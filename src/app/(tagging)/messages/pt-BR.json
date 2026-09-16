@@ -562,7 +562,32 @@
       "preciseMode": "Modo Preciso",
       "processingStatus": "Status do Processamento",
       "processingTasks": "Processando {count} tarefas de marcação",
-      "taggingCompleted": "Marcação concluída! {successCount} bem-sucedido(s), {failedCount} falha(s)"
+      "taggingCompleted": "Marcação concluída! {successCount} bem-sucedido(s), {failedCount} falha(s)",
+      "progressCount": "{done}/{total} concluídos",
+      "queueWaitEstimate": "Espera estimada: cerca de {duration}",
+      "elapsed": "Decorrido: {duration}",
+      "queueAhead": "Na fila, {count} tarefas à frente",
+      "processingFor": "Processando há {duration}",
+      "durationMinutes": "{minutes} min {seconds} s",
+      "durationSeconds": "{seconds} s",
+      "pollingErrorStopped": "Falha ao obter o status do processamento ({message}). Atualização automática interrompida.",
+      "pollingTimeout": "As tarefas não foram concluídas a tempo. Atualização automática interrompida; verifique o status novamente mais tarde ou contate um administrador.",
+      "retryPolling": "Verificar status novamente",
+      "workerIdleWarning": "As tarefas estão na fila há muito tempo enquanto a fila está ociosa. O serviço de marcação em segundo plano pode não estar em execução; contate um administrador.",
+      "failedResultsTitle": "Ativos com falha ({count})",
+      "status": {
+        "pending": "Na fila",
+        "processing": "Processando",
+        "completed": "Concluído",
+        "failed": "Falhou"
+      },
+      "errorReason": {
+        "NO_VALID_TAGS": "Nenhuma tag válida encontrada (informações insuficientes do ativo ou nenhuma tag adequada no sistema de tags)",
+        "NO_TAG_TREE": "O sistema de tags está vazio. Crie tags primeiro.",
+        "NO_MATCHING_SOURCES_ENABLED": "Nenhuma estratégia de correspondência ativada",
+        "PROCESSING_STALE_TIMEOUT": "O processamento expirou e foi marcado automaticamente como falha",
+        "UNKNOWN": "Erro de processamento no backend. Verifique os logs do serviço."
+      }
     },
     "BrandClassify": {
       "backToLibrary": "Voltar para a Biblioteca de Marca",

@@ -561,7 +561,32 @@
       "preciseMode": "정확 모드",
       "processingStatus": "처리 상태",
       "processingTasks": "{count}개의 태깅 작업을 처리 중입니다",
-      "taggingCompleted": "태깅 완료! 성공 {successCount}개, 실패 {failedCount}개"
+      "taggingCompleted": "태깅 완료! 성공 {successCount}개, 실패 {failedCount}개",
+      "progressCount": "완료 {done}/{total}",
+      "queueWaitEstimate": "예상 대기 시간: 약 {duration}",
+      "elapsed": "경과 시간: {duration}",
+      "queueAhead": "대기 중, 앞에 {count}개 작업이 있습니다",
+      "processingFor": "처리 중 ({duration} 경과)",
+      "durationMinutes": "{minutes}분 {seconds}초",
+      "durationSeconds": "{seconds}초",
+      "pollingErrorStopped": "처리 상태를 가져오지 못했습니다({message}). 자동 새로고침을 중지했습니다.",
+      "pollingTimeout": "작업이 오랫동안 완료되지 않아 자동 새로고침을 중지했습니다. 잠시 후 다시 확인하거나 관리자에게 문의하세요.",
+      "retryPolling": "상태 다시 확인",
+      "workerIdleWarning": "대기열이 비어 있는데도 작업이 오랫동안 대기 중입니다. 백그라운드 태깅 서비스가 실행되지 않았을 수 있으니 관리자에게 문의하세요.",
+      "failedResultsTitle": "실패한 자산({count})",
+      "status": {
+        "pending": "대기 중",
+        "processing": "처리 중",
+        "completed": "완료",
+        "failed": "실패"
+      },
+      "errorReason": {
+        "NO_VALID_TAGS": "유효한 태그를 찾지 못했습니다(자산 정보가 부족하거나 태그 체계에 적합한 태그가 없음)",
+        "NO_TAG_TREE": "태그 체계가 비어 있습니다. 먼저 태그를 생성하세요.",
+        "NO_MATCHING_SOURCES_ENABLED": "활성화된 매칭 전략이 없습니다",
+        "PROCESSING_STALE_TIMEOUT": "처리 시간이 초과되어 자동으로 실패로 표시되었습니다",
+        "UNKNOWN": "백엔드 처리 오류입니다. 서비스 로그를 확인하세요."
+      }
     },
     "BrandClassify": {
       "backToLibrary": "브랜드 라이브러리로 돌아가기",

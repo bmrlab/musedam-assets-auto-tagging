@@ -562,7 +562,32 @@
       "preciseMode": "高精度モード",
       "processingStatus": "処理状況",
       "processingTasks": "{count} 件のラベリングタスクを処理中です",
-      "taggingCompleted": "タグ付け完了！成功 {successCount} 件、失敗 {failedCount} 件"
+      "taggingCompleted": "タグ付け完了！成功 {successCount} 件、失敗 {failedCount} 件",
+      "progressCount": "完了 {done}/{total}",
+      "queueWaitEstimate": "推定待ち時間：約 {duration}",
+      "elapsed": "経過時間：{duration}",
+      "queueAhead": "待機中、前に {count} 件のタスクがあります",
+      "processingFor": "処理中（{duration} 経過）",
+      "durationMinutes": "{minutes} 分 {seconds} 秒",
+      "durationSeconds": "{seconds} 秒",
+      "pollingErrorStopped": "処理状況の取得に失敗しました（{message}）。自動更新を停止しました。",
+      "pollingTimeout": "タスクが長時間完了しないため自動更新を停止しました。しばらくしてから再確認するか、管理者にお問い合わせください。",
+      "retryPolling": "状況を再確認",
+      "workerIdleWarning": "キューが空いているのにタスクが長時間待機中です。バックグラウンドのタグ付けサービスが動作していない可能性があります。管理者にご確認ください。",
+      "failedResultsTitle": "失敗した素材（{count}）",
+      "status": {
+        "pending": "待機中",
+        "processing": "処理中",
+        "completed": "完了",
+        "failed": "失敗"
+      },
+      "errorReason": {
+        "NO_VALID_TAGS": "有効なタグが見つかりませんでした（素材情報が不足しているか、タグ体系に適切なタグがありません）",
+        "NO_TAG_TREE": "タグ体系が空です。先にタグを作成してください。",
+        "NO_MATCHING_SOURCES_ENABLED": "マッチング戦略が有効になっていません",
+        "PROCESSING_STALE_TIMEOUT": "処理がタイムアウトし、自動的に失敗としてマークされました",
+        "UNKNOWN": "バックエンド処理エラーです。サービスログを確認してください。"
+      }
     },
     "BrandClassify": {
       "backToLibrary": "ブランドライブラリに戻る",

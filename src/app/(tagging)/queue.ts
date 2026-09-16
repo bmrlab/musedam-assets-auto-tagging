@@ -684,12 +684,14 @@ export async function processQueueItem({
         error: String(error),
       });
     }
+    // 同时把原始异常信息落库，前端才能把"后端异常"具体原因展示给用户，而不是只有一个 UNKNOWN。
+    const errorMessage = error instanceof Error ? error.message : String(error);
     await prisma.taggingQueueItem.update({
       where: { id: queueItem.id },
       data: {
         status: "failed",
         endsAt: new Date(),
-        result: { error: errorCode } as TaggingQueueItemResult,
+        result: { error: errorCode, message: errorMessage } as TaggingQueueItemResult,
       },
     });
   }

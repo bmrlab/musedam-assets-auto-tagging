@@ -797,7 +797,32 @@
       "processingStatus": "Trạng thái xử lý",
       "processingTasks": "Đang xử lý {count} nhiệm vụ gắn thẻ",
       "pollingDescription": "Kiểm tra trạng thái mỗi 2 giây, hoàn tất sẽ tự động hiển thị kết quả",
-      "aiMatching": "Khớp bằng AI"
+      "aiMatching": "Khớp bằng AI",
+      "progressCount": "Đã xong {done}/{total}",
+      "queueWaitEstimate": "Thời gian chờ ước tính: khoảng {duration}",
+      "elapsed": "Đã trôi qua: {duration}",
+      "queueAhead": "Đang xếp hàng, còn {count} tác vụ phía trước",
+      "processingFor": "Đang xử lý được {duration}",
+      "durationMinutes": "{minutes} phút {seconds} giây",
+      "durationSeconds": "{seconds} giây",
+      "pollingErrorStopped": "Không lấy được trạng thái xử lý ({message}). Đã dừng tự động làm mới.",
+      "pollingTimeout": "Tác vụ không hoàn thành đúng hạn. Đã dừng tự động làm mới; hãy kiểm tra lại trạng thái sau hoặc liên hệ quản trị viên.",
+      "retryPolling": "Kiểm tra lại trạng thái",
+      "workerIdleWarning": "Tác vụ xếp hàng quá lâu trong khi hàng đợi đang rảnh. Dịch vụ gắn thẻ nền có thể chưa chạy; vui lòng liên hệ quản trị viên.",
+      "failedResultsTitle": "Tài nguyên thất bại ({count})",
+      "status": {
+        "pending": "Đang xếp hàng",
+        "processing": "Đang xử lý",
+        "completed": "Hoàn thành",
+        "failed": "Thất bại"
+      },
+      "errorReason": {
+        "NO_VALID_TAGS": "Không khớp được thẻ hợp lệ (thiếu thông tin tài nguyên hoặc không có thẻ phù hợp trong hệ thống thẻ)",
+        "NO_TAG_TREE": "Hệ thống thẻ trống. Vui lòng tạo thẻ trước.",
+        "NO_MATCHING_SOURCES_ENABLED": "Chưa bật chiến lược khớp nào",
+        "PROCESSING_STALE_TIMEOUT": "Xử lý quá thời gian và đã tự động được đánh dấu là thất bại",
+        "UNKNOWN": "Lỗi xử lý phía máy chủ. Vui lòng kiểm tra nhật ký dịch vụ."
+      }
     },
     "Common": {
       "refreshDataFailed": "Làm mới dữ liệu thất bại:",
