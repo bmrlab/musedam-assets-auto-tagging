@@ -42,14 +42,19 @@ import {
   TaggingQueueItem,
   TaggingQueueItemExtra,
   TaggingQueueItemResult,
+  TagWithChildren,
 } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 import pLimit from "p-limit";
+import { getBrandRecommendationTagIdsFromQueueResult } from "./brand-recommendation";
+import { fetchTagsTreeForTagging } from "./evidence-policy-server";
+import { getIpRecommendationTagIdsFromQueueResult } from "./ip-recommendation";
 import {
   getAcceptedPersonRecommendationTagIds,
   getReviewablePersonRecommendationTagIds,
 } from "./person-recommendation";
 import { predictAssetTags } from "./predict";
+import { getProductRecommendationTagIdsFromQueueResult } from "./product-recommendation";
 import {
   PROCESSING_TIMING_VERSION,
   TAG_TREE_RESERVED_CONCURRENCY,
@@ -191,14 +196,41 @@ export async function enqueueTaggingTask({
     },
   });
 
+  // 入队后立即触发一次队列处理，不必等外部调度器的下一轮 tick（线上 15s）。
+  kickQueueProcessing();
+
   return taggingQueueItem;
+}
+
+// 入队触发的节流闸：同一进程内 2 秒内的多次 kick 合并为一次（尾沿触发），
+// 批量入队几百条也只会按每 2 秒一次的节奏触发处理，而不是每条触发一次。
+// 不按"上一轮跑完"来合并，因为一轮会等所有领取到的任务处理完（可能几分钟），
+// 期间新入队的任务不该被卡住。多轮重叠是安全的：任务领取靠数据库条件更新
+// （pending -> processing），并发上限由进程级 queueConcurrencyLimit 兜底。
+const KICK_THROTTLE_MS = 2000;
+let lastKickAt = 0;
+let pendingKick: ReturnType<typeof setTimeout> | null = null;
+
+export function kickQueueProcessing(): void {
+  if (pendingKick) return;
+  const delay = Math.max(0, lastKickAt + KICK_THROTTLE_MS - Date.now());
+  pendingKick = setTimeout(() => {
+    pendingKick = null;
+    lastKickAt = Date.now();
+    processPendingQueueItems().catch((error) => {
+      rootLogger.error({ msg: "kickQueueProcessing failed", err: error });
+    });
+  }, delay);
 }
 
 export async function processQueueItem({
   assetObject,
+  tagsTreeLoader,
   ...queueItem
 }: TaggingQueueItem & {
   assetObject: AssetObject | null;
+  /** 同一批次内按团队复用标签树；未传时每次预测各自查库。 */
+  tagsTreeLoader?: TagsTreeLoader;
 }): Promise<void> {
   const logger = rootLogger.child({
     teamId: queueItem.teamId,
@@ -232,9 +264,11 @@ export async function processQueueItem({
     // Person path only: detect faces first (for AI faceFeatures + reused matching), then run AI
     // tagging in parallel with person matching. Other paths keep starting AI tagging early.
     const teamId = queueItem.teamId;
+    const tagsTree = tagsTreeLoader ? await tagsTreeLoader(teamId) : undefined;
     const predictOptionsBase = {
       matchingSources: extra?.matchingSources,
       recognitionAccuracy: extra?.recognitionAccuracy,
+      ...(tagsTree ? { tagsTree } : {}),
     };
     // Defer AI tagging only when person face features may be needed; otherwise preserve old timing.
     const mayNeedFaceFeatures =
@@ -520,12 +554,14 @@ export async function processQueueItem({
           where: { id: queueItem.teamId },
           select: { id: true, slug: true },
         });
+        // 特征库推荐必须过置信度门槛才能直接写回，与审核路径（get*RecommendationTagIdsFromQueueResult）
+        // 和 MuseDAM 特征绑定保持同一口径；之前这里直接取 recommendedTags，低置信 Logo/IP/产品会被直接打上。
         const combinedLeafTagIds = Array.from(
           new Set([
             ...tagsWithScore.map((tag) => tag.leafTagId),
-            ...(brandRecommendation?.recommendedTags ?? []).map((tag) => tag.assetTagId),
-            ...(ipRecommendation?.recommendedTags ?? []).map((tag) => tag.assetTagId),
-            ...(productRecommendation?.recommendedTags ?? []).map((tag) => tag.assetTagId),
+            ...getBrandRecommendationTagIdsFromQueueResult({ brandRecommendation }),
+            ...getIpRecommendationTagIdsFromQueueResult({ ipRecommendation }),
+            ...getProductRecommendationTagIdsFromQueueResult({ productRecommendation }),
             ...acceptedPersonTagIds,
           ]),
         );
@@ -735,10 +771,36 @@ async function recoverStaleProcessingItems(): Promise<number> {
   return updated.count;
 }
 
+type TagsTreeLoader = (teamId: number) => Promise<TagWithChildren[]>;
+
+/**
+ * 一次 processPendingQueueItems 批次内按团队复用标签树：同团队多条任务（含并发）只查一次库。
+ * 生命周期与批次绑定，批次结束即释放，不跨批次缓存，避免标签刚改完就被旧树打标。
+ */
+export function createBatchTagsTreeLoader(
+  load: (teamId: number) => Promise<TagWithChildren[]> = (teamId) =>
+    fetchTagsTreeForTagging({ teamId }),
+): TagsTreeLoader {
+  const inflight = new Map<number, Promise<TagWithChildren[]>>();
+  return (teamId) => {
+    let promise = inflight.get(teamId);
+    if (!promise) {
+      promise = load(teamId).catch((error) => {
+        // 失败不缓存，让同团队后续任务有机会重试
+        inflight.delete(teamId);
+        throw error;
+      });
+      inflight.set(teamId, promise);
+    }
+    return promise;
+  };
+}
+
 async function tryClaimAndProcess(
   queueItem: TaggingQueueItem & { assetObject?: AssetObject | null },
   onSuccess: () => void,
   onSkip: () => void,
+  tagsTreeLoader?: TagsTreeLoader,
 ): Promise<void> {
   try {
     const startsAt = new Date();
@@ -764,6 +826,7 @@ async function tryClaimAndProcess(
           status: "processing",
           startsAt,
           extra,
+          tagsTreeLoader,
         });
       }
       onSuccess();
@@ -850,6 +913,7 @@ export async function processPendingQueueItems(): Promise<{
 
   let processing = 0;
   let skipped = 0;
+  const tagsTreeLoader = createBatchTagsTreeLoader();
 
   const processTasks = allItems.map((queueItem) =>
     queueConcurrencyLimit(() =>
@@ -861,6 +925,7 @@ export async function processPendingQueueItems(): Promise<{
         () => {
           skipped++;
         },
+        tagsTreeLoader,
       ),
     ),
   );

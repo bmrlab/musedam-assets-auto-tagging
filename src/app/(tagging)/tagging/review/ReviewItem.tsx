@@ -48,10 +48,10 @@ import {
   approveAuditItemsAction,
   AssetWithAuditItemsBatch,
   rejectAuditItemsAction,
+  setAuditItemsRejectedAction,
 } from "./actions";
 import { FeatureThumbnail } from "./components/FeatureThumbnail";
 
-type ReviewAssetObject = AssetWithAuditItemsBatch["assetObject"];
 type PreviewImage = { src: string; alt: string };
 
 function ImagePreviewDialog({
@@ -318,7 +318,18 @@ export function ReviewItem({
     [tResult],
   );
   const [loading, setLoading] = useState(false);
-  const [rejectedItems, setRejectedItems] = useState<number[]>([]);
+  // 初始值来自数据库：上次点 x 已即时持久化为 rejected 的标签，刷新后仍以虚线展示并可恢复
+  const [rejectedItems, setRejectedItems] = useState<number[]>(() =>
+    Array.from(
+      new Set(
+        batch.flatMap(({ taggingAuditItems }) =>
+          taggingAuditItems.flatMap((auditItem) =>
+            auditItem.status === "rejected" && auditItem.leafTagId ? [auditItem.leafTagId] : [],
+          ),
+        ),
+      ),
+    ),
+  );
   const [rejectedBrandItems, setRejectedBrandItems] = useState<number[]>([]);
   const [rejectedIpItems, setRejectedIpItems] = useState<number[]>([]);
   const [rejectedProductItems, setRejectedProductItems] = useState<number[]>([]);
@@ -632,6 +643,35 @@ export function ReviewItem({
     rejectedPersonItems,
   ]);
 
+  // 点 x / 再点恢复：先乐观更新本地状态，同时把该标签在本素材下的所有审核项即时持久化为 rejected / pending，
+  // 这样顶部"批量应用"和刷新页面都能看到 x 的结果；失败则回滚本地状态。
+  const toggleRejectedTag = useCallback(
+    async (leafTagId: number) => {
+      const nextRejected = !rejectedItems.includes(leafTagId);
+      setRejectedItems((current) =>
+        nextRejected ? [...current, leafTagId] : current.filter((id) => id !== leafTagId),
+      );
+      const auditItemIds = Array.from(auditItemsSet)
+        .filter((auditItem) => auditItem.leafTagId === leafTagId)
+        .map(({ id }) => id);
+      try {
+        const result = await setAuditItemsRejectedAction({
+          assetSlug: assetObject.slug,
+          auditItemIds,
+          rejected: nextRejected,
+        });
+        if (!result.success) throw new Error(result.message || t("applyFailed"));
+      } catch (error) {
+        console.error(error);
+        setRejectedItems((current) =>
+          nextRejected ? current.filter((id) => id !== leafTagId) : [...current, leafTagId],
+        );
+        toast.error(error instanceof Error ? error.message : t("applyFailed"));
+      }
+    },
+    [assetObject.slug, auditItemsSet, rejectedItems, t],
+  );
+
   const hasPendingAuditItems = useMemo(
     () => Array.from(auditItemsSet).some((auditItem) => auditItem.status === "pending"),
     [auditItemsSet],
@@ -931,7 +971,8 @@ export function ReviewItem({
                             />
                             <span className="text-[10px]">{auditItem.score}%</span>
                           </div>
-                          {auditItem.status === "pending" && auditItem.leafTagId ? (
+                          {(auditItem.status === "pending" || auditItem.status === "rejected") &&
+                          auditItem.leafTagId ? (
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -939,19 +980,8 @@ export function ReviewItem({
                                     size="icon"
                                     variant="ghost"
                                     className="size-3 bg-transparent hover:bg-transparent text-basic-5 hover:text-current"
-                                    onClick={() =>
-                                      setRejectedItems((current) => {
-                                        if (!auditItem.leafTagId) return [...current];
-                                        const foundIndex = current.indexOf(auditItem.leafTagId);
-                                        if (foundIndex >= 0) {
-                                          return [
-                                            ...current.slice(0, foundIndex),
-                                            ...current.slice(foundIndex + 1),
-                                          ];
-                                        }
-                                        return [...current, auditItem.leafTagId];
-                                      })
-                                    }
+                                    disabled={realLoading}
+                                    onClick={() => toggleRejectedTag(auditItem.leafTagId!)}
                                   >
                                     {rejectedItems.includes(auditItem.leafTagId) ? (
                                       <CheckIcon className="h-3 w-3" />

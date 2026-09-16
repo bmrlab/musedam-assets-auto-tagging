@@ -14,6 +14,8 @@ import {
 import { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 import { generateObject, UserModelMessage } from "ai";
 import z from "zod";
+import { flattenTagsTree, resolveEvidencePolicy } from "./evidence-policy";
+import { fetchTagsTreeForTagging } from "./evidence-policy-server";
 import { buildFaceFeaturesPromptSection, collectPeopleCountTagPaths } from "./face-features";
 import {
   RECOGNITION_ACCURACY_CONFIG,
@@ -21,7 +23,7 @@ import {
   tagPredictionSystemPrompt,
 } from "./prompt";
 import { SourceBasedTagPredictions, tagPredictionSchema, TagWithScore } from "./types";
-import { buildTagKeywordsText, buildTagStructureText, fetchTagsTree } from "./utils";
+import { buildTagKeywordsText, buildTagStructureText } from "./utils";
 
 function taggingPredictError(code: string, message: string) {
   const err = new Error(message);
@@ -52,7 +54,23 @@ function getTaggingPredictProviderOptions(modelName: LLMModelName, teamId: strin
   };
 }
 
-function repairToPredictionEnvelopeText(text: string): string {
+const REPAIR_LOG_TEXT_PREVIEW_LENGTH = 500;
+
+function logRepairFailure(stage: string, text: string, context?: { attempt?: number }) {
+  // 修复失败时不能静默返回空结果：那会让整个预测走完 3 次重试后以 NO_VALID_TAGS 失败，
+  // 从日志里完全看不出模型到底返回了什么。这里至少留下原文片段与失败阶段。
+  console.warn("AI标签预测 JSON 修复失败", {
+    stage,
+    attempt: context?.attempt,
+    textLength: text.length,
+    textPreview: text.slice(0, REPAIR_LOG_TEXT_PREVIEW_LENGTH),
+  });
+}
+
+export function repairToPredictionEnvelopeText(
+  text: string,
+  context?: { attempt?: number },
+): string {
   const cleaned = (text ?? "")
     .replace(/\uFEFF/g, "")
     .replace(/```json\s*/gi, "")
@@ -72,13 +90,17 @@ function repairToPredictionEnvelopeText(text: string): string {
     ) {
       return cleaned;
     }
+    logRepairFailure("direct-parse-unexpected-shape", cleaned, context);
     return '{"predictions":[]}';
   } catch {}
 
   // 截取 [] 范围
   const start = cleaned.indexOf("[");
   const end = cleaned.lastIndexOf("]");
-  if (start < 0 || end < 0 || end <= start) return '{"predictions":[]}';
+  if (start < 0 || end < 0 || end <= start) {
+    logRepairFailure("no-bracket", cleaned, context);
+    return '{"predictions":[]}';
+  }
 
   let candidate = cleaned.slice(start, end + 1);
 
@@ -90,10 +112,13 @@ function repairToPredictionEnvelopeText(text: string): string {
 
   try {
     const parsed = JSON.parse(candidate);
-    return Array.isArray(parsed)
-      ? JSON.stringify({ predictions: parsed })
-      : '{"predictions":[]}';
+    if (Array.isArray(parsed)) {
+      return JSON.stringify({ predictions: parsed });
+    }
+    logRepairFailure("repaired-parse-not-array", cleaned, context);
+    return '{"predictions":[]}';
   } catch {
+    logRepairFailure("repaired-parse", cleaned, context);
     return '{"predictions":[]}';
   }
 }
@@ -143,70 +168,155 @@ export function pathIncludesKeyword(normalizedPath: string, keyword: string): bo
   return normalizedPath.includes(keyword);
 }
 
-// 用于识别"元数据类标签"（渠道/投放触点等素材之外的业务安排，而非画面内容本身，
-// 参见 prompt.ts Step 2.4）所在的分类：只要一级或二级分类名包含以下关键词即命中。
-// prompt.ts 已经要求模型自觉遵守"这类标签的 contentAnalysis/tagKeywords 命中必须有字面证据"，
-// 但那只是文字指令、没有代码强制——这里做代码层面的兜底校验，而不是继续加 prompt 描述。
-const METADATA_CATEGORY_KEYWORDS = ["渠道"];
+/** 引用式校验：模型摘录的 evidence 至少要有这么长，避免用"的""图"这类单字蒙混过关。 */
+const MIN_EVIDENCE_QUOTE_LENGTH = 2;
+/** 纯 ASCII 的引用片段视为"别名/缩写"（xhs、tmall、1111、dy_feed），超过这个长度就不像缩写了。 */
+const MAX_ASCII_ALIAS_QUOTE_LENGTH = 12;
+const CJK_CHAR_REGEX = /[\u3400-\u9fff]/;
 
-function isMetadataCategoryTagPath(tagPath: string[]): boolean {
-  // 只看一级/二级分类名，不看叶子标签自身名字（叶子名字通常是具体渠道名如"抖音"，
-  // 本身不含"渠道"二字，需要靠上级分类名判断这是不是"渠道类"标签）。
-  return tagPath
-    .slice(0, Math.max(tagPath.length - 1, 1))
-    .some((name) => METADATA_CATEGORY_KEYWORDS.some((keyword) => name.includes(keyword)));
+function hasCommonSubstring(a: string, b: string, minLength: number): boolean {
+  if (a.length < minLength || b.length < minLength) return false;
+  for (let i = 0; i + minLength <= a.length; i++) {
+    if (b.includes(a.slice(i, i + minLength))) return true;
+  }
+  return false;
 }
 
 /**
- * 元数据类标签（如渠道触点）在 contentAnalysis / tagKeywords 来源下必须有字面证据支撑，
- * 否则丢弃该来源对该标签的贡献。字面证据 = 标签名自动拆词得到的强关键词，或标签手动配置的
- * matching keywords，实际以文字形式出现在对应来源的证据文本里
- * （contentAnalysis 来源看视觉分析文本本身是否直接出现了渠道名/平台标识这类可见证据；
- * tagKeywords 来源看文件名/描述/路径文本，不看视觉分析文本——与 prompt Step 4 的字面匹配要求一致）。
- * 不影响 basicInfo / materializedPath 来源，也不影响非元数据类标签。
+ * 引用片段是否"看起来确实在指代这个标签"。只验证"片段在原文里"是不够的：
+ * 模型可以把原文里任意一句（如"清新风格"）当作"小红书"的证据蒙混过关。
+ * - 纯 ASCII 短片段：视为别名/缩写（xhs → 小红书），信任模型的归一；
+ * - 含中日韩字符的片段：必须与标签名或配置关键词有至少 2 个连续字符重叠（"红书"→"小红书"）。
+ */
+export function isPlausibleEvidenceQuoteForTag(
+  quote: string | undefined,
+  tagNameAndKeywords: readonly string[],
+): boolean {
+  const normalizedQuote = normalizeForMatch(quote ?? "");
+  if (normalizedQuote.length < MIN_EVIDENCE_QUOTE_LENGTH) return false;
+  if (!CJK_CHAR_REGEX.test(normalizedQuote)) {
+    return normalizedQuote.length <= MAX_ASCII_ALIAS_QUOTE_LENGTH && !/\s/.test(normalizedQuote);
+  }
+  return tagNameAndKeywords.some((candidate) =>
+    hasCommonSubstring(normalizedQuote, normalizeForMatch(candidate), 2),
+  );
+}
+
+function evidenceQuoteAppearsIn(evidenceText: string, quote: string | undefined): boolean {
+  const normalizedQuote = normalizeForMatch(quote ?? "");
+  if (normalizedQuote.length < MIN_EVIDENCE_QUOTE_LENGTH) return false;
+  return evidenceText.includes(normalizedQuote);
+}
+
+/**
+ * 字面型标签（证据策略 literal，见 evidence-policy.ts：渠道/市场/活动/档期等"素材之外的安排"）
+ * 在任何来源下都必须有字面证据支撑，否则丢弃该来源对该标签的贡献。字面证据二选一即可：
+ * 1) 标签名自动拆词得到的强关键词，或标签手动配置的 matching keywords，实际出现在该来源的证据文本里；
+ * 2) 模型为这条预测摘录的 evidence 片段，原样出现在该来源的证据文本里，且看起来确实在指代这个标签
+ *    （见 isPlausibleEvidenceQuoteForTag；别名归一交给模型，真伪校验交给代码，例如文件名写 xhs、
+ *    模型摘录 "xhs" 并映射到"小红书"）。
+ * 证据文本按来源给：contentAnalysis 看视觉分析原文（画面上明确可见的平台界面/水印/活动文字会写在里面），
+ * tagKeywords / basicInfo 看文件名+描述(+路径)，materializedPath 看路径。没传证据文本的来源不做校验。
+ * 内容型标签不受此规则约束。
  */
 export function enforceLiteralEvidenceForMetadataTags(
   predictions: SourceBasedTagPredictions,
   tagsTree: TagWithChildren[],
-  evidenceTextBySource: Partial<
-    Record<Extract<z.infer<typeof tagPredictionSchema.shape.source>, "contentAnalysis" | "tagKeywords">, string>
-  >,
+  evidenceTextBySource: Partial<Record<z.infer<typeof tagPredictionSchema.shape.source>, string>>,
 ): SourceBasedTagPredictions {
-  const leafInfoById = new Map<number, { tagPath: string[]; keywords: string[] }>();
-  for (const lv1 of tagsTree) {
-    for (const lv2 of lv1.children ?? []) {
-      for (const leaf of lv2.children ?? []) {
-        const tagPath = [lv1.name, lv2.name, leaf.name];
-        if (!isMetadataCategoryTagPath(tagPath)) continue;
-        const configuredKeywords = ((leaf.extra as AssetTagExtra)?.keywords ?? []).map(
-          normalizeForMatch,
-        );
-        leafInfoById.set(leaf.id, {
-          tagPath,
-          keywords: Array.from(
-            new Set([...getStrongKeywordVariantsForTagName(leaf.name), ...configuredKeywords]),
-          ).filter(Boolean),
-        });
-      }
-    }
+  const literalInfoById = new Map<
+    number,
+    { tagPath: string[]; keywords: string[]; nameAndKeywords: string[] }
+  >();
+  for (const node of flattenTagsTree(tagsTree)) {
+    if (resolveEvidencePolicy(node.extra, node.tagPath) !== "literal") continue;
+    const configuredKeywords = ((node.extra as AssetTagExtra)?.keywords ?? []).map(normalizeForMatch);
+    literalInfoById.set(node.id, {
+      tagPath: node.tagPath,
+      keywords: Array.from(
+        new Set([...getStrongKeywordVariantsForTagName(node.name), ...configuredKeywords]),
+      ).filter(Boolean),
+      nameAndKeywords: [node.name, ...configuredKeywords],
+    });
   }
-  if (leafInfoById.size === 0) return predictions;
+  if (literalInfoById.size === 0) return predictions;
 
   return predictions.map((prediction) => {
-    if (prediction.source !== "contentAnalysis" && prediction.source !== "tagKeywords") {
-      return prediction;
-    }
     const evidenceText = evidenceTextBySource[prediction.source];
+    if (evidenceText === undefined) return prediction;
     return {
       ...prediction,
       tags: prediction.tags.filter((tag) => {
-        const info = leafInfoById.get(tag.leafTagId);
-        if (!info) return true; // 不是元数据类标签，不受此规则约束
-        if (!evidenceText) return false; // 元数据类标签但没有可用证据文本，直接丢弃该来源贡献
-        return info.keywords.some((keyword) => pathIncludesKeyword(evidenceText, keyword));
+        const info = literalInfoById.get(tag.leafTagId);
+        if (!info) return true; // 内容型标签，不受此规则约束
+        if (!evidenceText) return false; // 字面型标签但该来源没有任何证据文本，直接丢弃
+        return (
+          info.keywords.some((keyword) => pathIncludesKeyword(evidenceText, keyword)) ||
+          (evidenceQuoteAppearsIn(evidenceText, tag.evidence) &&
+            isPlausibleEvidenceQuoteForTag(tag.evidence, info.nameAndKeywords))
+        );
       }),
     };
   });
+}
+
+/**
+ * 校验模型返回的 leafTagId 确实存在于本团队标签树（一级/二级/三级 id 都合法，prompt 允许匹配任意层级）。
+ * - id 不存在：按 tagPath 逐层名字反查一次，命中则纠正 id，否则丢弃；
+ * - id 存在但 tagPath 与真实路径不一致：以 id 为准，用真实路径覆盖（prompt 已声明"以 ID 纠错"）。
+ * 之前没有这一步，模型幻觉出来的 id 会一路写进审核项，直到写回 MuseDAM 查不到 slug 时才被静默丢掉。
+ */
+export function filterPredictionsByKnownTagIds(
+  predictions: SourceBasedTagPredictions,
+  tagsTree: TagWithChildren[],
+): {
+  predictions: SourceBasedTagPredictions;
+  dropped: Array<{ source: string; leafTagId: number; tagPath: string[] }>;
+  corrected: Array<{ source: string; fromLeafTagId: number; toLeafTagId: number }>;
+} {
+  const pathById = new Map<number, string[]>();
+  const idByNormalizedPath = new Map<string, number>();
+  const pathKey = (path: string[]) => path.map(normalizeForMatch).join("\u0000");
+  const register = (id: number, path: string[]) => {
+    pathById.set(id, path);
+    idByNormalizedPath.set(pathKey(path), id);
+  };
+  for (const lv1 of tagsTree) {
+    register(lv1.id, [lv1.name]);
+    for (const lv2 of lv1.children ?? []) {
+      register(lv2.id, [lv1.name, lv2.name]);
+      for (const lv3 of lv2.children ?? []) {
+        register(lv3.id, [lv1.name, lv2.name, lv3.name]);
+      }
+    }
+  }
+
+  const dropped: Array<{ source: string; leafTagId: number; tagPath: string[] }> = [];
+  const corrected: Array<{ source: string; fromLeafTagId: number; toLeafTagId: number }> = [];
+
+  const next = predictions.map((prediction) => ({
+    ...prediction,
+    tags: prediction.tags.flatMap((tag) => {
+      const realPath = pathById.get(tag.leafTagId);
+      if (realPath) {
+        // id 合法：tagPath 以真实路径为准
+        return [{ ...tag, tagPath: realPath }];
+      }
+      const recoveredId = idByNormalizedPath.get(pathKey(tag.tagPath));
+      if (recoveredId !== undefined) {
+        corrected.push({
+          source: prediction.source,
+          fromLeafTagId: tag.leafTagId,
+          toLeafTagId: recoveredId,
+        });
+        return [{ ...tag, leafTagId: recoveredId, tagPath: pathById.get(recoveredId)! }];
+      }
+      dropped.push({ source: prediction.source, leafTagId: tag.leafTagId, tagPath: tag.tagPath });
+      return [];
+    }),
+  }));
+
+  return { predictions: next, dropped, corrected };
 }
 
 function extractTagNameVariants(name: string): string[] {
@@ -626,6 +736,8 @@ export async function predictAssetTags(
     };
     recognitionAccuracy?: RecognitionAccuracyMode;
     faceFeatures?: TaggingFaceFeatures;
+    /** 调用方已加载好的标签树（如队列同一批次内按团队复用），传入时跳过数据库查询。 */
+    tagsTree?: TagWithChildren[];
   },
 ): Promise<{
   predictions: SourceBasedTagPredictions;
@@ -646,8 +758,7 @@ export async function predictAssetTags(
     throw taggingPredictError("NO_MATCHING_SOURCES_ENABLED", "No matching sources enabled");
   }
 
-  // TODO: 缓存
-  const tagsTree = await fetchTagsTree({ teamId: asset.teamId });
+  const tagsTree = options?.tagsTree ?? (await fetchTagsTreeForTagging({ teamId: asset.teamId }));
   if (!tagsTree || tagsTree.length === 0) {
     throw taggingPredictError("NO_TAG_TREE", "No tag tree available");
   }
@@ -762,7 +873,7 @@ ${sourceSections.join("\n\n")}
         seed: stableSeed,
         experimental_repairText: async (res: { text: string }) => {
           // 尝试提取并包装为对象，满足 OpenAI Structured Outputs 的根 schema 限制
-          return repairToPredictionEnvelopeText(res.text);
+          return repairToPredictionEnvelopeText(res.text, { attempt });
         },
       });
 
@@ -788,16 +899,32 @@ ${sourceSections.join("\n\n")}
         );
       }
 
-      // 元数据类标签（如渠道触点）的 contentAnalysis/tagKeywords 命中必须有字面证据兜底，
-      // 不能只靠 prompt 指令让模型自觉——contentAnalysis 证据文本就是喂给模型的视觉分析原文，
-      // tagKeywords 证据文本按 prompt Step 4 的字面匹配要求，只看文件名/描述/路径，不看视觉分析文本。
+      // 先把模型幻觉出来的 leafTagId 挡在最前面：后续所有规则都以 id 为准，
+      // 硬匹配注入的 id 来自 tagsTree 本身，不需要再校验。
+      const knownTagsResult = filterPredictionsByKnownTagIds(predictions, tagsTree);
+      predictions = knownTagsResult.predictions;
+      if (knownTagsResult.dropped.length > 0 || knownTagsResult.corrected.length > 0) {
+        console.warn("AI标签预测: 存在不在标签树中的 leafTagId", {
+          teamId: asset.teamId,
+          assetObjectId: asset.id,
+          attempt,
+          dropped: knownTagsResult.dropped,
+          corrected: knownTagsResult.corrected,
+        });
+      }
+
+      // 字面型标签（渠道/市场/活动/档期等）在每个来源下都必须有字面证据兜底，不能只靠 prompt 指令让模型自觉。
+      // contentAnalysis 证据文本就是喂给模型的视觉分析原文；tagKeywords / basicInfo 看文件名/描述/路径；
+      // materializedPath 看路径。模型摘录的 evidence 片段也会拿来跟这些原文比对。
+      const basicInfoText = normalizeForMatch(
+        [asset.name, asset.description].filter(Boolean).join(" "),
+      );
+      const pathText = normalizeForMatch(asset.materializedPath ?? "");
       predictions = enforceLiteralEvidenceForMetadataTags(predictions, tagsTree, {
         contentAnalysis: enabled.contentAnalysis ? normalizeForMatch(aiDescription ?? "") : undefined,
-        tagKeywords: enabled.tagKeywords
-          ? normalizeForMatch(
-              [asset.name, asset.description, asset.materializedPath].filter(Boolean).join(" "),
-            )
-          : undefined,
+        tagKeywords: enabled.tagKeywords ? [basicInfoText, pathText].join(" ") : undefined,
+        basicInfo: enabled.basicInfo ? basicInfoText : undefined,
+        materializedPath: enabled.materializedPath ? pathText : undefined,
       });
 
       // 文件夹路径中的强关键词做硬匹配兜底，避免模型漏掉明显路径信号
