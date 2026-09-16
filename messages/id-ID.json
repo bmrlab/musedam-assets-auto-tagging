@@ -243,7 +243,7 @@
     "noRecognizedTags": "Tidak ada tag yang dikenali",
     "noRecognizedFeatures": "Tidak ada fitur yang dikenali",
     "featureConfidenceNotCredible": "Gambar saat ini belum cocok dengan fitur apa pun di pustaka fitur yang ada; fitur tersebut mungkin belum tercatat.",
-    "videoFeatureLibraryUnsupported": "Pustaka fitur saat ini belum mendukung file video.",
+    "videoFeatureLibraryLimited": "Pustaka fitur saat ini memiliki kemampuan terbatas dalam mengenali jenis file video dan hanya mendukung pencocokan menggunakan bingkai pertama video.",
     "featureClassBrand": "Logo merek",
     "featureClassIp": "Karakter IP",
     "featureClassPerson": "Orang",

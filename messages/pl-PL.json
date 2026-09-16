@@ -243,7 +243,7 @@
     "noRecognizedTags": "Brak rozpoznanych tagów",
     "noRecognizedFeatures": "Brak rozpoznanych cech",
     "featureConfidenceNotCredible": "Dla bieżącego obrazu nie znaleziono dopasowania w istniejącej bibliotece cech; ta cecha mogła nie zostać jeszcze zarejestrowana.",
-    "videoFeatureLibraryUnsupported": "Biblioteka cech obecnie nie obsługuje plików wideo.",
+    "videoFeatureLibraryLimited": "Obecna biblioteka cech ma ograniczone możliwości rozpoznawania typów plików wideo i obsługuje wyłącznie dopasowywanie na podstawie pierwszej klatki filmu.",
     "featureClassBrand": "Logo marki",
     "featureClassIp": "Postać IP",
     "featureClassPerson": "Osoba",

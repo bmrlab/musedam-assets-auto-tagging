@@ -243,7 +243,7 @@
     "noRecognizedTags": "暂无识别标签",
     "noRecognizedFeatures": "暂无识别特征",
     "featureConfidenceNotCredible": "当前图片暂未匹配到已有特征库特征，可能尚未收录该特征",
-    "videoFeatureLibraryUnsupported": "当前特征库暂不支持视频文件",
+    "videoFeatureLibraryLimited": "当前特征库对视频文件类型识别能力有限，仅支持视频的首帧画面进行匹配",
     "featureClassBrand": "品牌标识",
     "featureClassIp": "IP 形象",
     "featureClassPerson": "人物",

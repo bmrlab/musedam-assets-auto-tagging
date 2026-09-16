@@ -486,7 +486,7 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
             </div>
           ) : (
             <div className="text-sm text-basic-5">
-              {t(isVideoAsset ? "videoFeatureLibraryUnsupported" : "noRecognizedFeatures")}
+              {t(isVideoAsset ? "videoFeatureLibraryLimited" : "noRecognizedFeatures")}
             </div>
           )}
         </SectionShell>

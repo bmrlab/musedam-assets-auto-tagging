@@ -116,7 +116,7 @@
     "noRecognizedTags": "Nenhuma tag reconhecida",
     "noRecognizedFeatures": "Nenhuma característica reconhecida",
     "featureConfidenceNotCredible": "Nenhuma característica correspondente foi encontrada na biblioteca de características existente para esta imagem; a característica pode ainda não ter sido registrada.",
-    "videoFeatureLibraryUnsupported": "No momento, a biblioteca de características não oferece suporte a arquivos de vídeo.",
+    "videoFeatureLibraryLimited": "A biblioteca de características atual tem capacidade limitada para reconhecer tipos de arquivo de vídeo e só oferece suporte à correspondência usando o primeiro quadro do vídeo.",
     "featureClassBrand": "Logo da marca",
     "featureClassIp": "Personagem IP",
     "featureClassPerson": "Pessoa",

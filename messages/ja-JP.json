@@ -116,7 +116,7 @@
     "noRecognizedTags": "認識タグはありません",
     "noRecognizedFeatures": "認識特徴はありません",
     "featureConfidenceNotCredible": "現在の画像は既存の特徴ライブラリ内の特徴と一致しませんでした。この特徴はまだ登録されていない可能性があります。",
-    "videoFeatureLibraryUnsupported": "現在、特徴ライブラリは動画ファイルに対応していません",
+    "videoFeatureLibraryLimited": "現在の特徴ライブラリでは動画ファイル形式の認識能力に制限があり、動画の最初のフレームを使用した照合のみをサポートしています",
     "featureClassBrand": "ブランドロゴ",
     "featureClassIp": "IPキャラクター",
     "featureClassPerson": "人物",

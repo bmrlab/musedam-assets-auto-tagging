@@ -64,9 +64,13 @@ function normalizeAssetExtension(extension?: string | null) {
   return (extension ?? "").trim().toLowerCase().replace(/^\./, "");
 }
 
-/** Feature-library classifiers currently accept image assets only. */
+/** Feature-library classifiers accept images directly and videos via their thumbnail image. */
 export function isFeatureLibrarySupportedAsset(extension?: string | null) {
-  return FEATURE_LIBRARY_IMAGE_EXTENSIONS.has(normalizeAssetExtension(extension));
+  const normalizedExtension = normalizeAssetExtension(extension);
+  return (
+    FEATURE_LIBRARY_IMAGE_EXTENSIONS.has(normalizedExtension) ||
+    VIDEO_EXTENSIONS.has(normalizedExtension)
+  );
 }
 
 export function isVideoAssetExtension(extension?: string | null) {

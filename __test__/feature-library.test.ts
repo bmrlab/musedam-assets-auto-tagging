@@ -117,15 +117,16 @@ describe("feature library toggles", () => {
     });
   });
 
-  it("allows feature classification for images only", () => {
+  it("allows feature classification for images and video thumbnails", () => {
     expect(isFeatureLibrarySupportedAsset("jpg")).toBe(true);
     expect(isFeatureLibrarySupportedAsset(".WEBP")).toBe(true);
-    expect(isFeatureLibrarySupportedAsset("mp4")).toBe(false);
+    expect(isFeatureLibrarySupportedAsset("mp4")).toBe(true);
+    expect(isFeatureLibrarySupportedAsset(".MOV")).toBe(true);
     expect(isFeatureLibrarySupportedAsset("pdf")).toBe(false);
     expect(isFeatureLibrarySupportedAsset(undefined)).toBe(false);
   });
 
-  it("identifies common video extensions for the unsupported notice", () => {
+  it("identifies common video extensions for the limited-recognition notice", () => {
     expect(isVideoAssetExtension("mp4")).toBe(true);
     expect(isVideoAssetExtension(".MOV")).toBe(true);
     expect(isVideoAssetExtension("png")).toBe(false);

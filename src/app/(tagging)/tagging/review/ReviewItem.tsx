@@ -1237,7 +1237,7 @@ export function ReviewItem({
                       <div className="text-sm text-basic-5">
                         {tResult(
                           isVideoAsset
-                            ? "videoFeatureLibraryUnsupported"
+                            ? "videoFeatureLibraryLimited"
                             : hasFeatureBelowConfidenceThreshold
                               ? "featureConfidenceNotCredible"
                               : "noRecognizedFeatures",
