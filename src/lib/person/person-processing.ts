@@ -4,12 +4,22 @@ import { getCachedSignedS3ObjectUrl } from "@/lib/s3";
 import { fetchRemotePersonImageInput } from "@/lib/tagging/classification-image";
 import prisma from "@/prisma/prisma";
 import { randomUUID } from "crypto";
+import pLimit from "p-limit";
 import { detectPersonFaces, generateFaceEmbedding } from "./face-api";
 import {
   deletePersonVectorPointsByPerson,
   setPersonVectorPayloadByPerson,
   upsertPersonVectorPoints,
 } from "./pgvector";
+
+const PERSON_VECTOR_PROCESSING_CONCURRENCY = 8;
+const PERSON_FACE_PROCESSING_CONCURRENCY = 8;
+const PERSON_VECTOR_RECOVERY_BATCH_SIZE = 32;
+const PERSON_VECTOR_PROCESSING_HEARTBEAT_MS = 15_000;
+const PERSON_VECTOR_PROCESSING_STALE_MS = 60_000;
+const personVectorProcessingLimit = pLimit(PERSON_VECTOR_PROCESSING_CONCURRENCY);
+const personFaceProcessingLimit = pLimit(PERSON_FACE_PROCESSING_CONCURRENCY);
+const inFlightPersonVectorProcessing = new Map<string, Promise<void>>();
 
 export const PERSON_PROCESSING_ERROR_CODES = {
   faceCountNotOne: "face_count_not_one",
@@ -114,7 +124,7 @@ export async function assertSingleFaceReferenceImage({
   };
 }
 
-export async function markAssetPersonVectorsProcessing({
+export async function markAssetPersonVectorsPending({
   teamId,
   personId,
   enabled,
@@ -129,7 +139,7 @@ export async function markAssetPersonVectorsProcessing({
         id: personId,
       },
       data: {
-        status: "processing",
+        status: "pending",
         processingError: null,
         processedAt: null,
       },
@@ -159,14 +169,52 @@ export async function markAssetPersonVectorsProcessing({
   });
 }
 
-export async function processAssetPersonReferenceVectors({
+async function processAssetPersonReferenceVectorsNow({
   teamId,
   personId,
 }: {
   teamId: number;
   personId: string;
 }) {
+  let heartbeat: ReturnType<typeof setInterval> | null = null;
+
   try {
+    const claimed = await prisma.assetPerson.updateMany({
+      where: {
+        id: personId,
+        teamId,
+        status: {
+          in: ["pending", "processing"],
+        },
+      },
+      data: {
+        status: "processing",
+        processingError: null,
+        processedAt: null,
+      },
+    });
+
+    if (claimed.count === 0) {
+      return;
+    }
+
+    heartbeat = setInterval(() => {
+      void prisma.assetPerson
+        .updateMany({
+          where: {
+            id: personId,
+            teamId,
+            status: "processing",
+          },
+          data: {
+            status: "processing",
+          },
+        })
+        .catch((error) => {
+          console.warn(`Failed to heartbeat asset Person vectors (${personId}):`, error);
+        });
+    }, PERSON_VECTOR_PROCESSING_HEARTBEAT_MS);
+
     const person = await prisma.assetPerson.findFirst({
       where: {
         id: personId,
@@ -188,21 +236,23 @@ export async function processAssetPersonReferenceVectors({
     }
 
     const embeddingResults = await Promise.all(
-      person.images.map(async (image, index) => {
-        const { face, imageInput } = await assertSingleFaceReferenceImage({
-          objectKey: image.objectKey,
-          identifier: `image ${index + 1}`,
-        });
-        const embedding = await generateFaceEmbedding({
-          imageBase64: imageInput.dataUrl,
-          face,
-        });
+      person.images.map((image, index) =>
+        personFaceProcessingLimit(async () => {
+          const { face, imageInput } = await assertSingleFaceReferenceImage({
+            objectKey: image.objectKey,
+            identifier: `image ${index + 1}`,
+          });
+          const embedding = await generateFaceEmbedding({
+            imageBase64: imageInput.dataUrl,
+            face,
+          });
 
-        return {
-          image,
-          embedding,
-        };
-      }),
+          return {
+            image,
+            embedding,
+          };
+        }),
+      ),
     );
 
     const vectorSize = embeddingResults[0]?.embedding.embedding.dimension;
@@ -284,5 +334,101 @@ export async function processAssetPersonReferenceVectors({
     }).catch(() => undefined);
 
     throw error;
+  } finally {
+    if (heartbeat) {
+      clearInterval(heartbeat);
+    }
   }
+}
+
+export function processAssetPersonReferenceVectors({
+  teamId,
+  personId,
+}: {
+  teamId: number;
+  personId: string;
+}) {
+  const existing = inFlightPersonVectorProcessing.get(personId);
+  if (existing) {
+    return existing;
+  }
+
+  const processingPromise = personVectorProcessingLimit(() =>
+    processAssetPersonReferenceVectorsNow({ teamId, personId }),
+  );
+  const trackedPromise: Promise<void> = processingPromise.finally(() => {
+    if (inFlightPersonVectorProcessing.get(personId) === trackedPromise) {
+      inFlightPersonVectorProcessing.delete(personId);
+    }
+  });
+  inFlightPersonVectorProcessing.set(personId, trackedPromise);
+  return trackedPromise;
+}
+
+export async function processPendingAssetPersonReferenceVectors() {
+  const staleBefore = new Date(Date.now() - PERSON_VECTOR_PROCESSING_STALE_MS);
+  const recovered = await prisma.assetPerson.updateMany({
+    where: {
+      status: "processing",
+      updatedAt: {
+        lt: staleBefore,
+      },
+    },
+    data: {
+      status: "pending",
+    },
+  });
+
+  const candidates = await prisma.assetPerson.findMany({
+    where: {
+      status: "pending",
+    },
+    orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
+    select: {
+      id: true,
+      teamId: true,
+    },
+    take: PERSON_VECTOR_RECOVERY_BATCH_SIZE,
+  });
+
+  let processing = 0;
+  let skipped = 0;
+
+  await Promise.all(
+    candidates.map(async (candidate) => {
+      const claimed = await prisma.assetPerson.updateMany({
+        where: {
+          id: candidate.id,
+          teamId: candidate.teamId,
+          status: "pending",
+        },
+        data: {
+          status: "processing",
+          processingError: null,
+          processedAt: null,
+        },
+      });
+
+      if (claimed.count === 0) {
+        skipped += 1;
+        return;
+      }
+
+      processing += 1;
+      try {
+        await processAssetPersonReferenceVectors({
+          teamId: candidate.teamId,
+          personId: candidate.id,
+        });
+      } catch (error) {
+        console.error(`Failed to recover asset Person vectors (${candidate.id}):`, error);
+      }
+    }),
+  );
+
+  return {
+    processing,
+    recovered: recovered.count,
+    skipped,
+  };
 }

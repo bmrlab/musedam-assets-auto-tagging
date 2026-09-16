@@ -12,7 +12,7 @@ import {
 } from "@/lib/person/person-classification";
 import {
   assertSingleFaceReferenceImage,
-  markAssetPersonVectorsProcessing,
+  markAssetPersonVectorsPending,
   processAssetPersonReferenceVectors,
 } from "@/lib/person/person-processing";
 import {
@@ -952,7 +952,7 @@ async function importPersonBatchRow({
       personTypeId: personType.id,
       personTypeName: personType.name,
       notes,
-      status: "processing",
+      status: "pending",
       processingError: null,
       enabled,
       images: {
@@ -1697,7 +1697,7 @@ export async function createAssetPersonAction(
           personTypeId: personType.id,
           personTypeName: personType.name,
           notes: input.notes,
-          status: "processing",
+          status: "pending",
           processingError: null,
           enabled: true,
           images: {
@@ -1849,7 +1849,7 @@ export async function updateAssetPersonAction(
             personTypeId: personType.id,
             personTypeName: personType.name,
             notes: input.notes,
-            status: "processing",
+            status: "pending",
             processingError: null,
             processedAt: null,
           },
@@ -2088,7 +2088,7 @@ export async function retryAssetPersonProcessingAction(
         };
       }
 
-      await markAssetPersonVectorsProcessing({
+      await markAssetPersonVectorsPending({
         teamId,
         personId,
         enabled: person.enabled,

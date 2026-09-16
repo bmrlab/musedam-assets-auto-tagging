@@ -1,5 +1,6 @@
 import { processPendingAssetLogoReferenceVectors } from "@/lib/brand/logo-processing";
 import { processPendingAssetIpReferenceVectors } from "@/lib/ip/ip-processing";
+import { processPendingAssetPersonReferenceVectors } from "@/lib/person/person-processing";
 import { processPendingAssetProductReferenceVectors } from "@/lib/product/product-processing";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -16,6 +17,10 @@ const mocks = vi.hoisted(() => ({
     findMany: vi.fn(),
     updateMany: vi.fn(),
   },
+  assetPerson: {
+    findMany: vi.fn(),
+    updateMany: vi.fn(),
+  },
 }));
 
 vi.mock("server-only", () => ({}));
@@ -23,6 +28,7 @@ vi.mock("@/prisma/prisma", () => ({
   default: {
     assetIp: mocks.assetIp,
     assetLogo: mocks.assetLogo,
+    assetPerson: mocks.assetPerson,
     assetProduct: mocks.assetProduct,
   },
 }));
@@ -36,7 +42,10 @@ vi.mock("@/lib/brand/jina", () => ({
 }));
 vi.mock("@/lib/s3", () => ({ getCachedSignedS3ObjectUrl: vi.fn() }));
 vi.mock("@/lib/tagging/reference-image", () => ({ prepareReferenceImageBuffer: vi.fn() }));
-vi.mock("@/lib/tagging/classification-image", () => ({ cropImageToDataUrl: vi.fn() }));
+vi.mock("@/lib/tagging/classification-image", () => ({
+  cropImageToDataUrl: vi.fn(),
+  fetchRemotePersonImageInput: vi.fn(),
+}));
 vi.mock("@/lib/translation/service", () => ({ translateTextToEnglish: vi.fn() }));
 vi.mock("@/lib/brand/pgvector", () => ({
   deleteLogoVectorPointsByLogo: vi.fn(),
@@ -53,10 +62,19 @@ vi.mock("@/lib/product/pgvector", () => ({
   setProductVectorPayloadByProduct: vi.fn(),
   upsertProductVectorPoints: vi.fn(),
 }));
+vi.mock("@/lib/person/face-api", () => ({
+  detectPersonFaces: vi.fn(),
+  generateFaceEmbedding: vi.fn(),
+}));
+vi.mock("@/lib/person/pgvector", () => ({
+  deletePersonVectorPointsByPerson: vi.fn(),
+  setPersonVectorPayloadByPerson: vi.fn(),
+  upsertPersonVectorPoints: vi.fn(),
+}));
 
 describe("Feature vector recovery queues", () => {
   beforeEach(() => {
-    for (const model of [mocks.assetLogo, mocks.assetIp, mocks.assetProduct]) {
+    for (const model of [mocks.assetLogo, mocks.assetIp, mocks.assetPerson, mocks.assetProduct]) {
       model.findMany.mockReset();
       model.updateMany.mockReset();
     }
@@ -65,6 +83,7 @@ describe("Feature vector recovery queues", () => {
   it.each([
     ["Logo", mocks.assetLogo, processPendingAssetLogoReferenceVectors],
     ["IP", mocks.assetIp, processPendingAssetIpReferenceVectors],
+    ["Person", mocks.assetPerson, processPendingAssetPersonReferenceVectors],
     ["Product", mocks.assetProduct, processPendingAssetProductReferenceVectors],
   ] as const)(
     "returns stale %s processing records to pending",

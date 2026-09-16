@@ -12,6 +12,9 @@ export async function register() {
 
     const { processPendingAssetLogoReferenceVectors } = await import("@/lib/brand/logo-processing");
     const { processPendingAssetIpReferenceVectors } = await import("@/lib/ip/ip-processing");
+    const { processPendingAssetPersonReferenceVectors } = await import(
+      "@/lib/person/person-processing"
+    );
     const { processPendingAssetProductReferenceVectors } = await import(
       "@/lib/product/product-processing"
     );
@@ -39,10 +42,11 @@ export async function register() {
       void Promise.all([
         runRecovery("Logo", processPendingAssetLogoReferenceVectors),
         runRecovery("IP", processPendingAssetIpReferenceVectors),
+        runRecovery("Person", processPendingAssetPersonReferenceVectors),
         runRecovery("Product", processPendingAssetProductReferenceVectors),
       ])
-        .then(([logos, ips, products]) => {
-          const hasWork = [logos, ips, products].some(
+        .then(([logos, ips, persons, products]) => {
+          const hasWork = [logos, ips, persons, products].some(
             (result) => result.processing > 0 || result.recovered > 0,
           );
           if (hasWork) {
@@ -50,6 +54,7 @@ export async function register() {
               msg: "Feature vector recovery tick completed",
               logos,
               ips,
+              persons,
               products,
             });
           }
