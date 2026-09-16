@@ -116,7 +116,7 @@
     "noRecognizedTags": "暫無識別標籤",
     "noRecognizedFeatures": "暫無識別特徵",
     "featureConfidenceNotCredible": "當前圖片暫未匹配到已有特徵庫特徵，可能尚未收錄該特徵",
-    "videoFeatureLibraryLimited": "暫無識別特徵：目前特徵庫對影片檔案類型的辨識能力有限，僅支援使用影片首幀畫面進行比對",
+    "videoFeatureLibraryLimited": "暫無識別特徵",
     "featureClassBrand": "品牌標識",
     "featureClassIp": "IP 形象",
     "featureClassPerson": "人物",
