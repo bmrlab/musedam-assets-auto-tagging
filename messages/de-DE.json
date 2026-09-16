@@ -116,7 +116,7 @@
     "noRecognizedTags": "Keine erkannten Tags",
     "noRecognizedFeatures": "Keine erkannten Merkmale",
     "featureConfidenceNotCredible": "Für dieses Bild wurde kein passendes Merkmal in der vorhandenen Merkmalsbibliothek gefunden; das Merkmal ist möglicherweise noch nicht erfasst.",
-    "videoFeatureLibraryLimited": "Die aktuelle Merkmalsbibliothek kann Videodateitypen nur eingeschränkt erkennen und unterstützt ausschließlich den Abgleich anhand des ersten Videoframes.",
+    "videoFeatureLibraryLimited": "Keine erkannten Merkmale: Die aktuelle Merkmalsbibliothek kann Videodateitypen nur eingeschränkt erkennen und unterstützt ausschließlich den Abgleich anhand des ersten Videoframes.",
     "featureClassBrand": "Markenlogo",
     "featureClassIp": "IP-Charakter",
     "featureClassPerson": "Person",

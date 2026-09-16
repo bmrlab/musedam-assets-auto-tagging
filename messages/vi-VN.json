@@ -28,7 +28,7 @@
     "noRecognizedTags": "Không có thẻ đã nhận diện",
     "noRecognizedFeatures": "Không có đặc trưng đã nhận diện",
     "featureConfidenceNotCredible": "Hình ảnh hiện tại chưa khớp với đặc trưng nào trong thư viện đặc trưng hiện có; đặc trưng này có thể chưa được thu thập.",
-    "videoFeatureLibraryLimited": "Thư viện đặc trưng hiện tại có khả năng nhận dạng loại tệp video còn hạn chế và chỉ hỗ trợ đối sánh bằng khung hình đầu tiên của video.",
+    "videoFeatureLibraryLimited": "Không có đặc trưng đã nhận diện: Thư viện đặc trưng hiện tại có khả năng nhận dạng loại tệp video còn hạn chế và chỉ hỗ trợ đối sánh bằng khung hình đầu tiên của video.",
     "featureClassBrand": "Logo thương hiệu",
     "featureClassIp": "Nhân vật IP",
     "featureClassPerson": "Người",

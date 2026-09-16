@@ -243,7 +243,7 @@
     "noRecognizedTags": "No recognized tags",
     "noRecognizedFeatures": "No recognized features",
     "featureConfidenceNotCredible": "No matching feature was found in the existing feature library for this image; the feature may not have been indexed yet.",
-    "videoFeatureLibraryLimited": "The current feature library has limited recognition capabilities for video file types and only supports matching using the video's first frame.",
+    "videoFeatureLibraryLimited": "No recognized features: The current feature library has limited recognition capabilities for video file types and only supports matching using the video's first frame.",
     "featureClassBrand": "Brand Logo",
     "featureClassIp": "IP Character",
     "featureClassPerson": "Person",

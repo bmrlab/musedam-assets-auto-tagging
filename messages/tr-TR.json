@@ -243,7 +243,7 @@
     "noRecognizedTags": "Tanınan etiket yok",
     "noRecognizedFeatures": "Tanınan özellik yok",
     "featureConfidenceNotCredible": "Bu görsel için mevcut özellik kütüphanesinde eşleşen bir özellik bulunamadı; özellik henüz kaydedilmemiş olabilir.",
-    "videoFeatureLibraryLimited": "Mevcut özellik kitaplığının video dosyası türlerini tanıma yeteneği sınırlıdır ve yalnızca videonun ilk karesi kullanılarak eşleştirmeyi destekler.",
+    "videoFeatureLibraryLimited": "Tanınan özellik yok: Mevcut özellik kitaplığının video dosyası türlerini tanıma yeteneği sınırlıdır ve yalnızca videonun ilk karesi kullanılarak eşleştirmeyi destekler.",
     "featureClassBrand": "Marka Logosu",
     "featureClassIp": "IP Karakteri",
     "featureClassPerson": "Kişi",
