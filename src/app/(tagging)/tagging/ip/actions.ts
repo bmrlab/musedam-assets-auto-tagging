@@ -11,10 +11,7 @@ import {
   detectIpPartialFeatureBoxes,
   IpDetectionBox,
 } from "@/lib/ip/ip-classification";
-import {
-  markAssetIpVectorsProcessing,
-  processAssetIpReferenceVectors,
-} from "@/lib/ip/ip-processing";
+import { markAssetIpVectorsPending, processAssetIpReferenceVectors } from "@/lib/ip/ip-processing";
 import { ASSET_IP_MATCH_PATTERNS, IP_PARTIAL_MATCH_PATTERN_OPTIONS } from "@/lib/ip/match-pattern";
 import { deleteIpVectorPointsByIp, setIpVectorPayloadByIp } from "@/lib/ip/pgvector";
 import {
@@ -994,7 +991,7 @@ async function importIpBatchRow({
       description,
       matchPattern,
       notes,
-      status: "processing",
+      status: "pending",
       processingError: null,
       enabled,
       images: {
@@ -1982,7 +1979,7 @@ export async function createAssetIpAction(
           description: input.description.trim(),
           matchPattern: input.matchPattern,
           notes: input.notes,
-          status: "processing",
+          status: "pending",
           processingError: null,
           enabled: true,
           images: {
@@ -2137,7 +2134,7 @@ export async function updateAssetIpAction(
             description: input.description.trim(),
             matchPattern: input.matchPattern,
             notes: input.notes,
-            status: "processing",
+            status: "pending",
             processingError: null,
             processedAt: null,
           },
@@ -2383,7 +2380,7 @@ export async function retryAssetIpProcessingAction(
         };
       }
 
-      await markAssetIpVectorsProcessing({
+      await markAssetIpVectorsPending({
         teamId,
         ipId,
         enabled: ip.enabled,

@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   fetch: vi.fn(),
+  isDirectJina: false,
   prepareImage: vi.fn(),
 }));
 
@@ -15,7 +16,7 @@ vi.mock("@/lib/brand/env", () => ({
     model: "jina-clip-v2",
     batchSize: 8,
     timeoutMs: 30_000,
-    isDirectJina: false,
+    isDirectJina: mocks.isDirectJina,
     useProxy: false,
     proxyUrl: "",
   }),
@@ -31,6 +32,7 @@ vi.mock("undici", () => ({
 describe("Jina image preparation boundary", () => {
   beforeEach(() => {
     mocks.fetch.mockReset();
+    mocks.isDirectJina = false;
     mocks.prepareImage.mockReset();
     mocks.prepareImage.mockImplementation(async (image: string) => `prepared:${image}`);
     mocks.fetch.mockImplementation(async (_url, init) => {
@@ -65,7 +67,7 @@ describe("Jina image preparation boundary", () => {
     expect(secondBody.input).toEqual([{ image: "prepared:five" }]);
   });
 
-  it("serializes Jina requests made by concurrent embedding jobs", async () => {
+  it("caps concurrent Jina requests across embedding jobs", async () => {
     let activeRequests = 0;
     let maximumActiveRequests = 0;
 
@@ -83,12 +85,33 @@ describe("Jina image preparation boundary", () => {
       };
     });
 
+    await Promise.all(
+      Array.from({ length: 12 }, (_, index) =>
+        createJinaImageEmbeddings({ images: [`image-${index}`] }),
+      ),
+    );
+
+    expect(maximumActiveRequests).toBe(8);
+  });
+
+  it("paces direct Jina requests according to their input token budget", async () => {
+    mocks.isDirectJina = true;
+    const requestStartedAt: number[] = [];
+    mocks.fetch.mockImplementation(async () => {
+      requestStartedAt.push(Date.now());
+      return {
+        ok: true,
+        status: 200,
+        headers: new Headers(),
+        json: async () => ({ data: [{ index: 0, embedding: [1] }] }),
+      };
+    });
+
     await Promise.all([
       createJinaImageEmbeddings({ images: ["one"] }),
       createJinaImageEmbeddings({ images: ["two"] }),
-      createJinaImageEmbeddings({ images: ["three"] }),
     ]);
 
-    expect(maximumActiveRequests).toBe(1);
+    expect(requestStartedAt[1] - requestStartedAt[0]).toBeGreaterThanOrEqual(300);
   });
 });

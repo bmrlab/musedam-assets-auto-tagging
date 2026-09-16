@@ -8,11 +8,8 @@ import { cropImageToDataUrl as cropClassificationImageToDataUrl } from "@/lib/ta
 import { translateTextToEnglish } from "@/lib/translation/service";
 import prisma from "@/prisma/prisma";
 import { randomUUID } from "crypto";
-import {
-  deleteIpVectorPointsByIp,
-  setIpVectorPayloadByIp,
-  upsertIpVectorPoints,
-} from "./pgvector";
+import pLimit from "p-limit";
+import { deleteIpVectorPointsByIp, setIpVectorPayloadByIp, upsertIpVectorPoints } from "./pgvector";
 
 const IP_PROCESSING_ERROR_CODES = {
   embeddingCountMismatch: "embedding_count_mismatch",
@@ -23,6 +20,13 @@ const IP_PROCESSING_ERROR_CODES = {
   unknown: "unknown",
   vectorStoreSyncFailed: "vector_store_sync_failed",
 } as const;
+
+const IP_VECTOR_PROCESSING_CONCURRENCY = 8;
+const IP_VECTOR_RECOVERY_BATCH_SIZE = 32;
+const IP_VECTOR_PROCESSING_HEARTBEAT_MS = 15_000;
+const IP_VECTOR_PROCESSING_STALE_MS = 60_000;
+const ipVectorProcessingLimit = pLimit(IP_VECTOR_PROCESSING_CONCURRENCY);
+const inFlightIpVectorProcessing = new Map<string, Promise<void>>();
 
 type IpProcessingErrorCode =
   (typeof IP_PROCESSING_ERROR_CODES)[keyof typeof IP_PROCESSING_ERROR_CODES];
@@ -59,7 +63,10 @@ function getProcessingErrorCode(error: unknown): IpProcessingErrorCode {
   return IP_PROCESSING_ERROR_CODES.unknown;
 }
 
-async function fetchImageAsDataUrl(objectKey: string, mimeType: string): Promise<{ dataUrl: string; buffer: Buffer }> {
+async function fetchImageAsDataUrl(
+  objectKey: string,
+  mimeType: string,
+): Promise<{ dataUrl: string; buffer: Buffer }> {
   const { signedUrl } = getCachedSignedS3ObjectUrl({ objectKey });
   const response = await fetch(signedUrl);
 
@@ -137,7 +144,7 @@ async function buildReferenceImageInput({
   });
 }
 
-export async function markAssetIpVectorsProcessing({
+export async function markAssetIpVectorsPending({
   teamId,
   ipId,
   enabled,
@@ -152,7 +159,7 @@ export async function markAssetIpVectorsProcessing({
         id: ipId,
       },
       data: {
-        status: "processing",
+        status: "pending",
         processingError: null,
         processedAt: null,
       },
@@ -182,14 +189,52 @@ export async function markAssetIpVectorsProcessing({
   });
 }
 
-export async function processAssetIpReferenceVectors({
+async function processAssetIpReferenceVectorsNow({
   teamId,
   ipId,
 }: {
   teamId: number;
   ipId: string;
 }) {
+  let heartbeat: ReturnType<typeof setInterval> | null = null;
+
   try {
+    const claimed = await prisma.assetIp.updateMany({
+      where: {
+        id: ipId,
+        teamId,
+        status: {
+          in: ["pending", "processing"],
+        },
+      },
+      data: {
+        status: "processing",
+        processingError: null,
+        processedAt: null,
+      },
+    });
+
+    if (claimed.count === 0) {
+      return;
+    }
+
+    heartbeat = setInterval(() => {
+      void prisma.assetIp
+        .updateMany({
+          where: {
+            id: ipId,
+            teamId,
+            status: "processing",
+          },
+          data: {
+            status: "processing",
+          },
+        })
+        .catch((error) => {
+          console.warn(`Failed to heartbeat asset IP vectors (${ipId}):`, error);
+        });
+    }, IP_VECTOR_PROCESSING_HEARTBEAT_MS);
+
     const ip = await prisma.assetIp.findFirst({
       where: {
         id: ipId,
@@ -349,5 +394,95 @@ export async function processAssetIpReferenceVectors({
     }).catch(() => undefined);
 
     throw error;
+  } finally {
+    if (heartbeat) {
+      clearInterval(heartbeat);
+    }
   }
+}
+
+export function processAssetIpReferenceVectors({ teamId, ipId }: { teamId: number; ipId: string }) {
+  const existing = inFlightIpVectorProcessing.get(ipId);
+  if (existing) {
+    return existing;
+  }
+
+  const processingPromise = ipVectorProcessingLimit(() =>
+    processAssetIpReferenceVectorsNow({ teamId, ipId }),
+  );
+  const trackedPromise: Promise<void> = processingPromise.finally(() => {
+    if (inFlightIpVectorProcessing.get(ipId) === trackedPromise) {
+      inFlightIpVectorProcessing.delete(ipId);
+    }
+  });
+  inFlightIpVectorProcessing.set(ipId, trackedPromise);
+  return trackedPromise;
+}
+
+export async function processPendingAssetIpReferenceVectors() {
+  const staleBefore = new Date(Date.now() - IP_VECTOR_PROCESSING_STALE_MS);
+  const recovered = await prisma.assetIp.updateMany({
+    where: {
+      status: "processing",
+      updatedAt: {
+        lt: staleBefore,
+      },
+    },
+    data: {
+      status: "pending",
+    },
+  });
+
+  const candidates = await prisma.assetIp.findMany({
+    where: {
+      status: "pending",
+    },
+    orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
+    select: {
+      id: true,
+      teamId: true,
+    },
+    take: IP_VECTOR_RECOVERY_BATCH_SIZE,
+  });
+
+  let processing = 0;
+  let skipped = 0;
+
+  await Promise.all(
+    candidates.map(async (candidate) => {
+      const claimed = await prisma.assetIp.updateMany({
+        where: {
+          id: candidate.id,
+          teamId: candidate.teamId,
+          status: "pending",
+        },
+        data: {
+          status: "processing",
+          processingError: null,
+          processedAt: null,
+        },
+      });
+
+      if (claimed.count === 0) {
+        skipped += 1;
+        return;
+      }
+
+      processing += 1;
+      try {
+        await processAssetIpReferenceVectors({
+          teamId: candidate.teamId,
+          ipId: candidate.id,
+        });
+      } catch (error) {
+        console.error(`Failed to recover asset IP vectors (${candidate.id}):`, error);
+      }
+    }),
+  );
+
+  return {
+    processing,
+    recovered: recovered.count,
+    skipped,
+  };
 }

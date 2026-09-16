@@ -8,7 +8,7 @@ import {
 } from "@/lib/brand/logo-classification";
 import { fetchLogoDetectionLabelText } from "@/lib/brand/logo-detection-prompt";
 import {
-  markAssetLogoVectorsProcessing,
+  markAssetLogoVectorsPending,
   processAssetLogoReferenceVectors,
 } from "@/lib/brand/logo-processing";
 import { deleteLogoVectorPointsByLogo, setLogoVectorPayloadByLogo } from "@/lib/brand/pgvector";
@@ -958,7 +958,7 @@ async function importBrandBatchRow({
       logoTypeId: logoType.id,
       logoTypeName: logoType.name,
       notes,
-      status: "processing",
+      status: "pending",
       processingError: null,
       enabled,
       images: {
@@ -1616,7 +1616,7 @@ export async function createAssetLogoAction(
           logoTypeId: logoType.id,
           logoTypeName: logoType.name,
           notes: input.notes,
-          status: "processing",
+          status: "pending",
           processingError: null,
           enabled: true,
           images: {
@@ -1762,7 +1762,7 @@ export async function updateAssetLogoAction(
             logoTypeId: logoType.id,
             logoTypeName: logoType.name,
             notes: input.notes,
-            status: "processing",
+            status: "pending",
             processingError: null,
             processedAt: null,
           },
@@ -1997,7 +1997,7 @@ export async function retryAssetLogoProcessingAction(
         };
       }
 
-      await markAssetLogoVectorsProcessing({
+      await markAssetLogoVectorsPending({
         teamId,
         logoId,
         enabled: logo.enabled,

@@ -16,7 +16,7 @@ import {
   detectProductFigureBoxes,
 } from "@/lib/product/product-classification";
 import {
-  markAssetProductVectorsProcessing,
+  markAssetProductVectorsPending,
   processAssetProductReferenceVectors,
 } from "@/lib/product/product-processing";
 import {
@@ -87,9 +87,6 @@ import {
 } from "./types";
 
 type TranslationFunction = (key: string, values?: Record<string, string | number>) => string;
-
-const PRODUCT_VECTOR_PROCESSING_BATCH_SIZE = 2;
-const assetProductProcessingLimit = pLimit(PRODUCT_VECTOR_PROCESSING_BATCH_SIZE);
 
 function getProductBatchFileErrors(t: TranslationFunction): BatchFileErrorMessages {
   return {
@@ -824,7 +821,7 @@ async function importProductBatchRow({
       productTypeName: productType.name,
       description,
       notes,
-      status: "processing",
+      status: "pending",
       processingError: null,
       enabled,
       images: {
@@ -846,6 +843,7 @@ async function importProductBatchRow({
   existingNames.add(productName);
 
   const product = await loadProduct(team.id, createdProduct.id);
+  scheduleAssetProductProcessing(team.id, createdProduct.id);
   schedulePushFeatureToMuseDAM({
     team,
     featureType: "product",
@@ -1114,34 +1112,17 @@ async function loadProductsByIds(teamId: number, productIds: string[]) {
   return products.map((product) => normalizeProduct(product));
 }
 
-function scheduleAssetProductBatchProcessing(teamId: number, productIds: string[]) {
-  if (productIds.length === 0) {
-    return;
-  }
-
+function scheduleAssetProductProcessing(teamId: number, productId: string) {
   after(async () => {
-    for (let start = 0; start < productIds.length; start += PRODUCT_VECTOR_PROCESSING_BATCH_SIZE) {
-      const productBatch = productIds.slice(start, start + PRODUCT_VECTOR_PROCESSING_BATCH_SIZE);
-      await Promise.all(
-        productBatch.map((productId) =>
-          assetProductProcessingLimit(async () => {
-            try {
-              await processAssetProductReferenceVectors({
-                teamId,
-                productId,
-              });
-            } catch (error) {
-              console.error(`Failed to process asset Product vectors (${productId}):`, error);
-            }
-          }),
-        ),
-      );
+    try {
+      await processAssetProductReferenceVectors({
+        teamId,
+        productId,
+      });
+    } catch (error) {
+      console.error("Failed to process asset Product vectors:", error);
     }
   });
-}
-
-function scheduleAssetProductProcessing(teamId: number, productId: string) {
-  scheduleAssetProductBatchProcessing(teamId, [productId]);
 }
 
 function getClassifyBoxSchema() {
@@ -1436,11 +1417,6 @@ export async function importProductsAction(
         }
       }
 
-      scheduleAssetProductBatchProcessing(
-        team.id,
-        createdProducts.map((product) => product.id),
-      );
-
       const [nextProductTypes, tagTree] = await Promise.all([
         fetchActiveProductTypes(team.id),
         shouldCreateMissingTags ? fetchProductTags(team.id) : Promise.resolve(undefined),
@@ -1670,7 +1646,7 @@ export async function createAssetProductAction(
           productTypeName: productType.name,
           description: input.description.trim(),
           notes: input.notes,
-          status: "processing",
+          status: "pending",
           processingError: null,
           enabled: true,
           images: {
@@ -1818,7 +1794,7 @@ export async function updateAssetProductAction(
             productTypeName: productType.name,
             description: input.description.trim(),
             notes: input.notes,
-            status: "processing",
+            status: "pending",
             processingError: null,
             processedAt: null,
           },
@@ -2055,7 +2031,7 @@ export async function retryAssetProductProcessingAction(
         };
       }
 
-      await markAssetProductVectorsProcessing({
+      await markAssetProductVectorsPending({
         teamId,
         productId,
         enabled: product.enabled,

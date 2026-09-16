@@ -1,5 +1,6 @@
-// Optional in-process replacement for the standalone queue-scheduler/CronJob
-// deployment (deploy/ack/base.yaml). See instrumentation-node.ts for details.
+// Starts the restart-safe feature-vector workers and, optionally, the in-process
+// replacement for the standalone queue-scheduler/CronJob deployment. See
+// instrumentation-node.ts for details.
 //
 // instrumentation.ts is compiled for both the Node.js and Edge runtimes
 // (this app has middleware.ts, so an Edge build always runs). Node-only

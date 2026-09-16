@@ -4,17 +4,25 @@ import { getJinaConfig } from "@/lib/brand/env";
 import { bufferToDataUrl } from "@/lib/brand/image";
 import { createJinaImageEmbeddings } from "@/lib/brand/jina";
 import {
-  BRAND_PROCESSING_ERROR_CODES,
-  BrandProcessingErrorCode,
-} from "@/lib/brand/processing-errors";
-import {
   deleteLogoVectorPointsByLogo,
   setLogoVectorPayloadByLogo,
   upsertLogoVectorPoints,
 } from "@/lib/brand/pgvector";
+import {
+  BRAND_PROCESSING_ERROR_CODES,
+  BrandProcessingErrorCode,
+} from "@/lib/brand/processing-errors";
 import { getCachedSignedS3ObjectUrl } from "@/lib/s3";
 import prisma from "@/prisma/prisma";
 import { randomUUID } from "crypto";
+import pLimit from "p-limit";
+
+const LOGO_VECTOR_PROCESSING_CONCURRENCY = 8;
+const LOGO_VECTOR_RECOVERY_BATCH_SIZE = 32;
+const LOGO_VECTOR_PROCESSING_HEARTBEAT_MS = 15_000;
+const LOGO_VECTOR_PROCESSING_STALE_MS = 60_000;
+const logoVectorProcessingLimit = pLimit(LOGO_VECTOR_PROCESSING_CONCURRENCY);
+const inFlightLogoVectorProcessing = new Map<string, Promise<void>>();
 
 function createProcessingError(code: BrandProcessingErrorCode, cause?: unknown) {
   const error = new Error(code) as Error & {
@@ -60,7 +68,7 @@ async function fetchImageAsDataUrl(objectKey: string, mimeType: string) {
   return bufferToDataUrl(buffer, mimeType);
 }
 
-export async function markAssetLogoVectorsProcessing({
+export async function markAssetLogoVectorsPending({
   teamId,
   logoId,
   enabled,
@@ -75,7 +83,7 @@ export async function markAssetLogoVectorsProcessing({
         id: logoId,
       },
       data: {
-        status: "processing",
+        status: "pending",
         processingError: null,
         processedAt: null,
       },
@@ -105,14 +113,52 @@ export async function markAssetLogoVectorsProcessing({
   });
 }
 
-export async function processAssetLogoReferenceVectors({
+async function processAssetLogoReferenceVectorsNow({
   teamId,
   logoId,
 }: {
   teamId: number;
   logoId: string;
 }) {
+  let heartbeat: ReturnType<typeof setInterval> | null = null;
+
   try {
+    const claimed = await prisma.assetLogo.updateMany({
+      where: {
+        id: logoId,
+        teamId,
+        status: {
+          in: ["pending", "processing"],
+        },
+      },
+      data: {
+        status: "processing",
+        processingError: null,
+        processedAt: null,
+      },
+    });
+
+    if (claimed.count === 0) {
+      return;
+    }
+
+    heartbeat = setInterval(() => {
+      void prisma.assetLogo
+        .updateMany({
+          where: {
+            id: logoId,
+            teamId,
+            status: "processing",
+          },
+          data: {
+            status: "processing",
+          },
+        })
+        .catch((error) => {
+          console.warn(`Failed to heartbeat asset Logo vectors (${logoId}):`, error);
+        });
+    }, LOGO_VECTOR_PROCESSING_HEARTBEAT_MS);
+
     const logo = await prisma.assetLogo.findFirst({
       where: {
         id: logoId,
@@ -219,5 +265,101 @@ export async function processAssetLogoReferenceVectors({
     }).catch(() => undefined);
 
     throw error;
+  } finally {
+    if (heartbeat) {
+      clearInterval(heartbeat);
+    }
   }
+}
+
+export function processAssetLogoReferenceVectors({
+  teamId,
+  logoId,
+}: {
+  teamId: number;
+  logoId: string;
+}) {
+  const existing = inFlightLogoVectorProcessing.get(logoId);
+  if (existing) {
+    return existing;
+  }
+
+  const processingPromise = logoVectorProcessingLimit(() =>
+    processAssetLogoReferenceVectorsNow({ teamId, logoId }),
+  );
+  const trackedPromise: Promise<void> = processingPromise.finally(() => {
+    if (inFlightLogoVectorProcessing.get(logoId) === trackedPromise) {
+      inFlightLogoVectorProcessing.delete(logoId);
+    }
+  });
+  inFlightLogoVectorProcessing.set(logoId, trackedPromise);
+  return trackedPromise;
+}
+
+export async function processPendingAssetLogoReferenceVectors() {
+  const staleBefore = new Date(Date.now() - LOGO_VECTOR_PROCESSING_STALE_MS);
+  const recovered = await prisma.assetLogo.updateMany({
+    where: {
+      status: "processing",
+      updatedAt: {
+        lt: staleBefore,
+      },
+    },
+    data: {
+      status: "pending",
+    },
+  });
+
+  const candidates = await prisma.assetLogo.findMany({
+    where: {
+      status: "pending",
+    },
+    orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
+    select: {
+      id: true,
+      teamId: true,
+    },
+    take: LOGO_VECTOR_RECOVERY_BATCH_SIZE,
+  });
+
+  let processing = 0;
+  let skipped = 0;
+
+  await Promise.all(
+    candidates.map(async (candidate) => {
+      const claimed = await prisma.assetLogo.updateMany({
+        where: {
+          id: candidate.id,
+          teamId: candidate.teamId,
+          status: "pending",
+        },
+        data: {
+          status: "processing",
+          processingError: null,
+          processedAt: null,
+        },
+      });
+
+      if (claimed.count === 0) {
+        skipped += 1;
+        return;
+      }
+
+      processing += 1;
+      try {
+        await processAssetLogoReferenceVectors({
+          teamId: candidate.teamId,
+          logoId: candidate.id,
+        });
+      } catch (error) {
+        console.error(`Failed to recover asset Logo vectors (${candidate.id}):`, error);
+      }
+    }),
+  );
+
+  return {
+    processing,
+    recovered: recovered.count,
+    skipped,
+  };
 }

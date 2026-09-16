@@ -30,6 +30,13 @@ const PRODUCT_PROCESSING_ERROR_CODES = {
   vectorStoreSyncFailed: "vector_store_sync_failed",
 } as const;
 
+const PRODUCT_VECTOR_PROCESSING_CONCURRENCY = 8;
+const PRODUCT_VECTOR_RECOVERY_BATCH_SIZE = 32;
+const PRODUCT_VECTOR_PROCESSING_HEARTBEAT_MS = 15_000;
+const PRODUCT_VECTOR_PROCESSING_STALE_MS = 60_000;
+const productVectorProcessingLimit = pLimit(PRODUCT_VECTOR_PROCESSING_CONCURRENCY);
+const inFlightProductVectorProcessing = new Map<string, Promise<void>>();
+
 type ProductProcessingErrorCode =
   (typeof PRODUCT_PROCESSING_ERROR_CODES)[keyof typeof PRODUCT_PROCESSING_ERROR_CODES];
 
@@ -170,7 +177,7 @@ async function predictProductGeneralCategory({
   }
 }
 
-export async function markAssetProductVectorsProcessing({
+export async function markAssetProductVectorsPending({
   teamId,
   productId,
   enabled,
@@ -185,7 +192,7 @@ export async function markAssetProductVectorsProcessing({
         id: productId,
       },
       data: {
-        status: "processing",
+        status: "pending",
         processingError: null,
         processedAt: null,
       },
@@ -215,14 +222,52 @@ export async function markAssetProductVectorsProcessing({
   });
 }
 
-export async function processAssetProductReferenceVectors({
+async function processAssetProductReferenceVectorsNow({
   teamId,
   productId,
 }: {
   teamId: number;
   productId: string;
 }) {
+  let heartbeat: ReturnType<typeof setInterval> | null = null;
+
   try {
+    const claimed = await prisma.assetProduct.updateMany({
+      where: {
+        id: productId,
+        teamId,
+        status: {
+          in: ["pending", "processing"],
+        },
+      },
+      data: {
+        status: "processing",
+        processingError: null,
+        processedAt: null,
+      },
+    });
+
+    if (claimed.count === 0) {
+      return;
+    }
+
+    heartbeat = setInterval(() => {
+      void prisma.assetProduct
+        .updateMany({
+          where: {
+            id: productId,
+            teamId,
+            status: "processing",
+          },
+          data: {
+            status: "processing",
+          },
+        })
+        .catch((error) => {
+          console.warn(`Failed to heartbeat asset Product vectors (${productId}):`, error);
+        });
+    }, PRODUCT_VECTOR_PROCESSING_HEARTBEAT_MS);
+
     const product = await prisma.assetProduct.findFirst({
       where: {
         id: productId,
@@ -380,5 +425,101 @@ export async function processAssetProductReferenceVectors({
     }).catch(() => undefined);
 
     throw error;
+  } finally {
+    if (heartbeat) {
+      clearInterval(heartbeat);
+    }
   }
+}
+
+export function processAssetProductReferenceVectors({
+  teamId,
+  productId,
+}: {
+  teamId: number;
+  productId: string;
+}) {
+  const existing = inFlightProductVectorProcessing.get(productId);
+  if (existing) {
+    return existing;
+  }
+
+  const processingPromise = productVectorProcessingLimit(() =>
+    processAssetProductReferenceVectorsNow({ teamId, productId }),
+  );
+  const trackedPromise: Promise<void> = processingPromise.finally(() => {
+    if (inFlightProductVectorProcessing.get(productId) === trackedPromise) {
+      inFlightProductVectorProcessing.delete(productId);
+    }
+  });
+  inFlightProductVectorProcessing.set(productId, trackedPromise);
+  return trackedPromise;
+}
+
+export async function processPendingAssetProductReferenceVectors() {
+  const staleBefore = new Date(Date.now() - PRODUCT_VECTOR_PROCESSING_STALE_MS);
+  const recovered = await prisma.assetProduct.updateMany({
+    where: {
+      status: "processing",
+      updatedAt: {
+        lt: staleBefore,
+      },
+    },
+    data: {
+      status: "pending",
+    },
+  });
+
+  const candidates = await prisma.assetProduct.findMany({
+    where: {
+      status: "pending",
+    },
+    orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
+    select: {
+      id: true,
+      teamId: true,
+    },
+    take: PRODUCT_VECTOR_RECOVERY_BATCH_SIZE,
+  });
+
+  let processing = 0;
+  let skipped = 0;
+
+  await Promise.all(
+    candidates.map(async (candidate) => {
+      const claimed = await prisma.assetProduct.updateMany({
+        where: {
+          id: candidate.id,
+          teamId: candidate.teamId,
+          status: "pending",
+        },
+        data: {
+          status: "processing",
+          processingError: null,
+          processedAt: null,
+        },
+      });
+
+      if (claimed.count === 0) {
+        skipped += 1;
+        return;
+      }
+
+      processing += 1;
+      try {
+        await processAssetProductReferenceVectors({
+          teamId: candidate.teamId,
+          productId: candidate.id,
+        });
+      } catch (error) {
+        console.error(`Failed to recover asset Product vectors (${candidate.id}):`, error);
+      }
+    }),
+  );
+
+  return {
+    processing,
+    recovered: recovered.count,
+    skipped,
+  };
 }

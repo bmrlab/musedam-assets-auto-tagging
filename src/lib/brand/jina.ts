@@ -19,9 +19,15 @@ type JinaResponse = {
 const JINA_MAX_RETRIES = 5;
 const JINA_RETRY_BASE_DELAY_MS = 500;
 const JINA_MAX_IMAGE_BATCH_SIZE = 4;
-const JINA_REQUEST_INTERVAL_MS = 2_500;
-const JINA_RATE_LIMIT_RETRY_DELAY_MS = 60_000;
-const jinaRequestLimit = pLimit(1);
+// A paid Jina key allows 2M TPM and each jina-clip-v2 input can use up to 8,192 tokens.
+// Reserve only 80% so mixed image/text traffic has headroom without a fixed per-request delay.
+const JINA_REQUEST_CONCURRENCY = 8;
+const JINA_PAID_TOKENS_PER_MINUTE = 2_000_000;
+const JINA_MAX_TOKENS_PER_INPUT = 8_192;
+const JINA_RATE_LIMIT_TARGET_UTILIZATION = 0.8;
+const JINA_RATE_LIMIT_RETRY_DELAY_MS = 15_000;
+const jinaRequestConcurrencyLimit = pLimit(JINA_REQUEST_CONCURRENCY);
+const jinaRequestPacingLimit = pLimit(1);
 let nextJinaRequestAt = 0;
 
 function sleep(ms: number) {
@@ -64,39 +70,38 @@ async function sendJinaEmbeddingRequest({
   body: Record<string, unknown>;
   proxyAgent: ProxyAgent | undefined;
 }) {
-  return jinaRequestLimit(async () => {
-    const queueDelayMs = Math.max(0, nextJinaRequestAt - Date.now());
-    if (queueDelayMs > 0) {
-      await sleep(queueDelayMs);
-    }
+  const inputCount = Array.isArray(body.input) ? Math.max(1, body.input.length) : 1;
+  const requestIntervalMs = config.isDirectJina
+    ? Math.ceil(
+        (inputCount * JINA_MAX_TOKENS_PER_INPUT * 60_000) /
+          (JINA_PAID_TOKENS_PER_MINUTE * JINA_RATE_LIMIT_TARGET_UTILIZATION),
+      )
+    : 0;
 
-    try {
-      const response = await nodeFetch(config.embeddingsUrl, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${config.apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(config.timeoutMs),
-        dispatcher: proxyAgent,
-      });
-      const payload = (await response.json().catch(() => null)) as JinaResponse | null;
-      const nextDelayMs =
-        response.status === 429
-          ? (getRetryAfterMs(response) ?? JINA_RATE_LIMIT_RETRY_DELAY_MS)
-          : config.isDirectJina
-            ? JINA_REQUEST_INTERVAL_MS
-            : 0;
-
-      nextJinaRequestAt = Math.max(nextJinaRequestAt, Date.now() + nextDelayMs);
-      return { response, payload };
-    } catch (error) {
-      if (config.isDirectJina) {
-        nextJinaRequestAt = Math.max(nextJinaRequestAt, Date.now() + JINA_REQUEST_INTERVAL_MS);
+  return jinaRequestConcurrencyLimit(async () => {
+    await jinaRequestPacingLimit(async () => {
+      while (nextJinaRequestAt > Date.now()) {
+        await sleep(nextJinaRequestAt - Date.now());
       }
-      throw error;
+      nextJinaRequestAt = Date.now() + requestIntervalMs;
+    });
+
+    const response = await nodeFetch(config.embeddingsUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${config.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(config.timeoutMs),
+      dispatcher: proxyAgent,
+    });
+    const payload = (await response.json().catch(() => null)) as JinaResponse | null;
+    if (response.status === 429) {
+      const retryDelayMs = getRetryAfterMs(response) ?? JINA_RATE_LIMIT_RETRY_DELAY_MS;
+      nextJinaRequestAt = Math.max(nextJinaRequestAt, Date.now() + retryDelayMs);
     }
+    return { response, payload };
   });
 }
 
