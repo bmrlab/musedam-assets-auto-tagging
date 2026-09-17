@@ -126,11 +126,18 @@ MuseDAM（`src/musedam/push-feature-to-musedam.ts`）都调用 `getS3PublicObjec
 
    `status` 里 `job.status` 变成 `done` 再触发下一个阶段。进程内同一时间只允许一个任务，重复触发返回 409 和当前进度，不会并发写同一批行。
 
-   - `rewriteFolder`：SaaS 侧 `S3_FOLDER` 和客户侧不一致时必传（如 `feature-library` -> `auto-tagging/feature-library`），不传则 objectKey 原样保留
+   - `rewriteFolder`：SaaS 侧 `S3_FOLDER` 和客户侧不一致时可传，脚本会把 objectKey 前缀改写成客户侧的；不传则 objectKey 原样保留（原样保留也能正常工作，最不容易出错）
+   - `sourceUrlBase`：传了就一律从 `<sourceUrlBase>/<objectKey>` 下载图片，忽略包内签名链接。见下面"图片域名未放行"
    - `batchSize`：db 阶段每个事务写多少行，默认 200；`concurrency`：resources 阶段并发数，默认 8
    - 三个阶段全部幂等：失败或取消后重新触发同一阶段会跳过已完成项续传
    - 任务状态只在进程内存里，Pod 重启后 `status` 为空；导入本身幂等，重新触发即可
    - Pod stdout 也有结构化日志（`module=migration-import`，含 jobId、每 10 秒一条进度心跳和堆内存），便于在观测云里查
+
+**图片域名未放行**：包内 `assets[].sourceUrl` 指向 SaaS 的 AWS 桶（`s3.cn-north-1.amazonaws.com.cn`）。客户如果只放行了我们的
+OSS 域名，resources 阶段会全部 `连接源站失败`。不需要客户再改网络：在我们自己的机器上跑
+`npx tsx scripts/migrate-team-mirror-assets.ts --in-url=<JSON 链接> --prefix=<OSS 目录>`（配目标 OSS 的 `S3_*` 变量），
+把图片按 `<prefix>/<objectKey>` 镜像到那个 OSS 桶（目录需匿名可读），然后触发 resources 阶段时加
+`sourceUrlBase=https://<bucket>.oss-cn-beijing.aliyuncs.com/<prefix>`。
 
 **大包注意**：bundle 解析后在堆里大约是文件体积的 3 到 5 倍（向量表占大头），db 阶段每写完一张表就释放对应数组。
 Web 容器堆上限默认 640MB（`NODE_OPTIONS`），100MB 以内的包可以直接跑；更大的包建议导入期间临时把 Web 的内存 limit 和 `--max-old-space-size` 调高，`status` 里的 `memory.heapUsedMB / heapLimitMB` 可以看到实际水位。
