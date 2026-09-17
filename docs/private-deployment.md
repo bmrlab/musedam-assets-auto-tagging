@@ -133,6 +133,10 @@ MuseDAM（`src/musedam/push-feature-to-musedam.ts`）都调用 `getS3PublicObjec
    - 任务状态只在进程内存里，Pod 重启后 `status` 为空；导入本身幂等，重新触发即可
    - Pod stdout 也有结构化日志（`module=migration-import`，含 jobId、每 10 秒一条进度心跳和堆内存），便于在观测云里查
 
+**出网代理**：客户环境若通过 `HTTPS_PROXY` / `HTTP_PROXY` / `ALL_PROXY`（或本项目的 `FETCH_HTTPS_PROXY`）走代理出公网，
+导入接口和脚本会自动用它下载数据包和图片，并尊重 `NO_PROXY`；`status` 日志第一行"出网方式"会显示实际用的出口。
+典型症状：容器里 `curl` 能访问图片链接，但接口日志全是 `连接源站失败 ... ECONNREFUSED`，就是 Pod 没配这些变量或只配给了别的组件。
+
 **图片域名未放行**：包内 `assets[].sourceUrl` 指向 SaaS 的 AWS 桶（`s3.cn-north-1.amazonaws.com.cn`）。客户如果只放行了我们的
 OSS 域名，resources 阶段会全部 `连接源站失败`。不需要客户再改网络：在我们自己的机器上跑
 `npx tsx scripts/migrate-team-mirror-assets.ts --in-url=<JSON 链接> --prefix=<OSS 目录>`（配目标 OSS 的 `S3_*` 变量），

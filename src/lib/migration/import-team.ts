@@ -31,6 +31,16 @@ export type ImportStorage = {
 
 export type ImportProgress = { stage: ImportPhase; label: string; done: number; total: number };
 
+// 下载源图用的 fetch。默认 globalThis.fetch；客户环境出网要走代理时由调用方注入带 dispatcher 的 undici fetch
+// （Node 自带 fetch 不读 HTTPS_PROXY 环境变量，curl 会读，所以会出现"容器里 curl 通、接口不通"）。
+export type SourceFetch = (url: string) => Promise<{
+  ok: boolean;
+  status: number;
+  arrayBuffer: () => Promise<ArrayBuffer>;
+  text: () => Promise<string>;
+  json: () => Promise<unknown>;
+}>;
+
 export type ImportOptions = {
   phase?: ImportPhase;
   dryRun?: boolean;
@@ -40,6 +50,9 @@ export type ImportOptions = {
   sourceUrlBase?: string;
   // SaaS 侧的 S3_FOLDER；传了就把 objectKey 前缀从这个值改写成目标 storage.folder，不传原样保留
   rewriteFolder?: string;
+  fetchSource?: SourceFetch;
+  // 只用于日志：告诉用户下载走的是什么出口
+  sourceFetchLabel?: string;
   // resources 阶段并发数
   concurrency?: number;
   // db 阶段每个事务写多少行
@@ -297,11 +310,11 @@ function describeFetchError(err: unknown) {
   return e?.message ?? String(err);
 }
 
-async function fetchSourceObject(url: string) {
+async function fetchSourceObject(fetchSource: SourceFetch, url: string) {
   const shown = url.split("?")[0]; // 日志里不打印签名参数
-  let res: Response;
+  let res: Awaited<ReturnType<SourceFetch>>;
   try {
-    res = await fetch(url);
+    res = await fetchSource(url);
   } catch (err) {
     throw new Error(`连接源站失败: ${new URL(url).host} ${describeFetchError(err)}，请确认客户网络放行了该域名`);
   }
@@ -313,8 +326,12 @@ async function fetchSourceObject(url: string) {
 async function importResources(
   ctx: Ctx,
   teamId: number,
-  opts: { concurrency: number } & Pick<ImportOptions, "storage" | "sourceUrlBase" | "rewriteFolder">,
+  opts: { concurrency: number } & Pick<
+    ImportOptions,
+    "storage" | "sourceUrlBase" | "rewriteFolder" | "fetchSource" | "sourceFetchLabel"
+  >,
 ) {
+  const fetchSource: SourceFetch = opts.fetchSource ?? ((url) => fetch(url));
   const { log, dryRun, bundle, target } = ctx;
   log(`=== 阶段二：下载图片并上传到目标对象存储 (teamId=${teamId}) ===`);
 
@@ -349,6 +366,7 @@ async function importResources(
   log(
     `  改写目录前缀: ${rewrite ? `是（${opts.rewriteFolder || "(root)"} -> ${storage.folder || "(root)"}）` : "否（objectKey 原样保留）"}`,
   );
+  log(`  下载出口: ${opts.sourceFetchLabel ?? "直连（Node fetch，不读代理环境变量）"}`);
   log(`  共 ${assets.length} 张图片，并发 ${opts.concurrency}`);
 
   const failures: ResourceFailure[] = [];
@@ -369,7 +387,7 @@ async function importResources(
       if (await storage.head(newKey)) {
         skipped += 1;
       } else {
-        const body = await fetchSourceObject(sourceUrl);
+        const body = await fetchSourceObject(fetchSource, sourceUrl);
         await storage.put(newKey, body, row.mimeType);
       }
 
@@ -476,6 +494,8 @@ export async function importTeamBundle(
       storage: opts.storage,
       sourceUrlBase: opts.sourceUrlBase,
       rewriteFolder: opts.rewriteFolder,
+      fetchSource: opts.fetchSource,
+      sourceFetchLabel: opts.sourceFetchLabel,
     });
   }
   if (phase === "all" || phase === "verify") {
