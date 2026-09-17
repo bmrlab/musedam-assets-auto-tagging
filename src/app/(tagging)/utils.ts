@@ -2,18 +2,32 @@ import "server-only";
 
 import { TagWithChildren, AssetTagExtra } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
+import { resolveEvidencePolicy } from "./evidence-policy";
 
 /**
  * 构建标签结构的文本描述
  */
+export const LITERAL_EVIDENCE_TAG_MARK = "【字面证据】";
+
+/**
+ * 字面型标签（证据策略 literal）在标签体系文本里带上标记，让模型知道这类标签必须摘录 evidence，
+ * 且不能仅凭画面印象给出。
+ */
+function literalMark(extra: unknown, tagPath: string[]): string {
+  return resolveEvidencePolicy(extra, tagPath) === "literal" ? ` ${LITERAL_EVIDENCE_TAG_MARK}` : "";
+}
+
 export function buildTagStructureText(tags: TagWithChildren[]): string {
   let structureText = "";
   for (const level1Tag of tags) {
-    structureText += `\Level 1 (id: ${level1Tag.id}): ${level1Tag.name}\n`;
+    const path1 = [level1Tag.name];
+    structureText += `\nLevel 1 (id: ${level1Tag.id}): ${level1Tag.name}${literalMark(level1Tag.extra, path1)}\n`;
     for (const level2Tag of level1Tag.children ?? []) {
-      structureText += `  └─ Level 2 (id: ${level2Tag.id}): ${level2Tag.name}\n`;
+      const path2 = [...path1, level2Tag.name];
+      structureText += `  └─ Level 2 (id: ${level2Tag.id}): ${level2Tag.name}${literalMark(level2Tag.extra, path2)}\n`;
       for (const level3Tag of level2Tag.children ?? []) {
-        structureText += `      └─ Level 3 (id: ${level3Tag.id}): ${level3Tag.name}\n`;
+        const path3 = [...path2, level3Tag.name];
+        structureText += `      └─ Level 3 (id: ${level3Tag.id}): ${level3Tag.name}${literalMark(level3Tag.extra, path3)}\n`;
       }
     }
   }

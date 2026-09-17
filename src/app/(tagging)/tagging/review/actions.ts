@@ -21,6 +21,7 @@ import {
   filterFeatureLibraryRecommendations,
   isFeatureTypeEnabled,
 } from "@/lib/feature-library";
+import { recordContentOnlyRejectionFeedbackBatch } from "@/app/(tagging)/evidence-policy-server";
 import { recordKeywordRejectionFeedbackBatch } from "@/app/(tagging)/keyword-feedback";
 import { getServerFeatureLibraryFeatures } from "@/lib/feature-library-server";
 import { ServerActionResult } from "@/lib/serverAction";
@@ -44,6 +45,7 @@ import {
   TaggingAuditItem,
   TaggingAuditStatus,
   TaggingQueueItem,
+  TaggingQueueItemResult,
 } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 
@@ -509,8 +511,6 @@ export async function fetchAssetsWithAuditItems(
         const batch: AssetWithAuditItemsBatch["batch"] = [];
         for (const { queueItem, tagPath, ...taggingAuditItem } of assetObject.taggingAuditItems) {
           if (!queueItem) continue;
-          // 过滤掉状态为 rejected 的审核项
-          if (taggingAuditItem.status === "rejected") continue;
           if (
             !taggingAuditItem.leafTagId &&
             !hasEnabledFeatureRecommendation(queueItem.result, featureLibraryFeatures)
@@ -536,6 +536,16 @@ export async function fetchAssetsWithAuditItems(
             tagPath: tagPath as string[],
             ...taggingAuditItem,
           });
+        }
+        // rejected 审核项的取舍：这一批还有 pending 项（尚未应用）时保留，前端以虚线展示、可点对勾恢复；
+        // 这一批已经应用过（没有 pending 项）时剔除，避免历史上早已拒绝的标签再冒出来。
+        for (const group of batch) {
+          const hasPending = group.taggingAuditItems.some((item) => item.status === "pending");
+          if (!hasPending) {
+            group.taggingAuditItems = group.taggingAuditItems.filter(
+              (item) => item.status !== "rejected",
+            );
+          }
         }
         // 过滤掉没有审核项的 batch（所有审核项都被过滤掉了）
         const filteredBatch = batch.filter((group) => group.taggingAuditItems.length > 0);
@@ -763,6 +773,20 @@ export async function approveAuditItemsAction({
       });
     }
 
+    // 只对"本次才变成 rejected"的审核项跑反馈闭环：点 x 时已经即时持久化并跑过反馈的项，
+    // 这里再收到 rejected 状态属于重复提交，不能再计一次数。
+    const previousStatusById = new Map(
+      (
+        await prisma.taggingAuditItem.findMany({
+          where: { id: { in: auditItems.map(({ id }) => id) }, teamId },
+          select: { id: true, status: true },
+        })
+      ).map(({ id, status }) => [id, status]),
+    );
+    const newlyRejectedAuditItemIds = auditItems
+      .filter(({ id, status }) => status === "rejected" && previousStatusById.get(id) !== "rejected")
+      .map(({ id }) => id);
+
     await prisma.$transaction(async (tx) => {
       for (const { id, status } of auditItems) {
         await tx.taggingAuditItem.update({
@@ -772,34 +796,112 @@ export async function approveAuditItemsAction({
       }
     });
 
-    // 审核反馈闭环：单条标签被人工拒绝时，尝试反推是否由自动拆词关键词硬匹配触发，
-    // 并累计拒绝次数；同一（标签, 关键词）拒绝达到阈值后自动加入该标签的排除关键词，
-    // 避免同类误判反复出现（例如 "POPUP" 误命中 "POP-UP视频"）。失败不影响审核主流程。
-    const rejectedLeafTagIds = auditItems
-      .filter(({ leafTagId, status }) => leafTagId && status === "rejected")
-      .map(({ leafTagId }) => leafTagId!);
-
-    if (rejectedLeafTagIds.length > 0) {
-      const localAsset = await prisma.assetObject.findUnique({
-        where: { slug: assetSlug },
-        select: { materializedPath: true, name: true },
-      });
-      if (localAsset) {
-        await recordKeywordRejectionFeedbackBatch(
-          rejectedLeafTagIds.map((leafTagId) => ({
-            teamId,
-            leafTagId,
-            materializedPath: localAsset.materializedPath,
-            assetName: localAsset.name,
-          })),
-        );
-      }
-    }
+    await recordRejectionFeedbackForAuditItems({ teamId, auditItemIds: newlyRejectedAuditItemIds });
 
     return {
       success: true,
       data: undefined,
     };
+  });
+}
+
+/**
+ * 审核反馈闭环，对一批"刚刚被人工拒绝"的审核项执行（失败不影响审核主流程）：
+ * 1) 关键词负反馈：反推是否由自动拆词关键词硬匹配触发，累计拒绝次数，达到阈值后自动加入该标签的排除关键词；
+ * 2) 证据策略反馈：如果这条推荐只有 contentAnalysis 一个来源在支撑，累计到阈值后把该标签降级为"字面型"。
+ */
+async function recordRejectionFeedbackForAuditItems({
+  teamId,
+  auditItemIds,
+}: {
+  teamId: number;
+  auditItemIds: number[];
+}): Promise<void> {
+  if (auditItemIds.length === 0) return;
+  try {
+    const rejectedAuditItems = await prisma.taggingAuditItem.findMany({
+      where: { id: { in: auditItemIds }, teamId, leafTagId: { not: null } },
+      select: {
+        leafTagId: true,
+        assetObject: { select: { materializedPath: true, name: true } },
+        queueItem: { select: { result: true } },
+      },
+    });
+
+    await recordKeywordRejectionFeedbackBatch(
+      rejectedAuditItems.flatMap(({ leafTagId, assetObject }) =>
+        leafTagId && assetObject
+          ? [
+              {
+                teamId,
+                leafTagId,
+                materializedPath: assetObject.materializedPath,
+                assetName: assetObject.name,
+              },
+            ]
+          : [],
+      ),
+    );
+
+    await recordContentOnlyRejectionFeedbackBatch(
+      rejectedAuditItems.flatMap(({ leafTagId, queueItem }) => {
+        if (!leafTagId) return [];
+        const tagsWithScore = (queueItem?.result as TaggingQueueItemResult | null)?.tagsWithScore;
+        const scored = Array.isArray(tagsWithScore)
+          ? tagsWithScore.find((tag) => tag.leafTagId === leafTagId)
+          : undefined;
+        return [{ teamId, leafTagId, confidenceBySources: scored?.confidenceBySources }];
+      }),
+    );
+  } catch (error) {
+    console.error("审核拒绝反馈闭环执行失败:", error);
+  }
+}
+
+/**
+ * 审核页点击标签上的 x（或再次点击恢复）时调用：立刻把这些审核项在数据库里标为 rejected / 恢复为 pending。
+ * 之前 x 只是页面内存状态，只有点该卡片的"应用"才会落库；用户改用顶部"批量应用"时服务端看不到 x，
+ * 会把 x 掉的标签也应用上。现在 x 即时持久化，批量应用与刷新页面都能看到正确状态。
+ * - rejected=true：只把 pending 的项改为 rejected，并跑一次反馈闭环；
+ * - rejected=false：只把 rejected 的项改回 pending（限定传入的 id，不会把历史上早已拒绝的项复活）。
+ */
+export async function setAuditItemsRejectedAction({
+  assetSlug,
+  auditItemIds,
+  rejected,
+}: {
+  assetSlug: string;
+  auditItemIds: number[];
+  rejected: boolean;
+}): Promise<ServerActionResult<{ updatedCount: number }>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    try {
+      if (auditItemIds.length === 0) {
+        return { success: true, data: { updatedCount: 0 } };
+      }
+      const where: Prisma.TaggingAuditItemWhereInput = {
+        id: { in: auditItemIds },
+        teamId,
+        assetObject: { slug: assetSlug },
+        status: rejected ? "pending" : "rejected",
+      };
+      const targets = await prisma.taggingAuditItem.findMany({ where, select: { id: true } });
+      const targetIds = targets.map(({ id }) => id);
+      if (targetIds.length === 0) {
+        return { success: true, data: { updatedCount: 0 } };
+      }
+      const updated = await prisma.taggingAuditItem.updateMany({
+        where: { id: { in: targetIds } },
+        data: { status: rejected ? "rejected" : "pending" },
+      });
+      if (rejected) {
+        await recordRejectionFeedbackForAuditItems({ teamId, auditItemIds: targetIds });
+      }
+      return { success: true, data: { updatedCount: updated.count } };
+    } catch (error) {
+      console.error("更新审核项拒绝状态失败:", error);
+      return { success: false, data: undefined, message: "更新审核项拒绝状态失败" };
+    }
   });
 }
 

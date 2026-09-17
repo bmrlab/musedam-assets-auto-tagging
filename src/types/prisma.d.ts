@@ -33,6 +33,15 @@ declare module "@/prisma/client" {
     negativeKeywords: string[];
     /** 审核拒绝反馈：命中该标签自动关键词、但被人工拒绝的累计次数，达到阈值后关键词会被自动写入 negativeKeywords */
     keywordRejectionCounts: Record<string, number>;
+    /**
+     * 证据策略：content = 描述画面内容本身，任何来源都可贡献；
+     * literal = 描述素材之外的业务安排（渠道/市场/活动/档期），必须有字面证据。见 evidence-policy.ts。
+     */
+    evidencePolicy: "content" | "literal";
+    /** 策略来源：auto = 系统按标签语义自动判定；feedback = 审核反馈自动降级 */
+    evidencePolicySource: "auto" | "feedback";
+    /** 审核拒绝反馈：该标签"仅由 contentAnalysis 支持"却被人工拒绝的累计次数，达到阈值后自动降级为 literal */
+    contentOnlyRejectionCount: number;
   }>;
 
   export type TaggingFaceFeatures = {
