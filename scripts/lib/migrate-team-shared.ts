@@ -15,6 +15,9 @@ export type S3Config = {
   region: string;
   forcePathStyle: boolean;
   folder: string;
+  // 与 src/lib/s3.ts 一致：S3_SEND_ACL_HEADER=false 时不发 public-read ACL 头（桶开了"阻止公共访问"时必须关掉，
+  // 否则 403 "Put public object acl is not allowed"；此时匿名读靠桶策略）
+  sendAclHeader: boolean;
 };
 
 export function requiredEnv(name: string) {
@@ -46,6 +49,7 @@ export function loadS3Config(prefix: string, label: string): S3Config {
     region: requiredEnv(env("S3_REGION")),
     forcePathStyle: boolEnv(env("S3_FORCE_PATH_STYLE"), true),
     folder: normalizeFolder(process.env[env("S3_FOLDER")]),
+    sendAclHeader: boolEnv(env("S3_SEND_ACL_HEADER"), true),
   };
 }
 
@@ -160,7 +164,7 @@ export async function s3Put(cfg: S3Config, objectKey: string, body: Buffer, cont
   const payloadHash = sha256Hex(body);
   const headers = signRequest(cfg, "PUT", url, payloadHash, {
     "Content-Type": contentType || "application/octet-stream",
-    "x-amz-acl": "public-read",
+    ...(cfg.sendAclHeader ? { "x-amz-acl": "public-read" } : {}),
   });
   const res = await fetch(url, { method: "PUT", headers, body: new Uint8Array(body) });
   if (!res.ok) {
@@ -216,7 +220,7 @@ export async function ossHead(cfg: S3Config, objectKey: string) {
 export async function ossPut(cfg: S3Config, objectKey: string, body: Buffer, contentType: string) {
   const url = ossObjectUrl(cfg, objectKey);
   const ct = contentType || "application/octet-stream";
-  const headers = ossSign(cfg, "PUT", objectKey, ct, { "x-oss-object-acl": "public-read" });
+  const headers = ossSign(cfg, "PUT", objectKey, ct, cfg.sendAclHeader ? { "x-oss-object-acl": "public-read" } : {});
   const res = await fetch(url, { method: "PUT", headers, body: new Uint8Array(body) });
   if (!res.ok) {
     throw new Error(`[${cfg.label}] OSS PUT ${objectKey} 失败: ${res.status} ${(await res.text().catch(() => "")).slice(0, 300)}`);
