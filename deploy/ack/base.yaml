@@ -10,6 +10,8 @@ metadata:
   namespace: musedam-auto-tagging-prod
 data:
   AUTH_TRUST_HOST: "true"
+  # 客户侧管理员的 MuseDAM user id，多个用逗号隔开（迁移导入/导出接口、标签管理只对这些账号开放）
+  ADMIN_USER_IDS: "replace-with-admin-musedam-user-id"
   DEBUG_PAGE: "false"
   LOCAL_DEV: "false"
   # Set to "true" (and drop the queue-scheduler Deployment + CronJob below) for

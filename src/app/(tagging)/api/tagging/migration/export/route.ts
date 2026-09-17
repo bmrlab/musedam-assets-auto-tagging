@@ -1,6 +1,6 @@
 // 单租户私有化迁移 —— 在生产应用内直接导出一个团队的数据包。
 //
-// 鉴权：只允许 admin 账号（src/lib/admin.ts 的 ADMIN_USER_ID）在已登录状态下访问，其它人一律 403。
+// 鉴权：只允许 admin 账号（环境变量 ADMIN_USER_IDS，逗号分隔，见 src/lib/admin.ts）在已登录状态下访问，其它人一律 403。
 //
 // 用法：用 admin 账号登录 SaaS 后，在浏览器里直接打开
 //   https://<saas-host>/api/tagging/migration/export?musedamTeamId=158258

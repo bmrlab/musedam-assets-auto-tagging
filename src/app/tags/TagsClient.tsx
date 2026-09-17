@@ -20,7 +20,6 @@ import { TagEditProvider, useTagEdit } from "./contexts/TagEditContext";
 import { SearchTagData, TagNode, TagRecord } from "./types";
 import { PlusIcon, SearchIcon, X } from "lucide-react";
 import { useSession } from "next-auth/react";
-import { isAdminUserSlug } from "@/lib/admin";
 
 interface TagsClientProps {
   initialTags: (AssetTag & { children?: (AssetTag & { children?: AssetTag[] })[] })[];
@@ -127,9 +126,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
   const [isLoading, setIsLoading] = useState(true);
 
   // 判断当前登录用户是否是 admin
-  const isAdmin = useMemo(() => {
-    return isAdminUserSlug(session?.user?.slug);
-  }, [session?.user?.slug]);
+  const isAdmin = session?.user?.isAdmin ?? false;
 
   // 移除了 tagExtraChanges 状态，现在使用 Context
 

@@ -562,6 +562,20 @@ export function signS3ObjectUploadUrl({
   });
 }
 
+// 目标桶里是否已有该对象（私有化迁移导入时用于跳过已上传的图片）
+export async function headS3Object(objectKey: string) {
+  const url = buildS3ObjectUrl(objectKey);
+  const { headers } = signS3Request({ method: "HEAD", payloadHash: "UNSIGNED-PAYLOAD", requestHeaders: {}, url });
+  const response = await fetch(url, { method: "HEAD", headers });
+  return response.ok;
+}
+
+// 已规范化的 S3_FOLDER（无首尾斜杠）与 bucket，供迁移导入接口打日志/改写 objectKey 前缀
+export function getS3StorageLocation() {
+  const { bucket } = getS3Config();
+  return { bucket, folder: normalizeS3Folder(process.env.S3_FOLDER) };
+}
+
 export async function uploadS3Object({ body, contentType, objectKey }: UploadS3ObjectOptions) {
   const { sendAclHeader } = getS3Config();
   const url = buildS3ObjectUrl(objectKey);

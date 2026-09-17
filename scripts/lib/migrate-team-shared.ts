@@ -168,15 +168,6 @@ export async function s3Put(cfg: S3Config, objectKey: string, body: Buffer, cont
   }
 }
 
-// objectKey 在写入时就已经把 S3_FOLDER 前缀烤进去了（见 src/lib/s3.ts 的 buildStorageObjectKey）。
-// 默认不改写：只要目标 S3_FOLDER 和导出时源端的 SOURCE_S3_FOLDER 配成一样的值，objectKey 原样搬过去就能用，最不容易出错。
-export function remapObjectKey(objectKey: string, sourceFolder: string, targetFolder: string, rewrite: boolean) {
-  if (!rewrite) return objectKey;
-  const prefix = sourceFolder ? `${sourceFolder}/` : "";
-  const stripped = objectKey.startsWith(prefix) ? objectKey.slice(prefix.length) : objectKey;
-  return targetFolder ? `${targetFolder}/${stripped}` : stripped;
-}
-
 export async function writeJsonFile(path: string, data: unknown) {
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, JSON.stringify(data, null, 2), "utf8");
@@ -184,30 +175,4 @@ export async function writeJsonFile(path: string, data: unknown) {
 
 export async function readJsonFile<T>(path: string): Promise<T> {
   return JSON.parse(await readFile(path, "utf8"));
-}
-
-
-export async function runWithConcurrency<T>(
-  items: T[],
-  concurrency: number,
-  worker: (item: T, index: number) => Promise<void>,
-) {
-  let cursor = 0;
-  const runners = Array.from({ length: Math.max(1, Math.min(concurrency, items.length)) }, async () => {
-    while (cursor < items.length) {
-      const index = cursor++;
-      await worker(items[index], index);
-    }
-  });
-  await Promise.all(runners);
-}
-
-export function progressLogger(label: string, total: number) {
-  let done = 0;
-  return () => {
-    done += 1;
-    if (done === total || done % 50 === 0) {
-      console.log(`  [${label}] ${done}/${total}`);
-    }
-  };
 }

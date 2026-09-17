@@ -15,6 +15,7 @@ declare module "next-auth" {
     user?: {
       id: number;
       slug: string;
+      isAdmin: boolean;
     };
     expires: ISODateString;
   }

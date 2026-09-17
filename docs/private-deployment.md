@@ -101,3 +101,28 @@ MuseDAM（`src/musedam/push-feature-to-musedam.ts`）都调用 `getS3PublicObjec
 ## 6. 其他已知待验证项
 
 - 火山引擎 TOS / 腾讯云 COS 的 S3 兼容层细节（寻址方式、ACL header 支持度）尚未验证，接入前重复第 5 节的端到端检查
+
+## 7. 从 SaaS 迁移团队数据（零运维路线）
+
+导出、导入都做成了 admin 专用的 HTTP 接口（环境变量 `ADMIN_USER_IDS`，MuseDAM user id，多个用逗号隔开；未配置时回退到 SaaS 生产 admin，其它账号 403），全程只需要在浏览器里操作：
+
+1. 用 admin 登录 SaaS，打开 `https://<saas-host>/api/tagging/migration/export?musedamTeamId=<id>`，下载 `team-<id>-export.json`。
+   包里不含图片文件，`assets[].sourceUrl` 是 SaaS 桶的预签名链接，**7 天内有效**，过期重新导出。
+2. 把 JSON 传到我们的 OSS，生成一个签名下载链接（客户网络只需要放行 SaaS 桶的公网域名，JSON 和图片链接都指向它）。
+3. 用 admin 登录客户私有化环境，依次打开（`dryRun` 默认 `true` 只做检查，显式 `dryRun=false` 才写库/写桶）：
+
+   ```
+   /api/tagging/migration/import?bundleUrl=<链接>&phase=db&dryRun=false
+   /api/tagging/migration/import?bundleUrl=<链接>&phase=resources&dryRun=false&rewriteFolder=<SaaS 侧 S3_FOLDER>
+   /api/tagging/migration/import?bundleUrl=<链接>&phase=verify
+   ```
+
+   - `rewriteFolder`：SaaS 侧 `S3_FOLDER` 和客户侧不一致时必传（如 `feature-library` -> `auto-tagging/feature-library`），不传则 objectKey 原样保留
+   - `concurrency`：resources 阶段并发数，默认 8
+   - 三个阶段全部幂等：路由 `maxDuration=3600`，图片很多时超时或部分失败，重复打开同一链接会跳过已完成项继续
+   - 响应 JSON 里 `result.verify.tables` 各表行数一致即完成；`success=false` 时看 `logs` / `result.resources.failures`
+
+目标库必须是全新的私有化库：导入按源库的 `Team.id` 原样写入，同 id 已被别的团队占用会直接中止。
+导入完成后按第 5 节验证客户桶的裸 URL 能匿名访问。
+
+命令行形态 `scripts/migrate-team-import.ts`（`--in-dir` / `--in-file` / `--in-url`）与接口共用 `src/lib/migration/import-team.ts`，堡垒机场景仍可用。

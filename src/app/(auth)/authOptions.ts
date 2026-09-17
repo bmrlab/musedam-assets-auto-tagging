@@ -1,5 +1,6 @@
 import "server-only";
 
+import { isAdminUserSlug } from "@/lib/admin";
 import { rootLogger } from "@/lib/logging";
 import { idToSlug } from "@/lib/slug";
 import { getServerSession, type NextAuthOptions } from "next-auth";
@@ -112,6 +113,8 @@ const authOptions: NextAuthOptions = {
           ...session.user,
           id: parseInt(token.id + ""),
           slug: token.slug,
+          // 每次取 session 时按当前 ADMIN_USER_IDS 现算，改环境变量后不用重新登录
+          isAdmin: isAdminUserSlug(token.slug),
         },
         team: {
           ...session.team,
