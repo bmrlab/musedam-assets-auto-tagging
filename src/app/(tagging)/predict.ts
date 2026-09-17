@@ -14,7 +14,11 @@ import {
 import { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 import { generateObject, UserModelMessage } from "ai";
 import z from "zod";
-import { flattenTagsTree, resolveEvidencePolicy } from "./evidence-policy";
+import {
+  flattenTagsTree,
+  getExplicitSiblingsExclusive,
+  resolveEvidencePolicy,
+} from "./evidence-policy";
 import { fetchTagsTreeForTagging } from "./evidence-policy-server";
 import { buildFaceFeaturesPromptSection, collectPeopleCountTagPaths } from "./face-features";
 import {
@@ -258,6 +262,126 @@ export function enforceLiteralEvidenceForMetadataTags(
       }),
     };
   });
+}
+
+/** 文本类来源：其证据文本本身就是一段文字，模型归到这些来源下的预测必须能在文字里找到依据。 */
+const TEXTUAL_SOURCES = ["basicInfo", "materializedPath", "tagKeywords"] as const;
+type TextualSource = (typeof TEXTUAL_SOURCES)[number];
+
+function isTextualSource(source: string): source is TextualSource {
+  return (TEXTUAL_SOURCES as readonly string[]).includes(source);
+}
+
+/**
+ * 文本类来源（basicInfo / materializedPath / tagKeywords）的每条预测，不论标签类型，都必须有文字依据：
+ * 标签名拆词或配置关键词出现在该来源文本里，或模型摘录的 evidence 原样出现在该来源文本里。
+ * 否则丢弃该来源对该标签的贡献。这是为了堵住"模型顺手把一个标签标到多个来源"的问题：
+ * 路径里根本没有"洁面"，模型却给洁面加了 materializedPath 来源，多源融合就把它抬到了面霜之上。
+ * 没传证据文本的来源不做校验。
+ */
+export function enforceTextualSourceEvidence(
+  predictions: SourceBasedTagPredictions,
+  tagsTree: TagWithChildren[],
+  evidenceTextBySource: Partial<Record<TextualSource, string>>,
+): SourceBasedTagPredictions {
+  const keywordsById = new Map<number, string[]>();
+  for (const node of flattenTagsTree(tagsTree)) {
+    const configuredKeywords = ((node.extra as AssetTagExtra)?.keywords ?? []).map(normalizeForMatch);
+    keywordsById.set(
+      node.id,
+      Array.from(
+        new Set([...getStrongKeywordVariantsForTagName(node.name), ...configuredKeywords]),
+      ).filter(Boolean),
+    );
+  }
+
+  return predictions.map((prediction) => {
+    if (!isTextualSource(prediction.source)) return prediction;
+    const evidenceText = evidenceTextBySource[prediction.source];
+    if (evidenceText === undefined) return prediction;
+    return {
+      ...prediction,
+      tags: prediction.tags.filter((tag) => {
+        if (!evidenceText) return false;
+        const keywords = keywordsById.get(tag.leafTagId) ?? [];
+        return (
+          keywords.some((keyword) => pathIncludesKeyword(evidenceText, keyword)) ||
+          evidenceQuoteAppearsIn(evidenceText, tag.evidence)
+        );
+      }),
+    };
+  });
+}
+
+/**
+ * 互斥组里落选的标签，各来源置信度统一压到这个值。落选者只会有 contentAnalysis 一个来源
+ * （有文本来源的都是锚定者），单源融合得分 = confidence ^ 0.85，0.45 对应约 51 分：
+ * 低于平衡模式门槛 60，高于宽泛模式门槛 40，宽泛模式下仍能看到候选。
+ */
+export const EXCLUSIVE_SIBLING_LOSER_CONFIDENCE = 0.45;
+
+/**
+ * 同级互斥兜底：父分类 extra.siblingsExclusive 为 true 的组里，一个素材只应归属其中一个子标签。
+ * - 有文本依据（basicInfo / materializedPath / tagKeywords 来源，已经过 enforceTextualSourceEvidence 校验）的
+ *   子标签视为"锚定"；存在锚定标签时，其余仅靠 contentAnalysis 的同级标签全部压低；
+ * - 都没有锚定时，只保留各来源最高置信度最高的一个，其余压低。
+ * 压低而不是删除：宽泛模式下仍能看到候选，人工审核也能看到"AI 曾经这么猜过"。
+ * 不在互斥组的标签（父分类未标记或标记为 false）不受影响。
+ */
+export function resolveExclusiveSiblings(
+  predictions: SourceBasedTagPredictions,
+  tagsTree: TagWithChildren[],
+): SourceBasedTagPredictions {
+  const parentById = new Map<number, number>();
+  const exclusiveParentIds = new Set<number>();
+  for (const node of flattenTagsTree(tagsTree)) {
+    if (node.parentId !== undefined) parentById.set(node.id, node.parentId);
+    if (node.hasChildren && getExplicitSiblingsExclusive(node.extra) === true) {
+      exclusiveParentIds.add(node.id);
+    }
+  }
+  if (exclusiveParentIds.size === 0) return predictions;
+
+  // 按互斥父分类归组：leafTagId -> { anchored, best }
+  const stats = new Map<number, { parentId: number; anchored: boolean; best: number }>();
+  for (const prediction of predictions) {
+    for (const tag of prediction.tags) {
+      const parentId = parentById.get(tag.leafTagId);
+      if (parentId === undefined || !exclusiveParentIds.has(parentId)) continue;
+      const current = stats.get(tag.leafTagId) ?? { parentId, anchored: false, best: 0 };
+      current.anchored = current.anchored || isTextualSource(prediction.source);
+      current.best = Math.max(current.best, tag.confidence);
+      stats.set(tag.leafTagId, current);
+    }
+  }
+
+  const losers = new Set<number>();
+  const byParent = new Map<number, Array<[number, { anchored: boolean; best: number }]>>();
+  for (const [leafTagId, stat] of stats) {
+    const list = byParent.get(stat.parentId) ?? [];
+    list.push([leafTagId, stat]);
+    byParent.set(stat.parentId, list);
+  }
+  for (const [, members] of byParent) {
+    if (members.length <= 1) continue;
+    const anchored = members.filter(([, stat]) => stat.anchored);
+    if (anchored.length > 0) {
+      for (const [leafTagId, stat] of members) if (!stat.anchored) losers.add(leafTagId);
+    } else {
+      const [winner] = [...members].sort((a, b) => b[1].best - a[1].best || a[0] - b[0]);
+      for (const [leafTagId] of members) if (leafTagId !== winner[0]) losers.add(leafTagId);
+    }
+  }
+  if (losers.size === 0) return predictions;
+
+  return predictions.map((prediction) => ({
+    ...prediction,
+    tags: prediction.tags.map((tag) =>
+      losers.has(tag.leafTagId)
+        ? { ...tag, confidence: Math.min(tag.confidence, EXCLUSIVE_SIBLING_LOSER_CONFIDENCE) }
+        : tag,
+    ),
+  }));
 }
 
 /**
@@ -926,6 +1050,12 @@ ${sourceSections.join("\n\n")}
         basicInfo: enabled.basicInfo ? basicInfoText : undefined,
         materializedPath: enabled.materializedPath ? pathText : undefined,
       });
+      // 文本类来源的每条预测（不论标签类型）都必须在对应文字里有依据，堵住"顺手多标一个来源"抬分。
+      predictions = enforceTextualSourceEvidence(predictions, tagsTree, {
+        basicInfo: enabled.basicInfo ? basicInfoText : undefined,
+        materializedPath: enabled.materializedPath ? pathText : undefined,
+        tagKeywords: enabled.tagKeywords ? [basicInfoText, pathText].join(" ") : undefined,
+      });
 
       // 文件夹路径中的强关键词做硬匹配兜底，避免模型漏掉明显路径信号
       if (options?.matchingSources?.materializedPath) {
@@ -952,6 +1082,8 @@ ${sourceSections.join("\n\n")}
         (asset.extra as AssetObjectExtra | null)?.extension,
         [asset.name, asset.description, asset.materializedPath].filter(Boolean).join(" "),
       );
+      // 同级互斥兜底：文件名说了修护霜，就不该再仅凭画面猜洁面/喷雾（硬匹配注入已完成，可作为锚定依据）。
+      predictions = resolveExclusiveSiblings(predictions, tagsTree);
       predictions = sortPredictionsDeterministically(predictions);
 
       // 按识别模式的最低置信度门槛过滤：LLM 不一定严格遵守 prompt 里的门槛要求，

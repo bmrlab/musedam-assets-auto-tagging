@@ -10,8 +10,9 @@ import {
   applyContentOnlyRejection,
   applyEvidencePoliciesToTree,
   collectTagsMissingEvidencePolicy,
-  EvidencePolicy,
+  getExplicitEvidencePolicy,
   isContentOnlySupport,
+  TagClassification,
 } from "./evidence-policy";
 import { TagWithScore } from "./types";
 import { fetchTagsTree } from "./utils";
@@ -29,6 +30,8 @@ const evidencePolicyResponseSchema = z.object({
     z.object({
       id: z.number(),
       policy: z.enum(["content", "literal"]),
+      /** 仅对有子标签的分类节点输出：其直接子标签是否同级互斥 */
+      siblingsExclusive: z.boolean().optional(),
     }),
   ),
 });
@@ -43,7 +46,13 @@ const EVIDENCE_POLICY_SYSTEM_PROMPT = `你是数字资产管理（DAM）系统�
 1. 看标签本质上是"内容本身"还是"内容之外的安排"，不要只看分类名里有没有"渠道"这类字眼；父级分类名是重要线索（例如父级叫"投放平台""Market""Campaign"，其下的叶子都应为 literal）。
 2. 一级/二级分类节点本身也要给策略，通常与其子节点一致。
 3. 拿不准时选 literal（宁可漏标，不要凭氛围乱贴业务标签）。
-4. 只输出 JSON，对给出的每个 id 都返回一条，不要遗漏、不要新增 id。`;
+
+同级互斥（siblingsExclusive），只对标注了"有子标签"的分类节点输出：
+- true：其直接子标签是同一属性维度的不同取值，一个素材通常只能归属其中一个。例如 产品品类>护肤 下的 洁面/面霜/喷雾、节庆节点 下的 七夕/新年/中秋、媒体类型 下的 图片/视频、人数 下的 单人/双人/多人。
+- false：子标签彼此独立、可以同时成立。例如 风格 下的 极简/复古、投放渠道 下的 小红书/抖音、内容元素 下的 人物/产品/文字。
+- 拿不准时选 false（不要误伤可以共存的标签）。
+
+4. 只输出 JSON，对给出的每个 id 都返回一条，不要遗漏、不要新增 id；没有子标签的节点不要输出 siblingsExclusive。`;
 
 /**
  * 为标签树中缺少显式证据策略的节点自动判定策略并写回数据库。
@@ -61,24 +70,37 @@ export async function ensureEvidencePolicies({
 
   const modelName = getEvidencePolicyModel();
   const input = missing
-    .map((node) => `- id ${node.id}: ${node.tagPath.join(" / ")}`)
+    .map(
+      (node) =>
+        `- id ${node.id}: ${node.tagPath.join(" / ")}${node.hasChildren ? "（有子标签，需判断同级互斥）" : ""}`,
+    )
     .join("\n");
 
-  let policyById: Map<number, EvidencePolicy>;
+  let classificationById: Map<number, TagClassification>;
   try {
     const result = await generateObject({
       model: llm(modelName),
       schemaName: "TagEvidencePolicies",
       schema: evidencePolicyResponseSchema,
       system: EVIDENCE_POLICY_SYSTEM_PROMPT,
-      prompt: `以下是需要判定的标签（路径从一级到该标签自身）：\n${input}\n\n返回 {"tags":[{"id":<id>,"policy":"content"|"literal"},...]}。`,
+      prompt: `以下是需要判定的标签（路径从一级到该标签自身）：\n${input}\n\n返回 {"tags":[{"id":<id>,"policy":"content"|"literal","siblingsExclusive":<仅有子标签的节点输出 true|false>},...]}。`,
       temperature: 0,
     });
-    const validIds = new Set(missing.map((node) => node.id));
-    policyById = new Map(
+    const nodeById = new Map(missing.map((node) => [node.id, node] as const));
+    classificationById = new Map(
       result.object.tags
-        .filter((item) => validIds.has(item.id))
-        .map((item) => [item.id, item.policy] as const),
+        .filter((item) => nodeById.has(item.id))
+        .map((item) => {
+          const node = nodeById.get(item.id)!;
+          return [
+            item.id,
+            {
+              policy: item.policy,
+              // 有子标签但模型没给互斥判断时按 false（不误伤可共存标签）
+              ...(node.hasChildren ? { siblingsExclusive: item.siblingsExclusive ?? false } : {}),
+            } satisfies TagClassification,
+          ] as const;
+        }),
     );
   } catch (error) {
     logger.warn({
@@ -92,10 +114,15 @@ export async function ensureEvidencePolicies({
 
   // 模型漏掉的 id 按保守策略处理，避免每次预测都重复分类。
   for (const node of missing) {
-    if (!policyById.has(node.id)) policyById.set(node.id, "literal");
+    if (!classificationById.has(node.id)) {
+      classificationById.set(node.id, {
+        policy: getExplicitEvidencePolicy(node.extra) ?? "literal",
+        ...(node.hasChildren ? { siblingsExclusive: false } : {}),
+      });
+    }
   }
 
-  applyEvidencePoliciesToTree(tagsTree, policyById, "auto");
+  applyEvidencePoliciesToTree(tagsTree, classificationById, "auto");
 
   const persisted = await Promise.allSettled(
     missing.map(async (node) => {
@@ -105,18 +132,24 @@ export async function ensureEvidencePolicies({
       });
       if (!tag || tag.teamId !== teamId) return;
       const extra = ((tag.extra as AssetTagExtra | null) ?? {}) as AssetTagExtra;
-      // 并发批次可能已经写过，尊重已有值
-      if (extra.evidencePolicy) return;
-      await prisma.assetTag.update({
-        where: { id: node.id },
-        data: {
-          extra: {
-            ...extra,
-            evidencePolicy: policyById.get(node.id)!,
-            evidencePolicySource: "auto",
-          },
-        },
-      });
+      const classification = classificationById.get(node.id)!;
+      // 并发批次可能已经写过，尊重已有值，只补缺的字段
+      const nextExtra: AssetTagExtra = { ...extra };
+      let changed = false;
+      if (!extra.evidencePolicy) {
+        nextExtra.evidencePolicy = classification.policy;
+        nextExtra.evidencePolicySource = "auto";
+        changed = true;
+      }
+      if (
+        classification.siblingsExclusive !== undefined &&
+        typeof extra.siblingsExclusive !== "boolean"
+      ) {
+        nextExtra.siblingsExclusive = classification.siblingsExclusive;
+        changed = true;
+      }
+      if (!changed) return;
+      await prisma.assetTag.update({ where: { id: node.id }, data: { extra: nextExtra } });
     }),
   );
   const failed = persisted.filter((item) => item.status === "rejected").length;
@@ -125,12 +158,13 @@ export async function ensureEvidencePolicies({
     msg: "ensureEvidencePolicies: classified tags",
     teamId,
     model: modelName,
-    classified: policyById.size,
-    literal: [...policyById.values()].filter((policy) => policy === "literal").length,
+    classified: classificationById.size,
+    literal: [...classificationById.values()].filter((item) => item.policy === "literal").length,
+    exclusiveGroups: [...classificationById.values()].filter((item) => item.siblingsExclusive).length,
     persistFailed: failed,
   });
 
-  return { classified: policyById.size };
+  return { classified: classificationById.size };
 }
 
 /** 打标预测专用：拉取标签树并保证每个节点都有证据策略。 */

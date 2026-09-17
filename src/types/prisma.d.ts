@@ -42,6 +42,12 @@ declare module "@/prisma/client" {
     evidencePolicySource: "auto" | "feedback";
     /** 审核拒绝反馈：该标签"仅由 contentAnalysis 支持"却被人工拒绝的累计次数，达到阈值后自动降级为 literal */
     contentOnlyRejectionCount: number;
+    /**
+     * 仅对有子标签的分类节点有意义：其直接子标签是否"同级互斥"（同一属性维度的不同取值，素材只能归属其中一个，
+     * 如 护肤 > 洁面/面霜/喷雾、节庆节点 > 七夕/新年）。互斥组内只保留有文本依据或得分最高的一个，其余压低置信度。
+     * 风格、渠道这类可共存的分类为 false。见 evidence-policy.ts。
+     */
+    siblingsExclusive: boolean;
   }>;
 
   export type TaggingFaceFeatures = {

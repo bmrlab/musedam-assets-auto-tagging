@@ -49,13 +49,23 @@ export type TagTreeNodeWithPath = {
   extra: unknown;
   tagPath: string[];
   depth: 1 | 2 | 3;
+  /** 直接父节点 id，一级节点为 undefined */
+  parentId?: number;
+  hasChildren: boolean;
 };
 
 /** 把三层标签树拍平成带完整路径的节点列表（一级/二级/三级都包含，因为模型可以匹配任意层级）。 */
 export function flattenTagsTree(tagsTree: TagWithChildren[]): TagTreeNodeWithPath[] {
   const nodes: TagTreeNodeWithPath[] = [];
   for (const lv1 of tagsTree) {
-    nodes.push({ id: lv1.id, name: lv1.name, extra: lv1.extra, tagPath: [lv1.name], depth: 1 });
+    nodes.push({
+      id: lv1.id,
+      name: lv1.name,
+      extra: lv1.extra,
+      tagPath: [lv1.name],
+      depth: 1,
+      hasChildren: (lv1.children ?? []).length > 0,
+    });
     for (const lv2 of lv1.children ?? []) {
       nodes.push({
         id: lv2.id,
@@ -63,6 +73,8 @@ export function flattenTagsTree(tagsTree: TagWithChildren[]): TagTreeNodeWithPat
         extra: lv2.extra,
         tagPath: [lv1.name, lv2.name],
         depth: 2,
+        parentId: lv1.id,
+        hasChildren: (lv2.children ?? []).length > 0,
       });
       for (const lv3 of lv2.children ?? []) {
         nodes.push({
@@ -71,6 +83,8 @@ export function flattenTagsTree(tagsTree: TagWithChildren[]): TagTreeNodeWithPat
           extra: lv3.extra,
           tagPath: [lv1.name, lv2.name, lv3.name],
           depth: 3,
+          parentId: lv2.id,
+          hasChildren: false,
         });
       }
     }
@@ -78,22 +92,41 @@ export function flattenTagsTree(tagsTree: TagWithChildren[]): TagTreeNodeWithPat
   return nodes;
 }
 
-/** 树中缺少显式证据策略的节点，供自动判定使用。 */
-export function collectTagsMissingEvidencePolicy(tagsTree: TagWithChildren[]): TagTreeNodeWithPath[] {
-  return flattenTagsTree(tagsTree).filter((node) => getExplicitEvidencePolicy(node.extra) === undefined);
+export function getExplicitSiblingsExclusive(extra: unknown): boolean | undefined {
+  const value = (extra as AssetTagExtra | null)?.siblingsExclusive;
+  return typeof value === "boolean" ? value : undefined;
 }
+
+/** 树中缺少显式证据策略、或（有子标签但）缺少同级互斥判定的节点，供自动判定使用。 */
+export function collectTagsMissingEvidencePolicy(tagsTree: TagWithChildren[]): TagTreeNodeWithPath[] {
+  return flattenTagsTree(tagsTree).filter(
+    (node) =>
+      getExplicitEvidencePolicy(node.extra) === undefined ||
+      (node.hasChildren && getExplicitSiblingsExclusive(node.extra) === undefined),
+  );
+}
+
+export type TagClassification = { policy: EvidencePolicy; siblingsExclusive?: boolean };
 
 /** 把判定结果写回内存中的标签树（不落库），让本次预测立刻生效。 */
 export function applyEvidencePoliciesToTree(
   tagsTree: TagWithChildren[],
-  policyById: ReadonlyMap<number, EvidencePolicy>,
+  classificationById: ReadonlyMap<number, EvidencePolicy | TagClassification>,
   source: NonNullable<AssetTagExtra["evidencePolicySource"]> = "auto",
 ): void {
   const visit = (tag: TagWithChildren) => {
-    const policy = policyById.get(tag.id);
-    if (policy) {
+    const raw = classificationById.get(tag.id);
+    if (raw) {
+      const classification: TagClassification = typeof raw === "string" ? { policy: raw } : raw;
       const extra = ((tag.extra as AssetTagExtra | null) ?? {}) as AssetTagExtra;
-      tag.extra = { ...extra, evidencePolicy: policy, evidencePolicySource: source };
+      tag.extra = {
+        ...extra,
+        evidencePolicy: classification.policy,
+        evidencePolicySource: source,
+        ...(classification.siblingsExclusive !== undefined
+          ? { siblingsExclusive: classification.siblingsExclusive }
+          : {}),
+      };
     }
     for (const child of tag.children ?? []) visit(child);
   };
