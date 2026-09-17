@@ -14,7 +14,7 @@ async function main() {
   const ossNative = process.argv.includes("--oss-native");
   const cfg = loadS3Config("", "probe");
   console.log(
-    `bucket=${cfg.bucket} ${ossNative ? `OSS 原生 ${ossNativeEndpoint(cfg).host}` : `S3 兼容 ${cfg.endpointUrl}`} region=${cfg.region} pathStyle=${cfg.forcePathStyle} key=${key}`,
+    `bucket=${cfg.bucket} ${ossNative ? `OSS 原生 ${ossNativeEndpoint(cfg).host}` : `S3 兼容 ${cfg.endpointUrl}`} region=${cfg.region} pathStyle=${cfg.forcePathStyle} acl=${cfg.sendAclHeader ? "public-read" : "(不发)"} key=${key}`,
   );
   try {
     await (ossNative ? ossPut : s3Put)(cfg, key, Buffer.from("ok"), "text/plain");
