@@ -206,6 +206,33 @@ describe("filterPredictionsByRealExtension", () => {
     expect(ids).not.toContain(3);
   });
 
+  it("drops image-only tags such as 产品组合图 / 白底图 for a video asset (real customer case)", () => {
+    const videoPredictions: SourceBasedTagPredictions = [
+      {
+        source: "contentAnalysis",
+        tags: [
+          { leafTagId: 10, tagPath: ["素材类型", "产品资产", "产品组合图"], confidence: 0.81 },
+          { leafTagId: 11, tagPath: ["素材类型", "产品资产", "白底图"], confidence: 0.7 },
+          { leafTagId: 12, tagPath: ["素材类型", "视频资产"], confidence: 0.81 },
+          { leafTagId: 13, tagPath: ["内容主题", "产品体验", "使用演示"], confidence: 0.83 },
+        ],
+      },
+    ];
+    const result = filterPredictionsByRealExtension(videoPredictions, "mp4");
+    const ids = result.flatMap((p) => p.tags).map((t) => t.leafTagId);
+    expect(ids).toEqual([12, 13]);
+  });
+
+  it("keeps 图-suffixed tags for an image asset", () => {
+    const imagePredictions: SourceBasedTagPredictions = [
+      {
+        source: "contentAnalysis",
+        tags: [{ leafTagId: 10, tagPath: ["素材类型", "产品资产", "产品组合图"], confidence: 0.81 }],
+      },
+    ];
+    expect(filterPredictionsByRealExtension(imagePredictions, "jpg")).toEqual(imagePredictions);
+  });
+
   it("keeps unrelated content tags untouched", () => {
     const result = filterPredictionsByRealExtension(predictions, "png");
     const ids = result.flatMap((p) => p.tags).map((t) => t.leafTagId);

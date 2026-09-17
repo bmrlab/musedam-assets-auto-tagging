@@ -730,8 +730,13 @@ export function filterPredictionsByRealExtension(
       }
     }
 
-    if (trustedMediaKind === "image" && /(视频|video)/i.test(pathText)) return true;
-    if (trustedMediaKind === "video" && /(图片|image|照片)/i.test(pathText)) return true;
+    if (trustedMediaKind === "image" && /(视频|video|短片|影片|vlog)/i.test(pathText)) return true;
+    if (trustedMediaKind === "video") {
+      if (/(图片|image|照片|photo|picture)/i.test(pathText)) return true;
+      // "产品组合图""白底图""主图""场景图"这类以"图"结尾的标签名都是静态图片概念，
+      // 视频素材不应被打上（客户案例：MP4 被打了"素材类型 > 产品资产 > 产品组合图"）。
+      if (tagPath.some((segment) => /图$/.test(segment.trim()))) return true;
+    }
 
     return false;
   };
