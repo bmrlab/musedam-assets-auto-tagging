@@ -2,21 +2,26 @@
 //
 // 单租户私有化部署数据迁移 —— 图片镜像（可选步骤，在我们自己的环境跑）。
 //
-// 场景：导出包里 assets[].sourceUrl 指向 SaaS 的 AWS 桶，但客户网络只放行了我们某个 OSS 域名。
-// 这个脚本把包里的每张图片按 sourceUrl 下载，再以 <prefix>/<objectKey> 上传到那个 OSS 桶，
-// 之后客户环境导入时传 sourceUrlBase=<OSS 公网地址>/<prefix>，图片就全部从被放行的域名拉。
+// 两种用法：
 //
-// 运行位置：我们自己的机器/内网，能访问 SaaS 签名链接 + 持有目标 OSS 的 AK/SK。客户环境不需要动。
+// A. 中转：客户 Pod 出网只放行了我们某个 OSS 域名。把图片按 <prefix>/<objectKey> 传到那个桶，
+//    客户环境导入 resources 时传 sourceUrlBase=<OSS 公网地址>/<prefix>，图片从被放行的域名拉。
+//      npx tsx scripts/migrate-team-mirror-assets.ts --in-url=<JSON 链接> --prefix=public/testAssets/team-929
+//    <prefix> 下的对象必须能匿名读，否则客户环境拉不到。
 //
-// 环境变量（目标 OSS，和私有化 App 用的是同一组变量名）：
+// B. 直传客户桶：客户 Pod 连不上自己桶的 S3 兼容域名（s3.oss-cn-xxx），但公网能连。用客户桶的 AK/SK
+//    从我们这边直接把图片传到客户桶的原路径（不加前缀，key = objectKey），resources 阶段就不需要在 Pod 里跑了：
+//      npx tsx scripts/migrate-team-mirror-assets.ts --in-url=<JSON 链接> --direct
+//    前提是导入时不改写 objectKey（不传 rewriteFolder），且图片 source 字段应用里没用到，可以不更新数据库。
+//    传完在客户环境直接触发 phase=verify 即可。
+//
+// 运行位置：我们自己的机器，能访问 SaaS 签名链接 + 持有目标桶的 AK/SK。客户环境不需要动。
+//
+// 环境变量（目标桶，和私有化 App 用的是同一组变量名）：
 //   AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / S3_BUCKET / S3_ENDPOINT_URL / S3_REGION / S3_FORCE_PATH_STYLE
-// 用法：
-//   npx tsx scripts/migrate-team-mirror-assets.ts --in-file=team-929-export.json --prefix=public/testAssets/team-929
-//   npx tsx scripts/migrate-team-mirror-assets.ts --in-url=https://.../team-929-export.json --prefix=public/testAssets/team-929
 // 可选：--concurrency=<n>（默认 8）、--dry-run
 //
-// 幂等：目标 key 已存在就跳过。结束时打印导入接口要用的 sourceUrlBase。
-// 注意：<prefix> 下的对象必须能匿名读（和放导出 JSON 的路径一样），否则客户环境拉不到。
+// 幂等：目标 key 已存在就跳过。
 
 import { loadEnvConfig } from "@next/env";
 import { assertMigrationBundle, runWithConcurrency } from "@/lib/migration/import-team";
@@ -32,8 +37,10 @@ function parseArgs() {
   if (!inFile && !inUrl) throw new Error("缺少参数：--in-file=<bundle.json> 或 --in-url=<链接>");
   if (inFile && inUrl) throw new Error("--in-file 和 --in-url 只能二选一");
   const prefix = (get("prefix") || "").replace(/^\/+|\/+$/g, "");
-  if (!prefix) throw new Error("缺少参数：--prefix=<OSS 上的目录前缀>");
-  return { inFile, inUrl, prefix, dryRun: has("dry-run"), concurrency: Number(get("concurrency") || "8") };
+  const direct = has("direct");
+  if (!prefix && !direct) throw new Error("缺少参数：--prefix=<目录前缀>（中转）或 --direct（直传客户桶原路径）");
+  if (prefix && direct) throw new Error("--prefix 和 --direct 只能二选一");
+  return { inFile, inUrl, prefix, direct, dryRun: has("dry-run"), concurrency: Number(get("concurrency") || "8") };
 }
 
 const outbound = buildOutboundFetch();
@@ -66,13 +73,16 @@ async function main() {
 
   const target = loadS3Config("", "镜像 OSS");
   console.log(`Team #${bundle.manifest.teamId} ${bundle.manifest.teamSlug}，图片 ${assets.length} 张`);
-  console.log(`目标: bucket=${target.bucket} endpoint=${target.endpointUrl} prefix=${args.prefix}，并发 ${args.concurrency}`);
+  console.log(
+    `目标: bucket=${target.bucket} endpoint=${target.endpointUrl} ${args.direct ? "直传原路径（key = objectKey）" : `prefix=${args.prefix}`}，并发 ${args.concurrency}`,
+  );
 
   let done = 0;
   let skipped = 0;
   const failures: string[] = [];
   await runWithConcurrency(assets, args.concurrency, async (a) => {
-    const key = `${args.prefix}/${a.objectKey.replace(/^\/+/, "")}`;
+    const bare = a.objectKey.replace(/^\/+/, "");
+    const key = args.direct ? bare : `${args.prefix}/${bare}`;
     try {
       if (args.dryRun) return;
       if (await s3Head(target, key)) {
@@ -97,6 +107,10 @@ async function main() {
     process.exitCode = 2;
   }
 
+  if (args.direct) {
+    console.log(`\n${args.dryRun ? "[dry-run] " : ""}直传完成。客户环境不需要跑 resources 阶段，直接触发 phase=verify 核对行数即可。`);
+    return;
+  }
   // 公网地址：virtual-hosted 风格 https://<bucket>.<endpoint host>/<prefix>
   const endpoint = new URL(target.endpointUrl);
   const publicHost = target.forcePathStyle ? `${endpoint.host}/${target.bucket}` : `${target.bucket}.${endpoint.host}`;
