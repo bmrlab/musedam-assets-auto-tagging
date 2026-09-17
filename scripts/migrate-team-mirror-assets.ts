@@ -23,7 +23,7 @@
 //       --oss-native  用阿里云 OSS 原生接口上传（S3 兼容 endpoint 返回 403 时用），环境变量不用改，
 //                     脚本自动把 S3_ENDPOINT_URL 里的 "s3." 去掉
 //
-// 幂等：目标 key 已存在就跳过。
+// 幂等：目标 key 已存在就跳过。每张图网络出错自动重试 3 次（间隔 2s/4s/8s），跑完仍失败的重跑同一命令即可补上。
 
 import { loadEnvConfig } from "@next/env";
 import { assertMigrationBundle, runWithConcurrency } from "@/lib/migration/import-team";
@@ -54,6 +54,23 @@ function parseArgs() {
 }
 
 const outbound = buildOutboundFetch();
+
+const MAX_ATTEMPTS = 4;
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
+  let last: unknown;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      last = err;
+      // 源图 404 重试没意义
+      if (/404/.test((err as Error).message)) throw err;
+      if (attempt < MAX_ATTEMPTS) await sleep(1000 * 2 ** attempt);
+    }
+  }
+  throw last;
+}
 
 async function fetchBuffer(url: string) {
   const res = await outbound.fetch(url);
@@ -98,12 +115,14 @@ async function main() {
     const key = args.direct ? bare : `${args.prefix}/${bare}`;
     try {
       if (args.dryRun) return;
-      if (await head(target, key)) {
+      if (await withRetry(() => head(target, key))) {
         skipped += 1;
         return;
       }
-      const body = await fetchBuffer(a.sourceUrl!);
-      await put(target, key, body, a.mimeType);
+      await withRetry(async () => {
+        const body = await fetchBuffer(a.sourceUrl!);
+        await put(target, key, body, a.mimeType);
+      });
     } catch (err) {
       failures.push(`${a.objectKey}: ${(err as Error).message}`);
     } finally {
