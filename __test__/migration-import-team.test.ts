@@ -9,7 +9,10 @@ function fakePrisma() {
   const raw: string[] = [];
   const table = (name: string) => (written[name] ??= new Map());
   const model = (name: string) => ({
-    findUnique: async ({ where }: { where: { id: unknown } }) => table(name).get(where.id) ?? null,
+    findUnique: async ({ where }: { where: { id?: unknown; slug?: unknown } }) =>
+      where.id !== undefined
+        ? (table(name).get(where.id) ?? null)
+        : ([...table(name).values()].find((r) => (r as { slug?: unknown }).slug === where.slug) ?? null),
     upsert: ({ where, create }: { where: { id: unknown }; create: unknown }) => ({
       __op: () => table(name).set(where.id, create),
     }),
@@ -142,6 +145,12 @@ describe("importTeamBundle", () => {
       }),
     ).rejects.toBeInstanceOf(ImportCancelledError);
     expect(transactions.length).toBeLessThan(5);
+  });
+
+  it("refuses when the slug is taken by a different team id", async () => {
+    const { client, written } = fakePrisma();
+    (written.team ??= new Map()).set(3, { id: 3, slug: "t/7", name: "old" });
+    await expect(importTeamBundle(client as never, bundle(1), { phase: "db" })).rejects.toThrow(/已被 id=3/);
   });
 
   it("refuses when the team id is taken by a different slug", async () => {
