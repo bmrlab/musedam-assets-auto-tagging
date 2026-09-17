@@ -191,6 +191,14 @@ async function importDatabase(ctx: Ctx) {
     );
   }
 
+  const sameSlug = await target.team.findUnique({ where: { slug: team.slug } });
+  if (sameSlug && sameSlug.id !== teamId) {
+    throw new Error(
+      `目标库中 slug=${team.slug} 已被 id=${sameSlug.id}（${sameSlug.name}）占用，而导出的团队 id 是 ${teamId}。` +
+        `这通常是客户先登录过自动打标、自动建了团队。请先删除该团队及其数据（含 Membership/TeamConfig），再重新导入`,
+    );
+  }
+
   if (dryRun) {
     log(`[dry-run] 将导入 Team #${teamId} (${team.slug} / ${team.name})`);
   } else {
