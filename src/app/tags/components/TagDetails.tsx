@@ -36,6 +36,7 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
     keywords: [],
     negativeKeywords: [],
     taggingEnabled: true,
+    siblingsExclusive: false,
   });
 
   // 编辑态
@@ -66,6 +67,7 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
         keywords: extra.keywords || [],
         negativeKeywords: extra.negativeKeywords || [],
         taggingEnabled: tag.taggingEnabled,
+        siblingsExclusive: extra.siblingsExclusive === true,
       };
     },
     [getTagExtra],
@@ -85,6 +87,7 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
         keywords: [],
         negativeKeywords: [],
         taggingEnabled: true,
+        siblingsExclusive: false,
       });
       setIsEditing(false);
     }
@@ -224,6 +227,8 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
         keywords: formData.keywords,
         negativeKeywords: formData.negativeKeywords,
         taggingEnabled: formData.taggingEnabled,
+        // 互斥开关只对有子标签的分类有意义，叶子标签不提交，避免写入无意义字段
+        ...(hasChildTags ? { siblingsExclusive: formData.siblingsExclusive } : {}),
       });
       if (res.success) {
         toast.success(tRoot("saveSuccess"));
@@ -314,6 +319,37 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
             </span>
           </div>
         </div>
+
+        {/* 子标签互斥：仅对有子标签的分类显示 */}
+        {hasChildTags && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-1">
+              <Label className="text-sm font-medium">{t("siblingsExclusive")}</Label>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-basic-5 hover:text-basic-8">
+                      <InfoIcon className="text-current" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-[240px] text-sm">
+                    {t("siblingsExclusiveTooltip")}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={formData.siblingsExclusive}
+                onCheckedChange={(checked) => updateField("siblingsExclusive", checked)}
+                disabled={!isEditing}
+              />
+              <span className="text-sm text-basic-5">
+                {formData.siblingsExclusive ? t("siblingsExclusiveOn") : t("siblingsExclusiveOff")}
+              </span>
+            </div>
+          </div>
+        )}
 
         {shouldShowRequiredSwitch && (
           <div className="space-y-2">

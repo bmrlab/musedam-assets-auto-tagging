@@ -1070,6 +1070,8 @@ export async function updateTagExtra(
     keywords?: string[];
     negativeKeywords?: string[];
     taggingEnabled?: boolean;
+    /** 仅对有子标签的分类有意义：子标签之间是否互斥。人工设置后系统不再自动覆盖 */
+    siblingsExclusive?: boolean;
   },
 ): Promise<ServerActionResult<void>> {
   return withAuth(async ({ team: { id: teamId } }) => {
@@ -1136,6 +1138,9 @@ export async function updateTagExtra(
           newExtra,
           pruneRejectionCountsForRemovedKeywords(currentExtra, data.negativeKeywords),
         );
+      }
+      if (data.siblingsExclusive !== undefined) {
+        newExtra.siblingsExclusive = data.siblingsExclusive;
       }
 
       updateData.extra = newExtra;
