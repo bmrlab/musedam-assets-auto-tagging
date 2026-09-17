@@ -1,0 +1,213 @@
+// 私有化数据迁移脚本共享工具：S3/OSS 签名请求 + 并发池 + 文件读写。
+// 被 scripts/migrate-team-export.ts（在能连 SaaS AWS 的环境跑）
+// 和 scripts/migrate-team-import.ts（在客户堡垒机里跑，只连目标阿里云）共用。
+
+import { createHash, createHmac } from "crypto";
+import { mkdir, readFile, writeFile } from "fs/promises";
+import { dirname } from "path";
+
+export type S3Config = {
+  label: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+  bucket: string;
+  endpointUrl: string;
+  region: string;
+  forcePathStyle: boolean;
+  folder: string;
+};
+
+export function requiredEnv(name: string) {
+  const v = process.env[name];
+  if (!v) throw new Error(`缺少环境变量: ${name}`);
+  return v;
+}
+
+export function boolEnv(name: string, fallback: boolean) {
+  const v = process.env[name]?.trim().toLowerCase();
+  if (!v) return fallback;
+  return ["1", "true", "yes", "on"].includes(v);
+}
+
+function normalizeFolder(folder: string | undefined) {
+  return (folder || "").replace(/^\/+|\/+$/g, "");
+}
+
+// prefix 为空字符串时读取 AWS_ACCESS_KEY_ID / S3_BUCKET / ...
+// prefix 为 "SOURCE_" 时读取 SOURCE_AWS_ACCESS_KEY_ID / SOURCE_S3_BUCKET / ...
+export function loadS3Config(prefix: string, label: string): S3Config {
+  const env = (name: string) => `${prefix}${name}`;
+  return {
+    label,
+    accessKeyId: requiredEnv(env("AWS_ACCESS_KEY_ID")),
+    secretAccessKey: requiredEnv(env("AWS_SECRET_ACCESS_KEY")),
+    bucket: requiredEnv(env("S3_BUCKET")),
+    endpointUrl: requiredEnv(env("S3_ENDPOINT_URL")),
+    region: requiredEnv(env("S3_REGION")),
+    forcePathStyle: boolEnv(env("S3_FORCE_PATH_STYLE"), true),
+    folder: normalizeFolder(process.env[env("S3_FOLDER")]),
+  };
+}
+
+function sha256Hex(v: string | Buffer | Uint8Array) {
+  return createHash("sha256").update(v).digest("hex");
+}
+function hmac(key: Buffer | string, v: string) {
+  return createHmac("sha256", key).update(v).digest();
+}
+function signingKey(secret: string, dateStamp: string, region: string) {
+  return hmac(hmac(hmac(hmac(`AWS4${secret}`, dateStamp), region), "s3"), "aws4_request");
+}
+function amzDate(d = new Date()) {
+  const amz = d.toISOString().replace(/[:-]|\.\d{3}/g, "");
+  return { amz, dateStamp: amz.slice(0, 8) };
+}
+
+function buildObjectUrl(cfg: S3Config, objectKey: string) {
+  const endpoint = new URL(cfg.endpointUrl.endsWith("/") ? cfg.endpointUrl : `${cfg.endpointUrl}/`);
+  const keyPath = objectKey.split("/").map(encodeURIComponent).join("/");
+  if (!cfg.forcePathStyle) {
+    endpoint.host = `${cfg.bucket}.${endpoint.host}`;
+    endpoint.pathname = `/${keyPath}`;
+    return endpoint;
+  }
+  const basePath = endpoint.pathname.replace(/\/+$/g, "");
+  endpoint.pathname = `${basePath}/${[encodeURIComponent(cfg.bucket), keyPath].join("/")}`;
+  return endpoint;
+}
+
+function signRequest(
+  cfg: S3Config,
+  method: string,
+  url: URL,
+  payloadHash: string,
+  extraHeaders: Record<string, string> = {},
+) {
+  const { amz, dateStamp } = amzDate();
+  const headers: Record<string, string> = {
+    ...extraHeaders,
+    host: url.host,
+    "x-amz-content-sha256": payloadHash,
+    "x-amz-date": amz,
+  };
+  const normalized = Object.entries(headers)
+    .map(([k, v]) => [k.toLowerCase(), v.trim().replace(/\s+/g, " ")] as const)
+    .sort(([a], [b]) => a.localeCompare(b));
+  const canonicalHeaders = normalized.map(([k, v]) => `${k}:${v}\n`).join("");
+  const signedHeaders = normalized.map(([k]) => k).join(";");
+  const canonicalRequest = [method, url.pathname, "", canonicalHeaders, signedHeaders, payloadHash].join("\n");
+  const credentialScope = `${dateStamp}/${cfg.region}/s3/aws4_request`;
+  const stringToSign = ["AWS4-HMAC-SHA256", amz, credentialScope, sha256Hex(canonicalRequest)].join("\n");
+  const signature = hmac(signingKey(cfg.secretAccessKey, dateStamp, cfg.region), stringToSign).toString("hex");
+  const fetchHeaders = Object.fromEntries(Object.entries(headers).filter(([k]) => k !== "host"));
+  return {
+    ...fetchHeaders,
+    Authorization: [
+      `AWS4-HMAC-SHA256 Credential=${cfg.accessKeyId}/${credentialScope}`,
+      `SignedHeaders=${signedHeaders}`,
+      `Signature=${signature}`,
+    ].join(", "),
+  };
+}
+
+function encodeRfc3986(v: string) {
+  return encodeURIComponent(v).replace(/[!'()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
+}
+
+// SigV4 预签名 GET 链接（query string 签名），最长 7 天（604800 秒，AWS 上限）。
+// 用于导出阶段：在能拿到 SaaS 凭证的环境里给每张图片生成可直接下载的临时链接，
+// 客户环境导入时只需要访问这个链接，不需要我们的 AK/SK。
+export const MAX_PRESIGN_SECONDS = 7 * 24 * 60 * 60;
+
+export function presignGetUrl(cfg: S3Config, objectKey: string, expiresInSeconds = MAX_PRESIGN_SECONDS) {
+  const url = buildObjectUrl(cfg, objectKey);
+  const { amz, dateStamp } = amzDate();
+  const credentialScope = `${dateStamp}/${cfg.region}/s3/aws4_request`;
+  const query: Array<[string, string]> = [
+    ["X-Amz-Algorithm", "AWS4-HMAC-SHA256"],
+    ["X-Amz-Credential", `${cfg.accessKeyId}/${credentialScope}`],
+    ["X-Amz-Date", amz],
+    ["X-Amz-Expires", String(expiresInSeconds)],
+    ["X-Amz-SignedHeaders", "host"],
+  ];
+  const canonicalQuery = query
+    .map(([k, v]) => [encodeRfc3986(k), encodeRfc3986(v)] as const)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([k, v]) => `${k}=${v}`)
+    .join("&");
+  const canonicalRequest = ["GET", url.pathname, canonicalQuery, `host:${url.host}\n`, "host", "UNSIGNED-PAYLOAD"].join(
+    "\n",
+  );
+  const stringToSign = ["AWS4-HMAC-SHA256", amz, credentialScope, sha256Hex(canonicalRequest)].join("\n");
+  const signature = hmac(signingKey(cfg.secretAccessKey, dateStamp, cfg.region), stringToSign).toString("hex");
+  for (const [k, v] of query) url.searchParams.set(k, v);
+  url.searchParams.set("X-Amz-Signature", signature);
+  return {
+    url: url.toString(),
+    expiresAt: new Date((Math.floor(Date.now() / 1000) + expiresInSeconds) * 1000).toISOString(),
+  };
+}
+
+export async function s3Head(cfg: S3Config, objectKey: string) {
+  const url = buildObjectUrl(cfg, objectKey);
+  const headers = signRequest(cfg, "HEAD", url, "UNSIGNED-PAYLOAD");
+  const res = await fetch(url, { method: "HEAD", headers });
+  return res.ok;
+}
+
+export async function s3Put(cfg: S3Config, objectKey: string, body: Buffer, contentType: string) {
+  const url = buildObjectUrl(cfg, objectKey);
+  const payloadHash = sha256Hex(body);
+  const headers = signRequest(cfg, "PUT", url, payloadHash, {
+    "Content-Type": contentType || "application/octet-stream",
+    "x-amz-acl": "public-read",
+  });
+  const res = await fetch(url, { method: "PUT", headers, body: new Uint8Array(body) });
+  if (!res.ok) {
+    throw new Error(`[${cfg.label}] PUT ${objectKey} 失败: ${res.status} ${await res.text().catch(() => "")}`);
+  }
+}
+
+// objectKey 在写入时就已经把 S3_FOLDER 前缀烤进去了（见 src/lib/s3.ts 的 buildStorageObjectKey）。
+// 默认不改写：只要目标 S3_FOLDER 和导出时源端的 SOURCE_S3_FOLDER 配成一样的值，objectKey 原样搬过去就能用，最不容易出错。
+export function remapObjectKey(objectKey: string, sourceFolder: string, targetFolder: string, rewrite: boolean) {
+  if (!rewrite) return objectKey;
+  const prefix = sourceFolder ? `${sourceFolder}/` : "";
+  const stripped = objectKey.startsWith(prefix) ? objectKey.slice(prefix.length) : objectKey;
+  return targetFolder ? `${targetFolder}/${stripped}` : stripped;
+}
+
+export async function writeJsonFile(path: string, data: unknown) {
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, JSON.stringify(data, null, 2), "utf8");
+}
+
+export async function readJsonFile<T>(path: string): Promise<T> {
+  return JSON.parse(await readFile(path, "utf8"));
+}
+
+
+export async function runWithConcurrency<T>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T, index: number) => Promise<void>,
+) {
+  let cursor = 0;
+  const runners = Array.from({ length: Math.max(1, Math.min(concurrency, items.length)) }, async () => {
+    while (cursor < items.length) {
+      const index = cursor++;
+      await worker(items[index], index);
+    }
+  });
+  await Promise.all(runners);
+}
+
+export function progressLogger(label: string, total: number) {
+  let done = 0;
+  return () => {
+    done += 1;
+    if (done === total || done % 50 === 0) {
+      console.log(`  [${label}] ${done}/${total}`);
+    }
+  };
+}

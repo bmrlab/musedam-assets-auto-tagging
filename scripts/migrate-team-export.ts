@@ -2,35 +2,30 @@
 //
 // 单租户私有化部署数据迁移 —— 导出阶段。
 //
-// 运行位置：只需要能连上 SaaS 的 AWS RDS + AWS S3（我们自己的内网/VPN 环境），
+// 运行位置：只需要能连上 SaaS 的数据库 + 持有 SaaS 桶的 AK/SK（我们自己的内网/VPN 环境），
 //          完全不需要连客户私有化环境。
-// 产出：一个本地目录（--out-dir，默认 ./migration-export/team-<id>），
-//      里面是该 team 的数据库导出（db/*.json）+ 资源文件（assets/...），
-//      整个目录打包后通过客户认可的安全方式（scp 到堡垒机等）传进私有化环境，
-//      再用 scripts/migrate-team-import.ts 导入。
+// 产出：一个本地目录（--out-dir，默认 ./migration-export/team-<id>）：
+//   db/*.json      该 team 的数据库导出，表里的字段原样导出（图片表里的 objectKey 保持 SaaS 上的值）
+//   assets.json    每张图片一条 { model, id, objectKey, mimeType, sourceUrl }，sourceUrl 是用 SaaS 凭证
+//                  生成的预签名下载链接，默认 7 天有效（AWS 上限）。图片文件本身不导出。
+//   manifest.json  团队信息、图片条数、签名链接过期时间
+// 导入脚本在客户环境里按 assets.json 的 sourceUrl 下载 -> 上传到客户桶 -> update 数据库里的 objectKey，
+// 客户环境不需要我们的 AK/SK，只需要能访问签名链接。
+// 整个目录打包后通过客户认可的安全方式（scp 到堡垒机等）传进私有化环境，再用 scripts/migrate-team-import.ts 导入。
 //
 // 用法：
-//   SOURCE_DATABASE_URL=postgres://...aws-rds.../saas_db \
+//   SOURCE_DATABASE_URL=postgres://...saas-db... \
 //   AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=... \
-//   S3_ENDPOINT_URL=https://s3.us-east-1.amazonaws.com S3_REGION=us-east-1 \
-//   S3_BUCKET=musedam-saas-assets S3_FOLDER= \
-//   npx tsx scripts/migrate-team-export.ts --musedam-team-id=xxx [--out-dir=./migration-export/team-<id>] [--skip-assets]
+//   S3_ENDPOINT_URL=https://s3.<region>.amazonaws.com S3_REGION=<region> S3_BUCKET=<bucket> S3_FORCE_PATH_STYLE=false \
+//   npx tsx scripts/migrate-team-export.ts --musedam-team-id=xxx [--out-dir=./migration-export/team-<id>]
 //
 // --musedam-team-id 填 MuseDAM 侧的团队 id（也可以直接填 "t/xxx"），脚本会按 slug 反查本项目的 Team.id。
 // 如果已经知道本项目的 Team.id，也可以用 --team-id=<id> 直接指定，两者二选一。
+// --presign-expires=<秒> 可改签名链接有效期，默认 604800（7 天）；--skip-presign 只导库不生成链接。
 
 import { loadEnvConfig } from "@next/env";
-import { existsSync } from "fs";
 import { PrismaClient } from "@/prisma/client";
-import {
-  assetLocalPath,
-  loadS3Config,
-  progressLogger,
-  runWithConcurrency,
-  s3Get,
-  writeBinaryFile,
-  writeJsonFile,
-} from "./lib/migrate-team-shared";
+import { loadS3Config, MAX_PRESIGN_SECONDS, presignGetUrl, writeJsonFile } from "./lib/migrate-team-shared";
 
 function parseArgs() {
   const args = process.argv.slice(2);
@@ -62,8 +57,8 @@ function parseArgs() {
     teamId,
     teamSlug,
     outDir: get("out-dir"),
-    skipAssets: has("skip-assets"),
-    concurrency: Number(get("resource-concurrency") || "8"),
+    skipPresign: has("skip-presign"),
+    presignExpires: Math.min(Number(get("presign-expires") || MAX_PRESIGN_SECONDS), MAX_PRESIGN_SECONDS),
   };
 }
 
@@ -82,7 +77,6 @@ async function main() {
     }
     const teamId = team.id;
     const outDir = args.outDir || `./migration-export/team-${teamId}`;
-    const { skipAssets, concurrency } = args;
 
     console.log(`=== 导出 Team #${teamId} (slug=${team.slug}, name=${team.name}) -> ${outDir} ===`);
     await writeJsonFile(`${outDir}/db/team.json`, team);
@@ -104,7 +98,8 @@ async function main() {
       { kind: "assetPerson", typeModel: "assetPersonType", imageModel: "assetPersonImage", tagModel: "assetPersonTag", fk: "assetPersonId" },
     ];
 
-    const allImageRows: { objectKey: string; mimeType: string }[] = [];
+    // 图片清单：导入脚本据此下载并上传，再回写 objectKey
+    const assets: { model: string; id: string; objectKey: string; mimeType: string; sourceUrl?: string }[] = [];
 
     for (const { kind, typeModel, imageModel, tagModel } of kinds) {
       // biome-ignore lint: 四类资产结构一致，动态取 model
@@ -121,7 +116,9 @@ async function main() {
         ? await src[imageModel].findMany({ where: { [`${kind}Id`]: { in: entityIds } } })
         : [];
       await writeJsonFile(`${outDir}/db/${imageModel}.json`, images);
-      for (const img of images) allImageRows.push({ objectKey: img.objectKey, mimeType: img.mimeType });
+      for (const img of images) {
+        assets.push({ model: imageModel, id: img.id, objectKey: img.objectKey, mimeType: img.mimeType });
+      }
 
       const tags = entityIds.length
         ? await src[tagModel].findMany({ where: { [`${kind}Id`]: { in: entityIds } } })
@@ -150,49 +147,31 @@ async function main() {
     const auditItems = await source.taggingAuditItem.findMany({ where: { teamId } });
     await writeJsonFile(`${outDir}/db/taggingAuditItem.json`, auditItems);
 
-    console.log("数据库导出完成");
-
-    if (skipAssets) {
-      console.log("已跳过资源文件下载（--skip-assets）");
+    let signedUrlExpiresAt: string | null = null;
+    if (args.skipPresign) {
+      console.log("已跳过生成签名链接（--skip-presign），导入时需要 --source-url-base");
     } else {
-      const sourceS3 = loadS3Config("", "SaaS/AWS S3");
-      console.log(
-        `\n=== 下载资源文件 (bucket=${sourceS3.bucket} folder=${sourceS3.folder || "(root)"}, 共 ${allImageRows.length} 个) ===`,
-      );
-
-      const failures: { objectKey: string; error: string }[] = [];
-      const tick = progressLogger("assets", allImageRows.length);
-      await runWithConcurrency(allImageRows, concurrency, async ({ objectKey }) => {
-        try {
-          const localPath = assetLocalPath(outDir, objectKey);
-          if (existsSync(localPath)) return;
-          const body = await s3Get(sourceS3, objectKey);
-          if (!body) throw new Error("源对象不存在");
-          await writeBinaryFile(localPath, body);
-        } catch (err) {
-          failures.push({ objectKey, error: (err as Error).message });
-        } finally {
-          tick();
-        }
-      });
-
-      if (failures.length > 0) {
-        console.error(`\n⚠️ ${failures.length} 个文件下载失败（重新执行本脚本即可重试，已下载的文件会跳过重下）：`);
-        for (const f of failures) console.error(`   - ${f.objectKey}: ${f.error}`);
-      } else {
-        console.log("全部资源文件下载完成");
+      // 只签名不请求，不需要网络；凭证错了要到导入阶段下载时才会暴露，所以导出后最好抽一条链接手动打开验证
+      const sourceS3 = loadS3Config("", "SaaS S3");
+      for (const a of assets) {
+        const signed = presignGetUrl(sourceS3, a.objectKey, args.presignExpires);
+        a.sourceUrl = signed.url;
+        signedUrlExpiresAt = signed.expiresAt;
       }
-
-      await writeJsonFile(`${outDir}/manifest.json`, {
-        teamId,
-        teamSlug: team.slug,
-        exportedAt: new Date().toISOString(),
-        sourceS3Folder: sourceS3.folder,
-        assetCount: allImageRows.length,
-        assetFailures: failures.length,
-      });
+      console.log(`已为 ${assets.length} 张图片生成预签名下载链接，过期时间 ${signedUrlExpiresAt ?? "-"}`);
+      if (assets[0]?.sourceUrl) console.log(`  抽检链接（请手动打开确认可访问）: ${assets[0].sourceUrl}`);
     }
+    await writeJsonFile(`${outDir}/assets.json`, assets);
 
+    await writeJsonFile(`${outDir}/manifest.json`, {
+      teamId,
+      teamSlug: team.slug,
+      exportedAt: new Date().toISOString(),
+      imageCount: assets.length,
+      signedUrlExpiresAt,
+    });
+
+    console.log(`数据库导出完成（图片记录 ${assets.length} 条，图片文件本身不导出，导入时按 assets.json 的链接拉取）`);
     console.log(`\n=== 导出完成，请把整个目录 ${outDir} 传进私有化环境后执行 migrate-team-import.ts ===`);
   } finally {
     await source.$disconnect();
