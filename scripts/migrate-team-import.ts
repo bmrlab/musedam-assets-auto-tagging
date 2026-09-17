@@ -27,6 +27,7 @@
 // 导出时加了 --skip-presign（assets.json 里没有 sourceUrl）的话，需要 --source-url-base=<SaaS 图片公网地址前缀>
 // （或环境变量 SOURCE_PUBLIC_URL_BASE），脚本会用 <前缀>/<objectKey> 拼下载地址，此时桶必须允许匿名读。
 // 需要改 objectKey 目录前缀（SaaS 的 S3_FOLDER 和这边 S3_FOLDER 配的不一样）时加 --rewrite-folder=<SaaS 侧 folder>。
+// --batch-size=<行数> 控制 db 阶段每个事务写多少行（默认 200），--resource-concurrency=<n> 控制图片并发（默认 8）。
 
 import { loadEnvConfig } from "@next/env";
 import type { MigrationBundle } from "@/lib/migration/export-team";
@@ -56,6 +57,7 @@ function parseArgs() {
     // --rewrite-folder=<SaaS 侧 S3_FOLDER>；不传则 objectKey 原样保留
     rewriteFolder: get("rewrite-folder"),
     concurrency: Number(get("resource-concurrency") || "8"),
+    batchSize: Number(get("batch-size") || "200"),
   };
 }
 
@@ -150,6 +152,7 @@ async function main() {
       sourceUrlBase: args.sourceUrlBase,
       rewriteFolder: args.rewriteFolder,
       concurrency: args.concurrency,
+      batchSize: args.batchSize,
       log: (msg) => console.log(msg),
     });
     if (result.resources?.failed) process.exitCode = 2;

@@ -109,7 +109,7 @@ MuseDAM（`src/musedam/push-feature-to-musedam.ts`）都调用 `getS3PublicObjec
 1. 用 admin 登录 SaaS，打开 `https://<saas-host>/api/tagging/migration/export?musedamTeamId=<id>`，下载 `team-<id>-export.json`。
    包里不含图片文件，`assets[].sourceUrl` 是 SaaS 桶的预签名链接，**7 天内有效**，过期重新导出。
 2. 把 JSON 传到我们的 OSS，生成一个签名下载链接（客户网络只需要放行 SaaS 桶的公网域名，JSON 和图片链接都指向它）。
-3. 用 admin 登录客户私有化环境，依次打开（`dryRun` 默认 `true` 只做检查，显式 `dryRun=false` 才写库/写桶）：
+3. 用 admin 登录客户私有化环境，依次**触发**三个阶段（`dryRun` 默认 `true` 只做检查，显式 `dryRun=false` 才写库/写桶）：
 
    ```
    /api/tagging/migration/import?bundleUrl=<链接>&phase=db&dryRun=false
@@ -117,10 +117,23 @@ MuseDAM（`src/musedam/push-feature-to-musedam.ts`）都调用 `getS3PublicObjec
    /api/tagging/migration/import?bundleUrl=<链接>&phase=verify
    ```
 
+   触发接口**立即返回**（HTTP 202）一个任务 id，导入在后台跑，不受 Ingress 超时影响。然后：
+
+   ```
+   /api/tagging/migration/import?action=status    # 刷新看进度：当前表 / 已完成行数、失败项、最近 400 行日志、堆内存
+   /api/tagging/migration/import?action=cancel    # 在当前批次结束后停止
+   ```
+
+   `status` 里 `job.status` 变成 `done` 再触发下一个阶段。进程内同一时间只允许一个任务，重复触发返回 409 和当前进度，不会并发写同一批行。
+
    - `rewriteFolder`：SaaS 侧 `S3_FOLDER` 和客户侧不一致时必传（如 `feature-library` -> `auto-tagging/feature-library`），不传则 objectKey 原样保留
-   - `concurrency`：resources 阶段并发数，默认 8
-   - 三个阶段全部幂等：路由 `maxDuration=3600`，图片很多时超时或部分失败，重复打开同一链接会跳过已完成项继续
-   - 响应 JSON 里 `result.verify.tables` 各表行数一致即完成；`success=false` 时看 `logs` / `result.resources.failures`
+   - `batchSize`：db 阶段每个事务写多少行，默认 200；`concurrency`：resources 阶段并发数，默认 8
+   - 三个阶段全部幂等：失败或取消后重新触发同一阶段会跳过已完成项续传
+   - 任务状态只在进程内存里，Pod 重启后 `status` 为空；导入本身幂等，重新触发即可
+   - Pod stdout 也有结构化日志（`module=migration-import`，含 jobId、每 10 秒一条进度心跳和堆内存），便于在观测云里查
+
+**大包注意**：bundle 解析后在堆里大约是文件体积的 3 到 5 倍（向量表占大头），db 阶段每写完一张表就释放对应数组。
+Web 容器堆上限默认 640MB（`NODE_OPTIONS`），100MB 以内的包可以直接跑；更大的包建议导入期间临时把 Web 的内存 limit 和 `--max-old-space-size` 调高，`status` 里的 `memory.heapUsedMB / heapLimitMB` 可以看到实际水位。
 
 目标库必须是全新的私有化库：导入按源库的 `Team.id` 原样写入，同 id 已被别的团队占用会直接中止。
 导入完成后按第 5 节验证客户桶的裸 URL 能匿名访问。
