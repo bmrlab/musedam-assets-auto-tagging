@@ -20,13 +20,15 @@
 // 环境变量（目标桶，和私有化 App 用的是同一组变量名）：
 //   AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / S3_BUCKET / S3_ENDPOINT_URL / S3_REGION / S3_FORCE_PATH_STYLE
 // 可选：--concurrency=<n>（默认 8）、--dry-run
+//       --oss-native  用阿里云 OSS 原生接口上传（S3 兼容 endpoint 返回 403 时用），环境变量不用改，
+//                     脚本自动把 S3_ENDPOINT_URL 里的 "s3." 去掉
 //
 // 幂等：目标 key 已存在就跳过。
 
 import { loadEnvConfig } from "@next/env";
 import { assertMigrationBundle, runWithConcurrency } from "@/lib/migration/import-team";
 import { buildOutboundFetch } from "@/lib/migration/outbound-fetch";
-import { loadS3Config, readJsonFile, s3Head, s3Put } from "./lib/migrate-team-shared";
+import { loadS3Config, ossHead, ossNativeEndpoint, ossPut, readJsonFile, s3Head, s3Put } from "./lib/migrate-team-shared";
 
 function parseArgs() {
   const args = process.argv.slice(2);
@@ -40,7 +42,15 @@ function parseArgs() {
   const direct = has("direct");
   if (!prefix && !direct) throw new Error("缺少参数：--prefix=<目录前缀>（中转）或 --direct（直传客户桶原路径）");
   if (prefix && direct) throw new Error("--prefix 和 --direct 只能二选一");
-  return { inFile, inUrl, prefix, direct, dryRun: has("dry-run"), concurrency: Number(get("concurrency") || "8") };
+  return {
+    inFile,
+    inUrl,
+    prefix,
+    direct,
+    ossNative: has("oss-native"),
+    dryRun: has("dry-run"),
+    concurrency: Number(get("concurrency") || "8"),
+  };
 }
 
 const outbound = buildOutboundFetch();
@@ -72,9 +82,12 @@ async function main() {
   if (expiresAt && new Date(expiresAt).getTime() < Date.now()) throw new Error(`签名链接已于 ${expiresAt} 过期，请重新导出`);
 
   const target = loadS3Config("", "镜像 OSS");
+  const head = args.ossNative ? ossHead : s3Head;
+  const put = args.ossNative ? ossPut : s3Put;
   console.log(`Team #${bundle.manifest.teamId} ${bundle.manifest.teamSlug}，图片 ${assets.length} 张`);
   console.log(
-    `目标: bucket=${target.bucket} endpoint=${target.endpointUrl} ${args.direct ? "直传原路径（key = objectKey）" : `prefix=${args.prefix}`}，并发 ${args.concurrency}`,
+    `目标: bucket=${target.bucket} ${args.ossNative ? `OSS 原生接口 ${ossNativeEndpoint(target).host}` : `S3 兼容接口 ${target.endpointUrl}`} ` +
+      `${args.direct ? "直传原路径（key = objectKey）" : `prefix=${args.prefix}`}，并发 ${args.concurrency}`,
   );
 
   let done = 0;
@@ -85,12 +98,12 @@ async function main() {
     const key = args.direct ? bare : `${args.prefix}/${bare}`;
     try {
       if (args.dryRun) return;
-      if (await s3Head(target, key)) {
+      if (await head(target, key)) {
         skipped += 1;
         return;
       }
       const body = await fetchBuffer(a.sourceUrl!);
-      await s3Put(target, key, body, a.mimeType);
+      await put(target, key, body, a.mimeType);
     } catch (err) {
       failures.push(`${a.objectKey}: ${(err as Error).message}`);
     } finally {

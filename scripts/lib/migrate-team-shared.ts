@@ -168,6 +168,61 @@ export async function s3Put(cfg: S3Config, objectKey: string, body: Buffer, cont
   }
 }
 
+// ---------------------------------------------------------------------------
+// 阿里云 OSS 原生接口（不是 S3 兼容接口）。用于客户桶的 AK 没有 S3 兼容访问权限（S3 兼容 endpoint 返回 403）时。
+// 复用同一组 S3_* 环境变量：endpoint 去掉 "s3." 前缀就是 OSS 原生 endpoint，请求域名为 <bucket>.<endpoint>。
+// 签名用 OSS 的 V1 头签名：Authorization: OSS <AK>:base64(hmac-sha1(SK, stringToSign))
+//   stringToSign = VERB\nContent-MD5\nContent-Type\nDate\n<CanonicalizedOSSHeaders><CanonicalizedResource>
+// ---------------------------------------------------------------------------
+
+export function ossNativeEndpoint(cfg: S3Config) {
+  const u = new URL(cfg.endpointUrl.endsWith("/") ? cfg.endpointUrl : `${cfg.endpointUrl}/`);
+  u.host = u.host.replace(/^s3\./, "");
+  return u;
+}
+
+function ossObjectUrl(cfg: S3Config, objectKey: string) {
+  const u = ossNativeEndpoint(cfg);
+  u.host = `${cfg.bucket}.${u.host}`;
+  u.pathname = `/${objectKey.split("/").map(encodeURIComponent).join("/")}`;
+  return u;
+}
+
+function ossSign(cfg: S3Config, method: string, objectKey: string, contentType: string, ossHeaders: Record<string, string>) {
+  const date = new Date().toUTCString();
+  const canonicalHeaders = Object.entries(ossHeaders)
+    .map(([k, v]) => [k.toLowerCase(), v.trim()] as const)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([k, v]) => `${k}:${v}\n`)
+    .join("");
+  const stringToSign = `${method}\n\n${contentType}\n${date}\n${canonicalHeaders}/${cfg.bucket}/${objectKey}`;
+  const signature = createHmac("sha1", cfg.secretAccessKey).update(stringToSign, "utf8").digest("base64");
+  return {
+    ...ossHeaders,
+    Date: date,
+    ...(contentType ? { "Content-Type": contentType } : {}),
+    Authorization: `OSS ${cfg.accessKeyId}:${signature}`,
+  };
+}
+
+export async function ossHead(cfg: S3Config, objectKey: string) {
+  const url = ossObjectUrl(cfg, objectKey);
+  const res = await fetch(url, { method: "HEAD", headers: ossSign(cfg, "HEAD", objectKey, "", {}) });
+  if (res.status === 404) return false;
+  if (!res.ok) throw new Error(`[${cfg.label}] OSS HEAD ${objectKey} 失败: ${res.status} ${res.headers.get("x-oss-request-id") ?? ""}`);
+  return true;
+}
+
+export async function ossPut(cfg: S3Config, objectKey: string, body: Buffer, contentType: string) {
+  const url = ossObjectUrl(cfg, objectKey);
+  const ct = contentType || "application/octet-stream";
+  const headers = ossSign(cfg, "PUT", objectKey, ct, { "x-oss-object-acl": "public-read" });
+  const res = await fetch(url, { method: "PUT", headers, body: new Uint8Array(body) });
+  if (!res.ok) {
+    throw new Error(`[${cfg.label}] OSS PUT ${objectKey} 失败: ${res.status} ${(await res.text().catch(() => "")).slice(0, 300)}`);
+  }
+}
+
 export async function writeJsonFile(path: string, data: unknown) {
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, JSON.stringify(data, null, 2), "utf8");
