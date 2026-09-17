@@ -191,19 +191,27 @@ function hasCommonSubstring(a: string, b: string, minLength: number): boolean {
  * 模型可以把原文里任意一句（如"清新风格"）当作"小红书"的证据蒙混过关。
  * - 纯 ASCII 短片段：视为别名/缩写（xhs → 小红书），信任模型的归一；
  * - 含中日韩字符的片段：必须与标签名或配置关键词有至少 2 个连续字符重叠（"红书"→"小红书"）。
+ * - allowHeadCharOverlap：内容型品类标签允许"中心语"重叠——中文品类词的中心语在末尾
+ *   （修护霜 / 面霜、洁面乳 / 乳液），片段里出现标签名末字也算指代。字面型标签（渠道/活动等）
+ *   不开这个口子，"读书会"不能当"小红书"的证据。
  */
 export function isPlausibleEvidenceQuoteForTag(
   quote: string | undefined,
   tagNameAndKeywords: readonly string[],
+  options?: { allowHeadCharOverlap?: boolean },
 ): boolean {
   const normalizedQuote = normalizeForMatch(quote ?? "");
   if (normalizedQuote.length < MIN_EVIDENCE_QUOTE_LENGTH) return false;
   if (!CJK_CHAR_REGEX.test(normalizedQuote)) {
     return normalizedQuote.length <= MAX_ASCII_ALIAS_QUOTE_LENGTH && !/\s/.test(normalizedQuote);
   }
-  return tagNameAndKeywords.some((candidate) =>
-    hasCommonSubstring(normalizedQuote, normalizeForMatch(candidate), 2),
-  );
+  return tagNameAndKeywords.some((candidate) => {
+    const normalizedCandidate = normalizeForMatch(candidate);
+    if (hasCommonSubstring(normalizedQuote, normalizedCandidate, 2)) return true;
+    if (!options?.allowHeadCharOverlap) return false;
+    const headChar = normalizedCandidate.slice(-1);
+    return CJK_CHAR_REGEX.test(headChar) && normalizedQuote.includes(headChar);
+  });
 }
 
 function evidenceQuoteAppearsIn(evidenceText: string, quote: string | undefined): boolean {
@@ -274,7 +282,8 @@ function isTextualSource(source: string): source is TextualSource {
 
 /**
  * 文本类来源（basicInfo / materializedPath / tagKeywords）的每条预测，不论标签类型，都必须有文字依据：
- * 标签名拆词或配置关键词出现在该来源文本里，或模型摘录的 evidence 原样出现在该来源文本里。
+ * 标签名拆词或配置关键词出现在该来源文本里，或模型摘录的 evidence 原样出现在该来源文本里、
+ * 且看起来确实在指代这个标签（见 isPlausibleEvidenceQuoteForTag，内容型标签放宽到中心语重叠）。
  * 否则丢弃该来源对该标签的贡献。这是为了堵住"模型顺手把一个标签标到多个来源"的问题：
  * 路径里根本没有"洁面"，模型却给洁面加了 materializedPath 来源，多源融合就把它抬到了面霜之上。
  * 没传证据文本的来源不做校验。
@@ -284,15 +293,15 @@ export function enforceTextualSourceEvidence(
   tagsTree: TagWithChildren[],
   evidenceTextBySource: Partial<Record<TextualSource, string>>,
 ): SourceBasedTagPredictions {
-  const keywordsById = new Map<number, string[]>();
+  const infoById = new Map<number, { keywords: string[]; nameAndKeywords: string[] }>();
   for (const node of flattenTagsTree(tagsTree)) {
     const configuredKeywords = ((node.extra as AssetTagExtra)?.keywords ?? []).map(normalizeForMatch);
-    keywordsById.set(
-      node.id,
-      Array.from(
+    infoById.set(node.id, {
+      keywords: Array.from(
         new Set([...getStrongKeywordVariantsForTagName(node.name), ...configuredKeywords]),
       ).filter(Boolean),
-    );
+      nameAndKeywords: [node.name, ...configuredKeywords],
+    });
   }
 
   return predictions.map((prediction) => {
@@ -303,10 +312,16 @@ export function enforceTextualSourceEvidence(
       ...prediction,
       tags: prediction.tags.filter((tag) => {
         if (!evidenceText) return false;
-        const keywords = keywordsById.get(tag.leafTagId) ?? [];
+        const info = infoById.get(tag.leafTagId);
+        const keywords = info?.keywords ?? [];
+        if (keywords.some((keyword) => pathIncludesKeyword(evidenceText, keyword))) return true;
+        // 摘录的片段不仅要真的在原文里，还得看起来在指代这个标签：
+        // 文件名"红茶水乳"整段被当成"底妆"/"功效教育"的证据，就是这里以前没拦住的。
         return (
-          keywords.some((keyword) => pathIncludesKeyword(evidenceText, keyword)) ||
-          evidenceQuoteAppearsIn(evidenceText, tag.evidence)
+          evidenceQuoteAppearsIn(evidenceText, tag.evidence) &&
+          isPlausibleEvidenceQuoteForTag(tag.evidence, info?.nameAndKeywords ?? [], {
+            allowHeadCharOverlap: true,
+          })
         );
       }),
     };
@@ -322,9 +337,11 @@ export const EXCLUSIVE_SIBLING_LOSER_CONFIDENCE = 0.45;
 
 /**
  * 同级互斥兜底：父分类 extra.siblingsExclusive 为 true 的组里，一个素材只应归属其中一个子标签。
+ * 互斥沿祖先链传播：预测的是三级标签时，它同样代表了自己所在的二级分支——"产品品类"标了互斥，
+ * 那么"护肤 > 面霜"和"彩妆 > 底妆"就是在争同一个位置，按各自分支整体取舍，落选分支下的标签一起压低。
  * - 有文本依据（basicInfo / materializedPath / tagKeywords 来源，已经过 enforceTextualSourceEvidence 校验）的
- *   子标签视为"锚定"；存在锚定标签时，其余仅靠 contentAnalysis 的同级标签全部压低；
- * - 都没有锚定时，只保留各来源最高置信度最高的一个，其余压低。
+ *   分支视为"锚定"；存在锚定分支时，其余仅靠 contentAnalysis 的同级分支全部压低；
+ * - 都没有锚定时，只保留各来源最高置信度最高的一个分支，其余压低。
  * 压低而不是删除：宽泛模式下仍能看到候选，人工审核也能看到"AI 曾经这么猜过"。
  * 不在互斥组的标签（父分类未标记或标记为 false）不受影响。
  */
@@ -342,35 +359,48 @@ export function resolveExclusiveSiblings(
   }
   if (exclusiveParentIds.size === 0) return predictions;
 
-  // 按互斥父分类归组：leafTagId -> { anchored, best }
-  const stats = new Map<number, { parentId: number; anchored: boolean; best: number }>();
+  // 一个标签沿祖先链向上，每遇到一个互斥父分类，就以"该父分类的直接子节点"为分支参与一次竞争。
+  const exclusiveBranchesOf = (leafTagId: number): Array<{ parentId: number; branchId: number }> => {
+    const branches: Array<{ parentId: number; branchId: number }> = [];
+    let nodeId = leafTagId;
+    for (;;) {
+      const parentId = parentById.get(nodeId);
+      if (parentId === undefined) break;
+      if (exclusiveParentIds.has(parentId)) branches.push({ parentId, branchId: nodeId });
+      nodeId = parentId;
+    }
+    return branches;
+  };
+
+  type BranchStat = { anchored: boolean; best: number; leafTagIds: Set<number> };
+  const byParent = new Map<number, Map<number, BranchStat>>();
   for (const prediction of predictions) {
     for (const tag of prediction.tags) {
-      const parentId = parentById.get(tag.leafTagId);
-      if (parentId === undefined || !exclusiveParentIds.has(parentId)) continue;
-      const current = stats.get(tag.leafTagId) ?? { parentId, anchored: false, best: 0 };
-      current.anchored = current.anchored || isTextualSource(prediction.source);
-      current.best = Math.max(current.best, tag.confidence);
-      stats.set(tag.leafTagId, current);
+      for (const { parentId, branchId } of exclusiveBranchesOf(tag.leafTagId)) {
+        const branches = byParent.get(parentId) ?? new Map<number, BranchStat>();
+        const stat = branches.get(branchId) ?? { anchored: false, best: 0, leafTagIds: new Set() };
+        stat.anchored = stat.anchored || isTextualSource(prediction.source);
+        stat.best = Math.max(stat.best, tag.confidence);
+        stat.leafTagIds.add(tag.leafTagId);
+        branches.set(branchId, stat);
+        byParent.set(parentId, branches);
+      }
     }
   }
 
   const losers = new Set<number>();
-  const byParent = new Map<number, Array<[number, { anchored: boolean; best: number }]>>();
-  for (const [leafTagId, stat] of stats) {
-    const list = byParent.get(stat.parentId) ?? [];
-    list.push([leafTagId, stat]);
-    byParent.set(stat.parentId, list);
-  }
-  for (const [, members] of byParent) {
-    if (members.length <= 1) continue;
+  for (const [, branches] of byParent) {
+    if (branches.size <= 1) continue;
+    const members = [...branches.entries()];
     const anchored = members.filter(([, stat]) => stat.anchored);
+    let losingBranches: BranchStat[];
     if (anchored.length > 0) {
-      for (const [leafTagId, stat] of members) if (!stat.anchored) losers.add(leafTagId);
+      losingBranches = members.filter(([, stat]) => !stat.anchored).map(([, stat]) => stat);
     } else {
       const [winner] = [...members].sort((a, b) => b[1].best - a[1].best || a[0] - b[0]);
-      for (const [leafTagId] of members) if (leafTagId !== winner[0]) losers.add(leafTagId);
+      losingBranches = members.filter(([branchId]) => branchId !== winner[0]).map(([, stat]) => stat);
     }
+    for (const stat of losingBranches) for (const leafTagId of stat.leafTagIds) losers.add(leafTagId);
   }
   if (losers.size === 0) return predictions;
 
@@ -849,6 +879,21 @@ export function filterTagsWithScoreByRecognitionAccuracy(
 }
 
 /**
+ * 祖先折叠：同一条祖先链上，更具体的标签已经过线时，它的父级/祖父级不再单独输出。
+ * "内容主题 > 产品教育"和"内容主题 > 产品教育 > 产品介绍"同时出现，对审核人只是噪音。
+ * 放在识别模式阈值过滤之后：三级没过线、只有二级过线时，二级仍然保留（那是"能确定到哪一级就到哪一级"）。
+ */
+export function collapseAncestorTags(tagsWithScore: TagWithScore[]): TagWithScore[] {
+  const paths = tagsWithScore.map((tag) => tag.tagPath);
+  const isStrictPrefixOfAnother = (path: string[]) =>
+    paths.some(
+      (other) =>
+        other.length > path.length && path.every((segment, index) => other[index] === segment),
+    );
+  return tagsWithScore.filter((tag) => !isStrictPrefixOfAnother(tag.tagPath));
+}
+
+/**
  * 使用AI预测内容素材的最适合标签
  * @param asset 内容素材对象
  * @param availableTags 可用的标签列表（包含层级关系）
@@ -1093,9 +1138,11 @@ ${sourceSections.join("\n\n")}
 
       // 按识别模式的最低置信度门槛过滤：LLM 不一定严格遵守 prompt 里的门槛要求，
       // 这里做代码层面的兜底，确保"精准模式只出高置信度标签"是硬约束而非纯靠模型自觉。
-      const tagsWithScore = filterTagsWithScoreByRecognitionAccuracy(
-        calculateTagScore(predictions),
-        recognitionAccuracyMode,
+      const tagsWithScore = collapseAncestorTags(
+        filterTagsWithScoreByRecognitionAccuracy(
+          calculateTagScore(predictions),
+          recognitionAccuracyMode,
+        ),
       );
 
       // LLM 返回空/不可用结果：重试

@@ -23,12 +23,12 @@ function makeTree(): TagWithChildren[] {
     {
       id: 1,
       name: "投放平台",
-      extra: { evidencePolicy: "literal" },
+      extra: { evidencePolicy: "literal", siblingsExclusive: false },
       children: [
         {
           id: 2,
           name: "社交媒体",
-          extra: { evidencePolicy: "literal" },
+          extra: { evidencePolicy: "literal", siblingsExclusive: false },
           children: [
             { id: 3, name: "小红书", extra: { evidencePolicy: "literal", keywords: ["xhs"] } },
             { id: 4, name: "抖音", extra: { evidencePolicy: "literal" } },
@@ -39,12 +39,12 @@ function makeTree(): TagWithChildren[] {
     {
       id: 10,
       name: "品类",
-      extra: { evidencePolicy: "content" },
+      extra: { evidencePolicy: "content", siblingsExclusive: false },
       children: [
         {
           id: 11,
           name: "护肤",
-          extra: { evidencePolicy: "content" },
+          extra: { evidencePolicy: "content", siblingsExclusive: true },
           children: [{ id: 12, name: "面霜", extra: { evidencePolicy: "content" } }],
         },
       ],
@@ -81,6 +81,18 @@ describe("collectTagsMissingEvidencePolicy / applyEvidencePoliciesToTree", () =>
     applyEvidencePoliciesToTree(tree, new Map([[22, "literal"]]));
     expect(collectTagsMissingEvidencePolicy(tree).map((node) => node.id)).toEqual([20, 21]);
     expect(resolveEvidencePolicy(tree[2].children![0].children![0].extra, [])).toBe("literal");
+
+    // 有子标签的节点即使有了策略，缺同级互斥判定时仍算缺失；补上后不再缺失
+    applyEvidencePoliciesToTree(tree, new Map([[21, { policy: "content" }]]));
+    expect(collectTagsMissingEvidencePolicy(tree).map((node) => node.id)).toEqual([20, 21]);
+    applyEvidencePoliciesToTree(
+      tree,
+      new Map([
+        [20, { policy: "literal", siblingsExclusive: false }],
+        [21, { policy: "literal", siblingsExclusive: true }],
+      ]),
+    );
+    expect(collectTagsMissingEvidencePolicy(tree)).toEqual([]);
   });
 });
 
@@ -194,6 +206,15 @@ describe("isPlausibleEvidenceQuoteForTag", () => {
     expect(isPlausibleEvidenceQuoteForTag("TMALL", ["天猫"])).toBe(true);
     expect(isPlausibleEvidenceQuoteForTag("1111", ["双十一"])).toBe(true);
     expect(isPlausibleEvidenceQuoteForTag("a beautiful summer campaign", ["天猫"])).toBe(false);
+  });
+
+  it("only allows head-character overlap (修护霜 → 面霜) when explicitly opted in, so literal tags stay strict", () => {
+    expect(isPlausibleEvidenceQuoteForTag("修护霜", ["面霜"])).toBe(false);
+    expect(isPlausibleEvidenceQuoteForTag("修护霜", ["面霜"], { allowHeadCharOverlap: true })).toBe(true);
+    expect(isPlausibleEvidenceQuoteForTag("红茶水乳", ["底妆"], { allowHeadCharOverlap: true })).toBe(false);
+    expect(isPlausibleEvidenceQuoteForTag("红茶水乳", ["面霜"], { allowHeadCharOverlap: true })).toBe(false);
+    expect(isPlausibleEvidenceQuoteForTag("读书会", ["小红书"], { allowHeadCharOverlap: true })).toBe(true);
+    expect(isPlausibleEvidenceQuoteForTag("读书会", ["小红书"])).toBe(false);
   });
 
   it("requires CJK quotes to overlap the tag name or keywords", () => {

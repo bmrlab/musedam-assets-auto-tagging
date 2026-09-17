@@ -4,6 +4,7 @@ vi.mock("server-only", () => ({}));
 
 import {
   calculateTagScore,
+  collapseAncestorTags,
   enforceTextualSourceEvidence,
   enhancePredictionsByBasicInfoHardMatch,
   EXCLUSIVE_SIBLING_LOSER_CONFIDENCE,
@@ -51,6 +52,49 @@ const tagsTree: TagWithChildren[] = [
   },
 ];
 
+// 复现第二个客户案例：文件名 20260716_DY_INN_红茶水乳_A-高级质感，品类跨了护肤/彩妆两个分支
+const categoryExclusiveTree: TagWithChildren[] = [
+  {
+    id: 1,
+    name: "产品品类",
+    extra: { evidencePolicy: "content", siblingsExclusive: true },
+    children: [
+      {
+        id: 2,
+        name: "护肤",
+        extra: { evidencePolicy: "content", siblingsExclusive: true },
+        children: [
+          { id: 3, name: "洁面", extra: { evidencePolicy: "content" } },
+          { id: 4, name: "面霜", extra: { evidencePolicy: "content" } },
+        ],
+      },
+      {
+        id: 20,
+        name: "彩妆",
+        extra: { evidencePolicy: "content", siblingsExclusive: true },
+        children: [{ id: 21, name: "底妆", extra: { evidencePolicy: "content" } }],
+      },
+    ],
+  },
+  {
+    id: 30,
+    name: "内容主题",
+    extra: { evidencePolicy: "content", siblingsExclusive: false },
+    children: [
+      {
+        id: 31,
+        name: "产品教育",
+        extra: { evidencePolicy: "content", siblingsExclusive: false },
+        children: [
+          { id: 32, name: "产品介绍", extra: { evidencePolicy: "content" } },
+          { id: 33, name: "功效教育", extra: { evidencePolicy: "content" } },
+        ],
+      },
+    ],
+  },
+];
+const lotionBasicInfo = "20260716_dy_inn_红茶水乳_a-高级质感";
+
 const path = "/dc content/2) dc1 content/交付内容/aes/2026.07";
 const basicInfo = "20260727_tm_aes_修护霜_七夕场景_j";
 
@@ -83,6 +127,23 @@ describe("enforceTextualSourceEvidence", () => {
     ];
     const result = enforceTextualSourceEvidence(predictions, tagsTree, { basicInfo: basicInfo });
     expect(result[0].tags.map((tag) => tag.leafTagId)).toEqual([4]);
+  });
+
+  it("drops a basicInfo prediction whose quote is in the filename but unrelated to the tag (红茶水乳 → 底妆 / 功效教育)", () => {
+    const predictions: SourceBasedTagPredictions = [
+      {
+        source: "basicInfo",
+        tags: [
+          { confidence: 0.84, leafTagId: 21, tagPath: ["产品品类", "彩妆", "底妆"], evidence: "红茶水乳" },
+          { confidence: 0.87, leafTagId: 33, tagPath: ["内容主题", "产品教育", "功效教育"], evidence: "红茶水乳" },
+          { confidence: 0.89, leafTagId: 31, tagPath: ["内容主题", "产品教育"], evidence: "红茶水乳" },
+        ],
+      },
+    ];
+    const result = enforceTextualSourceEvidence(predictions, categoryExclusiveTree, {
+      basicInfo: lotionBasicInfo,
+    });
+    expect(result[0].tags).toEqual([]);
   });
 
   it("keeps a textual prediction without a quote when the tag name itself appears in the text", () => {
@@ -158,6 +219,42 @@ describe("resolveExclusiveSiblings", () => {
     expect(resolveExclusiveSiblings(predictions, tagsTree)).toEqual(predictions);
   });
 
+  it("propagates exclusivity up the tree: 护肤 > 面霜 and 彩妆 > 底妆 compete when 产品品类 is exclusive", () => {
+    const predictions: SourceBasedTagPredictions = [
+      {
+        source: "basicInfo",
+        tags: [{ confidence: 0.9, leafTagId: 4, tagPath: ["产品品类", "护肤", "面霜"], evidence: "修护霜" }],
+      },
+      {
+        source: "contentAnalysis",
+        tags: [
+          { confidence: 0.87, leafTagId: 4, tagPath: ["产品品类", "护肤", "面霜"] },
+          { confidence: 0.91, leafTagId: 21, tagPath: ["产品品类", "彩妆", "底妆"] },
+          { confidence: 0.8, leafTagId: 32, tagPath: ["内容主题", "产品教育", "产品介绍"] },
+        ],
+      },
+    ];
+    const result = resolveExclusiveSiblings(predictions, categoryExclusiveTree);
+    const content = result[1].tags;
+    expect(content.find((tag) => tag.leafTagId === 21)?.confidence).toBe(EXCLUSIVE_SIBLING_LOSER_CONFIDENCE);
+    expect(content.find((tag) => tag.leafTagId === 4)?.confidence).toBe(0.87);
+    expect(content.find((tag) => tag.leafTagId === 32)?.confidence).toBe(0.8); // 非互斥分类不受影响
+  });
+
+  it("keeps only the top-scored branch across sub-categories when nothing is anchored", () => {
+    const predictions: SourceBasedTagPredictions = [
+      {
+        source: "contentAnalysis",
+        tags: [
+          { confidence: 0.89, leafTagId: 4, tagPath: ["产品品类", "护肤", "面霜"] },
+          { confidence: 0.84, leafTagId: 21, tagPath: ["产品品类", "彩妆", "底妆"] },
+        ],
+      },
+    ];
+    const result = resolveExclusiveSiblings(predictions, categoryExclusiveTree);
+    expect(result[0].tags.map((tag) => tag.confidence)).toEqual([0.89, EXCLUSIVE_SIBLING_LOSER_CONFIDENCE]);
+  });
+
   it("keeps two anchored siblings when the filename genuinely names both", () => {
     const predictions: SourceBasedTagPredictions = [
       {
@@ -216,5 +313,33 @@ describe("buildTagStructureText exclusive mark", () => {
     expect(text).toContain(`护肤 ${SIBLINGS_EXCLUSIVE_TAG_MARK}`);
     expect(text).not.toContain(`视觉风格 ${SIBLINGS_EXCLUSIVE_TAG_MARK}`);
     expect(text).not.toContain(`面霜 ${SIBLINGS_EXCLUSIVE_TAG_MARK}`);
+  });
+});
+
+describe("collapseAncestorTags", () => {
+  it("drops a level-2 tag when one of its level-3 children survived", () => {
+    const tags = [
+      { leafTagId: 31, tagPath: ["内容主题", "产品教育"], confidenceBySources: { basicInfo: 0.89 }, score: 89 },
+      { leafTagId: 32, tagPath: ["内容主题", "产品教育", "产品介绍"], confidenceBySources: { contentAnalysis: 0.88 }, score: 88 },
+      { leafTagId: 4, tagPath: ["产品品类", "护肤", "面霜"], confidenceBySources: { contentAnalysis: 0.89 }, score: 89 },
+    ];
+    expect(collapseAncestorTags(tags).map((tag) => tag.leafTagId)).toEqual([32, 4]);
+  });
+
+  it("keeps a level-2 tag when no child survived, and keeps unrelated same-name segments apart", () => {
+    const tags = [
+      { leafTagId: 31, tagPath: ["内容主题", "产品教育"], confidenceBySources: { basicInfo: 0.89 }, score: 89 },
+      { leafTagId: 50, tagPath: ["素材类型", "产品教育", "教程"], confidenceBySources: { basicInfo: 0.8 }, score: 80 },
+    ];
+    expect(collapseAncestorTags(tags).map((tag) => tag.leafTagId)).toEqual([31, 50]);
+  });
+
+  it("collapses a whole chain: level-1 and level-2 both go when the level-3 survived", () => {
+    const tags = [
+      { leafTagId: 30, tagPath: ["内容主题"], confidenceBySources: { basicInfo: 0.7 }, score: 70 },
+      { leafTagId: 31, tagPath: ["内容主题", "产品教育"], confidenceBySources: { basicInfo: 0.8 }, score: 80 },
+      { leafTagId: 32, tagPath: ["内容主题", "产品教育", "产品介绍"], confidenceBySources: { basicInfo: 0.9 }, score: 90 },
+    ];
+    expect(collapseAncestorTags(tags).map((tag) => tag.leafTagId)).toEqual([32]);
   });
 });
