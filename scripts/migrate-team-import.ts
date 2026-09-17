@@ -32,6 +32,7 @@
 import { loadEnvConfig } from "@next/env";
 import type { MigrationBundle } from "@/lib/migration/export-team";
 import { assertMigrationBundle, importTeamBundle, isImportPhase, type ImportStorage } from "@/lib/migration/import-team";
+import { buildOutboundFetch } from "@/lib/migration/outbound-fetch";
 import { PrismaClient } from "@/prisma/client";
 import { loadS3Config, readJsonFile, s3Head, s3Put } from "./lib/migrate-team-shared";
 
@@ -106,14 +107,19 @@ async function loadBundleFromDir(dir: string): Promise<MigrationBundle> {
 }
 
 async function loadBundleFromUrl(url: string): Promise<unknown> {
-  const res = await fetch(url);
+  const res = await outbound.fetch(url);
   if (!res.ok) throw new Error(`拉取 bundle 失败: ${res.status} ${url.split("?")[0]}`);
   return res.json();
 }
 
+// 出网走代理时读 HTTPS_PROXY 等环境变量（见 src/lib/migration/outbound-fetch.ts）
+let outbound: ReturnType<typeof buildOutboundFetch>;
+
 async function main() {
   loadEnvConfig(process.cwd());
   const args = parseArgs();
+  outbound = buildOutboundFetch();
+  console.log(`出网方式：${outbound.label}`);
 
   let bundle: unknown;
   let from: string;
@@ -153,6 +159,8 @@ async function main() {
       rewriteFolder: args.rewriteFolder,
       concurrency: args.concurrency,
       batchSize: args.batchSize,
+      fetchSource: outbound.fetch,
+      sourceFetchLabel: outbound.label,
       log: (msg) => console.log(msg),
     });
     if (result.resources?.failed) process.exitCode = 2;

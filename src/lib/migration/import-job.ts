@@ -23,7 +23,9 @@ import {
   type ImportProgress,
   type ImportResult,
   type ImportStorage,
+  type SourceFetch,
 } from "./import-team";
+import { buildOutboundFetch } from "./outbound-fetch";
 
 export type ImportJobStatus = "fetching" | "running" | "done" | "failed" | "cancelled";
 
@@ -124,7 +126,7 @@ function pushLog(state: JobState, msg: string) {
   logger.info({ jobId: state.job.id }, msg.trim());
 }
 
-async function fetchBundle(state: JobState, bundleUrl: string): Promise<MigrationBundle> {
+async function fetchBundle(state: JobState, bundleUrl: string, outbound: SourceFetch): Promise<MigrationBundle> {
   let url: URL;
   try {
     url = new URL(bundleUrl);
@@ -136,14 +138,13 @@ async function fetchBundle(state: JobState, bundleUrl: string): Promise<Migratio
   const shown = stripQuery(bundleUrl);
   pushLog(state, `拉取数据包 ${shown}`);
   const t0 = Date.now();
-  const res = await fetch(url, { cache: "no-store" });
+  const res = await outbound(url.toString());
   if (!res.ok) throw new Error(`拉取数据包失败: ${res.status} ${shown}`);
-  const length = Number(res.headers.get("content-length") || 0);
-  if (length > MAX_BUNDLE_BYTES) throw new Error(`数据包过大: ${length} bytes`);
 
   // 先拿文本再 parse，文本用完立刻不再引用，让 GC 能回收那份 70MB+ 的字符串
   let text: string | null = await res.text();
   const bytes = Buffer.byteLength(text);
+  if (bytes > MAX_BUNDLE_BYTES) throw new Error(`数据包过大: ${bytes} bytes`);
   pushLog(state, `下载完成 ${(bytes / 1024 / 1024).toFixed(1)} MB，耗时 ${((Date.now() - t0) / 1000).toFixed(1)}s，开始解析`);
   const bundle: unknown = JSON.parse(text);
   text = null;
@@ -183,7 +184,9 @@ function buildStorage(): ImportStorage {
 async function run(state: JobState, params: ImportJobParams) {
   const job = state.job;
   try {
-    let bundle: MigrationBundle | null = await fetchBundle(state, params.bundleUrl);
+    const outbound = buildOutboundFetch();
+    pushLog(state, `出网方式：${outbound.label}`);
+    let bundle: MigrationBundle | null = await fetchBundle(state, params.bundleUrl, outbound.fetch);
     if (state.cancelRequested) throw new ImportCancelledError();
 
     job.status = "running";
@@ -198,6 +201,8 @@ async function run(state: JobState, params: ImportJobParams) {
       sourceUrlBase: params.sourceUrlBase,
       concurrency: params.concurrency,
       batchSize: params.batchSize,
+      fetchSource: outbound.fetch,
+      sourceFetchLabel: outbound.label,
       log: (msg) => pushLog(state, msg),
       onProgress: (p) => {
         job.progress = p;

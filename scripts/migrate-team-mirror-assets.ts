@@ -20,6 +20,7 @@
 
 import { loadEnvConfig } from "@next/env";
 import { assertMigrationBundle, runWithConcurrency } from "@/lib/migration/import-team";
+import { buildOutboundFetch } from "@/lib/migration/outbound-fetch";
 import { loadS3Config, readJsonFile, s3Head, s3Put } from "./lib/migrate-team-shared";
 
 function parseArgs() {
@@ -35,8 +36,10 @@ function parseArgs() {
   return { inFile, inUrl, prefix, dryRun: has("dry-run"), concurrency: Number(get("concurrency") || "8") };
 }
 
+const outbound = buildOutboundFetch();
+
 async function fetchBuffer(url: string) {
-  const res = await fetch(url);
+  const res = await outbound.fetch(url);
   if (!res.ok) throw new Error(`${res.status} ${url.split("?")[0]}`);
   return Buffer.from(await res.arrayBuffer());
 }
@@ -49,7 +52,7 @@ async function main() {
   const bundle: unknown = args.inFile
     ? await readJsonFile(args.inFile)
     : await (async () => {
-        const res = await fetch(args.inUrl!);
+        const res = await outbound.fetch(args.inUrl!);
         if (!res.ok) throw new Error(`拉取 bundle 失败: ${res.status} ${from}`);
         return res.json();
       })();
