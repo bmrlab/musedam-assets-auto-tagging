@@ -13,6 +13,9 @@
 // 客户环境不需要我们的 AK/SK，只需要能访问签名链接。
 // 整个目录打包后通过客户认可的安全方式（scp 到堡垒机等）传进私有化环境，再用 scripts/migrate-team-import.ts 导入。
 //
+// 也可以不用本脚本，直接调生产应用的 GET /api/tagging/migration/export 拿到同样内容的单个 JSON 包，
+// 见 src/app/(tagging)/api/tagging/migration/export/route.ts。
+//
 // 用法：
 //   SOURCE_DATABASE_URL=postgres://...saas-db... \
 //   AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=... \
@@ -25,7 +28,8 @@
 
 import { loadEnvConfig } from "@next/env";
 import { PrismaClient } from "@/prisma/client";
-import { loadS3Config, MAX_PRESIGN_SECONDS, presignGetUrl, writeJsonFile } from "./lib/migrate-team-shared";
+import { exportTeamBundle, MAX_PRESIGN_SECONDS, musedamTeamIdToSlug } from "@/lib/migration/export-team";
+import { loadS3Config, presignGetUrl, writeJsonFile } from "./lib/migrate-team-shared";
 
 function parseArgs() {
   const args = process.argv.slice(2);
@@ -45,13 +49,7 @@ function parseArgs() {
     if (!Number.isInteger(teamId) || teamId <= 0) throw new Error(`--team-id 不合法: ${teamIdRaw}`);
   }
 
-  // slug 规则与 src/lib/slug.ts 的 idToSlug("team", id) 一致：t/<musedamTeamId>；允许直接传 "t/xxx"
-  let teamSlug: string | undefined;
-  if (musedamTeamIdRaw) {
-    const bare = musedamTeamIdRaw.replace(/^t\//, "").trim();
-    if (!bare) throw new Error(`--musedam-team-id 不合法: ${musedamTeamIdRaw}`);
-    teamSlug = `t/${bare}`;
-  }
+  const teamSlug = musedamTeamIdRaw ? musedamTeamIdToSlug(musedamTeamIdRaw) : undefined;
 
   return {
     teamId,
@@ -69,109 +67,28 @@ async function main() {
   const source = new PrismaClient({ datasourceUrl: process.env.SOURCE_DATABASE_URL || process.env.DATABASE_URL });
 
   try {
-    const team = args.teamSlug
-      ? await source.team.findUnique({ where: { slug: args.teamSlug } })
-      : await source.team.findUnique({ where: { id: args.teamId! } });
-    if (!team) {
-      throw new Error(args.teamSlug ? `源库中不存在 slug=${args.teamSlug} 的团队` : `源库中不存在 teamId=${args.teamId}`);
+    // 只签名不请求，不需要网络；凭证错了要到导入阶段下载时才会暴露，所以导出后最好抽一条链接手动打开验证
+    const sourceS3 = args.skipPresign ? null : loadS3Config("", "SaaS S3");
+    const bundle = await exportTeamBundle(
+      source,
+      args.teamSlug ? { teamSlug: args.teamSlug } : { teamId: args.teamId! },
+      {
+        presignExpires: args.presignExpires,
+        presign: sourceS3 ? (objectKey, expires) => presignGetUrl(sourceS3, objectKey, expires) : undefined,
+        log: (msg) => console.log(msg),
+      },
+    );
+
+    const outDir = args.outDir || `./migration-export/team-${bundle.manifest.teamId}`;
+    for (const [name, rows] of Object.entries(bundle.db)) {
+      // team 表在目录形态里是单个对象，不是数组（导入脚本按此读取）
+      await writeJsonFile(`${outDir}/db/${name}.json`, name === "team" ? rows[0] : rows);
     }
-    const teamId = team.id;
-    const outDir = args.outDir || `./migration-export/team-${teamId}`;
+    await writeJsonFile(`${outDir}/assets.json`, bundle.assets);
+    await writeJsonFile(`${outDir}/manifest.json`, bundle.manifest);
 
-    console.log(`=== 导出 Team #${teamId} (slug=${team.slug}, name=${team.name}) -> ${outDir} ===`);
-    await writeJsonFile(`${outDir}/db/team.json`, team);
-
-    const teamConfigs = await source.teamConfig.findMany({ where: { teamId } });
-    await writeJsonFile(`${outDir}/db/teamConfig.json`, teamConfigs);
-
-    const assetTags = await source.assetTag.findMany({ where: { teamId }, orderBy: { id: "asc" } });
-    await writeJsonFile(`${outDir}/db/assetTag.json`, assetTags);
-
-    const assetObjects = await source.assetObject.findMany({ where: { teamId } });
-    await writeJsonFile(`${outDir}/db/assetObject.json`, assetObjects);
-
-    type Kind = "assetLogo" | "assetIp" | "assetProduct" | "assetPerson";
-    const kinds: { kind: Kind; typeModel: string; imageModel: string; tagModel: string; fk: string }[] = [
-      { kind: "assetLogo", typeModel: "assetLogoType", imageModel: "assetLogoImage", tagModel: "assetLogoTag", fk: "assetLogoId" },
-      { kind: "assetIp", typeModel: "assetIpType", imageModel: "assetIpImage", tagModel: "assetIpTag", fk: "assetIpId" },
-      { kind: "assetProduct", typeModel: "assetProductType", imageModel: "assetProductImage", tagModel: "assetProductTag", fk: "assetProductId" },
-      { kind: "assetPerson", typeModel: "assetPersonType", imageModel: "assetPersonImage", tagModel: "assetPersonTag", fk: "assetPersonId" },
-    ];
-
-    // 图片清单：导入脚本据此下载并上传，再回写 objectKey
-    const assets: { model: string; id: string; objectKey: string; mimeType: string; sourceUrl?: string }[] = [];
-
-    for (const { kind, typeModel, imageModel, tagModel } of kinds) {
-      // biome-ignore lint: 四类资产结构一致，动态取 model
-      const src = source as any;
-
-      const types = await src[typeModel].findMany({ where: { teamId } });
-      await writeJsonFile(`${outDir}/db/${typeModel}.json`, types);
-
-      const entities = await src[kind].findMany({ where: { teamId } });
-      await writeJsonFile(`${outDir}/db/${kind}.json`, entities);
-
-      const entityIds = entities.map((e: any) => e.id);
-      const images = entityIds.length
-        ? await src[imageModel].findMany({ where: { [`${kind}Id`]: { in: entityIds } } })
-        : [];
-      await writeJsonFile(`${outDir}/db/${imageModel}.json`, images);
-      for (const img of images) {
-        assets.push({ model: imageModel, id: img.id, objectKey: img.objectKey, mimeType: img.mimeType });
-      }
-
-      const tags = entityIds.length
-        ? await src[tagModel].findMany({ where: { [`${kind}Id`]: { in: entityIds } } })
-        : [];
-      await writeJsonFile(`${outDir}/db/${tagModel}.json`, tags);
-    }
-
-    // pgvector 表：Unsupported("vector(...)") 字段不在 Prisma Client API 里，走原生 SQL。
-    // 不能 SELECT *（Prisma 反序列化不了 vector 列），改用 to_jsonb 把整行转成 JSON 再去掉 embedding，
-    // embedding 单独转成文本（导入时再 cast 回 vector），这样纯 JSON 就能带着走。
-    for (const table of ["LogoVector", "IpVector", "ProductVector", "PersonVector"]) {
-      const rows = await source.$queryRawUnsafe<Array<{ row: Record<string, unknown>; embeddingText: string }>>(
-        `SELECT (to_jsonb(t) - 'embedding') AS "row", t.embedding::text AS "embeddingText"
-           FROM "${table}" t WHERE t."teamId" = $1`,
-        teamId,
-      );
-      await writeJsonFile(
-        `${outDir}/db/${table}.json`,
-        rows.map(({ row, embeddingText }) => ({ ...row, embeddingText })),
-      );
-    }
-
-    const queueItems = await source.taggingQueueItem.findMany({ where: { teamId } });
-    await writeJsonFile(`${outDir}/db/taggingQueueItem.json`, queueItems);
-
-    const auditItems = await source.taggingAuditItem.findMany({ where: { teamId } });
-    await writeJsonFile(`${outDir}/db/taggingAuditItem.json`, auditItems);
-
-    let signedUrlExpiresAt: string | null = null;
-    if (args.skipPresign) {
-      console.log("已跳过生成签名链接（--skip-presign），导入时需要 --source-url-base");
-    } else {
-      // 只签名不请求，不需要网络；凭证错了要到导入阶段下载时才会暴露，所以导出后最好抽一条链接手动打开验证
-      const sourceS3 = loadS3Config("", "SaaS S3");
-      for (const a of assets) {
-        const signed = presignGetUrl(sourceS3, a.objectKey, args.presignExpires);
-        a.sourceUrl = signed.url;
-        signedUrlExpiresAt = signed.expiresAt;
-      }
-      console.log(`已为 ${assets.length} 张图片生成预签名下载链接，过期时间 ${signedUrlExpiresAt ?? "-"}`);
-      if (assets[0]?.sourceUrl) console.log(`  抽检链接（请手动打开确认可访问）: ${assets[0].sourceUrl}`);
-    }
-    await writeJsonFile(`${outDir}/assets.json`, assets);
-
-    await writeJsonFile(`${outDir}/manifest.json`, {
-      teamId,
-      teamSlug: team.slug,
-      exportedAt: new Date().toISOString(),
-      imageCount: assets.length,
-      signedUrlExpiresAt,
-    });
-
-    console.log(`数据库导出完成（图片记录 ${assets.length} 条，图片文件本身不导出，导入时按 assets.json 的链接拉取）`);
+    const sample = bundle.assets.find((a) => a.sourceUrl)?.sourceUrl;
+    if (sample) console.log(`  抽检链接（请手动打开确认可访问）: ${sample}`);
     console.log(`\n=== 导出完成，请把整个目录 ${outDir} 传进私有化环境后执行 migrate-team-import.ts ===`);
   } finally {
     await source.$disconnect();

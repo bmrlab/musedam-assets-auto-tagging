@@ -5,7 +5,10 @@
 // 运行位置：客户堡垒机 / 私有化环境内部。连目标阿里云 RDS（DATABASE_URL）
 //          + 目标阿里云 OSS（AWS_ACCESS_KEY_ID / S3_* 这几个私有化 App 自己就要用到的变量）。
 //          资源阶段还需要能访问 assets.json 里的 SaaS 图片签名下载链接（出公网）。
-// 输入：scripts/migrate-team-export.ts 产出、已经传进这台机器的本地目录（--in-dir），只含 JSON。
+// 输入（二选一）：
+//   --in-dir=<目录>        scripts/migrate-team-export.ts 产出的目录
+//   --in-file=<bundle.json> 生产接口 GET /api/tagging/migration/export 下载的单个 JSON 包，
+//                          脚本会先把它解包到 <bundle.json>.unpacked/ 目录，之后流程完全一样
 //
 // 三个阶段：
 //   db        按导出的字段原样 upsert 进客户库（图片表的 objectKey 此时还是 SaaS 上的值）
@@ -25,6 +28,7 @@
 // 需要改 objectKey 目录前缀（SaaS 的 S3_FOLDER 和这边 S3_FOLDER 配的不一样）时加 --rewrite-folder=<SaaS 侧 folder>。
 
 import { loadEnvConfig } from "@next/env";
+import type { MigrationBundle } from "@/lib/migration/export-team";
 import { PrismaClient } from "@/prisma/client";
 import {
   loadS3Config,
@@ -34,6 +38,7 @@ import {
   runWithConcurrency,
   s3Head,
   s3Put,
+  writeJsonFile,
 } from "./lib/migrate-team-shared";
 
 type Phase = "db" | "resources" | "verify" | "all";
@@ -44,13 +49,16 @@ function parseArgs() {
   const has = (name: string) => args.includes(`--${name}`);
 
   const inDir = get("in-dir");
-  if (!inDir) throw new Error("缺少必填参数 --in-dir=<导出目录>");
+  const inFile = get("in-file");
+  if (!inDir && !inFile) throw new Error("缺少参数：--in-dir=<导出目录> 或 --in-file=<接口下载的 bundle.json>");
+  if (inDir && inFile) throw new Error("--in-dir 和 --in-file 只能二选一");
 
   const only = (get("only") as Phase) || "all";
   const sourceUrlBase = (get("source-url-base") || process.env.SOURCE_PUBLIC_URL_BASE || "").replace(/\/+$/, "");
 
   return {
     inDir,
+    inFile,
     dryRun: has("dry-run"),
     only,
     sourceUrlBase,
@@ -327,9 +335,27 @@ async function verify(target: PrismaClient, inDir: string, teamId: number) {
   console.log("=== 阶段三完成 ===");
 }
 
+// 把接口返回的单个 JSON 包展开成和 export 脚本一样的目录结构，后续逻辑不用区分来源
+async function unpackBundle(inFile: string) {
+  const bundle = await readJsonFile<MigrationBundle>(inFile);
+  if (!bundle.manifest || !bundle.db || !Array.isArray(bundle.assets)) {
+    throw new Error(`${inFile} 不是有效的迁移数据包（缺少 manifest/db/assets）`);
+  }
+  const dir = `${inFile}.unpacked`;
+  for (const [name, rows] of Object.entries(bundle.db)) {
+    await writeJsonFile(`${dir}/db/${name}.json`, name === "team" ? rows[0] : rows);
+  }
+  await writeJsonFile(`${dir}/assets.json`, bundle.assets);
+  await writeJsonFile(`${dir}/manifest.json`, bundle.manifest);
+  console.log(`已把 ${inFile} 解包到 ${dir}（Team #${bundle.manifest.teamId} ${bundle.manifest.teamSlug}）`);
+  return dir;
+}
+
 async function main() {
   loadEnvConfig(process.cwd());
-  const { inDir, dryRun, only, sourceUrlBase, rewriteFolder, concurrency } = parseArgs();
+  const args = parseArgs();
+  const { dryRun, only, sourceUrlBase, rewriteFolder, concurrency } = args;
+  const inDir = args.inFile ? await unpackBundle(args.inFile) : args.inDir!;
 
   const target = new PrismaClient({ datasourceUrl: process.env.DATABASE_URL });
 
