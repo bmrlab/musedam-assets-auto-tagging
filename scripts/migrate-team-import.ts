@@ -24,8 +24,8 @@
 //   npx tsx scripts/migrate-team-import.ts --in-dir=./migration-export/team-1234 --only=verify
 //   npx tsx scripts/migrate-team-import.ts --in-dir=./migration-export/team-1234           # 三步都跑
 //
-// 导出时加了 --skip-presign（assets.json 里没有 sourceUrl）的话，需要 --source-url-base=<SaaS 图片公网地址前缀>
-// （或环境变量 SOURCE_PUBLIC_URL_BASE），脚本会用 <前缀>/<objectKey> 拼下载地址，此时桶必须允许匿名读。
+// --source-url-base=<图片公网地址前缀>（或环境变量 SOURCE_PUBLIC_URL_BASE）：传了就一律用 <前缀>/<objectKey> 下载，
+// 忽略包内签名链接。用于导出时加了 --skip-presign，或先用 migrate-team-mirror-assets.ts 把图片镜像到了别的桶。
 // 需要改 objectKey 目录前缀（SaaS 的 S3_FOLDER 和这边 S3_FOLDER 配的不一样）时加 --rewrite-folder=<SaaS 侧 folder>。
 // --batch-size=<行数> 控制 db 阶段每个事务写多少行（默认 200），--resource-concurrency=<n> 控制图片并发（默认 8）。
 

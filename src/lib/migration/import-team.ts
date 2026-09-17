@@ -35,7 +35,8 @@ export type ImportOptions = {
   phase?: ImportPhase;
   dryRun?: boolean;
   storage?: ImportStorage;
-  // 导出时 --skip-presign 没生成 sourceUrl 时，用 <base>/<objectKey> 拼下载地址
+  // 传了就一律用 <base>/<objectKey> 当下载地址，忽略 assets[].sourceUrl。
+  // 用于：导出时 --skip-presign 没生成签名链接；或客户网络只放行了某个镜像桶，先把图片镜像过去再导。
   sourceUrlBase?: string;
   // SaaS 侧的 S3_FOLDER；传了就把 objectKey 前缀从这个值改写成目标 storage.folder，不传原样保留
   rewriteFolder?: string;
@@ -288,9 +289,22 @@ function buildSourceUrl(base: string, objectKey: string) {
   return `${base}/${objectKey.replace(/^\/+/, "").split("/").map(encodeURIComponent).join("/")}`;
 }
 
+// undici 的网络层错误只有一句 "fetch failed"，真实原因（ENOTFOUND / ECONNREFUSED / 证书 / 超时）在 err.cause 里
+function describeFetchError(err: unknown) {
+  const e = err as { message?: string; cause?: { code?: string; message?: string } };
+  const cause = e?.cause;
+  if (cause?.code || cause?.message) return `${e.message ?? "fetch failed"} (${cause.code ?? ""} ${cause.message ?? ""})`.trim();
+  return e?.message ?? String(err);
+}
+
 async function fetchSourceObject(url: string) {
-  const res = await fetch(url);
   const shown = url.split("?")[0]; // 日志里不打印签名参数
+  let res: Response;
+  try {
+    res = await fetch(url);
+  } catch (err) {
+    throw new Error(`连接源站失败: ${new URL(url).host} ${describeFetchError(err)}，请确认客户网络放行了该域名`);
+  }
   if (res.status === 404) throw new Error(`源文件不存在 (404): ${shown}`);
   if (!res.ok) throw new Error(`下载源文件失败: ${res.status} ${shown} ${(await res.text().catch(() => "")).slice(0, 200)}`);
   return Buffer.from(await res.arrayBuffer());
@@ -317,15 +331,20 @@ async function importResources(
     throw new Error(`assets 里有 ${missingUrl} 条没有 sourceUrl（导出时可能加了 --skip-presign），需要提供 sourceUrlBase`);
   }
   const expiresAt = bundle.manifest.signedUrlExpiresAt;
-  if (expiresAt && new Date(expiresAt).getTime() < Date.now()) {
+  if (!sourceUrlBase && expiresAt && new Date(expiresAt).getTime() < Date.now()) {
     throw new Error(`assets 里的签名链接已于 ${expiresAt} 过期，请重新导出`);
   }
 
   const storage = opts.storage;
   if (!storage) throw new Error("resources 阶段需要目标对象存储配置（S3_* 环境变量）");
   const rewrite = opts.rewriteFolder !== undefined;
-  log(`  来源: ${missingUrl === 0 ? "assets 里的签名链接" : `${sourceUrlBase}/<objectKey>`}`);
-  if (expiresAt) log(`  签名链接过期时间: ${expiresAt}`);
+  if (sourceUrlBase) {
+    log(`  来源: ${sourceUrlBase}/<objectKey>（sourceUrlBase 覆盖了包内签名链接）`);
+  } else {
+    const host = new URL(assets.find((a) => a.sourceUrl)!.sourceUrl!).host;
+    log(`  来源: assets 里的签名链接（域名 ${host}，客户网络需放行）`);
+    if (expiresAt) log(`  签名链接过期时间: ${expiresAt}`);
+  }
   log(`  目标: ${storage.label} bucket=${storage.bucket} folder=${storage.folder || "(root)"}`);
   log(
     `  改写目录前缀: ${rewrite ? `是（${opts.rewriteFolder || "(root)"} -> ${storage.folder || "(root)"}）` : "否（objectKey 原样保留）"}`,
@@ -341,7 +360,7 @@ async function importResources(
     if (cancelled) return;
     try {
       ctx.checkCancel();
-      const sourceUrl = row.sourceUrl || buildSourceUrl(sourceUrlBase, row.objectKey);
+      const sourceUrl = sourceUrlBase ? buildSourceUrl(sourceUrlBase, row.objectKey) : row.sourceUrl!;
       // 导出的 objectKey 是 SaaS 上的值，目标 key 按需改写前缀
       const newKey = remapObjectKey(row.objectKey, opts.rewriteFolder || "", storage.folder, rewrite);
       if (dryRun) return;
