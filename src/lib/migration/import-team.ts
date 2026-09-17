@@ -1,7 +1,7 @@
 // 单租户私有化迁移 —— 导入核心逻辑。
 // 被两处共用：
 //   - scripts/migrate-team-import.ts（客户堡垒机里跑，读本地目录/文件）
-//   - GET /api/tagging/migration/import（私有化应用内直接调用，从 URL 拉 bundle）
+//   - GET /api/tagging/migration/import（私有化应用内后台任务，从 URL 拉 bundle，见 import-job.ts）
 // 这里不依赖 Next / "server-only"，只依赖 Prisma client 和一个注入的对象存储适配器。
 //
 // 三个阶段：
@@ -9,6 +9,9 @@
 //   resources 按 bundle.assets 逐条：从 sourceUrl 下载 -> 上传到目标桶 -> update 该行的 objectKey/source
 //   verify    核对各表行数
 // 幂等性：全部走 upsert / 已存在即跳过，可以安全地重复执行、断点续传。
+//
+// 内存：大团队的 bundle 解析后有几百 MB（向量表占大头）。db 阶段每写完一张表就把 bundle.db 里
+// 对应的数组清空释放；verify 用的行数在开跑前先记下来。所以 bundle 会被本函数改写，调用方不要复用。
 
 import type { PrismaClient } from "@/prisma/client";
 import type { MigrationAsset, MigrationBundle } from "./export-team";
@@ -26,6 +29,8 @@ export type ImportStorage = {
   put: (objectKey: string, body: Buffer, contentType: string) => Promise<void>;
 };
 
+export type ImportProgress = { stage: ImportPhase; label: string; done: number; total: number };
+
 export type ImportOptions = {
   phase?: ImportPhase;
   dryRun?: boolean;
@@ -34,8 +39,15 @@ export type ImportOptions = {
   sourceUrlBase?: string;
   // SaaS 侧的 S3_FOLDER；传了就把 objectKey 前缀从这个值改写成目标 storage.folder，不传原样保留
   rewriteFolder?: string;
+  // resources 阶段并发数
   concurrency?: number;
+  // db 阶段每个事务写多少行
+  batchSize?: number;
   log?: (msg: string) => void;
+  // 每处理完一行/一批回调一次，供任务状态查询用
+  onProgress?: (p: ImportProgress) => void;
+  // 返回 true 时在下一个批次边界停下来（抛 ImportCancelledError）
+  shouldCancel?: () => boolean;
 };
 
 export type ResourceFailure = { model: string; id: string; objectKey: string; error: string };
@@ -48,6 +60,13 @@ export type ImportResult = {
   resources?: { total: number; failed: number; failures: ResourceFailure[] };
   verify?: { ok: boolean; tables: { table: string; exported: number; target: number; ok: boolean }[] };
 };
+
+export class ImportCancelledError extends Error {
+  constructor() {
+    super("导入已被取消");
+    this.name = "ImportCancelledError";
+  }
+}
 
 export function isImportPhase(v: unknown): v is ImportPhase {
   return v === "db" || v === "resources" || v === "verify" || v === "all";
@@ -84,26 +103,66 @@ export async function runWithConcurrency<T>(
   await Promise.all(runners);
 }
 
-function progressLogger(log: (msg: string) => void, label: string, total: number) {
-  let done = 0;
-  return () => {
-    done += 1;
-    if (done === total || done % 50 === 0) log(`  [${label}] ${done}/${total}`);
-  };
+// 表名 -> 本项目 Prisma model / verify 展示名。顺序即写入顺序（外键依赖在前）。
+const KINDS = [
+  { kind: "assetLogo", typeModel: "assetLogoType", imageModel: "assetLogoImage", tagModel: "assetLogoTag" },
+  { kind: "assetIp", typeModel: "assetIpType", imageModel: "assetIpImage", tagModel: "assetIpTag" },
+  { kind: "assetProduct", typeModel: "assetProductType", imageModel: "assetProductImage", tagModel: "assetProductTag" },
+  { kind: "assetPerson", typeModel: "assetPersonType", imageModel: "assetPersonImage", tagModel: "assetPersonTag" },
+] as const;
+const VECTOR_TABLES = ["LogoVector", "IpVector", "ProductVector", "PersonVector"] as const;
+
+type Ctx = {
+  target: PrismaClient;
+  bundle: MigrationBundle;
+  dryRun: boolean;
+  batchSize: number;
+  log: (msg: string) => void;
+  progress: (stage: ImportPhase, label: string, done: number, total: number) => void;
+  checkCancel: () => void;
+};
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
 }
 
+// 取出一张表的行并立刻从 bundle 里释放，写完后 GC 就能回收
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 导出的行原样透传给 upsert
-function rows<T = any>(bundle: MigrationBundle, name: string): T[] {
-  return (bundle.db[name] ?? []) as T[];
+function takeRows<T = any>(bundle: MigrationBundle, name: string): T[] {
+  const list = (bundle.db[name] ?? []) as T[];
+  bundle.db[name] = [];
+  return list;
 }
 
-async function importDatabase(
-  target: PrismaClient,
-  bundle: MigrationBundle,
-  dryRun: boolean,
-  log: (msg: string) => void,
-) {
-  log("\n=== 阶段一：导入数据库 ===");
+// 一批一个事务，比逐行 upsert 快一个数量级，也把并发冲突的窗口缩到批次边界
+async function upsertTable(ctx: Ctx, label: string, table: string, model = table) {
+  const list = takeRows(ctx.bundle, table);
+  if (list.length === 0) {
+    ctx.log(`  [${label}] 0 行，跳过`);
+    return 0;
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 各表结构一致，动态取 model
+  const m = (ctx.target as any)[model];
+  let done = 0;
+  for (const batch of chunk(list, ctx.batchSize)) {
+    ctx.checkCancel();
+    if (!ctx.dryRun) {
+      await ctx.target.$transaction(
+        batch.map((row) => m.upsert({ where: { id: row.id }, create: row, update: row })),
+      );
+    }
+    done += batch.length;
+    ctx.progress("db", label, done, list.length);
+  }
+  ctx.log(`  [${label}] ${done}/${list.length}${ctx.dryRun ? " (dry-run)" : ""}`);
+  return list.length;
+}
+
+async function importDatabase(ctx: Ctx) {
+  const { target, bundle, dryRun, log } = ctx;
+  log("=== 阶段一：导入数据库 ===");
   const counts: Record<string, number> = {};
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -122,96 +181,95 @@ async function importDatabase(
     log(`[dry-run] 将导入 Team #${teamId} (${team.slug} / ${team.name})`);
   } else {
     await target.team.upsert({ where: { id: teamId }, create: team, update: { name: team.name, slug: team.slug } });
+    log(`  [Team] #${teamId} ${team.slug} 已写入`);
   }
   counts.team = 1;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 各表结构一致，动态取 model
-  const tgt = target as any;
-  const upsertRows = async (label: string, table: string, model = table) => {
-    const list = rows(bundle, table);
-    counts[table] = list.length;
-    if (list.length === 0) {
-      log(`  [${label}] 0 行，跳过`);
-      return;
-    }
-    const tick = progressLogger(log, label, list.length);
-    for (const row of list) {
-      if (!dryRun) await tgt[model].upsert({ where: { id: row.id }, create: row, update: row });
-      tick();
-    }
-  };
-
-  await upsertRows("TeamConfig", "teamConfig");
+  counts.teamConfig = await upsertTable(ctx, "TeamConfig", "teamConfig");
 
   // AssetTag 有自引用 parentId，两遍写入绕开顺序问题：先都以 parentId=null 建好，再补 UPDATE parentId。
-  const assetTags = rows(bundle, "assetTag");
-  counts.assetTag = assetTags.length;
   {
-    const tick = progressLogger(log, "AssetTag (pass 1/2, parentId=null)", assetTags.length);
-    for (const row of assetTags) {
+    const assetTags = takeRows(bundle, "assetTag");
+    counts.assetTag = assetTags.length;
+    let done = 0;
+    for (const batch of chunk(assetTags, ctx.batchSize)) {
+      ctx.checkCancel();
       if (!dryRun) {
-        await target.assetTag.upsert({
-          where: { id: row.id },
-          create: { ...row, parentId: null },
-          update: { ...row, parentId: undefined },
-        });
+        await target.$transaction(
+          batch.map((row) =>
+            target.assetTag.upsert({
+              where: { id: row.id },
+              create: { ...row, parentId: null },
+              update: { ...row, parentId: undefined },
+            }),
+          ),
+        );
       }
-      tick();
+      done += batch.length;
+      ctx.progress("db", "AssetTag (1/2 建行)", done, assetTags.length);
     }
     const withParent = assetTags.filter((t) => t.parentId !== null);
-    const tick2 = progressLogger(log, "AssetTag (pass 2/2, 补 parentId)", withParent.length);
-    for (const row of withParent) {
-      if (!dryRun) await target.assetTag.update({ where: { id: row.id }, data: { parentId: row.parentId } });
-      tick2();
+    done = 0;
+    for (const batch of chunk(withParent, ctx.batchSize)) {
+      ctx.checkCancel();
+      if (!dryRun) {
+        await target.$transaction(
+          batch.map((row) => target.assetTag.update({ where: { id: row.id }, data: { parentId: row.parentId } })),
+        );
+      }
+      done += batch.length;
+      ctx.progress("db", "AssetTag (2/2 补 parentId)", done, withParent.length);
     }
+    log(`  [AssetTag] ${assetTags.length} 行，其中 ${withParent.length} 行有父级${dryRun ? " (dry-run)" : ""}`);
   }
 
-  await upsertRows("AssetObject", "assetObject");
+  counts.assetObject = await upsertTable(ctx, "AssetObject", "assetObject");
 
-  const kinds = [
-    { kind: "assetLogo", typeModel: "assetLogoType", imageModel: "assetLogoImage", tagModel: "assetLogoTag" },
-    { kind: "assetIp", typeModel: "assetIpType", imageModel: "assetIpImage", tagModel: "assetIpTag" },
-    { kind: "assetProduct", typeModel: "assetProductType", imageModel: "assetProductImage", tagModel: "assetProductTag" },
-    { kind: "assetPerson", typeModel: "assetPersonType", imageModel: "assetPersonImage", tagModel: "assetPersonTag" },
-  ] as const;
-  for (const { kind, typeModel, imageModel, tagModel } of kinds) {
-    await upsertRows(typeModel, typeModel);
-    await upsertRows(kind, kind);
-    await upsertRows(imageModel, imageModel);
-    await upsertRows(tagModel, tagModel);
+  for (const { kind, typeModel, imageModel, tagModel } of KINDS) {
+    counts[typeModel] = await upsertTable(ctx, typeModel, typeModel);
+    counts[kind] = await upsertTable(ctx, kind, kind);
+    counts[imageModel] = await upsertTable(ctx, imageModel, imageModel);
+    counts[tagModel] = await upsertTable(ctx, tagModel, tagModel);
   }
 
   // pgvector 表：Unsupported("vector(...)") 字段不在 Prisma Client API 里，走原生 SQL。
-  for (const table of ["LogoVector", "IpVector", "ProductVector", "PersonVector"]) {
-    const list = rows<Record<string, unknown> & { embeddingText: string }>(bundle, table);
+  for (const table of VECTOR_TABLES) {
+    const list = takeRows<Record<string, unknown> & { embeddingText: string }>(bundle, table);
     counts[table] = list.length;
     if (list.length === 0) {
       log(`  [${table}] 0 行，跳过`);
       continue;
     }
-    const tick = progressLogger(log, table, list.length);
-    for (const row of list) {
+    let done = 0;
+    for (const batch of chunk(list, ctx.batchSize)) {
+      ctx.checkCancel();
       if (!dryRun) {
-        const { embeddingText, ...rest } = row;
-        delete rest.embedding;
-        // 通过 jsonb_populate_record 让 Postgres 按表定义自己做类型转换（timestamptz / uuid / vector），
-        // 避免 Prisma 原生参数把 ISO 字符串当 text 传导致的类型不匹配。
-        const columns = Object.keys(rest);
-        const setClause = columns.map((c) => `"${c}" = EXCLUDED."${c}"`).join(", ");
-        await target.$executeRawUnsafe(
-          `INSERT INTO "${table}"
-           SELECT * FROM jsonb_populate_record(NULL::"${table}", $1::jsonb || jsonb_build_object('embedding', $2::text))
-           ON CONFLICT ("id") DO UPDATE SET ${setClause}, "embedding" = EXCLUDED."embedding"`,
-          JSON.stringify(rest),
-          embeddingText,
+        await target.$transaction(
+          batch.map((row) => {
+            const { embeddingText, ...rest } = row;
+            delete rest.embedding;
+            // 通过 jsonb_populate_record 让 Postgres 按表定义自己做类型转换（timestamptz / uuid / vector），
+            // 避免 Prisma 原生参数把 ISO 字符串当 text 传导致的类型不匹配。
+            const columns = Object.keys(rest);
+            const setClause = columns.map((c) => `"${c}" = EXCLUDED."${c}"`).join(", ");
+            return target.$executeRawUnsafe(
+              `INSERT INTO "${table}"
+               SELECT * FROM jsonb_populate_record(NULL::"${table}", $1::jsonb || jsonb_build_object('embedding', $2::text))
+               ON CONFLICT ("id") DO UPDATE SET ${setClause}, "embedding" = EXCLUDED."embedding"`,
+              JSON.stringify(rest),
+              embeddingText,
+            );
+          }),
         );
       }
-      tick();
+      done += batch.length;
+      ctx.progress("db", table, done, list.length);
     }
+    log(`  [${table}] ${done}/${list.length}${dryRun ? " (dry-run)" : ""}`);
   }
 
-  await upsertRows("TaggingQueueItem", "taggingQueueItem");
-  await upsertRows("TaggingAuditItem", "taggingAuditItem");
+  counts.taggingQueueItem = await upsertTable(ctx, "TaggingQueueItem", "taggingQueueItem");
+  counts.taggingAuditItem = await upsertTable(ctx, "TaggingAuditItem", "taggingAuditItem");
 
   if (!dryRun) {
     log("  重置自增序列（setval 到当前最大 id，避免后续插入主键冲突）...");
@@ -239,14 +297,12 @@ async function fetchSourceObject(url: string) {
 }
 
 async function importResources(
-  target: PrismaClient,
-  bundle: MigrationBundle,
+  ctx: Ctx,
   teamId: number,
-  opts: Required<Pick<ImportOptions, "dryRun" | "concurrency" | "log">> &
-    Pick<ImportOptions, "storage" | "sourceUrlBase" | "rewriteFolder">,
+  opts: { concurrency: number } & Pick<ImportOptions, "storage" | "sourceUrlBase" | "rewriteFolder">,
 ) {
-  const { log, dryRun } = opts;
-  log(`\n=== 阶段二：下载图片并上传到目标对象存储 (teamId=${teamId}) ===`);
+  const { log, dryRun, bundle, target } = ctx;
+  log(`=== 阶段二：下载图片并上传到目标对象存储 (teamId=${teamId}) ===`);
 
   const assets: MigrationAsset[] = bundle.assets;
   if (assets.length === 0) {
@@ -274,19 +330,26 @@ async function importResources(
   log(
     `  改写目录前缀: ${rewrite ? `是（${opts.rewriteFolder || "(root)"} -> ${storage.folder || "(root)"}）` : "否（objectKey 原样保留）"}`,
   );
+  log(`  共 ${assets.length} 张图片，并发 ${opts.concurrency}`);
 
   const failures: ResourceFailure[] = [];
-  const tick = progressLogger(log, "assets", assets.length);
+  let done = 0;
+  let skipped = 0;
+  let cancelled = false;
 
   await runWithConcurrency(assets, opts.concurrency, async (row) => {
+    if (cancelled) return;
     try {
+      ctx.checkCancel();
       const sourceUrl = row.sourceUrl || buildSourceUrl(sourceUrlBase, row.objectKey);
       // 导出的 objectKey 是 SaaS 上的值，目标 key 按需改写前缀
       const newKey = remapObjectKey(row.objectKey, opts.rewriteFolder || "", storage.folder, rewrite);
       if (dryRun) return;
 
       // 已经上传过（重跑）就不再下载
-      if (!(await storage.head(newKey))) {
+      if (await storage.head(newKey)) {
+        skipped += 1;
+      } else {
         const body = await fetchSourceObject(sourceUrl);
         await storage.put(newKey, body, row.mimeType);
       }
@@ -300,24 +363,34 @@ async function importResources(
         await model.update({ where: { id: row.id }, data: { objectKey: newKey, source: "oss" } });
       }
     } catch (err) {
+      if (err instanceof ImportCancelledError) {
+        cancelled = true;
+        return;
+      }
       failures.push({ model: row.model, id: row.id, objectKey: row.objectKey, error: (err as Error).message });
+      log(`  ✗ [${row.model}#${row.id}] ${row.objectKey}: ${(err as Error).message}`);
     } finally {
-      tick();
+      done += 1;
+      ctx.progress("resources", "assets", done, assets.length);
+      if (done % 50 === 0 || done === assets.length) {
+        log(`  [assets] ${done}/${assets.length}，已存在跳过 ${skipped}，失败 ${failures.length}`);
+      }
     }
   });
+  if (cancelled) throw new ImportCancelledError();
 
   if (failures.length > 0) {
-    log(`\n  ⚠️ ${failures.length} 个对象迁移失败（可重复执行来重试这些失败项）：`);
-    for (const f of failures) log(`   - [${f.model}#${f.id}] ${f.objectKey}: ${f.error}`);
+    log(`  ⚠️ ${failures.length} 个对象迁移失败（可重复执行来重试这些失败项）`);
   } else {
-    log(dryRun ? "  [dry-run] 未实际下载/上传/更新" : "  全部图片已上传并更新数据库字段");
+    log(dryRun ? "  [dry-run] 未实际下载/上传/更新" : `  全部图片已就位（新上传 ${done - skipped}，已存在跳过 ${skipped}）`);
   }
   log("=== 阶段二完成 ===");
   return { total: assets.length, failed: failures.length, failures };
 }
 
-async function verify(target: PrismaClient, bundle: MigrationBundle, teamId: number, log: (msg: string) => void) {
-  log(`\n=== 阶段三：核对 (teamId=${teamId}) ===`);
+async function verify(ctx: Ctx, teamId: number, exported: Record<string, number>) {
+  const { target, log } = ctx;
+  log(`=== 阶段三：核对 (teamId=${teamId}) ===`);
 
   const checks: [string, string, () => Promise<number>][] = [
     ["assetTag", "AssetTag", () => target.assetTag.count({ where: { teamId } })],
@@ -332,11 +405,11 @@ async function verify(target: PrismaClient, bundle: MigrationBundle, teamId: num
 
   const tables: { table: string; exported: number; target: number; ok: boolean }[] = [];
   for (const [key, label, count] of checks) {
-    const exported = rows(bundle, key).length;
+    const e = exported[key] ?? 0;
     const t = await count();
-    const ok = exported === t;
-    tables.push({ table: label, exported, target: t, ok });
-    log(`  ${ok ? "✅" : "❌"} ${label}: 导出=${exported} 目标=${t}`);
+    const ok = e === t;
+    tables.push({ table: label, exported: e, target: t, ok });
+    log(`  ${ok ? "✅" : "❌"} ${label}: 导出=${e} 目标=${t}`);
   }
   const allOk = tables.every((t) => t.ok);
   log(allOk ? "  行数全部一致" : "  ⚠️ 存在行数不一致的表，请检查阶段一日志");
@@ -353,26 +426,41 @@ export async function importTeamBundle(
   const phase = opts.phase ?? "all";
   const dryRun = opts.dryRun ?? false;
   const concurrency = opts.concurrency && opts.concurrency > 0 ? opts.concurrency : 8;
+  const batchSize = opts.batchSize && opts.batchSize > 0 ? opts.batchSize : 200;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const teamId: number = (bundle.db.team[0] as any).id;
+  // verify 用的导出行数先记下来，db 阶段会把 bundle.db 逐表清空释放内存
+  const exportedCounts = Object.fromEntries(Object.entries(bundle.db).map(([k, v]) => [k, v.length]));
+
+  const ctx: Ctx = {
+    target,
+    bundle,
+    dryRun,
+    batchSize,
+    log,
+    progress: (stage, label, done, total) => opts.onProgress?.({ stage, label, done, total }),
+    checkCancel: () => {
+      if (opts.shouldCancel?.()) throw new ImportCancelledError();
+    },
+  };
+
   const result: ImportResult = { teamId, dryRun, phase };
+  log(`导入 Team #${teamId} ${bundle.manifest.teamSlug}，阶段=${phase}，dryRun=${dryRun}，批大小=${batchSize}`);
 
   if (phase === "all" || phase === "db") {
-    result.db = { tables: (await importDatabase(target, bundle, dryRun, log)).tables };
+    result.db = { tables: (await importDatabase(ctx)).tables };
   }
   if (phase === "all" || phase === "resources") {
-    result.resources = await importResources(target, bundle, teamId, {
-      dryRun,
+    result.resources = await importResources(ctx, teamId, {
       concurrency,
-      log,
       storage: opts.storage,
       sourceUrlBase: opts.sourceUrlBase,
       rewriteFolder: opts.rewriteFolder,
     });
   }
   if (phase === "all" || phase === "verify") {
-    result.verify = await verify(target, bundle, teamId, log);
+    result.verify = await verify(ctx, teamId, exportedCounts);
   }
   return result;
 }
