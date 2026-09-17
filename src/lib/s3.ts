@@ -572,8 +572,8 @@ export async function headS3Object(objectKey: string) {
 
 // 已规范化的 S3_FOLDER（无首尾斜杠）与 bucket，供迁移导入接口打日志/改写 objectKey 前缀
 export function getS3StorageLocation() {
-  const { bucket } = getS3Config();
-  return { bucket, folder: normalizeS3Folder(process.env.S3_FOLDER) };
+  const { bucket, endpointUrl } = getS3Config();
+  return { bucket, endpointUrl, folder: normalizeS3Folder(process.env.S3_FOLDER) };
 }
 
 export async function uploadS3Object({ body, contentType, objectKey }: UploadS3ObjectOptions) {
