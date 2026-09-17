@@ -383,12 +383,22 @@ async function importResources(
       const newKey = remapObjectKey(row.objectKey, opts.rewriteFolder || "", storage.folder, rewrite);
       if (dryRun) return;
 
-      // 已经上传过（重跑）就不再下载
-      if (await storage.head(newKey)) {
+      // 已经上传过（重跑）就不再下载。目标桶的错误单独标注，和"下载源图失败"区分开
+      let exists: boolean;
+      try {
+        exists = await storage.head(newKey);
+      } catch (err) {
+        throw new Error(`检查目标桶失败 (${storage.label} ${storage.bucket}): ${describeFetchError(err)}`);
+      }
+      if (exists) {
         skipped += 1;
       } else {
         const body = await fetchSourceObject(fetchSource, sourceUrl);
-        await storage.put(newKey, body, row.mimeType);
+        try {
+          await storage.put(newKey, body, row.mimeType);
+        } catch (err) {
+          throw new Error(`上传目标桶失败 (${storage.label} ${storage.bucket}): ${describeFetchError(err)}`);
+        }
       }
 
       // 文件到位后再 update 数据库字段，指向目标桶里的 key

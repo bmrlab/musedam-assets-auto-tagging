@@ -169,9 +169,9 @@ async function fetchBundle(state: JobState, bundleUrl: string, outbound: SourceF
 }
 
 function buildStorage(): ImportStorage {
-  const { bucket, folder } = getS3StorageLocation();
+  const { bucket, folder, endpointUrl } = getS3StorageLocation();
   return {
-    label: "私有化对象存储",
+    label: `私有化对象存储 ${endpointUrl}`,
     bucket,
     folder,
     head: headS3Object,
