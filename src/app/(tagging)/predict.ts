@@ -1,6 +1,5 @@
 import "server-only";
 
-import { createHash } from "node:crypto";
 import { llm, LLMModelName } from "@/ai/provider";
 import {
   AssetObject,
@@ -13,10 +12,13 @@ import {
 } from "@/prisma/client";
 import { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 import { generateObject, UserModelMessage } from "ai";
+import { createHash } from "node:crypto";
 import z from "zod";
+import { collectAspectRatioTagIds, detectAspectRatioGroups } from "./aspect-ratio";
 import {
+  buildExclusiveBranchResolver,
   flattenTagsTree,
-  getExplicitSiblingsExclusive,
+  getExplicitRequiredGroup,
   resolveEvidencePolicy,
 } from "./evidence-policy";
 import { fetchTagsTreeForTagging } from "./evidence-policy-server";
@@ -242,7 +244,9 @@ export function enforceLiteralEvidenceForMetadataTags(
   >();
   for (const node of flattenTagsTree(tagsTree)) {
     if (resolveEvidencePolicy(node.extra, node.tagPath) !== "literal") continue;
-    const configuredKeywords = ((node.extra as AssetTagExtra)?.keywords ?? []).map(normalizeForMatch);
+    const configuredKeywords = ((node.extra as AssetTagExtra)?.keywords ?? []).map(
+      normalizeForMatch,
+    );
     literalInfoById.set(node.id, {
       tagPath: node.tagPath,
       keywords: Array.from(
@@ -295,7 +299,9 @@ export function enforceTextualSourceEvidence(
 ): SourceBasedTagPredictions {
   const infoById = new Map<number, { keywords: string[]; nameAndKeywords: string[] }>();
   for (const node of flattenTagsTree(tagsTree)) {
-    const configuredKeywords = ((node.extra as AssetTagExtra)?.keywords ?? []).map(normalizeForMatch);
+    const configuredKeywords = ((node.extra as AssetTagExtra)?.keywords ?? []).map(
+      normalizeForMatch,
+    );
     infoById.set(node.id, {
       keywords: Array.from(
         new Set([...getStrongKeywordVariantsForTagName(node.name), ...configuredKeywords]),
@@ -329,58 +335,45 @@ export function enforceTextualSourceEvidence(
 }
 
 /**
- * 互斥组里落选的标签，各来源置信度统一压到这个值。落选者只会有 contentAnalysis 一个来源
- * （有文本来源的都是锚定者），单源融合得分 = confidence ^ 0.85，0.45 对应约 51 分：
- * 低于平衡模式门槛 60，高于宽泛模式门槛 40，宽泛模式下仍能看到候选。
- */
-export const EXCLUSIVE_SIBLING_LOSER_CONFIDENCE = 0.45;
-
-/**
- * 同级互斥兜底：父分类 extra.siblingsExclusive 为 true 的组里，一个素材只应归属其中一个子标签。
+ * 同级互斥硬约束：父分类 extra.siblingsExclusive 为 true 的组里，一个素材只能归属其中一个子标签。
  * 互斥沿祖先链传播：预测的是三级标签时，它同样代表了自己所在的二级分支——"产品品类"标了互斥，
- * 那么"护肤 > 面霜"和"彩妆 > 底妆"就是在争同一个位置，按各自分支整体取舍，落选分支下的标签一起压低。
- * - 有文本依据（basicInfo / materializedPath / tagKeywords 来源，已经过 enforceTextualSourceEvidence 校验）的
- *   分支视为"锚定"；存在锚定分支时，其余仅靠 contentAnalysis 的同级分支全部压低；
- * - 都没有锚定时，只保留各来源最高置信度最高的一个分支，其余压低。
- * 压低而不是删除：宽泛模式下仍能看到候选，人工审核也能看到"AI 曾经这么猜过"。
+ * 那么"护肤 > 面霜"和"彩妆 > 底妆"就是在争同一个位置，按各自分支整体取舍。
+ * 分支排序（前者优先）：
+ * 1. 锚定（有 basicInfo / materializedPath / tagKeywords 文本来源，已经过 enforceTextualSourceEvidence 校验）；
+ * 2. 各来源最高置信度；
+ * 3. 支撑来源数；
+ * 4. branchId 小者（保证确定性）。
+ * 落选分支下的标签从所有来源里**删除**（之前只是压到 0.45，宽泛模式下仍会通过门槛，
+ * 客户案例里文件名同时锚定了两个品牌产品线导致两条都写进了素材）。
  * 不在互斥组的标签（父分类未标记或标记为 false）不受影响。
  */
 export function resolveExclusiveSiblings(
   predictions: SourceBasedTagPredictions,
   tagsTree: TagWithChildren[],
 ): SourceBasedTagPredictions {
-  const parentById = new Map<number, number>();
-  const exclusiveParentIds = new Set<number>();
-  for (const node of flattenTagsTree(tagsTree)) {
-    if (node.parentId !== undefined) parentById.set(node.id, node.parentId);
-    if (node.hasChildren && getExplicitSiblingsExclusive(node.extra) === true) {
-      exclusiveParentIds.add(node.id);
-    }
-  }
+  const { exclusiveParentIds, branchesOf } = buildExclusiveBranchResolver(tagsTree);
   if (exclusiveParentIds.size === 0) return predictions;
 
-  // 一个标签沿祖先链向上，每遇到一个互斥父分类，就以"该父分类的直接子节点"为分支参与一次竞争。
-  const exclusiveBranchesOf = (leafTagId: number): Array<{ parentId: number; branchId: number }> => {
-    const branches: Array<{ parentId: number; branchId: number }> = [];
-    let nodeId = leafTagId;
-    for (;;) {
-      const parentId = parentById.get(nodeId);
-      if (parentId === undefined) break;
-      if (exclusiveParentIds.has(parentId)) branches.push({ parentId, branchId: nodeId });
-      nodeId = parentId;
-    }
-    return branches;
+  type BranchStat = {
+    anchored: boolean;
+    best: number;
+    sources: Set<string>;
+    leafTagIds: Set<number>;
   };
-
-  type BranchStat = { anchored: boolean; best: number; leafTagIds: Set<number> };
   const byParent = new Map<number, Map<number, BranchStat>>();
   for (const prediction of predictions) {
     for (const tag of prediction.tags) {
-      for (const { parentId, branchId } of exclusiveBranchesOf(tag.leafTagId)) {
+      for (const { parentId, branchId } of branchesOf(tag.leafTagId)) {
         const branches = byParent.get(parentId) ?? new Map<number, BranchStat>();
-        const stat = branches.get(branchId) ?? { anchored: false, best: 0, leafTagIds: new Set() };
+        const stat = branches.get(branchId) ?? {
+          anchored: false,
+          best: 0,
+          sources: new Set(),
+          leafTagIds: new Set(),
+        };
         stat.anchored = stat.anchored || isTextualSource(prediction.source);
         stat.best = Math.max(stat.best, tag.confidence);
+        stat.sources.add(prediction.source);
         stat.leafTagIds.add(tag.leafTagId);
         branches.set(branchId, stat);
         byParent.set(parentId, branches);
@@ -391,26 +384,23 @@ export function resolveExclusiveSiblings(
   const losers = new Set<number>();
   for (const [, branches] of byParent) {
     if (branches.size <= 1) continue;
-    const members = [...branches.entries()];
-    const anchored = members.filter(([, stat]) => stat.anchored);
-    let losingBranches: BranchStat[];
-    if (anchored.length > 0) {
-      losingBranches = members.filter(([, stat]) => !stat.anchored).map(([, stat]) => stat);
-    } else {
-      const [winner] = [...members].sort((a, b) => b[1].best - a[1].best || a[0] - b[0]);
-      losingBranches = members.filter(([branchId]) => branchId !== winner[0]).map(([, stat]) => stat);
+    const [winner] = [...branches.entries()].sort(
+      (a, b) =>
+        Number(b[1].anchored) - Number(a[1].anchored) ||
+        b[1].best - a[1].best ||
+        b[1].sources.size - a[1].sources.size ||
+        a[0] - b[0],
+    );
+    for (const [branchId, stat] of branches) {
+      if (branchId === winner[0]) continue;
+      for (const leafTagId of stat.leafTagIds) losers.add(leafTagId);
     }
-    for (const stat of losingBranches) for (const leafTagId of stat.leafTagIds) losers.add(leafTagId);
   }
   if (losers.size === 0) return predictions;
 
   return predictions.map((prediction) => ({
     ...prediction,
-    tags: prediction.tags.map((tag) =>
-      losers.has(tag.leafTagId)
-        ? { ...tag, confidence: Math.min(tag.confidence, EXCLUSIVE_SIBLING_LOSER_CONFIDENCE) }
-        : tag,
-    ),
+    tags: prediction.tags.filter((tag) => !losers.has(tag.leafTagId)),
   }));
 }
 
@@ -617,7 +607,12 @@ export function enhancePredictionsByMaterializedPathHardMatch(
   const normalizedPath = normalizeForMatch(materializedPath);
   if (!normalizedPath) return predictions;
   const candidates = computeTextHardMatchCandidates(tagsTree, normalizedPath);
-  return injectHardMatchPredictions(predictions, "materializedPath", candidates, TEXT_HARD_MATCH_CONFIDENCE);
+  return injectHardMatchPredictions(
+    predictions,
+    "materializedPath",
+    candidates,
+    TEXT_HARD_MATCH_CONFIDENCE,
+  );
 }
 
 /**
@@ -634,7 +629,12 @@ export function enhancePredictionsByBasicInfoHardMatch(
   const normalizedText = normalizeForMatch(basicInfoText);
   if (!normalizedText) return predictions;
   const candidates = computeTextHardMatchCandidates(tagsTree, normalizedText);
-  return injectHardMatchPredictions(predictions, "basicInfo", candidates, TEXT_HARD_MATCH_CONFIDENCE);
+  return injectHardMatchPredictions(
+    predictions,
+    "basicInfo",
+    candidates,
+    TEXT_HARD_MATCH_CONFIDENCE,
+  );
 }
 
 // 常见图片/视频扩展名 -> 归一化格式标识，用于和标签路径里提到的具体格式关键词做一致性校验
@@ -741,7 +741,9 @@ export function filterPredictionsByRealExtension(
   const realExtension = normalizeExtension(rawExtension);
   const realMediaKind = realExtension ? getRealAssetMediaKind(realExtension) : undefined;
   const evidenceMediaKind =
-    !realMediaKind && fallbackEvidenceText ? detectFormatKindInText(fallbackEvidenceText) : undefined;
+    !realMediaKind && fallbackEvidenceText
+      ? detectFormatKindInText(fallbackEvidenceText)
+      : undefined;
   const trustedMediaKind = realMediaKind ?? evidenceMediaKind;
 
   // 真实扩展名和兜底证据都拿不到任何格式信号，无法验证，只能放行（不引入新的误伤）。
@@ -894,6 +896,204 @@ export function collapseAncestorTags(tagsWithScore: TagWithScore[]): TagWithScor
 }
 
 /**
+ * 画幅组（子标签名都是 1:1 / 9:16 / 横版 之类）的标签由系统按素材真实宽高确定性打上（见 aspect-ratio.ts），
+ * 模型对这些标签的猜测一律丢弃，避免"看图猜比例"与真实尺寸打架。
+ */
+export function dropPredictionsUnderAspectRatioGroups(
+  predictions: SourceBasedTagPredictions,
+  tagsTree: TagWithChildren[],
+): SourceBasedTagPredictions {
+  const groups = detectAspectRatioGroups(tagsTree);
+  if (groups.length === 0) return predictions;
+  const { parentIds, childIds } = collectAspectRatioTagIds(groups);
+  return predictions.map((prediction) => ({
+    ...prediction,
+    tags: prediction.tags.filter(
+      (tag) => !childIds.has(tag.leafTagId) && !parentIds.has(tag.leafTagId),
+    ),
+  }));
+}
+
+/** 必打兜底选出的标签统一给的分数：低于平衡模式门槛，审核时一眼能看出是兜底结果。 */
+export const REQUIRED_FALLBACK_SCORE = 50;
+
+export type RequiredGroupResolution = {
+  tagsWithScore: TagWithScore[];
+  /** 从阈值过滤前的候选里重新纳入的标签 */
+  readmitted: Array<{ parentId: number; leafTagId: number; tagPath: string[]; score: number }>;
+  /** 模型完全没给候选、需要强制单选的必打分类 */
+  missing: Array<{ parentId: number; parentPath: string[] }>;
+};
+
+/**
+ * 必打标签组兜底（父分类 extra.requiredGroup 为 true）：每个素材都必须在该分类下打出一个后代标签。
+ * - 最终结果里已有该分类的后代 → 不动；
+ * - 没有，但阈值过滤前的候选里有 → 重新纳入分数最高的一个，标 origin = requiredFallback；
+ * - 候选也没有 → 记入 missing，由调用方做强制单选（见 predictRequiredGroupChoices）。
+ * 画幅组不在此处理（由宽高确定性打标）。互斥硬约束在更早的 resolveExclusiveSiblings 已经跑过，
+ * 候选池里同一互斥父下只剩一个分支，兜底不会重新引入互斥冲突。
+ */
+export function ensureRequiredGroups(
+  finalTags: TagWithScore[],
+  allScored: TagWithScore[],
+  tagsTree: TagWithChildren[],
+): RequiredGroupResolution {
+  const nodes = flattenTagsTree(tagsTree);
+  const aspectRatioParentIds = collectAspectRatioTagIds(
+    detectAspectRatioGroups(tagsTree),
+  ).parentIds;
+  const requiredParents = nodes.filter(
+    (node) =>
+      node.hasChildren &&
+      getExplicitRequiredGroup(node.extra) === true &&
+      !aspectRatioParentIds.has(node.id),
+  );
+  if (requiredParents.length === 0) {
+    return { tagsWithScore: finalTags, readmitted: [], missing: [] };
+  }
+  const parentById = new Map<number, number>();
+  for (const node of nodes) if (node.parentId !== undefined) parentById.set(node.id, node.parentId);
+  const isDescendantOf = (tagId: number, ancestorId: number): boolean => {
+    let current = parentById.get(tagId);
+    while (current !== undefined) {
+      if (current === ancestorId) return true;
+      current = parentById.get(current);
+    }
+    return false;
+  };
+
+  const result = [...finalTags];
+  const readmitted: RequiredGroupResolution["readmitted"] = [];
+  const missing: RequiredGroupResolution["missing"] = [];
+  for (const parent of requiredParents) {
+    if (result.some((tag) => isDescendantOf(tag.leafTagId, parent.id))) continue;
+    const candidate = allScored
+      .filter((tag) => isDescendantOf(tag.leafTagId, parent.id))
+      .sort((a, b) => b.score - a.score || a.leafTagId - b.leafTagId)[0];
+    if (candidate) {
+      result.push({ ...candidate, origin: "requiredFallback" });
+      readmitted.push({
+        parentId: parent.id,
+        leafTagId: candidate.leafTagId,
+        tagPath: candidate.tagPath,
+        score: candidate.score,
+      });
+    } else {
+      missing.push({ parentId: parent.id, parentPath: parent.tagPath });
+    }
+  }
+  return { tagsWithScore: result, readmitted, missing };
+}
+
+const requiredGroupChoiceSchema = z.object({
+  choices: z.array(
+    z.object({
+      parentId: z.number(),
+      leafTagId: z.number(),
+    }),
+  ),
+});
+
+/**
+ * 强制单选：必打分类连低分候选都没有时，单独问一次模型"在这个分类的子标签里必须选一个"。
+ * 输出统一 REQUIRED_FALLBACK_SCORE 分、origin = requiredFallback；模型选了不在该分类下的 id 时按该分类
+ * 第一个叶子兜底（必打的语义就是"必须有一个"，宁可给个低分让人工改，也不空着）。
+ */
+export async function predictRequiredGroupChoices({
+  missing,
+  tagsTree,
+  assetSummary,
+  teamId,
+}: {
+  missing: RequiredGroupResolution["missing"];
+  tagsTree: TagWithChildren[];
+  assetSummary: string;
+  teamId: number;
+}): Promise<TagWithScore[]> {
+  if (missing.length === 0) return [];
+  const nodes = flattenTagsTree(tagsTree);
+  const nodeById = new Map(nodes.map((node) => [node.id, node] as const));
+  const parentById = new Map<number, number>();
+  for (const node of nodes) if (node.parentId !== undefined) parentById.set(node.id, node.parentId);
+  const isDescendantOf = (tagId: number, ancestorId: number): boolean => {
+    let current = parentById.get(tagId);
+    while (current !== undefined) {
+      if (current === ancestorId) return true;
+      current = parentById.get(current);
+    }
+    return false;
+  };
+  // 每个必打分类的可选叶子（没有三级时二级就是叶子）
+  const leavesByParent = new Map<number, typeof nodes>();
+  for (const { parentId } of missing) {
+    leavesByParent.set(
+      parentId,
+      nodes.filter((node) => !node.hasChildren && isDescendantOf(node.id, parentId)),
+    );
+  }
+
+  const groupsText = missing
+    .map(({ parentId, parentPath }) => {
+      const leaves = leavesByParent.get(parentId) ?? [];
+      return `## 必打分类 (parentId: ${parentId}): ${parentPath.join(" > ")}\n${leaves
+        .map((leaf) => `- id ${leaf.id}: ${leaf.tagPath.join(" > ")}`)
+        .join("\n")}`;
+    })
+    .join("\n\n");
+
+  const fallbackChoice = (parentId: number): TagWithScore | null => {
+    const first = (leavesByParent.get(parentId) ?? [])[0];
+    return first
+      ? {
+          leafTagId: first.id,
+          tagPath: first.tagPath,
+          confidenceBySources: { contentAnalysis: REQUIRED_FALLBACK_SCORE / 100 },
+          score: REQUIRED_FALLBACK_SCORE,
+          origin: "requiredFallback",
+        }
+      : null;
+  };
+
+  let chosen = new Map<number, number>();
+  try {
+    const modelName = getTaggingPredictModel();
+    const result = await generateObject({
+      model: llm(modelName),
+      schemaName: "RequiredGroupChoices",
+      schema: requiredGroupChoiceSchema,
+      providerOptions: getTaggingPredictProviderOptions(modelName, teamId),
+      system: `你是数字资产管理系统的打标助手。下面这些分类被管理员设置为"必打"：每个素材都必须在该分类下选出恰好一个标签，哪怕证据不足也要选最可能的那个，不允许不选。只输出 JSON：{"choices":[{"parentId":<分类 id>,"leafTagId":<所选标签 id>}]}，每个必打分类恰好一条，leafTagId 必须来自该分类下列出的候选。`,
+      prompt: `# 素材信息\n${assetSummary}\n\n# 需要选择的必打分类\n${groupsText}`,
+      temperature: 0,
+    });
+    chosen = new Map(result.object.choices.map((choice) => [choice.parentId, choice.leafTagId]));
+  } catch (error) {
+    console.warn("必打分类强制单选失败，按每组第一个叶子兜底", {
+      teamId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  const tags: TagWithScore[] = [];
+  for (const { parentId } of missing) {
+    const leafTagId = chosen.get(parentId);
+    const node = leafTagId !== undefined ? nodeById.get(leafTagId) : undefined;
+    const valid = node && !node.hasChildren && isDescendantOf(node.id, parentId);
+    const tag = valid
+      ? ({
+          leafTagId: node.id,
+          tagPath: node.tagPath,
+          confidenceBySources: { contentAnalysis: REQUIRED_FALLBACK_SCORE / 100 },
+          score: REQUIRED_FALLBACK_SCORE,
+          origin: "requiredFallback",
+        } satisfies TagWithScore)
+      : fallbackChoice(parentId);
+    if (tag) tags.push(tag);
+  }
+  return tags;
+}
+
+/**
  * 使用AI预测内容素材的最适合标签
  * @param asset 内容素材对象
  * @param availableTags 可用的标签列表（包含层级关系）
@@ -928,7 +1128,12 @@ export async function predictAssetTags(
     contentAnalysis: true,
     tagKeywords: true,
   };
-  if (!enabled.basicInfo && !enabled.materializedPath && !enabled.contentAnalysis && !enabled.tagKeywords) {
+  if (
+    !enabled.basicInfo &&
+    !enabled.materializedPath &&
+    !enabled.contentAnalysis &&
+    !enabled.tagKeywords
+  ) {
     throw taggingPredictError("NO_MATCHING_SOURCES_ENABLED", "No matching sources enabled");
   }
 
@@ -941,9 +1146,7 @@ export async function predictAssetTags(
   // 构建标签关键词信息：仅在 tagKeywords 信息源启用时才需要，否则不应该出现在 prompt 里
   // ——不然即使用户关闭了"已有标签匹配"，模型依然会看到完整关键词库并可能受其影响。
   const tagKeywordsText = enabled.tagKeywords ? buildTagKeywordsText(tagsTree) : undefined;
-  const peopleCountTagPaths = options?.faceFeatures
-    ? collectPeopleCountTagPaths(tagsTree)
-    : [];
+  const peopleCountTagPaths = options?.faceFeatures ? collectPeopleCountTagPaths(tagsTree) : [];
   const faceFeaturesSection = buildFaceFeaturesPromptSection(
     options?.faceFeatures,
     peopleCountTagPaths,
@@ -1062,10 +1265,7 @@ ${sourceSections.join("\n\n")}
           .filter(([, enabled]) => enabled)
           .map(([source]) => source as keyof typeof options.matchingSources);
         if (enabledSources.length === 0) {
-          throw taggingPredictError(
-            "NO_MATCHING_SOURCES_ENABLED",
-            "No matching sources enabled",
-          );
+          throw taggingPredictError("NO_MATCHING_SOURCES_ENABLED", "No matching sources enabled");
         }
 
         predictions = predictions.filter((prediction) =>
@@ -1077,6 +1277,8 @@ ${sourceSections.join("\n\n")}
       // 硬匹配注入的 id 来自 tagsTree 本身，不需要再校验。
       const knownTagsResult = filterPredictionsByKnownTagIds(predictions, tagsTree);
       predictions = knownTagsResult.predictions;
+      // 画幅组由系统按真实宽高确定性打标，模型对这些标签的猜测不采纳。
+      predictions = dropPredictionsUnderAspectRatioGroups(predictions, tagsTree);
       if (knownTagsResult.dropped.length > 0 || knownTagsResult.corrected.length > 0) {
         console.warn("AI标签预测: 存在不在标签树中的 leafTagId", {
           teamId: asset.teamId,
@@ -1095,7 +1297,9 @@ ${sourceSections.join("\n\n")}
       );
       const pathText = normalizeForMatch(asset.materializedPath ?? "");
       predictions = enforceLiteralEvidenceForMetadataTags(predictions, tagsTree, {
-        contentAnalysis: enabled.contentAnalysis ? normalizeForMatch(aiDescription ?? "") : undefined,
+        contentAnalysis: enabled.contentAnalysis
+          ? normalizeForMatch(aiDescription ?? "")
+          : undefined,
         tagKeywords: enabled.tagKeywords ? [basicInfoText, pathText].join(" ") : undefined,
         basicInfo: enabled.basicInfo ? basicInfoText : undefined,
         materializedPath: enabled.materializedPath ? pathText : undefined,
@@ -1138,17 +1342,40 @@ ${sourceSections.join("\n\n")}
 
       // 按识别模式的最低置信度门槛过滤：LLM 不一定严格遵守 prompt 里的门槛要求，
       // 这里做代码层面的兜底，确保"精准模式只出高置信度标签"是硬约束而非纯靠模型自觉。
-      const tagsWithScore = collapseAncestorTags(
-        filterTagsWithScoreByRecognitionAccuracy(
-          calculateTagScore(predictions),
-          recognitionAccuracyMode,
-        ),
+      const allScored = calculateTagScore(predictions);
+      const modelTagsWithScore = collapseAncestorTags(
+        filterTagsWithScoreByRecognitionAccuracy(allScored, recognitionAccuracyMode),
       );
 
-      // LLM 返回空/不可用结果：重试
-      if (tagsWithScore.length === 0) {
+      // LLM 返回空/不可用结果：重试（以模型自身结果为准，必打兜底不参与这个判断）
+      if (modelTagsWithScore.length === 0) {
         throw taggingPredictError("NO_VALID_TAGS", "No valid tags predicted");
       }
+
+      // 必打标签组兜底：先从阈值过滤前的候选里捞，捞不到再强制单选一次。
+      const required = ensureRequiredGroups(modelTagsWithScore, allScored, tagsTree);
+      const forcedChoices = await predictRequiredGroupChoices({
+        missing: required.missing,
+        tagsTree,
+        teamId: asset.teamId,
+        assetSummary: [
+          `文件名：${asset.name}`,
+          `文件描述：${asset.description || "无"}`,
+          `文件路径：${asset.materializedPath || "无"}`,
+          `内容分析：${aiDescription || "无"}`,
+        ].join("\n"),
+      });
+      const tagsWithScore = [...required.tagsWithScore, ...forcedChoices];
+      const requiredGroupFallback =
+        required.readmitted.length > 0 || forcedChoices.length > 0
+          ? {
+              readmitted: required.readmitted,
+              forced: forcedChoices.map((tag) => ({
+                leafTagId: tag.leafTagId,
+                tagPath: tag.tagPath,
+              })),
+            }
+          : undefined;
 
       return {
         predictions,
@@ -1158,6 +1385,7 @@ ${sourceSections.join("\n\n")}
           input: inputPrompt,
           matchingSources: options?.matchingSources,
           recognitionAccuracy: options?.recognitionAccuracy,
+          ...(requiredGroupFallback ? { requiredGroupFallback } : {}),
           ...(options?.faceFeatures ? { faceFeatures: options.faceFeatures } : {}),
         },
       };
@@ -1177,7 +1405,10 @@ ${sourceSections.join("\n\n")}
     console.error("AI标签预测失败:", lastError);
   }
   if (lastErrorCode === "NO_MATCHING_SOURCES_ENABLED") {
-    throw taggingPredictError("NO_MATCHING_SOURCES_ENABLED", "AI tagging failed: no source enabled");
+    throw taggingPredictError(
+      "NO_MATCHING_SOURCES_ENABLED",
+      "AI tagging failed: no source enabled",
+    );
   }
   throw taggingPredictError("NO_VALID_TAGS", "AI tagging failed: no valid tags");
 }

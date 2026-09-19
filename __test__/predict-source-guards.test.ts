@@ -7,7 +7,6 @@ import {
   collapseAncestorTags,
   enforceTextualSourceEvidence,
   enhancePredictionsByBasicInfoHardMatch,
-  EXCLUSIVE_SIBLING_LOSER_CONFIDENCE,
   filterTagsWithScoreByRecognitionAccuracy,
   resolveExclusiveSiblings,
 } from "@/app/(tagging)/predict";
@@ -120,8 +119,18 @@ describe("enforceTextualSourceEvidence", () => {
       {
         source: "basicInfo",
         tags: [
-          { confidence: 0.9, leafTagId: 4, tagPath: ["产品品类", "护肤", "面霜"], evidence: "修护霜" },
-          { confidence: 0.7, leafTagId: 3, tagPath: ["产品品类", "护肤", "洁面"], evidence: "洁面" },
+          {
+            confidence: 0.9,
+            leafTagId: 4,
+            tagPath: ["产品品类", "护肤", "面霜"],
+            evidence: "修护霜",
+          },
+          {
+            confidence: 0.7,
+            leafTagId: 3,
+            tagPath: ["产品品类", "护肤", "洁面"],
+            evidence: "洁面",
+          },
         ],
       },
     ];
@@ -134,9 +143,24 @@ describe("enforceTextualSourceEvidence", () => {
       {
         source: "basicInfo",
         tags: [
-          { confidence: 0.84, leafTagId: 21, tagPath: ["产品品类", "彩妆", "底妆"], evidence: "红茶水乳" },
-          { confidence: 0.87, leafTagId: 33, tagPath: ["内容主题", "产品教育", "功效教育"], evidence: "红茶水乳" },
-          { confidence: 0.89, leafTagId: 31, tagPath: ["内容主题", "产品教育"], evidence: "红茶水乳" },
+          {
+            confidence: 0.84,
+            leafTagId: 21,
+            tagPath: ["产品品类", "彩妆", "底妆"],
+            evidence: "红茶水乳",
+          },
+          {
+            confidence: 0.87,
+            leafTagId: 33,
+            tagPath: ["内容主题", "产品教育", "功效教育"],
+            evidence: "红茶水乳",
+          },
+          {
+            confidence: 0.89,
+            leafTagId: 31,
+            tagPath: ["内容主题", "产品教育"],
+            evidence: "红茶水乳",
+          },
         ],
       },
     ];
@@ -153,7 +177,9 @@ describe("enforceTextualSourceEvidence", () => {
         tags: [{ confidence: 0.9, leafTagId: 5, tagPath: ["产品品类", "护肤", "喷雾"] }],
       },
     ];
-    const result = enforceTextualSourceEvidence(predictions, tagsTree, { basicInfo: "aes_喷雾_kv" });
+    const result = enforceTextualSourceEvidence(predictions, tagsTree, {
+      basicInfo: "aes_喷雾_kv",
+    });
     expect(result[0].tags).toHaveLength(1);
   });
 
@@ -169,11 +195,20 @@ describe("enforceTextualSourceEvidence", () => {
 });
 
 describe("resolveExclusiveSiblings", () => {
-  it("keeps the sibling anchored by the filename and demotes content-only siblings", () => {
+  const leafIds = (tags: { leafTagId: number }[]) => tags.map((tag) => tag.leafTagId);
+
+  it("keeps the sibling anchored by the filename and removes content-only siblings", () => {
     const predictions: SourceBasedTagPredictions = [
       {
         source: "basicInfo",
-        tags: [{ confidence: 0.9, leafTagId: 4, tagPath: ["产品品类", "护肤", "面霜"], evidence: "修护霜" }],
+        tags: [
+          {
+            confidence: 0.9,
+            leafTagId: 4,
+            tagPath: ["产品品类", "护肤", "面霜"],
+            evidence: "修护霜",
+          },
+        ],
       },
       {
         source: "contentAnalysis",
@@ -185,11 +220,9 @@ describe("resolveExclusiveSiblings", () => {
       },
     ];
     const result = resolveExclusiveSiblings(predictions, tagsTree);
-    const content = result[1].tags;
-    expect(content.find((tag) => tag.leafTagId === 3)?.confidence).toBe(EXCLUSIVE_SIBLING_LOSER_CONFIDENCE);
-    expect(content.find((tag) => tag.leafTagId === 4)?.confidence).toBe(0.87);
-    expect(content.find((tag) => tag.leafTagId === 5)?.confidence).toBe(EXCLUSIVE_SIBLING_LOSER_CONFIDENCE);
-    expect(result[0].tags[0].confidence).toBe(0.9);
+    expect(leafIds(result[0].tags)).toEqual([4]);
+    expect(leafIds(result[1].tags)).toEqual([4]);
+    expect(result[1].tags[0].confidence).toBe(0.87);
   });
 
   it("keeps only the top-scored sibling when nothing is anchored", () => {
@@ -203,7 +236,7 @@ describe("resolveExclusiveSiblings", () => {
       },
     ];
     const result = resolveExclusiveSiblings(predictions, tagsTree);
-    expect(result[0].tags.map((tag) => tag.confidence)).toEqual([0.8, EXCLUSIVE_SIBLING_LOSER_CONFIDENCE]);
+    expect(leafIds(result[0].tags)).toEqual([3]);
   });
 
   it("leaves non-exclusive groups alone even when several siblings are predicted", () => {
@@ -223,7 +256,14 @@ describe("resolveExclusiveSiblings", () => {
     const predictions: SourceBasedTagPredictions = [
       {
         source: "basicInfo",
-        tags: [{ confidence: 0.9, leafTagId: 4, tagPath: ["产品品类", "护肤", "面霜"], evidence: "修护霜" }],
+        tags: [
+          {
+            confidence: 0.9,
+            leafTagId: 4,
+            tagPath: ["产品品类", "护肤", "面霜"],
+            evidence: "修护霜",
+          },
+        ],
       },
       {
         source: "contentAnalysis",
@@ -235,10 +275,7 @@ describe("resolveExclusiveSiblings", () => {
       },
     ];
     const result = resolveExclusiveSiblings(predictions, categoryExclusiveTree);
-    const content = result[1].tags;
-    expect(content.find((tag) => tag.leafTagId === 21)?.confidence).toBe(EXCLUSIVE_SIBLING_LOSER_CONFIDENCE);
-    expect(content.find((tag) => tag.leafTagId === 4)?.confidence).toBe(0.87);
-    expect(content.find((tag) => tag.leafTagId === 32)?.confidence).toBe(0.8); // 非互斥分类不受影响
+    expect(leafIds(result[1].tags)).toEqual([4, 32]); // 底妆被删，非互斥分类不受影响
   });
 
   it("keeps only the top-scored branch across sub-categories when nothing is anchored", () => {
@@ -252,16 +289,26 @@ describe("resolveExclusiveSiblings", () => {
       },
     ];
     const result = resolveExclusiveSiblings(predictions, categoryExclusiveTree);
-    expect(result[0].tags.map((tag) => tag.confidence)).toEqual([0.89, EXCLUSIVE_SIBLING_LOSER_CONFIDENCE]);
+    expect(leafIds(result[0].tags)).toEqual([4]);
   });
 
-  it("keeps two anchored siblings when the filename genuinely names both", () => {
+  it("keeps a single branch even when the filename anchors two siblings (higher confidence wins)", () => {
     const predictions: SourceBasedTagPredictions = [
       {
         source: "basicInfo",
         tags: [
-          { confidence: 0.9, leafTagId: 3, tagPath: ["产品品类", "护肤", "洁面"], evidence: "洁面" },
-          { confidence: 0.9, leafTagId: 4, tagPath: ["产品品类", "护肤", "面霜"], evidence: "面霜" },
+          {
+            confidence: 0.9,
+            leafTagId: 3,
+            tagPath: ["产品品类", "护肤", "洁面"],
+            evidence: "洁面",
+          },
+          {
+            confidence: 0.92,
+            leafTagId: 4,
+            tagPath: ["产品品类", "护肤", "面霜"],
+            evidence: "面霜",
+          },
         ],
       },
       {
@@ -270,8 +317,87 @@ describe("resolveExclusiveSiblings", () => {
       },
     ];
     const result = resolveExclusiveSiblings(predictions, tagsTree);
-    expect(result[0].tags.map((tag) => tag.confidence)).toEqual([0.9, 0.9]);
-    expect(result[1].tags[0].confidence).toBe(EXCLUSIVE_SIBLING_LOSER_CONFIDENCE);
+    expect(leafIds(result[0].tags)).toEqual([4]);
+    expect(result[1].tags).toEqual([]);
+  });
+
+  it("breaks an anchored tie by source count, then by lower branch id", () => {
+    const predictions: SourceBasedTagPredictions = [
+      {
+        source: "basicInfo",
+        tags: [
+          {
+            confidence: 0.9,
+            leafTagId: 3,
+            tagPath: ["产品品类", "护肤", "洁面"],
+            evidence: "洁面",
+          },
+          {
+            confidence: 0.9,
+            leafTagId: 4,
+            tagPath: ["产品品类", "护肤", "面霜"],
+            evidence: "面霜",
+          },
+        ],
+      },
+      {
+        source: "contentAnalysis",
+        tags: [{ confidence: 0.6, leafTagId: 4, tagPath: ["产品品类", "护肤", "面霜"] }],
+      },
+    ];
+    const result = resolveExclusiveSiblings(predictions, tagsTree);
+    expect(leafIds(result[0].tags)).toEqual([4]);
+
+    const tie: SourceBasedTagPredictions = [predictions[0]];
+    expect(leafIds(resolveExclusiveSiblings(tie, tagsTree)[0].tags)).toEqual([3]);
+  });
+
+  // 客户案例：20260805__DY_SWS_cgr+洁面_七夕氛围感_Y(2)，文件名同时锚定了两个品牌产品线分支
+  it("customer case: two brand lines anchored by the filename collapse to the higher-confidence one", () => {
+    const brandLineTree: TagWithChildren[] = [
+      {
+        id: 100,
+        name: "品牌产品线",
+        extra: { evidencePolicy: "content", siblingsExclusive: true },
+        children: [
+          {
+            id: 101,
+            name: "雪花秀",
+            extra: { evidencePolicy: "content" },
+            children: [{ id: 102, name: "人参系列", extra: { evidencePolicy: "content" } }],
+          },
+          {
+            id: 111,
+            name: "悦诗风吟",
+            extra: { evidencePolicy: "content" },
+            children: [{ id: 112, name: "洁面", extra: { evidencePolicy: "content" } }],
+          },
+        ],
+      },
+    ];
+    const predictions: SourceBasedTagPredictions = [
+      {
+        source: "basicInfo",
+        tags: [
+          {
+            confidence: 0.96,
+            leafTagId: 102,
+            tagPath: ["品牌产品线", "雪花秀", "人参系列"],
+            evidence: "SWS_cgr",
+          },
+          {
+            confidence: 0.94,
+            leafTagId: 112,
+            tagPath: ["品牌产品线", "悦诗风吟", "洁面"],
+            evidence: "洁面",
+          },
+        ],
+      },
+    ];
+    const result = resolveExclusiveSiblings(predictions, brandLineTree);
+    expect(leafIds(result[0].tags)).toEqual([102]);
+    const kept = filterTagsWithScoreByRecognitionAccuracy(calculateTagScore(result), "broad");
+    expect(kept.map((tag) => tag.leafTagId)).toEqual([102]);
   });
 });
 
@@ -280,7 +406,14 @@ describe("end-to-end on the customer case (balanced mode)", () => {
     let predictions: SourceBasedTagPredictions = [
       {
         source: "basicInfo",
-        tags: [{ confidence: 0.9, leafTagId: 4, tagPath: ["产品品类", "护肤", "面霜"], evidence: "修护霜" }],
+        tags: [
+          {
+            confidence: 0.9,
+            leafTagId: 4,
+            tagPath: ["产品品类", "护肤", "面霜"],
+            evidence: "修护霜",
+          },
+        ],
       },
       {
         source: "materializedPath",
@@ -301,7 +434,10 @@ describe("end-to-end on the customer case (balanced mode)", () => {
     });
     predictions = enhancePredictionsByBasicInfoHardMatch(predictions, tagsTree, basicInfo);
     predictions = resolveExclusiveSiblings(predictions, tagsTree);
-    const kept = filterTagsWithScoreByRecognitionAccuracy(calculateTagScore(predictions), "balanced");
+    const kept = filterTagsWithScoreByRecognitionAccuracy(
+      calculateTagScore(predictions),
+      "balanced",
+    );
     expect(kept.map((tag) => tag.leafTagId)).toEqual([4]);
     expect(kept[0].score).toBeGreaterThanOrEqual(90);
   });
@@ -319,17 +455,42 @@ describe("buildTagStructureText exclusive mark", () => {
 describe("collapseAncestorTags", () => {
   it("drops a level-2 tag when one of its level-3 children survived", () => {
     const tags = [
-      { leafTagId: 31, tagPath: ["内容主题", "产品教育"], confidenceBySources: { basicInfo: 0.89 }, score: 89 },
-      { leafTagId: 32, tagPath: ["内容主题", "产品教育", "产品介绍"], confidenceBySources: { contentAnalysis: 0.88 }, score: 88 },
-      { leafTagId: 4, tagPath: ["产品品类", "护肤", "面霜"], confidenceBySources: { contentAnalysis: 0.89 }, score: 89 },
+      {
+        leafTagId: 31,
+        tagPath: ["内容主题", "产品教育"],
+        confidenceBySources: { basicInfo: 0.89 },
+        score: 89,
+      },
+      {
+        leafTagId: 32,
+        tagPath: ["内容主题", "产品教育", "产品介绍"],
+        confidenceBySources: { contentAnalysis: 0.88 },
+        score: 88,
+      },
+      {
+        leafTagId: 4,
+        tagPath: ["产品品类", "护肤", "面霜"],
+        confidenceBySources: { contentAnalysis: 0.89 },
+        score: 89,
+      },
     ];
     expect(collapseAncestorTags(tags).map((tag) => tag.leafTagId)).toEqual([32, 4]);
   });
 
   it("keeps a level-2 tag when no child survived, and keeps unrelated same-name segments apart", () => {
     const tags = [
-      { leafTagId: 31, tagPath: ["内容主题", "产品教育"], confidenceBySources: { basicInfo: 0.89 }, score: 89 },
-      { leafTagId: 50, tagPath: ["素材类型", "产品教育", "教程"], confidenceBySources: { basicInfo: 0.8 }, score: 80 },
+      {
+        leafTagId: 31,
+        tagPath: ["内容主题", "产品教育"],
+        confidenceBySources: { basicInfo: 0.89 },
+        score: 89,
+      },
+      {
+        leafTagId: 50,
+        tagPath: ["素材类型", "产品教育", "教程"],
+        confidenceBySources: { basicInfo: 0.8 },
+        score: 80,
+      },
     ];
     expect(collapseAncestorTags(tags).map((tag) => tag.leafTagId)).toEqual([31, 50]);
   });
@@ -337,8 +498,18 @@ describe("collapseAncestorTags", () => {
   it("collapses a whole chain: level-1 and level-2 both go when the level-3 survived", () => {
     const tags = [
       { leafTagId: 30, tagPath: ["内容主题"], confidenceBySources: { basicInfo: 0.7 }, score: 70 },
-      { leafTagId: 31, tagPath: ["内容主题", "产品教育"], confidenceBySources: { basicInfo: 0.8 }, score: 80 },
-      { leafTagId: 32, tagPath: ["内容主题", "产品教育", "产品介绍"], confidenceBySources: { basicInfo: 0.9 }, score: 90 },
+      {
+        leafTagId: 31,
+        tagPath: ["内容主题", "产品教育"],
+        confidenceBySources: { basicInfo: 0.8 },
+        score: 80,
+      },
+      {
+        leafTagId: 32,
+        tagPath: ["内容主题", "产品教育", "产品介绍"],
+        confidenceBySources: { basicInfo: 0.9 },
+        score: 90,
+      },
     ];
     expect(collapseAncestorTags(tags).map((tag) => tag.leafTagId)).toEqual([32]);
   });

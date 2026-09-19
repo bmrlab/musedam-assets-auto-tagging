@@ -4,10 +4,12 @@ import {
   getBrandRecommendationFromQueueResult,
   getBrandRecommendationTagIdsFromQueueResult,
 } from "@/app/(tagging)/brand-recommendation";
+import { recordContentOnlyRejectionFeedbackBatch } from "@/app/(tagging)/evidence-policy-server";
 import {
   getIpRecommendationFromQueueResult,
   getIpRecommendationTagIdsFromQueueResult,
 } from "@/app/(tagging)/ip-recommendation";
+import { recordKeywordRejectionFeedbackBatch } from "@/app/(tagging)/keyword-feedback";
 import {
   getPersonRecommendationFromQueueResult,
   getReviewablePersonRecommendationTagIdsFromQueueResult,
@@ -21,8 +23,6 @@ import {
   filterFeatureLibraryRecommendations,
   isFeatureTypeEnabled,
 } from "@/lib/feature-library";
-import { recordContentOnlyRejectionFeedbackBatch } from "@/app/(tagging)/evidence-policy-server";
-import { recordKeywordRejectionFeedbackBatch } from "@/app/(tagging)/keyword-feedback";
 import { getServerFeatureLibraryFeatures } from "@/lib/feature-library-server";
 import { ServerActionResult } from "@/lib/serverAction";
 import { idToSlug, slugToId } from "@/lib/slug";
@@ -784,7 +784,9 @@ export async function approveAuditItemsAction({
       ).map(({ id, status }) => [id, status]),
     );
     const newlyRejectedAuditItemIds = auditItems
-      .filter(({ id, status }) => status === "rejected" && previousStatusById.get(id) !== "rejected")
+      .filter(
+        ({ id, status }) => status === "rejected" && previousStatusById.get(id) !== "rejected",
+      )
       .map(({ id }) => id);
 
     await prisma.$transaction(async (tx) => {
@@ -850,6 +852,8 @@ async function recordRejectionFeedbackForAuditItems({
         const scored = Array.isArray(tagsWithScore)
           ? tagsWithScore.find((tag) => tag.leafTagId === leafTagId)
           : undefined;
+        // 必打兜底 / 画幅确定性标签不是模型"仅凭画面推测"的结果，被拒绝不应计入 literal 降级反馈
+        if (scored?.origin) return [];
         return [{ teamId, leafTagId, confidenceBySources: scored?.confidenceBySources }];
       }),
     );

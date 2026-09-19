@@ -39,7 +39,12 @@ import {
 import { cn, formatSize } from "@/lib/utils";
 import { collectMuseFeatureIdentifierIdsForQueueItem } from "@/musedam/collect-muse-feature-identifier-ids";
 import type { MuseDAMMaterialFeatureSnapshot } from "@/musedam/query-features-by-materials-types";
-import { AssetObjectExtra, AssetObjectTags, TaggingAuditStatus } from "@/prisma/client";
+import {
+  AssetObjectExtra,
+  AssetObjectTags,
+  TaggingAuditStatus,
+  TaggingQueueItemResult,
+} from "@/prisma/client";
 import { CheckIcon, DotIcon, ExternalLinkIcon, Loader2Icon, StarIcon, XIcon } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useMemo, useState } from "react";
@@ -335,6 +340,8 @@ export function ReviewItem({
   const [rejectedProductItems, setRejectedProductItems] = useState<number[]>([]);
   const [rejectedPersonItems, setRejectedPersonItems] = useState<number[]>([]);
   const [previewImage, setPreviewImage] = useState<PreviewImage | null>(null);
+  // 历史打标记录默认折叠：只展示最新一次，避免过往错误结果一直挂在页面上
+  const [showHistory, setShowHistory] = useState(false);
 
   const assetExtra = assetObject.extra as AssetObjectExtra | null;
   const assetPreviewUrl = assetExtra?.thumbnailAccessUrl;
@@ -373,6 +380,12 @@ export function ReviewItem({
       return true;
     });
   }, [batch]);
+
+  const visibleBatch = useMemo(
+    () => (showHistory ? finalBatch : finalBatch.slice(0, 1)),
+    [finalBatch, showHistory],
+  );
+  const historyCount = Math.max(finalBatch.length - 1, 0);
 
   const filteredOutAuditItems = useMemo(() => {
     const finalBatchSet = new Set(finalBatch);
@@ -916,10 +929,17 @@ export function ReviewItem({
         </div>
 
         <div className="col-span-1 flex flex-col gap-[6px]">
-          {finalBatch.map(({ queueItem, taggingAuditItems }, index) => {
+          {visibleBatch.map(({ queueItem, taggingAuditItems }, index) => {
             const isLatestBatch = finalBatch.length > 1 && index === 0;
             const visibleAuditItems = taggingAuditItems.filter(
               (auditItem) => auditItem.leafTagId && auditItem.tagPath.length > 0,
+            );
+            const resultTagsWithScore = (queueItem.result as TaggingQueueItemResult | null)
+              ?.tagsWithScore;
+            const originByLeafTagId = new Map(
+              (Array.isArray(resultTagsWithScore) ? resultTagsWithScore : [])
+                .filter((tag) => tag.origin)
+                .map((tag) => [tag.leafTagId, tag.origin] as const),
             );
 
             return (
@@ -964,6 +984,13 @@ export function ReviewItem({
                           <div className="font-medium text-[13px] leading-[18px]">
                             {auditItem.tagPath.join(" > ")}
                           </div>
+                          {auditItem.leafTagId && originByLeafTagId.get(auditItem.leafTagId) ? (
+                            <span className="inline-flex items-center px-1 rounded-[3px] text-[10px] leading-4 border border-current/40 bg-background/60">
+                              {originByLeafTagId.get(auditItem.leafTagId) === "aspectRatio"
+                                ? t("aspectRatioBadge")
+                                : t("requiredFallbackBadge")}
+                            </span>
+                          ) : null}
                           <div className="flex items-center gap-[6px]">
                             <Progress
                               value={auditItem.score}
@@ -1010,6 +1037,15 @@ export function ReviewItem({
               </div>
             );
           })}
+          {historyCount > 0 ? (
+            <button
+              type="button"
+              className="self-start text-xs text-basic-5 hover:text-basic-8 underline-offset-2 hover:underline"
+              onClick={() => setShowHistory((current) => !current)}
+            >
+              {showHistory ? t("hideHistory") : t("showHistory", { count: historyCount })}
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -1039,7 +1075,7 @@ export function ReviewItem({
           </div>
 
           <div className="col-span-1 flex flex-col gap-[6px]">
-            {finalBatch.map(({ queueItem }, index) => {
+            {visibleBatch.map(({ queueItem }, index) => {
               const brandRecommendation = brandRecommendationsByQueueId.get(queueItem.id);
               const ipRecommendation = ipRecommendationsByQueueId.get(queueItem.id);
               const productRecommendation = productRecommendationsByQueueId.get(queueItem.id);

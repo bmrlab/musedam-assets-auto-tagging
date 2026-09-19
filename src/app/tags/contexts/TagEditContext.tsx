@@ -10,6 +10,8 @@ export interface TagEditData {
   taggingEnabled: boolean;
   /** 仅对有子标签的分类有意义：子标签之间是否互斥（素材只能归属其中一个） */
   siblingsExclusive: boolean;
+  /** 仅对有子标签的分类有意义：是否必打（每个素材都必须打出该分类下的一个子标签） */
+  requiredGroup: boolean;
 }
 
 // Context类型定义
@@ -57,6 +59,7 @@ export function TagEditProvider({ children }: { children: ReactNode }) {
           negativeKeywords: [],
           taggingEnabled: true,
           siblingsExclusive: false,
+          requiredGroup: false,
           ...data,
         };
         newMap.set(tagId, defaultData);

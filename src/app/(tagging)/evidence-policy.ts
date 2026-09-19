@@ -97,8 +97,49 @@ export function getExplicitSiblingsExclusive(extra: unknown): boolean | undefine
   return typeof value === "boolean" ? value : undefined;
 }
 
+export function getExplicitRequiredGroup(extra: unknown): boolean | undefined {
+  const value = (extra as AssetTagExtra | null)?.requiredGroup;
+  return typeof value === "boolean" ? value : undefined;
+}
+
+export type ExclusiveBranch = { parentId: number; branchId: number };
+
+/**
+ * 同级互斥的分支归属解析器：给定任意标签 id，沿祖先链向上，每遇到一个互斥父分类，
+ * 就以"该父分类的直接子节点"为分支参与一次竞争（三级标签代表它所在的二级分支）。
+ * predict.ts（AI 各来源之间）与 exclusive-siblings.ts（AI vs 特征库）共用同一套归属规则。
+ */
+export function buildExclusiveBranchResolver(tagsTree: TagWithChildren[]): {
+  exclusiveParentIds: ReadonlySet<number>;
+  parentById: ReadonlyMap<number, number>;
+  branchesOf: (tagId: number) => ExclusiveBranch[];
+} {
+  const parentById = new Map<number, number>();
+  const exclusiveParentIds = new Set<number>();
+  for (const node of flattenTagsTree(tagsTree)) {
+    if (node.parentId !== undefined) parentById.set(node.id, node.parentId);
+    if (node.hasChildren && getExplicitSiblingsExclusive(node.extra) === true) {
+      exclusiveParentIds.add(node.id);
+    }
+  }
+  const branchesOf = (tagId: number): ExclusiveBranch[] => {
+    const branches: ExclusiveBranch[] = [];
+    let nodeId = tagId;
+    for (;;) {
+      const parentId = parentById.get(nodeId);
+      if (parentId === undefined) break;
+      if (exclusiveParentIds.has(parentId)) branches.push({ parentId, branchId: nodeId });
+      nodeId = parentId;
+    }
+    return branches;
+  };
+  return { exclusiveParentIds, parentById, branchesOf };
+}
+
 /** 树中缺少显式证据策略、或（有子标签但）缺少同级互斥判定的节点，供自动判定使用。 */
-export function collectTagsMissingEvidencePolicy(tagsTree: TagWithChildren[]): TagTreeNodeWithPath[] {
+export function collectTagsMissingEvidencePolicy(
+  tagsTree: TagWithChildren[],
+): TagTreeNodeWithPath[] {
   return flattenTagsTree(tagsTree).filter(
     (node) =>
       getExplicitEvidencePolicy(node.extra) === undefined ||
