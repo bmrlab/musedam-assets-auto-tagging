@@ -25,6 +25,9 @@ declare module "@/prisma/client" {
     downloadUrl: string;
     size: number;
     extension: string;
+    /** 原始像素宽/高（来自 MuseDAM assets-by-ids 原样落库），用于画幅比例确定性打标；旧数据可能缺失 */
+    width: number;
+    height: number;
   }>;
 
   export type AssetTagExtra = Partial<{
@@ -48,6 +51,12 @@ declare module "@/prisma/client" {
      * 风格、渠道这类可共存的分类为 false。见 evidence-policy.ts。
      */
     siblingsExclusive: boolean;
+    /**
+     * 仅对有子标签的分类节点有意义：是否"必打"——每个素材都必须在该分类下打出一个子标签。
+     * 模型证据不足时代码层会兜底（重新纳入低分候选或强制单选），并在结果上标记 origin = requiredFallback。
+     * 由人工在标签详情里设置，系统不自动判定。
+     */
+    requiredGroup: boolean;
   }>;
 
   export type TaggingFaceFeatures = {
@@ -58,6 +67,11 @@ declare module "@/prisma/client" {
   export type TaggingQueueItemExtra = Partial<{
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     usage: any; // LLM 返回的 usage 信息
+    /** 必打标签组兜底记录：哪些标签是重新纳入的低分候选、哪些是强制单选出来的 */
+    requiredGroupFallback: {
+      readmitted: Array<{ parentId: number; leafTagId: number; tagPath: string[]; score: number }>;
+      forced: Array<{ leafTagId: number; tagPath: string[] }>;
+    };
     input: string; // 给 LLM 的 user message
     matchingSources: {
       basicInfo: boolean;

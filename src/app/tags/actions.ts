@@ -2,6 +2,7 @@
 
 import { withAuth } from "@/app/(auth)/withAuth";
 import { pruneRejectionCountsForRemovedKeywords } from "@/app/(tagging)/keyword-feedback";
+import { executeGenerateTagTreeByLLM } from "@/app/tags/generateTagTreeLLM";
 import { Locale } from "@/i18n/routing";
 import { ServerActionResult } from "@/lib/serverAction";
 import { idToSlug } from "@/lib/slug";
@@ -11,11 +12,9 @@ import {
   syncTagsToMuseDAMWithCurrentSystemAsBase,
 } from "@/musedam/tags/syncToMuseDAM";
 import { MuseDAMID } from "@/musedam/types";
-import type { AssetTagExtra } from "@/prisma/client";
+import type { AssetTagExtra, Prisma } from "@/prisma/client";
 import { AssetTag } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
-import type { Prisma } from "@/prisma/client";
-import { executeGenerateTagTreeByLLM } from "@/app/tags/generateTagTreeLLM";
 import { TagNode } from "./types";
 
 // 定义 MuseDAM 标签请求的类型（与 syncToMuseDAM 返回的类型匹配）
@@ -1072,6 +1071,8 @@ export async function updateTagExtra(
     taggingEnabled?: boolean;
     /** 仅对有子标签的分类有意义：子标签之间是否互斥。人工设置后系统不再自动覆盖 */
     siblingsExclusive?: boolean;
+    /** 仅对有子标签的分类有意义：是否必打（每个素材都必须打出该分类下的一个子标签） */
+    requiredGroup?: boolean;
   },
 ): Promise<ServerActionResult<void>> {
   return withAuth(async ({ team: { id: teamId } }) => {
@@ -1141,6 +1142,9 @@ export async function updateTagExtra(
       }
       if (data.siblingsExclusive !== undefined) {
         newExtra.siblingsExclusive = data.siblingsExclusive;
+      }
+      if (data.requiredGroup !== undefined) {
+        newExtra.requiredGroup = data.requiredGroup;
       }
 
       updateData.extra = newExtra;

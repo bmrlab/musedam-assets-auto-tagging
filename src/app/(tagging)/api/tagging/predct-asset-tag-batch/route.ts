@@ -1,9 +1,13 @@
+import {
+  buildAllowedFolderIdSet,
+  isAssetInApplicationScope,
+} from "@/app/(tagging)/application-scope";
 import { enqueueTaggingTask } from "@/app/(tagging)/queue";
 import { getTaggingSettings } from "@/app/(tagging)/tagging/settings/lib";
 import { TaggingSettingsData } from "@/app/(tagging)/types";
 import { FeatureClassificationFlags, toFeatureClassificationFlags } from "@/lib/feature-library";
 import { getFeatureLibraryFeaturesFromRequest } from "@/lib/feature-library-server";
-import { idToSlug, slugToId } from "@/lib/slug";
+import { idToSlug } from "@/lib/slug";
 import { syncSingleAssetFromMuseDAM } from "@/musedam/assets";
 import { MuseDAMID } from "@/musedam/types";
 import { JsonValue } from "@/prisma/client/runtime/library";
@@ -294,23 +298,21 @@ async function processBatchTagging({
       (sync) => !existingAssetObjectIds.has(sync.assetObject.id),
     );
 
+    // 应用范围：选中目录 + 子目录（之前只匹配直接父目录，子文件夹里的素材会被误判为不在范围内），
+    // 整批只请求一次 MuseDAM。
+    const allowedFolderIds = await buildAllowedFolderIdSet({
+      team,
+      applicationScope: settings.applicationScope,
+    });
+
     // 步骤4: 批量处理有效资产（创建打标任务）
     const processingPromises = validSyncs.map(async (sync) => {
       try {
         const { assetObject, musedamAsset } = sync;
 
         // 检查是否在应用范围内
-        if (settings.applicationScope.scopeType !== "all") {
-          const musedamFolderIds: MuseDAMID[] = settings.applicationScope.selectedFolders.map(
-            (folder) => slugToId("assetFolder", folder.slug),
-          );
-          const hasIntersection = musedamAsset.parentIds.some((parentId: MuseDAMID) =>
-            musedamFolderIds.some((folderId) => folderId.toString() === String(parentId)),
-          );
-
-          if (!hasIntersection) {
-            return { success: false, reason: "Asset not in selected folders" };
-          }
+        if (!isAssetInApplicationScope(musedamAsset.parentIds, allowedFolderIds)) {
+          return { success: false, reason: "Asset not in selected folders" };
         }
 
         // 创建打标任务

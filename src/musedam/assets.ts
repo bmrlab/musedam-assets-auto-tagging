@@ -56,8 +56,9 @@ export async function fetchMuseDAMFolderSubIds({
   musedamFolderIds: MuseDAMID[];
 }) {
   const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
+  // 返回 { [选中文件夹 id]: 其所有子文件夹 id 列表 }
   const result: {
-    [_id: string]: string;
+    [_id: string]: Array<number | string>;
   } = await requestMuseDAMAPI("/api/muse/get-sub-folder-ids", {
     method: "POST",
     headers: {
@@ -212,6 +213,9 @@ export async function syncSingleAssetFromMuseDAM({
     description: string | null;
     tags: { id: MuseDAMID; name: string }[] | null;
     thumbnailAccessUrl: string;
+    /** 像素宽高（图片/视频），接口未返回时为 undefined；整个对象会原样落到 assetObject.extra */
+    width?: number;
+    height?: number;
   };
 
   const musedamFolderId = musedamAsset.parentIds[0];

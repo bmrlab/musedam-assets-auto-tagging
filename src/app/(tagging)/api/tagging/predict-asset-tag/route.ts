@@ -1,14 +1,18 @@
+import {
+  buildAllowedFolderIdSet,
+  isAssetInApplicationScope,
+} from "@/app/(tagging)/application-scope";
 import { enqueueTaggingTask } from "@/app/(tagging)/queue";
 import { getTaggingSettings } from "@/app/(tagging)/tagging/settings/lib";
 import { toFeatureClassificationFlags } from "@/lib/feature-library";
 import { getFeatureLibraryFeaturesFromRequest } from "@/lib/feature-library-server";
-import { idToSlug, slugToId } from "@/lib/slug";
+import { idToSlug } from "@/lib/slug";
 import {
   apiFeatureToggleRequestSchema,
   apiRecognitionAccuracySchema,
   getExplicitFeatureValuesFromApiRequest,
 } from "@/lib/tagging-api-options";
-import { fetchMuseDAMFolderSubIds, syncSingleAssetFromMuseDAM } from "@/musedam/assets";
+import { syncSingleAssetFromMuseDAM } from "@/musedam/assets";
 import { MuseDAMID } from "@/musedam/types";
 import { AssetObject, TaggingQueueItemExtra } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
@@ -123,43 +127,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (settings.applicationScope.scopeType !== "all") {
-      // 获取到selectedFolders 和其子文件夹
-      const selectedFolderIds = settings.applicationScope.selectedFolders.map((folder) =>
-        slugToId("assetFolder", folder.slug),
-      );
-      const musedamFolderSubIds = await fetchMuseDAMFolderSubIds({
-        team,
-        musedamFolderIds: selectedFolderIds,
-      });
-
-      // 简化：允许集合 = 选中目录 + 每个选中目录的子目录（来自返回的 map 键和值）
-      const allowedFolderIdSet = new Set<string>(selectedFolderIds.map((id) => id.toString()));
-      for (const [folderIdStr, subIds] of Object.entries(
-        musedamFolderSubIds as unknown as Record<string, (number | string)[]>,
-      )) {
-        allowedFolderIdSet.add(folderIdStr);
-        for (const subId of subIds) allowedFolderIdSet.add(String(subId));
-      }
-
-      // 检查素材所在父目录是否在允许集合内
-      const hasIntersection = musedamAsset.parentIds.some((parentId) =>
-        allowedFolderIdSet.has(String(parentId)),
-      );
-
-      if (!hasIntersection) {
-        return NextResponse.json(
-          {
-            success: true,
-            data: {
-              message: `Asset ${musedamAssetId} is not in the selected folders`,
-              queueItemId: null,
-              status: null,
-            },
+    // 应用范围：选中目录 + 子目录，与批量接口共用同一口径
+    const allowedFolderIds = await buildAllowedFolderIdSet({
+      team,
+      applicationScope: settings.applicationScope,
+    });
+    if (!isAssetInApplicationScope(musedamAsset.parentIds, allowedFolderIds)) {
+      return NextResponse.json(
+        {
+          success: true,
+          data: {
+            message: `Asset ${musedamAssetId} is not in the selected folders`,
+            queueItemId: null,
+            status: null,
           },
-          { status: 202 },
-        );
-      }
+        },
+        { status: 202 },
+      );
     }
 
     // 同一素材的 default 任务只入队一次：调用方按 queueItemId 扣点，重复请求返回 null 不扣点。

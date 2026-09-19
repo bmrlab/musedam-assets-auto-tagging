@@ -1,4 +1,5 @@
 "use client";
+import { EditIcon } from "@/components/ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,7 +15,6 @@ import { toast } from "sonner";
 import { updateTagExtra } from "../actions";
 import { TagEditData, useTagEdit } from "../contexts/TagEditContext";
 import { usePendingInboundTagRequired } from "../hooks/usePendingInboundTagRequired";
-import { EditIcon } from "@/components/ui";
 
 // 组件Props类型
 interface TagDetailsProps {
@@ -26,8 +26,12 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
   const t = useTranslations("TagsPage.TagDetails");
   const tRoot = useTranslations("TagsPage");
   const { getTagEditData, isTagEdited } = useTagEdit();
-  const { showSwitch, required, loading: pendingRequiredLoading, handleToggle } =
-    usePendingInboundTagRequired(selectedTag);
+  const {
+    showSwitch,
+    required,
+    loading: pendingRequiredLoading,
+    handleToggle,
+  } = usePendingInboundTagRequired(selectedTag);
 
   // 本地表单状态
   const [formData, setFormData] = useState<TagEditData>({
@@ -37,6 +41,7 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
     negativeKeywords: [],
     taggingEnabled: true,
     siblingsExclusive: false,
+    requiredGroup: false,
   });
 
   // 编辑态
@@ -68,6 +73,7 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
         negativeKeywords: extra.negativeKeywords || [],
         taggingEnabled: tag.taggingEnabled,
         siblingsExclusive: extra.siblingsExclusive === true,
+        requiredGroup: extra.requiredGroup === true,
       };
     },
     [getTagExtra],
@@ -88,6 +94,7 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
         negativeKeywords: [],
         taggingEnabled: true,
         siblingsExclusive: false,
+        requiredGroup: false,
       });
       setIsEditing(false);
     }
@@ -201,7 +208,9 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
 
   // 检查是否被编辑过
   const hasChanges = selectedTag.tag.id ? isTagEdited(selectedTag.tag.id) : false;
-  const hasChildTags = Array.isArray((selectedTag.tag as AssetTag & { children?: AssetTag[] }).children)
+  const hasChildTags = Array.isArray(
+    (selectedTag.tag as AssetTag & { children?: AssetTag[] }).children,
+  )
     ? ((selectedTag.tag as AssetTag & { children?: AssetTag[] }).children?.length ?? 0) > 0
     : false;
   const shouldShowRequiredSwitch = showSwitch && (hasChildTags || required);
@@ -228,7 +237,9 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
         negativeKeywords: formData.negativeKeywords,
         taggingEnabled: formData.taggingEnabled,
         // 互斥开关只对有子标签的分类有意义，叶子标签不提交，避免写入无意义字段
-        ...(hasChildTags ? { siblingsExclusive: formData.siblingsExclusive } : {}),
+        ...(hasChildTags
+          ? { siblingsExclusive: formData.siblingsExclusive, requiredGroup: formData.requiredGroup }
+          : {}),
       });
       if (res.success) {
         toast.success(tRoot("saveSuccess"));
@@ -310,7 +321,7 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
               checked={formData.taggingEnabled}
               onCheckedChange={(checked) => {
                 // TODO 增加二次确认弹窗
-                updateField("taggingEnabled", checked)
+                updateField("taggingEnabled", checked);
               }}
               disabled={!isEditing}
             />
@@ -328,7 +339,11 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-basic-5 hover:text-basic-8">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 text-basic-5 hover:text-basic-8"
+                    >
                       <InfoIcon className="text-current" />
                     </Button>
                   </TooltipTrigger>
@@ -346,6 +361,41 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
               />
               <span className="text-sm text-basic-5">
                 {formData.siblingsExclusive ? t("siblingsExclusiveOn") : t("siblingsExclusiveOff")}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* 必打标签组：仅对有子标签的分类显示 */}
+        {hasChildTags && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-1">
+              <Label className="text-sm font-medium">{t("requiredGroup")}</Label>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 text-basic-5 hover:text-basic-8"
+                    >
+                      <InfoIcon className="text-current" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-[240px] text-sm">
+                    {t("requiredGroupTooltip")}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={formData.requiredGroup}
+                onCheckedChange={(checked) => updateField("requiredGroup", checked)}
+                disabled={!isEditing}
+              />
+              <span className="text-sm text-basic-5">
+                {formData.requiredGroup ? t("requiredGroupOn") : t("requiredGroupOff")}
               </span>
             </div>
           </div>
@@ -372,7 +422,11 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-basic-5 hover:text-basic-8">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 text-basic-5 hover:text-basic-8"
+                  >
                     <InfoIcon className="text-current" />
                   </Button>
                 </TooltipTrigger>

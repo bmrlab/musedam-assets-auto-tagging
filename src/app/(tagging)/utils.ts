@@ -2,13 +2,18 @@ import "server-only";
 
 import { TagWithChildren, AssetTagExtra } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
-import { getExplicitSiblingsExclusive, resolveEvidencePolicy } from "./evidence-policy";
+import {
+  getExplicitRequiredGroup,
+  getExplicitSiblingsExclusive,
+  resolveEvidencePolicy,
+} from "./evidence-policy";
 
 /**
  * 构建标签结构的文本描述
  */
 export const LITERAL_EVIDENCE_TAG_MARK = "【字面证据】";
 export const SIBLINGS_EXCLUSIVE_TAG_MARK = "【同级互斥】";
+export const REQUIRED_GROUP_TAG_MARK = "【必选】";
 
 /**
  * 字面型标签（证据策略 literal）在标签体系文本里带上标记，让模型知道这类标签必须摘录 evidence，
@@ -23,14 +28,19 @@ function exclusiveMark(extra: unknown): string {
   return getExplicitSiblingsExclusive(extra) ? ` ${SIBLINGS_EXCLUSIVE_TAG_MARK}` : "";
 }
 
+/** 必打的分类节点带标记，让模型知道必须在其下输出一个子标签。 */
+function requiredMark(extra: unknown): string {
+  return getExplicitRequiredGroup(extra) ? ` ${REQUIRED_GROUP_TAG_MARK}` : "";
+}
+
 export function buildTagStructureText(tags: TagWithChildren[]): string {
   let structureText = "";
   for (const level1Tag of tags) {
     const path1 = [level1Tag.name];
-    structureText += `\nLevel 1 (id: ${level1Tag.id}): ${level1Tag.name}${literalMark(level1Tag.extra, path1)}${exclusiveMark(level1Tag.extra)}\n`;
+    structureText += `\nLevel 1 (id: ${level1Tag.id}): ${level1Tag.name}${literalMark(level1Tag.extra, path1)}${exclusiveMark(level1Tag.extra)}${requiredMark(level1Tag.extra)}\n`;
     for (const level2Tag of level1Tag.children ?? []) {
       const path2 = [...path1, level2Tag.name];
-      structureText += `  └─ Level 2 (id: ${level2Tag.id}): ${level2Tag.name}${literalMark(level2Tag.extra, path2)}${exclusiveMark(level2Tag.extra)}\n`;
+      structureText += `  └─ Level 2 (id: ${level2Tag.id}): ${level2Tag.name}${literalMark(level2Tag.extra, path2)}${exclusiveMark(level2Tag.extra)}${requiredMark(level2Tag.extra)}\n`;
       for (const level3Tag of level2Tag.children ?? []) {
         const path3 = [...path2, level3Tag.name];
         structureText += `      └─ Level 3 (id: ${level3Tag.id}): ${level3Tag.name}${literalMark(level3Tag.extra, path3)}\n`;

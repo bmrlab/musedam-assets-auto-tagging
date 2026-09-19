@@ -46,8 +46,13 @@ import {
 } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 import pLimit from "p-limit";
+import { detectAspectRatioGroups, resolveAspectRatioTags } from "./aspect-ratio";
 import { getBrandRecommendationTagIdsFromQueueResult } from "./brand-recommendation";
 import { fetchTagsTreeForTagging } from "./evidence-policy-server";
+import {
+  collectFeatureTagCandidates,
+  resolveExclusiveSiblingsAcrossSources,
+} from "./exclusive-siblings";
 import { getIpRecommendationTagIdsFromQueueResult } from "./ip-recommendation";
 import {
   getAcceptedPersonRecommendationTagIds,
@@ -405,7 +410,7 @@ export async function processQueueItem({
     }
 
     const [
-      { predictions, tagsWithScore, extra: newExtra },
+      { predictions, tagsWithScore: predictedTagsWithScore, extra: newExtra },
       brandRecommendation,
       ipRecommendation,
       productRecommendation,
@@ -417,6 +422,34 @@ export async function processQueueItem({
       productRecommendationPromise,
       personRecommendationPromise,
     ]);
+    // 同级互斥硬约束（AI vs 特征库）：特征库认出了互斥组里的某个分支时，AI 仅凭内容猜到的同组其他分支要让位。
+    // 放在这里是因为审核项创建、直接写回、结果持久化都从 tagsWithScore 出发，改一处三处一致。
+    const exclusiveTagsTree = tagsTree ?? (await fetchTagsTreeForTagging({ teamId }));
+    const crossSource = resolveExclusiveSiblingsAcrossSources({
+      tagsTree: exclusiveTagsTree,
+      tagsWithScore: predictedTagsWithScore,
+      featureCandidates: collectFeatureTagCandidates({
+        brandRecommendation,
+        ipRecommendation,
+        productRecommendation,
+        personRecommendation,
+      }),
+    });
+    if (crossSource.dropped.length > 0) {
+      logger.info({
+        msg: "Exclusive siblings: AI tags dropped in favor of feature-library matches",
+        dropped: crossSource.dropped,
+      });
+    }
+    // 画幅比例确定性打标：标签树里有画幅组（子标签名为 1:1 / 9:16 / 横版 等）时，按素材真实宽高直接打上，
+    // 优先用 MuseDAM 同步下来的像素宽高，缺失时退回缩略图（缩放不改变比例）。
+    const aspectRatioTags = await resolveAspectRatioTagsForAsset({
+      tagsTree: exclusiveTagsTree,
+      assetExtra,
+      thumbnailUrl,
+      logger,
+    });
+    const tagsWithScore = [...crossSource.tagsWithScore, ...aspectRatioTags];
     const hasAiTags = tagsWithScore.length > 0;
     const acceptedPersonTagIds = getAcceptedPersonRecommendationTagIds(personRecommendation);
     if (personRecommendation?.faces.length) {
@@ -943,6 +976,51 @@ export async function processPendingQueueItems(): Promise<{
   return { processing, skipped };
 }
 
+/** 画幅比例确定性打标（见 aspect-ratio.ts）：没有画幅组或拿不到宽高时返回空数组，绝不抛错影响主流程。 */
+async function resolveAspectRatioTagsForAsset({
+  tagsTree,
+  assetExtra,
+  thumbnailUrl,
+  logger,
+}: {
+  tagsTree: TagWithChildren[];
+  assetExtra: AssetObjectExtra | null;
+  thumbnailUrl: string | undefined;
+  logger: typeof rootLogger;
+}): Promise<TagWithScore[]> {
+  const groups = detectAspectRatioGroups(tagsTree);
+  if (groups.length === 0) return [];
+  let width = assetExtra?.width;
+  let height = assetExtra?.height;
+  if ((!width || !height) && thumbnailUrl) {
+    try {
+      const image = await fetchRemoteImageInput(thumbnailUrl, "aspect ratio");
+      width = image.width;
+      height = image.height;
+      logger.info({
+        msg: "Aspect ratio: width/height missing in asset extra, derived from thumbnail",
+        width,
+        height,
+      });
+    } catch (error) {
+      logger.warn({
+        msg: "Aspect ratio: thumbnail fetch failed, skipping aspect ratio tagging",
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return [];
+    }
+  }
+  const tags = resolveAspectRatioTags({ groups, width, height });
+  logger.info({
+    msg: "Aspect ratio tagging resolved",
+    width,
+    height,
+    groups: groups.map((group) => group.parentPath.join(" > ")),
+    tags: tags.map((tag) => tag.tagPath.join(" > ")),
+  });
+  return tags;
+}
+
 async function createAuditItems({
   assetObject,
   taggingQueueItem,
@@ -1018,6 +1096,24 @@ async function createAuditItems({
       dataCount: data.length,
       status: finalStatus,
     });
+
+    // 新一轮打标记录生成后，同一素材上旧记录里仍待审核的项自动作废（标为 rejected），
+    // 避免审核页批量应用时把历史错误猜测一并应用上；旧记录本身保留，审核页折叠展示、可手动恢复。
+    const superseded = await prisma.taggingAuditItem.updateMany({
+      where: {
+        assetObjectId: assetObject.id,
+        teamId: assetObject.teamId,
+        status: "pending",
+        queueItemId: { not: taggingQueueItem.id },
+      },
+      data: { status: "rejected" },
+    });
+    if (superseded.count > 0) {
+      logger.info({
+        msg: "createAuditItems: superseded pending audit items from earlier runs",
+        supersededCount: superseded.count,
+      });
+    }
 
     const result = await prisma.taggingAuditItem.createMany({
       data,
