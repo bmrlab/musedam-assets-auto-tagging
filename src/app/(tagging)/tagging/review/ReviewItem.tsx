@@ -155,19 +155,10 @@ function ExistingFeatureSnapshotRow({
   );
 }
 
-function toggleTagIds(current: number[], tagIds: number[]) {
-  if (tagIds.length === 0) {
-    return current;
-  }
-
-  const tagIdSet = new Set(tagIds);
-  const allRejected = tagIds.every((tagId) => current.includes(tagId));
-
-  if (allRejected) {
-    return current.filter((tagId) => !tagIdSet.has(tagId));
-  }
-
-  return Array.from(new Set([...current, ...tagIds]));
+function toggleFeatureId(current: string[], featureId: string) {
+  return current.includes(featureId)
+    ? current.filter((id) => id !== featureId)
+    : [...current, featureId];
 }
 
 function FeatureRecognitionRow({
@@ -178,10 +169,10 @@ function FeatureRecognitionRow({
   classifiedName,
   confidence,
   rawSimilarity,
-  tagIds,
   tagPaths,
-  rejectedTagIds,
-  onToggleTagIds,
+  isRejected,
+  onToggle,
+  disabled,
   tooltipAdd,
   tooltipRemove,
   onPreview,
@@ -193,15 +184,14 @@ function FeatureRecognitionRow({
   classifiedName: string;
   confidence: number;
   rawSimilarity?: number;
-  tagIds: number[];
   tagPaths: string[][];
-  rejectedTagIds: number[];
-  onToggleTagIds: (tagIds: number[]) => void;
+  isRejected: boolean;
+  onToggle: () => void;
+  disabled?: boolean;
   tooltipAdd: string;
   tooltipRemove: string;
   onPreview: (image: PreviewImage) => void;
 }) {
-  const isRejected = tagIds.length > 0 && tagIds.every((tagId) => rejectedTagIds.includes(tagId));
   const tResult = useTranslations("TaggingResultDisplay");
   const t = useTranslations("Tagging.Review");
 
@@ -259,25 +249,25 @@ function FeatureRecognitionRow({
           className="w-[60px] bg-current/20 [&>[data-slot=progress-indicator]]:bg-current"
         />
         <span className="w-8 text-right text-[10px]">{confidence}%</span>
-        {tagIds.length > 0 ? (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="size-3 bg-transparent text-basic-5 hover:bg-transparent hover:text-current"
-                  onClick={() => onToggleTagIds(tagIds)}
-                >
-                  {isRejected ? <CheckIcon className="size-3" /> : <XIcon className="size-3" />}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{isRejected ? tooltipAdd : tooltipRemove}</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        ) : null}
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="size-3 bg-transparent text-basic-5 hover:bg-transparent hover:text-current"
+                aria-label={isRejected ? tooltipAdd : tooltipRemove}
+                disabled={disabled}
+                onClick={onToggle}
+              >
+                {isRejected ? <CheckIcon className="size-3" /> : <XIcon className="size-3" />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{isRejected ? tooltipAdd : tooltipRemove}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
     </div>
   );
@@ -335,10 +325,11 @@ export function ReviewItem({
       ),
     ),
   );
-  const [rejectedBrandItems, setRejectedBrandItems] = useState<number[]>([]);
-  const [rejectedIpItems, setRejectedIpItems] = useState<number[]>([]);
-  const [rejectedProductItems, setRejectedProductItems] = useState<number[]>([]);
-  const [rejectedPersonItems, setRejectedPersonItems] = useState<number[]>([]);
+  // Features can have no linked tags, so track their selection by feature ID.
+  const [rejectedBrandIds, setRejectedBrandIds] = useState<string[]>([]);
+  const [rejectedIpIds, setRejectedIpIds] = useState<string[]>([]);
+  const [rejectedProductIds, setRejectedProductIds] = useState<string[]>([]);
+  const [rejectedPersonIds, setRejectedPersonIds] = useState<string[]>([]);
   const [previewImage, setPreviewImage] = useState<PreviewImage | null>(null);
   // 历史打标记录默认折叠：只展示最新一次，避免过往错误结果一直挂在页面上
   const [showHistory, setShowHistory] = useState(false);
@@ -360,12 +351,27 @@ export function ReviewItem({
   const availableMuseFeatureIdentifierIds = useMemo(
     () =>
       new Set([
-        ...(featureLibraryFeatures.featureBrand ? availableFeatureIds.brand : []),
-        ...(featureLibraryFeatures.featureIp ? availableFeatureIds.ip : []),
-        ...(featureLibraryFeatures.featureProduct ? availableFeatureIds.product : []),
-        ...(featureLibraryFeatures.featurePerson ? availableFeatureIds.person : []),
+        ...(featureLibraryFeatures.featureBrand
+          ? availableFeatureIds.brand.filter((id) => !rejectedBrandIds.includes(id))
+          : []),
+        ...(featureLibraryFeatures.featureIp
+          ? availableFeatureIds.ip.filter((id) => !rejectedIpIds.includes(id))
+          : []),
+        ...(featureLibraryFeatures.featureProduct
+          ? availableFeatureIds.product.filter((id) => !rejectedProductIds.includes(id))
+          : []),
+        ...(featureLibraryFeatures.featurePerson
+          ? availableFeatureIds.person.filter((id) => !rejectedPersonIds.includes(id))
+          : []),
       ]),
-    [availableFeatureIds, featureLibraryFeatures],
+    [
+      availableFeatureIds,
+      featureLibraryFeatures,
+      rejectedBrandIds,
+      rejectedIpIds,
+      rejectedProductIds,
+      rejectedPersonIds,
+    ],
   );
 
   const finalBatch = useMemo(() => {
@@ -460,14 +466,13 @@ export function ReviewItem({
             !brandRecommendation?.bestMatch ||
             !meetsFeatureConfidenceThreshold("brand", brandRecommendation.bestMatch.confidence) ||
             !availableFeatureIdSets.brand.has(brandRecommendation.bestMatch.assetLogoId) ||
+            rejectedBrandIds.includes(brandRecommendation.bestMatch.assetLogoId) ||
             !brandRecommendation.recommendedTags
           ) {
             return [];
           }
 
-          return brandRecommendation.recommendedTags
-            .map((tag) => tag.assetTagId)
-            .filter((tagId) => !rejectedBrandItems.includes(tagId));
+          return brandRecommendation.recommendedTags.map((tag) => tag.assetTagId);
         }),
       ),
     );
@@ -475,7 +480,7 @@ export function ReviewItem({
     availableFeatureIdSets,
     brandRecommendationsByQueueId,
     featureLibraryFeatures.featureBrand,
-    rejectedBrandItems,
+    rejectedBrandIds,
   ]);
   const ipTagIds = useMemo(() => {
     if (!featureLibraryFeatures.featureIp) return [];
@@ -486,14 +491,13 @@ export function ReviewItem({
             !ipRecommendation?.bestMatch ||
             !meetsFeatureConfidenceThreshold("ip", ipRecommendation.bestMatch.confidence) ||
             !availableFeatureIdSets.ip.has(ipRecommendation.bestMatch.assetIpId) ||
+            rejectedIpIds.includes(ipRecommendation.bestMatch.assetIpId) ||
             !ipRecommendation.recommendedTags
           ) {
             return [];
           }
 
-          return ipRecommendation.recommendedTags
-            .map((tag) => tag.assetTagId)
-            .filter((tagId) => !rejectedIpItems.includes(tagId));
+          return ipRecommendation.recommendedTags.map((tag) => tag.assetTagId);
         }),
       ),
     );
@@ -501,7 +505,7 @@ export function ReviewItem({
     availableFeatureIdSets,
     featureLibraryFeatures.featureIp,
     ipRecommendationsByQueueId,
-    rejectedIpItems,
+    rejectedIpIds,
   ]);
   const personTagIds = useMemo(() => {
     if (!featureLibraryFeatures.featurePerson) return [];
@@ -517,17 +521,14 @@ export function ReviewItem({
             if (
               !isReviewablePersonFace(face) ||
               !face.bestMatch ||
-              !availableFeatureIdSets.person.has(face.bestMatch.assetPersonId)
+              !availableFeatureIdSets.person.has(face.bestMatch.assetPersonId) ||
+              rejectedPersonIds.includes(face.bestMatch.assetPersonId)
             ) {
               continue;
             }
 
             for (const tag of face.bestMatch.recommendedTags ?? []) {
-              if (
-                Number.isInteger(tag.assetTagId) &&
-                tag.assetTagId > 0 &&
-                !rejectedPersonItems.includes(tag.assetTagId)
-              ) {
+              if (Number.isInteger(tag.assetTagId) && tag.assetTagId > 0) {
                 tagIds.push(tag.assetTagId);
               }
             }
@@ -541,7 +542,7 @@ export function ReviewItem({
     availableFeatureIdSets,
     featureLibraryFeatures.featurePerson,
     personRecommendationsByQueueId,
-    rejectedPersonItems,
+    rejectedPersonIds,
   ]);
   const productTagIds = useMemo(() => {
     if (!featureLibraryFeatures.featureProduct) return [];
@@ -555,14 +556,13 @@ export function ReviewItem({
               productRecommendation.bestMatch.confidence,
             ) ||
             !availableFeatureIdSets.product.has(productRecommendation.bestMatch.assetProductId) ||
+            rejectedProductIds.includes(productRecommendation.bestMatch.assetProductId) ||
             !productRecommendation.recommendedTags
           ) {
             return [];
           }
 
-          return productRecommendation.recommendedTags
-            .map((tag) => tag.assetTagId)
-            .filter((tagId) => !rejectedProductItems.includes(tagId));
+          return productRecommendation.recommendedTags.map((tag) => tag.assetTagId);
         }),
       ),
     );
@@ -570,7 +570,7 @@ export function ReviewItem({
     availableFeatureIdSets,
     featureLibraryFeatures.featureProduct,
     productRecommendationsByQueueId,
-    rejectedProductItems,
+    rejectedProductIds,
   ]);
 
   const museFeatureIdentifierIds = useMemo(() => {
@@ -586,42 +586,36 @@ export function ReviewItem({
       const brandTagIdsForQueue =
         br?.bestMatch &&
         meetsFeatureConfidenceThreshold("brand", br.bestMatch.confidence) &&
-        availableFeatureIdSets.brand.has(br.bestMatch.assetLogoId)
-          ? (br.recommendedTags
-              ?.map((t) => t.assetTagId)
-              .filter((id) => !rejectedBrandItems.includes(id)) ?? [])
+        availableFeatureIdSets.brand.has(br.bestMatch.assetLogoId) &&
+        !rejectedBrandIds.includes(br.bestMatch.assetLogoId)
+          ? (br.recommendedTags?.map((t) => t.assetTagId) ?? [])
           : [];
       const ipTagIdsForQueue =
         ir?.bestMatch &&
         meetsFeatureConfidenceThreshold("ip", ir.bestMatch.confidence) &&
-        availableFeatureIdSets.ip.has(ir.bestMatch.assetIpId)
-          ? (ir.recommendedTags
-              ?.map((t) => t.assetTagId)
-              .filter((id) => !rejectedIpItems.includes(id)) ?? [])
+        availableFeatureIdSets.ip.has(ir.bestMatch.assetIpId) &&
+        !rejectedIpIds.includes(ir.bestMatch.assetIpId)
+          ? (ir.recommendedTags?.map((t) => t.assetTagId) ?? [])
           : [];
       const productTagIdsForQueue =
         pr?.bestMatch &&
         meetsFeatureConfidenceThreshold("product", pr.bestMatch.confidence) &&
-        availableFeatureIdSets.product.has(pr.bestMatch.assetProductId)
-          ? (pr.recommendedTags
-              ?.map((t) => t.assetTagId)
-              .filter((id) => !rejectedProductItems.includes(id)) ?? [])
+        availableFeatureIdSets.product.has(pr.bestMatch.assetProductId) &&
+        !rejectedProductIds.includes(pr.bestMatch.assetProductId)
+          ? (pr.recommendedTags?.map((t) => t.assetTagId) ?? [])
           : [];
       const personTagIdsForQueue =
         per?.faces.flatMap((face) => {
           if (
             !isReviewablePersonFace(face) ||
             !face.bestMatch ||
-            !availableFeatureIdSets.person.has(face.bestMatch.assetPersonId)
+            !availableFeatureIdSets.person.has(face.bestMatch.assetPersonId) ||
+            rejectedPersonIds.includes(face.bestMatch.assetPersonId)
           ) {
             return [];
           }
 
-          return (
-            face.bestMatch.recommendedTags
-              ?.map((t) => t.assetTagId)
-              .filter((id) => !rejectedPersonItems.includes(id)) ?? []
-          );
+          return face.bestMatch.recommendedTags?.map((t) => t.assetTagId) ?? [];
         }) ?? [];
 
       for (const id of collectMuseFeatureIdentifierIdsForQueueItem({
@@ -650,10 +644,10 @@ export function ReviewItem({
     ipRecommendationsByQueueId,
     productRecommendationsByQueueId,
     personRecommendationsByQueueId,
-    rejectedBrandItems,
-    rejectedIpItems,
-    rejectedProductItems,
-    rejectedPersonItems,
+    rejectedBrandIds,
+    rejectedIpIds,
+    rejectedProductIds,
+    rejectedPersonIds,
   ]);
 
   // 点 x / 再点恢复：先乐观更新本地状态，同时把该标签在本素材下的所有审核项即时持久化为 rejected / pending，
@@ -1121,10 +1115,9 @@ export function ReviewItem({
                 classifiedName: string;
                 confidence: number;
                 rawSimilarity?: number;
-                tagIds: number[];
                 tagPaths: string[][];
-                rejectedTagIds: number[];
-                onToggleTagIds: (tagIds: number[]) => void;
+                isRejected: boolean;
+                onToggle: () => void;
               }[] = [];
 
               if (
@@ -1144,14 +1137,13 @@ export function ReviewItem({
                   featureTypeName: brandRecommendation.bestMatch.logoTypeName,
                   classifiedName: brandRecommendation.bestMatch.logoName,
                   confidence: normalizeFeatureConfidence(brandRecommendation.bestMatch.confidence),
-                  tagIds:
-                    brandRecommendation.bestMatch.recommendedTags?.map((tag) => tag.assetTagId) ??
-                    [],
                   tagPaths:
                     brandRecommendation.bestMatch.recommendedTags?.map((tag) => tag.tagPath) ?? [],
-                  rejectedTagIds: rejectedBrandItems,
-                  onToggleTagIds: (tagIds) =>
-                    setRejectedBrandItems((current) => toggleTagIds(current, tagIds)),
+                  isRejected: rejectedBrandIds.includes(brandRecommendation.bestMatch.assetLogoId),
+                  onToggle: () =>
+                    setRejectedBrandIds((current) =>
+                      toggleFeatureId(current, brandRecommendation.bestMatch!.assetLogoId),
+                    ),
                 });
               }
 
@@ -1169,13 +1161,13 @@ export function ReviewItem({
                   featureTypeName: ipRecommendation.bestMatch.ipTypeName,
                   classifiedName: ipRecommendation.bestMatch.ipName,
                   confidence: normalizeFeatureConfidence(ipRecommendation.bestMatch.confidence),
-                  tagIds:
-                    ipRecommendation.bestMatch.recommendedTags?.map((tag) => tag.assetTagId) ?? [],
                   tagPaths:
                     ipRecommendation.bestMatch.recommendedTags?.map((tag) => tag.tagPath) ?? [],
-                  rejectedTagIds: rejectedIpItems,
-                  onToggleTagIds: (tagIds) =>
-                    setRejectedIpItems((current) => toggleTagIds(current, tagIds)),
+                  isRejected: rejectedIpIds.includes(ipRecommendation.bestMatch.assetIpId),
+                  onToggle: () =>
+                    setRejectedIpIds((current) =>
+                      toggleFeatureId(current, ipRecommendation.bestMatch!.assetIpId),
+                    ),
                 });
               }
 
@@ -1198,15 +1190,16 @@ export function ReviewItem({
                   confidence: normalizeFeatureConfidence(
                     productRecommendation.bestMatch.confidence,
                   ),
-                  tagIds:
-                    productRecommendation.bestMatch.recommendedTags?.map((tag) => tag.assetTagId) ??
-                    [],
                   tagPaths:
                     productRecommendation.bestMatch.recommendedTags?.map((tag) => tag.tagPath) ??
                     [],
-                  rejectedTagIds: rejectedProductItems,
-                  onToggleTagIds: (tagIds) =>
-                    setRejectedProductItems((current) => toggleTagIds(current, tagIds)),
+                  isRejected: rejectedProductIds.includes(
+                    productRecommendation.bestMatch.assetProductId,
+                  ),
+                  onToggle: () =>
+                    setRejectedProductIds((current) =>
+                      toggleFeatureId(current, productRecommendation.bestMatch!.assetProductId),
+                    ),
                 });
               }
 
@@ -1248,11 +1241,12 @@ export function ReviewItem({
                     classifiedName: personDisplayName,
                     confidence: personSimilarityToConfidence(rawSimilarity),
                     rawSimilarity,
-                    tagIds: face.bestMatch.recommendedTags?.map((tag) => tag.assetTagId) ?? [],
                     tagPaths: face.bestMatch.recommendedTags?.map((tag) => tag.tagPath) ?? [],
-                    rejectedTagIds: rejectedPersonItems,
-                    onToggleTagIds: (tagIds) =>
-                      setRejectedPersonItems((current) => toggleTagIds(current, tagIds)),
+                    isRejected: rejectedPersonIds.includes(face.bestMatch.assetPersonId),
+                    onToggle: () =>
+                      setRejectedPersonIds((current) =>
+                        toggleFeatureId(current, face.bestMatch!.assetPersonId),
+                      ),
                   });
                 });
 
@@ -1290,10 +1284,10 @@ export function ReviewItem({
                           classifiedName={feature.classifiedName}
                           confidence={feature.confidence}
                           rawSimilarity={feature.rawSimilarity}
-                          tagIds={feature.tagIds}
                           tagPaths={feature.tagPaths}
-                          rejectedTagIds={feature.rejectedTagIds}
-                          onToggleTagIds={feature.onToggleTagIds}
+                          isRejected={feature.isRejected}
+                          onToggle={feature.onToggle}
+                          disabled={realLoading}
                           tooltipAdd={t("tooltipAdd")}
                           tooltipRemove={t("tooltipRemove")}
                           onPreview={setPreviewImage}
