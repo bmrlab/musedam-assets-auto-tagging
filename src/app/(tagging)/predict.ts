@@ -1090,7 +1090,17 @@ export async function predictRequiredGroupChoices({
       : fallbackChoice(parentId);
     if (tag) tags.push(tag);
   }
-  return tags;
+  return dedupeTagsWithScore(tags);
+}
+
+/** 按 leafTagId 去重，保留先出现的一条（模型结果在前、兜底结果在后）。 */
+export function dedupeTagsWithScore(tags: TagWithScore[]): TagWithScore[] {
+  const seen = new Set<number>();
+  return tags.filter((tag) => {
+    if (seen.has(tag.leafTagId)) return false;
+    seen.add(tag.leafTagId);
+    return true;
+  });
 }
 
 /**
@@ -1365,7 +1375,7 @@ ${sourceSections.join("\n\n")}
           `内容分析：${aiDescription || "无"}`,
         ].join("\n"),
       });
-      const tagsWithScore = [...required.tagsWithScore, ...forcedChoices];
+      const tagsWithScore = dedupeTagsWithScore([...required.tagsWithScore, ...forcedChoices]);
       const requiredGroupFallback =
         required.readmitted.length > 0 || forcedChoices.length > 0
           ? {

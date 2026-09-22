@@ -11,6 +11,7 @@ vi.mock("@/ai/provider", () => ({ llm: (name: string) => ({ name }) }));
 
 import {
   calculateTagScore,
+  dedupeTagsWithScore,
   ensureRequiredGroups,
   filterTagsWithScoreByRecognitionAccuracy,
   predictRequiredGroupChoices,
@@ -208,5 +209,59 @@ describe("predictRequiredGroupChoices", () => {
     });
     expect(failed.map((tag) => tag.leafTagId)).toEqual([201]);
     expect(failed[0].score).toBe(REQUIRED_FALLBACK_SCORE);
+  });
+
+  it("nested required groups: the same leaf chosen for both levels is only emitted once", async () => {
+    // 展示内容（必打）> 产品背景（必打）> 场景：两级都缺、模型两次都选"场景"时只出一条
+    const nestedTree: TagWithChildren[] = [
+      {
+        id: 500,
+        name: "展示内容",
+        extra: { requiredGroup: true },
+        children: [
+          {
+            id: 510,
+            name: "产品背景",
+            extra: { requiredGroup: true },
+            children: [
+              { id: 511, name: "场景", extra: {} },
+              { id: 512, name: "纯色", extra: {} },
+            ],
+          },
+        ],
+      },
+    ];
+    generateObjectMock.mockReset().mockResolvedValue({
+      object: {
+        choices: [
+          { parentId: 500, leafTagId: 511 },
+          { parentId: 510, leafTagId: 511 },
+        ],
+      },
+    });
+    const tags = await predictRequiredGroupChoices({
+      missing: [
+        { parentId: 500, parentPath: ["展示内容"] },
+        { parentId: 510, parentPath: ["展示内容", "产品背景"] },
+      ],
+      tagsTree: nestedTree,
+      assetSummary: "",
+      teamId: 1,
+    });
+    expect(tags.map((tag) => tag.leafTagId)).toEqual([511]);
+  });
+});
+
+describe("dedupeTagsWithScore", () => {
+  it("drops later duplicates by leafTagId and keeps the first occurrence", () => {
+    const tags = dedupeTagsWithScore([
+      scored(511, ["展示内容", "产品背景", "场景"], 80),
+      { ...scored(511, ["展示内容", "产品背景", "场景"], 50), origin: "requiredFallback" },
+      scored(202, ["渠道触点", "天猫"], 70),
+    ]);
+    expect(tags.map((tag) => [tag.leafTagId, tag.score])).toEqual([
+      [511, 80],
+      [202, 70],
+    ]);
   });
 });
