@@ -125,7 +125,7 @@
       "confirmDialog": {
         "title": "Prompt Operasi",
         "deleteDescription": "Apakah Anda yakin ingin menghapus \"{name}\"? Operasi ini tidak dapat dipulihkan, tag terkait yang sudah diterapkan tidak akan dihapus secara otomatis.",
-        "disableDescription": "Apakah Anda yakin ingin menonaktifkan \"{name}\"? Setelah dinonaktifkan, aset yang baru diunggah tidak akan secara otomatis mengenali entri ini dan menerapkan tag terkait. Aset yang sudah ditandai tidak akan terpengaruh.",
+        "disableDescription": "Apakah Anda yakin ingin menonaktifkan \"{name}\"? Setelah dinonaktifkan, aset yang baru diunggah tidak akan secara otomatis mengenali entri ini dan menerapkan tag terkait.",
         "confirmDelete": "Konfirmasi Hapus",
         "confirmDisable": "Konfirmasi Nonaktifkan",
         "cancel": "Batal"
@@ -136,7 +136,7 @@
         "enableTitle": "Prompt Operasi",
         "enableDescription": "Apakah Anda yakin ingin mengaktifkan {count} entri yang dipilih? Setelah diaktifkan, akan berpartisipasi dalam pengenalan dan pelabelan AI otomatis.",
         "disableTitle": "Prompt Operasi",
-        "disableDescription": "Apakah Anda yakin ingin menonaktifkan {count} entri yang dipilih? Setelah dinonaktifkan, aset baru yang diunggah tidak akan secara otomatis mengenali entri ini dan menerapkan tag terkait. Aset yang sudah ditandai tidak akan terpengaruh.",
+        "disableDescription": "Apakah Anda yakin ingin menonaktifkan {count} entri yang dipilih? Setelah dinonaktifkan, aset baru yang diunggah tidak akan secara otomatis mengenali entri ini dan menerapkan tag terkait.",
         "confirmEnable": "Konfirmasi Aktifkan",
         "confirmDisable": "Konfirmasi Nonaktifkan",
         "cancel": "Batal"
@@ -409,7 +409,7 @@
       "confirmDialog": {
         "title": "Konfirmasi Tindakan",
         "deleteDescription": "Apakah Anda yakin ingin menghapus \"{name}\"? Tindakan ini tidak dapat dibatalkan, dan tag terkait tidak akan dihapus secara otomatis.",
-        "disableDescription": "Apakah Anda yakin ingin menonaktifkan \"{name}\"? Setelah dinonaktifkan, aset yang baru diunggah tidak akan otomatis mengenali entri ini dan menerapkan tag terkait. Aset yang sudah ditandai tidak akan terpengaruh.",
+        "disableDescription": "Apakah Anda yakin ingin menonaktifkan \"{name}\"? Setelah dinonaktifkan, aset yang baru diunggah tidak akan otomatis mengenali entri ini dan menerapkan tag terkait.",
         "confirmDelete": "Konfirmasi Hapus",
         "confirmDisable": "Konfirmasi Nonaktifkan",
         "cancel": "Batal"
@@ -420,7 +420,7 @@
         "enableTitle": "Konfirmasi Tindakan",
         "enableDescription": "Apakah Anda yakin ingin mengaktifkan {count} item yang dipilih? Setelah diaktifkan, mereka akan berpartisipasi dalam pengenalan dan pelabelan AI otomatis.",
         "disableTitle": "Konfirmasi Tindakan",
-        "disableDescription": "Apakah Anda yakin ingin menonaktifkan {count} item yang dipilih? Setelah dinonaktifkan, aset yang baru diunggah tidak akan otomatis mengenali entri ini dan menerapkan tag terkait. Aset yang sudah ditandai tidak akan terpengaruh.",
+        "disableDescription": "Apakah Anda yakin ingin menonaktifkan {count} item yang dipilih? Setelah dinonaktifkan, aset yang baru diunggah tidak akan otomatis mengenali entri ini dan menerapkan tag terkait.",
         "confirmEnable": "Konfirmasi Aktifkan",
         "confirmDisable": "Konfirmasi Nonaktifkan",
         "cancel": "Batal"
@@ -738,6 +738,7 @@
       "totalItems": "Total {total} item",
       "applySuccess": "Berhasil diterapkan",
       "applyFailed": "Gagal menerapkan",
+      "featureReviewChanged": "Detail fitur atau tag terkait telah berubah. Tinjau hasil yang diperbarui dan klik Tambah lagi.",
       "rejectConfirmTitle": "Prompt Operasi",
       "rejectConfirmDescription": "Konfirmasi untuk menghapus catatan pelabelan AI dari aset \"{assetName}\"? Operasi ini tidak dapat dipulihkan, harap lanjutkan dengan hati-hati.",
       "batchRejectConfirmDescription": "Konfirmasi untuk menghapus catatan pelabelan AI dari {assetNum} aset? Operasi ini tidak dapat dipulihkan, harap lanjutkan dengan hati-hati.",
@@ -1028,7 +1029,7 @@
       "confirmDialog": {
         "title": "Konfirmasi",
         "deleteDescription": "Hapus \"{name}\"? Tindakan ini tidak dapat dibatalkan, dan tag terkait yang ada tidak akan dihapus secara otomatis.",
-        "disableDescription": "Nonaktifkan \"{name}\"? Aset baru tidak akan lagi mengenali person ini secara otomatis, sementara hasil pelabelan yang sudah selesai tidak terpengaruh.",
+        "disableDescription": "Nonaktifkan \"{name}\"? Aset baru tidak akan lagi mengenali person ini secara otomatis.",
         "confirmDelete": "Hapus",
         "confirmDisable": "Nonaktifkan",
         "cancel": "Batal"
@@ -1039,7 +1040,7 @@
         "enableTitle": "Konfirmasi",
         "enableDescription": "Aktifkan {count} item yang dipilih? Mereka akan berpartisipasi dalam pengenalan dan pelabelan AI.",
         "disableTitle": "Konfirmasi",
-        "disableDescription": "Nonaktifkan {count} item yang dipilih? Aset baru tidak akan lagi mengenali mereka secara otomatis, sementara hasil pelabelan yang sudah selesai tidak terpengaruh.",
+        "disableDescription": "Nonaktifkan {count} item yang dipilih? Aset baru tidak akan lagi mengenali mereka secara otomatis.",
         "confirmEnable": "Aktifkan",
         "confirmDisable": "Nonaktifkan",
         "cancel": "Batal"
@@ -1285,7 +1286,7 @@
       "confirmDialog": {
         "title": "Konfirmasi Tindakan",
         "deleteDescription": "Apakah Anda yakin ingin menghapus \"{name}\"? Tindakan ini tidak dapat dibatalkan, dan tag terkait tidak akan dihapus secara otomatis.",
-        "disableDescription": "Apakah Anda yakin ingin menonaktifkan \"{name}\"? Setelah dinonaktifkan, aset yang baru diunggah tidak akan otomatis mengenali entri ini dan menerapkan tag terkait. Aset yang sudah ditandai tidak akan terpengaruh.",
+        "disableDescription": "Apakah Anda yakin ingin menonaktifkan \"{name}\"? Setelah dinonaktifkan, aset yang baru diunggah tidak akan otomatis mengenali entri ini dan menerapkan tag terkait.",
         "confirmDelete": "Konfirmasi Hapus",
         "confirmDisable": "Konfirmasi Nonaktifkan",
         "cancel": "Batal"
@@ -1296,7 +1297,7 @@
         "enableTitle": "Konfirmasi Tindakan",
         "enableDescription": "Apakah Anda yakin ingin mengaktifkan {count} item yang dipilih? Setelah diaktifkan, mereka akan berpartisipasi dalam pengenalan dan pelabelan AI otomatis.",
         "disableTitle": "Konfirmasi Tindakan",
-        "disableDescription": "Apakah Anda yakin ingin menonaktifkan {count} item yang dipilih? Setelah dinonaktifkan, aset yang baru diunggah tidak akan otomatis mengenali entri ini dan menerapkan tag terkait. Aset yang sudah ditandai tidak akan terpengaruh.",
+        "disableDescription": "Apakah Anda yakin ingin menonaktifkan {count} item yang dipilih? Setelah dinonaktifkan, aset yang baru diunggah tidak akan otomatis mengenali entri ini dan menerapkan tag terkait.",
         "confirmEnable": "Konfirmasi Aktifkan",
         "confirmDisable": "Konfirmasi Nonaktifkan",
         "cancel": "Batal"

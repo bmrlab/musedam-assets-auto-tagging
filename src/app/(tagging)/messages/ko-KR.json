@@ -101,6 +101,7 @@
       "allStatuses": "전체 상태",
       "allTime": "전체 시간",
       "applyFailed": "응용 실패",
+      "featureReviewChanged": "특징 정보 또는 관련 태그가 변경되었습니다. 새로고침된 결과를 확인하고 추가를 다시 클릭하세요.",
       "applySuccess": "응용 프로그램 성공",
       "approved": "채택됨",
       "assetDeleted": "素材이 삭제되었습니다",
@@ -364,7 +365,7 @@
       "confirmDialog": {
         "title": "작업 확인",
         "deleteDescription": "\"{name}\"을(를) 삭제하시겠습니까? 이 작업은 취소할 수 없으며 연결된 태그는 자동으로 제거되지 않습니다.",
-        "disableDescription": "\"{name}\"을(를) 비활성화하시겠습니까? 비활성화 후 새로 업로드된 자산은 이 항목을 자동으로 인식하지 않고 연결된 태그를 적용하지 않습니다. 이미 태그가 지정된 자산은 영향을 받지 않습니다.",
+        "disableDescription": "\"{name}\"을(를) 비활성화하시겠습니까? 비활성화 후 새로 업로드된 자산은 이 항목을 자동으로 인식하지 않고 연결된 태그를 적용하지 않습니다.",
         "confirmDelete": "삭제 확인",
         "confirmDisable": "비활성화 확인",
         "cancel": "취소"
@@ -375,7 +376,7 @@
         "enableTitle": "작업 확인",
         "enableDescription": "선택한 {count}개 항목을 활성화하시겠습니까? 활성화되면 AI 자동 인식 및 태깅에 참여합니다.",
         "disableTitle": "작업 확인",
-        "disableDescription": "선택한 {count}개 항목을 비활성화하시겠습니까? 비활성화 후 새로 업로드된 자산은 이러한 항목을 자동으로 인식하지 않고 연결된 태그를 적용하지 않습니다. 이미 태그가 지정된 자산은 영향을 받지 않습니다.",
+        "disableDescription": "선택한 {count}개 항목을 비활성화하시겠습니까? 비활성화 후 새로 업로드된 자산은 이러한 항목을 자동으로 인식하지 않고 연결된 태그를 적용하지 않습니다.",
         "confirmEnable": "활성화 확인",
         "confirmDisable": "비활성화 확인",
         "cancel": "취소"
@@ -778,7 +779,7 @@
       "confirmDialog": {
         "title": "작업 확인",
         "deleteDescription": "\"{name}\"을(를) 삭제하시겠습니까? 이 작업은 취소할 수 없으며 연결된 태그는 자동으로 제거되지 않습니다.",
-        "disableDescription": "\"{name}\"을(를) 비활성화하시겠습니까? 비활성화 후 새로 업로드된 자산은 이 항목을 자동으로 인식하지 않고 연결된 태그를 적용하지 않습니다. 이미 태그가 지정된 자산은 영향을 받지 않습니다.",
+        "disableDescription": "\"{name}\"을(를) 비활성화하시겠습니까? 비활성화 후 새로 업로드된 자산은 이 항목을 자동으로 인식하지 않고 연결된 태그를 적용하지 않습니다.",
         "confirmDelete": "삭제 확인",
         "confirmDisable": "비활성화 확인",
         "cancel": "취소"
@@ -789,7 +790,7 @@
         "enableTitle": "작업 확인",
         "enableDescription": "선택한 {count}개 항목을 활성화하시겠습니까? 활성화되면 AI 자동 인식 및 태깅에 참여합니다.",
         "disableTitle": "작업 확인",
-        "disableDescription": "선택한 {count}개 항목을 비활성화하시겠습니까? 비활성화 후 새로 업로드된 자산은 이러한 항목을 자동으로 인식하지 않고 연결된 태그를 적용하지 않습니다. 이미 태그가 지정된 자산은 영향을 받지 않습니다.",
+        "disableDescription": "선택한 {count}개 항목을 비활성화하시겠습니까? 비활성화 후 새로 업로드된 자산은 이러한 항목을 자동으로 인식하지 않고 연결된 태그를 적용하지 않습니다.",
         "confirmEnable": "활성화 확인",
         "confirmDisable": "비활성화 확인",
         "cancel": "취소"
@@ -1026,7 +1027,7 @@
       "confirmDialog": {
         "title": "작업 알림",
         "deleteDescription": "「{name}」을(를) 삭제하시겠습니까? 삭제 후에는 복구할 수 없으며, 이미 적용된 연결된 태그는 자동으로 제거되지 않습니다.",
-        "disableDescription": "「{name}」을(를) 비활성화하시겠습니까? 비활성화 후에는 새로 업로드된 콘텐츠에서 해당 인물이 자동으로 인식되지 않으며 연결된 태그가 적용되지 않습니다. 이미 완료된 태깅 결과는 영향을 받지 않습니다.",
+        "disableDescription": "「{name}」을(를) 비활성화하시겠습니까? 비활성화 후에는 새로 업로드된 콘텐츠에서 해당 인물이 자동으로 인식되지 않으며 연결된 태그가 적용되지 않습니다.",
         "confirmDelete": "삭제 확인",
         "confirmDisable": "비활성화 확인",
         "cancel": "취소"
@@ -1037,7 +1038,7 @@
         "enableTitle": "작업 알림",
         "enableDescription": "선택한 {count}개 항목을 활성화하시겠습니까? 활성화 후 AI 자동 인식 및 태깅에 참여합니다",
         "disableTitle": "작업 알림",
-        "disableDescription": "선택한 {count}개 항목을 비활성화하시겠습니까? 비활성화 후에는 새로 업로드된 콘텐츠에서 해당 인물이 자동으로 인식되지 않으며, 이미 완료된 태깅 결과는 영향을 받지 않습니다.",
+        "disableDescription": "선택한 {count}개 항목을 비활성화하시겠습니까? 비활성화 후에는 새로 업로드된 콘텐츠에서 해당 인물이 자동으로 인식되지 않습니다.",
         "confirmEnable": "활성화 확인",
         "confirmDisable": "비활성화 확인",
         "cancel": "취소"
@@ -1283,7 +1284,7 @@
       "confirmDialog": {
         "title": "작업 알림",
         "deleteDescription": "「{name}」을(를) 삭제하시겠습니까? 삭제 후에는 복구할 수 없으며, 이미 적용된 연결된 태그는 자동으로 제거되지 않습니다.",
-        "disableDescription": "「{name}」을(를) 비활성화하시겠습니까? 비활성화 후에는 새로 업로드된 콘텐츠에서 해당 상품이 자동으로 인식되지 않으며 연결된 태그가 적용되지 않습니다. 이미 완료된 태깅 결과는 영향을 받지 않습니다.",
+        "disableDescription": "「{name}」을(를) 비활성화하시겠습니까? 비활성화 후에는 새로 업로드된 콘텐츠에서 해당 상품이 자동으로 인식되지 않으며 연결된 태그가 적용되지 않습니다.",
         "confirmDelete": "삭제 확인",
         "confirmDisable": "비활성화 확인",
         "cancel": "취소"
@@ -1294,7 +1295,7 @@
         "enableTitle": "작업 알림",
         "enableDescription": "선택한 {count}개 항목을 활성화하시겠습니까? 활성화 후 AI 자동 인식 및 태깅에 참여합니다",
         "disableTitle": "작업 알림",
-        "disableDescription": "선택한 {count}개 항목을 비활성화하시겠습니까? 비활성화 후에는 새로 업로드된 콘텐츠에서 해당 상품이 자동으로 인식되지 않으며, 이미 완료된 태깅 결과는 영향을 받지 않습니다.",
+        "disableDescription": "선택한 {count}개 항목을 비활성화하시겠습니까? 비활성화 후에는 새로 업로드된 콘텐츠에서 해당 상품이 자동으로 인식되지 않습니다.",
         "confirmEnable": "활성화 확인",
         "confirmDisable": "비활성화 확인",
         "cancel": "취소"

@@ -113,7 +113,7 @@
       "confirmDialog": {
         "title": "Action Confirmation",
         "deleteDescription": "Are you sure you want to delete \"{name}\"? This action cannot be undone, and linked tags will not be automatically removed.",
-        "disableDescription": "Are you sure you want to disable \"{name}\"? After disabling, newly uploaded assets will not automatically recognize this entry and apply linked tags. Already tagged assets will not be affected.",
+        "disableDescription": "Are you sure you want to disable \"{name}\"? After disabling, newly uploaded assets will not automatically recognize this entry and apply linked tags.",
         "confirmDelete": "Confirm Delete",
         "confirmDisable": "Confirm Disable",
         "cancel": "Cancel"
@@ -124,7 +124,7 @@
         "enableTitle": "Action Confirmation",
         "enableDescription": "Are you sure you want to enable the selected {count} items? Once enabled, they will participate in AI auto-recognition and tagging.",
         "disableTitle": "Action Confirmation",
-        "disableDescription": "Are you sure you want to disable the selected {count} items? After disabling, newly uploaded assets will not automatically recognize these entries and apply linked tags. Already tagged assets will not be affected.",
+        "disableDescription": "Are you sure you want to disable the selected {count} items? After disabling, newly uploaded assets will not automatically recognize these entries and apply linked tags.",
         "confirmEnable": "Confirm Enable",
         "confirmDisable": "Confirm Disable",
         "cancel": "Cancel"
@@ -409,7 +409,7 @@
       "confirmDialog": {
         "title": "Action Confirmation",
         "deleteDescription": "Are you sure you want to delete \"{name}\"? This action cannot be undone, and linked tags will not be automatically removed.",
-        "disableDescription": "Are you sure you want to disable \"{name}\"? After disabling, newly uploaded assets will not automatically recognize this entry and apply linked tags. Already tagged assets will not be affected.",
+        "disableDescription": "Are you sure you want to disable \"{name}\"? After disabling, newly uploaded assets will not automatically recognize this entry and apply linked tags.",
         "confirmDelete": "Confirm Delete",
         "confirmDisable": "Confirm Disable",
         "cancel": "Cancel"
@@ -420,7 +420,7 @@
         "enableTitle": "Action Confirmation",
         "enableDescription": "Are you sure you want to enable the selected {count} items? Once enabled, they will participate in AI auto-recognition and tagging.",
         "disableTitle": "Action Confirmation",
-        "disableDescription": "Are you sure you want to disable the selected {count} items? After disabling, newly uploaded assets will not automatically recognize these entries and apply linked tags. Already tagged assets will not be affected.",
+        "disableDescription": "Are you sure you want to disable the selected {count} items? After disabling, newly uploaded assets will not automatically recognize these entries and apply linked tags.",
         "confirmEnable": "Confirm Enable",
         "confirmDisable": "Confirm Disable",
         "cancel": "Cancel"
@@ -774,6 +774,7 @@
       "totalItems": "Total {total} items",
       "applySuccess": "Applied successfully",
       "applyFailed": "Apply failed",
+      "featureReviewChanged": "Feature details or related tags have changed. Review the refreshed results and click Add again.",
       "rejectConfirmTitle": "Operation Prompt",
       "rejectConfirmDescription": "Confirm to delete the AI tagging record of the asset \"{assetName}\"? This operation cannot be recovered, please proceed with caution.",
       "batchRejectConfirmDescription": "Confirm to delete the AI tagging record of {assetNum} assets? This operation cannot be recovered, please proceed with caution.",
@@ -1028,7 +1029,7 @@
       "confirmDialog": {
         "title": "Confirmation",
         "deleteDescription": "Delete \"{name}\"? This cannot be undone, and existing linked tags will not be removed automatically.",
-        "disableDescription": "Disable \"{name}\"? New assets will no longer recognize this person automatically, while completed tagging results are unaffected.",
+        "disableDescription": "Disable \"{name}\"? New assets will no longer recognize this person automatically.",
         "confirmDelete": "Delete",
         "confirmDisable": "Disable",
         "cancel": "Cancel"
@@ -1039,7 +1040,7 @@
         "enableTitle": "Confirmation",
         "enableDescription": "Enable the selected {count} items? They will participate in AI recognition and tagging.",
         "disableTitle": "Confirmation",
-        "disableDescription": "Disable the selected {count} items? New assets will no longer recognize them automatically, while completed tagging results are unaffected.",
+        "disableDescription": "Disable the selected {count} items? New assets will no longer recognize them automatically.",
         "confirmEnable": "Enable",
         "confirmDisable": "Disable",
         "cancel": "Cancel"
@@ -1285,7 +1286,7 @@
       "confirmDialog": {
         "title": "Action Confirmation",
         "deleteDescription": "Are you sure you want to delete \"{name}\"? This action cannot be undone, and linked tags will not be automatically removed.",
-        "disableDescription": "Are you sure you want to disable \"{name}\"? After disabling, newly uploaded assets will not automatically recognize this entry and apply linked tags. Already tagged assets will not be affected.",
+        "disableDescription": "Are you sure you want to disable \"{name}\"? After disabling, newly uploaded assets will not automatically recognize this entry and apply linked tags.",
         "confirmDelete": "Confirm Delete",
         "confirmDisable": "Confirm Disable",
         "cancel": "Cancel"
@@ -1296,7 +1297,7 @@
         "enableTitle": "Action Confirmation",
         "enableDescription": "Are you sure you want to enable the selected {count} items? Once enabled, they will participate in AI auto-recognition and tagging.",
         "disableTitle": "Action Confirmation",
-        "disableDescription": "Are you sure you want to disable the selected {count} items? After disabling, newly uploaded assets will not automatically recognize these entries and apply linked tags. Already tagged assets will not be affected.",
+        "disableDescription": "Are you sure you want to disable the selected {count} items? After disabling, newly uploaded assets will not automatically recognize these entries and apply linked tags.",
         "confirmEnable": "Confirm Enable",
         "confirmDisable": "Confirm Disable",
         "cancel": "Cancel"

@@ -125,7 +125,7 @@
       "confirmDialog": {
         "title": "Thông báo thao tác",
         "deleteDescription": "Bạn có chắc chắn muốn xóa «{name}» không? Không thể khôi phục sau khi xóa, các thẻ liên kết đã gắn sẽ không tự động bị xóa.",
-        "disableDescription": "Bạn có chắc chắn muốn vô hiệu hóa «{name}» không? Sau khi vô hiệu hóa, tài sản mới tải lên sẽ không tự động nhận diện mục này và gắn thẻ liên kết. Tài sản đã gắn thẻ sẽ không bị ảnh hưởng.",
+        "disableDescription": "Bạn có chắc chắn muốn vô hiệu hóa «{name}» không? Sau khi vô hiệu hóa, tài sản mới tải lên sẽ không tự động nhận diện mục này và gắn thẻ liên kết.",
         "confirmDelete": "Xác nhận xóa",
         "confirmDisable": "Xác nhận vô hiệu hóa",
         "cancel": "Hủy"
@@ -136,7 +136,7 @@
         "enableTitle": "Thông báo thao tác",
         "enableDescription": "Bạn có chắc chắn muốn kích hoạt {count} mục đã chọn không? Sau khi kích hoạt, chúng sẽ tham gia vào nhận diện và gắn thẻ AI tự động.",
         "disableTitle": "Thông báo thao tác",
-        "disableDescription": "Bạn có chắc chắn muốn vô hiệu hóa {count} mục đã chọn không? Sau khi vô hiệu hóa, tài sản mới tải lên sẽ không tự động nhận diện các mục này và gắn thẻ liên kết. Tài sản đã gắn thẻ sẽ không bị ảnh hưởng.",
+        "disableDescription": "Bạn có chắc chắn muốn vô hiệu hóa {count} mục đã chọn không? Sau khi vô hiệu hóa, tài sản mới tải lên sẽ không tự động nhận diện các mục này và gắn thẻ liên kết.",
         "confirmEnable": "Xác nhận kích hoạt",
         "confirmDisable": "Xác nhận vô hiệu hóa",
         "cancel": "Hủy"
@@ -409,7 +409,7 @@
       "confirmDialog": {
         "title": "Xác nhận hành động",
         "deleteDescription": "Bạn có chắc chắn muốn xóa \"{name}\" không? Thao tác này không thể hoàn tác, và các thẻ liên kết sẽ không tự động bị xóa.",
-        "disableDescription": "Bạn có chắc chắn muốn tắt \"{name}\" không? Sau khi tắt, tài sản tải lên mới sẽ không tự động nhận diện mục này và áp dụng các thẻ liên kết. Tài sản đã gắn thẻ sẽ không bị ảnh hưởng.",
+        "disableDescription": "Bạn có chắc chắn muốn tắt \"{name}\" không? Sau khi tắt, tài sản tải lên mới sẽ không tự động nhận diện mục này và áp dụng các thẻ liên kết.",
         "confirmDelete": "Xác nhận xóa",
         "confirmDisable": "Xác nhận tắt",
         "cancel": "Hủy"
@@ -420,7 +420,7 @@
         "enableTitle": "Xác nhận hành động",
         "enableDescription": "Bạn có chắc chắn muốn bật {count} mục đã chọn không? Sau khi bật, chúng sẽ tham gia vào nhận diện và gắn thẻ AI tự động.",
         "disableTitle": "Xác nhận hành động",
-        "disableDescription": "Bạn có chắc chắn muốn tắt {count} mục đã chọn không? Sau khi tắt, tài sản tải lên mới sẽ không tự động nhận diện các mục này và áp dụng các thẻ liên kết. Tài sản đã gắn thẻ sẽ không bị ảnh hưởng.",
+        "disableDescription": "Bạn có chắc chắn muốn tắt {count} mục đã chọn không? Sau khi tắt, tài sản tải lên mới sẽ không tự động nhận diện các mục này và áp dụng các thẻ liên kết.",
         "confirmEnable": "Xác nhận bật",
         "confirmDisable": "Xác nhận tắt",
         "cancel": "Hủy"
@@ -697,6 +697,7 @@
       "totalItems": "Tổng {total} mục",
       "applySuccess": "Áp dụng thành công",
       "applyFailed": "Áp dụng thất bại",
+      "featureReviewChanged": "Thông tin đặc trưng hoặc thẻ liên quan đã thay đổi. Hãy xem kết quả được cập nhật và nhấn Thêm lần nữa.",
       "rejectConfirmTitle": "Thông báo thao tác",
       "rejectConfirmDescription": "Xác nhận xóa bản ghi gắn thẻ AI của tài sản \"{assetName}\"? Thao tác này không thể hoàn tác, vui lòng cân nhắc.",
       "batchRejectConfirmDescription": "Xác nhận xóa bản ghi gắn thẻ AI của {assetNum} tài sản? Thao tác này không thể hoàn tác, vui lòng cân nhắc.",
@@ -1028,7 +1029,7 @@
       "confirmDialog": {
         "title": "Xác nhận",
         "deleteDescription": "Xóa \"{name}\"? Thao tác này không thể hoàn tác, và các thẻ liên kết hiện có sẽ không được tự động gỡ bỏ.",
-        "disableDescription": "Vô hiệu hóa \"{name}\"? Sau khi vô hiệu hóa, tài liệu mới tải lên sẽ không tự động nhận diện nhân vật này và gắn thẻ liên kết, trong khi kết quả gắn thẻ đã hoàn thành không bị ảnh hưởng.",
+        "disableDescription": "Vô hiệu hóa \"{name}\"? Sau khi vô hiệu hóa, tài liệu mới tải lên sẽ không tự động nhận diện nhân vật này và gắn thẻ liên kết.",
         "confirmDelete": "Xóa",
         "confirmDisable": "Vô hiệu hóa",
         "cancel": "Hủy"
@@ -1039,7 +1040,7 @@
         "enableTitle": "Xác nhận",
         "enableDescription": "Kích hoạt {count} mục đã chọn? Sau khi kích hoạt, chúng sẽ tham gia nhận diện và gắn thẻ AI.",
         "disableTitle": "Xác nhận",
-        "disableDescription": "Vô hiệu hóa {count} mục đã chọn? Sau khi vô hiệu hóa, tài liệu mới tải lên sẽ không tự động nhận diện các nhân vật này và gắn thẻ liên kết, trong khi kết quả gắn thẻ đã hoàn thành không bị ảnh hưởng.",
+        "disableDescription": "Vô hiệu hóa {count} mục đã chọn? Sau khi vô hiệu hóa, tài liệu mới tải lên sẽ không tự động nhận diện các nhân vật này và gắn thẻ liên kết.",
         "confirmEnable": "Kích hoạt",
         "confirmDisable": "Vô hiệu hóa",
         "cancel": "Hủy"
@@ -1285,7 +1286,7 @@
       "confirmDialog": {
         "title": "Thông báo thao tác",
         "deleteDescription": "Bạn có chắc chắn muốn xóa \"{name}\" không? Không thể khôi phục sau khi xóa, các thẻ liên kết đã gắn sẽ không tự động bị xóa.",
-        "disableDescription": "Bạn có chắc chắn muốn vô hiệu hóa \"{name}\" không? Sau khi vô hiệu hóa, tài sản mới tải lên sẽ không tự động nhận diện mục này và gắn thẻ liên kết. Tài sản đã gắn thẻ sẽ không bị ảnh hưởng.",
+        "disableDescription": "Bạn có chắc chắn muốn vô hiệu hóa \"{name}\" không? Sau khi vô hiệu hóa, tài sản mới tải lên sẽ không tự động nhận diện mục này và gắn thẻ liên kết.",
         "confirmDelete": "Xác nhận xóa",
         "confirmDisable": "Xác nhận vô hiệu hóa",
         "cancel": "Hủy"
@@ -1296,7 +1297,7 @@
         "enableTitle": "Thông báo thao tác",
         "enableDescription": "Bạn có chắc chắn muốn kích hoạt {count} mục đã chọn không? Sau khi kích hoạt, chúng sẽ tham gia vào nhận diện và gắn thẻ AI tự động.",
         "disableTitle": "Thông báo thao tác",
-        "disableDescription": "Bạn có chắc chắn muốn vô hiệu hóa {count} mục đã chọn không? Sau khi vô hiệu hóa, tài sản mới tải lên sẽ không tự động nhận diện các mục này và gắn thẻ liên kết. Tài sản đã gắn thẻ sẽ không bị ảnh hưởng.",
+        "disableDescription": "Bạn có chắc chắn muốn vô hiệu hóa {count} mục đã chọn không? Sau khi vô hiệu hóa, tài sản mới tải lên sẽ không tự động nhận diện các mục này và gắn thẻ liên kết.",
         "confirmEnable": "Xác nhận kích hoạt",
         "confirmDisable": "Xác nhận vô hiệu hóa",
         "cancel": "Hủy"

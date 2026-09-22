@@ -125,7 +125,7 @@
       "confirmDialog": {
         "title": "Potwierdzenie akcji",
         "deleteDescription": "Czy na pewno chcesz usunąć „{name}”? Tej operacji nie można cofnąć, a powiązane tagi nie zostaną automatycznie usunięte.",
-        "disableDescription": "Czy na pewno chcesz wyłączyć „{name}”? Po wyłączeniu nowo przesłane zasoby nie będą automatycznie rozpoznawać tego wpisu i stosować powiązanych tagów. Zasoby już otagowane nie będą dotknięte.",
+        "disableDescription": "Czy na pewno chcesz wyłączyć „{name}”? Po wyłączeniu nowo przesłane zasoby nie będą automatycznie rozpoznawać tego wpisu i stosować powiązanych tagów.",
         "confirmDelete": "Potwierdź usunięcie",
         "confirmDisable": "Potwierdź wyłączenie",
         "cancel": "Anuluj"
@@ -136,7 +136,7 @@
         "enableTitle": "Potwierdzenie akcji",
         "enableDescription": "Czy na pewno chcesz włączyć wybrane {count} pozycji? Po włączeniu wezmą udział w automatycznym rozpoznawaniu i tagowaniu AI.",
         "disableTitle": "Potwierdzenie akcji",
-        "disableDescription": "Czy na pewno chcesz wyłączyć wybrane {count} pozycji? Po wyłączeniu nowo przesłane zasoby nie będą automatycznie rozpoznawać tych wpisów i stosować powiązanych tagów. Zasoby już otagowane nie będą dotknięte.",
+        "disableDescription": "Czy na pewno chcesz wyłączyć wybrane {count} pozycji? Po wyłączeniu nowo przesłane zasoby nie będą automatycznie rozpoznawać tych wpisów i stosować powiązanych tagów.",
         "confirmEnable": "Potwierdź włączenie",
         "confirmDisable": "Potwierdź wyłączenie",
         "cancel": "Anuluj"
@@ -409,7 +409,7 @@
       "confirmDialog": {
         "title": "Potwierdzenie akcji",
         "deleteDescription": "Czy na pewno chcesz usunąć \"{name}\"? Tej operacji nie można cofnąć, a powiązane tagi nie zostaną automatycznie usunięte.",
-        "disableDescription": "Czy na pewno chcesz wyłączyć \"{name}\"? Po wyłączeniu nowo przesłane zasoby nie będą automatycznie rozpoznawać tego wpisu i stosować powiązanych tagów. Zasoby już otagowane nie będą dotknięte.",
+        "disableDescription": "Czy na pewno chcesz wyłączyć \"{name}\"? Po wyłączeniu nowo przesłane zasoby nie będą automatycznie rozpoznawać tego wpisu i stosować powiązanych tagów.",
         "confirmDelete": "Potwierdź usunięcie",
         "confirmDisable": "Potwierdź wyłączenie",
         "cancel": "Anuluj"
@@ -420,7 +420,7 @@
         "enableTitle": "Potwierdzenie akcji",
         "enableDescription": "Czy na pewno chcesz włączyć wybrane {count} pozycji? Po włączeniu wezmą udział w automatycznym rozpoznawaniu i tagowaniu AI.",
         "disableTitle": "Potwierdzenie akcji",
-        "disableDescription": "Czy na pewno chcesz wyłączyć wybrane {count} pozycji? Po wyłączeniu nowo przesłane zasoby nie będą automatycznie rozpoznawać tych wpisów i stosować powiązanych tagów. Zasoby już otagowane nie będą dotknięte.",
+        "disableDescription": "Czy na pewno chcesz wyłączyć wybrane {count} pozycji? Po wyłączeniu nowo przesłane zasoby nie będą automatycznie rozpoznawać tych wpisów i stosować powiązanych tagów.",
         "confirmEnable": "Potwierdź włączenie",
         "confirmDisable": "Potwierdź wyłączenie",
         "cancel": "Anuluj"
@@ -697,6 +697,7 @@
       "totalItems": "Łącznie {total} elementów",
       "applySuccess": "Zastosowano pomyślnie",
       "applyFailed": "Zastosowanie nie powiodło się",
+      "featureReviewChanged": "Szczegóły cechy lub powiązane tagi uległy zmianie. Sprawdź odświeżone wyniki i ponownie kliknij Dodaj.",
       "rejectConfirmTitle": "Monit operacji",
       "rejectConfirmDescription": "Potwierdź usunięcie rekordu tagowania AI zasobu \"{assetName}\"? Ta operacja nie może zostać przywrócona, postępuj ostrożnie.",
       "batchRejectConfirmDescription": "Potwierdź usunięcie rekordu tagowania AI {assetNum} zasobów? Ta operacja nie może zostać przywrócona, postępuj ostrożnie.",
@@ -1028,7 +1029,7 @@
       "confirmDialog": {
         "title": "Potwierdzenie",
         "deleteDescription": "Usunąć \"{name}\"? Tej operacji nie można cofnąć, a istniejące powiązane tagi nie zostaną automatycznie usunięte.",
-        "disableDescription": "Wyłączyć \"{name}\"? Nowe zasoby nie będą już rozpoznawać tej osoby automatycznie, podczas gdy zakończone wyniki tagowania pozostaną nienaruszone.",
+        "disableDescription": "Wyłączyć \"{name}\"? Nowe zasoby nie będą już rozpoznawać tej osoby automatycznie.",
         "confirmDelete": "Usuń",
         "confirmDisable": "Wyłącz",
         "cancel": "Anuluj"
@@ -1039,7 +1040,7 @@
         "enableTitle": "Potwierdzenie",
         "enableDescription": "Włączyć wybrane {count} pozycji? Wezmą udział w rozpoznawaniu AI i tagowaniu.",
         "disableTitle": "Potwierdzenie",
-        "disableDescription": "Wyłączyć wybrane {count} pozycji? Nowe zasoby nie będą już rozpoznawać ich automatycznie, podczas gdy zakończone wyniki tagowania pozostaną nienaruszone.",
+        "disableDescription": "Wyłączyć wybrane {count} pozycji? Nowe zasoby nie będą już rozpoznawać ich automatycznie.",
         "confirmEnable": "Włącz",
         "confirmDisable": "Wyłącz",
         "cancel": "Anuluj"
@@ -1285,7 +1286,7 @@
       "confirmDialog": {
         "title": "Potwierdzenie akcji",
         "deleteDescription": "Czy na pewno chcesz usunąć \"{name}\"? Tej operacji nie można cofnąć, a powiązane tagi nie zostaną automatycznie usunięte.",
-        "disableDescription": "Czy na pewno chcesz wyłączyć \"{name}\"? Po wyłączeniu nowo przesłane zasoby nie będą automatycznie rozpoznawać tego wpisu i stosować powiązanych tagów. Zasoby już otagowane nie będą dotknięte.",
+        "disableDescription": "Czy na pewno chcesz wyłączyć \"{name}\"? Po wyłączeniu nowo przesłane zasoby nie będą automatycznie rozpoznawać tego wpisu i stosować powiązanych tagów.",
         "confirmDelete": "Potwierdź usunięcie",
         "confirmDisable": "Potwierdź wyłączenie",
         "cancel": "Anuluj"
@@ -1296,7 +1297,7 @@
         "enableTitle": "Potwierdzenie akcji",
         "enableDescription": "Czy na pewno chcesz włączyć wybrane {count} pozycji? Po włączeniu wezmą udział w automatycznym rozpoznawaniu i tagowaniu AI.",
         "disableTitle": "Potwierdzenie akcji",
-        "disableDescription": "Czy na pewno chcesz wyłączyć wybrane {count} pozycji? Po wyłączeniu nowo przesłane zasoby nie będą automatycznie rozpoznawać tych wpisów i stosować powiązanych tagów. Zasoby już otagowane nie będą dotknięte.",
+        "disableDescription": "Czy na pewno chcesz wyłączyć wybrane {count} pozycji? Po wyłączeniu nowo przesłane zasoby nie będą automatycznie rozpoznawać tych wpisów i stosować powiązanych tagów.",
         "confirmEnable": "Potwierdź włączenie",
         "confirmDisable": "Potwierdź wyłączenie",
         "cancel": "Anuluj"

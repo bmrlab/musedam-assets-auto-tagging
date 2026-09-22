@@ -37,7 +37,6 @@ import {
   normalizeFeatureConfidence,
 } from "@/lib/tagging/feature-confidence";
 import { cn, formatSize } from "@/lib/utils";
-import { collectMuseFeatureIdentifierIdsForQueueItem } from "@/musedam/collect-muse-feature-identifier-ids";
 import type { MuseDAMMaterialFeatureSnapshot } from "@/musedam/query-features-by-materials-types";
 import {
   AssetObjectExtra,
@@ -56,6 +55,7 @@ import {
   setAuditItemsRejectedAction,
 } from "./actions";
 import { FeatureThumbnail } from "./components/FeatureThumbnail";
+import { FEATURE_REVIEW_CHANGED, featureKey, getFeatureReviewVersions } from "./feature-review";
 
 type PreviewImage = { src: string; alt: string };
 
@@ -153,12 +153,6 @@ function ExistingFeatureSnapshotRow({
       </div>
     </div>
   );
-}
-
-function toggleFeatureId(current: string[], featureId: string) {
-  return current.includes(featureId)
-    ? current.filter((id) => id !== featureId)
-    : [...current, featureId];
 }
 
 function FeatureRecognitionRow({
@@ -281,9 +275,13 @@ export function ReviewItem({
   onSuccess,
   CheckboxComponent,
   batchLoading,
+  rejectedFeatureKeys,
+  onToggleFeatureKey,
 }: AssetWithAuditItemsBatch & {
   CheckboxComponent: React.ReactNode;
   batchLoading?: boolean;
+  rejectedFeatureKeys: string[];
+  onToggleFeatureKey: (key: string) => void;
 }) {
   const t = useTranslations("Tagging.Review");
   const tResult = useTranslations("TaggingResultDisplay");
@@ -325,11 +323,6 @@ export function ReviewItem({
       ),
     ),
   );
-  // Features can have no linked tags, so track their selection by feature ID.
-  const [rejectedBrandIds, setRejectedBrandIds] = useState<string[]>([]);
-  const [rejectedIpIds, setRejectedIpIds] = useState<string[]>([]);
-  const [rejectedProductIds, setRejectedProductIds] = useState<string[]>([]);
-  const [rejectedPersonIds, setRejectedPersonIds] = useState<string[]>([]);
   const [previewImage, setPreviewImage] = useState<PreviewImage | null>(null);
   // 历史打标记录默认折叠：只展示最新一次，避免过往错误结果一直挂在页面上
   const [showHistory, setShowHistory] = useState(false);
@@ -348,32 +341,6 @@ export function ReviewItem({
     }),
     [availableFeatureIds, featureLibraryFeatures],
   );
-  const availableMuseFeatureIdentifierIds = useMemo(
-    () =>
-      new Set([
-        ...(featureLibraryFeatures.featureBrand
-          ? availableFeatureIds.brand.filter((id) => !rejectedBrandIds.includes(id))
-          : []),
-        ...(featureLibraryFeatures.featureIp
-          ? availableFeatureIds.ip.filter((id) => !rejectedIpIds.includes(id))
-          : []),
-        ...(featureLibraryFeatures.featureProduct
-          ? availableFeatureIds.product.filter((id) => !rejectedProductIds.includes(id))
-          : []),
-        ...(featureLibraryFeatures.featurePerson
-          ? availableFeatureIds.person.filter((id) => !rejectedPersonIds.includes(id))
-          : []),
-      ]),
-    [
-      availableFeatureIds,
-      featureLibraryFeatures,
-      rejectedBrandIds,
-      rejectedIpIds,
-      rejectedProductIds,
-      rejectedPersonIds,
-    ],
-  );
-
   const finalBatch = useMemo(() => {
     let hasDefaultBatch = false;
     return batch.filter((group) => {
@@ -457,198 +424,7 @@ export function ReviewItem({
     [finalBatch],
   );
 
-  const brandTagIds = useMemo(() => {
-    if (!featureLibraryFeatures.featureBrand) return [];
-    return Array.from(
-      new Set(
-        Array.from(brandRecommendationsByQueueId.values()).flatMap((brandRecommendation) => {
-          if (
-            !brandRecommendation?.bestMatch ||
-            !meetsFeatureConfidenceThreshold("brand", brandRecommendation.bestMatch.confidence) ||
-            !availableFeatureIdSets.brand.has(brandRecommendation.bestMatch.assetLogoId) ||
-            rejectedBrandIds.includes(brandRecommendation.bestMatch.assetLogoId) ||
-            !brandRecommendation.recommendedTags
-          ) {
-            return [];
-          }
-
-          return brandRecommendation.recommendedTags.map((tag) => tag.assetTagId);
-        }),
-      ),
-    );
-  }, [
-    availableFeatureIdSets,
-    brandRecommendationsByQueueId,
-    featureLibraryFeatures.featureBrand,
-    rejectedBrandIds,
-  ]);
-  const ipTagIds = useMemo(() => {
-    if (!featureLibraryFeatures.featureIp) return [];
-    return Array.from(
-      new Set(
-        Array.from(ipRecommendationsByQueueId.values()).flatMap((ipRecommendation) => {
-          if (
-            !ipRecommendation?.bestMatch ||
-            !meetsFeatureConfidenceThreshold("ip", ipRecommendation.bestMatch.confidence) ||
-            !availableFeatureIdSets.ip.has(ipRecommendation.bestMatch.assetIpId) ||
-            rejectedIpIds.includes(ipRecommendation.bestMatch.assetIpId) ||
-            !ipRecommendation.recommendedTags
-          ) {
-            return [];
-          }
-
-          return ipRecommendation.recommendedTags.map((tag) => tag.assetTagId);
-        }),
-      ),
-    );
-  }, [
-    availableFeatureIdSets,
-    featureLibraryFeatures.featureIp,
-    ipRecommendationsByQueueId,
-    rejectedIpIds,
-  ]);
-  const personTagIds = useMemo(() => {
-    if (!featureLibraryFeatures.featurePerson) return [];
-    return Array.from(
-      new Set(
-        Array.from(personRecommendationsByQueueId.values()).flatMap((personRecommendation) => {
-          if (!personRecommendation?.faces) {
-            return [];
-          }
-
-          const tagIds: number[] = [];
-          for (const face of personRecommendation.faces) {
-            if (
-              !isReviewablePersonFace(face) ||
-              !face.bestMatch ||
-              !availableFeatureIdSets.person.has(face.bestMatch.assetPersonId) ||
-              rejectedPersonIds.includes(face.bestMatch.assetPersonId)
-            ) {
-              continue;
-            }
-
-            for (const tag of face.bestMatch.recommendedTags ?? []) {
-              if (Number.isInteger(tag.assetTagId) && tag.assetTagId > 0) {
-                tagIds.push(tag.assetTagId);
-              }
-            }
-          }
-
-          return tagIds;
-        }),
-      ),
-    );
-  }, [
-    availableFeatureIdSets,
-    featureLibraryFeatures.featurePerson,
-    personRecommendationsByQueueId,
-    rejectedPersonIds,
-  ]);
-  const productTagIds = useMemo(() => {
-    if (!featureLibraryFeatures.featureProduct) return [];
-    return Array.from(
-      new Set(
-        Array.from(productRecommendationsByQueueId.values()).flatMap((productRecommendation) => {
-          if (
-            !productRecommendation?.bestMatch ||
-            !meetsFeatureConfidenceThreshold(
-              "product",
-              productRecommendation.bestMatch.confidence,
-            ) ||
-            !availableFeatureIdSets.product.has(productRecommendation.bestMatch.assetProductId) ||
-            rejectedProductIds.includes(productRecommendation.bestMatch.assetProductId) ||
-            !productRecommendation.recommendedTags
-          ) {
-            return [];
-          }
-
-          return productRecommendation.recommendedTags.map((tag) => tag.assetTagId);
-        }),
-      ),
-    );
-  }, [
-    availableFeatureIdSets,
-    featureLibraryFeatures.featureProduct,
-    productRecommendationsByQueueId,
-    rejectedProductIds,
-  ]);
-
-  const museFeatureIdentifierIds = useMemo(() => {
-    if (!hasEnabledFeatures) return [];
-
-    const ids = new Set<string>();
-    for (const { queueItem } of finalBatch) {
-      const br = brandRecommendationsByQueueId.get(queueItem.id);
-      const ir = ipRecommendationsByQueueId.get(queueItem.id);
-      const pr = productRecommendationsByQueueId.get(queueItem.id);
-      const per = personRecommendationsByQueueId.get(queueItem.id);
-
-      const brandTagIdsForQueue =
-        br?.bestMatch &&
-        meetsFeatureConfidenceThreshold("brand", br.bestMatch.confidence) &&
-        availableFeatureIdSets.brand.has(br.bestMatch.assetLogoId) &&
-        !rejectedBrandIds.includes(br.bestMatch.assetLogoId)
-          ? (br.recommendedTags?.map((t) => t.assetTagId) ?? [])
-          : [];
-      const ipTagIdsForQueue =
-        ir?.bestMatch &&
-        meetsFeatureConfidenceThreshold("ip", ir.bestMatch.confidence) &&
-        availableFeatureIdSets.ip.has(ir.bestMatch.assetIpId) &&
-        !rejectedIpIds.includes(ir.bestMatch.assetIpId)
-          ? (ir.recommendedTags?.map((t) => t.assetTagId) ?? [])
-          : [];
-      const productTagIdsForQueue =
-        pr?.bestMatch &&
-        meetsFeatureConfidenceThreshold("product", pr.bestMatch.confidence) &&
-        availableFeatureIdSets.product.has(pr.bestMatch.assetProductId) &&
-        !rejectedProductIds.includes(pr.bestMatch.assetProductId)
-          ? (pr.recommendedTags?.map((t) => t.assetTagId) ?? [])
-          : [];
-      const personTagIdsForQueue =
-        per?.faces.flatMap((face) => {
-          if (
-            !isReviewablePersonFace(face) ||
-            !face.bestMatch ||
-            !availableFeatureIdSets.person.has(face.bestMatch.assetPersonId) ||
-            rejectedPersonIds.includes(face.bestMatch.assetPersonId)
-          ) {
-            return [];
-          }
-
-          return face.bestMatch.recommendedTags?.map((t) => t.assetTagId) ?? [];
-        }) ?? [];
-
-      for (const id of collectMuseFeatureIdentifierIdsForQueueItem({
-        brandRecommendation: br ?? undefined,
-        ipRecommendation: ir ?? undefined,
-        productRecommendation: pr ?? undefined,
-        personRecommendation: per ?? undefined,
-        brandTagIds: brandTagIdsForQueue,
-        ipTagIds: ipTagIdsForQueue,
-        productTagIds: productTagIdsForQueue,
-        personTagIds: personTagIdsForQueue,
-        personMatchMode: "review",
-      })) {
-        if (availableMuseFeatureIdentifierIds.has(id)) {
-          ids.add(id);
-        }
-      }
-    }
-    return [...ids];
-  }, [
-    availableFeatureIdSets,
-    availableMuseFeatureIdentifierIds,
-    hasEnabledFeatures,
-    finalBatch,
-    brandRecommendationsByQueueId,
-    ipRecommendationsByQueueId,
-    productRecommendationsByQueueId,
-    personRecommendationsByQueueId,
-    rejectedBrandIds,
-    rejectedIpIds,
-    rejectedProductIds,
-    rejectedPersonIds,
-  ]);
+  const featureReviewVersions = useMemo(() => getFeatureReviewVersions(finalBatch), [finalBatch]);
 
   // 点 x / 再点恢复：先乐观更新本地状态，同时把该标签在本素材下的所有审核项即时持久化为 rejected / pending，
   // 这样顶部"批量应用"和刷新页面都能看到 x 的结果；失败则回滚本地状态。
@@ -706,13 +482,7 @@ export function ReviewItem({
 
       const allAuditItems = [...auditItems, ...filteredOutItems];
 
-      if (
-        !allAuditItems.length &&
-        brandTagIds.length === 0 &&
-        ipTagIds.length === 0 &&
-        productTagIds.length === 0 &&
-        personTagIds.length === 0
-      ) {
+      if (!allAuditItems.length) {
         toast.error(t("noCorrespondingTag"));
         setLoading(false);
         return;
@@ -722,15 +492,17 @@ export function ReviewItem({
         const result = await approveAuditItemsAction({
           assetSlug: assetObject.slug,
           auditItems: allAuditItems,
-          brandTagIds,
-          ipTagIds,
-          productTagIds,
-          personTagIds,
-          museFeatureIdentifierIds,
+          featureReviewVersions,
+          rejectedFeatureKeys,
           append,
         });
 
         if (!result.success) {
+          if (result.message === FEATURE_REVIEW_CHANGED) {
+            toast.warning(t("featureReviewChanged"));
+            onSuccess?.();
+            return;
+          }
           if (result.message === "Asset not found") {
             const rejectResult = await rejectAuditItemsAction({ assetSlug: assetObject.slug });
             if (rejectResult.success) {
@@ -759,13 +531,10 @@ export function ReviewItem({
     [
       assetObject.slug,
       auditItemsSet,
-      brandTagIds,
       filteredOutAuditItems,
-      ipTagIds,
-      museFeatureIdentifierIds,
+      featureReviewVersions,
+      rejectedFeatureKeys,
       onSuccess,
-      personTagIds,
-      productTagIds,
       rejectedItems,
       t,
     ],
@@ -850,11 +619,7 @@ export function ReviewItem({
         </div>
 
         <div className="flex gap-2">
-          {(hasPendingAuditItems ||
-            brandTagIds.length > 0 ||
-            ipTagIds.length > 0 ||
-            productTagIds.length > 0 ||
-            personTagIds.length > 0) && (
+          {hasPendingAuditItems && (
             <Button
               size="sm"
               disabled={realLoading}
@@ -1139,10 +904,12 @@ export function ReviewItem({
                   confidence: normalizeFeatureConfidence(brandRecommendation.bestMatch.confidence),
                   tagPaths:
                     brandRecommendation.bestMatch.recommendedTags?.map((tag) => tag.tagPath) ?? [],
-                  isRejected: rejectedBrandIds.includes(brandRecommendation.bestMatch.assetLogoId),
+                  isRejected: rejectedFeatureKeys.includes(
+                    featureKey("brand", brandRecommendation.bestMatch.assetLogoId),
+                  ),
                   onToggle: () =>
-                    setRejectedBrandIds((current) =>
-                      toggleFeatureId(current, brandRecommendation.bestMatch!.assetLogoId),
+                    onToggleFeatureKey(
+                      featureKey("brand", brandRecommendation.bestMatch!.assetLogoId),
                     ),
                 });
               }
@@ -1163,11 +930,11 @@ export function ReviewItem({
                   confidence: normalizeFeatureConfidence(ipRecommendation.bestMatch.confidence),
                   tagPaths:
                     ipRecommendation.bestMatch.recommendedTags?.map((tag) => tag.tagPath) ?? [],
-                  isRejected: rejectedIpIds.includes(ipRecommendation.bestMatch.assetIpId),
+                  isRejected: rejectedFeatureKeys.includes(
+                    featureKey("ip", ipRecommendation.bestMatch.assetIpId),
+                  ),
                   onToggle: () =>
-                    setRejectedIpIds((current) =>
-                      toggleFeatureId(current, ipRecommendation.bestMatch!.assetIpId),
-                    ),
+                    onToggleFeatureKey(featureKey("ip", ipRecommendation.bestMatch!.assetIpId)),
                 });
               }
 
@@ -1193,12 +960,12 @@ export function ReviewItem({
                   tagPaths:
                     productRecommendation.bestMatch.recommendedTags?.map((tag) => tag.tagPath) ??
                     [],
-                  isRejected: rejectedProductIds.includes(
-                    productRecommendation.bestMatch.assetProductId,
+                  isRejected: rejectedFeatureKeys.includes(
+                    featureKey("product", productRecommendation.bestMatch.assetProductId),
                   ),
                   onToggle: () =>
-                    setRejectedProductIds((current) =>
-                      toggleFeatureId(current, productRecommendation.bestMatch!.assetProductId),
+                    onToggleFeatureKey(
+                      featureKey("product", productRecommendation.bestMatch!.assetProductId),
                     ),
                 });
               }
@@ -1242,11 +1009,11 @@ export function ReviewItem({
                     confidence: personSimilarityToConfidence(rawSimilarity),
                     rawSimilarity,
                     tagPaths: face.bestMatch.recommendedTags?.map((tag) => tag.tagPath) ?? [],
-                    isRejected: rejectedPersonIds.includes(face.bestMatch.assetPersonId),
+                    isRejected: rejectedFeatureKeys.includes(
+                      featureKey("person", face.bestMatch.assetPersonId),
+                    ),
                     onToggle: () =>
-                      setRejectedPersonIds((current) =>
-                        toggleFeatureId(current, face.bestMatch!.assetPersonId),
-                      ),
+                      onToggleFeatureKey(featureKey("person", face.bestMatch!.assetPersonId)),
                   });
                 });
 
@@ -1287,7 +1054,7 @@ export function ReviewItem({
                           tagPaths={feature.tagPaths}
                           isRejected={feature.isRejected}
                           onToggle={feature.onToggle}
-                          disabled={realLoading}
+                          disabled={realLoading || !hasPendingAuditItems}
                           tooltipAdd={t("tooltipAdd")}
                           tooltipRemove={t("tooltipRemove")}
                           onPreview={setPreviewImage}

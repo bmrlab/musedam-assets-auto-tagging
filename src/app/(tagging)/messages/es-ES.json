@@ -101,6 +101,7 @@
       "allStatuses": "Todos los estados",
       "allTime": "Todo el tiempo",
       "applyFailed": "Aplicación fallida",
+      "featureReviewChanged": "Los detalles de la característica o las etiquetas relacionadas han cambiado. Revisa los resultados actualizados y pulsa Añadir de nuevo.",
       "applySuccess": "Aplicado correctamente",
       "approved": "Aprobado",
       "assetDeleted": "Recurso eliminado",
@@ -364,7 +365,7 @@
       "confirmDialog": {
         "title": "Confirmación de acción",
         "deleteDescription": "¿Está seguro de que desea eliminar \"{name}\"? Esta acción no se puede deshacer y las etiquetas vinculadas no se eliminarán automáticamente.",
-        "disableDescription": "¿Está seguro de que desea desactivar \"{name}\"? Una vez desactivada, los nuevos activos subidos no reconocerán automáticamente esta entrada ni aplicarán las etiquetas vinculadas. Los activos ya etiquetados no se verán afectados.",
+        "disableDescription": "¿Está seguro de que desea desactivar \"{name}\"? Una vez desactivada, los nuevos activos subidos no reconocerán automáticamente esta entrada ni aplicarán las etiquetas vinculadas.",
         "confirmDelete": "Confirmar eliminación",
         "confirmDisable": "Confirmar desactivación",
         "cancel": "Cancelar"
@@ -375,7 +376,7 @@
         "enableTitle": "Confirmación de acción",
         "enableDescription": "¿Está seguro de que desea activar los {count} elementos seleccionados? Una vez activados, participarán en el reconocimiento y etiquetado automático por IA.",
         "disableTitle": "Confirmación de acción",
-        "disableDescription": "¿Está seguro de que desea desactivar los {count} elementos seleccionados? Una vez desactivados, los nuevos activos subidos no reconocerán automáticamente estas entradas ni aplicarán las etiquetas vinculadas. Los activos ya etiquetados no se verán afectados.",
+        "disableDescription": "¿Está seguro de que desea desactivar los {count} elementos seleccionados? Una vez desactivados, los nuevos activos subidos no reconocerán automáticamente estas entradas ni aplicarán las etiquetas vinculadas.",
         "confirmEnable": "Confirmar activación",
         "confirmDisable": "Confirmar desactivación",
         "cancel": "Cancelar"
@@ -779,7 +780,7 @@
       "confirmDialog": {
         "title": "Confirmación de acción",
         "deleteDescription": "¿Está seguro de que desea eliminar \"{name}\"? Esta acción no se puede deshacer y las etiquetas vinculadas no se eliminarán automáticamente.",
-        "disableDescription": "¿Está seguro de que desea deshabilitar \"{name}\"? Después de deshabilitar, los nuevos activos subidos no reconocerán automáticamente esta entrada ni aplicarán las etiquetas vinculadas. Los activos ya etiquetados no se verán afectados.",
+        "disableDescription": "¿Está seguro de que desea deshabilitar \"{name}\"? Después de deshabilitar, los nuevos activos subidos no reconocerán automáticamente esta entrada ni aplicarán las etiquetas vinculadas.",
         "confirmDelete": "Confirmar eliminación",
         "confirmDisable": "Confirmar deshabilitación",
         "cancel": "Cancelar"
@@ -790,7 +791,7 @@
         "enableTitle": "Confirmación de acción",
         "enableDescription": "¿Está seguro de que desea habilitar los {count} elementos seleccionados? Una vez habilitados, participarán en el reconocimiento y etiquetado automático por IA.",
         "disableTitle": "Confirmación de acción",
-        "disableDescription": "¿Está seguro de que desea deshabilitar los {count} elementos seleccionados? Después de deshabilitar, los nuevos activos subidos no reconocerán automáticamente estas entradas ni aplicarán las etiquetas vinculadas. Los activos ya etiquetados no se verán afectados.",
+        "disableDescription": "¿Está seguro de que desea deshabilitar los {count} elementos seleccionados? Después de deshabilitar, los nuevos activos subidos no reconocerán automáticamente estas entradas ni aplicarán las etiquetas vinculadas.",
         "confirmEnable": "Confirmar habilitación",
         "confirmDisable": "Confirmar deshabilitación",
         "cancel": "Cancelar"
@@ -1028,7 +1029,7 @@
       "confirmDialog": {
         "title": "Confirmación",
         "deleteDescription": "¿Eliminar \"{name}\"? Esto no se puede deshacer, y las etiquetas vinculadas existentes no se eliminarán automáticamente.",
-        "disableDescription": "¿Deshabilitar \"{name}\"? Los nuevos activos ya no reconocerán a esta persona automáticamente, mientras que los resultados de etiquetado completados no se verán afectados.",
+        "disableDescription": "¿Deshabilitar \"{name}\"? Los nuevos activos ya no reconocerán a esta persona automáticamente.",
         "confirmDelete": "Eliminar",
         "confirmDisable": "Deshabilitar",
         "cancel": "Cancelar"
@@ -1039,7 +1040,7 @@
         "enableTitle": "Confirmación",
         "enableDescription": "¿Habilitar los {count} elementos seleccionados? Participarán en el reconocimiento y etiquetado de IA.",
         "disableTitle": "Confirmación",
-        "disableDescription": "¿Deshabilitar los {count} elementos seleccionados? Los nuevos activos ya no los reconocerán automáticamente, mientras que los resultados de etiquetado completados no se verán afectados.",
+        "disableDescription": "¿Deshabilitar los {count} elementos seleccionados? Los nuevos activos ya no los reconocerán automáticamente.",
         "confirmEnable": "Habilitar",
         "confirmDisable": "Deshabilitar",
         "cancel": "Cancelar"
@@ -1285,7 +1286,7 @@
       "confirmDialog": {
         "title": "Confirmación de acción",
         "deleteDescription": "¿Está seguro de que desea eliminar \"{name}\"? Esta acción no se puede deshacer y las etiquetas vinculadas no se eliminarán automáticamente.",
-        "disableDescription": "¿Está seguro de que desea desactivar \"{name}\"? Una vez desactivado, los nuevos activos subidos no reconocerán automáticamente esta entrada ni aplicarán las etiquetas vinculadas. Los activos ya etiquetados no se verán afectados.",
+        "disableDescription": "¿Está seguro de que desea desactivar \"{name}\"? Una vez desactivado, los nuevos activos subidos no reconocerán automáticamente esta entrada ni aplicarán las etiquetas vinculadas.",
         "confirmDelete": "Confirmar eliminación",
         "confirmDisable": "Confirmar desactivación",
         "cancel": "Cancelar"
@@ -1296,7 +1297,7 @@
         "enableTitle": "Confirmación de acción",
         "enableDescription": "¿Está seguro de que desea activar los {count} elementos seleccionados? Una vez activados, participarán en el reconocimiento y etiquetado automático por IA.",
         "disableTitle": "Confirmación de acción",
-        "disableDescription": "¿Está seguro de que desea desactivar los {count} elementos seleccionados? Una vez desactivados, los nuevos activos subidos no reconocerán automáticamente estas entradas ni aplicarán las etiquetas vinculadas. Los activos ya etiquetados no se verán afectados.",
+        "disableDescription": "¿Está seguro de que desea desactivar los {count} elementos seleccionados? Una vez desactivados, los nuevos activos subidos no reconocerán automáticamente estas entradas ni aplicarán las etiquetas vinculadas.",
         "confirmEnable": "Confirmar activación",
         "confirmDisable": "Confirmar desactivación",
         "cancel": "Cancelar"

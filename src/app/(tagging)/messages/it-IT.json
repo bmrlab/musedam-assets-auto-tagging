@@ -125,7 +125,7 @@
       "confirmDialog": {
         "title": "Conferma Azione",
         "deleteDescription": "Sei sicuro di voler eliminare \"{name}\"? Questa azione non può essere annullata e i tag collegati non verranno rimossi automaticamente.",
-        "disableDescription": "Sei sicuro di voler disabilitare \"{name}\"? Dopo la disabilitazione, i nuovi asset caricati non riconosceranno automaticamente questa voce e applicheranno i tag collegati. Gli asset già etichettati non saranno influenzati.",
+        "disableDescription": "Sei sicuro di voler disabilitare \"{name}\"? Dopo la disabilitazione, i nuovi asset caricati non riconosceranno automaticamente questa voce e applicheranno i tag collegati.",
         "confirmDelete": "Conferma Eliminazione",
         "confirmDisable": "Conferma Disabilitazione",
         "cancel": "Annulla"
@@ -136,7 +136,7 @@
         "enableTitle": "Conferma Azione",
         "enableDescription": "Sei sicuro di voler abilitare i {count} elementi selezionati? Una volta abilitati, parteciperanno al riconoscimento e etichettatura automatica IA.",
         "disableTitle": "Conferma Azione",
-        "disableDescription": "Sei sicuro di voler disabilitare i {count} elementi selezionati? Dopo la disabilitazione, i nuovi asset caricati non riconosceranno automaticamente queste voci e applicheranno i tag collegati. Gli asset già etichettati non saranno influenzati.",
+        "disableDescription": "Sei sicuro di voler disabilitare i {count} elementi selezionati? Dopo la disabilitazione, i nuovi asset caricati non riconosceranno automaticamente queste voci e applicheranno i tag collegati.",
         "confirmEnable": "Conferma Abilitazione",
         "confirmDisable": "Conferma Disabilitazione",
         "cancel": "Annulla"
@@ -448,6 +448,7 @@
       "totalItems": "Totale {total} elementi",
       "applySuccess": "Applicato con successo",
       "applyFailed": "Applicazione fallita",
+      "featureReviewChanged": "I dettagli della caratteristica o i tag associati sono cambiati. Controlla i risultati aggiornati e fai di nuovo clic su Aggiungi.",
       "rejectConfirmTitle": "Prompt operazione",
       "rejectConfirmDescription": "Conferma di eliminare il record di etichettatura IA della risorsa \"{assetName}\"? Questa operazione non può essere recuperata, procedi con cautela.",
       "batchRejectConfirmDescription": "Conferma di eliminare il record di etichettatura IA di {assetNum} risorse? Questa operazione non può essere recuperata, procedi con cautela.",
@@ -779,7 +780,7 @@
       "confirmDialog": {
         "title": "Conferma Azione",
         "deleteDescription": "Sei sicuro di voler eliminare \"{name}\"? Questa azione non può essere annullata e i tag collegati non verranno rimossi automaticamente.",
-        "disableDescription": "Sei sicuro di voler disabilitare \"{name}\"? Dopo la disabilitazione, i nuovi asset caricati non riconosceranno automaticamente questa voce e applicheranno i tag collegati. Gli asset già etichettati non saranno influenzati.",
+        "disableDescription": "Sei sicuro di voler disabilitare \"{name}\"? Dopo la disabilitazione, i nuovi asset caricati non riconosceranno automaticamente questa voce e applicheranno i tag collegati.",
         "confirmDelete": "Conferma Eliminazione",
         "confirmDisable": "Conferma Disabilitazione",
         "cancel": "Annulla"
@@ -790,7 +791,7 @@
         "enableTitle": "Conferma Azione",
         "enableDescription": "Sei sicuro di voler abilitare i {count} elementi selezionati? Una volta abilitati, parteciperanno al riconoscimento e etichettatura automatica IA.",
         "disableTitle": "Conferma Azione",
-        "disableDescription": "Sei sicuro di voler disabilitare i {count} elementi selezionati? Dopo la disabilitazione, i nuovi asset caricati non riconosceranno automaticamente queste voci e applicheranno i tag collegati. Gli asset già etichettati non saranno influenzati.",
+        "disableDescription": "Sei sicuro di voler disabilitare i {count} elementi selezionati? Dopo la disabilitazione, i nuovi asset caricati non riconosceranno automaticamente queste voci e applicheranno i tag collegati.",
         "confirmEnable": "Conferma Abilitazione",
         "confirmDisable": "Conferma Disabilitazione",
         "cancel": "Annulla"
@@ -1028,7 +1029,7 @@
       "confirmDialog": {
         "title": "Conferma Azione",
         "deleteDescription": "Eliminare \"{name}\"? Questa azione non può essere annullata e i tag collegati esistenti non verranno rimossi automaticamente.",
-        "disableDescription": "Disabilitare \"{name}\"? I nuovi asset non riconosceranno più automaticamente questa persona, mentre i risultati di etichettatura completati non saranno influenzati.",
+        "disableDescription": "Disabilitare \"{name}\"? I nuovi asset non riconosceranno più automaticamente questa persona.",
         "confirmDelete": "Elimina",
         "confirmDisable": "Disabilita",
         "cancel": "Annulla"
@@ -1039,7 +1040,7 @@
         "enableTitle": "Conferma Azione",
         "enableDescription": "Abilitare i {count} elementi selezionati? Parteciperanno al riconoscimento e all'etichettatura IA.",
         "disableTitle": "Conferma Azione",
-        "disableDescription": "Disabilitare i {count} elementi selezionati? I nuovi asset non li riconosceranno più automaticamente, mentre i risultati di etichettatura completati non saranno influenzati.",
+        "disableDescription": "Disabilitare i {count} elementi selezionati? I nuovi asset non li riconosceranno più automaticamente.",
         "confirmEnable": "Abilita",
         "confirmDisable": "Disabilita",
         "cancel": "Annulla"
@@ -1285,7 +1286,7 @@
       "confirmDialog": {
         "title": "Conferma Azione",
         "deleteDescription": "Sei sicuro di voler eliminare \"{name}\"? Questa azione non può essere annullata e i tag collegati non verranno rimossi automaticamente.",
-        "disableDescription": "Sei sicuro di voler disabilitare \"{name}\"? Dopo la disabilitazione, i nuovi asset caricati non riconosceranno automaticamente questa voce e applicheranno i tag collegati. Gli asset già etichettati non saranno influenzati.",
+        "disableDescription": "Sei sicuro di voler disabilitare \"{name}\"? Dopo la disabilitazione, i nuovi asset caricati non riconosceranno automaticamente questa voce e applicheranno i tag collegati.",
         "confirmDelete": "Conferma Eliminazione",
         "confirmDisable": "Conferma Disabilitazione",
         "cancel": "Annulla"
@@ -1296,7 +1297,7 @@
         "enableTitle": "Conferma Azione",
         "enableDescription": "Sei sicuro di voler abilitare i {count} elementi selezionati? Una volta abilitati, parteciperanno al riconoscimento e etichettatura automatica IA.",
         "disableTitle": "Conferma Azione",
-        "disableDescription": "Sei sicuro di voler disabilitare i {count} elementi selezionati? Dopo la disabilitazione, i nuovi asset caricati non riconosceranno automaticamente queste voci e applicheranno i tag collegati. Gli asset già etichettati non saranno influenzati.",
+        "disableDescription": "Sei sicuro di voler disabilitare i {count} elementi selezionati? Dopo la disabilitazione, i nuovi asset caricati non riconosceranno automaticamente queste voci e applicheranno i tag collegati.",
         "confirmEnable": "Conferma Abilitazione",
         "confirmDisable": "Conferma Disabilitazione",
         "cancel": "Annulla"

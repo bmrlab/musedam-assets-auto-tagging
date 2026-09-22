@@ -125,7 +125,7 @@
       "confirmDialog": {
         "title": "İşlem Onayı",
         "deleteDescription": "\"{name}\"i silmek istediğinizden emin misiniz? Bu işlem geri alınamaz ve bağlı etiketler otomatik olarak kaldırılmayacaktır.",
-        "disableDescription": "\"{name}\"i devre dışı bırakmak istediğinizden emin misiniz? Devre dışı bıraktıktan sonra, yeni yüklenen varlıklar bu girdiyi otomatik olarak tanımayacak ve bağlı etiketleri uygulamayacaktır. Zaten etiketlenmiş varlıklar etkilenmeyecektir.",
+        "disableDescription": "\"{name}\"i devre dışı bırakmak istediğinizden emin misiniz? Devre dışı bıraktıktan sonra, yeni yüklenen varlıklar bu girdiyi otomatik olarak tanımayacak ve bağlı etiketleri uygulamayacaktır.",
         "confirmDelete": "Silmeyi Onayla",
         "confirmDisable": "Devre Dışı Bırakmayı Onayla",
         "cancel": "İptal"
@@ -136,7 +136,7 @@
         "enableTitle": "İşlem Onayı",
         "enableDescription": "Seçilen {count} öğeyi etkinleştirmek istediğinizden emin misiniz? Etkinleştirildikten sonra AI otomatik tanıma ve etiketlemeye katılacaklardır.",
         "disableTitle": "İşlem Onayı",
-        "disableDescription": "Seçilen {count} öğeyi devre dışı bırakmak istediğinizden emin misiniz? Devre dışı bıraktıktan sonra yeni yüklenen varlıklar bu girdileri otomatik olarak tanımayacaktır ve bağlı etiket uygulamayacaktır. Zaten etiketlenmiş varlıklar etkilenmeyecektir.",
+        "disableDescription": "Seçilen {count} öğeyi devre dışı bırakmak istediğinizden emin misiniz? Devre dışı bıraktıktan sonra yeni yüklenen varlıklar bu girdileri otomatik olarak tanımayacaktır ve bağlı etiket uygulamayacaktır.",
         "confirmEnable": "Etkinleştirmeyi Onayla",
         "confirmDisable": "Devre Dışı Bırakmayı Onayla",
         "cancel": "İptal"
@@ -409,7 +409,7 @@
       "confirmDialog": {
         "title": "İşlem Onayı",
         "deleteDescription": "\"{name}\"i silmek istediğinizden emin misiniz? Bu işlem geri alınamaz ve bağlı etiketler otomatik olarak kaldırılmayacaktır.",
-        "disableDescription": "\"{name}\"i devre dışı bırakmak istediğinizden emin misiniz? Devre dışı bıraktıktan sonra, yeni yüklenen varlıklar bu girdiyi otomatik olarak tanımayacak ve bağlı etiketleri uygulamayacaktır. Zaten etiketlenmiş varlıklar etkilenmeyecektir.",
+        "disableDescription": "\"{name}\"i devre dışı bırakmak istediğinizden emin misiniz? Devre dışı bıraktıktan sonra, yeni yüklenen varlıklar bu girdiyi otomatik olarak tanımayacak ve bağlı etiketleri uygulamayacaktır.",
         "confirmDelete": "Silmeyi Onayla",
         "confirmDisable": "Devre Dışı Bırakmayı Onayla",
         "cancel": "İptal"
@@ -420,7 +420,7 @@
         "enableTitle": "İşlem Onayı",
         "enableDescription": "Seçilen {count} öğeyi etkinleştirmek istediğinizden emin misiniz? Etkinleştirildikten sonra AI otomatik tanıma ve etiketlemeye katılacaklardır.",
         "disableTitle": "İşlem Onayı",
-        "disableDescription": "Seçilen {count} öğeyi devre dışı bırakmak istediğinizden emin misiniz? Devre dışı bıraktıktan sonra yeni yüklenen varlıklar bu girdileri otomatik olarak tanımayacaktır ve bağlı etiket uygulamayacaktır. Zaten etiketlenmiş varlıklar etkilenmeyecektir.",
+        "disableDescription": "Seçilen {count} öğeyi devre dışı bırakmak istediğinizden emin misiniz? Devre dışı bıraktıktan sonra yeni yüklenen varlıklar bu girdileri otomatik olarak tanımayacaktır ve bağlı etiket uygulamayacaktır.",
         "confirmEnable": "Etkinleştirmeyi Onayla",
         "confirmDisable": "Devre Dışı Bırakmayı Onayla",
         "cancel": "İptal"
@@ -697,6 +697,7 @@
       "totalItems": "Toplam {total} öğe",
       "applySuccess": "Başarıyla uygulandı",
       "applyFailed": "Uygulama başarısız",
+      "featureReviewChanged": "Özellik bilgileri veya ilişkili etiketler değişti. Güncellenen sonuçları inceleyip tekrar Ekle seçeneğine tıklayın.",
       "rejectConfirmTitle": "İşlem İsteği",
       "rejectConfirmDescription": "\"{assetName}\" varlığının AI etiketleme kaydını silmeyi onaylıyor musunuz? Bu işlem geri alınamaz, lütfen dikkatli ilerleyin.",
       "batchRejectConfirmDescription": "{assetNum} varlığın AI etiketleme kaydını silmeyi onaylıyor musunuz? Bu işlem geri alınamaz, lütfen dikkatli ilerleyin.",
@@ -1028,7 +1029,7 @@
       "confirmDialog": {
         "title": "İşlem İpucu",
         "deleteDescription": "「{name}」silinsin mi? Silindikten sonra geri alınamaz, uygulanmış bağlı etiketler otomatik olarak kaldırılmaz.",
-        "disableDescription": "「{name}」devre dışı bırakılsın mı? Devre dışı bırakıldıktan sonra, yeni yüklenen materyaller bu kişiyi otomatik olarak tanımayacak ve bağlı etiketleri uygulamayacaktır, tamamlanmış etiketleme sonuçları etkilenmez.",
+        "disableDescription": "「{name}」devre dışı bırakılsın mı? Devre dışı bırakıldıktan sonra, yeni yüklenen materyaller bu kişiyi otomatik olarak tanımayacak ve bağlı etiketleri uygulamayacaktır.",
         "confirmDelete": "Silme Onayı",
         "confirmDisable": "Devre Dışı Bırakma Onayı",
         "cancel": "İptal"
@@ -1039,7 +1040,7 @@
         "enableTitle": "İşlem İpucu",
         "enableDescription": "Seçili {count} öğe etkinleştirilsin mi? Etkinleştirildikten sonra AI otomatik tanıma ve etiketlemeye katılacaktır",
         "disableTitle": "İşlem İpucu",
-        "disableDescription": "Seçili {count} öğe devre dışı bırakılsın mı? Devre dışı bırakıldıktan sonra, yeni yüklenen materyaller bu kişileri otomatik olarak tanımayacak ve bağlı etiketleri uygulamayacaktır, tamamlanmış etiketleme sonuçları etkilenmez.",
+        "disableDescription": "Seçili {count} öğe devre dışı bırakılsın mı? Devre dışı bırakıldıktan sonra, yeni yüklenen materyaller bu kişileri otomatik olarak tanımayacak ve bağlı etiketleri uygulamayacaktır.",
         "confirmEnable": "Etkinleştirme Onayı",
         "confirmDisable": "Devre Dışı Bırakma Onayı",
         "cancel": "İptal"
@@ -1285,7 +1286,7 @@
       "confirmDialog": {
         "title": "İşlem Onayı",
         "deleteDescription": "\"{name}\"i silmek istediğinizden emin misiniz? Bu işlem geri alınamaz ve bağlı etiketler otomatik olarak kaldırılmayacaktır.",
-        "disableDescription": "\"{name}\"i devre dışı bırakmak istediğinizden emin misiniz? Devre dışı bıraktıktan sonra, yeni yüklenen varlıklar bu girdiyi otomatik olarak tanımayacak ve bağlı etiketleri uygulamayacaktır. Zaten etiketlenmiş varlıklar etkilenmeyecektir.",
+        "disableDescription": "\"{name}\"i devre dışı bırakmak istediğinizden emin misiniz? Devre dışı bıraktıktan sonra, yeni yüklenen varlıklar bu girdiyi otomatik olarak tanımayacak ve bağlı etiketleri uygulamayacaktır.",
         "confirmDelete": "Silmeyi Onayla",
         "confirmDisable": "Devre Dışı Bırakmayı Onayla",
         "cancel": "İptal"
@@ -1296,7 +1297,7 @@
         "enableTitle": "İşlem Onayı",
         "enableDescription": "Seçilen {count} öğeyi etkinleştirmek istediğinizden emin misiniz? Etkinleştirildikten sonra AI otomatik tanıma ve etiketlemeye katılacaklardır.",
         "disableTitle": "İşlem Onayı",
-        "disableDescription": "Seçilen {count} öğeyi devre dışı bırakmak istediğinizden emin misiniz? Devre dışı bıraktıktan sonra yeni yüklenen varlıklar bu girdileri otomatik olarak tanımayacaktır ve bağlı etiket uygulamayacaktır. Zaten etiketlenmiş varlıklar etkilenmeyecektir.",
+        "disableDescription": "Seçilen {count} öğeyi devre dışı bırakmak istediğinizden emin misiniz? Devre dışı bıraktıktan sonra yeni yüklenen varlıklar bu girdileri otomatik olarak tanımayacaktır ve bağlı etiket uygulamayacaktır.",
         "confirmEnable": "Etkinleştirmeyi Onayla",
         "confirmDisable": "Devre Dışı Bırakmayı Onayla",
         "cancel": "İptal"

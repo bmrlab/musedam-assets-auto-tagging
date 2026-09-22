@@ -101,6 +101,7 @@
       "allStatuses": "Alle Statusse",
       "allTime": "Immer",
       "applyFailed": "Anwendung fehlgeschlagen",
+      "featureReviewChanged": "Merkmalsdetails oder zugehörige Tags wurden geändert. Prüfen Sie die aktualisierten Ergebnisse und klicken Sie erneut auf Hinzufügen.",
       "applySuccess": "Erfolgreich angewendet",
       "approved": "Genehmigt",
       "assetDeleted": "Asset gelöscht",
@@ -364,7 +365,7 @@
       "confirmDialog": {
         "title": "Aktionsbestätigung",
         "deleteDescription": "Sind Sie sicher, dass Sie \"{name}\" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden und verknüpfte Tags werden nicht automatisch entfernt.",
-        "disableDescription": "Sind Sie sicher, dass Sie \"{name}\" deaktivieren möchten? Nach der Deaktivierung erkennen neu hochgeladene Assets diesen Eintrag nicht mehr automatisch und wenden keine verknüpften Tags an. Bereits getaggte Assets sind nicht betroffen.",
+        "disableDescription": "Sind Sie sicher, dass Sie \"{name}\" deaktivieren möchten? Nach der Deaktivierung erkennen neu hochgeladene Assets diesen Eintrag nicht mehr automatisch und wenden keine verknüpften Tags an.",
         "confirmDelete": "Löschen bestätigen",
         "confirmDisable": "Deaktivieren bestätigen",
         "cancel": "Abbrechen"
@@ -375,7 +376,7 @@
         "enableTitle": "Aktionsbestätigung",
         "enableDescription": "Sind Sie sicher, dass Sie die ausgewählten {count} Elemente aktivieren möchten? Sobald aktiviert, nehmen sie an der KI-Auto-Erkennung und -Tagging teil.",
         "disableTitle": "Aktionsbestätigung",
-        "disableDescription": "Sind Sie sicher, dass Sie die ausgewählten {count} Elemente deaktivieren möchten? Nach der Deaktivierung erkennen neu hochgeladene Assets diese Einträge nicht mehr automatisch und wenden keine verknüpften Tags an. Bereits getaggte Assets sind nicht betroffen.",
+        "disableDescription": "Sind Sie sicher, dass Sie die ausgewählten {count} Elemente deaktivieren möchten? Nach der Deaktivierung erkennen neu hochgeladene Assets diese Einträge nicht mehr automatisch und wenden keine verknüpften Tags an.",
         "confirmEnable": "Aktivieren bestätigen",
         "confirmDisable": "Deaktivieren bestätigen",
         "cancel": "Abbrechen"
@@ -779,7 +780,7 @@
       "confirmDialog": {
         "title": "Aktionsbestätigung",
         "deleteDescription": "Sind Sie sicher, dass Sie \"{name}\" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden und verknüpfte Tags werden nicht automatisch entfernt.",
-        "disableDescription": "Sind Sie sicher, dass Sie \"{name}\" deaktivieren möchten? Nach der Deaktivierung erkennen neu hochgeladene Assets diesen Eintrag nicht mehr automatisch und wenden keine verknüpften Tags an. Bereits getaggte Assets sind nicht betroffen.",
+        "disableDescription": "Sind Sie sicher, dass Sie \"{name}\" deaktivieren möchten? Nach der Deaktivierung erkennen neu hochgeladene Assets diesen Eintrag nicht mehr automatisch und wenden keine verknüpften Tags an.",
         "confirmDelete": "Löschen bestätigen",
         "confirmDisable": "Deaktivieren bestätigen",
         "cancel": "Abbrechen"
@@ -790,7 +791,7 @@
         "enableTitle": "Aktionsbestätigung",
         "enableDescription": "Sind Sie sicher, dass Sie die ausgewählten {count} Elemente aktivieren möchten? Sobald aktiviert, nehmen sie an der KI-Auto-Erkennung und -Tagging teil.",
         "disableTitle": "Aktionsbestätigung",
-        "disableDescription": "Sind Sie sicher, dass Sie die ausgewählten {count} Elemente deaktivieren möchten? Nach der Deaktivierung erkennen neu hochgeladene Assets diese Einträge nicht mehr automatisch und wenden keine verknüpften Tags an. Bereits getaggte Assets sind nicht betroffen.",
+        "disableDescription": "Sind Sie sicher, dass Sie die ausgewählten {count} Elemente deaktivieren möchten? Nach der Deaktivierung erkennen neu hochgeladene Assets diese Einträge nicht mehr automatisch und wenden keine verknüpften Tags an.",
         "confirmEnable": "Aktivieren bestätigen",
         "confirmDisable": "Deaktivieren bestätigen",
         "cancel": "Abbrechen"
@@ -1028,7 +1029,7 @@
       "confirmDialog": {
         "title": "Bestätigung",
         "deleteDescription": "\"{name}\" löschen? Dies kann nicht rückgängig gemacht werden, und bestehende verknüpfte Tags werden nicht automatisch entfernt.",
-        "disableDescription": "\"{name}\" deaktivieren? Neue Assets erkennen diese Person nicht mehr automatisch, während abgeschlossene Tagging-Ergebnisse nicht beeinträchtigt werden.",
+        "disableDescription": "\"{name}\" deaktivieren? Neue Assets erkennen diese Person nicht mehr automatisch.",
         "confirmDelete": "Löschen",
         "confirmDisable": "Deaktivieren",
         "cancel": "Abbrechen"
@@ -1039,7 +1040,7 @@
         "enableTitle": "Bestätigung",
         "enableDescription": "Die ausgewählten {count} Elemente aktivieren? Sie werden an der KI-Erkennung und dem Tagging teilnehmen.",
         "disableTitle": "Bestätigung",
-        "disableDescription": "Die ausgewählten {count} Elemente deaktivieren? Neue Assets erkennen sie nicht mehr automatisch, während abgeschlossene Tagging-Ergebnisse nicht beeinträchtigt werden.",
+        "disableDescription": "Die ausgewählten {count} Elemente deaktivieren? Neue Assets erkennen sie nicht mehr automatisch.",
         "confirmEnable": "Aktivieren",
         "confirmDisable": "Deaktivieren",
         "cancel": "Abbrechen"
@@ -1285,7 +1286,7 @@
       "confirmDialog": {
         "title": "Aktionsbestätigung",
         "deleteDescription": "Sind Sie sicher, dass Sie \"{name}\" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden und verknüpfte Tags werden nicht automatisch entfernt.",
-        "disableDescription": "Sind Sie sicher, dass Sie \"{name}\" deaktivieren möchten? Nach der Deaktivierung erkennen neu hochgeladene Assets diesen Eintrag nicht mehr automatisch und wenden keine verknüpften Tags an. Bereits getaggte Assets sind nicht betroffen.",
+        "disableDescription": "Sind Sie sicher, dass Sie \"{name}\" deaktivieren möchten? Nach der Deaktivierung erkennen neu hochgeladene Assets diesen Eintrag nicht mehr automatisch und wenden keine verknüpften Tags an.",
         "confirmDelete": "Löschen bestätigen",
         "confirmDisable": "Deaktivieren bestätigen",
         "cancel": "Abbrechen"
@@ -1296,7 +1297,7 @@
         "enableTitle": "Aktionsbestätigung",
         "enableDescription": "Sind Sie sicher, dass Sie die ausgewählten {count} Elemente aktivieren möchten? Sobald aktiviert, nehmen sie an der KI-Auto-Erkennung und -Tagging teil.",
         "disableTitle": "Aktionsbestätigung",
-        "disableDescription": "Sind Sie sicher, dass Sie die ausgewählten {count} Elemente deaktivieren möchten? Nach der Deaktivierung erkennen neu hochgeladene Assets diese Einträge nicht mehr automatisch und wenden keine verknüpften Tags an. Bereits getaggte Assets sind nicht betroffen.",
+        "disableDescription": "Sind Sie sicher, dass Sie die ausgewählten {count} Elemente deaktivieren möchten? Nach der Deaktivierung erkennen neu hochgeladene Assets diese Einträge nicht mehr automatisch und wenden keine verknüpften Tags an.",
         "confirmEnable": "Aktivieren bestätigen",
         "confirmDisable": "Deaktivieren bestätigen",
         "cancel": "Abbrechen"

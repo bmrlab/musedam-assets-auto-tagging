@@ -33,6 +33,7 @@ import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
 import { AssetWithAuditItemsBatch, fetchAssetsWithAuditItems, batchApproveAuditItemsAction, batchRejectAuditItemsAction } from "./actions";
 import { ReviewItem } from "./ReviewItem";
+import { getFeatureReviewVersions } from "./feature-review";
 import { useTheme } from "next-themes";
 import Image from "next/image";
 import { dispatchMuseDAMClientAction } from "@/embed/message";
@@ -63,6 +64,7 @@ export default function ReviewPageClient() {
   const isDark = theme === "dark";
   const [pageSize, setPageSize] = useState(10);
   const [loading, setLoading] = useState(false);
+  const [rejectedFeaturesByAsset, setRejectedFeaturesByAsset] = useState<Record<number, string[]>>({});
   const [selectedAssets, setSelectedAssets] = useState<AssetWithAuditItemsBatch[]>([]);
   const [selectedAssetIds, setSelectedAssetIds] = useState<Set<number>>(new Set());
 
@@ -95,8 +97,8 @@ export default function ReviewPageClient() {
           setTotalPages(assetsResult.data.totalPages);
           setTotal(assetsResult.data.total);
 
-          // 保留已选择的资产，不过滤当前页面不存在的
-          // setSelectedAssets 和 setSelectedAssetIds 保持不变
+          const refreshed = new Map(newAssets.map((asset) => [asset.assetObject.id, asset]));
+          setSelectedAssets((current) => current.map((asset) => refreshed.get(asset.assetObject.id) ?? asset));
         }
       } catch (error) {
         console.error(t("refreshDataFailed"), error);
@@ -185,13 +187,16 @@ export default function ReviewPageClient() {
     try {
       let failedCount = 0;
       let deletedCount = 0;
+      let changedCount = 0;
 
       for (let start = 0; start < selectedAssets.length; start += BATCH_APPROVE_CHUNK_SIZE) {
         const chunk = selectedAssets.slice(start, start + BATCH_APPROVE_CHUNK_SIZE);
         const result = await batchApproveAuditItemsAction({
-          assetObjects: chunk.map(({ assetObject }) => ({
+          assetObjects: chunk.map(({ assetObject, batch }) => ({
             id: assetObject.id,
             slug: assetObject.slug,
+            featureReviewVersions: getFeatureReviewVersions(batch),
+            rejectedFeatureKeys: rejectedFeaturesByAsset[assetObject.id] ?? [],
           })),
           append: true,
         });
@@ -199,14 +204,17 @@ export default function ReviewPageClient() {
         if (result.success && result.data) {
           failedCount += result.data.failedCount;
           deletedCount += result.data.deletedCount;
+          changedCount += result.data.changedCount;
         } else {
           failedCount += chunk.length;
         }
       }
 
-      const successCount = selectedAssets.length - failedCount - deletedCount;
+      const successCount = selectedAssets.length - failedCount - deletedCount - changedCount;
 
-      if (failedCount === 0) {
+      if (changedCount > 0) {
+        toast.warning(t("featureReviewChanged"));
+      } else if (failedCount === 0) {
         toast.success(t("batchApproveSuccess"));
       } else if (successCount === 0) {
         toast.error(t("noCorrespondingTag"))
@@ -225,7 +233,7 @@ export default function ReviewPageClient() {
     } finally {
       setLoading(false);
     }
-  }, [selectedAssets, t, refreshDataWithFilters]);
+  }, [selectedAssets, rejectedFeaturesByAsset, t, refreshDataWithFilters]);
 
   // 批量拒绝审核
   const handleBatchReject = useCallback(async () => {
@@ -422,6 +430,12 @@ export default function ReviewPageClient() {
           <ReviewItem
             {...asset}
             batchLoading={loading}
+            rejectedFeatureKeys={rejectedFeaturesByAsset[asset.assetObject.id] ?? []}
+            onToggleFeatureKey={(key) => setRejectedFeaturesByAsset((current) => {
+              const rejected = current[asset.assetObject.id] ?? [];
+              return { ...current, [asset.assetObject.id]: rejected.includes(key)
+                ? rejected.filter((item) => item !== key) : [...rejected, key] };
+            })}
             onSuccess={() => refreshDataWithFilters()}
             CheckboxComponent={<Checkbox
               className="size-4"

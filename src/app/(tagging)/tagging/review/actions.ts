@@ -1,23 +1,11 @@
 "use server";
 import { withAuth } from "@/app/(auth)/withAuth";
-import {
-  getBrandRecommendationFromQueueResult,
-  getBrandRecommendationTagIdsFromQueueResult,
-} from "@/app/(tagging)/brand-recommendation";
+import { getBrandRecommendationFromQueueResult } from "@/app/(tagging)/brand-recommendation";
 import { recordContentOnlyRejectionFeedbackBatch } from "@/app/(tagging)/evidence-policy-server";
-import {
-  getIpRecommendationFromQueueResult,
-  getIpRecommendationTagIdsFromQueueResult,
-} from "@/app/(tagging)/ip-recommendation";
+import { getIpRecommendationFromQueueResult } from "@/app/(tagging)/ip-recommendation";
 import { recordKeywordRejectionFeedbackBatch } from "@/app/(tagging)/keyword-feedback";
-import {
-  getPersonRecommendationFromQueueResult,
-  getReviewablePersonRecommendationTagIdsFromQueueResult,
-} from "@/app/(tagging)/person-recommendation";
-import {
-  getProductRecommendationFromQueueResult,
-  getProductRecommendationTagIdsFromQueueResult,
-} from "@/app/(tagging)/product-recommendation";
+import { getPersonRecommendationFromQueueResult } from "@/app/(tagging)/person-recommendation";
+import { getProductRecommendationFromQueueResult } from "@/app/(tagging)/product-recommendation";
 import {
   FeatureLibraryFeatures,
   filterFeatureLibraryRecommendations,
@@ -29,12 +17,11 @@ import { idToSlug, slugToId } from "@/lib/slug";
 import { retrieveTeamCredentials } from "@/musedam/apiKey";
 import {
   batchSyncAssetThumbnails,
-  bindFeatureIdentifiersToMuseDAMMaterial,
+  bindFeatureMaterialToMuseDAM,
   getFeatureByAssetFromMuseDAM,
   setAssetTagsToMuseDAM,
   syncSingleAssetFromMuseDAM,
 } from "@/musedam/assets";
-import { collectMuseFeatureIdentifierIdsForQueueItem } from "@/musedam/collect-muse-feature-identifier-ids";
 import { requestMuseDAMAPI } from "@/musedam/lib";
 import type { MuseDAMMaterialFeatureSnapshot } from "@/musedam/query-features-by-materials-types";
 import { MuseDAMID } from "@/musedam/types";
@@ -48,6 +35,16 @@ import {
   TaggingQueueItemResult,
 } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
+import {
+  createFeatureReviewSnapshot,
+  FEATURE_REVIEW_CHANGED,
+  getFeatureReviewVersion,
+  getReviewedFeatureResult,
+  hydrateReviewFeatures,
+  selectReviewFeatures,
+  type FeatureReviewVersions,
+} from "./feature-review";
+import { loadReviewFeatureLibrary } from "./feature-review-server";
 
 export type ReviewAvailableFeatureIds = {
   brand: string[];
@@ -55,65 +52,6 @@ export type ReviewAvailableFeatureIds = {
   product: string[];
   person: string[];
 };
-
-const EMPTY_REVIEW_AVAILABLE_FEATURE_IDS: ReviewAvailableFeatureIds = {
-  brand: [],
-  ip: [],
-  product: [],
-  person: [],
-};
-
-type ReviewAvailableFeatureIdSets = {
-  brand: Set<string>;
-  ip: Set<string>;
-  product: Set<string>;
-  person: Set<string>;
-};
-
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-function createReviewAvailableFeatureIdSets(): ReviewAvailableFeatureIdSets {
-  return {
-    brand: new Set<string>(),
-    ip: new Set<string>(),
-    product: new Set<string>(),
-    person: new Set<string>(),
-  };
-}
-
-function addQueueResultFeatureIds(
-  featureIds: ReviewAvailableFeatureIdSets,
-  result: Prisma.JsonValue,
-  features: FeatureLibraryFeatures,
-) {
-  const brandRecommendation = features.featureBrand
-    ? getBrandRecommendationFromQueueResult(result)
-    : null;
-  if (brandRecommendation?.bestMatch?.assetLogoId) {
-    featureIds.brand.add(brandRecommendation.bestMatch.assetLogoId);
-  }
-
-  const ipRecommendation = features.featureIp ? getIpRecommendationFromQueueResult(result) : null;
-  if (ipRecommendation?.bestMatch?.assetIpId) {
-    featureIds.ip.add(ipRecommendation.bestMatch.assetIpId);
-  }
-
-  const productRecommendation = features.featureProduct
-    ? getProductRecommendationFromQueueResult(result)
-    : null;
-  if (productRecommendation?.bestMatch?.assetProductId) {
-    featureIds.product.add(productRecommendation.bestMatch.assetProductId);
-  }
-
-  const personRecommendation = features.featurePerson
-    ? getPersonRecommendationFromQueueResult(result)
-    : null;
-  for (const face of personRecommendation?.faces ?? []) {
-    if (face.bestMatch?.assetPersonId) {
-      featureIds.person.add(face.bestMatch.assetPersonId);
-    }
-  }
-}
 
 function hasEnabledFeatureRecommendation(
   result: Prisma.JsonValue,
@@ -125,82 +63,6 @@ function hasEnabledFeatureRecommendation(
       (features.featureProduct && getProductRecommendationFromQueueResult(result)) ||
       (features.featurePerson && getPersonRecommendationFromQueueResult(result)),
   );
-}
-
-function toUuidList(ids: Iterable<string>) {
-  return [...ids].filter((id) => UUID_PATTERN.test(id));
-}
-
-async function loadExistingReviewAvailableFeatureIds(
-  teamId: number,
-  featureIds: ReviewAvailableFeatureIdSets,
-): Promise<ReviewAvailableFeatureIds> {
-  const [brands, ips, products, persons] = await Promise.all([
-    prisma.assetLogo.findMany({
-      where: { teamId, id: { in: toUuidList(featureIds.brand) } },
-      select: { id: true },
-    }),
-    prisma.assetIp.findMany({
-      where: { teamId, id: { in: toUuidList(featureIds.ip) } },
-      select: { id: true },
-    }),
-    prisma.assetProduct.findMany({
-      where: { teamId, id: { in: toUuidList(featureIds.product) } },
-      select: { id: true },
-    }),
-    prisma.assetPerson.findMany({
-      where: { teamId, id: { in: toUuidList(featureIds.person) } },
-      select: { id: true },
-    }),
-  ]);
-
-  return {
-    brand: brands.map(({ id }) => id),
-    ip: ips.map(({ id }) => id),
-    product: products.map(({ id }) => id),
-    person: persons.map(({ id }) => id),
-  };
-}
-
-async function filterExistingMuseFeatureIdentifierIds({
-  teamId,
-  identifierIds,
-}: {
-  teamId: number;
-  identifierIds: string[];
-}) {
-  const unique = [...new Set(identifierIds)].filter((id) => UUID_PATTERN.test(id));
-  if (unique.length === 0) {
-    return [];
-  }
-
-  const [brands, ips, products, persons] = await Promise.all([
-    prisma.assetLogo.findMany({
-      where: { teamId, id: { in: unique } },
-      select: { id: true },
-    }),
-    prisma.assetIp.findMany({
-      where: { teamId, id: { in: unique } },
-      select: { id: true },
-    }),
-    prisma.assetProduct.findMany({
-      where: { teamId, id: { in: unique } },
-      select: { id: true },
-    }),
-    prisma.assetPerson.findMany({
-      where: { teamId, id: { in: unique } },
-      select: { id: true },
-    }),
-  ]);
-
-  const existingIds = new Set([
-    ...brands.map(({ id }) => id),
-    ...ips.map(({ id }) => id),
-    ...products.map(({ id }) => id),
-    ...persons.map(({ id }) => id),
-  ]);
-
-  return unique.filter((id) => existingIds.has(id));
 }
 
 // 辅助函数：从 MuseDAM 标签构建 AssetObjectTags
@@ -245,7 +107,10 @@ export type AssetWithAuditItemsBatch = {
   onSuccess?: () => void;
 };
 
-type BatchApproveAssetRef = Pick<AssetObject, "id" | "slug">;
+type BatchApproveAssetRef = Pick<AssetObject, "id" | "slug"> & {
+  featureReviewVersions: FeatureReviewVersions;
+  rejectedFeatureKeys: string[];
+};
 
 export async function fetchAssetsWithAuditItems(
   page: number = 1,
@@ -449,24 +314,21 @@ export async function fetchAssetsWithAuditItems(
             assetObject !== undefined,
         );
 
-      const availableFeatureIds = hasEnabledFeatures
-        ? await (async () => {
-            const featureIdsForPage = createReviewAvailableFeatureIdSets();
-            for (const assetObject of updatedAssetObjects) {
-              for (const { queueItem, ...taggingAuditItem } of assetObject.taggingAuditItems) {
-                if (!queueItem || taggingAuditItem.status === "rejected") {
-                  continue;
-                }
-                addQueueResultFeatureIds(
-                  featureIdsForPage,
-                  queueItem.result,
-                  featureLibraryFeatures,
-                );
-              }
-            }
-            return loadExistingReviewAvailableFeatureIds(teamId, featureIdsForPage);
-          })()
-        : EMPTY_REVIEW_AVAILABLE_FEATURE_IDS;
+      const featureLibrary = await loadReviewFeatureLibrary(
+        teamId,
+        updatedAssetObjects.flatMap((asset) =>
+          asset.taggingAuditItems.flatMap(({ queueItem }) => (queueItem ? [queueItem.result] : [])),
+        ),
+        featureLibraryFeatures,
+      );
+      const availableFeatureIds: ReviewAvailableFeatureIds = {
+        brand: [],
+        ip: [],
+        product: [],
+        person: [],
+      };
+      for (const feature of featureLibrary.values())
+        availableFeatureIds[feature.featureType].push(feature.id);
 
       const materialIdByAssetObjectId = new Map<number, MuseDAMID>();
       if (hasEnabledFeatures) {
@@ -524,9 +386,13 @@ export async function fetchAssetsWithAuditItems(
               queueItem: {
                 ...queueItem,
                 result: filterFeatureLibraryRecommendations(
-                  queueItem.result,
+                  assetObject.taggingAuditItems.some(
+                    (item) => item.queueItem?.id === queueItem.id && item.status === "pending",
+                  )
+                    ? hydrateReviewFeatures(queueItem.result, featureLibrary)
+                    : getReviewedFeatureResult(queueItem.result, queueItem.extra),
                   featureLibraryFeatures,
-                ),
+                ) as Prisma.JsonObject,
               },
               taggingAuditItems: [],
             };
@@ -599,33 +465,18 @@ export async function fetchAssetsWithAuditItems(
 export async function approveAuditItemsAction({
   assetSlug,
   auditItems,
-  brandTagIds = [],
-  ipTagIds = [],
-  productTagIds = [],
-  personTagIds = [],
-  museFeatureIdentifierIds = [],
+  featureReviewVersions,
+  rejectedFeatureKeys = [],
   append = true,
 }: {
   assetSlug: string;
-  auditItems: {
-    id: number;
-    leafTagId: number | null;
-    status: TaggingAuditStatus;
-  }[];
-  brandTagIds?: number[];
-  ipTagIds?: number[];
-  productTagIds?: number[];
-  personTagIds?: number[];
-  museFeatureIdentifierIds?: string[];
+  auditItems: { id: number; leafTagId: number | null; status: TaggingAuditStatus }[];
+  featureReviewVersions: FeatureReviewVersions;
+  rejectedFeatureKeys?: string[];
   append?: boolean;
 }): Promise<ServerActionResult<void>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     const featureLibraryFeatures = await getServerFeatureLibraryFeatures();
-    const hasEnabledFeatures =
-      featureLibraryFeatures.featureBrand ||
-      featureLibraryFeatures.featureIp ||
-      featureLibraryFeatures.featureProduct ||
-      featureLibraryFeatures.featurePerson;
     const team = await prisma.team.findUniqueOrThrow({
       where: { id: teamId },
       select: { id: true, slug: true },
@@ -639,82 +490,59 @@ export async function approveAuditItemsAction({
       team,
     });
 
-    // The browser controls selection state, but the server remains the safety
-    // boundary. Rebuild the set of acceptable person tags from the persisted
-    // classifier results so stale or manipulated client payloads cannot bypass
-    // the person-match policy.
-    const queueResults = hasEnabledFeatures
-      ? (
-          await prisma.taggingAuditItem.findMany({
-            where: {
-              id: { in: auditItems.map(({ id }) => id) },
-              teamId,
-              assetObject: { slug: assetSlug },
-            },
-            select: {
-              queueItem: {
-                select: { id: true, result: true },
-              },
-            },
-          })
-        )
-          .flatMap(({ queueItem }) => (queueItem ? [queueItem] : []))
-          .filter(
-            (queueItem, index, rows) =>
-              rows.findIndex((candidate) => candidate.id === queueItem.id) === index,
-          )
-      : [];
-    const allowedPersonTagIds = new Set(
-      queueResults.flatMap(({ result }) =>
-        getReviewablePersonRecommendationTagIdsFromQueueResult(result),
-      ),
-    );
-    const acceptedPersonTagIds = featureLibraryFeatures.featurePerson
-      ? personTagIds.filter((tagId) => allowedPersonTagIds.has(tagId))
-      : [];
-
-    const allowedMuseFeatureIdentifierIds = new Set<string>();
-    for (const { result } of queueResults) {
-      for (const identifierId of collectMuseFeatureIdentifierIdsForQueueItem({
-        brandRecommendation: featureLibraryFeatures.featureBrand
-          ? getBrandRecommendationFromQueueResult(result)
-          : null,
-        ipRecommendation: featureLibraryFeatures.featureIp
-          ? getIpRecommendationFromQueueResult(result)
-          : null,
-        productRecommendation: featureLibraryFeatures.featureProduct
-          ? getProductRecommendationFromQueueResult(result)
-          : null,
-        personRecommendation: featureLibraryFeatures.featurePerson
-          ? getPersonRecommendationFromQueueResult(result)
-          : null,
-        brandTagIds: featureLibraryFeatures.featureBrand ? brandTagIds : [],
-        ipTagIds: featureLibraryFeatures.featureIp ? ipTagIds : [],
-        productTagIds: featureLibraryFeatures.featureProduct ? productTagIds : [],
-        personTagIds: acceptedPersonTagIds,
-        personMatchMode: "review",
-      })) {
-        allowedMuseFeatureIdentifierIds.add(identifierId);
-      }
+    // Resolve tags on the server from current, team-owned features. Client tag IDs
+    // and the classifier's historical tag associations are never approval inputs.
+    const storedAuditItems = await prisma.taggingAuditItem.findMany({
+      where: {
+        id: { in: auditItems.map(({ id }) => id) },
+        teamId,
+        assetObject: { slug: assetSlug },
+      },
+      include: { queueItem: true },
+    });
+    if (storedAuditItems.length !== new Set(auditItems.map(({ id }) => id)).size) {
+      return { success: false, message: "Invalid review items" };
     }
-    const acceptedMuseFeatureIdentifierIds = museFeatureIdentifierIds.filter((identifierId) =>
-      allowedMuseFeatureIdentifierIds.has(identifierId),
+    const queueResults = [
+      ...new Map(
+        storedAuditItems.flatMap(({ queueItem }) =>
+          queueItem ? [[queueItem.id, queueItem] as const] : [],
+        ),
+      ).values(),
+    ].filter((queueItem) => featureReviewVersions[queueItem.id] !== undefined);
+    const featureLibrary = await loadReviewFeatureLibrary(
+      teamId,
+      queueResults.map(({ result }) => result),
+      featureLibraryFeatures,
     );
-
+    const currentResults = queueResults.map((queueItem) => ({
+      ...queueItem,
+      result: hydrateReviewFeatures(queueItem.result, featureLibrary),
+    }));
+    if (
+      currentResults.some(
+        ({ id, result }) => getFeatureReviewVersion(result) !== featureReviewVersions[id],
+      )
+    ) {
+      return { success: false, message: FEATURE_REVIEW_CHANGED };
+    }
+    const selectedFeatures = selectReviewFeatures(
+      currentResults.map(({ result }) => result),
+      rejectedFeatureKeys,
+    );
+    const requestedStatus = new Map(auditItems.map(({ id, status }) => [id, status]));
     const combinedApprovedTagIds = Array.from(
       new Set([
-        ...auditItems
-          .filter(({ leafTagId, status }) => leafTagId && status === "approved")
-          .map(({ leafTagId }) => leafTagId!),
-        ...(featureLibraryFeatures.featureBrand ? brandTagIds : []),
-        ...(featureLibraryFeatures.featureIp ? ipTagIds : []),
-        ...(featureLibraryFeatures.featureProduct ? productTagIds : []),
-        ...acceptedPersonTagIds,
+        ...storedAuditItems.flatMap(({ id, leafTagId }) =>
+          requestedStatus.get(id) === "approved" && leafTagId ? [leafTagId] : [],
+        ),
+        ...selectedFeatures.flatMap((feature) => feature.tags.map((tag) => tag.assetTagId)),
       ]),
     );
 
     const approvedAsetTags = await prisma.assetTag.findMany({
       where: {
+        teamId,
         id: {
           in: combinedApprovedTagIds,
         },
@@ -729,24 +557,16 @@ export async function approveAuditItemsAction({
       new Set(approvedAsetTags.map((tag) => slugToId("assetTag", tag.slug!))),
     );
 
-    await setAssetTagsToMuseDAM({
-      musedamAssetId,
-      musedamTagIds,
-      team,
-      append,
-    });
-
-    if (hasEnabledFeatures) {
-      const existingMuseFeatureIdentifierIds = await filterExistingMuseFeatureIdentifierIds({
-        teamId,
-        identifierIds: acceptedMuseFeatureIdentifierIds,
-      });
-
-      await bindFeatureIdentifiersToMuseDAMMaterial({
+    if (musedamTagIds.length > 0 || !append) {
+      await setAssetTagsToMuseDAM({ musedamAssetId, musedamTagIds, team, append });
+    }
+    for (const feature of selectedFeatures) {
+      const bound = await bindFeatureMaterialToMuseDAM({
         team,
-        musedamAssetId,
-        identifierIds: existingMuseFeatureIdentifierIds,
+        materialId: Number(musedamAssetId.toString()),
+        identifierId: feature.id,
       });
+      if (!bound) throw new Error("Failed to bind feature to asset");
     }
 
     // 从 MuseDAM 获取更新后的素材标签并同步到本地数据库
@@ -792,8 +612,19 @@ export async function approveAuditItemsAction({
     await prisma.$transaction(async (tx) => {
       for (const { id, status } of auditItems) {
         await tx.taggingAuditItem.update({
-          where: { id },
+          where: { id, teamId },
           data: { status },
+        });
+      }
+      for (const queueItem of currentResults) {
+        await tx.taggingQueueItem.update({
+          where: { id: queueItem.id, teamId },
+          data: {
+            extra: {
+              ...(queueItem.extra as Prisma.JsonObject),
+              featureReview: createFeatureReviewSnapshot(queueItem.result, selectedFeatures),
+            },
+          },
         });
       }
     });
@@ -958,7 +789,9 @@ export async function batchApproveAuditItemsAction({
 }: {
   assetObjects: BatchApproveAssetRef[];
   append?: boolean;
-}): Promise<ServerActionResult<{ failedCount: number; deletedCount: number }>> {
+}): Promise<
+  ServerActionResult<{ failedCount: number; deletedCount: number; changedCount: number }>
+> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
       const team = await prisma.team.findUniqueOrThrow({
@@ -974,6 +807,7 @@ export async function batchApproveAuditItemsAction({
 
       let failedCount = 0;
       let deletedCount = 0;
+      let changedCount = 0;
       const assetRefs = assetObjects
         .map((assetObject) => {
           try {
@@ -1019,11 +853,17 @@ export async function batchApproveAuditItemsAction({
           queueItem: true,
         },
       });
+      const featureLibrary = await loadReviewFeatureLibrary(
+        teamId,
+        auditItems.flatMap(({ queueItem }) => (queueItem ? [queueItem.result] : [])),
+        featureLibraryFeatures,
+      );
       // 按资产分组处理
       for (const assetObject of assetRefs) {
         const assetAuditItems = auditItems.filter(
           (item) =>
             item.assetObjectId === assetObject.id &&
+            item.assetObject?.slug === assetObject.slug &&
             (item.leafTagId !== null ||
               (hasEnabledFeatures &&
                 item.queueItem &&
@@ -1078,62 +918,33 @@ export async function batchApproveAuditItemsAction({
           }
         });
 
-        // 将被过滤掉的 audit items 标记为 rejected
-        if (filteredOutAuditItems.length > 0) {
-          await prisma.taggingAuditItem.updateMany({
-            where: {
-              id: { in: filteredOutAuditItems.map((item) => item.id) },
-            },
-            data: { status: "rejected" },
-          });
-        }
-
-        // 用过滤后的 audit items 替代原来的
-        const finalAssetAuditItems = finalAuditItems;
-        const brandTagIds = featureLibraryFeatures.featureBrand
-          ? Array.from(
-              new Set(
-                finalGroups.flatMap((group) =>
-                  getBrandRecommendationTagIdsFromQueueResult(group.queueItem.result),
-                ),
-              ),
-            )
-          : [];
-        const ipTagIds = featureLibraryFeatures.featureIp
-          ? Array.from(
-              new Set(
-                finalGroups.flatMap((group) =>
-                  getIpRecommendationTagIdsFromQueueResult(group.queueItem.result),
-                ),
-              ),
-            )
-          : [];
-        const productTagIds = featureLibraryFeatures.featureProduct
-          ? Array.from(
-              new Set(
-                finalGroups.flatMap((group) =>
-                  getProductRecommendationTagIdsFromQueueResult(group.queueItem.result),
-                ),
-              ),
-            )
-          : [];
-        const personTagIds = featureLibraryFeatures.featurePerson
-          ? Array.from(
-              new Set(
-                finalGroups.flatMap((group) =>
-                  getReviewablePersonRecommendationTagIdsFromQueueResult(group.queueItem.result),
-                ),
-              ),
-            )
-          : [];
-
+        const currentGroups = finalGroups.map((group) => ({
+          ...group,
+          queueItem: {
+            ...group.queueItem,
+            result: hydrateReviewFeatures(group.queueItem.result, featureLibrary),
+          },
+        }));
         if (
-          finalAssetAuditItems.length === 0 &&
-          brandTagIds.length === 0 &&
-          ipTagIds.length === 0 &&
-          productTagIds.length === 0 &&
-          personTagIds.length === 0
+          currentGroups.some(
+            ({ queueItem }) =>
+              getFeatureReviewVersion(queueItem.result) !==
+              assetObject.featureReviewVersions[queueItem.id],
+          )
         ) {
+          changedCount++;
+          continue;
+        }
+        const selectedFeatures = selectReviewFeatures(
+          currentGroups.map(({ queueItem }) => queueItem.result),
+          assetObject.rejectedFeatureKeys,
+        );
+        const finalAssetAuditItems = finalAuditItems;
+        const featureTagIds = selectedFeatures.flatMap((feature) =>
+          feature.tags.map((tag) => tag.assetTagId),
+        );
+
+        if (finalAssetAuditItems.length === 0 && selectedFeatures.length === 0) {
           failedCount++;
           continue;
         }
@@ -1149,15 +960,13 @@ export async function batchApproveAuditItemsAction({
             ...finalAssetAuditItems
               .map((item) => item.leafTagId)
               .filter((leafTagId): leafTagId is number => leafTagId !== null),
-            ...brandTagIds,
-            ...ipTagIds,
-            ...productTagIds,
-            ...personTagIds,
+            ...featureTagIds,
           ]),
         );
 
         const approvedAssetTags = await prisma.assetTag.findMany({
           where: {
+            teamId,
             id: {
               in: combinedApprovedTagIds,
             },
@@ -1172,68 +981,17 @@ export async function batchApproveAuditItemsAction({
           new Set(approvedAssetTags.map((tag) => slugToId("assetTag", tag.slug!))),
         );
 
-        // 如果标签ID为空，记为失败并跳过
-        if (musedamTagIds.length === 0) {
-          failedCount++;
-          continue;
-        }
-
         try {
-          await setAssetTagsToMuseDAM({
-            musedamAssetId,
-            musedamTagIds,
-            team,
-            append,
-          });
-
-          if (hasEnabledFeatures) {
-            const museFeatureIdentifierIds = new Set<string>();
-            for (const group of finalGroups) {
-              const { result } = group.queueItem;
-              const brandTagIdsForGroup = featureLibraryFeatures.featureBrand
-                ? getBrandRecommendationTagIdsFromQueueResult(result)
-                : [];
-              const ipTagIdsForGroup = featureLibraryFeatures.featureIp
-                ? getIpRecommendationTagIdsFromQueueResult(result)
-                : [];
-              const productTagIdsForGroup = featureLibraryFeatures.featureProduct
-                ? getProductRecommendationTagIdsFromQueueResult(result)
-                : [];
-              const personTagIdsForGroup = featureLibraryFeatures.featurePerson
-                ? getReviewablePersonRecommendationTagIdsFromQueueResult(result)
-                : [];
-              for (const id of collectMuseFeatureIdentifierIdsForQueueItem({
-                brandRecommendation: featureLibraryFeatures.featureBrand
-                  ? getBrandRecommendationFromQueueResult(result)
-                  : null,
-                ipRecommendation: featureLibraryFeatures.featureIp
-                  ? getIpRecommendationFromQueueResult(result)
-                  : null,
-                productRecommendation: featureLibraryFeatures.featureProduct
-                  ? getProductRecommendationFromQueueResult(result)
-                  : null,
-                personRecommendation: featureLibraryFeatures.featurePerson
-                  ? getPersonRecommendationFromQueueResult(result)
-                  : null,
-                brandTagIds: brandTagIdsForGroup,
-                ipTagIds: ipTagIdsForGroup,
-                productTagIds: productTagIdsForGroup,
-                personTagIds: personTagIdsForGroup,
-                personMatchMode: "review",
-              })) {
-                museFeatureIdentifierIds.add(id);
-              }
-            }
-            const existingMuseFeatureIdentifierIds = await filterExistingMuseFeatureIdentifierIds({
-              teamId,
-              identifierIds: [...museFeatureIdentifierIds],
-            });
-
-            await bindFeatureIdentifiersToMuseDAMMaterial({
+          if (musedamTagIds.length > 0 || !append) {
+            await setAssetTagsToMuseDAM({ musedamAssetId, musedamTagIds, team, append });
+          }
+          for (const feature of selectedFeatures) {
+            const bound = await bindFeatureMaterialToMuseDAM({
               team,
-              musedamAssetId,
-              identifierIds: existingMuseFeatureIdentifierIds,
+              materialId: Number(musedamAssetId.toString()),
+              identifierId: feature.id,
             });
+            if (!bound) throw new Error("Failed to bind feature to asset");
           }
 
           // 从 MuseDAM 获取更新后的素材标签并同步到本地数据库
@@ -1267,11 +1025,24 @@ export async function batchApproveAuditItemsAction({
 
         await prisma.$transaction(async (tx) => {
           await tx.taggingAuditItem.updateMany({
-            where: {
-              id: { in: finalAssetAuditItems.map((item) => item.id) },
-            },
+            where: { teamId, id: { in: finalAssetAuditItems.map((item) => item.id) } },
             data: { status: "approved" },
           });
+          await tx.taggingAuditItem.updateMany({
+            where: { teamId, id: { in: filteredOutAuditItems.map((item) => item.id) } },
+            data: { status: "rejected" },
+          });
+          for (const { queueItem } of currentGroups) {
+            await tx.taggingQueueItem.update({
+              where: { id: queueItem.id, teamId },
+              data: {
+                extra: {
+                  ...(queueItem.extra as Prisma.JsonObject),
+                  featureReview: createFeatureReviewSnapshot(queueItem.result, selectedFeatures),
+                },
+              },
+            });
+          }
         });
         approvedAssetRefs.push(assetObject);
       }
@@ -1313,7 +1084,7 @@ export async function batchApproveAuditItemsAction({
 
       return {
         success: true,
-        data: { failedCount, deletedCount },
+        data: { failedCount, deletedCount, changedCount },
       };
     } catch (error) {
       console.error("批量添加失败:", error);

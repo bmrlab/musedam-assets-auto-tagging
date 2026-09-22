@@ -101,6 +101,7 @@
       "allStatuses": "全部狀態",
       "allTime": "全部時間",
       "applyFailed": "應用失敗",
+      "featureReviewChanged": "特徵資訊或關聯標籤已變更，請查看重新整理後的結果，再點擊新增。",
       "applySuccess": "應用成功",
       "approved": "已採納",
       "assetDeleted": "素材已被刪除",
@@ -376,7 +377,7 @@
       "confirmDialog": {
         "title": "操作提示",
         "deleteDescription": "確定要刪除「{name}」嗎？刪除後將無法恢復，已打上的關聯標籤不會自動移除。",
-        "disableDescription": "確定要停用「{name}」嗎？停用後，新上傳的素材將不會自動辨識該條目並打上關聯標籤，已完成打標的素材不受影響。",
+        "disableDescription": "確定要停用「{name}」嗎？停用後，新上傳的素材將不會自動辨識該條目並打上關聯標籤",
         "confirmDelete": "確認刪除",
         "confirmDisable": "確認停用",
         "cancel": "取消"
@@ -387,7 +388,7 @@
         "enableTitle": "操作提示",
         "enableDescription": "確定要啟用選中的 {count} 個條目嗎？啟用後，將參與AI自動辨識和打標",
         "disableTitle": "操作提示",
-        "disableDescription": "確定要停用選中的 {count} 個條目嗎？停用後，新上傳的素材將不會自動辨識該條目並打上關聯標籤，已完成打標的素材不受影響。",
+        "disableDescription": "確定要停用選中的 {count} 個條目嗎？停用後，新上傳的素材將不會自動辨識該條目並打上關聯標籤",
         "confirmEnable": "確認啟用",
         "confirmDisable": "確認停用",
         "cancel": "取消"
@@ -779,7 +780,7 @@
       "confirmDialog": {
         "title": "操作提示",
         "deleteDescription": "確定要刪除「{name}」嗎？刪除後將無法恢復，已打上的關聯標籤不會自動移除。",
-        "disableDescription": "確定要停用「{name}」嗎？停用後，新上傳的素材將不會自動辨識該條目並打上關聯標籤，已完成打標的素材不受影響。",
+        "disableDescription": "確定要停用「{name}」嗎？停用後，新上傳的素材將不會自動辨識該條目並打上關聯標籤",
         "confirmDelete": "確認刪除",
         "confirmDisable": "確認停用",
         "cancel": "取消"
@@ -790,7 +791,7 @@
         "enableTitle": "操作提示",
         "enableDescription": "確定要啟用選中的 {count} 個條目嗎？啟用後，將參與 AI 自動辨識和打標",
         "disableTitle": "操作提示",
-        "disableDescription": "確定要停用選中的 {count} 個條目嗎？停用後，新上傳的素材將不會自動辨識該條目並打上關聯標籤，已完成打標的素材不受影響。",
+        "disableDescription": "確定要停用選中的 {count} 個條目嗎？停用後，新上傳的素材將不會自動辨識該條目並打上關聯標籤",
         "confirmEnable": "確認啟用",
         "confirmDisable": "確認停用",
         "cancel": "取消"
@@ -1028,7 +1029,7 @@
       "confirmDialog": {
         "title": "操作提示",
         "deleteDescription": "確定要刪除「{name}」嗎？刪除後將無法恢復，已打上的關聯標籤不會自動移除。",
-        "disableDescription": "確定要停用「{name}」嗎？停用後，新上傳的素材將不會自動辨識該人物並打上關聯標籤，已完成打標的素材不受影響。",
+        "disableDescription": "確定要停用「{name}」嗎？停用後，新上傳的素材將不會自動辨識該人物並打上關聯標籤",
         "confirmDelete": "確認刪除",
         "confirmDisable": "確認停用",
         "cancel": "取消"
@@ -1039,7 +1040,7 @@
         "enableTitle": "操作提示",
         "enableDescription": "確定要啟用選中的 {count} 個條目嗎？啟用後，將參與AI自動辨識和打標",
         "disableTitle": "操作提示",
-        "disableDescription": "確定要停用選中的 {count} 個條目嗎？停用後，新上傳的素材將不會自動辨識該人物並打上關聯標籤，已完成打標的素材不受影響。",
+        "disableDescription": "確定要停用選中的 {count} 個條目嗎？停用後，新上傳的素材將不會自動辨識該人物並打上關聯標籤",
         "confirmEnable": "確認啟用",
         "confirmDisable": "確認停用",
         "cancel": "取消"
@@ -1285,7 +1286,7 @@
       "confirmDialog": {
         "title": "操作提示",
         "deleteDescription": "確定要刪除「{name}」嗎？刪除後將無法恢復，已打上的關聯標籤不會自動移除。",
-        "disableDescription": "確定要停用「{name}」嗎？停用後，新上傳的素材將不會自動辨識該條目並打上關聯標籤，已完成打標的素材不受影響。",
+        "disableDescription": "確定要停用「{name}」嗎？停用後，新上傳的素材將不會自動辨識該條目並打上關聯標籤",
         "confirmDelete": "確認刪除",
         "confirmDisable": "確認停用",
         "cancel": "取消"
@@ -1296,7 +1297,7 @@
         "enableTitle": "操作提示",
         "enableDescription": "確定要啟用選中的 {count} 個條目嗎？啟用後，將參與 AI 自動辨識和打標",
         "disableTitle": "操作提示",
-        "disableDescription": "確定要停用選中的 {count} 個條目嗎？停用後，新上傳的素材將不會自動辨識該條目並打上關聯標籤，已完成打標的素材不受影響。",
+        "disableDescription": "確定要停用選中的 {count} 個條目嗎？停用後，新上傳的素材將不會自動辨識該條目並打上關聯標籤",
         "confirmEnable": "確認啟用",
         "confirmDisable": "確認停用",
         "cancel": "取消"

@@ -113,7 +113,7 @@
       "confirmDialog": {
         "title": "Confirmation d'action",
         "deleteDescription": "Êtes-vous sûr de vouloir supprimer \"{name}\" ? Cette action est irréversible et les tags associés ne seront pas automatiquement supprimés.",
-        "disableDescription": "Êtes-vous sûr de vouloir désactiver \"{name}\" ? Une fois désactivé, les nouveaux actifs téléchargés ne reconnaîtront plus automatiquement cette entrée et n'appliqueront pas les tags associés. Les actifs déjà étiquetés ne seront pas affectés.",
+        "disableDescription": "Êtes-vous sûr de vouloir désactiver \"{name}\" ? Une fois désactivé, les nouveaux actifs téléchargés ne reconnaîtront plus automatiquement cette entrée et n'appliqueront pas les tags associés.",
         "confirmDelete": "Confirmer la suppression",
         "confirmDisable": "Confirmer la désactivation",
         "cancel": "Annuler"
@@ -124,7 +124,7 @@
         "enableTitle": "Confirmation d'action",
         "enableDescription": "Êtes-vous sûr de vouloir activer les {count} éléments sélectionnés ? Une fois activés, ils participeront à la reconnaissance et à l'étiquetage automatique par IA.",
         "disableTitle": "Confirmation d'action",
-        "disableDescription": "Êtes-vous sûr de vouloir désactiver les {count} éléments sélectionnés ? Une fois désactivés, les nouveaux actifs téléchargés ne reconnaîtront plus automatiquement ces entrées et n'appliqueront pas les tags associés. Les actifs déjà étiquetés ne seront pas affectés.",
+        "disableDescription": "Êtes-vous sûr de vouloir désactiver les {count} éléments sélectionnés ? Une fois désactivés, les nouveaux actifs téléchargés ne reconnaîtront plus automatiquement ces entrées et n'appliqueront pas les tags associés.",
         "confirmEnable": "Confirmer l'activation",
         "confirmDisable": "Confirmer la désactivation",
         "cancel": "Annuler"
@@ -448,6 +448,7 @@
       "totalItems": "Total {total} éléments",
       "applySuccess": "Appliqué avec succès",
       "applyFailed": "Échec de l'application",
+      "featureReviewChanged": "Les caractéristiques ou les tags associés ont changé. Vérifiez les résultats actualisés, puis cliquez à nouveau sur Ajouter.",
       "rejectConfirmTitle": "Invite d'opération",
       "rejectConfirmDescription": "Confirmer la suppression de l'enregistrement d'étiquetage IA de la ressource \"{assetName}\" ? Cette opération ne peut pas être récupérée, veuillez procéder avec prudence.",
       "batchRejectConfirmDescription": "Confirmer la suppression de l'enregistrement d'étiquetage IA de {assetNum} ressources ? Cette opération ne peut pas être récupérée, veuillez procéder avec prudence.",
@@ -779,7 +780,7 @@
       "confirmDialog": {
         "title": "Confirmation d'action",
         "deleteDescription": "Êtes-vous sûr de vouloir supprimer \"{name}\" ? Cette action est irréversible et les tags associés ne seront pas automatiquement supprimés.",
-        "disableDescription": "Êtes-vous sûr de vouloir désactiver \"{name}\" ? Une fois désactivé, les nouveaux actifs téléchargés ne reconnaîtront plus automatiquement cette entrée et n'appliqueront pas les tags associés. Les actifs déjà étiquetés ne seront pas affectés.",
+        "disableDescription": "Êtes-vous sûr de vouloir désactiver \"{name}\" ? Une fois désactivé, les nouveaux actifs téléchargés ne reconnaîtront plus automatiquement cette entrée et n'appliqueront pas les tags associés.",
         "confirmDelete": "Confirmer la suppression",
         "confirmDisable": "Confirmer la désactivation",
         "cancel": "Annuler"
@@ -790,7 +791,7 @@
         "enableTitle": "Confirmation d'action",
         "enableDescription": "Êtes-vous sûr de vouloir activer les {count} éléments sélectionnés ? Une fois activés, ils participeront à la reconnaissance et à l'étiquetage automatique par IA.",
         "disableTitle": "Confirmation d'action",
-        "disableDescription": "Êtes-vous sûr de vouloir désactiver les {count} éléments sélectionnés ? Une fois désactivés, les nouveaux actifs téléchargés ne reconnaîtront plus automatiquement ces entrées et n'appliqueront pas les tags associés. Les actifs déjà étiquetés ne seront pas affectés.",
+        "disableDescription": "Êtes-vous sûr de vouloir désactiver les {count} éléments sélectionnés ? Une fois désactivés, les nouveaux actifs téléchargés ne reconnaîtront plus automatiquement ces entrées et n'appliqueront pas les tags associés.",
         "confirmEnable": "Confirmer l'activation",
         "confirmDisable": "Confirmer la désactivation",
         "cancel": "Annuler"
@@ -1028,7 +1029,7 @@
       "confirmDialog": {
         "title": "Confirmation",
         "deleteDescription": "Supprimer \"{name}\" ? Cette action est irréversible et les tags liés existants ne seront pas supprimés automatiquement.",
-        "disableDescription": "Désactiver \"{name}\" ? Les nouveaux éléments ne reconnaîtront plus cette personne automatiquement, tandis que les résultats de taguage déjà effectués ne seront pas affectés.",
+        "disableDescription": "Désactiver \"{name}\" ? Les nouveaux éléments ne reconnaîtront plus cette personne automatiquement.",
         "confirmDelete": "Supprimer",
         "confirmDisable": "Désactiver",
         "cancel": "Annuler"
@@ -1039,7 +1040,7 @@
         "enableTitle": "Confirmation",
         "enableDescription": "Activer les {count} éléments sélectionnés ? Ils participeront à la reconnaissance et au taguage IA.",
         "disableTitle": "Confirmation",
-        "disableDescription": "Désactiver les {count} éléments sélectionnés ? Les nouveaux éléments ne les reconnaîtront plus automatiquement, tandis que les résultats de taguage déjà effectués ne seront pas affectés.",
+        "disableDescription": "Désactiver les {count} éléments sélectionnés ? Les nouveaux éléments ne les reconnaîtront plus automatiquement.",
         "confirmEnable": "Activer",
         "confirmDisable": "Désactiver",
         "cancel": "Annuler"
@@ -1285,7 +1286,7 @@
       "confirmDialog": {
         "title": "Confirmation d'action",
         "deleteDescription": "Êtes-vous sûr de vouloir supprimer \"{name}\" ? Cette action est irréversible et les tags associés ne seront pas automatiquement supprimés.",
-        "disableDescription": "Êtes-vous sûr de vouloir désactiver \"{name}\" ? Une fois désactivé, les nouveaux actifs téléchargés ne reconnaîtront plus automatiquement cette entrée et n'appliqueront pas les tags associés. Les actifs déjà étiquetés ne seront pas affectés.",
+        "disableDescription": "Êtes-vous sûr de vouloir désactiver \"{name}\" ? Une fois désactivé, les nouveaux actifs téléchargés ne reconnaîtront plus automatiquement cette entrée et n'appliqueront pas les tags associés.",
         "confirmDelete": "Confirmer la suppression",
         "confirmDisable": "Confirmer la désactivation",
         "cancel": "Annuler"
@@ -1296,7 +1297,7 @@
         "enableTitle": "Confirmation d'action",
         "enableDescription": "Êtes-vous sûr de vouloir activer les {count} éléments sélectionnés ? Une fois activés, ils participeront à la reconnaissance et à l'étiquetage automatique par IA.",
         "disableTitle": "Confirmation d'action",
-        "disableDescription": "Êtes-vous sûr de vouloir désactiver les {count} éléments sélectionnés ? Une fois désactivés, les nouveaux actifs téléchargés ne reconnaîtront plus automatiquement ces entrées et n'appliqueront pas les tags associés. Les actifs déjà étiquetés ne seront pas affectés.",
+        "disableDescription": "Êtes-vous sûr de vouloir désactiver les {count} éléments sélectionnés ? Une fois désactivés, les nouveaux actifs téléchargés ne reconnaîtront plus automatiquement ces entrées et n'appliqueront pas les tags associés.",
         "confirmEnable": "Confirmer l'activation",
         "confirmDisable": "Confirmer la désactivation",
         "cancel": "Annuler"
