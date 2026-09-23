@@ -12,7 +12,7 @@ import {
 } from "@/lib/product/pgvector";
 import {
   ProductDetectionBox,
-  classifyProductImageCrops,
+  classifyProductImageRegions,
   detectProductFigureBoxes,
 } from "@/lib/product/product-classification";
 import {
@@ -38,8 +38,6 @@ import {
   downloadAndPrepareBatchReferenceImage,
 } from "@/lib/tagging/batch-reference-image";
 import {
-  clampBox as clampClassificationBox,
-  cropImageToDataUrl as cropClassificationImageToDataUrl,
   fetchRemoteImageInput,
 } from "@/lib/tagging/classification-image";
 import { prepareReferenceImageBuffer } from "@/lib/tagging/reference-image";
@@ -1555,26 +1553,10 @@ export async function classifyProductImageAction(input: {
         expiresInSeconds: 60 * 60,
       });
       const imageInput = await fetchRemoteImageInput(signedUrl, "product classification upload");
-      const crops = await Promise.all(
-        metadata.boxes.map(async (box) => {
-          const normalizedBox = clampClassificationBox(box, imageInput);
-
-          return {
-            box: normalizedBox,
-            image: await cropClassificationImageToDataUrl({
-              imageDataUrl: imageInput.dataUrl,
-              imageBuffer: imageInput.buffer,
-              sourceMimeType: imageInput.mimeType,
-              meta: imageInput,
-              box: normalizedBox,
-            }),
-          };
-        }),
-      );
-
-      const result = await classifyProductImageCrops({
+      const result = await classifyProductImageRegions({
         teamId,
-        crops,
+        imageInput,
+        boxes: metadata.boxes,
       });
 
       return {

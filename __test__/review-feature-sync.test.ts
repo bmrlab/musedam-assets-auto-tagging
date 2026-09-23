@@ -74,6 +74,7 @@ const ids = {
 const oldTags = [{ assetTagId: 10, tagPath: ["Old tag"] }];
 const newTags = [{ assetTagId: 20, tagPath: ["New tag"] }];
 const evidence = { similarity: 0.9, confidence: 95, detectionIndex: 0 };
+const secondProductId = "55555555-5555-4555-8555-555555555555";
 function result(): TaggingQueueItemResult {
   const person = {
     ...evidence,
@@ -167,6 +168,78 @@ function currentFeatures(tags = newTags) {
       },
     ]),
   );
+}
+function multipleProductResult(): TaggingQueueItemResult {
+  const recommendation = result().productRecommendation!;
+  const first = recommendation.bestMatch!;
+  const second = {
+    ...first,
+    assetProductId: secondProductId,
+    productName: "Other old product",
+    confidence: 88,
+    detectionIndex: 1,
+    detectionIndices: [1, 2],
+  };
+  return {
+    productRecommendation: {
+      ...recommendation,
+      matches: [first, second],
+      detections: [first, second].map((match) => ({
+        detectionIndex: match.detectionIndex,
+        box: { xMin: 0, yMin: 0, xMax: 1, yMax: 1, score: 1, label: "product" },
+        bestMatch: match,
+        topMatches: [match],
+        noConfidentMatch: false,
+      })),
+    },
+  };
+}
+function currentProductFeatures(): ReviewFeature[] {
+  return [
+    {
+      ...currentFeatures().get(featureKey("product", ids.product))!,
+      tags: [...newTags, { assetTagId: 30, tagPath: ["First product only"] }],
+    },
+    {
+      featureType: "product",
+      id: secondProductId,
+      name: "New second product",
+      typeId: null,
+      typeName: "New second type",
+      description: "New second description",
+      generalCategory: "New second category",
+      tags: [...newTags, { assetTagId: 40, tagPath: ["Second product only"] }],
+    },
+  ];
+}
+function configureProductLibrary(features = currentProductFeatures()) {
+  mocks.prisma.assetProduct.findMany.mockResolvedValue(
+    features.map((feature) => ({
+      id: feature.id,
+      name: feature.name,
+      productTypeId: feature.typeId,
+      productTypeName: feature.typeName,
+      productType: null,
+      description: feature.description,
+      generalCategory: feature.generalCategory,
+      tags: feature.tags.map((tag) => ({
+        assetTagId: tag.assetTagId,
+        assetTag: { name: tag.tagPath[0], parent: null },
+      })),
+    })),
+  );
+}
+function multipleProductVersions() {
+  return {
+    1: getFeatureReviewVersion(
+      hydrateReviewFeatures(
+        queue.result,
+        new Map(
+          currentProductFeatures().map((feature) => [featureKey("product", feature.id), feature]),
+        ),
+      ),
+    ),
+  };
 }
 let queue: {
   id: number;
@@ -279,6 +352,140 @@ beforeEach(() => {
 });
 
 describe("review feature synchronization", () => {
+  it("refreshes every accepted product and keeps each detection's evidence", async () => {
+    queue.result = multipleProductResult();
+    configureProductLibrary();
+
+    const response = await fetchAssetsWithAuditItems();
+    if (!response.success) throw new Error(response.message);
+    const displayed = response.data.assets[0].batch[0].queueItem.result as TaggingQueueItemResult;
+    expect(getReviewFeatures(displayed)).toEqual(currentProductFeatures());
+    expect(displayed.productRecommendation?.matches?.map((match) => match.confidence)).toEqual([
+      95, 88,
+    ]);
+    expect(displayed.productRecommendation?.matches?.[1].detectionIndices).toEqual([1, 2]);
+    expect(displayed.productRecommendation?.recommendedTags.map((tag) => tag.assetTagId)).toEqual([
+      20, 30, 40,
+    ]);
+    expect(mocks.prisma.assetProduct.findMany.mock.calls[0][0].where).toEqual({
+      teamId: 7,
+      enabled: true,
+      id: { in: [ids.product, secondProductId] },
+    });
+    expect(response.data.assets[0].availableFeatureIds.product).toEqual([
+      ids.product,
+      secondProductId,
+    ]);
+  });
+
+  it.each(["single", "batch"])("%s Add binds every accepted product", async (mode) => {
+    queue.result = multipleProductResult();
+    configureProductLibrary();
+    const versions = multipleProductVersions();
+    const response =
+      mode === "single"
+        ? await approveAuditItemsAction({ ...input(), featureReviewVersions: versions })
+        : await batchApproveAuditItemsAction(batchInput(versions));
+
+    expect(response.success).toBe(true);
+    expect(mocks.bind.mock.calls.map(([args]) => args.identifierId)).toEqual([
+      ids.product,
+      secondProductId,
+    ]);
+    expect(mocks.setTags.mock.calls[0][0].musedamTagIds.map(String)).toEqual(["20", "30", "40"]);
+  });
+
+  it.each(["single", "batch"])(
+    "%s Add rejects a product independently while preserving another product's shared tag",
+    async (mode) => {
+      queue.result = multipleProductResult();
+      configureProductLibrary();
+      const versions = multipleProductVersions();
+      const rejected = [featureKey("product", ids.product)];
+      const response =
+        mode === "single"
+          ? await approveAuditItemsAction({
+              ...input(),
+              featureReviewVersions: versions,
+              rejectedFeatureKeys: rejected,
+            })
+          : await batchApproveAuditItemsAction(batchInput(versions, rejected));
+
+      expect(response.success).toBe(true);
+      expect(mocks.bind.mock.calls.map(([args]) => args.identifierId)).toEqual([secondProductId]);
+      expect(mocks.setTags.mock.calls[0][0].musedamTagIds.map(String)).toEqual(["20", "40"]);
+      const snapshot = mocks.prisma.taggingQueueItem.update.mock.calls[0][0].data.extra
+        .featureReview.result as TaggingQueueItemResult;
+      expect(snapshot.productRecommendation?.matches?.map((match) => match.assetProductId)).toEqual(
+        [secondProductId],
+      );
+      expect(snapshot.productRecommendation?.bestMatch?.assetProductId).toBe(secondProductId);
+      expect(snapshot.productRecommendation?.detections?.[0]).toMatchObject({
+        bestMatch: null,
+        topMatches: [],
+        noConfidentMatch: true,
+      });
+      expect(getReviewFeatures(snapshot).map((feature) => feature.id)).toEqual([secondProductId]);
+    },
+  );
+
+  it("removes only an unavailable product and can approve the remaining product", async () => {
+    queue.result = multipleProductResult();
+    configureProductLibrary(currentProductFeatures().slice(1));
+    const response = await fetchAssetsWithAuditItems();
+    if (!response.success) throw new Error(response.message);
+    const displayed = response.data.assets[0].batch[0].queueItem.result as TaggingQueueItemResult;
+    expect(displayed.productRecommendation?.matches?.map((match) => match.assetProductId)).toEqual([
+      secondProductId,
+    ]);
+    expect(displayed.productRecommendation?.bestMatch?.assetProductId).toBe(secondProductId);
+
+    const approval = await approveAuditItemsAction({
+      ...input(),
+      featureReviewVersions: { 1: getFeatureReviewVersion(displayed) },
+    });
+    expect(approval.success).toBe(true);
+    expect(mocks.bind.mock.calls.map(([args]) => args.identifierId)).toEqual([secondProductId]);
+  });
+
+  it.each(["single", "batch"])(
+    "%s Add detects association changes on the second product",
+    async (mode) => {
+      queue.result = multipleProductResult();
+      const versions = multipleProductVersions();
+      const features = currentProductFeatures();
+      features[1].tags = [{ assetTagId: 50, tagPath: ["Changed second product tag"] }];
+      configureProductLibrary(features);
+      const response =
+        mode === "single"
+          ? await approveAuditItemsAction({ ...input(), featureReviewVersions: versions })
+          : await batchApproveAuditItemsAction(batchInput(versions));
+
+      expect(response).toMatchObject(
+        mode === "single"
+          ? { success: false, message: FEATURE_REVIEW_CHANGED }
+          : { success: true, data: { changedCount: 1, failedCount: 0 } },
+      );
+      expect(mocks.bind).not.toHaveBeenCalled();
+      expect(mocks.setTags).not.toHaveBeenCalled();
+    },
+  );
+
+  it("applies the confidence threshold to each product and respects an explicit empty match list", () => {
+    const source = multipleProductResult();
+    source.productRecommendation!.matches![1].confidence = 79;
+    expect(getReviewFeatures(source).map((feature) => feature.id)).toEqual([ids.product]);
+    source.productRecommendation!.matches = [];
+    expect(getReviewFeatures(source)).toEqual([]);
+    const refreshed = hydrateReviewFeatures(source, currentFeatures());
+    expect(refreshed.productRecommendation).toMatchObject({
+      matches: [],
+      bestMatch: null,
+      recommendedTags: [],
+    });
+    expect(getReviewFeatures(refreshed)).toEqual([]);
+  });
+
   it("loads current names, types and tags for all four features without rewriting recognition evidence", async () => {
     const response = await fetchAssetsWithAuditItems();
     expect(response.success).toBe(true);
@@ -311,7 +518,8 @@ describe("review feature synchronization", () => {
   });
 
   it.each(["single", "batch"])(
-    "%s Add binds features whose current tags do not have MuseDAM IDs", async (mode) => {
+    "%s Add binds features whose current tags do not have MuseDAM IDs",
+    async (mode) => {
       configureLibrary(newTags.map((tag) => ({ ...tag, slug: null })));
       mocks.prisma.assetTag.findMany.mockImplementation(async ({ where }) =>
         where.slug?.not === null ? [] : [{ id: 20, slug: null }],

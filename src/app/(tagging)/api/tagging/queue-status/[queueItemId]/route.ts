@@ -7,6 +7,7 @@ import { getQueueWaitEstimate } from "@/app/(tagging)/queue-estimate";
 import { filterFeatureLibraryRecommendations } from "@/lib/feature-library";
 import { getFeatureLibraryFeaturesFromRequest } from "@/lib/feature-library-server";
 import { isAcceptedPersonFace } from "@/lib/person/person-match-policy";
+import { getAcceptedProductMatches } from "@/lib/product/product-match-policy";
 import prisma from "@/prisma/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -66,7 +67,9 @@ export async function GET(
       const productRecommendation = featureLibraryFeatures.featureProduct
         ? getProductRecommendationFromQueueResult(queueItem.result)
         : null;
-      const assetProductId = productRecommendation?.bestMatch?.assetProductId;
+      const assetProductIds = getAcceptedProductMatches(productRecommendation).map(
+        (match) => match.assetProductId,
+      );
       const personRecommendation = featureLibraryFeatures.featurePerson
         ? getPersonRecommendationFromQueueResult(queueItem.result)
         : null;
@@ -109,21 +112,23 @@ export async function GET(
             },
           })
         : [];
-      const productLinkedTags = assetProductId
-        ? await prisma.assetProductTag.findMany({
-            where: {
-              assetProductId,
-              assetTagId: {
-                not: null,
+      const productLinkedTags =
+        assetProductIds.length > 0
+          ? await prisma.assetProductTag.findMany({
+              where: {
+                assetProductId: { in: assetProductIds },
+                assetTagId: {
+                  not: null,
+                },
               },
-            },
-            orderBy: [{ sort: "asc" }, { id: "asc" }],
-            select: {
-              assetTagId: true,
-              tagPath: true,
-            },
-          })
-        : [];
+              orderBy: [{ sort: "asc" }, { id: "asc" }],
+              select: {
+                assetProductId: true,
+                assetTagId: true,
+                tagPath: true,
+              },
+            })
+          : [];
       const personLinkedTags =
         assetPersonIds.length > 0
           ? await prisma.assetPersonTag.findMany({
@@ -159,6 +164,7 @@ export async function GET(
             tagPath: Array.isArray(tag.tagPath) ? tag.tagPath.map(String) : [],
           })),
           productLinkedTags: productLinkedTags.map((tag) => ({
+            assetProductId: tag.assetProductId,
             assetTagId: tag.assetTagId,
             tagPath: Array.isArray(tag.tagPath) ? tag.tagPath.map(String) : [],
           })),

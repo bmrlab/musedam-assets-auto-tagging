@@ -13,6 +13,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { dispatchMuseDAMClientAction } from "@/embed/message";
 import { useFeatureLibraryFeatures } from "@/hooks/use-feature-library";
 import { isAcceptedPersonFace } from "@/lib/person/person-match-policy";
+import { getAcceptedProductMatches } from "@/lib/product/product-match-policy";
 import { cn } from "@/lib/utils";
 import { AlertCircleIcon, Loader2, PlayIcon, PlusIcon, RefreshCwIcon, Trash } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -626,10 +627,38 @@ export default function TestClient() {
                 Array.isArray(result.ipLinkedTags) && result.ipLinkedTags.length > 0
                   ? result.ipLinkedTags
                   : (ipRecommendation?.recommendedTags ?? []);
-              const linkedProductTags: Array<{ assetTagId?: number; tagPath?: string[] }> =
-                Array.isArray(result.productLinkedTags) && result.productLinkedTags.length > 0
-                  ? result.productLinkedTags
-                  : (productRecommendation?.recommendedTags ?? []);
+              const linkedProductTags: Array<{
+                assetProductId?: string;
+                assetTagId?: number;
+                tagPath?: string[];
+              }> = Array.isArray(result.productLinkedTags) ? result.productLinkedTags : [];
+              const acceptedProducts = getAcceptedProductMatches(productRecommendation);
+              const products = acceptedProducts.map((match) => {
+                const refreshedTags = linkedProductTags.filter(
+                  (tag) =>
+                    tag.assetProductId === match.assetProductId ||
+                    (!tag.assetProductId && acceptedProducts.length === 1),
+                );
+                const recommendedTags = Array.isArray(result.productLinkedTags)
+                  ? refreshedTags
+                  : match.recommendedTags;
+
+                return {
+                  noConfidentMatch: false,
+                  productName: match.productName,
+                  productTypeName: match.productTypeName,
+                  confidence: match.confidence,
+                  similarity: match.similarity,
+                  imageSimilarity: match.imageSimilarity,
+                  descriptionSimilarity: match.descriptionSimilarity,
+                  assetProductId: match.assetProductId,
+                  recommendedTags: recommendedTags.map((tag) => ({ tagPath: tag.tagPath || [] })),
+                };
+              });
+              const bestProductConfidence = Math.max(
+                0,
+                ...products.map((product) => product.confidence),
+              );
               const linkedPersonTags: Array<{
                 assetPersonId?: string;
                 assetTagId?: number;
@@ -686,7 +715,7 @@ export default function TestClient() {
                 ipTags: [],
                 ipConfidence: Math.round(ipRecommendation?.bestMatch?.confidence ?? 0),
                 productTags: [],
-                productConfidence: Math.round(productRecommendation?.bestMatch?.confidence ?? 0),
+                productConfidence: bestProductConfidence,
                 personTags: [],
                 aiSourceLabels: {
                   basicInfo: t("nameMatching"),
@@ -730,7 +759,7 @@ export default function TestClient() {
                   aiDisplayTags[0]?.score || 0,
                   brandRecommendation?.bestMatch?.confidence || 0,
                   ipRecommendation?.bestMatch?.confidence || 0,
-                  productRecommendation?.bestMatch?.confidence || 0,
+                  bestProductConfidence,
                   bestPersonConfidence,
                 ),
                 brandRecognition: brandRecommendation
@@ -762,22 +791,7 @@ export default function TestClient() {
                       })),
                     }
                   : null,
-                productRecognition: productRecommendation
-                  ? {
-                      noConfidentMatch: productRecommendation.noConfidentMatch,
-                      productName: productRecommendation.bestMatch?.productName || null,
-                      productTypeName: productRecommendation.bestMatch?.productTypeName || null,
-                      confidence: productRecommendation.bestMatch?.confidence ?? null,
-                      similarity: productRecommendation.bestMatch?.similarity ?? null,
-                      imageSimilarity: productRecommendation.bestMatch?.imageSimilarity ?? null,
-                      descriptionSimilarity:
-                        productRecommendation.bestMatch?.descriptionSimilarity ?? null,
-                      assetProductId: productRecommendation.bestMatch?.assetProductId,
-                      recommendedTags: linkedProductTags.map((tag) => ({
-                        tagPath: tag.tagPath || [],
-                      })),
-                    }
-                  : null,
+                products,
                 personRecognition: personRecommendation
                   ? {
                       noConfidentMatch: personRecommendation.noConfidentMatch,

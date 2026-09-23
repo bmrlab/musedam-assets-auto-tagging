@@ -4,6 +4,7 @@ import {
   filterFeatureLibraryRecommendations,
   type FeatureLibraryFeatures,
 } from "@/lib/feature-library";
+import { getProductMatches } from "@/lib/product/product-match-policy";
 import type { TaggingQueueItemResult } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 import { featureKey, type ReviewFeature, type ReviewFeatureType } from "./feature-review";
@@ -30,8 +31,9 @@ export async function loadReviewFeatureLibrary(
     if (result.brandRecommendation?.bestMatch)
       ids.brand.add(result.brandRecommendation.bestMatch.assetLogoId);
     if (result.ipRecommendation?.bestMatch) ids.ip.add(result.ipRecommendation.bestMatch.assetIpId);
-    if (result.productRecommendation?.bestMatch)
-      ids.product.add(result.productRecommendation.bestMatch.assetProductId);
+    for (const product of getProductMatches(result.productRecommendation)) {
+      ids.product.add(product.assetProductId);
+    }
     for (const face of result.personRecommendation?.faces ?? []) {
       if (face.bestMatch) ids.person.add(face.bestMatch.assetPersonId);
     }

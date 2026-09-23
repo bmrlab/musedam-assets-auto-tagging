@@ -111,6 +111,16 @@ export type ProductClassificationMatch = {
 };
 
 export type ProductClassificationResult = {
+  matches: Array<ProductClassificationMatch & { detectionIndices: number[] }>;
+  rawDetections?: ProductDetectionBox[];
+  detections: Array<{
+    detectionIndex: number;
+    sourceDetectionIndices?: number[];
+    box: ProductDetectionBox;
+    topMatches: ProductClassificationMatch[];
+    bestMatch: ProductClassificationMatch | null;
+    noConfidentMatch: boolean;
+  }>;
   topMatches: ProductClassificationMatch[];
   bestMatch: ProductClassificationMatch | null;
   noConfidentMatch: boolean;

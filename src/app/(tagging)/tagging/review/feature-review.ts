@@ -1,4 +1,5 @@
 import { isReviewablePersonFace } from "@/lib/person/person-match-policy";
+import { getAcceptedProductMatches, getProductMatches } from "@/lib/product/product-match-policy";
 import { meetsFeatureConfidenceThreshold } from "@/lib/tagging/feature-confidence";
 import type { TaggingQueueItemResult } from "@/prisma/client";
 
@@ -61,23 +62,40 @@ export function hydrateReviewFeatures(
       : null;
   }
   const product = source.productRecommendation;
-  if (product?.bestMatch) {
-    const feature = features.get(featureKey("product", product.bestMatch.assetProductId));
-    hydrated.productRecommendation = feature
-      ? {
-          ...product,
-          bestMatch: {
-            ...product.bestMatch,
-            productName: feature.name,
-            productTypeId: feature.typeId,
-            productTypeName: feature.typeName,
-            description: feature.description ?? "",
-            generalCategory: feature.generalCategory ?? "",
-            recommendedTags: feature.tags,
-          },
-          recommendedTags: feature.tags,
-        }
-      : null;
+  if (product) {
+    const matches = getProductMatches(product).flatMap((match) => {
+      const feature = features.get(featureKey("product", match.assetProductId));
+      return feature
+        ? [
+            {
+              ...match,
+              productName: feature.name,
+              productTypeId: feature.typeId,
+              productTypeName: feature.typeName,
+              description: feature.description ?? "",
+              generalCategory: feature.generalCategory ?? "",
+              recommendedTags: feature.tags,
+            },
+          ]
+        : [];
+    });
+    const hasMatchesArray = Array.isArray(product.matches);
+    hydrated.productRecommendation =
+      hasMatchesArray || matches.length > 0
+        ? {
+            ...product,
+            ...(hasMatchesArray ? { matches } : {}),
+            bestMatch: matches[0] ?? null,
+            noConfidentMatch: matches.length === 0 || product.noConfidentMatch,
+            recommendedTags: [
+              ...new Map(
+                matches.flatMap((match) =>
+                  match.recommendedTags.map((tag) => [tag.assetTagId, tag] as const),
+                ),
+              ).values(),
+            ],
+          }
+        : null;
   }
   const person = source.personRecommendation;
   if (person) {
@@ -138,8 +156,7 @@ export function getReviewFeatures(result: unknown): ReviewFeature[] {
       description: ip.description,
     });
   }
-  const product = source.productRecommendation?.bestMatch;
-  if (product && meetsFeatureConfidenceThreshold("product", product.confidence)) {
+  for (const product of getAcceptedProductMatches(source.productRecommendation)) {
     features.push({
       featureType: "product",
       id: product.assetProductId,
@@ -225,6 +242,29 @@ export function createFeatureReviewSnapshot(result: unknown, selected: ReviewFea
     result,
     new Map(selected.map((feature) => [featureKey(feature.featureType, feature.id), feature])),
   );
+  const product = hydrated.productRecommendation;
+  if (product?.detections) {
+    const selectedProductIds = new Set(
+      getProductMatches(product).map((match) => match.assetProductId),
+    );
+    hydrated.productRecommendation = {
+      ...product,
+      detections: product.detections.map((detection) => {
+        const bestMatch =
+          detection.bestMatch && selectedProductIds.has(detection.bestMatch.assetProductId)
+            ? detection.bestMatch
+            : null;
+        return {
+          ...detection,
+          bestMatch,
+          topMatches: detection.topMatches.filter((match) =>
+            selectedProductIds.has(match.assetProductId),
+          ),
+          noConfidentMatch: !bestMatch || detection.noConfidentMatch,
+        };
+      }),
+    };
+  }
   return {
     reviewedAt: new Date().toISOString(),
     result: {

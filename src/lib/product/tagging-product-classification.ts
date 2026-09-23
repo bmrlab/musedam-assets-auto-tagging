@@ -1,13 +1,14 @@
 import "server-only";
 
-import { classifyProductImageCrops, detectProductFigureBoxes } from "@/lib/product/product-classification";
 import {
-  clampBox,
+  classifyProductImageRegions,
+  detectProductFigureBoxes,
+  ProductTopMatch,
+} from "@/lib/product/product-classification";
+import {
   ClassificationRemoteImageInput,
-  cropImageToDataUrl,
   fetchRemoteImageInput,
   getFallbackBox,
-  MAX_DETECTION_CROPS,
   normalizeRecommendedTags,
 } from "@/lib/tagging/classification-image";
 import { TaggingProductRecommendation } from "@/prisma/client";
@@ -42,57 +43,35 @@ export async function classifyAssetProductRecommendation({
     imageBase64: imageInput.dataUrl,
   });
 
-  const candidateBoxes = (
+  const candidateBoxes =
     detection.detections.length > 0
       ? detection.detections
-      : [getFallbackBox(imageInput, "whole image fallback")]
-  ).slice(0, MAX_DETECTION_CROPS);
-  const normalizedBoxes = candidateBoxes.map((box) => clampBox(box, imageInput));
-
-  const crops = await Promise.all(
-    normalizedBoxes.map(async (box) => ({
-      box,
-      image: await cropImageToDataUrl({
-        imageDataUrl: imageInput.dataUrl,
-        imageBuffer: imageInput.buffer,
-        sourceMimeType: imageInput.mimeType,
-        meta: imageInput,
-        box,
-      }),
-    })),
-  );
-
-  const result = await classifyProductImageCrops({
+      : [getFallbackBox(imageInput, "whole image fallback")];
+  const result = await classifyProductImageRegions({
     teamId,
-    crops,
+    imageInput,
+    boxes: candidateBoxes,
   });
 
-  if (!result.bestMatch) {
-    return {
-      noConfidentMatch: true,
-      bestMatch: null,
-      recommendedTags: [],
-    };
-  }
-
-  const normalizedTags = normalizeRecommendedTags(result.bestMatch.recommendedTags);
+  const normalizeMatch = <T extends ProductTopMatch>(match: T) => ({
+    ...match,
+    recommendedTags: normalizeRecommendedTags(match.recommendedTags),
+  });
+  const matches = result.matches.map(normalizeMatch);
+  const recommendedTags = normalizeRecommendedTags(
+    result.matches.flatMap((match) => match.recommendedTags),
+  );
 
   return {
-    noConfidentMatch: result.noConfidentMatch ?? false,
-    bestMatch: {
-      assetProductId: result.bestMatch.assetProductId,
-      productName: result.bestMatch.productName,
-      productTypeId: result.bestMatch.productTypeId,
-      productTypeName: result.bestMatch.productTypeName,
-      description: result.bestMatch.description,
-      generalCategory: result.bestMatch.generalCategory,
-      similarity: result.bestMatch.similarity,
-      confidence: result.bestMatch.confidence,
-      detectionIndex: result.bestMatch.detectionIndex,
-      imageSimilarity: result.bestMatch.imageSimilarity,
-      descriptionSimilarity: result.bestMatch.descriptionSimilarity,
-      recommendedTags: normalizedTags,
-    },
-    recommendedTags: normalizedTags,
+    noConfidentMatch: matches.length === 0,
+    rawDetections: result.rawDetections,
+    matches,
+    detections: result.detections.map((detection) => ({
+      ...detection,
+      topMatches: detection.topMatches.map(normalizeMatch),
+      bestMatch: detection.bestMatch ? normalizeMatch(detection.bestMatch) : null,
+    })),
+    bestMatch: result.bestMatch ? normalizeMatch(result.bestMatch) : null,
+    recommendedTags,
   };
 }

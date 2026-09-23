@@ -2,7 +2,6 @@
 "use client";
 
 import {
-  clampClassificationBox,
   ClassificationImageMeta,
   getClassificationBoxPercentages,
   getClassificationImageFrameStyle,
@@ -98,6 +97,7 @@ export default function ProductClassifyClient({
   );
   const [detections, setDetections] = useState<ProductDetectionBox[]>([]);
   const [result, setResult] = useState<ProductClassificationResult | null>(null);
+  const [showRawDetections, setShowRawDetections] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
 
   useEffect(() => {
@@ -112,6 +112,7 @@ export default function ProductClassifyClient({
 
     setDetections([]);
     setResult(null);
+    setShowRawDetections(false);
     setImageMeta(null);
     setDetectionImageMeta(null);
     setFile(null);
@@ -159,6 +160,8 @@ export default function ProductClassifyClient({
     }
 
     setIsRunning(true);
+    setResult(null);
+    setShowRawDetections(false);
     try {
       const contentType = file.type || "application/octet-stream";
       const uploadPrepareResult = await prepareProductImageUploadAction({
@@ -200,17 +203,14 @@ export default function ProductClassifyClient({
           ? prepareResult.data.detections
           : [getFallbackBox(nextDetectionImageMeta, t)];
 
-      const normalizedBoxes = candidateBoxes.map((box) =>
-        clampClassificationBox(box, nextDetectionImageMeta),
-      );
       setDetectionImageMeta(nextDetectionImageMeta);
-      setDetections(normalizedBoxes);
+      setDetections(candidateBoxes);
 
       const classifyResult = await classifyProductImageAction({
         objectKey: uploadPrepareResult.data.image.objectKey,
         mimeType: uploadPrepareResult.data.image.mimeType,
         size: uploadPrepareResult.data.image.size,
-        boxes: normalizedBoxes,
+        boxes: candidateBoxes,
       });
       if (!classifyResult.success) {
         toast.error(classifyResult.message);
@@ -232,6 +232,40 @@ export default function ProductClassifyClient({
   }
 
   const boxImageMeta = detectionImageMeta ?? imageMeta;
+  const acceptedMatches = result?.matches ?? [];
+  const acceptedProductsByDetection = new Map(
+    acceptedMatches.flatMap((match) =>
+      match.detectionIndices.map((index) => [index, match] as const),
+    ),
+  );
+  const rawDetections = result?.rawDetections ?? detections;
+  const detectionRows = result
+    ? result.detections.map((detection, regionIndex) => ({
+        box: detection.box,
+        detectionIndex: detection.detectionIndex,
+        sourceDetectionIndices: detection.sourceDetectionIndices ?? [detection.detectionIndex],
+        regionIndex,
+        detectionResult: detection,
+      }))
+    : rawDetections.map((box, detectionIndex) => ({
+        box,
+        detectionIndex,
+        sourceDetectionIndices: [detectionIndex],
+        regionIndex: null,
+        detectionResult: null,
+      }));
+  const overlayBoxes =
+    !result || showRawDetections
+      ? rawDetections.map((box, detectionIndex) => ({
+          box,
+          detectionIndex,
+          regionIndex: null,
+        }))
+      : detectionRows;
+  const bestMatchRegionIndex =
+    result?.detections.findIndex(
+      (detection) => detection.detectionIndex === result.bestMatch?.detectionIndex,
+    ) ?? -1;
 
   return (
     <div className="flex min-h-[720px] flex-1 flex-col gap-6 px-1 py-5">
@@ -287,6 +321,24 @@ export default function ProductClassifyClient({
             </Button>
           </div>
 
+          {result ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-basic-5">
+              <p>
+                {t("productRegions")}: {result.detections.length} · {t("rawDetectionBoxes")}:{" "}
+                {rawDetections.length}
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                aria-pressed={showRawDetections}
+                onClick={() => setShowRawDetections((current) => !current)}
+              >
+                {t(showRawDetections ? "showProductRegions" : "showRawDetections")}
+              </Button>
+            </div>
+          ) : null}
+
           <div className="rounded-[20px] border border-dashed border-basic-3 bg-basic-1 p-4">
             {previewUrl && imageMeta && boxImageMeta ? (
               <div className="flex justify-center">
@@ -300,13 +352,14 @@ export default function ProductClassifyClient({
                     className="block h-full w-full object-contain"
                   />
                   <div className="pointer-events-none absolute inset-0">
-                    {detections.map((box, index) => {
-                      const active = result?.winningDetectionIndex === index;
+                    {overlayBoxes.map(({ box, detectionIndex, regionIndex }) => {
+                      const acceptedProduct = acceptedProductsByDetection.get(detectionIndex);
+                      const active = Boolean(acceptedProduct);
                       const boxStyle = getClassificationBoxPercentages(box, boxImageMeta);
                       const labelPosition = getClassificationLabelPosition(box, boxImageMeta);
 
                       return (
-                        <Fragment key={`${box.label}-${index}`}>
+                        <Fragment key={`${box.label}-${detectionIndex}`}>
                           <div
                             className={cn(
                               "absolute rounded-[14px] border-2",
@@ -328,7 +381,11 @@ export default function ProductClassifyClient({
                             )}
                             style={labelPosition}
                           >
-                            {active ? t("winningBox") : `${t("box")} ${index + 1}`} · {box.label}
+                            {t(regionIndex === null ? "box" : "region")}{" "}
+                            {(regionIndex ?? detectionIndex) + 1} ·{" "}
+                            {showRawDetections
+                              ? box.label
+                              : (acceptedProduct?.productName ?? box.label)}
                           </span>
                         </Fragment>
                       );
@@ -350,6 +407,7 @@ export default function ProductClassifyClient({
             <div className="flex items-center gap-2 text-lg font-semibold text-basic-8">
               <Trophy className="size-5 text-[#ff8f1f]" />
               {t("finalResult")}
+              {result ? <span className="text-basic-5">({acceptedMatches.length})</span> : null}
             </div>
 
             {!result ? (
@@ -363,108 +421,165 @@ export default function ProductClassifyClient({
                     <div className="font-medium text-basic-8">{result.bestMatch.productName}</div>
                     <div className="mt-1 text-basic-5">
                       {t("similarity")} {formatPercent(result.bestMatch.similarity)} ·{" "}
-                      {t("confidence")} {result.bestMatch.confidence} · {t("box")}{" "}
-                      {result.bestMatch.detectionIndex + 1}
+                      {t("confidence")} {result.bestMatch.confidence} ·{" "}
+                      {t(bestMatchRegionIndex >= 0 ? "region" : "box")}{" "}
+                      {(bestMatchRegionIndex >= 0
+                        ? bestMatchRegionIndex
+                        : result.bestMatch.detectionIndex) + 1}
                     </div>
                   </div>
                 ) : null}
               </div>
-            ) : result.bestMatch ? (
-              <div className="mt-4 rounded-[18px] border border-success-4 bg-success-1 p-4">
-                <p className="text-sm text-basic-5">{t("winningProduct")}</p>
-                <p className="mt-2 text-2xl font-semibold text-basic-8">
-                  {result.bestMatch.productName}
-                </p>
-                <p className="mt-2 text-sm leading-6 text-basic-5">
-                  {t("type")} {result.bestMatch.productTypeName} · {t("similarity")}{" "}
-                  {formatPercent(result.bestMatch.similarity)} · {t("confidence")}{" "}
-                  {result.bestMatch.confidence}
-                </p>
-                <p className="mt-1 text-sm text-basic-5">
-                  {t("imageSimilarity")} {formatPercent(result.bestMatch.imageSimilarity)} ·{" "}
-                  {t("descriptionSimilarity")}{" "}
-                  {formatPercent(result.bestMatch.descriptionSimilarity)}
-                </p>
-                {result.bestMatch.description ? (
-                  <p className="mt-3 text-sm leading-6 text-basic-5">
-                    {result.bestMatch.description}
+            ) : (
+              acceptedMatches.map((match) => (
+                <div
+                  key={match.assetProductId}
+                  className="mt-4 rounded-[18px] border border-success-4 bg-success-1 p-4"
+                >
+                  <p className="text-sm text-basic-5">{t("winningProduct")}</p>
+                  <p className="mt-2 text-2xl font-semibold text-basic-8">{match.productName}</p>
+                  <p className="mt-2 text-sm leading-6 text-basic-5">
+                    {t("type")} {match.productTypeName} · {t("similarity")}{" "}
+                    {formatPercent(match.similarity)} · {t("confidence")} {match.confidence}
                   </p>
-                ) : null}
-                {result.bestMatch.recommendedTags.length > 0 ? (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {result.bestMatch.recommendedTags.map((tag) => (
-                      <span
-                        key={tag.id}
-                        className="inline-flex items-center rounded-[6px] border border-basic-4 bg-background px-2 py-1 text-xs text-basic-8"
+                  <p className="mt-1 text-sm text-basic-5">
+                    {t("imageSimilarity")} {formatPercent(match.imageSimilarity)} ·{" "}
+                    {t("descriptionSimilarity")} {formatPercent(match.descriptionSimilarity)}
+                  </p>
+                  <p className="mt-1 text-sm text-basic-5">
+                    {t("productRegions")}:{" "}
+                    {result.detections
+                      .flatMap((detection, regionIndex) =>
+                        match.detectionIndices.includes(detection.detectionIndex)
+                          ? [regionIndex + 1]
+                          : [],
+                      )
+                      .join(", ")}
+                  </p>
+                  {match.description ? (
+                    <p className="mt-3 text-sm leading-6 text-basic-5">{match.description}</p>
+                  ) : null}
+                  {match.recommendedTags.length > 0 ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {match.recommendedTags.map((tag) => (
+                        <span
+                          key={tag.id}
+                          className="inline-flex items-center rounded-[6px] border border-basic-4 bg-background px-2 py-1 text-xs text-basic-8"
+                        >
+                          {tag.tagPath.join(" > ")}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="rounded-[24px] border bg-background p-6">
+            <h3 className="text-lg font-semibold text-basic-8">
+              {t(result ? "productRegions" : "detectionBoxes")}
+            </h3>
+            <div className="mt-4 space-y-3">
+              {detectionRows.length > 0 ? (
+                detectionRows.map(
+                  ({
+                    box,
+                    detectionIndex,
+                    sourceDetectionIndices,
+                    regionIndex,
+                    detectionResult,
+                  }) => {
+                    return (
+                      <div
+                        key={`${box.label}-${detectionIndex}-meta`}
+                        className={cn(
+                          "rounded-[16px] border px-4 py-3 text-sm",
+                          acceptedProductsByDetection.has(detectionIndex)
+                            ? "border-success-4 bg-success-1"
+                            : "border-basic-3 bg-basic-1",
+                        )}
                       >
-                        {tag.tagPath.join(" > ")}
-                      </span>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-
-          <div className="rounded-[24px] border bg-background p-6">
-            <h3 className="text-lg font-semibold text-basic-8">{t("topMatches")}</h3>
-            <div className="mt-4 space-y-3">
-              {result?.topMatches.length ? (
-                result.topMatches.map((match, index) => (
-                  <div
-                    key={`${match.assetProductId}-${index}`}
-                    className={cn(
-                      "rounded-[18px] border px-4 py-3",
-                      index === 0 ? "border-warning-4 bg-warning-1" : "border-basic-3 bg-basic-1",
-                    )}
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="font-medium text-basic-8">{match.productName}</div>
-                      <div className="text-sm text-basic-5">#{index + 1}</div>
-                    </div>
-                    <div className="mt-2 text-sm leading-6 text-basic-5">
-                      {t("similarity")} {formatPercent(match.similarity)} · {t("confidence")}{" "}
-                      {match.confidence}
-                    </div>
-                    <div className="text-sm leading-6 text-basic-5">
-                      {t("imageSimilarity")} {formatPercent(match.imageSimilarity)} ·{" "}
-                      {t("descriptionSimilarity")} {formatPercent(match.descriptionSimilarity)}
-                    </div>
-                    <div className="text-sm leading-6 text-basic-5">
-                      {t("type")} {match.productTypeName} · {t("box")} {match.detectionIndex + 1}
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <p className="text-sm leading-6 text-basic-5">{t("noMatches")}</p>
-              )}
-            </div>
-          </div>
-
-          <div className="rounded-[24px] border bg-background p-6">
-            <h3 className="text-lg font-semibold text-basic-8">{t("detectionBoxes")}</h3>
-            <div className="mt-4 space-y-3">
-              {detections.length > 0 ? (
-                detections.map((box, index) => (
-                  <div
-                    key={`${box.label}-${index}-meta`}
-                    className={cn(
-                      "rounded-[16px] border px-4 py-3 text-sm",
-                      result?.winningDetectionIndex === index
-                        ? "border-warning-4 bg-warning-1"
-                        : "border-basic-3 bg-basic-1",
-                    )}
-                  >
-                    <div className="font-medium text-basic-8">
-                      {t("box")} {index + 1} · {box.label}
-                    </div>
-                    <div className="mt-1 leading-6 text-basic-5">
-                      ({Math.round(box.xMin)}, {Math.round(box.yMin)}) {t("coordinateTo")} (
-                      {Math.round(box.xMax)}, {Math.round(box.yMax)}) · {t("detectorScore")}{" "}
-                      {formatPercent(box.score)}
-                    </div>
-                  </div>
-                ))
+                        <div className="font-medium text-basic-8">
+                          {t(regionIndex === null ? "box" : "region")}{" "}
+                          {(regionIndex ?? detectionIndex) + 1} · {box.label}
+                        </div>
+                        <div className="mt-1 leading-6 text-basic-5">
+                          ({Math.round(box.xMin)}, {Math.round(box.yMin)}) {t("coordinateTo")} (
+                          {Math.round(box.xMax)}, {Math.round(box.yMax)}) · {t("detectorScore")}{" "}
+                          {formatPercent(box.score)}
+                        </div>
+                        {detectionResult ? (
+                          <details className="mt-2 text-basic-5">
+                            <summary className="cursor-pointer">
+                              {t("rawDetectionBoxes")}:{" "}
+                              {sourceDetectionIndices.map((index) => index + 1).join(", ")}
+                            </summary>
+                            <div className="mt-2 space-y-2">
+                              {sourceDetectionIndices.map((index) => {
+                                const originalBox = rawDetections[index];
+                                if (!originalBox) return null;
+                                return (
+                                  <div
+                                    key={index}
+                                    className="rounded-[10px] border border-basic-3 bg-background/80 px-3 py-2"
+                                  >
+                                    <p>
+                                      {t("box")} {index + 1} · {originalBox.label}
+                                    </p>
+                                    <p className="leading-6">
+                                      ({Math.round(originalBox.xMin)},{" "}
+                                      {Math.round(originalBox.yMin)}) {t("coordinateTo")} (
+                                      {Math.round(originalBox.xMax)}, {Math.round(originalBox.yMax)}
+                                      ) · {t("detectorScore")} {formatPercent(originalBox.score)}
+                                    </p>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </details>
+                        ) : null}
+                        {detectionResult ? (
+                          <div className="mt-3 border-t border-basic-3 pt-3">
+                            {detectionResult.noConfidentMatch ? (
+                              <p className="mb-2 text-basic-5">{t("noConfidentMatch")}</p>
+                            ) : null}
+                            <p className="font-medium text-basic-8">{t("topMatches")}</p>
+                            {detectionResult.topMatches.length > 0 ? (
+                              <div className="mt-2 space-y-2">
+                                {detectionResult.topMatches.map((match, rank) => (
+                                  <div
+                                    key={match.assetProductId}
+                                    className="rounded-[10px] border border-basic-3 bg-background/80 px-3 py-2"
+                                  >
+                                    <div className="flex items-center justify-between gap-3 font-medium text-basic-8">
+                                      <span>{match.productName}</span>
+                                      <span className="text-basic-5">#{rank + 1}</span>
+                                    </div>
+                                    <div className="mt-1 leading-6 text-basic-5">
+                                      {t("similarity")} {formatPercent(match.similarity)} ·{" "}
+                                      {t("confidence")} {match.confidence}
+                                    </div>
+                                    <div className="leading-6 text-basic-5">
+                                      {t("imageSimilarity")} {formatPercent(match.imageSimilarity)}{" "}
+                                      · {t("descriptionSimilarity")}{" "}
+                                      {formatPercent(match.descriptionSimilarity)}
+                                    </div>
+                                    <div className="leading-6 text-basic-5">
+                                      {t("type")} {match.productTypeName}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="mt-2 text-basic-5">{t("noMatches")}</p>
+                            )}
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  },
+                )
               ) : (
                 <p className="text-sm leading-6 text-basic-5">{t("noDetectionData")}</p>
               )}

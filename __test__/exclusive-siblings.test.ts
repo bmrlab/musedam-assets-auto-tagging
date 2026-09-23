@@ -8,7 +8,11 @@ import {
   resolveExclusiveSiblingsAcrossSources,
 } from "@/app/(tagging)/exclusive-siblings";
 import { TagWithScore } from "@/app/(tagging)/types";
-import { TaggingProductRecommendation, TagWithChildren } from "@/prisma/client";
+import {
+  TaggingProductBestMatch,
+  TaggingProductRecommendation,
+  TagWithChildren,
+} from "@/prisma/client";
 
 // 客户案例结构：品牌产品线（互斥）> 雪花秀 / 悦诗风吟 > 系列
 const tagsTree: TagWithChildren[] = [
@@ -28,6 +32,12 @@ const tagsTree: TagWithChildren[] = [
         name: "悦诗风吟",
         extra: {},
         children: [{ id: 112, name: "洁面", extra: {} }],
+      },
+      {
+        id: 121,
+        name: "其他品牌",
+        extra: {},
+        children: [{ id: 122, name: "其他系列", extra: {} }],
       },
     ],
   },
@@ -136,9 +146,73 @@ describe("resolveExclusiveSiblingsAcrossSources", () => {
       }).tagsWithScore,
     ).toBe(tags);
   });
+
+  it("protects every accepted product branch while still removing unrelated inferred siblings", () => {
+    const result = resolveExclusiveSiblingsAcrossSources({
+      tagsTree,
+      tagsWithScore: [
+        inferred(102, ["品牌产品线", "雪花秀", "人参系列"], 75),
+        inferred(112, ["品牌产品线", "悦诗风吟", "洁面"], 75),
+        inferred(122, ["品牌产品线", "其他品牌", "其他系列"], 99),
+      ],
+      featureCandidates: [
+        { leafTagId: 101, confidence: 95, featureType: "product" },
+        { leafTagId: 111, confidence: 80, featureType: "product" },
+      ],
+    });
+    expect(result.tagsWithScore.map((tag) => tag.leafTagId)).toEqual([102, 112]);
+    expect(result.dropped).toEqual([
+      expect.objectContaining({ leafTagId: 122, winnerLeafTagId: 101 }),
+    ]);
+  });
+
+  it("keeps an accepted product branch even when another feature has a higher score", () => {
+    const result = resolveExclusiveSiblingsAcrossSources({
+      tagsTree,
+      tagsWithScore: [inferred(112, ["品牌产品线", "悦诗风吟", "洁面"], 75)],
+      featureCandidates: [
+        { leafTagId: 101, confidence: 99, featureType: "brand" },
+        { leafTagId: 111, confidence: 80, featureType: "product" },
+      ],
+    });
+    expect(result.tagsWithScore.map((tag) => tag.leafTagId)).toEqual([112]);
+    expect(result.dropped).toEqual([]);
+  });
 });
 
 describe("collectFeatureTagCandidates", () => {
+  it("preserves individual product confidence and ignores weak or aggregate candidates", () => {
+    const match = (id: string, confidence: number, tagId: number): TaggingProductBestMatch => ({
+      assetProductId: id,
+      productName: id,
+      productTypeId: null,
+      productTypeName: "Product",
+      description: "",
+      generalCategory: "",
+      similarity: confidence / 100,
+      confidence,
+      detectionIndex: 0,
+      imageSimilarity: confidence / 100,
+      descriptionSimilarity: 0,
+      recommendedTags: [{ assetTagId: tagId, tagPath: [String(tagId)] }],
+    });
+    const productRecommendation: TaggingProductRecommendation = {
+      noConfidentMatch: false,
+      bestMatch: match("first", 95, 101),
+      matches: [match("first", 95, 101), match("second", 81, 111), match("weak", 79, 121)],
+      recommendedTags: [{ assetTagId: 999, tagPath: ["Unrelated aggregate tag"] }],
+    };
+    expect(collectFeatureTagCandidates({ productRecommendation })).toEqual([
+      { leafTagId: 101, confidence: 95, featureType: "product" },
+      { leafTagId: 111, confidence: 81, featureType: "product" },
+    ]);
+    expect(
+      collectFeatureTagCandidates({
+        productRecommendation: { ...productRecommendation, matches: [] },
+      }),
+    ).toEqual([]);
+  });
+
   it("only collects tags whose recommendation passed the feature confidence gate", () => {
     const product = (confidence: number): TaggingProductRecommendation => ({
       noConfidentMatch: false,

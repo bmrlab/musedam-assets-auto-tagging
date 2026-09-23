@@ -82,8 +82,8 @@ async function translateAndNormalize(
 }
 
 /**
- * Prefer product names plus categories, then categories alone, then an LLM-condensed
- * category list. A hard truncation is applied only as the final fallback.
+ * Localize products with their visual categories, leaving catalog identity to the
+ * classifier. Condense oversized category lists before the final hard truncation.
  */
 export async function buildProductDetectionLabelText(
   products: ProductDetectionPromptSource[],
@@ -91,15 +91,6 @@ export async function buildProductDetectionLabelText(
 ) {
   const translate = dependencies.translate ?? translateDetectionLabelText;
   const summarize = dependencies.summarize ?? summarizeProductCategories;
-  const productAndCategoryTerms = uniquePromptTerms(
-    products.flatMap((product) => [product.name, product.generalCategory]),
-  );
-
-  const detailedLabelText = await translateAndNormalize(productAndCategoryTerms, translate);
-  if (isDetectionLabelWithinTokenLimit(detailedLabelText)) {
-    return detailedLabelText;
-  }
-
   const categoryTerms = uniquePromptTerms(products.map((product) => product.generalCategory));
   let categoryLabelText = await translateAndNormalize(categoryTerms, translate);
   if (isDetectionLabelWithinTokenLimit(categoryLabelText)) {

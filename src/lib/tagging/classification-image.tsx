@@ -10,7 +10,7 @@ const MAX_IMAGE_DIMENSION = Number(process.env.TAGGING_MAX_IMAGE_DIMENSION ?? 12
 const MAX_CROP_DIMENSION = Number(process.env.TAGGING_MAX_CROP_DIMENSION ?? 768);
 const IMAGE_JPEG_QUALITY = Number(process.env.TAGGING_IMAGE_JPEG_QUALITY ?? 82);
 const PERSON_IMAGE_JPEG_QUALITY = 95;
-// Brand/IP/product retain a bounded number of detection crops. Person faces are not capped.
+// Brand/IP retain a bounded number of detection crops. Product regions and person faces are not capped.
 export const MAX_DETECTION_CROPS = Number(process.env.TAGGING_MAX_DETECTION_CROPS ?? 8);
 
 export type ClassificationImageMeta = {

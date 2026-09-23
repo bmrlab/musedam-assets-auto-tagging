@@ -29,6 +29,7 @@ import {
   isReviewablePersonFace,
   personSimilarityToConfidence,
 } from "@/lib/person/person-match-policy";
+import { getAcceptedProductMatches, getProductMatches } from "@/lib/product/product-match-policy";
 import { slugToId } from "@/lib/slug";
 import {
   getFeatureConfidenceToneClass,
@@ -853,13 +854,10 @@ export function ReviewItem({
                   availableFeatureIdSets.ip.has(ipRecommendation.bestMatch.assetIpId) &&
                   !meetsFeatureConfidenceThreshold("ip", ipRecommendation.bestMatch.confidence)) ||
                 (featureLibraryFeatures.featureProduct &&
-                  productRecommendation?.bestMatch &&
-                  availableFeatureIdSets.product.has(
-                    productRecommendation.bestMatch.assetProductId,
-                  ) &&
-                  !meetsFeatureConfidenceThreshold(
-                    "product",
-                    productRecommendation.bestMatch.confidence,
+                  getProductMatches(productRecommendation).some(
+                    (product) =>
+                      availableFeatureIdSets.product.has(product.assetProductId) &&
+                      !meetsFeatureConfidenceThreshold("product", product.confidence),
                   )) ||
                 (featureLibraryFeatures.featurePerson &&
                   personRecommendation?.faces.some((face) => {
@@ -938,35 +936,23 @@ export function ReviewItem({
                 });
               }
 
-              if (
-                featureLibraryFeatures.featureProduct &&
-                productRecommendation?.bestMatch &&
-                meetsFeatureConfidenceThreshold(
-                  "product",
-                  productRecommendation.bestMatch.confidence,
-                ) &&
-                availableFeatureIdSets.product.has(productRecommendation.bestMatch.assetProductId)
-              ) {
+              for (const product of featureLibraryFeatures.featureProduct
+                ? getAcceptedProductMatches(productRecommendation)
+                : []) {
+                if (!availableFeatureIdSets.product.has(product.assetProductId)) continue;
                 featureRows.push({
-                  key: "product",
+                  key: `product-${product.assetProductId}`,
                   featureType: "product",
-                  featureId: productRecommendation.bestMatch.assetProductId,
+                  featureId: product.assetProductId,
                   featureClass: tResult("featureClassProduct"),
-                  featureTypeName: productRecommendation.bestMatch.productTypeName,
-                  classifiedName: productRecommendation.bestMatch.productName,
-                  confidence: normalizeFeatureConfidence(
-                    productRecommendation.bestMatch.confidence,
-                  ),
-                  tagPaths:
-                    productRecommendation.bestMatch.recommendedTags?.map((tag) => tag.tagPath) ??
-                    [],
+                  featureTypeName: product.productTypeName,
+                  classifiedName: product.productName,
+                  confidence: normalizeFeatureConfidence(product.confidence),
+                  tagPaths: product.recommendedTags?.map((tag) => tag.tagPath) ?? [],
                   isRejected: rejectedFeatureKeys.includes(
-                    featureKey("product", productRecommendation.bestMatch.assetProductId),
+                    featureKey("product", product.assetProductId),
                   ),
-                  onToggle: () =>
-                    onToggleFeatureKey(
-                      featureKey("product", productRecommendation.bestMatch!.assetProductId),
-                    ),
+                  onToggle: () => onToggleFeatureKey(featureKey("product", product.assetProductId)),
                 });
               }
 

@@ -20,6 +20,7 @@ import {
   classifyAssetPersonRecommendation,
   detectAssetPersonFaces,
 } from "@/lib/person/tagging-person-classification";
+import { getAcceptedProductMatches } from "@/lib/product/product-match-policy";
 import { classifyAssetProductRecommendation } from "@/lib/product/tagging-product-classification";
 import { idToSlug, slugToId } from "@/lib/slug";
 import { fetchRemoteImageInput } from "@/lib/tagging/classification-image";
@@ -133,8 +134,7 @@ function hasProductRecommendedTags(
 ): productRecommendation is TaggingProductRecommendation {
   return Boolean(
     productRecommendation &&
-      Array.isArray(productRecommendation.recommendedTags) &&
-      productRecommendation.recommendedTags.length > 0,
+      getProductRecommendationTagIdsFromQueueResult({ productRecommendation }).length > 0,
   );
 }
 
@@ -650,9 +650,9 @@ export async function processQueueItem({
           const ipTagIdsForBind = (ipRecommendation?.recommendedTags ?? [])
             .map((t) => t.assetTagId)
             .filter((id) => approvedTagSet.has(id));
-          const productTagIdsForBind = (productRecommendation?.recommendedTags ?? [])
-            .map((t) => t.assetTagId)
-            .filter((id) => approvedTagSet.has(id));
+          const productTagIdsForBind = getProductRecommendationTagIdsFromQueueResult({
+            productRecommendation,
+          }).filter((id) => approvedTagSet.has(id));
           const personTagIdsForBind = acceptedPersonTagIds.filter((id) => approvedTagSet.has(id));
 
           if (hasFeatureClassifications) {
@@ -1194,7 +1194,9 @@ async function createRecommendationOnlyReviewItem({
           Math.max(
             hasBrandRecommendation ? (brandRecommendation.bestMatch?.confidence ?? 0) : 0,
             hasIpRecommendation ? (ipRecommendation.bestMatch?.confidence ?? 0) : 0,
-            hasProductRecommendation ? (productRecommendation.bestMatch?.confidence ?? 0) : 0,
+            ...(hasProductRecommendation
+              ? getAcceptedProductMatches(productRecommendation).map((match) => match.confidence)
+              : [0]),
             hasPersonRecommendation
               ? getBestPersonRecommendationConfidence(personRecommendation)
               : 0,

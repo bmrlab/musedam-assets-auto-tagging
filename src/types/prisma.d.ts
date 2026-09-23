@@ -151,6 +151,7 @@ export type TaggingProductBestMatch = {
   similarity: number;
   confidence: number;
   detectionIndex: number;
+  detectionIndices?: number[];
   imageSimilarity: number;
   descriptionSimilarity: number;
   recommendedTags: TaggingProductRecommendedTag[];
@@ -158,6 +159,32 @@ export type TaggingProductBestMatch = {
 
   export type TaggingProductRecommendation = {
     noConfidentMatch: boolean;
+    /** Accepted distinct products. An explicit empty array overrides the legacy bestMatch. */
+    matches?: TaggingProductBestMatch[];
+    rawDetections?: Array<{
+      xMin: number;
+      yMin: number;
+      xMax: number;
+      yMax: number;
+      score: number;
+      label: string;
+    }>;
+    detections?: Array<{
+      detectionIndex: number;
+      sourceDetectionIndices?: number[];
+      box: {
+        xMin: number;
+        yMin: number;
+        xMax: number;
+        yMax: number;
+        score: number;
+        label: string;
+      };
+      topMatches: TaggingProductBestMatch[];
+      bestMatch: TaggingProductBestMatch | null;
+      noConfidentMatch: boolean;
+    }>;
+    /** Highest candidate retained for compatibility and diagnostics, not tag eligibility. */
     bestMatch: TaggingProductBestMatch | null;
     recommendedTags: TaggingProductRecommendedTag[];
   };

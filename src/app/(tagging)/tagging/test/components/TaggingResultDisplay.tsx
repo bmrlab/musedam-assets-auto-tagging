@@ -22,6 +22,20 @@ import Image from "next/image";
 import type { ReactNode } from "react";
 import { FeatureThumbnail } from "./FeatureThumbnail";
 
+export interface ProductRecognitionResult {
+  noConfidentMatch: boolean;
+  productName: string | null;
+  productTypeName: string | null;
+  confidence: number | null;
+  similarity: number | null;
+  imageSimilarity: number | null;
+  descriptionSimilarity: number | null;
+  assetProductId?: string;
+  recommendedTags: {
+    tagPath: string[];
+  }[];
+}
+
 export interface TaggingResult {
   asset: {
     id: string;
@@ -59,19 +73,9 @@ export interface TaggingResult {
       tagPath: string[];
     }[];
   } | null;
-  productRecognition: {
-    noConfidentMatch: boolean;
-    productName: string | null;
-    productTypeName: string | null;
-    confidence: number | null;
-    similarity: number | null;
-    imageSimilarity: number | null;
-    descriptionSimilarity: number | null;
-    assetProductId?: string;
-    recommendedTags: {
-      tagPath: string[];
-    }[];
-  } | null;
+  products?: ProductRecognitionResult[];
+  /** Retained for test results saved before multiple product matches were supported. */
+  productRecognition?: ProductRecognitionResult | null;
   personRecognition: {
     noConfidentMatch: boolean;
     faceCount: number;
@@ -124,6 +128,7 @@ interface RecognitionFeature {
   score: number;
   featureTypeId: "brand" | "ip" | "product" | "person";
   featureId: string;
+  recommendedTags?: { tagPath: string[] }[];
 }
 
 function formatFileSize(bytes: number) {
@@ -268,6 +273,18 @@ function FeatureResultRow({ feature }: { feature: RecognitionFeature }) {
         <div className="text-xs text-current/60">
           {t("matchingSource")}: {feature.matchingSource}
         </div>
+        {feature.recommendedTags?.length ? (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {feature.recommendedTags.map((tag) => (
+              <span
+                key={tag.tagPath.join(">")}
+                className="rounded border border-current/20 bg-background/60 px-1.5 py-0.5 text-xs text-current"
+              >
+                {tag.tagPath.join(" > ")}
+              </span>
+            ))}
+          </div>
+        ) : null}
       </div>
       <div className="shrink-0 text-right">
         <div className="text-sm font-medium text-current">
@@ -292,23 +309,32 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
 
   const recognitionFeatures: RecognitionFeature[] = [];
 
-  if (
-    featureLibraryFeatures.featureProduct &&
-    result.productRecognition?.productName &&
-    result.productRecognition.assetProductId &&
-    meetsFeatureConfidenceThreshold("product", result.productRecognition.confidence)
-  ) {
-    const score = normalizeFeatureConfidence(result.productRecognition.confidence);
-    recognitionFeatures.push({
-      key: "product",
-      title: result.productRecognition.productName,
-      featureName: t("featureClassProduct"),
-      featureType: result.productRecognition.productTypeName || "-",
-      matchingSource: t("productRecognition"),
-      confidence: score,
-      score,
-      featureTypeId: "product",
-      featureId: result.productRecognition.assetProductId,
+  if (featureLibraryFeatures.featureProduct) {
+    const products =
+      result.products ?? (result.productRecognition ? [result.productRecognition] : []);
+    products.forEach((product) => {
+      if (
+        product.noConfidentMatch ||
+        !product.productName ||
+        !product.assetProductId ||
+        !meetsFeatureConfidenceThreshold("product", product.confidence)
+      ) {
+        return;
+      }
+
+      const score = normalizeFeatureConfidence(product.confidence);
+      recognitionFeatures.push({
+        key: `product-${product.assetProductId}`,
+        title: product.productName,
+        featureName: t("featureClassProduct"),
+        featureType: product.productTypeName || "-",
+        matchingSource: t("productRecognition"),
+        confidence: score,
+        score,
+        featureTypeId: "product",
+        featureId: product.assetProductId,
+        recommendedTags: product.recommendedTags,
+      });
     });
   }
 

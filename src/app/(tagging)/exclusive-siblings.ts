@@ -1,4 +1,5 @@
 import { isAcceptedPersonFace } from "@/lib/person/person-match-policy";
+import { getAcceptedProductMatches } from "@/lib/product/product-match-policy";
 import { normalizeFeatureConfidence } from "@/lib/tagging/feature-confidence";
 import type {
   TaggingBrandRecommendation,
@@ -10,7 +11,6 @@ import type {
 import { getBrandRecommendationTagIdsFromQueueResult } from "./brand-recommendation";
 import { buildExclusiveBranchResolver } from "./evidence-policy";
 import { getIpRecommendationTagIdsFromQueueResult } from "./ip-recommendation";
-import { getProductRecommendationTagIdsFromQueueResult } from "./product-recommendation";
 import type { TagWithScore } from "./types";
 
 /** 特征库（品牌/IP/商品/人物）匹配出来的一条标签候选，confidence 为 0-100 */
@@ -32,7 +32,7 @@ export function isContentInferredOnly(tag: TagWithScore): boolean {
 
 /**
  * 从队列结果里收集已过各自置信度门槛的特征库标签候选（口径与直接写回/审核采纳一致）。
- * 品牌/IP/商品的 recommendedTags 共用 bestMatch.confidence；人物按每张被采纳人脸的 bestMatch.confidence。
+ * 品牌/IP 共用 bestMatch.confidence；商品按每个已采纳商品、人物按每张被采纳人脸的置信度。
  */
 export function collectFeatureTagCandidates({
   brandRecommendation,
@@ -66,11 +66,15 @@ export function collectFeatureTagCandidates({
     getIpRecommendationTagIdsFromQueueResult({ ipRecommendation }),
     ipRecommendation?.bestMatch?.confidence,
   );
-  push(
-    "product",
-    getProductRecommendationTagIdsFromQueueResult({ productRecommendation }),
-    productRecommendation?.bestMatch?.confidence,
-  );
+  for (const match of getAcceptedProductMatches(productRecommendation)) {
+    push(
+      "product",
+      (match.recommendedTags ?? [])
+        .map((tag) => tag.assetTagId)
+        .filter((id): id is number => Number.isInteger(id) && id > 0),
+      match.confidence,
+    );
+  }
   for (const face of personRecommendation?.faces ?? []) {
     if (!isAcceptedPersonFace(face) || !face.bestMatch) continue;
     push(
@@ -120,8 +124,15 @@ export function resolveExclusiveSiblingsAcrossSources({
   // 每个互斥父分类下，特征库占据的分支及其最高置信度
   type FeatureBranch = { branchId: number; confidence: number; leafTagId: number };
   const featureBranchByParent = new Map<number, FeatureBranch>();
+  const productBranchesByParent = new Map<number, Set<number>>();
   for (const candidate of featureCandidates) {
     for (const { parentId, branchId } of branchesOf(candidate.leafTagId)) {
+      // 一张图中可以识别出多个商品；每个已采纳商品所在的分支都受保护。
+      if (candidate.featureType === "product") {
+        const branches = productBranchesByParent.get(parentId) ?? new Set<number>();
+        branches.add(branchId);
+        productBranchesByParent.set(parentId, branches);
+      }
       const current = featureBranchByParent.get(parentId);
       if (!current || candidate.confidence > current.confidence) {
         featureBranchByParent.set(parentId, {
@@ -139,6 +150,7 @@ export function resolveExclusiveSiblingsAcrossSources({
     // 确定性来源（画幅比例等）不参与与特征库的竞争
     if (tag.origin === "aspectRatio") return true;
     for (const { parentId, branchId } of branchesOf(tag.leafTagId)) {
+      if (productBranchesByParent.get(parentId)?.has(branchId)) continue;
       const feature = featureBranchByParent.get(parentId);
       if (!feature || feature.branchId === branchId) continue;
       const inferredOnly = isContentInferredOnly(tag);

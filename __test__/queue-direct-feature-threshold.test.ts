@@ -7,6 +7,7 @@ import { getIpRecommendationTagIdsFromQueueResult } from "@/app/(tagging)/ip-rec
 import { getProductRecommendationTagIdsFromQueueResult } from "@/app/(tagging)/product-recommendation";
 import { createBatchTagsTreeLoader } from "@/app/(tagging)/queue";
 import { FEATURE_CONFIDENCE_MIN } from "@/lib/tagging/feature-confidence";
+import type { TaggingProductBestMatch } from "@/prisma/client";
 
 vi.mock("@/prisma/prisma", () => ({ default: {} }));
 
@@ -14,6 +15,27 @@ function recommendation(confidence: number) {
   return {
     bestMatch: { confidence },
     recommendedTags: [{ assetTagId: 10 }, { assetTagId: 11 }],
+  };
+}
+
+function productMatch(
+  assetProductId: string,
+  confidence: number,
+  tagIds: number[],
+): TaggingProductBestMatch {
+  return {
+    assetProductId,
+    productName: assetProductId,
+    productTypeId: null,
+    productTypeName: "Product",
+    description: "",
+    generalCategory: "",
+    confidence,
+    similarity: confidence / 100,
+    imageSimilarity: confidence / 100,
+    descriptionSimilarity: 0,
+    detectionIndex: 0,
+    recommendedTags: tagIds.map((assetTagId) => ({ assetTagId, tagPath: [String(assetTagId)] })),
   };
 }
 
@@ -30,22 +52,72 @@ describe("direct mode feature-library thresholds (shared with review path)", () 
 
   it("ip: below threshold yields no tag ids, at threshold yields them", () => {
     const min = FEATURE_CONFIDENCE_MIN.ip;
-    expect(getIpRecommendationTagIdsFromQueueResult({ ipRecommendation: recommendation(min - 1) })).toEqual(
-      [],
-    );
-    expect(getIpRecommendationTagIdsFromQueueResult({ ipRecommendation: recommendation(min) })).toEqual([
-      10, 11,
-    ]);
+    expect(
+      getIpRecommendationTagIdsFromQueueResult({ ipRecommendation: recommendation(min - 1) }),
+    ).toEqual([]);
+    expect(
+      getIpRecommendationTagIdsFromQueueResult({ ipRecommendation: recommendation(min) }),
+    ).toEqual([10, 11]);
   });
 
   it("product: below threshold yields no tag ids, at threshold yields them", () => {
     const min = FEATURE_CONFIDENCE_MIN.product;
     expect(
-      getProductRecommendationTagIdsFromQueueResult({ productRecommendation: recommendation(min - 1) }),
+      getProductRecommendationTagIdsFromQueueResult({
+        productRecommendation: {
+          ...recommendation(min - 1),
+          bestMatch: productMatch("legacy-product", min - 1, []),
+        },
+      }),
     ).toEqual([]);
     expect(
-      getProductRecommendationTagIdsFromQueueResult({ productRecommendation: recommendation(min) }),
+      getProductRecommendationTagIdsFromQueueResult({
+        productRecommendation: {
+          ...recommendation(min),
+          bestMatch: productMatch("legacy-product", min, []),
+        },
+      }),
     ).toEqual([10, 11]);
+  });
+
+  it("unions each accepted product's own tags using its own confidence", () => {
+    expect(
+      getProductRecommendationTagIdsFromQueueResult({
+        productRecommendation: {
+          noConfidentMatch: false,
+          bestMatch: productMatch("weak-alias", 50, [99]),
+          matches: [
+            productMatch("phone", 92, [10, 11]),
+            productMatch("headphones", 80, [11, 12]),
+            productMatch("bottle", 79, [13]),
+          ],
+          recommendedTags: [{ assetTagId: 999, tagPath: ["Unrelated aggregate tag"] }],
+        },
+      }),
+    ).toEqual([10, 11, 12]);
+  });
+
+  it("does not resurrect a legacy bestMatch when the matches array is empty", () => {
+    expect(
+      getProductRecommendationTagIdsFromQueueResult({
+        productRecommendation: {
+          bestMatch: productMatch("legacy-product", 95, [10]),
+          matches: [],
+          recommendedTags: [{ assetTagId: 10 }],
+        },
+      }),
+    ).toEqual([]);
+  });
+
+  it("does not use aggregate tags for a new accepted product without linked tags", () => {
+    expect(
+      getProductRecommendationTagIdsFromQueueResult({
+        productRecommendation: {
+          matches: [productMatch("phone", 92, [])],
+          recommendedTags: [{ assetTagId: 99 }],
+        },
+      }),
+    ).toEqual([]);
   });
 
   it("null recommendation yields no tag ids", () => {
