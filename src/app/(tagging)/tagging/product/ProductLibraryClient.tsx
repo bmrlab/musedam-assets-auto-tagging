@@ -486,6 +486,7 @@ export default function ProductLibraryClient({
       if (updatedProducts.length > 0) {
         const updatedById = new Map(updatedProducts.map((product) => [product.id, product]));
         setProducts((current) => current.map((product) => updatedById.get(product.id) ?? product));
+        setSelectedIds((current) => current.filter((id) => !updatedById.has(id)));
       }
 
       const failedCount = results.length - updatedProducts.length;

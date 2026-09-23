@@ -474,6 +474,7 @@ export default function IpLibraryClient({
       if (updatedIps.length > 0) {
         const updatedById = new Map(updatedIps.map((ip) => [ip.id, ip]));
         setIps((current) => current.map((ip) => updatedById.get(ip.id) ?? ip));
+        setSelectedIds((current) => current.filter((id) => !updatedById.has(id)));
       }
 
       const failedCount = results.length - updatedIps.length;

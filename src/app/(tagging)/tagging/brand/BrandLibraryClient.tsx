@@ -477,6 +477,7 @@ export default function BrandLibraryClient({
       if (updatedLogos.length > 0) {
         const updatedById = new Map(updatedLogos.map((logo) => [logo.id, logo]));
         setLogos((current) => current.map((logo) => updatedById.get(logo.id) ?? logo));
+        setSelectedIds((current) => current.filter((id) => !updatedById.has(id)));
       }
 
       const failedCount = results.length - updatedLogos.length;

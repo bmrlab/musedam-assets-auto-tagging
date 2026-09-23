@@ -526,6 +526,7 @@ export default function PersonLibraryClient({
       if (updatedPersons.length > 0) {
         const updatedById = new Map(updatedPersons.map((person) => [person.id, person]));
         setPersons((current) => current.map((person) => updatedById.get(person.id) ?? person));
+        setSelectedIds((current) => current.filter((id) => !updatedById.has(id)));
       }
 
       const failedCount = results.length - updatedPersons.length;
