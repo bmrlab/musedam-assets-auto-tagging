@@ -12,7 +12,8 @@ import {
 } from "@/components/ui/pagination";
 import { ExtractServerActionData } from "@/lib/serverAction";
 import { AssetObjectExtra } from "@/prisma/client";
-import { CheckCircle2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { CheckCircle2, SearchIcon, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
@@ -33,6 +34,7 @@ import {
   fetchDashboardStats,
   fetchMonthlyTrend,
   fetchProcessingTasks,
+  type DashboardTaskFilter,
   fetchWeeklyTaggingData,
   retryAllFailedTasks,
   retryFailedTask,
@@ -68,7 +70,10 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
   const [currentTime, setCurrentTime] = useState(Date.now());
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [taskFilter, setTaskFilter] = useState<"all" | "processing">("all");
+  const [taskFilter, setTaskFilter] = useState<DashboardTaskFilter>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  // 输入停顿 300ms 后再发请求，避免每个字符都打一次服务端
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [totalTasks, setTotalTasks] = useState(0);
   const [pageSize, setPageSize] = useState(20);
   const [isLoading, setIsLoading] = useState(true);
@@ -77,11 +82,11 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
   const isDark = theme === "dark";
 
   const refreshData = useCallback(
-    async (page: number, filter: "all" | "processing", size: number) => {
+    async (page: number, filter: DashboardTaskFilter, size: number, search: string) => {
       try {
         const [statsResult, tasksResult, weeklyResult, monthlyResult] = await Promise.all([
           fetchDashboardStats(),
-          fetchProcessingTasks(page, size, filter),
+          fetchProcessingTasks(page, size, filter, search),
           fetchWeeklyTaggingData(),
           fetchMonthlyTrend(),
         ]);
@@ -117,13 +122,13 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
 
   useEffect(() => {
     // Initial load
-    void refreshData(currentPage, taskFilter, pageSize);
-  }, [currentPage, taskFilter, refreshData, pageSize]);
+    void refreshData(currentPage, taskFilter, pageSize, debouncedSearch);
+  }, [currentPage, taskFilter, refreshData, pageSize, debouncedSearch]);
 
   useEffect(() => {
     // Auto refresh every 30 seconds
     const refreshInterval = setInterval(() => {
-      void refreshData(currentPage, taskFilter, pageSize);
+      void refreshData(currentPage, taskFilter, pageSize, debouncedSearch);
     }, 30000);
 
     // Update current time every second for processing duration
@@ -135,14 +140,22 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
       clearInterval(refreshInterval);
       clearInterval(timeInterval);
     };
-  }, [currentPage, pageSize, refreshData, taskFilter]);
+  }, [currentPage, pageSize, refreshData, taskFilter, debouncedSearch]);
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
   };
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery.trim());
+      setCurrentPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   const handleFilterChange = (value: string) => {
-    const filter = value as "all" | "processing";
+    const filter = value as DashboardTaskFilter;
     setTaskFilter(filter);
     setCurrentPage(1);
   };
@@ -151,7 +164,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
     const result = await retryFailedTask(taskId);
     if (result.success) {
       toast.success(tCommon("taskAddedToQueue"));
-      await refreshData(currentPage, taskFilter, pageSize);
+      await refreshData(currentPage, taskFilter, pageSize, debouncedSearch);
     } else {
       toast.error(tCommon("retryFailed"));
     }
@@ -161,7 +174,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
     const result = await retryAllFailedTasks();
     if (result.success) {
       toast.success(tCommon("retryTasksSuccess", { count: result.data.count }));
-      await refreshData(currentPage, taskFilter, pageSize);
+      await refreshData(currentPage, taskFilter, pageSize, debouncedSearch);
     } else {
       toast.error(tCommon("retryFailed"));
     }
@@ -362,6 +375,28 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
+            <div className="relative">
+              <SearchIcon
+                className="pointer-events-none absolute left-[10px] top-1/2 -translate-y-1/2 text-basic-5"
+                size={14}
+              />
+              <Input
+                className="h-8 w-[220px] pl-[30px] pr-7"
+                placeholder={t("searchPlaceholder")}
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-basic-5 hover:text-basic-8"
+                  onClick={() => setSearchQuery("")}
+                  aria-label="clear"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
             <Select value={taskFilter} onValueChange={handleFilterChange}>
               <SelectTrigger className="!h-8 w-[120px]">
                 <SelectValue placeholder={t("filterAll")} />
@@ -369,6 +404,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
               <SelectContent>
                 <SelectItem value="all">{t("filterAll")}</SelectItem>
                 <SelectItem value="processing">{t("filterProcessing")}</SelectItem>
+                <SelectItem value="failed">{t("filterFailed")}</SelectItem>
               </SelectContent>
             </Select>
             {stats.failed > 0 && <Button size="sm" variant="outline" onClick={handleRetryAllTasks}>

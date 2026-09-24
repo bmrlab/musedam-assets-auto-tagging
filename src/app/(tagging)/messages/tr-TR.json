@@ -554,7 +554,9 @@
         "9": "Ekim",
         "10": "Kasım",
         "11": "Aralık"
-      }
+      },
+      "filterFailed": "Başarısız",
+      "searchPlaceholder": "Varlık adına göre ara"
     },
     "Settings": {
       "title": "Etiketleme Anahtarı",

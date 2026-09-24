@@ -305,7 +305,9 @@
         "9": "Ottobre",
         "10": "Novembre",
         "11": "Dicembre"
-      }
+      },
+      "filterFailed": "Fallite",
+      "searchPlaceholder": "Cerca per nome risorsa"
     },
     "Settings": {
       "title": "Interruttore etichettatura",

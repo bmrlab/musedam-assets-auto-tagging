@@ -554,7 +554,9 @@
         "9": "Październik",
         "10": "Listopad",
         "11": "Grudzień"
-      }
+      },
+      "filterFailed": "Nieudane",
+      "searchPlaceholder": "Szukaj po nazwie zasobu"
     },
     "Settings": {
       "title": "Przełącznik tagowania",

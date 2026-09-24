@@ -7,6 +7,7 @@ import { batchSyncAssetThumbnails } from "@/musedam/assets";
 import {
   AssetObject,
   AssetObjectExtra,
+  Prisma,
   TaggingQueueItem,
   TaggingQueueStatus,
 } from "@/prisma/client";
@@ -177,10 +178,13 @@ export async function fetchDashboardStats(): Promise<
   });
 }
 
+export type DashboardTaskFilter = "all" | "processing" | "failed";
+
 export async function fetchProcessingTasks(
   page: number = 1,
   limit: number = 20,
-  filter: "all" | "processing" = "all",
+  filter: DashboardTaskFilter = "all",
+  search: string = "",
 ): Promise<
   ServerActionResult<{
     tasks: TaskWithAsset[];
@@ -194,15 +198,22 @@ export async function fetchProcessingTasks(
     try {
       const offset = (page - 1) * limit;
 
-      const whereClause =
-        filter === "all"
-          ? { teamId, ...DASHBOARD_TASK_FILTER, assetObjectId: { not: null } }
-          : {
-              teamId,
-              ...DASHBOARD_TASK_FILTER,
-              assetObjectId: { not: null },
-              status: { in: ["processing", "pending"] as TaggingQueueStatus[] },
-            };
+      const statusFilter: Prisma.TaggingQueueItemWhereInput =
+        filter === "processing"
+          ? { status: { in: ["processing", "pending"] as TaggingQueueStatus[] } }
+          : filter === "failed"
+            ? { status: "failed" }
+            : {};
+      const keyword = search.trim();
+      const whereClause: Prisma.TaggingQueueItemWhereInput = {
+        teamId,
+        ...DASHBOARD_TASK_FILTER,
+        ...statusFilter,
+        // 按素材名称模糊搜索（不区分大小写）；assetObject 为空的任务本来就不展示
+        assetObject: keyword
+          ? { is: { name: { contains: keyword, mode: "insensitive" } } }
+          : { isNot: null },
+      };
 
       const [tasks, total] = await Promise.all([
         prisma.taggingQueueItem.findMany({

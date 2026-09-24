@@ -88,7 +88,9 @@
         "9": "Octubre",
         "10": "Noviembre",
         "11": "Diciembre"
-      }
+      },
+      "filterFailed": "Fallidas",
+      "searchPlaceholder": "Buscar por nombre de recurso"
     },
     "Review": {
       "add": "Añadir",
