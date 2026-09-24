@@ -626,13 +626,16 @@
       "AIRecognition": {
         "title": "Pengenalan AI",
         "precise": "Presisi",
-        "preciseDesc": "Akurasi tinggi, lebih sedikit tag (≥80% keyakinan)",
+        "preciseDesc": "Akurasi tinggi, lebih sedikit tag",
         "balanced": "Seimbang",
-        "balancedDesc": "Akurasi dan cakupan seimbang (≥60% keyakinan)",
+        "balancedDesc": "Akurasi dan cakupan seimbang",
         "broad": "Luas",
-        "broadDesc": "Cakupan tinggi, lebih banyak tag (≥40% keyakinan)",
+        "broadDesc": "Cakupan tinggi, lebih banyak tag",
         "confidence": "keyakinan",
-        "recommended": "Direkomendasikan"
+        "recommended": "Direkomendasikan",
+        "confidenceHigh": "Keyakinan tinggi",
+        "confidenceMedium": "Keyakinan sedang",
+        "confidenceLow": "Keyakinan rendah"
       },
       "MatchingStrategy": {
         "title": "Strategi Pencocokan",

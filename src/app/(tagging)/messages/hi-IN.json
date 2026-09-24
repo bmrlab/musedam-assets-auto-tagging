@@ -162,14 +162,17 @@
     "Settings": {
       "AIRecognition": {
         "balanced": "संतुलित",
-        "balancedDesc": "संतुलित सटीकता और कवरेज (≥60% विश्वास)",
+        "balancedDesc": "संतुलित सटीकता और कवरेज",
         "broad": "व्यापक",
-        "broadDesc": "उच्च कवरेज, अधिक टैग (≥40% विश्वास)",
+        "broadDesc": "उच्च कवरेज, अधिक टैग",
         "confidence": "विश्वास",
         "precise": "सटीक",
-        "preciseDesc": "उच्च सटीकता, कम टैग (≥80% विश्वास)",
+        "preciseDesc": "उच्च सटीकता, कम टैग",
         "recommended": "सिफारिश की गई",
-        "title": "एआई पहचान"
+        "title": "एआई पहचान",
+        "confidenceHigh": "उच्च विश्वास",
+        "confidenceMedium": "मध्यम विश्वास",
+        "confidenceLow": "कम विश्वास"
       },
       "AdvancedSettings": {
         "title": "उन्नत सेटिंग्स"

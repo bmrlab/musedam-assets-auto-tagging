@@ -591,7 +591,10 @@
         "broad": "Chế độ bao phủ rộng",
         "broadDesc": "Ưu tiên độ bao phủ nhãn, phù hợp phân loại sơ bộ",
         "confidence": "Độ tin cậy",
-        "recommended": "Đề xuất"
+        "recommended": "Đề xuất",
+        "confidenceHigh": "Độ tin cậy cao",
+        "confidenceMedium": "Độ tin cậy trung bình",
+        "confidenceLow": "Độ tin cậy thấp"
       },
       "MatchingStrategy": {
         "title": "Chọn chiến lược khớp",

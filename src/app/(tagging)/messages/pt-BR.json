@@ -162,14 +162,17 @@
     "Settings": {
       "AIRecognition": {
         "balanced": "Equilibrado",
-        "balancedDesc": "Precisão e cobertura equilibradas (≥60% de confiança)",
+        "balancedDesc": "Precisão e cobertura equilibradas",
         "broad": "Amplo",
-        "broadDesc": "Alta cobertura, mais tags (≥40% de confiança)",
+        "broadDesc": "Alta cobertura, mais tags",
         "confidence": "confiança",
         "precise": "Preciso",
-        "preciseDesc": "Alta precisão, menos tags (≥80% de confiança)",
+        "preciseDesc": "Alta precisão, menos tags",
         "recommended": "Recomendado",
-        "title": "Reconhecimento por IA"
+        "title": "Reconhecimento por IA",
+        "confidenceHigh": "Confiança alta",
+        "confidenceMedium": "Confiança média",
+        "confidenceLow": "Confiança baixa"
       },
       "AdvancedSettings": {
         "title": "Configurações Avançadas"

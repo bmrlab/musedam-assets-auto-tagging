@@ -336,13 +336,16 @@
       "AIRecognition": {
         "title": "Reconnaissance IA",
         "precise": "Précis",
-        "preciseDesc": "Haute précision, moins de tags (≥80% de confiance)",
+        "preciseDesc": "Haute précision, moins de tags",
         "balanced": "Équilibré",
-        "balancedDesc": "Précision et couverture équilibrées (≥60% de confiance)",
+        "balancedDesc": "Précision et couverture équilibrées",
         "broad": "Large",
-        "broadDesc": "Haute couverture, plus de tags (≥40% de confiance)",
+        "broadDesc": "Haute couverture, plus de tags",
         "confidence": "confiance",
-        "recommended": "Recommandé"
+        "recommended": "Recommandé",
+        "confidenceHigh": "Confiance élevée",
+        "confidenceMedium": "Confiance moyenne",
+        "confidenceLow": "Confiance faible"
       },
       "MatchingStrategy": {
         "title": "Stratégie de correspondance",
