@@ -716,6 +716,40 @@ export async function processQueueItem({
       }
     }
 
+    // 处理期间 API 可能又收到了同一素材的 default 请求（智能解析完成后的第二次回调）并打了 rerunRequested。
+    // 这里必须重读数据库里的 extra，不能用 claim 时的快照，否则标记会被下面的 update 原样覆盖掉。
+    const latestRow = await prisma.taggingQueueItem.findUnique({
+      where: { id: queueItem.id },
+      select: { extra: true },
+    });
+    const latestExtra = (latestRow?.extra ?? extra) as TaggingQueueItemExtra;
+    const rerunRequested = latestExtra.rerunRequested === true;
+
+    if (rerunRequested) {
+      // 这一轮的结果建立在旧快照上，不落 completed：清掉刚生成的审核项，重置回 pending 用最新数据再跑。
+      // 直接写回模式下已写到 MuseDAM 的标签会被下一轮结果覆盖。
+      logger.info({
+        msg: "Rerun requested during processing, resetting queue item to pending with latest asset data",
+      });
+      await prisma.$transaction([
+        prisma.taggingAuditItem.deleteMany({ where: { queueItemId: queueItem.id } }),
+        prisma.taggingQueueItem.update({
+          where: { id: queueItem.id },
+          data: {
+            status: "pending",
+            startsAt: null,
+            endsAt: null,
+            result: {},
+            extra: {
+              ...latestExtra,
+              rerunRequested: false,
+            },
+          },
+        }),
+      ]);
+      return;
+    }
+
     await prisma.taggingQueueItem.update({
       where: { id: queueItem.id },
       data: {
@@ -730,7 +764,7 @@ export async function processQueueItem({
           personRecommendation,
         } as TaggingQueueItemResult,
         extra: {
-          ...extra,
+          ...latestExtra,
           ...newExtra,
           featureClassify,
           featureBrand: featureClassifications.brand,
@@ -760,6 +794,31 @@ export async function processQueueItem({
     }
     // 同时把原始异常信息落库，前端才能把"后端异常"具体原因展示给用户，而不是只有一个 UNKNOWN。
     const errorMessage = error instanceof Error ? error.message : String(error);
+
+    // 处理期间收到了新的 default 请求：这轮失败很可能就是因为旧快照缺内容（如 NO_VALID_TAGS），
+    // 直接用最新数据重跑一轮，而不是落 failed 等人工重试。
+    const latestRow = await prisma.taggingQueueItem
+      .findUnique({ where: { id: queueItem.id }, select: { extra: true } })
+      .catch(() => null);
+    const latestExtra = (latestRow?.extra ?? queueItem.extra) as TaggingQueueItemExtra;
+    if (latestExtra?.rerunRequested === true) {
+      logger.info({
+        msg: "Rerun requested during processing; retrying with latest asset data instead of marking failed",
+        errorCode,
+      });
+      await prisma.taggingQueueItem.update({
+        where: { id: queueItem.id },
+        data: {
+          status: "pending",
+          startsAt: null,
+          endsAt: null,
+          result: {},
+          extra: { ...latestExtra, rerunRequested: false },
+        },
+      });
+      return;
+    }
+
     await prisma.taggingQueueItem.update({
       where: { id: queueItem.id },
       data: {
