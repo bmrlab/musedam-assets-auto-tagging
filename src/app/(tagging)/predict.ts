@@ -406,8 +406,9 @@ export function resolveExclusiveSiblings(
 
 /**
  * 校验模型返回的 leafTagId 确实存在于本团队标签树（一级/二级/三级 id 都合法，prompt 允许匹配任意层级）。
- * - id 不存在：按 tagPath 逐层名字反查一次，命中则纠正 id，否则丢弃；
- * - id 存在但 tagPath 与真实路径不一致：以 id 为准，用真实路径覆盖（prompt 已声明"以 ID 纠错"）。
+ * - tagPath 能逐层按名字完整解析：以 tagPath 为准，id 不一致时纠正 id（模型抄名称比抄数字 id 可靠）；
+ * - tagPath 解析不到但 id 存在：以 id 为准，用真实路径覆盖 tagPath；
+ * - 两者都对不上：丢弃。
  * 之前没有这一步，模型幻觉出来的 id 会一路写进审核项，直到写回 MuseDAM 查不到 slug 时才被静默丢掉。
  */
 export function filterPredictionsByKnownTagIds(
@@ -442,18 +443,22 @@ export function filterPredictionsByKnownTagIds(
     ...prediction,
     tags: prediction.tags.flatMap((tag) => {
       const realPath = pathById.get(tag.leafTagId);
-      if (realPath) {
-        // id 合法：tagPath 以真实路径为准
-        return [{ ...tag, tagPath: realPath }];
-      }
-      const recoveredId = idByNormalizedPath.get(pathKey(tag.tagPath));
-      if (recoveredId !== undefined) {
+      const idFromPath = idByNormalizedPath.get(pathKey(tag.tagPath));
+
+      // id 与 tagPath 都合法但指向不同标签：以 tagPath 为准。
+      // 模型抄写名称远比抄写数字 id 可靠，相邻标签（如"蓝色系"/"绿色系"）的 id 只差 1，
+      // 以 id 为准会把模型明明写着"绿色系"的预测静默改成"蓝色系"，且置信度原样保留。
+      if (idFromPath !== undefined && idFromPath !== tag.leafTagId) {
         corrected.push({
           source: prediction.source,
           fromLeafTagId: tag.leafTagId,
-          toLeafTagId: recoveredId,
+          toLeafTagId: idFromPath,
         });
-        return [{ ...tag, leafTagId: recoveredId, tagPath: pathById.get(recoveredId)! }];
+        return [{ ...tag, leafTagId: idFromPath, tagPath: pathById.get(idFromPath)! }];
+      }
+      if (realPath) {
+        // id 合法且 tagPath 无法完整解析（拼错/层级错）：以 id 为准，用真实路径覆盖
+        return [{ ...tag, tagPath: realPath }];
       }
       dropped.push({ source: prediction.source, leafTagId: tag.leafTagId, tagPath: tag.tagPath });
       return [];
@@ -1290,7 +1295,7 @@ ${sourceSections.join("\n\n")}
       // 画幅组由系统按真实宽高确定性打标，模型对这些标签的猜测不采纳。
       predictions = dropPredictionsUnderAspectRatioGroups(predictions, tagsTree);
       if (knownTagsResult.dropped.length > 0 || knownTagsResult.corrected.length > 0) {
-        console.warn("AI标签预测: 存在不在标签树中的 leafTagId", {
+        console.warn("AI标签预测: leafTagId 与标签树/tagPath 不一致，已纠正或丢弃", {
           teamId: asset.teamId,
           assetObjectId: asset.id,
           attempt,
