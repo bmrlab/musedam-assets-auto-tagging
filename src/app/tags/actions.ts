@@ -41,6 +41,11 @@ type SyncResult = {
   createdTagMapping: Map<string, MuseDAMID>;
 };
 
+// 合并模式去重 key：同一父节点下按标签名（trim 后）唯一，不含 level
+function buildExistingTagKey(parentId: number | null | undefined, name: string): string {
+  return `${parentId ?? "root"}_${name.trim()}`;
+}
+
 // 根据 MuseDAM 返回的标签树构建 musedamId -> sort 的映射
 function buildMuseDAMSortMap(tags: MuseDAMTagResponse[]): Map<number, number> {
   const map = new Map<number, number>();
@@ -417,13 +422,54 @@ export async function batchCreateTags(
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
       const baseTs = Date.now();
+
+      // 合并模式下先解析本地已存在的标签：已存在的节点带 id 且不标 create，
+      // 这样推到 MuseDAM 时是「不操作」而非「新建同名标签」，否则上游会拒绝。
+      // key 只用 parentId + name（不含 level），与下方 createTagsBatchWithExistingCheck 保持一致。
+      const existingByParentAndName = new Map<string, { id: number; slug: string | null }>();
+      if (addType === 2) {
+        const existingTags = await prisma.assetTag.findMany({
+          where: { teamId },
+          select: { id: true, name: true, slug: true, parentId: true },
+        });
+        existingTags.forEach((tag) => {
+          existingByParentAndName.set(buildExistingTagKey(tag.parentId, tag.name), {
+            id: tag.id,
+            slug: tag.slug,
+          });
+        });
+      }
+
       // 转换为 TagNode 格式用于同步
       const convertToTagNodes = (
         data: BatchCreateTagData[],
         parentPath: string = "",
+        parentDbId: number | null = null,
       ): TagNode[] => {
         return data.map((item, index) => {
           const currentPath = parentPath ? `${parentPath}_${index}` : `batch_${baseTs}_${index}`;
+          const existing =
+            addType === 2
+              ? existingByParentAndName.get(buildExistingTagKey(parentDbId, item.name))
+              : undefined;
+
+          if (existing) {
+            return {
+              id: existing.id,
+              slug: existing.slug,
+              name: item.name,
+              originalName: item.name,
+              children: item.nameChildList
+                ? convertToTagNodes(item.nameChildList, currentPath, existing.id)
+                : [],
+              // 本地已有但从未同步过（无 slug）的标签，标成 update：
+              // convertToMuseDAMFormat 找不到 MuseDAM id 时会自动降级为创建。
+              verb: existing.slug ? undefined : ("update" as const),
+              tempId: currentPath,
+            };
+          }
+
+          // 父节点是新建的，子孙必然也不存在，全部 create
           return {
             id: undefined,
             slug: null,
@@ -527,8 +573,7 @@ export async function batchCreateTags(
             // 创建标签映射用于快速查找
             const existingTagMap = new Map<string, number>();
             existingTags.forEach((tag) => {
-              const key = `${tag.parentId || "root"}_${tag.name}_${tag.level}`;
-              existingTagMap.set(key, tag.id);
+              existingTagMap.set(buildExistingTagKey(tag.parentId, tag.name), tag.id);
             });
 
             // 批量创建新标签
@@ -743,7 +788,7 @@ async function createTagsBatchWithExistingCheck(
       ? `${tempIdPrefix}_${i}`
       : `batch_${baseTs ?? Date.now()}_${i}`;
 
-    const key = `${parentId || "root"}_${item.name.trim()}_${level}`;
+    const key = buildExistingTagKey(parentId, item.name);
     const existingId = existingTagMap.get(key);
 
     if (existingId) {
@@ -797,8 +842,7 @@ async function createTagsBatchWithExistingCheck(
         if (isNew) {
           const createdTag = await tx.assetTag.create({ data });
           tagIdMap.set(tempId, createdTag.id);
-          const mapKey = `${data.parentId || "root"}_${data.name}_${data.level}`;
-          existingTagMap.set(mapKey, createdTag.id);
+          existingTagMap.set(buildExistingTagKey(data.parentId, data.name), createdTag.id);
           return { createdTag, tempId, nameChildList };
         }
         return null;
