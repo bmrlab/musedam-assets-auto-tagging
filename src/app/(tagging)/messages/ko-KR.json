@@ -88,7 +88,9 @@
         "9": "10월",
         "10": "11월",
         "11": "12월"
-      }
+      },
+      "filterFailed": "실패",
+      "searchPlaceholder": "자산 이름으로 검색"
     },
     "Review": {
       "add": "추가",

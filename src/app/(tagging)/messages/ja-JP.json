@@ -88,7 +88,9 @@
         "9": "10月",
         "10": "11月",
         "11": "12月"
-      }
+      },
+      "filterFailed": "失敗",
+      "searchPlaceholder": "素材名で検索"
     },
     "Review": {
       "add": "追加",

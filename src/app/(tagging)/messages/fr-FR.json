@@ -305,7 +305,9 @@
         "9": "Octobre",
         "10": "Novembre",
         "11": "Décembre"
-      }
+      },
+      "filterFailed": "Échouées",
+      "searchPlaceholder": "Rechercher par nom de ressource"
     },
     "Settings": {
       "title": "Interrupteur d'étiquetage",

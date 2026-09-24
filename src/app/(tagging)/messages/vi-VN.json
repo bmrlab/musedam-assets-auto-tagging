@@ -554,7 +554,9 @@
         "9": "Tháng 10",
         "10": "Tháng 11",
         "11": "Tháng 12"
-      }
+      },
+      "filterFailed": "Thất bại",
+      "searchPlaceholder": "Tìm theo tên tài sản"
     },
     "Settings": {
       "title": "Cài đặt chung",

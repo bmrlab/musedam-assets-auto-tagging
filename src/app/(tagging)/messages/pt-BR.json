@@ -88,7 +88,9 @@
         "9": "Outubro",
         "10": "Novembro",
         "11": "Dezembro"
-      }
+      },
+      "filterFailed": "Falhas",
+      "searchPlaceholder": "Buscar por nome do ativo"
     },
     "Review": {
       "add": "Adicionar",

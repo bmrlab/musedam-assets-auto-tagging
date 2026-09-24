@@ -595,7 +595,9 @@
         "9": "Oktober",
         "10": "November",
         "11": "Desember"
-      }
+      },
+      "filterFailed": "Gagal",
+      "searchPlaceholder": "Cari berdasarkan nama aset"
     },
     "Settings": {
       "title": "Sakelar Pelabelan",

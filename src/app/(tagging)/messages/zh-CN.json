@@ -631,7 +631,9 @@
         "9": "10月",
         "10": "11月",
         "11": "12月"
-      }
+      },
+      "filterFailed": "失败",
+      "searchPlaceholder": "搜索素材名称"
     },
     "Settings": {
       "title": "全局设置",
