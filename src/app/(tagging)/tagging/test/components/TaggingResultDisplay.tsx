@@ -367,6 +367,26 @@ export function TaggingResultDisplay({ result, featureThumbnails }: TaggingResul
           face.assetPersonId &&
           (face.noConfidentMatch || !meetsFeatureConfidenceThreshold("person", face.confidence)),
       ));
+  const products =
+    result.products ?? (result.productRecognition ? [result.productRecognition] : []);
+  const hasFeatureBelowConfidenceThreshold =
+    (featureLibraryFeatures.featureBrand &&
+      result.brandRecognition?.assetLogoId &&
+      !meetsFeatureConfidenceThreshold("brand", result.brandRecognition.confidence)) ||
+    (featureLibraryFeatures.featureIp &&
+      result.ipRecognition?.assetIpId &&
+      !meetsFeatureConfidenceThreshold("ip", result.ipRecognition.confidence)) ||
+    (featureLibraryFeatures.featureProduct &&
+      products.some(
+        (product) =>
+          product.assetProductId && !meetsFeatureConfidenceThreshold("product", product.confidence),
+      )) ||
+    (featureLibraryFeatures.featurePerson &&
+      result.personRecognition?.faces.some(
+        (face) =>
+          face.assetPersonId &&
+          (face.noConfidentMatch || !meetsFeatureConfidenceThreshold("person", face.confidence)),
+      ));
 
   if (featureLibraryFeatures.featureProduct) {
     products.forEach((product) => {
