@@ -151,8 +151,8 @@ export async function POST(request: NextRequest) {
     //
     // 上游可能对同一素材发起两次 default 打标（智能解析完成前一次、完成后一次），我们只应该
     // 扣一次点，但要以“最新一次”的素材数据为准：
-    // - 已存在的任务还是 pending/processing：不用管，worker 处理时会用当前这次请求刚同步好的
-    //   最新 assetObject 数据（下方 processQueueItem 读的是数据库里的实时快照，不是入队时的快照）。
+    // - 已存在的任务还是 pending：不用管，worker claim 时读的是数据库里的实时快照，不是入队时的快照。
+    // - 已存在的任务正在 processing：worker 已经拿着旧快照在跑，标记 rerunRequested 让它跑完后再跑一轮。
     // - 已存在的任务是 completed/failed：说明上一轮已经跑完/跑失败，直接把这条任务重置回
     //   pending 让它用这次最新同步的数据重新跑一次，不新建队列项、不返回新的 queueItemId，
     //   避免重复扣点；同时清掉上一轮生成的审核项，防止同一批标签在审核列表里出现重复行。
@@ -199,6 +199,38 @@ export async function POST(request: NextRequest) {
             success: true,
             data: {
               message: "Default tagging task re-queued with latest asset data",
+              queueItemId: null,
+              status: null,
+            },
+          });
+        }
+
+        // 已存在的任务正在 processing：worker 很可能已经拿着「智能解析完成前」的旧快照在跑，
+        // 这次刚同步下来的新内容会被丢掉。打个 rerunRequested 标记，让 worker 跑完后用新数据再跑一轮。
+        // pending 的任务不用管：worker claim 时读的是实时快照。
+        if (existingDefaultQueueItem.status === "processing") {
+          const existingExtra = (existingDefaultQueueItem.extra ?? {}) as TaggingQueueItemExtra;
+          await prisma.taggingQueueItem.update({
+            where: { id: existingDefaultQueueItem.id },
+            data: {
+              extra: {
+                ...existingExtra,
+                rerunRequested: true,
+                matchingSources,
+                recognitionAccuracy,
+                featureClassify,
+                featureBrand: featureClassifications.brand,
+                featureProduct: featureClassifications.product,
+                featurePerson: featureClassifications.person,
+                featureIp: featureClassifications.ip,
+              } satisfies TaggingQueueItemExtra,
+            },
+          });
+
+          return NextResponse.json({
+            success: true,
+            data: {
+              message: "Default tagging task is processing; rerun requested with latest asset data",
               queueItemId: null,
               status: null,
             },

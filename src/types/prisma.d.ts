@@ -87,6 +87,11 @@ declare module "@/prisma/client" {
     featureIp: boolean;
     /** Face-detection signals fed into AI tagging (from person feature recognition). */
     faceFeatures: TaggingFaceFeatures;
+    /**
+     * 任务正在 processing 时又收到了同一素材的 default 打标请求（典型：MuseDAM 智能解析完成后的第二次回调）。
+     * worker 跑完当前这轮后不落 completed，而是清掉审核项、重置回 pending 用最新素材数据再跑一次。
+     */
+    rerunRequested: boolean;
   }>;
 
   export type TaggingBrandRecommendedTag = {
