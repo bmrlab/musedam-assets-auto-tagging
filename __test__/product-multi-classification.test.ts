@@ -26,8 +26,8 @@ vi.mock("@/prisma/prisma", () => ({ default: { assetProduct: { findMany: mocks.p
 vi.mock("@/lib/product/detection-prompt", () => ({
   buildProductDetectionLabelText: mocks.prompt,
 }));
-vi.mock("@/lib/tagging/classification-image", () => ({
-  cropImageToDataUrl: mocks.crop,
+vi.mock("@/lib/product/image-preparation", () => ({
+  cropProductImageToDataUrl: mocks.crop,
 }));
 
 function crop(index: number, label = "object") {
@@ -207,6 +207,7 @@ describe("product classification per detected object", () => {
     expect(mocks.embed).toHaveBeenCalledWith({
       images: ["image-0", "image-1"],
       task: "retrieval.query",
+      padToSquare: true,
     });
     expect(result.rawDetections).toEqual(crops.map((entry) => entry.box));
     expect(result.detections.map(({ sourceDetectionIndices }) => sourceDetectionIndices)).toEqual([
@@ -267,6 +268,7 @@ describe("product classification per detected object", () => {
     expect(mocks.embed).toHaveBeenCalledWith({
       images: ["crop-0", "crop-10"],
       task: "retrieval.query",
+      padToSquare: true,
     });
     expect(result.rawDetections).toEqual(boxes);
     expect(

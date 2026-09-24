@@ -37,7 +37,9 @@ export async function classifyAssetProductRecommendation({
 
   const imageInput =
     providedImageInput ??
-    (await fetchRemoteImageInput(imageUrl as string, "Product classification"));
+    (await fetchRemoteImageInput(imageUrl as string, "Product classification", {
+      preserveOriginal: true,
+    }));
   const detection = await detectProductFigureBoxes({
     teamId,
     imageBase64: imageInput.dataUrl,

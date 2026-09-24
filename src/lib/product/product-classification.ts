@@ -5,14 +5,12 @@ import { createJinaImageEmbeddings } from "@/lib/brand/jina";
 import { groupProductDetectionBoxes } from "@/lib/product/detection-box-groups";
 import { queryProductVectorPoints } from "@/lib/product/pgvector";
 import { deduplicateProductMatches } from "@/lib/product/product-match-policy";
-import {
-  cropImageToDataUrl,
-  type ClassificationRemoteImageInput,
-} from "@/lib/tagging/classification-image";
+import type { ClassificationRemoteImageInput } from "@/lib/tagging/classification-image";
 import { meetsFeatureConfidenceThreshold } from "@/lib/tagging/feature-confidence";
 import prisma from "@/prisma/prisma";
 import pLimit from "p-limit";
 import { buildProductDetectionLabelText } from "./detection-prompt";
+import { cropProductImageToDataUrl } from "./image-preparation";
 
 const PRODUCT_IMAGE_VECTOR_QUERY_LIMIT = 20;
 const PRODUCT_IMAGE_VECTOR_SCORE_THRESHOLD = 0.34;
@@ -226,11 +224,8 @@ export async function classifyProductImageRegions({
     groups.map((group) =>
       prepareCrop(async () => ({
         ...group,
-        image: await cropImageToDataUrl({
-          imageDataUrl: imageInput.dataUrl,
-          imageBuffer: imageInput.buffer,
-          sourceMimeType: imageInput.mimeType,
-          meta: imageInput,
+        image: await cropProductImageToDataUrl({
+          imageInput,
           box: group.box,
         }),
       })),
@@ -268,6 +263,8 @@ async function classifyProductImageGroups({
   const embeddings = await createJinaImageEmbeddings({
     images: crops.map((crop) => crop.image),
     task: "retrieval.query",
+    // Keep the full detected object through Jina's square center crop.
+    padToSquare: true,
   });
   if (embeddings.length !== crops.length) {
     throw new Error("Product classification embedding count mismatch");

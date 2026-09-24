@@ -1552,7 +1552,9 @@ export async function classifyProductImageAction(input: {
         objectKey: metadata.objectKey,
         expiresInSeconds: 60 * 60,
       });
-      const imageInput = await fetchRemoteImageInput(signedUrl, "product classification upload");
+      const imageInput = await fetchRemoteImageInput(signedUrl, "product classification upload", {
+        preserveOriginal: true,
+      });
       const result = await classifyProductImageRegions({
         teamId,
         imageInput,

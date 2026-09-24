@@ -5,6 +5,7 @@ import { classifyAssetBrandRecommendation } from "@/lib/brand/tagging-brand-clas
 import {
   FeatureClassificationFlags,
   isFeatureLibrarySupportedAsset,
+  isVideoAssetExtension,
   resolveFeatureClassificationFlags,
 } from "@/lib/feature-library";
 import { classifyAssetIpRecommendation } from "@/lib/ip/tagging-ip-classification";
@@ -264,8 +265,12 @@ export async function processQueueItem({
     const hasFeatureClassifications =
       supportsFeatureClassification && Object.values(featureClassifications).some(Boolean);
     const thumbnailUrl = assetExtra?.thumbnailAccessUrl;
+    const productImageUrl = isVideoAssetExtension(assetExtra?.extension)
+      ? thumbnailUrl
+      : assetExtra?.downloadUrl?.trim() || thumbnailUrl;
     // Feature classification (brand/IP/product/person): first skip empty feature libraries.
-    // Brand/IP/product share one bounded image; person independently keeps the source dimensions.
+    // Brand/IP share a thumbnail. Product prefers the original image for detailed crops.
+    // Person independently keeps the dimensions of its source.
     // Person path only: detect faces first (for AI faceFeatures + reused matching), then run AI
     // tagging in parallel with person matching. Other paths keep starting AI tagging early.
     const teamId = queueItem.teamId;
@@ -294,7 +299,10 @@ export async function processQueueItem({
       Awaited<ReturnType<typeof classifyAssetPersonRecommendation>>
     > = Promise.resolve(null);
 
-    if (hasFeatureClassifications && thumbnailUrl) {
+    if (
+      hasFeatureClassifications &&
+      (thumbnailUrl || (featureClassifications.product && productImageUrl))
+    ) {
       const [logoCount, productCount, ipCount, personCount] = await Promise.all([
         featureClassifications.brand
           ? prisma.logoVector.count({ where: { teamId, enabled: true, status: "completed" } })
@@ -323,7 +331,7 @@ export async function processQueueItem({
           });
 
         // Kick off brand/IP/product without waiting for face detection.
-        if (logoCount + productCount + ipCount > 0) {
+        if (logoCount + ipCount > 0 && thumbnailUrl) {
           const sharedImagePromise = fetchRemoteImageInput(
             thumbnailUrl,
             "feature classification",
@@ -356,20 +364,17 @@ export async function processQueueItem({
                 : null,
             );
           }
-          if (productCount > 0) {
-            productRecommendationPromise = sharedImagePromise.then((sharedImageInput) =>
-              sharedImageInput
-                ? withFallback(
-                    classifyAssetProductRecommendation({ teamId, imageInput: sharedImageInput }),
-                    "classifyAssetProductRecommendation",
-                  )
-                : null,
-            );
-          }
+        }
+
+        if (productCount > 0 && productImageUrl) {
+          productRecommendationPromise = withFallback(
+            classifyAssetProductRecommendation({ teamId, imageUrl: productImageUrl }),
+            "classifyAssetProductRecommendation",
+          );
         }
 
         // Person: detect once, feed faceCount into AI tagging, reuse detection for matching.
-        if (personCount > 0) {
+        if (personCount > 0 && thumbnailUrl) {
           const personDetection = await detectAssetPersonFaces({ imageUrl: thumbnailUrl }).catch(
             (error) => {
               logger.warn({

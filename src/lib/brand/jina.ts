@@ -108,9 +108,11 @@ async function sendJinaEmbeddingRequest({
 export async function createJinaImageEmbeddings({
   images,
   task,
+  padToSquare = false,
 }: {
   images: string[];
   task?: "retrieval.query";
+  padToSquare?: boolean;
 }) {
   if (images.length === 0) {
     return [];
@@ -126,7 +128,7 @@ export async function createJinaImageEmbeddings({
     const batch = await Promise.all(
       images
         .slice(start, start + imageBatchSize)
-        .map((image) => prepareImage(() => prepareJinaImageDataUrl(image))),
+        .map((image) => prepareImage(() => prepareJinaImageDataUrl(image, { padToSquare }))),
     );
     let response: Awaited<ReturnType<typeof nodeFetch>> | null = null;
     let payload: JinaResponse | null = null;

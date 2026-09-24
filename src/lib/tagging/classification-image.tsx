@@ -23,6 +23,12 @@ export type ClassificationRemoteImageInput = ClassificationImageMeta & {
   byteLength: number;
   buffer: Buffer;
   dataUrl: string;
+  // Original encoded bytes with dimensions after EXIF orientation, for crops mapped from
+  // the bounded detector preview. Consumers must apply orientation before extracting.
+  original?: ClassificationImageMeta & {
+    buffer: Buffer;
+    mimeType: string;
+  };
 };
 
 export type ClassificationDetectionBox = {
@@ -306,9 +312,11 @@ async function fetchRemoteImageInputWithOptions(
   {
     maxDimension,
     jpegQuality,
+    preserveOriginal = false,
   }: {
     maxDimension: number | null;
     jpegQuality: number;
+    preserveOriginal?: boolean;
   },
 ): Promise<ClassificationRemoteImageInput> {
   let response: Response;
@@ -345,6 +353,17 @@ async function fetchRemoteImageInputWithOptions(
   // Normalize EXIF orientation and output format so detector coordinates, browser display, and
   // server-side crops use the same coordinate system. Person inputs deliberately skip resize.
   try {
+    let original: ClassificationRemoteImageInput["original"];
+    if (preserveOriginal) {
+      const { autoOrient } = await sharp(originalBuffer).metadata();
+      original = {
+        width: autoOrient.width,
+        height: autoOrient.height,
+        buffer: originalBuffer,
+        mimeType: sourceMimeType,
+      };
+    }
+
     let pipeline = sharp(originalBuffer).rotate();
     if (maxDimension !== null) {
       pipeline = pipeline.resize({
@@ -367,10 +386,13 @@ async function fetchRemoteImageInputWithOptions(
       byteLength: data.length,
       buffer: data,
       dataUrl: bufferToDataUrl(data, "image/jpeg"),
+      ...(original ? { original } : {}),
     };
   } catch (error) {
     rootLogger.warn({
-      msg: "fetchRemoteImageInput preparation failed, falling back to original buffer",
+      msg: preserveOriginal
+        ? "fetchRemoteImageInput preparation failed for original-image cropping"
+        : "fetchRemoteImageInput preparation failed, falling back to original buffer",
       fn: "fetchRemoteImageInput",
       failureContext,
       sourceMimeType,
@@ -378,6 +400,11 @@ async function fetchRemoteImageInputWithOptions(
       ...summarizeImageUrl(imageUrl),
       ...serializeError(error),
     });
+    // Mapping detector boxes to original pixels requires a successfully normalized preview.
+    // Raw fallback dimensions can be in a different coordinate frame because of EXIF.
+    if (preserveOriginal) {
+      throw error;
+    }
   }
 
   // 回退：sharp 无法处理时（极少数格式）沿用原图，保证功能不退化
@@ -410,10 +437,12 @@ async function fetchRemoteImageInputWithOptions(
 export async function fetchRemoteImageInput(
   imageUrl: string,
   failureContext: string,
+  { preserveOriginal = false }: { preserveOriginal?: boolean } = {},
 ): Promise<ClassificationRemoteImageInput> {
   return fetchRemoteImageInputWithOptions(imageUrl, failureContext, {
     maxDimension: MAX_IMAGE_DIMENSION,
     jpegQuality: IMAGE_JPEG_QUALITY,
+    preserveOriginal,
   });
 }
 

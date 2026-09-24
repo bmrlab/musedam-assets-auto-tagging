@@ -4,6 +4,7 @@ import { bufferToDataUrl } from "@/lib/brand/image";
 import {
   JINA_IMAGE_MAX_DIMENSION,
   JINA_IMAGE_TARGET_BYTES,
+  JINA_SQUARE_IMAGE_DIMENSION,
   REFERENCE_IMAGE_JPEG_QUALITY,
   REFERENCE_IMAGE_MAX_DIMENSION,
   TARGET_COMPRESSED_IMAGE_BYTES,
@@ -74,6 +75,37 @@ export async function prepareReferenceImageBuffer(
   throw new Error(`Unable to compress reference image below ${targetBytes} bytes`);
 }
 
+/**
+ * Keeps the complete product at a consistent scale for Jina's square image input.
+ * Regions use pixels in the orientation-correct original, before resizing.
+ * PNG avoids introducing another lossy encode when a prepared crop reaches Jina.
+ */
+export async function prepareSquareEmbeddingImageBuffer(
+  sourceBuffer: Buffer,
+  region?: { left: number; top: number; width: number; height: number },
+): Promise<Buffer> {
+  let pipeline = sharp(sourceBuffer).rotate();
+  if (region) {
+    pipeline = pipeline.extract(region);
+  }
+
+  return pipeline
+    .toColourspace("srgb")
+    .flatten({ background: "#fff" })
+    .resize({
+      width: JINA_SQUARE_IMAGE_DIMENSION,
+      height: JINA_SQUARE_IMAGE_DIMENSION,
+      fit: "contain",
+      position: "centre",
+      background: "#fff",
+      kernel: sharp.kernel.cubic,
+      withoutEnlargement: false,
+    })
+    .removeAlpha()
+    .png()
+    .toBuffer();
+}
+
 function dataUrlToBuffer(image: string) {
   const match = image.match(/^data:[^;]+;base64,([\s\S]+)$/);
   if (!match) {
@@ -83,8 +115,17 @@ function dataUrlToBuffer(image: string) {
   return Buffer.from(match[1], "base64");
 }
 
-export async function prepareJinaImageDataUrl(image: string) {
-  const prepared = await prepareReferenceImageBuffer(dataUrlToBuffer(image), {
+export async function prepareJinaImageDataUrl(
+  image: string,
+  { padToSquare = false }: { padToSquare?: boolean } = {},
+) {
+  const sourceBuffer = dataUrlToBuffer(image);
+  if (padToSquare) {
+    const buffer = await prepareSquareEmbeddingImageBuffer(sourceBuffer);
+    return bufferToDataUrl(buffer, "image/png");
+  }
+
+  const prepared = await prepareReferenceImageBuffer(sourceBuffer, {
     maxDimension: JINA_IMAGE_MAX_DIMENSION,
     targetBytes: JINA_IMAGE_TARGET_BYTES,
   });

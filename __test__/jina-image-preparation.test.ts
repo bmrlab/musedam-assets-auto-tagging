@@ -65,6 +65,25 @@ describe("Jina image preparation boundary", () => {
       images.slice(0, 4).map((image) => ({ image: `prepared:${image}` })),
     );
     expect(secondBody.input).toEqual([{ image: "prepared:five" }]);
+    expect(mocks.prepareImage).toHaveBeenCalledWith("one", { padToSquare: false });
+  });
+
+  it("pads query images when requested without adding a second embedding pass", async () => {
+    await createJinaImageEmbeddings({
+      images: ["tall", "wide"],
+      task: "retrieval.query",
+      padToSquare: true,
+    });
+
+    expect(mocks.prepareImage).toHaveBeenCalledWith("tall", { padToSquare: true });
+    expect(mocks.prepareImage).toHaveBeenCalledWith("wide", { padToSquare: true });
+    expect(mocks.fetch).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(String(mocks.fetch.mock.calls[0][1]?.body));
+    expect(body.task).toBe("retrieval.query");
+    expect(body.input).toEqual([
+      { image: "prepared:tall" },
+      { image: "prepared:wide" },
+    ]);
   });
 
   it("caps concurrent Jina requests across embedding jobs", async () => {

@@ -6,7 +6,7 @@ import { bufferToDataUrl } from "@/lib/brand/image";
 import { createJinaImageEmbeddings, createJinaTextEmbeddings } from "@/lib/brand/jina";
 import { REFERENCE_IMAGE_PREPARATION_CONCURRENCY } from "@/lib/brand/upload-constants";
 import { getCachedSignedS3ObjectUrl } from "@/lib/s3";
-import { prepareReferenceImageBuffer } from "@/lib/tagging/reference-image";
+import { prepareSquareEmbeddingImageBuffer } from "@/lib/tagging/reference-image";
 import { translateTextToEnglish } from "@/lib/translation/service";
 import prisma from "@/prisma/prisma";
 import { generateObject, UserModelMessage } from "ai";
@@ -85,8 +85,8 @@ async function fetchImageAsDataUrl(objectKey: string) {
   }
 
   const buffer = Buffer.from(await response.arrayBuffer());
-  const preparedImage = await prepareReferenceImageBuffer(buffer);
-  return bufferToDataUrl(preparedImage.buffer, preparedImage.mimeType);
+  const preparedImage = await prepareSquareEmbeddingImageBuffer(buffer);
+  return bufferToDataUrl(preparedImage, "image/png");
 }
 
 function getProductCategoryPredictModel(): LLMModelName {
@@ -294,6 +294,7 @@ async function processAssetProductReferenceVectorsNow({
     );
     const imageEmbeddings = await createJinaImageEmbeddings({
       images: imageInputs,
+      padToSquare: true,
     });
 
     if (imageEmbeddings.length !== product.images.length) {

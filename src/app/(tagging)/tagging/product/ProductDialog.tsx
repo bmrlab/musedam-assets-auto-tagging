@@ -195,7 +195,7 @@ export default function ProductDialog({
 
     for (const file of fileList) {
       try {
-        const preparedFile = await prepareClientImageUpload(file);
+        const preparedFile = await prepareClientImageUpload(file, { preserveOriginal: true });
         nextImages.push({
           id: `new-${crypto.randomUUID()}`,
           previewUrl: URL.createObjectURL(preparedFile),

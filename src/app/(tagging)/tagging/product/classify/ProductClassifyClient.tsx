@@ -126,7 +126,7 @@ export default function ProductClassifyClient({
     }
 
     try {
-      const nextFile = await prepareClientImageUpload(selectedFile);
+      const nextFile = await prepareClientImageUpload(selectedFile, { preserveOriginal: true });
       setFile(nextFile);
       setPreviewUrl((current) => {
         revokeUrl(current);
