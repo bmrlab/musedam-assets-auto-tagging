@@ -72,6 +72,55 @@ describe("filterPredictionsByKnownTagIds", () => {
     expect(result.corrected).toEqual([]);
   });
 
+  it("prefers tagPath over a valid-but-different id (adjacent sibling id slip)", () => {
+    // 回归：绿色的车被打成"蓝色系"。模型 tagPath 写的是绿色系，leafTagId 却抄成了相邻的蓝色系 id，
+    // 旧逻辑"id 合法就以 id 为准"把预测静默改成蓝色系且置信度原样保留。
+    const colorTree: TagWithChildren[] = [
+      {
+        id: 10,
+        name: "CMF属性",
+        extra: null,
+        children: [
+          {
+            id: 11,
+            name: "基础色系",
+            extra: null,
+            children: [
+              { id: 12, name: "蓝色系", extra: null },
+              { id: 13, name: "绿色系", extra: null },
+            ],
+          },
+        ],
+      },
+    ];
+    const predictions: SourceBasedTagPredictions = [
+      {
+        source: "contentAnalysis",
+        tags: [
+          {
+            confidence: 0.78,
+            leafTagId: 12,
+            tagPath: ["CMF属性", "基础色系", "绿色系"],
+            evidence: "车身呈现鲜艳的绿色",
+          },
+        ],
+      },
+    ];
+    const result = filterPredictionsByKnownTagIds(predictions, colorTree);
+    expect(result.predictions[0].tags).toEqual([
+      {
+        confidence: 0.78,
+        leafTagId: 13,
+        tagPath: ["CMF属性", "基础色系", "绿色系"],
+        evidence: "车身呈现鲜艳的绿色",
+      },
+    ]);
+    expect(result.corrected).toEqual([
+      { source: "contentAnalysis", fromLeafTagId: 12, toLeafTagId: 13 },
+    ]);
+    expect(result.dropped).toEqual([]);
+  });
+
   it("keeps level-1 and level-2 ids, since the prompt allows any level", () => {
     const predictions: SourceBasedTagPredictions = [
       {
