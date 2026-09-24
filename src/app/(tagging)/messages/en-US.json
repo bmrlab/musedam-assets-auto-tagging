@@ -662,13 +662,16 @@
       "AIRecognition": {
         "title": "AI Recognition",
         "precise": "Precise",
-        "preciseDesc": "High accuracy, fewer tags (≥80% confidence)",
+        "preciseDesc": "High accuracy, fewer tags",
         "balanced": "Balanced",
-        "balancedDesc": "Balanced accuracy and coverage (≥60% confidence)",
+        "balancedDesc": "Balanced accuracy and coverage",
         "broad": "Broad",
-        "broadDesc": "High coverage, more tags (≥40% confidence)",
+        "broadDesc": "High coverage, more tags",
         "confidence": "confidence",
-        "recommended": "Recommended"
+        "recommended": "Recommended",
+        "confidenceHigh": "High confidence",
+        "confidenceMedium": "Medium confidence",
+        "confidenceLow": "Low confidence"
       },
       "MatchingStrategy": {
         "title": "Matching Strategy",

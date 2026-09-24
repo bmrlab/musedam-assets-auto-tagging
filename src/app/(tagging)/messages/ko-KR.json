@@ -169,7 +169,10 @@
         "precise": "정확 모드",
         "preciseDesc": "정확성을 우선으로 하며, 태깅 요구가 엄격한场景에 적합합니다",
         "recommended": "추천",
-        "title": "AI 인식 설정"
+        "title": "AI 인식 설정",
+        "confidenceHigh": "높은 신뢰도",
+        "confidenceMedium": "중간 신뢰도",
+        "confidenceLow": "낮은 신뢰도"
       },
       "AdvancedSettings": {
         "title": "고급 설정"

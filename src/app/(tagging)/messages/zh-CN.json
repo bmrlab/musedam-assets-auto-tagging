@@ -668,7 +668,10 @@
         "broad": "宽泛模式",
         "broadDesc": "优先标签覆盖度，适合内容初步分类",
         "confidence": "置信度",
-        "recommended": "推荐"
+        "recommended": "推荐",
+        "confidenceHigh": "高置信度",
+        "confidenceMedium": "中等置信度",
+        "confidenceLow": "低置信度"
       },
       "MatchingStrategy": {
         "title": "匹配策略选择",

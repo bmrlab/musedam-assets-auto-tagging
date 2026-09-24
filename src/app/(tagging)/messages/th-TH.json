@@ -336,13 +336,16 @@
       "AIRecognition": {
         "title": "การจดจำ AI",
         "precise": "แม่นยำ",
-        "preciseDesc": "ความแม่นยำสูง แท็กน้อย (≥80% ความมั่นใจ)",
+        "preciseDesc": "ความแม่นยำสูง แท็กน้อย",
         "balanced": "สมดุล",
-        "balancedDesc": "ความแม่นยำและความครอบคลุมที่สมดุล (≥60% ความมั่นใจ)",
+        "balancedDesc": "ความแม่นยำและความครอบคลุมที่สมดุล",
         "broad": "กว้าง",
-        "broadDesc": "ความครอบคลุมสูง แท็กมากขึ้น (≥40% ความมั่นใจ)",
+        "broadDesc": "ความครอบคลุมสูง แท็กมากขึ้น",
         "confidence": "ความมั่นใจ",
-        "recommended": "แนะนำ"
+        "recommended": "แนะนำ",
+        "confidenceHigh": "ความมั่นใจสูง",
+        "confidenceMedium": "ความมั่นใจปานกลาง",
+        "confidenceLow": "ความมั่นใจต่ำ"
       },
       "MatchingStrategy": {
         "title": "กลยุทธ์การจับคู่",

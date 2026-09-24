@@ -23,20 +23,20 @@ export function AIRecognitionSection({
       {
         key: "precise",
         title: t("precise"),
-        confidence: "≥80%",
+        confidence: t("confidenceHigh"),
         des: t("preciseDesc"),
       },
       {
         key: "balanced",
         title: t("balanced"),
-        confidence: "≥60%",
+        confidence: t("confidenceMedium"),
         des: t("balancedDesc"),
         isRecommended: true,
       },
       {
         key: "broad",
         title: t("broad"),
-        confidence: "≥40%",
+        confidence: t("confidenceLow"),
         des: t("broadDesc"),
       },
     ];
@@ -68,7 +68,7 @@ export function AIRecognitionSection({
                       {item.isRecommended && <Tag variant="purple"> {t("recommended")}</Tag>}
                     </div>
                     <div className="text-xs font-medium text-primary-6 mb-1">
-                      {item.confidence} {t("confidence")}
+                      {item.confidence}
                     </div>
                     <p className="text-xs text-basic-5">{item.des}</p>
                   </div>

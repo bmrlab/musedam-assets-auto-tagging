@@ -169,7 +169,10 @@
         "precise": "精密モード",
         "preciseDesc": "正確性を優先し、マーキング要件が厳格なシーンに適しています",
         "recommended": "おすすめ",
-        "title": "AI 認識設定"
+        "title": "AI 認識設定",
+        "confidenceHigh": "高信頼度",
+        "confidenceMedium": "中信頼度",
+        "confidenceLow": "低信頼度"
       },
       "AdvancedSettings": {
         "title": "高度な設定"

@@ -162,14 +162,17 @@
     "Settings": {
       "AIRecognition": {
         "balanced": "Ausgewogen",
-        "balancedDesc": "Ausgewogene Genauigkeit und Abdeckung (≥60% Konfidenz)",
+        "balancedDesc": "Ausgewogene Genauigkeit und Abdeckung",
         "broad": "Breit",
-        "broadDesc": "Hohe Abdeckung, mehr Tags (≥40 % Konfidenz)",
+        "broadDesc": "Hohe Abdeckung, mehr Tags",
         "confidence": "Zuverlässigkeit",
         "precise": "Präzise",
-        "preciseDesc": "Hohe Genauigkeit, weniger Tags (≥80% Konfidenz)",
+        "preciseDesc": "Hohe Genauigkeit, weniger Tags",
         "recommended": "Empfohlen",
-        "title": "KI-Erkennung"
+        "title": "KI-Erkennung",
+        "confidenceHigh": "Hohe Zuverlässigkeit",
+        "confidenceMedium": "Mittlere Zuverlässigkeit",
+        "confidenceLow": "Niedrige Zuverlässigkeit"
       },
       "AdvancedSettings": {
         "title": "Erweiterte Einstellungen"

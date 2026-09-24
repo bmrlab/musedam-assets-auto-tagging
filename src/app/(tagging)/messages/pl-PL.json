@@ -585,13 +585,16 @@
       "AIRecognition": {
         "title": "Rozpoznawanie AI",
         "precise": "Precyzyjne",
-        "preciseDesc": "Wysoka dokładność, mniej tagów (≥80% pewności)",
+        "preciseDesc": "Wysoka dokładność, mniej tagów",
         "balanced": "Zrównoważone",
-        "balancedDesc": "Zrównoważona dokładność i zakres (≥60% pewności)",
+        "balancedDesc": "Zrównoważona dokładność i zakres",
         "broad": "Szerokie",
-        "broadDesc": "Duży zakres, więcej tagów (≥40% pewności)",
+        "broadDesc": "Duży zakres, więcej tagów",
         "confidence": "pewność",
-        "recommended": "Zalecane"
+        "recommended": "Zalecane",
+        "confidenceHigh": "Wysoka pewność",
+        "confidenceMedium": "Średnia pewność",
+        "confidenceLow": "Niska pewność"
       },
       "MatchingStrategy": {
         "title": "Strategia dopasowania",

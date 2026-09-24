@@ -585,13 +585,16 @@
       "AIRecognition": {
         "title": "AI Tanıma",
         "precise": "Hassas",
-        "preciseDesc": "Yüksek doğruluk, daha az etiket (≥80% güven)",
+        "preciseDesc": "Yüksek doğruluk, daha az etiket",
         "balanced": "Dengeli",
-        "balancedDesc": "Dengeli doğruluk ve kapsam (≥60% güven)",
+        "balancedDesc": "Dengeli doğruluk ve kapsam",
         "broad": "Geniş",
-        "broadDesc": "Yüksek kapsam, daha fazla etiket (≥40% güven)",
+        "broadDesc": "Yüksek kapsam, daha fazla etiket",
         "confidence": "güven",
-        "recommended": "Önerilen"
+        "recommended": "Önerilen",
+        "confidenceHigh": "Yüksek güven",
+        "confidenceMedium": "Orta güven",
+        "confidenceLow": "Düşük güven"
       },
       "MatchingStrategy": {
         "title": "Eşleştirme Stratejisi",

@@ -169,7 +169,10 @@
         "precise": "精準模式",
         "preciseDesc": "優先準確性，適合標記要求嚴格的場景",
         "recommended": "推薦",
-        "title": "AI 辨識設定"
+        "title": "AI 辨識設定",
+        "confidenceHigh": "高信賴度",
+        "confidenceMedium": "中等信賴度",
+        "confidenceLow": "低信賴度"
       },
       "AdvancedSettings": {
         "title": "進階設定"
