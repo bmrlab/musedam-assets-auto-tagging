@@ -308,10 +308,29 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
     featureLibraryFeatures.featurePerson;
 
   const recognitionFeatures: RecognitionFeature[] = [];
+  const products =
+    result.products ?? (result.productRecognition ? [result.productRecognition] : []);
+  const hasFeatureBelowConfidenceThreshold =
+    (featureLibraryFeatures.featureBrand &&
+      result.brandRecognition?.assetLogoId &&
+      !meetsFeatureConfidenceThreshold("brand", result.brandRecognition.confidence)) ||
+    (featureLibraryFeatures.featureIp &&
+      result.ipRecognition?.assetIpId &&
+      !meetsFeatureConfidenceThreshold("ip", result.ipRecognition.confidence)) ||
+    (featureLibraryFeatures.featureProduct &&
+      products.some(
+        (product) =>
+          product.assetProductId &&
+          !meetsFeatureConfidenceThreshold("product", product.confidence),
+      )) ||
+    (featureLibraryFeatures.featurePerson &&
+      result.personRecognition?.faces.some(
+        (face) =>
+          face.assetPersonId &&
+          (face.noConfidentMatch || !meetsFeatureConfidenceThreshold("person", face.confidence)),
+      ));
 
   if (featureLibraryFeatures.featureProduct) {
-    const products =
-      result.products ?? (result.productRecognition ? [result.productRecognition] : []);
     products.forEach((product) => {
       if (
         product.noConfidentMatch ||
@@ -512,7 +531,13 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
             </div>
           ) : (
             <div className="text-sm text-basic-5">
-              {t(isVideoAsset ? "videoFeatureLibraryLimited" : "noRecognizedFeatures")}
+              {t(
+                isVideoAsset
+                  ? "videoFeatureLibraryLimited"
+                  : hasFeatureBelowConfidenceThreshold
+                    ? "featureConfidenceNotCredible"
+                    : "noRecognizedFeatures",
+              )}
             </div>
           )}
         </SectionShell>

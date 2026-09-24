@@ -13,7 +13,12 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { dispatchMuseDAMClientAction } from "@/embed/message";
 import { useFeatureLibraryFeatures } from "@/hooks/use-feature-library";
 import { isAcceptedPersonFace } from "@/lib/person/person-match-policy";
-import { getAcceptedProductMatches } from "@/lib/product/product-match-policy";
+import {
+  deduplicateProductMatches,
+  getAcceptedProductMatches,
+  getProductMatches,
+} from "@/lib/product/product-match-policy";
+import { meetsFeatureConfidenceThreshold } from "@/lib/tagging/feature-confidence";
 import { cn } from "@/lib/utils";
 import { AlertCircleIcon, Loader2, PlayIcon, PlusIcon, RefreshCwIcon, Trash } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -633,7 +638,13 @@ export default function TestClient() {
                 tagPath?: string[];
               }> = Array.isArray(result.productLinkedTags) ? result.productLinkedTags : [];
               const acceptedProducts = getAcceptedProductMatches(productRecommendation);
-              const products = acceptedProducts.map((match) => {
+              // Retain weak candidates so the empty state can explain why no feature is shown.
+              const products = deduplicateProductMatches(
+                getProductMatches(productRecommendation).filter(
+                  (match) =>
+                    typeof match?.assetProductId === "string" && match.assetProductId.length > 0,
+                ),
+              ).map((match) => {
                 const refreshedTags = linkedProductTags.filter(
                   (tag) =>
                     tag.assetProductId === match.assetProductId ||
@@ -644,7 +655,7 @@ export default function TestClient() {
                   : match.recommendedTags;
 
                 return {
-                  noConfidentMatch: false,
+                  noConfidentMatch: !meetsFeatureConfidenceThreshold("product", match.confidence),
                   productName: match.productName,
                   productTypeName: match.productTypeName,
                   confidence: match.confidence,
@@ -657,7 +668,7 @@ export default function TestClient() {
               });
               const bestProductConfidence = Math.max(
                 0,
-                ...products.map((product) => product.confidence),
+                ...acceptedProducts.map((product) => product.confidence),
               );
               const linkedPersonTags: Array<{
                 assetPersonId?: string;
