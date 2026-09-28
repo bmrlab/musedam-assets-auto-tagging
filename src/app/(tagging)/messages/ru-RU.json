@@ -90,7 +90,19 @@
         "11": "Декабрь"
       },
       "filterFailed": "Неудачные",
-      "searchPlaceholder": "Поиск по названию ресурса"
+      "searchPlaceholder": "Поиск по названию ресурса",
+      "filterCancelled": "Отменено",
+      "taskCancelled": "Отменено",
+      "resumeTask": "Возобновить разметку",
+      "cancelSelectedTasks": "Отменить выбранные ({count})",
+      "cancelAllPendingTasks": "Отменить все в очереди",
+      "cancelConfirmTitle": "Отмена задач разметки",
+      "cancelSelectedConfirmDescription": "Отменить выбранные задачи в очереди ({count})? Их можно возобновить по одной в разделе «Отменено».",
+      "cancelAllConfirmDescription": "Отменить все задачи в очереди ({count})? Выполняемые задачи не затрагиваются. Их можно возобновить по одной в разделе «Отменено».",
+      "cancelConfirmDismiss": "Оставить",
+      "cancelConfirmOk": "Отменить задачи",
+      "cancelTasksSuccess": "Отменено задач: {count}",
+      "cancelTasksFailed": "Не удалось отменить задачи"
     },
     "Review": {
       "add": "Добавить",

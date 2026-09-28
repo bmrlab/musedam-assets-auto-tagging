@@ -597,7 +597,19 @@
         "11": "Desember"
       },
       "filterFailed": "Gagal",
-      "searchPlaceholder": "Cari berdasarkan nama aset"
+      "searchPlaceholder": "Cari berdasarkan nama aset",
+      "filterCancelled": "Dibatalkan",
+      "taskCancelled": "Dibatalkan",
+      "resumeTask": "Lanjutkan penandaan",
+      "cancelSelectedTasks": "Batalkan yang dipilih ({count})",
+      "cancelAllPendingTasks": "Batalkan semua antrean",
+      "cancelConfirmTitle": "Batalkan tugas penandaan",
+      "cancelSelectedConfirmDescription": "Batalkan {count} tugas antrean yang dipilih? Anda dapat melanjutkannya satu per satu di \"Dibatalkan\".",
+      "cancelAllConfirmDescription": "Batalkan semua {count} tugas dalam antrean? Tugas yang sedang diproses tidak terpengaruh. Anda dapat melanjutkannya satu per satu di \"Dibatalkan\".",
+      "cancelConfirmDismiss": "Simpan",
+      "cancelConfirmOk": "Batalkan tugas",
+      "cancelTasksSuccess": "{count} tugas dibatalkan",
+      "cancelTasksFailed": "Gagal membatalkan tugas"
     },
     "Settings": {
       "title": "Sakelar Pelabelan",

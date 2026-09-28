@@ -90,7 +90,19 @@
         "11": "दिसंबर"
       },
       "filterFailed": "विफल",
-      "searchPlaceholder": "एसेट नाम से खोजें"
+      "searchPlaceholder": "एसेट नाम से खोजें",
+      "filterCancelled": "रद्द किया गया",
+      "taskCancelled": "रद्द किया गया",
+      "resumeTask": "टैगिंग फिर से शुरू करें",
+      "cancelSelectedTasks": "चयनित रद्द करें ({count})",
+      "cancelAllPendingTasks": "सभी कतारबद्ध रद्द करें",
+      "cancelConfirmTitle": "टैगिंग कार्य रद्द करें",
+      "cancelSelectedConfirmDescription": "चयनित {count} कतारबद्ध कार्य रद्द करें? आप उन्हें \"रद्द किया गया\" में एक-एक करके फिर से शुरू कर सकते हैं।",
+      "cancelAllConfirmDescription": "सभी {count} कतारबद्ध कार्य रद्द करें? प्रगति में चल रहे कार्य प्रभावित नहीं होंगे। आप उन्हें \"रद्द किया गया\" में एक-एक करके फिर से शुरू कर सकते हैं।",
+      "cancelConfirmDismiss": "रहने दें",
+      "cancelConfirmOk": "कार्य रद्द करें",
+      "cancelTasksSuccess": "{count} कार्य रद्द किए गए",
+      "cancelTasksFailed": "कार्य रद्द करने में विफल"
     },
     "Review": {
       "add": "जोड़ें",

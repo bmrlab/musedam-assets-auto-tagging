@@ -556,7 +556,19 @@
         "11": "Aralık"
       },
       "filterFailed": "Başarısız",
-      "searchPlaceholder": "Varlık adına göre ara"
+      "searchPlaceholder": "Varlık adına göre ara",
+      "filterCancelled": "İptal edildi",
+      "taskCancelled": "İptal edildi",
+      "resumeTask": "Etiketlemeyi sürdür",
+      "cancelSelectedTasks": "Seçilenleri iptal et ({count})",
+      "cancelAllPendingTasks": "Kuyruktakilerin tümünü iptal et",
+      "cancelConfirmTitle": "Etiketleme görevlerini iptal et",
+      "cancelSelectedConfirmDescription": "Seçilen {count} kuyruk görevi iptal edilsin mi? \"İptal edildi\" bölümünden tek tek sürdürebilirsiniz.",
+      "cancelAllConfirmDescription": "Kuyruktaki {count} görevin tümü iptal edilsin mi? İşlenmekte olan görevler etkilenmez. \"İptal edildi\" bölümünden tek tek sürdürebilirsiniz.",
+      "cancelConfirmDismiss": "Vazgeç",
+      "cancelConfirmOk": "Görevleri iptal et",
+      "cancelTasksSuccess": "{count} görev iptal edildi",
+      "cancelTasksFailed": "Görevler iptal edilemedi"
     },
     "Settings": {
       "title": "Etiketleme Anahtarı",

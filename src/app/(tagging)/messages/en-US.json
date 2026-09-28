@@ -633,7 +633,19 @@
         "11": "December"
       },
       "filterFailed": "Failed",
-      "searchPlaceholder": "Search by asset name"
+      "searchPlaceholder": "Search by asset name",
+      "filterCancelled": "Cancelled",
+      "taskCancelled": "Cancelled",
+      "resumeTask": "Resume tagging",
+      "cancelSelectedTasks": "Cancel selected ({count})",
+      "cancelAllPendingTasks": "Cancel all queued",
+      "cancelConfirmTitle": "Cancel tagging tasks",
+      "cancelSelectedConfirmDescription": "Cancel the {count} selected queued tasks? You can resume them individually under \"Cancelled\".",
+      "cancelAllConfirmDescription": "Cancel all {count} queued tasks? Tasks already being tagged are not affected. You can resume them individually under \"Cancelled\".",
+      "cancelConfirmDismiss": "Keep tasks",
+      "cancelConfirmOk": "Cancel tasks",
+      "cancelTasksSuccess": "Cancelled {count} tasks",
+      "cancelTasksFailed": "Failed to cancel tasks"
     },
     "Settings": {
       "title": "Tagging Switch",

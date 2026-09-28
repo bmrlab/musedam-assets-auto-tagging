@@ -556,7 +556,19 @@
         "11": "Tháng 12"
       },
       "filterFailed": "Thất bại",
-      "searchPlaceholder": "Tìm theo tên tài sản"
+      "searchPlaceholder": "Tìm theo tên tài sản",
+      "filterCancelled": "Đã hủy",
+      "taskCancelled": "Đã hủy",
+      "resumeTask": "Tiếp tục gắn thẻ",
+      "cancelSelectedTasks": "Hủy mục đã chọn ({count})",
+      "cancelAllPendingTasks": "Hủy tất cả đang chờ",
+      "cancelConfirmTitle": "Hủy tác vụ gắn thẻ",
+      "cancelSelectedConfirmDescription": "Hủy {count} tác vụ đang chờ đã chọn? Bạn có thể tiếp tục từng tác vụ trong \"Đã hủy\".",
+      "cancelAllConfirmDescription": "Hủy tất cả {count} tác vụ đang chờ? Tác vụ đang xử lý không bị ảnh hưởng. Bạn có thể tiếp tục từng tác vụ trong \"Đã hủy\".",
+      "cancelConfirmDismiss": "Giữ lại",
+      "cancelConfirmOk": "Hủy tác vụ",
+      "cancelTasksSuccess": "Đã hủy {count} tác vụ",
+      "cancelTasksFailed": "Hủy tác vụ thất bại"
     },
     "Settings": {
       "title": "Cài đặt chung",

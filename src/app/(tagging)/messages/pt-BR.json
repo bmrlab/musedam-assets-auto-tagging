@@ -90,7 +90,19 @@
         "11": "Dezembro"
       },
       "filterFailed": "Falhas",
-      "searchPlaceholder": "Buscar por nome do ativo"
+      "searchPlaceholder": "Buscar por nome do ativo",
+      "filterCancelled": "Cancelada",
+      "taskCancelled": "Cancelada",
+      "resumeTask": "Retomar marcação",
+      "cancelSelectedTasks": "Cancelar selecionadas ({count})",
+      "cancelAllPendingTasks": "Cancelar todas na fila",
+      "cancelConfirmTitle": "Cancelar tarefas de marcação",
+      "cancelSelectedConfirmDescription": "Cancelar as {count} tarefas na fila selecionadas? Você pode retomá-las individualmente em \"Cancelada\".",
+      "cancelAllConfirmDescription": "Cancelar todas as {count} tarefas na fila? Tarefas em processamento não são afetadas. Você pode retomá-las individualmente em \"Cancelada\".",
+      "cancelConfirmDismiss": "Manter",
+      "cancelConfirmOk": "Cancelar tarefas",
+      "cancelTasksSuccess": "{count} tarefas canceladas",
+      "cancelTasksFailed": "Falha ao cancelar tarefas"
     },
     "Review": {
       "add": "Adicionar",

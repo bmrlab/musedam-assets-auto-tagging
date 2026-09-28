@@ -3,6 +3,7 @@ import {
   isAssetInApplicationScope,
 } from "@/app/(tagging)/application-scope";
 import { enqueueTaggingTask } from "@/app/(tagging)/queue";
+import { CANCELLED_TASK_ERROR_CODE } from "@/app/(tagging)/queue-config";
 import { getTaggingSettings } from "@/app/(tagging)/tagging/settings/lib";
 import { toFeatureClassificationFlags } from "@/lib/feature-library";
 import { getFeatureLibraryFeaturesFromRequest } from "@/lib/feature-library-server";
@@ -14,7 +15,7 @@ import {
 } from "@/lib/tagging-api-options";
 import { syncSingleAssetFromMuseDAM } from "@/musedam/assets";
 import { MuseDAMID } from "@/musedam/types";
-import { AssetObject, TaggingQueueItemExtra } from "@/prisma/client";
+import { AssetObject, TaggingQueueItemExtra, TaggingQueueItemResult } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -167,6 +168,23 @@ export async function POST(request: NextRequest) {
       });
 
       if (existingDefaultQueueItem) {
+        // 用户在控制面板手动取消过的任务：不因上游的重复请求（如智能解析完成后的第二次）被悄悄复活，
+        // 需要打标时由用户在控制面板单条恢复。
+        const existingResult = existingDefaultQueueItem.result as TaggingQueueItemResult | null;
+        if (
+          existingDefaultQueueItem.status === "failed" &&
+          existingResult?.error === CANCELLED_TASK_ERROR_CODE
+        ) {
+          return NextResponse.json({
+            success: true,
+            data: {
+              message: "Default tagging task was cancelled by user",
+              queueItemId: null,
+              status: null,
+            },
+          });
+        }
+
         if (
           existingDefaultQueueItem.status === "completed" ||
           existingDefaultQueueItem.status === "failed"

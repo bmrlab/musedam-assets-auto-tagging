@@ -90,7 +90,19 @@
         "11": "Dezember"
       },
       "filterFailed": "Fehlgeschlagen",
-      "searchPlaceholder": "Nach Asset-Namen suchen"
+      "searchPlaceholder": "Nach Asset-Namen suchen",
+      "filterCancelled": "Abgebrochen",
+      "taskCancelled": "Abgebrochen",
+      "resumeTask": "Tagging fortsetzen",
+      "cancelSelectedTasks": "Auswahl abbrechen ({count})",
+      "cancelAllPendingTasks": "Alle wartenden abbrechen",
+      "cancelConfirmTitle": "Tagging-Aufgaben abbrechen",
+      "cancelSelectedConfirmDescription": "{count} ausgewählte wartende Aufgaben abbrechen? Unter „Abgebrochen“ können sie einzeln fortgesetzt werden.",
+      "cancelAllConfirmDescription": "Alle {count} wartenden Aufgaben abbrechen? Laufende Aufgaben sind nicht betroffen. Unter „Abgebrochen“ können sie einzeln fortgesetzt werden.",
+      "cancelConfirmDismiss": "Behalten",
+      "cancelConfirmOk": "Abbrechen",
+      "cancelTasksSuccess": "{count} Aufgaben abgebrochen",
+      "cancelTasksFailed": "Aufgaben konnten nicht abgebrochen werden"
     },
     "Review": {
       "add": "Hinzufügen",

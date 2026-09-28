@@ -90,7 +90,19 @@
         "11": "Diciembre"
       },
       "filterFailed": "Fallidas",
-      "searchPlaceholder": "Buscar por nombre de recurso"
+      "searchPlaceholder": "Buscar por nombre de recurso",
+      "filterCancelled": "Cancelada",
+      "taskCancelled": "Cancelada",
+      "resumeTask": "Reanudar etiquetado",
+      "cancelSelectedTasks": "Cancelar selección ({count})",
+      "cancelAllPendingTasks": "Cancelar todas en cola",
+      "cancelConfirmTitle": "Cancelar tareas de etiquetado",
+      "cancelSelectedConfirmDescription": "¿Cancelar las {count} tareas en cola seleccionadas? Podrás reanudarlas una a una en \"Cancelada\".",
+      "cancelAllConfirmDescription": "¿Cancelar las {count} tareas en cola? Las tareas en proceso no se verán afectadas. Podrás reanudarlas una a una en \"Cancelada\".",
+      "cancelConfirmDismiss": "Mantener",
+      "cancelConfirmOk": "Cancelar tareas",
+      "cancelTasksSuccess": "{count} tareas canceladas",
+      "cancelTasksFailed": "No se pudieron cancelar las tareas"
     },
     "Review": {
       "add": "Añadir",
