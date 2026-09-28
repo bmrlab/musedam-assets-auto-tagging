@@ -45,7 +45,15 @@ import {
   TaggingAuditStatus,
   TaggingQueueItemResult,
 } from "@/prisma/client";
-import { CheckIcon, DotIcon, ExternalLinkIcon, Loader2Icon, StarIcon, XIcon } from "lucide-react";
+import {
+  CheckIcon,
+  DotIcon,
+  ExternalLinkIcon,
+  Loader2Icon,
+  PlusIcon,
+  StarIcon,
+  XIcon,
+} from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -55,8 +63,15 @@ import {
   rejectAuditItemsAction,
   setAuditItemsRejectedAction,
 } from "./actions";
+import { AddFeatureDialog } from "./components/AddFeatureDialog";
 import { FeatureThumbnail } from "./components/FeatureThumbnail";
-import { FEATURE_REVIEW_CHANGED, featureKey, getFeatureReviewVersions } from "./feature-review";
+import {
+  FEATURE_REVIEW_CHANGED,
+  featureKey,
+  getFeatureReviewVersions,
+  getReviewedManualFeatures,
+  type ReviewFeature,
+} from "./feature-review";
 
 type PreviewImage = { src: string; alt: string };
 
@@ -268,6 +283,86 @@ function FeatureRecognitionRow({
   );
 }
 
+function ManualFeatureRow({
+  feature,
+  featureClass,
+  onRemove,
+  disabled,
+  onPreview,
+}: {
+  feature: ReviewFeature;
+  featureClass: string;
+  /** Omitted for features already recorded in an applied review (read-only). */
+  onRemove?: () => void;
+  disabled?: boolean;
+  onPreview: (image: PreviewImage) => void;
+}) {
+  const tResult = useTranslations("TaggingResultDisplay");
+  const t = useTranslations("Tagging.Review");
+
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-md border border-basic-3 bg-background p-3">
+      <div className="relative size-10 shrink-0 overflow-hidden rounded bg-basic-2">
+        <FeatureThumbnail
+          featureType={feature.featureType}
+          featureId={feature.id}
+          alt={feature.name}
+          className="h-full w-full"
+          previewLabel={t("previewImage", { name: feature.name })}
+          onPreview={(imageUrl) => onPreview({ src: imageUrl, alt: feature.name })}
+        />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-[13px] font-medium leading-[18px]" title={feature.name}>
+          {feature.name}
+        </div>
+        <div
+          className="mt-1 truncate text-xs text-basic-5"
+          title={`${featureClass} > ${feature.typeName || "-"}`}
+        >
+          {featureClass} &gt; {feature.typeName || "-"}
+        </div>
+        <div className="mt-0.5 truncate text-[10px] text-basic-5">
+          {tResult("matchingSource")}: {t("manuallyAdded")}
+        </div>
+        {feature.tags.length > 0 ? (
+          <div className="mt-1 flex flex-wrap gap-1">
+            {feature.tags.map((tag) => (
+              <span
+                key={tag.assetTagId}
+                className="inline-flex items-center rounded-sm border bg-background px-1.5 py-0.5 text-[10px] text-basic-5"
+              >
+                {tag.tagPath.join(" > ")}
+              </span>
+            ))}
+          </div>
+        ) : null}
+      </div>
+      {onRemove ? (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="size-3 shrink-0 bg-transparent text-basic-5 hover:bg-transparent hover:text-current"
+                aria-label={t("tooltipRemove")}
+                disabled={disabled}
+                onClick={onRemove}
+              >
+                <XIcon className="size-3" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{t("tooltipRemove")}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      ) : null}
+    </div>
+  );
+}
+
 export function ReviewItem({
   assetObject,
   existingFeatures = [],
@@ -278,11 +373,17 @@ export function ReviewItem({
   batchLoading,
   rejectedFeatureKeys,
   onToggleFeatureKey,
+  manualFeatures,
+  onAddManualFeatures,
+  onRemoveManualFeature,
 }: AssetWithAuditItemsBatch & {
   CheckboxComponent: React.ReactNode;
   batchLoading?: boolean;
   rejectedFeatureKeys: string[];
   onToggleFeatureKey: (key: string) => void;
+  manualFeatures: ReviewFeature[];
+  onAddManualFeatures: (features: ReviewFeature[]) => void;
+  onRemoveManualFeature: (key: string) => void;
 }) {
   const t = useTranslations("Tagging.Review");
   const tResult = useTranslations("TaggingResultDisplay");
@@ -325,6 +426,7 @@ export function ReviewItem({
     ),
   );
   const [previewImage, setPreviewImage] = useState<PreviewImage | null>(null);
+  const [addFeatureOpen, setAddFeatureOpen] = useState(false);
   // 历史打标记录默认折叠：只展示最新一次，避免过往错误结果一直挂在页面上
   const [showHistory, setShowHistory] = useState(false);
 
@@ -426,6 +528,62 @@ export function ReviewItem({
   );
 
   const featureReviewVersions = useMemo(() => getFeatureReviewVersions(finalBatch), [finalBatch]);
+  const manualFeatureKeys = useMemo(
+    () => manualFeatures.map((feature) => featureKey(feature.featureType, feature.id)),
+    [manualFeatures],
+  );
+  const visibleManualFeatures = useMemo(
+    () =>
+      manualFeatures.filter((feature) =>
+        isFeatureTypeEnabled(featureLibraryFeatures, feature.featureType),
+      ),
+    [featureLibraryFeatures, manualFeatures],
+  );
+  // 已在卡片上的特征（AI 识别 + 手动添加 + 素材已绑定的），弹窗里置灰避免重复添加
+  const addedFeatureKeys = useMemo(
+    () =>
+      new Set(
+        [
+          ...manualFeatureKeys,
+          ...existingFeatures.map((feature) =>
+            featureKey(feature.featureType, feature.identifierId),
+          ),
+          ...finalBatch.flatMap(({ queueItem }) => {
+            const brand = brandRecommendationsByQueueId.get(queueItem.id)?.bestMatch;
+            const ip = ipRecommendationsByQueueId.get(queueItem.id)?.bestMatch;
+            return [
+              ...(brand && availableFeatureIdSets.brand.has(brand.assetLogoId)
+                ? [featureKey("brand", brand.assetLogoId)]
+                : []),
+              ...(ip && availableFeatureIdSets.ip.has(ip.assetIpId)
+                ? [featureKey("ip", ip.assetIpId)]
+                : []),
+              ...getAcceptedProductMatches(productRecommendationsByQueueId.get(queueItem.id))
+                .filter((product) => availableFeatureIdSets.product.has(product.assetProductId))
+                .map((product) => featureKey("product", product.assetProductId)),
+              ...(personRecommendationsByQueueId.get(queueItem.id)?.faces ?? []).flatMap((face) =>
+                face.bestMatch &&
+                isReviewablePersonFace(face) &&
+                availableFeatureIdSets.person.has(face.bestMatch.assetPersonId)
+                  ? [featureKey("person", face.bestMatch.assetPersonId)]
+                  : [],
+              ),
+            ];
+          }),
+        ].filter((key) => !rejectedFeatureKeys.includes(key)),
+      ),
+    [
+      availableFeatureIdSets,
+      brandRecommendationsByQueueId,
+      existingFeatures,
+      finalBatch,
+      ipRecommendationsByQueueId,
+      manualFeatureKeys,
+      personRecommendationsByQueueId,
+      productRecommendationsByQueueId,
+      rejectedFeatureKeys,
+    ],
+  );
 
   // 点 x / 再点恢复：先乐观更新本地状态，同时把该标签在本素材下的所有审核项即时持久化为 rejected / pending，
   // 这样顶部"批量应用"和刷新页面都能看到 x 的结果；失败则回滚本地状态。
@@ -495,6 +653,7 @@ export function ReviewItem({
           auditItems: allAuditItems,
           featureReviewVersions,
           rejectedFeatureKeys,
+          manualFeatureKeys,
           append,
         });
 
@@ -535,6 +694,7 @@ export function ReviewItem({
       filteredOutAuditItems,
       featureReviewVersions,
       rejectedFeatureKeys,
+      manualFeatureKeys,
       onSuccess,
       rejectedItems,
       t,
@@ -835,12 +995,26 @@ export function ReviewItem({
           </div>
 
           <div className="col-span-1 flex flex-col gap-[6px]">
-            {visibleBatch.map(({ queueItem }, index) => {
+            {visibleBatch.map(({ queueItem, taggingAuditItems }, index) => {
               const brandRecommendation = brandRecommendationsByQueueId.get(queueItem.id);
               const ipRecommendation = ipRecommendationsByQueueId.get(queueItem.id);
               const productRecommendation = productRecommendationsByQueueId.get(queueItem.id);
               const personRecommendation = personRecommendationsByQueueId.get(queueItem.id);
               const isLatestBatch = finalBatch.length > 1 && index === 0;
+              // 待审核：手动添加的特征挂在最新一次识别结果下，可移除；
+              // 已应用：展示该次审核快照里记录的手动添加特征，只读
+              const isCurrentBatch = index === 0;
+              const isEditableManualBatch = isCurrentBatch && hasPendingAuditItems;
+              const reviewedManualFeatures = taggingAuditItems.some(
+                ({ status }) => status === "pending",
+              )
+                ? []
+                : getReviewedManualFeatures(queueItem.extra).filter((feature) =>
+                    isFeatureTypeEnabled(featureLibraryFeatures, feature.featureType),
+                  );
+              const hasManualRows =
+                reviewedManualFeatures.length > 0 ||
+                (isEditableManualBatch && visibleManualFeatures.length > 0);
               const hasFeatureBelowConfidenceThreshold =
                 (featureLibraryFeatures.featureBrand &&
                   brandRecommendation?.bestMatch &&
@@ -1026,6 +1200,28 @@ export function ReviewItem({
                     </span>
                   </div>
                   <div className="space-y-2">
+                    {reviewedManualFeatures.map((feature) => (
+                      <ManualFeatureRow
+                        key={`reviewed-manual-${featureKey(feature.featureType, feature.id)}`}
+                        feature={feature}
+                        featureClass={getFeatureClassLabel(feature.featureType)}
+                        onPreview={setPreviewImage}
+                      />
+                    ))}
+                    {isEditableManualBatch
+                      ? visibleManualFeatures.map((feature) => (
+                          <ManualFeatureRow
+                            key={`manual-${featureKey(feature.featureType, feature.id)}`}
+                            feature={feature}
+                            featureClass={getFeatureClassLabel(feature.featureType)}
+                            disabled={realLoading}
+                            onRemove={() =>
+                              onRemoveManualFeature(featureKey(feature.featureType, feature.id))
+                            }
+                            onPreview={setPreviewImage}
+                          />
+                        ))
+                      : null}
                     {featureRows.length > 0 ? (
                       featureRows.map((feature) => (
                         <FeatureRecognitionRow
@@ -1046,7 +1242,7 @@ export function ReviewItem({
                           onPreview={setPreviewImage}
                         />
                       ))
-                    ) : (
+                    ) : hasManualRows ? null : (
                       <div className="text-sm text-basic-5">
                         {tResult(
                           isVideoAsset
@@ -1057,12 +1253,31 @@ export function ReviewItem({
                         )}
                       </div>
                     )}
+                    {isEditableManualBatch ? (
+                      <button
+                        type="button"
+                        disabled={realLoading}
+                        className="inline-flex items-center gap-1 text-xs text-primary-6 transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
+                        onClick={() => setAddFeatureOpen(true)}
+                      >
+                        <PlusIcon className="size-3" />
+                        {t("addFeatureManually")}
+                      </button>
+                    ) : null}
                   </div>
                 </div>
               );
             })}
           </div>
         </div>
+      ) : null}
+      {hasEnabledFeatures ? (
+        <AddFeatureDialog
+          open={addFeatureOpen}
+          onOpenChange={setAddFeatureOpen}
+          addedKeys={addedFeatureKeys}
+          onConfirm={onAddManualFeatures}
+        />
       ) : null}
       <ImagePreviewDialog
         image={previewImage}
