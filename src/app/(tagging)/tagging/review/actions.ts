@@ -38,13 +38,21 @@ import prisma from "@/prisma/prisma";
 import {
   createFeatureReviewSnapshot,
   FEATURE_REVIEW_CHANGED,
+  featureKey,
   getFeatureReviewVersion,
   getReviewedFeatureResult,
   hydrateReviewFeatures,
+  mergeManualReviewFeatures,
   selectReviewFeatures,
   type FeatureReviewVersions,
+  type ReviewFeature,
+  type ReviewFeatureType,
 } from "./feature-review";
-import { loadReviewFeatureLibrary } from "./feature-review-server";
+import {
+  loadManualReviewFeatures,
+  loadReviewFeatureLibrary,
+  searchReviewFeatureLibrary,
+} from "./feature-review-server";
 
 export type ReviewAvailableFeatureIds = {
   brand: string[];
@@ -110,7 +118,28 @@ export type AssetWithAuditItemsBatch = {
 type BatchApproveAssetRef = Pick<AssetObject, "id" | "slug"> & {
   featureReviewVersions: FeatureReviewVersions;
   rejectedFeatureKeys: string[];
+  manualFeatureKeys?: string[];
 };
+
+/** Search the enabled feature libraries so a reviewer can add a feature the AI missed. */
+export async function searchReviewFeaturesAction({
+  query,
+  featureType,
+}: {
+  query: string;
+  featureType?: ReviewFeatureType;
+}): Promise<ServerActionResult<ReviewFeature[]>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    const featureLibraryFeatures = await getServerFeatureLibraryFeatures();
+    const features = await searchReviewFeatureLibrary(
+      teamId,
+      query,
+      featureLibraryFeatures,
+      featureType,
+    );
+    return { success: true, data: features };
+  });
+}
 
 export async function fetchAssetsWithAuditItems(
   page: number = 1,
@@ -467,12 +496,14 @@ export async function approveAuditItemsAction({
   auditItems,
   featureReviewVersions,
   rejectedFeatureKeys = [],
+  manualFeatureKeys = [],
   append = true,
 }: {
   assetSlug: string;
   auditItems: { id: number; leafTagId: number | null; status: TaggingAuditStatus }[];
   featureReviewVersions: FeatureReviewVersions;
   rejectedFeatureKeys?: string[];
+  manualFeatureKeys?: string[];
   append?: boolean;
 }): Promise<ServerActionResult<void>> {
   return withAuth(async ({ team: { id: teamId } }) => {
@@ -526,9 +557,17 @@ export async function approveAuditItemsAction({
     ) {
       return { success: false, message: FEATURE_REVIEW_CHANGED };
     }
-    const selectedFeatures = selectReviewFeatures(
-      currentResults.map(({ result }) => result),
-      rejectedFeatureKeys,
+    const manualFeatures = await loadManualReviewFeatures(
+      teamId,
+      manualFeatureKeys,
+      featureLibraryFeatures,
+    );
+    const selectedFeatures = mergeManualReviewFeatures(
+      selectReviewFeatures(
+        currentResults.map(({ result }) => result),
+        rejectedFeatureKeys,
+      ),
+      manualFeatures,
     );
     const requestedStatus = new Map(auditItems.map(({ id, status }) => [id, status]));
     const combinedApprovedTagIds = Array.from(
@@ -622,7 +661,11 @@ export async function approveAuditItemsAction({
           data: {
             extra: {
               ...(queueItem.extra as Prisma.JsonObject),
-              featureReview: createFeatureReviewSnapshot(queueItem.result, selectedFeatures),
+              featureReview: createFeatureReviewSnapshot(
+                queueItem.result,
+                selectedFeatures,
+                manualFeatures,
+              ),
             },
           },
         });
@@ -858,6 +901,15 @@ export async function batchApproveAuditItemsAction({
         auditItems.flatMap(({ queueItem }) => (queueItem ? [queueItem.result] : [])),
         featureLibraryFeatures,
       );
+      const manualFeatureMap = new Map(
+        (
+          await loadManualReviewFeatures(
+            teamId,
+            assetRefs.flatMap(({ manualFeatureKeys }) => manualFeatureKeys ?? []),
+            featureLibraryFeatures,
+          )
+        ).map((feature) => [featureKey(feature.featureType, feature.id), feature]),
+      );
       // 按资产分组处理
       for (const assetObject of assetRefs) {
         const assetAuditItems = auditItems.filter(
@@ -935,9 +987,16 @@ export async function batchApproveAuditItemsAction({
           changedCount++;
           continue;
         }
-        const selectedFeatures = selectReviewFeatures(
-          currentGroups.map(({ queueItem }) => queueItem.result),
-          assetObject.rejectedFeatureKeys,
+        const manualFeatures = (assetObject.manualFeatureKeys ?? []).flatMap((key) => {
+          const feature = manualFeatureMap.get(key);
+          return feature ? [feature] : [];
+        });
+        const selectedFeatures = mergeManualReviewFeatures(
+          selectReviewFeatures(
+            currentGroups.map(({ queueItem }) => queueItem.result),
+            assetObject.rejectedFeatureKeys,
+          ),
+          manualFeatures,
         );
         const finalAssetAuditItems = finalAuditItems;
         const featureTagIds = selectedFeatures.flatMap((feature) =>
@@ -1038,7 +1097,11 @@ export async function batchApproveAuditItemsAction({
               data: {
                 extra: {
                   ...(queueItem.extra as Prisma.JsonObject),
-                  featureReview: createFeatureReviewSnapshot(queueItem.result, selectedFeatures),
+                  featureReview: createFeatureReviewSnapshot(
+                    queueItem.result,
+                    selectedFeatures,
+                    manualFeatures,
+                  ),
                 },
               },
             });

@@ -237,10 +237,33 @@ export function selectReviewFeatures(results: unknown[], rejectedKeys: string[] 
   ];
 }
 
-export function createFeatureReviewSnapshot(result: unknown, selected: ReviewFeature[]) {
+/** Reviewer-added features join the AI selection; a manual pick never duplicates an AI one. */
+export function mergeManualReviewFeatures(selected: ReviewFeature[], manual: ReviewFeature[]) {
+  return [
+    ...new Map(
+      [...selected, ...manual].map((feature) => [
+        featureKey(feature.featureType, feature.id),
+        feature,
+      ]),
+    ).values(),
+  ];
+}
+
+export function createFeatureReviewSnapshot(
+  result: unknown,
+  selected: ReviewFeature[],
+  manual: ReviewFeature[] = [],
+) {
+  // A feature the reviewer picked by hand is recorded only as manual, even if the AI
+  // also matched it (e.g. rejected as an AI match, then re-added manually).
+  const manualKeys = new Set(manual.map((feature) => featureKey(feature.featureType, feature.id)));
   const hydrated = hydrateReviewFeatures(
     result,
-    new Map(selected.map((feature) => [featureKey(feature.featureType, feature.id), feature])),
+    new Map(
+      selected
+        .map((feature) => [featureKey(feature.featureType, feature.id), feature] as const)
+        .filter(([key]) => !manualKeys.has(key)),
+    ),
   );
   const product = hydrated.productRecommendation;
   if (product?.detections) {
@@ -273,7 +296,16 @@ export function createFeatureReviewSnapshot(result: unknown, selected: ReviewFea
       productRecommendation: hydrated.productRecommendation ?? null,
       personRecommendation: hydrated.personRecommendation ?? null,
     },
+    manualFeatures: manual,
   };
+}
+
+/** Features the reviewer added by hand when this queue item was approved. */
+export function getReviewedManualFeatures(extra: unknown): ReviewFeature[] {
+  const review = (
+    extra as { featureReview?: ReturnType<typeof createFeatureReviewSnapshot> } | null
+  )?.featureReview;
+  return Array.isArray(review?.manualFeatures) ? review.manualFeatures : [];
 }
 
 export function getReviewedFeatureResult(result: unknown, extra: unknown): TaggingQueueItemResult {

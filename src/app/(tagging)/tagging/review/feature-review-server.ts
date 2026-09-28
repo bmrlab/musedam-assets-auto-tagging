@@ -2,6 +2,7 @@ import "server-only";
 
 import {
   filterFeatureLibraryRecommendations,
+  isFeatureTypeEnabled,
   type FeatureLibraryFeatures,
 } from "@/lib/feature-library";
 import { getProductMatches } from "@/lib/product/product-match-policy";
@@ -38,11 +39,86 @@ export async function loadReviewFeatureLibrary(
       if (face.bestMatch) ids.person.add(face.bestMatch.assetPersonId);
     }
   }
-  const where = (type: ReviewFeatureType) => ({
-    teamId,
-    enabled: true,
-    id: { in: [...ids[type]].filter((id) => UUID_PATTERN.test(id)) },
+  return queryReviewFeatures(teamId, {
+    brand: ids.brand,
+    ip: ids.ip,
+    product: ids.product,
+    person: ids.person,
   });
+}
+
+/** Parse `type:id` keys from the client into validated, enabled-type ID sets. */
+function parseFeatureKeys(keys: string[], enabledFeatures: FeatureLibraryFeatures) {
+  const ids: Record<ReviewFeatureType, Set<string>> = {
+    brand: new Set(),
+    ip: new Set(),
+    product: new Set(),
+    person: new Set(),
+  };
+  for (const key of keys) {
+    const [type, id] = key.split(":") as [ReviewFeatureType, string | undefined];
+    if (!(type in ids) || !id || !isFeatureTypeEnabled(enabledFeatures, type)) continue;
+    ids[type].add(id);
+  }
+  return ids;
+}
+
+/** Load reviewer-added features; unknown, disabled, or foreign IDs are dropped silently. */
+export async function loadManualReviewFeatures(
+  teamId: number,
+  keys: string[],
+  enabledFeatures: FeatureLibraryFeatures,
+): Promise<ReviewFeature[]> {
+  if (keys.length === 0) return [];
+  return [...(await queryReviewFeatures(teamId, parseFeatureKeys(keys, enabledFeatures))).values()];
+}
+
+const SEARCH_LIMIT_PER_TYPE = 20;
+
+/** Name search across the enabled feature libraries, for manually adding a feature in review. */
+export async function searchReviewFeatureLibrary(
+  teamId: number,
+  query: string,
+  enabledFeatures: FeatureLibraryFeatures,
+  featureType?: ReviewFeatureType,
+): Promise<ReviewFeature[]> {
+  const types = (["brand", "ip", "product", "person"] as const).filter(
+    (type) => isFeatureTypeEnabled(enabledFeatures, type) && (!featureType || featureType === type),
+  );
+  const name = query.trim();
+  const features = await queryReviewFeatures(
+    teamId,
+    Object.fromEntries(types.map((type) => [type, null])),
+    { name: name ? { contains: name, mode: "insensitive" as const } : undefined },
+  );
+  return [...features.values()];
+}
+
+/**
+ * `ids[type]` = set → load those IDs; `null` → search by `filter` (capped per type);
+ * missing → skip that type.
+ */
+async function queryReviewFeatures(
+  teamId: number,
+  ids: Partial<Record<ReviewFeatureType, Set<string> | null>>,
+  filter: { name?: { contains: string; mode: "insensitive" } } = {},
+): Promise<Map<string, ReviewFeature>> {
+  const shouldQuery = (type: ReviewFeatureType) => {
+    const value = ids[type];
+    return value === null || (value !== undefined && value.size > 0);
+  };
+  const where = (type: ReviewFeatureType) => {
+    const value = ids[type];
+    return value
+      ? {
+          teamId,
+          enabled: true,
+          id: { in: [...value].filter((id) => UUID_PATTERN.test(id)) },
+        }
+      : { teamId, enabled: true, ...filter };
+  };
+  const page = (type: ReviewFeatureType): { take?: number; orderBy?: { createdAt: "desc" } } =>
+    ids[type] === null ? { take: SEARCH_LIMIT_PER_TYPE, orderBy: { createdAt: "desc" } } : {};
   const select = {
     id: true,
     name: true,
@@ -63,9 +139,10 @@ export async function loadReviewFeatureLibrary(
     },
   } as const;
   const [brands, ips, products, persons] = await Promise.all([
-    ids.brand.size
+    shouldQuery("brand")
       ? prisma.assetLogo.findMany({
           where: where("brand"),
+          ...page("brand"),
           select: {
             ...select,
             logoTypeId: true,
@@ -74,9 +151,10 @@ export async function loadReviewFeatureLibrary(
           },
         })
       : [],
-    ids.ip.size
+    shouldQuery("ip")
       ? prisma.assetIp.findMany({
           where: where("ip"),
+          ...page("ip"),
           select: {
             ...select,
             ipTypeId: true,
@@ -86,9 +164,10 @@ export async function loadReviewFeatureLibrary(
           },
         })
       : [],
-    ids.product.size
+    shouldQuery("product")
       ? prisma.assetProduct.findMany({
           where: where("product"),
+          ...page("product"),
           select: {
             ...select,
             productTypeId: true,
@@ -99,9 +178,10 @@ export async function loadReviewFeatureLibrary(
           },
         })
       : [],
-    ids.person.size
+    shouldQuery("person")
       ? prisma.assetPerson.findMany({
           where: where("person"),
+          ...page("person"),
           select: {
             ...select,
             personTypeId: true,

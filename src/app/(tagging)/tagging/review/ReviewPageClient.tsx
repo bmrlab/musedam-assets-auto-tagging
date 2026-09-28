@@ -33,7 +33,7 @@ import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
 import { AssetWithAuditItemsBatch, fetchAssetsWithAuditItems, batchApproveAuditItemsAction, batchRejectAuditItemsAction } from "./actions";
 import { ReviewItem } from "./ReviewItem";
-import { getFeatureReviewVersions } from "./feature-review";
+import { featureKey, getFeatureReviewVersions, type ReviewFeature } from "./feature-review";
 import { useTheme } from "next-themes";
 import Image from "next/image";
 import { dispatchMuseDAMClientAction } from "@/embed/message";
@@ -65,6 +65,7 @@ export default function ReviewPageClient() {
   const [pageSize, setPageSize] = useState(10);
   const [loading, setLoading] = useState(false);
   const [rejectedFeaturesByAsset, setRejectedFeaturesByAsset] = useState<Record<number, string[]>>({});
+  const [manualFeaturesByAsset, setManualFeaturesByAsset] = useState<Record<number, ReviewFeature[]>>({});
   const [selectedAssets, setSelectedAssets] = useState<AssetWithAuditItemsBatch[]>([]);
   const [selectedAssetIds, setSelectedAssetIds] = useState<Set<number>>(new Set());
 
@@ -197,6 +198,9 @@ export default function ReviewPageClient() {
             slug: assetObject.slug,
             featureReviewVersions: getFeatureReviewVersions(batch),
             rejectedFeatureKeys: rejectedFeaturesByAsset[assetObject.id] ?? [],
+            manualFeatureKeys: (manualFeaturesByAsset[assetObject.id] ?? []).map((feature) =>
+              featureKey(feature.featureType, feature.id),
+            ),
           })),
           append: true,
         });
@@ -224,6 +228,9 @@ export default function ReviewPageClient() {
       }
 
       setCurrentPage(1)
+      setManualFeaturesByAsset((current) => Object.fromEntries(
+        Object.entries(current).filter(([id]) => !selectedAssets.some(({ assetObject }) => assetObject.id === Number(id))),
+      ));
       setSelectedAssets([]);
       setSelectedAssetIds(new Set());
       refreshDataWithFilters();
@@ -233,7 +240,7 @@ export default function ReviewPageClient() {
     } finally {
       setLoading(false);
     }
-  }, [selectedAssets, rejectedFeaturesByAsset, t, refreshDataWithFilters]);
+  }, [selectedAssets, rejectedFeaturesByAsset, manualFeaturesByAsset, t, refreshDataWithFilters]);
 
   // 批量拒绝审核
   const handleBatchReject = useCallback(async () => {
@@ -246,6 +253,9 @@ export default function ReviewPageClient() {
       });
       toast.success(t("batchRejectSuccess"));
       setCurrentPage(1)
+      setManualFeaturesByAsset((current) => Object.fromEntries(
+        Object.entries(current).filter(([id]) => !selectedAssets.some(({ assetObject }) => assetObject.id === Number(id))),
+      ));
       setSelectedAssets([]);
       setSelectedAssetIds(new Set());
       refreshDataWithFilters();
@@ -436,7 +446,29 @@ export default function ReviewPageClient() {
               return { ...current, [asset.assetObject.id]: rejected.includes(key)
                 ? rejected.filter((item) => item !== key) : [...rejected, key] };
             })}
-            onSuccess={() => refreshDataWithFilters()}
+            manualFeatures={manualFeaturesByAsset[asset.assetObject.id] ?? []}
+            onAddManualFeatures={(features) => setManualFeaturesByAsset((current) => {
+              const existing = current[asset.assetObject.id] ?? [];
+              const existingKeys = new Set(existing.map((feature) => featureKey(feature.featureType, feature.id)));
+              return { ...current, [asset.assetObject.id]: [
+                ...existing,
+                ...features.filter((feature) => !existingKeys.has(featureKey(feature.featureType, feature.id))),
+              ] };
+            })}
+            onRemoveManualFeature={(key) => setManualFeaturesByAsset((current) => ({
+              ...current,
+              [asset.assetObject.id]: (current[asset.assetObject.id] ?? []).filter(
+                (feature) => featureKey(feature.featureType, feature.id) !== key,
+              ),
+            }))}
+            onSuccess={() => {
+              setManualFeaturesByAsset((current) => {
+                const next = { ...current };
+                delete next[asset.assetObject.id];
+                return next;
+              });
+              refreshDataWithFilters();
+            }}
             CheckboxComponent={<Checkbox
               className="size-4"
               checked={selectedAssetIds.has(asset.assetObject.id)}
