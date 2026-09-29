@@ -5,6 +5,7 @@ import { getIpRecommendationFromQueueResult } from "@/app/(tagging)/ip-recommend
 import { getPersonRecommendationFromQueueResult } from "@/app/(tagging)/person-recommendation";
 import { getProductRecommendationFromQueueResult } from "@/app/(tagging)/product-recommendation";
 import { PROCESS_STATE_BADGE_CLASS_NAMES } from "@/app/(tagging)/tagging/components/process-state-badge-classes";
+import type { FeatureThumbnailImage } from "@/app/(tagging)/tagging/review/feature-review";
 import { AssetThumbnail } from "@/components/AssetThumbnail";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -25,7 +26,12 @@ import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { startTaggingTasksAction } from "./actions";
-import { TaggingResult, TaggingResultDisplay } from "./components/TaggingResultDisplay";
+import { getFeatureThumbnailsAction } from "./components/actions";
+import {
+  getTaggingResultFeatureKeys,
+  TaggingResult,
+  TaggingResultDisplay,
+} from "./components/TaggingResultDisplay";
 
 interface SelectedAsset {
   id: string; // 素材唯一标识
@@ -402,24 +408,41 @@ function savePersistedTestPageState(state: PersistedTestPageState) {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type QueueStatusPayload = Record<string, any>;
 
-async function fetchQueueItemStatus(id: number): Promise<QueueStatusPayload> {
-  const response = await fetch(`/api/tagging/queue-status/${id}`);
-  let payload: {
-    success?: boolean;
-    data?: QueueStatusPayload;
-    error?: string;
-    message?: string;
-  } = {};
-  try {
-    payload = await response.json();
-  } catch {
-    // 非 JSON 响应（网关 502 页面等），走下面的 status 提示
+// 与批量 queue-status 接口的单次上限保持一致
+const QUEUE_STATUS_BATCH_SIZE = 200;
+const POLLING_INTERVAL_MS = 2000;
+
+/** 批量拉取队列项状态（每批一个请求），任一 id 不存在时与原单条接口一样视为失败。 */
+async function fetchQueueItemStatuses(ids: number[]): Promise<QueueStatusPayload[]> {
+  const chunks: number[][] = [];
+  for (let i = 0; i < ids.length; i += QUEUE_STATUS_BATCH_SIZE) {
+    chunks.push(ids.slice(i, i + QUEUE_STATUS_BATCH_SIZE));
   }
-  if (!response.ok || !payload.success || !payload.data) {
-    const detail = payload.message || payload.error || `HTTP ${response.status}`;
-    throw new Error(`#${id}: ${detail}`);
-  }
-  return payload.data;
+  const results = await Promise.all(
+    chunks.map(async (chunk) => {
+      const response = await fetch(`/api/tagging/queue-status?ids=${chunk.join(",")}`);
+      let payload: {
+        success?: boolean;
+        data?: { items: QueueStatusPayload[]; missingIds: number[] };
+        error?: string;
+        message?: string;
+      } = {};
+      try {
+        payload = await response.json();
+      } catch {
+        // 非 JSON 响应（网关 502 页面等），走下面的 status 提示
+      }
+      if (!response.ok || !payload.success || !payload.data) {
+        const detail = payload.message || payload.error || `HTTP ${response.status}`;
+        throw new Error(detail);
+      }
+      if (payload.data.missingIds.length > 0) {
+        throw new Error(`#${payload.data.missingIds.join(", #")}: Queue item not found`);
+      }
+      return payload.data.items;
+    }),
+  );
+  return results.flat();
 }
 
 function formatDurationParts(totalSeconds: number) {
@@ -437,6 +460,11 @@ export default function TestClient() {
   const [isPolling, setIsPolling] = useState(false);
   const [selectedAssets, setSelectedAssets] = useState<SelectedAsset[]>([]);
   const [taggingResults, setTaggingResults] = useState<TaggingResult[]>([]);
+  // 结果中特征的首图，按 `type:id` 批量签名；undefined 值表示批量失败、由缩略图组件自行请求
+  const [featureThumbnails, setFeatureThumbnails] = useState<
+    Partial<Record<string, FeatureThumbnailImage | null>>
+  >({});
+  const requestedThumbnailKeysRef = useRef<Set<string>>(new Set());
   const [failedResults, setFailedResults] = useState<FailedTaggingResult[]>([]);
   const [queueItemIds, setQueueItemIds] = useState<number[]>([]);
   // 每个队列任务的实时进度（排队位置 / 预估等待 / 失败原因）
@@ -446,7 +474,11 @@ export default function TestClient() {
   const [pollingStartedAt, setPollingStartedAt] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const pollingRef = useRef<boolean>(false);
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const pollingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // 本轮轮询的队列项 id；页面从隐藏恢复可见时据此续上轮询
+  const pollingIdsRef = useRef<number[]>([]);
+  // 已结束（completed / failed）的队列项结果缓存：之后的轮询不再重复请求它们
+  const finishedQueueItemsRef = useRef<Map<number, QueueStatusPayload>>(new Map());
   const consecutivePollFailuresRef = useRef(0);
   const pollingStartedAtRef = useRef<number | null>(null);
   // 是否已从 sessionStorage 恢复过状态；恢复前不要把默认值写回去覆盖已保存的内容
@@ -527,9 +559,9 @@ export default function TestClient() {
     pollingRef.current = false;
     setIsPolling(false);
 
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-      pollingIntervalRef.current = null;
+    if (pollingTimeoutRef.current) {
+      clearTimeout(pollingTimeoutRef.current);
+      pollingTimeoutRef.current = null;
     }
   }, []);
 
@@ -539,7 +571,16 @@ export default function TestClient() {
       if (!pollingRef.current || ids.length === 0) return;
 
       try {
-        const validResults = await Promise.all(ids.map((id) => fetchQueueItemStatus(id)));
+        const finished = finishedQueueItemsRef.current;
+        const fetched = await fetchQueueItemStatuses(ids.filter((id) => !finished.has(id)));
+        if (!pollingRef.current) return;
+        for (const item of fetched) {
+          if (item.status === "completed" || item.status === "failed") finished.set(item.id, item);
+        }
+        const fetchedById = new Map(fetched.map((item) => [item.id as number, item]));
+        const validResults = ids
+          .map((id) => finished.get(id) ?? fetchedById.get(id))
+          .filter((item): item is QueueStatusPayload => Boolean(item));
         consecutivePollFailuresRef.current = 0;
 
         // 更新进度面板：排队位置 / 预估等待 / 失败原因
@@ -874,27 +915,63 @@ export default function TestClient() {
     [featureLibraryFeatures, stopPolling, t, tClient, tResult, tSidebar],
   );
 
+  // 始终调用最新的 pollQueueStatus（它依赖的翻译函数等会变化）
+  const pollQueueStatusRef = useRef(pollQueueStatus);
+  pollQueueStatusRef.current = pollQueueStatus;
+
+  // 每次开始轮询递增；旧一轮的请求返回后据此判断不再排下一轮
+  const pollingSessionRef = useRef(0);
+  const pollingInFlightRef = useRef(false);
+
+  // 执行一轮轮询并排下一轮；页面隐藏时暂停，等重新可见再继续
+  const runPollingTick = useCallback(async () => {
+    const session = pollingSessionRef.current;
+    pollingTimeoutRef.current = null;
+    if (!pollingRef.current || document.hidden) return;
+    pollingInFlightRef.current = true;
+    try {
+      await pollQueueStatusRef.current(pollingIdsRef.current);
+    } finally {
+      if (session === pollingSessionRef.current) pollingInFlightRef.current = false;
+    }
+    if (session === pollingSessionRef.current && pollingRef.current && !pollingTimeoutRef.current) {
+      pollingTimeoutRef.current = setTimeout(() => void runPollingTick(), POLLING_INTERVAL_MS);
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (
+        !document.hidden &&
+        pollingRef.current &&
+        !pollingTimeoutRef.current &&
+        !pollingInFlightRef.current
+      ) {
+        void runPollingTick();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [runPollingTick]);
+
   // 开始轮询
   const startPolling = useCallback(
     (ids: number[]) => {
       if (pollingRef.current) return;
 
       pollingRef.current = true;
+      pollingSessionRef.current += 1;
+      pollingInFlightRef.current = false;
+      pollingIdsRef.current = ids;
+      finishedQueueItemsRef.current = new Map();
       consecutivePollFailuresRef.current = 0;
       setIsPolling(true);
       setQueueItemIds(ids);
       setPollingError(null);
-      // 立即执行一次
-      pollQueueStatus(ids);
-
-      // 设置定时器，每2秒轮询一次
-      const interval = setInterval(() => {
-        pollQueueStatus(ids);
-      }, 2000);
-
-      pollingIntervalRef.current = interval;
+      // 立即执行一次，之后每轮结束再等 2 秒（链式 setTimeout，不会出现请求重叠）
+      void runPollingTick();
     },
-    [pollQueueStatus],
+    [runPollingTick],
   );
 
   // 重新开始一轮轮询（首次发起 / 从其它页面切回来恢复 / 拉取状态失败后手动重试）
@@ -954,6 +1031,33 @@ export default function TestClient() {
     recognitionAccuracy,
     matchingSources,
   ]);
+
+  // 结果（新完成或从 sessionStorage 恢复）出现新特征时，一次性批量签名缩略图
+  useEffect(() => {
+    const requested = requestedThumbnailKeysRef.current;
+    const keys = [
+      ...new Set(taggingResults.flatMap((result) => getTaggingResultFeatureKeys(result))),
+    ].filter((key) => !requested.has(key));
+    if (keys.length === 0) return;
+    keys.forEach((key) => requested.add(key));
+    void getFeatureThumbnailsAction(keys)
+      .then((result) => {
+        const signed = result.success ? result.data : undefined;
+        setFeatureThumbnails((current) => ({
+          ...current,
+          // 批量失败时留 undefined，退回组件逐个请求；已删除 / 非本团队的特征为 null
+          ...Object.fromEntries(
+            keys.map((key) => [key, signed ? (signed[key] ?? null) : undefined]),
+          ),
+        }));
+      })
+      .catch(() => {
+        setFeatureThumbnails((current) => ({
+          ...current,
+          ...Object.fromEntries(keys.map((key) => [key, undefined])),
+        }));
+      });
+  }, [taggingResults]);
 
   // 轮询期间每秒刷新一次"已用时"
   useEffect(() => {
@@ -1439,7 +1543,11 @@ export default function TestClient() {
             <div className="p-4">
               <div className="space-y-6">
                 {taggingResults.map((result, index) => (
-                  <TaggingResultDisplay key={index} result={result} />
+                  <TaggingResultDisplay
+                    key={index}
+                    result={result}
+                    featureThumbnails={featureThumbnails}
+                  />
                 ))}
               </div>
             </div>

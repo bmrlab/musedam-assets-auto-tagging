@@ -13,7 +13,14 @@ import { MuseDAMID } from "@/musedam/types";
 import { JsonValue } from "@/prisma/client/runtime/library";
 import prisma from "@/prisma/prisma";
 import { NextRequest, NextResponse } from "next/server";
+import pLimit from "p-limit";
 import { z } from "zod";
+
+// 对外不限制 assetIds 数量（调用方未做分批），内部按每 500 个一批依次处理。
+// 每个素材同步要调用多次 MuseDAM 接口并写库，整批一次性处理会打出上千个并发请求并耗尽数据库连接池。
+const ASSET_CHUNK_SIZE = 500;
+// 同步素材 / 入队时的并发上限
+const ASSET_CONCURRENCY = 8;
 
 const featureToggleSchema = z.preprocess(
   (val) => {
@@ -225,78 +232,7 @@ async function processBatchTagging({
 
     totalAssets = targetAssetIds.length;
 
-    // 步骤1: 先同步所有资产，获取 AssetObject 信息
-    const syncPromises = targetAssetIds.map(async (musedamAssetId) => {
-      try {
-        const result = await syncSingleAssetFromMuseDAM({
-          musedamAssetId: new MuseDAMID(musedamAssetId),
-          team,
-        });
-        return { success: true, musedamAssetId, ...result };
-      } catch (error) {
-        const errorMessage = `Failed to sync asset ${musedamAssetId}: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`;
-        return { success: false, musedamAssetId, error: errorMessage };
-      }
-    });
-
-    const syncResults = await Promise.allSettled(syncPromises);
-    const successfulSyncs = syncResults
-      .filter(
-        (
-          result,
-        ): result is PromiseFulfilledResult<{
-          success: boolean;
-          musedamAssetId: number;
-          assetObject: {
-            teamId: number;
-            name: string;
-            id: number;
-            slug: string;
-            createdAt: Date;
-            updatedAt: Date;
-            extra: JsonValue;
-            materializedPath: string;
-            description: string;
-            tags: JsonValue;
-            content: JsonValue;
-          };
-          musedamAsset: {
-            id: MuseDAMID;
-            name: string;
-            parentIds: MuseDAMID[];
-            description: string | null;
-            tags: { id: MuseDAMID; name: string }[] | null;
-            thumbnailAccessUrl: string;
-          };
-        }> => result.status === "fulfilled" && result.value.success,
-      )
-      .map((result) => result.value);
-
-    // 步骤2: 批量查询已存在的队列项，避免重复创建任务
-    const assetObjectIds = successfulSyncs.map((sync) => sync.assetObject.id);
-    const existingQueueItems = await prisma.taggingQueueItem.findMany({
-      where: {
-        teamId: team.id,
-        assetObjectId: {
-          in: assetObjectIds,
-        },
-        status: {
-          in: ["pending", "processing"], // 只检查进行中的任务
-        },
-      },
-      select: {
-        assetObjectId: true,
-      },
-    });
-
-    const existingAssetObjectIds = new Set(existingQueueItems.map((item) => item.assetObjectId));
-
-    // 步骤3: 过滤掉已存在队列项的资产
-    const validSyncs = successfulSyncs.filter(
-      (sync) => !existingAssetObjectIds.has(sync.assetObject.id),
-    );
+    const limit = pLimit(ASSET_CONCURRENCY);
 
     // 应用范围：选中目录 + 子目录（之前只匹配直接父目录，子文件夹里的素材会被误判为不在范围内），
     // 整批只请求一次 MuseDAM。
@@ -305,74 +241,158 @@ async function processBatchTagging({
       applicationScope: settings.applicationScope,
     });
 
-    // 步骤4: 批量处理有效资产（创建打标任务）
-    const processingPromises = validSyncs.map(async (sync) => {
-      try {
-        const { assetObject, musedamAsset } = sync;
+    let failedSyncs = 0;
+    for (let offset = 0; offset < targetAssetIds.length; offset += ASSET_CHUNK_SIZE) {
+      const chunk = targetAssetIds.slice(offset, offset + ASSET_CHUNK_SIZE);
 
-        // 检查是否在应用范围内
-        if (!isAssetInApplicationScope(musedamAsset.parentIds, allowedFolderIds)) {
-          return { success: false, reason: "Asset not in selected folders" };
-        }
+      // 步骤1: 先同步所有资产，获取 AssetObject 信息
+      const syncPromises = chunk.map((musedamAssetId) =>
+        limit(async () => {
+          try {
+            const result = await syncSingleAssetFromMuseDAM({
+              musedamAssetId: new MuseDAMID(musedamAssetId),
+              team,
+            });
+            return { success: true, musedamAssetId, ...result };
+          } catch (error) {
+            const errorMessage = `Failed to sync asset ${musedamAssetId}: ${
+              error instanceof Error ? error.message : "Unknown error"
+            }`;
+            return { success: false, musedamAssetId, error: errorMessage };
+          }
+        }),
+      );
 
-        // 创建打标任务
-        await enqueueTaggingTask({
-          assetObject,
-          matchingSources: settings.matchingSources,
-          recognitionAccuracy: settings.recognitionAccuracy,
-          featureClassify,
-          featureClassifications,
-          taskType: "default",
-        });
+      const syncResults = await Promise.allSettled(syncPromises);
+      const successfulSyncs = syncResults
+        .filter(
+          (
+            result,
+          ): result is PromiseFulfilledResult<{
+            success: boolean;
+            musedamAssetId: number;
+            assetObject: {
+              teamId: number;
+              name: string;
+              id: number;
+              slug: string;
+              createdAt: Date;
+              updatedAt: Date;
+              extra: JsonValue;
+              materializedPath: string;
+              description: string;
+              tags: JsonValue;
+              content: JsonValue;
+            };
+            musedamAsset: {
+              id: MuseDAMID;
+              name: string;
+              parentIds: MuseDAMID[];
+              description: string | null;
+              tags: { id: MuseDAMID; name: string }[] | null;
+              thumbnailAccessUrl: string;
+            };
+          }> => result.status === "fulfilled" && result.value.success,
+        )
+        .map((result) => result.value);
 
-        return { success: true };
-      } catch (error) {
-        const errorMessage = `Failed to process asset ${sync.musedamAssetId}: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`;
-        errors.push(errorMessage);
-        return { success: false, reason: errorMessage };
-      }
-    });
+      // 步骤2: 批量查询已存在的队列项，避免重复创建任务
+      const assetObjectIds = successfulSyncs.map((sync) => sync.assetObject.id);
+      const existingQueueItems = await prisma.taggingQueueItem.findMany({
+        where: {
+          teamId: team.id,
+          assetObjectId: {
+            in: assetObjectIds,
+          },
+          status: {
+            in: ["pending", "processing"], // 只检查进行中的任务
+          },
+        },
+        select: {
+          assetObjectId: true,
+        },
+      });
 
-    // 统计同步失败的数量
-    const syncFailures = syncResults.filter(
-      (
-        result,
-      ): result is PromiseFulfilledResult<{
-        success: boolean;
-        musedamAssetId: number;
-        error: string;
-      }> => result.status === "fulfilled" && !result.value.success,
-    ).length;
+      const existingAssetObjectIds = new Set(existingQueueItems.map((item) => item.assetObjectId));
 
-    const rejectedSyncs = syncResults.filter(
-      (result): result is PromiseRejectedResult => result.status === "rejected",
-    ).length;
+      // 步骤3: 过滤掉已存在队列项的资产
+      const validSyncs = successfulSyncs.filter(
+        (sync) => !existingAssetObjectIds.has(sync.assetObject.id),
+      );
 
-    // 统计跳过（已存在队列项）的数量
-    const skippedTasks = successfulSyncs.length - validSyncs.length;
+      // 步骤4: 批量处理有效资产（创建打标任务）
+      const processingPromises = validSyncs.map((sync) =>
+        limit(async () => {
+          try {
+            const { assetObject, musedamAsset } = sync;
 
-    // 等待所有处理完成
-    const results = await Promise.allSettled(processingPromises);
+            // 检查是否在应用范围内
+            if (!isAssetInApplicationScope(musedamAsset.parentIds, allowedFolderIds)) {
+              return { success: false, reason: "Asset not in selected folders" };
+            }
 
-    // 统计结果
-    results.forEach((result) => {
-      if (result.status === "fulfilled") {
-        if (result.value.success) {
-          enqueuedTasks++;
+            // 创建打标任务
+            await enqueueTaggingTask({
+              assetObject,
+              matchingSources: settings.matchingSources,
+              recognitionAccuracy: settings.recognitionAccuracy,
+              featureClassify,
+              featureClassifications,
+              taskType: "default",
+            });
+
+            return { success: true };
+          } catch (error) {
+            const errorMessage = `Failed to process asset ${sync.musedamAssetId}: ${
+              error instanceof Error ? error.message : "Unknown error"
+            }`;
+            errors.push(errorMessage);
+            return { success: false, reason: errorMessage };
+          }
+        }),
+      );
+
+      // 统计同步失败的数量
+      const syncFailures = syncResults.filter(
+        (
+          result,
+        ): result is PromiseFulfilledResult<{
+          success: boolean;
+          musedamAssetId: number;
+          error: string;
+        }> => result.status === "fulfilled" && !result.value.success,
+      ).length;
+
+      const rejectedSyncs = syncResults.filter(
+        (result): result is PromiseRejectedResult => result.status === "rejected",
+      ).length;
+
+      // 统计跳过（已存在队列项）的数量
+      const skippedTasks = successfulSyncs.length - validSyncs.length;
+
+      // 等待所有处理完成
+      const results = await Promise.allSettled(processingPromises);
+
+      // 统计结果
+      results.forEach((result) => {
+        if (result.status === "fulfilled") {
+          if (result.value.success) {
+            enqueuedTasks++;
+          } else {
+            failedTasks++;
+          }
         } else {
           failedTasks++;
+          errors.push(`Promise rejected: ${result.reason}`);
         }
-      } else {
-        failedTasks++;
-        errors.push(`Promise rejected: ${result.reason}`);
-      }
-    });
+      });
+
+      failedSyncs += syncFailures + rejectedSyncs;
+    }
 
     // 添加同步失败的错误信息
-    if (syncFailures > 0 || rejectedSyncs > 0) {
-      errors.push(`${syncFailures + rejectedSyncs} assets failed to sync`);
+    if (failedSyncs > 0) {
+      errors.push(`${failedSyncs} assets failed to sync`);
     }
 
     return {
