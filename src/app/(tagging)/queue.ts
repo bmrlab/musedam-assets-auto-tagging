@@ -24,7 +24,13 @@ import {
 import { getAcceptedProductMatches } from "@/lib/product/product-match-policy";
 import { classifyAssetProductRecommendation } from "@/lib/product/tagging-product-classification";
 import { idToSlug, slugToId } from "@/lib/slug";
-import { fetchRemoteImageInput } from "@/lib/tagging/classification-image";
+import {
+  fetchRemoteImageSource,
+  prepareImageInput,
+  preparePersonImageInput,
+  readRemoteImageDimensions,
+  type RemoteImageSource,
+} from "@/lib/tagging/classification-image";
 import { retrieveTeamCredentials } from "@/musedam/apiKey";
 import { bindFeatureIdentifiersToMuseDAMMaterial, setAssetTagsToMuseDAM } from "@/musedam/assets";
 import { collectMuseFeatureIdentifierIdsForQueueItem } from "@/musedam/collect-muse-feature-identifier-ids";
@@ -271,6 +277,11 @@ export async function processQueueItem({
     const productImageUrl = isVideoAssetExtension(assetExtra?.extension)
       ? thumbnailUrl
       : assetExtra?.downloadUrl?.trim() || thumbnailUrl;
+    // 同一任务里缩略图只下载一次，品牌/IP、人物检测、商品（同一张图时）、画幅比例共用；
+    // 各自只做自己需要的解码 / 缩放。
+    let thumbnailSourcePromise: Promise<RemoteImageSource> | null = null;
+    const getThumbnailSource = (url: string) =>
+      (thumbnailSourcePromise ??= fetchRemoteImageSource(url, "task thumbnail"));
     // Feature classification (brand/IP/product/person): first skip empty feature libraries.
     // Brand/IP share a thumbnail. Product prefers the original image for detailed crops.
     // Person independently keeps the dimensions of its source.
@@ -335,17 +346,16 @@ export async function processQueueItem({
 
         // Kick off brand/IP/product without waiting for face detection.
         if (logoCount + ipCount > 0 && thumbnailUrl) {
-          const sharedImagePromise = fetchRemoteImageInput(
-            thumbnailUrl,
-            "feature classification",
-          ).catch((error) => {
-            logger.warn({
-              msg: "feature classification image fetch failed, skipping feature classification",
-              err: error,
-              error: error instanceof Error ? error.message : String(error),
+          const sharedImagePromise = getThumbnailSource(thumbnailUrl)
+            .then((source) => prepareImageInput(source, "feature classification"))
+            .catch((error) => {
+              logger.warn({
+                msg: "feature classification image fetch failed, skipping feature classification",
+                err: error,
+                error: error instanceof Error ? error.message : String(error),
+              });
+              return null;
             });
-            return null;
-          });
 
           if (logoCount > 0) {
             brandRecommendationPromise = sharedImagePromise.then((sharedImageInput) =>
@@ -371,23 +381,30 @@ export async function processQueueItem({
 
         if (productCount > 0 && productImageUrl) {
           productRecommendationPromise = withFallback(
-            classifyAssetProductRecommendation({ teamId, imageUrl: productImageUrl }),
+            productImageUrl === thumbnailUrl
+              ? getThumbnailSource(productImageUrl)
+                  .then((source) =>
+                    prepareImageInput(source, "Product classification", { preserveOriginal: true }),
+                  )
+                  .then((imageInput) => classifyAssetProductRecommendation({ teamId, imageInput }))
+              : classifyAssetProductRecommendation({ teamId, imageUrl: productImageUrl }),
             "classifyAssetProductRecommendation",
           );
         }
 
         // Person: detect once, feed faceCount into AI tagging, reuse detection for matching.
         if (personCount > 0 && thumbnailUrl) {
-          const personDetection = await detectAssetPersonFaces({ imageUrl: thumbnailUrl }).catch(
-            (error) => {
+          const personDetection = await getThumbnailSource(thumbnailUrl)
+            .then((source) => preparePersonImageInput(source, "person classification"))
+            .then((imageInput) => detectAssetPersonFaces({ imageInput }))
+            .catch((error) => {
               logger.warn({
                 msg: "detectAssetPersonFaces failed, continuing without person face features",
                 err: error,
                 error: error instanceof Error ? error.message : String(error),
               });
               return null;
-            },
-          );
+            });
 
           let faceFeatures: TaggingFaceFeatures | undefined;
           if (personDetection) {
@@ -454,7 +471,7 @@ export async function processQueueItem({
     const aspectRatioTags = await resolveAspectRatioTagsForAsset({
       tagsTree: exclusiveTagsTree,
       assetExtra,
-      thumbnailUrl,
+      getThumbnailSource: thumbnailUrl ? () => getThumbnailSource(thumbnailUrl) : undefined,
       logger,
     });
     const tagsWithScore = [...crossSource.tagsWithScore, ...aspectRatioTags];
@@ -1098,21 +1115,22 @@ export async function processPendingQueueItems(): Promise<{
 async function resolveAspectRatioTagsForAsset({
   tagsTree,
   assetExtra,
-  thumbnailUrl,
+  getThumbnailSource,
   logger,
 }: {
   tagsTree: TagWithChildren[];
   assetExtra: AssetObjectExtra | null;
-  thumbnailUrl: string | undefined;
+  getThumbnailSource: (() => Promise<RemoteImageSource>) | undefined;
   logger: typeof rootLogger;
 }): Promise<TagWithScore[]> {
   const groups = detectAspectRatioGroups(tagsTree);
   if (groups.length === 0) return [];
   let width = assetExtra?.width;
   let height = assetExtra?.height;
-  if ((!width || !height) && thumbnailUrl) {
+  if ((!width || !height) && getThumbnailSource) {
     try {
-      const image = await fetchRemoteImageInput(thumbnailUrl, "aspect ratio");
+      // 只读图片头拿宽高，不做完整解码和重新编码
+      const image = await readRemoteImageDimensions(await getThumbnailSource());
       width = image.width;
       height = image.height;
       logger.info({

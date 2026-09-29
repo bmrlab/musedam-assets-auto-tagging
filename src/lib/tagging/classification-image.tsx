@@ -306,19 +306,17 @@ function dataUrlToBuffer(dataUrl: string) {
   return Buffer.from(match[1], "base64");
 }
 
-async function fetchRemoteImageInputWithOptions(
+/** Downloaded, not yet decoded image bytes. Fetch once per task and share between consumers. */
+export type RemoteImageSource = {
+  imageUrl: string;
+  buffer: Buffer;
+  mimeType: string;
+};
+
+export async function fetchRemoteImageSource(
   imageUrl: string,
   failureContext: string,
-  {
-    maxDimension,
-    jpegQuality,
-    preserveOriginal = false,
-  }: {
-    maxDimension: number | null;
-    jpegQuality: number;
-    preserveOriginal?: boolean;
-  },
-): Promise<ClassificationRemoteImageInput> {
+): Promise<RemoteImageSource> {
   let response: Response;
   try {
     response = await fetch(imageUrl);
@@ -346,10 +344,42 @@ async function fetchRemoteImageInputWithOptions(
     throw new Error(`Failed to fetch ${failureContext} image (${response.status})`);
   }
 
-  const sourceMimeType =
-    response.headers.get("content-type")?.split(";")[0]?.trim() || "application/octet-stream";
-  const originalBuffer = Buffer.from(await response.arrayBuffer());
+  return {
+    imageUrl,
+    mimeType:
+      response.headers.get("content-type")?.split(";")[0]?.trim() || "application/octet-stream",
+    buffer: Buffer.from(await response.arrayBuffer()),
+  };
+}
 
+/**
+ * Pixel dimensions after EXIF orientation, read from the image header only (no full decode or
+ * re-encode). Enough for aspect-ratio tagging.
+ */
+export async function readRemoteImageDimensions(
+  source: RemoteImageSource,
+): Promise<ClassificationImageMeta> {
+  try {
+    const { autoOrient } = await sharp(source.buffer).metadata();
+    return { width: autoOrient.width, height: autoOrient.height };
+  } catch {
+    return getImageDimensions(source.buffer, source.mimeType);
+  }
+}
+
+async function prepareRemoteImageInput(
+  { imageUrl, buffer: originalBuffer, mimeType: sourceMimeType }: RemoteImageSource,
+  failureContext: string,
+  {
+    maxDimension,
+    jpegQuality,
+    preserveOriginal = false,
+  }: {
+    maxDimension: number | null;
+    jpegQuality: number;
+    preserveOriginal?: boolean;
+  },
+): Promise<ClassificationRemoteImageInput> {
   // Normalize EXIF orientation and output format so detector coordinates, browser display, and
   // server-side crops use the same coordinate system. Person inputs deliberately skip resize.
   try {
@@ -434,16 +464,40 @@ async function fetchRemoteImageInputWithOptions(
   };
 }
 
-export async function fetchRemoteImageInput(
-  imageUrl: string,
+/** Bounded, orientation-corrected JPEG for brand/IP/product classification. */
+export async function prepareImageInput(
+  source: RemoteImageSource,
   failureContext: string,
   { preserveOriginal = false }: { preserveOriginal?: boolean } = {},
 ): Promise<ClassificationRemoteImageInput> {
-  return fetchRemoteImageInputWithOptions(imageUrl, failureContext, {
+  return prepareRemoteImageInput(source, failureContext, {
     maxDimension: MAX_IMAGE_DIMENSION,
     jpegQuality: IMAGE_JPEG_QUALITY,
     preserveOriginal,
   });
+}
+
+/** Orientation-corrected person image without reducing its pixel dimensions. */
+export async function preparePersonImageInput(
+  source: RemoteImageSource,
+  failureContext: string,
+): Promise<ClassificationRemoteImageInput> {
+  return prepareRemoteImageInput(source, failureContext, {
+    maxDimension: null,
+    jpegQuality: PERSON_IMAGE_JPEG_QUALITY,
+  });
+}
+
+export async function fetchRemoteImageInput(
+  imageUrl: string,
+  failureContext: string,
+  options: { preserveOriginal?: boolean } = {},
+): Promise<ClassificationRemoteImageInput> {
+  return prepareImageInput(
+    await fetchRemoteImageSource(imageUrl, failureContext),
+    failureContext,
+    options,
+  );
 }
 
 /**
@@ -454,10 +508,10 @@ export async function fetchRemotePersonImageInput(
   imageUrl: string,
   failureContext: string,
 ): Promise<ClassificationRemoteImageInput> {
-  return fetchRemoteImageInputWithOptions(imageUrl, failureContext, {
-    maxDimension: null,
-    jpegQuality: PERSON_IMAGE_JPEG_QUALITY,
-  });
+  return preparePersonImageInput(
+    await fetchRemoteImageSource(imageUrl, failureContext),
+    failureContext,
+  );
 }
 
 export async function cropImageToDataUrl({
