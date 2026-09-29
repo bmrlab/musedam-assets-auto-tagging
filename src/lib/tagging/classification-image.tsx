@@ -11,9 +11,10 @@ const MAX_IMAGE_DIMENSION = Number(process.env.TAGGING_MAX_IMAGE_DIMENSION ?? 12
 const MAX_CROP_DIMENSION = Number(process.env.TAGGING_MAX_CROP_DIMENSION ?? 768);
 const IMAGE_JPEG_QUALITY = Number(process.env.TAGGING_IMAGE_JPEG_QUALITY ?? 82);
 const PERSON_IMAGE_JPEG_QUALITY = 95;
-// 远程图片下载与解码的硬上限（商品识别会下载 downloadUrl 原图）：超出直接报错，调用方可退回缩略图，
-// 不把极端大的文件整个读进内存再解码。
-const MAX_REMOTE_IMAGE_BYTES = Number(process.env.TAGGING_MAX_REMOTE_IMAGE_MB ?? 80) * 1024 * 1024;
+// 远程图片下载与解码的硬上限：超出直接报错（调用方可退回缩略图），不把极端大的文件整个读进内存。
+// 注意 MuseDAM 对 PNG 等图片给的 thumbnailAccessUrl 就是原图（同一个文件），上限太低会让大图的
+// 品牌/商品识别整个做不了；实测 9200 万像素、~100MB 的 PNG 顺序解码只多占 ~100MB 内存。
+const MAX_REMOTE_IMAGE_BYTES = Number(process.env.TAGGING_MAX_REMOTE_IMAGE_MB ?? 300) * 1024 * 1024;
 const MAX_INPUT_PIXELS = Number(process.env.TAGGING_MAX_INPUT_MEGAPIXELS ?? 120) * 1_000_000;
 const SHARP_INPUT_OPTIONS = { limitInputPixels: MAX_INPUT_PIXELS, sequentialRead: true } as const;
 // Brand/IP retain a bounded number of detection crops. Product regions and person faces are not capped.
@@ -323,9 +324,16 @@ export async function fetchRemoteImageSource(
   imageUrl: string,
   failureContext: string,
 ): Promise<RemoteImageSource> {
+  // 超限时直接中断请求；不 await body.cancel()（经 HTTP 代理时取消可能一直挂着，任务就卡在这里）
+  const abortController = new AbortController();
   let response: Response;
   try {
-    response = await fetch(imageUrl, { signal: AbortSignal.timeout(IMAGE_FETCH_TIMEOUT_MS) });
+    response = await fetch(imageUrl, {
+      signal: AbortSignal.any([
+        abortController.signal,
+        AbortSignal.timeout(IMAGE_FETCH_TIMEOUT_MS),
+      ]),
+    });
   } catch (error) {
     rootLogger.warn({
       msg: "fetchRemoteImageInput failed while fetching image",
@@ -352,7 +360,7 @@ export async function fetchRemoteImageSource(
 
   const contentLength = Number(response.headers.get("content-length"));
   if (Number.isFinite(contentLength) && contentLength > MAX_REMOTE_IMAGE_BYTES) {
-    await response.body?.cancel();
+    abortController.abort();
     throw new RemoteImageTooLargeError(failureContext, contentLength);
   }
   const buffer = Buffer.from(await response.arrayBuffer());
