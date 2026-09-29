@@ -2,7 +2,7 @@ import authOptions from "@/app/(auth)/authOptions";
 import { isDebugPageEnabled } from "@/lib/brand/env";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
-import { fetchProductLibraryPageData } from "./actions";
+import { fetchProductLibraryInitialData } from "./actions";
 import ProductLibraryClient from "./ProductLibraryClient";
 
 export default async function ProductPage() {
@@ -12,7 +12,7 @@ export default async function ProductPage() {
     redirect("/auth/signin");
   }
 
-  const result = await fetchProductLibraryPageData();
+  const result = await fetchProductLibraryInitialData();
 
   if (!result.success) {
     throw new Error(result.message || "Failed to fetch Product library data");

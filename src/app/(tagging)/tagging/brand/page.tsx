@@ -2,7 +2,7 @@ import authOptions from "@/app/(auth)/authOptions";
 import { isDebugPageEnabled } from "@/lib/brand/env";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
-import { fetchBrandLibraryPageData } from "./actions";
+import { fetchBrandLibraryInitialData } from "./actions";
 import BrandLibraryClient from "./BrandLibraryClient";
 
 export default async function BrandPage() {
@@ -12,7 +12,7 @@ export default async function BrandPage() {
     redirect("/auth/signin");
   }
 
-  const result = await fetchBrandLibraryPageData();
+  const result = await fetchBrandLibraryInitialData();
 
   if (!result.success) {
     throw new Error(result.message || "Failed to fetch brand library data");
