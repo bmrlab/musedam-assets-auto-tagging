@@ -6,9 +6,16 @@ import {
   type FeatureLibraryFeatures,
 } from "@/lib/feature-library";
 import { getProductMatches } from "@/lib/product/product-match-policy";
+import { getCachedBrowserS3ObjectUrl } from "@/lib/s3";
 import type { TaggingQueueItemResult } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
-import { featureKey, type ReviewFeature, type ReviewFeatureType } from "./feature-review";
+import {
+  featureKey,
+  type FeatureThumbnails,
+  type ReviewFeature,
+  type ReviewFeatureSearchResult,
+  type ReviewFeatureType,
+} from "./feature-review";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -74,6 +81,114 @@ export async function loadManualReviewFeatures(
 }
 
 const SEARCH_LIMIT_PER_TYPE = 20;
+// 名称包含匹配的候选上限：先取候选再按相关度排序截断，避免完全匹配的特征
+// 因为创建时间较早被"最新 20 条"挤掉。
+const SEARCH_CANDIDATE_LIMIT = 500;
+
+type SearchCandidate = { id: string; name: string };
+
+function findSearchCandidates(
+  type: ReviewFeatureType,
+  args: {
+    where: { teamId: number; enabled: true; name?: { contains: string; mode: "insensitive" } };
+    take: number;
+    orderBy: { createdAt: "desc" }[];
+    select: { id: true; name: true };
+  },
+): Promise<SearchCandidate[]> {
+  switch (type) {
+    case "brand":
+      return prisma.assetLogo.findMany(args);
+    case "ip":
+      return prisma.assetIp.findMany(args);
+    case "product":
+      return prisma.assetProduct.findMany(args);
+    case "person":
+      return prisma.assetPerson.findMany(args);
+  }
+}
+
+/** 每个特征取排序最靠前的一张图，按类型各一次查询。 */
+async function findFirstImageObjectKeys(
+  type: ReviewFeatureType,
+  featureIds: string[],
+): Promise<Map<string, string>> {
+  if (featureIds.length === 0) return new Map();
+  const orderBy = [{ sort: "asc" as const }, { id: "asc" as const }];
+  const rows: { featureId: string; objectKey: string }[] =
+    type === "brand"
+      ? (
+          await prisma.assetLogoImage.findMany({
+            where: { assetLogoId: { in: featureIds } },
+            orderBy,
+            select: { assetLogoId: true, objectKey: true },
+          })
+        ).map((row) => ({ featureId: row.assetLogoId, objectKey: row.objectKey }))
+      : type === "ip"
+        ? (
+            await prisma.assetIpImage.findMany({
+              where: { assetIpId: { in: featureIds } },
+              orderBy,
+              select: { assetIpId: true, objectKey: true },
+            })
+          ).map((row) => ({ featureId: row.assetIpId, objectKey: row.objectKey }))
+        : type === "product"
+          ? (
+              await prisma.assetProductImage.findMany({
+                where: { assetProductId: { in: featureIds } },
+                orderBy,
+                select: { assetProductId: true, objectKey: true },
+              })
+            ).map((row) => ({ featureId: row.assetProductId, objectKey: row.objectKey }))
+          : (
+              await prisma.assetPersonImage.findMany({
+                where: { assetPersonId: { in: featureIds } },
+                orderBy,
+                select: { assetPersonId: true, objectKey: true },
+              })
+            ).map((row) => ({ featureId: row.assetPersonId, objectKey: row.objectKey }));
+  const keys = new Map<string, string>();
+  for (const row of rows) {
+    if (!keys.has(row.featureId)) keys.set(row.featureId, row.objectKey);
+  }
+  return keys;
+}
+
+/** 批量签名特征首图，避免前端逐个特征调用 Server Action（Server Action 在客户端串行执行）。 */
+export async function loadFeatureThumbnails(
+  ids: Partial<Record<ReviewFeatureType, Iterable<string>>>,
+): Promise<FeatureThumbnails> {
+  const entries = await Promise.all(
+    (Object.entries(ids) as [ReviewFeatureType, Iterable<string>][]).map(async ([type, values]) => {
+      const featureIds = [...new Set(values)].filter((id) => UUID_PATTERN.test(id));
+      const objectKeys = await findFirstImageObjectKeys(type, featureIds);
+      return featureIds.map((id) => {
+        const objectKey = objectKeys.get(id);
+        return [
+          featureKey(type, id),
+          objectKey ? getCachedBrowserS3ObjectUrl({ objectKey }) : null,
+        ] as const;
+      });
+    }),
+  );
+  return Object.fromEntries(entries.flat());
+}
+
+/** 完全匹配 > 前缀匹配 > 包含匹配；同级按名称长度，再保持创建时间倒序。 */
+function rankSearchCandidates(candidates: SearchCandidate[], query: string) {
+  const needle = query.toLowerCase();
+  const score = (name: string) => {
+    const value = name.toLowerCase();
+    return value === needle ? 0 : value.startsWith(needle) ? 1 : 2;
+  };
+  return candidates
+    .map((candidate, index) => ({ candidate, index, score: score(candidate.name) }))
+    .sort(
+      (a, b) =>
+        a.score - b.score || a.candidate.name.length - b.candidate.name.length || a.index - b.index,
+    )
+    .map(({ candidate }) => candidate);
+}
 
 /** Name search across the enabled feature libraries, for manually adding a feature in review. */
 export async function searchReviewFeatureLibrary(
@@ -81,44 +196,55 @@ export async function searchReviewFeatureLibrary(
   query: string,
   enabledFeatures: FeatureLibraryFeatures,
   featureType?: ReviewFeatureType,
-): Promise<ReviewFeature[]> {
+): Promise<ReviewFeatureSearchResult[]> {
   const types = (["brand", "ip", "product", "person"] as const).filter(
     (type) => isFeatureTypeEnabled(enabledFeatures, type) && (!featureType || featureType === type),
   );
   const name = query.trim();
-  const features = await queryReviewFeatures(
-    teamId,
-    Object.fromEntries(types.map((type) => [type, null])),
-    { name: name ? { contains: name, mode: "insensitive" as const } : undefined },
-  );
-  return [...features.values()];
-}
-
-/**
- * `ids[type]` = set → load those IDs; `null` → search by `filter` (capped per type);
- * missing → skip that type.
- */
-async function queryReviewFeatures(
-  teamId: number,
-  ids: Partial<Record<ReviewFeatureType, Set<string> | null>>,
-  filter: { name?: { contains: string; mode: "insensitive" } } = {},
-): Promise<Map<string, ReviewFeature>> {
-  const shouldQuery = (type: ReviewFeatureType) => {
-    const value = ids[type];
-    return value === null || (value !== undefined && value.size > 0);
-  };
-  const where = (type: ReviewFeatureType) => {
-    const value = ids[type];
-    return value
-      ? {
+  const rankedIds = await Promise.all(
+    types.map(async (type) => {
+      const candidates = await findSearchCandidates(type, {
+        where: {
           teamId,
           enabled: true,
-          id: { in: [...value].filter((id) => UUID_PATTERN.test(id)) },
-        }
-      : { teamId, enabled: true, ...filter };
-  };
-  const page = (type: ReviewFeatureType): { take?: number; orderBy?: { createdAt: "desc" } } =>
-    ids[type] === null ? { take: SEARCH_LIMIT_PER_TYPE, orderBy: { createdAt: "desc" } } : {};
+          ...(name ? { name: { contains: name, mode: "insensitive" as const } } : {}),
+        },
+        take: name ? SEARCH_CANDIDATE_LIMIT : SEARCH_LIMIT_PER_TYPE,
+        orderBy: [{ createdAt: "desc" }],
+        select: { id: true, name: true },
+      });
+      const ranked = name ? rankSearchCandidates(candidates, name) : candidates;
+      return [type, ranked.slice(0, SEARCH_LIMIT_PER_TYPE).map(({ id }) => id)] as const;
+    }),
+  );
+  const idsByType = Object.fromEntries(rankedIds);
+  const [features, thumbnails] = await Promise.all([
+    queryReviewFeatures(
+      teamId,
+      Object.fromEntries(rankedIds.map(([type, ids]) => [type, new Set(ids)])),
+    ),
+    loadFeatureThumbnails(idsByType),
+  ]);
+  return rankedIds.flatMap(([type, ids]) =>
+    ids.flatMap((id): ReviewFeatureSearchResult[] => {
+      const key = featureKey(type, id);
+      const feature = features.get(key);
+      return feature ? [{ ...feature, thumbnail: thumbnails[key] ?? null }] : [];
+    }),
+  );
+}
+
+/** Load the given IDs per type; a missing or empty set skips that type. */
+async function queryReviewFeatures(
+  teamId: number,
+  ids: Partial<Record<ReviewFeatureType, Set<string>>>,
+): Promise<Map<string, ReviewFeature>> {
+  const shouldQuery = (type: ReviewFeatureType) => (ids[type]?.size ?? 0) > 0;
+  const where = (type: ReviewFeatureType) => ({
+    teamId,
+    enabled: true,
+    id: { in: [...(ids[type] ?? [])].filter((id) => UUID_PATTERN.test(id)) },
+  });
   const select = {
     id: true,
     name: true,
@@ -142,7 +268,6 @@ async function queryReviewFeatures(
     shouldQuery("brand")
       ? prisma.assetLogo.findMany({
           where: where("brand"),
-          ...page("brand"),
           select: {
             ...select,
             logoTypeId: true,
@@ -154,7 +279,6 @@ async function queryReviewFeatures(
     shouldQuery("ip")
       ? prisma.assetIp.findMany({
           where: where("ip"),
-          ...page("ip"),
           select: {
             ...select,
             ipTypeId: true,
@@ -167,7 +291,6 @@ async function queryReviewFeatures(
     shouldQuery("product")
       ? prisma.assetProduct.findMany({
           where: where("product"),
-          ...page("product"),
           select: {
             ...select,
             productTypeId: true,
@@ -181,7 +304,6 @@ async function queryReviewFeatures(
     shouldQuery("person")
       ? prisma.assetPerson.findMany({
           where: where("person"),
-          ...page("person"),
           select: {
             ...select,
             personTypeId: true,

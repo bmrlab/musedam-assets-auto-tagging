@@ -16,7 +16,11 @@ import { CheckIcon, Loader2Icon, SearchIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { searchReviewFeaturesAction } from "../actions";
-import { featureKey, type ReviewFeature, type ReviewFeatureType } from "../feature-review";
+import {
+  featureKey,
+  type ReviewFeatureSearchResult,
+  type ReviewFeatureType,
+} from "../feature-review";
 import { FeatureThumbnail } from "./FeatureThumbnail";
 
 const FEATURE_TYPES: ReviewFeatureType[] = ["brand", "ip", "product", "person"];
@@ -32,7 +36,7 @@ export function AddFeatureDialog({
   onOpenChange: (open: boolean) => void;
   /** Features already on this review card (AI-recognized or manually added). */
   addedKeys: Set<string>;
-  onConfirm: (features: ReviewFeature[]) => void;
+  onConfirm: (features: ReviewFeatureSearchResult[]) => void;
 }) {
   const t = useTranslations("Tagging.Review");
   const tResult = useTranslations("TaggingResultDisplay");
@@ -42,9 +46,9 @@ export function AddFeatureDialog({
   );
   const [featureType, setFeatureType] = useState<ReviewFeatureType | "all">("all");
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<ReviewFeature[]>([]);
+  const [results, setResults] = useState<ReviewFeatureSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
-  const [selected, setSelected] = useState<Map<string, ReviewFeature>>(new Map());
+  const [selected, setSelected] = useState<Map<string, ReviewFeatureSearchResult>>(new Map());
   const requestIdRef = useRef(0);
 
   useEffect(() => {
@@ -74,11 +78,12 @@ export function AddFeatureDialog({
       setQuery("");
       setFeatureType("all");
       setSelected(new Map());
+      setResults([]);
     }
     onOpenChange(next);
   };
 
-  const toggle = (feature: ReviewFeature) => {
+  const toggle = (feature: ReviewFeatureSearchResult) => {
     const key = featureKey(feature.featureType, feature.id);
     setSelected((current) => {
       const next = new Map(current);
@@ -141,7 +146,7 @@ export function AddFeatureDialog({
             <div className="flex h-[240px] items-center justify-center text-basic-5">
               <Loader2Icon className="size-5 animate-spin" />
             </div>
-          ) : results.length === 0 ? (
+          ) : !searching && results.length === 0 ? (
             <div className="flex h-[240px] items-center justify-center text-sm text-basic-5">
               {t("addFeatureNoResults")}
             </div>
@@ -158,6 +163,8 @@ export function AddFeatureDialog({
                   className={cn(
                     "flex w-full items-start gap-3 rounded-md border p-3 text-left transition-colors",
                     "disabled:cursor-not-allowed disabled:opacity-60",
+                    // 新一轮搜索返回前，旧结果置灰，避免被当成本次的搜索结果
+                    searching && "opacity-50",
                     isSelected
                       ? "border-primary-6 bg-primary-1"
                       : "border-basic-3 bg-background hover:border-primary-5",
@@ -170,6 +177,7 @@ export function AddFeatureDialog({
                       featureId={feature.id}
                       alt={feature.name}
                       className="h-full w-full"
+                      initialImage={feature.thumbnail}
                     />
                   </div>
                   <div className="min-w-0 flex-1">

@@ -14,6 +14,11 @@ type FeatureThumbnailProps = {
   className?: string;
   onPreview?: (imageUrl: string) => void;
   previewLabel?: string;
+  /**
+   * 调用方已批量签好的缩略图：传入时不再单独请求（null 表示没有图片）。
+   * Server Action 在客户端是串行执行的，列表里逐个请求缩略图会排队阻塞其它请求。
+   */
+  initialImage?: { signedUrl: string; signedUrlExpiresAt: number } | null;
 };
 
 const REFRESH_BUFFER_MS = 60 * 1000;
@@ -25,11 +30,13 @@ export function FeatureThumbnail({
   className,
   onPreview,
   previewLabel,
+  initialImage,
 }: FeatureThumbnailProps) {
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [expiresAt, setExpiresAt] = useState<number>(0);
-  const [isLoading, setIsLoading] = useState(true);
-  const [hasError, setHasError] = useState(false);
+  const hasInitialImage = initialImage !== undefined;
+  const [imageUrl, setImageUrl] = useState<string | null>(initialImage?.signedUrl ?? null);
+  const [expiresAt, setExpiresAt] = useState<number>(initialImage?.signedUrlExpiresAt ?? 0);
+  const [isLoading, setIsLoading] = useState(!hasInitialImage);
+  const [hasError, setHasError] = useState(initialImage === null);
 
   const fetchThumbnail = async () => {
     try {
@@ -51,6 +58,7 @@ export function FeatureThumbnail({
   };
 
   useEffect(() => {
+    if (hasInitialImage) return;
     fetchThumbnail();
   }, [featureType, featureId]);
 

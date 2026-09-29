@@ -41,14 +41,17 @@ import {
   featureKey,
   getFeatureReviewVersion,
   getReviewedFeatureResult,
+  getReviewedManualFeatures,
   hydrateReviewFeatures,
   mergeManualReviewFeatures,
   selectReviewFeatures,
   type FeatureReviewVersions,
-  type ReviewFeature,
+  type FeatureThumbnails,
+  type ReviewFeatureSearchResult,
   type ReviewFeatureType,
 } from "./feature-review";
 import {
+  loadFeatureThumbnails,
   loadManualReviewFeatures,
   loadReviewFeatureLibrary,
   searchReviewFeatureLibrary,
@@ -108,6 +111,7 @@ export type AssetWithAuditItemsBatch = {
   assetObject: AssetObject;
   existingFeatures: MuseDAMMaterialFeatureSnapshot[];
   availableFeatureIds: ReviewAvailableFeatureIds;
+  featureThumbnails: FeatureThumbnails;
   batch: {
     queueItem: TaggingQueueItem;
     taggingAuditItems: (Omit<TaggingAuditItem, "tagPath"> & { tagPath: string[] })[];
@@ -128,7 +132,7 @@ export async function searchReviewFeaturesAction({
 }: {
   query: string;
   featureType?: ReviewFeatureType;
-}): Promise<ServerActionResult<ReviewFeature[]>> {
+}): Promise<ServerActionResult<ReviewFeatureSearchResult[]>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     const featureLibraryFeatures = await getServerFeatureLibraryFeatures();
     const features = await searchReviewFeatureLibrary(
@@ -167,41 +171,45 @@ export async function fetchAssetsWithAuditItems(
         featureLibraryFeatures.featurePerson;
       const offset = (page - 1) * limit;
 
-      const auditItemWhere: Prisma.TaggingAuditItemWhereInput = {
-        teamId,
-        assetObjectId: { not: null },
-        queueItemId: { not: null },
-      };
+      // 审核项筛选条件，直接拼成 SQL：Prisma 的 distinct 是在内存里去重的，
+      // 会把团队全部审核项拉出来两遍（算总数、取当前页），数据量大时非常慢。
+      const conditions: Prisma.Sql[] = [
+        Prisma.sql`a."teamId" = ${teamId}`,
+        Prisma.sql`a."assetObjectId" IS NOT NULL`,
+        Prisma.sql`a."queueItemId" IS NOT NULL`,
+      ];
       if (!hasEnabledFeatures) {
-        auditItemWhere.leafTagId = { not: null };
+        conditions.push(Prisma.sql`a."leafTagId" IS NOT NULL`);
       }
 
-      if (statusFilter) {
-        auditItemWhere.status = statusFilter;
-      }
+      // 没有指定状态过滤时，排除 rejected 状态
+      conditions.push(
+        statusFilter
+          ? Prisma.sql`a."status" = ${statusFilter}::"TaggingAuditStatus"`
+          : Prisma.sql`a."status" <> 'rejected'::"TaggingAuditStatus"`,
+      );
 
-      if (confidenceFilter) {
-        switch (confidenceFilter) {
-          case "high":
-            auditItemWhere.score = { gte: 80 };
-            break;
-          case "medium":
-            auditItemWhere.score = { gte: 70, lt: 80 };
-            break;
-          case "low":
-            auditItemWhere.score = { lt: 70 };
-            break;
-        }
+      switch (confidenceFilter) {
+        case "high":
+          conditions.push(Prisma.sql`a."score" >= 80`);
+          break;
+        case "medium":
+          conditions.push(Prisma.sql`a."score" >= 70 AND a."score" < 80`);
+          break;
+        case "low":
+          conditions.push(Prisma.sql`a."score" < 70`);
+          break;
       }
 
       if (searchQuery) {
-        auditItemWhere.assetObject = {
-          OR: [
-            { name: { contains: searchQuery, mode: "insensitive" } },
-            { description: { contains: searchQuery, mode: "insensitive" } },
-            { materializedPath: { contains: searchQuery, mode: "insensitive" } },
-          ],
-        };
+        const pattern = `%${searchQuery}%`;
+        conditions.push(Prisma.sql`EXISTS (
+          SELECT 1 FROM "AssetObject" o
+          WHERE o."id" = a."assetObjectId"
+            AND (o."name" ILIKE ${pattern}
+              OR o."description" ILIKE ${pattern}
+              OR o."materializedPath" ILIKE ${pattern})
+        )`);
       }
 
       // 添加时间筛选逻辑
@@ -225,47 +233,36 @@ export async function fetchAssetsWithAuditItems(
             startDate = new Date(0); // 默认不限制
         }
 
-        auditItemWhere.queueItem = {
-          createdAt: {
-            gte: startDate,
-          },
-        };
+        conditions.push(Prisma.sql`q."createdAt" >= ${startDate}`);
       }
 
-      // 先获取总数 - 需要排除 rejected 状态的审核项
-      const totalAuditItemWhere: Prisma.TaggingAuditItemWhereInput = {
-        ...auditItemWhere,
-      };
-
-      // 如果没有指定状态过滤，则排除 rejected 状态
-      if (!statusFilter) {
-        totalAuditItemWhere.status = { not: "rejected" };
-      }
-
-      const distinctAssetIds = await prisma.taggingAuditItem.findMany({
-        where: totalAuditItemWhere,
-        select: {
-          assetObjectId: true,
-        },
-        distinct: ["assetObjectId"],
-      });
-      const totalCount = distinctAssetIds.length;
-
-      // 获取有审核项的资产ID - 也需要排除 rejected 状态
-      const assetObjectIds = (
-        await prisma.taggingAuditItem.findMany({
-          where: totalAuditItemWhere,
-          select: {
-            assetObjectId: true,
-          },
-          distinct: ["assetObjectId"],
-          orderBy: {
-            queueItem: { createdAt: "desc" },
-          },
-          skip: offset,
-          take: limit,
-        })
-      ).map((item) => item.assetObjectId!);
+      // 见 dashboard/actions.ts：整条 SQL 用 Prisma.sql 拼好后再传给 $queryRaw
+      const whereSql = Prisma.join(conditions, " AND ");
+      const [[{ count }], pageRows] = await Promise.all([
+        prisma.$queryRaw<[{ count: bigint }]>(
+          Prisma.sql`
+          SELECT COUNT(DISTINCT a."assetObjectId") AS count
+          FROM "TaggingAuditItem" a
+          JOIN "TaggingQueueItem" q ON q."id" = a."queueItemId"
+          WHERE ${whereSql}
+        `,
+        ),
+        // 每个资产按其最新一次打标任务的时间倒序（与原来按 queueItem.createdAt 倒序后
+        // 取每个资产首条的语义一致），assetObjectId 作次序键保证翻页稳定。
+        prisma.$queryRaw<{ assetObjectId: number }[]>(
+          Prisma.sql`
+          SELECT a."assetObjectId"
+          FROM "TaggingAuditItem" a
+          JOIN "TaggingQueueItem" q ON q."id" = a."queueItemId"
+          WHERE ${whereSql}
+          GROUP BY a."assetObjectId"
+          ORDER BY MAX(q."createdAt") DESC, a."assetObjectId" DESC
+          LIMIT ${limit} OFFSET ${offset}
+        `,
+        ),
+      ]);
+      const totalCount = Number(count);
+      const assetObjectIds = pageRows.map((row) => row.assetObjectId);
 
       const totalPages = Math.ceil(totalCount / limit);
       const hasMore = page < totalPages;
@@ -318,26 +315,30 @@ export async function fetchAssetsWithAuditItems(
         });
       }
 
-      // 重新查询更新后的资产列表，保持原有顺序
-      const updatedAssetObjectsMap = new Map(
-        (
-          await prisma.assetObject.findMany({
-            where: { teamId, id: { in: assetObjectIds } },
-            include: {
-              taggingAuditItems: {
-                include: {
-                  queueItem: true,
-                },
-                orderBy: [{ score: "desc" }, { createdAt: "desc" }],
-              },
-            },
-          })
-        ).map((assetObject) => [assetObject.id, assetObject]),
+      // 缩略图同步只改了 extra，这里只重新读 extra 合并回去，不再把审核项和任务结果整体重查一遍
+      const syncedExtraById =
+        musedamAssetIds.length > 0
+          ? new Map(
+              (
+                await prisma.assetObject.findMany({
+                  where: { teamId, id: { in: assetObjectIds } },
+                  select: { id: true, extra: true },
+                })
+              ).map(({ id, extra }) => [id, extra]),
+            )
+          : new Map<number, Prisma.JsonValue>();
+      const assetObjectsById = new Map(
+        assetObjects.map((assetObject) => [
+          assetObject.id,
+          syncedExtraById.has(assetObject.id)
+            ? { ...assetObject, extra: syncedExtraById.get(assetObject.id)! }
+            : assetObject,
+        ]),
       );
 
-      // 按照原来的顺序重新组装资产列表
+      // 按照分页查询的顺序组装资产列表
       const updatedAssetObjects = assetObjectIds
-        .map((id) => updatedAssetObjectsMap.get(id))
+        .map((id) => assetObjectsById.get(id))
         .filter(
           (assetObject): assetObject is NonNullable<typeof assetObject> =>
             assetObject !== undefined,
@@ -358,6 +359,21 @@ export async function fetchAssetsWithAuditItems(
       };
       for (const feature of featureLibrary.values())
         availableFeatureIds[feature.featureType].push(feature.id);
+      // 识别出的特征 + 已应用审核里手动添加的特征，首图一次性签好，前端不再逐个请求
+      const thumbnailIds: Record<ReviewFeatureType, string[]> = {
+        brand: [...availableFeatureIds.brand],
+        ip: [...availableFeatureIds.ip],
+        product: [...availableFeatureIds.product],
+        person: [...availableFeatureIds.person],
+      };
+      for (const asset of updatedAssetObjects) {
+        for (const { queueItem } of asset.taggingAuditItems) {
+          for (const feature of queueItem ? getReviewedManualFeatures(queueItem.extra) : []) {
+            thumbnailIds[feature.featureType]?.push(feature.id);
+          }
+        }
+      }
+      const featureThumbnails = await loadFeatureThumbnails(thumbnailIds);
 
       const materialIdByAssetObjectId = new Map<number, MuseDAMID>();
       if (hasEnabledFeatures) {
@@ -466,6 +482,7 @@ export async function fetchAssetsWithAuditItems(
             assetObject,
             existingFeatures,
             availableFeatureIds,
+            featureThumbnails,
             batch: filteredBatch,
           });
         }
