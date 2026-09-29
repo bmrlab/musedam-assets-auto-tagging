@@ -70,7 +70,9 @@ import {
   featureKey,
   getFeatureReviewVersions,
   getReviewedManualFeatures,
+  type FeatureThumbnailImage,
   type ReviewFeature,
+  type ReviewFeatureSearchResult,
 } from "./feature-review";
 
 type PreviewImage = { src: string; alt: string };
@@ -186,9 +188,12 @@ function FeatureRecognitionRow({
   tooltipAdd,
   tooltipRemove,
   onPreview,
+  thumbnail,
 }: {
   featureType: "brand" | "ip" | "product" | "person";
   featureId: string;
+  /** undefined → 列表未预签名，由 FeatureThumbnail 自行请求 */
+  thumbnail?: FeatureThumbnailImage | null;
   featureClass: string;
   featureTypeName?: string | null;
   classifiedName: string;
@@ -221,6 +226,7 @@ function FeatureRecognitionRow({
         <FeatureThumbnail
           featureType={featureType}
           featureId={featureId}
+          initialImage={thumbnail}
           alt={classifiedName}
           className="h-full w-full"
           previewLabel={t("previewImage", { name: classifiedName })}
@@ -289,9 +295,11 @@ function ManualFeatureRow({
   onRemove,
   disabled,
   onPreview,
+  thumbnail,
 }: {
   feature: ReviewFeature;
   featureClass: string;
+  thumbnail?: FeatureThumbnailImage | null;
   /** Omitted for features already recorded in an applied review (read-only). */
   onRemove?: () => void;
   disabled?: boolean;
@@ -306,6 +314,7 @@ function ManualFeatureRow({
         <FeatureThumbnail
           featureType={feature.featureType}
           featureId={feature.id}
+          initialImage={thumbnail}
           alt={feature.name}
           className="h-full w-full"
           previewLabel={t("previewImage", { name: feature.name })}
@@ -367,6 +376,7 @@ export function ReviewItem({
   assetObject,
   existingFeatures = [],
   availableFeatureIds,
+  featureThumbnails,
   batch,
   onSuccess,
   CheckboxComponent,
@@ -381,8 +391,8 @@ export function ReviewItem({
   batchLoading?: boolean;
   rejectedFeatureKeys: string[];
   onToggleFeatureKey: (key: string) => void;
-  manualFeatures: ReviewFeature[];
-  onAddManualFeatures: (features: ReviewFeature[]) => void;
+  manualFeatures: ReviewFeatureSearchResult[];
+  onAddManualFeatures: (features: ReviewFeatureSearchResult[]) => void;
   onRemoveManualFeature: (key: string) => void;
 }) {
   const t = useTranslations("Tagging.Review");
@@ -1205,6 +1215,7 @@ export function ReviewItem({
                         key={`reviewed-manual-${featureKey(feature.featureType, feature.id)}`}
                         feature={feature}
                         featureClass={getFeatureClassLabel(feature.featureType)}
+                        thumbnail={featureThumbnails[featureKey(feature.featureType, feature.id)]}
                         onPreview={setPreviewImage}
                       />
                     ))}
@@ -1214,6 +1225,11 @@ export function ReviewItem({
                             key={`manual-${featureKey(feature.featureType, feature.id)}`}
                             feature={feature}
                             featureClass={getFeatureClassLabel(feature.featureType)}
+                            thumbnail={
+                              feature.thumbnail !== undefined
+                                ? feature.thumbnail
+                                : featureThumbnails[featureKey(feature.featureType, feature.id)]
+                            }
                             disabled={realLoading}
                             onRemove={() =>
                               onRemoveManualFeature(featureKey(feature.featureType, feature.id))
@@ -1228,6 +1244,9 @@ export function ReviewItem({
                           key={feature.key}
                           featureType={feature.featureType}
                           featureId={feature.featureId}
+                          thumbnail={
+                            featureThumbnails[featureKey(feature.featureType, feature.featureId)]
+                          }
                           featureClass={feature.featureClass}
                           featureTypeName={feature.featureTypeName}
                           classifiedName={feature.classifiedName}

@@ -15,6 +15,15 @@ export type ReviewFeature = {
   generalCategory?: string;
 };
 
+export type FeatureThumbnailImage = { signedUrl: string; signedUrlExpiresAt: number };
+/** `type:id` → 服务端批量签好的首图；null 表示该特征没有图片。 */
+export type FeatureThumbnails = Record<string, FeatureThumbnailImage | null>;
+
+/** Search result for the add-feature dialog; the thumbnail is signed server-side in one batch. */
+export type ReviewFeatureSearchResult = ReviewFeature & {
+  thumbnail: FeatureThumbnailImage | null;
+};
+
 export type FeatureReviewVersions = Record<string, string>;
 export const FEATURE_REVIEW_CHANGED = "featureReviewChanged";
 export const featureKey = (type: ReviewFeatureType, id: string) => `${type}:${id}`;

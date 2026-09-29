@@ -33,7 +33,7 @@ import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
 import { AssetWithAuditItemsBatch, fetchAssetsWithAuditItems, batchApproveAuditItemsAction, batchRejectAuditItemsAction } from "./actions";
 import { ReviewItem } from "./ReviewItem";
-import { featureKey, getFeatureReviewVersions, type ReviewFeature } from "./feature-review";
+import { featureKey, getFeatureReviewVersions, type ReviewFeatureSearchResult } from "./feature-review";
 import { useTheme } from "next-themes";
 import Image from "next/image";
 import { dispatchMuseDAMClientAction } from "@/embed/message";
@@ -65,7 +65,7 @@ export default function ReviewPageClient() {
   const [pageSize, setPageSize] = useState(10);
   const [loading, setLoading] = useState(false);
   const [rejectedFeaturesByAsset, setRejectedFeaturesByAsset] = useState<Record<number, string[]>>({});
-  const [manualFeaturesByAsset, setManualFeaturesByAsset] = useState<Record<number, ReviewFeature[]>>({});
+  const [manualFeaturesByAsset, setManualFeaturesByAsset] = useState<Record<number, ReviewFeatureSearchResult[]>>({});
   const [selectedAssets, setSelectedAssets] = useState<AssetWithAuditItemsBatch[]>([]);
   const [selectedAssetIds, setSelectedAssetIds] = useState<Set<number>>(new Set());
 
