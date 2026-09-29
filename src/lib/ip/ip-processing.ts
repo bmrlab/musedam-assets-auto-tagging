@@ -10,6 +10,7 @@ import {
   FEATURE_PROCESSING_ABANDONED,
   FEATURE_PROCESSING_INTERRUPTED,
 } from "@/lib/tagging/feature-processing-status";
+import { scheduleReferenceThumbnail } from "@/lib/tagging/reference-thumbnail";
 import { translateTextToEnglish } from "@/lib/translation/service";
 import prisma from "@/prisma/prisma";
 import { randomUUID } from "crypto";
@@ -80,6 +81,7 @@ async function fetchImageAsDataUrl(
   }
 
   const buffer = Buffer.from(await response.arrayBuffer());
+  scheduleReferenceThumbnail(objectKey, buffer);
   return { dataUrl: bufferToDataUrl(buffer, mimeType), buffer };
 }
 

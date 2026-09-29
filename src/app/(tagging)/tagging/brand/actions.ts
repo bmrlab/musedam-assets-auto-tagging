@@ -39,6 +39,7 @@ import {
   cropImageToDataUrl as cropClassificationImageToDataUrl,
   fetchRemoteImageInput,
 } from "@/lib/tagging/classification-image";
+import { getReferenceThumbnailUrl } from "@/lib/tagging/reference-thumbnail";
 import { schedulePushFeatureToMuseDAM } from "@/musedam/push-feature-to-musedam";
 import {
   AssetLogo,
@@ -219,6 +220,7 @@ function normalizeBrandLogoImage(image: AssetLogoImage): BrandLogoImageItem {
     objectKey: image.objectKey,
     signedUrl,
     signedUrlExpiresAt,
+    ...getReferenceThumbnailUrl(image.objectKey),
     mimeType: image.mimeType,
     size: image.size,
     sort: image.sort,

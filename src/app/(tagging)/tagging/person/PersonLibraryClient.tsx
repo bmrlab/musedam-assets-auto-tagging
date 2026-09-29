@@ -177,6 +177,7 @@ function PersonImagesCell({ person, t }: { person: PersonItem; t: TranslationFun
                 imageId={image.id}
                 signedUrl={image.signedUrl}
                 signedUrlExpiresAt={image.signedUrlExpiresAt}
+                thumbnailUrl={image.thumbnailUrl}
                 alt={t("imageAltIndex", { name: person.name, index: index + 1 })}
                 className="h-full w-full object-cover"
               />
@@ -924,6 +925,7 @@ export default function PersonLibraryClient({
                                               imageId={ip.images[0].id}
                                               signedUrl={ip.images[0].signedUrl}
                                               signedUrlExpiresAt={ip.images[0].signedUrlExpiresAt}
+                                              thumbnailUrl={ip.images[0].thumbnailUrl}
                                               alt={t("imageAlt", { name: ip.name })}
                                               className="h-full w-full object-cover"
                                             />

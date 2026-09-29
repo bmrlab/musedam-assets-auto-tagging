@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import type { ImgHTMLAttributes } from "react";
+import { useEffect, useState, type ImgHTMLAttributes } from "react";
 import { useSignedAssetPersonImageQuery } from "./useSignedAssetPersonImageQuery";
 
 const REFRESH_BUFFER_MS = 60 * 1000;
@@ -10,12 +10,15 @@ type SignedPersonImageProps = Omit<ImgHTMLAttributes<HTMLImageElement>, "src"> &
   imageId: string;
   signedUrl: string;
   signedUrlExpiresAt: number;
+  /** 缩略图地址：优先显示，加载失败（还没生成 / 已过期）时退回原图 */
+  thumbnailUrl?: string;
 };
 
 export default function SignedPersonImage({
   imageId,
   signedUrl,
   signedUrlExpiresAt,
+  thumbnailUrl,
   ...props
 }: SignedPersonImageProps) {
   const {
@@ -27,6 +30,10 @@ export default function SignedPersonImage({
     signedUrl,
     signedUrlExpiresAt,
   });
+  const [showThumbnail, setShowThumbnail] = useState(Boolean(thumbnailUrl));
+  useEffect(() => {
+    setShowThumbnail(Boolean(thumbnailUrl));
+  }, [imageId, thumbnailUrl]);
 
   return (
     <img
@@ -36,8 +43,13 @@ export default function SignedPersonImage({
       decoding="async"
       {...props}
       alt={props.alt ?? ""}
-      src={currentSignedUrl}
+      src={showThumbnail && thumbnailUrl ? thumbnailUrl : currentSignedUrl}
       onError={(event) => {
+        if (showThumbnail) {
+          // 缩略图还没生成或已过期：退回原图，原图再失败才走下面的签名刷新
+          setShowThumbnail(false);
+          return;
+        }
         props.onError?.(event);
         if (Date.now() >= currentExpiresAt - REFRESH_BUFFER_MS) {
           void refreshSignedUrl();

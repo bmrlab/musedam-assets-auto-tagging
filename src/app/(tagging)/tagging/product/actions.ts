@@ -39,6 +39,7 @@ import {
 } from "@/lib/tagging/batch-reference-image";
 import { fetchRemoteImageInput } from "@/lib/tagging/classification-image";
 import { prepareReferenceImageBuffer } from "@/lib/tagging/reference-image";
+import { getReferenceThumbnailUrl } from "@/lib/tagging/reference-thumbnail";
 import { schedulePushFeatureToMuseDAM } from "@/musedam/push-feature-to-musedam";
 import {
   AssetProduct,
@@ -234,6 +235,7 @@ function normalizeProductImage(image: AssetProductImage): ProductImageItem {
     objectKey: image.objectKey,
     signedUrl,
     signedUrlExpiresAt,
+    ...getReferenceThumbnailUrl(image.objectKey),
     mimeType: image.mimeType,
     size: image.size,
     sort: image.sort,

@@ -38,6 +38,7 @@ import {
   downloadAndPrepareBatchReferenceImage,
 } from "@/lib/tagging/batch-reference-image";
 import { fetchRemotePersonImageInput } from "@/lib/tagging/classification-image";
+import { getReferenceThumbnailUrl } from "@/lib/tagging/reference-thumbnail";
 import { schedulePushFeatureToMuseDAM } from "@/musedam/push-feature-to-musedam";
 import {
   AssetPerson,
@@ -233,6 +234,7 @@ function normalizePersonImage(image: AssetPersonImage): PersonImageItem {
     objectKey: image.objectKey,
     signedUrl,
     signedUrlExpiresAt,
+    ...getReferenceThumbnailUrl(image.objectKey),
     mimeType: image.mimeType,
     size: image.size,
     sort: image.sort,

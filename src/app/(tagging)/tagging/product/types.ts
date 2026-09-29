@@ -25,6 +25,9 @@ export type ProductImageItem = {
   objectKey: string;
   signedUrl: string;
   signedUrlExpiresAt: number;
+  /** 长边 256 的缩略图（列表小图用）；缩略图还没生成时加载会失败，前端退回原图 */
+  thumbnailUrl?: string;
+  thumbnailUrlExpiresAt?: number;
   mimeType: string;
   size: number;
   sort: number;

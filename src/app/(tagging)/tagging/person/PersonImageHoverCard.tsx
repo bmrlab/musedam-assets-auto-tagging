@@ -55,6 +55,7 @@ export default function PersonImageHoverCard({
                   imageId={image.id}
                   signedUrl={image.signedUrl}
                   signedUrlExpiresAt={image.signedUrlExpiresAt}
+                  thumbnailUrl={image.thumbnailUrl}
                   alt={alt}
                   className={cn(
                     "block h-full w-full object-contain transition-opacity duration-200",

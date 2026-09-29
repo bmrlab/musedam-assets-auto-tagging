@@ -38,6 +38,7 @@ import {
   fetchRemoteImageInput,
   getFallbackBox,
 } from "@/lib/tagging/classification-image";
+import { getReferenceThumbnailUrl } from "@/lib/tagging/reference-thumbnail";
 import { schedulePushFeatureToMuseDAM } from "@/musedam/push-feature-to-musedam";
 import { AssetIp, AssetIpImage, AssetIpTag, AssetIpType, AssetTag } from "@/prisma/client/index";
 import prisma from "@/prisma/prisma";
@@ -278,6 +279,7 @@ function normalizeIpImage(image: AssetIpImage): IpImageItem {
     objectKey: image.objectKey,
     signedUrl,
     signedUrlExpiresAt,
+    ...getReferenceThumbnailUrl(image.objectKey),
     mimeType: image.mimeType,
     size: image.size,
     sort: image.sort,

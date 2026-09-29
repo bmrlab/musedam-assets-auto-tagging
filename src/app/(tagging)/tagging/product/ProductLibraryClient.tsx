@@ -136,6 +136,7 @@ function ProductImagesCell({ product, t }: { product: ProductItem; t: Translatio
                 imageId={image.id}
                 signedUrl={image.signedUrl}
                 signedUrlExpiresAt={image.signedUrlExpiresAt}
+                thumbnailUrl={image.thumbnailUrl}
                 alt={t("imageAltIndex", { name: product.name, index: index + 1 })}
                 className="h-full w-full object-cover"
               />
@@ -885,6 +886,7 @@ export default function ProductLibraryClient({
                                               signedUrlExpiresAt={
                                                 product.images[0].signedUrlExpiresAt
                                               }
+                                              thumbnailUrl={product.images[0].thumbnailUrl}
                                               alt={t("imageAlt", { name: product.name })}
                                               className="h-full w-full object-cover"
                                             />

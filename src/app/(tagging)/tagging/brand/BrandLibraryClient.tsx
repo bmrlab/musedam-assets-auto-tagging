@@ -137,6 +137,7 @@ function LogoImagesCell({ logo, t }: { logo: BrandLogoItem; t: TranslationFuncti
                 imageId={image.id}
                 signedUrl={image.signedUrl}
                 signedUrlExpiresAt={image.signedUrlExpiresAt}
+                thumbnailUrl={image.thumbnailUrl}
                 alt={t("imageAltIndex", { name: logo.name, index: index + 1 })}
                 className="h-full w-full object-cover"
               />
@@ -879,6 +880,7 @@ export default function BrandLibraryClient({
                                               imageId={logo.images[0].id}
                                               signedUrl={logo.images[0].signedUrl}
                                               signedUrlExpiresAt={logo.images[0].signedUrlExpiresAt}
+                                              thumbnailUrl={logo.images[0].thumbnailUrl}
                                               alt={`${logo.name} 标识图`}
                                               className="h-full w-full object-cover"
                                             />

@@ -12,6 +12,7 @@ import {
   FEATURE_PROCESSING_INTERRUPTED,
 } from "@/lib/tagging/feature-processing-status";
 import { prepareSquareEmbeddingImageBuffer } from "@/lib/tagging/reference-image";
+import { scheduleReferenceThumbnail } from "@/lib/tagging/reference-thumbnail";
 import { translateTextToEnglish } from "@/lib/translation/service";
 import prisma from "@/prisma/prisma";
 import { generateObject, UserModelMessage } from "ai";
@@ -90,6 +91,7 @@ async function fetchImageAsDataUrl(objectKey: string) {
   }
 
   const buffer = Buffer.from(await response.arrayBuffer());
+  scheduleReferenceThumbnail(objectKey, buffer);
   const preparedImage = await prepareSquareEmbeddingImageBuffer(buffer);
   return bufferToDataUrl(preparedImage, "image/png");
 }

@@ -7,6 +7,7 @@ import {
   FEATURE_PROCESSING_ABANDONED,
   FEATURE_PROCESSING_INTERRUPTED,
 } from "@/lib/tagging/feature-processing-status";
+import { scheduleReferenceThumbnail } from "@/lib/tagging/reference-thumbnail";
 import prisma from "@/prisma/prisma";
 import { randomUUID } from "crypto";
 import pLimit from "p-limit";
@@ -247,6 +248,7 @@ async function processAssetPersonReferenceVectorsNow({
             objectKey: image.objectKey,
             identifier: `image ${index + 1}`,
           });
+          scheduleReferenceThumbnail(image.objectKey, imageInput.buffer);
           const embedding = await generateFaceEmbedding({
             imageBase64: imageInput.dataUrl,
             face,

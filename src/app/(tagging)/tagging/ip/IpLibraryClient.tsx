@@ -138,6 +138,7 @@ function IpImagesCell({ ip, t }: { ip: IpItem; t: TranslationFunction }) {
                 imageId={image.id}
                 signedUrl={image.signedUrl}
                 signedUrlExpiresAt={image.signedUrlExpiresAt}
+                thumbnailUrl={image.thumbnailUrl}
                 alt={t("imageAltIndex", { name: ip.name, index: index + 1 })}
                 className="h-full w-full object-cover"
               />
@@ -878,6 +879,7 @@ export default function IpLibraryClient({
                                               imageId={ip.images[0].id}
                                               signedUrl={ip.images[0].signedUrl}
                                               signedUrlExpiresAt={ip.images[0].signedUrlExpiresAt}
+                                              thumbnailUrl={ip.images[0].thumbnailUrl}
                                               alt={t("imageAlt", { name: ip.name })}
                                               className="h-full w-full object-cover"
                                             />

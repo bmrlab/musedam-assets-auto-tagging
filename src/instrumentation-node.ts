@@ -126,6 +126,12 @@ export async function register() {
     // 不在启动瞬间就跑：崩溃重启后上一轮卡在 processing 的特征会被整批捡回来重跑，
     // 和启动过程挤在一起容易让新 pod 还没就绪就又被拖垮。
     setInterval(runFeatureVectorTick, featureVectorPollIntervalMs);
+
+    // 已有参考图的缩略图后台慢慢补（和特征向量补算一样只在处理队列的进程里跑）
+    const { startReferenceThumbnailBackfill } = await import(
+      "@/lib/tagging/reference-thumbnail-backfill"
+    );
+    startReferenceThumbnailBackfill();
   }
 
   if (process.env.EMBEDDED_QUEUE_SCHEDULER !== "true") return;
