@@ -287,32 +287,43 @@ export async function batchSyncAssetThumbnails({
 
   if (!assets || assets.length === 0) return;
 
-  // 批量更新数据库中的 thumbnailAccessUrl
-  await Promise.all(
-    assets.map(async (musedamAsset) => {
-      try {
-        const assetSlug = idToSlug("assetObject", musedamAsset.id);
-        const existingAsset = await prisma.assetObject.findUnique({
-          where: {
-            teamId: team.id,
-            slug: assetSlug,
-          },
-          select: { id: true, extra: true },
-        });
+  // 一次查出现有资产，只对缩略图 URL 实际变化的资产写库，避免每次读列表都整行重写 extra
+  const slugs = assets.map((musedamAsset) => {
+    try {
+      return idToSlug("assetObject", musedamAsset.id);
+    } catch {
+      return null;
+    }
+  });
+  const existingAssets = await prisma.assetObject.findMany({
+    where: {
+      teamId: team.id,
+      slug: { in: slugs.filter((slug): slug is string => slug !== null) },
+    },
+    select: { id: true, slug: true, extra: true },
+  });
+  const existingBySlug = new Map(existingAssets.map((asset) => [asset.slug, asset]));
 
-        if (existingAsset) {
-          // 只更新 extra 中的 thumbnailAccessUrl，保留其他字段
-          const extra = (existingAsset.extra as Record<string, unknown>) || {};
-          await prisma.assetObject.update({
-            where: { id: existingAsset.id },
-            data: {
-              extra: {
-                ...extra,
-                thumbnailAccessUrl: musedamAsset.thumbnailAccessUrl,
-              },
+  await Promise.all(
+    assets.map(async (musedamAsset, index) => {
+      try {
+        const slug = slugs[index];
+        const existingAsset = slug ? existingBySlug.get(slug) : undefined;
+        if (!existingAsset) return;
+
+        // 只更新 extra 中的 thumbnailAccessUrl，保留其他字段
+        const extra = (existingAsset.extra as Record<string, unknown>) || {};
+        if (extra.thumbnailAccessUrl === musedamAsset.thumbnailAccessUrl) return;
+
+        await prisma.assetObject.update({
+          where: { id: existingAsset.id },
+          data: {
+            extra: {
+              ...extra,
+              thumbnailAccessUrl: musedamAsset.thumbnailAccessUrl,
             },
-          });
-        }
+          },
+        });
       } catch (error) {
         // 单个资产更新失败不影响其他资产
         console.error(`更新资产缩略图失败 (assetId: ${musedamAsset.id}):`, error);

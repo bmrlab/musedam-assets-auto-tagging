@@ -1,8 +1,9 @@
 import authOptions from "@/app/(auth)/authOptions";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
-import DashboardClient from "./DashboardClient";
 import { fetchDashboardStats, fetchProcessingTasks } from "./actions";
+import { DASHBOARD_INITIAL_PAGE_SIZE } from "./constants";
+import DashboardClient from "./DashboardClient";
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
@@ -13,7 +14,8 @@ export default async function DashboardPage() {
 
   const [statsResult, tasksResult] = await Promise.all([
     fetchDashboardStats(),
-    fetchProcessingTasks(1, 10, "processing"),
+    // 与 DashboardClient 首屏的分页参数保持一致，客户端直接复用这份数据
+    fetchProcessingTasks(1, DASHBOARD_INITIAL_PAGE_SIZE, "all"),
   ]);
 
   if (!statsResult.success) {
@@ -25,7 +27,7 @@ export default async function DashboardPage() {
   }
 
   const { stats } = statsResult.data;
-  const { tasks } = tasksResult.data;
+  const { tasks, total } = tasksResult.data;
 
-  return <DashboardClient initialStats={stats} initialTasks={tasks} />;
+  return <DashboardClient initialStats={stats} initialTasks={tasks} initialTotal={total} />;
 }

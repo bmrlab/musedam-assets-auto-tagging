@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { CheckCircle2, SearchIcon, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Image from "next/image";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -51,13 +51,36 @@ import { useTheme } from "next-themes";
 import { RetryIcon } from "@/components/ui/icons";
 import { AssetThumbnail } from "@/components/AssetThumbnail";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DASHBOARD_INITIAL_PAGE_SIZE } from "./constants";
+
+const DASHBOARD_REFRESH_INTERVAL_MS = 30000;
 
 interface DashboardClientProps {
   initialStats: ExtractServerActionData<typeof fetchDashboardStats>["stats"];
   initialTasks: ExtractServerActionData<typeof fetchProcessingTasks>["tasks"];
+  initialTotal: number;
 }
 
-export default function DashboardClient({ initialStats, initialTasks }: DashboardClientProps) {
+function formatSeconds(seconds: number) {
+  if (seconds < 60) return `${seconds}s`;
+  return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+}
+
+/** 处理中任务的计时：每秒只重渲染这一小段文字，而不是整个 dashboard（含图表）。 */
+function ProcessingDuration({ startsAt }: { startsAt: Date }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  return <>{formatSeconds(Math.round((now - startsAt.getTime()) / 1000))}</>;
+}
+
+export default function DashboardClient({
+  initialStats,
+  initialTasks,
+  initialTotal,
+}: DashboardClientProps) {
   const t = useTranslations("Tagging.Dashboard");
   const tCommon = useTranslations("Tagging.Common");
 
@@ -67,29 +90,34 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
   const [monthlyData, setMonthlyData] = useState<
     Array<{ month: string; completed: number; total: number }>
   >([]);
-  const [currentTime, setCurrentTime] = useState(Date.now());
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+  const [totalPages, setTotalPages] = useState(
+    Math.ceil(initialTotal / DASHBOARD_INITIAL_PAGE_SIZE),
+  );
   const [taskFilter, setTaskFilter] = useState<DashboardTaskFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
   // 输入停顿 300ms 后再发请求，避免每个字符都打一次服务端
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [totalTasks, setTotalTasks] = useState(0);
-  const [pageSize, setPageSize] = useState(20);
-  const [isLoading, setIsLoading] = useState(true);
+  const [totalTasks, setTotalTasks] = useState(initialTotal);
+  const [pageSize, setPageSize] = useState(DASHBOARD_INITIAL_PAGE_SIZE);
+  // 统计与首屏任务列表由 page.tsx 服务端渲染，只有趋势图需要首次加载
+  const [trendsLoading, setTrendsLoading] = useState(true);
+  const requestIdRef = useRef(0);
 
   const { theme } = useTheme();
   const isDark = theme === "dark";
 
+  // 定时刷新只刷统计和任务列表；周 / 月趋势变化慢，只在挂载时加载一次
   const refreshData = useCallback(
     async (page: number, filter: DashboardTaskFilter, size: number, search: string) => {
+      const requestId = ++requestIdRef.current;
       try {
-        const [statsResult, tasksResult, weeklyResult, monthlyResult] = await Promise.all([
+        const [statsResult, tasksResult] = await Promise.all([
           fetchDashboardStats(),
           fetchProcessingTasks(page, size, filter, search),
-          fetchWeeklyTaggingData(),
-          fetchMonthlyTrend(),
         ]);
+        // 翻页 / 筛选切换较快时丢弃旧请求的结果
+        if (requestId !== requestIdRef.current) return;
 
         if (statsResult.success) {
           setStats(statsResult.data.stats);
@@ -99,16 +127,8 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
           setTotalTasks(tasksResult.data.total);
           setTotalPages(Math.ceil(tasksResult.data.total / size));
         }
-        if (weeklyResult.success) {
-          setWeeklyData(weeklyResult.data.data);
-        }
-        if (monthlyResult.success) {
-          setMonthlyData(monthlyResult.data.data);
-        }
       } catch (error) {
         console.error("Failed to refresh dashboard data", error);
-      } finally {
-        setIsLoading(false);
       }
     },
     [],
@@ -121,24 +141,61 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
   }, []);
 
   useEffect(() => {
-    // Initial load
+    let disposed = false;
+    void Promise.all([fetchWeeklyTaggingData(), fetchMonthlyTrend()])
+      .then(([weeklyResult, monthlyResult]) => {
+        if (disposed) return;
+        if (weeklyResult.success) setWeeklyData(weeklyResult.data.data);
+        if (monthlyResult.success) setMonthlyData(monthlyResult.data.data);
+      })
+      .catch((error) => console.error("Failed to load dashboard trends", error))
+      .finally(() => {
+        if (!disposed) setTrendsLoading(false);
+      });
+    return () => {
+      disposed = true;
+    };
+  }, []);
+
+  // 首屏参数与 SSR 一致时直接使用服务端数据，参数变化后才请求
+  const isInitialQueryRef = useRef(true);
+  useEffect(() => {
+    if (isInitialQueryRef.current) {
+      isInitialQueryRef.current = false;
+      return;
+    }
     void refreshData(currentPage, taskFilter, pageSize, debouncedSearch);
   }, [currentPage, taskFilter, refreshData, pageSize, debouncedSearch]);
 
   useEffect(() => {
-    // Auto refresh every 30 seconds
-    const refreshInterval = setInterval(() => {
-      void refreshData(currentPage, taskFilter, pageSize, debouncedSearch);
-    }, 30000);
+    // 每 30 秒自动刷新；页面不可见时暂停，重新可见时立即刷新一次
+    const refresh = () => void refreshData(currentPage, taskFilter, pageSize, debouncedSearch);
+    let refreshInterval: ReturnType<typeof setInterval> | null = null;
+    const start = () => {
+      if (refreshInterval === null) {
+        refreshInterval = setInterval(refresh, DASHBOARD_REFRESH_INTERVAL_MS);
+      }
+    };
+    const stop = () => {
+      if (refreshInterval !== null) {
+        clearInterval(refreshInterval);
+        refreshInterval = null;
+      }
+    };
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stop();
+      } else {
+        refresh();
+        start();
+      }
+    };
 
-    // Update current time every second for processing duration
-    const timeInterval = setInterval(() => {
-      setCurrentTime(Date.now());
-    }, 1000);
-
+    if (!document.hidden) start();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => {
-      clearInterval(refreshInterval);
-      clearInterval(timeInterval);
+      stop();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [currentPage, pageSize, refreshData, taskFilter, debouncedSearch]);
 
@@ -147,12 +204,14 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
   };
 
   useEffect(() => {
+    const keyword = searchQuery.trim();
+    if (keyword === debouncedSearch) return;
     const timer = setTimeout(() => {
-      setDebouncedSearch(searchQuery.trim());
+      setDebouncedSearch(keyword);
       setCurrentPage(1);
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [searchQuery, debouncedSearch]);
 
   const handleFilterChange = (value: string) => {
     const filter = value as DashboardTaskFilter;
@@ -198,16 +257,13 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
 
   const formatDuration = (task: TaskWithAsset) => {
     if (task.status === "processing" && task.startsAt) {
-      const seconds = Math.round((currentTime - task.startsAt.getTime()) / 1000);
-      if (seconds < 60) return `${seconds}s`;
-      return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+      return <ProcessingDuration startsAt={task.startsAt} />;
     }
     if (task.status === "completed" && task.startsAt && task.endsAt) {
-      const seconds =
+      return formatSeconds(
         Math.round((task.endsAt.getTime() - task.startsAt.getTime()) / 1000) +
-        QUEUE_ITEM_HEADROOM_SECONDS;
-      if (seconds < 60) return `${seconds}s`;
-      return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+          QUEUE_ITEM_HEADROOM_SECONDS,
+      );
     }
     return "";
   };
@@ -315,50 +371,39 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
     <div className="space-y-4">
       {/* Statistics Card - Single card with 4 items */}
       <div className="bg-background border rounded-[6px] p-6">
-        {isLoading ? (
-          <div className="grid grid-cols-2 gap-6 sm:grid-cols-4 sm:gap-8">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="text-center">
-                <Skeleton className="h-8 w-16 mx-auto mb-2" />
-                <Skeleton className="h-4 w-24 mx-auto" />
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-6 sm:grid-cols-4 sm:gap-8">
-            <div className="text-center">
-              <div className="text-[22px] font-semibold leading-[32px]">{formatNumber(stats.totalCompleted)}</div>
-              <div className="flex items-center justify-center gap-[6px] text-xs text-basic-6 mt-1">
-                <span className="size-[5px] bg-[#00E096] rounded-full"></span>
-                <span>{t("totalCompleted")}</span>
-              </div>
-            </div>
-
-            <div className="text-center">
-              <div className="text-[22px] font-semibold leading-[32px]">{stats.processing}</div>
-              <div className="flex items-center justify-center gap-[6px] text-xs text-basic-6 mt-1">
-                <span className="size-[5px] bg-primary-6 rounded-full"></span>
-                <span>{t("processing")}</span>
-              </div>
-            </div>
-
-            <div className="text-center">
-              <div className="text-[22px] font-semibold leading-[32px]">{stats.pending}</div>
-              <div className="flex items-center justify-center gap-[6px] text-xs text-basic-6 mt-1">
-                <span className="size-[5px] bg-warning-6 rounded-full"></span>
-                <span>{t("pending")}</span>
-              </div>
-            </div>
-
-            <div className="text-center">
-              <div className="text-[22px] font-semibold leading-[32px]">{stats.failed}</div>
-              <div className="flex items-center justify-center gap-[6px] text-xs text-basic-6 mt-1">
-                <span className="size-[5px] bg-danger-6 rounded-full"></span>
-                <span>{t("failed")}</span>
-              </div>
+        <div className="grid grid-cols-2 gap-6 sm:grid-cols-4 sm:gap-8">
+          <div className="text-center">
+            <div className="text-[22px] font-semibold leading-[32px]">{formatNumber(stats.totalCompleted)}</div>
+            <div className="flex items-center justify-center gap-[6px] text-xs text-basic-6 mt-1">
+              <span className="size-[5px] bg-[#00E096] rounded-full"></span>
+              <span>{t("totalCompleted")}</span>
             </div>
           </div>
-        )}
+
+          <div className="text-center">
+            <div className="text-[22px] font-semibold leading-[32px]">{stats.processing}</div>
+            <div className="flex items-center justify-center gap-[6px] text-xs text-basic-6 mt-1">
+              <span className="size-[5px] bg-primary-6 rounded-full"></span>
+              <span>{t("processing")}</span>
+            </div>
+          </div>
+
+          <div className="text-center">
+            <div className="text-[22px] font-semibold leading-[32px]">{stats.pending}</div>
+            <div className="flex items-center justify-center gap-[6px] text-xs text-basic-6 mt-1">
+              <span className="size-[5px] bg-warning-6 rounded-full"></span>
+              <span>{t("pending")}</span>
+            </div>
+          </div>
+
+          <div className="text-center">
+            <div className="text-[22px] font-semibold leading-[32px]">{stats.failed}</div>
+            <div className="flex items-center justify-center gap-[6px] text-xs text-basic-6 mt-1">
+              <span className="size-[5px] bg-danger-6 rounded-full"></span>
+              <span>{t("failed")}</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Task List Section */}
@@ -416,20 +461,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
 
         {/* Task Items */}
         <div className="tagging-tasks-list">
-          {isLoading && tasks.length === 0 ? (
-            <div className="max-h-[622px] overflow-y-auto">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="flex items-center gap-[14px] px-4 py-3">
-                  <Skeleton className="shrink-0 size-8 rounded-sm" />
-                  <div className="flex-1 space-y-2">
-                    <Skeleton className="h-4 w-48" />
-                    <Skeleton className="h-3 w-32" />
-                  </div>
-                  <Skeleton className="size-4 rounded-full" />
-                </div>
-              ))}
-            </div>
-          ) : tasks.length === 0 ? (
+          {tasks.length === 0 ? (
             <div className="text-center py-12 text-basic-5 text-sm ">
               <Image
                 width={171}
@@ -519,7 +551,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
                             </span>
                           ) : (
                             <span className="flex items-center gap-[3px]">
-                              {`${t("aiTaggingTime")}: ${formatDuration(task)}`}
+                              {t("aiTaggingTime")}: {formatDuration(task)}
                               {task.status === "completed" && (
                                 <CheckCircle2 className="size-3 text-[#00E096]" />
                               )}
@@ -567,7 +599,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
         <div className="bg-background border rounded-[6px] lg:col-span-2">
           <div className="p-4 border-b flex items-center justify-between">
             <h3 className="font-semibold">{t("processingTrend")}</h3>
-            {!isLoading && (
+            {!trendsLoading && (
               <div className="flex items-center text-basic-6 gap-4 mt-2">
                 <div className="flex items-center gap-2">
                   <div className="size-[10px] rounded-full bg-[#0FCA7A]" />
@@ -581,7 +613,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
             )}
           </div>
           <div className="p-4">
-            {isLoading ? (
+            {trendsLoading ? (
               <Skeleton className="w-full h-[250px]" />
             ) : (
               <ResponsiveContainer width="100%" height={250}>
@@ -660,7 +692,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
             <h3 className="font-semibold">{t("weeklyTagging")}</h3>
           </div>
           <div className="p-4">
-            {isLoading ? (
+            {trendsLoading ? (
               <Skeleton className="w-full h-[250px]" />
             ) : (
               <ResponsiveContainer width="100%" height={250}>
