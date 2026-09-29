@@ -27,6 +27,7 @@ import { idToSlug, slugToId } from "@/lib/slug";
 import {
   fetchRemoteImageSource,
   isImageTooLargeError,
+  isSameRemoteObject,
   prepareImageInput,
   preparePersonImageInput,
   readRemoteImageDimensions,
@@ -395,8 +396,10 @@ export async function processQueueItem({
         if (productCount > 0 && productImageUrl) {
           const prepareProductInput = (source: RemoteImageSource) =>
             prepareImageInput(source, "Product classification", { preserveOriginal: true });
+          // 缩略图地址与原图地址可能是同一个文件（MuseDAM 的 PNG），这时直接复用已下载的那份
           const productInputPromise =
-            productImageUrl === thumbnailUrl
+            productImageUrl === thumbnailUrl ||
+            (thumbnailUrl && isSameRemoteObject(productImageUrl, thumbnailUrl))
               ? getThumbnailSource(productImageUrl).then(prepareProductInput)
               : fetchRemoteImageSource(productImageUrl, "Product classification")
                   .then(prepareProductInput)

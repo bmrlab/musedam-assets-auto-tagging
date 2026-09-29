@@ -17,6 +17,11 @@ const PERSON_IMAGE_JPEG_QUALITY = 95;
 const MAX_REMOTE_IMAGE_BYTES = Number(process.env.TAGGING_MAX_REMOTE_IMAGE_MB ?? 300) * 1024 * 1024;
 const MAX_INPUT_PIXELS = Number(process.env.TAGGING_MAX_INPUT_MEGAPIXELS ?? 120) * 1_000_000;
 const SHARP_INPUT_OPTIONS = { limitInputPixels: MAX_INPUT_PIXELS, sequentialRead: true } as const;
+// 超大原图下载后先缩成长边不超过这个值的工作图，后续品牌/IP 预览、人物检测、商品裁剪、画幅比例都用它：
+// 原图（如 95MB、1.3 万像素宽的 PNG）只顺序解码这一次，随后即可被回收，不再被各环节反复解码。
+// 取 6144 让常见的 4000~6000px 照片不受影响（人物检测需要保留小脸的分辨率）；画幅比例只看宽高比，不受缩放影响。
+const WORKING_IMAGE_MAX_DIMENSION = Number(process.env.TAGGING_WORKING_IMAGE_MAX_DIMENSION ?? 6144);
+const WORKING_IMAGE_JPEG_QUALITY = 92;
 // Brand/IP retain a bounded number of detection crops. Product regions and person faces are not capped.
 export const MAX_DETECTION_CROPS = Number(process.env.TAGGING_MAX_DETECTION_CROPS ?? 8);
 
@@ -368,12 +373,59 @@ export async function fetchRemoteImageSource(
     throw new RemoteImageTooLargeError(failureContext, buffer.length);
   }
 
-  return {
-    imageUrl,
-    mimeType:
-      response.headers.get("content-type")?.split(";")[0]?.trim() || "application/octet-stream",
-    buffer,
-  };
+  return boundRemoteImageSource(
+    {
+      imageUrl,
+      mimeType:
+        response.headers.get("content-type")?.split(";")[0]?.trim() || "application/octet-stream",
+      buffer,
+    },
+    failureContext,
+  );
+}
+
+/** 超大图片缩成有上限的工作图（见 WORKING_IMAGE_MAX_DIMENSION）；读不了或本来就不大时原样返回。 */
+async function boundRemoteImageSource(
+  source: RemoteImageSource,
+  failureContext: string,
+): Promise<RemoteImageSource> {
+  let width: number;
+  let height: number;
+  try {
+    ({ width, height } = (await sharp(source.buffer, SHARP_INPUT_OPTIONS).metadata()).autoOrient);
+  } catch {
+    return source; // 交给后续环节按原逻辑处理（包括像素超限报错）
+  }
+  if (Math.max(width, height) <= WORKING_IMAGE_MAX_DIMENSION) return source;
+
+  const { data, info } = await sharp(source.buffer, SHARP_INPUT_OPTIONS)
+    .rotate()
+    .resize({
+      width: WORKING_IMAGE_MAX_DIMENSION,
+      height: WORKING_IMAGE_MAX_DIMENSION,
+      fit: "inside",
+    })
+    .flatten({ background: "#fff" })
+    .jpeg({ quality: WORKING_IMAGE_JPEG_QUALITY })
+    .toBuffer({ resolveWithObject: true });
+  rootLogger.info({
+    msg: "Large remote image downscaled to working image",
+    failureContext,
+    original: { width, height, bytes: source.buffer.length },
+    working: { width: info.width, height: info.height, bytes: data.length },
+  });
+  return { imageUrl: source.imageUrl, mimeType: "image/jpeg", buffer: data };
+}
+
+/** 同一个对象的不同签名地址（如 MuseDAM PNG 的 thumbnailAccessUrl 与 downloadUrl 只差查询参数）。 */
+export function isSameRemoteObject(a: string, b: string) {
+  try {
+    const left = new URL(a);
+    const right = new URL(b);
+    return left.host === right.host && left.pathname === right.pathname;
+  } catch {
+    return a === b;
+  }
 }
 
 function isPixelLimitError(error: unknown) {
