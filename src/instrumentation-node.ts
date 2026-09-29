@@ -8,6 +8,8 @@ export async function register() {
   try {
     const { default: sharp } = await import("sharp");
     sharp.concurrency(1);
+    // 关闭 libvips 的操作缓存：打标每次处理的都是不同的图，缓存命中率低，只会额外占原生内存
+    sharp.cache(false);
   } catch (error) {
     rootLogger.warn({ msg: "Failed to limit sharp concurrency", err: error });
   }
@@ -48,8 +50,11 @@ export async function register() {
     startQueueWorkerProcess();
   }
   if (IS_QUEUE_WORKER_CHILD) {
-    const { exitWhenParentExits } = await import("@/lib/queue-worker-process");
+    const { exitWhenMemoryTooHigh, exitWhenParentExits } = await import(
+      "@/lib/queue-worker-process"
+    );
     exitWhenParentExits();
+    exitWhenMemoryTooHigh();
   }
 
   const featureVectorLogger = rootLogger.child({ service: "feature-vector-worker" });

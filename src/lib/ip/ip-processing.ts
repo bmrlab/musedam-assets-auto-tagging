@@ -3,8 +3,13 @@ import "server-only";
 import { getJinaConfig } from "@/lib/brand/env";
 import { bufferToDataUrl } from "@/lib/brand/image";
 import { createJinaImageEmbeddings, createJinaTextEmbeddings } from "@/lib/brand/jina";
+import { rootLogger } from "@/lib/logging";
 import { getCachedSignedS3ObjectUrl } from "@/lib/s3";
 import { cropImageToDataUrl as cropClassificationImageToDataUrl } from "@/lib/tagging/classification-image";
+import {
+  FEATURE_PROCESSING_ABANDONED,
+  FEATURE_PROCESSING_INTERRUPTED,
+} from "@/lib/tagging/feature-processing-status";
 import { translateTextToEnglish } from "@/lib/translation/service";
 import prisma from "@/prisma/prisma";
 import { randomUUID } from "crypto";
@@ -209,7 +214,7 @@ async function processAssetIpReferenceVectorsNow({
       },
       data: {
         status: "processing",
-        processingError: null,
+        // 不清空 processingError：保留中断标记（见 processPending*ReferenceVectors），成功或失败时会覆盖
         processedAt: null,
       },
     });
@@ -421,15 +426,33 @@ export function processAssetIpReferenceVectors({ teamId, ipId }: { teamId: numbe
 
 export async function processPendingAssetIpReferenceVectors() {
   const staleBefore = new Date(Date.now() - IP_VECTOR_PROCESSING_STALE_MS);
+  // 心跳停了还停在 processing，说明处理中途进程没了（多半是被 OOM Kill）。第一次中断重试一次，
+  // 再次中断直接标记失败：否则同一个特征每次重启都被捡回来，把进程反复拖死（每分钟崩一次）。
+  const abandoned = await prisma.assetIp.updateMany({
+    where: {
+      status: "processing",
+      updatedAt: { lt: staleBefore },
+      processingError: FEATURE_PROCESSING_INTERRUPTED,
+    },
+    data: {
+      status: "failed",
+      processingError: FEATURE_PROCESSING_ABANDONED,
+    },
+  });
+  if (abandoned.count > 0) {
+    rootLogger.error({
+      msg: "IP vector processing interrupted twice, marked failed",
+      count: abandoned.count,
+    });
+  }
   const recovered = await prisma.assetIp.updateMany({
     where: {
       status: "processing",
-      updatedAt: {
-        lt: staleBefore,
-      },
+      updatedAt: { lt: staleBefore },
     },
     data: {
       status: "pending",
+      processingError: FEATURE_PROCESSING_INTERRUPTED,
     },
   });
 
@@ -458,7 +481,6 @@ export async function processPendingAssetIpReferenceVectors() {
         },
         data: {
           status: "processing",
-          processingError: null,
           processedAt: null,
         },
       });
@@ -469,6 +491,12 @@ export async function processPendingAssetIpReferenceVectors() {
       }
 
       processing += 1;
+      // 先记一条再处理：处理中途进程被杀时，最后一条日志就能定位到是哪个特征
+      rootLogger.info({
+        msg: "IP vector processing started",
+        teamId: candidate.teamId,
+        featureId: candidate.id,
+      });
       try {
         await processAssetIpReferenceVectors({
           teamId: candidate.teamId,

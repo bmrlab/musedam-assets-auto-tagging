@@ -10,6 +10,11 @@ const MAX_IMAGE_DIMENSION = Number(process.env.TAGGING_MAX_IMAGE_DIMENSION ?? 12
 const MAX_CROP_DIMENSION = Number(process.env.TAGGING_MAX_CROP_DIMENSION ?? 768);
 const IMAGE_JPEG_QUALITY = Number(process.env.TAGGING_IMAGE_JPEG_QUALITY ?? 82);
 const PERSON_IMAGE_JPEG_QUALITY = 95;
+// 远程图片下载与解码的硬上限（商品识别会下载 downloadUrl 原图）：超出直接报错，调用方可退回缩略图，
+// 不把极端大的文件整个读进内存再解码。
+const MAX_REMOTE_IMAGE_BYTES = Number(process.env.TAGGING_MAX_REMOTE_IMAGE_MB ?? 80) * 1024 * 1024;
+const MAX_INPUT_PIXELS = Number(process.env.TAGGING_MAX_INPUT_MEGAPIXELS ?? 120) * 1_000_000;
+const SHARP_INPUT_OPTIONS = { limitInputPixels: MAX_INPUT_PIXELS, sequentialRead: true } as const;
 // Brand/IP retain a bounded number of detection crops. Product regions and person faces are not capped.
 export const MAX_DETECTION_CROPS = Number(process.env.TAGGING_MAX_DETECTION_CROPS ?? 8);
 
@@ -344,12 +349,40 @@ export async function fetchRemoteImageSource(
     throw new Error(`Failed to fetch ${failureContext} image (${response.status})`);
   }
 
+  const contentLength = Number(response.headers.get("content-length"));
+  if (Number.isFinite(contentLength) && contentLength > MAX_REMOTE_IMAGE_BYTES) {
+    await response.body?.cancel();
+    throw new RemoteImageTooLargeError(failureContext, contentLength);
+  }
+  const buffer = Buffer.from(await response.arrayBuffer());
+  if (buffer.length > MAX_REMOTE_IMAGE_BYTES) {
+    throw new RemoteImageTooLargeError(failureContext, buffer.length);
+  }
+
   return {
     imageUrl,
     mimeType:
       response.headers.get("content-type")?.split(";")[0]?.trim() || "application/octet-stream",
-    buffer: Buffer.from(await response.arrayBuffer()),
+    buffer,
   };
+}
+
+function isPixelLimitError(error: unknown) {
+  return error instanceof Error && /pixel limit/i.test(error.message);
+}
+
+/** 图片过大：下载字节数或像素数超过上限，调用方可以退回缩略图。 */
+export function isImageTooLargeError(error: unknown) {
+  return error instanceof RemoteImageTooLargeError || isPixelLimitError(error);
+}
+
+export class RemoteImageTooLargeError extends Error {
+  constructor(failureContext: string, byteLength: number) {
+    super(
+      `${failureContext} image is too large (${Math.round(byteLength / 1024 / 1024)}MB > ${Math.round(MAX_REMOTE_IMAGE_BYTES / 1024 / 1024)}MB)`,
+    );
+    this.name = "RemoteImageTooLargeError";
+  }
 }
 
 /**
@@ -360,7 +393,7 @@ export async function readRemoteImageDimensions(
   source: RemoteImageSource,
 ): Promise<ClassificationImageMeta> {
   try {
-    const { autoOrient } = await sharp(source.buffer).metadata();
+    const { autoOrient } = await sharp(source.buffer, SHARP_INPUT_OPTIONS).metadata();
     return { width: autoOrient.width, height: autoOrient.height };
   } catch {
     return getImageDimensions(source.buffer, source.mimeType);
@@ -385,7 +418,7 @@ async function prepareRemoteImageInput(
   try {
     let original: ClassificationRemoteImageInput["original"];
     if (preserveOriginal) {
-      const { autoOrient } = await sharp(originalBuffer).metadata();
+      const { autoOrient } = await sharp(originalBuffer, SHARP_INPUT_OPTIONS).metadata();
       original = {
         width: autoOrient.width,
         height: autoOrient.height,
@@ -394,7 +427,7 @@ async function prepareRemoteImageInput(
       };
     }
 
-    let pipeline = sharp(originalBuffer).rotate();
+    let pipeline = sharp(originalBuffer, SHARP_INPUT_OPTIONS).rotate();
     if (maxDimension !== null) {
       pipeline = pipeline.resize({
         width: maxDimension,
@@ -432,7 +465,8 @@ async function prepareRemoteImageInput(
     });
     // Mapping detector boxes to original pixels requires a successfully normalized preview.
     // Raw fallback dimensions can be in a different coordinate frame because of EXIF.
-    if (preserveOriginal) {
+    // 超过像素上限的大图也不能退回原始字节（整张转 base64 同样会撑爆内存）。
+    if (preserveOriginal || isPixelLimitError(error)) {
       throw error;
     }
   }

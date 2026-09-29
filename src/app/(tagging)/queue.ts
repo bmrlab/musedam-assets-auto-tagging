@@ -26,6 +26,7 @@ import { classifyAssetProductRecommendation } from "@/lib/product/tagging-produc
 import { idToSlug, slugToId } from "@/lib/slug";
 import {
   fetchRemoteImageSource,
+  isImageTooLargeError,
   prepareImageInput,
   preparePersonImageInput,
   readRemoteImageDimensions,
@@ -382,14 +383,26 @@ export async function processQueueItem({
         }
 
         if (productCount > 0 && productImageUrl) {
-          productRecommendationPromise = withFallback(
+          const prepareProductInput = (source: RemoteImageSource) =>
+            prepareImageInput(source, "Product classification", { preserveOriginal: true });
+          const productInputPromise =
             productImageUrl === thumbnailUrl
-              ? getThumbnailSource(productImageUrl)
-                  .then((source) =>
-                    prepareImageInput(source, "Product classification", { preserveOriginal: true }),
-                  )
-                  .then((imageInput) => classifyAssetProductRecommendation({ teamId, imageInput }))
-              : classifyAssetProductRecommendation({ teamId, imageUrl: productImageUrl }),
+              ? getThumbnailSource(productImageUrl).then(prepareProductInput)
+              : fetchRemoteImageSource(productImageUrl, "Product classification")
+                  .then(prepareProductInput)
+                  .catch(async (error) => {
+                    // 原图过大（字节数或像素数超限）时退回缩略图，不去解码能撑爆内存的原图
+                    if (!thumbnailUrl || !isImageTooLargeError(error)) throw error;
+                    logger.warn({
+                      msg: "Product original image too large, falling back to thumbnail",
+                      error: error instanceof Error ? error.message : String(error),
+                    });
+                    return prepareProductInput(await getThumbnailSource(thumbnailUrl));
+                  });
+          productRecommendationPromise = withFallback(
+            productInputPromise.then((imageInput) =>
+              classifyAssetProductRecommendation({ teamId, imageInput }),
+            ),
             "classifyAssetProductRecommendation",
           );
         }

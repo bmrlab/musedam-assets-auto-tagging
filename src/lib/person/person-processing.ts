@@ -1,7 +1,12 @@
 import "server-only";
 
+import { rootLogger } from "@/lib/logging";
 import { getCachedSignedS3ObjectUrl } from "@/lib/s3";
 import { fetchRemotePersonImageInput } from "@/lib/tagging/classification-image";
+import {
+  FEATURE_PROCESSING_ABANDONED,
+  FEATURE_PROCESSING_INTERRUPTED,
+} from "@/lib/tagging/feature-processing-status";
 import prisma from "@/prisma/prisma";
 import { randomUUID } from "crypto";
 import pLimit from "p-limit";
@@ -189,7 +194,7 @@ async function processAssetPersonReferenceVectorsNow({
       },
       data: {
         status: "processing",
-        processingError: null,
+        // 不清空 processingError：保留中断标记（见 processPending*ReferenceVectors），成功或失败时会覆盖
         processedAt: null,
       },
     });
@@ -367,15 +372,33 @@ export function processAssetPersonReferenceVectors({
 
 export async function processPendingAssetPersonReferenceVectors() {
   const staleBefore = new Date(Date.now() - PERSON_VECTOR_PROCESSING_STALE_MS);
+  // 心跳停了还停在 processing，说明处理中途进程没了（多半是被 OOM Kill）。第一次中断重试一次，
+  // 再次中断直接标记失败：否则同一个特征每次重启都被捡回来，把进程反复拖死（每分钟崩一次）。
+  const abandoned = await prisma.assetPerson.updateMany({
+    where: {
+      status: "processing",
+      updatedAt: { lt: staleBefore },
+      processingError: FEATURE_PROCESSING_INTERRUPTED,
+    },
+    data: {
+      status: "failed",
+      processingError: FEATURE_PROCESSING_ABANDONED,
+    },
+  });
+  if (abandoned.count > 0) {
+    rootLogger.error({
+      msg: "Person vector processing interrupted twice, marked failed",
+      count: abandoned.count,
+    });
+  }
   const recovered = await prisma.assetPerson.updateMany({
     where: {
       status: "processing",
-      updatedAt: {
-        lt: staleBefore,
-      },
+      updatedAt: { lt: staleBefore },
     },
     data: {
       status: "pending",
+      processingError: FEATURE_PROCESSING_INTERRUPTED,
     },
   });
 
@@ -404,7 +427,6 @@ export async function processPendingAssetPersonReferenceVectors() {
         },
         data: {
           status: "processing",
-          processingError: null,
           processedAt: null,
         },
       });
@@ -415,6 +437,12 @@ export async function processPendingAssetPersonReferenceVectors() {
       }
 
       processing += 1;
+      // 先记一条再处理：处理中途进程被杀时，最后一条日志就能定位到是哪个特征
+      rootLogger.info({
+        msg: "Person vector processing started",
+        teamId: candidate.teamId,
+        featureId: candidate.id,
+      });
       try {
         await processAssetPersonReferenceVectors({
           teamId: candidate.teamId,
