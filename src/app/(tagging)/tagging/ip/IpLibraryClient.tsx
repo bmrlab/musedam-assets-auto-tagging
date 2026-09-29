@@ -556,7 +556,7 @@ export default function IpLibraryClient({
   return (
     <>
       {/* data-fill-viewport：页面占满可视高度，只有列表区域滚动、分页栏始终可见（见 tagging/layout.tsx） */}
-      <div data-fill-viewport className="flex min-h-0 flex-1 flex-col pb-5">
+      <div data-fill-viewport className="flex min-h-0 flex-1 flex-col">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <h2 className="text-xl font-semibold">{t("title")}</h2>
@@ -926,11 +926,10 @@ export default function IpLibraryClient({
                                   <div className="space-y-2">
                                     <div>{ip.ipTypeName}</div>
                                     <span
-                                      className={`inline-flex h-[22px] items-center gap-1 rounded-[4px] border px-[6px] py-[3px] text-[12px] leading-[16px] ${
-                                        ip.matchPattern === "partial"
+                                      className={`inline-flex h-[22px] items-center gap-1 rounded-[4px] border px-[6px] py-[3px] text-[12px] leading-[16px] ${ip.matchPattern === "partial"
                                           ? "border-primary-3 bg-primary-1 text-primary-6"
                                           : "border-basic-3 bg-basic-1 text-basic-5"
-                                      }`}
+                                        }`}
                                     >
                                       {ip.matchPattern === "partial" ? (
                                         <BoxSelect className="size-3.5" />

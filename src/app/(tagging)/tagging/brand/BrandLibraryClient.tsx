@@ -555,7 +555,7 @@ export default function BrandLibraryClient({
   return (
     <>
       {/* data-fill-viewport：页面占满可视高度，只有列表区域滚动、分页栏始终可见（见 tagging/layout.tsx） */}
-      <div data-fill-viewport className="flex min-h-0 flex-1 flex-col pb-5">
+      <div data-fill-viewport className="flex min-h-0 flex-1 flex-col">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <h2 className="text-xl font-semibold">{t("title")}</h2>
@@ -930,9 +930,8 @@ export default function BrandLibraryClient({
                                   <LogoImagesCell logo={logo} t={t} />
                                 </td>
                                 <td
-                                  className={`h-[58px] px-4 align-middle ${linkedTagsColumnCellClassName} ${
-                                    logo.tags.length > 1 ? "py-2" : "py-0"
-                                  }`}
+                                  className={`h-[58px] px-4 align-middle ${linkedTagsColumnCellClassName} ${logo.tags.length > 1 ? "py-2" : "py-0"
+                                    }`}
                                 >
                                   <LinkedTagsOverflow
                                     tags={logo.tags}
@@ -941,9 +940,8 @@ export default function BrandLibraryClient({
                                 </td>
                                 <td className="h-[58px] px-4 py-0 align-middle">
                                   <div
-                                    className={`flex items-center ${
-                                      logo.status === "failed" ? "gap-[8px]" : "gap-3"
-                                    }`}
+                                    className={`flex items-center ${logo.status === "failed" ? "gap-[8px]" : "gap-3"
+                                      }`}
                                   >
                                     {logo.status === "failed" ? (
                                       <Tooltip>
