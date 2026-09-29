@@ -11,6 +11,25 @@ export async function register() {
   } catch (error) {
     rootLogger.warn({ msg: "Failed to limit sharp concurrency", err: error });
   }
+
+  // 每分钟记一次内存水位：进程因堆溢出崩溃时来不及留日志，靠崩溃前的水位趋势定位问题。
+  const globalForMemoryLog = global as unknown as { __memoryLogStarted?: boolean };
+  if (!globalForMemoryLog.__memoryLogStarted) {
+    globalForMemoryLog.__memoryLogStarted = true;
+    const { getHeapStatistics } = await import("node:v8");
+    const toMB = (bytes: number) => Math.round(bytes / 1024 / 1024);
+    const memoryLogger = rootLogger.child({ service: "memory" });
+    setInterval(() => {
+      const { rss, heapUsed, external } = process.memoryUsage();
+      memoryLogger.info({
+        msg: "memory usage",
+        rssMB: toMB(rss),
+        heapUsedMB: toMB(heapUsed),
+        heapLimitMB: toMB(getHeapStatistics().heap_size_limit),
+        externalMB: toMB(external),
+      });
+    }, 60_000).unref();
+  }
   const featureVectorLogger = rootLogger.child({ service: "feature-vector-worker" });
 
   const globalForFeatureVectors = global as unknown as {

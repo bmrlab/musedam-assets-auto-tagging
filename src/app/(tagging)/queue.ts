@@ -1009,6 +1009,16 @@ export async function processPendingQueueItems(): Promise<{
     rootLogger.warn(`processPendingQueueItems skipped: queue is paused (QUEUE_PAUSED)`);
     return { processing: 0, skipped: 0 };
   }
+  // 本进程的槽位已经占满（含已排进 pLimit 等待的）时直接跳过：处理一个任务要几十秒，
+  // 而 queue-processor 调用 / 入队 kick 每几秒就来一轮，不跳过的话一轮接一轮排在 pLimit 后面，
+  // 每轮都攥着自己的候选和素材数据，积压时内存持续上涨直到堆溢出、进程崩溃。
+  const freeSlots =
+    TOTAL_QUEUE_CONCURRENCY -
+    (queueConcurrencyLimit.activeCount + queueConcurrencyLimit.pendingCount);
+  if (freeSlots <= 0) {
+    rootLogger.info({ msg: "processPendingQueueItems skipped: all slots busy" });
+    return { processing: 0, skipped: 0 };
+  }
   rootLogger.info(`processPendingQueueItems`);
   await recoverStaleProcessingItems();
 
@@ -1025,12 +1035,16 @@ export async function processPendingQueueItems(): Promise<{
   // 按团队轮询挑选，避免某个团队短时间内堆积大量任务时把其他团队"饿死"。
   const tagTreeItems = selectRoundRobinByTeam(
     candidateItems.filter(isTagTreeJob),
-    TAG_TREE_RESERVED_CONCURRENCY,
+    Math.min(TAG_TREE_RESERVED_CONCURRENCY, freeSlots),
   );
 
+  // 只领空闲槽位数量的任务，不多领去 pLimit 里排队
   const normalItems = selectRoundRobinByTeam(
     candidateItems.filter((item) => !isTagTreeJob(item)),
-    TOTAL_QUEUE_CONCURRENCY - TAG_TREE_RESERVED_CONCURRENCY,
+    Math.min(
+      TOTAL_QUEUE_CONCURRENCY - TAG_TREE_RESERVED_CONCURRENCY,
+      freeSlots - tagTreeItems.length,
+    ),
   );
 
   const selectedAssetObjectIds = normalItems
@@ -1038,9 +1052,9 @@ export async function processPendingQueueItems(): Promise<{
     .filter((id): id is number => id !== null);
   const assetObjectsById = new Map(
     selectedAssetObjectIds.length > 0
-      ? (
-          await prisma.assetObject.findMany({ where: { id: { in: selectedAssetObjectIds } } })
-        ).map((assetObject) => [assetObject.id, assetObject])
+      ? (await prisma.assetObject.findMany({ where: { id: { in: selectedAssetObjectIds } } })).map(
+          (assetObject) => [assetObject.id, assetObject],
+        )
       : [],
   );
   const allItems = [...tagTreeItems, ...normalItems].map((item) => ({
