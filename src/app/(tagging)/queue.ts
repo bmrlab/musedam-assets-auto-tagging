@@ -884,39 +884,51 @@ export async function processQueueItem({
 // 进程级单例并发闸：保证即使有多个重叠的 processPendingQueueItems 调用，
 // 全局同时处理的队列项也不会超过 TOTAL_QUEUE_CONCURRENCY（每次调用新建 pLimit 无法做到这点）。
 const queueConcurrencyLimit = pLimit(TOTAL_QUEUE_CONCURRENCY);
+// 处理中的任务每 30 秒刷新一次 updatedAt（心跳），超过 2 分钟没有心跳就说明处理它的进程已经没了
+// （被看门狗重启、崩溃或 pod 被替换）。之前没有心跳，只能等 15 分钟才敢判定，正常但较慢的任务也可能被误判。
+const PROCESSING_HEARTBEAT_MS = 30_000;
 const PROCESSING_STALE_TIMEOUT_MS = Number(
-  process.env.QUEUE_PROCESSING_STALE_TIMEOUT_MS ?? 15 * 60 * 1000,
+  process.env.QUEUE_PROCESSING_STALE_TIMEOUT_MS ?? 2 * 60 * 1000,
 );
+// 被中断的任务自动放回队列重试的次数；再次中断才标记失败，避免会拖垮进程的任务无限重试
+const MAX_INTERRUPTED_RETRIES = 1;
 
 async function recoverStaleProcessingItems(): Promise<number> {
   const staleBefore = new Date(Date.now() - PROCESSING_STALE_TIMEOUT_MS);
-  const now = new Date();
-
-  const updated = await prisma.taggingQueueItem.updateMany({
-    where: {
-      status: "processing",
-      updatedAt: { lt: staleBefore },
-    },
-    data: {
-      status: "failed",
-      endsAt: now,
-      result: {
-        error: "PROCESSING_STALE_TIMEOUT",
-        message: `processing 超时超过 ${PROCESSING_STALE_TIMEOUT_MS}ms，自动标记失败`,
-      } as TaggingQueueItemResult,
-    },
+  const failedResult = JSON.stringify({
+    error: "PROCESSING_STALE_TIMEOUT",
+    message: `处理中被中断（超过 ${PROCESSING_STALE_TIMEOUT_MS}ms 无心跳），已重试 ${MAX_INTERRUPTED_RETRIES} 次仍中断，自动标记失败`,
   });
+  // 重试次数记在 extra.interruptedAttempts（extra 是 jsonb，不需要 migration）
+  const failed = await prisma.$executeRaw`
+    UPDATE "TaggingQueueItem"
+    SET "status" = 'failed', "endsAt" = now(), "updatedAt" = now(), "result" = ${failedResult}::jsonb
+    WHERE "status" = 'processing'
+      AND "updatedAt" < ${staleBefore}
+      AND COALESCE(("extra" ->> 'interruptedAttempts')::int, 0) >= ${MAX_INTERRUPTED_RETRIES}
+  `;
+  const requeued = await prisma.$executeRaw`
+    UPDATE "TaggingQueueItem"
+    SET "status" = 'pending', "startsAt" = NULL, "updatedAt" = now(),
+        "extra" = jsonb_set(
+          CASE WHEN jsonb_typeof("extra") = 'object' THEN "extra" ELSE '{}'::jsonb END,
+          '{interruptedAttempts}',
+          to_jsonb(COALESCE(("extra" ->> 'interruptedAttempts')::int, 0) + 1)
+        )
+    WHERE "status" = 'processing' AND "updatedAt" < ${staleBefore}
+  `;
 
-  if (updated.count > 0) {
+  if (failed > 0 || requeued > 0) {
     rootLogger.warn({
-      msg: "recoverStaleProcessingItems: stale processing items recovered",
-      recovered: updated.count,
+      msg: "recoverStaleProcessingItems: interrupted processing items recovered",
+      requeued,
+      failed,
       staleBefore,
       timeoutMs: PROCESSING_STALE_TIMEOUT_MS,
     });
   }
 
-  return updated.count;
+  return failed + requeued;
 }
 
 type TagsTreeLoader = (teamId: number) => Promise<TagWithChildren[]>;
@@ -968,6 +980,7 @@ async function tryClaimAndProcess(
   onSkip: () => void,
   tagsTreeLoader?: TagsTreeLoader,
 ): Promise<void> {
+  let heartbeat: ReturnType<typeof setInterval> | null = null;
   try {
     const startsAt = new Date();
     const extra = {
@@ -984,6 +997,21 @@ async function tryClaimAndProcess(
       },
     });
     if (updated.count > 0) {
+      // 心跳：处理期间定时刷新 updatedAt，让回收逻辑能区分"还在跑"和"进程已经没了"
+      heartbeat = setInterval(() => {
+        void prisma.taggingQueueItem
+          .updateMany({
+            where: { id: queueItem.id, status: "processing" },
+            data: { status: "processing" },
+          })
+          .catch((error) => {
+            rootLogger.warn({
+              msg: "Queue item heartbeat failed",
+              queueItemId: queueItem.id,
+              err: error,
+            });
+          });
+      }, PROCESSING_HEARTBEAT_MS);
       if (isTagTreeJob(queueItem)) {
         await processTagTreeQueueItem({ ...queueItem, status: "processing", startsAt, extra });
       } else {
@@ -1007,6 +1035,8 @@ async function tryClaimAndProcess(
       msg: `Failed to process queue item: ${error}`,
     });
     onSkip();
+  } finally {
+    if (heartbeat) clearInterval(heartbeat);
   }
 }
 
