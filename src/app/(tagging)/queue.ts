@@ -213,12 +213,21 @@ export async function enqueueTaggingTask({
 // 不按"上一轮跑完"来合并，因为一轮会等所有领取到的任务处理完（可能几分钟），
 // 期间新入队的任务不该被卡住。多轮重叠是安全的：任务领取靠数据库条件更新
 // （pending -> processing），并发上限由进程级 queueConcurrencyLimit 兜底。
+// TEMP HOTFIX(2026-09-29): 中国区 web 只有 1 核，打标队列跑在 web 进程里把 CPU 吃满，
+// 连 `/` 探针都超时，pod 一直不就绪（503）并被反复重启。先在中国区暂停 web 内的队列处理，
+// 让站点恢复；任务留在 pending，不丢。扩容 / 队列拆出 web 之后删掉这段。
+// QUEUE_PAUSED=false 可显式覆盖。
+export const IS_QUEUE_PAUSED =
+  process.env.QUEUE_PAUSED !== undefined
+    ? process.env.QUEUE_PAUSED === "true"
+    : process.env.S3_REGION === "cn-north-1";
+
 const KICK_THROTTLE_MS = 2000;
 let lastKickAt = 0;
 let pendingKick: ReturnType<typeof setTimeout> | null = null;
 
 export function kickQueueProcessing(): void {
-  if (pendingKick) return;
+  if (IS_QUEUE_PAUSED || pendingKick) return;
   const delay = Math.max(0, lastKickAt + KICK_THROTTLE_MS - Date.now());
   pendingKick = setTimeout(() => {
     pendingKick = null;
@@ -983,6 +992,10 @@ export async function processPendingQueueItems(): Promise<{
   processing: number;
   skipped: number;
 }> {
+  if (IS_QUEUE_PAUSED) {
+    rootLogger.warn(`processPendingQueueItems skipped: queue is paused (QUEUE_PAUSED)`);
+    return { processing: 0, skipped: 0 };
+  }
   rootLogger.info(`processPendingQueueItems`);
   await recoverStaleProcessingItems();
 
