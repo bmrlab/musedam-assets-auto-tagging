@@ -73,6 +73,7 @@ import {
   TAG_TREE_RESERVED_CONCURRENCY,
   TOTAL_QUEUE_CONCURRENCY,
 } from "./queue-config";
+import { QUEUE_PAUSED_BY_ENV, USE_QUEUE_WORKER_PROCESS } from "./queue-role";
 import { getTaggingSettings } from "./tagging/settings/lib";
 import { SourceBasedTagPredictions, TagWithScore } from "./types";
 
@@ -219,8 +220,9 @@ export async function enqueueTaggingTask({
 // 不按"上一轮跑完"来合并，因为一轮会等所有领取到的任务处理完（可能几分钟），
 // 期间新入队的任务不该被卡住。多轮重叠是安全的：任务领取靠数据库条件更新
 // （pending -> processing），并发上限由进程级 queueConcurrencyLimit 兜底。
-// 紧急开关：QUEUE_PAUSED=true 时 web 进程不处理打标队列、不跑特征向量补算，任务留在 pending 不丢。
-export const IS_QUEUE_PAUSED = process.env.QUEUE_PAUSED === "true";
+// 本进程不处理打标队列、不跑特征向量补算（任务留在 pending 不丢）的两种情况：
+// QUEUE_PAUSED=true 紧急暂停；或者队列已交给 worker 子进程（见 queue-role.ts）。
+export const IS_QUEUE_PAUSED = QUEUE_PAUSED_BY_ENV || USE_QUEUE_WORKER_PROCESS;
 
 const KICK_THROTTLE_MS = 2000;
 let lastKickAt = 0;
@@ -1022,7 +1024,10 @@ export async function processPendingQueueItems(): Promise<{
   skipped: number;
 }> {
   if (IS_QUEUE_PAUSED) {
-    rootLogger.warn(`processPendingQueueItems skipped: queue is paused (QUEUE_PAUSED)`);
+    // 队列交给子进程时，外部调度器打到主进程的调用直接跳过，不刷 warn 日志
+    if (QUEUE_PAUSED_BY_ENV) {
+      rootLogger.warn(`processPendingQueueItems skipped: queue is paused (QUEUE_PAUSED)`);
+    }
     return { processing: 0, skipped: 0 };
   }
   // 本进程的槽位已经占满（含已排进 pLimit 等待的）时直接跳过：处理一个任务要几十秒，

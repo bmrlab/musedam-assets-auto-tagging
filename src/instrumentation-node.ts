@@ -18,7 +18,10 @@ export async function register() {
     globalForMemoryLog.__memoryLogStarted = true;
     const { getHeapStatistics } = await import("node:v8");
     const toMB = (bytes: number) => Math.round(bytes / 1024 / 1024);
-    const memoryLogger = rootLogger.child({ service: "memory" });
+    const memoryLogger = rootLogger.child({
+      service: "memory",
+      role: process.env.QUEUE_ROLE === "worker" ? "queue-worker" : "web",
+    });
     setInterval(() => {
       const { rss, heapUsed, external } = process.memoryUsage();
       memoryLogger.info({
@@ -30,6 +33,25 @@ export async function register() {
       });
     }, 60_000).unref();
   }
+  const { IS_QUEUE_WORKER_CHILD, QUEUE_PAUSED_BY_ENV, USE_QUEUE_WORKER_PROCESS } = await import(
+    "@/app/(tagging)/queue-role"
+  );
+  // 队列交给子进程时由主进程拉起并守护它（QUEUE_PAUSED=true 时整体暂停，不拉起）
+  const globalForQueueWorker = global as unknown as { __queueWorkerStarted?: boolean };
+  if (
+    USE_QUEUE_WORKER_PROCESS &&
+    !QUEUE_PAUSED_BY_ENV &&
+    !globalForQueueWorker.__queueWorkerStarted
+  ) {
+    globalForQueueWorker.__queueWorkerStarted = true;
+    const { startQueueWorkerProcess } = await import("@/lib/queue-worker-process");
+    startQueueWorkerProcess();
+  }
+  if (IS_QUEUE_WORKER_CHILD) {
+    const { exitWhenParentExits } = await import("@/lib/queue-worker-process");
+    exitWhenParentExits();
+  }
+
   const featureVectorLogger = rootLogger.child({ service: "feature-vector-worker" });
 
   const globalForFeatureVectors = global as unknown as {
@@ -130,7 +152,13 @@ export async function register() {
 
         const now = new Date();
         const today = now.toDateString();
-        if (scheduledTaggingLastRun !== today && now.getHours() === 0 && now.getMinutes() < 10) {
+        // 队列子进程只负责处理队列；每日定时打标仍由主进程侧（CronJob / 主进程内置调度器）触发，避免重复
+        if (
+          !IS_QUEUE_WORKER_CHILD &&
+          scheduledTaggingLastRun !== today &&
+          now.getHours() === 0 &&
+          now.getMinutes() < 10
+        ) {
           scheduledTaggingLastRun = today;
           const summary = await runScheduledTagging();
           logger.info({ msg: "Embedded scheduled tagging completed", ...summary });
