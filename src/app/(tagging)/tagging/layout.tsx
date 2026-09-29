@@ -17,7 +17,9 @@ export default function TaggingLayout({ children }: { children: React.ReactNode 
       <AppSidebar />
       <SidebarInset className="h-full relative overflow-y-scroll scrollbar-thin ">
         <LayoutHeader />
-        <main className="pt-[22px] pb-5 px-5 flex flex-1 flex-col gap-4 bg-basic-1">
+        {/* 页面根节点带 data-fill-viewport 时（有分页的列表页），main 不按内容撑高，页面恰好占满可视高度、
+            只有列表区域自己滚动；其他页面仍按内容撑高、由外层整体滚动 */}
+        <main className="pt-[22px] pb-5 px-5 flex flex-1 flex-col gap-4 bg-basic-1 has-[>[data-fill-viewport]]:min-h-0">
           {children}
         </main>
       </SidebarInset>

@@ -30,7 +30,7 @@ import {
 import { CheckIcon, Loader2Icon, Search, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AssetWithAuditItemsBatch, fetchAssetsWithAuditItems, batchApproveAuditItemsAction, batchRejectAuditItemsAction } from "./actions";
 import { ReviewItem } from "./ReviewItem";
 import { featureKey, getFeatureReviewVersions, type ReviewFeatureSearchResult } from "./feature-review";
@@ -58,6 +58,11 @@ export default function ReviewPageClient() {
   const [timeFilter, setTimeFilter] = useState<"all" | "today" | "week" | "month">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  // 只有列表区域滚动（分页栏始终可见）；翻页后回到列表顶部
+  const listScrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    listScrollRef.current?.scrollTo({ top: 0 });
+  }, [currentPage]);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const { theme } = useTheme();
@@ -268,7 +273,8 @@ export default function ReviewPageClient() {
   }, [selectedAssets, t, refreshDataWithFilters]);
 
   return (
-    <div className="flex flex-col space-y-[10px] min-h-full">
+    // data-fill-viewport：页面占满可视高度，只有列表区域滚动、分页栏始终可见（见 tagging/layout.tsx）
+    <div data-fill-viewport className="flex min-h-0 flex-1 flex-col gap-[10px]">
       {/* 筛选器和搜索 */}
       <div className="flex items-center justify-between py-4 px-5 bg-background border rounded-[6px]">
         <div className="text-[13px] font-medium flex items-center gap-3">
@@ -436,6 +442,7 @@ export default function ReviewPageClient() {
           </CardContent>
         </Card>
       ) : <>
+        <div ref={listScrollRef} className="min-h-[240px] flex-1 space-y-[10px] overflow-y-auto">
         {assets.map((asset) => (
           <ReviewItem
             {...asset}
@@ -477,10 +484,10 @@ export default function ReviewPageClient() {
             key={asset.assetObject.id}
           />
         ))}
-
+        </div>
 
         {/* 分页组件 */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-[14px]">
+        <div className="flex shrink-0 flex-col sm:flex-row items-center justify-between gap-4 pt-1">
           {/* 页码输入 */}
           <Input
             placeholder={t("pageInputPlaceholder")}

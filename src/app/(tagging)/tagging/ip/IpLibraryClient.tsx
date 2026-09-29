@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 import {
   BoxSelect,
   Check,
@@ -45,6 +46,15 @@ import Link from "next/link";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { MAX_PREVIEW_IMAGE_NUM } from "../brand/BrandLibraryClient";
+import {
+  libraryTableClassName,
+  libraryTableScrollClassName,
+  stickyCheckboxCellClassName,
+  stickyCheckboxHeaderClassName,
+  stickyNameCellClassName,
+  stickyNameHeaderClassName,
+  useHorizontalScrolled,
+} from "../components/library-table";
 import LibraryPagination from "../components/LibraryPagination";
 import {
   linkedTagsColumnCellClassName,
@@ -187,6 +197,7 @@ export default function IpLibraryClient({
   const [batchImportExportOpen, setBatchImportExportOpen] = useState(false);
   const [pendingIpIds, setPendingIpIds] = useState<string[]>([]);
   const [isPending, startTransition] = useTransition();
+  const { scrolledX, onScroll: onTableScroll } = useHorizontalScrolled();
   const {
     items: ips,
     setItems: setIps,
@@ -544,7 +555,8 @@ export default function IpLibraryClient({
 
   return (
     <>
-      <div className="flex min-h-[calc(100dvh-120px)] flex-1 flex-col pb-5">
+      {/* data-fill-viewport：页面占满可视高度，只有列表区域滚动、分页栏始终可见（见 tagging/layout.tsx） */}
+      <div data-fill-viewport className="flex min-h-0 flex-1 flex-col pb-5">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <h2 className="text-xl font-semibold">{t("title")}</h2>
@@ -611,7 +623,7 @@ export default function IpLibraryClient({
 
         <div className="mt-[20px] flex min-h-0 flex-1 flex-col gap-[10px]">
           {isLibraryCompletelyEmpty ? (
-            <div className="flex min-h-[calc(100dvh-280px)] flex-1 items-center justify-center px-6 py-10">
+            <div className="flex min-h-[320px] flex-1 items-center justify-center px-6 py-10">
               <div className="text-center">
                 <Image
                   width={171}
@@ -767,7 +779,7 @@ export default function IpLibraryClient({
               </div>
 
               <div
-                className={`flex min-h-[calc(100dvh-280px)] flex-1 flex-col rounded-[8px] border bg-background transition-opacity${listLoading ? " pointer-events-none opacity-60" : ""}`}
+                className={`flex min-h-[320px] flex-1 flex-col overflow-hidden rounded-[8px] border bg-background transition-opacity${listLoading ? " pointer-events-none opacity-60" : ""}`}
                 aria-busy={listLoading}
               >
                 {totalIps === 0 ? (
@@ -785,11 +797,13 @@ export default function IpLibraryClient({
                   </div>
                 ) : (
                   <div className="flex min-h-0 flex-1 flex-col">
-                    <div className="flex-1 overflow-x-auto">
-                      <table className="min-w-full table-auto [&_th]:font-medium [&_th]:leading-5 [&_th]:align-middle [&_td]:leading-5 [&_td]:align-middle [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap">
+                    <div className={libraryTableScrollClassName} onScroll={onTableScroll}>
+                      <table className={libraryTableClassName}>
                         <thead>
                           <tr className="h-[45px] border-b text-left text-[14px] leading-[20px] text-basic-5">
-                            <th className="w-[40px] px-3 py-0 text-center">
+                            <th
+                              className={cn("px-3 py-0 text-center", stickyCheckboxHeaderClassName)}
+                            >
                               <div className="flex h-[45px] w-full items-center justify-center">
                                 <Checkbox
                                   className="size-4 border-basic-4"
@@ -801,7 +815,14 @@ export default function IpLibraryClient({
                                 />
                               </div>
                             </th>
-                            <th className="w-[300px] px-3 py-0">{t("columnIpName")}</th>
+                            <th
+                              className={cn(
+                                "w-[300px] px-3 py-0",
+                                stickyNameHeaderClassName(scrolledX),
+                              )}
+                            >
+                              {t("columnIpName")}
+                            </th>
                             <th className="w-[130px] px-3 py-0">{t("columnIpType")}</th>
                             <th className="w-[220px] px-4 py-0">{t("columnIpImages")}</th>
                             <th className={linkedTagsColumnHeaderClassName}>
@@ -824,7 +845,12 @@ export default function IpLibraryClient({
 
                             return (
                               <tr key={ip.id} className="h-[58px] border-b last:border-b-0">
-                                <td className="h-[58px] px-3 py-0 text-center align-middle">
+                                <td
+                                  className={cn(
+                                    "h-[58px] px-3 py-0 text-center align-middle",
+                                    stickyCheckboxCellClassName,
+                                  )}
+                                >
                                   <div className="flex h-[58px] w-full items-center justify-center">
                                     <Checkbox
                                       className="border-basic-4"
@@ -845,11 +871,12 @@ export default function IpLibraryClient({
                                   </div>
                                 </td>
                                 <td
-                                  className={
+                                  className={cn(
                                     subtitle
                                       ? "h-[58px] max-w-[300px] px-3 pt-3 pb-2 align-top"
-                                      : "h-[58px] max-w-[300px] px-3 py-0 align-middle"
-                                  }
+                                      : "h-[58px] max-w-[300px] px-3 py-0 align-middle",
+                                    stickyNameCellClassName(scrolledX),
+                                  )}
                                 >
                                   <div
                                     className={
@@ -1026,7 +1053,7 @@ export default function IpLibraryClient({
                       </table>
                     </div>
 
-                    <div className="mt-auto flex flex-col gap-4 border-t px-6 py-4 xl:flex-row xl:items-center xl:justify-between">
+                    <div className="flex shrink-0 flex-col gap-4 border-t px-6 py-4 xl:flex-row xl:items-center xl:justify-between">
                       <Input
                         value={pageInput}
                         onChange={(event) => setPageInput(event.target.value)}
