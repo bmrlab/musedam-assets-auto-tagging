@@ -4,6 +4,7 @@ import { getLogoDetectionServerToken, getLogoDetectionServerUrl } from "@/lib/br
 import { createJinaImageEmbeddings } from "@/lib/brand/jina";
 import { truncateDetectionLabelToTokenLimit } from "@/lib/detection-label";
 import { queryIpVectorPoints } from "@/lib/ip/pgvector";
+import { DETECTION_TIMEOUT_MS } from "@/lib/tagging/external-timeouts";
 import { translateDetectionLabelText } from "@/lib/translation/service";
 import { normalizeDetectionText } from "@/lib/utils";
 import prisma from "@/prisma/prisma";
@@ -233,6 +234,7 @@ async function requestIpDetection({
   }
   const response = await fetch(`${baseUrl}/object_detection_llm`, {
     method: "POST",
+    signal: AbortSignal.timeout(DETECTION_TIMEOUT_MS),
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",

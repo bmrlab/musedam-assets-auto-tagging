@@ -4,6 +4,7 @@ import { getLogoDetectionServerToken, getLogoDetectionServerUrl } from "@/lib/br
 import { createJinaImageEmbeddings } from "@/lib/brand/jina";
 import { queryLogoVectorPoints } from "@/lib/brand/pgvector";
 import { truncateDetectionLabelToTokenLimit } from "@/lib/detection-label";
+import { DETECTION_TIMEOUT_MS } from "@/lib/tagging/external-timeouts";
 import { normalizeDetectionText } from "@/lib/utils";
 import prisma from "@/prisma/prisma";
 
@@ -95,6 +96,7 @@ export async function detectBrandLogoBoxes({
     truncateDetectionLabelToTokenLimit(normalizeDetectionText(rawDetectionLabelText)) || "logo .";
   const response = await fetch(`${baseUrl}/object_detection_llm`, {
     method: "POST",
+    signal: AbortSignal.timeout(DETECTION_TIMEOUT_MS),
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",

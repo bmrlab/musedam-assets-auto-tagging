@@ -261,6 +261,16 @@ export async function processQueueItem({
   }
 
   logger.info("processQueueItem started");
+  // 每个并行步骤结束时记一条（距任务开始的耗时）：任务卡住时，没出现"finished"的那一步就是卡住的地方
+  const taskStartedAt = Date.now();
+  const logStepFinished = <T>(step: string, promise: Promise<T>): Promise<T> =>
+    promise.finally(() =>
+      logger.info({
+        msg: "processQueueItem step finished",
+        step,
+        elapsedMs: Date.now() - taskStartedAt,
+      }),
+    );
 
   try {
     const extra = queueItem.extra as TaggingQueueItemExtra;
@@ -337,7 +347,7 @@ export async function processQueueItem({
 
       if (logoCount + productCount + ipCount + personCount > 0) {
         const withFallback = <T>(p: Promise<T>, fn: string): Promise<T | null> =>
-          p.catch((error) => {
+          logStepFinished(fn, p).catch((error) => {
             logger.warn({
               msg: `${fn} failed, continuing without recommendation`,
               classificationFn: fn,
@@ -456,7 +466,10 @@ export async function processQueueItem({
       productRecommendation,
       personRecommendation,
     ] = await Promise.all([
-      predictTagsPromise ?? predictAssetTags(assetObject, predictOptionsBase),
+      logStepFinished(
+        "predictAssetTags",
+        predictTagsPromise ?? predictAssetTags(assetObject, predictOptionsBase),
+      ),
       brandRecommendationPromise,
       ipRecommendationPromise,
       productRecommendationPromise,

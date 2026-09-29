@@ -1,6 +1,7 @@
 import "server-only";
 
 import { llm, LLMModelName } from "@/ai/provider";
+import { LLM_TIMEOUT_MS } from "@/lib/tagging/external-timeouts";
 import {
   AssetObject,
   AssetObjectContentAnalysis,
@@ -1086,6 +1087,7 @@ export async function predictRequiredGroupChoices({
       schemaName: "RequiredGroupChoices",
       schema: requiredGroupChoiceSchema,
       providerOptions: getTaggingPredictProviderOptions(modelName, teamId),
+      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
       system: `你是数字资产管理系统的打标助手。下面这些分类被管理员设置为"必打"：每个素材都必须在该分类下选出恰好一个标签，哪怕证据不足也要选最可能的那个，不允许不选。只输出 JSON：{"choices":[{"parentId":<分类 id>,"leafTagId":<所选标签 id>}]}，每个必打分类恰好一条，leafTagId 必须来自该分类下列出的候选。`,
       prompt: `# 素材信息\n${assetSummary}\n\n# 需要选择的必打分类\n${groupsText}`,
       temperature: 0,
@@ -1277,6 +1279,7 @@ ${sourceSections.join("\n\n")}
         schemaDescription:
           '返回 JSON 对象 {"predictions":[...]}；predictions 元素包含 source("basicInfo"|"materializedPath"|"contentAnalysis"|"tagKeywords") 和 tags；tags 元素包含 confidence(0-1)、leafTagId(number)、tagPath(string[])。只输出纯 JSON。',
         providerOptions: getTaggingPredictProviderOptions(modelName, asset.teamId),
+        abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
         schema: tagPredictionsResponseSchema,
         system: tagPredictionSystemPrompt(recognitionAccuracyMode),
         messages,

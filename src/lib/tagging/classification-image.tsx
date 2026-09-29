@@ -2,6 +2,7 @@ import "server-only";
 
 import { bufferToDataUrl } from "@/lib/brand/image";
 import { rootLogger } from "@/lib/logging";
+import { IMAGE_FETCH_TIMEOUT_MS } from "@/lib/tagging/external-timeouts";
 import sharp from "sharp";
 
 // Shared non-person downsampling and crop-output settings. Person detection uses a separate
@@ -324,7 +325,7 @@ export async function fetchRemoteImageSource(
 ): Promise<RemoteImageSource> {
   let response: Response;
   try {
-    response = await fetch(imageUrl);
+    response = await fetch(imageUrl, { signal: AbortSignal.timeout(IMAGE_FETCH_TIMEOUT_MS) });
   } catch (error) {
     rootLogger.warn({
       msg: "fetchRemoteImageInput failed while fetching image",

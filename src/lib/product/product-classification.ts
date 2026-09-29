@@ -6,6 +6,7 @@ import { groupProductDetectionBoxes } from "@/lib/product/detection-box-groups";
 import { queryProductVectorPoints } from "@/lib/product/pgvector";
 import { deduplicateProductMatches } from "@/lib/product/product-match-policy";
 import type { ClassificationRemoteImageInput } from "@/lib/tagging/classification-image";
+import { DETECTION_TIMEOUT_MS } from "@/lib/tagging/external-timeouts";
 import { meetsFeatureConfidenceThreshold } from "@/lib/tagging/feature-confidence";
 import prisma from "@/prisma/prisma";
 import pLimit from "p-limit";
@@ -140,6 +141,7 @@ export async function detectProductFigureBoxes({
   }
   const response = await fetch(`${baseUrl}/object_detection_llm`, {
     method: "POST",
+    signal: AbortSignal.timeout(DETECTION_TIMEOUT_MS),
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
