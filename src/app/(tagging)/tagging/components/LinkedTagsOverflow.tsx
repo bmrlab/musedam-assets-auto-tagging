@@ -20,6 +20,28 @@ const WIDTH_FUDGE_PX = 4;
 const tagPillClassName =
   "inline-flex items-center rounded-[4px] border border-basic-4 bg-background px-[6px] py-[3px] text-[12px] font-normal leading-[16px] text-basic-8";
 
+// 标签/徽标宽度用 canvas 文本测量计算，不读 DOM 布局。之前每行"改徽标文字 → 读 offsetWidth"循环测量，
+// 每次都强制整张表同步重排（实测一页 40 行 84 次、约 700ms），进入特征多的库时页面卡死。
+// 胶囊宽度 = 文字宽 + 左右内边距 6px×2 + 边框 1px×2（与 tagPillClassName 保持一致）
+const PILL_CHROME_WIDTH_PX = 6 * 2 + 1 * 2;
+let measureContext: CanvasRenderingContext2D | null = null;
+const textWidthCache = new Map<string, number>();
+
+function measurePillWidth(text: string) {
+  const cached = textWidthCache.get(text);
+  if (cached !== undefined) return cached;
+  if (!measureContext) {
+    measureContext = document.createElement("canvas").getContext("2d");
+    if (measureContext) {
+      measureContext.font = `400 12px ${getComputedStyle(document.body).fontFamily}`;
+    }
+  }
+  const width =
+    Math.ceil(measureContext?.measureText(text).width ?? text.length * 12) + PILL_CHROME_WIDTH_PX;
+  textWidthCache.set(text, width);
+  return width;
+}
+
 function getVisibleTagCount({
   tagWidths,
   maxContentWidth,
@@ -130,8 +152,6 @@ export default function LinkedTagsOverflow({
 }) {
   const t = useTranslations("Tagging.Common");
   const containerRef = useRef<HTMLDivElement>(null);
-  const measureRef = useRef<HTMLDivElement>(null);
-  const badgeMeasureRef = useRef<HTMLSpanElement>(null);
   const [visibleCount, setVisibleCount] = useState(1);
   const [truncateFirstTag, setTruncateFirstTag] = useState(false);
   const [firstTagMaxWidth, setFirstTagMaxWidth] = useState<number | undefined>();
@@ -154,28 +174,25 @@ export default function LinkedTagsOverflow({
     return () => observer.disconnect();
   }, []);
 
+  // 只在标签内容或容器宽度真正变化时重算（轮询刷新会生成新的 tags 数组，但内容不变）
+  const tagTexts = tags.map((tag) => tag.tagPath.join(" > "));
+  const tagTextsKey = tagTexts.join("\u0000");
+
   useLayoutEffect(() => {
-    const measure = measureRef.current;
-    const badgeMeasure = badgeMeasureRef.current;
-    if (!measure || !badgeMeasure || containerWidth <= 0) {
+    if (containerWidth <= 0) {
       return;
     }
 
-    const tagElements = measure.querySelectorAll<HTMLElement>("[data-tag-measure]");
-    const tagWidths = Array.from(tagElements).map((element) => element.offsetWidth);
+    const tagWidths = tagTexts.map(measurePillWidth);
     const availableWidth = containerWidth - WIDTH_FUDGE_PX;
-
-    const measureBadgeWidth = (hiddenCount: number) => {
-      badgeMeasure.textContent = `+${hiddenCount}`;
-      return badgeMeasure.offsetWidth;
-    };
+    const measureBadgeWidth = (hiddenCount: number) => measurePillWidth(`+${hiddenCount}`);
 
     const nextVisibleCount = getVisibleTagCount({
       tagWidths,
       maxContentWidth: containerWidth,
       measureBadgeWidth,
     });
-    const hiddenCount = tags.length - nextVisibleCount;
+    const hiddenCount = tagTexts.length - nextVisibleCount;
 
     let nextTruncateFirstTag = false;
     let nextFirstTagMaxWidth: number | undefined;
@@ -198,7 +215,9 @@ export default function LinkedTagsOverflow({
     setFirstTagMaxWidth((current) =>
       current === nextFirstTagMaxWidth ? current : nextFirstTagMaxWidth,
     );
-  }, [tags, containerWidth]);
+    // tagTexts 由 tagTextsKey 决定，按内容比较即可
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tagTextsKey, containerWidth]);
 
   if (tags.length === 0) {
     return <span className="text-sm text-basic-5">{emptyText}</span>;
@@ -209,21 +228,6 @@ export default function LinkedTagsOverflow({
 
   return (
     <div ref={containerRef} className="relative w-full overflow-hidden">
-      <div
-        ref={measureRef}
-        aria-hidden
-        className="pointer-events-none invisible absolute left-0 top-0 flex w-full max-w-full flex-nowrap items-center gap-2"
-      >
-        {tags.map((tag) => (
-          <span key={tag.id} data-tag-measure className={cn(tagPillClassName, "shrink-0")}>
-            {tag.tagPath.join(" > ")}
-          </span>
-        ))}
-        <span ref={badgeMeasureRef} className={cn(tagPillClassName, "shrink-0")}>
-          +0
-        </span>
-      </div>
-
       <div className="flex max-w-full flex-nowrap items-center gap-2">
         {visibleTags.map((tag, index) => (
           <TagPill
