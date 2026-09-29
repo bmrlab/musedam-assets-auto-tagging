@@ -69,12 +69,14 @@ export async function register() {
       if (isFeatureVectorTickRunning) return;
       isFeatureVectorTickRunning = true;
 
-      void Promise.all([
-        runRecovery("Logo", processPendingAssetLogoReferenceVectors),
-        runRecovery("IP", processPendingAssetIpReferenceVectors),
-        runRecovery("Person", processPendingAssetPersonReferenceVectors),
-        runRecovery("Product", processPendingAssetProductReferenceVectors),
-      ])
+      // 四个特征库依次跑、不并行：每个库都要下载参考图、sharp 处理、调 Jina，四个库同时跑在
+      // 1 核的 web pod 里是一次很大的突发，积压时足以把进程拖到探针超时 / 崩溃。
+      void (async () => [
+        await runRecovery("Logo", processPendingAssetLogoReferenceVectors),
+        await runRecovery("IP", processPendingAssetIpReferenceVectors),
+        await runRecovery("Person", processPendingAssetPersonReferenceVectors),
+        await runRecovery("Product", processPendingAssetProductReferenceVectors),
+      ])()
         .then(([logos, ips, persons, products]) => {
           const hasWork = [logos, ips, persons, products].some(
             (result) => result.processing > 0 || result.recovered > 0,
@@ -94,7 +96,8 @@ export async function register() {
         });
     };
 
-    runFeatureVectorTick();
+    // 不在启动瞬间就跑：崩溃重启后上一轮卡在 processing 的特征会被整批捡回来重跑，
+    // 和启动过程挤在一起容易让新 pod 还没就绪就又被拖垮。
     setInterval(runFeatureVectorTick, featureVectorPollIntervalMs);
   }
 
