@@ -5,6 +5,7 @@ import { ServerActionResult } from "@/lib/serverAction";
 import { revalidatePath } from "next/cache";
 import {
   addOrUpdateAccessPermission,
+  addOrUpdateAccessPermissions,
   getAccessPermissions,
   removeAccessPermission,
   saveAccessPermissions,
@@ -74,6 +75,30 @@ export async function addAccessPermissionAction(
       };
     } catch (error) {
       console.error("添加权限失败:", error);
+      return {
+        success: false,
+        message: "添加权限失败",
+      };
+    }
+  });
+}
+
+// 批量添加权限（选择成员后一次提交）
+export async function addAccessPermissionsAction(
+  permissions: AccessPermission[],
+): Promise<ServerActionResult<{ permissions: AccessPermission[] }>> {
+  return withAuth(async ({ team }) => {
+    try {
+      const newPermissions = await addOrUpdateAccessPermissions(team.id, permissions);
+
+      revalidatePath("/tagging/access");
+
+      return {
+        success: true,
+        data: { permissions: newPermissions },
+      };
+    } catch (error) {
+      console.error("批量添加权限失败:", error);
       return {
         success: false,
         message: "添加权限失败",
