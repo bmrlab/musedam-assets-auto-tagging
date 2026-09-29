@@ -307,19 +307,7 @@
         "11": "ธันวาคม"
       },
       "filterFailed": "ล้มเหลว",
-      "searchPlaceholder": "ค้นหาตามชื่อไฟล์",
-      "filterCancelled": "ยกเลิกแล้ว",
-      "taskCancelled": "ยกเลิกแล้ว",
-      "resumeTask": "ติดแท็กต่อ",
-      "cancelSelectedTasks": "ยกเลิกที่เลือก ({count})",
-      "cancelAllPendingTasks": "ยกเลิกที่รอคิวทั้งหมด",
-      "cancelConfirmTitle": "ยกเลิกงานติดแท็ก",
-      "cancelSelectedConfirmDescription": "ยกเลิกงานที่รอคิวที่เลือก {count} งานหรือไม่? สามารถกู้คืนทีละงานได้ใน \"ยกเลิกแล้ว\"",
-      "cancelAllConfirmDescription": "ยกเลิกงานที่รอคิวทั้งหมด {count} งานหรือไม่? งานที่กำลังประมวลผลจะไม่ได้รับผลกระทบ สามารถกู้คืนทีละงานได้ใน \"ยกเลิกแล้ว\"",
-      "cancelConfirmDismiss": "เก็บไว้",
-      "cancelConfirmOk": "ยกเลิกงาน",
-      "cancelTasksSuccess": "ยกเลิกแล้ว {count} งาน",
-      "cancelTasksFailed": "ยกเลิกงานไม่สำเร็จ"
+      "searchPlaceholder": "ค้นหาตามชื่อไฟล์"
     },
     "Settings": {
       "title": "สวิตช์การติดแท็ก",

@@ -307,19 +307,7 @@
         "11": "Dicembre"
       },
       "filterFailed": "Fallite",
-      "searchPlaceholder": "Cerca per nome risorsa",
-      "filterCancelled": "Annullata",
-      "taskCancelled": "Annullata",
-      "resumeTask": "Riprendi tagging",
-      "cancelSelectedTasks": "Annulla selezionate ({count})",
-      "cancelAllPendingTasks": "Annulla tutte in coda",
-      "cancelConfirmTitle": "Annulla attività di tagging",
-      "cancelSelectedConfirmDescription": "Annullare le {count} attività in coda selezionate? Potrai riprenderle singolarmente in \"Annullata\".",
-      "cancelAllConfirmDescription": "Annullare tutte le {count} attività in coda? Le attività in corso non sono interessate. Potrai riprenderle singolarmente in \"Annullata\".",
-      "cancelConfirmDismiss": "Mantieni",
-      "cancelConfirmOk": "Annulla attività",
-      "cancelTasksSuccess": "{count} attività annullate",
-      "cancelTasksFailed": "Impossibile annullare le attività"
+      "searchPlaceholder": "Cerca per nome risorsa"
     },
     "Settings": {
       "title": "Interruttore etichettatura",

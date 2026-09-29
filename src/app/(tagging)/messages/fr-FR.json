@@ -307,19 +307,7 @@
         "11": "Décembre"
       },
       "filterFailed": "Échouées",
-      "searchPlaceholder": "Rechercher par nom de ressource",
-      "filterCancelled": "Annulée",
-      "taskCancelled": "Annulée",
-      "resumeTask": "Reprendre le balisage",
-      "cancelSelectedTasks": "Annuler la sélection ({count})",
-      "cancelAllPendingTasks": "Annuler toutes en attente",
-      "cancelConfirmTitle": "Annuler les tâches de balisage",
-      "cancelSelectedConfirmDescription": "Annuler les {count} tâches en attente sélectionnées ? Vous pourrez les reprendre une par une dans « Annulée ».",
-      "cancelAllConfirmDescription": "Annuler les {count} tâches en attente ? Les tâches en cours ne sont pas concernées. Vous pourrez les reprendre une par une dans « Annulée ».",
-      "cancelConfirmDismiss": "Conserver",
-      "cancelConfirmOk": "Annuler les tâches",
-      "cancelTasksSuccess": "{count} tâches annulées",
-      "cancelTasksFailed": "Échec de l’annulation des tâches"
+      "searchPlaceholder": "Rechercher par nom de ressource"
     },
     "Settings": {
       "title": "Interrupteur d'étiquetage",

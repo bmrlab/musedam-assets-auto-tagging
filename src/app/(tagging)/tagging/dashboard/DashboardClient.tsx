@@ -1,20 +1,6 @@
 "use client";
-import {
-  CANCELLED_TASK_ERROR_CODE,
-  QUEUE_ITEM_HEADROOM_SECONDS,
-} from "@/app/(tagging)/queue-config";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { QUEUE_ITEM_HEADROOM_SECONDS } from "@/app/(tagging)/queue-config";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Pagination,
   PaginationContent,
@@ -44,8 +30,6 @@ import {
 } from "recharts";
 import { toast } from "sonner";
 import {
-  cancelAllPendingTasks,
-  cancelPendingTasks,
   DashboardStats,
   fetchDashboardStats,
   fetchMonthlyTrend,
@@ -93,9 +77,6 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
   const [totalTasks, setTotalTasks] = useState(0);
   const [pageSize, setPageSize] = useState(20);
   const [isLoading, setIsLoading] = useState(true);
-  // 勾选的排队中任务（只有 pending 可取消）
-  const [selectedTaskIds, setSelectedTaskIds] = useState<Set<number>>(new Set());
-  const [cancelConfirm, setCancelConfirm] = useState<"selected" | "all" | null>(null);
 
   const { theme } = useTheme();
   const isDark = theme === "dark";
@@ -115,14 +96,6 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
         }
         if (tasksResult.success) {
           setTasks(tasksResult.data.tasks);
-          // 自动刷新后，已开始处理 / 不在当前页的任务不再保留勾选
-          const pendingIds = new Set(
-            tasksResult.data.tasks.filter((task) => task.status === "pending").map((task) => task.id),
-          );
-          setSelectedTaskIds((prev) => {
-            const next = new Set([...prev].filter((id) => pendingIds.has(id)));
-            return next.size === prev.size ? prev : next;
-          });
           setTotalTasks(tasksResult.data.total);
           setTotalPages(Math.ceil(tasksResult.data.total / size));
         }
@@ -171,7 +144,6 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
-    setSelectedTaskIds(new Set());
   };
 
   useEffect(() => {
@@ -186,7 +158,6 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
     const filter = value as DashboardTaskFilter;
     setTaskFilter(filter);
     setCurrentPage(1);
-    setSelectedTaskIds(new Set());
   };
 
   const handleRetryTask = async (taskId: number) => {
@@ -197,31 +168,6 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
     } else {
       toast.error(tCommon("retryFailed"));
     }
-  };
-
-  const handleConfirmCancel = async () => {
-    const target = cancelConfirm;
-    setCancelConfirm(null);
-    const result =
-      target === "selected"
-        ? await cancelPendingTasks([...selectedTaskIds])
-        : await cancelAllPendingTasks();
-    if (result.success) {
-      toast.success(t("cancelTasksSuccess", { count: result.data.count }));
-      setSelectedTaskIds(new Set());
-      await refreshData(currentPage, taskFilter, pageSize, debouncedSearch);
-    } else {
-      toast.error(t("cancelTasksFailed"));
-    }
-  };
-
-  const toggleTaskSelected = (taskId: number, checked: boolean) => {
-    setSelectedTaskIds((prev) => {
-      const next = new Set(prev);
-      if (checked) next.add(taskId);
-      else next.delete(taskId);
-      return next;
-    });
   };
 
   const handleRetryAllTasks = async () => {
@@ -249,7 +195,6 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
   };
 
   const notFinishedTasks = stats.pending + stats.processing;
-  const hasPendingOnPage = tasks.some((task) => task.status === "pending");
 
   const formatDuration = (task: TaskWithAsset) => {
     if (task.status === "processing" && task.startsAt) {
@@ -460,20 +405,8 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
                 <SelectItem value="all">{t("filterAll")}</SelectItem>
                 <SelectItem value="processing">{t("filterProcessing")}</SelectItem>
                 <SelectItem value="failed">{t("filterFailed")}</SelectItem>
-                <SelectItem value="cancelled">{t("filterCancelled")}</SelectItem>
               </SelectContent>
             </Select>
-            {selectedTaskIds.size > 0 ? (
-              <Button size="sm" variant="outline" onClick={() => setCancelConfirm("selected")}>
-                {t("cancelSelectedTasks", { count: selectedTaskIds.size })}
-              </Button>
-            ) : (
-              stats.pending > 0 && (
-                <Button size="sm" variant="outline" onClick={() => setCancelConfirm("all")}>
-                  {t("cancelAllPendingTasks")}
-                </Button>
-              )
-            )}
             {stats.failed > 0 && <Button size="sm" variant="outline" onClick={handleRetryAllTasks}>
               <RetryIcon className="size-[14px] mr-1" />
               {t("retryFailedTasks")}
@@ -513,11 +446,8 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
                 const assetObject = task.assetObject;
                 const extra = (assetObject?.extra ?? null) as AssetObjectExtra | null;
                 const assetName = assetObject?.name || "Unknown Asset";
-                const isCancelled =
-                  task.status === "failed" &&
-                  (task.result as { error?: unknown } | null)?.error === CANCELLED_TASK_ERROR_CODE;
                 const failedReason = (() => {
-                  if (task.status !== "failed" || isCancelled) return null;
+                  if (task.status !== "failed") return null;
                   try {
                     const result = task.result as unknown as {
                       error?: string | { code?: string };
@@ -543,16 +473,6 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
                     key={task.id}
                     className="flex items-center gap-[14px] px-4 py-3  transition-all"
                   >
-                    {hasPendingOnPage && (
-                      <div className="shrink-0 size-4">
-                        {task.status === "pending" && (
-                          <Checkbox
-                            checked={selectedTaskIds.has(task.id)}
-                            onCheckedChange={(checked) => toggleTaskSelected(task.id, checked === true)}
-                          />
-                        )}
-                      </div>
-                    )}
                     {/* Thumbnail or Icon */}
                     <div className="shrink-0 size-8 relative overflow-hidden">
                       <AssetThumbnail asset={{
@@ -584,9 +504,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
                             </span>
                           )}
                         <>
-                          {isCancelled ? (
-                            <span className="text-basic-5">{t("taskCancelled")}</span>
-                          ) : task.status === "failed" ? (
+                          {task.status === "failed" ? (
                             <span className="text-danger-6 flex items-center gap-1 min-w-0">
                               <span>{t("taggingFailed")}</span>
                               {failedReason ? (
@@ -616,7 +534,7 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
                       {task.status === "processing" ? (
                         <span className="w-1.5 h-1.5 bg-primary-6 rounded-full animate-pulse"></span>
                       ) : task.status === "failed" ? (
-                        <div className="size-[26px] cursor-pointer transition-all duration-300 ease-in-out flex items-center justify-center group hover:bg-primary-1 rounded-[6px]" title={isCancelled ? t("resumeTask") : undefined} onClick={() => handleRetryTask(task.id)} >
+                        <div className="size-[26px] cursor-pointer transition-all duration-300 ease-in-out flex items-center justify-center group hover:bg-primary-1 rounded-[6px]" onClick={() => handleRetryTask(task.id)} >
                           <RetryIcon className="h-4 w-4 text-basic-6 group-hover:text-basic-8" />
                         </div>
                       )
@@ -642,28 +560,6 @@ export default function DashboardClient({ initialStats, initialTasks }: Dashboar
           )}
         </div>
       </div>
-
-      <AlertDialog
-        open={cancelConfirm !== null}
-        onOpenChange={(open) => !open && setCancelConfirm(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("cancelConfirmTitle")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {cancelConfirm === "selected"
-                ? t("cancelSelectedConfirmDescription", { count: selectedTaskIds.size })
-                : t("cancelAllConfirmDescription", { count: stats.pending })}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t("cancelConfirmDismiss")}</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmCancel} variant="dialogDanger">
-              {t("cancelConfirmOk")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       {/* Charts Side by Side - 2:1 ratio */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">

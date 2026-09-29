@@ -556,19 +556,7 @@
         "11": "Grudzień"
       },
       "filterFailed": "Nieudane",
-      "searchPlaceholder": "Szukaj po nazwie zasobu",
-      "filterCancelled": "Anulowane",
-      "taskCancelled": "Anulowane",
-      "resumeTask": "Wznów tagowanie",
-      "cancelSelectedTasks": "Anuluj zaznaczone ({count})",
-      "cancelAllPendingTasks": "Anuluj wszystkie w kolejce",
-      "cancelConfirmTitle": "Anuluj zadania tagowania",
-      "cancelSelectedConfirmDescription": "Anulować zaznaczone zadania w kolejce ({count})? Możesz je wznowić pojedynczo w „Anulowane”.",
-      "cancelAllConfirmDescription": "Anulować wszystkie zadania w kolejce ({count})? Zadania w trakcie nie zostaną zmienione. Możesz je wznowić pojedynczo w „Anulowane”.",
-      "cancelConfirmDismiss": "Zostaw",
-      "cancelConfirmOk": "Anuluj zadania",
-      "cancelTasksSuccess": "Anulowano zadania: {count}",
-      "cancelTasksFailed": "Nie udało się anulować zadań"
+      "searchPlaceholder": "Szukaj po nazwie zasobu"
     },
     "Settings": {
       "title": "Przełącznik tagowania",

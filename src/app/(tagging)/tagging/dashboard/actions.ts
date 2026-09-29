@@ -1,10 +1,6 @@
 "use server";
 import { withAuth } from "@/app/(auth)/withAuth";
-import {
-  ASSET_TAGGING_CONCURRENCY,
-  CANCELLED_TASK_ERROR_CODE,
-  PROCESSING_TIMING_VERSION,
-} from "@/app/(tagging)/queue-config";
+import { ASSET_TAGGING_CONCURRENCY, PROCESSING_TIMING_VERSION } from "@/app/(tagging)/queue-config";
 import { ServerActionResult } from "@/lib/serverAction";
 import { slugToId } from "@/lib/slug";
 import { batchSyncAssetThumbnails } from "@/musedam/assets";
@@ -13,7 +9,6 @@ import {
   AssetObjectExtra,
   Prisma,
   TaggingQueueItem,
-  TaggingQueueItemResult,
   TaggingQueueStatus,
 } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
@@ -46,21 +41,6 @@ export type TaskWithAsset = Omit<TaggingQueueItem, "assetObject"> & {
 // 控制面板只统计 / 展示正式打标任务：匹配测试页发起的 taskType=test 任务不进审核、不写回 MuseDAM，
 // 也不应该混进统计数字与任务列表里。
 const DASHBOARD_TASK_FILTER = { taskType: { not: "test" as const } };
-
-// 手动取消的任务落为 failed + result.error = CANCELLED（见 CANCELLED_TASK_ERROR_CODE），
-// 「失败」的统计、筛选、批量重试都要把它们排除掉，「已取消」筛选则只看它们。
-const CANCELLED_TASK_FILTER: Prisma.TaggingQueueItemWhereInput = {
-  status: "failed",
-  result: { path: ["error"], equals: CANCELLED_TASK_ERROR_CODE },
-};
-// result 里没有 error 键时，JSON path 取值是 NULL，单独用 NOT 会把这些行也过滤掉，所以显式兜底。
-const FAILED_NOT_CANCELLED_FILTER: Prisma.TaggingQueueItemWhereInput = {
-  status: "failed",
-  OR: [
-    { result: { path: ["error"], equals: Prisma.AnyNull } },
-    { NOT: { result: { path: ["error"], equals: CANCELLED_TASK_ERROR_CODE } } },
-  ],
-};
 
 export async function fetchDashboardStats(): Promise<
   ServerActionResult<{
@@ -100,7 +80,7 @@ export async function fetchDashboardStats(): Promise<
             teamId,
             ...DASHBOARD_TASK_FILTER,
             assetObjectId: { not: null },
-            ...FAILED_NOT_CANCELLED_FILTER,
+            status: "failed",
           },
         }),
         prisma.assetObject.count({
@@ -198,7 +178,7 @@ export async function fetchDashboardStats(): Promise<
   });
 }
 
-export type DashboardTaskFilter = "all" | "processing" | "failed" | "cancelled";
+export type DashboardTaskFilter = "all" | "processing" | "failed";
 
 export async function fetchProcessingTasks(
   page: number = 1,
@@ -222,10 +202,8 @@ export async function fetchProcessingTasks(
         filter === "processing"
           ? { status: { in: ["processing", "pending"] as TaggingQueueStatus[] } }
           : filter === "failed"
-            ? FAILED_NOT_CANCELLED_FILTER
-            : filter === "cancelled"
-              ? CANCELLED_TASK_FILTER
-              : {};
+            ? { status: "failed" }
+            : {};
       const keyword = search.trim();
       const whereClause: Prisma.TaggingQueueItemWhereInput = {
         teamId,
@@ -449,9 +427,8 @@ export async function retryFailedTask(taskId: number): Promise<ServerActionResul
 export async function retryAllFailedTasks(): Promise<ServerActionResult<{ count: number }>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
-      // 已取消的任务不参与「重试全部」，需要的话在列表里单条恢复
       const result = await prisma.taggingQueueItem.updateMany({
-        where: { teamId, ...DASHBOARD_TASK_FILTER, ...FAILED_NOT_CANCELLED_FILTER },
+        where: { teamId, ...DASHBOARD_TASK_FILTER, status: "failed" },
         data: {
           status: "pending",
           startsAt: null,
@@ -470,52 +447,6 @@ export async function retryAllFailedTasks(): Promise<ServerActionResult<{ count:
         success: false,
         message: "重试任务失败",
       };
-    }
-  });
-}
-
-// 只取消 pending：条件更新与 worker 的 pending -> processing 领取互斥，已被领走的任务不会被改到。
-// 注意：取消不会退还调用方（MuseDAM）在入队时已扣除的点数。
-async function cancelPendingTasksWhere(
-  teamId: number,
-  where: Prisma.TaggingQueueItemWhereInput,
-): Promise<number> {
-  const result = await prisma.taggingQueueItem.updateMany({
-    where: { ...where, teamId, ...DASHBOARD_TASK_FILTER, status: "pending" },
-    data: {
-      status: "failed",
-      endsAt: new Date(),
-      result: {
-        error: CANCELLED_TASK_ERROR_CODE,
-        message: "用户手动取消",
-      } as TaggingQueueItemResult,
-    },
-  });
-  return result.count;
-}
-
-export async function cancelPendingTasks(
-  taskIds: number[],
-): Promise<ServerActionResult<{ count: number }>> {
-  return withAuth(async ({ team: { id: teamId } }) => {
-    try {
-      const count = await cancelPendingTasksWhere(teamId, { id: { in: taskIds } });
-      return { success: true, data: { count } };
-    } catch (error) {
-      console.error("取消排队任务失败:", error);
-      return { success: false, message: "取消任务失败" };
-    }
-  });
-}
-
-export async function cancelAllPendingTasks(): Promise<ServerActionResult<{ count: number }>> {
-  return withAuth(async ({ team: { id: teamId } }) => {
-    try {
-      const count = await cancelPendingTasksWhere(teamId, { assetObjectId: { not: null } });
-      return { success: true, data: { count } };
-    } catch (error) {
-      console.error("取消全部排队任务失败:", error);
-      return { success: false, message: "取消任务失败" };
     }
   });
 }

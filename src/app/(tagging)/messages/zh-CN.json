@@ -633,19 +633,7 @@
         "11": "12月"
       },
       "filterFailed": "失败",
-      "searchPlaceholder": "搜索素材名称",
-      "filterCancelled": "已取消",
-      "taskCancelled": "已取消",
-      "resumeTask": "恢复打标",
-      "cancelSelectedTasks": "取消所选 ({count})",
-      "cancelAllPendingTasks": "取消全部排队",
-      "cancelConfirmTitle": "取消打标任务",
-      "cancelSelectedConfirmDescription": "确定取消选中的 {count} 个排队任务吗？取消后可在「已取消」中单条恢复。",
-      "cancelAllConfirmDescription": "确定取消全部 {count} 个排队中的任务吗？正在打标中的任务不受影响，取消后可在「已取消」中单条恢复。",
-      "cancelConfirmDismiss": "再想想",
-      "cancelConfirmOk": "确定取消",
-      "cancelTasksSuccess": "已取消 {count} 个任务",
-      "cancelTasksFailed": "取消任务失败"
+      "searchPlaceholder": "搜索素材名称"
     },
     "Settings": {
       "title": "全局设置",

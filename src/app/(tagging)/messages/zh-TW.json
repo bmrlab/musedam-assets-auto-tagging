@@ -90,19 +90,7 @@
         "11": "12月"
       },
       "filterFailed": "失敗",
-      "searchPlaceholder": "搜尋素材名稱",
-      "filterCancelled": "已取消",
-      "taskCancelled": "已取消",
-      "resumeTask": "恢復打標",
-      "cancelSelectedTasks": "取消所選 ({count})",
-      "cancelAllPendingTasks": "取消全部排隊",
-      "cancelConfirmTitle": "取消打標任務",
-      "cancelSelectedConfirmDescription": "確定取消選中的 {count} 個排隊任務嗎？取消後可在「已取消」中單條恢復。",
-      "cancelAllConfirmDescription": "確定取消全部 {count} 個排隊中的任務嗎？正在打標中的任務不受影響，取消後可在「已取消」中單條恢復。",
-      "cancelConfirmDismiss": "再想想",
-      "cancelConfirmOk": "確定取消",
-      "cancelTasksSuccess": "已取消 {count} 個任務",
-      "cancelTasksFailed": "取消任務失敗"
+      "searchPlaceholder": "搜尋素材名稱"
     },
     "Review": {
       "add": "新增",

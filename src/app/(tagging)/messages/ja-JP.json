@@ -90,19 +90,7 @@
         "11": "12月"
       },
       "filterFailed": "失敗",
-      "searchPlaceholder": "素材名で検索",
-      "filterCancelled": "キャンセル済み",
-      "taskCancelled": "キャンセル済み",
-      "resumeTask": "タグ付けを再開",
-      "cancelSelectedTasks": "選択をキャンセル ({count})",
-      "cancelAllPendingTasks": "待機中をすべてキャンセル",
-      "cancelConfirmTitle": "タグ付けタスクのキャンセル",
-      "cancelSelectedConfirmDescription": "選択した待機中タスク {count} 件をキャンセルしますか？「キャンセル済み」から個別に再開できます。",
-      "cancelAllConfirmDescription": "待機中のタスク {count} 件をすべてキャンセルしますか？処理中のタスクには影響しません。「キャンセル済み」から個別に再開できます。",
-      "cancelConfirmDismiss": "戻る",
-      "cancelConfirmOk": "キャンセルする",
-      "cancelTasksSuccess": "{count} 件のタスクをキャンセルしました",
-      "cancelTasksFailed": "タスクのキャンセルに失敗しました"
+      "searchPlaceholder": "素材名で検索"
     },
     "Review": {
       "add": "追加",
