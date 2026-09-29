@@ -70,6 +70,16 @@ const ALL_NOT_CANCELLED_FILTER: Prisma.TaggingQueueItemWhereInput = {
   ],
 };
 
+// 原生聚合 SQL 用的时间参数：统一转成带时区的 ISO 字符串再显式 cast，
+// 分桶边界仍在 JS 里按服务器本地时间计算，不依赖数据库会话时区。
+// 整条 SQL 先用 Prisma.sql 拼好再传给 $queryRaw（而不是 $queryRaw`...` 标签模板里嵌套片段）：
+// prisma 是全局单例，可能由另一个 bundle（如 instrumentation）创建，客户端按 instanceof 认不出
+// 本模块的 Prisma.sql 片段，会把它当成 JSON 参数发出（报 operator does not exist: ... jsonb）。
+const sqlTimestamp = (date: Date) => Prisma.sql`${date.toISOString()}::timestamptz`;
+
+// 与 DASHBOARD_TASK_FILTER 对应的原生 SQL 条件
+const SQL_DASHBOARD_TASK_FILTER = Prisma.sql`"taskType" <> 'test'`;
+
 export async function fetchDashboardStats(): Promise<
   ServerActionResult<{
     stats: DashboardStats;
@@ -77,77 +87,56 @@ export async function fetchDashboardStats(): Promise<
 > {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
-      // 获取基础统计
-      const [totalCompleted, processing, pending, failed, totalAssets] = await Promise.all([
-        prisma.taggingQueueItem.count({
-          where: {
-            teamId,
-            ...DASHBOARD_TASK_FILTER,
-            assetObjectId: { not: null },
-            status: "completed",
-          },
-        }),
-        prisma.taggingQueueItem.count({
-          where: {
-            teamId,
-            ...DASHBOARD_TASK_FILTER,
-            assetObjectId: { not: null },
-            status: "processing",
-          },
-        }),
-        prisma.taggingQueueItem.count({
-          where: {
-            teamId,
-            ...DASHBOARD_TASK_FILTER,
-            assetObjectId: { not: null },
-            status: "pending",
-          },
-        }),
-        prisma.taggingQueueItem.count({
-          where: {
-            teamId,
-            ...DASHBOARD_TASK_FILTER,
-            assetObjectId: { not: null },
-            ...FAILED_NOT_CANCELLED_FILTER,
-          },
-        }),
+      const startOfMonth = new Date();
+      startOfMonth.setDate(1);
+      startOfMonth.setHours(0, 0, 0, 0);
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+
+      // 各状态计数与本月 / 今日完成数合并成一次扫描；failed 排除批量取消的任务
+      // （result.error = CANCELLED，与 FAILED_NOT_CANCELLED_FILTER 一致）。
+      const [[counts], totalAssets] = await Promise.all([
+        prisma.$queryRaw<
+          {
+            totalCompleted: bigint;
+            processing: bigint;
+            pending: bigint;
+            failed: bigint;
+            monthlyCompleted: bigint;
+            dailyCompleted: bigint;
+          }[]
+        >(
+          Prisma.sql`
+          SELECT
+            count(*) FILTER (WHERE "status" = 'completed') AS "totalCompleted",
+            count(*) FILTER (WHERE "status" = 'processing') AS "processing",
+            count(*) FILTER (WHERE "status" = 'pending') AS "pending",
+            count(*) FILTER (
+              WHERE "status" = 'failed'
+                AND ("result" ->> 'error') IS DISTINCT FROM ${CANCELLED_TASK_ERROR_CODE}
+            ) AS "failed",
+            count(*) FILTER (
+              WHERE "status" = 'completed' AND "endsAt" >= ${sqlTimestamp(startOfMonth)}
+            ) AS "monthlyCompleted",
+            count(*) FILTER (
+              WHERE "status" = 'completed' AND "endsAt" >= ${sqlTimestamp(startOfDay)}
+            ) AS "dailyCompleted"
+          FROM "TaggingQueueItem"
+          WHERE "teamId" = ${teamId}
+            AND ${SQL_DASHBOARD_TASK_FILTER}
+            AND "assetObjectId" IS NOT NULL
+        `,
+        ),
         prisma.assetObject.count({
           where: { teamId },
         }),
       ]);
-
-      // 获取本月完成的任务数
-      const startOfMonth = new Date();
-      startOfMonth.setDate(1);
-      startOfMonth.setHours(0, 0, 0, 0);
-
-      const monthlyCompleted = await prisma.taggingQueueItem.count({
-        where: {
-          teamId,
-          ...DASHBOARD_TASK_FILTER,
-          assetObjectId: { not: null },
-          status: "completed",
-          endsAt: {
-            gte: startOfMonth,
-          },
-        },
-      });
-
-      // 获取今日完成的任务数
-      const startOfDay = new Date();
-      startOfDay.setHours(0, 0, 0, 0);
-
-      const dailyCompleted = await prisma.taggingQueueItem.count({
-        where: {
-          teamId,
-          ...DASHBOARD_TASK_FILTER,
-          assetObjectId: { not: null },
-          status: "completed",
-          endsAt: {
-            gte: startOfDay,
-          },
-        },
-      });
+      const totalCompleted = Number(counts.totalCompleted);
+      const processing = Number(counts.processing);
+      const pending = Number(counts.pending);
+      const failed = Number(counts.failed);
+      const monthlyCompleted = Number(counts.monthlyCompleted);
+      const dailyCompleted = Number(counts.dailyCompleted);
 
       // 使用最近完成的资产任务估算单项耗时。startsAt 在任务被 worker claim 时写入，
       // 因此这里只计算真正的处理时间，不包含 pending 队列中的等待时间。
@@ -493,21 +482,6 @@ export async function fetchWeeklyTaggingData(): Promise<
       const today = new Date();
       const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
-      const tasks = await prisma.taggingQueueItem.findMany({
-        where: {
-          teamId,
-          ...DASHBOARD_TASK_FILTER,
-          status: "completed",
-          endsAt: {
-            gte: weekAgo,
-            lte: today,
-          },
-        },
-        select: {
-          endsAt: true,
-        },
-      });
-
       const dayNames = [
         t("dayNames.0"),
         t("dayNames.1"),
@@ -517,24 +491,41 @@ export async function fetchWeeklyTaggingData(): Promise<
         t("dayNames.5"),
         t("dayNames.6"),
       ];
-      const data = Array.from({ length: 7 }, (_, i) => {
+      // 分桶边界按服务器本地时间在 JS 里算好，SQL 只做一次扫描、每个桶一个 FILTER 计数，
+      // 不再把 7 天内完成的任务全部拉回来逐条比较。
+      const days = Array.from({ length: 7 }, (_, i) => {
         const date = new Date(weekAgo);
         date.setDate(weekAgo.getDate() + i);
         const dayStart = new Date(date);
         dayStart.setHours(0, 0, 0, 0);
         const dayEnd = new Date(date);
         dayEnd.setHours(23, 59, 59, 999);
-
-        const count = tasks.filter((task) => {
-          if (!task.endsAt) return false;
-          return task.endsAt >= dayStart && task.endsAt <= dayEnd;
-        }).length;
-
-        return {
-          day: dayNames[date.getDay()],
-          count,
-        };
+        return { date, dayStart, dayEnd };
       });
+
+      const [row] = await prisma.$queryRaw<Record<string, bigint>[]>(
+        Prisma.sql`
+        SELECT ${Prisma.join(
+          days.map(
+            ({ dayStart, dayEnd }, i) =>
+              Prisma.sql`count(*) FILTER (
+                WHERE "endsAt" >= ${sqlTimestamp(dayStart)} AND "endsAt" <= ${sqlTimestamp(dayEnd)}
+              ) AS ${Prisma.raw(`"d${i}"`)}`,
+          ),
+        )}
+        FROM "TaggingQueueItem"
+        WHERE "teamId" = ${teamId}
+          AND ${SQL_DASHBOARD_TASK_FILTER}
+          AND "status" = 'completed'
+          AND "endsAt" >= ${sqlTimestamp(weekAgo)}
+          AND "endsAt" <= ${sqlTimestamp(today)}
+      `,
+      );
+
+      const data = days.map(({ date }, i) => ({
+        day: dayNames[date.getDay()],
+        count: Number(row?.[`d${i}`] ?? 0),
+      }));
 
       return {
         success: true,
@@ -650,7 +641,6 @@ export async function fetchMonthlyTrend(): Promise<
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
       const t = await getTranslations("Tagging.Dashboard");
-      const months = [];
       const monthNames = [
         t("monthNames.0"),
         t("monthNames.1"),
@@ -666,42 +656,50 @@ export async function fetchMonthlyTrend(): Promise<
         t("monthNames.11"),
       ];
 
-      for (let i = 11; i >= 0; i--) {
+      // 12 个月的边界沿用原来按服务器本地时间的算法，SQL 一次扫描、每月两个 FILTER 计数，
+      // 替代原来 12 轮串行 × 2 个 count。
+      const buckets = Array.from({ length: 12 }, (_, index) => {
+        const i = 11 - index;
         const date = new Date();
         date.setMonth(date.getMonth() - i);
         const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
         const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999);
+        return { date, monthStart, monthEnd };
+      });
+      const rangeStart = new Date(
+        Math.min(...buckets.map(({ monthStart }) => monthStart.getTime())),
+      );
 
-        const [completed, total] = await Promise.all([
-          prisma.taggingQueueItem.count({
-            where: {
-              teamId,
-              ...DASHBOARD_TASK_FILTER,
-              status: "completed",
-              endsAt: {
-                gte: monthStart,
-                lte: monthEnd,
-              },
-            },
-          }),
-          prisma.taggingQueueItem.count({
-            where: {
-              teamId,
-              ...DASHBOARD_TASK_FILTER,
-              createdAt: {
-                gte: monthStart,
-                lte: monthEnd,
-              },
-            },
-          }),
-        ]);
+      const [row] = await prisma.$queryRaw<Record<string, bigint>[]>(
+        Prisma.sql`
+        SELECT ${Prisma.join(
+          buckets.flatMap(({ monthStart, monthEnd }, i) => [
+            Prisma.sql`count(*) FILTER (
+              WHERE "status" = 'completed'
+                AND "endsAt" >= ${sqlTimestamp(monthStart)}
+                AND "endsAt" <= ${sqlTimestamp(monthEnd)}
+            ) AS ${Prisma.raw(`"c${i}"`)}`,
+            Prisma.sql`count(*) FILTER (
+              WHERE "createdAt" >= ${sqlTimestamp(monthStart)}
+                AND "createdAt" <= ${sqlTimestamp(monthEnd)}
+            ) AS ${Prisma.raw(`"t${i}"`)}`,
+          ]),
+        )}
+        FROM "TaggingQueueItem"
+        WHERE "teamId" = ${teamId}
+          AND ${SQL_DASHBOARD_TASK_FILTER}
+          AND (
+            "createdAt" >= ${sqlTimestamp(rangeStart)}
+            OR ("status" = 'completed' AND "endsAt" >= ${sqlTimestamp(rangeStart)})
+          )
+      `,
+      );
 
-        months.push({
-          month: monthNames[date.getMonth()],
-          completed,
-          total,
-        });
-      }
+      const months = buckets.map(({ date }, i) => ({
+        month: monthNames[date.getMonth()],
+        completed: Number(row?.[`c${i}`] ?? 0),
+        total: Number(row?.[`t${i}`] ?? 0),
+      }));
 
       return {
         success: true,
