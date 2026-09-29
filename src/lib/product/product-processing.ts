@@ -8,6 +8,12 @@ import { REFERENCE_IMAGE_PREPARATION_CONCURRENCY } from "@/lib/brand/upload-cons
 import { rootLogger } from "@/lib/logging";
 import { getCachedSignedS3ObjectUrl } from "@/lib/s3";
 import {
+  downscaleImageBufferIfHuge,
+  getResponseByteLength,
+  withHeavyImageSlot,
+} from "@/lib/tagging/classification-image";
+import { IMAGE_FETCH_TIMEOUT_MS } from "@/lib/tagging/external-timeouts";
+import {
   FEATURE_PROCESSING_ABANDONED,
   FEATURE_PROCESSING_INTERRUPTED,
 } from "@/lib/tagging/feature-processing-status";
@@ -84,16 +90,23 @@ function getProcessingErrorCode(error: unknown): ProductProcessingErrorCode {
 
 async function fetchImageAsDataUrl(objectKey: string) {
   const { signedUrl } = getCachedSignedS3ObjectUrl({ objectKey });
-  const response = await fetch(signedUrl);
+  const response = await fetch(signedUrl, { signal: AbortSignal.timeout(IMAGE_FETCH_TIMEOUT_MS) });
 
   if (!response.ok) {
     throw createProcessingError(PRODUCT_PROCESSING_ERROR_CODES.imageFetchFailed);
   }
 
-  const buffer = Buffer.from(await response.arrayBuffer());
-  scheduleReferenceThumbnail(objectKey, buffer);
-  const preparedImage = await prepareSquareEmbeddingImageBuffer(buffer);
-  return bufferToDataUrl(preparedImage, "image/png");
+  // 大图串行下载解码，并先缩成工作图再生成缩略图 / 向量输入，避免多张原图同时解码
+  return withHeavyImageSlot(getResponseByteLength(response), async () => {
+    const image = await downscaleImageBufferIfHuge(
+      Buffer.from(await response.arrayBuffer()),
+      "application/octet-stream",
+      "product reference",
+    );
+    scheduleReferenceThumbnail(objectKey, image.buffer);
+    const preparedImage = await prepareSquareEmbeddingImageBuffer(image.buffer);
+    return bufferToDataUrl(preparedImage, "image/png");
+  });
 }
 
 function getProductCategoryPredictModel(): LLMModelName {

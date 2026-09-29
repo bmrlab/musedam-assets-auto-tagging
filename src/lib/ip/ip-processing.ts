@@ -5,7 +5,12 @@ import { bufferToDataUrl } from "@/lib/brand/image";
 import { createJinaImageEmbeddings, createJinaTextEmbeddings } from "@/lib/brand/jina";
 import { rootLogger } from "@/lib/logging";
 import { getCachedSignedS3ObjectUrl } from "@/lib/s3";
-import { cropImageToDataUrl as cropClassificationImageToDataUrl } from "@/lib/tagging/classification-image";
+import {
+  cropImageToDataUrl as cropClassificationImageToDataUrl,
+  getResponseByteLength,
+  withHeavyImageSlot,
+} from "@/lib/tagging/classification-image";
+import { IMAGE_FETCH_TIMEOUT_MS } from "@/lib/tagging/external-timeouts";
 import {
   FEATURE_PROCESSING_ABANDONED,
   FEATURE_PROCESSING_INTERRUPTED,
@@ -74,15 +79,18 @@ async function fetchImageAsDataUrl(
   mimeType: string,
 ): Promise<{ dataUrl: string; buffer: Buffer }> {
   const { signedUrl } = getCachedSignedS3ObjectUrl({ objectKey });
-  const response = await fetch(signedUrl);
+  const response = await fetch(signedUrl, { signal: AbortSignal.timeout(IMAGE_FETCH_TIMEOUT_MS) });
 
   if (!response.ok) {
     throw createProcessingError(IP_PROCESSING_ERROR_CODES.imageFetchFailed);
   }
 
-  const buffer = Buffer.from(await response.arrayBuffer());
-  scheduleReferenceThumbnail(objectKey, buffer);
-  return { dataUrl: bufferToDataUrl(buffer, mimeType), buffer };
+  // 大图串行下载（不缩小：局部特征的裁剪坐标是相对原图的）
+  return withHeavyImageSlot(getResponseByteLength(response), async () => {
+    const buffer = Buffer.from(await response.arrayBuffer());
+    scheduleReferenceThumbnail(objectKey, buffer);
+    return { dataUrl: bufferToDataUrl(buffer, mimeType), buffer };
+  });
 }
 
 function hasPartialCrop(image: {

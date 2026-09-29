@@ -15,6 +15,12 @@ import {
 import { rootLogger } from "@/lib/logging";
 import { getCachedSignedS3ObjectUrl } from "@/lib/s3";
 import {
+  downscaleImageBufferIfHuge,
+  getResponseByteLength,
+  withHeavyImageSlot,
+} from "@/lib/tagging/classification-image";
+import { IMAGE_FETCH_TIMEOUT_MS } from "@/lib/tagging/external-timeouts";
+import {
   FEATURE_PROCESSING_ABANDONED,
   FEATURE_PROCESSING_INTERRUPTED,
 } from "@/lib/tagging/feature-processing-status";
@@ -64,15 +70,22 @@ function getProcessingErrorCode(error: unknown): BrandProcessingErrorCode {
 
 async function fetchImageAsDataUrl(objectKey: string, mimeType: string) {
   const { signedUrl } = getCachedSignedS3ObjectUrl({ objectKey });
-  const response = await fetch(signedUrl);
+  const response = await fetch(signedUrl, { signal: AbortSignal.timeout(IMAGE_FETCH_TIMEOUT_MS) });
 
   if (!response.ok) {
     throw createProcessingError(BRAND_PROCESSING_ERROR_CODES.imageFetchFailed);
   }
 
-  const buffer = Buffer.from(await response.arrayBuffer());
-  scheduleReferenceThumbnail(objectKey, buffer);
-  return bufferToDataUrl(buffer, mimeType);
+  // 大图串行下载解码，并先缩成工作图（向量只需要整图），避免原图 base64 常驻内存
+  return withHeavyImageSlot(getResponseByteLength(response), async () => {
+    const image = await downscaleImageBufferIfHuge(
+      Buffer.from(await response.arrayBuffer()),
+      mimeType,
+      "logo reference",
+    );
+    scheduleReferenceThumbnail(objectKey, image.buffer);
+    return bufferToDataUrl(image.buffer, image.mimeType);
+  });
 }
 
 export async function markAssetLogoVectorsPending({
