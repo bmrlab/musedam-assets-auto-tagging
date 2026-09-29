@@ -49,6 +49,7 @@ import {
 import prisma from "@/prisma/prisma";
 import { getLocale, getTranslations } from "next-intl/server";
 import { after } from "next/server";
+import pLimit from "p-limit";
 import { z } from "zod";
 import {
   BatchFileErrorMessages,
@@ -59,6 +60,13 @@ import {
   parseImportedEnabled,
   splitBatchValues,
 } from "../batchFile";
+import {
+  buildLibraryListArgs,
+  DEFAULT_LIBRARY_LIST_QUERY,
+  LibraryListPage,
+  LibraryListQuery,
+  normalizeLibraryListQuery,
+} from "../components/library-list-query";
 import {
   buildPersonBatchExportRows,
   buildPersonBatchTemplateRows,
@@ -74,6 +82,7 @@ import {
   PersonClassificationUploadResult,
   PersonImageItem,
   PersonItem,
+  PersonLibraryInitialData,
   PersonLibraryPageData,
   PersonTagItem,
   PersonTagTreeNode,
@@ -1282,6 +1291,97 @@ export async function refreshAssetPersonImageSignedUrlAction(imageId: string): P
   });
 }
 
+async function queryPersonsPage(
+  teamId: number,
+  query: LibraryListQuery,
+): Promise<LibraryListPage<PersonItem>> {
+  const { where, typeId, orderBy, skip, take } = buildLibraryListArgs(query);
+  const pageWhere = { teamId, ...where, ...(typeId ? { personTypeId: typeId } : {}) };
+  const [rows, total, usedTypes] = await Promise.all([
+    prisma.assetPerson.findMany({
+      where: pageWhere,
+      orderBy,
+      skip,
+      take,
+      include: {
+        images: {
+          orderBy: [{ sort: "asc" }, { id: "asc" }],
+        },
+        tags: {
+          orderBy: [{ sort: "asc" }, { id: "asc" }],
+        },
+      },
+    }),
+    prisma.assetPerson.count({ where: pageWhere }),
+    // 类型是否被使用要看整个库，而不是当前页。
+    prisma.assetPerson.findMany({
+      where: { teamId, personTypeId: { not: null } },
+      distinct: ["personTypeId"],
+      select: { personTypeId: true },
+    }),
+  ]);
+
+  return {
+    items: rows.map((person) => normalizePerson(person)),
+    total,
+    usedTypeIds: usedTypes
+      .map((row) => row.personTypeId)
+      .filter((typeId): typeId is string => Boolean(typeId)),
+  };
+}
+
+/** 列表页首屏：第一页 + 类型 + 标签树。 */
+export async function fetchPersonLibraryInitialData(): Promise<
+  ServerActionResult<PersonLibraryInitialData>
+> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    try {
+      const locale = await getLocale();
+      const [list, types, tags] = await Promise.all([
+        queryPersonsPage(teamId, DEFAULT_LIBRARY_LIST_QUERY),
+        ensureDefaultPersonTypes(teamId, locale),
+        fetchPersonTags(teamId),
+      ]);
+
+      return {
+        success: true,
+        data: {
+          list,
+          personTypes: types.map(normalizePersonType),
+          tags,
+        },
+      };
+    } catch (error) {
+      console.error("Failed to fetch persons library initial data:", error);
+      const t = await getTranslations("Tagging.PersonLibrary");
+      return {
+        success: false,
+        message: t("createFailed"),
+      };
+    }
+  });
+}
+
+export async function fetchPersonsPageAction(
+  query: Partial<LibraryListQuery>,
+): Promise<ServerActionResult<LibraryListPage<PersonItem>>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    try {
+      return {
+        success: true,
+        data: await queryPersonsPage(teamId, normalizeLibraryListQuery(query)),
+      };
+    } catch (error) {
+      console.error("Failed to fetch persons page:", error);
+      const t = await getTranslations("Tagging.PersonLibrary");
+      return {
+        success: false,
+        message: t("createFailed"),
+      };
+    }
+  });
+}
+
 export async function fetchPersonLibraryPageData(): Promise<
   ServerActionResult<PersonLibraryPageData>
 > {
@@ -2057,6 +2157,117 @@ export async function deleteAssetPersonAction(
         success: false,
         message: t("deleteFailed"),
       };
+    }
+  });
+}
+
+// 批量操作：一次请求完成，避免客户端逐条调用 Server Action（串行排队）。
+// 副作用与单条版本一致：只处理本团队的条目，并同步 pgvector 的 payload / 删除向量点。
+const BATCH_PERSONS_MAX = 500;
+const BATCH_VECTOR_SYNC_CONCURRENCY = 5;
+const BATCH_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function resolveOwnedPersons(teamId: number, ids: string[]) {
+  const uniqueIds = Array.from(new Set(ids)).filter(
+    (id) => typeof id === "string" && BATCH_ID_PATTERN.test(id),
+  );
+  const owned = await prisma.assetPerson.findMany({
+    where: { teamId, id: { in: uniqueIds } },
+    select: { id: true },
+  });
+  const ownedIds = owned.map(({ id }) => id);
+  const ownedIdSet = new Set(ownedIds);
+  return {
+    ownedIds,
+    failedIds: Array.from(new Set(ids)).filter((id) => !ownedIdSet.has(id)),
+  };
+}
+
+export async function setAssetPersonsEnabledAction(
+  ids: string[],
+  enabled: boolean,
+): Promise<ServerActionResult<{ persons: PersonItem[]; failedIds: string[] }>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    const t = await getTranslations("Tagging.PersonLibrary");
+    if (!Array.isArray(ids) || ids.length > BATCH_PERSONS_MAX) {
+      return { success: false, message: t("toggleEnabledFailed") };
+    }
+    try {
+      const { ownedIds, failedIds } = await resolveOwnedPersons(teamId, ids);
+      if (ownedIds.length > 0) {
+        await prisma.assetPerson.updateMany({
+          where: { teamId, id: { in: ownedIds } },
+          data: { enabled },
+        });
+
+        const limit = pLimit(BATCH_VECTOR_SYNC_CONCURRENCY);
+        await Promise.all(
+          ownedIds.map((id) =>
+            limit(() =>
+              setPersonVectorPayloadByPerson({
+                teamId,
+                assetPersonId: id,
+                payload: { enabled },
+              }).catch((error) => {
+                console.warn("Failed to sync Person enabled payload to pgvector:", error);
+              }),
+            ),
+          ),
+        );
+      }
+
+      return {
+        success: true,
+        data: {
+          persons: await loadPersonsByIds(teamId, ownedIds),
+          failedIds,
+        },
+      };
+    } catch (error) {
+      console.error("Failed to batch toggle asset Person enabled:", error);
+      return { success: false, message: t("toggleEnabledFailed") };
+    }
+  });
+}
+
+export async function deleteAssetPersonsAction(
+  ids: string[],
+): Promise<ServerActionResult<{ deletedIds: string[]; failedIds: string[] }>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    const t = await getTranslations("Tagging.PersonLibrary");
+    if (!Array.isArray(ids) || ids.length > BATCH_PERSONS_MAX) {
+      return { success: false, message: t("deleteFailed") };
+    }
+    try {
+      const { ownedIds, failedIds } = await resolveOwnedPersons(teamId, ids);
+      if (ownedIds.length > 0) {
+        await prisma.assetPerson.deleteMany({
+          where: { teamId, id: { in: ownedIds } },
+        });
+
+        const limit = pLimit(BATCH_VECTOR_SYNC_CONCURRENCY);
+        await Promise.all(
+          ownedIds.map((id) =>
+            limit(() =>
+              deletePersonVectorPointsByPerson({
+                teamId,
+                assetPersonId: id,
+              }).catch(() => undefined),
+            ),
+          ),
+        );
+      }
+
+      return {
+        success: true,
+        data: {
+          deletedIds: ownedIds,
+          failedIds,
+        },
+      };
+    } catch (error) {
+      console.error("Failed to batch delete asset Person:", error);
+      return { success: false, message: t("deleteFailed") };
     }
   });
 }

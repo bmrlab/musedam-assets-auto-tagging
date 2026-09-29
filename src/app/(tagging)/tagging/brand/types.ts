@@ -1,3 +1,5 @@
+import type { LibraryListPage } from "../components/library-list-query";
+
 export type BrandLogoTypeItem = {
   id: string;
   name: string;
@@ -47,6 +49,13 @@ export type BrandLogoItem = {
 
 export type BrandLibraryPageData = {
   logos: BrandLogoItem[];
+  logoTypes: BrandLogoTypeItem[];
+  tags: BrandTagTreeNode[];
+};
+
+/** 列表页首屏数据；list 为默认筛选下的第一页。 */
+export type BrandLibraryInitialData = {
+  list: LibraryListPage<BrandLogoItem>;
   logoTypes: BrandLogoTypeItem[];
   tags: BrandTagTreeNode[];
 };

@@ -1,3 +1,5 @@
+import type { LibraryListPage } from "../components/library-list-query";
+
 export type IpTypeItem = {
   id: string;
   name: string;
@@ -59,6 +61,13 @@ export type IpItem = {
 
 export type IpLibraryPageData = {
   ips: IpItem[];
+  ipTypes: IpTypeItem[];
+  tags: IpTagTreeNode[];
+};
+
+/** 列表页首屏数据；list 为默认筛选下的第一页。 */
+export type IpLibraryInitialData = {
+  list: LibraryListPage<IpItem>;
   ipTypes: IpTypeItem[];
   tags: IpTagTreeNode[];
 };

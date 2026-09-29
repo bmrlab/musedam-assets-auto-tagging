@@ -1,3 +1,5 @@
+import type { LibraryListPage } from "../components/library-list-query";
+
 export type PersonTypeItem = {
   id: string;
   name: string;
@@ -47,6 +49,13 @@ export type PersonItem = {
 
 export type PersonLibraryPageData = {
   persons: PersonItem[];
+  personTypes: PersonTypeItem[];
+  tags: PersonTagTreeNode[];
+};
+
+/** 列表页首屏数据；list 为默认筛选下的第一页。 */
+export type PersonLibraryInitialData = {
+  list: LibraryListPage<PersonItem>;
   personTypes: PersonTypeItem[];
   tags: PersonTagTreeNode[];
 };

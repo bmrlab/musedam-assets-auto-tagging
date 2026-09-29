@@ -1,3 +1,5 @@
+import type { LibraryListPage } from "../components/library-list-query";
+
 export type ProductTypeItem = {
   id: string;
   name: string;
@@ -49,6 +51,13 @@ export type ProductItem = {
 
 export type ProductLibraryPageData = {
   products: ProductItem[];
+  productTypes: ProductTypeItem[];
+  tags: ProductTagTreeNode[];
+};
+
+/** 列表页首屏数据；list 为默认筛选下的第一页。 */
+export type ProductLibraryInitialData = {
+  list: LibraryListPage<ProductItem>;
   productTypes: ProductTypeItem[];
   tags: ProductTagTreeNode[];
 };

@@ -37,9 +37,7 @@ import {
   BatchReferenceImageError,
   downloadAndPrepareBatchReferenceImage,
 } from "@/lib/tagging/batch-reference-image";
-import {
-  fetchRemoteImageInput,
-} from "@/lib/tagging/classification-image";
+import { fetchRemoteImageInput } from "@/lib/tagging/classification-image";
 import { prepareReferenceImageBuffer } from "@/lib/tagging/reference-image";
 import { schedulePushFeatureToMuseDAM } from "@/musedam/push-feature-to-musedam";
 import {
@@ -64,6 +62,13 @@ import {
   splitBatchValues,
 } from "../batchFile";
 import {
+  DEFAULT_LIBRARY_LIST_QUERY,
+  LibraryListPage,
+  LibraryListQuery,
+  buildLibraryListArgs,
+  normalizeLibraryListQuery,
+} from "../components/library-list-query";
+import {
   ParsedProductBatchRow,
   buildProductBatchExportRows,
   buildProductBatchTemplateRows,
@@ -78,6 +83,7 @@ import {
   ProductClassificationUploadResult,
   ProductImageItem,
   ProductItem,
+  ProductLibraryInitialData,
   ProductLibraryPageData,
   ProductTagItem,
   ProductTagTreeNode,
@@ -1187,6 +1193,97 @@ export async function refreshAssetProductImageSignedUrlAction(imageId: string): 
   });
 }
 
+async function queryProductsPage(
+  teamId: number,
+  query: LibraryListQuery,
+): Promise<LibraryListPage<ProductItem>> {
+  const { where, typeId, orderBy, skip, take } = buildLibraryListArgs(query);
+  const pageWhere = { teamId, ...where, ...(typeId ? { productTypeId: typeId } : {}) };
+  const [rows, total, usedTypes] = await Promise.all([
+    prisma.assetProduct.findMany({
+      where: pageWhere,
+      orderBy,
+      skip,
+      take,
+      include: {
+        images: {
+          orderBy: [{ sort: "asc" }, { id: "asc" }],
+        },
+        tags: {
+          orderBy: [{ sort: "asc" }, { id: "asc" }],
+        },
+      },
+    }),
+    prisma.assetProduct.count({ where: pageWhere }),
+    // 类型是否被使用要看整个库，而不是当前页。
+    prisma.assetProduct.findMany({
+      where: { teamId, productTypeId: { not: null } },
+      distinct: ["productTypeId"],
+      select: { productTypeId: true },
+    }),
+  ]);
+
+  return {
+    items: rows.map((product) => normalizeProduct(product)),
+    total,
+    usedTypeIds: usedTypes
+      .map((row) => row.productTypeId)
+      .filter((typeId): typeId is string => Boolean(typeId)),
+  };
+}
+
+/** 列表页首屏：第一页 + 类型 + 标签树。 */
+export async function fetchProductLibraryInitialData(): Promise<
+  ServerActionResult<ProductLibraryInitialData>
+> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    try {
+      const locale = await getLocale();
+      const [list, types, tags] = await Promise.all([
+        queryProductsPage(teamId, DEFAULT_LIBRARY_LIST_QUERY),
+        ensureDefaultProductTypes(teamId, locale),
+        fetchProductTags(teamId),
+      ]);
+
+      return {
+        success: true,
+        data: {
+          list,
+          productTypes: types.map(normalizeProductType),
+          tags,
+        },
+      };
+    } catch (error) {
+      console.error("Failed to fetch products library initial data:", error);
+      const t = await getTranslations("Tagging.ProductLibrary");
+      return {
+        success: false,
+        message: t("createFailed"),
+      };
+    }
+  });
+}
+
+export async function fetchProductsPageAction(
+  query: Partial<LibraryListQuery>,
+): Promise<ServerActionResult<LibraryListPage<ProductItem>>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    try {
+      return {
+        success: true,
+        data: await queryProductsPage(teamId, normalizeLibraryListQuery(query)),
+      };
+    } catch (error) {
+      console.error("Failed to fetch products page:", error);
+      const t = await getTranslations("Tagging.ProductLibrary");
+      return {
+        success: false,
+        message: t("createFailed"),
+      };
+    }
+  });
+}
+
 export async function fetchProductLibraryPageData(): Promise<
   ServerActionResult<ProductLibraryPageData>
 > {
@@ -1984,6 +2081,117 @@ export async function deleteAssetProductAction(
         success: false,
         message: t("deleteFailed"),
       };
+    }
+  });
+}
+
+// 批量操作：一次请求完成，避免客户端逐条调用 Server Action（串行排队）。
+// 副作用与单条版本一致：只处理本团队的条目，并同步 pgvector 的 payload / 删除向量点。
+const BATCH_PRODUCTS_MAX = 500;
+const BATCH_VECTOR_SYNC_CONCURRENCY = 5;
+const BATCH_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function resolveOwnedProducts(teamId: number, ids: string[]) {
+  const uniqueIds = Array.from(new Set(ids)).filter(
+    (id) => typeof id === "string" && BATCH_ID_PATTERN.test(id),
+  );
+  const owned = await prisma.assetProduct.findMany({
+    where: { teamId, id: { in: uniqueIds } },
+    select: { id: true },
+  });
+  const ownedIds = owned.map(({ id }) => id);
+  const ownedIdSet = new Set(ownedIds);
+  return {
+    ownedIds,
+    failedIds: Array.from(new Set(ids)).filter((id) => !ownedIdSet.has(id)),
+  };
+}
+
+export async function setAssetProductsEnabledAction(
+  ids: string[],
+  enabled: boolean,
+): Promise<ServerActionResult<{ products: ProductItem[]; failedIds: string[] }>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    const t = await getTranslations("Tagging.ProductLibrary");
+    if (!Array.isArray(ids) || ids.length > BATCH_PRODUCTS_MAX) {
+      return { success: false, message: t("toggleEnabledFailed") };
+    }
+    try {
+      const { ownedIds, failedIds } = await resolveOwnedProducts(teamId, ids);
+      if (ownedIds.length > 0) {
+        await prisma.assetProduct.updateMany({
+          where: { teamId, id: { in: ownedIds } },
+          data: { enabled },
+        });
+
+        const limit = pLimit(BATCH_VECTOR_SYNC_CONCURRENCY);
+        await Promise.all(
+          ownedIds.map((id) =>
+            limit(() =>
+              setProductVectorPayloadByProduct({
+                teamId,
+                assetProductId: id,
+                payload: { enabled },
+              }).catch((error) => {
+                console.warn("Failed to sync Product enabled payload to pgvector:", error);
+              }),
+            ),
+          ),
+        );
+      }
+
+      return {
+        success: true,
+        data: {
+          products: await loadProductsByIds(teamId, ownedIds),
+          failedIds,
+        },
+      };
+    } catch (error) {
+      console.error("Failed to batch toggle asset Product enabled:", error);
+      return { success: false, message: t("toggleEnabledFailed") };
+    }
+  });
+}
+
+export async function deleteAssetProductsAction(
+  ids: string[],
+): Promise<ServerActionResult<{ deletedIds: string[]; failedIds: string[] }>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    const t = await getTranslations("Tagging.ProductLibrary");
+    if (!Array.isArray(ids) || ids.length > BATCH_PRODUCTS_MAX) {
+      return { success: false, message: t("deleteFailed") };
+    }
+    try {
+      const { ownedIds, failedIds } = await resolveOwnedProducts(teamId, ids);
+      if (ownedIds.length > 0) {
+        await prisma.assetProduct.deleteMany({
+          where: { teamId, id: { in: ownedIds } },
+        });
+
+        const limit = pLimit(BATCH_VECTOR_SYNC_CONCURRENCY);
+        await Promise.all(
+          ownedIds.map((id) =>
+            limit(() =>
+              deleteProductVectorPointsByProduct({
+                teamId,
+                assetProductId: id,
+              }).catch(() => undefined),
+            ),
+          ),
+        );
+      }
+
+      return {
+        success: true,
+        data: {
+          deletedIds: ownedIds,
+          failedIds,
+        },
+      };
+    } catch (error) {
+      console.error("Failed to batch delete asset Product:", error);
+      return { success: false, message: t("deleteFailed") };
     }
   });
 }

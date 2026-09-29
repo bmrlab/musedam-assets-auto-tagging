@@ -40,7 +40,7 @@ import {
 import { useLocale, useTranslations } from "next-intl";
 import Image from "next/image";
 import Link from "next/link";
-import { useDeferredValue, useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { MAX_PREVIEW_IMAGE_NUM } from "../brand/BrandLibraryClient";
 import LibraryPagination from "../components/LibraryPagination";
@@ -51,17 +51,21 @@ import {
 import LinkedTagsOverflow from "../components/LinkedTagsOverflow";
 import { PROCESS_STATE_BADGE_CLASS_NAMES } from "../components/process-state-badge-classes";
 import TruncatedDescription from "../components/TruncatedDescription";
+import { useLibraryList } from "../components/useLibraryList";
 import {
   deleteAssetProductAction,
+  deleteAssetProductsAction,
+  fetchProductsPageAction,
   pollProductsAction,
   retryAssetProductProcessingAction,
   setAssetProductEnabledAction,
+  setAssetProductsEnabledAction,
 } from "./actions";
 import ProductBatchImportExportDialog from "./ProductBatchImportExportDialog";
 import ProductDialog from "./ProductDialog";
 import ProductImageHoverCard from "./ProductImageHoverCard";
 import SignedProductImage from "./SignedProductImage";
-import { ProductBatchImportResult, ProductItem, ProductLibraryPageData } from "./types";
+import { ProductBatchImportResult, ProductItem, ProductLibraryInitialData } from "./types";
 
 type TranslationFunction = (key: string, values?: Record<string, string | number>) => string;
 
@@ -150,14 +154,13 @@ export default function ProductLibraryClient({
   initialData,
   debugPageEnabled,
 }: {
-  initialData: ProductLibraryPageData;
+  initialData: ProductLibraryInitialData;
   debugPageEnabled: boolean;
 }) {
   const locale = useLocale();
   const t = useTranslations("Tagging.ProductLibrary") as TranslationFunction;
   const tReview = useTranslations("Tagging.Review") as TranslationFunction;
   const isChineseLocale = locale === "zh-CN" || locale === "zh-TW";
-  const [products, setProducts] = useState(initialData.products);
   const [productTypes, setProductTypes] = useState(initialData.productTypes);
   const [tags, setTags] = useState(initialData.tags);
   const [search, setSearch] = useState("");
@@ -169,7 +172,6 @@ export default function ProductLibraryClient({
     "newest",
   );
   const [pageSize, setPageSize] = useState(40);
-  const [currentPage, setCurrentPage] = useState(1);
   const [pageInput, setPageInput] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<"create" | "edit">("create");
@@ -182,22 +184,23 @@ export default function ProductLibraryClient({
   const [batchImportExportOpen, setBatchImportExportOpen] = useState(false);
   const [pendingProductIds, setPendingProductIds] = useState<string[]>([]);
   const [isPending, startTransition] = useTransition();
-  const deferredSearch = useDeferredValue(search.trim().toLowerCase());
-  const usedProductTypeIds = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          products
-            .map((product) => product.productTypeId)
-            .filter((typeId): typeId is string => Boolean(typeId)),
-        ),
-      ),
-    [products],
-  );
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [deferredSearch, typeFilter, statusFilter, enabledFilter, sortOrder, pageSize]);
+  const {
+    items: products,
+    setItems: setProducts,
+    total: totalProducts,
+    usedTypeIds: usedProductTypeIds,
+    page: currentPage,
+    setPage: setCurrentPage,
+    totalPages,
+    loading: listLoading,
+    debouncedSearch,
+    reload: reloadList,
+    reloadFirstPage: reloadListFirstPage,
+  } = useLibraryList({
+    initialList: initialData.list,
+    filters: { pageSize, search, typeFilter, statusFilter, enabledFilter, sortOrder },
+    fetchPage: fetchProductsPageAction,
+  });
 
   useEffect(() => {
     if (typeFilter !== "all" && !productTypes.some((type) => String(type.id) === typeFilter)) {
@@ -205,48 +208,8 @@ export default function ProductLibraryClient({
     }
   }, [productTypes, typeFilter]);
 
-  const filteredProducts = products
-    .filter((product) => {
-      if (deferredSearch && !product.name.toLowerCase().includes(deferredSearch)) {
-        return false;
-      }
-
-      if (typeFilter !== "all" && String(product.productTypeId ?? "") !== typeFilter) {
-        return false;
-      }
-
-      if (statusFilter !== "all" && product.status !== statusFilter) {
-        return false;
-      }
-
-      if (enabledFilter === "enabled" && !product.enabled) {
-        return false;
-      }
-
-      if (enabledFilter === "disabled" && product.enabled) {
-        return false;
-      }
-
-      return true;
-    })
-    .sort((left, right) => {
-      if (sortOrder === "name-asc") {
-        return left.name.localeCompare(right.name, "zh-CN");
-      }
-
-      if (sortOrder === "name-desc") {
-        return right.name.localeCompare(left.name, "zh-CN");
-      }
-
-      const leftTime = new Date(left.createdAt).getTime();
-      const rightTime = new Date(right.createdAt).getTime();
-      return sortOrder === "newest" ? rightTime - leftTime : leftTime - rightTime;
-    });
-
-  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / pageSize));
   const safeCurrentPage = Math.min(currentPage, totalPages);
-  const pageStart = (safeCurrentPage - 1) * pageSize;
-  const currentPageProducts = filteredProducts.slice(pageStart, pageStart + pageSize);
+  const currentPageProducts = products;
   const currentPageIds = currentPageProducts.map((product) => product.id);
   const selectedOnPage = currentPageIds.filter((id) => selectedIds.includes(id));
   const allSelectedOnPage =
@@ -254,21 +217,23 @@ export default function ProductLibraryClient({
   const someSelectedOnPage = selectedOnPage.length > 0 && !allSelectedOnPage;
   const hasSelection = selectedIds.length > 0;
 
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
-    }
-  }, [currentPage, totalPages]);
+  // 依赖待处理 id 集合而不是整个列表：轮询结果每次都会生成新数组，
+  // 若依赖列表本身，effect 会在每次响应后立刻重跑并再次请求，变成无间隔的连续轮询。
+  const pendingIdsKey = useMemo(
+    () =>
+      products
+        .filter((product) => product.status === "processing" || product.status === "pending")
+        .map((product) => product.id)
+        .join(","),
+    [products],
+  );
 
   useEffect(() => {
-    const pendingIds = products
-      .filter((product) => product.status === "processing" || product.status === "pending")
-      .map((product) => product.id);
-
-    if (pendingIds.length === 0) {
+    if (!pendingIdsKey) {
       return;
     }
 
+    const pendingIds = pendingIdsKey.split(",");
     let disposed = false;
 
     async function poll() {
@@ -277,11 +242,8 @@ export default function ProductLibraryClient({
         return;
       }
 
-      setProducts((current) =>
-        current.map(
-          (product) => result.data.products.find((item) => item.id === product.id) ?? product,
-        ),
-      );
+      const updatedById = new Map(result.data.products.map((item) => [item.id, item]));
+      setProducts((current) => current.map((product) => updatedById.get(product.id) ?? product));
     }
 
     void poll();
@@ -293,7 +255,7 @@ export default function ProductLibraryClient({
       disposed = true;
       window.clearInterval(timer);
     };
-  }, [products]);
+  }, [pendingIdsKey, setProducts]);
 
   function getProcessingErrorMessage(error: string | null) {
     if (!error) {
@@ -334,14 +296,20 @@ export default function ProductLibraryClient({
   }
 
   function handleDialogSaved(product: ProductItem) {
-    updateProductInList(product);
+    // 新建的条目按当前排序不一定落在当前页，回到第一页重新取；编辑则原地更新后刷新当前页。
+    if (dialogMode === "create") {
+      reloadListFirstPage();
+    } else {
+      updateProductInList(product);
+      reloadList();
+    }
     setDialogOpen(false);
     setActiveProduct(null);
   }
 
   function handleBatchImported(result: ProductBatchImportResult) {
     if (result.createdProducts.length > 0) {
-      setProducts((current) => [...result.createdProducts, ...current]);
+      reloadListFirstPage();
     }
     setProductTypes(result.productTypes);
     if (result.tagTree) {
@@ -387,6 +355,7 @@ export default function ProductLibraryClient({
       }
 
       updateProductInList(result.data.product);
+      reloadList();
       toast.success(enabled ? t("enabledSuccess") : t("disabledSuccess"));
     });
   }
@@ -417,6 +386,7 @@ export default function ProductLibraryClient({
       }
 
       setProducts((current) => current.filter((product) => product.id !== deleteTarget.id));
+      reloadList();
       setSelectedIds((current) => current.filter((id) => id !== deleteTarget.id));
       setDeleteTarget(null);
       toast.success(t("deletedSuccess"));
@@ -448,10 +418,9 @@ export default function ProductLibraryClient({
     );
   }
 
-  function handleTypeDeleted(typeId: string) {
-    setProducts((current) =>
-      current.map((product) => (product.productTypeId === typeId ? product : product)),
-    );
+  function handleTypeDeleted() {
+    // 刷新列表以同步类型的使用情况（usedTypeIds）。
+    reloadList();
   }
 
   function handleSelectAllOnPage(checked: boolean) {
@@ -472,24 +441,18 @@ export default function ProductLibraryClient({
     targetIds.forEach((id) => markProductPending(id, true));
 
     startTransition(async () => {
-      const results = await Promise.all(
-        targetIds.map(async (id) => {
-          const result = await setAssetProductEnabledAction(id, enabled);
-          markProductPending(id, false);
-          return result;
-        }),
-      );
+      const result = await setAssetProductsEnabledAction(targetIds, enabled);
+      targetIds.forEach((id) => markProductPending(id, false));
 
-      const updatedProducts = results
-        .filter((item) => item.success)
-        .map((item) => item.data.product);
+      const updatedProducts = result.success ? result.data.products : [];
       if (updatedProducts.length > 0) {
         const updatedById = new Map(updatedProducts.map((product) => [product.id, product]));
         setProducts((current) => current.map((product) => updatedById.get(product.id) ?? product));
         setSelectedIds((current) => current.filter((id) => !updatedById.has(id)));
+        reloadList();
       }
 
-      const failedCount = results.length - updatedProducts.length;
+      const failedCount = targetIds.length - updatedProducts.length;
       if (failedCount === 0) {
         toast.success(enabled ? t("batchEnabledSuccess") : t("batchDisabledSuccess"));
         return;
@@ -536,22 +499,18 @@ export default function ProductLibraryClient({
     targetIds.forEach((id) => markProductPending(id, true));
 
     startTransition(async () => {
-      const results = await Promise.all(
-        targetIds.map(async (id) => {
-          const result = await deleteAssetProductAction(id);
-          markProductPending(id, false);
-          return { id, result };
-        }),
-      );
+      const result = await deleteAssetProductsAction(targetIds);
+      targetIds.forEach((id) => markProductPending(id, false));
 
-      const successIds = results.filter((item) => item.result.success).map((item) => item.id);
+      const successIds = result.success ? result.data.deletedIds : [];
       if (successIds.length > 0) {
         const successIdSet = new Set(successIds);
         setProducts((current) => current.filter((product) => !successIdSet.has(product.id)));
         setSelectedIds((current) => current.filter((id) => !successIdSet.has(id)));
+        reloadList();
       }
 
-      const failedCount = results.length - successIds.length;
+      const failedCount = targetIds.length - successIds.length;
       if (failedCount === 0) {
         toast.success(t("batchDeletedSuccess"));
       } else if (successIds.length > 0) {
@@ -576,11 +535,13 @@ export default function ProductLibraryClient({
     setPageInput("");
   }
 
-  const emptyText =
-    deferredSearch || typeFilter !== "all" || statusFilter !== "all" || enabledFilter !== "all"
-      ? t("filteredEmpty")
-      : t("empty");
-  const isLibraryCompletelyEmpty = products.length === 0;
+  const hasActiveFilters =
+    Boolean(debouncedSearch) ||
+    typeFilter !== "all" ||
+    statusFilter !== "all" ||
+    enabledFilter !== "all";
+  const emptyText = hasActiveFilters ? t("filteredEmpty") : t("empty");
+  const isLibraryCompletelyEmpty = totalProducts === 0 && !hasActiveFilters;
 
   return (
     <>
@@ -672,11 +633,11 @@ export default function ProductLibraryClient({
                       <>
                         {t("itemsSelected")}{" "}
                         <span className="text-primary-6">{selectedIds.length}</span> /{" "}
-                        {filteredProducts.length} {t("itemsCount")}
+                        {totalProducts} {t("itemsCount")}
                       </>
                     ) : (
                       <>
-                        {t("itemsTotal")} {filteredProducts.length} {t("itemsCount")}
+                        {t("itemsTotal")} {totalProducts} {t("itemsCount")}
                       </>
                     )}
                   </span>
@@ -806,8 +767,11 @@ export default function ProductLibraryClient({
                 </div>
               </div>
 
-              <div className="flex min-h-[calc(100dvh-280px)] flex-1 flex-col rounded-[8px] border bg-background">
-                {filteredProducts.length === 0 ? (
+              <div
+                className={`flex min-h-[calc(100dvh-280px)] flex-1 flex-col rounded-[8px] border bg-background transition-opacity${listLoading ? " pointer-events-none opacity-60" : ""}`}
+                aria-busy={listLoading}
+              >
+                {totalProducts === 0 ? (
                   <div className="flex min-h-[420px] flex-1 items-center justify-center px-6 py-10">
                     <div className="text-center">
                       <Image
