@@ -8,7 +8,7 @@ export async function register() {
     __featureVectorWorkerStarted?: boolean;
   };
   const { IS_QUEUE_PAUSED } = await import("@/app/(tagging)/queue");
-  // 队列暂停时（QUEUE_PAUSED=true），特征向量补算同样不在 web 进程里跑
+  // 队列暂停时（见 IS_QUEUE_PAUSED 的 TEMP HOTFIX），特征向量补算同样不在 web 进程里跑
   if (!IS_QUEUE_PAUSED && !globalForFeatureVectors.__featureVectorWorkerStarted) {
     globalForFeatureVectors.__featureVectorWorkerStarted = true;
 
