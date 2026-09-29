@@ -11,13 +11,18 @@ function newPrismaClient() {
   return new PrismaClient({ log });
 }
 
+// 开发环境按 PrismaClient 类缓存：instrumentation 与页面是不同的 bundle，各自有一份生成的客户端模块。
+// 若共用同一个实例，页面里的 Prisma.AnyNull / Prisma.sql 等与实例不是同一份类，会被当成普通 JSON 参数。
 const globalForPrisma = global as unknown as {
-  prisma: ReturnType<typeof newPrismaClient> | undefined;
+  prismaByClient: Map<typeof PrismaClient, ReturnType<typeof newPrismaClient>> | undefined;
 };
 
-const prisma = globalForPrisma.prisma || newPrismaClient();
+const prisma = globalForPrisma.prismaByClient?.get(PrismaClient) ?? newPrismaClient();
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prismaByClient ??= new Map();
+  globalForPrisma.prismaByClient.set(PrismaClient, prisma);
+}
 
 export default prisma;
 
