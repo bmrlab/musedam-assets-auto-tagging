@@ -19,4 +19,5 @@ if [ "$NODE_OPTIONS" = "$DEFAULT_NODE_OPTIONS" ]; then
 fi
 
 echo "[start-web] NODE_OPTIONS=$NODE_OPTIONS"
-HOSTNAME="0.0.0.0" exec node server.js
+export HOSTNAME="0.0.0.0"
+exec node server.js
