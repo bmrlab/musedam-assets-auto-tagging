@@ -11,3 +11,5 @@ export const TAG_TREE_RESERVED_CONCURRENCY = 1;
 export const ASSET_TAGGING_CONCURRENCY = TOTAL_QUEUE_CONCURRENCY - TAG_TREE_RESERVED_CONCURRENCY;
 export const PROCESSING_TIMING_VERSION = 2;
 export const QUEUE_ITEM_HEADROOM_SECONDS = 20;
+// 取消的排队任务复用 failed 状态，并用 result.error 区分，避免数据库 schema migration。
+export const CANCELLED_TASK_ERROR_CODE = "CANCELLED";

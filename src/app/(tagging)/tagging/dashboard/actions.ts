@@ -1,6 +1,10 @@
 "use server";
 import { withAuth } from "@/app/(auth)/withAuth";
-import { ASSET_TAGGING_CONCURRENCY, PROCESSING_TIMING_VERSION } from "@/app/(tagging)/queue-config";
+import {
+  ASSET_TAGGING_CONCURRENCY,
+  CANCELLED_TASK_ERROR_CODE,
+  PROCESSING_TIMING_VERSION,
+} from "@/app/(tagging)/queue-config";
 import { ServerActionResult } from "@/lib/serverAction";
 import { slugToId } from "@/lib/slug";
 import { batchSyncAssetThumbnails } from "@/musedam/assets";
@@ -42,6 +46,30 @@ export type TaskWithAsset = Omit<TaggingQueueItem, "assetObject"> & {
 // 也不应该混进统计数字与任务列表里。
 const DASHBOARD_TASK_FILTER = { taskType: { not: "test" as const } };
 
+// 取消任务落为 failed + result.error=CANCELLED，不需要数据库 migration。
+// JSON path 缺失时比较结果是 NULL，因此要显式接纳 error 不存在的普通失败任务。
+const FAILED_NOT_CANCELLED_FILTER: Prisma.TaggingQueueItemWhereInput = {
+  status: "failed",
+  OR: [
+    { result: { path: ["error"], equals: Prisma.AnyNull } },
+    { NOT: { result: { path: ["error"], equals: CANCELLED_TASK_ERROR_CODE } } },
+  ],
+};
+
+const ALL_NOT_CANCELLED_FILTER: Prisma.TaggingQueueItemWhereInput = {
+  OR: [
+    { status: { not: "failed" } },
+    {
+      status: "failed",
+      result: { path: ["error"], equals: Prisma.AnyNull },
+    },
+    {
+      status: "failed",
+      NOT: { result: { path: ["error"], equals: CANCELLED_TASK_ERROR_CODE } },
+    },
+  ],
+};
+
 export async function fetchDashboardStats(): Promise<
   ServerActionResult<{
     stats: DashboardStats;
@@ -80,7 +108,7 @@ export async function fetchDashboardStats(): Promise<
             teamId,
             ...DASHBOARD_TASK_FILTER,
             assetObjectId: { not: null },
-            status: "failed",
+            ...FAILED_NOT_CANCELLED_FILTER,
           },
         }),
         prisma.assetObject.count({
@@ -202,8 +230,8 @@ export async function fetchProcessingTasks(
         filter === "processing"
           ? { status: { in: ["processing", "pending"] as TaggingQueueStatus[] } }
           : filter === "failed"
-            ? { status: "failed" }
-            : {};
+            ? FAILED_NOT_CANCELLED_FILTER
+            : ALL_NOT_CANCELLED_FILTER;
       const keyword = search.trim();
       const whereClause: Prisma.TaggingQueueItemWhereInput = {
         teamId,
@@ -428,7 +456,7 @@ export async function retryAllFailedTasks(): Promise<ServerActionResult<{ count:
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
       const result = await prisma.taggingQueueItem.updateMany({
-        where: { teamId, ...DASHBOARD_TASK_FILTER, status: "failed" },
+        where: { teamId, ...DASHBOARD_TASK_FILTER, ...FAILED_NOT_CANCELLED_FILTER },
         data: {
           status: "pending",
           startsAt: null,
