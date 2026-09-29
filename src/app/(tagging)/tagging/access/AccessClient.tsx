@@ -15,7 +15,11 @@ import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import Image from "next/image";
-import { addAccessPermissionAction, removeAccessPermissionAction } from "./actions";
+import {
+  addAccessPermissionAction,
+  addAccessPermissionsAction,
+  removeAccessPermissionAction,
+} from "./actions";
 import { DepartmentIcon, TeamIcon } from "@/components/ui";
 import { cn } from "@/lib/utils";
 
@@ -82,18 +86,19 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
       }
 
       if (allPermissions.length > 0) {
-        // 批量添加权限
-        for (const permission of allPermissions) {
-          startTransition(async () => {
-            const result = await addAccessPermissionAction(permission);
-            if (result.success) {
-              setPermissions(result.data.permissions);
-              toast.success(t("permissionAddedSuccess", { name: permission.name }));
-            } else {
-              toast.error(t("permissionAddFailed", { name: permission.name }));
-            }
-          });
-        }
+        // 批量添加权限：一次请求提交，toast 汇总成一条
+        const names = allPermissions.map((permission) => permission.name);
+        const name =
+          names.length > 3 ? `${names.slice(0, 3).join(", ")}…(${names.length})` : names.join(", ");
+        startTransition(async () => {
+          const result = await addAccessPermissionsAction(allPermissions);
+          if (result.success) {
+            setPermissions(result.data.permissions);
+            toast.success(t("permissionAddedSuccess", { name }));
+          } else {
+            toast.error(t("permissionAddFailed", { name }));
+          }
+        });
       } else {
         toast.info(t("noMembersSelected"));
       }

@@ -53,19 +53,25 @@ export async function addOrUpdateAccessPermission(
   teamId: number,
   permission: AccessPermission,
 ): Promise<AccessPermission[]> {
-  const currentPermissions = await getAccessPermissions(teamId);
+  return addOrUpdateAccessPermissions(teamId, [permission]);
+}
 
-  // 检查是否已存在
-  const existingIndex = currentPermissions.findIndex((p) => p.slug === permission.slug);
+// 批量添加或更新权限：只读写一次配置，避免逐个读改写
+export async function addOrUpdateAccessPermissions(
+  teamId: number,
+  permissions: AccessPermission[],
+): Promise<AccessPermission[]> {
+  const newPermissions = [...(await getAccessPermissions(teamId))];
 
-  let newPermissions: AccessPermission[];
-  if (existingIndex >= 0) {
-    // 更新现有权限
-    newPermissions = [...currentPermissions];
-    newPermissions[existingIndex] = permission;
-  } else {
-    // 添加新权限
-    newPermissions = [...currentPermissions, permission];
+  for (const permission of permissions) {
+    const existingIndex = newPermissions.findIndex((p) => p.slug === permission.slug);
+    if (existingIndex >= 0) {
+      // 更新现有权限
+      newPermissions[existingIndex] = permission;
+    } else {
+      // 添加新权限
+      newPermissions.push(permission);
+    }
   }
 
   await saveAccessPermissions(teamId, newPermissions);
