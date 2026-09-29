@@ -52,12 +52,11 @@ EXPOSE 3000
 
 ENV PORT=3000
 # 限制 V8 老生代堆上限，让其在容器 cgroup 触发 OOM Kill 之前主动 GC。
-# 640MB 是按 1Gi 容器定的默认值；scripts/start-web.sh 启动时会按实际容器内存 limit
-# 自适应上调到约 65%（2Gi → ~1331MB）。部署层显式设置 NODE_OPTIONS 时以部署为准。
-ENV NODE_OPTIONS="--max-old-space-size=640"
-
-COPY --chown=nextjs:nodejs scripts/start-web.sh ./start-web.sh
+# 生产与私有化部署的容器内存 limit 都是 2Gi，堆上限取 1280MB（约 62%），
+# 其余留给 Next.js 基础 RSS、sharp 原生内存与系统开销。原先按 1Gi 设的 640MB 在积压时会堆溢出崩溃。
+# 若容器内存 limit 调整，需同步调整此值（约取上限的 ~65%）。可在部署层用环境变量覆盖。
+ENV NODE_OPTIONS="--max-old-space-size=1280"
 
 # server.js is created by next build from the standalone output
 # https://nextjs.org/docs/pages/api-reference/next-config-js/output
-CMD ["/bin/sh", "./start-web.sh"]
+CMD HOSTNAME="0.0.0.0" node server.js
