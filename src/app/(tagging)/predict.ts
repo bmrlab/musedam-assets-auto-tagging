@@ -166,10 +166,24 @@ function escapeRegExp(text: string): string {
  * 命中 "popup" 这种子串（曾导致图片素材因文件名含 "POPUP" 被误判为 "POP-UP视频"）。
  * 中日韩等非纯 ASCII 关键词没有天然词边界，维持原有子串匹配。
  */
+// 硬匹配每个任务要对整棵标签树的每个叶子、每个关键词各判一次，按关键词缓存编译好的正则，
+// 避免每次调用都 new RegExp（大标签树下这是打标链路里最重的同步 CPU 开销之一）。
+const BOUNDARY_REGEX_CACHE_MAX_SIZE = 50_000;
+const boundaryRegexCache = new Map<string, RegExp>();
+
+function getBoundaryRegex(keyword: string): RegExp {
+  let regex = boundaryRegexCache.get(keyword);
+  if (!regex) {
+    if (boundaryRegexCache.size >= BOUNDARY_REGEX_CACHE_MAX_SIZE) boundaryRegexCache.clear();
+    regex = new RegExp(`(?<![a-z0-9])${escapeRegExp(keyword)}(?![a-z0-9])`, "i");
+    boundaryRegexCache.set(keyword, regex);
+  }
+  return regex;
+}
+
 export function pathIncludesKeyword(normalizedPath: string, keyword: string): boolean {
   if (/^[a-z0-9]+$/i.test(keyword)) {
-    const boundaryRegex = new RegExp(`(?<![a-z0-9])${escapeRegExp(keyword)}(?![a-z0-9])`, "i");
-    return boundaryRegex.test(normalizedPath);
+    return getBoundaryRegex(keyword).test(normalizedPath);
   }
   return normalizedPath.includes(keyword);
 }
@@ -493,19 +507,23 @@ export function getStrongKeywordVariantsForTagName(name: string): string[] {
   return extractTagNameVariants(name).filter(isStrongPathKeyword);
 }
 
-function collectLeafTagCandidates(tagsTree: TagWithChildren[]): Array<{
+type LeafTagCandidate = {
   leafTagId: number;
   tagPath: string[];
   keywords: string[];
   // 标签全名本身暗示的格式类别（如"POP-UP视频"→video），无则为 undefined。
   formatKind?: "image" | "video";
-}> {
-  const candidates: Array<{
-    leafTagId: number;
-    tagPath: string[];
-    keywords: string[];
-    formatKind?: "image" | "video";
-  }> = [];
+};
+
+// 候选只取决于标签树本身，同一棵树（同一对象，由队列的标签树缓存复用）只算一次；
+// 否则每个任务的 materializedPath / basicInfo 两个入口、每次重试都要把整棵树重算一遍。
+// 调用方只读不改返回的数组。
+const leafTagCandidatesCache = new WeakMap<TagWithChildren[], readonly LeafTagCandidate[]>();
+
+function collectLeafTagCandidates(tagsTree: TagWithChildren[]): readonly LeafTagCandidate[] {
+  const cached = leafTagCandidatesCache.get(tagsTree);
+  if (cached) return cached;
+  const candidates: LeafTagCandidate[] = [];
   for (const lv1 of tagsTree) {
     const lv2List = lv1.children ?? [];
     for (const lv2 of lv2List) {
@@ -531,6 +549,7 @@ function collectLeafTagCandidates(tagsTree: TagWithChildren[]): Array<{
       }
     }
   }
+  leafTagCandidatesCache.set(tagsTree, candidates);
   return candidates;
 }
 

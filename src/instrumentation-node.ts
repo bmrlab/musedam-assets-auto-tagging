@@ -2,6 +2,15 @@
 // reach the Edge runtime compile. See the comment there for why the split matters.
 export async function register() {
   const { rootLogger } = await import("@/lib/logging");
+
+  // sharp（libvips）默认按宿主机核数开线程，而不是按容器的 CPU limit；在 1 核的 pod 里几个任务
+  // 同时处理图片就会把 CFS 配额吃光，主线程也跟着被限流，连 `/` 探针都答不上。限制为单线程。
+  try {
+    const { default: sharp } = await import("sharp");
+    sharp.concurrency(1);
+  } catch (error) {
+    rootLogger.warn({ msg: "Failed to limit sharp concurrency", err: error });
+  }
   const featureVectorLogger = rootLogger.child({ service: "feature-vector-worker" });
 
   const globalForFeatureVectors = global as unknown as {

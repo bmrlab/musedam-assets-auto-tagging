@@ -878,13 +878,31 @@ async function recoverStaleProcessingItems(): Promise<number> {
 
 type TagsTreeLoader = (teamId: number) => Promise<TagWithChildren[]>;
 
+// 跨批次的标签树短缓存：积压时入队 kick 每 2 秒一轮、每轮只领两三条，批次内缓存几乎不生效，
+// 结果几乎每个任务都要把整棵树（含 extra）重新查一遍、再跑一遍 ensureEvidencePolicies。
+// 缓存 30 秒：标签改完最多 30 秒后生效；同一对象复用也让 predict 里按树缓存的硬匹配候选生效。
+const TAGS_TREE_CACHE_TTL_MS = 30_000;
+const tagsTreeCache = new Map<number, { promise: Promise<TagWithChildren[]>; expiresAt: number }>();
+
+function fetchTagsTreeForTaggingCached(teamId: number): Promise<TagWithChildren[]> {
+  const now = Date.now();
+  const cached = tagsTreeCache.get(teamId);
+  if (cached && cached.expiresAt > now) return cached.promise;
+  const promise = fetchTagsTreeForTagging({ teamId }).catch((error) => {
+    // 失败不缓存，让后续任务有机会重试
+    if (tagsTreeCache.get(teamId)?.promise === promise) tagsTreeCache.delete(teamId);
+    throw error;
+  });
+  tagsTreeCache.set(teamId, { promise, expiresAt: now + TAGS_TREE_CACHE_TTL_MS });
+  return promise;
+}
+
 /**
  * 一次 processPendingQueueItems 批次内按团队复用标签树：同团队多条任务（含并发）只查一次库。
- * 生命周期与批次绑定，批次结束即释放，不跨批次缓存，避免标签刚改完就被旧树打标。
+ * 默认的 load 还带 30 秒的跨批次缓存（见 fetchTagsTreeForTaggingCached）。
  */
 export function createBatchTagsTreeLoader(
-  load: (teamId: number) => Promise<TagWithChildren[]> = (teamId) =>
-    fetchTagsTreeForTagging({ teamId }),
+  load: (teamId: number) => Promise<TagWithChildren[]> = fetchTagsTreeForTaggingCached,
 ): TagsTreeLoader {
   const inflight = new Map<number, Promise<TagWithChildren[]>>();
   return (teamId) => {
@@ -999,10 +1017,11 @@ export async function processPendingQueueItems(): Promise<{
   await recoverStaleProcessingItems();
 
   // 一次性捞出足够多的 pending 记录，内存内分流（避免 Prisma JSON path 过滤器的兼容性问题）
+  // 候选池不带 assetObject：素材的 content/extra 是整条 MuseDAM 素材 JSON，200 条全拉下来
+  // 再在主线程解析很重，而每轮只会领走两三条；选定之后再只查被选中那几条的素材。
   const candidateItems = await prisma.taggingQueueItem.findMany({
     where: { status: "pending" },
     orderBy: { createdAt: "asc" },
-    include: { assetObject: true },
     // 多拉一些，保证两类任务都能填满各自的槽位，同时覆盖足够多的团队用于轮询
     take: CANDIDATE_POOL_SIZE,
   });
@@ -1018,7 +1037,21 @@ export async function processPendingQueueItems(): Promise<{
     TOTAL_QUEUE_CONCURRENCY - TAG_TREE_RESERVED_CONCURRENCY,
   );
 
-  const allItems = [...tagTreeItems, ...normalItems];
+  const selectedAssetObjectIds = normalItems
+    .map((item) => item.assetObjectId)
+    .filter((id): id is number => id !== null);
+  const assetObjectsById = new Map(
+    selectedAssetObjectIds.length > 0
+      ? (
+          await prisma.assetObject.findMany({ where: { id: { in: selectedAssetObjectIds } } })
+        ).map((assetObject) => [assetObject.id, assetObject])
+      : [],
+  );
+  const allItems = [...tagTreeItems, ...normalItems].map((item) => ({
+    ...item,
+    assetObject:
+      item.assetObjectId !== null ? (assetObjectsById.get(item.assetObjectId) ?? null) : null,
+  }));
 
   let processing = 0;
   let skipped = 0;
