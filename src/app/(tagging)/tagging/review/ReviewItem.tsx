@@ -70,6 +70,7 @@ import {
   featureKey,
   getFeatureReviewVersions,
   getReviewedManualFeatures,
+  getReviewFeatures,
   type FeatureThumbnailImage,
   type ReviewFeature,
   type ReviewFeatureSearchResult,
@@ -467,11 +468,22 @@ export function ReviewItem({
     });
   }, [batch]);
 
-  const visibleBatch = useMemo(
-    () => (showHistory ? finalBatch : finalBatch.slice(0, 1)),
-    [finalBatch, showHistory],
+  // 只折叠已应用过的历史批次；还有 pending 审核项的批次会随本次应用一起提交（标签和特征），
+  // 必须始终展示，避免在看不到的情况下被应用
+  const collapsibleBatch = useMemo(
+    () =>
+      finalBatch.filter(
+        ({ taggingAuditItems }, index) =>
+          index > 0 && !taggingAuditItems.some(({ status }) => status === "pending"),
+      ),
+    [finalBatch],
   );
-  const historyCount = Math.max(finalBatch.length - 1, 0);
+  const visibleBatch = useMemo(
+    () =>
+      showHistory ? finalBatch : finalBatch.filter((group) => !collapsibleBatch.includes(group)),
+    [collapsibleBatch, finalBatch, showHistory],
+  );
+  const historyCount = collapsibleBatch.length;
 
   const filteredOutAuditItems = useMemo(() => {
     const finalBatchSet = new Set(finalBatch);
@@ -549,9 +561,10 @@ export function ReviewItem({
       ),
     [featureLibraryFeatures, manualFeatures],
   );
-  // 已在卡片上的特征（AI 识别 + 手动添加 + 素材已绑定的），弹窗里置灰避免重复添加。
-  // AI 识别部分必须和"AI 识别特征"列表的展示条件一致（类型开关 + 置信度阈值），
-  // 否则低于阈值、卡片上看不到的识别结果也会被标成"已添加"，导致无法手动添加。
+  // 本次应用会带上的特征（素材已绑定 + 手动添加 + 待应用批次的 AI 识别结果），弹窗里置灰避免重复添加。
+  // AI 部分与应用逻辑一致：只取 featureReviewVersions 里的批次（有 pending 审核项、会随本次应用提交），
+  // 用 getReviewFeatures 按置信度阈值筛选。已应用过的历史批次不算，否则只在历史里识别过、
+  // 这次不会应用的特征也会显示"已添加"，导致无法手动添加。
   const addedFeatureKeys = useMemo(
     () =>
       new Set(
@@ -560,53 +573,19 @@ export function ReviewItem({
           ...existingFeatures.map((feature) =>
             featureKey(feature.featureType, feature.identifierId),
           ),
-          ...finalBatch.flatMap(({ queueItem }) => {
-            const brand = brandRecommendationsByQueueId.get(queueItem.id)?.bestMatch;
-            const ip = ipRecommendationsByQueueId.get(queueItem.id)?.bestMatch;
-            return [
-              ...(featureLibraryFeatures.featureBrand &&
-              brand &&
-              meetsFeatureConfidenceThreshold("brand", brand.confidence) &&
-              availableFeatureIdSets.brand.has(brand.assetLogoId)
-                ? [featureKey("brand", brand.assetLogoId)]
-                : []),
-              ...(featureLibraryFeatures.featureIp &&
-              ip &&
-              meetsFeatureConfidenceThreshold("ip", ip.confidence) &&
-              availableFeatureIdSets.ip.has(ip.assetIpId)
-                ? [featureKey("ip", ip.assetIpId)]
-                : []),
-              ...(featureLibraryFeatures.featureProduct
-                ? getAcceptedProductMatches(productRecommendationsByQueueId.get(queueItem.id))
-                : []
-              )
-                .filter((product) => availableFeatureIdSets.product.has(product.assetProductId))
-                .map((product) => featureKey("product", product.assetProductId)),
-              ...(featureLibraryFeatures.featurePerson
-                ? (personRecommendationsByQueueId.get(queueItem.id)?.faces ?? [])
-                : []
-              ).flatMap((face) =>
-                face.bestMatch &&
-                isReviewablePersonFace(face) &&
-                getPersonFaceBestRawSimilarity(face) !== null &&
-                availableFeatureIdSets.person.has(face.bestMatch.assetPersonId)
-                  ? [featureKey("person", face.bestMatch.assetPersonId)]
-                  : [],
-              ),
-            ];
-          }),
+          ...finalBatch
+            .filter(({ queueItem }) => featureReviewVersions[queueItem.id] !== undefined)
+            .flatMap(({ queueItem }) => getReviewFeatures(queueItem.result))
+            .filter((feature) => availableFeatureIdSets[feature.featureType].has(feature.id))
+            .map((feature) => featureKey(feature.featureType, feature.id)),
         ].filter((key) => !rejectedFeatureKeys.includes(key)),
       ),
     [
       availableFeatureIdSets,
-      brandRecommendationsByQueueId,
       existingFeatures,
-      featureLibraryFeatures,
+      featureReviewVersions,
       finalBatch,
-      ipRecommendationsByQueueId,
       manualFeatureKeys,
-      personRecommendationsByQueueId,
-      productRecommendationsByQueueId,
       rejectedFeatureKeys,
     ],
   );
