@@ -307,28 +307,32 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
     [getNodeId, applySelection],
   );
 
-  // 设置默认选中状态（优先恢复 URL 中的选中）
-  const setDefaultSelection = useCallback(
-    (tree: TagNode[]) => {
-      if (tree.length > 0 && !initialized) {
-        restoreSelection(tree, {
-          l1: selectedLevel1Id,
-          l2: selectedLevel2Id,
-          l3: selectedLevel3Id,
-        });
-        setInitialized(true);
-      }
-    },
-    [initialized, restoreSelection, selectedLevel1Id, selectedLevel2Id, selectedLevel3Id],
-  );
-
+  // 只随 initialTags 变化同步本地树；不能依赖选中状态，否则切换选中会用首屏的旧 initialTags
+  // 覆盖掉保存后 refetch 得到的新树（表现为修改后自动跳回修改前）
   useEffect(() => {
     const newTree = convertToTagNodes(initialTags);
     setTagsTree(newTree);
     setOriginalTags(initialTags);
-    setDefaultSelection(newTree);
     setIsLoading(false);
-  }, [initialTags, convertToTagNodes, setDefaultSelection]);
+  }, [initialTags, convertToTagNodes]);
+
+  // 设置默认选中状态（优先恢复 URL 中的选中），仅在首次拿到非空树时执行一次
+  useEffect(() => {
+    if (initialized || tagsTree.length === 0) return;
+    restoreSelection(tagsTree, {
+      l1: selectedLevel1Id,
+      l2: selectedLevel2Id,
+      l3: selectedLevel3Id,
+    });
+    setInitialized(true);
+  }, [
+    initialized,
+    tagsTree,
+    restoreSelection,
+    selectedLevel1Id,
+    selectedLevel2Id,
+    selectedLevel3Id,
+  ]);
 
   // 根据ID查找节点
   const findNodeById = (nodes: TagNode[], nodeId: string): TagNode | null => {
