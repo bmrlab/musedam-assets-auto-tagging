@@ -549,7 +549,9 @@ export function ReviewItem({
       ),
     [featureLibraryFeatures, manualFeatures],
   );
-  // 已在卡片上的特征（AI 识别 + 手动添加 + 素材已绑定的），弹窗里置灰避免重复添加
+  // 已在卡片上的特征（AI 识别 + 手动添加 + 素材已绑定的），弹窗里置灰避免重复添加。
+  // AI 识别部分必须和"AI 识别特征"列表的展示条件一致（类型开关 + 置信度阈值），
+  // 否则低于阈值、卡片上看不到的识别结果也会被标成"已添加"，导致无法手动添加。
   const addedFeatureKeys = useMemo(
     () =>
       new Set(
@@ -562,18 +564,31 @@ export function ReviewItem({
             const brand = brandRecommendationsByQueueId.get(queueItem.id)?.bestMatch;
             const ip = ipRecommendationsByQueueId.get(queueItem.id)?.bestMatch;
             return [
-              ...(brand && availableFeatureIdSets.brand.has(brand.assetLogoId)
+              ...(featureLibraryFeatures.featureBrand &&
+              brand &&
+              meetsFeatureConfidenceThreshold("brand", brand.confidence) &&
+              availableFeatureIdSets.brand.has(brand.assetLogoId)
                 ? [featureKey("brand", brand.assetLogoId)]
                 : []),
-              ...(ip && availableFeatureIdSets.ip.has(ip.assetIpId)
+              ...(featureLibraryFeatures.featureIp &&
+              ip &&
+              meetsFeatureConfidenceThreshold("ip", ip.confidence) &&
+              availableFeatureIdSets.ip.has(ip.assetIpId)
                 ? [featureKey("ip", ip.assetIpId)]
                 : []),
-              ...getAcceptedProductMatches(productRecommendationsByQueueId.get(queueItem.id))
+              ...(featureLibraryFeatures.featureProduct
+                ? getAcceptedProductMatches(productRecommendationsByQueueId.get(queueItem.id))
+                : []
+              )
                 .filter((product) => availableFeatureIdSets.product.has(product.assetProductId))
                 .map((product) => featureKey("product", product.assetProductId)),
-              ...(personRecommendationsByQueueId.get(queueItem.id)?.faces ?? []).flatMap((face) =>
+              ...(featureLibraryFeatures.featurePerson
+                ? (personRecommendationsByQueueId.get(queueItem.id)?.faces ?? [])
+                : []
+              ).flatMap((face) =>
                 face.bestMatch &&
                 isReviewablePersonFace(face) &&
+                getPersonFaceBestRawSimilarity(face) !== null &&
                 availableFeatureIdSets.person.has(face.bestMatch.assetPersonId)
                   ? [featureKey("person", face.bestMatch.assetPersonId)]
                   : [],
@@ -586,6 +601,7 @@ export function ReviewItem({
       availableFeatureIdSets,
       brandRecommendationsByQueueId,
       existingFeatures,
+      featureLibraryFeatures,
       finalBatch,
       ipRecommendationsByQueueId,
       manualFeatureKeys,
