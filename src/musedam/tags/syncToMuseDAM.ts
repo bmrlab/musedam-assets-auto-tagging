@@ -279,6 +279,54 @@ type MuseDAMTagTree = {
 }[];
 
 /**
+ * 删除 MuseDAM 中的全部一级标签（子标签随之级联删除）
+ * 以 MuseDAM 实际标签树为准，而不是本地数据库：本地可能缺 slug 或缺标签，
+ * 残留的同名标签会导致后续创建时报「标签名称已存在」
+ */
+export async function deleteAllMuseDAMTags({
+  team,
+}: {
+  team: {
+    id: number;
+    slug: string;
+  };
+}): Promise<void> {
+  const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
+  const musedamTeamId = slugToId("team", team.slug);
+
+  const musedamTagsResult = await requestMuseDAMAPI<MuseDAMTagTree>("/api/muse/query-tag-tree", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${musedamTeamApiKey}`,
+    },
+    body: {
+      orgId: musedamTeamId,
+    },
+  });
+
+  if (!musedamTagsResult || musedamTagsResult.length === 0) {
+    return;
+  }
+
+  const deleteTags: MuseDAMTagRequest[] = musedamTagsResult.map((musedamTag) => ({
+    id: Number(musedamTag.id.toString()),
+    name: musedamTag.name,
+    operation: 3, // 删除
+    sort: musedamTag.sort,
+  }));
+
+  await requestMuseDAMAPI<{ tags: MuseDAMTagResponse[] }>("/api/muse/merge-tags", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${musedamTeamApiKey}`,
+    },
+    body: {
+      tags: deleteTags,
+    },
+  });
+}
+
+/**
  * 将数据库中的 AssetTag 转换为 TagNode
  */
 function convertAssetTagToTagNode(tag: AssetTag & { children?: AssetTag[] }): TagNode {

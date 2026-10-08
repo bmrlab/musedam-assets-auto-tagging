@@ -10,6 +10,7 @@ import { syncTagsFromMuseDAM } from "@/musedam/tags/syncFromMuseDAM";
 import {
   syncTagsToMuseDAM,
   syncTagsToMuseDAMWithCurrentSystemAsBase,
+  deleteAllMuseDAMTags,
 } from "@/musedam/tags/syncToMuseDAM";
 import { MuseDAMID } from "@/musedam/types";
 import type { AssetTagExtra, Prisma } from "@/prisma/client";
@@ -415,13 +416,38 @@ export async function checkExistingTags(): Promise<
   });
 }
 
+// 同一父级下的同名标签（trim 后）合并为一个，子标签递归合并；
+// 否则整棵树推给 MuseDAM 时会报「标签名称已存在」
+function mergeDuplicateSiblings(data: BatchCreateTagData[]): BatchCreateTagData[] {
+  const byName = new Map<string, BatchCreateTagData>();
+  for (const item of data) {
+    const name = item.name.trim();
+    if (!name) continue;
+    const existing = byName.get(name);
+    if (existing) {
+      if (item.nameChildList?.length) {
+        existing.nameChildList = [...(existing.nameChildList ?? []), ...item.nameChildList];
+      }
+    } else {
+      byName.set(name, { ...item, name, nameChildList: item.nameChildList ?? undefined });
+    }
+  }
+  return Array.from(byName.values()).map((item) => ({
+    ...item,
+    nameChildList: item.nameChildList?.length
+      ? mergeDuplicateSiblings(item.nameChildList)
+      : item.nameChildList,
+  }));
+}
+
 export async function batchCreateTags(
-  nameChildList: BatchCreateTagData[],
+  rawNameChildList: BatchCreateTagData[],
   addType: 1 | 2, // 1: 仅保留新建标签树, 2: 合并到现有标签系统
 ): Promise<ServerActionResult<void>> {
-  return withAuth(async ({ team: { id: teamId } }) => {
+  return withAuth(async ({ team: { id: teamId, slug: teamSlug } }) => {
     try {
       const baseTs = Date.now();
+      const nameChildList = mergeDuplicateSiblings(rawNameChildList);
 
       // 合并模式下先解析本地已存在的标签：已存在的节点带 id 且不标 create，
       // 这样推到 MuseDAM 时是「不操作」而非「新建同名标签」，否则上游会拒绝。
@@ -489,34 +515,19 @@ export async function batchCreateTags(
       // 先同步到 MuseDAM（在事务外执行，避免长时间事务）
       // addType=1 走“先删后建”两步，避免同名 delete+create 在同一请求触发“标签已存在”
       if (addType === 1) {
-        const existingRootTags = await prisma.assetTag.findMany({
-          where: {
+        // 以 MuseDAM 实际标签树为准删除：本地无 slug 或本地没有的标签也要删掉，
+        // 否则残留的同名标签会让创建阶段报「标签名称已存在」
+        try {
+          await deleteAllMuseDAMTags({ team: { id: teamId, slug: teamSlug } });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          console.error("Batch create tags MuseDAM delete phase failed", {
             teamId,
-            parentId: null,
-          },
-          orderBy: [{ sort: "desc" }, { name: "asc" }],
-        });
-
-        const deleteTagNodes: TagNode[] = existingRootTags.map((tag) => ({
-          id: tag.id,
-          slug: tag.slug,
-          name: tag.name,
-          originalName: tag.name,
-          children: [],
-          verb: "delete" as const,
-        }));
-
-        if (deleteTagNodes.length > 0) {
-          const deleteResponse = await saveTagsTreeToMuseDAM(deleteTagNodes);
-          if (!deleteResponse.success) {
-            console.error("Batch create tags MuseDAM delete phase failed", {
-              teamId,
-              addType,
-              stage: "primary-sync-delete",
-              message: deleteResponse.message,
-            });
-            throw new Error(deleteResponse.message || "同步到 MuseDAM（删除阶段）失败");
-          }
+            addType,
+            stage: "primary-sync-delete",
+            message,
+          });
+          throw new Error(message || "同步到 MuseDAM（删除阶段）失败");
         }
 
         const createResponse = await saveTagsTreeToMuseDAM(tagsTree);
