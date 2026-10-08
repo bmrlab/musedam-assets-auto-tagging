@@ -76,6 +76,39 @@ function hasEnabledFeatureRecommendation(
   );
 }
 
+/** 列表里会展示的审核项：标签还在，或当前启用的特征库在打标结果里有推荐。 */
+function isDisplayedAuditItem(
+  item: { leafTagId: number | null },
+  queueResult: Prisma.JsonValue | null | undefined,
+  features: FeatureLibraryFeatures,
+) {
+  return item.leafTagId != null || hasEnabledFeatureRecommendation(queueResult ?? null, features);
+}
+
+/**
+ * 与 isDisplayedAuditItem 同一条件，给计数和分页用。
+ * 别名固定为审核项 a、打标任务 q。
+ */
+function displayedAuditItemSql(features: FeatureLibraryFeatures): Prisma.Sql {
+  const featureClauses: Prisma.Sql[] = [];
+  if (features.featureBrand) {
+    featureClauses.push(Prisma.sql`jsonb_typeof(q."result"->'brandRecommendation') = 'object'`);
+  }
+  if (features.featureIp) {
+    featureClauses.push(Prisma.sql`jsonb_typeof(q."result"->'ipRecommendation') = 'object'`);
+  }
+  if (features.featureProduct) {
+    featureClauses.push(Prisma.sql`jsonb_typeof(q."result"->'productRecommendation') = 'object'`);
+  }
+  if (features.featurePerson) {
+    featureClauses.push(Prisma.sql`jsonb_typeof(q."result"->'personRecommendation') = 'object'`);
+  }
+  if (featureClauses.length === 0) {
+    return Prisma.sql`a."leafTagId" IS NOT NULL`;
+  }
+  return Prisma.sql`(a."leafTagId" IS NOT NULL OR ${Prisma.join(featureClauses, " OR ")})`;
+}
+
 // 辅助函数：从 MuseDAM 标签构建 AssetObjectTags
 async function buildAssetObjectTags(
   musedamTags: { id: MuseDAMID; name: string }[],
@@ -178,9 +211,8 @@ export async function fetchAssetsWithAuditItems(
         Prisma.sql`a."assetObjectId" IS NOT NULL`,
         Prisma.sql`a."queueItemId" IS NOT NULL`,
       ];
-      if (!hasEnabledFeatures) {
-        conditions.push(Prisma.sql`a."leafTagId" IS NOT NULL`);
-      }
+      // 和列表组装用同一条「能展示」条件，避免标签被清空后总数仍把这些素材算进去
+      conditions.push(displayedAuditItemSql(featureLibraryFeatures));
 
       // 没有指定状态过滤时，排除 rejected 状态
       conditions.push(
@@ -418,10 +450,7 @@ export async function fetchAssetsWithAuditItems(
         const batch: AssetWithAuditItemsBatch["batch"] = [];
         for (const { queueItem, tagPath, ...taggingAuditItem } of assetObject.taggingAuditItems) {
           if (!queueItem) continue;
-          if (
-            !taggingAuditItem.leafTagId &&
-            !hasEnabledFeatureRecommendation(queueItem.result, featureLibraryFeatures)
-          ) {
+          if (!isDisplayedAuditItem(taggingAuditItem, queueItem.result, featureLibraryFeatures)) {
             continue;
           }
 
@@ -859,11 +888,6 @@ export async function batchApproveAuditItemsAction({
         select: { id: true, slug: true },
       });
       const featureLibraryFeatures = await getServerFeatureLibraryFeatures();
-      const hasEnabledFeatures =
-        featureLibraryFeatures.featureBrand ||
-        featureLibraryFeatures.featureIp ||
-        featureLibraryFeatures.featureProduct ||
-        featureLibraryFeatures.featurePerson;
 
       let failedCount = 0;
       let deletedCount = 0;
@@ -933,10 +957,7 @@ export async function batchApproveAuditItemsAction({
           (item) =>
             item.assetObjectId === assetObject.id &&
             item.assetObject?.slug === assetObject.slug &&
-            (item.leafTagId !== null ||
-              (hasEnabledFeatures &&
-                item.queueItem &&
-                hasEnabledFeatureRecommendation(item.queueItem.result, featureLibraryFeatures))),
+            isDisplayedAuditItem(item, item.queueItem?.result, featureLibraryFeatures),
         );
 
         // 参考 fetchAssetsWithAuditItems 的 batch 分组逻辑
