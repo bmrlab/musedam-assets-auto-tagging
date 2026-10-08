@@ -50,7 +50,7 @@
       "rename": "Zmień nazwę",
       "delete": "Usuń",
       "deleteConfirmTitle": "Usuń tag",
-      "deleteConfirmDescription": "Czy na pewno chcesz usunąć tag \"{tagName}\"?",
+      "deleteConfirmDescription": "Tag \"{tagName}\" i jego tagi podrzędne zostaną usunięte razem. Czy na pewno chcesz usunąć?",
       "confirmDelete": "Potwierdź usunięcie",
       "searchRelatedAssets": "Szukaj powiązanych zasobów"
     },

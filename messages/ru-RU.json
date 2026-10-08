@@ -204,7 +204,7 @@
     "TagItem": {
       "confirmDelete": "Подтвердить удаление",
       "delete": "Удалить",
-      "deleteConfirmDescription": "Вы уверены, что хотите удалить тег «{tagName}»?",
+      "deleteConfirmDescription": "Тег «{tagName}» и его дочерние теги будут удалены вместе. Подтвердить удаление?",
       "deleteConfirmTitle": "Удалить тег",
       "edited": "Отредактировано",
       "inputTagName": "Введите название тега",

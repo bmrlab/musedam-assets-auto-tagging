@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { fetchTeamTags, saveTagsTree, saveTagsTreeToMuseDAM } from "./actions";
+import { deleteTagAndDescendants } from "./delete-tag";
 import { AiCreateModal } from "./components/AiCreateModal";
 import { BatchCreateModal } from "./components/BatchCreateModal";
 import { CreateModal } from "./components/CreateModal";
@@ -398,7 +399,9 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
 
   // 获取不同层级的标签（支持搜索）
   const currentTagsTree = isSearching ? getSearchResults() : tagsTree;
-  const level1Tags = getVisibleTags(currentTagsTree);
+  const level1Tags = getVisibleTags(currentTagsTree).map(
+    (tag) => findNodeById(tagsTree, getNodeId(tag)) || tag,
+  );
   const level2Tags = selectedLevel1 ? getVisibleTags(selectedLevel1.children) : [];
   const level3Tags = selectedLevel2 ? getVisibleTags(selectedLevel2.children) : [];
 
@@ -603,66 +606,35 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
     );
   };
 
-  // 删除标签
-  const deleteTag = async (nodeId: string) => {
+  // 删除使用服务端完整标签树，避免搜索过滤或过期数据漏掉子标签。
+  const deleteTag = async (nodeId: string): Promise<boolean> => {
     const context = findNodeContext(tagsTree, nodeId);
-    if (!context || isSaving) return;
-
-    const node = context.node;
-
-    // 先构造包含删除标记的最新树
-    const updatedTree = updateNodeInTree(tagsTree, nodeId, (node) => {
-      if (node.verb === "create") {
-        // 新创建的标签直接移除
-        return null;
-      }
-      return {
-        ...node,
-        isDeleted: true,
-        verb: "delete",
-      };
-    });
-    setTagsTree(updatedTree);
-
-    // 如果删除的是当前选中的标签，清除选择
-    if (nodeId === selectedLevel1Id) {
-      applySelection(null, null, null);
-    } else if (nodeId === selectedLevel2Id) {
-      applySelection(selectedLevel1Id, null, null);
-    } else if (nodeId === selectedLevel3Id) {
-      applySelection(selectedLevel1Id, selectedLevel2Id, null);
-    }
-
-    // 整棵树保存
+    if (!context || isSaving) return false;
     try {
       setIsSaving(true);
-      const result = await saveTagsTree(updatedTree);
-
-      if (result.success) {
-        toast.success(t("saveSuccess"));
+      if (context.node.id) {
+        const result = await deleteTagAndDescendants(context.node.id);
+        if (!result.success) {
+          toast.error(result.message || t("saveFailed"));
+          return false;
+        }
         await refetchTagsTree();
       } else {
-        toast.error(result.message || t("saveFailed"));
-        // 恢复原值
-        setTagsTree((tree) =>
-          updateNodeInTree(tree, nodeId, (node) => ({
-            ...node,
-            isDeleted: false,
-            verb: undefined,
-          })),
-        );
+        setTagsTree((tree) => updateNodeInTree(tree, nodeId, () => null));
       }
+      if (nodeId === selectedLevel1Id) {
+        applySelection(null, null, null);
+      } else if (nodeId === selectedLevel2Id) {
+        applySelection(selectedLevel1Id, null, null);
+      } else if (nodeId === selectedLevel3Id) {
+        applySelection(selectedLevel1Id, selectedLevel2Id, null);
+      }
+      toast.success(t("saveSuccess"));
+      return true;
     } catch (error) {
       console.error("Delete tag error:", error);
       toast.error(t("saveFailed"));
-      // 恢复原值
-      setTagsTree((tree) =>
-        updateNodeInTree(tree, nodeId, (node) => ({
-          ...node,
-          isDeleted: false,
-          verb: undefined,
-        })),
-      );
+      return false;
     } finally {
       setIsSaving(false);
     }

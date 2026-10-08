@@ -204,7 +204,7 @@
     "TagItem": {
       "confirmDelete": "Confirmar Borrado",
       "delete": "Eliminar",
-      "deleteConfirmDescription": "¿Está seguro que desea eliminar la etiqueta \"{tagName}\"?",
+      "deleteConfirmDescription": "La etiqueta \"{tagName}\" y sus etiquetas secundarias se eliminarán juntas. ¿Confirma la eliminación?",
       "deleteConfirmTitle": "Eliminar Etiqueta",
       "edited": "Editado",
       "inputTagName": "Introduzca el nombre de la etiqueta",

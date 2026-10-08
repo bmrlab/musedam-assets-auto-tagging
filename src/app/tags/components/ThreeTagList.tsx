@@ -32,7 +32,7 @@ interface ThreeTagListProps {
     onEdit?: (nodeId: string, newName: string) => Promise<boolean>;
     onStartEdit?: (nodeId: string) => void;
     onCancelEdit?: (nodeId: string) => void;
-    onDelete?: (nodeId: string) => void;
+    onDelete?: (nodeId: string) => Promise<boolean>;
     onRestore?: (nodeId: string) => void;
     onAddTag?: (level: 1 | 2 | 3) => void;
 
@@ -132,7 +132,7 @@ export function ThreeTagList({
                         onEdit={onEdit || (async () => false)}
                         onStartEdit={onStartEdit || (() => { })}
                         onCancelEdit={onCancelEdit || (() => { })}
-                        onDelete={onDelete || (() => { })}
+                        onDelete={onDelete || (async () => false)}
                         onRestore={onRestore || (() => { })}
                         getNodeId={getNodeId}
                         hasDetailChanges={hasDetailChanges}
@@ -161,7 +161,7 @@ export function ThreeTagList({
                                 onEdit={onEdit || (async () => false)}
                                 onStartEdit={onStartEdit || (() => { })}
                                 onCancelEdit={onCancelEdit || (() => { })}
-                                onDelete={onDelete || (() => { })}
+                                onDelete={onDelete || (async () => false)}
                                 onRestore={onRestore || (() => { })}
                                 getNodeId={getNodeId}
                                 hasDetailChanges={hasDetailChanges}
@@ -183,7 +183,7 @@ export function ThreeTagList({
                                 onEdit={onEdit || (async () => false)}
                                 onStartEdit={onStartEdit || (() => { })}
                                 onCancelEdit={onCancelEdit || (() => { })}
-                                onDelete={onDelete || (() => { })}
+                                onDelete={onDelete || (async () => false)}
                                 onRestore={onRestore || (() => { })}
                                 getNodeId={getNodeId}
                                 hasDetailChanges={hasDetailChanges}

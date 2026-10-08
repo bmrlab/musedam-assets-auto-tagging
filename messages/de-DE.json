@@ -204,7 +204,7 @@
     "TagItem": {
       "confirmDelete": "Löschen bestätigen",
       "delete": "Löschen",
-      "deleteConfirmDescription": "Sind Sie sicher, dass Sie das Tag „{tagName}“ löschen möchten?",
+      "deleteConfirmDescription": "Das Tag „{tagName}“ und seine untergeordneten Tags werden gemeinsam gelöscht. Möchten Sie wirklich löschen?",
       "deleteConfirmTitle": "Tag löschen",
       "edited": "Bearbeitet",
       "inputTagName": "Tag-Name eingeben",
