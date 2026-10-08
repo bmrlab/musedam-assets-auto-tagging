@@ -11,21 +11,24 @@ import type { QueryFeaturesByMaterialsOutput } from "./query-features-by-materia
 import type { SaveFeatureToMuseDAMInput, SaveFeatureToMuseDAMOutput } from "./save-feature-types";
 import { MuseDAMID } from "./types";
 
+/** 素材在多个文件夹时，各文件夹完整路径之间的分隔符（匹配与 prompt 都把它当普通文本）。 */
+const MATERIALIZED_PATH_SEPARATOR = " | ";
+
 /**
- * 获取文件夹路径
- * @param param0
- * @returns
+ * 素材所有父文件夹的完整路径，按 parentIds 顺序去重后用 MATERIALIZED_PATH_SEPARATOR 拼接。
+ * 之前只取 parentIds[0]：素材同时在多个文件夹时，其他文件夹路径里的 SKU/语言等信息完全参与不了打标。
  */
-async function fetchMuseDAMFolderPath({
+async function fetchMuseDAMFolderPaths({
   team,
-  musedamFolderId,
+  musedamFolderIds,
 }: {
   team: {
     id: number;
     slug: string;
   };
-  musedamFolderId: MuseDAMID;
-}) {
+  musedamFolderIds: MuseDAMID[];
+}): Promise<string> {
+  if (musedamFolderIds.length === 0) return "";
   const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
   const result: {
     [_id: string]: string;
@@ -34,10 +37,13 @@ async function fetchMuseDAMFolderPath({
     headers: {
       Authorization: `Bearer ${musedamTeamApiKey}`,
     },
-    body: [musedamFolderId],
+    body: musedamFolderIds,
   });
 
-  return result[musedamFolderId.toString()];
+  const paths = musedamFolderIds
+    .map((folderId) => result?.[folderId.toString()])
+    .filter((path): path is string => !!path);
+  return Array.from(new Set(paths)).join(MATERIALIZED_PATH_SEPARATOR);
 }
 
 /**
@@ -218,9 +224,8 @@ export async function syncSingleAssetFromMuseDAM({
     height?: number;
   };
 
-  const musedamFolderId = musedamAsset.parentIds[0];
   const [folderPath, contentAnalysis, tags] = await Promise.all([
-    musedamFolderId ? fetchMuseDAMFolderPath({ team, musedamFolderId }) : Promise.resolve(""),
+    fetchMuseDAMFolderPaths({ team, musedamFolderIds: musedamAsset.parentIds ?? [] }),
     fetchContentAnalysisFromMuseDAM({ team, musedamAssetId }),
     buildAssetObjectTags(musedamAsset.tags ?? []),
   ]);

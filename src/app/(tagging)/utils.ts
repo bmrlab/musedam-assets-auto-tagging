@@ -1,6 +1,6 @@
 import "server-only";
 
-import { TagWithChildren, AssetTagExtra } from "@/prisma/client";
+import { AssetTagExtra, TagWithChildren } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 import {
   getExplicitRequiredGroup,
@@ -33,14 +33,32 @@ function requiredMark(extra: unknown): string {
   return getExplicitRequiredGroup(extra) ? ` ${REQUIRED_GROUP_TAG_MARK}` : "";
 }
 
-export function buildTagStructureText(tags: TagWithChildren[]): string {
+/**
+ * 子标签被裁剪过的分类：标出原有数量，让模型知道没列出的子标签不是不存在，而是没有字面命中。
+ * 全部被裁掉时只陈述事实、不下"不要选择"的指令——该分类可能带【必选】，两条指令会互相矛盾；
+ * 必打分类没有候选时由 ensureRequiredGroups / predictRequiredGroupChoices 用完整标签树兜底。
+ */
+function prunedMark(tagId: number, prunedGroups?: ReadonlyMap<number, PrunedGroupInfo>): string {
+  const info = prunedGroups?.get(tagId);
+  if (!info) return "";
+  return info.shown > 0
+    ? ` （共 ${info.total} 个子标签，仅列出在素材文字信息中字面出现的 ${info.shown} 个）`
+    : ` （共 ${info.total} 个子标签，均未在素材文字信息中字面出现，因此未列出）`;
+}
+
+export type PrunedGroupInfo = { total: number; shown: number };
+
+export function buildTagStructureText(
+  tags: TagWithChildren[],
+  prunedGroups?: ReadonlyMap<number, PrunedGroupInfo>,
+): string {
   let structureText = "";
   for (const level1Tag of tags) {
     const path1 = [level1Tag.name];
-    structureText += `\nLevel 1 (id: ${level1Tag.id}): ${level1Tag.name}${literalMark(level1Tag.extra, path1)}${exclusiveMark(level1Tag.extra)}${requiredMark(level1Tag.extra)}\n`;
+    structureText += `\nLevel 1 (id: ${level1Tag.id}): ${level1Tag.name}${literalMark(level1Tag.extra, path1)}${exclusiveMark(level1Tag.extra)}${requiredMark(level1Tag.extra)}${prunedMark(level1Tag.id, prunedGroups)}\n`;
     for (const level2Tag of level1Tag.children ?? []) {
       const path2 = [...path1, level2Tag.name];
-      structureText += `  └─ Level 2 (id: ${level2Tag.id}): ${level2Tag.name}${literalMark(level2Tag.extra, path2)}${exclusiveMark(level2Tag.extra)}${requiredMark(level2Tag.extra)}\n`;
+      structureText += `  └─ Level 2 (id: ${level2Tag.id}): ${level2Tag.name}${literalMark(level2Tag.extra, path2)}${exclusiveMark(level2Tag.extra)}${requiredMark(level2Tag.extra)}${prunedMark(level2Tag.id, prunedGroups)}\n`;
       for (const level3Tag of level2Tag.children ?? []) {
         const path3 = [...path2, level3Tag.name];
         structureText += `      └─ Level 3 (id: ${level3Tag.id}): ${level3Tag.name}${literalMark(level3Tag.extra, path3)}\n`;
@@ -55,21 +73,21 @@ export function buildTagStructureText(tags: TagWithChildren[]): string {
  */
 export function buildTagKeywordsText(tags: TagWithChildren[]): string {
   let keywordsText = "";
-  
+
   const processTag = (tag: TagWithChildren, level: number = 1) => {
     const indent = "  ".repeat(level - 1);
     const extra = (tag.extra as AssetTagExtra) || {};
-    
+
     if (extra.keywords && extra.keywords.length > 0) {
       keywordsText += `${indent}标签: ${tag.name} (id: ${tag.id})\n`;
       keywordsText += `${indent}  匹配关键词: ${extra.keywords.join(", ")}\n`;
-      
+
       if (extra.negativeKeywords && extra.negativeKeywords.length > 0) {
         keywordsText += `${indent}  排除关键词: ${extra.negativeKeywords.join(", ")}\n`;
       }
       keywordsText += "\n";
     }
-    
+
     // 递归处理子标签
     if (tag.children) {
       for (const child of tag.children) {
@@ -77,11 +95,11 @@ export function buildTagKeywordsText(tags: TagWithChildren[]): string {
       }
     }
   };
-  
+
   for (const tag of tags) {
     processTag(tag);
   }
-  
+
   return keywordsText || "暂无标签关键词配置";
 }
 
