@@ -687,7 +687,9 @@
         "filePathMatching": "文件夹路径匹配",
         "filePathMatchingDesc": "基于素材所在的文件夹路径进行标签匹配",
         "assetNameMatching": "素材名称匹配",
-        "assetNameMatchingDesc": "分析文件名称中的关键信息进行匹配"
+        "assetNameMatchingDesc": "分析文件名称中的关键信息进行匹配",
+        "weight": "权重",
+        "weightHint": "权重默认为 1，可设置 {min} - {max}。权重越高，该来源命中的标签得分越高、越容易被采纳；调低则反之。"
       },
       "TriggerTiming": {
         "title": "触发时机设置",

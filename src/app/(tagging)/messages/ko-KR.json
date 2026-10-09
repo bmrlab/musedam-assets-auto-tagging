@@ -231,6 +231,8 @@
         "aiGeneratedDesc": "AI가 파일 내용을 분석하여 지능적으로 식별합니다",
         "assetNameMatching": "素材명칭 일치",
         "assetNameMatchingDesc": "파일 이름의 키워드를 분석하여 매칭합니다",
+        "weight": "가중치",
+        "weightHint": "기본 가중치는 1이며 {min} - {max} 범위로 설정할 수 있습니다. 가중치가 높을수록 해당 소스에서 일치한 태그의 점수가 높아져 채택되기 쉬워집니다.",
         "customKeywords": "사용자 정의 키워드",
         "customKeywordsDesc": "사용자 정의 키워드 라이브러리에서 매칭",
         "desc": "태그 매칭 출처 선택",

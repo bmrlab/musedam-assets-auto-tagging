@@ -29,7 +29,12 @@ import {
   RecognitionAccuracyMode,
   tagPredictionSystemPrompt,
 } from "./prompt";
-import { SourceBasedTagPredictions, tagPredictionSchema, TagWithScore } from "./types";
+import {
+  SourceBasedTagPredictions,
+  SourceWeights,
+  tagPredictionSchema,
+  TagWithScore,
+} from "./types";
 import { buildTagKeywordsText, buildTagStructureText, PrunedGroupInfo } from "./utils";
 
 function taggingPredictError(code: string, message: string) {
@@ -947,6 +952,7 @@ function sortPredictionsDeterministically(
  */
 function calculateMultiSourceScore(
   confidenceBySources: TagWithScore["confidenceBySources"],
+  sourceWeights?: Partial<SourceWeights>,
 ): number {
   const dampingFactor = 0.8;
   let remaining = 1;
@@ -956,7 +962,12 @@ function calculateMultiSourceScore(
     Object.entries(confidenceBySources) as [keyof TagWithScore["confidenceBySources"], number][]
   ).forEach(([source, confidence]) => {
     if (confidence !== undefined && confidence !== null) {
-      const weight = SCORING_WEIGHTS[source];
+      // 团队自定义权重为倍数：越大指数越小，该来源的置信度被放大得越多；1 即保持默认
+      const userWeight = sourceWeights?.[source];
+      const weight =
+        userWeight && userWeight > 0
+          ? SCORING_WEIGHTS[source] / userWeight
+          : SCORING_WEIGHTS[source];
       const enhanced = Math.pow(confidence, weight);
       maxWeighted = Math.max(maxWeighted, enhanced);
       remaining *= 1 - enhanced * dampingFactor;
@@ -970,7 +981,10 @@ function calculateMultiSourceScore(
 /**
  * 加权的算法不一定对，如果一个 tag 在两个 source 都有，结果应该是更高分数而不是在两个 source 的 confidence 之间的一个数值
  */
-export function calculateTagScore(predictions: SourceBasedTagPredictions) {
+export function calculateTagScore(
+  predictions: SourceBasedTagPredictions,
+  sourceWeights?: Partial<SourceWeights>,
+) {
   const tagsWithScore: TagWithScore[] = [];
   predictions.forEach(({ source, tags }) => {
     tags.forEach(({ leafTagId, tagPath, confidence }) => {
@@ -988,7 +1002,7 @@ export function calculateTagScore(predictions: SourceBasedTagPredictions) {
     });
   });
   tagsWithScore.forEach((item) => {
-    const finalScore = calculateMultiSourceScore(item.confidenceBySources);
+    const finalScore = calculateMultiSourceScore(item.confidenceBySources, sourceWeights);
     item.score = Math.round(finalScore * 100);
   });
   return tagsWithScore;
@@ -1255,6 +1269,8 @@ export async function predictAssetTags(
       tagKeywords: boolean;
     };
     recognitionAccuracy?: RecognitionAccuracyMode;
+    /** 团队自定义的各匹配来源权重倍数，未传时使用默认权重。 */
+    sourceWeights?: SourceWeights;
     faceFeatures?: TaggingFaceFeatures;
     /** 调用方已加载好的标签树（如队列同一批次内按团队复用），传入时跳过数据库查询。 */
     tagsTree?: TagWithChildren[];
@@ -1515,7 +1531,7 @@ ${sourceSections.join("\n\n")}
 
       // 按识别模式的最低置信度门槛过滤：LLM 不一定严格遵守 prompt 里的门槛要求，
       // 这里做代码层面的兜底，确保"精准模式只出高置信度标签"是硬约束而非纯靠模型自觉。
-      const allScored = calculateTagScore(predictions);
+      const allScored = calculateTagScore(predictions, options?.sourceWeights);
       const modelTagsWithScore = collapseAncestorTags(
         filterTagsWithScoreByRecognitionAccuracy(allScored, recognitionAccuracyMode),
       );
@@ -1558,6 +1574,7 @@ ${sourceSections.join("\n\n")}
           input: inputPrompt,
           matchingSources: options?.matchingSources,
           recognitionAccuracy: options?.recognitionAccuracy,
+          ...(options?.sourceWeights ? { sourceWeights: options.sourceWeights } : {}),
           ...(requiredGroupFallback ? { requiredGroupFallback } : {}),
           ...(options?.faceFeatures ? { faceFeatures: options.faceFeatures } : {}),
         },

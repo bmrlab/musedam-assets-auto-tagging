@@ -303,9 +303,12 @@ export async function processQueueItem({
     // tagging in parallel with person matching. Other paths keep starting AI tagging early.
     const teamId = queueItem.teamId;
     const tagsTree = tagsTreeLoader ? await tagsTreeLoader(teamId) : undefined;
+    // 权重在处理时按团队当前设置读取，修改后对排队中的任务立即生效
+    const teamSetting = await getTaggingSettings(teamId);
     const predictOptionsBase = {
       matchingSources: extra?.matchingSources,
       recognitionAccuracy: extra?.recognitionAccuracy,
+      sourceWeights: teamSetting.sourceWeights,
       ...(tagsTree ? { tagsTree } : {}),
     };
     // Defer AI tagging only when person face features may be needed; otherwise preserve old timing.
@@ -553,7 +556,6 @@ export async function processQueueItem({
 
     // 如果是测试内容，不需要进入审核
     if (queueItem.taskType !== "test") {
-      const teamSetting = await getTaggingSettings(queueItem.teamId);
       const isDirect = teamSetting.taggingMode === "direct";
 
       logger.info({

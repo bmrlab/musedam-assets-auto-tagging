@@ -610,7 +610,9 @@
         "filePathMatching": "Dosya Yolu Eşleştirme",
         "filePathMatchingDesc": "Varlıkların bulunduğu dosya yoluna göre etiket eşleştirme",
         "assetNameMatching": "Varlık Adı Eşleştirme",
-        "assetNameMatchingDesc": "Eşleştirme için dosya adlarındaki temel bilgileri analiz et"
+        "assetNameMatchingDesc": "Eşleştirme için dosya adlarındaki temel bilgileri analiz et",
+        "weight": "Ağırlık",
+        "weightHint": "Varsayılan ağırlık 1'dir (aralık {min} - {max}). Daha yüksek ağırlık, bu kaynakla eşleşen etiketlerin puanını artırır; daha düşük ağırlık azaltır."
       },
       "TriggerTiming": {
         "title": "Tetikleme Zamanlaması",

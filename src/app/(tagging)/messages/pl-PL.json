@@ -610,7 +610,9 @@
         "filePathMatching": "Dopasowanie ścieżki pliku",
         "filePathMatchingDesc": "Dopasowanie tagów na podstawie ścieżki pliku, w której znajdują się zasoby",
         "assetNameMatching": "Dopasowanie nazwy zasobu",
-        "assetNameMatchingDesc": "Analizuj kluczowe informacje w nazwach plików w celu dopasowania"
+        "assetNameMatchingDesc": "Analizuj kluczowe informacje w nazwach plików w celu dopasowania",
+        "weight": "Waga",
+        "weightHint": "Domyślna waga to 1 (zakres {min} - {max}). Wyższa waga podnosi wynik tagów dopasowanych przez to źródło; niższa go obniża."
       },
       "TriggerTiming": {
         "title": "Czas wyzwalania",

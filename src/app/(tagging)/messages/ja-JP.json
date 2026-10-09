@@ -231,6 +231,8 @@
         "aiGeneratedDesc": "AIがファイル内容を分析してインテリジェントに識別します",
         "assetNameMatching": "素材名一致",
         "assetNameMatchingDesc": "ファイル名からキー情報を分析してマッチングする",
+        "weight": "重み",
+        "weightHint": "重みのデフォルトは 1 で、{min} - {max} の範囲で設定できます。重みが高いほど、そのソースで一致したタグのスコアが高くなり採用されやすくなります。",
         "customKeywords": "キーワードのカスタマイズ",
         "customKeywordsDesc": "カスタムキーワードライブラリーからマッチング",
         "desc": "タグの一致元を選択",

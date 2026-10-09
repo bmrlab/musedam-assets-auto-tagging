@@ -231,6 +231,8 @@
         "aiGeneratedDesc": "Generar nuevas etiquetas con IA",
         "assetNameMatching": "Coincidencia de Nombres de Activos",
         "assetNameMatchingDesc": "Analizar información clave en nombres de archivo para la coincidencia",
+        "weight": "Peso",
+        "weightHint": "El peso predeterminado es 1 (rango {min} - {max}). Un peso mayor aumenta la puntuación de las etiquetas encontradas por esa fuente; uno menor la reduce.",
         "customKeywords": "Palabras clave personalizadas",
         "customKeywordsDesc": "Coincidencia de la biblioteca de palabras clave personalizada",
         "desc": "Seleccionar fuentes de coincidencia de etiquetas",

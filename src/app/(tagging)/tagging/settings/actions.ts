@@ -1,7 +1,7 @@
 "use server";
 
 import { withAuth } from "@/app/(auth)/withAuth";
-import { TaggingSettingsData } from "@/app/(tagging)/types";
+import { TaggingSettingsData, taggingSettingsSchema } from "@/app/(tagging)/types";
 import { ServerActionResult } from "@/lib/serverAction";
 import { getTaggingSettings, resetTaggingSettings, saveTaggingSettings } from "./lib";
 
@@ -33,6 +33,13 @@ export async function updateSettings(
   data: TaggingSettingsData,
 ): Promise<ServerActionResult<{ success: boolean }>> {
   return withAuth(async ({ team }) => {
+    // 权重直接参与计分，越界值（如 0 或负数）会导致得分异常，必须在服务端拦截
+    if (!taggingSettingsSchema.shape.sourceWeights.safeParse(data.sourceWeights).success) {
+      return {
+        success: false,
+        message: "匹配策略权重不合法",
+      };
+    }
     try {
       await saveTaggingSettings(team.id, data);
 

@@ -27,6 +27,7 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
     initialSettings.recognitionAccuracy,
   );
   const [matchingSources, setMatchingSources] = useState(initialSettings.matchingSources);
+  const [sourceWeights, setSourceWeights] = useState(initialSettings.sourceWeights);
   const [triggerTiming, setTriggerTiming] = useState(initialSettings.triggerTiming);
   const [applicationScope, setApplicationScope] = useState(initialSettings.applicationScope);
   const [isPending, setIsSaving] = useState(false);
@@ -43,6 +44,12 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
     handleSaveSettings({ matchingSources: next });
   };
 
+  const handleWeightChange = (source: keyof typeof sourceWeights, weight: number) => {
+    const next = { ...sourceWeights, [source]: weight };
+    setSourceWeights(next);
+    handleSaveSettings({ sourceWeights: next });
+  };
+
   const handleSaveSettings = async (overrides?: Partial<TaggingSettingsData>) => {
     if (isPending) {
       toast.message("正在保存，请稍后操作")
@@ -54,6 +61,7 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
       taggingMode: overrides?.taggingMode ?? taggingMode,
       recognitionAccuracy: overrides?.recognitionAccuracy ?? recognitionAccuracy,
       matchingSources: overrides?.matchingSources ?? matchingSources,
+      sourceWeights: overrides?.sourceWeights ?? sourceWeights,
       triggerTiming: overrides?.triggerTiming ?? triggerTiming,
       applicationScope: overrides?.applicationScope ?? applicationScope,
     };
@@ -179,7 +187,9 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
 
       <MatchingStrategySection
         matchingSources={matchingSources}
+        sourceWeights={sourceWeights}
         onSourceChange={handleSourceChange}
+        onWeightChange={handleWeightChange}
       />
 
 

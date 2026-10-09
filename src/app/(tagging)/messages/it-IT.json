@@ -361,7 +361,9 @@
         "filePathMatching": "Corrispondenza percorso file",
         "filePathMatchingDesc": "Corrispondenza tag basata sul percorso file dove si trovano le risorse",
         "assetNameMatching": "Corrispondenza nome risorsa",
-        "assetNameMatchingDesc": "Analizza informazioni chiave nei nomi file per la corrispondenza"
+        "assetNameMatchingDesc": "Analizza informazioni chiave nei nomi file per la corrispondenza",
+        "weight": "Peso",
+        "weightHint": "Il peso predefinito è 1 (intervallo {min} - {max}). Un peso maggiore aumenta il punteggio dei tag trovati da questa fonte; uno minore lo riduce."
       },
       "TriggerTiming": {
         "title": "Momento attivazione",

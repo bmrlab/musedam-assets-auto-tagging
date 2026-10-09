@@ -231,6 +231,8 @@
         "aiGeneratedDesc": "AI 分析檔案內容進行智慧辨識",
         "assetNameMatching": "素材名稱匹配",
         "assetNameMatchingDesc": "分析檔案名稱中的關鍵資訊進行比對",
+        "weight": "權重",
+        "weightHint": "權重預設為 1，可設定 {min} - {max}。權重越高，該來源命中的標籤得分越高、越容易被採納；調低則反之。",
         "customKeywords": "自訂關鍵字",
         "customKeywordsDesc": "從自訂關鍵字庫中匹配",
         "desc": "選擇標籤比對來源",

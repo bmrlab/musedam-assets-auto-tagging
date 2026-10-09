@@ -687,7 +687,9 @@
         "filePathMatching": "File Path Matching",
         "filePathMatchingDesc": "Tag matching based on the file path where assets are located",
         "assetNameMatching": "Asset Name Matching",
-        "assetNameMatchingDesc": "Analyze key information in file names for matching"
+        "assetNameMatchingDesc": "Analyze key information in file names for matching",
+        "weight": "Weight",
+        "weightHint": "Default weight is 1 (range {min} - {max}). A higher weight boosts the scores of tags matched by that source, making them more likely to be applied; a lower weight does the opposite."
       },
       "TriggerTiming": {
         "title": "Trigger Timing",

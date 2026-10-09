@@ -651,7 +651,9 @@
         "filePathMatching": "Pencocokan Jalur File",
         "filePathMatchingDesc": "Pencocokan tag berdasarkan jalur file tempat aset berada",
         "assetNameMatching": "Pencocokan Nama Aset",
-        "assetNameMatchingDesc": "Analisis informasi kunci dalam nama file untuk pencocokan"
+        "assetNameMatchingDesc": "Analisis informasi kunci dalam nama file untuk pencocokan",
+        "weight": "Bobot",
+        "weightHint": "Bobot default adalah 1 (rentang {min} - {max}). Bobot lebih tinggi menaikkan skor tag yang cocok dari sumber ini; bobot lebih rendah menurunkannya."
       },
       "TriggerTiming": {
         "title": "Waktu Pemicu",

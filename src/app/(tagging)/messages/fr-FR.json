@@ -361,7 +361,9 @@
         "filePathMatching": "Correspondance du chemin de fichier",
         "filePathMatchingDesc": "Correspondance de tags basée sur le chemin de fichier où se trouvent les ressources",
         "assetNameMatching": "Correspondance du nom de ressource",
-        "assetNameMatchingDesc": "Analyser les informations clés dans les noms de fichiers pour la correspondance"
+        "assetNameMatchingDesc": "Analyser les informations clés dans les noms de fichiers pour la correspondance",
+        "weight": "Poids",
+        "weightHint": "Le poids par défaut est 1 (plage {min} - {max}). Un poids plus élevé augmente le score des tags trouvés par cette source ; un poids plus faible le réduit."
       },
       "TriggerTiming": {
         "title": "Moment de déclenchement",

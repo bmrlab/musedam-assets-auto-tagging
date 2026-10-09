@@ -64,6 +64,16 @@ export const taggingSettingsSchema = z.object({
     contentAnalysis: z.boolean(),
     tagKeywords: z.boolean(),
   }),
+  /**
+   * 各匹配来源的权重倍数，1 为系统默认；越大该来源命中的标签得分越高。
+   * 计分时作用于 SCORING_WEIGHTS 指数：confidence ^ (SCORING_WEIGHTS[source] / weight)。
+   */
+  sourceWeights: z.object({
+    basicInfo: z.number().min(0.1).max(5),
+    materializedPath: z.number().min(0.1).max(5),
+    contentAnalysis: z.number().min(0.1).max(5),
+    tagKeywords: z.number().min(0.1).max(5),
+  }),
   triggerTiming: z.object({
     autoRealtimeTagging: z.boolean(),
     manualTriggerTagging: z.boolean(),
@@ -82,12 +92,18 @@ export const taggingSettingsSchema = z.object({
 
 export type TaggingSettingsData = z.infer<typeof taggingSettingsSchema>;
 
+export type SourceWeights = TaggingSettingsData["sourceWeights"];
+
+export const SOURCE_WEIGHT_MIN = 0.1;
+export const SOURCE_WEIGHT_MAX = 5;
+
 // 配置项的 key 定义
 export const TAGGING_CONFIG_KEYS = {
   IS_TAGGING_ENABLED: "isTaggingEnabled",
   TAGGING_MODE: "taggingMode",
   RECOGNITION_ACCURACY: "recognitionAccuracy",
   MATCHING_SOURCES: "matchingSources",
+  SOURCE_WEIGHTS: "sourceWeights",
   TRIGGER_TIMING: "triggerTiming",
   APPLICATION_SCOPE: "applicationScope",
   ACCESS_PERMISSIONS: "accessPermissions",
@@ -103,6 +119,12 @@ export const DEFAULT_TAGGING_SETTINGS: TaggingSettingsData = {
     materializedPath: true,
     contentAnalysis: true,
     tagKeywords: true,
+  },
+  sourceWeights: {
+    basicInfo: 1,
+    materializedPath: 1,
+    contentAnalysis: 1,
+    tagKeywords: 1,
   },
   triggerTiming: {
     autoRealtimeTagging: true,

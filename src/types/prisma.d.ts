@@ -80,6 +80,13 @@ declare module "@/prisma/client" {
       tagKeywords: boolean;
     };
     recognitionAccuracy: "precise" | "balanced" | "broad";
+    /** 本次计分使用的各匹配来源权重倍数（来自团队设置） */
+    sourceWeights: {
+      basicInfo: number;
+      materializedPath: number;
+      contentAnalysis: number;
+      tagKeywords: number;
+    };
     featureClassify: boolean;
     featureBrand: boolean;
     featureProduct: boolean;

@@ -610,7 +610,9 @@
         "filePathMatching": "Khớp theo đường dẫn tệp",
         "filePathMatchingDesc": "Khớp nhãn dựa trên đường dẫn thư mục chứa tài sản",
         "assetNameMatching": "Khớp theo tên tài sản",
-        "assetNameMatchingDesc": "Phân tích thông tin chính trong tên tệp để khớp"
+        "assetNameMatchingDesc": "Phân tích thông tin chính trong tên tệp để khớp",
+        "weight": "Trọng số",
+        "weightHint": "Trọng số mặc định là 1 (phạm vi {min} - {max}). Trọng số cao hơn làm tăng điểm của thẻ được khớp từ nguồn này; thấp hơn thì ngược lại."
       },
       "TriggerTiming": {
         "title": "Cài đặt thời điểm kích hoạt",

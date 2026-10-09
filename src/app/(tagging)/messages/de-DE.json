@@ -231,6 +231,8 @@
         "aiGeneratedDesc": "Neue Tags mit KI generieren",
         "assetNameMatching": "Asset-Name-Übereinstimmung",
         "assetNameMatchingDesc": "Analysieren Sie Schlüsselinformationen in Dateinamen zur Übereinstimmung",
+        "weight": "Gewichtung",
+        "weightHint": "Standardgewichtung ist 1 (Bereich {min} - {max}). Eine höhere Gewichtung erhöht die Punktzahl der über diese Quelle gefundenen Tags; eine niedrigere senkt sie.",
         "customKeywords": "Eigene Schlüsselwörter",
         "customKeywordsDesc": "Übereinstimmung aus benutzerdefinierter Schlüsselwortbibliothek",
         "desc": "Tag-übereinstimmende Quellen auswählen",

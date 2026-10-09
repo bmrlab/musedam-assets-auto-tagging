@@ -231,6 +231,8 @@
         "aiGeneratedDesc": "Gerar novas tags usando IA",
         "assetNameMatching": "Correspondência de Nome de Ativo",
         "assetNameMatchingDesc": "Analisar informações-chave em nomes de arquivos para correspondência",
+        "weight": "Peso",
+        "weightHint": "O peso padrão é 1 (intervalo {min} - {max}). Um peso maior aumenta a pontuação das tags encontradas por essa fonte; um menor a reduz.",
         "customKeywords": "Palavras-chave Personalizadas",
         "customKeywordsDesc": "Correspondência da biblioteca de palavras-chave personalizada",
         "desc": "Selecionar fontes correspondentes a tags",
