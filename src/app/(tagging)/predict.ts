@@ -413,7 +413,8 @@ export function enforceTextualSourceEvidence(
  * 互斥沿祖先链传播：预测的是三级标签时，它同样代表了自己所在的二级分支——"产品品类"标了互斥，
  * 那么"护肤 > 面霜"和"彩妆 > 底妆"就是在争同一个位置，按各自分支整体取舍。
  * 分支排序（前者优先）：
- * 0. 字面命中（传入 literalText 时：标签名拆词或配置关键词确实出现在文件名/路径里）；
+ * 0. 字面命中（传入 literalText 时：标签名拆词或配置关键词确实出现在文件名/路径里），
+ *    都命中时命中的关键词更长者优先（路径"镜头转接环"同时含"镜头"，应归"镜头转接环"）；
  * 1. 锚定（有 basicInfo / materializedPath / tagKeywords 文本来源，已经过 enforceTextualSourceEvidence 校验）；
  * 2. 各来源最高置信度；
  * 3. 支撑来源数；
@@ -435,14 +436,20 @@ export function resolveExclusiveSiblings(
   // 路径写着 KF12.0066，模型却以 "kf" 为证据给了 KF09.127S1 且置信度 0.99，
   // 之前按置信度比较会让它压过硬匹配命中的 KF12.0066（0.9）。
   const keywordInfoById = literalText ? getTagKeywordInfoById(tagsTree) : undefined;
-  const isLiteralHit = (leafTagId: number) =>
-    !!literalText &&
-    (keywordInfoById?.get(leafTagId)?.keywords ?? []).some((keyword) =>
-      pathIncludesKeyword(literalText, keyword),
-    );
+  // 返回字面命中的最长关键词长度，0 表示未命中。
+  const literalHitLength = (leafTagId: number) =>
+    !literalText
+      ? 0
+      : Math.max(
+          0,
+          ...(keywordInfoById?.get(leafTagId)?.keywords ?? [])
+            .filter((keyword) => pathIncludesKeyword(literalText, keyword))
+            .map((keyword) => keyword.length),
+        );
 
   type BranchStat = {
     literal: boolean;
+    literalLength: number;
     anchored: boolean;
     best: number;
     sources: Set<string>;
@@ -455,13 +462,15 @@ export function resolveExclusiveSiblings(
         const branches = byParent.get(parentId) ?? new Map<number, BranchStat>();
         const stat = branches.get(branchId) ?? {
           literal: false,
+          literalLength: 0,
           anchored: false,
           best: 0,
           sources: new Set(),
           leafTagIds: new Set(),
         };
-        stat.literal =
-          stat.literal || (isTextualSource(prediction.source) && isLiteralHit(tag.leafTagId));
+        const hitLength = isTextualSource(prediction.source) ? literalHitLength(tag.leafTagId) : 0;
+        stat.literal = stat.literal || hitLength > 0;
+        stat.literalLength = Math.max(stat.literalLength, hitLength);
         stat.anchored = stat.anchored || isTextualSource(prediction.source);
         stat.best = Math.max(stat.best, tag.confidence);
         stat.sources.add(prediction.source);
@@ -478,6 +487,7 @@ export function resolveExclusiveSiblings(
     const [winner] = [...branches.entries()].sort(
       (a, b) =>
         Number(b[1].literal) - Number(a[1].literal) ||
+        b[1].literalLength - a[1].literalLength ||
         Number(b[1].anchored) - Number(a[1].anchored) ||
         b[1].best - a[1].best ||
         b[1].sources.size - a[1].sources.size ||
@@ -602,29 +612,36 @@ function collectLeafTagCandidates(tagsTree: TagWithChildren[]): readonly LeafTag
   const cached = leafTagCandidatesCache.get(tagsTree);
   if (cached) return cached;
   const candidates: LeafTagCandidate[] = [];
+  const pushCandidate = (leaf: TagWithChildren, tagPath: string[]) => {
+    // 排除掉被审核反馈（或人工配置）标记为"排除关键词"的自动拆词候选，
+    // 否则硬匹配会绕开 negativeKeywords，反复复现同一个误判（如 POPUP -> POP-UP视频）。
+    const negativeKeywords = new Set(
+      ((leaf.extra as AssetTagExtra)?.negativeKeywords ?? []).map((keyword) =>
+        normalizeForMatch(keyword),
+      ),
+    );
+    const variants = extractTagNameVariants(leaf.name)
+      .filter(isStrongPathKeyword)
+      .filter((keyword) => !negativeKeywords.has(keyword));
+    if (variants.length === 0) return;
+    candidates.push({
+      leafTagId: leaf.id,
+      tagPath,
+      keywords: variants,
+      formatKind: detectFormatKindInText(leaf.name),
+    });
+  };
   for (const lv1 of tagsTree) {
     const lv2List = lv1.children ?? [];
     for (const lv2 of lv2List) {
       const lv3List = lv2.children ?? [];
-      for (const leaf of lv3List) {
-        // 排除掉被审核反馈（或人工配置）标记为"排除关键词"的自动拆词候选，
-        // 否则硬匹配会绕开 negativeKeywords，反复复现同一个误判（如 POPUP -> POP-UP视频）。
-        const negativeKeywords = new Set(
-          ((leaf.extra as AssetTagExtra)?.negativeKeywords ?? []).map((keyword) =>
-            normalizeForMatch(keyword),
-          ),
-        );
-        const variants = extractTagNameVariants(leaf.name)
-          .filter(isStrongPathKeyword)
-          .filter((keyword) => !negativeKeywords.has(keyword));
-        if (variants.length === 0) continue;
-        candidates.push({
-          leafTagId: leaf.id,
-          tagPath: [lv1.name, lv2.name, leaf.name],
-          keywords: variants,
-          formatKind: detectFormatKindInText(leaf.name),
-        });
+      // 没有三级的二级标签本身就是叶子（如"产品分类 > 兔笼"），同样参与硬匹配；
+      // 之前只扫三级，路径里写着"兔笼"也注入不了，必打兜底只能让模型在同组里另选一个。
+      if (lv3List.length === 0) {
+        pushCandidate(lv2, [lv1.name, lv2.name]);
+        continue;
       }
+      for (const leaf of lv3List) pushCandidate(leaf, [lv1.name, lv2.name, leaf.name]);
     }
   }
   leafTagCandidatesCache.set(tagsTree, candidates);
@@ -1489,7 +1506,7 @@ ${sourceSections.join("\n\n")}
       });
 
       // 文件夹路径中的强关键词做硬匹配兜底，避免模型漏掉明显路径信号
-      if (options?.matchingSources?.materializedPath) {
+      if (enabled.materializedPath) {
         predictions = enhancePredictionsByMaterializedPathHardMatch(
           predictions,
           tagsTree,
