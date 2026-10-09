@@ -56,6 +56,8 @@ export type ClassificationRemoteImageInput = ClassificationImageMeta & {
   byteLength: number;
   buffer: Buffer;
   dataUrl: string;
+  // URL-based detectors return pixels in this remote file's EXIF-oriented coordinate frame.
+  sourceImage?: ClassificationImageMeta & { url: string };
   // Original encoded bytes with dimensions after EXIF orientation, for crops mapped from
   // the bounded detector preview. Consumers must apply orientation before extracting.
   original?: ClassificationImageMeta & {
@@ -344,6 +346,8 @@ export type RemoteImageSource = {
   imageUrl: string;
   buffer: Buffer;
   mimeType: string;
+  // Retain remote dimensions when the downloaded buffer is reduced to a working image.
+  sourceDimensions?: ClassificationImageMeta;
 };
 
 export async function fetchRemoteImageSource(
@@ -430,7 +434,10 @@ async function boundRemoteImageSource(
   } catch {
     return source; // 交给后续环节按原逻辑处理（包括像素超限报错）
   }
-  if (Math.max(width, height) <= WORKING_IMAGE_MAX_DIMENSION) return source;
+  const sourceDimensions = source.sourceDimensions ?? { width, height };
+  if (Math.max(width, height) <= WORKING_IMAGE_MAX_DIMENSION) {
+    return { ...source, sourceDimensions };
+  }
 
   const { data, info } = await sharp(source.buffer, SHARP_INPUT_OPTIONS)
     .rotate()
@@ -448,7 +455,7 @@ async function boundRemoteImageSource(
     original: { width, height, bytes: source.buffer.length },
     working: { width: info.width, height: info.height, bytes: data.length },
   });
-  return { imageUrl: source.imageUrl, mimeType: "image/jpeg", buffer: data };
+  return { imageUrl: source.imageUrl, mimeType: "image/jpeg", buffer: data, sourceDimensions };
 }
 
 /** 同一个对象的不同签名地址（如 MuseDAM PNG 的 thumbnailAccessUrl 与 downloadUrl 只差查询参数）。 */
@@ -496,7 +503,7 @@ export async function readRemoteImageDimensions(
 }
 
 async function prepareRemoteImageInput(
-  { imageUrl, buffer: originalBuffer, mimeType: sourceMimeType }: RemoteImageSource,
+  { imageUrl, buffer: originalBuffer, mimeType: sourceMimeType, sourceDimensions }: RemoteImageSource,
   failureContext: string,
   {
     maxDimension,
@@ -510,13 +517,14 @@ async function prepareRemoteImageInput(
 ): Promise<ClassificationRemoteImageInput> {
   // Normalize EXIF orientation and output format so detector coordinates, browser display, and
   // server-side crops use the same coordinate system. Person inputs deliberately skip resize.
+  let bufferDimensions: ClassificationImageMeta | undefined;
   try {
+    const { autoOrient } = await sharp(originalBuffer, SHARP_INPUT_OPTIONS).metadata();
+    bufferDimensions = { width: autoOrient.width, height: autoOrient.height };
     let original: ClassificationRemoteImageInput["original"];
     if (preserveOriginal) {
-      const { autoOrient } = await sharp(originalBuffer, SHARP_INPUT_OPTIONS).metadata();
       original = {
-        width: autoOrient.width,
-        height: autoOrient.height,
+        ...bufferDimensions,
         buffer: originalBuffer,
         mimeType: sourceMimeType,
       };
@@ -544,6 +552,7 @@ async function prepareRemoteImageInput(
       byteLength: data.length,
       buffer: data,
       dataUrl: bufferToDataUrl(data, "image/jpeg"),
+      sourceImage: { url: imageUrl, ...(sourceDimensions ?? bufferDimensions) },
       ...(original ? { original } : {}),
     };
   } catch (error) {
@@ -569,7 +578,7 @@ async function prepareRemoteImageInput(
   // 回退：sharp 无法处理时（极少数格式）沿用原图，保证功能不退化
   let meta: ClassificationImageMeta;
   try {
-    meta = getImageDimensions(originalBuffer, sourceMimeType);
+    meta = bufferDimensions ?? getImageDimensions(originalBuffer, sourceMimeType);
   } catch (error) {
     rootLogger.warn({
       msg: "fetchRemoteImageInput failed while parsing image dimensions",
@@ -590,6 +599,10 @@ async function prepareRemoteImageInput(
     byteLength: originalBuffer.length,
     buffer: originalBuffer,
     dataUrl: bufferToDataUrl(originalBuffer, sourceMimeType),
+    // Do not invent an oriented frame if metadata could not establish one.
+    ...(bufferDimensions
+      ? { sourceImage: { url: imageUrl, ...(sourceDimensions ?? bufferDimensions) } }
+      : {}),
   };
 }
 

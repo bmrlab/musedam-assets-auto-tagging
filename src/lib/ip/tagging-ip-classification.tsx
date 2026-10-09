@@ -38,7 +38,7 @@ export async function classifyAssetIpRecommendation({
     providedImageInput ?? (await fetchRemoteImageInput(imageUrl as string, "IP classification"));
   const detection = await detectIpFigureBoxes({
     teamId,
-    imageBase64: imageInput.dataUrl,
+    imageInput,
   });
 
   const candidateBoxes = (

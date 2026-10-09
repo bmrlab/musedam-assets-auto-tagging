@@ -53,7 +53,7 @@
 | `MUSEDAM_API_BASE_URL` / `MUSEDAM_APP_API_KEY` / `MUSEDAM_APP_SECRET`                            | 客户所在 MuseDAM 实例的地址与凭证                                                |
 | `AUTH_SECRET` / `CIPHER_PASSWORD` / `INTERNAL_API_KEY`                                           | **必须为私有环境重新生成**，不能沿用 SaaS 环境的值                               |
 | `IFRAME_ALLOWED_ORIGINS`                                                                         | 改为客户实际域名                                                                 |
-| `JINA_API_KEY` / `JINA_EMBEDDINGS_URL` / `TRANSLATION_SERVICE_URL` / `LOGO_DETECTION_SERVER_URL` | 若客户环境无法访问对应外部服务，需要替换成客户可达的地址（自建或走同一网关代理） |
+| `JINA_API_KEY` / `JINA_EMBEDDINGS_URL` / `TRANSLATION_SERVICE_URL` / `LOGO_DETECTION_SERVER_URL` / `MEDIA_PROCESS_SERVICE_URL` | 若客户环境无法访问对应外部服务，需要替换成客户可达的地址（自建或走同一网关代理） |
 
 ## 3. 迁移
 
@@ -150,3 +150,24 @@ Web 容器堆上限默认 640MB（`NODE_OPTIONS`），100MB 以内的包可以�
 导入完成后按第 5 节验证客户桶的裸 URL 能匿名访问。
 
 命令行形态 `scripts/migrate-team-import.ts`（`--in-dir` / `--in-file` / `--in-url`）与接口共用 `src/lib/migration/import-team.ts`，堡垒机场景仍可用。
+
+### 物体检测
+
+Logo、商品和 IP 自动打标通过 `MEDIA_PROCESS_SERVICE_URL/queue/object_detection_llm` 提交异步任务，
+并轮询任务状态后读取结果。手动分类页面 `/tagging/product/classify`、`/tagging/brand/classify`、
+`/tagging/ip/classify` 和检测调试页面 `/tagging/dev/detection` 使用
+`MEDIA_PROCESS_SERVICE_URL/requests/object_detection_llm` 同步等待检测完成。
+两种调用均使用 `MEDIA_PROCESS_SERVICE_TOKEN` Bearer 认证，并发送 `file`、`detection_label_text`、
+`detection_mode` 和整数 `team_id`。其中 `team_id` 是当前团队 `Team.slug` 去掉 `t/` 后的
+MuseDAM `org.id`（例如 `t/16` 发送 `16`），不是本应用数据库自增的 `Team.id`。
+团队不存在或 slug 无效时会报错，不会提交无团队归属的检测请求。
+
+同步响应读取 `result.detections` 和 `result.found`；即使 HTTP 状态为 200，非空 `error` 对象也会作为失败处理。
+两种调用的总等待时间在 `src/lib/media-process/object-detection.ts` 中固定为 30 分钟。
+同步请求允许服务端完成 LLM 重试，不使用异步提交和轮询单次请求的 120 秒默认超时。
+调度器和网关的请求超时也需足够长。
+
+`file` 传入可被媒体处理 Worker 访问的 HTTP(S) 图像地址，不传 base64。
+本应用存储中的检测图片使用新生成的 7 天签名 URL（S3 SigV4 的上限）；来自 MuseDAM 的素材 URL 保留上游签名有效期。
+返回的原图坐标会在服务适配层换算为预览坐标，现有裁剪流程继续使用预览坐标。
+`LOGO_DETECTION_SERVER_URL` 和 `LOGO_DETECTION_SERVER_TOKEN` 仍用于人脸检测和人脸特征提取。

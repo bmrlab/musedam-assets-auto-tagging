@@ -1,5 +1,7 @@
 "use server";
 
+import { signObjectDetectionImageUrl } from "@/lib/media-process/image-url";
+
 import { withAuth } from "@/app/(auth)/withAuth";
 import {
   BrandDetectionBox,
@@ -2294,10 +2296,7 @@ export async function prepareBrandClassificationAction(input: {
         };
       }
 
-      const { signedUrl: detectionImageUrl } = getCachedSignedS3ObjectUrl({
-        objectKey: metadata.objectKey,
-        expiresInSeconds: 60 * 60,
-      });
+      const { signedUrl: detectionImageUrl } = signObjectDetectionImageUrl(metadata.objectKey);
       const { signedUrl, signedUrlExpiresAt } = getCachedBrowserS3ObjectUrl({
         objectKey: metadata.objectKey,
         expiresInSeconds: 60 * 60,
@@ -2306,8 +2305,9 @@ export async function prepareBrandClassificationAction(input: {
       const imageInput = await fetchRemoteImageInput(detectionImageUrl, "brand classification");
       const detection = await detectBrandLogoBoxes({
         teamId,
-        imageBase64: imageInput.dataUrl,
+        imageInput,
         detectionLabelText,
+        requestMode: "sync",
       });
 
       return {

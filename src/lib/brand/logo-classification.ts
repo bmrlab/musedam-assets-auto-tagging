@@ -1,10 +1,13 @@
 import "server-only";
 
-import { getLogoDetectionServerToken, getLogoDetectionServerUrl } from "@/lib/brand/env";
 import { createJinaImageEmbeddings } from "@/lib/brand/jina";
 import { queryLogoVectorPoints } from "@/lib/brand/pgvector";
 import { truncateDetectionLabelToTokenLimit } from "@/lib/detection-label";
-import { DETECTION_TIMEOUT_MS } from "@/lib/tagging/external-timeouts";
+import {
+  detectMediaProcessObjects,
+  type MediaProcessRequestMode,
+} from "@/lib/media-process/object-detection";
+import type { ClassificationRemoteImageInput } from "@/lib/tagging/classification-image";
 import { normalizeDetectionText } from "@/lib/utils";
 import prisma from "@/prisma/prisma";
 
@@ -41,18 +44,6 @@ export type BrandClassificationResult = {
   winningDetectionIndex: number | null;
 };
 
-type DetectionServiceResponse = {
-  detections?: Array<{
-    x_min: number;
-    y_min: number;
-    x_max: number;
-    y_max: number;
-    score?: number;
-    label?: string;
-  }>;
-  found?: boolean;
-};
-
 function clampConfidence(value: number) {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
@@ -82,54 +73,28 @@ function isConfidentWinner(topMatches: BrandTopMatch[]) {
 }
 
 export async function detectBrandLogoBoxes({
-  imageBase64,
+  teamId,
+  imageInput,
   detectionLabelText = "",
+  requestMode = "async",
 }: {
-  teamId?: number;
-  imageBase64: string;
+  teamId: number;
+  imageInput: ClassificationRemoteImageInput;
   detectionLabelText?: string;
+  requestMode?: MediaProcessRequestMode;
 }) {
-  const baseUrl = getLogoDetectionServerUrl();
-  const token = getLogoDetectionServerToken();
   const rawDetectionLabelText = detectionLabelText.trim() || "logo";
   const normalizedDetectionLabelText =
     truncateDetectionLabelToTokenLimit(normalizeDetectionText(rawDetectionLabelText)) || "logo .";
-  const response = await fetch(`${baseUrl}/object_detection_llm`, {
-    method: "POST",
-    signal: AbortSignal.timeout(DETECTION_TIMEOUT_MS),
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      image_base64: imageBase64,
-      detection_label_text: normalizedDetectionLabelText,
-    }),
-  });
-
-  if (!response.ok) {
-    const errorBody = await response.text().catch(() => null);
-    console.error(
-      `Logo detection request failed (${response.status}) ${JSON.stringify(errorBody)}`,
-    );
-    throw new Error(`Logo detection request failed (${response.status})`);
-  }
-
-  const payload = (await response.json().catch(() => null)) as DetectionServiceResponse | null;
-
-  return {
-    detections:
-      payload?.detections?.map((item) => ({
-        xMin: item.x_min,
-        yMin: item.y_min,
-        xMax: item.x_max,
-        yMax: item.y_max,
-        score: item.score ?? 0,
-        label: item.label ?? "logo",
-      })) ?? [],
-    found: Boolean(payload?.found),
+  const result = await detectMediaProcessObjects({
+    teamId,
+    imageInput,
+    requestMode,
     detectionLabelText: normalizedDetectionLabelText,
-  };
+    defaultLabel: "logo",
+    errorPrefix: "Logo detection",
+  });
+  return { ...result, detectionLabelText: normalizedDetectionLabelText };
 }
 
 export async function classifyBrandImageCrops({
