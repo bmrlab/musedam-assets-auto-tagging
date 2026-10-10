@@ -1,10 +1,13 @@
 import "server-only";
 
-import { getLogoDetectionServerToken, getLogoDetectionServerUrl } from "@/lib/brand/env";
 import { createJinaImageEmbeddings } from "@/lib/brand/jina";
 import { truncateDetectionLabelToTokenLimit } from "@/lib/detection-label";
 import { queryIpVectorPoints } from "@/lib/ip/pgvector";
-import { DETECTION_TIMEOUT_MS } from "@/lib/tagging/external-timeouts";
+import {
+  detectMediaProcessObjects,
+  type MediaProcessRequestMode,
+} from "@/lib/media-process/object-detection";
+import type { ClassificationRemoteImageInput } from "@/lib/tagging/classification-image";
 import { translateDetectionLabelText } from "@/lib/translation/service";
 import { normalizeDetectionText } from "@/lib/utils";
 import prisma from "@/prisma/prisma";
@@ -58,18 +61,6 @@ export type IpClassificationResult = {
   bestMatch: IpTopMatch | null;
   noConfidentMatch: boolean;
   winningDetectionIndex: number | null;
-};
-
-type DetectionServiceResponse = {
-  detections?: Array<{
-    x_min: number;
-    y_min: number;
-    x_max: number;
-    y_max: number;
-    score?: number;
-    label?: string;
-  }>;
-  found?: boolean;
 };
 
 function clampConfidence(value: number) {
@@ -170,10 +161,12 @@ function computeCropScore(aggregation: CropAggregation) {
 
 export async function detectIpFigureBoxes({
   teamId,
-  imageBase64,
+  imageInput,
+  requestMode = "async",
 }: {
   teamId: number;
-  imageBase64: string;
+  imageInput: ClassificationRemoteImageInput;
+  requestMode?: MediaProcessRequestMode;
 }) {
   const detectionLabelText = normalizeDetectionText(
     await translateDetectionLabelText(await fetchIpDetectionPromptNames(teamId)),
@@ -183,17 +176,21 @@ export async function detectIpFigureBoxes({
   }
 
   return requestIpDetection({
-    imageBase64,
+    teamId,
+    imageInput,
+    requestMode,
     detectionLabelText,
     errorPrefix: "IP detection",
   });
 }
 
 export async function detectIpPartialFeatureBoxes({
-  imageBase64,
+  teamId,
+  imageInput,
   partialMatchPatternName = DEFAULT_IP_PARTIAL_MATCH_PATTERN_NAME,
 }: {
-  imageBase64: string;
+  teamId: number;
+  imageInput: ClassificationRemoteImageInput;
   partialMatchPatternName?: string;
 }) {
   const normalizedPatternName = normalizeDetectionPromptTerm(partialMatchPatternName);
@@ -211,66 +208,38 @@ export async function detectIpPartialFeatureBoxes({
   }
 
   return requestIpDetection({
-    imageBase64,
+    teamId,
+    imageInput,
     detectionLabelText,
     errorPrefix: "IP partial feature detection",
   });
 }
 
 async function requestIpDetection({
-  imageBase64,
+  teamId,
+  imageInput,
   detectionLabelText,
   errorPrefix,
+  requestMode = "async",
 }: {
-  imageBase64: string;
+  teamId: number;
+  imageInput: ClassificationRemoteImageInput;
   detectionLabelText: string;
   errorPrefix: string;
+  requestMode?: MediaProcessRequestMode;
 }) {
-  const baseUrl = getLogoDetectionServerUrl();
-  const token = getLogoDetectionServerToken();
   const boundedDetectionLabelText = truncateDetectionLabelToTokenLimit(detectionLabelText);
   if (!boundedDetectionLabelText) {
     throw new Error(`${errorPrefix} detection_label_text is empty after limiting`);
   }
-  const response = await fetch(`${baseUrl}/object_detection_llm`, {
-    method: "POST",
-    signal: AbortSignal.timeout(DETECTION_TIMEOUT_MS),
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      image_base64: imageBase64,
-      detection_label_text: boundedDetectionLabelText,
-    }),
+  return detectMediaProcessObjects({
+    teamId,
+    imageInput,
+    requestMode,
+    detectionLabelText: boundedDetectionLabelText,
+    defaultLabel: "ip figure",
+    errorPrefix,
   });
-
-  const responseText = await response.text();
-  const payload = (() => {
-    try {
-      return JSON.parse(responseText) as DetectionServiceResponse;
-    } catch {
-      return null;
-    }
-  })();
-
-  if (!response.ok) {
-    console.error(`${errorPrefix} request failed (${response.status}) ${responseText}`);
-    throw new Error(`${errorPrefix} request failed (${response.status})`);
-  }
-
-  return {
-    detections:
-      payload?.detections?.map((item) => ({
-        xMin: item.x_min,
-        yMin: item.y_min,
-        xMax: item.x_max,
-        yMax: item.y_max,
-        score: item.score ?? 0,
-        label: item.label ?? "ip figure",
-      })) ?? [],
-    found: Boolean(payload?.found),
-  };
 }
 
 export async function classifyIpImageCrops({

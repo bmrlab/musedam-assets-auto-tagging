@@ -1,5 +1,7 @@
 "use server";
 
+import { signObjectDetectionImageUrl } from "@/lib/media-process/image-url";
+
 import { withAuth } from "@/app/(auth)/withAuth";
 import {
   MAX_CLIENT_IMAGE_UPLOAD_BYTES,
@@ -1574,10 +1576,7 @@ export async function prepareProductClassificationAction(input: {
         };
       }
 
-      const { signedUrl: detectionImageUrl } = getCachedSignedS3ObjectUrl({
-        objectKey: metadata.objectKey,
-        expiresInSeconds: 60 * 60,
-      });
+      const { signedUrl: detectionImageUrl } = signObjectDetectionImageUrl(metadata.objectKey);
       const { signedUrl, signedUrlExpiresAt } = getCachedBrowserS3ObjectUrl({
         objectKey: metadata.objectKey,
         expiresInSeconds: 60 * 60,
@@ -1585,7 +1584,8 @@ export async function prepareProductClassificationAction(input: {
       const imageInput = await fetchRemoteImageInput(detectionImageUrl, "product classification");
       const detection = await detectProductFigureBoxes({
         teamId,
-        imageBase64: imageInput.dataUrl,
+        imageInput,
+        requestMode: "sync",
       });
 
       return {

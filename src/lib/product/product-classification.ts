@@ -1,12 +1,14 @@
 import "server-only";
 
-import { getLogoDetectionServerToken, getLogoDetectionServerUrl } from "@/lib/brand/env";
 import { createJinaImageEmbeddings } from "@/lib/brand/jina";
+import {
+  detectMediaProcessObjects,
+  type MediaProcessRequestMode,
+} from "@/lib/media-process/object-detection";
 import { groupProductDetectionBoxes } from "@/lib/product/detection-box-groups";
 import { queryProductVectorPoints } from "@/lib/product/pgvector";
 import { deduplicateProductMatches } from "@/lib/product/product-match-policy";
 import type { ClassificationRemoteImageInput } from "@/lib/tagging/classification-image";
-import { DETECTION_TIMEOUT_MS } from "@/lib/tagging/external-timeouts";
 import { meetsFeatureConfidenceThreshold } from "@/lib/tagging/feature-confidence";
 import prisma from "@/prisma/prisma";
 import pLimit from "p-limit";
@@ -68,18 +70,6 @@ export type ProductClassificationResult = {
   winningDetectionIndex: number | null;
 };
 
-type DetectionServiceResponse = {
-  detections?: Array<{
-    x_min: number;
-    y_min: number;
-    x_max: number;
-    y_max: number;
-    score?: number;
-    label?: string;
-  }>;
-  found?: boolean;
-};
-
 function clampConfidence(value: number) {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
@@ -126,55 +116,28 @@ function computeCropScore(aggregation: CropAggregation) {
 
 export async function detectProductFigureBoxes({
   teamId,
-  imageBase64,
+  imageInput,
+  requestMode = "async",
 }: {
   teamId: number;
-  imageBase64: string;
+  imageInput: ClassificationRemoteImageInput;
+  requestMode?: MediaProcessRequestMode;
 }) {
-  const baseUrl = getLogoDetectionServerUrl();
-  const token = getLogoDetectionServerToken();
   const detectionLabelText = await buildProductDetectionLabelText(
     await fetchProductDetectionPromptSources(teamId),
   );
   if (!detectionLabelText) {
     throw new Error("Product detection_label_text is empty after normalization");
   }
-  const response = await fetch(`${baseUrl}/object_detection_llm`, {
-    method: "POST",
-    signal: AbortSignal.timeout(DETECTION_TIMEOUT_MS),
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      image_base64: imageBase64,
-      detection_label_text: detectionLabelText,
-      detection_mode: "product_instances",
-    }),
+  return detectMediaProcessObjects({
+    teamId,
+    imageInput,
+    requestMode,
+    detectionLabelText,
+    detectionMode: "product_instances",
+    defaultLabel: "product figure",
+    errorPrefix: "Product detection",
   });
-
-  if (!response.ok) {
-    const errorBody = await response.text().catch(() => null);
-    console.error(
-      `Product detection request failed (${response.status}) ${JSON.stringify(errorBody)}`,
-    );
-    throw new Error(`Product detection request failed (${response.status})`);
-  }
-
-  const payload = (await response.json().catch(() => null)) as DetectionServiceResponse | null;
-
-  return {
-    detections:
-      payload?.detections?.map((item) => ({
-        xMin: item.x_min,
-        yMin: item.y_min,
-        xMax: item.x_max,
-        yMax: item.y_max,
-        score: item.score ?? 0,
-        label: item.label ?? "product figure",
-      })) ?? [],
-    found: Boolean(payload?.found),
-  };
 }
 
 /** Already prepared images still pass through grouping before embedding. */

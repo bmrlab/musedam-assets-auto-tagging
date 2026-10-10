@@ -1,5 +1,7 @@
 "use server";
 
+import { signObjectDetectionImageUrl } from "@/lib/media-process/image-url";
+
 import { withAuth } from "@/app/(auth)/withAuth";
 import {
   MAX_CLIENT_IMAGE_UPLOAD_BYTES,
@@ -1338,16 +1340,15 @@ export async function prepareIpImageUploadAction(input: {
 }
 
 async function detectPartialFeatureForObjectKey({
+  teamId,
   objectKey,
   partialMatchPatternName,
 }: {
+  teamId: number;
   objectKey: string;
   partialMatchPatternName: (typeof IP_PARTIAL_MATCH_PATTERN_OPTIONS)[number];
 }): Promise<IpPartialFeatureDetectionResult> {
-  const { signedUrl: detectionImageUrl } = getCachedSignedS3ObjectUrl({
-    objectKey,
-    expiresInSeconds: 60 * 60,
-  });
+  const { signedUrl: detectionImageUrl } = signObjectDetectionImageUrl(objectKey);
   const { signedUrl, signedUrlExpiresAt } = getCachedBrowserS3ObjectUrl({
     objectKey,
     expiresInSeconds: 60 * 60,
@@ -1355,7 +1356,8 @@ async function detectPartialFeatureForObjectKey({
 
   const imageInput = await fetchRemoteImageInput(detectionImageUrl, "IP partial feature");
   const detection = await detectIpPartialFeatureBoxes({
-    imageBase64: imageInput.dataUrl,
+    teamId,
+    imageInput,
     partialMatchPatternName,
   });
 
@@ -1395,7 +1397,7 @@ export async function detectAssetIpPartialFeatureAction(input: {
 
       return {
         success: true,
-        data: await detectPartialFeatureForObjectKey(parsed),
+        data: await detectPartialFeatureForObjectKey({ ...parsed, teamId }),
       };
     } catch (error) {
       console.error("Failed to detect partial IP feature:", error);
@@ -1910,10 +1912,7 @@ export async function prepareIpClassificationAction(input: {
         };
       }
 
-      const { signedUrl: detectionImageUrl } = getCachedSignedS3ObjectUrl({
-        objectKey: metadata.objectKey,
-        expiresInSeconds: 60 * 60,
-      });
+      const { signedUrl: detectionImageUrl } = signObjectDetectionImageUrl(metadata.objectKey);
       const { signedUrl, signedUrlExpiresAt } = getCachedBrowserS3ObjectUrl({
         objectKey: metadata.objectKey,
         expiresInSeconds: 60 * 60,
@@ -1921,7 +1920,8 @@ export async function prepareIpClassificationAction(input: {
       const imageInput = await fetchRemoteImageInput(detectionImageUrl, "IP classification");
       const detection = await detectIpFigureBoxes({
         teamId,
-        imageBase64: imageInput.dataUrl,
+        imageInput,
+        requestMode: "sync",
       });
 
       return {

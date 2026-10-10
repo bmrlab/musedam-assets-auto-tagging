@@ -42,7 +42,7 @@ export async function classifyAssetProductRecommendation({
     }));
   const detection = await detectProductFigureBoxes({
     teamId,
-    imageBase64: imageInput.dataUrl,
+    imageInput,
   });
 
   const candidateBoxes =
