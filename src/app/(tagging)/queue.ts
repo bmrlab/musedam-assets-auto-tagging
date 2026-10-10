@@ -27,7 +27,6 @@ import { idToSlug, slugToId } from "@/lib/slug";
 import {
   fetchRemoteImageSource,
   isImageTooLargeError,
-  isSameRemoteObject,
   prepareImageInput,
   preparePersonImageInput,
   readRemoteImageDimensions,
@@ -288,16 +287,15 @@ export async function processQueueItem({
     const hasFeatureClassifications =
       supportsFeatureClassification && Object.values(featureClassifications).some(Boolean);
     const thumbnailUrl = assetExtra?.thumbnailAccessUrl;
-    const productImageUrl = isVideoAssetExtension(assetExtra?.extension)
+    const detectionImageUrl = isVideoAssetExtension(assetExtra?.extension)
       ? thumbnailUrl
       : assetExtra?.downloadUrl?.trim() || thumbnailUrl;
-    // 同一任务里缩略图只下载一次，品牌/IP、人物检测、商品（同一张图时）、画幅比例共用；
-    // 各自只做自己需要的解码 / 缩放。
+    // 人脸检测和画幅比例仍可复用缩略图；URL-based 目标检测共用原图。
     let thumbnailSourcePromise: Promise<RemoteImageSource> | null = null;
     const getThumbnailSource = (url: string) =>
       (thumbnailSourcePromise ??= fetchRemoteImageSource(url, "task thumbnail"));
     // Feature classification (brand/IP/product/person): first skip empty feature libraries.
-    // Brand/IP share a thumbnail. Product prefers the original image for detailed crops.
+    // Brand/IP/product share the download URL and prepared image. Product retains pixels for crops.
     // Person independently keeps the dimensions of its source.
     // Person path only: detect faces first (for AI faceFeatures + reused matching), then run AI
     // tagging in parallel with person matching. Other paths keep starting AI tagging early.
@@ -330,10 +328,7 @@ export async function processQueueItem({
       Awaited<ReturnType<typeof classifyAssetPersonRecommendation>>
     > = Promise.resolve(null);
 
-    if (
-      hasFeatureClassifications &&
-      (thumbnailUrl || (featureClassifications.product && productImageUrl))
-    ) {
+    if (hasFeatureClassifications && (thumbnailUrl || detectionImageUrl)) {
       const [logoCount, productCount, ipCount, personCount] = await Promise.all([
         featureClassifications.brand
           ? prisma.logoVector.count({ where: { teamId, enabled: true, status: "completed" } })
@@ -361,10 +356,32 @@ export async function processQueueItem({
             return null;
           });
 
-        // Kick off brand/IP/product without waiting for face detection.
-        if (logoCount + ipCount > 0 && thumbnailUrl) {
-          const sharedImagePromise = getThumbnailSource(thumbnailUrl)
-            .then((source) => prepareImageInput(source, "feature classification"))
+        // Kick off URL-based detectors from one image, without waiting for face detection.
+        if (logoCount + ipCount + productCount > 0 && detectionImageUrl) {
+          const prepareDetectionInput = (source: RemoteImageSource) =>
+            prepareImageInput(source, "feature classification", {
+              preserveOriginal: productCount > 0,
+            });
+          const sharedImagePromise = (
+            detectionImageUrl === thumbnailUrl
+              ? getThumbnailSource(detectionImageUrl)
+              : fetchRemoteImageSource(detectionImageUrl, "feature classification")
+          )
+            .then(prepareDetectionInput)
+            .catch(async (error) => {
+              if (
+                !thumbnailUrl ||
+                detectionImageUrl === thumbnailUrl ||
+                !isImageTooLargeError(error)
+              ) {
+                throw error;
+              }
+              logger.warn({
+                msg: "Original image too large for feature classification, falling back to thumbnail",
+                error: error instanceof Error ? error.message : String(error),
+              });
+              return prepareDetectionInput(await getThumbnailSource(thumbnailUrl));
+            })
             .catch((error) => {
               logger.warn({
                 msg: "feature classification image fetch failed, skipping feature classification",
@@ -394,33 +411,16 @@ export async function processQueueItem({
                 : null,
             );
           }
-        }
-
-        if (productCount > 0 && productImageUrl) {
-          const prepareProductInput = (source: RemoteImageSource) =>
-            prepareImageInput(source, "Product classification", { preserveOriginal: true });
-          // 缩略图地址与原图地址可能是同一个文件（MuseDAM 的 PNG），这时直接复用已下载的那份
-          const productInputPromise =
-            productImageUrl === thumbnailUrl ||
-            (thumbnailUrl && isSameRemoteObject(productImageUrl, thumbnailUrl))
-              ? getThumbnailSource(productImageUrl).then(prepareProductInput)
-              : fetchRemoteImageSource(productImageUrl, "Product classification")
-                  .then(prepareProductInput)
-                  .catch(async (error) => {
-                    // 原图过大（字节数或像素数超限）时退回缩略图，不去解码能撑爆内存的原图
-                    if (!thumbnailUrl || !isImageTooLargeError(error)) throw error;
-                    logger.warn({
-                      msg: "Product original image too large, falling back to thumbnail",
-                      error: error instanceof Error ? error.message : String(error),
-                    });
-                    return prepareProductInput(await getThumbnailSource(thumbnailUrl));
-                  });
-          productRecommendationPromise = withFallback(
-            productInputPromise.then((imageInput) =>
-              classifyAssetProductRecommendation({ teamId, imageInput }),
-            ),
-            "classifyAssetProductRecommendation",
-          );
+          if (productCount > 0) {
+            productRecommendationPromise = sharedImagePromise.then((imageInput) =>
+              imageInput
+                ? withFallback(
+                    classifyAssetProductRecommendation({ teamId, imageInput }),
+                    "classifyAssetProductRecommendation",
+                  )
+                : null,
+            );
+          }
         }
 
         // Person: detect once, feed faceCount into AI tagging, reuse detection for matching.
