@@ -138,6 +138,8 @@ export async function detectMediaProcessObjects({
   ) {
     throw new Error(`${errorPrefix} has invalid image dimensions`);
   }
+  const scaleX = imageInput.width / source.width;
+  const scaleY = imageInput.height / source.height;
 
   const mediaProcessTeamId = await resolveMediaProcessTeamId(teamId, errorPrefix);
   const requestBody = JSON.stringify({
@@ -149,8 +151,6 @@ export async function detectMediaProcessObjects({
   function parseDetectionResult(payload: unknown) {
     const result = detectionResultSchema.safeParse(payload);
     if (!result.success) throw new Error(`${errorPrefix} returned an invalid detection result`);
-    const scaleX = imageInput.width / source.width;
-    const scaleY = imageInput.height / source.height;
     return {
       detections: result.data.detections.map((box) => ({
         xMin: box.x_min * scaleX,
