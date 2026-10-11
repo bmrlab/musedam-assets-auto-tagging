@@ -1,5 +1,9 @@
 "use client";
 
+import type {
+  FeatureThumbnailImage,
+  FeatureThumbnails,
+} from "@/app/(tagging)/tagging/review/feature-review";
 import { TagOutlinedIcon, VimIcon } from "@/components/ui";
 import { useFeatureLibraryFeatures } from "@/hooks/use-feature-library";
 import { isVideoAssetExtension } from "@/lib/feature-library";
@@ -113,6 +117,27 @@ export interface TaggingResult {
 
 interface TaggingResultDisplayProps {
   result: TaggingResult;
+  /**
+   * 批量签好的特征首图（key 为 `type:id`）。传入时，未出现在其中的 key 视为仍在加载，
+   * 先显示占位，避免每个特征各自发请求；值为 undefined 的 key 由缩略图组件自行请求。
+   */
+  featureThumbnails?: Partial<FeatureThumbnails>;
+}
+
+/** 结果里可能展示的全部特征（`type:id`），供调用方批量签名缩略图。 */
+export function getTaggingResultFeatureKeys(result: TaggingResult): string[] {
+  const products =
+    result.products ?? (result.productRecognition ? [result.productRecognition] : []);
+  const ids: [string, string | undefined][] = [
+    ["brand", result.brandRecognition?.assetLogoId],
+    ["ip", result.ipRecognition?.assetIpId],
+    ...products.map((product): [string, string | undefined] => ["product", product.assetProductId]),
+    ...(result.personRecognition?.faces ?? []).map((face): [string, string | undefined] => [
+      "person",
+      face.assetPersonId,
+    ]),
+  ];
+  return ids.flatMap(([type, id]) => (id ? [`${type}:${id}`] : []));
 }
 
 type DisplayTag = TaggingResult["effectiveTags"][number];
@@ -247,7 +272,16 @@ function TagResultRow({ tag, variant }: { tag: DisplayTag; variant: ResultVarian
   );
 }
 
-function FeatureResultRow({ feature }: { feature: RecognitionFeature }) {
+function FeatureResultRow({
+  feature,
+  featureThumbnails,
+}: {
+  feature: RecognitionFeature;
+  featureThumbnails?: Partial<FeatureThumbnails>;
+}) {
+  const thumbnailKey = `${feature.featureTypeId}:${feature.featureId}`;
+  const thumbnailPending = featureThumbnails !== undefined && !(thumbnailKey in featureThumbnails);
+  const initialImage: FeatureThumbnailImage | null | undefined = featureThumbnails?.[thumbnailKey];
   const t = useTranslations("TaggingResultDisplay");
   const toneClass = getFeatureConfidenceToneClass(feature.confidence);
 
@@ -255,12 +289,17 @@ function FeatureResultRow({ feature }: { feature: RecognitionFeature }) {
     <div className={cn("flex items-center justify-between gap-3 rounded-md border p-3", toneClass)}>
       <CheckIcon className="size-[14px] shrink-0 text-current" />
       <div className="relative size-12 shrink-0 overflow-hidden rounded bg-background/70">
-        <FeatureThumbnail
-          featureType={feature.featureTypeId}
-          featureId={feature.featureId}
-          alt={feature.title}
-          className="h-full w-full"
-        />
+        {thumbnailPending ? (
+          <div className="h-full w-full animate-pulse bg-basic-3/50" />
+        ) : (
+          <FeatureThumbnail
+            featureType={feature.featureTypeId}
+            featureId={feature.featureId}
+            alt={feature.title}
+            className="h-full w-full"
+            initialImage={initialImage}
+          />
+        )}
       </div>
       <div className="min-w-0 flex-1">
         <div className="mb-1 truncate text-sm font-medium text-current">{feature.title}</div>
@@ -298,7 +337,7 @@ function FeatureResultRow({ feature }: { feature: RecognitionFeature }) {
   );
 }
 
-export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
+export function TaggingResultDisplay({ result, featureThumbnails }: TaggingResultDisplayProps) {
   const t = useTranslations("TaggingResultDisplay");
   const featureLibraryFeatures = useFeatureLibraryFeatures();
   const hasEnabledFeatures =
@@ -320,8 +359,7 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
     (featureLibraryFeatures.featureProduct &&
       products.some(
         (product) =>
-          product.assetProductId &&
-          !meetsFeatureConfidenceThreshold("product", product.confidence),
+          product.assetProductId && !meetsFeatureConfidenceThreshold("product", product.confidence),
       )) ||
     (featureLibraryFeatures.featurePerson &&
       result.personRecognition?.faces.some(
@@ -526,7 +564,11 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
           {recognitionFeatures.length > 0 ? (
             <div className="space-y-3">
               {recognitionFeatures.map((feature) => (
-                <FeatureResultRow key={feature.key} feature={feature} />
+                <FeatureResultRow
+                  key={feature.key}
+                  feature={feature}
+                  featureThumbnails={featureThumbnails}
+                />
               ))}
             </div>
           ) : (

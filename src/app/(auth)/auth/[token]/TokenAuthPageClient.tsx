@@ -2,7 +2,8 @@
 import { PageLoadingFallback } from "@/components/PageLoadingFallback";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLocaleClient } from "@/i18n/client";
-import { signIn, signOut } from "next-auth/react";
+import { useAuthActions } from "@/components/AuthProvider";
+import { clearAuthToken, withAuthTokenQuery } from "@/lib/auth-token";
 import { Locale } from "next-intl";
 import { useTheme } from "next-themes";
 import Link from "next/link";
@@ -25,29 +26,25 @@ export function TokenAuthPageClient({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { setLocale } = useLocaleClient();
+  const { refresh } = useAuthActions();
 
   useEffect(() => {
     setLoading(true);
-    signIn("token-login", {
-      token,
-      callbackUrl,
-      redirect: false,
-    })
+    // 登录态只属于当前 tab：token 存进本 tab 的 sessionStorage，不再写共享 cookie，
+    // 所以另一个 tab 切换到别的团队不会影响这里。
+    refresh(token)
       .then((result) => {
-        if (result?.error) {
-          // 如果登录失败，清除旧的 session，避免使用旧团队的数据
-          signOut({ redirect: false }).then(() => {
-            setError(result.error);
-          });
+        if (result.status === "authenticated") {
+          router.replace(withAuthTokenQuery(callbackUrl, token));
         } else {
-          router.replace(callbackUrl);
+          clearAuthToken();
+          setError(result.error ?? "INVALID_TOKEN");
         }
-        setLoading(false);
       })
       .finally(() => {
         setLoading(false);
       });
-  }, [token, callbackUrl, router]);
+  }, [token, callbackUrl, router, refresh]);
 
   useEffect(() => {
     if (theme) {

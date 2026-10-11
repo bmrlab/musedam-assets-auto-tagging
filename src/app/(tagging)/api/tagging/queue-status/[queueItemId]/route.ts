@@ -1,16 +1,9 @@
 import { withAuth } from "@/app/(auth)/withAuth";
-import { getBrandRecommendationFromQueueResult } from "@/app/(tagging)/brand-recommendation";
-import { getIpRecommendationFromQueueResult } from "@/app/(tagging)/ip-recommendation";
-import { getPersonRecommendationFromQueueResult } from "@/app/(tagging)/person-recommendation";
-import { getProductRecommendationFromQueueResult } from "@/app/(tagging)/product-recommendation";
-import { getQueueWaitEstimate } from "@/app/(tagging)/queue-estimate";
-import { filterFeatureLibraryRecommendations } from "@/lib/feature-library";
 import { getFeatureLibraryFeaturesFromRequest } from "@/lib/feature-library-server";
-import { isAcceptedPersonFace } from "@/lib/person/person-match-policy";
-import { getAcceptedProductMatches } from "@/lib/product/product-match-policy";
 import prisma from "@/prisma/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { buildQueueStatusPayload } from "../queue-status-payload";
 
 const paramsSchema = z.object({
   queueItemId: z.coerce.number().positive(),
@@ -45,135 +38,9 @@ export async function GET(
         );
       }
 
-      // 排队 / 处理中的任务：附带排队位置与预估等待时长，供测试页展示"还要等多久"
-      const queueEstimate =
-        queueItem.status === "pending" || queueItem.status === "processing"
-          ? await getQueueWaitEstimate({
-              teamId,
-              queueItemId: queueItem.id,
-              createdAt: queueItem.createdAt,
-              status: queueItem.status,
-            })
-          : null;
-
-      const brandRecommendation = featureLibraryFeatures.featureBrand
-        ? getBrandRecommendationFromQueueResult(queueItem.result)
-        : null;
-      const assetLogoId = brandRecommendation?.bestMatch?.assetLogoId;
-      const ipRecommendation = featureLibraryFeatures.featureIp
-        ? getIpRecommendationFromQueueResult(queueItem.result)
-        : null;
-      const assetIpId = ipRecommendation?.bestMatch?.assetIpId;
-      const productRecommendation = featureLibraryFeatures.featureProduct
-        ? getProductRecommendationFromQueueResult(queueItem.result)
-        : null;
-      const assetProductIds = getAcceptedProductMatches(productRecommendation).map(
-        (match) => match.assetProductId,
-      );
-      const personRecommendation = featureLibraryFeatures.featurePerson
-        ? getPersonRecommendationFromQueueResult(queueItem.result)
-        : null;
-      const assetPersonIds = Array.from(
-        new Set(
-          personRecommendation?.faces
-            .map((face) =>
-              isAcceptedPersonFace(face) && face.bestMatch ? face.bestMatch.assetPersonId : null,
-            )
-            .filter((id): id is string => Boolean(id)) ?? [],
-        ),
-      );
-      const brandLinkedTags = assetLogoId
-        ? await prisma.assetLogoTag.findMany({
-            where: {
-              assetLogoId,
-              assetTagId: {
-                not: null,
-              },
-            },
-            orderBy: [{ sort: "asc" }, { id: "asc" }],
-            select: {
-              assetTagId: true,
-              tagPath: true,
-            },
-          })
-        : [];
-      const ipLinkedTags = assetIpId
-        ? await prisma.assetIpTag.findMany({
-            where: {
-              assetIpId,
-              assetTagId: {
-                not: null,
-              },
-            },
-            orderBy: [{ sort: "asc" }, { id: "asc" }],
-            select: {
-              assetTagId: true,
-              tagPath: true,
-            },
-          })
-        : [];
-      const productLinkedTags =
-        assetProductIds.length > 0
-          ? await prisma.assetProductTag.findMany({
-              where: {
-                assetProductId: { in: assetProductIds },
-                assetTagId: {
-                  not: null,
-                },
-              },
-              orderBy: [{ sort: "asc" }, { id: "asc" }],
-              select: {
-                assetProductId: true,
-                assetTagId: true,
-                tagPath: true,
-              },
-            })
-          : [];
-      const personLinkedTags =
-        assetPersonIds.length > 0
-          ? await prisma.assetPersonTag.findMany({
-              where: {
-                assetPersonId: {
-                  in: assetPersonIds,
-                },
-                assetTagId: {
-                  not: null,
-                },
-              },
-              orderBy: [{ sort: "asc" }, { id: "asc" }],
-              select: {
-                assetPersonId: true,
-                assetTagId: true,
-                tagPath: true,
-              },
-            })
-          : [];
-
       return NextResponse.json({
         success: true,
-        data: {
-          ...queueItem,
-          queueEstimate,
-          result: filterFeatureLibraryRecommendations(queueItem.result, featureLibraryFeatures),
-          brandLinkedTags: brandLinkedTags.map((tag) => ({
-            assetTagId: tag.assetTagId,
-            tagPath: Array.isArray(tag.tagPath) ? tag.tagPath.map(String) : [],
-          })),
-          ipLinkedTags: ipLinkedTags.map((tag) => ({
-            assetTagId: tag.assetTagId,
-            tagPath: Array.isArray(tag.tagPath) ? tag.tagPath.map(String) : [],
-          })),
-          productLinkedTags: productLinkedTags.map((tag) => ({
-            assetProductId: tag.assetProductId,
-            assetTagId: tag.assetTagId,
-            tagPath: Array.isArray(tag.tagPath) ? tag.tagPath.map(String) : [],
-          })),
-          personLinkedTags: personLinkedTags.map((tag) => ({
-            assetPersonId: tag.assetPersonId,
-            assetTagId: tag.assetTagId,
-            tagPath: Array.isArray(tag.tagPath) ? tag.tagPath.map(String) : [],
-          })),
-        },
+        data: await buildQueueStatusPayload({ teamId, queueItem, featureLibraryFeatures }),
       });
     } catch (error) {
       console.error("获取队列状态失败:", error);

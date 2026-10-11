@@ -50,7 +50,7 @@
       "rename": "Renommer",
       "delete": "Supprimer",
       "deleteConfirmTitle": "Supprimer l'étiquette",
-      "deleteConfirmDescription": "Êtes-vous sûr de vouloir supprimer l'étiquette \"{tagName}\" ?",
+      "deleteConfirmDescription": "L'étiquette \"{tagName}\" et ses étiquettes enfants seront supprimées ensemble. Confirmer la suppression ?",
       "confirmDelete": "Confirmer la suppression",
       "searchRelatedAssets": "Rechercher des ressources associées"
     },

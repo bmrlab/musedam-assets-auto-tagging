@@ -2,6 +2,8 @@ import "server-only";
 
 import { bufferToDataUrl } from "@/lib/brand/image";
 import { rootLogger } from "@/lib/logging";
+import { IMAGE_FETCH_TIMEOUT_MS } from "@/lib/tagging/external-timeouts";
+import pLimit from "p-limit";
 import sharp from "sharp";
 
 // Shared non-person downsampling and crop-output settings. Person detection uses a separate
@@ -10,6 +12,37 @@ const MAX_IMAGE_DIMENSION = Number(process.env.TAGGING_MAX_IMAGE_DIMENSION ?? 12
 const MAX_CROP_DIMENSION = Number(process.env.TAGGING_MAX_CROP_DIMENSION ?? 768);
 const IMAGE_JPEG_QUALITY = Number(process.env.TAGGING_IMAGE_JPEG_QUALITY ?? 82);
 const PERSON_IMAGE_JPEG_QUALITY = 95;
+// 远程图片下载与解码的硬上限：超出直接报错（调用方可退回缩略图），不把极端大的文件整个读进内存。
+// 注意 MuseDAM 对 PNG 等图片给的 thumbnailAccessUrl 就是原图（同一个文件），上限太低会让大图的
+// 品牌/商品识别整个做不了；实测 9200 万像素、~100MB 的 PNG 顺序解码只多占 ~100MB 内存。
+const MAX_REMOTE_IMAGE_BYTES = Number(process.env.TAGGING_MAX_REMOTE_IMAGE_MB ?? 300) * 1024 * 1024;
+const MAX_INPUT_PIXELS = Number(process.env.TAGGING_MAX_INPUT_MEGAPIXELS ?? 120) * 1_000_000;
+const SHARP_INPUT_OPTIONS = { limitInputPixels: MAX_INPUT_PIXELS, sequentialRead: true } as const;
+// 超大原图下载后先缩成长边不超过这个值的工作图，后续品牌/IP 预览、人物检测、商品裁剪、画幅比例都用它：
+// 原图（如 95MB、1.3 万像素宽的 PNG）只顺序解码这一次，随后即可被回收，不再被各环节反复解码。
+// 取 4096：并发处理多张大图时内存可控（实测 5 个 1.3 万像素 PNG 并发，6144 时 +753MB、4096 时 +605MB），
+// 对人物检测的小脸仍保留足够分辨率；画幅比例只看宽高比，不受缩放影响。
+const WORKING_IMAGE_MAX_DIMENSION = Number(process.env.TAGGING_WORKING_IMAGE_MAX_DIMENSION ?? 4096);
+const WORKING_IMAGE_JPEG_QUALITY = 92;
+// 大文件（下载 + 解码 + 缩成工作图）全局串行：单张 ~100MB 的 PNG 处理时内存峰值约 +500MB，
+// 并发 6 时几个大图任务同时下载解码，子进程瞬间冲到 1.7GB、容器逼近 2Gi 被杀。缩成工作图后内存就降下来，
+// 后续步骤仍按任务并发执行。打标和特征提取（参考图）共用这个槽位。
+const HEAVY_IMAGE_BYTES = Number(process.env.TAGGING_HEAVY_IMAGE_MB ?? 16) * 1024 * 1024;
+const heavyImageSlot = pLimit(Number(process.env.TAGGING_HEAVY_IMAGE_CONCURRENCY ?? 1));
+
+/** 响应的 content-length（没有时返回 null，按大文件处理） */
+export function getResponseByteLength(response: Response): number | null {
+  const value = Number(response.headers.get("content-length"));
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+
+/** 大文件或大小未知时，在全局大图槽位里执行（同一时间只处理一张大图） */
+export function withHeavyImageSlot<T>(
+  byteLength: number | null,
+  run: () => Promise<T>,
+): Promise<T> {
+  return byteLength === null || byteLength > HEAVY_IMAGE_BYTES ? heavyImageSlot(run) : run();
+}
 // Brand/IP retain a bounded number of detection crops. Product regions and person faces are not capped.
 export const MAX_DETECTION_CROPS = Number(process.env.TAGGING_MAX_DETECTION_CROPS ?? 8);
 
@@ -23,6 +56,8 @@ export type ClassificationRemoteImageInput = ClassificationImageMeta & {
   byteLength: number;
   buffer: Buffer;
   dataUrl: string;
+  // URL-based detectors return pixels in this remote file's EXIF-oriented coordinate frame.
+  sourceImage?: ClassificationImageMeta & { url: string };
   // Original encoded bytes with dimensions after EXIF orientation, for crops mapped from
   // the bounded detector preview. Consumers must apply orientation before extracting.
   original?: ClassificationImageMeta & {
@@ -306,22 +341,29 @@ function dataUrlToBuffer(dataUrl: string) {
   return Buffer.from(match[1], "base64");
 }
 
-async function fetchRemoteImageInputWithOptions(
+/** Downloaded, not yet decoded image bytes. Fetch once per task and share between consumers. */
+export type RemoteImageSource = {
+  imageUrl: string;
+  buffer: Buffer;
+  mimeType: string;
+  // Retain remote dimensions when the downloaded buffer is reduced to a working image.
+  sourceDimensions?: ClassificationImageMeta;
+};
+
+export async function fetchRemoteImageSource(
   imageUrl: string,
   failureContext: string,
-  {
-    maxDimension,
-    jpegQuality,
-    preserveOriginal = false,
-  }: {
-    maxDimension: number | null;
-    jpegQuality: number;
-    preserveOriginal?: boolean;
-  },
-): Promise<ClassificationRemoteImageInput> {
+): Promise<RemoteImageSource> {
+  // 超限时直接中断请求；不 await body.cancel()（经 HTTP 代理时取消可能一直挂着，任务就卡在这里）
+  const abortController = new AbortController();
   let response: Response;
   try {
-    response = await fetch(imageUrl);
+    response = await fetch(imageUrl, {
+      signal: AbortSignal.any([
+        abortController.signal,
+        AbortSignal.timeout(IMAGE_FETCH_TIMEOUT_MS),
+      ]),
+    });
   } catch (error) {
     rootLogger.warn({
       msg: "fetchRemoteImageInput failed while fetching image",
@@ -346,25 +388,149 @@ async function fetchRemoteImageInputWithOptions(
     throw new Error(`Failed to fetch ${failureContext} image (${response.status})`);
   }
 
-  const sourceMimeType =
-    response.headers.get("content-type")?.split(";")[0]?.trim() || "application/octet-stream";
-  const originalBuffer = Buffer.from(await response.arrayBuffer());
+  const contentLength = getResponseByteLength(response);
+  if (contentLength !== null && contentLength > MAX_REMOTE_IMAGE_BYTES) {
+    abortController.abort();
+    throw new RemoteImageTooLargeError(failureContext, contentLength);
+  }
 
+  return withHeavyImageSlot(contentLength, async () => {
+    const buffer = Buffer.from(await response.arrayBuffer());
+    if (buffer.length > MAX_REMOTE_IMAGE_BYTES) {
+      throw new RemoteImageTooLargeError(failureContext, buffer.length);
+    }
+
+    return boundRemoteImageSource(
+      {
+        imageUrl,
+        mimeType:
+          response.headers.get("content-type")?.split(";")[0]?.trim() || "application/octet-stream",
+        buffer,
+      },
+      failureContext,
+    );
+  });
+}
+
+/** 超大图片缩成工作图（见 WORKING_IMAGE_MAX_DIMENSION），用于只需要整图的场景（如参考图向量）。 */
+export async function downscaleImageBufferIfHuge(
+  buffer: Buffer,
+  mimeType: string,
+  failureContext: string,
+): Promise<{ buffer: Buffer; mimeType: string }> {
+  const bounded = await boundRemoteImageSource({ imageUrl: "", buffer, mimeType }, failureContext);
+  return { buffer: bounded.buffer, mimeType: bounded.mimeType };
+}
+
+/** 超大图片缩成有上限的工作图（见 WORKING_IMAGE_MAX_DIMENSION）；读不了或本来就不大时原样返回。 */
+async function boundRemoteImageSource(
+  source: RemoteImageSource,
+  failureContext: string,
+): Promise<RemoteImageSource> {
+  let width: number;
+  let height: number;
+  try {
+    ({ width, height } = (await sharp(source.buffer, SHARP_INPUT_OPTIONS).metadata()).autoOrient);
+  } catch {
+    return source; // 交给后续环节按原逻辑处理（包括像素超限报错）
+  }
+  const sourceDimensions = source.sourceDimensions ?? { width, height };
+  if (Math.max(width, height) <= WORKING_IMAGE_MAX_DIMENSION) {
+    return { ...source, sourceDimensions };
+  }
+
+  const { data, info } = await sharp(source.buffer, SHARP_INPUT_OPTIONS)
+    .rotate()
+    .resize({
+      width: WORKING_IMAGE_MAX_DIMENSION,
+      height: WORKING_IMAGE_MAX_DIMENSION,
+      fit: "inside",
+    })
+    .flatten({ background: "#fff" })
+    .jpeg({ quality: WORKING_IMAGE_JPEG_QUALITY })
+    .toBuffer({ resolveWithObject: true });
+  rootLogger.info({
+    msg: "Large remote image downscaled to working image",
+    failureContext,
+    original: { width, height, bytes: source.buffer.length },
+    working: { width: info.width, height: info.height, bytes: data.length },
+  });
+  return { imageUrl: source.imageUrl, mimeType: "image/jpeg", buffer: data, sourceDimensions };
+}
+
+/** 同一个对象的不同签名地址（如 MuseDAM PNG 的 thumbnailAccessUrl 与 downloadUrl 只差查询参数）。 */
+export function isSameRemoteObject(a: string, b: string) {
+  try {
+    const left = new URL(a);
+    const right = new URL(b);
+    return left.host === right.host && left.pathname === right.pathname;
+  } catch {
+    return a === b;
+  }
+}
+
+function isPixelLimitError(error: unknown) {
+  return error instanceof Error && /pixel limit/i.test(error.message);
+}
+
+/** 图片过大：下载字节数或像素数超过上限，调用方可以退回缩略图。 */
+export function isImageTooLargeError(error: unknown) {
+  return error instanceof RemoteImageTooLargeError || isPixelLimitError(error);
+}
+
+export class RemoteImageTooLargeError extends Error {
+  constructor(failureContext: string, byteLength: number) {
+    super(
+      `${failureContext} image is too large (${Math.round(byteLength / 1024 / 1024)}MB > ${Math.round(MAX_REMOTE_IMAGE_BYTES / 1024 / 1024)}MB)`,
+    );
+    this.name = "RemoteImageTooLargeError";
+  }
+}
+
+/**
+ * Pixel dimensions after EXIF orientation, read from the image header only (no full decode or
+ * re-encode). Enough for aspect-ratio tagging.
+ */
+export async function readRemoteImageDimensions(
+  source: RemoteImageSource,
+): Promise<ClassificationImageMeta> {
+  try {
+    const { autoOrient } = await sharp(source.buffer, SHARP_INPUT_OPTIONS).metadata();
+    return { width: autoOrient.width, height: autoOrient.height };
+  } catch {
+    return getImageDimensions(source.buffer, source.mimeType);
+  }
+}
+
+async function prepareRemoteImageInput(
+  { imageUrl, buffer: originalBuffer, mimeType: sourceMimeType, sourceDimensions }: RemoteImageSource,
+  failureContext: string,
+  {
+    maxDimension,
+    jpegQuality,
+    preserveOriginal = false,
+  }: {
+    maxDimension: number | null;
+    jpegQuality: number;
+    preserveOriginal?: boolean;
+  },
+): Promise<ClassificationRemoteImageInput> {
   // Normalize EXIF orientation and output format so detector coordinates, browser display, and
   // server-side crops use the same coordinate system. Person inputs deliberately skip resize.
+  let bufferDimensions: ClassificationImageMeta | undefined;
   try {
+    const { autoOrient } = await sharp(originalBuffer, SHARP_INPUT_OPTIONS).metadata();
+    bufferDimensions = { width: autoOrient.width, height: autoOrient.height };
     let original: ClassificationRemoteImageInput["original"];
     if (preserveOriginal) {
-      const { autoOrient } = await sharp(originalBuffer).metadata();
       original = {
-        width: autoOrient.width,
-        height: autoOrient.height,
+        ...bufferDimensions,
         buffer: originalBuffer,
         mimeType: sourceMimeType,
       };
     }
 
-    let pipeline = sharp(originalBuffer).rotate();
+    let pipeline = sharp(originalBuffer, SHARP_INPUT_OPTIONS).rotate();
     if (maxDimension !== null) {
       pipeline = pipeline.resize({
         width: maxDimension,
@@ -386,6 +552,7 @@ async function fetchRemoteImageInputWithOptions(
       byteLength: data.length,
       buffer: data,
       dataUrl: bufferToDataUrl(data, "image/jpeg"),
+      sourceImage: { url: imageUrl, ...(sourceDimensions ?? bufferDimensions) },
       ...(original ? { original } : {}),
     };
   } catch (error) {
@@ -402,7 +569,8 @@ async function fetchRemoteImageInputWithOptions(
     });
     // Mapping detector boxes to original pixels requires a successfully normalized preview.
     // Raw fallback dimensions can be in a different coordinate frame because of EXIF.
-    if (preserveOriginal) {
+    // 超过像素上限的大图也不能退回原始字节（整张转 base64 同样会撑爆内存）。
+    if (preserveOriginal || isPixelLimitError(error)) {
       throw error;
     }
   }
@@ -410,7 +578,7 @@ async function fetchRemoteImageInputWithOptions(
   // 回退：sharp 无法处理时（极少数格式）沿用原图，保证功能不退化
   let meta: ClassificationImageMeta;
   try {
-    meta = getImageDimensions(originalBuffer, sourceMimeType);
+    meta = bufferDimensions ?? getImageDimensions(originalBuffer, sourceMimeType);
   } catch (error) {
     rootLogger.warn({
       msg: "fetchRemoteImageInput failed while parsing image dimensions",
@@ -431,19 +599,47 @@ async function fetchRemoteImageInputWithOptions(
     byteLength: originalBuffer.length,
     buffer: originalBuffer,
     dataUrl: bufferToDataUrl(originalBuffer, sourceMimeType),
+    // Do not invent an oriented frame if metadata could not establish one.
+    ...(bufferDimensions
+      ? { sourceImage: { url: imageUrl, ...(sourceDimensions ?? bufferDimensions) } }
+      : {}),
   };
+}
+
+/** Bounded, orientation-corrected JPEG for brand/IP/product classification. */
+export async function prepareImageInput(
+  source: RemoteImageSource,
+  failureContext: string,
+  { preserveOriginal = false }: { preserveOriginal?: boolean } = {},
+): Promise<ClassificationRemoteImageInput> {
+  return prepareRemoteImageInput(source, failureContext, {
+    maxDimension: MAX_IMAGE_DIMENSION,
+    jpegQuality: IMAGE_JPEG_QUALITY,
+    preserveOriginal,
+  });
+}
+
+/** Orientation-corrected person image without reducing its pixel dimensions. */
+export async function preparePersonImageInput(
+  source: RemoteImageSource,
+  failureContext: string,
+): Promise<ClassificationRemoteImageInput> {
+  return prepareRemoteImageInput(source, failureContext, {
+    maxDimension: null,
+    jpegQuality: PERSON_IMAGE_JPEG_QUALITY,
+  });
 }
 
 export async function fetchRemoteImageInput(
   imageUrl: string,
   failureContext: string,
-  { preserveOriginal = false }: { preserveOriginal?: boolean } = {},
+  options: { preserveOriginal?: boolean } = {},
 ): Promise<ClassificationRemoteImageInput> {
-  return fetchRemoteImageInputWithOptions(imageUrl, failureContext, {
-    maxDimension: MAX_IMAGE_DIMENSION,
-    jpegQuality: IMAGE_JPEG_QUALITY,
-    preserveOriginal,
-  });
+  return prepareImageInput(
+    await fetchRemoteImageSource(imageUrl, failureContext),
+    failureContext,
+    options,
+  );
 }
 
 /**
@@ -454,10 +650,10 @@ export async function fetchRemotePersonImageInput(
   imageUrl: string,
   failureContext: string,
 ): Promise<ClassificationRemoteImageInput> {
-  return fetchRemoteImageInputWithOptions(imageUrl, failureContext, {
-    maxDimension: null,
-    jpegQuality: PERSON_IMAGE_JPEG_QUALITY,
-  });
+  return preparePersonImageInput(
+    await fetchRemoteImageSource(imageUrl, failureContext),
+    failureContext,
+  );
 }
 
 export async function cropImageToDataUrl({

@@ -1,7 +1,7 @@
 "use client";
 
-import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { cn } from "@/lib/utils";
+import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { ReactNode, useEffect, useState } from "react";
 import SignedBrandImage from "./SignedBrandImage";
 import { BrandLogoImageItem } from "./types";
@@ -55,6 +55,7 @@ export default function BrandImageHoverCard({
                   imageId={image.id}
                   signedUrl={image.signedUrl}
                   signedUrlExpiresAt={image.signedUrlExpiresAt}
+                  thumbnailUrl={image.thumbnailUrl}
                   alt={alt}
                   className={cn(
                     "block h-full w-full object-contain transition-opacity duration-200",

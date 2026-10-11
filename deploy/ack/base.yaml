@@ -32,7 +32,9 @@ data:
   OPENAI_BASE_URL: https://replace-with-model-gateway.example.com/v1
   JINA_BATCH_SIZE: "4"
   JINA_TIMEOUT_SECONDS: "60"
+  # Face detection and face embeddings still use the GPU service.
   LOGO_DETECTION_SERVER_URL: http://replace-with-detection-service:3002
+  MEDIA_PROCESS_SERVICE_URL: http://replace-with-media-process-service:8000
   TRANSLATION_SERVICE_URL: https://replace-with-translation-endpoint.example.com/v1/chat/completions
   TRANSLATION_SERVICE_MODEL: qwen-mt-flash
   # These take the model gateway's own model id/alias directly (no extra mapping layer — see

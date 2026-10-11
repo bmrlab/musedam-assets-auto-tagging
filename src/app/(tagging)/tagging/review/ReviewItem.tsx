@@ -45,7 +45,15 @@ import {
   TaggingAuditStatus,
   TaggingQueueItemResult,
 } from "@/prisma/client";
-import { CheckIcon, DotIcon, ExternalLinkIcon, Loader2Icon, StarIcon, XIcon } from "lucide-react";
+import {
+  CheckIcon,
+  DotIcon,
+  ExternalLinkIcon,
+  Loader2Icon,
+  PlusIcon,
+  StarIcon,
+  XIcon,
+} from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -55,8 +63,18 @@ import {
   rejectAuditItemsAction,
   setAuditItemsRejectedAction,
 } from "./actions";
+import { AddFeatureDialog } from "./components/AddFeatureDialog";
 import { FeatureThumbnail } from "./components/FeatureThumbnail";
-import { FEATURE_REVIEW_CHANGED, featureKey, getFeatureReviewVersions } from "./feature-review";
+import {
+  FEATURE_REVIEW_CHANGED,
+  featureKey,
+  getFeatureReviewVersions,
+  getReviewedManualFeatures,
+  getReviewFeatures,
+  type FeatureThumbnailImage,
+  type ReviewFeature,
+  type ReviewFeatureSearchResult,
+} from "./feature-review";
 
 type PreviewImage = { src: string; alt: string };
 
@@ -171,9 +189,12 @@ function FeatureRecognitionRow({
   tooltipAdd,
   tooltipRemove,
   onPreview,
+  thumbnail,
 }: {
   featureType: "brand" | "ip" | "product" | "person";
   featureId: string;
+  /** undefined → 列表未预签名，由 FeatureThumbnail 自行请求 */
+  thumbnail?: FeatureThumbnailImage | null;
   featureClass: string;
   featureTypeName?: string | null;
   classifiedName: string;
@@ -206,6 +227,7 @@ function FeatureRecognitionRow({
         <FeatureThumbnail
           featureType={featureType}
           featureId={featureId}
+          initialImage={thumbnail}
           alt={classifiedName}
           className="h-full w-full"
           previewLabel={t("previewImage", { name: classifiedName })}
@@ -268,21 +290,111 @@ function FeatureRecognitionRow({
   );
 }
 
+function ManualFeatureRow({
+  feature,
+  featureClass,
+  onRemove,
+  disabled,
+  onPreview,
+  thumbnail,
+}: {
+  feature: ReviewFeature;
+  featureClass: string;
+  thumbnail?: FeatureThumbnailImage | null;
+  /** Omitted for features already recorded in an applied review (read-only). */
+  onRemove?: () => void;
+  disabled?: boolean;
+  onPreview: (image: PreviewImage) => void;
+}) {
+  const tResult = useTranslations("TaggingResultDisplay");
+  const t = useTranslations("Tagging.Review");
+
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-md border border-basic-3 bg-background p-3">
+      <div className="relative size-10 shrink-0 overflow-hidden rounded bg-basic-2">
+        <FeatureThumbnail
+          featureType={feature.featureType}
+          featureId={feature.id}
+          initialImage={thumbnail}
+          alt={feature.name}
+          className="h-full w-full"
+          previewLabel={t("previewImage", { name: feature.name })}
+          onPreview={(imageUrl) => onPreview({ src: imageUrl, alt: feature.name })}
+        />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-[13px] font-medium leading-[18px]" title={feature.name}>
+          {feature.name}
+        </div>
+        <div
+          className="mt-1 truncate text-xs text-basic-5"
+          title={`${featureClass} > ${feature.typeName || "-"}`}
+        >
+          {featureClass} &gt; {feature.typeName || "-"}
+        </div>
+        <div className="mt-0.5 truncate text-[10px] text-basic-5">
+          {tResult("matchingSource")}: {t("manuallyAdded")}
+        </div>
+        {feature.tags.length > 0 ? (
+          <div className="mt-1 flex flex-wrap gap-1">
+            {feature.tags.map((tag) => (
+              <span
+                key={tag.assetTagId}
+                className="inline-flex items-center rounded-sm border bg-background px-1.5 py-0.5 text-[10px] text-basic-5"
+              >
+                {tag.tagPath.join(" > ")}
+              </span>
+            ))}
+          </div>
+        ) : null}
+      </div>
+      {onRemove ? (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="size-3 shrink-0 bg-transparent text-basic-5 hover:bg-transparent hover:text-current"
+                aria-label={t("tooltipRemove")}
+                disabled={disabled}
+                onClick={onRemove}
+              >
+                <XIcon className="size-3" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{t("tooltipRemove")}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      ) : null}
+    </div>
+  );
+}
+
 export function ReviewItem({
   assetObject,
   existingFeatures = [],
   availableFeatureIds,
+  featureThumbnails,
   batch,
   onSuccess,
   CheckboxComponent,
   batchLoading,
   rejectedFeatureKeys,
   onToggleFeatureKey,
+  manualFeatures,
+  onAddManualFeatures,
+  onRemoveManualFeature,
 }: AssetWithAuditItemsBatch & {
   CheckboxComponent: React.ReactNode;
   batchLoading?: boolean;
   rejectedFeatureKeys: string[];
   onToggleFeatureKey: (key: string) => void;
+  manualFeatures: ReviewFeatureSearchResult[];
+  onAddManualFeatures: (features: ReviewFeatureSearchResult[]) => void;
+  onRemoveManualFeature: (key: string) => void;
 }) {
   const t = useTranslations("Tagging.Review");
   const tResult = useTranslations("TaggingResultDisplay");
@@ -325,6 +437,7 @@ export function ReviewItem({
     ),
   );
   const [previewImage, setPreviewImage] = useState<PreviewImage | null>(null);
+  const [addFeatureOpen, setAddFeatureOpen] = useState(false);
   // 历史打标记录默认折叠：只展示最新一次，避免过往错误结果一直挂在页面上
   const [showHistory, setShowHistory] = useState(false);
 
@@ -355,11 +468,22 @@ export function ReviewItem({
     });
   }, [batch]);
 
-  const visibleBatch = useMemo(
-    () => (showHistory ? finalBatch : finalBatch.slice(0, 1)),
-    [finalBatch, showHistory],
+  // 只折叠已应用过的历史批次；还有 pending 审核项的批次会随本次应用一起提交（标签和特征），
+  // 必须始终展示，避免在看不到的情况下被应用
+  const collapsibleBatch = useMemo(
+    () =>
+      finalBatch.filter(
+        ({ taggingAuditItems }, index) =>
+          index > 0 && !taggingAuditItems.some(({ status }) => status === "pending"),
+      ),
+    [finalBatch],
   );
-  const historyCount = Math.max(finalBatch.length - 1, 0);
+  const visibleBatch = useMemo(
+    () =>
+      showHistory ? finalBatch : finalBatch.filter((group) => !collapsibleBatch.includes(group)),
+    [collapsibleBatch, finalBatch, showHistory],
+  );
+  const historyCount = collapsibleBatch.length;
 
   const filteredOutAuditItems = useMemo(() => {
     const finalBatchSet = new Set(finalBatch);
@@ -426,6 +550,45 @@ export function ReviewItem({
   );
 
   const featureReviewVersions = useMemo(() => getFeatureReviewVersions(finalBatch), [finalBatch]);
+  const manualFeatureKeys = useMemo(
+    () => manualFeatures.map((feature) => featureKey(feature.featureType, feature.id)),
+    [manualFeatures],
+  );
+  const visibleManualFeatures = useMemo(
+    () =>
+      manualFeatures.filter((feature) =>
+        isFeatureTypeEnabled(featureLibraryFeatures, feature.featureType),
+      ),
+    [featureLibraryFeatures, manualFeatures],
+  );
+  // 本次应用会带上的特征（素材已绑定 + 手动添加 + 待应用批次的 AI 识别结果），弹窗里置灰避免重复添加。
+  // AI 部分与应用逻辑一致：只取 featureReviewVersions 里的批次（有 pending 审核项、会随本次应用提交），
+  // 用 getReviewFeatures 按置信度阈值筛选。已应用过的历史批次不算，否则只在历史里识别过、
+  // 这次不会应用的特征也会显示"已添加"，导致无法手动添加。
+  const addedFeatureKeys = useMemo(
+    () =>
+      new Set(
+        [
+          ...manualFeatureKeys,
+          ...existingFeatures.map((feature) =>
+            featureKey(feature.featureType, feature.identifierId),
+          ),
+          ...finalBatch
+            .filter(({ queueItem }) => featureReviewVersions[queueItem.id] !== undefined)
+            .flatMap(({ queueItem }) => getReviewFeatures(queueItem.result))
+            .filter((feature) => availableFeatureIdSets[feature.featureType].has(feature.id))
+            .map((feature) => featureKey(feature.featureType, feature.id)),
+        ].filter((key) => !rejectedFeatureKeys.includes(key)),
+      ),
+    [
+      availableFeatureIdSets,
+      existingFeatures,
+      featureReviewVersions,
+      finalBatch,
+      manualFeatureKeys,
+      rejectedFeatureKeys,
+    ],
+  );
 
   // 点 x / 再点恢复：先乐观更新本地状态，同时把该标签在本素材下的所有审核项即时持久化为 rejected / pending，
   // 这样顶部"批量应用"和刷新页面都能看到 x 的结果；失败则回滚本地状态。
@@ -495,6 +658,7 @@ export function ReviewItem({
           auditItems: allAuditItems,
           featureReviewVersions,
           rejectedFeatureKeys,
+          manualFeatureKeys,
           append,
         });
 
@@ -535,6 +699,7 @@ export function ReviewItem({
       filteredOutAuditItems,
       featureReviewVersions,
       rejectedFeatureKeys,
+      manualFeatureKeys,
       onSuccess,
       rejectedItems,
       t,
@@ -590,7 +755,7 @@ export function ReviewItem({
             }}
             maxWidth={86}
             maxHeight={86}
-            className="rounded-[10px] size-[86px]"
+            className="rounded-[10px] size-[86px] object-contain"
           />
         </button>
 
@@ -692,8 +857,12 @@ export function ReviewItem({
           {visibleBatch.map(({ queueItem, taggingAuditItems }, index) => {
             const isLatestBatch = finalBatch.length > 1 && index === 0;
             const visibleAuditItems = taggingAuditItems.filter(
-              (auditItem) => auditItem.leafTagId && auditItem.tagPath.length > 0,
+              (auditItem) => auditItem.tagPath.length > 0,
             );
+            // 这一批已经应用过：有审核项且没有待处理项
+            const isApplied =
+              taggingAuditItems.length > 0 &&
+              taggingAuditItems.every((auditItem) => auditItem.status !== "pending");
             const resultTagsWithScore = (queueItem.result as TaggingQueueItemResult | null)
               ?.tagsWithScore;
             const originByLeafTagId = new Map(
@@ -714,6 +883,11 @@ export function ReviewItem({
                         {t("latest")}
                       </span>
                     ) : null}
+                    {isApplied ? (
+                      <span className="ml-2 inline-flex items-center px-2 py-[1px] rounded-[4px] text-xs text-success-6 border border-success-3 bg-success-1">
+                        {t("appliedBadge")}
+                      </span>
+                    ) : null}
                     <span className="ml-auto text-xs text-basic-5 flex items-center gap-1">
                       <ClockCircleIcon className="size-3" />
                       {formatDate(queueItem.createdAt)}
@@ -721,74 +895,76 @@ export function ReviewItem({
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     {visibleAuditItems.length > 0 ? (
-                      visibleAuditItems.map((auditItem) => (
-                        <div
-                          key={auditItem.id}
-                          className={cn(
-                            "relative py-[6px] px-2 rounded-[6px] border items-center flex gap-2",
-                            {
-                              "border-dashed":
-                                (auditItem.leafTagId &&
-                                  rejectedItems.includes(auditItem.leafTagId)) ||
-                                auditItem.status === "rejected",
-                            },
-                            {
-                              "text-primary-6 bg-primary-1 border-[#A6C1FF]": auditItem.score >= 80,
-                              "text-[#52C41A] bg-[#F6FFED] border-[#95DE64] dark:text-success-6 dark:bg-success-1 dark:border-success-3":
-                                auditItem.score >= 70 && auditItem.score < 80,
-                              "text-[#FA8C16] bg-[#FFF7E6] border-[#FFC069] dark:text-warning-6 dark:bg-warning-1 dark:border-warning-4":
-                                auditItem.score < 70,
-                            },
-                          )}
-                        >
-                          <div className="font-medium text-[13px] leading-[18px]">
-                            {auditItem.tagPath.join(" > ")}
+                      visibleAuditItems.map((auditItem) => {
+                        const isRejectedItem =
+                          (auditItem.leafTagId && rejectedItems.includes(auditItem.leafTagId)) ||
+                          auditItem.status === "rejected";
+                        return (
+                          <div
+                            key={auditItem.id}
+                            className={cn(
+                              "relative py-[6px] px-2 rounded-[6px] border items-center flex gap-2",
+                              isRejectedItem
+                                ? "border-dashed text-basic-5 bg-basic-2 border-basic-4 dark:bg-basic-2"
+                                : {
+                                    "text-primary-6 bg-primary-1 border-[#A6C1FF]":
+                                      auditItem.score >= 80,
+                                    "text-[#52C41A] bg-[#F6FFED] border-[#95DE64] dark:text-success-6 dark:bg-success-1 dark:border-success-3":
+                                      auditItem.score >= 70 && auditItem.score < 80,
+                                    "text-[#FA8C16] bg-[#FFF7E6] border-[#FFC069] dark:text-warning-6 dark:bg-warning-1 dark:border-warning-4":
+                                      auditItem.score < 70,
+                                  },
+                            )}
+                          >
+                            <div className="font-medium text-[13px] leading-[18px]">
+                              {auditItem.tagPath.join(" > ")}
+                            </div>
+                            {auditItem.leafTagId && originByLeafTagId.get(auditItem.leafTagId) ? (
+                              <span className="inline-flex items-center px-1 rounded-[3px] text-[10px] leading-4 border border-current/40 bg-background/60">
+                                {originByLeafTagId.get(auditItem.leafTagId) === "aspectRatio"
+                                  ? t("aspectRatioBadge")
+                                  : t("requiredFallbackBadge")}
+                              </span>
+                            ) : null}
+                            <div className="flex items-center gap-[6px]">
+                              <Progress
+                                value={auditItem.score}
+                                className="bg-current/20 [&>[data-slot=progress-indicator]]:bg-current w-[60px]"
+                              />
+                              <span className="text-[10px]">{auditItem.score}%</span>
+                            </div>
+                            {(auditItem.status === "pending" || auditItem.status === "rejected") &&
+                            auditItem.leafTagId ? (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="size-3 bg-transparent hover:bg-transparent text-basic-5 hover:text-current"
+                                      disabled={realLoading}
+                                      onClick={() => toggleRejectedTag(auditItem.leafTagId!)}
+                                    >
+                                      {rejectedItems.includes(auditItem.leafTagId) ? (
+                                        <CheckIcon className="h-3 w-3" />
+                                      ) : (
+                                        <XIcon className="h-3 w-3" />
+                                      )}
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>
+                                      {rejectedItems.includes(auditItem.leafTagId)
+                                        ? t("tooltipAdd")
+                                        : t("tooltipRemove")}
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            ) : null}
                           </div>
-                          {auditItem.leafTagId && originByLeafTagId.get(auditItem.leafTagId) ? (
-                            <span className="inline-flex items-center px-1 rounded-[3px] text-[10px] leading-4 border border-current/40 bg-background/60">
-                              {originByLeafTagId.get(auditItem.leafTagId) === "aspectRatio"
-                                ? t("aspectRatioBadge")
-                                : t("requiredFallbackBadge")}
-                            </span>
-                          ) : null}
-                          <div className="flex items-center gap-[6px]">
-                            <Progress
-                              value={auditItem.score}
-                              className="bg-current/20 [&>[data-slot=progress-indicator]]:bg-current w-[60px]"
-                            />
-                            <span className="text-[10px]">{auditItem.score}%</span>
-                          </div>
-                          {(auditItem.status === "pending" || auditItem.status === "rejected") &&
-                          auditItem.leafTagId ? (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className="size-3 bg-transparent hover:bg-transparent text-basic-5 hover:text-current"
-                                    disabled={realLoading}
-                                    onClick={() => toggleRejectedTag(auditItem.leafTagId!)}
-                                  >
-                                    {rejectedItems.includes(auditItem.leafTagId) ? (
-                                      <CheckIcon className="h-3 w-3" />
-                                    ) : (
-                                      <XIcon className="h-3 w-3" />
-                                    )}
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>
-                                    {rejectedItems.includes(auditItem.leafTagId)
-                                      ? t("tooltipAdd")
-                                      : t("tooltipRemove")}
-                                  </p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          ) : null}
-                        </div>
-                      ))
+                        );
+                      })
                     ) : (
                       <div className="text-sm text-basic-5">{t("noPendingTags")}</div>
                     )}
@@ -835,12 +1011,26 @@ export function ReviewItem({
           </div>
 
           <div className="col-span-1 flex flex-col gap-[6px]">
-            {visibleBatch.map(({ queueItem }, index) => {
+            {visibleBatch.map(({ queueItem, taggingAuditItems }, index) => {
               const brandRecommendation = brandRecommendationsByQueueId.get(queueItem.id);
               const ipRecommendation = ipRecommendationsByQueueId.get(queueItem.id);
               const productRecommendation = productRecommendationsByQueueId.get(queueItem.id);
               const personRecommendation = personRecommendationsByQueueId.get(queueItem.id);
               const isLatestBatch = finalBatch.length > 1 && index === 0;
+              // 待审核：手动添加的特征挂在最新一次识别结果下，可移除；
+              // 已应用：展示该次审核快照里记录的手动添加特征，只读
+              const isCurrentBatch = index === 0;
+              const isEditableManualBatch = isCurrentBatch && hasPendingAuditItems;
+              const reviewedManualFeatures = taggingAuditItems.some(
+                ({ status }) => status === "pending",
+              )
+                ? []
+                : getReviewedManualFeatures(queueItem.extra).filter((feature) =>
+                    isFeatureTypeEnabled(featureLibraryFeatures, feature.featureType),
+                  );
+              const hasManualRows =
+                reviewedManualFeatures.length > 0 ||
+                (isEditableManualBatch && visibleManualFeatures.length > 0);
               const hasFeatureBelowConfidenceThreshold =
                 (featureLibraryFeatures.featureBrand &&
                   brandRecommendation?.bestMatch &&
@@ -1026,12 +1216,43 @@ export function ReviewItem({
                     </span>
                   </div>
                   <div className="space-y-2">
+                    {reviewedManualFeatures.map((feature) => (
+                      <ManualFeatureRow
+                        key={`reviewed-manual-${featureKey(feature.featureType, feature.id)}`}
+                        feature={feature}
+                        featureClass={getFeatureClassLabel(feature.featureType)}
+                        thumbnail={featureThumbnails[featureKey(feature.featureType, feature.id)]}
+                        onPreview={setPreviewImage}
+                      />
+                    ))}
+                    {isEditableManualBatch
+                      ? visibleManualFeatures.map((feature) => (
+                          <ManualFeatureRow
+                            key={`manual-${featureKey(feature.featureType, feature.id)}`}
+                            feature={feature}
+                            featureClass={getFeatureClassLabel(feature.featureType)}
+                            thumbnail={
+                              feature.thumbnail !== undefined
+                                ? feature.thumbnail
+                                : featureThumbnails[featureKey(feature.featureType, feature.id)]
+                            }
+                            disabled={realLoading}
+                            onRemove={() =>
+                              onRemoveManualFeature(featureKey(feature.featureType, feature.id))
+                            }
+                            onPreview={setPreviewImage}
+                          />
+                        ))
+                      : null}
                     {featureRows.length > 0 ? (
                       featureRows.map((feature) => (
                         <FeatureRecognitionRow
                           key={feature.key}
                           featureType={feature.featureType}
                           featureId={feature.featureId}
+                          thumbnail={
+                            featureThumbnails[featureKey(feature.featureType, feature.featureId)]
+                          }
                           featureClass={feature.featureClass}
                           featureTypeName={feature.featureTypeName}
                           classifiedName={feature.classifiedName}
@@ -1046,7 +1267,7 @@ export function ReviewItem({
                           onPreview={setPreviewImage}
                         />
                       ))
-                    ) : (
+                    ) : hasManualRows ? null : (
                       <div className="text-sm text-basic-5">
                         {tResult(
                           isVideoAsset
@@ -1057,12 +1278,31 @@ export function ReviewItem({
                         )}
                       </div>
                     )}
+                    {isEditableManualBatch ? (
+                      <button
+                        type="button"
+                        disabled={realLoading}
+                        className="inline-flex items-center gap-1 text-xs text-primary-6 transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
+                        onClick={() => setAddFeatureOpen(true)}
+                      >
+                        <PlusIcon className="size-3" />
+                        {t("addFeatureManually")}
+                      </button>
+                    ) : null}
                   </div>
                 </div>
               );
             })}
           </div>
         </div>
+      ) : null}
+      {hasEnabledFeatures ? (
+        <AddFeatureDialog
+          open={addFeatureOpen}
+          onOpenChange={setAddFeatureOpen}
+          addedKeys={addedFeatureKeys}
+          onConfirm={onAddManualFeatures}
+        />
       ) : null}
       <ImagePreviewDialog
         image={previewImage}

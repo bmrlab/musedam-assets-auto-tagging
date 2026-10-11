@@ -37,12 +37,18 @@ export const parseTextToNameChildList = (text: string): NameChildList[] => {
       const name = line.startsWith("# ") ? line.slice(2).trim() : line.slice(1).trim();
       // name 必须有值
       if (!name) continue;
-      currentL1 = {
-        name,
-        nameChildList: [],
-      };
+      // 同级同名去重：复用已有节点，后续子标签合并进去
+      const existingL1 = result.find((item) => item.name === name);
+      if (existingL1) {
+        currentL1 = existingL1;
+      } else {
+        currentL1 = {
+          name,
+          nameChildList: [],
+        };
+        result.push(currentL1);
+      }
       currentL2 = null;
-      result.push(currentL1);
     }
     // 二级标签
     else if (line.startsWith("## ") || (line.startsWith("##") && !line.startsWith("###"))) {
@@ -50,18 +56,23 @@ export const parseTextToNameChildList = (text: string): NameChildList[] => {
       const name = line.startsWith("## ") ? line.slice(3).trim() : line.slice(2).trim();
       // name 必须有值
       if (!name) continue;
-      currentL2 = {
-        name,
-        nameChildList: [],
-      };
-      currentL1.nameChildList?.push(currentL2);
+      const existingL2 = currentL1.nameChildList?.find((item) => item.name === name);
+      if (existingL2) {
+        currentL2 = existingL2;
+      } else {
+        currentL2 = {
+          name,
+          nameChildList: [],
+        };
+        currentL1.nameChildList?.push(currentL2);
+      }
     }
     // 三级标签
     else if (line.trim() && !line.startsWith("#")) {
       if (!currentL2) continue;
-      currentL2.nameChildList?.push({
-        name: line.trim(),
-      });
+      const name = line.trim();
+      if (currentL2.nameChildList?.some((item) => item.name === name)) continue;
+      currentL2.nameChildList?.push({ name });
     }
   }
   return result;

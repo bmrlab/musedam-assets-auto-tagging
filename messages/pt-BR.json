@@ -204,7 +204,7 @@
     "TagItem": {
       "confirmDelete": "Confirmar Exclusão",
       "delete": "Excluir",
-      "deleteConfirmDescription": "Tem certeza que deseja excluir a tag \"{tagName}\"?",
+      "deleteConfirmDescription": "A tag \"{tagName}\" e suas tags filhas serão excluídas juntas. Confirmar exclusão?",
       "deleteConfirmTitle": "Excluir Tag",
       "edited": "Editado",
       "inputTagName": "Digite o nome da tag",

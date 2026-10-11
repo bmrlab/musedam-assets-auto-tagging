@@ -12,13 +12,25 @@ import {
   BRAND_PROCESSING_ERROR_CODES,
   BrandProcessingErrorCode,
 } from "@/lib/brand/processing-errors";
+import { rootLogger } from "@/lib/logging";
 import { getCachedSignedS3ObjectUrl } from "@/lib/s3";
+import {
+  downscaleImageBufferIfHuge,
+  getResponseByteLength,
+  withHeavyImageSlot,
+} from "@/lib/tagging/classification-image";
+import { IMAGE_FETCH_TIMEOUT_MS } from "@/lib/tagging/external-timeouts";
+import {
+  FEATURE_PROCESSING_ABANDONED,
+  FEATURE_PROCESSING_INTERRUPTED,
+} from "@/lib/tagging/feature-processing-status";
+import { scheduleReferenceThumbnail } from "@/lib/tagging/reference-thumbnail";
 import prisma from "@/prisma/prisma";
 import { randomUUID } from "crypto";
 import pLimit from "p-limit";
 
 const LOGO_VECTOR_PROCESSING_CONCURRENCY = 8;
-const LOGO_VECTOR_RECOVERY_BATCH_SIZE = 32;
+const LOGO_VECTOR_RECOVERY_BATCH_SIZE = 4;
 const LOGO_VECTOR_PROCESSING_HEARTBEAT_MS = 15_000;
 const LOGO_VECTOR_PROCESSING_STALE_MS = 60_000;
 const logoVectorProcessingLimit = pLimit(LOGO_VECTOR_PROCESSING_CONCURRENCY);
@@ -58,14 +70,22 @@ function getProcessingErrorCode(error: unknown): BrandProcessingErrorCode {
 
 async function fetchImageAsDataUrl(objectKey: string, mimeType: string) {
   const { signedUrl } = getCachedSignedS3ObjectUrl({ objectKey });
-  const response = await fetch(signedUrl);
+  const response = await fetch(signedUrl, { signal: AbortSignal.timeout(IMAGE_FETCH_TIMEOUT_MS) });
 
   if (!response.ok) {
     throw createProcessingError(BRAND_PROCESSING_ERROR_CODES.imageFetchFailed);
   }
 
-  const buffer = Buffer.from(await response.arrayBuffer());
-  return bufferToDataUrl(buffer, mimeType);
+  // 大图串行下载解码，并先缩成工作图（向量只需要整图），避免原图 base64 常驻内存
+  return withHeavyImageSlot(getResponseByteLength(response), async () => {
+    const image = await downscaleImageBufferIfHuge(
+      Buffer.from(await response.arrayBuffer()),
+      mimeType,
+      "logo reference",
+    );
+    scheduleReferenceThumbnail(objectKey, image.buffer);
+    return bufferToDataUrl(image.buffer, image.mimeType);
+  });
 }
 
 export async function markAssetLogoVectorsPending({
@@ -133,7 +153,7 @@ async function processAssetLogoReferenceVectorsNow({
       },
       data: {
         status: "processing",
-        processingError: null,
+        // 不清空 processingError：保留中断标记（见 processPending*ReferenceVectors），成功或失败时会覆盖
         processedAt: null,
       },
     });
@@ -298,15 +318,33 @@ export function processAssetLogoReferenceVectors({
 
 export async function processPendingAssetLogoReferenceVectors() {
   const staleBefore = new Date(Date.now() - LOGO_VECTOR_PROCESSING_STALE_MS);
+  // 心跳停了还停在 processing，说明处理中途进程没了（多半是被 OOM Kill）。第一次中断重试一次，
+  // 再次中断直接标记失败：否则同一个特征每次重启都被捡回来，把进程反复拖死（每分钟崩一次）。
+  const abandoned = await prisma.assetLogo.updateMany({
+    where: {
+      status: "processing",
+      updatedAt: { lt: staleBefore },
+      processingError: FEATURE_PROCESSING_INTERRUPTED,
+    },
+    data: {
+      status: "failed",
+      processingError: FEATURE_PROCESSING_ABANDONED,
+    },
+  });
+  if (abandoned.count > 0) {
+    rootLogger.error({
+      msg: "Logo vector processing interrupted twice, marked failed",
+      count: abandoned.count,
+    });
+  }
   const recovered = await prisma.assetLogo.updateMany({
     where: {
       status: "processing",
-      updatedAt: {
-        lt: staleBefore,
-      },
+      updatedAt: { lt: staleBefore },
     },
     data: {
       status: "pending",
+      processingError: FEATURE_PROCESSING_INTERRUPTED,
     },
   });
 
@@ -335,7 +373,6 @@ export async function processPendingAssetLogoReferenceVectors() {
         },
         data: {
           status: "processing",
-          processingError: null,
           processedAt: null,
         },
       });
@@ -346,6 +383,12 @@ export async function processPendingAssetLogoReferenceVectors() {
       }
 
       processing += 1;
+      // 先记一条再处理：处理中途进程被杀时，最后一条日志就能定位到是哪个特征
+      rootLogger.info({
+        msg: "Logo vector processing started",
+        teamId: candidate.teamId,
+        featureId: candidate.id,
+      });
       try {
         await processAssetLogoReferenceVectors({
           teamId: candidate.teamId,

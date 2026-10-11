@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 import {
   Check,
   CheckCircle2,
@@ -40,9 +41,18 @@ import {
 import { useLocale, useTranslations } from "next-intl";
 import Image from "next/image";
 import Link from "next/link";
-import { useDeferredValue, useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { MAX_PREVIEW_IMAGE_NUM } from "../brand/BrandLibraryClient";
+import {
+  libraryTableClassName,
+  libraryTableScrollClassName,
+  stickyCheckboxCellClassName,
+  stickyCheckboxHeaderClassName,
+  stickyNameCellClassName,
+  stickyNameHeaderClassName,
+  useHorizontalScrolled,
+} from "../components/library-table";
 import LibraryPagination from "../components/LibraryPagination";
 import {
   linkedTagsColumnCellClassName,
@@ -51,17 +61,21 @@ import {
 import LinkedTagsOverflow from "../components/LinkedTagsOverflow";
 import { PROCESS_STATE_BADGE_CLASS_NAMES } from "../components/process-state-badge-classes";
 import TruncatedDescription from "../components/TruncatedDescription";
+import { useLibraryList } from "../components/useLibraryList";
 import {
   deleteAssetPersonAction,
+  deleteAssetPersonsAction,
+  fetchPersonsPageAction,
   pollPersonsAction,
   retryAssetPersonProcessingAction,
   setAssetPersonEnabledAction,
+  setAssetPersonsEnabledAction,
 } from "./actions";
 import PersonBatchImportExportDialog from "./PersonBatchImportExportDialog";
 import PersonDialog from "./PersonDialog";
 import PersonImageHoverCard from "./PersonImageHoverCard";
 import SignedPersonImage from "./SignedPersonImage";
-import { PersonBatchImportResult, PersonItem, PersonLibraryPageData } from "./types";
+import { PersonBatchImportResult, PersonItem, PersonLibraryInitialData } from "./types";
 
 type TranslationFunction = (key: string, values?: Record<string, string | number>) => string;
 
@@ -173,6 +187,7 @@ function PersonImagesCell({ person, t }: { person: PersonItem; t: TranslationFun
                 imageId={image.id}
                 signedUrl={image.signedUrl}
                 signedUrlExpiresAt={image.signedUrlExpiresAt}
+                thumbnailUrl={image.thumbnailUrl}
                 alt={t("imageAltIndex", { name: person.name, index: index + 1 })}
                 className="h-full w-full object-cover"
               />
@@ -191,14 +206,13 @@ export default function PersonLibraryClient({
   initialData,
   debugPageEnabled,
 }: {
-  initialData: PersonLibraryPageData;
+  initialData: PersonLibraryInitialData;
   debugPageEnabled: boolean;
 }) {
   const locale = useLocale();
   const t = useTranslations("Tagging.PersonLibrary") as TranslationFunction;
   const tReview = useTranslations("Tagging.Review") as TranslationFunction;
   const isChineseLocale = locale === "zh-CN" || locale === "zh-TW";
-  const [persons, setPersons] = useState(initialData.persons);
   const [personTypes, setPersonTypes] = useState(initialData.personTypes);
   const [tags, setTags] = useState(initialData.tags);
   const [search, setSearch] = useState("");
@@ -210,7 +224,6 @@ export default function PersonLibraryClient({
     "newest",
   );
   const [pageSize, setPageSize] = useState(40);
-  const [currentPage, setCurrentPage] = useState(1);
   const [pageInput, setPageInput] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<"create" | "edit">("create");
@@ -223,22 +236,24 @@ export default function PersonLibraryClient({
   const [batchImportExportOpen, setBatchImportExportOpen] = useState(false);
   const [pendingPersonIds, setPendingPersonIds] = useState<string[]>([]);
   const [isPending, startTransition] = useTransition();
-  const deferredSearch = useDeferredValue(search.trim().toLowerCase());
-  const usedPersonTypeIds = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          persons
-            .map((person) => person.personTypeId)
-            .filter((typeId): typeId is string => Boolean(typeId)),
-        ),
-      ),
-    [persons],
-  );
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [deferredSearch, typeFilter, statusFilter, enabledFilter, sortOrder, pageSize]);
+  const { scrolledX, onScroll: onTableScroll } = useHorizontalScrolled();
+  const {
+    items: persons,
+    setItems: setPersons,
+    total: totalPersons,
+    usedTypeIds: usedPersonTypeIds,
+    page: currentPage,
+    setPage: setCurrentPage,
+    totalPages,
+    loading: listLoading,
+    debouncedSearch,
+    reload: reloadList,
+    reloadFirstPage: reloadListFirstPage,
+  } = useLibraryList({
+    initialList: initialData.list,
+    filters: { pageSize, search, typeFilter, statusFilter, enabledFilter, sortOrder },
+    fetchPage: fetchPersonsPageAction,
+  });
 
   useEffect(() => {
     if (typeFilter !== "all" && !personTypes.some((type) => String(type.id) === typeFilter)) {
@@ -246,48 +261,8 @@ export default function PersonLibraryClient({
     }
   }, [personTypes, typeFilter]);
 
-  const filteredPersons = persons
-    .filter((person) => {
-      if (deferredSearch && !person.name.toLowerCase().includes(deferredSearch)) {
-        return false;
-      }
-
-      if (typeFilter !== "all" && String(person.personTypeId ?? "") !== typeFilter) {
-        return false;
-      }
-
-      if (statusFilter !== "all" && person.status !== statusFilter) {
-        return false;
-      }
-
-      if (enabledFilter === "enabled" && !person.enabled) {
-        return false;
-      }
-
-      if (enabledFilter === "disabled" && person.enabled) {
-        return false;
-      }
-
-      return true;
-    })
-    .sort((left, right) => {
-      if (sortOrder === "name-asc") {
-        return left.name.localeCompare(right.name, "zh-CN");
-      }
-
-      if (sortOrder === "name-desc") {
-        return right.name.localeCompare(left.name, "zh-CN");
-      }
-
-      const leftTime = new Date(left.createdAt).getTime();
-      const rightTime = new Date(right.createdAt).getTime();
-      return sortOrder === "newest" ? rightTime - leftTime : leftTime - rightTime;
-    });
-
-  const totalPages = Math.max(1, Math.ceil(filteredPersons.length / pageSize));
   const safeCurrentPage = Math.min(currentPage, totalPages);
-  const pageStart = (safeCurrentPage - 1) * pageSize;
-  const currentPagePersons = filteredPersons.slice(pageStart, pageStart + pageSize);
+  const currentPagePersons = persons;
   const currentPageIds = currentPagePersons.map((person) => person.id);
   const selectedOnPage = currentPageIds.filter((id) => selectedIds.includes(id));
   const allSelectedOnPage =
@@ -295,21 +270,23 @@ export default function PersonLibraryClient({
   const someSelectedOnPage = selectedOnPage.length > 0 && !allSelectedOnPage;
   const hasSelection = selectedIds.length > 0;
 
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
-    }
-  }, [currentPage, totalPages]);
+  // 依赖待处理 id 集合而不是整个列表：轮询结果每次都会生成新数组，
+  // 若依赖列表本身，effect 会在每次响应后立刻重跑并再次请求，变成无间隔的连续轮询。
+  const pendingIdsKey = useMemo(
+    () =>
+      persons
+        .filter((person) => person.status === "processing" || person.status === "pending")
+        .map((person) => person.id)
+        .join(","),
+    [persons],
+  );
 
   useEffect(() => {
-    const pendingIds = persons
-      .filter((person) => person.status === "processing" || person.status === "pending")
-      .map((person) => person.id);
-
-    if (pendingIds.length === 0) {
+    if (!pendingIdsKey) {
       return;
     }
 
+    const pendingIds = pendingIdsKey.split(",");
     let disposed = false;
 
     async function poll() {
@@ -318,11 +295,8 @@ export default function PersonLibraryClient({
         return;
       }
 
-      setPersons((current) =>
-        current.map(
-          (person) => result.data.persons.find((item) => item.id === person.id) ?? person,
-        ),
-      );
+      const updatedById = new Map(result.data.persons.map((item) => [item.id, item]));
+      setPersons((current) => current.map((person) => updatedById.get(person.id) ?? person));
     }
 
     void poll();
@@ -334,7 +308,7 @@ export default function PersonLibraryClient({
       disposed = true;
       window.clearInterval(timer);
     };
-  }, [persons]);
+  }, [pendingIdsKey, setPersons]);
 
   function getProcessingErrorMessage(error: string | null) {
     if (!error) {
@@ -378,14 +352,20 @@ export default function PersonLibraryClient({
   }
 
   function handleDialogSaved(person: PersonItem) {
-    updatePersonInList(person);
+    // 新建的条目按当前排序不一定落在当前页，回到第一页重新取；编辑则原地更新后刷新当前页。
+    if (dialogMode === "create") {
+      reloadListFirstPage();
+    } else {
+      updatePersonInList(person);
+      reloadList();
+    }
     setDialogOpen(false);
     setActivePerson(null);
   }
 
   function handleBatchImported(result: PersonBatchImportResult) {
     if (result.createdPersons.length > 0) {
-      setPersons((current) => [...result.createdPersons, ...current]);
+      reloadListFirstPage();
     }
     setPersonTypes(result.personTypes);
     if (result.tagTree) {
@@ -431,6 +411,7 @@ export default function PersonLibraryClient({
       }
 
       updatePersonInList(result.data.person);
+      reloadList();
       toast.success(enabled ? t("enabledSuccess") : t("disabledSuccess"));
     });
   }
@@ -461,6 +442,7 @@ export default function PersonLibraryClient({
       }
 
       setPersons((current) => current.filter((person) => person.id !== deleteTarget.id));
+      reloadList();
       setSelectedIds((current) => current.filter((id) => id !== deleteTarget.id));
       setDeleteTarget(null);
       toast.success(t("deletedSuccess"));
@@ -493,7 +475,8 @@ export default function PersonLibraryClient({
   }
 
   function handleTypeDeleted() {
-    setPersons((current) => current.map((person) => person));
+    // 刷新列表以同步类型的使用情况（usedTypeIds）。
+    reloadList();
   }
 
   function handleSelectAllOnPage(checked: boolean) {
@@ -514,22 +497,18 @@ export default function PersonLibraryClient({
     targetIds.forEach((id) => markPersonPending(id, true));
 
     startTransition(async () => {
-      const results = await Promise.all(
-        targetIds.map(async (id) => {
-          const result = await setAssetPersonEnabledAction(id, enabled);
-          markPersonPending(id, false);
-          return result;
-        }),
-      );
+      const result = await setAssetPersonsEnabledAction(targetIds, enabled);
+      targetIds.forEach((id) => markPersonPending(id, false));
 
-      const updatedPersons = results.filter((item) => item.success).map((item) => item.data.person);
+      const updatedPersons = result.success ? result.data.persons : [];
       if (updatedPersons.length > 0) {
         const updatedById = new Map(updatedPersons.map((person) => [person.id, person]));
         setPersons((current) => current.map((person) => updatedById.get(person.id) ?? person));
         setSelectedIds((current) => current.filter((id) => !updatedById.has(id)));
+        reloadList();
       }
 
-      const failedCount = results.length - updatedPersons.length;
+      const failedCount = targetIds.length - updatedPersons.length;
       if (failedCount === 0) {
         toast.success(enabled ? t("batchEnabledSuccess") : t("batchDisabledSuccess"));
         return;
@@ -576,22 +555,18 @@ export default function PersonLibraryClient({
     targetIds.forEach((id) => markPersonPending(id, true));
 
     startTransition(async () => {
-      const results = await Promise.all(
-        targetIds.map(async (id) => {
-          const result = await deleteAssetPersonAction(id);
-          markPersonPending(id, false);
-          return { id, result };
-        }),
-      );
+      const result = await deleteAssetPersonsAction(targetIds);
+      targetIds.forEach((id) => markPersonPending(id, false));
 
-      const successIds = results.filter((item) => item.result.success).map((item) => item.id);
+      const successIds = result.success ? result.data.deletedIds : [];
       if (successIds.length > 0) {
         const successIdSet = new Set(successIds);
         setPersons((current) => current.filter((person) => !successIdSet.has(person.id)));
         setSelectedIds((current) => current.filter((id) => !successIdSet.has(id)));
+        reloadList();
       }
 
-      const failedCount = results.length - successIds.length;
+      const failedCount = targetIds.length - successIds.length;
       if (failedCount === 0) {
         toast.success(t("batchDeletedSuccess"));
       } else if (successIds.length > 0) {
@@ -616,15 +591,18 @@ export default function PersonLibraryClient({
     setPageInput("");
   }
 
-  const emptyText =
-    deferredSearch || typeFilter !== "all" || statusFilter !== "all" || enabledFilter !== "all"
-      ? t("filteredEmpty")
-      : t("empty");
-  const isLibraryCompletelyEmpty = persons.length === 0;
+  const hasActiveFilters =
+    Boolean(debouncedSearch) ||
+    typeFilter !== "all" ||
+    statusFilter !== "all" ||
+    enabledFilter !== "all";
+  const emptyText = hasActiveFilters ? t("filteredEmpty") : t("empty");
+  const isLibraryCompletelyEmpty = totalPersons === 0 && !hasActiveFilters;
 
   return (
     <>
-      <div className="flex min-h-[calc(100dvh-120px)] flex-1 flex-col pb-5">
+      {/* data-fill-viewport：页面占满可视高度，只有列表区域滚动、分页栏始终可见（见 tagging/layout.tsx） */}
+      <div data-fill-viewport className="flex min-h-0 flex-1 flex-col">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <h2 className="text-xl font-semibold">{t("title")}</h2>
@@ -691,7 +669,7 @@ export default function PersonLibraryClient({
 
         <div className="mt-[20px] flex min-h-0 flex-1 flex-col gap-[10px]">
           {isLibraryCompletelyEmpty ? (
-            <div className="flex min-h-[calc(100dvh-280px)] flex-1 items-center justify-center px-6 py-10">
+            <div className="flex min-h-[320px] flex-1 items-center justify-center px-6 py-10">
               <div className="text-center">
                 <Image
                   width={171}
@@ -712,11 +690,11 @@ export default function PersonLibraryClient({
                       <>
                         {t("itemsSelected")}{" "}
                         <span className="text-primary-6">{selectedIds.length}</span> /{" "}
-                        {filteredPersons.length} {t("itemsCount")}
+                        {totalPersons} {t("itemsCount")}
                       </>
                     ) : (
                       <>
-                        {t("itemsTotal")} {filteredPersons.length} {t("itemsCount")}
+                        {t("itemsTotal")} {totalPersons} {t("itemsCount")}
                       </>
                     )}
                   </span>
@@ -846,8 +824,11 @@ export default function PersonLibraryClient({
                 </div>
               </div>
 
-              <div className="flex min-h-[calc(100dvh-280px)] flex-1 flex-col rounded-[8px] border bg-background">
-                {filteredPersons.length === 0 ? (
+              <div
+                className={`flex min-h-[320px] flex-1 flex-col overflow-hidden rounded-[8px] border bg-background transition-opacity${listLoading ? " pointer-events-none opacity-60" : ""}`}
+                aria-busy={listLoading}
+              >
+                {totalPersons === 0 ? (
                   <div className="flex min-h-[420px] flex-1 items-center justify-center px-6 py-10">
                     <div className="text-center">
                       <Image
@@ -862,11 +843,13 @@ export default function PersonLibraryClient({
                   </div>
                 ) : (
                   <div className="flex min-h-0 flex-1 flex-col">
-                    <div className="flex-1 overflow-x-auto">
-                      <table className="min-w-full table-auto [&_th]:font-medium [&_th]:leading-5 [&_th]:align-middle [&_td]:leading-5 [&_td]:align-middle [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap">
+                    <div className={libraryTableScrollClassName} onScroll={onTableScroll}>
+                      <table className={libraryTableClassName}>
                         <thead>
                           <tr className="h-[45px] border-b text-left text-[14px] leading-[20px] text-basic-5">
-                            <th className="w-[40px] px-3 py-0 text-center">
+                            <th
+                              className={cn("px-3 py-0 text-center", stickyCheckboxHeaderClassName)}
+                            >
                               <div className="flex h-[45px] w-full items-center justify-center">
                                 <Checkbox
                                   className="size-4 border-basic-4"
@@ -878,7 +861,14 @@ export default function PersonLibraryClient({
                                 />
                               </div>
                             </th>
-                            <th className="w-[300px] px-3 py-0">{t("columnPersonName")}</th>
+                            <th
+                              className={cn(
+                                "w-[300px] px-3 py-0",
+                                stickyNameHeaderClassName(scrolledX),
+                              )}
+                            >
+                              {t("columnPersonName")}
+                            </th>
                             <th className="w-[120px] px-3 py-0">{t("columnPersonType")}</th>
                             <th className="w-[220px] px-4 py-0">{t("columnPersonImages")}</th>
                             <th className={linkedTagsColumnHeaderClassName}>
@@ -901,7 +891,12 @@ export default function PersonLibraryClient({
 
                             return (
                               <tr key={ip.id} className="h-[58px] border-b last:border-b-0">
-                                <td className="h-[58px] px-3 py-0 text-center align-middle">
+                                <td
+                                  className={cn(
+                                    "h-[58px] px-3 py-0 text-center align-middle",
+                                    stickyCheckboxCellClassName,
+                                  )}
+                                >
                                   <div className="flex h-[58px] w-full items-center justify-center">
                                     <Checkbox
                                       className="border-basic-4"
@@ -922,11 +917,12 @@ export default function PersonLibraryClient({
                                   </div>
                                 </td>
                                 <td
-                                  className={
+                                  className={cn(
                                     subtitle
                                       ? "h-[58px] max-w-[300px] px-3 pt-3 pb-2 align-top"
-                                      : "h-[58px] max-w-[300px] px-3 py-0 align-middle"
-                                  }
+                                      : "h-[58px] max-w-[300px] px-3 py-0 align-middle",
+                                    stickyNameCellClassName(scrolledX),
+                                  )}
                                 >
                                   <div
                                     className={
@@ -956,6 +952,7 @@ export default function PersonLibraryClient({
                                               imageId={ip.images[0].id}
                                               signedUrl={ip.images[0].signedUrl}
                                               signedUrlExpiresAt={ip.images[0].signedUrlExpiresAt}
+                                              thumbnailUrl={ip.images[0].thumbnailUrl}
                                               alt={t("imageAlt", { name: ip.name })}
                                               className="h-full w-full object-cover"
                                             />
@@ -1084,7 +1081,7 @@ export default function PersonLibraryClient({
                       </table>
                     </div>
 
-                    <div className="mt-auto flex flex-col gap-4 border-t px-6 py-4 xl:flex-row xl:items-center xl:justify-between">
+                    <div className="flex shrink-0 flex-col gap-4 border-t px-6 py-4 xl:flex-row xl:items-center xl:justify-between">
                       <Input
                         value={pageInput}
                         onChange={(event) => setPageInput(event.target.value)}

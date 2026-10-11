@@ -50,7 +50,7 @@
       "rename": "Ubah nama",
       "delete": "Hapus",
       "deleteConfirmTitle": "Hapus Tag",
-      "deleteConfirmDescription": "Apakah Anda yakin ingin menghapus tag \"{tagName}\"?",
+      "deleteConfirmDescription": "Tag \"{tagName}\" beserta tag turunannya akan dihapus bersamaan. Yakin ingin menghapus?",
       "confirmDelete": "Konfirmasi Hapus",
       "searchRelatedAssets": "Cari Aset Terkait"
     },

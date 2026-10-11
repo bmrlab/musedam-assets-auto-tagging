@@ -204,7 +204,7 @@
     "TagItem": {
       "confirmDelete": "삭제 확인",
       "delete": "삭제",
-      "deleteConfirmDescription": "태그「{tagName}」을 삭제하시겠습니까?",
+      "deleteConfirmDescription": "태그「{tagName}」와 하위 태그가 함께 삭제됩니다. 삭제하시겠습니까?",
       "deleteConfirmTitle": "태그 삭제",
       "edited": "편집됨",
       "inputTagName": "태그 이름 입력",

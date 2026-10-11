@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 import {
   Check,
   CheckCircle2,
@@ -40,8 +41,17 @@ import {
 import { useLocale, useTranslations } from "next-intl";
 import Image from "next/image";
 import Link from "next/link";
-import { useDeferredValue, useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
+import {
+  libraryTableClassName,
+  libraryTableScrollClassName,
+  stickyCheckboxCellClassName,
+  stickyCheckboxHeaderClassName,
+  stickyNameCellClassName,
+  stickyNameHeaderClassName,
+  useHorizontalScrolled,
+} from "../components/library-table";
 import LibraryPagination from "../components/LibraryPagination";
 import {
   linkedTagsColumnCellClassName,
@@ -50,17 +60,21 @@ import {
 import LinkedTagsOverflow from "../components/LinkedTagsOverflow";
 import { PROCESS_STATE_BADGE_CLASS_NAMES } from "../components/process-state-badge-classes";
 import TruncatedDescription from "../components/TruncatedDescription";
+import { useLibraryList } from "../components/useLibraryList";
 import {
   deleteAssetLogoAction,
+  deleteAssetLogosAction,
+  fetchBrandLogosPageAction,
   pollBrandLogosAction,
   retryAssetLogoProcessingAction,
   setAssetLogoEnabledAction,
+  setAssetLogosEnabledAction,
 } from "./actions";
 import BrandBatchImportExportDialog from "./BrandBatchImportExportDialog";
 import BrandImageHoverCard from "./BrandImageHoverCard";
 import BrandLogoDialog from "./BrandLogoDialog";
 import SignedBrandImage from "./SignedBrandImage";
-import { BrandLibraryPageData, BrandLogoBatchImportResult, BrandLogoItem } from "./types";
+import { BrandLibraryInitialData, BrandLogoBatchImportResult, BrandLogoItem } from "./types";
 
 export const MAX_PREVIEW_IMAGE_NUM = 10;
 
@@ -133,6 +147,7 @@ function LogoImagesCell({ logo, t }: { logo: BrandLogoItem; t: TranslationFuncti
                 imageId={image.id}
                 signedUrl={image.signedUrl}
                 signedUrlExpiresAt={image.signedUrlExpiresAt}
+                thumbnailUrl={image.thumbnailUrl}
                 alt={t("imageAltIndex", { name: logo.name, index: index + 1 })}
                 className="h-full w-full object-cover"
               />
@@ -151,14 +166,13 @@ export default function BrandLibraryClient({
   initialData,
   debugPageEnabled,
 }: {
-  initialData: BrandLibraryPageData;
+  initialData: BrandLibraryInitialData;
   debugPageEnabled: boolean;
 }) {
   const locale = useLocale();
   const t = useTranslations("Tagging.BrandLibrary") as TranslationFunction;
   const tReview = useTranslations("Tagging.Review") as TranslationFunction;
   const isChineseLocale = locale === "zh-CN" || locale === "zh-TW";
-  const [logos, setLogos] = useState(initialData.logos);
   const [logoTypes, setLogoTypes] = useState(initialData.logoTypes);
   const [tags, setTags] = useState(initialData.tags);
   const [search, setSearch] = useState("");
@@ -170,7 +184,6 @@ export default function BrandLibraryClient({
     "newest",
   );
   const [pageSize, setPageSize] = useState(40);
-  const [currentPage, setCurrentPage] = useState(1);
   const [pageInput, setPageInput] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<"create" | "edit">("create");
@@ -183,22 +196,24 @@ export default function BrandLibraryClient({
   const [batchImportExportOpen, setBatchImportExportOpen] = useState(false);
   const [pendingLogoIds, setPendingLogoIds] = useState<string[]>([]);
   const [isPending, startTransition] = useTransition();
-  const deferredSearch = useDeferredValue(search.trim().toLowerCase());
-  const usedLogoTypeIds = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          logos
-            .map((logo) => logo.logoTypeId)
-            .filter((typeId): typeId is string => Boolean(typeId)),
-        ),
-      ),
-    [logos],
-  );
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [deferredSearch, typeFilter, statusFilter, enabledFilter, sortOrder, pageSize]);
+  const { scrolledX, onScroll: onTableScroll } = useHorizontalScrolled();
+  const {
+    items: logos,
+    setItems: setLogos,
+    total: totalLogos,
+    usedTypeIds: usedLogoTypeIds,
+    page: currentPage,
+    setPage: setCurrentPage,
+    totalPages,
+    loading: listLoading,
+    debouncedSearch,
+    reload: reloadList,
+    reloadFirstPage: reloadListFirstPage,
+  } = useLibraryList({
+    initialList: initialData.list,
+    filters: { pageSize, search, typeFilter, statusFilter, enabledFilter, sortOrder },
+    fetchPage: fetchBrandLogosPageAction,
+  });
 
   useEffect(() => {
     if (typeFilter !== "all" && !logoTypes.some((type) => String(type.id) === typeFilter)) {
@@ -206,48 +221,8 @@ export default function BrandLibraryClient({
     }
   }, [logoTypes, typeFilter]);
 
-  const filteredLogos = logos
-    .filter((logo) => {
-      if (deferredSearch && !logo.name.toLowerCase().includes(deferredSearch)) {
-        return false;
-      }
-
-      if (typeFilter !== "all" && String(logo.logoTypeId ?? "") !== typeFilter) {
-        return false;
-      }
-
-      if (statusFilter !== "all" && logo.status !== statusFilter) {
-        return false;
-      }
-
-      if (enabledFilter === "enabled" && !logo.enabled) {
-        return false;
-      }
-
-      if (enabledFilter === "disabled" && logo.enabled) {
-        return false;
-      }
-
-      return true;
-    })
-    .sort((left, right) => {
-      if (sortOrder === "name-asc") {
-        return left.name.localeCompare(right.name, "zh-CN");
-      }
-
-      if (sortOrder === "name-desc") {
-        return right.name.localeCompare(left.name, "zh-CN");
-      }
-
-      const leftTime = new Date(left.createdAt).getTime();
-      const rightTime = new Date(right.createdAt).getTime();
-      return sortOrder === "newest" ? rightTime - leftTime : leftTime - rightTime;
-    });
-
-  const totalPages = Math.max(1, Math.ceil(filteredLogos.length / pageSize));
   const safeCurrentPage = Math.min(currentPage, totalPages);
-  const pageStart = (safeCurrentPage - 1) * pageSize;
-  const currentPageLogos = filteredLogos.slice(pageStart, pageStart + pageSize);
+  const currentPageLogos = logos;
   const currentPageIds = currentPageLogos.map((logo) => logo.id);
   const selectedOnPage = currentPageIds.filter((id) => selectedIds.includes(id));
   const allSelectedOnPage =
@@ -255,21 +230,23 @@ export default function BrandLibraryClient({
   const someSelectedOnPage = selectedOnPage.length > 0 && !allSelectedOnPage;
   const hasSelection = selectedIds.length > 0;
 
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
-    }
-  }, [currentPage, totalPages]);
+  // 依赖待处理 id 集合而不是整个列表：轮询结果每次都会生成新数组，
+  // 若依赖列表本身，effect 会在每次响应后立刻重跑并再次请求，变成无间隔的连续轮询。
+  const pendingIdsKey = useMemo(
+    () =>
+      logos
+        .filter((logo) => logo.status === "processing" || logo.status === "pending")
+        .map((logo) => logo.id)
+        .join(","),
+    [logos],
+  );
 
   useEffect(() => {
-    const pendingIds = logos
-      .filter((logo) => logo.status === "processing" || logo.status === "pending")
-      .map((logo) => logo.id);
-
-    if (pendingIds.length === 0) {
+    if (!pendingIdsKey) {
       return;
     }
 
+    const pendingIds = pendingIdsKey.split(",");
     let disposed = false;
 
     async function poll() {
@@ -278,9 +255,8 @@ export default function BrandLibraryClient({
         return;
       }
 
-      setLogos((current) =>
-        current.map((logo) => result.data.logos.find((item) => item.id === logo.id) ?? logo),
-      );
+      const updatedById = new Map(result.data.logos.map((item) => [item.id, item]));
+      setLogos((current) => current.map((logo) => updatedById.get(logo.id) ?? logo));
     }
 
     void poll();
@@ -292,7 +268,7 @@ export default function BrandLibraryClient({
       disposed = true;
       window.clearInterval(timer);
     };
-  }, [logos]);
+  }, [pendingIdsKey, setLogos]);
 
   function getProcessingErrorMessage(error: string | null) {
     if (!error) {
@@ -331,14 +307,20 @@ export default function BrandLibraryClient({
   }
 
   function handleDialogSaved(logo: BrandLogoItem) {
-    updateLogoInList(logo);
+    // 新建的条目按当前排序不一定落在当前页，回到第一页重新取；编辑则原地更新后刷新当前页。
+    if (dialogMode === "create") {
+      reloadListFirstPage();
+    } else {
+      updateLogoInList(logo);
+      reloadList();
+    }
     setDialogOpen(false);
     setActiveLogo(null);
   }
 
   function handleBatchImported(result: BrandLogoBatchImportResult) {
     if (result.createdLogos.length > 0) {
-      setLogos((current) => [...result.createdLogos, ...current]);
+      reloadListFirstPage();
     }
     setLogoTypes(result.logoTypes);
     if (result.tagTree) {
@@ -384,6 +366,7 @@ export default function BrandLibraryClient({
       }
 
       updateLogoInList(result.data.logo);
+      reloadList();
       toast.success(enabled ? t("enabledSuccess") : t("disabledSuccess"));
     });
   }
@@ -414,6 +397,7 @@ export default function BrandLibraryClient({
       }
 
       setLogos((current) => current.filter((logo) => logo.id !== deleteTarget.id));
+      reloadList();
       setSelectedIds((current) => current.filter((id) => id !== deleteTarget.id));
       setDeleteTarget(null);
       toast.success(t("deletedSuccess"));
@@ -443,8 +427,9 @@ export default function BrandLibraryClient({
     );
   }
 
-  function handleTypeDeleted(typeId: string) {
-    setLogos((current) => current.map((logo) => (logo.logoTypeId === typeId ? logo : logo)));
+  function handleTypeDeleted() {
+    // 刷新列表以同步类型的使用情况（usedTypeIds）。
+    reloadList();
   }
 
   function handleSelectAllOnPage(checked: boolean) {
@@ -465,22 +450,18 @@ export default function BrandLibraryClient({
     targetIds.forEach((id) => markLogoPending(id, true));
 
     startTransition(async () => {
-      const results = await Promise.all(
-        targetIds.map(async (id) => {
-          const result = await setAssetLogoEnabledAction(id, enabled);
-          markLogoPending(id, false);
-          return result;
-        }),
-      );
+      const result = await setAssetLogosEnabledAction(targetIds, enabled);
+      targetIds.forEach((id) => markLogoPending(id, false));
 
-      const updatedLogos = results.filter((item) => item.success).map((item) => item.data.logo);
+      const updatedLogos = result.success ? result.data.logos : [];
       if (updatedLogos.length > 0) {
         const updatedById = new Map(updatedLogos.map((logo) => [logo.id, logo]));
         setLogos((current) => current.map((logo) => updatedById.get(logo.id) ?? logo));
         setSelectedIds((current) => current.filter((id) => !updatedById.has(id)));
+        reloadList();
       }
 
-      const failedCount = results.length - updatedLogos.length;
+      const failedCount = targetIds.length - updatedLogos.length;
       if (failedCount === 0) {
         toast.success(enabled ? t("batchEnabledSuccess") : t("batchDisabledSuccess"));
         return;
@@ -527,22 +508,18 @@ export default function BrandLibraryClient({
     targetIds.forEach((id) => markLogoPending(id, true));
 
     startTransition(async () => {
-      const results = await Promise.all(
-        targetIds.map(async (id) => {
-          const result = await deleteAssetLogoAction(id);
-          markLogoPending(id, false);
-          return { id, result };
-        }),
-      );
+      const result = await deleteAssetLogosAction(targetIds);
+      targetIds.forEach((id) => markLogoPending(id, false));
 
-      const successIds = results.filter((item) => item.result.success).map((item) => item.id);
+      const successIds = result.success ? result.data.deletedIds : [];
       if (successIds.length > 0) {
         const successIdSet = new Set(successIds);
         setLogos((current) => current.filter((logo) => !successIdSet.has(logo.id)));
         setSelectedIds((current) => current.filter((id) => !successIdSet.has(id)));
+        reloadList();
       }
 
-      const failedCount = results.length - successIds.length;
+      const failedCount = targetIds.length - successIds.length;
       if (failedCount === 0) {
         toast.success(t("batchDeletedSuccess"));
       } else if (successIds.length > 0) {
@@ -567,15 +544,18 @@ export default function BrandLibraryClient({
     setPageInput("");
   }
 
-  const emptyText =
-    deferredSearch || typeFilter !== "all" || statusFilter !== "all" || enabledFilter !== "all"
-      ? t("emptyFiltered")
-      : t("empty");
-  const isLibraryCompletelyEmpty = logos.length === 0;
+  const hasActiveFilters =
+    Boolean(debouncedSearch) ||
+    typeFilter !== "all" ||
+    statusFilter !== "all" ||
+    enabledFilter !== "all";
+  const emptyText = hasActiveFilters ? t("emptyFiltered") : t("empty");
+  const isLibraryCompletelyEmpty = totalLogos === 0 && !hasActiveFilters;
 
   return (
     <>
-      <div className="flex min-h-[calc(100dvh-120px)] flex-1 flex-col pb-5">
+      {/* data-fill-viewport：页面占满可视高度，只有列表区域滚动、分页栏始终可见（见 tagging/layout.tsx） */}
+      <div data-fill-viewport className="flex min-h-0 flex-1 flex-col">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <h2 className="text-xl font-semibold">{t("title")}</h2>
@@ -642,7 +622,7 @@ export default function BrandLibraryClient({
 
         <div className="mt-[20px] flex min-h-0 flex-1 flex-col gap-[10px] ">
           {isLibraryCompletelyEmpty ? (
-            <div className="flex min-h-[calc(100dvh-280px)] flex-1 items-center justify-center px-6 py-10">
+            <div className="flex min-h-[320px] flex-1 items-center justify-center px-6 py-10">
               <div className="text-center">
                 <Image
                   width={171}
@@ -662,12 +642,12 @@ export default function BrandLibraryClient({
                     {hasSelection ? (
                       <>
                         {t("itemsSelected")}{" "}
-                        <span className="text-primary-6">{selectedIds.length}</span> /{" "}
-                        {filteredLogos.length} {t("itemsCount")}
+                        <span className="text-primary-6">{selectedIds.length}</span> / {totalLogos}{" "}
+                        {t("itemsCount")}
                       </>
                     ) : (
                       <>
-                        {t("itemsTotal")} {filteredLogos.length} {t("itemsCount")}
+                        {t("itemsTotal")} {totalLogos} {t("itemsCount")}
                       </>
                     )}
                   </span>
@@ -797,8 +777,11 @@ export default function BrandLibraryClient({
                 </div>
               </div>
 
-              <div className="flex min-h-[calc(100dvh-280px)] flex-1 flex-col rounded-[8px] border bg-background">
-                {filteredLogos.length === 0 ? (
+              <div
+                className={`flex min-h-[320px] flex-1 flex-col overflow-hidden rounded-[8px] border bg-background transition-opacity${listLoading ? " pointer-events-none opacity-60" : ""}`}
+                aria-busy={listLoading}
+              >
+                {totalLogos === 0 ? (
                   <div className="flex min-h-[420px] flex-1 items-center justify-center px-6 py-10">
                     <div className="text-center">
                       <Image
@@ -813,11 +796,13 @@ export default function BrandLibraryClient({
                   </div>
                 ) : (
                   <div className="flex min-h-0 flex-1 flex-col">
-                    <div className="flex-1 overflow-x-auto">
-                      <table className="min-w-full table-auto [&_th]:font-medium [&_th]:leading-5 [&_th]:align-middle [&_td]:leading-5 [&_td]:align-middle [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap">
+                    <div className={libraryTableScrollClassName} onScroll={onTableScroll}>
+                      <table className={libraryTableClassName}>
                         <thead>
                           <tr className="h-[45px] border-b text-left text-[14px] leading-[20px] text-basic-5">
-                            <th className="w-[40px] px-3 py-0 text-center">
+                            <th
+                              className={cn("px-3 py-0 text-center", stickyCheckboxHeaderClassName)}
+                            >
                               <div className="flex h-[45px] w-full items-center justify-center">
                                 <Checkbox
                                   className="size-4 border-basic-4"
@@ -829,7 +814,14 @@ export default function BrandLibraryClient({
                                 />
                               </div>
                             </th>
-                            <th className="w-[300px] px-3 py-0">{t("columnLogoName")}</th>
+                            <th
+                              className={cn(
+                                "w-[300px] px-3 py-0",
+                                stickyNameHeaderClassName(scrolledX),
+                              )}
+                            >
+                              {t("columnLogoName")}
+                            </th>
                             <th className="w-[120px] px-3 py-0">{t("columnLogoType")}</th>
                             <th className="w-[220px] px-4 py-0">{t("columnLogoImages")}</th>
                             <th className={linkedTagsColumnHeaderClassName}>
@@ -852,7 +844,12 @@ export default function BrandLibraryClient({
 
                             return (
                               <tr key={logo.id} className="h-[58px] border-b last:border-b-0">
-                                <td className="h-[58px] px-3 py-0 text-center align-middle">
+                                <td
+                                  className={cn(
+                                    "h-[58px] px-3 py-0 text-center align-middle",
+                                    stickyCheckboxCellClassName,
+                                  )}
+                                >
                                   <div className="flex h-[58px] w-full items-center justify-center">
                                     <Checkbox
                                       className="border-basic-4"
@@ -875,11 +872,12 @@ export default function BrandLibraryClient({
                                   </div>
                                 </td>
                                 <td
-                                  className={
+                                  className={cn(
                                     subtitle
                                       ? "h-[58px] max-w-[300px] px-3 pt-3 pb-2 align-top"
-                                      : "h-[58px] max-w-[300px] px-3 py-0 align-middle"
-                                  }
+                                      : "h-[58px] max-w-[300px] px-3 py-0 align-middle",
+                                    stickyNameCellClassName(scrolledX),
+                                  )}
                                 >
                                   <div
                                     className={
@@ -909,6 +907,7 @@ export default function BrandLibraryClient({
                                               imageId={logo.images[0].id}
                                               signedUrl={logo.images[0].signedUrl}
                                               signedUrlExpiresAt={logo.images[0].signedUrlExpiresAt}
+                                              thumbnailUrl={logo.images[0].thumbnailUrl}
                                               alt={`${logo.name} 标识图`}
                                               className="h-full w-full object-cover"
                                             />
@@ -931,9 +930,8 @@ export default function BrandLibraryClient({
                                   <LogoImagesCell logo={logo} t={t} />
                                 </td>
                                 <td
-                                  className={`h-[58px] px-4 align-middle ${linkedTagsColumnCellClassName} ${
-                                    logo.tags.length > 1 ? "py-2" : "py-0"
-                                  }`}
+                                  className={`h-[58px] px-4 align-middle ${linkedTagsColumnCellClassName} ${logo.tags.length > 1 ? "py-2" : "py-0"
+                                    }`}
                                 >
                                   <LinkedTagsOverflow
                                     tags={logo.tags}
@@ -942,9 +940,8 @@ export default function BrandLibraryClient({
                                 </td>
                                 <td className="h-[58px] px-4 py-0 align-middle">
                                   <div
-                                    className={`flex items-center ${
-                                      logo.status === "failed" ? "gap-[8px]" : "gap-3"
-                                    }`}
+                                    className={`flex items-center ${logo.status === "failed" ? "gap-[8px]" : "gap-3"
+                                      }`}
                                   >
                                     {logo.status === "failed" ? (
                                       <Tooltip>
@@ -1043,7 +1040,7 @@ export default function BrandLibraryClient({
                       </table>
                     </div>
 
-                    <div className="mt-auto flex flex-col gap-4 border-t px-6 py-4 xl:flex-row xl:items-center xl:justify-between">
+                    <div className="flex shrink-0 flex-col gap-4 border-t px-6 py-4 xl:flex-row xl:items-center xl:justify-between">
                       <Input
                         value={pageInput}
                         onChange={(event) => setPageInput(event.target.value)}

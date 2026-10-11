@@ -1,5 +1,7 @@
 "use server";
 
+import { signObjectDetectionImageUrl } from "@/lib/media-process/image-url";
+
 import { withAuth } from "@/app/(auth)/withAuth";
 import {
   MAX_CLIENT_IMAGE_UPLOAD_BYTES,
@@ -38,11 +40,13 @@ import {
   fetchRemoteImageInput,
   getFallbackBox,
 } from "@/lib/tagging/classification-image";
+import { getReferenceThumbnailUrl } from "@/lib/tagging/reference-thumbnail";
 import { schedulePushFeatureToMuseDAM } from "@/musedam/push-feature-to-musedam";
 import { AssetIp, AssetIpImage, AssetIpTag, AssetIpType, AssetTag } from "@/prisma/client/index";
 import prisma from "@/prisma/prisma";
 import { getLocale, getTranslations } from "next-intl/server";
 import { after } from "next/server";
+import pLimit from "p-limit";
 import { z } from "zod";
 import {
   BatchFileErrorMessages,
@@ -53,6 +57,13 @@ import {
   parseImportedEnabled,
   splitBatchValues,
 } from "../batchFile";
+import {
+  buildLibraryListArgs,
+  DEFAULT_LIBRARY_LIST_QUERY,
+  LibraryListPage,
+  LibraryListQuery,
+  normalizeLibraryListQuery,
+} from "../components/library-list-query";
 import {
   buildIpBatchExportRows,
   buildIpBatchTemplateRows,
@@ -68,6 +79,7 @@ import {
   IpClassificationUploadResult,
   IpImageItem,
   IpItem,
+  IpLibraryInitialData,
   IpLibraryPageData,
   IpPartialFeatureDetectionResult,
   IpTagItem,
@@ -269,6 +281,7 @@ function normalizeIpImage(image: AssetIpImage): IpImageItem {
     objectKey: image.objectKey,
     signedUrl,
     signedUrlExpiresAt,
+    ...getReferenceThumbnailUrl(image.objectKey),
     mimeType: image.mimeType,
     size: image.size,
     sort: image.sort,
@@ -1327,16 +1340,15 @@ export async function prepareIpImageUploadAction(input: {
 }
 
 async function detectPartialFeatureForObjectKey({
+  teamId,
   objectKey,
   partialMatchPatternName,
 }: {
+  teamId: number;
   objectKey: string;
   partialMatchPatternName: (typeof IP_PARTIAL_MATCH_PATTERN_OPTIONS)[number];
 }): Promise<IpPartialFeatureDetectionResult> {
-  const { signedUrl: detectionImageUrl } = getCachedSignedS3ObjectUrl({
-    objectKey,
-    expiresInSeconds: 60 * 60,
-  });
+  const { signedUrl: detectionImageUrl } = signObjectDetectionImageUrl(objectKey);
   const { signedUrl, signedUrlExpiresAt } = getCachedBrowserS3ObjectUrl({
     objectKey,
     expiresInSeconds: 60 * 60,
@@ -1344,7 +1356,8 @@ async function detectPartialFeatureForObjectKey({
 
   const imageInput = await fetchRemoteImageInput(detectionImageUrl, "IP partial feature");
   const detection = await detectIpPartialFeatureBoxes({
-    imageBase64: imageInput.dataUrl,
+    teamId,
+    imageInput,
     partialMatchPatternName,
   });
 
@@ -1384,7 +1397,7 @@ export async function detectAssetIpPartialFeatureAction(input: {
 
       return {
         success: true,
-        data: await detectPartialFeatureForObjectKey(parsed),
+        data: await detectPartialFeatureForObjectKey({ ...parsed, teamId }),
       };
     } catch (error) {
       console.error("Failed to detect partial IP feature:", error);
@@ -1519,6 +1532,97 @@ export async function refreshAssetIpImageSignedUrlAction(imageId: string): Promi
       return {
         success: false,
         message: t("uploadErrors.imageLoadFailed"),
+      };
+    }
+  });
+}
+
+async function queryIpsPage(
+  teamId: number,
+  query: LibraryListQuery,
+): Promise<LibraryListPage<IpItem>> {
+  const { where, typeId, orderBy, skip, take } = buildLibraryListArgs(query);
+  const pageWhere = { teamId, ...where, ...(typeId ? { ipTypeId: typeId } : {}) };
+  const [rows, total, usedTypes] = await Promise.all([
+    prisma.assetIp.findMany({
+      where: pageWhere,
+      orderBy,
+      skip,
+      take,
+      include: {
+        images: {
+          orderBy: [{ sort: "asc" }, { id: "asc" }],
+        },
+        tags: {
+          orderBy: [{ sort: "asc" }, { id: "asc" }],
+        },
+      },
+    }),
+    prisma.assetIp.count({ where: pageWhere }),
+    // 类型是否被使用要看整个库，而不是当前页。
+    prisma.assetIp.findMany({
+      where: { teamId, ipTypeId: { not: null } },
+      distinct: ["ipTypeId"],
+      select: { ipTypeId: true },
+    }),
+  ]);
+
+  return {
+    items: rows.map((ip) => normalizeIp(ip)),
+    total,
+    usedTypeIds: usedTypes
+      .map((row) => row.ipTypeId)
+      .filter((typeId): typeId is string => Boolean(typeId)),
+  };
+}
+
+/** 列表页首屏：第一页 + 类型 + 标签树。 */
+export async function fetchIpLibraryInitialData(): Promise<
+  ServerActionResult<IpLibraryInitialData>
+> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    try {
+      const locale = await getLocale();
+      const [list, types, tags] = await Promise.all([
+        queryIpsPage(teamId, DEFAULT_LIBRARY_LIST_QUERY),
+        ensureDefaultIpTypes(teamId, locale),
+        fetchIpTags(teamId),
+      ]);
+
+      return {
+        success: true,
+        data: {
+          list,
+          ipTypes: types.map(normalizeIpType),
+          tags,
+        },
+      };
+    } catch (error) {
+      console.error("Failed to fetch IPs library initial data:", error);
+      const t = await getTranslations("Tagging.IpLibrary");
+      return {
+        success: false,
+        message: t("createFailed"),
+      };
+    }
+  });
+}
+
+export async function fetchIpsPageAction(
+  query: Partial<LibraryListQuery>,
+): Promise<ServerActionResult<LibraryListPage<IpItem>>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    try {
+      return {
+        success: true,
+        data: await queryIpsPage(teamId, normalizeLibraryListQuery(query)),
+      };
+    } catch (error) {
+      console.error("Failed to fetch IPs page:", error);
+      const t = await getTranslations("Tagging.IpLibrary");
+      return {
+        success: false,
+        message: t("createFailed"),
       };
     }
   });
@@ -1808,10 +1912,7 @@ export async function prepareIpClassificationAction(input: {
         };
       }
 
-      const { signedUrl: detectionImageUrl } = getCachedSignedS3ObjectUrl({
-        objectKey: metadata.objectKey,
-        expiresInSeconds: 60 * 60,
-      });
+      const { signedUrl: detectionImageUrl } = signObjectDetectionImageUrl(metadata.objectKey);
       const { signedUrl, signedUrlExpiresAt } = getCachedBrowserS3ObjectUrl({
         objectKey: metadata.objectKey,
         expiresInSeconds: 60 * 60,
@@ -1819,7 +1920,8 @@ export async function prepareIpClassificationAction(input: {
       const imageInput = await fetchRemoteImageInput(detectionImageUrl, "IP classification");
       const detection = await detectIpFigureBoxes({
         teamId,
-        imageBase64: imageInput.dataUrl,
+        imageInput,
+        requestMode: "sync",
       });
 
       return {
@@ -2349,6 +2451,117 @@ export async function deleteAssetIpAction(
         success: false,
         message: t("deleteFailed"),
       };
+    }
+  });
+}
+
+// 批量操作：一次请求完成，避免客户端逐条调用 Server Action（串行排队）。
+// 副作用与单条版本一致：只处理本团队的条目，并同步 pgvector 的 payload / 删除向量点。
+const BATCH_IPS_MAX = 500;
+const BATCH_VECTOR_SYNC_CONCURRENCY = 5;
+const BATCH_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function resolveOwnedIps(teamId: number, ids: string[]) {
+  const uniqueIds = Array.from(new Set(ids)).filter(
+    (id) => typeof id === "string" && BATCH_ID_PATTERN.test(id),
+  );
+  const owned = await prisma.assetIp.findMany({
+    where: { teamId, id: { in: uniqueIds } },
+    select: { id: true },
+  });
+  const ownedIds = owned.map(({ id }) => id);
+  const ownedIdSet = new Set(ownedIds);
+  return {
+    ownedIds,
+    failedIds: Array.from(new Set(ids)).filter((id) => !ownedIdSet.has(id)),
+  };
+}
+
+export async function setAssetIpsEnabledAction(
+  ids: string[],
+  enabled: boolean,
+): Promise<ServerActionResult<{ ips: IpItem[]; failedIds: string[] }>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    const t = await getTranslations("Tagging.IpLibrary");
+    if (!Array.isArray(ids) || ids.length > BATCH_IPS_MAX) {
+      return { success: false, message: t("toggleEnabledFailed") };
+    }
+    try {
+      const { ownedIds, failedIds } = await resolveOwnedIps(teamId, ids);
+      if (ownedIds.length > 0) {
+        await prisma.assetIp.updateMany({
+          where: { teamId, id: { in: ownedIds } },
+          data: { enabled },
+        });
+
+        const limit = pLimit(BATCH_VECTOR_SYNC_CONCURRENCY);
+        await Promise.all(
+          ownedIds.map((id) =>
+            limit(() =>
+              setIpVectorPayloadByIp({
+                teamId,
+                assetIpId: id,
+                payload: { enabled },
+              }).catch((error) => {
+                console.warn("Failed to sync IP enabled payload to pgvector:", error);
+              }),
+            ),
+          ),
+        );
+      }
+
+      return {
+        success: true,
+        data: {
+          ips: await loadIpsByIds(teamId, ownedIds),
+          failedIds,
+        },
+      };
+    } catch (error) {
+      console.error("Failed to batch toggle asset IP enabled:", error);
+      return { success: false, message: t("toggleEnabledFailed") };
+    }
+  });
+}
+
+export async function deleteAssetIpsAction(
+  ids: string[],
+): Promise<ServerActionResult<{ deletedIds: string[]; failedIds: string[] }>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    const t = await getTranslations("Tagging.IpLibrary");
+    if (!Array.isArray(ids) || ids.length > BATCH_IPS_MAX) {
+      return { success: false, message: t("deleteFailed") };
+    }
+    try {
+      const { ownedIds, failedIds } = await resolveOwnedIps(teamId, ids);
+      if (ownedIds.length > 0) {
+        await prisma.assetIp.deleteMany({
+          where: { teamId, id: { in: ownedIds } },
+        });
+
+        const limit = pLimit(BATCH_VECTOR_SYNC_CONCURRENCY);
+        await Promise.all(
+          ownedIds.map((id) =>
+            limit(() =>
+              deleteIpVectorPointsByIp({
+                teamId,
+                assetIpId: id,
+              }).catch(() => undefined),
+            ),
+          ),
+        );
+      }
+
+      return {
+        success: true,
+        data: {
+          deletedIds: ownedIds,
+          failedIds,
+        },
+      };
+    } catch (error) {
+      console.error("Failed to batch delete asset IP:", error);
+      return { success: false, message: t("deleteFailed") };
     }
   });
 }

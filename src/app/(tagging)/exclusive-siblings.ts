@@ -8,8 +8,13 @@ import type {
   TaggingProductRecommendation,
   TagWithChildren,
 } from "@/prisma/client";
+import { collectAspectRatioTagIds, detectAspectRatioGroups } from "./aspect-ratio";
 import { getBrandRecommendationTagIdsFromQueueResult } from "./brand-recommendation";
-import { buildExclusiveBranchResolver } from "./evidence-policy";
+import {
+  buildExclusiveBranchResolver,
+  flattenTagsTree,
+  getExplicitRequiredGroup,
+} from "./evidence-policy";
 import { getIpRecommendationTagIdsFromQueueResult } from "./ip-recommendation";
 import type { TagWithScore } from "./types";
 
@@ -168,4 +173,62 @@ export function resolveExclusiveSiblingsAcrossSources({
     return true;
   });
   return { tagsWithScore: kept, dropped };
+}
+
+/**
+ * 必打分类的特征库兜底：必打分类下没有任何标签（常见原因是 AI 在互斥分支上输给了特征库、被丢掉），
+ * 但特征库在该分类下认出了标签时，直接采用特征库匹配上的那个（多个取置信度最高），分数即特征库置信度。
+ * 画幅组由宽高确定性打标，不在此处理。
+ */
+export function fillRequiredGroupsFromFeatures({
+  tagsTree,
+  tagsWithScore,
+  featureCandidates,
+}: {
+  tagsTree: TagWithChildren[];
+  tagsWithScore: TagWithScore[];
+  featureCandidates: FeatureTagCandidate[];
+}): { tagsWithScore: TagWithScore[]; added: TagWithScore[] } {
+  if (featureCandidates.length === 0) return { tagsWithScore, added: [] };
+  const nodes = flattenTagsTree(tagsTree);
+  const aspectRatioParentIds = collectAspectRatioTagIds(
+    detectAspectRatioGroups(tagsTree),
+  ).parentIds;
+  const requiredParents = nodes.filter(
+    (node) =>
+      node.hasChildren &&
+      getExplicitRequiredGroup(node.extra) === true &&
+      !aspectRatioParentIds.has(node.id),
+  );
+  if (requiredParents.length === 0) return { tagsWithScore, added: [] };
+
+  const nodeById = new Map(nodes.map((node) => [node.id, node] as const));
+  const isDescendantOf = (tagId: number, ancestorId: number): boolean => {
+    let current = nodeById.get(tagId)?.parentId;
+    while (current !== undefined) {
+      if (current === ancestorId) return true;
+      current = nodeById.get(current)?.parentId;
+    }
+    return false;
+  };
+
+  const result = [...tagsWithScore];
+  const added: TagWithScore[] = [];
+  for (const parent of requiredParents) {
+    if (result.some((tag) => isDescendantOf(tag.leafTagId, parent.id))) continue;
+    const candidate = featureCandidates
+      .filter((item) => isDescendantOf(item.leafTagId, parent.id))
+      .sort((a, b) => b.confidence - a.confidence || a.leafTagId - b.leafTagId)[0];
+    const node = candidate ? nodeById.get(candidate.leafTagId) : undefined;
+    if (!candidate || !node) continue;
+    const tag: TagWithScore = {
+      leafTagId: node.id,
+      tagPath: node.tagPath,
+      confidenceBySources: {},
+      score: Math.round(candidate.confidence),
+    };
+    result.push(tag);
+    added.push(tag);
+  }
+  return { tagsWithScore: result, added };
 }

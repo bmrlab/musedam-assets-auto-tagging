@@ -1,6 +1,7 @@
 import "server-only";
 
 import { llm, LLMModelName } from "@/ai/provider";
+import { LLM_TIMEOUT_MS } from "@/lib/tagging/external-timeouts";
 import {
   AssetObject,
   AssetObjectContentAnalysis,
@@ -28,8 +29,13 @@ import {
   RecognitionAccuracyMode,
   tagPredictionSystemPrompt,
 } from "./prompt";
-import { SourceBasedTagPredictions, tagPredictionSchema, TagWithScore } from "./types";
-import { buildTagKeywordsText, buildTagStructureText } from "./utils";
+import {
+  SourceBasedTagPredictions,
+  SourceWeights,
+  tagPredictionSchema,
+  TagWithScore,
+} from "./types";
+import { buildTagKeywordsText, buildTagStructureText, PrunedGroupInfo } from "./utils";
 
 function taggingPredictError(code: string, message: string) {
   const err = new Error(message);
@@ -166,10 +172,31 @@ function escapeRegExp(text: string): string {
  * 命中 "popup" 这种子串（曾导致图片素材因文件名含 "POPUP" 被误判为 "POP-UP视频"）。
  * 中日韩等非纯 ASCII 关键词没有天然词边界，维持原有子串匹配。
  */
+// 硬匹配每个任务要对整棵标签树的每个叶子、每个关键词各判一次，按关键词缓存编译好的正则，
+// 避免每次调用都 new RegExp（大标签树下这是打标链路里最重的同步 CPU 开销之一）。
+const BOUNDARY_REGEX_CACHE_MAX_SIZE = 50_000;
+const boundaryRegexCache = new Map<string, RegExp>();
+
+function getBoundaryRegex(keyword: string): RegExp {
+  let regex = boundaryRegexCache.get(keyword);
+  if (!regex) {
+    if (boundaryRegexCache.size >= BOUNDARY_REGEX_CACHE_MAX_SIZE) boundaryRegexCache.clear();
+    const leading = /^[a-z0-9]/i.test(keyword) ? "(?<![a-z0-9])" : "";
+    const trailing = /[a-z0-9]$/i.test(keyword) ? "(?![a-z0-9])" : "";
+    regex = new RegExp(`${leading}${escapeRegExp(keyword)}${trailing}`, "i");
+    boundaryRegexCache.set(keyword, regex);
+  }
+  return regex;
+}
+
+/**
+ * 关键词以字母数字开头/结尾时，那一侧要求是词边界：SKU 编码 "kf12.0066" 不能命中路径里的
+ * "kf12.00661"（否则两个 SKU 同时命中，互斥只能按 id 瞎选）。以符号或中日韩字符开头/结尾的一侧
+ * 没有天然词边界，维持子串匹配（"a+" 仍能命中 "a+7.jpg"，"面霜" 仍能命中 "修护面霜"）。
+ */
 export function pathIncludesKeyword(normalizedPath: string, keyword: string): boolean {
-  if (/^[a-z0-9]+$/i.test(keyword)) {
-    const boundaryRegex = new RegExp(`(?<![a-z0-9])${escapeRegExp(keyword)}(?![a-z0-9])`, "i");
-    return boundaryRegex.test(normalizedPath);
+  if (/^[a-z0-9]|[a-z0-9]$/i.test(keyword)) {
+    return getBoundaryRegex(keyword).test(normalizedPath);
   }
   return normalizedPath.includes(keyword);
 }
@@ -222,6 +249,75 @@ function evidenceQuoteAppearsIn(evidenceText: string, quote: string | undefined)
   return evidenceText.includes(normalizedQuote);
 }
 
+type TagKeywordInfo = { tagPath: string[]; keywords: string[]; nameAndKeywords: string[] };
+const tagKeywordInfoCache = new WeakMap<TagWithChildren[], ReadonlyMap<number, TagKeywordInfo>>();
+
+/** 每个标签（任意层级）的字面关键词：标签名自动拆词的强关键词 + 手动配置的匹配关键词。 */
+function getTagKeywordInfoById(tagsTree: TagWithChildren[]): ReadonlyMap<number, TagKeywordInfo> {
+  const cached = tagKeywordInfoCache.get(tagsTree);
+  if (cached) return cached;
+  const infoById = new Map<number, TagKeywordInfo>();
+  for (const node of flattenTagsTree(tagsTree)) {
+    const configuredKeywords = ((node.extra as AssetTagExtra)?.keywords ?? []).map(
+      normalizeForMatch,
+    );
+    infoById.set(node.id, {
+      tagPath: node.tagPath,
+      keywords: Array.from(
+        new Set([...getStrongKeywordVariantsForTagName(node.name), ...configuredKeywords]),
+      ).filter(Boolean),
+      nameAndKeywords: [node.name, ...configuredKeywords],
+    });
+  }
+  tagKeywordInfoCache.set(tagsTree, infoById);
+  return infoById;
+}
+
+/** 子标签数超过这个值、且全部是字面型的分类（如 SKU 编码），发给模型前只保留字面命中的子标签。 */
+export const PROMPT_LARGE_LITERAL_GROUP_THRESHOLD = 30;
+
+/**
+ * 给模型看的标签树裁剪：SKU 这类成百上千个字面型子标签的分组，整组塞进 prompt 既稀释注意力，
+ * 又让模型在一堆长得很像的编号里挑错（路径写 KF12.0066，模型给了 KF09.127S1）。
+ * 字面型标签本来就必须有字面证据，没在素材文字里出现的子标签模型也选不对，所以只保留
+ * 自身或后代的标签名拆词/配置关键词出现在 evidenceText 里的子标签。
+ * 只裁剪 prompt 文本：校验、硬匹配、互斥等仍使用完整标签树。内容型分组不裁剪。
+ */
+export function pruneLargeLiteralGroupsForPrompt(
+  tagsTree: TagWithChildren[],
+  evidenceText: string,
+  threshold = PROMPT_LARGE_LITERAL_GROUP_THRESHOLD,
+): { tagsTree: TagWithChildren[]; prunedGroups: Map<number, PrunedGroupInfo> } {
+  const normalizedText = normalizeForMatch(evidenceText);
+  const keywordInfoById = getTagKeywordInfoById(tagsTree);
+  const policyById = new Map(
+    flattenTagsTree(tagsTree).map(
+      (node) => [node.id, resolveEvidencePolicy(node.extra, node.tagPath)] as const,
+    ),
+  );
+  const prunedGroups = new Map<number, PrunedGroupInfo>();
+  const selfHits = (tag: TagWithChildren) =>
+    !!normalizedText &&
+    (keywordInfoById.get(tag.id)?.keywords ?? []).some((keyword) =>
+      pathIncludesKeyword(normalizedText, keyword),
+    );
+
+  // 返回裁剪后的节点；hit 表示该节点自身或某个后代字面命中，供上层分组判断是否保留它。
+  const visit = (tag: TagWithChildren): { tag: TagWithChildren; hit: boolean } => {
+    const children = (tag.children ?? []).map(visit);
+    const hit = selfHits(tag) || children.some((child) => child.hit);
+    if (children.length === 0) return { tag, hit };
+    const prunable =
+      children.length > threshold &&
+      children.every((child) => policyById.get(child.tag.id) === "literal");
+    const kept = prunable ? children.filter((child) => child.hit) : children;
+    if (prunable) prunedGroups.set(tag.id, { total: children.length, shown: kept.length });
+    return { tag: { ...tag, children: kept.map((child) => child.tag) }, hit };
+  };
+
+  return { tagsTree: tagsTree.map((tag) => visit(tag).tag), prunedGroups };
+}
+
 /**
  * 字面型标签（证据策略 literal，见 evidence-policy.ts：渠道/市场/活动/档期等"素材之外的安排"）
  * 在任何来源下都必须有字面证据支撑，否则丢弃该来源对该标签的贡献。字面证据二选一即可：
@@ -238,22 +334,11 @@ export function enforceLiteralEvidenceForMetadataTags(
   tagsTree: TagWithChildren[],
   evidenceTextBySource: Partial<Record<z.infer<typeof tagPredictionSchema.shape.source>, string>>,
 ): SourceBasedTagPredictions {
-  const literalInfoById = new Map<
-    number,
-    { tagPath: string[]; keywords: string[]; nameAndKeywords: string[] }
-  >();
+  const keywordInfoById = getTagKeywordInfoById(tagsTree);
+  const literalInfoById = new Map<number, TagKeywordInfo>();
   for (const node of flattenTagsTree(tagsTree)) {
     if (resolveEvidencePolicy(node.extra, node.tagPath) !== "literal") continue;
-    const configuredKeywords = ((node.extra as AssetTagExtra)?.keywords ?? []).map(
-      normalizeForMatch,
-    );
-    literalInfoById.set(node.id, {
-      tagPath: node.tagPath,
-      keywords: Array.from(
-        new Set([...getStrongKeywordVariantsForTagName(node.name), ...configuredKeywords]),
-      ).filter(Boolean),
-      nameAndKeywords: [node.name, ...configuredKeywords],
-    });
+    literalInfoById.set(node.id, keywordInfoById.get(node.id)!);
   }
   if (literalInfoById.size === 0) return predictions;
 
@@ -297,18 +382,7 @@ export function enforceTextualSourceEvidence(
   tagsTree: TagWithChildren[],
   evidenceTextBySource: Partial<Record<TextualSource, string>>,
 ): SourceBasedTagPredictions {
-  const infoById = new Map<number, { keywords: string[]; nameAndKeywords: string[] }>();
-  for (const node of flattenTagsTree(tagsTree)) {
-    const configuredKeywords = ((node.extra as AssetTagExtra)?.keywords ?? []).map(
-      normalizeForMatch,
-    );
-    infoById.set(node.id, {
-      keywords: Array.from(
-        new Set([...getStrongKeywordVariantsForTagName(node.name), ...configuredKeywords]),
-      ).filter(Boolean),
-      nameAndKeywords: [node.name, ...configuredKeywords],
-    });
-  }
+  const infoById = getTagKeywordInfoById(tagsTree);
 
   return predictions.map((prediction) => {
     if (!isTextualSource(prediction.source)) return prediction;
@@ -339,6 +413,8 @@ export function enforceTextualSourceEvidence(
  * 互斥沿祖先链传播：预测的是三级标签时，它同样代表了自己所在的二级分支——"产品品类"标了互斥，
  * 那么"护肤 > 面霜"和"彩妆 > 底妆"就是在争同一个位置，按各自分支整体取舍。
  * 分支排序（前者优先）：
+ * 0. 字面命中（传入 literalText 时：标签名拆词或配置关键词确实出现在文件名/路径里），
+ *    都命中时命中的关键词更长者优先（路径"镜头转接环"同时含"镜头"，应归"镜头转接环"）；
  * 1. 锚定（有 basicInfo / materializedPath / tagKeywords 文本来源，已经过 enforceTextualSourceEvidence 校验）；
  * 2. 各来源最高置信度；
  * 3. 支撑来源数；
@@ -350,11 +426,30 @@ export function enforceTextualSourceEvidence(
 export function resolveExclusiveSiblings(
   predictions: SourceBasedTagPredictions,
   tagsTree: TagWithChildren[],
+  literalText?: string,
 ): SourceBasedTagPredictions {
   const { exclusiveParentIds, branchesOf } = buildExclusiveBranchResolver(tagsTree);
   if (exclusiveParentIds.size === 0) return predictions;
 
+  // 标签名拆词/配置关键词在文件名+路径里字面出现，才算"字面命中"。
+  // 只靠模型摘录片段过关的文本来源（ASCII 片段被当作别名信任）不算：
+  // 路径写着 KF12.0066，模型却以 "kf" 为证据给了 KF09.127S1 且置信度 0.99，
+  // 之前按置信度比较会让它压过硬匹配命中的 KF12.0066（0.9）。
+  const keywordInfoById = literalText ? getTagKeywordInfoById(tagsTree) : undefined;
+  // 返回字面命中的最长关键词长度，0 表示未命中。
+  const literalHitLength = (leafTagId: number) =>
+    !literalText
+      ? 0
+      : Math.max(
+          0,
+          ...(keywordInfoById?.get(leafTagId)?.keywords ?? [])
+            .filter((keyword) => pathIncludesKeyword(literalText, keyword))
+            .map((keyword) => keyword.length),
+        );
+
   type BranchStat = {
+    literal: boolean;
+    literalLength: number;
     anchored: boolean;
     best: number;
     sources: Set<string>;
@@ -366,11 +461,16 @@ export function resolveExclusiveSiblings(
       for (const { parentId, branchId } of branchesOf(tag.leafTagId)) {
         const branches = byParent.get(parentId) ?? new Map<number, BranchStat>();
         const stat = branches.get(branchId) ?? {
+          literal: false,
+          literalLength: 0,
           anchored: false,
           best: 0,
           sources: new Set(),
           leafTagIds: new Set(),
         };
+        const hitLength = isTextualSource(prediction.source) ? literalHitLength(tag.leafTagId) : 0;
+        stat.literal = stat.literal || hitLength > 0;
+        stat.literalLength = Math.max(stat.literalLength, hitLength);
         stat.anchored = stat.anchored || isTextualSource(prediction.source);
         stat.best = Math.max(stat.best, tag.confidence);
         stat.sources.add(prediction.source);
@@ -386,6 +486,8 @@ export function resolveExclusiveSiblings(
     if (branches.size <= 1) continue;
     const [winner] = [...branches.entries()].sort(
       (a, b) =>
+        Number(b[1].literal) - Number(a[1].literal) ||
+        b[1].literalLength - a[1].literalLength ||
         Number(b[1].anchored) - Number(a[1].anchored) ||
         b[1].best - a[1].best ||
         b[1].sources.size - a[1].sources.size ||
@@ -493,44 +595,56 @@ export function getStrongKeywordVariantsForTagName(name: string): string[] {
   return extractTagNameVariants(name).filter(isStrongPathKeyword);
 }
 
-function collectLeafTagCandidates(tagsTree: TagWithChildren[]): Array<{
+type LeafTagCandidate = {
   leafTagId: number;
   tagPath: string[];
   keywords: string[];
   // 标签全名本身暗示的格式类别（如"POP-UP视频"→video），无则为 undefined。
   formatKind?: "image" | "video";
-}> {
-  const candidates: Array<{
-    leafTagId: number;
-    tagPath: string[];
-    keywords: string[];
-    formatKind?: "image" | "video";
-  }> = [];
+};
+
+// 候选只取决于标签树本身，同一棵树（同一对象，由队列的标签树缓存复用）只算一次；
+// 否则每个任务的 materializedPath / basicInfo 两个入口、每次重试都要把整棵树重算一遍。
+// 调用方只读不改返回的数组。
+const leafTagCandidatesCache = new WeakMap<TagWithChildren[], readonly LeafTagCandidate[]>();
+
+function collectLeafTagCandidates(tagsTree: TagWithChildren[]): readonly LeafTagCandidate[] {
+  const cached = leafTagCandidatesCache.get(tagsTree);
+  if (cached) return cached;
+  const candidates: LeafTagCandidate[] = [];
+  const pushCandidate = (leaf: TagWithChildren, tagPath: string[]) => {
+    // 排除掉被审核反馈（或人工配置）标记为"排除关键词"的自动拆词候选，
+    // 否则硬匹配会绕开 negativeKeywords，反复复现同一个误判（如 POPUP -> POP-UP视频）。
+    const negativeKeywords = new Set(
+      ((leaf.extra as AssetTagExtra)?.negativeKeywords ?? []).map((keyword) =>
+        normalizeForMatch(keyword),
+      ),
+    );
+    const variants = extractTagNameVariants(leaf.name)
+      .filter(isStrongPathKeyword)
+      .filter((keyword) => !negativeKeywords.has(keyword));
+    if (variants.length === 0) return;
+    candidates.push({
+      leafTagId: leaf.id,
+      tagPath,
+      keywords: variants,
+      formatKind: detectFormatKindInText(leaf.name),
+    });
+  };
   for (const lv1 of tagsTree) {
     const lv2List = lv1.children ?? [];
     for (const lv2 of lv2List) {
       const lv3List = lv2.children ?? [];
-      for (const leaf of lv3List) {
-        // 排除掉被审核反馈（或人工配置）标记为"排除关键词"的自动拆词候选，
-        // 否则硬匹配会绕开 negativeKeywords，反复复现同一个误判（如 POPUP -> POP-UP视频）。
-        const negativeKeywords = new Set(
-          ((leaf.extra as AssetTagExtra)?.negativeKeywords ?? []).map((keyword) =>
-            normalizeForMatch(keyword),
-          ),
-        );
-        const variants = extractTagNameVariants(leaf.name)
-          .filter(isStrongPathKeyword)
-          .filter((keyword) => !negativeKeywords.has(keyword));
-        if (variants.length === 0) continue;
-        candidates.push({
-          leafTagId: leaf.id,
-          tagPath: [lv1.name, lv2.name, leaf.name],
-          keywords: variants,
-          formatKind: detectFormatKindInText(leaf.name),
-        });
+      // 没有三级的二级标签本身就是叶子（如"产品分类 > 兔笼"），同样参与硬匹配；
+      // 之前只扫三级，路径里写着"兔笼"也注入不了，必打兜底只能让模型在同组里另选一个。
+      if (lv3List.length === 0) {
+        pushCandidate(lv2, [lv1.name, lv2.name]);
+        continue;
       }
+      for (const leaf of lv3List) pushCandidate(leaf, [lv1.name, lv2.name, leaf.name]);
     }
   }
+  leafTagCandidatesCache.set(tagsTree, candidates);
   return candidates;
 }
 
@@ -638,6 +752,44 @@ export function enhancePredictionsByBasicInfoHardMatch(
     predictions,
     "basicInfo",
     candidates,
+    TEXT_HARD_MATCH_CONFIDENCE,
+  );
+}
+
+/**
+ * 标签手动配置的匹配关键词做硬匹配兜底（tagKeywords 来源）：
+ * 上面两个硬匹配只用标签名自动拆词，配置关键词完全依赖模型是否"看到"——
+ * 文件名 A+7.jpg 明明含有"内容类型 > A+页面"配置的关键词 "A+"，模型没给就打不上。
+ * 任意层级的标签都参与（"A+页面"是没有三级的二级标签）；文本里出现任一排除关键词则不注入。
+ */
+export function enhancePredictionsByTagKeywordsHardMatch(
+  predictions: SourceBasedTagPredictions,
+  tagsTree: TagWithChildren[],
+  text: string,
+): SourceBasedTagPredictions {
+  const normalizedText = normalizeForMatch(text);
+  if (!normalizedText) return predictions;
+  const candidates: ReturnType<typeof computeTextHardMatchCandidates> = [];
+  for (const node of flattenTagsTree(tagsTree)) {
+    const extra = node.extra as AssetTagExtra | null;
+    const keywords = (extra?.keywords ?? []).map(normalizeForMatch).filter(Boolean);
+    if (keywords.length === 0) continue;
+    const matchedKeyword = keywords.find((keyword) => pathIncludesKeyword(normalizedText, keyword));
+    if (!matchedKeyword) continue;
+    const negativeKeywords = (extra?.negativeKeywords ?? []).map(normalizeForMatch).filter(Boolean);
+    if (negativeKeywords.some((keyword) => pathIncludesKeyword(normalizedText, keyword))) continue;
+    candidates.push({
+      leafTagId: node.id,
+      tagPath: node.tagPath,
+      keywords,
+      matchedKeywordLength: matchedKeyword.length,
+    });
+  }
+  candidates.sort((a, b) => b.matchedKeywordLength - a.matchedKeywordLength);
+  return injectHardMatchPredictions(
+    predictions,
+    "tagKeywords",
+    candidates.slice(0, TEXT_HARD_MATCH_MAX_ENHANCED_TAGS),
     TEXT_HARD_MATCH_CONFIDENCE,
   );
 }
@@ -817,6 +969,7 @@ function sortPredictionsDeterministically(
  */
 function calculateMultiSourceScore(
   confidenceBySources: TagWithScore["confidenceBySources"],
+  sourceWeights?: Partial<SourceWeights>,
 ): number {
   const dampingFactor = 0.8;
   let remaining = 1;
@@ -826,7 +979,12 @@ function calculateMultiSourceScore(
     Object.entries(confidenceBySources) as [keyof TagWithScore["confidenceBySources"], number][]
   ).forEach(([source, confidence]) => {
     if (confidence !== undefined && confidence !== null) {
-      const weight = SCORING_WEIGHTS[source];
+      // 团队自定义权重为倍数：越大指数越小，该来源的置信度被放大得越多；1 即保持默认
+      const userWeight = sourceWeights?.[source];
+      const weight =
+        userWeight && userWeight > 0
+          ? SCORING_WEIGHTS[source] / userWeight
+          : SCORING_WEIGHTS[source];
       const enhanced = Math.pow(confidence, weight);
       maxWeighted = Math.max(maxWeighted, enhanced);
       remaining *= 1 - enhanced * dampingFactor;
@@ -840,7 +998,10 @@ function calculateMultiSourceScore(
 /**
  * 加权的算法不一定对，如果一个 tag 在两个 source 都有，结果应该是更高分数而不是在两个 source 的 confidence 之间的一个数值
  */
-export function calculateTagScore(predictions: SourceBasedTagPredictions) {
+export function calculateTagScore(
+  predictions: SourceBasedTagPredictions,
+  sourceWeights?: Partial<SourceWeights>,
+) {
   const tagsWithScore: TagWithScore[] = [];
   predictions.forEach(({ source, tags }) => {
     tags.forEach(({ leafTagId, tagPath, confidence }) => {
@@ -858,7 +1019,7 @@ export function calculateTagScore(predictions: SourceBasedTagPredictions) {
     });
   });
   tagsWithScore.forEach((item) => {
-    const finalScore = calculateMultiSourceScore(item.confidenceBySources);
+    const finalScore = calculateMultiSourceScore(item.confidenceBySources, sourceWeights);
     item.score = Math.round(finalScore * 100);
   });
   return tagsWithScore;
@@ -1067,6 +1228,7 @@ export async function predictRequiredGroupChoices({
       schemaName: "RequiredGroupChoices",
       schema: requiredGroupChoiceSchema,
       providerOptions: getTaggingPredictProviderOptions(modelName, teamId),
+      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
       system: `你是数字资产管理系统的打标助手。下面这些分类被管理员设置为"必打"：每个素材都必须在该分类下选出恰好一个标签，哪怕证据不足也要选最可能的那个，不允许不选。只输出 JSON：{"choices":[{"parentId":<分类 id>,"leafTagId":<所选标签 id>}]}，每个必打分类恰好一条，leafTagId 必须来自该分类下列出的候选。`,
       prompt: `# 素材信息\n${assetSummary}\n\n# 需要选择的必打分类\n${groupsText}`,
       temperature: 0,
@@ -1124,6 +1286,8 @@ export async function predictAssetTags(
       tagKeywords: boolean;
     };
     recognitionAccuracy?: RecognitionAccuracyMode;
+    /** 团队自定义的各匹配来源权重倍数，未传时使用默认权重。 */
+    sourceWeights?: SourceWeights;
     faceFeatures?: TaggingFaceFeatures;
     /** 调用方已加载好的标签树（如队列同一批次内按团队复用），传入时跳过数据库查询。 */
     tagsTree?: TagWithChildren[];
@@ -1156,11 +1320,26 @@ export async function predictAssetTags(
   if (!tagsTree || tagsTree.length === 0) {
     throw taggingPredictError("NO_TAG_TREE", "No tag tree available");
   }
+  const aiDescription = (asset.content as AssetObjectContentAnalysis)?.aiDescription;
+  // 大的字面型分组（SKU 等）只把素材文字里字面出现的子标签发给模型，文字只取已启用的信息源。
+  const promptTree = pruneLargeLiteralGroupsForPrompt(
+    tagsTree,
+    [
+      enabled.basicInfo || enabled.tagKeywords ? asset.name : "",
+      enabled.basicInfo || enabled.tagKeywords ? asset.description : "",
+      enabled.materializedPath || enabled.tagKeywords ? asset.materializedPath : "",
+      enabled.contentAnalysis ? aiDescription : "",
+    ]
+      .filter(Boolean)
+      .join(" "),
+  );
   // 构建标签结构的文本描述
-  const tagStructureText = buildTagStructureText(tagsTree);
+  const tagStructureText = buildTagStructureText(promptTree.tagsTree, promptTree.prunedGroups);
   // 构建标签关键词信息：仅在 tagKeywords 信息源启用时才需要，否则不应该出现在 prompt 里
   // ——不然即使用户关闭了"已有标签匹配"，模型依然会看到完整关键词库并可能受其影响。
-  const tagKeywordsText = enabled.tagKeywords ? buildTagKeywordsText(tagsTree) : undefined;
+  const tagKeywordsText = enabled.tagKeywords
+    ? buildTagKeywordsText(promptTree.tagsTree)
+    : undefined;
   const peopleCountTagPaths = options?.faceFeatures ? collectPeopleCountTagPaths(tagsTree) : [];
   const faceFeaturesSection = buildFaceFeaturesPromptSection(
     options?.faceFeatures,
@@ -1174,9 +1353,8 @@ export async function predictAssetTags(
     : "该素材的真实文件格式未知（系统未提供）。请对格式类标签更加谨慎，不要仅凭文件名或标签名称中的字面文字武断下结论。";
 
   // aiTags 是同一次视觉分析产出的通用标签自由文本，和 aiDescription 内容高度重叠，
-  // 却给了模型更多"风格/氛围类"词汇去误推元数据类标签（如渠道）——只保留 aiDescription，
+  // 却给了模型更多"风格/氛围类"词汇去误推元数据类标签（如渠道）——只保留 aiDescription（见上方），
   // 不再把 aiTags 拼进 prompt，减少无关文本对模型的干扰。
-  const aiDescription = (asset.content as AssetObjectContentAnalysis)?.aiDescription;
 
   // 每个信息源的文本只在对应设置启用时才拼进 prompt——被关闭的信息源必须真正"不可见"，
   // 而不是喂给模型之后再事后过滤模型自报的 source 标签（那样关闭形同虚设，见下方 matchingSources 过滤）。
@@ -1258,6 +1436,7 @@ ${sourceSections.join("\n\n")}
         schemaDescription:
           '返回 JSON 对象 {"predictions":[...]}；predictions 元素包含 source("basicInfo"|"materializedPath"|"contentAnalysis"|"tagKeywords") 和 tags；tags 元素包含 confidence(0-1)、leafTagId(number)、tagPath(string[])。只输出纯 JSON。',
         providerOptions: getTaggingPredictProviderOptions(modelName, asset.teamId),
+        abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
         schema: tagPredictionsResponseSchema,
         system: tagPredictionSystemPrompt(recognitionAccuracyMode),
         messages,
@@ -1327,7 +1506,7 @@ ${sourceSections.join("\n\n")}
       });
 
       // 文件夹路径中的强关键词做硬匹配兜底，避免模型漏掉明显路径信号
-      if (options?.matchingSources?.materializedPath) {
+      if (enabled.materializedPath) {
         predictions = enhancePredictionsByMaterializedPathHardMatch(
           predictions,
           tagsTree,
@@ -1344,6 +1523,14 @@ ${sourceSections.join("\n\n")}
           [asset.name, asset.description].filter(Boolean).join(" "),
         );
       }
+      // 标签配置的匹配关键词同样做硬匹配兜底（仅在启用"已有标签匹配"时）。
+      if (enabled.tagKeywords) {
+        predictions = enhancePredictionsByTagKeywordsHardMatch(
+          predictions,
+          tagsTree,
+          [asset.name, asset.description, asset.materializedPath].filter(Boolean).join(" "),
+        );
+      }
       // 用真实文件扩展名兜底过滤，避免格式/媒体类型（图片 vs 视频）与实际元数据矛盾的幻觉标签；
       // 真实扩展名缺失时，退而求其次用文件名/描述/路径文本做兜底证据，而不是直接放弃校验。
       predictions = filterPredictionsByRealExtension(
@@ -1352,12 +1539,16 @@ ${sourceSections.join("\n\n")}
         [asset.name, asset.description, asset.materializedPath].filter(Boolean).join(" "),
       );
       // 同级互斥兜底：文件名说了修护霜，就不该再仅凭画面猜洁面/喷雾（硬匹配注入已完成，可作为锚定依据）。
-      predictions = resolveExclusiveSiblings(predictions, tagsTree);
+      predictions = resolveExclusiveSiblings(
+        predictions,
+        tagsTree,
+        [basicInfoText, pathText].join(" "),
+      );
       predictions = sortPredictionsDeterministically(predictions);
 
       // 按识别模式的最低置信度门槛过滤：LLM 不一定严格遵守 prompt 里的门槛要求，
       // 这里做代码层面的兜底，确保"精准模式只出高置信度标签"是硬约束而非纯靠模型自觉。
-      const allScored = calculateTagScore(predictions);
+      const allScored = calculateTagScore(predictions, options?.sourceWeights);
       const modelTagsWithScore = collapseAncestorTags(
         filterTagsWithScoreByRecognitionAccuracy(allScored, recognitionAccuracyMode),
       );
@@ -1400,6 +1591,7 @@ ${sourceSections.join("\n\n")}
           input: inputPrompt,
           matchingSources: options?.matchingSources,
           recognitionAccuracy: options?.recognitionAccuracy,
+          ...(options?.sourceWeights ? { sourceWeights: options.sourceWeights } : {}),
           ...(requiredGroupFallback ? { requiredGroupFallback } : {}),
           ...(options?.faceFeatures ? { faceFeatures: options.faceFeatures } : {}),
         },

@@ -24,7 +24,14 @@ import {
 import { getAcceptedProductMatches } from "@/lib/product/product-match-policy";
 import { classifyAssetProductRecommendation } from "@/lib/product/tagging-product-classification";
 import { idToSlug, slugToId } from "@/lib/slug";
-import { fetchRemoteImageInput } from "@/lib/tagging/classification-image";
+import {
+  fetchRemoteImageSource,
+  isImageTooLargeError,
+  prepareImageInput,
+  preparePersonImageInput,
+  readRemoteImageDimensions,
+  type RemoteImageSource,
+} from "@/lib/tagging/classification-image";
 import { retrieveTeamCredentials } from "@/musedam/apiKey";
 import { bindFeatureIdentifiersToMuseDAMMaterial, setAssetTagsToMuseDAM } from "@/musedam/assets";
 import { collectMuseFeatureIdentifierIdsForQueueItem } from "@/musedam/collect-muse-feature-identifier-ids";
@@ -53,6 +60,7 @@ import { getBrandRecommendationTagIdsFromQueueResult } from "./brand-recommendat
 import { fetchTagsTreeForTagging } from "./evidence-policy-server";
 import {
   collectFeatureTagCandidates,
+  fillRequiredGroupsFromFeatures,
   resolveExclusiveSiblingsAcrossSources,
 } from "./exclusive-siblings";
 import { getIpRecommendationTagIdsFromQueueResult } from "./ip-recommendation";
@@ -67,6 +75,7 @@ import {
   TAG_TREE_RESERVED_CONCURRENCY,
   TOTAL_QUEUE_CONCURRENCY,
 } from "./queue-config";
+import { QUEUE_PAUSED_BY_ENV, USE_QUEUE_WORKER_PROCESS } from "./queue-role";
 import { getTaggingSettings } from "./tagging/settings/lib";
 import { SourceBasedTagPredictions, TagWithScore } from "./types";
 
@@ -213,12 +222,16 @@ export async function enqueueTaggingTask({
 // 不按"上一轮跑完"来合并，因为一轮会等所有领取到的任务处理完（可能几分钟），
 // 期间新入队的任务不该被卡住。多轮重叠是安全的：任务领取靠数据库条件更新
 // （pending -> processing），并发上限由进程级 queueConcurrencyLimit 兜底。
+// 本进程不处理打标队列、不跑特征向量补算（任务留在 pending 不丢）的两种情况：
+// QUEUE_PAUSED=true 紧急暂停；或者队列已交给 worker 子进程（见 queue-role.ts）。
+export const IS_QUEUE_PAUSED = QUEUE_PAUSED_BY_ENV || USE_QUEUE_WORKER_PROCESS;
+
 const KICK_THROTTLE_MS = 2000;
 let lastKickAt = 0;
 let pendingKick: ReturnType<typeof setTimeout> | null = null;
 
 export function kickQueueProcessing(): void {
-  if (pendingKick) return;
+  if (IS_QUEUE_PAUSED || pendingKick) return;
   const delay = Math.max(0, lastKickAt + KICK_THROTTLE_MS - Date.now());
   pendingKick = setTimeout(() => {
     pendingKick = null;
@@ -249,6 +262,16 @@ export async function processQueueItem({
   }
 
   logger.info("processQueueItem started");
+  // 每个并行步骤结束时记一条（距任务开始的耗时）：任务卡住时，没出现"finished"的那一步就是卡住的地方
+  const taskStartedAt = Date.now();
+  const logStepFinished = <T>(step: string, promise: Promise<T>): Promise<T> =>
+    promise.finally(() =>
+      logger.info({
+        msg: "processQueueItem step finished",
+        step,
+        elapsedMs: Date.now() - taskStartedAt,
+      }),
+    );
 
   try {
     const extra = queueItem.extra as TaggingQueueItemExtra;
@@ -265,19 +288,26 @@ export async function processQueueItem({
     const hasFeatureClassifications =
       supportsFeatureClassification && Object.values(featureClassifications).some(Boolean);
     const thumbnailUrl = assetExtra?.thumbnailAccessUrl;
-    const productImageUrl = isVideoAssetExtension(assetExtra?.extension)
+    const detectionImageUrl = isVideoAssetExtension(assetExtra?.extension)
       ? thumbnailUrl
       : assetExtra?.downloadUrl?.trim() || thumbnailUrl;
+    // 人脸检测和画幅比例仍可复用缩略图；URL-based 目标检测共用原图。
+    let thumbnailSourcePromise: Promise<RemoteImageSource> | null = null;
+    const getThumbnailSource = (url: string) =>
+      (thumbnailSourcePromise ??= fetchRemoteImageSource(url, "task thumbnail"));
     // Feature classification (brand/IP/product/person): first skip empty feature libraries.
-    // Brand/IP share a thumbnail. Product prefers the original image for detailed crops.
+    // Brand/IP/product share the download URL and prepared image. Product retains pixels for crops.
     // Person independently keeps the dimensions of its source.
     // Person path only: detect faces first (for AI faceFeatures + reused matching), then run AI
     // tagging in parallel with person matching. Other paths keep starting AI tagging early.
     const teamId = queueItem.teamId;
     const tagsTree = tagsTreeLoader ? await tagsTreeLoader(teamId) : undefined;
+    // 权重在处理时按团队当前设置读取，修改后对排队中的任务立即生效
+    const teamSetting = await getTaggingSettings(teamId);
     const predictOptionsBase = {
       matchingSources: extra?.matchingSources,
       recognitionAccuracy: extra?.recognitionAccuracy,
+      sourceWeights: teamSetting.sourceWeights,
       ...(tagsTree ? { tagsTree } : {}),
     };
     // Defer AI tagging only when person face features may be needed; otherwise preserve old timing.
@@ -299,10 +329,7 @@ export async function processQueueItem({
       Awaited<ReturnType<typeof classifyAssetPersonRecommendation>>
     > = Promise.resolve(null);
 
-    if (
-      hasFeatureClassifications &&
-      (thumbnailUrl || (featureClassifications.product && productImageUrl))
-    ) {
+    if (hasFeatureClassifications && (thumbnailUrl || detectionImageUrl)) {
       const [logoCount, productCount, ipCount, personCount] = await Promise.all([
         featureClassifications.brand
           ? prisma.logoVector.count({ where: { teamId, enabled: true, status: "completed" } })
@@ -320,7 +347,7 @@ export async function processQueueItem({
 
       if (logoCount + productCount + ipCount + personCount > 0) {
         const withFallback = <T>(p: Promise<T>, fn: string): Promise<T | null> =>
-          p.catch((error) => {
+          logStepFinished(fn, p).catch((error) => {
             logger.warn({
               msg: `${fn} failed, continuing without recommendation`,
               classificationFn: fn,
@@ -330,19 +357,40 @@ export async function processQueueItem({
             return null;
           });
 
-        // Kick off brand/IP/product without waiting for face detection.
-        if (logoCount + ipCount > 0 && thumbnailUrl) {
-          const sharedImagePromise = fetchRemoteImageInput(
-            thumbnailUrl,
-            "feature classification",
-          ).catch((error) => {
-            logger.warn({
-              msg: "feature classification image fetch failed, skipping feature classification",
-              err: error,
-              error: error instanceof Error ? error.message : String(error),
+        // Kick off URL-based detectors from one image, without waiting for face detection.
+        if (logoCount + ipCount + productCount > 0 && detectionImageUrl) {
+          const prepareDetectionInput = (source: RemoteImageSource) =>
+            prepareImageInput(source, "feature classification", {
+              preserveOriginal: productCount > 0,
             });
-            return null;
-          });
+          const sharedImagePromise = (
+            detectionImageUrl === thumbnailUrl
+              ? getThumbnailSource(detectionImageUrl)
+              : fetchRemoteImageSource(detectionImageUrl, "feature classification")
+          )
+            .then(prepareDetectionInput)
+            .catch(async (error) => {
+              if (
+                !thumbnailUrl ||
+                detectionImageUrl === thumbnailUrl ||
+                !isImageTooLargeError(error)
+              ) {
+                throw error;
+              }
+              logger.warn({
+                msg: "Original image too large for feature classification, falling back to thumbnail",
+                error: error instanceof Error ? error.message : String(error),
+              });
+              return prepareDetectionInput(await getThumbnailSource(thumbnailUrl));
+            })
+            .catch((error) => {
+              logger.warn({
+                msg: "feature classification image fetch failed, skipping feature classification",
+                err: error,
+                error: error instanceof Error ? error.message : String(error),
+              });
+              return null;
+            });
 
           if (logoCount > 0) {
             brandRecommendationPromise = sharedImagePromise.then((sharedImageInput) =>
@@ -364,27 +412,31 @@ export async function processQueueItem({
                 : null,
             );
           }
-        }
-
-        if (productCount > 0 && productImageUrl) {
-          productRecommendationPromise = withFallback(
-            classifyAssetProductRecommendation({ teamId, imageUrl: productImageUrl }),
-            "classifyAssetProductRecommendation",
-          );
+          if (productCount > 0) {
+            productRecommendationPromise = sharedImagePromise.then((imageInput) =>
+              imageInput
+                ? withFallback(
+                    classifyAssetProductRecommendation({ teamId, imageInput }),
+                    "classifyAssetProductRecommendation",
+                  )
+                : null,
+            );
+          }
         }
 
         // Person: detect once, feed faceCount into AI tagging, reuse detection for matching.
         if (personCount > 0 && thumbnailUrl) {
-          const personDetection = await detectAssetPersonFaces({ imageUrl: thumbnailUrl }).catch(
-            (error) => {
+          const personDetection = await getThumbnailSource(thumbnailUrl)
+            .then((source) => preparePersonImageInput(source, "person classification"))
+            .then((imageInput) => detectAssetPersonFaces({ imageInput }))
+            .catch((error) => {
               logger.warn({
                 msg: "detectAssetPersonFaces failed, continuing without person face features",
                 err: error,
                 error: error instanceof Error ? error.message : String(error),
               });
               return null;
-            },
-          );
+            });
 
           let faceFeatures: TaggingFaceFeatures | undefined;
           if (personDetection) {
@@ -421,7 +473,10 @@ export async function processQueueItem({
       productRecommendation,
       personRecommendation,
     ] = await Promise.all([
-      predictTagsPromise ?? predictAssetTags(assetObject, predictOptionsBase),
+      logStepFinished(
+        "predictAssetTags",
+        predictTagsPromise ?? predictAssetTags(assetObject, predictOptionsBase),
+      ),
       brandRecommendationPromise,
       ipRecommendationPromise,
       productRecommendationPromise,
@@ -430,16 +485,33 @@ export async function processQueueItem({
     // 同级互斥硬约束（AI vs 特征库）：特征库认出了互斥组里的某个分支时，AI 仅凭内容猜到的同组其他分支要让位。
     // 放在这里是因为审核项创建、直接写回、结果持久化都从 tagsWithScore 出发，改一处三处一致。
     const exclusiveTagsTree = tagsTree ?? (await fetchTagsTreeForTagging({ teamId }));
-    const crossSource = resolveExclusiveSiblingsAcrossSources({
+    const featureCandidates = collectFeatureTagCandidates({
+      brandRecommendation,
+      ipRecommendation,
+      productRecommendation,
+      personRecommendation,
+    });
+    const exclusiveResolved = resolveExclusiveSiblingsAcrossSources({
       tagsTree: exclusiveTagsTree,
       tagsWithScore: predictedTagsWithScore,
-      featureCandidates: collectFeatureTagCandidates({
-        brandRecommendation,
-        ipRecommendation,
-        productRecommendation,
-        personRecommendation,
-      }),
+      featureCandidates,
     });
+    // 必打分类被特征库挤掉后留空时，采用特征库匹配上的标签
+    const requiredFromFeatures = fillRequiredGroupsFromFeatures({
+      tagsTree: exclusiveTagsTree,
+      tagsWithScore: exclusiveResolved.tagsWithScore,
+      featureCandidates,
+    });
+    const crossSource = {
+      tagsWithScore: requiredFromFeatures.tagsWithScore,
+      dropped: exclusiveResolved.dropped,
+    };
+    if (requiredFromFeatures.added.length > 0) {
+      logger.info({
+        msg: "Required groups filled from feature-library matches",
+        added: requiredFromFeatures.added.map((tag) => tag.tagPath.join(" > ")),
+      });
+    }
     if (crossSource.dropped.length > 0) {
       logger.info({
         msg: "Exclusive siblings: AI tags dropped in favor of feature-library matches",
@@ -451,7 +523,7 @@ export async function processQueueItem({
     const aspectRatioTags = await resolveAspectRatioTagsForAsset({
       tagsTree: exclusiveTagsTree,
       assetExtra,
-      thumbnailUrl,
+      getThumbnailSource: thumbnailUrl ? () => getThumbnailSource(thumbnailUrl) : undefined,
       logger,
     });
     const tagsWithScore = [...crossSource.tagsWithScore, ...aspectRatioTags];
@@ -502,7 +574,6 @@ export async function processQueueItem({
 
     // 如果是测试内容，不需要进入审核
     if (queueItem.taskType !== "test") {
-      const teamSetting = await getTaggingSettings(queueItem.teamId);
       const isDirect = teamSetting.taggingMode === "direct";
 
       logger.info({
@@ -833,50 +904,80 @@ export async function processQueueItem({
 // 进程级单例并发闸：保证即使有多个重叠的 processPendingQueueItems 调用，
 // 全局同时处理的队列项也不会超过 TOTAL_QUEUE_CONCURRENCY（每次调用新建 pLimit 无法做到这点）。
 const queueConcurrencyLimit = pLimit(TOTAL_QUEUE_CONCURRENCY);
+// 处理中的任务每 30 秒刷新一次 updatedAt（心跳），超过 2 分钟没有心跳就说明处理它的进程已经没了
+// （被看门狗重启、崩溃或 pod 被替换）。之前没有心跳，只能等 15 分钟才敢判定，正常但较慢的任务也可能被误判。
+const PROCESSING_HEARTBEAT_MS = 30_000;
 const PROCESSING_STALE_TIMEOUT_MS = Number(
-  process.env.QUEUE_PROCESSING_STALE_TIMEOUT_MS ?? 15 * 60 * 1000,
+  process.env.QUEUE_PROCESSING_STALE_TIMEOUT_MS ?? 2 * 60 * 1000,
 );
+// 被中断的任务自动放回队列重试的次数；再次中断才标记失败，避免会拖垮进程的任务无限重试
+const MAX_INTERRUPTED_RETRIES = 1;
 
 async function recoverStaleProcessingItems(): Promise<number> {
   const staleBefore = new Date(Date.now() - PROCESSING_STALE_TIMEOUT_MS);
-  const now = new Date();
-
-  const updated = await prisma.taggingQueueItem.updateMany({
-    where: {
-      status: "processing",
-      updatedAt: { lt: staleBefore },
-    },
-    data: {
-      status: "failed",
-      endsAt: now,
-      result: {
-        error: "PROCESSING_STALE_TIMEOUT",
-        message: `processing 超时超过 ${PROCESSING_STALE_TIMEOUT_MS}ms，自动标记失败`,
-      } as TaggingQueueItemResult,
-    },
+  const failedResult = JSON.stringify({
+    error: "PROCESSING_STALE_TIMEOUT",
+    message: `处理中被中断（超过 ${PROCESSING_STALE_TIMEOUT_MS}ms 无心跳），已重试 ${MAX_INTERRUPTED_RETRIES} 次仍中断，自动标记失败`,
   });
+  // 重试次数记在 extra.interruptedAttempts（extra 是 jsonb，不需要 migration）
+  const failed = await prisma.$executeRaw`
+    UPDATE "TaggingQueueItem"
+    SET "status" = 'failed', "endsAt" = now(), "updatedAt" = now(), "result" = ${failedResult}::jsonb
+    WHERE "status" = 'processing'
+      AND "updatedAt" < ${staleBefore}
+      AND COALESCE(("extra" ->> 'interruptedAttempts')::int, 0) >= ${MAX_INTERRUPTED_RETRIES}
+  `;
+  const requeued = await prisma.$executeRaw`
+    UPDATE "TaggingQueueItem"
+    SET "status" = 'pending', "startsAt" = NULL, "updatedAt" = now(),
+        "extra" = jsonb_set(
+          CASE WHEN jsonb_typeof("extra") = 'object' THEN "extra" ELSE '{}'::jsonb END,
+          '{interruptedAttempts}',
+          to_jsonb(COALESCE(("extra" ->> 'interruptedAttempts')::int, 0) + 1)
+        )
+    WHERE "status" = 'processing' AND "updatedAt" < ${staleBefore}
+  `;
 
-  if (updated.count > 0) {
+  if (failed > 0 || requeued > 0) {
     rootLogger.warn({
-      msg: "recoverStaleProcessingItems: stale processing items recovered",
-      recovered: updated.count,
+      msg: "recoverStaleProcessingItems: interrupted processing items recovered",
+      requeued,
+      failed,
       staleBefore,
       timeoutMs: PROCESSING_STALE_TIMEOUT_MS,
     });
   }
 
-  return updated.count;
+  return failed + requeued;
 }
 
 type TagsTreeLoader = (teamId: number) => Promise<TagWithChildren[]>;
 
+// 跨批次的标签树短缓存：积压时入队 kick 每 2 秒一轮、每轮只领两三条，批次内缓存几乎不生效，
+// 结果几乎每个任务都要把整棵树（含 extra）重新查一遍、再跑一遍 ensureEvidencePolicies。
+// 缓存 30 秒：标签改完最多 30 秒后生效；同一对象复用也让 predict 里按树缓存的硬匹配候选生效。
+const TAGS_TREE_CACHE_TTL_MS = 30_000;
+const tagsTreeCache = new Map<number, { promise: Promise<TagWithChildren[]>; expiresAt: number }>();
+
+function fetchTagsTreeForTaggingCached(teamId: number): Promise<TagWithChildren[]> {
+  const now = Date.now();
+  const cached = tagsTreeCache.get(teamId);
+  if (cached && cached.expiresAt > now) return cached.promise;
+  const promise = fetchTagsTreeForTagging({ teamId }).catch((error) => {
+    // 失败不缓存，让后续任务有机会重试
+    if (tagsTreeCache.get(teamId)?.promise === promise) tagsTreeCache.delete(teamId);
+    throw error;
+  });
+  tagsTreeCache.set(teamId, { promise, expiresAt: now + TAGS_TREE_CACHE_TTL_MS });
+  return promise;
+}
+
 /**
  * 一次 processPendingQueueItems 批次内按团队复用标签树：同团队多条任务（含并发）只查一次库。
- * 生命周期与批次绑定，批次结束即释放，不跨批次缓存，避免标签刚改完就被旧树打标。
+ * 默认的 load 还带 30 秒的跨批次缓存（见 fetchTagsTreeForTaggingCached）。
  */
 export function createBatchTagsTreeLoader(
-  load: (teamId: number) => Promise<TagWithChildren[]> = (teamId) =>
-    fetchTagsTreeForTagging({ teamId }),
+  load: (teamId: number) => Promise<TagWithChildren[]> = fetchTagsTreeForTaggingCached,
 ): TagsTreeLoader {
   const inflight = new Map<number, Promise<TagWithChildren[]>>();
   return (teamId) => {
@@ -899,6 +1000,7 @@ async function tryClaimAndProcess(
   onSkip: () => void,
   tagsTreeLoader?: TagsTreeLoader,
 ): Promise<void> {
+  let heartbeat: ReturnType<typeof setInterval> | null = null;
   try {
     const startsAt = new Date();
     const extra = {
@@ -915,6 +1017,21 @@ async function tryClaimAndProcess(
       },
     });
     if (updated.count > 0) {
+      // 心跳：处理期间定时刷新 updatedAt，让回收逻辑能区分"还在跑"和"进程已经没了"
+      heartbeat = setInterval(() => {
+        void prisma.taggingQueueItem
+          .updateMany({
+            where: { id: queueItem.id, status: "processing" },
+            data: { status: "processing" },
+          })
+          .catch((error) => {
+            rootLogger.warn({
+              msg: "Queue item heartbeat failed",
+              queueItemId: queueItem.id,
+              err: error,
+            });
+          });
+      }, PROCESSING_HEARTBEAT_MS);
       if (isTagTreeJob(queueItem)) {
         await processTagTreeQueueItem({ ...queueItem, status: "processing", startsAt, extra });
       } else {
@@ -938,6 +1055,8 @@ async function tryClaimAndProcess(
       msg: `Failed to process queue item: ${error}`,
     });
     onSkip();
+  } finally {
+    if (heartbeat) clearInterval(heartbeat);
   }
 }
 
@@ -979,18 +1098,81 @@ function selectRoundRobinByTeam<T extends { teamId: number }>(items: T[], limit:
   return selected;
 }
 
+const PENDING_SUMMARY_LOG_INTERVAL_MS = 30_000;
+let lastPendingSummaryLoggedAt = 0;
+
+/**
+ * 按团队汇总排队中（pending）的任务数并打一条日志，方便在观测云里搜 "Queue pending summary" 看积压。
+ * 进程内最多每 30s 一次、不阻塞主流程；groupBy 走 [teamId, status] 索引，开销很小。
+ */
+function logPendingSummaryThrottled(): void {
+  const now = Date.now();
+  if (now - lastPendingSummaryLoggedAt < PENDING_SUMMARY_LOG_INTERVAL_MS) return;
+  lastPendingSummaryLoggedAt = now;
+  void (async () => {
+    const groups = await prisma.taggingQueueItem.groupBy({
+      by: ["teamId"],
+      where: { status: "pending" },
+      _count: { _all: true },
+    });
+    const teams =
+      groups.length > 0
+        ? await prisma.team.findMany({
+            where: { id: { in: groups.map((g) => g.teamId) } },
+            select: { id: true, slug: true },
+          })
+        : [];
+    const slugById = new Map(teams.map((t) => [t.id, t.slug]));
+    const byTeam = Object.fromEntries(
+      groups
+        .map((g) => [slugById.get(g.teamId) ?? `team-id/${g.teamId}`, g._count._all] as const)
+        .sort((a, b) => b[1] - a[1]),
+    );
+    rootLogger.info({
+      msg: "Queue pending summary",
+      pendingTotal: groups.reduce((sum, g) => sum + g._count._all, 0),
+      teamCount: groups.length,
+      byTeam,
+      summary: Object.entries(byTeam)
+        .map(([slug, count]) => `${slug}:${count}个排队`)
+        .join(", "),
+    });
+  })().catch((error) => {
+    rootLogger.error({ msg: "logPendingSummary failed", err: error });
+  });
+}
+
 export async function processPendingQueueItems(): Promise<{
   processing: number;
   skipped: number;
 }> {
+  if (IS_QUEUE_PAUSED) {
+    // 队列交给子进程时，外部调度器打到主进程的调用直接跳过，不刷 warn 日志
+    if (QUEUE_PAUSED_BY_ENV) {
+      rootLogger.warn(`processPendingQueueItems skipped: queue is paused (QUEUE_PAUSED)`);
+    }
+    return { processing: 0, skipped: 0 };
+  }
+  logPendingSummaryThrottled();
+  // 本进程的槽位已经占满（含已排进 pLimit 等待的）时直接跳过：处理一个任务要几十秒，
+  // 而 queue-processor 调用 / 入队 kick 每几秒就来一轮，不跳过的话一轮接一轮排在 pLimit 后面，
+  // 每轮都攥着自己的候选和素材数据，积压时内存持续上涨直到堆溢出、进程崩溃。
+  const freeSlots =
+    TOTAL_QUEUE_CONCURRENCY -
+    (queueConcurrencyLimit.activeCount + queueConcurrencyLimit.pendingCount);
+  if (freeSlots <= 0) {
+    rootLogger.info({ msg: "processPendingQueueItems skipped: all slots busy" });
+    return { processing: 0, skipped: 0 };
+  }
   rootLogger.info(`processPendingQueueItems`);
   await recoverStaleProcessingItems();
 
   // 一次性捞出足够多的 pending 记录，内存内分流（避免 Prisma JSON path 过滤器的兼容性问题）
+  // 候选池不带 assetObject：素材的 content/extra 是整条 MuseDAM 素材 JSON，200 条全拉下来
+  // 再在主线程解析很重，而每轮只会领走两三条；选定之后再只查被选中那几条的素材。
   const candidateItems = await prisma.taggingQueueItem.findMany({
     where: { status: "pending" },
     orderBy: { createdAt: "asc" },
-    include: { assetObject: true },
     // 多拉一些，保证两类任务都能填满各自的槽位，同时覆盖足够多的团队用于轮询
     take: CANDIDATE_POOL_SIZE,
   });
@@ -998,15 +1180,33 @@ export async function processPendingQueueItems(): Promise<{
   // 按团队轮询挑选，避免某个团队短时间内堆积大量任务时把其他团队"饿死"。
   const tagTreeItems = selectRoundRobinByTeam(
     candidateItems.filter(isTagTreeJob),
-    TAG_TREE_RESERVED_CONCURRENCY,
+    Math.min(TAG_TREE_RESERVED_CONCURRENCY, freeSlots),
   );
 
+  // 只领空闲槽位数量的任务，不多领去 pLimit 里排队
   const normalItems = selectRoundRobinByTeam(
     candidateItems.filter((item) => !isTagTreeJob(item)),
-    TOTAL_QUEUE_CONCURRENCY - TAG_TREE_RESERVED_CONCURRENCY,
+    Math.min(
+      TOTAL_QUEUE_CONCURRENCY - TAG_TREE_RESERVED_CONCURRENCY,
+      freeSlots - tagTreeItems.length,
+    ),
   );
 
-  const allItems = [...tagTreeItems, ...normalItems];
+  const selectedAssetObjectIds = normalItems
+    .map((item) => item.assetObjectId)
+    .filter((id): id is number => id !== null);
+  const assetObjectsById = new Map(
+    selectedAssetObjectIds.length > 0
+      ? (await prisma.assetObject.findMany({ where: { id: { in: selectedAssetObjectIds } } })).map(
+          (assetObject) => [assetObject.id, assetObject],
+        )
+      : [],
+  );
+  const allItems = [...tagTreeItems, ...normalItems].map((item) => ({
+    ...item,
+    assetObject:
+      item.assetObjectId !== null ? (assetObjectsById.get(item.assetObjectId) ?? null) : null,
+  }));
 
   let processing = 0;
   let skipped = 0;
@@ -1044,21 +1244,22 @@ export async function processPendingQueueItems(): Promise<{
 async function resolveAspectRatioTagsForAsset({
   tagsTree,
   assetExtra,
-  thumbnailUrl,
+  getThumbnailSource,
   logger,
 }: {
   tagsTree: TagWithChildren[];
   assetExtra: AssetObjectExtra | null;
-  thumbnailUrl: string | undefined;
+  getThumbnailSource: (() => Promise<RemoteImageSource>) | undefined;
   logger: typeof rootLogger;
 }): Promise<TagWithScore[]> {
   const groups = detectAspectRatioGroups(tagsTree);
   if (groups.length === 0) return [];
   let width = assetExtra?.width;
   let height = assetExtra?.height;
-  if ((!width || !height) && thumbnailUrl) {
+  if ((!width || !height) && getThumbnailSource) {
     try {
-      const image = await fetchRemoteImageInput(thumbnailUrl, "aspect ratio");
+      // 只读图片头拿宽高，不做完整解码和重新编码
+      const image = await readRemoteImageDimensions(await getThumbnailSource());
       width = image.width;
       height = image.height;
       logger.info({

@@ -20,7 +20,7 @@ interface TagColumnProps {
   onEdit: (nodeId: string, newName: string) => Promise<boolean>;
   onStartEdit: (nodeId: string) => void;
   onCancelEdit: (nodeId: string) => void;
-  onDelete: (nodeId: string) => void;
+  onDelete: (nodeId: string) => Promise<boolean>;
   onRestore: (nodeId: string) => void;
   getNodeId: (node: TagNode) => string;
   className?: string;

@@ -82,7 +82,14 @@ export async function middleware(req: NextRequest) {
     return new NextResponse("Not Found", { status: 404 });
   }
 
-  const response = NextResponse.next();
+  // 整页加载（刷新、location.replace）读不到前端的 sessionStorage，所以 URL 上带 ?_t=<token>，
+  // 这里转成请求头，服务端统一从 x-auth-token 取当前 tab 的登录身份。
+  const requestHeaders = new Headers(req.headers);
+  const queryToken = req.nextUrl.searchParams.get("_t");
+  if (queryToken && !requestHeaders.has("x-auth-token")) {
+    requestHeaders.set("x-auth-token", queryToken);
+  }
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
 
   handleLocale(req, response);
   handleFeatureLibrary(req, response);

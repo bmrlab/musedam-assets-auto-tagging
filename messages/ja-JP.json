@@ -204,7 +204,7 @@
     "TagItem": {
       "confirmDelete": "削除を確認",
       "delete": "削除",
-      "deleteConfirmDescription": "タグ「{tagName}」を削除してもよろしいですか？",
+      "deleteConfirmDescription": "タグ「{tagName}」とその子タグがまとめて削除されます。削除してもよろしいですか？",
       "deleteConfirmTitle": "タグを削除",
       "edited": "編集済み",
       "inputTagName": "ラベル名を入力",

@@ -222,9 +222,7 @@ export default function DetectionDebugClient() {
             Detection Service Debug
           </h2>
           <p className="mt-1 text-sm leading-6 text-basic-5">
-            Test LOGO_DETECTION_SERVER_URL with a local image and custom detection_label_text. The
-            server appends <code className="text-basic-8"> .</code> when missing so Grounding DINO
-            returns boxes reliably.
+            Run synchronous LLM object detection on an uploaded image with custom detection labels.
           </p>
         </div>
 

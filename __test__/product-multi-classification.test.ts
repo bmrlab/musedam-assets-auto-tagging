@@ -14,11 +14,11 @@ const mocks = vi.hoisted(() => ({
   products: vi.fn(),
   crop: vi.fn(),
   prompt: vi.fn(),
+  detect: vi.fn(),
 }));
 vi.mock("server-only", () => ({}));
-vi.mock("@/lib/brand/env", () => ({
-  getLogoDetectionServerUrl: () => "http://detector.test",
-  getLogoDetectionServerToken: () => "test-token",
+vi.mock("@/lib/media-process/object-detection", () => ({
+  detectMediaProcessObjects: mocks.detect,
 }));
 vi.mock("@/lib/brand/jina", () => ({ createJinaImageEmbeddings: mocks.embed }));
 vi.mock("@/lib/product/pgvector", () => ({ queryProductVectorPoints: mocks.query }));
@@ -282,28 +282,33 @@ describe("product classification per detected object", () => {
     ]);
   });
 
-  it("requests physical product instances from the detector", async () => {
-    mocks.products.mockResolvedValue([product("p1")]);
-    mocks.prompt.mockResolvedValue("bottle . cosmetics .");
-    const fetchMock = vi
-      .spyOn(globalThis, "fetch")
-      .mockResolvedValue(new Response(JSON.stringify({ detections: [], found: false })));
-    try {
-      await detectProductFigureBoxes({ teamId: 7, imageBase64: "data:image/jpeg;base64,aW1hZ2U=" });
-      expect(fetchMock).toHaveBeenCalledWith(
-        "http://detector.test/object_detection_llm",
-        expect.objectContaining({
-          body: JSON.stringify({
-            image_base64: "data:image/jpeg;base64,aW1hZ2U=",
-            detection_label_text: "bottle . cosmetics .",
-            detection_mode: "product_instances",
-          }),
-        }),
-      );
-    } finally {
-      fetchMock.mockRestore();
-    }
-  });
+  it.each([undefined, "async", "sync"] as const)(
+    "requests physical product instances with %s request mode",
+    async (requestMode) => {
+      mocks.products.mockResolvedValue([product("p1")]);
+      mocks.prompt.mockResolvedValue("bottle . cosmetics .");
+      mocks.detect.mockResolvedValue({ detections: [], found: false });
+      const imageInput = {
+        width: 100,
+        height: 100,
+        buffer: Buffer.from("image"),
+        byteLength: 5,
+        mimeType: "image/jpeg",
+        dataUrl: "data:image/jpeg;base64,aW1hZ2U=",
+        sourceImage: { url: "https://assets.test/product.jpg", width: 200, height: 200 },
+      };
+      await detectProductFigureBoxes({ teamId: 7, imageInput, requestMode });
+      expect(mocks.detect).toHaveBeenCalledExactlyOnceWith({
+        teamId: 7,
+        imageInput,
+        requestMode: requestMode ?? "async",
+        detectionLabelText: "bottle . cosmetics .",
+        detectionMode: "product_instances",
+        defaultLabel: "product figure",
+        errorPrefix: "Product detection",
+      });
+    },
+  );
 });
 
 function savedMatch(id: string, confidence: number, index = 0): TaggingProductBestMatch {

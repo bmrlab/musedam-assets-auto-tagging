@@ -4,7 +4,7 @@ import UserPanel from "@/components/UserPanel";
 import { useLocaleClient } from "@/i18n/client";
 import { ExtractServerActionData } from "@/lib/serverAction";
 import { Moon, Sun } from "lucide-react";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/components/AuthProvider";
 import { useLocale, useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
 import Link from "next/link";

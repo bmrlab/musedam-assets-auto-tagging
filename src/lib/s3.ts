@@ -566,7 +566,7 @@ export function signS3ObjectUploadUrl({
 export async function headS3Object(objectKey: string) {
   const url = buildS3ObjectUrl(objectKey);
   const { headers } = signS3Request({ method: "HEAD", payloadHash: "UNSIGNED-PAYLOAD", requestHeaders: {}, url });
-  const response = await fetch(url, { method: "HEAD", headers });
+  const response = await fetch(url, { method: "HEAD", headers, signal: AbortSignal.timeout(15_000) });
   return response.ok;
 }
 

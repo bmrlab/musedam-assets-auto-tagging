@@ -43,6 +43,14 @@ export async function getTaggingSettings(teamId: number): Promise<TaggingSetting
       TAGGING_CONFIG_KEYS.MATCHING_SOURCES,
       DEFAULT_TAGGING_SETTINGS.matchingSources,
     ),
+    sourceWeights: {
+      // 逐项合并默认值，兼容旧数据或未来新增的来源
+      ...DEFAULT_TAGGING_SETTINGS.sourceWeights,
+      ...getConfigValue<Partial<TaggingSettingsData["sourceWeights"]>>(
+        TAGGING_CONFIG_KEYS.SOURCE_WEIGHTS,
+        {},
+      ),
+    },
     applicationScope: getConfigValue(
       TAGGING_CONFIG_KEYS.APPLICATION_SCOPE,
       DEFAULT_TAGGING_SETTINGS.applicationScope,
@@ -80,6 +88,10 @@ export async function saveTaggingSettings(
       {
         key: TAGGING_CONFIG_KEYS.MATCHING_SOURCES,
         value: data.matchingSources,
+      },
+      {
+        key: TAGGING_CONFIG_KEYS.SOURCE_WEIGHTS,
+        value: data.sourceWeights,
       },
       {
         key: TAGGING_CONFIG_KEYS.APPLICATION_SCOPE,

@@ -50,7 +50,7 @@
       "rename": "Rinomina",
       "delete": "Elimina",
       "deleteConfirmTitle": "Elimina tag",
-      "deleteConfirmDescription": "Sei sicuro di voler eliminare il tag \"{tagName}\"?",
+      "deleteConfirmDescription": "Il tag \"{tagName}\" e i suoi tag figli verranno eliminati insieme. Confermi l'eliminazione?",
       "confirmDelete": "Conferma eliminazione",
       "searchRelatedAssets": "Cerca risorse correlate"
     },

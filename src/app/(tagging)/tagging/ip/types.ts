@@ -1,3 +1,5 @@
+import type { LibraryListPage } from "../components/library-list-query";
+
 export type IpTypeItem = {
   id: string;
   name: string;
@@ -23,6 +25,9 @@ export type IpImageItem = {
   objectKey: string;
   signedUrl: string;
   signedUrlExpiresAt: number;
+  /** 长边 256 的缩略图（列表小图用）；缩略图还没生成时加载会失败，前端退回原图 */
+  thumbnailUrl?: string;
+  thumbnailUrlExpiresAt?: number;
   mimeType: string;
   size: number;
   sort: number;
@@ -59,6 +64,13 @@ export type IpItem = {
 
 export type IpLibraryPageData = {
   ips: IpItem[];
+  ipTypes: IpTypeItem[];
+  tags: IpTagTreeNode[];
+};
+
+/** 列表页首屏数据；list 为默认筛选下的第一页。 */
+export type IpLibraryInitialData = {
+  list: LibraryListPage<IpItem>;
   ipTypes: IpTypeItem[];
   tags: IpTagTreeNode[];
 };

@@ -5,6 +5,7 @@ import {
   isDetectionLabelWithinTokenLimit,
   truncateDetectionLabelToTokenLimit,
 } from "@/lib/detection-label";
+import { LLM_TIMEOUT_MS } from "@/lib/tagging/external-timeouts";
 import { translateDetectionLabelText } from "@/lib/translation/service";
 import { normalizeDetectionText } from "@/lib/utils";
 import { generateObject } from "ai";
@@ -54,6 +55,7 @@ function getProductCategorySummaryModel(): LLMModelName {
 async function summarizeProductCategories(categories: string[]) {
   const result = await generateObject({
     model: llm(getProductCategorySummaryModel()),
+    abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
     schemaName: "ProductDetectionCategories",
     schemaDescription:
       'Return JSON with one "categories" array containing concise English product categories.',

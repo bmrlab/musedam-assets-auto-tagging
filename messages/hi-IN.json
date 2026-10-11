@@ -204,7 +204,7 @@
     "TagItem": {
       "confirmDelete": "हटाने की पुष्टि करें",
       "delete": "हटाएँ",
-      "deleteConfirmDescription": "क्या आप वाकई टैग \"{tagName}\" को हटाना चाहते हैं?",
+      "deleteConfirmDescription": "टैग \"{tagName}\" और उसके चाइल्ड टैग एक साथ हटा दिए जाएंगे। क्या आप वाकई हटाना चाहते हैं?",
       "deleteConfirmTitle": "टैग हटाएं",
       "edited": "संपादित किया गया",
       "inputTagName": "टैग नाम दर्ज करें",

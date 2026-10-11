@@ -204,7 +204,7 @@
     "TagItem": {
       "confirmDelete": "確認刪除",
       "delete": "刪除",
-      "deleteConfirmDescription": "是否確認刪除標籤「{tagName}」？",
+      "deleteConfirmDescription": "目前標籤「{tagName}」及其子標籤會一併刪除，確認刪除嗎？",
       "deleteConfirmTitle": "刪除標籤",
       "edited": "已編輯",
       "inputTagName": "輸入標籤名",

@@ -1,16 +1,18 @@
 "use server";
 
+import { signObjectDetectionImageUrl } from "@/lib/media-process/image-url";
+
 import { withAuth } from "@/app/(auth)/withAuth";
 import { isDebugPageEnabled } from "@/lib/brand/env";
 import { detectBrandLogoBoxes } from "@/lib/brand/logo-classification";
 import { MAX_CLIENT_IMAGE_UPLOAD_BYTES } from "@/lib/brand/upload-constants";
-import { fetchRemoteImageInput } from "@/lib/tagging/classification-image";
 import {
   buildAssetLogoObjectKey,
   getCachedSignedS3ObjectUrl,
   signS3ObjectUploadUrl,
 } from "@/lib/s3";
 import { ServerActionResult } from "@/lib/serverAction";
+import { fetchRemoteImageInput } from "@/lib/tagging/classification-image";
 import { z } from "zod";
 import { DetectionImageUploadResult, DetectionUploadResult } from "./types";
 
@@ -141,15 +143,13 @@ export async function detectLogoBoxesAction(input: {
         };
       }
 
-      const { signedUrl, signedUrlExpiresAt } = getCachedSignedS3ObjectUrl({
-        objectKey: parsed.objectKey,
-        expiresInSeconds: 60 * 60,
-      });
+      const { signedUrl, signedUrlExpiresAt } = signObjectDetectionImageUrl(parsed.objectKey);
       const imageInput = await fetchRemoteImageInput(signedUrl, "logo detection debug");
       const detection = await detectBrandLogoBoxes({
         teamId,
-        imageBase64: imageInput.dataUrl,
+        imageInput,
         detectionLabelText: parsed.detectionLabelText,
+        requestMode: "sync",
       });
 
       return {

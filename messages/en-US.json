@@ -50,7 +50,7 @@
       "rename": "Rename",
       "delete": "Delete",
       "deleteConfirmTitle": "Delete Tag",
-      "deleteConfirmDescription": "Are you sure you want to delete the tag \"{tagName}\"?",
+      "deleteConfirmDescription": "The tag \"{tagName}\" and its child tags will be deleted together. Are you sure you want to delete?",
       "confirmDelete": "Confirm Delete",
       "searchRelatedAssets": "Search Related Assets"
     },

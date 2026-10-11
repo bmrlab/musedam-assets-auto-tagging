@@ -47,8 +47,8 @@ function AlertDialogContent({
 }) {
   return (
     <AlertDialogPortal>
-      {/* 暂时隐藏蒙层 */}
-      {/* <AlertDialogOverlay /> */}
+      {/* 弹窗蒙层 */}
+      <AlertDialogOverlay />
       <AlertDialogPrimitive.Content
         data-slot="alert-dialog-content"
         className={cn(

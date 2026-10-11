@@ -1,5 +1,5 @@
 import type { TagWithChildren } from "@/prisma/client";
-import { flattenTagsTree, TagTreeNodeWithPath } from "./evidence-policy";
+import { flattenTagsTree, getExplicitRequiredGroup, TagTreeNodeWithPath } from "./evidence-policy";
 import type { TagWithScore } from "./types";
 
 /**
@@ -19,6 +19,8 @@ export type AspectRatioSpec =
 export type AspectRatioGroup = {
   parentId: number;
   parentPath: string[];
+  /** 分类被设为必打：宽高比超出容差时退回最近的比例子标签，保证不留空 */
+  required: boolean;
   children: Array<{ id: number; tagPath: string[]; spec: AspectRatioSpec }>;
 };
 
@@ -75,6 +77,7 @@ export function detectAspectRatioGroups(tagsTree: TagWithChildren[]): AspectRati
     groups.push({
       parentId: parent.id,
       parentPath: parent.tagPath,
+      required: getExplicitRequiredGroup(parent.extra) === true,
       children: parsed.map(({ child, spec }) => ({
         id: child.id,
         tagPath: child.tagPath,
@@ -134,9 +137,13 @@ export function resolveAspectRatioTags({
   const result: TagWithScore[] = [];
   for (const group of groups) {
     let best: { id: number; tagPath: string[]; distance: number } | null = null;
+    let nearest: { id: number; tagPath: string[]; distance: number } | null = null;
     for (const child of group.children) {
       if (child.spec.kind !== "ratio") continue;
       const distance = Math.abs(Math.log(assetRatio / child.spec.value));
+      if (!nearest || distance < nearest.distance) {
+        nearest = { id: child.id, tagPath: child.tagPath, distance };
+      }
       if (distance <= maxDistance && (!best || distance < best.distance)) {
         best = { id: child.id, tagPath: child.tagPath, distance };
       }
@@ -147,6 +154,17 @@ export function resolveAspectRatioTags({
       );
       if (byOrientation)
         best = { id: byOrientation.id, tagPath: byOrientation.tagPath, distance: 0 };
+    }
+    // 必打分类：超出容差也要有一个，取最近的比例，低分标记为兜底，审核时能看出来
+    if (!best && group.required && nearest) {
+      result.push({
+        leafTagId: nearest.id,
+        tagPath: nearest.tagPath,
+        confidenceBySources: {},
+        score: 50,
+        origin: "requiredFallback",
+      });
+      continue;
     }
     if (best) {
       result.push({

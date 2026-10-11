@@ -1,18 +1,17 @@
-import authOptions from "@/app/(auth)/authOptions";
+import { getAuthSession } from "@/app/(auth)/requestAuth";
 import { isDebugPageEnabled } from "@/lib/brand/env";
-import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
-import { fetchBrandLibraryPageData } from "./actions";
+import { fetchBrandLibraryInitialData } from "./actions";
 import BrandLibraryClient from "./BrandLibraryClient";
 
 export default async function BrandPage() {
-  const session = await getServerSession(authOptions);
+  const session = await getAuthSession();
 
   if (!session?.user || !session?.team) {
     redirect("/auth/signin");
   }
 
-  const result = await fetchBrandLibraryPageData();
+  const result = await fetchBrandLibraryInitialData();
 
   if (!result.success) {
     throw new Error(result.message || "Failed to fetch brand library data");
