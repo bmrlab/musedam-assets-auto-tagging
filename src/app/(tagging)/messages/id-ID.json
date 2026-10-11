@@ -730,6 +730,7 @@
       "latest": "Terbaru",
       "requiredFallbackBadge": "Cadangan wajib",
       "aspectRatioBadge": "Dari dimensi",
+      "appliedBadge": "Diterapkan",
       "showHistory": "Lihat riwayat ({count})",
       "hideHistory": "Sembunyikan riwayat",
       "allStatuses": "Semua Status",

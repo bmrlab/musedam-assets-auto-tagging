@@ -135,6 +135,7 @@
       "latest": "Último",
       "requiredFallbackBadge": "Respaldo obligatorio",
       "aspectRatioBadge": "Por dimensiones",
+      "appliedBadge": "Aplicado",
       "showHistory": "Ver historial ({count})",
       "hideHistory": "Ocultar historial",
       "loading": "Cargando...",

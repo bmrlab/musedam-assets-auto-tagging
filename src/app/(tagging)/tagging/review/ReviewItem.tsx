@@ -755,7 +755,7 @@ export function ReviewItem({
             }}
             maxWidth={86}
             maxHeight={86}
-            className="rounded-[10px] size-[86px]"
+            className="rounded-[10px] size-[86px] object-contain"
           />
         </button>
 
@@ -857,8 +857,12 @@ export function ReviewItem({
           {visibleBatch.map(({ queueItem, taggingAuditItems }, index) => {
             const isLatestBatch = finalBatch.length > 1 && index === 0;
             const visibleAuditItems = taggingAuditItems.filter(
-              (auditItem) => auditItem.leafTagId && auditItem.tagPath.length > 0,
+              (auditItem) => auditItem.tagPath.length > 0,
             );
+            // 这一批已经应用过：有审核项且没有待处理项
+            const isApplied =
+              taggingAuditItems.length > 0 &&
+              taggingAuditItems.every((auditItem) => auditItem.status !== "pending");
             const resultTagsWithScore = (queueItem.result as TaggingQueueItemResult | null)
               ?.tagsWithScore;
             const originByLeafTagId = new Map(
@@ -879,6 +883,11 @@ export function ReviewItem({
                         {t("latest")}
                       </span>
                     ) : null}
+                    {isApplied ? (
+                      <span className="ml-2 inline-flex items-center px-2 py-[1px] rounded-[4px] text-xs text-success-6 border border-success-3 bg-success-1">
+                        {t("appliedBadge")}
+                      </span>
+                    ) : null}
                     <span className="ml-auto text-xs text-basic-5 flex items-center gap-1">
                       <ClockCircleIcon className="size-3" />
                       {formatDate(queueItem.createdAt)}
@@ -886,74 +895,76 @@ export function ReviewItem({
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     {visibleAuditItems.length > 0 ? (
-                      visibleAuditItems.map((auditItem) => (
-                        <div
-                          key={auditItem.id}
-                          className={cn(
-                            "relative py-[6px] px-2 rounded-[6px] border items-center flex gap-2",
-                            {
-                              "border-dashed":
-                                (auditItem.leafTagId &&
-                                  rejectedItems.includes(auditItem.leafTagId)) ||
-                                auditItem.status === "rejected",
-                            },
-                            {
-                              "text-primary-6 bg-primary-1 border-[#A6C1FF]": auditItem.score >= 80,
-                              "text-[#52C41A] bg-[#F6FFED] border-[#95DE64] dark:text-success-6 dark:bg-success-1 dark:border-success-3":
-                                auditItem.score >= 70 && auditItem.score < 80,
-                              "text-[#FA8C16] bg-[#FFF7E6] border-[#FFC069] dark:text-warning-6 dark:bg-warning-1 dark:border-warning-4":
-                                auditItem.score < 70,
-                            },
-                          )}
-                        >
-                          <div className="font-medium text-[13px] leading-[18px]">
-                            {auditItem.tagPath.join(" > ")}
+                      visibleAuditItems.map((auditItem) => {
+                        const isRejectedItem =
+                          (auditItem.leafTagId && rejectedItems.includes(auditItem.leafTagId)) ||
+                          auditItem.status === "rejected";
+                        return (
+                          <div
+                            key={auditItem.id}
+                            className={cn(
+                              "relative py-[6px] px-2 rounded-[6px] border items-center flex gap-2",
+                              isRejectedItem
+                                ? "border-dashed text-basic-5 bg-basic-2 border-basic-4 dark:bg-basic-2"
+                                : {
+                                    "text-primary-6 bg-primary-1 border-[#A6C1FF]":
+                                      auditItem.score >= 80,
+                                    "text-[#52C41A] bg-[#F6FFED] border-[#95DE64] dark:text-success-6 dark:bg-success-1 dark:border-success-3":
+                                      auditItem.score >= 70 && auditItem.score < 80,
+                                    "text-[#FA8C16] bg-[#FFF7E6] border-[#FFC069] dark:text-warning-6 dark:bg-warning-1 dark:border-warning-4":
+                                      auditItem.score < 70,
+                                  },
+                            )}
+                          >
+                            <div className="font-medium text-[13px] leading-[18px]">
+                              {auditItem.tagPath.join(" > ")}
+                            </div>
+                            {auditItem.leafTagId && originByLeafTagId.get(auditItem.leafTagId) ? (
+                              <span className="inline-flex items-center px-1 rounded-[3px] text-[10px] leading-4 border border-current/40 bg-background/60">
+                                {originByLeafTagId.get(auditItem.leafTagId) === "aspectRatio"
+                                  ? t("aspectRatioBadge")
+                                  : t("requiredFallbackBadge")}
+                              </span>
+                            ) : null}
+                            <div className="flex items-center gap-[6px]">
+                              <Progress
+                                value={auditItem.score}
+                                className="bg-current/20 [&>[data-slot=progress-indicator]]:bg-current w-[60px]"
+                              />
+                              <span className="text-[10px]">{auditItem.score}%</span>
+                            </div>
+                            {(auditItem.status === "pending" || auditItem.status === "rejected") &&
+                            auditItem.leafTagId ? (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="size-3 bg-transparent hover:bg-transparent text-basic-5 hover:text-current"
+                                      disabled={realLoading}
+                                      onClick={() => toggleRejectedTag(auditItem.leafTagId!)}
+                                    >
+                                      {rejectedItems.includes(auditItem.leafTagId) ? (
+                                        <CheckIcon className="h-3 w-3" />
+                                      ) : (
+                                        <XIcon className="h-3 w-3" />
+                                      )}
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>
+                                      {rejectedItems.includes(auditItem.leafTagId)
+                                        ? t("tooltipAdd")
+                                        : t("tooltipRemove")}
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            ) : null}
                           </div>
-                          {auditItem.leafTagId && originByLeafTagId.get(auditItem.leafTagId) ? (
-                            <span className="inline-flex items-center px-1 rounded-[3px] text-[10px] leading-4 border border-current/40 bg-background/60">
-                              {originByLeafTagId.get(auditItem.leafTagId) === "aspectRatio"
-                                ? t("aspectRatioBadge")
-                                : t("requiredFallbackBadge")}
-                            </span>
-                          ) : null}
-                          <div className="flex items-center gap-[6px]">
-                            <Progress
-                              value={auditItem.score}
-                              className="bg-current/20 [&>[data-slot=progress-indicator]]:bg-current w-[60px]"
-                            />
-                            <span className="text-[10px]">{auditItem.score}%</span>
-                          </div>
-                          {(auditItem.status === "pending" || auditItem.status === "rejected") &&
-                          auditItem.leafTagId ? (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className="size-3 bg-transparent hover:bg-transparent text-basic-5 hover:text-current"
-                                    disabled={realLoading}
-                                    onClick={() => toggleRejectedTag(auditItem.leafTagId!)}
-                                  >
-                                    {rejectedItems.includes(auditItem.leafTagId) ? (
-                                      <CheckIcon className="h-3 w-3" />
-                                    ) : (
-                                      <XIcon className="h-3 w-3" />
-                                    )}
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>
-                                    {rejectedItems.includes(auditItem.leafTagId)
-                                      ? t("tooltipAdd")
-                                      : t("tooltipRemove")}
-                                  </p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          ) : null}
-                        </div>
-                      ))
+                        );
+                      })
                     ) : (
                       <div className="text-sm text-basic-5">{t("noPendingTags")}</div>
                     )}

@@ -766,6 +766,7 @@
       "latest": "Latest",
       "requiredFallbackBadge": "Required fallback",
       "aspectRatioBadge": "From dimensions",
+      "appliedBadge": "Applied",
       "showHistory": "Show history ({count})",
       "hideHistory": "Hide history",
       "allStatuses": "All Statuses",

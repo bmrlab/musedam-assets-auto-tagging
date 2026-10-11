@@ -689,6 +689,7 @@
       "latest": "Najnowsze",
       "requiredFallbackBadge": "Obowiązkowy fallback",
       "aspectRatioBadge": "Z wymiarów",
+      "appliedBadge": "Zastosowano",
       "showHistory": "Pokaż historię ({count})",
       "hideHistory": "Ukryj historię",
       "allStatuses": "Wszystkie statusy",

@@ -766,6 +766,7 @@
       "latest": "最新",
       "requiredFallbackBadge": "必打兜底",
       "aspectRatioBadge": "按宽高",
+      "appliedBadge": "已采纳",
       "showHistory": "查看历史记录 ({count})",
       "hideHistory": "收起历史记录",
       "allStatuses": "全部状态",

@@ -135,6 +135,7 @@
       "latest": "最新",
       "requiredFallbackBadge": "必打兜底",
       "aspectRatioBadge": "按寬高",
+      "appliedBadge": "已採納",
       "showHistory": "查看歷史記錄 ({count})",
       "hideHistory": "收起歷史記錄",
       "loading": "載入中...",

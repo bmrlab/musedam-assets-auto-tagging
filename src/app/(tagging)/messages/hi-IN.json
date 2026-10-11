@@ -135,6 +135,7 @@
       "latest": "नवीनतम",
       "requiredFallbackBadge": "अनिवार्य फ़ॉलबैक",
       "aspectRatioBadge": "आयामों से",
+      "appliedBadge": "अपनाया गया",
       "showHistory": "इतिहास देखें ({count})",
       "hideHistory": "इतिहास छिपाएँ",
       "loading": "लोड हो रहा है...",

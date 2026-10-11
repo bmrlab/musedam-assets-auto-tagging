@@ -78,11 +78,17 @@ function hasEnabledFeatureRecommendation(
 
 /** 列表里会展示的审核项：标签还在，或当前启用的特征库在打标结果里有推荐。 */
 function isDisplayedAuditItem(
-  item: { leafTagId: number | null },
+  item: { leafTagId: number | null; tagPath: Prisma.JsonValue },
   queueResult: Prisma.JsonValue | null | undefined,
   features: FeatureLibraryFeatures,
 ) {
-  return item.leafTagId != null || hasEnabledFeatureRecommendation(queueResult ?? null, features);
+  // 标签树变更后 leafTagId 会被置空，但 tagPath 快照仍在，历史记录照常展示（只读，无法再应用）
+  const hasTagPathSnapshot = Array.isArray(item.tagPath) && item.tagPath.length > 0;
+  return (
+    item.leafTagId != null ||
+    hasTagPathSnapshot ||
+    hasEnabledFeatureRecommendation(queueResult ?? null, features)
+  );
 }
 
 /**
@@ -103,10 +109,11 @@ function displayedAuditItemSql(features: FeatureLibraryFeatures): Prisma.Sql {
   if (features.featurePerson) {
     featureClauses.push(Prisma.sql`jsonb_typeof(q."result"->'personRecommendation') = 'object'`);
   }
+  const tagClause = Prisma.sql`(a."leafTagId" IS NOT NULL OR jsonb_array_length(a."tagPath") > 0)`;
   if (featureClauses.length === 0) {
-    return Prisma.sql`a."leafTagId" IS NOT NULL`;
+    return tagClause;
   }
-  return Prisma.sql`(a."leafTagId" IS NOT NULL OR ${Prisma.join(featureClauses, " OR ")})`;
+  return Prisma.sql`(${tagClause} OR ${Prisma.join(featureClauses, " OR ")})`;
 }
 
 // 辅助函数：从 MuseDAM 标签构建 AssetObjectTags
@@ -450,7 +457,13 @@ export async function fetchAssetsWithAuditItems(
         const batch: AssetWithAuditItemsBatch["batch"] = [];
         for (const { queueItem, tagPath, ...taggingAuditItem } of assetObject.taggingAuditItems) {
           if (!queueItem) continue;
-          if (!isDisplayedAuditItem(taggingAuditItem, queueItem.result, featureLibraryFeatures)) {
+          if (
+            !isDisplayedAuditItem(
+              { ...taggingAuditItem, tagPath: tagPath as Prisma.JsonValue },
+              queueItem.result,
+              featureLibraryFeatures,
+            )
+          ) {
             continue;
           }
 

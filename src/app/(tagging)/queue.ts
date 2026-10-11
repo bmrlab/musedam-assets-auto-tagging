@@ -60,6 +60,7 @@ import { getBrandRecommendationTagIdsFromQueueResult } from "./brand-recommendat
 import { fetchTagsTreeForTagging } from "./evidence-policy-server";
 import {
   collectFeatureTagCandidates,
+  fillRequiredGroupsFromFeatures,
   resolveExclusiveSiblingsAcrossSources,
 } from "./exclusive-siblings";
 import { getIpRecommendationTagIdsFromQueueResult } from "./ip-recommendation";
@@ -484,16 +485,33 @@ export async function processQueueItem({
     // 同级互斥硬约束（AI vs 特征库）：特征库认出了互斥组里的某个分支时，AI 仅凭内容猜到的同组其他分支要让位。
     // 放在这里是因为审核项创建、直接写回、结果持久化都从 tagsWithScore 出发，改一处三处一致。
     const exclusiveTagsTree = tagsTree ?? (await fetchTagsTreeForTagging({ teamId }));
-    const crossSource = resolveExclusiveSiblingsAcrossSources({
+    const featureCandidates = collectFeatureTagCandidates({
+      brandRecommendation,
+      ipRecommendation,
+      productRecommendation,
+      personRecommendation,
+    });
+    const exclusiveResolved = resolveExclusiveSiblingsAcrossSources({
       tagsTree: exclusiveTagsTree,
       tagsWithScore: predictedTagsWithScore,
-      featureCandidates: collectFeatureTagCandidates({
-        brandRecommendation,
-        ipRecommendation,
-        productRecommendation,
-        personRecommendation,
-      }),
+      featureCandidates,
     });
+    // 必打分类被特征库挤掉后留空时，采用特征库匹配上的标签
+    const requiredFromFeatures = fillRequiredGroupsFromFeatures({
+      tagsTree: exclusiveTagsTree,
+      tagsWithScore: exclusiveResolved.tagsWithScore,
+      featureCandidates,
+    });
+    const crossSource = {
+      tagsWithScore: requiredFromFeatures.tagsWithScore,
+      dropped: exclusiveResolved.dropped,
+    };
+    if (requiredFromFeatures.added.length > 0) {
+      logger.info({
+        msg: "Required groups filled from feature-library matches",
+        added: requiredFromFeatures.added.map((tag) => tag.tagPath.join(" > ")),
+      });
+    }
     if (crossSource.dropped.length > 0) {
       logger.info({
         msg: "Exclusive siblings: AI tags dropped in favor of feature-library matches",

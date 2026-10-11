@@ -689,6 +689,7 @@
       "latest": "Mới nhất",
       "requiredFallbackBadge": "Dự phòng bắt buộc",
       "aspectRatioBadge": "Theo kích thước",
+      "appliedBadge": "Đã áp dụng",
       "showHistory": "Xem lịch sử ({count})",
       "hideHistory": "Ẩn lịch sử",
       "allStatuses": "Tất cả trạng thái",

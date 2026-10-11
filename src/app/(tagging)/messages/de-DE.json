@@ -135,6 +135,7 @@
       "latest": "Neueste",
       "requiredFallbackBadge": "Pflicht-Fallback",
       "aspectRatioBadge": "Aus Abmessungen",
+      "appliedBadge": "Übernommen",
       "showHistory": "Verlauf anzeigen ({count})",
       "hideHistory": "Verlauf ausblenden",
       "loading": "Lädt...",

@@ -135,6 +135,7 @@
       "latest": "Последние",
       "requiredFallbackBadge": "Обязательный запасной",
       "aspectRatioBadge": "По размерам",
+      "appliedBadge": "Принято",
       "showHistory": "Показать историю ({count})",
       "hideHistory": "Скрыть историю",
       "loading": "Загрузка...",
