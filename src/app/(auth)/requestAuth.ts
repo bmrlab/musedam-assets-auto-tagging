@@ -5,7 +5,9 @@ import { rootLogger } from "@/lib/logging";
 import { idToSlug } from "@/lib/slug";
 import prisma from "@/prisma/prisma";
 import type { Session } from "next-auth";
+import { getServerSession } from "next-auth/next";
 import { headers } from "next/headers";
+import authOptions from "./authOptions";
 import { checkUserPermission, createUserAndTeam } from "./lib";
 import { verifyTokenLoginCredential } from "./tokenLogin";
 
@@ -88,7 +90,8 @@ export async function resolveAuthToken(token: string) {
 /** 取当前请求的登录信息，形状与原来的 getServerSession 一致；没带 token 或校验失败返回 null。 */
 export async function getAuthSession(): Promise<Session | null> {
   const token = (await headers()).get(AUTH_TOKEN_HEADER);
-  if (!token) return null;
+  // 兼容期：没带 token（旧版父项目）时退回旧的共享 cookie 登录
+  if (!token) return getServerSession(authOptions);
   try {
     return (await resolveToken(token)).session;
   } catch (error) {

@@ -34,8 +34,7 @@ const AuthContext = React.createContext<AuthContextValue | null>(null);
 const REFRESH_LEAD_MS = 10 * 60 * 1000;
 
 async function loadSession(): Promise<AuthState & { tokenExpiresAt?: number }> {
-  const token = getAuthToken();
-  if (!token) return { data: null, status: "unauthenticated", error: "TOKEN_REQUIRED" };
+  // 没有 token 也要问一次服务端：兼容期内旧版父项目靠共享 cookie 登录
   try {
     const response = await fetch("/api/auth/me", { cache: "no-store" });
     const body = await response.json().catch(() => null);
