@@ -1098,6 +1098,50 @@ function selectRoundRobinByTeam<T extends { teamId: number }>(items: T[], limit:
   return selected;
 }
 
+const PENDING_SUMMARY_LOG_INTERVAL_MS = 30_000;
+let lastPendingSummaryLoggedAt = 0;
+
+/**
+ * 按团队汇总排队中（pending）的任务数并打一条日志，方便在观测云里搜 "Queue pending summary" 看积压。
+ * 进程内最多每 30s 一次、不阻塞主流程；groupBy 走 [teamId, status] 索引，开销很小。
+ */
+function logPendingSummaryThrottled(): void {
+  const now = Date.now();
+  if (now - lastPendingSummaryLoggedAt < PENDING_SUMMARY_LOG_INTERVAL_MS) return;
+  lastPendingSummaryLoggedAt = now;
+  void (async () => {
+    const groups = await prisma.taggingQueueItem.groupBy({
+      by: ["teamId"],
+      where: { status: "pending" },
+      _count: { _all: true },
+    });
+    const teams =
+      groups.length > 0
+        ? await prisma.team.findMany({
+            where: { id: { in: groups.map((g) => g.teamId) } },
+            select: { id: true, slug: true },
+          })
+        : [];
+    const slugById = new Map(teams.map((t) => [t.id, t.slug]));
+    const byTeam = Object.fromEntries(
+      groups
+        .map((g) => [slugById.get(g.teamId) ?? `team-id/${g.teamId}`, g._count._all] as const)
+        .sort((a, b) => b[1] - a[1]),
+    );
+    rootLogger.info({
+      msg: "Queue pending summary",
+      pendingTotal: groups.reduce((sum, g) => sum + g._count._all, 0),
+      teamCount: groups.length,
+      byTeam,
+      summary: Object.entries(byTeam)
+        .map(([slug, count]) => `${slug}:${count}个排队`)
+        .join(", "),
+    });
+  })().catch((error) => {
+    rootLogger.error({ msg: "logPendingSummary failed", err: error });
+  });
+}
+
 export async function processPendingQueueItems(): Promise<{
   processing: number;
   skipped: number;
@@ -1109,6 +1153,7 @@ export async function processPendingQueueItems(): Promise<{
     }
     return { processing: 0, skipped: 0 };
   }
+  logPendingSummaryThrottled();
   // 本进程的槽位已经占满（含已排进 pLimit 等待的）时直接跳过：处理一个任务要几十秒，
   // 而 queue-processor 调用 / 入队 kick 每几秒就来一轮，不跳过的话一轮接一轮排在 pLimit 后面，
   // 每轮都攥着自己的候选和素材数据，积压时内存持续上涨直到堆溢出、进程崩溃。

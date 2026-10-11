@@ -23,12 +23,11 @@
 //
 // 客户网络要放行的是 SaaS 桶的公网域名：bundleUrl 和 assets[].sourceUrl 都指向它。
 
-import authOptions from "@/app/(auth)/authOptions";
+import { getAuthSession } from "@/app/(auth)/requestAuth";
 import { isAdminUserSlug } from "@/lib/admin";
 import { rootLogger } from "@/lib/logging";
 import { cancelImportJob, getImportJob, startImportJob } from "@/lib/migration/import-job";
 import { isImportPhase } from "@/lib/migration/import-team";
-import { getServerSession } from "next-auth/next";
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -36,7 +35,7 @@ export const dynamic = "force-dynamic";
 const noStore = { headers: { "Cache-Control": "no-store" } };
 
 export async function GET(request: NextRequest) {
-  const session = await getServerSession(authOptions);
+  const session = await getAuthSession();
   if (!session?.user) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }

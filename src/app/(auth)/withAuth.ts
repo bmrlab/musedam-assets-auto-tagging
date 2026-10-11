@@ -1,9 +1,8 @@
 import "server-only";
 
-import authOptions from "@/app/(auth)/authOptions";
+import { getAuthSession } from "@/app/(auth)/requestAuth";
 import { rootLogger } from "@/lib/logging";
 import { Session } from "next-auth";
-import { getServerSession } from "next-auth/next";
 import { forbidden } from "next/navigation";
 
 export async function withAuth<T>(
@@ -12,7 +11,7 @@ export async function withAuth<T>(
     team: NonNullable<Session["team"]>;
   }) => Promise<T>,
 ): Promise<T> {
-  const session = await getServerSession(authOptions);
+  const session = await getAuthSession();
 
   // 调试时打印
   // rootLogger.info({

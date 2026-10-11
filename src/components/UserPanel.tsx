@@ -9,17 +9,18 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { LogOut, User } from "lucide-react";
-import { signOut, useSession } from "next-auth/react";
+import { useAuthActions, useSession } from "@/components/AuthProvider";
 import { useRouter } from "next/navigation";
 
 export default function UserPanel() {
   const { data: session } = useSession();
+  const { signOut } = useAuthActions();
   // const { data: organizations } = authClient.useListOrganizations();
   // const { data: activeOrganization } = authClient.useActiveOrganization();
   const router = useRouter();
 
   const handleLogout = async () => {
-    await signOut();
+    signOut();
     router.push("/");
   };
 

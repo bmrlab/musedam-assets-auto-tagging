@@ -1,12 +1,11 @@
-import authOptions from "@/app/(auth)/authOptions";
+import { getAuthSession } from "@/app/(auth)/requestAuth";
 import { checkUserPermission } from "@/app/(auth)/lib";
 import { getTaggingSettings } from "@/app/(tagging)/tagging/settings/lib";
-import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getAuthSession();
 
     if (!session?.user || !session?.team) {
       return NextResponse.json(

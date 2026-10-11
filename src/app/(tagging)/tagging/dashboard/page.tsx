@@ -1,12 +1,11 @@
-import authOptions from "@/app/(auth)/authOptions";
-import { getServerSession } from "next-auth";
+import { getAuthSession } from "@/app/(auth)/requestAuth";
 import { redirect } from "next/navigation";
 import { fetchDashboardStats, fetchProcessingTasks } from "./actions";
 import { DASHBOARD_INITIAL_PAGE_SIZE } from "./constants";
 import DashboardClient from "./DashboardClient";
 
 export default async function DashboardPage() {
-  const session = await getServerSession(authOptions);
+  const session = await getAuthSession();
 
   if (!session?.user || !session?.team) {
     redirect("/auth/signin");

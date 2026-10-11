@@ -1,12 +1,11 @@
-import authOptions from "@/app/(auth)/authOptions";
+import { getAuthSession } from "@/app/(auth)/requestAuth";
 import { isDebugPageEnabled } from "@/lib/brand/env";
-import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { fetchProductLibraryInitialData } from "./actions";
 import ProductLibraryClient from "./ProductLibraryClient";
 
 export default async function ProductPage() {
-  const session = await getServerSession(authOptions);
+  const session = await getAuthSession();
 
   if (!session?.user || !session?.team) {
     redirect("/auth/signin");

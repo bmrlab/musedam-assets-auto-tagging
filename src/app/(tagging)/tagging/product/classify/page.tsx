@@ -1,6 +1,5 @@
-import authOptions from "@/app/(auth)/authOptions";
+import { getAuthSession } from "@/app/(auth)/requestAuth";
 import { isDebugPageEnabled } from "@/lib/brand/env";
-import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { fetchProductLibraryPageData } from "../actions";
 import ProductClassifyClient from "./ProductClassifyClient";
@@ -10,7 +9,7 @@ export default async function ProductClassifyPage() {
     redirect("/tagging/product");
   }
 
-  const session = await getServerSession(authOptions);
+  const session = await getAuthSession();
 
   if (!session?.user || !session?.team) {
     redirect("/auth/signin");

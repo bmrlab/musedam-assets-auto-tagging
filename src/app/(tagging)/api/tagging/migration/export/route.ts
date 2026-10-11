@@ -12,12 +12,11 @@
 //
 // 只读：不会修改数据库，也不会往 S3 写。
 
-import authOptions from "@/app/(auth)/authOptions";
+import { getAuthSession } from "@/app/(auth)/requestAuth";
 import { isAdminUserSlug } from "@/lib/admin";
 import { exportTeamBundle, MAX_PRESIGN_SECONDS, musedamTeamIdToSlug } from "@/lib/migration/export-team";
 import { signS3ObjectUrl } from "@/lib/s3";
 import prisma from "@/prisma/prisma";
-import { getServerSession } from "next-auth/next";
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +24,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 export async function GET(request: NextRequest) {
-  const session = await getServerSession(authOptions);
+  const session = await getAuthSession();
   if (!session?.user) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }

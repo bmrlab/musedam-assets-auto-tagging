@@ -1,4 +1,4 @@
-import authOptions from "@/app/(auth)/authOptions";
+import { getAuthSession } from "@/app/(auth)/requestAuth";
 import { CANCELLED_TASK_ERROR_CODE } from "@/app/(tagging)/queue-config";
 import { isAdminUserSlug } from "@/lib/admin";
 import { rootLogger } from "@/lib/logging";
@@ -6,7 +6,6 @@ import { idToSlug } from "@/lib/slug";
 import { MuseDAMID } from "@/musedam/types";
 import { TaggingQueueItemResult } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
-import { getServerSession } from "next-auth/next";
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +16,7 @@ type CancelPendingRequest = {
 };
 
 export async function POST(request: NextRequest) {
-  const session = await getServerSession(authOptions);
+  const session = await getAuthSession();
   const adminUserSlug = session?.user?.slug;
   if (!session?.user) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });

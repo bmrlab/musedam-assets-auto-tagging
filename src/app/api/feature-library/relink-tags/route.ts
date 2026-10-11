@@ -1,9 +1,8 @@
-import authOptions from "@/app/(auth)/authOptions";
+import { getAuthSession } from "@/app/(auth)/requestAuth";
 import { checkUserPermission } from "@/app/(auth)/lib";
 import { isAdminUserSlug } from "@/lib/admin";
 import { rootLogger } from "@/lib/logging";
 import { relinkFeatureTags } from "@/lib/tagging/relink-feature-tags";
-import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -19,7 +18,7 @@ const bodySchema = z
   .strict();
 
 export async function POST(request: NextRequest) {
-  const session = await getServerSession(authOptions);
+  const session = await getAuthSession();
   if (!session?.user || !session.team) {
     return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
   }

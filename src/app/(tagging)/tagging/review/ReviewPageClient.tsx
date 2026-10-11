@@ -39,7 +39,7 @@ import Image from "next/image";
 import { dispatchMuseDAMClientAction } from "@/embed/message";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/components/AuthProvider";
 
 type TaggingAuditStatus = "pending" | "approved" | "rejected";
 const BATCH_APPROVE_CHUNK_SIZE = 10;
