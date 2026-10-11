@@ -1,4 +1,4 @@
-import { AuthTokenError, AUTH_TOKEN_HEADER, resolveAuthToken } from "@/app/(auth)/requestAuth";
+import { AuthTokenError, AUTH_TOKEN_HEADER, getAuthSession, resolveAuthToken } from "@/app/(auth)/requestAuth";
 import { NextRequest, NextResponse } from "next/server";
 
 // 按请求里的 token 返回当前 tab 对应的登录信息（取代 next-auth 的 /api/auth/session），
@@ -6,6 +6,9 @@ import { NextRequest, NextResponse } from "next/server";
 export async function GET(request: NextRequest) {
   const token = request.headers.get(AUTH_TOKEN_HEADER);
   if (!token) {
+    // 兼容期：没带 token 时按旧的共享 cookie 登录态返回
+    const session = await getAuthSession();
+    if (session?.user && session?.team) return NextResponse.json({ success: true, session });
     return NextResponse.json({ success: false, code: "TOKEN_REQUIRED" }, { status: 401 });
   }
   try {
