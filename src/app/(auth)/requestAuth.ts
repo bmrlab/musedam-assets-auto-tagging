@@ -27,7 +27,7 @@ export class AuthTokenError extends Error {
   }
 }
 
-async function resolveToken(token: string): Promise<{ session: Session; tokenExpiresAt: number }> {
+function verifyToken(token: string) {
   let payload: ReturnType<typeof verifyTokenLoginCredential>;
   try {
     payload = verifyTokenLoginCredential(token);
@@ -38,25 +38,41 @@ async function resolveToken(token: string): Promise<{ session: Session; tokenExp
     // verifyTokenLoginCredential 对「格式不对」和「已过期」都返回 null，这里无法区分，统一按无效处理
     throw new AuthTokenError("INVALID_TOKEN");
   }
+  return payload;
+}
 
-  const cached = resolveCache.get(token);
-  if (cached && cached.expiresAt > Date.now()) {
-    return { session: cached.session, tokenExpiresAt: payload.expiresAt };
-  }
-
+async function findOrCreateUserAndTeam(payload: ReturnType<typeof verifyToken>) {
   const userSlug = idToSlug("user", payload.user.id);
   const teamSlug = idToSlug("team", payload.team.id);
   const [existingUser, existingTeam] = await Promise.all([
     prisma.user.findUnique({ where: { slug: userSlug }, select: { id: true, slug: true } }),
     prisma.team.findUnique({ where: { slug: teamSlug }, select: { id: true, slug: true } }),
   ]);
-  const { user, team } =
-    existingUser && existingTeam
-      ? { user: existingUser, team: existingTeam }
-      : await createUserAndTeam({
-          user: { name: payload.user.name, slug: userSlug },
-          team: { id: undefined, name: payload.team.name, slug: teamSlug },
-        });
+  return existingUser && existingTeam
+    ? { user: existingUser, team: existingTeam }
+    : await createUserAndTeam({
+        user: { name: payload.user.name, slug: userSlug },
+        team: { id: undefined, name: payload.team.name, slug: teamSlug },
+      });
+}
+
+/**
+ * 只解析 token 对应的用户和团队，不做权限检查（给 /api/team/settings 这类要如实回报「无权限」的地方用）。
+ * token 无效或过期时抛 AuthTokenError。
+ */
+export async function resolveTokenIdentity(token: string) {
+  return findOrCreateUserAndTeam(verifyToken(token));
+}
+
+async function resolveToken(token: string): Promise<{ session: Session; tokenExpiresAt: number }> {
+  const payload = verifyToken(token);
+
+  const cached = resolveCache.get(token);
+  if (cached && cached.expiresAt > Date.now()) {
+    return { session: cached.session, tokenExpiresAt: payload.expiresAt };
+  }
+
+  const { user, team } = await findOrCreateUserAndTeam(payload);
   try {
     await checkUserPermission({ user, team });
   } catch (error) {
