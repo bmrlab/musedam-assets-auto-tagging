@@ -87,7 +87,7 @@
       "tagVisibilityRange": "标签可见范围",
       "allMembersVisible": "全部成员可见",
       "selectVisibleMembers": "选择标签可见成员",
-      "selectVisibleMembersFailed": "选择成员失败",
+      "saveVisibilityFailed": "保存可见范围失败",
       "tagNamePlaceholder": "海报设计"
     },
     "ManualCreateModal": {

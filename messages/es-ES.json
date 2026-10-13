@@ -202,7 +202,7 @@
       "tagVisibilityRange": "Tag visibility",
       "allMembersVisible": "Visible to all members",
       "selectVisibleMembers": "Select members who can view this tag",
-      "selectVisibleMembersFailed": "Failed to select members",
+      "saveVisibilityFailed": "No se pudo guardar la visibilidad",
       "tagNamePlaceholder": "Diseño de pósteres"
     },
     "TagItem": {

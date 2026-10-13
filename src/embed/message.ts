@@ -456,6 +456,24 @@ type ActionMap = {
     };
     result: BaseActionResult<Record<string, never>>;
   };
+  "get-tag-visibility": {
+    args: { tagId: number };
+    result: BaseActionResult<{
+      members: Array<{ id: string; name: string; departmentsName?: string; avatarUrl?: string }>;
+      departments: Array<{ id: string; name: string }>;
+      groups: Array<{ id: string; name: string }>;
+    }>;
+  };
+  /** 全量替换一级标签可见范围，三个列表都为空则恢复全团队可见 */
+  "set-tag-visibility": {
+    args: {
+      tagId: number;
+      userIds: string[];
+      departmentIds: string[];
+      groupIds: string[];
+    };
+    result: BaseActionResult<Record<string, never>>;
+  };
 };
 
 type ExtractSuccessData<T> = T extends { success: true; data: infer U } ? U : never;
