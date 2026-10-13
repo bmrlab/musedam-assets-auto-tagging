@@ -8,6 +8,7 @@ import { getCachedSignedS3ObjectUrl } from "@/lib/s3";
 import {
   cropImageToDataUrl as cropClassificationImageToDataUrl,
   getResponseByteLength,
+  prepareSvgCropSource,
   withHeavyImageSlot,
 } from "@/lib/tagging/classification-image";
 import { IMAGE_FETCH_TIMEOUT_MS } from "@/lib/tagging/external-timeouts";
@@ -140,10 +141,14 @@ async function buildReferenceImageInput({
     throw createProcessingError(IP_PROCESSING_ERROR_CODES.noReferenceImages);
   }
 
+  const cropSource = await prepareSvgCropSource(buffer, image.mimeType, {
+    width: image.cropImageWidth!,
+    height: image.cropImageHeight!,
+  });
   return cropClassificationImageToDataUrl({
-    imageDataUrl: dataUrl,
-    imageBuffer: buffer,
-    sourceMimeType: image.mimeType,
+    imageDataUrl: bufferToDataUrl(cropSource.buffer, cropSource.mimeType),
+    imageBuffer: cropSource.buffer,
+    sourceMimeType: cropSource.mimeType,
     meta: {
       width: image.cropImageWidth!,
       height: image.cropImageHeight!,

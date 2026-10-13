@@ -125,6 +125,12 @@ export async function prepareClientImageUpload(
     return file;
   }
 
+  // Preserve SVG vectors for server-side rasterization. A canvas sized from the SVG's
+  // small intrinsic viewBox would turn a detailed logo into a tiny bitmap here.
+  if (file.type === "image/svg+xml" || file.name.toLowerCase().endsWith(".svg")) {
+    return file;
+  }
+
   const image = await loadImageFromFile(file);
   if (
     !shouldCompressClientImage({

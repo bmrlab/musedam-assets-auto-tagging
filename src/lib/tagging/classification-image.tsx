@@ -3,6 +3,7 @@ import "server-only";
 import { bufferToDataUrl } from "@/lib/brand/image";
 import { rootLogger } from "@/lib/logging";
 import { IMAGE_FETCH_TIMEOUT_MS } from "@/lib/tagging/external-timeouts";
+import { getSvgRasterDensity } from "@/lib/tagging/svg-rasterization";
 import pLimit from "p-limit";
 import sharp from "sharp";
 
@@ -23,6 +24,10 @@ const SHARP_INPUT_OPTIONS = { limitInputPixels: MAX_INPUT_PIXELS, sequentialRead
 // 取 4096：并发处理多张大图时内存可控（实测 5 个 1.3 万像素 PNG 并发，6144 时 +753MB、4096 时 +605MB），
 // 对人物检测的小脸仍保留足够分辨率；画幅比例只看宽高比，不受缩放影响。
 const WORKING_IMAGE_MAX_DIMENSION = Number(process.env.TAGGING_WORKING_IMAGE_MAX_DIMENSION ?? 4096);
+const SVG_WORKING_IMAGE_MAX_DIMENSION = Math.min(
+  WORKING_IMAGE_MAX_DIMENSION,
+  Math.max(MAX_IMAGE_DIMENSION, 2048),
+);
 const WORKING_IMAGE_JPEG_QUALITY = 92;
 // 大文件（下载 + 解码 + 缩成工作图）全局串行：单张 ~100MB 的 PNG 处理时内存峰值约 +500MB，
 // 并发 6 时几个大图任务同时下载解码，子进程瞬间冲到 1.7GB、容器逼近 2Gi 被杀。缩成工作图后内存就降下来，
@@ -57,7 +62,7 @@ export type ClassificationRemoteImageInput = ClassificationImageMeta & {
   buffer: Buffer;
   dataUrl: string;
   // URL-based detectors return pixels in this remote file's EXIF-oriented coordinate frame.
-  sourceImage?: ClassificationImageMeta & { url: string };
+  sourceImage?: ClassificationImageMeta & { url: string; isSvg?: boolean };
   // Original encoded bytes with dimensions after EXIF orientation, for crops mapped from
   // the bounded detector preview. Consumers must apply orientation before extracting.
   original?: ClassificationImageMeta & {
@@ -138,8 +143,51 @@ function isSvg(buffer: Buffer, mimeType: string) {
     return true;
   }
 
-  const head = buffer.subarray(0, 512).toString("utf8").trimStart();
-  return head.startsWith("<svg") || head.startsWith("<?xml");
+  const head = buffer.subarray(0, 4096).toString("utf8").trimStart();
+  return /^<svg(?:\s|>)/i.test(head) || /^<\?xml[\s\S]*?<svg(?:\s|>)/i.test(head);
+}
+
+/** IP partial-reference crop coordinates are stored in the detector preview's pixel frame. */
+export async function prepareSvgCropSource(
+  buffer: Buffer,
+  mimeType: string,
+  dimensions: ClassificationImageMeta,
+): Promise<{ buffer: Buffer; mimeType: string }> {
+  if (!isSvg(buffer, mimeType)) {
+    return { buffer, mimeType };
+  }
+  const width = Math.round(dimensions.width);
+  const height = Math.round(dimensions.height);
+  if (
+    !Number.isFinite(width) ||
+    !Number.isFinite(height) ||
+    width < 1 ||
+    height < 1 ||
+    Math.max(width, height) > MAX_IMAGE_DIMENSION
+  ) {
+    throw new Error("Invalid SVG reference crop dimensions");
+  }
+  const metadata = await sharp(buffer, SHARP_INPUT_OPTIONS).metadata();
+  const density = getSvgRasterDensity(metadata, Math.max(width, height));
+  return {
+    buffer: await sharp(buffer, {
+      ...SHARP_INPUT_OPTIONS,
+      ...(density === null ? {} : { density }),
+    })
+      .resize({ width, height, fit: "fill" })
+      .flatten({ background: "#fff" })
+      .jpeg({ quality: IMAGE_JPEG_QUALITY })
+      .toBuffer(),
+    mimeType: "image/jpeg",
+  };
+}
+
+function hasSvgFileExtension(imageUrl: string) {
+  try {
+    return new URL(imageUrl).pathname.toLowerCase().endsWith(".svg");
+  } catch {
+    return false;
+  }
 }
 
 function parsePngDimensions(buffer: Buffer): ClassificationImageMeta {
@@ -346,6 +394,8 @@ export type RemoteImageSource = {
   imageUrl: string;
   buffer: Buffer;
   mimeType: string;
+  // The stored source may be SVG even after it has been rasterized for classification.
+  sourceIsSvg?: boolean;
   // Retain remote dimensions when the downloaded buffer is reduced to a working image.
   sourceDimensions?: ClassificationImageMeta;
 };
@@ -427,35 +477,62 @@ async function boundRemoteImageSource(
   source: RemoteImageSource,
   failureContext: string,
 ): Promise<RemoteImageSource> {
+  let sourceIsSvg =
+    source.sourceIsSvg ||
+    isSvg(source.buffer, source.mimeType) ||
+    hasSvgFileExtension(source.imageUrl);
   let width: number;
   let height: number;
+  let metadata: sharp.Metadata;
   try {
-    ({ width, height } = (await sharp(source.buffer, SHARP_INPUT_OPTIONS).metadata()).autoOrient);
-  } catch {
+    metadata = await sharp(source.buffer, SHARP_INPUT_OPTIONS).metadata();
+    ({ width, height } = metadata.autoOrient);
+  } catch (error) {
+    if (sourceIsSvg) throw error;
     return source; // 交给后续环节按原逻辑处理（包括像素超限报错）
   }
+  sourceIsSvg ||= metadata.format === "svg";
   const sourceDimensions = source.sourceDimensions ?? { width, height };
-  if (Math.max(width, height) <= WORKING_IMAGE_MAX_DIMENSION) {
-    return { ...source, sourceDimensions };
+  const density = getSvgRasterDensity(metadata, SVG_WORKING_IMAGE_MAX_DIMENSION);
+  if (density === null && Math.max(width, height) <= WORKING_IMAGE_MAX_DIMENSION) {
+    return {
+      ...source,
+      sourceDimensions,
+      ...(sourceIsSvg ? { sourceIsSvg: true } : {}),
+    };
   }
 
-  const { data, info } = await sharp(source.buffer, SHARP_INPUT_OPTIONS)
+  const targetDimension =
+    density === null ? WORKING_IMAGE_MAX_DIMENSION : SVG_WORKING_IMAGE_MAX_DIMENSION;
+  const { data, info } = await sharp(source.buffer, {
+    ...SHARP_INPUT_OPTIONS,
+    ...(density === null ? {} : { density }),
+  })
     .rotate()
     .resize({
-      width: WORKING_IMAGE_MAX_DIMENSION,
-      height: WORKING_IMAGE_MAX_DIMENSION,
+      width: targetDimension,
+      height: targetDimension,
       fit: "inside",
+      withoutEnlargement: density === null,
     })
     .flatten({ background: "#fff" })
     .jpeg({ quality: WORKING_IMAGE_JPEG_QUALITY })
     .toBuffer({ resolveWithObject: true });
   rootLogger.info({
-    msg: "Large remote image downscaled to working image",
+    msg: sourceIsSvg
+      ? "SVG rasterized to JPEG working image"
+      : "Large remote image downscaled to working image",
     failureContext,
     original: { width, height, bytes: source.buffer.length },
     working: { width: info.width, height: info.height, bytes: data.length },
   });
-  return { imageUrl: source.imageUrl, mimeType: "image/jpeg", buffer: data, sourceDimensions };
+  return {
+    imageUrl: source.imageUrl,
+    mimeType: "image/jpeg",
+    buffer: data,
+    sourceDimensions,
+    ...(sourceIsSvg ? { sourceIsSvg: true } : {}),
+  };
 }
 
 /** 同一个对象的不同签名地址（如 MuseDAM PNG 的 thumbnailAccessUrl 与 downloadUrl 只差查询参数）。 */
@@ -503,7 +580,13 @@ export async function readRemoteImageDimensions(
 }
 
 async function prepareRemoteImageInput(
-  { imageUrl, buffer: originalBuffer, mimeType: sourceMimeType, sourceDimensions }: RemoteImageSource,
+  {
+    imageUrl,
+    buffer: originalBuffer,
+    mimeType: sourceMimeType,
+    sourceDimensions,
+    sourceIsSvg,
+  }: RemoteImageSource,
   failureContext: string,
   {
     maxDimension,
@@ -552,7 +635,11 @@ async function prepareRemoteImageInput(
       byteLength: data.length,
       buffer: data,
       dataUrl: bufferToDataUrl(data, "image/jpeg"),
-      sourceImage: { url: imageUrl, ...(sourceDimensions ?? bufferDimensions) },
+      sourceImage: {
+        url: imageUrl,
+        ...(sourceDimensions ?? bufferDimensions),
+        ...(sourceIsSvg ? { isSvg: true } : {}),
+      },
       ...(original ? { original } : {}),
     };
   } catch (error) {
@@ -570,7 +657,12 @@ async function prepareRemoteImageInput(
     // Mapping detector boxes to original pixels requires a successfully normalized preview.
     // Raw fallback dimensions can be in a different coordinate frame because of EXIF.
     // 超过像素上限的大图也不能退回原始字节（整张转 base64 同样会撑爆内存）。
-    if (preserveOriginal || isPixelLimitError(error)) {
+    if (
+      preserveOriginal ||
+      sourceIsSvg ||
+      isSvg(originalBuffer, sourceMimeType) ||
+      isPixelLimitError(error)
+    ) {
       throw error;
     }
   }
@@ -601,7 +693,13 @@ async function prepareRemoteImageInput(
     dataUrl: bufferToDataUrl(originalBuffer, sourceMimeType),
     // Do not invent an oriented frame if metadata could not establish one.
     ...(bufferDimensions
-      ? { sourceImage: { url: imageUrl, ...(sourceDimensions ?? bufferDimensions) } }
+      ? {
+          sourceImage: {
+            url: imageUrl,
+            ...(sourceDimensions ?? bufferDimensions),
+            ...(sourceIsSvg ? { isSvg: true } : {}),
+          },
+        }
       : {}),
   };
 }
@@ -612,7 +710,11 @@ export async function prepareImageInput(
   failureContext: string,
   { preserveOriginal = false }: { preserveOriginal?: boolean } = {},
 ): Promise<ClassificationRemoteImageInput> {
-  return prepareRemoteImageInput(source, failureContext, {
+  const preparedSource =
+    isSvg(source.buffer, source.mimeType) || hasSvgFileExtension(source.imageUrl)
+      ? await boundRemoteImageSource(source, failureContext)
+      : source;
+  return prepareRemoteImageInput(preparedSource, failureContext, {
     maxDimension: MAX_IMAGE_DIMENSION,
     jpegQuality: IMAGE_JPEG_QUALITY,
     preserveOriginal,
@@ -624,7 +726,11 @@ export async function preparePersonImageInput(
   source: RemoteImageSource,
   failureContext: string,
 ): Promise<ClassificationRemoteImageInput> {
-  return prepareRemoteImageInput(source, failureContext, {
+  const preparedSource =
+    isSvg(source.buffer, source.mimeType) || hasSvgFileExtension(source.imageUrl)
+      ? await boundRemoteImageSource(source, failureContext)
+      : source;
+  return prepareRemoteImageInput(preparedSource, failureContext, {
     maxDimension: null,
     jpegQuality: PERSON_IMAGE_JPEG_QUALITY,
   });

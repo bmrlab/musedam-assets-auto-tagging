@@ -2,6 +2,7 @@ import "server-only";
 
 import { rootLogger } from "@/lib/logging";
 import { getCachedBrowserS3ObjectUrl, uploadS3Object } from "@/lib/s3";
+import { getSvgRasterDensity } from "@/lib/tagging/svg-rasterization";
 import sharp from "sharp";
 
 // 特征库参考图的缩略图。S3 不支持通过 URL 参数缩放，列表里几十张 ~1000px 原图当小图显示很慢，
@@ -15,13 +16,17 @@ export function getReferenceThumbnailKey(objectKey: string) {
 
 /** 校正 EXIF 方向、白底铺平透明区域，缩到长边不超过 256 的 JPEG。 */
 export async function generateReferenceThumbnail(buffer: Buffer) {
-  return sharp(buffer, { sequentialRead: true })
+  const density = getSvgRasterDensity(await sharp(buffer).metadata(), THUMBNAIL_MAX_DIMENSION);
+  return sharp(buffer, {
+    sequentialRead: true,
+    ...(density === null ? {} : { density }),
+  })
     .rotate()
     .resize({
       width: THUMBNAIL_MAX_DIMENSION,
       height: THUMBNAIL_MAX_DIMENSION,
       fit: "inside",
-      withoutEnlargement: true,
+      withoutEnlargement: density === null,
     })
     .flatten({ background: "#fff" })
     .jpeg({ quality: THUMBNAIL_JPEG_QUALITY })

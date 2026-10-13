@@ -1,7 +1,8 @@
 import "server-only";
 
-import { getJinaConfig } from "@/lib/brand/env";
+import { getJinaConfig, isDebugPageEnabled } from "@/lib/brand/env";
 import { REFERENCE_IMAGE_PREPARATION_CONCURRENCY } from "@/lib/brand/upload-constants";
+import { buildJinaDebugImageObjectKey, signS3ObjectUrl, uploadS3Object } from "@/lib/s3";
 import { prepareJinaImageDataUrl } from "@/lib/tagging/reference-image";
 import pLimit from "p-limit";
 import { ProxyAgent, fetch as nodeFetch } from "undici";
@@ -19,6 +20,7 @@ type JinaResponse = {
 const JINA_MAX_RETRIES = 5;
 const JINA_RETRY_BASE_DELAY_MS = 500;
 const JINA_MAX_IMAGE_BATCH_SIZE = 4;
+const JINA_DEBUG_IMAGE_URL_TTL_SECONDS = 7 * 24 * 60 * 60;
 // A paid Jina key allows 2M TPM and each jina-clip-v2 input can use up to 8,192 tokens.
 // Reserve only 80% so mixed image/text traffic has headroom without a fixed per-request delay.
 const JINA_REQUEST_CONCURRENCY = 8;
@@ -105,6 +107,32 @@ async function sendJinaEmbeddingRequest({
   });
 }
 
+async function logDebugJinaImage(image: string, index: number, task?: "retrieval.query") {
+  const match = /^data:(image\/(?:jpeg|png));base64,([\s\S]+)$/.exec(image);
+  if (!match) {
+    console.warn(`[Jina image debug] Image ${index + 1} is not a JPEG or PNG data URL`);
+    return;
+  }
+
+  const contentType = match[1];
+  const objectKey = buildJinaDebugImageObjectKey(contentType === "image/png" ? ".png" : ".jpg");
+  try {
+    await uploadS3Object({
+      body: Buffer.from(match[2], "base64"),
+      contentType,
+      objectKey,
+    });
+    const { signedUrl } = signS3ObjectUrl({
+      objectKey,
+      expiresInSeconds: JINA_DEBUG_IMAGE_URL_TTL_SECONDS,
+    });
+    console.info(`[Jina image debug] image ${index + 1}${task ? ` (${task})` : ""}: ${signedUrl}`);
+    console.info(`[Jina image debug] S3 object key: ${objectKey}`);
+  } catch (error) {
+    console.warn(`[Jina image debug] Failed to upload image ${index + 1} to S3`, error);
+  }
+}
+
 export async function createJinaImageEmbeddings({
   images,
   task,
@@ -130,6 +158,9 @@ export async function createJinaImageEmbeddings({
         .slice(start, start + imageBatchSize)
         .map((image) => prepareImage(() => prepareJinaImageDataUrl(image, { padToSquare }))),
     );
+    if (isDebugPageEnabled()) {
+      await Promise.all(batch.map((image, index) => logDebugJinaImage(image, start + index, task)));
+    }
     let response: Awaited<ReturnType<typeof nodeFetch>> | null = null;
     let payload: JinaResponse | null = null;
     let lastError: unknown = null;

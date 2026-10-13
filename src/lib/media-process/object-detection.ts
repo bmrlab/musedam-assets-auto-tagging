@@ -1,5 +1,6 @@
 import "server-only";
 
+import { buildDetectionJpegObjectKey, signS3ObjectUrl, uploadS3Object } from "@/lib/s3";
 import { slugToId } from "@/lib/slug";
 import type {
   ClassificationDetectionBox,
@@ -138,12 +139,31 @@ export async function detectMediaProcessObjects({
   ) {
     throw new Error(`${errorPrefix} has invalid image dimensions`);
   }
-  const scaleX = imageInput.width / source.width;
-  const scaleY = imageInput.height / source.height;
-
   const mediaProcessTeamId = await resolveMediaProcessTeamId(teamId, errorPrefix);
+  // The URL-based service cannot decode SVG. The shared image preparation path has already
+  // rasterized it; give the service a JPEG URL in those same preview coordinates.
+  // Keep the JPEG in object storage after detection.
+  let detectionSource = source;
+  if (source.isSvg || imageInput.mimeType === "image/svg+xml" || /\.svg$/i.test(fileUrl.pathname)) {
+    if (imageInput.mimeType !== "image/jpeg") {
+      throw new Error(`${errorPrefix} requires a rasterized JPEG for SVG detection`);
+    }
+    const objectKey = buildDetectionJpegObjectKey(teamId);
+    await uploadS3Object({
+      body: imageInput.buffer,
+      contentType: "image/jpeg",
+      objectKey,
+    });
+    detectionSource = {
+      url: signS3ObjectUrl({ objectKey, expiresInSeconds: 60 * 60 }).signedUrl,
+      width: imageInput.width,
+      height: imageInput.height,
+    };
+  }
+  const scaleX = imageInput.width / detectionSource.width;
+  const scaleY = imageInput.height / detectionSource.height;
   const requestBody = JSON.stringify({
-    file: source.url,
+    file: detectionSource.url,
     detection_label_text: detectionLabelText,
     detection_mode: detectionMode,
     team_id: mediaProcessTeamId,

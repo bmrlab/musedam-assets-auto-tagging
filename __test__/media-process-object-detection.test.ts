@@ -7,6 +7,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 const { findTeam } = vi.hoisted(() => ({ findTeam: vi.fn() }));
 vi.mock("@/prisma/prisma", () => ({ default: { team: { findUnique: findTeam } } }));
+const s3 = vi.hoisted(() => ({
+  buildDetectionJpegObjectKey: vi.fn(),
+  uploadS3Object: vi.fn(),
+  signS3ObjectUrl: vi.fn(),
+  deleteS3Object: vi.fn(),
+}));
+vi.mock("@/lib/s3", () => s3);
 
 const jobId = "26b031a1-489b-410c-bde9-f8c485305aba";
 const base = "https://media.test/api";
@@ -44,6 +51,12 @@ describe("media processing detection", () => {
     vi.stubGlobal("fetch", fetchMock);
     fetchMock.mockReset();
     findTeam.mockReset().mockResolvedValue({ slug: "t/16" });
+    s3.buildDetectionJpegObjectKey.mockReset().mockReturnValue("teams-7-detection-svg-test.jpg");
+    s3.uploadS3Object
+      .mockReset()
+      .mockResolvedValue({ objectKey: "teams-7-detection-svg-test.jpg" });
+    s3.signS3ObjectUrl.mockReset().mockReturnValue({ signedUrl: "https://s3.test/detection.jpg" });
+    s3.deleteS3Object.mockReset().mockResolvedValue(undefined);
   });
   afterEach(() => {
     vi.useRealTimers();
@@ -164,6 +177,58 @@ describe("media processing detection", () => {
       }),
     );
     expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("sends a retained JPEG URL for SVG detection", async () => {
+    fetchMock.mockResolvedValueOnce(
+      json({
+        id: jobId,
+        result: {
+          detections: [
+            { x_min: 128, y_min: 85, x_max: 640, y_max: 426, score: 0.9, label: "logo" },
+          ],
+          found: true,
+        },
+        error: {},
+      }),
+    );
+    const svgInput: ClassificationRemoteImageInput = {
+      ...input,
+      sourceImage: {
+        url: "https://assets.test/download?id=svg",
+        width: 2400,
+        height: 1600,
+        isSvg: true,
+      },
+    };
+    expect(await run({ imageInput: svgInput, requestMode: "sync" })).toEqual({
+      detections: [{ xMin: 128, yMin: 85, xMax: 640, yMax: 426, score: 0.9, label: "logo" }],
+      found: true,
+    });
+    expect(s3.uploadS3Object).toHaveBeenCalledExactlyOnceWith({
+      body: svgInput.buffer,
+      contentType: "image/jpeg",
+      objectKey: "teams-7-detection-svg-test.jpg",
+    });
+    expect(JSON.parse(fetchMock.mock.calls[0][1]!.body as string).file).toBe(
+      "https://s3.test/detection.jpg",
+    );
+    expect(s3.deleteS3Object).not.toHaveBeenCalled();
+  });
+
+  it("leaves the JPEG in object storage when SVG detection fails", async () => {
+    fetchMock.mockResolvedValueOnce(json({ detail: "service failed" }, 400));
+    await expect(
+      run({
+        requestMode: "sync",
+        imageInput: {
+          ...input,
+          sourceImage: { ...input.sourceImage!, isSvg: true },
+        },
+      }),
+    ).rejects.toThrow("service failed");
+    expect(s3.uploadS3Object).toHaveBeenCalledOnce();
+    expect(s3.deleteS3Object).not.toHaveBeenCalled();
   });
 
   it("accepts no synchronous detections and preserves product_instances mode", async () => {
