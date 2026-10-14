@@ -440,6 +440,7 @@
       "latest": "ล่าสุด",
       "requiredFallbackBadge": "ค่าสำรองบังคับ",
       "aspectRatioBadge": "จากขนาดภาพ",
+      "sizeAIBadge": "AI จากขนาด",
       "appliedBadge": "นำไปใช้แล้ว",
       "showHistory": "ดูประวัติ ({count})",
       "hideHistory": "ซ่อนประวัติ",

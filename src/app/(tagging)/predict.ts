@@ -15,7 +15,11 @@ import { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 import { generateObject, UserModelMessage } from "ai";
 import { createHash } from "node:crypto";
 import z from "zod";
-import { collectAspectRatioTagIds, detectAspectRatioGroups } from "./aspect-ratio";
+import {
+  AspectRatioGroup,
+  collectAspectRatioTagIds,
+  detectAspectRatioGroups,
+} from "./aspect-ratio";
 import {
   buildExclusiveBranchResolver,
   flattenTagsTree,
@@ -1258,6 +1262,88 @@ export async function predictRequiredGroupChoices({
     if (tag) tags.push(tag);
   }
   return dedupeTagsWithScore(tags);
+}
+
+const unparsedSizeTagSchema = z.object({
+  matches: z.array(
+    z.object({
+      leafTagId: z.number(),
+      confidence: z.number(),
+    }),
+  ),
+});
+
+/**
+ * 画幅组里系统解析不了的规格标签（如"长1600、宽度自适应"、"长图（高度≥3000）"），
+ * 带上素材真实像素尺寸单独问一次模型。宽高必须是原图尺寸——缩略图缩放过，不能拿来判断像素规格。
+ * 模型只能从这些候选里选，可以一个都不选；低于识别模式门槛的丢弃。失败时返回空，不影响主流程。
+ */
+export async function predictUnparsedSizeTags({
+  groups,
+  width,
+  height,
+  assetName,
+  teamId,
+  minConfidence,
+}: {
+  groups: AspectRatioGroup[];
+  width: number;
+  height: number;
+  assetName: string;
+  teamId: number;
+  minConfidence: number;
+}): Promise<TagWithScore[]> {
+  const candidates = groups.flatMap((group) => group.unparsedChildren);
+  if (candidates.length === 0) return [];
+  const candidateById = new Map(candidates.map((child) => [child.id, child] as const));
+  const candidatesText = groups
+    .filter((group) => group.unparsedChildren.length > 0)
+    .map(
+      (group) =>
+        `## ${group.parentPath.join(" > ")}\n${group.unparsedChildren
+          .map((child) => `- id ${child.id}: ${child.tagPath[child.tagPath.length - 1]}`)
+          .join("\n")}`,
+    )
+    .join("\n\n");
+
+  try {
+    const modelName = getTaggingPredictModel();
+    const result = await generateObject({
+      model: llm(modelName),
+      schemaName: "UnparsedSizeTags",
+      schema: unparsedSizeTagSchema,
+      providerOptions: getTaggingPredictProviderOptions(modelName, teamId),
+      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+      system: `你是数字资产管理系统的打标助手，负责判断素材的像素尺寸是否符合某些"规格"标签的描述。
+- 只依据给出的真实像素宽高做判断，标签名里括号内是用途说明，不是尺寸条件。
+- "长"/"高"通常指纵向像素，"宽"指横向像素；"自适应"/"不限"表示该边不做要求。
+- 只有尺寸明确满足标签描述时才选；"约""左右"之类的描述允许 5% 以内误差；说不清的不要选，可以一个都不选。
+- 只输出 JSON：{"matches":[{"leafTagId":<候选 id>,"confidence":<0-1>}]}，leafTagId 必须来自候选列表。`,
+      prompt: `# 素材\n文件名：${assetName}\n像素尺寸：宽 ${width} × 高 ${height}\n\n# 候选规格标签\n${candidatesText}`,
+      temperature: 0,
+    });
+    const seen = new Set<number>();
+    const tags: TagWithScore[] = [];
+    for (const match of result.object.matches) {
+      const child = candidateById.get(match.leafTagId);
+      if (!child || seen.has(child.id) || match.confidence < minConfidence) continue;
+      seen.add(child.id);
+      tags.push({
+        leafTagId: child.id,
+        tagPath: child.tagPath,
+        confidenceBySources: {},
+        score: Math.round(Math.min(1, match.confidence) * 100),
+        origin: "sizeAI",
+      });
+    }
+    return tags;
+  } catch (error) {
+    console.warn("规格标签按尺寸识别失败，跳过", {
+      teamId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return [];
+  }
 }
 
 /** 按 leafTagId 去重，保留先出现的一条（模型结果在前、兜底结果在后）。 */

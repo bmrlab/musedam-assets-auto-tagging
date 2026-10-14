@@ -42,12 +42,13 @@ export type TagWithScore = {
   /**
    * 非常规来源标记（常规 AI 预测不带此字段）：
    * - requiredFallback：所属分类标记为"必打"，模型证据不足，由代码兜底选出；
-   * - aspectRatio：按素材真实宽高确定性计算出的画幅比例标签，不经过模型。
+   * - aspectRatio：按素材真实宽高确定性计算出的画幅比例标签，不经过模型；
+   * - sizeAI：画幅组里系统解析不了的规格（如"长1600、宽度自适应"），由模型按真实像素尺寸判断。
    */
   origin?: TagWithScoreOrigin;
 };
 
-export type TagWithScoreOrigin = "requiredFallback" | "aspectRatio";
+export type TagWithScoreOrigin = "requiredFallback" | "aspectRatio" | "sizeAI";
 
 /**
  * Team Tagging Settings

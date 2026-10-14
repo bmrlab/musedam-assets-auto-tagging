@@ -689,6 +689,7 @@
       "latest": "En Son",
       "requiredFallbackBadge": "Zorunlu yedek",
       "aspectRatioBadge": "Boyutlardan",
+      "sizeAIBadge": "YZ boyuttan",
       "appliedBadge": "Uygulandı",
       "showHistory": "Geçmişi göster ({count})",
       "hideHistory": "Geçmişi gizle",

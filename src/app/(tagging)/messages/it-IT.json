@@ -440,6 +440,7 @@
       "latest": "Più recente",
       "requiredFallbackBadge": "Fallback obbligatorio",
       "aspectRatioBadge": "Da dimensioni",
+      "sizeAIBadge": "IA da dimensioni",
       "appliedBadge": "Applicato",
       "showHistory": "Mostra cronologia ({count})",
       "hideHistory": "Nascondi cronologia",

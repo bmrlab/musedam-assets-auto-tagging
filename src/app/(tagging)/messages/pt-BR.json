@@ -135,6 +135,7 @@
       "latest": "Mais recentes",
       "requiredFallbackBadge": "Fallback obrigatório",
       "aspectRatioBadge": "Por dimensões",
+      "sizeAIBadge": "IA por tamanho",
       "appliedBadge": "Aplicado",
       "showHistory": "Ver histórico ({count})",
       "hideHistory": "Ocultar histórico",

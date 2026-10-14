@@ -689,6 +689,7 @@
       "latest": "Najnowsze",
       "requiredFallbackBadge": "Obowiązkowy fallback",
       "aspectRatioBadge": "Z wymiarów",
+      "sizeAIBadge": "AI wg rozmiaru",
       "appliedBadge": "Zastosowano",
       "showHistory": "Pokaż historię ({count})",
       "hideHistory": "Ukryj historię",

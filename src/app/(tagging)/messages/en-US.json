@@ -766,6 +766,7 @@
       "latest": "Latest",
       "requiredFallbackBadge": "Required fallback",
       "aspectRatioBadge": "From dimensions",
+      "sizeAIBadge": "AI from size",
       "appliedBadge": "Applied",
       "showHistory": "Show history ({count})",
       "hideHistory": "Hide history",

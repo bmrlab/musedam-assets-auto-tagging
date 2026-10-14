@@ -55,7 +55,7 @@ import {
 } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 import pLimit from "p-limit";
-import { detectAspectRatioGroups, resolveAspectRatioTags } from "./aspect-ratio";
+import { detectAspectRatioGroups, mergeAiSizeTags, resolveAspectRatioTags } from "./aspect-ratio";
 import { getBrandRecommendationTagIdsFromQueueResult } from "./brand-recommendation";
 import { fetchTagsTreeForTagging } from "./evidence-policy-server";
 import {
@@ -68,8 +68,9 @@ import {
   getAcceptedPersonRecommendationTagIds,
   getReviewablePersonRecommendationTagIds,
 } from "./person-recommendation";
-import { predictAssetTags } from "./predict";
+import { predictAssetTags, predictUnparsedSizeTags } from "./predict";
 import { getProductRecommendationTagIdsFromQueueResult } from "./product-recommendation";
+import { RECOGNITION_ACCURACY_CONFIG } from "./prompt";
 import {
   PROCESSING_TIMING_VERSION,
   TAG_TREE_RESERVED_CONCURRENCY,
@@ -523,6 +524,9 @@ export async function processQueueItem({
     const aspectRatioTags = await resolveAspectRatioTagsForAsset({
       tagsTree: exclusiveTagsTree,
       assetExtra,
+      assetName: assetObject.name,
+      teamId,
+      recognitionAccuracy: newExtra.recognitionAccuracy,
       getThumbnailSource: thumbnailUrl ? () => getThumbnailSource(thumbnailUrl) : undefined,
       logger,
     });
@@ -1244,11 +1248,17 @@ export async function processPendingQueueItems(): Promise<{
 async function resolveAspectRatioTagsForAsset({
   tagsTree,
   assetExtra,
+  assetName,
+  teamId,
+  recognitionAccuracy,
   getThumbnailSource,
   logger,
 }: {
   tagsTree: TagWithChildren[];
   assetExtra: AssetObjectExtra | null;
+  assetName: string;
+  teamId: number;
+  recognitionAccuracy: keyof typeof RECOGNITION_ACCURACY_CONFIG | undefined;
   getThumbnailSource: (() => Promise<RemoteImageSource>) | undefined;
   logger: typeof rootLogger;
 }): Promise<TagWithScore[]> {
@@ -1275,13 +1285,31 @@ async function resolveAspectRatioTagsForAsset({
       return [];
     }
   }
-  const tags = resolveAspectRatioTags({ groups, width, height });
+  const systemTags = resolveAspectRatioTags({ groups, width, height });
+  // 系统解析不了的规格标签（如"长1600、宽度自适应"）交给模型按像素尺寸判断；
+  // 只在有原图宽高时做，缩略图缩放过，判断不了像素规格。
+  const originalWidth = assetExtra?.width;
+  const originalHeight = assetExtra?.height;
+  const aiTags =
+    originalWidth && originalHeight && groups.some((group) => group.unparsedChildren.length > 0)
+      ? await predictUnparsedSizeTags({
+          groups,
+          width: originalWidth,
+          height: originalHeight,
+          assetName,
+          teamId,
+          minConfidence:
+            RECOGNITION_ACCURACY_CONFIG[recognitionAccuracy ?? "balanced"].minConfidence,
+        })
+      : [];
+  const tags = mergeAiSizeTags({ groups, systemTags, aiTags });
   logger.info({
     msg: "Aspect ratio tagging resolved",
     width,
     height,
     groups: groups.map((group) => group.parentPath.join(" > ")),
     tags: tags.map((tag) => tag.tagPath.join(" > ")),
+    aiSizeTags: aiTags.map((tag) => tag.tagPath.join(" > ")),
   });
   return tags;
 }

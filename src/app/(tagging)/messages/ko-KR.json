@@ -135,6 +135,7 @@
       "latest": "최신",
       "requiredFallbackBadge": "필수 대체",
       "aspectRatioBadge": "크기 기준",
+      "sizeAIBadge": "AI 크기 기준",
       "appliedBadge": "적용됨",
       "showHistory": "이력 보기 ({count})",
       "hideHistory": "이력 숨기기",
