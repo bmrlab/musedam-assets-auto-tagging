@@ -1346,6 +1346,57 @@ export async function predictUnparsedSizeTags({
   }
 }
 
+/** 详细描述在 prompt 里的最大长度，避免个别素材的长解析结果撑爆上下文 */
+const CONTENT_ANALYSIS_DETAIL_MAX_LENGTH = 4000;
+
+function stringifyAnalysisValue(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) return value.map(stringifyAnalysisValue).filter(Boolean).join("、");
+  return JSON.stringify(value);
+}
+
+/**
+ * 智能解析（MuseDAM get-asset-analysis-result）信息源的文本，既拼进 prompt，也作为字面证据的校验原文：
+ * - aiDescription 画面描述、aiTitle 标题；
+ * - aiDetailedDescription 详细描述：键值对数组，逐项展开为"键：值"，不依赖具体有哪些键——
+ *   画面上的文字（海报上的 618、平台水印、国家/语言字样）通常在这里，是渠道/活动等字面型标签的有效依据。
+ * aiTags 不用：它是模型概括出的风格/氛围词而不是画面原文，容易被拿去误推渠道这类字面型标签。
+ */
+export function buildContentAnalysisText(content: unknown): string {
+  if (!content || typeof content !== "object") return "";
+  const { aiDescription, aiTitle, aiDetailedDescription } = content as AssetObjectContentAnalysis;
+  const lines: string[] = [];
+  const description = stringifyAnalysisValue(aiDescription);
+  if (description) lines.push(`内容分析：${description}`);
+  const title = stringifyAnalysisValue(aiTitle);
+  if (title) lines.push(`标题：${title}`);
+  if (Array.isArray(aiDetailedDescription)) {
+    const details = aiDetailedDescription
+      .flatMap((entry) =>
+        entry && typeof entry === "object"
+          ? Object.entries(entry).map(([key, value]) => {
+              const text = stringifyAnalysisValue(value);
+              return text ? `- ${key}：${text}` : "";
+            })
+          : [stringifyAnalysisValue(entry)].filter(Boolean).map((text) => `- ${text}`),
+      )
+      .filter(Boolean)
+      .join("\n");
+    if (details) {
+      lines.push(
+        `详细描述：\n${
+          details.length > CONTENT_ANALYSIS_DETAIL_MAX_LENGTH
+            ? `${details.slice(0, CONTENT_ANALYSIS_DETAIL_MAX_LENGTH)}…`
+            : details
+        }`,
+      );
+    }
+  }
+  return lines.join("\n");
+}
+
 /** 按 leafTagId 去重，保留先出现的一条（模型结果在前、兜底结果在后）。 */
 export function dedupeTagsWithScore(tags: TagWithScore[]): TagWithScore[] {
   const seen = new Set<number>();
@@ -1407,6 +1458,8 @@ export async function predictAssetTags(
     throw taggingPredictError("NO_TAG_TREE", "No tag tree available");
   }
   const aiDescription = (asset.content as AssetObjectContentAnalysis)?.aiDescription;
+  // 智能解析信息源的完整文本：画面描述 + 标题 + 详细描述（画面文字通常在详细描述里）
+  const contentAnalysisText = buildContentAnalysisText(asset.content);
   // 大的字面型分组（SKU 等）只把素材文字里字面出现的子标签发给模型，文字只取已启用的信息源。
   const promptTree = pruneLargeLiteralGroupsForPrompt(
     tagsTree,
@@ -1414,7 +1467,7 @@ export async function predictAssetTags(
       enabled.basicInfo || enabled.tagKeywords ? asset.name : "",
       enabled.basicInfo || enabled.tagKeywords ? asset.description : "",
       enabled.materializedPath || enabled.tagKeywords ? asset.materializedPath : "",
-      enabled.contentAnalysis ? aiDescription : "",
+      enabled.contentAnalysis ? contentAnalysisText : "",
     ]
       .filter(Boolean)
       .join(" "),
@@ -1438,9 +1491,7 @@ export async function predictAssetTags(
     ? `该素材的真实文件格式为：${realMediaKind === "video" ? "视频" : realMediaKind === "image" ? "图片" : "未知类型"}（.${realExtension}）。这是系统确定性事实，请以此为准判断素材类型/格式相关标签，不要仅凭文件名或标签名称中恰好出现的文字（如"视频"二字恰好是某个标签名称的一部分）来推断格式，若标签暗示的格式与该事实矛盾，禁止选用该标签。`
     : "该素材的真实文件格式未知（系统未提供）。请对格式类标签更加谨慎，不要仅凭文件名或标签名称中的字面文字武断下结论。";
 
-  // aiTags 是同一次视觉分析产出的通用标签自由文本，和 aiDescription 内容高度重叠，
-  // 却给了模型更多"风格/氛围类"词汇去误推元数据类标签（如渠道）——只保留 aiDescription（见上方），
-  // 不再把 aiTags 拼进 prompt，减少无关文本对模型的干扰。
+  // aiTags 不拼进 prompt：见 buildContentAnalysisText。
 
   // 每个信息源的文本只在对应设置启用时才拼进 prompt——被关闭的信息源必须真正"不可见"，
   // 而不是喂给模型之后再事后过滤模型自报的 source 标签（那样关闭形同虚设，见下方 matchingSources 过滤）。
@@ -1457,7 +1508,7 @@ export async function predictAssetTags(
   }
   if (enabled.contentAnalysis) {
     sourceSections.push(`## contentAnalysis信息源
-内容分析：${aiDescription || "无有效内容数据"}`);
+${contentAnalysisText || "内容分析：无有效内容数据"}`);
   }
   if (enabled.tagKeywords) {
     sourceSections.push(`## tagKeywords信息源
@@ -1499,6 +1550,10 @@ ${sourceSections.join("\n\n")}
       description: asset.description ?? "",
       materializedPath: asset.materializedPath,
       contentAiDescription: aiDescription ?? "",
+      // 只在有画面描述之外的解析内容时才加入，没有时保持旧 seed 不变
+      ...(contentAnalysisText !== buildContentAnalysisText({ aiDescription })
+        ? { contentAnalysisText }
+        : {}),
       realExtension: realExtension ?? "",
       matchingSources: options?.matchingSources ?? null,
       recognitionAccuracy: options?.recognitionAccuracy ?? null,
@@ -1578,7 +1633,7 @@ ${sourceSections.join("\n\n")}
       const pathText = normalizeForMatch(asset.materializedPath ?? "");
       predictions = enforceLiteralEvidenceForMetadataTags(predictions, tagsTree, {
         contentAnalysis: enabled.contentAnalysis
-          ? normalizeForMatch(aiDescription ?? "")
+          ? normalizeForMatch(contentAnalysisText)
           : undefined,
         tagKeywords: enabled.tagKeywords ? [basicInfoText, pathText].join(" ") : undefined,
         basicInfo: enabled.basicInfo ? basicInfoText : undefined,
@@ -1654,7 +1709,7 @@ ${sourceSections.join("\n\n")}
           `文件名：${asset.name}`,
           `文件描述：${asset.description || "无"}`,
           `文件路径：${asset.materializedPath || "无"}`,
-          `内容分析：${aiDescription || "无"}`,
+          contentAnalysisText || "内容分析：无",
         ].join("\n"),
       });
       const tagsWithScore = dedupeTagsWithScore([...required.tagsWithScore, ...forcedChoices]);
