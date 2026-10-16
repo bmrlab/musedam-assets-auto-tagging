@@ -916,6 +916,10 @@ const PROCESSING_STALE_TIMEOUT_MS = Number(
 );
 // 被中断的任务自动放回队列重试的次数；再次中断才标记失败，避免会拖垮进程的任务无限重试
 const MAX_INTERRUPTED_RETRIES = 1;
+// 单个任务的整体处理上限。某个外部调用一直不返回时，任务会一直占着并发槽，心跳也照常在刷，
+// 上面的回收逻辑认不出来；槽位占满后每轮都 "all slots busy"，调度器的请求也一直挂着，整个队列卡死。
+// 超时后标记失败并释放槽位（底层 Promise 无法取消，会在后台继续跑完，迟到的结果仍会正常落库）。
+const QUEUE_ITEM_TIMEOUT_MS = Number(process.env.QUEUE_ITEM_TIMEOUT_MS) || 10 * 60 * 1000;
 
 async function recoverStaleProcessingItems(): Promise<number> {
   const staleBefore = new Date(Date.now() - PROCESSING_STALE_TIMEOUT_MS);
@@ -998,6 +1002,37 @@ export function createBatchTagsTreeLoader(
   };
 }
 
+async function markQueueItemTimedOut(queueItem: TaggingQueueItem): Promise<void> {
+  rootLogger.error({
+    msg: "Queue item timed out, releasing slot",
+    teamId: queueItem.teamId,
+    assetObjectId: queueItem.assetObjectId,
+    queueItemId: queueItem.id,
+    timeoutMs: QUEUE_ITEM_TIMEOUT_MS,
+  });
+  // 只改仍在 processing 的：如果恰好在超时那一刻已经落了 completed / failed，不覆盖
+  await prisma.taggingQueueItem
+    .updateMany({
+      where: { id: queueItem.id, status: "processing" },
+      data: {
+        status: "failed",
+        endsAt: new Date(),
+        result: {
+          // 复用心跳超时的错误码，前端已有对应的「处理超时」文案
+          error: "PROCESSING_STALE_TIMEOUT",
+          message: `处理超过 ${QUEUE_ITEM_TIMEOUT_MS}ms 未完成，已自动标记失败`,
+        } as TaggingQueueItemResult,
+      },
+    })
+    .catch((error) => {
+      rootLogger.error({
+        msg: "Failed to mark timed-out queue item as failed",
+        queueItemId: queueItem.id,
+        err: error,
+      });
+    });
+}
+
 async function tryClaimAndProcess(
   queueItem: TaggingQueueItem & { assetObject?: AssetObject | null },
   onSuccess: () => void,
@@ -1036,16 +1071,34 @@ async function tryClaimAndProcess(
             });
           });
       }, PROCESSING_HEARTBEAT_MS);
-      if (isTagTreeJob(queueItem)) {
-        await processTagTreeQueueItem({ ...queueItem, status: "processing", startsAt, extra });
-      } else {
-        await processQueueItem({
-          ...(queueItem as TaggingQueueItem & { assetObject: AssetObject | null }),
-          status: "processing",
-          startsAt,
-          extra,
-          tagsTreeLoader,
+      const work = isTagTreeJob(queueItem)
+        ? processTagTreeQueueItem({ ...queueItem, status: "processing", startsAt, extra })
+        : processQueueItem({
+            ...(queueItem as TaggingQueueItem & { assetObject: AssetObject | null }),
+            status: "processing",
+            startsAt,
+            extra,
+            tagsTreeLoader,
+          });
+      let timeoutId: ReturnType<typeof setTimeout> | undefined;
+      const timedOut = await Promise.race([
+        work.then(() => false),
+        new Promise<true>((resolve) => {
+          timeoutId = setTimeout(() => resolve(true), QUEUE_ITEM_TIMEOUT_MS);
+        }),
+      ]).finally(() => clearTimeout(timeoutId));
+      if (timedOut) {
+        // 超时后底层任务还在后台跑，它之后的异常不能变成 unhandled rejection
+        work.catch((error) => {
+          rootLogger.warn({
+            msg: "Timed-out queue item failed later",
+            queueItemId: queueItem.id,
+            err: error,
+          });
         });
+        await markQueueItemTimedOut(queueItem);
+        onSkip();
+        return;
       }
       onSuccess();
     } else {
