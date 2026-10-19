@@ -1,5 +1,6 @@
 import "server-only";
 
+import { resolveModelChain, runWithModelFallback } from "@/ai/model-fallback";
 import { llm, LLMModelName } from "@/ai/provider";
 import { LLM_TIMEOUT_MS } from "@/lib/tagging/external-timeouts";
 import {
@@ -57,6 +58,43 @@ function getTaggingPredictModel(): LLMModelName {
   return (process.env.TAGGING_PREDICT_MODEL?.trim() || "gpt-5-mini") as LLMModelName;
 }
 
+// 主模型调用失败（例如上游账号欠费返回 403、限流、5xx）时依次改用的备用模型，逗号分隔；设为空串关闭。
+// 默认 gpt-5.4-mini：与主模型同档、成本相近，且网关(litellm)给它配了 azure/gpt-5.4 二级兜底，
+// 不会像 gpt-5-mini 那样上游账号一欠费就整组不可用。
+const DEFAULT_TAGGING_PREDICT_FALLBACK_MODELS = "gpt-5.4-mini";
+
+function getTaggingPredictModelChain(): LLMModelName[] {
+  return resolveModelChain(
+    getTaggingPredictModel(),
+    process.env.TAGGING_PREDICT_FALLBACK_MODELS,
+    DEFAULT_TAGGING_PREDICT_FALLBACK_MODELS,
+  );
+}
+
+function runWithTaggingModelFallback<T>(
+  stage: string,
+  teamId: string | number,
+  run: (modelName: LLMModelName) => Promise<T>,
+): Promise<T> {
+  return runWithModelFallback(
+    getTaggingPredictModelChain(),
+    run,
+    ({ failedModel, nextModel, error }) => {
+      console.warn("AI标签预测: 模型调用失败，切换备用模型", {
+        stage,
+        teamId,
+        failedModel,
+        nextModel,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    },
+  );
+}
+
+// reasoningEffort "minimal" 只有初代 gpt-5 系列支持，gpt-5.1 起的新版本（如兜底用的 gpt-5.4-mini）
+// 会拒绝该值，所以这些模型不传推理参数，用网关默认值。
+const GPT5_MINIMAL_REASONING_MODELS = new Set<string>(["gpt-5", "gpt-5-mini", "gpt-5-nano"]);
+
 function getTaggingPredictProviderOptions(modelName: LLMModelName, teamId: string | number) {
   if (!modelName.startsWith("gpt-5")) return undefined;
 
@@ -64,8 +102,12 @@ function getTaggingPredictProviderOptions(modelName: LLMModelName, teamId: strin
     // azure openai provider 这里也是 openai
     openai: {
       promptCacheKey: `musedam-t-${teamId}`,
-      reasoningSummary: "auto", // 'auto' | 'detailed'
-      reasoningEffort: "minimal", // 'minimal' | 'low' | 'medium' | 'high'
+      ...(GPT5_MINIMAL_REASONING_MODELS.has(modelName)
+        ? {
+            reasoningSummary: "auto", // 'auto' | 'detailed'
+            reasoningEffort: "minimal", // 'minimal' | 'low' | 'medium' | 'high'
+          }
+        : {}),
     } satisfies OpenAIResponsesProviderOptions,
   };
 }
@@ -1226,17 +1268,18 @@ export async function predictRequiredGroupChoices({
 
   let chosen = new Map<number, number>();
   try {
-    const modelName = getTaggingPredictModel();
-    const result = await generateObject({
-      model: llm(modelName),
-      schemaName: "RequiredGroupChoices",
-      schema: requiredGroupChoiceSchema,
-      providerOptions: getTaggingPredictProviderOptions(modelName, teamId),
-      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-      system: `你是数字资产管理系统的打标助手。下面这些分类被管理员设置为"必打"：每个素材都必须在该分类下选出恰好一个标签，哪怕证据不足也要选最可能的那个，不允许不选。只输出 JSON：{"choices":[{"parentId":<分类 id>,"leafTagId":<所选标签 id>}]}，每个必打分类恰好一条，leafTagId 必须来自该分类下列出的候选。`,
-      prompt: `# 素材信息\n${assetSummary}\n\n# 需要选择的必打分类\n${groupsText}`,
-      temperature: 0,
-    });
+    const result = await runWithTaggingModelFallback("requiredGroupChoices", teamId, (modelName) =>
+      generateObject({
+        model: llm(modelName),
+        schemaName: "RequiredGroupChoices",
+        schema: requiredGroupChoiceSchema,
+        providerOptions: getTaggingPredictProviderOptions(modelName, teamId),
+        abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+        system: `你是数字资产管理系统的打标助手。下面这些分类被管理员设置为"必打"：每个素材都必须在该分类下选出恰好一个标签，哪怕证据不足也要选最可能的那个，不允许不选。只输出 JSON：{"choices":[{"parentId":<分类 id>,"leafTagId":<所选标签 id>}]}，每个必打分类恰好一条，leafTagId 必须来自该分类下列出的候选。`,
+        prompt: `# 素材信息\n${assetSummary}\n\n# 需要选择的必打分类\n${groupsText}`,
+        temperature: 0,
+      }),
+    );
     chosen = new Map(result.object.choices.map((choice) => [choice.parentId, choice.leafTagId]));
   } catch (error) {
     console.warn("必打分类强制单选失败，按每组第一个叶子兜底", {
@@ -1307,21 +1350,22 @@ export async function predictUnparsedSizeTags({
     .join("\n\n");
 
   try {
-    const modelName = getTaggingPredictModel();
-    const result = await generateObject({
-      model: llm(modelName),
-      schemaName: "UnparsedSizeTags",
-      schema: unparsedSizeTagSchema,
-      providerOptions: getTaggingPredictProviderOptions(modelName, teamId),
-      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-      system: `你是数字资产管理系统的打标助手，负责判断素材的像素尺寸是否符合某些"规格"标签的描述。
+    const result = await runWithTaggingModelFallback("unparsedSizeTags", teamId, (modelName) =>
+      generateObject({
+        model: llm(modelName),
+        schemaName: "UnparsedSizeTags",
+        schema: unparsedSizeTagSchema,
+        providerOptions: getTaggingPredictProviderOptions(modelName, teamId),
+        abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+        system: `你是数字资产管理系统的打标助手，负责判断素材的像素尺寸是否符合某些"规格"标签的描述。
 - 只依据给出的真实像素宽高做判断，标签名里括号内是用途说明，不是尺寸条件。
 - "长"/"高"通常指纵向像素，"宽"指横向像素；"自适应"/"不限"表示该边不做要求。
 - 只有尺寸明确满足标签描述时才选；"约""左右"之类的描述允许 5% 以内误差；说不清的不要选，可以一个都不选。
 - 只输出 JSON：{"matches":[{"leafTagId":<候选 id>,"confidence":<0-1>}]}，leafTagId 必须来自候选列表。`,
-      prompt: `# 素材\n文件名：${assetName}\n像素尺寸：宽 ${width} × 高 ${height}\n\n# 候选规格标签\n${candidatesText}`,
-      temperature: 0,
-    });
+        prompt: `# 素材\n文件名：${assetName}\n像素尺寸：宽 ${width} × 高 ${height}\n\n# 候选规格标签\n${candidatesText}`,
+        temperature: 0,
+      }),
+    );
     const seen = new Set<number>();
     const tags: TagWithScore[] = [];
     for (const match of result.object.matches) {
@@ -1568,26 +1612,28 @@ ${sourceSections.join("\n\n")}
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      const modelName = getTaggingPredictModel();
-      const result = await generateObject({
-        // model: llm("claude-sonnet-4"),
-        // model: llm("gpt-5-nano"),
-        model: llm(modelName),
-        schemaName: "TagPredictions",
-        schemaDescription:
-          '返回 JSON 对象 {"predictions":[...]}；predictions 元素包含 source("basicInfo"|"materializedPath"|"contentAnalysis"|"tagKeywords") 和 tags；tags 元素包含 confidence(0-1)、leafTagId(number)、tagPath(string[])。只输出纯 JSON。',
-        providerOptions: getTaggingPredictProviderOptions(modelName, asset.teamId),
-        abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-        schema: tagPredictionsResponseSchema,
-        system: tagPredictionSystemPrompt(recognitionAccuracyMode),
-        messages,
-        temperature: 0,
-        seed: stableSeed,
-        experimental_repairText: async (res: { text: string }) => {
-          // 尝试提取并包装为对象，满足 OpenAI Structured Outputs 的根 schema 限制
-          return repairToPredictionEnvelopeText(res.text, { attempt });
-        },
-      });
+      const result = await runWithTaggingModelFallback(
+        "tagPredictions",
+        asset.teamId,
+        (modelName) =>
+          generateObject({
+            model: llm(modelName),
+            schemaName: "TagPredictions",
+            schemaDescription:
+              '返回 JSON 对象 {"predictions":[...]}；predictions 元素包含 source("basicInfo"|"materializedPath"|"contentAnalysis"|"tagKeywords") 和 tags；tags 元素包含 confidence(0-1)、leafTagId(number)、tagPath(string[])。只输出纯 JSON。',
+            providerOptions: getTaggingPredictProviderOptions(modelName, asset.teamId),
+            abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+            schema: tagPredictionsResponseSchema,
+            system: tagPredictionSystemPrompt(recognitionAccuracyMode),
+            messages,
+            temperature: 0,
+            seed: stableSeed,
+            experimental_repairText: async (res: { text: string }) => {
+              // 尝试提取并包装为对象，满足 OpenAI Structured Outputs 的根 schema 限制
+              return repairToPredictionEnvelopeText(res.text, { attempt });
+            },
+          }),
+      );
 
       if (!result.object) {
         throw new Error("AI标签预测失败, result.object is undefined");
