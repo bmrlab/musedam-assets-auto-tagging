@@ -14,6 +14,7 @@ import {
 import { getServerFeatureLibraryFeatures } from "@/lib/feature-library-server";
 import { ServerActionResult } from "@/lib/serverAction";
 import { idToSlug, slugToId } from "@/lib/slug";
+import { buildParentSelect, buildTagNamePath, TagWithParentChain } from "@/lib/tagging/tag-level";
 import { retrieveTeamCredentials } from "@/musedam/apiKey";
 import {
   batchSyncAssetThumbnails,
@@ -121,30 +122,21 @@ async function buildAssetObjectTags(
   musedamTags: { id: MuseDAMID; name: string }[],
 ): Promise<AssetObjectTags> {
   const tagSlugs = musedamTags.map(({ id: musedamTagId }) => idToSlug("assetTag", musedamTagId));
-  const fields = { id: true, slug: true, name: true };
+  const fields = { id: true, slug: true, name: true } as const;
   const assetTags = await prisma.assetTag.findMany({
     where: {
       slug: { in: tagSlugs },
     },
-    select: {
-      ...fields,
-      parent: {
-        select: {
-          ...fields,
-          parent: {
-            select: { ...fields },
-          },
-        },
-      },
-    },
+    // 向上取完整祖先链（MAX_TAG_LEVEL - 1 层）以拼出完整 tagPath；动态深度无法推导类型，按 fields 声明
+    select: { ...fields, ...buildParentSelect(fields) } as typeof fields,
   });
-  return assetTags.map((tag) => ({
-    tagId: tag.id,
-    tagSlug: tag.slug!, // 因为有 where { slug }，这里不可能为空
-    tagPath: [tag.parent?.parent?.name, tag.parent?.name, tag.name].filter(
-      (item) => item !== undefined,
-    ),
-  }));
+  return (assetTags as TagWithParentChain<{ id: number; slug: string | null; name: string }>[]).map(
+    (tag) => ({
+      tagId: tag.id,
+      tagSlug: tag.slug!, // 因为有 where { slug }，这里不可能为空
+      tagPath: buildTagNamePath(tag),
+    }),
+  );
 }
 
 export type AssetWithAuditItemsBatch = {

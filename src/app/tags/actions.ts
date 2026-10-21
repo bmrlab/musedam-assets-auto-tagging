@@ -6,6 +6,13 @@ import { executeGenerateTagTreeByLLM } from "@/app/tags/generateTagTreeLLM";
 import { Locale } from "@/i18n/routing";
 import { ServerActionResult } from "@/lib/serverAction";
 import { idToSlug } from "@/lib/slug";
+import {
+  AssetTagTreeNode,
+  buildChildrenInclude,
+  findExceedingTagLevel,
+  MAX_TAG_LEVEL,
+  TAG_LEVEL_EXCEEDED_MESSAGE,
+} from "@/lib/tagging/tag-level";
 import { syncTagsFromMuseDAM } from "@/musedam/tags/syncFromMuseDAM";
 import {
   syncTagsToMuseDAM,
@@ -43,6 +50,20 @@ type SyncResult = {
 };
 
 // 合并模式去重 key：同一父节点下按标签名（trim 后）唯一，不含 level
+/**
+ * 待保存的 TagNode 树里，是否有「新建」节点落在 MAX_TAG_LEVEL 之下（超过最大层级）。
+ * 删除的节点不参与；已存在且未新建的节点不报错（避免历史数据阻塞保存）。
+ */
+function tagNodesExceedMaxLevel(nodes: TagNode[], baseLevel: number = 1): boolean {
+  return (
+    findExceedingTagLevel(nodes, (node) => node.children, {
+      baseLevel,
+      isCounted: (node) => node.verb !== "delete",
+      isChecked: (node) => node.verb === "create",
+    }) !== null
+  );
+}
+
 function buildExistingTagKey(parentId: number | null | undefined, name: string): string {
   return `${parentId ?? "root"}_${name.trim()}`;
 }
@@ -108,12 +129,7 @@ export async function getTeamHasTags(): Promise<
 
 export async function fetchTeamTags(): Promise<
   ServerActionResult<{
-    tags: (AssetTag & {
-      parent?: AssetTag | null;
-      children?: (AssetTag & {
-        children?: AssetTag[];
-      })[];
-    })[];
+    tags: (AssetTagTreeNode & { parent?: AssetTag | null })[];
   }>
 > {
   return withAuth(async ({ team: { id: teamId } }) => {
@@ -127,20 +143,16 @@ export async function fetchTeamTags(): Promise<
       orderBy: [{ level: "asc" }, { sort: "desc" }, { name: "asc" }],
       include: {
         parent: true,
-        children: {
+        // 一级节点之下再展开 MAX_TAG_LEVEL - 1 层
+        ...buildChildrenInclude(MAX_TAG_LEVEL - 1, {
           orderBy: [{ sort: "desc" }, { name: "asc" }],
-          include: {
-            children: {
-              orderBy: [{ sort: "desc" }, { name: "asc" }],
-            },
-          },
-        },
+        }),
       },
     });
 
     return {
       success: true,
-      data: { tags },
+      data: { tags: tags as (AssetTagTreeNode & { parent?: AssetTag | null })[] },
     };
   });
 }
@@ -199,6 +211,9 @@ export async function saveTagsTreeToMuseDAM(
 ): Promise<ServerActionResult<SyncResult>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
+      if (tagNodesExceedMaxLevel(tagsTree)) {
+        return { success: false, message: TAG_LEVEL_EXCEEDED_MESSAGE };
+      }
       // 获取团队信息
       const team = await prisma.team.findUniqueOrThrow({
         where: { id: teamId },
@@ -224,6 +239,11 @@ export async function saveTagsTreeToMuseDAM(
 export async function saveTagsTree(tagsTree: TagNode[]): Promise<ServerActionResult<void>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
+      // 先校验层级，避免超限的树被推到 MuseDAM 或写进本地库
+      if (tagNodesExceedMaxLevel(tagsTree)) {
+        return { success: false, message: TAG_LEVEL_EXCEEDED_MESSAGE };
+      }
+
       // 在数据库操作前先同步到 MuseDAM（此时数据库中的数据还是完整的）
       let syncResult: SyncResult | null = null;
       try {
@@ -261,6 +281,9 @@ export async function saveTagsTree(tagsTree: TagNode[]): Promise<ServerActionRes
               // 创建新标签
               if (!node.name.trim()) {
                 throw new Error("标签名不能为空");
+              }
+              if (level > MAX_TAG_LEVEL) {
+                throw new Error(TAG_LEVEL_EXCEEDED_MESSAGE);
               }
 
               // 检查同级标签名是否重复
@@ -448,6 +471,11 @@ export async function batchCreateTags(
     try {
       const baseTs = Date.now();
       const nameChildList = mergeDuplicateSiblings(rawNameChildList);
+
+      // 批量导入的树从一级开始挂载，整体深度不能超过 MAX_TAG_LEVEL
+      if (findExceedingTagLevel(nameChildList, (item) => item.nameChildList) !== null) {
+        return { success: false, message: TAG_LEVEL_EXCEEDED_MESSAGE };
+      }
 
       // 合并模式下先解析本地已存在的标签：已存在的节点带 id 且不标 create，
       // 这样推到 MuseDAM 时是「不操作」而非「新建同名标签」，否则上游会拒绝。
@@ -674,6 +702,9 @@ async function createTagsBatch(
   tempIdPrefix: string = "",
   baseTs?: number,
 ): Promise<Map<string, number>> {
+  if (nameChildList.length > 0 && level > MAX_TAG_LEVEL) {
+    throw new Error(TAG_LEVEL_EXCEEDED_MESSAGE);
+  }
   const tagIdMap = new Map<string, number>();
   const musedamSortMap = syncResult ? buildMuseDAMSortMap(syncResult.tags) : null;
 
@@ -813,6 +844,9 @@ async function createTagsBatchWithExistingCheck(
         });
       }
     } else {
+      if (level > MAX_TAG_LEVEL) {
+        throw new Error(TAG_LEVEL_EXCEEDED_MESSAGE);
+      }
       if (pendingCreateKeys.has(key)) {
         throw new Error(`标签名 "${item.name.trim()}" 在同级中已存在`);
       }
@@ -919,6 +953,19 @@ export async function saveSingleTagChange(
 ): Promise<ServerActionResult<void>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
+      // 层级以库里父节点的实际层级为准（客户端传入的 level 仅作兜底），新建节点不能超过 MAX_TAG_LEVEL
+      let effectiveLevel = level;
+      if (parentId !== null) {
+        const parentTag = await prisma.assetTag.findFirst({
+          where: { id: parentId, teamId },
+          select: { level: true },
+        });
+        if (parentTag) effectiveLevel = Math.max(level, parentTag.level + 1);
+      }
+      if (tagNodesExceedMaxLevel([node], effectiveLevel)) {
+        return { success: false, message: TAG_LEVEL_EXCEEDED_MESSAGE };
+      }
+
       // 在数据库操作前先同步到 MuseDAM（此时数据库中的数据还是完整的）
       let syncResult: SyncResult | null = null;
       try {

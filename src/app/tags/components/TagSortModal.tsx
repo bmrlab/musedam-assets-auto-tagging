@@ -15,6 +15,7 @@ import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { updateTagSort } from "../actions";
+import { localizeTagActionMessage } from "../tagActionMessage";
 import { TagNode } from "../types";
 import {
   DndContext,
@@ -47,7 +48,8 @@ interface TagSortModalProps {
   onClose: () => void;
   onConfirm: (sortedTags: TagNode[]) => void;
   tags: TagNode[];
-  level: 1 | 2 | 3;
+  /** 标签层级，1 ~ MAX_TAG_LEVEL */
+  level: number;
   isLoading?: boolean;
 }
 
@@ -116,6 +118,7 @@ export function TagSortModal({
   isLoading: externalIsLoading = false,
 }: TagSortModalProps) {
   const t = useTranslations("TagsPage.TagSortModal");
+  const tTags = useTranslations("TagsPage");
   const [sortedTags, setSortedTags] = useState<TagNode[]>([...tags]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -190,7 +193,7 @@ export function TagSortModal({
         onConfirm(tagsWithNewSort); // 传递带有新sort值的标签数组
         onClose();
       } else {
-        toast.error(result.message || t("sortSaveFailed"));
+        toast.error(localizeTagActionMessage(result.message, tTags) || t("sortSaveFailed"));
       }
     } catch (error) {
       console.error("Sort tags error:", error);
@@ -209,6 +212,8 @@ export function TagSortModal({
         return t("level2Title");
       case 3:
         return t("level3Title");
+      case 4:
+        return t("level4Title");
       default:
         return t("defaultTitle");
     }

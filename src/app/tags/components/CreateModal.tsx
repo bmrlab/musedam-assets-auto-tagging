@@ -19,22 +19,9 @@ import {
   parseTextToNameChildList,
   useBatchCreateTagsContext,
 } from "../context/BatchCreateTagsContext";
-import { TagNode } from "../types";
 import { TagBatchEditor } from "./TagBatchEditor";
 
 type TTag = NameChildList;
-
-// 将 NameChildList 转换为 TagNode 格式
-const convertToTagNodes = (nameChildList: NameChildList[]): TagNode[] => {
-  return nameChildList.map((item, index) => ({
-    id: undefined,
-    slug: null,
-    name: item.name,
-    originalName: item.name,
-    children: item.nameChildList ? convertToTagNodes(item.nameChildList) : [],
-    tempId: `preview_${index}`,
-  }));
-};
 
 // 内部组件，使用 Context
 const CreateModalInner = ({
@@ -91,9 +78,10 @@ const CreateModalInner = ({
                   <div>{t("FormatInstructions")}</div>
                   <div>{t("PrimaryTag")}</div>
                   <div>{t("SecondaryTags")}</div>
+                  <div>{t("TertiaryTags")}</div>
                   <div>{t("Label1")}</div>
                   <div>{t("Label2")}</div>
-                  <div>{t("OrdinaryTextIsALevel3Tag")}</div>
+                  <div>{t("OrdinaryTextIsLeafTag")}</div>
                 </div>
               }
             />

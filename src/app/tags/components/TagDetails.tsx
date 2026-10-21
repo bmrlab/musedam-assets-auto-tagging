@@ -10,13 +10,65 @@ import type { AssetTagExtra } from "@/prisma/client";
 import { AssetTag } from "@/prisma/client";
 import { InfoIcon, Plus, X } from "lucide-react";
 import { useTranslations } from "next-intl";
+import type { ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { updateTagExtra } from "../actions";
+import { localizeTagActionMessage } from "../tagActionMessage";
 import { TagEditData, useTagEdit } from "../contexts/TagEditContext";
 import { usePendingInboundTagRequired } from "../hooks/usePendingInboundTagRequired";
 import { useTagVisibility } from "../hooks/useTagVisibility";
 import { TagVisibilityDisplay } from "./TagVisibilityDisplay";
+
+/** 详情面板中的开关项：标题 + 提示图标，下方小号开关 + 状态说明 */
+function SwitchSetting({
+  label,
+  tooltip,
+  checked,
+  disabled,
+  onCheckedChange,
+  onText,
+  offText,
+  extra,
+}: {
+  label: string;
+  tooltip: ReactNode;
+  checked: boolean;
+  disabled?: boolean;
+  onCheckedChange: (checked: boolean) => void;
+  onText: string;
+  offText: string;
+  extra?: ReactNode;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-1">
+        <Label className="text-sm font-medium">{label}</Label>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-basic-5 hover:text-basic-8">
+                <InfoIcon className="text-current" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-[240px] text-sm">{tooltip}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+      <div className="flex items-center gap-2">
+        <Switch
+          size="sm"
+          checked={checked}
+          disabled={disabled}
+          onCheckedChange={onCheckedChange}
+          aria-label={label}
+        />
+        <span className="text-xs text-basic-5">{checked ? onText : offText}</span>
+      </div>
+      {extra}
+    </div>
+  );
+}
 
 // 组件Props类型
 interface TagDetailsProps {
@@ -200,7 +252,7 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
   // 没有选中标签时的空状态
   if (!selectedTag) {
     return (
-      <div className="w-[18rem] bg-background border rounded-md flex flex-col items-stretch overflow-hidden">
+      <div className="w-[300px] shrink-0 bg-background border rounded-md flex flex-col items-stretch overflow-hidden">
         <div className="border-b px-4 py-2 font-medium">{t("tagDetails")}</div>
         <div className="flex-1 overflow-y-scroll scrollbar-thin p-4">
           <p className="text-basic-5 text-center py-8 text-sm">{t("selectTagToView")}</p>
@@ -262,7 +314,7 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
         refreshTags();
         setIsEditing(false);
       } else {
-        toast.error(res.message || tRoot("saveFailed"));
+        toast.error(localizeTagActionMessage(res.message, tRoot) || tRoot("saveFailed"));
       }
     } catch (e) {
       toast.error(tRoot("saveFailed"));
@@ -270,7 +322,7 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
   };
 
   return (
-    <div className="w-[18rem] bg-background border rounded-md flex flex-col items-stretch overflow-hidden">
+    <div className="w-[300px] shrink-0 bg-background border rounded-md flex flex-col items-stretch overflow-hidden">
       {/* 标题栏 */}
       <div className="border-b px-4 py-2 font-medium flex items-center justify-between">
         <span>{t("tagDetails")}</span>
@@ -329,118 +381,59 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
           )}
         </div>
 
-        {/* AI自动打标 */}
-        <div className="space-y-2">
-          <Label className="text-sm font-medium">{t("aiAutoTagging")}</Label>
-          <div className="flex items-center gap-2">
-            <Switch
-              checked={formData.taggingEnabled}
-              onCheckedChange={(checked) => {
-                // TODO 增加二次确认弹窗
-                updateField("taggingEnabled", checked);
-              }}
-              disabled={!isEditing}
-            />
-            <span className="text-sm text-basic-5">
-              {formData.taggingEnabled ? t("aiAutoTaggingEnabled") : t("aiAutoTaggingDisabled")}
-            </span>
-          </div>
-        </div>
-
-        {/* 子标签互斥：仅对有子标签的分类显示 */}
-        {hasChildTags && (
-          <div className="space-y-2">
-            <div className="flex items-center gap-1">
-              <Label className="text-sm font-medium">{t("siblingsExclusive")}</Label>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0 text-basic-5 hover:text-basic-8"
-                    >
-                      <InfoIcon className="text-current" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-[240px] text-sm">
-                    {t("siblingsExclusiveTooltip")}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-            <div className="flex items-center gap-2">
-              <Switch
-                checked={formData.siblingsExclusive}
-                onCheckedChange={(checked) => updateField("siblingsExclusive", checked)}
-                disabled={!isEditing}
-              />
-              <span className="text-sm text-basic-5">
-                {formData.siblingsExclusive ? t("siblingsExclusiveOn") : t("siblingsExclusiveOff")}
-              </span>
-            </div>
-          </div>
-        )}
-
-        {/* 必打标签组：仅对有子标签的分类显示 */}
-        {hasChildTags && (
-          <div className="space-y-2">
-            <div className="flex items-center gap-1">
-              <Label className="text-sm font-medium">{t("requiredGroup")}</Label>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0 text-basic-5 hover:text-basic-8"
-                    >
-                      <InfoIcon className="text-current" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-[240px] text-sm">
-                    {t("requiredGroupTooltip")}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-            <div className="flex items-center gap-2">
-              <Switch
-                checked={formData.requiredGroup}
-                onCheckedChange={(checked) => updateField("requiredGroup", checked)}
-                disabled={!isEditing}
-              />
-              <span className="text-sm text-basic-5">
-                {formData.requiredGroup ? t("requiredGroupOn") : t("requiredGroupOff")}
-              </span>
-            </div>
-          </div>
-        )}
-
+        {/* 开关区：入库必填 → AI 自动打标 → 子标签单选 → 必打标签组 */}
         {shouldShowRequiredSwitch && (
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <Label className="text-sm font-medium">{t("requiredForInventoryEntry")}</Label>
-              <Switch
-                checked={required}
-                disabled={pendingRequiredLoading}
-                onCheckedChange={handleToggle}
-                aria-label={t("requiredForInventoryEntry")}
-              />
-            </div>
-          </div>
+          <SwitchSetting
+            label={t("requiredForInventoryEntry")}
+            tooltip={t("requiredForInventoryEntryTooltip")}
+            checked={required}
+            disabled={pendingRequiredLoading}
+            onCheckedChange={handleToggle}
+            onText={t("requiredForInventoryEntryOn")}
+            offText={t("requiredForInventoryEntryOff")}
+            extra={
+              required && (
+                <p className="text-xs leading-5 text-basic-5">
+                  {t("requiredForInventoryEntryHint")}
+                </p>
+              )
+            }
+          />
         )}
 
-        {/* 只有一级标签可以配置可见范围，二三级随一级 */}
-        {visibility.canConfigure && (
-          <TagVisibilityDisplay
-            label={t.has("tagVisibilityRange") ? t("tagVisibilityRange") : "Tag visibility"}
-            allMembersVisibleText={
-              t.has("allMembersVisible") ? t("allMembersVisible") : "Visible to all members"
-            }
-            selection={visibility.selection}
-            loading={visibility.loading}
-            onSelect={handleVisibilitySelection}
+        <SwitchSetting
+          label={t("aiAutoTagging")}
+          tooltip={t("aiAutoTaggingTooltip")}
+          checked={formData.taggingEnabled}
+          // TODO 增加二次确认弹窗
+          onCheckedChange={(checked) => updateField("taggingEnabled", checked)}
+          disabled={!isEditing}
+          onText={t("aiAutoTaggingEnabled")}
+          offText={t("aiAutoTaggingDisabled")}
+        />
+
+        {/* 子标签单选 / 必打标签组：仅对有子标签的分类显示 */}
+        {hasChildTags && (
+          <SwitchSetting
+            label={t("siblingsExclusive")}
+            tooltip={t("siblingsExclusiveTooltip")}
+            checked={formData.siblingsExclusive}
+            onCheckedChange={(checked) => updateField("siblingsExclusive", checked)}
+            disabled={!isEditing}
+            onText={t("siblingsExclusiveOn")}
+            offText={t("siblingsExclusiveOff")}
+          />
+        )}
+
+        {hasChildTags && (
+          <SwitchSetting
+            label={t("requiredGroup")}
+            tooltip={t("requiredGroupTooltip")}
+            checked={formData.requiredGroup}
+            onCheckedChange={(checked) => updateField("requiredGroup", checked)}
+            disabled={!isEditing}
+            onText={t("requiredGroupOn")}
+            offText={t("requiredGroupOff")}
           />
         )}
 
@@ -529,6 +522,19 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
             </div>
           )}
         </div>
+
+        {/* 只有一级标签可以配置可见范围，下级标签随一级 */}
+        {visibility.canConfigure && (
+          <TagVisibilityDisplay
+            label={t.has("tagVisibilityRange") ? t("tagVisibilityRange") : "Tag visibility"}
+            allMembersVisibleText={
+              t.has("allMembersVisible") ? t("allMembersVisible") : "Visible to all members"
+            }
+            selection={visibility.selection}
+            loading={visibility.loading}
+            onSelect={handleVisibilitySelection}
+          />
+        )}
       </div>
     </div>
   );

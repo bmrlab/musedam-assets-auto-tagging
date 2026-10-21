@@ -22,6 +22,7 @@
     "pleaseSelect": "Please select",
     "selectSecondLevelFirst": "Please select a second-level tag first",
     "tagNameExists": "Tag name already exists at the same level",
+    "tagLevelExceeded": "Tag hierarchy cannot exceed {max} levels",
     "saveSuccess": "Saved successfully",
     "saveFailed": "Save failed",
     "saveDetailsFailed": "Failed to save tag details",
@@ -63,15 +64,16 @@
       "tagDescription": "Tag Description",
       "tagDescriptionPlaceholder": "Optional. Adding tag descriptions helps AI better understand the application scenarios of tags",
       "aiAutoTagging": "AI Tagging Engine",
-      "aiAutoTaggingEnabled": "Enabled, allows AI to recognize this tag",
-      "aiAutoTaggingDisabled": "Disabled, AI will not recognize this tag",
-      "siblingsExclusive": "Only one child tag",
-      "siblingsExclusiveTooltip": "When on, AI keeps only one child tag under this category per asset, preferring the one backed by the file name, folder or keywords. Use for mutually exclusive categories such as product type, holiday or media type; keep it off for categories whose tags can coexist, such as style or channel. The system sets this automatically on first tagging; a manual setting always takes precedence.",
-      "siblingsExclusiveOn": "On: only one child tag is kept per asset",
-      "siblingsExclusiveOff": "Off: child tags can be applied together",
+      "aiAutoTaggingTooltip": "When on, this tag is included in AI auto-tagging, and AI decides whether to apply it based on the asset content",
+      "aiAutoTaggingEnabled": "On: AI decides whether to apply this tag",
+      "aiAutoTaggingDisabled": "Off: AI will not apply this tag",
+      "siblingsExclusive": "Single child tag",
+      "siblingsExclusiveTooltip": "When on, AI keeps at most one child tag during auto-tagging. Use for tag groups whose child tags are mutually exclusive",
+      "siblingsExclusiveOn": "On: at most one child tag is kept",
+      "siblingsExclusiveOff": "Off: multiple child tags can be applied",
       "requiredGroup": "Required tag group",
-      "requiredGroupTooltip": "When on, AI must apply one child tag from this category to every asset. If evidence is weak, the system picks the most likely child with a low confidence and flags it as a required-group fallback in review. Use for dimensions every asset must have, such as aspect ratio, brand line or product category.",
-      "requiredGroupOn": "On: every asset gets one child tag from this category",
+      "requiredGroupTooltip": "Even with weak evidence, the most likely child tag is picked and flagged as a required-group fallback on the review page",
+      "requiredGroupOn": "On: every asset gets one child tag",
       "requiredGroupOff": "Off: tags are applied only when there is evidence",
       "matchingKeywords": "Matching Keywords",
       "matchingKeywordsTooltip": "Add keywords related to this tag to help AI identify this tag more accurately",
@@ -84,6 +86,10 @@
       "excludeRule": "Exclude Rule:",
       "excludeRuleDescription": "When asset names, metadata, and folder paths contain these keywords, even if matching keywords are found, the tag will not be automatically applied",
       "requiredForInventoryEntry": "Required for inventory entry",
+      "requiredForInventoryEntryTooltip": "When on, a tag from this tag group must be selected when assets are added to the library",
+      "requiredForInventoryEntryOn": "On: required when adding to the library",
+      "requiredForInventoryEntryOff": "Off: optional when adding to the library",
+      "requiredForInventoryEntryHint": "Only applies to members within the tag visibility scope: on entry, only tag groups visible to the member are checked.",
       "tagVisibilityRange": "Tag visibility",
       "allMembersVisible": "Visible to all members",
       "selectVisibleMembers": "Select members who can view this tag",
@@ -95,18 +101,20 @@
       "CreateLabelsManually": "Create label manually",
       "CreateNow": "Create now",
       "Cancel": "Cancel",
-      "QuicklyCreateMultipleTagPathsW": "Quickly create multiple tag paths, supporting up to three levels of tag linkage",
+      "QuicklyCreateMultipleTagPathsW": "Quickly create multiple tag paths, supporting up to four levels of tag linkage",
       "PreviewView": "Preview",
       "HereSTheTranslatedTextFollowin": "Edit",
       "PleaseCreateLabelsInTheFollowi": "Please create tags in the following format, one per line...",
       "FormatInstructions": "Format instructions:",
       "PrimaryTag": "# Primary tag",
       "SecondaryTags": "## Secondary tag",
+      "TertiaryTags": "### Tertiary tag",
       "Label1": "Tag 1",
       "Label2": "Tag 2",
-      "OrdinaryTextIsALevel3Tag": "Ordinary text is a level 3 tag.",
+      "OrdinaryTextIsLeafTag": "Plain text is a tag at the deepest level",
       "PrimaryTagDescription": "← Main categories (e.g., content types, product series)",
       "SecondaryTagDescription": "← Sub-categories (e.g., image assets, clothing categories)",
+      "TertiaryTagDescription": "← Optional, a finer category (plain text below it becomes level 4 tags)",
       "LabelDescription": "← Specific tags (e.g., product images, top series)"
     },
     "ManualCreateTipsModal": {
@@ -136,6 +144,7 @@
       "level1Title": "Level 1 Tags",
       "level2Title": "Level 2 Tags",
       "level3Title": "Level 3 Tags",
+      "level4Title": "Level 4 Tags",
       "defaultTitle": "Tags"
     },
     "TagsClient": {
@@ -173,7 +182,7 @@
       "en-US": "English"
     },
     "tagTreePrompt": {
-      "template": "You are an expert in enterprise digital asset tag taxonomies. Based on the following user context, generate a 'tag tree'.\n[User Context]\n{userContext}\n\nYou MUST output strictly in the following format only (no extra explanations, symbols, numbering, blank lines, or additional sections):\n# Level 1 Tag\n## Level 2 Tag\nTag 1\nTag 2\n\nRules:\n- Output only the tag tree itself. Do NOT include any explanations, hints, examples, Markdown code fences, or backticks.\n- Use English for all text. \n- Terms should be professional, mutually exclusive, clear, and geared for practical search. Avoid long sentences.\n- Do NOT output empty headings, numbering, colons, brackets, or any explanatory text.\n- Do NOT add symbols outside the defined levels, such as em dashes, colons, '- ', or numeric lists.\n- Do NOT restate the user context or add a concluding summary."
+      "template": "You are an expert in enterprise digital asset tag taxonomies. Based on the following user context, generate a 'tag tree'.\n[User Context]\n{userContext}\n\nYou MUST output strictly in the following format only (no extra explanations, symbols, numbering, blank lines, or additional sections):\n# Level 1 Tag\n## Level 2 Tag\nTag 1\nTag 2\n## Level 2 Tag\n### Level 3 Tag\nLevel 4 Tag 1\nLevel 4 Tag 2\n\nRules:\n- Up to four levels: # is level 1, ## is level 2, ### is level 3; plain text is a child of the nearest heading above it (level 3 under ##, level 4 under ###). Three levels are usually enough; use ### with level 4 tags only when finer granularity is truly needed.\n- Output only the tag tree itself. Do NOT include any explanations, hints, examples, Markdown code fences, or backticks.\n- Use English for all text. \n- Terms should be professional, mutually exclusive, clear, and geared for practical search. Avoid long sentences.\n- Do NOT output empty headings, numbering, colons, brackets, or any explanatory text.\n- Do NOT add symbols outside the defined levels, such as em dashes, colons, '- ', or numeric lists.\n- Do NOT restate the user context or add a concluding summary."
     },
     "industry": {
       "general": {

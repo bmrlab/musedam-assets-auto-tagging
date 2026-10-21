@@ -136,6 +136,64 @@ describe("filterPredictionsByKnownTagIds", () => {
   });
 });
 
+describe("filterPredictionsByKnownTagIds on 4-level trees", () => {
+  const fourLevelTree: TagWithChildren[] = [
+    {
+      id: 1,
+      name: "车型信息",
+      extra: null,
+      children: [
+        {
+          id: 2,
+          name: "品牌",
+          extra: null,
+          children: [
+            {
+              id: 3,
+              name: "小米汽车",
+              extra: null,
+              children: [
+                { id: 4, name: "SU7", extra: null },
+                { id: 5, name: "YU7", extra: null },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  ];
+
+  it("keeps valid level-4 ids and recovers a wrong level-4 id from its tagPath", () => {
+    const predictions: SourceBasedTagPredictions = [
+      {
+        source: "contentAnalysis",
+        tags: [
+          { confidence: 0.9, leafTagId: 4, tagPath: ["车型信息", "品牌", "小米汽车", "SU7"] },
+          { confidence: 0.8, leafTagId: 4, tagPath: ["车型信息", "品牌", "小米汽车", "YU7"] },
+          { confidence: 0.7, leafTagId: 3, tagPath: ["车型信息", "品牌", "小米汽车"] },
+        ],
+      },
+    ];
+    const result = filterPredictionsByKnownTagIds(predictions, fourLevelTree);
+    expect(result.predictions[0].tags.map((tag) => tag.leafTagId)).toEqual([4, 5, 3]);
+    expect(result.corrected).toEqual([
+      { source: "contentAnalysis", fromLeafTagId: 4, toLeafTagId: 5 },
+    ]);
+    expect(result.dropped).toEqual([]);
+  });
+
+  it("overwrites a wrong tagPath with the real 4-level path when the id is valid", () => {
+    const predictions: SourceBasedTagPredictions = [
+      {
+        source: "basicInfo",
+        tags: [{ confidence: 0.7, leafTagId: 5, tagPath: ["不存在", "YU7"] }],
+      },
+    ];
+    const result = filterPredictionsByKnownTagIds(predictions, fourLevelTree);
+    expect(result.predictions[0].tags[0].tagPath).toEqual(["车型信息", "品牌", "小米汽车", "YU7"]);
+  });
+});
+
 describe("repairToPredictionEnvelopeText", () => {
   it("logs a warning instead of failing silently when the text cannot be repaired", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -166,5 +224,50 @@ describe("buildTagStructureText", () => {
     const text = buildTagStructureText(tagsTree);
     expect(text.startsWith("\nLevel 1 (id: 1): 媒体类型\n")).toBe(true);
     expect(text).not.toContain("\\L");
+  });
+
+  it("renders a 3-level tree exactly as before", () => {
+    expect(buildTagStructureText(tagsTree)).toBe(
+      "\nLevel 1 (id: 1): 媒体类型\n" +
+        "  └─ Level 2 (id: 2): 图片\n" +
+        "      └─ Level 3 (id: 3): 产品图\n",
+    );
+  });
+
+  it("renders level 4 and gives every non-leaf node (incl. level 3) its group marks", () => {
+    const tree: TagWithChildren[] = [
+      {
+        id: 1,
+        name: "车型信息",
+        extra: null,
+        children: [
+          {
+            id: 2,
+            name: "品牌",
+            extra: null,
+            children: [
+              {
+                id: 3,
+                name: "小米汽车",
+                extra: { siblingsExclusive: true, requiredGroup: true },
+                children: [
+                  { id: 4, name: "SU7", extra: { siblingsExclusive: true } },
+                  { id: 5, name: "YU7", extra: null },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ];
+    const text = buildTagStructureText(tree, new Map([[3, { total: 5, shown: 2 }]]));
+    expect(text).toBe(
+      "\nLevel 1 (id: 1): 车型信息\n" +
+        "  └─ Level 2 (id: 2): 品牌\n" +
+        "      └─ Level 3 (id: 3): 小米汽车 【同级互斥】 【必选】 （共 5 个子标签，仅列出在素材文字信息中字面出现的 2 个）\n" +
+        // 叶子（第 3 级及更深）不输出分组标记
+        "          └─ Level 4 (id: 4): SU7\n" +
+        "          └─ Level 4 (id: 5): YU7\n",
+    );
   });
 });

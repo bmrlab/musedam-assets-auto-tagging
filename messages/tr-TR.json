@@ -22,6 +22,7 @@
     "pleaseSelect": "Lütfen seçin",
     "selectSecondLevelFirst": "Lütfen önce ikinci seviye bir etiket seçin",
     "tagNameExists": "Etiket adı aynı seviyede zaten mevcut",
+    "tagLevelExceeded": "Etiket hiyerarşisi {max} seviyeyi aşamaz",
     "saveSuccess": "Başarıyla kaydedildi",
     "saveFailed": "Kayıt başarısız",
     "saveDetailsFailed": "Etiket detayları kaydedilemedi",
@@ -63,15 +64,16 @@
       "tagDescription": "Etiket Açıklaması",
       "tagDescriptionPlaceholder": "İsteğe bağlı. Etiket açıklamaları eklemek, AI'nın etiketlerin uygulama senaryolarını daha iyi anlamasına yardımcı olur",
       "aiAutoTagging": "AI Otomatik Etiketleme",
-      "aiAutoTaggingEnabled": "Etkin, AI'nın bu etiketi tanımasına izin verir",
-      "aiAutoTaggingDisabled": "Devre dışı, AI bu etiketi tanımayacak",
-      "siblingsExclusive": "Yalnızca bir alt etiket",
-      "siblingsExclusiveTooltip": "Açıkken yapay zekâ her varlık için bu kategoriden yalnızca bir alt etiket tutar; dosya adı, klasör veya anahtar kelimelerle desteklenen tercih edilir. Ürün türü, bayram, medya türü gibi birbirini dışlayan kategoriler için kullanın; stil, kanal gibi birlikte geçerli olabilen kategorilerde kapalı bırakın. Sistem ilk etiketlemede otomatik belirler; manuel ayar önceliklidir.",
-      "siblingsExclusiveOn": "Açık: varlık başına yalnızca bir alt etiket tutulur",
-      "siblingsExclusiveOff": "Kapalı: alt etiketler birlikte uygulanabilir",
+      "aiAutoTaggingTooltip": "Açık olduğunda bu etiket AI otomatik etiketleme kapsamına girer ve AI, varlığın içeriğine göre bu etiketin uygulanıp uygulanmayacağına karar verir",
+      "aiAutoTaggingEnabled": "Açık: AI bu etiketin uygulanıp uygulanmayacağına karar verir",
+      "aiAutoTaggingDisabled": "Kapalı: AI bu etiketi uygulamaz",
+      "siblingsExclusive": "Tek alt etiket",
+      "siblingsExclusiveTooltip": "Açık olduğunda AI, otomatik etiketlemede en fazla bir alt etiket tutar. Alt etiketleri birbirini dışlayan etiket grupları için uygundur",
+      "siblingsExclusiveOn": "Açık: en fazla bir alt etiket tutulur",
+      "siblingsExclusiveOff": "Kapalı: birden fazla alt etiket uygulanabilir",
       "requiredGroup": "Zorunlu etiket grubu",
-      "requiredGroupTooltip": "Açıkken yapay zekâ her varlığa bu kategoriden bir alt etiket uygulamak zorundadır. Kanıt zayıfsa sistem en olası olanı düşük güvenle seçer ve incelemede zorunlu yedek olarak işaretler. En-boy oranı, marka hattı, ürün kategorisi gibi her varlıkta bulunması gereken boyutlar için kullanın.",
-      "requiredGroupOn": "Açık: her varlık bu kategoriden bir alt etiket alır",
+      "requiredGroupTooltip": "Kanıt yetersiz olsa bile en olası alt etiket seçilir ve inceleme sayfasında zorunlu yedek olarak işaretlenir",
+      "requiredGroupOn": "Açık: her varlık bir alt etiket alır",
       "requiredGroupOff": "Kapalı: yalnızca kanıt varsa etiketlenir",
       "matchingKeywords": "Eşleşen Anahtar Kelimeler",
       "matchingKeywordsTooltip": "AI'nın bu etiketi daha doğru tanımlamasına yardımcı olmak için bu etiketle ilgili anahtar kelimeler ekleyin",
@@ -84,6 +86,10 @@
       "excludeRule": "Dışlama Kuralı:",
       "excludeRuleDescription": "Varlık adları, meta veriler ve klasör yolları bu anahtar kelimeleri içerdiğinde, eşleşen anahtar kelimeler bulunsa bile, etiket otomatik olarak uygulanmayacaktır",
       "requiredForInventoryEntry": "Depo girişi için gerekli",
+      "requiredForInventoryEntryTooltip": "Açık olduğunda, varlıklar kütüphaneye eklenirken bu etiket grubundan bir etiket seçmek zorunludur",
+      "requiredForInventoryEntryOn": "Açık: eklerken zorunlu",
+      "requiredForInventoryEntryOff": "Kapalı: eklerken isteğe bağlı",
+      "requiredForInventoryEntryHint": "Yalnızca görünürlük kapsamındaki üyeler için geçerlidir: girişte yalnızca üyeye görünen etiket grupları kontrol edilir.",
       "tagVisibilityRange": "Tag visibility",
       "allMembersVisible": "Visible to all members",
       "selectVisibleMembers": "Select members who can view this tag",
@@ -95,18 +101,20 @@
       "CreateLabelsManually": "Etiketi manuel oluştur",
       "CreateNow": "Şimdi oluştur",
       "Cancel": "İptal",
-      "QuicklyCreateMultipleTagPathsW": "Üç seviyeye kadar etiket bağlantısını destekleyerek hızlıca birden fazla etiket yolu oluşturun",
+      "QuicklyCreateMultipleTagPathsW": "Dört seviyeye kadar etiket bağlantısını destekleyerek hızlıca birden fazla etiket yolu oluşturun",
       "PreviewView": "Önizleme",
       "HereSTheTranslatedTextFollowin": "Düzenle",
       "PleaseCreateLabelsInTheFollowi": "Lütfen aşağıdaki formatta etiketler oluşturun, her satırda bir tane...",
       "FormatInstructions": "Format talimatları:",
       "PrimaryTag": "# Birincil etiket",
       "SecondaryTags": "## İkincil etiket",
+      "TertiaryTags": "### Üçüncül etiket",
       "Label1": "Etiket 1",
       "Label2": "Etiket 2",
-      "OrdinaryTextIsALevel3Tag": "Sıradan metin bir seviye 3 etikettir.",
+      "OrdinaryTextIsLeafTag": "Düz metin en alt seviyedeki etikettir",
       "PrimaryTagDescription": "← Ana kategoriler (örn. içerik türleri, ürün serileri)",
       "SecondaryTagDescription": "← Alt kategoriler (örn. görüntü varlıkları, giyim kategorileri)",
+      "TertiaryTagDescription": "← İsteğe bağlı, daha ayrıntılı kategori (altındaki düz metin seviye 4 etiket olur)",
       "LabelDescription": "← Belirli etiketler (örn. ürün görüntüleri, üst seri)"
     },
     "ManualCreateTipsModal": {
@@ -136,6 +144,7 @@
       "level1Title": "Seviye 1 Etiketler",
       "level2Title": "Seviye 2 Etiketler",
       "level3Title": "Seviye 3 Etiketler",
+      "level4Title": "Seviye 4 Etiketler",
       "defaultTitle": "Etiketler"
     },
     "TagsClient": {
@@ -173,7 +182,7 @@
       "en-US": "İngilizce"
     },
     "tagTreePrompt": {
-      "template": "Kurumsal dijital varlık etiket taksonomileri konusunda uzmansınız. Aşağıdaki kullanıcı bağlamına dayanarak bir 'etiket ağacı' oluşturun.\n[Kullanıcı Bağlamı]\n{userContext}\n\nYALNIZCA aşağıdaki formatta kesinlikle çıktı vermelisiniz (ek açıklamalar, semboller, numaralandırma, boş satırlar veya ek bölümler yok):\n# Seviye 1 Etiket\n## Seviye 2 Etiket\nEtiket 1\nEtiket 2\n\nKurallar:\n- Yalnızca etiket ağacının kendisini çıktı verin. Açıklamalar, ipuçları, örnekler, Markdown kod çitleri veya backtick'ler EKLEMEYİN.\n- Tüm metin için İngilizce kullanın.\n- Terimler profesyonel, birbirini dışlayan, net ve pratik arama için uygun olmalıdır. Uzun cümlelerden kaçının.\n- Boş başlıklar, numaralandırma, iki nokta üst üste, parantezler veya açıklayıcı metin ÇIKTI VERMEYİN.\n- Tanımlanan seviyelerin dışında em tire, iki nokta üst üste, '- ' veya sayısal listeler gibi semboller EKLEMEYİN.\n- Kullanıcı bağlamını TEKRARLAMAYIN veya sonuç özeti EKLEMEYİN."
+      "template": "Kurumsal dijital varlık etiket taksonomileri konusunda uzmansınız. Aşağıdaki kullanıcı bağlamına dayanarak bir 'etiket ağacı' oluşturun.\n[Kullanıcı Bağlamı]\n{userContext}\n\nYALNIZCA aşağıdaki formatta kesinlikle çıktı vermelisiniz (ek açıklamalar, semboller, numaralandırma, boş satırlar veya ek bölümler yok):\n# Seviye 1 Etiket\n## Seviye 2 Etiket\nEtiket 1\nEtiket 2\n## Seviye 2 Etiket\n### Seviye 3 Etiket\nSeviye 4 Etiket 1\nSeviye 4 Etiket 2\n\nKurallar:\n- En fazla dört seviye: # seviye 1, ## seviye 2, ### seviye 3'tür; düz metin, üstündeki en yakın başlığın alt etiketidir (## altında seviye 3, ### altında seviye 4). Genellikle üç seviye yeterlidir; ### ile seviye 4 etiketleri yalnızca daha ayrıntılı sınıflandırma gerçekten gerekiyorsa kullanın.\n- Yalnızca etiket ağacının kendisini çıktı verin. Açıklamalar, ipuçları, örnekler, Markdown kod çitleri veya backtick'ler EKLEMEYİN.\n- Tüm metin için İngilizce kullanın.\n- Terimler profesyonel, birbirini dışlayan, net ve pratik arama için uygun olmalıdır. Uzun cümlelerden kaçının.\n- Boş başlıklar, numaralandırma, iki nokta üst üste, parantezler veya açıklayıcı metin ÇIKTI VERMEYİN.\n- Tanımlanan seviyelerin dışında em tire, iki nokta üst üste, '- ' veya sayısal listeler gibi semboller EKLEMEYİN.\n- Kullanıcı bağlamını TEKRARLAMAYIN veya sonuç özeti EKLEMEYİN."
     },
     "industry": {
       "general": {

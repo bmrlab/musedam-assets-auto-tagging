@@ -1,6 +1,12 @@
 "use server";
 
 import { signObjectDetectionImageUrl } from "@/lib/media-process/image-url";
+import {
+  AssetTagTreeNode,
+  MAX_TAG_LEVEL,
+  buildChildrenInclude,
+  buildParentInclude,
+} from "@/lib/tagging/tag-level";
 
 import { withAuth } from "@/app/(auth)/withAuth";
 import {
@@ -145,9 +151,8 @@ async function getProductTypeNameSchema() {
   return z.string().trim().min(1, messages.typeNameRequired).max(100, messages.typeNameTooLong);
 }
 
-type AssetTagWithParents = AssetTag & {
-  parent: (AssetTag & { parent: AssetTag | null }) | null;
-};
+// 祖先链深度由 buildParentInclude() 决定（MAX_TAG_LEVEL - 1 层），buildTagPath 沿链向上拼路径
+type AssetTagWithParents = AssetTag & { parent?: AssetTagWithParents | null };
 
 type AssetProductRecord = AssetProduct & {
   images: AssetProductImage[];
@@ -279,9 +284,7 @@ function normalizeProduct(product: AssetProductRecord): ProductItem {
   };
 }
 
-function normalizeProductTagTreeNode(
-  tag: AssetTag & { children?: (AssetTag & { children?: AssetTag[] })[] },
-): ProductTagTreeNode {
+function normalizeProductTagTreeNode(tag: AssetTagTreeNode): ProductTagTreeNode {
   return {
     id: tag.id,
     name: tag.name,
@@ -338,13 +341,7 @@ async function buildTagPathLookup(teamId: number) {
     where: {
       teamId,
     },
-    include: {
-      parent: {
-        include: {
-          parent: true,
-        },
-      },
-    },
+    include: buildParentInclude(),
   });
   const tagLookup = new Map<
     string,
@@ -495,19 +492,12 @@ async function fetchProductTags(teamId: number) {
       parentId: null,
     },
     orderBy: [{ sort: "desc" }, { name: "asc" }],
-    include: {
-      children: {
-        orderBy: [{ sort: "desc" }, { name: "asc" }],
-        include: {
-          children: {
-            orderBy: [{ sort: "desc" }, { name: "asc" }],
-          },
-        },
-      },
-    },
+    include: buildChildrenInclude(MAX_TAG_LEVEL - 1, {
+      orderBy: [{ sort: "desc" }, { name: "asc" }],
+    }),
   });
 
-  return tags.map((tag) => normalizeProductTagTreeNode(tag));
+  return (tags as AssetTagTreeNode[]).map((tag) => normalizeProductTagTreeNode(tag));
 }
 
 async function fetchProducts(teamId: number) {
@@ -560,13 +550,7 @@ async function resolveSelectedTags(teamId: number, tagIds: number[]) {
         in: uniqueTagIds,
       },
     },
-    include: {
-      parent: {
-        include: {
-          parent: true,
-        },
-      },
-    },
+    include: buildParentInclude(),
   });
 
   if (tags.length !== uniqueTagIds.length) {

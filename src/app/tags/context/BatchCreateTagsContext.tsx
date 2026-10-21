@@ -16,67 +16,13 @@ import { useTranslations } from "next-intl";
 import { createContext, ReactNode, useCallback, useContext, useState } from "react";
 import { toast } from "sonner";
 import { BatchCreateTagData, batchCreateTags, checkExistingTags } from "../actions";
+import { NameChildList, parseBatchTagText } from "../batchTagText";
+import { localizeTagActionMessage } from "../tagActionMessage";
 
-export interface NameChildList {
-  name: string;
-  nameChildList?: NameChildList[];
-}
+export type { NameChildList };
 
-// 解析文本为 NameChildList 格式的函数
-export const parseTextToNameChildList = (text: string): NameChildList[] => {
-  if (!text.trim()) return [];
-
-  const lines = text.split("\n").filter((line) => line.trim());
-  const result: NameChildList[] = [];
-  let currentL1: NameChildList | null = null;
-  let currentL2: NameChildList | null = null;
-
-  for (const line of lines) {
-    // 一级标签
-    if (line.startsWith("# ") || (line.startsWith("#") && !line.startsWith("##"))) {
-      const name = line.startsWith("# ") ? line.slice(2).trim() : line.slice(1).trim();
-      // name 必须有值
-      if (!name) continue;
-      // 同级同名去重：复用已有节点，后续子标签合并进去
-      const existingL1 = result.find((item) => item.name === name);
-      if (existingL1) {
-        currentL1 = existingL1;
-      } else {
-        currentL1 = {
-          name,
-          nameChildList: [],
-        };
-        result.push(currentL1);
-      }
-      currentL2 = null;
-    }
-    // 二级标签
-    else if (line.startsWith("## ") || (line.startsWith("##") && !line.startsWith("###"))) {
-      if (!currentL1) continue;
-      const name = line.startsWith("## ") ? line.slice(3).trim() : line.slice(2).trim();
-      // name 必须有值
-      if (!name) continue;
-      const existingL2 = currentL1.nameChildList?.find((item) => item.name === name);
-      if (existingL2) {
-        currentL2 = existingL2;
-      } else {
-        currentL2 = {
-          name,
-          nameChildList: [],
-        };
-        currentL1.nameChildList?.push(currentL2);
-      }
-    }
-    // 三级标签
-    else if (line.trim() && !line.startsWith("#")) {
-      if (!currentL2) continue;
-      const name = line.trim();
-      if (currentL2.nameChildList?.some((item) => item.name === name)) continue;
-      currentL2.nameChildList?.push({ name });
-    }
-  }
-  return result;
-};
+// 解析文本为 NameChildList 格式（与预览共用同一解析器，支持最多四级）
+export const parseTextToNameChildList = parseBatchTagText;
 
 interface BatchCreateTagsContextType {
   // 状态
@@ -126,6 +72,7 @@ export const BatchCreateTagsProvider = ({
   translationKey = "TagsPage.ManualCreateModal",
 }: BatchCreateTagsProviderProps) => {
   const t = useTranslations(translationKey);
+  const tTags = useTranslations("TagsPage");
 
   const [isCreating, setIsCreating] = useState(false);
 
@@ -155,15 +102,18 @@ export const BatchCreateTagsProvider = ({
           onSuccess?.();
           onClose?.();
         } else {
-          toast.error(result.message || "创建标签失败");
+          toast.error(localizeTagActionMessage(result.message, tTags) || "创建标签失败");
         }
       } catch (err: unknown) {
-        toast.error(err instanceof Error ? err.message : "创建标签时发生错误");
+        toast.error(
+          localizeTagActionMessage(err instanceof Error ? err.message : null, tTags) ||
+            "创建标签时发生错误",
+        );
       } finally {
         setIsCreating(false);
       }
     },
-    [convertToBatchData, onSuccess, onClose, t],
+    [convertToBatchData, onSuccess, onClose, tTags],
   );
 
   // 模态框方法

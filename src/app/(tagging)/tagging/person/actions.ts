@@ -39,6 +39,12 @@ import {
 } from "@/lib/tagging/batch-reference-image";
 import { fetchRemotePersonImageInput } from "@/lib/tagging/classification-image";
 import { getReferenceThumbnailUrl } from "@/lib/tagging/reference-thumbnail";
+import {
+  AssetTagTreeNode,
+  buildChildrenInclude,
+  buildParentInclude,
+  MAX_TAG_LEVEL,
+} from "@/lib/tagging/tag-level";
 import { schedulePushFeatureToMuseDAM } from "@/musedam/push-feature-to-musedam";
 import {
   AssetPerson,
@@ -142,9 +148,8 @@ async function getPersonTypeNameSchema() {
   return z.string().trim().min(1, messages.typeNameRequired).max(100, messages.typeNameTooLong);
 }
 
-type AssetTagWithParents = AssetTag & {
-  parent: (AssetTag & { parent: AssetTag | null }) | null;
-};
+// 祖先链深度由 buildParentInclude() 决定（MAX_TAG_LEVEL - 1 层），buildTagPath 沿链向上拼路径
+type AssetTagWithParents = AssetTag & { parent?: AssetTagWithParents | null };
 
 type AssetPersonRecord = AssetPerson & {
   images: AssetPersonImage[];
@@ -274,9 +279,7 @@ function normalizePerson(person: AssetPersonRecord): PersonItem {
   };
 }
 
-function normalizePersonTagTreeNode(
-  tag: AssetTag & { children?: (AssetTag & { children?: AssetTag[] })[] },
-): PersonTagTreeNode {
+function normalizePersonTagTreeNode(tag: AssetTagTreeNode): PersonTagTreeNode {
   return {
     id: tag.id,
     name: tag.name,
@@ -335,13 +338,7 @@ async function buildTagPathLookup(teamId: number) {
     where: {
       teamId,
     },
-    include: {
-      parent: {
-        include: {
-          parent: true,
-        },
-      },
-    },
+    include: buildParentInclude(),
   });
   const tagLookup = new Map<
     string,
@@ -492,19 +489,12 @@ async function fetchPersonTags(teamId: number) {
       parentId: null,
     },
     orderBy: [{ sort: "desc" }, { name: "asc" }],
-    include: {
-      children: {
-        orderBy: [{ sort: "desc" }, { name: "asc" }],
-        include: {
-          children: {
-            orderBy: [{ sort: "desc" }, { name: "asc" }],
-          },
-        },
-      },
-    },
+    include: buildChildrenInclude(MAX_TAG_LEVEL - 1, {
+      orderBy: [{ sort: "desc" }, { name: "asc" }],
+    }),
   });
 
-  return tags.map((tag) => normalizePersonTagTreeNode(tag));
+  return (tags as AssetTagTreeNode[]).map((tag) => normalizePersonTagTreeNode(tag));
 }
 
 async function fetchPersons(teamId: number) {
@@ -557,13 +547,7 @@ async function resolveSelectedTags(teamId: number, tagIds: number[]) {
         in: uniqueTagIds,
       },
     },
-    include: {
-      parent: {
-        include: {
-          parent: true,
-        },
-      },
-    },
+    include: buildParentInclude(),
   });
 
   if (tags.length !== uniqueTagIds.length) {

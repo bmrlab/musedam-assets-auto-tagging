@@ -69,7 +69,7 @@
     "selectIndustry": "Selecionar Indústria",
     "selectLanguage": "Idioma da Tag",
     "tagTreePrompt": {
-      "template": "Você é um especialista em taxonomias de tags de ativos digitais empresariais. Com base no seguinte contexto do usuário, gere uma \"árvore de tags\".\n[Contexto do Usuário]\n{userContext}\n\nVocê DEVE produzir estritamente apenas no seguinte formato (sem explicações extras, símbolos, numeração, linhas em branco ou seções adicionais):\n# Tag de Nível 1\n## Tag de Nível 2\nTag 1\nTag 2\n\nRegras:\n- Produza apenas a própria árvore de tags. NÃO inclua explicações, dicas, exemplos, blocos de código Markdown ou acentos graves.\n- Use o inglês para todo o texto.\n- Os termos devem ser profissionais, mutuamente exclusivos, claros e voltados para busca prática. Evite frases longas.\n- NÃO produza títulos vazios, numeração, dois-pontos, colchetes ou qualquer texto explicativo.\n- NÃO adicione símbolos fora dos níveis definidos, como travessões, dois-pontos, '- ' ou listas numéricas.\n- NÃO repita o contexto do usuário ou adicione um resumo conclusivo."
+      "template": "Você é um especialista em taxonomias de tags de ativos digitais empresariais. Com base no seguinte contexto do usuário, gere uma \"árvore de tags\".\n[Contexto do Usuário]\n{userContext}\n\nVocê DEVE produzir estritamente apenas no seguinte formato (sem explicações extras, símbolos, numeração, linhas em branco ou seções adicionais):\n# Tag de Nível 1\n## Tag de Nível 2\nTag 1\nTag 2\n## Tag de Nível 2\n### Tag de Nível 3\nTag de Nível 4 1\nTag de Nível 4 2\n\nRegras:\n- No máximo quatro níveis: # é o nível 1, ## o nível 2, ### o nível 3; texto comum é filho do título mais próximo acima dele (nível 3 sob ##, nível 4 sob ###). Normalmente três níveis bastam; use ### com tags de nível 4 apenas quando for realmente necessário detalhar mais.\n- Produza apenas a própria árvore de tags. NÃO inclua explicações, dicas, exemplos, blocos de código Markdown ou acentos graves.\n- Use o inglês para todo o texto.\n- Os termos devem ser profissionais, mutuamente exclusivos, claros e voltados para busca prática. Evite frases longas.\n- NÃO produza títulos vazios, numeração, dois-pontos, colchetes ou qualquer texto explicativo.\n- NÃO adicione símbolos fora dos níveis definidos, como travessões, dois-pontos, '- ' ou listas numéricas.\n- NÃO repita o contexto do usuário ou adicione um resumo conclusivo."
     },
     "tip": "💡 Selecione um setor para preencher automaticamente uma descrição de cenário profissional. Você pode ajustá-la conforme necessário.",
     "title": "Gerador de Sistema de Tags AI",
@@ -141,14 +141,16 @@
       "Label2": "Tag 2",
       "LabelDescription": "← Tags específicas (ex.: imagens de produtos, séries principais)",
       "LabelsCreatedSuccessfully": "Rótulos criados com sucesso",
-      "OrdinaryTextIsALevel3Tag": "Texto comum é uma tag de nível 3.",
+      "OrdinaryTextIsLeafTag": "Texto comum é uma tag do último nível",
       "PleaseCreateLabelsInTheFollowi": "Crie tags no seguinte formato, uma por linha...",
       "PreviewView": "Visualização Prévia",
-      "PrimaryTag": "Tag primária",
+      "PrimaryTag": "# Tag primária",
       "PrimaryTagDescription": "← Categorias principais (ex: tipos de conteúdo, séries de produtos)",
-      "QuicklyCreateMultipleTagPathsW": "Crie rapidamente vários caminhos de tags, com suporte a até três níveis de vinculação de tags",
+      "QuicklyCreateMultipleTagPathsW": "Crie rapidamente vários caminhos de tags, com suporte a até quatro níveis de vinculação de tags",
       "SecondaryTagDescription": "← Subcategorias (ex: ativos de imagem, categorias de roupas)",
-      "SecondaryTags": "Tag secundária"
+      "TertiaryTagDescription": "← Opcional, uma categoria mais detalhada (o texto comum abaixo vira tags de nível 4)",
+      "SecondaryTags": "## Tag secundária",
+      "TertiaryTags": "### Tag terciária"
     },
     "ManualCreateTips2Modal": {
       "Cancel": "Cancelar",
@@ -172,16 +174,17 @@
     "TagDetails": {
       "add": "Adicionar",
       "aiAutoTagging": "Marcação Automática por IA",
-      "aiAutoTaggingDisabled": "Desativado, a IA não reconhecerá esta etiqueta",
-      "siblingsExclusive": "Apenas uma subtag",
-      "siblingsExclusiveTooltip": "Quando ativado, a IA mantém apenas uma subtag desta categoria por ativo, priorizando a que tem respaldo no nome do arquivo, pasta ou palavras-chave. Use em categorias excludentes como tipo de produto, feriado ou tipo de mídia; mantenha desativado em categorias que podem coexistir, como estilo ou canal. O sistema define automaticamente na primeira marcação; a configuração manual prevalece.",
-      "siblingsExclusiveOn": "Ativado: apenas uma subtag é mantida por ativo",
-      "siblingsExclusiveOff": "Desativado: subtags podem ser aplicadas juntas",
+      "aiAutoTaggingTooltip": "Quando ativado, esta tag entra na marcação automática por IA, e a IA decide se a aplica com base no conteúdo do ativo",
+      "aiAutoTaggingDisabled": "Desativado: a IA não aplicará esta tag",
+      "siblingsExclusive": "Subtag única",
+      "siblingsExclusiveTooltip": "Quando ativado, a IA mantém no máximo uma subtag na marcação automática. Indicado para grupos cujas subtags são mutuamente exclusivas",
+      "siblingsExclusiveOn": "Ativado: no máximo uma subtag",
+      "siblingsExclusiveOff": "Desativado: várias subtags podem ser aplicadas",
       "requiredGroup": "Grupo de tags obrigatório",
-      "requiredGroupTooltip": "Quando ativado, a IA deve aplicar uma subtag desta categoria a cada ativo. Com evidência fraca, o sistema escolhe a mais provável com baixa confiança e a marca na revisão como fallback obrigatório. Use para dimensões que todo ativo precisa ter, como proporção, linha de marca ou categoria de produto.",
-      "requiredGroupOn": "Ativado: cada ativo recebe uma subtag desta categoria",
+      "requiredGroupTooltip": "Mesmo com evidência insuficiente, a subtag mais provável é escolhida e marcada como alternativa obrigatória na página de revisão",
+      "requiredGroupOn": "Ativado: cada ativo recebe uma subtag",
       "requiredGroupOff": "Desativado: marca apenas com evidência",
-      "aiAutoTaggingEnabled": "Habilitado, permite que a IA reconheça essa tag",
+      "aiAutoTaggingEnabled": "Ativado: a IA decide se aplica esta tag",
       "edit": "Editar",
       "excludeKeywords": "Excluir Palavras-Chave",
       "excludeKeywordsTooltip": "Adicione palavras-chave para excluir. Ativos que contenham essas palavras não serão marcados com essa tag",
@@ -199,6 +202,10 @@
       "tagDetails": "Detalhes da Tag",
       "tagName": "Nome da Tag",
       "requiredForInventoryEntry": "Obrigatório para entrada de inventário",
+      "requiredForInventoryEntryTooltip": "Quando ativado, é obrigatório selecionar uma tag deste grupo ao adicionar ativos à biblioteca",
+      "requiredForInventoryEntryOn": "Ativado: obrigatório ao adicionar",
+      "requiredForInventoryEntryOff": "Desativado: opcional ao adicionar",
+      "requiredForInventoryEntryHint": "Aplica-se apenas aos membros dentro do escopo de visibilidade: na entrada, apenas os grupos de tags visíveis ao membro são verificados.",
       "tagVisibilityRange": "Tag visibility",
       "allMembersVisible": "Visible to all members",
       "selectVisibleMembers": "Select members who can view this tag",
@@ -226,6 +233,7 @@
       "level1Title": "Tags de Nível 1",
       "level2Title": "Tags de Nível 2",
       "level3Title": "Tags de Nível 3",
+      "level4Title": "Tags de Nível 4",
       "noSortableTags": "Sem tags classificáveis",
       "saving": "Salvando...",
       "sortSaveFailed": "Falha ao salvar a ordenação",
@@ -270,6 +278,7 @@
     "tag": "Tag",
     "tagGroup": "Grupo de Tags",
     "tagManagement": "Gerenciamento de tags",
-    "tagNameExists": "Nome da tag já existe no mesmo nível"
+    "tagNameExists": "Nome da tag já existe no mesmo nível",
+    "tagLevelExceeded": "A hierarquia de tags não pode exceder {max} níveis"
   }
 }

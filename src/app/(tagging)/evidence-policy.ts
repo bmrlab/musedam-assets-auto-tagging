@@ -13,14 +13,14 @@ import { TagWithScore } from "./types";
  */
 export type EvidencePolicy = "content" | "literal";
 
-/** 旧启发式：一级/二级分类名包含这些词的标签视为 literal。仅作为缺少显式策略时的兜底。 */
+/** 旧启发式：任一祖先分类名包含这些词的标签视为 literal。仅作为缺少显式策略时的兜底。 */
 export const LEGACY_METADATA_CATEGORY_KEYWORDS = ["渠道"];
 
 /** 同一标签"仅由 contentAnalysis 支持"却被人工拒绝达到该次数后，自动降级为 literal。 */
 export const CONTENT_ONLY_REJECTION_AUTO_LITERAL_THRESHOLD = 3;
 
 export function isLegacyMetadataCategoryTagPath(tagPath: string[]): boolean {
-  // 只看一级/二级分类名，不看叶子标签自身名字（叶子名字通常是具体渠道名如"抖音"，
+  // 只看祖先分类名，不看叶子标签自身名字（叶子名字通常是具体渠道名如"抖音"，
   // 本身不含"渠道"二字，需要靠上级分类名判断这是不是"渠道类"标签）。
   return tagPath
     .slice(0, Math.max(tagPath.length - 1, 1))
@@ -48,47 +48,36 @@ export type TagTreeNodeWithPath = {
   name: string;
   extra: unknown;
   tagPath: string[];
-  depth: 1 | 2 | 3;
+  /** 所在层级，一级为 1；层级数不固定（最大 MAX_TAG_LEVEL） */
+  depth: number;
   /** 直接父节点 id，一级节点为 undefined */
   parentId?: number;
   hasChildren: boolean;
 };
 
-/** 把三层标签树拍平成带完整路径的节点列表（一级/二级/三级都包含，因为模型可以匹配任意层级）。 */
+/**
+ * 把任意深度的标签树拍平成带完整路径的节点列表（深度优先先序，所有层级都包含，因为模型可以匹配任意层级）。
+ * hasChildren 按真实子节点判断，不再假定某一层一定是叶子。
+ */
 export function flattenTagsTree(tagsTree: TagWithChildren[]): TagTreeNodeWithPath[] {
   const nodes: TagTreeNodeWithPath[] = [];
-  for (const lv1 of tagsTree) {
-    nodes.push({
-      id: lv1.id,
-      name: lv1.name,
-      extra: lv1.extra,
-      tagPath: [lv1.name],
-      depth: 1,
-      hasChildren: (lv1.children ?? []).length > 0,
-    });
-    for (const lv2 of lv1.children ?? []) {
-      nodes.push({
-        id: lv2.id,
-        name: lv2.name,
-        extra: lv2.extra,
-        tagPath: [lv1.name, lv2.name],
-        depth: 2,
-        parentId: lv1.id,
-        hasChildren: (lv2.children ?? []).length > 0,
-      });
-      for (const lv3 of lv2.children ?? []) {
-        nodes.push({
-          id: lv3.id,
-          name: lv3.name,
-          extra: lv3.extra,
-          tagPath: [lv1.name, lv2.name, lv3.name],
-          depth: 3,
-          parentId: lv2.id,
-          hasChildren: false,
-        });
-      }
+  const walk = (list: TagWithChildren[], depth: number, parent?: TagTreeNodeWithPath) => {
+    for (const tag of list) {
+      const children = tag.children ?? [];
+      const node: TagTreeNodeWithPath = {
+        id: tag.id,
+        name: tag.name,
+        extra: tag.extra,
+        tagPath: parent ? [...parent.tagPath, tag.name] : [tag.name],
+        depth,
+        ...(parent ? { parentId: parent.id } : {}),
+        hasChildren: children.length > 0,
+      };
+      nodes.push(node);
+      walk(children, depth + 1, node);
     }
-  }
+  };
+  walk(tagsTree, 1);
   return nodes;
 }
 
@@ -106,7 +95,7 @@ export type ExclusiveBranch = { parentId: number; branchId: number };
 
 /**
  * 同级互斥的分支归属解析器：给定任意标签 id，沿祖先链向上，每遇到一个互斥父分类，
- * 就以"该父分类的直接子节点"为分支参与一次竞争（三级标签代表它所在的二级分支）。
+ * 就以"该父分类的直接子节点"为分支参与一次竞争（更深的标签代表它在该层所在的分支）。
  * predict.ts（AI 各来源之间）与 exclusive-siblings.ts（AI vs 特征库）共用同一套归属规则。
  */
 export function buildExclusiveBranchResolver(tagsTree: TagWithChildren[]): {

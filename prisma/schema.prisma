@@ -96,7 +96,7 @@ model AssetTag {
 
   name           String     @db.VarChar(100)
   slug           String?    @db.VarChar(64) // 新增以后还不存在 slug，和 musedam 同步以后会有
-  level          Int        @default(1) // 层级: 1, 2, 3
+  level          Int        @default(1) // 层级: 1-4（最大层级见 src/lib/tagging/tag-level.ts MAX_TAG_LEVEL）
   parentId       Int?
   parent         AssetTag?  @relation("TagHierarchy", fields: [parentId], references: [id])
   children       AssetTag[] @relation("TagHierarchy")

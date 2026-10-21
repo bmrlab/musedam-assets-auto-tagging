@@ -184,7 +184,7 @@ export function TagItem({
           </span>
 
           {/* 标签上的素材数量 */}
-          {/* {level < 3 && tag.children.length > 0 && (
+          {/* {level < MAX_TAG_LEVEL && tag.children.length > 0 && (
           <span className="text-xs text-basic-5 bg-muted px-1.5 py-0.5 rounded">
             {tag.children.filter((child) => !child.isDeleted).length}
           </span>

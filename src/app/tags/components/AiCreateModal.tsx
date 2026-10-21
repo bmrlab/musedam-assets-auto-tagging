@@ -447,11 +447,17 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
                           <div className="flex items-start">
                             <span className="mr-2 whitespace-nowrap">{tManual("SecondaryTags")}</span>
                           </div>
+                          <div className="flex items-start">
+                            <span className="mr-2 whitespace-nowrap">{tManual("TertiaryTags")}</span>
+                          </div>
                           <div className="flex items-start gap-2">
                             <span>{tManual("Label1")}</span>
                           </div>
                           <div className="flex items-start gap-2">
                             <span>{tManual("Label2")}</span>
+                          </div>
+                          <div className="flex items-start gap-2">
+                            <span>{tManual("OrdinaryTextIsLeafTag")}</span>
                           </div>
                         </div>
                       </div>
@@ -510,6 +516,13 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
                           </span>
                         </div>
 
+                        <div className="flex items-start">
+                          <span className="mr-2 whitespace-nowrap">{tManual("TertiaryTags")}</span>
+                          <span className="text-[#722ED1] text-start">
+                            {tManual("TertiaryTagDescription")}
+                          </span>
+                        </div>
+
                         <div className="flex items-start gap-2">
                           <span>{tManual("Label1")}</span>
                           <div>
@@ -520,6 +533,8 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
                         <div className="flex items-start gap-2">
                           <span>{tManual("Label2")}</span>
                         </div>
+
+                        <div className="mt-2 text-start">{tManual("OrdinaryTextIsLeafTag")}</div>
                       </div>
                     </div>
                   </div>

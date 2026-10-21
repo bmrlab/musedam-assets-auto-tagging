@@ -22,6 +22,7 @@
     "pleaseSelect": "Vui lòng chọn",
     "selectSecondLevelFirst": "Vui lòng chọn thẻ cấp hai trước",
     "tagNameExists": "Tên thẻ đã tồn tại ở cùng cấp",
+    "tagLevelExceeded": "Cấp bậc thẻ không được vượt quá {max} cấp",
     "saveSuccess": "Lưu thành công",
     "saveFailed": "Lưu thất bại",
     "saveDetailsFailed": "Lưu chi tiết thẻ thất bại",
@@ -63,15 +64,16 @@
       "tagDescription": "Mô tả thẻ",
       "tagDescriptionPlaceholder": "Không bắt buộc. Thêm mô tả giúp AI hiểu rõ hơn bối cảnh sử dụng của thẻ",
       "aiAutoTagging": "Công cụ gắn thẻ AI",
-      "aiAutoTaggingEnabled": "Đã bật, cho phép AI nhận diện thẻ này",
-      "aiAutoTaggingDisabled": "Đã tắt, AI sẽ không nhận diện thẻ này",
-      "siblingsExclusive": "Chỉ một thẻ con",
-      "siblingsExclusiveTooltip": "Khi bật, AI chỉ giữ lại một thẻ con trong danh mục này cho mỗi tài sản, ưu tiên thẻ có căn cứ từ tên tệp, thư mục hoặc từ khóa. Dùng cho các danh mục loại trừ lẫn nhau như loại sản phẩm, ngày lễ hoặc loại phương tiện; tắt đối với các danh mục mà thẻ có thể cùng tồn tại như phong cách hoặc kênh. Hệ thống tự động thiết lập ở lần gắn thẻ đầu tiên; thiết lập thủ công luôn được ưu tiên.",
-      "siblingsExclusiveOn": "Bật: mỗi tài sản chỉ giữ một thẻ con",
-      "siblingsExclusiveOff": "Tắt: có thể gắn nhiều thẻ con cùng lúc",
+      "aiAutoTaggingTooltip": "Khi bật, thẻ này nằm trong phạm vi gắn thẻ tự động bằng AI, AI sẽ dựa vào nội dung tài sản để quyết định có gắn thẻ này hay không",
+      "aiAutoTaggingEnabled": "Bật: AI sẽ quyết định có gắn thẻ này hay không",
+      "aiAutoTaggingDisabled": "Tắt: AI sẽ không gắn thẻ này",
+      "siblingsExclusive": "Chọn một thẻ con",
+      "siblingsExclusiveTooltip": "Khi bật, AI chỉ giữ tối đa một thẻ con khi gắn thẻ tự động. Phù hợp với nhóm thẻ có các thẻ con loại trừ lẫn nhau",
+      "siblingsExclusiveOn": "Bật: giữ tối đa một thẻ con",
+      "siblingsExclusiveOff": "Tắt: có thể gắn nhiều thẻ con",
       "requiredGroup": "Nhóm thẻ bắt buộc",
-      "requiredGroupTooltip": "Khi bật, AI phải gắn một thẻ con trong danh mục này cho mọi tài sản. Nếu căn cứ yếu, hệ thống sẽ chọn thẻ con có khả năng cao nhất với độ tin cậy thấp và đánh dấu là phương án dự phòng của nhóm bắt buộc trong phần duyệt. Dùng cho các chiều mà mọi tài sản đều phải có, như tỷ lệ khung hình, dòng thương hiệu hoặc danh mục sản phẩm.",
-      "requiredGroupOn": "Bật: mọi tài sản đều nhận một thẻ con trong danh mục này",
+      "requiredGroupTooltip": "Ngay cả khi thiếu căn cứ vẫn chọn thẻ con có khả năng nhất và đánh dấu là phương án dự phòng bắt buộc trên trang duyệt",
+      "requiredGroupOn": "Bật: mọi tài sản đều nhận một thẻ con",
       "requiredGroupOff": "Tắt: chỉ gắn thẻ khi có căn cứ",
       "matchingKeywords": "Từ khóa khớp",
       "matchingKeywordsTooltip": "Thêm từ khóa liên quan đến thẻ này để giúp AI nhận diện chính xác hơn",
@@ -84,6 +86,10 @@
       "excludeRule": "Quy tắc loại trừ:",
       "excludeRuleDescription": "Khi tên tài sản, siêu dữ liệu và đường dẫn thư mục chứa các từ khóa này, thẻ sẽ không được tự động gắn ngay cả khi có từ khóa khớp",
       "requiredForInventoryEntry": "Bắt buộc khi nhập kho",
+      "requiredForInventoryEntryTooltip": "Khi bật, phải chọn một thẻ trong nhóm thẻ này khi thêm tài sản vào thư viện",
+      "requiredForInventoryEntryOn": "Bật: bắt buộc chọn khi thêm",
+      "requiredForInventoryEntryOff": "Tắt: không bắt buộc khi thêm",
+      "requiredForInventoryEntryHint": "Chỉ áp dụng cho thành viên trong phạm vi hiển thị: khi nhập kho, chỉ kiểm tra các nhóm thẻ mà thành viên đó nhìn thấy.",
       "tagVisibilityRange": "Phạm vi hiển thị thẻ",
       "allMembersVisible": "Tất cả thành viên đều thấy",
       "selectVisibleMembers": "Chọn thành viên có thể xem thẻ này",
@@ -95,18 +101,20 @@
       "CreateLabelsManually": "Tạo thẻ thủ công",
       "CreateNow": "Tạo ngay",
       "Cancel": "Hủy",
-      "QuicklyCreateMultipleTagPathsW": "Tạo nhanh nhiều đường dẫn thẻ, hỗ trợ liên kết tối đa ba cấp",
+      "QuicklyCreateMultipleTagPathsW": "Tạo nhanh nhiều đường dẫn thẻ, hỗ trợ liên kết tối đa bốn cấp",
       "PreviewView": "Xem trước",
       "HereSTheTranslatedTextFollowin": "Chỉnh sửa",
       "PleaseCreateLabelsInTheFollowi": "Vui lòng tạo thẻ theo định dạng sau, mỗi dòng một thẻ...",
       "FormatInstructions": "Hướng dẫn định dạng:",
       "PrimaryTag": "# Thẻ cấp một",
       "SecondaryTags": "## Thẻ cấp hai",
+      "TertiaryTags": "### Thẻ cấp ba",
       "Label1": "Thẻ 1",
       "Label2": "Thẻ 2",
-      "OrdinaryTextIsALevel3Tag": "Văn bản thường là thẻ cấp ba.",
+      "OrdinaryTextIsLeafTag": "Văn bản thường là thẻ ở cấp cuối cùng",
       "PrimaryTagDescription": "← Danh mục chính (ví dụ: loại nội dung, dòng sản phẩm)",
       "SecondaryTagDescription": "← Danh mục con (ví dụ: tài sản hình ảnh, loại trang phục)",
+      "TertiaryTagDescription": "← Tùy chọn, danh mục chi tiết hơn (văn bản thường bên dưới là thẻ cấp 4)",
       "LabelDescription": "← Thẻ cụ thể (ví dụ: ảnh sản phẩm, dòng áo)"
     },
     "ManualCreateTipsModal": {
@@ -136,6 +144,7 @@
       "level1Title": "Thẻ cấp 1",
       "level2Title": "Thẻ cấp 2",
       "level3Title": "Thẻ cấp 3",
+      "level4Title": "Thẻ cấp 4",
       "defaultTitle": "Thẻ"
     },
     "TagsClient": {
@@ -173,7 +182,7 @@
       "en-US": "Tiếng Anh"
     },
     "tagTreePrompt": {
-      "template": "Bạn là chuyên gia về hệ thống phân loại thẻ tài sản số của doanh nghiệp. Dựa trên bối cảnh người dùng sau, hãy tạo một 'cây thẻ'.\n[Bối cảnh người dùng]\n{userContext}\n\nBạn PHẢI xuất ra nghiêm ngặt theo đúng định dạng sau (không thêm giải thích, ký hiệu, đánh số, dòng trống hay phần bổ sung nào):\n# Thẻ cấp 1\n## Thẻ cấp 2\nThẻ 1\nThẻ 2\n\nQuy tắc:\n- Chỉ xuất ra chính cây thẻ. KHÔNG bao gồm bất kỳ giải thích, gợi ý, ví dụ, khối mã Markdown hay dấu backtick nào.\n- Dùng tiếng Việt cho toàn bộ nội dung.\n- Thuật ngữ cần chuyên nghiệp, loại trừ lẫn nhau, rõ ràng và phù hợp cho tìm kiếm thực tế. Tránh câu dài.\n- KHÔNG xuất tiêu đề trống, đánh số, dấu hai chấm, dấu ngoặc hay bất kỳ văn bản giải thích nào.\n- KHÔNG thêm ký hiệu ngoài các cấp đã định nghĩa, như gạch dài, dấu hai chấm, '- ' hoặc danh sách đánh số.\n- KHÔNG nhắc lại bối cảnh người dùng hay thêm phần tóm tắt cuối."
+      "template": "Bạn là chuyên gia về hệ thống phân loại thẻ tài sản số của doanh nghiệp. Dựa trên bối cảnh người dùng sau, hãy tạo một 'cây thẻ'.\n[Bối cảnh người dùng]\n{userContext}\n\nBạn PHẢI xuất ra nghiêm ngặt theo đúng định dạng sau (không thêm giải thích, ký hiệu, đánh số, dòng trống hay phần bổ sung nào):\n# Thẻ cấp 1\n## Thẻ cấp 2\nThẻ 1\nThẻ 2\n## Thẻ cấp 2\n### Thẻ cấp 3\nThẻ cấp 4 1\nThẻ cấp 4 2\n\nQuy tắc:\n- Tối đa bốn cấp: # là cấp 1, ## là cấp 2, ### là cấp 3; văn bản thường là thẻ con của tiêu đề gần nhất phía trên (dưới ## là cấp 3, dưới ### là cấp 4). Thông thường ba cấp là đủ; chỉ dùng ### với thẻ cấp 4 khi thực sự cần phân loại chi tiết hơn.\n- Chỉ xuất ra chính cây thẻ. KHÔNG bao gồm bất kỳ giải thích, gợi ý, ví dụ, khối mã Markdown hay dấu backtick nào.\n- Dùng tiếng Việt cho toàn bộ nội dung.\n- Thuật ngữ cần chuyên nghiệp, loại trừ lẫn nhau, rõ ràng và phù hợp cho tìm kiếm thực tế. Tránh câu dài.\n- KHÔNG xuất tiêu đề trống, đánh số, dấu hai chấm, dấu ngoặc hay bất kỳ văn bản giải thích nào.\n- KHÔNG thêm ký hiệu ngoài các cấp đã định nghĩa, như gạch dài, dấu hai chấm, '- ' hoặc danh sách đánh số.\n- KHÔNG nhắc lại bối cảnh người dùng hay thêm phần tóm tắt cuối."
     },
     "industry": {
       "general": {

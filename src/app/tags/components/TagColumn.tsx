@@ -11,11 +11,11 @@ import { TagSortModal } from "./TagSortModal";
 interface TagColumnProps {
   title: string;
   tags: TagNode[];
-  level: 1 | 2 | 3;
+  level: number;
   selectedId?: string | null;
   canAdd: boolean;
   emptyMessage: string;
-  onAddTag: (level: 1 | 2 | 3) => void;
+  onAddTag: (level: number) => void;
   onSelectTag?: (nodeId: string) => void;
   onEdit: (nodeId: string, newName: string) => Promise<boolean>;
   onStartEdit: (nodeId: string) => void;
@@ -29,7 +29,7 @@ interface TagColumnProps {
   canEdit?: boolean;
   totalCount?: number;
   showAiTags?: boolean;
-  onSortTags?: (level: 1 | 2 | 3, sortedTags: TagNode[]) => void;
+  onSortTags?: (level: number, sortedTags: TagNode[]) => void;
 }
 
 export function TagColumn({

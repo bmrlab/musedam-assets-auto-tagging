@@ -147,4 +147,46 @@ describe("syncTagsFromMuseDAM", () => {
     expect(mocks.rows[0]).toMatchObject({ id: 10, slug: slugOf(1) });
     expect(mocks.assetTag.create).not.toHaveBeenCalled();
   });
+
+  it("syncs 4-level trees and keeps existing level-4 tags instead of deleting them", async () => {
+    // 本地已有 4 级：车型信息(10) > 品牌(11) > 小米汽车(12) > SU7(13)
+    seed({ id: 10, name: "车型信息", slug: slugOf(1), parentId: null, level: 1, sort: 0 });
+    seed({ id: 11, name: "品牌", slug: slugOf(2), parentId: 10, level: 2, sort: 0 });
+    seed({ id: 12, name: "小米汽车", slug: slugOf(3), parentId: 11, level: 3, sort: 0 });
+    seed({ id: 13, name: "SU7", slug: slugOf(5), parentId: 12, level: 4, sort: 0 });
+
+    mocks.requestMuseDAMAPI.mockResolvedValue([
+      {
+        id: mid(1),
+        name: "车型信息",
+        sort: 0,
+        children: [
+          {
+            id: mid(2),
+            name: "品牌",
+            sort: 0,
+            children: [
+              {
+                id: mid(3),
+                name: "小米汽车",
+                sort: 0,
+                children: [
+                  { id: mid(5), name: "SU7", sort: 0, children: null },
+                  { id: mid(6), name: "YU7", sort: 1, children: null },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+
+    await syncTagsFromMuseDAM({ team });
+
+    const byName = (name: string) => mocks.rows.find((r) => r.name === name);
+    expect(byName("SU7")?.id).toBe(13);
+    expect(byName("YU7")).toMatchObject({ parentId: 12, level: 4, slug: slugOf(6) });
+    expect(mocks.assetTag.deleteMany).not.toHaveBeenCalled();
+    expect(mocks.rows).toHaveLength(5);
+  });
 });

@@ -67,7 +67,7 @@ export async function syncTagsFromMuseDAM({
   }: {
     name: string;
     slug: string;
-    level: 1 | 2 | 3;
+    level: number;
     parentId: number | null;
     sort: number;
   }): Promise<AssetTag> {
@@ -93,33 +93,25 @@ export async function syncTagsFromMuseDAM({
     return assetTag;
   };
 
-  for (const level1Tag of musedamTags) {
-    const level1AssetTag = await upsert({
-      name: level1Tag.name,
-      slug: idToSlug("assetTag", level1Tag.id),
-      level: 1,
-      parentId: null,
-      sort: level1Tag.sort,
-    });
-    for (const level2Tag of level1Tag.children ?? []) {
-      const level2AssetTag = await upsert({
-        name: level2Tag.name,
-        slug: idToSlug("assetTag", level2Tag.id),
-        level: 2,
-        parentId: level1AssetTag.id,
-        sort: level2Tag.sort,
+  // 递归处理任意深度：MuseDAM 目前最深返回 MAX_TAG_LEVEL 级，但即使返回更深的数据也照常落库，
+  // 不能静默丢弃——否则下面的「删除本地多余标签」会把这些标签当成过期数据删掉。
+  const syncLevel = async (
+    nodes: MuseDAMTagTree | null | undefined,
+    level: number,
+    parentId: number | null,
+  ) => {
+    for (const node of nodes ?? []) {
+      const assetTag = await upsert({
+        name: node.name,
+        slug: idToSlug("assetTag", node.id),
+        level,
+        parentId,
+        sort: node.sort,
       });
-      for (const level3Tag of level2Tag.children ?? []) {
-        await upsert({
-          name: level3Tag.name,
-          slug: idToSlug("assetTag", level3Tag.id),
-          level: 3,
-          parentId: level2AssetTag.id,
-          sort: level3Tag.sort,
-        });
-      }
+      await syncLevel(node.children, level + 1, assetTag.id);
     }
-  }
+  };
+  await syncLevel(musedamTags, 1, null);
 
   // 本地有、MuseDAM 没有：删除。父节点被删时子孙也不在 keptIds 里，一并删掉，不会留孤儿。
   const staleIds = existingTags.map((tag) => tag.id).filter((id) => !keptIds.has(id));

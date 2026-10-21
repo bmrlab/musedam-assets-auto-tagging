@@ -22,6 +22,7 @@
     "pleaseSelect": "Veuillez sélectionner",
     "selectSecondLevelFirst": "Veuillez d'abord sélectionner une étiquette de deuxième niveau",
     "tagNameExists": "Ce nom d'étiquette existe déjà au même niveau",
+    "tagLevelExceeded": "La hiérarchie des étiquettes ne peut pas dépasser {max} niveaux",
     "saveSuccess": "Enregistré avec succès",
     "saveFailed": "Échec de l'enregistrement",
     "saveDetailsFailed": "Échec de l'enregistrement des détails de l'étiquette",
@@ -63,15 +64,16 @@
       "tagDescription": "Description de l'étiquette",
       "tagDescriptionPlaceholder": "Optionnel. Ajouter des descriptions aide l'IA à mieux comprendre les scénarios d'application des étiquettes",
       "aiAutoTagging": "Étiquetage automatique IA",
-      "aiAutoTaggingEnabled": "Activé, permet à l'IA de reconnaître cette étiquette",
-      "aiAutoTaggingDisabled": "Désactivé, l'IA ne reconnaîtra pas cette étiquette",
-      "siblingsExclusive": "Un seul sous-tag",
-      "siblingsExclusiveTooltip": "Si activé, l'IA ne conserve qu'un seul sous-tag de cette catégorie par ressource, en privilégiant celui justifié par le nom de fichier, le dossier ou les mots-clés. À utiliser pour les catégories exclusives (type de produit, fête, type de média) ; à laisser désactivé pour les catégories cumulables (style, canal). Le système le définit automatiquement au premier étiquetage ; un réglage manuel prévaut.",
-      "siblingsExclusiveOn": "Activé : un seul sous-tag conservé par ressource",
-      "siblingsExclusiveOff": "Désactivé : les sous-tags peuvent être appliqués ensemble",
+      "aiAutoTaggingTooltip": "Si activé, cette étiquette est incluse dans l'étiquetage automatique IA, et l'IA décide de l'appliquer selon le contenu de la ressource",
+      "aiAutoTaggingEnabled": "Activé : l'IA décide d'appliquer cette étiquette",
+      "aiAutoTaggingDisabled": "Désactivé : l'IA n'appliquera pas cette étiquette",
+      "siblingsExclusive": "Sous-tag unique",
+      "siblingsExclusiveTooltip": "Si activé, l'IA conserve au plus un sous-tag lors de l'étiquetage automatique. Adapté aux groupes dont les sous-tags s'excluent mutuellement",
+      "siblingsExclusiveOn": "Activé : au plus un sous-tag conservé",
+      "siblingsExclusiveOff": "Désactivé : plusieurs sous-tags possibles",
       "requiredGroup": "Groupe de tags obligatoire",
-      "requiredGroupTooltip": "Si activé, l'IA doit appliquer un sous-tag de cette catégorie à chaque ressource. En cas de preuve faible, le système choisit le plus probable avec une confiance basse et le signale en revue comme repli obligatoire. À utiliser pour les dimensions que chaque ressource doit avoir : format, ligne de marque, catégorie produit.",
-      "requiredGroupOn": "Activé : chaque ressource reçoit un sous-tag de cette catégorie",
+      "requiredGroupTooltip": "Même avec peu d'indices, le sous-tag le plus probable est choisi et signalé comme « repli obligatoire » sur la page de révision",
+      "requiredGroupOn": "Activé : chaque ressource reçoit un sous-tag",
       "requiredGroupOff": "Désactivé : étiquetage uniquement avec preuve",
       "matchingKeywords": "Mots-clés de correspondance",
       "matchingKeywordsTooltip": "Ajoutez des mots-clés liés à cette étiquette pour aider l'IA à l'identifier plus précisément",
@@ -84,6 +86,10 @@
       "excludeRule": "Règle d'exclusion :",
       "excludeRuleDescription": "Lorsque les noms de ressources, métadonnées et chemins de dossiers contiennent ces mots-clés, même si des mots-clés correspondants sont trouvés, l'étiquette ne sera pas appliquée automatiquement",
       "requiredForInventoryEntry": "Champ obligatoire pour l'entrée de stock",
+      "requiredForInventoryEntryTooltip": "Si activé, une étiquette de ce groupe doit être sélectionnée lors de l'ajout de ressources à la bibliothèque",
+      "requiredForInventoryEntryOn": "Activé : obligatoire lors de l'ajout",
+      "requiredForInventoryEntryOff": "Désactivé : facultatif lors de l'ajout",
+      "requiredForInventoryEntryHint": "S'applique uniquement aux membres dans la portée de visibilité : lors de l'entrée, seuls les groupes de tags visibles par le membre sont vérifiés.",
       "tagVisibilityRange": "Tag visibility",
       "allMembersVisible": "Visible to all members",
       "selectVisibleMembers": "Select members who can view this tag",
@@ -95,18 +101,20 @@
       "CreateLabelsManually": "Créer une étiquette manuellement",
       "CreateNow": "Créer maintenant",
       "Cancel": "Annuler",
-      "QuicklyCreateMultipleTagPathsW": "Créez rapidement plusieurs chemins d'étiquettes, prenant en charge jusqu'à trois niveaux de liaison",
+      "QuicklyCreateMultipleTagPathsW": "Créez rapidement plusieurs chemins d'étiquettes, prenant en charge jusqu'à quatre niveaux de liaison",
       "PreviewView": "Aperçu",
       "HereSTheTranslatedTextFollowin": "Modifier",
       "PleaseCreateLabelsInTheFollowi": "Veuillez créer des étiquettes au format suivant, une par ligne...",
       "FormatInstructions": "Instructions de format :",
       "PrimaryTag": "# Étiquette principale",
       "SecondaryTags": "## Étiquette secondaire",
+      "TertiaryTags": "### Étiquette tertiaire",
       "Label1": "Étiquette 1",
       "Label2": "Étiquette 2",
-      "OrdinaryTextIsALevel3Tag": "Le texte ordinaire est une étiquette de niveau 3.",
+      "OrdinaryTextIsLeafTag": "Le texte ordinaire est une étiquette du dernier niveau",
       "PrimaryTagDescription": "← Catégories principales (ex. : types de contenu, séries de produits)",
       "SecondaryTagDescription": "← Sous-catégories (ex. : ressources image, catégories de vêtements)",
+      "TertiaryTagDescription": "← Facultatif, catégorie plus fine (le texte ordinaire en dessous devient des étiquettes de niveau 4)",
       "LabelDescription": "← Étiquettes spécifiques (ex. : images produits, série haut)"
     },
     "ManualCreateTipsModal": {
@@ -136,6 +144,7 @@
       "level1Title": "Étiquettes de niveau 1",
       "level2Title": "Étiquettes de niveau 2",
       "level3Title": "Étiquettes de niveau 3",
+      "level4Title": "Étiquettes de niveau 4",
       "defaultTitle": "Étiquettes"
     },
     "TagsClient": {
@@ -173,7 +182,7 @@
       "en-US": "Anglais"
     },
     "tagTreePrompt": {
-      "template": "Vous êtes un expert en taxonomies d'étiquettes de ressources numériques d'entreprise. Sur la base du contexte utilisateur suivant, générez un 'arbre d'étiquettes'.\n[Contexte utilisateur]\n{userContext}\n\nVous DEVEZ produire strictement au format suivant uniquement (pas d'explications supplémentaires, symboles, numérotation, lignes vides ou sections supplémentaires) :\n# Étiquette de niveau 1\n## Étiquette de niveau 2\nÉtiquette 1\nÉtiquette 2\n\nRègles :\n- Produire uniquement l'arbre d'étiquettes lui-même. N'incluez AUCUNE explication, indication, exemple, délimiteur de code Markdown ou backticks.\n- Utilisez l'anglais pour tout le texte.\n- Les termes doivent être professionnels, mutuellement exclusifs, clairs et orientés pour une recherche pratique. Évitez les phrases longues.\n- Ne produisez PAS de titres vides, de numérotation, de deux-points, de crochets ou de texte explicatif.\n- N'ajoutez PAS de symboles en dehors des niveaux définis, tels que des tirets cadratins, deux-points, '- ' ou listes numériques.\n- Ne répétez PAS le contexte utilisateur ou n'ajoutez pas de résumé de conclusion."
+      "template": "Vous êtes un expert en taxonomies d'étiquettes de ressources numériques d'entreprise. Sur la base du contexte utilisateur suivant, générez un 'arbre d'étiquettes'.\n[Contexte utilisateur]\n{userContext}\n\nVous DEVEZ produire strictement au format suivant uniquement (pas d'explications supplémentaires, symboles, numérotation, lignes vides ou sections supplémentaires) :\n# Étiquette de niveau 1\n## Étiquette de niveau 2\nÉtiquette 1\nÉtiquette 2\n## Étiquette de niveau 2\n### Étiquette de niveau 3\nÉtiquette de niveau 4 1\nÉtiquette de niveau 4 2\n\nRègles :\n- Quatre niveaux au maximum : # est le niveau 1, ## le niveau 2, ### le niveau 3 ; le texte ordinaire est l'enfant du titre le plus proche au-dessus (niveau 3 sous ##, niveau 4 sous ###). Trois niveaux suffisent généralement ; n'utilisez ### avec des étiquettes de niveau 4 que si une granularité plus fine est vraiment nécessaire.\n- Produire uniquement l'arbre d'étiquettes lui-même. N'incluez AUCUNE explication, indication, exemple, délimiteur de code Markdown ou backticks.\n- Utilisez l'anglais pour tout le texte.\n- Les termes doivent être professionnels, mutuellement exclusifs, clairs et orientés pour une recherche pratique. Évitez les phrases longues.\n- Ne produisez PAS de titres vides, de numérotation, de deux-points, de crochets ou de texte explicatif.\n- N'ajoutez PAS de symboles en dehors des niveaux définis, tels que des tirets cadratins, deux-points, '- ' ou listes numériques.\n- Ne répétez PAS le contexte utilisateur ou n'ajoutez pas de résumé de conclusion."
     },
     "industry": {
       "general": {
