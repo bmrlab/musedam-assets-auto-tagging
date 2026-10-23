@@ -21,6 +21,7 @@ import {
 } from "../context/BatchCreateTagsContext";
 import { useEnterpriseTagSetting } from "../hooks/useEnterpriseTagSetting";
 import { TagBatchEditor } from "./TagBatchEditor";
+import { TagBatchFormatExample } from "./TagBatchFormatExample";
 
 type TTag = NameChildList;
 
@@ -74,18 +75,7 @@ const CreateModalInner = ({
               onChange={(v) => inputBatchCreateText(v)}
               mode={mode}
               onModeChange={setMode}
-              placeholderContent={
-                <div>
-                  <div>{t("PleaseCreateLabelsInTheFollowi")}</div>
-                  <div>{t("FormatInstructions")}</div>
-                  <div>{t("PrimaryTag")}</div>
-                  <div>{t("SecondaryTags")}</div>
-                  {setting.tagLevel >= 4 && <div>{t("TertiaryTags")}</div>}
-                  <div>{t("Label1")}</div>
-                  <div>{t("Label2")}</div>
-                  <div>{t("OrdinaryTextIsLeafTag")}</div>
-                </div>
-              }
+              placeholderContent={<TagBatchFormatExample />}
             />
           </div>
           <DialogFooter>

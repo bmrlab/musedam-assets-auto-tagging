@@ -2,6 +2,16 @@
 
 import { Button } from "@/components/ui/button";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Dialog,
   DialogContent,
   DialogFooter,
@@ -22,15 +32,14 @@ import {
 } from "../hooks/useEnterpriseTagSetting";
 
 export function TagSettingDialog({
-  fourthLevelCount,
   onLevelChanged,
 }: {
-  fourthLevelCount: number;
   onLevelChanged?: () => void;
 }) {
   const t = useTranslations("TagsPage");
   const { setting, save } = useEnterpriseTagSetting();
   const [open, setOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState<EnterpriseTagSetting>(setting);
 
@@ -38,23 +47,31 @@ export function TagSettingDialog({
     if (open) setDraft(setting);
   }, [open, setting]);
 
-  const persist = async () => {
-    if (draft.tagLevel === setting.tagLevel && draft.showAiTag === setting.showAiTag) {
-      setOpen(false);
-      return;
-    }
-    const levelChanged = draft.tagLevel !== setting.tagLevel;
+  const persist = async (levelChanged: boolean) => {
     setSaving(true);
     try {
       await save(draft);
       if (levelChanged) onLevelChanged?.();
       toast.success(t("tagSettingSaved"));
+      setConfirmOpen(false);
       setOpen(false);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t("tagSettingFailed"));
     } finally {
       setSaving(false);
     }
+  };
+
+  const onConfirm = () => {
+    if (draft.tagLevel === setting.tagLevel && draft.showAiTag === setting.showAiTag) {
+      setOpen(false);
+      return;
+    }
+    if (draft.tagLevel !== setting.tagLevel) {
+      setConfirmOpen(true);
+      return;
+    }
+    void persist(false);
   };
 
   return (
@@ -101,10 +118,8 @@ export function TagSettingDialog({
                   );
                 })}
               </RadioGroup>
-              {draft.tagLevel === 3 && fourthLevelCount > 0 && (
-                <p className="text-[13px] leading-5 text-destructive">
-                  {t("hideFourthLevelHint", { count: fourthLevelCount })}
-                </p>
+              {draft.tagLevel !== setting.tagLevel && (
+                <p className="text-[13px] leading-5 text-destructive">{t("clearEnterpriseTagsHint")}</p>
               )}
             </div>
             <div className="flex flex-col gap-2">
@@ -124,12 +139,26 @@ export function TagSettingDialog({
             <Button variant="outline" size="sm" disabled={saving} onClick={() => setOpen(false)}>
               {t("cancel")}
             </Button>
-            <Button size="sm" disabled={saving} onClick={() => void persist()}>
+            <Button size="sm" disabled={saving} onClick={onConfirm}>
               {t("confirm")}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <AlertDialog open={confirmOpen} onOpenChange={(next) => !saving && setConfirmOpen(next)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("tagSettingTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("clearEnterpriseTagsHint")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={saving}>{t("cancel")}</AlertDialogCancel>
+            <AlertDialogAction disabled={saving} onClick={() => void persist(true)}>
+              {t("confirm")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

@@ -28,6 +28,7 @@ import {
 } from "../context/BatchCreateTagsContext";
 import { useEnterpriseTagSetting } from "../hooks/useEnterpriseTagSetting";
 import { TagBatchEditor } from "./TagBatchEditor";
+import { TagBatchFormatExample } from "./TagBatchFormatExample";
 
 interface AiCreateModalProps {
   visible: boolean;
@@ -43,7 +44,6 @@ type CloseConfirmReason = "generating" | "notApplied" | null;
 const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalProps) => {
   const t = useTranslations("TagsPage");
   const tAI = useTranslations("AiCreateModal");
-  const tManual = useTranslations("TagsPage.ManualCreateModal");
   const { setting } = useEnterpriseTagSetting();
   const [isCreating, setIsCreating] = useState(false);
   // 行业类型选项 - 根据设计稿调整
@@ -439,29 +439,8 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
                     containerClassName="h-[calc(100%-40px)]"
                     className="resize-none h-full overflow-scroll"
                     placeholderContent={
-                      <div className="space-y-3 text-sm text-basic-5">
-                        <div>{tManual("PleaseCreateLabelsInTheFollowi")}</div>
-                        <div className="space-y-1">
-                          <div className="font-medium">{tManual("FormatInstructions")}</div>
-                          <div className="flex items-start">
-                            <span className="mr-2 whitespace-nowrap">{tManual("PrimaryTag")}</span>
-                          </div>
-                          <div className="flex items-start">
-                            <span className="mr-2 whitespace-nowrap">{tManual("SecondaryTags")}</span>
-                          </div>
-                          <div className="flex items-start">
-                            <span className="mr-2 whitespace-nowrap">{tManual("TertiaryTags")}</span>
-                          </div>
-                          <div className="flex items-start gap-2">
-                            <span>{tManual("Label1")}</span>
-                          </div>
-                          <div className="flex items-start gap-2">
-                            <span>{tManual("Label2")}</span>
-                          </div>
-                          <div className="flex items-start gap-2">
-                            <span>{tManual("OrdinaryTextIsLeafTag")}</span>
-                          </div>
-                        </div>
+                      <div className="text-sm text-basic-5">
+                        <TagBatchFormatExample />
                       </div>
                     }
                   />
@@ -501,43 +480,7 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
                     <div
                       className={`text-sm  text-basic-6 flex flex-col items-start h-fit w-full bg-basic-1 rounded-[8px] p-4 mt-5 ${isGenerating ? "animate-pulse" : ""}`}
                     >
-                      <span className="font-medium flex items-center gap-1">
-                        <span className="text-xs">📋</span>
-                        {tManual("FormatInstructions")}
-                      </span>
-                      <div className="mt-3">
-                        <div className="flex items-start">
-                          <span className="mr-2 whitespace-nowrap">{tManual("PrimaryTag")}</span>
-                          <span className="text-[#52C41A] text-start">{tManual("PrimaryTagDescription")}</span>
-                        </div>
-
-                        <div className="flex items-start">
-                          <span className="mr-2 whitespace-nowrap">{tManual("SecondaryTags")}</span>
-                          <span className="text-[#1890FF] text-start">
-                            {tManual("SecondaryTagDescription")}
-                          </span>
-                        </div>
-
-                        <div className="flex items-start">
-                          <span className="mr-2 whitespace-nowrap">{tManual("TertiaryTags")}</span>
-                          <span className="text-[#722ED1] text-start">
-                            {tManual("TertiaryTagDescription")}
-                          </span>
-                        </div>
-
-                        <div className="flex items-start gap-2">
-                          <span>{tManual("Label1")}</span>
-                          <div>
-                            <span className="text-[#FAAD14]">{tManual("LabelDescription")}</span>
-                          </div>
-                        </div>
-
-                        <div className="flex items-start gap-2">
-                          <span>{tManual("Label2")}</span>
-                        </div>
-
-                        <div className="mt-2 text-start">{tManual("OrdinaryTextIsLeafTag")}</div>
-                      </div>
+                      <TagBatchFormatExample showIntro={false} />
                     </div>
                   </div>
                 ) : (

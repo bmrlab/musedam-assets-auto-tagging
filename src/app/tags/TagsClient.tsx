@@ -33,14 +33,6 @@ interface TagsClientProps {
 
 const SMART_TAGS_ID = "-1";
 
-function countTagsAtLevel(nodes: TagNode[], level: number): number {
-  if (level <= 1) return nodes.filter((node) => !node.isDeleted).length;
-  return nodes.reduce(
-    (sum, node) => (node.isDeleted ? sum : sum + countTagsAtLevel(node.children, level - 1)),
-    0,
-  );
-}
-
 /** 各层级（1 ~ MAX_TAG_LEVEL）选中的节点 ID，selection[i] 对应第 i + 1 级 */
 type Selection = (string | null)[];
 
@@ -837,10 +829,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
         title={t("tagManagement")}
         headerExtra={
           canManageTags ? (
-            <TagSettingDialog
-              fourthLevelCount={countTagsAtLevel(tagsTree, 4)}
-              onLevelChanged={refetchTagsTree}
-            />
+            <TagSettingDialog onLevelChanged={refetchTagsTree} />
           ) : undefined
         }
         lists={levelTags}

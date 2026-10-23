@@ -286,7 +286,7 @@
     "tagLevelThree": "3 層標籤",
     "tagLevelFour": "4 層標籤",
     "tagLevelDefault": "預設",
-    "hideFourthLevelHint": "第 4 層的 {count} 個標籤將被隱藏，切回 4 層標籤後恢復顯示",
+    "clearEnterpriseTagsHint": "切換層級將清空本團隊全部企業標籤及素材上的企業標籤，此操作不可恢復。",
     "smartTag": "智慧標籤",
     "showAiTagOnDetail": "在素材詳情頁顯示智慧標籤",
     "showAiTagHint": "關閉後，素材詳情頁和待入庫預覽中不再回顯智慧標籤",
