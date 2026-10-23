@@ -1,10 +1,11 @@
 "use client";
 
 import { Checkbox } from "@/components/ui/checkbox";
+import { MAX_TAG_LEVEL } from "@/lib/tagging/tag-level";
 import { cn } from "@/lib/utils";
 import { ChevronRight } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useDeferredValue, useEffect, useRef, useState } from "react";
+import { createRef, useDeferredValue, useEffect, useRef, useState } from "react";
 import type { RefObject } from "react";
 
 export type TagTreeNode = {
@@ -31,6 +32,45 @@ type DialogTagSelectorProps = {
 };
 
 type TranslationFunction = (key: string, values?: Record<string, string | number>) => string;
+
+/** 面板列数 = 标签最大层级；最后一列只展示、不再向下展开 */
+const PANEL_COUNT = MAX_TAG_LEVEL;
+
+/** 首列 200px，中间列 180px，最后一列自适应（列多时容器内横向滚动） */
+const PANEL_GRID_TEMPLATE = [
+  "200px",
+  ...Array.from({ length: Math.max(PANEL_COUNT - 2, 0) }, () => "180px"),
+  "minmax(160px, 1fr)",
+].join(" ");
+
+/**
+ * 激活路径：activePath[i] 为第 i + 1 列中被激活（展开下一列）的节点。
+ * 从给定前缀出发，沿每级第一个子节点补齐到 PANEL_COUNT - 1 级。
+ */
+function extendActivePath(tags: TagTreeNode[], prefix: number[]): number[] {
+  const path: number[] = [];
+  let nodes = tags;
+  for (let i = 0; i < PANEL_COUNT - 1; i++) {
+    const wantedId = prefix[i];
+    const node =
+      wantedId !== undefined ? nodes.find((item) => item.id === wantedId) : i >= prefix.length ? nodes[0] : undefined;
+    if (!node) break;
+    path.push(node.id);
+    nodes = node.children;
+  }
+  return path;
+}
+
+/** 查找从根到目标节点的 ID 路径 */
+function findTagIdPath(nodes: TagTreeNode[], tagId: number, prefix: number[] = []): number[] | null {
+  for (const node of nodes) {
+    const path = [...prefix, node.id];
+    if (node.id === tagId) return path;
+    const found = findTagIdPath(node.children, tagId, path);
+    if (found) return found;
+  }
+  return null;
+}
 
 function flattenTags(nodes: TagTreeNode[], parentPath: string[] = []) {
   const results: FlattenedTag[] = [];
@@ -145,68 +185,32 @@ export default function DialogTagSelector({
 }: DialogTagSelectorProps) {
   const t = useTranslations("Tagging.BrandLibrary") as TranslationFunction;
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const level1ScrollRef = useRef<HTMLDivElement | null>(null);
-  const level2ScrollRef = useRef<HTMLDivElement | null>(null);
-  const level3ScrollRef = useRef<HTMLDivElement | null>(null);
+  const scrollRefs = useRef(
+    Array.from({ length: PANEL_COUNT }, () => createRef<HTMLDivElement>()),
+  ).current;
   const [keyword, setKeyword] = useState("");
-  const [activeLevel1Id, setActiveLevel1Id] = useState<number | null>(tags[0]?.id ?? null);
-  const [activeLevel2Id, setActiveLevel2Id] = useState<number | null>(
-    tags[0]?.children[0]?.id ?? null,
-  );
+  const [activePath, setActivePath] = useState<number[]>(() => extendActivePath(tags, []));
   const [isExpanded, setIsExpanded] = useState(!collapsedUntilFocus);
   const deferredKeyword = useDeferredValue(keyword.trim().toLowerCase());
   const latestSelectedTagId = selectedTagIds.at(-1) ?? null;
 
-  function getDefaultNavigation() {
-    return {
-      level1Id: tags[0]?.id ?? null,
-      level2Id: tags[0]?.children[0]?.id ?? null,
-    };
-  }
-
-  function getNavigationForTagId(tagId: number) {
-    for (const l1 of tags) {
-      if (l1.id === tagId) {
-        return { level1Id: l1.id, level2Id: l1.children[0]?.id ?? null };
-      }
-      for (const l2 of l1.children) {
-        if (l2.id === tagId) {
-          return { level1Id: l1.id, level2Id: l2.id };
-        }
-        if (l2.children.some((child) => child.id === tagId)) {
-          return { level1Id: l1.id, level2Id: l2.id };
-        }
-      }
-    }
-    return getDefaultNavigation();
+  function getNavigationForTagId(tagId: number | null): number[] {
+    const path = tagId === null ? null : findTagIdPath(tags, tagId);
+    if (!path) return extendActivePath(tags, []);
+    // 目标在最后一列时激活其父路径；否则激活到目标本身，并沿首个子节点向下补齐
+    return extendActivePath(tags, path.slice(0, PANEL_COUNT - 1));
   }
 
   function applyNavigation(tagId: number | null) {
-    const navigation = tagId === null ? getDefaultNavigation() : getNavigationForTagId(tagId);
-    setActiveLevel1Id(navigation.level1Id);
-    setActiveLevel2Id(navigation.level2Id);
+    setActivePath(getNavigationForTagId(tagId));
   }
 
-  function scrollPanelsToActive(
-    level1Id: number | null,
-    level2Id: number | null,
-    level3Id: number | null,
-  ) {
-    if (level1Id && level1ScrollRef.current) {
-      level1ScrollRef.current
-        .querySelector(`[data-tag-id="${level1Id}"]`)
-        ?.scrollIntoView({ block: "nearest" });
-    }
-    if (level2Id && level2ScrollRef.current) {
-      level2ScrollRef.current
-        .querySelector(`[data-tag-id="${level2Id}"]`)
-        ?.scrollIntoView({ block: "nearest" });
-    }
-    if (level3Id && level3ScrollRef.current) {
-      level3ScrollRef.current
-        .querySelector(`[data-tag-id="${level3Id}"]`)
-        ?.scrollIntoView({ block: "nearest" });
-    }
+  function scrollPanelsToActive(path: number[], lastPanelTagId: number | null) {
+    scrollRefs.forEach((ref, index) => {
+      const targetId = index < PANEL_COUNT - 1 ? path[index] : lastPanelTagId;
+      if (!targetId || !ref.current) return;
+      ref.current.querySelector(`[data-tag-id="${targetId}"]`)?.scrollIntoView({ block: "nearest" });
+    });
   }
 
   function openPanel() {
@@ -258,14 +262,14 @@ export default function DialogTagSelector({
 
     const frame = requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        scrollPanelsToActive(activeLevel1Id, activeLevel2Id, latestSelectedTagId);
+        scrollPanelsToActive(activePath, latestSelectedTagId);
       });
     });
 
     return () => {
       cancelAnimationFrame(frame);
     };
-  }, [isExpanded, deferredKeyword, activeLevel1Id, activeLevel2Id, latestSelectedTagId]);
+  }, [isExpanded, deferredKeyword, activePath, latestSelectedTagId]);
 
   const flattenedTags = flattenTags(tags);
   const selectedTags = selectedTagIds
@@ -276,10 +280,12 @@ export default function DialogTagSelector({
     ? flattenedTags.filter((tag) => tag.path.join(" / ").toLowerCase().includes(deferredKeyword))
     : [];
 
-  const activeLevel1 = tags.find((tag) => tag.id === activeLevel1Id) ?? null;
-  const level2Nodes = activeLevel1?.children ?? [];
-  const activeLevel2 = level2Nodes.find((tag) => tag.id === activeLevel2Id) ?? null;
-  const level3Nodes = activeLevel2?.children ?? [];
+  // panelNodes[i] 为第 i + 1 列展示的节点：首列为一级，其余为上一列激活节点的子节点
+  const panelNodes: TagTreeNode[][] = [tags];
+  for (let i = 1; i < PANEL_COUNT; i++) {
+    const activeParent = panelNodes[i - 1].find((tag) => tag.id === activePath[i - 1]);
+    panelNodes.push(activeParent?.children ?? []);
+  }
 
   function toggleTag(tagId: number, options?: { clearKeyword?: boolean }) {
     const nextSelected = selectedTagIds.includes(tagId)
@@ -359,42 +365,35 @@ export default function DialogTagSelector({
       ) : null}
 
       {isExpanded && !deferredKeyword ? (
-        <div className="grid h-[320px] w-full grid-cols-[200px_180px_minmax(0,1fr)] overflow-hidden rounded-[6px] border border-basic-3 bg-background shadow-[0_6px_16px_0_rgba(87,98,114,0.12)] dark:shadow-[0_6px_16px_0_rgba(0,0,0,0.4)]">
-          <TagColumn
-            title={t("tagSelector.tagGroups", { count: tags.length })}
-            nodes={tags}
-            activeId={activeLevel1Id}
-            selectedTagIds={selectedTagIds}
-            onToggle={toggleTag}
-            onActivate={(id) => {
-              setActiveLevel1Id(id);
-              const nextLevel2 = tags.find((tag) => tag.id === id)?.children[0]?.id ?? null;
-              setActiveLevel2Id(nextLevel2);
-            }}
-            t={t}
-            scrollContainerRef={level1ScrollRef}
-          />
-          <TagColumn
-            title={t("tagSelector.tags", { count: level2Nodes.length })}
-            nodes={level2Nodes}
-            activeId={activeLevel2Id}
-            selectedTagIds={selectedTagIds}
-            onToggle={toggleTag}
-            onActivate={setActiveLevel2Id}
-            t={t}
-            scrollContainerRef={level2ScrollRef}
-          />
-          <TagColumn
-            title={t("tagSelector.tags", { count: level3Nodes.length })}
-            nodes={level3Nodes}
-            activeId={null}
-            selectedTagIds={selectedTagIds}
-            onToggle={toggleTag}
-            onActivate={() => undefined}
-            t={t}
-            highlightSelected
-            scrollContainerRef={level3ScrollRef}
-          />
+        <div
+          className="grid h-[320px] w-full overflow-x-auto overflow-y-hidden rounded-[6px] border border-basic-3 bg-background shadow-[0_6px_16px_0_rgba(87,98,114,0.12)] dark:shadow-[0_6px_16px_0_rgba(0,0,0,0.4)]"
+          style={{ gridTemplateColumns: PANEL_GRID_TEMPLATE }}
+        >
+          {panelNodes.map((nodes, index) => {
+            const isLastPanel = index === PANEL_COUNT - 1;
+            return (
+              <TagColumn
+                key={index}
+                title={
+                  index === 0
+                    ? t("tagSelector.tagGroups", { count: nodes.length })
+                    : t("tagSelector.tags", { count: nodes.length })
+                }
+                nodes={nodes}
+                activeId={isLastPanel ? null : (activePath[index] ?? null)}
+                selectedTagIds={selectedTagIds}
+                onToggle={toggleTag}
+                onActivate={
+                  isLastPanel
+                    ? () => undefined
+                    : (id) => setActivePath(extendActivePath(tags, [...activePath.slice(0, index), id]))
+                }
+                t={t}
+                highlightSelected={isLastPanel}
+                scrollContainerRef={scrollRefs[index]}
+              />
+            );
+          })}
         </div>
       ) : null}
     </div>

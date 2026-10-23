@@ -3,7 +3,7 @@
 // 标签树恢复脚本：从库里其他表残留的标签路径把被误删的 AssetTag 重建回来，并把外键重新接上。
 //
 // 背景：旧版「从 MuseDAM 同步」会先 deleteMany 团队全部标签再重建。删掉的标签本身没了，但这些表
-// 都以 JSON 保存着完整的标签路径（tagPath: ["一级","二级","三级"]），部分还保存着原始 id：
+// 都以 JSON 保存着完整的标签路径（tagPath: ["一级","二级",...]，最多 MAX_TAG_LEVEL 级），部分还保存着原始 id：
 //   - TaggingQueueItem.result.tagsWithScore[] / predictions[].tags[]   → tagPath + 原始 leafTagId
 //   - TaggingQueueItem.extra.requiredGroupFallback                       → tagPath + 原始 id / parentId
 //   - TaggingAuditItem.tagPath                                            → tagPath（leafTagId 已被置空）
@@ -28,6 +28,7 @@
 // 建议顺序：先 dry-run 看统计和树是否合理，再 --apply；写完后在标签管理页点「手动同步当前标签树到 MuseDAM」
 // 把恢复出来但 MuseDAM 没有的标签推上去、回填 slug。不要再点「从 MuseDAM 同步」。
 
+import { MAX_TAG_LEVEL } from "@/lib/tagging/tag-level";
 import { PrismaClient, type Prisma } from "@/prisma/client";
 import { loadEnvConfig } from "@next/env";
 import { writeFile } from "node:fs/promises";
@@ -91,7 +92,7 @@ async function main() {
     // ---------- 1. 汇总路径 ----------
     const nodes = new Map<PathKey, Node>();
     const touch = (path: string[], source: string, id?: number | null, slug?: string | null) => {
-      if (!isStringArray(path) || path.length > 3) return;
+      if (!isStringArray(path) || path.length > MAX_TAG_LEVEL) return;
       // 同时登记所有祖先路径，保证父节点也在树里
       for (let depth = 1; depth <= path.length; depth++) {
         const sub = path.slice(0, depth);
@@ -269,7 +270,7 @@ async function main() {
     console.log(
       `重建出的树共 ${nodes.size} 个节点：复用现有 ${reuseCount}，需新建 ${plans.length}（其中按原始 id 插入 ${plans.filter((p) => p.id !== null).length}）`,
     );
-    const byLevel = [1, 2, 3]
+    const byLevel = Array.from({ length: MAX_TAG_LEVEL }, (_, i) => i + 1)
       .map((l) => `L${l}=${plans.filter((p) => p.level === l).length}`)
       .join(" ");
     console.log(`需新建按层级: ${byLevel}`);

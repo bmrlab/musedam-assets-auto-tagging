@@ -333,6 +333,8 @@ type ActionMap = {
         departments?: Array<{ id: string; name: string }>;
         groups?: Array<{ id: string; name: string }>;
       };
+      title?: string;
+      canSelectMe?: boolean;
     };
     result: BaseActionResult<{
       members: {
@@ -453,6 +455,46 @@ type ActionMap = {
       configId?: number;
     };
     result: BaseActionResult<Record<string, never>>;
+  };
+  "get-tag-visibility": {
+    args: { tagId: number };
+    result: BaseActionResult<{
+      members: Array<{ id: string; name: string; departmentsName?: string; avatarUrl?: string }>;
+      departments: Array<{ id: string; name: string }>;
+      groups: Array<{ id: string; name: string }>;
+    }>;
+  };
+  /** 全量替换一级标签可见范围，三个列表都为空则恢复全团队可见 */
+  "set-tag-visibility": {
+    args: {
+      tagId: number;
+      userIds: string[];
+      departmentIds: string[];
+      groupIds: string[];
+    };
+    result: BaseActionResult<Record<string, never>>;
+  };
+  "get-tag-management-permission": {
+    args: Record<string, never>;
+    result: BaseActionResult<{ canManageTags: boolean }>;
+  };
+  "get-tag-setting": {
+    args: Record<string, never>;
+    result: BaseActionResult<{
+      tagLevel: 3 | 4;
+      showAiTag: 0 | 1;
+    }>;
+  };
+  /** 保存团队标签设置。切到 3 层时第 4 层标签仅隐藏，切回 4 层后恢复 */
+  "set-tag-setting": {
+    args: {
+      tagLevel: 3 | 4;
+      showAiTag: 0 | 1;
+    };
+    result: BaseActionResult<{
+      tagLevel: 3 | 4;
+      showAiTag: 0 | 1;
+    }>;
   };
 };
 

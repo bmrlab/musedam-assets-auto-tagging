@@ -41,7 +41,9 @@ export function TokenAuthPageClient({
           await signIn("token-login", { token, redirect: false }).catch(() => undefined);
           router.replace(withAuthTokenQuery(callbackUrl, token));
         } else {
-          clearAuthToken();
+          // 无权限时 token 本身是有效的，留着它让 /api/team/settings 按当前团队回报 hasPermission=false；
+          // 清掉的话后续请求会退回共享 cookie，拿到别的团队的登录态
+          if (result.error !== "PERMISSION_DENIED") clearAuthToken();
           setError(result.error ?? "INVALID_TOKEN");
         }
       })

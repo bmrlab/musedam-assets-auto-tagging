@@ -7,44 +7,55 @@ import type { ServerActionResult } from "@/lib/serverAction";
 import { generateObject } from "ai";
 import { z } from "zod";
 
+const level4TagSchema = z.object({
+  name: z.string().describe("四级标签名称"),
+});
+
+const level3TagSchema = z.object({
+  name: z.string().describe("三级标签名称"),
+  children: z.array(level4TagSchema).optional().describe("四级标签列表（可选）"),
+});
+
+const level2TagSchema = z.object({
+  name: z.string().describe("二级标签名称"),
+  children: z.array(level3TagSchema).optional().describe("三级标签列表"),
+});
+
 const tagTreeSchema = z.object({
   tags: z.array(
     z.object({
       name: z.string().describe("一级标签名称"),
-      children: z
-        .array(
-          z.object({
-            name: z.string().describe("二级标签名称"),
-            children: z
-              .array(
-                z.object({
-                  name: z.string().describe("三级标签名称"),
-                }),
-              )
-              .optional()
-              .describe("三级标签列表"),
-          }),
-        )
-        .optional()
-        .describe("二级标签列表"),
+      children: z.array(level2TagSchema).optional().describe("二级标签列表"),
     }),
   ),
 });
 
+/**
+ * 结构化标签树 -> 批量创建文本格式：
+ * `#` 一级，`##` 二级，`###` 三级，普通文本为最近一个标题的子标签（最末级）。
+ * - 同一个二级下的三级都没有子标签时，三级直接输出为普通文本（与旧的三层格式一致）；
+ * - 只要有一个三级带四级子标签，该二级下的三级全部用 `###` 输出（保持原顺序），
+ *   四级以普通文本跟在对应 `###` 之后。
+ */
 function convertStructuredToText(data: z.infer<typeof tagTreeSchema>): string {
   const lines: string[] = [];
 
   for (const level1 of data.tags) {
     lines.push(`# ${level1.name}`);
 
-    if (level1.children && level1.children.length > 0) {
-      for (const level2 of level1.children) {
-        lines.push(`## ${level2.name}`);
+    for (const level2 of level1.children ?? []) {
+      lines.push(`## ${level2.name}`);
 
-        if (level2.children && level2.children.length > 0) {
-          for (const level3 of level2.children) {
-            lines.push(level3.name);
-          }
+      const level3List = level2.children ?? [];
+      const hasLevel4 = level3List.some((level3) => !!level3.children?.length);
+      for (const level3 of level3List) {
+        if (!hasLevel4) {
+          lines.push(level3.name);
+          continue;
+        }
+        lines.push(`### ${level3.name}`);
+        for (const level4 of level3.children ?? []) {
+          lines.push(level4.name);
         }
       }
     }
@@ -94,7 +105,10 @@ ${config.promptIntro}
         {
           "name": "${config.level2Label}",
           "children": [
-            { "name": "${config.level3Label1}" },
+            {
+              "name": "${config.level3Label1}",
+              "children": [{ "name": "${config.level4Label}" }]
+            },
             { "name": "${config.level3Label2}" }
           ]
         }

@@ -180,6 +180,47 @@ describe("resolveExclusiveSiblingsAcrossSources", () => {
   });
 });
 
+describe("resolveExclusiveSiblingsAcrossSources on 4-level trees", () => {
+  // 品牌产品线 > 雪花秀 > 人参系列(互斥) > 精华 / 面霜：互斥组在第 3 级，竞争的分支是第 4 级标签
+  const fourLevelTree: TagWithChildren[] = [
+    {
+      id: 100,
+      name: "品牌产品线",
+      extra: { siblingsExclusive: false },
+      children: [
+        {
+          id: 101,
+          name: "雪花秀",
+          extra: {},
+          children: [
+            {
+              id: 102,
+              name: "人参系列",
+              extra: { siblingsExclusive: true },
+              children: [
+                { id: 103, name: "精华", extra: {} },
+                { id: 104, name: "面霜", extra: {} },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  ];
+
+  it("drops an inferred level-4 sibling when the feature hit another level-4 branch of a level-3 exclusive group", () => {
+    const result = resolveExclusiveSiblingsAcrossSources({
+      tagsTree: fourLevelTree,
+      tagsWithScore: [inferred(104, ["品牌产品线", "雪花秀", "人参系列", "面霜"], 94)],
+      featureCandidates: [{ leafTagId: 103, confidence: 85, featureType: "product" }],
+    });
+    expect(result.tagsWithScore).toEqual([]);
+    expect(result.dropped).toEqual([
+      expect.objectContaining({ leafTagId: 104, winnerLeafTagId: 103, parentId: 102 }),
+    ]);
+  });
+});
+
 describe("collectFeatureTagCandidates", () => {
   it("preserves individual product confidence and ignores weak or aggregate candidates", () => {
     const match = (id: string, confidence: number, tagId: number): TaggingProductBestMatch => ({

@@ -7,6 +7,8 @@ import {
   applyEvidencePoliciesToTree,
   collectTagsMissingEvidencePolicy,
   CONTENT_ONLY_REJECTION_AUTO_LITERAL_THRESHOLD,
+  buildExclusiveBranchResolver,
+  flattenTagsTree,
   isContentOnlySupport,
   resolveEvidencePolicy,
 } from "@/app/(tagging)/evidence-policy";
@@ -93,6 +95,65 @@ describe("collectTagsMissingEvidencePolicy / applyEvidencePoliciesToTree", () =>
       ]),
     );
     expect(collectTagsMissingEvidencePolicy(tree)).toEqual([]);
+  });
+});
+
+describe("flattenTagsTree on 4-level trees", () => {
+  const tree: TagWithChildren[] = [
+    {
+      id: 1,
+      name: "渠道",
+      extra: null,
+      children: [
+        {
+          id: 2,
+          name: "线上",
+          extra: null,
+          children: [
+            {
+              id: 3,
+              name: "社交媒体",
+              extra: { siblingsExclusive: true },
+              children: [
+                { id: 4, name: "小红书", extra: null },
+                { id: 5, name: "抖音", extra: null },
+              ],
+            },
+            { id: 6, name: "官网", extra: null },
+          ],
+        },
+      ],
+    },
+  ];
+
+  it("flattens every level with real hasChildren, depth, parentId and full tagPath", () => {
+    expect(flattenTagsTree(tree)).toEqual([
+      { id: 1, name: "渠道", extra: null, tagPath: ["渠道"], depth: 1, hasChildren: true },
+      { id: 2, name: "线上", extra: null, tagPath: ["渠道", "线上"], depth: 2, parentId: 1, hasChildren: true },
+      {
+        id: 3,
+        name: "社交媒体",
+        extra: { siblingsExclusive: true },
+        tagPath: ["渠道", "线上", "社交媒体"],
+        depth: 3,
+        parentId: 2,
+        hasChildren: true,
+      },
+      { id: 4, name: "小红书", extra: null, tagPath: ["渠道", "线上", "社交媒体", "小红书"], depth: 4, parentId: 3, hasChildren: false },
+      { id: 5, name: "抖音", extra: null, tagPath: ["渠道", "线上", "社交媒体", "抖音"], depth: 4, parentId: 3, hasChildren: false },
+      { id: 6, name: "官网", extra: null, tagPath: ["渠道", "线上", "官网"], depth: 3, parentId: 2, hasChildren: false },
+    ]);
+  });
+
+  it("treats a level-3 node with children as an exclusive group", () => {
+    const { exclusiveParentIds, branchesOf } = buildExclusiveBranchResolver(tree);
+    expect([...exclusiveParentIds]).toEqual([3]);
+    expect(branchesOf(4)).toEqual([{ parentId: 3, branchId: 4 }]);
+  });
+
+  it("applies the legacy 渠道 heuristic to every ancestor of a level-4 leaf", () => {
+    expect(resolveEvidencePolicy(null, ["渠道", "线上", "社交媒体", "小红书"])).toBe("literal");
+    expect(collectTagsMissingEvidencePolicy(tree).map((node) => node.id)).toEqual([1, 2, 3, 4, 5, 6]);
   });
 });
 

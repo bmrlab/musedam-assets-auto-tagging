@@ -144,7 +144,7 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
   const getPermissionIcon = ({ slug, extra, name }: AccessPermission) => {
     const nameInAvatar = name.slice(0, 1)
     if (extra?.avatarUrl) {
-      return <img src={extra.avatarUrl} alt="avatar" width={40} height={40} className='rounded-full object-cover size-9' />
+      return <img src={extra.avatarUrl} alt="avatar" referrerPolicy="no-referrer" width={40} height={40} className='rounded-full object-cover size-9' />
     }
     return <div className="flex size-9 items-center justify-center bg-[#C5CEE0] border border-black/10 border-solid text-white rounded-full text-[14px]">
       {

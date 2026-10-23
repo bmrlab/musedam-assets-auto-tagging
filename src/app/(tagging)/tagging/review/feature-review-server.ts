@@ -7,6 +7,7 @@ import {
 } from "@/lib/feature-library";
 import { getProductMatches } from "@/lib/product/product-match-policy";
 import { getCachedBrowserS3ObjectUrl } from "@/lib/s3";
+import { buildParentSelect, buildTagNamePath, TagWithParentChain } from "@/lib/tagging/tag-level";
 import type { TaggingQueueItemResult } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 import {
@@ -256,10 +257,8 @@ async function queryReviewFeatures(
       select: {
         assetTagId: true,
         assetTag: {
-          select: {
-            name: true,
-            parent: { select: { name: true, parent: { select: { name: true } } } },
-          },
+          // 向上取完整祖先链（MAX_TAG_LEVEL - 1 层）以拼出完整 tagPath
+          select: { name: true, ...buildParentSelect({ name: true }) } as { name: true },
         },
       },
     },
@@ -319,11 +318,7 @@ async function queryReviewFeatures(
         ? [
             {
               assetTagId: row.assetTagId,
-              tagPath: [
-                row.assetTag.parent?.parent?.name,
-                row.assetTag.parent?.name,
-                row.assetTag.name,
-              ].filter((name): name is string => name !== undefined),
+              tagPath: buildTagNamePath(row.assetTag as TagWithParentChain<{ name: string }>),
             },
           ]
         : [],

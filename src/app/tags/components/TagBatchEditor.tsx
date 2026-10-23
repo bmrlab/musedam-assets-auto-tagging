@@ -5,13 +5,10 @@ import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
+import { nameChildListToPreviewTagNodes, parseBatchTagText } from "../batchTagText";
+import { useEnterpriseTagSetting } from "../hooks/useEnterpriseTagSetting";
 import { TagNode } from "../types";
-import { ThreeTagList } from "./ThreeTagList";
-
-export interface NameChildList {
-  name: string;
-  nameChildList?: NameChildList[];
-}
+import { TagLevelColumns } from "./TagLevelColumns";
 
 export interface TagBatchEditorProps {
   value: string;
@@ -24,47 +21,6 @@ export interface TagBatchEditorProps {
   placeholderContent?: ReactNode;
 }
 
-// 解析批量文本为三级结构
-export const parseNameChildList = (text: string): NameChildList[] => {
-  if (!text) return [];
-  const lines = text.split("\n").filter((line) => line.trim());
-  const result: NameChildList[] = [];
-  let currentL1: NameChildList | null = null;
-  let currentL2: NameChildList | null = null;
-
-  for (const line of lines) {
-    if (line.startsWith("# ") || (line.startsWith("#") && !line.startsWith("##"))) {
-      const name = line.startsWith("# ") ? line.slice(2).trim() : line.slice(1).trim();
-      if (!name) continue;
-      currentL1 = { name, nameChildList: [] };
-      currentL2 = null;
-      result.push(currentL1);
-    } else if (line.startsWith("## ") || (line.startsWith("##") && !line.startsWith("###"))) {
-      if (!currentL1) continue;
-      const name = line.startsWith("## ") ? line.slice(3).trim() : line.slice(2).trim();
-      if (!name) continue;
-      currentL2 = { name, nameChildList: [] };
-      currentL1.nameChildList?.push(currentL2);
-    } else if (line.trim() && !line.startsWith("#")) {
-      if (!currentL2) continue;
-      currentL2.nameChildList?.push({ name: line.trim() });
-    }
-  }
-  return result;
-};
-
-// NameChildList -> TagNode (用于预览)
-export const convertToTagNodes = (nameChildList: NameChildList[]): TagNode[] => {
-  return nameChildList.map((item, index) => ({
-    id: undefined,
-    slug: null,
-    name: item.name,
-    originalName: item.name,
-    children: item.nameChildList ? convertToTagNodes(item.nameChildList) : [],
-    tempId: `preview_${index}`,
-  }));
-};
-
 export const TagBatchEditor = ({
   value,
   onChange,
@@ -76,6 +32,8 @@ export const TagBatchEditor = ({
   placeholderContent,
 }: TagBatchEditorProps) => {
   const t = useTranslations("TagsPage.ManualCreateModal");
+  const { setting } = useEnterpriseTagSetting();
+  const maxLevel = setting.tagLevel;
   const [innerMode, setInnerMode] = useState<"preview" | "edit">("edit");
   const mode = outerMode ?? innerMode;
   const setMode = (m: "preview" | "edit") => {
@@ -89,42 +47,35 @@ export const TagBatchEditor = ({
     if (!value) setShowTips(true);
   }, [value]);
 
-  const nameChildList = useMemo(() => parseNameChildList(value), [value]);
-  const previewTagNodes = useMemo(() => convertToTagNodes(nameChildList), [nameChildList]);
+  // 与创建逻辑共用同一解析器（支持最多四级），预览 tempId 按路径生成保证唯一
+  const nameChildList = useMemo(() => parseBatchTagText(value, maxLevel), [value, maxLevel]);
+  const previewTagNodes = useMemo(
+    () => nameChildListToPreviewTagNodes(nameChildList),
+    [nameChildList],
+  );
 
-  const [previewSelectedLevel1Id, setPreviewSelectedLevel1Id] = useState<string | null>(null);
-  const [previewSelectedLevel2Id, setPreviewSelectedLevel2Id] = useState<string | null>(null);
-  const [previewSelectedLevel3Id, setPreviewSelectedLevel3Id] = useState<string | null>(null);
+  // previewSelectedIds[i] 为预览中第 i + 1 级选中的节点 tempId
+  const [previewSelectedIds, setPreviewSelectedIds] = useState<(string | null)[]>([]);
 
   useEffect(() => {
-    // 输入变化时，设置默认选中第一个一级标签和二级标签
-    if (previewTagNodes.length > 0) {
-      setPreviewSelectedLevel1Id(previewTagNodes[0]?.tempId || null);
-
-      // 如果第一个一级标签有子标签，也默认选中第一个二级标签
-      if (previewTagNodes[0].children.length > 0) {
-        setPreviewSelectedLevel2Id(previewTagNodes[0]?.children[0]?.tempId || null);
-      } else {
-        setPreviewSelectedLevel2Id(null);
-      }
-    } else {
-      setPreviewSelectedLevel1Id(null);
-      setPreviewSelectedLevel2Id(null);
-    }
-    setPreviewSelectedLevel3Id(null);
+    // 输入变化时，默认选中第一个一级标签及其第一个二级标签
+    const firstLevel1 = previewTagNodes[0];
+    const firstLevel2 = firstLevel1?.children[0];
+    setPreviewSelectedIds([firstLevel1?.tempId ?? null, firstLevel2?.tempId ?? null]);
   }, [value, previewTagNodes]);
 
-  const previewList1 = previewTagNodes;
-  const previewList2 = useMemo(() => {
-    if (!previewSelectedLevel1Id) return [];
-    const selectedNode = previewTagNodes.find((node) => node.tempId === previewSelectedLevel1Id);
-    return selectedNode?.children || [];
-  }, [previewTagNodes, previewSelectedLevel1Id]);
-  const previewList3 = useMemo(() => {
-    if (!previewSelectedLevel2Id) return [];
-    const selectedNode = previewList2.find((node) => node.tempId === previewSelectedLevel2Id);
-    return selectedNode?.children || [];
-  }, [previewList2, previewSelectedLevel2Id]);
+  // 按选中路径逐级展开每一列的数据
+  const previewLists = useMemo(() => {
+    const lists: TagNode[][] = [previewTagNodes];
+    for (let level = 2; level <= maxLevel; level++) {
+      const parentId = previewSelectedIds[level - 2];
+      const parent = parentId
+        ? lists[level - 2].find((node) => node.tempId === parentId)
+        : undefined;
+      lists.push(parent?.children ?? []);
+    }
+    return lists;
+  }, [previewTagNodes, previewSelectedIds, maxLevel]);
 
   return (
     <div className={cn("w-full h-full flex flex-col gap-3", className)}>
@@ -188,26 +139,13 @@ export const TagBatchEditor = ({
               </>
             )}
             {mode === "preview" && (
-              <ThreeTagList
-                list1={previewList1}
-                list2={previewList2}
-                list3={previewList3}
-                total1={previewList1.length}
-                total2={previewList2.length}
-                total3={previewList3.length}
-                selectedLevel1Id={previewSelectedLevel1Id}
-                selectedLevel2Id={previewSelectedLevel2Id}
-                selectedLevel3Id={previewSelectedLevel3Id}
-                onSelectLevel1={(nodeId) => {
-                  setPreviewSelectedLevel1Id(nodeId);
-                  setPreviewSelectedLevel2Id(null);
-                  setPreviewSelectedLevel3Id(null);
-                }}
-                onSelectLevel2={(nodeId) => {
-                  setPreviewSelectedLevel2Id(nodeId);
-                  setPreviewSelectedLevel3Id(null);
-                }}
-                onSelectLevel3={(nodeId) => setPreviewSelectedLevel3Id(nodeId)}
+              <TagLevelColumns
+                lists={previewLists}
+                selectedIds={previewSelectedIds}
+                onSelect={(level, nodeId) =>
+                  setPreviewSelectedIds((prev) => [...prev.slice(0, level - 1), nodeId])
+                }
+                levelCount={maxLevel}
                 showAdd={false}
                 showAiTags={false}
                 getNodeId={(node) => node.tempId || "unknown"}

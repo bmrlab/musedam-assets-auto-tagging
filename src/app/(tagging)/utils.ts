@@ -1,5 +1,6 @@
 import "server-only";
 
+import { buildChildrenSelect, MAX_TAG_LEVEL } from "@/lib/tagging/tag-level";
 import { AssetTagExtra, TagWithChildren } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 import {
@@ -48,23 +49,30 @@ function prunedMark(tagId: number, prunedGroups?: ReadonlyMap<number, PrunedGrou
 
 export type PrunedGroupInfo = { total: number; shown: number };
 
+/**
+ * 按层级递归输出标签体系文本，层级数不固定（最大 MAX_TAG_LEVEL）。
+ * 格式（与 3 级时代保持一致）：一级节点前空一行；第 n 级（n >= 2）缩进 2 + 4 * (n - 2) 个空格并带 "└─ "。
+ * 互斥 / 必选 / 裁剪标记：所有非叶子分类节点都输出；为与历史输出一致，1、2 级的叶子节点也照旧输出（通常为空）。
+ */
 export function buildTagStructureText(
   tags: TagWithChildren[],
   prunedGroups?: ReadonlyMap<number, PrunedGroupInfo>,
 ): string {
   let structureText = "";
-  for (const level1Tag of tags) {
-    const path1 = [level1Tag.name];
-    structureText += `\nLevel 1 (id: ${level1Tag.id}): ${level1Tag.name}${literalMark(level1Tag.extra, path1)}${exclusiveMark(level1Tag.extra)}${requiredMark(level1Tag.extra)}${prunedMark(level1Tag.id, prunedGroups)}\n`;
-    for (const level2Tag of level1Tag.children ?? []) {
-      const path2 = [...path1, level2Tag.name];
-      structureText += `  └─ Level 2 (id: ${level2Tag.id}): ${level2Tag.name}${literalMark(level2Tag.extra, path2)}${exclusiveMark(level2Tag.extra)}${requiredMark(level2Tag.extra)}${prunedMark(level2Tag.id, prunedGroups)}\n`;
-      for (const level3Tag of level2Tag.children ?? []) {
-        const path3 = [...path2, level3Tag.name];
-        structureText += `      └─ Level 3 (id: ${level3Tag.id}): ${level3Tag.name}${literalMark(level3Tag.extra, path3)}\n`;
-      }
+  const walk = (nodes: TagWithChildren[], level: number, parentPath: string[]) => {
+    for (const tag of nodes) {
+      const path = [...parentPath, tag.name];
+      const children = tag.children ?? [];
+      const isGroup = children.length > 0 || level <= 2;
+      const groupMarks = isGroup
+        ? `${exclusiveMark(tag.extra)}${requiredMark(tag.extra)}${prunedMark(tag.id, prunedGroups)}`
+        : "";
+      const line = `Level ${level} (id: ${tag.id}): ${tag.name}${literalMark(tag.extra, path)}${groupMarks}\n`;
+      structureText += level === 1 ? `\n${line}` : `${" ".repeat(2 + 4 * (level - 2))}└─ ${line}`;
+      walk(children, level + 1, path);
     }
-  }
+  };
+  walk(tags, 1, []);
   return structureText;
 }
 
@@ -116,29 +124,13 @@ export async function fetchTagsTree({ teamId }: { teamId: number }) {
         id: true,
         name: true,
         extra: true, // 添加 extra 字段以获取关键词信息
-        children: {
-          where: {
-            taggingEnabled: true, // 子标签也需要过滤
-          },
-          orderBy: { id: "asc" },
-          select: {
-            id: true,
-            name: true,
-            extra: true, // 添加 extra 字段
-            children: {
-              where: {
-                taggingEnabled: true, // 三级标签也需要过滤
-              },
-              select: {
-                id: true,
-                name: true,
-                extra: true, // 添加 extra 字段
-              },
-              orderBy: { id: "asc" },
-            },
-          },
-        },
-      },
+        // 每一层子标签都只取允许打标的（父节点关闭打标时整棵子树一并排除）
+        ...buildChildrenSelect(
+          MAX_TAG_LEVEL - 1,
+          { id: true, name: true, extra: true },
+          { where: { taggingEnabled: true }, orderBy: { id: "asc" } },
+        ),
+      } as { id: true; name: true; extra: true },
     })
     .then((tags) => tags as TagWithChildren[]);
   return tags;

@@ -1,12 +1,14 @@
 import z from "zod";
 
+import { MAX_TAG_LEVEL } from "@/lib/tagging/tag-level";
+
 export const tagPredictionSchema = z.object({
   source: z.enum(["basicInfo", "materializedPath", "contentAnalysis", "tagKeywords"]),
   tags: z.array(
     z.object({
       confidence: z.number().min(0).max(1),
       leafTagId: z.number(),
-      tagPath: z.array(z.string()).min(1).max(3),
+      tagPath: z.array(z.string()).min(1).max(MAX_TAG_LEVEL),
       /** 从对应信息源原文里原样摘录的、支撑本条预测的最短片段；字面型标签必填，语义推断时可省略 */
       evidence: z.string().optional(),
     }),
