@@ -64,13 +64,13 @@ export function TagSettingDialog({
         {t("tagSetting")}
       </Button>
       <Dialog open={open} onOpenChange={(next) => !saving && setOpen(next)}>
-        <DialogContent className="sm:max-w-[480px]">
+        <DialogContent className="gap-4 p-5 sm:max-w-[480px]">
           <DialogHeader>
-            <DialogTitle>{t("tagSettingTitle")}</DialogTitle>
+            <DialogTitle className="text-base font-semibold leading-6">{t("tagSettingTitle")}</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
-              <div className="text-sm font-medium">{t("tagLevel")}</div>
+              <div className="text-sm font-medium leading-[22px] text-basic-9">{t("tagLevel")}</div>
               <RadioGroup
                 value={String(draft.tagLevel)}
                 onValueChange={(value) => setDraft({ ...draft, tagLevel: value === "4" ? 4 : 3 })}
@@ -86,8 +86,8 @@ export function TagSettingDialog({
                       key={option.value}
                       htmlFor={`tag-level-${option.value}`}
                       className={cn(
-                        "flex h-10 cursor-pointer items-center justify-between rounded-md border px-3 font-normal",
-                        selected ? "border-primary-6 bg-primary-1" : "border-basic-4",
+                        "flex h-14 cursor-pointer items-center justify-between rounded-md border px-3 text-sm font-normal leading-[22px] text-basic-8",
+                        selected ? "border-primary-6 bg-primary-1" : "border-basic-4 bg-background",
                       )}
                     >
                       <span className="flex items-center gap-2">
@@ -95,7 +95,7 @@ export function TagSettingDialog({
                         {option.label}
                       </span>
                       {option.showDefault && (
-                        <span className="text-sm font-normal text-basic-5">{t("tagLevelDefault")}</span>
+                        <span className="text-sm font-normal leading-[22px] text-basic-5">{t("tagLevelDefault")}</span>
                       )}
                     </Label>
                   );
@@ -108,10 +108,11 @@ export function TagSettingDialog({
               )}
             </div>
             <div className="flex flex-col gap-2">
-              <div className="text-sm font-medium">{t("smartTag")}</div>
-              <div className="flex h-10 items-center justify-between rounded-md border border-basic-4 px-3">
-                <span className="text-sm">{t("showAiTagOnDetail")}</span>
+              <div className="text-sm font-medium leading-[22px] text-basic-9">{t("smartTag")}</div>
+              <div className="flex h-14 items-center justify-between rounded-md border border-basic-4 px-3">
+                <span className="text-sm leading-[22px] text-basic-8">{t("showAiTagOnDetail")}</span>
                 <Switch
+                  size="sm"
                   checked={draft.showAiTag === 1}
                   onCheckedChange={(checked) => setDraft({ ...draft, showAiTag: checked ? 1 : 0 })}
                 />
@@ -120,10 +121,10 @@ export function TagSettingDialog({
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" disabled={saving} onClick={() => setOpen(false)}>
+            <Button variant="outline" size="sm" disabled={saving} onClick={() => setOpen(false)}>
               {t("cancel")}
             </Button>
-            <Button disabled={saving} onClick={() => void persist()}>
+            <Button size="sm" disabled={saving} onClick={() => void persist()}>
               {t("confirm")}
             </Button>
           </DialogFooter>

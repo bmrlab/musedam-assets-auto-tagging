@@ -48,8 +48,7 @@ function DialogContent({
 }) {
   return (
     <DialogPortal data-slot="dialog-portal">
-      {/* 因为在子项目中，不能全屏，暂时隐藏 */}
-      {/* <DialogOverlay /> */}
+      <DialogOverlay />
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
