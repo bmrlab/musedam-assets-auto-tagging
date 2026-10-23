@@ -2,6 +2,7 @@ import "server-only";
 
 import { TagNode } from "@/app/tags/types";
 import { idToSlug, slugToId } from "@/lib/slug";
+import { AssetTagTreeNode, buildChildrenInclude, MAX_TAG_LEVEL } from "@/lib/tagging/tag-level";
 import { retrieveTeamCredentials } from "@/musedam/apiKey";
 import { AssetTag } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
@@ -329,7 +330,7 @@ export async function deleteAllMuseDAMTags({
 /**
  * 将数据库中的 AssetTag 转换为 TagNode
  */
-function convertAssetTagToTagNode(tag: AssetTag & { children?: AssetTag[] }): TagNode {
+function convertAssetTagToTagNode(tag: AssetTagTreeNode): TagNode {
   return {
     id: tag.id,
     slug: tag.slug,
@@ -371,23 +372,19 @@ export async function syncTagsToMuseDAMWithCurrentSystemAsBase({
       parentId: null,
     },
     orderBy: [{ sort: "desc" }, { id: "asc" }],
-    include: {
-      children: {
-        orderBy: [{ sort: "desc" }, { id: "asc" }],
-        include: {
-          children: {
-            orderBy: [{ sort: "desc" }, { id: "asc" }],
-          },
-        },
-      },
-    },
+    // 必须取到完整深度：漏取的深层标签会在下面 buildChildRequests 里被当成「本地已删除」而推送删除
+    include: buildChildrenInclude(MAX_TAG_LEVEL - 1, {
+      orderBy: [{ sort: "desc" }, { id: "asc" }],
+    }),
   });
 
   // rootLogger.info({
   //   msg: `teamInfo, id: ${team.id}, slug: ${team.slug}`,
   // });
 
-  const currentTagsTree: TagNode[] = currentTags.map(convertAssetTagToTagNode);
+  const currentTagsTree: TagNode[] = (currentTags as AssetTagTreeNode[]).map(
+    convertAssetTagToTagNode,
+  );
 
   // 2. 获取 MuseDAM 中的标签树
   const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });

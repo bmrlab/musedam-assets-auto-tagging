@@ -1,6 +1,12 @@
 "use server";
 
 import { signObjectDetectionImageUrl } from "@/lib/media-process/image-url";
+import {
+  AssetTagTreeNode,
+  buildChildrenInclude,
+  buildParentInclude,
+  MAX_TAG_LEVEL,
+} from "@/lib/tagging/tag-level";
 
 import { withAuth } from "@/app/(auth)/withAuth";
 import {
@@ -130,9 +136,8 @@ const createOrUpdateLogoSchema = z.object({
 
 const logoTypeNameSchema = z.string().trim().min(1, "typeNameRequired").max(100, "typeNameTooLong");
 
-type AssetTagWithParents = AssetTag & {
-  parent: (AssetTag & { parent: AssetTag | null }) | null;
-};
+// 祖先链深度由 buildParentInclude() 决定（MAX_TAG_LEVEL - 1 层），buildTagPath 沿链向上拼路径
+type AssetTagWithParents = AssetTag & { parent?: AssetTagWithParents | null };
 
 type AssetLogoRecord = AssetLogo & {
   images: AssetLogoImage[];
@@ -262,9 +267,7 @@ function normalizeBrandLogo(logo: AssetLogoRecord): BrandLogoItem {
   };
 }
 
-function normalizeBrandTagTreeNode(
-  tag: AssetTag & { children?: (AssetTag & { children?: AssetTag[] })[] },
-): BrandTagTreeNode {
+function normalizeBrandTagTreeNode(tag: AssetTagTreeNode): BrandTagTreeNode {
   return {
     id: tag.id,
     name: tag.name,
@@ -397,19 +400,12 @@ async function fetchBrandTags(teamId: number) {
       parentId: null,
     },
     orderBy: [{ sort: "desc" }, { name: "asc" }],
-    include: {
-      children: {
-        orderBy: [{ sort: "desc" }, { name: "asc" }],
-        include: {
-          children: {
-            orderBy: [{ sort: "desc" }, { name: "asc" }],
-          },
-        },
-      },
-    },
+    include: buildChildrenInclude(MAX_TAG_LEVEL - 1, {
+      orderBy: [{ sort: "desc" }, { name: "asc" }],
+    }),
   });
 
-  return tags.map((tag) => normalizeBrandTagTreeNode(tag));
+  return (tags as AssetTagTreeNode[]).map((tag) => normalizeBrandTagTreeNode(tag));
 }
 
 async function fetchBrandLogos(teamId: number) {
@@ -460,13 +456,7 @@ async function resolveSelectedTags(teamId: number, tagIds: number[]) {
         in: uniqueTagIds,
       },
     },
-    include: {
-      parent: {
-        include: {
-          parent: true,
-        },
-      },
-    },
+    include: buildParentInclude(),
   });
 
   if (tags.length !== uniqueTagIds.length) {
@@ -710,13 +700,7 @@ async function buildTagPathLookup(teamId: number) {
     where: {
       teamId,
     },
-    include: {
-      parent: {
-        include: {
-          parent: true,
-        },
-      },
-    },
+    include: buildParentInclude(),
   });
   const tagLookup = new Map<
     string,

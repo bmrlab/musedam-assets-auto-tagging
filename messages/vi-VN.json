@@ -1,4 +1,253 @@
 {
+  "Homepage": {
+    "title": "Hệ thống gắn thẻ tự động tài sản MuseDAM"
+  },
+  "Components": {},
+  "TagsPage": {
+    "sortSuccess": "Sắp xếp thẻ thành công",
+    "sortFailed": "Sắp xếp thẻ thất bại",
+    "tagManagement": "Quản lý thẻ",
+    "searchPlaceholder": "Tìm kiếm thẻ",
+    "noSearchResults": "Không tìm thấy thẻ phù hợp",
+    "searchResults": "Kết quả tìm kiếm",
+    "aiAutoTagging": "Công cụ gắn thẻ AI",
+    "saveChanges": "Lưu",
+    "saving": "Đang lưu...",
+    "aiAssistant": "Trợ lý AI",
+    "batchCreate": "Tạo hàng loạt",
+    "tagGroup": "Nhóm thẻ",
+    "tag": "Thẻ",
+    "noTagGroups": "Chưa có nhóm thẻ",
+    "noTags": "Chưa có thẻ",
+    "pleaseSelect": "Vui lòng chọn",
+    "selectSecondLevelFirst": "Vui lòng chọn thẻ cấp hai trước",
+    "tagNameExists": "Tên thẻ đã tồn tại ở cùng cấp",
+    "tagLevelExceeded": "Exceeds the team tag level limit",
+    "tagSetting": "Settings",
+    "tagSettingTitle": "Tag settings",
+    "tagLevel": "Tag levels",
+    "tagLevelThree": "3 levels",
+    "tagLevelFour": "4 levels",
+    "tagLevelDefault": "Default",
+    "clearEnterpriseTagsHint": "Switching levels will delete all enterprise tags in this team and the enterprise tags on assets. This cannot be undone.",
+    "smartTag": "AI tags",
+    "showAiTagOnDetail": "Show AI tags on the asset detail page",
+    "showAiTagHint": "When off, AI tags are hidden on the asset detail page and pending-inbound preview",
+    "tagSettingSaved": "Tag settings saved",
+    "tagSettingFailed": "Failed to save tag settings",
+    "confirm": "OK",
+    "saveSuccess": "Lưu thành công",
+    "saveFailed": "Lưu thất bại",
+    "saveDetailsFailed": "Lưu chi tiết thẻ thất bại",
+    "syncFromMuseDAM": "Đồng bộ từ MuseDAM",
+    "confirmSyncTitle": "Xác nhận đồng bộ thẻ",
+    "confirmSyncDescription": "Thao tác này sẽ:\n• Xóa toàn bộ thẻ hiện có trong hệ thống\n• Tải lại toàn bộ cấu trúc thẻ từ MuseDAM\n• Mọi thay đổi thẻ chưa lưu trên máy sẽ bị mất\n\nBạn có chắc chắn muốn tiếp tục?",
+    "cancel": "Hủy",
+    "confirmSync": "Xác nhận đồng bộ",
+    "syncing": "Đang đồng bộ...",
+    "syncSuccess": "Đã đồng bộ thẻ từ MuseDAM thành công",
+    "syncFailed": "Đồng bộ thất bại",
+    "syncError": "Đã xảy ra lỗi khi đồng bộ",
+    "selectCreateMethod": "Vui lòng chọn cách tạo:",
+    "aiCreateLabel": "Tạo thẻ bằng AI",
+    "aiCreateDesc": "AI tạo mẫu thẻ chuyên nghiệp dựa trên đặc điểm ngành",
+    "manualCreateLabel": "Tạo thẻ thủ công",
+    "manualCreateDesc": "Xây dựng hệ thống phân loại riêng cho bối cảnh kinh doanh của bạn",
+    "recommended": "Đề xuất",
+    "TagItem": {
+      "tagNameRequired": "Tên thẻ không được để trống",
+      "inputTagName": "Nhập tên thẻ",
+      "new": "Mới",
+      "modified": "Đã sửa",
+      "toBeDeleted": "Chờ xóa",
+      "edited": "Đã chỉnh sửa",
+      "rename": "Đổi tên",
+      "delete": "Xóa",
+      "deleteConfirmTitle": "Xóa thẻ",
+      "deleteConfirmDescription": "Thẻ \"{tagName}\" và các thẻ con sẽ bị xóa cùng nhau. Bạn có chắc chắn muốn xóa?",
+      "confirmDelete": "Xác nhận xóa",
+      "searchRelatedAssets": "Tìm tài sản liên quan"
+    },
+    "TagDetails": {
+      "add": "Thêm",
+      "tagDetails": "Chi tiết thẻ",
+      "selectTagToView": "Vui lòng chọn một thẻ để xem chi tiết",
+      "modified": "Đã sửa",
+      "tagName": "Tên thẻ",
+      "tagDescription": "Mô tả thẻ",
+      "tagDescriptionPlaceholder": "Không bắt buộc. Thêm mô tả giúp AI hiểu rõ hơn bối cảnh sử dụng của thẻ",
+      "aiAutoTagging": "Công cụ gắn thẻ AI",
+      "aiAutoTaggingTooltip": "Khi bật, thẻ này nằm trong phạm vi gắn thẻ tự động bằng AI, AI sẽ dựa vào nội dung tài sản để quyết định có gắn thẻ này hay không",
+      "aiAutoTaggingEnabled": "Bật: AI sẽ quyết định có gắn thẻ này hay không",
+      "aiAutoTaggingDisabled": "Tắt: AI sẽ không gắn thẻ này",
+      "siblingsExclusive": "Chọn một thẻ con",
+      "siblingsExclusiveTooltip": "Khi bật, AI chỉ giữ tối đa một thẻ con khi gắn thẻ tự động. Phù hợp với nhóm thẻ có các thẻ con loại trừ lẫn nhau",
+      "siblingsExclusiveOn": "Bật: giữ tối đa một thẻ con",
+      "siblingsExclusiveOff": "Tắt: có thể gắn nhiều thẻ con",
+      "requiredGroup": "Nhóm thẻ bắt buộc",
+      "requiredGroupTooltip": "Ngay cả khi thiếu căn cứ vẫn chọn thẻ con có khả năng nhất và đánh dấu là phương án dự phòng bắt buộc trên trang duyệt",
+      "requiredGroupOn": "Bật: mọi tài sản đều nhận một thẻ con",
+      "requiredGroupOff": "Tắt: chỉ gắn thẻ khi có căn cứ",
+      "matchingKeywords": "Từ khóa khớp",
+      "matchingKeywordsTooltip": "Thêm từ khóa liên quan đến thẻ này để giúp AI nhận diện chính xác hơn",
+      "inputKeywords": "Nhập từ khóa",
+      "excludeKeywords": "Từ khóa loại trừ",
+      "excludeKeywordsTooltip": "Thêm từ khóa cần loại trừ. Tài sản chứa các từ này sẽ không được gắn thẻ này",
+      "edit": "Chỉnh sửa",
+      "matchingRule": "Quy tắc khớp:",
+      "matchingRuleDescription": "Khi tên tài sản, siêu dữ liệu và đường dẫn thư mục khớp với các từ khóa trên, AI sẽ tự động gắn thẻ cho tài sản",
+      "excludeRule": "Quy tắc loại trừ:",
+      "excludeRuleDescription": "Khi tên tài sản, siêu dữ liệu và đường dẫn thư mục chứa các từ khóa này, thẻ sẽ không được tự động gắn ngay cả khi có từ khóa khớp",
+      "requiredForInventoryEntry": "Bắt buộc khi nhập kho",
+      "requiredForInventoryEntryTooltip": "Khi bật, phải chọn một thẻ trong nhóm thẻ này khi thêm tài sản vào thư viện",
+      "requiredForInventoryEntryOn": "Bật: bắt buộc chọn khi thêm",
+      "requiredForInventoryEntryOff": "Tắt: không bắt buộc khi thêm",
+      "requiredForInventoryEntryHint": "Chỉ áp dụng cho thành viên trong phạm vi hiển thị: khi nhập kho, chỉ kiểm tra các nhóm thẻ mà thành viên đó nhìn thấy.",
+      "tagVisibilityRange": "Phạm vi hiển thị thẻ",
+      "allMembersVisible": "Tất cả thành viên đều thấy",
+      "selectVisibleMembers": "Chọn thành viên có thể xem thẻ này",
+      "saveVisibilityFailed": "Lưu phạm vi hiển thị thẻ thất bại",
+      "tagNamePlaceholder": "Thiết kế poster"
+    },
+    "ManualCreateModal": {
+      "LabelsCreatedSuccessfully": "Tạo thẻ thành công",
+      "CreateLabelsManually": "Tạo thẻ thủ công",
+      "CreateNow": "Tạo ngay",
+      "Cancel": "Hủy",
+      "QuicklyCreateMultipleTagPathsW": "Tạo nhanh nhiều đường dẫn thẻ, hỗ trợ liên kết tối đa bốn cấp",
+      "PreviewView": "Xem trước",
+      "HereSTheTranslatedTextFollowin": "Chỉnh sửa",
+      "PleaseCreateLabelsInTheFollowi": "Vui lòng tạo thẻ theo định dạng sau, mỗi dòng một thẻ...",
+      "FormatInstructions": "Hướng dẫn định dạng:",
+      "PrimaryTag": "# Thẻ cấp một",
+      "SecondaryTags": "## Thẻ cấp hai",
+      "TertiaryTags": "### Thẻ cấp ba",
+      "Label1": "Thẻ 1",
+      "Label2": "Thẻ 2",
+      "OrdinaryTextIsLeafTag": "Văn bản thường là thẻ ở cấp cuối cùng",
+      "PrimaryTagDescription": "← Danh mục chính (ví dụ: loại nội dung, dòng sản phẩm)",
+      "SecondaryTagDescription": "← Danh mục con (ví dụ: tài sản hình ảnh, loại trang phục)",
+      "TertiaryTagDescription": "← Tùy chọn, danh mục chi tiết hơn (văn bản thường bên dưới là thẻ cấp 4)",
+      "LabelDescription": "← Thẻ cụ thể (ví dụ: ảnh sản phẩm, dòng áo)"
+    },
+    "ManualCreateTipsModal": {
+      "CreateTagPrompt": "Lưu ý khi tạo thẻ",
+      "Confirm": "Xác nhận",
+      "Cancel": "Hủy",
+      "ExistingTagDataFoundInTheSyste": "Hệ thống đã có dữ liệu thẻ. Hãy chọn cách xử lý khi tạo hàng loạt. Thao tác này không thể hoàn tác, vui lòng cân nhắc kỹ:",
+      "UnderstoodPleaseProvideTheText": "Chỉ dùng hệ thống thẻ mới",
+      "ClearExistingTagsKeepOnlyTheNe": "Xóa thẻ hiện có, chỉ giữ các thẻ mới tạo",
+      "MergeIntoExistingTagSystem": "Gộp vào hệ thống thẻ hiện có",
+      "RetainExistingTagsAndAddNewTag": "Giữ thẻ hiện có, thêm thẻ mới vào hệ thống hiện tại."
+    },
+    "ManualCreateTips2Modal": {
+      "HereSTheTranslatedVersionFollo": "Lưu ý thao tác",
+      "ClearExistingTagsAndUseNewOnes": "Xóa thẻ hiện có và dùng thẻ mới",
+      "Cancel": "Hủy",
+      "ConfirmToUseTheNewTagSystemOnl": "Xác nhận chuyển sang hệ thống thẻ mới? Thao tác này sẽ xóa các thẻ hiện có và mọi liên kết với tài sản. Thao tác không thể hoàn tác, vui lòng cân nhắc kỹ."
+    },
+    "TagSortModal": {
+      "title": "Sắp xếp thẻ",
+      "noSortableTags": "Không có thẻ để sắp xếp",
+      "sortSaveSuccess": "Lưu thứ tự thành công",
+      "sortSaveFailed": "Lưu thứ tự thất bại",
+      "cancel": "Hủy",
+      "confirm": "Xác nhận",
+      "saving": "Đang lưu...",
+      "level1Title": "Thẻ cấp 1",
+      "level2Title": "Thẻ cấp 2",
+      "level3Title": "Thẻ cấp 3",
+      "level4Title": "Thẻ cấp 4",
+      "defaultTitle": "Thẻ"
+    },
+    "TagsClient": {
+      "tagCreatedSuccessfully": "Tạo thẻ thành công"
+    },
+    "AiCreateModal": {
+      "generateFailed": "Tạo hệ thống thẻ thất bại",
+      "selectedIndustry": "Ngành: ",
+      "creating": "Đang tạo..."
+    },
+    "TagColumn": {
+      "smartTags": "Thẻ thông minh"
+    }
+  },
+  "AiCreateModal": {
+    "title": "Trình tạo hệ thống thẻ AI",
+    "createSettings": "Thiết lập tạo",
+    "tip": "💡 Chọn ngành để tự động điền mô tả bối cảnh chuyên nghiệp. Bạn có thể điều chỉnh khi cần.",
+    "selectLanguage": "Ngôn ngữ thẻ",
+    "selectIndustry": "Chọn ngành",
+    "other": "Khác",
+    "pleaseDescribe": "Vui lòng mô tả",
+    "customPrompt": "Lời nhắc tùy chỉnh",
+    "generate": "Tạo hệ thống thẻ",
+    "generating": "Đang tạo...",
+    "result": "Kết quả tạo",
+    "waiting": "Đang chờ",
+    "aiAnalyzing": "AI đang phân tích và tạo hệ thống thẻ...",
+    "pleaseSelectOrInput": "Vui lòng chọn ngành hoặc nhập lời nhắc tùy chỉnh ở bên trái, sau đó nhấn Tạo.",
+    "confirmApply": "Áp dụng vào hệ thống",
+    "none": "Không có",
+    "parseError": "Định dạng thẻ được tạo không đúng. Vui lòng chuyển sang chế độ chỉnh sửa để điều chỉnh thủ công",
+    "language": {
+      "zh-CN": "Tiếng Trung",
+      "en-US": "Tiếng Anh"
+    },
+    "tagTreePrompt": {
+      "template": "Bạn là chuyên gia về hệ thống phân loại thẻ tài sản số của doanh nghiệp. Dựa trên bối cảnh người dùng sau, hãy tạo một 'cây thẻ'.\n[Bối cảnh người dùng]\n{userContext}\n\nBạn PHẢI xuất ra nghiêm ngặt theo đúng định dạng sau (không thêm giải thích, ký hiệu, đánh số, dòng trống hay phần bổ sung nào):\n# Thẻ cấp 1\n## Thẻ cấp 2\nThẻ 1\nThẻ 2\n## Thẻ cấp 2\n### Thẻ cấp 3\nThẻ cấp 4 1\nThẻ cấp 4 2\n\nQuy tắc:\n- Tối đa bốn cấp: # là cấp 1, ## là cấp 2, ### là cấp 3; văn bản thường là thẻ con của tiêu đề gần nhất phía trên (dưới ## là cấp 3, dưới ### là cấp 4). Thông thường ba cấp là đủ; chỉ dùng ### với thẻ cấp 4 khi thực sự cần phân loại chi tiết hơn.\n- Chỉ xuất ra chính cây thẻ. KHÔNG bao gồm bất kỳ giải thích, gợi ý, ví dụ, khối mã Markdown hay dấu backtick nào.\n- Dùng tiếng Việt cho toàn bộ nội dung.\n- Thuật ngữ cần chuyên nghiệp, loại trừ lẫn nhau, rõ ràng và phù hợp cho tìm kiếm thực tế. Tránh câu dài.\n- KHÔNG xuất tiêu đề trống, đánh số, dấu hai chấm, dấu ngoặc hay bất kỳ văn bản giải thích nào.\n- KHÔNG thêm ký hiệu ngoài các cấp đã định nghĩa, như gạch dài, dấu hai chấm, '- ' hoặc danh sách đánh số.\n- KHÔNG nhắc lại bối cảnh người dùng hay thêm phần tóm tắt cuối."
+    },
+    "industry": {
+      "general": {
+        "label": "Ngành chung",
+        "prompt": "Doanh nghiệp định hướng marketing tập trung vào kể chuyện thương hiệu, sáng tạo nội dung, quảng cáo hiệu quả và chiến dịch đa kênh. Tài sản số chính gồm hình ảnh thương hiệu, nội dung sáng tạo quảng cáo, video chiến dịch, nội dung mạng xã hội, tài liệu khuyến mãi và mẫu thiết kế thương hiệu. Sắp xếp tài sản theo mục tiêu marketing: nhận diện thương hiệu, thu hút khách hàng tiềm năng, tối ưu chuyển đổi và giữ chân khách hàng.\nHệ thống này áp dụng cho thương mại điện tử, hàng tiêu dùng nhanh, phần cứng công nghệ, thời trang và F&B, những ngành đề cao sự xuất sắc trong marketing."
+      },
+      "ecommerce": {
+        "label": "Thương mại điện tử & Bán lẻ",
+        "prompt": "Nhà bán lẻ thương mại điện tử tập trung vào trưng bày sản phẩm, tối ưu chuyển đổi, hiện diện trên sàn và marketing theo vòng đời khách hàng. Tài sản số chính gồm ảnh sản phẩm, ảnh phong cách sống, video demo, banner sàn, hình ảnh khuyến mãi và đánh giá của khách hàng. Sắp xếp tài sản theo giai đoạn phễu bán hàng: khám phá sản phẩm, nội dung cân nhắc, tài sản chuyển đổi và tương tác sau mua.\nHệ thống này áp dụng cho người bán trên Amazon, cửa hàng Shopify, nhà bán hàng trên sàn và nhà bán lẻ đa kênh trên các nền tảng như eBay, Walmart và các thương hiệu bán trực tiếp cho người tiêu dùng."
+      },
+      "fmcg": {
+        "label": "Hàng tiêu dùng đóng gói (CPG)",
+        "prompt": "Thương hiệu CPG tập trung vào sức hút trên kệ hàng, khác biệt hóa trong ngành hàng, hợp tác với nhà bán lẻ và giáo dục người tiêu dùng. Tài sản số chính gồm ảnh bao bì, minh họa khi sử dụng, hình ảnh phong cách sống, tài liệu riêng cho nhà bán lẻ, chiến dịch khuyến mãi và nội dung giáo dục. Sắp xếp tài sản theo kênh phân phối: hợp tác bán lẻ, chiến dịch trực tiếp đến người tiêu dùng, trade marketing và xây dựng thương hiệu."
+      },
+      "beauty": {
+        "label": "Làm đẹp & Mỹ phẩm",
+        "prompt": "Thương hiệu làm đẹp tập trung vào giáo dục sản phẩm, nội dung theo xu hướng, hợp tác với người có ảnh hưởng và xây dựng cộng đồng. Tài sản số chính gồm ảnh sản phẩm, so sánh trước/sau, video hướng dẫn, nội dung hợp tác với KOL, đánh giá từ người dùng và tài liệu chiến dịch theo mùa. Sắp xếp tài sản theo giai đoạn phễu marketing: chiến dịch nhận diện, giáo dục sản phẩm, bằng chứng xã hội và nội dung hướng đến chuyển đổi.\nHệ thống này áp dụng cho các thương hiệu chăm sóc da, trang điểm, nước hoa và dụng cụ làm đẹp, quản lý nội dung toàn diện từ giới thiệu sản phẩm đến giáo dục người tiêu dùng."
+      },
+      "fashion": {
+        "label": "Thời trang & May mặc",
+        "prompt": "Thương hiệu thời trang tập trung vào bộ sưu tập theo mùa, cảm hứng phong cách, hợp tác với người có ảnh hưởng và định vị phong cách sống. Tài sản số chính gồm ảnh lookbook, nội dung trình diễn, video phối đồ, hợp tác với KOL, buổi chụp người mẫu và chiến dịch theo xu hướng. Sắp xếp tài sản theo chiến lược nội dung: kể chuyện thương hiệu, trưng bày sản phẩm, thương mại xã hội và gắn kết cộng đồng.\nHệ thống này áp dụng cho các thương hiệu quần áo, giày dép, phụ kiện và thời trang cao cấp, quản lý nội dung hình ảnh từ ra mắt sản phẩm đến truyền thông phong cách sống."
+      },
+      "electronics": {
+        "label": "Điện tử tiêu dùng",
+        "prompt": "Thương hiệu phần cứng công nghệ tập trung vào trình diễn tính năng, so sánh hiệu năng, hướng dẫn người dùng và kể chuyện đổi mới. Tài sản số chính gồm ảnh sản phẩm, video demo, thông số kỹ thuật, biểu đồ so sánh, nội dung mở hộp và hướng dẫn sử dụng. Sắp xếp tài sản theo hành trình khách hàng: nhận biết sản phẩm, tìm hiểu tính năng, cân nhắc mua và làm quen sản phẩm.\nHệ thống này áp dụng cho điện thoại thông minh, máy tính xách tay, thiết bị nhà thông minh và phụ kiện công nghệ, quản lý nội dung từ tính năng sản phẩm đến trải nghiệm người dùng."
+      },
+      "automotive": {
+        "label": "Ô tô",
+        "prompt": "Thương hiệu ô tô tập trung vào trưng bày xe, trình diễn hiệu năng, tính năng an toàn và tích hợp vào phong cách sống. Tài sản số chính gồm ảnh ngoại thất, chi tiết nội thất, cảnh lái thử, trình diễn an toàn, bối cảnh phong cách sống và thông điệp bền vững. Sắp xếp tài sản theo hành trình mua: cân nhắc thương hiệu, so sánh mẫu xe, điểm nổi bật về tính năng và trải nghiệm sở hữu.\nHệ thống này áp dụng cho xe du lịch, xe điện, đội xe thương mại và phụ tùng ô tô, quản lý nội dung từ nhận diện thương hiệu đến trải nghiệm lái."
+      },
+      "interior": {
+        "label": "Thiết kế nội thất",
+        "prompt": "Công ty thiết kế nội thất tập trung vào trưng bày dự án, cảm hứng thiết kế, minh bạch quy trình và lời chứng thực của khách hàng. Tài sản số chính gồm ảnh không gian, bản phối cảnh thiết kế, mẫu vật liệu, tài liệu quy trình, so sánh trước/sau và nghiên cứu tình huống khách hàng. Sắp xếp tài sản theo vòng đời dự án: bộ sưu tập cảm hứng, ý tưởng thiết kế, công trình đang thi công và dự án hoàn thiện.\nHệ thống này áp dụng cho thiết kế nhà ở, không gian thương mại, thiết kế khách sạn – nhà hàng và dàn dựng nhà ở, quản lý nội dung hình ảnh từ ý tưởng đến hoàn thiện."
+      },
+      "luxury": {
+        "label": "Hàng xa xỉ",
+        "prompt": "Thương hiệu xa xỉ tập trung vào kể chuyện di sản, tay nghề chế tác xuất sắc, định vị độc quyền và trải nghiệm cao cấp. Tài sản số chính gồm ảnh thủ công, video chế tác, nội dung di sản thương hiệu, bộ sưu tập độc quyền, sự bảo chứng của người nổi tiếng và chiến dịch trải nghiệm. Sắp xếp tài sản theo trụ cột thương hiệu: kể chuyện di sản, trưng bày tay nghề, marketing độc quyền và định vị phong cách sống.\nHệ thống này áp dụng cho thời trang cao cấp, trang sức cao cấp, đồng hồ xa xỉ và đồ da cao cấp, quản lý nội dung từ giá trị thủ công đến ý nghĩa văn hóa."
+      },
+      "gaming": {
+        "label": "Trò chơi",
+        "prompt": "Công ty game tập trung vào gắn kết cộng đồng, trình diễn lối chơi, thể thao điện tử và nội dung do người dùng tạo. Tài sản số chính gồm trailer game, artwork nhân vật, cảnh gameplay, highlight esports, nội dung cộng đồng và tài liệu livestream. Sắp xếp tài sản theo chiến lược gắn kết: quảng bá game, xây dựng cộng đồng, nội dung thi đấu và giữ chân người chơi.\nHệ thống này áp dụng cho game di động, game PC, game console và trải nghiệm VR, quản lý nội dung từ marketing game đến hệ sinh thái cộng đồng."
+      },
+      "jewelry": {
+        "label": "Trang sức",
+        "prompt": "Thương hiệu trang sức tập trung vào kể chuyện chế tác, kết nối cảm xúc, marketing theo dịp và dịch vụ cá nhân hóa. Tài sản số chính gồm ảnh macro, video chế tác, hình ảnh phong cách sống, trưng bày tùy chỉnh, nội dung kể chuyện cảm xúc và chiến dịch theo dịp. Sắp xếp tài sản theo thông điệp cảm xúc: niềm tự hào chế tác, kỷ niệm cột mốc, thể hiện cá nhân và dịp tặng quà.\nHệ thống này áp dụng cho nhẫn đính hôn, trang sức cao cấp, sản phẩm đặt riêng và trang sức thời trang, quản lý nội dung từ nghề thủ công đến ý nghĩa cảm xúc."
+      },
+      "theme-park": {
+        "label": "Công viên giải trí",
+        "prompt": "Địa điểm giải trí tập trung vào marketing trải nghiệm, sự kiện theo mùa, gắn kết gia đình và kể chuyện nhập vai. Tài sản số chính gồm ảnh điểm tham quan, video trải nghiệm, chiến dịch theo mùa, nội dung hậu trường, cảm nhận của du khách và thông tin an toàn. Sắp xếp tài sản theo hành trình du khách: lên kế hoạch chuyến đi, trải nghiệm tại chỗ, chương trình theo mùa và lưu giữ kỷ niệm.\nHệ thống này áp dụng cho các công viên Disney, Universal Studios, công viên giải trí khu vực và tổ hợp giải trí, quản lý nội dung từ thu hút du khách đến khuếch đại trải nghiệm."
+      }
+    }
+  },
   "TaggingResultDisplay": {
     "processingTime": "Thời gian xử lý",
     "aiRecognitionMode": "Chế độ nhận diện AI",
@@ -36,5 +285,14 @@
     "ipRecognition": "Nhận diện nhân vật IP",
     "personRecognition": "Nhận diện người",
     "productRecognition": "Nhận diện sản phẩm"
+  },
+  "SmartTags": {
+    "title": "Thẻ thông minh",
+    "rename": "Đổi tên",
+    "delete": "Xóa"
+  },
+  "SearchResult": {
+    "tagGroup": "Nhóm thẻ",
+    "noSearchResults": "Không có kết quả tìm kiếm"
   }
 }

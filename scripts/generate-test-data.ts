@@ -288,13 +288,13 @@ async function generateTestData(teamSlug: string) {
     console.log(`   - 资产对象: ${totalAssets}个`);
 
     // 显示标签层级统计
-    const level1Tags = createdTags.filter((tag) => tag.level === 1);
-    const level2Tags = createdTags.filter((tag) => tag.level === 2);
-    const level3Tags = createdTags.filter((tag) => tag.level === 3);
-
-    console.log(`   - 一级标签: ${level1Tags.length}个`);
-    console.log(`   - 二级标签: ${level2Tags.length}个`);
-    console.log(`   - 三级标签: ${level3Tags.length}个`);
+    const countByLevel = new Map<number, number>();
+    for (const tag of createdTags) {
+      countByLevel.set(tag.level, (countByLevel.get(tag.level) ?? 0) + 1);
+    }
+    for (const level of [...countByLevel.keys()].sort((a, b) => a - b)) {
+      console.log(`   - ${level}级标签: ${countByLevel.get(level)}个`);
+    }
   } catch (error) {
     console.error("❌ 生成测试数据失败:", error);
     throw error;

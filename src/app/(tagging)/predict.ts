@@ -456,7 +456,7 @@ export function enforceTextualSourceEvidence(
 
 /**
  * 同级互斥硬约束：父分类 extra.siblingsExclusive 为 true 的组里，一个素材只能归属其中一个子标签。
- * 互斥沿祖先链传播：预测的是三级标签时，它同样代表了自己所在的二级分支——"产品品类"标了互斥，
+ * 互斥沿祖先链传播：预测的是更深层的标签时，它同样代表了自己在每个互斥祖先下所在的分支——"产品品类"标了互斥，
  * 那么"护肤 > 面霜"和"彩妆 > 底妆"就是在争同一个位置，按各自分支整体取舍。
  * 分支排序（前者优先）：
  * 0. 字面命中（传入 literalText 时：标签名拆词或配置关键词确实出现在文件名/路径里），
@@ -553,7 +553,7 @@ export function resolveExclusiveSiblings(
 }
 
 /**
- * 校验模型返回的 leafTagId 确实存在于本团队标签树（一级/二级/三级 id 都合法，prompt 允许匹配任意层级）。
+ * 校验模型返回的 leafTagId 确实存在于本团队标签树（任意层级的 id 都合法，prompt 允许匹配任意层级）。
  * - tagPath 能逐层按名字完整解析：以 tagPath 为准，id 不一致时纠正 id（模型抄名称比抄数字 id 可靠）；
  * - tagPath 解析不到但 id 存在：以 id 为准，用真实路径覆盖 tagPath；
  * - 两者都对不上：丢弃。
@@ -574,15 +574,7 @@ export function filterPredictionsByKnownTagIds(
     pathById.set(id, path);
     idByNormalizedPath.set(pathKey(path), id);
   };
-  for (const lv1 of tagsTree) {
-    register(lv1.id, [lv1.name]);
-    for (const lv2 of lv1.children ?? []) {
-      register(lv2.id, [lv1.name, lv2.name]);
-      for (const lv3 of lv2.children ?? []) {
-        register(lv3.id, [lv1.name, lv2.name, lv3.name]);
-      }
-    }
-  }
+  for (const node of flattenTagsTree(tagsTree)) register(node.id, node.tagPath);
 
   const dropped: Array<{ source: string; leafTagId: number; tagPath: string[] }> = [];
   const corrected: Array<{ source: string; fromLeafTagId: number; toLeafTagId: number }> = [];
@@ -677,19 +669,18 @@ function collectLeafTagCandidates(tagsTree: TagWithChildren[]): readonly LeafTag
       formatKind: detectFormatKindInText(leaf.name),
     });
   };
-  for (const lv1 of tagsTree) {
-    const lv2List = lv1.children ?? [];
-    for (const lv2 of lv2List) {
-      const lv3List = lv2.children ?? [];
-      // 没有三级的二级标签本身就是叶子（如"产品分类 > 兔笼"），同样参与硬匹配；
-      // 之前只扫三级，路径里写着"兔笼"也注入不了，必打兜底只能让模型在同组里另选一个。
-      if (lv3List.length === 0) {
-        pushCandidate(lv2, [lv1.name, lv2.name]);
-        continue;
-      }
-      for (const leaf of lv3List) pushCandidate(leaf, [lv1.name, lv2.name, leaf.name]);
+  // 只扫真正的叶子（没有子标签的节点），不论在第几级：没有更深层的二级/三级标签本身就是叶子
+  // （如"产品分类 > 兔笼"），同样参与硬匹配；之前只扫三级，路径里写着"兔笼"也注入不了，
+  // 必打兜底只能让模型在同组里另选一个。一级节点即使没有子标签也不参与（它是分类而非取值）。
+  const walk = (nodes: TagWithChildren[], parentPath: string[]) => {
+    for (const node of nodes) {
+      const tagPath = [...parentPath, node.name];
+      const children = node.children ?? [];
+      if (children.length > 0) walk(children, tagPath);
+      else if (tagPath.length >= 2) pushCandidate(node, tagPath);
     }
-  }
+  };
+  walk(tagsTree, []);
   leafTagCandidatesCache.set(tagsTree, candidates);
   return candidates;
 }
@@ -806,7 +797,7 @@ export function enhancePredictionsByBasicInfoHardMatch(
  * 标签手动配置的匹配关键词做硬匹配兜底（tagKeywords 来源）：
  * 上面两个硬匹配只用标签名自动拆词，配置关键词完全依赖模型是否"看到"——
  * 文件名 A+7.jpg 明明含有"内容类型 > A+页面"配置的关键词 "A+"，模型没给就打不上。
- * 任意层级的标签都参与（"A+页面"是没有三级的二级标签）；文本里出现任一排除关键词则不注入。
+ * 任意层级的标签都参与（"A+页面"是没有子标签的二级标签）；文本里出现任一排除关键词则不注入。
  */
 export function enhancePredictionsByTagKeywordsHardMatch(
   predictions: SourceBasedTagPredictions,
@@ -1095,7 +1086,7 @@ export function filterTagsWithScoreByRecognitionAccuracy(
 /**
  * 祖先折叠：同一条祖先链上，更具体的标签已经过线时，它的父级/祖父级不再单独输出。
  * "内容主题 > 产品教育"和"内容主题 > 产品教育 > 产品介绍"同时出现，对审核人只是噪音。
- * 放在识别模式阈值过滤之后：三级没过线、只有二级过线时，二级仍然保留（那是"能确定到哪一级就到哪一级"）。
+ * 放在识别模式阈值过滤之后：更深一级没过线、只有上级过线时，上级仍然保留（那是"能确定到哪一级就到哪一级"）。
  */
 export function collapseAncestorTags(tagsWithScore: TagWithScore[]): TagWithScore[] {
   const paths = tagsWithScore.map((tag) => tag.tagPath);
@@ -1235,7 +1226,7 @@ export async function predictRequiredGroupChoices({
     }
     return false;
   };
-  // 每个必打分类的可选叶子（没有三级时二级就是叶子）
+  // 每个必打分类下的可选叶子（任意深度上没有子标签的后代节点）
   const leavesByParent = new Map<number, typeof nodes>();
   for (const { parentId } of missing) {
     leavesByParent.set(
@@ -1472,6 +1463,7 @@ export async function predictAssetTags(
     faceFeatures?: TaggingFaceFeatures;
     /** 调用方已加载好的标签树（如队列同一批次内按团队复用），传入时跳过数据库查询。 */
     tagsTree?: TagWithChildren[];
+    modelOverride?: LLMModelName;
   },
 ): Promise<{
   predictions: SourceBasedTagPredictions;

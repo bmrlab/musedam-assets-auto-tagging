@@ -26,7 +26,9 @@ import {
   parseTextToNameChildList,
   useBatchCreateTagsContext,
 } from "../context/BatchCreateTagsContext";
+import { useEnterpriseTagSetting } from "../hooks/useEnterpriseTagSetting";
 import { TagBatchEditor } from "./TagBatchEditor";
+import { TagBatchFormatExample } from "./TagBatchFormatExample";
 
 interface AiCreateModalProps {
   visible: boolean;
@@ -42,7 +44,7 @@ type CloseConfirmReason = "generating" | "notApplied" | null;
 const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalProps) => {
   const t = useTranslations("TagsPage");
   const tAI = useTranslations("AiCreateModal");
-  const tManual = useTranslations("TagsPage.ManualCreateModal");
+  const { setting } = useEnterpriseTagSetting();
   const [isCreating, setIsCreating] = useState(false);
   // 行业类型选项 - 根据设计稿调整
   const industryValues = [
@@ -208,7 +210,7 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
 
   const handleConfirm = async () => {
     // 解析生成的文本为标签结构
-    const nameChildList = parseTextToNameChildList(generatedResult);
+    const nameChildList = parseTextToNameChildList(generatedResult, setting.tagLevel);
 
     if (nameChildList.length === 0) {
       toast.error(tAI("parseError"));
@@ -437,23 +439,8 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
                     containerClassName="h-[calc(100%-40px)]"
                     className="resize-none h-full overflow-scroll"
                     placeholderContent={
-                      <div className="space-y-3 text-sm text-basic-5">
-                        <div>{tManual("PleaseCreateLabelsInTheFollowi")}</div>
-                        <div className="space-y-1">
-                          <div className="font-medium">{tManual("FormatInstructions")}</div>
-                          <div className="flex items-start">
-                            <span className="mr-2 whitespace-nowrap">{tManual("PrimaryTag")}</span>
-                          </div>
-                          <div className="flex items-start">
-                            <span className="mr-2 whitespace-nowrap">{tManual("SecondaryTags")}</span>
-                          </div>
-                          <div className="flex items-start gap-2">
-                            <span>{tManual("Label1")}</span>
-                          </div>
-                          <div className="flex items-start gap-2">
-                            <span>{tManual("Label2")}</span>
-                          </div>
-                        </div>
+                      <div className="text-sm text-basic-5">
+                        <TagBatchFormatExample />
                       </div>
                     }
                   />
@@ -493,34 +480,7 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
                     <div
                       className={`text-sm  text-basic-6 flex flex-col items-start h-fit w-full bg-basic-1 rounded-[8px] p-4 mt-5 ${isGenerating ? "animate-pulse" : ""}`}
                     >
-                      <span className="font-medium flex items-center gap-1">
-                        <span className="text-xs">📋</span>
-                        {tManual("FormatInstructions")}
-                      </span>
-                      <div className="mt-3">
-                        <div className="flex items-start">
-                          <span className="mr-2 whitespace-nowrap">{tManual("PrimaryTag")}</span>
-                          <span className="text-[#52C41A] text-start">{tManual("PrimaryTagDescription")}</span>
-                        </div>
-
-                        <div className="flex items-start">
-                          <span className="mr-2 whitespace-nowrap">{tManual("SecondaryTags")}</span>
-                          <span className="text-[#1890FF] text-start">
-                            {tManual("SecondaryTagDescription")}
-                          </span>
-                        </div>
-
-                        <div className="flex items-start gap-2">
-                          <span>{tManual("Label1")}</span>
-                          <div>
-                            <span className="text-[#FAAD14]">{tManual("LabelDescription")}</span>
-                          </div>
-                        </div>
-
-                        <div className="flex items-start gap-2">
-                          <span>{tManual("Label2")}</span>
-                        </div>
-                      </div>
+                      <TagBatchFormatExample showIntro={false} />
                     </div>
                   </div>
                 ) : (
