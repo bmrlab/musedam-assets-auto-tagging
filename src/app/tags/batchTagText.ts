@@ -6,8 +6,7 @@ export interface NameChildList {
   nameChildList?: NameChildList[];
 }
 
-/** 标题最多支持的 `#` 个数：`#` 一级、`##` 二级、`###` 三级 */
-const MAX_HEADING_DEPTH = 3;
+/** 标题最多支持的 `#` 个数随团队层级变化：最末级由普通文本承担，所以标题深度是 maxLevel - 1 */
 
 /**
  * 解析批量创建标签的文本（手动创建 / AI 生成结果共用）：
@@ -19,8 +18,9 @@ const MAX_HEADING_DEPTH = 3;
  *   也一并忽略（直到下一个有效标题），避免被误挂到上一个标题下；
  * - 同一父级下同名标签会合并（后续子标签合并到已有节点）。
  */
-export function parseBatchTagText(text: string): NameChildList[] {
+export function parseBatchTagText(text: string, maxLevel: number = MAX_TAG_LEVEL): NameChildList[] {
   if (!text || !text.trim()) return [];
+  const maxHeadingDepth = Math.max(1, maxLevel - 1);
 
   const result: NameChildList[] = [];
   // stack[i] 为当前第 i+1 级标题节点
@@ -49,7 +49,7 @@ export function parseBatchTagText(text: string): NameChildList[] {
       const name = line.slice(hashes).trim();
       const level = hashes;
       const parentReady = level === 1 || stack.length >= level - 1;
-      if (!name || level > MAX_HEADING_DEPTH || level > MAX_TAG_LEVEL || !parentReady) {
+      if (!name || level > maxHeadingDepth || level > maxLevel || !parentReady) {
         skipping = true;
         continue;
       }
@@ -63,7 +63,7 @@ export function parseBatchTagText(text: string): NameChildList[] {
 
     // 普通文本：最近标题的子标签
     if (skipping || stack.length === 0) continue;
-    if (stack.length + 1 > MAX_TAG_LEVEL) continue;
+    if (stack.length + 1 > maxLevel) continue;
     const parent = stack[stack.length - 1];
     parent.nameChildList ??= [];
     if (parent.nameChildList.some((item) => item.name === line)) continue;

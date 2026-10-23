@@ -19,6 +19,7 @@ import {
   parseTextToNameChildList,
   useBatchCreateTagsContext,
 } from "../context/BatchCreateTagsContext";
+import { useEnterpriseTagSetting } from "../hooks/useEnterpriseTagSetting";
 import { TagBatchEditor } from "./TagBatchEditor";
 
 type TTag = NameChildList;
@@ -35,6 +36,7 @@ const CreateModalInner = ({
 }) => {
   const t = useTranslations("TagsPage.ManualCreateModal");
   const tGlobal = useTranslations("TagsPage");
+  const { setting } = useEnterpriseTagSetting();
 
   const [mode, setMode] = useState<"preview" | "edit">("edit");
   const [batchCreateText, inputBatchCreateText] = useState("");
@@ -42,8 +44,8 @@ const CreateModalInner = ({
   // 使用提取的 Hook
   const { isCreating, handleAddTags } = useBatchCreateTagsContext();
   const nameChildList: TTag[] = useMemo(() => {
-    return parseTextToNameChildList(batchCreateText);
-  }, [batchCreateText]);
+    return parseTextToNameChildList(batchCreateText, setting.tagLevel);
+  }, [batchCreateText, setting.tagLevel]);
 
   useEffect(() => {
     if (!visible) {
@@ -78,7 +80,7 @@ const CreateModalInner = ({
                   <div>{t("FormatInstructions")}</div>
                   <div>{t("PrimaryTag")}</div>
                   <div>{t("SecondaryTags")}</div>
-                  <div>{t("TertiaryTags")}</div>
+                  {setting.tagLevel >= 4 && <div>{t("TertiaryTags")}</div>}
                   <div>{t("Label1")}</div>
                   <div>{t("Label2")}</div>
                   <div>{t("OrdinaryTextIsLeafTag")}</div>

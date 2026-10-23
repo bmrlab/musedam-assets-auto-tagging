@@ -19,6 +19,8 @@ import { SyncConfirmDialog } from "./components/SyncConfirmDialog";
 import { UpdateToMuseDialog } from "./components/UpdateToMuseDialog";
 import { TagDetails } from "./components/TagDetails";
 import { TagLevelColumns } from "./components/TagLevelColumns";
+import { TagSettingDialog } from "./components/TagSettingDialog";
+import { useEnterpriseTagSetting } from "./hooks/useEnterpriseTagSetting";
 import { TagEditProvider, useTagEdit } from "./contexts/TagEditContext";
 import { SearchTagData, TagNode, TagRecord } from "./types";
 import { PlusIcon, SearchIcon, X } from "lucide-react";
@@ -29,6 +31,14 @@ interface TagsClientProps {
 }
 
 const SMART_TAGS_ID = "-1";
+
+function countTagsAtLevel(nodes: TagNode[], level: number): number {
+  if (level <= 1) return nodes.filter((node) => !node.isDeleted).length;
+  return nodes.reduce(
+    (sum, node) => (node.isDeleted ? sum : sum + countTagsAtLevel(node.children, level - 1)),
+    0,
+  );
+}
 
 /** 各层级（1 ~ MAX_TAG_LEVEL）选中的节点 ID，selection[i] 对应第 i + 1 级 */
 type Selection = (string | null)[];
@@ -135,6 +145,8 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
 
   // 判断当前登录用户是否是 admin
   const isAdmin = session?.user?.isAdmin ?? false;
+  const { setting } = useEnterpriseTagSetting();
+  const tagLevel = setting.tagLevel;
 
   // 移除了 tagExtraChanges 状态，现在使用 Context
 
@@ -405,8 +417,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
 
   // 添加标签
   const addTag = async (level: number) => {
-    // UI 不允许超过 MAX_TAG_LEVEL 级
-    if (level < 1 || level > MAX_TAG_LEVEL) return;
+    if (level < 1 || level > tagLevel) return;
     const parentId = level === 1 ? null : selectedIds[level - 2];
     if (level > 1 && (!parentId || parentId === SMART_TAGS_ID)) return;
 
@@ -816,6 +827,14 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
     () => (
       <TagLevelColumns
         title={t("tagManagement")}
+        headerExtra={
+          isAdmin ? (
+            <TagSettingDialog
+              fourthLevelCount={countTagsAtLevel(tagsTree, 4)}
+              onLevelChanged={refetchTagsTree}
+            />
+          ) : undefined
+        }
         lists={levelTags}
         selectedIds={selectedIds}
         onSelect={(level, nodeId) => applySelection([...selectedIds.slice(0, level - 1), nodeId])}
@@ -828,7 +847,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
         getNodeId={getNodeId}
         hasDetailChanges={checkTagDetailChanges}
         showAdd={!isSearching}
-        // TODO: 智能标签入口待「标签设置」接口提供后按团队配置控制，目前固定展示
+        levelCount={tagLevel}
         showAiTags={true}
         canEdit={!isSearching}
         onSortTags={handleSortTags}
@@ -837,6 +856,10 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
     ),
     [
       t,
+      isAdmin,
+      tagsTree,
+      tagLevel,
+      refetchTagsTree,
       levelTags,
       selectedIds,
       applySelection,

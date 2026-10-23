@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { MAX_TAG_LEVEL } from "@/lib/tagging/tag-level";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { TagNode } from "../types";
 import { SmartTagsContent } from "./SmartTags";
 import { TagColumn } from "./TagColumn";
@@ -16,6 +16,8 @@ const MULTI_COLUMN_MIN_WIDTH = 240;
 
 interface TagLevelColumnsProps {
   title?: string;
+  /** 标题栏右侧内容，例如「设置」 */
+  headerExtra?: ReactNode;
   /** 展示的层级列数，默认 MAX_TAG_LEVEL */
   levelCount?: number;
 
@@ -59,6 +61,7 @@ const asyncFalse = async () => false;
 /** 按层级渲染标签列（一级为标签组，其余为标签），列数由 levelCount / MAX_TAG_LEVEL 决定 */
 export function TagLevelColumns({
   title,
+  headerExtra,
   levelCount = MAX_TAG_LEVEL,
   lists,
   selectedIds,
@@ -135,7 +138,12 @@ export function TagLevelColumns({
         className,
       )}
     >
-      {title && <div className="border-b px-4 py-2 font-medium leading-8">{title}</div>}
+      {title && (
+        <div className="border-b px-4 py-2 font-medium leading-8 flex items-center justify-between gap-3">
+          <span>{title}</span>
+          {headerExtra}
+        </div>
+      )}
       {/* 列区域：列总宽超出时在这里横向滚动，而不是整页滚动 */}
       <div className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden scrollbar-thin">
         {loading ? (

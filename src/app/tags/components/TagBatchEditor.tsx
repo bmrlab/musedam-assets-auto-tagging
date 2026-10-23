@@ -5,8 +5,8 @@ import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
-import { MAX_TAG_LEVEL } from "@/lib/tagging/tag-level";
 import { nameChildListToPreviewTagNodes, parseBatchTagText } from "../batchTagText";
+import { useEnterpriseTagSetting } from "../hooks/useEnterpriseTagSetting";
 import { TagNode } from "../types";
 import { TagLevelColumns } from "./TagLevelColumns";
 
@@ -32,6 +32,8 @@ export const TagBatchEditor = ({
   placeholderContent,
 }: TagBatchEditorProps) => {
   const t = useTranslations("TagsPage.ManualCreateModal");
+  const { setting } = useEnterpriseTagSetting();
+  const maxLevel = setting.tagLevel;
   const [innerMode, setInnerMode] = useState<"preview" | "edit">("edit");
   const mode = outerMode ?? innerMode;
   const setMode = (m: "preview" | "edit") => {
@@ -46,7 +48,7 @@ export const TagBatchEditor = ({
   }, [value]);
 
   // 与创建逻辑共用同一解析器（支持最多四级），预览 tempId 按路径生成保证唯一
-  const nameChildList = useMemo(() => parseBatchTagText(value), [value]);
+  const nameChildList = useMemo(() => parseBatchTagText(value, maxLevel), [value, maxLevel]);
   const previewTagNodes = useMemo(
     () => nameChildListToPreviewTagNodes(nameChildList),
     [nameChildList],
@@ -65,7 +67,7 @@ export const TagBatchEditor = ({
   // 按选中路径逐级展开每一列的数据
   const previewLists = useMemo(() => {
     const lists: TagNode[][] = [previewTagNodes];
-    for (let level = 2; level <= MAX_TAG_LEVEL; level++) {
+    for (let level = 2; level <= maxLevel; level++) {
       const parentId = previewSelectedIds[level - 2];
       const parent = parentId
         ? lists[level - 2].find((node) => node.tempId === parentId)
@@ -73,7 +75,7 @@ export const TagBatchEditor = ({
       lists.push(parent?.children ?? []);
     }
     return lists;
-  }, [previewTagNodes, previewSelectedIds]);
+  }, [previewTagNodes, previewSelectedIds, maxLevel]);
 
   return (
     <div className={cn("w-full h-full flex flex-col gap-3", className)}>
@@ -143,6 +145,7 @@ export const TagBatchEditor = ({
                 onSelect={(level, nodeId) =>
                   setPreviewSelectedIds((prev) => [...prev.slice(0, level - 1), nodeId])
                 }
+                levelCount={maxLevel}
                 showAdd={false}
                 showAiTags={false}
                 getNodeId={(node) => node.tempId || "unknown"}

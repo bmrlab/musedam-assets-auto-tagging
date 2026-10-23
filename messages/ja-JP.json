@@ -279,6 +279,19 @@
     "tagGroup": "タググループ",
     "tagManagement": "タグ管理",
     "tagNameExists": "タグ名は同階層で既に存在しています",
-    "tagLevelExceeded": "タグの階層は {max} 階層を超えられません"
+    "tagLevelExceeded": "Exceeds the team tag level limit",
+    "tagSetting": "Settings",
+    "tagSettingTitle": "Tag settings",
+    "tagLevel": "Tag levels",
+    "tagLevelThree": "3 levels",
+    "tagLevelFour": "4 levels",
+    "tagLevelDefault": "Default",
+    "hideFourthLevelHint": "{count} level-4 tags will be hidden and shown again after switching back to 4 levels",
+    "smartTag": "AI tags",
+    "showAiTagOnDetail": "Show AI tags on the asset detail page",
+    "showAiTagHint": "When off, AI tags are hidden on the asset detail page and pending-inbound preview",
+    "tagSettingSaved": "Tag settings saved",
+    "tagSettingFailed": "Failed to save tag settings",
+    "confirm": "OK"
   }
 }

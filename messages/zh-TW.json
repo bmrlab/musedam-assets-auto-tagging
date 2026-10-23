@@ -279,6 +279,19 @@
     "tagGroup": "標籤組",
     "tagManagement": "標籤管理",
     "tagNameExists": "標籤名在同階層中已存在",
-    "tagLevelExceeded": "標籤層級不能超過 {max} 級"
+    "tagLevelExceeded": "超出目前團隊標籤層級上限",
+    "tagSetting": "設定",
+    "tagSettingTitle": "標籤設定",
+    "tagLevel": "標籤層級",
+    "tagLevelThree": "3 層標籤",
+    "tagLevelFour": "4 層標籤",
+    "tagLevelDefault": "預設",
+    "hideFourthLevelHint": "第 4 層的 {count} 個標籤將被隱藏，切回 4 層標籤後恢復顯示",
+    "smartTag": "智慧標籤",
+    "showAiTagOnDetail": "在素材詳情頁顯示智慧標籤",
+    "showAiTagHint": "關閉後，素材詳情頁和待入庫預覽中不再回顯智慧標籤",
+    "tagSettingSaved": "標籤設定已儲存",
+    "tagSettingFailed": "標籤設定儲存失敗",
+    "confirm": "確定"
   }
 }

@@ -279,6 +279,19 @@
     "tagGroup": "태그 그룹",
     "tagManagement": "태그 관리",
     "tagNameExists": "동일한 레벨에 태그명이 이미 존재합니다",
-    "tagLevelExceeded": "태그 계층은 {max}단계를 초과할 수 없습니다"
+    "tagLevelExceeded": "Exceeds the team tag level limit",
+    "tagSetting": "Settings",
+    "tagSettingTitle": "Tag settings",
+    "tagLevel": "Tag levels",
+    "tagLevelThree": "3 levels",
+    "tagLevelFour": "4 levels",
+    "tagLevelDefault": "Default",
+    "hideFourthLevelHint": "{count} level-4 tags will be hidden and shown again after switching back to 4 levels",
+    "smartTag": "AI tags",
+    "showAiTagOnDetail": "Show AI tags on the asset detail page",
+    "showAiTagHint": "When off, AI tags are hidden on the asset detail page and pending-inbound preview",
+    "tagSettingSaved": "Tag settings saved",
+    "tagSettingFailed": "Failed to save tag settings",
+    "confirm": "OK"
   }
 }

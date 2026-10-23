@@ -1,6 +1,6 @@
-import { MAX_TAG_LEVEL, TAG_LEVEL_EXCEEDED_MESSAGE } from "@/lib/tagging/tag-level";
+import { TAG_LEVEL_EXCEEDED_MESSAGE } from "@/lib/tagging/tag-level";
 
-type Translate = (key: "tagLevelExceeded", values: { max: number }) => string;
+type Translate = (key: "tagLevelExceeded") => string;
 
 /**
  * 标签 server action 返回 / 抛出的错误信息本地化：层级超限时服务端返回固定中文常量，
@@ -11,8 +11,12 @@ export function localizeTagActionMessage(
   t: Translate,
 ): string | undefined {
   if (!message) return undefined;
-  if (message === TAG_LEVEL_EXCEEDED_MESSAGE) {
-    return t("tagLevelExceeded", { max: MAX_TAG_LEVEL });
+  if (
+    message === TAG_LEVEL_EXCEEDED_MESSAGE ||
+    message.includes("超出当前团队标签层级上限") ||
+    message.includes("20101")
+  ) {
+    return t("tagLevelExceeded");
   }
   return message;
 }

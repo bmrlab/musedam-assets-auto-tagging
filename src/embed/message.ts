@@ -474,6 +474,24 @@ type ActionMap = {
     };
     result: BaseActionResult<Record<string, never>>;
   };
+  "get-tag-setting": {
+    args: Record<string, never>;
+    result: BaseActionResult<{
+      tagLevel: 3 | 4;
+      showAiTag: 0 | 1;
+    }>;
+  };
+  /** 保存团队标签设置。切到 3 层时第 4 层标签仅隐藏，切回 4 层后恢复 */
+  "set-tag-setting": {
+    args: {
+      tagLevel: 3 | 4;
+      showAiTag: 0 | 1;
+    };
+    result: BaseActionResult<{
+      tagLevel: 3 | 4;
+      showAiTag: 0 | 1;
+    }>;
+  };
 };
 
 type ExtractSuccessData<T> = T extends { success: true; data: infer U } ? U : never;

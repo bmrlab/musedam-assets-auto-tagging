@@ -4,7 +4,7 @@ import type { AssetTag } from "@/prisma/client";
  * 企业标签树的最大层级。MuseDAM 后端已支持 4 级（query-tag-tree 最深返回 4 级，merge-tags 接受 4 级，
  * 超过 4 级报错 20101）。
  *
- * TODO: 后端提供团队标签设置接口后，改为读取团队设置（3 或 4 级），而不是写死常量。
+ * 这是后端绝对上限。标签管理页实际展示和写入的层级以团队设置 tagLevel 为准（3 或 4，未配置为 3）。
  */
 export const MAX_TAG_LEVEL = 4;
 

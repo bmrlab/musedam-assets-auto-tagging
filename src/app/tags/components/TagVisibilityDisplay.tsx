@@ -8,6 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 import { ChevronRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { getTagVisibilityPreview } from "../tagVisibility";
@@ -46,26 +47,37 @@ const getVisibilityItems = (selection: VisibilitySelection): VisibilityItem[] =>
 
 const VisibilityAvatar = ({ item, size = "md" }: { item: VisibilityItem; size?: "sm" | "md" }) => {
   const sizeClass = size === "sm" ? "size-6 text-[11px]" : "size-7 text-xs";
+  const iconClass = size === "sm" ? "size-3" : "size-3.5";
+  const [imageFailed, setImageFailed] = useState(false);
 
-  if (item.avatarUrl) {
+  useEffect(() => setImageFailed(false), [item.avatarUrl]);
+
+  if (item.kind === "member" && item.avatarUrl && !imageFailed) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
         src={item.avatarUrl}
         alt={item.name}
-        className={`${sizeClass} rounded-full border-2 border-background object-cover`}
+        // 头像 OSS 开启了 Referer 防盗链，iframe 内带本站 Referer 会被拒绝
+        referrerPolicy="no-referrer"
+        className={cn(sizeClass, "shrink-0 rounded-full border-2 border-background bg-basic-2 object-cover")}
+        onError={() => setImageFailed(true)}
       />
     );
   }
 
   return (
     <span
-      className={`${sizeClass} flex shrink-0 items-center justify-center rounded-full border-2 border-background bg-[#C5CEE0] font-medium text-white`}
+      className={cn(
+        sizeClass,
+        "flex shrink-0 items-center justify-center rounded-full border-2 border-background font-medium text-white",
+        item.kind === "group" ? "bg-primary-6" : "bg-[#C5CEE0]",
+      )}
     >
       {item.kind === "department" ? (
-        <DepartmentIcon className="size-4" />
+        <DepartmentIcon className={iconClass} />
       ) : item.kind === "group" ? (
-        <TeamIcon className="size-4" />
+        <TeamIcon className={iconClass} />
       ) : (
         item.name.trim().slice(0, 1).toUpperCase()
       )}

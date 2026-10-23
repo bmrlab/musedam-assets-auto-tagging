@@ -26,6 +26,7 @@ import {
   parseTextToNameChildList,
   useBatchCreateTagsContext,
 } from "../context/BatchCreateTagsContext";
+import { useEnterpriseTagSetting } from "../hooks/useEnterpriseTagSetting";
 import { TagBatchEditor } from "./TagBatchEditor";
 
 interface AiCreateModalProps {
@@ -43,6 +44,7 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
   const t = useTranslations("TagsPage");
   const tAI = useTranslations("AiCreateModal");
   const tManual = useTranslations("TagsPage.ManualCreateModal");
+  const { setting } = useEnterpriseTagSetting();
   const [isCreating, setIsCreating] = useState(false);
   // 行业类型选项 - 根据设计稿调整
   const industryValues = [
@@ -208,7 +210,7 @@ const AiCreateModalInner = ({ visible, setVisible, onSuccess }: AiCreateModalPro
 
   const handleConfirm = async () => {
     // 解析生成的文本为标签结构
-    const nameChildList = parseTextToNameChildList(generatedResult);
+    const nameChildList = parseTextToNameChildList(generatedResult, setting.tagLevel);
 
     if (nameChildList.length === 0) {
       toast.error(tAI("parseError"));

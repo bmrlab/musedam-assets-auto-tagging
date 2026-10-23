@@ -55,7 +55,7 @@ export function useTagVisibility(selectedTag: { tag: AssetTag; level: number } |
       try {
         const toItems = (list: Array<{ id: unknown; name: string }>) =>
           list.map((item) => ({ id: String(item.id), name: item.name }));
-        let result: VisibilitySelection;
+        let result: VisibilitySelection | undefined;
         try {
           result = await dispatchMuseDAMClientAction("member-selector-modal-open", {
             canSelectMe: true,
@@ -70,6 +70,8 @@ export function useTagVisibility(selectedTag: { tag: AssetTag; level: number } |
           if (error instanceof Error && error.message === "用户取消操作") return false;
           throw error;
         }
+        // 宿主对"取消"的响应是 resolve(undefined)，不是 reject
+        if (!result) return false;
         await dispatchMuseDAMClientAction("set-tag-visibility", {
           tagId: museDamTagId,
           userIds: result.members.map((item) => String(item.id)),
