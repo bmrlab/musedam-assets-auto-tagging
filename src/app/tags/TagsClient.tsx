@@ -24,6 +24,7 @@ import { useEnterpriseTagSetting } from "./hooks/useEnterpriseTagSetting";
 import { TagEditProvider, useTagEdit } from "./contexts/TagEditContext";
 import { SearchTagData, TagNode, TagRecord } from "./types";
 import { PlusIcon, SearchIcon, X } from "lucide-react";
+import { useTagManagementPermission } from "./hooks/useTagManagementPermission";
 import { useSession } from "@/components/AuthProvider";
 
 interface TagsClientProps {
@@ -145,6 +146,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
 
   // 判断当前登录用户是否是 admin
   const isAdmin = session?.user?.isAdmin ?? false;
+  const canManageTags = useTagManagementPermission();
   const { setting } = useEnterpriseTagSetting();
   const tagLevel = setting.tagLevel;
 
@@ -417,6 +419,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
 
   // 添加标签
   const addTag = async (level: number) => {
+    if (!canManageTags) return;
     if (level < 1 || level > tagLevel) return;
     const parentId = level === 1 ? null : selectedIds[level - 2];
     if (level > 1 && (!parentId || parentId === SMART_TAGS_ID)) return;
@@ -460,6 +463,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
 
   // 更新标签名
   const updateTagName = async (nodeId: string, newName: string): Promise<boolean> => {
+    if (!canManageTags) return false;
     const context = findNodeContext(tagsTree, nodeId);
     if (!context || isSaving) return false;
 
@@ -522,6 +526,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
 
   // 开始编辑
   const startEdit = (nodeId: string) => {
+    if (!canManageTags) return;
     setTagsTree((tree) =>
       updateNodeInTree(tree, nodeId, (node) => ({
         ...node,
@@ -550,6 +555,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
 
   // 删除使用服务端完整标签树，避免搜索过滤或过期数据漏掉子标签。
   const deleteTag = async (nodeId: string): Promise<boolean> => {
+    if (!canManageTags) return false;
     const context = findNodeContext(tagsTree, nodeId);
     if (!context || isSaving) return false;
     try {
@@ -582,6 +588,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
 
   // 恢复删除
   const restoreTag = (nodeId: string) => {
+    if (!canManageTags) return;
     setTagsTree((tree) =>
       updateNodeInTree(tree, nodeId, (node) => ({
         ...node,
@@ -732,6 +739,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
   // 处理标签排序
   const handleSortTags = useCallback(
     async (level: number, sortedTags: TagNode[]) => {
+      if (!canManageTags) return;
       try {
         setIsSaving(true);
         // 同步更新排序值(sort)：数字越大越靠前，因此首位应为最大值；不改变各自子节点顺序
@@ -775,7 +783,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
         setIsSaving(false);
       }
     },
-    [tagsTree, selectedIds, getNodeId, t],
+    [tagsTree, selectedIds, getNodeId, t, canManageTags],
   );
 
   const TagsHeaderMenu = useMemo(
@@ -801,13 +809,13 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
         </div>
         <div className="flex items-center gap-3">
           {/* AI自动打标签-手动同步 */}
-          {isAdmin && <>
+          {isAdmin && canManageTags && <>
             <div className="flex items-center gap-2">
               <UpdateToMuseDialog onSyncComplete={handleSyncComplete} />
               <SyncConfirmDialog onSyncComplete={handleSyncComplete} />
             </div>
           </>}
-          <Button
+          {canManageTags && <Button
             variant="default"
             size="sm"
             onClick={() => {
@@ -816,11 +824,11 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
           >
             <PlusIcon className="size-[14px]" />
             {t("batchCreate")}
-          </Button>
+          </Button>}
         </div>
       </div>
     ),
-    [t, searchQuery, handleSearchChange, handleSyncComplete, isAdmin],
+    [t, searchQuery, handleSearchChange, handleSyncComplete, isAdmin, canManageTags],
   );
 
   const TagMainColumns = useMemo(
@@ -828,7 +836,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
       <TagLevelColumns
         title={t("tagManagement")}
         headerExtra={
-          isAdmin ? (
+          canManageTags ? (
             <TagSettingDialog
               fourthLevelCount={countTagsAtLevel(tagsTree, 4)}
               onLevelChanged={refetchTagsTree}
@@ -846,17 +854,17 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
         onAddTag={addTag}
         getNodeId={getNodeId}
         hasDetailChanges={checkTagDetailChanges}
-        showAdd={!isSearching}
+        showAdd={canManageTags && !isSearching}
         levelCount={tagLevel}
         showAiTags={true}
-        canEdit={!isSearching}
-        onSortTags={handleSortTags}
+        canEdit={canManageTags && !isSearching}
+        onSortTags={canManageTags ? handleSortTags : undefined}
         loading={isLoading}
       />
     ),
     [
       t,
-      isAdmin,
+      canManageTags,
       tagsTree,
       tagLevel,
       refetchTagsTree,
@@ -890,8 +898,9 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
         ) : (
           TagMainColumns
         )}
-        <TagDetails selectedTag={getSelectedTag()} refreshTags={refetchTagsTree} />
+        <TagDetails canEdit={canManageTags} selectedTag={getSelectedTag()} refreshTags={refetchTagsTree} />
       </div>
+      {canManageTags && <>
       <BatchCreateModal
         visible={batchCreateModalVisible}
         setVisible={setBatchCreateModalVisible}
@@ -908,6 +917,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
         setVisible={setCreateModalVisible}
         refresh={handleSyncComplete}
       />
+      </>}
     </div>
   );
 }

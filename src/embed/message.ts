@@ -474,6 +474,10 @@ type ActionMap = {
     };
     result: BaseActionResult<Record<string, never>>;
   };
+  "get-tag-management-permission": {
+    args: Record<string, never>;
+    result: BaseActionResult<{ canManageTags: boolean }>;
+  };
   "get-tag-setting": {
     args: Record<string, never>;
     result: BaseActionResult<{

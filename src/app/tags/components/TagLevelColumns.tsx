@@ -171,7 +171,7 @@ export function TagLevelColumns({
                   gridColumn: `span ${Math.max(levelCount - 1, 1)} / span ${Math.max(levelCount - 1, 1)}`,
                 }}
               >
-                <SmartTagsContent />
+                <SmartTagsContent canEdit={canEdit} />
               </div>
             ) : (
               levels.slice(1).map((level) => renderColumn(level))

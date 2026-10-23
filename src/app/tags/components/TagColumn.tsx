@@ -59,7 +59,7 @@ export function TagColumn({
 
   // 处理排序确认
   const handleSortConfirm = (sortedTags: TagNode[]) => {
-    if (onSortTags) {
+    if (canEdit && onSortTags) {
       onSortTags(level, sortedTags);
     }
     setSortTagOpen(false);
@@ -141,13 +141,13 @@ export function TagColumn({
       )}
 
       {/* 标签排序弹窗 */}
-      <TagSortModal
+      {canEdit && <TagSortModal
         open={sortTagOpen}
         onClose={() => setSortTagOpen(false)}
         onConfirm={handleSortConfirm}
         tags={tags}
         level={level}
-      />
+      />}
     </div>
   );
 }

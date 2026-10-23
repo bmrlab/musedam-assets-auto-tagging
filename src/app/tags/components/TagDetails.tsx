@@ -74,9 +74,10 @@ function SwitchSetting({
 interface TagDetailsProps {
   selectedTag: { tag: AssetTag; level: number } | null;
   refreshTags: () => void;
+  canEdit?: boolean;
 }
 
-export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
+export function TagDetails({ selectedTag, refreshTags, canEdit = false }: TagDetailsProps) {
   const t = useTranslations("TagsPage.TagDetails");
   const tRoot = useTranslations("TagsPage");
   const { getTagEditData, isTagEdited } = useTagEdit();
@@ -100,7 +101,9 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
   });
 
   // 编辑态
-  const [isEditing, setIsEditing] = useState(false);
+  const [editing, setIsEditing] = useState(false);
+  const isEditing = canEdit && editing;
+  useEffect(() => { if (!canEdit) setIsEditing(false); }, [canEdit]);
 
   // 关键词输入状态
   const [keywordsInputValue, setKeywordsInputValue] = useState("");
@@ -270,6 +273,7 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
     : false;
   const shouldShowRequiredSwitch = showSwitch && (hasChildTags || required);
   const handleVisibilitySelection = async () => {
+    if (!canEdit) return;
     try {
       await visibility.selectAndSave(
         t.has("selectVisibleMembers")
@@ -284,6 +288,7 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
   };
 
   const handleStartEdit = () => {
+    if (!canEdit) return;
     setIsEditing(true);
   };
 
@@ -296,6 +301,7 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
   };
 
   const handleSave = async () => {
+    if (!canEdit) return;
     if (!selectedTag?.tag?.id) return;
     try {
       const res = await updateTagExtra(selectedTag.tag.id, {
@@ -326,7 +332,7 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
       {/* 标题栏 */}
       <div className="border-b px-4 py-2 font-medium flex items-center justify-between">
         <span>{t("tagDetails")}</span>
-        {!isEditing ? (
+        {canEdit && (!isEditing ? (
           <Button onClick={handleStartEdit} size="sm" variant="outline">
             <EditIcon className="size-[14px]" />
             {t("edit")}
@@ -340,7 +346,7 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
               {tRoot("saveChanges")}
             </Button>
           </div>
-        )}
+        ))}
         {/* {hasChanges && (
           <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded">{t("modified")}</span>
         )} */}
@@ -387,8 +393,8 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
             label={t("requiredForInventoryEntry")}
             tooltip={t("requiredForInventoryEntryTooltip")}
             checked={required}
-            disabled={pendingRequiredLoading}
-            onCheckedChange={handleToggle}
+            disabled={!canEdit || pendingRequiredLoading}
+            onCheckedChange={(checked) => { if (canEdit) void handleToggle(checked); }}
             onText={t("requiredForInventoryEntryOn")}
             offText={t("requiredForInventoryEntryOff")}
             extra={
@@ -532,6 +538,7 @@ export function TagDetails({ selectedTag, refreshTags }: TagDetailsProps) {
             }
             selection={visibility.selection}
             loading={visibility.loading}
+            readOnly={!canEdit}
             onSelect={handleVisibilitySelection}
           />
         )}

@@ -7,7 +7,7 @@ import { dispatchMuseDAMClientAction } from "@/embed/message";
 import { TagRecord } from "../types";
 import { useTranslations } from "next-intl";
 
-export const SmartTagsContent = () => {
+export const SmartTagsContent = ({ canEdit = false }: { canEdit?: boolean }) => {
     const t = useTranslations("SmartTags");
     const [listInfo, setListInfo] = useState<{
         tags: TagRecord[],
@@ -96,6 +96,7 @@ export const SmartTagsContent = () => {
     const showContextMenu = useCallback(
         (e: React.MouseEvent, tag: TagRecord) => {
             e.preventDefault();
+            if (!canEdit) return;
             setSelectedTag(tag);
             setContextMenu({
                 visible: true,
@@ -103,7 +104,7 @@ export const SmartTagsContent = () => {
                 y: e.clientY,
             });
         },
-        []
+        [canEdit]
     );
 
     const hideContextMenu = useCallback(() => {
@@ -136,6 +137,7 @@ export const SmartTagsContent = () => {
     const [inputValue, setInputValue] = useState('');
 
     const handleRename = () => {
+        if (!canEdit) return;
         hideContextMenu();
         setIsEditTag(selectedTag);
         setInputValue(selectedTag?.name || '');
@@ -146,6 +148,7 @@ export const SmartTagsContent = () => {
 
 
     const handleDelete = async (tag: TagRecord,) => {
+        if (!canEdit) return;
         await dispatchMuseDAMClientAction("delete-smart-tag", { tag })
         setSelectedTag(null)
         // 更新当前列表状态
@@ -163,6 +166,7 @@ export const SmartTagsContent = () => {
     };
 
     const changeAiTag = async (tagId: number, newName: string) => {
+        if (!canEdit) return;
         // 如果名字没有变化，直接退出编辑状态
         if (selectedTag?.name === newName) {
             setSelectedTag(null)
@@ -198,7 +202,7 @@ export const SmartTagsContent = () => {
                 className="flex gap-2.5 flex-wrap flex-1 "
             >
                 {listInfo?.tags.map((tag, index) => {
-                    if (isEditTag?.id === tag?.id) {
+                    if (canEdit && isEditTag?.id === tag?.id) {
                         return (
                             <Input
                                 key={tag.id}
@@ -268,7 +272,7 @@ export const SmartTagsContent = () => {
                     <div ref={loadMoreRef} className="w-full h-1" />
                 )}
             </div>
-            {contextMenu.visible && (
+            {canEdit && contextMenu.visible && (
                 <div
                     className="fixed z-50 bg-background border rounded-md shadow-lg py-1 min-w-[120px] px-1"
                     style={{

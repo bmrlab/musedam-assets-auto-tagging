@@ -37,6 +37,7 @@ type Props = {
   selection: VisibilitySelection;
   loading: boolean;
   onSelect: () => void;
+  readOnly?: boolean;
 };
 
 const getVisibilityItems = (selection: VisibilitySelection): VisibilityItem[] => [
@@ -91,6 +92,7 @@ export function TagVisibilityDisplay({
   selection,
   loading,
   onSelect,
+  readOnly = false,
 }: Props) {
   const items = getVisibilityItems(selection);
   const { visibleItems, remainingCount } = getTagVisibilityPreview(items);
@@ -135,7 +137,7 @@ export function TagVisibilityDisplay({
               onMouseLeave={scheduleClose}
               onClick={() => {
                 setOpen(false);
-                onSelect();
+                if (!readOnly) onSelect();
               }}
               disabled={loading}
               aria-label={label}
@@ -160,7 +162,7 @@ export function TagVisibilityDisplay({
               ) : (
                 <span className="truncate text-basic-5">{allMembersVisibleText}</span>
               )}
-              <ChevronRight className="size-4 shrink-0 text-basic-5 transition-colors group-hover:text-primary-6" />
+              {!readOnly && <ChevronRight className="size-4 shrink-0 text-basic-5 transition-colors group-hover:text-primary-6" />}
             </Button>
           </DropdownMenuTrigger>
           {items.length > 0 && (
