@@ -170,6 +170,29 @@
     },
     "TagColumn": {
       "smartTags": "Tag Cerdas"
+    },
+    "batchImport": "Batch Import/Export",
+    "BatchTagImportExport": {
+      "title": "Batch Import/Export",
+      "import": "Import",
+      "export": "Export",
+      "uploadHint": "Upload Excel (.xlsx) or CSV (.csv) file",
+      "chooseFile": "Choose file",
+      "downloadTemplate": "Download template",
+      "downloadTemplateExample": "Download import template",
+      "confirm": "Confirm",
+      "cancel": "Cancel",
+      "importFailed": "Import failed",
+      "reimport": "Re-import",
+      "checkTemplateFormat": "Make sure the file matches the template (including Level 1 Tag headers)",
+      "level1Required": "At least one valid Level 1 tag is required",
+      "downloadTable": "Download table",
+      "exportAndEdit": "Export the current tag tree for local editing",
+      "exportSuccess": "Export successful",
+      "unsupportedFileType": "Only Excel (.xlsx) or CSV (.csv) files are supported",
+      "importPreviewTitle": "Import tag preview",
+      "uploadSubHint3": "Each row is a tag path from level 1 to level 3; same-name siblings are merged automatically",
+      "uploadSubHint4": "Each row is a tag path from level 1 to level 4; same-name siblings are merged automatically"
     }
   },
   "AiCreateModal": {
