@@ -21,6 +21,7 @@ import {
   removeAccessPermissionAction,
 } from "./actions";
 import { DepartmentIcon, TeamIcon } from "@/components/ui";
+import { useAutoTaggingAccess } from "@/hooks/use-auto-tagging-access";
 import { cn } from "@/lib/utils";
 
 interface AccessClientProps {
@@ -34,6 +35,7 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
   const [isSelecting, setIsSelecting] = useState(false);
   // 默认是可审核权限
   const defaultRole = "reviewer";
+  const { contentRoleCanManage } = useAutoTaggingAccess();
 
   const handleMemberSelection = async () => {
     try {
@@ -213,9 +215,9 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
                 <div className="font-medium text-sm">{t("contentAdmin")}</div>
               </div>
             </div>
-            {/*<div className="text-sm text-basic-5 w-20 text-right">可管理</div>*/}
+            {/* 内容管理员：有 dam-material-extension-ai-auto-marking 为可管理，否则可审核 */}
             <Button variant="ghost" size="sm" className="h-8 w-20" disabled={true}>
-              <span>{t("canManage")}</span>
+              <span>{contentRoleCanManage ? t("canManage") : t("canReview")}</span>
               <ChevronDown className="ml-1 h-3 w-3 opacity-0" />
             </Button>
           </div>

@@ -478,6 +478,15 @@ type ActionMap = {
     args: Record<string, never>;
     result: BaseActionResult<{ canManageTags: boolean }>;
   };
+  /** 主站按 dam-material-extension-ai-auto-marking 判定内容管理员是否可管理配置 */
+  "get-auto-tagging-access": {
+    args: Record<string, never>;
+    result: BaseActionResult<{
+      role: "admin" | "content" | "other";
+      canManageConfig: boolean;
+      contentRoleCanManage: boolean;
+    }>;
+  };
   "get-tag-setting": {
     args: Record<string, never>;
     result: BaseActionResult<{

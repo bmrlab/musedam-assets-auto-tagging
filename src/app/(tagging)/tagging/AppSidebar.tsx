@@ -32,6 +32,7 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { useAutoTaggingAccess } from "@/hooks/use-auto-tagging-access";
 import { useFeatureLibraryFeatures } from "@/hooks/use-feature-library";
 import { FeatureType, isFeatureTypeEnabled } from "@/lib/feature-library";
 import { cn } from "@/lib/utils";
@@ -141,6 +142,7 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
   const t = useTranslations("Tagging") as TranslationFunction;
   const { isMobile, setOpenMobile } = useSidebar();
   const featureLibraryFeatures = useFeatureLibraryFeatures();
+  const { role, canManageConfig, loading: accessLoading } = useAutoTaggingAccess();
   const menuItems = getMenuItems(t);
   const mainMenuItems = menuItems.filter((item) => item.section === "main");
   const featureLibraryMenuItems = featureLibraryFeatures.featureLibrary
@@ -152,6 +154,9 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
       )
     : [];
   const configurationMenuItems = menuItems.filter((item) => item.section === "configuration");
+  // 加载中先不展示，避免无配置权限的内容管理员先闪出入口
+  const showConfiguration =
+    !accessLoading && !(role === "content" && !canManageConfig);
   const handleNavigate = React.useCallback(() => {
     if (isMobile) {
       setOpenMobile(false);
@@ -190,16 +195,18 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
             </SidebarGroupContent>
           </SidebarGroup>
         ) : null}
-        <SidebarGroup className="p-0 pt-6">
-          <SidebarGroupLabel className="h-[18px] overflow-hidden rounded-none px-4 py-0 text-[13px] leading-[18px] text-[#8f9bb3] font-normal">
-            <span className={sidebarLabelMotionClassName}>{t("Sidebar.configuration")}</span>
-          </SidebarGroupLabel>
-          <SidebarGroupContent className="pt-2">
-            <SidebarMenu>
-              {renderMenuItems(configurationMenuItems, pathname, handleNavigate)}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {showConfiguration ? (
+          <SidebarGroup className="p-0 pt-6">
+            <SidebarGroupLabel className="h-[18px] overflow-hidden rounded-none px-4 py-0 text-[13px] leading-[18px] text-[#8f9bb3] font-normal">
+              <span className={sidebarLabelMotionClassName}>{t("Sidebar.configuration")}</span>
+            </SidebarGroupLabel>
+            <SidebarGroupContent className="pt-2">
+              <SidebarMenu>
+                {renderMenuItems(configurationMenuItems, pathname, handleNavigate)}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ) : null}
       </SidebarContent>
       <SidebarFooter>{/* 可以在这里添加用户信息或其他底部内容 */}</SidebarFooter>
     </Sidebar>
