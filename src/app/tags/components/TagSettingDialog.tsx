@@ -11,10 +11,11 @@ import {
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
+import { dispatchMuseDAMClientAction } from "@/embed/message";
 import { cn } from "@/lib/utils";
 import { Settings } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   EnterpriseTagSetting,
@@ -23,20 +24,40 @@ import {
 
 export function TagSettingDialog({
   onLevelChanged,
-  fourthLevelCount = 0,
 }: {
   onLevelChanged?: () => void;
-  fourthLevelCount?: number;
 }) {
   const t = useTranslations("TagsPage");
   const { setting, save } = useEnterpriseTagSetting();
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState<EnterpriseTagSetting>(setting);
+  const [hiddenTagCount, setHiddenTagCount] = useState(0);
+  const checkSeq = useRef(0);
+
+  const loadHiddenTagCount = useCallback((tagLevel: 3 | 4) => {
+    if (tagLevel !== 3) {
+      checkSeq.current += 1;
+      setHiddenTagCount(0);
+      return;
+    }
+    const seq = ++checkSeq.current;
+    void dispatchMuseDAMClientAction("check-tag-setting", { tagLevel: 3 })
+      .then((data) => {
+        if (seq !== checkSeq.current) return;
+        const count = Number(data?.hiddenTagCount);
+        setHiddenTagCount(Number.isFinite(count) && count > 0 ? Math.floor(count) : 0);
+      })
+      .catch(() => {
+        if (seq === checkSeq.current) setHiddenTagCount(0);
+      });
+  }, []);
 
   useEffect(() => {
-    if (open) setDraft(setting);
-  }, [open, setting]);
+    if (!open) return;
+    setDraft(setting);
+    loadHiddenTagCount(setting.tagLevel);
+  }, [open, setting, loadHiddenTagCount]);
 
   const persist = async (levelChanged: boolean) => {
     setSaving(true);
@@ -76,7 +97,11 @@ export function TagSettingDialog({
               <div className="text-sm font-medium leading-[22px] text-basic-9">{t("tagLevel")}</div>
               <RadioGroup
                 value={String(draft.tagLevel)}
-                onValueChange={(value) => setDraft({ ...draft, tagLevel: value === "4" ? 4 : 3 })}
+                onValueChange={(value) => {
+                  const tagLevel = value === "4" ? 4 : 3;
+                  setDraft({ ...draft, tagLevel });
+                  loadHiddenTagCount(tagLevel);
+                }}
                 className="gap-2"
               >
                 {[
@@ -104,9 +129,9 @@ export function TagSettingDialog({
                   );
                 })}
               </RadioGroup>
-              {draft.tagLevel === 3 && fourthLevelCount > 0 && (
+              {draft.tagLevel === 3 && hiddenTagCount > 0 && (
                 <p className="text-[13px] leading-5 text-basic-8">
-                  {t("hideFourthLevelTagsHint", { count: fourthLevelCount })}
+                  {t("hideFourthLevelTagsHint", { count: hiddenTagCount })}
                 </p>
               )}
             </div>

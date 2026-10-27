@@ -494,6 +494,16 @@ type ActionMap = {
       showAiTag: 0 | 1;
     }>;
   };
+  /** 层级切换预检。选择 3 层时返回管理端将隐藏的标签数 */
+  "check-tag-setting": {
+    args: {
+      tagLevel: 3 | 4;
+    };
+    result: BaseActionResult<{
+      tagLevel: 3 | 4;
+      hiddenTagCount: number;
+    }>;
+  };
   /** 保存团队标签设置。切到 3 层时第 4 层标签仅隐藏，切回 4 层后恢复 */
   "set-tag-setting": {
     args: {
