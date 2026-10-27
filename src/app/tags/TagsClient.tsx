@@ -34,6 +34,12 @@ interface TagsClientProps {
 
 const SMART_TAGS_ID = "-1";
 
+function countTagsAtLevel(nodes: TagNode[], level: number): number {
+  const active = nodes.filter((node) => !node.isDeleted);
+  if (level <= 1) return active.length;
+  return active.reduce((sum, node) => sum + countTagsAtLevel(node.children ?? [], level - 1), 0);
+}
+
 /** 各层级（1 ~ MAX_TAG_LEVEL）选中的节点 ID，selection[i] 对应第 i + 1 级 */
 type Selection = (string | null)[];
 
@@ -144,6 +150,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
   const canManageTags = useTagManagementPermission();
   const { setting } = useEnterpriseTagSetting();
   const tagLevel = setting.tagLevel;
+  const fourthLevelCount = useMemo(() => countTagsAtLevel(tagsTree, 4), [tagsTree]);
 
   // 移除了 tagExtraChanges 状态，现在使用 Context
 
@@ -844,7 +851,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
         title={t("tagManagement")}
         headerExtra={
           canManageTags ? (
-            <TagSettingDialog onLevelChanged={refetchTagsTree} />
+            <TagSettingDialog onLevelChanged={refetchTagsTree} fourthLevelCount={fourthLevelCount} />
           ) : undefined
         }
         lists={levelTags}
@@ -871,6 +878,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
       canManageTags,
       tagsTree,
       tagLevel,
+      fourthLevelCount,
       refetchTagsTree,
       levelTags,
       selectedIds,

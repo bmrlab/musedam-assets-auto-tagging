@@ -27,15 +27,12 @@ describe("tag settings", () => {
     expect(screen.getByText("tagLevelFour")).toBeTruthy();
   });
 
-  it("asks for confirmation before saving a level change", async () => {
-    render(<TagSettingDialog />);
+  it("tells how many level-4 tags will be hidden and saves without a second confirm", async () => {
+    render(<TagSettingDialog fourthLevelCount={5} />);
     fireEvent.click(screen.getByText("tagSetting"));
     fireEvent.click(screen.getByText("tagLevelThree"));
+    expect(screen.getByText("hideFourthLevelTagsHint")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "confirm" }));
-    expect(state.save).not.toHaveBeenCalled();
-    expect(screen.getAllByText("clearEnterpriseTagsHint").length).toBeGreaterThan(0);
-    const confirms = screen.getAllByRole("button", { name: "confirm" });
-    fireEvent.click(confirms[confirms.length - 1]);
     await waitFor(() => expect(state.save).toHaveBeenCalledExactlyOnceWith({ tagLevel: 3, showAiTag: 1 }));
   });
 

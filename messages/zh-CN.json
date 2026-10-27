@@ -31,6 +31,7 @@
     "tagLevelFour": "4 层标签",
     "tagLevelDefault": "默认",
     "clearEnterpriseTagsHint": "切换层级将清空本团队全部企业标签及素材上的企业标签，此操作不可恢复。",
+    "hideFourthLevelTagsHint": "第 4 层的 {count} 个标签将被隐藏，切回 4 层标签后恢复显示",
     "smartTag": "智能标签",
     "showAiTagOnDetail": "在素材详情页显示智能标签",
     "showAiTagHint": "关闭后，素材详情页和待入库预览中不再回显智能标签",
