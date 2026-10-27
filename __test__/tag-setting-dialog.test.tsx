@@ -18,11 +18,25 @@ beforeEach(() => {
 });
 
 describe("tag settings", () => {
-  it("does not offer tag level switching", () => {
+  it("offers 3-level and 4-level choices", () => {
     render(<TagSettingDialog />);
     fireEvent.click(screen.getByText("tagSetting"));
-    expect(screen.queryByText("tagLevel")).toBeNull();
-    expect(screen.queryByRole("radio")).toBeNull();
+    expect(screen.getByText("tagLevel")).toBeTruthy();
+    expect(screen.getAllByRole("radio")).toHaveLength(2);
+    expect(screen.getByText("tagLevelThree")).toBeTruthy();
+    expect(screen.getByText("tagLevelFour")).toBeTruthy();
+  });
+
+  it("asks for confirmation before saving a level change", async () => {
+    render(<TagSettingDialog />);
+    fireEvent.click(screen.getByText("tagSetting"));
+    fireEvent.click(screen.getByText("tagLevelThree"));
+    fireEvent.click(screen.getByRole("button", { name: "confirm" }));
+    expect(state.save).not.toHaveBeenCalled();
+    expect(screen.getAllByText("clearEnterpriseTagsHint").length).toBeGreaterThan(0);
+    const confirms = screen.getAllByRole("button", { name: "confirm" });
+    fireEvent.click(confirms[confirms.length - 1]);
+    await waitFor(() => expect(state.save).toHaveBeenCalledExactlyOnceWith({ tagLevel: 3, showAiTag: 1 }));
   });
 
   it("saves smart tag visibility without changing the current level", async () => {

@@ -844,7 +844,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
         title={t("tagManagement")}
         headerExtra={
           canManageTags ? (
-            <TagSettingDialog />
+            <TagSettingDialog onLevelChanged={refetchTagsTree} />
           ) : undefined
         }
         lists={levelTags}
@@ -871,6 +871,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
       canManageTags,
       tagsTree,
       tagLevel,
+      refetchTagsTree,
       levelTags,
       selectedIds,
       applySelection,
