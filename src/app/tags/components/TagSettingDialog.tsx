@@ -22,6 +22,29 @@ import {
   useEnterpriseTagSetting,
 } from "../hooks/useEnterpriseTagSetting";
 
+function HiddenCountHint({
+  template,
+  count,
+  loading,
+}: {
+  template: string;
+  count: number;
+  loading: boolean;
+}) {
+  const [before, after = ""] = template.split("__COUNT__");
+  return (
+    <>
+      {before}
+      {loading ? (
+        <span className="mx-0.5 inline-block h-3.5 w-4 animate-pulse rounded-sm bg-basic-3 align-middle" />
+      ) : (
+        count
+      )}
+      {after}
+    </>
+  );
+}
+
 function readHiddenTagCount(data: unknown): number {
   if (!data || typeof data !== "object") return 0;
   const record = data as Record<string, unknown>;
@@ -46,6 +69,7 @@ export function TagSettingDialog({
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState<EnterpriseTagSetting>(setting);
   const [hiddenTagCount, setHiddenTagCount] = useState(0);
+  const [checkingHiddenCount, setCheckingHiddenCount] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -54,24 +78,23 @@ export function TagSettingDialog({
 
   useEffect(() => {
     if (!open || draft.tagLevel !== 3) {
+      setCheckingHiddenCount(false);
       setHiddenTagCount(0);
       return;
     }
     let cancelled = false;
-    const timer = window.setTimeout(() => {
-      if (!cancelled) setHiddenTagCount(fallbackHiddenCount);
-    }, 3000);
+    setCheckingHiddenCount(true);
+    setHiddenTagCount(0);
+    const finish = (count: number) => {
+      if (cancelled) return;
+      window.clearTimeout(timer);
+      setHiddenTagCount(count);
+      setCheckingHiddenCount(false);
+    };
+    const timer = window.setTimeout(() => finish(fallbackHiddenCount), 3000);
     void dispatchMuseDAMClientAction("check-tag-setting", { tagLevel: 3 })
-      .then((data) => {
-        if (cancelled) return;
-        window.clearTimeout(timer);
-        setHiddenTagCount(readHiddenTagCount(data));
-      })
-      .catch(() => {
-        if (cancelled) return;
-        window.clearTimeout(timer);
-        setHiddenTagCount(fallbackHiddenCount);
-      });
+      .then((data) => finish(readHiddenTagCount(data)))
+      .catch(() => finish(fallbackHiddenCount));
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
@@ -144,9 +167,13 @@ export function TagSettingDialog({
                   );
                 })}
               </RadioGroup>
-              {draft.tagLevel === 3 && hiddenTagCount > 0 && (
-                <p className="text-[13px] leading-5 text-basic-8">
-                  {t("hideFourthLevelTagsHint", { count: hiddenTagCount })}
+              {draft.tagLevel === 3 && (checkingHiddenCount || hiddenTagCount > 0) && (
+                <p className="text-[13px] leading-5 text-basic-5">
+                  <HiddenCountHint
+                    template={t("hideFourthLevelTagsHint", { count: "__COUNT__" })}
+                    count={hiddenTagCount}
+                    loading={checkingHiddenCount}
+                  />
                 </p>
               )}
             </div>
