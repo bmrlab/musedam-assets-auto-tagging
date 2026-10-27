@@ -17,16 +17,43 @@ export const apiFeatureToggleValueSchema = z.preprocess(
 
 const optionalApiFeatureToggleValueSchema = apiFeatureToggleValueSchema.optional();
 
+const API_FEATURE_TOGGLE_NAMES = [
+  "featureBrand",
+  "featureProduct",
+  "featurePerson",
+  "featureIp",
+] as const;
+
+function isMissingFeatureToggleValue(value: unknown) {
+  return value === undefined || value === null || value === "";
+}
+
 /**
- * All child toggles are required when featureToggle is provided. This avoids
- * unexpectedly running a classifier because its toggle was accidentally omitted.
+ * When featureToggle is sent, omitted or empty child values are off.
+ * An empty object therefore disables all four classifiers.
+ * Omitting featureToggle itself keeps the legacy default (enabled).
  */
-export const apiFeatureToggleSchema = z.object({
+export const apiFeatureToggleSchema = z.preprocess((value) => {
+  if (value == null || typeof value !== "object" || Array.isArray(value)) {
+    return value;
+  }
+
+  const record = value as Record<string, unknown>;
+  return {
+    ...record,
+    ...Object.fromEntries(
+      API_FEATURE_TOGGLE_NAMES.map((name) => [
+        name,
+        isMissingFeatureToggleValue(record[name]) ? "off" : record[name],
+      ]),
+    ),
+  };
+}, z.object({
   featureBrand: apiFeatureToggleValueSchema,
   featureProduct: apiFeatureToggleValueSchema,
   featurePerson: apiFeatureToggleValueSchema,
   featureIp: apiFeatureToggleValueSchema,
-});
+}));
 
 /** Shared fields for tagging endpoints. Flat child fields remain for old callers. */
 export const apiFeatureToggleRequestSchema = z.object({

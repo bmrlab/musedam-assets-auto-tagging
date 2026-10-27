@@ -35,15 +35,35 @@ describe("tagging API options", () => {
     });
   });
 
-  it("requires all four flags when the nested featureToggle object is sent", () => {
-    expect(() =>
-      apiFeatureToggleRequestSchema.parse({
-        featureLibrary: 1,
-        featureToggle: {
-          featureBrand: 1,
-        },
-      }),
-    ).toThrow();
+  it("treats an empty featureToggle and omitted child flags as off", () => {
+    const empty = apiFeatureToggleRequestSchema.parse({
+      featureLibrary: 1,
+      featureToggle: {},
+    });
+    expect(resolveFeatureLibraryFeatures(getExplicitFeatureValuesFromApiRequest(empty))).toEqual({
+      featureLibrary: true,
+      featureBrand: false,
+      featureProduct: false,
+      featurePerson: false,
+      featureIp: false,
+    });
+
+    const partial = apiFeatureToggleRequestSchema.parse({
+      featureLibrary: 1,
+      featureBrand: "on",
+      featureToggle: {
+        featureBrand: 1,
+        featureProduct: null,
+        featurePerson: "",
+      },
+    });
+    expect(resolveFeatureLibraryFeatures(getExplicitFeatureValuesFromApiRequest(partial))).toEqual({
+      featureLibrary: true,
+      featureBrand: true,
+      featureProduct: false,
+      featurePerson: false,
+      featureIp: false,
+    });
   });
 
   it("keeps flat fields compatible but gives nested fields precedence", () => {

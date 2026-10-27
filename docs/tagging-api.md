@@ -49,11 +49,11 @@ Content-Type: application/json
 | teamId              | number  | 是   | MuseDAM 团队 ID                                                                                           |
 | assetId             | number  | 是   | MuseDAM 系统中的素材 ID                                                                                   |
 | featureLibrary      | 0 \| 1  | 否   | 是否启用整个特征库分类。`0` 会关闭下面四种分类；兼容值为 `"on"` / `"off"`。不填写时保持旧行为（默认启用） |
-| featureToggle       | object  | 否   | 四种特征分类开关。提供此对象时必须包含下面四个字段；关闭的分类不会进入后端识别流程                        |
-| └─ featureBrand     | 0 \| 1  | 条件 | 是否运行品牌分类                                                                                          |
-| └─ featureProduct   | 0 \| 1  | 条件 | 是否运行产品分类                                                                                          |
-| └─ featurePerson    | 0 \| 1  | 条件 | 是否运行人物分类                                                                                          |
-| └─ featureIp        | 0 \| 1  | 条件 | 是否运行 IP 分类                                                                                          |
+| featureToggle       | object  | 否   | 四种特征分类开关。对象可为空；缺省、`null` 或空字符串的分类按关闭处理，不会进入后端识别流程              |
+| └─ featureBrand     | 0 \| 1  | 否   | 是否运行品牌分类。在 `featureToggle` 中缺省时按关闭处理                                                  |
+| └─ featureProduct   | 0 \| 1  | 否   | 是否运行产品分类。在 `featureToggle` 中缺省时按关闭处理                                                  |
+| └─ featurePerson    | 0 \| 1  | 否   | 是否运行人物分类。在 `featureToggle` 中缺省时按关闭处理                                                  |
+| └─ featureIp        | 0 \| 1  | 否   | 是否运行 IP 分类。在 `featureToggle` 中缺省时按关闭处理                                                  |
 | matchingSources     | object  | 否   | 打标数据源配置对象，包含各数据源的启用状态。不填写时默认所有数据源都启用                                  |
 | └─ basicInfo        | boolean | 否   | 是否启用基础信息数据源，默认 `true`                                                                       |
 | └─ materializedPath | boolean | 否   | 是否启用文件路径数据源，默认 `true`                                                                       |
@@ -62,7 +62,7 @@ Content-Type: application/json
 | recognitionAccuracy | string  | 否   | 识别精度模式：`precise`（或别名 `accurate`）、`balanced`、`broad`。不填写时默认为 `balanced`              |
 | triggerType         | string  | 否   | 触发方式：`default`、`manual` 或 `scheduled`。不填写时默认为 `default`                                    |
 
-“条件”表示仅在提供 `featureToggle` 对象时必填。为了兼容旧调用方，原有的顶层 `featureBrand`、`featureProduct`、`featurePerson`、`featureIp` 字段仍可使用；如果同时提供，嵌套对象中的值优先。
+不传 `featureToggle` 时，四个分类保持旧行为（默认启用）。传了该对象时，没写的分类按关闭处理，空对象等于四个分类都关闭。为了兼容旧调用方，原有的顶层 `featureBrand`、`featureProduct`、`featurePerson`、`featureIp` 字段仍可使用；如果同时提供，嵌套对象中的值优先，嵌套里缺省的字段也按关闭处理，不会回退到顶层字段。
 
 #### 响应格式
 
