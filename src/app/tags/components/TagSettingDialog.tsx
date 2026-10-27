@@ -15,17 +15,30 @@ import { dispatchMuseDAMClientAction } from "@/embed/message";
 import { cn } from "@/lib/utils";
 import { Settings } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   EnterpriseTagSetting,
   useEnterpriseTagSetting,
 } from "../hooks/useEnterpriseTagSetting";
 
+function readHiddenTagCount(data: unknown): number {
+  if (!data || typeof data !== "object") return 0;
+  const record = data as Record<string, unknown>;
+  const direct = Number(record.hiddenTagCount);
+  if (Number.isFinite(direct)) return direct > 0 ? Math.floor(direct) : 0;
+  if (record.result) return readHiddenTagCount(record.result);
+  if (record.data) return readHiddenTagCount(record.data);
+  return 0;
+}
+
 export function TagSettingDialog({
   onLevelChanged,
+  fallbackHiddenCount = 0,
 }: {
   onLevelChanged?: () => void;
+  /** 主站预检没有返回时，用本地标签树里的第 4 层数量 */
+  fallbackHiddenCount?: number;
 }) {
   const t = useTranslations("TagsPage");
   const { setting, save } = useEnterpriseTagSetting();
@@ -33,31 +46,37 @@ export function TagSettingDialog({
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState<EnterpriseTagSetting>(setting);
   const [hiddenTagCount, setHiddenTagCount] = useState(0);
-  const checkSeq = useRef(0);
-
-  const loadHiddenTagCount = useCallback((tagLevel: 3 | 4) => {
-    if (tagLevel !== 3) {
-      checkSeq.current += 1;
-      setHiddenTagCount(0);
-      return;
-    }
-    const seq = ++checkSeq.current;
-    void dispatchMuseDAMClientAction("check-tag-setting", { tagLevel: 3 })
-      .then((data) => {
-        if (seq !== checkSeq.current) return;
-        const count = Number(data?.hiddenTagCount);
-        setHiddenTagCount(Number.isFinite(count) && count > 0 ? Math.floor(count) : 0);
-      })
-      .catch(() => {
-        if (seq === checkSeq.current) setHiddenTagCount(0);
-      });
-  }, []);
 
   useEffect(() => {
     if (!open) return;
     setDraft(setting);
-    loadHiddenTagCount(setting.tagLevel);
-  }, [open, setting, loadHiddenTagCount]);
+  }, [open, setting]);
+
+  useEffect(() => {
+    if (!open || draft.tagLevel !== 3) {
+      setHiddenTagCount(0);
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      if (!cancelled) setHiddenTagCount(fallbackHiddenCount);
+    }, 3000);
+    void dispatchMuseDAMClientAction("check-tag-setting", { tagLevel: 3 })
+      .then((data) => {
+        if (cancelled) return;
+        window.clearTimeout(timer);
+        setHiddenTagCount(readHiddenTagCount(data));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        window.clearTimeout(timer);
+        setHiddenTagCount(fallbackHiddenCount);
+      });
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [open, draft.tagLevel, fallbackHiddenCount]);
 
   const persist = async (levelChanged: boolean) => {
     setSaving(true);
@@ -97,11 +116,7 @@ export function TagSettingDialog({
               <div className="text-sm font-medium leading-[22px] text-basic-9">{t("tagLevel")}</div>
               <RadioGroup
                 value={String(draft.tagLevel)}
-                onValueChange={(value) => {
-                  const tagLevel = value === "4" ? 4 : 3;
-                  setDraft({ ...draft, tagLevel });
-                  loadHiddenTagCount(tagLevel);
-                }}
+                onValueChange={(value) => setDraft({ ...draft, tagLevel: value === "4" ? 4 : 3 })}
                 className="gap-2"
               >
                 {[
