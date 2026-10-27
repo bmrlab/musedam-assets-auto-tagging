@@ -73,11 +73,14 @@ import { predictAssetTags, predictUnparsedSizeTags } from "./predict";
 import { getProductRecommendationTagIdsFromQueueResult } from "./product-recommendation";
 import { RECOGNITION_ACCURACY_CONFIG } from "./prompt";
 import {
+  ASSET_TAGGING_CONCURRENCY,
   PROCESSING_TIMING_VERSION,
   TAG_TREE_RESERVED_CONCURRENCY,
+  TEST_TAGGING_CONCURRENCY,
   TOTAL_QUEUE_CONCURRENCY,
 } from "./queue-config";
 import { QUEUE_PAUSED_BY_ENV, USE_QUEUE_WORKER_PROCESS } from "./queue-role";
+import { pickPendingQueueItems } from "./queue-schedule";
 import { getTaggingSettings } from "./tagging/settings/lib";
 import { SourceBasedTagPredictions, TagWithScore } from "./types";
 
@@ -1113,40 +1116,6 @@ async function tryClaimAndProcess(
 // 仍然覆盖到其他团队较早创建的任务，避免被单一团队的任务淹没（见 selectRoundRobinByTeam）。
 const CANDIDATE_POOL_SIZE = 200;
 
-// 按 teamId 轮询挑选：每一轮从每个团队各取一条最早的任务，直到取满 limit 或候选池耗尽。
-// items 需已按 createdAt asc 排序；返回顺序即为轮询顺序（不是严格的全局时间顺序），
-// 目的是避免某个团队的任务把其他团队的任务永远挤在候选池之外/槽位之外。
-function selectRoundRobinByTeam<T extends { teamId: number }>(items: T[], limit: number): T[] {
-  if (limit <= 0) return [];
-  const byTeam = new Map<number, T[]>();
-  for (const item of items) {
-    const queue = byTeam.get(item.teamId);
-    if (queue) {
-      queue.push(item);
-    } else {
-      byTeam.set(item.teamId, [item]);
-    }
-  }
-  // Map 的插入顺序 = 各团队最早任务在全局按 createdAt 排序中的先后顺序。
-  const teamIds = [...byTeam.keys()];
-
-  const selected: T[] = [];
-  let madeProgress = true;
-  while (selected.length < limit && madeProgress) {
-    madeProgress = false;
-    for (const teamId of teamIds) {
-      if (selected.length >= limit) break;
-      const queue = byTeam.get(teamId)!;
-      const next = queue.shift();
-      if (next) {
-        selected.push(next);
-        madeProgress = true;
-      }
-    }
-  }
-  return selected;
-}
-
 const PENDING_SUMMARY_LOG_INTERVAL_MS = 30_000;
 let lastPendingSummaryLoggedAt = 0;
 
@@ -1216,30 +1185,34 @@ export async function processPendingQueueItems(): Promise<{
   rootLogger.info(`processPendingQueueItems`);
   await recoverStaleProcessingItems();
 
-  // 一次性捞出足够多的 pending 记录，内存内分流（避免 Prisma JSON path 过滤器的兼容性问题）
-  // 候选池不带 assetObject：素材的 content/extra 是整条 MuseDAM 素材 JSON，200 条全拉下来
-  // 再在主线程解析很重，而每轮只会领走两三条；选定之后再只查被选中那几条的素材。
-  const candidateItems = await prisma.taggingQueueItem.findMany({
-    where: { status: "pending" },
-    orderBy: { createdAt: "asc" },
-    // 多拉一些，保证两类任务都能填满各自的槽位，同时覆盖足够多的团队用于轮询
-    take: CANDIDATE_POOL_SIZE,
-  });
+  // 测试和正式分开查：正式积压超过候选池时，测试任务也不会被挡在池子外面。
+  // 候选池不带 assetObject：素材的 content/extra 是整条 MuseDAM 素材 JSON，全拉下来
+  // 再在主线程解析很重，而每轮只会领走空闲槽位那么多条；选定之后再只查被选中那几条的素材。
+  const [productionPool, testCandidates] = await Promise.all([
+    prisma.taggingQueueItem.findMany({
+      where: { status: "pending", taskType: { not: "test" } },
+      orderBy: { createdAt: "asc" },
+      take: CANDIDATE_POOL_SIZE,
+    }),
+    prisma.taggingQueueItem.findMany({
+      where: { status: "pending", taskType: "test" },
+      orderBy: { createdAt: "asc" },
+      take: CANDIDATE_POOL_SIZE,
+    }),
+  ]);
 
   // 按团队轮询挑选，避免某个团队短时间内堆积大量任务时把其他团队"饿死"。
-  const tagTreeItems = selectRoundRobinByTeam(
-    candidateItems.filter(isTagTreeJob),
-    Math.min(TAG_TREE_RESERVED_CONCURRENCY, freeSlots),
-  );
-
-  // 只领空闲槽位数量的任务，不多领去 pLimit 里排队
-  const normalItems = selectRoundRobinByTeam(
-    candidateItems.filter((item) => !isTagTreeJob(item)),
-    Math.min(
-      TOTAL_QUEUE_CONCURRENCY - TAG_TREE_RESERVED_CONCURRENCY,
-      freeSlots - tagTreeItems.length,
-    ),
-  );
+  // 只领空闲槽位数量的任务，不多领去 pLimit 里排队。
+  const { tagTreeItems, testItems, productionItems } = pickPendingQueueItems({
+    tagTreeCandidates: productionPool.filter(isTagTreeJob),
+    testCandidates,
+    productionCandidates: productionPool.filter((item) => !isTagTreeJob(item)),
+    freeSlots,
+    tagTreeReserved: TAG_TREE_RESERVED_CONCURRENCY,
+    testReserved: TEST_TAGGING_CONCURRENCY,
+    assetConcurrency: ASSET_TAGGING_CONCURRENCY,
+  });
+  const normalItems = [...testItems, ...productionItems];
 
   const selectedAssetObjectIds = normalItems
     .map((item) => item.assetObjectId)
@@ -1284,6 +1257,8 @@ export async function processPendingQueueItems(): Promise<{
     skipped,
     tagTreePicked: tagTreeItems.length,
     normalPicked: normalItems.length,
+    testPicked: testItems.length,
+    productionPicked: productionItems.length,
   });
 
   return { processing, skipped };

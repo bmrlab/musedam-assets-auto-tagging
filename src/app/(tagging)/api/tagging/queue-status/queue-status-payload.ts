@@ -30,6 +30,7 @@ export async function buildQueueStatusPayload({
           queueItemId: queueItem.id,
           createdAt: queueItem.createdAt,
           status: queueItem.status,
+          taskType: queueItem.taskType,
         })
       : null;
 

@@ -9,6 +9,17 @@ export const TOTAL_QUEUE_CONCURRENCY = Math.max(
 );
 export const TAG_TREE_RESERVED_CONCURRENCY = 1;
 export const ASSET_TAGGING_CONCURRENCY = TOTAL_QUEUE_CONCURRENCY - TAG_TREE_RESERVED_CONCURRENCY;
+// 测试任务单独占的打标槽。正式队列有积压时，测试不用排在正式任务后面；
+// 没有测试在排队、或正式队列消化不完空槽时，这些槽还给另一边。打标槽多于 1 个时，至少给正式任务留 1 个。
+// TEST_TAGGING_CONCURRENCY 可显式覆盖。
+const REQUESTED_TEST_TAGGING_CONCURRENCY = Math.max(
+  1,
+  Math.floor(Number(process.env.TEST_TAGGING_CONCURRENCY)) || 1,
+);
+export const TEST_TAGGING_CONCURRENCY =
+  ASSET_TAGGING_CONCURRENCY <= 1
+    ? 1
+    : Math.min(REQUESTED_TEST_TAGGING_CONCURRENCY, ASSET_TAGGING_CONCURRENCY - 1);
 export const PROCESSING_TIMING_VERSION = 2;
 export const QUEUE_ITEM_HEADROOM_SECONDS = 20;
 // 取消的排队任务复用 failed 状态，并用 result.error 区分，避免数据库 schema migration。
