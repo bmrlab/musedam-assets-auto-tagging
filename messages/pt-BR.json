@@ -252,7 +252,7 @@
     "batchCreate": "Criar em Lote",
     "cancel": "Cancelar",
     "confirmSync": "Confirmar Sincronização",
-    "confirmSyncDescription": "Esta operação irá:\n• Excluir todas as tags atuais no sistema\n• Recuperar a hierarquia completa de tags do MuseDAM\n• Todas as modificações locais não salvas nas tags serão perdidas\n\nTem certeza que deseja continuar?",
+    "confirmSyncDescription": "Esta operação mescla as tags locais usando a árvore de tags do MuseDAM como referência:\n• Tags com o mesmo nome sob o mesmo pai são mantidas. Descrição, palavras-chave e outras configurações permanecem; apenas a ordem e o vínculo com o MuseDAM são atualizados\n• Tags que existem no MuseDAM, mas não localmente, serão adicionadas\n• Tags que existem localmente, mas não no MuseDAM, serão excluídas junto com as tags filhas\n• As alterações não salvas nesta página serão perdidas\n\nTem certeza que deseja continuar?",
     "confirmSyncTitle": "Confirmar Sincronização de Tags",
     "manualCreateDesc": "Crie uma taxonomia personalizada para o contexto de negócios exclusivo da sua empresa",
     "manualCreateLabel": "Criar tags manualmente",

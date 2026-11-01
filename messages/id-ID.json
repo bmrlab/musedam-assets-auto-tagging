@@ -42,7 +42,7 @@
     "saveDetailsFailed": "Gagal menyimpan detail tag",
     "syncFromMuseDAM": "Sinkronkan dari MuseDAM",
     "confirmSyncTitle": "Konfirmasi Sinkronisasi Tag",
-    "confirmSyncDescription": "Operasi ini akan:\n• Menghapus semua tag saat ini di sistem\n• Mengambil ulang hierarki tag lengkap dari MuseDAM\n• Semua modifikasi tag lokal yang belum disimpan akan hilang\n\nApakah Anda yakin ingin melanjutkan?",
+    "confirmSyncDescription": "Operasi ini menggabungkan tag lokal dengan pohon tag MuseDAM sebagai acuan:\n• Tag dengan nama yang sama di bawah induk yang sama dipertahankan. Deskripsi, kata kunci, dan pengaturan lain tidak berubah; hanya urutan dan tautan MuseDAM yang diperbarui\n• Tag yang ada di MuseDAM tetapi tidak ada secara lokal akan ditambahkan\n• Tag yang ada secara lokal tetapi tidak ada di MuseDAM akan dihapus, beserta anak-anaknya\n• Perubahan yang belum disimpan di halaman ini akan hilang\n\nApakah Anda yakin ingin melanjutkan?",
     "cancel": "Batal",
     "confirmSync": "Konfirmasi Sinkronisasi",
     "syncing": "Menyinkronkan...",

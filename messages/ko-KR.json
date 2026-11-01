@@ -252,7 +252,7 @@
     "batchCreate": "일괄 생성",
     "cancel": "취소",
     "confirmSync": "확인",
-    "confirmSyncDescription": "이 작업은 다음을 수행합니다:\n• 현재 시스템의 모든 태그를 삭제합니다\n• MuseDAM에서 전체 태그体系를 다시 가져옵니다\n• 저장되지 않은 모든 로컬 태그 수정 내용이 손실됩니다\n\n계속하시겠습니까?",
+    "confirmSyncDescription": "이 작업은 MuseDAM 태그 트리를 기준으로 로컬 태그를 병합합니다:\n• 같은 상위 태그 아래 이름이 같은 태그는 유지됩니다. 설명, 키워드 등 설정은 그대로이고 정렬과 MuseDAM 연결만 업데이트됩니다\n• MuseDAM에는 있고 로컬에는 없는 태그는 추가됩니다\n• 로컬에는 있고 MuseDAM에는 없는 태그와 그 하위 태그는 삭제됩니다\n• 이 페이지에서 저장하지 않은 변경 내용은 사라집니다\n\n계속하시겠습니까?",
     "confirmSyncTitle": "동기화 태그 확인",
     "manualCreateDesc": "기업 고유의 업무 시나리오와 지식 축적을 결합하여 전용 태그 구조를 구축합니다",
     "manualCreateLabel": "태그 수동 생성",

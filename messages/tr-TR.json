@@ -42,7 +42,7 @@
     "saveDetailsFailed": "Etiket detayları kaydedilemedi",
     "syncFromMuseDAM": "MuseDAM'dan senkronize et",
     "confirmSyncTitle": "Etiket Senkronizasyonunu Onayla",
-    "confirmSyncDescription": "Bu işlem şunları yapacaktır:\n• Sistemdeki tüm mevcut etiketleri silecek\n• MuseDAM'dan tam etiket hiyerarşisini yeniden getirecek\n• Kaydedilmemiş tüm yerel etiket değişiklikleri kaybolacak\n\nDevam etmek istediğinize emin misiniz?",
+    "confirmSyncDescription": "Bu işlem, MuseDAM etiket ağacını esas alarak yerel etiketleri birleştirir:\n• Aynı üst etiket altında aynı ada sahip etiketler korunur. Açıklama, anahtar kelimeler ve diğer ayarlar değişmez; yalnızca sıralama ve MuseDAM bağlantısı güncellenir\n• MuseDAM'da olup yerelde olmayan etiketler eklenir\n• Yerelde olup MuseDAM'da olmayan etiketler, alt etiketleriyle birlikte silinir\n• Bu sayfadaki kaydedilmemiş değişiklikler kaybolur\n\nDevam etmek istediğinize emin misiniz?",
     "cancel": "İptal",
     "confirmSync": "Senkronizasyonu Onayla",
     "syncing": "Senkronize ediliyor...",

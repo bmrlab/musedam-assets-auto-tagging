@@ -252,7 +252,7 @@
     "batchCreate": "Crear por lotes",
     "cancel": "Cancelar",
     "confirmSync": "Confirmar Sincronización",
-    "confirmSyncDescription": "Esta operación:\n• Eliminará todas las etiquetas actuales del sistema\n• Volverá a recuperar la jerarquía completa de etiquetas desde MuseDAM\n• Se perderán todas las modificaciones locales no guardadas de etiquetas\n\n¿Está seguro que desea continuar?",
+    "confirmSyncDescription": "Esta operación fusionará las etiquetas locales tomando el árbol de MuseDAM como referencia:\n• Las etiquetas con el mismo nombre bajo el mismo padre se conservan. La descripción, las palabras clave y demás ajustes no cambian; solo se actualizan el orden y el vínculo con MuseDAM\n• Las etiquetas que existen en MuseDAM pero no en local se añadirán\n• Las etiquetas que existen en local pero no en MuseDAM se eliminarán, junto con sus etiquetas hijas\n• Los cambios de esta página que aún no se hayan guardado se perderán\n\n¿Está seguro que desea continuar?",
     "confirmSyncTitle": "Confirmar Sincronización de Etiquetas",
     "manualCreateDesc": "Cree una taxonomía personalizada para el contexto empresarial único de su negocio",
     "manualCreateLabel": "Crear etiquetas manualmente",

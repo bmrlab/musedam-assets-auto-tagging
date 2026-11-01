@@ -43,7 +43,7 @@
     "saveDetailsFailed": "Failed to save tag details",
     "syncFromMuseDAM": "Sync from MuseDAM",
     "confirmSyncTitle": "Confirm Tag Synchronization",
-    "confirmSyncDescription": "This operation will:\n• Delete all current tags in the system\n• Re-fetch the complete tag hierarchy from MuseDAM\n• All unsaved local tag modifications will be lost\n\nAre you sure you want to continue?",
+    "confirmSyncDescription": "This operation merges local tags using the MuseDAM tag tree as the source of truth:\n• Tags with the same name under the same parent are kept. Descriptions, keywords, and other settings stay; only sort order and the MuseDAM link are updated\n• Tags that exist in MuseDAM but not locally are added\n• Tags that exist locally but not in MuseDAM are deleted, along with their children\n• Unsaved changes on this page will be lost\n\nAre you sure you want to continue?",
     "cancel": "Cancel",
     "confirmSync": "Confirm Sync",
     "syncing": "Syncing...",
