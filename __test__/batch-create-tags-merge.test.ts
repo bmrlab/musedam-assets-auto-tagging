@@ -180,4 +180,31 @@ describe("batchCreateTags merge mode (addType=2)", () => {
     expect(lastSyncedTree()[0].id).toBe(10);
     expect(mocks.rows.filter((r) => r.name === "品牌")).toHaveLength(1);
   });
+
+  it("never reuses an unrelated root as a child of a new parent", async () => {
+    seed({ id: 10, name: "已有", slug: "s10", parentId: null, level: 1 });
+    const result = await batchCreateTags(
+      [{ name: "新父级", nameChildList: [{ name: "已有" }] }],
+      2,
+    );
+    expect(result.success).toBe(true);
+    const child = lastSyncedTree()[0].children[0];
+    expect(child.id).toBeUndefined();
+    expect(child.verb).toBe("create");
+    expect(mocks.rows.find((row) => row.id === 10)?.parentId).toBeNull();
+    expect(mocks.rows.filter((row) => row.name === "已有")).toHaveLength(2);
+    expect(mocks.assetTag.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("keeps old branches and does not duplicate repeated imported paths", async () => {
+    seed({ id: 10, name: "品牌", slug: "s10", parentId: null, level: 1 });
+    seed({ id: 11, name: "原有子级", slug: "s11", parentId: 10, level: 2 });
+    seed({ id: 12, name: "保留的一级", slug: "s12", parentId: null, level: 1 });
+    const result = await batchCreateTags([...input, ...input], 2);
+    expect(result.success).toBe(true);
+    expect(mocks.rows.find((row) => row.id === 11)?.name).toBe("原有子级");
+    expect(mocks.rows.find((row) => row.id === 12)?.name).toBe("保留的一级");
+    expect(mocks.assetTag.create).toHaveBeenCalledTimes(2);
+    expect(mocks.assetTag.deleteMany).not.toHaveBeenCalled();
+  });
 });
