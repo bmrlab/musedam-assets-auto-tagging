@@ -14,11 +14,12 @@ import type { ServerActionResult } from "@/lib/serverAction";
 import { cn } from "@/lib/utils";
 import { AlertCircle, FileSpreadsheet, Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useRef, useState, useTransition } from "react";
+import { type ReactNode, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 type BatchMode = "import" | "export";
 type ExportFormat = "xlsx" | "csv";
+type MissingTagsImportChoice = "create" | "existing-only";
 
 export type BatchFileResult = {
   filename: string;
@@ -37,7 +38,24 @@ export type BatchImportResultBase = {
   failedCount: number;
   skippedCount: number;
   failures: BatchImportFailure[];
+  missingTagPaths?: string[];
 };
+
+export type BatchImportPrecheck = {
+  createCount: number;
+  createPaths: string[];
+  updateCount: number;
+  renameCount?: number;
+  unchangedCount: number;
+  /** 正式导入时会被跳过的行 */
+  issues: BatchImportFailure[];
+};
+
+const PRECHECK_LIST_LIMIT = 100;
+
+function failureKey(failure: BatchImportFailure) {
+  return `${failure.rowNumber}|${failure.message}`;
+}
 
 type BatchImportExportDialogProps<TResult extends BatchImportResultBase> = {
   open: boolean;
@@ -49,6 +67,11 @@ type BatchImportExportDialogProps<TResult extends BatchImportResultBase> = {
   exportAction: (format: ExportFormat) => Promise<ServerActionResult<BatchFileResult>>;
   importAction: (formData: FormData) => Promise<ServerActionResult<TResult>>;
   downloadTemplateAction: (format: ExportFormat) => Promise<ServerActionResult<BatchFileResult>>;
+  /** 覆盖上传区第二行说明 */
+  uploadHint?: string;
+  headerExtra?: (pending: boolean) => ReactNode;
+  /** 提供时先检测：有问题行、会新建或改名时二次确认，用户可返回修改或继续导入 */
+  precheckAction?: (formData: FormData) => Promise<ServerActionResult<BatchImportPrecheck>>;
 };
 
 function downloadBase64File(file: BatchFileResult) {
@@ -88,12 +111,19 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
   exportAction,
   importAction,
   downloadTemplateAction,
+  uploadHint,
+  headerExtra,
+  precheckAction,
 }: BatchImportExportDialogProps<TResult>) {
   const t = useTranslations("Tagging.BatchImportExport");
   const [mode, setMode] = useState<BatchMode>("import");
   const [exportFormat, setExportFormat] = useState<ExportFormat>("xlsx");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [failureResult, setFailureResult] = useState<TResult | null>(null);
+  const [missingTagsResult, setMissingTagsResult] = useState<TResult | null>(null);
+  const [pendingMissingTagsChoice, setPendingMissingTagsChoice] =
+    useState<MissingTagsImportChoice | null>(null);
+  const [precheckResult, setPrecheckResult] = useState<BatchImportPrecheck | null>(null);
   const [isPending, startTransition] = useTransition();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -107,6 +137,7 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
   }
 
   const isFailureView = Boolean(failureResult?.failures.length);
+  const isMissingTagsConfirmationView = Boolean(missingTagsResult?.missingTagPaths?.length);
   const isConfirmDisabled =
     isPending || (mode === "import" && !selectedFile) || (mode === "export" && !exportFormat);
 
@@ -115,6 +146,9 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
     setExportFormat("xlsx");
     setSelectedFile(null);
     setFailureResult(null);
+    setMissingTagsResult(null);
+    setPendingMissingTagsChoice(null);
+    setPrecheckResult(null);
   }
 
   function handleOpenChange(nextOpen: boolean) {
@@ -161,7 +195,17 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
     });
   }
 
-  function handleImport() {
+  function showSingleFailure(message: string) {
+    setFailureResult({
+      successCount: 0,
+      failedCount: 1,
+      skippedCount: 0,
+      failures: [{ rowNumber: 1, name: null, message }],
+    } as TResult);
+  }
+
+  function handlePrecheck() {
+    if (!precheckAction) return;
     if (!selectedFile) {
       toast.error(t("selectFileFirst"));
       return;
@@ -171,44 +215,118 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
     formData.append("file", selectedFile);
 
     startTransition(async () => {
-      const result = await importAction(formData);
-
+      const result = await precheckAction(formData);
       if (!result.success) {
-        setFailureResult({
-          successCount: 0,
-          failedCount: 1,
-          skippedCount: 0,
-          failures: [
-            {
-              rowNumber: 1,
-              name: null,
-              message: result.message,
-            },
-          ],
-        } as TResult);
+        showSingleFailure(result.message);
         return;
       }
 
-      if (result.data.successCount > 0) {
-        onImported(result.data);
+      const precheck = result.data;
+      const importableCount = precheck.createCount + precheck.updateCount + precheck.unchangedCount;
+      if (importableCount === 0) {
+        setFailureResult({
+          successCount: 0,
+          failedCount: precheck.issues.length,
+          skippedCount: 0,
+          failures: precheck.issues,
+        } as TResult);
+        return;
+      }
+      if (precheck.issues.length === 0 && precheck.createCount === 0 && !precheck.renameCount) {
+        handleImport();
+        return;
+      }
+      setPrecheckResult(precheck);
+    });
+  }
+
+  function handleImport({
+    createMissingTags = false,
+    importExistingTagsOnly = false,
+    acknowledgedIssues = [],
+  }: {
+    createMissingTags?: boolean;
+    importExistingTagsOnly?: boolean;
+    /** 检测阶段已确认跳过的问题行，导入后不再重复报错 */
+    acknowledgedIssues?: BatchImportFailure[];
+  } = {}) {
+    if (!selectedFile) {
+      toast.error(t("selectFileFirst"));
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", selectedFile);
+    if (createMissingTags) {
+      formData.append("createMissingTags", "true");
+    }
+    if (importExistingTagsOnly) {
+      formData.append("importExistingTagsOnly", "true");
+    }
+    if (createMissingTags || importExistingTagsOnly) {
+      setPendingMissingTagsChoice(createMissingTags ? "create" : "existing-only");
+    }
+
+    if (acknowledgedIssues.length > 0) {
+      formData.set(
+        "skipRows",
+        JSON.stringify([...new Set(acknowledgedIssues.map((issue) => issue.rowNumber))]),
+      );
+    }
+
+    startTransition(async () => {
+      const result = await importAction(formData);
+      setPendingMissingTagsChoice(null);
+      if (createMissingTags || importExistingTagsOnly) {
+        setMissingTagsResult(null);
       }
 
-      if (result.data.failures.length > 0) {
-        setFailureResult(result.data);
+      setPrecheckResult(null);
+
+      if (!result.success) {
+        showSingleFailure(result.message);
+        return;
+      }
+
+      if (result.data.missingTagPaths?.length) {
+        setMissingTagsResult(result.data);
+        return;
+      }
+
+      onImported(result.data);
+
+      const acknowledgedKeys = new Set(acknowledgedIssues.map(failureKey));
+      const unexpectedFailures = result.data.failures.filter(
+        (failure) => !acknowledgedKeys.has(failureKey(failure)),
+      );
+      const skippedCount =
+        result.data.skippedCount + result.data.failures.length - unexpectedFailures.length;
+
+      if (unexpectedFailures.length > 0) {
+        setFailureResult({
+          ...result.data,
+          failures: unexpectedFailures,
+          failedCount: unexpectedFailures.length,
+        });
         toast.warning(
           t("partialImportWarning", {
             success: result.data.successCount,
-            failed: result.data.failedCount,
+            failed: unexpectedFailures.length,
           }),
         );
         return;
       }
 
       toast.success(
-        t("importSuccess", {
-          count: result.data.successCount,
-          entity: entityNamePlural,
-        }),
+        skippedCount > 0
+          ? t("importSuccessWithSkipped", {
+              count: result.data.successCount,
+              skipped: skippedCount,
+            })
+          : t("importSuccess", {
+              count: result.data.successCount,
+              entity: entityNamePlural,
+            }),
       );
       handleOpenChange(false);
     });
@@ -220,7 +338,17 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
       return;
     }
 
+    if (precheckAction) {
+      handlePrecheck();
+      return;
+    }
     handleImport();
+  }
+
+  function handleBackToEdit() {
+    setPrecheckResult(null);
+    setSelectedFile(null);
+    setMode("import");
   }
 
   function handleDownloadTemplate() {
@@ -245,7 +373,166 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="flex max-h-[92vh] w-[512px] max-w-[calc(100%-2rem)] flex-col gap-5 overflow-hidden rounded-[16px] border p-5">
-        {isFailureView && failureResult ? (
+        {precheckResult ? (
+          <>
+            <DialogHeader className="gap-0 p-0">
+              <DialogTitle className="text-[16px] leading-6 font-semibold text-basic-9">
+                {t("precheckTitle")}
+              </DialogTitle>
+              <DialogDescription className="sr-only">{t("precheckHint")}</DialogDescription>
+            </DialogHeader>
+
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <div className="flex flex-col gap-5">
+                <div className="flex flex-col items-center justify-center rounded-[8px] bg-basic-1 px-4 py-8">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#FFF4DF] text-[#F7B23B]">
+                    <AlertCircle className="h-5 w-5" />
+                  </div>
+                  <div className="mt-4 text-[14px] leading-[22px] font-semibold text-basic-8">
+                    {t("precheckHint")}
+                  </div>
+                  <div className="mt-2 text-center text-[12px] leading-[18px] text-basic-6">
+                    {t("precheckSummary", {
+                      create: precheckResult.createCount,
+                      update: precheckResult.updateCount,
+                      unchanged: precheckResult.unchangedCount,
+                    })}
+                    {precheckResult.renameCount ? (
+                      <>
+                        <br />
+                        {t("precheckRenameNotice", { count: precheckResult.renameCount })}
+                      </>
+                    ) : null}
+                  </div>
+                </div>
+
+                {precheckResult.issues.length > 0 ? (
+                  <div>
+                    <p className="mb-2 text-[12px] leading-[16px] font-normal text-basic-5">
+                      {t("precheckIssuesLabel", { count: precheckResult.issues.length })}
+                    </p>
+                    <div className="max-h-[160px] overflow-y-auto rounded-[8px] bg-basic-1 px-4 py-3">
+                      <ul className="list-disc space-y-2 pl-4 text-[14px] leading-[22px] font-normal text-basic-8">
+                        {precheckResult.issues
+                          .slice(0, PRECHECK_LIST_LIMIT)
+                          .map((failure, index) => (
+                            <li key={`${failure.rowNumber}-${index}`}>
+                              {formatFailureMessage(failure)}
+                            </li>
+                          ))}
+                        {precheckResult.issues.length > PRECHECK_LIST_LIMIT ? (
+                          <li>{t("precheckMoreItems", { count: precheckResult.issues.length })}</li>
+                        ) : null}
+                      </ul>
+                    </div>
+                  </div>
+                ) : null}
+
+                {precheckResult.createPaths.length > 0 ? (
+                  <div>
+                    <p className="mb-2 text-[12px] leading-[16px] font-normal text-basic-5">
+                      {t("precheckCreateLabel", { count: precheckResult.createCount })}
+                    </p>
+                    <div className="max-h-[160px] overflow-y-auto rounded-[8px] bg-basic-1 px-4 py-3">
+                      <ul className="list-disc space-y-2 pl-4 text-[14px] leading-[22px] font-normal text-basic-8">
+                        {precheckResult.createPaths.slice(0, PRECHECK_LIST_LIMIT).map((path) => (
+                          <li key={path}>{path}</li>
+                        ))}
+                        {precheckResult.createPaths.length > PRECHECK_LIST_LIMIT ? (
+                          <li>
+                            {t("precheckMoreItems", { count: precheckResult.createPaths.length })}
+                          </li>
+                        ) : null}
+                      </ul>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            <DialogFooter className="gap-[10px] p-0">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleBackToEdit}
+                disabled={isPending}
+                className="h-8 rounded-[6px] border border-basic-4 px-3 py-1 text-[14px] leading-[22px]"
+              >
+                {t("backToEdit")}
+              </Button>
+              <Button
+                type="button"
+                onClick={() => handleImport({ acknowledgedIssues: precheckResult.issues })}
+                disabled={isPending}
+                className="inline-flex h-8 items-center justify-center gap-1.5 rounded-[6px] bg-primary-6 px-3 py-1 text-[14px] leading-[22px]"
+              >
+                {isPending ? <Loader2 className="size-4 shrink-0 animate-spin" /> : null}
+                {precheckResult.issues.length > 0
+                  ? t("continueImportSkipIssues")
+                  : t("continueImport")}
+              </Button>
+            </DialogFooter>
+          </>
+        ) : isMissingTagsConfirmationView && missingTagsResult ? (
+          <>
+            <DialogHeader className="gap-2 p-0">
+              <DialogTitle className="text-[16px] leading-6 font-semibold text-basic-9">
+                {t("missingTagsConfirmTitle")}
+              </DialogTitle>
+              <DialogDescription className="text-[14px] leading-[22px] text-basic-6">
+                {t("missingTagsConfirmDescription")}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <p className="mb-2 text-[12px] leading-[16px] font-normal text-basic-5">
+                {t("missingTagsListLabel")}
+              </p>
+              <div className="max-h-[240px] overflow-y-auto rounded-[8px] bg-basic-1 px-4 py-3">
+                <ul className="list-disc space-y-2 pl-4 text-[14px] leading-[22px] font-normal text-basic-8">
+                  {missingTagsResult.missingTagPaths?.map((tagPath) => (
+                    <li key={tagPath}>{tagPath}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            <DialogFooter className="gap-[10px] p-0 sm:flex-wrap">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setMissingTagsResult(null)}
+                disabled={isPending}
+                className="h-8 shrink-0 rounded-[6px] border border-basic-4 px-3 py-1 text-[14px] leading-[22px]"
+              >
+                {t("cancel")}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleImport({ importExistingTagsOnly: true })}
+                disabled={isPending}
+                className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-[6px] border border-basic-4 px-3 py-1 text-[14px] leading-[22px]"
+              >
+                {isPending && pendingMissingTagsChoice === "existing-only" ? (
+                  <Loader2 className="size-4 shrink-0 animate-spin" />
+                ) : null}
+                {t("importExistingTagsOnly")}
+              </Button>
+              <Button
+                type="button"
+                onClick={() => handleImport({ createMissingTags: true })}
+                disabled={isPending}
+                className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-[6px] bg-primary-6 px-3 py-1 text-[14px] leading-[22px]"
+              >
+                {isPending && pendingMissingTagsChoice === "create" ? (
+                  <Loader2 className="size-4 shrink-0 animate-spin" />
+                ) : null}
+                {t("createTagsAndImport")}
+              </Button>
+            </DialogFooter>
+          </>
+        ) : isFailureView && failureResult ? (
           <>
             <DialogHeader className="gap-0 p-0">
               <DialogTitle className="text-[16px] leading-6 font-semibold text-basic-9">
@@ -268,8 +555,8 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
                     {failureResult.successCount > 0
                       ? t("partialImportFailedHint")
                       : t("importFailedHint")}
+                  </div>
                 </div>
-              </div>
 
                 <p className="text-[12px] leading-[16px] font-normal text-basic-5">
                   {failureResult.successCount > 0
@@ -321,6 +608,7 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
               </DialogDescription>
             </DialogHeader>
 
+            {headerExtra?.(isPending)}
             <div className="min-h-0 flex-1 overflow-y-auto">
               <div className="flex flex-col gap-5">
                 <div className="grid w-full grid-cols-2 rounded-[8px] bg-basic-1 p-1">
@@ -396,7 +684,7 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
                       <p className="mt-4 text-[12px] leading-[16px] font-normal text-basic-5">
                         {t("uploadHintLine1")}
                         <br />
-                        {t("uploadHintLine2")}
+                        {uploadHint ?? t("uploadHintLine2")}
                       </p>
                       <Button
                         type="button"

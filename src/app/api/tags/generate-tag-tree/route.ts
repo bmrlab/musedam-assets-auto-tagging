@@ -1,8 +1,7 @@
-import authOptions from "@/app/(auth)/authOptions";
+import { getAuthSession } from "@/app/(auth)/requestAuth";
 import { executeGenerateTagTreeByLLM } from "@/app/tags/generateTagTreeLLM";
 import { isValidLocale, type Locale } from "@/i18n/routing";
 import { rootLogger } from "@/lib/logging";
-import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
@@ -10,7 +9,7 @@ export async function POST(request: NextRequest) {
   const requestId = crypto.randomUUID();
   const timeoutMs = Number(process.env.TAG_TREE_LLM_TIMEOUT_MS ?? 45000);
 
-  const session = await getServerSession(authOptions);
+  const session = await getAuthSession();
 
   if (!session?.user || !session?.team) {
     const response = NextResponse.json(

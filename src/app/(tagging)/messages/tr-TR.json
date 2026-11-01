@@ -56,6 +56,7 @@
       "itemsSelected": "Seçili",
       "itemsTotal": "Toplam",
       "itemsCount": "adet",
+      "clearSelection": "Seçimi temizle",
       "enable": "Etkinleştir",
       "disable": "Devre Dışı Bırak",
       "delete": "Sil",
@@ -124,7 +125,7 @@
       "confirmDialog": {
         "title": "İşlem Onayı",
         "deleteDescription": "\"{name}\"i silmek istediğinizden emin misiniz? Bu işlem geri alınamaz ve bağlı etiketler otomatik olarak kaldırılmayacaktır.",
-        "disableDescription": "\"{name}\"i devre dışı bırakmak istediğinizden emin misiniz? Devre dışı bıraktıktan sonra, yeni yüklenen varlıklar bu girdiyi otomatik olarak tanımayacak ve bağlı etiketleri uygulamayacaktır. Zaten etiketlenmiş varlıklar etkilenmeyecektir.",
+        "disableDescription": "\"{name}\"i devre dışı bırakmak istediğinizden emin misiniz? Devre dışı bıraktıktan sonra, yeni yüklenen varlıklar bu girdiyi otomatik olarak tanımayacak ve bağlı etiketleri uygulamayacaktır.",
         "confirmDelete": "Silmeyi Onayla",
         "confirmDisable": "Devre Dışı Bırakmayı Onayla",
         "cancel": "İptal"
@@ -135,7 +136,7 @@
         "enableTitle": "İşlem Onayı",
         "enableDescription": "Seçilen {count} öğeyi etkinleştirmek istediğinizden emin misiniz? Etkinleştirildikten sonra AI otomatik tanıma ve etiketlemeye katılacaklardır.",
         "disableTitle": "İşlem Onayı",
-        "disableDescription": "Seçilen {count} öğeyi devre dışı bırakmak istediğinizden emin misiniz? Devre dışı bıraktıktan sonra yeni yüklenen varlıklar bu girdileri otomatik olarak tanımayacaktır ve bağlı etiket uygulamayacaktır. Zaten etiketlenmiş varlıklar etkilenmeyecektir.",
+        "disableDescription": "Seçilen {count} öğeyi devre dışı bırakmak istediğinizden emin misiniz? Devre dışı bıraktıktan sonra yeni yüklenen varlıklar bu girdileri otomatik olarak tanımayacaktır ve bağlı etiket uygulamayacaktır.",
         "confirmEnable": "Etkinleştirmeyi Onayla",
         "confirmDisable": "Devre Dışı Bırakmayı Onayla",
         "cancel": "İptal"
@@ -300,6 +301,7 @@
       "itemsSelected": "Seçili",
       "itemsTotal": "Toplam",
       "itemsCount": "adet",
+      "clearSelection": "Seçimi temizle",
       "enable": "Etkinleştir",
       "disable": "Devre Dışı Bırak",
       "delete": "Sil",
@@ -407,7 +409,7 @@
       "confirmDialog": {
         "title": "İşlem Onayı",
         "deleteDescription": "\"{name}\"i silmek istediğinizden emin misiniz? Bu işlem geri alınamaz ve bağlı etiketler otomatik olarak kaldırılmayacaktır.",
-        "disableDescription": "\"{name}\"i devre dışı bırakmak istediğinizden emin misiniz? Devre dışı bıraktıktan sonra, yeni yüklenen varlıklar bu girdiyi otomatik olarak tanımayacak ve bağlı etiketleri uygulamayacaktır. Zaten etiketlenmiş varlıklar etkilenmeyecektir.",
+        "disableDescription": "\"{name}\"i devre dışı bırakmak istediğinizden emin misiniz? Devre dışı bıraktıktan sonra, yeni yüklenen varlıklar bu girdiyi otomatik olarak tanımayacak ve bağlı etiketleri uygulamayacaktır.",
         "confirmDelete": "Silmeyi Onayla",
         "confirmDisable": "Devre Dışı Bırakmayı Onayla",
         "cancel": "İptal"
@@ -418,7 +420,7 @@
         "enableTitle": "İşlem Onayı",
         "enableDescription": "Seçilen {count} öğeyi etkinleştirmek istediğinizden emin misiniz? Etkinleştirildikten sonra AI otomatik tanıma ve etiketlemeye katılacaklardır.",
         "disableTitle": "İşlem Onayı",
-        "disableDescription": "Seçilen {count} öğeyi devre dışı bırakmak istediğinizden emin misiniz? Devre dışı bıraktıktan sonra yeni yüklenen varlıklar bu girdileri otomatik olarak tanımayacaktır ve bağlı etiket uygulamayacaktır. Zaten etiketlenmiş varlıklar etkilenmeyecektir.",
+        "disableDescription": "Seçilen {count} öğeyi devre dışı bırakmak istediğinizden emin misiniz? Devre dışı bıraktıktan sonra yeni yüklenen varlıklar bu girdileri otomatik olarak tanımayacaktır ve bağlı etiket uygulamayacaktır.",
         "confirmEnable": "Etkinleştirmeyi Onayla",
         "confirmDisable": "Devre Dışı Bırakmayı Onayla",
         "cancel": "İptal"
@@ -529,6 +531,7 @@
       "paginationInfo": "{current} / {total} öğe",
       "emptyTagErrorMsg": "Henüz bir etiket sistemi yok. Lütfen önce bir etiket sistemi oluşturun~",
       "noAppropriateTagErrorMsg": "Mevcut etiket sisteminde uygun etiket yok",
+      "noMatchingSourceErrorMsg": "Başarısız: etiketleme ayarlarında hiçbir eşleştirme kaynağı etkin değil",
       "dayNames": {
         "0": "Pazar",
         "1": "Pazartesi",
@@ -551,7 +554,9 @@
         "9": "Ekim",
         "10": "Kasım",
         "11": "Aralık"
-      }
+      },
+      "filterFailed": "Başarısız",
+      "searchPlaceholder": "Varlık adına göre ara"
     },
     "Settings": {
       "title": "Etiketleme Anahtarı",
@@ -559,6 +564,7 @@
       "saving": "Kaydediliyor...",
       "settingsSaved": "Ayarlar kaydedildi",
       "saveSettingsFailed": "Ayarlar kaydedilemedi",
+      "atLeastOneSourceRequired": "En az bir eşleştirme kaynağı etkin kalmalıdır",
       "selectFoldersFailed": "Klasörler seçilemedi",
       "newApplicationScope": "Yeni uygulama kapsamı durumu:",
       "selectedFoldersCount": "Seçilen klasör sayısı:",
@@ -581,13 +587,16 @@
       "AIRecognition": {
         "title": "AI Tanıma",
         "precise": "Hassas",
-        "preciseDesc": "Yüksek doğruluk, daha az etiket (≥80% güven)",
+        "preciseDesc": "Yüksek doğruluk, daha az etiket",
         "balanced": "Dengeli",
-        "balancedDesc": "Dengeli doğruluk ve kapsam (≥60% güven)",
+        "balancedDesc": "Dengeli doğruluk ve kapsam",
         "broad": "Geniş",
-        "broadDesc": "Yüksek kapsam, daha fazla etiket (≥40% güven)",
+        "broadDesc": "Yüksek kapsam, daha fazla etiket",
         "confidence": "güven",
-        "recommended": "Önerilen"
+        "recommended": "Önerilen",
+        "confidenceHigh": "Yüksek güven",
+        "confidenceMedium": "Orta güven",
+        "confidenceLow": "Düşük güven"
       },
       "MatchingStrategy": {
         "title": "Eşleştirme Stratejisi",
@@ -601,7 +610,9 @@
         "filePathMatching": "Dosya Yolu Eşleştirme",
         "filePathMatchingDesc": "Varlıkların bulunduğu dosya yoluna göre etiket eşleştirme",
         "assetNameMatching": "Varlık Adı Eşleştirme",
-        "assetNameMatchingDesc": "Eşleştirme için dosya adlarındaki temel bilgileri analiz et"
+        "assetNameMatchingDesc": "Eşleştirme için dosya adlarındaki temel bilgileri analiz et",
+        "weight": "Ağırlık",
+        "weightHint": "Varsayılan ağırlık 1'dir (aralık {min} - {max}). Daha yüksek ağırlık, bu kaynakla eşleşen etiketlerin puanını artırır; daha düşük ağırlık azaltır."
       },
       "TriggerTiming": {
         "title": "Tetikleme Zamanlaması",
@@ -667,7 +678,21 @@
       "brandRecommendedTags": "Marka logosu önerilen etiketleri",
       "basedOnTagSystem": "Etiket sistemi eşleştirmesine dayalı",
       "basedOnFeatureLibrary": "Özellik kütüphanesi eşleştirmesine dayalı",
+      "addFeatureManually": "Özelliği manuel ekle",
+      "addFeatureTitle": "Özellik ekle",
+      "addFeatureAllTypes": "Tümü",
+      "addFeatureSearchPlaceholder": "Özellik adı ara",
+      "addFeatureNoResults": "Kütüphanede eşleşen özellik yok",
+      "addFeatureAlreadyAdded": "Eklendi",
+      "addFeatureConfirm": "Ekle ({count})",
+      "manuallyAdded": "Manuel eklendi",
       "latest": "En Son",
+      "requiredFallbackBadge": "Zorunlu yedek",
+      "aspectRatioBadge": "Boyutlardan",
+      "sizeAIBadge": "YZ boyuttan",
+      "appliedBadge": "Uygulandı",
+      "showHistory": "Geçmişi göster ({count})",
+      "hideHistory": "Geçmişi gizle",
       "allStatuses": "Tüm Durumlar",
       "pending": "İncelemeyi Bekliyor",
       "approved": "Onaylandı",
@@ -689,6 +714,7 @@
       "totalItems": "Toplam {total} öğe",
       "applySuccess": "Başarıyla uygulandı",
       "applyFailed": "Uygulama başarısız",
+      "featureReviewChanged": "Özellik bilgileri veya ilişkili etiketler değişti. Güncellenen sonuçları inceleyip tekrar Ekle seçeneğine tıklayın.",
       "rejectConfirmTitle": "İşlem İsteği",
       "rejectConfirmDescription": "\"{assetName}\" varlığının AI etiketleme kaydını silmeyi onaylıyor musunuz? Bu işlem geri alınamaz, lütfen dikkatli ilerleyin.",
       "batchRejectConfirmDescription": "{assetNum} varlığın AI etiketleme kaydını silmeyi onaylıyor musunuz? Bu işlem geri alınamaz, lütfen dikkatli ilerleyin.",
@@ -793,7 +819,32 @@
       "processingStatus": "İşleme Durumu",
       "processingTasks": "{count} etiketleme görevi işleniyor",
       "pollingDescription": "Durum her 2 saniyede bir kontrol ediliyor, sonuçlar tamamlandığında otomatik olarak görüntülenecektir",
-      "aiMatching": "AI Eşleştirme"
+      "aiMatching": "AI Eşleştirme",
+      "progressCount": "{done}/{total} tamamlandı",
+      "queueWaitEstimate": "Tahmini bekleme: yaklaşık {duration}",
+      "elapsed": "Geçen süre: {duration}",
+      "queueAhead": "Sırada, önünde {count} görev var",
+      "processingFor": "{duration} süredir işleniyor",
+      "durationMinutes": "{minutes} dk {seconds} sn",
+      "durationSeconds": "{seconds} sn",
+      "pollingErrorStopped": "İşlem durumu alınamadı ({message}). Otomatik yenileme durduruldu.",
+      "pollingTimeout": "Görevler zamanında tamamlanmadı. Otomatik yenileme durduruldu; durumu daha sonra tekrar kontrol edin veya bir yöneticiyle iletişime geçin.",
+      "retryPolling": "Durumu tekrar kontrol et",
+      "workerIdleWarning": "Kuyruk boş olmasına rağmen görevler uzun süredir sırada bekliyor. Arka plan etiketleme servisi çalışmıyor olabilir; lütfen bir yöneticiyle iletişime geçin.",
+      "failedResultsTitle": "Başarısız varlıklar ({count})",
+      "status": {
+        "pending": "Sırada",
+        "processing": "İşleniyor",
+        "completed": "Tamamlandı",
+        "failed": "Başarısız"
+      },
+      "errorReason": {
+        "NO_VALID_TAGS": "Geçerli etiket bulunamadı (varlık bilgisi yetersiz veya etiket sisteminde uygun etiket yok)",
+        "NO_TAG_TREE": "Etiket sistemi boş. Lütfen önce etiket oluşturun.",
+        "NO_MATCHING_SOURCES_ENABLED": "Etkin bir eşleştirme stratejisi yok",
+        "PROCESSING_STALE_TIMEOUT": "İşlem zaman aşımına uğradı ve otomatik olarak başarısız olarak işaretlendi",
+        "UNKNOWN": "Arka uç işleme hatası. Lütfen servis günlüklerini kontrol edin."
+      }
     },
     "Common": {
       "refreshDataFailed": "Veriler yenilenemedi",
@@ -927,6 +978,7 @@
       "itemsSelected": "Seçili",
       "itemsTotal": "Tümü",
       "itemsCount": "öğe",
+      "clearSelection": "Seçimi temizle",
       "enable": "Etkinleştir",
       "disable": "Devre Dışı Bırak",
       "delete": "Sil",
@@ -994,7 +1046,7 @@
       "confirmDialog": {
         "title": "İşlem İpucu",
         "deleteDescription": "「{name}」silinsin mi? Silindikten sonra geri alınamaz, uygulanmış bağlı etiketler otomatik olarak kaldırılmaz.",
-        "disableDescription": "「{name}」devre dışı bırakılsın mı? Devre dışı bırakıldıktan sonra, yeni yüklenen materyaller bu kişiyi otomatik olarak tanımayacak ve bağlı etiketleri uygulamayacaktır, tamamlanmış etiketleme sonuçları etkilenmez.",
+        "disableDescription": "「{name}」devre dışı bırakılsın mı? Devre dışı bırakıldıktan sonra, yeni yüklenen materyaller bu kişiyi otomatik olarak tanımayacak ve bağlı etiketleri uygulamayacaktır.",
         "confirmDelete": "Silme Onayı",
         "confirmDisable": "Devre Dışı Bırakma Onayı",
         "cancel": "İptal"
@@ -1005,7 +1057,7 @@
         "enableTitle": "İşlem İpucu",
         "enableDescription": "Seçili {count} öğe etkinleştirilsin mi? Etkinleştirildikten sonra AI otomatik tanıma ve etiketlemeye katılacaktır",
         "disableTitle": "İşlem İpucu",
-        "disableDescription": "Seçili {count} öğe devre dışı bırakılsın mı? Devre dışı bırakıldıktan sonra, yeni yüklenen materyaller bu kişileri otomatik olarak tanımayacak ve bağlı etiketleri uygulamayacaktır, tamamlanmış etiketleme sonuçları etkilenmez.",
+        "disableDescription": "Seçili {count} öğe devre dışı bırakılsın mı? Devre dışı bırakıldıktan sonra, yeni yüklenen materyaller bu kişileri otomatik olarak tanımayacak ve bağlı etiketleri uygulamayacaktır.",
         "confirmEnable": "Etkinleştirme Onayı",
         "confirmDisable": "Devre Dışı Bırakma Onayı",
         "cancel": "İptal"
@@ -1179,6 +1231,7 @@
       "itemsSelected": "Seçili",
       "itemsTotal": "Toplam",
       "itemsCount": "adet",
+      "clearSelection": "Seçimi temizle",
       "enable": "Etkinleştir",
       "disable": "Devre Dışı Bırak",
       "delete": "Sil",
@@ -1230,7 +1283,7 @@
         "uploadLocal": "Yerelden Yükle",
         "uploadFromLibrary": "Varlık Kütüphanesinden Seç",
         "uploadHintTitle": "Görüntü gereksinimleri: ",
-        "uploadHint": "Mümkün olduğunca 3-5 ürün resmi yükleyin, ön, yan, arka ve diğer açıları kapsayan net kaliteli ve tutarlı çekim stili. Düz arka planlı standart ürün resimleri ve gerçek kullanım sahnelerini içerin, AI tanıma doğruluğunu artırır.",
+        "uploadHint": "Mümkün olduğunca 3-5 ürün resmi yükleyin, ön, yan, arka ve diğer açıları kapsayan net kaliteli ve tutarlı çekim stili. Düz arka planlı standart ürün resimleri ekleyin, AI tanıma doğruluğunu artırır.",
         "linkedTagsLabel": "Bağlı Etiketler",
         "linkedTagsHint": "Eşleşme bulunduğunda bu etiketler otomatik olarak uygulanacaktır",
         "manageTags": "Etiket Sistemini Yönet",
@@ -1250,7 +1303,7 @@
       "confirmDialog": {
         "title": "İşlem Onayı",
         "deleteDescription": "\"{name}\"i silmek istediğinizden emin misiniz? Bu işlem geri alınamaz ve bağlı etiketler otomatik olarak kaldırılmayacaktır.",
-        "disableDescription": "\"{name}\"i devre dışı bırakmak istediğinizden emin misiniz? Devre dışı bıraktıktan sonra, yeni yüklenen varlıklar bu girdiyi otomatik olarak tanımayacak ve bağlı etiketleri uygulamayacaktır. Zaten etiketlenmiş varlıklar etkilenmeyecektir.",
+        "disableDescription": "\"{name}\"i devre dışı bırakmak istediğinizden emin misiniz? Devre dışı bıraktıktan sonra, yeni yüklenen varlıklar bu girdiyi otomatik olarak tanımayacak ve bağlı etiketleri uygulamayacaktır.",
         "confirmDelete": "Silmeyi Onayla",
         "confirmDisable": "Devre Dışı Bırakmayı Onayla",
         "cancel": "İptal"
@@ -1261,7 +1314,7 @@
         "enableTitle": "İşlem Onayı",
         "enableDescription": "Seçilen {count} öğeyi etkinleştirmek istediğinizden emin misiniz? Etkinleştirildikten sonra AI otomatik tanıma ve etiketlemeye katılacaklardır.",
         "disableTitle": "İşlem Onayı",
-        "disableDescription": "Seçilen {count} öğeyi devre dışı bırakmak istediğinizden emin misiniz? Devre dışı bıraktıktan sonra yeni yüklenen varlıklar bu girdileri otomatik olarak tanımayacaktır ve bağlı etiket uygulamayacaktır. Zaten etiketlenmiş varlıklar etkilenmeyecektir.",
+        "disableDescription": "Seçilen {count} öğeyi devre dışı bırakmak istediğinizden emin misiniz? Devre dışı bıraktıktan sonra yeni yüklenen varlıklar bu girdileri otomatik olarak tanımayacaktır ve bağlı etiket uygulamayacaktır.",
         "confirmEnable": "Etkinleştirmeyi Onayla",
         "confirmDisable": "Devre Dışı Bırakmayı Onayla",
         "cancel": "İptal"
@@ -1348,20 +1401,20 @@
     "ProductClassify": {
       "backToLibrary": "Ürün Kütüphanesine Dön",
       "pageTitle": "Ürün Sınıflandırma Geliştirme Sayfası",
-      "pageDescription": "Bir resim yüklendikten sonra, sistem önce şu anda etkinleştirilmiş ürünlerin genel kategorilerini kullanarak aday ürün alanlarını tespit eder, ardından çok modlu gömme ile ürün resmi ve açıklama vektörlerini alır ve kırpma ve modliteye göre toplama yaparak nihai sonucu verir.",
+      "pageDescription": "Yinelenen algılamalar ürün bölgelerinde gruplandırılır. Her bölge ayrı sınıflandırılır ve en az %80 güven düzeyine sahip tüm farklı ürünler döndürülür.",
       "availableProducts": "Kullanılabilir Referans Ürünler",
       "statsDescription": "Yalnızca etkinleştirilmiş ve vektör işleme tamamlanmış veriler istatistiklere dahil edilir",
       "uploadImageFirst": "Lütfen önce sınıflandırma için bir resim yükleyin",
       "noReferenceProducts": "Şu anda kullanılabilir tamamlanmış ürün referans vektörü yok",
       "classifying": "Sınıflandırılıyor",
       "classifyButton": "Ürünü Sınıflandır",
-      "uploadHint": "Bir resim yüklendikten sonra burada tespit kutuları ve nihai eşleşen ürün gösterilecektir.",
+      "uploadHint": "Algılanan kutuları ve eşleşen tüm ürünleri görmek için bir resim yükleyin.",
       "imageToClassify": "Sınıflandırılacak resim",
-      "finalResult": "Nihai Sonuç",
-      "resultHint": "Sonuç alanında kazanan tespit kutusu, nihai ürün adı ve en iyi 3 benzer sonuç gösterilecektir.",
+      "finalResult": "Eşleşen Ürünler",
+      "resultHint": "Sonuçlar eşleşen tüm ürünleri ve her ürün bölgesi için en iyi 3 adayı gösterir.",
       "noConfidentMatch": "Güvenilir Ürün Eşleşmesi Yok",
-      "noConfidentMatchDesc": "Mevcut en iyi aday yeterince stabil değil, bu nedenle 'güvenilir eşleşme yok' olarak değerlendirildi.",
-      "winningProduct": "Kazanan Ürün",
+      "noConfidentMatchDesc": "Hiçbir ürün bölgesinde en az %80 güven düzeyine sahip bir eşleşme yok.",
+      "winningProduct": "Eşleşen Ürün",
       "type": "Tür",
       "similarity": "Benzerlik",
       "confidence": "Güven Skoru",
@@ -1386,7 +1439,12 @@
         "canvasNotSupported": "Tarayıcı Canvas kırpmayı desteklemiyor"
       },
       "fallbackBox": "tam resim yedek",
-      "coordinateTo": "ila"
+      "coordinateTo": "ila",
+      "productRegions": "Ürün bölgeleri",
+      "region": "Bölge",
+      "rawDetectionBoxes": "Orijinal algılama kutuları",
+      "showRawDetections": "Orijinal kutuları göster",
+      "showProductRegions": "Ürün bölgelerini göster"
     },
     "BatchImportExport": {
       "title": "Toplu İçe Aktar/Dışa Aktar",
@@ -1396,6 +1454,11 @@
       "tabExport": "Dışa Aktar",
       "cancel": "İptal",
       "confirm": "Onayla",
+      "missingTagsConfirmTitle": "Eksik etiketler oluşturulsun mu?",
+      "missingTagsConfirmDescription": "İçe aktarma dosyası mevcut olmayan etiket yollarına başvuruyor. Bu etiket ağaçları oluşturulup içe aktarmaya devam edilsin mi?",
+      "missingTagsListLabel": "Eksik etiket yolları",
+      "createTagsAndImport": "Oluştur ve içe aktar",
+      "importExistingTagsOnly": "Yalnızca mevcut etiketleri olan satırları içe aktar",
       "unsupportedFileType": "Yalnızca Excel (.xlsx) veya CSV (.csv) dosyaları desteklenir",
       "selectFileFirst": "Lütfen önce bir dosya seçin",
       "selectImportFile": "Lütfen önce bir Excel (.xlsx) veya CSV (.csv) dosyası seçin",
@@ -1452,7 +1515,18 @@
       },
       "formatExcel": "Excel",
       "formatCsv": "CSV",
-      "spreadsheetBadge": "XLS"
+      "spreadsheetBadge": "XLS",
+      "precheckTitle": "İçe aktarma öncesi kontrol",
+      "precheckHint": "İçe aktarmadan önce lütfen aşağıdakileri inceleyin",
+      "precheckSummary": "{create} etiket oluşturulacak, {update} güncellenecek, {unchanged} değişmeyecek",
+      "precheckRenameNotice": "Bunlardan {count} tanesi yeniden adlandırılıp MuseDAM ile senkronize edilecek",
+      "precheckIssuesLabel": "{count} satırda sorun var; devam ederseniz atlanacak:",
+      "precheckCreateLabel": "{count} etiket oluşturulacak:",
+      "precheckMoreItems": "…toplam {count} öğe",
+      "backToEdit": "Düzenlemeye dön",
+      "continueImport": "İçe aktarmaya devam et",
+      "continueImportSkipIssues": "Sorunları atla ve devam et",
+      "importSuccessWithSkipped": "{count} satır içe aktarıldı, sorunlu {skipped} satır atlandı"
     }
   }
 }

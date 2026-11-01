@@ -56,6 +56,7 @@
       "itemsSelected": "Selezionati",
       "itemsTotal": "Totale",
       "itemsCount": "elementi",
+      "clearSelection": "Cancella",
       "enable": "Abilita",
       "disable": "Disabilita",
       "delete": "Elimina",
@@ -124,7 +125,7 @@
       "confirmDialog": {
         "title": "Conferma Azione",
         "deleteDescription": "Sei sicuro di voler eliminare \"{name}\"? Questa azione non può essere annullata e i tag collegati non verranno rimossi automaticamente.",
-        "disableDescription": "Sei sicuro di voler disabilitare \"{name}\"? Dopo la disabilitazione, i nuovi asset caricati non riconosceranno automaticamente questa voce e applicheranno i tag collegati. Gli asset già etichettati non saranno influenzati.",
+        "disableDescription": "Sei sicuro di voler disabilitare \"{name}\"? Dopo la disabilitazione, i nuovi asset caricati non riconosceranno automaticamente questa voce e applicheranno i tag collegati.",
         "confirmDelete": "Conferma Eliminazione",
         "confirmDisable": "Conferma Disabilitazione",
         "cancel": "Annulla"
@@ -135,7 +136,7 @@
         "enableTitle": "Conferma Azione",
         "enableDescription": "Sei sicuro di voler abilitare i {count} elementi selezionati? Una volta abilitati, parteciperanno al riconoscimento e etichettatura automatica IA.",
         "disableTitle": "Conferma Azione",
-        "disableDescription": "Sei sicuro di voler disabilitare i {count} elementi selezionati? Dopo la disabilitazione, i nuovi asset caricati non riconosceranno automaticamente queste voci e applicheranno i tag collegati. Gli asset già etichettati non saranno influenzati.",
+        "disableDescription": "Sei sicuro di voler disabilitare i {count} elementi selezionati? Dopo la disabilitazione, i nuovi asset caricati non riconosceranno automaticamente queste voci e applicheranno i tag collegati.",
         "confirmEnable": "Conferma Abilitazione",
         "confirmDisable": "Conferma Disabilitazione",
         "cancel": "Annulla"
@@ -281,6 +282,7 @@
       "paginationInfo": "{current} / {total} elementi",
       "emptyTagErrorMsg": "Nessun sistema di tag. Crea prima un sistema di tag~",
       "noAppropriateTagErrorMsg": "Non ci sono tag adatti nel sistema di tag attuale",
+      "noMatchingSourceErrorMsg": "Non riuscito: nessuna fonte di corrispondenza è abilitata nelle impostazioni di etichettatura",
       "dayNames": {
         "0": "Domenica",
         "1": "Lunedì",
@@ -303,7 +305,9 @@
         "9": "Ottobre",
         "10": "Novembre",
         "11": "Dicembre"
-      }
+      },
+      "filterFailed": "Fallite",
+      "searchPlaceholder": "Cerca per nome risorsa"
     },
     "Settings": {
       "title": "Interruttore etichettatura",
@@ -311,6 +315,7 @@
       "saving": "Salvataggio...",
       "settingsSaved": "Impostazioni salvate",
       "saveSettingsFailed": "Impossibile salvare le impostazioni",
+      "atLeastOneSourceRequired": "Deve rimanere attiva almeno una fonte di corrispondenza",
       "selectFoldersFailed": "Impossibile selezionare le cartelle",
       "newApplicationScope": "Nuovo stato ambito applicazione:",
       "selectedFoldersCount": "Conteggio cartelle selezionate:",
@@ -333,13 +338,16 @@
       "AIRecognition": {
         "title": "Riconoscimento IA",
         "precise": "Preciso",
-        "preciseDesc": "Alta precisione, meno tag (≥80% confidenza)",
+        "preciseDesc": "Alta precisione, meno tag",
         "balanced": "Bilanciato",
-        "balancedDesc": "Precisione e copertura bilanciate (≥60% confidenza)",
+        "balancedDesc": "Precisione e copertura bilanciate",
         "broad": "Ampio",
-        "broadDesc": "Alta copertura, più tag (≥40% confidenza)",
+        "broadDesc": "Alta copertura, più tag",
         "confidence": "confidenza",
-        "recommended": "Consigliato"
+        "recommended": "Consigliato",
+        "confidenceHigh": "Confidenza alta",
+        "confidenceMedium": "Confidenza media",
+        "confidenceLow": "Confidenza bassa"
       },
       "MatchingStrategy": {
         "title": "Strategia corrispondenza",
@@ -353,7 +361,9 @@
         "filePathMatching": "Corrispondenza percorso file",
         "filePathMatchingDesc": "Corrispondenza tag basata sul percorso file dove si trovano le risorse",
         "assetNameMatching": "Corrispondenza nome risorsa",
-        "assetNameMatchingDesc": "Analizza informazioni chiave nei nomi file per la corrispondenza"
+        "assetNameMatchingDesc": "Analizza informazioni chiave nei nomi file per la corrispondenza",
+        "weight": "Peso",
+        "weightHint": "Il peso predefinito è 1 (intervallo {min} - {max}). Un peso maggiore aumenta il punteggio dei tag trovati da questa fonte; uno minore lo riduce."
       },
       "TriggerTiming": {
         "title": "Momento attivazione",
@@ -419,7 +429,21 @@
       "brandRecommendedTags": "Tag consigliati del logo del brand",
       "basedOnTagSystem": "Basato su corrispondenza sistema tag",
       "basedOnFeatureLibrary": "Basato sulla corrispondenza della libreria di funzionalità",
+      "addFeatureManually": "Aggiungi caratteristica manualmente",
+      "addFeatureTitle": "Aggiungi caratteristiche",
+      "addFeatureAllTypes": "Tutte",
+      "addFeatureSearchPlaceholder": "Cerca nome caratteristica",
+      "addFeatureNoResults": "Nessuna caratteristica corrispondente nella libreria",
+      "addFeatureAlreadyAdded": "Aggiunta",
+      "addFeatureConfirm": "Aggiungi ({count})",
+      "manuallyAdded": "Aggiunta manualmente",
       "latest": "Più recente",
+      "requiredFallbackBadge": "Fallback obbligatorio",
+      "aspectRatioBadge": "Da dimensioni",
+      "sizeAIBadge": "IA da dimensioni",
+      "appliedBadge": "Applicato",
+      "showHistory": "Mostra cronologia ({count})",
+      "hideHistory": "Nascondi cronologia",
       "allStatuses": "Tutti gli stati",
       "pending": "In attesa di revisione",
       "approved": "Approvato",
@@ -441,6 +465,7 @@
       "totalItems": "Totale {total} elementi",
       "applySuccess": "Applicato con successo",
       "applyFailed": "Applicazione fallita",
+      "featureReviewChanged": "I dettagli della caratteristica o i tag associati sono cambiati. Controlla i risultati aggiornati e fai di nuovo clic su Aggiungi.",
       "rejectConfirmTitle": "Prompt operazione",
       "rejectConfirmDescription": "Conferma di eliminare il record di etichettatura IA della risorsa \"{assetName}\"? Questa operazione non può essere recuperata, procedi con cautela.",
       "batchRejectConfirmDescription": "Conferma di eliminare il record di etichettatura IA di {assetNum} risorse? Questa operazione non può essere recuperata, procedi con cautela.",
@@ -545,7 +570,32 @@
       "processingStatus": "Stato elaborazione",
       "processingTasks": "Elaborazione {count} attività etichettatura",
       "pollingDescription": "Controllo stato ogni 2 secondi, risultati verranno visualizzati automaticamente al completamento",
-      "aiMatching": "Corrispondenza IA"
+      "aiMatching": "Corrispondenza IA",
+      "progressCount": "{done}/{total} completati",
+      "queueWaitEstimate": "Attesa stimata: circa {duration}",
+      "elapsed": "Trascorso: {duration}",
+      "queueAhead": "In coda, {count} attività davanti",
+      "processingFor": "In elaborazione da {duration}",
+      "durationMinutes": "{minutes} min {seconds} s",
+      "durationSeconds": "{seconds} s",
+      "pollingErrorStopped": "Impossibile recuperare lo stato dell'elaborazione ({message}). Aggiornamento automatico interrotto.",
+      "pollingTimeout": "Le attività non sono terminate in tempo. Aggiornamento automatico interrotto; ricontrolla lo stato più tardi o contatta un amministratore.",
+      "retryPolling": "Ricontrolla lo stato",
+      "workerIdleWarning": "Le attività sono in coda da molto tempo mentre la coda è inattiva. Il servizio di tagging in background potrebbe non essere in esecuzione; contatta un amministratore.",
+      "failedResultsTitle": "Risorse non riuscite ({count})",
+      "status": {
+        "pending": "In coda",
+        "processing": "In elaborazione",
+        "completed": "Completato",
+        "failed": "Non riuscito"
+      },
+      "errorReason": {
+        "NO_VALID_TAGS": "Nessun tag valido trovato (informazioni sulla risorsa insufficienti o nessun tag adatto nel sistema di tag)",
+        "NO_TAG_TREE": "Il sistema di tag è vuoto. Crea prima i tag.",
+        "NO_MATCHING_SOURCES_ENABLED": "Nessuna strategia di corrispondenza abilitata",
+        "PROCESSING_STALE_TIMEOUT": "Elaborazione scaduta e contrassegnata automaticamente come non riuscita",
+        "UNKNOWN": "Errore di elaborazione del backend. Controlla i log del servizio."
+      }
     },
     "Common": {
       "refreshDataFailed": "Impossibile aggiornare i dati",
@@ -639,6 +689,7 @@
       "itemsSelected": "Selezionati",
       "itemsTotal": "Totale",
       "itemsCount": "elementi",
+      "clearSelection": "Cancella",
       "enable": "Abilita",
       "disable": "Disabilita",
       "delete": "Elimina",
@@ -746,7 +797,7 @@
       "confirmDialog": {
         "title": "Conferma Azione",
         "deleteDescription": "Sei sicuro di voler eliminare \"{name}\"? Questa azione non può essere annullata e i tag collegati non verranno rimossi automaticamente.",
-        "disableDescription": "Sei sicuro di voler disabilitare \"{name}\"? Dopo la disabilitazione, i nuovi asset caricati non riconosceranno automaticamente questa voce e applicheranno i tag collegati. Gli asset già etichettati non saranno influenzati.",
+        "disableDescription": "Sei sicuro di voler disabilitare \"{name}\"? Dopo la disabilitazione, i nuovi asset caricati non riconosceranno automaticamente questa voce e applicheranno i tag collegati.",
         "confirmDelete": "Conferma Eliminazione",
         "confirmDisable": "Conferma Disabilitazione",
         "cancel": "Annulla"
@@ -757,7 +808,7 @@
         "enableTitle": "Conferma Azione",
         "enableDescription": "Sei sicuro di voler abilitare i {count} elementi selezionati? Una volta abilitati, parteciperanno al riconoscimento e etichettatura automatica IA.",
         "disableTitle": "Conferma Azione",
-        "disableDescription": "Sei sicuro di voler disabilitare i {count} elementi selezionati? Dopo la disabilitazione, i nuovi asset caricati non riconosceranno automaticamente queste voci e applicheranno i tag collegati. Gli asset già etichettati non saranno influenzati.",
+        "disableDescription": "Sei sicuro di voler disabilitare i {count} elementi selezionati? Dopo la disabilitazione, i nuovi asset caricati non riconosceranno automaticamente queste voci e applicheranno i tag collegati.",
         "confirmEnable": "Conferma Abilitazione",
         "confirmDisable": "Conferma Disabilitazione",
         "cancel": "Annulla"
@@ -927,6 +978,7 @@
       "itemsSelected": "Selezionati",
       "itemsTotal": "Totale",
       "itemsCount": "elementi",
+      "clearSelection": "Cancella",
       "enable": "Abilita",
       "disable": "Disabilita",
       "delete": "Elimina",
@@ -994,7 +1046,7 @@
       "confirmDialog": {
         "title": "Conferma Azione",
         "deleteDescription": "Eliminare \"{name}\"? Questa azione non può essere annullata e i tag collegati esistenti non verranno rimossi automaticamente.",
-        "disableDescription": "Disabilitare \"{name}\"? I nuovi asset non riconosceranno più automaticamente questa persona, mentre i risultati di etichettatura completati non saranno influenzati.",
+        "disableDescription": "Disabilitare \"{name}\"? I nuovi asset non riconosceranno più automaticamente questa persona.",
         "confirmDelete": "Elimina",
         "confirmDisable": "Disabilita",
         "cancel": "Annulla"
@@ -1005,7 +1057,7 @@
         "enableTitle": "Conferma Azione",
         "enableDescription": "Abilitare i {count} elementi selezionati? Parteciperanno al riconoscimento e all'etichettatura IA.",
         "disableTitle": "Conferma Azione",
-        "disableDescription": "Disabilitare i {count} elementi selezionati? I nuovi asset non li riconosceranno più automaticamente, mentre i risultati di etichettatura completati non saranno influenzati.",
+        "disableDescription": "Disabilitare i {count} elementi selezionati? I nuovi asset non li riconosceranno più automaticamente.",
         "confirmEnable": "Abilita",
         "confirmDisable": "Disabilita",
         "cancel": "Annulla"
@@ -1179,6 +1231,7 @@
       "itemsSelected": "Selezionati",
       "itemsTotal": "Totale",
       "itemsCount": "elementi",
+      "clearSelection": "Cancella",
       "enable": "Abilita",
       "disable": "Disabilita",
       "delete": "Elimina",
@@ -1230,7 +1283,7 @@
         "uploadLocal": "Carica da Locale",
         "uploadFromLibrary": "Seleziona dalla Libreria Asset",
         "uploadHintTitle": "Requisiti immagine: ",
-        "uploadHint": "Carica 3-5 immagini prodotto quando possibile, coprendo fronte, lato, retro e altre angolazioni con qualità chiara e stile di ripresa coerente. Includi immagini prodotto standard su sfondi solidi e scene di uso reale per migliorare la precisione del riconoscimento IA.",
+        "uploadHint": "Carica 3-5 immagini prodotto quando possibile, coprendo fronte, lato, retro e altre angolazioni con qualità chiara e stile di ripresa coerente. Includi immagini prodotto standard su sfondi solidi per migliorare la precisione del riconoscimento IA.",
         "linkedTagsLabel": "Tag Collegati",
         "linkedTagsHint": "Questi tag verranno applicati automaticamente quando viene trovata una corrispondenza",
         "manageTags": "Gestisci Sistema di Tag",
@@ -1250,7 +1303,7 @@
       "confirmDialog": {
         "title": "Conferma Azione",
         "deleteDescription": "Sei sicuro di voler eliminare \"{name}\"? Questa azione non può essere annullata e i tag collegati non verranno rimossi automaticamente.",
-        "disableDescription": "Sei sicuro di voler disabilitare \"{name}\"? Dopo la disabilitazione, i nuovi asset caricati non riconosceranno automaticamente questa voce e applicheranno i tag collegati. Gli asset già etichettati non saranno influenzati.",
+        "disableDescription": "Sei sicuro di voler disabilitare \"{name}\"? Dopo la disabilitazione, i nuovi asset caricati non riconosceranno automaticamente questa voce e applicheranno i tag collegati.",
         "confirmDelete": "Conferma Eliminazione",
         "confirmDisable": "Conferma Disabilitazione",
         "cancel": "Annulla"
@@ -1261,7 +1314,7 @@
         "enableTitle": "Conferma Azione",
         "enableDescription": "Sei sicuro di voler abilitare i {count} elementi selezionati? Una volta abilitati, parteciperanno al riconoscimento e etichettatura automatica IA.",
         "disableTitle": "Conferma Azione",
-        "disableDescription": "Sei sicuro di voler disabilitare i {count} elementi selezionati? Dopo la disabilitazione, i nuovi asset caricati non riconosceranno automaticamente queste voci e applicheranno i tag collegati. Gli asset già etichettati non saranno influenzati.",
+        "disableDescription": "Sei sicuro di voler disabilitare i {count} elementi selezionati? Dopo la disabilitazione, i nuovi asset caricati non riconosceranno automaticamente queste voci e applicheranno i tag collegati.",
         "confirmEnable": "Conferma Abilitazione",
         "confirmDisable": "Conferma Disabilitazione",
         "cancel": "Annulla"
@@ -1348,20 +1401,20 @@
     "ProductClassify": {
       "backToLibrary": "Torna alla Libreria Prodotti",
       "pageTitle": "Pagina Dev Classificazione Prodotto",
-      "pageDescription": "Dopo aver caricato un'immagine, il sistema usa le categorie generali dai prodotti attualmente abilitati per rilevare le aree candidate del prodotto, poi usa embeddings multimodali per recuperare vettori immagine e descrizione del prodotto e darà il risultato finale dopo l'aggregazione per crop e modalità.",
+      "pageDescription": "I rilevamenti duplicati vengono raggruppati in aree di prodotto. Ogni area viene classificata separatamente e vengono restituiti tutti i prodotti distinti con una confidenza di almeno l’80%.",
       "availableProducts": "Prodotti di Riferimento Disponibili",
       "statsDescription": "Solo conteggio dati abilitati e con elaborazione vettori completata",
       "uploadImageFirst": "Carica prima un'immagine da classificare",
       "noReferenceProducts": "Attualmente non ci sono vettori di riferimento prodotto completati disponibili",
       "classifying": "Classificazione in corso",
       "classifyButton": "Classifica Prodotto",
-      "uploadHint": "Dopo aver caricato un'immagine, qui verranno visualizzate le caselle di rilevamento e il prodotto finale corrispondente.",
+      "uploadHint": "Carica un’immagine per vedere i riquadri rilevati e tutti i prodotti corrispondenti.",
       "imageToClassify": "Immagine da classificare",
-      "finalResult": "Risultato Finale",
-      "resultHint": "L'area dei risultati mostrerà la casella di rilevamento vincente, il nome finale del prodotto e i top 3 risultati simili.",
+      "finalResult": "Prodotti corrispondenti",
+      "resultHint": "I risultati mostrano tutti i prodotti corrispondenti e i 3 migliori candidati per ogni area di prodotto.",
       "noConfidentMatch": "Nessuna Corrispondenza Affidabile Prodotto",
-      "noConfidentMatchDesc": "Il miglior candidato attuale non è abbastanza stabile, quindi giudicato come nessuna corrispondenza affidabile.",
-      "winningProduct": "Prodotto Vincente",
+      "noConfidentMatchDesc": "Nessuna area di prodotto ha una corrispondenza con una confidenza di almeno l’80%.",
+      "winningProduct": "Prodotto corrispondente",
       "type": "Tipo",
       "similarity": "Similarità",
       "confidence": "Confidenza",
@@ -1386,7 +1439,12 @@
         "canvasNotSupported": "Il browser non supporta il ritaglio Canvas"
       },
       "fallbackBox": "casella fallback immagine intera",
-      "coordinateTo": "a"
+      "coordinateTo": "a",
+      "productRegions": "Aree dei prodotti",
+      "region": "Area",
+      "rawDetectionBoxes": "Riquadri di rilevamento originali",
+      "showRawDetections": "Mostra riquadri originali",
+      "showProductRegions": "Mostra aree dei prodotti"
     },
     "BatchImportExport": {
       "title": "Importa/Esporta in Batch",
@@ -1396,6 +1454,11 @@
       "tabExport": "Esporta",
       "cancel": "Annulla",
       "confirm": "Conferma",
+      "missingTagsConfirmTitle": "Creare i tag mancanti?",
+      "missingTagsConfirmDescription": "Il file di importazione fa riferimento a percorsi di tag inesistenti. Creare queste strutture di tag e continuare l'importazione?",
+      "missingTagsListLabel": "Percorsi di tag mancanti",
+      "createTagsAndImport": "Crea e importa",
+      "importExistingTagsOnly": "Importa solo le righe con tag esistenti",
       "unsupportedFileType": "Sono supportati solo file Excel (.xlsx) o CSV (.csv)",
       "selectFileFirst": "Seleziona prima un file",
       "selectImportFile": "Seleziona prima un file Excel (.xlsx) o CSV (.csv)",
@@ -1452,7 +1515,18 @@
       },
       "formatExcel": "Excel",
       "formatCsv": "CSV",
-      "spreadsheetBadge": "XLS"
+      "spreadsheetBadge": "XLS",
+      "precheckTitle": "Controllo prima dell'importazione",
+      "precheckHint": "Verifica quanto segue prima di importare",
+      "precheckSummary": "Verranno creati {create} tag, aggiornati {update}, {unchanged} invariati",
+      "precheckRenameNotice": "{count} di essi verranno rinominati e sincronizzati con MuseDAM",
+      "precheckIssuesLabel": "{count} righe presentano problemi e verranno saltate se continui:",
+      "precheckCreateLabel": "Verranno creati {count} tag:",
+      "precheckMoreItems": "…{count} elementi in totale",
+      "backToEdit": "Torna a modificare",
+      "continueImport": "Continua importazione",
+      "continueImportSkipIssues": "Salta i problemi e continua",
+      "importSuccessWithSkipped": "Importate {count} righe, saltate {skipped} righe con problemi"
     }
   }
 }

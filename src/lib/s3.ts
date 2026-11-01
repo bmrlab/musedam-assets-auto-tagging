@@ -41,6 +41,15 @@ type S3Config = {
   region: string;
   secretAccessKey: string;
   sessionToken?: string;
+  // Addressing style is provider-specific. AWS/minIO may use path-style
+  // (`endpoint/bucket/key`), while Aliyun OSS's S3-compatible endpoint requires
+  // virtual-hosted-style (`bucket.endpoint/key`).
+  forcePathStyle: boolean;
+  // AWS S3 honors `x-amz-acl` on PUT to grant per-object ACLs. Some
+  // S3-compatible providers' compatibility layers don't support this header
+  // and expect anonymous read to be granted via a bucket policy instead —
+  // disable via S3_SEND_ACL_HEADER=false when that's the case.
+  sendAclHeader: boolean;
 };
 
 type AssetObjectKind = "logos" | "ips" | "persons" | "products";
@@ -53,6 +62,20 @@ function getRequiredEnv(name: string) {
   return value;
 }
 
+function getBooleanEnv(name: string, fallback: boolean) {
+  const value = process.env[name]?.trim().toLowerCase();
+  if (!value) {
+    return fallback;
+  }
+  if (["1", "true", "yes", "on"].includes(value)) {
+    return true;
+  }
+  if (["0", "false", "no", "off"].includes(value)) {
+    return false;
+  }
+  throw new Error(`Invalid boolean env: ${name}`);
+}
+
 function getS3Config(): S3Config {
   return {
     accessKeyId: getRequiredEnv("AWS_ACCESS_KEY_ID"),
@@ -61,6 +84,8 @@ function getS3Config(): S3Config {
     region: getRequiredEnv("S3_REGION"),
     secretAccessKey: getRequiredEnv("AWS_SECRET_ACCESS_KEY"),
     sessionToken: process.env.AWS_SESSION_TOKEN || undefined,
+    forcePathStyle: getBooleanEnv("S3_FORCE_PATH_STYLE", true),
+    sendAclHeader: getBooleanEnv("S3_SEND_ACL_HEADER", true),
   };
 }
 
@@ -92,11 +117,18 @@ export function isTeamS3ObjectKey({
 }
 
 function buildS3ObjectUrl(objectKey: string) {
-  const { bucket, endpointUrl } = getS3Config();
+  const { bucket, endpointUrl, forcePathStyle } = getS3Config();
   const endpoint = new URL(endpointUrl.endsWith("/") ? endpointUrl : `${endpointUrl}/`);
-  const basePath = endpoint.pathname.replace(/\/+$/g, "");
-  const objectPath = [bucket, ...objectKey.split("/")].map(encodeURIComponent).join("/");
+  const keyPath = objectKey.split("/").map(encodeURIComponent).join("/");
 
+  if (!forcePathStyle) {
+    endpoint.host = `${bucket}.${endpoint.host}`;
+    endpoint.pathname = `/${keyPath}`;
+    return endpoint;
+  }
+
+  const basePath = endpoint.pathname.replace(/\/+$/g, "");
+  const objectPath = [encodeURIComponent(bucket), keyPath].join("/");
   endpoint.pathname = `${basePath}/${objectPath}`;
   return endpoint;
 }
@@ -398,6 +430,16 @@ export function buildAssetPersonObjectKey({
   );
 }
 
+/** JPEG copy of an SVG used by the URL-based detector and retained in object storage. */
+export function buildDetectionJpegObjectKey(teamId: number) {
+  return buildStorageObjectKey(`teams-${teamId}-detection-svg-${Date.now()}-${randomUUID()}.jpg`);
+}
+
+/** Retained copy of the exact image payload sent to Jina when DEBUG_PAGE is enabled. */
+export function buildJinaDebugImageObjectKey(extension: ".jpg" | ".png") {
+  return buildStorageObjectKey(`debug-jina-images-${Date.now()}-${randomUUID()}${extension}`);
+}
+
 export function getS3ObjectUrl(objectKey: string) {
   return buildS3ObjectUrl(objectKey).toString();
 }
@@ -521,15 +563,31 @@ export function signS3ObjectUploadUrl({
   expiresInSeconds = 60 * 10,
   acl = "public-read",
 }: SignS3ObjectUploadUrlOptions) {
+  const { sendAclHeader } = getS3Config();
   return signS3Url({
     method: "PUT",
     objectKey,
     expiresInSeconds,
-    requestHeaders: acl ? { "x-amz-acl": acl } : {},
+    requestHeaders: acl && sendAclHeader ? { "x-amz-acl": acl } : {},
   });
 }
 
+// 目标桶里是否已有该对象（私有化迁移导入时用于跳过已上传的图片）
+export async function headS3Object(objectKey: string) {
+  const url = buildS3ObjectUrl(objectKey);
+  const { headers } = signS3Request({ method: "HEAD", payloadHash: "UNSIGNED-PAYLOAD", requestHeaders: {}, url });
+  const response = await fetch(url, { method: "HEAD", headers, signal: AbortSignal.timeout(15_000) });
+  return response.ok;
+}
+
+// 已规范化的 S3_FOLDER（无首尾斜杠）与 bucket，供迁移导入接口打日志/改写 objectKey 前缀
+export function getS3StorageLocation() {
+  const { bucket, endpointUrl } = getS3Config();
+  return { bucket, endpointUrl, folder: normalizeS3Folder(process.env.S3_FOLDER) };
+}
+
 export async function uploadS3Object({ body, contentType, objectKey }: UploadS3ObjectOptions) {
+  const { sendAclHeader } = getS3Config();
   const url = buildS3ObjectUrl(objectKey);
   const payloadHash = sha256Hex(body);
   const { headers } = signS3Request({
@@ -537,7 +595,7 @@ export async function uploadS3Object({ body, contentType, objectKey }: UploadS3O
     payloadHash,
     requestHeaders: {
       "Content-Type": contentType,
-      "x-amz-acl": "public-read",
+      ...(sendAclHeader ? { "x-amz-acl": "public-read" } : {}),
     },
     url,
   });

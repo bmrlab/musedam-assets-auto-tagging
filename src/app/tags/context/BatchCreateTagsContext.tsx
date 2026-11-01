@@ -13,59 +13,16 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Spin } from "@/components/ui/spin";
 import { useTranslations } from "next-intl";
-import { createContext, ReactNode, useCallback, useContext, useState } from "react";
+import { createContext, ReactNode, useCallback, useContext, useRef, useState } from "react";
 import { toast } from "sonner";
 import { BatchCreateTagData, batchCreateTags, checkExistingTags } from "../actions";
+import { NameChildList, parseBatchTagText } from "../batchTagText";
+import { localizeTagActionMessage } from "../tagActionMessage";
 
-export interface NameChildList {
-  name: string;
-  nameChildList?: NameChildList[];
-}
+export type { NameChildList };
 
-// 解析文本为 NameChildList 格式的函数
-export const parseTextToNameChildList = (text: string): NameChildList[] => {
-  if (!text.trim()) return [];
-
-  const lines = text.split("\n").filter((line) => line.trim());
-  const result: NameChildList[] = [];
-  let currentL1: NameChildList | null = null;
-  let currentL2: NameChildList | null = null;
-
-  for (const line of lines) {
-    // 一级标签
-    if (line.startsWith("# ") || (line.startsWith("#") && !line.startsWith("##"))) {
-      const name = line.startsWith("# ") ? line.slice(2).trim() : line.slice(1).trim();
-      // name 必须有值
-      if (!name) continue;
-      currentL1 = {
-        name,
-        nameChildList: [],
-      };
-      currentL2 = null;
-      result.push(currentL1);
-    }
-    // 二级标签
-    else if (line.startsWith("## ") || (line.startsWith("##") && !line.startsWith("###"))) {
-      if (!currentL1) continue;
-      const name = line.startsWith("## ") ? line.slice(3).trim() : line.slice(2).trim();
-      // name 必须有值
-      if (!name) continue;
-      currentL2 = {
-        name,
-        nameChildList: [],
-      };
-      currentL1.nameChildList?.push(currentL2);
-    }
-    // 三级标签
-    else if (line.trim() && !line.startsWith("#")) {
-      if (!currentL2) continue;
-      currentL2.nameChildList?.push({
-        name: line.trim(),
-      });
-    }
-  }
-  return result;
-};
+// 解析文本为 NameChildList 格式（与预览共用同一解析器，支持最多四级）
+export const parseTextToNameChildList = parseBatchTagText;
 
 interface BatchCreateTagsContextType {
   // 状态
@@ -115,8 +72,10 @@ export const BatchCreateTagsProvider = ({
   translationKey = "TagsPage.ManualCreateModal",
 }: BatchCreateTagsProviderProps) => {
   const t = useTranslations(translationKey);
+  const tTags = useTranslations("TagsPage");
 
   const [isCreating, setIsCreating] = useState(false);
+  const creatingRef = useRef(false);
 
   // 模态框状态
   const [isManualTipsOpen, setIsManualTipsOpen] = useState(false);
@@ -134,6 +93,8 @@ export const BatchCreateTagsProvider = ({
   // 处理标签创建的主要逻辑
   const handleManualTipsOk = useCallback(
     async (addType: 1 | 2, nameChildList: NameChildList[]) => {
+      if (creatingRef.current) return;
+      creatingRef.current = true;
       setIsCreating(true);
 
       try {
@@ -144,15 +105,19 @@ export const BatchCreateTagsProvider = ({
           onSuccess?.();
           onClose?.();
         } else {
-          toast.error(result.message || "创建标签失败");
+          toast.error(localizeTagActionMessage(result.message, tTags) || "创建标签失败");
         }
       } catch (err: unknown) {
-        toast.error(err instanceof Error ? err.message : "创建标签时发生错误");
+        toast.error(
+          localizeTagActionMessage(err instanceof Error ? err.message : null, tTags) ||
+            "创建标签时发生错误",
+        );
       } finally {
+        creatingRef.current = false;
         setIsCreating(false);
       }
     },
-    [convertToBatchData, onSuccess, onClose, t],
+    [convertToBatchData, onSuccess, onClose, tTags],
   );
 
   // 模态框方法
@@ -183,16 +148,18 @@ export const BatchCreateTagsProvider = ({
   };
 
   const closeManualTips = () => {
+    if (creatingRef.current) return;
     setIsManualTipsOpen(false);
     setPendingNameChildList(null);
   };
 
   const closeManualTips2 = () => {
+    if (creatingRef.current) return;
     setIsManualTips2Open(false);
   };
 
   const handleManualTipsConfirm = async (addType: 1 | 2) => {
-    if (!pendingNameChildList) return;
+    if (!pendingNameChildList || creatingRef.current) return;
 
     if (addType === 1) {
       showManualTips2();
@@ -203,7 +170,7 @@ export const BatchCreateTagsProvider = ({
   };
 
   const handleManualTips2Confirm = async () => {
-    if (!pendingNameChildList) return;
+    if (!pendingNameChildList || creatingRef.current) return;
     closeManualTips2();
     await handleManualTipsOk(1, pendingNameChildList);
     closeManualTips();
@@ -295,7 +262,7 @@ const ManualCreateTipsModal = () => {
 
 const ManualCreateTips2Modal = () => {
   const t = useTranslations("TagsPage.ManualCreateTips2Modal");
-  const { isManualTips2Open, closeManualTips2, handleManualTips2Confirm } =
+  const { isManualTips2Open, closeManualTips2, handleManualTips2Confirm, isCreating } =
     useBatchCreateTagsContext();
 
   return (
@@ -306,10 +273,10 @@ const ManualCreateTips2Modal = () => {
         </DialogHeader>
         <DialogDescription>{t("ConfirmToUseTheNewTagSystemOnl")}</DialogDescription>
         <DialogFooter>
-          <Button variant="outline" onClick={closeManualTips2}>
+          <Button variant="outline" onClick={closeManualTips2} disabled={isCreating}>
             {t("Cancel")}
           </Button>
-          <Button variant="dialogDanger" onClick={handleManualTips2Confirm}>
+          <Button variant="dialogDanger" onClick={handleManualTips2Confirm} disabled={isCreating}>
             {t("ClearExistingTagsAndUseNewOnes")}
           </Button>
         </DialogFooter>

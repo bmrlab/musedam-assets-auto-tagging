@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getLogoDetectionServerToken, getLogoDetectionServerUrl } from "@/lib/brand/env";
+import { DETECTION_TIMEOUT_MS } from "@/lib/tagging/external-timeouts";
 
 export type FaceBoundingBox = {
   x_min: number;
@@ -86,6 +87,7 @@ export async function detectPersonFaces({
   const token = getLogoDetectionServerToken();
   const response = await fetch(`${baseUrl}/face_detection`, {
     method: "POST",
+    signal: AbortSignal.timeout(DETECTION_TIMEOUT_MS),
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
@@ -98,7 +100,9 @@ export async function detectPersonFaces({
 
   if (!response.ok) {
     const errorBody = await response.text().catch(() => "");
-    throw new Error(`Face detection request failed (${response.status})${errorBody ? ` ${errorBody}` : ""}`);
+    throw new Error(
+      `Face detection request failed (${response.status})${errorBody ? ` ${errorBody}` : ""}`,
+    );
   }
 
   const payload = (await response.json().catch(() => null)) as FaceDetectionServiceResponse | null;
@@ -124,6 +128,7 @@ export async function generateFaceEmbedding({
   const token = getLogoDetectionServerToken();
   const response = await fetch(`${baseUrl}/generate_face_embedding`, {
     method: "POST",
+    signal: AbortSignal.timeout(DETECTION_TIMEOUT_MS),
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
@@ -139,7 +144,9 @@ export async function generateFaceEmbedding({
     .catch(() => null)) as GenerateFaceEmbeddingServiceResponse | null;
   if (!response.ok || !payload?.embedding?.vector?.length) {
     const errorBody = await response.text().catch(() => "");
-    throw new Error(`Generate face embedding request failed (${response.status})${errorBody ? ` ${errorBody}` : ""}`);
+    throw new Error(
+      `Generate face embedding request failed (${response.status})${errorBody ? ` ${errorBody}` : ""}`,
+    );
   }
 
   return payload;

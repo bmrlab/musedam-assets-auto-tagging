@@ -1,4 +1,5 @@
 import { isAcceptedPersonFace, isReviewablePersonFace } from "@/lib/person/person-match-policy";
+import { getAcceptedProductMatches } from "@/lib/product/product-match-policy";
 import { meetsFeatureConfidenceThreshold } from "@/lib/tagging/feature-confidence";
 import type {
   TaggingBrandRecommendation,
@@ -61,17 +62,9 @@ export function collectMuseFeatureIdentifierIdsForQueueItem({
     }
   }
 
-  const product = productRecommendation;
-  if (
-    product?.bestMatch &&
-    meetsFeatureConfidenceThreshold("product", product.bestMatch.confidence)
-  ) {
-    const tagRows = [
-      ...(product.bestMatch.recommendedTags ?? []),
-      ...(product.recommendedTags ?? []),
-    ];
-    if (approvedTagsOverlap(productTagIds, tagRows)) {
-      ids.add(product.bestMatch.assetProductId);
+  for (const match of getAcceptedProductMatches(productRecommendation)) {
+    if (approvedTagsOverlap(productTagIds, match.recommendedTags)) {
+      ids.add(match.assetProductId);
     }
   }
 

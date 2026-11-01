@@ -30,16 +30,16 @@ import {
 import { CheckIcon, Loader2Icon, Search, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AssetWithAuditItemsBatch, fetchAssetsWithAuditItems, batchApproveAuditItemsAction, batchRejectAuditItemsAction } from "./actions";
 import { ReviewItem } from "./ReviewItem";
+import { featureKey, getFeatureReviewVersions, type ReviewFeatureSearchResult } from "./feature-review";
 import { useTheme } from "next-themes";
 import Image from "next/image";
 import { dispatchMuseDAMClientAction } from "@/embed/message";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useSession } from "next-auth/react";
-import { isAdminUserSlug } from "@/lib/admin";
+import { useSession } from "@/components/AuthProvider";
 
 type TaggingAuditStatus = "pending" | "approved" | "rejected";
 const BATCH_APPROVE_CHUNK_SIZE = 10;
@@ -48,7 +48,7 @@ export default function ReviewPageClient() {
   const t = useTranslations("Tagging.Review");
   const tCommon = useTranslations("Tagging.Common");
   const { data: session } = useSession();
-  const isAdmin = useMemo(() => isAdminUserSlug(session?.user?.slug), [session?.user?.slug]);
+  const isAdmin = session?.user?.isAdmin ?? false;
   const [assets, setAssets] = useState<AssetWithAuditItemsBatch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<TaggingAuditStatus | "all">("pending");
@@ -58,12 +58,19 @@ export default function ReviewPageClient() {
   const [timeFilter, setTimeFilter] = useState<"all" | "today" | "week" | "month">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  // 只有列表区域滚动（分页栏始终可见）；翻页后回到列表顶部
+  const listScrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    listScrollRef.current?.scrollTo({ top: 0 });
+  }, [currentPage]);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const [pageSize, setPageSize] = useState(10);
   const [loading, setLoading] = useState(false);
+  const [rejectedFeaturesByAsset, setRejectedFeaturesByAsset] = useState<Record<number, string[]>>({});
+  const [manualFeaturesByAsset, setManualFeaturesByAsset] = useState<Record<number, ReviewFeatureSearchResult[]>>({});
   const [selectedAssets, setSelectedAssets] = useState<AssetWithAuditItemsBatch[]>([]);
   const [selectedAssetIds, setSelectedAssetIds] = useState<Set<number>>(new Set());
 
@@ -96,8 +103,8 @@ export default function ReviewPageClient() {
           setTotalPages(assetsResult.data.totalPages);
           setTotal(assetsResult.data.total);
 
-          // 保留已选择的资产，不过滤当前页面不存在的
-          // setSelectedAssets 和 setSelectedAssetIds 保持不变
+          const refreshed = new Map(newAssets.map((asset) => [asset.assetObject.id, asset]));
+          setSelectedAssets((current) => current.map((asset) => refreshed.get(asset.assetObject.id) ?? asset));
         }
       } catch (error) {
         console.error(t("refreshDataFailed"), error);
@@ -186,13 +193,19 @@ export default function ReviewPageClient() {
     try {
       let failedCount = 0;
       let deletedCount = 0;
+      let changedCount = 0;
 
       for (let start = 0; start < selectedAssets.length; start += BATCH_APPROVE_CHUNK_SIZE) {
         const chunk = selectedAssets.slice(start, start + BATCH_APPROVE_CHUNK_SIZE);
         const result = await batchApproveAuditItemsAction({
-          assetObjects: chunk.map(({ assetObject }) => ({
+          assetObjects: chunk.map(({ assetObject, batch }) => ({
             id: assetObject.id,
             slug: assetObject.slug,
+            featureReviewVersions: getFeatureReviewVersions(batch),
+            rejectedFeatureKeys: rejectedFeaturesByAsset[assetObject.id] ?? [],
+            manualFeatureKeys: (manualFeaturesByAsset[assetObject.id] ?? []).map((feature) =>
+              featureKey(feature.featureType, feature.id),
+            ),
           })),
           append: true,
         });
@@ -200,14 +213,17 @@ export default function ReviewPageClient() {
         if (result.success && result.data) {
           failedCount += result.data.failedCount;
           deletedCount += result.data.deletedCount;
+          changedCount += result.data.changedCount;
         } else {
           failedCount += chunk.length;
         }
       }
 
-      const successCount = selectedAssets.length - failedCount - deletedCount;
+      const successCount = selectedAssets.length - failedCount - deletedCount - changedCount;
 
-      if (failedCount === 0) {
+      if (changedCount > 0) {
+        toast.warning(t("featureReviewChanged"));
+      } else if (failedCount === 0) {
         toast.success(t("batchApproveSuccess"));
       } else if (successCount === 0) {
         toast.error(t("noCorrespondingTag"))
@@ -217,6 +233,9 @@ export default function ReviewPageClient() {
       }
 
       setCurrentPage(1)
+      setManualFeaturesByAsset((current) => Object.fromEntries(
+        Object.entries(current).filter(([id]) => !selectedAssets.some(({ assetObject }) => assetObject.id === Number(id))),
+      ));
       setSelectedAssets([]);
       setSelectedAssetIds(new Set());
       refreshDataWithFilters();
@@ -226,7 +245,7 @@ export default function ReviewPageClient() {
     } finally {
       setLoading(false);
     }
-  }, [selectedAssets, t, refreshDataWithFilters]);
+  }, [selectedAssets, rejectedFeaturesByAsset, manualFeaturesByAsset, t, refreshDataWithFilters]);
 
   // 批量拒绝审核
   const handleBatchReject = useCallback(async () => {
@@ -239,6 +258,9 @@ export default function ReviewPageClient() {
       });
       toast.success(t("batchRejectSuccess"));
       setCurrentPage(1)
+      setManualFeaturesByAsset((current) => Object.fromEntries(
+        Object.entries(current).filter(([id]) => !selectedAssets.some(({ assetObject }) => assetObject.id === Number(id))),
+      ));
       setSelectedAssets([]);
       setSelectedAssetIds(new Set());
       refreshDataWithFilters();
@@ -251,7 +273,8 @@ export default function ReviewPageClient() {
   }, [selectedAssets, t, refreshDataWithFilters]);
 
   return (
-    <div className="flex flex-col space-y-[10px] min-h-full">
+    // data-fill-viewport：页面占满可视高度，只有列表区域滚动、分页栏始终可见（见 tagging/layout.tsx）
+    <div data-fill-viewport className="flex min-h-0 flex-1 flex-col gap-[10px]">
       {/* 筛选器和搜索 */}
       <div className="flex items-center justify-between py-4 px-5 bg-background border rounded-[6px]">
         <div className="text-[13px] font-medium flex items-center gap-3">
@@ -419,11 +442,40 @@ export default function ReviewPageClient() {
           </CardContent>
         </Card>
       ) : <>
+        <div ref={listScrollRef} className="min-h-[240px] flex-1 space-y-[10px] overflow-y-auto">
         {assets.map((asset) => (
           <ReviewItem
             {...asset}
             batchLoading={loading}
-            onSuccess={() => refreshDataWithFilters()}
+            rejectedFeatureKeys={rejectedFeaturesByAsset[asset.assetObject.id] ?? []}
+            onToggleFeatureKey={(key) => setRejectedFeaturesByAsset((current) => {
+              const rejected = current[asset.assetObject.id] ?? [];
+              return { ...current, [asset.assetObject.id]: rejected.includes(key)
+                ? rejected.filter((item) => item !== key) : [...rejected, key] };
+            })}
+            manualFeatures={manualFeaturesByAsset[asset.assetObject.id] ?? []}
+            onAddManualFeatures={(features) => setManualFeaturesByAsset((current) => {
+              const existing = current[asset.assetObject.id] ?? [];
+              const existingKeys = new Set(existing.map((feature) => featureKey(feature.featureType, feature.id)));
+              return { ...current, [asset.assetObject.id]: [
+                ...existing,
+                ...features.filter((feature) => !existingKeys.has(featureKey(feature.featureType, feature.id))),
+              ] };
+            })}
+            onRemoveManualFeature={(key) => setManualFeaturesByAsset((current) => ({
+              ...current,
+              [asset.assetObject.id]: (current[asset.assetObject.id] ?? []).filter(
+                (feature) => featureKey(feature.featureType, feature.id) !== key,
+              ),
+            }))}
+            onSuccess={() => {
+              setManualFeaturesByAsset((current) => {
+                const next = { ...current };
+                delete next[asset.assetObject.id];
+                return next;
+              });
+              refreshDataWithFilters();
+            }}
             CheckboxComponent={<Checkbox
               className="size-4"
               checked={selectedAssetIds.has(asset.assetObject.id)}
@@ -432,10 +484,10 @@ export default function ReviewPageClient() {
             key={asset.assetObject.id}
           />
         ))}
-
+        </div>
 
         {/* 分页组件 */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-[14px]">
+        <div className="flex shrink-0 flex-col sm:flex-row items-center justify-between gap-4 pt-1">
           {/* 页码输入 */}
           <Input
             placeholder={t("pageInputPlaceholder")}

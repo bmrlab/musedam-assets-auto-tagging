@@ -2,7 +2,9 @@
 import { PageLoadingFallback } from "@/components/PageLoadingFallback";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLocaleClient } from "@/i18n/client";
-import { signIn, signOut } from "next-auth/react";
+import { useAuthActions } from "@/components/AuthProvider";
+import { signIn } from "next-auth/react";
+import { clearAuthToken, withAuthTokenQuery } from "@/lib/auth-token";
 import { Locale } from "next-intl";
 import { useTheme } from "next-themes";
 import Link from "next/link";
@@ -25,29 +27,30 @@ export function TokenAuthPageClient({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { setLocale } = useLocaleClient();
+  const { refresh } = useAuthActions();
 
   useEffect(() => {
     setLoading(true);
-    signIn("token-login", {
-      token,
-      callbackUrl,
-      redirect: false,
-    })
-      .then((result) => {
-        if (result?.error) {
-          // 如果登录失败，清除旧的 session，避免使用旧团队的数据
-          signOut({ redirect: false }).then(() => {
-            setError(result.error);
-          });
+    // 登录态只属于当前 tab：token 存进本 tab 的 sessionStorage，不再写共享 cookie，
+    // 所以另一个 tab 切换到别的团队不会影响这里。
+    refresh(token)
+      .then(async (result) => {
+        if (result.status === "authenticated") {
+          // 兼容期：同时种旧的共享 cookie，没带 token 的旧版父项目（可见页直接打开 callbackUrl）才能继续用。
+          // 失败不影响新版的按 tab token 登录。TODO: 旧版父项目下线后删除
+          await signIn("token-login", { token, redirect: false }).catch(() => undefined);
+          router.replace(withAuthTokenQuery(callbackUrl, token));
         } else {
-          router.replace(callbackUrl);
+          // 无权限时 token 本身是有效的，留着它让 /api/team/settings 按当前团队回报 hasPermission=false；
+          // 清掉的话后续请求会退回共享 cookie，拿到别的团队的登录态
+          if (result.error !== "PERMISSION_DENIED") clearAuthToken();
+          setError(result.error ?? "INVALID_TOKEN");
         }
-        setLoading(false);
       })
       .finally(() => {
         setLoading(false);
       });
-  }, [token, callbackUrl, router]);
+  }, [token, callbackUrl, router, refresh]);
 
   useEffect(() => {
     if (theme) {

@@ -44,6 +44,7 @@
       "itemsSelected": "Selected",
       "itemsTotal": "Total",
       "itemsCount": "items",
+      "clearSelection": "Clear",
       "enable": "Enable",
       "disable": "Disable",
       "delete": "Delete",
@@ -112,7 +113,7 @@
       "confirmDialog": {
         "title": "Action Confirmation",
         "deleteDescription": "Are you sure you want to delete \"{name}\"? This action cannot be undone, and linked tags will not be automatically removed.",
-        "disableDescription": "Are you sure you want to disable \"{name}\"? After disabling, newly uploaded assets will not automatically recognize this entry and apply linked tags. Already tagged assets will not be affected.",
+        "disableDescription": "Are you sure you want to disable \"{name}\"? After disabling, newly uploaded assets will not automatically recognize this entry and apply linked tags.",
         "confirmDelete": "Confirm Delete",
         "confirmDisable": "Confirm Disable",
         "cancel": "Cancel"
@@ -123,7 +124,7 @@
         "enableTitle": "Action Confirmation",
         "enableDescription": "Are you sure you want to enable the selected {count} items? Once enabled, they will participate in AI auto-recognition and tagging.",
         "disableTitle": "Action Confirmation",
-        "disableDescription": "Are you sure you want to disable the selected {count} items? After disabling, newly uploaded assets will not automatically recognize these entries and apply linked tags. Already tagged assets will not be affected.",
+        "disableDescription": "Are you sure you want to disable the selected {count} items? After disabling, newly uploaded assets will not automatically recognize these entries and apply linked tags.",
         "confirmEnable": "Confirm Enable",
         "confirmDisable": "Confirm Disable",
         "cancel": "Cancel"
@@ -300,6 +301,7 @@
       "itemsSelected": "Selected",
       "itemsTotal": "Total",
       "itemsCount": "items",
+      "clearSelection": "Clear",
       "enable": "Enable",
       "disable": "Disable",
       "delete": "Delete",
@@ -407,7 +409,7 @@
       "confirmDialog": {
         "title": "Action Confirmation",
         "deleteDescription": "Are you sure you want to delete \"{name}\"? This action cannot be undone, and linked tags will not be automatically removed.",
-        "disableDescription": "Are you sure you want to disable \"{name}\"? After disabling, newly uploaded assets will not automatically recognize this entry and apply linked tags. Already tagged assets will not be affected.",
+        "disableDescription": "Are you sure you want to disable \"{name}\"? After disabling, newly uploaded assets will not automatically recognize this entry and apply linked tags.",
         "confirmDelete": "Confirm Delete",
         "confirmDisable": "Confirm Disable",
         "cancel": "Cancel"
@@ -418,7 +420,7 @@
         "enableTitle": "Action Confirmation",
         "enableDescription": "Are you sure you want to enable the selected {count} items? Once enabled, they will participate in AI auto-recognition and tagging.",
         "disableTitle": "Action Confirmation",
-        "disableDescription": "Are you sure you want to disable the selected {count} items? After disabling, newly uploaded assets will not automatically recognize these entries and apply linked tags. Already tagged assets will not be affected.",
+        "disableDescription": "Are you sure you want to disable the selected {count} items? After disabling, newly uploaded assets will not automatically recognize these entries and apply linked tags.",
         "confirmEnable": "Confirm Enable",
         "confirmDisable": "Confirm Disable",
         "cancel": "Cancel"
@@ -606,6 +608,7 @@
       "paginationInfo": "{current} / {total} items",
       "emptyTagErrorMsg": "No tag system yet. Please create one first~",
       "noAppropriateTagErrorMsg": "There are no suitable tags in the current tag system",
+      "noMatchingSourceErrorMsg": "Failed: no matching source is enabled in tagging settings",
       "dayNames": {
         "0": "Sunday",
         "1": "Monday",
@@ -628,7 +631,9 @@
         "9": "October",
         "10": "November",
         "11": "December"
-      }
+      },
+      "filterFailed": "Failed",
+      "searchPlaceholder": "Search by asset name"
     },
     "Settings": {
       "title": "Tagging Switch",
@@ -636,6 +641,7 @@
       "saving": "Saving...",
       "settingsSaved": "Settings saved",
       "saveSettingsFailed": "Failed to save settings",
+      "atLeastOneSourceRequired": "At least one matching source must stay enabled",
       "selectFoldersFailed": "Failed to select folders",
       "newApplicationScope": "New application scope state:",
       "selectedFoldersCount": "Selected folders count:",
@@ -658,13 +664,16 @@
       "AIRecognition": {
         "title": "AI Recognition",
         "precise": "Precise",
-        "preciseDesc": "High accuracy, fewer tags (≥80% confidence)",
+        "preciseDesc": "High accuracy, fewer tags",
         "balanced": "Balanced",
-        "balancedDesc": "Balanced accuracy and coverage (≥60% confidence)",
+        "balancedDesc": "Balanced accuracy and coverage",
         "broad": "Broad",
-        "broadDesc": "High coverage, more tags (≥40% confidence)",
+        "broadDesc": "High coverage, more tags",
         "confidence": "confidence",
-        "recommended": "Recommended"
+        "recommended": "Recommended",
+        "confidenceHigh": "High confidence",
+        "confidenceMedium": "Medium confidence",
+        "confidenceLow": "Low confidence"
       },
       "MatchingStrategy": {
         "title": "Matching Strategy",
@@ -678,7 +687,9 @@
         "filePathMatching": "File Path Matching",
         "filePathMatchingDesc": "Tag matching based on the file path where assets are located",
         "assetNameMatching": "Asset Name Matching",
-        "assetNameMatchingDesc": "Analyze key information in file names for matching"
+        "assetNameMatchingDesc": "Analyze key information in file names for matching",
+        "weight": "Weight",
+        "weightHint": "Default weight is 1 (range {min} - {max}). A higher weight boosts the scores of tags matched by that source, making them more likely to be applied; a lower weight does the opposite."
       },
       "TriggerTiming": {
         "title": "Trigger Timing",
@@ -744,7 +755,21 @@
       "brandRecommendedTags": "Brand Logo Recommended Tags",
       "basedOnTagSystem": "Based on tag system matching",
       "basedOnFeatureLibrary": "Based on feature library matching",
+      "addFeatureManually": "Add feature manually",
+      "addFeatureTitle": "Add features",
+      "addFeatureAllTypes": "All",
+      "addFeatureSearchPlaceholder": "Search feature name",
+      "addFeatureNoResults": "No matching features in the library",
+      "addFeatureAlreadyAdded": "Added",
+      "addFeatureConfirm": "Add ({count})",
+      "manuallyAdded": "Added manually",
       "latest": "Latest",
+      "requiredFallbackBadge": "Required fallback",
+      "aspectRatioBadge": "From dimensions",
+      "sizeAIBadge": "AI from size",
+      "appliedBadge": "Applied",
+      "showHistory": "Show history ({count})",
+      "hideHistory": "Hide history",
       "allStatuses": "All Statuses",
       "pending": "Pending Review",
       "approved": "Approved",
@@ -766,6 +791,7 @@
       "totalItems": "Total {total} items",
       "applySuccess": "Applied successfully",
       "applyFailed": "Apply failed",
+      "featureReviewChanged": "Feature details or related tags have changed. Review the refreshed results and click Add again.",
       "rejectConfirmTitle": "Operation Prompt",
       "rejectConfirmDescription": "Confirm to delete the AI tagging record of the asset \"{assetName}\"? This operation cannot be recovered, please proceed with caution.",
       "batchRejectConfirmDescription": "Confirm to delete the AI tagging record of {assetNum} assets? This operation cannot be recovered, please proceed with caution.",
@@ -849,9 +875,9 @@
       "preciseMode": "Precise Mode",
       "balancedMode": "Balanced Mode",
       "broadMode": "Broad Mode",
-      "preciseConfidence": "80-100% confidence",
-      "balancedConfidence": "70-100% confidence",
-      "broadConfidence": "60-100% confidence",
+      "preciseConfidence": "≥80% confidence",
+      "balancedConfidence": "≥60% confidence",
+      "broadConfidence": "≥40% confidence",
       "recommended": "Recommended",
       "recommendedMatchingStrategy": "Recommended Matching Strategy",
       "pathMatching": "File Path Matching",
@@ -870,7 +896,32 @@
       "processingStatus": "Processing Status",
       "processingTasks": "Processing {count} tagging tasks",
       "pollingDescription": "Checking status every 2 seconds, results will be displayed automatically when completed",
-      "aiMatching": "AI Matching"
+      "aiMatching": "AI Matching",
+      "progressCount": "{done}/{total} done",
+      "queueWaitEstimate": "Estimated wait: about {duration}",
+      "elapsed": "Elapsed: {duration}",
+      "queueAhead": "Queued, {count} tasks ahead",
+      "processingFor": "Processing for {duration}",
+      "durationMinutes": "{minutes} min {seconds} s",
+      "durationSeconds": "{seconds} s",
+      "pollingErrorStopped": "Failed to fetch processing status ({message}). Auto refresh stopped.",
+      "pollingTimeout": "Tasks did not finish in time. Auto refresh stopped; check the status again later or contact an administrator.",
+      "retryPolling": "Check status again",
+      "workerIdleWarning": "Tasks have been queued for a long time while the queue is idle. The background tagging worker may not be running; please contact an administrator.",
+      "failedResultsTitle": "Failed assets ({count})",
+      "status": {
+        "pending": "Queued",
+        "processing": "Processing",
+        "completed": "Completed",
+        "failed": "Failed"
+      },
+      "errorReason": {
+        "NO_VALID_TAGS": "No valid tags matched (insufficient asset information or no suitable tag in the tag system)",
+        "NO_TAG_TREE": "The tag system is empty. Please create tags first.",
+        "NO_MATCHING_SOURCES_ENABLED": "No matching strategy is enabled",
+        "PROCESSING_STALE_TIMEOUT": "Processing timed out and was marked as failed automatically",
+        "UNKNOWN": "Backend processing error. Please check the service logs."
+      }
     },
     "Common": {
       "refreshDataFailed": "Failed to refresh data",
@@ -927,6 +978,7 @@
       "itemsSelected": "Selected",
       "itemsTotal": "Total",
       "itemsCount": "items",
+      "clearSelection": "Clear",
       "enable": "Enable",
       "disable": "Disable",
       "delete": "Delete",
@@ -994,7 +1046,7 @@
       "confirmDialog": {
         "title": "Confirmation",
         "deleteDescription": "Delete \"{name}\"? This cannot be undone, and existing linked tags will not be removed automatically.",
-        "disableDescription": "Disable \"{name}\"? New assets will no longer recognize this person automatically, while completed tagging results are unaffected.",
+        "disableDescription": "Disable \"{name}\"? New assets will no longer recognize this person automatically.",
         "confirmDelete": "Delete",
         "confirmDisable": "Disable",
         "cancel": "Cancel"
@@ -1005,7 +1057,7 @@
         "enableTitle": "Confirmation",
         "enableDescription": "Enable the selected {count} items? They will participate in AI recognition and tagging.",
         "disableTitle": "Confirmation",
-        "disableDescription": "Disable the selected {count} items? New assets will no longer recognize them automatically, while completed tagging results are unaffected.",
+        "disableDescription": "Disable the selected {count} items? New assets will no longer recognize them automatically.",
         "confirmEnable": "Enable",
         "confirmDisable": "Disable",
         "cancel": "Cancel"
@@ -1179,6 +1231,7 @@
       "itemsSelected": "Selected",
       "itemsTotal": "Total",
       "itemsCount": "items",
+      "clearSelection": "Clear",
       "enable": "Enable",
       "disable": "Disable",
       "delete": "Delete",
@@ -1230,7 +1283,7 @@
         "uploadLocal": "Upload from Local",
         "uploadFromLibrary": "Select from Asset Library",
         "uploadHintTitle": "Image requirements: ",
-        "uploadHint": "Upload 3-5 product images when possible, covering front, side, back, and other angles with clear quality and consistent shooting style. Include standard product images on solid backgrounds and real usage scenes to improve AI recognition accuracy.",
+        "uploadHint": "Upload 3-5 product images when possible, covering front, side, back, and other angles with clear quality and consistent shooting style. Include standard product images on solid backgrounds to improve AI recognition accuracy.",
         "linkedTagsLabel": "Linked Tags",
         "linkedTagsHint": "These tags will be automatically applied when a match is found",
         "manageTags": "Manage Tag System",
@@ -1250,7 +1303,7 @@
       "confirmDialog": {
         "title": "Action Confirmation",
         "deleteDescription": "Are you sure you want to delete \"{name}\"? This action cannot be undone, and linked tags will not be automatically removed.",
-        "disableDescription": "Are you sure you want to disable \"{name}\"? After disabling, newly uploaded assets will not automatically recognize this entry and apply linked tags. Already tagged assets will not be affected.",
+        "disableDescription": "Are you sure you want to disable \"{name}\"? After disabling, newly uploaded assets will not automatically recognize this entry and apply linked tags.",
         "confirmDelete": "Confirm Delete",
         "confirmDisable": "Confirm Disable",
         "cancel": "Cancel"
@@ -1261,7 +1314,7 @@
         "enableTitle": "Action Confirmation",
         "enableDescription": "Are you sure you want to enable the selected {count} items? Once enabled, they will participate in AI auto-recognition and tagging.",
         "disableTitle": "Action Confirmation",
-        "disableDescription": "Are you sure you want to disable the selected {count} items? After disabling, newly uploaded assets will not automatically recognize these entries and apply linked tags. Already tagged assets will not be affected.",
+        "disableDescription": "Are you sure you want to disable the selected {count} items? After disabling, newly uploaded assets will not automatically recognize these entries and apply linked tags.",
         "confirmEnable": "Confirm Enable",
         "confirmDisable": "Confirm Disable",
         "cancel": "Cancel"
@@ -1348,20 +1401,20 @@
     "ProductClassify": {
       "backToLibrary": "Back to Product Library",
       "pageTitle": "Product Classification Dev Page",
-      "pageDescription": "After uploading an image, the system uses the general categories from currently enabled products to detect candidate product areas, then uses multimodal embeddings to retrieve product image and description vectors and gives the final result after aggregating by crop and modality.",
+      "pageDescription": "Duplicate detections are grouped into product regions. Each region is classified independently, returning all distinct products with confidence of at least 80%.",
       "availableProducts": "Available Reference Products",
       "statsDescription": "Only counting enabled and completed vector processing data",
       "uploadImageFirst": "Please upload an image to classify first",
       "noReferenceProducts": "No available completed product reference vectors currently",
       "classifying": "Classifying",
       "classifyButton": "Classify Product",
-      "uploadHint": "After uploading an image, detection boxes and the final matched product will be displayed here.",
+      "uploadHint": "Upload an image to see the detection boxes and all matched products.",
       "imageToClassify": "Image to classify",
-      "finalResult": "Final Result",
-      "resultHint": "The result area will show the winning detection box, final product name, and top 3 similar results.",
+      "finalResult": "Matched Products",
+      "resultHint": "The results show every matched product and the top 3 candidates for each product region.",
       "noConfidentMatch": "No Confident Product Match",
-      "noConfidentMatchDesc": "The current best candidate is not stable enough, therefore judged as no confident match.",
-      "winningProduct": "Winning Product",
+      "noConfidentMatchDesc": "No product region has a match with confidence of at least 80%.",
+      "winningProduct": "Matched Product",
       "type": "Type",
       "similarity": "Similarity",
       "confidence": "Confidence",
@@ -1386,7 +1439,12 @@
         "canvasNotSupported": "Browser does not support Canvas cropping"
       },
       "fallbackBox": "whole image fallback",
-      "coordinateTo": "to"
+      "coordinateTo": "to",
+      "productRegions": "Product regions",
+      "region": "Region",
+      "rawDetectionBoxes": "Original detection boxes",
+      "showRawDetections": "Show original boxes",
+      "showProductRegions": "Show product regions"
     },
     "BatchImportExport": {
       "title": "Batch Import/Export",
@@ -1396,6 +1454,11 @@
       "tabExport": "Export",
       "cancel": "Cancel",
       "confirm": "Confirm",
+      "missingTagsConfirmTitle": "Create missing tags?",
+      "missingTagsConfirmDescription": "The import file references tag paths that do not exist. Create these tag trees and continue importing?",
+      "missingTagsListLabel": "Missing tag paths",
+      "createTagsAndImport": "Create and import",
+      "importExistingTagsOnly": "Only import rows with existing tags",
       "unsupportedFileType": "Only Excel (.xlsx) or CSV (.csv) files are supported",
       "selectFileFirst": "Please select a file first",
       "selectImportFile": "Please select an Excel (.xlsx) or CSV (.csv) file first",
@@ -1452,7 +1515,18 @@
       },
       "formatExcel": "Excel",
       "formatCsv": "CSV",
-      "spreadsheetBadge": "XLS"
+      "spreadsheetBadge": "XLS",
+      "precheckTitle": "Pre-import check",
+      "precheckHint": "Please review the following before importing",
+      "precheckSummary": "{create} tags will be created, {update} updated, {unchanged} unchanged",
+      "precheckRenameNotice": "{count} of them will be renamed and synced to MuseDAM",
+      "precheckIssuesLabel": "{count} rows have issues and will be skipped if you continue:",
+      "precheckCreateLabel": "{count} tags will be created:",
+      "precheckMoreItems": "…{count} items in total",
+      "backToEdit": "Back to edit",
+      "continueImport": "Continue import",
+      "continueImportSkipIssues": "Skip issues and continue",
+      "importSuccessWithSkipped": "Imported {count} rows, skipped {skipped} rows with issues"
     }
   }
 }

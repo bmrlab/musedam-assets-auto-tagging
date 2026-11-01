@@ -1,3 +1,5 @@
+import type { LibraryListPage } from "../components/library-list-query";
+
 export type ProductTypeItem = {
   id: string;
   name: string;
@@ -23,6 +25,9 @@ export type ProductImageItem = {
   objectKey: string;
   signedUrl: string;
   signedUrlExpiresAt: number;
+  /** 长边 256 的缩略图（列表小图用）；缩略图还没生成时加载会失败，前端退回原图 */
+  thumbnailUrl?: string;
+  thumbnailUrlExpiresAt?: number;
   mimeType: string;
   size: number;
   sort: number;
@@ -53,6 +58,13 @@ export type ProductLibraryPageData = {
   tags: ProductTagTreeNode[];
 };
 
+/** 列表页首屏数据；list 为默认筛选下的第一页。 */
+export type ProductLibraryInitialData = {
+  list: LibraryListPage<ProductItem>;
+  productTypes: ProductTypeItem[];
+  tags: ProductTagTreeNode[];
+};
+
 export type ProductBatchImportFailure = {
   rowNumber: number;
   name: string | null;
@@ -62,6 +74,8 @@ export type ProductBatchImportFailure = {
 export type ProductBatchImportResult = {
   createdProducts: ProductItem[];
   productTypes: ProductTypeItem[];
+  tagTree?: ProductTagTreeNode[];
+  missingTagPaths?: string[];
   successCount: number;
   failedCount: number;
   skippedCount: number;
@@ -109,6 +123,16 @@ export type ProductClassificationMatch = {
 };
 
 export type ProductClassificationResult = {
+  matches: Array<ProductClassificationMatch & { detectionIndices: number[] }>;
+  rawDetections?: ProductDetectionBox[];
+  detections: Array<{
+    detectionIndex: number;
+    sourceDetectionIndices?: number[];
+    box: ProductDetectionBox;
+    topMatches: ProductClassificationMatch[];
+    bestMatch: ProductClassificationMatch | null;
+    noConfidentMatch: boolean;
+  }>;
   topMatches: ProductClassificationMatch[];
   bestMatch: ProductClassificationMatch | null;
   noConfidentMatch: boolean;

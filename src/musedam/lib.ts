@@ -1,5 +1,11 @@
 import "server-only";
 
+const SENSITIVE_HEADER_PATTERN = /^(authorization|cookie|set-cookie|x-api-key|api-key)$/i;
+
+function sanitizeResponseText(value: string) {
+  return value.replace(/(bearer\s+)[^\s"']+/gi, "$1[REDACTED]").slice(0, 1000);
+}
+
 export function generateCurlCommand(
   url: string,
   method: string,
@@ -10,7 +16,8 @@ export function generateCurlCommand(
 
   // 添加请求头
   Object.entries(headers).forEach(([key, value]) => {
-    curl += ` \\\n  -H '${key}: ${value}'`;
+    const safeValue = SENSITIVE_HEADER_PATTERN.test(key) ? "[REDACTED]" : value;
+    curl += ` \\\n  -H '${key}: ${safeValue}'`;
   });
 
   // 添加请求体
@@ -37,8 +44,9 @@ export async function requestMuseDAMAPI<T = unknown>(
   };
   const requestBody = method === "POST" ? JSON.stringify(body) : undefined;
 
-  // 打印curl命令
-  const curlCommand = generateCurlCommand(url, method, requestHeaders, requestBody);
+  // Keep enough request context for diagnostics without putting credentials or
+  // customer payloads into container logs.
+  const curlCommand = generateCurlCommand(url, method, requestHeaders);
 
   const response = await fetch(url, {
     method: method,
@@ -52,7 +60,8 @@ export async function requestMuseDAMAPI<T = unknown>(
     } catch {
       responseText = "";
     }
-    const errorMsg = `MuseDAM API request failed ${curlCommand}, status code: ${response.status}, response: ${responseText || "<empty>"}`;
+    const safeResponseText = sanitizeResponseText(responseText);
+    const errorMsg = `MuseDAM API request failed ${curlCommand}, status code: ${response.status}, response: ${safeResponseText || "<empty>"}`;
     throw new Error(errorMsg);
   }
   const result = await response.json();

@@ -1,18 +1,17 @@
-import authOptions from "@/app/(auth)/authOptions";
+import { getAuthSession } from "@/app/(auth)/requestAuth";
 import { isDebugPageEnabled } from "@/lib/brand/env";
-import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
-import { fetchPersonLibraryPageData } from "./actions";
+import { fetchPersonLibraryInitialData } from "./actions";
 import PersonLibraryClient from "./PersonLibraryClient";
 
 export default async function PersonPage() {
-  const session = await getServerSession(authOptions);
+  const session = await getAuthSession();
 
   if (!session?.user || !session?.team) {
     redirect("/auth/signin");
   }
 
-  const result = await fetchPersonLibraryPageData();
+  const result = await fetchPersonLibraryInitialData();
 
   if (!result.success) {
     throw new Error(result.message || "Failed to fetch Person library data");

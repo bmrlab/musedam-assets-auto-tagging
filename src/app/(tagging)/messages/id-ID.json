@@ -56,6 +56,7 @@
       "itemsSelected": "Dipilih",
       "itemsTotal": "Total",
       "itemsCount": "item",
+      "clearSelection": "Hapus pilihan",
       "enable": "Aktifkan",
       "disable": "Nonaktifkan",
       "delete": "Hapus",
@@ -124,7 +125,7 @@
       "confirmDialog": {
         "title": "Prompt Operasi",
         "deleteDescription": "Apakah Anda yakin ingin menghapus \"{name}\"? Operasi ini tidak dapat dipulihkan, tag terkait yang sudah diterapkan tidak akan dihapus secara otomatis.",
-        "disableDescription": "Apakah Anda yakin ingin menonaktifkan \"{name}\"? Setelah dinonaktifkan, aset yang baru diunggah tidak akan secara otomatis mengenali entri ini dan menerapkan tag terkait. Aset yang sudah ditandai tidak akan terpengaruh.",
+        "disableDescription": "Apakah Anda yakin ingin menonaktifkan \"{name}\"? Setelah dinonaktifkan, aset yang baru diunggah tidak akan secara otomatis mengenali entri ini dan menerapkan tag terkait.",
         "confirmDelete": "Konfirmasi Hapus",
         "confirmDisable": "Konfirmasi Nonaktifkan",
         "cancel": "Batal"
@@ -135,7 +136,7 @@
         "enableTitle": "Prompt Operasi",
         "enableDescription": "Apakah Anda yakin ingin mengaktifkan {count} entri yang dipilih? Setelah diaktifkan, akan berpartisipasi dalam pengenalan dan pelabelan AI otomatis.",
         "disableTitle": "Prompt Operasi",
-        "disableDescription": "Apakah Anda yakin ingin menonaktifkan {count} entri yang dipilih? Setelah dinonaktifkan, aset baru yang diunggah tidak akan secara otomatis mengenali entri ini dan menerapkan tag terkait. Aset yang sudah ditandai tidak akan terpengaruh.",
+        "disableDescription": "Apakah Anda yakin ingin menonaktifkan {count} entri yang dipilih? Setelah dinonaktifkan, aset baru yang diunggah tidak akan secara otomatis mengenali entri ini dan menerapkan tag terkait.",
         "confirmEnable": "Konfirmasi Aktifkan",
         "confirmDisable": "Konfirmasi Nonaktifkan",
         "cancel": "Batal"
@@ -300,6 +301,7 @@
       "itemsSelected": "Dipilih",
       "itemsTotal": "Total",
       "itemsCount": "item",
+      "clearSelection": "Hapus pilihan",
       "enable": "Aktifkan",
       "disable": "Nonaktifkan",
       "delete": "Hapus",
@@ -407,7 +409,7 @@
       "confirmDialog": {
         "title": "Konfirmasi Tindakan",
         "deleteDescription": "Apakah Anda yakin ingin menghapus \"{name}\"? Tindakan ini tidak dapat dibatalkan, dan tag terkait tidak akan dihapus secara otomatis.",
-        "disableDescription": "Apakah Anda yakin ingin menonaktifkan \"{name}\"? Setelah dinonaktifkan, aset yang baru diunggah tidak akan otomatis mengenali entri ini dan menerapkan tag terkait. Aset yang sudah ditandai tidak akan terpengaruh.",
+        "disableDescription": "Apakah Anda yakin ingin menonaktifkan \"{name}\"? Setelah dinonaktifkan, aset yang baru diunggah tidak akan otomatis mengenali entri ini dan menerapkan tag terkait.",
         "confirmDelete": "Konfirmasi Hapus",
         "confirmDisable": "Konfirmasi Nonaktifkan",
         "cancel": "Batal"
@@ -418,7 +420,7 @@
         "enableTitle": "Konfirmasi Tindakan",
         "enableDescription": "Apakah Anda yakin ingin mengaktifkan {count} item yang dipilih? Setelah diaktifkan, mereka akan berpartisipasi dalam pengenalan dan pelabelan AI otomatis.",
         "disableTitle": "Konfirmasi Tindakan",
-        "disableDescription": "Apakah Anda yakin ingin menonaktifkan {count} item yang dipilih? Setelah dinonaktifkan, aset yang baru diunggah tidak akan otomatis mengenali entri ini dan menerapkan tag terkait. Aset yang sudah ditandai tidak akan terpengaruh.",
+        "disableDescription": "Apakah Anda yakin ingin menonaktifkan {count} item yang dipilih? Setelah dinonaktifkan, aset yang baru diunggah tidak akan otomatis mengenali entri ini dan menerapkan tag terkait.",
         "confirmEnable": "Konfirmasi Aktifkan",
         "confirmDisable": "Konfirmasi Nonaktifkan",
         "cancel": "Batal"
@@ -570,6 +572,7 @@
       "paginationInfo": "{current} / {total} item",
       "emptyTagErrorMsg": "Belum ada sistem tag. Silakan buat sistem tag terlebih dahulu~",
       "noAppropriateTagErrorMsg": "Tidak ada tag yang sesuai dalam sistem tag saat ini",
+      "noMatchingSourceErrorMsg": "Gagal: tidak ada sumber pencocokan yang diaktifkan dalam pengaturan pelabelan",
       "dayNames": {
         "0": "Minggu",
         "1": "Senin",
@@ -592,7 +595,9 @@
         "9": "Oktober",
         "10": "November",
         "11": "Desember"
-      }
+      },
+      "filterFailed": "Gagal",
+      "searchPlaceholder": "Cari berdasarkan nama aset"
     },
     "Settings": {
       "title": "Sakelar Pelabelan",
@@ -600,6 +605,7 @@
       "saving": "Menyimpan...",
       "settingsSaved": "Pengaturan disimpan",
       "saveSettingsFailed": "Gagal menyimpan pengaturan",
+      "atLeastOneSourceRequired": "Setidaknya satu sumber pencocokan harus tetap diaktifkan",
       "selectFoldersFailed": "Gagal memilih folder",
       "newApplicationScope": "Status ruang lingkup aplikasi baru:",
       "selectedFoldersCount": "Jumlah folder yang dipilih:",
@@ -622,13 +628,16 @@
       "AIRecognition": {
         "title": "Pengenalan AI",
         "precise": "Presisi",
-        "preciseDesc": "Akurasi tinggi, lebih sedikit tag (≥80% keyakinan)",
+        "preciseDesc": "Akurasi tinggi, lebih sedikit tag",
         "balanced": "Seimbang",
-        "balancedDesc": "Akurasi dan cakupan seimbang (≥60% keyakinan)",
+        "balancedDesc": "Akurasi dan cakupan seimbang",
         "broad": "Luas",
-        "broadDesc": "Cakupan tinggi, lebih banyak tag (≥40% keyakinan)",
+        "broadDesc": "Cakupan tinggi, lebih banyak tag",
         "confidence": "keyakinan",
-        "recommended": "Direkomendasikan"
+        "recommended": "Direkomendasikan",
+        "confidenceHigh": "Keyakinan tinggi",
+        "confidenceMedium": "Keyakinan sedang",
+        "confidenceLow": "Keyakinan rendah"
       },
       "MatchingStrategy": {
         "title": "Strategi Pencocokan",
@@ -642,7 +651,9 @@
         "filePathMatching": "Pencocokan Jalur File",
         "filePathMatchingDesc": "Pencocokan tag berdasarkan jalur file tempat aset berada",
         "assetNameMatching": "Pencocokan Nama Aset",
-        "assetNameMatchingDesc": "Analisis informasi kunci dalam nama file untuk pencocokan"
+        "assetNameMatchingDesc": "Analisis informasi kunci dalam nama file untuk pencocokan",
+        "weight": "Bobot",
+        "weightHint": "Bobot default adalah 1 (rentang {min} - {max}). Bobot lebih tinggi menaikkan skor tag yang cocok dari sumber ini; bobot lebih rendah menurunkannya."
       },
       "TriggerTiming": {
         "title": "Waktu Pemicu",
@@ -708,7 +719,21 @@
       "brandRecommendedTags": "Tag Rekomendasi Logo Merek",
       "basedOnTagSystem": "Berdasarkan pencocokan sistem tag",
       "basedOnFeatureLibrary": "Berdasarkan pencocokan perpustakaan fitur",
+      "addFeatureManually": "Tambah fitur secara manual",
+      "addFeatureTitle": "Tambah fitur",
+      "addFeatureAllTypes": "Semua",
+      "addFeatureSearchPlaceholder": "Cari nama fitur",
+      "addFeatureNoResults": "Tidak ada fitur yang cocok di pustaka",
+      "addFeatureAlreadyAdded": "Ditambahkan",
+      "addFeatureConfirm": "Tambah ({count})",
+      "manuallyAdded": "Ditambahkan manual",
       "latest": "Terbaru",
+      "requiredFallbackBadge": "Cadangan wajib",
+      "aspectRatioBadge": "Dari dimensi",
+      "sizeAIBadge": "AI dari ukuran",
+      "appliedBadge": "Diterapkan",
+      "showHistory": "Lihat riwayat ({count})",
+      "hideHistory": "Sembunyikan riwayat",
       "allStatuses": "Semua Status",
       "pending": "Menunggu Tinjauan",
       "approved": "Disetujui",
@@ -730,6 +755,7 @@
       "totalItems": "Total {total} item",
       "applySuccess": "Berhasil diterapkan",
       "applyFailed": "Gagal menerapkan",
+      "featureReviewChanged": "Detail fitur atau tag terkait telah berubah. Tinjau hasil yang diperbarui dan klik Tambah lagi.",
       "rejectConfirmTitle": "Prompt Operasi",
       "rejectConfirmDescription": "Konfirmasi untuk menghapus catatan pelabelan AI dari aset \"{assetName}\"? Operasi ini tidak dapat dipulihkan, harap lanjutkan dengan hati-hati.",
       "batchRejectConfirmDescription": "Konfirmasi untuk menghapus catatan pelabelan AI dari {assetNum} aset? Operasi ini tidak dapat dipulihkan, harap lanjutkan dengan hati-hati.",
@@ -834,7 +860,32 @@
       "processingStatus": "Status Pemrosesan",
       "processingTasks": "Memproses {count} tugas pelabelan",
       "pollingDescription": "Memeriksa status setiap 2 detik, hasil akan ditampilkan secara otomatis saat selesai",
-      "aiMatching": "Pencocokan AI"
+      "aiMatching": "Pencocokan AI",
+      "progressCount": "{done}/{total} selesai",
+      "queueWaitEstimate": "Perkiraan waktu tunggu: sekitar {duration}",
+      "elapsed": "Berlalu: {duration}",
+      "queueAhead": "Dalam antrean, {count} tugas di depan",
+      "processingFor": "Sedang diproses selama {duration}",
+      "durationMinutes": "{minutes} mnt {seconds} dtk",
+      "durationSeconds": "{seconds} dtk",
+      "pollingErrorStopped": "Gagal mengambil status pemrosesan ({message}). Penyegaran otomatis dihentikan.",
+      "pollingTimeout": "Tugas tidak selesai tepat waktu. Penyegaran otomatis dihentikan; periksa status lagi nanti atau hubungi administrator.",
+      "retryPolling": "Periksa status lagi",
+      "workerIdleWarning": "Tugas sudah lama dalam antrean padahal antrean kosong. Layanan penandaan latar belakang mungkin tidak berjalan; hubungi administrator.",
+      "failedResultsTitle": "Aset gagal ({count})",
+      "status": {
+        "pending": "Dalam antrean",
+        "processing": "Diproses",
+        "completed": "Selesai",
+        "failed": "Gagal"
+      },
+      "errorReason": {
+        "NO_VALID_TAGS": "Tidak ada tag valid yang cocok (informasi aset tidak cukup atau tidak ada tag yang sesuai di sistem tag)",
+        "NO_TAG_TREE": "Sistem tag kosong. Buat tag terlebih dahulu.",
+        "NO_MATCHING_SOURCES_ENABLED": "Tidak ada strategi pencocokan yang diaktifkan",
+        "PROCESSING_STALE_TIMEOUT": "Pemrosesan melebihi batas waktu dan otomatis ditandai gagal",
+        "UNKNOWN": "Kesalahan pemrosesan backend. Periksa log layanan."
+      }
     },
     "Common": {
       "refreshDataFailed": "Gagal menyegarkan data",
@@ -927,6 +978,7 @@
       "itemsSelected": "Dipilih",
       "itemsTotal": "Total",
       "itemsCount": "item",
+      "clearSelection": "Hapus pilihan",
       "enable": "Aktifkan",
       "disable": "Nonaktifkan",
       "delete": "Hapus",
@@ -994,7 +1046,7 @@
       "confirmDialog": {
         "title": "Konfirmasi",
         "deleteDescription": "Hapus \"{name}\"? Tindakan ini tidak dapat dibatalkan, dan tag terkait yang ada tidak akan dihapus secara otomatis.",
-        "disableDescription": "Nonaktifkan \"{name}\"? Aset baru tidak akan lagi mengenali person ini secara otomatis, sementara hasil pelabelan yang sudah selesai tidak terpengaruh.",
+        "disableDescription": "Nonaktifkan \"{name}\"? Aset baru tidak akan lagi mengenali person ini secara otomatis.",
         "confirmDelete": "Hapus",
         "confirmDisable": "Nonaktifkan",
         "cancel": "Batal"
@@ -1005,7 +1057,7 @@
         "enableTitle": "Konfirmasi",
         "enableDescription": "Aktifkan {count} item yang dipilih? Mereka akan berpartisipasi dalam pengenalan dan pelabelan AI.",
         "disableTitle": "Konfirmasi",
-        "disableDescription": "Nonaktifkan {count} item yang dipilih? Aset baru tidak akan lagi mengenali mereka secara otomatis, sementara hasil pelabelan yang sudah selesai tidak terpengaruh.",
+        "disableDescription": "Nonaktifkan {count} item yang dipilih? Aset baru tidak akan lagi mengenali mereka secara otomatis.",
         "confirmEnable": "Aktifkan",
         "confirmDisable": "Nonaktifkan",
         "cancel": "Batal"
@@ -1179,6 +1231,7 @@
       "itemsSelected": "Dipilih",
       "itemsTotal": "Total",
       "itemsCount": "item",
+      "clearSelection": "Hapus pilihan",
       "enable": "Aktifkan",
       "disable": "Nonaktifkan",
       "delete": "Hapus",
@@ -1230,7 +1283,7 @@
         "uploadLocal": "Unggah dari Lokal",
         "uploadFromLibrary": "Pilih dari Perpustakaan Aset",
         "uploadHintTitle": "Persyaratan gambar: ",
-        "uploadHint": "Unggah 3-5 gambar produk yang mencakup depan, samping, belakang, dan sudut lainnya dengan kualitas jelas dan gaya pemotretan yang konsisten. Sertakan gambar produk standar dengan latar belakang solid dan gambar adegan penggunaan nyata untuk meningkatkan akurasi pengenalan AI.",
+        "uploadHint": "Unggah 3-5 gambar produk yang mencakup depan, samping, belakang, dan sudut lainnya dengan kualitas jelas dan gaya pemotretan yang konsisten. Sertakan gambar produk standar dengan latar belakang solid untuk meningkatkan akurasi pengenalan AI.",
         "linkedTagsLabel": "Tag Terkait",
         "linkedTagsHint": "Tag ini akan otomatis diterapkan saat kecocokan ditemukan",
         "manageTags": "Kelola Sistem Tag",
@@ -1250,7 +1303,7 @@
       "confirmDialog": {
         "title": "Konfirmasi Tindakan",
         "deleteDescription": "Apakah Anda yakin ingin menghapus \"{name}\"? Tindakan ini tidak dapat dibatalkan, dan tag terkait tidak akan dihapus secara otomatis.",
-        "disableDescription": "Apakah Anda yakin ingin menonaktifkan \"{name}\"? Setelah dinonaktifkan, aset yang baru diunggah tidak akan otomatis mengenali entri ini dan menerapkan tag terkait. Aset yang sudah ditandai tidak akan terpengaruh.",
+        "disableDescription": "Apakah Anda yakin ingin menonaktifkan \"{name}\"? Setelah dinonaktifkan, aset yang baru diunggah tidak akan otomatis mengenali entri ini dan menerapkan tag terkait.",
         "confirmDelete": "Konfirmasi Hapus",
         "confirmDisable": "Konfirmasi Nonaktifkan",
         "cancel": "Batal"
@@ -1261,7 +1314,7 @@
         "enableTitle": "Konfirmasi Tindakan",
         "enableDescription": "Apakah Anda yakin ingin mengaktifkan {count} item yang dipilih? Setelah diaktifkan, mereka akan berpartisipasi dalam pengenalan dan pelabelan AI otomatis.",
         "disableTitle": "Konfirmasi Tindakan",
-        "disableDescription": "Apakah Anda yakin ingin menonaktifkan {count} item yang dipilih? Setelah dinonaktifkan, aset yang baru diunggah tidak akan otomatis mengenali entri ini dan menerapkan tag terkait. Aset yang sudah ditandai tidak akan terpengaruh.",
+        "disableDescription": "Apakah Anda yakin ingin menonaktifkan {count} item yang dipilih? Setelah dinonaktifkan, aset yang baru diunggah tidak akan otomatis mengenali entri ini dan menerapkan tag terkait.",
         "confirmEnable": "Konfirmasi Aktifkan",
         "confirmDisable": "Konfirmasi Nonaktifkan",
         "cancel": "Batal"
@@ -1348,20 +1401,20 @@
     "ProductClassify": {
       "backToLibrary": "Kembali ke Pustaka Produk",
       "pageTitle": "Halaman Dev Klasifikasi Produk",
-      "pageDescription": "Setelah mengunggah gambar, sistem akan menggunakan kategori umum dari produk yang saat ini diaktifkan untuk mendeteksi area produk kandidat, kemudian menggunakan embedding multimodal untuk mengambil vektor gambar dan deskripsi produk, dan memberikan hasil akhir setelah agregasi berdasarkan crop dan modality.",
+      "pageDescription": "Deteksi duplikat dikelompokkan menjadi area produk. Setiap area diklasifikasikan secara terpisah dan semua produk berbeda dengan keyakinan minimal 80% ditampilkan.",
       "availableProducts": "Produk Referensi Tersedia",
       "statsDescription": "Hanya menghitung data yang diaktifkan dan telah selesai pemrosesan vektor",
       "uploadImageFirst": "Silakan unggah gambar untuk diklasifikasikan terlebih dahulu",
       "noReferenceProducts": "Saat ini tidak ada vektor referensi produk yang telah selesai",
       "classifying": "Mengklasifikasikan",
       "classifyButton": "Klasifikasikan Produk",
-      "uploadHint": "Setelah mengunggah gambar, kotak deteksi dan produk yang cocok akhir akan ditampilkan di sini.",
+      "uploadHint": "Unggah gambar untuk melihat kotak yang terdeteksi dan semua produk yang cocok.",
       "imageToClassify": "Gambar untuk diklasifikasikan",
-      "finalResult": "Hasil Akhir",
-      "resultHint": "Area hasil akan menampilkan kotak deteksi pemenang, nama produk akhir, dan 3 hasil serupa teratas.",
+      "finalResult": "Produk yang Cocok",
+      "resultHint": "Hasil menampilkan semua produk yang cocok dan 3 kandidat teratas untuk setiap area produk.",
       "noConfidentMatch": "Tidak Ada Pencocokan Produk yang Yakin",
-      "noConfidentMatchDesc": "Kandidat terbaik saat ini tidak cukup stabil, sehingga dinilai sebagai tidak ada pencocokan yang yakin.",
-      "winningProduct": "Produk Pemenang",
+      "noConfidentMatchDesc": "Tidak ada area produk dengan kecocokan berkeyakinan minimal 80%.",
+      "winningProduct": "Produk yang Cocok",
       "type": "Tipe",
       "similarity": "Kemiripan",
       "confidence": "Keyakinan",
@@ -1386,7 +1439,12 @@
         "canvasNotSupported": "Browser tidak mendukung pemotongan Canvas"
       },
       "fallbackBox": "cadangan gambar utuh",
-      "coordinateTo": "ke"
+      "coordinateTo": "ke",
+      "productRegions": "Area produk",
+      "region": "Area",
+      "rawDetectionBoxes": "Kotak deteksi asli",
+      "showRawDetections": "Tampilkan kotak asli",
+      "showProductRegions": "Tampilkan area produk"
     },
     "BatchImportExport": {
       "title": "Impor/Ekspor Massal",
@@ -1396,6 +1454,11 @@
       "tabExport": "Ekspor",
       "cancel": "Batal",
       "confirm": "Konfirmasi",
+      "missingTagsConfirmTitle": "Buat tag yang belum ada?",
+      "missingTagsConfirmDescription": "File impor merujuk pada jalur tag yang belum ada. Buat hierarki tag tersebut dan lanjutkan impor?",
+      "missingTagsListLabel": "Jalur tag yang belum ada",
+      "createTagsAndImport": "Buat dan impor",
+      "importExistingTagsOnly": "Impor hanya baris dengan tag yang sudah ada",
       "unsupportedFileType": "Hanya file Excel (.xlsx) atau CSV (.csv) yang didukung",
       "selectFileFirst": "Silakan pilih file terlebih dahulu",
       "selectImportFile": "Silakan pilih file Excel (.xlsx) atau CSV (.csv) terlebih dahulu",
@@ -1452,7 +1515,18 @@
       },
       "formatExcel": "Excel",
       "formatCsv": "CSV",
-      "spreadsheetBadge": "XLS"
+      "spreadsheetBadge": "XLS",
+      "precheckTitle": "Pemeriksaan sebelum impor",
+      "precheckHint": "Tinjau hal berikut sebelum mengimpor",
+      "precheckSummary": "{create} tag akan dibuat, {update} diperbarui, {unchanged} tidak berubah",
+      "precheckRenameNotice": "{count} di antaranya akan diganti nama dan disinkronkan ke MuseDAM",
+      "precheckIssuesLabel": "{count} baris bermasalah dan akan dilewati jika Anda melanjutkan:",
+      "precheckCreateLabel": "{count} tag akan dibuat:",
+      "precheckMoreItems": "…total {count} item",
+      "backToEdit": "Kembali untuk mengedit",
+      "continueImport": "Lanjutkan impor",
+      "continueImportSkipIssues": "Lewati masalah dan lanjutkan",
+      "importSuccessWithSkipped": "{count} baris diimpor, {skipped} baris bermasalah dilewati"
     }
   }
 }

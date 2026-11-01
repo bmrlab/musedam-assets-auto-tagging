@@ -1,5 +1,13 @@
 "use server";
 
+import { signObjectDetectionImageUrl } from "@/lib/media-process/image-url";
+import {
+  AssetTagTreeNode,
+  MAX_TAG_LEVEL,
+  buildChildrenInclude,
+  buildParentInclude,
+} from "@/lib/tagging/tag-level";
+
 import { withAuth } from "@/app/(auth)/withAuth";
 import {
   MAX_CLIENT_IMAGE_UPLOAD_BYTES,
@@ -12,11 +20,11 @@ import {
 } from "@/lib/product/pgvector";
 import {
   ProductDetectionBox,
-  classifyProductImageCrops,
+  classifyProductImageRegions,
   detectProductFigureBoxes,
 } from "@/lib/product/product-classification";
 import {
-  markAssetProductVectorsProcessing,
+  markAssetProductVectorsPending,
   processAssetProductReferenceVectors,
 } from "@/lib/product/product-processing";
 import {
@@ -29,15 +37,17 @@ import {
 } from "@/lib/s3";
 import { ServerActionResult } from "@/lib/serverAction";
 import {
+  createMissingBatchImportTagTrees,
+  findMissingBatchImportTagPaths,
+  normalizeBatchImportTagPath,
+} from "@/lib/tagging/batch-import-tags";
+import {
   BatchReferenceImageError,
   downloadAndPrepareBatchReferenceImage,
 } from "@/lib/tagging/batch-reference-image";
-import {
-  clampBox as clampClassificationBox,
-  cropImageToDataUrl as cropClassificationImageToDataUrl,
-  fetchRemoteImageInput,
-} from "@/lib/tagging/classification-image";
+import { fetchRemoteImageInput } from "@/lib/tagging/classification-image";
 import { prepareReferenceImageBuffer } from "@/lib/tagging/reference-image";
+import { getReferenceThumbnailUrl } from "@/lib/tagging/reference-thumbnail";
 import { schedulePushFeatureToMuseDAM } from "@/musedam/push-feature-to-musedam";
 import {
   AssetProduct,
@@ -61,6 +71,13 @@ import {
   splitBatchValues,
 } from "../batchFile";
 import {
+  DEFAULT_LIBRARY_LIST_QUERY,
+  LibraryListPage,
+  LibraryListQuery,
+  buildLibraryListArgs,
+  normalizeLibraryListQuery,
+} from "../components/library-list-query";
+import {
   ParsedProductBatchRow,
   buildProductBatchExportRows,
   buildProductBatchTemplateRows,
@@ -75,6 +92,7 @@ import {
   ProductClassificationUploadResult,
   ProductImageItem,
   ProductItem,
+  ProductLibraryInitialData,
   ProductLibraryPageData,
   ProductTagItem,
   ProductTagTreeNode,
@@ -133,9 +151,8 @@ async function getProductTypeNameSchema() {
   return z.string().trim().min(1, messages.typeNameRequired).max(100, messages.typeNameTooLong);
 }
 
-type AssetTagWithParents = AssetTag & {
-  parent: (AssetTag & { parent: AssetTag | null }) | null;
-};
+// 祖先链深度由 buildParentInclude() 决定（MAX_TAG_LEVEL - 1 层），buildTagPath 沿链向上拼路径
+type AssetTagWithParents = AssetTag & { parent?: AssetTagWithParents | null };
 
 type AssetProductRecord = AssetProduct & {
   images: AssetProductImage[];
@@ -225,6 +242,7 @@ function normalizeProductImage(image: AssetProductImage): ProductImageItem {
     objectKey: image.objectKey,
     signedUrl,
     signedUrlExpiresAt,
+    ...getReferenceThumbnailUrl(image.objectKey),
     mimeType: image.mimeType,
     size: image.size,
     sort: image.sort,
@@ -266,9 +284,7 @@ function normalizeProduct(product: AssetProductRecord): ProductItem {
   };
 }
 
-function normalizeProductTagTreeNode(
-  tag: AssetTag & { children?: (AssetTag & { children?: AssetTag[] })[] },
-): ProductTagTreeNode {
+function normalizeProductTagTreeNode(tag: AssetTagTreeNode): ProductTagTreeNode {
   return {
     id: tag.id,
     name: tag.name,
@@ -320,26 +336,12 @@ function getProductBatchTranslator(t: TranslationFunction) {
     t(`batchImportExport.${key}`, values);
 }
 
-function normalizeTagPathKey(value: string) {
-  return value
-    .split(">")
-    .map((part) => part.trim().toLowerCase())
-    .filter(Boolean)
-    .join(">");
-}
-
 async function buildTagPathLookup(teamId: number) {
   const tags = await prisma.assetTag.findMany({
     where: {
       teamId,
     },
-    include: {
-      parent: {
-        include: {
-          parent: true,
-        },
-      },
-    },
+    include: buildParentInclude(),
   });
   const tagLookup = new Map<
     string,
@@ -351,7 +353,7 @@ async function buildTagPathLookup(teamId: number) {
 
   for (const tag of tags) {
     const tagPath = buildTagPath(tag as AssetTagWithParents);
-    tagLookup.set(normalizeTagPathKey(tagPath.join(" > ")), {
+    tagLookup.set(normalizeBatchImportTagPath(tagPath.join(" > ")), {
       assetTagId: tag.id,
       tagPath,
     });
@@ -387,7 +389,7 @@ function resolveImportedTags({
   const selectedTagIds = new Set<number>();
 
   for (const tagPathValue of tagPathValues) {
-    const tag = tagLookup.get(normalizeTagPathKey(tagPathValue));
+    const tag = tagLookup.get(normalizeBatchImportTagPath(tagPathValue));
     if (!tag) {
       missingTagPaths.push(tagPathValue);
       continue;
@@ -490,19 +492,12 @@ async function fetchProductTags(teamId: number) {
       parentId: null,
     },
     orderBy: [{ sort: "desc" }, { name: "asc" }],
-    include: {
-      children: {
-        orderBy: [{ sort: "desc" }, { name: "asc" }],
-        include: {
-          children: {
-            orderBy: [{ sort: "desc" }, { name: "asc" }],
-          },
-        },
-      },
-    },
+    include: buildChildrenInclude(MAX_TAG_LEVEL - 1, {
+      orderBy: [{ sort: "desc" }, { name: "asc" }],
+    }),
   });
 
-  return tags.map((tag) => normalizeProductTagTreeNode(tag));
+  return (tags as AssetTagTreeNode[]).map((tag) => normalizeProductTagTreeNode(tag));
 }
 
 async function fetchProducts(teamId: number) {
@@ -555,13 +550,7 @@ async function resolveSelectedTags(teamId: number, tagIds: number[]) {
         in: uniqueTagIds,
       },
     },
-    include: {
-      parent: {
-        include: {
-          parent: true,
-        },
-      },
-    },
+    include: buildParentInclude(),
   });
 
   if (tags.length !== uniqueTagIds.length) {
@@ -824,7 +813,7 @@ async function importProductBatchRow({
       productTypeName: productType.name,
       description,
       notes,
-      status: "processing",
+      status: "pending",
       processingError: null,
       enabled,
       images: {
@@ -1192,6 +1181,97 @@ export async function refreshAssetProductImageSignedUrlAction(imageId: string): 
   });
 }
 
+async function queryProductsPage(
+  teamId: number,
+  query: LibraryListQuery,
+): Promise<LibraryListPage<ProductItem>> {
+  const { where, typeId, orderBy, skip, take } = buildLibraryListArgs(query);
+  const pageWhere = { teamId, ...where, ...(typeId ? { productTypeId: typeId } : {}) };
+  const [rows, total, usedTypes] = await Promise.all([
+    prisma.assetProduct.findMany({
+      where: pageWhere,
+      orderBy,
+      skip,
+      take,
+      include: {
+        images: {
+          orderBy: [{ sort: "asc" }, { id: "asc" }],
+        },
+        tags: {
+          orderBy: [{ sort: "asc" }, { id: "asc" }],
+        },
+      },
+    }),
+    prisma.assetProduct.count({ where: pageWhere }),
+    // 类型是否被使用要看整个库，而不是当前页。
+    prisma.assetProduct.findMany({
+      where: { teamId, productTypeId: { not: null } },
+      distinct: ["productTypeId"],
+      select: { productTypeId: true },
+    }),
+  ]);
+
+  return {
+    items: rows.map((product) => normalizeProduct(product)),
+    total,
+    usedTypeIds: usedTypes
+      .map((row) => row.productTypeId)
+      .filter((typeId): typeId is string => Boolean(typeId)),
+  };
+}
+
+/** 列表页首屏：第一页 + 类型 + 标签树。 */
+export async function fetchProductLibraryInitialData(): Promise<
+  ServerActionResult<ProductLibraryInitialData>
+> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    try {
+      const locale = await getLocale();
+      const [list, types, tags] = await Promise.all([
+        queryProductsPage(teamId, DEFAULT_LIBRARY_LIST_QUERY),
+        ensureDefaultProductTypes(teamId, locale),
+        fetchProductTags(teamId),
+      ]);
+
+      return {
+        success: true,
+        data: {
+          list,
+          productTypes: types.map(normalizeProductType),
+          tags,
+        },
+      };
+    } catch (error) {
+      console.error("Failed to fetch products library initial data:", error);
+      const t = await getTranslations("Tagging.ProductLibrary");
+      return {
+        success: false,
+        message: t("createFailed"),
+      };
+    }
+  });
+}
+
+export async function fetchProductsPageAction(
+  query: Partial<LibraryListQuery>,
+): Promise<ServerActionResult<LibraryListPage<ProductItem>>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    try {
+      return {
+        success: true,
+        data: await queryProductsPage(teamId, normalizeLibraryListQuery(query)),
+      };
+    } catch (error) {
+      console.error("Failed to fetch products page:", error);
+      const t = await getTranslations("Tagging.ProductLibrary");
+      return {
+        success: false,
+        message: t("createFailed"),
+      };
+    }
+  });
+}
+
 export async function fetchProductLibraryPageData(): Promise<
   ServerActionResult<ProductLibraryPageData>
 > {
@@ -1311,6 +1391,9 @@ export async function importProductsAction(
         };
       }
 
+      const shouldCreateMissingTags = formData.get("createMissingTags") === "true";
+      const shouldImportExistingTagsOnly = formData.get("importExistingTagsOnly") === "true";
+
       const buffer = Buffer.from(await file.arrayBuffer());
       const tableRows = parseBatchFile({
         file,
@@ -1346,7 +1429,7 @@ export async function importProductsAction(
         };
       }
 
-      const [tagLookup, existingProducts, activeProductTypes] = await Promise.all([
+      const [initialTagLookup, existingProducts, activeProductTypes] = await Promise.all([
         buildTagPathLookup(team.id),
         prisma.assetProduct.findMany({
           where: {
@@ -1358,6 +1441,35 @@ export async function importProductsAction(
         }),
         fetchActiveProductTypes(team.id),
       ]);
+      let tagLookup = initialTagLookup;
+      const missingTagPaths = findMissingBatchImportTagPaths({
+        tagPathValues: parsedRows.records.flatMap((row) => splitBatchValues(row.tagPaths)),
+        tagLookup,
+      });
+
+      if (missingTagPaths.length > 0 && !shouldCreateMissingTags && !shouldImportExistingTagsOnly) {
+        return {
+          success: true,
+          data: {
+            createdProducts: [],
+            productTypes: activeProductTypes.map(normalizeProductType),
+            missingTagPaths,
+            successCount: 0,
+            failedCount: 0,
+            skippedCount: 0,
+            failures: [],
+          },
+        };
+      }
+
+      if (missingTagPaths.length > 0 && shouldCreateMissingTags) {
+        await createMissingBatchImportTagTrees({
+          teamId: team.id,
+          tagPaths: missingTagPaths,
+        });
+        tagLookup = await buildTagPathLookup(team.id);
+      }
+
       const existingNames = new Set(existingProducts.map((product) => product.name));
       const productTypeCache = new Map(
         activeProductTypes.map(
@@ -1388,13 +1500,17 @@ export async function importProductsAction(
         }
       }
 
-      const nextProductTypes = await fetchActiveProductTypes(team.id);
+      const [nextProductTypes, tagTree] = await Promise.all([
+        fetchActiveProductTypes(team.id),
+        shouldCreateMissingTags ? fetchProductTags(team.id) : Promise.resolve(undefined),
+      ]);
 
       return {
         success: true,
         data: {
           createdProducts,
           productTypes: nextProductTypes.map(normalizeProductType),
+          tagTree,
           successCount: createdProducts.length,
           failedCount: failures.length,
           skippedCount: 0,
@@ -1444,10 +1560,7 @@ export async function prepareProductClassificationAction(input: {
         };
       }
 
-      const { signedUrl: detectionImageUrl } = getCachedSignedS3ObjectUrl({
-        objectKey: metadata.objectKey,
-        expiresInSeconds: 60 * 60,
-      });
+      const { signedUrl: detectionImageUrl } = signObjectDetectionImageUrl(metadata.objectKey);
       const { signedUrl, signedUrlExpiresAt } = getCachedBrowserS3ObjectUrl({
         objectKey: metadata.objectKey,
         expiresInSeconds: 60 * 60,
@@ -1455,7 +1568,8 @@ export async function prepareProductClassificationAction(input: {
       const imageInput = await fetchRemoteImageInput(detectionImageUrl, "product classification");
       const detection = await detectProductFigureBoxes({
         teamId,
-        imageBase64: imageInput.dataUrl,
+        imageInput,
+        requestMode: "sync",
       });
 
       return {
@@ -1521,27 +1635,13 @@ export async function classifyProductImageAction(input: {
         objectKey: metadata.objectKey,
         expiresInSeconds: 60 * 60,
       });
-      const imageInput = await fetchRemoteImageInput(signedUrl, "product classification upload");
-      const crops = await Promise.all(
-        metadata.boxes.map(async (box) => {
-          const normalizedBox = clampClassificationBox(box, imageInput);
-
-          return {
-            box: normalizedBox,
-            image: await cropClassificationImageToDataUrl({
-              imageDataUrl: imageInput.dataUrl,
-              imageBuffer: imageInput.buffer,
-              sourceMimeType: imageInput.mimeType,
-              meta: imageInput,
-              box: normalizedBox,
-            }),
-          };
-        }),
-      );
-
-      const result = await classifyProductImageCrops({
+      const imageInput = await fetchRemoteImageInput(signedUrl, "product classification upload", {
+        preserveOriginal: true,
+      });
+      const result = await classifyProductImageRegions({
         teamId,
-        crops,
+        imageInput,
+        boxes: metadata.boxes,
       });
 
       return {
@@ -1613,7 +1713,7 @@ export async function createAssetProductAction(
           productTypeName: productType.name,
           description: input.description.trim(),
           notes: input.notes,
-          status: "processing",
+          status: "pending",
           processingError: null,
           enabled: true,
           images: {
@@ -1761,7 +1861,7 @@ export async function updateAssetProductAction(
             productTypeName: productType.name,
             description: input.description.trim(),
             notes: input.notes,
-            status: "processing",
+            status: "pending",
             processingError: null,
             processedAt: null,
           },
@@ -1971,6 +2071,117 @@ export async function deleteAssetProductAction(
   });
 }
 
+// 批量操作：一次请求完成，避免客户端逐条调用 Server Action（串行排队）。
+// 副作用与单条版本一致：只处理本团队的条目，并同步 pgvector 的 payload / 删除向量点。
+const BATCH_PRODUCTS_MAX = 500;
+const BATCH_VECTOR_SYNC_CONCURRENCY = 5;
+const BATCH_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function resolveOwnedProducts(teamId: number, ids: string[]) {
+  const uniqueIds = Array.from(new Set(ids)).filter(
+    (id) => typeof id === "string" && BATCH_ID_PATTERN.test(id),
+  );
+  const owned = await prisma.assetProduct.findMany({
+    where: { teamId, id: { in: uniqueIds } },
+    select: { id: true },
+  });
+  const ownedIds = owned.map(({ id }) => id);
+  const ownedIdSet = new Set(ownedIds);
+  return {
+    ownedIds,
+    failedIds: Array.from(new Set(ids)).filter((id) => !ownedIdSet.has(id)),
+  };
+}
+
+export async function setAssetProductsEnabledAction(
+  ids: string[],
+  enabled: boolean,
+): Promise<ServerActionResult<{ products: ProductItem[]; failedIds: string[] }>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    const t = await getTranslations("Tagging.ProductLibrary");
+    if (!Array.isArray(ids) || ids.length > BATCH_PRODUCTS_MAX) {
+      return { success: false, message: t("toggleEnabledFailed") };
+    }
+    try {
+      const { ownedIds, failedIds } = await resolveOwnedProducts(teamId, ids);
+      if (ownedIds.length > 0) {
+        await prisma.assetProduct.updateMany({
+          where: { teamId, id: { in: ownedIds } },
+          data: { enabled },
+        });
+
+        const limit = pLimit(BATCH_VECTOR_SYNC_CONCURRENCY);
+        await Promise.all(
+          ownedIds.map((id) =>
+            limit(() =>
+              setProductVectorPayloadByProduct({
+                teamId,
+                assetProductId: id,
+                payload: { enabled },
+              }).catch((error) => {
+                console.warn("Failed to sync Product enabled payload to pgvector:", error);
+              }),
+            ),
+          ),
+        );
+      }
+
+      return {
+        success: true,
+        data: {
+          products: await loadProductsByIds(teamId, ownedIds),
+          failedIds,
+        },
+      };
+    } catch (error) {
+      console.error("Failed to batch toggle asset Product enabled:", error);
+      return { success: false, message: t("toggleEnabledFailed") };
+    }
+  });
+}
+
+export async function deleteAssetProductsAction(
+  ids: string[],
+): Promise<ServerActionResult<{ deletedIds: string[]; failedIds: string[] }>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    const t = await getTranslations("Tagging.ProductLibrary");
+    if (!Array.isArray(ids) || ids.length > BATCH_PRODUCTS_MAX) {
+      return { success: false, message: t("deleteFailed") };
+    }
+    try {
+      const { ownedIds, failedIds } = await resolveOwnedProducts(teamId, ids);
+      if (ownedIds.length > 0) {
+        await prisma.assetProduct.deleteMany({
+          where: { teamId, id: { in: ownedIds } },
+        });
+
+        const limit = pLimit(BATCH_VECTOR_SYNC_CONCURRENCY);
+        await Promise.all(
+          ownedIds.map((id) =>
+            limit(() =>
+              deleteProductVectorPointsByProduct({
+                teamId,
+                assetProductId: id,
+              }).catch(() => undefined),
+            ),
+          ),
+        );
+      }
+
+      return {
+        success: true,
+        data: {
+          deletedIds: ownedIds,
+          failedIds,
+        },
+      };
+    } catch (error) {
+      console.error("Failed to batch delete asset Product:", error);
+      return { success: false, message: t("deleteFailed") };
+    }
+  });
+}
+
 export async function retryAssetProductProcessingAction(
   productId: string,
 ): Promise<ServerActionResult<{ product: ProductItem }>> {
@@ -1998,7 +2209,7 @@ export async function retryAssetProductProcessingAction(
         };
       }
 
-      await markAssetProductVectorsProcessing({
+      await markAssetProductVectorsPending({
         teamId,
         productId,
         enabled: product.enabled,

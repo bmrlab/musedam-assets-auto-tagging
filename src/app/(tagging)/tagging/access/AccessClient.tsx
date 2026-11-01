@@ -15,8 +15,13 @@ import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import Image from "next/image";
-import { addAccessPermissionAction, removeAccessPermissionAction } from "./actions";
+import {
+  addAccessPermissionAction,
+  addAccessPermissionsAction,
+  removeAccessPermissionAction,
+} from "./actions";
 import { DepartmentIcon, TeamIcon } from "@/components/ui";
+import { useAutoTaggingAccess } from "@/hooks/use-auto-tagging-access";
 import { cn } from "@/lib/utils";
 
 interface AccessClientProps {
@@ -30,6 +35,7 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
   const [isSelecting, setIsSelecting] = useState(false);
   // 默认是可审核权限
   const defaultRole = "reviewer";
+  const { contentRoleCanManage } = useAutoTaggingAccess();
 
   const handleMemberSelection = async () => {
     try {
@@ -82,18 +88,19 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
       }
 
       if (allPermissions.length > 0) {
-        // 批量添加权限
-        for (const permission of allPermissions) {
-          startTransition(async () => {
-            const result = await addAccessPermissionAction(permission);
-            if (result.success) {
-              setPermissions(result.data.permissions);
-              toast.success(t("permissionAddedSuccess", { name: permission.name }));
-            } else {
-              toast.error(t("permissionAddFailed", { name: permission.name }));
-            }
-          });
-        }
+        // 批量添加权限：一次请求提交，toast 汇总成一条
+        const names = allPermissions.map((permission) => permission.name);
+        const name =
+          names.length > 3 ? `${names.slice(0, 3).join(", ")}…(${names.length})` : names.join(", ");
+        startTransition(async () => {
+          const result = await addAccessPermissionsAction(allPermissions);
+          if (result.success) {
+            setPermissions(result.data.permissions);
+            toast.success(t("permissionAddedSuccess", { name }));
+          } else {
+            toast.error(t("permissionAddFailed", { name }));
+          }
+        });
       } else {
         toast.info(t("noMembersSelected"));
       }
@@ -139,7 +146,7 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
   const getPermissionIcon = ({ slug, extra, name }: AccessPermission) => {
     const nameInAvatar = name.slice(0, 1)
     if (extra?.avatarUrl) {
-      return <img src={extra.avatarUrl} alt="avatar" width={40} height={40} className='rounded-full object-cover size-9' />
+      return <img src={extra.avatarUrl} alt="avatar" referrerPolicy="no-referrer" width={40} height={40} className='rounded-full object-cover size-9' />
     }
     return <div className="flex size-9 items-center justify-center bg-[#C5CEE0] border border-black/10 border-solid text-white rounded-full text-[14px]">
       {
@@ -208,9 +215,9 @@ export default function AccessClient({ initialPermissions }: AccessClientProps) 
                 <div className="font-medium text-sm">{t("contentAdmin")}</div>
               </div>
             </div>
-            {/*<div className="text-sm text-basic-5 w-20 text-right">可管理</div>*/}
+            {/* 内容管理员：有 dam-material-extension-ai-auto-marking 为可管理，否则可审核 */}
             <Button variant="ghost" size="sm" className="h-8 w-20" disabled={true}>
-              <span>{t("canManage")}</span>
+              <span>{contentRoleCanManage ? t("canManage") : t("canReview")}</span>
               <ChevronDown className="ml-1 h-3 w-3 opacity-0" />
             </Button>
           </div>

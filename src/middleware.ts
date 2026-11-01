@@ -1,39 +1,19 @@
 import { isValidLocale } from "@/i18n/routing";
 import {
-  FEATURE_LIBRARY_COOKIE,
-  FEATURE_LIBRARY_PARAM,
+  FEATURE_LIBRARY_TOGGLE_NAMES,
   featureLibraryEnabledToValue,
   isFeatureLibraryValue,
-  resolveFeatureLibraryEnabled,
+  resolveFeatureLibraryFeatures,
 } from "@/lib/feature-library";
-import { getRequestClientIp, getRequestOrigin } from "@/lib/request/headers";
 import { NextRequest, NextResponse } from "next/server";
+
+const PRODUCTION_ONLY_DISABLED_PATH_PREFIXES = ["/store-inspection", "/tagging/dev"];
 
 export const config = {
   matcher: [
     "/((?!api|_next/static|_next/image|_public|_pages|favicon.ico|manifest.json|sitemap.xml|robots.txt|llm.txt).*)",
   ],
 };
-
-async function handlePingRequest(req: NextRequest) {
-  const path = req.nextUrl.pathname;
-  const clientIp = await getRequestClientIp();
-  const requestOrigin = await getRequestOrigin();
-  const headers = Object.fromEntries(req.headers);
-  return new NextResponse(
-    JSON.stringify({
-      path,
-      clientIp,
-      requestOrigin,
-      headers,
-      nextUrl: req.nextUrl,
-    }),
-    {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    },
-  );
-}
 
 function handleLocale(req: NextRequest, response: NextResponse) {
   // Get the locale from cookies
@@ -65,49 +45,63 @@ function handleLocale(req: NextRequest, response: NextResponse) {
 }
 
 function handleFeatureLibrary(req: NextRequest, response: NextResponse) {
-  const featureLibraryCookie = req.cookies.get(FEATURE_LIBRARY_COOKIE);
-  const requestFeatureLibrary = req.nextUrl.searchParams.get(FEATURE_LIBRARY_PARAM);
-  const featureLibraryEnabled = resolveFeatureLibraryEnabled(
-    requestFeatureLibrary,
-    featureLibraryCookie?.value,
+  const requestValues = Object.fromEntries(
+    FEATURE_LIBRARY_TOGGLE_NAMES.map((name) => [name, req.nextUrl.searchParams.get(name)]),
   );
-  const featureLibraryValue = featureLibraryEnabledToValue(featureLibraryEnabled);
+  const cookieValues = Object.fromEntries(
+    FEATURE_LIBRARY_TOGGLE_NAMES.map((name) => [name, req.cookies.get(name)?.value]),
+  );
+  const features = resolveFeatureLibraryFeatures(requestValues, cookieValues);
 
-  response.headers.set("x-feature-library", featureLibraryValue);
+  for (const name of FEATURE_LIBRARY_TOGGLE_NAMES) {
+    response.headers.set(
+      `x-${name.replace(/([A-Z])/g, "-$1").toLowerCase()}`,
+      featureLibraryEnabledToValue(features[name]),
+    );
 
-  if (
-    isFeatureLibraryValue(requestFeatureLibrary) &&
-    featureLibraryCookie?.value !== requestFeatureLibrary
-  ) {
-    response.cookies.set(FEATURE_LIBRARY_COOKIE, requestFeatureLibrary, {
-      httpOnly: false,
-      expires: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
-      sameSite: "none",
-      secure: true,
-    });
+    const requestValue = requestValues[name];
+    if (isFeatureLibraryValue(requestValue) && cookieValues[name] !== requestValue) {
+      response.cookies.set(name, requestValue, {
+        httpOnly: false,
+        expires: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+        sameSite: "none",
+        secure: true,
+      });
+    }
   }
 
-  return featureLibraryEnabled;
+  return features;
 }
 
 export async function middleware(req: NextRequest) {
-  if (req.nextUrl.pathname.endsWith(".ping")) {
-    return await handlePingRequest(req);
+  if (
+    process.env.NODE_ENV === "production" &&
+    process.env.DEBUG_PAGE !== "true" &&
+    PRODUCTION_ONLY_DISABLED_PATH_PREFIXES.some((path) => req.nextUrl.pathname.startsWith(path))
+  ) {
+    return new NextResponse("Not Found", { status: 404 });
   }
 
-  const requestFeatureLibrary = req.nextUrl.searchParams.get(FEATURE_LIBRARY_PARAM);
-
-  const response = NextResponse.next();
+  // 整页加载（刷新、location.replace）读不到前端的 sessionStorage，所以 URL 上带 ?_t=<token>，
+  // 这里转成请求头，服务端统一从 x-auth-token 取当前 tab 的登录身份。
+  const requestHeaders = new Headers(req.headers);
+  const queryToken = req.nextUrl.searchParams.get("_t");
+  if (queryToken && !requestHeaders.has("x-auth-token")) {
+    requestHeaders.set("x-auth-token", queryToken);
+  }
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
 
   handleLocale(req, response);
   handleFeatureLibrary(req, response);
 
-  // Set security headers dynamically at runtime
-  response.headers.set("X-Frame-Options", "SAMEORIGIN");
+  // CSP frame-ancestors is the source of truth for MuseDAM's cross-origin
+  // iframe embedding. X-Frame-Options: SAMEORIGIN would block that use case.
   response.headers.set(
     "Content-Security-Policy",
     `frame-ancestors ${process.env.IFRAME_ALLOWED_ORIGINS || "'self'"}`,
   );
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
 
   return response;
 }

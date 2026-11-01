@@ -1,7 +1,12 @@
 "use client";
 
+import type {
+  FeatureThumbnailImage,
+  FeatureThumbnails,
+} from "@/app/(tagging)/tagging/review/feature-review";
 import { TagOutlinedIcon, VimIcon } from "@/components/ui";
-import { useFeatureLibraryEnabled } from "@/hooks/use-feature-library";
+import { useFeatureLibraryFeatures } from "@/hooks/use-feature-library";
+import { isVideoAssetExtension } from "@/lib/feature-library";
 import {
   getFeatureConfidenceToneClass,
   meetsFeatureConfidenceThreshold,
@@ -20,6 +25,20 @@ import { useTranslations } from "next-intl";
 import Image from "next/image";
 import type { ReactNode } from "react";
 import { FeatureThumbnail } from "./FeatureThumbnail";
+
+export interface ProductRecognitionResult {
+  noConfidentMatch: boolean;
+  productName: string | null;
+  productTypeName: string | null;
+  confidence: number | null;
+  similarity: number | null;
+  imageSimilarity: number | null;
+  descriptionSimilarity: number | null;
+  assetProductId?: string;
+  recommendedTags: {
+    tagPath: string[];
+  }[];
+}
 
 export interface TaggingResult {
   asset: {
@@ -58,19 +77,9 @@ export interface TaggingResult {
       tagPath: string[];
     }[];
   } | null;
-  productRecognition: {
-    noConfidentMatch: boolean;
-    productName: string | null;
-    productTypeName: string | null;
-    confidence: number | null;
-    similarity: number | null;
-    imageSimilarity: number | null;
-    descriptionSimilarity: number | null;
-    assetProductId?: string;
-    recommendedTags: {
-      tagPath: string[];
-    }[];
-  } | null;
+  products?: ProductRecognitionResult[];
+  /** Retained for test results saved before multiple product matches were supported. */
+  productRecognition?: ProductRecognitionResult | null;
   personRecognition: {
     noConfidentMatch: boolean;
     faceCount: number;
@@ -108,6 +117,27 @@ export interface TaggingResult {
 
 interface TaggingResultDisplayProps {
   result: TaggingResult;
+  /**
+   * 批量签好的特征首图（key 为 `type:id`）。传入时，未出现在其中的 key 视为仍在加载，
+   * 先显示占位，避免每个特征各自发请求；值为 undefined 的 key 由缩略图组件自行请求。
+   */
+  featureThumbnails?: Partial<FeatureThumbnails>;
+}
+
+/** 结果里可能展示的全部特征（`type:id`），供调用方批量签名缩略图。 */
+export function getTaggingResultFeatureKeys(result: TaggingResult): string[] {
+  const products =
+    result.products ?? (result.productRecognition ? [result.productRecognition] : []);
+  const ids: [string, string | undefined][] = [
+    ["brand", result.brandRecognition?.assetLogoId],
+    ["ip", result.ipRecognition?.assetIpId],
+    ...products.map((product): [string, string | undefined] => ["product", product.assetProductId]),
+    ...(result.personRecognition?.faces ?? []).map((face): [string, string | undefined] => [
+      "person",
+      face.assetPersonId,
+    ]),
+  ];
+  return ids.flatMap(([type, id]) => (id ? [`${type}:${id}`] : []));
 }
 
 type DisplayTag = TaggingResult["effectiveTags"][number];
@@ -123,6 +153,7 @@ interface RecognitionFeature {
   score: number;
   featureTypeId: "brand" | "ip" | "product" | "person";
   featureId: string;
+  recommendedTags?: { tagPath: string[] }[];
 }
 
 function formatFileSize(bytes: number) {
@@ -241,7 +272,16 @@ function TagResultRow({ tag, variant }: { tag: DisplayTag; variant: ResultVarian
   );
 }
 
-function FeatureResultRow({ feature }: { feature: RecognitionFeature }) {
+function FeatureResultRow({
+  feature,
+  featureThumbnails,
+}: {
+  feature: RecognitionFeature;
+  featureThumbnails?: Partial<FeatureThumbnails>;
+}) {
+  const thumbnailKey = `${feature.featureTypeId}:${feature.featureId}`;
+  const thumbnailPending = featureThumbnails !== undefined && !(thumbnailKey in featureThumbnails);
+  const initialImage: FeatureThumbnailImage | null | undefined = featureThumbnails?.[thumbnailKey];
   const t = useTranslations("TaggingResultDisplay");
   const toneClass = getFeatureConfidenceToneClass(feature.confidence);
 
@@ -249,12 +289,17 @@ function FeatureResultRow({ feature }: { feature: RecognitionFeature }) {
     <div className={cn("flex items-center justify-between gap-3 rounded-md border p-3", toneClass)}>
       <CheckIcon className="size-[14px] shrink-0 text-current" />
       <div className="relative size-12 shrink-0 overflow-hidden rounded bg-background/70">
-        <FeatureThumbnail
-          featureType={feature.featureTypeId}
-          featureId={feature.featureId}
-          alt={feature.title}
-          className="h-full w-full"
-        />
+        {thumbnailPending ? (
+          <div className="h-full w-full animate-pulse bg-basic-3/50" />
+        ) : (
+          <FeatureThumbnail
+            featureType={feature.featureTypeId}
+            featureId={feature.featureId}
+            alt={feature.title}
+            className="h-full w-full"
+            initialImage={initialImage}
+          />
+        )}
       </div>
       <div className="min-w-0 flex-1">
         <div className="mb-1 truncate text-sm font-medium text-current">{feature.title}</div>
@@ -267,6 +312,18 @@ function FeatureResultRow({ feature }: { feature: RecognitionFeature }) {
         <div className="text-xs text-current/60">
           {t("matchingSource")}: {feature.matchingSource}
         </div>
+        {feature.recommendedTags?.length ? (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {feature.recommendedTags.map((tag) => (
+              <span
+                key={tag.tagPath.join(">")}
+                className="rounded border border-current/20 bg-background/60 px-1.5 py-0.5 text-xs text-current"
+              >
+                {tag.tagPath.join(" > ")}
+              </span>
+            ))}
+          </div>
+        ) : null}
       </div>
       <div className="shrink-0 text-right">
         <div className="text-sm font-medium text-current">
@@ -280,34 +337,66 @@ function FeatureResultRow({ feature }: { feature: RecognitionFeature }) {
   );
 }
 
-export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
+export function TaggingResultDisplay({ result, featureThumbnails }: TaggingResultDisplayProps) {
   const t = useTranslations("TaggingResultDisplay");
-  const featureLibraryEnabled = useFeatureLibraryEnabled();
+  const featureLibraryFeatures = useFeatureLibraryFeatures();
+  const hasEnabledFeatures =
+    featureLibraryFeatures.featureBrand ||
+    featureLibraryFeatures.featureIp ||
+    featureLibraryFeatures.featureProduct ||
+    featureLibraryFeatures.featurePerson;
 
   const recognitionFeatures: RecognitionFeature[] = [];
+  const products =
+    result.products ?? (result.productRecognition ? [result.productRecognition] : []);
+  const hasFeatureBelowConfidenceThreshold =
+    (featureLibraryFeatures.featureBrand &&
+      result.brandRecognition?.assetLogoId &&
+      !meetsFeatureConfidenceThreshold("brand", result.brandRecognition.confidence)) ||
+    (featureLibraryFeatures.featureIp &&
+      result.ipRecognition?.assetIpId &&
+      !meetsFeatureConfidenceThreshold("ip", result.ipRecognition.confidence)) ||
+    (featureLibraryFeatures.featureProduct &&
+      products.some(
+        (product) =>
+          product.assetProductId && !meetsFeatureConfidenceThreshold("product", product.confidence),
+      )) ||
+    (featureLibraryFeatures.featurePerson &&
+      result.personRecognition?.faces.some(
+        (face) =>
+          face.assetPersonId &&
+          (face.noConfidentMatch || !meetsFeatureConfidenceThreshold("person", face.confidence)),
+      ));
 
-  if (
-    featureLibraryEnabled &&
-    result.productRecognition?.productName &&
-    result.productRecognition.assetProductId &&
-    meetsFeatureConfidenceThreshold("product", result.productRecognition.confidence)
-  ) {
-    const score = normalizeFeatureConfidence(result.productRecognition.confidence);
-    recognitionFeatures.push({
-      key: "product",
-      title: result.productRecognition.productName,
-      featureName: t("featureClassProduct"),
-      featureType: result.productRecognition.productTypeName || "-",
-      matchingSource: t("productRecognition"),
-      confidence: score,
-      score,
-      featureTypeId: "product",
-      featureId: result.productRecognition.assetProductId,
+  if (featureLibraryFeatures.featureProduct) {
+    products.forEach((product) => {
+      if (
+        product.noConfidentMatch ||
+        !product.productName ||
+        !product.assetProductId ||
+        !meetsFeatureConfidenceThreshold("product", product.confidence)
+      ) {
+        return;
+      }
+
+      const score = normalizeFeatureConfidence(product.confidence);
+      recognitionFeatures.push({
+        key: `product-${product.assetProductId}`,
+        title: product.productName,
+        featureName: t("featureClassProduct"),
+        featureType: product.productTypeName || "-",
+        matchingSource: t("productRecognition"),
+        confidence: score,
+        score,
+        featureTypeId: "product",
+        featureId: product.assetProductId,
+        recommendedTags: product.recommendedTags,
+      });
     });
   }
 
   if (
-    featureLibraryEnabled &&
+    featureLibraryFeatures.featureBrand &&
     result.brandRecognition?.logoName &&
     result.brandRecognition.assetLogoId &&
     meetsFeatureConfidenceThreshold("brand", result.brandRecognition.confidence)
@@ -327,7 +416,7 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
   }
 
   if (
-    featureLibraryEnabled &&
+    featureLibraryFeatures.featureIp &&
     result.ipRecognition?.ipName &&
     result.ipRecognition.assetIpId &&
     meetsFeatureConfidenceThreshold("ip", result.ipRecognition.confidence)
@@ -346,7 +435,7 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
     });
   }
 
-  if (featureLibraryEnabled) {
+  if (featureLibraryFeatures.featurePerson) {
     result.personRecognition?.faces.forEach((face) => {
       if (
         face.noConfidentMatch ||
@@ -375,6 +464,7 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
   recognitionFeatures.sort((left, right) => right.confidence - left.confidence);
   const visibleFeatureCount = recognitionFeatures.length;
   const tagCount = result.effectiveTags.length + result.candidateTags.length;
+  const isVideoAsset = isVideoAssetExtension(result.asset.extension);
 
   return (
     <div className="space-y-6 rounded-lg border border-basic-4 bg-background p-6">
@@ -465,7 +555,7 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
         ) : null}
       </SectionShell>
 
-      {featureLibraryEnabled ? (
+      {hasEnabledFeatures ? (
         <SectionShell
           icon={<StarIcon className="size-5" />}
           title={t("recognizedFeatures")}
@@ -474,11 +564,23 @@ export function TaggingResultDisplay({ result }: TaggingResultDisplayProps) {
           {recognitionFeatures.length > 0 ? (
             <div className="space-y-3">
               {recognitionFeatures.map((feature) => (
-                <FeatureResultRow key={feature.key} feature={feature} />
+                <FeatureResultRow
+                  key={feature.key}
+                  feature={feature}
+                  featureThumbnails={featureThumbnails}
+                />
               ))}
             </div>
           ) : (
-            <div className="text-sm text-basic-5">{t("noRecognizedFeatures")}</div>
+            <div className="text-sm text-basic-5">
+              {t(
+                isVideoAsset
+                  ? "videoFeatureLibraryLimited"
+                  : hasFeatureBelowConfidenceThreshold
+                    ? "featureConfidenceNotCredible"
+                    : "noRecognizedFeatures",
+              )}
+            </div>
           )}
         </SectionShell>
       ) : null}

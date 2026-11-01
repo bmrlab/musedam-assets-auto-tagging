@@ -1,3 +1,5 @@
+import type { LibraryListPage } from "../components/library-list-query";
+
 export type BrandLogoTypeItem = {
   id: string;
   name: string;
@@ -23,6 +25,9 @@ export type BrandLogoImageItem = {
   objectKey: string;
   signedUrl: string;
   signedUrlExpiresAt: number;
+  /** 长边 256 的缩略图（列表小图用）；缩略图还没生成时加载会失败，前端退回原图 */
+  thumbnailUrl?: string;
+  thumbnailUrlExpiresAt?: number;
   mimeType: string;
   size: number;
   sort: number;
@@ -51,6 +56,13 @@ export type BrandLibraryPageData = {
   tags: BrandTagTreeNode[];
 };
 
+/** 列表页首屏数据；list 为默认筛选下的第一页。 */
+export type BrandLibraryInitialData = {
+  list: LibraryListPage<BrandLogoItem>;
+  logoTypes: BrandLogoTypeItem[];
+  tags: BrandTagTreeNode[];
+};
+
 export type BrandLogoBatchImportFailure = {
   rowNumber: number;
   name: string | null;
@@ -60,6 +72,8 @@ export type BrandLogoBatchImportFailure = {
 export type BrandLogoBatchImportResult = {
   createdLogos: BrandLogoItem[];
   logoTypes: BrandLogoTypeItem[];
+  tagTree?: BrandTagTreeNode[];
+  missingTagPaths?: string[];
   successCount: number;
   failedCount: number;
   skippedCount: number;

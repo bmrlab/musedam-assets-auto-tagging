@@ -36,7 +36,7 @@ interface TagItemProps {
   onEdit: (nodeId: string, newName: string) => Promise<boolean>;
   onStartEdit: (nodeId: string) => void;
   onCancelEdit: (nodeId: string) => void;
-  onDelete: (nodeId: string) => void;
+  onDelete: (nodeId: string) => Promise<boolean>;
   onRestore: (nodeId: string) => void;
   getNodeId: (node: TagNode) => string;
   // 标签详情是否被编辑过
@@ -46,7 +46,6 @@ interface TagItemProps {
 
 export function TagItem({
   tag,
-  // level,
   isSelected = false,
   onSelect,
   onEdit,
@@ -63,9 +62,11 @@ export function TagItem({
   const [editValue, setEditValue] = useState(tag.name);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const nodeId = getNodeId(tag);
 
   const handleSave = async () => {
+    if (!canEdit) return;
     if (!editValue.trim()) {
       toast.error(t("tagNameRequired"));
       return;
@@ -96,16 +97,26 @@ export function TagItem({
   // };
 
   const handleDeleteClick = () => {
+    if (!canEdit) return;
+    if (isDeleting) return;
     setDropdownOpen(false);
     setDeleteDialogOpen(true);
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
+    if (!canEdit) return;
+    if (isDeleting) return;
     setDeleteDialogOpen(false);
-    onDelete(nodeId);
+    setIsDeleting(true);
+    try {
+      await onDelete(nodeId);
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const handleRename = () => {
+    if (!canEdit) return;
     setDropdownOpen(false);
     onStartEdit(nodeId);
   };
@@ -114,7 +125,7 @@ export function TagItem({
   }
 
   // 编辑状态的渲染
-  if (tag.isEditing) {
+  if (canEdit && tag.isEditing) {
     return (
       <div className="h-9 flex items-center gap-1 px-2 border rounded-md">
         <TagOutlinedIcon className="size-3" />
@@ -177,7 +188,7 @@ export function TagItem({
           </span>
 
           {/* 标签上的素材数量 */}
-          {/* {level < 3 && tag.children.length > 0 && (
+          {/* {level < MAX_TAG_LEVEL && tag.children.length > 0 && (
           <span className="text-xs text-basic-5 bg-muted px-1.5 py-0.5 rounded">
             {tag.children.filter((child) => !child.isDeleted).length}
           </span>
@@ -255,6 +266,7 @@ export function TagItem({
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={handleDeleteClick}
+                    disabled={isDeleting}
                     className="text-sm text-danger-6 focus:bg-danger-5 focus:text-white"
                   >
                     <Trash2Icon className="size-[14px] text-current" />
@@ -272,16 +284,11 @@ export function TagItem({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t("deleteConfirmTitle")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("deleteConfirmDescription", { tagName: tag.name })}
-            </AlertDialogDescription>
+            <AlertDialogDescription>{t("deleteConfirmDescription", { tagName: tag.name })}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{tRoot("cancel")}</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmDelete}
-              variant="dialogDanger"
-            >
+            <AlertDialogAction onClick={handleConfirmDelete} variant="dialogDanger">
               {t("confirmDelete")}
             </AlertDialogAction>
           </AlertDialogFooter>

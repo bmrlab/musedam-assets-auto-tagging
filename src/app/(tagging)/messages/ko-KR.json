@@ -65,6 +65,7 @@
       "weeklyTagging": "이번 주 태깅",
       "emptyTagErrorMsg": "태그 체계가 없습니다. 먼저 태그 체계를 생성해 주세요~",
       "noAppropriateTagErrorMsg": "현재 태그 체계에 적합한 태그가 없습니다",
+      "noMatchingSourceErrorMsg": "실패: 태깅 설정에서 활성화된 매칭 소스가 없습니다",
       "dayNames": {
         "0": "일요일",
         "1": "월요일",
@@ -87,7 +88,9 @@
         "9": "10월",
         "10": "11월",
         "11": "12월"
-      }
+      },
+      "filterFailed": "실패",
+      "searchPlaceholder": "자산 이름으로 검색"
     },
     "Review": {
       "add": "추가",
@@ -100,12 +103,21 @@
       "allStatuses": "전체 상태",
       "allTime": "전체 시간",
       "applyFailed": "응용 실패",
+      "featureReviewChanged": "특징 정보 또는 관련 태그가 변경되었습니다. 새로고침된 결과를 확인하고 추가를 다시 클릭하세요.",
       "applySuccess": "응용 프로그램 성공",
       "approved": "채택됨",
       "assetDeleted": "素材이 삭제되었습니다",
       "balanced": "균형 (60-79%)",
       "basedOnTagSystem": "태그 체계 기반 매칭",
       "basedOnFeatureLibrary": "특징 라이브러리 기반 매칭",
+      "addFeatureManually": "특징 수동 추가",
+      "addFeatureTitle": "특징 추가",
+      "addFeatureAllTypes": "전체",
+      "addFeatureSearchPlaceholder": "특징 이름 검색",
+      "addFeatureNoResults": "라이브러리에 일치하는 특징이 없습니다",
+      "addFeatureAlreadyAdded": "추가됨",
+      "addFeatureConfirm": "추가 ({count})",
+      "manuallyAdded": "수동 추가",
       "batchApproveFailed": "素材 태그에 일괄 추가 실패했습니다",
       "batchApprovePartialSuccess": "일부가 추가되었습니다. 그 중 {successCount}개가 성공했습니다.",
       "batchApproveSuccess": "素材 태그에 일괄 추가되었습니다",
@@ -121,6 +133,12 @@
       "itemsPerPage": "{count}개/페이지",
       "itemsUnit": "항목",
       "latest": "최신",
+      "requiredFallbackBadge": "필수 대체",
+      "aspectRatioBadge": "크기 기준",
+      "sizeAIBadge": "AI 크기 기준",
+      "appliedBadge": "적용됨",
+      "showHistory": "이력 보기 ({count})",
+      "hideHistory": "이력 숨기기",
       "loading": "로딩 중...",
       "noAssetsToReview": "검토 대상 자료가 없습니다",
       "noCorrespondingTag": "해당 태그를 찾을 수 없습니다",
@@ -163,7 +181,10 @@
         "precise": "정확 모드",
         "preciseDesc": "정확성을 우선으로 하며, 태깅 요구가 엄격한场景에 적합합니다",
         "recommended": "추천",
-        "title": "AI 인식 설정"
+        "title": "AI 인식 설정",
+        "confidenceHigh": "높은 신뢰도",
+        "confidenceMedium": "중간 신뢰도",
+        "confidenceLow": "낮은 신뢰도"
       },
       "AdvancedSettings": {
         "title": "고급 설정"
@@ -212,6 +233,8 @@
         "aiGeneratedDesc": "AI가 파일 내용을 분석하여 지능적으로 식별합니다",
         "assetNameMatching": "素材명칭 일치",
         "assetNameMatchingDesc": "파일 이름의 키워드를 분석하여 매칭합니다",
+        "weight": "가중치",
+        "weightHint": "기본 가중치는 1이며 {min} - {max} 범위로 설정할 수 있습니다. 가중치가 높을수록 해당 소스에서 일치한 태그의 점수가 높아져 채택되기 쉬워집니다.",
         "customKeywords": "사용자 정의 키워드",
         "customKeywordsDesc": "사용자 정의 키워드 라이브러리에서 매칭",
         "desc": "태그 매칭 출처 선택",
@@ -242,6 +265,7 @@
       "newApplicationScope": "새로운 애플리케이션 범위 상태:",
       "saveSettings": "설정 저장",
       "saveSettingsFailed": "설정 저장에 실패했습니다",
+      "atLeastOneSourceRequired": "최소 하나의 매칭 소스를 활성화해야 합니다",
       "saving": "저장 중...",
       "selectFoldersFailed": "폴더 선택 실패",
       "selectedFoldersCount": "선택한 폴더 수:",
@@ -289,6 +313,7 @@
       "itemsSelected": "선택됨",
       "itemsTotal": "전체",
       "itemsCount": "개",
+      "clearSelection": "선택 해제",
       "enable": "활성화",
       "disable": "비활성화",
       "delete": "삭제",
@@ -357,7 +382,7 @@
       "confirmDialog": {
         "title": "작업 확인",
         "deleteDescription": "\"{name}\"을(를) 삭제하시겠습니까? 이 작업은 취소할 수 없으며 연결된 태그는 자동으로 제거되지 않습니다.",
-        "disableDescription": "\"{name}\"을(를) 비활성화하시겠습니까? 비활성화 후 새로 업로드된 자산은 이 항목을 자동으로 인식하지 않고 연결된 태그를 적용하지 않습니다. 이미 태그가 지정된 자산은 영향을 받지 않습니다.",
+        "disableDescription": "\"{name}\"을(를) 비활성화하시겠습니까? 비활성화 후 새로 업로드된 자산은 이 항목을 자동으로 인식하지 않고 연결된 태그를 적용하지 않습니다.",
         "confirmDelete": "삭제 확인",
         "confirmDisable": "비활성화 확인",
         "cancel": "취소"
@@ -368,7 +393,7 @@
         "enableTitle": "작업 확인",
         "enableDescription": "선택한 {count}개 항목을 활성화하시겠습니까? 활성화되면 AI 자동 인식 및 태깅에 참여합니다.",
         "disableTitle": "작업 확인",
-        "disableDescription": "선택한 {count}개 항목을 비활성화하시겠습니까? 비활성화 후 새로 업로드된 자산은 이러한 항목을 자동으로 인식하지 않고 연결된 태그를 적용하지 않습니다. 이미 태그가 지정된 자산은 영향을 받지 않습니다.",
+        "disableDescription": "선택한 {count}개 항목을 비활성화하시겠습니까? 비활성화 후 새로 업로드된 자산은 이러한 항목을 자동으로 인식하지 않고 연결된 태그를 적용하지 않습니다.",
         "confirmEnable": "활성화 확인",
         "confirmDisable": "비활성화 확인",
         "cancel": "취소"
@@ -558,7 +583,32 @@
       "preciseMode": "정확 모드",
       "processingStatus": "처리 상태",
       "processingTasks": "{count}개의 태깅 작업을 처리 중입니다",
-      "taggingCompleted": "태깅 완료! 성공 {successCount}개, 실패 {failedCount}개"
+      "taggingCompleted": "태깅 완료! 성공 {successCount}개, 실패 {failedCount}개",
+      "progressCount": "완료 {done}/{total}",
+      "queueWaitEstimate": "예상 대기 시간: 약 {duration}",
+      "elapsed": "경과 시간: {duration}",
+      "queueAhead": "대기 중, 앞에 {count}개 작업이 있습니다",
+      "processingFor": "처리 중 ({duration} 경과)",
+      "durationMinutes": "{minutes}분 {seconds}초",
+      "durationSeconds": "{seconds}초",
+      "pollingErrorStopped": "처리 상태를 가져오지 못했습니다({message}). 자동 새로고침을 중지했습니다.",
+      "pollingTimeout": "작업이 오랫동안 완료되지 않아 자동 새로고침을 중지했습니다. 잠시 후 다시 확인하거나 관리자에게 문의하세요.",
+      "retryPolling": "상태 다시 확인",
+      "workerIdleWarning": "대기열이 비어 있는데도 작업이 오랫동안 대기 중입니다. 백그라운드 태깅 서비스가 실행되지 않았을 수 있으니 관리자에게 문의하세요.",
+      "failedResultsTitle": "실패한 자산({count})",
+      "status": {
+        "pending": "대기 중",
+        "processing": "처리 중",
+        "completed": "완료",
+        "failed": "실패"
+      },
+      "errorReason": {
+        "NO_VALID_TAGS": "유효한 태그를 찾지 못했습니다(자산 정보가 부족하거나 태그 체계에 적합한 태그가 없음)",
+        "NO_TAG_TREE": "태그 체계가 비어 있습니다. 먼저 태그를 생성하세요.",
+        "NO_MATCHING_SOURCES_ENABLED": "활성화된 매칭 전략이 없습니다",
+        "PROCESSING_STALE_TIMEOUT": "처리 시간이 초과되어 자동으로 실패로 표시되었습니다",
+        "UNKNOWN": "백엔드 처리 오류입니다. 서비스 로그를 확인하세요."
+      }
     },
     "BrandClassify": {
       "backToLibrary": "브랜드 라이브러리로 돌아가기",
@@ -638,6 +688,7 @@
       "itemsSelected": "선택됨",
       "itemsTotal": "전체",
       "itemsCount": "개",
+      "clearSelection": "선택 해제",
       "enable": "활성화",
       "disable": "비활성화",
       "delete": "삭제",
@@ -745,7 +796,7 @@
       "confirmDialog": {
         "title": "작업 확인",
         "deleteDescription": "\"{name}\"을(를) 삭제하시겠습니까? 이 작업은 취소할 수 없으며 연결된 태그는 자동으로 제거되지 않습니다.",
-        "disableDescription": "\"{name}\"을(를) 비활성화하시겠습니까? 비활성화 후 새로 업로드된 자산은 이 항목을 자동으로 인식하지 않고 연결된 태그를 적용하지 않습니다. 이미 태그가 지정된 자산은 영향을 받지 않습니다.",
+        "disableDescription": "\"{name}\"을(를) 비활성화하시겠습니까? 비활성화 후 새로 업로드된 자산은 이 항목을 자동으로 인식하지 않고 연결된 태그를 적용하지 않습니다.",
         "confirmDelete": "삭제 확인",
         "confirmDisable": "비활성화 확인",
         "cancel": "취소"
@@ -756,7 +807,7 @@
         "enableTitle": "작업 확인",
         "enableDescription": "선택한 {count}개 항목을 활성화하시겠습니까? 활성화되면 AI 자동 인식 및 태깅에 참여합니다.",
         "disableTitle": "작업 확인",
-        "disableDescription": "선택한 {count}개 항목을 비활성화하시겠습니까? 비활성화 후 새로 업로드된 자산은 이러한 항목을 자동으로 인식하지 않고 연결된 태그를 적용하지 않습니다. 이미 태그가 지정된 자산은 영향을 받지 않습니다.",
+        "disableDescription": "선택한 {count}개 항목을 비활성화하시겠습니까? 비활성화 후 새로 업로드된 자산은 이러한 항목을 자동으로 인식하지 않고 연결된 태그를 적용하지 않습니다.",
         "confirmEnable": "활성화 확인",
         "confirmDisable": "비활성화 확인",
         "cancel": "취소"
@@ -925,6 +976,7 @@
       "itemsSelected": "선택됨",
       "itemsTotal": "전체",
       "itemsCount": "항목",
+      "clearSelection": "선택 해제",
       "enable": "활성화",
       "disable": "비활성화",
       "delete": "삭제",
@@ -992,7 +1044,7 @@
       "confirmDialog": {
         "title": "작업 알림",
         "deleteDescription": "「{name}」을(를) 삭제하시겠습니까? 삭제 후에는 복구할 수 없으며, 이미 적용된 연결된 태그는 자동으로 제거되지 않습니다.",
-        "disableDescription": "「{name}」을(를) 비활성화하시겠습니까? 비활성화 후에는 새로 업로드된 콘텐츠에서 해당 인물이 자동으로 인식되지 않으며 연결된 태그가 적용되지 않습니다. 이미 완료된 태깅 결과는 영향을 받지 않습니다.",
+        "disableDescription": "「{name}」을(를) 비활성화하시겠습니까? 비활성화 후에는 새로 업로드된 콘텐츠에서 해당 인물이 자동으로 인식되지 않으며 연결된 태그가 적용되지 않습니다.",
         "confirmDelete": "삭제 확인",
         "confirmDisable": "비활성화 확인",
         "cancel": "취소"
@@ -1003,7 +1055,7 @@
         "enableTitle": "작업 알림",
         "enableDescription": "선택한 {count}개 항목을 활성화하시겠습니까? 활성화 후 AI 자동 인식 및 태깅에 참여합니다",
         "disableTitle": "작업 알림",
-        "disableDescription": "선택한 {count}개 항목을 비활성화하시겠습니까? 비활성화 후에는 새로 업로드된 콘텐츠에서 해당 인물이 자동으로 인식되지 않으며, 이미 완료된 태깅 결과는 영향을 받지 않습니다.",
+        "disableDescription": "선택한 {count}개 항목을 비활성화하시겠습니까? 비활성화 후에는 새로 업로드된 콘텐츠에서 해당 인물이 자동으로 인식되지 않습니다.",
         "confirmEnable": "활성화 확인",
         "confirmDisable": "비활성화 확인",
         "cancel": "취소"
@@ -1177,6 +1229,7 @@
       "itemsSelected": "선택됨",
       "itemsTotal": "전체",
       "itemsCount": "항목",
+      "clearSelection": "선택 해제",
       "enable": "활성화",
       "disable": "비활성화",
       "delete": "삭제",
@@ -1228,7 +1281,7 @@
         "uploadLocal": "로컬 업로드",
         "uploadFromLibrary": "라이브러리에서 선택",
         "uploadHintTitle": "사진 요구사항: ",
-        "uploadHint": "정면, 측면, 후면 등 다양한 각도를 포함한 3-5장의 상품 이미지를 업로드하는 것이 좋습니다. 선명한 화질과 일관된 촬영 스타일을 유지하세요. 단색 배경의 표준 상품 이미지와 실제 사용 장면 이미지를 모두 포함하여 AI 인식 정확도를 높이세요.",
+        "uploadHint": "정면, 측면, 후면 등 다양한 각도를 포함한 3-5장의 상품 이미지를 업로드하는 것이 좋습니다. 선명한 화질과 일관된 촬영 스타일을 유지하세요. 단색 배경의 표준 상품 이미지를 포함하여 AI 인식 정확도를 높이세요.",
         "linkedTagsLabel": "연결된 태그",
         "linkedTagsHint": "식별이 일치하면 이러한 태그가 자동으로 적용됩니다",
         "manageTags": "태그 체계 관리",
@@ -1248,7 +1301,7 @@
       "confirmDialog": {
         "title": "작업 알림",
         "deleteDescription": "「{name}」을(를) 삭제하시겠습니까? 삭제 후에는 복구할 수 없으며, 이미 적용된 연결된 태그는 자동으로 제거되지 않습니다.",
-        "disableDescription": "「{name}」을(를) 비활성화하시겠습니까? 비활성화 후에는 새로 업로드된 콘텐츠에서 해당 상품이 자동으로 인식되지 않으며 연결된 태그가 적용되지 않습니다. 이미 완료된 태깅 결과는 영향을 받지 않습니다.",
+        "disableDescription": "「{name}」을(를) 비활성화하시겠습니까? 비활성화 후에는 새로 업로드된 콘텐츠에서 해당 상품이 자동으로 인식되지 않으며 연결된 태그가 적용되지 않습니다.",
         "confirmDelete": "삭제 확인",
         "confirmDisable": "비활성화 확인",
         "cancel": "취소"
@@ -1259,7 +1312,7 @@
         "enableTitle": "작업 알림",
         "enableDescription": "선택한 {count}개 항목을 활성화하시겠습니까? 활성화 후 AI 자동 인식 및 태깅에 참여합니다",
         "disableTitle": "작업 알림",
-        "disableDescription": "선택한 {count}개 항목을 비활성화하시겠습니까? 비활성화 후에는 새로 업로드된 콘텐츠에서 해당 상품이 자동으로 인식되지 않으며, 이미 완료된 태깅 결과는 영향을 받지 않습니다.",
+        "disableDescription": "선택한 {count}개 항목을 비활성화하시겠습니까? 비활성화 후에는 새로 업로드된 콘텐츠에서 해당 상품이 자동으로 인식되지 않습니다.",
         "confirmEnable": "활성화 확인",
         "confirmDisable": "비활성화 확인",
         "cancel": "취소"
@@ -1346,20 +1399,20 @@
     "ProductClassify": {
       "backToLibrary": "상품 라이브러리로 돌아가기",
       "pageTitle": "상품 분류 개발 페이지",
-      "pageDescription": "이미지를 업로드하면 시스템이 먼저 현재 활성화된 상품의 일반 카테고리를 사용하여 후보 상품 영역을 감지한 다음, 멀티모달 임베딩을 사용하여 상품 이미지 및 설명 벡터를 검색하고, 크롭 및 모달리티별로 집계하여 최종 결과를 제공합니다.",
+      "pageDescription": "중복 감지를 제품 영역으로 그룹화합니다. 각 영역을 개별적으로 분류하고 신뢰도가 80% 이상인 모든 서로 다른 제품을 반환합니다.",
       "availableProducts": "사용 가능한 참조 상품",
       "statsDescription": "활성화되었고 완료된 벡터 처리 데이터만 집계됩니다",
       "uploadImageFirst": "먼저 분류할 이미지를 업로드해 주세요",
       "noReferenceProducts": "현재 사용 가능한 완료된 상품 참조 벡터가 없습니다",
       "classifying": "분류 중",
       "classifyButton": "상품 분류",
-      "uploadHint": "이미지를 업로드하면 여기에 감지 상자와 최종 일치하는 상품이 표시됩니다.",
+      "uploadHint": "이미지를 업로드하면 감지 상자와 일치하는 모든 상품이 표시됩니다.",
       "imageToClassify": "분류할 이미지",
-      "finalResult": "최종 결과",
-      "resultHint": "결과 영역에는 우승 감지 상자, 최종 상품 이름, 상위 3개 유사 결과가 표시됩니다.",
+      "finalResult": "일치하는 상품",
+      "resultHint": "결과에는 일치하는 모든 제품과 각 제품 영역의 상위 3개 후보가 표시됩니다.",
       "noConfidentMatch": "신뢰할 수 있는 상품 일치 없음",
-      "noConfidentMatchDesc": "현재 최고 후보가 충분히 안정적이지 않아 신뢰할 수 있는 일치가 없는 것으로 판단되었습니다.",
-      "winningProduct": "우승 상품",
+      "noConfidentMatchDesc": "신뢰도 80% 이상으로 일치하는 제품 영역이 없습니다.",
+      "winningProduct": "일치하는 상품",
       "type": "유형",
       "similarity": "유사도",
       "confidence": "신뢰도",
@@ -1384,7 +1437,12 @@
         "canvasNotSupported": "브라우저가 Canvas 크롭을 지원하지 않습니다"
       },
       "fallbackBox": "전체 이미지 대체",
-      "coordinateTo": "~"
+      "coordinateTo": "~",
+      "productRegions": "제품 영역",
+      "region": "영역",
+      "rawDetectionBoxes": "원본 감지 상자",
+      "showRawDetections": "원본 상자 표시",
+      "showProductRegions": "제품 영역 표시"
     },
     "BatchImportExport": {
       "title": "일괄 가져오기/보내기",
@@ -1394,6 +1452,11 @@
       "tabExport": "보내기",
       "cancel": "취소",
       "confirm": "확인",
+      "missingTagsConfirmTitle": "누락된 태그를 생성하시겠습니까?",
+      "missingTagsConfirmDescription": "가져오기 파일이 존재하지 않는 태그 경로를 참조하고 있습니다. 해당 태그 트리를 생성하고 가져오기를 계속하시겠습니까?",
+      "missingTagsListLabel": "누락된 태그 경로",
+      "createTagsAndImport": "생성 후 가져오기",
+      "importExistingTagsOnly": "기존 태그가 있는 행만 가져오기",
       "unsupportedFileType": "Excel (.xlsx) 또는 CSV (.csv) 파일만 지원합니다",
       "selectFileFirst": "먼저 파일을 선택하세요",
       "selectImportFile": "먼저 Excel (.xlsx) 또는 CSV (.csv) 파일을 선택하세요",
@@ -1450,7 +1513,18 @@
       },
       "formatExcel": "Excel",
       "formatCsv": "CSV",
-      "spreadsheetBadge": "XLS"
+      "spreadsheetBadge": "XLS",
+      "precheckTitle": "가져오기 전 검사",
+      "precheckHint": "가져오기 전에 다음 내용을 확인하세요",
+      "precheckSummary": "태그 {create}개 생성, {update}개 업데이트, {unchanged}개 변경 없음",
+      "precheckRenameNotice": "그중 {count}개 태그의 이름이 변경되어 MuseDAM에 동기화됩니다",
+      "precheckIssuesLabel": "다음 {count}개 행에 문제가 있으며, 계속하면 건너뜁니다:",
+      "precheckCreateLabel": "생성될 태그 {count}개:",
+      "precheckMoreItems": "…총 {count}개 항목",
+      "backToEdit": "수정하러 돌아가기",
+      "continueImport": "가져오기 계속",
+      "continueImportSkipIssues": "문제 행 건너뛰고 계속",
+      "importSuccessWithSkipped": "{count}개 행을 가져오고 문제가 있는 {skipped}개 행을 건너뛰었습니다"
     }
   }
 }

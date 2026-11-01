@@ -1,12 +1,16 @@
 import z from "zod";
 
+import { MAX_TAG_LEVEL } from "@/lib/tagging/tag-level";
+
 export const tagPredictionSchema = z.object({
   source: z.enum(["basicInfo", "materializedPath", "contentAnalysis", "tagKeywords"]),
   tags: z.array(
     z.object({
       confidence: z.number().min(0).max(1),
       leafTagId: z.number(),
-      tagPath: z.array(z.string()).min(1).max(3),
+      tagPath: z.array(z.string()).min(1).max(MAX_TAG_LEVEL),
+      /** 从对应信息源原文里原样摘录的、支撑本条预测的最短片段；字面型标签必填，语义推断时可省略 */
+      evidence: z.string().optional(),
     }),
   ),
 });
@@ -37,7 +41,16 @@ export type TagWithScore = {
   tagPath: string[];
   confidenceBySources: Partial<Record<z.Infer<typeof tagPredictionSchema.shape.source>, number>>;
   score: number;
+  /**
+   * 非常规来源标记（常规 AI 预测不带此字段）：
+   * - requiredFallback：所属分类标记为"必打"，模型证据不足，由代码兜底选出；
+   * - aspectRatio：按素材真实宽高确定性计算出的画幅比例标签，不经过模型；
+   * - sizeAI：画幅组里系统解析不了的规格（如"长1600、宽度自适应"），由模型按真实像素尺寸判断。
+   */
+  origin?: TagWithScoreOrigin;
 };
+
+export type TagWithScoreOrigin = "requiredFallback" | "aspectRatio" | "sizeAI";
 
 /**
  * Team Tagging Settings
@@ -53,6 +66,16 @@ export const taggingSettingsSchema = z.object({
     materializedPath: z.boolean(),
     contentAnalysis: z.boolean(),
     tagKeywords: z.boolean(),
+  }),
+  /**
+   * 各匹配来源的权重倍数，1 为系统默认；越大该来源命中的标签得分越高。
+   * 计分时作用于 SCORING_WEIGHTS 指数：confidence ^ (SCORING_WEIGHTS[source] / weight)。
+   */
+  sourceWeights: z.object({
+    basicInfo: z.number().min(0.1).max(5),
+    materializedPath: z.number().min(0.1).max(5),
+    contentAnalysis: z.number().min(0.1).max(5),
+    tagKeywords: z.number().min(0.1).max(5),
   }),
   triggerTiming: z.object({
     autoRealtimeTagging: z.boolean(),
@@ -72,12 +95,18 @@ export const taggingSettingsSchema = z.object({
 
 export type TaggingSettingsData = z.infer<typeof taggingSettingsSchema>;
 
+export type SourceWeights = TaggingSettingsData["sourceWeights"];
+
+export const SOURCE_WEIGHT_MIN = 0.1;
+export const SOURCE_WEIGHT_MAX = 5;
+
 // 配置项的 key 定义
 export const TAGGING_CONFIG_KEYS = {
   IS_TAGGING_ENABLED: "isTaggingEnabled",
   TAGGING_MODE: "taggingMode",
   RECOGNITION_ACCURACY: "recognitionAccuracy",
   MATCHING_SOURCES: "matchingSources",
+  SOURCE_WEIGHTS: "sourceWeights",
   TRIGGER_TIMING: "triggerTiming",
   APPLICATION_SCOPE: "applicationScope",
   ACCESS_PERMISSIONS: "accessPermissions",
@@ -93,6 +122,12 @@ export const DEFAULT_TAGGING_SETTINGS: TaggingSettingsData = {
     materializedPath: true,
     contentAnalysis: true,
     tagKeywords: true,
+  },
+  sourceWeights: {
+    basicInfo: 1,
+    materializedPath: 1,
+    contentAnalysis: 1,
+    tagKeywords: 1,
   },
   triggerTiming: {
     autoRealtimeTagging: true,

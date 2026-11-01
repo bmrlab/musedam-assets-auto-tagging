@@ -2,6 +2,12 @@ import "server-only";
 
 import { isTagTreeJob, processTagTreeQueueItem } from "@/app/tags/tagTreeQueue";
 import { classifyAssetBrandRecommendation } from "@/lib/brand/tagging-brand-classification";
+import {
+  FeatureClassificationFlags,
+  isFeatureLibrarySupportedAsset,
+  isVideoAssetExtension,
+  resolveFeatureClassificationFlags,
+} from "@/lib/feature-library";
 import { classifyAssetIpRecommendation } from "@/lib/ip/tagging-ip-classification";
 import { rootLogger } from "@/lib/logging";
 import {
@@ -15,9 +21,18 @@ import {
   classifyAssetPersonRecommendation,
   detectAssetPersonFaces,
 } from "@/lib/person/tagging-person-classification";
+import { getAcceptedProductMatches } from "@/lib/product/product-match-policy";
 import { classifyAssetProductRecommendation } from "@/lib/product/tagging-product-classification";
 import { idToSlug, slugToId } from "@/lib/slug";
-import { fetchRemoteImageInput } from "@/lib/tagging/classification-image";
+import {
+  fetchRemoteImageSource,
+  isImageTooLargeError,
+  prepareImageInput,
+  preparePersonImageInput,
+  readRemoteImageDimensions,
+  type RemoteImageSource,
+} from "@/lib/tagging/classification-image";
+import { buildParentSelect, buildTagNamePath, TagWithParentChain } from "@/lib/tagging/tag-level";
 import { retrieveTeamCredentials } from "@/musedam/apiKey";
 import { bindFeatureIdentifiersToMuseDAMMaterial, setAssetTagsToMuseDAM } from "@/musedam/assets";
 import { collectMuseFeatureIdentifierIdsForQueueItem } from "@/musedam/collect-muse-feature-identifier-ids";
@@ -37,19 +52,35 @@ import {
   TaggingQueueItem,
   TaggingQueueItemExtra,
   TaggingQueueItemResult,
+  TagWithChildren,
 } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 import pLimit from "p-limit";
+import { detectAspectRatioGroups, mergeAiSizeTags, resolveAspectRatioTags } from "./aspect-ratio";
+import { getBrandRecommendationTagIdsFromQueueResult } from "./brand-recommendation";
+import { fetchTagsTreeForTagging } from "./evidence-policy-server";
+import {
+  collectFeatureTagCandidates,
+  fillRequiredGroupsFromFeatures,
+  resolveExclusiveSiblingsAcrossSources,
+} from "./exclusive-siblings";
+import { getIpRecommendationTagIdsFromQueueResult } from "./ip-recommendation";
 import {
   getAcceptedPersonRecommendationTagIds,
   getReviewablePersonRecommendationTagIds,
 } from "./person-recommendation";
-import { predictAssetTags } from "./predict";
+import { predictAssetTags, predictUnparsedSizeTags } from "./predict";
+import { getProductRecommendationTagIdsFromQueueResult } from "./product-recommendation";
+import { RECOGNITION_ACCURACY_CONFIG } from "./prompt";
 import {
+  ASSET_TAGGING_CONCURRENCY,
   PROCESSING_TIMING_VERSION,
   TAG_TREE_RESERVED_CONCURRENCY,
+  TEST_TAGGING_CONCURRENCY,
   TOTAL_QUEUE_CONCURRENCY,
 } from "./queue-config";
+import { QUEUE_PAUSED_BY_ENV, USE_QUEUE_WORKER_PROCESS } from "./queue-role";
+import { pickPendingQueueItems } from "./queue-schedule";
 import { getTaggingSettings } from "./tagging/settings/lib";
 import { SourceBasedTagPredictions, TagWithScore } from "./types";
 
@@ -67,30 +98,21 @@ async function buildAssetObjectTags(
   musedamTags: { id: MuseDAMID; name: string }[],
 ): Promise<AssetObjectTags> {
   const tagSlugs = musedamTags.map(({ id: musedamTagId }) => idToSlug("assetTag", musedamTagId));
-  const fields = { id: true, slug: true, name: true };
+  const fields = { id: true, slug: true, name: true } as const;
   const assetTags = await prisma.assetTag.findMany({
     where: {
       slug: { in: tagSlugs },
     },
-    select: {
-      ...fields,
-      parent: {
-        select: {
-          ...fields,
-          parent: {
-            select: { ...fields },
-          },
-        },
-      },
-    },
+    // 向上取完整祖先链（MAX_TAG_LEVEL - 1 层）以拼出完整 tagPath；动态深度无法推导类型，按 fields 声明
+    select: { ...fields, ...buildParentSelect(fields) } as typeof fields,
   });
-  return assetTags.map((tag) => ({
-    tagId: tag.id,
-    tagSlug: tag.slug!, // 因为有 where { slug }，这里不可能为空
-    tagPath: [tag.parent?.parent?.name, tag.parent?.name, tag.name].filter(
-      (item) => item !== undefined,
-    ),
-  }));
+  return (assetTags as TagWithParentChain<{ id: number; slug: string | null; name: string }>[]).map(
+    (tag) => ({
+      tagId: tag.id,
+      tagSlug: tag.slug!, // 因为有 where { slug }，这里不可能为空
+      tagPath: buildTagNamePath(tag),
+    }),
+  );
 }
 
 function hasBrandRecommendedTags(
@@ -118,8 +140,7 @@ function hasProductRecommendedTags(
 ): productRecommendation is TaggingProductRecommendation {
   return Boolean(
     productRecommendation &&
-      Array.isArray(productRecommendation.recommendedTags) &&
-      productRecommendation.recommendedTags.length > 0,
+      getProductRecommendationTagIdsFromQueueResult({ productRecommendation }).length > 0,
   );
 }
 
@@ -147,6 +168,7 @@ export async function enqueueTaggingTask({
   matchingSources,
   recognitionAccuracy,
   featureClassify = true,
+  featureClassifications,
   taskType = "default",
 }: {
   assetObject: AssetObject;
@@ -158,9 +180,14 @@ export async function enqueueTaggingTask({
   };
   recognitionAccuracy?: "precise" | "balanced" | "broad";
   featureClassify?: boolean;
+  featureClassifications?: Partial<FeatureClassificationFlags>;
   taskType?: "default" | "test" | "manual" | "scheduled";
 }): Promise<TaggingQueueItem> {
   const teamId = assetObject.teamId;
+  const classifications = resolveFeatureClassificationFlags(
+    featureClassify,
+    featureClassifications,
+  );
 
   const taggingQueueItem = await prisma.taggingQueueItem.create({
     data: {
@@ -172,18 +199,53 @@ export async function enqueueTaggingTask({
         matchingSources,
         recognitionAccuracy,
         featureClassify,
+        featureBrand: classifications.brand,
+        featureProduct: classifications.product,
+        featurePerson: classifications.person,
+        featureIp: classifications.ip,
       } as TaggingQueueItemExtra,
     },
   });
 
+  // 入队后立即触发一次队列处理，不必等外部调度器的下一轮 tick（线上 15s）。
+  kickQueueProcessing();
+
   return taggingQueueItem;
+}
+
+// 入队触发的节流闸：同一进程内 2 秒内的多次 kick 合并为一次（尾沿触发），
+// 批量入队几百条也只会按每 2 秒一次的节奏触发处理，而不是每条触发一次。
+// 不按"上一轮跑完"来合并，因为一轮会等所有领取到的任务处理完（可能几分钟），
+// 期间新入队的任务不该被卡住。多轮重叠是安全的：任务领取靠数据库条件更新
+// （pending -> processing），并发上限由进程级 queueConcurrencyLimit 兜底。
+// 本进程不处理打标队列、不跑特征向量补算（任务留在 pending 不丢）的两种情况：
+// QUEUE_PAUSED=true 紧急暂停；或者队列已交给 worker 子进程（见 queue-role.ts）。
+export const IS_QUEUE_PAUSED = QUEUE_PAUSED_BY_ENV || USE_QUEUE_WORKER_PROCESS;
+
+const KICK_THROTTLE_MS = 2000;
+let lastKickAt = 0;
+let pendingKick: ReturnType<typeof setTimeout> | null = null;
+
+export function kickQueueProcessing(): void {
+  if (IS_QUEUE_PAUSED || pendingKick) return;
+  const delay = Math.max(0, lastKickAt + KICK_THROTTLE_MS - Date.now());
+  pendingKick = setTimeout(() => {
+    pendingKick = null;
+    lastKickAt = Date.now();
+    processPendingQueueItems().catch((error) => {
+      rootLogger.error({ msg: "kickQueueProcessing failed", err: error });
+    });
+  }, delay);
 }
 
 export async function processQueueItem({
   assetObject,
+  tagsTreeLoader,
   ...queueItem
 }: TaggingQueueItem & {
   assetObject: AssetObject | null;
+  /** 同一批次内按团队复用标签树；未传时每次预测各自查库。 */
+  tagsTreeLoader?: TagsTreeLoader;
 }): Promise<void> {
   const logger = rootLogger.child({
     teamId: queueItem.teamId,
@@ -196,22 +258,57 @@ export async function processQueueItem({
   }
 
   logger.info("processQueueItem started");
+  // 每个并行步骤结束时记一条（距任务开始的耗时）：任务卡住时，没出现"finished"的那一步就是卡住的地方
+  const taskStartedAt = Date.now();
+  const logStepFinished = <T>(step: string, promise: Promise<T>): Promise<T> =>
+    promise.finally(() =>
+      logger.info({
+        msg: "processQueueItem step finished",
+        step,
+        elapsedMs: Date.now() - taskStartedAt,
+      }),
+    );
 
   try {
     const extra = queueItem.extra as TaggingQueueItemExtra;
     const featureClassify = extra?.featureClassify === true;
-    const thumbnailUrl = (assetObject.extra as AssetObjectExtra | null)?.thumbnailAccessUrl;
+    // Missing child fields are legacy queue items, for which all classifications were enabled.
+    const featureClassifications = resolveFeatureClassificationFlags(featureClassify, {
+      brand: extra?.featureBrand,
+      product: extra?.featureProduct,
+      person: extra?.featurePerson,
+      ip: extra?.featureIp,
+    });
+    const assetExtra = assetObject.extra as AssetObjectExtra | null;
+    const supportsFeatureClassification = isFeatureLibrarySupportedAsset(assetExtra?.extension);
+    const hasFeatureClassifications =
+      supportsFeatureClassification && Object.values(featureClassifications).some(Boolean);
+    const thumbnailUrl = assetExtra?.thumbnailAccessUrl;
+    const detectionImageUrl = isVideoAssetExtension(assetExtra?.extension)
+      ? thumbnailUrl
+      : assetExtra?.downloadUrl?.trim() || thumbnailUrl;
+    // 人脸检测和画幅比例仍可复用缩略图；URL-based 目标检测共用原图。
+    let thumbnailSourcePromise: Promise<RemoteImageSource> | null = null;
+    const getThumbnailSource = (url: string) =>
+      (thumbnailSourcePromise ??= fetchRemoteImageSource(url, "task thumbnail"));
     // Feature classification (brand/IP/product/person): first skip empty feature libraries.
-    // Brand/IP/product share one bounded image; person independently keeps the source dimensions.
+    // Brand/IP/product share the download URL and prepared image. Product retains pixels for crops.
+    // Person independently keeps the dimensions of its source.
     // Person path only: detect faces first (for AI faceFeatures + reused matching), then run AI
     // tagging in parallel with person matching. Other paths keep starting AI tagging early.
     const teamId = queueItem.teamId;
+    const tagsTree = tagsTreeLoader ? await tagsTreeLoader(teamId) : undefined;
+    // 权重在处理时按团队当前设置读取，修改后对排队中的任务立即生效
+    const teamSetting = await getTaggingSettings(teamId);
     const predictOptionsBase = {
       matchingSources: extra?.matchingSources,
       recognitionAccuracy: extra?.recognitionAccuracy,
+      sourceWeights: teamSetting.sourceWeights,
+      ...(tagsTree ? { tagsTree } : {}),
     };
     // Defer AI tagging only when person face features may be needed; otherwise preserve old timing.
-    const mayNeedFaceFeatures = featureClassify && Boolean(thumbnailUrl);
+    const mayNeedFaceFeatures =
+      supportsFeatureClassification && featureClassifications.person && Boolean(thumbnailUrl);
     let predictTagsPromise: ReturnType<typeof predictAssetTags> | null = mayNeedFaceFeatures
       ? null
       : predictAssetTags(assetObject, predictOptionsBase);
@@ -228,17 +325,25 @@ export async function processQueueItem({
       Awaited<ReturnType<typeof classifyAssetPersonRecommendation>>
     > = Promise.resolve(null);
 
-    if (featureClassify && thumbnailUrl) {
+    if (hasFeatureClassifications && (thumbnailUrl || detectionImageUrl)) {
       const [logoCount, productCount, ipCount, personCount] = await Promise.all([
-        prisma.logoVector.count({ where: { teamId, enabled: true, status: "completed" } }),
-        prisma.productVector.count({ where: { teamId, enabled: true, status: "completed" } }),
-        prisma.ipVector.count({ where: { teamId, enabled: true, status: "completed" } }),
-        prisma.personVector.count({ where: { teamId, enabled: true, status: "completed" } }),
+        featureClassifications.brand
+          ? prisma.logoVector.count({ where: { teamId, enabled: true, status: "completed" } })
+          : 0,
+        featureClassifications.product
+          ? prisma.productVector.count({ where: { teamId, enabled: true, status: "completed" } })
+          : 0,
+        featureClassifications.ip
+          ? prisma.ipVector.count({ where: { teamId, enabled: true, status: "completed" } })
+          : 0,
+        featureClassifications.person
+          ? prisma.personVector.count({ where: { teamId, enabled: true, status: "completed" } })
+          : 0,
       ]);
 
       if (logoCount + productCount + ipCount + personCount > 0) {
         const withFallback = <T>(p: Promise<T>, fn: string): Promise<T | null> =>
-          p.catch((error) => {
+          logStepFinished(fn, p).catch((error) => {
             logger.warn({
               msg: `${fn} failed, continuing without recommendation`,
               classificationFn: fn,
@@ -248,19 +353,40 @@ export async function processQueueItem({
             return null;
           });
 
-        // Kick off brand/IP/product without waiting for face detection.
-        if (logoCount + productCount + ipCount > 0) {
-          const sharedImagePromise = fetchRemoteImageInput(
-            thumbnailUrl,
-            "feature classification",
-          ).catch((error) => {
-            logger.warn({
-              msg: "feature classification image fetch failed, skipping feature classification",
-              err: error,
-              error: error instanceof Error ? error.message : String(error),
+        // Kick off URL-based detectors from one image, without waiting for face detection.
+        if (logoCount + ipCount + productCount > 0 && detectionImageUrl) {
+          const prepareDetectionInput = (source: RemoteImageSource) =>
+            prepareImageInput(source, "feature classification", {
+              preserveOriginal: productCount > 0,
             });
-            return null;
-          });
+          const sharedImagePromise = (
+            detectionImageUrl === thumbnailUrl
+              ? getThumbnailSource(detectionImageUrl)
+              : fetchRemoteImageSource(detectionImageUrl, "feature classification")
+          )
+            .then(prepareDetectionInput)
+            .catch(async (error) => {
+              if (
+                !thumbnailUrl ||
+                detectionImageUrl === thumbnailUrl ||
+                !isImageTooLargeError(error)
+              ) {
+                throw error;
+              }
+              logger.warn({
+                msg: "Original image too large for feature classification, falling back to thumbnail",
+                error: error instanceof Error ? error.message : String(error),
+              });
+              return prepareDetectionInput(await getThumbnailSource(thumbnailUrl));
+            })
+            .catch((error) => {
+              logger.warn({
+                msg: "feature classification image fetch failed, skipping feature classification",
+                err: error,
+                error: error instanceof Error ? error.message : String(error),
+              });
+              return null;
+            });
 
           if (logoCount > 0) {
             brandRecommendationPromise = sharedImagePromise.then((sharedImageInput) =>
@@ -283,10 +409,10 @@ export async function processQueueItem({
             );
           }
           if (productCount > 0) {
-            productRecommendationPromise = sharedImagePromise.then((sharedImageInput) =>
-              sharedImageInput
+            productRecommendationPromise = sharedImagePromise.then((imageInput) =>
+              imageInput
                 ? withFallback(
-                    classifyAssetProductRecommendation({ teamId, imageInput: sharedImageInput }),
+                    classifyAssetProductRecommendation({ teamId, imageInput }),
                     "classifyAssetProductRecommendation",
                   )
                 : null,
@@ -295,17 +421,18 @@ export async function processQueueItem({
         }
 
         // Person: detect once, feed faceCount into AI tagging, reuse detection for matching.
-        if (personCount > 0) {
-          const personDetection = await detectAssetPersonFaces({ imageUrl: thumbnailUrl }).catch(
-            (error) => {
+        if (personCount > 0 && thumbnailUrl) {
+          const personDetection = await getThumbnailSource(thumbnailUrl)
+            .then((source) => preparePersonImageInput(source, "person classification"))
+            .then((imageInput) => detectAssetPersonFaces({ imageInput }))
+            .catch((error) => {
               logger.warn({
                 msg: "detectAssetPersonFaces failed, continuing without person face features",
                 err: error,
                 error: error instanceof Error ? error.message : String(error),
               });
               return null;
-            },
-          );
+            });
 
           let faceFeatures: TaggingFaceFeatures | undefined;
           if (personDetection) {
@@ -336,18 +463,69 @@ export async function processQueueItem({
     }
 
     const [
-      { predictions, tagsWithScore, extra: newExtra },
+      { predictions, tagsWithScore: predictedTagsWithScore, extra: newExtra },
       brandRecommendation,
       ipRecommendation,
       productRecommendation,
       personRecommendation,
     ] = await Promise.all([
-      predictTagsPromise ?? predictAssetTags(assetObject, predictOptionsBase),
+      logStepFinished(
+        "predictAssetTags",
+        predictTagsPromise ?? predictAssetTags(assetObject, predictOptionsBase),
+      ),
       brandRecommendationPromise,
       ipRecommendationPromise,
       productRecommendationPromise,
       personRecommendationPromise,
     ]);
+    // 同级互斥硬约束（AI vs 特征库）：特征库认出了互斥组里的某个分支时，AI 仅凭内容猜到的同组其他分支要让位。
+    // 放在这里是因为审核项创建、直接写回、结果持久化都从 tagsWithScore 出发，改一处三处一致。
+    const exclusiveTagsTree = tagsTree ?? (await fetchTagsTreeForTagging({ teamId }));
+    const featureCandidates = collectFeatureTagCandidates({
+      brandRecommendation,
+      ipRecommendation,
+      productRecommendation,
+      personRecommendation,
+    });
+    const exclusiveResolved = resolveExclusiveSiblingsAcrossSources({
+      tagsTree: exclusiveTagsTree,
+      tagsWithScore: predictedTagsWithScore,
+      featureCandidates,
+    });
+    // 必打分类被特征库挤掉后留空时，采用特征库匹配上的标签
+    const requiredFromFeatures = fillRequiredGroupsFromFeatures({
+      tagsTree: exclusiveTagsTree,
+      tagsWithScore: exclusiveResolved.tagsWithScore,
+      featureCandidates,
+    });
+    const crossSource = {
+      tagsWithScore: requiredFromFeatures.tagsWithScore,
+      dropped: exclusiveResolved.dropped,
+    };
+    if (requiredFromFeatures.added.length > 0) {
+      logger.info({
+        msg: "Required groups filled from feature-library matches",
+        added: requiredFromFeatures.added.map((tag) => tag.tagPath.join(" > ")),
+      });
+    }
+    if (crossSource.dropped.length > 0) {
+      logger.info({
+        msg: "Exclusive siblings: AI tags dropped in favor of feature-library matches",
+        dropped: crossSource.dropped,
+      });
+    }
+    // 画幅比例确定性打标：标签树里有画幅组（子标签名为 1:1 / 9:16 / 横版 等）时，按素材真实宽高直接打上，
+    // 优先用 MuseDAM 同步下来的像素宽高，缺失时退回缩略图（缩放不改变比例）。
+    const aspectRatioTags = await resolveAspectRatioTagsForAsset({
+      tagsTree: exclusiveTagsTree,
+      assetExtra,
+      assetName: assetObject.name,
+      teamId,
+      recognitionAccuracy: newExtra.recognitionAccuracy,
+      getThumbnailSource: thumbnailUrl ? () => getThumbnailSource(thumbnailUrl) : undefined,
+      logger,
+    });
+    const tagsWithScore = [...crossSource.tagsWithScore, ...aspectRatioTags];
     const hasAiTags = tagsWithScore.length > 0;
     const acceptedPersonTagIds = getAcceptedPersonRecommendationTagIds(personRecommendation);
     if (personRecommendation?.faces.length) {
@@ -386,6 +564,7 @@ export async function processQueueItem({
       msg: "processQueueItem completed",
       tagsWithScoreCount: tagsWithScore.length,
       featureClassify,
+      featureClassifications,
       hasBrandTags,
       hasIpTags,
       hasProductTags,
@@ -394,7 +573,6 @@ export async function processQueueItem({
 
     // 如果是测试内容，不需要进入审核
     if (queueItem.taskType !== "test") {
-      const teamSetting = await getTaggingSettings(queueItem.teamId);
       const isDirect = teamSetting.taggingMode === "direct";
 
       logger.info({
@@ -484,12 +662,14 @@ export async function processQueueItem({
           where: { id: queueItem.teamId },
           select: { id: true, slug: true },
         });
+        // 特征库推荐必须过置信度门槛才能直接写回，与审核路径（get*RecommendationTagIdsFromQueueResult）
+        // 和 MuseDAM 特征绑定保持同一口径；之前这里直接取 recommendedTags，低置信 Logo/IP/产品会被直接打上。
         const combinedLeafTagIds = Array.from(
           new Set([
             ...tagsWithScore.map((tag) => tag.leafTagId),
-            ...(brandRecommendation?.recommendedTags ?? []).map((tag) => tag.assetTagId),
-            ...(ipRecommendation?.recommendedTags ?? []).map((tag) => tag.assetTagId),
-            ...(productRecommendation?.recommendedTags ?? []).map((tag) => tag.assetTagId),
+            ...getBrandRecommendationTagIdsFromQueueResult({ brandRecommendation }),
+            ...getIpRecommendationTagIdsFromQueueResult({ ipRecommendation }),
+            ...getProductRecommendationTagIdsFromQueueResult({ productRecommendation }),
             ...acceptedPersonTagIds,
           ]),
         );
@@ -545,12 +725,12 @@ export async function processQueueItem({
           const ipTagIdsForBind = (ipRecommendation?.recommendedTags ?? [])
             .map((t) => t.assetTagId)
             .filter((id) => approvedTagSet.has(id));
-          const productTagIdsForBind = (productRecommendation?.recommendedTags ?? [])
-            .map((t) => t.assetTagId)
-            .filter((id) => approvedTagSet.has(id));
+          const productTagIdsForBind = getProductRecommendationTagIdsFromQueueResult({
+            productRecommendation,
+          }).filter((id) => approvedTagSet.has(id));
           const personTagIdsForBind = acceptedPersonTagIds.filter((id) => approvedTagSet.has(id));
 
-          if (featureClassify) {
+          if (hasFeatureClassifications) {
             await bindFeatureIdentifiersToMuseDAMMaterial({
               team,
               musedamAssetId,
@@ -606,6 +786,40 @@ export async function processQueueItem({
       }
     }
 
+    // 处理期间 API 可能又收到了同一素材的 default 请求（智能解析完成后的第二次回调）并打了 rerunRequested。
+    // 这里必须重读数据库里的 extra，不能用 claim 时的快照，否则标记会被下面的 update 原样覆盖掉。
+    const latestRow = await prisma.taggingQueueItem.findUnique({
+      where: { id: queueItem.id },
+      select: { extra: true },
+    });
+    const latestExtra = (latestRow?.extra ?? extra) as TaggingQueueItemExtra;
+    const rerunRequested = latestExtra.rerunRequested === true;
+
+    if (rerunRequested) {
+      // 这一轮的结果建立在旧快照上，不落 completed：清掉刚生成的审核项，重置回 pending 用最新数据再跑。
+      // 直接写回模式下已写到 MuseDAM 的标签会被下一轮结果覆盖。
+      logger.info({
+        msg: "Rerun requested during processing, resetting queue item to pending with latest asset data",
+      });
+      await prisma.$transaction([
+        prisma.taggingAuditItem.deleteMany({ where: { queueItemId: queueItem.id } }),
+        prisma.taggingQueueItem.update({
+          where: { id: queueItem.id },
+          data: {
+            status: "pending",
+            startsAt: null,
+            endsAt: null,
+            result: {},
+            extra: {
+              ...latestExtra,
+              rerunRequested: false,
+            },
+          },
+        }),
+      ]);
+      return;
+    }
+
     await prisma.taggingQueueItem.update({
       where: { id: queueItem.id },
       data: {
@@ -620,15 +834,23 @@ export async function processQueueItem({
           personRecommendation,
         } as TaggingQueueItemResult,
         extra: {
-          ...extra,
+          ...latestExtra,
           ...newExtra,
           featureClassify,
+          featureBrand: featureClassifications.brand,
+          featureProduct: featureClassifications.product,
+          featurePerson: featureClassifications.person,
+          featureIp: featureClassifications.ip,
         },
       },
     });
   } catch (error) {
     const errorCode = normalizeTaggingErrorCode(error);
-    if (errorCode === "NO_VALID_TAGS" || errorCode === "NO_TAG_TREE") {
+    if (
+      errorCode === "NO_VALID_TAGS" ||
+      errorCode === "NO_TAG_TREE" ||
+      errorCode === "NO_MATCHING_SOURCES_ENABLED"
+    ) {
       logger.warn({
         msg: "processQueueItem failed (expected)",
         errorCode,
@@ -640,12 +862,39 @@ export async function processQueueItem({
         error: String(error),
       });
     }
+    // 同时把原始异常信息落库，前端才能把"后端异常"具体原因展示给用户，而不是只有一个 UNKNOWN。
+    const errorMessage = error instanceof Error ? error.message : String(error);
+
+    // 处理期间收到了新的 default 请求：这轮失败很可能就是因为旧快照缺内容（如 NO_VALID_TAGS），
+    // 直接用最新数据重跑一轮，而不是落 failed 等人工重试。
+    const latestRow = await prisma.taggingQueueItem
+      .findUnique({ where: { id: queueItem.id }, select: { extra: true } })
+      .catch(() => null);
+    const latestExtra = (latestRow?.extra ?? queueItem.extra) as TaggingQueueItemExtra;
+    if (latestExtra?.rerunRequested === true) {
+      logger.info({
+        msg: "Rerun requested during processing; retrying with latest asset data instead of marking failed",
+        errorCode,
+      });
+      await prisma.taggingQueueItem.update({
+        where: { id: queueItem.id },
+        data: {
+          status: "pending",
+          startsAt: null,
+          endsAt: null,
+          result: {},
+          extra: { ...latestExtra, rerunRequested: false },
+        },
+      });
+      return;
+    }
+
     await prisma.taggingQueueItem.update({
       where: { id: queueItem.id },
       data: {
         status: "failed",
         endsAt: new Date(),
-        result: { error: errorCode } as TaggingQueueItemResult,
+        result: { error: errorCode, message: errorMessage } as TaggingQueueItemResult,
       },
     });
   }
@@ -654,46 +903,138 @@ export async function processQueueItem({
 // 进程级单例并发闸：保证即使有多个重叠的 processPendingQueueItems 调用，
 // 全局同时处理的队列项也不会超过 TOTAL_QUEUE_CONCURRENCY（每次调用新建 pLimit 无法做到这点）。
 const queueConcurrencyLimit = pLimit(TOTAL_QUEUE_CONCURRENCY);
+// 处理中的任务每 30 秒刷新一次 updatedAt（心跳），超过 2 分钟没有心跳就说明处理它的进程已经没了
+// （被看门狗重启、崩溃或 pod 被替换）。之前没有心跳，只能等 15 分钟才敢判定，正常但较慢的任务也可能被误判。
+const PROCESSING_HEARTBEAT_MS = 30_000;
 const PROCESSING_STALE_TIMEOUT_MS = Number(
-  process.env.QUEUE_PROCESSING_STALE_TIMEOUT_MS ?? 15 * 60 * 1000,
+  process.env.QUEUE_PROCESSING_STALE_TIMEOUT_MS ?? 2 * 60 * 1000,
 );
+// 被中断的任务自动放回队列重试的次数；再次中断才标记失败，避免会拖垮进程的任务无限重试
+const MAX_INTERRUPTED_RETRIES = 1;
+// 单个任务的整体处理上限。某个外部调用一直不返回时，任务会一直占着并发槽，心跳也照常在刷，
+// 上面的回收逻辑认不出来；槽位占满后每轮都 "all slots busy"，调度器的请求也一直挂着，整个队列卡死。
+// 超时后标记失败并释放槽位（底层 Promise 无法取消，会在后台继续跑完，迟到的结果仍会正常落库）。
+const QUEUE_ITEM_TIMEOUT_MS = Number(process.env.QUEUE_ITEM_TIMEOUT_MS) || 10 * 60 * 1000;
 
 async function recoverStaleProcessingItems(): Promise<number> {
   const staleBefore = new Date(Date.now() - PROCESSING_STALE_TIMEOUT_MS);
-  const now = new Date();
-
-  const updated = await prisma.taggingQueueItem.updateMany({
-    where: {
-      status: "processing",
-      updatedAt: { lt: staleBefore },
-    },
-    data: {
-      status: "failed",
-      endsAt: now,
-      result: {
-        error: "PROCESSING_STALE_TIMEOUT",
-        message: `processing 超时超过 ${PROCESSING_STALE_TIMEOUT_MS}ms，自动标记失败`,
-      } as TaggingQueueItemResult,
-    },
+  const failedResult = JSON.stringify({
+    error: "PROCESSING_STALE_TIMEOUT",
+    message: `处理中被中断（超过 ${PROCESSING_STALE_TIMEOUT_MS}ms 无心跳），已重试 ${MAX_INTERRUPTED_RETRIES} 次仍中断，自动标记失败`,
   });
+  // 重试次数记在 extra.interruptedAttempts（extra 是 jsonb，不需要 migration）
+  const failed = await prisma.$executeRaw`
+    UPDATE "TaggingQueueItem"
+    SET "status" = 'failed', "endsAt" = now(), "updatedAt" = now(), "result" = ${failedResult}::jsonb
+    WHERE "status" = 'processing'
+      AND "updatedAt" < ${staleBefore}
+      AND COALESCE(("extra" ->> 'interruptedAttempts')::int, 0) >= ${MAX_INTERRUPTED_RETRIES}
+  `;
+  const requeued = await prisma.$executeRaw`
+    UPDATE "TaggingQueueItem"
+    SET "status" = 'pending', "startsAt" = NULL, "updatedAt" = now(),
+        "extra" = jsonb_set(
+          CASE WHEN jsonb_typeof("extra") = 'object' THEN "extra" ELSE '{}'::jsonb END,
+          '{interruptedAttempts}',
+          to_jsonb(COALESCE(("extra" ->> 'interruptedAttempts')::int, 0) + 1)
+        )
+    WHERE "status" = 'processing' AND "updatedAt" < ${staleBefore}
+  `;
 
-  if (updated.count > 0) {
+  if (failed > 0 || requeued > 0) {
     rootLogger.warn({
-      msg: "recoverStaleProcessingItems: stale processing items recovered",
-      recovered: updated.count,
+      msg: "recoverStaleProcessingItems: interrupted processing items recovered",
+      requeued,
+      failed,
       staleBefore,
       timeoutMs: PROCESSING_STALE_TIMEOUT_MS,
     });
   }
 
-  return updated.count;
+  return failed + requeued;
+}
+
+type TagsTreeLoader = (teamId: number) => Promise<TagWithChildren[]>;
+
+// 跨批次的标签树短缓存：积压时入队 kick 每 2 秒一轮、每轮只领两三条，批次内缓存几乎不生效，
+// 结果几乎每个任务都要把整棵树（含 extra）重新查一遍、再跑一遍 ensureEvidencePolicies。
+// 缓存 30 秒：标签改完最多 30 秒后生效；同一对象复用也让 predict 里按树缓存的硬匹配候选生效。
+const TAGS_TREE_CACHE_TTL_MS = 30_000;
+const tagsTreeCache = new Map<number, { promise: Promise<TagWithChildren[]>; expiresAt: number }>();
+
+function fetchTagsTreeForTaggingCached(teamId: number): Promise<TagWithChildren[]> {
+  const now = Date.now();
+  const cached = tagsTreeCache.get(teamId);
+  if (cached && cached.expiresAt > now) return cached.promise;
+  const promise = fetchTagsTreeForTagging({ teamId }).catch((error) => {
+    // 失败不缓存，让后续任务有机会重试
+    if (tagsTreeCache.get(teamId)?.promise === promise) tagsTreeCache.delete(teamId);
+    throw error;
+  });
+  tagsTreeCache.set(teamId, { promise, expiresAt: now + TAGS_TREE_CACHE_TTL_MS });
+  return promise;
+}
+
+/**
+ * 一次 processPendingQueueItems 批次内按团队复用标签树：同团队多条任务（含并发）只查一次库。
+ * 默认的 load 还带 30 秒的跨批次缓存（见 fetchTagsTreeForTaggingCached）。
+ */
+export function createBatchTagsTreeLoader(
+  load: (teamId: number) => Promise<TagWithChildren[]> = fetchTagsTreeForTaggingCached,
+): TagsTreeLoader {
+  const inflight = new Map<number, Promise<TagWithChildren[]>>();
+  return (teamId) => {
+    let promise = inflight.get(teamId);
+    if (!promise) {
+      promise = load(teamId).catch((error) => {
+        // 失败不缓存，让同团队后续任务有机会重试
+        inflight.delete(teamId);
+        throw error;
+      });
+      inflight.set(teamId, promise);
+    }
+    return promise;
+  };
+}
+
+async function markQueueItemTimedOut(queueItem: TaggingQueueItem): Promise<void> {
+  rootLogger.error({
+    msg: "Queue item timed out, releasing slot",
+    teamId: queueItem.teamId,
+    assetObjectId: queueItem.assetObjectId,
+    queueItemId: queueItem.id,
+    timeoutMs: QUEUE_ITEM_TIMEOUT_MS,
+  });
+  // 只改仍在 processing 的：如果恰好在超时那一刻已经落了 completed / failed，不覆盖
+  await prisma.taggingQueueItem
+    .updateMany({
+      where: { id: queueItem.id, status: "processing" },
+      data: {
+        status: "failed",
+        endsAt: new Date(),
+        result: {
+          // 复用心跳超时的错误码，前端已有对应的「处理超时」文案
+          error: "PROCESSING_STALE_TIMEOUT",
+          message: `处理超过 ${QUEUE_ITEM_TIMEOUT_MS}ms 未完成，已自动标记失败`,
+        } as TaggingQueueItemResult,
+      },
+    })
+    .catch((error) => {
+      rootLogger.error({
+        msg: "Failed to mark timed-out queue item as failed",
+        queueItemId: queueItem.id,
+        err: error,
+      });
+    });
 }
 
 async function tryClaimAndProcess(
   queueItem: TaggingQueueItem & { assetObject?: AssetObject | null },
   onSuccess: () => void,
   onSkip: () => void,
+  tagsTreeLoader?: TagsTreeLoader,
 ): Promise<void> {
+  let heartbeat: ReturnType<typeof setInterval> | null = null;
   try {
     const startsAt = new Date();
     const extra = {
@@ -710,15 +1051,49 @@ async function tryClaimAndProcess(
       },
     });
     if (updated.count > 0) {
-      if (isTagTreeJob(queueItem)) {
-        await processTagTreeQueueItem({ ...queueItem, status: "processing", startsAt, extra });
-      } else {
-        await processQueueItem({
-          ...(queueItem as TaggingQueueItem & { assetObject: AssetObject | null }),
-          status: "processing",
-          startsAt,
-          extra,
+      // 心跳：处理期间定时刷新 updatedAt，让回收逻辑能区分"还在跑"和"进程已经没了"
+      heartbeat = setInterval(() => {
+        void prisma.taggingQueueItem
+          .updateMany({
+            where: { id: queueItem.id, status: "processing" },
+            data: { status: "processing" },
+          })
+          .catch((error) => {
+            rootLogger.warn({
+              msg: "Queue item heartbeat failed",
+              queueItemId: queueItem.id,
+              err: error,
+            });
+          });
+      }, PROCESSING_HEARTBEAT_MS);
+      const work = isTagTreeJob(queueItem)
+        ? processTagTreeQueueItem({ ...queueItem, status: "processing", startsAt, extra })
+        : processQueueItem({
+            ...(queueItem as TaggingQueueItem & { assetObject: AssetObject | null }),
+            status: "processing",
+            startsAt,
+            extra,
+            tagsTreeLoader,
+          });
+      let timeoutId: ReturnType<typeof setTimeout> | undefined;
+      const timedOut = await Promise.race([
+        work.then(() => false),
+        new Promise<true>((resolve) => {
+          timeoutId = setTimeout(() => resolve(true), QUEUE_ITEM_TIMEOUT_MS);
+        }),
+      ]).finally(() => clearTimeout(timeoutId));
+      if (timedOut) {
+        // 超时后底层任务还在后台跑，它之后的异常不能变成 unhandled rejection
+        work.catch((error) => {
+          rootLogger.warn({
+            msg: "Timed-out queue item failed later",
+            queueItemId: queueItem.id,
+            err: error,
+          });
         });
+        await markQueueItemTimedOut(queueItem);
+        onSkip();
+        return;
       }
       onSuccess();
     } else {
@@ -732,35 +1107,132 @@ async function tryClaimAndProcess(
       msg: `Failed to process queue item: ${error}`,
     });
     onSkip();
+  } finally {
+    if (heartbeat) clearInterval(heartbeat);
   }
+}
+
+// 候选池大小：需要足够大，才能在"某个团队短时间内堆积大量任务"时，
+// 仍然覆盖到其他团队较早创建的任务，避免被单一团队的任务淹没（见 selectRoundRobinByTeam）。
+const CANDIDATE_POOL_SIZE = 200;
+
+const PENDING_SUMMARY_LOG_INTERVAL_MS = 30_000;
+let lastPendingSummaryLoggedAt = 0;
+
+/**
+ * 按团队汇总排队中（pending）的任务数并打一条日志，方便在观测云里搜 "Queue pending summary" 看积压。
+ * 进程内最多每 30s 一次、不阻塞主流程；groupBy 走 [teamId, status] 索引，开销很小。
+ */
+function logPendingSummaryThrottled(): void {
+  const now = Date.now();
+  if (now - lastPendingSummaryLoggedAt < PENDING_SUMMARY_LOG_INTERVAL_MS) return;
+  lastPendingSummaryLoggedAt = now;
+  void (async () => {
+    const groups = await prisma.taggingQueueItem.groupBy({
+      by: ["teamId"],
+      where: { status: "pending" },
+      _count: { _all: true },
+    });
+    const teams =
+      groups.length > 0
+        ? await prisma.team.findMany({
+            where: { id: { in: groups.map((g) => g.teamId) } },
+            select: { id: true, slug: true },
+          })
+        : [];
+    const slugById = new Map(teams.map((t) => [t.id, t.slug]));
+    const byTeam = Object.fromEntries(
+      groups
+        .map((g) => [slugById.get(g.teamId) ?? `team-id/${g.teamId}`, g._count._all] as const)
+        .sort((a, b) => b[1] - a[1]),
+    );
+    rootLogger.info({
+      msg: "Queue pending summary",
+      pendingTotal: groups.reduce((sum, g) => sum + g._count._all, 0),
+      teamCount: groups.length,
+      byTeam,
+      summary: Object.entries(byTeam)
+        .map(([slug, count]) => `${slug}:${count}个排队`)
+        .join(", "),
+    });
+  })().catch((error) => {
+    rootLogger.error({ msg: "logPendingSummary failed", err: error });
+  });
 }
 
 export async function processPendingQueueItems(): Promise<{
   processing: number;
   skipped: number;
 }> {
+  if (IS_QUEUE_PAUSED) {
+    // 队列交给子进程时，外部调度器打到主进程的调用直接跳过，不刷 warn 日志
+    if (QUEUE_PAUSED_BY_ENV) {
+      rootLogger.warn(`processPendingQueueItems skipped: queue is paused (QUEUE_PAUSED)`);
+    }
+    return { processing: 0, skipped: 0 };
+  }
+  logPendingSummaryThrottled();
+  // 本进程的槽位已经占满（含已排进 pLimit 等待的）时直接跳过：处理一个任务要几十秒，
+  // 而 queue-processor 调用 / 入队 kick 每几秒就来一轮，不跳过的话一轮接一轮排在 pLimit 后面，
+  // 每轮都攥着自己的候选和素材数据，积压时内存持续上涨直到堆溢出、进程崩溃。
+  const freeSlots =
+    TOTAL_QUEUE_CONCURRENCY -
+    (queueConcurrencyLimit.activeCount + queueConcurrencyLimit.pendingCount);
+  if (freeSlots <= 0) {
+    rootLogger.info({ msg: "processPendingQueueItems skipped: all slots busy" });
+    return { processing: 0, skipped: 0 };
+  }
   rootLogger.info(`processPendingQueueItems`);
   await recoverStaleProcessingItems();
 
-  // 一次性捞出足够多的 pending 记录，内存内分流（避免 Prisma JSON path 过滤器的兼容性问题）
-  const candidateItems = await prisma.taggingQueueItem.findMany({
-    where: { status: "pending" },
-    orderBy: { createdAt: "asc" },
-    include: { assetObject: true },
-    // 多拉一些，保证两类任务都能填满各自的槽位
-    take: TOTAL_QUEUE_CONCURRENCY * 4,
+  // 测试和正式分开查：正式积压超过候选池时，测试任务也不会被挡在池子外面。
+  // 候选池不带 assetObject：素材的 content/extra 是整条 MuseDAM 素材 JSON，全拉下来
+  // 再在主线程解析很重，而每轮只会领走空闲槽位那么多条；选定之后再只查被选中那几条的素材。
+  const [productionPool, testCandidates] = await Promise.all([
+    prisma.taggingQueueItem.findMany({
+      where: { status: "pending", taskType: { not: "test" } },
+      orderBy: { createdAt: "asc" },
+      take: CANDIDATE_POOL_SIZE,
+    }),
+    prisma.taggingQueueItem.findMany({
+      where: { status: "pending", taskType: "test" },
+      orderBy: { createdAt: "asc" },
+      take: CANDIDATE_POOL_SIZE,
+    }),
+  ]);
+
+  // 按团队轮询挑选，避免某个团队短时间内堆积大量任务时把其他团队"饿死"。
+  // 只领空闲槽位数量的任务，不多领去 pLimit 里排队。
+  const { tagTreeItems, testItems, productionItems } = pickPendingQueueItems({
+    tagTreeCandidates: productionPool.filter(isTagTreeJob),
+    testCandidates,
+    productionCandidates: productionPool.filter((item) => !isTagTreeJob(item)),
+    freeSlots,
+    tagTreeReserved: TAG_TREE_RESERVED_CONCURRENCY,
+    testReserved: TEST_TAGGING_CONCURRENCY,
+    assetConcurrency: ASSET_TAGGING_CONCURRENCY,
   });
+  const normalItems = [...testItems, ...productionItems];
 
-  const tagTreeItems = candidateItems.filter(isTagTreeJob).slice(0, TAG_TREE_RESERVED_CONCURRENCY);
-
-  const normalItems = candidateItems
-    .filter((item) => !isTagTreeJob(item))
-    .slice(0, TOTAL_QUEUE_CONCURRENCY - TAG_TREE_RESERVED_CONCURRENCY);
-
-  const allItems = [...tagTreeItems, ...normalItems];
+  const selectedAssetObjectIds = normalItems
+    .map((item) => item.assetObjectId)
+    .filter((id): id is number => id !== null);
+  const assetObjectsById = new Map(
+    selectedAssetObjectIds.length > 0
+      ? (await prisma.assetObject.findMany({ where: { id: { in: selectedAssetObjectIds } } })).map(
+          (assetObject) => [assetObject.id, assetObject],
+        )
+      : [],
+  );
+  const allItems = [...tagTreeItems, ...normalItems].map((item) => ({
+    ...item,
+    assetObject:
+      item.assetObjectId !== null ? (assetObjectsById.get(item.assetObjectId) ?? null) : null,
+  }));
 
   let processing = 0;
   let skipped = 0;
+  const tagsTreeLoader = createBatchTagsTreeLoader();
 
   const processTasks = allItems.map((queueItem) =>
     queueConcurrencyLimit(() =>
@@ -772,6 +1244,7 @@ export async function processPendingQueueItems(): Promise<{
         () => {
           skipped++;
         },
+        tagsTreeLoader,
       ),
     ),
   );
@@ -784,9 +1257,81 @@ export async function processPendingQueueItems(): Promise<{
     skipped,
     tagTreePicked: tagTreeItems.length,
     normalPicked: normalItems.length,
+    testPicked: testItems.length,
+    productionPicked: productionItems.length,
   });
 
   return { processing, skipped };
+}
+
+/** 画幅比例确定性打标（见 aspect-ratio.ts）：没有画幅组或拿不到宽高时返回空数组，绝不抛错影响主流程。 */
+async function resolveAspectRatioTagsForAsset({
+  tagsTree,
+  assetExtra,
+  assetName,
+  teamId,
+  recognitionAccuracy,
+  getThumbnailSource,
+  logger,
+}: {
+  tagsTree: TagWithChildren[];
+  assetExtra: AssetObjectExtra | null;
+  assetName: string;
+  teamId: number;
+  recognitionAccuracy: keyof typeof RECOGNITION_ACCURACY_CONFIG | undefined;
+  getThumbnailSource: (() => Promise<RemoteImageSource>) | undefined;
+  logger: typeof rootLogger;
+}): Promise<TagWithScore[]> {
+  const groups = detectAspectRatioGroups(tagsTree);
+  if (groups.length === 0) return [];
+  let width = assetExtra?.width;
+  let height = assetExtra?.height;
+  if ((!width || !height) && getThumbnailSource) {
+    try {
+      // 只读图片头拿宽高，不做完整解码和重新编码
+      const image = await readRemoteImageDimensions(await getThumbnailSource());
+      width = image.width;
+      height = image.height;
+      logger.info({
+        msg: "Aspect ratio: width/height missing in asset extra, derived from thumbnail",
+        width,
+        height,
+      });
+    } catch (error) {
+      logger.warn({
+        msg: "Aspect ratio: thumbnail fetch failed, skipping aspect ratio tagging",
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return [];
+    }
+  }
+  const systemTags = resolveAspectRatioTags({ groups, width, height });
+  // 系统解析不了的规格标签（如"长1600、宽度自适应"）交给模型按像素尺寸判断；
+  // 只在有原图宽高时做，缩略图缩放过，判断不了像素规格。
+  const originalWidth = assetExtra?.width;
+  const originalHeight = assetExtra?.height;
+  const aiTags =
+    originalWidth && originalHeight && groups.some((group) => group.unparsedChildren.length > 0)
+      ? await predictUnparsedSizeTags({
+          groups,
+          width: originalWidth,
+          height: originalHeight,
+          assetName,
+          teamId,
+          minConfidence:
+            RECOGNITION_ACCURACY_CONFIG[recognitionAccuracy ?? "balanced"].minConfidence,
+        })
+      : [];
+  const tags = mergeAiSizeTags({ groups, systemTags, aiTags });
+  logger.info({
+    msg: "Aspect ratio tagging resolved",
+    width,
+    height,
+    groups: groups.map((group) => group.parentPath.join(" > ")),
+    tags: tags.map((tag) => tag.tagPath.join(" > ")),
+    aiSizeTags: aiTags.map((tag) => tag.tagPath.join(" > ")),
+  });
+  return tags;
 }
 
 async function createAuditItems({
@@ -864,6 +1409,24 @@ async function createAuditItems({
       dataCount: data.length,
       status: finalStatus,
     });
+
+    // 新一轮打标记录生成后，同一素材上旧记录里仍待审核的项自动作废（标为 rejected），
+    // 避免审核页批量应用时把历史错误猜测一并应用上；旧记录本身保留，审核页折叠展示、可手动恢复。
+    const superseded = await prisma.taggingAuditItem.updateMany({
+      where: {
+        assetObjectId: assetObject.id,
+        teamId: assetObject.teamId,
+        status: "pending",
+        queueItemId: { not: taggingQueueItem.id },
+      },
+      data: { status: "rejected" },
+    });
+    if (superseded.count > 0) {
+      logger.info({
+        msg: "createAuditItems: superseded pending audit items from earlier runs",
+        supersededCount: superseded.count,
+      });
+    }
 
     const result = await prisma.taggingAuditItem.createMany({
       data,
@@ -944,7 +1507,9 @@ async function createRecommendationOnlyReviewItem({
           Math.max(
             hasBrandRecommendation ? (brandRecommendation.bestMatch?.confidence ?? 0) : 0,
             hasIpRecommendation ? (ipRecommendation.bestMatch?.confidence ?? 0) : 0,
-            hasProductRecommendation ? (productRecommendation.bestMatch?.confidence ?? 0) : 0,
+            ...(hasProductRecommendation
+              ? getAcceptedProductMatches(productRecommendation).map((match) => match.confidence)
+              : [0]),
             hasPersonRecommendation
               ? getBestPersonRecommendationConfidence(personRecommendation)
               : 0,

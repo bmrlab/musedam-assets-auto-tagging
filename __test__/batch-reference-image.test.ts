@@ -1,4 +1,4 @@
-import { REFERENCE_IMAGE_MAX_DIMENSION } from "@/lib/brand/upload-constants";
+import { BYTES_PER_MB, REFERENCE_IMAGE_MAX_DIMENSION } from "@/lib/brand/upload-constants";
 import { downloadAndPrepareBatchReferenceImage } from "@/lib/tagging/batch-reference-image";
 import sharp from "sharp";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -52,6 +52,28 @@ describe("batch reference image import", () => {
     expect(prepared.extension).toBe(".webp");
     expect(prepared.mimeType).toBe("image/webp");
     expect(Math.max(metadata.width ?? 0, metadata.height ?? 0)).toBe(REFERENCE_IMAGE_MAX_DIMENSION);
+  });
+
+  it("renders a large SVG with a small viewBox at the reference resolution", async () => {
+    const source = Buffer.from(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 87.5 57"><rect width="87.5" height="57" fill="red"/><!--' +
+        " ".repeat(5 * BYTES_PER_MB) +
+        "--></svg>",
+    );
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response(new Uint8Array(source), { status: 200 })),
+    );
+
+    const prepared = await downloadAndPrepareBatchReferenceImage(
+      "https://images.example.com/brand.svg",
+    );
+
+    expect(prepared.mimeType).toBe("image/webp");
+    expect(await sharp(prepared.buffer).metadata()).toMatchObject({
+      format: "webp",
+      width: REFERENCE_IMAGE_MAX_DIMENSION,
+    });
   });
 
   it("rejects an S3 object key instead of treating it as an import URL", async () => {

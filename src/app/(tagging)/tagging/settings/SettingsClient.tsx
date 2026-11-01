@@ -27,17 +27,27 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
     initialSettings.recognitionAccuracy,
   );
   const [matchingSources, setMatchingSources] = useState(initialSettings.matchingSources);
+  const [sourceWeights, setSourceWeights] = useState(initialSettings.sourceWeights);
   const [triggerTiming, setTriggerTiming] = useState(initialSettings.triggerTiming);
   const [applicationScope, setApplicationScope] = useState(initialSettings.applicationScope);
   const [isPending, setIsSaving] = useState(false);
 
 
   const handleSourceChange = (source: keyof typeof matchingSources, checked: boolean) => {
-    setMatchingSources((prev) => ({
-      ...prev,
-      [source]: checked,
-    }));
-    handleSaveSettings();
+    const next = { ...matchingSources, [source]: checked };
+    // 打标至少需要一个有效信息源，否则会导致该素材直接打标失败，且失败原因不直观。
+    if (!Object.values(next).some(Boolean)) {
+      toast.error(t("atLeastOneSourceRequired"));
+      return;
+    }
+    setMatchingSources(next);
+    handleSaveSettings({ matchingSources: next });
+  };
+
+  const handleWeightChange = (source: keyof typeof sourceWeights, weight: number) => {
+    const next = { ...sourceWeights, [source]: weight };
+    setSourceWeights(next);
+    handleSaveSettings({ sourceWeights: next });
   };
 
   const handleSaveSettings = async (overrides?: Partial<TaggingSettingsData>) => {
@@ -51,6 +61,7 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
       taggingMode: overrides?.taggingMode ?? taggingMode,
       recognitionAccuracy: overrides?.recognitionAccuracy ?? recognitionAccuracy,
       matchingSources: overrides?.matchingSources ?? matchingSources,
+      sourceWeights: overrides?.sourceWeights ?? sourceWeights,
       triggerTiming: overrides?.triggerTiming ?? triggerTiming,
       applicationScope: overrides?.applicationScope ?? applicationScope,
     };
@@ -176,7 +187,9 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
 
       <MatchingStrategySection
         matchingSources={matchingSources}
+        sourceWeights={sourceWeights}
         onSourceChange={handleSourceChange}
+        onWeightChange={handleWeightChange}
       />
 
 

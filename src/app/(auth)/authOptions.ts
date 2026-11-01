@@ -1,5 +1,6 @@
 import "server-only";
 
+import { isAdminUserSlug } from "@/lib/admin";
 import { rootLogger } from "@/lib/logging";
 import { idToSlug } from "@/lib/slug";
 import { getServerSession, type NextAuthOptions } from "next-auth";
@@ -7,6 +8,8 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { checkUserPermission, createUserAndTeam } from "./lib";
 import { verifyTokenLoginCredential } from "./tokenLogin";
 
+// 兼容期保留：新版按 tab 的 token 鉴权（见 requestAuth.ts），没带 token 的旧版父项目仍靠这个共享 cookie 登录。
+// TODO: 父项目全量上线新版后，连同 requestAuth.ts 里的回退一起删除。
 const authOptions: NextAuthOptions = {
   pages: {
     signIn: "/auth/signin",
@@ -112,6 +115,8 @@ const authOptions: NextAuthOptions = {
           ...session.user,
           id: parseInt(token.id + ""),
           slug: token.slug,
+          // 每次取 session 时按当前 ADMIN_USER_IDS 现算，改环境变量后不用重新登录
+          isAdmin: isAdminUserSlug(token.slug),
         },
         team: {
           ...session.team,

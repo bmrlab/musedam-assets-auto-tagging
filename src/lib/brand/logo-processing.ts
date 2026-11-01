@@ -4,17 +4,37 @@ import { getJinaConfig } from "@/lib/brand/env";
 import { bufferToDataUrl } from "@/lib/brand/image";
 import { createJinaImageEmbeddings } from "@/lib/brand/jina";
 import {
-  BRAND_PROCESSING_ERROR_CODES,
-  BrandProcessingErrorCode,
-} from "@/lib/brand/processing-errors";
-import {
   deleteLogoVectorPointsByLogo,
   setLogoVectorPayloadByLogo,
   upsertLogoVectorPoints,
 } from "@/lib/brand/pgvector";
+import {
+  BRAND_PROCESSING_ERROR_CODES,
+  BrandProcessingErrorCode,
+} from "@/lib/brand/processing-errors";
+import { rootLogger } from "@/lib/logging";
 import { getCachedSignedS3ObjectUrl } from "@/lib/s3";
+import {
+  downscaleImageBufferIfHuge,
+  getResponseByteLength,
+  withHeavyImageSlot,
+} from "@/lib/tagging/classification-image";
+import { IMAGE_FETCH_TIMEOUT_MS } from "@/lib/tagging/external-timeouts";
+import {
+  FEATURE_PROCESSING_ABANDONED,
+  FEATURE_PROCESSING_INTERRUPTED,
+} from "@/lib/tagging/feature-processing-status";
+import { scheduleReferenceThumbnail } from "@/lib/tagging/reference-thumbnail";
 import prisma from "@/prisma/prisma";
 import { randomUUID } from "crypto";
+import pLimit from "p-limit";
+
+const LOGO_VECTOR_PROCESSING_CONCURRENCY = 8;
+const LOGO_VECTOR_RECOVERY_BATCH_SIZE = 4;
+const LOGO_VECTOR_PROCESSING_HEARTBEAT_MS = 15_000;
+const LOGO_VECTOR_PROCESSING_STALE_MS = 60_000;
+const logoVectorProcessingLimit = pLimit(LOGO_VECTOR_PROCESSING_CONCURRENCY);
+const inFlightLogoVectorProcessing = new Map<string, Promise<void>>();
 
 function createProcessingError(code: BrandProcessingErrorCode, cause?: unknown) {
   const error = new Error(code) as Error & {
@@ -50,17 +70,25 @@ function getProcessingErrorCode(error: unknown): BrandProcessingErrorCode {
 
 async function fetchImageAsDataUrl(objectKey: string, mimeType: string) {
   const { signedUrl } = getCachedSignedS3ObjectUrl({ objectKey });
-  const response = await fetch(signedUrl);
+  const response = await fetch(signedUrl, { signal: AbortSignal.timeout(IMAGE_FETCH_TIMEOUT_MS) });
 
   if (!response.ok) {
     throw createProcessingError(BRAND_PROCESSING_ERROR_CODES.imageFetchFailed);
   }
 
-  const buffer = Buffer.from(await response.arrayBuffer());
-  return bufferToDataUrl(buffer, mimeType);
+  // 大图串行下载解码，并先缩成工作图（向量只需要整图），避免原图 base64 常驻内存
+  return withHeavyImageSlot(getResponseByteLength(response), async () => {
+    const image = await downscaleImageBufferIfHuge(
+      Buffer.from(await response.arrayBuffer()),
+      mimeType,
+      "logo reference",
+    );
+    scheduleReferenceThumbnail(objectKey, image.buffer);
+    return bufferToDataUrl(image.buffer, image.mimeType);
+  });
 }
 
-export async function markAssetLogoVectorsProcessing({
+export async function markAssetLogoVectorsPending({
   teamId,
   logoId,
   enabled,
@@ -75,7 +103,7 @@ export async function markAssetLogoVectorsProcessing({
         id: logoId,
       },
       data: {
-        status: "processing",
+        status: "pending",
         processingError: null,
         processedAt: null,
       },
@@ -105,14 +133,52 @@ export async function markAssetLogoVectorsProcessing({
   });
 }
 
-export async function processAssetLogoReferenceVectors({
+async function processAssetLogoReferenceVectorsNow({
   teamId,
   logoId,
 }: {
   teamId: number;
   logoId: string;
 }) {
+  let heartbeat: ReturnType<typeof setInterval> | null = null;
+
   try {
+    const claimed = await prisma.assetLogo.updateMany({
+      where: {
+        id: logoId,
+        teamId,
+        status: {
+          in: ["pending", "processing"],
+        },
+      },
+      data: {
+        status: "processing",
+        // 不清空 processingError：保留中断标记（见 processPending*ReferenceVectors），成功或失败时会覆盖
+        processedAt: null,
+      },
+    });
+
+    if (claimed.count === 0) {
+      return;
+    }
+
+    heartbeat = setInterval(() => {
+      void prisma.assetLogo
+        .updateMany({
+          where: {
+            id: logoId,
+            teamId,
+            status: "processing",
+          },
+          data: {
+            status: "processing",
+          },
+        })
+        .catch((error) => {
+          console.warn(`Failed to heartbeat asset Logo vectors (${logoId}):`, error);
+        });
+    }, LOGO_VECTOR_PROCESSING_HEARTBEAT_MS);
+
     const logo = await prisma.assetLogo.findFirst({
       where: {
         id: logoId,
@@ -219,5 +285,124 @@ export async function processAssetLogoReferenceVectors({
     }).catch(() => undefined);
 
     throw error;
+  } finally {
+    if (heartbeat) {
+      clearInterval(heartbeat);
+    }
   }
+}
+
+export function processAssetLogoReferenceVectors({
+  teamId,
+  logoId,
+}: {
+  teamId: number;
+  logoId: string;
+}) {
+  const existing = inFlightLogoVectorProcessing.get(logoId);
+  if (existing) {
+    return existing;
+  }
+
+  const processingPromise = logoVectorProcessingLimit(() =>
+    processAssetLogoReferenceVectorsNow({ teamId, logoId }),
+  );
+  const trackedPromise: Promise<void> = processingPromise.finally(() => {
+    if (inFlightLogoVectorProcessing.get(logoId) === trackedPromise) {
+      inFlightLogoVectorProcessing.delete(logoId);
+    }
+  });
+  inFlightLogoVectorProcessing.set(logoId, trackedPromise);
+  return trackedPromise;
+}
+
+export async function processPendingAssetLogoReferenceVectors() {
+  const staleBefore = new Date(Date.now() - LOGO_VECTOR_PROCESSING_STALE_MS);
+  // 心跳停了还停在 processing，说明处理中途进程没了（多半是被 OOM Kill）。第一次中断重试一次，
+  // 再次中断直接标记失败：否则同一个特征每次重启都被捡回来，把进程反复拖死（每分钟崩一次）。
+  const abandoned = await prisma.assetLogo.updateMany({
+    where: {
+      status: "processing",
+      updatedAt: { lt: staleBefore },
+      processingError: FEATURE_PROCESSING_INTERRUPTED,
+    },
+    data: {
+      status: "failed",
+      processingError: FEATURE_PROCESSING_ABANDONED,
+    },
+  });
+  if (abandoned.count > 0) {
+    rootLogger.error({
+      msg: "Logo vector processing interrupted twice, marked failed",
+      count: abandoned.count,
+    });
+  }
+  const recovered = await prisma.assetLogo.updateMany({
+    where: {
+      status: "processing",
+      updatedAt: { lt: staleBefore },
+    },
+    data: {
+      status: "pending",
+      processingError: FEATURE_PROCESSING_INTERRUPTED,
+    },
+  });
+
+  const candidates = await prisma.assetLogo.findMany({
+    where: {
+      status: "pending",
+    },
+    orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
+    select: {
+      id: true,
+      teamId: true,
+    },
+    take: LOGO_VECTOR_RECOVERY_BATCH_SIZE,
+  });
+
+  let processing = 0;
+  let skipped = 0;
+
+  await Promise.all(
+    candidates.map(async (candidate) => {
+      const claimed = await prisma.assetLogo.updateMany({
+        where: {
+          id: candidate.id,
+          teamId: candidate.teamId,
+          status: "pending",
+        },
+        data: {
+          status: "processing",
+          processedAt: null,
+        },
+      });
+
+      if (claimed.count === 0) {
+        skipped += 1;
+        return;
+      }
+
+      processing += 1;
+      // 先记一条再处理：处理中途进程被杀时，最后一条日志就能定位到是哪个特征
+      rootLogger.info({
+        msg: "Logo vector processing started",
+        teamId: candidate.teamId,
+        featureId: candidate.id,
+      });
+      try {
+        await processAssetLogoReferenceVectors({
+          teamId: candidate.teamId,
+          logoId: candidate.id,
+        });
+      } catch (error) {
+        console.error(`Failed to recover asset Logo vectors (${candidate.id}):`, error);
+      }
+    }),
+  );
+
+  return {
+    processing,
+    recovered: recovered.count,
+    skipped,
+  };
 }

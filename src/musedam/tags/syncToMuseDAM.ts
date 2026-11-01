@@ -2,6 +2,7 @@ import "server-only";
 
 import { TagNode } from "@/app/tags/types";
 import { idToSlug, slugToId } from "@/lib/slug";
+import { AssetTagTreeNode, buildChildrenInclude, MAX_TAG_LEVEL } from "@/lib/tagging/tag-level";
 import { retrieveTeamCredentials } from "@/musedam/apiKey";
 import { AssetTag } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
@@ -279,9 +280,57 @@ type MuseDAMTagTree = {
 }[];
 
 /**
+ * 删除 MuseDAM 中的全部一级标签（子标签随之级联删除）
+ * 以 MuseDAM 实际标签树为准，而不是本地数据库：本地可能缺 slug 或缺标签，
+ * 残留的同名标签会导致后续创建时报「标签名称已存在」
+ */
+export async function deleteAllMuseDAMTags({
+  team,
+}: {
+  team: {
+    id: number;
+    slug: string;
+  };
+}): Promise<void> {
+  const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
+  const musedamTeamId = slugToId("team", team.slug);
+
+  const musedamTagsResult = await requestMuseDAMAPI<MuseDAMTagTree>("/api/muse/query-tag-tree", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${musedamTeamApiKey}`,
+    },
+    body: {
+      orgId: musedamTeamId,
+    },
+  });
+
+  if (!musedamTagsResult || musedamTagsResult.length === 0) {
+    return;
+  }
+
+  const deleteTags: MuseDAMTagRequest[] = musedamTagsResult.map((musedamTag) => ({
+    id: Number(musedamTag.id.toString()),
+    name: musedamTag.name,
+    operation: 3, // 删除
+    sort: musedamTag.sort,
+  }));
+
+  await requestMuseDAMAPI<{ tags: MuseDAMTagResponse[] }>("/api/muse/merge-tags", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${musedamTeamApiKey}`,
+    },
+    body: {
+      tags: deleteTags,
+    },
+  });
+}
+
+/**
  * 将数据库中的 AssetTag 转换为 TagNode
  */
-function convertAssetTagToTagNode(tag: AssetTag & { children?: AssetTag[] }): TagNode {
+function convertAssetTagToTagNode(tag: AssetTagTreeNode): TagNode {
   return {
     id: tag.id,
     slug: tag.slug,
@@ -323,23 +372,19 @@ export async function syncTagsToMuseDAMWithCurrentSystemAsBase({
       parentId: null,
     },
     orderBy: [{ sort: "desc" }, { id: "asc" }],
-    include: {
-      children: {
-        orderBy: [{ sort: "desc" }, { id: "asc" }],
-        include: {
-          children: {
-            orderBy: [{ sort: "desc" }, { id: "asc" }],
-          },
-        },
-      },
-    },
+    // 必须取到完整深度：漏取的深层标签会在下面 buildChildRequests 里被当成「本地已删除」而推送删除
+    include: buildChildrenInclude(MAX_TAG_LEVEL - 1, {
+      orderBy: [{ sort: "desc" }, { id: "asc" }],
+    }),
   });
 
   // rootLogger.info({
   //   msg: `teamInfo, id: ${team.id}, slug: ${team.slug}`,
   // });
 
-  const currentTagsTree: TagNode[] = currentTags.map(convertAssetTagToTagNode);
+  const currentTagsTree: TagNode[] = (currentTags as AssetTagTreeNode[]).map(
+    convertAssetTagToTagNode,
+  );
 
   // 2. 获取 MuseDAM 中的标签树
   const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });

@@ -5,8 +5,20 @@ import { getJinaConfig } from "@/lib/brand/env";
 import { bufferToDataUrl } from "@/lib/brand/image";
 import { createJinaImageEmbeddings, createJinaTextEmbeddings } from "@/lib/brand/jina";
 import { REFERENCE_IMAGE_PREPARATION_CONCURRENCY } from "@/lib/brand/upload-constants";
+import { rootLogger } from "@/lib/logging";
 import { getCachedSignedS3ObjectUrl } from "@/lib/s3";
-import { prepareReferenceImageBuffer } from "@/lib/tagging/reference-image";
+import {
+  downscaleImageBufferIfHuge,
+  getResponseByteLength,
+  withHeavyImageSlot,
+} from "@/lib/tagging/classification-image";
+import { IMAGE_FETCH_TIMEOUT_MS } from "@/lib/tagging/external-timeouts";
+import {
+  FEATURE_PROCESSING_ABANDONED,
+  FEATURE_PROCESSING_INTERRUPTED,
+} from "@/lib/tagging/feature-processing-status";
+import { prepareSquareEmbeddingImageBuffer } from "@/lib/tagging/reference-image";
+import { scheduleReferenceThumbnail } from "@/lib/tagging/reference-thumbnail";
 import { translateTextToEnglish } from "@/lib/translation/service";
 import prisma from "@/prisma/prisma";
 import { generateObject, UserModelMessage } from "ai";
@@ -29,6 +41,13 @@ const PRODUCT_PROCESSING_ERROR_CODES = {
   unknown: "unknown",
   vectorStoreSyncFailed: "vector_store_sync_failed",
 } as const;
+
+const PRODUCT_VECTOR_PROCESSING_CONCURRENCY = 8;
+const PRODUCT_VECTOR_RECOVERY_BATCH_SIZE = 4;
+const PRODUCT_VECTOR_PROCESSING_HEARTBEAT_MS = 15_000;
+const PRODUCT_VECTOR_PROCESSING_STALE_MS = 60_000;
+const productVectorProcessingLimit = pLimit(PRODUCT_VECTOR_PROCESSING_CONCURRENCY);
+const inFlightProductVectorProcessing = new Map<string, Promise<void>>();
 
 type ProductProcessingErrorCode =
   (typeof PRODUCT_PROCESSING_ERROR_CODES)[keyof typeof PRODUCT_PROCESSING_ERROR_CODES];
@@ -71,15 +90,23 @@ function getProcessingErrorCode(error: unknown): ProductProcessingErrorCode {
 
 async function fetchImageAsDataUrl(objectKey: string) {
   const { signedUrl } = getCachedSignedS3ObjectUrl({ objectKey });
-  const response = await fetch(signedUrl);
+  const response = await fetch(signedUrl, { signal: AbortSignal.timeout(IMAGE_FETCH_TIMEOUT_MS) });
 
   if (!response.ok) {
     throw createProcessingError(PRODUCT_PROCESSING_ERROR_CODES.imageFetchFailed);
   }
 
-  const buffer = Buffer.from(await response.arrayBuffer());
-  const preparedImage = await prepareReferenceImageBuffer(buffer);
-  return bufferToDataUrl(preparedImage.buffer, preparedImage.mimeType);
+  // 大图串行下载解码，并先缩成工作图再生成缩略图 / 向量输入，避免多张原图同时解码
+  return withHeavyImageSlot(getResponseByteLength(response), async () => {
+    const image = await downscaleImageBufferIfHuge(
+      Buffer.from(await response.arrayBuffer()),
+      "application/octet-stream",
+      "product reference",
+    );
+    scheduleReferenceThumbnail(objectKey, image.buffer);
+    const preparedImage = await prepareSquareEmbeddingImageBuffer(image.buffer);
+    return bufferToDataUrl(preparedImage, "image/png");
+  });
 }
 
 function getProductCategoryPredictModel(): LLMModelName {
@@ -170,7 +197,7 @@ async function predictProductGeneralCategory({
   }
 }
 
-export async function markAssetProductVectorsProcessing({
+export async function markAssetProductVectorsPending({
   teamId,
   productId,
   enabled,
@@ -185,7 +212,7 @@ export async function markAssetProductVectorsProcessing({
         id: productId,
       },
       data: {
-        status: "processing",
+        status: "pending",
         processingError: null,
         processedAt: null,
       },
@@ -215,14 +242,52 @@ export async function markAssetProductVectorsProcessing({
   });
 }
 
-export async function processAssetProductReferenceVectors({
+async function processAssetProductReferenceVectorsNow({
   teamId,
   productId,
 }: {
   teamId: number;
   productId: string;
 }) {
+  let heartbeat: ReturnType<typeof setInterval> | null = null;
+
   try {
+    const claimed = await prisma.assetProduct.updateMany({
+      where: {
+        id: productId,
+        teamId,
+        status: {
+          in: ["pending", "processing"],
+        },
+      },
+      data: {
+        status: "processing",
+        // 不清空 processingError：保留中断标记（见 processPending*ReferenceVectors），成功或失败时会覆盖
+        processedAt: null,
+      },
+    });
+
+    if (claimed.count === 0) {
+      return;
+    }
+
+    heartbeat = setInterval(() => {
+      void prisma.assetProduct
+        .updateMany({
+          where: {
+            id: productId,
+            teamId,
+            status: "processing",
+          },
+          data: {
+            status: "processing",
+          },
+        })
+        .catch((error) => {
+          console.warn(`Failed to heartbeat asset Product vectors (${productId}):`, error);
+        });
+    }, PRODUCT_VECTOR_PROCESSING_HEARTBEAT_MS);
+
     const product = await prisma.assetProduct.findFirst({
       where: {
         id: productId,
@@ -249,6 +314,7 @@ export async function processAssetProductReferenceVectors({
     );
     const imageEmbeddings = await createJinaImageEmbeddings({
       images: imageInputs,
+      padToSquare: true,
     });
 
     if (imageEmbeddings.length !== product.images.length) {
@@ -380,5 +446,124 @@ export async function processAssetProductReferenceVectors({
     }).catch(() => undefined);
 
     throw error;
+  } finally {
+    if (heartbeat) {
+      clearInterval(heartbeat);
+    }
   }
+}
+
+export function processAssetProductReferenceVectors({
+  teamId,
+  productId,
+}: {
+  teamId: number;
+  productId: string;
+}) {
+  const existing = inFlightProductVectorProcessing.get(productId);
+  if (existing) {
+    return existing;
+  }
+
+  const processingPromise = productVectorProcessingLimit(() =>
+    processAssetProductReferenceVectorsNow({ teamId, productId }),
+  );
+  const trackedPromise: Promise<void> = processingPromise.finally(() => {
+    if (inFlightProductVectorProcessing.get(productId) === trackedPromise) {
+      inFlightProductVectorProcessing.delete(productId);
+    }
+  });
+  inFlightProductVectorProcessing.set(productId, trackedPromise);
+  return trackedPromise;
+}
+
+export async function processPendingAssetProductReferenceVectors() {
+  const staleBefore = new Date(Date.now() - PRODUCT_VECTOR_PROCESSING_STALE_MS);
+  // 心跳停了还停在 processing，说明处理中途进程没了（多半是被 OOM Kill）。第一次中断重试一次，
+  // 再次中断直接标记失败：否则同一个特征每次重启都被捡回来，把进程反复拖死（每分钟崩一次）。
+  const abandoned = await prisma.assetProduct.updateMany({
+    where: {
+      status: "processing",
+      updatedAt: { lt: staleBefore },
+      processingError: FEATURE_PROCESSING_INTERRUPTED,
+    },
+    data: {
+      status: "failed",
+      processingError: FEATURE_PROCESSING_ABANDONED,
+    },
+  });
+  if (abandoned.count > 0) {
+    rootLogger.error({
+      msg: "Product vector processing interrupted twice, marked failed",
+      count: abandoned.count,
+    });
+  }
+  const recovered = await prisma.assetProduct.updateMany({
+    where: {
+      status: "processing",
+      updatedAt: { lt: staleBefore },
+    },
+    data: {
+      status: "pending",
+      processingError: FEATURE_PROCESSING_INTERRUPTED,
+    },
+  });
+
+  const candidates = await prisma.assetProduct.findMany({
+    where: {
+      status: "pending",
+    },
+    orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
+    select: {
+      id: true,
+      teamId: true,
+    },
+    take: PRODUCT_VECTOR_RECOVERY_BATCH_SIZE,
+  });
+
+  let processing = 0;
+  let skipped = 0;
+
+  await Promise.all(
+    candidates.map(async (candidate) => {
+      const claimed = await prisma.assetProduct.updateMany({
+        where: {
+          id: candidate.id,
+          teamId: candidate.teamId,
+          status: "pending",
+        },
+        data: {
+          status: "processing",
+          processedAt: null,
+        },
+      });
+
+      if (claimed.count === 0) {
+        skipped += 1;
+        return;
+      }
+
+      processing += 1;
+      // 先记一条再处理：处理中途进程被杀时，最后一条日志就能定位到是哪个特征
+      rootLogger.info({
+        msg: "Product vector processing started",
+        teamId: candidate.teamId,
+        featureId: candidate.id,
+      });
+      try {
+        await processAssetProductReferenceVectors({
+          teamId: candidate.teamId,
+          productId: candidate.id,
+        });
+      } catch (error) {
+        console.error(`Failed to recover asset Product vectors (${candidate.id}):`, error);
+      }
+    }),
+  );
+
+  return {
+    processing,
+    recovered: recovered.count,
+    skipped,
+  };
 }

@@ -1,81 +1,94 @@
 "use client";
 
 import {
-  FEATURE_LIBRARY_COOKIE,
-  FEATURE_LIBRARY_PARAM,
-  FEATURE_LIBRARY_STORAGE_KEY,
+  FEATURE_LIBRARY_TOGGLE_NAMES,
+  FeatureLibraryFeatures,
+  FeatureLibraryToggleName,
   FeatureLibraryValue,
-  featureLibraryEnabledToValue,
   isFeatureLibraryValue,
-  resolveFeatureLibraryEnabled,
+  resolveFeatureLibraryFeatures,
+  resolveFeatureLibraryValue,
 } from "@/lib/feature-library";
 import Cookies from "js-cookie";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
-function readBrowserFeatureLibraryEnabled() {
-  const params = new URLSearchParams(window.location.search);
-  const searchValue = params.get(FEATURE_LIBRARY_PARAM);
-  const storedValue = window.localStorage.getItem(FEATURE_LIBRARY_STORAGE_KEY);
-  const cookieValue = Cookies.get(FEATURE_LIBRARY_COOKIE);
+const DISABLED_FEATURES: FeatureLibraryFeatures = {
+  featureLibrary: false,
+  featureBrand: false,
+  featureProduct: false,
+  featurePerson: false,
+  featureIp: false,
+};
 
-  return resolveFeatureLibraryEnabled(searchValue, storedValue ?? cookieValue);
+function getCachedValue(name: FeatureLibraryToggleName) {
+  const storedValue = window.localStorage.getItem(name);
+  return isFeatureLibraryValue(storedValue) ? storedValue : Cookies.get(name);
 }
 
-function persistFeatureLibraryValue(value: FeatureLibraryValue) {
-  window.localStorage.setItem(FEATURE_LIBRARY_STORAGE_KEY, value);
-  Cookies.set(FEATURE_LIBRARY_COOKIE, value, {
+function readBrowserFeatureLibraryFeatures() {
+  const params = new URLSearchParams(window.location.search);
+  return resolveFeatureLibraryFeatures(
+    Object.fromEntries(FEATURE_LIBRARY_TOGGLE_NAMES.map((name) => [name, params.get(name)])),
+    Object.fromEntries(FEATURE_LIBRARY_TOGGLE_NAMES.map((name) => [name, getCachedValue(name)])),
+  );
+}
+
+function persistFeatureLibraryValue(name: FeatureLibraryToggleName, value: FeatureLibraryValue) {
+  window.localStorage.setItem(name, value);
+  Cookies.set(name, value, {
     expires: 365,
     sameSite: "None",
     secure: true,
   });
 }
 
-export function setFeatureLibraryValue(value: FeatureLibraryValue) {
+export function setFeatureToggleValue(name: FeatureLibraryToggleName, value: FeatureLibraryValue) {
   if (typeof window === "undefined") {
     return;
   }
 
-  persistFeatureLibraryValue(value);
-  window.dispatchEvent(
-    new CustomEvent("feature-library-change", { detail: { featureLibrary: value } }),
-  );
+  persistFeatureLibraryValue(name, value);
+  window.dispatchEvent(new CustomEvent("feature-library-change", { detail: { [name]: value } }));
 }
 
-export function useFeatureLibraryEnabled() {
+export function setFeatureLibraryValue(value: FeatureLibraryValue) {
+  setFeatureToggleValue("featureLibrary", value);
+}
+
+export function useFeatureLibraryFeatures() {
   const searchParams = useSearchParams();
-  const [enabled, setEnabled] = useState(false);
+  const [features, setFeatures] = useState<FeatureLibraryFeatures>(DISABLED_FEATURES);
 
   useEffect(() => {
-    const nextEnabled = readBrowserFeatureLibraryEnabled();
-    const searchValue = searchParams.get(FEATURE_LIBRARY_PARAM);
-    const storageValue = window.localStorage.getItem(FEATURE_LIBRARY_STORAGE_KEY);
-    const cookieValue = Cookies.get(FEATURE_LIBRARY_COOKIE);
-    const nextValue = featureLibraryEnabledToValue(nextEnabled);
+    const nextFeatures = readBrowserFeatureLibraryFeatures();
 
-    if (isFeatureLibraryValue(searchValue)) {
-      persistFeatureLibraryValue(searchValue);
-    } else if (!isFeatureLibraryValue(storageValue) && !isFeatureLibraryValue(cookieValue)) {
-      persistFeatureLibraryValue(nextValue);
+    for (const name of FEATURE_LIBRARY_TOGGLE_NAMES) {
+      const searchValue = searchParams.get(name);
+      const storageValue = window.localStorage.getItem(name);
+      const cookieValue = Cookies.get(name);
+
+      if (isFeatureLibraryValue(searchValue)) {
+        persistFeatureLibraryValue(name, searchValue);
+      } else if (!isFeatureLibraryValue(storageValue) && !isFeatureLibraryValue(cookieValue)) {
+        // Persist the raw default, not the parent-gated effective child value.
+        persistFeatureLibraryValue(name, resolveFeatureLibraryValue(searchValue, cookieValue));
+      }
     }
 
-    setEnabled(nextEnabled);
+    setFeatures(nextFeatures);
   }, [searchParams]);
 
   useEffect(() => {
-    const handleFeatureLibraryChange = (event: Event) => {
-      const value = (event as CustomEvent<{ featureLibrary?: unknown }>).detail?.featureLibrary;
-      if (!isFeatureLibraryValue(value)) {
-        return;
-      }
-
-      const nextEnabled = value !== "off";
-      setEnabled(nextEnabled);
-    };
+    const handleFeatureLibraryChange = () => setFeatures(readBrowserFeatureLibraryFeatures());
 
     window.addEventListener("feature-library-change", handleFeatureLibraryChange);
     return () => window.removeEventListener("feature-library-change", handleFeatureLibraryChange);
   }, []);
 
-  return enabled;
+  return features;
+}
+
+export function useFeatureLibraryEnabled() {
+  return useFeatureLibraryFeatures().featureLibrary;
 }

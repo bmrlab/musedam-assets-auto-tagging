@@ -22,12 +22,14 @@ import { ClockCircleIcon, TagAIIcon, TagsIcon } from "@/components/ui/icons";
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { dispatchMuseDAMClientAction } from "@/embed/message";
-import { useFeatureLibraryEnabled } from "@/hooks/use-feature-library";
+import { useFeatureLibraryFeatures } from "@/hooks/use-feature-library";
+import { isFeatureTypeEnabled, isVideoAssetExtension } from "@/lib/feature-library";
 import {
   getPersonFaceBestRawSimilarity,
   isReviewablePersonFace,
   personSimilarityToConfidence,
 } from "@/lib/person/person-match-policy";
+import { getAcceptedProductMatches, getProductMatches } from "@/lib/product/product-match-policy";
 import { slugToId } from "@/lib/slug";
 import {
   getFeatureConfidenceToneClass,
@@ -36,10 +38,22 @@ import {
   normalizeFeatureConfidence,
 } from "@/lib/tagging/feature-confidence";
 import { cn, formatSize } from "@/lib/utils";
-import { collectMuseFeatureIdentifierIdsForQueueItem } from "@/musedam/collect-muse-feature-identifier-ids";
 import type { MuseDAMMaterialFeatureSnapshot } from "@/musedam/query-features-by-materials-types";
-import { AssetObjectExtra, AssetObjectTags, TaggingAuditStatus } from "@/prisma/client";
-import { CheckIcon, DotIcon, ExternalLinkIcon, Loader2Icon, StarIcon, XIcon } from "lucide-react";
+import {
+  AssetObjectExtra,
+  AssetObjectTags,
+  TaggingAuditStatus,
+  TaggingQueueItemResult,
+} from "@/prisma/client";
+import {
+  CheckIcon,
+  DotIcon,
+  ExternalLinkIcon,
+  Loader2Icon,
+  PlusIcon,
+  StarIcon,
+  XIcon,
+} from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -47,10 +61,21 @@ import {
   approveAuditItemsAction,
   AssetWithAuditItemsBatch,
   rejectAuditItemsAction,
+  setAuditItemsRejectedAction,
 } from "./actions";
+import { AddFeatureDialog } from "./components/AddFeatureDialog";
 import { FeatureThumbnail } from "./components/FeatureThumbnail";
+import {
+  FEATURE_REVIEW_CHANGED,
+  featureKey,
+  getFeatureReviewVersions,
+  getReviewedManualFeatures,
+  getReviewFeatures,
+  type FeatureThumbnailImage,
+  type ReviewFeature,
+  type ReviewFeatureSearchResult,
+} from "./feature-review";
 
-type ReviewAssetObject = AssetWithAuditItemsBatch["assetObject"];
 type PreviewImage = { src: string; alt: string };
 
 function ImagePreviewDialog({
@@ -149,21 +174,6 @@ function ExistingFeatureSnapshotRow({
   );
 }
 
-function toggleTagIds(current: number[], tagIds: number[]) {
-  if (tagIds.length === 0) {
-    return current;
-  }
-
-  const tagIdSet = new Set(tagIds);
-  const allRejected = tagIds.every((tagId) => current.includes(tagId));
-
-  if (allRejected) {
-    return current.filter((tagId) => !tagIdSet.has(tagId));
-  }
-
-  return Array.from(new Set([...current, ...tagIds]));
-}
-
 function FeatureRecognitionRow({
   featureType,
   featureId,
@@ -172,28 +182,32 @@ function FeatureRecognitionRow({
   classifiedName,
   confidence,
   rawSimilarity,
-  tagIds,
-  rejectedTagIds,
-  onToggleTagIds,
+  tagPaths,
+  isRejected,
+  onToggle,
+  disabled,
   tooltipAdd,
   tooltipRemove,
   onPreview,
+  thumbnail,
 }: {
   featureType: "brand" | "ip" | "product" | "person";
   featureId: string;
+  /** undefined → 列表未预签名，由 FeatureThumbnail 自行请求 */
+  thumbnail?: FeatureThumbnailImage | null;
   featureClass: string;
   featureTypeName?: string | null;
   classifiedName: string;
   confidence: number;
   rawSimilarity?: number;
-  tagIds: number[];
-  rejectedTagIds: number[];
-  onToggleTagIds: (tagIds: number[]) => void;
+  tagPaths: string[][];
+  isRejected: boolean;
+  onToggle: () => void;
+  disabled?: boolean;
   tooltipAdd: string;
   tooltipRemove: string;
   onPreview: (image: PreviewImage) => void;
 }) {
-  const isRejected = tagIds.length > 0 && tagIds.every((tagId) => rejectedTagIds.includes(tagId));
   const tResult = useTranslations("TaggingResultDisplay");
   const t = useTranslations("Tagging.Review");
 
@@ -213,6 +227,7 @@ function FeatureRecognitionRow({
         <FeatureThumbnail
           featureType={featureType}
           featureId={featureId}
+          initialImage={thumbnail}
           alt={classifiedName}
           className="h-full w-full"
           previewLabel={t("previewImage", { name: classifiedName })}
@@ -232,6 +247,18 @@ function FeatureRecognitionRow({
         <div className="mt-0.5 truncate text-[10px] text-current/60">
           {tResult("matchingSource")}: {tResult(`${featureType}Recognition`)}
         </div>
+        {tagPaths.length > 0 ? (
+          <div className="mt-1 flex flex-wrap gap-1">
+            {tagPaths.map((tagPath, index) => (
+              <span
+                key={index}
+                className="inline-flex items-center rounded-sm border border-current/30 bg-background/60 px-1.5 py-0.5 text-[10px] text-current/80"
+              >
+                {tagPath.join(" > ")}
+              </span>
+            ))}
+          </div>
+        ) : null}
       </div>
       <div className="flex shrink-0 items-center gap-[6px]">
         <Progress
@@ -239,26 +266,109 @@ function FeatureRecognitionRow({
           className="w-[60px] bg-current/20 [&>[data-slot=progress-indicator]]:bg-current"
         />
         <span className="w-8 text-right text-[10px]">{confidence}%</span>
-        {tagIds.length > 0 ? (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="size-3 bg-transparent text-basic-5 hover:bg-transparent hover:text-current"
-                  onClick={() => onToggleTagIds(tagIds)}
-                >
-                  {isRejected ? <CheckIcon className="size-3" /> : <XIcon className="size-3" />}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{isRejected ? tooltipAdd : tooltipRemove}</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="size-3 bg-transparent text-basic-5 hover:bg-transparent hover:text-current"
+                aria-label={isRejected ? tooltipAdd : tooltipRemove}
+                disabled={disabled}
+                onClick={onToggle}
+              >
+                {isRejected ? <CheckIcon className="size-3" /> : <XIcon className="size-3" />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{isRejected ? tooltipAdd : tooltipRemove}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+    </div>
+  );
+}
+
+function ManualFeatureRow({
+  feature,
+  featureClass,
+  onRemove,
+  disabled,
+  onPreview,
+  thumbnail,
+}: {
+  feature: ReviewFeature;
+  featureClass: string;
+  thumbnail?: FeatureThumbnailImage | null;
+  /** Omitted for features already recorded in an applied review (read-only). */
+  onRemove?: () => void;
+  disabled?: boolean;
+  onPreview: (image: PreviewImage) => void;
+}) {
+  const tResult = useTranslations("TaggingResultDisplay");
+  const t = useTranslations("Tagging.Review");
+
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-md border border-basic-3 bg-background p-3">
+      <div className="relative size-10 shrink-0 overflow-hidden rounded bg-basic-2">
+        <FeatureThumbnail
+          featureType={feature.featureType}
+          featureId={feature.id}
+          initialImage={thumbnail}
+          alt={feature.name}
+          className="h-full w-full"
+          previewLabel={t("previewImage", { name: feature.name })}
+          onPreview={(imageUrl) => onPreview({ src: imageUrl, alt: feature.name })}
+        />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-[13px] font-medium leading-[18px]" title={feature.name}>
+          {feature.name}
+        </div>
+        <div
+          className="mt-1 truncate text-xs text-basic-5"
+          title={`${featureClass} > ${feature.typeName || "-"}`}
+        >
+          {featureClass} &gt; {feature.typeName || "-"}
+        </div>
+        <div className="mt-0.5 truncate text-[10px] text-basic-5">
+          {tResult("matchingSource")}: {t("manuallyAdded")}
+        </div>
+        {feature.tags.length > 0 ? (
+          <div className="mt-1 flex flex-wrap gap-1">
+            {feature.tags.map((tag) => (
+              <span
+                key={tag.assetTagId}
+                className="inline-flex items-center rounded-sm border bg-background px-1.5 py-0.5 text-[10px] text-basic-5"
+              >
+                {tag.tagPath.join(" > ")}
+              </span>
+            ))}
+          </div>
         ) : null}
       </div>
+      {onRemove ? (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="size-3 shrink-0 bg-transparent text-basic-5 hover:bg-transparent hover:text-current"
+                aria-label={t("tooltipRemove")}
+                disabled={disabled}
+                onClick={onRemove}
+              >
+                <XIcon className="size-3" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{t("tooltipRemove")}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      ) : null}
     </div>
   );
 }
@@ -267,18 +377,34 @@ export function ReviewItem({
   assetObject,
   existingFeatures = [],
   availableFeatureIds,
+  featureThumbnails,
   batch,
   onSuccess,
   CheckboxComponent,
   batchLoading,
+  rejectedFeatureKeys,
+  onToggleFeatureKey,
+  manualFeatures,
+  onAddManualFeatures,
+  onRemoveManualFeature,
 }: AssetWithAuditItemsBatch & {
   CheckboxComponent: React.ReactNode;
   batchLoading?: boolean;
+  rejectedFeatureKeys: string[];
+  onToggleFeatureKey: (key: string) => void;
+  manualFeatures: ReviewFeatureSearchResult[];
+  onAddManualFeatures: (features: ReviewFeatureSearchResult[]) => void;
+  onRemoveManualFeature: (key: string) => void;
 }) {
   const t = useTranslations("Tagging.Review");
   const tResult = useTranslations("TaggingResultDisplay");
   const locale = useLocale();
-  const featureLibraryEnabled = useFeatureLibraryEnabled();
+  const featureLibraryFeatures = useFeatureLibraryFeatures();
+  const hasEnabledFeatures =
+    featureLibraryFeatures.featureBrand ||
+    featureLibraryFeatures.featureIp ||
+    featureLibraryFeatures.featureProduct ||
+    featureLibraryFeatures.featurePerson;
 
   const getFeatureClassLabel = useCallback(
     (featureType: MuseDAMMaterialFeatureSnapshot["featureType"]) => {
@@ -298,37 +424,37 @@ export function ReviewItem({
     [tResult],
   );
   const [loading, setLoading] = useState(false);
-  const [rejectedItems, setRejectedItems] = useState<number[]>([]);
-  const [rejectedBrandItems, setRejectedBrandItems] = useState<number[]>([]);
-  const [rejectedIpItems, setRejectedIpItems] = useState<number[]>([]);
-  const [rejectedProductItems, setRejectedProductItems] = useState<number[]>([]);
-  const [rejectedPersonItems, setRejectedPersonItems] = useState<number[]>([]);
+  // 初始值来自数据库：上次点 x 已即时持久化为 rejected 的标签，刷新后仍以虚线展示并可恢复
+  const [rejectedItems, setRejectedItems] = useState<number[]>(() =>
+    Array.from(
+      new Set(
+        batch.flatMap(({ taggingAuditItems }) =>
+          taggingAuditItems.flatMap((auditItem) =>
+            auditItem.status === "rejected" && auditItem.leafTagId ? [auditItem.leafTagId] : [],
+          ),
+        ),
+      ),
+    ),
+  );
   const [previewImage, setPreviewImage] = useState<PreviewImage | null>(null);
+  const [addFeatureOpen, setAddFeatureOpen] = useState(false);
+  // 历史打标记录默认折叠：只展示最新一次，避免过往错误结果一直挂在页面上
+  const [showHistory, setShowHistory] = useState(false);
 
   const assetExtra = assetObject.extra as AssetObjectExtra | null;
   const assetPreviewUrl = assetExtra?.thumbnailAccessUrl;
+  const isVideoAsset = isVideoAssetExtension(assetExtra?.extension);
 
   const realLoading = batchLoading || loading;
   const availableFeatureIdSets = useMemo(
     () => ({
-      brand: new Set(featureLibraryEnabled ? availableFeatureIds.brand : []),
-      ip: new Set(featureLibraryEnabled ? availableFeatureIds.ip : []),
-      product: new Set(featureLibraryEnabled ? availableFeatureIds.product : []),
-      person: new Set(featureLibraryEnabled ? availableFeatureIds.person : []),
+      brand: new Set(featureLibraryFeatures.featureBrand ? availableFeatureIds.brand : []),
+      ip: new Set(featureLibraryFeatures.featureIp ? availableFeatureIds.ip : []),
+      product: new Set(featureLibraryFeatures.featureProduct ? availableFeatureIds.product : []),
+      person: new Set(featureLibraryFeatures.featurePerson ? availableFeatureIds.person : []),
     }),
-    [availableFeatureIds, featureLibraryEnabled],
+    [availableFeatureIds, featureLibraryFeatures],
   );
-  const availableMuseFeatureIdentifierIds = useMemo(
-    () =>
-      new Set([
-        ...(featureLibraryEnabled ? availableFeatureIds.brand : []),
-        ...(featureLibraryEnabled ? availableFeatureIds.ip : []),
-        ...(featureLibraryEnabled ? availableFeatureIds.product : []),
-        ...(featureLibraryEnabled ? availableFeatureIds.person : []),
-      ]),
-    [availableFeatureIds, featureLibraryEnabled],
-  );
-
   const finalBatch = useMemo(() => {
     let hasDefaultBatch = false;
     return batch.filter((group) => {
@@ -341,6 +467,23 @@ export function ReviewItem({
       return true;
     });
   }, [batch]);
+
+  // 只折叠已应用过的历史批次；还有 pending 审核项的批次会随本次应用一起提交（标签和特征），
+  // 必须始终展示，避免在看不到的情况下被应用
+  const collapsibleBatch = useMemo(
+    () =>
+      finalBatch.filter(
+        ({ taggingAuditItems }, index) =>
+          index > 0 && !taggingAuditItems.some(({ status }) => status === "pending"),
+      ),
+    [finalBatch],
+  );
+  const visibleBatch = useMemo(
+    () =>
+      showHistory ? finalBatch : finalBatch.filter((group) => !collapsibleBatch.includes(group)),
+    [collapsibleBatch, finalBatch, showHistory],
+  );
+  const historyCount = collapsibleBatch.length;
 
   const filteredOutAuditItems = useMemo(() => {
     const finalBatchSet = new Set(finalBatch);
@@ -406,205 +549,75 @@ export function ReviewItem({
     [finalBatch],
   );
 
-  const brandTagIds = useMemo(() => {
-    if (!featureLibraryEnabled) return [];
-    return Array.from(
-      new Set(
-        Array.from(brandRecommendationsByQueueId.values()).flatMap((brandRecommendation) => {
-          if (
-            !brandRecommendation?.bestMatch ||
-            !meetsFeatureConfidenceThreshold("brand", brandRecommendation.bestMatch.confidence) ||
-            !availableFeatureIdSets.brand.has(brandRecommendation.bestMatch.assetLogoId) ||
-            !brandRecommendation.recommendedTags
-          ) {
-            return [];
-          }
-
-          return brandRecommendation.recommendedTags
-            .map((tag) => tag.assetTagId)
-            .filter((tagId) => !rejectedBrandItems.includes(tagId));
-        }),
+  const featureReviewVersions = useMemo(() => getFeatureReviewVersions(finalBatch), [finalBatch]);
+  const manualFeatureKeys = useMemo(
+    () => manualFeatures.map((feature) => featureKey(feature.featureType, feature.id)),
+    [manualFeatures],
+  );
+  const visibleManualFeatures = useMemo(
+    () =>
+      manualFeatures.filter((feature) =>
+        isFeatureTypeEnabled(featureLibraryFeatures, feature.featureType),
       ),
-    );
-  }, [
-    availableFeatureIdSets,
-    brandRecommendationsByQueueId,
-    featureLibraryEnabled,
-    rejectedBrandItems,
-  ]);
-  const ipTagIds = useMemo(() => {
-    if (!featureLibraryEnabled) return [];
-    return Array.from(
+    [featureLibraryFeatures, manualFeatures],
+  );
+  // 本次应用会带上的特征（素材已绑定 + 手动添加 + 待应用批次的 AI 识别结果），弹窗里置灰避免重复添加。
+  // AI 部分与应用逻辑一致：只取 featureReviewVersions 里的批次（有 pending 审核项、会随本次应用提交），
+  // 用 getReviewFeatures 按置信度阈值筛选。已应用过的历史批次不算，否则只在历史里识别过、
+  // 这次不会应用的特征也会显示"已添加"，导致无法手动添加。
+  const addedFeatureKeys = useMemo(
+    () =>
       new Set(
-        Array.from(ipRecommendationsByQueueId.values()).flatMap((ipRecommendation) => {
-          if (
-            !ipRecommendation?.bestMatch ||
-            !meetsFeatureConfidenceThreshold("ip", ipRecommendation.bestMatch.confidence) ||
-            !availableFeatureIdSets.ip.has(ipRecommendation.bestMatch.assetIpId) ||
-            !ipRecommendation.recommendedTags
-          ) {
-            return [];
-          }
-
-          return ipRecommendation.recommendedTags
-            .map((tag) => tag.assetTagId)
-            .filter((tagId) => !rejectedIpItems.includes(tagId));
-        }),
+        [
+          ...manualFeatureKeys,
+          ...existingFeatures.map((feature) =>
+            featureKey(feature.featureType, feature.identifierId),
+          ),
+          ...finalBatch
+            .filter(({ queueItem }) => featureReviewVersions[queueItem.id] !== undefined)
+            .flatMap(({ queueItem }) => getReviewFeatures(queueItem.result))
+            .filter((feature) => availableFeatureIdSets[feature.featureType].has(feature.id))
+            .map((feature) => featureKey(feature.featureType, feature.id)),
+        ].filter((key) => !rejectedFeatureKeys.includes(key)),
       ),
-    );
-  }, [availableFeatureIdSets, featureLibraryEnabled, ipRecommendationsByQueueId, rejectedIpItems]);
-  const personTagIds = useMemo(() => {
-    if (!featureLibraryEnabled) return [];
-    return Array.from(
-      new Set(
-        Array.from(personRecommendationsByQueueId.values()).flatMap((personRecommendation) => {
-          if (!personRecommendation?.faces) {
-            return [];
-          }
+    [
+      availableFeatureIdSets,
+      existingFeatures,
+      featureReviewVersions,
+      finalBatch,
+      manualFeatureKeys,
+      rejectedFeatureKeys,
+    ],
+  );
 
-          const tagIds: number[] = [];
-          for (const face of personRecommendation.faces) {
-            if (
-              !isReviewablePersonFace(face) ||
-              !face.bestMatch ||
-              !availableFeatureIdSets.person.has(face.bestMatch.assetPersonId)
-            ) {
-              continue;
-            }
-
-            for (const tag of face.bestMatch.recommendedTags ?? []) {
-              if (
-                Number.isInteger(tag.assetTagId) &&
-                tag.assetTagId > 0 &&
-                !rejectedPersonItems.includes(tag.assetTagId)
-              ) {
-                tagIds.push(tag.assetTagId);
-              }
-            }
-          }
-
-          return tagIds;
-        }),
-      ),
-    );
-  }, [
-    availableFeatureIdSets,
-    featureLibraryEnabled,
-    personRecommendationsByQueueId,
-    rejectedPersonItems,
-  ]);
-  const productTagIds = useMemo(() => {
-    if (!featureLibraryEnabled) return [];
-    return Array.from(
-      new Set(
-        Array.from(productRecommendationsByQueueId.values()).flatMap((productRecommendation) => {
-          if (
-            !productRecommendation?.bestMatch ||
-            !meetsFeatureConfidenceThreshold(
-              "product",
-              productRecommendation.bestMatch.confidence,
-            ) ||
-            !availableFeatureIdSets.product.has(productRecommendation.bestMatch.assetProductId) ||
-            !productRecommendation.recommendedTags
-          ) {
-            return [];
-          }
-
-          return productRecommendation.recommendedTags
-            .map((tag) => tag.assetTagId)
-            .filter((tagId) => !rejectedProductItems.includes(tagId));
-        }),
-      ),
-    );
-  }, [
-    availableFeatureIdSets,
-    featureLibraryEnabled,
-    productRecommendationsByQueueId,
-    rejectedProductItems,
-  ]);
-
-  const museFeatureIdentifierIds = useMemo(() => {
-    if (!featureLibraryEnabled) return [];
-
-    const ids = new Set<string>();
-    for (const { queueItem } of finalBatch) {
-      const br = brandRecommendationsByQueueId.get(queueItem.id);
-      const ir = ipRecommendationsByQueueId.get(queueItem.id);
-      const pr = productRecommendationsByQueueId.get(queueItem.id);
-      const per = personRecommendationsByQueueId.get(queueItem.id);
-
-      const brandTagIdsForQueue =
-        br?.bestMatch &&
-        meetsFeatureConfidenceThreshold("brand", br.bestMatch.confidence) &&
-        availableFeatureIdSets.brand.has(br.bestMatch.assetLogoId)
-          ? (br.recommendedTags
-              ?.map((t) => t.assetTagId)
-              .filter((id) => !rejectedBrandItems.includes(id)) ?? [])
-          : [];
-      const ipTagIdsForQueue =
-        ir?.bestMatch &&
-        meetsFeatureConfidenceThreshold("ip", ir.bestMatch.confidence) &&
-        availableFeatureIdSets.ip.has(ir.bestMatch.assetIpId)
-          ? (ir.recommendedTags
-              ?.map((t) => t.assetTagId)
-              .filter((id) => !rejectedIpItems.includes(id)) ?? [])
-          : [];
-      const productTagIdsForQueue =
-        pr?.bestMatch &&
-        meetsFeatureConfidenceThreshold("product", pr.bestMatch.confidence) &&
-        availableFeatureIdSets.product.has(pr.bestMatch.assetProductId)
-          ? (pr.recommendedTags
-              ?.map((t) => t.assetTagId)
-              .filter((id) => !rejectedProductItems.includes(id)) ?? [])
-          : [];
-      const personTagIdsForQueue =
-        per?.faces.flatMap((face) => {
-          if (
-            !isReviewablePersonFace(face) ||
-            !face.bestMatch ||
-            !availableFeatureIdSets.person.has(face.bestMatch.assetPersonId)
-          ) {
-            return [];
-          }
-
-          return (
-            face.bestMatch.recommendedTags
-              ?.map((t) => t.assetTagId)
-              .filter((id) => !rejectedPersonItems.includes(id)) ?? []
-          );
-        }) ?? [];
-
-      for (const id of collectMuseFeatureIdentifierIdsForQueueItem({
-        brandRecommendation: br ?? undefined,
-        ipRecommendation: ir ?? undefined,
-        productRecommendation: pr ?? undefined,
-        personRecommendation: per ?? undefined,
-        brandTagIds: brandTagIdsForQueue,
-        ipTagIds: ipTagIdsForQueue,
-        productTagIds: productTagIdsForQueue,
-        personTagIds: personTagIdsForQueue,
-        personMatchMode: "review",
-      })) {
-        if (availableMuseFeatureIdentifierIds.has(id)) {
-          ids.add(id);
-        }
+  // 点 x / 再点恢复：先乐观更新本地状态，同时把该标签在本素材下的所有审核项即时持久化为 rejected / pending，
+  // 这样顶部"批量应用"和刷新页面都能看到 x 的结果；失败则回滚本地状态。
+  const toggleRejectedTag = useCallback(
+    async (leafTagId: number) => {
+      const nextRejected = !rejectedItems.includes(leafTagId);
+      setRejectedItems((current) =>
+        nextRejected ? [...current, leafTagId] : current.filter((id) => id !== leafTagId),
+      );
+      const auditItemIds = Array.from(auditItemsSet)
+        .filter((auditItem) => auditItem.leafTagId === leafTagId)
+        .map(({ id }) => id);
+      try {
+        const result = await setAuditItemsRejectedAction({
+          assetSlug: assetObject.slug,
+          auditItemIds,
+          rejected: nextRejected,
+        });
+        if (!result.success) throw new Error(result.message || t("applyFailed"));
+      } catch (error) {
+        console.error(error);
+        setRejectedItems((current) =>
+          nextRejected ? current.filter((id) => id !== leafTagId) : [...current, leafTagId],
+        );
+        toast.error(error instanceof Error ? error.message : t("applyFailed"));
       }
-    }
-    return [...ids];
-  }, [
-    availableFeatureIdSets,
-    availableMuseFeatureIdentifierIds,
-    featureLibraryEnabled,
-    finalBatch,
-    brandRecommendationsByQueueId,
-    ipRecommendationsByQueueId,
-    productRecommendationsByQueueId,
-    personRecommendationsByQueueId,
-    rejectedBrandItems,
-    rejectedIpItems,
-    rejectedProductItems,
-    rejectedPersonItems,
-  ]);
+    },
+    [assetObject.slug, auditItemsSet, rejectedItems, t],
+  );
 
   const hasPendingAuditItems = useMemo(
     () => Array.from(auditItemsSet).some((auditItem) => auditItem.status === "pending"),
@@ -633,13 +646,7 @@ export function ReviewItem({
 
       const allAuditItems = [...auditItems, ...filteredOutItems];
 
-      if (
-        !allAuditItems.length &&
-        brandTagIds.length === 0 &&
-        ipTagIds.length === 0 &&
-        productTagIds.length === 0 &&
-        personTagIds.length === 0
-      ) {
+      if (!allAuditItems.length) {
         toast.error(t("noCorrespondingTag"));
         setLoading(false);
         return;
@@ -649,15 +656,18 @@ export function ReviewItem({
         const result = await approveAuditItemsAction({
           assetSlug: assetObject.slug,
           auditItems: allAuditItems,
-          brandTagIds,
-          ipTagIds,
-          productTagIds,
-          personTagIds,
-          museFeatureIdentifierIds,
+          featureReviewVersions,
+          rejectedFeatureKeys,
+          manualFeatureKeys,
           append,
         });
 
         if (!result.success) {
+          if (result.message === FEATURE_REVIEW_CHANGED) {
+            toast.warning(t("featureReviewChanged"));
+            onSuccess?.();
+            return;
+          }
           if (result.message === "Asset not found") {
             const rejectResult = await rejectAuditItemsAction({ assetSlug: assetObject.slug });
             if (rejectResult.success) {
@@ -686,13 +696,11 @@ export function ReviewItem({
     [
       assetObject.slug,
       auditItemsSet,
-      brandTagIds,
       filteredOutAuditItems,
-      ipTagIds,
-      museFeatureIdentifierIds,
+      featureReviewVersions,
+      rejectedFeatureKeys,
+      manualFeatureKeys,
       onSuccess,
-      personTagIds,
-      productTagIds,
       rejectedItems,
       t,
     ],
@@ -747,7 +755,7 @@ export function ReviewItem({
             }}
             maxWidth={86}
             maxHeight={86}
-            className="rounded-[10px] size-[86px]"
+            className="rounded-[10px] size-[86px] object-contain"
           />
         </button>
 
@@ -777,11 +785,7 @@ export function ReviewItem({
         </div>
 
         <div className="flex gap-2">
-          {(hasPendingAuditItems ||
-            brandTagIds.length > 0 ||
-            ipTagIds.length > 0 ||
-            productTagIds.length > 0 ||
-            personTagIds.length > 0) && (
+          {hasPendingAuditItems && (
             <Button
               size="sm"
               disabled={realLoading}
@@ -850,10 +854,21 @@ export function ReviewItem({
         </div>
 
         <div className="col-span-1 flex flex-col gap-[6px]">
-          {finalBatch.map(({ queueItem, taggingAuditItems }, index) => {
+          {visibleBatch.map(({ queueItem, taggingAuditItems }, index) => {
             const isLatestBatch = finalBatch.length > 1 && index === 0;
             const visibleAuditItems = taggingAuditItems.filter(
-              (auditItem) => auditItem.leafTagId && auditItem.tagPath.length > 0,
+              (auditItem) => auditItem.tagPath.length > 0,
+            );
+            // 这一批已经应用过：有审核项且没有待处理项
+            const isApplied =
+              taggingAuditItems.length > 0 &&
+              taggingAuditItems.every((auditItem) => auditItem.status !== "pending");
+            const resultTagsWithScore = (queueItem.result as TaggingQueueItemResult | null)
+              ?.tagsWithScore;
+            const originByLeafTagId = new Map(
+              (Array.isArray(resultTagsWithScore) ? resultTagsWithScore : [])
+                .filter((tag) => tag.origin)
+                .map((tag) => [tag.leafTagId, tag.origin] as const),
             );
 
             return (
@@ -868,6 +883,11 @@ export function ReviewItem({
                         {t("latest")}
                       </span>
                     ) : null}
+                    {isApplied ? (
+                      <span className="ml-2 inline-flex items-center px-2 py-[1px] rounded-[4px] text-xs text-success-6 border border-success-3 bg-success-1">
+                        {t("appliedBadge")}
+                      </span>
+                    ) : null}
                     <span className="ml-auto text-xs text-basic-5 flex items-center gap-1">
                       <ClockCircleIcon className="size-3" />
                       {formatDate(queueItem.createdAt)}
@@ -875,77 +895,78 @@ export function ReviewItem({
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     {visibleAuditItems.length > 0 ? (
-                      visibleAuditItems.map((auditItem) => (
-                        <div
-                          key={auditItem.id}
-                          className={cn(
-                            "relative py-[6px] px-2 rounded-[6px] border items-center flex gap-2",
-                            {
-                              "border-dashed":
-                                (auditItem.leafTagId &&
-                                  rejectedItems.includes(auditItem.leafTagId)) ||
-                                auditItem.status === "rejected",
-                            },
-                            {
-                              "text-primary-6 bg-primary-1 border-[#A6C1FF]": auditItem.score >= 80,
-                              "text-[#52C41A] bg-[#F6FFED] border-[#95DE64] dark:text-success-6 dark:bg-success-1 dark:border-success-3":
-                                auditItem.score >= 70 && auditItem.score < 80,
-                              "text-[#FA8C16] bg-[#FFF7E6] border-[#FFC069] dark:text-warning-6 dark:bg-warning-1 dark:border-warning-4":
-                                auditItem.score < 70,
-                            },
-                          )}
-                        >
-                          <div className="font-medium text-[13px] leading-[18px]">
-                            {auditItem.tagPath.join(" > ")}
+                      visibleAuditItems.map((auditItem) => {
+                        const isRejectedItem =
+                          (auditItem.leafTagId && rejectedItems.includes(auditItem.leafTagId)) ||
+                          auditItem.status === "rejected";
+                        return (
+                          <div
+                            key={auditItem.id}
+                            className={cn(
+                              "relative py-[6px] px-2 rounded-[6px] border items-center flex gap-2",
+                              isRejectedItem
+                                ? "border-dashed text-basic-5 bg-basic-2 border-basic-4 dark:bg-basic-2"
+                                : {
+                                    "text-primary-6 bg-primary-1 border-[#A6C1FF]":
+                                      auditItem.score >= 80,
+                                    "text-[#52C41A] bg-[#F6FFED] border-[#95DE64] dark:text-success-6 dark:bg-success-1 dark:border-success-3":
+                                      auditItem.score >= 70 && auditItem.score < 80,
+                                    "text-[#FA8C16] bg-[#FFF7E6] border-[#FFC069] dark:text-warning-6 dark:bg-warning-1 dark:border-warning-4":
+                                      auditItem.score < 70,
+                                  },
+                            )}
+                          >
+                            <div className="font-medium text-[13px] leading-[18px]">
+                              {auditItem.tagPath.join(" > ")}
+                            </div>
+                            {auditItem.leafTagId && originByLeafTagId.get(auditItem.leafTagId) ? (
+                              <span className="inline-flex items-center px-1 rounded-[3px] text-[10px] leading-4 border border-current/40 bg-background/60">
+                                {originByLeafTagId.get(auditItem.leafTagId) === "aspectRatio"
+                                  ? t("aspectRatioBadge")
+                                  : originByLeafTagId.get(auditItem.leafTagId) === "sizeAI"
+                                    ? t("sizeAIBadge")
+                                    : t("requiredFallbackBadge")}
+                              </span>
+                            ) : null}
+                            <div className="flex items-center gap-[6px]">
+                              <Progress
+                                value={auditItem.score}
+                                className="bg-current/20 [&>[data-slot=progress-indicator]]:bg-current w-[60px]"
+                              />
+                              <span className="text-[10px]">{auditItem.score}%</span>
+                            </div>
+                            {(auditItem.status === "pending" || auditItem.status === "rejected") &&
+                            auditItem.leafTagId ? (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="size-3 bg-transparent hover:bg-transparent text-basic-5 hover:text-current"
+                                      disabled={realLoading}
+                                      onClick={() => toggleRejectedTag(auditItem.leafTagId!)}
+                                    >
+                                      {rejectedItems.includes(auditItem.leafTagId) ? (
+                                        <CheckIcon className="h-3 w-3" />
+                                      ) : (
+                                        <XIcon className="h-3 w-3" />
+                                      )}
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>
+                                      {rejectedItems.includes(auditItem.leafTagId)
+                                        ? t("tooltipAdd")
+                                        : t("tooltipRemove")}
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            ) : null}
                           </div>
-                          <div className="flex items-center gap-[6px]">
-                            <Progress
-                              value={auditItem.score}
-                              className="bg-current/20 [&>[data-slot=progress-indicator]]:bg-current w-[60px]"
-                            />
-                            <span className="text-[10px]">{auditItem.score}%</span>
-                          </div>
-                          {auditItem.status === "pending" && auditItem.leafTagId ? (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className="size-3 bg-transparent hover:bg-transparent text-basic-5 hover:text-current"
-                                    onClick={() =>
-                                      setRejectedItems((current) => {
-                                        if (!auditItem.leafTagId) return [...current];
-                                        const foundIndex = current.indexOf(auditItem.leafTagId);
-                                        if (foundIndex >= 0) {
-                                          return [
-                                            ...current.slice(0, foundIndex),
-                                            ...current.slice(foundIndex + 1),
-                                          ];
-                                        }
-                                        return [...current, auditItem.leafTagId];
-                                      })
-                                    }
-                                  >
-                                    {rejectedItems.includes(auditItem.leafTagId) ? (
-                                      <CheckIcon className="h-3 w-3" />
-                                    ) : (
-                                      <XIcon className="h-3 w-3" />
-                                    )}
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>
-                                    {rejectedItems.includes(auditItem.leafTagId)
-                                      ? t("tooltipAdd")
-                                      : t("tooltipRemove")}
-                                  </p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          ) : null}
-                        </div>
-                      ))
+                        );
+                      })
                     ) : (
                       <div className="text-sm text-basic-5">{t("noPendingTags")}</div>
                     )}
@@ -954,10 +975,19 @@ export function ReviewItem({
               </div>
             );
           })}
+          {historyCount > 0 ? (
+            <button
+              type="button"
+              className="self-start text-xs text-basic-5 hover:text-basic-8 underline-offset-2 hover:underline"
+              onClick={() => setShowHistory((current) => !current)}
+            >
+              {showHistory ? t("hideHistory") : t("showHistory", { count: historyCount })}
+            </button>
+          ) : null}
         </div>
       </div>
 
-      {featureLibraryEnabled ? (
+      {hasEnabledFeatures ? (
         <div className="grid grid-cols-2 gap-4">
           <div className="col-span-1 rounded-md bg-[rgba(247,249,252,0.8)] p-4 dark:bg-basic-1">
             <div className="mb-2 flex items-center gap-2">
@@ -966,25 +996,71 @@ export function ReviewItem({
             </div>
             <div className="space-y-2">
               {existingFeatures.length > 0
-                ? existingFeatures.map((feature) => (
-                    <ExistingFeatureSnapshotRow
-                      key={`${feature.featureType}-${feature.identifierId}-${feature.id}`}
-                      feature={feature}
-                      featureClass={getFeatureClassLabel(feature.featureType)}
-                      onPreview={setPreviewImage}
-                    />
-                  ))
+                ? existingFeatures
+                    .filter((feature) =>
+                      isFeatureTypeEnabled(featureLibraryFeatures, feature.featureType),
+                    )
+                    .map((feature) => (
+                      <ExistingFeatureSnapshotRow
+                        key={`${feature.featureType}-${feature.identifierId}-${feature.id}`}
+                        feature={feature}
+                        featureClass={getFeatureClassLabel(feature.featureType)}
+                        onPreview={setPreviewImage}
+                      />
+                    ))
                 : null}
             </div>
           </div>
 
           <div className="col-span-1 flex flex-col gap-[6px]">
-            {finalBatch.map(({ queueItem }, index) => {
+            {visibleBatch.map(({ queueItem, taggingAuditItems }, index) => {
               const brandRecommendation = brandRecommendationsByQueueId.get(queueItem.id);
               const ipRecommendation = ipRecommendationsByQueueId.get(queueItem.id);
               const productRecommendation = productRecommendationsByQueueId.get(queueItem.id);
               const personRecommendation = personRecommendationsByQueueId.get(queueItem.id);
               const isLatestBatch = finalBatch.length > 1 && index === 0;
+              // 待审核：手动添加的特征挂在最新一次识别结果下，可移除；
+              // 已应用：展示该次审核快照里记录的手动添加特征，只读
+              const isCurrentBatch = index === 0;
+              const isEditableManualBatch = isCurrentBatch && hasPendingAuditItems;
+              const reviewedManualFeatures = taggingAuditItems.some(
+                ({ status }) => status === "pending",
+              )
+                ? []
+                : getReviewedManualFeatures(queueItem.extra).filter((feature) =>
+                    isFeatureTypeEnabled(featureLibraryFeatures, feature.featureType),
+                  );
+              const hasManualRows =
+                reviewedManualFeatures.length > 0 ||
+                (isEditableManualBatch && visibleManualFeatures.length > 0);
+              const hasFeatureBelowConfidenceThreshold =
+                (featureLibraryFeatures.featureBrand &&
+                  brandRecommendation?.bestMatch &&
+                  availableFeatureIdSets.brand.has(brandRecommendation.bestMatch.assetLogoId) &&
+                  !meetsFeatureConfidenceThreshold(
+                    "brand",
+                    brandRecommendation.bestMatch.confidence,
+                  )) ||
+                (featureLibraryFeatures.featureIp &&
+                  ipRecommendation?.bestMatch &&
+                  availableFeatureIdSets.ip.has(ipRecommendation.bestMatch.assetIpId) &&
+                  !meetsFeatureConfidenceThreshold("ip", ipRecommendation.bestMatch.confidence)) ||
+                (featureLibraryFeatures.featureProduct &&
+                  getProductMatches(productRecommendation).some(
+                    (product) =>
+                      availableFeatureIdSets.product.has(product.assetProductId) &&
+                      !meetsFeatureConfidenceThreshold("product", product.confidence),
+                  )) ||
+                (featureLibraryFeatures.featurePerson &&
+                  personRecommendation?.faces.some((face) => {
+                    const rawSimilarity = getPersonFaceBestRawSimilarity(face);
+                    return (
+                      face.bestMatch !== null &&
+                      availableFeatureIdSets.person.has(face.bestMatch.assetPersonId) &&
+                      rawSimilarity !== null &&
+                      !isReviewablePersonFace(face)
+                    );
+                  }));
               const featureRows: {
                 key: string;
                 featureType: "brand" | "ip" | "product" | "person";
@@ -994,12 +1070,13 @@ export function ReviewItem({
                 classifiedName: string;
                 confidence: number;
                 rawSimilarity?: number;
-                tagIds: number[];
-                rejectedTagIds: number[];
-                onToggleTagIds: (tagIds: number[]) => void;
+                tagPaths: string[][];
+                isRejected: boolean;
+                onToggle: () => void;
               }[] = [];
 
               if (
+                featureLibraryFeatures.featureBrand &&
                 brandRecommendation?.bestMatch &&
                 meetsFeatureConfidenceThreshold(
                   "brand",
@@ -1015,16 +1092,20 @@ export function ReviewItem({
                   featureTypeName: brandRecommendation.bestMatch.logoTypeName,
                   classifiedName: brandRecommendation.bestMatch.logoName,
                   confidence: normalizeFeatureConfidence(brandRecommendation.bestMatch.confidence),
-                  tagIds:
-                    brandRecommendation.bestMatch.recommendedTags?.map((tag) => tag.assetTagId) ??
-                    [],
-                  rejectedTagIds: rejectedBrandItems,
-                  onToggleTagIds: (tagIds) =>
-                    setRejectedBrandItems((current) => toggleTagIds(current, tagIds)),
+                  tagPaths:
+                    brandRecommendation.bestMatch.recommendedTags?.map((tag) => tag.tagPath) ?? [],
+                  isRejected: rejectedFeatureKeys.includes(
+                    featureKey("brand", brandRecommendation.bestMatch.assetLogoId),
+                  ),
+                  onToggle: () =>
+                    onToggleFeatureKey(
+                      featureKey("brand", brandRecommendation.bestMatch!.assetLogoId),
+                    ),
                 });
               }
 
               if (
+                featureLibraryFeatures.featureIp &&
                 ipRecommendation?.bestMatch &&
                 meetsFeatureConfidenceThreshold("ip", ipRecommendation.bestMatch.confidence) &&
                 availableFeatureIdSets.ip.has(ipRecommendation.bestMatch.assetIpId)
@@ -1037,83 +1118,82 @@ export function ReviewItem({
                   featureTypeName: ipRecommendation.bestMatch.ipTypeName,
                   classifiedName: ipRecommendation.bestMatch.ipName,
                   confidence: normalizeFeatureConfidence(ipRecommendation.bestMatch.confidence),
-                  tagIds:
-                    ipRecommendation.bestMatch.recommendedTags?.map((tag) => tag.assetTagId) ?? [],
-                  rejectedTagIds: rejectedIpItems,
-                  onToggleTagIds: (tagIds) =>
-                    setRejectedIpItems((current) => toggleTagIds(current, tagIds)),
-                });
-              }
-
-              if (
-                productRecommendation?.bestMatch &&
-                meetsFeatureConfidenceThreshold(
-                  "product",
-                  productRecommendation.bestMatch.confidence,
-                ) &&
-                availableFeatureIdSets.product.has(productRecommendation.bestMatch.assetProductId)
-              ) {
-                featureRows.push({
-                  key: "product",
-                  featureType: "product",
-                  featureId: productRecommendation.bestMatch.assetProductId,
-                  featureClass: tResult("featureClassProduct"),
-                  featureTypeName: productRecommendation.bestMatch.productTypeName,
-                  classifiedName: productRecommendation.bestMatch.productName,
-                  confidence: normalizeFeatureConfidence(
-                    productRecommendation.bestMatch.confidence,
+                  tagPaths:
+                    ipRecommendation.bestMatch.recommendedTags?.map((tag) => tag.tagPath) ?? [],
+                  isRejected: rejectedFeatureKeys.includes(
+                    featureKey("ip", ipRecommendation.bestMatch.assetIpId),
                   ),
-                  tagIds:
-                    productRecommendation.bestMatch.recommendedTags?.map((tag) => tag.assetTagId) ??
-                    [],
-                  rejectedTagIds: rejectedProductItems,
-                  onToggleTagIds: (tagIds) =>
-                    setRejectedProductItems((current) => toggleTagIds(current, tagIds)),
+                  onToggle: () =>
+                    onToggleFeatureKey(featureKey("ip", ipRecommendation.bestMatch!.assetIpId)),
                 });
               }
 
-              const totalPersonFaces =
-                personRecommendation?.faces.filter(
-                  (f) =>
-                    isReviewablePersonFace(f) &&
-                    f.bestMatch &&
-                    availableFeatureIdSets.person.has(f.bestMatch.assetPersonId),
-                ).length ?? 0;
-              personRecommendation?.faces.forEach((face) => {
-                if (
-                  !isReviewablePersonFace(face) ||
-                  !face.bestMatch ||
-                  !availableFeatureIdSets.person.has(face.bestMatch.assetPersonId)
-                ) {
-                  return;
-                }
-
-                // Format: "人物N: personName" when multiple people, or just "personName" when single
-                const personDisplayName =
-                  totalPersonFaces > 1
-                    ? `${tResult("featureClassPerson")}${face.detectionIndex + 1}: ${face.bestMatch.personName}`
-                    : face.bestMatch.personName;
-
-                const rawSimilarity = getPersonFaceBestRawSimilarity(face);
-                if (rawSimilarity === null) {
-                  return;
-                }
-
+              for (const product of featureLibraryFeatures.featureProduct
+                ? getAcceptedProductMatches(productRecommendation)
+                : []) {
+                if (!availableFeatureIdSets.product.has(product.assetProductId)) continue;
                 featureRows.push({
-                  key: `person-${face.detectionIndex}-${face.bestMatch.assetPersonId}`,
-                  featureType: "person",
-                  featureId: face.bestMatch.assetPersonId,
-                  featureClass: tResult("featureClassPerson"),
-                  featureTypeName: face.bestMatch.personTypeName,
-                  classifiedName: personDisplayName,
-                  confidence: personSimilarityToConfidence(rawSimilarity),
-                  rawSimilarity,
-                  tagIds: face.bestMatch.recommendedTags?.map((tag) => tag.assetTagId) ?? [],
-                  rejectedTagIds: rejectedPersonItems,
-                  onToggleTagIds: (tagIds) =>
-                    setRejectedPersonItems((current) => toggleTagIds(current, tagIds)),
+                  key: `product-${product.assetProductId}`,
+                  featureType: "product",
+                  featureId: product.assetProductId,
+                  featureClass: tResult("featureClassProduct"),
+                  featureTypeName: product.productTypeName,
+                  classifiedName: product.productName,
+                  confidence: normalizeFeatureConfidence(product.confidence),
+                  tagPaths: product.recommendedTags?.map((tag) => tag.tagPath) ?? [],
+                  isRejected: rejectedFeatureKeys.includes(
+                    featureKey("product", product.assetProductId),
+                  ),
+                  onToggle: () => onToggleFeatureKey(featureKey("product", product.assetProductId)),
                 });
-              });
+              }
+
+              const totalPersonFaces = featureLibraryFeatures.featurePerson
+                ? (personRecommendation?.faces.filter(
+                    (f) =>
+                      isReviewablePersonFace(f) &&
+                      f.bestMatch &&
+                      availableFeatureIdSets.person.has(f.bestMatch.assetPersonId),
+                  ).length ?? 0)
+                : 0;
+              if (featureLibraryFeatures.featurePerson)
+                personRecommendation?.faces.forEach((face) => {
+                  if (
+                    !isReviewablePersonFace(face) ||
+                    !face.bestMatch ||
+                    !availableFeatureIdSets.person.has(face.bestMatch.assetPersonId)
+                  ) {
+                    return;
+                  }
+
+                  // Format: "人物N: personName" when multiple people, or just "personName" when single
+                  const personDisplayName =
+                    totalPersonFaces > 1
+                      ? `${tResult("featureClassPerson")}${face.detectionIndex + 1}: ${face.bestMatch.personName}`
+                      : face.bestMatch.personName;
+
+                  const rawSimilarity = getPersonFaceBestRawSimilarity(face);
+                  if (rawSimilarity === null) {
+                    return;
+                  }
+
+                  featureRows.push({
+                    key: `person-${face.detectionIndex}-${face.bestMatch.assetPersonId}`,
+                    featureType: "person",
+                    featureId: face.bestMatch.assetPersonId,
+                    featureClass: tResult("featureClassPerson"),
+                    featureTypeName: face.bestMatch.personTypeName,
+                    classifiedName: personDisplayName,
+                    confidence: personSimilarityToConfidence(rawSimilarity),
+                    rawSimilarity,
+                    tagPaths: face.bestMatch.recommendedTags?.map((tag) => tag.tagPath) ?? [],
+                    isRejected: rejectedFeatureKeys.includes(
+                      featureKey("person", face.bestMatch.assetPersonId),
+                    ),
+                    onToggle: () =>
+                      onToggleFeatureKey(featureKey("person", face.bestMatch!.assetPersonId)),
+                  });
+                });
 
               // Sort features by confidence (high to low)
               featureRows.sort((a, b) => b.confidence - a.confidence);
@@ -1138,34 +1218,93 @@ export function ReviewItem({
                     </span>
                   </div>
                   <div className="space-y-2">
+                    {reviewedManualFeatures.map((feature) => (
+                      <ManualFeatureRow
+                        key={`reviewed-manual-${featureKey(feature.featureType, feature.id)}`}
+                        feature={feature}
+                        featureClass={getFeatureClassLabel(feature.featureType)}
+                        thumbnail={featureThumbnails[featureKey(feature.featureType, feature.id)]}
+                        onPreview={setPreviewImage}
+                      />
+                    ))}
+                    {isEditableManualBatch
+                      ? visibleManualFeatures.map((feature) => (
+                          <ManualFeatureRow
+                            key={`manual-${featureKey(feature.featureType, feature.id)}`}
+                            feature={feature}
+                            featureClass={getFeatureClassLabel(feature.featureType)}
+                            thumbnail={
+                              feature.thumbnail !== undefined
+                                ? feature.thumbnail
+                                : featureThumbnails[featureKey(feature.featureType, feature.id)]
+                            }
+                            disabled={realLoading}
+                            onRemove={() =>
+                              onRemoveManualFeature(featureKey(feature.featureType, feature.id))
+                            }
+                            onPreview={setPreviewImage}
+                          />
+                        ))
+                      : null}
                     {featureRows.length > 0 ? (
                       featureRows.map((feature) => (
                         <FeatureRecognitionRow
                           key={feature.key}
                           featureType={feature.featureType}
                           featureId={feature.featureId}
+                          thumbnail={
+                            featureThumbnails[featureKey(feature.featureType, feature.featureId)]
+                          }
                           featureClass={feature.featureClass}
                           featureTypeName={feature.featureTypeName}
                           classifiedName={feature.classifiedName}
                           confidence={feature.confidence}
                           rawSimilarity={feature.rawSimilarity}
-                          tagIds={feature.tagIds}
-                          rejectedTagIds={feature.rejectedTagIds}
-                          onToggleTagIds={feature.onToggleTagIds}
+                          tagPaths={feature.tagPaths}
+                          isRejected={feature.isRejected}
+                          onToggle={feature.onToggle}
+                          disabled={realLoading || !hasPendingAuditItems}
                           tooltipAdd={t("tooltipAdd")}
                           tooltipRemove={t("tooltipRemove")}
                           onPreview={setPreviewImage}
                         />
                       ))
-                    ) : (
-                      <div className="text-sm text-basic-5">{tResult("noRecognizedFeatures")}</div>
+                    ) : hasManualRows ? null : (
+                      <div className="text-sm text-basic-5">
+                        {tResult(
+                          isVideoAsset
+                            ? "videoFeatureLibraryLimited"
+                            : hasFeatureBelowConfidenceThreshold
+                              ? "featureConfidenceNotCredible"
+                              : "noRecognizedFeatures",
+                        )}
+                      </div>
                     )}
+                    {isEditableManualBatch ? (
+                      <button
+                        type="button"
+                        disabled={realLoading}
+                        className="inline-flex items-center gap-1 text-xs text-primary-6 transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
+                        onClick={() => setAddFeatureOpen(true)}
+                      >
+                        <PlusIcon className="size-3" />
+                        {t("addFeatureManually")}
+                      </button>
+                    ) : null}
                   </div>
                 </div>
               );
             })}
           </div>
         </div>
+      ) : null}
+      {hasEnabledFeatures ? (
+        <AddFeatureDialog
+          open={addFeatureOpen}
+          onOpenChange={setAddFeatureOpen}
+          addedKeys={addedFeatureKeys}
+          onConfirm={onAddManualFeatures}
+        />
       ) : null}
       <ImagePreviewDialog
         image={previewImage}

@@ -65,6 +65,7 @@
       "weeklyTagging": "Etiquetado Semanal",
       "emptyTagErrorMsg": "No hay sistema de etiquetas. Por favor, crea uno primero~",
       "noAppropriateTagErrorMsg": "No hay etiquetas adecuadas en el sistema de etiquetas actual",
+      "noMatchingSourceErrorMsg": "Fallido: no hay ninguna fuente de coincidencia habilitada en la configuración de etiquetado",
       "dayNames": {
         "0": "Domingo",
         "1": "Lunes",
@@ -87,7 +88,9 @@
         "9": "Octubre",
         "10": "Noviembre",
         "11": "Diciembre"
-      }
+      },
+      "filterFailed": "Fallidas",
+      "searchPlaceholder": "Buscar por nombre de recurso"
     },
     "Review": {
       "add": "Añadir",
@@ -100,12 +103,21 @@
       "allStatuses": "Todos los estados",
       "allTime": "Todo el tiempo",
       "applyFailed": "Aplicación fallida",
+      "featureReviewChanged": "Los detalles de la característica o las etiquetas relacionadas han cambiado. Revisa los resultados actualizados y pulsa Añadir de nuevo.",
       "applySuccess": "Aplicado correctamente",
       "approved": "Aprobado",
       "assetDeleted": "Recurso eliminado",
       "balanced": "Equilibrado (60-79%)",
       "basedOnTagSystem": "Basado en la coincidencia del sistema de etiquetas",
       "basedOnFeatureLibrary": "Basado en la coincidencia de la biblioteca de características",
+      "addFeatureManually": "Añadir característica manualmente",
+      "addFeatureTitle": "Añadir características",
+      "addFeatureAllTypes": "Todas",
+      "addFeatureSearchPlaceholder": "Buscar nombre de característica",
+      "addFeatureNoResults": "No hay características coincidentes en la biblioteca",
+      "addFeatureAlreadyAdded": "Añadida",
+      "addFeatureConfirm": "Añadir ({count})",
+      "manuallyAdded": "Añadida manualmente",
       "batchApproveFailed": "Error al agregar en lote a las etiquetas de activos",
       "batchApprovePartialSuccess": "Éxito parcial, {successCount} correctos",
       "batchApproveSuccess": "Lote agregado a las etiquetas de activos correctamente",
@@ -121,6 +133,12 @@
       "itemsPerPage": "{count} elementos/página",
       "itemsUnit": "elementos",
       "latest": "Último",
+      "requiredFallbackBadge": "Respaldo obligatorio",
+      "aspectRatioBadge": "Por dimensiones",
+      "sizeAIBadge": "IA por tamaño",
+      "appliedBadge": "Aplicado",
+      "showHistory": "Ver historial ({count})",
+      "hideHistory": "Ocultar historial",
       "loading": "Cargando...",
       "noAssetsToReview": "No hay recursos para revisar",
       "noCorrespondingTag": "No hay etiqueta correspondiente",
@@ -156,14 +174,17 @@
     "Settings": {
       "AIRecognition": {
         "balanced": "Equilibrado",
-        "balancedDesc": "Precisión y cobertura equilibradas (≥60% de confianza)",
+        "balancedDesc": "Precisión y cobertura equilibradas",
         "broad": "Amplio",
-        "broadDesc": "Alta cobertura, más etiquetas (≥40% confianza)",
+        "broadDesc": "Alta cobertura, más etiquetas",
         "confidence": "confianza",
         "precise": "Preciso",
-        "preciseDesc": "Alta precisión, menos etiquetas (≥80% de confianza)",
+        "preciseDesc": "Alta precisión, menos etiquetas",
         "recommended": "Recomendado",
-        "title": "Reconocimiento de IA"
+        "title": "Reconocimiento de IA",
+        "confidenceHigh": "Confianza alta",
+        "confidenceMedium": "Confianza media",
+        "confidenceLow": "Confianza baja"
       },
       "AdvancedSettings": {
         "title": "Configuración Avanzada"
@@ -212,6 +233,8 @@
         "aiGeneratedDesc": "Generar nuevas etiquetas con IA",
         "assetNameMatching": "Coincidencia de Nombres de Activos",
         "assetNameMatchingDesc": "Analizar información clave en nombres de archivo para la coincidencia",
+        "weight": "Peso",
+        "weightHint": "El peso predeterminado es 1 (rango {min} - {max}). Un peso mayor aumenta la puntuación de las etiquetas encontradas por esa fuente; uno menor la reduce.",
         "customKeywords": "Palabras clave personalizadas",
         "customKeywordsDesc": "Coincidencia de la biblioteca de palabras clave personalizada",
         "desc": "Seleccionar fuentes de coincidencia de etiquetas",
@@ -242,6 +265,7 @@
       "newApplicationScope": "Nuevo estado del ámbito de la aplicación:",
       "saveSettings": "Guardar Configuraciones",
       "saveSettingsFailed": "No se pudieron guardar la configuración",
+      "atLeastOneSourceRequired": "Debe mantener al menos una fuente de coincidencia habilitada",
       "saving": "Guardando...",
       "selectFoldersFailed": "No se pudieron seleccionar las carpetas",
       "selectedFoldersCount": "Recuento de carpetas seleccionadas:",
@@ -289,6 +313,7 @@
       "itemsSelected": "Seleccionados",
       "itemsTotal": "Total",
       "itemsCount": "elementos",
+      "clearSelection": "Limpiar",
       "enable": "Activar",
       "disable": "Desactivar",
       "delete": "Eliminar",
@@ -357,7 +382,7 @@
       "confirmDialog": {
         "title": "Confirmación de acción",
         "deleteDescription": "¿Está seguro de que desea eliminar \"{name}\"? Esta acción no se puede deshacer y las etiquetas vinculadas no se eliminarán automáticamente.",
-        "disableDescription": "¿Está seguro de que desea desactivar \"{name}\"? Una vez desactivada, los nuevos activos subidos no reconocerán automáticamente esta entrada ni aplicarán las etiquetas vinculadas. Los activos ya etiquetados no se verán afectados.",
+        "disableDescription": "¿Está seguro de que desea desactivar \"{name}\"? Una vez desactivada, los nuevos activos subidos no reconocerán automáticamente esta entrada ni aplicarán las etiquetas vinculadas.",
         "confirmDelete": "Confirmar eliminación",
         "confirmDisable": "Confirmar desactivación",
         "cancel": "Cancelar"
@@ -368,7 +393,7 @@
         "enableTitle": "Confirmación de acción",
         "enableDescription": "¿Está seguro de que desea activar los {count} elementos seleccionados? Una vez activados, participarán en el reconocimiento y etiquetado automático por IA.",
         "disableTitle": "Confirmación de acción",
-        "disableDescription": "¿Está seguro de que desea desactivar los {count} elementos seleccionados? Una vez desactivados, los nuevos activos subidos no reconocerán automáticamente estas entradas ni aplicarán las etiquetas vinculadas. Los activos ya etiquetados no se verán afectados.",
+        "disableDescription": "¿Está seguro de que desea desactivar los {count} elementos seleccionados? Una vez desactivados, los nuevos activos subidos no reconocerán automáticamente estas entradas ni aplicarán las etiquetas vinculadas.",
         "confirmEnable": "Confirmar activación",
         "confirmDisable": "Confirmar desactivación",
         "cancel": "Cancelar"
@@ -559,7 +584,32 @@
       "preciseMode": "Modo Preciso",
       "processingStatus": "Estado de Procesamiento",
       "processingTasks": "Procesando {count} tareas de etiquetado",
-      "taggingCompleted": "Etiquetado completado. {successCount} correctos, {failedCount} fallidos"
+      "taggingCompleted": "Etiquetado completado. {successCount} correctos, {failedCount} fallidos",
+      "progressCount": "{done}/{total} completados",
+      "queueWaitEstimate": "Espera estimada: aprox. {duration}",
+      "elapsed": "Transcurrido: {duration}",
+      "queueAhead": "En cola, {count} tareas por delante",
+      "processingFor": "Procesando desde hace {duration}",
+      "durationMinutes": "{minutes} min {seconds} s",
+      "durationSeconds": "{seconds} s",
+      "pollingErrorStopped": "No se pudo obtener el estado del procesamiento ({message}). Actualización automática detenida.",
+      "pollingTimeout": "Las tareas no terminaron a tiempo. Actualización automática detenida; vuelve a comprobar el estado más tarde o contacta con un administrador.",
+      "retryPolling": "Comprobar estado de nuevo",
+      "workerIdleWarning": "Las tareas llevan mucho tiempo en cola aunque la cola está inactiva. Es posible que el servicio de etiquetado en segundo plano no esté en ejecución; contacta con un administrador.",
+      "failedResultsTitle": "Recursos fallidos ({count})",
+      "status": {
+        "pending": "En cola",
+        "processing": "Procesando",
+        "completed": "Completado",
+        "failed": "Fallido"
+      },
+      "errorReason": {
+        "NO_VALID_TAGS": "No se encontraron etiquetas válidas (información insuficiente del recurso o ninguna etiqueta adecuada en el sistema de etiquetas)",
+        "NO_TAG_TREE": "El sistema de etiquetas está vacío. Crea etiquetas primero.",
+        "NO_MATCHING_SOURCES_ENABLED": "No hay ninguna estrategia de coincidencia activada",
+        "PROCESSING_STALE_TIMEOUT": "El procesamiento superó el tiempo límite y se marcó automáticamente como fallido",
+        "UNKNOWN": "Error de procesamiento en el backend. Revisa los registros del servicio."
+      }
     },
     "BrandClassify": {
       "backToLibrary": "Volver a la biblioteca de marca",
@@ -639,6 +689,7 @@
       "itemsSelected": "Seleccionados",
       "itemsTotal": "Total",
       "itemsCount": "elementos",
+      "clearSelection": "Limpiar",
       "enable": "Habilitar",
       "disable": "Deshabilitar",
       "delete": "Eliminar",
@@ -746,7 +797,7 @@
       "confirmDialog": {
         "title": "Confirmación de acción",
         "deleteDescription": "¿Está seguro de que desea eliminar \"{name}\"? Esta acción no se puede deshacer y las etiquetas vinculadas no se eliminarán automáticamente.",
-        "disableDescription": "¿Está seguro de que desea deshabilitar \"{name}\"? Después de deshabilitar, los nuevos activos subidos no reconocerán automáticamente esta entrada ni aplicarán las etiquetas vinculadas. Los activos ya etiquetados no se verán afectados.",
+        "disableDescription": "¿Está seguro de que desea deshabilitar \"{name}\"? Después de deshabilitar, los nuevos activos subidos no reconocerán automáticamente esta entrada ni aplicarán las etiquetas vinculadas.",
         "confirmDelete": "Confirmar eliminación",
         "confirmDisable": "Confirmar deshabilitación",
         "cancel": "Cancelar"
@@ -757,7 +808,7 @@
         "enableTitle": "Confirmación de acción",
         "enableDescription": "¿Está seguro de que desea habilitar los {count} elementos seleccionados? Una vez habilitados, participarán en el reconocimiento y etiquetado automático por IA.",
         "disableTitle": "Confirmación de acción",
-        "disableDescription": "¿Está seguro de que desea deshabilitar los {count} elementos seleccionados? Después de deshabilitar, los nuevos activos subidos no reconocerán automáticamente estas entradas ni aplicarán las etiquetas vinculadas. Los activos ya etiquetados no se verán afectados.",
+        "disableDescription": "¿Está seguro de que desea deshabilitar los {count} elementos seleccionados? Después de deshabilitar, los nuevos activos subidos no reconocerán automáticamente estas entradas ni aplicarán las etiquetas vinculadas.",
         "confirmEnable": "Confirmar habilitación",
         "confirmDisable": "Confirmar deshabilitación",
         "cancel": "Cancelar"
@@ -927,6 +978,7 @@
       "itemsSelected": "Seleccionado",
       "itemsTotal": "Total",
       "itemsCount": "elementos",
+      "clearSelection": "Limpiar",
       "enable": "Habilitar",
       "disable": "Deshabilitar",
       "delete": "Eliminar",
@@ -994,7 +1046,7 @@
       "confirmDialog": {
         "title": "Confirmación",
         "deleteDescription": "¿Eliminar \"{name}\"? Esto no se puede deshacer, y las etiquetas vinculadas existentes no se eliminarán automáticamente.",
-        "disableDescription": "¿Deshabilitar \"{name}\"? Los nuevos activos ya no reconocerán a esta persona automáticamente, mientras que los resultados de etiquetado completados no se verán afectados.",
+        "disableDescription": "¿Deshabilitar \"{name}\"? Los nuevos activos ya no reconocerán a esta persona automáticamente.",
         "confirmDelete": "Eliminar",
         "confirmDisable": "Deshabilitar",
         "cancel": "Cancelar"
@@ -1005,7 +1057,7 @@
         "enableTitle": "Confirmación",
         "enableDescription": "¿Habilitar los {count} elementos seleccionados? Participarán en el reconocimiento y etiquetado de IA.",
         "disableTitle": "Confirmación",
-        "disableDescription": "¿Deshabilitar los {count} elementos seleccionados? Los nuevos activos ya no los reconocerán automáticamente, mientras que los resultados de etiquetado completados no se verán afectados.",
+        "disableDescription": "¿Deshabilitar los {count} elementos seleccionados? Los nuevos activos ya no los reconocerán automáticamente.",
         "confirmEnable": "Habilitar",
         "confirmDisable": "Deshabilitar",
         "cancel": "Cancelar"
@@ -1179,6 +1231,7 @@
       "itemsSelected": "Seleccionados",
       "itemsTotal": "Total",
       "itemsCount": "elementos",
+      "clearSelection": "Limpiar",
       "enable": "Activar",
       "disable": "Desactivar",
       "delete": "Eliminar",
@@ -1230,7 +1283,7 @@
         "uploadLocal": "Subir desde local",
         "uploadFromLibrary": "Seleccionar desde la biblioteca de activos",
         "uploadHintTitle": "Requisitos de imagen: ",
-        "uploadHint": "Suba 3-5 imágenes de producto cuando sea posible, cubriendo diferentes ángulos como frontal, lateral, trasero, con calidad nítida y estilo de fotografía consistente. Incluya imágenes estándar de productos con fondos sólidos y escenas de uso real para mejorar la precisión del reconocimiento de IA.",
+        "uploadHint": "Suba 3-5 imágenes de producto cuando sea posible, cubriendo diferentes ángulos como frontal, lateral, trasero, con calidad nítida y estilo de fotografía consistente. Incluya imágenes estándar de productos con fondos sólidos para mejorar la precisión del reconocimiento de IA.",
         "linkedTagsLabel": "Etiquetas vinculadas",
         "linkedTagsHint": "Estas etiquetas se aplicarán automáticamente cuando se encuentre una coincidencia",
         "manageTags": "Gestionar sistema de etiquetas",
@@ -1250,7 +1303,7 @@
       "confirmDialog": {
         "title": "Confirmación de acción",
         "deleteDescription": "¿Está seguro de que desea eliminar \"{name}\"? Esta acción no se puede deshacer y las etiquetas vinculadas no se eliminarán automáticamente.",
-        "disableDescription": "¿Está seguro de que desea desactivar \"{name}\"? Una vez desactivado, los nuevos activos subidos no reconocerán automáticamente esta entrada ni aplicarán las etiquetas vinculadas. Los activos ya etiquetados no se verán afectados.",
+        "disableDescription": "¿Está seguro de que desea desactivar \"{name}\"? Una vez desactivado, los nuevos activos subidos no reconocerán automáticamente esta entrada ni aplicarán las etiquetas vinculadas.",
         "confirmDelete": "Confirmar eliminación",
         "confirmDisable": "Confirmar desactivación",
         "cancel": "Cancelar"
@@ -1261,7 +1314,7 @@
         "enableTitle": "Confirmación de acción",
         "enableDescription": "¿Está seguro de que desea activar los {count} elementos seleccionados? Una vez activados, participarán en el reconocimiento y etiquetado automático por IA.",
         "disableTitle": "Confirmación de acción",
-        "disableDescription": "¿Está seguro de que desea desactivar los {count} elementos seleccionados? Una vez desactivados, los nuevos activos subidos no reconocerán automáticamente estas entradas ni aplicarán las etiquetas vinculadas. Los activos ya etiquetados no se verán afectados.",
+        "disableDescription": "¿Está seguro de que desea desactivar los {count} elementos seleccionados? Una vez desactivados, los nuevos activos subidos no reconocerán automáticamente estas entradas ni aplicarán las etiquetas vinculadas.",
         "confirmEnable": "Confirmar activación",
         "confirmDisable": "Confirmar desactivación",
         "cancel": "Cancelar"
@@ -1348,20 +1401,20 @@
     "ProductClassify": {
       "backToLibrary": "Volver a la biblioteca de productos",
       "pageTitle": "Página de desarrollo de clasificación de productos",
-      "pageDescription": "Después de subir una imagen, el sistema utiliza primero las categorías generales de los productos activados actualmente para detectar áreas de productos candidatos, luego utiliza embeddings multimodales para recuperar vectores de imagen y descripción del producto, y da el resultado final después de agregar por recorte y modalidad.",
+      "pageDescription": "Las detecciones duplicadas se agrupan en regiones de productos. Cada región se clasifica por separado y se devuelven todos los productos distintos con una confianza mínima del 80%.",
       "availableProducts": "Productos de referencia disponibles",
       "statsDescription": "Solo cuenta datos de procesamiento de vectores activados y completados",
       "uploadImageFirst": "Por favor suba primero una imagen para clasificar",
       "noReferenceProducts": "No hay vectores de referencia de productos completados disponibles actualmente",
       "classifying": "Clasificando",
       "classifyButton": "Clasificar producto",
-      "uploadHint": "Después de subir una imagen, aquí se mostrarán las cajas de detección y el producto final coincidente.",
+      "uploadHint": "Sube una imagen para ver los cuadros detectados y todos los productos coincidentes.",
       "imageToClassify": "Imagen a clasificar",
-      "finalResult": "Resultado final",
-      "resultHint": "El área de resultado mostrará la caja de detección ganadora, el nombre final del producto y los 3 resultados más similares.",
+      "finalResult": "Productos coincidentes",
+      "resultHint": "Los resultados muestran todos los productos coincidentes y los tres mejores candidatos de cada región.",
       "noConfidentMatch": "Sin coincidencia de producto confiable",
-      "noConfidentMatchDesc": "El mejor candidato actual no es lo suficientemente estable, por lo tanto se juzga como sin coincidencia confiable.",
-      "winningProduct": "Producto ganador",
+      "noConfidentMatchDesc": "Ninguna región tiene una coincidencia con una confianza mínima del 80%.",
+      "winningProduct": "Producto coincidente",
       "type": "Tipo",
       "similarity": "Similitud",
       "confidence": "Confianza",
@@ -1386,7 +1439,12 @@
         "canvasNotSupported": "El navegador no admite el recorte Canvas"
       },
       "fallbackBox": "respaldo de imagen completa",
-      "coordinateTo": "a"
+      "coordinateTo": "a",
+      "productRegions": "Regiones de productos",
+      "region": "Región",
+      "rawDetectionBoxes": "Cuadros de detección originales",
+      "showRawDetections": "Mostrar cuadros originales",
+      "showProductRegions": "Mostrar regiones de productos"
     },
     "BatchImportExport": {
       "title": "Importación/Exportación por lotes",
@@ -1396,6 +1454,11 @@
       "tabExport": "Exportar",
       "cancel": "Cancelar",
       "confirm": "Confirmar",
+      "missingTagsConfirmTitle": "¿Crear las etiquetas que faltan?",
+      "missingTagsConfirmDescription": "El archivo de importación hace referencia a rutas de etiquetas que no existen. ¿Desea crear estos árboles de etiquetas y continuar con la importación?",
+      "missingTagsListLabel": "Rutas de etiquetas que faltan",
+      "createTagsAndImport": "Crear e importar",
+      "importExistingTagsOnly": "Importar solo filas con etiquetas existentes",
       "unsupportedFileType": "Solo se admiten archivos Excel (.xlsx) o CSV (.csv)",
       "selectFileFirst": "Seleccione un archivo primero",
       "selectImportFile": "Seleccione primero un archivo Excel (.xlsx) o CSV (.csv)",
@@ -1452,7 +1515,18 @@
       },
       "formatExcel": "Excel",
       "formatCsv": "CSV",
-      "spreadsheetBadge": "XLS"
+      "spreadsheetBadge": "XLS",
+      "precheckTitle": "Comprobación previa a la importación",
+      "precheckHint": "Revisa lo siguiente antes de importar",
+      "precheckSummary": "Se crearán {create} etiquetas, se actualizarán {update} y {unchanged} sin cambios",
+      "precheckRenameNotice": "{count} de ellas se renombrarán y se sincronizarán con MuseDAM",
+      "precheckIssuesLabel": "{count} filas tienen problemas y se omitirán si continúas:",
+      "precheckCreateLabel": "Se crearán {count} etiquetas:",
+      "precheckMoreItems": "…{count} elementos en total",
+      "backToEdit": "Volver a editar",
+      "continueImport": "Continuar importación",
+      "continueImportSkipIssues": "Omitir problemas y continuar",
+      "importSuccessWithSkipped": "Se importaron {count} filas y se omitieron {skipped} filas con problemas"
     }
   }
 }

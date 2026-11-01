@@ -56,6 +56,7 @@
       "itemsSelected": "选中",
       "itemsTotal": "全部",
       "itemsCount": "项",
+      "clearSelection": "清空",
       "enable": "启用",
       "disable": "禁用",
       "delete": "删除",
@@ -124,7 +125,7 @@
       "confirmDialog": {
         "title": "操作提示",
         "deleteDescription": "确定要删除「{name}」吗？删除后将无法恢复，已打上的关联标签不会自动移除。",
-        "disableDescription": "确定要禁用「{name}」吗？禁用后，新上传的素材将不会自动识别该条目并打上关联标签，已完成打标的素材不受影响。",
+        "disableDescription": "确定要禁用「{name}」吗？禁用后，新上传的素材将不会自动识别该条目并打上关联标签",
         "confirmDelete": "确认删除",
         "confirmDisable": "确认禁用",
         "cancel": "取消"
@@ -135,7 +136,7 @@
         "enableTitle": "操作提示",
         "enableDescription": "确定要启用选中的 {count} 个条目吗？启用后，将参与AI自动识别和打标",
         "disableTitle": "操作提示",
-        "disableDescription": "确定要禁用选中的 {count} 个条目吗？禁用后，新上传的素材将不会自动识别该条目并打上关联标签，已完成打标的素材不受影响。",
+        "disableDescription": "确定要禁用选中的 {count} 个条目吗？禁用后，新上传的素材将不会自动识别该条目并打上关联标签",
         "confirmEnable": "确认启用",
         "confirmDisable": "确认禁用",
         "cancel": "取消"
@@ -300,6 +301,7 @@
       "itemsSelected": "选中",
       "itemsTotal": "全部",
       "itemsCount": "项",
+      "clearSelection": "清空",
       "enable": "启用",
       "disable": "禁用",
       "delete": "删除",
@@ -407,7 +409,7 @@
       "confirmDialog": {
         "title": "操作提示",
         "deleteDescription": "确定要删除「{name}」吗？删除后将无法恢复，已打上的关联标签不会自动移除。",
-        "disableDescription": "确定要禁用「{name}」吗？禁用后，新上传的素材将不会自动识别该条目并打上关联标签，已完成打标的素材不受影响。",
+        "disableDescription": "确定要禁用「{name}」吗？禁用后，新上传的素材将不会自动识别该条目并打上关联标签",
         "confirmDelete": "确认删除",
         "confirmDisable": "确认禁用",
         "cancel": "取消"
@@ -418,7 +420,7 @@
         "enableTitle": "操作提示",
         "enableDescription": "确定要启用选中的 {count} 个条目吗？启用后，将参与AI自动识别和打标",
         "disableTitle": "操作提示",
-        "disableDescription": "确定要禁用选中的 {count} 个条目吗？禁用后，新上传的素材将不会自动识别该条目并打上关联标签，已完成打标的素材不受影响。",
+        "disableDescription": "确定要禁用选中的 {count} 个条目吗？禁用后，新上传的素材将不会自动识别该条目并打上关联标签",
         "confirmEnable": "确认启用",
         "confirmDisable": "确认禁用",
         "cancel": "取消"
@@ -606,6 +608,7 @@
       "paginationInfo": "{current} / {total} 条",
       "emptyTagErrorMsg": "暂无标签体系，请先创建标签体系~",
       "noAppropriateTagErrorMsg": "当前标签体系没有适合的标签",
+      "noMatchingSourceErrorMsg": "打标失败：未启用任何匹配信息源，请检查打标设置",
       "dayNames": {
         "0": "周日",
         "1": "周一",
@@ -628,7 +631,9 @@
         "9": "10月",
         "10": "11月",
         "11": "12月"
-      }
+      },
+      "filterFailed": "失败",
+      "searchPlaceholder": "搜索素材名称"
     },
     "Settings": {
       "title": "全局设置",
@@ -636,6 +641,7 @@
       "saving": "保存中...",
       "settingsSaved": "设置已保存",
       "saveSettingsFailed": "保存设置失败",
+      "atLeastOneSourceRequired": "至少需要启用一个匹配信息源",
       "selectFoldersFailed": "选择文件夹失败",
       "newApplicationScope": "新的应用范围状态:",
       "selectedFoldersCount": "选择的文件夹数量:",
@@ -664,7 +670,10 @@
         "broad": "宽泛模式",
         "broadDesc": "优先标签覆盖度，适合内容初步分类",
         "confidence": "置信度",
-        "recommended": "推荐"
+        "recommended": "推荐",
+        "confidenceHigh": "高置信度",
+        "confidenceMedium": "中等置信度",
+        "confidenceLow": "低置信度"
       },
       "MatchingStrategy": {
         "title": "匹配策略选择",
@@ -678,7 +687,9 @@
         "filePathMatching": "文件夹路径匹配",
         "filePathMatchingDesc": "基于素材所在的文件夹路径进行标签匹配",
         "assetNameMatching": "素材名称匹配",
-        "assetNameMatchingDesc": "分析文件名称中的关键信息进行匹配"
+        "assetNameMatchingDesc": "分析文件名称中的关键信息进行匹配",
+        "weight": "权重",
+        "weightHint": "权重默认为 1，可设置 {min} - {max}。权重越高，该来源命中的标签得分越高、越容易被采纳；调低则反之。"
       },
       "TriggerTiming": {
         "title": "触发时机设置",
@@ -744,7 +755,21 @@
       "brandRecommendedTags": "品牌标识推荐标签",
       "basedOnTagSystem": "基于标签体系匹配",
       "basedOnFeatureLibrary": "基于特征库匹配",
+      "addFeatureManually": "手动添加特征",
+      "addFeatureTitle": "添加特征",
+      "addFeatureAllTypes": "全部",
+      "addFeatureSearchPlaceholder": "搜索特征名称",
+      "addFeatureNoResults": "特征库中没有匹配的特征",
+      "addFeatureAlreadyAdded": "已添加",
+      "addFeatureConfirm": "添加 ({count})",
+      "manuallyAdded": "手动添加",
       "latest": "最新",
+      "requiredFallbackBadge": "必打兜底",
+      "aspectRatioBadge": "按宽高",
+      "sizeAIBadge": "AI 按尺寸",
+      "appliedBadge": "已采纳",
+      "showHistory": "查看历史记录 ({count})",
+      "hideHistory": "收起历史记录",
       "allStatuses": "全部状态",
       "pending": "待审核",
       "approved": "已采纳",
@@ -766,6 +791,7 @@
       "totalItems": "全部 {total} 项",
       "applySuccess": "应用成功",
       "applyFailed": "应用失败",
+      "featureReviewChanged": "特征信息或关联标签已变更，请查看刷新后的结果，再点击添加。",
       "rejectConfirmTitle": "操作提示",
       "rejectConfirmDescription": "确认删除素材「{assetName}」的 AI 打标记录？此操作不可恢复，请谨慎操作。",
       "batchRejectConfirmDescription": "确认删除 {assetNum} 个素材的 AI 打标记录？此操作不可恢复，请谨慎操作。",
@@ -849,9 +875,9 @@
       "preciseMode": "精准模式",
       "balancedMode": "平衡模式",
       "broadMode": "宽泛模式",
-      "preciseConfidence": "80-100% 置信度",
-      "balancedConfidence": "70-100% 置信度",
-      "broadConfidence": "60-100% 置信度",
+      "preciseConfidence": "≥80% 置信度",
+      "balancedConfidence": "≥60% 置信度",
+      "broadConfidence": "≥40% 置信度",
       "recommended": "推荐",
       "recommendedMatchingStrategy": "推荐匹配策略",
       "pathMatching": "文件夹路径匹配",
@@ -870,7 +896,32 @@
       "processingStatus": "处理状态",
       "processingTasks": "正在处理 {count} 个打标任务",
       "pollingDescription": "每2秒检查一次状态，完成后将自动显示结果",
-      "aiMatching": "AI 匹配"
+      "aiMatching": "AI 匹配",
+      "progressCount": "已完成 {done}/{total}",
+      "queueWaitEstimate": "预计还需等待约 {duration}",
+      "elapsed": "已用时 {duration}",
+      "queueAhead": "排队中，前面还有 {count} 个任务",
+      "processingFor": "处理中，已处理 {duration}",
+      "durationMinutes": "{minutes} 分 {seconds} 秒",
+      "durationSeconds": "{seconds} 秒",
+      "pollingErrorStopped": "获取处理状态失败（{message}），已停止自动刷新",
+      "pollingTimeout": "任务长时间未完成，已停止自动刷新，请稍后重新检查状态或联系管理员",
+      "retryPolling": "重新检查状态",
+      "workerIdleWarning": "任务长时间处于排队状态且队列空闲，后台打标服务可能未运行，请联系管理员检查",
+      "failedResultsTitle": "失败的素材（{count}）",
+      "status": {
+        "pending": "排队中",
+        "processing": "处理中",
+        "completed": "已完成",
+        "failed": "失败"
+      },
+      "errorReason": {
+        "NO_VALID_TAGS": "未匹配到有效标签（素材信息不足或标签体系中没有合适的标签）",
+        "NO_TAG_TREE": "标签体系为空，请先创建标签",
+        "NO_MATCHING_SOURCES_ENABLED": "未启用任何匹配策略",
+        "PROCESSING_STALE_TIMEOUT": "处理超时，已被系统自动标记为失败",
+        "UNKNOWN": "后端处理异常，请查看服务日志"
+      }
     },
     "Common": {
       "refreshDataFailed": "刷新数据失败:",
@@ -927,6 +978,7 @@
       "itemsSelected": "选中",
       "itemsTotal": "全部",
       "itemsCount": "项",
+      "clearSelection": "清空",
       "enable": "启用",
       "disable": "禁用",
       "delete": "删除",
@@ -994,7 +1046,7 @@
       "confirmDialog": {
         "title": "操作提示",
         "deleteDescription": "确定要删除「{name}」吗？删除后将无法恢复，已打上的关联标签不会自动移除。",
-        "disableDescription": "确定要禁用「{name}」吗？禁用后，新上传的素材将不会自动识别该人物并打上关联标签，已完成打标的素材不受影响。",
+        "disableDescription": "确定要禁用「{name}」吗？禁用后，新上传的素材将不会自动识别该人物并打上关联标签",
         "confirmDelete": "确认删除",
         "confirmDisable": "确认禁用",
         "cancel": "取消"
@@ -1005,7 +1057,7 @@
         "enableTitle": "操作提示",
         "enableDescription": "确定要启用选中的 {count} 个条目吗？启用后，将参与AI自动识别和打标",
         "disableTitle": "操作提示",
-        "disableDescription": "确定要禁用选中的 {count} 个条目吗？禁用后，新上传的素材将不会自动识别该人物并打上关联标签，已完成打标的素材不受影响。",
+        "disableDescription": "确定要禁用选中的 {count} 个条目吗？禁用后，新上传的素材将不会自动识别该人物并打上关联标签",
         "confirmEnable": "确认启用",
         "confirmDisable": "确认禁用",
         "cancel": "取消"
@@ -1179,6 +1231,7 @@
       "itemsSelected": "选中",
       "itemsTotal": "全部",
       "itemsCount": "项",
+      "clearSelection": "清空",
       "enable": "启用",
       "disable": "禁用",
       "delete": "删除",
@@ -1230,7 +1283,7 @@
         "uploadLocal": "本地上传",
         "uploadFromLibrary": "从素材库选取",
         "uploadHintTitle": "图片要求：",
-        "uploadHint": "建议至少上传 3-5 张商品图，需涵盖正面、侧面、背面等多角度，保持高清晰度和统一的拍摄风格。建议包含纯色背景的标准产品图，以及实际使用场景图，有助于提升AI识别准确率。",
+        "uploadHint": "建议至少上传 3-5 张商品图，需涵盖正面、侧面、背面等多角度，保持高清晰度和统一的拍摄风格。建议包含纯色背景的标准产品图，有助于提升AI识别准确率。",
         "linkedTagsLabel": "关联标签",
         "linkedTagsHint": "识别命中后将自动打上这些标签",
         "manageTags": "管理标签体系",
@@ -1250,7 +1303,7 @@
       "confirmDialog": {
         "title": "操作提示",
         "deleteDescription": "确定要删除「{name}」吗？删除后将无法恢复，已打上的关联标签不会自动移除。",
-        "disableDescription": "确定要禁用「{name}」吗？禁用后，新上传的素材将不会自动识别该条目并打上关联标签，已完成打标的素材不受影响。",
+        "disableDescription": "确定要禁用「{name}」吗？禁用后，新上传的素材将不会自动识别该条目并打上关联标签",
         "confirmDelete": "确认删除",
         "confirmDisable": "确认禁用",
         "cancel": "取消"
@@ -1261,7 +1314,7 @@
         "enableTitle": "操作提示",
         "enableDescription": "确定要启用选中的 {count} 个条目吗？启用后，将参与AI自动识别和打标",
         "disableTitle": "操作提示",
-        "disableDescription": "确定要禁用选中的 {count} 个条目吗？禁用后，新上传的素材将不会自动识别该条目并打上关联标签，已完成打标的素材不受影响。",
+        "disableDescription": "确定要禁用选中的 {count} 个条目吗？禁用后，新上传的素材将不会自动识别该条目并打上关联标签",
         "confirmEnable": "确认启用",
         "confirmDisable": "确认禁用",
         "cancel": "取消"
@@ -1348,20 +1401,20 @@
     "ProductClassify": {
       "backToLibrary": "返回商品库",
       "pageTitle": "商品分类开发页",
-      "pageDescription": "上传图片后，系统会先使用当前已启用商品的通用类目检测候选商品区域，再用多模态 embedding 检索商品图片与描述向量，按 crop 和模态聚合后给出最终结果。",
+      "pageDescription": "将重复检测框合并为商品区域，再独立识别每个区域，返回所有置信度不低于 80% 的不同商品。",
       "availableProducts": "可用参考商品",
       "statsDescription": "仅统计已启用且已完成向量处理的数据",
       "uploadImageFirst": "请先上传待分类图片",
       "noReferenceProducts": "当前没有可用的已完成商品参考向量",
       "classifying": "分类中",
       "classifyButton": "Classify Product",
-      "uploadHint": "上传一张图片后，这里会显示检测框与最终命中的商品。",
+      "uploadHint": "上传图片后，此处将显示检测框和所有匹配的商品。",
       "imageToClassify": "待分类图片",
-      "finalResult": "最终结果",
-      "resultHint": "结果区域会展示 winning detection box、最终商品名称，以及 top 3 相似结果。",
+      "finalResult": "匹配商品",
+      "resultHint": "结果展示所有匹配的商品，以及每个商品区域的前三名候选。",
       "noConfidentMatch": "未命中可靠商品",
-      "noConfidentMatchDesc": "当前最佳候选不足够稳定，因此被判定为 no confident match。",
-      "winningProduct": "Winning Product",
+      "noConfidentMatchDesc": "没有商品区域匹配到置信度不低于 80% 的商品。",
+      "winningProduct": "匹配商品",
       "type": "类型",
       "similarity": "相似度",
       "confidence": "置信度",
@@ -1386,7 +1439,12 @@
         "canvasNotSupported": "浏览器不支持 Canvas 裁剪"
       },
       "fallbackBox": "整图兜底",
-      "coordinateTo": "到"
+      "coordinateTo": "到",
+      "productRegions": "商品区域",
+      "region": "区域",
+      "rawDetectionBoxes": "原始检测框",
+      "showRawDetections": "显示原始检测框",
+      "showProductRegions": "显示商品区域"
     },
     "BatchImportExport": {
       "title": "批量导入/导出",
@@ -1396,6 +1454,11 @@
       "tabExport": "导出",
       "cancel": "取消",
       "confirm": "确认",
+      "missingTagsConfirmTitle": "创建缺失标签？",
+      "missingTagsConfirmDescription": "导入文件引用了不存在的标签路径。是否创建这些标签树并继续导入？",
+      "missingTagsListLabel": "缺失的标签路径",
+      "createTagsAndImport": "创建并导入",
+      "importExistingTagsOnly": "仅导入标签已存在的行",
       "unsupportedFileType": "仅支持上传 Excel (.xlsx) 或 CSV (.csv) 文件",
       "selectFileFirst": "请先选择文件",
       "selectImportFile": "请先选择 Excel (.xlsx) 或 CSV (.csv) 文件",
@@ -1452,7 +1515,18 @@
       },
       "formatExcel": "Excel",
       "formatCsv": "CSV",
-      "spreadsheetBadge": "XLS"
+      "spreadsheetBadge": "XLS",
+      "precheckTitle": "导入前检测",
+      "precheckHint": "检测到以下情况，请确认后再导入",
+      "precheckSummary": "将新建 {create} 个标签，更新 {update} 个，{unchanged} 个无变化",
+      "precheckRenameNotice": "其中 {count} 个标签会改名，并同步到 MuseDAM",
+      "precheckIssuesLabel": "以下 {count} 行存在问题，继续导入将跳过这些行：",
+      "precheckCreateLabel": "将新建的 {count} 个标签：",
+      "precheckMoreItems": "…等共 {count} 项",
+      "backToEdit": "返回修改",
+      "continueImport": "继续导入",
+      "continueImportSkipIssues": "跳过问题行，继续导入",
+      "importSuccessWithSkipped": "成功导入 {count} 条，已跳过 {skipped} 条有问题的行"
     }
   }
 }

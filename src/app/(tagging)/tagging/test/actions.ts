@@ -1,7 +1,8 @@
 "use server";
 import { withAuth } from "@/app/(auth)/withAuth";
 import { enqueueTaggingTask } from "@/app/(tagging)/queue";
-import { getServerFeatureLibraryEnabled } from "@/lib/feature-library-server";
+import { toFeatureClassificationFlags } from "@/lib/feature-library";
+import { getServerFeatureLibraryFeatures } from "@/lib/feature-library-server";
 import { ServerActionResult } from "@/lib/serverAction";
 import { syncSingleAssetFromMuseDAM } from "@/musedam/assets";
 import { MuseDAMID } from "@/musedam/types";
@@ -38,7 +39,7 @@ export async function startTaggingTasksAction(
   ServerActionResult<{
     successCount: number;
     failedCount: number;
-    failedAssets: string[];
+    failedAssets: { name: string; reason: string }[];
     queueItemIds: number[];
   }>
 > {
@@ -46,9 +47,9 @@ export async function startTaggingTasksAction(
     try {
       let successCount = 0;
       let failedCount = 0;
-      const failedAssets: string[] = [];
+      const failedAssets: { name: string; reason: string }[] = [];
       const queueItemIds: number[] = [];
-      const featureClassify = await getServerFeatureLibraryEnabled();
+      const featureLibraryFeatures = await getServerFeatureLibraryFeatures();
 
       // 批量发起打标任务
       for (const asset of selectedAssets) {
@@ -72,7 +73,8 @@ export async function startTaggingTasksAction(
             assetObject,
             matchingSources: options?.matchingSources,
             recognitionAccuracy: options?.recognitionAccuracy,
-            featureClassify,
+            featureClassify: featureLibraryFeatures.featureLibrary,
+            featureClassifications: toFeatureClassificationFlags(featureLibraryFeatures),
             taskType: "test",
           });
 
@@ -81,7 +83,10 @@ export async function startTaggingTasksAction(
         } catch (error) {
           console.error(`Error starting tagging for asset ${asset.name} (${asset.id}):`, error);
           failedCount++;
-          failedAssets.push(asset.name);
+          failedAssets.push({
+            name: asset.name || asset.id,
+            reason: error instanceof Error ? error.message : String(error),
+          });
         }
       }
 
@@ -98,7 +103,7 @@ export async function startTaggingTasksAction(
       console.error("批量发起打标任务失败:", error);
       return {
         success: false,
-        message: "批量发起打标任务失败",
+        message: error instanceof Error ? error.message : String(error),
       };
     }
   });

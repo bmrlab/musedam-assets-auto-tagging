@@ -56,6 +56,7 @@
       "itemsSelected": "Đã chọn",
       "itemsTotal": "Tổng cộng",
       "itemsCount": "mục",
+      "clearSelection": "Xóa lựa chọn",
       "enable": "Kích hoạt",
       "disable": "Vô hiệu hóa",
       "delete": "Xóa",
@@ -124,7 +125,7 @@
       "confirmDialog": {
         "title": "Thông báo thao tác",
         "deleteDescription": "Bạn có chắc chắn muốn xóa «{name}» không? Không thể khôi phục sau khi xóa, các thẻ liên kết đã gắn sẽ không tự động bị xóa.",
-        "disableDescription": "Bạn có chắc chắn muốn vô hiệu hóa «{name}» không? Sau khi vô hiệu hóa, tài sản mới tải lên sẽ không tự động nhận diện mục này và gắn thẻ liên kết. Tài sản đã gắn thẻ sẽ không bị ảnh hưởng.",
+        "disableDescription": "Bạn có chắc chắn muốn vô hiệu hóa «{name}» không? Sau khi vô hiệu hóa, tài sản mới tải lên sẽ không tự động nhận diện mục này và gắn thẻ liên kết.",
         "confirmDelete": "Xác nhận xóa",
         "confirmDisable": "Xác nhận vô hiệu hóa",
         "cancel": "Hủy"
@@ -135,7 +136,7 @@
         "enableTitle": "Thông báo thao tác",
         "enableDescription": "Bạn có chắc chắn muốn kích hoạt {count} mục đã chọn không? Sau khi kích hoạt, chúng sẽ tham gia vào nhận diện và gắn thẻ AI tự động.",
         "disableTitle": "Thông báo thao tác",
-        "disableDescription": "Bạn có chắc chắn muốn vô hiệu hóa {count} mục đã chọn không? Sau khi vô hiệu hóa, tài sản mới tải lên sẽ không tự động nhận diện các mục này và gắn thẻ liên kết. Tài sản đã gắn thẻ sẽ không bị ảnh hưởng.",
+        "disableDescription": "Bạn có chắc chắn muốn vô hiệu hóa {count} mục đã chọn không? Sau khi vô hiệu hóa, tài sản mới tải lên sẽ không tự động nhận diện các mục này và gắn thẻ liên kết.",
         "confirmEnable": "Xác nhận kích hoạt",
         "confirmDisable": "Xác nhận vô hiệu hóa",
         "cancel": "Hủy"
@@ -300,6 +301,7 @@
       "itemsSelected": "Đã chọn",
       "itemsTotal": "Tổng cộng",
       "itemsCount": "mục",
+      "clearSelection": "Xóa lựa chọn",
       "enable": "Bật",
       "disable": "Tắt",
       "delete": "Xóa",
@@ -407,7 +409,7 @@
       "confirmDialog": {
         "title": "Xác nhận hành động",
         "deleteDescription": "Bạn có chắc chắn muốn xóa \"{name}\" không? Thao tác này không thể hoàn tác, và các thẻ liên kết sẽ không tự động bị xóa.",
-        "disableDescription": "Bạn có chắc chắn muốn tắt \"{name}\" không? Sau khi tắt, tài sản tải lên mới sẽ không tự động nhận diện mục này và áp dụng các thẻ liên kết. Tài sản đã gắn thẻ sẽ không bị ảnh hưởng.",
+        "disableDescription": "Bạn có chắc chắn muốn tắt \"{name}\" không? Sau khi tắt, tài sản tải lên mới sẽ không tự động nhận diện mục này và áp dụng các thẻ liên kết.",
         "confirmDelete": "Xác nhận xóa",
         "confirmDisable": "Xác nhận tắt",
         "cancel": "Hủy"
@@ -418,7 +420,7 @@
         "enableTitle": "Xác nhận hành động",
         "enableDescription": "Bạn có chắc chắn muốn bật {count} mục đã chọn không? Sau khi bật, chúng sẽ tham gia vào nhận diện và gắn thẻ AI tự động.",
         "disableTitle": "Xác nhận hành động",
-        "disableDescription": "Bạn có chắc chắn muốn tắt {count} mục đã chọn không? Sau khi tắt, tài sản tải lên mới sẽ không tự động nhận diện các mục này và áp dụng các thẻ liên kết. Tài sản đã gắn thẻ sẽ không bị ảnh hưởng.",
+        "disableDescription": "Bạn có chắc chắn muốn tắt {count} mục đã chọn không? Sau khi tắt, tài sản tải lên mới sẽ không tự động nhận diện các mục này và áp dụng các thẻ liên kết.",
         "confirmEnable": "Xác nhận bật",
         "confirmDisable": "Xác nhận tắt",
         "cancel": "Hủy"
@@ -529,6 +531,7 @@
       "paginationInfo": "{current}/{total} bản ghi",
       "emptyTagErrorMsg": "Chưa có hệ thống nhãn, vui lòng tạo hệ thống nhãn trước~",
       "noAppropriateTagErrorMsg": "Hệ thống nhãn hiện tại không có nhãn phù hợp",
+      "noMatchingSourceErrorMsg": "Thất bại: chưa bật nguồn khớp nào trong cài đặt gắn nhãn",
       "dayNames": {
         "0": "Chủ nhật",
         "1": "Thứ hai",
@@ -551,7 +554,9 @@
         "9": "Tháng 10",
         "10": "Tháng 11",
         "11": "Tháng 12"
-      }
+      },
+      "filterFailed": "Thất bại",
+      "searchPlaceholder": "Tìm theo tên tài sản"
     },
     "Settings": {
       "title": "Cài đặt chung",
@@ -559,6 +564,7 @@
       "saving": "Đang lưu...",
       "settingsSaved": "Đã lưu cài đặt",
       "saveSettingsFailed": "Lưu cài đặt thất bại",
+      "atLeastOneSourceRequired": "Phải giữ bật ít nhất một nguồn khớp",
       "selectFoldersFailed": "Chọn thư mục thất bại",
       "newApplicationScope": "Trạng thái phạm vi áp dụng mới:",
       "selectedFoldersCount": "Số lượng thư mục đã chọn:",
@@ -587,7 +593,10 @@
         "broad": "Chế độ bao phủ rộng",
         "broadDesc": "Ưu tiên độ bao phủ nhãn, phù hợp phân loại sơ bộ",
         "confidence": "Độ tin cậy",
-        "recommended": "Đề xuất"
+        "recommended": "Đề xuất",
+        "confidenceHigh": "Độ tin cậy cao",
+        "confidenceMedium": "Độ tin cậy trung bình",
+        "confidenceLow": "Độ tin cậy thấp"
       },
       "MatchingStrategy": {
         "title": "Chọn chiến lược khớp",
@@ -601,7 +610,9 @@
         "filePathMatching": "Khớp theo đường dẫn tệp",
         "filePathMatchingDesc": "Khớp nhãn dựa trên đường dẫn thư mục chứa tài sản",
         "assetNameMatching": "Khớp theo tên tài sản",
-        "assetNameMatchingDesc": "Phân tích thông tin chính trong tên tệp để khớp"
+        "assetNameMatchingDesc": "Phân tích thông tin chính trong tên tệp để khớp",
+        "weight": "Trọng số",
+        "weightHint": "Trọng số mặc định là 1 (phạm vi {min} - {max}). Trọng số cao hơn làm tăng điểm của thẻ được khớp từ nguồn này; thấp hơn thì ngược lại."
       },
       "TriggerTiming": {
         "title": "Cài đặt thời điểm kích hoạt",
@@ -667,7 +678,21 @@
       "brandRecommendedTags": "Thẻ gợi ý logo thương hiệu",
       "basedOnTagSystem": "Khớp dựa trên hệ thống nhãn",
       "basedOnFeatureLibrary": "Khớp dựa trên thư viện đặc trưng",
+      "addFeatureManually": "Thêm đặc trưng thủ công",
+      "addFeatureTitle": "Thêm đặc trưng",
+      "addFeatureAllTypes": "Tất cả",
+      "addFeatureSearchPlaceholder": "Tìm tên đặc trưng",
+      "addFeatureNoResults": "Không có đặc trưng phù hợp trong thư viện",
+      "addFeatureAlreadyAdded": "Đã thêm",
+      "addFeatureConfirm": "Thêm ({count})",
+      "manuallyAdded": "Thêm thủ công",
       "latest": "Mới nhất",
+      "requiredFallbackBadge": "Dự phòng bắt buộc",
+      "aspectRatioBadge": "Theo kích thước",
+      "sizeAIBadge": "AI theo kích thước",
+      "appliedBadge": "Đã áp dụng",
+      "showHistory": "Xem lịch sử ({count})",
+      "hideHistory": "Ẩn lịch sử",
       "allStatuses": "Tất cả trạng thái",
       "pending": "Chờ duyệt",
       "approved": "Đã chấp nhận",
@@ -689,6 +714,7 @@
       "totalItems": "Tổng {total} mục",
       "applySuccess": "Áp dụng thành công",
       "applyFailed": "Áp dụng thất bại",
+      "featureReviewChanged": "Thông tin đặc trưng hoặc thẻ liên quan đã thay đổi. Hãy xem kết quả được cập nhật và nhấn Thêm lần nữa.",
       "rejectConfirmTitle": "Thông báo thao tác",
       "rejectConfirmDescription": "Xác nhận xóa bản ghi gắn thẻ AI của tài sản \"{assetName}\"? Thao tác này không thể hoàn tác, vui lòng cân nhắc.",
       "batchRejectConfirmDescription": "Xác nhận xóa bản ghi gắn thẻ AI của {assetNum} tài sản? Thao tác này không thể hoàn tác, vui lòng cân nhắc.",
@@ -793,7 +819,32 @@
       "processingStatus": "Trạng thái xử lý",
       "processingTasks": "Đang xử lý {count} nhiệm vụ gắn thẻ",
       "pollingDescription": "Kiểm tra trạng thái mỗi 2 giây, hoàn tất sẽ tự động hiển thị kết quả",
-      "aiMatching": "Khớp bằng AI"
+      "aiMatching": "Khớp bằng AI",
+      "progressCount": "Đã xong {done}/{total}",
+      "queueWaitEstimate": "Thời gian chờ ước tính: khoảng {duration}",
+      "elapsed": "Đã trôi qua: {duration}",
+      "queueAhead": "Đang xếp hàng, còn {count} tác vụ phía trước",
+      "processingFor": "Đang xử lý được {duration}",
+      "durationMinutes": "{minutes} phút {seconds} giây",
+      "durationSeconds": "{seconds} giây",
+      "pollingErrorStopped": "Không lấy được trạng thái xử lý ({message}). Đã dừng tự động làm mới.",
+      "pollingTimeout": "Tác vụ không hoàn thành đúng hạn. Đã dừng tự động làm mới; hãy kiểm tra lại trạng thái sau hoặc liên hệ quản trị viên.",
+      "retryPolling": "Kiểm tra lại trạng thái",
+      "workerIdleWarning": "Tác vụ xếp hàng quá lâu trong khi hàng đợi đang rảnh. Dịch vụ gắn thẻ nền có thể chưa chạy; vui lòng liên hệ quản trị viên.",
+      "failedResultsTitle": "Tài nguyên thất bại ({count})",
+      "status": {
+        "pending": "Đang xếp hàng",
+        "processing": "Đang xử lý",
+        "completed": "Hoàn thành",
+        "failed": "Thất bại"
+      },
+      "errorReason": {
+        "NO_VALID_TAGS": "Không khớp được thẻ hợp lệ (thiếu thông tin tài nguyên hoặc không có thẻ phù hợp trong hệ thống thẻ)",
+        "NO_TAG_TREE": "Hệ thống thẻ trống. Vui lòng tạo thẻ trước.",
+        "NO_MATCHING_SOURCES_ENABLED": "Chưa bật chiến lược khớp nào",
+        "PROCESSING_STALE_TIMEOUT": "Xử lý quá thời gian và đã tự động được đánh dấu là thất bại",
+        "UNKNOWN": "Lỗi xử lý phía máy chủ. Vui lòng kiểm tra nhật ký dịch vụ."
+      }
     },
     "Common": {
       "refreshDataFailed": "Làm mới dữ liệu thất bại:",
@@ -927,6 +978,7 @@
       "itemsSelected": "Đã chọn",
       "itemsTotal": "Tổng cộng",
       "itemsCount": "mục",
+      "clearSelection": "Xóa lựa chọn",
       "enable": "Kích hoạt",
       "disable": "Vô hiệu hóa",
       "delete": "Xóa",
@@ -994,7 +1046,7 @@
       "confirmDialog": {
         "title": "Xác nhận",
         "deleteDescription": "Xóa \"{name}\"? Thao tác này không thể hoàn tác, và các thẻ liên kết hiện có sẽ không được tự động gỡ bỏ.",
-        "disableDescription": "Vô hiệu hóa \"{name}\"? Sau khi vô hiệu hóa, tài liệu mới tải lên sẽ không tự động nhận diện nhân vật này và gắn thẻ liên kết, trong khi kết quả gắn thẻ đã hoàn thành không bị ảnh hưởng.",
+        "disableDescription": "Vô hiệu hóa \"{name}\"? Sau khi vô hiệu hóa, tài liệu mới tải lên sẽ không tự động nhận diện nhân vật này và gắn thẻ liên kết.",
         "confirmDelete": "Xóa",
         "confirmDisable": "Vô hiệu hóa",
         "cancel": "Hủy"
@@ -1005,7 +1057,7 @@
         "enableTitle": "Xác nhận",
         "enableDescription": "Kích hoạt {count} mục đã chọn? Sau khi kích hoạt, chúng sẽ tham gia nhận diện và gắn thẻ AI.",
         "disableTitle": "Xác nhận",
-        "disableDescription": "Vô hiệu hóa {count} mục đã chọn? Sau khi vô hiệu hóa, tài liệu mới tải lên sẽ không tự động nhận diện các nhân vật này và gắn thẻ liên kết, trong khi kết quả gắn thẻ đã hoàn thành không bị ảnh hưởng.",
+        "disableDescription": "Vô hiệu hóa {count} mục đã chọn? Sau khi vô hiệu hóa, tài liệu mới tải lên sẽ không tự động nhận diện các nhân vật này và gắn thẻ liên kết.",
         "confirmEnable": "Kích hoạt",
         "confirmDisable": "Vô hiệu hóa",
         "cancel": "Hủy"
@@ -1179,6 +1231,7 @@
       "itemsSelected": "Đã chọn",
       "itemsTotal": "Tổng cộng",
       "itemsCount": "mục",
+      "clearSelection": "Xóa lựa chọn",
       "enable": "Kích hoạt",
       "disable": "Vô hiệu hóa",
       "delete": "Xóa",
@@ -1230,7 +1283,7 @@
         "uploadLocal": "Tải lên từ máy tính",
         "uploadFromLibrary": "Chọn từ thư viện tài sản",
         "uploadHintTitle": "Yêu cầu hình ảnh: ",
-        "uploadHint": "Nên tải lên 3-5 hình ảnh sản phẩm, bao gồm các góc độ mặt trước, mặt bên, mặt sau với chất lượng rõ nét và phong cách chụp ảnh thống nhất. Nên bao gồm hình ảnh sản phẩm chuẩn trên nền đơn sắc và cảnh sử dụng thực tế để cải thiện độ chính xác nhận diện AI.",
+        "uploadHint": "Nên tải lên 3-5 hình ảnh sản phẩm, bao gồm các góc độ mặt trước, mặt bên, mặt sau với chất lượng rõ nét và phong cách chụp ảnh thống nhất. Nên bao gồm hình ảnh sản phẩm chuẩn trên nền đơn sắc để cải thiện độ chính xác nhận diện AI.",
         "linkedTagsLabel": "Thẻ liên kết",
         "linkedTagsHint": "Các thẻ này sẽ được tự động áp dụng khi tìm thấy kết quả khớp",
         "manageTags": "Quản lý hệ thống thẻ",
@@ -1250,7 +1303,7 @@
       "confirmDialog": {
         "title": "Thông báo thao tác",
         "deleteDescription": "Bạn có chắc chắn muốn xóa \"{name}\" không? Không thể khôi phục sau khi xóa, các thẻ liên kết đã gắn sẽ không tự động bị xóa.",
-        "disableDescription": "Bạn có chắc chắn muốn vô hiệu hóa \"{name}\" không? Sau khi vô hiệu hóa, tài sản mới tải lên sẽ không tự động nhận diện mục này và gắn thẻ liên kết. Tài sản đã gắn thẻ sẽ không bị ảnh hưởng.",
+        "disableDescription": "Bạn có chắc chắn muốn vô hiệu hóa \"{name}\" không? Sau khi vô hiệu hóa, tài sản mới tải lên sẽ không tự động nhận diện mục này và gắn thẻ liên kết.",
         "confirmDelete": "Xác nhận xóa",
         "confirmDisable": "Xác nhận vô hiệu hóa",
         "cancel": "Hủy"
@@ -1261,7 +1314,7 @@
         "enableTitle": "Thông báo thao tác",
         "enableDescription": "Bạn có chắc chắn muốn kích hoạt {count} mục đã chọn không? Sau khi kích hoạt, chúng sẽ tham gia vào nhận diện và gắn thẻ AI tự động.",
         "disableTitle": "Thông báo thao tác",
-        "disableDescription": "Bạn có chắc chắn muốn vô hiệu hóa {count} mục đã chọn không? Sau khi vô hiệu hóa, tài sản mới tải lên sẽ không tự động nhận diện các mục này và gắn thẻ liên kết. Tài sản đã gắn thẻ sẽ không bị ảnh hưởng.",
+        "disableDescription": "Bạn có chắc chắn muốn vô hiệu hóa {count} mục đã chọn không? Sau khi vô hiệu hóa, tài sản mới tải lên sẽ không tự động nhận diện các mục này và gắn thẻ liên kết.",
         "confirmEnable": "Xác nhận kích hoạt",
         "confirmDisable": "Xác nhận vô hiệu hóa",
         "cancel": "Hủy"
@@ -1348,20 +1401,20 @@
     "ProductClassify": {
       "backToLibrary": "Quay lại Thư viện Sản phẩm",
       "pageTitle": "Trang Phát triển Phân loại Sản phẩm",
-      "pageDescription": "Sau khi tải ảnh lên, hệ thống sử dụng danh mục chung từ các sản phẩm đã kích hoạt để phát hiện khu vực sản phẩm tiềm năng, sau đó sử dụng embedding đa phương thức để truy xuất vector hình ảnh và mô tả sản phẩm và đưa ra kết quả cuối cùng sau khi tổng hợp theo crop và phương thức.",
+      "pageDescription": "Các phát hiện trùng lặp được nhóm thành vùng sản phẩm. Mỗi vùng được phân loại riêng, trả về tất cả sản phẩm khác nhau có độ tin cậy ít nhất 80%.",
       "availableProducts": "Sản phẩm tham chiếu có sẵn",
       "statsDescription": "Chỉ thống kê dữ liệu đã kích hoạt và hoàn thành xử lý vector",
       "uploadImageFirst": "Vui lòng tải lên hình ảnh để phân loại trước",
       "noReferenceProducts": "Hiện tại không có vector tham chiếu sản phẩm đã hoàn thành nào",
       "classifying": "Đang phân loại",
       "classifyButton": "Phân loại Sản phẩm",
-      "uploadHint": "Sau khi tải lên hình ảnh, khung phát hiện và sản phẩm được khớp cuối cùng sẽ hiển thị ở đây.",
+      "uploadHint": "Tải ảnh lên để xem các khung phát hiện và tất cả sản phẩm khớp.",
       "imageToClassify": "Hình ảnh cần phân loại",
-      "finalResult": "Kết quả cuối cùng",
-      "resultHint": "Khu vực kết quả sẽ hiển thị khung phát hiện thắng, tên sản phẩm cuối cùng, và top 3 kết quả tương tự.",
+      "finalResult": "Các sản phẩm khớp",
+      "resultHint": "Kết quả hiển thị tất cả sản phẩm phù hợp và 3 ứng viên hàng đầu cho mỗi vùng sản phẩm.",
       "noConfidentMatch": "Không khớp sản phẩm đáng tin cậy",
-      "noConfidentMatchDesc": "Ứng cử viên tốt nhất hiện tại chưa đủ ổn định, do đó được đánh giá là không khớp đáng tin cậy.",
-      "winningProduct": "Sản phẩm thắng cuộc",
+      "noConfidentMatchDesc": "Không có vùng sản phẩm nào khớp với độ tin cậy ít nhất 80%.",
+      "winningProduct": "Sản phẩm khớp",
       "type": "Loại",
       "similarity": "Độ tương đồng",
       "confidence": "Độ tin cậy",
@@ -1386,7 +1439,12 @@
         "canvasNotSupported": "Trình duyệt không hỗ trợ Canvas cắt hình"
       },
       "fallbackBox": "dự phòng toàn bộ hình ảnh",
-      "coordinateTo": "đến"
+      "coordinateTo": "đến",
+      "productRegions": "Vùng sản phẩm",
+      "region": "Vùng",
+      "rawDetectionBoxes": "Khung phát hiện gốc",
+      "showRawDetections": "Hiện khung gốc",
+      "showProductRegions": "Hiện vùng sản phẩm"
     },
     "BatchImportExport": {
       "title": "Nhập/Xuất hàng loạt",
@@ -1396,6 +1454,11 @@
       "tabExport": "Xuất",
       "cancel": "Hủy",
       "confirm": "Xác nhận",
+      "missingTagsConfirmTitle": "Tạo các thẻ còn thiếu?",
+      "missingTagsConfirmDescription": "Tệp nhập tham chiếu đến các đường dẫn thẻ không tồn tại. Tạo các cây thẻ này và tiếp tục nhập?",
+      "missingTagsListLabel": "Các đường dẫn thẻ còn thiếu",
+      "createTagsAndImport": "Tạo và nhập",
+      "importExistingTagsOnly": "Chỉ nhập các hàng có thẻ hiện có",
       "unsupportedFileType": "Chỉ hỗ trợ tệp Excel (.xlsx) hoặc CSV (.csv)",
       "selectFileFirst": "Vui lòng chọn tệp trước",
       "selectImportFile": "Vui lòng chọn tệp Excel (.xlsx) hoặc CSV (.csv) trước",
@@ -1452,7 +1515,18 @@
       },
       "formatExcel": "Excel",
       "formatCsv": "CSV",
-      "spreadsheetBadge": "XLS"
+      "spreadsheetBadge": "XLS",
+      "precheckTitle": "Kiểm tra trước khi nhập",
+      "precheckHint": "Vui lòng xem lại các mục sau trước khi nhập",
+      "precheckSummary": "Sẽ tạo {create} thẻ, cập nhật {update}, {unchanged} không thay đổi",
+      "precheckRenameNotice": "Trong đó {count} thẻ sẽ được đổi tên và đồng bộ với MuseDAM",
+      "precheckIssuesLabel": "{count} dòng có vấn đề và sẽ bị bỏ qua nếu tiếp tục:",
+      "precheckCreateLabel": "Sẽ tạo {count} thẻ:",
+      "precheckMoreItems": "…tổng cộng {count} mục",
+      "backToEdit": "Quay lại chỉnh sửa",
+      "continueImport": "Tiếp tục nhập",
+      "continueImportSkipIssues": "Bỏ qua lỗi và tiếp tục",
+      "importSuccessWithSkipped": "Đã nhập {count} dòng, bỏ qua {skipped} dòng có vấn đề"
     }
   }
 }

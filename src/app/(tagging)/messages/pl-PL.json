@@ -56,6 +56,7 @@
       "itemsSelected": "Wybrane",
       "itemsTotal": "Łącznie",
       "itemsCount": "pozycji",
+      "clearSelection": "Wyczyść",
       "enable": "Włącz",
       "disable": "Wyłącz",
       "delete": "Usuń",
@@ -124,7 +125,7 @@
       "confirmDialog": {
         "title": "Potwierdzenie akcji",
         "deleteDescription": "Czy na pewno chcesz usunąć „{name}”? Tej operacji nie można cofnąć, a powiązane tagi nie zostaną automatycznie usunięte.",
-        "disableDescription": "Czy na pewno chcesz wyłączyć „{name}”? Po wyłączeniu nowo przesłane zasoby nie będą automatycznie rozpoznawać tego wpisu i stosować powiązanych tagów. Zasoby już otagowane nie będą dotknięte.",
+        "disableDescription": "Czy na pewno chcesz wyłączyć „{name}”? Po wyłączeniu nowo przesłane zasoby nie będą automatycznie rozpoznawać tego wpisu i stosować powiązanych tagów.",
         "confirmDelete": "Potwierdź usunięcie",
         "confirmDisable": "Potwierdź wyłączenie",
         "cancel": "Anuluj"
@@ -135,7 +136,7 @@
         "enableTitle": "Potwierdzenie akcji",
         "enableDescription": "Czy na pewno chcesz włączyć wybrane {count} pozycji? Po włączeniu wezmą udział w automatycznym rozpoznawaniu i tagowaniu AI.",
         "disableTitle": "Potwierdzenie akcji",
-        "disableDescription": "Czy na pewno chcesz wyłączyć wybrane {count} pozycji? Po wyłączeniu nowo przesłane zasoby nie będą automatycznie rozpoznawać tych wpisów i stosować powiązanych tagów. Zasoby już otagowane nie będą dotknięte.",
+        "disableDescription": "Czy na pewno chcesz wyłączyć wybrane {count} pozycji? Po wyłączeniu nowo przesłane zasoby nie będą automatycznie rozpoznawać tych wpisów i stosować powiązanych tagów.",
         "confirmEnable": "Potwierdź włączenie",
         "confirmDisable": "Potwierdź wyłączenie",
         "cancel": "Anuluj"
@@ -300,6 +301,7 @@
       "itemsSelected": "Wybrane",
       "itemsTotal": "Łącznie",
       "itemsCount": "pozycji",
+      "clearSelection": "Wyczyść",
       "enable": "Włącz",
       "disable": "Wyłącz",
       "delete": "Usuń",
@@ -407,7 +409,7 @@
       "confirmDialog": {
         "title": "Potwierdzenie akcji",
         "deleteDescription": "Czy na pewno chcesz usunąć \"{name}\"? Tej operacji nie można cofnąć, a powiązane tagi nie zostaną automatycznie usunięte.",
-        "disableDescription": "Czy na pewno chcesz wyłączyć \"{name}\"? Po wyłączeniu nowo przesłane zasoby nie będą automatycznie rozpoznawać tego wpisu i stosować powiązanych tagów. Zasoby już otagowane nie będą dotknięte.",
+        "disableDescription": "Czy na pewno chcesz wyłączyć \"{name}\"? Po wyłączeniu nowo przesłane zasoby nie będą automatycznie rozpoznawać tego wpisu i stosować powiązanych tagów.",
         "confirmDelete": "Potwierdź usunięcie",
         "confirmDisable": "Potwierdź wyłączenie",
         "cancel": "Anuluj"
@@ -418,7 +420,7 @@
         "enableTitle": "Potwierdzenie akcji",
         "enableDescription": "Czy na pewno chcesz włączyć wybrane {count} pozycji? Po włączeniu wezmą udział w automatycznym rozpoznawaniu i tagowaniu AI.",
         "disableTitle": "Potwierdzenie akcji",
-        "disableDescription": "Czy na pewno chcesz wyłączyć wybrane {count} pozycji? Po wyłączeniu nowo przesłane zasoby nie będą automatycznie rozpoznawać tych wpisów i stosować powiązanych tagów. Zasoby już otagowane nie będą dotknięte.",
+        "disableDescription": "Czy na pewno chcesz wyłączyć wybrane {count} pozycji? Po wyłączeniu nowo przesłane zasoby nie będą automatycznie rozpoznawać tych wpisów i stosować powiązanych tagów.",
         "confirmEnable": "Potwierdź włączenie",
         "confirmDisable": "Potwierdź wyłączenie",
         "cancel": "Anuluj"
@@ -529,6 +531,7 @@
       "paginationInfo": "{current} / {total} elementów",
       "emptyTagErrorMsg": "Brak systemu tagów. Najpierw utwórz system tagów~",
       "noAppropriateTagErrorMsg": "W obecnym systemie tagów nie ma odpowiednich tagów",
+      "noMatchingSourceErrorMsg": "Niepowodzenie: w ustawieniach tagowania nie włączono żadnego źródła dopasowania",
       "dayNames": {
         "0": "Niedziela",
         "1": "Poniedziałek",
@@ -551,7 +554,9 @@
         "9": "Październik",
         "10": "Listopad",
         "11": "Grudzień"
-      }
+      },
+      "filterFailed": "Nieudane",
+      "searchPlaceholder": "Szukaj po nazwie zasobu"
     },
     "Settings": {
       "title": "Przełącznik tagowania",
@@ -559,6 +564,7 @@
       "saving": "Zapisywanie...",
       "settingsSaved": "Ustawienia zapisane",
       "saveSettingsFailed": "Nie udało się zapisać ustawień",
+      "atLeastOneSourceRequired": "Co najmniej jedno źródło dopasowania musi pozostać włączone",
       "selectFoldersFailed": "Nie udało się wybrać folderów",
       "newApplicationScope": "Nowy stan zakresu aplikacji:",
       "selectedFoldersCount": "Liczba wybranych folderów:",
@@ -581,13 +587,16 @@
       "AIRecognition": {
         "title": "Rozpoznawanie AI",
         "precise": "Precyzyjne",
-        "preciseDesc": "Wysoka dokładność, mniej tagów (≥80% pewności)",
+        "preciseDesc": "Wysoka dokładność, mniej tagów",
         "balanced": "Zrównoważone",
-        "balancedDesc": "Zrównoważona dokładność i zakres (≥60% pewności)",
+        "balancedDesc": "Zrównoważona dokładność i zakres",
         "broad": "Szerokie",
-        "broadDesc": "Duży zakres, więcej tagów (≥40% pewności)",
+        "broadDesc": "Duży zakres, więcej tagów",
         "confidence": "pewność",
-        "recommended": "Zalecane"
+        "recommended": "Zalecane",
+        "confidenceHigh": "Wysoka pewność",
+        "confidenceMedium": "Średnia pewność",
+        "confidenceLow": "Niska pewność"
       },
       "MatchingStrategy": {
         "title": "Strategia dopasowania",
@@ -601,7 +610,9 @@
         "filePathMatching": "Dopasowanie ścieżki pliku",
         "filePathMatchingDesc": "Dopasowanie tagów na podstawie ścieżki pliku, w której znajdują się zasoby",
         "assetNameMatching": "Dopasowanie nazwy zasobu",
-        "assetNameMatchingDesc": "Analizuj kluczowe informacje w nazwach plików w celu dopasowania"
+        "assetNameMatchingDesc": "Analizuj kluczowe informacje w nazwach plików w celu dopasowania",
+        "weight": "Waga",
+        "weightHint": "Domyślna waga to 1 (zakres {min} - {max}). Wyższa waga podnosi wynik tagów dopasowanych przez to źródło; niższa go obniża."
       },
       "TriggerTiming": {
         "title": "Czas wyzwalania",
@@ -667,7 +678,21 @@
       "brandRecommendedTags": "Rekomendowane tagi logo marki",
       "basedOnTagSystem": "Na podstawie dopasowania systemu tagów",
       "basedOnFeatureLibrary": "Na podstawie dopasowania biblioteki cech",
+      "addFeatureManually": "Dodaj cechę ręcznie",
+      "addFeatureTitle": "Dodaj cechy",
+      "addFeatureAllTypes": "Wszystkie",
+      "addFeatureSearchPlaceholder": "Szukaj nazwy cechy",
+      "addFeatureNoResults": "Brak pasujących cech w bibliotece",
+      "addFeatureAlreadyAdded": "Dodano",
+      "addFeatureConfirm": "Dodaj ({count})",
+      "manuallyAdded": "Dodano ręcznie",
       "latest": "Najnowsze",
+      "requiredFallbackBadge": "Obowiązkowy fallback",
+      "aspectRatioBadge": "Z wymiarów",
+      "sizeAIBadge": "AI wg rozmiaru",
+      "appliedBadge": "Zastosowano",
+      "showHistory": "Pokaż historię ({count})",
+      "hideHistory": "Ukryj historię",
       "allStatuses": "Wszystkie statusy",
       "pending": "Oczekuje na przegląd",
       "approved": "Zatwierdzone",
@@ -689,6 +714,7 @@
       "totalItems": "Łącznie {total} elementów",
       "applySuccess": "Zastosowano pomyślnie",
       "applyFailed": "Zastosowanie nie powiodło się",
+      "featureReviewChanged": "Szczegóły cechy lub powiązane tagi uległy zmianie. Sprawdź odświeżone wyniki i ponownie kliknij Dodaj.",
       "rejectConfirmTitle": "Monit operacji",
       "rejectConfirmDescription": "Potwierdź usunięcie rekordu tagowania AI zasobu \"{assetName}\"? Ta operacja nie może zostać przywrócona, postępuj ostrożnie.",
       "batchRejectConfirmDescription": "Potwierdź usunięcie rekordu tagowania AI {assetNum} zasobów? Ta operacja nie może zostać przywrócona, postępuj ostrożnie.",
@@ -793,7 +819,32 @@
       "processingStatus": "Status przetwarzania",
       "processingTasks": "Przetwarzanie {count} zadań tagowania",
       "pollingDescription": "Sprawdzanie statusu co 2 sekundy, wyniki będą wyświetlane automatycznie po ukończeniu",
-      "aiMatching": "Dopasowanie AI"
+      "aiMatching": "Dopasowanie AI",
+      "progressCount": "Ukończono {done}/{total}",
+      "queueWaitEstimate": "Szacowany czas oczekiwania: ok. {duration}",
+      "elapsed": "Upłynęło: {duration}",
+      "queueAhead": "W kolejce, zadań przed tobą: {count}",
+      "processingFor": "Przetwarzanie trwa {duration}",
+      "durationMinutes": "{minutes} min {seconds} s",
+      "durationSeconds": "{seconds} s",
+      "pollingErrorStopped": "Nie udało się pobrać stanu przetwarzania ({message}). Automatyczne odświeżanie zatrzymane.",
+      "pollingTimeout": "Zadania nie zakończyły się na czas. Automatyczne odświeżanie zatrzymane; sprawdź stan później lub skontaktuj się z administratorem.",
+      "retryPolling": "Sprawdź stan ponownie",
+      "workerIdleWarning": "Zadania od dłuższego czasu czekają w kolejce, mimo że kolejka jest pusta. Usługa tagowania w tle może nie działać; skontaktuj się z administratorem.",
+      "failedResultsTitle": "Nieudane zasoby ({count})",
+      "status": {
+        "pending": "W kolejce",
+        "processing": "Przetwarzanie",
+        "completed": "Ukończono",
+        "failed": "Niepowodzenie"
+      },
+      "errorReason": {
+        "NO_VALID_TAGS": "Nie znaleziono prawidłowych tagów (niewystarczające informacje o zasobie lub brak odpowiedniego tagu w systemie tagów)",
+        "NO_TAG_TREE": "System tagów jest pusty. Najpierw utwórz tagi.",
+        "NO_MATCHING_SOURCES_ENABLED": "Nie włączono żadnej strategii dopasowania",
+        "PROCESSING_STALE_TIMEOUT": "Przekroczono limit czasu przetwarzania, zadanie automatycznie oznaczono jako nieudane",
+        "UNKNOWN": "Błąd przetwarzania po stronie serwera. Sprawdź logi usługi."
+      }
     },
     "Common": {
       "refreshDataFailed": "Nie udało się odświeżyć danych",
@@ -927,6 +978,7 @@
       "itemsSelected": "Wybrane",
       "itemsTotal": "Łącznie",
       "itemsCount": "pozycji",
+      "clearSelection": "Wyczyść",
       "enable": "Włącz",
       "disable": "Wyłącz",
       "delete": "Usuń",
@@ -994,7 +1046,7 @@
       "confirmDialog": {
         "title": "Potwierdzenie",
         "deleteDescription": "Usunąć \"{name}\"? Tej operacji nie można cofnąć, a istniejące powiązane tagi nie zostaną automatycznie usunięte.",
-        "disableDescription": "Wyłączyć \"{name}\"? Nowe zasoby nie będą już rozpoznawać tej osoby automatycznie, podczas gdy zakończone wyniki tagowania pozostaną nienaruszone.",
+        "disableDescription": "Wyłączyć \"{name}\"? Nowe zasoby nie będą już rozpoznawać tej osoby automatycznie.",
         "confirmDelete": "Usuń",
         "confirmDisable": "Wyłącz",
         "cancel": "Anuluj"
@@ -1005,7 +1057,7 @@
         "enableTitle": "Potwierdzenie",
         "enableDescription": "Włączyć wybrane {count} pozycji? Wezmą udział w rozpoznawaniu AI i tagowaniu.",
         "disableTitle": "Potwierdzenie",
-        "disableDescription": "Wyłączyć wybrane {count} pozycji? Nowe zasoby nie będą już rozpoznawać ich automatycznie, podczas gdy zakończone wyniki tagowania pozostaną nienaruszone.",
+        "disableDescription": "Wyłączyć wybrane {count} pozycji? Nowe zasoby nie będą już rozpoznawać ich automatycznie.",
         "confirmEnable": "Włącz",
         "confirmDisable": "Wyłącz",
         "cancel": "Anuluj"
@@ -1179,6 +1231,7 @@
       "itemsSelected": "Wybrane",
       "itemsTotal": "Łącznie",
       "itemsCount": "pozycji",
+      "clearSelection": "Wyczyść",
       "enable": "Włącz",
       "disable": "Wyłącz",
       "delete": "Usuń",
@@ -1230,7 +1283,7 @@
         "uploadLocal": "Prześlij z lokalnego",
         "uploadFromLibrary": "Wybierz z biblioteki zasobów",
         "uploadHintTitle": "Wymagania dotyczące obrazu: ",
-        "uploadHint": "Prześlij 3-5 obrazów produktu pokrywających przód, boki, tył i inne kąty, zachowując wysoką jakość i spójny styl fotografowania. Zaleca się dołączenie standardowych obrazów produktów na jednolitym tle oraz rzeczywistych scen użycia, aby zwiększyć dokładność rozpoznawania AI.",
+        "uploadHint": "Prześlij 3-5 obrazów produktu pokrywających przód, boki, tył i inne kąty, zachowując wysoką jakość i spójny styl fotografowania. Zaleca się dołączenie standardowych obrazów produktów na jednolitym tle, aby zwiększyć dokładność rozpoznawania AI.",
         "linkedTagsLabel": "Powiązane tagi",
         "linkedTagsHint": "Te tagi zostaną automatycznie zastosowane po znalezieniu dopasowania",
         "manageTags": "Zarządzaj systemem tagów",
@@ -1250,7 +1303,7 @@
       "confirmDialog": {
         "title": "Potwierdzenie akcji",
         "deleteDescription": "Czy na pewno chcesz usunąć \"{name}\"? Tej operacji nie można cofnąć, a powiązane tagi nie zostaną automatycznie usunięte.",
-        "disableDescription": "Czy na pewno chcesz wyłączyć \"{name}\"? Po wyłączeniu nowo przesłane zasoby nie będą automatycznie rozpoznawać tego wpisu i stosować powiązanych tagów. Zasoby już otagowane nie będą dotknięte.",
+        "disableDescription": "Czy na pewno chcesz wyłączyć \"{name}\"? Po wyłączeniu nowo przesłane zasoby nie będą automatycznie rozpoznawać tego wpisu i stosować powiązanych tagów.",
         "confirmDelete": "Potwierdź usunięcie",
         "confirmDisable": "Potwierdź wyłączenie",
         "cancel": "Anuluj"
@@ -1261,7 +1314,7 @@
         "enableTitle": "Potwierdzenie akcji",
         "enableDescription": "Czy na pewno chcesz włączyć wybrane {count} pozycji? Po włączeniu wezmą udział w automatycznym rozpoznawaniu i tagowaniu AI.",
         "disableTitle": "Potwierdzenie akcji",
-        "disableDescription": "Czy na pewno chcesz wyłączyć wybrane {count} pozycji? Po wyłączeniu nowo przesłane zasoby nie będą automatycznie rozpoznawać tych wpisów i stosować powiązanych tagów. Zasoby już otagowane nie będą dotknięte.",
+        "disableDescription": "Czy na pewno chcesz wyłączyć wybrane {count} pozycji? Po wyłączeniu nowo przesłane zasoby nie będą automatycznie rozpoznawać tych wpisów i stosować powiązanych tagów.",
         "confirmEnable": "Potwierdź włączenie",
         "confirmDisable": "Potwierdź wyłączenie",
         "cancel": "Anuluj"
@@ -1348,20 +1401,20 @@
     "ProductClassify": {
       "backToLibrary": "Powrót do biblioteki produktów",
       "pageTitle": "Strona deweloperska klasyfikacji produktów",
-      "pageDescription": "Po przesłaniu obrazu system najpierw używa ogólnych kategorii z aktualnie włączonych produktów do wykrycia potencjalnych obszarów produktów, a następnie używa multimodalnego osadzania do pobrania wektorów obrazu i opisu produktu, dając ostateczny wynik po agregacji według wycinka i modalności.",
+      "pageDescription": "Zduplikowane wykrycia są łączone w obszary produktów. Każdy obszar jest klasyfikowany osobno. Zwracane są wszystkie różne produkty z pewnością co najmniej 80%.",
       "availableProducts": "Dostępne produkty referencyjne",
       "statsDescription": "Liczone są tylko dane włączone i z zakończonym przetwarzaniem wektorów",
       "uploadImageFirst": "Najpierw prześlij obraz do klasyfikacji",
       "noReferenceProducts": "Obecnie nie ma dostępnych ukończonych wektorów referencyjnych produktów",
       "classifying": "Klasyfikowanie",
       "classifyButton": "Klasyfikuj produkt",
-      "uploadHint": "Po przesłaniu obrazu tutaj wyświetlone zostaną ramki detekcji i ostatecznie dopasowany produkt.",
+      "uploadHint": "Prześlij obraz, aby zobaczyć wykryte obszary i wszystkie dopasowane produkty.",
       "imageToClassify": "Obraz do klasyfikacji",
-      "finalResult": "Ostateczny wynik",
-      "resultHint": "Obszar wyniku pokaże wygrywającą ramkę detekcji, ostateczną nazwę produktu oraz 3 najlepsze podobne wyniki.",
+      "finalResult": "Dopasowane produkty",
+      "resultHint": "Wyniki pokazują wszystkie pasujące produkty oraz trzech najlepszych kandydatów dla każdego obszaru produktu.",
       "noConfidentMatch": "Brak pewnego dopasowania produktu",
-      "noConfidentMatchDesc": "Aktualny najlepszy kandydat nie jest wystarczająco stabilny, dlatego został oceniony jako brak pewnego dopasowania.",
-      "winningProduct": "Zwycięski produkt",
+      "noConfidentMatchDesc": "Żaden obszar produktu nie ma dopasowania z pewnością co najmniej 80%.",
+      "winningProduct": "Dopasowany produkt",
       "type": "Typ",
       "similarity": "Podobieństwo",
       "confidence": "Pewność",
@@ -1386,7 +1439,12 @@
         "canvasNotSupported": "Przeglądarka nie obsługuje przycinania Canvas"
       },
       "fallbackBox": "zastępcza ramka całego obrazu",
-      "coordinateTo": "do"
+      "coordinateTo": "do",
+      "productRegions": "Obszary produktów",
+      "region": "Obszar",
+      "rawDetectionBoxes": "Oryginalne ramki wykrywania",
+      "showRawDetections": "Pokaż oryginalne ramki",
+      "showProductRegions": "Pokaż obszary produktów"
     },
     "BatchImportExport": {
       "title": "Import/Eksport zbiorczy",
@@ -1396,6 +1454,11 @@
       "tabExport": "Eksport",
       "cancel": "Anuluj",
       "confirm": "Potwierdź",
+      "missingTagsConfirmTitle": "Utworzyć brakujące tagi?",
+      "missingTagsConfirmDescription": "Plik importu odwołuje się do nieistniejących ścieżek tagów. Czy utworzyć te drzewa tagów i kontynuować importowanie?",
+      "missingTagsListLabel": "Brakujące ścieżki tagów",
+      "createTagsAndImport": "Utwórz i importuj",
+      "importExistingTagsOnly": "Importuj tylko wiersze z istniejącymi tagami",
       "unsupportedFileType": "Obsługiwane są tylko pliki Excel (.xlsx) lub CSV (.csv)",
       "selectFileFirst": "Najpierw wybierz plik",
       "selectImportFile": "Najpierw wybierz plik Excel (.xlsx) lub CSV (.csv)",
@@ -1452,7 +1515,18 @@
       },
       "formatExcel": "Excel",
       "formatCsv": "CSV",
-      "spreadsheetBadge": "XLS"
+      "spreadsheetBadge": "XLS",
+      "precheckTitle": "Sprawdzenie przed importem",
+      "precheckHint": "Przed importem sprawdź poniższe informacje",
+      "precheckSummary": "Zostanie utworzonych {create} tagów, zaktualizowanych {update}, bez zmian {unchanged}",
+      "precheckRenameNotice": "{count} z nich zostanie przemianowanych i zsynchronizowanych z MuseDAM",
+      "precheckIssuesLabel": "{count} wierszy zawiera problemy i zostanie pominiętych, jeśli kontynuujesz:",
+      "precheckCreateLabel": "Zostanie utworzonych {count} tagów:",
+      "precheckMoreItems": "…łącznie {count} pozycji",
+      "backToEdit": "Wróć do edycji",
+      "continueImport": "Kontynuuj import",
+      "continueImportSkipIssues": "Pomiń problemy i kontynuuj",
+      "importSuccessWithSkipped": "Zaimportowano {count} wierszy, pominięto {skipped} wierszy z problemami"
     }
   }
 }

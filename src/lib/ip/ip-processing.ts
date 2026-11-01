@@ -3,16 +3,25 @@ import "server-only";
 import { getJinaConfig } from "@/lib/brand/env";
 import { bufferToDataUrl } from "@/lib/brand/image";
 import { createJinaImageEmbeddings, createJinaTextEmbeddings } from "@/lib/brand/jina";
+import { rootLogger } from "@/lib/logging";
 import { getCachedSignedS3ObjectUrl } from "@/lib/s3";
-import { cropImageToDataUrl as cropClassificationImageToDataUrl } from "@/lib/tagging/classification-image";
+import {
+  cropImageToDataUrl as cropClassificationImageToDataUrl,
+  getResponseByteLength,
+  prepareSvgCropSource,
+  withHeavyImageSlot,
+} from "@/lib/tagging/classification-image";
+import { IMAGE_FETCH_TIMEOUT_MS } from "@/lib/tagging/external-timeouts";
+import {
+  FEATURE_PROCESSING_ABANDONED,
+  FEATURE_PROCESSING_INTERRUPTED,
+} from "@/lib/tagging/feature-processing-status";
+import { scheduleReferenceThumbnail } from "@/lib/tagging/reference-thumbnail";
 import { translateTextToEnglish } from "@/lib/translation/service";
 import prisma from "@/prisma/prisma";
 import { randomUUID } from "crypto";
-import {
-  deleteIpVectorPointsByIp,
-  setIpVectorPayloadByIp,
-  upsertIpVectorPoints,
-} from "./pgvector";
+import pLimit from "p-limit";
+import { deleteIpVectorPointsByIp, setIpVectorPayloadByIp, upsertIpVectorPoints } from "./pgvector";
 
 const IP_PROCESSING_ERROR_CODES = {
   embeddingCountMismatch: "embedding_count_mismatch",
@@ -23,6 +32,13 @@ const IP_PROCESSING_ERROR_CODES = {
   unknown: "unknown",
   vectorStoreSyncFailed: "vector_store_sync_failed",
 } as const;
+
+const IP_VECTOR_PROCESSING_CONCURRENCY = 8;
+const IP_VECTOR_RECOVERY_BATCH_SIZE = 4;
+const IP_VECTOR_PROCESSING_HEARTBEAT_MS = 15_000;
+const IP_VECTOR_PROCESSING_STALE_MS = 60_000;
+const ipVectorProcessingLimit = pLimit(IP_VECTOR_PROCESSING_CONCURRENCY);
+const inFlightIpVectorProcessing = new Map<string, Promise<void>>();
 
 type IpProcessingErrorCode =
   (typeof IP_PROCESSING_ERROR_CODES)[keyof typeof IP_PROCESSING_ERROR_CODES];
@@ -59,16 +75,23 @@ function getProcessingErrorCode(error: unknown): IpProcessingErrorCode {
   return IP_PROCESSING_ERROR_CODES.unknown;
 }
 
-async function fetchImageAsDataUrl(objectKey: string, mimeType: string): Promise<{ dataUrl: string; buffer: Buffer }> {
+async function fetchImageAsDataUrl(
+  objectKey: string,
+  mimeType: string,
+): Promise<{ dataUrl: string; buffer: Buffer }> {
   const { signedUrl } = getCachedSignedS3ObjectUrl({ objectKey });
-  const response = await fetch(signedUrl);
+  const response = await fetch(signedUrl, { signal: AbortSignal.timeout(IMAGE_FETCH_TIMEOUT_MS) });
 
   if (!response.ok) {
     throw createProcessingError(IP_PROCESSING_ERROR_CODES.imageFetchFailed);
   }
 
-  const buffer = Buffer.from(await response.arrayBuffer());
-  return { dataUrl: bufferToDataUrl(buffer, mimeType), buffer };
+  // 大图串行下载（不缩小：局部特征的裁剪坐标是相对原图的）
+  return withHeavyImageSlot(getResponseByteLength(response), async () => {
+    const buffer = Buffer.from(await response.arrayBuffer());
+    scheduleReferenceThumbnail(objectKey, buffer);
+    return { dataUrl: bufferToDataUrl(buffer, mimeType), buffer };
+  });
 }
 
 function hasPartialCrop(image: {
@@ -118,10 +141,14 @@ async function buildReferenceImageInput({
     throw createProcessingError(IP_PROCESSING_ERROR_CODES.noReferenceImages);
   }
 
+  const cropSource = await prepareSvgCropSource(buffer, image.mimeType, {
+    width: image.cropImageWidth!,
+    height: image.cropImageHeight!,
+  });
   return cropClassificationImageToDataUrl({
-    imageDataUrl: dataUrl,
-    imageBuffer: buffer,
-    sourceMimeType: image.mimeType,
+    imageDataUrl: bufferToDataUrl(cropSource.buffer, cropSource.mimeType),
+    imageBuffer: cropSource.buffer,
+    sourceMimeType: cropSource.mimeType,
     meta: {
       width: image.cropImageWidth!,
       height: image.cropImageHeight!,
@@ -137,7 +164,7 @@ async function buildReferenceImageInput({
   });
 }
 
-export async function markAssetIpVectorsProcessing({
+export async function markAssetIpVectorsPending({
   teamId,
   ipId,
   enabled,
@@ -152,7 +179,7 @@ export async function markAssetIpVectorsProcessing({
         id: ipId,
       },
       data: {
-        status: "processing",
+        status: "pending",
         processingError: null,
         processedAt: null,
       },
@@ -182,14 +209,52 @@ export async function markAssetIpVectorsProcessing({
   });
 }
 
-export async function processAssetIpReferenceVectors({
+async function processAssetIpReferenceVectorsNow({
   teamId,
   ipId,
 }: {
   teamId: number;
   ipId: string;
 }) {
+  let heartbeat: ReturnType<typeof setInterval> | null = null;
+
   try {
+    const claimed = await prisma.assetIp.updateMany({
+      where: {
+        id: ipId,
+        teamId,
+        status: {
+          in: ["pending", "processing"],
+        },
+      },
+      data: {
+        status: "processing",
+        // 不清空 processingError：保留中断标记（见 processPending*ReferenceVectors），成功或失败时会覆盖
+        processedAt: null,
+      },
+    });
+
+    if (claimed.count === 0) {
+      return;
+    }
+
+    heartbeat = setInterval(() => {
+      void prisma.assetIp
+        .updateMany({
+          where: {
+            id: ipId,
+            teamId,
+            status: "processing",
+          },
+          data: {
+            status: "processing",
+          },
+        })
+        .catch((error) => {
+          console.warn(`Failed to heartbeat asset IP vectors (${ipId}):`, error);
+        });
+    }, IP_VECTOR_PROCESSING_HEARTBEAT_MS);
+
     const ip = await prisma.assetIp.findFirst({
       where: {
         id: ipId,
@@ -349,5 +414,118 @@ export async function processAssetIpReferenceVectors({
     }).catch(() => undefined);
 
     throw error;
+  } finally {
+    if (heartbeat) {
+      clearInterval(heartbeat);
+    }
   }
+}
+
+export function processAssetIpReferenceVectors({ teamId, ipId }: { teamId: number; ipId: string }) {
+  const existing = inFlightIpVectorProcessing.get(ipId);
+  if (existing) {
+    return existing;
+  }
+
+  const processingPromise = ipVectorProcessingLimit(() =>
+    processAssetIpReferenceVectorsNow({ teamId, ipId }),
+  );
+  const trackedPromise: Promise<void> = processingPromise.finally(() => {
+    if (inFlightIpVectorProcessing.get(ipId) === trackedPromise) {
+      inFlightIpVectorProcessing.delete(ipId);
+    }
+  });
+  inFlightIpVectorProcessing.set(ipId, trackedPromise);
+  return trackedPromise;
+}
+
+export async function processPendingAssetIpReferenceVectors() {
+  const staleBefore = new Date(Date.now() - IP_VECTOR_PROCESSING_STALE_MS);
+  // 心跳停了还停在 processing，说明处理中途进程没了（多半是被 OOM Kill）。第一次中断重试一次，
+  // 再次中断直接标记失败：否则同一个特征每次重启都被捡回来，把进程反复拖死（每分钟崩一次）。
+  const abandoned = await prisma.assetIp.updateMany({
+    where: {
+      status: "processing",
+      updatedAt: { lt: staleBefore },
+      processingError: FEATURE_PROCESSING_INTERRUPTED,
+    },
+    data: {
+      status: "failed",
+      processingError: FEATURE_PROCESSING_ABANDONED,
+    },
+  });
+  if (abandoned.count > 0) {
+    rootLogger.error({
+      msg: "IP vector processing interrupted twice, marked failed",
+      count: abandoned.count,
+    });
+  }
+  const recovered = await prisma.assetIp.updateMany({
+    where: {
+      status: "processing",
+      updatedAt: { lt: staleBefore },
+    },
+    data: {
+      status: "pending",
+      processingError: FEATURE_PROCESSING_INTERRUPTED,
+    },
+  });
+
+  const candidates = await prisma.assetIp.findMany({
+    where: {
+      status: "pending",
+    },
+    orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
+    select: {
+      id: true,
+      teamId: true,
+    },
+    take: IP_VECTOR_RECOVERY_BATCH_SIZE,
+  });
+
+  let processing = 0;
+  let skipped = 0;
+
+  await Promise.all(
+    candidates.map(async (candidate) => {
+      const claimed = await prisma.assetIp.updateMany({
+        where: {
+          id: candidate.id,
+          teamId: candidate.teamId,
+          status: "pending",
+        },
+        data: {
+          status: "processing",
+          processedAt: null,
+        },
+      });
+
+      if (claimed.count === 0) {
+        skipped += 1;
+        return;
+      }
+
+      processing += 1;
+      // 先记一条再处理：处理中途进程被杀时，最后一条日志就能定位到是哪个特征
+      rootLogger.info({
+        msg: "IP vector processing started",
+        teamId: candidate.teamId,
+        featureId: candidate.id,
+      });
+      try {
+        await processAssetIpReferenceVectors({
+          teamId: candidate.teamId,
+          ipId: candidate.id,
+        });
+      } catch (error) {
+        console.error(`Failed to recover asset IP vectors (${candidate.id}):`, error);
+      }
+    }),
+  );
+
+  return {
+    processing,
+    recovered: recovered.count,
+    skipped,
+  };
 }

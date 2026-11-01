@@ -3,12 +3,7 @@
 import { TagRecord } from "@/app/tags/types";
 import { setLocalStorageWithEvent } from "@/hooks/use-local-storage-event";
 import { isValidLocale } from "@/i18n/routing";
-import {
-  FEATURE_LIBRARY_COOKIE,
-  FEATURE_LIBRARY_PARAM,
-  FEATURE_LIBRARY_STORAGE_KEY,
-  isFeatureLibraryValue,
-} from "@/lib/feature-library";
+import { FEATURE_LIBRARY_TOGGLE_NAMES, isFeatureLibraryValue } from "@/lib/feature-library";
 import { MuseDAMID } from "@/musedam/types";
 import Cookies from "js-cookie";
 
@@ -234,22 +229,29 @@ function handleParentMessageAction(action: string, args: any, dispatchId?: strin
       break;
 
     case "updateFeatureLibrary":
-      if (isFeatureLibraryValue(args?.featureLibrary) && typeof window !== "undefined") {
-        localStorage.setItem(FEATURE_LIBRARY_STORAGE_KEY, args.featureLibrary);
-        Cookies.set(FEATURE_LIBRARY_COOKIE, args.featureLibrary, {
-          expires: 365,
-          sameSite: "None" as any,
-          secure: true,
-        });
-        window.dispatchEvent(
-          new CustomEvent("feature-library-change", {
-            detail: { featureLibrary: args.featureLibrary },
-          }),
+      if (typeof window !== "undefined") {
+        const updates = Object.fromEntries(
+          FEATURE_LIBRARY_TOGGLE_NAMES.flatMap((name) =>
+            isFeatureLibraryValue(args?.[name]) ? [[name, args[name]]] : [],
+          ),
         );
+        if (Object.keys(updates).length === 0) break;
+
+        for (const [name, value] of Object.entries(updates)) {
+          localStorage.setItem(name, value);
+          Cookies.set(name, value, {
+            expires: 365,
+            sameSite: "None" as any,
+            secure: true,
+          });
+        }
+        window.dispatchEvent(new CustomEvent("feature-library-change", { detail: updates }));
 
         try {
           const url = new URL(window.location.href);
-          url.searchParams.set(FEATURE_LIBRARY_PARAM, args.featureLibrary);
+          for (const [name, value] of Object.entries(updates)) {
+            url.searchParams.set(name, value);
+          }
           window.location.replace(url.toString());
         } catch {
           window.location.reload();
@@ -331,6 +333,8 @@ type ActionMap = {
         departments?: Array<{ id: string; name: string }>;
         groups?: Array<{ id: string; name: string }>;
       };
+      title?: string;
+      canSelectMe?: boolean;
     };
     result: BaseActionResult<{
       members: {
@@ -451,6 +455,65 @@ type ActionMap = {
       configId?: number;
     };
     result: BaseActionResult<Record<string, never>>;
+  };
+  "get-tag-visibility": {
+    args: { tagId: number };
+    result: BaseActionResult<{
+      members: Array<{ id: string; name: string; departmentsName?: string; avatarUrl?: string }>;
+      departments: Array<{ id: string; name: string }>;
+      groups: Array<{ id: string; name: string }>;
+    }>;
+  };
+  /** 全量替换一级标签可见范围，三个列表都为空则恢复全团队可见 */
+  "set-tag-visibility": {
+    args: {
+      tagId: number;
+      userIds: string[];
+      departmentIds: string[];
+      groupIds: string[];
+    };
+    result: BaseActionResult<Record<string, never>>;
+  };
+  "get-tag-management-permission": {
+    args: Record<string, never>;
+    result: BaseActionResult<{ canManageTags: boolean }>;
+  };
+  /** 主站按 dam-material-extension-ai-auto-marking 判定内容管理员是否可管理配置 */
+  "get-auto-tagging-access": {
+    args: Record<string, never>;
+    result: BaseActionResult<{
+      role: "admin" | "content" | "other";
+      canManageConfig: boolean;
+      contentRoleCanManage: boolean;
+    }>;
+  };
+  "get-tag-setting": {
+    args: Record<string, never>;
+    result: BaseActionResult<{
+      tagLevel: 3 | 4;
+      showAiTag: 0 | 1;
+    }>;
+  };
+  /** 层级切换预检。选择 3 层时返回管理端将隐藏的标签数 */
+  "check-tag-setting": {
+    args: {
+      tagLevel: 3 | 4;
+    };
+    result: BaseActionResult<{
+      tagLevel: 3 | 4;
+      hiddenTagCount: number;
+    }>;
+  };
+  /** 保存团队标签设置。切到 3 层时第 4 层标签仅隐藏，切回 4 层后恢复 */
+  "set-tag-setting": {
+    args: {
+      tagLevel: 3 | 4;
+      showAiTag: 0 | 1;
+    };
+    result: BaseActionResult<{
+      tagLevel: 3 | 4;
+      showAiTag: 0 | 1;
+    }>;
   };
 };
 

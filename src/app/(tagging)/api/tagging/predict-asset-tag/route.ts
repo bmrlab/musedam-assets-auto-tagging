@@ -1,15 +1,26 @@
+import {
+  buildAllowedFolderIdSet,
+  isAssetInApplicationScope,
+} from "@/app/(tagging)/application-scope";
 import { enqueueTaggingTask } from "@/app/(tagging)/queue";
+import { CANCELLED_TASK_ERROR_CODE } from "@/app/(tagging)/queue-config";
 import { getTaggingSettings } from "@/app/(tagging)/tagging/settings/lib";
-import { getFeatureLibraryEnabledFromRequest } from "@/lib/feature-library-server";
-import { idToSlug, slugToId } from "@/lib/slug";
-import { fetchMuseDAMFolderSubIds, syncSingleAssetFromMuseDAM } from "@/musedam/assets";
+import { toFeatureClassificationFlags } from "@/lib/feature-library";
+import { getFeatureLibraryFeaturesFromRequest } from "@/lib/feature-library-server";
+import { idToSlug } from "@/lib/slug";
+import {
+  apiFeatureToggleRequestSchema,
+  apiRecognitionAccuracySchema,
+  getExplicitFeatureValuesFromApiRequest,
+} from "@/lib/tagging-api-options";
+import { syncSingleAssetFromMuseDAM } from "@/musedam/assets";
 import { MuseDAMID } from "@/musedam/types";
-import { AssetObject } from "@/prisma/client";
+import { AssetObject, TaggingQueueItemExtra, TaggingQueueItemResult } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
-const requestSchema = z.object({
+const requestSchema = apiFeatureToggleRequestSchema.extend({
   teamId: z.coerce.bigint().positive(),
   assetId: z.coerce.bigint().positive(),
   matchingSources: z
@@ -27,27 +38,14 @@ const requestSchema = z.object({
       tagKeywords: true,
     }),
   triggerType: z.enum(["default", "manual", "scheduled"]).optional().default("default"),
-  recognitionAccuracy: z.enum(["precise", "balanced", "broad"]).optional().default("balanced"),
-  featureLibrary: z.preprocess(
-    (val) => {
-      if (typeof val === "number") {
-        return val === 1 ? "on" : val === 0 ? "off" : val;
-      }
-      if (typeof val === "string") {
-        if (val === "1") return "on";
-        if (val === "0") return "off";
-      }
-      return val;
-    },
-    z.enum(["on", "off"]).optional(),
-  ),
+  recognitionAccuracy: apiRecognitionAccuracySchema.optional().default("balanced"),
 });
 
 export async function POST(request: NextRequest) {
   try {
     // 解析请求体
     const body = await request.json();
-    // console.log("body = ", JSON.stringify(body, null, 2));
+    // console.log("request body = ", JSON.stringify(body, null, 2));
     const {
       teamId: musedamTeamId,
       assetId: musedamAssetId,
@@ -55,8 +53,25 @@ export async function POST(request: NextRequest) {
       recognitionAccuracy,
       triggerType,
       featureLibrary,
+      featureToggle,
+      featureBrand,
+      featureProduct,
+      featurePerson,
+      featureIp,
     } = requestSchema.parse(body);
-    const featureClassify = getFeatureLibraryEnabledFromRequest(request, featureLibrary);
+    const featureLibraryFeatures = getFeatureLibraryFeaturesFromRequest(
+      request,
+      getExplicitFeatureValuesFromApiRequest({
+        featureLibrary,
+        featureToggle,
+        featureBrand,
+        featureProduct,
+        featurePerson,
+        featureIp,
+      }),
+    );
+    const featureClassify = featureLibraryFeatures.featureLibrary;
+    const featureClassifications = toFeatureClassificationFlags(featureLibraryFeatures);
 
     // 根据 teamId 构造 team slug 并查询 team
     const teamSlug = idToSlug("team", new MuseDAMID(musedamTeamId));
@@ -113,47 +128,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (settings.applicationScope.scopeType !== "all") {
-      // 获取到selectedFolders 和其子文件夹
-      const selectedFolderIds = settings.applicationScope.selectedFolders.map((folder) =>
-        slugToId("assetFolder", folder.slug),
-      );
-      const musedamFolderSubIds = await fetchMuseDAMFolderSubIds({
-        team,
-        musedamFolderIds: selectedFolderIds,
-      });
-
-      // 简化：允许集合 = 选中目录 + 每个选中目录的子目录（来自返回的 map 键和值）
-      const allowedFolderIdSet = new Set<string>(selectedFolderIds.map((id) => id.toString()));
-      for (const [folderIdStr, subIds] of Object.entries(
-        musedamFolderSubIds as unknown as Record<string, (number | string)[]>,
-      )) {
-        allowedFolderIdSet.add(folderIdStr);
-        for (const subId of subIds) allowedFolderIdSet.add(String(subId));
-      }
-
-      // 检查素材所在父目录是否在允许集合内
-      const hasIntersection = musedamAsset.parentIds.some((parentId) =>
-        allowedFolderIdSet.has(String(parentId)),
-      );
-
-      if (!hasIntersection) {
-        return NextResponse.json(
-          {
-            success: true,
-            data: {
-              message: `Asset ${musedamAssetId} is not in the selected folders`,
-              queueItemId: null,
-              status: null,
-            },
+    // 应用范围：选中目录 + 子目录，与批量接口共用同一口径
+    const allowedFolderIds = await buildAllowedFolderIdSet({
+      team,
+      applicationScope: settings.applicationScope,
+    });
+    if (!isAssetInApplicationScope(musedamAsset.parentIds, allowedFolderIds)) {
+      return NextResponse.json(
+        {
+          success: true,
+          data: {
+            message: `Asset ${musedamAssetId} is not in the selected folders`,
+            queueItemId: null,
+            status: null,
           },
-          { status: 202 },
-        );
-      }
+        },
+        { status: 202 },
+      );
     }
 
     // 同一素材的 default 任务只入队一次：调用方按 queueItemId 扣点，重复请求返回 null 不扣点。
     // 必须在 enqueue 之前判断，否则刚创建的任务会被当成「已存在」并错误返回 null。
+    //
+    // 上游可能对同一素材发起两次 default 打标（智能解析完成前一次、完成后一次），我们只应该
+    // 扣一次点，但要以“最新一次”的素材数据为准：
+    // - 已存在的任务还是 pending：不用管，worker claim 时读的是数据库里的实时快照，不是入队时的快照。
+    // - 已存在的任务正在 processing：worker 已经拿着旧快照在跑，标记 rerunRequested 让它跑完后再跑一轮。
+    // - 已存在的任务是 completed/failed：说明上一轮已经跑完/跑失败，直接把这条任务重置回
+    //   pending 让它用这次最新同步的数据重新跑一次，不新建队列项、不返回新的 queueItemId，
+    //   避免重复扣点；同时清掉上一轮生成的审核项，防止同一批标签在审核列表里出现重复行。
     if (triggerType === "default") {
       const existingDefaultQueueItem = await prisma.taggingQueueItem.findFirst({
         where: {
@@ -161,10 +164,96 @@ export async function POST(request: NextRequest) {
           assetObjectId: assetObject.id,
           taskType: "default",
         },
-        select: { id: true },
+        orderBy: { createdAt: "desc" },
       });
 
       if (existingDefaultQueueItem) {
+        // 已取消的任务不能被上游重复回调自动复活；后续如需重跑，应由用户明确操作。
+        const existingResult = existingDefaultQueueItem.result as TaggingQueueItemResult | null;
+        if (
+          existingDefaultQueueItem.status === "failed" &&
+          existingResult?.error === CANCELLED_TASK_ERROR_CODE
+        ) {
+          return NextResponse.json({
+            success: true,
+            data: {
+              message: "Default tagging task was cancelled by user",
+              queueItemId: null,
+              status: null,
+            },
+          });
+        }
+
+        if (
+          existingDefaultQueueItem.status === "completed" ||
+          existingDefaultQueueItem.status === "failed"
+        ) {
+          await prisma.$transaction([
+            prisma.taggingAuditItem.deleteMany({
+              where: { queueItemId: existingDefaultQueueItem.id },
+            }),
+            prisma.taggingQueueItem.update({
+              where: { id: existingDefaultQueueItem.id },
+              data: {
+                status: "pending",
+                startsAt: null,
+                endsAt: null,
+                result: {},
+                extra: {
+                  matchingSources,
+                  recognitionAccuracy,
+                  featureClassify,
+                  featureBrand: featureClassifications.brand,
+                  featureProduct: featureClassifications.product,
+                  featurePerson: featureClassifications.person,
+                  featureIp: featureClassifications.ip,
+                } satisfies TaggingQueueItemExtra,
+              },
+            }),
+          ]);
+
+          return NextResponse.json({
+            success: true,
+            data: {
+              message: "Default tagging task re-queued with latest asset data",
+              queueItemId: null,
+              status: null,
+            },
+          });
+        }
+
+        // 已存在的任务正在 processing：worker 很可能已经拿着「智能解析完成前」的旧快照在跑，
+        // 这次刚同步下来的新内容会被丢掉。打个 rerunRequested 标记，让 worker 跑完后用新数据再跑一轮。
+        // pending 的任务不用管：worker claim 时读的是实时快照。
+        if (existingDefaultQueueItem.status === "processing") {
+          const existingExtra = (existingDefaultQueueItem.extra ?? {}) as TaggingQueueItemExtra;
+          await prisma.taggingQueueItem.update({
+            where: { id: existingDefaultQueueItem.id },
+            data: {
+              extra: {
+                ...existingExtra,
+                rerunRequested: true,
+                matchingSources,
+                recognitionAccuracy,
+                featureClassify,
+                featureBrand: featureClassifications.brand,
+                featureProduct: featureClassifications.product,
+                featurePerson: featureClassifications.person,
+                featureIp: featureClassifications.ip,
+              } satisfies TaggingQueueItemExtra,
+            },
+          });
+
+          return NextResponse.json({
+            success: true,
+            data: {
+              message: "Default tagging task is processing; rerun requested with latest asset data",
+              queueItemId: null,
+              status: null,
+            },
+          });
+        }
+
         return NextResponse.json({
           success: true,
           data: {
@@ -183,6 +272,7 @@ export async function POST(request: NextRequest) {
         matchingSources,
         recognitionAccuracy,
         featureClassify,
+        featureClassifications,
         taskType: triggerType,
       });
 

@@ -25,12 +25,38 @@ declare module "@/prisma/client" {
     downloadUrl: string;
     size: number;
     extension: string;
+    /** 原始像素宽/高（来自 MuseDAM assets-by-ids 原样落库），用于画幅比例确定性打标；旧数据可能缺失 */
+    width: number;
+    height: number;
   }>;
 
   export type AssetTagExtra = Partial<{
     description: string;
     keywords: string[];
     negativeKeywords: string[];
+    /** 审核拒绝反馈：命中该标签自动关键词、但被人工拒绝的累计次数，达到阈值后关键词会被自动写入 negativeKeywords */
+    keywordRejectionCounts: Record<string, number>;
+    /**
+     * 证据策略：content = 描述画面内容本身，任何来源都可贡献；
+     * literal = 描述素材之外的业务安排（渠道/市场/活动/档期），必须有字面证据。见 evidence-policy.ts。
+     */
+    evidencePolicy: "content" | "literal";
+    /** 策略来源：auto = 系统按标签语义自动判定；feedback = 审核反馈自动降级 */
+    evidencePolicySource: "auto" | "feedback";
+    /** 审核拒绝反馈：该标签"仅由 contentAnalysis 支持"却被人工拒绝的累计次数，达到阈值后自动降级为 literal */
+    contentOnlyRejectionCount: number;
+    /**
+     * 仅对有子标签的分类节点有意义：其直接子标签是否"同级互斥"（同一属性维度的不同取值，素材只能归属其中一个，
+     * 如 护肤 > 洁面/面霜/喷雾、节庆节点 > 七夕/新年）。互斥组内只保留有文本依据或得分最高的一个，其余压低置信度。
+     * 风格、渠道这类可共存的分类为 false。见 evidence-policy.ts。
+     */
+    siblingsExclusive: boolean;
+    /**
+     * 仅对有子标签的分类节点有意义：是否"必打"——每个素材都必须在该分类下打出一个子标签。
+     * 模型证据不足时代码层会兜底（重新纳入低分候选或强制单选），并在结果上标记 origin = requiredFallback。
+     * 由人工在标签详情里设置，系统不自动判定。
+     */
+    requiredGroup: boolean;
   }>;
 
   export type TaggingFaceFeatures = {
@@ -41,6 +67,11 @@ declare module "@/prisma/client" {
   export type TaggingQueueItemExtra = Partial<{
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     usage: any; // LLM 返回的 usage 信息
+    /** 必打标签组兜底记录：哪些标签是重新纳入的低分候选、哪些是强制单选出来的 */
+    requiredGroupFallback: {
+      readmitted: Array<{ parentId: number; leafTagId: number; tagPath: string[]; score: number }>;
+      forced: Array<{ leafTagId: number; tagPath: string[] }>;
+    };
     input: string; // 给 LLM 的 user message
     matchingSources: {
       basicInfo: boolean;
@@ -49,9 +80,25 @@ declare module "@/prisma/client" {
       tagKeywords: boolean;
     };
     recognitionAccuracy: "precise" | "balanced" | "broad";
+    /** 本次计分使用的各匹配来源权重倍数（来自团队设置） */
+    sourceWeights: {
+      basicInfo: number;
+      materializedPath: number;
+      contentAnalysis: number;
+      tagKeywords: number;
+    };
     featureClassify: boolean;
+    featureBrand: boolean;
+    featureProduct: boolean;
+    featurePerson: boolean;
+    featureIp: boolean;
     /** Face-detection signals fed into AI tagging (from person feature recognition). */
     faceFeatures: TaggingFaceFeatures;
+    /**
+     * 任务正在 processing 时又收到了同一素材的 default 打标请求（典型：MuseDAM 智能解析完成后的第二次回调）。
+     * worker 跑完当前这轮后不落 completed，而是清掉审核项、重置回 pending 用最新素材数据再跑一次。
+     */
+    rerunRequested: boolean;
   }>;
 
   export type TaggingBrandRecommendedTag = {
@@ -116,6 +163,7 @@ export type TaggingProductBestMatch = {
   similarity: number;
   confidence: number;
   detectionIndex: number;
+  detectionIndices?: number[];
   imageSimilarity: number;
   descriptionSimilarity: number;
   recommendedTags: TaggingProductRecommendedTag[];
@@ -123,6 +171,32 @@ export type TaggingProductBestMatch = {
 
   export type TaggingProductRecommendation = {
     noConfidentMatch: boolean;
+    /** Accepted distinct products. An explicit empty array overrides the legacy bestMatch. */
+    matches?: TaggingProductBestMatch[];
+    rawDetections?: Array<{
+      xMin: number;
+      yMin: number;
+      xMax: number;
+      yMax: number;
+      score: number;
+      label: string;
+    }>;
+    detections?: Array<{
+      detectionIndex: number;
+      sourceDetectionIndices?: number[];
+      box: {
+        xMin: number;
+        yMin: number;
+        xMax: number;
+        yMax: number;
+        score: number;
+        label: string;
+      };
+      topMatches: TaggingProductBestMatch[];
+      bestMatch: TaggingProductBestMatch | null;
+      noConfidentMatch: boolean;
+    }>;
+    /** Highest candidate retained for compatibility and diagnostics, not tag eligibility. */
     bestMatch: TaggingProductBestMatch | null;
     recommendedTags: TaggingProductRecommendedTag[];
   };
@@ -172,6 +246,8 @@ export type TaggingPersonMatch = {
   import { SourceBasedTagPredictions, TagWithScore } from "@/app/(tagging)/types";
   export type TaggingQueueItemResult = Partial<{
     error: string;
+    /** 失败时的可读错误信息（error 为错误码，message 为原始异常信息） */
+    message: string;
     predictions: SourceBasedTagPredictions;
     tagsWithScore: TagWithScore[];
     brandRecommendation: TaggingBrandRecommendation | null;

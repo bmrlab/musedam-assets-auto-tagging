@@ -65,6 +65,7 @@
       "weeklyTagging": "Wöchentliches Taggen",
       "emptyTagErrorMsg": "Kein Tag-System vorhanden. Bitte erstellen Sie zuerst ein Tag-System~",
       "noAppropriateTagErrorMsg": "Im aktuellen Tag-System gibt es keine passenden Tags",
+      "noMatchingSourceErrorMsg": "Fehlgeschlagen: Keine Abgleichsquelle in den Taggingeinstellungen aktiviert",
       "dayNames": {
         "0": "Sonntag",
         "1": "Montag",
@@ -87,7 +88,9 @@
         "9": "Oktober",
         "10": "November",
         "11": "Dezember"
-      }
+      },
+      "filterFailed": "Fehlgeschlagen",
+      "searchPlaceholder": "Nach Asset-Namen suchen"
     },
     "Review": {
       "add": "Hinzufügen",
@@ -100,12 +103,21 @@
       "allStatuses": "Alle Statusse",
       "allTime": "Immer",
       "applyFailed": "Anwendung fehlgeschlagen",
+      "featureReviewChanged": "Merkmalsdetails oder zugehörige Tags wurden geändert. Prüfen Sie die aktualisierten Ergebnisse und klicken Sie erneut auf Hinzufügen.",
       "applySuccess": "Erfolgreich angewendet",
       "approved": "Genehmigt",
       "assetDeleted": "Asset gelöscht",
       "balanced": "Ausgewogen (60-79%)",
       "basedOnTagSystem": "Basierend auf der Tagsystemübereinstimmung",
       "basedOnFeatureLibrary": "Basierend auf Feature-Bibliothek Übereinstimmung",
+      "addFeatureManually": "Merkmal manuell hinzufügen",
+      "addFeatureTitle": "Merkmale hinzufügen",
+      "addFeatureAllTypes": "Alle",
+      "addFeatureSearchPlaceholder": "Merkmalname suchen",
+      "addFeatureNoResults": "Keine passenden Merkmale in der Bibliothek",
+      "addFeatureAlreadyAdded": "Hinzugefügt",
+      "addFeatureConfirm": "Hinzufügen ({count})",
+      "manuallyAdded": "Manuell hinzugefügt",
       "batchApproveFailed": "Batch-Hinzufügen zu Asset-Tags fehlgeschlagen",
       "batchApprovePartialSuccess": "Teilweiser Erfolg, {successCount} erfolgreich",
       "batchApproveSuccess": "Batch erfolgreich zu Asset-Tags hinzugefügt",
@@ -121,6 +133,12 @@
       "itemsPerPage": "{count} Elemente/Seite",
       "itemsUnit": "Artikel",
       "latest": "Neueste",
+      "requiredFallbackBadge": "Pflicht-Fallback",
+      "aspectRatioBadge": "Aus Abmessungen",
+      "sizeAIBadge": "KI nach Größe",
+      "appliedBadge": "Übernommen",
+      "showHistory": "Verlauf anzeigen ({count})",
+      "hideHistory": "Verlauf ausblenden",
       "loading": "Lädt...",
       "noAssetsToReview": "Keine Assets zur Überprüfung",
       "noCorrespondingTag": "Kein entsprechendes Tag",
@@ -156,14 +174,17 @@
     "Settings": {
       "AIRecognition": {
         "balanced": "Ausgewogen",
-        "balancedDesc": "Ausgewogene Genauigkeit und Abdeckung (≥60% Konfidenz)",
+        "balancedDesc": "Ausgewogene Genauigkeit und Abdeckung",
         "broad": "Breit",
-        "broadDesc": "Hohe Abdeckung, mehr Tags (≥40 % Konfidenz)",
+        "broadDesc": "Hohe Abdeckung, mehr Tags",
         "confidence": "Zuverlässigkeit",
         "precise": "Präzise",
-        "preciseDesc": "Hohe Genauigkeit, weniger Tags (≥80% Konfidenz)",
+        "preciseDesc": "Hohe Genauigkeit, weniger Tags",
         "recommended": "Empfohlen",
-        "title": "KI-Erkennung"
+        "title": "KI-Erkennung",
+        "confidenceHigh": "Hohe Zuverlässigkeit",
+        "confidenceMedium": "Mittlere Zuverlässigkeit",
+        "confidenceLow": "Niedrige Zuverlässigkeit"
       },
       "AdvancedSettings": {
         "title": "Erweiterte Einstellungen"
@@ -212,6 +233,8 @@
         "aiGeneratedDesc": "Neue Tags mit KI generieren",
         "assetNameMatching": "Asset-Name-Übereinstimmung",
         "assetNameMatchingDesc": "Analysieren Sie Schlüsselinformationen in Dateinamen zur Übereinstimmung",
+        "weight": "Gewichtung",
+        "weightHint": "Standardgewichtung ist 1 (Bereich {min} - {max}). Eine höhere Gewichtung erhöht die Punktzahl der über diese Quelle gefundenen Tags; eine niedrigere senkt sie.",
         "customKeywords": "Eigene Schlüsselwörter",
         "customKeywordsDesc": "Übereinstimmung aus benutzerdefinierter Schlüsselwortbibliothek",
         "desc": "Tag-übereinstimmende Quellen auswählen",
@@ -242,6 +265,7 @@
       "newApplicationScope": "Neuer Anwendungsbereichsstatus:",
       "saveSettings": "Einstellungen speichern",
       "saveSettingsFailed": "Einstellungen konnten nicht gespeichert werden",
+      "atLeastOneSourceRequired": "Mindestens eine Abgleichsquelle muss aktiviert bleiben",
       "saving": "Speichern...",
       "selectFoldersFailed": "Ordnerauswahl fehlgeschlagen",
       "selectedFoldersCount": "Ausgewählte Ordneranzahl:",
@@ -289,6 +313,7 @@
       "itemsSelected": "Ausgewählt",
       "itemsTotal": "Gesamt",
       "itemsCount": "Elemente",
+      "clearSelection": "Auswahl aufheben",
       "enable": "Aktivieren",
       "disable": "Deaktivieren",
       "delete": "Löschen",
@@ -357,7 +382,7 @@
       "confirmDialog": {
         "title": "Aktionsbestätigung",
         "deleteDescription": "Sind Sie sicher, dass Sie \"{name}\" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden und verknüpfte Tags werden nicht automatisch entfernt.",
-        "disableDescription": "Sind Sie sicher, dass Sie \"{name}\" deaktivieren möchten? Nach der Deaktivierung erkennen neu hochgeladene Assets diesen Eintrag nicht mehr automatisch und wenden keine verknüpften Tags an. Bereits getaggte Assets sind nicht betroffen.",
+        "disableDescription": "Sind Sie sicher, dass Sie \"{name}\" deaktivieren möchten? Nach der Deaktivierung erkennen neu hochgeladene Assets diesen Eintrag nicht mehr automatisch und wenden keine verknüpften Tags an.",
         "confirmDelete": "Löschen bestätigen",
         "confirmDisable": "Deaktivieren bestätigen",
         "cancel": "Abbrechen"
@@ -368,7 +393,7 @@
         "enableTitle": "Aktionsbestätigung",
         "enableDescription": "Sind Sie sicher, dass Sie die ausgewählten {count} Elemente aktivieren möchten? Sobald aktiviert, nehmen sie an der KI-Auto-Erkennung und -Tagging teil.",
         "disableTitle": "Aktionsbestätigung",
-        "disableDescription": "Sind Sie sicher, dass Sie die ausgewählten {count} Elemente deaktivieren möchten? Nach der Deaktivierung erkennen neu hochgeladene Assets diese Einträge nicht mehr automatisch und wenden keine verknüpften Tags an. Bereits getaggte Assets sind nicht betroffen.",
+        "disableDescription": "Sind Sie sicher, dass Sie die ausgewählten {count} Elemente deaktivieren möchten? Nach der Deaktivierung erkennen neu hochgeladene Assets diese Einträge nicht mehr automatisch und wenden keine verknüpften Tags an.",
         "confirmEnable": "Aktivieren bestätigen",
         "confirmDisable": "Deaktivieren bestätigen",
         "cancel": "Abbrechen"
@@ -559,7 +584,32 @@
       "preciseMode": "Präzisionsmodus",
       "processingStatus": "Verarbeitungsstatus",
       "processingTasks": "Verarbeite {count} Tagging-Aufgaben",
-      "taggingCompleted": "Tagging abgeschlossen! {successCount} erfolgreich, {failedCount} fehlgeschlagen"
+      "taggingCompleted": "Tagging abgeschlossen! {successCount} erfolgreich, {failedCount} fehlgeschlagen",
+      "progressCount": "{done}/{total} abgeschlossen",
+      "queueWaitEstimate": "Geschätzte Wartezeit: ca. {duration}",
+      "elapsed": "Verstrichen: {duration}",
+      "queueAhead": "In der Warteschlange, {count} Aufgaben davor",
+      "processingFor": "In Bearbeitung seit {duration}",
+      "durationMinutes": "{minutes} Min. {seconds} Sek.",
+      "durationSeconds": "{seconds} Sek.",
+      "pollingErrorStopped": "Verarbeitungsstatus konnte nicht abgerufen werden ({message}). Automatische Aktualisierung gestoppt.",
+      "pollingTimeout": "Die Aufgaben wurden nicht rechtzeitig abgeschlossen. Automatische Aktualisierung gestoppt; prüfen Sie den Status später erneut oder wenden Sie sich an einen Administrator.",
+      "retryPolling": "Status erneut prüfen",
+      "workerIdleWarning": "Die Aufgaben warten seit langem, obwohl die Warteschlange leer ist. Der Hintergrunddienst für das Tagging läuft möglicherweise nicht; bitte wenden Sie sich an einen Administrator.",
+      "failedResultsTitle": "Fehlgeschlagene Assets ({count})",
+      "status": {
+        "pending": "Wartend",
+        "processing": "In Bearbeitung",
+        "completed": "Abgeschlossen",
+        "failed": "Fehlgeschlagen"
+      },
+      "errorReason": {
+        "NO_VALID_TAGS": "Keine gültigen Tags gefunden (unzureichende Asset-Informationen oder kein passender Tag im Tag-System)",
+        "NO_TAG_TREE": "Das Tag-System ist leer. Bitte erstellen Sie zuerst Tags.",
+        "NO_MATCHING_SOURCES_ENABLED": "Keine Matching-Strategie aktiviert",
+        "PROCESSING_STALE_TIMEOUT": "Zeitüberschreitung bei der Verarbeitung, automatisch als fehlgeschlagen markiert",
+        "UNKNOWN": "Backend-Verarbeitungsfehler. Bitte prüfen Sie die Dienstprotokolle."
+      }
     },
     "BrandClassify": {
       "backToLibrary": "Zurück zur Markenbibliothek",
@@ -639,6 +689,7 @@
       "itemsSelected": "Ausgewählt",
       "itemsTotal": "Gesamt",
       "itemsCount": "Elemente",
+      "clearSelection": "Auswahl aufheben",
       "enable": "Aktivieren",
       "disable": "Deaktivieren",
       "delete": "Löschen",
@@ -746,7 +797,7 @@
       "confirmDialog": {
         "title": "Aktionsbestätigung",
         "deleteDescription": "Sind Sie sicher, dass Sie \"{name}\" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden und verknüpfte Tags werden nicht automatisch entfernt.",
-        "disableDescription": "Sind Sie sicher, dass Sie \"{name}\" deaktivieren möchten? Nach der Deaktivierung erkennen neu hochgeladene Assets diesen Eintrag nicht mehr automatisch und wenden keine verknüpften Tags an. Bereits getaggte Assets sind nicht betroffen.",
+        "disableDescription": "Sind Sie sicher, dass Sie \"{name}\" deaktivieren möchten? Nach der Deaktivierung erkennen neu hochgeladene Assets diesen Eintrag nicht mehr automatisch und wenden keine verknüpften Tags an.",
         "confirmDelete": "Löschen bestätigen",
         "confirmDisable": "Deaktivieren bestätigen",
         "cancel": "Abbrechen"
@@ -757,7 +808,7 @@
         "enableTitle": "Aktionsbestätigung",
         "enableDescription": "Sind Sie sicher, dass Sie die ausgewählten {count} Elemente aktivieren möchten? Sobald aktiviert, nehmen sie an der KI-Auto-Erkennung und -Tagging teil.",
         "disableTitle": "Aktionsbestätigung",
-        "disableDescription": "Sind Sie sicher, dass Sie die ausgewählten {count} Elemente deaktivieren möchten? Nach der Deaktivierung erkennen neu hochgeladene Assets diese Einträge nicht mehr automatisch und wenden keine verknüpften Tags an. Bereits getaggte Assets sind nicht betroffen.",
+        "disableDescription": "Sind Sie sicher, dass Sie die ausgewählten {count} Elemente deaktivieren möchten? Nach der Deaktivierung erkennen neu hochgeladene Assets diese Einträge nicht mehr automatisch und wenden keine verknüpften Tags an.",
         "confirmEnable": "Aktivieren bestätigen",
         "confirmDisable": "Deaktivieren bestätigen",
         "cancel": "Abbrechen"
@@ -927,6 +978,7 @@
       "itemsSelected": "Ausgewählt",
       "itemsTotal": "Gesamt",
       "itemsCount": "Elemente",
+      "clearSelection": "Auswahl aufheben",
       "enable": "Aktivieren",
       "disable": "Deaktivieren",
       "delete": "Löschen",
@@ -994,7 +1046,7 @@
       "confirmDialog": {
         "title": "Bestätigung",
         "deleteDescription": "\"{name}\" löschen? Dies kann nicht rückgängig gemacht werden, und bestehende verknüpfte Tags werden nicht automatisch entfernt.",
-        "disableDescription": "\"{name}\" deaktivieren? Neue Assets erkennen diese Person nicht mehr automatisch, während abgeschlossene Tagging-Ergebnisse nicht beeinträchtigt werden.",
+        "disableDescription": "\"{name}\" deaktivieren? Neue Assets erkennen diese Person nicht mehr automatisch.",
         "confirmDelete": "Löschen",
         "confirmDisable": "Deaktivieren",
         "cancel": "Abbrechen"
@@ -1005,7 +1057,7 @@
         "enableTitle": "Bestätigung",
         "enableDescription": "Die ausgewählten {count} Elemente aktivieren? Sie werden an der KI-Erkennung und dem Tagging teilnehmen.",
         "disableTitle": "Bestätigung",
-        "disableDescription": "Die ausgewählten {count} Elemente deaktivieren? Neue Assets erkennen sie nicht mehr automatisch, während abgeschlossene Tagging-Ergebnisse nicht beeinträchtigt werden.",
+        "disableDescription": "Die ausgewählten {count} Elemente deaktivieren? Neue Assets erkennen sie nicht mehr automatisch.",
         "confirmEnable": "Aktivieren",
         "confirmDisable": "Deaktivieren",
         "cancel": "Abbrechen"
@@ -1179,6 +1231,7 @@
       "itemsSelected": "Ausgewählt",
       "itemsTotal": "Gesamt",
       "itemsCount": "Elemente",
+      "clearSelection": "Auswahl aufheben",
       "enable": "Aktivieren",
       "disable": "Deaktivieren",
       "delete": "Löschen",
@@ -1230,7 +1283,7 @@
         "uploadLocal": "Lokal hochladen",
         "uploadFromLibrary": "Aus Asset-Bibliothek auswählen",
         "uploadHintTitle": "Bildanforderungen:",
-        "uploadHint": "Laden Sie 3-5 Produktbilder hoch, die Vorderseite, Seite, Rückseite und andere Winkel mit klarer Qualität und einheitlichem Aufnahmestil zeigen. Fügen Sie Standardproduktbilder mit einfarbigem Hintergrund und reale Verwendungsszenen hinzu, um die KI-Erkennungsgenauigkeit zu verbessern.",
+        "uploadHint": "Laden Sie 3-5 Produktbilder hoch, die Vorderseite, Seite, Rückseite und andere Winkel mit klarer Qualität und einheitlichem Aufnahmestil zeigen. Fügen Sie Standardproduktbilder mit einfarbigem Hintergrund hinzu, um die KI-Erkennungsgenauigkeit zu verbessern.",
         "linkedTagsLabel": "Verknüpfte Tags",
         "linkedTagsHint": "Diese Tags werden automatisch angewendet, wenn eine Übereinstimmung gefunden wird",
         "manageTags": "Tag-System verwalten",
@@ -1250,7 +1303,7 @@
       "confirmDialog": {
         "title": "Aktionsbestätigung",
         "deleteDescription": "Sind Sie sicher, dass Sie \"{name}\" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden und verknüpfte Tags werden nicht automatisch entfernt.",
-        "disableDescription": "Sind Sie sicher, dass Sie \"{name}\" deaktivieren möchten? Nach der Deaktivierung erkennen neu hochgeladene Assets diesen Eintrag nicht mehr automatisch und wenden keine verknüpften Tags an. Bereits getaggte Assets sind nicht betroffen.",
+        "disableDescription": "Sind Sie sicher, dass Sie \"{name}\" deaktivieren möchten? Nach der Deaktivierung erkennen neu hochgeladene Assets diesen Eintrag nicht mehr automatisch und wenden keine verknüpften Tags an.",
         "confirmDelete": "Löschen bestätigen",
         "confirmDisable": "Deaktivieren bestätigen",
         "cancel": "Abbrechen"
@@ -1261,7 +1314,7 @@
         "enableTitle": "Aktionsbestätigung",
         "enableDescription": "Sind Sie sicher, dass Sie die ausgewählten {count} Elemente aktivieren möchten? Sobald aktiviert, nehmen sie an der KI-Auto-Erkennung und -Tagging teil.",
         "disableTitle": "Aktionsbestätigung",
-        "disableDescription": "Sind Sie sicher, dass Sie die ausgewählten {count} Elemente deaktivieren möchten? Nach der Deaktivierung erkennen neu hochgeladene Assets diese Einträge nicht mehr automatisch und wenden keine verknüpften Tags an. Bereits getaggte Assets sind nicht betroffen.",
+        "disableDescription": "Sind Sie sicher, dass Sie die ausgewählten {count} Elemente deaktivieren möchten? Nach der Deaktivierung erkennen neu hochgeladene Assets diese Einträge nicht mehr automatisch und wenden keine verknüpften Tags an.",
         "confirmEnable": "Aktivieren bestätigen",
         "confirmDisable": "Deaktivieren bestätigen",
         "cancel": "Abbrechen"
@@ -1348,20 +1401,20 @@
     "ProductClassify": {
       "backToLibrary": "Zurück zur Produktbibliothek",
       "pageTitle": "Produktklassifizierungs-Entwicklungsseite",
-      "pageDescription": "Nach dem Hochladen eines Bildes verwendet das System die allgemeinen Kategorien der aktivierten Produkte, um Kandidatenbereiche zu erkennen, dann nutzt es multimodale Embeddings, um Produktbild- und Beschreibungsvektoren abzurufen und gibt das Endergebnis nach Aggregation nach Crop und Modalität aus.",
+      "pageDescription": "Doppelte Erkennungen werden zu Produktbereichen zusammengefasst. Jeder Bereich wird einzeln klassifiziert. Alle unterschiedlichen Produkte mit mindestens 80% Konfidenz werden ausgegeben.",
       "availableProducts": "Verfügbare Referenzprodukte",
       "statsDescription": "Nur aktivierte und abgeschlossene Vektorverarbeitungsdaten werden gezählt",
       "uploadImageFirst": "Bitte laden Sie zuerst ein Bild zur Klassifizierung hoch",
       "noReferenceProducts": "Derzeit sind keine abgeschlossenen Produkt-Referenzvektoren verfügbar",
       "classifying": "Klassifizierung läuft",
       "classifyButton": "Produkt klassifizieren",
-      "uploadHint": "Nach dem Hochladen eines Bildes werden hier Erkennungsboxen und das finale passende Produkt angezeigt.",
+      "uploadHint": "Laden Sie ein Bild hoch, um die erkannten Bereiche und alle passenden Produkte zu sehen.",
       "imageToClassify": "Zu klassifizierendes Bild",
-      "finalResult": "Endergebnis",
-      "resultHint": "Der Ergebnisbereich zeigt die gewinnende Erkennungsbox, den finalen Produktnamen und die Top 3 ähnlichsten Ergebnisse an.",
+      "finalResult": "Passende Produkte",
+      "resultHint": "Die Ergebnisse zeigen alle passenden Produkte und die drei besten Kandidaten für jeden Produktbereich.",
       "noConfidentMatch": "Keine zuverlässige Produktübereinstimmung",
-      "noConfidentMatchDesc": "Der aktuelle beste Kandidat ist nicht stabil genug und wird daher als keine zuverlässige Übereinstimmung bewertet.",
-      "winningProduct": "Gewinnendes Produkt",
+      "noConfidentMatchDesc": "Kein Produktbereich hat eine Übereinstimmung mit mindestens 80% Konfidenz.",
+      "winningProduct": "Passendes Produkt",
       "type": "Typ",
       "similarity": "Ähnlichkeit",
       "confidence": "Konfidenz",
@@ -1386,7 +1439,12 @@
         "canvasNotSupported": "Browser unterstützt Canvas-Beschneidung nicht"
       },
       "fallbackBox": "Gesamtbild-Fallback",
-      "coordinateTo": "bis"
+      "coordinateTo": "bis",
+      "productRegions": "Produktbereiche",
+      "region": "Bereich",
+      "rawDetectionBoxes": "Ursprüngliche Erkennungsrahmen",
+      "showRawDetections": "Ursprüngliche Rahmen anzeigen",
+      "showProductRegions": "Produktbereiche anzeigen"
     },
     "BatchImportExport": {
       "title": "Massenimport/-export",
@@ -1396,6 +1454,11 @@
       "tabExport": "Export",
       "cancel": "Abbrechen",
       "confirm": "Bestätigen",
+      "missingTagsConfirmTitle": "Fehlende Tags erstellen?",
+      "missingTagsConfirmDescription": "Die Importdatei verweist auf Tag-Pfade, die nicht existieren. Sollen diese Tag-Bäume erstellt und der Import fortgesetzt werden?",
+      "missingTagsListLabel": "Fehlende Tag-Pfade",
+      "createTagsAndImport": "Erstellen und importieren",
+      "importExistingTagsOnly": "Nur Zeilen mit vorhandenen Tags importieren",
       "unsupportedFileType": "Nur Excel- (.xlsx) oder CSV-Dateien (.csv) werden unterstützt",
       "selectFileFirst": "Bitte wählen Sie zuerst eine Datei aus",
       "selectImportFile": "Bitte wählen Sie zuerst eine Excel- (.xlsx) oder CSV-Datei (.csv) aus",
@@ -1452,7 +1515,18 @@
       },
       "formatExcel": "Excel",
       "formatCsv": "CSV",
-      "spreadsheetBadge": "XLS"
+      "spreadsheetBadge": "XLS",
+      "precheckTitle": "Prüfung vor dem Import",
+      "precheckHint": "Bitte prüfen Sie Folgendes vor dem Import",
+      "precheckSummary": "{create} Tags werden erstellt, {update} aktualisiert, {unchanged} unverändert",
+      "precheckRenameNotice": "{count} davon werden umbenannt und mit MuseDAM synchronisiert",
+      "precheckIssuesLabel": "{count} Zeilen enthalten Probleme und werden beim Fortfahren übersprungen:",
+      "precheckCreateLabel": "{count} Tags werden erstellt:",
+      "precheckMoreItems": "…insgesamt {count} Einträge",
+      "backToEdit": "Zurück zur Bearbeitung",
+      "continueImport": "Import fortsetzen",
+      "continueImportSkipIssues": "Probleme überspringen und fortfahren",
+      "importSuccessWithSkipped": "{count} Zeilen importiert, {skipped} fehlerhafte Zeilen übersprungen"
     }
   }
 }

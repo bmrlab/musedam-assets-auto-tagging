@@ -19,35 +19,29 @@ import {
   parseTextToNameChildList,
   useBatchCreateTagsContext,
 } from "../context/BatchCreateTagsContext";
-import { TagNode } from "../types";
+import { useEnterpriseTagSetting } from "../hooks/useEnterpriseTagSetting";
 import { TagBatchEditor } from "./TagBatchEditor";
+import { TagBatchFormatExample } from "./TagBatchFormatExample";
 
 type TTag = NameChildList;
-
-// 将 NameChildList 转换为 TagNode 格式
-const convertToTagNodes = (nameChildList: NameChildList[]): TagNode[] => {
-  return nameChildList.map((item, index) => ({
-    id: undefined,
-    slug: null,
-    name: item.name,
-    originalName: item.name,
-    children: item.nameChildList ? convertToTagNodes(item.nameChildList) : [],
-    tempId: `preview_${index}`,
-  }));
-};
 
 // 内部组件，使用 Context
 const CreateModalInner = ({
   visible,
   setVisible,
   refresh,
+  initialText = "",
+  title,
 }: {
   visible: boolean;
   setVisible: (x: boolean) => void;
   refresh?: () => void;
+  initialText?: string;
+  title?: string;
 }) => {
   const t = useTranslations("TagsPage.ManualCreateModal");
   const tGlobal = useTranslations("TagsPage");
+  const { setting } = useEnterpriseTagSetting();
 
   const [mode, setMode] = useState<"preview" | "edit">("edit");
   const [batchCreateText, inputBatchCreateText] = useState("");
@@ -55,14 +49,20 @@ const CreateModalInner = ({
   // 使用提取的 Hook
   const { isCreating, handleAddTags } = useBatchCreateTagsContext();
   const nameChildList: TTag[] = useMemo(() => {
-    return parseTextToNameChildList(batchCreateText);
-  }, [batchCreateText]);
+    return parseTextToNameChildList(batchCreateText, setting.tagLevel);
+  }, [batchCreateText, setting.tagLevel]);
 
   useEffect(() => {
     if (!visible) {
       inputBatchCreateText("");
+      setMode("edit");
+      return;
     }
-  }, [visible]);
+    if (initialText) {
+      inputBatchCreateText(initialText);
+      setMode("preview");
+    }
+  }, [visible, initialText]);
   // 转换为 TagNode 格式用于预览
 
   const list1 = nameChildList;
@@ -76,7 +76,7 @@ const CreateModalInner = ({
       <Dialog open={visible} onOpenChange={setVisible}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>{t("CreateLabelsManually")}</DialogTitle>
+            <DialogTitle>{title || t("CreateLabelsManually")}</DialogTitle>
           </DialogHeader>
           <div className="w-full h-[442px] flex flex-col gap-3">
             <div className="text-sm text-basic-5">{t("QuicklyCreateMultipleTagPathsW")}</div>
@@ -85,17 +85,7 @@ const CreateModalInner = ({
               onChange={(v) => inputBatchCreateText(v)}
               mode={mode}
               onModeChange={setMode}
-              placeholderContent={
-                <div>
-                  <div>{t("PleaseCreateLabelsInTheFollowi")}</div>
-                  <div>{t("FormatInstructions")}</div>
-                  <div>{t("PrimaryTag")}</div>
-                  <div>{t("SecondaryTags")}</div>
-                  <div>{t("Label1")}</div>
-                  <div>{t("Label2")}</div>
-                  <div>{t("OrdinaryTextIsALevel3Tag")}</div>
-                </div>
-              }
+              placeholderContent={<TagBatchFormatExample />}
             />
           </div>
           <DialogFooter>
@@ -120,14 +110,24 @@ export const CreateModal = ({
   visible,
   setVisible,
   refresh,
+  initialText = "",
+  title,
 }: {
   visible: boolean;
   setVisible: (x: boolean) => void;
   refresh?: () => void;
+  initialText?: string;
+  title?: string;
 }) => {
   return (
     <BatchCreateTagsProvider onSuccess={refresh} onClose={() => setVisible(false)}>
-      <CreateModalInner visible={visible} setVisible={setVisible} refresh={refresh} />
+      <CreateModalInner
+        visible={visible}
+        setVisible={setVisible}
+        refresh={refresh}
+        initialText={initialText}
+        title={title}
+      />
     </BatchCreateTagsProvider>
   );
 };

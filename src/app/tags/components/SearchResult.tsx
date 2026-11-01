@@ -9,16 +9,18 @@ export const SearchResult: FC<{
     handleClick: (data: TagRecord) => void
 }> = ({ searchData, handleClick }) => {
     const t = useTranslations("SearchResult");
-    return <div className="flex-1 bg-background border h-full rounded-md overflow-hidden flex flex-col">
+    return <div className="flex-1 min-w-0 bg-background border h-full rounded-md overflow-hidden flex flex-col">
         <div className="border-b px-4 py-2 font-medium leading-8">{t("tagGroup")}</div>
         <div className="flex-1 overflow-y-auto scrollbar-thin">
             <div className="flex gap-2.5 flex-wrap p-5">
                 {searchData &&
                     Array.isArray(searchData) &&
                     searchData.map((data) => {
-                        const third = data.tag;
-                        const second = data.parent?.tag;
-                        const first = data.parent?.parent?.tag;
+                        // 沿 parent 链向上收集，得到从根到当前标签的完整路径
+                        const path: TagRecord[] = [];
+                        for (let node: SearchTagData | undefined = data; node; node = node.parent) {
+                            path.unshift(node.tag);
+                        }
                         return (
                             <div
                                 key={data.tag.id}
@@ -28,15 +30,7 @@ export const SearchResult: FC<{
                                 }}
                             >
                                 <div className="text-sm leading-[22px] flex items-center">
-                                    {first && first?.name}
-                                    {first && (
-                                        " > "
-                                    )}
-                                    {second && second?.name}
-                                    {second && (
-                                        " > "
-                                    )}
-                                    {third?.name}
+                                    {path.map((tag) => tag.name).join(" > ")}
                                 </div>
                                 {/* TODO 现在没有这个数据 */}
                                 {/* {third.materialCount && (

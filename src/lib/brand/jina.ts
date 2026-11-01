@@ -1,7 +1,8 @@
 import "server-only";
 
-import { getJinaConfig } from "@/lib/brand/env";
+import { getJinaConfig, isDebugPageEnabled } from "@/lib/brand/env";
 import { REFERENCE_IMAGE_PREPARATION_CONCURRENCY } from "@/lib/brand/upload-constants";
+import { buildJinaDebugImageObjectKey, signS3ObjectUrl, uploadS3Object } from "@/lib/s3";
 import { prepareJinaImageDataUrl } from "@/lib/tagging/reference-image";
 import pLimit from "p-limit";
 import { ProxyAgent, fetch as nodeFetch } from "undici";
@@ -19,6 +20,17 @@ type JinaResponse = {
 const JINA_MAX_RETRIES = 5;
 const JINA_RETRY_BASE_DELAY_MS = 500;
 const JINA_MAX_IMAGE_BATCH_SIZE = 4;
+const JINA_DEBUG_IMAGE_URL_TTL_SECONDS = 7 * 24 * 60 * 60;
+// A paid Jina key allows 2M TPM and each jina-clip-v2 input can use up to 8,192 tokens.
+// Reserve only 80% so mixed image/text traffic has headroom without a fixed per-request delay.
+const JINA_REQUEST_CONCURRENCY = 8;
+const JINA_PAID_TOKENS_PER_MINUTE = 2_000_000;
+const JINA_MAX_TOKENS_PER_INPUT = 8_192;
+const JINA_RATE_LIMIT_TARGET_UTILIZATION = 0.8;
+const JINA_RATE_LIMIT_RETRY_DELAY_MS = 15_000;
+const jinaRequestConcurrencyLimit = pLimit(JINA_REQUEST_CONCURRENCY);
+const jinaRequestPacingLimit = pLimit(1);
+let nextJinaRequestAt = 0;
 
 function sleep(ms: number) {
   return new Promise((resolve) => {
@@ -36,12 +48,99 @@ function shouldRetryJinaRequest(error: unknown) {
   );
 }
 
+function getRetryAfterMs(response: Awaited<ReturnType<typeof nodeFetch>>) {
+  const retryAfter = response.headers.get("retry-after")?.trim();
+  if (!retryAfter) {
+    return null;
+  }
+
+  const seconds = Number(retryAfter);
+  if (Number.isFinite(seconds) && seconds >= 0) {
+    return seconds * 1000;
+  }
+
+  const retryAt = Date.parse(retryAfter);
+  return Number.isFinite(retryAt) ? Math.max(0, retryAt - Date.now()) : null;
+}
+
+async function sendJinaEmbeddingRequest({
+  config,
+  body,
+  proxyAgent,
+}: {
+  config: ReturnType<typeof getJinaConfig>;
+  body: Record<string, unknown>;
+  proxyAgent: ProxyAgent | undefined;
+}) {
+  const inputCount = Array.isArray(body.input) ? Math.max(1, body.input.length) : 1;
+  const requestIntervalMs = config.isDirectJina
+    ? Math.ceil(
+        (inputCount * JINA_MAX_TOKENS_PER_INPUT * 60_000) /
+          (JINA_PAID_TOKENS_PER_MINUTE * JINA_RATE_LIMIT_TARGET_UTILIZATION),
+      )
+    : 0;
+
+  return jinaRequestConcurrencyLimit(async () => {
+    await jinaRequestPacingLimit(async () => {
+      while (nextJinaRequestAt > Date.now()) {
+        await sleep(nextJinaRequestAt - Date.now());
+      }
+      nextJinaRequestAt = Date.now() + requestIntervalMs;
+    });
+
+    const response = await nodeFetch(config.embeddingsUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${config.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(config.timeoutMs),
+      dispatcher: proxyAgent,
+    });
+    const payload = (await response.json().catch(() => null)) as JinaResponse | null;
+    if (response.status === 429) {
+      const retryDelayMs = getRetryAfterMs(response) ?? JINA_RATE_LIMIT_RETRY_DELAY_MS;
+      nextJinaRequestAt = Math.max(nextJinaRequestAt, Date.now() + retryDelayMs);
+    }
+    return { response, payload };
+  });
+}
+
+async function logDebugJinaImage(image: string, index: number, task?: "retrieval.query") {
+  const match = /^data:(image\/(?:jpeg|png));base64,([\s\S]+)$/.exec(image);
+  if (!match) {
+    console.warn(`[Jina image debug] Image ${index + 1} is not a JPEG or PNG data URL`);
+    return;
+  }
+
+  const contentType = match[1];
+  const objectKey = buildJinaDebugImageObjectKey(contentType === "image/png" ? ".png" : ".jpg");
+  try {
+    await uploadS3Object({
+      body: Buffer.from(match[2], "base64"),
+      contentType,
+      objectKey,
+    });
+    const { signedUrl } = signS3ObjectUrl({
+      objectKey,
+      expiresInSeconds: JINA_DEBUG_IMAGE_URL_TTL_SECONDS,
+    });
+    console.info(`[Jina image debug] image ${index + 1}${task ? ` (${task})` : ""}: ${signedUrl}`);
+    console.info(`[Jina image debug] S3 object key: ${objectKey}`);
+  } catch (error) {
+    console.warn(`[Jina image debug] Failed to upload image ${index + 1} to S3`, error);
+  }
+}
+
 export async function createJinaImageEmbeddings({
   images,
   task,
+  padToSquare = false,
 }: {
   images: string[];
   task?: "retrieval.query";
+  padToSquare?: boolean;
 }) {
   if (images.length === 0) {
     return [];
@@ -57,30 +156,28 @@ export async function createJinaImageEmbeddings({
     const batch = await Promise.all(
       images
         .slice(start, start + imageBatchSize)
-        .map((image) => prepareImage(() => prepareJinaImageDataUrl(image))),
+        .map((image) => prepareImage(() => prepareJinaImageDataUrl(image, { padToSquare }))),
     );
+    if (isDebugPageEnabled()) {
+      await Promise.all(batch.map((image, index) => logDebugJinaImage(image, start + index, task)));
+    }
     let response: Awaited<ReturnType<typeof nodeFetch>> | null = null;
     let payload: JinaResponse | null = null;
     let lastError: unknown = null;
 
     for (let attempt = 1; attempt <= JINA_MAX_RETRIES; attempt += 1) {
       try {
-        response = await nodeFetch(config.embeddingsUrl, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${config.apiKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
+        const result = await sendJinaEmbeddingRequest({
+          config,
+          proxyAgent,
+          body: {
             model: config.model,
             ...(task ? { task } : {}),
             input: batch.map((image) => ({ image })),
-          }),
-          signal: AbortSignal.timeout(config.timeoutMs),
-          dispatcher: proxyAgent,
+          },
         });
-
-        payload = (await response.json().catch(() => null)) as JinaResponse | null;
+        response = result.response;
+        payload = result.payload;
 
         const retryableStatus = response.status >= 500 || response.status === 429;
         if (response.ok && payload?.data) {
@@ -147,22 +244,17 @@ export async function createJinaTextEmbeddings({
 
     for (let attempt = 1; attempt <= JINA_MAX_RETRIES; attempt += 1) {
       try {
-        response = await nodeFetch(config.embeddingsUrl, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${config.apiKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
+        const result = await sendJinaEmbeddingRequest({
+          config,
+          proxyAgent,
+          body: {
             model: config.model,
             ...(task ? { task } : {}),
             input: batch,
-          }),
-          signal: AbortSignal.timeout(config.timeoutMs),
-          dispatcher: proxyAgent,
+          },
         });
-
-        payload = (await response.json().catch(() => null)) as JinaResponse | null;
+        response = result.response;
+        payload = result.payload;
 
         const retryableStatus = response.status >= 500 || response.status === 429;
         if (response.ok && payload?.data) {

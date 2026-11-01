@@ -6,6 +6,7 @@ import {
   TARGET_COMPRESSED_IMAGE_BYTES,
 } from "@/lib/brand/upload-constants";
 import { isConfiguredS3PublicObjectUrl } from "@/lib/s3";
+import { getSvgRasterDensity } from "@/lib/tagging/svg-rasterization";
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import sharp from "sharp";
@@ -217,14 +218,17 @@ async function prepareBatchReferenceImage(sourceBuffer: Buffer) {
   const outputJpeg = metadata.format === "jpeg";
   let maxDimension = REFERENCE_IMAGE_MAX_DIMENSION;
   let quality = INITIAL_COMPRESSION_QUALITY;
+  const density = getSvgRasterDensity(metadata, REFERENCE_IMAGE_MAX_DIMENSION);
 
   for (let attempt = 0; attempt < MAX_COMPRESSION_ATTEMPTS; attempt += 1) {
-    let pipeline = sharp(sourceBuffer).rotate().resize({
-      width: maxDimension,
-      height: maxDimension,
-      fit: "inside",
-      withoutEnlargement: true,
-    });
+    let pipeline = sharp(sourceBuffer, density === null ? undefined : { density })
+      .rotate()
+      .resize({
+        width: maxDimension,
+        height: maxDimension,
+        fit: "inside",
+        withoutEnlargement: density === null,
+      });
     pipeline = outputJpeg
       ? pipeline.jpeg({ quality })
       : pipeline.webp({ quality, smartSubsample: true });

@@ -32,7 +32,9 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { useFeatureLibraryEnabled } from "@/hooks/use-feature-library";
+import { useAutoTaggingAccess } from "@/hooks/use-auto-tagging-access";
+import { useFeatureLibraryFeatures } from "@/hooks/use-feature-library";
+import { FeatureType, isFeatureTypeEnabled } from "@/lib/feature-library";
 import { cn } from "@/lib/utils";
 
 type SidebarSection = "main" | "featureLibrary" | "configuration";
@@ -42,6 +44,7 @@ type MenuItem = {
   url: string;
   icon: React.ComponentType<{ className?: string }>;
   section: SidebarSection;
+  featureType?: FeatureType;
 };
 
 const getMenuItems = (t: TranslationFunction): MenuItem[] => [
@@ -68,24 +71,28 @@ const getMenuItems = (t: TranslationFunction): MenuItem[] => [
     url: "/tagging/brand",
     icon: BrandIcon,
     section: "featureLibrary",
+    featureType: "brand",
   },
   {
     title: t("Sidebar.product"),
     url: "/tagging/product",
     icon: ProductIcon,
     section: "featureLibrary",
+    featureType: "product",
   },
   {
     title: t("Sidebar.person"),
     url: "/tagging/person",
     icon: PersonIcon,
     section: "featureLibrary",
+    featureType: "person",
   },
   {
     title: t("Sidebar.ip"),
     url: "/tagging/ip",
     icon: IpIcon,
     section: "featureLibrary",
+    featureType: "ip",
   },
   {
     title: t("Sidebar.settings"),
@@ -134,13 +141,22 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
   const pathname = usePathname();
   const t = useTranslations("Tagging") as TranslationFunction;
   const { isMobile, setOpenMobile } = useSidebar();
-  const featureLibraryEnabled = useFeatureLibraryEnabled();
+  const featureLibraryFeatures = useFeatureLibraryFeatures();
+  const { role, canManageConfig, loading: accessLoading } = useAutoTaggingAccess();
   const menuItems = getMenuItems(t);
   const mainMenuItems = menuItems.filter((item) => item.section === "main");
-  const featureLibraryMenuItems = featureLibraryEnabled
-    ? menuItems.filter((item) => item.section === "featureLibrary")
+  const featureLibraryMenuItems = featureLibraryFeatures.featureLibrary
+    ? menuItems.filter(
+        (item) =>
+          item.section === "featureLibrary" &&
+          item.featureType &&
+          isFeatureTypeEnabled(featureLibraryFeatures, item.featureType),
+      )
     : [];
   const configurationMenuItems = menuItems.filter((item) => item.section === "configuration");
+  // 加载中先不展示，避免无配置权限的内容管理员先闪出入口
+  const showConfiguration =
+    !accessLoading && !(role === "content" && !canManageConfig);
   const handleNavigate = React.useCallback(() => {
     if (isMobile) {
       setOpenMobile(false);
@@ -179,16 +195,18 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
             </SidebarGroupContent>
           </SidebarGroup>
         ) : null}
-        <SidebarGroup className="p-0 pt-6">
-          <SidebarGroupLabel className="h-[18px] overflow-hidden rounded-none px-4 py-0 text-[13px] leading-[18px] text-[#8f9bb3] font-normal">
-            <span className={sidebarLabelMotionClassName}>{t("Sidebar.configuration")}</span>
-          </SidebarGroupLabel>
-          <SidebarGroupContent className="pt-2">
-            <SidebarMenu>
-              {renderMenuItems(configurationMenuItems, pathname, handleNavigate)}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {showConfiguration ? (
+          <SidebarGroup className="p-0 pt-6">
+            <SidebarGroupLabel className="h-[18px] overflow-hidden rounded-none px-4 py-0 text-[13px] leading-[18px] text-[#8f9bb3] font-normal">
+              <span className={sidebarLabelMotionClassName}>{t("Sidebar.configuration")}</span>
+            </SidebarGroupLabel>
+            <SidebarGroupContent className="pt-2">
+              <SidebarMenu>
+                {renderMenuItems(configurationMenuItems, pathname, handleNavigate)}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ) : null}
       </SidebarContent>
       <SidebarFooter>{/* 可以在这里添加用户信息或其他底部内容 */}</SidebarFooter>
     </Sidebar>
