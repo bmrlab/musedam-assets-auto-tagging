@@ -42,7 +42,7 @@
     "saveDetailsFailed": "Nie udało się zapisać szczegółów tagu",
     "syncFromMuseDAM": "Synchronizuj z MuseDAM",
     "confirmSyncTitle": "Potwierdź synchronizację tagów",
-    "confirmSyncDescription": "Ta operacja:\n• Usunie wszystkie bieżące tagi w systemie\n• Pobierze ponownie pełną hierarchię tagów z MuseDAM\n• Wszystkie niezapisane lokalne modyfikacje tagów zostaną utracone\n\nCzy na pewno chcesz kontynuować?",
+    "confirmSyncDescription": "Ta operacja połączy lokalne tagi, przyjmując drzewo tagów MuseDAM za źródło:\n• Tagi o tej samej nazwie pod tym samym rodzicem zostaną zachowane. Opis, słowa kluczowe i inne ustawienia pozostaną bez zmian; zaktualizowane zostaną tylko kolejność i powiązanie z MuseDAM\n• Tagi obecne w MuseDAM, ale nie lokalnie, zostaną dodane\n• Tagi obecne lokalnie, ale nie w MuseDAM, zostaną usunięte wraz z tagami podrzędnymi\n• Niezapisane zmiany na tej stronie zostaną utracone\n\nCzy na pewno chcesz kontynuować?",
     "cancel": "Anuluj",
     "confirmSync": "Potwierdź synchronizację",
     "syncing": "Synchronizowanie...",

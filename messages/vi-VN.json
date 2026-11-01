@@ -42,7 +42,7 @@
     "saveDetailsFailed": "Lưu chi tiết thẻ thất bại",
     "syncFromMuseDAM": "Đồng bộ từ MuseDAM",
     "confirmSyncTitle": "Xác nhận đồng bộ thẻ",
-    "confirmSyncDescription": "Thao tác này sẽ:\n• Xóa toàn bộ thẻ hiện có trong hệ thống\n• Tải lại toàn bộ cấu trúc thẻ từ MuseDAM\n• Mọi thay đổi thẻ chưa lưu trên máy sẽ bị mất\n\nBạn có chắc chắn muốn tiếp tục?",
+    "confirmSyncDescription": "Thao tác này sẽ hợp nhất thẻ cục bộ theo cây thẻ của MuseDAM:\n• Thẻ cùng tên dưới cùng thẻ cha được giữ lại. Mô tả, từ khóa và các thiết lập khác không đổi; chỉ cập nhật thứ tự và liên kết MuseDAM\n• Thẻ có trên MuseDAM nhưng không có cục bộ sẽ được thêm\n• Thẻ có cục bộ nhưng không có trên MuseDAM sẽ bị xóa, cùng các thẻ con\n• Các thay đổi chưa lưu trên trang này sẽ bị mất\n\nBạn có chắc chắn muốn tiếp tục?",
     "cancel": "Hủy",
     "confirmSync": "Xác nhận đồng bộ",
     "syncing": "Đang đồng bộ...",

@@ -250,7 +250,7 @@
     "batchCreate": "批次建立",
     "cancel": "取消",
     "confirmSync": "確認",
-    "confirmSyncDescription": "此操作將：\n• 刪除目前系統中的所有標籤\n• 從 MuseDAM 重新拉取完整的標籤體系\n• 所有本機未儲存的標籤修改將遺失\n\n確定要繼續嗎？",
+    "confirmSyncDescription": "此操作將以 MuseDAM 的標籤樹為準合併本機標籤：\n• 同一父級下同名的標籤會保留，描述、關鍵詞等設定不變，只更新排序和 MuseDAM 關聯\n• MuseDAM 有而本機沒有的標籤會新增\n• 本機有而 MuseDAM 沒有的標籤及其子標籤會被刪除\n• 頁面上尚未儲存的修改會遺失\n\n確定要繼續嗎？",
     "confirmSyncTitle": "確認同步標籤",
     "manualCreateDesc": "結合企業獨有的業務場景和知識沉澱，打造專屬標籤架構",
     "manualCreateLabel": "手動建立標籤",
