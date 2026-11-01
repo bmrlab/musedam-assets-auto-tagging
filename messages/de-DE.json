@@ -250,7 +250,7 @@
     "batchCreate": "Stapelweise erstellen",
     "cancel": "Abbrechen",
     "confirmSync": "Sync bestätigen",
-    "confirmSyncDescription": "Dieser Vorgang wird:\n• Alle aktuellen Tags im System löschen\n• Die vollständige Tag-Hierarchie von MuseDAM erneut abrufen\n• Alle nicht gespeicherten lokalen Tag-Änderungen gehen verloren\n\nMöchten Sie fortfahren?",
+    "confirmSyncDescription": "Dieser Vorgang führt die lokalen Tags mit dem Tag-Baum von MuseDAM als Quelle zusammen:\n• Tags mit demselben Namen unter demselben übergeordneten Tag bleiben erhalten. Beschreibung, Schlüsselwörter und weitere Einstellungen bleiben unverändert; aktualisiert werden nur die Sortierung und die MuseDAM-Verknüpfung\n• Tags, die in MuseDAM vorhanden sind, lokal aber nicht, werden hinzugefügt\n• Tags, die lokal vorhanden sind, in MuseDAM aber nicht, werden zusammen mit ihren Untertags gelöscht\n• Nicht gespeicherte Änderungen auf dieser Seite gehen verloren\n\nMöchten Sie fortfahren?",
     "confirmSyncTitle": "Bestätigen Sie die Tag-Synchronisierung",
     "manualCreateDesc": "Erstellen Sie eine maßgeschneiderte Taxonomie für Ihren einzigartigen Geschäfts kontext",
     "manualCreateLabel": "Tags manuell erstellen",

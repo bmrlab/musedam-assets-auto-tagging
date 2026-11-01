@@ -42,7 +42,7 @@
     "saveDetailsFailed": "Échec de l'enregistrement des détails de l'étiquette",
     "syncFromMuseDAM": "Synchroniser depuis MuseDAM",
     "confirmSyncTitle": "Confirmer la synchronisation des étiquettes",
-    "confirmSyncDescription": "Cette opération va :\n• Supprimer toutes les étiquettes actuelles du système\n• Réimporter la hiérarchie complète des étiquettes depuis MuseDAM\n• Toutes les modifications locales non enregistrées seront perdues\n\nÊtes-vous sûr de vouloir continuer ?",
+    "confirmSyncDescription": "Cette opération fusionne les étiquettes locales en prenant l'arborescence MuseDAM comme référence :\n• Les étiquettes de même nom sous le même parent sont conservées. La description, les mots-clés et les autres réglages restent inchangés ; seuls l'ordre et le lien MuseDAM sont mis à jour\n• Les étiquettes présentes dans MuseDAM mais absentes en local sont ajoutées\n• Les étiquettes présentes en local mais absentes de MuseDAM sont supprimées, ainsi que leurs étiquettes enfants\n• Les modifications non enregistrées sur cette page seront perdues\n\nÊtes-vous sûr de vouloir continuer ?",
     "cancel": "Annuler",
     "confirmSync": "Confirmer la synchronisation",
     "syncing": "Synchronisation...",
