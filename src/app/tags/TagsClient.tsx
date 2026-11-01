@@ -13,6 +13,7 @@ import { deleteTagAndDescendants } from "./delete-tag";
 import { localizeTagActionMessage } from "./tagActionMessage";
 import { AiCreateModal } from "./components/AiCreateModal";
 import { BatchCreateModal } from "./components/BatchCreateModal";
+import { BatchTagImportExportDialog } from "./components/BatchTagImportExportDialog";
 import { CreateModal } from "./components/CreateModal";
 import { SearchResult } from "./components/SearchResult";
 import { SyncConfirmDialog } from "./components/SyncConfirmDialog";
@@ -32,6 +33,12 @@ interface TagsClientProps {
 }
 
 const SMART_TAGS_ID = "-1";
+
+function countTagsAtLevel(nodes: TagNode[], level: number): number {
+  const active = nodes.filter((node) => !node.isDeleted);
+  if (level <= 1) return active.length;
+  return active.reduce((sum, node) => sum + countTagsAtLevel(node.children ?? [], level - 1), 0);
+}
 
 /** 各层级（1 ~ MAX_TAG_LEVEL）选中的节点 ID，selection[i] 对应第 i + 1 级 */
 type Selection = (string | null)[];
@@ -131,6 +138,8 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
   const [initialized, setInitialized] = useState(false);
   const [createModalVisible, setCreateModalVisible] = useState(false);
   const [batchCreateModalVisible, setBatchCreateModalVisible] = useState(false);
+  const [batchImportExportOpen, setBatchImportExportOpen] = useState(false);
+  const [createModalInitialText, setCreateModalInitialText] = useState("");
   const [aiCreateModalVisible, setAiCreateModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
@@ -141,6 +150,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
   const canManageTags = useTagManagementPermission();
   const { setting } = useEnterpriseTagSetting();
   const tagLevel = setting.tagLevel;
+  const fourthLevelCount = useMemo(() => countTagsAtLevel(tagsTree, 4), [tagsTree]);
 
   // 移除了 tagExtraChanges 状态，现在使用 Context
 
@@ -807,16 +817,28 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
               <SyncConfirmDialog onSyncComplete={handleSyncComplete} />
             </div>
           </>}
-          {canManageTags && <Button
-            variant="default"
-            size="sm"
-            onClick={() => {
-              setBatchCreateModalVisible(true);
-            }}
-          >
-            <PlusIcon className="size-[14px]" />
-            {t("batchCreate")}
-          </Button>}
+          {canManageTags && (
+            <>
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => {
+                  setCreateModalInitialText("");
+                  setBatchCreateModalVisible(true);
+                }}
+              >
+                <PlusIcon className="size-[14px]" />
+                {t("batchCreate")}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setBatchImportExportOpen(true)}
+              >
+                {t("BatchTagImportExport.title")}
+              </Button>
+            </>
+          )}
         </div>
       </div>
     ),
@@ -829,7 +851,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
         title={t("tagManagement")}
         headerExtra={
           canManageTags ? (
-            <TagSettingDialog onLevelChanged={refetchTagsTree} />
+            <TagSettingDialog onLevelChanged={refetchTagsTree} fallbackHiddenCount={fourthLevelCount} />
           ) : undefined
         }
         lists={levelTags}
@@ -856,6 +878,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
       canManageTags,
       tagsTree,
       tagLevel,
+      fourthLevelCount,
       refetchTagsTree,
       levelTags,
       selectedIds,
@@ -894,7 +917,21 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
         visible={batchCreateModalVisible}
         setVisible={setBatchCreateModalVisible}
         onSelectAiCreate={() => setAiCreateModalVisible(true)}
-        onSelectManualCreate={() => setCreateModalVisible(true)}
+        onSelectManualCreate={() => {
+          setCreateModalInitialText("");
+          setCreateModalVisible(true);
+        }}
+      />
+      <BatchTagImportExportDialog
+        open={batchImportExportOpen}
+        onOpenChange={setBatchImportExportOpen}
+        maxLevel={tagLevel}
+        tagsTree={tagsTree}
+        onImported={() => { void refetchTagsTree(); }}
+        onImportedText={(text) => {
+          setCreateModalInitialText(text);
+          setCreateModalVisible(true);
+        }}
       />
       <AiCreateModal
         visible={aiCreateModalVisible}
@@ -903,8 +940,13 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
       />
       <CreateModal
         visible={createModalVisible}
-        setVisible={setCreateModalVisible}
+        setVisible={(open) => {
+          setCreateModalVisible(open);
+          if (!open) setCreateModalInitialText("");
+        }}
         refresh={handleSyncComplete}
+        initialText={createModalInitialText}
+        title={createModalInitialText ? t("BatchTagImportExport.importPreviewTitle") : undefined}
       />
       </>}
     </div>

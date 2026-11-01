@@ -499,11 +499,12 @@ export async function batchCreateTags(
         data: BatchCreateTagData[],
         parentPath: string = "",
         parentDbId: number | null = null,
+        parentIsNew = false,
       ): TagNode[] => {
         return data.map((item, index) => {
           const currentPath = parentPath ? `${parentPath}_${index}` : `batch_${baseTs}_${index}`;
           const existing =
-            addType === 2
+            addType === 2 && !parentIsNew
               ? existingByParentAndName.get(buildExistingTagKey(parentDbId, item.name))
               : undefined;
 
@@ -529,7 +530,7 @@ export async function batchCreateTags(
             slug: null,
             name: item.name,
             originalName: item.name,
-            children: item.nameChildList ? convertToTagNodes(item.nameChildList, currentPath) : [],
+            children: item.nameChildList ? convertToTagNodes(item.nameChildList, currentPath, null, true) : [],
             verb: "create" as const,
             tempId: currentPath,
           };

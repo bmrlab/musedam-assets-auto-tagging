@@ -11,6 +11,7 @@ import {
   prepareReferenceImageBuffer,
   prepareSquareEmbeddingImageBuffer,
 } from "@/lib/tagging/reference-image";
+import { generateReferenceThumbnail } from "@/lib/tagging/reference-thumbnail";
 import { randomBytes } from "crypto";
 import sharp from "sharp";
 import { describe, expect, it, vi } from "vitest";
@@ -55,6 +56,30 @@ function expectColor(actual: number[], expected: number[]) {
 }
 
 describe("reference image preparation", () => {
+  it("renders a small viewBox SVG at the resolution used for reference matching", async () => {
+    const svg = Buffer.from(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 87.5 57"><rect width="87.5" height="57" fill="white"/><rect x="40" width="7.5" height="57" fill="black"/></svg>',
+    );
+
+    expect(await sharp(svg).metadata()).toMatchObject({ width: 88, height: 57 });
+
+    const reference = await prepareReferenceImageBuffer(svg);
+    expect(reference.mimeType).toBe("image/jpeg");
+    expect(reference.width).toBe(REFERENCE_IMAGE_MAX_DIMENSION);
+    expect(reference.height).toBeGreaterThan(800);
+    expect(await sharp(reference.buffer).metadata()).toMatchObject({ format: "jpeg" });
+
+    const square = await prepareSquareEmbeddingImageBuffer(svg);
+    expect(await sharp(square).metadata()).toMatchObject({
+      format: "png",
+      width: JINA_SQUARE_IMAGE_DIMENSION,
+      height: JINA_SQUARE_IMAGE_DIMENSION,
+    });
+
+    const thumbnail = await generateReferenceThumbnail(svg);
+    expect(await sharp(thumbnail).metadata()).toMatchObject({ format: "jpeg", width: 256 });
+  });
+
   it("keeps person uploads byte-for-byte original when requested", async () => {
     const original = new File(["original-person-image"], "student-id.jpg", {
       type: "image/jpeg",
@@ -66,6 +91,14 @@ describe("reference image preparation", () => {
     expect(prepared.name).toBe("student-id.jpg");
     expect(prepared.size).toBe(original.size);
     expect(prepared.type).toBe("image/jpeg");
+  });
+
+  it("preserves SVG uploads for vector rendering even when they exceed the client compression target", async () => {
+    const original = new File([Buffer.alloc(5 * BYTES_PER_MB + 1)], "brand.svg", {
+      type: "image/svg+xml",
+    });
+
+    expect(await prepareClientImageUpload(original)).toBe(original);
   });
 
   it("requires compression for a small-file, high-resolution local image", () => {

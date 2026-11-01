@@ -135,6 +135,7 @@
       "latest": "नवीनतम",
       "requiredFallbackBadge": "अनिवार्य फ़ॉलबैक",
       "aspectRatioBadge": "आयामों से",
+      "sizeAIBadge": "AI आकार से",
       "appliedBadge": "अपनाया गया",
       "showHistory": "इतिहास देखें ({count})",
       "hideHistory": "इतिहास छिपाएँ",
@@ -1469,7 +1470,18 @@
       },
       "formatExcel": "Excel",
       "formatCsv": "CSV",
-      "spreadsheetBadge": "XLS"
+      "spreadsheetBadge": "XLS",
+      "precheckTitle": "आयात से पहले जाँच",
+      "precheckHint": "आयात करने से पहले कृपया निम्न की समीक्षा करें",
+      "precheckSummary": "{create} टैग बनाए जाएँगे, {update} अपडेट होंगे, {unchanged} अपरिवर्तित रहेंगे",
+      "precheckRenameNotice": "इनमें से {count} टैग का नाम बदला जाएगा और MuseDAM से सिंक किया जाएगा",
+      "precheckIssuesLabel": "{count} पंक्तियों में समस्या है, जारी रखने पर इन्हें छोड़ दिया जाएगा:",
+      "precheckCreateLabel": "{count} टैग बनाए जाएँगे:",
+      "precheckMoreItems": "…कुल {count} आइटम",
+      "backToEdit": "संपादन पर वापस जाएँ",
+      "continueImport": "आयात जारी रखें",
+      "continueImportSkipIssues": "समस्याएँ छोड़ें और जारी रखें",
+      "importSuccessWithSkipped": "{count} पंक्तियाँ आयात हुईं, समस्या वाली {skipped} पंक्तियाँ छोड़ी गईं"
     }
   }
 }

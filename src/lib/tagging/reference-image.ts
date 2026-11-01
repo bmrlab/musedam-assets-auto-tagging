@@ -9,6 +9,7 @@ import {
   REFERENCE_IMAGE_MAX_DIMENSION,
   TARGET_COMPRESSED_IMAGE_BYTES,
 } from "@/lib/brand/upload-constants";
+import { getSvgRasterDensity } from "@/lib/tagging/svg-rasterization";
 import sharp from "sharp";
 
 const MAX_COMPRESSION_ATTEMPTS = 6;
@@ -43,15 +44,16 @@ export async function prepareReferenceImageBuffer(
 ): Promise<PreparedReferenceImage> {
   let maxDimension = requestedMaxDimension;
   let quality = REFERENCE_IMAGE_JPEG_QUALITY;
+  const density = getSvgRasterDensity(await sharp(sourceBuffer).metadata(), requestedMaxDimension);
 
   for (let attempt = 0; attempt < MAX_COMPRESSION_ATTEMPTS; attempt += 1) {
-    const { data, info } = await sharp(sourceBuffer)
+    const { data, info } = await sharp(sourceBuffer, density === null ? undefined : { density })
       .rotate()
       .resize({
         width: maxDimension,
         height: maxDimension,
         fit: "inside",
-        withoutEnlargement: true,
+        withoutEnlargement: density === null,
       })
       .flatten({ background: "#fff" })
       .jpeg({ quality })
@@ -84,7 +86,12 @@ export async function prepareSquareEmbeddingImageBuffer(
   sourceBuffer: Buffer,
   region?: { left: number; top: number; width: number; height: number },
 ): Promise<Buffer> {
-  let pipeline = sharp(sourceBuffer).rotate();
+  // Region coordinates already refer to the encoded raster. SVG reference images have no
+  // region and can be rendered directly at the embedding input's target resolution.
+  const density = region
+    ? null
+    : getSvgRasterDensity(await sharp(sourceBuffer).metadata(), JINA_SQUARE_IMAGE_DIMENSION);
+  let pipeline = sharp(sourceBuffer, density === null ? undefined : { density }).rotate();
   if (region) {
     pipeline = pipeline.extract(region);
   }

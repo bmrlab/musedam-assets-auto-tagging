@@ -478,11 +478,30 @@ type ActionMap = {
     args: Record<string, never>;
     result: BaseActionResult<{ canManageTags: boolean }>;
   };
+  /** 主站按 dam-material-extension-ai-auto-marking 判定内容管理员是否可管理配置 */
+  "get-auto-tagging-access": {
+    args: Record<string, never>;
+    result: BaseActionResult<{
+      role: "admin" | "content" | "other";
+      canManageConfig: boolean;
+      contentRoleCanManage: boolean;
+    }>;
+  };
   "get-tag-setting": {
     args: Record<string, never>;
     result: BaseActionResult<{
       tagLevel: 3 | 4;
       showAiTag: 0 | 1;
+    }>;
+  };
+  /** 层级切换预检。选择 3 层时返回管理端将隐藏的标签数 */
+  "check-tag-setting": {
+    args: {
+      tagLevel: 3 | 4;
+    };
+    result: BaseActionResult<{
+      tagLevel: 3 | 4;
+      hiddenTagCount: number;
     }>;
   };
   /** 保存团队标签设置。切到 3 层时第 4 层标签仅隐藏，切回 4 层后恢复 */

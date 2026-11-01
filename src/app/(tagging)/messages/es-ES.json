@@ -135,6 +135,7 @@
       "latest": "Último",
       "requiredFallbackBadge": "Respaldo obligatorio",
       "aspectRatioBadge": "Por dimensiones",
+      "sizeAIBadge": "IA por tamaño",
       "appliedBadge": "Aplicado",
       "showHistory": "Ver historial ({count})",
       "hideHistory": "Ocultar historial",
@@ -1514,7 +1515,18 @@
       },
       "formatExcel": "Excel",
       "formatCsv": "CSV",
-      "spreadsheetBadge": "XLS"
+      "spreadsheetBadge": "XLS",
+      "precheckTitle": "Comprobación previa a la importación",
+      "precheckHint": "Revisa lo siguiente antes de importar",
+      "precheckSummary": "Se crearán {create} etiquetas, se actualizarán {update} y {unchanged} sin cambios",
+      "precheckRenameNotice": "{count} de ellas se renombrarán y se sincronizarán con MuseDAM",
+      "precheckIssuesLabel": "{count} filas tienen problemas y se omitirán si continúas:",
+      "precheckCreateLabel": "Se crearán {count} etiquetas:",
+      "precheckMoreItems": "…{count} elementos en total",
+      "backToEdit": "Volver a editar",
+      "continueImport": "Continuar importación",
+      "continueImportSkipIssues": "Omitir problemas y continuar",
+      "importSuccessWithSkipped": "Se importaron {count} filas y se omitieron {skipped} filas con problemas"
     }
   }
 }

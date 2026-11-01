@@ -766,6 +766,7 @@
       "latest": "最新",
       "requiredFallbackBadge": "必打兜底",
       "aspectRatioBadge": "按宽高",
+      "sizeAIBadge": "AI 按尺寸",
       "appliedBadge": "已采纳",
       "showHistory": "查看历史记录 ({count})",
       "hideHistory": "收起历史记录",
@@ -1514,7 +1515,18 @@
       },
       "formatExcel": "Excel",
       "formatCsv": "CSV",
-      "spreadsheetBadge": "XLS"
+      "spreadsheetBadge": "XLS",
+      "precheckTitle": "导入前检测",
+      "precheckHint": "检测到以下情况，请确认后再导入",
+      "precheckSummary": "将新建 {create} 个标签，更新 {update} 个，{unchanged} 个无变化",
+      "precheckRenameNotice": "其中 {count} 个标签会改名，并同步到 MuseDAM",
+      "precheckIssuesLabel": "以下 {count} 行存在问题，继续导入将跳过这些行：",
+      "precheckCreateLabel": "将新建的 {count} 个标签：",
+      "precheckMoreItems": "…等共 {count} 项",
+      "backToEdit": "返回修改",
+      "continueImport": "继续导入",
+      "continueImportSkipIssues": "跳过问题行，继续导入",
+      "importSuccessWithSkipped": "成功导入 {count} 条，已跳过 {skipped} 条有问题的行"
     }
   }
 }

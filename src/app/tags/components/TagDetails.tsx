@@ -47,11 +47,13 @@ function SwitchSetting({
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-basic-5 hover:text-basic-8">
-                <InfoIcon className="text-current" />
+              <Button variant="ghost" size="sm" className="h-4 w-4 p-0 text-basic-5 hover:text-basic-8">
+                <InfoIcon className="size-3.5" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent className="max-w-[240px] text-sm">{tooltip}</TooltipContent>
+            <TooltipContent side="top" className="max-w-[288px] px-3 py-2 text-[12px] leading-5">
+              {tooltip}
+            </TooltipContent>
           </Tooltip>
         </TooltipProvider>
       </div>
@@ -63,7 +65,7 @@ function SwitchSetting({
           onCheckedChange={onCheckedChange}
           aria-label={label}
         />
-        <span className="text-xs text-basic-5">{checked ? onText : offText}</span>
+        <span className="text-[12px] leading-[18px] text-basic-5">{checked ? onText : offText}</span>
       </div>
       {extra}
     </div>
@@ -399,7 +401,7 @@ export function TagDetails({ selectedTag, refreshTags, canEdit = false }: TagDet
             offText={t("requiredForInventoryEntryOff")}
             extra={
               required && (
-                <p className="text-xs leading-5 text-basic-5">
+                <p className="text-[12px] leading-5 text-basic-5">
                   {t("requiredForInventoryEntryHint")}
                 </p>
               )
@@ -453,12 +455,12 @@ export function TagDetails({ selectedTag, refreshTags, canEdit = false }: TagDet
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-6 w-6 p-0 text-basic-5 hover:text-basic-8"
+                    className="h-4 w-4 p-0 text-basic-5 hover:text-basic-8"
                   >
-                    <InfoIcon className="text-current" />
+                    <InfoIcon className="size-3.5" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent className="max-w-[240px] text-sm">
+                <TooltipContent side="top" className="max-w-[288px] px-3 py-2 text-[12px] leading-5">
                   <span className="font-medium">{t("matchingRule")}</span>
                   {t("matchingRuleDescription")}
                 </TooltipContent>
@@ -496,13 +498,13 @@ export function TagDetails({ selectedTag, refreshTags, canEdit = false }: TagDet
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-6 w-6 p-0 text-basic-5 hover:text-basic-8"
+                    className="h-4 w-4 p-0 text-basic-5 hover:text-basic-8"
                     title={t("excludeKeywordsTooltip")}
                   >
-                    <InfoIcon className="text-current" />
+                    <InfoIcon className="size-3.5" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent className="max-w-[240px] text-sm">
+                <TooltipContent side="top" className="max-w-[288px] px-3 py-2 text-[12px] leading-5">
                   <span className="font-medium">{t("excludeRule")}</span>
                   {t("excludeRuleDescription")}
                 </TooltipContent>

@@ -153,7 +153,7 @@ export function resolveExclusiveSiblingsAcrossSources({
   const dropped: CrossSourceExclusiveDrop[] = [];
   const kept = tagsWithScore.filter((tag) => {
     // 确定性来源（画幅比例等）不参与与特征库的竞争
-    if (tag.origin === "aspectRatio") return true;
+    if (tag.origin === "aspectRatio" || tag.origin === "sizeAI") return true;
     for (const { parentId, branchId } of branchesOf(tag.leafTagId)) {
       if (productBranchesByParent.get(parentId)?.has(branchId)) continue;
       const feature = featureBranchByParent.get(parentId);

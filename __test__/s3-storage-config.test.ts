@@ -131,6 +131,22 @@ describe("feature-library public object URLs", () => {
     expect(headers["x-amz-acl"]).toBeUndefined();
   });
 
+  it("builds retained detection JPEG keys in the configured folder", async () => {
+    const { buildDetectionJpegObjectKey } = await importS3Module();
+    const objectKey = buildDetectionJpegObjectKey(7);
+    expect(objectKey).toMatch(/^feature-library\/teams-7-detection-svg-.*\.jpg$/);
+  });
+
+  it("builds retained Jina debug image keys in the configured folder", async () => {
+    const { buildJinaDebugImageObjectKey } = await importS3Module();
+    expect(buildJinaDebugImageObjectKey(".jpg")).toMatch(
+      /^feature-library\/debug-jina-images-.*\.jpg$/,
+    );
+    expect(buildJinaDebugImageObjectKey(".png")).toMatch(
+      /^feature-library\/debug-jina-images-.*\.png$/,
+    );
+  });
+
   it("recognizes its own public object URLs under path-style addressing", async () => {
     const { getS3PublicObjectUrl, isConfiguredS3PublicObjectUrl } = await importS3Module();
     const publicUrl = getS3PublicObjectUrl("feature-library/teams-1-asset-logos-abc.png");

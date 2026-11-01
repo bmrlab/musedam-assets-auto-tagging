@@ -1,5 +1,6 @@
 import "server-only";
 
+import { resolveModelChain, runWithModelFallback } from "@/ai/model-fallback";
 import { llm, LLMModelName } from "@/ai/provider";
 import { LLM_TIMEOUT_MS } from "@/lib/tagging/external-timeouts";
 import {
@@ -15,7 +16,11 @@ import { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 import { generateObject, UserModelMessage } from "ai";
 import { createHash } from "node:crypto";
 import z from "zod";
-import { collectAspectRatioTagIds, detectAspectRatioGroups } from "./aspect-ratio";
+import {
+  AspectRatioGroup,
+  collectAspectRatioTagIds,
+  detectAspectRatioGroups,
+} from "./aspect-ratio";
 import {
   buildExclusiveBranchResolver,
   flattenTagsTree,
@@ -53,6 +58,43 @@ function getTaggingPredictModel(): LLMModelName {
   return (process.env.TAGGING_PREDICT_MODEL?.trim() || "gpt-5-mini") as LLMModelName;
 }
 
+// 主模型调用失败（例如上游账号欠费返回 403、限流、5xx）时依次改用的备用模型，逗号分隔；设为空串关闭。
+// 默认 gpt-5.4-mini：与主模型同档、成本相近，且网关(litellm)给它配了 azure/gpt-5.4 二级兜底，
+// 不会像 gpt-5-mini 那样上游账号一欠费就整组不可用。
+const DEFAULT_TAGGING_PREDICT_FALLBACK_MODELS = "gpt-5.4-mini";
+
+function getTaggingPredictModelChain(): LLMModelName[] {
+  return resolveModelChain(
+    getTaggingPredictModel(),
+    process.env.TAGGING_PREDICT_FALLBACK_MODELS,
+    DEFAULT_TAGGING_PREDICT_FALLBACK_MODELS,
+  );
+}
+
+function runWithTaggingModelFallback<T>(
+  stage: string,
+  teamId: string | number,
+  run: (modelName: LLMModelName) => Promise<T>,
+): Promise<T> {
+  return runWithModelFallback(
+    getTaggingPredictModelChain(),
+    run,
+    ({ failedModel, nextModel, error }) => {
+      console.warn("AI标签预测: 模型调用失败，切换备用模型", {
+        stage,
+        teamId,
+        failedModel,
+        nextModel,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    },
+  );
+}
+
+// reasoningEffort "minimal" 只有初代 gpt-5 系列支持，gpt-5.1 起的新版本（如兜底用的 gpt-5.4-mini）
+// 会拒绝该值，所以这些模型不传推理参数，用网关默认值。
+const GPT5_MINIMAL_REASONING_MODELS = new Set<string>(["gpt-5", "gpt-5-mini", "gpt-5-nano"]);
+
 function getTaggingPredictProviderOptions(modelName: LLMModelName, teamId: string | number) {
   if (!modelName.startsWith("gpt-5")) return undefined;
 
@@ -60,8 +102,12 @@ function getTaggingPredictProviderOptions(modelName: LLMModelName, teamId: strin
     // azure openai provider 这里也是 openai
     openai: {
       promptCacheKey: `musedam-t-${teamId}`,
-      reasoningSummary: "auto", // 'auto' | 'detailed'
-      reasoningEffort: "minimal", // 'minimal' | 'low' | 'medium' | 'high'
+      ...(GPT5_MINIMAL_REASONING_MODELS.has(modelName)
+        ? {
+            reasoningSummary: "auto", // 'auto' | 'detailed'
+            reasoningEffort: "minimal", // 'minimal' | 'low' | 'medium' | 'high'
+          }
+        : {}),
     } satisfies OpenAIResponsesProviderOptions,
   };
 }
@@ -1213,17 +1259,18 @@ export async function predictRequiredGroupChoices({
 
   let chosen = new Map<number, number>();
   try {
-    const modelName = getTaggingPredictModel();
-    const result = await generateObject({
-      model: llm(modelName),
-      schemaName: "RequiredGroupChoices",
-      schema: requiredGroupChoiceSchema,
-      providerOptions: getTaggingPredictProviderOptions(modelName, teamId),
-      abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-      system: `你是数字资产管理系统的打标助手。下面这些分类被管理员设置为"必打"：每个素材都必须在该分类下选出恰好一个标签，哪怕证据不足也要选最可能的那个，不允许不选。只输出 JSON：{"choices":[{"parentId":<分类 id>,"leafTagId":<所选标签 id>}]}，每个必打分类恰好一条，leafTagId 必须来自该分类下列出的候选。`,
-      prompt: `# 素材信息\n${assetSummary}\n\n# 需要选择的必打分类\n${groupsText}`,
-      temperature: 0,
-    });
+    const result = await runWithTaggingModelFallback("requiredGroupChoices", teamId, (modelName) =>
+      generateObject({
+        model: llm(modelName),
+        schemaName: "RequiredGroupChoices",
+        schema: requiredGroupChoiceSchema,
+        providerOptions: getTaggingPredictProviderOptions(modelName, teamId),
+        abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+        system: `你是数字资产管理系统的打标助手。下面这些分类被管理员设置为"必打"：每个素材都必须在该分类下选出恰好一个标签，哪怕证据不足也要选最可能的那个，不允许不选。只输出 JSON：{"choices":[{"parentId":<分类 id>,"leafTagId":<所选标签 id>}]}，每个必打分类恰好一条，leafTagId 必须来自该分类下列出的候选。`,
+        prompt: `# 素材信息\n${assetSummary}\n\n# 需要选择的必打分类\n${groupsText}`,
+        temperature: 0,
+      }),
+    );
     chosen = new Map(result.object.choices.map((choice) => [choice.parentId, choice.leafTagId]));
   } catch (error) {
     console.warn("必打分类强制单选失败，按每组第一个叶子兜底", {
@@ -1249,6 +1296,140 @@ export async function predictRequiredGroupChoices({
     if (tag) tags.push(tag);
   }
   return dedupeTagsWithScore(tags);
+}
+
+const unparsedSizeTagSchema = z.object({
+  matches: z.array(
+    z.object({
+      leafTagId: z.number(),
+      confidence: z.number(),
+    }),
+  ),
+});
+
+/**
+ * 画幅组里系统解析不了的规格标签（如"长1600、宽度自适应"、"长图（高度≥3000）"），
+ * 带上素材真实像素尺寸单独问一次模型。宽高必须是原图尺寸——缩略图缩放过，不能拿来判断像素规格。
+ * 模型只能从这些候选里选，可以一个都不选；低于识别模式门槛的丢弃。失败时返回空，不影响主流程。
+ */
+export async function predictUnparsedSizeTags({
+  groups,
+  width,
+  height,
+  assetName,
+  teamId,
+  minConfidence,
+}: {
+  groups: AspectRatioGroup[];
+  width: number;
+  height: number;
+  assetName: string;
+  teamId: number;
+  minConfidence: number;
+}): Promise<TagWithScore[]> {
+  const candidates = groups.flatMap((group) => group.unparsedChildren);
+  if (candidates.length === 0) return [];
+  const candidateById = new Map(candidates.map((child) => [child.id, child] as const));
+  const candidatesText = groups
+    .filter((group) => group.unparsedChildren.length > 0)
+    .map(
+      (group) =>
+        `## ${group.parentPath.join(" > ")}\n${group.unparsedChildren
+          .map((child) => `- id ${child.id}: ${child.tagPath[child.tagPath.length - 1]}`)
+          .join("\n")}`,
+    )
+    .join("\n\n");
+
+  try {
+    const result = await runWithTaggingModelFallback("unparsedSizeTags", teamId, (modelName) =>
+      generateObject({
+        model: llm(modelName),
+        schemaName: "UnparsedSizeTags",
+        schema: unparsedSizeTagSchema,
+        providerOptions: getTaggingPredictProviderOptions(modelName, teamId),
+        abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+        system: `你是数字资产管理系统的打标助手，负责判断素材的像素尺寸是否符合某些"规格"标签的描述。
+- 只依据给出的真实像素宽高做判断，标签名里括号内是用途说明，不是尺寸条件。
+- "长"/"高"通常指纵向像素，"宽"指横向像素；"自适应"/"不限"表示该边不做要求。
+- 只有尺寸明确满足标签描述时才选；"约""左右"之类的描述允许 5% 以内误差；说不清的不要选，可以一个都不选。
+- 只输出 JSON：{"matches":[{"leafTagId":<候选 id>,"confidence":<0-1>}]}，leafTagId 必须来自候选列表。`,
+        prompt: `# 素材\n文件名：${assetName}\n像素尺寸：宽 ${width} × 高 ${height}\n\n# 候选规格标签\n${candidatesText}`,
+        temperature: 0,
+      }),
+    );
+    const seen = new Set<number>();
+    const tags: TagWithScore[] = [];
+    for (const match of result.object.matches) {
+      const child = candidateById.get(match.leafTagId);
+      if (!child || seen.has(child.id) || match.confidence < minConfidence) continue;
+      seen.add(child.id);
+      tags.push({
+        leafTagId: child.id,
+        tagPath: child.tagPath,
+        confidenceBySources: {},
+        score: Math.round(Math.min(1, match.confidence) * 100),
+        origin: "sizeAI",
+      });
+    }
+    return tags;
+  } catch (error) {
+    console.warn("规格标签按尺寸识别失败，跳过", {
+      teamId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return [];
+  }
+}
+
+/** 详细描述在 prompt 里的最大长度，避免个别素材的长解析结果撑爆上下文 */
+const CONTENT_ANALYSIS_DETAIL_MAX_LENGTH = 4000;
+
+function stringifyAnalysisValue(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) return value.map(stringifyAnalysisValue).filter(Boolean).join("、");
+  return JSON.stringify(value);
+}
+
+/**
+ * 智能解析（MuseDAM get-asset-analysis-result）信息源的文本，既拼进 prompt，也作为字面证据的校验原文：
+ * - aiDescription 画面描述、aiTitle 标题；
+ * - aiDetailedDescription 详细描述：键值对数组，逐项展开为"键：值"，不依赖具体有哪些键——
+ *   画面上的文字（海报上的 618、平台水印、国家/语言字样）通常在这里，是渠道/活动等字面型标签的有效依据。
+ * aiTags 不用：它是模型概括出的风格/氛围词而不是画面原文，容易被拿去误推渠道这类字面型标签。
+ */
+export function buildContentAnalysisText(content: unknown): string {
+  if (!content || typeof content !== "object") return "";
+  const { aiDescription, aiTitle, aiDetailedDescription } = content as AssetObjectContentAnalysis;
+  const lines: string[] = [];
+  const description = stringifyAnalysisValue(aiDescription);
+  if (description) lines.push(`内容分析：${description}`);
+  const title = stringifyAnalysisValue(aiTitle);
+  if (title) lines.push(`标题：${title}`);
+  if (Array.isArray(aiDetailedDescription)) {
+    const details = aiDetailedDescription
+      .flatMap((entry) =>
+        entry && typeof entry === "object"
+          ? Object.entries(entry).map(([key, value]) => {
+              const text = stringifyAnalysisValue(value);
+              return text ? `- ${key}：${text}` : "";
+            })
+          : [stringifyAnalysisValue(entry)].filter(Boolean).map((text) => `- ${text}`),
+      )
+      .filter(Boolean)
+      .join("\n");
+    if (details) {
+      lines.push(
+        `详细描述：\n${
+          details.length > CONTENT_ANALYSIS_DETAIL_MAX_LENGTH
+            ? `${details.slice(0, CONTENT_ANALYSIS_DETAIL_MAX_LENGTH)}…`
+            : details
+        }`,
+      );
+    }
+  }
+  return lines.join("\n");
 }
 
 /** 按 leafTagId 去重，保留先出现的一条（模型结果在前、兜底结果在后）。 */
@@ -1313,6 +1494,8 @@ export async function predictAssetTags(
     throw taggingPredictError("NO_TAG_TREE", "No tag tree available");
   }
   const aiDescription = (asset.content as AssetObjectContentAnalysis)?.aiDescription;
+  // 智能解析信息源的完整文本：画面描述 + 标题 + 详细描述（画面文字通常在详细描述里）
+  const contentAnalysisText = buildContentAnalysisText(asset.content);
   // 大的字面型分组（SKU 等）只把素材文字里字面出现的子标签发给模型，文字只取已启用的信息源。
   const promptTree = pruneLargeLiteralGroupsForPrompt(
     tagsTree,
@@ -1320,7 +1503,7 @@ export async function predictAssetTags(
       enabled.basicInfo || enabled.tagKeywords ? asset.name : "",
       enabled.basicInfo || enabled.tagKeywords ? asset.description : "",
       enabled.materializedPath || enabled.tagKeywords ? asset.materializedPath : "",
-      enabled.contentAnalysis ? aiDescription : "",
+      enabled.contentAnalysis ? contentAnalysisText : "",
     ]
       .filter(Boolean)
       .join(" "),
@@ -1344,9 +1527,7 @@ export async function predictAssetTags(
     ? `该素材的真实文件格式为：${realMediaKind === "video" ? "视频" : realMediaKind === "image" ? "图片" : "未知类型"}（.${realExtension}）。这是系统确定性事实，请以此为准判断素材类型/格式相关标签，不要仅凭文件名或标签名称中恰好出现的文字（如"视频"二字恰好是某个标签名称的一部分）来推断格式，若标签暗示的格式与该事实矛盾，禁止选用该标签。`
     : "该素材的真实文件格式未知（系统未提供）。请对格式类标签更加谨慎，不要仅凭文件名或标签名称中的字面文字武断下结论。";
 
-  // aiTags 是同一次视觉分析产出的通用标签自由文本，和 aiDescription 内容高度重叠，
-  // 却给了模型更多"风格/氛围类"词汇去误推元数据类标签（如渠道）——只保留 aiDescription（见上方），
-  // 不再把 aiTags 拼进 prompt，减少无关文本对模型的干扰。
+  // aiTags 不拼进 prompt：见 buildContentAnalysisText。
 
   // 每个信息源的文本只在对应设置启用时才拼进 prompt——被关闭的信息源必须真正"不可见"，
   // 而不是喂给模型之后再事后过滤模型自报的 source 标签（那样关闭形同虚设，见下方 matchingSources 过滤）。
@@ -1363,7 +1544,7 @@ export async function predictAssetTags(
   }
   if (enabled.contentAnalysis) {
     sourceSections.push(`## contentAnalysis信息源
-内容分析：${aiDescription || "无有效内容数据"}`);
+${contentAnalysisText || "内容分析：无有效内容数据"}`);
   }
   if (enabled.tagKeywords) {
     sourceSections.push(`## tagKeywords信息源
@@ -1405,6 +1586,10 @@ ${sourceSections.join("\n\n")}
       description: asset.description ?? "",
       materializedPath: asset.materializedPath,
       contentAiDescription: aiDescription ?? "",
+      // 只在有画面描述之外的解析内容时才加入，没有时保持旧 seed 不变
+      ...(contentAnalysisText !== buildContentAnalysisText({ aiDescription })
+        ? { contentAnalysisText }
+        : {}),
       realExtension: realExtension ?? "",
       matchingSources: options?.matchingSources ?? null,
       recognitionAccuracy: options?.recognitionAccuracy ?? null,
@@ -1419,26 +1604,28 @@ ${sourceSections.join("\n\n")}
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      const modelName = options?.modelOverride ?? getTaggingPredictModel();
-      const result = await generateObject({
-        // model: llm("claude-sonnet-4"),
-        // model: llm("gpt-5-nano"),
-        model: llm(modelName),
-        schemaName: "TagPredictions",
-        schemaDescription:
-          '返回 JSON 对象 {"predictions":[...]}；predictions 元素包含 source("basicInfo"|"materializedPath"|"contentAnalysis"|"tagKeywords") 和 tags；tags 元素包含 confidence(0-1)、leafTagId(number)、tagPath(string[])。只输出纯 JSON。',
-        providerOptions: getTaggingPredictProviderOptions(modelName, asset.teamId),
-        abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-        schema: tagPredictionsResponseSchema,
-        system: tagPredictionSystemPrompt(recognitionAccuracyMode),
-        messages,
-        temperature: 0,
-        seed: stableSeed,
-        experimental_repairText: async (res: { text: string }) => {
-          // 尝试提取并包装为对象，满足 OpenAI Structured Outputs 的根 schema 限制
-          return repairToPredictionEnvelopeText(res.text, { attempt });
-        },
-      });
+      const result = await runWithTaggingModelFallback(
+        "tagPredictions",
+        asset.teamId,
+        (modelName) =>
+          generateObject({
+            model: llm(modelName),
+            schemaName: "TagPredictions",
+            schemaDescription:
+              '返回 JSON 对象 {"predictions":[...]}；predictions 元素包含 source("basicInfo"|"materializedPath"|"contentAnalysis"|"tagKeywords") 和 tags；tags 元素包含 confidence(0-1)、leafTagId(number)、tagPath(string[])。只输出纯 JSON。',
+            providerOptions: getTaggingPredictProviderOptions(modelName, asset.teamId),
+            abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+            schema: tagPredictionsResponseSchema,
+            system: tagPredictionSystemPrompt(recognitionAccuracyMode),
+            messages,
+            temperature: 0,
+            seed: stableSeed,
+            experimental_repairText: async (res: { text: string }) => {
+              // 尝试提取并包装为对象，满足 OpenAI Structured Outputs 的根 schema 限制
+              return repairToPredictionEnvelopeText(res.text, { attempt });
+            },
+          }),
+      );
 
       if (!result.object) {
         throw new Error("AI标签预测失败, result.object is undefined");
@@ -1484,7 +1671,7 @@ ${sourceSections.join("\n\n")}
       const pathText = normalizeForMatch(asset.materializedPath ?? "");
       predictions = enforceLiteralEvidenceForMetadataTags(predictions, tagsTree, {
         contentAnalysis: enabled.contentAnalysis
-          ? normalizeForMatch(aiDescription ?? "")
+          ? normalizeForMatch(contentAnalysisText)
           : undefined,
         tagKeywords: enabled.tagKeywords ? [basicInfoText, pathText].join(" ") : undefined,
         basicInfo: enabled.basicInfo ? basicInfoText : undefined,
@@ -1560,7 +1747,7 @@ ${sourceSections.join("\n\n")}
           `文件名：${asset.name}`,
           `文件描述：${asset.description || "无"}`,
           `文件路径：${asset.materializedPath || "无"}`,
-          `内容分析：${aiDescription || "无"}`,
+          contentAnalysisText || "内容分析：无",
         ].join("\n"),
       });
       const tagsWithScore = dedupeTagsWithScore([...required.tagsWithScore, ...forcedChoices]);

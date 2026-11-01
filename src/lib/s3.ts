@@ -430,6 +430,16 @@ export function buildAssetPersonObjectKey({
   );
 }
 
+/** JPEG copy of an SVG used by the URL-based detector and retained in object storage. */
+export function buildDetectionJpegObjectKey(teamId: number) {
+  return buildStorageObjectKey(`teams-${teamId}-detection-svg-${Date.now()}-${randomUUID()}.jpg`);
+}
+
+/** Retained copy of the exact image payload sent to Jina when DEBUG_PAGE is enabled. */
+export function buildJinaDebugImageObjectKey(extension: ".jpg" | ".png") {
+  return buildStorageObjectKey(`debug-jina-images-${Date.now()}-${randomUUID()}${extension}`);
+}
+
 export function getS3ObjectUrl(objectKey: string) {
   return buildS3ObjectUrl(objectKey).toString();
 }

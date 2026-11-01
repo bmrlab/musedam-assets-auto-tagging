@@ -84,10 +84,17 @@ export function TagLevelColumns({
   const t = useTranslations("TagsPage");
   const levels = Array.from({ length: levelCount }, (_, i) => i + 1);
 
-  const gridStyle: CSSProperties = {
-    gridTemplateColumns: `repeat(${levelCount}, minmax(0, 1fr))`,
-    minWidth: levelCount >= 4 ? levelCount * MULTI_COLUMN_MIN_WIDTH : undefined,
-  };
+  const gridStyle: CSSProperties =
+    levelCount >= 4
+      ? {
+          width: "100%",
+          minWidth: `max(100%, ${levelCount * MULTI_COLUMN_MIN_WIDTH}px)`,
+          gridTemplateColumns: `repeat(${levelCount}, minmax(${MULTI_COLUMN_MIN_WIDTH}px, 1fr))`,
+        }
+      : {
+          width: "100%",
+          gridTemplateColumns: `repeat(${levelCount}, minmax(0, 1fr))`,
+        };
 
   const getList = (level: number) => lists[level - 1] ?? [];
   const getSelectedId = (level: number) => selectedIds[level - 1] ?? null;

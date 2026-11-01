@@ -32,6 +32,7 @@ vi.mock("@/lib/s3", () => ({
 vi.mock("@/lib/tagging/reference-image", () => ({
   prepareSquareEmbeddingImageBuffer: mocks.prepareSquare,
 }));
+vi.mock("@/lib/tagging/reference-thumbnail", () => ({ scheduleReferenceThumbnail: vi.fn() }));
 vi.mock("@/lib/translation/service", () => ({ translateTextToEnglish: mocks.translate }));
 vi.mock("@/prisma/prisma", () => ({
   default: {
@@ -65,7 +66,11 @@ beforeEach(() => {
   mocks.predictCategory.mockResolvedValue({ object: { general_category: "bottle" } });
   vi.stubGlobal(
     "fetch",
-    vi.fn().mockResolvedValue({ ok: true, arrayBuffer: async () => new Uint8Array([1, 2]).buffer }),
+    vi.fn().mockResolvedValue({
+      ok: true,
+      headers: new Headers(),
+      arrayBuffer: async () => new Uint8Array([1, 2]).buffer,
+    }),
   );
 });
 afterEach(() => vi.unstubAllGlobals());

@@ -30,6 +30,7 @@
     "tagLevelFour": "4 levels",
     "tagLevelDefault": "Default",
     "clearEnterpriseTagsHint": "Switching levels will delete all enterprise tags in this team and the enterprise tags on assets. This cannot be undone.",
+    "hideFourthLevelTagsHint": "The {count} level-4 tags will be hidden. Switch back to 4 levels to show them again.",
     "smartTag": "AI tags",
     "showAiTagOnDetail": "Show AI tags on the asset detail page",
     "showAiTagHint": "When off, AI tags are hidden on the asset detail page and pending-inbound preview",
@@ -170,7 +171,34 @@
     },
     "TagColumn": {
       "smartTags": "Tag Cerdas"
-    }
+    },
+    "batchImport": "Batch Import/Export",
+    "BatchTagImportExport": {
+      "title": "Batch Import/Export",
+      "import": "Import",
+      "export": "Export",
+      "uploadHint": "Upload Excel (.xlsx) or CSV (.csv) file",
+      "chooseFile": "Choose file",
+      "downloadTemplate": "Download template",
+      "downloadTemplateExample": "Download import template",
+      "confirm": "Confirm",
+      "cancel": "Cancel",
+      "importFailed": "Import failed",
+      "reimport": "Re-import",
+      "checkTemplateFormat": "Make sure the file matches the template (including Level 1 Tag headers)",
+      "level1Required": "At least one valid Level 1 tag is required",
+      "downloadTable": "Download table",
+      "exportAndEdit": "Export the current tag tree for local editing",
+      "exportSuccess": "Export successful",
+      "unsupportedFileType": "Only Excel (.xlsx) or CSV (.csv) files are supported",
+      "importPreviewTitle": "Import tag preview",
+      "uploadSubHint3": "Each row is a tag path from level 1 to level 3; same-name siblings are merged automatically",
+      "uploadSubHint4": "Each row is a tag path from level 1 to level 4; same-name siblings are merged automatically",
+      "contentType": "Import/export content",
+      "structureScope": "Tag structure",
+      "configurationScope": "Tags and settings"
+    },
+    "importUploadHint": "Rows with a Tag ID update that tag; otherwise match by level path and create only missing tags. Empty cells keep existing values; - clears descriptions or keywords. Separate keywords with semicolons or line breaks."
   },
   "AiCreateModal": {
     "title": "Generator Sistem Tag AI",

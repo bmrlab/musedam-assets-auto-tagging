@@ -10,10 +10,21 @@ import type { TagWithScore } from "./types";
  * - 数值比例：1:1、9:16、16：9、3x4、1920×1080（按最大公约数归一，1920x1080 即 16:9）；
  * - 或方向词：横版/横图/横屏/landscape、竖版/竖图/竖屏/portrait、方图/方形/正方形/square。
  * 两类可以混用（如 横版/竖版/1:1）。
+ * 子标签名末尾的括号备注会被忽略（如 "1:1（TTS详情页）"、"800×800（电商主图）"）。
+ * 允许少数子标签解析不了（如 "其他尺寸（自定义）"、"长1600、宽度自适应"），只要能解析的占多数且至少 2 个；
+ * 其中名为"其他/自定义"的子标签作为兜底，没有比例落在容差内时打它；
+ * 其余解析不了的（如"长1600、宽度自适应"）交给模型按真实像素尺寸单独判断（见 predict.ts 的 predictUnparsedSizeTags）。
  */
 
 export type AspectRatioSpec =
-  | { kind: "ratio"; value: number; label: string }
+  | {
+      kind: "ratio";
+      value: number;
+      label: string;
+      /** 名字里写的原始数值（未约分），用于同比例子标签之间按像素精确匹配 */
+      width: number;
+      height: number;
+    }
   | { kind: "orientation"; value: "landscape" | "portrait" | "square"; label: string };
 
 export type AspectRatioGroup = {
@@ -22,12 +33,27 @@ export type AspectRatioGroup = {
   /** 分类被设为必打：宽高比超出容差时退回最近的比例子标签，保证不留空 */
   required: boolean;
   children: Array<{ id: number; tagPath: string[]; spec: AspectRatioSpec }>;
+  /** 名为"其他尺寸/自定义"之类的子标签：没有比例落在容差内时打它 */
+  fallbackChild?: { id: number; tagPath: string[] };
+  /**
+   * 解析不了的其余子标签：主打标流程里不让模型凭画面猜（看不到宽高），
+   * 而是另外带上真实像素尺寸单独问一次模型。
+   */
+  unparsedChildren: Array<{ id: number; tagPath: string[] }>;
 };
 
 /** 比例最近匹配的容差：|ln(r_asset / r_tag)| ≤ ln(1 + 8%)。4:5 与 3:4 相差约 6.7%，仍能区分。 */
 export const ASPECT_RATIO_TOLERANCE = 0.08;
 /** 方向判定：宽高比超过 1.02 视为横版，低于 0.98 视为竖版，其间为方图 */
 const SQUARE_BAND = 0.02;
+
+/** 名字末尾的括号备注：（…） (…) 【…】 [...]，可能被截断而缺右括号 */
+const TRAILING_NOTE_PATTERN = /\s*[（(【\[][^（）()【】\[\]]*[）)】\]]?\s*$/;
+const FALLBACK_NAME_PATTERN = /^(其他|其它|自定义|other|others|custom)/i;
+
+function stripTrailingNote(name: string): string {
+  return (name ?? "").replace(TRAILING_NOTE_PATTERN, "").trim();
+}
 
 const RATIO_PATTERN = /^\s*(\d+)\s*[:：xX×*\/]\s*(\d+)\s*$/;
 const ORIENTATION_WORDS: Array<[RegExp, "landscape" | "portrait" | "square"]> = [
@@ -41,14 +67,14 @@ function gcd(a: number, b: number): number {
 }
 
 export function parseAspectRatioSpec(name: string): AspectRatioSpec | null {
-  const trimmed = (name ?? "").trim();
+  const trimmed = stripTrailingNote(name);
   const ratio = RATIO_PATTERN.exec(trimmed);
   if (ratio) {
     const w = Number(ratio[1]);
     const h = Number(ratio[2]);
     if (w > 0 && h > 0) {
       const g = gcd(w, h);
-      return { kind: "ratio", value: w / h, label: `${w / g}:${h / g}` };
+      return { kind: "ratio", value: w / h, label: `${w / g}:${h / g}`, width: w, height: h };
     }
     return null;
   }
@@ -72,17 +98,24 @@ export function detectAspectRatioGroups(tagsTree: TagWithChildren[]): AspectRati
   for (const parent of nodes) {
     const children = childrenByParent.get(parent.id) ?? [];
     if (children.length < 2 || children.some((child) => child.hasChildren)) continue;
-    const parsed = children.map((child) => ({ child, spec: parseAspectRatioSpec(child.name) }));
-    if (parsed.some(({ spec }) => spec === null)) continue;
+    const parsed: AspectRatioGroup["children"] = [];
+    const unparsed: TagTreeNodeWithPath[] = [];
+    for (const child of children) {
+      const spec = parseAspectRatioSpec(child.name);
+      if (spec) parsed.push({ id: child.id, tagPath: child.tagPath, spec });
+      else unparsed.push(child);
+    }
+    if (parsed.length < 2 || parsed.length <= unparsed.length) continue;
+    const fallback = unparsed.find((child) => FALLBACK_NAME_PATTERN.test(child.name.trim()));
     groups.push({
       parentId: parent.id,
       parentPath: parent.tagPath,
       required: getExplicitRequiredGroup(parent.extra) === true,
-      children: parsed.map(({ child, spec }) => ({
-        id: child.id,
-        tagPath: child.tagPath,
-        spec: spec!,
-      })),
+      children: parsed,
+      ...(fallback ? { fallbackChild: { id: fallback.id, tagPath: fallback.tagPath } } : {}),
+      unparsedChildren: unparsed
+        .filter((child) => child !== fallback)
+        .map((child) => ({ id: child.id, tagPath: child.tagPath })),
     });
   }
   return groups;
@@ -98,6 +131,8 @@ export function collectAspectRatioTagIds(groups: AspectRatioGroup[]): {
   for (const group of groups) {
     parentIds.add(group.parentId);
     for (const child of group.children) childIds.add(child.id);
+    if (group.fallbackChild) childIds.add(group.fallbackChild.id);
+    for (const child of group.unparsedChildren) childIds.add(child.id);
   }
   return { parentIds, childIds };
 }
@@ -105,6 +140,8 @@ export function collectAspectRatioTagIds(groups: AspectRatioGroup[]): {
 /**
  * 按素材真实宽高，为每个画幅组选出一个子标签。
  * 数值比例按对数距离取最近者，超出容差不打；方向词按横/竖/方判定；两类混用时数值优先（更具体）。
+ * 多个子标签比例相同（如 1:1 / 800×800 / 1080×1080）时：像素与素材完全一致的优先，
+ * 其次是纯比例写法（名字本身已是最简比，如 1:1），最后按标签顺序。
  */
 export function resolveAspectRatioTags({
   groups,
@@ -134,26 +171,41 @@ export function resolveAspectRatioTags({
         ? "portrait"
         : "square";
 
+  // 同比例子标签之间的优先级，越小越优先
+  const tieRank = (spec: Extract<AspectRatioSpec, { kind: "ratio" }>) =>
+    spec.width === width && spec.height === height ? 0 : gcd(spec.width, spec.height) === 1 ? 1 : 2;
+  // 浮点误差内视为同一比例（1920×1080 与 16:9）
+  const EPSILON = 1e-9;
+  type Candidate = { id: number; tagPath: string[]; distance: number; rank: number };
+  const isBetter = (candidate: Candidate, current: Candidate | null) =>
+    !current ||
+    candidate.distance < current.distance - EPSILON ||
+    (Math.abs(candidate.distance - current.distance) <= EPSILON && candidate.rank < current.rank);
+
   const result: TagWithScore[] = [];
   for (const group of groups) {
-    let best: { id: number; tagPath: string[]; distance: number } | null = null;
-    let nearest: { id: number; tagPath: string[]; distance: number } | null = null;
+    let best: Candidate | null = null;
+    let nearest: Candidate | null = null;
     for (const child of group.children) {
       if (child.spec.kind !== "ratio") continue;
-      const distance = Math.abs(Math.log(assetRatio / child.spec.value));
-      if (!nearest || distance < nearest.distance) {
-        nearest = { id: child.id, tagPath: child.tagPath, distance };
-      }
-      if (distance <= maxDistance && (!best || distance < best.distance)) {
-        best = { id: child.id, tagPath: child.tagPath, distance };
-      }
+      const candidate: Candidate = {
+        id: child.id,
+        tagPath: child.tagPath,
+        distance: Math.abs(Math.log(assetRatio / child.spec.value)),
+        rank: tieRank(child.spec),
+      };
+      if (isBetter(candidate, nearest)) nearest = candidate;
+      if (candidate.distance <= maxDistance && isBetter(candidate, best)) best = candidate;
     }
     if (!best) {
       const byOrientation = group.children.find(
         (child) => child.spec.kind === "orientation" && child.spec.value === orientation,
       );
       if (byOrientation)
-        best = { id: byOrientation.id, tagPath: byOrientation.tagPath, distance: 0 };
+        best = { id: byOrientation.id, tagPath: byOrientation.tagPath, distance: 0, rank: 0 };
+    }
+    if (!best && group.fallbackChild) {
+      best = { ...group.fallbackChild, distance: 0, rank: 0 };
     }
     // 必打分类：超出容差也要有一个，取最近的比例，低分标记为兜底，审核时能看出来
     if (!best && group.required && nearest) {
@@ -177,4 +229,33 @@ export function resolveAspectRatioTags({
     }
   }
   return result;
+}
+
+/**
+ * 合并系统按比例打的标签和模型按像素尺寸认出的标签：
+ * 模型在某个画幅组里认出了具体规格（如"长1600、宽度自适应"）时，该组的"其他尺寸"兜底就不再需要。
+ */
+export function mergeAiSizeTags({
+  groups,
+  systemTags,
+  aiTags,
+}: {
+  groups: AspectRatioGroup[];
+  systemTags: TagWithScore[];
+  aiTags: TagWithScore[];
+}): TagWithScore[] {
+  if (aiTags.length === 0) return systemTags;
+  const aiTagIds = new Set(aiTags.map((tag) => tag.leafTagId));
+  const replacedFallbackIds = new Set<number>();
+  for (const group of groups) {
+    if (group.fallbackChild && group.unparsedChildren.some((child) => aiTagIds.has(child.id))) {
+      replacedFallbackIds.add(group.fallbackChild.id);
+    }
+  }
+  return [
+    ...systemTags.filter(
+      (tag) => !replacedFallbackIds.has(tag.leafTagId) && !aiTagIds.has(tag.leafTagId),
+    ),
+    ...aiTags,
+  ];
 }

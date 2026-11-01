@@ -730,6 +730,7 @@
       "latest": "Terbaru",
       "requiredFallbackBadge": "Cadangan wajib",
       "aspectRatioBadge": "Dari dimensi",
+      "sizeAIBadge": "AI dari ukuran",
       "appliedBadge": "Diterapkan",
       "showHistory": "Lihat riwayat ({count})",
       "hideHistory": "Sembunyikan riwayat",
@@ -1514,7 +1515,18 @@
       },
       "formatExcel": "Excel",
       "formatCsv": "CSV",
-      "spreadsheetBadge": "XLS"
+      "spreadsheetBadge": "XLS",
+      "precheckTitle": "Pemeriksaan sebelum impor",
+      "precheckHint": "Tinjau hal berikut sebelum mengimpor",
+      "precheckSummary": "{create} tag akan dibuat, {update} diperbarui, {unchanged} tidak berubah",
+      "precheckRenameNotice": "{count} di antaranya akan diganti nama dan disinkronkan ke MuseDAM",
+      "precheckIssuesLabel": "{count} baris bermasalah dan akan dilewati jika Anda melanjutkan:",
+      "precheckCreateLabel": "{count} tag akan dibuat:",
+      "precheckMoreItems": "…total {count} item",
+      "backToEdit": "Kembali untuk mengedit",
+      "continueImport": "Lanjutkan impor",
+      "continueImportSkipIssues": "Lewati masalah dan lanjutkan",
+      "importSuccessWithSkipped": "{count} baris diimpor, {skipped} baris bermasalah dilewati"
     }
   }
 }

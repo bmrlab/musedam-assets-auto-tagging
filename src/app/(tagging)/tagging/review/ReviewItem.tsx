@@ -923,7 +923,9 @@ export function ReviewItem({
                               <span className="inline-flex items-center px-1 rounded-[3px] text-[10px] leading-4 border border-current/40 bg-background/60">
                                 {originByLeafTagId.get(auditItem.leafTagId) === "aspectRatio"
                                   ? t("aspectRatioBadge")
-                                  : t("requiredFallbackBadge")}
+                                  : originByLeafTagId.get(auditItem.leafTagId) === "sizeAI"
+                                    ? t("sizeAIBadge")
+                                    : t("requiredFallbackBadge")}
                               </span>
                             ) : null}
                             <div className="flex items-center gap-[6px]">

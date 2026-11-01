@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Spin } from "@/components/ui/spin";
 import { useTranslations } from "next-intl";
-import { createContext, ReactNode, useCallback, useContext, useState } from "react";
+import { createContext, ReactNode, useCallback, useContext, useRef, useState } from "react";
 import { toast } from "sonner";
 import { BatchCreateTagData, batchCreateTags, checkExistingTags } from "../actions";
 import { NameChildList, parseBatchTagText } from "../batchTagText";
@@ -75,6 +75,7 @@ export const BatchCreateTagsProvider = ({
   const tTags = useTranslations("TagsPage");
 
   const [isCreating, setIsCreating] = useState(false);
+  const creatingRef = useRef(false);
 
   // 模态框状态
   const [isManualTipsOpen, setIsManualTipsOpen] = useState(false);
@@ -92,6 +93,8 @@ export const BatchCreateTagsProvider = ({
   // 处理标签创建的主要逻辑
   const handleManualTipsOk = useCallback(
     async (addType: 1 | 2, nameChildList: NameChildList[]) => {
+      if (creatingRef.current) return;
+      creatingRef.current = true;
       setIsCreating(true);
 
       try {
@@ -110,6 +113,7 @@ export const BatchCreateTagsProvider = ({
             "创建标签时发生错误",
         );
       } finally {
+        creatingRef.current = false;
         setIsCreating(false);
       }
     },
@@ -144,16 +148,18 @@ export const BatchCreateTagsProvider = ({
   };
 
   const closeManualTips = () => {
+    if (creatingRef.current) return;
     setIsManualTipsOpen(false);
     setPendingNameChildList(null);
   };
 
   const closeManualTips2 = () => {
+    if (creatingRef.current) return;
     setIsManualTips2Open(false);
   };
 
   const handleManualTipsConfirm = async (addType: 1 | 2) => {
-    if (!pendingNameChildList) return;
+    if (!pendingNameChildList || creatingRef.current) return;
 
     if (addType === 1) {
       showManualTips2();
@@ -164,7 +170,7 @@ export const BatchCreateTagsProvider = ({
   };
 
   const handleManualTips2Confirm = async () => {
-    if (!pendingNameChildList) return;
+    if (!pendingNameChildList || creatingRef.current) return;
     closeManualTips2();
     await handleManualTipsOk(1, pendingNameChildList);
     closeManualTips();
@@ -256,7 +262,7 @@ const ManualCreateTipsModal = () => {
 
 const ManualCreateTips2Modal = () => {
   const t = useTranslations("TagsPage.ManualCreateTips2Modal");
-  const { isManualTips2Open, closeManualTips2, handleManualTips2Confirm } =
+  const { isManualTips2Open, closeManualTips2, handleManualTips2Confirm, isCreating } =
     useBatchCreateTagsContext();
 
   return (
@@ -267,10 +273,10 @@ const ManualCreateTips2Modal = () => {
         </DialogHeader>
         <DialogDescription>{t("ConfirmToUseTheNewTagSystemOnl")}</DialogDescription>
         <DialogFooter>
-          <Button variant="outline" onClick={closeManualTips2}>
+          <Button variant="outline" onClick={closeManualTips2} disabled={isCreating}>
             {t("Cancel")}
           </Button>
-          <Button variant="dialogDanger" onClick={handleManualTips2Confirm}>
+          <Button variant="dialogDanger" onClick={handleManualTips2Confirm} disabled={isCreating}>
             {t("ClearExistingTagsAndUseNewOnes")}
           </Button>
         </DialogFooter>

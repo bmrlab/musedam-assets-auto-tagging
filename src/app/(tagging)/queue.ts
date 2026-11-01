@@ -56,7 +56,7 @@ import {
 } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 import pLimit from "p-limit";
-import { detectAspectRatioGroups, resolveAspectRatioTags } from "./aspect-ratio";
+import { detectAspectRatioGroups, mergeAiSizeTags, resolveAspectRatioTags } from "./aspect-ratio";
 import { getBrandRecommendationTagIdsFromQueueResult } from "./brand-recommendation";
 import { fetchTagsTreeForTagging } from "./evidence-policy-server";
 import {
@@ -69,14 +69,18 @@ import {
   getAcceptedPersonRecommendationTagIds,
   getReviewablePersonRecommendationTagIds,
 } from "./person-recommendation";
-import { predictAssetTags } from "./predict";
+import { predictAssetTags, predictUnparsedSizeTags } from "./predict";
 import { getProductRecommendationTagIdsFromQueueResult } from "./product-recommendation";
+import { RECOGNITION_ACCURACY_CONFIG } from "./prompt";
 import {
+  ASSET_TAGGING_CONCURRENCY,
   PROCESSING_TIMING_VERSION,
   TAG_TREE_RESERVED_CONCURRENCY,
+  TEST_TAGGING_CONCURRENCY,
   TOTAL_QUEUE_CONCURRENCY,
 } from "./queue-config";
 import { QUEUE_PAUSED_BY_ENV, USE_QUEUE_WORKER_PROCESS } from "./queue-role";
+import { pickPendingQueueItems } from "./queue-schedule";
 import { getTaggingSettings } from "./tagging/settings/lib";
 import { SourceBasedTagPredictions, TagWithScore } from "./types";
 
@@ -515,6 +519,9 @@ export async function processQueueItem({
     const aspectRatioTags = await resolveAspectRatioTagsForAsset({
       tagsTree: exclusiveTagsTree,
       assetExtra,
+      assetName: assetObject.name,
+      teamId,
+      recognitionAccuracy: newExtra.recognitionAccuracy,
       getThumbnailSource: thumbnailUrl ? () => getThumbnailSource(thumbnailUrl) : undefined,
       logger,
     });
@@ -904,6 +911,10 @@ const PROCESSING_STALE_TIMEOUT_MS = Number(
 );
 // 被中断的任务自动放回队列重试的次数；再次中断才标记失败，避免会拖垮进程的任务无限重试
 const MAX_INTERRUPTED_RETRIES = 1;
+// 单个任务的整体处理上限。某个外部调用一直不返回时，任务会一直占着并发槽，心跳也照常在刷，
+// 上面的回收逻辑认不出来；槽位占满后每轮都 "all slots busy"，调度器的请求也一直挂着，整个队列卡死。
+// 超时后标记失败并释放槽位（底层 Promise 无法取消，会在后台继续跑完，迟到的结果仍会正常落库）。
+const QUEUE_ITEM_TIMEOUT_MS = Number(process.env.QUEUE_ITEM_TIMEOUT_MS) || 10 * 60 * 1000;
 
 async function recoverStaleProcessingItems(): Promise<number> {
   const staleBefore = new Date(Date.now() - PROCESSING_STALE_TIMEOUT_MS);
@@ -986,6 +997,37 @@ export function createBatchTagsTreeLoader(
   };
 }
 
+async function markQueueItemTimedOut(queueItem: TaggingQueueItem): Promise<void> {
+  rootLogger.error({
+    msg: "Queue item timed out, releasing slot",
+    teamId: queueItem.teamId,
+    assetObjectId: queueItem.assetObjectId,
+    queueItemId: queueItem.id,
+    timeoutMs: QUEUE_ITEM_TIMEOUT_MS,
+  });
+  // 只改仍在 processing 的：如果恰好在超时那一刻已经落了 completed / failed，不覆盖
+  await prisma.taggingQueueItem
+    .updateMany({
+      where: { id: queueItem.id, status: "processing" },
+      data: {
+        status: "failed",
+        endsAt: new Date(),
+        result: {
+          // 复用心跳超时的错误码，前端已有对应的「处理超时」文案
+          error: "PROCESSING_STALE_TIMEOUT",
+          message: `处理超过 ${QUEUE_ITEM_TIMEOUT_MS}ms 未完成，已自动标记失败`,
+        } as TaggingQueueItemResult,
+      },
+    })
+    .catch((error) => {
+      rootLogger.error({
+        msg: "Failed to mark timed-out queue item as failed",
+        queueItemId: queueItem.id,
+        err: error,
+      });
+    });
+}
+
 async function tryClaimAndProcess(
   queueItem: TaggingQueueItem & { assetObject?: AssetObject | null },
   onSuccess: () => void,
@@ -1024,16 +1066,34 @@ async function tryClaimAndProcess(
             });
           });
       }, PROCESSING_HEARTBEAT_MS);
-      if (isTagTreeJob(queueItem)) {
-        await processTagTreeQueueItem({ ...queueItem, status: "processing", startsAt, extra });
-      } else {
-        await processQueueItem({
-          ...(queueItem as TaggingQueueItem & { assetObject: AssetObject | null }),
-          status: "processing",
-          startsAt,
-          extra,
-          tagsTreeLoader,
+      const work = isTagTreeJob(queueItem)
+        ? processTagTreeQueueItem({ ...queueItem, status: "processing", startsAt, extra })
+        : processQueueItem({
+            ...(queueItem as TaggingQueueItem & { assetObject: AssetObject | null }),
+            status: "processing",
+            startsAt,
+            extra,
+            tagsTreeLoader,
+          });
+      let timeoutId: ReturnType<typeof setTimeout> | undefined;
+      const timedOut = await Promise.race([
+        work.then(() => false),
+        new Promise<true>((resolve) => {
+          timeoutId = setTimeout(() => resolve(true), QUEUE_ITEM_TIMEOUT_MS);
+        }),
+      ]).finally(() => clearTimeout(timeoutId));
+      if (timedOut) {
+        // 超时后底层任务还在后台跑，它之后的异常不能变成 unhandled rejection
+        work.catch((error) => {
+          rootLogger.warn({
+            msg: "Timed-out queue item failed later",
+            queueItemId: queueItem.id,
+            err: error,
+          });
         });
+        await markQueueItemTimedOut(queueItem);
+        onSkip();
+        return;
       }
       onSuccess();
     } else {
@@ -1055,40 +1115,6 @@ async function tryClaimAndProcess(
 // 候选池大小：需要足够大，才能在"某个团队短时间内堆积大量任务"时，
 // 仍然覆盖到其他团队较早创建的任务，避免被单一团队的任务淹没（见 selectRoundRobinByTeam）。
 const CANDIDATE_POOL_SIZE = 200;
-
-// 按 teamId 轮询挑选：每一轮从每个团队各取一条最早的任务，直到取满 limit 或候选池耗尽。
-// items 需已按 createdAt asc 排序；返回顺序即为轮询顺序（不是严格的全局时间顺序），
-// 目的是避免某个团队的任务把其他团队的任务永远挤在候选池之外/槽位之外。
-function selectRoundRobinByTeam<T extends { teamId: number }>(items: T[], limit: number): T[] {
-  if (limit <= 0) return [];
-  const byTeam = new Map<number, T[]>();
-  for (const item of items) {
-    const queue = byTeam.get(item.teamId);
-    if (queue) {
-      queue.push(item);
-    } else {
-      byTeam.set(item.teamId, [item]);
-    }
-  }
-  // Map 的插入顺序 = 各团队最早任务在全局按 createdAt 排序中的先后顺序。
-  const teamIds = [...byTeam.keys()];
-
-  const selected: T[] = [];
-  let madeProgress = true;
-  while (selected.length < limit && madeProgress) {
-    madeProgress = false;
-    for (const teamId of teamIds) {
-      if (selected.length >= limit) break;
-      const queue = byTeam.get(teamId)!;
-      const next = queue.shift();
-      if (next) {
-        selected.push(next);
-        madeProgress = true;
-      }
-    }
-  }
-  return selected;
-}
 
 const PENDING_SUMMARY_LOG_INTERVAL_MS = 30_000;
 let lastPendingSummaryLoggedAt = 0;
@@ -1159,30 +1185,34 @@ export async function processPendingQueueItems(): Promise<{
   rootLogger.info(`processPendingQueueItems`);
   await recoverStaleProcessingItems();
 
-  // 一次性捞出足够多的 pending 记录，内存内分流（避免 Prisma JSON path 过滤器的兼容性问题）
-  // 候选池不带 assetObject：素材的 content/extra 是整条 MuseDAM 素材 JSON，200 条全拉下来
-  // 再在主线程解析很重，而每轮只会领走两三条；选定之后再只查被选中那几条的素材。
-  const candidateItems = await prisma.taggingQueueItem.findMany({
-    where: { status: "pending" },
-    orderBy: { createdAt: "asc" },
-    // 多拉一些，保证两类任务都能填满各自的槽位，同时覆盖足够多的团队用于轮询
-    take: CANDIDATE_POOL_SIZE,
-  });
+  // 测试和正式分开查：正式积压超过候选池时，测试任务也不会被挡在池子外面。
+  // 候选池不带 assetObject：素材的 content/extra 是整条 MuseDAM 素材 JSON，全拉下来
+  // 再在主线程解析很重，而每轮只会领走空闲槽位那么多条；选定之后再只查被选中那几条的素材。
+  const [productionPool, testCandidates] = await Promise.all([
+    prisma.taggingQueueItem.findMany({
+      where: { status: "pending", taskType: { not: "test" } },
+      orderBy: { createdAt: "asc" },
+      take: CANDIDATE_POOL_SIZE,
+    }),
+    prisma.taggingQueueItem.findMany({
+      where: { status: "pending", taskType: "test" },
+      orderBy: { createdAt: "asc" },
+      take: CANDIDATE_POOL_SIZE,
+    }),
+  ]);
 
   // 按团队轮询挑选，避免某个团队短时间内堆积大量任务时把其他团队"饿死"。
-  const tagTreeItems = selectRoundRobinByTeam(
-    candidateItems.filter(isTagTreeJob),
-    Math.min(TAG_TREE_RESERVED_CONCURRENCY, freeSlots),
-  );
-
-  // 只领空闲槽位数量的任务，不多领去 pLimit 里排队
-  const normalItems = selectRoundRobinByTeam(
-    candidateItems.filter((item) => !isTagTreeJob(item)),
-    Math.min(
-      TOTAL_QUEUE_CONCURRENCY - TAG_TREE_RESERVED_CONCURRENCY,
-      freeSlots - tagTreeItems.length,
-    ),
-  );
+  // 只领空闲槽位数量的任务，不多领去 pLimit 里排队。
+  const { tagTreeItems, testItems, productionItems } = pickPendingQueueItems({
+    tagTreeCandidates: productionPool.filter(isTagTreeJob),
+    testCandidates,
+    productionCandidates: productionPool.filter((item) => !isTagTreeJob(item)),
+    freeSlots,
+    tagTreeReserved: TAG_TREE_RESERVED_CONCURRENCY,
+    testReserved: TEST_TAGGING_CONCURRENCY,
+    assetConcurrency: ASSET_TAGGING_CONCURRENCY,
+  });
+  const normalItems = [...testItems, ...productionItems];
 
   const selectedAssetObjectIds = normalItems
     .map((item) => item.assetObjectId)
@@ -1227,6 +1257,8 @@ export async function processPendingQueueItems(): Promise<{
     skipped,
     tagTreePicked: tagTreeItems.length,
     normalPicked: normalItems.length,
+    testPicked: testItems.length,
+    productionPicked: productionItems.length,
   });
 
   return { processing, skipped };
@@ -1236,11 +1268,17 @@ export async function processPendingQueueItems(): Promise<{
 async function resolveAspectRatioTagsForAsset({
   tagsTree,
   assetExtra,
+  assetName,
+  teamId,
+  recognitionAccuracy,
   getThumbnailSource,
   logger,
 }: {
   tagsTree: TagWithChildren[];
   assetExtra: AssetObjectExtra | null;
+  assetName: string;
+  teamId: number;
+  recognitionAccuracy: keyof typeof RECOGNITION_ACCURACY_CONFIG | undefined;
   getThumbnailSource: (() => Promise<RemoteImageSource>) | undefined;
   logger: typeof rootLogger;
 }): Promise<TagWithScore[]> {
@@ -1267,13 +1305,31 @@ async function resolveAspectRatioTagsForAsset({
       return [];
     }
   }
-  const tags = resolveAspectRatioTags({ groups, width, height });
+  const systemTags = resolveAspectRatioTags({ groups, width, height });
+  // 系统解析不了的规格标签（如"长1600、宽度自适应"）交给模型按像素尺寸判断；
+  // 只在有原图宽高时做，缩略图缩放过，判断不了像素规格。
+  const originalWidth = assetExtra?.width;
+  const originalHeight = assetExtra?.height;
+  const aiTags =
+    originalWidth && originalHeight && groups.some((group) => group.unparsedChildren.length > 0)
+      ? await predictUnparsedSizeTags({
+          groups,
+          width: originalWidth,
+          height: originalHeight,
+          assetName,
+          teamId,
+          minConfidence:
+            RECOGNITION_ACCURACY_CONFIG[recognitionAccuracy ?? "balanced"].minConfidence,
+        })
+      : [];
+  const tags = mergeAiSizeTags({ groups, systemTags, aiTags });
   logger.info({
     msg: "Aspect ratio tagging resolved",
     width,
     height,
     groups: groups.map((group) => group.parentPath.join(" > ")),
     tags: tags.map((tag) => tag.tagPath.join(" > ")),
+    aiSizeTags: aiTags.map((tag) => tag.tagPath.join(" > ")),
   });
   return tags;
 }

@@ -1,7 +1,12 @@
 // @vitest-environment node
 
 import { signObjectDetectionImageUrl } from "@/lib/media-process/image-url";
-import { fetchRemoteImageInput } from "@/lib/tagging/classification-image";
+import { cropProductImageToDataUrl } from "@/lib/product/image-preparation";
+import {
+  cropImageToDataUrl,
+  fetchRemoteImageInput,
+  prepareSvgCropSource,
+} from "@/lib/tagging/classification-image";
 import sharp from "sharp";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -15,6 +20,57 @@ afterEach(() => {
 });
 
 describe("remote detection image coordinates", () => {
+  it("uses the saved JPEG preview coordinates for an SVG IP partial-reference crop", async () => {
+    const svg = Buffer.from(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200"><rect width="200" height="200" fill="red"/><rect x="200" width="200" height="200" fill="green"/></svg>',
+    );
+    const source = await prepareSvgCropSource(svg, "image/svg+xml", { width: 200, height: 100 });
+    expect(source.mimeType).toBe("image/jpeg");
+    expect(await sharp(source.buffer).metadata()).toMatchObject({ width: 200, height: 100 });
+    const crop = await cropImageToDataUrl({
+      imageDataUrl: `data:image/jpeg;base64,${source.buffer.toString("base64")}`,
+      imageBuffer: source.buffer,
+      sourceMimeType: source.mimeType,
+      meta: { width: 200, height: 100 },
+      box: { xMin: 110, yMin: 10, xMax: 190, yMax: 90, score: 1, label: "character" },
+    });
+    const pixel = await sharp(Buffer.from(crop.split(",")[1], "base64"))
+      .extract({ left: 40, top: 40, width: 1, height: 1 })
+      .raw()
+      .toBuffer();
+    expect(pixel[1]).toBeGreaterThan(pixel[0] * 2);
+  });
+
+  it("rasterizes SVG bytes once and uses JPEG pixels for previews and product crops", async () => {
+    const svg = Buffer.from(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 87.5 57"><rect width="43.75" height="57" fill="#ff0000"/></svg>',
+    );
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(new Uint8Array(svg), {
+            headers: { "content-type": "application/octet-stream" },
+          }),
+      ),
+    );
+    const url = "https://assets.test/image.svg?signature=preserved";
+    const input = await fetchRemoteImageInput(url, "SVG detection", { preserveOriginal: true });
+    expect(input.sourceImage).toEqual({ url, width: 88, height: 57, isSvg: true });
+    expect(input.mimeType).toBe("image/jpeg");
+    expect(input.original?.mimeType).toBe("image/jpeg");
+    expect(input.width).toBe(1280);
+    expect(input.height).toBeGreaterThan(800);
+    expect(input.original?.width).toBe(2048);
+    expect(input.original?.height).toBeGreaterThan(1300);
+    expect((await sharp(input.buffer).metadata()).format).toBe("jpeg");
+    const crop = await cropProductImageToDataUrl({
+      imageInput: input,
+      box: { xMin: 0, yMin: 0, xMax: input.width / 2, yMax: input.height },
+    });
+    expect((await sharp(Buffer.from(crop.split(",")[1], "base64")).metadata()).format).toBe("png");
+  });
+
   it.each([
     {
       width: 6400,

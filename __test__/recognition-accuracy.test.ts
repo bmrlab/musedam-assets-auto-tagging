@@ -42,6 +42,18 @@ describe("tagPredictionSystemPrompt", () => {
     expect(prompt).toContain("宽泛模式");
     expect(prompt).toContain("最终会保留置信度≥0.40的标签");
   });
+
+  it("keeps language-dimension tags from being overridden by country/market words in the filename", () => {
+    // 客户案例：文件名含「巴西」、解析已摘录英文画面文字，却高置信打上 ES——
+    // 根因是旧规则把「文件名优先」用到了语言维度上。约束必须留在 prompt 里，且不写死兜底标签名。
+    const prompt = tagPredictionSystemPrompt();
+    expect(prompt).toContain("国家/地区/市场 ≠ 语言/语种/语言版本");
+    expect(prompt).toContain("不能直接等同");
+    expect(prompt).toContain("不得**仅凭文件名或路径中的国家/市场词，给另一个语种标签打高置信度");
+    expect(prompt).toContain("未指定具体语种的兜底项");
+    expect(prompt).toContain("不要假设固定名称");
+    expect(prompt).toContain("不适用于**：用文件名/路径里的国家、地区、市场词，去覆盖 contentAnalysis 已明确给出的语言证据");
+  });
 });
 
 describe("filterTagsWithScoreByRecognitionAccuracy", () => {

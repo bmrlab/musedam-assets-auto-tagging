@@ -440,6 +440,7 @@
       "latest": "ล่าสุด",
       "requiredFallbackBadge": "ค่าสำรองบังคับ",
       "aspectRatioBadge": "จากขนาดภาพ",
+      "sizeAIBadge": "AI จากขนาด",
       "appliedBadge": "นำไปใช้แล้ว",
       "showHistory": "ดูประวัติ ({count})",
       "hideHistory": "ซ่อนประวัติ",
@@ -1514,7 +1515,18 @@
       },
       "formatExcel": "Excel",
       "formatCsv": "CSV",
-      "spreadsheetBadge": "XLS"
+      "spreadsheetBadge": "XLS",
+      "precheckTitle": "ตรวจสอบก่อนนำเข้า",
+      "precheckHint": "โปรดตรวจสอบรายการต่อไปนี้ก่อนนำเข้า",
+      "precheckSummary": "จะสร้างแท็ก {create} รายการ อัปเดต {update} รายการ ไม่เปลี่ยนแปลง {unchanged} รายการ",
+      "precheckRenameNotice": "ในจำนวนนี้ {count} แท็กจะถูกเปลี่ยนชื่อและซิงค์ไปยัง MuseDAM",
+      "precheckIssuesLabel": "มี {count} แถวที่มีปัญหา และจะถูกข้ามหากดำเนินการต่อ:",
+      "precheckCreateLabel": "จะสร้างแท็ก {count} รายการ:",
+      "precheckMoreItems": "…รวม {count} รายการ",
+      "backToEdit": "กลับไปแก้ไข",
+      "continueImport": "นำเข้าต่อ",
+      "continueImportSkipIssues": "ข้ามแถวที่มีปัญหาและดำเนินการต่อ",
+      "importSuccessWithSkipped": "นำเข้า {count} แถว ข้าม {skipped} แถวที่มีปัญหา"
     }
   }
 }
