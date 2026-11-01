@@ -21,6 +21,7 @@ import {
 } from "../tagBatchFileActions";
 import { flattenTagNodesToRows } from "../tagImportExport";
 import type { TagNode } from "../types";
+import { TagImportExportDialog } from "./TagImportExportDialog";
 
 type BatchMode = "import" | "export";
 type ExportFormat = "xlsx" | "csv";
@@ -47,14 +48,17 @@ export function BatchTagImportExportDialog({
   maxLevel,
   tagsTree,
   onImportedText,
+  onImported,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   maxLevel: 3 | 4;
   tagsTree: TagNode[];
   onImportedText: (text: string) => void;
+  onImported?: () => void;
 }) {
   const t = useTranslations("TagsPage.BatchTagImportExport");
+  const [scope, setScope] = useState<"structure" | "configuration">("structure");
   const [mode, setMode] = useState<BatchMode>("import");
   const [exportFormat, setExportFormat] = useState<ExportFormat>("xlsx");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -63,6 +67,7 @@ export function BatchTagImportExportDialog({
 
   useEffect(() => {
     if (open) {
+      setScope("structure");
       setMode("import");
       setExportFormat("xlsx");
       setErrorMessage(null);
@@ -115,8 +120,37 @@ export function BatchTagImportExportDialog({
     });
   }
 
+  const renderScopeSelector = (pending: boolean) => (
+    <div className="flex gap-2" role="group" aria-label={t("contentType")}>
+      {(["structure", "configuration"] as const).map((value) => (
+        <Button
+          key={value}
+          variant={scope === value ? "default" : "outline"}
+          size="sm"
+          disabled={pending}
+          aria-pressed={scope === value}
+          onClick={() => setScope(value)}
+        >
+          {t(value === "structure" ? "structureScope" : "configurationScope")}
+        </Button>
+      ))}
+    </div>
+  );
+
+  if (scope === "configuration") {
+    return (
+      <TagImportExportDialog
+        open={open}
+        maxLevel={maxLevel}
+        onOpenChange={onOpenChange}
+        onImported={() => onImported?.()}
+        headerExtra={renderScopeSelector}
+      />
+    );
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(next) => !isPending && onOpenChange(next)}>
       <DialogContent className="flex w-[580px] max-w-[calc(100%-2rem)] flex-col gap-4 overflow-hidden rounded-[16px] border p-5">
         <DialogHeader className="gap-0 p-0">
           <DialogTitle className="text-[16px] leading-6 font-semibold text-basic-9">
@@ -143,16 +177,14 @@ export function BatchTagImportExportDialog({
               <Button variant="outline" onClick={handleDownloadTemplate} disabled={isPending}>
                 {t("downloadTemplate")}
               </Button>
-              <Button
-                onClick={() => setErrorMessage(null)}
-                disabled={isPending}
-              >
+              <Button onClick={() => setErrorMessage(null)} disabled={isPending}>
                 {t("reimport")}
               </Button>
             </DialogFooter>
           </div>
         ) : (
           <>
+            {renderScopeSelector(isPending)}
             <div className="flex">
               <div className="flex h-8 items-center space-x-0.5 rounded-lg bg-basic-1 p-0.5">
                 {(["import", "export"] as const).map((item) => (

@@ -927,6 +927,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
         onOpenChange={setBatchImportExportOpen}
         maxLevel={tagLevel}
         tagsTree={tagsTree}
+        onImported={() => { void refetchTagsTree(); }}
         onImportedText={(text) => {
           setCreateModalInitialText(text);
           setCreateModalVisible(true);

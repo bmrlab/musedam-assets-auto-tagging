@@ -131,7 +131,10 @@
       "exportAndEdit": "导出当前标签树到本地进行编辑",
       "exportSuccess": "导出成功",
       "unsupportedFileType": "仅支持 Excel (.xlsx) 或 CSV (.csv) 文件",
-      "importPreviewTitle": "导入标签预览"
+      "importPreviewTitle": "导入标签预览",
+      "contentType": "导入导出内容",
+      "structureScope": "标签结构",
+      "configurationScope": "标签及配置"
     },
     "ManualCreateModal": {
       "LabelsCreatedSuccessfully": "批量创建标签成功",
@@ -194,7 +197,8 @@
     },
     "TagColumn": {
       "smartTags": "智能标签"
-    }
+    },
+    "importUploadHint": "有标签 ID 按 ID 更新，无 ID 按层级路径匹配，缺失时新增；空单元格保持不变，描述/关键词填 - 清空；多个关键词用分号或换行分隔"
   },
   "AiCreateModal": {
     "title": "AI 智能创建标签",

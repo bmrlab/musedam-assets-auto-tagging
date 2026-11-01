@@ -1515,7 +1515,18 @@
       },
       "formatExcel": "Excel",
       "formatCsv": "CSV",
-      "spreadsheetBadge": "XLS"
+      "spreadsheetBadge": "XLS",
+      "precheckTitle": "Проверка перед импортом",
+      "precheckHint": "Проверьте следующее перед импортом",
+      "precheckSummary": "Будет создано тегов: {create}, обновлено: {update}, без изменений: {unchanged}",
+      "precheckRenameNotice": "Из них {count} будут переименованы и синхронизированы с MuseDAM",
+      "precheckIssuesLabel": "В {count} строках есть проблемы, при продолжении они будут пропущены:",
+      "precheckCreateLabel": "Будет создано тегов: {count}",
+      "precheckMoreItems": "…всего {count}",
+      "backToEdit": "Вернуться к редактированию",
+      "continueImport": "Продолжить импорт",
+      "continueImportSkipIssues": "Пропустить проблемы и продолжить",
+      "importSuccessWithSkipped": "Импортировано строк: {count}, пропущено проблемных строк: {skipped}"
     }
   }
 }

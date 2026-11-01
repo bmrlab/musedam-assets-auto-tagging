@@ -1515,7 +1515,18 @@
       },
       "formatExcel": "Excel",
       "formatCsv": "CSV",
-      "spreadsheetBadge": "XLS"
+      "spreadsheetBadge": "XLS",
+      "precheckTitle": "Prüfung vor dem Import",
+      "precheckHint": "Bitte prüfen Sie Folgendes vor dem Import",
+      "precheckSummary": "{create} Tags werden erstellt, {update} aktualisiert, {unchanged} unverändert",
+      "precheckRenameNotice": "{count} davon werden umbenannt und mit MuseDAM synchronisiert",
+      "precheckIssuesLabel": "{count} Zeilen enthalten Probleme und werden beim Fortfahren übersprungen:",
+      "precheckCreateLabel": "{count} Tags werden erstellt:",
+      "precheckMoreItems": "…insgesamt {count} Einträge",
+      "backToEdit": "Zurück zur Bearbeitung",
+      "continueImport": "Import fortsetzen",
+      "continueImportSkipIssues": "Probleme überspringen und fortfahren",
+      "importSuccessWithSkipped": "{count} Zeilen importiert, {skipped} fehlerhafte Zeilen übersprungen"
     }
   }
 }

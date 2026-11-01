@@ -193,8 +193,12 @@
       "unsupportedFileType": "Only Excel (.xlsx) or CSV (.csv) files are supported",
       "importPreviewTitle": "Import tag preview",
       "uploadSubHint3": "Each row is a tag path from level 1 to level 3; same-name siblings are merged automatically",
-      "uploadSubHint4": "Each row is a tag path from level 1 to level 4; same-name siblings are merged automatically"
-    }
+      "uploadSubHint4": "Each row is a tag path from level 1 to level 4; same-name siblings are merged automatically",
+      "contentType": "Import/export content",
+      "structureScope": "Tag structure",
+      "configurationScope": "Tags and settings"
+    },
+    "importUploadHint": "Rows with a Tag ID update that tag; otherwise match by level path and create only missing tags. Empty cells keep existing values; - clears descriptions or keywords. Separate keywords with semicolons or line breaks."
   },
   "AiCreateModal": {
     "title": "Générateur de système d'étiquettes IA",

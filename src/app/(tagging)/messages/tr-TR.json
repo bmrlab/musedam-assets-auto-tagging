@@ -1515,7 +1515,18 @@
       },
       "formatExcel": "Excel",
       "formatCsv": "CSV",
-      "spreadsheetBadge": "XLS"
+      "spreadsheetBadge": "XLS",
+      "precheckTitle": "İçe aktarma öncesi kontrol",
+      "precheckHint": "İçe aktarmadan önce lütfen aşağıdakileri inceleyin",
+      "precheckSummary": "{create} etiket oluşturulacak, {update} güncellenecek, {unchanged} değişmeyecek",
+      "precheckRenameNotice": "Bunlardan {count} tanesi yeniden adlandırılıp MuseDAM ile senkronize edilecek",
+      "precheckIssuesLabel": "{count} satırda sorun var; devam ederseniz atlanacak:",
+      "precheckCreateLabel": "{count} etiket oluşturulacak:",
+      "precheckMoreItems": "…toplam {count} öğe",
+      "backToEdit": "Düzenlemeye dön",
+      "continueImport": "İçe aktarmaya devam et",
+      "continueImportSkipIssues": "Sorunları atla ve devam et",
+      "importSuccessWithSkipped": "{count} satır içe aktarıldı, sorunlu {skipped} satır atlandı"
     }
   }
 }

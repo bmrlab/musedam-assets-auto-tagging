@@ -315,7 +315,11 @@
       "unsupportedFileType": "Only Excel (.xlsx) or CSV (.csv) files are supported",
       "importPreviewTitle": "Import tag preview",
       "uploadSubHint3": "Each row is a tag path from level 1 to level 3; same-name siblings are merged automatically",
-      "uploadSubHint4": "Each row is a tag path from level 1 to level 4; same-name siblings are merged automatically"
-    }
+      "uploadSubHint4": "Each row is a tag path from level 1 to level 4; same-name siblings are merged automatically",
+      "contentType": "匯入匯出內容",
+      "structureScope": "標籤結構",
+      "configurationScope": "標籤及設定"
+    },
+    "importUploadHint": "有標籤 ID 按 ID 更新，無 ID 按層級路徑匹配，缺少時新增；空儲存格保持不變，描述/關鍵詞填 - 清空；多個關鍵詞用分號或換行分隔"
   }
 }

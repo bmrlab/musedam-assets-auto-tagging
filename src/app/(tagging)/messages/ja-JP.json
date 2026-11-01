@@ -1515,7 +1515,18 @@
       },
       "formatExcel": "Excel",
       "formatCsv": "CSV",
-      "spreadsheetBadge": "XLS"
+      "spreadsheetBadge": "XLS",
+      "precheckTitle": "インポート前チェック",
+      "precheckHint": "インポート前に以下を確認してください",
+      "precheckSummary": "{create} 件のタグを作成、{update} 件を更新、{unchanged} 件は変更なし",
+      "precheckRenameNotice": "そのうち {count} 件のタグ名が変更され、MuseDAM に同期されます",
+      "precheckIssuesLabel": "以下の {count} 行に問題があります。続行するとスキップされます：",
+      "precheckCreateLabel": "作成される {count} 件のタグ：",
+      "precheckMoreItems": "…合計 {count} 件",
+      "backToEdit": "編集に戻る",
+      "continueImport": "インポートを続行",
+      "continueImportSkipIssues": "問題行をスキップして続行",
+      "importSuccessWithSkipped": "{count} 件をインポートし、問題のある {skipped} 行をスキップしました"
     }
   }
 }

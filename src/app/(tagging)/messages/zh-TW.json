@@ -1515,7 +1515,18 @@
       },
       "formatExcel": "Excel",
       "formatCsv": "CSV",
-      "spreadsheetBadge": "XLS"
+      "spreadsheetBadge": "XLS",
+      "precheckTitle": "匯入前檢測",
+      "precheckHint": "檢測到以下情況，請確認後再匯入",
+      "precheckSummary": "將新增 {create} 個標籤，更新 {update} 個，{unchanged} 個無變化",
+      "precheckRenameNotice": "其中 {count} 個標籤會改名，並同步到 MuseDAM",
+      "precheckIssuesLabel": "以下 {count} 行存在問題，繼續匯入將略過這些行：",
+      "precheckCreateLabel": "將新增的 {count} 個標籤：",
+      "precheckMoreItems": "…等共 {count} 項",
+      "backToEdit": "返回修改",
+      "continueImport": "繼續匯入",
+      "continueImportSkipIssues": "略過問題行，繼續匯入",
+      "importSuccessWithSkipped": "成功匯入 {count} 筆，已略過 {skipped} 筆有問題的行"
     }
   }
 }

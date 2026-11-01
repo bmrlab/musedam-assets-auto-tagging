@@ -131,7 +131,10 @@
       "exportAndEdit": "Export the current tag tree for local editing",
       "exportSuccess": "Export successful",
       "unsupportedFileType": "Only Excel (.xlsx) or CSV (.csv) files are supported",
-      "importPreviewTitle": "Import tag preview"
+      "importPreviewTitle": "Import tag preview",
+      "contentType": "Import/export content",
+      "structureScope": "Tag structure",
+      "configurationScope": "Tags and settings"
     },
     "ManualCreateModal": {
       "LabelsCreatedSuccessfully": "Labels created successfully",
@@ -194,7 +197,8 @@
     },
     "TagColumn": {
       "smartTags": "Smart Tags"
-    }
+    },
+    "importUploadHint": "Rows with a Tag ID update that tag; otherwise match by level path and create only missing tags. Empty cells keep existing values; - clears descriptions or keywords. Separate keywords with semicolons or line breaks."
   },
   "AiCreateModal": {
     "title": "AI Tag System Generator",
