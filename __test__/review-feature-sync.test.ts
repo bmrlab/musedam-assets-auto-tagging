@@ -18,12 +18,18 @@ const mocks = vi.hoisted(() => ({
     assetIp: { findMany: vi.fn() },
     assetProduct: { findMany: vi.fn() },
     assetPerson: { findMany: vi.fn() },
+    assetLogoImage: { findMany: vi.fn() },
+    assetIpImage: { findMany: vi.fn() },
+    assetProductImage: { findMany: vi.fn() },
+    assetPersonImage: { findMany: vi.fn() },
     assetTag: { findMany: vi.fn() },
-    assetObject: { findMany: vi.fn(), update: vi.fn() },
+    assetObject: { findMany: vi.fn(), findUniqueOrThrow: vi.fn(), update: vi.fn() },
     taggingAuditItem: { findMany: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     taggingQueueItem: { update: vi.fn() },
+    $queryRaw: vi.fn(),
     $transaction: vi.fn(),
   },
+  syncAsset: vi.fn(),
   bind: vi.fn(),
   setTags: vi.fn(),
   request: vi.fn(),
@@ -46,7 +52,7 @@ vi.mock("@/lib/feature-library-server", () => ({
 vi.mock("@/musedam/assets", () => ({
   bindFeatureMaterialToMuseDAM: mocks.bind,
   setAssetTagsToMuseDAM: mocks.setTags,
-  syncSingleAssetFromMuseDAM: vi.fn(),
+  syncSingleAssetFromMuseDAM: mocks.syncAsset,
   batchSyncAssetThumbnails: async () => undefined,
   getFeatureByAssetFromMuseDAM: async () => [],
 }));
@@ -63,6 +69,7 @@ import {
   approveAuditItemsAction,
   batchApproveAuditItemsAction,
   fetchAssetsWithAuditItems,
+  rejectAuditItemsAction,
 } from "@/app/(tagging)/tagging/review/actions";
 
 const ids = {
@@ -241,6 +248,7 @@ function multipleProductVersions() {
     ),
   };
 }
+let assetExtra: Record<string, unknown>;
 let queue: {
   id: number;
   result: TaggingQueueItemResult;
@@ -316,6 +324,7 @@ function batchInput(versions = input().featureReviewVersions, rejectedFeatureKey
 
 beforeEach(() => {
   vi.resetAllMocks();
+  assetExtra = { extension: "psd", thumbnailAccessUrl: "test-thumbnail" };
   queue = { id: 1, result: result(), extra: {}, taskType: "default", createdAt: new Date() };
   audits = [
     {
@@ -331,12 +340,27 @@ beforeEach(() => {
     },
   ];
   configureLibrary();
+  for (const images of [
+    mocks.prisma.assetLogoImage,
+    mocks.prisma.assetIpImage,
+    mocks.prisma.assetProductImage,
+    mocks.prisma.assetPersonImage,
+  ]) {
+    images.findMany.mockResolvedValue([]);
+  }
+  mocks.prisma.$queryRaw.mockImplementation(async (query) =>
+    query.sql.includes("COUNT(DISTINCT") ? [{ count: BigInt(1) }] : [{ assetObjectId: 42 }],
+  );
   mocks.prisma.team.findUniqueOrThrow.mockResolvedValue({ id: 7, slug: "t/7" });
   mocks.prisma.taggingAuditItem.findMany.mockImplementation(async (args) =>
     args.distinct ? [{ assetObjectId: 42 }] : audits,
   );
+  mocks.prisma.assetObject.findUniqueOrThrow.mockImplementation(async () => ({
+    id: 42,
+    extra: assetExtra,
+  }));
   mocks.prisma.assetObject.findMany.mockImplementation(async () => [
-    { id: 42, slug: "a/42", taggingAuditItems: audits },
+    { id: 42, slug: "a/42", extra: assetExtra, taggingAuditItems: audits },
   ]);
   mocks.prisma.assetTag.findMany.mockImplementation(async (args) =>
     (args.where.id?.in ?? []).map((id: number) => ({
@@ -352,6 +376,31 @@ beforeEach(() => {
 });
 
 describe("review feature synchronization", () => {
+  it("keeps rejected counts in reviewed summaries when rejected tags are hidden", async () => {
+    audits[0].status = "approved";
+    audits[0].leafTagId = 20;
+    audits[0].tagPath = ["Accepted"];
+    audits.push({ ...audits[0], id: 2, status: "rejected", leafTagId: 21, tagPath: ["Rejected"] });
+    const response = await fetchAssetsWithAuditItems();
+    if (!response.success) throw new Error(response.message);
+    const group = response.data.assets[0].batch[0];
+    expect(group.taggingAuditItems).toHaveLength(1);
+    expect(group.reviewSummary).toEqual({ reviewed: true, approved: 1, rejected: 1 });
+  });
+
+  it("reports rejected-only groups as reviewed without suggesting adoption", async () => {
+    audits[0].status = "rejected";
+    audits[0].leafTagId = 20;
+    audits[0].tagPath = ["Rejected"];
+    const response = await fetchAssetsWithAuditItems(1, 10, "rejected");
+    if (!response.success) throw new Error(response.message);
+    expect(response.data.assets[0].batch[0].reviewSummary).toEqual({
+      reviewed: true,
+      approved: 0,
+      rejected: 1,
+    });
+  });
+
   it("refreshes every accepted product and keeps each detection's evidence", async () => {
     queue.result = multipleProductResult();
     configureProductLibrary();
@@ -642,9 +691,93 @@ describe("review feature synchronization", () => {
 
   it("does not mark review complete when MuseDAM rejects a feature binding", async () => {
     mocks.bind.mockResolvedValue(false);
-    await expect(approveAuditItemsAction(input())).rejects.toThrow("Failed to bind feature");
+    const response = await approveAuditItemsAction(input());
+    expect(response).toMatchObject({
+      success: false,
+      message: expect.stringContaining("添加失败"),
+    });
+    expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
     expect(mocks.prisma.taggingQueueItem.update).not.toHaveBeenCalled();
   });
+
+  it("keeps a missing source asset pending instead of marking it deleted", async () => {
+    mocks.syncAsset.mockRejectedValueOnce(new Error("Asset not found"));
+    const response = await approveAuditItemsAction(input());
+    expect(response).toMatchObject({ success: false, message: expect.stringContaining("权限") });
+    expect(mocks.setTags).not.toHaveBeenCalled();
+    expect(mocks.bind).not.toHaveBeenCalled();
+    expect(mocks.prisma.assetObject.update).not.toHaveBeenCalled();
+    expect(mocks.prisma.taggingAuditItem.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("counts unavailable batch assets as failures without rejecting reviews", async () => {
+    mocks.request.mockResolvedValueOnce([]);
+    const response = await batchApproveAuditItemsAction(batchInput());
+    expect(response).toMatchObject({ success: true, data: { deletedCount: 0, failedCount: 1 } });
+    expect(mocks.prisma.assetObject.update).not.toHaveBeenCalled();
+    expect(mocks.prisma.taggingAuditItem.updateMany).not.toHaveBeenCalled();
+    expect(mocks.setTags).not.toHaveBeenCalled();
+    expect(mocks.bind).not.toHaveBeenCalled();
+  });
+
+  it.each([undefined, "rejected"] as const)(
+    "keeps deleted asset records visible with the deletion marker under filter %s",
+    async (status) => {
+      assetExtra.reviewAssetDeleted = true;
+      audits[0].status = "rejected";
+      const response = await fetchAssetsWithAuditItems(1, 10, status);
+      if (!response.success) throw new Error(response.message);
+      expect(response.data.total).toBe(1);
+      expect(response.data.assets).toHaveLength(1);
+      expect(response.data.assets[0].assetObject.extra).toMatchObject({ reviewAssetDeleted: true });
+      expect(response.data.assets[0].batch[0].taggingAuditItems[0].status).toBe("rejected");
+    },
+  );
+
+  it("retains ordinary rejected records under the rejected filter without a deleted marker", async () => {
+    audits[0].status = "rejected";
+    const response = await fetchAssetsWithAuditItems(1, 10, "rejected");
+    if (!response.success) throw new Error(response.message);
+    expect(response.data.assets).toHaveLength(1);
+    expect(response.data.assets[0].assetObject.extra).not.toHaveProperty("reviewAssetDeleted");
+    expect(response.data.assets[0].batch[0].taggingAuditItems[0].status).toBe("rejected");
+  });
+
+  it("does not label a reviewer's ordinary rejection as a deleted asset", async () => {
+    const response = await rejectAuditItemsAction({ assetSlug: "a/42" });
+    expect(response.success).toBe(true);
+    expect(mocks.prisma.taggingAuditItem.updateMany).toHaveBeenCalled();
+    expect(mocks.prisma.assetObject.update).not.toHaveBeenCalled();
+  });
+
+  it.each(["prepare", "sync-asset", "set-tags", "refresh-tags", "save-review"])(
+    "returns a safe failure and logs context when %s fails",
+    async (stage) => {
+      const error = new Error("Internal customer API or database details");
+      const log = vi.spyOn(console, "error").mockImplementation(() => {});
+      try {
+        if (stage === "prepare") mocks.prisma.team.findUniqueOrThrow.mockRejectedValueOnce(error);
+        if (stage === "sync-asset") mocks.syncAsset.mockRejectedValueOnce(error);
+        if (stage === "set-tags") mocks.setTags.mockRejectedValueOnce(error);
+        if (stage === "refresh-tags") mocks.request.mockRejectedValueOnce(error);
+        if (stage === "save-review") mocks.prisma.$transaction.mockRejectedValueOnce(error);
+        const response = await approveAuditItemsAction(input());
+        expect(response).toEqual({
+          success: false,
+          message: "添加失败，请稍后重试；若持续失败请联系管理员",
+        });
+        expect(log).toHaveBeenCalledWith(
+          "添加 AI 打标审核结果失败:",
+          { teamId: 7, assetSlug: "a/42", stage },
+          error,
+        );
+        expect(mocks.prisma.taggingAuditItem.update).not.toHaveBeenCalled();
+        expect(mocks.prisma.taggingQueueItem.update).not.toHaveBeenCalled();
+      } finally {
+        log.mockRestore();
+      }
+    },
+  );
 
   it("excludes completed history and old default batches from approval versions", () => {
     const batch = [

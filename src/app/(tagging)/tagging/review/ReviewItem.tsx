@@ -442,6 +442,7 @@ export function ReviewItem({
   const [showHistory, setShowHistory] = useState(false);
 
   const assetExtra = assetObject.extra as AssetObjectExtra | null;
+  const sourceDeleted = assetExtra?.reviewAssetDeleted === true;
   const assetPreviewUrl = assetExtra?.thumbnailAccessUrl;
   const isVideoAsset = isVideoAssetExtension(assetExtra?.extension);
 
@@ -669,13 +670,8 @@ export function ReviewItem({
             return;
           }
           if (result.message === "Asset not found") {
-            const rejectResult = await rejectAuditItemsAction({ assetSlug: assetObject.slug });
-            if (rejectResult.success) {
-              toast.warning(t("assetDeleted"));
-              onSuccess?.();
-            } else {
-              toast.error(rejectResult.message || t("applyFailed"));
-            }
+            toast.warning(t("assetDeleted"));
+            onSuccess?.();
             return;
           }
 
@@ -760,9 +756,16 @@ export function ReviewItem({
         </button>
 
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-basic" title={assetObject.name}>
-            {assetObject.name}
-          </h3>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="font-semibold text-basic" title={assetObject.name}>
+              {assetObject.name}
+            </h3>
+            {sourceDeleted && (
+              <span className="inline-flex rounded border border-red-200 bg-red-50 px-2 py-0.5 text-xs font-medium text-red-600">
+                {t("assetDeletedLabel")}
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-0.5 text-xs text-basic-5 mt-1">
             <span>{assetExtra?.extension?.toUpperCase()}</span>
             <DotIcon className="size-3" />
@@ -785,7 +788,7 @@ export function ReviewItem({
         </div>
 
         <div className="flex gap-2">
-          {hasPendingAuditItems && (
+          {hasPendingAuditItems && !sourceDeleted && (
             <Button
               size="sm"
               disabled={realLoading}
@@ -854,15 +857,22 @@ export function ReviewItem({
         </div>
 
         <div className="col-span-1 flex flex-col gap-[6px]">
-          {visibleBatch.map(({ queueItem, taggingAuditItems }, index) => {
+          {visibleBatch.map(({ queueItem, taggingAuditItems, reviewSummary }, index) => {
             const isLatestBatch = finalBatch.length > 1 && index === 0;
             const visibleAuditItems = taggingAuditItems.filter(
               (auditItem) => auditItem.tagPath.length > 0,
             );
-            // 这一批已经应用过：有审核项且没有待处理项
-            const isApplied =
-              taggingAuditItems.length > 0 &&
-              taggingAuditItems.every((auditItem) => auditItem.status !== "pending");
+            // Completion includes rejected-only and mixed outcomes; it does not imply adoption.
+            const isReviewed =
+              reviewSummary?.reviewed ??
+              (taggingAuditItems.length > 0 &&
+                taggingAuditItems.every((auditItem) => auditItem.status !== "pending"));
+            const approvedCount =
+              reviewSummary?.approved ??
+              visibleAuditItems.filter((item) => item.status === "approved").length;
+            const rejectedCount =
+              reviewSummary?.rejected ??
+              visibleAuditItems.filter((item) => item.status === "rejected").length;
             const resultTagsWithScore = (queueItem.result as TaggingQueueItemResult | null)
               ?.tagsWithScore;
             const originByLeafTagId = new Map(
@@ -874,7 +884,7 @@ export function ReviewItem({
             return (
               <div key={queueItem.id} className="flex flex-col gap-[6px]">
                 <div className="w-full bg-[rgba(247,249,252,0.8)] dark:bg-basic-1 rounded-md p-4">
-                  <div className="flex items-center gap-2 mb-3">
+                  <div className="flex flex-wrap items-center gap-2 mb-3">
                     <TagAIIcon className="size-4" />
                     <span className="text-sm font-medium">{t("aiRecommendedTags")}</span>
                     <span className="text-xs text-basic-5">{t("basedOnTagSystem")}</span>
@@ -883,10 +893,18 @@ export function ReviewItem({
                         {t("latest")}
                       </span>
                     ) : null}
-                    {isApplied ? (
-                      <span className="ml-2 inline-flex items-center px-2 py-[1px] rounded-[4px] text-xs text-success-6 border border-success-3 bg-success-1">
-                        {t("appliedBadge")}
-                      </span>
+                    {isReviewed ? (
+                      <>
+                        <span className="ml-2 inline-flex items-center px-2 py-[1px] rounded-[4px] text-xs text-primary-6 border border-primary-3 bg-primary-1">
+                          {t("reviewedBadge")}
+                        </span>
+                        <span className="text-xs text-basic-5">
+                          {t("reviewOutcomeCounts", {
+                            approved: approvedCount,
+                            rejected: rejectedCount,
+                          })}
+                        </span>
+                      </>
                     ) : null}
                     <span className="ml-auto text-xs text-basic-5 flex items-center gap-1">
                       <ClockCircleIcon className="size-3" />
