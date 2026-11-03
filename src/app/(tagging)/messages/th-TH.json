@@ -422,6 +422,7 @@
       "tooltipRemove": "ลบ",
       "noCorrespondingTag": "ไม่มีแท็กที่ตรงกัน",
       "assetDeleted": "ทรัพยากรถูกลบ",
+      "assetDeletedLabel": "ลบแอสเซ็ตแล้ว",
       "tags": "แท็ก",
       "features": "คุณลักษณะ",
       "featureRecognition": "คุณลักษณะที่ AI รู้จำ",

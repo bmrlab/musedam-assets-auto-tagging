@@ -107,6 +107,7 @@
       "applySuccess": "Aplicado com sucesso",
       "approved": "Aprovado",
       "assetDeleted": "Ativo excluído",
+      "assetDeletedLabel": "Ativo excluído",
       "balanced": "Equilibrado (60-79%)",
       "basedOnTagSystem": "Com base na correspondência do sistema de tags",
       "basedOnFeatureLibrary": "Com base na correspondência da biblioteca de recursos",

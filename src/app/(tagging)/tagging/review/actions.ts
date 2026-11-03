@@ -213,11 +213,16 @@ export async function fetchAssetsWithAuditItems(
       // 和列表组装用同一条「能展示」条件，避免标签被清空后总数仍把这些素材算进去
       conditions.push(displayedAuditItemSql(featureLibraryFeatures));
 
-      // 没有指定状态过滤时，排除 rejected 状态
+      // “全部”保留已删除素材作为可追溯记录，普通拒绝项仍按原规则排除。
       conditions.push(
         statusFilter
           ? Prisma.sql`a."status" = ${statusFilter}::"TaggingAuditStatus"`
-          : Prisma.sql`a."status" <> 'rejected'::"TaggingAuditStatus"`,
+          : Prisma.sql`(a."status" <> 'rejected'::"TaggingAuditStatus" OR EXISTS (
+              SELECT 1 FROM "AssetObject" deleted_asset
+              WHERE deleted_asset."id" = a."assetObjectId"
+                AND deleted_asset."teamId" = ${teamId}
+                AND deleted_asset."extra"->'reviewAssetDeleted' = 'true'::jsonb
+            ))`,
       );
 
       switch (confidenceFilter) {
@@ -486,7 +491,9 @@ export async function fetchAssetsWithAuditItems(
         // 这一批已经应用过（没有 pending 项）时剔除，避免历史上早已拒绝的标签再冒出来。
         for (const group of batch) {
           const hasPending = group.taggingAuditItems.some((item) => item.status === "pending");
-          if (!hasPending) {
+          const sourceDeleted =
+            (assetObject.extra as Prisma.JsonObject)?.reviewAssetDeleted === true;
+          if (!hasPending && statusFilter !== "rejected" && !sourceDeleted) {
             group.taggingAuditItems = group.taggingAuditItems.filter(
               (item) => item.status !== "rejected",
             );
@@ -542,6 +549,25 @@ export async function fetchAssetsWithAuditItems(
   });
 }
 
+// Keep the unavailable-source marker separate from a reviewer's ordinary rejection.
+// A successful full MuseDAM sync replaces extra and clears this marker if the asset returns.
+async function markReviewAssetDeleted(teamId: number, assetSlug: string) {
+  await prisma.$transaction(async (tx) => {
+    const asset = await tx.assetObject.findUniqueOrThrow({
+      where: { slug: assetSlug, teamId },
+      select: { id: true, extra: true },
+    });
+    await tx.assetObject.update({
+      where: { id: asset.id, teamId },
+      data: { extra: { ...(asset.extra as Prisma.JsonObject), reviewAssetDeleted: true } },
+    });
+    await tx.taggingAuditItem.updateMany({
+      where: { teamId, assetObjectId: asset.id },
+      data: { status: "rejected" },
+    });
+  });
+}
+
 export async function approveAuditItemsAction({
   assetSlug,
   auditItems,
@@ -558,177 +584,205 @@ export async function approveAuditItemsAction({
   append?: boolean;
 }): Promise<ServerActionResult<void>> {
   return withAuth(async ({ team: { id: teamId } }) => {
-    const featureLibraryFeatures = await getServerFeatureLibraryFeatures();
-    const team = await prisma.team.findUniqueOrThrow({
-      where: { id: teamId },
-      select: { id: true, slug: true },
-    });
-
-    const musedamAssetId = slugToId("assetObject", assetSlug);
-
-    // 判断素材是否还在素材库
-    await syncSingleAssetFromMuseDAM({
-      musedamAssetId,
-      team,
-    });
-
-    // Resolve tags on the server from current, team-owned features. Client tag IDs
-    // and the classifier's historical tag associations are never approval inputs.
-    const storedAuditItems = await prisma.taggingAuditItem.findMany({
-      where: {
-        id: { in: auditItems.map(({ id }) => id) },
-        teamId,
-        assetObject: { slug: assetSlug },
-      },
-      include: { queueItem: true },
-    });
-    if (storedAuditItems.length !== new Set(auditItems.map(({ id }) => id)).size) {
-      return { success: false, message: "Invalid review items" };
-    }
-    const queueResults = [
-      ...new Map(
-        storedAuditItems.flatMap(({ queueItem }) =>
-          queueItem ? [[queueItem.id, queueItem] as const] : [],
-        ),
-      ).values(),
-    ].filter((queueItem) => featureReviewVersions[queueItem.id] !== undefined);
-    const featureLibrary = await loadReviewFeatureLibrary(
-      teamId,
-      queueResults.map(({ result }) => result),
-      featureLibraryFeatures,
-    );
-    const currentResults = queueResults.map((queueItem) => ({
-      ...queueItem,
-      result: hydrateReviewFeatures(queueItem.result, featureLibrary),
-    }));
-    if (
-      currentResults.some(
-        ({ id, result }) => getFeatureReviewVersion(result) !== featureReviewVersions[id],
-      )
-    ) {
-      return { success: false, message: FEATURE_REVIEW_CHANGED };
-    }
-    const manualFeatures = await loadManualReviewFeatures(
-      teamId,
-      manualFeatureKeys,
-      featureLibraryFeatures,
-    );
-    const selectedFeatures = mergeManualReviewFeatures(
-      selectReviewFeatures(
-        currentResults.map(({ result }) => result),
-        rejectedFeatureKeys,
-      ),
-      manualFeatures,
-    );
-    const requestedStatus = new Map(auditItems.map(({ id, status }) => [id, status]));
-    const combinedApprovedTagIds = Array.from(
-      new Set([
-        ...storedAuditItems.flatMap(({ id, leafTagId }) =>
-          requestedStatus.get(id) === "approved" && leafTagId ? [leafTagId] : [],
-        ),
-        ...selectedFeatures.flatMap((feature) => feature.tags.map((tag) => tag.assetTagId)),
-      ]),
-    );
-
-    const approvedAsetTags = await prisma.assetTag.findMany({
-      where: {
-        teamId,
-        id: {
-          in: combinedApprovedTagIds,
-        },
-        slug: {
-          not: null,
-        },
-      },
-      select: { id: true, slug: true },
-    });
-
-    const musedamTagIds = Array.from(
-      new Set(approvedAsetTags.map((tag) => slugToId("assetTag", tag.slug!))),
-    );
-
-    if (musedamTagIds.length > 0 || !append) {
-      await setAssetTagsToMuseDAM({ musedamAssetId, musedamTagIds, team, append });
-    }
-    for (const feature of selectedFeatures) {
-      const bound = await bindFeatureMaterialToMuseDAM({
-        team,
-        materialId: Number(musedamAssetId.toString()),
-        identifierId: feature.id,
+    let stage = "prepare";
+    try {
+      const featureLibraryFeatures = await getServerFeatureLibraryFeatures();
+      const team = await prisma.team.findUniqueOrThrow({
+        where: { id: teamId },
+        select: { id: true, slug: true },
       });
-      if (!bound) throw new Error("Failed to bind feature to asset");
-    }
 
-    // 从 MuseDAM 获取更新后的素材标签并同步到本地数据库
-    const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
-    const assets = await requestMuseDAMAPI<{ id: MuseDAMID }[]>("/api/muse/assets-by-ids", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${musedamTeamApiKey}`,
-      },
-      body: [musedamAssetId],
-    });
+      const musedamAssetId = slugToId("assetObject", assetSlug);
 
-    if (assets && assets.length > 0) {
-      const musedamAsset = assets[0] as {
-        id: MuseDAMID;
-        tags: { id: MuseDAMID; name: string }[] | null;
-      };
-      const tags = await buildAssetObjectTags(musedamAsset.tags ?? []);
-
-      // 更新本地素材的 tags 字段
-      await prisma.assetObject.update({
-        where: { slug: assetSlug },
-        data: { tags },
-      });
-    }
-
-    // 只对"本次才变成 rejected"的审核项跑反馈闭环：点 x 时已经即时持久化并跑过反馈的项，
-    // 这里再收到 rejected 状态属于重复提交，不能再计一次数。
-    const previousStatusById = new Map(
-      (
-        await prisma.taggingAuditItem.findMany({
-          where: { id: { in: auditItems.map(({ id }) => id) }, teamId },
-          select: { id: true, status: true },
-        })
-      ).map(({ id, status }) => [id, status]),
-    );
-    const newlyRejectedAuditItemIds = auditItems
-      .filter(
-        ({ id, status }) => status === "rejected" && previousStatusById.get(id) !== "rejected",
-      )
-      .map(({ id }) => id);
-
-    await prisma.$transaction(async (tx) => {
-      for (const { id, status } of auditItems) {
-        await tx.taggingAuditItem.update({
-          where: { id, teamId },
-          data: { status },
-        });
+      // Only the initial existence check can report a deleted asset. Other failures
+      // must keep the review pending so the user can retry.
+      stage = "sync-asset";
+      try {
+        await syncSingleAssetFromMuseDAM({ musedamAssetId, team });
+      } catch (error) {
+        if (error instanceof Error && error.message === "Asset not found") {
+          console.warn("审核添加时未查询到 MuseDAM 素材:", {
+            teamId,
+            assetSlug,
+            musedamAssetId: musedamAssetId.toString(),
+            stage,
+          });
+          await markReviewAssetDeleted(teamId, assetSlug);
+          return { success: false, code: "not_found", message: "Asset not found" };
+        }
+        throw error;
       }
-      for (const queueItem of currentResults) {
-        await tx.taggingQueueItem.update({
-          where: { id: queueItem.id, teamId },
-          data: {
-            extra: {
-              ...(queueItem.extra as Prisma.JsonObject),
-              featureReview: createFeatureReviewSnapshot(
-                queueItem.result,
-                selectedFeatures,
-                manualFeatures,
-              ),
-            },
+      stage = "resolve-review";
+
+      // Resolve tags on the server from current, team-owned features. Client tag IDs
+      // and the classifier's historical tag associations are never approval inputs.
+      const storedAuditItems = await prisma.taggingAuditItem.findMany({
+        where: {
+          id: { in: auditItems.map(({ id }) => id) },
+          teamId,
+          assetObject: { slug: assetSlug },
+        },
+        include: { queueItem: true },
+      });
+      if (storedAuditItems.length !== new Set(auditItems.map(({ id }) => id)).size) {
+        return { success: false, message: "Invalid review items" };
+      }
+      const queueResults = [
+        ...new Map(
+          storedAuditItems.flatMap(({ queueItem }) =>
+            queueItem ? [[queueItem.id, queueItem] as const] : [],
+          ),
+        ).values(),
+      ].filter((queueItem) => featureReviewVersions[queueItem.id] !== undefined);
+      const featureLibrary = await loadReviewFeatureLibrary(
+        teamId,
+        queueResults.map(({ result }) => result),
+        featureLibraryFeatures,
+      );
+      const currentResults = queueResults.map((queueItem) => ({
+        ...queueItem,
+        result: hydrateReviewFeatures(queueItem.result, featureLibrary),
+      }));
+      if (
+        currentResults.some(
+          ({ id, result }) => getFeatureReviewVersion(result) !== featureReviewVersions[id],
+        )
+      ) {
+        return { success: false, message: FEATURE_REVIEW_CHANGED };
+      }
+      const manualFeatures = await loadManualReviewFeatures(
+        teamId,
+        manualFeatureKeys,
+        featureLibraryFeatures,
+      );
+      const selectedFeatures = mergeManualReviewFeatures(
+        selectReviewFeatures(
+          currentResults.map(({ result }) => result),
+          rejectedFeatureKeys,
+        ),
+        manualFeatures,
+      );
+      const requestedStatus = new Map(auditItems.map(({ id, status }) => [id, status]));
+      const combinedApprovedTagIds = Array.from(
+        new Set([
+          ...storedAuditItems.flatMap(({ id, leafTagId }) =>
+            requestedStatus.get(id) === "approved" && leafTagId ? [leafTagId] : [],
+          ),
+          ...selectedFeatures.flatMap((feature) => feature.tags.map((tag) => tag.assetTagId)),
+        ]),
+      );
+
+      const approvedAsetTags = await prisma.assetTag.findMany({
+        where: {
+          teamId,
+          id: {
+            in: combinedApprovedTagIds,
           },
+          slug: {
+            not: null,
+          },
+        },
+        select: { id: true, slug: true },
+      });
+
+      const musedamTagIds = Array.from(
+        new Set(approvedAsetTags.map((tag) => slugToId("assetTag", tag.slug!))),
+      );
+
+      stage = "set-tags";
+      if (musedamTagIds.length > 0 || !append) {
+        await setAssetTagsToMuseDAM({ musedamAssetId, musedamTagIds, team, append });
+      }
+      stage = "bind-features";
+      for (const feature of selectedFeatures) {
+        const bound = await bindFeatureMaterialToMuseDAM({
+          team,
+          materialId: Number(musedamAssetId.toString()),
+          identifierId: feature.id,
+        });
+        if (!bound) throw new Error("Failed to bind feature to asset");
+      }
+
+      stage = "refresh-tags";
+      // 从 MuseDAM 获取更新后的素材标签并同步到本地数据库
+      const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
+      const assets = await requestMuseDAMAPI<{ id: MuseDAMID }[]>("/api/muse/assets-by-ids", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${musedamTeamApiKey}`,
+        },
+        body: [musedamAssetId],
+      });
+
+      if (assets && assets.length > 0) {
+        const musedamAsset = assets[0] as {
+          id: MuseDAMID;
+          tags: { id: MuseDAMID; name: string }[] | null;
+        };
+        const tags = await buildAssetObjectTags(musedamAsset.tags ?? []);
+
+        // 更新本地素材的 tags 字段
+        await prisma.assetObject.update({
+          where: { slug: assetSlug },
+          data: { tags },
         });
       }
-    });
 
-    await recordRejectionFeedbackForAuditItems({ teamId, auditItemIds: newlyRejectedAuditItemIds });
+      // 只对"本次才变成 rejected"的审核项跑反馈闭环：点 x 时已经即时持久化并跑过反馈的项，
+      // 这里再收到 rejected 状态属于重复提交，不能再计一次数。
+      const previousStatusById = new Map(
+        (
+          await prisma.taggingAuditItem.findMany({
+            where: { id: { in: auditItems.map(({ id }) => id) }, teamId },
+            select: { id: true, status: true },
+          })
+        ).map(({ id, status }) => [id, status]),
+      );
+      const newlyRejectedAuditItemIds = auditItems
+        .filter(
+          ({ id, status }) => status === "rejected" && previousStatusById.get(id) !== "rejected",
+        )
+        .map(({ id }) => id);
 
-    return {
-      success: true,
-      data: undefined,
-    };
+      stage = "save-review";
+      await prisma.$transaction(async (tx) => {
+        for (const { id, status } of auditItems) {
+          await tx.taggingAuditItem.update({
+            where: { id, teamId },
+            data: { status },
+          });
+        }
+        for (const queueItem of currentResults) {
+          await tx.taggingQueueItem.update({
+            where: { id: queueItem.id, teamId },
+            data: {
+              extra: {
+                ...(queueItem.extra as Prisma.JsonObject),
+                featureReview: createFeatureReviewSnapshot(
+                  queueItem.result,
+                  selectedFeatures,
+                  manualFeatures,
+                ),
+              },
+            },
+          });
+        }
+      });
+
+      await recordRejectionFeedbackForAuditItems({
+        teamId,
+        auditItemIds: newlyRejectedAuditItemIds,
+      });
+
+      return {
+        success: true,
+        data: undefined,
+      };
+    } catch (error) {
+      console.error("添加 AI 打标审核结果失败:", { teamId, assetSlug, stage }, error);
+      // Never expose upstream response bodies or database details to the browser.
+      return { success: false, message: "添加失败，请稍后重试；若持续失败请联系管理员" };
+    }
   });
 }
 
@@ -1053,7 +1107,7 @@ export async function batchApproveAuditItemsAction({
         const { musedamAssetId } = assetObject;
 
         if (!existingMuseDAMAssetIds.has(musedamAssetId.toString())) {
-          await rejectAuditItemsAction({ assetSlug: assetObject.slug });
+          await markReviewAssetDeleted(teamId, assetObject.slug);
           deletedCount++;
           continue;
         }

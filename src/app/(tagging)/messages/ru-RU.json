@@ -107,6 +107,7 @@
       "applySuccess": "Успешно применено",
       "approved": "Одобрено",
       "assetDeleted": "Актив удален",
+      "assetDeletedLabel": "Ресурс удалён",
       "balanced": "Сбалансированный (60-79%)",
       "basedOnTagSystem": "На основе сопоставления теговой системы",
       "basedOnFeatureLibrary": "На основе сопоставления библиотеки признаков",

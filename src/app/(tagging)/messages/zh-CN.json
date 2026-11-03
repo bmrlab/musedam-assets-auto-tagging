@@ -748,6 +748,7 @@
       "tooltipRemove": "移除",
       "noCorrespondingTag": "找不到对应的标签",
       "assetDeleted": "素材已被删除",
+      "assetDeletedLabel": "素材已删除",
       "tags": "标签",
       "features": "特征",
       "featureRecognition": "AI 识别特征",

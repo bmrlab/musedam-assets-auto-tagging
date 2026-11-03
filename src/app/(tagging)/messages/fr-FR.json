@@ -422,6 +422,7 @@
       "tooltipRemove": "Retirer",
       "noCorrespondingTag": "Aucun tag correspondant",
       "assetDeleted": "Ressource supprimée",
+      "assetDeletedLabel": "Ressource supprimée",
       "tags": "Tags",
       "features": "Caractéristiques",
       "featureRecognition": "Caractéristiques reconnues par l'IA",
