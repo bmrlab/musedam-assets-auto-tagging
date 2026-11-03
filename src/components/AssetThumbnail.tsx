@@ -151,7 +151,10 @@ function is3dPackageAsset(asset: object) {
 
 export const AssetThumbnail = memo(
     ({ asset, maxWidth = 24, maxHeight = 24, className }: { asset: { thumbnailUrl?: string, extension?: string }; maxWidth?: number; maxHeight?: number, className?: string }) => {
-        const [isError, setIsError] = useState(false);
+        // Remember the failed URL rather than a permanent error flag. A refreshed
+        // signed URL must be allowed to load, including after a previous failure.
+        const [failedUrl, setFailedUrl] = useState<string | undefined>();
+        const isError = Boolean(asset.thumbnailUrl) && failedUrl === asset.thumbnailUrl;
         const renderAssetThumbnail = useMemo(() => {
             if (!asset.thumbnailUrl) return null;
             return (
@@ -162,7 +165,7 @@ export const AssetThumbnail = memo(
                     height={maxHeight}
                     className={cn("rounded object-cover", className)}
                     onError={() => {
-                        setIsError(true);
+                        setFailedUrl(asset.thumbnailUrl);
                     }}
                 />
             );

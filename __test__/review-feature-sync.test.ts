@@ -376,6 +376,31 @@ beforeEach(() => {
 });
 
 describe("review feature synchronization", () => {
+  it("keeps rejected counts in reviewed summaries when rejected tags are hidden", async () => {
+    audits[0].status = "approved";
+    audits[0].leafTagId = 20;
+    audits[0].tagPath = ["Accepted"];
+    audits.push({ ...audits[0], id: 2, status: "rejected", leafTagId: 21, tagPath: ["Rejected"] });
+    const response = await fetchAssetsWithAuditItems();
+    if (!response.success) throw new Error(response.message);
+    const group = response.data.assets[0].batch[0];
+    expect(group.taggingAuditItems).toHaveLength(1);
+    expect(group.reviewSummary).toEqual({ reviewed: true, approved: 1, rejected: 1 });
+  });
+
+  it("reports rejected-only groups as reviewed without suggesting adoption", async () => {
+    audits[0].status = "rejected";
+    audits[0].leafTagId = 20;
+    audits[0].tagPath = ["Rejected"];
+    const response = await fetchAssetsWithAuditItems(1, 10, "rejected");
+    if (!response.success) throw new Error(response.message);
+    expect(response.data.assets[0].batch[0].reviewSummary).toEqual({
+      reviewed: true,
+      approved: 0,
+      rejected: 1,
+    });
+  });
+
   it("refreshes every accepted product and keeps each detection's evidence", async () => {
     queue.result = multipleProductResult();
     configureProductLibrary();
@@ -675,52 +700,22 @@ describe("review feature synchronization", () => {
     expect(mocks.prisma.taggingQueueItem.update).not.toHaveBeenCalled();
   });
 
-  it("returns a missing-asset result and logs its identity without applying or approving anything", async () => {
+  it("keeps a missing source asset pending instead of marking it deleted", async () => {
     mocks.syncAsset.mockRejectedValueOnce(new Error("Asset not found"));
-    const log = vi.spyOn(console, "warn").mockImplementation(() => {});
-    try {
-      await expect(approveAuditItemsAction(input())).resolves.toEqual({
-        success: false,
-        code: "not_found",
-        message: "Asset not found",
-      });
-      expect(log).toHaveBeenCalledWith("审核添加时未查询到 MuseDAM 素材:", {
-        teamId: 7,
-        assetSlug: "a/42",
-        musedamAssetId: "42",
-        stage: "sync-asset",
-      });
-      expect(mocks.setTags).not.toHaveBeenCalled();
-      expect(mocks.bind).not.toHaveBeenCalled();
-      expect(mocks.prisma.assetObject.findUniqueOrThrow).toHaveBeenCalledWith({
-        where: { slug: "a/42", teamId: 7 },
-        select: { id: true, extra: true },
-      });
-      expect(mocks.prisma.assetObject.update).toHaveBeenCalledWith({
-        where: { id: 42, teamId: 7 },
-        data: { extra: { ...assetExtra, reviewAssetDeleted: true } },
-      });
-      expect(mocks.prisma.taggingAuditItem.updateMany).toHaveBeenCalledWith({
-        where: { teamId: 7, assetObjectId: 42 },
-        data: { status: "rejected" },
-      });
-    } finally {
-      log.mockRestore();
-    }
+    const response = await approveAuditItemsAction(input());
+    expect(response).toMatchObject({ success: false, message: expect.stringContaining("权限") });
+    expect(mocks.setTags).not.toHaveBeenCalled();
+    expect(mocks.bind).not.toHaveBeenCalled();
+    expect(mocks.prisma.assetObject.update).not.toHaveBeenCalled();
+    expect(mocks.prisma.taggingAuditItem.updateMany).not.toHaveBeenCalled();
   });
 
-  it("marks a missing asset as deleted during batch approval too", async () => {
+  it("counts unavailable batch assets as failures without rejecting reviews", async () => {
     mocks.request.mockResolvedValueOnce([]);
     const response = await batchApproveAuditItemsAction(batchInput());
-    expect(response).toMatchObject({ success: true, data: { deletedCount: 1, failedCount: 0 } });
-    expect(mocks.prisma.assetObject.update).toHaveBeenCalledWith({
-      where: { id: 42, teamId: 7 },
-      data: { extra: { ...assetExtra, reviewAssetDeleted: true } },
-    });
-    expect(mocks.prisma.taggingAuditItem.updateMany).toHaveBeenCalledWith({
-      where: { teamId: 7, assetObjectId: 42 },
-      data: { status: "rejected" },
-    });
+    expect(response).toMatchObject({ success: true, data: { deletedCount: 0, failedCount: 1 } });
+    expect(mocks.prisma.assetObject.update).not.toHaveBeenCalled();
+    expect(mocks.prisma.taggingAuditItem.updateMany).not.toHaveBeenCalled();
     expect(mocks.setTags).not.toHaveBeenCalled();
     expect(mocks.bind).not.toHaveBeenCalled();
   });
