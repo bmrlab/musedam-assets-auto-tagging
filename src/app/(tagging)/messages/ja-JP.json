@@ -107,6 +107,7 @@
       "applySuccess": "アプリケーションが正常に実行されました",
       "approved": "採用済み",
       "assetDeleted": "素材が削除されました",
+      "assetDeletedLabel": "素材は削除済み",
       "balanced": "バランス (60-79%)",
       "basedOnTagSystem": "タグ体系に基づいてマッチング",
       "basedOnFeatureLibrary": "特徴ライブラリに基づいてマッチング",

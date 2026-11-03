@@ -21,6 +21,8 @@ declare module "@/prisma/client" {
   }>;
 
   export type AssetObjectExtra = Partial<{
+    /** 审核添加时源素材查询为空，审核记录已标记为拒绝。 */
+    reviewAssetDeleted: boolean;
     thumbnailAccessUrl: string;
     downloadUrl: string;
     size: number;

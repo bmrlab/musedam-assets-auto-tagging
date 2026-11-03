@@ -671,6 +671,7 @@
       "tooltipRemove": "Kaldır",
       "noCorrespondingTag": "Karşılık gelen etiket yok",
       "assetDeleted": "Varlık silindi",
+      "assetDeletedLabel": "Varlık silindi",
       "tags": "Etiketler",
       "features": "Özellikler",
       "featureRecognition": "Yapay Zeka Tarafından Tanınan Özellikler",

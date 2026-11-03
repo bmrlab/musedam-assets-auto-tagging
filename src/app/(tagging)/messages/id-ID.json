@@ -712,6 +712,7 @@
       "tooltipRemove": "Hapus",
       "noCorrespondingTag": "Tidak ada tag yang sesuai",
       "assetDeleted": "Aset dihapus",
+      "assetDeletedLabel": "Aset telah dihapus",
       "tags": "Tag",
       "features": "Fitur",
       "featureRecognition": "Fitur yang dikenali AI",

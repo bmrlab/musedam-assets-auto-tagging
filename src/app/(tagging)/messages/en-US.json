@@ -748,6 +748,7 @@
       "tooltipRemove": "Remove",
       "noCorrespondingTag": "No corresponding tag",
       "assetDeleted": "Asset deleted",
+      "assetDeletedLabel": "Asset deleted",
       "tags": "Tags",
       "features": "Features",
       "featureRecognition": "AI Recognized Features",

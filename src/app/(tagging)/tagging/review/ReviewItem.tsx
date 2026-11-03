@@ -442,6 +442,7 @@ export function ReviewItem({
   const [showHistory, setShowHistory] = useState(false);
 
   const assetExtra = assetObject.extra as AssetObjectExtra | null;
+  const sourceDeleted = assetExtra?.reviewAssetDeleted === true;
   const assetPreviewUrl = assetExtra?.thumbnailAccessUrl;
   const isVideoAsset = isVideoAssetExtension(assetExtra?.extension);
 
@@ -669,13 +670,8 @@ export function ReviewItem({
             return;
           }
           if (result.message === "Asset not found") {
-            const rejectResult = await rejectAuditItemsAction({ assetSlug: assetObject.slug });
-            if (rejectResult.success) {
-              toast.warning(t("assetDeleted"));
-              onSuccess?.();
-            } else {
-              toast.error(rejectResult.message || t("applyFailed"));
-            }
+            toast.warning(t("assetDeleted"));
+            onSuccess?.();
             return;
           }
 
@@ -760,9 +756,16 @@ export function ReviewItem({
         </button>
 
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-basic" title={assetObject.name}>
-            {assetObject.name}
-          </h3>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="font-semibold text-basic" title={assetObject.name}>
+              {assetObject.name}
+            </h3>
+            {sourceDeleted && (
+              <span className="inline-flex rounded border border-red-200 bg-red-50 px-2 py-0.5 text-xs font-medium text-red-600">
+                {t("assetDeletedLabel")}
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-0.5 text-xs text-basic-5 mt-1">
             <span>{assetExtra?.extension?.toUpperCase()}</span>
             <DotIcon className="size-3" />
@@ -785,7 +788,7 @@ export function ReviewItem({
         </div>
 
         <div className="flex gap-2">
-          {hasPendingAuditItems && (
+          {hasPendingAuditItems && !sourceDeleted && (
             <Button
               size="sm"
               disabled={realLoading}
