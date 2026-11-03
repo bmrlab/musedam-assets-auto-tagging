@@ -146,6 +146,7 @@ export type AssetWithAuditItemsBatch = {
   featureThumbnails: FeatureThumbnails;
   batch: {
     queueItem: TaggingQueueItem;
+    reviewSummary?: { reviewed: boolean; approved: number; rejected: number };
     taggingAuditItems: (Omit<TaggingAuditItem, "tagPath"> & { tagPath: string[] })[];
   }[];
   onSuccess?: () => void;
@@ -490,6 +491,18 @@ export async function fetchAssetsWithAuditItems(
         // rejected 审核项的取舍：这一批还有 pending 项（尚未应用）时保留，前端以虚线展示、可点对勾恢复；
         // 这一批已经应用过（没有 pending 项）时剔除，避免历史上早已拒绝的标签再冒出来。
         for (const group of batch) {
+          // Count before hiding historical rejected tags so the summary stays accurate.
+          group.reviewSummary = {
+            reviewed:
+              group.taggingAuditItems.length > 0 &&
+              group.taggingAuditItems.every((item) => item.status !== "pending"),
+            approved: group.taggingAuditItems.filter(
+              (item) => item.tagPath.length > 0 && item.status === "approved",
+            ).length,
+            rejected: group.taggingAuditItems.filter(
+              (item) => item.tagPath.length > 0 && item.status === "rejected",
+            ).length,
+          };
           const hasPending = group.taggingAuditItems.some((item) => item.status === "pending");
           const sourceDeleted =
             (assetObject.extra as Prisma.JsonObject)?.reviewAssetDeleted === true;
@@ -549,25 +562,6 @@ export async function fetchAssetsWithAuditItems(
   });
 }
 
-// Keep the unavailable-source marker separate from a reviewer's ordinary rejection.
-// A successful full MuseDAM sync replaces extra and clears this marker if the asset returns.
-async function markReviewAssetDeleted(teamId: number, assetSlug: string) {
-  await prisma.$transaction(async (tx) => {
-    const asset = await tx.assetObject.findUniqueOrThrow({
-      where: { slug: assetSlug, teamId },
-      select: { id: true, extra: true },
-    });
-    await tx.assetObject.update({
-      where: { id: asset.id, teamId },
-      data: { extra: { ...(asset.extra as Prisma.JsonObject), reviewAssetDeleted: true } },
-    });
-    await tx.taggingAuditItem.updateMany({
-      where: { teamId, assetObjectId: asset.id },
-      data: { status: "rejected" },
-    });
-  });
-}
-
 export async function approveAuditItemsAction({
   assetSlug,
   auditItems,
@@ -594,8 +588,7 @@ export async function approveAuditItemsAction({
 
       const musedamAssetId = slugToId("assetObject", assetSlug);
 
-      // Only the initial existence check can report a deleted asset. Other failures
-      // must keep the review pending so the user can retry.
+      // Missing query results do not prove deletion; keep review pending for retry.
       stage = "sync-asset";
       try {
         await syncSingleAssetFromMuseDAM({ musedamAssetId, team });
@@ -607,8 +600,10 @@ export async function approveAuditItemsAction({
             musedamAssetId: musedamAssetId.toString(),
             stage,
           });
-          await markReviewAssetDeleted(teamId, assetSlug);
-          return { success: false, code: "not_found", message: "Asset not found" };
+          return {
+            success: false,
+            message: "开放接口暂未查询到素材，请检查应用权限后重试",
+          };
         }
         throw error;
       }
@@ -949,7 +944,7 @@ export async function batchApproveAuditItemsAction({
       const featureLibraryFeatures = await getServerFeatureLibraryFeatures();
 
       let failedCount = 0;
-      let deletedCount = 0;
+      const deletedCount = 0;
       let changedCount = 0;
       const assetRefs = assetObjects
         .map((assetObject) => {
@@ -1107,8 +1102,8 @@ export async function batchApproveAuditItemsAction({
         const { musedamAssetId } = assetObject;
 
         if (!existingMuseDAMAssetIds.has(musedamAssetId.toString())) {
-          await markReviewAssetDeleted(teamId, assetObject.slug);
-          deletedCount++;
+          // Empty results can mean insufficient API permissions, not deletion.
+          failedCount++;
           continue;
         }
         const combinedApprovedTagIds = Array.from(
