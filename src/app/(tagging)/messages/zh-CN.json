@@ -737,6 +737,17 @@
       }
     },
     "Review": {
+      "tagSourceExisting": "已有标签",
+      "tagSourceAi": "AI 填写",
+      "tagSourceManual": "手动添加",
+      "tagSourceUnknown": "历史来源未记录",
+      "addTagManually": "手动添加标签",
+      "addTagTitle": "手动添加标签",
+      "addTagSearchPlaceholder": "搜索标签名称",
+      "addTagNoResults": "未找到可添加的标签，请尝试其他关键词",
+      "addTagHint": "从现有标签体系中选择，点击「添加」或批量添加后应用到素材。",
+      "addTagLoadFailed": "标签加载失败，请重试",
+      "addTagRetry": "重试",
       "add": "添加",
       "openInMuseDAM": "查看素材页",
       "previewImage": "预览{name}",

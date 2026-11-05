@@ -93,6 +93,17 @@
       "searchPlaceholder": "자산 이름으로 검색"
     },
     "Review": {
+      "tagSourceExisting": "Existing",
+      "tagSourceAi": "AI filled",
+      "tagSourceManual": "Manually added",
+      "tagSourceUnknown": "Source not recorded",
+      "addTagManually": "Add tags manually",
+      "addTagTitle": "Add tags manually",
+      "addTagSearchPlaceholder": "Search tags by name",
+      "addTagNoResults": "No tags found. Try another keyword.",
+      "addTagHint": "Select existing tags, then apply them using Add or the batch action.",
+      "addTagLoadFailed": "Unable to load tags. Please try again.",
+      "addTagRetry": "Retry",
       "add": "추가",
       "openInMuseDAM": "소재 페이지 보기",
       "previewImage": "{name} 미리보기",
