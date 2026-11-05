@@ -13,6 +13,12 @@ import { FileImageIcon, TagsIcon } from "@/components/ui/icons";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { dispatchMuseDAMClientAction } from "@/embed/message";
 import { useFeatureLibraryFeatures } from "@/hooks/use-feature-library";
+import {
+  getAcceptedBrandMatches,
+  getAcceptedIpMatches,
+  getBrandMatches,
+  getIpMatches,
+} from "@/lib/feature-decision/match-policy";
 import { isAcceptedPersonFace } from "@/lib/person/person-match-policy";
 import {
   deduplicateProductMatches,
@@ -665,14 +671,65 @@ export default function TestClient() {
               const personRecommendation = featureLibraryFeatures.featurePerson
                 ? getPersonRecommendationFromQueueResult(resultData)
                 : null;
-              const linkedBrandTags: Array<{ assetTagId?: number; tagPath?: string[] }> =
-                Array.isArray(result.brandLinkedTags) && result.brandLinkedTags.length > 0
-                  ? result.brandLinkedTags
-                  : (brandRecommendation?.recommendedTags ?? []);
-              const linkedIpTags: Array<{ assetTagId?: number; tagPath?: string[] }> =
-                Array.isArray(result.ipLinkedTags) && result.ipLinkedTags.length > 0
-                  ? result.ipLinkedTags
-                  : (ipRecommendation?.recommendedTags ?? []);
+              const linkedBrandTags: Array<{
+                assetLogoId?: string;
+                assetTagId?: number;
+                tagPath?: string[];
+              }> = Array.isArray(result.brandLinkedTags)
+                ? result.brandLinkedTags
+                : (brandRecommendation?.recommendedTags ?? []);
+              const linkedIpTags: Array<{
+                assetIpId?: string;
+                assetTagId?: number;
+                tagPath?: string[];
+              }> = Array.isArray(result.ipLinkedTags)
+                ? result.ipLinkedTags
+                : (ipRecommendation?.recommendedTags ?? []);
+              const acceptedBrands = getAcceptedBrandMatches(brandRecommendation);
+              const acceptedIps = getAcceptedIpMatches(ipRecommendation);
+              const brands = getBrandMatches(brandRecommendation).map((match) => {
+                const tags = Array.isArray(result.brandLinkedTags)
+                  ? linkedBrandTags.filter(
+                      (tag) =>
+                        tag.assetLogoId === match.assetLogoId ||
+                        (!tag.assetLogoId && acceptedBrands.length === 1),
+                    )
+                  : match.recommendedTags;
+                return {
+                  noConfidentMatch: !meetsFeatureConfidenceThreshold("brand", match.confidence),
+                  logoName: match.logoName,
+                  logoTypeName: match.logoTypeName,
+                  confidence: match.confidence,
+                  similarity: match.similarity,
+                  assetLogoId: match.assetLogoId,
+                  recommendedTags: tags.map((tag) => ({ tagPath: tag.tagPath || [] })),
+                };
+              });
+              const ips = getIpMatches(ipRecommendation).map((match) => {
+                const tags = Array.isArray(result.ipLinkedTags)
+                  ? linkedIpTags.filter(
+                      (tag) =>
+                        tag.assetIpId === match.assetIpId ||
+                        (!tag.assetIpId && acceptedIps.length === 1),
+                    )
+                  : match.recommendedTags;
+                return {
+                  noConfidentMatch: !meetsFeatureConfidenceThreshold("ip", match.confidence),
+                  ipName: match.ipName,
+                  ipTypeName: match.ipTypeName,
+                  confidence: match.confidence,
+                  similarity: match.similarity,
+                  imageSimilarity: match.imageSimilarity,
+                  descriptionSimilarity: match.descriptionSimilarity,
+                  assetIpId: match.assetIpId,
+                  recommendedTags: tags.map((tag) => ({ tagPath: tag.tagPath || [] })),
+                };
+              });
+              const bestBrandConfidence = Math.max(
+                0,
+                ...acceptedBrands.map((match) => match.confidence),
+              );
+              const bestIpConfidence = Math.max(0, ...acceptedIps.map((match) => match.confidence));
               const linkedProductTags: Array<{
                 assetProductId?: string;
                 assetTagId?: number;
@@ -763,9 +820,9 @@ export default function TestClient() {
               const aiDisplayTags = buildMergedDisplayTags({
                 aiTags: allTags,
                 brandTags: [],
-                brandConfidence: Math.round(brandRecommendation?.bestMatch?.confidence ?? 0),
+                brandConfidence: bestBrandConfidence,
                 ipTags: [],
-                ipConfidence: Math.round(ipRecommendation?.bestMatch?.confidence ?? 0),
+                ipConfidence: bestIpConfidence,
                 productTags: [],
                 productConfidence: bestProductConfidence,
                 personTags: [],
@@ -787,6 +844,7 @@ export default function TestClient() {
               );
 
               return {
+                featureDecision: resultData?.featureDecision,
                 asset: {
                   id: assetObject?.id?.toString() || "",
                   name: assetObject?.name || "",
@@ -809,8 +867,8 @@ export default function TestClient() {
                 },
                 overallScore: Math.max(
                   aiDisplayTags[0]?.score || 0,
-                  brandRecommendation?.bestMatch?.confidence || 0,
-                  ipRecommendation?.bestMatch?.confidence || 0,
+                  bestBrandConfidence,
+                  bestIpConfidence,
                   bestProductConfidence,
                   bestPersonConfidence,
                 ),
@@ -843,6 +901,8 @@ export default function TestClient() {
                       })),
                     }
                   : null,
+                brands,
+                ips,
                 products,
                 personRecognition: personRecommendation
                   ? {

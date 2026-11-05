@@ -1,4 +1,4 @@
-import { meetsFeatureConfidenceThreshold } from "@/lib/tagging/feature-confidence";
+import { getAcceptedIpMatches } from "@/lib/feature-decision/match-policy";
 import { TaggingIpRecommendation, TaggingQueueItemResult } from "@/prisma/client";
 
 export function getIpRecommendationFromQueueResult(
@@ -16,18 +16,10 @@ export function getIpRecommendationFromQueueResult(
 export function getIpRecommendationTagIdsFromQueueResult(result: unknown): number[] {
   const ipRecommendation = getIpRecommendationFromQueueResult(result);
 
-  if (
-    !ipRecommendation ||
-    !ipRecommendation.bestMatch ||
-    !meetsFeatureConfidenceThreshold("ip", ipRecommendation.bestMatch.confidence) ||
-    !Array.isArray(ipRecommendation.recommendedTags)
-  ) {
-    return [];
-  }
-
   return Array.from(
     new Set(
-      ipRecommendation.recommendedTags
+      getAcceptedIpMatches(ipRecommendation)
+        .flatMap((match) => match.recommendedTags ?? [])
         .map((tag) => tag.assetTagId)
         .filter((id): id is number => Number.isInteger(id) && id > 0),
     ),

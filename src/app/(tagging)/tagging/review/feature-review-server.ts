@@ -1,5 +1,6 @@
 import "server-only";
 
+import { getBrandMatches, getIpMatches } from "@/lib/feature-decision/match-policy";
 import {
   filterFeatureLibraryRecommendations,
   isFeatureTypeEnabled,
@@ -37,9 +38,9 @@ export async function loadReviewFeatureLibrary(
       (value ?? {}) as TaggingQueueItemResult,
       enabledFeatures,
     );
-    if (result.brandRecommendation?.bestMatch)
-      ids.brand.add(result.brandRecommendation.bestMatch.assetLogoId);
-    if (result.ipRecommendation?.bestMatch) ids.ip.add(result.ipRecommendation.bestMatch.assetIpId);
+    for (const brand of getBrandMatches(result.brandRecommendation))
+      ids.brand.add(brand.assetLogoId);
+    for (const ip of getIpMatches(result.ipRecommendation)) ids.ip.add(ip.assetIpId);
     for (const product of getProductMatches(result.productRecommendation)) {
       ids.product.add(product.assetProductId);
     }

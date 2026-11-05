@@ -32,8 +32,8 @@ function getRequiredEnv(name: string) {
 
 function getTranslationServiceConfig() {
   return {
-    url: getRequiredEnv("TRANSLATION_SERVICE_URL"),
-    apiKey: getRequiredEnv("TRANSLATION_SERVICE_API_KEY"),
+    url: `${getRequiredEnv("OPENAI_BASE_URL").replace(/\/+$/, "")}/chat/completions`,
+    apiKey: getRequiredEnv("OPENAI_API_KEY"),
     model: getRequiredEnv("TRANSLATION_SERVICE_MODEL"),
   };
 }

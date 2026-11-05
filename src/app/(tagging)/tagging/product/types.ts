@@ -1,3 +1,4 @@
+import type { FeatureDecisionDiagnostics } from "@/lib/feature-decision/types";
 import type { LibraryListPage } from "../components/library-list-query";
 
 export type ProductTypeItem = {
@@ -123,6 +124,7 @@ export type ProductClassificationMatch = {
 };
 
 export type ProductClassificationResult = {
+  diagnostics?: FeatureDecisionDiagnostics;
   matches: Array<ProductClassificationMatch & { detectionIndices: number[] }>;
   rawDetections?: ProductDetectionBox[];
   detections: Array<{

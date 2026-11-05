@@ -1,6 +1,6 @@
+import { getAcceptedBrandMatches, getAcceptedIpMatches } from "@/lib/feature-decision/match-policy";
 import { isAcceptedPersonFace, isReviewablePersonFace } from "@/lib/person/person-match-policy";
 import { getAcceptedProductMatches } from "@/lib/product/product-match-policy";
-import { meetsFeatureConfidenceThreshold } from "@/lib/tagging/feature-confidence";
 import type {
   TaggingBrandRecommendation,
   TaggingIpRecommendation,
@@ -46,19 +46,15 @@ export function collectMuseFeatureIdentifierIdsForQueueItem({
 }): string[] {
   const ids = new Set<string>();
 
-  const brand = brandRecommendation;
-  if (brand?.bestMatch && meetsFeatureConfidenceThreshold("brand", brand.bestMatch.confidence)) {
-    const tagRows = [...(brand.bestMatch.recommendedTags ?? []), ...(brand.recommendedTags ?? [])];
-    if (approvedTagsOverlap(brandTagIds, tagRows)) {
-      ids.add(brand.bestMatch.assetLogoId);
+  for (const match of getAcceptedBrandMatches(brandRecommendation)) {
+    if (approvedTagsOverlap(brandTagIds, match.recommendedTags)) {
+      ids.add(match.assetLogoId);
     }
   }
 
-  const ip = ipRecommendation;
-  if (ip?.bestMatch && meetsFeatureConfidenceThreshold("ip", ip.bestMatch.confidence)) {
-    const tagRows = [...(ip.bestMatch.recommendedTags ?? []), ...(ip.recommendedTags ?? [])];
-    if (approvedTagsOverlap(ipTagIds, tagRows)) {
-      ids.add(ip.bestMatch.assetIpId);
+  for (const match of getAcceptedIpMatches(ipRecommendation)) {
+    if (approvedTagsOverlap(ipTagIds, match.recommendedTags)) {
+      ids.add(match.assetIpId);
     }
   }
 

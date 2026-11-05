@@ -2,7 +2,7 @@
 
 import type { ProductTopMatch } from "@/lib/product/product-classification";
 import { classifyAssetProductRecommendation } from "@/lib/product/tagging-product-classification";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   count: vi.fn(),
@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   classify: vi.fn(),
 }));
 vi.mock("server-only", () => ({}));
+vi.mock("@/lib/feature-decision/config", () => ({ FEATURE_DECISION_MODE: "legacy" }));
 vi.mock("@/prisma/prisma", () => ({ default: { productVector: { count: mocks.count } } }));
 vi.mock("@/lib/product/product-classification", () => ({
   detectProductFigureBoxes: mocks.detect,
@@ -54,6 +55,7 @@ function match(
 }
 
 describe("automatic product recommendations", () => {
+  afterEach(() => vi.unstubAllEnvs());
   beforeEach(() => {
     vi.resetAllMocks();
     mocks.count.mockResolvedValue(1);

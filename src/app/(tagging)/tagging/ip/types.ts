@@ -1,3 +1,4 @@
+import type { FeatureDecisionDiagnostics } from "@/lib/feature-decision/types";
 import type { LibraryListPage } from "../components/library-list-query";
 
 export type IpTypeItem = {
@@ -141,6 +142,9 @@ export type IpClassificationMatch = {
 };
 
 export type IpClassificationResult = {
+  diagnostics?: FeatureDecisionDiagnostics;
+  /** Predictions eligible for automatic application; topMatches also includes uncertain alternatives. */
+  matches?: IpClassificationMatch[];
   topMatches: IpClassificationMatch[];
   bestMatch: IpClassificationMatch | null;
   noConfidentMatch: boolean;

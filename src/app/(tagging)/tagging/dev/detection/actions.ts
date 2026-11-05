@@ -1,5 +1,6 @@
 "use server";
 
+import { getDetectionDebugRequestMode } from "@/lib/media-process/debug-request-mode";
 import { signObjectDetectionImageUrl } from "@/lib/media-process/image-url";
 
 import { withAuth } from "@/app/(auth)/withAuth";
@@ -149,7 +150,7 @@ export async function detectLogoBoxesAction(input: {
         teamId,
         imageInput,
         detectionLabelText: parsed.detectionLabelText,
-        requestMode: "sync",
+        requestMode: getDetectionDebugRequestMode(),
       });
 
       return {

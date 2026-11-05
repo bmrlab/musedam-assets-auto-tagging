@@ -108,18 +108,20 @@ declare module "@/prisma/client" {
     tagPath: string[];
   };
 
-export type TaggingBrandBestMatch = {
-  assetLogoId: string;
-  logoName: string;
-  logoTypeId: string | null;
-  logoTypeName: string;
-  similarity: number;
-  confidence: number;
-  detectionIndex: number;
-  recommendedTags: TaggingBrandRecommendedTag[];
-};
+  export type TaggingBrandBestMatch = {
+    assetLogoId: string;
+    logoName: string;
+    logoTypeId: string | null;
+    logoTypeName: string;
+    similarity: number;
+    confidence: number;
+    detectionIndex: number;
+    recommendedTags: TaggingBrandRecommendedTag[];
+  };
 
   export type TaggingBrandRecommendation = {
+    decisionSource?: "llm" | "legacy";
+    matches?: TaggingBrandBestMatch[];
     noConfidentMatch: boolean;
     bestMatch: TaggingBrandBestMatch | null;
     recommendedTags: TaggingBrandRecommendedTag[];
@@ -130,21 +132,23 @@ export type TaggingBrandBestMatch = {
     tagPath: string[];
   };
 
-export type TaggingIpBestMatch = {
-  assetIpId: string;
-  ipName: string;
-  ipTypeId: string | null;
-  ipTypeName: string;
-  description: string;
-  similarity: number;
-  confidence: number;
-  detectionIndex: number;
-  imageSimilarity: number;
-  descriptionSimilarity: number;
-  recommendedTags: TaggingIpRecommendedTag[];
-};
+  export type TaggingIpBestMatch = {
+    assetIpId: string;
+    ipName: string;
+    ipTypeId: string | null;
+    ipTypeName: string;
+    description: string;
+    similarity: number;
+    confidence: number;
+    detectionIndex: number;
+    imageSimilarity: number;
+    descriptionSimilarity: number;
+    recommendedTags: TaggingIpRecommendedTag[];
+  };
 
   export type TaggingIpRecommendation = {
+    decisionSource?: "llm" | "legacy";
+    matches?: TaggingIpBestMatch[];
     noConfidentMatch: boolean;
     bestMatch: TaggingIpBestMatch | null;
     recommendedTags: TaggingIpRecommendedTag[];
@@ -155,23 +159,24 @@ export type TaggingIpBestMatch = {
     tagPath: string[];
   };
 
-export type TaggingProductBestMatch = {
-  assetProductId: string;
-  productName: string;
-  productTypeId: string | null;
-  productTypeName: string;
-  description: string;
-  generalCategory: string;
-  similarity: number;
-  confidence: number;
-  detectionIndex: number;
-  detectionIndices?: number[];
-  imageSimilarity: number;
-  descriptionSimilarity: number;
-  recommendedTags: TaggingProductRecommendedTag[];
-};
+  export type TaggingProductBestMatch = {
+    assetProductId: string;
+    productName: string;
+    productTypeId: string | null;
+    productTypeName: string;
+    description: string;
+    generalCategory: string;
+    similarity: number;
+    confidence: number;
+    detectionIndex: number;
+    detectionIndices?: number[];
+    imageSimilarity: number;
+    descriptionSimilarity: number;
+    recommendedTags: TaggingProductRecommendedTag[];
+  };
 
   export type TaggingProductRecommendation = {
+    decisionSource?: "llm" | "legacy";
     noConfidentMatch: boolean;
     /** Accepted distinct products. An explicit empty array overrides the legacy bestMatch. */
     matches?: TaggingProductBestMatch[];
@@ -212,18 +217,18 @@ export type TaggingProductBestMatch = {
     confidence: number;
   };
 
-export type TaggingPersonMatch = {
-  assetPersonId: string;
-  personName: string;
-  personTypeId: string | null;
-  personTypeName: string;
-  rawSimilarity: number;
-  similarity: number;
-  confidence: number;
-  detectionIndex: number;
-  supportingReferenceCount: number;
-  recommendedTags: TaggingPersonRecommendedTag[];
-};
+  export type TaggingPersonMatch = {
+    assetPersonId: string;
+    personName: string;
+    personTypeId: string | null;
+    personTypeName: string;
+    rawSimilarity: number;
+    similarity: number;
+    confidence: number;
+    detectionIndex: number;
+    supportingReferenceCount: number;
+    recommendedTags: TaggingPersonRecommendedTag[];
+  };
 
   export type TaggingPersonRecommendation = {
     noConfidentMatch: boolean;
@@ -247,6 +252,7 @@ export type TaggingPersonMatch = {
 
   import { SourceBasedTagPredictions, TagWithScore } from "@/app/(tagging)/types";
   export type TaggingQueueItemResult = Partial<{
+    featureDecision: import("@/lib/feature-decision/types").FeatureDecisionDiagnostics;
     error: string;
     /** 失败时的可读错误信息（error 为错误码，message 为原始异常信息） */
     message: string;

@@ -23,6 +23,13 @@ import Link from "next/link";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
+  FeatureClassificationContextInputs,
+  FeatureDecisionComparison,
+  FeatureDecisionDiagnosticsPanel,
+  FeatureDecisionPredictions,
+  useFeatureDecisionComparison,
+} from "../../components/FeatureDecisionDiagnosticsPanel";
+import {
   classifyIpImageAction,
   prepareIpClassificationAction,
   prepareIpImageUploadAction,
@@ -78,11 +85,16 @@ function loadImage(src: string, t: (key: string) => string) {
 
 export default function IpClassifyClient({ initialData }: { initialData: IpLibraryPageData }) {
   const t = useTranslations("Tagging.IpClassify") as TranslationFunction;
+  const diagnosticsT = useTranslations("Tagging.FeatureDecisionDiagnostics");
   const referenceIps = useMemo(
     () => initialData.ips.filter((ip) => ip.enabled && ip.status === "completed"),
     [initialData.ips],
   );
   const [file, setFile] = useState<File | null>(null);
+  const [imageMode, setImageMode] = useState(true);
+  const { runs, recordRun, resetRuns } = useFeatureDecisionComparison();
+  const [fileName, setFileName] = useState("");
+  const [folderPath, setFolderPath] = useState("");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [imageMeta, setImageMeta] = useState<ClassificationImageMeta | null>(null);
   const [detectionImageMeta, setDetectionImageMeta] = useState<ClassificationImageMeta | null>(
@@ -100,6 +112,7 @@ export default function IpClassifyClient({ initialData }: { initialData: IpLibra
 
   async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const selectedFile = event.target.files?.[0] ?? null;
+    resetRuns();
     event.target.value = "";
 
     setDetections([]);
@@ -107,6 +120,7 @@ export default function IpClassifyClient({ initialData }: { initialData: IpLibra
     setImageMeta(null);
     setDetectionImageMeta(null);
     setFile(null);
+    setFileName(selectedFile?.name ?? "");
     setPreviewUrl((current) => {
       revokeUrl(current);
       return null;
@@ -151,6 +165,7 @@ export default function IpClassifyClient({ initialData }: { initialData: IpLibra
     }
 
     setIsRunning(true);
+    setResult(null);
     try {
       const contentType = file.type || "application/octet-stream";
       const uploadPrepareResult = await prepareIpImageUploadAction({
@@ -202,6 +217,9 @@ export default function IpClassifyClient({ initialData }: { initialData: IpLibra
         objectKey: uploadPrepareResult.data.image.objectKey,
         mimeType: uploadPrepareResult.data.image.mimeType,
         size: uploadPrepareResult.data.image.size,
+        imageMode,
+        fileName,
+        folderPath,
         boxes: normalizedBoxes,
       });
       if (!classifyResult.success) {
@@ -210,11 +228,24 @@ export default function IpClassifyClient({ initialData }: { initialData: IpLibra
       }
 
       setResult(classifyResult.data.result);
-      toast.success(
-        classifyResult.data.result.noConfidentMatch
-          ? t("classifyCompleteNoMatch")
-          : t("classifyComplete"),
-      );
+      if (classifyResult.data.result.diagnostics) {
+        recordRun(
+          classifyResult.data.result.diagnostics,
+          classifyResult.data.result.topMatches.map((match) => ({
+            name: match.ipName,
+            confidence: match.confidence,
+          })),
+        );
+      }
+      if (classifyResult.data.result.diagnostics?.decision.status === "failed") {
+        toast.error(classifyResult.data.result.diagnostics.decision.error ?? t("classifyFailed"));
+        return;
+      }
+      const hasPredictions =
+        classifyResult.data.result.diagnostics?.mode === "llm"
+          ? classifyResult.data.result.topMatches.length > 0
+          : !classifyResult.data.result.noConfidentMatch;
+      toast.success(hasPredictions ? t("classifyComplete") : t("classifyCompleteNoMatch"));
     } catch (error) {
       console.error("Failed to classify IP image:", error);
       toast.error(error instanceof Error ? error.message : t("classifyFailed"));
@@ -238,7 +269,9 @@ export default function IpClassifyClient({ initialData }: { initialData: IpLibra
           <h2 className="mt-3 text-[28px] leading-[40px] font-semibold text-basic-8">
             {t("pageTitle")}
           </h2>
-          <p className="mt-1 text-sm leading-6 text-basic-5">{t("pageDescription")}</p>
+          <p className="mt-1 text-sm leading-6 text-basic-5">
+            {diagnosticsT("algorithmDescription")}
+          </p>
         </div>
 
         <div className="rounded-[18px] border bg-background px-5 py-4 text-right">
@@ -275,6 +308,24 @@ export default function IpClassifyClient({ initialData }: { initialData: IpLibra
               )}
             </Button>
           </div>
+
+          <FeatureClassificationContextInputs
+            imageMode={imageMode}
+            onImageModeChange={setImageMode}
+            fileName={fileName}
+            folderPath={folderPath}
+            onFileNameChange={(value) => {
+              setFileName(value);
+              resetRuns();
+              setResult(null);
+            }}
+            onFolderPathChange={(value) => {
+              setFolderPath(value);
+              resetRuns();
+              setResult(null);
+            }}
+            disabled={isRunning}
+          />
 
           <div className="rounded-[20px] border border-dashed border-basic-3 bg-basic-1 p-4">
             {previewUrl && imageMeta && boxImageMeta ? (
@@ -317,7 +368,8 @@ export default function IpClassifyClient({ initialData }: { initialData: IpLibra
                             )}
                             style={labelPosition}
                           >
-                            {active ? t("winningBox") : `${t("box")} ${index + 1}`} · {box.label}
+                            {active ? diagnosticsT("retrievalRegion") : `${t("box")} ${index + 1}`}{" "}
+                            · {box.label}
                           </span>
                         </Fragment>
                       );
@@ -341,18 +393,37 @@ export default function IpClassifyClient({ initialData }: { initialData: IpLibra
               {t("finalResult")}
             </div>
 
-            {!result ? (
-              <p className="mt-4 text-sm leading-6 text-basic-5">{t("resultHint")}</p>
+            {result?.diagnostics?.mode === "llm" &&
+            result.diagnostics.decision.status === "completed" ? (
+              <FeatureDecisionPredictions
+                diagnostics={result.diagnostics}
+                names={Object.fromEntries(
+                  result.topMatches.map((match) => [`ip:${match.assetIpId}`, match.ipName]),
+                )}
+                acceptedCandidateIds={(result.matches ?? []).map(
+                  (match) => `ip:${match.assetIpId}`,
+                )}
+              />
+            ) : !result ? (
+              <p className="mt-4 text-sm leading-6 text-basic-5">{diagnosticsT("resultHint")}</p>
             ) : result.noConfidentMatch ? (
               <div className="mt-4 rounded-[18px] border border-warning-4 bg-warning-1 p-4">
                 <p className="text-base font-medium text-basic-8">{t("noConfidentMatch")}</p>
-                <p className="mt-2 text-sm leading-6 text-basic-5">{t("noConfidentMatchDesc")}</p>
+                <p className="mt-2 text-sm leading-6 text-basic-5">
+                  {diagnosticsT("noFinalMatch")}
+                </p>
                 {result.bestMatch ? (
                   <div className="mt-4 rounded-[14px] border border-basic-3 bg-background/80 px-4 py-3 text-sm">
                     <div className="font-medium text-basic-8">{result.bestMatch.ipName}</div>
                     <div className="mt-1 text-basic-5">
-                      {t("similarity")} {formatPercent(result.bestMatch.similarity)} ·{" "}
-                      {t("confidence")} {result.bestMatch.confidence} · {t("box")}{" "}
+                      {diagnosticsT("retrievalSimilarity")}{" "}
+                      {formatPercent(result.bestMatch.similarity)} ·{" "}
+                      {diagnosticsT(
+                        result?.diagnostics?.mode === "legacy"
+                          ? "legacyConfidence"
+                          : "llmConfidence",
+                      )}{" "}
+                      {result.bestMatch.confidence} · {t("box")}{" "}
                       {result.bestMatch.detectionIndex + 1}
                     </div>
                   </div>
@@ -365,8 +436,11 @@ export default function IpClassifyClient({ initialData }: { initialData: IpLibra
                   {result.bestMatch.ipName}
                 </p>
                 <p className="mt-2 text-sm leading-6 text-basic-5">
-                  {t("type")} {result.bestMatch.ipTypeName} · {t("similarity")}{" "}
-                  {formatPercent(result.bestMatch.similarity)} · {t("confidence")}{" "}
+                  {t("type")} {result.bestMatch.ipTypeName} · {diagnosticsT("retrievalSimilarity")}{" "}
+                  {formatPercent(result.bestMatch.similarity)} ·{" "}
+                  {diagnosticsT(
+                    result?.diagnostics?.mode === "legacy" ? "legacyConfidence" : "llmConfidence",
+                  )}{" "}
                   {result.bestMatch.confidence}
                 </p>
                 <p className="mt-1 text-sm text-basic-5">
@@ -396,7 +470,11 @@ export default function IpClassifyClient({ initialData }: { initialData: IpLibra
           </div>
 
           <div className="rounded-[24px] border bg-background p-6">
-            <h3 className="text-lg font-semibold text-basic-8">{t("topMatches")}</h3>
+            <h3 className="text-lg font-semibold text-basic-8">
+              {diagnosticsT(
+                result?.diagnostics?.mode === "legacy" ? "legacyMatches" : "finalMatches",
+              )}
+            </h3>
             <div className="mt-4 space-y-3">
               {result?.topMatches.length ? (
                 result.topMatches.map((match, index) => (
@@ -412,7 +490,12 @@ export default function IpClassifyClient({ initialData }: { initialData: IpLibra
                       <div className="text-sm text-basic-5">#{index + 1}</div>
                     </div>
                     <div className="mt-2 text-sm leading-6 text-basic-5">
-                      {t("similarity")} {formatPercent(match.similarity)} · {t("confidence")}{" "}
+                      {diagnosticsT("retrievalSimilarity")} {formatPercent(match.similarity)} ·{" "}
+                      {diagnosticsT(
+                        result?.diagnostics?.mode === "legacy"
+                          ? "legacyConfidence"
+                          : "llmConfidence",
+                      )}{" "}
                       {match.confidence}
                     </div>
                     <div className="text-sm leading-6 text-basic-5">
@@ -460,6 +543,10 @@ export default function IpClassifyClient({ initialData }: { initialData: IpLibra
           </div>
         </div>
       </div>
+      <FeatureDecisionComparison runs={runs} />
+      {result?.diagnostics ? (
+        <FeatureDecisionDiagnosticsPanel diagnostics={result.diagnostics} />
+      ) : null}
     </div>
   );
 }

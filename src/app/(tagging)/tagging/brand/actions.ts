@@ -1,5 +1,7 @@
 "use server";
 
+import { classifyAssetFeatures } from "@/lib/feature-decision/classify";
+import { getDetectionDebugRequestMode } from "@/lib/media-process/debug-request-mode";
 import { signObjectDetectionImageUrl } from "@/lib/media-process/image-url";
 import {
   AssetTagTreeNode,
@@ -9,11 +11,7 @@ import {
 } from "@/lib/tagging/tag-level";
 
 import { withAuth } from "@/app/(auth)/withAuth";
-import {
-  BrandDetectionBox,
-  classifyBrandImageCrops,
-  detectBrandLogoBoxes,
-} from "@/lib/brand/logo-classification";
+import { BrandDetectionBox, detectBrandLogoBoxes } from "@/lib/brand/logo-classification";
 import { fetchLogoDetectionLabelText } from "@/lib/brand/logo-detection-prompt";
 import {
   markAssetLogoVectorsPending,
@@ -42,11 +40,7 @@ import {
   BatchReferenceImageError,
   downloadAndPrepareBatchReferenceImage,
 } from "@/lib/tagging/batch-reference-image";
-import {
-  clampBox as clampClassificationBox,
-  cropImageToDataUrl as cropClassificationImageToDataUrl,
-  fetchRemoteImageInput,
-} from "@/lib/tagging/classification-image";
+import { fetchRemoteImageInput } from "@/lib/tagging/classification-image";
 import { getReferenceThumbnailUrl } from "@/lib/tagging/reference-thumbnail";
 import { schedulePushFeatureToMuseDAM } from "@/musedam/push-feature-to-musedam";
 import {
@@ -2167,6 +2161,43 @@ export async function deleteAssetLogosAction(
   });
 }
 
+export async function retryAllFailedAssetLogoProcessingAction(): Promise<
+  ServerActionResult<{ retriedCount: number }>
+> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    const t = await getTranslations("Tagging.BrandLibrary");
+    try {
+      const failedItems = await prisma.assetLogo.findMany({
+        where: { teamId, status: "failed" },
+        select: { id: true, enabled: true },
+      });
+      const limit = pLimit(BATCH_VECTOR_SYNC_CONCURRENCY);
+      // Settle every retry so one failed reset does not prevent the others.
+      const results = await Promise.allSettled(
+        failedItems.map((item) =>
+          limit(async () => {
+            await markAssetLogoVectorsPending({
+              teamId,
+              logoId: item.id,
+              enabled: item.enabled,
+            });
+            scheduleAssetLogoProcessing(teamId, item.id);
+          }),
+        ),
+      );
+      const failure = results.find((result) => result.status === "rejected");
+      if (failure) {
+        console.error("Failed to retry all asset Logo processing:", failure.reason);
+        return { success: false, message: t("retryFailed") };
+      }
+      return { success: true, data: { retriedCount: failedItems.length } };
+    } catch (error) {
+      console.error("Failed to retry all asset Logo processing:", error);
+      return { success: false, message: t("retryFailed") };
+    }
+  });
+}
+
 export async function retryAssetLogoProcessingAction(
   logoId: string,
 ): Promise<ServerActionResult<{ logo: BrandLogoItem }>> {
@@ -2291,7 +2322,7 @@ export async function prepareBrandClassificationAction(input: {
         teamId,
         imageInput,
         detectionLabelText,
-        requestMode: "sync",
+        requestMode: getDetectionDebugRequestMode(),
       });
 
       return {
@@ -2321,6 +2352,9 @@ export async function classifyBrandImageAction(input: {
   mimeType: string;
   size: number;
   boxes: BrandDetectionBox[];
+  imageMode?: boolean;
+  fileName?: string;
+  folderPath?: string;
 }): Promise<ServerActionResult<{ result: BrandClassificationResult }>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
@@ -2329,6 +2363,9 @@ export async function classifyBrandImageAction(input: {
           objectKey: z.string().trim().min(1),
           mimeType: z.string().trim().min(1).max(255),
           size: z.number().int().positive().max(MAX_CLIENT_IMAGE_UPLOAD_BYTES),
+          imageMode: z.boolean().default(true),
+          fileName: z.string().max(1000).optional(),
+          folderPath: z.string().max(4000).optional(),
           boxes: z.array(classifyBoxSchema).min(1, "请先选择至少一个候选框"),
         })
         .parse(input);
@@ -2355,32 +2392,24 @@ export async function classifyBrandImageAction(input: {
         expiresInSeconds: 60 * 60,
       });
       const imageInput = await fetchRemoteImageInput(signedUrl, "brand classification upload");
-      const crops = await Promise.all(
-        metadata.boxes.map(async (box) => {
-          const normalizedBox = clampClassificationBox(box, imageInput);
-
-          return {
-            box: normalizedBox,
-            image: await cropClassificationImageToDataUrl({
-              imageDataUrl: imageInput.dataUrl,
-              imageBuffer: imageInput.buffer,
-              sourceMimeType: imageInput.mimeType,
-              meta: imageInput,
-              box: normalizedBox,
-            }),
-          };
-        }),
-      );
-
-      const result = await classifyBrandImageCrops({
+      const classification = await classifyAssetFeatures({
         teamId,
-        crops,
+        imageInput,
+        enabledTypes: ["logo"],
+        boxes: { logo: metadata.boxes },
+        imageMode: metadata.imageMode,
+        fileName: metadata.fileName,
+        folderPath: metadata.folderPath,
       });
+      const result = classification.brand;
+      if (!result) {
+        throw new Error("Feature classification did not return a result");
+      }
 
       return {
         success: true,
         data: {
-          result,
+          result: { ...result, diagnostics: classification.diagnostics },
         },
       };
     } catch (error) {

@@ -1,6 +1,11 @@
+import {
+  getAcceptedBrandMatches,
+  getAcceptedIpMatches,
+  getBrandMatches,
+  getIpMatches,
+} from "@/lib/feature-decision/match-policy";
 import { isReviewablePersonFace } from "@/lib/person/person-match-policy";
 import { getAcceptedProductMatches, getProductMatches } from "@/lib/product/product-match-policy";
-import { meetsFeatureConfidenceThreshold } from "@/lib/tagging/feature-confidence";
 import type { TaggingQueueItemResult } from "@/prisma/client";
 
 export type ReviewFeatureType = "brand" | "ip" | "product" | "person";
@@ -36,39 +41,73 @@ export function hydrateReviewFeatures(
   const source = (result ?? {}) as TaggingQueueItemResult;
   const hydrated = { ...source };
   const brand = source.brandRecommendation;
-  if (brand?.bestMatch) {
-    const feature = features.get(featureKey("brand", brand.bestMatch.assetLogoId));
-    hydrated.brandRecommendation = feature
-      ? {
-          ...brand,
-          bestMatch: {
-            ...brand.bestMatch,
-            logoName: feature.name,
-            logoTypeId: feature.typeId,
-            logoTypeName: feature.typeName,
-            recommendedTags: feature.tags,
-          },
-          recommendedTags: feature.tags,
-        }
-      : null;
+  if (brand) {
+    const matches = getBrandMatches(brand).flatMap((match) => {
+      const feature = features.get(featureKey("brand", match.assetLogoId));
+      return feature
+        ? [
+            {
+              ...match,
+              logoName: feature.name,
+              logoTypeId: feature.typeId,
+              logoTypeName: feature.typeName,
+              recommendedTags: feature.tags,
+            },
+          ]
+        : [];
+    });
+    const hasMatchesArray = Array.isArray(brand.matches);
+    hydrated.brandRecommendation =
+      hasMatchesArray || matches.length > 0
+        ? {
+            ...brand,
+            ...(hasMatchesArray ? { matches } : {}),
+            bestMatch: matches[0] ?? null,
+            noConfidentMatch: matches.length === 0 || brand.noConfidentMatch,
+            recommendedTags: [
+              ...new Map(
+                matches.flatMap((match) =>
+                  match.recommendedTags.map((tag) => [tag.assetTagId, tag] as const),
+                ),
+              ).values(),
+            ],
+          }
+        : null;
   }
   const ip = source.ipRecommendation;
-  if (ip?.bestMatch) {
-    const feature = features.get(featureKey("ip", ip.bestMatch.assetIpId));
-    hydrated.ipRecommendation = feature
-      ? {
-          ...ip,
-          bestMatch: {
-            ...ip.bestMatch,
-            ipName: feature.name,
-            ipTypeId: feature.typeId,
-            ipTypeName: feature.typeName,
-            description: feature.description ?? "",
-            recommendedTags: feature.tags,
-          },
-          recommendedTags: feature.tags,
-        }
-      : null;
+  if (ip) {
+    const matches = getIpMatches(ip).flatMap((match) => {
+      const feature = features.get(featureKey("ip", match.assetIpId));
+      return feature
+        ? [
+            {
+              ...match,
+              ipName: feature.name,
+              ipTypeId: feature.typeId,
+              ipTypeName: feature.typeName,
+              description: feature.description ?? "",
+              recommendedTags: feature.tags,
+            },
+          ]
+        : [];
+    });
+    const hasMatchesArray = Array.isArray(ip.matches);
+    hydrated.ipRecommendation =
+      hasMatchesArray || matches.length > 0
+        ? {
+            ...ip,
+            ...(hasMatchesArray ? { matches } : {}),
+            bestMatch: matches[0] ?? null,
+            noConfidentMatch: matches.length === 0 || ip.noConfidentMatch,
+            recommendedTags: [
+              ...new Map(
+                matches.flatMap((match) =>
+                  match.recommendedTags.map((tag) => [tag.assetTagId, tag] as const),
+                ),
+              ).values(),
+            ],
+          }
+        : null;
   }
   const product = source.productRecommendation;
   if (product) {
@@ -142,8 +181,7 @@ export function hydrateReviewFeatures(
 export function getReviewFeatures(result: unknown): ReviewFeature[] {
   const source = (result ?? {}) as TaggingQueueItemResult;
   const features: ReviewFeature[] = [];
-  const brand = source.brandRecommendation?.bestMatch;
-  if (brand && meetsFeatureConfidenceThreshold("brand", brand.confidence)) {
+  for (const brand of getAcceptedBrandMatches(source.brandRecommendation)) {
     features.push({
       featureType: "brand",
       id: brand.assetLogoId,
@@ -153,8 +191,7 @@ export function getReviewFeatures(result: unknown): ReviewFeature[] {
       tags: brand.recommendedTags ?? [],
     });
   }
-  const ip = source.ipRecommendation?.bestMatch;
-  if (ip && meetsFeatureConfidenceThreshold("ip", ip.confidence)) {
+  for (const ip of getAcceptedIpMatches(source.ipRecommendation)) {
     features.push({
       featureType: "ip",
       id: ip.assetIpId,

@@ -1,7 +1,7 @@
 // @vitest-environment node
 
 import { processQueueItem } from "@/app/(tagging)/queue";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   product: vi.fn(),
@@ -14,6 +14,10 @@ const mocks = vi.hoisted(() => ({
   ipCount: vi.fn(),
   update: vi.fn(),
   findUnique: vi.fn(),
+  classifyFeatures: vi.fn(),
+  buildRecommendations: vi.fn(),
+  predict: vi.fn(),
+  mode: "legacy" as "llm" | "legacy",
 }));
 
 vi.mock("server-only", () => ({}));
@@ -26,6 +30,13 @@ vi.mock("@/lib/brand/tagging-brand-classification", () => ({
 vi.mock("@/lib/ip/tagging-ip-classification", () => ({
   classifyAssetIpRecommendation: mocks.ip,
 }));
+vi.mock("@/lib/feature-decision/classify", () => ({
+  classifyAssetFeatures: mocks.classifyFeatures,
+  getFeatureDecisionMode: () => mocks.mode,
+}));
+vi.mock("@/lib/feature-decision/recommendations", () => ({
+  buildFeatureRecommendations: mocks.buildRecommendations,
+}));
 vi.mock("@/lib/tagging/classification-image", () => ({
   fetchRemoteImageSource: mocks.fetchSource,
   prepareImageInput: mocks.prepare,
@@ -33,7 +44,7 @@ vi.mock("@/lib/tagging/classification-image", () => ({
     error instanceof Error && error.message === "image too large",
 }));
 vi.mock("@/app/(tagging)/predict", () => ({
-  predictAssetTags: async () => ({ predictions: {}, tagsWithScore: [], usage: {} }),
+  predictAssetTags: mocks.predict,
 }));
 vi.mock("@/app/(tagging)/tagging/settings/lib", () => ({
   getTaggingSettings: async () => ({ sourceWeights: {} }),
@@ -53,6 +64,8 @@ vi.mock("@/lib/logging", () => {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  // These source-selection regressions exercise the explicitly configured old flow.
+  mocks.mode = "legacy";
   mocks.productCount.mockResolvedValue(1);
   mocks.brandCount.mockResolvedValue(1);
   mocks.ipCount.mockResolvedValue(1);
@@ -61,6 +74,22 @@ beforeEach(() => {
   mocks.ip.mockResolvedValue(null);
   mocks.findUnique.mockResolvedValue(null);
   mocks.update.mockResolvedValue({});
+  mocks.predict.mockResolvedValue({ predictions: {}, tagsWithScore: [], usage: {}, extra: {} });
+  mocks.classifyFeatures.mockResolvedValue({
+    brand: null,
+    ip: null,
+    product: null,
+    diagnostics: {
+      mode: "llm",
+      ocr: { status: "completed", segments: ["雅诗兰黛"] },
+      decision: { status: "completed", result: { outcome: "no_match", matches: [] } },
+    },
+  });
+  mocks.buildRecommendations.mockResolvedValue({
+    brandRecommendation: null,
+    ipRecommendation: null,
+    productRecommendation: null,
+  });
   mocks.fetchSource.mockImplementation(async (url: string) => ({
     imageUrl: url,
     buffer: Buffer.from("image"),
@@ -70,6 +99,10 @@ beforeEach(() => {
     sourceImage: { url: source.imageUrl, width: 100, height: 100 },
     dataUrl: source.imageUrl,
   }));
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
 });
 
 async function run(
@@ -92,12 +125,19 @@ async function run(
       featurePerson: false,
       featureIp: features.ip ?? false,
     },
-    assetObject: { id: 2, teamId: 7, slug: "test", extra },
+    assetObject: {
+      id: 2,
+      teamId: 7,
+      slug: "test",
+      name: "雅诗兰黛小棕瓶系列.jpg",
+      materializedPath: "/产品/雅诗兰黛",
+      extra,
+    },
     tagsTreeLoader: async () => [],
   } as unknown as Parameters<typeof processQueueItem>[0]);
 }
 
-describe("automatic object detection source selection", () => {
+describe("legacy automatic object detection source selection", () => {
   it("shares the exact download URL and prepared input across logo, IP, and product", async () => {
     const downloadUrl = "https://example.test/image.tif?disposition=attachment";
     await run({
@@ -183,5 +223,147 @@ describe("automatic object detection source selection", () => {
     mocks.ipCount.mockResolvedValue(0);
     await run({ extension: "jpg", downloadUrl: "https://example.test/original.jpg" });
     expect(mocks.fetchSource).not.toHaveBeenCalled();
+  });
+});
+
+describe("combined LLM feature classification", () => {
+  beforeEach(() => {
+    mocks.mode = "llm";
+  });
+
+  it("pools all enabled feature types into one call with the same prepared source and asset context", async () => {
+    const downloadUrl = "https://example.test/original.tif?disposition=attachment";
+    await run({
+      extension: "tif",
+      downloadUrl,
+      thumbnailAccessUrl: "https://example.test/preview.jpg",
+    });
+
+    expect(mocks.fetchSource).toHaveBeenCalledExactlyOnceWith(
+      downloadUrl,
+      "feature classification",
+    );
+    expect(mocks.prepare).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ imageUrl: downloadUrl }),
+      "feature classification",
+      { preserveOriginal: true },
+    );
+    const preparedSource = await mocks.prepare.mock.results[0].value;
+    expect(mocks.classifyFeatures).toHaveBeenCalledExactlyOnceWith({
+      teamId: 7,
+      queueItemId: 1,
+      assetObjectId: 2,
+      fileName: "雅诗兰黛小棕瓶系列.jpg",
+      folderPath: "/产品/雅诗兰黛",
+      imageInput: preparedSource,
+      enabledTypes: ["logo", "product", "ip"],
+    });
+    expect(mocks.classifyFeatures.mock.calls[0][0].imageInput).toBe(preparedSource);
+    const classification = await mocks.classifyFeatures.mock.results[0].value;
+    expect(mocks.buildRecommendations).toHaveBeenCalledExactlyOnceWith(classification);
+    for (const classify of [mocks.brand, mocks.ip, mocks.product]) {
+      expect(classify).not.toHaveBeenCalled();
+    }
+  });
+
+  it("includes only enabled feature libraries with available reference vectors", async () => {
+    mocks.productCount.mockResolvedValue(0);
+    await run(
+      { extension: "jpg", downloadUrl: "https://example.test/original.jpg" },
+      { brand: true, product: true, ip: false },
+    );
+
+    expect(mocks.classifyFeatures).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ enabledTypes: ["logo"] }),
+    );
+    expect(mocks.ipCount).not.toHaveBeenCalled();
+    for (const classify of [mocks.brand, mocks.ip, mocks.product]) {
+      expect(classify).not.toHaveBeenCalled();
+    }
+  });
+
+  it("does not promote embedding recommendations when the combined classifier fails", async () => {
+    mocks.classifyFeatures.mockRejectedValue(new Error("decision source unavailable"));
+    mocks.predict.mockResolvedValue({
+      predictions: {},
+      tagsWithScore: [
+        {
+          leafTagId: 99,
+          tagPath: ["Generic scene"],
+          confidenceBySources: { basicInfo: 0.9 },
+          score: 90,
+        },
+      ],
+      usage: {},
+      extra: {},
+    });
+    await run({ extension: "jpg", downloadUrl: "https://example.test/original.jpg" });
+
+    expect(mocks.classifyFeatures).toHaveBeenCalledTimes(1);
+    expect(mocks.buildRecommendations).not.toHaveBeenCalled();
+    for (const classify of [mocks.brand, mocks.ip, mocks.product]) {
+      expect(classify).not.toHaveBeenCalled();
+    }
+    expect(mocks.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: "completed",
+          result: expect.objectContaining({
+            featureDecision: expect.objectContaining({
+              mode: "llm",
+              decision: expect.objectContaining({ status: "failed" }),
+            }),
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("preserves completed feature diagnostics when no tags are available", async () => {
+    await run({ extension: "jpg", downloadUrl: "https://example.test/original.jpg" });
+    expect(mocks.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: "failed",
+          result: expect.objectContaining({
+            error: "NO_VALID_TAGS",
+            featureDecision: expect.objectContaining({
+              decision: expect.objectContaining({ status: "completed" }),
+            }),
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("waits for feature diagnostics when general prediction rejects first", async () => {
+    mocks.predict.mockRejectedValue(new Error("general tagging unavailable"));
+    mocks.classifyFeatures.mockImplementation(async () => {
+      await Promise.resolve();
+      return {
+        brand: null,
+        ip: null,
+        product: null,
+        diagnostics: {
+          mode: "llm",
+          ocr: { status: "empty", segments: [] },
+          decision: { status: "completed", result: { outcome: "no_match", matches: [] } },
+        },
+      };
+    });
+    await run({ extension: "jpg", downloadUrl: "https://example.test/original.jpg" });
+    expect(mocks.buildRecommendations).toHaveBeenCalledOnce();
+    expect(mocks.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: "failed",
+          result: expect.objectContaining({
+            featureDecision: expect.objectContaining({
+              decision: expect.objectContaining({ status: "completed" }),
+            }),
+          }),
+        }),
+      }),
+    );
   });
 });

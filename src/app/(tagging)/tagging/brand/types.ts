@@ -1,3 +1,4 @@
+import type { FeatureDecisionDiagnostics } from "@/lib/feature-decision/types";
 import type { LibraryListPage } from "../components/library-list-query";
 
 export type BrandLogoTypeItem = {
@@ -116,6 +117,9 @@ export type BrandClassificationMatch = {
 };
 
 export type BrandClassificationResult = {
+  diagnostics?: FeatureDecisionDiagnostics;
+  /** Predictions eligible for automatic application; topMatches also includes uncertain alternatives. */
+  matches?: BrandClassificationMatch[];
   topMatches: BrandClassificationMatch[];
   bestMatch: BrandClassificationMatch | null;
   noConfidentMatch: boolean;

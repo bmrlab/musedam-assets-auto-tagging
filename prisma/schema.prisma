@@ -30,7 +30,47 @@ model Team {
   assetPersons      AssetPerson[]
   taggingQueueItems TaggingQueueItem[]
   taggingAuditItems TaggingAuditItem[]
+  featureLlmCalls   FeatureLlmCall[]
   configs           TeamConfig[]
+}
+
+// One record per OCR/feature decision attempt. Missing prices/usage remain null,
+// rather than being reported as zero-cost calls. Request JSON excludes credentials.
+model FeatureLlmCall {
+  id          String @id @default(uuid()) @db.Uuid
+  teamId      Int
+  team        Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  queueItemId Int?
+  assetObjectId Int?
+  kind        String @db.VarChar(20)
+  model       String @db.VarChar(255)
+  status      String @db.VarChar(20)
+  durationMs  Int
+  request     Json
+  response    String? @db.Text
+  rawResponse Json?
+  error       String? @db.Text
+
+  inputTokens       Int?
+  outputTokens      Int?
+  totalTokens       Int?
+  cachedInputTokens Int?
+  reasoningTokens   Int?
+  imageTokens       Int?
+
+  currency                   String @default("USD") @db.VarChar(3)
+  inputCost                  Decimal? @db.Decimal(18, 9)
+  outputCost                 Decimal? @db.Decimal(18, 9)
+  totalCost                  Decimal? @db.Decimal(18, 9)
+  inputPricePerMillion       Decimal? @db.Decimal(18, 9)
+  cachedInputPricePerMillion Decimal? @db.Decimal(18, 9)
+  outputPricePerMillion      Decimal? @db.Decimal(18, 9)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([teamId, createdAt])
+  @@index([queueItemId])
+  @@index([assetObjectId])
 }
 
 model User {

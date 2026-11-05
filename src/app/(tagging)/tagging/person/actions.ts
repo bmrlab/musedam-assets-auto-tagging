@@ -2258,6 +2258,43 @@ export async function deleteAssetPersonsAction(
   });
 }
 
+export async function retryAllFailedAssetPersonProcessingAction(): Promise<
+  ServerActionResult<{ retriedCount: number }>
+> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    const t = await getTranslations("Tagging.PersonLibrary");
+    try {
+      const failedItems = await prisma.assetPerson.findMany({
+        where: { teamId, status: "failed" },
+        select: { id: true, enabled: true },
+      });
+      const limit = pLimit(BATCH_VECTOR_SYNC_CONCURRENCY);
+      // Settle every retry so one failed reset does not prevent the others.
+      const results = await Promise.allSettled(
+        failedItems.map((item) =>
+          limit(async () => {
+            await markAssetPersonVectorsPending({
+              teamId,
+              personId: item.id,
+              enabled: item.enabled,
+            });
+            scheduleAssetPersonProcessing(teamId, item.id);
+          }),
+        ),
+      );
+      const failure = results.find((result) => result.status === "rejected");
+      if (failure) {
+        console.error("Failed to retry all asset Person processing:", failure.reason);
+        return { success: false, message: t("retryFailed") };
+      }
+      return { success: true, data: { retriedCount: failedItems.length } };
+    } catch (error) {
+      console.error("Failed to retry all asset Person processing:", error);
+      return { success: false, message: t("retryFailed") };
+    }
+  });
+}
+
 export async function retryAssetPersonProcessingAction(
   personId: string,
 ): Promise<ServerActionResult<{ person: PersonItem }>> {

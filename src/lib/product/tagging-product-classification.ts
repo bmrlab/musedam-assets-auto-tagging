@@ -1,3 +1,5 @@
+import { classifyAssetFeatures, getFeatureDecisionMode } from "@/lib/feature-decision/classify";
+import { buildFeatureRecommendations } from "@/lib/feature-decision/recommendations";
 import "server-only";
 
 import {
@@ -18,10 +20,14 @@ export async function classifyAssetProductRecommendation({
   teamId,
   imageUrl,
   imageInput: providedImageInput,
+  fileName,
+  folderPath,
 }: {
   teamId: number;
   imageUrl?: string | null;
   imageInput?: ClassificationRemoteImageInput | null;
+  fileName?: string;
+  folderPath?: string;
 }): Promise<TaggingProductRecommendation | null> {
   if (!providedImageInput && !imageUrl) {
     return null;
@@ -40,6 +46,16 @@ export async function classifyAssetProductRecommendation({
     (await fetchRemoteImageInput(imageUrl as string, "Product classification", {
       preserveOriginal: true,
     }));
+  if (getFeatureDecisionMode() === "llm") {
+    const result = await classifyAssetFeatures({
+      teamId,
+      imageInput,
+      fileName,
+      folderPath,
+      enabledTypes: ["product"],
+    });
+    return (await buildFeatureRecommendations(result)).productRecommendation;
+  }
   const detection = await detectProductFigureBoxes({
     teamId,
     imageInput,
@@ -65,6 +81,7 @@ export async function classifyAssetProductRecommendation({
   );
 
   return {
+    decisionSource: "legacy",
     noConfidentMatch: matches.length === 0,
     rawDetections: result.rawDetections,
     matches,

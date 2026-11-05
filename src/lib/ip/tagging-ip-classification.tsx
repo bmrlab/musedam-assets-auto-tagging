@@ -1,3 +1,5 @@
+import { classifyAssetFeatures, getFeatureDecisionMode } from "@/lib/feature-decision/classify";
+import { buildFeatureRecommendations } from "@/lib/feature-decision/recommendations";
 import "server-only";
 
 import { classifyIpImageCrops, detectIpFigureBoxes } from "@/lib/ip/ip-classification";
@@ -17,10 +19,14 @@ export async function classifyAssetIpRecommendation({
   teamId,
   imageUrl,
   imageInput: providedImageInput,
+  fileName,
+  folderPath,
 }: {
   teamId: number;
   imageUrl?: string | null;
   imageInput?: ClassificationRemoteImageInput | null;
+  fileName?: string;
+  folderPath?: string;
 }): Promise<TaggingIpRecommendation | null> {
   if (!providedImageInput && !imageUrl) {
     return null;
@@ -36,6 +42,16 @@ export async function classifyAssetIpRecommendation({
 
   const imageInput =
     providedImageInput ?? (await fetchRemoteImageInput(imageUrl as string, "IP classification"));
+  if (getFeatureDecisionMode() === "llm") {
+    const result = await classifyAssetFeatures({
+      teamId,
+      imageInput,
+      fileName,
+      folderPath,
+      enabledTypes: ["ip"],
+    });
+    return (await buildFeatureRecommendations(result)).ipRecommendation;
+  }
   const detection = await detectIpFigureBoxes({
     teamId,
     imageInput,
@@ -68,6 +84,7 @@ export async function classifyAssetIpRecommendation({
 
   if (!result.bestMatch) {
     return {
+      decisionSource: "legacy",
       noConfidentMatch: true,
       bestMatch: null,
       recommendedTags: [],
@@ -77,6 +94,7 @@ export async function classifyAssetIpRecommendation({
   const normalizedTags = normalizeRecommendedTags(result.bestMatch.recommendedTags);
 
   return {
+    decisionSource: "legacy",
     noConfidentMatch: result.noConfidentMatch ?? false,
     bestMatch: {
       assetIpId: result.bestMatch.assetIpId,
