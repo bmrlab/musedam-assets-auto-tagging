@@ -4,7 +4,7 @@
 # Usage:
 #   cp .env.example .env   # fill in DATABASE_URL, S3_*/AWS_*, OPENAI_BASE_URL, etc.
 #                          # see docs/private-deployment.md for the full variable matrix
-#   docker build -t musedam-auto-tagging:local --build-arg NEXT_SERVER_ACTIONS_ENCRYPTION_KEY=$(openssl rand -hex 32) .
+#   docker build -f Dockerfile.prod -t musedam-auto-tagging:local --build-arg NEXT_SERVER_ACTIONS_ENCRYPTION_KEY=$(openssl rand -hex 32) .
 #   docker compose -f deploy/docker-compose.example.yml up -d
 
 services:
@@ -12,6 +12,9 @@ services:
     image: musedam-auto-tagging:local
     env_file:
       - ../.env
+    environment:
+      # Keep the container port aligned with the mapping and scheduler below.
+      PORT: "8080"
     ports:
       - "3000:8080"
     restart: unless-stopped
