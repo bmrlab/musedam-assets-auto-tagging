@@ -371,7 +371,7 @@ describe("overwrite duplicate paths", () => {
     ];
     const result = coalesceTagTreeRecords(records, "zh-CN");
     expect(result.errors).toEqual([]);
-    expect(result.records[0].fields).toEqual({ description: "品牌描述", keywords: ["B", "A"] });
+    expect(result.records[0].fields).toEqual({ description: "品牌描述", keywords: ["A", "B"] });
     expect(records[0].fields).toEqual({ keywords: ["A", "B"] });
   });
 
@@ -382,7 +382,21 @@ describe("overwrite duplicate paths", () => {
     ], "zh-CN");
     expect(result.errors).toEqual([{
       rowNumber: 582,
-      message: "文件中同一路径的配置冲突（标签描述、AI 自动打标），请统一后再导入",
+      message: "文件中同一路径的配置冲突（标签描述、AI 自动打标），继续导入将跳过本行",
     }]);
   });
+});
+
+
+it("merges keywords and excluded keywords for repeated tag paths and returns only a non-blocking notice", () => {
+  const records = [
+    { rowNumber: 582, path: ["所属系列", "pro系列"], fields: { keywords: ["pro", "专业"], negativeKeywords: ["旧款"] } },
+    { rowNumber: 583, path: ["所属系列", "pro系列"], fields: { keywords: ["pro", "专业版"], negativeKeywords: ["旧款", "草稿"] } },
+  ];
+  const result = coalesceTagTreeRecords(records, "zh-CN");
+  expect(result.errors).toEqual([]);
+  expect(result.records).toHaveLength(1);
+  expect(result.records[0].fields).toEqual({ keywords: ["pro", "专业", "专业版"], negativeKeywords: ["旧款", "草稿"] });
+  expect(result.warnings).toEqual([{ rowNumber: 583, message: expect.stringContaining("不影响导入") }]);
+  expect(records[0].fields.keywords).toEqual(["pro", "专业"]);
 });

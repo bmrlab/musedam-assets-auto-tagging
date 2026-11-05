@@ -426,3 +426,39 @@ it("uses paths to reuse existing tags on confirmed tree import, ignoring stale e
   expect(mocks.batchCreateTags).not.toHaveBeenCalled();
   expect(mocks.rows.find((row) => row.id === 2)?.extra).toMatchObject({ description: "保留配置", keywords: ["pro"] });
 });
+
+
+it.each(["merge", "overwrite"])("%s imports merged duplicate keywords and skips only explicitly acknowledged invalid rows", async (mode) => {
+  seed(1, "所属系列"); seed(2, "pro系列", 1);
+  mocks.batchCreateTags.mockImplementation(async (nodes, addType) => {
+    expect(mode).toBe("overwrite");
+    expect(addType).toBe(1);
+    expect(nodes).toEqual([{ name: "所属系列", nameChildList: [{ name: "pro系列" }] }]);
+    return { success: true };
+  });
+  const form = file([
+    ["一级标签", "二级标签", "三级标签", "匹配关键词"],
+    ["所属系列", "pro系列", "", "pro;专业"],
+    ["所属系列", "pro系列", "", "pro;专业版"],
+    ["所属系列", "", "错误层级", "不应写入"],
+  ]);
+  const precheck = await precheckTagTreeImportAction(form);
+  expect(precheck).toMatchObject({ success: true, data: {
+    issues: [{ rowNumber: 4 }], warnings: [{ rowNumber: 3 }], importableCount: 2,
+  } });
+  form.set("treeImport", "true"); form.set("importMode", mode); form.set("skipRows", "[4]");
+  expect(await importTagTreeAction(form)).toMatchObject({ success: true, data: {
+    failedCount: 0, successCount: 1, skippedCount: 1,
+  } });
+  expect(mocks.rows.find((row) => row.id === 2)?.extra).toMatchObject({ keywords: ["pro", "专业", "专业版"] });
+  if (mode === "merge") expect(mocks.batchCreateTags).not.toHaveBeenCalled();
+});
+
+it("does not overwrite when skipping all input rows would leave an empty tree", async () => {
+  seed(1, "保留的旧树");
+  const form = file([["一级标签"], ["无效".repeat(101)]]);
+  form.set("treeImport", "true"); form.set("importMode", "overwrite"); form.set("skipRows", "[2]");
+  await importTagTreeAction(form);
+  expect(mocks.batchCreateTags).not.toHaveBeenCalled();
+  expect(mocks.rows[0].name).toBe("保留的旧树");
+});

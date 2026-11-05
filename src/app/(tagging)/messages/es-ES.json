@@ -1601,6 +1601,7 @@
       "precheckHint": "Revisa lo siguiente antes de importar",
       "precheckSummary": "Se crearán {create} etiquetas, se actualizarán {update} y {unchanged} sin cambios",
       "precheckRenameNotice": "{count} de ellas se renombrarán y se sincronizarán con MuseDAM",
+      "precheckWarningsLabel": "{count} duplicate entries were merged automatically. You can continue importing:",
       "precheckIssuesLabel": "{count} filas tienen problemas y se omitirán si continúas:",
       "precheckCreateLabel": "Se crearán {count} etiquetas:",
       "precheckMoreItems": "…{count} elementos en total",

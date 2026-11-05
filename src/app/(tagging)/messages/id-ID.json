@@ -1601,6 +1601,7 @@
       "precheckHint": "Tinjau hal berikut sebelum mengimpor",
       "precheckSummary": "{create} tag akan dibuat, {update} diperbarui, {unchanged} tidak berubah",
       "precheckRenameNotice": "{count} di antaranya akan diganti nama dan disinkronkan ke MuseDAM",
+      "precheckWarningsLabel": "{count} duplicate entries were merged automatically. You can continue importing:",
       "precheckIssuesLabel": "{count} baris bermasalah dan akan dilewati jika Anda melanjutkan:",
       "precheckCreateLabel": "{count} tag akan dibuat:",
       "precheckMoreItems": "…total {count} item",

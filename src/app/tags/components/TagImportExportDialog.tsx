@@ -61,7 +61,6 @@ export function TagImportExportDialog({
       <BatchImportExportDialog<TagTreeBatchImportResult>
         open={open}
         reviewTitle={t("importPreviewTitle")}
-        blockImportOnIssues
         renderReview={(precheck, pending) => (
           <div className="flex flex-col gap-4">
             <TagImportPreview

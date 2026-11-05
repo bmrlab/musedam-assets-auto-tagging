@@ -42,6 +42,7 @@ export type BatchImportResultBase = {
 };
 
 export type BatchImportPrecheck = {
+  warnings?: BatchImportFailure[];
   importableCount?: number;
   reviewable?: boolean;
   createCount: number;
@@ -462,6 +463,24 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
                     </div>
                   </div>
                 )}
+
+                {precheckResult.warnings?.length ? (
+                  <div>
+                    <p className="mb-2 text-[12px] leading-[16px] font-normal text-basic-5">
+                      {t("precheckWarningsLabel", { count: precheckResult.warnings.length })}
+                    </p>
+                    <div className="max-h-[160px] overflow-y-auto rounded-[8px] bg-basic-1 px-4 py-3">
+                      <ul className="list-disc space-y-2 pl-4 text-[14px] leading-[22px] font-normal text-basic-8">
+                        {precheckResult.warnings.slice(0, PRECHECK_LIST_LIMIT).map((warning, index) => (
+                          <li key={`${warning.rowNumber}-${index}`}>{formatFailureMessage(warning)}</li>
+                        ))}
+                        {precheckResult.warnings.length > PRECHECK_LIST_LIMIT ? (
+                          <li>{t("precheckMoreItems", { count: precheckResult.warnings.length })}</li>
+                        ) : null}
+                      </ul>
+                    </div>
+                  </div>
+                ) : null}
 
                 {precheckResult.issues.length > 0 ? (
                   <div>
