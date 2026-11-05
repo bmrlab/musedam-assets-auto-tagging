@@ -8,6 +8,7 @@ import { AssetTag } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 import { requestMuseDAMAPI } from "../lib";
 import { MuseDAMID } from "../types";
+import { mergeTagsInBatches } from "./mergeTagsInBatches";
 
 interface MuseDAMTagRequest {
   id?: number;
@@ -199,15 +200,7 @@ export async function syncTagsToMuseDAM({
   const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
 
   // 调用 MuseDAM API
-  const res = await requestMuseDAMAPI<{ tags: MuseDAMTagResponse[] }>("/api/muse/merge-tags", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${musedamTeamApiKey}`,
-    },
-    body: {
-      tags: musedamTags,
-    },
-  });
+  const res = await mergeTagsInBatches(musedamTags, musedamTeamApiKey);
 
   // 更新 AssetTag 的 sort 字段
   const updateAssetTagSort = async (nodeId: number, sort: number) => {
@@ -316,15 +309,7 @@ export async function deleteAllMuseDAMTags({
     sort: musedamTag.sort,
   }));
 
-  await requestMuseDAMAPI<{ tags: MuseDAMTagResponse[] }>("/api/muse/merge-tags", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${musedamTeamApiKey}`,
-    },
-    body: {
-      tags: deleteTags,
-    },
-  });
+  await mergeTagsInBatches(deleteTags, musedamTeamApiKey);
 }
 
 /**
@@ -584,15 +569,7 @@ export async function syncTagsToMuseDAMWithCurrentSystemAsBase({
 
     if (syncTags.length > 0) {
       // 调用 MuseDAM API
-      await requestMuseDAMAPI<{ tags: MuseDAMTagResponse[] }>("/api/muse/merge-tags", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${musedamTeamApiKey}`,
-        },
-        body: {
-          tags: syncTags,
-        },
-      });
+      await mergeTagsInBatches(syncTags, musedamTeamApiKey);
     }
   }
 
