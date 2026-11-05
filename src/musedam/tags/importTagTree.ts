@@ -1,4 +1,5 @@
 import { throwIfTagImportAborted } from "@/lib/tagging/tag-import-runtime";
+import type { TagTreeImportStats } from "@/lib/tagging/tag-import-result";
 import { idToSlug } from "@/lib/slug";
 import { bumpTagConfigVersion } from "@/lib/tagging/tag-config-version";
 import { assertTagImportOwnership } from "@/lib/tagging/tag-import-lock";
@@ -63,7 +64,7 @@ export async function importTagTreeSynchronously(
   tree: TreeNode[],
   imported = false,
   mode: "merge" | "overwrite" = "merge",
-) {
+): Promise<TagTreeImportStats> {
   const nodes = buildTagTreeImportRequest(tree);
   const hash = createHash("sha256")
     .update(JSON.stringify({ nodes, imported, ...(mode === "overwrite" ? { mode } : {}) }))
@@ -213,6 +214,7 @@ export async function importTagTreeSynchronously(
     },
     { timeout: 60_000, isolationLevel: "ReadCommitted" },
   );
+  return { totalCount: result.nodes.length, existingCount: result.reusedCount, createdCount: result.createdCount };
 }
 
 function validateMappings(nodes: RequestNode[], result: Result) {

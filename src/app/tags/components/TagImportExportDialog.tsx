@@ -61,6 +61,8 @@ export function TagImportExportDialog({
       <BatchImportExportDialog<TagTreeBatchImportResult>
         open={open}
         reviewTitle={t("importPreviewTitle")}
+        reviewClassName="w-[960px]"
+        showResultDialog
         renderReview={(precheck, pending) => (
           <div className="flex flex-col gap-4">
             <TagImportPreview
@@ -160,7 +162,7 @@ export function TagImportExportDialog({
             <AlertDialogCancel onClick={() => resolveOverwrite(false)}>
               {tips("Cancel")}
             </AlertDialogCancel>
-            <AlertDialogAction onClick={() => resolveOverwrite(true)}>
+            <AlertDialogAction variant="dialogDanger" onClick={() => resolveOverwrite(true)}>
               {overwriteTips("ClearExistingTagsAndUseNewOnes")}
             </AlertDialogAction>
           </AlertDialogFooter>
