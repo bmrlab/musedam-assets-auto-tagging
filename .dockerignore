@@ -55,6 +55,7 @@ jest.config.js
 
 # Docker
 Dockerfile
+Dockerfile.prod
 docker-compose.yml
 .dockerignore
 

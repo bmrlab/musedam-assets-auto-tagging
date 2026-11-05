@@ -6,7 +6,7 @@
 
 ## 1. 镜像
 
-- 应用镜像：`Dockerfile`（standalone Next.js 输出，`CMD node server.js`，监听 `PORT`，默认 `3000`）
+- 应用镜像：`Dockerfile.prod`（standalone Next.js 输出，`CMD node server.js`，监听 `PORT`，默认 `3000`）
 - 构建参数：`NEXT_SERVER_ACTIONS_ENCRYPTION_KEY`（必须在 `docker build` 时传入，私有部署要重新生成，不要沿用 SaaS 环境的值）
 - `Dockerfile.job` 仅用于预下载/校验 Prisma 引擎二进制，不包含应用代码，不能直接拿来跑队列处理器。
 

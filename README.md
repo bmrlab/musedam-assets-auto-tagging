@@ -1,3 +1,16 @@
+## 镜像构建入口
+
+两个环境使用同一套文件，构建方显式选择入口，避免在 test / origin 同步时反复覆盖 Dockerfile：
+
+| 环境 | 文件 | 选择方式 |
+|---|---|---|
+| 统一测试平台 | `Dockerfile` | 平台默认构建入口；沿用测试侧内部基础镜像、Apollo 启动和 8080 端口 |
+| SaaS 生产 / 私有化 Web | `Dockerfile.prod` | GitHub Actions 的 build-app 或手动构建通过 `-f Dockerfile.prod` 指定；保留原生产镜像配置 |
+| 数据库迁移 | `Dockerfile.job` | 继续显式指定该文件 |
+| 独立调度器 | `Dockerfile.scheduler` | 继续显式指定该文件 |
+
+生产手动构建命令为 `docker build -f Dockerfile.prod -t <image>:<version> .`；构建参数仍按部署指南提供。文件名区分大小写，根目录构建上下文仍为 `.`。两份 Web Dockerfile 都应随代码同步至两个远端，不按远端名称切换或覆盖文件。GitHub Actions 仍只在 `v*` tag 推送时执行原有发布链路。
+
 ## 本地开发
 
 1. 安装依赖
