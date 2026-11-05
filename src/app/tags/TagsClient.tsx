@@ -43,6 +43,43 @@ function countTagsAtLevel(nodes: TagNode[], level: number): number {
 /** 各层级（1 ~ MAX_TAG_LEVEL）选中的节点 ID，selection[i] 对应第 i + 1 级 */
 type Selection = (string | null)[];
 
+function filterTags(tags: TagNode[], query: string): TagNode[] {
+  const lowerQuery = query.toLowerCase().trim();
+  if (!lowerQuery) return tags;
+
+  const visit = (nodes: TagNode[]): TagNode[] => {
+    const matched: TagNode[] = [];
+    for (const tag of nodes) {
+      const children = visit(tag.children);
+      if (tag.name.toLowerCase().includes(lowerQuery) || children.length > 0) {
+        matched.push({ ...tag, children });
+      }
+    }
+    return matched;
+  };
+
+  return visit(tags);
+}
+
+function collectSearchResults(nodes: TagNode[], parent?: SearchTagData): SearchTagData[] {
+  const results: SearchTagData[] = [];
+  for (const node of nodes) {
+    const current: SearchTagData = {
+      tag: {
+        id: node.id || 0,
+        name: node.name,
+        description: "",
+        materialCount: 0,
+        parentId: parent?.tag.id || 0,
+      },
+      parent,
+    };
+    if (node.id) results.push(current);
+    if (node.children.length > 0) results.push(...collectSearchResults(node.children, current));
+  }
+  return results;
+}
+
 const TAG_LEVELS = Array.from({ length: MAX_TAG_LEVEL }, (_, i) => i + 1);
 const selectionUrlKey = (level: number) => `l${level}`;
 
@@ -167,82 +204,12 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
     }
   }, []);
 
-  // 搜索标签函数
-  const searchTags = (tags: TagNode[], query: string): TagNode[] => {
-    if (!query.trim()) return tags;
+  const searchResults = useMemo(() => filterTags(tagsTree, searchQuery), [tagsTree, searchQuery]);
 
-    const lowerQuery = query.toLowerCase().trim();
-
-    return tags
-      .filter((tag) => {
-        // 检查当前标签名是否匹配
-        const nameMatch = tag.name.toLowerCase().includes(lowerQuery);
-
-        // 检查子标签是否有匹配
-        const childrenMatch = searchTags(tag.children, query).length > 0;
-
-        return nameMatch || childrenMatch;
-      })
-      .map((tag) => ({
-        ...tag,
-        children: searchTags(tag.children, query),
-      }));
-  };
-
-  // 获取搜索结果
-  const getSearchResults = (): TagNode[] => {
-    if (!searchQuery.trim()) return tagsTree;
-    return searchTags(tagsTree, searchQuery);
-  };
-
-  // 将搜索结果转换为SearchTagData格式
-  const getSearchResultsAsData = (): SearchTagData[] => {
-    if (!searchQuery.trim()) return [];
-
-    const results: SearchTagData[] = [];
-
-    const collectSearchResults = (nodes: TagNode[], parent?: SearchTagData) => {
-      for (const node of nodes) {
-        if (node.id) {
-          // 从原始数据中查找对应的标签信息
-          // const originalTag = findOriginalTag(originalTags, node.id);
-
-          const tagRecord: TagRecord = {
-            id: node.id,
-            name: node.name,
-            description: "", // AssetTag没有description字段
-            materialCount: 0, // AssetTag没有materialCount字段，需要从其他地方获取
-            parentId: parent?.tag.id || 0,
-          };
-
-          const searchData: SearchTagData = {
-            tag: tagRecord,
-            parent: parent,
-          };
-
-          results.push(searchData);
-        }
-
-        // 递归处理子节点
-        if (node.children.length > 0) {
-          const currentParent: SearchTagData = {
-            tag: {
-              id: node.id || 0,
-              name: node.name,
-              description: "",
-              materialCount: 0,
-              parentId: parent?.tag.id || 0,
-            },
-            parent: parent,
-          };
-          collectSearchResults(node.children, currentParent);
-        }
-      }
-    };
-
-    collectSearchResults(getSearchResults());
-    return results;
-  };
+  const searchResultData = useMemo(
+    () => (searchQuery.trim() ? collectSearchResults(searchResults) : []),
+    [searchQuery, searchResults],
+  );
 
   // 处理搜索输入
   const handleSearchChange = useCallback(
@@ -379,23 +346,22 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
     });
   };
 
-  // 获取当前显示的标签（包含已删除的，用于UI显示）
-  const getVisibleTags = (tags: TagNode[]) => tags;
-
   // 获取各级选中的节点（selectedNodes[i] 为第 i + 1 级）
-  const selectedNodes = selectedIds.map((id) => (id ? findNodeById(tagsTree, id) : null));
+  const selectedNodes = useMemo(
+    () => selectedIds.map((id) => (id ? findNodeById(tagsTree, id) : null)),
+    [selectedIds, tagsTree],
+  );
 
-  // 获取不同层级的标签（支持搜索）：一级来自（搜索后的）整棵树，其余为上一级选中节点的子节点
-  const currentTagsTree = isSearching ? getSearchResults() : tagsTree;
-  const levelTags: TagNode[][] = TAG_LEVELS.map((level) => {
-    if (level === 1) {
-      return getVisibleTags(currentTagsTree).map(
-        (tag) => findNodeById(tagsTree, getNodeId(tag)) || tag,
-      );
-    }
-    const parent = selectedNodes[level - 2];
-    return parent ? getVisibleTags(parent.children) : [];
-  });
+  // 一级来自整棵树，其余为上一级选中节点的子节点。搜索时列被结果列表替换。
+  const levelTags = useMemo(
+    () =>
+      TAG_LEVELS.map((level) => {
+        if (level === 1) return tagsTree;
+        const parent = selectedNodes[level - 2];
+        return parent ? parent.children : [];
+      }),
+    [tagsTree, selectedNodes],
+  );
 
   // 检查同级标签名是否重复
   const checkNameDuplicate = (name: string, siblings: TagNode[], excludeId?: string) => {
@@ -909,7 +875,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
       <div className="flex-1 overflow-hidden flex flex-row items-stretch gap-4">
         {isSearching ? (
           <SearchResult
-            searchData={getSearchResultsAsData()}
+            searchData={searchResultData}
             handleClick={handleSearchResultClick}
           />
         ) : (
