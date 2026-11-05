@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
  * 批量创建标签「合并到现有标签系统」(addType=2)：
@@ -52,6 +52,7 @@ const mocks = vi.hoisted(() => {
       rows.length = 0;
       nextId = 100;
     },
+    atomicImport: vi.fn(async () => undefined),
     syncTagsToMuseDAM: vi.fn(),
     syncTagsToMuseDAMWithCurrentSystemAsBase: vi.fn(async () => undefined),
     syncTagsFromMuseDAM: vi.fn(async () => undefined),
@@ -59,6 +60,8 @@ const mocks = vi.hoisted(() => {
 });
 
 vi.mock("server-only", () => ({}));
+vi.mock("@/musedam/tags/importTagTree", () => ({ importTagTreeSynchronously: mocks.atomicImport }));
+afterEach(() => vi.unstubAllEnvs());
 vi.mock("@/prisma/prisma", () => ({ default: mocks.prisma }));
 vi.mock("@/app/(auth)/withAuth", () => ({
   withAuth: (fn: (args: { user: unknown; team: { id: number } }) => Promise<unknown>) =>
@@ -102,6 +105,7 @@ const input = [
 
 describe("batchCreateTags merge mode (addType=2)", () => {
   beforeEach(() => {
+    vi.stubEnv("MUSEDAM_TAG_TREE_IMPORT_ENABLED", "false");
     mocks.reset();
     vi.clearAllMocks();
     mocks.syncTagsToMuseDAM.mockResolvedValue({ tags: [], createdTagMapping: new Map() });
@@ -217,4 +221,48 @@ it("never runs destructive full-tree push or pull after a merge", async () => {
   expect(await batchCreateTags(input, 2)).toMatchObject({ success: true });
   expect(mocks.syncTagsToMuseDAMWithCurrentSystemAsBase).not.toHaveBeenCalled();
   expect(mocks.syncTagsFromMuseDAM).not.toHaveBeenCalled();
+});
+
+it("never runs destructive full-tree push or pull after a merge", async () => {
+  mocks.reset();
+  vi.clearAllMocks();
+  mocks.syncTagsToMuseDAM.mockResolvedValue({ tags: [], createdTagMapping: new Map() });
+  mocks.assetTag.count.mockResolvedValueOnce(1);
+  expect(await batchCreateTags(input, 2)).toMatchObject({ success: true });
+  expect(mocks.syncTagsToMuseDAMWithCurrentSystemAsBase).not.toHaveBeenCalled();
+  expect(mocks.syncTagsFromMuseDAM).not.toHaveBeenCalled();
+});
+
+describe("atomic overwrite safety", () => {
+  beforeEach(() => {
+    vi.stubEnv("MUSEDAM_TAG_TREE_IMPORT_ENABLED", "false");
+    mocks.reset();
+    vi.clearAllMocks();
+  });
+  it("rejects overwrite before any mutation when the atomic endpoint is disabled", async () => {
+    seed({ id: 1, name: "Old", slug: "g/1", parentId: null, level: 1 });
+    const result = await batchCreateTags([{ name: "New" }], 1);
+    expect(result).toMatchObject({
+      success: false,
+      message: expect.stringContaining("主仓原子覆盖接口"),
+    });
+    expect(mocks.rows[0].name).toBe("Old");
+    expect(mocks.assetTag.deleteMany).not.toHaveBeenCalled();
+    expect(mocks.syncTagsToMuseDAM).not.toHaveBeenCalled();
+    expect(mocks.atomicImport).not.toHaveBeenCalled();
+  });
+  it("uses a single atomic overwrite request and never falls back to legacy delete/create on failure", async () => {
+    vi.stubEnv("MUSEDAM_TAG_TREE_IMPORT_ENABLED", "true");
+    mocks.atomicImport.mockRejectedValueOnce(new Error("overwrite rolled back"));
+    const result = await batchCreateTags([{ name: "New" }], 1, { imported: true });
+    expect(result).toMatchObject({ success: false, message: "overwrite rolled back" });
+    expect(mocks.atomicImport).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 1 }),
+      [{ name: "New" }],
+      true,
+      "overwrite",
+    );
+    expect(mocks.assetTag.deleteMany).not.toHaveBeenCalled();
+    expect(mocks.syncTagsToMuseDAM).not.toHaveBeenCalled();
+  });
 });

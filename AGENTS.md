@@ -54,6 +54,10 @@ package 中的 lint 为 next lint，若当前 Next 版本已不支持该子命�
 
 MuseDAM 界面按 `muse-development/references/design-system.md`（由工作区 Muse 开发 skill 提供）；新增静态样式使用 Tailwind，先复用本项目组件与图标。两种主题均需适配。跨仓定位见 工作区 `muse-development/SKILL.md`。
 
+## 标签导入开发
+
+同步批量合并接口由 `MUSEDAM_TAG_TREE_IMPORT_ENABLED` 控制，默认关闭；主仓接口、SQL 和开放网关部署完成后再启用。导入恢复、人工配置标记及缓存版本约定见 README 的“同步标签树导入与恢复”。导入配置不触发 AI 策略初始化。
+
 ## 启动完成的判断与维护
 
 以终端实际输出的监听地址为准，并验证数据库连接、认证和当前开发的主要流程；编译成功不代表外部依赖已可用。配置模板仅用于首次创建文件，不覆盖已有配置，不把凭据写入本文。数据库准备命令仅用于已确认的本地开发库。脚本、环境入口、端口或目录结构变化时，同步维护本文件。

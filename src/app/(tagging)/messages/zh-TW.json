@@ -209,6 +209,7 @@
       "itemsUnit": "條",
       "latest": "最新",
       "requiredFallbackBadge": "必打兜底",
+      "matchedKeywordsBadge": "關鍵詞：{keywords}",
       "aspectRatioBadge": "按寬高",
       "sizeAIBadge": "AI 按尺寸",
       "reviewedBadge": "已審核",
@@ -1606,7 +1607,8 @@
       "backToEdit": "返回修改",
       "continueImport": "繼續匯入",
       "continueImportSkipIssues": "略過問題行，繼續匯入",
-      "importSuccessWithSkipped": "成功匯入 {count} 筆，已略過 {skipped} 筆有問題的行"
+      "importSuccessWithSkipped": "成功匯入 {count} 筆，已略過 {skipped} 筆有問題的行",
+      "memberImportInProgress": "成員 {name} 正在執行批次匯入，請稍後重新整理頁面再試。"
     }
   }
 }

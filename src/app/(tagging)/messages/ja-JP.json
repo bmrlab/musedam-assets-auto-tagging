@@ -209,6 +209,7 @@
       "itemsUnit": "条",
       "latest": "最新",
       "requiredFallbackBadge": "必須フォールバック",
+      "matchedKeywordsBadge": "Keywords: {keywords}",
       "aspectRatioBadge": "サイズから",
       "sizeAIBadge": "AI・サイズから",
       "reviewedBadge": "レビュー済み",
@@ -1606,7 +1607,8 @@
       "backToEdit": "編集に戻る",
       "continueImport": "インポートを続行",
       "continueImportSkipIssues": "問題行をスキップして続行",
-      "importSuccessWithSkipped": "{count} 件をインポートし、問題のある {skipped} 行をスキップしました"
+      "importSuccessWithSkipped": "{count} 件をインポートし、問題のある {skipped} 行をスキップしました",
+      "memberImportInProgress": "Member {name} is running a bulk import. Please refresh the page and try again later."
     }
   }
 }

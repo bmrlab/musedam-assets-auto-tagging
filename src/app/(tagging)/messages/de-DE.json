@@ -209,6 +209,7 @@
       "itemsUnit": "Artikel",
       "latest": "Neueste",
       "requiredFallbackBadge": "Pflicht-Fallback",
+      "matchedKeywordsBadge": "Keywords: {keywords}",
       "aspectRatioBadge": "Aus Abmessungen",
       "sizeAIBadge": "KI nach Größe",
       "reviewedBadge": "Geprüft",
@@ -1606,7 +1607,8 @@
       "backToEdit": "Zurück zur Bearbeitung",
       "continueImport": "Import fortsetzen",
       "continueImportSkipIssues": "Probleme überspringen und fortfahren",
-      "importSuccessWithSkipped": "{count} Zeilen importiert, {skipped} fehlerhafte Zeilen übersprungen"
+      "importSuccessWithSkipped": "{count} Zeilen importiert, {skipped} fehlerhafte Zeilen übersprungen",
+      "memberImportInProgress": "Member {name} is running a bulk import. Please refresh the page and try again later."
     }
   }
 }

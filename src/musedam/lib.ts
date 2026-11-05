@@ -34,7 +34,13 @@ export async function requestMuseDAMAPI<T = unknown>(
     method,
     body,
     headers,
-  }: { method: "POST" | "GET"; body?: unknown; headers?: Record<string, string> },
+    timeoutMs,
+  }: {
+    method: "POST" | "GET";
+    body?: unknown;
+    headers?: Record<string, string>;
+    timeoutMs?: number;
+  },
 ): Promise<T> {
   const url = `${process.env.MUSEDAM_API_BASE_URL}${apiPath}`;
   const requestHeaders = {
@@ -52,6 +58,7 @@ export async function requestMuseDAMAPI<T = unknown>(
     method: method,
     body: requestBody,
     headers: requestHeaders,
+    ...(timeoutMs ? { signal: AbortSignal.timeout(timeoutMs) } : {}),
   });
   if (!response.ok) {
     let responseText = "";

@@ -1,3 +1,5 @@
+import { getTagConfigVersion } from "@/lib/tagging/tag-config-version";
+import { createVersionedTagTreeCache } from "@/lib/tagging/tag-tree-cache";
 import "server-only";
 
 import { isTagTreeJob, processTagTreeQueueItem } from "@/app/tags/tagTreeQueue";
@@ -646,7 +648,18 @@ export async function processQueueItem({
 
     // 如果是测试内容，不需要进入审核
     if (queueItem.taskType !== "test") {
-      const isDirect = teamSetting.taggingMode === "direct";
+      const needsManualReview =
+        newExtra.evidencePoliciesPending === true ||
+        (newExtra.requiredGroupFallback?.unresolved?.length ?? 0) > 0 ||
+        newExtra.candidateSelection?.matched === 0;
+      const isDirect = teamSetting.taggingMode === "direct" && !needsManualReview;
+      if (needsManualReview)
+        logger.warn({
+          msg: "Tagging result requires manual review",
+          teamId,
+          unresolved: newExtra.requiredGroupFallback?.unresolved,
+          candidateSelection: newExtra.candidateSelection,
+        });
 
       logger.info({
         msg: "Creating review items",
@@ -1037,21 +1050,10 @@ type TagsTreeLoader = (teamId: number) => Promise<TagWithChildren[]>;
 // 跨批次的标签树短缓存：积压时入队 kick 每 2 秒一轮、每轮只领两三条，批次内缓存几乎不生效，
 // 结果几乎每个任务都要把整棵树（含 extra）重新查一遍、再跑一遍 ensureEvidencePolicies。
 // 缓存 30 秒：标签改完最多 30 秒后生效；同一对象复用也让 predict 里按树缓存的硬匹配候选生效。
-const TAGS_TREE_CACHE_TTL_MS = 30_000;
-const tagsTreeCache = new Map<number, { promise: Promise<TagWithChildren[]>; expiresAt: number }>();
-
-function fetchTagsTreeForTaggingCached(teamId: number): Promise<TagWithChildren[]> {
-  const now = Date.now();
-  const cached = tagsTreeCache.get(teamId);
-  if (cached && cached.expiresAt > now) return cached.promise;
-  const promise = fetchTagsTreeForTagging({ teamId }).catch((error) => {
-    // 失败不缓存，让后续任务有机会重试
-    if (tagsTreeCache.get(teamId)?.promise === promise) tagsTreeCache.delete(teamId);
-    throw error;
-  });
-  tagsTreeCache.set(teamId, { promise, expiresAt: now + TAGS_TREE_CACHE_TTL_MS });
-  return promise;
-}
+const fetchTagsTreeForTaggingCached = createVersionedTagTreeCache(
+  (teamId) => fetchTagsTreeForTagging({ teamId }),
+  getTagConfigVersion,
+);
 
 /**
  * 一次 processPendingQueueItems 批次内按团队复用标签树：同团队多条任务（含并发）只查一次库。

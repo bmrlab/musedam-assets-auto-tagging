@@ -209,6 +209,7 @@
       "itemsUnit": "itens",
       "latest": "Mais recentes",
       "requiredFallbackBadge": "Fallback obrigatório",
+      "matchedKeywordsBadge": "Keywords: {keywords}",
       "aspectRatioBadge": "Por dimensões",
       "sizeAIBadge": "IA por tamanho",
       "reviewedBadge": "Revisado",
@@ -1606,7 +1607,8 @@
       "backToEdit": "Voltar para editar",
       "continueImport": "Continuar importação",
       "continueImportSkipIssues": "Ignorar problemas e continuar",
-      "importSuccessWithSkipped": "{count} linhas importadas, {skipped} linhas com problemas ignoradas"
+      "importSuccessWithSkipped": "{count} linhas importadas, {skipped} linhas com problemas ignoradas",
+      "memberImportInProgress": "Member {name} is running a bulk import. Please refresh the page and try again later."
     }
   }
 }

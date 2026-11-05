@@ -209,6 +209,7 @@
       "itemsUnit": "वस्तुएँ",
       "latest": "नवीनतम",
       "requiredFallbackBadge": "अनिवार्य फ़ॉलबैक",
+      "matchedKeywordsBadge": "Keywords: {keywords}",
       "aspectRatioBadge": "आयामों से",
       "sizeAIBadge": "AI आकार से",
       "reviewedBadge": "समीक्षित",
@@ -1561,7 +1562,8 @@
       "backToEdit": "संपादन पर वापस जाएँ",
       "continueImport": "आयात जारी रखें",
       "continueImportSkipIssues": "समस्याएँ छोड़ें और जारी रखें",
-      "importSuccessWithSkipped": "{count} पंक्तियाँ आयात हुईं, समस्या वाली {skipped} पंक्तियाँ छोड़ी गईं"
+      "importSuccessWithSkipped": "{count} पंक्तियाँ आयात हुईं, समस्या वाली {skipped} पंक्तियाँ छोड़ी गईं",
+      "memberImportInProgress": "Member {name} is running a bulk import. Please refresh the page and try again later."
     }
   }
 }

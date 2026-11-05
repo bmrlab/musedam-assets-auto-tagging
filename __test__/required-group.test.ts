@@ -188,7 +188,7 @@ describe("predictRequiredGroupChoices", () => {
     expect(prompt).not.toContain("id 101"); // 非叶子不作为候选
   });
 
-  it("falls back to the first leaf when the model picks an invalid id or fails", async () => {
+  it("keeps required groups unresolved when the model picks an invalid id or fails", async () => {
     generateObjectMock.mockReset().mockResolvedValue({
       object: { choices: [{ parentId: 100, leafTagId: 999 }] },
     });
@@ -198,7 +198,7 @@ describe("predictRequiredGroupChoices", () => {
       assetSummary: "",
       teamId: 1,
     });
-    expect(invalid.map((tag) => tag.leafTagId)).toEqual([102]);
+    expect(invalid).toEqual([]);
 
     generateObjectMock.mockReset().mockRejectedValue(new Error("boom"));
     const failed = await predictRequiredGroupChoices({
@@ -207,8 +207,7 @@ describe("predictRequiredGroupChoices", () => {
       assetSummary: "",
       teamId: 1,
     });
-    expect(failed.map((tag) => tag.leafTagId)).toEqual([201]);
-    expect(failed[0].score).toBe(REQUIRED_FALLBACK_SCORE);
+    expect(failed).toEqual([]);
   });
 
   it("nested required groups: the same leaf chosen for both levels is only emitted once", async () => {

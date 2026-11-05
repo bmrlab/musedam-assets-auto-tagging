@@ -765,6 +765,7 @@
       "manuallyAdded": "Dodano ręcznie",
       "latest": "Najnowsze",
       "requiredFallbackBadge": "Obowiązkowy fallback",
+      "matchedKeywordsBadge": "Keywords: {keywords}",
       "aspectRatioBadge": "Z wymiarów",
       "sizeAIBadge": "AI wg rozmiaru",
       "reviewedBadge": "Sprawdzono",
@@ -1606,7 +1607,8 @@
       "backToEdit": "Wróć do edycji",
       "continueImport": "Kontynuuj import",
       "continueImportSkipIssues": "Pomiń problemy i kontynuuj",
-      "importSuccessWithSkipped": "Zaimportowano {count} wierszy, pominięto {skipped} wierszy z problemami"
+      "importSuccessWithSkipped": "Zaimportowano {count} wierszy, pominięto {skipped} wierszy z problemami",
+      "memberImportInProgress": "Member {name} is running a bulk import. Please refresh the page and try again later."
     }
   }
 }

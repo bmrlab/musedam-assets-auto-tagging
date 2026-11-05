@@ -795,7 +795,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
           <Input
             type="text"
             placeholder={t("searchPlaceholder")}
-            className="w-full pl-[30px] pr-10 border-none h-[32px] !hover:border-none !focus:border-none !focus:shadow-none !focus-visible:border-none !focus-visible:shadow-none"
+            className="w-full pl-[30px] pr-10 h-[32px] border-0! outline-none! ring-0! shadow-none!"
             value={searchQuery}
             onChange={(e) => handleSearchChange(e.target.value)}
           />

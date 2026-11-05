@@ -309,6 +309,11 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
     }
     startTransition(async () => {
       const result = await importAction(formData);
+      if (!result.success && result.code === "busy") {
+        toast.warning(result.message);
+        setPendingMissingTagsChoice(null);
+        return;
+      }
       setPendingMissingTagsChoice(null);
       if (createMissingTags || importExistingTagsOnly) {
         setMissingTagsResult(null);

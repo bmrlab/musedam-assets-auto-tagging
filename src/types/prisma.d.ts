@@ -43,6 +43,8 @@ declare module "@/prisma/client" {
      * literal = 描述素材之外的业务安排（渠道/市场/活动/档期），必须有字面证据。见 evidence-policy.ts。
      */
     evidencePolicy: "content" | "literal";
+    /** 导入配置由人工维护，不进入 AI 策略初始化。 */
+    configurationSource: "import";
     /** 策略来源：auto = 系统按标签语义自动判定；feedback = 审核反馈自动降级 */
     evidencePolicySource: "auto" | "feedback";
     /** 审核拒绝反馈：该标签"仅由 contentAnalysis 支持"却被人工拒绝的累计次数，达到阈值后自动降级为 literal */
@@ -67,10 +69,18 @@ declare module "@/prisma/client" {
   };
 
   export type TaggingQueueItemExtra = Partial<{
+    evidencePoliciesPending?: boolean;
+    candidateSelection?: {
+      total: number;
+      selected: number;
+      matched: number;
+      estimatedCharacters: number;
+    };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     usage: any; // LLM 返回的 usage 信息
     /** 必打标签组兜底记录：哪些标签是重新纳入的低分候选、哪些是强制单选出来的 */
     requiredGroupFallback: {
+      unresolved?: Array<{ parentId: number; parentPath: string[] }>;
       readmitted: Array<{ parentId: number; leafTagId: number; tagPath: string[]; score: number }>;
       forced: Array<{ leafTagId: number; tagPath: string[] }>;
     };

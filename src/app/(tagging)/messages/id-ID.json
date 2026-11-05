@@ -806,6 +806,7 @@
       "manuallyAdded": "Ditambahkan manual",
       "latest": "Terbaru",
       "requiredFallbackBadge": "Cadangan wajib",
+      "matchedKeywordsBadge": "Keywords: {keywords}",
       "aspectRatioBadge": "Dari dimensi",
       "sizeAIBadge": "AI dari ukuran",
       "reviewedBadge": "Ditinjau",
@@ -1606,7 +1607,8 @@
       "backToEdit": "Kembali untuk mengedit",
       "continueImport": "Lanjutkan impor",
       "continueImportSkipIssues": "Lewati masalah dan lanjutkan",
-      "importSuccessWithSkipped": "{count} baris diimpor, {skipped} baris bermasalah dilewati"
+      "importSuccessWithSkipped": "{count} baris diimpor, {skipped} baris bermasalah dilewati",
+      "memberImportInProgress": "Member {name} is running a bulk import. Please refresh the page and try again later."
     }
   }
 }

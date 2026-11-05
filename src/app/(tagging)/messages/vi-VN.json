@@ -765,6 +765,7 @@
       "manuallyAdded": "Thêm thủ công",
       "latest": "Mới nhất",
       "requiredFallbackBadge": "Dự phòng bắt buộc",
+      "matchedKeywordsBadge": "Keywords: {keywords}",
       "aspectRatioBadge": "Theo kích thước",
       "sizeAIBadge": "AI theo kích thước",
       "reviewedBadge": "Đã duyệt",
@@ -1606,7 +1607,8 @@
       "backToEdit": "Quay lại chỉnh sửa",
       "continueImport": "Tiếp tục nhập",
       "continueImportSkipIssues": "Bỏ qua lỗi và tiếp tục",
-      "importSuccessWithSkipped": "Đã nhập {count} dòng, bỏ qua {skipped} dòng có vấn đề"
+      "importSuccessWithSkipped": "Đã nhập {count} dòng, bỏ qua {skipped} dòng có vấn đề",
+      "memberImportInProgress": "Member {name} is running a bulk import. Please refresh the page and try again later."
     }
   }
 }

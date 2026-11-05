@@ -209,6 +209,7 @@
       "itemsUnit": "항목",
       "latest": "최신",
       "requiredFallbackBadge": "필수 대체",
+      "matchedKeywordsBadge": "Keywords: {keywords}",
       "aspectRatioBadge": "크기 기준",
       "sizeAIBadge": "AI 크기 기준",
       "reviewedBadge": "검토 완료",
@@ -1604,7 +1605,8 @@
       "backToEdit": "수정하러 돌아가기",
       "continueImport": "가져오기 계속",
       "continueImportSkipIssues": "문제 행 건너뛰고 계속",
-      "importSuccessWithSkipped": "{count}개 행을 가져오고 문제가 있는 {skipped}개 행을 건너뛰었습니다"
+      "importSuccessWithSkipped": "{count}개 행을 가져오고 문제가 있는 {skipped}개 행을 건너뛰었습니다",
+      "memberImportInProgress": "Member {name} is running a bulk import. Please refresh the page and try again later."
     }
   }
 }

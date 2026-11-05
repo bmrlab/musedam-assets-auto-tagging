@@ -29,12 +29,26 @@ const mocks = vi.hoisted(() => {
   return {
     rows,
     assetTag,
-    transaction: vi.fn(async (queries: Promise<unknown>[]) => Promise.all(queries)),
+    transaction: vi.fn(
+      async (queries: Promise<unknown>[] | ((tx: unknown) => Promise<unknown>)) => {
+        if (typeof queries !== "function") return Promise.all(queries);
+        return queries({
+          assetTag,
+          $queryRaw: async () => rows.map((row) => structuredClone(row)),
+          $executeRaw: async () => 1,
+        });
+      },
+    ),
     batchCreateTags: vi.fn(),
     saveTagsTreeToMuseDAM: vi.fn(),
   };
 });
 vi.mock("server-only", () => ({}));
+vi.mock("@/lib/tagging/tag-import-lock", async (original) => ({
+  ...(await original<typeof import("@/lib/tagging/tag-import-lock")>()),
+  runTagImportExclusive: async (_team: number, _user: number, run: () => Promise<unknown>) => run(),
+  assertTagImportOwnership: async () => {},
+}));
 vi.mock("@/prisma/prisma", () => ({
   default: { assetTag: mocks.assetTag, $transaction: mocks.transaction },
 }));
@@ -241,7 +255,7 @@ describe("tag import preview and overwrite", () => {
       success: true,
       data: { successCount: 2, failedCount: 0 },
     });
-    expect(mocks.batchCreateTags).toHaveBeenCalledWith(expect.any(Array), 1);
+    expect(mocks.batchCreateTags).toHaveBeenCalledWith(expect.any(Array), 1, { imported: true });
     expect(mocks.rows.some((row) => row.name === "旧分支")).toBe(false);
     expect(mocks.rows.find((row) => row.name === "品牌")).toMatchObject({
       extra: { description: "父级描述", requiredGroup: true },

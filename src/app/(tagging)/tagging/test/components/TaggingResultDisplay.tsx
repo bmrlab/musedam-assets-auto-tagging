@@ -26,6 +26,7 @@ import {
 import { useTranslations } from "next-intl";
 import Image from "next/image";
 import type { ReactNode } from "react";
+import { MatchedKeywordsBadge } from "../../components/MatchedKeywordsBadge";
 import { FeatureThumbnail } from "./FeatureThumbnail";
 
 export interface ProductRecognitionResult {
@@ -103,12 +104,14 @@ export interface TaggingResult {
     }[];
   } | null;
   effectiveTags: {
+    matchedKeywords?: string[];
     tagPath: string[];
     matchingSource: string;
     confidence: number;
     score: number;
   }[];
   candidateTags: {
+    matchedKeywords?: string[];
     tagPath: string[];
     matchingSource: string;
     confidence: number;
@@ -269,6 +272,7 @@ function TagResultRow({ tag, variant }: { tag: DisplayTag; variant: ResultVarian
         <div className={cn("text-xs", classes.meta)}>
           {t("matchingSource")}: {tag.matchingSource}
         </div>
+        <MatchedKeywordsBadge keywords={tag.matchedKeywords} />
       </div>
       <div className="shrink-0 text-right">
         <div className={cn("text-sm font-medium", classes.title)}>

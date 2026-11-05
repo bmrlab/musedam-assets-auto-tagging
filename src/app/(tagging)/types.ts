@@ -22,7 +22,10 @@ export const tagPredictionSchema = z.object({
  *   tagPath: string[];
  * };
  */
-export type TagPrediction = z.infer<typeof tagPredictionSchema>["tags"][number];
+export type TagPrediction = z.infer<typeof tagPredictionSchema>["tags"][number] & {
+  /** 由代码验证的实际字面命中关键词，不接受模型生成。 */
+  matchedKeywords?: string[];
+};
 
 /**
  * {
@@ -30,13 +33,17 @@ export type TagPrediction = z.infer<typeof tagPredictionSchema>["tags"][number];
  *   tags: TagPrediction[];
  * }[];
  */
-export type SourceBasedTagPredictions = z.infer<typeof tagPredictionSchema>[];
+export type SourceBasedTagPredictions = {
+  source: z.infer<typeof tagPredictionSchema>["source"];
+  tags: TagPrediction[];
+}[];
 
 /**
  *
  * score 所有 source 的 confidence x 100 以后的加权得分，范围是 0 - 100
  */
 export type TagWithScore = {
+  matchedKeywords?: string[];
   leafTagId: number;
   tagPath: string[];
   confidenceBySources: Partial<Record<z.Infer<typeof tagPredictionSchema.shape.source>, number>>;
