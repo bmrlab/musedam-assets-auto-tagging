@@ -1,5 +1,6 @@
 import "server-only";
 
+import { deletionIdLayers } from "@/lib/tagging/delete-tag-layers";
 import { idToSlug, slugToId } from "@/lib/slug";
 import { retrieveTeamCredentials } from "@/musedam/apiKey";
 import { MUSE_CALL_BUDGET_MS } from "@/musedam/budget";
@@ -140,14 +141,22 @@ export async function syncTagsFromMuseDAM({ team }: { team: { id: number; slug: 
           .map((item) => item.existing!.id),
       );
 
-      // Free old sibling names before updates, including name swaps and moves into stale paths.
-      // Stale parents remain until retained children have moved out, to preserve their relations.
-      // One statement per chunk: a 6k-tag tree cannot afford a round trip per row inside the
-      // 60s ingress limit, and the transaction only keeps row locks while these statements run.
-      const renames = existingTags
-        .filter((tag) => changedPositions.has(tag.id) || !keptIds.has(tag.id))
-        .map((tag) => ({ id: tag.id, name: `__musedam_sync_${randomUUID()}` }));
-      await writeTagRows(tx, team.id, renames, "rename");
+      // Only rows that are about to change name or parent need a temporary name.
+      // Tags MuseDAM no longer has are deleted afterwards, so renaming all of
+      // them (thousands of writes) is what blows the ingress timeout.
+      const renameIds = new Set(changedPositions);
+      const byKey = new Map(existingTags.map((tag) => [keyOf(tag.parentId, tag.name), tag]));
+      for (const item of plan) {
+        if (item.parent && item.parent.id == null) continue;
+        const holder = byKey.get(keyOf(item.parent?.id ?? null, item.node.name));
+        if (holder && holder.id !== item.existing?.id && !keptIds.has(holder.id)) renameIds.add(holder.id);
+      }
+      await writeTagRows(
+        tx,
+        team.id,
+        [...renameIds].map((id) => ({ id, name: `__musedam_sync_${randomUUID()}` })),
+        "rename",
+      );
 
       const maxLevel = plan.reduce((max, item) => Math.max(max, item.level), 0);
       for (let level = 1; level <= maxLevel; level++) {
@@ -206,9 +215,13 @@ export async function syncTagsFromMuseDAM({ team }: { team: { id: number; slug: 
         }
       }
 
-      const staleIds = existingTags.filter((tag) => !keptIds.has(tag.id)).map((tag) => tag.id);
-      if (staleIds.length > 0) {
-        await tx.assetTag.deleteMany({ where: { teamId: team.id, id: { in: staleIds } } });
+      const stale = existingTags.filter((tag) => !keptIds.has(tag.id));
+      for (const layer of deletionIdLayers(stale)) {
+        for (let offset = 0; offset < layer.length; offset += TAG_WRITE_CHUNK) {
+          await tx.assetTag.deleteMany({
+            where: { teamId: team.id, id: { in: layer.slice(offset, offset + TAG_WRITE_CHUNK) } },
+          });
+        }
       }
     },
     { timeout: 60000 },

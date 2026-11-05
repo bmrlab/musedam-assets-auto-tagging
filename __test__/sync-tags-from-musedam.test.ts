@@ -190,8 +190,31 @@ describe("syncTagsFromMuseDAM", () => {
     expect(mocks.rows).toHaveLength(4);
 
     expect(mocks.assetTag.create).toHaveBeenCalledTimes(1);
-    expect(mocks.assetTag.deleteMany).toHaveBeenCalledTimes(1);
-    expect(mocks.assetTag.deleteMany.mock.calls[0][0].where.id.in.sort()).toEqual([20, 21, 22]);
+    expect(mocks.assetTag.deleteMany.mock.calls.map((call) => call[0].where.id.in)).toEqual([
+      [22],
+      [21],
+      [20],
+    ]);
+  });
+
+  it("drops thousands of stale tags without renaming them first", async () => {
+    seed({ id: 10, name: "保留", slug: slugOf(1), parentId: null, level: 1, sort: 0 });
+    seed({ id: 20, name: "颜色", slug: slugOf(2), parentId: null, level: 1, sort: 0 });
+    seed({ id: 21, name: "红", slug: slugOf(3), parentId: 20, level: 2, sort: 0 });
+    seed({ id: 30, name: "尺寸", slug: slugOf(4), parentId: null, level: 1, sort: 0 });
+    seed({ id: 31, name: "红", slug: slugOf(5), parentId: 30, level: 2, sort: 0 });
+    mocks.requestMuseDAMAPI.mockResolvedValue([
+      { id: mid(1), name: "保留", sort: 0, children: null },
+    ]);
+
+    await syncTagsFromMuseDAM({ team });
+
+    expect(mocks.rows.map((row) => row.id)).toEqual([10]);
+    expect(mocks.executeRaw).not.toHaveBeenCalled();
+    expect(mocks.assetTag.deleteMany.mock.calls.map((call) => call[0].where.id.in)).toEqual([
+      [21, 31],
+      [20, 30],
+    ]);
   });
 
   it("does not touch rows that are already identical", async () => {
