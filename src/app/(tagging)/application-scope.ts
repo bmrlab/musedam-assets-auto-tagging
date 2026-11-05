@@ -45,6 +45,8 @@ export function isAssetInApplicationScope(
   parentIds: ReadonlyArray<MuseDAMID | string | number>,
   allowed: AllowedFolderIdSet,
 ): boolean {
+  // M2 only processes filed assets; an unrestricted scope never includes pending-inbound assets.
+  if (!parentIds.length) return false;
   if (allowed === null) return true;
   return parentIds.some((parentId) => allowed.has(String(parentId)));
 }

@@ -1,4 +1,6 @@
 "use client";
+import { MetadataResults } from "../../components/MetadataResults";
+import type { MetadataPrediction } from "@/lib/metadata/types";
 
 import { FeatureDecisionDiagnosticsPanel } from "@/app/(tagging)/tagging/components/FeatureDecisionDiagnosticsPanel";
 import type {
@@ -66,6 +68,7 @@ export interface IpRecognitionResult {
 }
 
 export interface TaggingResult {
+  metadataPredictions?: MetadataPrediction[];
   featureDecision?: FeatureDecisionDiagnostics;
   asset: {
     id: string;
@@ -600,6 +603,7 @@ export function TaggingResultDisplay({ result, featureThumbnails }: TaggingResul
           )}
         </SectionShell>
       ) : null}
+      {result.metadataPredictions && <MetadataResults testResult predictions={result.metadataPredictions.filter(item => item.score >= 60)} />}
       {result.featureDecision ? (
         <FeatureDecisionDiagnosticsPanel diagnostics={result.featureDecision} />
       ) : null}

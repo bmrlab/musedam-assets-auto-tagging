@@ -17,11 +17,15 @@ import { TriggerTimingSection } from "./components/TriggerTimingSection";
 
 interface SettingsClientProps {
   initialSettings: TaggingSettingsData;
+  metadataAvailable?: boolean;
 }
 
-export default function SettingsClient({ initialSettings }: SettingsClientProps) {
+export default function SettingsClient({ initialSettings, metadataAvailable = false }: SettingsClientProps) {
   const t = useTranslations("Tagging.Settings");
+  const tm = useTranslations("Tagging.Metadata");
+  const tg = useTranslations("Tagging.Settings.Global");
   const [isTaggingEnabled, setIsTaggingEnabled] = useState(initialSettings.isTaggingEnabled);
+  const [isMetadataEnabled, setIsMetadataEnabled] = useState(initialSettings.isMetadataEnabled ?? false);
   const [taggingMode, setTaggingMode] = useState(initialSettings.taggingMode);
   const [recognitionAccuracy, setRecognitionAccuracy] = useState(
     initialSettings.recognitionAccuracy,
@@ -58,6 +62,7 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
     setIsSaving(true)
     const settingsData: TaggingSettingsData = {
       isTaggingEnabled: overrides?.isTaggingEnabled ?? isTaggingEnabled,
+      isMetadataEnabled: overrides?.isMetadataEnabled ?? isMetadataEnabled,
       taggingMode: overrides?.taggingMode ?? taggingMode,
       recognitionAccuracy: overrides?.recognitionAccuracy ?? recognitionAccuracy,
       matchingSources: overrides?.matchingSources ?? matchingSources,
@@ -66,11 +71,14 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
       applicationScope: overrides?.applicationScope ?? applicationScope,
     };
 
+    let saved = false;
     try {
       const result = await updateSettings(settingsData);
 
       if (result.success) {
-        toast.success(t("settingsSaved"));
+        saved = true;
+        toast.success(overrides?.isMetadataEnabled === undefined ? t("settingsSaved") : tg(overrides.isMetadataEnabled ? "metadataEnabledToast" : "metadataDisabledToast"));
+        triggerTeamSettingsNotification();
       } else {
         toast.error(t("saveSettingsFailed"));
       }
@@ -78,6 +86,7 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
       toast.error((error as Error).message ?? t("saveSettingsFailed"));
     }
     setIsSaving(false)
+    return saved;
   }
 
   const handleTaggingEnabledChange = (enabled: boolean) => {
@@ -145,7 +154,7 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
       const newScope = {
         ...applicationScope,
         scopeType: scopeType,
-        selectedFolders: selectedFolders.map((folder) => ({
+        selectedFolders: (allMaterials ? [] : selectedFolders).map((folder) => ({
           slug: idToSlug("assetFolder", new MuseDAMID(folder.id)),
           name: folder.name,
         })),
@@ -174,11 +183,16 @@ export default function SettingsClient({ initialSettings }: SettingsClientProps)
       </div>
 
       <GlobalSettingsSection
+        disabled={isPending}
+        metadataAvailable={metadataAvailable}
+        isMetadataEnabled={isMetadataEnabled}
+        onMetadataEnabledChange={async (enabled) => { const before = isMetadataEnabled; setIsMetadataEnabled(enabled); if (!await handleSaveSettings({ isMetadataEnabled: enabled })) setIsMetadataEnabled(before); }}
         isTaggingEnabled={isTaggingEnabled}
         onTaggingEnabledChange={handleTaggingEnabledChange}
       />
 
-      <TaggingModeSection taggingMode={taggingMode} onTaggingModeChange={handleTaggingModeChange} />
+      {metadataAvailable && <p className="text-[13px] text-basic-6">{tm("sharedModeHint")}</p>}
+      <TaggingModeSection metadataAvailable={metadataAvailable} taggingMode={taggingMode} onTaggingModeChange={handleTaggingModeChange} />
 
       <AIRecognitionSection
         recognitionAccuracy={recognitionAccuracy}

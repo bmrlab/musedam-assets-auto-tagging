@@ -327,5 +327,60 @@
       "configurationScope": "Tags and settings"
     },
     "importUploadHint": "Rows with a Tag ID update that tag; otherwise match by level path and create only missing tags. Empty cells keep existing values; - clears descriptions or keywords. Separate keywords with semicolons or line breaks."
+  },
+  "Tagging": {
+    "Metadata": {
+      "title": "Поля метаданных",
+      "empty": "Нет результатов для полей",
+      "effective": "Применяется",
+      "candidate": "Кандидат",
+      "checked": "Отмечено",
+      "unchecked": "Не отмечено",
+      "approve": "Добавить",
+      "reject": "Удалить",
+      "pending": "Ожидает проверки",
+      "approved": "Добавлено",
+      "rejected": "Удалено",
+      "loadFailed": "Не удалось загрузить. Повторите попытку.",
+      "retry": "Повторить",
+      "selectAll": "Выбрать всё",
+      "onlyFields": "Только поля",
+      "allContent": "Всё содержимое",
+      "unavailable": "Поле отключено, удалено или настройки изменены",
+      "manualKept": "Поле заполнено вручную. Сохранено ручное значение.",
+      "previous": "Назад",
+      "next": "Далее",
+      "reviewFailed": "Операция не выполнена. Повторите попытку.",
+      "evidence": "Основание совпадения",
+      "sourceBasicInfo": "Совпадение основных сведений",
+      "sourceMaterializedPath": "Совпадение пути папки",
+      "sourceContentAnalysis": "Совпадение анализа содержимого",
+      "loading": "Загрузка",
+      "low": "Низкая",
+      "medium": "Средняя",
+      "high": "Высокая",
+      "sharedModeHint": "Режим разметки, настройки распознавания ИИ и стратегии сопоставления применяются к тегам и полям метаданных. Сопоставление ключевых слов применяется только к тегам.",
+      "appliedCount": "Добавлено полей: {count}",
+      "directModeDescription": "Применять ИИ-разметку сразу к тегам и полям метаданных ресурсов",
+      "reviewModeDescription": "Применять к тегам и полям метаданных после ручной проверки"
+    },
+    "Settings": {
+      "Global": {
+        "tagSystemSwitch": "Размечать по системе тегов",
+        "metadataSwitch": "Автозаполнение полей ИИ",
+        "metadataDescription": "Заполняются только пустые поля размещённых ресурсов, без перезаписи ручных значений. Теги и поля используют общий режим разметки и стратегии сопоставления.",
+        "manageMetadata": "Управление полями метаданных",
+        "enableMetadataTitle": "Включить автозаполнение полей ИИ",
+        "disableMetadataTitle": "Отключить автозаполнение полей ИИ",
+        "enableMetadataConfirm": "После включения ИИ-разметка будет заполнять поля с включённым автозаполнением. Заполняются только пустые поля.",
+        "disableMetadataConfirm": "После отключения ИИ перестанет заполнять поля. Существующие значения сохранятся.",
+        "confirm": "Подтвердить",
+        "cancel": "Отмена",
+        "metadataEnabledToast": "Автозаполнение полей ИИ включено",
+        "metadataDisabledToast": "Автозаполнение полей ИИ отключено",
+        "metadataEnabledDescription": "Включено. ИИ выбирает значения для полей метаданных с включённым автозаполнением, заполняя только пустые поля.",
+        "metadataDisabledDescription": "Отключено. ИИ больше не заполняет поля метаданных. Существующие значения сохраняются."
+      }
+    }
   }
 }

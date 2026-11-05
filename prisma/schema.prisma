@@ -29,6 +29,7 @@ model Team {
   assetPersonTypes  AssetPersonType[]
   assetPersons      AssetPerson[]
   taggingQueueItems TaggingQueueItem[]
+  metadataAuditItems MetadataAuditItem[]
   taggingAuditItems TaggingAuditItem[]
   featureLlmCalls   FeatureLlmCall[]
   configs           TeamConfig[]
@@ -126,6 +127,7 @@ model AssetObject {
   updatedAt DateTime @updatedAt @db.Timestamptz(6)
 
   taggingQueueItems TaggingQueueItem[]
+  metadataAuditItems MetadataAuditItem[]
   taggingAuditItems TaggingAuditItem[]
 }
 
@@ -623,6 +625,7 @@ model TaggingQueueItem {
 
   createdAt         DateTime           @default(now()) @db.Timestamptz(6)
   updatedAt         DateTime           @updatedAt @db.Timestamptz(6)
+  metadataAuditItems MetadataAuditItem[]
   taggingAuditItems TaggingAuditItem[]
 
   @@index([teamId, status])
@@ -652,4 +655,21 @@ model TaggingAuditItem {
   updatedAt DateTime @updatedAt @db.Timestamptz(6)
 
   @@index([teamId, status])
+}
+
+model MetadataAuditItem {
+  id Int @id @default(autoincrement())
+  teamId Int
+  team Team @relation(fields: [teamId], references: [id])
+  assetObjectId Int
+  assetObject AssetObject @relation(fields: [assetObjectId], references: [id], onDelete: Cascade)
+  queueItemId Int
+  queueItem TaggingQueueItem @relation(fields: [queueItemId], references: [id], onDelete: Cascade)
+  fieldId String
+  prediction Json
+  status TaggingAuditStatus @default(pending)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  @@unique([queueItemId, fieldId])
+  @@index([teamId, status, createdAt])
 }

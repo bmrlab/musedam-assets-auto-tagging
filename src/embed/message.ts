@@ -423,6 +423,7 @@ type ActionMap = {
     args: Record<string, never>;
     result: BaseActionResult<{
       manualTriggerTagging: boolean;
+      isMetadataEnabled?: boolean;
       hasPermission: boolean;
     }>;
   };

@@ -327,5 +327,60 @@
       "configurationScope": "Tags and settings"
     },
     "importUploadHint": "Rows with a Tag ID update that tag; otherwise match by level path and create only missing tags. Empty cells keep existing values; - clears descriptions or keywords. Separate keywords with semicolons or line breaks."
+  },
+  "Tagging": {
+    "Metadata": {
+      "title": "Metadatenfelder",
+      "empty": "Keine Feldergebnisse",
+      "effective": "Wirksam",
+      "candidate": "Kandidat",
+      "checked": "Aktiviert",
+      "unchecked": "Nicht aktiviert",
+      "approve": "Hinzufügen",
+      "reject": "Löschen",
+      "pending": "Prüfung ausstehend",
+      "approved": "Hinzugefügt",
+      "rejected": "Gelöscht",
+      "loadFailed": "Laden fehlgeschlagen. Bitte erneut versuchen.",
+      "retry": "Erneut versuchen",
+      "selectAll": "Alle auswählen",
+      "onlyFields": "Nur Felder",
+      "allContent": "Alle Inhalte",
+      "unavailable": "Feld deaktiviert, gelöscht oder Konfiguration geändert",
+      "manualKept": "Manuell ausgefülltes Feld. Manueller Wert beibehalten.",
+      "previous": "Zurück",
+      "next": "Weiter",
+      "reviewFailed": "Vorgang fehlgeschlagen. Bitte erneut versuchen.",
+      "evidence": "Trefferbeleg",
+      "sourceBasicInfo": "Abgleich der Basisinformationen",
+      "sourceMaterializedPath": "Abgleich des Ordnerpfads",
+      "sourceContentAnalysis": "Abgleich der Inhaltsanalyse",
+      "loading": "Wird geladen",
+      "low": "Niedrig",
+      "medium": "Mittel",
+      "high": "Hoch",
+      "sharedModeHint": "Tagging-Modus, KI-Erkennungseinstellungen und Abgleichsstrategien gelten für Tags und Metadatenfelder. Tag-Schlüsselwortabgleich gilt nur für Tags.",
+      "appliedCount": "{count} Felder hinzugefügt",
+      "directModeDescription": "KI-Tagging direkt auf Asset-Tags und Metadatenfelder anwenden",
+      "reviewModeDescription": "Nach manueller Prüfung auf Asset-Tags und Metadatenfelder anwenden"
+    },
+    "Settings": {
+      "Global": {
+        "tagSystemSwitch": "Nach Tag-System taggen",
+        "metadataSwitch": "Felder mit KI automatisch ausfüllen",
+        "metadataDescription": "Nur leere Felder abgelegter Assets ausfüllen. Manuelle Werte werden nie überschrieben. Tags und Felder verwenden denselben Tagging-Modus und dieselben Abgleichsstrategien.",
+        "manageMetadata": "Metadatenfelder verwalten",
+        "enableMetadataTitle": "KI-Ausfüllen aktivieren",
+        "disableMetadataTitle": "KI-Ausfüllen deaktivieren",
+        "enableMetadataConfirm": "Nach der Aktivierung füllt KI-Tagging Felder mit aktivierter KI-Ausfüllfunktion aus. Nur leere Felder werden ausgefüllt.",
+        "disableMetadataConfirm": "Nach der Deaktivierung füllt die KI keine Felder mehr aus. Vorhandene Werte bleiben erhalten.",
+        "confirm": "Bestätigen",
+        "cancel": "Abbrechen",
+        "metadataEnabledToast": "KI-Ausfüllen aktiviert",
+        "metadataDisabledToast": "KI-Ausfüllen deaktiviert",
+        "metadataEnabledDescription": "Aktiviert. Die KI wählt Werte für Metadatenfelder mit aktivierter KI-Ausfüllfunktion und füllt nur leere Felder aus.",
+        "metadataDisabledDescription": "Deaktiviert. Die KI füllt keine Metadatenfelder mehr aus. Vorhandene Werte bleiben erhalten."
+      }
+    }
   }
 }

@@ -1,3 +1,4 @@
+import { hasEnabledTaggingOutput } from "@/musedam/metadata";
 import {
   buildAllowedFolderIdSet,
   isAssetInApplicationScope,
@@ -98,7 +99,7 @@ export async function POST(request: NextRequest) {
     const settings = await getTaggingSettings(team.id);
 
     // 未开启自动打标；且发起的是自动打标任务；不进入队列
-    if (!settings.isTaggingEnabled) {
+    if (!await hasEnabledTaggingOutput(team, settings)) {
       return NextResponse.json({
         success: true,
         data: {

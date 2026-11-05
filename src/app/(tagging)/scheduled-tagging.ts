@@ -1,4 +1,5 @@
 import "server-only";
+import { hasEnabledTaggingOutput } from "@/musedam/metadata";
 
 import { getTaggingSettings } from "@/app/(tagging)/tagging/settings/lib";
 import { rootLogger } from "@/lib/logging";
@@ -26,7 +27,7 @@ export async function runScheduledTagging() {
     try {
       const settings = await getTaggingSettings(team.id);
       // 开启了打标，且开启了定时打标
-      if (settings.isTaggingEnabled && settings.triggerTiming.scheduledTagging) {
+      if (settings.triggerTiming.scheduledTagging && await hasEnabledTaggingOutput(team, settings)) {
         teamsWithScheduledTagging.push(team);
       }
     } catch (error) {

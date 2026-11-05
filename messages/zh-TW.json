@@ -327,5 +327,60 @@
       "configurationScope": "標籤及設定"
     },
     "importUploadHint": "每行填寫一條標籤路徑，設定選填：新標籤留空使用預設值，已有標籤留空保留原值；填 - 清空描述或關鍵詞，多個關鍵詞用分號或換行分隔"
+  },
+  "Tagging": {
+    "Metadata": {
+      "title": "中繼資料欄位",
+      "empty": "暫無欄位結果",
+      "effective": "生效",
+      "candidate": "候選",
+      "checked": "已勾選",
+      "unchecked": "未勾選",
+      "approve": "新增",
+      "reject": "刪除",
+      "pending": "待審核",
+      "approved": "已新增",
+      "rejected": "已刪除",
+      "loadFailed": "載入失敗，請重試",
+      "retry": "重試",
+      "selectAll": "全選",
+      "onlyFields": "僅欄位",
+      "allContent": "全部內容",
+      "unavailable": "欄位已停用、刪除或設定已變更",
+      "manualKept": "欄位已由人工填寫，保留人工值",
+      "previous": "上一頁",
+      "next": "下一頁",
+      "reviewFailed": "操作失敗，請重試",
+      "evidence": "命中依據",
+      "sourceBasicInfo": "基本資訊比對",
+      "sourceMaterializedPath": "資料夾路徑比對",
+      "sourceContentAnalysis": "智慧解析比對",
+      "loading": "載入中",
+      "low": "低",
+      "medium": "中",
+      "high": "高",
+      "sharedModeHint": "打標模式、AI 識別設定和比對策略同時用於標籤和中繼資料欄位；標籤關鍵字比對僅對標籤生效。",
+      "appliedCount": "已新增 {count} 個欄位",
+      "directModeDescription": "AI 打標直接套用至資產標籤和中繼資料欄位",
+      "reviewModeDescription": "需人工審核後套用至資產標籤和中繼資料欄位"
+    },
+    "Settings": {
+      "Global": {
+        "tagSystemSwitch": "依標籤體系打標",
+        "metadataSwitch": "AI 自動填寫欄位",
+        "metadataDescription": "只填寫已入庫素材的空白欄位，不覆寫人工值；標籤與欄位共用打標模式和比對策略。",
+        "manageMetadata": "管理中繼資料欄位",
+        "enableMetadataTitle": "開啟 AI 自動填寫欄位",
+        "disableMetadataTitle": "關閉 AI 自動填寫欄位",
+        "enableMetadataConfirm": "開啟後，AI 打標時將填寫已開啟「AI 自動填寫」的欄位，僅填寫空白欄位。",
+        "disableMetadataConfirm": "關閉後，AI 將不再填寫欄位，已填寫的內容會保留。",
+        "confirm": "確認",
+        "cancel": "取消",
+        "metadataEnabledToast": "已開啟 AI 自動填寫欄位",
+        "metadataDisabledToast": "已關閉 AI 自動填寫欄位",
+        "metadataEnabledDescription": "已開啟，AI 為開啟了「AI 自動填寫」的中繼資料欄位選取值，僅填寫空白欄位",
+        "metadataDisabledDescription": "已關閉，AI 不再填寫中繼資料欄位，已填寫的值將保留"
+      }
+    }
   }
 }

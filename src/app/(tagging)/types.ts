@@ -66,6 +66,7 @@ export type TagWithScoreOrigin = "requiredFallback" | "aspectRatio" | "sizeAI";
 // 定义设置数据的schema
 export const taggingSettingsSchema = z.object({
   isTaggingEnabled: z.boolean(),
+  isMetadataEnabled: z.boolean().default(false),
   taggingMode: z.enum(["direct", "review"]),
   recognitionAccuracy: z.enum(["precise", "balanced", "broad"]),
   matchingSources: z.object({
@@ -110,6 +111,7 @@ export const SOURCE_WEIGHT_MAX = 5;
 // 配置项的 key 定义
 export const TAGGING_CONFIG_KEYS = {
   IS_TAGGING_ENABLED: "isTaggingEnabled",
+  IS_METADATA_ENABLED: "isMetadataEnabled",
   TAGGING_MODE: "taggingMode",
   RECOGNITION_ACCURACY: "recognitionAccuracy",
   MATCHING_SOURCES: "matchingSources",
@@ -122,6 +124,7 @@ export const TAGGING_CONFIG_KEYS = {
 // 默认设置
 export const DEFAULT_TAGGING_SETTINGS: TaggingSettingsData = {
   isTaggingEnabled: false,
+  isMetadataEnabled: false,
   taggingMode: "review",
   recognitionAccuracy: "balanced",
   matchingSources: {

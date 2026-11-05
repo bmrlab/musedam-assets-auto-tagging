@@ -66,6 +66,7 @@ describe("isAssetInApplicationScope", () => {
     expect(isAssetInApplicationScope([new MuseDAMID(11)], allowed)).toBe(true);
     expect(isAssetInApplicationScope([new MuseDAMID(99)], allowed)).toBe(false);
     expect(isAssetInApplicationScope([], allowed)).toBe(false);
+    expect(isAssetInApplicationScope([], null)).toBe(false);
     expect(isAssetInApplicationScope([new MuseDAMID(99)], null)).toBe(true);
   });
 });

@@ -328,5 +328,60 @@
   "SearchResult": {
     "tagGroup": "Grupa tagów",
     "noSearchResults": "Brak wyników wyszukiwania"
+  },
+  "Tagging": {
+    "Metadata": {
+      "title": "Pola metadanych",
+      "empty": "Brak wyników pól",
+      "effective": "Zastosowane",
+      "candidate": "Kandydat",
+      "checked": "Zaznaczone",
+      "unchecked": "Niezaznaczone",
+      "approve": "Dodaj",
+      "reject": "Usuń",
+      "pending": "Oczekuje na weryfikację",
+      "approved": "Dodano",
+      "rejected": "Usunięto",
+      "loadFailed": "Nie udało się wczytać. Spróbuj ponownie.",
+      "retry": "Ponów",
+      "selectAll": "Zaznacz wszystko",
+      "onlyFields": "Tylko pola",
+      "allContent": "Cała zawartość",
+      "unavailable": "Pole wyłączono, usunięto lub zmieniono konfigurację",
+      "manualKept": "Pole wypełniono ręcznie. Zachowano wartość ręczną.",
+      "previous": "Poprzednia",
+      "next": "Następna",
+      "reviewFailed": "Operacja nie powiodła się. Spróbuj ponownie.",
+      "evidence": "Dowód dopasowania",
+      "sourceBasicInfo": "Dopasowanie informacji podstawowych",
+      "sourceMaterializedPath": "Dopasowanie ścieżki folderu",
+      "sourceContentAnalysis": "Dopasowanie analizy treści",
+      "loading": "Wczytywanie",
+      "low": "Niska",
+      "medium": "Średnia",
+      "high": "Wysoka",
+      "sharedModeHint": "Tryb tagowania, ustawienia rozpoznawania AI i strategie dopasowania dotyczą tagów i pól metadanych. Dopasowanie słów kluczowych dotyczy tylko tagów.",
+      "appliedCount": "Dodano pól: {count}",
+      "directModeDescription": "Stosuj tagowanie AI bezpośrednio do tagów i pól metadanych zasobów",
+      "reviewModeDescription": "Stosuj do tagów i pól metadanych po ręcznej weryfikacji"
+    },
+    "Settings": {
+      "Global": {
+        "tagSystemSwitch": "Taguj według taksonomii",
+        "metadataSwitch": "Automatycznie wypełniaj pola przez AI",
+        "metadataDescription": "Wypełniaj tylko puste pola zapisanych zasobów, bez nadpisywania wartości ręcznych. Tagi i pola korzystają z tego samego trybu i strategii dopasowania.",
+        "manageMetadata": "Zarządzaj polami metadanych",
+        "enableMetadataTitle": "Włącz automatyczne wypełnianie pól AI",
+        "disableMetadataTitle": "Wyłącz automatyczne wypełnianie pól AI",
+        "enableMetadataConfirm": "Po włączeniu tagowanie AI wypełni pola z włączonym automatycznym wypełnianiem. Wypełniane są tylko puste pola.",
+        "disableMetadataConfirm": "Po wyłączeniu AI przestanie wypełniać pola. Istniejące wartości zostaną zachowane.",
+        "confirm": "Potwierdź",
+        "cancel": "Anuluj",
+        "metadataEnabledToast": "Automatyczne wypełnianie pól AI włączone",
+        "metadataDisabledToast": "Automatyczne wypełnianie pól AI wyłączone",
+        "metadataEnabledDescription": "Włączone. AI wybiera wartości pól metadanych z włączonym automatycznym wypełnianiem, wypełniając tylko puste pola.",
+        "metadataDisabledDescription": "Wyłączone. AI nie wypełnia już pól metadanych. Istniejące wartości są zachowane."
+      }
+    }
   }
 }

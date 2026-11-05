@@ -74,6 +74,10 @@ import {
   getAcceptedPersonRecommendationTagIds,
   getReviewablePersonRecommendationTagIds,
 } from "./person-recommendation";
+import { flushMetadataSettingAudits } from "@/musedam/metadata-settings-audit";
+import { createHash } from "node:crypto";
+import { predictMetadata } from "@/lib/metadata/predict";
+import { applyMetadataPredictions } from "@/musedam/metadata";
 import { predictAssetTags, predictUnparsedSizeTags } from "./predict";
 import { getProductRecommendationTagIdsFromQueueResult } from "./product-recommendation";
 import { RECOGNITION_ACCURACY_CONFIG } from "./prompt";
@@ -303,9 +307,16 @@ export async function processQueueItem({
     // Person path only: detect faces first (for AI faceFeatures + reused matching), then run AI
     // tagging in parallel with person matching. Other paths keep starting AI tagging early.
     const teamId = queueItem.teamId;
-    const tagsTree = tagsTreeLoader ? await tagsTreeLoader(teamId) : undefined;
     // 权重在处理时按团队当前设置读取，修改后对排队中的任务立即生效
     const teamSetting = await getTaggingSettings(teamId);
+    const tagsEnabledForTask = teamSetting.isTaggingEnabled || queueItem.taskType === "test" && !teamSetting.isMetadataEnabled;
+    const tagsTree = tagsEnabledForTask && tagsTreeLoader ? await tagsTreeLoader(teamId) : undefined;
+    const metadataTeam = await prisma.team.findUniqueOrThrow({ where: { id: teamId }, select: { id: true, slug: true } });
+    const metadataPredictions = teamSetting.isMetadataEnabled
+      ? await predictMetadata(assetObject, metadataTeam, { ...teamSetting, matchingSources: extra?.matchingSources ?? teamSetting.matchingSources, recognitionAccuracy: extra?.recognitionAccuracy ?? teamSetting.recognitionAccuracy }) : [];
+    const emptyTags = { predictions: [], tagsWithScore: [], extra: {} };
+    const runTagPrediction: typeof predictAssetTags = (...args) => tagsEnabledForTask
+      ? predictAssetTags(...args) : Promise.resolve(emptyTags);
     const predictOptionsBase = {
       matchingSources: extra?.matchingSources,
       recognitionAccuracy: extra?.recognitionAccuracy,
@@ -317,7 +328,7 @@ export async function processQueueItem({
       supportsFeatureClassification && featureClassifications.person && Boolean(thumbnailUrl);
     let predictTagsPromise: ReturnType<typeof predictAssetTags> | null = mayNeedFaceFeatures
       ? null
-      : predictAssetTags(assetObject, predictOptionsBase);
+      : runTagPrediction(assetObject, predictOptionsBase);
     let brandRecommendationPromise: Promise<
       Awaited<ReturnType<typeof classifyAssetBrandRecommendation>>
     > = Promise.resolve(null);
@@ -511,16 +522,16 @@ export async function processQueueItem({
               "classifyAssetPersonRecommendation",
             );
           }
-          predictTagsPromise = predictAssetTags(assetObject, {
+          predictTagsPromise = runTagPrediction(assetObject, {
             ...predictOptionsBase,
             ...(faceFeatures ? { faceFeatures } : {}),
           });
         } else {
           // No person library: keep legacy timing — start AI tagging without waiting on detection.
-          predictTagsPromise = predictAssetTags(assetObject, predictOptionsBase);
+          predictTagsPromise = runTagPrediction(assetObject, predictOptionsBase);
         }
       } else {
-        predictTagsPromise = predictAssetTags(assetObject, predictOptionsBase);
+        predictTagsPromise = runTagPrediction(assetObject, predictOptionsBase);
       }
     }
 
@@ -533,7 +544,7 @@ export async function processQueueItem({
     ] = await Promise.all([
       logStepFinished(
         "predictAssetTags",
-        predictTagsPromise ?? predictAssetTags(assetObject, predictOptionsBase),
+        predictTagsPromise ?? runTagPrediction(assetObject, predictOptionsBase),
       )
         .then((value) => ({ value }))
         .catch((error: unknown) => ({ error })),
@@ -550,7 +561,7 @@ export async function processQueueItem({
     } = predictionResult.value;
     // 同级互斥硬约束（AI vs 特征库）：特征库认出了互斥组里的某个分支时，AI 仅凭内容猜到的同组其他分支要让位。
     // 放在这里是因为审核项创建、直接写回、结果持久化都从 tagsWithScore 出发，改一处三处一致。
-    const exclusiveTagsTree = tagsTree ?? (await fetchTagsTreeForTagging({ teamId }));
+    const exclusiveTagsTree = tagsEnabledForTask ? tagsTree ?? (await fetchTagsTreeForTagging({ teamId })) : [];
     const featureCandidates = collectFeatureTagCandidates({
       brandRecommendation,
       ipRecommendation,
@@ -600,8 +611,9 @@ export async function processQueueItem({
       getThumbnailSource: thumbnailUrl ? () => getThumbnailSource(thumbnailUrl) : undefined,
       logger,
     });
-    const tagsWithScore = [...crossSource.tagsWithScore, ...aspectRatioTags];
+    const tagsWithScore = tagsEnabledForTask ? [...crossSource.tagsWithScore, ...aspectRatioTags] : [];
     const hasAiTags = tagsWithScore.length > 0;
+    const effectiveMetadata = metadataPredictions.filter(p => p.effective);
     const acceptedPersonTagIds = getAcceptedPersonRecommendationTagIds(personRecommendation);
     if (personRecommendation?.faces.length) {
       logger.info({
@@ -632,7 +644,7 @@ export async function processQueueItem({
     const hasProductTags = productRecommendationWithTags !== null;
     const hasPersonTags = personRecommendationWithTags !== null;
 
-    if (!hasAiTags && !hasBrandTags && !hasIpTags && !hasProductTags && !hasPersonTags) {
+    if (!hasAiTags && !hasBrandTags && !hasIpTags && !hasProductTags && !hasPersonTags && !teamSetting.isMetadataEnabled) {
       throw Object.assign(new Error("No valid tags predicted"), { code: "NO_VALID_TAGS" });
     }
     logger.info({
@@ -672,6 +684,19 @@ export async function processQueueItem({
         mode: isDirect ? "direct" : "review",
       });
 
+      if (teamSetting.isMetadataEnabled) {
+        const metadataApplied = isDirect && effectiveMetadata.length && (await getTaggingSettings(teamId)).isMetadataEnabled
+          ? await applyMetadataPredictions(metadataTeam, slugToId("assetObject", assetObject.slug).toString(), effectiveMetadata,
+            `metadata:queue:${queueItem.id}:${createHash("sha256").update(JSON.stringify(effectiveMetadata)).digest("hex").slice(0,24)}`) : null;
+        await prisma.$transaction(async tx => {
+          await tx.metadataAuditItem.updateMany({ where: { teamId, assetObjectId: assetObject.id, status: "pending", queueItemId: { not: queueItem.id } }, data: { status: "rejected" } });
+          for (const prediction of effectiveMetadata) await tx.metadataAuditItem.upsert({
+            where: { queueItemId_fieldId: { queueItemId: queueItem.id, fieldId: prediction.fieldId } },
+            create: { teamId, assetObjectId: assetObject.id, queueItemId: queueItem.id, fieldId: prediction.fieldId, prediction: JSON.parse(JSON.stringify(prediction)), status: isDirect ? (metadataApplied?.applied.includes(prediction.fieldId) ? "approved" : "rejected") : "pending" },
+            update: { prediction: JSON.parse(JSON.stringify(prediction)), status: isDirect ? (metadataApplied?.applied.includes(prediction.fieldId) ? "approved" : "rejected") : "pending" },
+          });
+        });
+      }
       const createAuditResult = hasAiTags
         ? await createAuditItems({
             assetObject,
@@ -737,7 +762,7 @@ export async function processQueueItem({
             msg: "createRecommendationOnlyReviewItem completed successfully",
             createdCount: recommendationOnlyReviewResult.createdCount,
           });
-        } else if (!hasCreatedAiAuditItems) {
+        } else if (!hasCreatedAiAuditItems && !teamSetting.isMetadataEnabled) {
           throw new Error("No review items created");
         }
       }
@@ -888,6 +913,7 @@ export async function processQueueItem({
         msg: "Rerun requested during processing, resetting queue item to pending with latest asset data",
       });
       await prisma.$transaction([
+        prisma.metadataAuditItem.deleteMany({ where: { queueItemId: queueItem.id } }),
         prisma.taggingAuditItem.deleteMany({ where: { queueItemId: queueItem.id } }),
         prisma.taggingQueueItem.update({
           where: { id: queueItem.id },
@@ -912,6 +938,7 @@ export async function processQueueItem({
         status: "completed",
         endsAt: new Date(),
         result: {
+          ...(teamSetting.isMetadataEnabled ? { metadataPredictions } : {}),
           predictions,
           tagsWithScore,
           brandRecommendation,
@@ -1251,6 +1278,7 @@ export async function processPendingQueueItems(): Promise<{
     }
     return { processing: 0, skipped: 0 };
   }
+  void flushMetadataSettingAudits().catch(() => rootLogger.warn("Metadata audit delivery remains pending"));
   logPendingSummaryThrottled();
   // 本进程的槽位已经占满（含已排进 pLimit 等待的）时直接跳过：处理一个任务要几十秒，
   // 而 queue-processor 调用 / 入队 kick 每几秒就来一轮，不跳过的话一轮接一轮排在 pLimit 后面，

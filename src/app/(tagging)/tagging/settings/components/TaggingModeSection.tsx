@@ -3,11 +3,17 @@ import { useTranslations } from "next-intl";
 
 interface TaggingModeSectionProps {
   taggingMode: "direct" | "review";
+  metadataAvailable?: boolean;
   onTaggingModeChange: (mode: "direct" | "review") => void;
 }
 
-export function TaggingModeSection({ taggingMode, onTaggingModeChange }: TaggingModeSectionProps) {
+export function TaggingModeSection({
+  taggingMode,
+  metadataAvailable,
+  onTaggingModeChange,
+}: TaggingModeSectionProps) {
   const t = useTranslations("Tagging.Settings.TaggingMode");
+  const tm = useTranslations("Tagging.Metadata");
 
   return (
     <div className="space-y-6">
@@ -29,7 +35,9 @@ export function TaggingModeSection({ taggingMode, onTaggingModeChange }: Tagging
             >
               <div className="text-center">
                 <h3 className="font-medium mb-2">{t("direct")}</h3>
-                <p className="text-xs text-basic-5">{t("directDesc")}</p>
+                <p className="text-xs text-basic-5">
+                  {metadataAvailable ? tm("directModeDescription") : t("directDesc")}
+                </p>
               </div>
             </div>
 
@@ -44,7 +52,9 @@ export function TaggingModeSection({ taggingMode, onTaggingModeChange }: Tagging
             >
               <div className="text-center">
                 <h3 className="font-medium mb-2">{t("review")}</h3>
-                <p className="text-basic-5 text-xs">{t("reviewDesc")}</p>
+                <p className="text-basic-5 text-xs">
+                  {metadataAvailable ? tm("reviewModeDescription") : t("reviewDesc")}
+                </p>
               </div>
             </div>
           </div>

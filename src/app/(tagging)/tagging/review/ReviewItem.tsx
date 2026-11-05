@@ -1,4 +1,6 @@
 "use client";
+import { MetadataInlineReview } from "./MetadataInlineReview";
+import { reviewMetadata } from "./metadata-actions";
 
 import { MatchedKeywordsBadge } from "../components/MatchedKeywordsBadge";
 
@@ -388,6 +390,8 @@ function ManualFeatureRow({
 export function ReviewItem({
   assetObject,
   existingFeatures = [],
+  metadataReviews = [],
+  metadataAvailable = false,
   availableFeatureIds,
   featureThumbnails,
   batch,
@@ -405,6 +409,7 @@ export function ReviewItem({
 }: AssetWithAuditItemsBatch & {
   CheckboxComponent: React.ReactNode;
   batchLoading?: boolean;
+  metadataAvailable?: boolean;
   rejectedFeatureKeys: string[];
   onToggleFeatureKey: (key: string) => void;
   manualTags?: ReviewTagSearchResult[];
@@ -660,8 +665,8 @@ export function ReviewItem({
   );
 
   const hasPendingAuditItems = useMemo(
-    () => Array.from(auditItemsSet).some((auditItem) => auditItem.status === "pending"),
-    [auditItemsSet],
+    () => Array.from(auditItemsSet).some((auditItem) => auditItem.status === "pending") || metadataReviews.some(item => item.status === "pending"),
+    [auditItemsSet, metadataReviews],
   );
 
   const approveAuditItems = useCallback(
@@ -686,13 +691,16 @@ export function ReviewItem({
 
       const allAuditItems = [...auditItems, ...filteredOutItems];
 
-      if (!allAuditItems.length) {
+      if (!allAuditItems.length && !metadataReviews.some(item => item.status === "pending")) {
         toast.error(t("noCorrespondingTag"));
         setLoading(false);
         return;
       }
 
       try {
+        const metadataIds = metadataReviews.filter(item => item.status === "pending").map(item => item.id);
+        for (let start = 0; start < metadataIds.length; start += 100) await reviewMetadata(metadataIds.slice(start,start+100), "approve");
+        if (!allAuditItems.length) { onSuccess?.(); return; }
         const result = await approveAuditItemsAction({
           assetSlug: assetObject.slug,
           auditItems: allAuditItems,
@@ -737,6 +745,7 @@ export function ReviewItem({
       rejectedFeatureKeys,
       manualFeatureKeys,
       manualTags,
+      metadataReviews,
       onSuccess,
       rejectedItems,
       t,
@@ -756,6 +765,9 @@ export function ReviewItem({
   const handleReject = useCallback(async () => {
     setLoading(true);
     try {
+      const metadataIds = metadataReviews.filter(item => item.status === "pending").map(item => item.id);
+      for (let start = 0; start < metadataIds.length; start += 100) await reviewMetadata(metadataIds.slice(start,start+100), "reject");
+      if (!batch.length) { onSuccess?.(); return; }
       const result = await rejectAuditItemsAction({ assetSlug: assetObject.slug });
       if (result.success) {
         toast.success(t("rejectSuccess"));
@@ -770,7 +782,7 @@ export function ReviewItem({
     } finally {
       setLoading(false);
     }
-  }, [assetObject.slug, onSuccess, t]);
+  }, [assetObject.slug, batch.length, metadataReviews, onSuccess, t]);
 
   return (
     <div className="bg-background border rounded-[6px] px-6 pt-8 pb-6 space-y-6">
@@ -1445,6 +1457,7 @@ export function ReviewItem({
           onConfirm={onAddManualFeatures}
         />
       ) : null}
+      {metadataAvailable && <MetadataInlineReview rows={metadataReviews} onSuccess={onSuccess} />}
       <ImagePreviewDialog
         image={previewImage}
         closeLabel={t("closePreview")}

@@ -328,5 +328,60 @@
   "SearchResult": {
     "tagGroup": "Etiket Grubu",
     "noSearchResults": "Arama sonucu yok"
+  },
+  "Tagging": {
+    "Metadata": {
+      "title": "Meta veri alanları",
+      "empty": "Alan sonucu yok",
+      "effective": "Geçerli",
+      "candidate": "Aday",
+      "checked": "İşaretli",
+      "unchecked": "İşaretli değil",
+      "approve": "Ekle",
+      "reject": "Sil",
+      "pending": "İnceleme bekliyor",
+      "approved": "Eklendi",
+      "rejected": "Silindi",
+      "loadFailed": "Yüklenemedi. Lütfen tekrar deneyin.",
+      "retry": "Tekrar dene",
+      "selectAll": "Tümünü seç",
+      "onlyFields": "Yalnızca alanlar",
+      "allContent": "Tüm içerik",
+      "unavailable": "Alan devre dışı, silinmiş veya yapılandırması değiştirilmiş",
+      "manualKept": "Alan elle doldurulmuş. Elle girilen değer korundu.",
+      "previous": "Önceki",
+      "next": "Sonraki",
+      "reviewFailed": "İşlem başarısız. Lütfen tekrar deneyin.",
+      "evidence": "Eşleşme kanıtı",
+      "sourceBasicInfo": "Temel bilgi eşleşmesi",
+      "sourceMaterializedPath": "Klasör yolu eşleşmesi",
+      "sourceContentAnalysis": "İçerik analizi eşleşmesi",
+      "loading": "Yükleniyor",
+      "low": "Düşük",
+      "medium": "Orta",
+      "high": "Yüksek",
+      "sharedModeHint": "Etiketleme modu, yapay zekâ tanıma ayarları ve eşleştirme stratejileri hem etiketler hem meta veri alanları için geçerlidir. Etiket anahtar sözcük eşleştirmesi yalnızca etiketler için geçerlidir.",
+      "appliedCount": "{count} alan eklendi",
+      "directModeDescription": "Yapay zekâ etiketlemeyi doğrudan varlık etiketlerine ve meta veri alanlarına uygula",
+      "reviewModeDescription": "Manuel incelemeden sonra varlık etiketlerine ve meta veri alanlarına uygula"
+    },
+    "Settings": {
+      "Global": {
+        "tagSystemSwitch": "Etiket sistemine göre etiketle",
+        "metadataSwitch": "Alanları yapay zekâyla doldur",
+        "metadataDescription": "Yalnızca arşivlenmiş varlıkların boş alanlarını doldurur, elle girilen değerleri değiştirmez. Etiketler ve alanlar aynı etiketleme modunu ve eşleştirme stratejilerini kullanır.",
+        "manageMetadata": "Meta veri alanlarını yönet",
+        "enableMetadataTitle": "Yapay zekâyla alan doldurmayı aç",
+        "disableMetadataTitle": "Yapay zekâyla alan doldurmayı kapat",
+        "enableMetadataConfirm": "Açıldığında, yapay zekâ etiketleme sırasında otomatik doldurmanın açık olduğu alanları doldurur. Yalnızca boş alanlar doldurulur.",
+        "disableMetadataConfirm": "Kapatıldığında yapay zekâ alan doldurmayı durdurur. Mevcut değerler korunur.",
+        "confirm": "Onayla",
+        "cancel": "İptal",
+        "metadataEnabledToast": "Yapay zekâyla alan doldurma açıldı",
+        "metadataDisabledToast": "Yapay zekâyla alan doldurma kapatıldı",
+        "metadataEnabledDescription": "Açık. Yapay zekâ, otomatik doldurmanın açık olduğu meta veri alanları için değer seçer ve yalnızca boş alanları doldurur.",
+        "metadataDisabledDescription": "Kapalı. Yapay zekâ artık meta veri alanlarını doldurmaz. Mevcut değerler korunur."
+      }
+    }
   }
 }

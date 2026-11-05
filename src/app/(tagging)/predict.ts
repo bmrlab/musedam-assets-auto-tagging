@@ -1,3 +1,4 @@
+import { calculateMultiSourceScore } from "@/lib/tagging/source-score";
 import "server-only";
 
 import { resolveModelChain, runWithModelFallback } from "@/ai/model-fallback";
@@ -74,7 +75,7 @@ function getTaggingPredictModelChain(): LLMModelName[] {
   );
 }
 
-function runWithTaggingModelFallback<T>(
+export function runWithTaggingModelFallback<T>(
   stage: string,
   teamId: string | number,
   run: (modelName: LLMModelName) => Promise<T>,
@@ -98,7 +99,7 @@ function runWithTaggingModelFallback<T>(
 // 会拒绝该值，所以这些模型不传推理参数，用网关默认值。
 const GPT5_MINIMAL_REASONING_MODELS = new Set<string>(["gpt-5", "gpt-5-mini", "gpt-5-nano"]);
 
-function getTaggingPredictProviderOptions(modelName: LLMModelName, teamId: string | number) {
+export function getTaggingPredictProviderOptions(modelName: LLMModelName, teamId: string | number) {
   if (!modelName.startsWith("gpt-5")) return undefined;
 
   return {
@@ -196,12 +197,7 @@ const tagPredictionsResponseSchema = z.object({
 // };
 
 // 多源标签分数计算权重配置
-const SCORING_WEIGHTS: Record<z.Infer<typeof tagPredictionSchema.shape.source>, number> = {
-  basicInfo: 0.7,
-  materializedPath: 0.6,
-  contentAnalysis: 0.85,
-  tagKeywords: 0.95,
-};
+
 
 // 硬匹配（关键词字面命中）统一使用的置信度和单次最多注入的标签数量上限，
 // materializedPath（文件夹路径）和 basicInfo（文件名/描述）两个文本类来源共用。
@@ -1020,33 +1016,6 @@ function sortPredictionsDeterministically(
  * 多源标签分数计算 - 多个信息源识别同一标签时增强置信度而非简单平均
  * @returns 最终分数 0-1 范围
  */
-function calculateMultiSourceScore(
-  confidenceBySources: TagWithScore["confidenceBySources"],
-  sourceWeights?: Partial<SourceWeights>,
-): number {
-  const dampingFactor = 0.8;
-  let remaining = 1;
-  let maxWeighted = 0;
-
-  (
-    Object.entries(confidenceBySources) as [keyof TagWithScore["confidenceBySources"], number][]
-  ).forEach(([source, confidence]) => {
-    if (confidence !== undefined && confidence !== null) {
-      // 团队自定义权重为倍数：越大指数越小，该来源的置信度被放大得越多；1 即保持默认
-      const userWeight = sourceWeights?.[source];
-      const weight =
-        userWeight && userWeight > 0
-          ? SCORING_WEIGHTS[source] / userWeight
-          : SCORING_WEIGHTS[source];
-      const enhanced = Math.pow(confidence, weight);
-      maxWeighted = Math.max(maxWeighted, enhanced);
-      remaining *= 1 - enhanced * dampingFactor;
-    }
-  });
-
-  const rawScore = 1 - remaining;
-  return Math.max(rawScore, maxWeighted);
-}
 
 /**
  * 加权的算法不一定对，如果一个 tag 在两个 source 都有，结果应该是更高分数而不是在两个 source 的 confidence 之间的一个数值

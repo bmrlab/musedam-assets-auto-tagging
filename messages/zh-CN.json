@@ -328,5 +328,60 @@
   "SearchResult": {
     "tagGroup": "标签组",
     "noSearchResults": "搜索结果为空"
+  },
+  "Tagging": {
+    "Metadata": {
+      "title": "元数据字段",
+      "empty": "暂无字段结果",
+      "effective": "生效",
+      "candidate": "候选",
+      "checked": "已勾选",
+      "unchecked": "未勾选",
+      "approve": "添加",
+      "reject": "删除",
+      "pending": "待审核",
+      "approved": "已添加",
+      "rejected": "已删除",
+      "loadFailed": "加载失败，请重试",
+      "retry": "重试",
+      "selectAll": "全选",
+      "onlyFields": "仅字段",
+      "allContent": "全部内容",
+      "unavailable": "字段已停用、删除或配置已变更",
+      "manualKept": "字段已由人工填写，保留人工值",
+      "previous": "上一页",
+      "next": "下一页",
+      "reviewFailed": "操作失败，请重试",
+      "evidence": "命中依据",
+      "sourceBasicInfo": "基础信息匹配",
+      "sourceMaterializedPath": "文件夹路径匹配",
+      "sourceContentAnalysis": "智能解析匹配",
+      "loading": "加载中",
+      "low": "低",
+      "medium": "中",
+      "high": "高",
+      "sharedModeHint": "打标模式、AI 识别设置和匹配策略同时用于标签和元数据字段；标签关键词匹配仅对标签生效。",
+      "appliedCount": "已添加 {count} 个字段",
+      "directModeDescription": "AI 打标直接应用到资产标签和元数据字段",
+      "reviewModeDescription": "需人工审核后应用到资产标签和元数据字段"
+    },
+    "Settings": {
+      "Global": {
+        "tagSystemSwitch": "按标签体系打标",
+        "metadataSwitch": "AI 自动填写字段",
+        "metadataDescription": "只填写已入库素材的空字段，人工值不会覆盖；标签与字段共用打标模式和匹配策略。",
+        "manageMetadata": "管理元数据字段",
+        "enableMetadataTitle": "开启 AI 自动填写字段",
+        "disableMetadataTitle": "关闭 AI 自动填写字段",
+        "enableMetadataConfirm": "开启后，AI 打标时将为已开启「AI 自动填写」的字段填写内容，仅填写空字段。",
+        "disableMetadataConfirm": "关闭后，AI 将不再填写字段，已填写的内容会保留。",
+        "confirm": "确认",
+        "cancel": "取消",
+        "metadataEnabledToast": "已开启 AI 自动填写字段",
+        "metadataDisabledToast": "已关闭 AI 自动填写字段",
+        "metadataEnabledDescription": "开启中，AI 为开启了「AI 自动填写」的元数据字段选上值，只填写空字段",
+        "metadataDisabledDescription": "已关闭，AI 不再填写元数据字段，已填写的值保留"
+      }
+    }
   }
 }

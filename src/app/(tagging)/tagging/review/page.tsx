@@ -1,5 +1,6 @@
 import { getAuthSession } from "@/app/(auth)/requestAuth";
 import { redirect } from "next/navigation";
+import { fetchMetadataContext } from "@/musedam/metadata";
 import ReviewPageClient from "./ReviewPageClient";
 
 export default async function ReviewPage() {
@@ -9,5 +10,6 @@ export default async function ReviewPage() {
     redirect("/auth/signin");
   }
 
-  return <ReviewPageClient />;
+  const capability = await fetchMetadataContext(session.team).catch(() => ({ enabled: false }));
+  return <ReviewPageClient metadataAvailable={capability.enabled} />;
 }

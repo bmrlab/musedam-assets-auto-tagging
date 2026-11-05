@@ -855,6 +855,7 @@ export default function TestClient() {
               );
 
               return {
+                metadataPredictions: resultData?.metadataPredictions,
                 featureDecision: resultData?.featureDecision,
                 asset: {
                   id: assetObject?.id?.toString() || "",

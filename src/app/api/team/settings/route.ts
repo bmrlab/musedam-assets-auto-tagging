@@ -1,3 +1,4 @@
+import { hasEnabledTaggingOutput } from "@/musedam/metadata";
 import { AUTH_TOKEN_HEADER, AuthTokenError, getAuthSession, resolveTokenIdentity } from "@/app/(auth)/requestAuth";
 import { checkUserPermission } from "@/app/(auth)/lib";
 import { getTaggingSettings } from "@/app/(tagging)/tagging/settings/lib";
@@ -51,8 +52,9 @@ export async function GET() {
       success: true,
       data: {
         manualTriggerTagging:
-          settings.isTaggingEnabled && settings.triggerTiming.manualTriggerTagging,
+          settings.triggerTiming.manualTriggerTagging && await hasEnabledTaggingOutput(identity.team, settings),
         hasPermission,
+        isMetadataEnabled: settings.isMetadataEnabled,
       },
     });
   } catch (error: unknown) {

@@ -141,6 +141,7 @@ async function buildAssetObjectTags(
 }
 
 export type AssetWithAuditItemsBatch = {
+  metadataReviews?: { id: number; status: TaggingAuditStatus; prediction: import("@/lib/metadata/types").MetadataPrediction }[];
   assetObject: AssetObject;
   existingFeatures: MuseDAMMaterialFeatureSnapshot[];
   availableFeatureIds: ReviewAvailableFeatureIds;
@@ -242,7 +243,7 @@ export async function fetchAssetsWithAuditItems(
         Prisma.sql`a."queueItemId" IS NOT NULL`,
       ];
       // 和列表组装用同一条「能展示」条件，避免标签被清空后总数仍把这些素材算进去
-      conditions.push(displayedAuditItemSql(featureLibraryFeatures));
+      conditions.push(Prisma.sql`(a."isMetadata" OR ${displayedAuditItemSql(featureLibraryFeatures)})`);
 
       // “全部”保留已删除素材作为可追溯记录，普通拒绝项仍按原规则排除。
       conditions.push(
@@ -305,11 +306,19 @@ export async function fetchAssetsWithAuditItems(
 
       // 见 dashboard/actions.ts：整条 SQL 用 Prisma.sql 拼好后再传给 $queryRaw
       const whereSql = Prisma.join(conditions, " AND ");
+      const reviewItems = Prisma.sql`WITH review_items AS (
+        SELECT "teamId", "assetObjectId", "queueItemId", "status", "score", "leafTagId", "tagPath", false AS "isMetadata"
+        FROM "TaggingAuditItem" WHERE "teamId" = ${teamId}
+        UNION ALL
+        SELECT "teamId", "assetObjectId", "queueItemId", "status", ("prediction"->>'score')::integer AS "score", NULL::integer AS "leafTagId", '[]'::jsonb AS "tagPath", true AS "isMetadata"
+        FROM "MetadataAuditItem" WHERE "teamId" = ${teamId}
+      )`;
       const [[{ count }], pageRows] = await Promise.all([
         prisma.$queryRaw<[{ count: bigint }]>(
           Prisma.sql`
+          ${reviewItems}
           SELECT COUNT(DISTINCT a."assetObjectId") AS count
-          FROM "TaggingAuditItem" a
+          FROM review_items a
           JOIN "TaggingQueueItem" q ON q."id" = a."queueItemId"
           WHERE ${whereSql}
         `,
@@ -318,8 +327,9 @@ export async function fetchAssetsWithAuditItems(
         // 取每个资产首条的语义一致），assetObjectId 作次序键保证翻页稳定。
         prisma.$queryRaw<{ assetObjectId: number }[]>(
           Prisma.sql`
+          ${reviewItems}
           SELECT a."assetObjectId"
-          FROM "TaggingAuditItem" a
+          FROM review_items a
           JOIN "TaggingQueueItem" q ON q."id" = a."queueItemId"
           WHERE ${whereSql}
           GROUP BY a."assetObjectId"
@@ -351,6 +361,7 @@ export async function fetchAssetsWithAuditItems(
       const assetObjects = await prisma.assetObject.findMany({
         where: { teamId, id: { in: assetObjectIds } },
         include: {
+          metadataAuditItems: { where: { status: statusFilter ?? { not: "rejected" } }, orderBy: { createdAt: "desc" } },
           taggingAuditItems: {
             include: {
               queueItem: true,
@@ -555,7 +566,7 @@ export async function fetchAssetsWithAuditItems(
         // const finalBatch = filteredBatch;
 
         // 只有当有有效的 batch 时才添加到结果中
-        if (filteredBatch.length > 0) {
+        if (filteredBatch.length > 0 || assetObject.metadataAuditItems?.length) {
           const materialId = materialIdByAssetObjectId.get(assetObject.id);
           const existingFeatures =
             hasEnabledFeatures && materialId !== undefined
@@ -568,6 +579,7 @@ export async function fetchAssetsWithAuditItems(
             availableFeatureIds,
             featureThumbnails,
             batch: filteredBatch,
+            metadataReviews: (assetObject.metadataAuditItems || []).map(item => ({ id: item.id, status: item.status, prediction: item.prediction as unknown as import("@/lib/metadata/types").MetadataPrediction })),
           });
         }
       }

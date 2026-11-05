@@ -328,5 +328,60 @@
   "SearchResult": {
     "tagGroup": "Gruppo tag",
     "noSearchResults": "Nessun risultato di ricerca"
+  },
+  "Tagging": {
+    "Metadata": {
+      "title": "Campi dei metadati",
+      "empty": "Nessun risultato dei campi",
+      "effective": "Effettivo",
+      "candidate": "Candidato",
+      "checked": "Selezionato",
+      "unchecked": "Non selezionato",
+      "approve": "Aggiungi",
+      "reject": "Elimina",
+      "pending": "In attesa di revisione",
+      "approved": "Aggiunto",
+      "rejected": "Eliminato",
+      "loadFailed": "Caricamento non riuscito. Riprova.",
+      "retry": "Riprova",
+      "selectAll": "Seleziona tutto",
+      "onlyFields": "Solo campi",
+      "allContent": "Tutti i contenuti",
+      "unavailable": "Campo disattivato, eliminato o configurazione modificata",
+      "manualKept": "Campo compilato manualmente. Valore manuale mantenuto.",
+      "previous": "Precedente",
+      "next": "Successivo",
+      "reviewFailed": "Operazione non riuscita. Riprova.",
+      "evidence": "Prova della corrispondenza",
+      "sourceBasicInfo": "Corrispondenza delle informazioni di base",
+      "sourceMaterializedPath": "Corrispondenza del percorso della cartella",
+      "sourceContentAnalysis": "Corrispondenza dell’analisi dei contenuti",
+      "loading": "Caricamento",
+      "low": "Basso",
+      "medium": "Medio",
+      "high": "Alto",
+      "sharedModeHint": "La modalità di etichettatura, le impostazioni di riconoscimento IA e le strategie di corrispondenza si applicano a tag e campi dei metadati. La corrispondenza delle parole chiave si applica solo ai tag.",
+      "appliedCount": "Aggiunti {count} campi",
+      "directModeDescription": "Applica direttamente l’etichettatura IA ai tag e ai campi dei metadati delle risorse",
+      "reviewModeDescription": "Applica ai tag e ai campi dei metadati dopo la revisione manuale"
+    },
+    "Settings": {
+      "Global": {
+        "tagSystemSwitch": "Assegna tag secondo la tassonomia",
+        "metadataSwitch": "Compila automaticamente i campi con IA",
+        "metadataDescription": "Compila solo i campi vuoti delle risorse archiviate, senza sovrascrivere i valori manuali. Tag e campi condividono modalità e strategie di corrispondenza.",
+        "manageMetadata": "Gestisci i campi dei metadati",
+        "enableMetadataTitle": "Attiva la compilazione dei campi con IA",
+        "disableMetadataTitle": "Disattiva la compilazione dei campi con IA",
+        "enableMetadataConfirm": "Se attivata, l’etichettatura con IA compila i campi con compilazione automatica abilitata. Vengono compilati solo i campi vuoti.",
+        "disableMetadataConfirm": "Se disattivata, l’IA non compila più i campi. I valori esistenti vengono mantenuti.",
+        "confirm": "Conferma",
+        "cancel": "Annulla",
+        "metadataEnabledToast": "Compilazione dei campi con IA attivata",
+        "metadataDisabledToast": "Compilazione dei campi con IA disattivata",
+        "metadataEnabledDescription": "Attivata. L’IA seleziona i valori dei campi con compilazione automatica abilitata, compilando solo i campi vuoti.",
+        "metadataDisabledDescription": "Disattivata. L’IA non compila più i campi dei metadati. I valori esistenti vengono mantenuti."
+      }
+    }
   }
 }

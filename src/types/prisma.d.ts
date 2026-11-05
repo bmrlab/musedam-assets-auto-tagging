@@ -262,6 +262,7 @@ declare module "@/prisma/client" {
 
   import { SourceBasedTagPredictions, TagWithScore } from "@/app/(tagging)/types";
   export type TaggingQueueItemResult = Partial<{
+    metadataPredictions: import("@/lib/metadata/types").MetadataPrediction[];
     featureDecision: import("@/lib/feature-decision/types").FeatureDecisionDiagnostics;
     error: string;
     /** 失败时的可读错误信息（error 为错误码，message 为原始异常信息） */

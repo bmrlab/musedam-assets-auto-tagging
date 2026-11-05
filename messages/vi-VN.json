@@ -328,5 +328,60 @@
   "SearchResult": {
     "tagGroup": "Nhóm thẻ",
     "noSearchResults": "Không có kết quả tìm kiếm"
+  },
+  "Tagging": {
+    "Metadata": {
+      "title": "Trường siêu dữ liệu",
+      "empty": "Chưa có kết quả trường",
+      "effective": "Có hiệu lực",
+      "candidate": "Ứng viên",
+      "checked": "Đã chọn",
+      "unchecked": "Chưa chọn",
+      "approve": "Thêm",
+      "reject": "Xóa",
+      "pending": "Chờ xét duyệt",
+      "approved": "Đã thêm",
+      "rejected": "Đã xóa",
+      "loadFailed": "Tải thất bại. Vui lòng thử lại.",
+      "retry": "Thử lại",
+      "selectAll": "Chọn tất cả",
+      "onlyFields": "Chỉ trường",
+      "allContent": "Tất cả nội dung",
+      "unavailable": "Trường đã bị tắt, xóa hoặc thay đổi cấu hình",
+      "manualKept": "Trường đã được điền thủ công. Giữ nguyên giá trị thủ công.",
+      "previous": "Trước",
+      "next": "Tiếp",
+      "reviewFailed": "Thao tác thất bại. Vui lòng thử lại.",
+      "evidence": "Bằng chứng khớp",
+      "sourceBasicInfo": "Khớp thông tin cơ bản",
+      "sourceMaterializedPath": "Khớp đường dẫn thư mục",
+      "sourceContentAnalysis": "Khớp phân tích nội dung",
+      "loading": "Đang tải",
+      "low": "Thấp",
+      "medium": "Trung bình",
+      "high": "Cao",
+      "sharedModeHint": "Chế độ gắn thẻ, cài đặt nhận dạng AI và chiến lược khớp áp dụng cho cả thẻ và trường siêu dữ liệu. Khớp từ khóa thẻ chỉ áp dụng cho thẻ.",
+      "appliedCount": "Đã thêm {count} trường",
+      "directModeDescription": "Áp dụng gắn thẻ AI trực tiếp cho thẻ và trường siêu dữ liệu của tài sản",
+      "reviewModeDescription": "Áp dụng cho thẻ và trường siêu dữ liệu sau khi xét duyệt thủ công"
+    },
+    "Settings": {
+      "Global": {
+        "tagSystemSwitch": "Gắn thẻ theo hệ thống thẻ",
+        "metadataSwitch": "AI tự động điền trường",
+        "metadataDescription": "Chỉ điền trường trống của tài sản đã nhập kho, không ghi đè giá trị thủ công. Thẻ và trường dùng chung chế độ gắn thẻ và chiến lược khớp.",
+        "manageMetadata": "Quản lý trường siêu dữ liệu",
+        "enableMetadataTitle": "Bật AI tự động điền trường",
+        "disableMetadataTitle": "Tắt AI tự động điền trường",
+        "enableMetadataConfirm": "Khi bật, AI sẽ điền các trường đã bật tự động điền khi gắn thẻ. Chỉ điền các trường trống.",
+        "disableMetadataConfirm": "Khi tắt, AI sẽ ngừng điền trường. Các giá trị hiện có được giữ nguyên.",
+        "confirm": "Xác nhận",
+        "cancel": "Hủy",
+        "metadataEnabledToast": "Đã bật AI tự động điền trường",
+        "metadataDisabledToast": "Đã tắt AI tự động điền trường",
+        "metadataEnabledDescription": "Đã bật. AI chọn giá trị cho trường siêu dữ liệu đã bật tự động điền, chỉ điền trường trống.",
+        "metadataDisabledDescription": "Đã tắt. AI không còn điền trường siêu dữ liệu. Các giá trị hiện có được giữ nguyên."
+      }
+    }
   }
 }

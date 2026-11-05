@@ -11,7 +11,7 @@ export async function fetchSettings(): Promise<
     settings: TaggingSettingsData;
   }>
 > {
-  return withAuth(async ({ team }) => {
+  return withAuth(async ({ team, user }) => {
     try {
       const settings = await getTaggingSettings(team.id);
       return {
@@ -32,7 +32,7 @@ export async function fetchSettings(): Promise<
 export async function updateSettings(
   data: TaggingSettingsData,
 ): Promise<ServerActionResult<{ success: boolean }>> {
-  return withAuth(async ({ team }) => {
+  return withAuth(async ({ team, user }) => {
     // 权重直接参与计分，越界值（如 0 或负数）会导致得分异常，必须在服务端拦截
     if (!taggingSettingsSchema.shape.sourceWeights.safeParse(data.sourceWeights).success) {
       return {
@@ -41,7 +41,9 @@ export async function updateSettings(
       };
     }
     try {
-      await saveTaggingSettings(team.id, data);
+      const parsed = taggingSettingsSchema.parse(data);
+      if (parsed.applicationScope.scopeType === "all") parsed.applicationScope.selectedFolders = [];
+      await saveTaggingSettings(team.id, parsed, user.slug);
 
       // 不需要 revalidatePath，因为：
       // 1. 客户端状态已经通过 useState 更新
@@ -68,9 +70,9 @@ export async function resetSettingsAction(): Promise<
     settings: TaggingSettingsData;
   }>
 > {
-  return withAuth(async ({ team }) => {
+  return withAuth(async ({ team, user }) => {
     try {
-      const defaultSettings = await resetTaggingSettings(team.id);
+      const defaultSettings = await resetTaggingSettings(team.id, user.slug);
 
       // 不需要 revalidatePath（同 updateSettings 的原因）
 

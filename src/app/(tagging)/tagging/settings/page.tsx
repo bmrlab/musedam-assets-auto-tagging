@@ -1,6 +1,7 @@
 import { getAuthSession } from "@/app/(auth)/requestAuth";
 import { redirect } from "next/navigation";
 import { fetchSettings } from "./actions";
+import { fetchMetadataContext } from "@/musedam/metadata";
 import SettingsClient from "./SettingsClient";
 
 export default async function SettingsPage() {
@@ -18,5 +19,6 @@ export default async function SettingsPage() {
 
   const { settings } = settingsResult.data;
 
-  return <SettingsClient initialSettings={settings} />;
+  const capability = await fetchMetadataContext(session.team).catch(() => ({ enabled: false }));
+  return <SettingsClient initialSettings={settings} metadataAvailable={capability.enabled} />;
 }

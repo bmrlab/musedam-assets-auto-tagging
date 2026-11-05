@@ -1,4 +1,7 @@
 import "server-only";
+import { randomUUID } from "node:crypto";
+import { slugToId } from "@/lib/slug";
+import { flushMetadataSettingAudits } from "@/musedam/metadata-settings-audit";
 
 import {
   DEFAULT_TAGGING_SETTINGS,
@@ -31,6 +34,7 @@ export async function getTaggingSettings(teamId: number): Promise<TaggingSetting
       TAGGING_CONFIG_KEYS.IS_TAGGING_ENABLED,
       DEFAULT_TAGGING_SETTINGS.isTaggingEnabled,
     ),
+    isMetadataEnabled: getConfigValue(TAGGING_CONFIG_KEYS.IS_METADATA_ENABLED, false),
     taggingMode: getConfigValue(
       TAGGING_CONFIG_KEYS.TAGGING_MODE,
       DEFAULT_TAGGING_SETTINGS.taggingMode,
@@ -68,11 +72,20 @@ export async function getTaggingSettings(teamId: number): Promise<TaggingSetting
 export async function saveTaggingSettings(
   teamId: number,
   data: TaggingSettingsData,
+  actorSlug?: string,
 ): Promise<void> {
   // 使用事务保存各个配置项
   await prisma.$transaction(async (tx) => {
+    if (actorSlug) {
+      const before = await tx.teamConfig.findUnique({ where: { teamId_key: { teamId, key: TAGGING_CONFIG_KEYS.IS_METADATA_ENABLED } } });
+      if ((before?.value === true) !== data.isMetadataEnabled) {
+        const requestId = `metadataSettingAudit:${randomUUID()}`;
+        await tx.teamConfig.create({ data: { teamId, key: requestId, value: { requestId, actorUserId: slugToId("user", actorSlug).toString(), before: before?.value === true, after: data.isMetadataEnabled } } });
+      }
+    }
     // 保存各个配置项到不同的 key
     const configUpdates = [
+      { key: TAGGING_CONFIG_KEYS.IS_METADATA_ENABLED, value: data.isMetadataEnabled ?? false },
       {
         key: TAGGING_CONFIG_KEYS.IS_TAGGING_ENABLED,
         value: data.isTaggingEnabled,
@@ -123,10 +136,11 @@ export async function saveTaggingSettings(
       });
     }
   });
+  if (actorSlug) await flushMetadataSettingAudits(teamId).catch(() => console.warn("Metadata settings audit delivery pending", { teamId }));
 }
 
 // 重置设置为默认值
-export async function resetTaggingSettings(teamId: number): Promise<TaggingSettingsData> {
-  await saveTaggingSettings(teamId, DEFAULT_TAGGING_SETTINGS);
+export async function resetTaggingSettings(teamId: number, actorSlug?: string): Promise<TaggingSettingsData> {
+  await saveTaggingSettings(teamId, DEFAULT_TAGGING_SETTINGS, actorSlug);
   return DEFAULT_TAGGING_SETTINGS;
 }

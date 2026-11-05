@@ -328,5 +328,60 @@
   "SearchResult": {
     "tagGroup": "Tag Group",
     "noSearchResults": "No search results"
+  },
+  "Tagging": {
+    "Metadata": {
+      "title": "Metadata fields",
+      "empty": "No field results",
+      "effective": "Effective",
+      "candidate": "Candidate",
+      "checked": "Checked",
+      "unchecked": "Unchecked",
+      "approve": "Add",
+      "reject": "Delete",
+      "pending": "Pending review",
+      "approved": "Added",
+      "rejected": "Deleted",
+      "loadFailed": "Failed to load. Please retry.",
+      "retry": "Retry",
+      "selectAll": "Select all",
+      "onlyFields": "Fields only",
+      "allContent": "All content",
+      "unavailable": "Field disabled, deleted, or configuration changed",
+      "manualKept": "Field filled manually. Manual value retained.",
+      "previous": "Previous",
+      "next": "Next",
+      "reviewFailed": "Operation failed. Please retry.",
+      "evidence": "Match evidence",
+      "sourceBasicInfo": "Basic information match",
+      "sourceMaterializedPath": "Folder path match",
+      "sourceContentAnalysis": "Content analysis match",
+      "loading": "Loading",
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "sharedModeHint": "The tagging mode, AI recognition settings, and matching strategies apply to both tags and metadata fields. Tag keyword matching applies only to tags.",
+      "appliedCount": "Added {count} fields",
+      "directModeDescription": "AI tagging applies directly to asset tags and metadata fields",
+      "reviewModeDescription": "Apply to asset tags and metadata fields after manual review"
+    },
+    "Settings": {
+      "Global": {
+        "tagSystemSwitch": "Tag by tag taxonomy",
+        "metadataSwitch": "AI auto-fill fields",
+        "metadataDescription": "Fill only empty fields on filed assets. Manual values are never overwritten. Tags and fields share the tagging mode and matching strategies.",
+        "manageMetadata": "Manage metadata fields",
+        "enableMetadataTitle": "Enable AI field auto-fill",
+        "disableMetadataTitle": "Disable AI field auto-fill",
+        "enableMetadataConfirm": "When enabled, AI tagging will fill fields with AI auto-fill enabled. Only empty fields are filled.",
+        "disableMetadataConfirm": "When disabled, AI will stop filling fields. Existing values are retained.",
+        "confirm": "Confirm",
+        "cancel": "Cancel",
+        "metadataEnabledToast": "AI field auto-fill enabled",
+        "metadataDisabledToast": "AI field auto-fill disabled",
+        "metadataEnabledDescription": "Enabled. AI selects values for metadata fields with AI auto-fill enabled, filling only empty fields.",
+        "metadataDisabledDescription": "Disabled. AI no longer fills metadata fields. Existing values are retained."
+      }
+    }
   }
 }
