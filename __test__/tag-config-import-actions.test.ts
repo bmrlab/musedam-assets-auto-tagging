@@ -124,6 +124,7 @@ describe("tag configuration import", () => {
   it("updates by id, preserves unprovided fields and clears only explicitly marked text fields", async () => {
     const row = seed(1, "品牌");
     row.extra = { description: "旧描述", keywords: ["旧关键词"], requiredGroup: true };
+    seed(2, "子标签", 1);
     const result = await importTagTreeAction(
       file([
         ["标签 ID", "标签描述", "匹配关键词", "AI 自动打标"],

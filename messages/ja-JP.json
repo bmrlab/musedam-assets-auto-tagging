@@ -126,6 +126,8 @@
     "productRecognition": "商品認識"
   },
   "TagsPage": {
+    "requiredGroupsAutoDisabledMore": "{tags} and others ({count} tags total)",
+    "requiredGroupsAutoDisabled": "{tags} have no child tags and cannot be required groups. Required group has been turned off.",
     "AiCreateModal": {
       "creating": "作成中...",
       "generateFailed": "タグ体系の生成に失敗しました",
