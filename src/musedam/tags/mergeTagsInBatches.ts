@@ -12,7 +12,7 @@ export interface MergeTag {
 
 // Count ancestors as well as descendants: splitting only root groups still leaves
 // large groups (such as thousands of SKUs) in a single upstream transaction.
-export const MERGE_TAG_BATCH_SIZE = 100;
+export const MERGE_TAG_BATCH_SIZE = 1000;
 
 const hasOperations = (tag: MergeTag): boolean =>
   tag.operation !== 0 || (tag.children ?? []).some(hasOperations);
