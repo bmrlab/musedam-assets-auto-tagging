@@ -1601,6 +1601,7 @@
       "precheckHint": "Проверьте следующее перед импортом",
       "precheckSummary": "Будет создано тегов: {create}, обновлено: {update}, без изменений: {unchanged}",
       "precheckRenameNotice": "Из них {count} будут переименованы и синхронизированы с MuseDAM",
+      "precheckWarningsLabel": "{count} duplicate entries were merged automatically. You can continue importing:",
       "precheckIssuesLabel": "В {count} строках есть проблемы, при продолжении они будут пропущены:",
       "precheckCreateLabel": "Будет создано тегов: {count}",
       "precheckMoreItems": "…всего {count}",

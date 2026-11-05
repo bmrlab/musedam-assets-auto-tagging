@@ -1601,6 +1601,7 @@
       "precheckHint": "檢測到以下情況，請確認後再匯入",
       "precheckSummary": "將新增 {create} 個標籤，更新 {update} 個，{unchanged} 個無變化",
       "precheckRenameNotice": "其中 {count} 個標籤會改名，並同步到 MuseDAM",
+      "precheckWarningsLabel": "以下 {count} 處重複內容已自動合併，可繼續匯入：",
       "precheckIssuesLabel": "以下 {count} 行存在問題，繼續匯入將略過這些行：",
       "precheckCreateLabel": "將新增的 {count} 個標籤：",
       "precheckMoreItems": "…等共 {count} 項",

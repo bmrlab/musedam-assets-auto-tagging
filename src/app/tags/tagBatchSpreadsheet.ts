@@ -130,6 +130,7 @@ export type TagBatchExportNode = {
 export type TagBatchMessages = {
   overwriteRequiresValidRows: string;
   conflictingTreeFields: (columns: string) => string;
+  duplicateTreeContentMerged: string;
   missingHeader: string;
   missingLevel1: string;
   noDataRows: string;
@@ -163,8 +164,9 @@ export function tagBatchMessages(locale: string): TagBatchMessages {
   if (tagBatchLabelLocale(locale) === "en-US") {
     return {
       overwriteRequiresValidRows: "Fix all invalid rows before overwriting the tag tree",
+      duplicateTreeContentMerged: "Duplicate tag paths and keywords were merged automatically; this does not prevent import",
       conflictingTreeFields: (columns) =>
-        `Rows for the same tag path have conflicting settings (${columns}); make them consistent before importing`,
+        `Rows for the same tag path have conflicting settings (${columns}); this row will be skipped if you continue importing`,
       missingHeader: "Missing file header",
       missingLevel1: "File is missing a required column: Level 1 Tag",
       noDataRows: "No importable data found",
@@ -194,10 +196,13 @@ export function tagBatchMessages(locale: string): TagBatchMessages {
     overwriteRequiresValidRows: traditional
       ? "請修正所有問題行後再覆蓋標籤樹"
       : "请修正所有问题行后再覆盖标签树",
+    duplicateTreeContentMerged: traditional
+      ? "重複標籤路徑及關鍵詞已自動合併去重，不影響匯入"
+      : "重复标签路径及关键词已自动合并去重，不影响导入",
     conflictingTreeFields: (columns) =>
       traditional
-        ? `檔案中同一路徑的設定衝突（${columns}），請統一後再匯入`
-        : `文件中同一路径的配置冲突（${columns}），请统一后再导入`,
+        ? `檔案中同一路徑的設定衝突（${columns}），繼續匯入將跳過本行`
+        : `文件中同一路径的配置冲突（${columns}），继续导入将跳过本行`,
     missingHeader: traditional ? "檔案缺少表頭" : "文件缺少表头",
     missingLevel1: traditional ? "檔案缺少必填列：一級標籤" : "文件缺少必填列：一级标签",
     noDataRows: traditional ? "未找到可匯入的資料" : "未找到可导入的数据",
@@ -461,14 +466,15 @@ export function parseTagBatchTable({
   return { records, errors };
 }
 
-/** 同一路径只创建一次；重复行可以补充配置，但不能互相覆盖冲突值。 */
+/** 同一路径只创建一次，关键词合并去重；其他字段冲突的行单独报错。 */
 export function coalesceTagTreeRecords(
   records: ParsedTagBatchRecord[],
   locale: string,
   messages: TagBatchMessages = tagBatchMessages(locale),
-): { records: ParsedTagBatchRecord[]; errors: TagBatchParseError[] } {
+): { records: ParsedTagBatchRecord[]; errors: TagBatchParseError[]; warnings: TagBatchParseError[] } {
   const byPath = new Map<string, ParsedTagBatchRecord>();
   const errors: TagBatchParseError[] = [];
+  const warnings: TagBatchParseError[] = [];
   const labels = new Map(getTagBatchColumns(locale).map((column) => [column.key, column.header]));
   for (const record of records) {
     const key = JSON.stringify(record.path.map((name) => name.toLowerCase()));
@@ -481,10 +487,8 @@ export function coalesceTagTreeRecords(
       const previous = existing.fields[field];
       const next = record.fields[field];
       if (previous === undefined || next === undefined) return false;
-      // Keyword order does not change the configuration.
-      const normalize = (value: typeof previous) =>
-        Array.isArray(value) ? [...value].sort() : value;
-      return JSON.stringify(normalize(previous)) !== JSON.stringify(normalize(next));
+      if (field === "keywords" || field === "negativeKeywords") return false;
+      return JSON.stringify(previous) !== JSON.stringify(next);
     });
     if (conflicts.length) {
       errors.push({
@@ -493,9 +497,16 @@ export function coalesceTagTreeRecords(
       });
       continue;
     }
-    Object.assign(existing.fields, record.fields);
+    const fields = { ...record.fields };
+    for (const field of ["keywords", "negativeKeywords"] as const) {
+      if (existing.fields[field] !== undefined && fields[field] !== undefined) {
+        fields[field] = [...new Set([...existing.fields[field]!, ...fields[field]!])];
+      }
+    }
+    Object.assign(existing.fields, fields);
+    warnings.push({ rowNumber: record.rowNumber, message: messages.duplicateTreeContentMerged });
   }
-  return { records: [...byPath.values()], errors };
+  return { records: [...byPath.values()], errors, warnings };
 }
 
 /** 仅无 ID 的行参与路径建树；带 ID 的行按 ID 更新，不新建 */

@@ -324,19 +324,46 @@ it.each(["merge", "overwrite"])("prechecks once, keeps the uploaded preview when
   expect((form.get("file") as File).name).toBe("tags.csv");
 });
 
-it("blocks both modes for an invalid uploaded tree without rechecking or writing", async () => {
+
+it.each(["merge", "overwrite"])("allows %s with duplicate notices and acknowledges only actual problem rows", async (mode) => {
   mocks.precheckTagTreeImportAction.mockResolvedValue({
     success: true,
-    data: { importableCount: 1, createCount: 0, createPaths: [], updateCount: 0, unchangedCount: 0, issues: [{ rowNumber: 2, name: null, message: "invalid tree" }], previewTree: [{ name: "上传的树" }] },
+    data: {
+      importableCount: 1, createCount: 0, createPaths: [], updateCount: 0, unchangedCount: 0,
+      issues: [{ rowNumber: 606, name: null, message: "invalid tree" }],
+      warnings: [{ rowNumber: 583, name: null, message: "duplicates merged" }],
+      previewTree: [{ name: "上传的树" }],
+    },
   });
   const view = setup(); upload(view.container);
   fireEvent.click(screen.getByText("confirm"));
   await screen.findByText("importPreviewTitle");
+  expect(screen.getByText("precheckWarningsLabel")).toBeTruthy();
   const overwrite = screen.getByRole("radio", { name: "UnderstoodPleaseProvideTheText" }) as HTMLButtonElement;
   await waitFor(() => expect(overwrite.disabled).toBe(false));
-  expect((screen.getByText("continueImport") as HTMLButtonElement).disabled).toBe(true);
-  fireEvent.click(overwrite);
-  expect((screen.getByText("continueImport") as HTMLButtonElement).disabled).toBe(true);
+  if (mode === "overwrite") fireEvent.click(overwrite);
+  const proceed = screen.getByText("continueImportSkipIssues") as HTMLButtonElement;
+  await waitFor(() => expect(proceed.disabled).toBe(false));
   expect(mocks.precheckTagTreeImportAction).toHaveBeenCalledTimes(1);
+  expect(mocks.importTagTreeAction).not.toHaveBeenCalled();
+  fireEvent.click(proceed);
+  if (mode === "overwrite") {
+    await screen.findByRole("alertdialog");
+    fireEvent.click(screen.getByText("ClearExistingTagsAndUseNewOnes"));
+  }
+  await waitFor(() => expect(mocks.importTagTreeAction).toHaveBeenCalledOnce());
+  const form = mocks.importTagTreeAction.mock.calls[0][0] as FormData;
+  expect(form.get("skipRows")).toBe("[606]");
+  expect(form.get("importMode")).toBe(mode);
+});
+
+it("keeps import disabled only when no valid tree nodes are available", async () => {
+  mocks.precheckTagTreeImportAction.mockResolvedValue({ success: true, data: {
+    importableCount: 0, createCount: 0, createPaths: [], updateCount: 0, unchangedCount: 0,
+    issues: [{ rowNumber: 2, name: null, message: "invalid tree" }], previewTree: [],
+  } });
+  const view = setup(); upload(view.container); fireEvent.click(screen.getByText("confirm"));
+  await screen.findByText("importPreviewTitle");
+  expect((screen.getByText("continueImportSkipIssues") as HTMLButtonElement).disabled).toBe(true);
   expect(mocks.importTagTreeAction).not.toHaveBeenCalled();
 });

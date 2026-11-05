@@ -1601,6 +1601,7 @@
       "precheckHint": "Vui lòng xem lại các mục sau trước khi nhập",
       "precheckSummary": "Sẽ tạo {create} thẻ, cập nhật {update}, {unchanged} không thay đổi",
       "precheckRenameNotice": "Trong đó {count} thẻ sẽ được đổi tên và đồng bộ với MuseDAM",
+      "precheckWarningsLabel": "{count} duplicate entries were merged automatically. You can continue importing:",
       "precheckIssuesLabel": "{count} dòng có vấn đề và sẽ bị bỏ qua nếu tiếp tục:",
       "precheckCreateLabel": "Sẽ tạo {count} thẻ:",
       "precheckMoreItems": "…tổng cộng {count} mục",

@@ -81,6 +81,8 @@ export type TagTreeImportPrecheck = {
   unchangedCount: number;
   /** 正式导入时会被跳过的行 */
   issues: ImportFailure[];
+  /** 已自动合并的重复内容，不应作为跳过行或阻止导入的依据。 */
+  warnings?: ImportFailure[];
 };
 
 type ImportFailure = TagTreeBatchImportResult["failures"][number];
@@ -183,6 +185,7 @@ export async function precheckTagTreeImportAction(
           renameCount: 0,
           unchangedCount: 0,
           issues: [...toFailures(uploaded.errors), ...pathErrors, ...toFailures(combined.errors)],
+          warnings: toFailures(combined.warnings),
         },
       };
     } catch (error) {
@@ -422,16 +425,6 @@ async function prepareTagTreeImport(
   const maxLevel = formData.get("tagLevel") === "4" ? 4 : 3;
   const parsed = { records: uploaded.records, errors: uploaded.errors };
   const treeImport = formData.get("treeImport") === "true";
-  if (treeImport) {
-    const missingPaths = parsed.records.filter((record) => !record.path.length);
-    if (missingPaths.length) return {
-      kind: "fatal", failures: missingPaths.map((record) => ({ rowNumber: record.rowNumber, name: null, message: messages.nameRequired })),
-    };
-    const combined = coalesceTagTreeRecords(parsed.records.map((record) => ({ ...record, id: undefined })), locale, messages);
-    parsed.records = combined.records;
-    parsed.errors.push(...combined.errors);
-    if (parsed.errors.length) return { kind: "fatal", failures: toFailures(parsed.errors) };
-  }
   if (parsed.errors.some((error) => error.fatal)) {
     return { kind: "fatal", failures: toFailures(parsed.errors) };
   }
@@ -446,13 +439,24 @@ async function prepareTagTreeImport(
   );
   parsed.records = parsed.records.filter((record) => !skippedRows.has(record.rowNumber));
   parsed.errors = parsed.errors.filter((error) => !skippedRows.has(error.rowNumber));
+  if (treeImport) {
+    const missingPaths = parsed.records.filter((record) => !record.path.length);
+    if (missingPaths.length) return {
+      kind: "fatal", failures: missingPaths.map((record) => ({ rowNumber: record.rowNumber, name: null, message: messages.nameRequired })),
+    };
+    const combined = coalesceTagTreeRecords(parsed.records.map((record) => ({ ...record, id: undefined })), locale, messages);
+    parsed.records = combined.records;
+    parsed.errors.push(...combined.errors);
+    if (parsed.errors.length) return { kind: "fatal", failures: toFailures(parsed.errors) };
+  }
   if (parsed.records.length === 0) {
     return { kind: "fatal", failures: toFailures(parsed.errors), skippedCount: skippedRows.size };
   }
 
   const importMode = z.enum(["merge", "overwrite"]).parse(formData.get("importMode") || "merge");
-  // Overwrite must never destroy existing tags for an invalid or partly skipped file.
-  if (importMode === "overwrite" && (parsed.errors.length > 0 || skippedRows.size > 0)) {
+  // Legacy callers cannot overwrite a partial file. The tree preview flow may
+  // explicitly acknowledge skipped rows; remaining unacknowledged errors were rejected above.
+  if (!treeImport && importMode === "overwrite" && (parsed.errors.length > 0 || skippedRows.size > 0)) {
     return {
       kind: "fatal",
       failures: toFailures(
