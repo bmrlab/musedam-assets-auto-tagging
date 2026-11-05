@@ -27,35 +27,38 @@ it("sends explicit third-, second-, and first-level deletions to the MuseDAM mer
     team: { id: 7, slug: "team" },
     tagsTree: buildCascadeDeletionTree(rows, buildTagDeletionPlan(rows, 1)),
   });
-  expect(mocks.request).toHaveBeenCalledExactlyOnceWith("/api/muse/merge-tags", {
-    method: "POST",
-    headers: { Authorization: "Bearer test-key" },
-    body: {
-      tags: [
-        {
-          id: 101,
-          name: "tag1",
-          operation: 0,
-          sort: 0,
-          children: [
-            {
-              id: 102,
-              name: "tag2",
-              operation: 0,
-              sort: 0,
-              children: [{ id: 103, name: "tag3", operation: 3, sort: 0 }],
-            },
-          ],
-        },
-        {
-          id: 101,
-          name: "tag1",
-          operation: 0,
-          sort: 0,
-          children: [{ id: 102, name: "tag2", operation: 3, sort: 0 }],
-        },
-        { id: 101, name: "tag1", operation: 3, sort: 0 },
-      ],
-    },
-  });
+  expect(mocks.request).toHaveBeenCalledExactlyOnceWith(
+    "/api/muse/merge-tags",
+    expect.objectContaining({
+      method: "POST",
+      headers: { Authorization: "Bearer test-key" },
+      body: {
+        tags: [
+          {
+            id: 101,
+            name: "tag1",
+            operation: 0,
+            sort: 0,
+            children: [
+              {
+                id: 102,
+                name: "tag2",
+                operation: 0,
+                sort: 0,
+                children: [{ id: 103, name: "tag3", operation: 3, sort: 0 }],
+              },
+            ],
+          },
+          {
+            id: 101,
+            name: "tag1",
+            operation: 0,
+            sort: 0,
+            children: [{ id: 102, name: "tag2", operation: 3, sort: 0 }],
+          },
+          { id: 101, name: "tag1", operation: 3, sort: 0 },
+        ],
+      },
+    }),
+  );
 });

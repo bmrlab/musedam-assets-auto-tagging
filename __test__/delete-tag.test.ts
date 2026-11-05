@@ -87,6 +87,18 @@ describe("tag deletion", () => {
     expect(tree[2]).toMatchObject({ id: 1, verb: "delete" });
   });
 
+  it("deletes sibling leaves in one tree before deleting their parent", () => {
+    const wide = [tag(1, null, 1), tag(2, 1, 2, "a"), tag(3, 1, 2, "b"), tag(4, 1, 2, "c")].map(
+      (row) => ({ ...row, slug: String(row.id) }),
+    );
+    const tree = buildCascadeDeletionTree(wide, buildTagDeletionPlan(wide, 1));
+    expect(tree).toHaveLength(2);
+    expect(tree[0].verb).toBeUndefined();
+    expect(tree[0].children.map((node) => node.id)).toEqual([4, 3, 2]);
+    expect(tree[0].children.every((node) => node.verb === "delete")).toBe(true);
+    expect(tree[1]).toMatchObject({ id: 1, verb: "delete", children: [] });
+  });
+
   it("allows deletion of a synced leaf", async () => {
     mocks.prisma.assetTag.findMany.mockResolvedValue(
       rows.map((row) => ({ ...row, slug: String(row.id) })),

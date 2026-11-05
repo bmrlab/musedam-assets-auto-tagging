@@ -61,19 +61,56 @@ const mocks = vi.hoisted(() => {
       }
       return { count: before - rows.length };
     }),
+    createManyAndReturn: vi.fn(async ({ data }: { data: Array<Omit<Row, "id">> }) => {
+      const created = [];
+      for (const item of data) created.push(await assetTag.create({ data: item }));
+      return created;
+    }),
   };
-  const transaction = vi.fn(async (fn: (tx: { assetTag: typeof assetTag }) => Promise<unknown>) => {
-    const snapshot = rows.map((row) => ({ ...row }));
-    try {
-      return await fn({ assetTag });
-    } catch (error) {
-      rows.splice(0, rows.length, ...snapshot);
-      throw error;
+  const executeRaw = vi.fn(async (strings: TemplateStringsArray, ...values: unknown[]) => {
+    const sql = Array.from(strings).join(" ");
+    const payload = JSON.parse(String(values[0])) as Array<Record<string, unknown>>;
+    const teamId = Number(values[1]);
+    const next = rows.map((row) => ({ ...row }));
+    for (const item of payload) {
+      const row = next.find((entry) => entry.id === item.id && entry.teamId === teamId);
+      if (!row) throw new Error("missing tag");
+      if (sql.includes('"slug"')) {
+        row.name = String(item.name);
+        row.slug = String(item.slug);
+        row.sort = Number(item.sort);
+        row.level = Number(item.level);
+        row.parentId = (item.parentId ?? null) as number | null;
+      } else {
+        row.name = String(item.name);
+      }
     }
+    const seen = new Set<string>();
+    for (const row of next) {
+      const key = JSON.stringify([row.teamId, row.parentId, row.name]);
+      if (seen.has(key)) throw new Error("Duplicate sibling name");
+      seen.add(key);
+    }
+    rows.splice(0, rows.length, ...next);
+    return payload.length;
   });
+  const transaction = vi.fn(
+    async (
+      fn: (tx: { assetTag: typeof assetTag; $executeRaw: typeof executeRaw }) => Promise<unknown>,
+    ) => {
+      const snapshot = rows.map((row) => ({ ...row }));
+      try {
+        return await fn({ assetTag, $executeRaw: executeRaw });
+      } catch (error) {
+        rows.splice(0, rows.length, ...snapshot);
+        throw error;
+      }
+    },
+  );
   return {
     rows,
     assetTag,
+    executeRaw,
     transaction,
     reset: () => {
       rows.length = 0;
