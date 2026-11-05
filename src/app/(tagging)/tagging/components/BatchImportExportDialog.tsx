@@ -234,7 +234,13 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
     for (const [key, value] of Object.entries(fields)) formData.set(key, value);
 
     startTransition(async () => {
-      const result = await precheckAction(formData);
+      let result: Awaited<ReturnType<typeof precheckAction>>;
+      try {
+        result = await precheckAction(formData);
+      } catch {
+        toast.error(t("precheckRequestFailed"));
+        return;
+      }
       // A review flow stays in preview even when validation fails. Switching
       // modes must never look like an import has run or discard the uploaded file.
       if (renderReview) {
@@ -325,7 +331,16 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
       if (!confirmed) return;
     }
     startTransition(async () => {
-      const result = await importAction(formData);
+      let result: Awaited<ReturnType<typeof importAction>>;
+      try {
+        result = await importAction(formData);
+      } catch {
+        // A gateway timeout does not mean the server rolled back. Preserve the
+        // preview and file without automatically retrying a possibly committed import.
+        setPendingMissingTagsChoice(null);
+        toast.warning(t("importRequestInterrupted"));
+        return;
+      }
       if (!result.success && result.code === "busy") {
         toast.warning(result.message);
         setPendingMissingTagsChoice(null);

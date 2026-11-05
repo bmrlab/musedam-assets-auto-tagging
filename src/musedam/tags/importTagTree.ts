@@ -1,3 +1,4 @@
+import { throwIfTagImportAborted } from "@/lib/tagging/tag-import-runtime";
 import { idToSlug } from "@/lib/slug";
 import { bumpTagConfigVersion } from "@/lib/tagging/tag-config-version";
 import { assertTagImportOwnership } from "@/lib/tagging/tag-import-lock";
@@ -145,6 +146,7 @@ export async function importTagTreeSynchronously(
         depth: 1,
       }));
       while (level.length) {
+        throwIfTagImportAborted();
         const missing = level.filter(
           ({ node, parentId }) => !index.has(localKey(parentId, node.name)),
         );
@@ -196,6 +198,7 @@ export async function importTagTreeSynchronously(
           })),
         );
       }
+      throwIfTagImportAborted();
       if (mode === "overwrite") {
         await tx.assetTag.deleteMany({ where: { teamId: team.id, id: { notIn: retainedIds } } });
       }
@@ -206,6 +209,7 @@ export async function importTagTreeSynchronously(
         },
       });
       await bumpTagConfigVersion(tx, team.id);
+      throwIfTagImportAborted();
     },
     { timeout: 60_000, isolationLevel: "ReadCommitted" },
   );

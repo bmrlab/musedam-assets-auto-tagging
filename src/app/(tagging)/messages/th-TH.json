@@ -1601,6 +1601,8 @@
       "precheckHint": "โปรดตรวจสอบรายการต่อไปนี้ก่อนนำเข้า",
       "precheckSummary": "จะสร้างแท็ก {create} รายการ อัปเดต {update} รายการ ไม่เปลี่ยนแปลง {unchanged} รายการ",
       "precheckRenameNotice": "ในจำนวนนี้ {count} แท็กจะถูกเปลี่ยนชื่อและซิงค์ไปยัง MuseDAM",
+      "precheckRequestFailed": "Precheck request failed. Your file has been kept; please try again.",
+      "importRequestInterrupted": "The import request was interrupted or timed out. The server may still be processing. Check the results later before submitting again.",
       "precheckWarningsLabel": "{count} duplicate entries were merged automatically. You can continue importing:",
       "precheckIssuesLabel": "มี {count} แถวที่มีปัญหา และจะถูกข้ามหากดำเนินการต่อ:",
       "precheckCreateLabel": "จะสร้างแท็ก {count} รายการ:",

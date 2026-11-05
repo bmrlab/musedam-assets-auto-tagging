@@ -1601,6 +1601,8 @@
       "precheckHint": "Tinjau hal berikut sebelum mengimpor",
       "precheckSummary": "{create} tag akan dibuat, {update} diperbarui, {unchanged} tidak berubah",
       "precheckRenameNotice": "{count} di antaranya akan diganti nama dan disinkronkan ke MuseDAM",
+      "precheckRequestFailed": "Precheck request failed. Your file has been kept; please try again.",
+      "importRequestInterrupted": "The import request was interrupted or timed out. The server may still be processing. Check the results later before submitting again.",
       "precheckWarningsLabel": "{count} duplicate entries were merged automatically. You can continue importing:",
       "precheckIssuesLabel": "{count} baris bermasalah dan akan dilewati jika Anda melanjutkan:",
       "precheckCreateLabel": "{count} tag akan dibuat:",

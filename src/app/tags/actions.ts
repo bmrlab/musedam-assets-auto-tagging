@@ -1,14 +1,11 @@
 "use server";
 
-import { assertTagImportOwnership } from "@/lib/tagging/tag-import-lock";
-
 import { withAuth } from "@/app/(auth)/withAuth";
 import { executeGenerateTagTreeByLLM } from "@/app/tags/generateTagTreeLLM";
 import { Locale } from "@/i18n/routing";
 import { ServerActionResult } from "@/lib/serverAction";
 import { idToSlug } from "@/lib/slug";
-import { applyTagConfigImportChunk, markImportedTagNodes } from "@/lib/tagging/import-tag-config";
-import { bumpTagConfigVersion } from "@/lib/tagging/tag-config-version";
+import { applyTagConfigImportChunk } from "@/lib/tagging/import-tag-config";
 import {
   AssetTagTreeNode,
   buildChildrenInclude,
@@ -67,9 +64,7 @@ function tagNodesExceedMaxLevel(nodes: TagNode[], baseLevel: number = 1): boolea
   );
 }
 
-function buildExistingTagKey(parentId: number | null | undefined, name: string): string {
-  return `${parentId ?? "root"}_${name.trim()}`;
-}
+
 
 // 根据 MuseDAM 返回的标签树构建 musedamId -> sort 的映射
 function buildMuseDAMSortMap(tags: MuseDAMTagResponse[]): Map<number, number> {
@@ -473,7 +468,6 @@ export async function batchCreateTags(
 ): Promise<ServerActionResult<void>> {
   return withAuth(async ({ team: { id: teamId, slug: teamSlug } }) => {
     try {
-      const baseTs = Date.now();
       const nameChildList = mergeDuplicateSiblings(rawNameChildList);
 
       // 批量导入的树从一级开始挂载，整体深度不能超过 MAX_TAG_LEVEL
@@ -481,126 +475,12 @@ export async function batchCreateTags(
         return { success: false, message: TAG_LEVEL_EXCEEDED_MESSAGE };
       }
 
-      const atomicImportEnabled = process.env.MUSEDAM_TAG_TREE_IMPORT_ENABLED === "true";
-      if (addType === 1 && !atomicImportEnabled) {
-        throw new Error("覆盖导入需要主仓原子覆盖接口，请先完成主仓部署并启用同步标签导入接口。");
-      }
-      if (atomicImportEnabled) {
-        await importTagTreeSynchronously(
-          { id: teamId, slug: teamSlug },
-          nameChildList,
-          options?.imported,
-          addType === 1 ? "overwrite" : "merge",
-        );
-        return { success: true, data: undefined };
-      }
-
-      // 合并模式下先解析本地已存在的标签：已存在的节点带 id 且不标 create，
-      // 这样推到 MuseDAM 时是「不操作」而非「新建同名标签」，否则上游会拒绝。
-      // key 只用 parentId + name（不含 level），与下方 createTagsBatchWithExistingCheck 保持一致。
-      const existingByParentAndName = new Map<string, { id: number; slug: string | null }>();
-      if (addType === 2) {
-        const existingTags = await prisma.assetTag.findMany({
-          where: { teamId },
-          select: { id: true, name: true, slug: true, parentId: true },
-        });
-        existingTags.forEach((tag) => {
-          existingByParentAndName.set(buildExistingTagKey(tag.parentId, tag.name), {
-            id: tag.id,
-            slug: tag.slug,
-          });
-        });
-      }
-
-      // 转换为 TagNode 格式用于同步
-      const convertToTagNodes = (
-        data: BatchCreateTagData[],
-        parentPath: string = "",
-        parentDbId: number | null = null,
-        parentIsNew = false,
-      ): TagNode[] => {
-        return data.map((item, index) => {
-          const currentPath = parentPath ? `${parentPath}_${index}` : `batch_${baseTs}_${index}`;
-          const existing =
-            addType === 2 && !parentIsNew
-              ? existingByParentAndName.get(buildExistingTagKey(parentDbId, item.name))
-              : undefined;
-
-          if (existing) {
-            return {
-              id: existing.id,
-              slug: existing.slug,
-              name: item.name,
-              originalName: item.name,
-              children: item.nameChildList
-                ? convertToTagNodes(item.nameChildList, currentPath, existing.id)
-                : [],
-              // 本地已有但从未同步过（无 slug）的标签，标成 update：
-              // convertToMuseDAMFormat 找不到 MuseDAM id 时会自动降级为创建。
-              verb: existing.slug ? undefined : ("update" as const),
-              tempId: currentPath,
-            };
-          }
-
-          // 父节点是新建的，子孙必然也不存在，全部 create
-          return {
-            id: undefined,
-            slug: null,
-            name: item.name,
-            originalName: item.name,
-            children: item.nameChildList
-              ? convertToTagNodes(item.nameChildList, currentPath, null, true)
-              : [],
-            verb: "create" as const,
-            tempId: currentPath,
-          };
-        });
-      };
-
-      const tagsTree = convertToTagNodes(nameChildList);
-
-      const syncResponse = await saveTagsTreeToMuseDAM(tagsTree);
-      if (!syncResponse.success) throw new Error(syncResponse.message || "同步到 MuseDAM 失败");
-      const syncResult = syncResponse.data;
-      // 合并到现有标签系统：获取现有标签，然后批量创建
-      await prisma.$transaction(
-        async (tx) => {
-          if (options?.imported) await assertTagImportOwnership(tx);
-          if (options?.imported)
-            await tx.$queryRaw`SELECT pg_advisory_xact_lock(${teamId}::int, 5521735::int)::text`;
-          // 获取所有现有标签用于去重检查
-          const existingTags = await tx.assetTag.findMany({
-            where: { teamId },
-            select: { id: true, name: true, parentId: true, level: true },
-          });
-
-          // 创建标签映射用于快速查找
-          const existingTagMap = new Map<string, number>();
-          existingTags.forEach((tag) => {
-            existingTagMap.set(buildExistingTagKey(tag.parentId, tag.name), tag.id);
-          });
-
-          // 批量创建新标签
-          const ids = await createTagsBatchWithExistingCheck(
-            tx,
-            nameChildList,
-            teamId,
-            existingTagMap,
-            syncResult,
-            null,
-            1,
-            "",
-            baseTs,
-          );
-          if (options?.imported) await markImportedTagNodes(tx, teamId, [...ids.values()]);
-          if (options?.imported) await bumpTagConfigVersion(tx, teamId);
-        },
-        {
-          timeout: 60000, // 60秒超时
-          isolationLevel: "ReadCommitted",
-        },
+      await importTagTreeSynchronously(
+        { id: teamId, slug: teamSlug },
+        nameChildList,
+        options?.imported,
+        addType === 1 ? "overwrite" : "merge",
       );
-
       return { success: true, data: undefined };
     } catch (error) {
       console.error("Batch create tags error:", error);
@@ -610,163 +490,6 @@ export async function batchCreateTags(
       };
     }
   });
-}
-
-// 批量创建标签的辅助函数（用于 addType === 2，带重复检查）
-type CreateTagData = {
-  teamId: number;
-  name: string;
-  level: number;
-  parentId: number | null;
-  sort?: number;
-};
-
-async function createTagsBatchWithExistingCheck(
-  tx: Prisma.TransactionClient,
-  nameChildList: BatchCreateTagData[],
-  teamId: number,
-  existingTagMap: Map<string, number>,
-  syncResult: SyncResult | null,
-  parentId: number | null = null,
-  level: number = 1,
-  tempIdPrefix: string = "",
-  baseTs?: number,
-): Promise<Map<string, number>> {
-  const tagIdMap = new Map<string, number>();
-  const musedamSortMap = syncResult ? buildMuseDAMSortMap(syncResult.tags) : null;
-  const createData: Array<{
-    data: CreateTagData;
-    tempId: string;
-    nameChildList: BatchCreateTagData[];
-    isNew: boolean;
-  }> = [];
-  const recurseQueue: Array<{
-    tempId: string;
-    nameChildList: BatchCreateTagData[];
-    parentId: number;
-  }> = [];
-  const pendingCreateKeys = new Set<string>();
-
-  // 准备创建数据并检查重复
-  for (let i = 0; i < nameChildList.length; i++) {
-    const item = nameChildList[i];
-    const currentTempId = tempIdPrefix
-      ? `${tempIdPrefix}_${i}`
-      : `batch_${baseTs ?? Date.now()}_${i}`;
-
-    const key = buildExistingTagKey(parentId, item.name);
-    const existingId = existingTagMap.get(key);
-
-    if (existingId) {
-      // 标签已存在，使用现有ID
-      tagIdMap.set(currentTempId, existingId);
-      if ((item.nameChildList || []).length > 0) {
-        recurseQueue.push({
-          tempId: currentTempId,
-          nameChildList: item.nameChildList || [],
-          parentId: existingId,
-        });
-      }
-    } else {
-      if (level > MAX_TAG_LEVEL) {
-        throw new Error(TAG_LEVEL_EXCEEDED_MESSAGE);
-      }
-      if (pendingCreateKeys.has(key)) {
-        throw new Error(`标签名 "${item.name.trim()}" 在同级中已存在`);
-      }
-      pendingCreateKeys.add(key);
-
-      // 需要创建新标签
-      let sortValue: number | undefined = undefined;
-      if (syncResult && syncResult.createdTagMapping && musedamSortMap) {
-        const musedamId = syncResult.createdTagMapping.get(currentTempId);
-        const idNum = Number(musedamId as unknown as number);
-        if (!Number.isNaN(idNum)) {
-          const s = musedamSortMap.get(idNum);
-          if (typeof s === "number") sortValue = s;
-        }
-        if (sortValue === undefined && syncResult.tags && syncResult.tags.length > 0) {
-          sortValue = getSortByTempIdPath(syncResult.tags, currentTempId);
-        }
-      }
-      createData.push({
-        data: {
-          teamId,
-          name: item.name.trim(),
-          level,
-          parentId,
-          ...(sortValue !== undefined ? { sort: sortValue } : {}),
-        },
-        tempId: currentTempId,
-        nameChildList: item.nameChildList || [],
-        isNew: true,
-      });
-    }
-  }
-
-  // 批量创建新标签
-  if (createData.length > 0) {
-    const createdTags = await Promise.all(
-      createData.map(async ({ data, tempId, nameChildList, isNew }) => {
-        if (isNew) {
-          const createdTag = await tx.assetTag.create({ data });
-          tagIdMap.set(tempId, createdTag.id);
-          existingTagMap.set(buildExistingTagKey(data.parentId, data.name), createdTag.id);
-          return { createdTag, tempId, nameChildList };
-        }
-        return null;
-      }),
-    );
-
-    // 批量更新 slug
-    if (syncResult && syncResult.createdTagMapping) {
-      const updatePromises = createdTags
-        .filter((item): item is NonNullable<typeof item> => item !== null)
-        .filter(({ tempId }) => syncResult.createdTagMapping.has(tempId))
-        .map(async ({ createdTag, tempId }) => {
-          const musedamId = syncResult.createdTagMapping.get(tempId);
-          if (musedamId) {
-            const slug = idToSlug("assetTag", musedamId);
-            return tx.assetTag.update({
-              where: { id: createdTag.id },
-              data: { slug },
-            });
-          }
-        });
-
-      await Promise.all(updatePromises.filter(Boolean));
-    }
-
-    createdTags
-      .filter((item): item is NonNullable<typeof item> => item !== null)
-      .forEach((item) => {
-        if (item.nameChildList.length > 0) {
-          recurseQueue.push({
-            tempId: item.tempId,
-            nameChildList: item.nameChildList,
-            parentId: item.createdTag.id,
-          });
-        }
-      });
-  }
-
-  // 递归处理子标签（包含“父节点已存在”和“父节点新建”两种路径）
-  for (const item of recurseQueue) {
-    const childMap = await createTagsBatchWithExistingCheck(
-      tx,
-      item.nameChildList,
-      teamId,
-      existingTagMap,
-      syncResult,
-      item.parentId,
-      level + 1,
-      item.tempId,
-      baseTs,
-    );
-    childMap.forEach((id, key) => tagIdMap.set(key, id));
-  }
-
-  return tagIdMap;
 }
 
 // 保存单个标签的变更（支持 create、update、delete）

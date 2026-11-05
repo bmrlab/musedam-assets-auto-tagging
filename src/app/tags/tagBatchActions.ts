@@ -8,6 +8,7 @@ import {
   parseBatchFile,
   type BatchFileFormat,
 } from "@/app/(tagging)/tagging/batchFile";
+import { rootLogger } from "@/lib/logging";
 import type { ServerActionResult } from "@/lib/serverAction";
 import { applyTagConfigImportChunk } from "@/lib/tagging/import-tag-config";
 import {
@@ -15,6 +16,7 @@ import {
   runTagImportExclusive,
   TagImportBusyError,
 } from "@/lib/tagging/tag-import-lock";
+import { throwIfTagImportAborted } from "@/lib/tagging/tag-import-runtime";
 import { MAX_TAG_LEVEL } from "@/lib/tagging/tag-level";
 import type { AssetTagExtra, Prisma } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
@@ -214,7 +216,11 @@ export async function importTagTreeAction(
           // Validate the original file before any mutation. If it both renames a
           // parent and adds descendants, persist accepted renames first so creation
           // resolves those descendants to the original parent ID.
+          const startedAt = Date.now();
+          rootLogger.info({ msg: "Tag import phase", teamId, phase: "validation" });
           const preflight = await prepareTagTreeImport(teamId, formData, true);
+          rootLogger.info({ msg: "Tag import phase", teamId, phase: "validation-complete", elapsedMs: Date.now() - startedAt });
+          throwIfTagImportAborted();
           if (preflight.kind === "ready" && preflight.createCount > 0) {
             const renames = preflight.prepared.filter((item) => item.data.name);
             if (renames.length > 0) {
@@ -254,6 +260,7 @@ export async function importTagTreeAction(
             }
           }
           const outcome = await prepareTagTreeImport(teamId, formData, false);
+          throwIfTagImportAborted();
           if (outcome.kind === "error") return { success: false, message: outcome.message };
           if (outcome.kind === "fatal") {
             return {
@@ -267,6 +274,7 @@ export async function importTagTreeAction(
             };
           }
           const { prepared, failures, noopSuccessCount, idIndex } = outcome;
+          rootLogger.info({ msg: "Tag import phase", teamId, phase: "configuration", updateCount: prepared.length, elapsedMs: Date.now() - startedAt });
 
           const autoDisabledIds = new Set(
             prepared.filter((item) => item.autoDisabledRequiredGroup).map((item) => item.tag.id),
@@ -301,6 +309,7 @@ export async function importTagTreeAction(
 
           let successCount = noopSuccessCount;
           for (const chunk of chunkArray(prepared, TAG_BATCH_UPDATE_CHUNK_SIZE)) {
+            throwIfTagImportAborted();
             try {
               await prisma.$transaction((tx) => applyTagConfigImportChunk(tx, teamId, chunk));
               for (const item of chunk) {
@@ -309,6 +318,7 @@ export async function importTagTreeAction(
                 successCount += 1;
               }
             } catch (error) {
+              throwIfTagImportAborted();
               console.error("Failed to import tag chunk:", error);
               // 分片失败时降级逐行，尽量保住其余行
               for (const item of chunk) {
@@ -318,6 +328,7 @@ export async function importTagTreeAction(
                   if (autoDisabledIds.has(item.tag.id)) autoDisabledTags.push(item.tag);
                   successCount += 1;
                 } catch (rowError) {
+                  throwIfTagImportAborted();
                   console.error("Failed to import tag row:", rowError);
                   failures.push({
                     rowNumber: item.record.rowNumber,
@@ -333,6 +344,7 @@ export async function importTagTreeAction(
             }
           }
 
+          rootLogger.info({ msg: "Tag import phase", teamId, phase: "configuration-complete", successCount, failedCount: failures.length, elapsedMs: Date.now() - startedAt });
           return {
             success: true,
             data: {
@@ -514,9 +526,12 @@ async function prepareTagTreeImport(
   const createTree = tagBatchRecordsToCreateTree(missingPathRecords);
   const createPaths = collectNewTagPaths(createTree, lookup);
   if (!dryRun && createTree.length > 0) {
+    const structureStartedAt = Date.now();
+    rootLogger.info({ msg: "Tag import phase", teamId, phase: "sync-structure", importMode, endpoint: "import-tag-tree", newNodeCount: createPaths.length });
     const created = await batchCreateTags(createTree, importMode === "overwrite" ? 1 : 2, {
       imported: true,
     });
+    rootLogger.info({ msg: "Tag import phase", teamId, phase: "sync-structure-complete", success: created.success, elapsedMs: Date.now() - structureStartedAt });
     if (!created.success) {
       return { kind: "error", message: created.message || messages.rowImportFailed };
     }

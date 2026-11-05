@@ -1,4 +1,5 @@
 import { pruneRejectionCountsForRemovedKeywords } from "@/app/(tagging)/keyword-feedback";
+import { throwIfTagImportAborted } from "./tag-import-runtime";
 import { assertTagImportOwnership } from "@/lib/tagging/tag-import-lock";
 import type { AssetTagExtra, Prisma } from "@/prisma/client";
 import { Prisma as PrismaSQL } from "@/prisma/client";
@@ -40,6 +41,7 @@ export async function applyTagConfigImportChunk(
   const byId = new Map(rows.map((row) => [row.id, row]));
   const result = [];
   for (const item of items) {
+    throwIfTagImportAborted();
     const current = byId.get(item.tag.id);
     if (!current) throw new Error(`Tag ${item.tag.id} no longer exists`);
     const extra: AssetTagExtra = {
@@ -66,9 +68,11 @@ export async function applyTagConfigImportChunk(
     item.data.extra = extra;
     result.push(saved);
   }
+  throwIfTagImportAborted();
   const ancestors = [...new Set(items.flatMap((item) => item.importAncestorIds ?? []))];
   if (markImported) await markImportedTagNodes(tx, teamId, ancestors);
   await bumpTagConfigVersion(tx, teamId);
+  throwIfTagImportAborted();
   return result;
 }
 
