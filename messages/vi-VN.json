@@ -91,6 +91,8 @@
       "requiredGroupTooltip": "Ngay cả khi thiếu căn cứ vẫn chọn thẻ con có khả năng nhất và đánh dấu là phương án dự phòng bắt buộc trên trang duyệt",
       "requiredGroupOn": "Bật: mọi tài sản đều nhận một thẻ con",
       "requiredGroupOff": "Tắt: chỉ gắn thẻ khi có căn cứ",
+      "expandKeywords": "Hiện tất cả ({count})",
+      "collapseKeywords": "Thu gọn",
       "matchingKeywords": "Từ khóa khớp",
       "matchingKeywordsTooltip": "Thêm từ khóa liên quan đến thẻ này để giúp AI nhận diện chính xác hơn",
       "inputKeywords": "Nhập từ khóa",

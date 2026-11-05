@@ -238,6 +238,21 @@ describe("parseTagBatchId", () => {
 });
 
 describe("tag batch import helpers", () => {
+  it.each([101, 5000])("round-trips %i matching and exclusion keywords without truncation", (count) => {
+    const keywords = Array.from({ length: count }, (_, index) => `SKU.${index}`);
+    const negativeKeywords = Array.from({ length: count }, (_, index) => `EXCLUDED.${index}`);
+    const rows = buildTagBatchExportRows({
+      locale: "zh-CN",
+      tags: [{ id: 7, name: "产品", taggingEnabled: true, extra: { keywords, negativeKeywords } }],
+    });
+    const parsed = parseTagBatchTable({ maxLevel: 3, rows });
+
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.records).toHaveLength(1);
+    expect(parsed.records[0].fields.keywords).toEqual(keywords);
+    expect(parsed.records[0].fields.negativeKeywords).toEqual(negativeKeywords);
+  });
+
   it("splits keywords only by semicolons/newlines and clears text fields with -", () => {
     const parsed = parseTagBatchTable({
       maxLevel: 3,

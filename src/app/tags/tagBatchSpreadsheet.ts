@@ -90,7 +90,6 @@ const BOOLEAN_OFF = new Set([
 const TAG_NAME_MAX_LENGTH = 100;
 const DESCRIPTION_MAX_LENGTH = 5000;
 const KEYWORD_MAX_LENGTH = 100;
-const KEYWORD_MAX_COUNT = 100;
 
 export type TagBatchFieldPatch = {
   description?: string;
@@ -136,7 +135,6 @@ export type TagBatchMessages = {
   nameTooLong: string;
   descriptionTooLong: string;
   keywordTooLong: string;
-  keywordsTooMany: string;
   levelGap: (level: number) => string;
   levelExceeded: string;
   booleanInvalid: (column: string) => string;
@@ -169,7 +167,6 @@ export function tagBatchMessages(locale: string): TagBatchMessages {
       nameTooLong: "Tag name cannot exceed 100 characters",
       descriptionTooLong: "Description cannot exceed 5000 characters",
       keywordTooLong: "A keyword cannot exceed 100 characters",
-      keywordsTooMany: "Keywords cannot exceed 100",
       levelGap: (level) => `Level ${level} tag is empty; do not skip levels`,
       levelExceeded: "Exceeds the team tag level limit",
       booleanInvalid: (column) => `${column} only supports: On/Off, true/false, 1/0`,
@@ -198,7 +195,6 @@ export function tagBatchMessages(locale: string): TagBatchMessages {
       ? "標籤描述不能超過 5000 個字元"
       : "标签描述不能超过 5000 个字符",
     keywordTooLong: traditional ? "單個關鍵詞不能超過 100 個字元" : "单个关键词不能超过 100 个字符",
-    keywordsTooMany: traditional ? "關鍵詞不能超過 100 個" : "关键词不能超过 100 个",
     levelGap: (level) =>
       traditional ? `第${level}級標籤為空，不能跳級填寫` : `第${level}级标签为空，不能跳级填写`,
     levelExceeded: traditional ? "超出目前團隊標籤層級上限" : "超出当前团队标签层级上限",
@@ -621,7 +617,6 @@ function readKeywords(
     return null;
   }
   const keywords = splitTagBatchKeywords(raw);
-  if (keywords.length > KEYWORD_MAX_COUNT) return messages.keywordsTooMany;
   if (keywords.some((keyword) => keyword.length > KEYWORD_MAX_LENGTH))
     return messages.keywordTooLong;
   fields[key] = keywords;

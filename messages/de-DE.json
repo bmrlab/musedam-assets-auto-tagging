@@ -193,6 +193,8 @@
       "excludeRule": "Ausschlussregel:",
       "excludeRuleDescription": "Wenn Assetnamen, Metadaten und Ordnerpfade diese Schlüsselwörter enthalten, wird das Tag auch dann nicht automatisch zugewiesen, wenn übereinstimmende Schlüsselwörter gefunden werden.",
       "inputKeywords": "Schlüsselwörter eingeben",
+      "expandKeywords": "Alle anzeigen ({count})",
+      "collapseKeywords": "Weniger anzeigen",
       "matchingKeywords": "Übereinstimmende Schlüsselwörter",
       "matchingKeywordsTooltip": "Fügen Sie Schlüsselwörter zu diesem Tag hinzu, um der KI zu helfen, diesen Tag genauer zu identifizieren.",
       "matchingRule": "Übereinstimmungsregel:",
