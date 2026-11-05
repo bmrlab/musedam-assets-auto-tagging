@@ -1657,7 +1657,12 @@
       "sharedModeHint": "打標模式、AI 識別設定和比對策略同時用於標籤和中繼資料欄位；標籤關鍵字比對僅對標籤生效。",
       "appliedCount": "已新增 {count} 個欄位",
       "directModeDescription": "AI 打標直接套用至資產標籤和中繼資料欄位",
-      "reviewModeDescription": "需人工審核後套用至資產標籤和中繼資料欄位"
+      "reviewModeDescription": "需人工審核後套用至資產標籤和中繼資料欄位",
+      "aiTitle": "AI 填寫欄位",
+      "fillHint": "保護人工填寫的值",
+      "currentEmpty": "欄位均未填寫",
+      "testHint": "已開啟「AI 自動填寫」的欄位，信心度規則與標籤一致",
+      "confidence": "信心度"
     }
   }
 }

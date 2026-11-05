@@ -363,7 +363,12 @@
       "sharedModeHint": "La modalità di etichettatura, le impostazioni di riconoscimento IA e le strategie di corrispondenza si applicano a tag e campi dei metadati. La corrispondenza delle parole chiave si applica solo ai tag.",
       "appliedCount": "Aggiunti {count} campi",
       "directModeDescription": "Applica direttamente l’etichettatura IA ai tag e ai campi dei metadati delle risorse",
-      "reviewModeDescription": "Applica ai tag e ai campi dei metadati dopo la revisione manuale"
+      "reviewModeDescription": "Applica ai tag e ai campi dei metadati dopo la revisione manuale",
+      "aiTitle": "Suggerimenti campi IA",
+      "fillHint": "I valori manuali sono protetti",
+      "currentEmpty": "Nessun campo compilato",
+      "testHint": "Campi con compilazione IA; stesse regole di affidabilità dei tag",
+      "confidence": "Affidabilità"
     },
     "Settings": {
       "Global": {

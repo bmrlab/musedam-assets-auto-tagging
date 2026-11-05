@@ -1657,7 +1657,12 @@
       "sharedModeHint": "打标模式、AI 识别设置和匹配策略同时用于标签和元数据字段；标签关键词匹配仅对标签生效。",
       "appliedCount": "已添加 {count} 个字段",
       "directModeDescription": "AI 打标直接应用到资产标签和元数据字段",
-      "reviewModeDescription": "需人工审核后应用到资产标签和元数据字段"
+      "reviewModeDescription": "需人工审核后应用到资产标签和元数据字段",
+      "aiTitle": "AI 填写字段",
+      "fillHint": "保护人工填写的值",
+      "currentEmpty": "字段都未填写",
+      "testHint": "开启了「AI 自动填写」的字段，置信度规则与标签一致",
+      "confidence": "置信度"
     }
   }
 }

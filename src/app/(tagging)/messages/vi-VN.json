@@ -1657,7 +1657,12 @@
       "sharedModeHint": "Chế độ gắn thẻ, cài đặt nhận dạng AI và chiến lược khớp áp dụng cho cả thẻ và trường siêu dữ liệu. Khớp từ khóa thẻ chỉ áp dụng cho thẻ.",
       "appliedCount": "Đã thêm {count} trường",
       "directModeDescription": "Áp dụng gắn thẻ AI trực tiếp cho thẻ và trường siêu dữ liệu của tài sản",
-      "reviewModeDescription": "Áp dụng cho thẻ và trường siêu dữ liệu sau khi xét duyệt thủ công"
+      "reviewModeDescription": "Áp dụng cho thẻ và trường siêu dữ liệu sau khi xét duyệt thủ công",
+      "aiTitle": "Đề xuất trường AI",
+      "fillHint": "Giá trị nhập thủ công được bảo vệ",
+      "currentEmpty": "Chưa có trường nào được điền",
+      "testHint": "Trường bật điền AI; quy tắc độ tin cậy giống thẻ",
+      "confidence": "Độ tin cậy"
     }
   }
 }

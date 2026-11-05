@@ -13,6 +13,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { MetadataResults } from "../components/MetadataResults";
 import { fetchMetadataReviews, reviewMetadata } from "./metadata-actions";
+import { MetadataCurrentValues } from "./MetadataCurrentValues";
 
 type Status = "pending" | "approved" | "rejected";
 type Data = Awaited<ReturnType<typeof fetchMetadataReviews>>;
@@ -131,7 +132,7 @@ export function MetadataReviewPanel() {
         </div>
       ) : (
         <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
-          {!busy && !data?.rows.length && <p className="p-4 text-sm text-basic-6">{t("empty")}</p>}
+          {!busy && !data?.rows.length && <p className="p-4 text-sm text-basic-5 dark:text-basic-6">{t("empty")}</p>}
           {data?.rows.map((row) => (
             <article
               key={row.id}
@@ -173,9 +174,14 @@ export function MetadataReviewPanel() {
                 )}
               </div>
               {!row.available && status === "pending" && (
-                <p className="text-[13px] text-basic-6">{t("unavailable")}</p>
+                <p className="text-[13px] text-basic-5 dark:text-basic-6">{t("unavailable")}</p>
               )}
-              <MetadataResults predictions={[row.prediction]} />
+              <div className="flex flex-col gap-4 lg:flex-row">
+                <MetadataCurrentValues assetObjectId={row.assetObjectId} refreshKey={status} />
+                <div className="min-w-0 flex-1">
+                  <MetadataResults predictions={[row.prediction]} />
+                </div>
+              </div>
             </article>
           ))}
         </div>

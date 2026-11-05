@@ -362,7 +362,12 @@
       "sharedModeHint": "O modo de marcação, as configurações de reconhecimento da IA e as estratégias de correspondência aplicam-se a tags e campos de metadados. A correspondência de palavras-chave aplica-se apenas às tags.",
       "appliedCount": "{count} campos adicionados",
       "directModeDescription": "Aplicar a marcação por IA diretamente às tags e aos campos de metadados dos ativos",
-      "reviewModeDescription": "Aplicar às tags e aos campos de metadados após revisão manual"
+      "reviewModeDescription": "Aplicar às tags e aos campos de metadados após revisão manual",
+      "aiTitle": "Sugestões de campos da IA",
+      "fillHint": "Os valores manuais são protegidos",
+      "currentEmpty": "Nenhum campo preenchido",
+      "testHint": "Campos com preenchimento por IA; mesmas regras de confiança das tags",
+      "confidence": "Confiança"
     },
     "Settings": {
       "Global": {

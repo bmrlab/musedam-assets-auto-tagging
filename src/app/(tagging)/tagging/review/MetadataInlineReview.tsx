@@ -1,15 +1,19 @@
 "use client";
 import { Button } from "@/components/ui/button";
+import { SparklesIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
-import { MetadataResults } from "../components/MetadataResults";
+import { MetadataPredictionRow } from "../components/MetadataResults";
 import type { AssetWithAuditItemsBatch } from "./actions";
 import { reviewMetadata } from "./metadata-actions";
+import { MetadataCurrentValues } from "./MetadataCurrentValues";
 export function MetadataInlineReview({
   rows = [],
+  assetObjectId,
   onSuccess,
 }: {
+  assetObjectId: number;
   rows: AssetWithAuditItemsBatch["metadataReviews"];
   onSuccess?: () => void;
 }) {
@@ -29,31 +33,40 @@ export function MetadataInlineReview({
     }
   };
   return (
-    <section className="flex flex-col gap-3">
-      <h3 className="text-sm font-semibold">{t("title")}</h3>
-      {!rows.length && <p className="text-[13px] text-basic-6">{t("empty")}</p>}
-      {rows.map((row) => (
-        <div key={row.id} className="flex flex-col gap-2">
-          <MetadataResults predictions={[row.prediction]} />
-          {row.status === "pending" ? (
-            <div className="flex justify-end gap-2">
-              <Button className="h-9" disabled={busy} onClick={() => act(row.id, "approve")}>
-                {t("approve")}
-              </Button>
-              <Button
-                className="h-9"
-                variant="outline"
-                disabled={busy}
-                onClick={() => act(row.id, "reject")}
-              >
-                {t("reject")}
-              </Button>
-            </div>
-          ) : (
-            <span className="text-xs text-basic-6">{t(row.status)}</span>
-          )}
+    <div className="flex flex-col gap-4 lg:flex-row">
+      <MetadataCurrentValues
+        assetObjectId={assetObjectId}
+        refreshKey={rows.map((row) => `${row.id}:${row.status}`).join(",")}
+      />
+      <section className="flex min-w-0 flex-1 flex-col gap-3 rounded-lg border bg-background p-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <SparklesIcon className="size-4" />
+          <h3 className="text-sm font-semibold">{t("aiTitle")}</h3>
+          <span className="text-xs text-basic-5 dark:text-basic-6">{t("fillHint")}</span>
         </div>
-      ))}
-    </section>
+        {!rows.length && <p className="text-[13px] text-basic-5 dark:text-basic-6">{t("empty")}</p>}
+        {rows.map((row) => (
+          <MetadataPredictionRow key={row.id} item={row.prediction}>
+            {row.status === "pending" ? (
+              <div className="flex gap-2">
+                <Button size="sm" disabled={busy} onClick={() => act(row.id, "approve")}>
+                  {t("approve")}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => act(row.id, "reject")}
+                >
+                  {t("reject")}
+                </Button>
+              </div>
+            ) : (
+              <span className="text-xs text-basic-5 dark:text-basic-6">{t(row.status)}</span>
+            )}
+          </MetadataPredictionRow>
+        ))}
+      </section>
+    </div>
   );
 }

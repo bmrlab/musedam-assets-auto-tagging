@@ -363,7 +363,12 @@
       "sharedModeHint": "Le mode d’étiquetage, les paramètres de reconnaissance IA et les stratégies de correspondance s’appliquent aux tags et aux champs de métadonnées. La correspondance des mots-clés des tags s’applique uniquement aux tags.",
       "appliedCount": "{count} champs ajoutés",
       "directModeDescription": "Appliquer directement l’étiquetage IA aux tags et aux champs de métadonnées des ressources",
-      "reviewModeDescription": "Appliquer aux tags et aux champs de métadonnées après validation manuelle"
+      "reviewModeDescription": "Appliquer aux tags et aux champs de métadonnées après validation manuelle",
+      "aiTitle": "Suggestions de champs IA",
+      "fillHint": "Les valeurs manuelles sont protégées",
+      "currentEmpty": "Aucun champ renseigné",
+      "testHint": "Champs avec remplissage IA ; mêmes règles de confiance que les tags",
+      "confidence": "Confiance"
     },
     "Settings": {
       "Global": {

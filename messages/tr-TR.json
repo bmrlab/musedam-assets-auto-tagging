@@ -363,7 +363,12 @@
       "sharedModeHint": "Etiketleme modu, yapay zekâ tanıma ayarları ve eşleştirme stratejileri hem etiketler hem meta veri alanları için geçerlidir. Etiket anahtar sözcük eşleştirmesi yalnızca etiketler için geçerlidir.",
       "appliedCount": "{count} alan eklendi",
       "directModeDescription": "Yapay zekâ etiketlemeyi doğrudan varlık etiketlerine ve meta veri alanlarına uygula",
-      "reviewModeDescription": "Manuel incelemeden sonra varlık etiketlerine ve meta veri alanlarına uygula"
+      "reviewModeDescription": "Manuel incelemeden sonra varlık etiketlerine ve meta veri alanlarına uygula",
+      "aiTitle": "AI alan önerileri",
+      "fillHint": "Manuel değerler korunur",
+      "currentEmpty": "Doldurulmuş alan yok",
+      "testHint": "AI doldurması açık alanlar; güven kuralları etiketlerle aynıdır",
+      "confidence": "Güven"
     },
     "Settings": {
       "Global": {

@@ -362,7 +362,12 @@
       "sharedModeHint": "태그 지정 모드, AI 인식 설정 및 일치 전략은 태그와 메타데이터 필드에 함께 적용됩니다. 태그 키워드 일치는 태그에만 적용됩니다.",
       "appliedCount": "필드 {count}개 추가됨",
       "directModeDescription": "AI 태그 지정을 자산 태그와 메타데이터 필드에 바로 적용",
-      "reviewModeDescription": "수동 검토 후 자산 태그와 메타데이터 필드에 적용"
+      "reviewModeDescription": "수동 검토 후 자산 태그와 메타데이터 필드에 적용",
+      "aiTitle": "AI 필드 제안",
+      "fillHint": "수동 입력값은 보호됩니다",
+      "currentEmpty": "입력된 필드 없음",
+      "testHint": "AI 자동 입력이 켜진 필드입니다. 신뢰도 규칙은 태그와 같습니다",
+      "confidence": "신뢰도"
     },
     "Settings": {
       "Global": {

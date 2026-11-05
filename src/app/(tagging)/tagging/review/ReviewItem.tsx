@@ -1457,7 +1457,7 @@ export function ReviewItem({
           onConfirm={onAddManualFeatures}
         />
       ) : null}
-      {metadataAvailable && <MetadataInlineReview rows={metadataReviews} onSuccess={onSuccess} />}
+      {metadataAvailable && <MetadataInlineReview assetObjectId={assetObject.id} rows={metadataReviews} onSuccess={onSuccess} />}
       <ImagePreviewDialog
         image={previewImage}
         closeLabel={t("closePreview")}

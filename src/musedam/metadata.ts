@@ -47,3 +47,11 @@ export async function hasEnabledTaggingOutput(
     (settings.isMetadataEnabled && (await fetchMetadataContext(team)).enabled)
   );
 }
+
+/** Existing read-only metadata API; values are keyed by field name. */
+export const fetchMetadataValues = (team: Team, materialId: string) =>
+  call<Record<string, { values?: Record<string, unknown> }>>(
+    team,
+    "/api/muse/metadata-records-by-ids",
+    { materialIds: [materialId] },
+  );

@@ -363,7 +363,12 @@
       "sharedModeHint": "Mode penandaan, pengaturan pengenalan AI, dan strategi pencocokan berlaku untuk tag dan kolom metadata. Pencocokan kata kunci tag hanya berlaku untuk tag.",
       "appliedCount": "{count} kolom ditambahkan",
       "directModeDescription": "Terapkan penandaan AI langsung ke tag dan kolom metadata aset",
-      "reviewModeDescription": "Terapkan ke tag dan kolom metadata setelah peninjauan manual"
+      "reviewModeDescription": "Terapkan ke tag dan kolom metadata setelah peninjauan manual",
+      "aiTitle": "Saran kolom AI",
+      "fillHint": "Nilai manual dilindungi",
+      "currentEmpty": "Belum ada kolom terisi",
+      "testHint": "Kolom dengan pengisian AI; aturan keyakinan sama dengan tag",
+      "confidence": "Keyakinan"
     },
     "Settings": {
       "Global": {

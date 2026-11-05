@@ -191,7 +191,6 @@ export default function SettingsClient({ initialSettings, metadataAvailable = fa
         onTaggingEnabledChange={handleTaggingEnabledChange}
       />
 
-      {metadataAvailable && <p className="text-[13px] text-basic-6">{tm("sharedModeHint")}</p>}
       <TaggingModeSection metadataAvailable={metadataAvailable} taggingMode={taggingMode} onTaggingModeChange={handleTaggingModeChange} />
 
       <AIRecognitionSection
@@ -206,6 +205,8 @@ export default function SettingsClient({ initialSettings, metadataAvailable = fa
         onWeightChange={handleWeightChange}
       />
 
+
+      {metadataAvailable && <p className="text-[13px] text-basic-6">{tm("sharedModeHint")}</p>}
 
       <h1 className="text-sm font-medium mt-[30px]">{t("AdvancedSettings.title")}</h1>
       <TriggerTimingSection

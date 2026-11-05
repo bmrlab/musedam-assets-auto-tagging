@@ -10,9 +10,17 @@ export const prediction = {
   sources: [{ source: "basicInfo" as const, confidence: 0.9, evidence: "精华液主视觉" }],
 };
 let rows = [
-  { id: 1, name: "精华液主视觉.jpg", status: "pending", prediction, available: true },
+  {
+    id: 1,
+    assetObjectId: 1,
+    name: "精华液主视觉.jpg",
+    status: "pending",
+    prediction,
+    available: true,
+  },
   {
     id: 2,
+    assetObjectId: 2,
     name: "已停用字段示例.jpg",
     status: "pending",
     prediction: { ...prediction, fieldName: "已停用字段" },
@@ -39,4 +47,8 @@ export async function fetchDashboardStats() {
 }
 export async function dispatchMuseDAMClientAction() {
   return null;
+}
+
+export async function fetchReviewMetadataValues() {
+  return { 素材用途: "主视觉", 含人物: false };
 }

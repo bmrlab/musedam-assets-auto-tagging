@@ -1657,7 +1657,12 @@
       "sharedModeHint": "Tagging-Modus, KI-Erkennungseinstellungen und Abgleichsstrategien gelten für Tags und Metadatenfelder. Tag-Schlüsselwortabgleich gilt nur für Tags.",
       "appliedCount": "{count} Felder hinzugefügt",
       "directModeDescription": "KI-Tagging direkt auf Asset-Tags und Metadatenfelder anwenden",
-      "reviewModeDescription": "Nach manueller Prüfung auf Asset-Tags und Metadatenfelder anwenden"
+      "reviewModeDescription": "Nach manueller Prüfung auf Asset-Tags und Metadatenfelder anwenden",
+      "aiTitle": "KI-Feldvorschläge",
+      "fillHint": "Manuelle Werte bleiben geschützt",
+      "currentEmpty": "Keine Felder ausgefüllt",
+      "testHint": "Felder mit KI-Befüllung; gleiche Konfidenzregeln wie bei Tags",
+      "confidence": "Konfidenz"
     }
   }
 }

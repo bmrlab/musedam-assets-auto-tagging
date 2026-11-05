@@ -63,17 +63,17 @@ export function GlobalSettingsSection({
   return (
     <div className="space-y-6">
       {/* AI 自动打标引擎 */}
-      <div className="bg-background border rounded-[6px]">
+      <div className="bg-background border rounded-lg text-basic-8 dark:text-[#FAFAFA]">
         <div className="px-4 py-3 border-b">
           <h3 className="font-medium text-base">{t("title")}</h3>
         </div>
-        <div className="p-6 space-y-4">
-          <div className="flex items-center justify-between">
+        <div className="flex flex-col">
+          <div className="flex items-start justify-between gap-4 px-5 pt-5">
             <div>
               <h3 className="font-medium text-sm">
                 {t(metadataAvailable ? "tagSystemSwitch" : "enableTagging")}
               </h3>
-              <p className="text-[13px] text-basic-6 mt-1">
+              <p className="text-[13px] text-basic-5 dark:text-basic-6 mt-1">
                 {isTaggingEnabled ? t("enableTaggingDesc") : t("disabledDesc")}
               </p>
             </div>
@@ -85,7 +85,7 @@ export function GlobalSettingsSection({
             />
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 px-5 pb-5 pt-3">
             <Button
               variant="outline"
               size="sm"
@@ -101,11 +101,11 @@ export function GlobalSettingsSection({
             </Button>
           </div>
           {metadataAvailable && (
-            <div className="flex flex-col gap-4 border-t pt-4">
-              <div className="flex items-center justify-between gap-4">
+            <div className="flex flex-col border-t">
+              <div className="flex items-start justify-between gap-4 px-5 pt-5">
                 <div className="flex flex-col gap-1">
                   <h3 className="text-sm font-medium">{t("metadataSwitch")}</h3>
-                  <p className="text-[13px] text-basic-6">
+                  <p className="text-[13px] text-basic-5 dark:text-basic-6">
                     {t(
                       isMetadataEnabled
                         ? "metadataEnabledDescription"
@@ -120,7 +120,7 @@ export function GlobalSettingsSection({
                   onCheckedChange={setMetadataConfirm}
                 />
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 px-5 pb-5 pt-3">
                 <Button
                   variant="outline"
                   size="sm"

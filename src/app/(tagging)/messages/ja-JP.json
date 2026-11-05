@@ -1657,7 +1657,12 @@
       "sharedModeHint": "タグ付けモード、AI 認識設定、照合ルールはタグとメタデータフィールドに共通です。タグキーワード照合はタグのみに適用されます。",
       "appliedCount": "{count} 個のフィールドを追加しました",
       "directModeDescription": "AI タグ付けをアセットのタグとメタデータフィールドに直接適用",
-      "reviewModeDescription": "手動レビュー後にアセットのタグとメタデータフィールドに適用"
+      "reviewModeDescription": "手動レビュー後にアセットのタグとメタデータフィールドに適用",
+      "aiTitle": "AI フィールド候補",
+      "fillHint": "手動入力値は保護されます",
+      "currentEmpty": "入力済みフィールドはありません",
+      "testHint": "AI 自動入力が有効なフィールド。信頼度ルールはタグと共通です",
+      "confidence": "信頼度"
     }
   }
 }

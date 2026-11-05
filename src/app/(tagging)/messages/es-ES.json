@@ -1657,7 +1657,12 @@
       "sharedModeHint": "El modo de etiquetado, la configuración de reconocimiento de IA y las estrategias de coincidencia se aplican a etiquetas y campos de metadatos. La coincidencia de palabras clave solo se aplica a etiquetas.",
       "appliedCount": "Se añadieron {count} campos",
       "directModeDescription": "Aplicar el etiquetado con IA directamente a las etiquetas y campos de metadatos de los recursos",
-      "reviewModeDescription": "Aplicar a las etiquetas y campos de metadatos tras la revisión manual"
+      "reviewModeDescription": "Aplicar a las etiquetas y campos de metadatos tras la revisión manual",
+      "aiTitle": "Sugerencias de campos de IA",
+      "fillHint": "Los valores manuales están protegidos",
+      "currentEmpty": "No hay campos rellenados",
+      "testHint": "Campos con relleno de IA; mismas reglas de confianza que las etiquetas",
+      "confidence": "Confianza"
     }
   }
 }

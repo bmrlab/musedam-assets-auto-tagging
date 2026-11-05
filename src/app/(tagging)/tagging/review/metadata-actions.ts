@@ -4,7 +4,11 @@ import { withAuth } from "@/app/(auth)/withAuth";
 import { TAGGING_CONFIG_KEYS } from "@/app/(tagging)/types";
 import type { MetadataPrediction } from "@/lib/metadata/types";
 import { slugToId } from "@/lib/slug";
-import { applyMetadataPredictions, fetchMetadataContext } from "@/musedam/metadata";
+import {
+  applyMetadataPredictions,
+  fetchMetadataContext,
+  fetchMetadataValues,
+} from "@/musedam/metadata";
 import { Prisma, type TaggingAuditStatus } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 import { getTaggingSettings } from "../settings/lib";
@@ -49,6 +53,7 @@ export async function fetchMetadataReviews(page = 1, status: TaggingAuditStatus 
         const current = context.fields.find((f) => f.fieldId === row.fieldId);
         return {
           id: row.id,
+          assetObjectId: row.assetObjectId,
           name: row.assetObject.name,
           status: row.status,
           prediction,
@@ -126,5 +131,20 @@ export async function reviewMetadata(ids: number[], action: "approve" | "reject"
       else if (accepted === false) skipped++;
     }
     return { applied, skipped };
+  });
+}
+
+export async function fetchReviewMetadataValues(assetObjectId: number) {
+  return withAuth(async ({ team, user }) => {
+    await checkUserPermission({ team, user });
+    if (!Number.isSafeInteger(assetObjectId) || assetObjectId <= 0)
+      throw new Error("Invalid asset");
+    const asset = await prisma.assetObject.findFirstOrThrow({
+      where: { id: assetObjectId, teamId: team.id },
+      select: { slug: true },
+    });
+    const materialId = slugToId("assetObject", asset.slug).toString();
+    const records = await fetchMetadataValues(team, materialId);
+    return records[materialId]?.values || {};
   });
 }

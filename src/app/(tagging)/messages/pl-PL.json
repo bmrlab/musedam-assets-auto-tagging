@@ -1657,7 +1657,12 @@
       "sharedModeHint": "Tryb tagowania, ustawienia rozpoznawania AI i strategie dopasowania dotyczą tagów i pól metadanych. Dopasowanie słów kluczowych dotyczy tylko tagów.",
       "appliedCount": "Dodano pól: {count}",
       "directModeDescription": "Stosuj tagowanie AI bezpośrednio do tagów i pól metadanych zasobów",
-      "reviewModeDescription": "Stosuj do tagów i pól metadanych po ręcznej weryfikacji"
+      "reviewModeDescription": "Stosuj do tagów i pól metadanych po ręcznej weryfikacji",
+      "aiTitle": "Propozycje pól AI",
+      "fillHint": "Wartości ręczne są chronione",
+      "currentEmpty": "Brak wypełnionych pól",
+      "testHint": "Pola z wypełnianiem AI; takie same reguły pewności jak dla tagów",
+      "confidence": "Pewność"
     }
   }
 }

@@ -1657,7 +1657,12 @@
       "sharedModeHint": "The tagging mode, AI recognition settings, and matching strategies apply to both tags and metadata fields. Tag keyword matching applies only to tags.",
       "appliedCount": "Added {count} fields",
       "directModeDescription": "AI tagging applies directly to asset tags and metadata fields",
-      "reviewModeDescription": "Apply to asset tags and metadata fields after manual review"
+      "reviewModeDescription": "Apply to asset tags and metadata fields after manual review",
+      "aiTitle": "AI field suggestions",
+      "fillHint": "Manual values are protected",
+      "currentEmpty": "No fields filled in",
+      "testHint": "Fields with AI filling enabled; confidence rules match tags",
+      "confidence": "Confidence"
     }
   }
 }
