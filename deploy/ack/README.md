@@ -6,7 +6,7 @@ These manifests are a production starting point, not customer-ready values. Repl
 ## Images
 
 ```bash
-docker build -t <acr>/musedam-auto-tagging-web:<version> \
+docker build -f Dockerfile.prod -t <acr>/musedam-auto-tagging-web:<version> \
   --build-arg NEXT_SERVER_ACTIONS_ENCRYPTION_KEY=<customer-specific-key> .
 docker build -f Dockerfile.scheduler -t <acr>/musedam-auto-tagging-scheduler:<version> .
 docker build -f Dockerfile.job -t <acr>/musedam-auto-tagging-migration:<version> .
