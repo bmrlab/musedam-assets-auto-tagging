@@ -43,7 +43,7 @@ describe("hard match on two-level leaf tags", () => {
       path,
     );
     expect(enhanced.find((p) => p.source === "materializedPath")?.tags).toEqual([
-      { leafTagId: 3, tagPath: ["产品分类", "兔笼"], confidence: 0.9 },
+      { leafTagId: 3, tagPath: ["产品分类", "兔笼"], confidence: 0.9, matchedKeywords: ["兔笼"] },
     ]);
     expect(ids(resolveExclusiveSiblings(enhanced, tagsTree, path))).toEqual([3]);
   });
@@ -88,7 +88,7 @@ describe("hard match on two-level leaf tags", () => {
     const deepPath = "产品素材/广角镜头/a.jpg";
     const deep = enhancePredictionsByMaterializedPathHardMatch([], fourLevelTree, deepPath);
     expect(deep.find((p) => p.source === "materializedPath")?.tags).toEqual([
-      { leafTagId: 4, tagPath: ["产品分类", "摄影配件", "镜头", "广角镜头"], confidence: 0.9 },
+      { leafTagId: 4, tagPath: ["产品分类", "摄影配件", "镜头", "广角镜头"], confidence: 0.9, matchedKeywords: ["广角镜头"] },
     ]);
 
     // "镜头" 有四级子标签，是分类节点而非叶子：路径里只出现"镜头"不会把它当叶子注入

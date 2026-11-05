@@ -515,6 +515,7 @@
       "manuallyAdded": "Ajoutée manuellement",
       "latest": "Dernier",
       "requiredFallbackBadge": "Repli obligatoire",
+      "matchedKeywordsBadge": "Keywords: {keywords}",
       "aspectRatioBadge": "Selon dimensions",
       "sizeAIBadge": "IA selon taille",
       "reviewedBadge": "Vérifié",

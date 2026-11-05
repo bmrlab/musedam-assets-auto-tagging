@@ -765,6 +765,7 @@
       "manuallyAdded": "Manuel eklendi",
       "latest": "En Son",
       "requiredFallbackBadge": "Zorunlu yedek",
+      "matchedKeywordsBadge": "Keywords: {keywords}",
       "aspectRatioBadge": "Boyutlardan",
       "sizeAIBadge": "YZ boyuttan",
       "reviewedBadge": "İncelendi",

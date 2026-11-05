@@ -209,6 +209,7 @@
       "itemsUnit": "條",
       "latest": "最新",
       "requiredFallbackBadge": "必打兜底",
+      "matchedKeywordsBadge": "關鍵詞：{keywords}",
       "aspectRatioBadge": "按寬高",
       "sizeAIBadge": "AI 按尺寸",
       "reviewedBadge": "已審核",

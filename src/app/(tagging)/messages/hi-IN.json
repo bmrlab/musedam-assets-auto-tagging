@@ -209,6 +209,7 @@
       "itemsUnit": "वस्तुएँ",
       "latest": "नवीनतम",
       "requiredFallbackBadge": "अनिवार्य फ़ॉलबैक",
+      "matchedKeywordsBadge": "Keywords: {keywords}",
       "aspectRatioBadge": "आयामों से",
       "sizeAIBadge": "AI आकार से",
       "reviewedBadge": "समीक्षित",

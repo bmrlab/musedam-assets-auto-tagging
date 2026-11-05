@@ -765,6 +765,7 @@
       "manuallyAdded": "Thêm thủ công",
       "latest": "Mới nhất",
       "requiredFallbackBadge": "Dự phòng bắt buộc",
+      "matchedKeywordsBadge": "Keywords: {keywords}",
       "aspectRatioBadge": "Theo kích thước",
       "sizeAIBadge": "AI theo kích thước",
       "reviewedBadge": "Đã duyệt",

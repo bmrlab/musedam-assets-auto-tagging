@@ -209,6 +209,7 @@
       "itemsUnit": "条",
       "latest": "最新",
       "requiredFallbackBadge": "必須フォールバック",
+      "matchedKeywordsBadge": "Keywords: {keywords}",
       "aspectRatioBadge": "サイズから",
       "sizeAIBadge": "AI・サイズから",
       "reviewedBadge": "レビュー済み",

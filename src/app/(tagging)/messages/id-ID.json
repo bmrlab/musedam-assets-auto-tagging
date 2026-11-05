@@ -806,6 +806,7 @@
       "manuallyAdded": "Ditambahkan manual",
       "latest": "Terbaru",
       "requiredFallbackBadge": "Cadangan wajib",
+      "matchedKeywordsBadge": "Keywords: {keywords}",
       "aspectRatioBadge": "Dari dimensi",
       "sizeAIBadge": "AI dari ukuran",
       "reviewedBadge": "Ditinjau",

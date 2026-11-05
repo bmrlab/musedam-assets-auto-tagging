@@ -842,6 +842,7 @@
       "manuallyAdded": "Added manually",
       "latest": "Latest",
       "requiredFallbackBadge": "Required fallback",
+      "matchedKeywordsBadge": "Keywords: {keywords}",
       "aspectRatioBadge": "From dimensions",
       "sizeAIBadge": "AI from size",
       "reviewedBadge": "Reviewed",

@@ -209,6 +209,7 @@
       "itemsUnit": "itens",
       "latest": "Mais recentes",
       "requiredFallbackBadge": "Fallback obrigatório",
+      "matchedKeywordsBadge": "Keywords: {keywords}",
       "aspectRatioBadge": "Por dimensões",
       "sizeAIBadge": "IA por tamanho",
       "reviewedBadge": "Revisado",

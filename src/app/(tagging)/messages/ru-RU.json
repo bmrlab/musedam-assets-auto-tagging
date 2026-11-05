@@ -209,6 +209,7 @@
       "itemsUnit": "Элементы",
       "latest": "Последние",
       "requiredFallbackBadge": "Обязательный запасной",
+      "matchedKeywordsBadge": "Keywords: {keywords}",
       "aspectRatioBadge": "По размерам",
       "sizeAIBadge": "ИИ по размеру",
       "reviewedBadge": "Проверено",

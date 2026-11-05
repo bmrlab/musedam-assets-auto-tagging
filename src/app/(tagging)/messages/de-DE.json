@@ -209,6 +209,7 @@
       "itemsUnit": "Artikel",
       "latest": "Neueste",
       "requiredFallbackBadge": "Pflicht-Fallback",
+      "matchedKeywordsBadge": "Keywords: {keywords}",
       "aspectRatioBadge": "Aus Abmessungen",
       "sizeAIBadge": "KI nach Größe",
       "reviewedBadge": "Geprüft",

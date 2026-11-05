@@ -159,6 +159,7 @@ function buildMergedDisplayTags({
     leafTagId?: number;
     tagPath?: string[];
     confidenceBySources?: Partial<Record<(typeof AI_SOURCE_KEYS)[number], number>>;
+    matchedKeywords?: string[];
     score?: number;
   }>;
   brandTags: Array<{
@@ -195,12 +196,14 @@ function buildMergedDisplayTags({
     tagId,
     tagPath,
     sourceLabel,
+    matchedKeywords,
     score,
   }: {
     order: number;
     tagId?: number | null;
     tagPath?: string[];
     sourceLabel: string;
+    matchedKeywords?: string[];
     score: number;
   }) => {
     if (!tagPath || tagPath.length === 0) {
@@ -212,6 +215,11 @@ function buildMergedDisplayTags({
     const existing = mergedTags.get(key);
 
     if (existing) {
+      if (matchedKeywords?.length) {
+        existing.matchedKeywords = Array.from(
+          new Set([...(existing.matchedKeywords ?? []), ...matchedKeywords]),
+        );
+      }
       existing.matchingSource = mergeMatchingSources(existing.matchingSource, sourceLabel);
       existing.score = Math.max(existing.score, normalizedScore);
       existing.confidence = Math.max(existing.confidence, normalizedScore);
@@ -221,6 +229,7 @@ function buildMergedDisplayTags({
     mergedTags.set(key, {
       tagPath,
       matchingSource: sourceLabel,
+      matchedKeywords,
       confidence: normalizedScore,
       score: normalizedScore,
       order,
@@ -242,6 +251,7 @@ function buildMergedDisplayTags({
         contributingSourceLabels.length > 0
           ? contributingSourceLabels.join(MATCHING_SOURCE_SEPARATOR)
           : aiFallbackSourceLabel,
+      matchedKeywords: tag.matchedKeywords,
       score: tag.score || 0,
     });
   });
@@ -291,6 +301,7 @@ function buildMergedDisplayTags({
     .map((tag) => ({
       tagPath: tag.tagPath,
       matchingSource: tag.matchingSource,
+      matchedKeywords: tag.matchedKeywords,
       confidence: tag.confidence,
       score: tag.score,
     }));

@@ -1,5 +1,7 @@
 "use client";
 
+import { MatchedKeywordsBadge } from "../components/MatchedKeywordsBadge";
+
 import { getBrandRecommendationFromQueueResult } from "@/app/(tagging)/brand-recommendation";
 import { getIpRecommendationFromQueueResult } from "@/app/(tagging)/ip-recommendation";
 import { getPersonRecommendationFromQueueResult } from "@/app/(tagging)/person-recommendation";
@@ -952,6 +954,10 @@ export function ReviewItem({
               visibleAuditItems.filter((item) => item.status === "rejected").length;
             const resultTagsWithScore = (queueItem.result as TaggingQueueItemResult | null)
               ?.tagsWithScore;
+            const keywordsByLeafTagId = new Map(
+              (Array.isArray(resultTagsWithScore) ? resultTagsWithScore : [])
+                .map((tag) => [tag.leafTagId, tag.matchedKeywords] as const),
+            );
             const originByLeafTagId = new Map(
               (Array.isArray(resultTagsWithScore) ? resultTagsWithScore : [])
                 .filter((tag) => tag.origin)
@@ -998,7 +1004,7 @@ export function ReviewItem({
                           <div
                             key={auditItem.id}
                             className={cn(
-                              "relative py-[6px] px-2 rounded-[6px] border items-center flex gap-2",
+                              "relative max-w-full flex-wrap py-[6px] px-2 rounded-[6px] border items-center flex gap-2",
                               isRejectedItem
                                 ? "border-dashed text-basic-5 bg-basic-2 border-basic-4 dark:bg-basic-2"
                                 : {
@@ -1023,6 +1029,9 @@ export function ReviewItem({
                                     : t("requiredFallbackBadge")}
                               </span>
                             ) : null}
+                            <MatchedKeywordsBadge
+                              keywords={auditItem.leafTagId ? keywordsByLeafTagId.get(auditItem.leafTagId) : undefined}
+                            />
                             <div className="flex items-center gap-[6px]">
                               <Progress
                                 value={auditItem.score}

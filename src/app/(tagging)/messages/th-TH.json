@@ -515,6 +515,7 @@
       "manuallyAdded": "เพิ่มด้วยตนเอง",
       "latest": "ล่าสุด",
       "requiredFallbackBadge": "ค่าสำรองบังคับ",
+      "matchedKeywordsBadge": "Keywords: {keywords}",
       "aspectRatioBadge": "จากขนาดภาพ",
       "sizeAIBadge": "AI จากขนาด",
       "reviewedBadge": "ตรวจสอบแล้ว",

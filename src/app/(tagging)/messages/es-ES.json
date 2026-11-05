@@ -209,6 +209,7 @@
       "itemsUnit": "elementos",
       "latest": "Último",
       "requiredFallbackBadge": "Respaldo obligatorio",
+      "matchedKeywordsBadge": "Keywords: {keywords}",
       "aspectRatioBadge": "Por dimensiones",
       "sizeAIBadge": "IA por tamaño",
       "reviewedBadge": "Revisado",

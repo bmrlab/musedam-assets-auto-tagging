@@ -701,6 +701,7 @@ function computeTextHardMatchCandidates(
   keywords: string[];
   formatKind?: "image" | "video";
   matchedKeywordLength: number;
+  matchedKeywords: string[];
 }> {
   // 文本整体是否独立提到了图片/视频这类格式概念（不局限于命中关键词所在的那个片段），
   // 用于校验"标签名带格式关键词、但命中片段本身不带"的情况（如标签"POP-UP视频"被
@@ -709,14 +710,18 @@ function computeTextHardMatchCandidates(
 
   return collectLeafTagCandidates(tagsTree)
     .map((candidate) => {
-      const matchedKeyword = candidate.keywords.find((keyword) =>
+      const matchedKeywords = candidate.keywords.filter((keyword) =>
         pathIncludesKeyword(normalizedText, keyword),
       );
-      if (!matchedKeyword) return undefined;
+      if (matchedKeywords.length === 0) return undefined;
       // 标签名暗示了具体格式（图片/视频），但文本整体并未独立提到同一种格式概念——
       // 说明命中的只是标签名里跟格式无关的片段（如"POP-UP视频"里的"POP"），不足以采信。
       if (candidate.formatKind && candidate.formatKind !== textFormatKind) return undefined;
-      return { ...candidate, matchedKeywordLength: matchedKeyword.length };
+      return {
+        ...candidate,
+        matchedKeywords,
+        matchedKeywordLength: matchedKeywords[0].length,
+      };
     })
     .filter((item): item is NonNullable<typeof item> => !!item)
     .sort((a, b) => b.matchedKeywordLength - a.matchedKeywordLength)
@@ -733,7 +738,7 @@ function injectHardMatchPredictions(
 
   const enhanced = predictions.map((prediction) => ({
     ...prediction,
-    tags: [...prediction.tags],
+    tags: prediction.tags.map((tag) => ({ ...tag })),
   }));
 
   let bucket = enhanced.find((item) => item.source === source);
@@ -746,11 +751,15 @@ function injectHardMatchPredictions(
     const existed = bucket.tags.find((tag) => tag.leafTagId === candidate.leafTagId);
     if (existed) {
       existed.confidence = Math.max(existed.confidence, confidence);
+      existed.matchedKeywords = Array.from(
+        new Set([...(existed.matchedKeywords ?? []), ...candidate.matchedKeywords]),
+      );
       continue;
     }
     bucket.tags.push({
       leafTagId: candidate.leafTagId,
       tagPath: candidate.tagPath,
+      matchedKeywords: candidate.matchedKeywords,
       confidence,
     });
   }
@@ -814,15 +823,19 @@ export function enhancePredictionsByTagKeywordsHardMatch(
     const extra = node.extra as AssetTagExtra | null;
     const keywords = (extra?.keywords ?? []).map(normalizeForMatch).filter(Boolean);
     if (keywords.length === 0) continue;
-    const matchedKeyword = keywords.find((keyword) => pathIncludesKeyword(normalizedText, keyword));
-    if (!matchedKeyword) continue;
+    const matchedKeywords = (extra?.keywords ?? []).filter((keyword) => {
+      const normalized = normalizeForMatch(keyword);
+      return normalized && pathIncludesKeyword(normalizedText, normalized);
+    });
+    if (matchedKeywords.length === 0) continue;
     const negativeKeywords = (extra?.negativeKeywords ?? []).map(normalizeForMatch).filter(Boolean);
     if (negativeKeywords.some((keyword) => pathIncludesKeyword(normalizedText, keyword))) continue;
     candidates.push({
       leafTagId: node.id,
       tagPath: node.tagPath,
       keywords,
-      matchedKeywordLength: matchedKeyword.length,
+      matchedKeywords,
+      matchedKeywordLength: normalizeForMatch(matchedKeywords[0]).length,
     });
   }
   candidates.sort((a, b) => b.matchedKeywordLength - a.matchedKeywordLength);
@@ -1044,7 +1057,7 @@ export function calculateTagScore(
 ) {
   const tagsWithScore: TagWithScore[] = [];
   predictions.forEach(({ source, tags }) => {
-    tags.forEach(({ leafTagId, tagPath, confidence }) => {
+    tags.forEach(({ leafTagId, tagPath, confidence, matchedKeywords }) => {
       let item = tagsWithScore.find((tag) => tag.leafTagId === leafTagId);
       if (!item) {
         item = {
@@ -1056,6 +1069,11 @@ export function calculateTagScore(
         tagsWithScore.push(item);
       }
       item.confidenceBySources[source] = confidence;
+      if (matchedKeywords?.length) {
+        item.matchedKeywords = Array.from(
+          new Set([...(item.matchedKeywords ?? []), ...matchedKeywords]),
+        );
+      }
     });
   });
   tagsWithScore.forEach((item) => {

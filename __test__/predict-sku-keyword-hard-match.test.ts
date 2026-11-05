@@ -164,3 +164,43 @@ describe("pathIncludesKeyword boundaries", () => {
     expect(pathIncludesKeyword("2026_a+页面", "a+页面")).toBe(true);
   });
 });
+
+describe("matched keyword provenance", () => {
+  it("records only matching configured keywords, preserving their display spelling", () => {
+    const predictions = enhancePredictionsByTagKeywordsHardMatch([], tagsTree, "A+页面 亚马逊");
+    const tag = calculateTagScore(predictions).find((tag) => tag.leafTagId === 12);
+    expect(tag?.matchedKeywords).toEqual(["A+", "亚马逊"]);
+    const oneMatch = calculateTagScore(enhancePredictionsByTagKeywordsHardMatch([], tagsTree, "A+7.jpg"));
+    expect(oneMatch.find((tag) => tag.leafTagId === 12)?.matchedKeywords).toEqual(["A+"]);
+    expect(oneMatch.some((tag) => tag.leafTagId === 13)).toBe(false);
+  });
+
+  it("adds verified keywords to existing predictions without mutating the input", () => {
+    const original: SourceBasedTagPredictions = [{
+      source: "tagKeywords",
+      tags: [{ leafTagId: 12, tagPath: ["内容类型", "A+页面"], confidence: 0.8 }],
+    }];
+    const enhanced = enhancePredictionsByTagKeywordsHardMatch(original, tagsTree, "A+7.jpg");
+    expect(enhanced[0].tags[0].matchedKeywords).toEqual(["A+"]);
+    expect(original[0].tags[0].matchedKeywords).toBeUndefined();
+    expect(original[0].tags[0].confidence).toBe(0.8);
+  });
+
+  it("merges and deduplicates verified keywords across sources without changing scores", () => {
+    const predictions: SourceBasedTagPredictions = ["basicInfo", "materializedPath"].map((source) => ({
+      source: source as "basicInfo" | "materializedPath",
+      tags: [{ leafTagId: 12, tagPath: ["内容类型", "A+页面"], confidence: 0.9, matchedKeywords: ["A+"] }],
+    }));
+    expect(calculateTagScore(predictions)[0].matchedKeywords).toEqual(["A+"]);
+    const withoutKeywords = predictions.map((prediction) => ({
+      ...prediction, tags: prediction.tags.map(({ matchedKeywords, ...tag }) => tag),
+    }));
+    expect(calculateTagScore(predictions)[0].score).toBe(calculateTagScore(withoutKeywords)[0].score);
+    expect(calculateTagScore(withoutKeywords)[0].matchedKeywords).toBeUndefined();
+  });
+
+  it("records tag-name keywords verified against the path", () => {
+    const scored = calculateTagScore(enhancePredictionsByMaterializedPathHardMatch([], tagsTree, path));
+    expect(scored.find((tag) => tag.leafTagId === 4)?.matchedKeywords).toContain("kf12.0066");
+  });
+});
