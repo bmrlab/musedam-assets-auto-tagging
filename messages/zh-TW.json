@@ -126,6 +126,8 @@
     "productRecognition": "商品辨識"
   },
   "TagsPage": {
+    "importPreviewConfigurationHint": "預覽顯示標籤層級，表格中的設定會一併保留並在確認後匯入。合併保留已有標籤，覆蓋將取代原標籤體系。",
+    "importPreviewTitle": "匯入標籤預覽",
     "requiredGroupsAutoDisabledMore": "{tags}等 {count} 個標籤",
     "requiredGroupsAutoDisabled": "{tags}下沒有子標籤，無法設為必打，已關閉必打。",
     "AiCreateModal": {

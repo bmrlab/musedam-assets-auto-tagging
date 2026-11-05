@@ -208,3 +208,13 @@ describe("batchCreateTags merge mode (addType=2)", () => {
     expect(mocks.assetTag.deleteMany).not.toHaveBeenCalled();
   });
 });
+
+it("never runs destructive full-tree push or pull after a merge", async () => {
+  mocks.reset();
+  vi.clearAllMocks();
+  mocks.syncTagsToMuseDAM.mockResolvedValue({ tags: [], createdTagMapping: new Map() });
+  mocks.assetTag.count.mockResolvedValueOnce(1);
+  expect(await batchCreateTags(input, 2)).toMatchObject({ success: true });
+  expect(mocks.syncTagsToMuseDAMWithCurrentSystemAsBase).not.toHaveBeenCalled();
+  expect(mocks.syncTagsFromMuseDAM).not.toHaveBeenCalled();
+});

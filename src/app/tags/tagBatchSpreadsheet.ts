@@ -128,6 +128,7 @@ export type TagBatchExportNode = {
 };
 
 export type TagBatchMessages = {
+  overwriteRequiresValidRows: string;
   missingHeader: string;
   missingLevel1: string;
   noDataRows: string;
@@ -160,6 +161,7 @@ export function tagBatchLabelLocale(locale: string): LabelLocale {
 export function tagBatchMessages(locale: string): TagBatchMessages {
   if (tagBatchLabelLocale(locale) === "en-US") {
     return {
+      overwriteRequiresValidRows: "Fix all invalid rows before overwriting the tag tree",
       missingHeader: "Missing file header",
       missingLevel1: "File is missing a required column: Level 1 Tag",
       noDataRows: "No importable data found",
@@ -186,6 +188,9 @@ export function tagBatchMessages(locale: string): TagBatchMessages {
 
   const traditional = tagBatchLabelLocale(locale) === "zh-TW";
   return {
+    overwriteRequiresValidRows: traditional
+      ? "請修正所有問題行後再覆蓋標籤樹"
+      : "请修正所有问题行后再覆盖标签树",
     missingHeader: traditional ? "檔案缺少表頭" : "文件缺少表头",
     missingLevel1: traditional ? "檔案缺少必填列：一級標籤" : "文件缺少必填列：一级标签",
     noDataRows: traditional ? "未找到可匯入的資料" : "未找到可导入的数据",
