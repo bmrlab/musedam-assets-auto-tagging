@@ -8,6 +8,7 @@ import { TaggingSettingsData } from "@/app/(tagging)/types";
 import { FeatureClassificationFlags, toFeatureClassificationFlags } from "@/lib/feature-library";
 import { getFeatureLibraryFeaturesFromRequest } from "@/lib/feature-library-server";
 import { idToSlug } from "@/lib/slug";
+import { assertTeamTaggingAuthorization } from "@/musedam/apiKey";
 import { syncSingleAssetFromMuseDAM } from "@/musedam/assets";
 import { MuseDAMID } from "@/musedam/types";
 import { JsonValue } from "@/prisma/client/runtime/library";
@@ -83,6 +84,16 @@ export async function POST(request: NextRequest) {
     // 团队不存在
     if (!team) {
       return NextResponse.json({ success: false, error: "Team not found" }, { status: 404 });
+    }
+
+    try {
+      await assertTeamTaggingAuthorization(team);
+    } catch (error) {
+      console.error("MuseDAM tagging authorization failed:", error);
+      return NextResponse.json(
+        { success: false, error: "MuseDAM authorization failed; tagging task was not started" },
+        { status: 502 },
+      );
     }
 
     const settings = await getTaggingSettings(team.id);
