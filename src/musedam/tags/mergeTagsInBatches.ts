@@ -14,6 +14,9 @@ export interface MergeTag {
 // large groups (such as thousands of SKUs) in a single upstream transaction.
 export const MERGE_TAG_BATCH_SIZE = 100;
 
+const hasOperations = (tag: MergeTag): boolean =>
+  tag.operation !== 0 || (tag.children ?? []).some(hasOperations);
+
 const countNodes = (tag: MergeTag): number =>
   1 + (tag.children ?? []).reduce((sum, child) => sum + countNodes(child), 0);
 
@@ -55,11 +58,21 @@ export async function mergeTagsInBatches(
     }
 
     for (const node of nodes) {
+      if (!hasOperations(node)) {
+        await flush();
+        result.push(node);
+        continue;
+      }
       const nodeSize = countNodes(node);
       if (nodeSize > capacity) {
         await flush();
         const { children, ...parentRequest } = node;
-        const [parent] = await submit([parentRequest]);
+        // Existing parents are only context for the child batches. There is no
+        // reason to submit a separate no-op request for them.
+        const parent =
+          parentRequest.operation === 0 && parentRequest.id !== undefined
+            ? parentRequest
+            : (await submit([parentRequest]))[0];
         if (!parent?.id) throw new Error("MuseDAM merge-tags response missing parent ID");
         const mergedChildren = await mergeLevel(children ?? [], [
           ...ancestors,

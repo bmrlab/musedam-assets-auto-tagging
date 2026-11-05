@@ -62,6 +62,8 @@ type TagRow = {
 };
 
 export type TagTreeImportPrecheck = {
+  reviewable?: boolean;
+  previewTree?: TagBatchCreateNode[];
   /** 将新建的标签数（含隐式创建的中间层级） */
   createCount: number;
   createPaths: string[];
@@ -86,9 +88,11 @@ type PreparedImport =
       idIndex: Map<number, TagRow>;
       createCount: number;
       createPaths: string[];
+      previewTree: TagBatchCreateNode[];
     };
 
 type PreparedUpdate = {
+  autoDisabledRequiredGroup?: boolean;
   record: ParsedTagBatchRecord;
   tag: TagRow;
   data: {
@@ -165,6 +169,8 @@ export async function precheckTagTreeImportAction(
       return {
         success: true,
         data: {
+          reviewable: true,
+          previewTree: outcome.previewTree,
           createCount: outcome.createCount,
           createPaths: outcome.createPaths,
           updateCount: outcome.prepared.length,
@@ -192,6 +198,40 @@ export async function importTagTreeAction(
     const messages = tagBatchMessages(locale);
 
     try {
+      // Validate the original file before any mutation. If it both renames a
+      // parent and adds descendants, persist accepted renames first so creation
+      // resolves those descendants to the original parent ID.
+      const preflight = await prepareTagTreeImport(teamId, formData, true);
+      if (preflight.kind === "ready" && preflight.createCount > 0) {
+        const renames = preflight.prepared.filter((item) => item.data.name);
+        if (renames.length > 0) {
+          const synced = await saveTagsTreeToMuseDAM(
+            buildRenameSyncTree(renames, preflight.idIndex),
+          );
+          if (!synced.success) {
+            const failures = [
+              ...preflight.failures,
+              ...renames.map((item) => ({
+                rowNumber: item.record.rowNumber,
+                name: item.tag.name,
+                message: synced.message || messages.renameSyncFailed,
+              })),
+            ];
+            return {
+              success: true,
+              data: { successCount: 0, failedCount: failures.length, skippedCount: 0, failures },
+            };
+          }
+          await prisma.$transaction(
+            renames.map((item) =>
+              prisma.assetTag.update({
+                where: { id: item.tag.id, teamId },
+                data: { name: item.data.name },
+              }),
+            ),
+          );
+        }
+      }
       const outcome = await prepareTagTreeImport(teamId, formData, false);
       if (outcome.kind === "error") return { success: false, message: outcome.message };
       if (outcome.kind === "fatal") {
@@ -207,17 +247,10 @@ export async function importTagTreeAction(
       }
       const { prepared, failures, noopSuccessCount, idIndex } = outcome;
 
-      // Missing paths have already been created and the team tree reloaded.
-      // Check actual direct children, allowing children added in this same import.
-      const parentIds = new Set([...idIndex.values()].map((tag) => tag.parentId));
-      const autoDisabledIds = new Set<number>();
+      const autoDisabledIds = new Set(
+        prepared.filter((item) => item.autoDisabledRequiredGroup).map((item) => item.tag.id),
+      );
       const autoDisabledTags: TagRow[] = [];
-      for (const item of prepared) {
-        if (item.data.extra?.requiredGroup === true && !parentIds.has(item.tag.id)) {
-          item.data.extra = { ...item.data.extra, requiredGroup: false };
-          autoDisabledIds.add(item.tag.id);
-        }
-      }
 
       // 改名先推 MuseDAM，保持两端名称一致；同步失败的行不回写本地。
       const renamedInMuseDAM = prepared.filter((item) => item.data.name && item.tag.slug);
@@ -360,10 +393,9 @@ async function prepareTagTreeImport(
   if (parsed.errors.some((error) => error.fatal)) {
     return { kind: "fatal", failures: toFailures(parsed.errors) };
   }
-  const requestedSkips =
-    dryRun || !formData.get("skipRows")
-      ? []
-      : z.array(z.number().int().min(2)).parse(JSON.parse(String(formData.get("skipRows"))));
+  const requestedSkips = !formData.get("skipRows")
+    ? []
+    : z.array(z.number().int().min(2)).parse(JSON.parse(String(formData.get("skipRows"))));
   const skippedRows = new Set(
     requestedSkips.filter(
       (row) =>
@@ -376,10 +408,64 @@ async function prepareTagTreeImport(
     return { kind: "fatal", failures: toFailures(parsed.errors), skippedCount: skippedRows.size };
   }
 
+  const importMode = z.enum(["merge", "overwrite"]).parse(formData.get("importMode") || "merge");
+  // Overwrite must never destroy existing tags for an invalid or partly skipped file.
+  if (importMode === "overwrite" && (parsed.errors.length > 0 || skippedRows.size > 0)) {
+    return {
+      kind: "fatal",
+      failures: toFailures(
+        parsed.errors.length
+          ? parsed.errors
+          : [{ rowNumber: 1, message: messages.overwriteRequiresValidRows }],
+      ),
+    };
+  }
   let tags = await loadTeamTagRows(teamId);
   let lookup = buildTagLookup(tags);
 
   // 路径名大小写对齐到已有标签，避免 batchCreateTags（精确匹配）新建出仅大小写不同的同级标签
+  // Exported IDs refer to the old tree. Resolve paths before replacement, then
+  // discard those IDs so configuration is applied to the newly created tags.
+  if (importMode === "overwrite") {
+    const existingById = indexTagsById(tags);
+    const invalid: ImportFailure[] = [];
+    parsed.records = parsed.records.map((record) => {
+      const existing = record.id !== undefined ? existingById.get(record.id) : undefined;
+      if (record.id !== undefined && !existing) {
+        invalid.push({
+          rowNumber: record.rowNumber,
+          name: `ID ${record.id}`,
+          message: messages.tagNotFound,
+        });
+      }
+      const path = record.path.length
+        ? record.path
+        : existing
+          ? tagAncestry(existing, existingById).map((tag) => tag.name)
+          : [];
+      if (path.length > maxLevel)
+        invalid.push({
+          rowNumber: record.rowNumber,
+          name: tagPathLabel(path),
+          message: messages.levelExceeded,
+        });
+      return { rowNumber: record.rowNumber, path, fields: record.fields };
+    });
+    const seen = new Set<string>();
+    for (const record of parsed.records) {
+      const key = JSON.stringify(record.path.map((name) => name.toLowerCase()));
+      if (seen.has(key))
+        invalid.push({
+          rowNumber: record.rowNumber,
+          name: tagPathLabel(record.path),
+          message: messages.nameExists,
+        });
+      seen.add(key);
+    }
+    if (invalid.length) return { kind: "fatal", failures: invalid };
+    tags = [];
+    lookup = buildTagLookup(tags);
+  }
   const records = parsed.records.map((record) =>
     record.id === undefined ? { ...record, path: canonicalizePath(lookup, record.path) } : record,
   );
@@ -393,7 +479,7 @@ async function prepareTagTreeImport(
   const createTree = tagBatchRecordsToCreateTree(missingPathRecords);
   const createPaths = collectNewTagPaths(createTree, lookup);
   if (!dryRun && createTree.length > 0) {
-    const created = await batchCreateTags(createTree, 2);
+    const created = await batchCreateTags(createTree, importMode === "overwrite" ? 1 : 2);
     if (!created.success) {
       return { kind: "error", message: created.message || messages.rowImportFailed };
     }
@@ -402,6 +488,7 @@ async function prepareTagTreeImport(
   }
 
   const idIndex = indexTagsById(tags);
+  const parentIds = new Set(tags.map((tag) => tag.parentId));
   const nameOwnerIndex = buildNameOwnerIndex(tags);
   const renameTargets = new Map<number, string>();
   for (const record of records) {
@@ -457,7 +544,15 @@ async function prepareTagTreeImport(
       ) {
         throw new Error(messages.pathMismatch);
       }
-      const update = prepareRecordUpdate(tag, record, messages, nameOwnerIndex);
+      let update = prepareRecordUpdate(tag, record, messages, nameOwnerIndex);
+      if (!dryRun && record.fields.requiredGroup === true && !parentIds.has(tag.id)) {
+        update ??= { record, tag, data: {} };
+        update.data.extra = {
+          ...((update.data.extra ?? tag.extra ?? {}) as AssetTagExtra),
+          requiredGroup: false,
+        };
+        update.autoDisabledRequiredGroup = true;
+      }
       if (!update) {
         noopSuccessCount += 1;
         continue;
@@ -498,6 +593,7 @@ async function prepareTagTreeImport(
   }
 
   failures.sort((a, b) => a.rowNumber - b.rowNumber);
+  const failedRowNumbers = new Set(failures.map((failure) => failure.rowNumber));
   return {
     kind: "ready",
     prepared,
@@ -507,6 +603,17 @@ async function prepareTagTreeImport(
     idIndex,
     createCount: createPaths.length,
     createPaths,
+    previewTree: tagBatchRecordsToCreateTree(
+      records
+        .filter((record) => !failedRowNumbers.has(record.rowNumber))
+        .map((record) => ({
+          ...record,
+          id: undefined,
+          path: record.path.length
+            ? record.path
+            : tagAncestry(idIndex.get(record.id!)!, idIndex).map((tag) => tag.name),
+        })),
+    ),
   };
 }
 
