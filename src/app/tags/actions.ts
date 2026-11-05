@@ -4,6 +4,7 @@ import { withAuth } from "@/app/(auth)/withAuth";
 import { executeGenerateTagTreeByLLM } from "@/app/tags/generateTagTreeLLM";
 import { Locale } from "@/i18n/routing";
 import { ServerActionResult } from "@/lib/serverAction";
+import type { TagTreeImportStats } from "@/lib/tagging/tag-import-result";
 import { idToSlug } from "@/lib/slug";
 import { applyTagConfigImportChunk } from "@/lib/tagging/import-tag-config";
 import {
@@ -465,7 +466,7 @@ export async function batchCreateTags(
   rawNameChildList: BatchCreateTagData[],
   addType: 1 | 2, // 1: 仅保留新建标签树, 2: 合并到现有标签系统
   options?: { imported?: boolean },
-): Promise<ServerActionResult<void>> {
+): Promise<ServerActionResult<TagTreeImportStats>> {
   return withAuth(async ({ team: { id: teamId, slug: teamSlug } }) => {
     try {
       const nameChildList = mergeDuplicateSiblings(rawNameChildList);
@@ -475,13 +476,13 @@ export async function batchCreateTags(
         return { success: false, message: TAG_LEVEL_EXCEEDED_MESSAGE };
       }
 
-      await importTagTreeSynchronously(
+      const stats = await importTagTreeSynchronously(
         { id: teamId, slug: teamSlug },
         nameChildList,
         options?.imported,
         addType === 1 ? "overwrite" : "merge",
       );
-      return { success: true, data: undefined };
+      return { success: true, data: stats };
     } catch (error) {
       console.error("Batch create tags error:", error);
       return {

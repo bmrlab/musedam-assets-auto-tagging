@@ -8,6 +8,7 @@ import {
   parseBatchFile,
   type BatchFileFormat,
 } from "@/app/(tagging)/tagging/batchFile";
+import type { TagTreeImportStats } from "@/lib/tagging/tag-import-result";
 import { rootLogger } from "@/lib/logging";
 import type { ServerActionResult } from "@/lib/serverAction";
 import { applyTagConfigImportChunk } from "@/lib/tagging/import-tag-config";
@@ -48,7 +49,7 @@ export type TagTreeBatchFileResult = {
   base64: string;
 };
 
-export type TagTreeBatchImportResult = {
+export type TagTreeBatchImportResult = Partial<TagTreeImportStats> & {
   /** 已成功导入，但因无直接子标签而自动关闭必打的标签路径。 */
   autoDisabledRequiredGroups?: string[];
   successCount: number;
@@ -102,6 +103,7 @@ type PreparedImport =
       createCount: number;
       createPaths: string[];
       previewTree: TagBatchCreateNode[];
+      tagStats: TagTreeImportStats;
     };
 
 type PreparedUpdate = {
@@ -349,6 +351,7 @@ export async function importTagTreeAction(
             success: true,
             data: {
               successCount,
+              ...outcome.tagStats,
               autoDisabledRequiredGroups: [
                 ...new Set(
                   autoDisabledTags.map((tag) =>
@@ -525,6 +528,7 @@ async function prepareTagTreeImport(
     : filterMissingPathRecords(pathRecords, (path) => resolvePath(lookup, path) !== null);
   const createTree = tagBatchRecordsToCreateTree(missingPathRecords);
   const createPaths = collectNewTagPaths(createTree, lookup);
+  let createdTagCount = 0;
   if (!dryRun && createTree.length > 0) {
     const structureStartedAt = Date.now();
     rootLogger.info({ msg: "Tag import phase", teamId, phase: "sync-structure", importMode, endpoint: "import-tag-tree", newNodeCount: createPaths.length });
@@ -535,6 +539,7 @@ async function prepareTagTreeImport(
     if (!created.success) {
       return { kind: "error", message: created.message || messages.rowImportFailed };
     }
+    createdTagCount = created.data?.createdCount ?? createPaths.length;
     tags = await loadTeamTagRows(teamId);
     lookup = buildTagLookup(tags);
   }
@@ -649,16 +654,7 @@ async function prepareTagTreeImport(
 
   failures.sort((a, b) => a.rowNumber - b.rowNumber);
   const failedRowNumbers = new Set(failures.map((failure) => failure.rowNumber));
-  return {
-    kind: "ready",
-    prepared,
-    failures,
-    noopSuccessCount,
-    skippedCount: skippedRows.size,
-    idIndex,
-    createCount: createPaths.length,
-    createPaths,
-    previewTree: tagBatchRecordsToCreateTree(
+  const previewTree = tagBatchRecordsToCreateTree(
       records
         .filter((record) => !failedRowNumbers.has(record.rowNumber))
         .map((record) => ({
@@ -668,7 +664,19 @@ async function prepareTagTreeImport(
             ? record.path
             : tagAncestry(idIndex.get(record.id!)!, idIndex).map((tag) => tag.name),
         })),
-    ),
+    );
+  const totalCount = collectNewTagPaths(previewTree, buildTagLookup([])).length;
+  return {
+    kind: "ready",
+    prepared,
+    failures,
+    noopSuccessCount,
+    skippedCount: skippedRows.size,
+    idIndex,
+    createCount: createPaths.length,
+    createPaths,
+    previewTree,
+    tagStats: { totalCount, createdCount: createdTagCount, existingCount: totalCount - createdTagCount },
   };
 }
 

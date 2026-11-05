@@ -462,3 +462,20 @@ it("does not overwrite when skipping all input rows would leave an empty tree", 
   expect(mocks.batchCreateTags).not.toHaveBeenCalled();
   expect(mocks.rows[0].name).toBe("保留的旧树");
 });
+
+
+it("counts all deduplicated file tags, including existing paths outside the structural import request", async () => {
+  seed(1, "品牌"); seed(2, "旧子级", 1); seed(3, "已有分类");
+  mocks.batchCreateTags.mockImplementationOnce(async () => {
+    seed(100, "新子级", 1);
+    return { success: true, data: { totalCount: 2, existingCount: 1, createdCount: 1 } };
+  });
+  const form = file([
+    ["一级标签", "二级标签"],
+    ["品牌", "旧子级"], ["品牌", "新子级"], ["已有分类", ""], ["品牌", "旧子级"],
+  ]);
+  form.set("treeImport", "true");
+  expect(await importTagTreeAction(form)).toMatchObject({ success: true, data: {
+    totalCount: 4, existingCount: 3, createdCount: 1, failedCount: 0,
+  } });
+});

@@ -259,3 +259,8 @@ it.each(["merge", "overwrite"] as const)("%s reuses local IDs and configuration;
   expect(mocks.rows.some((row) => row.id === 17)).toBe(mode === "merge");
   expect(mocks.tx.assetTag.createManyAndReturn).not.toHaveBeenCalled();
 });
+
+
+it("returns creation and reuse counts from the committed upstream receipt", async () => {
+  expect(await importTagTreeSynchronously(team, tree, true)).toEqual({ totalCount: 2, existingCount: 0, createdCount: 2 });
+});

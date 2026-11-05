@@ -1,5 +1,5 @@
 import { BatchTagImportExportDialog } from "@/app/tags/components/BatchTagImportExportDialog";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -12,7 +12,10 @@ const mocks = vi.hoisted(() => ({
   toastWarning: vi.fn(),
   toastError: vi.fn(),
 }));
-vi.mock("next-intl", () => ({ useTranslations: () => (key: string) => key }));
+vi.mock("next-intl", () => ({ useTranslations: () => (key: string, values?: Record<string, unknown>) =>
+  key === "importResultSuccessCounts" ? `total:${values?.total}, existing:${values?.existing}, created:${values?.created}`
+    : key === "importResultFailureReason" ? `reason:${values?.reason}` : key
+}));
 vi.mock("sonner", () => ({
   toast: { success: mocks.toastSuccess, error: mocks.toastError, warning: mocks.toastWarning },
 }));
@@ -103,9 +106,10 @@ describe("one entry for tag structure and configuration import/export", () => {
         duration: 10000,
       }),
     );
-    expect(mocks.toastSuccess).toHaveBeenCalledWith("importSuccess");
+    expect(mocks.toastSuccess).not.toHaveBeenCalled();
+    expect(screen.getByText("importResultSuccessTitle")).toBeTruthy();
     expect(view.onImported).toHaveBeenCalledOnce();
-    expect(view.onOpenChange).toHaveBeenCalledWith(false);
+    expect(view.onOpenChange).not.toHaveBeenCalled();
   });
 
   it("prechecks configuration changes through the same entry before importing", async () => {
@@ -136,7 +140,8 @@ describe("one entry for tag structure and configuration import/export", () => {
     const form = mocks.importTagTreeAction.mock.calls[0][0] as FormData;
     expect(form.get("tagLevel")).toBe("3");
     await waitFor(() => expect(view.onImported).toHaveBeenCalledOnce());
-    expect(mocks.toastSuccess).toHaveBeenCalledWith("importSuccess");
+    expect(mocks.toastSuccess).not.toHaveBeenCalled();
+    expect(screen.getByText("importResultSuccessTitle")).toBeTruthy();
     expect(view.onImportedText).not.toHaveBeenCalled();
   });
 
@@ -281,11 +286,8 @@ it("shows the running member and keeps the preview and selected file when the te
     expect((screen.getByText("continueImport") as HTMLButtonElement).disabled).toBe(false),
   );
   fireEvent.click(screen.getByText("continueImport"));
-  await waitFor(() =>
-    expect(mocks.toastWarning).toHaveBeenCalledWith(
-      "成员 张三 正在执行批量导入，请稍后刷新页面重试。",
-    ),
-  );
+  await screen.findByRole("alertdialog");
+  expect(screen.getByText("reason:成员 张三 正在执行批量导入，请稍后刷新页面重试。")).toBeTruthy();
   expect(screen.getByText("importPreviewTitle")).toBeTruthy();
   expect(view.onImported).not.toHaveBeenCalled();
   expect(view.onOpenChange).not.toHaveBeenCalled();
@@ -380,7 +382,11 @@ it("keeps the page and preview usable after a rejected 504 import request", asyn
   await screen.findByText("importPreviewTitle");
   await waitFor(() => expect((screen.getByText("continueImport") as HTMLButtonElement).disabled).toBe(false));
   fireEvent.click(screen.getByText("continueImport"));
-  await waitFor(() => expect(mocks.toastWarning).toHaveBeenCalledWith("importRequestInterrupted"));
+  const resultDialog = await screen.findByRole("alertdialog");
+  expect(screen.getByText("reason:importRequestInterrupted")).toBeTruthy();
+  expect(mocks.toastWarning).not.toHaveBeenCalled();
+  fireEvent.click(within(resultDialog).getByRole("button", { name: "confirm" }));
+  await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
   expect(screen.getByText("importPreviewTitle")).toBeTruthy();
   expect(screen.getByTestId("tag-tree-preview").textContent).toContain("品牌");
   expect(mocks.importTagTreeAction).toHaveBeenCalledOnce();
@@ -399,4 +405,43 @@ it("handles a failed precheck request without crashing or losing the selected fi
   expect(screen.getByText("tags.csv")).toBeTruthy();
   expect(mocks.importTagTreeAction).not.toHaveBeenCalled();
   expect(view.onOpenChange).not.toHaveBeenCalled();
+});
+
+
+it("holds success counts in a result dialog until acknowledgement, then closes the import flow", async () => {
+  mocks.precheckTagTreeImportAction.mockResolvedValue({ success: true, data: {
+    importableCount: 3, createCount: 0, createPaths: [], updateCount: 0, unchangedCount: 0, issues: [],
+  } });
+  mocks.importTagTreeAction.mockResolvedValue({ success: true, data: {
+    successCount: 1, failedCount: 0, skippedCount: 0, failures: [], totalCount: 3, existingCount: 2, createdCount: 1,
+  } });
+  const view = setup(); upload(view.container); fireEvent.click(screen.getByText("confirm"));
+  await screen.findByText("importPreviewTitle");
+  await waitFor(() => expect((screen.getByText("continueImport") as HTMLButtonElement).disabled).toBe(false));
+  fireEvent.click(screen.getByText("continueImport"));
+  const result = await screen.findByRole("alertdialog");
+  expect(within(result).getByText("total:3, existing:2, created:1")).toBeTruthy();
+  expect(view.onOpenChange).not.toHaveBeenCalled();
+  expect(mocks.toastSuccess).not.toHaveBeenCalled();
+  fireEvent.click(within(result).getByRole("button", { name: "confirm" }));
+  await waitFor(() => expect(view.onOpenChange).toHaveBeenCalledExactlyOnceWith(false));
+});
+
+it("shows the backend failure reason in a dismissible dialog and preserves the preview for retry", async () => {
+  mocks.precheckTagTreeImportAction.mockResolvedValue({ success: true, data: {
+    importableCount: 1, createCount: 0, createPaths: [], updateCount: 0, unchangedCount: 0, issues: [],
+  } });
+  mocks.importTagTreeAction.mockResolvedValue({ success: false, message: "上游接口连接超时" });
+  const view = setup(); upload(view.container); fireEvent.click(screen.getByText("confirm"));
+  await screen.findByText("importPreviewTitle");
+  await waitFor(() => expect((screen.getByText("continueImport") as HTMLButtonElement).disabled).toBe(false));
+  fireEvent.click(screen.getByText("continueImport"));
+  const result = await screen.findByRole("alertdialog");
+  expect(within(result).getByText("importResultFailureTitle")).toBeTruthy();
+  expect(within(result).getByText("reason:上游接口连接超时")).toBeTruthy();
+  expect(view.onOpenChange).not.toHaveBeenCalled();
+  expect(view.onImported).not.toHaveBeenCalled();
+  fireEvent.click(within(result).getByRole("button", { name: "confirm" }));
+  await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+  expect(screen.getByText("importPreviewTitle")).toBeTruthy();
 });
