@@ -29,16 +29,10 @@ const mocks = vi.hoisted(() => {
   return {
     rows,
     assetTag,
-    transaction: vi.fn(
-      async (queries: Promise<unknown>[] | ((tx: unknown) => Promise<unknown>)) => {
-        if (typeof queries !== "function") return Promise.all(queries);
-        return queries({
-          assetTag,
-          $queryRaw: async () => rows.map((row) => structuredClone(row)),
-          $executeRaw: async () => 1,
-        });
-      },
-    ),
+    transaction: vi.fn(async (queries: Promise<unknown>[] | ((tx: unknown) => Promise<unknown>)) => {
+      if (typeof queries !== "function") return Promise.all(queries);
+      return queries({ assetTag, $queryRaw: async () => rows.map((row) => structuredClone(row)), $executeRaw: async () => 1 });
+    }),
     batchCreateTags: vi.fn(),
     saveTagsTreeToMuseDAM: vi.fn(),
   };
@@ -230,8 +224,8 @@ describe("tag import preview and overwrite", () => {
     seed(2, "Logo", 1);
     const result = await precheckTagTreeImportAction(
       file([
-        ["标签 ID", "标签描述"],
-        ["2", "新描述"],
+        ["标签 ID", "一级标签", "二级标签", "标签描述"],
+        ["2", "品牌", "Logo", "新描述"],
       ]),
     );
     expect(result).toMatchObject({
@@ -309,7 +303,7 @@ it("renames the original parent before adding new descendants under its new name
   expect(mocks.rows.find((row) => row.name === "新子标签")?.parentId).toBe(1);
 });
 
-it("allows overwrite precheck to move an exported tag while keeping both prechecks read-only", async () => {
+it("previews the same file paths in both modes regardless of an exported tag previous location", async () => {
   seed(1, "旧父级");
   seed(2, "子标签", 1);
   const form = file([
@@ -323,14 +317,16 @@ it("allows overwrite precheck to move an exported tag while keeping both prechec
       createCount: 0,
       updateCount: 0,
       unchangedCount: 0,
-      issues: [{ rowNumber: 2 }],
+      importableCount: 2,
+      issues: [],
     },
   });
   form.set("importMode", "overwrite");
   expect(await precheckTagTreeImportAction(form)).toMatchObject({
     success: true,
     data: {
-      createCount: 2,
+      importableCount: 2,
+      createCount: 0,
       issues: [],
       previewTree: [{ name: "新父级", nameChildList: [{ name: "子标签" }] }],
     },

@@ -129,6 +129,7 @@ export type TagBatchExportNode = {
 
 export type TagBatchMessages = {
   overwriteRequiresValidRows: string;
+  conflictingTreeFields: (columns: string) => string;
   missingHeader: string;
   missingLevel1: string;
   noDataRows: string;
@@ -162,6 +163,8 @@ export function tagBatchMessages(locale: string): TagBatchMessages {
   if (tagBatchLabelLocale(locale) === "en-US") {
     return {
       overwriteRequiresValidRows: "Fix all invalid rows before overwriting the tag tree",
+      conflictingTreeFields: (columns) =>
+        `Rows for the same tag path have conflicting settings (${columns}); make them consistent before importing`,
       missingHeader: "Missing file header",
       missingLevel1: "File is missing a required column: Level 1 Tag",
       noDataRows: "No importable data found",
@@ -191,6 +194,10 @@ export function tagBatchMessages(locale: string): TagBatchMessages {
     overwriteRequiresValidRows: traditional
       ? "請修正所有問題行後再覆蓋標籤樹"
       : "请修正所有问题行后再覆盖标签树",
+    conflictingTreeFields: (columns) =>
+      traditional
+        ? `檔案中同一路徑的設定衝突（${columns}），請統一後再匯入`
+        : `文件中同一路径的配置冲突（${columns}），请统一后再导入`,
     missingHeader: traditional ? "檔案缺少表頭" : "文件缺少表头",
     missingLevel1: traditional ? "檔案缺少必填列：一級標籤" : "文件缺少必填列：一级标签",
     noDataRows: traditional ? "未找到可匯入的資料" : "未找到可导入的数据",
@@ -375,11 +382,13 @@ export function joinTagBatchKeywords(keywords: string[] | undefined) {
 export function parseTagBatchTable({
   rows,
   maxLevel,
+  ignoreIds = false,
   locale = "zh-CN",
   messages,
 }: {
   rows: string[][];
   maxLevel: number;
+  ignoreIds?: boolean;
   locale?: string;
   messages?: Partial<TagBatchMessages>;
 }): {
@@ -399,6 +408,7 @@ export function parseTagBatchTable({
 
   const columns = getTagBatchColumns(locale);
   const headerMap = buildHeaderMap(headerRow, columns);
+  if (ignoreIds) delete headerMap.id;
   // 无 ID 列时必须有一级标签列，才能按路径新建；有 ID 列则可只靠 ID 更新
   if (headerMap.level1 === undefined && headerMap.id === undefined) {
     return {
@@ -449,6 +459,43 @@ export function parseTagBatchTable({
   }
 
   return { records, errors };
+}
+
+/** 同一路径只创建一次；重复行可以补充配置，但不能互相覆盖冲突值。 */
+export function coalesceTagTreeRecords(
+  records: ParsedTagBatchRecord[],
+  locale: string,
+  messages: TagBatchMessages = tagBatchMessages(locale),
+): { records: ParsedTagBatchRecord[]; errors: TagBatchParseError[] } {
+  const byPath = new Map<string, ParsedTagBatchRecord>();
+  const errors: TagBatchParseError[] = [];
+  const labels = new Map(getTagBatchColumns(locale).map((column) => [column.key, column.header]));
+  for (const record of records) {
+    const key = JSON.stringify(record.path.map((name) => name.toLowerCase()));
+    const existing = byPath.get(key);
+    if (!existing) {
+      byPath.set(key, { ...record, fields: { ...record.fields } });
+      continue;
+    }
+    const conflicts = TAG_BATCH_FIELD_KEYS.filter((field) => {
+      const previous = existing.fields[field];
+      const next = record.fields[field];
+      if (previous === undefined || next === undefined) return false;
+      // Keyword order does not change the configuration.
+      const normalize = (value: typeof previous) =>
+        Array.isArray(value) ? [...value].sort() : value;
+      return JSON.stringify(normalize(previous)) !== JSON.stringify(normalize(next));
+    });
+    if (conflicts.length) {
+      errors.push({
+        rowNumber: record.rowNumber,
+        message: messages.conflictingTreeFields(conflicts.map((field) => labels.get(field)).join("、")),
+      });
+      continue;
+    }
+    Object.assign(existing.fields, record.fields);
+  }
+  return { records: [...byPath.values()], errors };
 }
 
 /** 仅无 ID 的行参与路径建树；带 ID 的行按 ID 更新，不新建 */

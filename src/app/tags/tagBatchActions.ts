@@ -23,6 +23,7 @@ import { z } from "zod";
 import { batchCreateTags, saveTagsTreeToMuseDAM } from "./actions";
 import {
   buildTagBatchExportRows,
+  coalesceTagTreeRecords,
   buildTagBatchTemplateRows,
   filterMissingPathRecords,
   parseTagBatchTable,
@@ -69,8 +70,10 @@ type TagRow = {
 
 export type TagTreeImportPrecheck = {
   reviewable?: boolean;
+  /** 上传树的节点数，不区分新增与复用。 */
+  importableCount?: number;
   previewTree?: TagBatchCreateNode[];
-  /** 将新建的标签数（含隐式创建的中间层级） */
+  /** 兼容通用预检结构；文件预览不计算相对旧树的变更量。 */
   createCount: number;
   createPaths: string[];
   updateCount: number;
@@ -151,39 +154,35 @@ export async function downloadTagTreeImportTemplateAction(
   });
 }
 
-/** 导入前检测：执行与正式导入相同的校验，但不建标签、不写库、不推 MuseDAM */
+/** 仅校验和预览上传的标签树，不读取旧树，不依赖合并/覆盖模式。 */
 export async function precheckTagTreeImportAction(
   formData: FormData,
 ): Promise<ServerActionResult<TagTreeImportPrecheck>> {
-  return withAuth(async ({ team: { id: teamId } }) => {
+  return withAuth(async () => {
     const t = await getTranslations("Tagging.BatchImportExport");
     try {
-      const outcome = await prepareTagTreeImport(teamId, formData, true);
-      if (outcome.kind === "error") return { success: false, message: outcome.message };
-      if (outcome.kind === "fatal") {
-        return {
-          success: true,
-          data: {
-            createCount: 0,
-            createPaths: [],
-            updateCount: 0,
-            renameCount: 0,
-            unchangedCount: 0,
-            issues: outcome.failures,
-          },
-        };
-      }
+      // Preview only the uploaded tree: no database lookup, import mode or writes.
+      const uploaded = await readUploadedTagTree(formData, true);
+      if (uploaded.kind === "error") return { success: false, message: uploaded.message };
+      const records = uploaded.records.filter((record) => record.path.length > 0);
+      const pathErrors = uploaded.records.filter((record) => !record.path.length).map((record) => ({
+        rowNumber: record.rowNumber, name: null, message: uploaded.messages.nameRequired,
+      }));
+      const combined = coalesceTagTreeRecords(records.map((record) => ({ ...record, id: undefined })), uploaded.locale, uploaded.messages);
+      const tree = tagBatchRecordsToCreateTree(combined.records);
+      const paths = collectNewTagPaths(tree, buildTagLookup([]));
       return {
         success: true,
         data: {
           reviewable: true,
-          previewTree: outcome.previewTree,
-          createCount: outcome.createCount,
-          createPaths: outcome.createPaths,
-          updateCount: outcome.prepared.length,
-          renameCount: outcome.prepared.filter((item) => item.data.name).length,
-          unchangedCount: outcome.noopSuccessCount,
-          issues: outcome.failures,
+          previewTree: tree,
+          importableCount: paths.length,
+          createCount: 0,
+          createPaths: [],
+          updateCount: 0,
+          renameCount: 0,
+          unchangedCount: 0,
+          issues: [...toFailures(uploaded.errors), ...pathErrors, ...toFailures(combined.errors)],
         },
       };
     } catch (error) {
@@ -365,15 +364,8 @@ export async function importTagTreeAction(
   });
 }
 
-/**
- * 解析 + 校验 + 生成待写入的更新。dryRun 时缺失路径只统计不新建，
- * 这些行在正式导入时会先建标签再写字段，因此检测阶段不视为问题。
- */
-async function prepareTagTreeImport(
-  teamId: number,
-  formData: FormData,
-  dryRun: boolean,
-): Promise<PreparedImport> {
+/** 读取文件并校验其自身结构和字段；旧 ID 在标签树导入中不参与定位。 */
+async function readUploadedTagTree(formData: FormData, ignoreIds = false) {
   const locale = await getLocale();
   const t = await getTranslations("Tagging.BatchImportExport");
   const messages = {
@@ -384,11 +376,11 @@ async function prepareTagTreeImport(
 
   const file = formData.get("file");
   if (!(file instanceof File) || file.size <= 0) {
-    return { kind: "error", message: t("selectImportFile") };
+    return { kind: "error" as const, message: t("selectImportFile") };
   }
   if (file.size > TAG_BATCH_MAX_FILE_BYTES) {
     return {
-      kind: "error",
+      kind: "error" as const,
       message: messages.fileTooLarge(TAG_BATCH_MAX_FILE_BYTES / (1024 * 1024)),
     };
   }
@@ -409,11 +401,37 @@ async function prepareTagTreeImport(
   });
   const parsed = parseTagBatchTable({
     rows: tableRows,
+    ignoreIds,
     maxLevel,
     locale,
     messages,
   });
 
+  return { kind: "parsed" as const, ...parsed, messages, locale };
+}
+
+/** 执行阶段才匹配已有标签；dryRun 用于写入前再次校验，不用于页面预览。 */
+async function prepareTagTreeImport(
+  teamId: number,
+  formData: FormData,
+  dryRun: boolean,
+): Promise<PreparedImport> {
+  const uploaded = await readUploadedTagTree(formData, formData.get("treeImport") === "true");
+  if (uploaded.kind === "error") return uploaded;
+  const { locale, messages } = uploaded;
+  const maxLevel = formData.get("tagLevel") === "4" ? 4 : 3;
+  const parsed = { records: uploaded.records, errors: uploaded.errors };
+  const treeImport = formData.get("treeImport") === "true";
+  if (treeImport) {
+    const missingPaths = parsed.records.filter((record) => !record.path.length);
+    if (missingPaths.length) return {
+      kind: "fatal", failures: missingPaths.map((record) => ({ rowNumber: record.rowNumber, name: null, message: messages.nameRequired })),
+    };
+    const combined = coalesceTagTreeRecords(parsed.records.map((record) => ({ ...record, id: undefined })), locale, messages);
+    parsed.records = combined.records;
+    parsed.errors.push(...combined.errors);
+    if (parsed.errors.length) return { kind: "fatal", failures: toFailures(parsed.errors) };
+  }
   if (parsed.errors.some((error) => error.fatal)) {
     return { kind: "fatal", failures: toFailures(parsed.errors) };
   }
@@ -423,7 +441,7 @@ async function prepareTagTreeImport(
   const skippedRows = new Set(
     requestedSkips.filter(
       (row) =>
-        row <= tableRows.length && tableRows[row - 1]?.some((cell) => String(cell ?? "").trim()),
+        parsed.records.some((record) => record.rowNumber === row) || parsed.errors.some((error) => error.rowNumber === row),
     ),
   );
   parsed.records = parsed.records.filter((record) => !skippedRows.has(record.rowNumber));
@@ -475,20 +493,10 @@ async function prepareTagTreeImport(
         });
       return { rowNumber: record.rowNumber, path, fields: record.fields };
     });
-    const seen = new Set<string>();
-    for (const record of parsed.records) {
-      const key = JSON.stringify(record.path.map((name) => name.toLowerCase()));
-      if (seen.has(key))
-        invalid.push({
-          rowNumber: record.rowNumber,
-          name: tagPathLabel(record.path),
-          message: messages.nameExists,
-        });
-      seen.add(key);
-    }
+    const coalesced = coalesceTagTreeRecords(parsed.records, locale, messages);
+    invalid.push(...toFailures(coalesced.errors));
+    parsed.records = coalesced.records;
     if (invalid.length) return { kind: "fatal", failures: invalid };
-    tags = [];
-    lookup = buildTagLookup(tags);
   }
   const records = parsed.records.map((record) =>
     record.id === undefined ? { ...record, path: canonicalizePath(lookup, record.path) } : record,
@@ -496,10 +504,9 @@ async function prepareTagTreeImport(
 
   // 只把缺失路径建成局部树再 merge，避免整表推 MuseDAM
   const pathRecords = records.filter((record) => record.id === undefined);
-  const missingPathRecords = filterMissingPathRecords(
-    pathRecords,
-    (path) => resolvePath(lookup, path) !== null,
-  );
+  const missingPathRecords = importMode === "overwrite"
+    ? pathRecords
+    : filterMissingPathRecords(pathRecords, (path) => resolvePath(lookup, path) !== null);
   const createTree = tagBatchRecordsToCreateTree(missingPathRecords);
   const createPaths = collectNewTagPaths(createTree, lookup);
   if (!dryRun && createTree.length > 0) {

@@ -259,48 +259,7 @@ describe("one entry for tag structure and configuration import/export", () => {
     expect(mocks.importTagTreeAction).not.toHaveBeenCalled();
     expect(screen.getByText("importPreviewTitle")).toBeTruthy();
   });
-  it("lets a merge-invalid file switch to overwrite and reruns the selected mode's validation", async () => {
-    mocks.precheckTagTreeImportAction.mockImplementation(async (form: FormData) => ({
-      success: true,
-      data:
-        form.get("importMode") === "overwrite"
-          ? {
-              reviewable: true,
-              createCount: 2,
-              createPaths: ["新父级", "新父级 > 子标签"],
-              updateCount: 0,
-              unchangedCount: 0,
-              issues: [],
-              previewTree: [{ name: "新父级" }],
-            }
-          : {
-              reviewable: true,
-              createCount: 0,
-              createPaths: [],
-              updateCount: 0,
-              unchangedCount: 0,
-              issues: [{ rowNumber: 2, name: null, message: "path mismatch" }],
-              previewTree: [],
-            },
-    }));
-    const view = setup();
-    upload(view.container);
-    fireEvent.click(screen.getByText("confirm"));
-    await screen.findByText("importPreviewTitle");
-    expect((screen.getByText("continueImportSkipIssues") as HTMLButtonElement).disabled).toBe(true);
-    const overwrite = screen.getByRole("radio", {
-      name: "UnderstoodPleaseProvideTheText",
-    }) as HTMLButtonElement;
-    await waitFor(() => expect(overwrite.disabled).toBe(false));
-    fireEvent.click(overwrite);
-    await screen.findByText("continueImport");
-    await waitFor(() =>
-      expect((screen.getByText("continueImport") as HTMLButtonElement).disabled).toBe(false),
-    );
-    expect(mocks.precheckTagTreeImportAction).toHaveBeenCalledTimes(2);
-    expect(mocks.precheckTagTreeImportAction.mock.calls[1][0].get("importMode")).toBe("overwrite");
-    expect(mocks.importTagTreeAction).not.toHaveBeenCalled();
-  });
+
 });
 
 it("shows the running member and keeps the preview and selected file when the team is busy", async () => {
@@ -330,4 +289,54 @@ it("shows the running member and keeps the preview and selected file when the te
   expect(view.onImported).not.toHaveBeenCalled();
   expect(view.onOpenChange).not.toHaveBeenCalled();
   expect(mocks.importTagTreeAction.mock.calls[0][0].get("file")).toBeInstanceOf(File);
+});
+
+
+it.each(["merge", "overwrite"])("prechecks once, keeps the uploaded preview when selecting %s, and writes only on confirmation", async (mode) => {
+  mocks.precheckTagTreeImportAction.mockResolvedValue({
+    success: true,
+    data: { importableCount: 2, createCount: 0, createPaths: [], updateCount: 0, unchangedCount: 0, issues: [], previewTree: [{ name: "上传的树" }] },
+  });
+  const view = setup();
+  upload(view.container);
+  fireEvent.click(screen.getByText("confirm"));
+  await screen.findByText("importPreviewTitle");
+  const merge = screen.getByRole("radio", { name: "MergeIntoExistingTagSystem" }) as HTMLButtonElement;
+  const overwrite = screen.getByRole("radio", { name: "UnderstoodPleaseProvideTheText" }) as HTMLButtonElement;
+  await waitFor(() => expect(overwrite.disabled).toBe(false));
+  fireEvent.click(overwrite);
+  fireEvent.click(merge);
+  if (mode === "overwrite") fireEvent.click(overwrite);
+  expect(screen.getByTestId("tag-tree-preview").textContent).toContain("上传的树");
+  expect(mocks.precheckTagTreeImportAction).toHaveBeenCalledTimes(1);
+  expect(mocks.precheckTagTreeImportAction.mock.calls[0][0].has("importMode")).toBe(false);
+  expect(mocks.importTagTreeAction).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByText("continueImport"));
+  if (mode === "overwrite") {
+    await screen.findByRole("alertdialog");
+    expect(mocks.importTagTreeAction).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText("ClearExistingTagsAndUseNewOnes"));
+  }
+  await waitFor(() => expect(mocks.importTagTreeAction).toHaveBeenCalledOnce());
+  const form = mocks.importTagTreeAction.mock.calls[0][0] as FormData;
+  expect(form.get("importMode")).toBe(mode);
+  expect(form.get("treeImport")).toBe("true");
+  expect((form.get("file") as File).name).toBe("tags.csv");
+});
+
+it("blocks both modes for an invalid uploaded tree without rechecking or writing", async () => {
+  mocks.precheckTagTreeImportAction.mockResolvedValue({
+    success: true,
+    data: { importableCount: 1, createCount: 0, createPaths: [], updateCount: 0, unchangedCount: 0, issues: [{ rowNumber: 2, name: null, message: "invalid tree" }], previewTree: [{ name: "上传的树" }] },
+  });
+  const view = setup(); upload(view.container);
+  fireEvent.click(screen.getByText("confirm"));
+  await screen.findByText("importPreviewTitle");
+  const overwrite = screen.getByRole("radio", { name: "UnderstoodPleaseProvideTheText" }) as HTMLButtonElement;
+  await waitFor(() => expect(overwrite.disabled).toBe(false));
+  expect((screen.getByText("continueImport") as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.click(overwrite);
+  expect((screen.getByText("continueImport") as HTMLButtonElement).disabled).toBe(true);
+  expect(mocks.precheckTagTreeImportAction).toHaveBeenCalledTimes(1);
+  expect(mocks.importTagTreeAction).not.toHaveBeenCalled();
 });

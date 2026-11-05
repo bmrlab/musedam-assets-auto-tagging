@@ -42,6 +42,7 @@ export type BatchImportResultBase = {
 };
 
 export type BatchImportPrecheck = {
+  importableCount?: number;
   reviewable?: boolean;
   createCount: number;
   createPaths: string[];
@@ -81,6 +82,7 @@ type BatchImportExportDialogProps<TResult extends BatchImportResultBase> = {
     recheck: (fields: Record<string, string>) => void,
   ) => ReactNode;
   confirmImport?: () => Promise<boolean>;
+  blockImportOnIssues?: boolean;
 };
 
 function downloadBase64File(file: BatchFileResult) {
@@ -126,6 +128,7 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
   reviewTitle,
   renderReview,
   confirmImport,
+  blockImportOnIssues = false,
 }: BatchImportExportDialogProps<TResult>) {
   const t = useTranslations("Tagging.BatchImportExport");
   const [mode, setMode] = useState<BatchMode>("import");
@@ -231,6 +234,19 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
 
     startTransition(async () => {
       const result = await precheckAction(formData);
+      // A review flow stays in preview even when validation fails. Switching
+      // modes must never look like an import has run or discard the uploaded file.
+      if (renderReview) {
+        setFailureResult(null);
+        setPrecheckResult(result.success ? result.data : {
+          createCount: 0,
+          createPaths: [],
+          updateCount: 0,
+          unchangedCount: 0,
+          issues: [{ rowNumber: 1, name: null, message: result.message }],
+        });
+        return;
+      }
       if (!result.success) {
         setPrecheckResult(null);
         showSingleFailure(result.message);
@@ -337,8 +353,7 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
       const unexpectedFailures = result.data.failures.filter(
         (failure) => !acknowledgedKeys.has(failureKey(failure)),
       );
-      const skippedCount =
-        result.data.skippedCount + result.data.failures.length - unexpectedFailures.length;
+      const skippedCount = result.data.skippedCount + result.data.failures.length - unexpectedFailures.length;
 
       if (unexpectedFailures.length > 0) {
         setFailureResult({
@@ -507,15 +522,15 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
                 onClick={() => handleImport({ acknowledgedIssues: precheckResult.issues })}
                 disabled={
                   isPending ||
-                  precheckResult.createCount +
+                  (blockImportOnIssues && precheckResult.issues.length > 0) ||
+                  (precheckResult.importableCount ?? (precheckResult.createCount +
                     precheckResult.updateCount +
-                    precheckResult.unchangedCount ===
-                    0
+                    precheckResult.unchangedCount)) === 0
                 }
                 className="inline-flex h-8 items-center justify-center gap-1.5 rounded-[6px] bg-primary-6 px-3 py-1 text-[14px] leading-[22px]"
               >
                 {isPending ? <Loader2 className="size-4 shrink-0 animate-spin" /> : null}
-                {precheckResult.issues.length > 0
+                {precheckResult.issues.length > 0 && !blockImportOnIssues
                   ? t("continueImportSkipIssues")
                   : t("continueImport")}
               </Button>

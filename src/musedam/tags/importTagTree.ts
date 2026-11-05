@@ -136,8 +136,8 @@ export async function importTagTreeSynchronously(
             })
           ).map((tag) => [localKey(tag.parentId, tag.name), tag]),
         );
-      // 主仓已原子替换成功后才替换本地；删除和新树补存在同一事务，失败保留本地旧树。
-      if (mode === "overwrite") await tx.assetTag.deleteMany({ where: { teamId: team.id } });
+      // Reuse matching local IDs and configuration in both modes. Prune only after all mappings exist.
+      const retainedIds: number[] = [];
       let index = await loadIndex();
       let level = receipt.nodes.map((node) => ({
         node,
@@ -173,6 +173,7 @@ export async function importTagTreeSynchronously(
           const local = index.get(localKey(parentId, node.name));
           if (!local) throw new Error("Local tag mapping missing after insert");
           const remote = mapping.get(node.clientId)!;
+          retainedIds.push(local.id);
           return {
             id: local.id,
             slug: idToSlug("assetTag", new MuseDAMID(remote.id)),
@@ -194,6 +195,9 @@ export async function importTagTreeSynchronously(
             depth: depth + 1,
           })),
         );
+      }
+      if (mode === "overwrite") {
+        await tx.assetTag.deleteMany({ where: { teamId: team.id, id: { notIn: retainedIds } } });
       }
       await tx.teamConfig.update({
         where,
