@@ -12,6 +12,26 @@ interface CacheItem {
 
 const apiKeyCache = new Map<string, CacheItem>();
 
+/** 每次发起打标实时检查应用授权和团队有效性，不能使用已缓存的团队凭据代替。 */
+export async function assertTeamTaggingAuthorization(
+  team: Pick<Team, "id" | "slug">,
+): Promise<void> {
+  if (!process.env.MUSEDAM_APP_API_KEY || !process.env.MUSEDAM_APP_SECRET) {
+    throw new Error("MuseDAM application credentials are not configured");
+  }
+  // https://www.musedam.cc/zh-CN/developers/markdown/applications.md
+  // exchange-api-key 会对未安装应用、团队不存在或已到期等情况返回业务错误。
+  const result = await exchangeMuseDAMTeamAPIKey({ musedamTeamId: slugToId("team", team.slug) });
+  if (
+    typeof result?.apiKey !== "string" ||
+    !result.apiKey.trim() ||
+    typeof result?.expiresAt !== "string" ||
+    !result.expiresAt.trim()
+  ) {
+    throw new Error("Invalid MuseDAM authorization response");
+  }
+}
+
 export async function exchangeMuseDAMTeamAPIKey({
   musedamTeamId,
 }: {

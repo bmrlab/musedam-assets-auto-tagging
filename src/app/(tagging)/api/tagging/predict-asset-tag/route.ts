@@ -13,6 +13,7 @@ import {
   apiRecognitionAccuracySchema,
   getExplicitFeatureValuesFromApiRequest,
 } from "@/lib/tagging-api-options";
+import { assertTeamTaggingAuthorization } from "@/musedam/apiKey";
 import { syncSingleAssetFromMuseDAM } from "@/musedam/assets";
 import { MuseDAMID } from "@/musedam/types";
 import { AssetObject, TaggingQueueItemExtra, TaggingQueueItemResult } from "@/prisma/client";
@@ -82,6 +83,16 @@ export async function POST(request: NextRequest) {
     // 团队不存在
     if (!team) {
       return NextResponse.json({ success: false, error: "Team not found" }, { status: 404 });
+    }
+
+    try {
+      await assertTeamTaggingAuthorization(team);
+    } catch (error) {
+      console.error("MuseDAM tagging authorization failed:", error);
+      return NextResponse.json(
+        { success: false, error: "MuseDAM authorization failed; tagging task was not started" },
+        { status: 502 },
+      );
     }
 
     const settings = await getTaggingSettings(team.id);
