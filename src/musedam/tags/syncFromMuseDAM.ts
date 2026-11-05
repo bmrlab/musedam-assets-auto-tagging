@@ -1,6 +1,6 @@
 import "server-only";
 
-import { deletionIdLayers } from "@/lib/tagging/delete-tag-layers";
+import { deleteTagsWithinBudget } from "@/lib/tagging/delete-tag-batches";
 import { idToSlug, slugToId } from "@/lib/slug";
 import { retrieveTeamCredentials } from "@/musedam/apiKey";
 import { MUSE_CALL_BUDGET_MS } from "@/musedam/budget";
@@ -87,6 +87,7 @@ export async function syncTagsFromMuseDAM({ team }: { team: { id: number; slug: 
   };
   collectSlugs(nodes);
 
+  const stale: { id: number; parentId: number | null }[] = [];
   await prisma.$transaction(
     async (tx) => {
       const existingTags = await tx.assetTag.findMany({ where: { teamId: team.id } });
@@ -215,17 +216,20 @@ export async function syncTagsFromMuseDAM({ team }: { team: { id: number; slug: 
         }
       }
 
-      const stale = existingTags.filter((tag) => !keptIds.has(tag.id));
-      for (const layer of deletionIdLayers(stale)) {
-        for (let offset = 0; offset < layer.length; offset += TAG_WRITE_CHUNK) {
-          await tx.assetTag.deleteMany({
-            where: { teamId: team.id, id: { in: layer.slice(offset, offset + TAG_WRITE_CHUNK) } },
-          });
-        }
-      }
+      stale.push(
+        ...existingTags
+          .filter((tag) => !keptIds.has(tag.id))
+          .map((tag) => ({ id: tag.id, parentId: tag.parentId })),
+      );
     },
     { timeout: 60000 },
   );
+
+  // Kept rows are already committed. Drop the rest in short transactions so a
+  // gateway timeout does not roll the whole cleanup back to the start.
+  if (!(await deleteTagsWithinBudget(team.id, stale))) {
+    throw new Error("TAG_CLEANUP_CONTINUE");
+  }
 
   return result as MuseDAMTagTree;
 }

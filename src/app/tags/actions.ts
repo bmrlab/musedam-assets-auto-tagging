@@ -171,6 +171,9 @@ export async function syncTagsFromMuseDAMAction(): Promise<ServerActionResult<vo
         data: undefined,
       };
     } catch (error) {
+      if (error instanceof Error && error.message === "TAG_CLEANUP_CONTINUE") {
+        return { success: false, code: "continue", message: "多余标签较多，正在继续清理" };
+      }
       console.error("Sync from MuseDAM error:", error);
       return {
         success: false,

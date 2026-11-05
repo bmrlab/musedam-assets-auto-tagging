@@ -2,17 +2,21 @@
 
 import { withAuth } from "@/app/(auth)/withAuth";
 import type { ServerActionResult } from "@/lib/serverAction";
+import { deleteTagsWithinBudget } from "@/lib/tagging/delete-tag-batches";
 import { syncTagsToMuseDAM } from "@/musedam/tags/syncToMuseDAM";
 import prisma from "@/prisma/prisma";
-import { buildCascadeDeletionTree, buildTagDeletionPlan, deletionLayers } from "./delete-tag-plan";
+import { buildCascadeDeletionTree, buildTagDeletionPlan } from "./delete-tag-plan";
 
-export async function deleteTagAndDescendants(tagId: number): Promise<ServerActionResult<void>> {
+export async function deleteTagAndDescendants(
+  tagId: number,
+  localOnly = false,
+): Promise<ServerActionResult<void>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
       const rows = await prisma.assetTag.findMany({ where: { teamId } });
       const plan = buildTagDeletionPlan(rows, tagId);
       const affected = [plan.target, ...plan.descendants];
-      if (affected.some((row) => row.slug)) {
+      if (!localOnly && affected.some((row) => row.slug)) {
         const team = await prisma.team.findUniqueOrThrow({ where: { id: teamId } });
         await syncTagsToMuseDAM({
           team: { id: teamId, slug: team.slug },
@@ -20,16 +24,13 @@ export async function deleteTagAndDescendants(tagId: number): Promise<ServerActi
         });
       }
 
-      await prisma.$transaction(
-        async (tx) => {
-          // Children first. One statement for the whole subtree lets SET NULL
-          // promote still-living descendants into roots and hit the root-name index.
-          for (const ids of deletionLayers(plan)) {
-            await tx.assetTag.deleteMany({ where: { teamId, id: { in: ids } } });
-          }
-        },
-        { timeout: 20_000 },
+      const done = await deleteTagsWithinBudget(
+        teamId,
+        affected.map((row) => ({ id: row.id, parentId: row.parentId })),
       );
+      if (!done) {
+        return { success: false, code: "continue", message: "子标签较多，正在继续删除" };
+      }
       return { success: true, data: undefined };
     } catch (error) {
       console.error("Delete tag error:", error);
