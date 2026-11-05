@@ -58,11 +58,13 @@ import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
+  type ReviewTagSearchResult,
   approveAuditItemsAction,
   AssetWithAuditItemsBatch,
   rejectAuditItemsAction,
   setAuditItemsRejectedAction,
 } from "./actions";
+import { AddTagDialog } from "./components/AddTagDialog";
 import { AddFeatureDialog } from "./components/AddFeatureDialog";
 import { FeatureThumbnail } from "./components/FeatureThumbnail";
 import {
@@ -75,6 +77,8 @@ import {
   type ReviewFeature,
   type ReviewFeatureSearchResult,
 } from "./feature-review";
+
+import { getReviewTagSources, type ReviewTagSource } from "./tag-review";
 
 type PreviewImage = { src: string; alt: string };
 
@@ -384,6 +388,9 @@ export function ReviewItem({
   batchLoading,
   rejectedFeatureKeys,
   onToggleFeatureKey,
+  manualTags = [],
+  onAddManualTags,
+  onRemoveManualTag,
   manualFeatures,
   onAddManualFeatures,
   onRemoveManualFeature,
@@ -392,6 +399,9 @@ export function ReviewItem({
   batchLoading?: boolean;
   rejectedFeatureKeys: string[];
   onToggleFeatureKey: (key: string) => void;
+  manualTags?: ReviewTagSearchResult[];
+  onAddManualTags: (tags: ReviewTagSearchResult[]) => void;
+  onRemoveManualTag: (id: number) => void;
   manualFeatures: ReviewFeatureSearchResult[];
   onAddManualFeatures: (features: ReviewFeatureSearchResult[]) => void;
   onRemoveManualFeature: (key: string) => void;
@@ -437,10 +447,24 @@ export function ReviewItem({
     ),
   );
   const [previewImage, setPreviewImage] = useState<PreviewImage | null>(null);
+  const [addTagOpen, setAddTagOpen] = useState(false);
   const [addFeatureOpen, setAddFeatureOpen] = useState(false);
   // 历史打标记录默认折叠：只展示最新一次，避免过往错误结果一直挂在页面上
   const [showHistory, setShowHistory] = useState(false);
 
+  const tagSources = useMemo(() => getReviewTagSources(batch.map(({ queueItem }) => queueItem.extra)), [batch]);
+  const showTagSources = batch.some(({ taggingAuditItems, reviewSummary }) =>
+    reviewSummary?.reviewed || taggingAuditItems.some((item) => item.status === "approved"),
+  );
+  const tagSourceLabelStyles: Record<ReviewTagSource, string> = {
+    existing: "text-basic-5",
+    ai: "text-primary-6",
+    manual: "text-success-7",
+    unknown: "text-basic-5",
+  };
+  const tagSourceLabels: Record<ReviewTagSource, string> = {
+    existing: t("tagSourceExisting"), ai: t("tagSourceAi"), manual: t("tagSourceManual"), unknown: t("tagSourceUnknown"),
+  };
   const assetExtra = assetObject.extra as AssetObjectExtra | null;
   const sourceDeleted = assetExtra?.reviewAssetDeleted === true;
   const assetPreviewUrl = assetExtra?.thumbnailAccessUrl;
@@ -660,6 +684,7 @@ export function ReviewItem({
           featureReviewVersions,
           rejectedFeatureKeys,
           manualFeatureKeys,
+          manualTagIds: manualTags.map((tag) => tag.id),
           append,
         });
 
@@ -696,6 +721,7 @@ export function ReviewItem({
       featureReviewVersions,
       rejectedFeatureKeys,
       manualFeatureKeys,
+      manualTags,
       onSuccess,
       rejectedItems,
       t,
@@ -845,14 +871,30 @@ export function ReviewItem({
             <span className="text-sm font-medium">{t("tags")}</span>
           </div>
           <div className="flex flex-wrap gap-1">
-            {(assetObject.tags as AssetObjectTags).map((tag, index) => (
-              <span
-                key={index}
-                className="inline-flex items-center px-2 py-1 rounded-sm text-xs border bg-background text-foreground"
-              >
-                {tag.tagPath.join(" > ")}
-              </span>
-            ))}
+            {(assetObject.tags as AssetObjectTags).map((tag, index) => {
+              const source = tagSources.get(tag.tagSlug) ?? "unknown";
+              const showSourceLabel = showTagSources && source !== "unknown" && source !== "manual";
+              return (
+                <span key={tag.tagSlug || index}
+                  title={showSourceLabel ? tagSourceLabels[source] : undefined}
+                  className="inline-flex items-center gap-1 rounded border border-basic-3 bg-background px-2 py-1 text-xs text-foreground">
+                  {tag.tagPath.join(" > ")}
+                  {showSourceLabel ? (
+                    <span className={cn(
+                      "inline-flex shrink-0 items-center gap-1 rounded",
+                      source === "ai"
+                        ? "bg-primary-6/10 px-1.5 py-0.5 text-xs text-primary-6"
+                        : cn("border border-current/30 px-1 text-[10px]", tagSourceLabelStyles[source]),
+                    )}>
+                      {source === "ai" ? <svg width="1em" height="1em" viewBox="0 0 36 36" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" className="shrink-0">
+                        <path d="M13.6956 1.41311L15.2885 7.37568C15.6114 8.58537 16.2041 9.62912 17.012 10.4487C17.8228 11.2682 18.8503 11.8709 20.0414 12.1984L25.9193 13.8142C26.212 13.8928 26.3871 14.2 26.3096 14.497C26.2565 14.6964 26.1044 14.842 25.9193 14.8929L20.0414 16.5087C18.8503 16.8363 17.8213 17.4389 17.0134 18.2585C16.2041 19.0795 15.61 20.1218 15.2885 21.33L13.6956 27.2926C13.6182 27.5896 13.3153 27.7671 13.0226 27.6885C12.826 27.6347 12.6825 27.4804 12.6323 27.2926L11.0394 21.33C10.7165 20.1218 10.1239 19.0795 9.31451 18.2585C8.50516 17.4375 7.47767 16.8348 6.28658 16.5087L0.408677 14.8929C0.115928 14.8143 -0.0591311 14.5071 0.0183471 14.2102C0.0714429 14.0108 0.223556 13.8652 0.408677 13.8142L6.28658 12.1984C7.47767 11.8709 8.50659 11.2697 9.32884 10.4356C10.1368 9.60579 10.7208 8.57225 11.0394 7.37713L12.6323 1.41456C12.7098 1.1176 13.0126 0.940017 13.3053 1.01861C13.5019 1.07247 13.6454 1.22678 13.6956 1.41456L13.6956 1.41311ZM28.0087 18.1202L29.0147 21.8874C29.2098 22.6167 29.5672 23.2456 30.0536 23.7391C30.5401 24.2326 31.16 24.5951 31.8761 24.793L35.5913 25.8135C35.8841 25.8921 36.0591 26.1993 35.9817 26.4962C35.9286 26.6956 35.7764 26.8412 35.5913 26.8922L31.8776 27.9126C31.1586 28.1106 30.5387 28.4731 30.0522 28.9665C29.5657 29.46 29.2084 30.0889 29.0132 30.8182L28.0073 34.5854C27.9298 34.8824 27.627 35.06 27.3343 34.9814C27.1377 34.9275 26.9942 34.7732 26.9439 34.5854L25.938 30.8167C25.7442 30.0889 25.3869 29.4615 24.899 28.968C24.4125 28.4745 23.7926 28.112 23.0736 27.9141L19.3599 26.8936C19.0671 26.815 18.8921 26.5078 18.9696 26.2109C19.0227 26.0115 19.1748 25.8659 19.3599 25.8149L23.0751 24.7945C23.7926 24.598 24.4111 24.2355 24.899 23.7406C25.3855 23.2471 25.7428 22.6182 25.938 21.8904L26.9439 18.1217C27.0214 17.8247 27.3242 17.6471 27.617 17.7257C27.8136 17.7796 27.9571 17.9339 28.0073 18.1217L28.0087 18.1202Z" fill="currentColor" fillOpacity="1" />
+                      </svg> : null}
+                      {tagSourceLabels[source]}
+                    </span>
+                  ) : null}
+                </span>
+              );
+            })}
           </div>
         </div>
 
@@ -993,6 +1035,27 @@ export function ReviewItem({
               </div>
             );
           })}
+          {hasPendingAuditItems && !sourceDeleted ? (
+            <div className="rounded-md bg-basic-1 p-4">
+              {manualTags.length > 0 ? (
+                <div className="mb-3 flex flex-wrap gap-2">
+                  {manualTags.map((tag) => (
+                    <span key={tag.id} className="inline-flex items-center gap-2 rounded-md border border-primary-3 bg-primary-1 px-2 py-1 text-xs text-primary-6">
+                      {tag.tagPath.join(" > ")}
+                      <span className="text-basic-5">{t("manuallyAdded")}</span>
+                      <button type="button" disabled={realLoading} aria-label={`${t("tooltipRemove")} ${tag.tagPath.join(" > ")}`} onClick={() => onRemoveManualTag(tag.id)}>
+                        <XIcon className="size-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+              <button type="button" disabled={realLoading} className="inline-flex items-center gap-1 text-xs text-primary-6 disabled:opacity-50" onClick={() => setAddTagOpen(true)}>
+                <PlusIcon className="size-3" />{t("addTagManually")}
+              </button>
+              <p className="mt-2 text-xs text-basic-5">{t("addTagHint")}</p>
+            </div>
+          ) : null}
           {historyCount > 0 ? (
             <button
               type="button"
@@ -1316,6 +1379,16 @@ export function ReviewItem({
           </div>
         </div>
       ) : null}
+      <AddTagDialog
+        open={addTagOpen}
+        onOpenChange={setAddTagOpen}
+        addedIds={new Set([
+          ...(assetObject.tags as AssetObjectTags).flatMap((tag) => tag.tagId ? [tag.tagId] : []),
+          ...Array.from(auditItemsSet).flatMap((item) => item.leafTagId && !rejectedItems.includes(item.leafTagId) ? [item.leafTagId] : []),
+          ...manualTags.map((tag) => tag.id),
+        ])}
+        onConfirm={onAddManualTags}
+      />
       {hasEnabledFeatures ? (
         <AddFeatureDialog
           open={addFeatureOpen}

@@ -31,7 +31,7 @@ import { CheckIcon, Loader2Icon, Search, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AssetWithAuditItemsBatch, fetchAssetsWithAuditItems, batchApproveAuditItemsAction, batchRejectAuditItemsAction } from "./actions";
+import { type ReviewTagSearchResult, AssetWithAuditItemsBatch, fetchAssetsWithAuditItems, batchApproveAuditItemsAction, batchRejectAuditItemsAction } from "./actions";
 import { ReviewItem } from "./ReviewItem";
 import { featureKey, getFeatureReviewVersions, type ReviewFeatureSearchResult } from "./feature-review";
 import { useTheme } from "next-themes";
@@ -70,6 +70,7 @@ export default function ReviewPageClient() {
   const [pageSize, setPageSize] = useState(10);
   const [loading, setLoading] = useState(false);
   const [rejectedFeaturesByAsset, setRejectedFeaturesByAsset] = useState<Record<number, string[]>>({});
+  const [manualTagsByAsset, setManualTagsByAsset] = useState<Record<number, ReviewTagSearchResult[]>>({});
   const [manualFeaturesByAsset, setManualFeaturesByAsset] = useState<Record<number, ReviewFeatureSearchResult[]>>({});
   const [selectedAssets, setSelectedAssets] = useState<AssetWithAuditItemsBatch[]>([]);
   const [selectedAssetIds, setSelectedAssetIds] = useState<Set<number>>(new Set());
@@ -201,6 +202,7 @@ export default function ReviewPageClient() {
           assetObjects: chunk.map(({ assetObject, batch }) => ({
             id: assetObject.id,
             slug: assetObject.slug,
+            manualTagIds: (manualTagsByAsset[assetObject.id] ?? []).map((tag) => tag.id),
             featureReviewVersions: getFeatureReviewVersions(batch),
             rejectedFeatureKeys: rejectedFeaturesByAsset[assetObject.id] ?? [],
             manualFeatureKeys: (manualFeaturesByAsset[assetObject.id] ?? []).map((feature) =>
@@ -232,6 +234,11 @@ export default function ReviewPageClient() {
         toast.warning(t("batchApprovePartialSuccess", { successCount }) + (failedCount > 0 ? t("batchFailedCount", { failedCount }) : "") + (deletedCount > 0 ? t("batchDeletedCount", { deletedCount }) : ""));
       }
 
+      if (failedCount === 0 && changedCount === 0) {
+        setManualTagsByAsset((current) => Object.fromEntries(
+          Object.entries(current).filter(([id]) => !selectedAssets.some(({ assetObject }) => assetObject.id === Number(id))),
+        ));
+      }
       setCurrentPage(1)
       setManualFeaturesByAsset((current) => Object.fromEntries(
         Object.entries(current).filter(([id]) => !selectedAssets.some(({ assetObject }) => assetObject.id === Number(id))),
@@ -245,7 +252,7 @@ export default function ReviewPageClient() {
     } finally {
       setLoading(false);
     }
-  }, [selectedAssets, rejectedFeaturesByAsset, manualFeaturesByAsset, t, refreshDataWithFilters]);
+  }, [selectedAssets, rejectedFeaturesByAsset, manualFeaturesByAsset, manualTagsByAsset, t, refreshDataWithFilters]);
 
   // 批量拒绝审核
   const handleBatchReject = useCallback(async () => {
@@ -453,6 +460,15 @@ export default function ReviewPageClient() {
               return { ...current, [asset.assetObject.id]: rejected.includes(key)
                 ? rejected.filter((item) => item !== key) : [...rejected, key] };
             })}
+            manualTags={manualTagsByAsset[asset.assetObject.id] ?? []}
+            onAddManualTags={(tags) => setManualTagsByAsset((current) => {
+              const merged = new Map((current[asset.assetObject.id] ?? []).map((tag) => [tag.id, tag]));
+              tags.forEach((tag) => merged.set(tag.id, tag));
+              return { ...current, [asset.assetObject.id]: [...merged.values()] };
+            })}
+            onRemoveManualTag={(id) => setManualTagsByAsset((current) => ({
+              ...current, [asset.assetObject.id]: (current[asset.assetObject.id] ?? []).filter((tag) => tag.id !== id),
+            }))}
             manualFeatures={manualFeaturesByAsset[asset.assetObject.id] ?? []}
             onAddManualFeatures={(features) => setManualFeaturesByAsset((current) => {
               const existing = current[asset.assetObject.id] ?? [];
@@ -469,6 +485,11 @@ export default function ReviewPageClient() {
               ),
             }))}
             onSuccess={() => {
+              setManualTagsByAsset((current) => {
+                const next = { ...current };
+                delete next[asset.assetObject.id];
+                return next;
+              });
               setManualFeaturesByAsset((current) => {
                 const next = { ...current };
                 delete next[asset.assetObject.id];

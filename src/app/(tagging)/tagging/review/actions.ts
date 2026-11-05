@@ -51,6 +51,7 @@ import {
   type ReviewFeatureSearchResult,
   type ReviewFeatureType,
 } from "./feature-review";
+import { createTagReviewSnapshot } from "./tag-review";
 import {
   loadFeatureThumbnails,
   loadManualReviewFeatures,
@@ -156,7 +157,36 @@ type BatchApproveAssetRef = Pick<AssetObject, "id" | "slug"> & {
   featureReviewVersions: FeatureReviewVersions;
   rejectedFeatureKeys: string[];
   manualFeatureKeys?: string[];
+  manualTagIds?: number[];
 };
+
+export type ReviewTagSearchResult = { id: number; tagPath: string[] };
+
+export type ReviewTagNode = { id: number; parentId: number | null; name: string; selectable: boolean };
+
+/** Include structural parents so every selectable tag is reachable in the hierarchy. */
+export async function fetchReviewTagTreeAction(): Promise<ServerActionResult<ReviewTagNode[]>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    const tags = await prisma.assetTag.findMany({
+      where: { teamId },
+      select: { id: true, parentId: true, name: true, slug: true },
+      orderBy: [{ sort: "asc" }, { id: "asc" }],
+    });
+    return { success: true, data: tags.map(({ slug, ...tag }) => ({ ...tag, selectable: slug !== null })) };
+  });
+}
+
+async function validateManualTagIds(teamId: number, ids: number[]) {
+  const uniqueIds = [...new Set(ids)];
+  if (!uniqueIds.length) return [];
+  if (uniqueIds.some((id) => !Number.isSafeInteger(id) || id <= 0)) throw new Error("Invalid manual tags");
+  const tags = await prisma.assetTag.findMany({
+    where: { teamId, id: { in: uniqueIds }, slug: { not: null } },
+    select: { id: true },
+  });
+  if (tags.length !== uniqueIds.length) throw new Error("Selected tags changed. Please select them again.");
+  return tags.map(({ id }) => id);
+}
 
 /** Search the enabled feature libraries so a reviewer can add a feature the AI missed. */
 export async function searchReviewFeaturesAction({
@@ -568,6 +598,7 @@ export async function approveAuditItemsAction({
   featureReviewVersions,
   rejectedFeatureKeys = [],
   manualFeatureKeys = [],
+  manualTagIds = [],
   append = true,
 }: {
   assetSlug: string;
@@ -575,6 +606,7 @@ export async function approveAuditItemsAction({
   featureReviewVersions: FeatureReviewVersions;
   rejectedFeatureKeys?: string[];
   manualFeatureKeys?: string[];
+  manualTagIds?: number[];
   append?: boolean;
 }): Promise<ServerActionResult<void>> {
   return withAuth(async ({ team: { id: teamId } }) => {
@@ -590,8 +622,12 @@ export async function approveAuditItemsAction({
 
       // Missing query results do not prove deletion; keep review pending for retry.
       stage = "sync-asset";
+      let existingTagSlugs: string[] | null = null;
       try {
-        await syncSingleAssetFromMuseDAM({ musedamAssetId, team });
+        const synced = await syncSingleAssetFromMuseDAM({ musedamAssetId, team });
+        if (synced?.musedamAsset && "tags" in synced.musedamAsset) {
+          existingTagSlugs = (synced.musedamAsset.tags ?? []).map(({ id }) => idToSlug("assetTag", id));
+        }
       } catch (error) {
         if (error instanceof Error && error.message === "Asset not found") {
           console.warn("审核添加时未查询到 MuseDAM 素材:", {
@@ -619,7 +655,7 @@ export async function approveAuditItemsAction({
         },
         include: { queueItem: true },
       });
-      if (storedAuditItems.length !== new Set(auditItems.map(({ id }) => id)).size) {
+      if ((manualTagIds.length > 0 && storedAuditItems.length === 0) || storedAuditItems.length !== new Set(auditItems.map(({ id }) => id)).size) {
         return { success: false, message: "Invalid review items" };
       }
       const queueResults = [
@@ -657,6 +693,7 @@ export async function approveAuditItemsAction({
         ),
         manualFeatures,
       );
+      const validatedManualTagIds = await validateManualTagIds(teamId, manualTagIds);
       const requestedStatus = new Map(auditItems.map(({ id, status }) => [id, status]));
       const combinedApprovedTagIds = Array.from(
         new Set([
@@ -664,6 +701,7 @@ export async function approveAuditItemsAction({
             requestedStatus.get(id) === "approved" && leafTagId ? [leafTagId] : [],
           ),
           ...selectedFeatures.flatMap((feature) => feature.tags.map((tag) => tag.assetTagId)),
+          ...validatedManualTagIds,
         ]),
       );
 
@@ -739,6 +777,11 @@ export async function approveAuditItemsAction({
         )
         .map(({ id }) => id);
 
+      const tagReview = createTagReviewSnapshot({
+        existingTagSlugs,
+        appliedTags: approvedAsetTags,
+        manualTagIds: [...validatedManualTagIds, ...manualFeatures.flatMap((feature) => feature.tags.map((tag) => tag.assetTagId))],
+      });
       stage = "save-review";
       await prisma.$transaction(async (tx) => {
         for (const { id, status } of auditItems) {
@@ -753,6 +796,7 @@ export async function approveAuditItemsAction({
             data: {
               extra: {
                 ...(queueItem.extra as Prisma.JsonObject),
+                tagReview: (queueItem.extra as Prisma.JsonObject | null)?.tagReview ?? tagReview,
                 featureReview: createFeatureReviewSnapshot(
                   queueItem.result,
                   selectedFeatures,
@@ -964,7 +1008,7 @@ export async function batchApproveAuditItemsAction({
         );
 
       const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
-      const existingMuseDAMAssets = await requestMuseDAMAPI<Array<{ id: MuseDAMID }>>(
+      const existingMuseDAMAssets = await requestMuseDAMAPI<Array<{ id: MuseDAMID; tags?: { id: MuseDAMID; name: string }[] | null }>>(
         "/api/muse/assets-by-ids",
         {
           method: "POST",
@@ -1013,6 +1057,18 @@ export async function batchApproveAuditItemsAction({
             item.assetObject?.slug === assetObject.slug &&
             isDisplayedAuditItem(item, item.queueItem?.result, featureLibraryFeatures),
         );
+
+        if (assetAuditItems.length === 0) {
+          failedCount++;
+          continue;
+        }
+        let validatedManualTagIds: number[];
+        try {
+          validatedManualTagIds = await validateManualTagIds(teamId, assetObject.manualTagIds ?? []);
+        } catch {
+          failedCount++;
+          continue;
+        }
 
         // 参考 fetchAssetsWithAuditItems 的 batch 分组逻辑
         const batch: {
@@ -1095,7 +1151,7 @@ export async function batchApproveAuditItemsAction({
           feature.tags.map((tag) => tag.assetTagId),
         );
 
-        if (finalAssetAuditItems.length === 0 && selectedFeatures.length === 0) {
+        if (finalAssetAuditItems.length === 0 && selectedFeatures.length === 0 && validatedManualTagIds.length === 0) {
           failedCount++;
           continue;
         }
@@ -1112,6 +1168,7 @@ export async function batchApproveAuditItemsAction({
               .map((item) => item.leafTagId)
               .filter((leafTagId): leafTagId is number => leafTagId !== null),
             ...featureTagIds,
+            ...validatedManualTagIds,
           ]),
         );
 
@@ -1174,6 +1231,13 @@ export async function batchApproveAuditItemsAction({
           continue;
         }
 
+        const beforeAsset = existingMuseDAMAssets.find((asset) => asset.id.toString() === musedamAssetId.toString());
+        const tagReview = createTagReviewSnapshot({
+          existingTagSlugs: beforeAsset && "tags" in beforeAsset
+            ? (beforeAsset.tags ?? []).map(({ id }) => idToSlug("assetTag", id)) : null,
+          appliedTags: approvedAssetTags,
+          manualTagIds: [...validatedManualTagIds, ...manualFeatures.flatMap((feature) => feature.tags.map((tag) => tag.assetTagId))],
+        });
         await prisma.$transaction(async (tx) => {
           await tx.taggingAuditItem.updateMany({
             where: { teamId, id: { in: finalAssetAuditItems.map((item) => item.id) } },
@@ -1189,6 +1253,7 @@ export async function batchApproveAuditItemsAction({
               data: {
                 extra: {
                   ...(queueItem.extra as Prisma.JsonObject),
+                  tagReview: (queueItem.extra as Prisma.JsonObject | null)?.tagReview ?? tagReview,
                   featureReview: createFeatureReviewSnapshot(
                     queueItem.result,
                     selectedFeatures,
