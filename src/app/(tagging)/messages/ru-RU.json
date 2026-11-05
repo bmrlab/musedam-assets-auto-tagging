@@ -1606,7 +1606,8 @@
       "backToEdit": "Вернуться к редактированию",
       "continueImport": "Продолжить импорт",
       "continueImportSkipIssues": "Пропустить проблемы и продолжить",
-      "importSuccessWithSkipped": "Импортировано строк: {count}, пропущено проблемных строк: {skipped}"
+      "importSuccessWithSkipped": "Импортировано строк: {count}, пропущено проблемных строк: {skipped}",
+      "memberImportInProgress": "Member {name} is running a bulk import. Please refresh the page and try again later."
     }
   }
 }

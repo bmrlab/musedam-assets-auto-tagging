@@ -302,3 +302,32 @@ describe("one entry for tag structure and configuration import/export", () => {
     expect(mocks.importTagTreeAction).not.toHaveBeenCalled();
   });
 });
+
+it("shows the running member and keeps the preview and selected file when the team is busy", async () => {
+  mocks.precheckTagTreeImportAction.mockResolvedValue({
+    success: true,
+    data: { createCount: 1, createPaths: ["Tag"], updateCount: 0, unchangedCount: 0, issues: [] },
+  });
+  mocks.importTagTreeAction.mockResolvedValue({
+    success: false,
+    code: "busy",
+    message: "成员 张三 正在执行批量导入，请稍后刷新页面重试。",
+  });
+  const view = setup();
+  upload(view.container);
+  fireEvent.click(screen.getByText("confirm"));
+  await screen.findByText("importPreviewTitle");
+  await waitFor(() =>
+    expect((screen.getByText("continueImport") as HTMLButtonElement).disabled).toBe(false),
+  );
+  fireEvent.click(screen.getByText("continueImport"));
+  await waitFor(() =>
+    expect(mocks.toastWarning).toHaveBeenCalledWith(
+      "成员 张三 正在执行批量导入，请稍后刷新页面重试。",
+    ),
+  );
+  expect(screen.getByText("importPreviewTitle")).toBeTruthy();
+  expect(view.onImported).not.toHaveBeenCalled();
+  expect(view.onOpenChange).not.toHaveBeenCalled();
+  expect(mocks.importTagTreeAction.mock.calls[0][0].get("file")).toBeInstanceOf(File);
+});

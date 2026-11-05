@@ -29,12 +29,26 @@ const mocks = vi.hoisted(() => {
   return {
     rows,
     assetTag,
-    transaction: vi.fn(async (queries: Promise<unknown>[]) => Promise.all(queries)),
+    transaction: vi.fn(
+      async (queries: Promise<unknown>[] | ((tx: unknown) => Promise<unknown>)) => {
+        if (typeof queries !== "function") return Promise.all(queries);
+        return queries({
+          assetTag,
+          $queryRaw: async () => rows.map((row) => structuredClone(row)),
+          $executeRaw: async () => 1,
+        });
+      },
+    ),
     batchCreateTags: vi.fn(),
     saveTagsTreeToMuseDAM: vi.fn(),
   };
 });
 vi.mock("server-only", () => ({}));
+vi.mock("@/lib/tagging/tag-import-lock", async (original) => ({
+  ...(await original<typeof import("@/lib/tagging/tag-import-lock")>()),
+  runTagImportExclusive: async (_team: number, _user: number, run: () => Promise<unknown>) => run(),
+  assertTagImportOwnership: async () => {},
+}));
 vi.mock("@/prisma/prisma", () => ({
   default: { assetTag: mocks.assetTag, $transaction: mocks.transaction },
 }));
@@ -116,7 +130,13 @@ describe("tag configuration import", () => {
       data: { createCount: 0, updateCount: 0, unchangedCount: 1, issues: [] },
     });
     await importTagTreeAction(form);
-    expect(mocks.assetTag.update).not.toHaveBeenCalled();
+    expect(mocks.assetTag.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          extra: expect.objectContaining({ configurationSource: "import" }),
+        }),
+      }),
+    );
     expect(mocks.batchCreateTags).not.toHaveBeenCalled();
     expect(mocks.saveTagsTreeToMuseDAM).not.toHaveBeenCalled();
   });

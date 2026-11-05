@@ -1606,7 +1606,8 @@
       "backToEdit": "返回修改",
       "continueImport": "繼續匯入",
       "continueImportSkipIssues": "略過問題行，繼續匯入",
-      "importSuccessWithSkipped": "成功匯入 {count} 筆，已略過 {skipped} 筆有問題的行"
+      "importSuccessWithSkipped": "成功匯入 {count} 筆，已略過 {skipped} 筆有問題的行",
+      "memberImportInProgress": "成員 {name} 正在執行批次匯入，請稍後重新整理頁面再試。"
     }
   }
 }

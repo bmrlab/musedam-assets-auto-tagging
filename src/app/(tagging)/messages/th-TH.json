@@ -1606,7 +1606,8 @@
       "backToEdit": "กลับไปแก้ไข",
       "continueImport": "นำเข้าต่อ",
       "continueImportSkipIssues": "ข้ามแถวที่มีปัญหาและดำเนินการต่อ",
-      "importSuccessWithSkipped": "นำเข้า {count} แถว ข้าม {skipped} แถวที่มีปัญหา"
+      "importSuccessWithSkipped": "นำเข้า {count} แถว ข้าม {skipped} แถวที่มีปัญหา",
+      "memberImportInProgress": "Member {name} is running a bulk import. Please refresh the page and try again later."
     }
   }
 }

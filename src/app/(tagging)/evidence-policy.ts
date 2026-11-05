@@ -131,8 +131,9 @@ export function collectTagsMissingEvidencePolicy(
 ): TagTreeNodeWithPath[] {
   return flattenTagsTree(tagsTree).filter(
     (node) =>
-      getExplicitEvidencePolicy(node.extra) === undefined ||
-      (node.hasChildren && getExplicitSiblingsExclusive(node.extra) === undefined),
+      (node.extra as AssetTagExtra | null)?.configurationSource !== "import" &&
+      (getExplicitEvidencePolicy(node.extra) === undefined ||
+        (node.hasChildren && getExplicitSiblingsExclusive(node.extra) === undefined)),
   );
 }
 
@@ -187,7 +188,10 @@ export function applyContentOnlyRejection(extra: AssetTagExtra | null | undefine
   downgraded: boolean;
 } {
   const current = extra ?? {};
-  if (getExplicitEvidencePolicy(current) === "literal") {
+  if (
+    current.configurationSource === "import" ||
+    getExplicitEvidencePolicy(current) === "literal"
+  ) {
     return { extra: current, downgraded: false };
   }
   const count = (current.contentOnlyRejectionCount ?? 0) + 1;

@@ -1,11 +1,14 @@
 "use server";
 
+import { assertTagImportOwnership } from "@/lib/tagging/tag-import-lock";
+
 import { withAuth } from "@/app/(auth)/withAuth";
-import { pruneRejectionCountsForRemovedKeywords } from "@/app/(tagging)/keyword-feedback";
 import { executeGenerateTagTreeByLLM } from "@/app/tags/generateTagTreeLLM";
 import { Locale } from "@/i18n/routing";
 import { ServerActionResult } from "@/lib/serverAction";
 import { idToSlug } from "@/lib/slug";
+import { applyTagConfigImportChunk, markImportedTagNodes } from "@/lib/tagging/import-tag-config";
+import { bumpTagConfigVersion } from "@/lib/tagging/tag-config-version";
 import {
   AssetTagTreeNode,
   buildChildrenInclude,
@@ -13,11 +16,11 @@ import {
   MAX_TAG_LEVEL,
   TAG_LEVEL_EXCEEDED_MESSAGE,
 } from "@/lib/tagging/tag-level";
+import { importTagTreeSynchronously } from "@/musedam/tags/importTagTree";
 import { syncTagsFromMuseDAM } from "@/musedam/tags/syncFromMuseDAM";
 import {
   syncTagsToMuseDAM,
   syncTagsToMuseDAMWithCurrentSystemAsBase,
-  deleteAllMuseDAMTags,
 } from "@/musedam/tags/syncToMuseDAM";
 import { MuseDAMID } from "@/musedam/types";
 import type { AssetTagExtra, Prisma } from "@/prisma/client";
@@ -466,6 +469,7 @@ function mergeDuplicateSiblings(data: BatchCreateTagData[]): BatchCreateTagData[
 export async function batchCreateTags(
   rawNameChildList: BatchCreateTagData[],
   addType: 1 | 2, // 1: 仅保留新建标签树, 2: 合并到现有标签系统
+  options?: { imported?: boolean },
 ): Promise<ServerActionResult<void>> {
   return withAuth(async ({ team: { id: teamId, slug: teamSlug } }) => {
     try {
@@ -475,6 +479,20 @@ export async function batchCreateTags(
       // 批量导入的树从一级开始挂载，整体深度不能超过 MAX_TAG_LEVEL
       if (findExceedingTagLevel(nameChildList, (item) => item.nameChildList) !== null) {
         return { success: false, message: TAG_LEVEL_EXCEEDED_MESSAGE };
+      }
+
+      const atomicImportEnabled = process.env.MUSEDAM_TAG_TREE_IMPORT_ENABLED === "true";
+      if (addType === 1 && !atomicImportEnabled) {
+        throw new Error("覆盖导入需要主仓原子覆盖接口，请先完成主仓部署并启用同步标签导入接口。");
+      }
+      if (atomicImportEnabled) {
+        await importTagTreeSynchronously(
+          { id: teamId, slug: teamSlug },
+          nameChildList,
+          options?.imported,
+          addType === 1 ? "overwrite" : "merge",
+        );
+        return { success: true, data: undefined };
       }
 
       // 合并模式下先解析本地已存在的标签：已存在的节点带 id 且不标 create，
@@ -530,7 +548,9 @@ export async function batchCreateTags(
             slug: null,
             name: item.name,
             originalName: item.name,
-            children: item.nameChildList ? convertToTagNodes(item.nameChildList, currentPath, null, true) : [],
+            children: item.nameChildList
+              ? convertToTagNodes(item.nameChildList, currentPath, null, true)
+              : [],
             verb: "create" as const,
             tempId: currentPath,
           };
@@ -539,258 +559,57 @@ export async function batchCreateTags(
 
       const tagsTree = convertToTagNodes(nameChildList);
 
-      let syncResult: SyncResult | null = null;
-
-      // 先同步到 MuseDAM（在事务外执行，避免长时间事务）
-      // addType=1 走“先删后建”两步，避免同名 delete+create 在同一请求触发“标签已存在”
-      if (addType === 1) {
-        // 以 MuseDAM 实际标签树为准删除：本地无 slug 或本地没有的标签也要删掉，
-        // 否则残留的同名标签会让创建阶段报「标签名称已存在」
-        try {
-          await deleteAllMuseDAMTags({ team: { id: teamId, slug: teamSlug } });
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          console.error("Batch create tags MuseDAM delete phase failed", {
-            teamId,
-            addType,
-            stage: "primary-sync-delete",
-            message,
+      const syncResponse = await saveTagsTreeToMuseDAM(tagsTree);
+      if (!syncResponse.success) throw new Error(syncResponse.message || "同步到 MuseDAM 失败");
+      const syncResult = syncResponse.data;
+      // 合并到现有标签系统：获取现有标签，然后批量创建
+      await prisma.$transaction(
+        async (tx) => {
+          if (options?.imported) await assertTagImportOwnership(tx);
+          if (options?.imported)
+            await tx.$queryRaw`SELECT pg_advisory_xact_lock(${teamId}::int, 5521735::int)::text`;
+          // 获取所有现有标签用于去重检查
+          const existingTags = await tx.assetTag.findMany({
+            where: { teamId },
+            select: { id: true, name: true, parentId: true, level: true },
           });
-          throw new Error(message || "同步到 MuseDAM（删除阶段）失败");
-        }
 
-        const createResponse = await saveTagsTreeToMuseDAM(tagsTree);
-        if (!createResponse.success) {
-          console.error("Batch create tags MuseDAM create phase failed", {
-            teamId,
-            addType,
-            stage: "primary-sync-create",
-            message: createResponse.message,
+          // 创建标签映射用于快速查找
+          const existingTagMap = new Map<string, number>();
+          existingTags.forEach((tag) => {
+            existingTagMap.set(buildExistingTagKey(tag.parentId, tag.name), tag.id);
           });
-          throw new Error(createResponse.message || "同步到 MuseDAM（创建阶段）失败");
-        }
-        syncResult = createResponse.data;
-      } else {
-        const syncResponse = await saveTagsTreeToMuseDAM(tagsTree);
-        if (!syncResponse.success) {
-          console.error("Batch create tags primary MuseDAM sync failed", {
+
+          // 批量创建新标签
+          const ids = await createTagsBatchWithExistingCheck(
+            tx,
+            nameChildList,
             teamId,
-            addType,
-            stage: "primary-sync",
-            message: syncResponse.message,
-          });
-          throw new Error(syncResponse.message || "同步到 MuseDAM 失败");
-        }
-        syncResult = syncResponse.data;
-      }
-      if (addType === 1) {
-        // 仅保留新建标签树：删除所有现有标签，然后批量创建新标签
-        await prisma.$transaction(
-          async (tx) => {
-            // 1. 删除所有现有标签（级联删除子标签）
-            await tx.assetTag.deleteMany({
-              where: { teamId },
-            });
-
-            // 2. 批量创建新标签
-            await createTagsBatch(tx, nameChildList, teamId, syncResult, null, 1, "", baseTs);
-          },
-          {
-            timeout: 60000, // 60秒超时
-            isolationLevel: "ReadCommitted",
-          },
-        );
-      } else {
-        // 合并到现有标签系统：获取现有标签，然后批量创建
-        await prisma.$transaction(
-          async (tx) => {
-            // 获取所有现有标签用于去重检查
-            const existingTags = await tx.assetTag.findMany({
-              where: { teamId },
-              select: { id: true, name: true, parentId: true, level: true },
-            });
-
-            // 创建标签映射用于快速查找
-            const existingTagMap = new Map<string, number>();
-            existingTags.forEach((tag) => {
-              existingTagMap.set(buildExistingTagKey(tag.parentId, tag.name), tag.id);
-            });
-
-            // 批量创建新标签
-            await createTagsBatchWithExistingCheck(
-              tx,
-              nameChildList,
-              teamId,
-              existingTagMap,
-              syncResult,
-              null,
-              1,
-              "",
-              baseTs,
-            );
-          },
-          {
-            timeout: 60000, // 60秒超时
-            isolationLevel: "ReadCommitted",
-          },
-        );
-      }
-
-      // Merge has already pushed the requested changes and persisted their IDs.
-      // A full reconciliation here can delete unrelated remote or local tags.
-      if (addType === 2) return { success: true, data: undefined };
-
-      // 先做一次以本地为基准的结构对齐；失败则回退到“以 MuseDAM 为真相”拉取收敛
-      const alignResponse = await syncTagsToMuseDAMWithCurrentSystemAsBaseAction();
-      if (!alignResponse.success) {
-        console.error("Batch create tags align push failed", {
-          teamId,
-          addType,
-          stage: "align-push",
-          message: alignResponse.message,
-        });
-        const fallbackResponse = await syncTagsFromMuseDAMAction();
-        if (!fallbackResponse.success) {
-          console.error("Batch create tags fallback pull failed", {
-            teamId,
-            addType,
-            stage: "fallback-pull",
-            message: fallbackResponse.message,
-          });
-          throw new Error(
-            `标签同步失败（push=${alignResponse.message || "unknown"}; pull=${fallbackResponse.message || "unknown"}）`,
+            existingTagMap,
+            syncResult,
+            null,
+            1,
+            "",
+            baseTs,
           );
-        }
-      } else {
-        // 若仍存在未收敛 slug，补一次回灌确保 slug 与 MuseDAM id 对齐
-        const hasNullSlug = await prisma.assetTag.count({
-          where: {
-            teamId,
-            slug: null,
-          },
-        });
-        if (hasNullSlug > 0) {
-          const convergenceResponse = await syncTagsFromMuseDAMAction();
-          if (!convergenceResponse.success) {
-            console.error("Batch create tags slug convergence pull failed", {
-              teamId,
-              addType,
-              stage: "slug-convergence",
-              message: convergenceResponse.message,
-            });
-            throw new Error(convergenceResponse.message || "标签 slug 收敛失败");
-          }
-        }
-      }
-      return {
-        success: true,
-        data: undefined,
-      };
+          if (options?.imported) await markImportedTagNodes(tx, teamId, [...ids.values()]);
+          if (options?.imported) await bumpTagConfigVersion(tx, teamId);
+        },
+        {
+          timeout: 60000, // 60秒超时
+          isolationLevel: "ReadCommitted",
+        },
+      );
+
+      return { success: true, data: undefined };
     } catch (error) {
       console.error("Batch create tags error:", error);
       return {
         success: false,
-        message: error instanceof Error ? error.message : "批量创建标签时发生未知错误",
+        message: error instanceof Error ? error.message : "批量创建标签失败",
       };
     }
   });
-}
-
-// 批量创建标签的辅助函数（用于 addType === 1）
-async function createTagsBatch(
-  tx: Prisma.TransactionClient,
-  nameChildList: BatchCreateTagData[],
-  teamId: number,
-  syncResult: SyncResult | null,
-  parentId: number | null = null,
-  level: number = 1,
-  tempIdPrefix: string = "",
-  baseTs?: number,
-): Promise<Map<string, number>> {
-  if (nameChildList.length > 0 && level > MAX_TAG_LEVEL) {
-    throw new Error(TAG_LEVEL_EXCEEDED_MESSAGE);
-  }
-  const tagIdMap = new Map<string, number>();
-  const musedamSortMap = syncResult ? buildMuseDAMSortMap(syncResult.tags) : null;
-
-  // 准备批量创建的数据
-  const createData = nameChildList.map((item, index) => {
-    const currentTempId = tempIdPrefix
-      ? `${tempIdPrefix}_${index}`
-      : `batch_${baseTs ?? Date.now()}_${index}`;
-
-    let sortValue: number | undefined = undefined;
-    if (syncResult && syncResult.createdTagMapping && musedamSortMap) {
-      const musedamId = syncResult.createdTagMapping.get(currentTempId);
-      const idNum = Number(musedamId as unknown as number);
-      if (!Number.isNaN(idNum)) {
-        const s = musedamSortMap.get(idNum);
-        if (typeof s === "number") sortValue = s;
-      }
-      if (sortValue === undefined && syncResult.tags && syncResult.tags.length > 0) {
-        sortValue = getSortByTempIdPath(syncResult.tags, currentTempId);
-      }
-    }
-
-    return {
-      data: {
-        teamId,
-        name: item.name.trim(),
-        level,
-        parentId,
-        ...(sortValue !== undefined ? { sort: sortValue } : {}),
-      },
-      tempId: currentTempId,
-      nameChildList: item.nameChildList || [],
-    };
-  });
-
-  // 批量创建标签
-  const createdTags = await Promise.all(
-    createData.map(async ({ data, tempId, nameChildList }) => {
-      const createdTag = await tx.assetTag.create({ data });
-      tagIdMap.set(tempId, createdTag.id);
-      return { createdTag, tempId, nameChildList };
-    }),
-  );
-
-  // 批量更新 slug（如果有同步结果）
-  if (syncResult && syncResult.createdTagMapping) {
-    const updatePromises = createdTags
-      .filter(({ tempId }) => syncResult.createdTagMapping.has(tempId))
-      .map(async ({ createdTag, tempId }) => {
-        const musedamId = syncResult.createdTagMapping.get(tempId);
-        if (musedamId) {
-          const slug = idToSlug("assetTag", musedamId);
-          return tx.assetTag.update({
-            where: { id: createdTag.id },
-            data: { slug },
-          });
-        }
-      });
-
-    await Promise.all(updatePromises.filter(Boolean));
-  }
-
-  // 递归处理子标签
-  for (const { createdTag, tempId, nameChildList } of createdTags) {
-    if (nameChildList.length > 0) {
-      const childMap = await createTagsBatch(
-        tx,
-        nameChildList,
-        teamId,
-        syncResult,
-        createdTag.id,
-        level + 1,
-        tempId,
-        baseTs,
-      );
-      // 合并子标签映射
-      childMap.forEach((id, key) => tagIdMap.set(key, id));
-    }
-  }
-
-  return tagIdMap;
 }
 
 // 批量创建标签的辅助函数（用于 addType === 2，带重复检查）
@@ -1231,39 +1050,21 @@ export async function updateTagExtra(
         updateData.taggingEnabled = data.taggingEnabled;
       }
 
-      // 处理extra字段更新
-      const currentExtra = (existingTag.extra as AssetTagExtra) || {};
-      const newExtra: AssetTagExtra = { ...currentExtra };
-
-      if (data.description !== undefined) {
-        newExtra.description = data.description;
-      }
-      if (data.keywords !== undefined) {
-        newExtra.keywords = data.keywords;
-      }
-      if (data.negativeKeywords !== undefined) {
-        Object.assign(
-          newExtra,
-          pruneRejectionCountsForRemovedKeywords(currentExtra, data.negativeKeywords),
-        );
-      }
-      if (data.siblingsExclusive !== undefined) {
-        newExtra.siblingsExclusive = data.siblingsExclusive;
-      }
-      if (data.requiredGroup !== undefined) {
-        newExtra.requiredGroup = data.requiredGroup;
-      }
-
-      updateData.extra = newExtra;
-
-      // 更新标签
-      await prisma.assetTag.update({
-        where: {
-          id: tagId,
+      // 与导入使用相同行锁，在最新配置上仅合并本次编辑字段；保护导入来源和后台策略。
+      await prisma.$transaction((tx) =>
+        applyTagConfigImportChunk(
+          tx,
           teamId,
-        },
-        data: updateData,
-      });
+          [
+            {
+              tag: { id: tagId },
+              record: { fields: data },
+              data: updateData,
+            },
+          ],
+          false,
+        ),
+      );
 
       return {
         success: true,

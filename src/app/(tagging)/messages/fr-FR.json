@@ -1606,7 +1606,8 @@
       "backToEdit": "Retour à l'édition",
       "continueImport": "Continuer l'import",
       "continueImportSkipIssues": "Ignorer les problèmes et continuer",
-      "importSuccessWithSkipped": "{count} lignes importées, {skipped} lignes en erreur ignorées"
+      "importSuccessWithSkipped": "{count} lignes importées, {skipped} lignes en erreur ignorées",
+      "memberImportInProgress": "Member {name} is running a bulk import. Please refresh the page and try again later."
     }
   }
 }

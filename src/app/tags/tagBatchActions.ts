@@ -9,6 +9,12 @@ import {
   type BatchFileFormat,
 } from "@/app/(tagging)/tagging/batchFile";
 import type { ServerActionResult } from "@/lib/serverAction";
+import { applyTagConfigImportChunk } from "@/lib/tagging/import-tag-config";
+import {
+  assertTagImportOwnership,
+  runTagImportExclusive,
+  TagImportBusyError,
+} from "@/lib/tagging/tag-import-lock";
 import { MAX_TAG_LEVEL } from "@/lib/tagging/tag-level";
 import type { AssetTagExtra, Prisma } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
@@ -92,6 +98,7 @@ type PreparedImport =
     };
 
 type PreparedUpdate = {
+  importAncestorIds?: number[];
   autoDisabledRequiredGroup?: boolean;
   record: ParsedTagBatchRecord;
   tag: TagRow;
@@ -192,146 +199,163 @@ export async function precheckTagTreeImportAction(
 export async function importTagTreeAction(
   formData: FormData,
 ): Promise<ServerActionResult<TagTreeBatchImportResult>> {
-  return withAuth(async ({ team: { id: teamId } }) => {
+  return withAuth(async ({ user, team: { id: teamId } }) => {
     const locale = await getLocale();
     const t = await getTranslations("Tagging.BatchImportExport");
     const messages = tagBatchMessages(locale);
 
     try {
-      // Validate the original file before any mutation. If it both renames a
-      // parent and adds descendants, persist accepted renames first so creation
-      // resolves those descendants to the original parent ID.
-      const preflight = await prepareTagTreeImport(teamId, formData, true);
-      if (preflight.kind === "ready" && preflight.createCount > 0) {
-        const renames = preflight.prepared.filter((item) => item.data.name);
-        if (renames.length > 0) {
-          const synced = await saveTagsTreeToMuseDAM(
-            buildRenameSyncTree(renames, preflight.idIndex),
-          );
-          if (!synced.success) {
-            const failures = [
-              ...preflight.failures,
-              ...renames.map((item) => ({
-                rowNumber: item.record.rowNumber,
-                name: item.tag.name,
-                message: synced.message || messages.renameSyncFailed,
-              })),
-            ];
-            return {
-              success: true,
-              data: { successCount: 0, failedCount: failures.length, skippedCount: 0, failures },
-            };
-          }
-          await prisma.$transaction(
-            renames.map((item) =>
-              prisma.assetTag.update({
-                where: { id: item.tag.id, teamId },
-                data: { name: item.data.name },
-              }),
-            ),
-          );
-        }
-      }
-      const outcome = await prepareTagTreeImport(teamId, formData, false);
-      if (outcome.kind === "error") return { success: false, message: outcome.message };
-      if (outcome.kind === "fatal") {
-        return {
-          success: true,
-          data: {
-            successCount: 0,
-            failedCount: outcome.failures.length,
-            skippedCount: outcome.skippedCount ?? 0,
-            failures: outcome.failures,
-          },
-        };
-      }
-      const { prepared, failures, noopSuccessCount, idIndex } = outcome;
-
-      const autoDisabledIds = new Set(
-        prepared.filter((item) => item.autoDisabledRequiredGroup).map((item) => item.tag.id),
-      );
-      const autoDisabledTags: TagRow[] = [];
-
-      // 改名先推 MuseDAM，保持两端名称一致；同步失败的行不回写本地。
-      const renamedInMuseDAM = prepared.filter((item) => item.data.name && item.tag.slug);
-      if (renamedInMuseDAM.length > 0) {
-        const synced = await saveTagsTreeToMuseDAM(buildRenameSyncTree(renamedInMuseDAM, idIndex));
-        if (!synced.success) {
-          const message = synced.message
-            ? `${messages.renameSyncFailed}: ${synced.message}`
-            : messages.renameSyncFailed;
-          const failedItems = new Set(renamedInMuseDAM);
-          for (const item of renamedInMuseDAM) {
-            failures.push({
-              rowNumber: item.record.rowNumber,
-              name: item.record.id !== undefined ? `ID ${item.record.id}` : item.tag.name,
-              message,
-            });
-          }
-          prepared.splice(0, prepared.length, ...prepared.filter((item) => !failedItems.has(item)));
-        }
-      }
-
-      let successCount = noopSuccessCount;
-      for (const chunk of chunkArray(prepared, TAG_BATCH_UPDATE_CHUNK_SIZE)) {
-        try {
-          await prisma.$transaction(
-            chunk.map((item) =>
-              prisma.assetTag.update({
-                where: { id: item.tag.id, teamId },
-                data: item.data,
-              }),
-            ),
-          );
-          for (const item of chunk) {
-            applyPreparedUpdateLocally(item);
-            if (autoDisabledIds.has(item.tag.id)) autoDisabledTags.push(item.tag);
-            successCount += 1;
-          }
-        } catch (error) {
-          console.error("Failed to import tag chunk:", error);
-          // 分片失败时降级逐行，尽量保住其余行
-          for (const item of chunk) {
-            try {
-              await prisma.assetTag.update({
-                where: { id: item.tag.id, teamId },
-                data: item.data,
-              });
-              applyPreparedUpdateLocally(item);
-              if (autoDisabledIds.has(item.tag.id)) autoDisabledTags.push(item.tag);
-              successCount += 1;
-            } catch (rowError) {
-              console.error("Failed to import tag row:", rowError);
-              failures.push({
-                rowNumber: item.record.rowNumber,
-                name:
-                  item.record.id !== undefined
-                    ? `ID ${item.record.id}`
-                    : tagPathLabel(item.record.path) || item.tag.name,
-                message: rowError instanceof Error ? rowError.message : messages.rowImportFailed,
+      return await runTagImportExclusive<ServerActionResult<TagTreeBatchImportResult>>(
+        teamId,
+        user.id,
+        async () => {
+          // Validate the original file before any mutation. If it both renames a
+          // parent and adds descendants, persist accepted renames first so creation
+          // resolves those descendants to the original parent ID.
+          const preflight = await prepareTagTreeImport(teamId, formData, true);
+          if (preflight.kind === "ready" && preflight.createCount > 0) {
+            const renames = preflight.prepared.filter((item) => item.data.name);
+            if (renames.length > 0) {
+              const synced = await saveTagsTreeToMuseDAM(
+                buildRenameSyncTree(renames, preflight.idIndex),
+              );
+              if (!synced.success) {
+                const failures = [
+                  ...preflight.failures,
+                  ...renames.map((item) => ({
+                    rowNumber: item.record.rowNumber,
+                    name: item.tag.name,
+                    message: synced.message || messages.renameSyncFailed,
+                  })),
+                ];
+                return {
+                  success: true,
+                  data: {
+                    successCount: 0,
+                    failedCount: failures.length,
+                    skippedCount: 0,
+                    failures,
+                  },
+                };
+              }
+              await prisma.$transaction(async (tx) => {
+                await assertTagImportOwnership(tx);
+                await Promise.all(
+                  renames.map((item) =>
+                    tx.assetTag.update({
+                      where: { id: item.tag.id, teamId },
+                      data: { name: item.data.name },
+                    }),
+                  ),
+                );
               });
             }
           }
-        }
-      }
+          const outcome = await prepareTagTreeImport(teamId, formData, false);
+          if (outcome.kind === "error") return { success: false, message: outcome.message };
+          if (outcome.kind === "fatal") {
+            return {
+              success: true,
+              data: {
+                successCount: 0,
+                failedCount: outcome.failures.length,
+                skippedCount: outcome.skippedCount ?? 0,
+                failures: outcome.failures,
+              },
+            };
+          }
+          const { prepared, failures, noopSuccessCount, idIndex } = outcome;
 
-      return {
-        success: true,
-        data: {
-          successCount,
-          autoDisabledRequiredGroups: [
-            ...new Set(
-              autoDisabledTags.map((tag) =>
-                tagPathLabel(tagAncestry(tag, idIndex).map((ancestor) => ancestor.name)),
-              ),
-            ),
-          ],
-          failedCount: failures.length,
-          skippedCount: outcome.skippedCount,
-          failures,
+          const autoDisabledIds = new Set(
+            prepared.filter((item) => item.autoDisabledRequiredGroup).map((item) => item.tag.id),
+          );
+          const autoDisabledTags: TagRow[] = [];
+
+          // 改名先推 MuseDAM，保持两端名称一致；同步失败的行不回写本地。
+          const renamedInMuseDAM = prepared.filter((item) => item.data.name && item.tag.slug);
+          if (renamedInMuseDAM.length > 0) {
+            const synced = await saveTagsTreeToMuseDAM(
+              buildRenameSyncTree(renamedInMuseDAM, idIndex),
+            );
+            if (!synced.success) {
+              const message = synced.message
+                ? `${messages.renameSyncFailed}: ${synced.message}`
+                : messages.renameSyncFailed;
+              const failedItems = new Set(renamedInMuseDAM);
+              for (const item of renamedInMuseDAM) {
+                failures.push({
+                  rowNumber: item.record.rowNumber,
+                  name: item.record.id !== undefined ? `ID ${item.record.id}` : item.tag.name,
+                  message,
+                });
+              }
+              prepared.splice(
+                0,
+                prepared.length,
+                ...prepared.filter((item) => !failedItems.has(item)),
+              );
+            }
+          }
+
+          let successCount = noopSuccessCount;
+          for (const chunk of chunkArray(prepared, TAG_BATCH_UPDATE_CHUNK_SIZE)) {
+            try {
+              await prisma.$transaction((tx) => applyTagConfigImportChunk(tx, teamId, chunk));
+              for (const item of chunk) {
+                applyPreparedUpdateLocally(item);
+                if (autoDisabledIds.has(item.tag.id)) autoDisabledTags.push(item.tag);
+                successCount += 1;
+              }
+            } catch (error) {
+              console.error("Failed to import tag chunk:", error);
+              // 分片失败时降级逐行，尽量保住其余行
+              for (const item of chunk) {
+                try {
+                  await prisma.$transaction((tx) => applyTagConfigImportChunk(tx, teamId, [item]));
+                  applyPreparedUpdateLocally(item);
+                  if (autoDisabledIds.has(item.tag.id)) autoDisabledTags.push(item.tag);
+                  successCount += 1;
+                } catch (rowError) {
+                  console.error("Failed to import tag row:", rowError);
+                  failures.push({
+                    rowNumber: item.record.rowNumber,
+                    name:
+                      item.record.id !== undefined
+                        ? `ID ${item.record.id}`
+                        : tagPathLabel(item.record.path) || item.tag.name,
+                    message:
+                      rowError instanceof Error ? rowError.message : messages.rowImportFailed,
+                  });
+                }
+              }
+            }
+          }
+
+          return {
+            success: true,
+            data: {
+              successCount,
+              autoDisabledRequiredGroups: [
+                ...new Set(
+                  autoDisabledTags.map((tag) =>
+                    tagPathLabel(tagAncestry(tag, idIndex).map((ancestor) => ancestor.name)),
+                  ),
+                ),
+              ],
+              failedCount: failures.length,
+              skippedCount: outcome.skippedCount,
+              failures,
+            },
+          };
         },
-      };
+      );
     } catch (error) {
+      if (error instanceof TagImportBusyError)
+        return {
+          success: false,
+          code: "busy",
+          message: t("memberImportInProgress", { name: error.memberName }),
+        };
       console.error("Failed to import tag tree:", error);
       return {
         success: false,
@@ -479,7 +503,9 @@ async function prepareTagTreeImport(
   const createTree = tagBatchRecordsToCreateTree(missingPathRecords);
   const createPaths = collectNewTagPaths(createTree, lookup);
   if (!dryRun && createTree.length > 0) {
-    const created = await batchCreateTags(createTree, importMode === "overwrite" ? 1 : 2);
+    const created = await batchCreateTags(createTree, importMode === "overwrite" ? 1 : 2, {
+      imported: true,
+    });
     if (!created.success) {
       return { kind: "error", message: created.message || messages.rowImportFailed };
     }
@@ -544,7 +570,7 @@ async function prepareTagTreeImport(
       ) {
         throw new Error(messages.pathMismatch);
       }
-      let update = prepareRecordUpdate(tag, record, messages, nameOwnerIndex);
+      let update = prepareRecordUpdate(tag, record, messages, nameOwnerIndex, !dryRun);
       if (!dryRun && record.fields.requiredGroup === true && !parentIds.has(tag.id)) {
         update ??= { record, tag, data: {} };
         update.data.extra = {
@@ -557,6 +583,9 @@ async function prepareTagTreeImport(
         noopSuccessCount += 1;
         continue;
       }
+      update.importAncestorIds = tagAncestry(tag, idIndex)
+        .map((ancestor) => ancestor.id)
+        .filter((id) => id !== tag.id);
       prepared.push(update);
     } catch (error) {
       failures.push({
@@ -845,6 +874,7 @@ function prepareRecordUpdate(
   record: ParsedTagBatchRecord,
   messages: TagBatchMessages,
   nameOwnerIndex: Map<string, number>,
+  markImported = true,
 ): PreparedUpdate | null {
   const patch = record.fields;
   const nextName =
@@ -853,7 +883,9 @@ function prepareRecordUpdate(
       : undefined;
   const shouldRename = Boolean(nextName && nextName !== tag.name);
 
-  if (!hasFieldPatch(patch) && !shouldRename) return null;
+  const imported =
+    !markImported || ((tag.extra ?? {}) as AssetTagExtra).configurationSource === "import";
+  if (!hasFieldPatch(patch) && !shouldRename && imported) return null;
 
   if (shouldRename && nextName) {
     const ownerId = nameOwnerIndex.get(lowerTagKey(tag.parentId, nextName));
@@ -863,8 +895,11 @@ function prepareRecordUpdate(
   }
 
   const currentExtra = (tag.extra as AssetTagExtra) || {};
-  const nextExtra: AssetTagExtra = { ...currentExtra };
-  let extraChanged = false;
+  const nextExtra: AssetTagExtra = {
+    ...currentExtra,
+    ...(markImported ? { configurationSource: "import" as const } : {}),
+  };
+  let extraChanged = !imported;
   if (patch.description !== undefined && patch.description !== (currentExtra.description ?? "")) {
     nextExtra.description = patch.description;
     extraChanged = true;

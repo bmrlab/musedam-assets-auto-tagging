@@ -1606,7 +1606,8 @@
       "backToEdit": "返回修改",
       "continueImport": "继续导入",
       "continueImportSkipIssues": "跳过问题行，继续导入",
-      "importSuccessWithSkipped": "成功导入 {count} 条，已跳过 {skipped} 条有问题的行"
+      "importSuccessWithSkipped": "成功导入 {count} 条，已跳过 {skipped} 条有问题的行",
+      "memberImportInProgress": "成员 {name} 正在执行批量导入，请稍后刷新页面重试。"
     }
   }
 }

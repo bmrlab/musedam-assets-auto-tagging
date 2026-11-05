@@ -1606,7 +1606,8 @@
       "backToEdit": "Düzenlemeye dön",
       "continueImport": "İçe aktarmaya devam et",
       "continueImportSkipIssues": "Sorunları atla ve devam et",
-      "importSuccessWithSkipped": "{count} satır içe aktarıldı, sorunlu {skipped} satır atlandı"
+      "importSuccessWithSkipped": "{count} satır içe aktarıldı, sorunlu {skipped} satır atlandı",
+      "memberImportInProgress": "Member {name} is running a bulk import. Please refresh the page and try again later."
     }
   }
 }
