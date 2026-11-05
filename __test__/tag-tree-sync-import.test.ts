@@ -42,8 +42,13 @@ const mocks = vi.hoisted(() => {
   const assetTag = {
     deleteMany: vi.fn(async ({ where }) => {
       const before = rows.length;
-      for (let i = rows.length - 1; i >= 0; i--)
-        if (rows[i].teamId === where.teamId && !where.id?.notIn.includes(rows[i].id)) rows.splice(i, 1);
+      const ids: number[] = where.id?.in ?? [];
+      const notIn: number[] | undefined = where.id?.notIn;
+      for (let i = rows.length - 1; i >= 0; i--) {
+        if (rows[i].teamId !== where.teamId) continue;
+        const dropped = notIn ? !notIn.includes(rows[i].id) : ids.includes(rows[i].id);
+        if (dropped) rows.splice(i, 1);
+      }
       return { count: before - rows.length };
     }),
     findMany: vi.fn(async ({ where }) =>
@@ -246,6 +251,21 @@ it("does not replace local rows when an older server silently executes merge ins
   expect(mocks.rows.map((row) => row.name)).toEqual(["Old"]);
 });
 
+
+it("overwrite deletes omitted same-named children before their parents", async () => {
+  mocks.rows.push(
+    { id: 1, teamId: 7, parentId: null, name: "颜色", extra: {} },
+    { id: 2, teamId: 7, parentId: null, name: "尺寸", extra: {} },
+    { id: 3, teamId: 7, parentId: 1, name: "红", extra: {} },
+    { id: 4, teamId: 7, parentId: 2, name: "红", extra: {} },
+  );
+  await importTagTreeSynchronously(team, [{ name: "新树" }], true, "overwrite");
+  expect(mocks.tx.assetTag.deleteMany.mock.calls.map((call) => call[0].where.id.in)).toEqual([
+    [3, 4],
+    [1, 2],
+  ]);
+  expect(mocks.rows.map((row) => row.name)).toEqual(["新树"]);
+});
 
 it.each(["merge", "overwrite"] as const)("%s reuses local IDs and configuration; only overwrite removes omitted tags", async (mode) => {
   mocks.rows.push(

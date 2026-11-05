@@ -1,3 +1,4 @@
+import { deletionIdLayers } from "@/lib/tagging/delete-tag-layers";
 import { throwIfTagImportAborted } from "@/lib/tagging/tag-import-runtime";
 import type { TagTreeImportStats } from "@/lib/tagging/tag-import-result";
 import { idToSlug } from "@/lib/slug";
@@ -201,7 +202,18 @@ export async function importTagTreeSynchronously(
       }
       throwIfTagImportAborted();
       if (mode === "overwrite") {
-        await tx.assetTag.deleteMany({ where: { teamId: team.id, id: { notIn: retainedIds } } });
+        const retained = new Set(retainedIds);
+        // Leaves first. One DELETE of parents and same-named children lets
+        // ON DELETE SET NULL promote those children into roots and hit
+        // AssetTag_teamId_name_key.
+        const stale = [...index.values()].filter((tag) => !retained.has(tag.id));
+        for (const layer of deletionIdLayers(stale)) {
+          for (let offset = 0; offset < layer.length; offset += 500) {
+            await tx.assetTag.deleteMany({
+              where: { teamId: team.id, id: { in: layer.slice(offset, offset + 500) } },
+            });
+          }
+        }
       }
       await tx.teamConfig.update({
         where,
