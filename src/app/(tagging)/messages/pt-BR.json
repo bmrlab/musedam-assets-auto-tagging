@@ -93,6 +93,17 @@
       "searchPlaceholder": "Buscar por nome do ativo"
     },
     "Review": {
+      "tagSourceExisting": "Existing",
+      "tagSourceAi": "AI filled",
+      "tagSourceManual": "Manually added",
+      "tagSourceUnknown": "Source not recorded",
+      "addTagManually": "Add tags manually",
+      "addTagTitle": "Add tags manually",
+      "addTagSearchPlaceholder": "Search tags by name",
+      "addTagNoResults": "No tags found. Try another keyword.",
+      "addTagHint": "Select existing tags, then apply them using Add or the batch action.",
+      "addTagLoadFailed": "Unable to load tags. Please try again.",
+      "addTagRetry": "Retry",
       "add": "Adicionar",
       "openInMuseDAM": "Ver página do ativo",
       "previewImage": "Visualizar {name}",

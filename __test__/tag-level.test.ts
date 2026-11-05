@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { tagPredictionSchema } from "@/app/(tagging)/types";
 
 import {
   buildChildrenInclude,
@@ -16,6 +17,16 @@ const chain = (names: string[], verb?: N["verb"]): N[] =>
   names.length === 0 ? [] : [{ name: names[0], verb, children: chain(names.slice(1), verb) }];
 
 describe("tag-level helpers", () => {
+  it("accepts AI predictions targeting a fourth-level leaf", () => {
+    const prediction = { source: "basicInfo", tags: [{ confidence: 0.95, leafTagId: 4, tagPath: ["商品", "饮料", "茶饮", "绿茶"] }] };
+    expect(tagPredictionSchema.parse(prediction).tags[0].tagPath).toHaveLength(4);
+    expect(tagPredictionSchema.parse(prediction).tags[0].leafTagId).toBe(4);
+  });
+
+  it("rejects AI predictions deeper than four levels", () => {
+    expect(tagPredictionSchema.safeParse({ source: "basicInfo", tags: [{ confidence: 0.95, leafTagId: 5, tagPath: ["一", "二", "三", "四", "五"] }] }).success).toBe(false);
+  });
+
   it("MAX_TAG_LEVEL is 4", () => {
     expect(MAX_TAG_LEVEL).toBe(4);
   });

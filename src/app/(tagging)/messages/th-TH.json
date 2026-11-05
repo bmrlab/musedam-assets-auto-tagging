@@ -411,6 +411,17 @@
       }
     },
     "Review": {
+      "tagSourceExisting": "Existing",
+      "tagSourceAi": "AI filled",
+      "tagSourceManual": "Manually added",
+      "tagSourceUnknown": "Source not recorded",
+      "addTagManually": "Add tags manually",
+      "addTagTitle": "Add tags manually",
+      "addTagSearchPlaceholder": "Search tags by name",
+      "addTagNoResults": "No tags found. Try another keyword.",
+      "addTagHint": "Select existing tags, then apply them using Add or the batch action.",
+      "addTagLoadFailed": "Unable to load tags. Please try again.",
+      "addTagRetry": "Retry",
       "add": "เพิ่ม",
       "openInMuseDAM": "ดูหน้าสินทรัพย์",
       "previewImage": "แสดงตัวอย่าง {name}",
