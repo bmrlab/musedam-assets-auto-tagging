@@ -1601,6 +1601,8 @@
       "precheckHint": "Przed importem sprawdź poniższe informacje",
       "precheckSummary": "Zostanie utworzonych {create} tagów, zaktualizowanych {update}, bez zmian {unchanged}",
       "precheckRenameNotice": "{count} z nich zostanie przemianowanych i zsynchronizowanych z MuseDAM",
+      "precheckRequestFailed": "Precheck request failed. Your file has been kept; please try again.",
+      "importRequestInterrupted": "The import request was interrupted or timed out. The server may still be processing. Check the results later before submitting again.",
       "precheckWarningsLabel": "{count} duplicate entries were merged automatically. You can continue importing:",
       "precheckIssuesLabel": "{count} wierszy zawiera problemy i zostanie pominiętych, jeśli kontynuujesz:",
       "precheckCreateLabel": "Zostanie utworzonych {count} tagów:",

@@ -1,4 +1,5 @@
 import "server-only";
+import { getTagImportSignal } from "@/lib/tagging/tag-import-runtime";
 
 const SENSITIVE_HEADER_PATTERN = /^(authorization|cookie|set-cookie|x-api-key|api-key)$/i;
 
@@ -54,11 +55,19 @@ export async function requestMuseDAMAPI<T = unknown>(
   // customer payloads into container logs.
   const curlCommand = generateCurlCommand(url, method, requestHeaders);
 
+  const importSignal = getTagImportSignal();
+  importSignal?.throwIfAborted();
+  // Import requests must not keep the team lease alive forever while awaiting an upstream.
+  const requestTimeout = timeoutMs ?? (importSignal ? 75_000 : undefined);
+  const timeoutSignal = requestTimeout ? AbortSignal.timeout(requestTimeout) : undefined;
+  const signal = importSignal && timeoutSignal
+    ? AbortSignal.any([importSignal, timeoutSignal])
+    : importSignal ?? timeoutSignal;
   const response = await fetch(url, {
     method: method,
     body: requestBody,
     headers: requestHeaders,
-    ...(timeoutMs ? { signal: AbortSignal.timeout(timeoutMs) } : {}),
+    ...(signal ? { signal } : {}),
   });
   if (!response.ok) {
     let responseText = "";

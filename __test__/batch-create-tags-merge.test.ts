@@ -64,8 +64,8 @@ vi.mock("@/musedam/tags/importTagTree", () => ({ importTagTreeSynchronously: moc
 afterEach(() => vi.unstubAllEnvs());
 vi.mock("@/prisma/prisma", () => ({ default: mocks.prisma }));
 vi.mock("@/app/(auth)/withAuth", () => ({
-  withAuth: (fn: (args: { user: unknown; team: { id: number } }) => Promise<unknown>) =>
-    fn({ user: { id: "u1" }, team: { id: 1 } }),
+  withAuth: (fn: (args: { user: unknown; team: { id: number; slug: string } }) => Promise<unknown>) =>
+    fn({ user: { id: "u1" }, team: { id: 1, slug: "t/test" } }),
 }));
 vi.mock("@/musedam/tags/syncToMuseDAM", () => ({
   syncTagsToMuseDAM: mocks.syncTagsToMuseDAM,
@@ -82,20 +82,6 @@ vi.mock("@/app/tags/generateTagTreeLLM", () => ({
 }));
 
 import { batchCreateTags } from "@/app/tags/actions";
-import type { TagNode } from "@/app/tags/types";
-
-const seed = (row: Omit<TagRow, "teamId">) => {
-  mocks.rows.push({ teamId: 1, ...row });
-};
-
-const lastSyncedTree = (): TagNode[] => {
-  const call = mocks.syncTagsToMuseDAM.mock.calls.at(-1)?.[0] as
-    | { tagsTree: TagNode[] }
-    | undefined;
-  if (!call) throw new Error("syncTagsToMuseDAM was not called");
-  return call.tagsTree;
-};
-
 const input = [
   {
     name: "品牌",
@@ -103,166 +89,44 @@ const input = [
   },
 ];
 
-describe("batchCreateTags merge mode (addType=2)", () => {
-  beforeEach(() => {
-    vi.stubEnv("MUSEDAM_TAG_TREE_IMPORT_ENABLED", "false");
-    mocks.reset();
-    vi.clearAllMocks();
-    mocks.syncTagsToMuseDAM.mockResolvedValue({ tags: [], createdTagMapping: new Map() });
-  });
 
-  it("reuses an existing synced root tag and only creates the missing children", async () => {
-    seed({ id: 10, name: "品牌", slug: "slug-10", parentId: null, level: 1 });
+beforeEach(() => { mocks.reset(); vi.clearAllMocks(); });
+afterEach(() => vi.unstubAllEnvs());
 
-    const result = await batchCreateTags(input, 2);
-    expect(result.success).toBe(true);
-
-    const tree = lastSyncedTree();
-    expect(tree).toHaveLength(1);
-    expect(tree[0].id).toBe(10);
-    expect(tree[0].slug).toBe("slug-10");
-    expect(tree[0].verb).toBeUndefined();
-    expect(tree[0].children[0].verb).toBe("create");
-    expect(tree[0].children[0].id).toBeUndefined();
-    expect(tree[0].children[0].children[0].verb).toBe("create");
-
-    expect(mocks.assetTag.create).toHaveBeenCalledTimes(2);
-    const created = mocks.assetTag.create.mock.calls.map((c) => c[0].data);
-    const huawei = created.find((d) => d.name === "华为");
-    const mate = created.find((d) => d.name === "Mate60");
-    expect(huawei).toMatchObject({ parentId: 10, level: 2, teamId: 1 });
-    expect(mate?.level).toBe(3);
-    expect(mate?.parentId).toBe(mocks.rows.find((r) => r.name === "华为")?.id);
-    // 根标签未被重复创建
-    expect(mocks.rows.filter((r) => r.name === "品牌")).toHaveLength(1);
-  });
-
-  it("marks the whole tree as create when the root does not exist yet", async () => {
-    const result = await batchCreateTags(input, 2);
-    expect(result.success).toBe(true);
-
-    const tree = lastSyncedTree();
-    expect(tree[0].verb).toBe("create");
-    expect(tree[0].id).toBeUndefined();
-    expect(tree[0].children[0].verb).toBe("create");
-    expect(mocks.assetTag.create).toHaveBeenCalledTimes(3);
-  });
-
-  it("marks an existing root without slug as update so MuseDAM falls back to create", async () => {
-    seed({ id: 10, name: "品牌", slug: null, parentId: null, level: 1 });
-
-    const result = await batchCreateTags(input, 2);
-    expect(result.success).toBe(true);
-
-    const tree = lastSyncedTree();
-    expect(tree[0].id).toBe(10);
-    expect(tree[0].verb).toBe("update");
-    expect(mocks.assetTag.create).toHaveBeenCalledTimes(2);
-  });
-
-  it("is a no-op for the DB when the imported tree already exists entirely", async () => {
-    seed({ id: 10, name: "品牌", slug: "s10", parentId: null, level: 1 });
-    seed({ id: 11, name: "华为", slug: "s11", parentId: 10, level: 2 });
-    seed({ id: 12, name: "Mate60", slug: "s12", parentId: 11, level: 3 });
-
-    const result = await batchCreateTags(input, 2);
-    expect(result.success).toBe(true);
-
-    const tree = lastSyncedTree();
-    expect(tree[0].verb).toBeUndefined();
-    expect(tree[0].children[0].id).toBe(11);
-    expect(tree[0].children[0].children[0].id).toBe(12);
-    expect(mocks.assetTag.create).not.toHaveBeenCalled();
-  });
-
-  it("matches an existing root even when its stored level is wrong", async () => {
-    // 历史数据 level 不准时不能撞 teamId+name 唯一索引
-    seed({ id: 10, name: "品牌", slug: "s10", parentId: null, level: 2 });
-
-    const result = await batchCreateTags(input, 2);
-    expect(result.success).toBe(true);
-    expect(lastSyncedTree()[0].id).toBe(10);
-    expect(mocks.rows.filter((r) => r.name === "品牌")).toHaveLength(1);
-  });
-
-  it("never reuses an unrelated root as a child of a new parent", async () => {
-    seed({ id: 10, name: "已有", slug: "s10", parentId: null, level: 1 });
-    const result = await batchCreateTags(
-      [{ name: "新父级", nameChildList: [{ name: "已有" }] }],
-      2,
-    );
-    expect(result.success).toBe(true);
-    const child = lastSyncedTree()[0].children[0];
-    expect(child.id).toBeUndefined();
-    expect(child.verb).toBe("create");
-    expect(mocks.rows.find((row) => row.id === 10)?.parentId).toBeNull();
-    expect(mocks.rows.filter((row) => row.name === "已有")).toHaveLength(2);
-    expect(mocks.assetTag.deleteMany).not.toHaveBeenCalled();
-  });
-
-  it("keeps old branches and does not duplicate repeated imported paths", async () => {
-    seed({ id: 10, name: "品牌", slug: "s10", parentId: null, level: 1 });
-    seed({ id: 11, name: "原有子级", slug: "s11", parentId: 10, level: 2 });
-    seed({ id: 12, name: "保留的一级", slug: "s12", parentId: null, level: 1 });
-    const result = await batchCreateTags([...input, ...input], 2);
-    expect(result.success).toBe(true);
-    expect(mocks.rows.find((row) => row.id === 11)?.name).toBe("原有子级");
-    expect(mocks.rows.find((row) => row.id === 12)?.name).toBe("保留的一级");
-    expect(mocks.assetTag.create).toHaveBeenCalledTimes(2);
-    expect(mocks.assetTag.deleteMany).not.toHaveBeenCalled();
-  });
+it.each([1, 2] as const)("always uses the synchronous import endpoint for addType %i with no configuration", async (addType) => {
+  vi.stubEnv("MUSEDAM_TAG_TREE_IMPORT_ENABLED", undefined);
+  expect(await batchCreateTags(input, addType, { imported: true })).toMatchObject({ success: true });
+  expect(mocks.atomicImport).toHaveBeenCalledWith({ id: 1, slug: "t/test" }, input, true, addType === 1 ? "overwrite" : "merge");
+  expect(mocks.syncTagsToMuseDAM).not.toHaveBeenCalled();
+  expect(mocks.assetTag.create).not.toHaveBeenCalled();
+  expect(mocks.assetTag.deleteMany).not.toHaveBeenCalled();
 });
 
-it("never runs destructive full-tree push or pull after a merge", async () => {
-  mocks.reset();
-  vi.clearAllMocks();
-  mocks.syncTagsToMuseDAM.mockResolvedValue({ tags: [], createdTagMapping: new Map() });
-  mocks.assetTag.count.mockResolvedValueOnce(1);
-  expect(await batchCreateTags(input, 2)).toMatchObject({ success: true });
+it.each(["false", "true"])("ignores the obsolete environment switch value %s", async (value) => {
+  vi.stubEnv("MUSEDAM_TAG_TREE_IMPORT_ENABLED", value);
+  await batchCreateTags(input, 2);
+  expect(mocks.atomicImport).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }), input, undefined, "merge");
+  expect(mocks.syncTagsToMuseDAM).not.toHaveBeenCalled();
+});
+
+it("coalesces duplicate paths before submitting one synchronous import", async () => {
+  expect(await batchCreateTags([...input, ...input], 2)).toMatchObject({ success: true });
+  expect(mocks.atomicImport).toHaveBeenCalledTimes(1);
+  expect(mocks.atomicImport).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }), input, undefined, "merge");
+});
+
+it.each([1, 2] as const)("never falls back to legacy writes when addType %i fails", async (addType) => {
+  mocks.atomicImport.mockRejectedValueOnce(new Error("upstream unavailable"));
+  expect(await batchCreateTags(input, addType)).toMatchObject({ success: false, message: "upstream unavailable" });
+  expect(mocks.syncTagsToMuseDAM).not.toHaveBeenCalled();
   expect(mocks.syncTagsToMuseDAMWithCurrentSystemAsBase).not.toHaveBeenCalled();
   expect(mocks.syncTagsFromMuseDAM).not.toHaveBeenCalled();
+  expect(mocks.assetTag.create).not.toHaveBeenCalled();
+  expect(mocks.assetTag.deleteMany).not.toHaveBeenCalled();
 });
 
-it("never runs destructive full-tree push or pull after a merge", async () => {
-  mocks.reset();
-  vi.clearAllMocks();
-  mocks.syncTagsToMuseDAM.mockResolvedValue({ tags: [], createdTagMapping: new Map() });
-  mocks.assetTag.count.mockResolvedValueOnce(1);
-  expect(await batchCreateTags(input, 2)).toMatchObject({ success: true });
-  expect(mocks.syncTagsToMuseDAMWithCurrentSystemAsBase).not.toHaveBeenCalled();
-  expect(mocks.syncTagsFromMuseDAM).not.toHaveBeenCalled();
-});
-
-describe("atomic overwrite safety", () => {
-  beforeEach(() => {
-    vi.stubEnv("MUSEDAM_TAG_TREE_IMPORT_ENABLED", "false");
-    mocks.reset();
-    vi.clearAllMocks();
-  });
-  it("rejects overwrite before any mutation when the atomic endpoint is disabled", async () => {
-    seed({ id: 1, name: "Old", slug: "g/1", parentId: null, level: 1 });
-    const result = await batchCreateTags([{ name: "New" }], 1);
-    expect(result).toMatchObject({
-      success: false,
-      message: expect.stringContaining("主仓原子覆盖接口"),
-    });
-    expect(mocks.rows[0].name).toBe("Old");
-    expect(mocks.assetTag.deleteMany).not.toHaveBeenCalled();
-    expect(mocks.syncTagsToMuseDAM).not.toHaveBeenCalled();
-    expect(mocks.atomicImport).not.toHaveBeenCalled();
-  });
-  it("uses a single atomic overwrite request and never falls back to legacy delete/create on failure", async () => {
-    vi.stubEnv("MUSEDAM_TAG_TREE_IMPORT_ENABLED", "true");
-    mocks.atomicImport.mockRejectedValueOnce(new Error("overwrite rolled back"));
-    const result = await batchCreateTags([{ name: "New" }], 1, { imported: true });
-    expect(result).toMatchObject({ success: false, message: "overwrite rolled back" });
-    expect(mocks.atomicImport).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 1 }),
-      [{ name: "New" }],
-      true,
-      "overwrite",
-    );
-    expect(mocks.assetTag.deleteMany).not.toHaveBeenCalled();
-    expect(mocks.syncTagsToMuseDAM).not.toHaveBeenCalled();
-  });
+it("rejects a tree exceeding the supported depth before contacting MuseDAM", async () => {
+  const deep = [{ name: "1", nameChildList: [{ name: "2", nameChildList: [{ name: "3", nameChildList: [{ name: "4", nameChildList: [{ name: "5" }] }] }] }] }];
+  expect(await batchCreateTags(deep, 2)).toMatchObject({ success: false });
+  expect(mocks.atomicImport).not.toHaveBeenCalled();
 });

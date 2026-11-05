@@ -10,10 +10,11 @@ const mocks = vi.hoisted(() => ({
   downloadTagTreeImportTemplateAction: vi.fn(),
   toastSuccess: vi.fn(),
   toastWarning: vi.fn(),
+  toastError: vi.fn(),
 }));
 vi.mock("next-intl", () => ({ useTranslations: () => (key: string) => key }));
 vi.mock("sonner", () => ({
-  toast: { success: mocks.toastSuccess, error: vi.fn(), warning: mocks.toastWarning },
+  toast: { success: mocks.toastSuccess, error: mocks.toastError, warning: mocks.toastWarning },
 }));
 vi.mock("@/app/tags/tagBatchActions", () => mocks);
 vi.mock("@/app/tags/components/TagImportPreview", () => ({
@@ -366,4 +367,36 @@ it("keeps import disabled only when no valid tree nodes are available", async ()
   await screen.findByText("importPreviewTitle");
   expect((screen.getByText("continueImportSkipIssues") as HTMLButtonElement).disabled).toBe(true);
   expect(mocks.importTagTreeAction).not.toHaveBeenCalled();
+});
+
+
+it("keeps the page and preview usable after a rejected 504 import request", async () => {
+  mocks.precheckTagTreeImportAction.mockResolvedValue({ success: true, data: {
+    importableCount: 1, createCount: 0, createPaths: [], updateCount: 0, unchangedCount: 0,
+    issues: [], previewTree: [{ name: "品牌" }],
+  } });
+  mocks.importTagTreeAction.mockRejectedValueOnce(new Error("Unexpected response: 504 Gateway Timeout"));
+  const view = setup(); upload(view.container); fireEvent.click(screen.getByText("confirm"));
+  await screen.findByText("importPreviewTitle");
+  await waitFor(() => expect((screen.getByText("continueImport") as HTMLButtonElement).disabled).toBe(false));
+  fireEvent.click(screen.getByText("continueImport"));
+  await waitFor(() => expect(mocks.toastWarning).toHaveBeenCalledWith("importRequestInterrupted"));
+  expect(screen.getByText("importPreviewTitle")).toBeTruthy();
+  expect(screen.getByTestId("tag-tree-preview").textContent).toContain("品牌");
+  expect(mocks.importTagTreeAction).toHaveBeenCalledOnce();
+  expect(view.onImported).not.toHaveBeenCalled();
+  expect(view.onOpenChange).not.toHaveBeenCalled();
+  await waitFor(() => expect((screen.getByText("continueImport") as HTMLButtonElement).disabled).toBe(false));
+  fireEvent.click(screen.getByText("continueImport"));
+  await waitFor(() => expect(mocks.importTagTreeAction).toHaveBeenCalledTimes(2));
+  expect(mocks.importTagTreeAction.mock.calls[1][0].get("file")).toBeInstanceOf(File);
+});
+
+it("handles a failed precheck request without crashing or losing the selected file", async () => {
+  mocks.precheckTagTreeImportAction.mockRejectedValueOnce(new Error("504"));
+  const view = setup(); upload(view.container); fireEvent.click(screen.getByText("confirm"));
+  await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith("precheckRequestFailed"));
+  expect(screen.getByText("tags.csv")).toBeTruthy();
+  expect(mocks.importTagTreeAction).not.toHaveBeenCalled();
+  expect(view.onOpenChange).not.toHaveBeenCalled();
 });

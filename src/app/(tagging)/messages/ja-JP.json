@@ -1601,6 +1601,8 @@
       "precheckHint": "インポート前に以下を確認してください",
       "precheckSummary": "{create} 件のタグを作成、{update} 件を更新、{unchanged} 件は変更なし",
       "precheckRenameNotice": "そのうち {count} 件のタグ名が変更され、MuseDAM に同期されます",
+      "precheckRequestFailed": "Precheck request failed. Your file has been kept; please try again.",
+      "importRequestInterrupted": "The import request was interrupted or timed out. The server may still be processing. Check the results later before submitting again.",
       "precheckWarningsLabel": "{count} duplicate entries were merged automatically. You can continue importing:",
       "precheckIssuesLabel": "以下の {count} 行に問題があります。続行するとスキップされます：",
       "precheckCreateLabel": "作成される {count} 件のタグ：",

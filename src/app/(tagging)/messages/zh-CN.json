@@ -1601,6 +1601,8 @@
       "precheckHint": "检测到以下情况，请确认后再导入",
       "precheckSummary": "将新建 {create} 个标签，更新 {update} 个，{unchanged} 个无变化",
       "precheckRenameNotice": "其中 {count} 个标签会改名，并同步到 MuseDAM",
+      "precheckRequestFailed": "预检请求失败，请重试。所选文件已保留。",
+      "importRequestInterrupted": "导入请求中断或超时，服务端可能仍在处理。请稍后刷新查看结果，避免连续重复提交。",
       "precheckWarningsLabel": "以下 {count} 处重复内容已自动合并，可继续导入：",
       "precheckIssuesLabel": "以下 {count} 行存在问题，继续导入将跳过这些行：",
       "precheckCreateLabel": "将新建的 {count} 个标签：",

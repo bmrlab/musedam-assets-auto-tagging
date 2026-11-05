@@ -3,21 +3,24 @@ import {
   assertTagImportOwnership,
   runTagImportExclusive,
   TagImportBusyError,
+  TAG_IMPORT_MAX_DURATION_MS,
+  TagImportTimeoutError,
 } from "@/lib/tagging/tag-import-lock";
 import type { Prisma } from "@/prisma/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => {
-  type Lease = { token: string; memberName: string; expiresAt: number };
+  type Lease = { token: string; memberName: string; expiresAt: number; createdAt: number; deadlineAt?: number };
   const leases = new Map<number, Lease>();
   const query = vi.fn(async (strings, ...values) => {
     if (String(strings).includes('AS "memberName"')) {
       const lease = leases.get(values[0]);
-      return lease && lease.expiresAt > Date.now() ? [{ memberName: lease.memberName }] : [];
+      return lease && lease.expiresAt > Date.now() && (lease.deadlineAt ?? lease.createdAt + values[2]) > Date.now() ? [{ memberName: lease.memberName }] : [];
     }
     if (String(strings).includes("INSERT INTO")) {
-      const [team, , token, memberName, duration] = values;
-      if ((leases.get(team)?.expiresAt ?? 0) >= Date.now()) return [];
-      leases.set(team, { token, memberName, expiresAt: Date.now() + duration });
+      const [team, , token, memberName, duration, maximumDuration] = values;
+      const previous = leases.get(team);
+      if (previous && previous.expiresAt >= Date.now() && (previous.deadlineAt ?? previous.createdAt + maximumDuration) > Date.now()) return [];
+      leases.set(team, { token, memberName, expiresAt: Date.now() + duration, createdAt: Date.now(), deadlineAt: Date.now() + maximumDuration });
       return [{ id: 1 }];
     }
     const [team, , token] = values;
@@ -29,7 +32,7 @@ const mocks = vi.hoisted(() => {
     const [duration, team, , token] = values;
     const lease = leases.get(team);
     if (!lease || lease.token !== token || lease.expiresAt <= Date.now()) return 0;
-    lease.expiresAt = Date.now() + duration;
+    lease.expiresAt = Math.min(Date.now() + duration, lease.deadlineAt!);
     return 1;
   });
   const config = {
@@ -151,4 +154,70 @@ it("fences a resumed old process and never releases the new owner's lease", asyn
   expect(mocks.leases.get(7)?.memberName).toBe("李四");
   secondFinish.resolve();
   await second;
+});
+
+
+it("caps heartbeat renewal and fences a hung task after its overall deadline", async () => {
+  const started = gate(), resume = gate(), nextStarted = gate(), nextFinish = gate();
+  const first = runTagImportExclusive(7, 1, async () => {
+    started.resolve();
+    await resume.promise;
+    await assertTagImportOwnership(tx);
+  });
+  const failed = expect(first).rejects.toBeInstanceOf(TagImportTimeoutError);
+  await started.promise;
+  const maximumExpiry = Date.now() + TAG_IMPORT_MAX_DURATION_MS;
+  await vi.advanceTimersByTimeAsync(TAG_IMPORT_MAX_DURATION_MS - 1);
+  expect(mocks.leases.get(7)!.expiresAt).toBeLessThanOrEqual(maximumExpiry);
+  await vi.advanceTimersByTimeAsync(1);
+  await failed;
+  expect(mocks.leases.has(7)).toBe(false);
+  const next = runTagImportExclusive(7, 2, async () => {
+    nextStarted.resolve(); await nextFinish.promise;
+  });
+  await nextStarted.promise;
+  resume.resolve();
+  await Promise.resolve();
+  expect(mocks.leases.get(7)?.memberName).toBe("李四");
+  nextFinish.resolve(); await next;
+});
+
+it("does not keep a completed request hanging on a stuck heartbeat cleanup", async () => {
+  const started = gate(), finish = gate(), renewal = gate();
+  mocks.execute.mockImplementationOnce(async () => { await renewal.promise; return 0; });
+  const first = runTagImportExclusive(7, 1, async () => {
+    started.resolve(); await finish.promise; return "done";
+  });
+  await started.promise;
+  await vi.advanceTimersByTimeAsync(20_000);
+  finish.resolve();
+  await vi.advanceTimersByTimeAsync(5_000);
+  await expect(first).resolves.toBe("done");
+  // No unsafe deletion when cleanup could not establish the heartbeat's outcome.
+  expect(mocks.leases.has(7)).toBe(true);
+  await vi.advanceTimersByTimeAsync(120_000);
+  await expect(runTagImportExclusive(7, 2, async () => "retry")).resolves.toBe("retry");
+  renewal.resolve();
+});
+
+
+it("automatically takes over an over-age legacy lock even if the old process kept renewing it", async () => {
+  mocks.leases.set(7, {
+    token: "legacy-task", memberName: "张三", expiresAt: Date.now() + 120_000,
+    createdAt: Date.now() - TAG_IMPORT_MAX_DURATION_MS - 1,
+  });
+  await expect(runTagImportExclusive(7, 1, async () => {
+    await assertTagImportOwnership(tx);
+    expect(mocks.leases.get(7)?.token).not.toBe("legacy-task");
+    return "recovered";
+  })).resolves.toBe("recovered");
+  expect(mocks.leases.has(7)).toBe(false);
+});
+
+it("keeps a recent legacy lock exclusive until its maximum age is reached", async () => {
+  mocks.leases.set(7, {
+    token: "legacy-task", memberName: "张三", expiresAt: Date.now() + 120_000, createdAt: Date.now(),
+  });
+  await expect(runTagImportExclusive(7, 2, async () => {})).rejects.toBeInstanceOf(TagImportBusyError);
+  expect(mocks.leases.get(7)?.token).toBe("legacy-task");
 });

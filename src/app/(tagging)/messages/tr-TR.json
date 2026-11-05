@@ -1601,6 +1601,8 @@
       "precheckHint": "İçe aktarmadan önce lütfen aşağıdakileri inceleyin",
       "precheckSummary": "{create} etiket oluşturulacak, {update} güncellenecek, {unchanged} değişmeyecek",
       "precheckRenameNotice": "Bunlardan {count} tanesi yeniden adlandırılıp MuseDAM ile senkronize edilecek",
+      "precheckRequestFailed": "Precheck request failed. Your file has been kept; please try again.",
+      "importRequestInterrupted": "The import request was interrupted or timed out. The server may still be processing. Check the results later before submitting again.",
       "precheckWarningsLabel": "{count} duplicate entries were merged automatically. You can continue importing:",
       "precheckIssuesLabel": "{count} satırda sorun var; devam ederseniz atlanacak:",
       "precheckCreateLabel": "{count} etiket oluşturulacak:",
