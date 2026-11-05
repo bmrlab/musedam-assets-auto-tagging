@@ -191,6 +191,8 @@
       "excludeRule": "Regla de exclusión:",
       "excludeRuleDescription": "Cuando los nombres de activos, metadatos y rutas de carpetas contengan estas palabras clave, incluso si se encuentran coincidencias, la etiqueta no se aplicará automáticamente",
       "inputKeywords": "Introduzca palabras clave",
+      "expandKeywords": "Mostrar todo ({count})",
+      "collapseKeywords": "Mostrar menos",
       "matchingKeywords": "Palabras clave coincidentes",
       "matchingKeywordsTooltip": "Agregue palabras clave relacionadas con esta etiqueta para ayudar a la IA a identificarla con mayor precisión",
       "matchingRule": "Regla de coincidencia:",

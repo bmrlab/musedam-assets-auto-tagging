@@ -191,6 +191,8 @@
       "excludeRule": "제외 규칙:",
       "excludeRuleDescription": "자료의 이름, 메타데이터 및 폴더에 해당 키워드가 포함된 경우, 위 키워드와 일치하더라도 자동으로 태그가 지정되지 않습니다.",
       "inputKeywords": "키워드 입력",
+      "expandKeywords": "모두 보기 ({count})",
+      "collapseKeywords": "접기",
       "matchingKeywords": "키워드 매칭",
       "matchingKeywordsTooltip": "이 태그와 관련된 키워드를 추가하여 AI가 이 태그를 더 정확하게 인식하도록 도와주세요",
       "matchingRule": "매칭 규칙:",

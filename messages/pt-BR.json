@@ -191,6 +191,8 @@
       "excludeRule": "Regra de Exclusão:",
       "excludeRuleDescription": "Quando nomes de ativos, metadados e caminhos de pastas contêm essas palavras-chave, mesmo que palavras-chave correspondentes sejam encontradas, a tag não será aplicada automaticamente.",
       "inputKeywords": "Digite palavras-chave",
+      "expandKeywords": "Mostrar tudo ({count})",
+      "collapseKeywords": "Mostrar menos",
       "matchingKeywords": "Palavras-chave Correspondentes",
       "matchingKeywordsTooltip": "Adicione palavras-chave relacionadas a essa tag para ajudar a IA a identificar a tag com mais precisão",
       "matchingRule": "Regra de Correspondência:",

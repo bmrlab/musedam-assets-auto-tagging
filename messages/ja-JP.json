@@ -191,6 +191,8 @@
       "excludeRule": "除外ルール：",
       "excludeRuleDescription": "素材の名前、メタデータおよび格納フォルダーにこれらのキーワードが含まれている場合、上記のキーワードに一致しても自動的にタグが付けられません。",
       "inputKeywords": "キーワードを入力",
+      "expandKeywords": "すべて表示（{count}）",
+      "collapseKeywords": "折りたたむ",
       "matchingKeywords": "キーワードをマッチング",
       "matchingKeywordsTooltip": "このタグに関連するキーワードを追加し、AIがこのタグをより正確に識別できるようにしてください",
       "matchingRule": "マッチングルール：",

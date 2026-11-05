@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { AssetTagExtra } from "@/prisma/client";
 import { AssetTag } from "@/prisma/client";
-import { InfoIcon, Plus, X } from "lucide-react";
+import { InfoIcon, Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
@@ -18,6 +18,7 @@ import { localizeTagActionMessage } from "../tagActionMessage";
 import { TagEditData, useTagEdit } from "../contexts/TagEditContext";
 import { usePendingInboundTagRequired } from "../hooks/usePendingInboundTagRequired";
 import { useTagVisibility } from "../hooks/useTagVisibility";
+import { CollapsibleKeywordList } from "./CollapsibleKeywordList";
 import { TagVisibilityDisplay } from "./TagVisibilityDisplay";
 
 /** 详情面板中的开关项：标题 + 提示图标，下方小号开关 + 状态说明 */
@@ -212,23 +213,11 @@ export function TagDetails({ selectedTag, refreshTags, canEdit = false }: TagDet
     };
 
     return (
-      <div className="flex flex-wrap gap-1.5">
-        {formData[type].map((keyword, index) => (
-          <div
-            key={index}
-            className="inline-flex items-center gap-1 bg-muted hover:bg-muted/80 rounded-md px-2 py-1 text-sm"
-          >
-            <span>{keyword}</span>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-4 w-4 p-0 text-basic-5 hover:text-red-500 dark:hover:text-red-400"
-              onClick={() => removeKeyword(type, index)}
-            >
-              <X className="h-3 w-3" />
-            </Button>
-          </div>
-        ))}
+      <CollapsibleKeywordList
+        key={`${selectedTag?.tag.id}:${type}:edit`}
+        keywords={formData[type]}
+        onRemove={(index) => removeKeyword(type, index)}
+      >
         {showInput ? (
           <Input
             value={inputValue}
@@ -250,7 +239,7 @@ export function TagDetails({ selectedTag, refreshTags, canEdit = false }: TagDet
             {t("add")}
           </Button>
         )}
-      </div>
+      </CollapsibleKeywordList>
     );
   };
 
@@ -470,20 +459,10 @@ export function TagDetails({ selectedTag, refreshTags, canEdit = false }: TagDet
           {isEditing ? (
             renderKeywordList("keywords", t("inputKeywords"))
           ) : (
-            <div className="flex flex-wrap gap-1.5">
-              {formData.keywords.length > 0 ? (
-                formData.keywords.map((keyword, index) => (
-                  <div
-                    key={index}
-                    className="inline-flex items-center gap-1 bg-muted rounded-md px-2 py-1 text-sm"
-                  >
-                    <span>{keyword}</span>
-                  </div>
-                ))
-              ) : (
-                <span className="text-sm text-basic-5">-</span>
-              )}
-            </div>
+            <CollapsibleKeywordList
+              key={`${selectedTag.tag.id}:keywords:view`}
+              keywords={formData.keywords}
+            />
           )}
         </div>
 
@@ -514,20 +493,10 @@ export function TagDetails({ selectedTag, refreshTags, canEdit = false }: TagDet
           {isEditing ? (
             renderKeywordList("negativeKeywords", t("inputKeywords"))
           ) : (
-            <div className="flex flex-wrap gap-1.5">
-              {formData.negativeKeywords.length > 0 ? (
-                formData.negativeKeywords.map((keyword, index) => (
-                  <div
-                    key={index}
-                    className="inline-flex items-center gap-1 bg-muted rounded-md px-2 py-1 text-sm"
-                  >
-                    <span>{keyword}</span>
-                  </div>
-                ))
-              ) : (
-                <span className="text-sm text-basic-5">-</span>
-              )}
-            </div>
+            <CollapsibleKeywordList
+              key={`${selectedTag.tag.id}:negativeKeywords:view`}
+              keywords={formData.negativeKeywords}
+            />
           )}
         </div>
 

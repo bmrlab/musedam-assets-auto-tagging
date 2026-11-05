@@ -191,6 +191,8 @@
       "excludeRule": "排除規則：",
       "excludeRuleDescription": "當素材的名稱、元資料和所在資料夾包含這些關鍵字時，即使匹配到上述關鍵字也不會自動打標",
       "inputKeywords": "輸入關鍵字",
+      "expandKeywords": "展開全部（{count}）",
+      "collapseKeywords": "收起",
       "matchingKeywords": "匹配關鍵字",
       "matchingKeywordsTooltip": "添加與此標籤相關的關鍵字，幫助AI更準確地識別此標籤",
       "matchingRule": "匹配規則：",
