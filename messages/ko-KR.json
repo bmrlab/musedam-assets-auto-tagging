@@ -126,6 +126,8 @@
     "productRecognition": "상품 인식"
   },
   "TagsPage": {
+    "requiredGroupsAutoDisabledMore": "{tags} and others ({count} tags total)",
+    "requiredGroupsAutoDisabled": "{tags} have no child tags and cannot be required groups. Required group has been turned off.",
     "AiCreateModal": {
       "creating": "생성 중...",
       "generateFailed": "태그 체계 생성 실패",

@@ -8,8 +8,6 @@ import { MAX_TAG_LEVEL } from "@/lib/tagging/tag-level";
 
 /** 文本类可配置字段的清空标记（整格仅为该字符时生效） */
 export const TAG_BATCH_CLEAR_VALUE = "-";
-/** 单次导入最多数据行（不含表头） */
-export const TAG_BATCH_MAX_ROWS = 5000;
 /** 导入文件大小上限（不改库表，仅应用层限制） */
 export const TAG_BATCH_MAX_FILE_BYTES = 5 * 1024 * 1024;
 /** 字段回写分片大小 */
@@ -149,7 +147,6 @@ export type TagBatchMessages = {
   renameSyncFailed: string;
   rowImportFailed: string;
   fileTooLarge: (maxMb: number) => string;
-  tooManyRows: (maxRows: number) => string;
 };
 
 type LabelLocale = "zh-CN" | "zh-TW" | "en-US";
@@ -184,7 +181,6 @@ export function tagBatchMessages(locale: string): TagBatchMessages {
       renameSyncFailed: "Failed to sync the renamed tag to MuseDAM",
       rowImportFailed: "Failed to import this row",
       fileTooLarge: (maxMb) => `Import file cannot exceed ${maxMb}MB`,
-      tooManyRows: (maxRows) => `Import cannot exceed ${maxRows} data rows`,
     };
   }
 
@@ -221,8 +217,6 @@ export function tagBatchMessages(locale: string): TagBatchMessages {
     rowImportFailed: traditional ? "匯入該行失敗" : "导入该行失败",
     fileTooLarge: (maxMb) =>
       traditional ? `匯入檔案不能超過 ${maxMb}MB` : `导入文件不能超过 ${maxMb}MB`,
-    tooManyRows: (maxRows) =>
-      traditional ? `單次匯入不能超過 ${maxRows} 行資料` : `单次导入不能超过 ${maxRows} 行数据`,
   };
 }
 
@@ -243,6 +237,84 @@ export function getTagBatchColumns(locale: string) {
       new Set([...Object.values(COLUMN_LABELS[key]), ...(COLUMN_EXTRA_ALIASES[key] ?? [])]),
     ),
   }));
+}
+
+/** Examples are ordinary data rows; the final guidance column is ignored on import. */
+export function buildTagBatchTemplateRows(locale: string): string[][] {
+  const labelLocale = tagBatchLabelLocale(locale);
+  const english = labelLocale === "en-US";
+  const traditional = labelLocale === "zh-TW";
+  const labels = tagBatchBooleanLabels(locale);
+  const root = english ? "Example_Use cases" : traditional ? "範例_適用場景" : "示例_适用场景";
+  const notes = english
+    ? [
+        "Replace or delete example rows before import. All configuration columns are optional. Switches accept On/Off, true/false or 1/0. Child exclusivity and required groups apply to parents with children. Required groups without children are turned off and reported after import.",
+        "Blank settings use defaults for new tags and preserve settings for existing tags. Keywords accept ;, Chinese ； or line breaks; commas and enumeration commas are part of the keyword.",
+        "Use - alone to clear descriptions or keywords. Keep Tag ID empty for new tags; retain exported IDs to update or rename existing tags. Settings apply to the deepest tag in each row.",
+      ]
+    : traditional
+      ? [
+          "匯入前請替換或刪除範例行。設定欄均可選填；開關支援開啟/關閉、true/false、1/0。子標籤單選及必打標籤組適用於有子標籤的父標籤；沒有子標籤時自動關閉必打，匯入完成後提示。",
+          "設定留空：新標籤使用預設值，已有標籤保留原值。關鍵詞用英文分號 ;、中文分號 ； 或儲存格內換行分隔；逗號、頓號視為詞的一部分。",
+          "描述或關鍵詞單獨填 - 表示清空。新增標籤時 ID 留空；更新或改名時保留匯出的 ID。每行設定套用於該行最末級標籤。",
+        ]
+      : [
+          "导入前请替换或删除示例行。配置列均可选填；开关支持开启/关闭、true/false、1/0。子标签单选及必打标签组适用于有子标签的父标签；没有子标签时自动关闭必打，导入完成后提示。",
+          "配置留空：新标签使用默认值，已有标签保留原值。关键词用英文分号 ;、中文分号 ； 或单元格内换行分隔；逗号、顿号视为词的一部分。",
+          "描述或关键词单独填 - 表示清空。新增标签时 ID 留空；更新或改名时保留导出的 ID。每行配置应用于该行最末级标签。",
+        ];
+  return [
+    [
+      ...getTagBatchColumns(locale).map((column) => column.header),
+      english
+        ? "Instructions (not imported)"
+        : traditional
+          ? "填寫說明（不匯入）"
+          : "填写说明（不导入）",
+    ],
+    [
+      "",
+      root,
+      "",
+      "",
+      "",
+      english ? "Select a use case" : traditional ? "選擇適用場景" : "选择适用场景",
+      "",
+      "",
+      labels.on,
+      labels.on,
+      labels.on,
+      notes[0],
+    ],
+    [
+      "",
+      root,
+      english ? "E-commerce" : traditional ? "電商" : "电商",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      notes[1],
+    ],
+    [
+      "",
+      root,
+      english ? "Social media" : traditional ? "社群媒體" : "社交媒体",
+      "",
+      "",
+      english ? "Social media assets" : traditional ? "社群宣傳素材" : "社交宣传素材",
+      english ? "poster; campaign；launch" : "海报; 活动；新品",
+      english ? "draft; internal" : "草稿; 内部",
+      labels.on,
+      labels.off,
+      labels.off,
+      notes[2],
+    ],
+  ];
 }
 
 export function parseTagBatchId(value: string): number | undefined {
@@ -333,16 +405,6 @@ export function parseTagBatchTable({
   const presentFields = new Set<TagBatchFieldKey>(
     TAG_BATCH_FIELD_KEYS.filter((key) => headerMap[key] !== undefined),
   );
-
-  const nonEmptyRowCount = dataRows.filter((row) =>
-    row.some((cellValue) => String(cellValue ?? "").trim().length > 0),
-  ).length;
-  if (nonEmptyRowCount > TAG_BATCH_MAX_ROWS) {
-    return {
-      records: [],
-      errors: [{ rowNumber: 1, message: text.tooManyRows(TAG_BATCH_MAX_ROWS), fatal: true }],
-    };
-  }
 
   const records: ParsedTagBatchRecord[] = [];
   const errors: TagBatchParseError[] = [];

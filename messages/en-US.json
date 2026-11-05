@@ -4,6 +4,8 @@
   },
   "Components": {},
   "TagsPage": {
+    "requiredGroupsAutoDisabledMore": "{tags} and others ({count} tags total)",
+    "requiredGroupsAutoDisabled": "{tags} have no child tags and cannot be required groups. Required group has been turned off.",
     "sortSuccess": "Tags sorted successfully",
     "sortFailed": "Failed to sort tags",
     "tagManagement": "Tag management",
@@ -200,7 +202,7 @@
     "TagColumn": {
       "smartTags": "Smart Tags"
     },
-    "importUploadHint": "Rows with a Tag ID update that tag; otherwise match by level path and create only missing tags. Empty cells keep existing values; - clears descriptions or keywords. Separate keywords with semicolons or line breaks."
+    "importUploadHint": "One tag path per row. Configuration is optional: blank values use defaults for new tags and preserve existing settings. Use - to clear descriptions or keywords; separate keywords with semicolons or line breaks."
   },
   "AiCreateModal": {
     "title": "AI Tag System Generator",

@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   buildTagBatchExportRows,
+  buildTagBatchTemplateRows,
+  splitTagBatchKeywords,
   filterMissingPathRecords,
   getTagBatchColumns,
   parseTagBatchId,
   parseTagBatchTable,
-  TAG_BATCH_MAX_ROWS,
   tagBatchRecordsToCreateTree,
 } from "../src/app/tags/tagBatchSpreadsheet";
 
@@ -304,14 +305,48 @@ describe("tag batch import helpers", () => {
     ]);
   });
 
-  it("rejects files that exceed the row limit", () => {
-    const rows = [
-      ["一级标签"],
-      ...Array.from({ length: TAG_BATCH_MAX_ROWS + 1 }, (_, index) => [`标签${index}`]),
-    ];
+  it("accepts more than 5000 data rows for batched import", () => {
+    const rows = [["一级标签"], ...Array.from({ length: 6000 }, (_, index) => [`标签${index}`])];
     const parsed = parseTagBatchTable({ maxLevel: 3, rows });
-    expect(parsed.records).toEqual([]);
-    expect(parsed.errors[0]?.fatal).toBe(true);
-    expect(parsed.errors[0]?.message).toContain(String(TAG_BATCH_MAX_ROWS));
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.records).toHaveLength(6000);
+    expect(parsed.records.at(-1)).toMatchObject({ rowNumber: 6001, path: ["标签5999"] });
+  });
+});
+
+describe("tag import template examples", () => {
+  it.each(["zh-CN", "zh-TW", "en-US"])(
+    "provides importable optional configuration examples in %s",
+    (locale) => {
+      const rows = buildTagBatchTemplateRows(locale);
+      const parsed = parseTagBatchTable({ rows, maxLevel: 3, locale });
+      expect(parsed.errors).toEqual([]);
+      expect(parsed.records).toHaveLength(3);
+      expect(parsed.records[0].fields).toMatchObject({
+        taggingEnabled: true,
+        siblingsExclusive: true,
+        requiredGroup: true,
+      });
+      expect(parsed.records[1].fields).toEqual({});
+      expect(parsed.records[2].fields).toMatchObject({
+        siblingsExclusive: false,
+        requiredGroup: false,
+      });
+      expect(parsed.records[2].fields.keywords).toHaveLength(3);
+      expect(parsed.records[2].fields.negativeKeywords).toHaveLength(2);
+      expect(rows.every((row) => row.length === rows[0].length)).toBe(true);
+    },
+  );
+
+  it("splits semicolons and newlines while preserving commas inside keywords", () => {
+    expect(splitTagBatchKeywords("红色; 蓝色；绿色\n黑色\r\n黑色; A,B; 甲，乙; 丙、丁")).toEqual([
+      "红色",
+      "蓝色",
+      "绿色",
+      "黑色",
+      "A,B",
+      "甲，乙",
+      "丙、丁",
+    ]);
   });
 });

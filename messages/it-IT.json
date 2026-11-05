@@ -4,6 +4,8 @@
   },
   "Components": {},
   "TagsPage": {
+    "requiredGroupsAutoDisabledMore": "{tags} and others ({count} tags total)",
+    "requiredGroupsAutoDisabled": "{tags} have no child tags and cannot be required groups. Required group has been turned off.",
     "sortSuccess": "Tag ordinati con successo",
     "sortFailed": "Impossibile ordinare i tag",
     "tagManagement": "Gestione tag",

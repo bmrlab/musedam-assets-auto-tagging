@@ -126,6 +126,8 @@
     "productRecognition": "商品辨識"
   },
   "TagsPage": {
+    "requiredGroupsAutoDisabledMore": "{tags}等 {count} 個標籤",
+    "requiredGroupsAutoDisabled": "{tags}下沒有子標籤，無法設為必打，已關閉必打。",
     "AiCreateModal": {
       "creating": "建立中...",
       "generateFailed": "生成標籤體系失敗",
@@ -322,6 +324,6 @@
       "structureScope": "標籤結構",
       "configurationScope": "標籤及設定"
     },
-    "importUploadHint": "有標籤 ID 按 ID 更新，無 ID 按層級路徑匹配，缺少時新增；空儲存格保持不變，描述/關鍵詞填 - 清空；多個關鍵詞用分號或換行分隔"
+    "importUploadHint": "每行填寫一條標籤路徑，設定選填：新標籤留空使用預設值，已有標籤留空保留原值；填 - 清空描述或關鍵詞，多個關鍵詞用分號或換行分隔"
   }
 }

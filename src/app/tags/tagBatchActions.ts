@@ -17,8 +17,8 @@ import { z } from "zod";
 import { batchCreateTags, saveTagsTreeToMuseDAM } from "./actions";
 import {
   buildTagBatchExportRows,
+  buildTagBatchTemplateRows,
   filterMissingPathRecords,
-  getTagBatchColumns,
   parseTagBatchTable,
   TAG_BATCH_MAX_FILE_BYTES,
   TAG_BATCH_UPDATE_CHUNK_SIZE,
@@ -40,6 +40,8 @@ export type TagTreeBatchFileResult = {
 };
 
 export type TagTreeBatchImportResult = {
+  /** 已成功导入，但因无直接子标签而自动关闭必打的标签路径。 */
+  autoDisabledRequiredGroups?: string[];
   successCount: number;
   failedCount: number;
   skippedCount: number;
@@ -126,7 +128,7 @@ export async function downloadTagTreeImportTemplateAction(
     const t = await getTranslations("Tagging.BatchImportExport");
     try {
       const parsedFormat = z.enum(["csv", "xlsx"]).parse(format);
-      const rows = [getTagBatchColumns(locale).map((column) => column.header)];
+      const rows = buildTagBatchTemplateRows(locale);
       return fileResult("tag-tree-template", parsedFormat, rows);
     } catch (error) {
       console.error("Failed to build tag tree import template:", error);
@@ -205,6 +207,18 @@ export async function importTagTreeAction(
       }
       const { prepared, failures, noopSuccessCount, idIndex } = outcome;
 
+      // Missing paths have already been created and the team tree reloaded.
+      // Check actual direct children, allowing children added in this same import.
+      const parentIds = new Set([...idIndex.values()].map((tag) => tag.parentId));
+      const autoDisabledIds = new Set<number>();
+      const autoDisabledTags: TagRow[] = [];
+      for (const item of prepared) {
+        if (item.data.extra?.requiredGroup === true && !parentIds.has(item.tag.id)) {
+          item.data.extra = { ...item.data.extra, requiredGroup: false };
+          autoDisabledIds.add(item.tag.id);
+        }
+      }
+
       // 改名先推 MuseDAM，保持两端名称一致；同步失败的行不回写本地。
       const renamedInMuseDAM = prepared.filter((item) => item.data.name && item.tag.slug);
       if (renamedInMuseDAM.length > 0) {
@@ -238,6 +252,7 @@ export async function importTagTreeAction(
           );
           for (const item of chunk) {
             applyPreparedUpdateLocally(item);
+            if (autoDisabledIds.has(item.tag.id)) autoDisabledTags.push(item.tag);
             successCount += 1;
           }
         } catch (error) {
@@ -250,6 +265,7 @@ export async function importTagTreeAction(
                 data: item.data,
               });
               applyPreparedUpdateLocally(item);
+              if (autoDisabledIds.has(item.tag.id)) autoDisabledTags.push(item.tag);
               successCount += 1;
             } catch (rowError) {
               console.error("Failed to import tag row:", rowError);
@@ -270,6 +286,13 @@ export async function importTagTreeAction(
         success: true,
         data: {
           successCount,
+          autoDisabledRequiredGroups: [
+            ...new Set(
+              autoDisabledTags.map((tag) =>
+                tagPathLabel(tagAncestry(tag, idIndex).map((ancestor) => ancestor.name)),
+              ),
+            ),
+          ],
           failedCount: failures.length,
           skippedCount: outcome.skippedCount,
           failures,
@@ -340,10 +363,7 @@ async function prepareTagTreeImport(
   const requestedSkips =
     dryRun || !formData.get("skipRows")
       ? []
-      : z
-          .array(z.number().int().min(2))
-          .max(5000)
-          .parse(JSON.parse(String(formData.get("skipRows"))));
+      : z.array(z.number().int().min(2)).parse(JSON.parse(String(formData.get("skipRows"))));
   const skippedRows = new Set(
     requestedSkips.filter(
       (row) =>

@@ -4,6 +4,8 @@
   },
   "Components": {},
   "TagsPage": {
+    "requiredGroupsAutoDisabledMore": "{tags} and others ({count} tags total)",
+    "requiredGroupsAutoDisabled": "{tags} have no child tags and cannot be required groups. Required group has been turned off.",
     "sortSuccess": "Étiquettes triées avec succès",
     "sortFailed": "Échec du tri des étiquettes",
     "tagManagement": "Gestion des étiquettes",

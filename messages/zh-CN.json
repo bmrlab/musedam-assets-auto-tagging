@@ -4,6 +4,8 @@
   },
   "Components": {},
   "TagsPage": {
+    "requiredGroupsAutoDisabledMore": "{tags}等 {count} 个标签",
+    "requiredGroupsAutoDisabled": "{tags}下没有子标签，无法设为必打，已关闭必打。",
     "sortSuccess": "标签排序成功",
     "sortFailed": "标签排序失败",
     "tagManagement": "标签管理",
@@ -200,7 +202,7 @@
     "TagColumn": {
       "smartTags": "智能标签"
     },
-    "importUploadHint": "有标签 ID 按 ID 更新，无 ID 按层级路径匹配，缺失时新增；空单元格保持不变，描述/关键词填 - 清空；多个关键词用分号或换行分隔"
+    "importUploadHint": "每行填写一条标签路径，配置选填：新标签留空使用默认值，已有标签留空保留原值；填 - 清空描述或关键词，多个关键词用分号或换行分隔"
   },
   "AiCreateModal": {
     "title": "AI 智能创建标签",

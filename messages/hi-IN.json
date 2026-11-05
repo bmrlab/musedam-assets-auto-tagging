@@ -126,6 +126,8 @@
     "productRecognition": "उत्पाद पहचान"
   },
   "TagsPage": {
+    "requiredGroupsAutoDisabledMore": "{tags} and others ({count} tags total)",
+    "requiredGroupsAutoDisabled": "{tags} have no child tags and cannot be required groups. Required group has been turned off.",
     "AiCreateModal": {
       "creating": "निर्माण हो रहा है...",
       "generateFailed": "टैग सिस्टम उत्पन्न करने में विफल रहा",
