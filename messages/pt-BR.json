@@ -126,6 +126,8 @@
     "productRecognition": "Reconhecimento de produto"
   },
   "TagsPage": {
+    "requiredGroupsAutoDisabledMore": "{tags} and others ({count} tags total)",
+    "requiredGroupsAutoDisabled": "{tags} have no child tags and cannot be required groups. Required group has been turned off.",
     "AiCreateModal": {
       "creating": "Criando...",
       "generateFailed": "Falha ao gerar o sistema de tags",
