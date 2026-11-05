@@ -90,26 +90,22 @@ describe("tag deletion", () => {
     expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
   });
 
-  it("builds deepest-first MuseDAM deletions with correct ancestor context", () => {
+  it("asks MuseDAM to delete the synced parent once and cascade its children", () => {
     const syncedRows = rows.map((row) => ({ ...row, slug: String(row.id) }));
     const tree = buildCascadeDeletionTree(syncedRows, buildTagDeletionPlan(syncedRows, 1));
-    expect(tree.map((node) => node.id)).toEqual([1, 1, 1]);
-    expect(tree[0].verb).toBeUndefined();
-    expect(tree[0].children[0].children[0]).toMatchObject({ id: 3, verb: "delete" });
-    expect(tree[1].children[0]).toMatchObject({ id: 2, verb: "delete" });
-    expect(tree[2]).toMatchObject({ id: 1, verb: "delete" });
+    expect(tree).toEqual([
+      expect.objectContaining({ id: 1, verb: "delete", children: [] }),
+    ]);
   });
 
-  it("deletes sibling leaves in one tree before deleting their parent", () => {
-    const wide = [tag(1, null, 1), tag(2, 1, 2, "a"), tag(3, 1, 2, "b"), tag(4, 1, 2, "c")].map(
-      (row) => ({ ...row, slug: String(row.id) }),
-    );
-    const tree = buildCascadeDeletionTree(wide, buildTagDeletionPlan(wide, 1));
-    expect(tree).toHaveLength(2);
+  it("deletes a nested tag with its ancestors and without listing its children", () => {
+    const syncedRows = rows.map((row) => ({ ...row, slug: String(row.id) }));
+    const tree = buildCascadeDeletionTree(syncedRows, buildTagDeletionPlan(syncedRows, 2));
+    expect(tree).toHaveLength(1);
     expect(tree[0].verb).toBeUndefined();
-    expect(tree[0].children.map((node) => node.id)).toEqual([4, 3, 2]);
-    expect(tree[0].children.every((node) => node.verb === "delete")).toBe(true);
-    expect(tree[1]).toMatchObject({ id: 1, verb: "delete", children: [] });
+    expect(tree[0].children).toEqual([
+      expect.objectContaining({ id: 2, verb: "delete", children: [] }),
+    ]);
   });
 
   it("allows deletion of a synced leaf", async () => {

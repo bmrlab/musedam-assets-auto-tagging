@@ -37,37 +37,26 @@ export function deletionLayers(plan: TagDeletionPlan): number[][] {
 }
 
 /**
- * Delete deepest nodes first: the legacy API only removes direct children.
- * Siblings share one ancestor path so a few thousand leaves stay a handful of requests.
+ * MuseDAM cascade-deletes children when a parent is removed, so a subtree is
+ * one delete on the highest synced node. Listing every descendant turns a
+ * parent with thousands of children into thousands of merge-tags operations.
  */
 export function buildCascadeDeletionTree(rows: DeletableTag[], plan: TagDeletionPlan): TagNode[] {
   const byId = new Map(rows.map((row) => [row.id, row]));
-  const ordered = [...plan.descendants]
-    .reverse()
-    .concat(plan.target)
-    .filter((row) => row.slug);
-  const deleting = new Set(ordered.map((row) => row.id));
-  const childIds = new Map<number, number[]>();
-  for (const row of ordered) {
-    if (row.parentId !== null && deleting.has(row.parentId)) {
-      const list = childIds.get(row.parentId) ?? [];
-      list.push(row.id);
-      childIds.set(row.parentId, list);
+  const affected = [plan.target, ...plan.descendants];
+  const affectedIds = new Set(affected.map((row) => row.id));
+  const tops = affected.filter((row) => {
+    if (!row.slug) return false;
+    let parentId = row.parentId;
+    while (parentId !== null && affectedIds.has(parentId)) {
+      const parent = byId.get(parentId);
+      if (parent?.slug) return false;
+      if (!parent) break;
+      parentId = parent.parentId;
     }
-  }
-
-  const result: TagNode[] = [];
-  const remaining = new Set(deleting);
-  while (remaining.size > 0) {
-    const leaves = ordered.filter(
-      (row) =>
-        remaining.has(row.id) && (childIds.get(row.id) ?? []).every((id) => !remaining.has(id)),
-    );
-    if (leaves.length === 0) throw new Error("标签层级存在循环，无法删除");
-    result.push(...forestFor(leaves.map((row) => row.id)));
-    for (const row of leaves) remaining.delete(row.id);
-  }
-  return result;
+    return true;
+  });
+  return forestFor(tops.map((row) => row.id));
 
   function forestFor(leafIds: number[]): TagNode[] {
     const roots: TagNode[] = [];
