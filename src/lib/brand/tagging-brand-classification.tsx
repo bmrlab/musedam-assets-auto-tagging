@@ -1,3 +1,5 @@
+import { classifyAssetFeatures, getFeatureDecisionMode } from "@/lib/feature-decision/classify";
+import { buildFeatureRecommendations } from "@/lib/feature-decision/recommendations";
 import "server-only";
 
 import { classifyBrandImageCrops, detectBrandLogoBoxes } from "@/lib/brand/logo-classification";
@@ -18,10 +20,14 @@ export async function classifyAssetBrandRecommendation({
   teamId,
   imageUrl,
   imageInput: providedImageInput,
+  fileName,
+  folderPath,
 }: {
   teamId: number;
   imageUrl?: string | null;
   imageInput?: ClassificationRemoteImageInput | null;
+  fileName?: string;
+  folderPath?: string;
 }): Promise<TaggingBrandRecommendation | null> {
   if (!providedImageInput && !imageUrl) {
     return null;
@@ -36,9 +42,19 @@ export async function classifyAssetBrandRecommendation({
   }
 
   // get detection boxes
-  const detectionLabelText = await fetchLogoDetectionLabelText(teamId);
   const imageInput =
     providedImageInput ?? (await fetchRemoteImageInput(imageUrl as string, "brand classification"));
+  if (getFeatureDecisionMode() === "llm") {
+    const result = await classifyAssetFeatures({
+      teamId,
+      imageInput,
+      fileName,
+      folderPath,
+      enabledTypes: ["logo"],
+    });
+    return (await buildFeatureRecommendations(result)).brandRecommendation;
+  }
+  const detectionLabelText = await fetchLogoDetectionLabelText(teamId);
   const detection = await detectBrandLogoBoxes({
     teamId,
     imageInput,
@@ -74,6 +90,7 @@ export async function classifyAssetBrandRecommendation({
 
   if (!result.bestMatch) {
     return {
+      decisionSource: "legacy",
       noConfidentMatch: true,
       bestMatch: null,
       recommendedTags: [],
@@ -98,6 +115,7 @@ export async function classifyAssetBrandRecommendation({
   const normalizedTags = normalizeRecommendedTags(logoTags);
 
   return {
+    decisionSource: "legacy",
     noConfidentMatch: result.noConfidentMatch ?? false,
     bestMatch: {
       ...result.bestMatch,

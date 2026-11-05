@@ -57,6 +57,8 @@ export type IpTopMatch = {
 };
 
 export type IpClassificationResult = {
+  /** Final accepted identities, when an asset-level decision layer has run. */
+  matches?: IpTopMatch[];
   topMatches: IpTopMatch[];
   bestMatch: IpTopMatch | null;
   noConfidentMatch: boolean;
@@ -245,8 +247,11 @@ async function requestIpDetection({
 export async function classifyIpImageCrops({
   teamId,
   crops,
+  retrievalOnly = false,
 }: {
   teamId: number;
+  /** Return the union of each region's three strongest classes for LLM adjudication. */
+  retrievalOnly?: boolean;
   crops: Array<{
     box: IpDetectionBox;
     image: string;
@@ -265,6 +270,9 @@ export async function classifyIpImageCrops({
     images: crops.map((crop) => crop.image),
     task: "retrieval.query",
   });
+  if (embeddings.length !== crops.length) {
+    throw new Error("IP classification embedding count mismatch");
+  }
 
   const rankedByIp = new Map<
     string,
@@ -298,7 +306,7 @@ export async function classifyIpImageCrops({
       const cropMatches = new Map<string, CropAggregation>();
 
       for (const match of matches) {
-        if (match.score <= 0) {
+        if (!Number.isFinite(match.score) || match.score <= 0) {
           continue;
         }
 
@@ -392,6 +400,33 @@ export async function classifyIpImageCrops({
   });
 
   const ipMap = new Map(ips.map((ip) => [ip.id, ip]));
+  if (retrievalOnly) {
+    // Keep region-level candidate recall rather than truncating to three classes
+    // for the entire asset. Repeated vectors from a class do not consume slots.
+    rankedByIp.clear();
+    for (const { index, cropMatches } of cropMatchGroups) {
+      const regionCandidates = Array.from(cropMatches.entries())
+        .filter(([id]) => ipMap.has(id))
+        .sort(
+          ([leftId, left], [rightId, right]) =>
+            computeCropScore(right) - computeCropScore(left) || leftId.localeCompare(rightId),
+        )
+        .slice(0, 3);
+      for (const [id, aggregation] of regionCandidates) {
+        const similarity = computeCropScore(aggregation);
+        const current = rankedByIp.get(id);
+        if (!current || similarity > current.similarity) {
+          rankedByIp.set(id, {
+            similarity,
+            detectionIndex: index,
+            imageSimilarity: aggregation.imageSimilarity,
+            descriptionSimilarity: aggregation.descriptionSimilarity,
+            supportingDetections: new Set<number>(),
+          });
+        }
+      }
+    }
+  }
   const topMatches = matchedIpIds
     .map((assetIpId) => {
       const stats = rankedByIp.get(assetIpId);
@@ -401,10 +436,12 @@ export async function classifyIpImageCrops({
         return null;
       }
 
-      const supportBonus = Math.min(
-        MAX_SUPPORT_BONUS,
-        Math.max(0, stats.supportingDetections.size - 1) * MULTI_CROP_SUPPORT_BONUS,
-      );
+      const supportBonus = retrievalOnly
+        ? 0
+        : Math.min(
+            MAX_SUPPORT_BONUS,
+            Math.max(0, stats.supportingDetections.size - 1) * MULTI_CROP_SUPPORT_BONUS,
+          );
       const similarity = Math.min(0.99, stats.similarity + supportBonus);
 
       return {
@@ -426,8 +463,11 @@ export async function classifyIpImageCrops({
       } satisfies IpTopMatch;
     })
     .filter((match): match is IpTopMatch => Boolean(match))
-    .sort((left, right) => right.similarity - left.similarity)
-    .slice(0, 3);
+    .sort(
+      (left, right) =>
+        right.similarity - left.similarity || left.assetIpId.localeCompare(right.assetIpId),
+    )
+    .slice(0, retrievalOnly ? undefined : 3);
 
   const confident = isConfidentWinner(topMatches);
   const bestMatch = topMatches[0] ?? null;
@@ -435,7 +475,7 @@ export async function classifyIpImageCrops({
   return {
     topMatches,
     bestMatch,
-    noConfidentMatch: !confident,
+    noConfidentMatch: retrievalOnly || !confident,
     winningDetectionIndex: bestMatch?.detectionIndex ?? null,
   };
 }

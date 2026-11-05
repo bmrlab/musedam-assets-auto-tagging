@@ -1,4 +1,4 @@
-import { meetsFeatureConfidenceThreshold } from "@/lib/tagging/feature-confidence";
+import { getAcceptedBrandMatches } from "@/lib/feature-decision/match-policy";
 import { TaggingBrandRecommendation, TaggingQueueItemResult } from "@/prisma/client";
 
 export function getBrandRecommendationFromQueueResult(
@@ -16,18 +16,10 @@ export function getBrandRecommendationFromQueueResult(
 export function getBrandRecommendationTagIdsFromQueueResult(result: unknown): number[] {
   const brandRecommendation = getBrandRecommendationFromQueueResult(result);
 
-  if (
-    !brandRecommendation ||
-    !brandRecommendation.bestMatch ||
-    !meetsFeatureConfidenceThreshold("brand", brandRecommendation.bestMatch.confidence) ||
-    !Array.isArray(brandRecommendation.recommendedTags)
-  ) {
-    return [];
-  }
-
   return Array.from(
     new Set(
-      brandRecommendation.recommendedTags
+      getAcceptedBrandMatches(brandRecommendation)
+        .flatMap((match) => match.recommendedTags ?? [])
         .map((tag) => tag.assetTagId)
         .filter((id): id is number => Number.isInteger(id) && id > 0),
     ),

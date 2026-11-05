@@ -38,6 +38,8 @@ export type BrandTopMatch = {
 };
 
 export type BrandClassificationResult = {
+  /** Final accepted identities, when an asset-level decision layer has run. */
+  matches?: BrandTopMatch[];
   topMatches: BrandTopMatch[];
   bestMatch: BrandTopMatch | null;
   noConfidentMatch: boolean;
@@ -100,8 +102,11 @@ export async function detectBrandLogoBoxes({
 export async function classifyBrandImageCrops({
   teamId,
   crops,
+  retrievalOnly = false,
 }: {
   teamId: number;
+  /** Return the union of each region's three strongest classes for LLM adjudication. */
+  retrievalOnly?: boolean;
   crops: Array<{
     box: BrandDetectionBox;
     image: string;
@@ -120,6 +125,9 @@ export async function classifyBrandImageCrops({
     images: crops.map((crop) => crop.image),
     task: "retrieval.query",
   });
+  if (embeddings.length !== crops.length) {
+    throw new Error("Logo classification embedding count mismatch");
+  }
 
   const rankedByLogo = new Map<
     string,
@@ -143,6 +151,7 @@ export async function classifyBrandImageCrops({
 
   for (const { index, matches } of matchGroups) {
     for (const match of matches) {
+      if (!Number.isFinite(match.score) || match.score <= 0) continue;
       const assetLogoId = match.payload?.assetLogoId;
       if (!assetLogoId || typeof assetLogoId !== "string") {
         continue;
@@ -186,6 +195,34 @@ export async function classifyBrandImageCrops({
   });
 
   const logoMap = new Map(logos.map((logo) => [logo.id, logo]));
+  if (retrievalOnly) {
+    // Multiple reference vectors from the same class occupy just one regional slot.
+    // Filter unavailable classes before choosing the three references for that region.
+    rankedByLogo.clear();
+    for (const { index, matches } of matchGroups) {
+      const regionScores = new Map<string, number>();
+      for (const match of matches) {
+        const id = match.payload?.assetLogoId;
+        if (
+          typeof id !== "string" ||
+          !logoMap.has(id) ||
+          !Number.isFinite(match.score) ||
+          match.score <= 0
+        )
+          continue;
+        regionScores.set(id, Math.max(regionScores.get(id) ?? 0, match.score));
+      }
+      const regionCandidates = Array.from(regionScores.entries())
+        .sort(([leftId, left], [rightId, right]) => right - left || leftId.localeCompare(rightId))
+        .slice(0, 3);
+      for (const [id, similarity] of regionCandidates) {
+        const current = rankedByLogo.get(id);
+        if (!current || similarity > current.similarity) {
+          rankedByLogo.set(id, { similarity, detectionIndex: index });
+        }
+      }
+    }
+  }
   const topMatches = matchedLogoIds
     .map((assetLogoId) => {
       const stats = rankedByLogo.get(assetLogoId);
@@ -206,8 +243,11 @@ export async function classifyBrandImageCrops({
       } satisfies BrandTopMatch;
     })
     .filter((match): match is BrandTopMatch => Boolean(match))
-    .sort((left, right) => right.similarity - left.similarity)
-    .slice(0, 3);
+    .sort(
+      (left, right) =>
+        right.similarity - left.similarity || left.assetLogoId.localeCompare(right.assetLogoId),
+    )
+    .slice(0, retrievalOnly ? undefined : 3);
 
   const confident = isConfidentWinner(topMatches);
   const bestMatch = topMatches[0] ?? null;
@@ -215,7 +255,7 @@ export async function classifyBrandImageCrops({
   return {
     topMatches,
     bestMatch,
-    noConfidentMatch: !confident,
+    noConfidentMatch: retrievalOnly || !confident,
     winningDetectionIndex: bestMatch?.detectionIndex ?? null,
   };
 }

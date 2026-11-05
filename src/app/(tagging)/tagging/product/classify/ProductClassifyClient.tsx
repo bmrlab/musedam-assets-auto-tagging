@@ -22,6 +22,13 @@ import Link from "next/link";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
+  FeatureClassificationContextInputs,
+  FeatureDecisionComparison,
+  FeatureDecisionDiagnosticsPanel,
+  FeatureDecisionPredictions,
+  useFeatureDecisionComparison,
+} from "../../components/FeatureDecisionDiagnosticsPanel";
+import {
   classifyProductImageAction,
   prepareProductClassificationAction,
   prepareProductImageUploadAction,
@@ -84,12 +91,17 @@ export default function ProductClassifyClient({
   initialData: ProductLibraryPageData;
 }) {
   const t = useTranslations("Tagging.ProductClassify") as TranslationFunction;
+  const diagnosticsT = useTranslations("Tagging.FeatureDecisionDiagnostics");
   const referenceProducts = useMemo(
     () =>
       initialData.products.filter((product) => product.enabled && product.status === "completed"),
     [initialData.products],
   );
   const [file, setFile] = useState<File | null>(null);
+  const [imageMode, setImageMode] = useState(true);
+  const { runs, recordRun, resetRuns } = useFeatureDecisionComparison();
+  const [fileName, setFileName] = useState("");
+  const [folderPath, setFolderPath] = useState("");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [imageMeta, setImageMeta] = useState<ClassificationImageMeta | null>(null);
   const [detectionImageMeta, setDetectionImageMeta] = useState<ClassificationImageMeta | null>(
@@ -108,6 +120,7 @@ export default function ProductClassifyClient({
 
   async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const selectedFile = event.target.files?.[0] ?? null;
+    resetRuns();
     event.target.value = "";
 
     setDetections([]);
@@ -116,6 +129,7 @@ export default function ProductClassifyClient({
     setImageMeta(null);
     setDetectionImageMeta(null);
     setFile(null);
+    setFileName(selectedFile?.name ?? "");
     setPreviewUrl((current) => {
       revokeUrl(current);
       return null;
@@ -210,6 +224,9 @@ export default function ProductClassifyClient({
         objectKey: uploadPrepareResult.data.image.objectKey,
         mimeType: uploadPrepareResult.data.image.mimeType,
         size: uploadPrepareResult.data.image.size,
+        imageMode,
+        fileName,
+        folderPath,
         boxes: candidateBoxes,
       });
       if (!classifyResult.success) {
@@ -218,11 +235,24 @@ export default function ProductClassifyClient({
       }
 
       setResult(classifyResult.data.result);
-      toast.success(
-        classifyResult.data.result.noConfidentMatch
-          ? t("classifyCompleteNoMatch")
-          : t("classifyComplete"),
-      );
+      if (classifyResult.data.result.diagnostics) {
+        recordRun(
+          classifyResult.data.result.diagnostics,
+          classifyResult.data.result.topMatches.map((match) => ({
+            name: match.productName,
+            confidence: match.confidence,
+          })),
+        );
+      }
+      if (classifyResult.data.result.diagnostics?.decision.status === "failed") {
+        toast.error(classifyResult.data.result.diagnostics.decision.error ?? t("classifyFailed"));
+        return;
+      }
+      const hasPredictions =
+        classifyResult.data.result.diagnostics?.mode === "llm"
+          ? classifyResult.data.result.topMatches.length > 0
+          : !classifyResult.data.result.noConfidentMatch;
+      toast.success(hasPredictions ? t("classifyComplete") : t("classifyCompleteNoMatch"));
     } catch (error) {
       console.error("Failed to classify Product image:", error);
       toast.error(error instanceof Error ? error.message : t("classifyFailed"));
@@ -283,7 +313,9 @@ export default function ProductClassifyClient({
           <h2 className="mt-3 text-[28px] leading-[40px] font-semibold text-basic-8">
             {t("pageTitle")}
           </h2>
-          <p className="mt-1 text-sm leading-6 text-basic-5">{t("pageDescription")}</p>
+          <p className="mt-1 text-sm leading-6 text-basic-5">
+            {diagnosticsT("algorithmDescription")}
+          </p>
         </div>
 
         <div className="rounded-[18px] border bg-background px-5 py-4 text-right">
@@ -338,6 +370,24 @@ export default function ProductClassifyClient({
               </Button>
             </div>
           ) : null}
+
+          <FeatureClassificationContextInputs
+            imageMode={imageMode}
+            onImageModeChange={setImageMode}
+            fileName={fileName}
+            folderPath={folderPath}
+            onFileNameChange={(value) => {
+              setFileName(value);
+              resetRuns();
+              setResult(null);
+            }}
+            onFolderPathChange={(value) => {
+              setFolderPath(value);
+              resetRuns();
+              setResult(null);
+            }}
+            disabled={isRunning}
+          />
 
           <div className="rounded-[20px] border border-dashed border-basic-3 bg-basic-1 p-4">
             {previewUrl && imageMeta && boxImageMeta ? (
@@ -407,21 +457,51 @@ export default function ProductClassifyClient({
             <div className="flex items-center gap-2 text-lg font-semibold text-basic-8">
               <Trophy className="size-5 text-[#ff8f1f]" />
               {t("finalResult")}
-              {result ? <span className="text-basic-5">({acceptedMatches.length})</span> : null}
+              {result ? (
+                <span className="text-basic-5">
+                  (
+                  {result.diagnostics?.mode === "llm"
+                    ? result.topMatches.length
+                    : acceptedMatches.length}
+                  )
+                </span>
+              ) : null}
             </div>
 
-            {!result ? (
-              <p className="mt-4 text-sm leading-6 text-basic-5">{t("resultHint")}</p>
+            {result?.diagnostics?.mode === "llm" &&
+            result.diagnostics.decision.status === "completed" ? (
+              <FeatureDecisionPredictions
+                diagnostics={result.diagnostics}
+                names={Object.fromEntries(
+                  result.topMatches.map((match) => [
+                    `product:${match.assetProductId}`,
+                    match.productName,
+                  ]),
+                )}
+                acceptedCandidateIds={(result.matches ?? []).map(
+                  (match) => `product:${match.assetProductId}`,
+                )}
+              />
+            ) : !result ? (
+              <p className="mt-4 text-sm leading-6 text-basic-5">{diagnosticsT("resultHint")}</p>
             ) : result.noConfidentMatch ? (
               <div className="mt-4 rounded-[18px] border border-warning-4 bg-warning-1 p-4">
                 <p className="text-base font-medium text-basic-8">{t("noConfidentMatch")}</p>
-                <p className="mt-2 text-sm leading-6 text-basic-5">{t("noConfidentMatchDesc")}</p>
+                <p className="mt-2 text-sm leading-6 text-basic-5">
+                  {diagnosticsT("noFinalMatch")}
+                </p>
                 {result.bestMatch ? (
                   <div className="mt-4 rounded-[14px] border border-basic-3 bg-background/80 px-4 py-3 text-sm">
                     <div className="font-medium text-basic-8">{result.bestMatch.productName}</div>
                     <div className="mt-1 text-basic-5">
-                      {t("similarity")} {formatPercent(result.bestMatch.similarity)} ·{" "}
-                      {t("confidence")} {result.bestMatch.confidence} ·{" "}
+                      {diagnosticsT("retrievalSimilarity")}{" "}
+                      {formatPercent(result.bestMatch.similarity)} ·{" "}
+                      {diagnosticsT(
+                        result?.diagnostics?.mode === "legacy"
+                          ? "legacyConfidence"
+                          : "llmConfidence",
+                      )}{" "}
+                      {result.bestMatch.confidence} ·{" "}
                       {t(bestMatchRegionIndex >= 0 ? "region" : "box")}{" "}
                       {(bestMatchRegionIndex >= 0
                         ? bestMatchRegionIndex
@@ -439,8 +519,12 @@ export default function ProductClassifyClient({
                   <p className="text-sm text-basic-5">{t("winningProduct")}</p>
                   <p className="mt-2 text-2xl font-semibold text-basic-8">{match.productName}</p>
                   <p className="mt-2 text-sm leading-6 text-basic-5">
-                    {t("type")} {match.productTypeName} · {t("similarity")}{" "}
-                    {formatPercent(match.similarity)} · {t("confidence")} {match.confidence}
+                    {t("type")} {match.productTypeName} · {diagnosticsT("retrievalSimilarity")}{" "}
+                    {formatPercent(match.similarity)} ·{" "}
+                    {diagnosticsT(
+                      result?.diagnostics?.mode === "legacy" ? "legacyConfidence" : "llmConfidence",
+                    )}{" "}
+                    {match.confidence}
                   </p>
                   <p className="mt-1 text-sm text-basic-5">
                     {t("imageSimilarity")} {formatPercent(match.imageSimilarity)} ·{" "}
@@ -544,7 +628,9 @@ export default function ProductClassifyClient({
                             {detectionResult.noConfidentMatch ? (
                               <p className="mb-2 text-basic-5">{t("noConfidentMatch")}</p>
                             ) : null}
-                            <p className="font-medium text-basic-8">{t("topMatches")}</p>
+                            <p className="font-medium text-basic-8">
+                              {diagnosticsT("retrievalEvidence")}
+                            </p>
                             {detectionResult.topMatches.length > 0 ? (
                               <div className="mt-2 space-y-2">
                                 {detectionResult.topMatches.map((match, rank) => (
@@ -557,8 +643,8 @@ export default function ProductClassifyClient({
                                       <span className="text-basic-5">#{rank + 1}</span>
                                     </div>
                                     <div className="mt-1 leading-6 text-basic-5">
-                                      {t("similarity")} {formatPercent(match.similarity)} ·{" "}
-                                      {t("confidence")} {match.confidence}
+                                      {diagnosticsT("retrievalSimilarity")}{" "}
+                                      {formatPercent(match.similarity)}
                                     </div>
                                     <div className="leading-6 text-basic-5">
                                       {t("imageSimilarity")} {formatPercent(match.imageSimilarity)}{" "}
@@ -587,6 +673,10 @@ export default function ProductClassifyClient({
           </div>
         </div>
       </div>
+      <FeatureDecisionComparison runs={runs} />
+      {result?.diagnostics ? (
+        <FeatureDecisionDiagnosticsPanel diagnostics={result.diagnostics} />
+      ) : null}
     </div>
   );
 }

@@ -1,11 +1,13 @@
 "use client";
 
+import { FeatureDecisionDiagnosticsPanel } from "@/app/(tagging)/tagging/components/FeatureDecisionDiagnosticsPanel";
 import type {
   FeatureThumbnailImage,
   FeatureThumbnails,
 } from "@/app/(tagging)/tagging/review/feature-review";
 import { TagOutlinedIcon, VimIcon } from "@/components/ui";
 import { useFeatureLibraryFeatures } from "@/hooks/use-feature-library";
+import type { FeatureDecisionDiagnostics } from "@/lib/feature-decision/types";
 import { isVideoAssetExtension } from "@/lib/feature-library";
 import {
   getFeatureConfidenceToneClass,
@@ -40,7 +42,30 @@ export interface ProductRecognitionResult {
   }[];
 }
 
+export interface BrandRecognitionResult {
+  noConfidentMatch: boolean;
+  logoName: string | null;
+  logoTypeName: string | null;
+  confidence: number | null;
+  similarity: number | null;
+  assetLogoId?: string;
+  recommendedTags: { tagPath: string[] }[];
+}
+
+export interface IpRecognitionResult {
+  noConfidentMatch: boolean;
+  ipName: string | null;
+  ipTypeName: string | null;
+  confidence: number | null;
+  similarity: number | null;
+  imageSimilarity: number | null;
+  descriptionSimilarity: number | null;
+  assetIpId?: string;
+  recommendedTags: { tagPath: string[] }[];
+}
+
 export interface TaggingResult {
+  featureDecision?: FeatureDecisionDiagnostics;
   asset: {
     id: string;
     name: string;
@@ -53,30 +78,11 @@ export interface TaggingResult {
     recognitionMode: string;
   };
   overallScore: number;
-  brandRecognition: {
-    noConfidentMatch: boolean;
-    logoName: string | null;
-    logoTypeName: string | null;
-    confidence: number | null;
-    similarity: number | null;
-    assetLogoId?: string;
-    recommendedTags: {
-      tagPath: string[];
-    }[];
-  } | null;
-  ipRecognition: {
-    noConfidentMatch: boolean;
-    ipName: string | null;
-    ipTypeName: string | null;
-    confidence: number | null;
-    similarity: number | null;
-    imageSimilarity: number | null;
-    descriptionSimilarity: number | null;
-    assetIpId?: string;
-    recommendedTags: {
-      tagPath: string[];
-    }[];
-  } | null;
+  brands?: BrandRecognitionResult[];
+  ips?: IpRecognitionResult[];
+  /** Retained for historical single-identity results. Explicit arrays are authoritative. */
+  brandRecognition: BrandRecognitionResult | null;
+  ipRecognition: IpRecognitionResult | null;
   products?: ProductRecognitionResult[];
   /** Retained for test results saved before multiple product matches were supported. */
   productRecognition?: ProductRecognitionResult | null;
@@ -129,8 +135,12 @@ export function getTaggingResultFeatureKeys(result: TaggingResult): string[] {
   const products =
     result.products ?? (result.productRecognition ? [result.productRecognition] : []);
   const ids: [string, string | undefined][] = [
-    ["brand", result.brandRecognition?.assetLogoId],
-    ["ip", result.ipRecognition?.assetIpId],
+    ...(result.brands ?? (result.brandRecognition ? [result.brandRecognition] : [])).map(
+      (brand): [string, string | undefined] => ["brand", brand.assetLogoId],
+    ),
+    ...(result.ips ?? (result.ipRecognition ? [result.ipRecognition] : [])).map(
+      (ip): [string, string | undefined] => ["ip", ip.assetIpId],
+    ),
     ...products.map((product): [string, string | undefined] => ["product", product.assetProductId]),
     ...(result.personRecognition?.faces ?? []).map((face): [string, string | undefined] => [
       "person",
@@ -349,13 +359,15 @@ export function TaggingResultDisplay({ result, featureThumbnails }: TaggingResul
   const recognitionFeatures: RecognitionFeature[] = [];
   const products =
     result.products ?? (result.productRecognition ? [result.productRecognition] : []);
+  const brands = result.brands ?? (result.brandRecognition ? [result.brandRecognition] : []);
+  const ips = result.ips ?? (result.ipRecognition ? [result.ipRecognition] : []);
   const hasFeatureBelowConfidenceThreshold =
     (featureLibraryFeatures.featureBrand &&
-      result.brandRecognition?.assetLogoId &&
-      !meetsFeatureConfidenceThreshold("brand", result.brandRecognition.confidence)) ||
+      brands.some(
+        (brand) => brand.assetLogoId && !meetsFeatureConfidenceThreshold("brand", brand.confidence),
+      )) ||
     (featureLibraryFeatures.featureIp &&
-      result.ipRecognition?.assetIpId &&
-      !meetsFeatureConfidenceThreshold("ip", result.ipRecognition.confidence)) ||
+      ips.some((ip) => ip.assetIpId && !meetsFeatureConfidenceThreshold("ip", ip.confidence))) ||
     (featureLibraryFeatures.featureProduct &&
       products.some(
         (product) =>
@@ -395,43 +407,43 @@ export function TaggingResultDisplay({ result, featureThumbnails }: TaggingResul
     });
   }
 
-  if (
-    featureLibraryFeatures.featureBrand &&
-    result.brandRecognition?.logoName &&
-    result.brandRecognition.assetLogoId &&
-    meetsFeatureConfidenceThreshold("brand", result.brandRecognition.confidence)
-  ) {
-    const score = normalizeFeatureConfidence(result.brandRecognition.confidence);
+  for (const brand of featureLibraryFeatures.featureBrand ? brands : []) {
+    if (
+      !brand.logoName ||
+      !brand.assetLogoId ||
+      !meetsFeatureConfidenceThreshold("brand", brand.confidence)
+    )
+      continue;
+    const score = normalizeFeatureConfidence(brand.confidence);
     recognitionFeatures.push({
-      key: "brand",
-      title: result.brandRecognition.logoName,
+      key: `brand-${brand.assetLogoId}`,
+      title: brand.logoName,
       featureName: t("featureClassBrand"),
-      featureType: result.brandRecognition.logoTypeName || "-",
+      featureType: brand.logoTypeName || "-",
       matchingSource: t("brandRecognition"),
       confidence: score,
       score,
       featureTypeId: "brand",
-      featureId: result.brandRecognition.assetLogoId,
+      featureId: brand.assetLogoId,
+      recommendedTags: brand.recommendedTags,
     });
   }
 
-  if (
-    featureLibraryFeatures.featureIp &&
-    result.ipRecognition?.ipName &&
-    result.ipRecognition.assetIpId &&
-    meetsFeatureConfidenceThreshold("ip", result.ipRecognition.confidence)
-  ) {
-    const score = normalizeFeatureConfidence(result.ipRecognition.confidence);
+  for (const ip of featureLibraryFeatures.featureIp ? ips : []) {
+    if (!ip.ipName || !ip.assetIpId || !meetsFeatureConfidenceThreshold("ip", ip.confidence))
+      continue;
+    const score = normalizeFeatureConfidence(ip.confidence);
     recognitionFeatures.push({
-      key: "ip",
-      title: result.ipRecognition.ipName,
+      key: `ip-${ip.assetIpId}`,
+      title: ip.ipName,
       featureName: t("featureClassIp"),
-      featureType: result.ipRecognition.ipTypeName || "-",
+      featureType: ip.ipTypeName || "-",
       matchingSource: t("ipRecognition"),
       confidence: score,
       score,
       featureTypeId: "ip",
-      featureId: result.ipRecognition.assetIpId,
+      featureId: ip.assetIpId,
+      recommendedTags: ip.recommendedTags,
     });
   }
 
@@ -583,6 +595,9 @@ export function TaggingResultDisplay({ result, featureThumbnails }: TaggingResul
             </div>
           )}
         </SectionShell>
+      ) : null}
+      {result.featureDecision ? (
+        <FeatureDecisionDiagnosticsPanel diagnostics={result.featureDecision} />
       ) : null}
     </div>
   );

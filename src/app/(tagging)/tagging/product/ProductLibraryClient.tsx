@@ -53,6 +53,7 @@ import {
   stickyNameHeaderClassName,
   useHorizontalScrolled,
 } from "../components/library-table";
+import FeatureRetryActions from "../components/FeatureRetryActions";
 import LibraryPagination from "../components/LibraryPagination";
 import {
   linkedTagsColumnCellClassName,
@@ -68,6 +69,7 @@ import {
   fetchProductsPageAction,
   pollProductsAction,
   retryAssetProductProcessingAction,
+  retryAllFailedAssetProductProcessingAction,
   setAssetProductEnabledAction,
   setAssetProductsEnabledAction,
 } from "./actions";
@@ -402,6 +404,23 @@ export default function ProductLibraryClient({
       setSelectedIds((current) => current.filter((id) => id !== deleteTarget.id));
       setDeleteTarget(null);
       toast.success(t("deletedSuccess"));
+    });
+  }
+
+  function handleRetryAllFailedProcessing() {
+    startTransition(async () => {
+      try {
+        const result = await retryAllFailedAssetProductProcessingAction();
+        if (!result.success) {
+          toast.error(result.message);
+          return;
+        }
+        toast.success(t("retryStarted"));
+      } catch {
+        toast.error(t("retryFailed"));
+      } finally {
+        reloadList();
+      }
     });
   }
 
@@ -976,14 +995,13 @@ export default function ProductLibraryClient({
                                       </span>
                                     )}
                                     {product.status === "failed" ? (
-                                      <button
-                                        type="button"
-                                        className="whitespace-nowrap text-[12px] leading-[16px] font-normal text-primary-6 transition-colors hover:text-primary-7 disabled:cursor-not-allowed disabled:text-basic-5"
-                                        onClick={() => handleRetryProcessing(product)}
+                                      <FeatureRetryActions
+                                        retryLabel={t("retry")}
+                                        retryAllLabel={t("retryAll")}
+                                        onRetry={() => handleRetryProcessing(product)}
+                                        onRetryAll={handleRetryAllFailedProcessing}
                                         disabled={pending}
-                                      >
-                                        {t("retry")}
-                                      </button>
+                                      />
                                     ) : null}
                                   </div>
                                 </td>

@@ -1,5 +1,6 @@
 // @vitest-environment node
 
+import { getDetectionDebugRequestMode } from "@/lib/media-process/debug-request-mode";
 import { detectMediaProcessObjects } from "@/lib/media-process/object-detection";
 import type { ClassificationRemoteImageInput } from "@/lib/tagging/classification-image";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -133,6 +134,36 @@ describe("media processing detection", () => {
       detection_mode: "default",
     });
   });
+
+  it.each([undefined, "", "false", "1", "true", " TRUE "])(
+    "selects the debug detection endpoint for DETECTION_DEBUG_SYNC=%s",
+    async (value) => {
+      vi.stubEnv("DETECTION_DEBUG_SYNC", value);
+      const sync = value?.trim().toLowerCase() === "true";
+      if (sync) {
+        fetchMock.mockResolvedValueOnce(json({ id: jobId, result: emptyResult.result, error: {} }));
+      } else {
+        fetchMock
+          .mockResolvedValueOnce(json(submitted))
+          .mockResolvedValueOnce(json({ status: "completed" }))
+          .mockResolvedValueOnce(json(emptyResult));
+      }
+
+      expect(await run({ requestMode: getDetectionDebugRequestMode() })).toEqual({
+        detections: [],
+        found: false,
+      });
+      expect(fetchMock.mock.calls.map(([url]) => url)).toEqual(
+        sync
+          ? [`${base}/requests/object_detection_llm`]
+          : [
+              `${base}/queue/object_detection_llm`,
+              `${base}/queue/jobs/${jobId}/status`,
+              `${base}/queue/jobs/${jobId}`,
+            ],
+      );
+    },
+  );
 
   it("uses the synchronous envelope and scales original coordinates without polling", async () => {
     fetchMock.mockResolvedValueOnce(

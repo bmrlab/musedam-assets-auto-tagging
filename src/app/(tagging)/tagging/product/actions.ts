@@ -1,5 +1,7 @@
 "use server";
 
+import { classifyAssetFeatures } from "@/lib/feature-decision/classify";
+import { getDetectionDebugRequestMode } from "@/lib/media-process/debug-request-mode";
 import { signObjectDetectionImageUrl } from "@/lib/media-process/image-url";
 import {
   AssetTagTreeNode,
@@ -20,7 +22,6 @@ import {
 } from "@/lib/product/pgvector";
 import {
   ProductDetectionBox,
-  classifyProductImageRegions,
   detectProductFigureBoxes,
 } from "@/lib/product/product-classification";
 import {
@@ -1569,7 +1570,7 @@ export async function prepareProductClassificationAction(input: {
       const detection = await detectProductFigureBoxes({
         teamId,
         imageInput,
-        requestMode: "sync",
+        requestMode: getDetectionDebugRequestMode(),
       });
 
       return {
@@ -1600,6 +1601,9 @@ export async function classifyProductImageAction(input: {
   mimeType: string;
   size: number;
   boxes: ProductDetectionBox[];
+  imageMode?: boolean;
+  fileName?: string;
+  folderPath?: string;
 }): Promise<ServerActionResult<{ result: ProductClassificationResult }>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
@@ -1610,6 +1614,9 @@ export async function classifyProductImageAction(input: {
           objectKey: z.string().trim().min(1),
           mimeType: z.string().trim().min(1).max(255),
           size: z.number().int().positive().max(MAX_CLIENT_IMAGE_UPLOAD_BYTES),
+          imageMode: z.boolean().default(true),
+          fileName: z.string().max(1000).optional(),
+          folderPath: z.string().max(4000).optional(),
           boxes: z.array(classifyBoxSchema).min(1, t("uploadImageFirst")),
         })
         .parse(input);
@@ -1638,16 +1645,24 @@ export async function classifyProductImageAction(input: {
       const imageInput = await fetchRemoteImageInput(signedUrl, "product classification upload", {
         preserveOriginal: true,
       });
-      const result = await classifyProductImageRegions({
+      const classification = await classifyAssetFeatures({
         teamId,
         imageInput,
-        boxes: metadata.boxes,
+        enabledTypes: ["product"],
+        boxes: { product: metadata.boxes },
+        imageMode: metadata.imageMode,
+        fileName: metadata.fileName,
+        folderPath: metadata.folderPath,
       });
+      const result = classification.product;
+      if (!result) {
+        throw new Error("Feature classification did not return a result");
+      }
 
       return {
         success: true,
         data: {
-          result,
+          result: { ...result, diagnostics: classification.diagnostics },
         },
       };
     } catch (error) {
@@ -2178,6 +2193,43 @@ export async function deleteAssetProductsAction(
     } catch (error) {
       console.error("Failed to batch delete asset Product:", error);
       return { success: false, message: t("deleteFailed") };
+    }
+  });
+}
+
+export async function retryAllFailedAssetProductProcessingAction(): Promise<
+  ServerActionResult<{ retriedCount: number }>
+> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    const t = await getTranslations("Tagging.ProductLibrary");
+    try {
+      const failedItems = await prisma.assetProduct.findMany({
+        where: { teamId, status: "failed" },
+        select: { id: true, enabled: true },
+      });
+      const limit = pLimit(BATCH_VECTOR_SYNC_CONCURRENCY);
+      // Settle every retry so one failed reset does not prevent the others.
+      const results = await Promise.allSettled(
+        failedItems.map((item) =>
+          limit(async () => {
+            await markAssetProductVectorsPending({
+              teamId,
+              productId: item.id,
+              enabled: item.enabled,
+            });
+            scheduleAssetProductProcessing(teamId, item.id);
+          }),
+        ),
+      );
+      const failure = results.find((result) => result.status === "rejected");
+      if (failure) {
+        console.error("Failed to retry all asset Product processing:", failure.reason);
+        return { success: false, message: t("retryFailed") };
+      }
+      return { success: true, data: { retriedCount: failedItems.length } };
+    } catch (error) {
+      console.error("Failed to retry all asset Product processing:", error);
+      return { success: false, message: t("retryFailed") };
     }
   });
 }

@@ -53,7 +53,8 @@
 | `MUSEDAM_API_BASE_URL` / `MUSEDAM_APP_API_KEY` / `MUSEDAM_APP_SECRET`                            | 客户所在 MuseDAM 实例的地址与凭证                                                |
 | `AUTH_SECRET` / `CIPHER_PASSWORD` / `INTERNAL_API_KEY`                                           | **必须为私有环境重新生成**，不能沿用 SaaS 环境的值                               |
 | `IFRAME_ALLOWED_ORIGINS`                                                                         | 改为客户实际域名                                                                 |
-| `JINA_API_KEY` / `JINA_EMBEDDINGS_URL` / `TRANSLATION_SERVICE_URL` / `LOGO_DETECTION_SERVER_URL` / `MEDIA_PROCESS_SERVICE_URL` | 若客户环境无法访问对应外部服务，需要替换成客户可达的地址（自建或走同一网关代理） |
+| `TRANSLATION_SERVICE_MODEL` | 翻译模型 ID；翻译直接使用 `OPENAI_BASE_URL/chat/completions` 和 `OPENAI_API_KEY` |
+| `JINA_API_KEY` / `JINA_EMBEDDINGS_URL` / `LOGO_DETECTION_SERVER_URL` / `MEDIA_PROCESS_SERVICE_URL` | 若客户环境无法访问对应外部服务，需要替换成客户可达的地址（自建或走同一网关代理） |
 
 ## 3. 迁移
 
@@ -155,7 +156,8 @@ Web 容器堆上限默认 640MB（`NODE_OPTIONS`），100MB 以内的包可以�
 
 Logo、商品和 IP 自动打标通过 `MEDIA_PROCESS_SERVICE_URL/queue/object_detection_llm` 提交异步任务，
 并轮询任务状态后读取结果。手动分类页面 `/tagging/product/classify`、`/tagging/brand/classify`、
-`/tagging/ip/classify` 和检测调试页面 `/tagging/dev/detection` 使用
+`/tagging/ip/classify` 和检测调试页面 `/tagging/dev/detection` 默认也使用上述异步流程。
+仅当 `DETECTION_DEBUG_SYNC=true` 时，这些开发页面改用
 `MEDIA_PROCESS_SERVICE_URL/requests/object_detection_llm` 同步等待检测完成。
 两种调用均使用 `MEDIA_PROCESS_SERVICE_TOKEN` Bearer 认证，并发送 `file`、`detection_label_text`、
 `detection_mode` 和整数 `team_id`。其中 `team_id` 是当前团队 `Team.slug` 去掉 `t/` 后的

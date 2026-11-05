@@ -7,7 +7,10 @@
 - Node.js >=22，pnpm 9.12.3（engines 明确要求 <10），具体版本以 package.json/锁文件为准。
 - PostgreSQL：README 基线 15；先创建本项目独立开发库与 shadow 库。自动打标还需按当前 schema/迁移核对 pgvector。
 - 根 .env.example 是配置模板。准备 DATABASE_URL、SHADOW_DATABASE_URL、AUTH_SECRET 和当前功能依赖。
+- 翻译使用 `TRANSLATION_SERVICE_MODEL`，直接调用 `OPENAI_BASE_URL/chat/completions` 并使用 `OPENAI_API_KEY`。
+- 商品、Logo、IP 分类开发页和检测调试页默认使用异步检测；仅当 `DETECTION_DEBUG_SYNC=true` 时使用同步检测。
 - 自动打标需要模型/embedding 配置、对象存储及 MuseDAM 凭据。需要独立队列消费者时另开终端执行 `pnpm queue-processor`；同时核对 EMBEDDED_QUEUE_SCHEDULER 和 README，避免重复启动调度器。
+- 商品、Logo、IP 默认使用新增 LLM 决策：配置 `OPENAI_BASE_URL`、`OPENAI_API_KEY`、`FEATURE_DECISION_MODEL` 和 `OCR_MODEL`（未设置 OCR 模型时禁用 OCR）。二者直接调用同一网关，不经过 `LLM_PROVIDER` 路由；决策模式、5 分钟调用超时和输出 token 上限统一在 `src/lib/feature-decision/config.ts` 定义；修改模式常量为 `"legacy"` 可切回旧算法。目前记录 token 用量，费用保留为 `null`。开发分类页的「图像模式」默认开启，关闭时仍运行 OCR/LLM 决策，仅决策请求改为纯文本；页面支持两种输入模式的结果与 token 对比。决策应返回合理的低置信度预测或多个可能选项，不再输出 `ambiguous`；只有全部候选明显无关时使用 `no_match`，预测展示与自动应用阈值独立。
 
 ## 安装与首次数据库准备
 
@@ -24,6 +27,8 @@ pnpm exec prisma migrate dev
 ```
 
 已有数据库不要 reset；发现漂移时先核对 migration 和实际结构。
+
+新增 `20261105090000_add_feature_llm_calls` 迁移用于 OCR/决策调用的用量、费用与诊断记录；文件已准备，未自动应用到数据库。启用新算法前需按上述开发库流程应用迁移并生成客户端，部署环境使用现有 `pnpm db:deploy`。
 
 ## 启动
 

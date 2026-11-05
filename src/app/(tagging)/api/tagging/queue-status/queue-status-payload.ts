@@ -3,6 +3,7 @@ import { getIpRecommendationFromQueueResult } from "@/app/(tagging)/ip-recommend
 import { getPersonRecommendationFromQueueResult } from "@/app/(tagging)/person-recommendation";
 import { getProductRecommendationFromQueueResult } from "@/app/(tagging)/product-recommendation";
 import { getQueueWaitEstimate } from "@/app/(tagging)/queue-estimate";
+import { getAcceptedBrandMatches, getAcceptedIpMatches } from "@/lib/feature-decision/match-policy";
 import {
   filterFeatureLibraryRecommendations,
   type FeatureLibraryFeatures,
@@ -37,11 +38,13 @@ export async function buildQueueStatusPayload({
   const brandRecommendation = featureLibraryFeatures.featureBrand
     ? getBrandRecommendationFromQueueResult(queueItem.result)
     : null;
-  const assetLogoId = brandRecommendation?.bestMatch?.assetLogoId;
+  const assetLogoIds = getAcceptedBrandMatches(brandRecommendation).map(
+    (match) => match.assetLogoId,
+  );
   const ipRecommendation = featureLibraryFeatures.featureIp
     ? getIpRecommendationFromQueueResult(queueItem.result)
     : null;
-  const assetIpId = ipRecommendation?.bestMatch?.assetIpId;
+  const assetIpIds = getAcceptedIpMatches(ipRecommendation).map((match) => match.assetIpId);
   const productRecommendation = featureLibraryFeatures.featureProduct
     ? getProductRecommendationFromQueueResult(queueItem.result)
     : null;
@@ -60,36 +63,40 @@ export async function buildQueueStatusPayload({
         .filter((id): id is string => Boolean(id)) ?? [],
     ),
   );
-  const brandLinkedTags = assetLogoId
-    ? await prisma.assetLogoTag.findMany({
-        where: {
-          assetLogoId,
-          assetTagId: {
-            not: null,
+  const brandLinkedTags =
+    assetLogoIds.length > 0
+      ? await prisma.assetLogoTag.findMany({
+          where: {
+            assetLogoId: { in: assetLogoIds },
+            assetTagId: {
+              not: null,
+            },
           },
-        },
-        orderBy: [{ sort: "asc" }, { id: "asc" }],
-        select: {
-          assetTagId: true,
-          tagPath: true,
-        },
-      })
-    : [];
-  const ipLinkedTags = assetIpId
-    ? await prisma.assetIpTag.findMany({
-        where: {
-          assetIpId,
-          assetTagId: {
-            not: null,
+          orderBy: [{ sort: "asc" }, { id: "asc" }],
+          select: {
+            assetLogoId: true,
+            assetTagId: true,
+            tagPath: true,
           },
-        },
-        orderBy: [{ sort: "asc" }, { id: "asc" }],
-        select: {
-          assetTagId: true,
-          tagPath: true,
-        },
-      })
-    : [];
+        })
+      : [];
+  const ipLinkedTags =
+    assetIpIds.length > 0
+      ? await prisma.assetIpTag.findMany({
+          where: {
+            assetIpId: { in: assetIpIds },
+            assetTagId: {
+              not: null,
+            },
+          },
+          orderBy: [{ sort: "asc" }, { id: "asc" }],
+          select: {
+            assetIpId: true,
+            assetTagId: true,
+            tagPath: true,
+          },
+        })
+      : [];
   const productLinkedTags =
     assetProductIds.length > 0
       ? await prisma.assetProductTag.findMany({
@@ -132,10 +139,12 @@ export async function buildQueueStatusPayload({
     queueEstimate,
     result: filterFeatureLibraryRecommendations(queueItem.result, featureLibraryFeatures),
     brandLinkedTags: brandLinkedTags.map((tag) => ({
+      assetLogoId: tag.assetLogoId,
       assetTagId: tag.assetTagId,
       tagPath: Array.isArray(tag.tagPath) ? tag.tagPath.map(String) : [],
     })),
     ipLinkedTags: ipLinkedTags.map((tag) => ({
+      assetIpId: tag.assetIpId,
       assetTagId: tag.assetTagId,
       tagPath: Array.isArray(tag.tagPath) ? tag.tagPath.map(String) : [],
     })),

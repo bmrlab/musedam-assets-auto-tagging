@@ -2,6 +2,9 @@ import "server-only";
 
 import { isTagTreeJob, processTagTreeQueueItem } from "@/app/tags/tagTreeQueue";
 import { classifyAssetBrandRecommendation } from "@/lib/brand/tagging-brand-classification";
+import { classifyAssetFeatures, getFeatureDecisionMode } from "@/lib/feature-decision/classify";
+import { buildFeatureRecommendations } from "@/lib/feature-decision/recommendations";
+import type { FeatureDecisionDiagnostics } from "@/lib/feature-decision/types";
 import {
   FeatureClassificationFlags,
   isFeatureLibrarySupportedAsset,
@@ -268,6 +271,7 @@ export async function processQueueItem({
         elapsedMs: Date.now() - taskStartedAt,
       }),
     );
+  let featureDecision: FeatureDecisionDiagnostics | undefined;
 
   try {
     const extra = queueItem.extra as TaggingQueueItemExtra;
@@ -324,6 +328,7 @@ export async function processQueueItem({
     let personRecommendationPromise: Promise<
       Awaited<ReturnType<typeof classifyAssetPersonRecommendation>>
     > = Promise.resolve(null);
+    let unacceptedIdentityTagIds: number[] = [];
 
     if (hasFeatureClassifications && (thumbnailUrl || detectionImageUrl)) {
       const [logoCount, productCount, ipCount, personCount] = await Promise.all([
@@ -388,35 +393,90 @@ export async function processQueueItem({
               return null;
             });
 
-          if (logoCount > 0) {
-            brandRecommendationPromise = sharedImagePromise.then((sharedImageInput) =>
-              sharedImageInput
-                ? withFallback(
-                    classifyAssetBrandRecommendation({ teamId, imageInput: sharedImageInput }),
-                    "classifyAssetBrandRecommendation",
-                  )
-                : null,
+          if (getFeatureDecisionMode() === "llm") {
+            const combined = sharedImagePromise.then(async (imageInput) => {
+              if (!imageInput) {
+                featureDecision = {
+                  mode: "llm",
+                  ocr: { status: "skipped", segments: [] },
+                  decision: { status: "skipped", error: "Source image unavailable" },
+                };
+                return null;
+              }
+              const result = await withFallback(
+                classifyAssetFeatures({
+                  teamId,
+                  imageInput,
+                  queueItemId: queueItem.id,
+                  assetObjectId: assetObject.id,
+                  fileName: assetObject.name,
+                  folderPath: assetObject.materializedPath,
+                  enabledTypes: [
+                    ...(logoCount > 0 ? ["logo" as const] : []),
+                    ...(productCount > 0 ? ["product" as const] : []),
+                    ...(ipCount > 0 ? ["ip" as const] : []),
+                  ],
+                }),
+                "classifyAssetFeatures",
+              );
+              if (!result) {
+                featureDecision = {
+                  mode: "llm",
+                  ocr: { status: "skipped", segments: [] },
+                  decision: {
+                    status: "failed",
+                    error: "Feature candidate processing failed; no embedding fallback applied",
+                  },
+                };
+                return null;
+              }
+              featureDecision = result.diagnostics;
+              unacceptedIdentityTagIds = result.unacceptedIdentityTagIds ?? [];
+              return buildFeatureRecommendations(result);
+            });
+            brandRecommendationPromise = combined.then(
+              (result) => result?.brandRecommendation ?? null,
             );
-          }
-          if (ipCount > 0) {
-            ipRecommendationPromise = sharedImagePromise.then((sharedImageInput) =>
-              sharedImageInput
-                ? withFallback(
-                    classifyAssetIpRecommendation({ teamId, imageInput: sharedImageInput }),
-                    "classifyAssetIpRecommendation",
-                  )
-                : null,
+            ipRecommendationPromise = combined.then((result) => result?.ipRecommendation ?? null);
+            productRecommendationPromise = combined.then(
+              (result) => result?.productRecommendation ?? null,
             );
-          }
-          if (productCount > 0) {
-            productRecommendationPromise = sharedImagePromise.then((imageInput) =>
-              imageInput
-                ? withFallback(
-                    classifyAssetProductRecommendation({ teamId, imageInput }),
-                    "classifyAssetProductRecommendation",
-                  )
-                : null,
-            );
+          } else {
+            featureDecision = {
+              mode: "legacy",
+              ocr: { status: "disabled", segments: [] },
+              decision: { status: "skipped", error: "Explicit embedding-only legacy mode" },
+            };
+            if (logoCount > 0) {
+              brandRecommendationPromise = sharedImagePromise.then((sharedImageInput) =>
+                sharedImageInput
+                  ? withFallback(
+                      classifyAssetBrandRecommendation({ teamId, imageInput: sharedImageInput }),
+                      "classifyAssetBrandRecommendation",
+                    )
+                  : null,
+              );
+            }
+            if (ipCount > 0) {
+              ipRecommendationPromise = sharedImagePromise.then((sharedImageInput) =>
+                sharedImageInput
+                  ? withFallback(
+                      classifyAssetIpRecommendation({ teamId, imageInput: sharedImageInput }),
+                      "classifyAssetIpRecommendation",
+                    )
+                  : null,
+              );
+            }
+            if (productCount > 0) {
+              productRecommendationPromise = sharedImagePromise.then((imageInput) =>
+                imageInput
+                  ? withFallback(
+                      classifyAssetProductRecommendation({ teamId, imageInput }),
+                      "classifyAssetProductRecommendation",
+                    )
+                  : null,
+              );
+            }
           }
         }
 
@@ -463,7 +523,7 @@ export async function processQueueItem({
     }
 
     const [
-      { predictions, tagsWithScore: predictedTagsWithScore, extra: newExtra },
+      predictionResult,
       brandRecommendation,
       ipRecommendation,
       productRecommendation,
@@ -472,12 +532,20 @@ export async function processQueueItem({
       logStepFinished(
         "predictAssetTags",
         predictTagsPromise ?? predictAssetTags(assetObject, predictOptionsBase),
-      ),
+      )
+        .then((value) => ({ value }))
+        .catch((error: unknown) => ({ error })),
       brandRecommendationPromise,
       ipRecommendationPromise,
       productRecommendationPromise,
       personRecommendationPromise,
     ]);
+    if ("error" in predictionResult) throw predictionResult.error;
+    const {
+      predictions,
+      tagsWithScore: predictedTagsWithScore,
+      extra: newExtra,
+    } = predictionResult.value;
     // 同级互斥硬约束（AI vs 特征库）：特征库认出了互斥组里的某个分支时，AI 仅凭内容猜到的同组其他分支要让位。
     // 放在这里是因为审核项创建、直接写回、结果持久化都从 tagsWithScore 出发，改一处三处一致。
     const exclusiveTagsTree = tagsTree ?? (await fetchTagsTreeForTagging({ teamId }));
@@ -489,9 +557,14 @@ export async function processQueueItem({
     });
     const exclusiveResolved = resolveExclusiveSiblingsAcrossSources({
       tagsTree: exclusiveTagsTree,
-      tagsWithScore: predictedTagsWithScore,
+      tagsWithScore: predictedTagsWithScore.filter(
+        (tag) => !unacceptedIdentityTagIds.includes(tag.leafTagId),
+      ),
       featureCandidates,
     });
+    if (featureDecision && unacceptedIdentityTagIds.length) {
+      featureDecision.reconciliation = { suppressedIdentityTagIds: unacceptedIdentityTagIds };
+    }
     // 必打分类被特征库挤掉后留空时，采用特征库匹配上的标签
     const requiredFromFeatures = fillRequiredGroupsFromFeatures({
       tagsTree: exclusiveTagsTree,
@@ -832,6 +905,7 @@ export async function processQueueItem({
           ipRecommendation,
           productRecommendation,
           personRecommendation,
+          ...(featureDecision ? { featureDecision } : {}),
         } as TaggingQueueItemResult,
         extra: {
           ...latestExtra,
@@ -894,7 +968,11 @@ export async function processQueueItem({
       data: {
         status: "failed",
         endsAt: new Date(),
-        result: { error: errorCode, message: errorMessage } as TaggingQueueItemResult,
+        result: {
+          error: errorCode,
+          message: errorMessage,
+          ...(featureDecision ? { featureDecision } : {}),
+        } as TaggingQueueItemResult,
       },
     });
   }

@@ -1,5 +1,7 @@
 "use server";
 
+import { classifyAssetFeatures } from "@/lib/feature-decision/classify";
+import { getDetectionDebugRequestMode } from "@/lib/media-process/debug-request-mode";
 import { signObjectDetectionImageUrl } from "@/lib/media-process/image-url";
 import {
   AssetTagTreeNode,
@@ -14,7 +16,6 @@ import {
   MAX_TOTAL_NEW_REFERENCE_UPLOAD_BYTES,
 } from "@/lib/brand/upload-constants";
 import {
-  classifyIpImageCrops,
   detectIpFigureBoxes,
   detectIpPartialFeatureBoxes,
   IpDetectionBox,
@@ -40,12 +41,7 @@ import {
   BatchReferenceImageError,
   downloadAndPrepareBatchReferenceImage,
 } from "@/lib/tagging/batch-reference-image";
-import {
-  clampBox as clampClassificationBox,
-  cropImageToDataUrl as cropClassificationImageToDataUrl,
-  fetchRemoteImageInput,
-  getFallbackBox,
-} from "@/lib/tagging/classification-image";
+import { fetchRemoteImageInput, getFallbackBox } from "@/lib/tagging/classification-image";
 import { getReferenceThumbnailUrl } from "@/lib/tagging/reference-thumbnail";
 import { schedulePushFeatureToMuseDAM } from "@/musedam/push-feature-to-musedam";
 import { AssetIp, AssetIpImage, AssetIpTag, AssetIpType, AssetTag } from "@/prisma/client/index";
@@ -1905,7 +1901,7 @@ export async function prepareIpClassificationAction(input: {
       const detection = await detectIpFigureBoxes({
         teamId,
         imageInput,
-        requestMode: "sync",
+        requestMode: getDetectionDebugRequestMode(),
       });
 
       return {
@@ -1936,6 +1932,9 @@ export async function classifyIpImageAction(input: {
   mimeType: string;
   size: number;
   boxes: IpDetectionBox[];
+  imageMode?: boolean;
+  fileName?: string;
+  folderPath?: string;
 }): Promise<ServerActionResult<{ result: IpClassificationResult }>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
@@ -1946,6 +1945,9 @@ export async function classifyIpImageAction(input: {
           objectKey: z.string().trim().min(1),
           mimeType: z.string().trim().min(1).max(255),
           size: z.number().int().positive().max(MAX_CLIENT_IMAGE_UPLOAD_BYTES),
+          imageMode: z.boolean().default(true),
+          fileName: z.string().max(1000).optional(),
+          folderPath: z.string().max(4000).optional(),
           boxes: z.array(classifyBoxSchema).min(1, t("uploadImageFirst")),
         })
         .parse(input);
@@ -1972,32 +1974,24 @@ export async function classifyIpImageAction(input: {
         expiresInSeconds: 60 * 60,
       });
       const imageInput = await fetchRemoteImageInput(signedUrl, "IP classification upload");
-      const crops = await Promise.all(
-        metadata.boxes.map(async (box) => {
-          const normalizedBox = clampClassificationBox(box, imageInput);
-
-          return {
-            box: normalizedBox,
-            image: await cropClassificationImageToDataUrl({
-              imageDataUrl: imageInput.dataUrl,
-              imageBuffer: imageInput.buffer,
-              sourceMimeType: imageInput.mimeType,
-              meta: imageInput,
-              box: normalizedBox,
-            }),
-          };
-        }),
-      );
-
-      const result = await classifyIpImageCrops({
+      const classification = await classifyAssetFeatures({
         teamId,
-        crops,
+        imageInput,
+        enabledTypes: ["ip"],
+        boxes: { ip: metadata.boxes },
+        imageMode: metadata.imageMode,
+        fileName: metadata.fileName,
+        folderPath: metadata.folderPath,
       });
+      const result = classification.ip;
+      if (!result) {
+        throw new Error("Feature classification did not return a result");
+      }
 
       return {
         success: true,
         data: {
-          result,
+          result: { ...result, diagnostics: classification.diagnostics },
         },
       };
     } catch (error) {
@@ -2546,6 +2540,43 @@ export async function deleteAssetIpsAction(
     } catch (error) {
       console.error("Failed to batch delete asset IP:", error);
       return { success: false, message: t("deleteFailed") };
+    }
+  });
+}
+
+export async function retryAllFailedAssetIpProcessingAction(): Promise<
+  ServerActionResult<{ retriedCount: number }>
+> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    const t = await getTranslations("Tagging.IpLibrary");
+    try {
+      const failedItems = await prisma.assetIp.findMany({
+        where: { teamId, status: "failed" },
+        select: { id: true, enabled: true },
+      });
+      const limit = pLimit(BATCH_VECTOR_SYNC_CONCURRENCY);
+      // Settle every retry so one failed reset does not prevent the others.
+      const results = await Promise.allSettled(
+        failedItems.map((item) =>
+          limit(async () => {
+            await markAssetIpVectorsPending({
+              teamId,
+              ipId: item.id,
+              enabled: item.enabled,
+            });
+            scheduleAssetIpProcessing(teamId, item.id);
+          }),
+        ),
+      );
+      const failure = results.find((result) => result.status === "rejected");
+      if (failure) {
+        console.error("Failed to retry all asset Ip processing:", failure.reason);
+        return { success: false, message: t("retryFailed") };
+      }
+      return { success: true, data: { retriedCount: failedItems.length } };
+    } catch (error) {
+      console.error("Failed to retry all asset Ip processing:", error);
+      return { success: false, message: t("retryFailed") };
     }
   });
 }
