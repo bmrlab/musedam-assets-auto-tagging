@@ -50,6 +50,8 @@ pnpm dev
 
 package 中的 lint 为 next lint，若当前 Next 版本已不支持该子命令，要记录这个已有问题；不能将命令退出误报为检查通过。数据库连接、迁移、认证和 iframe 细节见 [README.md](README.md)。
 
+元数据自动填写的交付、范围取舍和验证记录见 [docs/metadata-ai-delivery.md](docs/metadata-ai-delivery.md)。可用 `node development/metadata-preview/start.mjs` 启动独立组件样例（默认 `http://127.0.0.1:3019`，以实际输出为准）；它使用模拟审核数据，不连接远端，也不代表真实 iframe/认证验收。`METADATA_TEST_DATABASE_URL` 仅用于明确新建的本地 `metadata_ai_test*` PostgreSQL 测试库；集成测试会清理该测试库的自建数据，不能指向业务库。
+
 ## UI 开发约定
 
 MuseDAM 界面按 `muse-development/references/design-system.md`（由工作区 Muse 开发 skill 提供）；新增静态样式使用 Tailwind，先复用本项目组件与图标。两种主题均需适配。跨仓定位见 工作区 `muse-development/SKILL.md`。
