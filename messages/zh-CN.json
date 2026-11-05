@@ -92,6 +92,8 @@
       "requiredGroupTooltip": "依据不足时也选最可能的一个，并在审核页标为「必打兜底」",
       "requiredGroupOn": "已开启，每个素材都会打上一个子标签",
       "requiredGroupOff": "已关闭，仅在有依据时打标",
+      "expandKeywords": "展开全部（{count}）",
+      "collapseKeywords": "收起",
       "matchingKeywords": "匹配关键词",
       "matchingKeywordsTooltip": "添加与此标签相关的关键词，帮助AI更准确地识别此标签",
       "inputKeywords": "输入关键词",

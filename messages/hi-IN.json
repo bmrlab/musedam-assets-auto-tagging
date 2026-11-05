@@ -193,6 +193,8 @@
       "excludeRule": "नियम को छोड़ें:",
       "excludeRuleDescription": "जब संपत्ति नाम, मेटाडेटा और फोल्डर पथों में ये कीवर्ड होते हैं, तो भले ही मिलाने वाले कीवर्ड मिलें, टैग स्वचालित रूप से लागू नहीं किया जाएगा",
       "inputKeywords": "कीवर्ड दर्ज करें",
+      "expandKeywords": "सभी दिखाएँ ({count})",
+      "collapseKeywords": "कम दिखाएँ",
       "matchingKeywords": "मिलान वाले कीवर्ड",
       "matchingKeywordsTooltip": "इस टैग से संबंधित कीवर्ड जोड़ें ताकि AI इस टैग को अधिक सटीक रूप से पहचान सके",
       "matchingRule": "मिलान नियम:",

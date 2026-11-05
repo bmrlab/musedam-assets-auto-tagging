@@ -91,6 +91,8 @@
       "requiredGroupTooltip": "Nawet przy niewystarczających przesłankach wybierany jest najbardziej prawdopodobny tag i oznaczany na stronie weryfikacji jako obowiązkowy wybór awaryjny",
       "requiredGroupOn": "Wł.: każdy zasób otrzymuje jeden tag podrzędny",
       "requiredGroupOff": "Wył.: tagi tylko przy dowodach",
+      "expandKeywords": "Pokaż wszystko ({count})",
+      "collapseKeywords": "Pokaż mniej",
       "matchingKeywords": "Słowa kluczowe dopasowania",
       "matchingKeywordsTooltip": "Dodaj słowa kluczowe powiązane z tym tagiem, aby pomóc AI dokładniej zidentyfikować ten tag",
       "inputKeywords": "Wprowadź słowa kluczowe",

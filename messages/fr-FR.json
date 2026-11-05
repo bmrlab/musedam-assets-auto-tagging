@@ -91,6 +91,8 @@
       "requiredGroupTooltip": "Même avec peu d'indices, le sous-tag le plus probable est choisi et signalé comme « repli obligatoire » sur la page de révision",
       "requiredGroupOn": "Activé : chaque ressource reçoit un sous-tag",
       "requiredGroupOff": "Désactivé : étiquetage uniquement avec preuve",
+      "expandKeywords": "Tout afficher ({count})",
+      "collapseKeywords": "Afficher moins",
       "matchingKeywords": "Mots-clés de correspondance",
       "matchingKeywordsTooltip": "Ajoutez des mots-clés liés à cette étiquette pour aider l'IA à l'identifier plus précisément",
       "inputKeywords": "Saisir des mots-clés",

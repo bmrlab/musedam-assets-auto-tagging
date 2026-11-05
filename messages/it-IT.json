@@ -91,6 +91,8 @@
       "requiredGroupTooltip": "Anche con evidenze insufficienti viene scelto il sottotag più probabile, segnalato come fallback obbligatorio nella pagina di revisione",
       "requiredGroupOn": "Attivo: ogni asset riceve un sottotag",
       "requiredGroupOff": "Disattivo: tag solo con evidenza",
+      "expandKeywords": "Mostra tutto ({count})",
+      "collapseKeywords": "Mostra meno",
       "matchingKeywords": "Parole chiave di corrispondenza",
       "matchingKeywordsTooltip": "Aggiungi parole chiave correlate a questo tag per aiutare l'IA a identificarlo con maggiore precisione",
       "inputKeywords": "Inserisci parole chiave",

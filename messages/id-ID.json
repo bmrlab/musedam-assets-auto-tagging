@@ -91,6 +91,8 @@
       "requiredGroupTooltip": "Meskipun bukti kurang, sub-tag yang paling mungkin tetap dipilih dan ditandai sebagai cadangan wajib di halaman tinjauan",
       "requiredGroupOn": "Aktif: setiap aset mendapat satu sub-tag",
       "requiredGroupOff": "Nonaktif: tag hanya jika ada bukti",
+      "expandKeywords": "Tampilkan semua ({count})",
+      "collapseKeywords": "Tampilkan lebih sedikit",
       "matchingKeywords": "Kata Kunci yang Cocok",
       "matchingKeywordsTooltip": "Tambahkan kata kunci terkait tag ini untuk membantu AI mengidentifikasi tag ini lebih akurat",
       "inputKeywords": "Masukkan kata kunci",

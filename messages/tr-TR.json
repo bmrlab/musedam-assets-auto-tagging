@@ -91,6 +91,8 @@
       "requiredGroupTooltip": "Kanıt yetersiz olsa bile en olası alt etiket seçilir ve inceleme sayfasında zorunlu yedek olarak işaretlenir",
       "requiredGroupOn": "Açık: her varlık bir alt etiket alır",
       "requiredGroupOff": "Kapalı: yalnızca kanıt varsa etiketlenir",
+      "expandKeywords": "Tümünü göster ({count})",
+      "collapseKeywords": "Daha az göster",
       "matchingKeywords": "Eşleşen Anahtar Kelimeler",
       "matchingKeywordsTooltip": "AI'nın bu etiketi daha doğru tanımlamasına yardımcı olmak için bu etiketle ilgili anahtar kelimeler ekleyin",
       "inputKeywords": "Anahtar kelime girin",

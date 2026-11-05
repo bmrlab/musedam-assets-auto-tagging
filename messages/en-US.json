@@ -92,6 +92,8 @@
       "requiredGroupTooltip": "Even with weak evidence, the most likely child tag is picked and flagged as a required-group fallback on the review page",
       "requiredGroupOn": "On: every asset gets one child tag",
       "requiredGroupOff": "Off: tags are applied only when there is evidence",
+      "expandKeywords": "Show all ({count})",
+      "collapseKeywords": "Show less",
       "matchingKeywords": "Matching Keywords",
       "matchingKeywordsTooltip": "Add keywords related to this tag to help AI identify this tag more accurately",
       "inputKeywords": "Enter keywords",
