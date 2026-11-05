@@ -2,6 +2,7 @@ import { deleteTagAndDescendants } from "@/app/tags/delete-tag";
 import {
   buildCascadeDeletionTree,
   buildTagDeletionPlan,
+  deletionLayers,
   type DeletableTag,
 } from "@/app/tags/delete-tag-plan";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -51,11 +52,23 @@ describe("tag deletion", () => {
     mocks.syncTagsToMuseDAM.mockResolvedValue({ tags: [], createdTagMapping: new Map() });
   });
 
-  it("explicitly deletes all descendants despite the SET NULL parent foreign key", async () => {
+  it("deletes the subtree from the leaves upward so same names never become roots together", async () => {
+    const tree = [
+      tag(1, null, 1, "类目"),
+      tag(2, 1, 2, "颜色"),
+      tag(3, 1, 2, "尺寸"),
+      tag(4, 2, 3, "红"),
+      tag(5, 3, 3, "红"),
+      tag(9, null, 1, "保留"),
+    ];
+    mocks.prisma.assetTag.findMany.mockResolvedValue(tree);
     await deleteTagAndDescendants(1);
-    expect(mocks.prisma.assetTag.deleteMany).toHaveBeenCalledExactlyOnceWith({
-      where: { teamId: 7, id: { in: [1, 2, 3] } },
-    });
+    expect(mocks.prisma.assetTag.deleteMany.mock.calls.map((call) => call[0])).toEqual([
+      { where: { teamId: 7, id: { in: [4, 5] } } },
+      { where: { teamId: 7, id: { in: [2, 3] } } },
+      { where: { teamId: 7, id: { in: [1] } } },
+    ]);
+    expect(deletionLayers(buildTagDeletionPlan(tree, 1)).flat().sort()).toEqual([1, 2, 3, 4, 5]);
     expect(mocks.prisma.assetTag.update).not.toHaveBeenCalled();
   });
 

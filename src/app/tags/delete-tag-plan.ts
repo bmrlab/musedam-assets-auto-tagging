@@ -27,6 +27,37 @@ export function buildTagDeletionPlan(rows: DeletableTag[], tagId: number) {
 export type TagDeletionPlan = ReturnType<typeof buildTagDeletionPlan>;
 
 /**
+ * Whole subtree, deepest layer first. Each DELETE only contains nodes whose
+ * children are already gone, so ON DELETE SET NULL cannot turn a still-living
+ * child into a root and trip AssetTag_teamId_name_key.
+ */
+export function deletionLayers(plan: TagDeletionPlan): number[][] {
+  const affected = [...plan.descendants, plan.target];
+  const byId = new Map(affected.map((row) => [row.id, row]));
+  const childCount = new Map<number, number>();
+  for (const row of affected) {
+    if (row.parentId !== null && byId.has(row.parentId)) {
+      childCount.set(row.parentId, (childCount.get(row.parentId) ?? 0) + 1);
+    }
+  }
+  const remaining = new Set(affected.map((row) => row.id));
+  const layers: number[][] = [];
+  while (remaining.size > 0) {
+    const layer = [...remaining].filter((id) => (childCount.get(id) ?? 0) === 0);
+    if (layer.length === 0) throw new Error("标签层级存在循环，无法删除");
+    for (const id of layer) {
+      remaining.delete(id);
+      const parentId = byId.get(id)?.parentId;
+      if (parentId !== null && parentId !== undefined && remaining.has(parentId)) {
+        childCount.set(parentId, (childCount.get(parentId) ?? 1) - 1);
+      }
+    }
+    layers.push(layer);
+  }
+  return layers;
+}
+
+/**
  * Delete deepest nodes first: the legacy API only removes direct children.
  * Siblings share one ancestor path so a few thousand leaves stay a handful of requests.
  */
