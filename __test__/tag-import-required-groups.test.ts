@@ -81,7 +81,8 @@ beforeEach(() => {
   mocks.saveTagsTreeToMuseDAM.mockResolvedValue({ success: true, data: {} });
   mocks.batchCreateTags.mockImplementation(
     async (nodes: Array<{ name: string; nameChildList?: unknown[] }>, addType: number) => {
-      expect(addType).toBe(2);
+      if (addType === 1) mocks.rows.length = 0;
+      else expect(addType).toBe(2);
       const walk = (items: typeof nodes, parentId: number | null) => {
         for (const node of items) {
           let existing = mocks.rows.find(
@@ -207,4 +208,136 @@ describe("required groups without child tags", () => {
       },
     });
   });
+});
+
+describe("tag import preview and overwrite", () => {
+  it("returns the whole preview tree without writing even when every tag already exists", async () => {
+    seed(1, "品牌");
+    seed(2, "Logo", 1);
+    const result = await precheckTagTreeImportAction(
+      file([
+        ["标签 ID", "标签描述"],
+        ["2", "新描述"],
+      ]),
+    );
+    expect(result).toMatchObject({
+      success: true,
+      data: { previewTree: [{ name: "品牌", nameChildList: [{ name: "Logo" }] }] },
+    });
+    expect(mocks.batchCreateTags).not.toHaveBeenCalled();
+    expect(mocks.assetTag.update).not.toHaveBeenCalled();
+  });
+
+  it("replaces the tree and applies exported configuration to newly created IDs", async () => {
+    seed(1, "品牌");
+    seed(2, "旧分支");
+    const form = file([
+      ["标签 ID", "一级标签", "二级标签", "标签描述", "必打标签组"],
+      ["1", "品牌", "", "父级描述", "开启"],
+      ["", "品牌", "Logo", "子级描述", ""],
+    ]);
+    form.set("importMode", "overwrite");
+    expect(await importTagTreeAction(form)).toMatchObject({
+      success: true,
+      data: { successCount: 2, failedCount: 0 },
+    });
+    expect(mocks.batchCreateTags).toHaveBeenCalledWith(expect.any(Array), 1);
+    expect(mocks.rows.some((row) => row.name === "旧分支")).toBe(false);
+    expect(mocks.rows.find((row) => row.name === "品牌")).toMatchObject({
+      extra: { description: "父级描述", requiredGroup: true },
+    });
+    expect(mocks.rows.find((row) => row.name === "品牌")?.id).not.toBe(1);
+    expect(mocks.rows.find((row) => row.name === "Logo")?.extra.description).toBe("子级描述");
+  });
+
+  it("refuses overwrite for invalid rows before deleting any tags", async () => {
+    seed(1, "保留");
+    const form = file([
+      ["一级标签", "必打标签组"],
+      ["新标签", "非法开关"],
+    ]);
+    form.set("importMode", "overwrite");
+    const result = await importTagTreeAction(form);
+    expect(result).toMatchObject({ success: true, data: { successCount: 0, failedCount: 1 } });
+    expect(mocks.batchCreateTags).not.toHaveBeenCalled();
+    expect(mocks.rows[0].name).toBe("保留");
+  });
+});
+
+it("turns off an unchanged required leaf and still reports it", async () => {
+  const leaf = seed(1, "叶子");
+  leaf.extra = { requiredGroup: true };
+  const result = await importTagTreeAction(
+    file([
+      ["标签 ID", "必打标签组"],
+      ["1", "开启"],
+    ]),
+  );
+  expect(result).toMatchObject({
+    success: true,
+    data: { successCount: 1, failedCount: 0, autoDisabledRequiredGroups: ["叶子"] },
+  });
+  expect(leaf.extra.requiredGroup).toBe(false);
+});
+
+it("renames the original parent before adding new descendants under its new name", async () => {
+  seed(1, "旧品牌");
+  const result = await importTagTreeAction(
+    file([
+      ["标签 ID", "一级标签", "二级标签"],
+      ["1", "新品牌", ""],
+      ["", "新品牌", "新子标签"],
+    ]),
+  );
+  expect(result).toMatchObject({ success: true, data: { successCount: 2, failedCount: 0 } });
+  expect(mocks.rows.find((row) => row.id === 1)?.name).toBe("新品牌");
+  expect(mocks.rows.filter((row) => row.name === "新品牌")).toHaveLength(1);
+  expect(mocks.rows.find((row) => row.name === "新子标签")?.parentId).toBe(1);
+});
+
+it("allows overwrite precheck to move an exported tag while keeping both prechecks read-only", async () => {
+  seed(1, "旧父级");
+  seed(2, "子标签", 1);
+  const form = file([
+    ["标签 ID", "一级标签", "二级标签"],
+    ["2", "新父级", "子标签"],
+  ]);
+  expect(await precheckTagTreeImportAction(form)).toMatchObject({
+    success: true,
+    data: {
+      reviewable: true,
+      createCount: 0,
+      updateCount: 0,
+      unchangedCount: 0,
+      issues: [{ rowNumber: 2 }],
+    },
+  });
+  form.set("importMode", "overwrite");
+  expect(await precheckTagTreeImportAction(form)).toMatchObject({
+    success: true,
+    data: {
+      createCount: 2,
+      issues: [],
+      previewTree: [{ name: "新父级", nameChildList: [{ name: "子标签" }] }],
+    },
+  });
+  expect(mocks.batchCreateTags).not.toHaveBeenCalled();
+  expect(mocks.assetTag.update).not.toHaveBeenCalled();
+});
+
+it("does not create a replacement branch when the parent rename fails upstream", async () => {
+  seed(1, "旧品牌");
+  mocks.saveTagsTreeToMuseDAM.mockResolvedValueOnce({ success: false, message: "rename failed" });
+  expect(
+    await importTagTreeAction(
+      file([
+        ["标签 ID", "一级标签", "二级标签"],
+        ["1", "新品牌", ""],
+        ["", "新品牌", "新子标签"],
+      ]),
+    ),
+  ).toMatchObject({ success: true, data: { successCount: 0, failedCount: 1 } });
+  expect(mocks.batchCreateTags).not.toHaveBeenCalled();
+  expect(mocks.assetTag.update).not.toHaveBeenCalled();
+  expect(mocks.rows.map((row) => row.name)).toEqual(["旧品牌"]);
 });

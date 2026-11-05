@@ -114,3 +114,19 @@ describe("mergeTagsInBatches", () => {
     expect(mocks.request).not.toHaveBeenCalled();
   });
 });
+
+it("skips unchanged subtrees and uses an existing oversized parent only as child context", async () => {
+  const children = Array.from({ length: 200 }, (_, i) => leaf(`new-${i}`));
+  const unchanged: MergeTag = { id: 900, name: "unchanged", operation: 0 };
+  const result = await mergeTagsInBatches(
+    [unchanged, { id: 901, name: "existing-parent", operation: 0, children }],
+    "key",
+  );
+  expect(result.tags[0]).toEqual(unchanged);
+  expect(mocks.request).toHaveBeenCalledTimes(3);
+  for (const [, options] of mocks.request.mock.calls) {
+    expect(options.body.tags).toHaveLength(1);
+    expect(options.body.tags[0]).toMatchObject({ id: 901, operation: 0 });
+    expect(options.body.tags[0].children.length).toBeGreaterThan(0);
+  }
+});

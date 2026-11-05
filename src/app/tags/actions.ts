@@ -636,6 +636,10 @@ export async function batchCreateTags(
         );
       }
 
+      // Merge has already pushed the requested changes and persisted their IDs.
+      // A full reconciliation here can delete unrelated remote or local tags.
+      if (addType === 2) return { success: true, data: undefined };
+
       // 先做一次以本地为基准的结构对齐；失败则回退到“以 MuseDAM 为真相”拉取收敛
       const alignResponse = await syncTagsToMuseDAMWithCurrentSystemAsBaseAction();
       if (!alignResponse.success) {

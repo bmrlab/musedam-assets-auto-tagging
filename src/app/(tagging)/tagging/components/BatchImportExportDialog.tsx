@@ -42,6 +42,7 @@ export type BatchImportResultBase = {
 };
 
 export type BatchImportPrecheck = {
+  reviewable?: boolean;
   createCount: number;
   createPaths: string[];
   updateCount: number;
@@ -72,6 +73,14 @@ type BatchImportExportDialogProps<TResult extends BatchImportResultBase> = {
   headerExtra?: (pending: boolean) => ReactNode;
   /** 提供时先检测：有问题行、会新建或改名时二次确认，用户可返回修改或继续导入 */
   precheckAction?: (formData: FormData) => Promise<ServerActionResult<BatchImportPrecheck>>;
+  /** Require a read-only review even if every imported tag already exists. */
+  reviewTitle?: string;
+  renderReview?: (
+    precheck: BatchImportPrecheck,
+    pending: boolean,
+    recheck: (fields: Record<string, string>) => void,
+  ) => ReactNode;
+  confirmImport?: () => Promise<boolean>;
 };
 
 function downloadBase64File(file: BatchFileResult) {
@@ -114,6 +123,9 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
   uploadHint,
   headerExtra,
   precheckAction,
+  reviewTitle,
+  renderReview,
+  confirmImport,
 }: BatchImportExportDialogProps<TResult>) {
   const t = useTranslations("Tagging.BatchImportExport");
   const [mode, setMode] = useState<BatchMode>("import");
@@ -124,7 +136,9 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
   const [pendingMissingTagsChoice, setPendingMissingTagsChoice] =
     useState<MissingTagsImportChoice | null>(null);
   const [precheckResult, setPrecheckResult] = useState<BatchImportPrecheck | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [isTransitionPending, startTransition] = useTransition();
+  const [isConfirming, setIsConfirming] = useState(false);
+  const isPending = isTransitionPending || isConfirming;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   function formatFailureMessage(failure: BatchImportFailure) {
@@ -204,7 +218,7 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
     } as TResult);
   }
 
-  function handlePrecheck() {
+  function handlePrecheck(fields: Record<string, string> = {}) {
     if (!precheckAction) return;
     if (!selectedFile) {
       toast.error(t("selectFileFirst"));
@@ -213,17 +227,20 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
 
     const formData = new FormData();
     formData.append("file", selectedFile);
+    for (const [key, value] of Object.entries(fields)) formData.set(key, value);
 
     startTransition(async () => {
       const result = await precheckAction(formData);
       if (!result.success) {
+        setPrecheckResult(null);
         showSingleFailure(result.message);
         return;
       }
 
       const precheck = result.data;
       const importableCount = precheck.createCount + precheck.updateCount + precheck.unchangedCount;
-      if (importableCount === 0) {
+      if (importableCount === 0 && !(renderReview && precheck.reviewable)) {
+        setPrecheckResult(null);
         setFailureResult({
           successCount: 0,
           failedCount: precheck.issues.length,
@@ -232,7 +249,12 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
         } as TResult);
         return;
       }
-      if (precheck.issues.length === 0 && precheck.createCount === 0 && !precheck.renameCount) {
+      if (
+        !renderReview &&
+        precheck.issues.length === 0 &&
+        precheck.createCount === 0 &&
+        !precheck.renameCount
+      ) {
         handleImport();
         return;
       }
@@ -240,7 +262,7 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
     });
   }
 
-  function handleImport({
+  async function handleImport({
     createMissingTags = false,
     importExistingTagsOnly = false,
     acknowledgedIssues = [],
@@ -274,6 +296,17 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
       );
     }
 
+    if (isPending) return;
+    if (confirmImport) {
+      setIsConfirming(true);
+      let confirmed = false;
+      try {
+        confirmed = await confirmImport();
+      } finally {
+        setIsConfirming(false);
+      }
+      if (!confirmed) return;
+    }
     startTransition(async () => {
       const result = await importAction(formData);
       setPendingMissingTagsChoice(null);
@@ -377,34 +410,38 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
           <>
             <DialogHeader className="gap-0 p-0">
               <DialogTitle className="text-[16px] leading-6 font-semibold text-basic-9">
-                {t("precheckTitle")}
+                {reviewTitle ?? t("precheckTitle")}
               </DialogTitle>
               <DialogDescription className="sr-only">{t("precheckHint")}</DialogDescription>
             </DialogHeader>
 
             <div className="min-h-0 flex-1 overflow-y-auto">
               <div className="flex flex-col gap-5">
-                <div className="flex flex-col items-center justify-center rounded-[8px] bg-basic-1 px-4 py-8">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#FFF4DF] text-[#F7B23B]">
-                    <AlertCircle className="h-5 w-5" />
+                {renderReview ? (
+                  renderReview(precheckResult, isPending, handlePrecheck)
+                ) : (
+                  <div className="flex flex-col items-center justify-center rounded-[8px] bg-basic-1 px-4 py-8">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#FFF4DF] text-[#F7B23B]">
+                      <AlertCircle className="h-5 w-5" />
+                    </div>
+                    <div className="mt-4 text-[14px] leading-[22px] font-semibold text-basic-8">
+                      {t("precheckHint")}
+                    </div>
+                    <div className="mt-2 text-center text-[12px] leading-[18px] text-basic-6">
+                      {t("precheckSummary", {
+                        create: precheckResult.createCount,
+                        update: precheckResult.updateCount,
+                        unchanged: precheckResult.unchangedCount,
+                      })}
+                      {precheckResult.renameCount ? (
+                        <>
+                          <br />
+                          {t("precheckRenameNotice", { count: precheckResult.renameCount })}
+                        </>
+                      ) : null}
+                    </div>
                   </div>
-                  <div className="mt-4 text-[14px] leading-[22px] font-semibold text-basic-8">
-                    {t("precheckHint")}
-                  </div>
-                  <div className="mt-2 text-center text-[12px] leading-[18px] text-basic-6">
-                    {t("precheckSummary", {
-                      create: precheckResult.createCount,
-                      update: precheckResult.updateCount,
-                      unchanged: precheckResult.unchangedCount,
-                    })}
-                    {precheckResult.renameCount ? (
-                      <>
-                        <br />
-                        {t("precheckRenameNotice", { count: precheckResult.renameCount })}
-                      </>
-                    ) : null}
-                  </div>
-                </div>
+                )}
 
                 {precheckResult.issues.length > 0 ? (
                   <div>
@@ -428,7 +465,7 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
                   </div>
                 ) : null}
 
-                {precheckResult.createPaths.length > 0 ? (
+                {!renderReview && precheckResult.createPaths.length > 0 ? (
                   <div>
                     <p className="mb-2 text-[12px] leading-[16px] font-normal text-basic-5">
                       {t("precheckCreateLabel", { count: precheckResult.createCount })}
@@ -463,7 +500,13 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
               <Button
                 type="button"
                 onClick={() => handleImport({ acknowledgedIssues: precheckResult.issues })}
-                disabled={isPending}
+                disabled={
+                  isPending ||
+                  precheckResult.createCount +
+                    precheckResult.updateCount +
+                    precheckResult.unchangedCount ===
+                    0
+                }
                 className="inline-flex h-8 items-center justify-center gap-1.5 rounded-[6px] bg-primary-6 px-3 py-1 text-[14px] leading-[22px]"
               >
                 {isPending ? <Loader2 className="size-4 shrink-0 animate-spin" /> : null}

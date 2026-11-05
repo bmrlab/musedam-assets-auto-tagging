@@ -199,6 +199,36 @@ export async function syncTagsToMuseDAM({
   // 获取团队凭证
   const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
 
+  // A previous request can time out after MuseDAM has committed. Reconcile
+  // creations against the actual remote parent path rather than creating the
+  // same name again just because the local row/slug has not been saved yet.
+  const hasCreates = (nodes: MuseDAMTagRequest[]): boolean =>
+    nodes.some((node) => node.operation === 2 || hasCreates(node.children ?? []));
+  if (hasCreates(musedamTags)) {
+    const remoteTree = await requestMuseDAMAPI<MuseDAMTagTree>("/api/muse/query-tag-tree", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${musedamTeamApiKey}` },
+      body: { orgId: slugToId("team", team.slug) },
+    });
+    const reuseRemoteTags = (requests: MuseDAMTagRequest[], remote: MuseDAMTagTree) => {
+      const byId = new Map(remote.map((tag) => [tag.id.toString(), tag]));
+      const byName = new Map(remote.map((tag) => [tag.name.trim().toLowerCase(), tag]));
+      for (const node of requests) {
+        const matched =
+          node.id !== undefined
+            ? byId.get(String(node.id))
+            : byName.get(node.name.trim().toLowerCase());
+        if (matched && node.operation === 2) {
+          node.id = Number(matched.id.toString());
+          node.operation = node.sort === undefined || node.sort === matched.sort ? 0 : 1;
+          node.sort ??= matched.sort;
+        }
+        if (node.children) reuseRemoteTags(node.children, matched?.children ?? []);
+      }
+    };
+    reuseRemoteTags(musedamTags, remoteTree);
+  }
+
   // 调用 MuseDAM API
   const res = await mergeTagsInBatches(musedamTags, musedamTeamApiKey);
 
@@ -224,15 +254,24 @@ export async function syncTagsToMuseDAM({
       const requestTag = requestTags[i];
       const responseTag = responseTags[i];
 
-      // 如果请求中没有 ID 但响应中有 ID，说明是新创建的标签
-      if (!requestTag.id && responseTag.id) {
+      // 创建及远端复用的标签都要回填 tempId -> MuseDAM ID
+      if (responseTag.id) {
         // 在当前路径中查找匹配的节点
         const matchingNode = nodePath.find(
-          (node) => node.verb === "create" && node.tempId && node.name === requestTag.name,
+          (node) =>
+            (node.verb === "create" || node.verb === "update") &&
+            node.tempId &&
+            node.name === requestTag.name,
         );
 
         if (matchingNode && matchingNode.tempId) {
           createdTagMapping.set(matchingNode.tempId, MuseDAMID.from(responseTag.id));
+          if (matchingNode.id && !findAssetTagById(matchingNode.id)?.slug) {
+            await prisma.assetTag.update({
+              where: { id: matchingNode.id, teamId: team.id },
+              data: { slug: idToSlug("assetTag", MuseDAMID.from(responseTag.id)) },
+            });
+          }
         }
       }
 
@@ -470,7 +509,7 @@ export async function syncTagsToMuseDAMWithCurrentSystemAsBase({
         const childRequest: MuseDAMTagRequest = {
           id: Number(matched.id.toString()),
           name: matched.name,
-          operation: 1, // 更新
+          operation: child.sort === matched.sort ? 0 : 1,
           sort: child.sort,
         };
 
@@ -520,7 +559,7 @@ export async function syncTagsToMuseDAMWithCurrentSystemAsBase({
       const updateRequest: MuseDAMTagRequest = {
         id: Number(musedamTag.id.toString()),
         name: musedamTag.name,
-        operation: 1, // 更新
+        operation: currentTag.sort === musedamTag.sort ? 0 : 1,
         sort: currentTag.sort,
       };
 
