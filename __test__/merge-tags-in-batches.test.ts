@@ -43,7 +43,7 @@ describe("mergeTagsInBatches", () => {
     const children = Array.from({ length: 4270 }, (_, i) => leaf(`SKU-${i}`));
     const result = await mergeTagsInBatches([{ ...leaf("SKU"), children }], "key");
     const requests = mocks.request.mock.calls.map(([, options]) => options.body.tags as MergeTag[]);
-    expect(requests.length).toBeGreaterThan(40);
+    expect(requests).toHaveLength(6);
     for (const request of requests)
       expect(count(request)).toBeLessThanOrEqual(MERGE_TAG_BATCH_SIZE);
     expect(requests[0]).toEqual([leaf("SKU")]);
@@ -68,7 +68,7 @@ describe("mergeTagsInBatches", () => {
           {
             ...leaf("A"),
             children: [
-              { ...leaf("same"), children: Array.from({ length: 120 }, (_, i) => leaf(`${i}`)) },
+              { ...leaf("same"), children: Array.from({ length: 1200 }, (_, i) => leaf(`${i}`)) },
             ],
           },
           { ...leaf("B"), children: [{ ...leaf("same"), children: [leaf("last")] }] },
@@ -78,7 +78,7 @@ describe("mergeTagsInBatches", () => {
     const result = await mergeTagsInBatches(tags, "key");
     const a = result.tags[0].children![0];
     const b = result.tags[0].children![1];
-    expect(a.children![0].children).toHaveLength(120);
+    expect(a.children![0].children).toHaveLength(1200);
     expect(b.children![0].children![0].name).toBe("last");
     expect(a.children![0].id).not.toBe(b.children![0].id);
     for (const [, options] of mocks.request.mock.calls) {
@@ -87,7 +87,7 @@ describe("mergeTagsInBatches", () => {
   });
 
   it("splits root deletions without changing their operations", async () => {
-    const tags: MergeTag[] = Array.from({ length: 201 }, (_, i) => ({
+    const tags: MergeTag[] = Array.from({ length: 2001 }, (_, i) => ({
       id: i + 1,
       name: `${i}`,
       operation: 3,
@@ -102,7 +102,7 @@ describe("mergeTagsInBatches", () => {
     mocks.request.mockRejectedValueOnce(new Error("upstream timeout"));
     await expect(
       mergeTagsInBatches(
-        Array.from({ length: 201 }, (_, i) => leaf(`${i}`)),
+        Array.from({ length: 2001 }, (_, i) => leaf(`${i}`)),
         "key",
       ),
     ).rejects.toThrow("upstream timeout");
@@ -116,7 +116,7 @@ describe("mergeTagsInBatches", () => {
 });
 
 it("skips unchanged subtrees and uses an existing oversized parent only as child context", async () => {
-  const children = Array.from({ length: 200 }, (_, i) => leaf(`new-${i}`));
+  const children = Array.from({ length: 2000 }, (_, i) => leaf(`new-${i}`));
   const unchanged: MergeTag = { id: 900, name: "unchanged", operation: 0 };
   const result = await mergeTagsInBatches(
     [unchanged, { id: 901, name: "existing-parent", operation: 0, children }],

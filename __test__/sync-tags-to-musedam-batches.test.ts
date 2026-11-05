@@ -43,7 +43,7 @@ it("maps every tempId to the returned remote ID across a split four-level import
       node("series", [
         node(
           "SKU",
-          Array.from({ length: 250 }, (_, i) => leaf(`item-${i}`)),
+          Array.from({ length: 2500 }, (_, i) => leaf(`item-${i}`)),
         ),
       ]),
     ]),
@@ -53,7 +53,7 @@ it("maps every tempId to the returned remote ID across a split four-level import
     tagsTree,
   });
   expect(mocks.request.mock.calls.length).toBeGreaterThan(1);
-  expect(result.createdTagMapping.size).toBe(253);
+  expect(result.createdTagMapping.size).toBe(2503);
   for (const [name, id] of remoteIds) {
     expect(result.createdTagMapping.get(`temp-${name}`)?.toString()).toBe(String(id));
   }
