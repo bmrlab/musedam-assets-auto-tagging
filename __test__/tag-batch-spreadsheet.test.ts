@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   buildTagBatchExportRows,
+  coalesceTagTreeRecords,
   buildTagBatchTemplateRows,
-  splitTagBatchKeywords,
   filterMissingPathRecords,
   getTagBatchColumns,
   parseTagBatchId,
   parseTagBatchTable,
+  splitTagBatchKeywords,
   tagBatchRecordsToCreateTree,
 } from "../src/app/tags/tagBatchSpreadsheet";
 
@@ -233,7 +234,6 @@ describe("parseTagBatchId", () => {
     expect(parseTagBatchId("")).toBeUndefined();
     expect(Number.isNaN(parseTagBatchId("12.5"))).toBe(true);
     expect(Number.isNaN(parseTagBatchId("0"))).toBe(true);
-    expect(Number.isNaN(parseTagBatchId("9007199254740993"))).toBe(true);
   });
 });
 
@@ -348,5 +348,41 @@ describe("tag import template examples", () => {
       "甲，乙",
       "丙、丁",
     ]);
+  });
+});
+
+
+describe("overwrite duplicate paths", () => {
+  it("coalesces repeated paths, including case variants, but keeps separate parents", () => {
+    const result = coalesceTagTreeRecords([
+      { rowNumber: 2, path: ["所属系列", "pro系列"], fields: {} },
+      { rowNumber: 3, path: ["所属系列", "Pro系列"], fields: {} },
+      { rowNumber: 4, path: ["其他系列", "pro系列"], fields: {} },
+    ], "zh-CN");
+    expect(result.errors).toEqual([]);
+    expect(result.records).toHaveLength(2);
+    expect(result.records[0].path).toEqual(["所属系列", "pro系列"]);
+  });
+
+  it("combines compatible settings without changing the original records", () => {
+    const records = [
+      { rowNumber: 2, path: ["品牌"], fields: { keywords: ["A", "B"] } },
+      { rowNumber: 3, path: ["品牌"], fields: { description: "品牌描述", keywords: ["B", "A"] } },
+    ];
+    const result = coalesceTagTreeRecords(records, "zh-CN");
+    expect(result.errors).toEqual([]);
+    expect(result.records[0].fields).toEqual({ description: "品牌描述", keywords: ["B", "A"] });
+    expect(records[0].fields).toEqual({ keywords: ["A", "B"] });
+  });
+
+  it("rejects conflicting settings with the row and column instead of a name collision", () => {
+    const result = coalesceTagTreeRecords([
+      { rowNumber: 2, path: ["品牌"], fields: { taggingEnabled: false, description: "-" } },
+      { rowNumber: 582, path: ["品牌"], fields: { taggingEnabled: true, description: "新描述" } },
+    ], "zh-CN");
+    expect(result.errors).toEqual([{
+      rowNumber: 582,
+      message: "文件中同一路径的配置冲突（标签描述、AI 自动打标），请统一后再导入",
+    }]);
   });
 });

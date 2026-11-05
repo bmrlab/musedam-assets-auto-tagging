@@ -29,16 +29,10 @@ const mocks = vi.hoisted(() => {
   return {
     rows,
     assetTag,
-    transaction: vi.fn(
-      async (queries: Promise<unknown>[] | ((tx: unknown) => Promise<unknown>)) => {
-        if (typeof queries !== "function") return Promise.all(queries);
-        return queries({
-          assetTag,
-          $queryRaw: async () => rows.map((row) => structuredClone(row)),
-          $executeRaw: async () => 1,
-        });
-      },
-    ),
+    transaction: vi.fn(async (queries: Promise<unknown>[] | ((tx: unknown) => Promise<unknown>)) => {
+      if (typeof queries !== "function") return Promise.all(queries);
+      return queries({ assetTag, $queryRaw: async () => rows.map((row) => structuredClone(row)), $executeRaw: async () => 1 });
+    }),
     batchCreateTags: vi.fn(),
     saveTagsTreeToMuseDAM: vi.fn(),
   };
@@ -117,26 +111,20 @@ beforeEach(() => {
 });
 
 describe("tag configuration import", () => {
-  it("prechecks without writing and identifies unchanged exported configuration", async () => {
+  it("prechecks only file structure and configuration without querying existing tags", async () => {
     const row = seed(1, "品牌");
     row.extra = { description: "描述", keywords: ["Logo"], siblingsExclusive: false };
     const form = file([
-      ["标签 ID", "标签描述", "匹配关键词", "AI 自动打标", "子标签单选"],
-      ["1", "描述", "Logo", "开启", "关闭"],
+      ["标签 ID", "一级标签", "标签描述", "匹配关键词", "AI 自动打标", "子标签单选"],
+      ["1", "品牌", "描述", "Logo", "开启", "关闭"],
     ]);
     const check = await precheckTagTreeImportAction(form);
     expect(check).toMatchObject({
       success: true,
-      data: { createCount: 0, updateCount: 0, unchangedCount: 1, issues: [] },
+      data: { importableCount: 1, createCount: 0, updateCount: 0, unchangedCount: 0, issues: [] },
     });
     await importTagTreeAction(form);
-    expect(mocks.assetTag.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          extra: expect.objectContaining({ configurationSource: "import" }),
-        }),
-      }),
-    );
+    expect(mocks.assetTag.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ extra: expect.objectContaining({ configurationSource: "import" }) }) }));
     expect(mocks.batchCreateTags).not.toHaveBeenCalled();
     expect(mocks.saveTagsTreeToMuseDAM).not.toHaveBeenCalled();
   });
@@ -168,7 +156,7 @@ describe("tag configuration import", () => {
     ]);
     expect(await precheckTagTreeImportAction(form)).toMatchObject({
       success: true,
-      data: { createCount: 1, issues: [] },
+      data: { importableCount: 2, createCount: 0, issues: [] },
     });
     expect(mocks.batchCreateTags).not.toHaveBeenCalled();
     expect(await importTagTreeAction(form)).toMatchObject({
@@ -291,7 +279,7 @@ describe("tag configuration import", () => {
     expect(mocks.rows.find((row) => row.name === "不应创建")).toBeUndefined();
   });
 
-  it("rejects a descendant path that depends on an invalid ancestor rename", async () => {
+  it("previews file paths without treating exported IDs as ancestor renames", async () => {
     seed(1, "父级");
     seed(2, "已占用名称");
     const child = seed(3, "子级", 1);
@@ -306,7 +294,7 @@ describe("tag configuration import", () => {
       success: true,
       data: { updateCount: 0, issues: expect.any(Array) },
     });
-    if (result.success) expect(result.data.issues).toHaveLength(2);
+    if (result.success) expect(result.data.issues).toHaveLength(0);
     expect(child.extra).toEqual({});
     expect(mocks.assetTag.update).not.toHaveBeenCalled();
   });
@@ -331,8 +319,110 @@ describe("tag configuration import", () => {
       form.set("tagLevel", "3");
       expect(await precheckTagTreeImportAction(form)).toMatchObject({
         success: true,
-        data: { createCount: 0, updateCount: 0, unchangedCount: 3, issues: [] },
+        data: { importableCount: 3, createCount: 0, updateCount: 0, unchangedCount: 0, issues: [] },
       });
     },
   );
+});
+
+
+describe("overwrite repeated tag paths", () => {
+  it("prechecks repeated file paths independently of the existing tree without writing", async () => {
+    seed(1, "所属系列");
+    seed(2, "pro系列", 1);
+    const form = file([
+      ["一级标签", "二级标签"],
+      ["所属系列", "pro系列"],
+      ["所属系列", "Pro系列"],
+      ["所属系列", "x系列"],
+      ["所属系列", "x系列"],
+    ]);
+    form.set("importMode", "overwrite");
+    expect(await precheckTagTreeImportAction(form)).toMatchObject({
+      success: true,
+      data: { reviewable: true, importableCount: 3, createCount: 0, issues: [] },
+    });
+    expect(mocks.batchCreateTags).not.toHaveBeenCalled();
+    expect(mocks.assetTag.update).not.toHaveBeenCalled();
+    expect(mocks.rows).toHaveLength(2);
+  });
+
+  it("creates each path once and applies compatible duplicate-row configuration on overwrite", async () => {
+    seed(1, "旧标签");
+    mocks.batchCreateTags.mockImplementationOnce(async (nodes, addType) => {
+      expect(addType).toBe(1);
+      expect(nodes).toEqual([{ name: "所属系列", nameChildList: [{ name: "pro系列" }] }]);
+      mocks.rows.length = 0;
+      seed(100, "所属系列");
+      seed(101, "pro系列", 100);
+      return { success: true };
+    });
+    const form = file([
+      ["一级标签", "二级标签", "标签描述", "匹配关键词"],
+      ["所属系列", "pro系列", "系列描述", ""],
+      ["所属系列", "pro系列", "", "pro"],
+    ]);
+    form.set("importMode", "overwrite");
+    expect(await importTagTreeAction(form)).toMatchObject({
+      success: true, data: { successCount: 1, failedCount: 0, failures: [] },
+    });
+    expect(mocks.batchCreateTags).toHaveBeenCalledTimes(1);
+    expect(mocks.rows.find((row) => row.id === 101)?.extra).toMatchObject({
+      description: "系列描述", keywords: ["pro"],
+    });
+  });
+
+  it("blocks conflicting duplicate configuration before overwriting any tags", async () => {
+    seed(1, "旧标签");
+    const form = file([
+      ["一级标签", "二级标签", "AI 自动打标"],
+      ["所属系列", "pro系列", "开启"],
+      ["所属系列", "pro系列", "关闭"],
+    ]);
+    form.set("importMode", "overwrite");
+    expect(await importTagTreeAction(form)).toMatchObject({
+      success: true,
+      data: { successCount: 0, failedCount: 1, failures: [{ rowNumber: 3, message: expect.stringContaining("配置冲突") }] },
+    });
+    expect(mocks.batchCreateTags).not.toHaveBeenCalled();
+    expect(mocks.assetTag.update).not.toHaveBeenCalled();
+    expect(mocks.rows).toHaveLength(1);
+  });
+});
+
+
+it("previews the same uploaded tree in both modes without consulting the existing database or exported IDs", async () => {
+  seed(1, "不相关旧标签");
+  const form = file([
+    ["标签 ID", "一级标签", "二级标签", "匹配关键词"],
+    ["999999", "所属系列", "pro系列", "pro"],
+    ["999999", "所属系列", "pro系列", "pro"],
+  ]);
+  form.set("importMode", "merge");
+  const merge = await precheckTagTreeImportAction(form);
+  form.set("importMode", "overwrite");
+  expect(await precheckTagTreeImportAction(form)).toEqual(merge);
+  expect(merge).toMatchObject({ success: true, data: {
+    importableCount: 2, issues: [],
+    previewTree: [{ name: "所属系列", nameChildList: [{ name: "pro系列" }] }],
+  } });
+  expect(mocks.assetTag.findMany).not.toHaveBeenCalled();
+  expect(mocks.assetTag.update).not.toHaveBeenCalled();
+  expect(mocks.batchCreateTags).not.toHaveBeenCalled();
+});
+
+it("uses paths to reuse existing tags on confirmed tree import, ignoring stale exported IDs", async () => {
+  const root = seed(1, "所属系列");
+  const child = seed(2, "pro系列", root.id);
+  child.extra = { description: "保留配置" };
+  const form = file([
+    ["标签 ID", "一级标签", "二级标签", "匹配关键词"],
+    ["999999", "所属系列", "pro系列", "pro"],
+    ["999999", "所属系列", "pro系列", "pro"],
+  ]);
+  form.set("treeImport", "true");
+  form.set("importMode", "merge");
+  expect(await importTagTreeAction(form)).toMatchObject({ success: true, data: { failedCount: 0, successCount: 1 } });
+  expect(mocks.batchCreateTags).not.toHaveBeenCalled();
+  expect(mocks.rows.find((row) => row.id === 2)?.extra).toMatchObject({ description: "保留配置", keywords: ["pro"] });
 });

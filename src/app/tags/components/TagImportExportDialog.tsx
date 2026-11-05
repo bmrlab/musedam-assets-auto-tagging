@@ -61,7 +61,8 @@ export function TagImportExportDialog({
       <BatchImportExportDialog<TagTreeBatchImportResult>
         open={open}
         reviewTitle={t("importPreviewTitle")}
-        renderReview={(precheck, pending, recheck) => (
+        blockImportOnIssues
+        renderReview={(precheck, pending) => (
           <div className="flex flex-col gap-4">
             <TagImportPreview
               tree={(precheck as TagTreeImportPrecheck).previewTree ?? []}
@@ -74,14 +75,13 @@ export function TagImportExportDialog({
               value={importMode}
               onValueChange={(value) => {
                 setImportMode(value as "merge" | "overwrite");
-                recheck({ importMode: value });
               }}
               disabled={pending}
               className="flex flex-col gap-4"
             >
               <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-2">
-                  <RadioGroupItem value="merge" id="tag-import-merge" />
+                  <RadioGroupItem type="button" value="merge" id="tag-import-merge" />
                   <Label htmlFor="tag-import-merge">{tips("MergeIntoExistingTagSystem")}</Label>
                 </div>
                 <p className="pl-6 text-[12px] leading-4 text-basic-5">
@@ -90,7 +90,7 @@ export function TagImportExportDialog({
               </div>
               <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-2">
-                  <RadioGroupItem value="overwrite" id="tag-import-overwrite" />
+                  <RadioGroupItem type="button" value="overwrite" id="tag-import-overwrite" />
                   <Label htmlFor="tag-import-overwrite">
                     {tips("UnderstoodPleaseProvideTheText")}
                   </Label>
@@ -134,11 +134,11 @@ export function TagImportExportDialog({
         importAction={async (formData) => {
           formData.set("tagLevel", String(maxLevel));
           formData.set("importMode", importMode);
+          formData.set("treeImport", "true");
           return importTagTreeAction(formData);
         }}
         precheckAction={async (formData) => {
           formData.set("tagLevel", String(maxLevel));
-          if (!formData.has("importMode")) formData.set("importMode", importMode);
           return precheckTagTreeImportAction(formData);
         }}
         downloadTemplateAction={downloadTagTreeImportTemplateAction}

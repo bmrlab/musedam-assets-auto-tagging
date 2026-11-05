@@ -43,7 +43,7 @@ const mocks = vi.hoisted(() => {
     deleteMany: vi.fn(async ({ where }) => {
       const before = rows.length;
       for (let i = rows.length - 1; i >= 0; i--)
-        if (rows[i].teamId === where.teamId) rows.splice(i, 1);
+        if (rows[i].teamId === where.teamId && !where.id?.notIn.includes(rows[i].id)) rows.splice(i, 1);
       return { count: before - rows.length };
     }),
     findMany: vi.fn(async ({ where }) =>
@@ -244,4 +244,18 @@ it("does not replace local rows when an older server silently executes merge ins
   );
   expect(mocks.tx.assetTag.deleteMany).not.toHaveBeenCalled();
   expect(mocks.rows.map((row) => row.name)).toEqual(["Old"]);
+});
+
+
+it.each(["merge", "overwrite"] as const)("%s reuses local IDs and configuration; only overwrite removes omitted tags", async (mode) => {
+  mocks.rows.push(
+    { id: 15, teamId: 7, parentId: null, name: "Parent", extra: { keywords: ["keep"] } },
+    { id: 16, teamId: 7, parentId: 15, name: "Child", extra: { description: "keep" } },
+    { id: 17, teamId: 7, parentId: 15, name: "Omitted", extra: {} },
+  );
+  await importTagTreeSynchronously(team, tree, true, mode);
+  expect(mocks.rows.find((row) => row.name === "Parent")).toMatchObject({ id: 15, extra: { keywords: ["keep"] } });
+  expect(mocks.rows.find((row) => row.name === "Child")).toMatchObject({ id: 16, parentId: 15, extra: { description: "keep" } });
+  expect(mocks.rows.some((row) => row.id === 17)).toBe(mode === "merge");
+  expect(mocks.tx.assetTag.createManyAndReturn).not.toHaveBeenCalled();
 });
