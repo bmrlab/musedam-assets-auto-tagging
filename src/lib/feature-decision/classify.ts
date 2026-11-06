@@ -35,7 +35,7 @@ import { meetsFeatureConfidenceThreshold } from "@/lib/tagging/feature-confidenc
 import { getFeatureThresholds } from "@/lib/tagging/feature-threshold-settings";
 import prisma from "@/prisma/prisma";
 import pLimit from "p-limit";
-import { MAX_FEATURE_REFERENCES, selectFeatureRegions, type DecisionFeatureType } from "./regions";
+import { selectFeatureRegions, type DecisionFeatureType } from "./regions";
 import { runFeatureDecision } from "./service";
 import type {
   FeatureDecisionCandidate,
@@ -170,6 +170,7 @@ export async function classifyAssetFeatures(
       decision: { status: "skipped" },
     },
   };
+  const cropWork = pLimit(4);
   await Promise.all(
     enabledTypes.map(async (type) => {
       const selected = regions.selected.filter((region) => region.featureType === type);
@@ -210,7 +211,7 @@ export async function classifyAssetFeatures(
           };
         } else {
           const crops = await Promise.all(
-            selected.map(async ({ box }) => ({
+            selected.map(({ box }) => cropWork(async () => ({
               box,
               image: await cropImageToDataUrl({
                 imageDataUrl: imageInput.dataUrl,
@@ -219,7 +220,7 @@ export async function classifyAssetFeatures(
                 meta: imageInput,
                 box,
               }),
-            })),
+            }))),
           );
           if (type === "logo") {
             const result = await classifyBrandImageCrops({
@@ -404,6 +405,7 @@ export async function classifyAssetFeatures(
             description: logo?.notes,
             similarity: match.similarity,
             referenceMatchStrategy: match.referenceMatchStrategy,
+            regionIds: [`logo:${match.detectionIndex}`],
           },
           referenceImage?.objectKey,
         ),
@@ -423,6 +425,9 @@ export async function classifyAssetFeatures(
             similarity: match.similarity,
             imageSimilarity: match.imageSimilarity,
             descriptionSimilarity: match.descriptionSimilarity,
+            regionIds: output.product?.detections.filter(region =>
+              region.topMatches.some(candidate => candidate.assetProductId === match.assetProductId),
+            ).map(region => `product:${region.detectionIndex}`),
             retrievedRegions: output.product?.detections.filter((region) =>
               region.topMatches.some(
                 (candidate) => candidate.assetProductId === match.assetProductId,
@@ -452,6 +457,7 @@ export async function classifyAssetFeatures(
               .filter(Boolean)
               .join("\n"),
             similarity: match.similarity,
+            regionIds: [`ip:${match.detectionIndex}`],
             imageSimilarity: match.imageSimilarity,
             descriptionSimilarity: match.descriptionSimilarity,
           },
@@ -460,8 +466,6 @@ export async function classifyAssetFeatures(
       );
     }
     for (const candidate of await Promise.all(pending)) if (candidate) candidates.push(candidate);
-    if (candidates.length > MAX_FEATURE_REFERENCES)
-      throw new Error("Feature decision reference budget exceeded");
     output.diagnostics = {
       ...(await runFeatureDecision({
         teamId,
@@ -477,6 +481,11 @@ export async function classifyAssetFeatures(
       decisionInputMode: imageMode ? "image" : "text",
       retrieval,
     };
+    for (const batch of output.diagnostics.decision.batches ?? []) {
+      if (batch.status !== "completed") retrieval.unassessedCandidates.push(...batch.candidateIds.map(candidateId => ({
+        candidateId, reason: batch.error ?? "Decision batch failed",
+      })));
+    }
     // Predictions remain visible regardless of confidence, conflicts or specificity.
     // Automatic application has a separate gate and must never promote alternatives.
     const predictions = new Map(

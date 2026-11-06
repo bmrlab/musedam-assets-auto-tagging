@@ -1,4 +1,6 @@
+import pLimit from "p-limit";
 import "server-only";
+import { MAX_FEATURE_REFERENCES } from "./regions";
 
 import { isDecisionLlmImageUseEnabled } from "./config";
 import { callFeatureLlm } from "./gateway";
@@ -66,7 +68,6 @@ export async function runFeatureDecision(
     };
   }
   if (
-    input.candidates.length > 15 ||
     new Set(input.candidates.map((candidate) => candidate.candidateId)).size !==
       input.candidates.length ||
     (imageMode && input.candidates.some((candidate) => !candidate.referenceImage?.trim()))
@@ -77,26 +78,61 @@ export async function runFeatureDecision(
       decision: {
         status: "failed",
         error: imageMode
-          ? "Expected at most 15 unique candidates, each with a usable reference image"
-          : "Expected at most 15 unique candidates",
+          ? "Expected unique candidates, each with a usable reference image"
+          : "Expected unique candidates",
       },
     };
   }
-  const { call, result } = await callFeatureLlm({
-    context,
-    kind: "decision",
-    model: process.env.FEATURE_DECISION_MODEL?.trim() ?? "",
-    messages: buildFeatureDecisionMessages({ ...input, imageMode, ocr }),
-    parse: (text) => parseFeatureDecisionResponse(text, input.candidates, imageMode),
-  });
+  const chunks: FeatureDecisionCandidate[][] = [];
+  for (let offset = 0; offset < input.candidates.length; offset += MAX_FEATURE_REFERENCES) {
+    chunks.push(input.candidates.slice(offset, offset + MAX_FEATURE_REFERENCES));
+  }
+  const work = pLimit(2);
+  const batches = await Promise.all(
+    chunks.map((candidates) =>
+      work(async () => {
+        const { call, result } = await callFeatureLlm({
+          context,
+          kind: "decision",
+          model: process.env.FEATURE_DECISION_MODEL?.trim() ?? "",
+          messages: buildFeatureDecisionMessages({ ...input, candidates, imageMode, ocr }),
+          parse: (text) => parseFeatureDecisionResponse(text, candidates, imageMode),
+        });
+        return { candidateIds: candidates.map((candidate) => candidate.candidateId), call, result };
+      }),
+    ),
+  );
+  const successful = batches.filter((batch) => batch.call.status === "completed" && batch.result);
+  const matches = successful.flatMap((batch) => batch.result!.matches);
+  const failed = batches.length - successful.length;
+  const completed = successful.length > 0 && (failed === 0 || matches.length > 0);
   return {
     ...diagnosticsMode,
     ocr,
     decision: {
-      status: call.status,
-      ...(result ? { result } : {}),
-      call,
-      ...(call.error ? { error: call.error } : {}),
+      status: completed ? "completed" : "failed",
+      ...(successful.length
+        ? { result: { outcome: matches.length ? "matched" : "no_match", matches } as const }
+        : {}),
+      call: successful[0]?.call ?? batches[0].call,
+      ...(batches.length > 1
+        ? {
+            batches: batches.map((batch) => ({
+              candidateIds: batch.candidateIds,
+              status: batch.call.status,
+              call: batch.call,
+              ...(batch.call.error ? { error: batch.call.error } : {}),
+            })),
+          }
+        : {}),
+      ...(failed
+        ? {
+            error:
+              batches.length === 1
+                ? batches[0].call.error
+                : `${failed} of ${batches.length} decision batches failed`,
+          }
+        : {}),
     },
   };
 }

@@ -776,6 +776,7 @@
       "brandRecommendedTags": "Thẻ gợi ý logo thương hiệu",
       "basedOnTagSystem": "Khớp dựa trên hệ thống nhãn",
       "basedOnFeatureLibrary": "Khớp dựa trên thư viện đặc trưng",
+      "pendingFeatureConfirmation": "Pending confirmation",
       "addFeatureManually": "Thêm đặc trưng thủ công",
       "addFeatureTitle": "Thêm đặc trưng",
       "addFeatureAllTypes": "Tất cả",

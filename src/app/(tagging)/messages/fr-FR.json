@@ -526,6 +526,7 @@
       "brandRecommendedTags": "Tags recommandés du logo de marque",
       "basedOnTagSystem": "Basé sur la correspondance du système de tags",
       "basedOnFeatureLibrary": "Basé sur la correspondance de la bibliothèque de fonctionnalités",
+      "pendingFeatureConfirmation": "Pending confirmation",
       "addFeatureManually": "Ajouter une caractéristique manuellement",
       "addFeatureTitle": "Ajouter des caractéristiques",
       "addFeatureAllTypes": "Toutes",

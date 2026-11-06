@@ -185,6 +185,7 @@
       "balanced": "Сбалансированный (60-79%)",
       "basedOnTagSystem": "На основе сопоставления теговой системы",
       "basedOnFeatureLibrary": "На основе сопоставления библиотеки признаков",
+      "pendingFeatureConfirmation": "Pending confirmation",
       "addFeatureManually": "Добавить признак вручную",
       "addFeatureTitle": "Добавить признаки",
       "addFeatureAllTypes": "Все",

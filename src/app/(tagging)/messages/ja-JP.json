@@ -185,6 +185,7 @@
       "balanced": "バランス (60-79%)",
       "basedOnTagSystem": "タグ体系に基づいてマッチング",
       "basedOnFeatureLibrary": "特徴ライブラリに基づいてマッチング",
+      "pendingFeatureConfirmation": "Pending confirmation",
       "addFeatureManually": "特徴を手動で追加",
       "addFeatureTitle": "特徴を追加",
       "addFeatureAllTypes": "すべて",

@@ -776,6 +776,7 @@
       "brandRecommendedTags": "Rekomendowane tagi logo marki",
       "basedOnTagSystem": "Na podstawie dopasowania systemu tagów",
       "basedOnFeatureLibrary": "Na podstawie dopasowania biblioteki cech",
+      "pendingFeatureConfirmation": "Pending confirmation",
       "addFeatureManually": "Dodaj cechę ręcznie",
       "addFeatureTitle": "Dodaj cechy",
       "addFeatureAllTypes": "Wszystkie",

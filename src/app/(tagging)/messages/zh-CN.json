@@ -853,6 +853,7 @@
       "brandRecommendedTags": "品牌标识推荐标签",
       "basedOnTagSystem": "基于标签体系匹配",
       "basedOnFeatureLibrary": "基于特征库匹配",
+      "pendingFeatureConfirmation": "待确认",
       "addFeatureManually": "手动添加特征",
       "addFeatureTitle": "添加特征",
       "addFeatureAllTypes": "全部",

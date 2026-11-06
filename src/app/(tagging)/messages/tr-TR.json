@@ -776,6 +776,7 @@
       "brandRecommendedTags": "Marka logosu önerilen etiketleri",
       "basedOnTagSystem": "Etiket sistemi eşleştirmesine dayalı",
       "basedOnFeatureLibrary": "Özellik kütüphanesi eşleştirmesine dayalı",
+      "pendingFeatureConfirmation": "Pending confirmation",
       "addFeatureManually": "Özelliği manuel ekle",
       "addFeatureTitle": "Özellik ekle",
       "addFeatureAllTypes": "Tümü",

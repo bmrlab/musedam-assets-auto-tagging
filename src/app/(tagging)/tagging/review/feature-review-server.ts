@@ -38,6 +38,12 @@ export async function loadReviewFeatureLibrary(
       (value ?? {}) as TaggingQueueItemResult,
       enabledFeatures,
     );
+    // Include unresolved predictions for read-only "pending confirmation" rows.
+    for (const match of result.featureDecision?.decision.result?.matches ?? []) {
+      const [kind, id] = match.candidateId.split(":");
+      const type = kind === "logo" ? "brand" : kind === "product" ? "product" : kind === "ip" ? "ip" : null;
+      if (type && isFeatureTypeEnabled(enabledFeatures, type)) ids[type].add(id);
+    }
     for (const brand of getBrandMatches(result.brandRecommendation))
       ids.brand.add(brand.assetLogoId);
     for (const ip of getIpMatches(result.ipRecommendation)) ids.ip.add(ip.assetIpId);

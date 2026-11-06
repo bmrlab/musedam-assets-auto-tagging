@@ -22,6 +22,7 @@ export type FeatureDecisionCandidate = {
   imageSimilarity?: number;
   descriptionSimilarity?: number;
   retrievedRegions?: number;
+  regionIds?: string[];
   referenceMatchStrategy?: "highest" | "average";
 };
 
@@ -136,6 +137,12 @@ export type FeatureDecisionDiagnostics = {
   ocr: FeatureOcrDiagnostics;
   decision: {
     status: "completed" | "failed" | "skipped";
+    batches?: Array<{
+      candidateIds: string[];
+      status: "completed" | "failed";
+      call: FeatureLlmCallDiagnostics;
+      error?: string;
+    }>;
     result?: FeatureDecisionResponse;
     call?: FeatureLlmCallDiagnostics;
     error?: string;

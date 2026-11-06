@@ -185,6 +185,7 @@
       "balanced": "平衡 (60-79%)",
       "basedOnTagSystem": "基於標籤體系匹配",
       "basedOnFeatureLibrary": "基於特徵庫匹配",
+      "pendingFeatureConfirmation": "待確認",
       "addFeatureManually": "手動新增特徵",
       "addFeatureTitle": "新增特徵",
       "addFeatureAllTypes": "全部",

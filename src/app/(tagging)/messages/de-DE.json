@@ -185,6 +185,7 @@
       "balanced": "Ausgewogen (60-79%)",
       "basedOnTagSystem": "Basierend auf der Tagsystemübereinstimmung",
       "basedOnFeatureLibrary": "Basierend auf Feature-Bibliothek Übereinstimmung",
+      "pendingFeatureConfirmation": "Pending confirmation",
       "addFeatureManually": "Merkmal manuell hinzufügen",
       "addFeatureTitle": "Merkmale hinzufügen",
       "addFeatureAllTypes": "Alle",

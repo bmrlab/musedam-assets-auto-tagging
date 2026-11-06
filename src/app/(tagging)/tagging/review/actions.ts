@@ -62,6 +62,9 @@ import {
 } from "./feature-review-server";
 import { createTagReviewSnapshot } from "./tag-review";
 
+import { pendingFeatureCandidates, type PendingFeatureCandidate } from "./pending-feature-candidates";
+import { attachReviewQueues, reviewQueueItemsQuery } from "./review-list-data";
+
 export type ReviewAvailableFeatureIds = {
   brand: string[];
   ip: string[];
@@ -144,6 +147,7 @@ async function buildAssetObjectTags(
 export type AssetWithAuditItemsBatch = {
   assetObject: AssetObject;
   existingFeatures: MuseDAMMaterialFeatureSnapshot[];
+  pendingFeatureCandidates?: PendingFeatureCandidate[];
   availableFeatureIds: ReviewAvailableFeatureIds;
   featureThumbnails: FeatureThumbnails;
   batch: {
@@ -226,6 +230,8 @@ export async function fetchAssetsWithAuditItems(
   confidenceFilter?: "high" | "medium" | "low",
   searchQuery?: string,
   timeFilter?: "all" | "today" | "week" | "month",
+  windowOffset: number = 0,
+  windowLimit?: number,
 ): Promise<
   ServerActionResult<{
     assets: AssetWithAuditItemsBatch[];
@@ -233,6 +239,7 @@ export async function fetchAssetsWithAuditItems(
     hasMore: boolean;
     currentPage: number;
     totalPages: number;
+    nextWindowOffset: number | null;
   }>
 > {
   return withAuth(async ({ team: { id: teamId, slug: teamSlug } }) => {
@@ -243,7 +250,11 @@ export async function fetchAssetsWithAuditItems(
         featureLibraryFeatures.featureIp ||
         featureLibraryFeatures.featureProduct ||
         featureLibraryFeatures.featurePerson;
-      const offset = (page - 1) * limit;
+      page = Math.max(1, Math.floor(page) || 1);
+      limit = Math.min(100, Math.max(1, Math.floor(limit) || 10));
+      windowOffset = Math.min(limit, Math.max(0, Math.floor(windowOffset) || 0));
+      const take = Math.min(limit - windowOffset, Math.max(1, Math.floor(windowLimit ?? limit) || 10));
+      const offset = (page - 1) * limit + windowOffset;
 
       // 审核项筛选条件，直接拼成 SQL：Prisma 的 distinct 是在内存里去重的，
       // 会把团队全部审核项拉出来两遍（算总数、取当前页），数据量大时非常慢。
@@ -335,7 +346,7 @@ export async function fetchAssetsWithAuditItems(
           WHERE ${whereSql}
           GROUP BY a."assetObjectId"
           ORDER BY MAX(q."createdAt") DESC, a."assetObjectId" DESC
-          LIMIT ${limit} OFFSET ${offset}
+          LIMIT ${take} OFFSET ${offset}
         `,
         ),
       ]);
@@ -344,6 +355,9 @@ export async function fetchAssetsWithAuditItems(
 
       const totalPages = Math.ceil(totalCount / limit);
       const hasMore = page < totalPages;
+      const consumed = windowOffset + pageRows.length;
+      const nextWindowOffset = consumed < Math.min(limit, Math.max(0, totalCount - (page - 1) * limit))
+        ? consumed : null;
 
       if (assetObjectIds.length === 0) {
         return {
@@ -354,25 +368,42 @@ export async function fetchAssetsWithAuditItems(
             hasMore: false,
             currentPage: page,
             totalPages,
+            nextWindowOffset: null,
           },
         };
       }
 
       // assetIds 已经过滤好，也限制了数量，这里可以直接使用了
-      const assetObjects = await prisma.assetObject.findMany({
+      const assetRows = await prisma.assetObject.findMany({
         where: { teamId, id: { in: assetObjectIds } },
         include: {
           taggingAuditItems: {
-            include: {
-              queueItem: true,
-            },
+            where: { teamId },
             orderBy: [{ score: "desc" }, { createdAt: "desc" }],
           },
         },
       });
+      const queueIds = [...new Set(assetRows.flatMap(asset =>
+        asset.taggingAuditItems.flatMap(audit => audit.queueItemId === null ? [] : [audit.queueItemId]),
+      ))];
+      const queues = queueIds.length
+        ? await prisma.$queryRaw<TaggingQueueItem[]>(reviewQueueItemsQuery(teamId, queueIds))
+        : [];
+      const assetObjects = attachReviewQueues(assetRows, queues);
 
       // 批量同步资产缩略图URL（防止签名过期）
       const team = { id: teamId, slug: teamSlug };
+      const materialIdByAssetObjectId = new Map<number, MuseDAMID>();
+      if (hasEnabledFeatures) {
+        for (const asset of assetObjects) {
+          try { materialIdByAssetObjectId.set(asset.id, slugToId("assetObject", asset.slug)); }
+          catch { /* Local test inputs have no MuseDAM material ID. */ }
+        }
+      }
+      const existingFeaturesPromise = hasEnabledFeatures && materialIdByAssetObjectId.size
+        ? getFeatureByAssetFromMuseDAM({ team, materialIds: [...materialIdByAssetObjectId.values()] })
+            .catch(error => { console.error("批量获取资产已有特征失败:", error); return []; })
+        : Promise.resolve([]);
       const musedamAssetIds = assetObjects
         .map((assetObject) => {
           try {
@@ -423,17 +454,14 @@ export async function fetchAssetsWithAuditItems(
         );
 
       const thresholds = await getFeatureThresholds(teamId);
-      for (const asset of updatedAssetObjects) {
-        const pendingIds = new Set(asset.taggingAuditItems.filter(a => a.status === "pending").map(a => a.queueItemId));
-        for (const audit of asset.taggingAuditItems) {
-          if (audit.queueItem && pendingIds.has(audit.queueItemId)) audit.queueItem.result = rethresholdFeatures(audit.queueItem.result, thresholds) as Prisma.JsonObject;
-        }
+      const pendingQueueIds = new Set(updatedAssetObjects.flatMap(asset => asset.taggingAuditItems
+        .filter(audit => audit.status === "pending").map(audit => audit.queueItemId)));
+      for (const queue of queues) {
+        if (pendingQueueIds.has(queue.id)) queue.result = rethresholdFeatures(queue.result, thresholds) as Prisma.JsonObject;
       }
       const featureLibrary = await loadReviewFeatureLibrary(
         teamId,
-        updatedAssetObjects.flatMap((asset) =>
-          asset.taggingAuditItems.flatMap(({ queueItem }) => (queueItem ? [queueItem.result] : [])),
-        ),
+        queues.map(queue => queue.result),
         featureLibraryFeatures,
       );
       const availableFeatureIds: ReviewAvailableFeatureIds = {
@@ -460,48 +488,22 @@ export async function fetchAssetsWithAuditItems(
       }
       const featureThumbnails = await loadFeatureThumbnails(thumbnailIds);
 
-      const materialIdByAssetObjectId = new Map<number, MuseDAMID>();
-      if (hasEnabledFeatures) {
-        for (const assetObject of updatedAssetObjects) {
-          try {
-            materialIdByAssetObjectId.set(
-              assetObject.id,
-              slugToId("assetObject", assetObject.slug),
-            );
-          } catch {
-            // skip assets without a valid MuseDAM slug
-          }
-        }
-      }
-
       const featuresByMaterialId = new Map<number, MuseDAMMaterialFeatureSnapshot[]>();
-      const materialIdsForFeatures = [...materialIdByAssetObjectId.values()];
-      if (hasEnabledFeatures && materialIdsForFeatures.length > 0) {
-        try {
-          const featureEntries = await getFeatureByAssetFromMuseDAM({
-            team,
-            materialIds: materialIdsForFeatures,
-          });
-          for (const entry of featureEntries) {
-            featuresByMaterialId.set(
-              entry.materialId,
-              (entry.features ?? []).filter((feature) =>
-                isFeatureTypeEnabled(featureLibraryFeatures, feature.featureType),
-              ),
-            );
-          }
-        } catch (error) {
-          console.error("批量获取资产已有特征失败:", error);
-        }
+      for (const entry of await existingFeaturesPromise) {
+        featuresByMaterialId.set(entry.materialId, (entry.features ?? []).filter(feature =>
+          isFeatureTypeEnabled(featureLibraryFeatures, feature.featureType),
+        ));
       }
 
       const results: AssetWithAuditItemsBatch[] = [];
 
+      const updatedById = new Map(updatedAssetObjects.map(asset => [asset.id, asset]));
       for (const assetObjectId of assetObjectIds) {
-        const assetObject = updatedAssetObjects.find(({ id }) => id === assetObjectId);
+        const assetObject = updatedById.get(assetObjectId);
         if (!assetObject) continue;
+        const { taggingAuditItems, ...assetRecord } = assetObject;
         const batch: AssetWithAuditItemsBatch["batch"] = [];
-        for (const { queueItem, tagPath, ...taggingAuditItem } of assetObject.taggingAuditItems) {
+        for (const { queueItem, tagPath, ...taggingAuditItem } of taggingAuditItems) {
           if (!queueItem) continue;
           if (
             !isDisplayedAuditItem(
@@ -519,7 +521,7 @@ export async function fetchAssetsWithAuditItems(
               queueItem: {
                 ...queueItem,
                 result: filterFeatureLibraryRecommendations(
-                  assetObject.taggingAuditItems.some(
+                  taggingAuditItems.some(
                     (item) => item.queueItem?.id === queueItem.id && item.status === "pending",
                   )
                     ? hydrateReviewFeatures(queueItem.result, featureLibrary)
@@ -581,8 +583,14 @@ export async function fetchAssetsWithAuditItems(
               : [];
 
           results.push({
-            assetObject,
+            // Do not serialize the entire joined audit/queue graph again inside the asset.
+            assetObject: assetRecord,
             existingFeatures,
+            pendingFeatureCandidates: filteredBatch.flatMap(group =>
+              group.taggingAuditItems.some(audit => audit.status === "pending")
+                ? pendingFeatureCandidates(group.queueItem.id, group.queueItem.result, featureLibrary, thresholds)
+                : [],
+            ),
             availableFeatureIds,
             featureThumbnails,
             batch: filteredBatch,
@@ -598,6 +606,7 @@ export async function fetchAssetsWithAuditItems(
           hasMore,
           currentPage: page,
           totalPages,
+          nextWindowOffset,
         },
       };
     } catch (error) {

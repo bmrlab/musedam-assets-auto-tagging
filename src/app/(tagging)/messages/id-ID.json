@@ -817,6 +817,7 @@
       "brandRecommendedTags": "Tag Rekomendasi Logo Merek",
       "basedOnTagSystem": "Berdasarkan pencocokan sistem tag",
       "basedOnFeatureLibrary": "Berdasarkan pencocokan perpustakaan fitur",
+      "pendingFeatureConfirmation": "Pending confirmation",
       "addFeatureManually": "Tambah fitur secara manual",
       "addFeatureTitle": "Tambah fitur",
       "addFeatureAllTypes": "Semua",

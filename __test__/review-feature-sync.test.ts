@@ -350,7 +350,8 @@ beforeEach(() => {
     images.findMany.mockResolvedValue([]);
   }
   mocks.prisma.$queryRaw.mockImplementation(async (query) =>
-    query.sql.includes("COUNT(DISTINCT") ? [{ count: BigInt(1) }] : [{ assetObjectId: 42 }],
+    query.sql.includes('AS "result"') ? [...new Map(audits.filter(a => a.queueItem).map(a => [a.queueItem.id, a.queueItem])).values()]
+      : query.sql.includes("COUNT(DISTINCT") ? [{ count: BigInt(1) }] : [{ assetObjectId: 42 }],
   );
   mocks.prisma.team.findUniqueOrThrow.mockResolvedValue({ id: 7, slug: "t/7" });
   mocks.prisma.taggingAuditItem.findMany.mockImplementation(async (args) =>
@@ -361,7 +362,7 @@ beforeEach(() => {
     extra: assetExtra,
   }));
   mocks.prisma.assetObject.findMany.mockImplementation(async () => [
-    { id: 42, slug: "a/42", extra: assetExtra, taggingAuditItems: audits },
+    { id: 42, slug: "a/42", extra: assetExtra, taggingAuditItems: audits.map(audit => ({ ...audit, queueItemId: audit.queueItem?.id ?? null })) },
   ]);
   mocks.prisma.assetTag.findMany.mockImplementation(async (args) =>
     (args.where.id?.in ?? []).map((id: number) => ({
@@ -377,6 +378,21 @@ beforeEach(() => {
 });
 
 describe("review feature synchronization", () => {
+  it("bounds continuation requests within a logical page and omits the duplicate audit graph", async () => {
+    mocks.prisma.$queryRaw.mockImplementation(async query =>
+      query.sql.includes('AS "result"') ? [queue]
+        : query.sql.includes("COUNT(DISTINCT") ? [{ count: BigInt(251) }] : [{ assetObjectId: 42 }],
+    );
+    const response = await fetchAssetsWithAuditItems(2, 100, "pending", undefined, undefined, undefined, 20, 10);
+    if (!response.success) throw new Error(response.message);
+    expect(response.data.totalPages).toBe(3);
+    expect(response.data.nextWindowOffset).toBe(21);
+    expect(response.data.assets).toHaveLength(1);
+    expect(response.data.assets[0].assetObject).not.toHaveProperty("taggingAuditItems");
+    const pageQuery = mocks.prisma.$queryRaw.mock.calls.find(([query]) => query.sql.includes("LIMIT"))![0];
+    expect(pageQuery.values.slice(-2)).toEqual([10, 120]);
+  });
+
   it("preserves an earlier provenance snapshot when applying another review", async () => {
     const tagReview = { version: 1, reviewedAt: "2026-11-05T00:00:00Z", sources: { "g/20": "ai" } };
     queue.extra = { tagReview };

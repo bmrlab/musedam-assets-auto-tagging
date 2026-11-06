@@ -278,7 +278,7 @@ describe("whole-asset feature decision orchestration", () => {
     expect(mocks.fetchImage).toHaveBeenCalledTimes(2);
   });
 
-  it("uses the same bounded product retrieval in text-only mode", async () => {
+  it("retains every product region in text-only mode", async () => {
     const boxes = Array.from({ length: 9 }, (_, index) => box(index));
     mocks.product.mockResolvedValue({
       topMatches: [],
@@ -296,8 +296,8 @@ describe("whole-asset feature decision orchestration", () => {
       boxes: { product: boxes },
       imageMode: false,
     });
-    expect(mocks.product.mock.calls[0][0].boxes).toHaveLength(5);
-    expect(result.diagnostics.retrieval?.regionsSelected).toBe(5);
+    expect(mocks.product.mock.calls[0][0].boxes).toHaveLength(9);
+    expect(result.diagnostics.retrieval?.regionsSelected).toBe(9);
     expect(result.diagnostics.decisionInputMode).toBe("text");
     expect(mocks.decision).toHaveBeenCalledOnce();
   });
@@ -398,7 +398,7 @@ describe("whole-asset feature decision orchestration", () => {
     expect(result.brand?.matches).toEqual([]);
   });
 
-  it("shares five selected regions among tasks before embedding", async () => {
+  it("retrieves every distinct region independently across feature types", async () => {
     mocks.ip.mockResolvedValue({
       topMatches: [],
       bestMatch: null,
@@ -425,8 +425,8 @@ describe("whole-asset feature decision orchestration", () => {
       mocks.logo.mock.calls[0][0].crops.length +
       mocks.ip.mock.calls[0][0].crops.length +
       mocks.product.mock.calls[0][0].boxes.length;
-    expect(count).toBe(5);
-    expect(result.diagnostics.retrieval?.regionsOmitted).toBe(19);
+    expect(count).toBe(24);
+    expect(result.diagnostics.retrieval?.regionsOmitted).toBe(0);
     expect(mocks.decision).toHaveBeenCalledOnce();
   });
 

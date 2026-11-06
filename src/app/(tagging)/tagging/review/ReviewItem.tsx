@@ -396,6 +396,7 @@ export function ReviewItem({
   batchLoading,
   rejectedFeatureKeys,
   onToggleFeatureKey,
+  pendingFeatureCandidates = [],
   manualTags = [],
   onAddManualTags,
   onRemoveManualTag,
@@ -1392,7 +1393,7 @@ export function ReviewItem({
                           onPreview={setPreviewImage}
                         />
                       ))
-                    ) : hasManualRows ? null : (
+                    ) : hasManualRows || pendingFeatureCandidates.some(candidate => candidate.queueItemId === queueItem.id) ? null : (
                       <div className="text-sm text-basic-5">
                         {tResult(
                           isVideoAsset
@@ -1403,6 +1404,15 @@ export function ReviewItem({
                         )}
                       </div>
                     )}
+                    {pendingFeatureCandidates.filter(candidate => candidate.queueItemId === queueItem.id).map(candidate => (
+                      <div key={candidate.key} className="rounded-lg border border-warning-3 bg-warning-1 p-3 text-sm text-basic-8">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="font-medium">{candidate.name}</span>
+                          <span className="shrink-0 text-xs text-warning-7">{t("pendingFeatureConfirmation")} · {candidate.confidence}%</span>
+                        </div>
+                        {candidate.reasons.map((reason, index) => <p key={index} className="mt-1 text-xs text-basic-5">{reason}</p>)}
+                      </div>
+                    ))}
                     {isEditableManualBatch ? (
                       <button
                         type="button"

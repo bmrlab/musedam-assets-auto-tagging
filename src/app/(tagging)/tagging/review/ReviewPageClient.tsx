@@ -33,6 +33,7 @@ import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type ReviewTagSearchResult, AssetWithAuditItemsBatch, fetchAssetsWithAuditItems, batchApproveAuditItemsAction, batchRejectAuditItemsAction } from "./actions";
 import { ReviewItem } from "./ReviewItem";
+import { useProgressiveReview } from "./use-progressive-review";
 import { featureKey, getFeatureReviewVersions, type ReviewFeatureSearchResult } from "./feature-review";
 import { useTheme } from "next-themes";
 import Image from "next/image";
@@ -49,8 +50,10 @@ export default function ReviewPageClient() {
   const tCommon = useTranslations("Tagging.Common");
   const { data: session } = useSession();
   const isAdmin = session?.user?.isAdmin ?? false;
-  const [assets, setAssets] = useState<AssetWithAuditItemsBatch[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { assets, isLoading, totalPages, total, isLoadingMore, hasMoreInPage,
+    refresh, loadMore, loadAll } = useProgressiveReview<AssetWithAuditItemsBatch>(asset => asset.assetObject.id);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+  const [loadMoreFailed, setLoadMoreFailed] = useState(false);
   const [statusFilter, setStatusFilter] = useState<TaggingAuditStatus | "all">("pending");
   const [confidenceFilter, setConfidenceFilter] = useState<"all" | "high" | "medium" | "low">(
     "all",
@@ -60,14 +63,13 @@ export default function ReviewPageClient() {
   const [currentPage, setCurrentPage] = useState(1);
   // 只有列表区域滚动（分页栏始终可见）；翻页后回到列表顶部
   const listScrollRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    listScrollRef.current?.scrollTo({ top: 0 });
-  }, [currentPage]);
-  const [totalPages, setTotalPages] = useState(1);
-  const [total, setTotal] = useState(0);
+
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const [pageSize, setPageSize] = useState(10);
+  useEffect(() => {
+    listScrollRef.current?.scrollTo({ top: 0 });
+  }, [currentPage, pageSize, statusFilter, confidenceFilter, searchQuery, timeFilter]);
   const [loading, setLoading] = useState(false);
   const [rejectedFeaturesByAsset, setRejectedFeaturesByAsset] = useState<Record<number, string[]>>({});
   const [manualTagsByAsset, setManualTagsByAsset] = useState<Record<number, ReviewTagSearchResult[]>>({});
@@ -88,33 +90,44 @@ export default function ReviewPageClient() {
       time: "all" | "today" | "week" | "month" = timeFilter,
       size: number = pageSize,
     ) => {
-      setIsLoading(true);
+      setLoadMoreFailed(false);
       try {
-        const assetsResult = await fetchAssetsWithAuditItems(
-          page,
-          size,
-          status === "all" ? undefined : status,
-          confidence === "all" ? undefined : confidence,
-          search || undefined,
-          time === "all" ? undefined : time,
-        );
-        if (assetsResult.success) {
-          const newAssets = assetsResult.data.assets;
-          setAssets(newAssets);
-          setTotalPages(assetsResult.data.totalPages);
-          setTotal(assetsResult.data.total);
-
-          const refreshed = new Map(newAssets.map((asset) => [asset.assetObject.id, asset]));
-          setSelectedAssets((current) => current.map((asset) => refreshed.get(asset.assetObject.id) ?? asset));
+        const newAssets = await refresh((offset, take) => fetchAssetsWithAuditItems(
+          page, size, status === "all" ? undefined : status,
+          confidence === "all" ? undefined : confidence, search || undefined,
+          time === "all" ? undefined : time, offset, take,
+        ));
+        if (newAssets) {
+          const refreshed = new Map(newAssets.map(asset => [asset.assetObject.id, asset]));
+          setSelectedAssets(current => current.map(asset => refreshed.get(asset.assetObject.id) ?? asset));
         }
       } catch (error) {
         console.error(t("refreshDataFailed"), error);
-      } finally {
-        setIsLoading(false);
+        toast.error(t("refreshDataFailed"));
       }
     },
-    [currentPage, pageSize, statusFilter, confidenceFilter, searchQuery, timeFilter, t],
+    [currentPage, pageSize, statusFilter, confidenceFilter, searchQuery, timeFilter, t, refresh],
   );
+
+  const handleLoadMore = useCallback(async () => {
+    setLoadMoreFailed(false);
+    try { await loadMore(); }
+    catch (error) {
+      setLoadMoreFailed(true);
+      console.error(t("refreshDataFailed"), error);
+      toast.error(t("refreshDataFailed"));
+    }
+  }, [loadMore, t]);
+
+  useEffect(() => {
+    const sentinel = loadMoreRef.current;
+    if (!sentinel || isLoading || isLoadingMore || loading || !hasMoreInPage || loadMoreFailed) return;
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) void handleLoadMore();
+    }, { root: listScrollRef.current, rootMargin: "400px" });
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [isLoading, isLoadingMore, loading, hasMoreInPage, loadMoreFailed, handleLoadMore, assets.length]);
 
   const handlePageChange = useCallback(
     (page: number) => {
@@ -147,20 +160,27 @@ export default function ReviewPageClient() {
 
 
   // 计算选择状态
-  const isAllSelected = assets.length > 0 && assets.every(asset => selectedAssetIds.has(asset.assetObject.id));
+  const isAllSelected = !hasMoreInPage && assets.length > 0 && assets.every(asset => selectedAssetIds.has(asset.assetObject.id));
   const isIndeterminate = selectedAssetIds.size > 0 && !isAllSelected;
 
   // 全选/取消全选
-  const handleSelectAll = useCallback((checked: boolean) => {
+  const handleSelectAll = useCallback(async (checked: boolean) => {
     if (checked) {
-      // 保留原本选择的，再叠加当前页面的
-      const currentPageIds = new Set(assets.map(asset => asset.assetObject.id));
-      const newSelectedIds = new Set([...selectedAssetIds, ...currentPageIds]);
-      setSelectedAssetIds(newSelectedIds);
+      setLoading(true);
+      try {
+        const pageAssets = await loadAll();
+        if (!pageAssets) return;
+        // 保留原本选择的，再叠加当前页面的
+        const currentPageIds = new Set(pageAssets.map(asset => asset.assetObject.id));
+        const newSelectedIds = new Set([...selectedAssetIds, ...currentPageIds]);
+        setSelectedAssetIds(newSelectedIds);
 
-      // 合并已选择的资产和当前页面的资产，去重
-      const existingAssets = selectedAssets.filter(asset => !currentPageIds.has(asset.assetObject.id));
-      setSelectedAssets([...existingAssets, ...assets]);
+        // 合并已选择的资产和当前页面的资产，去重
+        const existingAssets = selectedAssets.filter(asset => !currentPageIds.has(asset.assetObject.id));
+        setSelectedAssets([...existingAssets, ...pageAssets]);
+      } catch {
+        toast.error(t("refreshDataFailed"));
+      } finally { setLoading(false); }
     } else {
       // 取消全选时，只取消当前页面的选择，保留其他页面的选择
       const currentPageIds = new Set(assets.map(asset => asset.assetObject.id));
@@ -169,7 +189,7 @@ export default function ReviewPageClient() {
 
       setSelectedAssets(prev => prev.filter(asset => !currentPageIds.has(asset.assetObject.id)));
     }
-  }, [assets, selectedAssetIds, selectedAssets]);
+  }, [assets, selectedAssetIds, selectedAssets, loadAll, t]);
 
   // 单个选择
   const handleSelectAsset = useCallback((asset: AssetWithAuditItemsBatch, checked: boolean) => {
@@ -289,6 +309,7 @@ export default function ReviewPageClient() {
             className="size-4"
             checked={isAllSelected}
             indeterminate={selectedAssets.length > 0 && !isAllSelected}
+            disabled={loading || isLoading}
             onCheckedChange={handleSelectAll}
             ref={(el) => {
               if (el) {
@@ -505,6 +526,14 @@ export default function ReviewPageClient() {
             key={asset.assetObject.id}
           />
         ))}
+        {hasMoreInPage && (
+          <div ref={loadMoreRef} className="flex min-h-12 items-center justify-center p-4">
+            <Button variant="ghost" size="sm" disabled={isLoadingMore || loading}
+              onClick={() => void handleLoadMore()}>
+              {isLoadingMore ? <Loader2Icon className="size-4 animate-spin" /> : tCommon("pagination.next")}
+            </Button>
+          </div>
+        )}
         </div>
 
         {/* 分页组件 */}

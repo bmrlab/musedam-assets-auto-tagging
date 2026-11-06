@@ -853,6 +853,7 @@
       "brandRecommendedTags": "Brand Logo Recommended Tags",
       "basedOnTagSystem": "Based on tag system matching",
       "basedOnFeatureLibrary": "Based on feature library matching",
+      "pendingFeatureConfirmation": "Pending confirmation",
       "addFeatureManually": "Add feature manually",
       "addFeatureTitle": "Add features",
       "addFeatureAllTypes": "All",

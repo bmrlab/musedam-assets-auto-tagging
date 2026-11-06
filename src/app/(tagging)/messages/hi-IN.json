@@ -185,6 +185,7 @@
       "balanced": "संतुलित (60-79%)",
       "basedOnTagSystem": "टैग सिस्टम मिलान के आधार पर",
       "basedOnFeatureLibrary": "सुविधा लाइब्रेरी मिलान के आधार पर",
+      "pendingFeatureConfirmation": "Pending confirmation",
       "addFeatureManually": "फ़ीचर मैन्युअल रूप से जोड़ें",
       "addFeatureTitle": "फ़ीचर जोड़ें",
       "addFeatureAllTypes": "सभी",

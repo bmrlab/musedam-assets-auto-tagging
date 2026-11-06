@@ -185,6 +185,7 @@
       "balanced": "Equilibrado (60-79%)",
       "basedOnTagSystem": "Basado en la coincidencia del sistema de etiquetas",
       "basedOnFeatureLibrary": "Basado en la coincidencia de la biblioteca de características",
+      "pendingFeatureConfirmation": "Pending confirmation",
       "addFeatureManually": "Añadir característica manualmente",
       "addFeatureTitle": "Añadir características",
       "addFeatureAllTypes": "Todas",
