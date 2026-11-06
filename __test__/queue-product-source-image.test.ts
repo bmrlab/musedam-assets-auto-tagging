@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("server-only", () => ({}));
+vi.mock("@/lib/tagging/refresh-asset", () => ({ refreshQueuedAsset: async (_teamId: number, asset: unknown) => asset }));
 vi.mock("@/lib/product/tagging-product-classification", () => ({
   classifyAssetProductRecommendation: mocks.product,
 }));
@@ -290,6 +291,8 @@ describe("combined LLM feature classification", () => {
       folderPath: "/产品/雅诗兰黛",
       imageMode: false,
       imageInput: preparedSource,
+      ocrImage: undefined,
+      ocrSegments: [],
       enabledTypes: ["logo", "product", "ip"],
     });
     expect(mocks.classifyFeatures.mock.calls[0][0].imageInput).toBe(preparedSource);
@@ -350,8 +353,9 @@ describe("combined LLM feature classification", () => {
     expect(mocks.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          status: "completed",
+          status: "failed",
           result: expect.objectContaining({
+            error: "FEATURE_RECOGNITION_FAILED",
             featureDecision: expect.objectContaining({
               mode: "llm",
               decision: expect.objectContaining({ status: "failed" }),

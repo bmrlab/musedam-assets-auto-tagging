@@ -988,6 +988,7 @@
         "failed": "Gagal"
       },
       "errorReason": {
+        "FEATURE_RECOGNITION_FAILED": "Feature recognition did not finish. Please retry.",
         "NO_VALID_TAGS": "Tidak ada tag valid yang cocok (informasi aset tidak cukup atau tidak ada tag yang sesuai di sistem tag)",
         "NO_TAG_TREE": "Sistem tag kosong. Buat tag terlebih dahulu.",
         "NO_MATCHING_SOURCES_ENABLED": "Tidak ada strategi pencocokan yang diaktifkan",

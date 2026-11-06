@@ -947,6 +947,7 @@
         "failed": "Niepowodzenie"
       },
       "errorReason": {
+        "FEATURE_RECOGNITION_FAILED": "Feature recognition did not finish. Please retry.",
         "NO_VALID_TAGS": "Nie znaleziono prawidłowych tagów (niewystarczające informacje o zasobie lub brak odpowiedniego tagu w systemie tagów)",
         "NO_TAG_TREE": "System tagów jest pusty. Najpierw utwórz tagi.",
         "NO_MATCHING_SOURCES_ENABLED": "Nie włączono żadnej strategii dopasowania",

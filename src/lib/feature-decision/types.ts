@@ -17,6 +17,8 @@ export type FeatureDecisionCandidate = {
   name: string;
   typeName: string;
   description?: string;
+  /** Catalog notes, including user-maintained product nicknames. */
+  notes?: string;
   referenceImage?: string;
   similarity: number;
   imageSimilarity?: number;
@@ -60,6 +62,8 @@ export type FeatureChatRequest = {
   model: string;
   messages: FeatureChatMessage[];
   max_tokens?: number;
+  enable_thinking?: boolean;
+  response_format?: { type: "json_object" };
 };
 
 export type OpenAIChatUsage = {

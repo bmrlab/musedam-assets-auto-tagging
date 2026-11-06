@@ -309,6 +309,7 @@
     "candidateFeatures": "Caratteristiche candidate",
     "candidateFeaturesDescription": "Fiducia 60%-79%",
     "noRecognizedTags": "Nessun tag riconosciuto",
+    "featureRecognitionIncomplete": "Feature recognition did not finish. Results may be incomplete; please retry.",
     "noRecognizedFeatures": "Nessuna caratteristica riconosciuta",
     "featureConfidenceNotCredible": "Nessuna caratteristica corrispondente è stata trovata nella libreria delle caratteristiche esistente per questa immagine; la caratteristica potrebbe non essere ancora stata registrata.",
     "videoFeatureLibraryLimited": "Nessuna caratteristica riconosciuta: L'attuale libreria delle caratteristiche ha capacità limitate nel riconoscimento dei tipi di file video e supporta solo la corrispondenza tramite il primo fotogramma del video.",

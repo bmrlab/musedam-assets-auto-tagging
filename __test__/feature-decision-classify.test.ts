@@ -161,7 +161,7 @@ describe("whole-asset feature decision orchestration", () => {
       const catalog = ["first", "lower"].map((id) => ({
         id,
         matchPattern: "whole",
-        notes: "",
+        notes: "Catalog nickname",
         images: [{ objectKey: `reference-${id}` }],
       }));
       mocks.products.mockResolvedValue(catalog);
@@ -191,6 +191,7 @@ describe("whole-asset feature decision orchestration", () => {
       expect(classified?.bestMatch?.confidence).toBe(43);
       expect(result.diagnostics.decision.result?.matches).toEqual(alternatives);
       expect(mocks.decision).toHaveBeenCalledOnce();
+      if (type === "product") expect(mocks.decision.mock.calls[0][0].candidates[0].notes).toBe("Catalog nickname");
     },
   );
 

@@ -114,6 +114,7 @@
     "candidateFeatures": "候選特徵",
     "candidateFeaturesDescription": "信賴度 60%-79%",
     "noRecognizedTags": "暫無識別標籤",
+    "featureRecognitionIncomplete": "特徵識別未完整完成，結果可能缺失，請重新識別。",
     "noRecognizedFeatures": "暫無識別特徵",
     "featureConfidenceNotCredible": "當前圖片暫未匹配到已有特徵庫特徵，可能尚未收錄該特徵",
     "videoFeatureLibraryLimited": "暫無識別特徵",

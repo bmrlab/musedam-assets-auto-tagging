@@ -993,6 +993,7 @@
         "failed": "विफल"
       },
       "errorReason": {
+        "FEATURE_RECOGNITION_FAILED": "Feature recognition did not finish. Please retry.",
         "NO_VALID_TAGS": "कोई मान्य टैग नहीं मिला (संपत्ति की जानकारी अपर्याप्त या टैग सिस्टम में उपयुक्त टैग नहीं)",
         "NO_TAG_TREE": "टैग सिस्टम खाली है। कृपया पहले टैग बनाएँ।",
         "NO_MATCHING_SOURCES_ENABLED": "कोई मिलान रणनीति सक्षम नहीं है",

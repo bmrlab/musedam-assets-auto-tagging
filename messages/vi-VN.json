@@ -309,6 +309,7 @@
     "candidateFeatures": "Đặc trưng ứng viên",
     "candidateFeaturesDescription": "Độ tin cậy 60%-79%",
     "noRecognizedTags": "Không có thẻ đã nhận diện",
+    "featureRecognitionIncomplete": "Feature recognition did not finish. Results may be incomplete; please retry.",
     "noRecognizedFeatures": "Không có đặc trưng đã nhận diện",
     "featureConfidenceNotCredible": "Hình ảnh hiện tại chưa khớp với đặc trưng nào trong thư viện đặc trưng hiện có; đặc trưng này có thể chưa được thu thập.",
     "videoFeatureLibraryLimited": "Không có đặc trưng đã nhận diện: Thư viện đặc trưng hiện tại có khả năng nhận dạng loại tệp video còn hạn chế và chỉ hỗ trợ đối sánh bằng khung hình đầu tiên của video.",

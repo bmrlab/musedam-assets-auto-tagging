@@ -711,6 +711,7 @@
         "failed": "Fehlgeschlagen"
       },
       "errorReason": {
+        "FEATURE_RECOGNITION_FAILED": "Feature recognition did not finish. Please retry.",
         "NO_VALID_TAGS": "Keine gültigen Tags gefunden (unzureichende Asset-Informationen oder kein passender Tag im Tag-System)",
         "NO_TAG_TREE": "Das Tag-System ist leer. Bitte erstellen Sie zuerst Tags.",
         "NO_MATCHING_SOURCES_ENABLED": "Keine Matching-Strategie aktiviert",

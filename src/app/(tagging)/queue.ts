@@ -9,6 +9,8 @@ import { getFeatureThresholds } from "@/lib/tagging/feature-threshold-settings";
 import { rethresholdFeatures } from "@/lib/tagging/rethreshold-features";
 import { classifyAssetBrandRecommendation } from "@/lib/brand/tagging-brand-classification";
 import { classifyAssetFeatures, getFeatureDecisionMode } from "@/lib/feature-decision/classify";
+import { hasFeatureRecognitionFailure } from "@/lib/feature-decision/completion";
+import { refreshQueuedAsset } from "@/lib/tagging/refresh-asset";
 import { extractVideoOcrFrame } from "@/lib/tagging/video-frame";
 import { getAssetOcrSegments } from "@/lib/feature-decision/asset-ocr";
 import { isDecisionLlmImageUseEnabled } from "@/lib/feature-decision/config";
@@ -250,7 +252,7 @@ export function kickQueueProcessing(): void {
 }
 
 export async function processQueueItem({
-  assetObject,
+  assetObject: queuedAssetObject,
   tagsTreeLoader,
   ...queueItem
 }: TaggingQueueItem & {
@@ -263,11 +265,12 @@ export async function processQueueItem({
     assetObjectId: queueItem.assetObjectId,
     queueItemId: queueItem.id,
   });
-  if (!assetObject) {
+  if (!queuedAssetObject) {
     logger.warn("assetObject is missing, skip processQueueItem");
     return;
   }
 
+  let assetObject: AssetObject = queuedAssetObject;
   logger.info("processQueueItem started");
   // 每个并行步骤结束时记一条（距任务开始的耗时）：任务卡住时，没出现"finished"的那一步就是卡住的地方
   const taskStartedAt = Date.now();
@@ -282,6 +285,8 @@ export async function processQueueItem({
   let featureDecision: FeatureDecisionDiagnostics | undefined;
 
   try {
+    assetObject = await logStepFinished("refreshMuseDAMAsset", refreshQueuedAsset(queueItem.teamId, assetObject));
+    throwIfQueueAborted();
     const extra = queueItem.extra as TaggingQueueItemExtra;
     const featureClassify = extra?.featureClassify === true;
     // Missing child fields are legacy queue items, for which all classifications were enabled.
@@ -557,6 +562,9 @@ export async function processQueueItem({
       productRecommendationPromise,
       personRecommendationPromise,
     ]);
+    if (hasFeatureRecognitionFailure(featureDecision)) {
+      throw Object.assign(new Error("特征识别未完整完成，请重试；已保留诊断记录"), { code: "FEATURE_RECOGNITION_FAILED" });
+    }
     const personRecommendation = rawPersonRecommendation
       ? rethresholdFeatures({ personRecommendation: rawPersonRecommendation }, await getFeatureThresholds(teamId)).personRecommendation ?? null
       : null;

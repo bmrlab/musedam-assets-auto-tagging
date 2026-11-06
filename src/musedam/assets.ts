@@ -39,6 +39,7 @@ async function fetchMuseDAMFolderPaths({
       Authorization: `Bearer ${musedamTeamApiKey}`,
     },
     body: musedamFolderIds,
+    timeoutMs: 30_000,
   });
 
   const paths = musedamFolderIds
@@ -96,6 +97,7 @@ async function fetchContentAnalysisFromMuseDAM({
       Authorization: `Bearer ${musedamTeamApiKey}`,
     },
     body: [musedamAssetId],
+    timeoutMs: 30_000,
   });
   return result[musedamAssetId.toString()];
 }
@@ -197,6 +199,7 @@ export async function syncSingleAssetFromMuseDAM({
       Authorization: `Bearer ${musedamTeamApiKey}`,
     },
     body: [musedamAssetId],
+    timeoutMs: 30_000,
   });
 
   if (!assets || assets.length === 0) {

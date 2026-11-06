@@ -165,6 +165,14 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("review feature visibility during settings hydration", () => {
+  it("warns about historical partial decisions instead of silently showing no features", () => {
+    const data = props();
+    const result = data.batch[0].queueItem.result as any;
+    result.featureDecision = { mode: "llm", ocr: { status: "empty", segments: [] }, decision: { status: "completed", error: "1 of 2 decision batches failed" } };
+    render(<ReviewItem {...data} />);
+    expect(screen.getByRole("status").textContent).toBe("featureRecognitionIncomplete");
+  });
+
   it.each([61, 92, 97])("renders candidate images and confidence colors at %s without internal details", (confidence) => {
     const data = props();
     data.pendingFeatureCandidates = [{

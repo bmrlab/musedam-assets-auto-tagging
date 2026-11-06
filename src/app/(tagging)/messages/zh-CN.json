@@ -1024,6 +1024,7 @@
         "failed": "失败"
       },
       "errorReason": {
+        "FEATURE_RECOGNITION_FAILED": "特征识别未完整完成，请重新识别",
         "NO_VALID_TAGS": "未匹配到有效标签（素材信息不足或标签体系中没有合适的标签）",
         "NO_TAG_TREE": "标签体系为空，请先创建标签",
         "NO_MATCHING_SOURCES_ENABLED": "未启用任何匹配策略",

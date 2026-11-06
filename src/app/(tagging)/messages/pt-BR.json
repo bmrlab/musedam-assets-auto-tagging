@@ -711,6 +711,7 @@
         "failed": "Falhou"
       },
       "errorReason": {
+        "FEATURE_RECOGNITION_FAILED": "Feature recognition did not finish. Please retry.",
         "NO_VALID_TAGS": "Nenhuma tag válida encontrada (informações insuficientes do ativo ou nenhuma tag adequada no sistema de tags)",
         "NO_TAG_TREE": "O sistema de tags está vazio. Crie tags primeiro.",
         "NO_MATCHING_SOURCES_ENABLED": "Nenhuma estratégia de correspondência ativada",

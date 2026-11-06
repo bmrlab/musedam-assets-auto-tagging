@@ -39,6 +39,7 @@ export async function callFeatureLlm<T>(input: {
     model: input.model,
     messages: input.messages,
     max_tokens: FEATURE_LLM_MAX_OUTPUT_TOKENS,
+    ...(input.kind === "decision" ? { enable_thinking: false, response_format: { type: "json_object" as const } } : {}),
   };
   let rawResponse: FeatureJsonValue = null;
   let response: string | null = null;

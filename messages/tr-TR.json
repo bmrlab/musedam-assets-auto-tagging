@@ -309,6 +309,7 @@
     "candidateFeatures": "Aday Özellikler",
     "candidateFeaturesDescription": "%60-%79 Güven",
     "noRecognizedTags": "Tanınan etiket yok",
+    "featureRecognitionIncomplete": "Feature recognition did not finish. Results may be incomplete; please retry.",
     "noRecognizedFeatures": "Tanınan özellik yok",
     "featureConfidenceNotCredible": "Bu görsel için mevcut özellik kütüphanesinde eşleşen bir özellik bulunamadı; özellik henüz kaydedilmemiş olabilir.",
     "videoFeatureLibraryLimited": "Tanınan özellik yok: Mevcut özellik kitaplığının video dosyası türlerini tanıma yeteneği sınırlıdır ve yalnızca videonun ilk karesi kullanılarak eşleştirmeyi destekler.",

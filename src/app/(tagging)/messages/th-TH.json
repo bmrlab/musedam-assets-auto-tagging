@@ -697,6 +697,7 @@
         "failed": "ล้มเหลว"
       },
       "errorReason": {
+        "FEATURE_RECOGNITION_FAILED": "Feature recognition did not finish. Please retry.",
         "NO_VALID_TAGS": "ไม่พบแท็กที่ตรงกัน (ข้อมูลไฟล์ไม่เพียงพอหรือไม่มีแท็กที่เหมาะสมในระบบแท็ก)",
         "NO_TAG_TREE": "ระบบแท็กว่างเปล่า โปรดสร้างแท็กก่อน",
         "NO_MATCHING_SOURCES_ENABLED": "ยังไม่ได้เปิดใช้กลยุทธ์การจับคู่ใด ๆ",

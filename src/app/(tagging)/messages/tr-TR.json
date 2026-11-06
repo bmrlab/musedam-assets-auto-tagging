@@ -947,6 +947,7 @@
         "failed": "Başarısız"
       },
       "errorReason": {
+        "FEATURE_RECOGNITION_FAILED": "Feature recognition did not finish. Please retry.",
         "NO_VALID_TAGS": "Geçerli etiket bulunamadı (varlık bilgisi yetersiz veya etiket sisteminde uygun etiket yok)",
         "NO_TAG_TREE": "Etiket sistemi boş. Lütfen önce etiket oluşturun.",
         "NO_MATCHING_SOURCES_ENABLED": "Etkin bir eşleştirme stratejisi yok",

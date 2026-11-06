@@ -309,6 +309,7 @@
     "candidateFeatures": "Candidate Features",
     "candidateFeaturesDescription": "60%-79% Confidence",
     "noRecognizedTags": "No recognized tags",
+    "featureRecognitionIncomplete": "Feature recognition did not finish. Results may be incomplete; please retry.",
     "noRecognizedFeatures": "No recognized features",
     "featureConfidenceNotCredible": "No matching feature was found in the existing feature library for this image; the feature may not have been indexed yet.",
     "videoFeatureLibraryLimited": "No recognized features",

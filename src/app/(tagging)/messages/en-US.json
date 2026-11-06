@@ -1024,6 +1024,7 @@
         "failed": "Failed"
       },
       "errorReason": {
+        "FEATURE_RECOGNITION_FAILED": "Feature recognition did not finish. Please retry.",
         "NO_VALID_TAGS": "No valid tags matched (insufficient asset information or no suitable tag in the tag system)",
         "NO_TAG_TREE": "The tag system is empty. Please create tags first.",
         "NO_MATCHING_SOURCES_ENABLED": "No matching strategy is enabled",

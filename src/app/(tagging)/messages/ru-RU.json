@@ -1038,6 +1038,7 @@
         "failed": "Ошибка"
       },
       "errorReason": {
+        "FEATURE_RECOGNITION_FAILED": "Feature recognition did not finish. Please retry.",
         "NO_VALID_TAGS": "Подходящие теги не найдены (недостаточно информации о материале или нет подходящего тега в системе тегов)",
         "NO_TAG_TREE": "Система тегов пуста. Сначала создайте теги.",
         "NO_MATCHING_SOURCES_ENABLED": "Не включена ни одна стратегия сопоставления",

@@ -1,5 +1,7 @@
 "use client";
 
+import { hasFeatureRecognitionFailure } from "@/lib/feature-decision/completion";
+
 import { MatchedKeywordsBadge } from "../components/MatchedKeywordsBadge";
 
 import { getBrandRecommendationFromQueueResult } from "@/app/(tagging)/brand-recommendation";
@@ -1344,6 +1346,11 @@ export function ReviewItem({
                     </span>
                   </div>
                   <div className="space-y-2">
+                    {hasFeatureRecognitionFailure((queueItem.result as TaggingQueueItemResult | null)?.featureDecision) ? (
+                      <div role="status" className="rounded-md border border-warning-3 bg-warning-1 p-3 text-sm text-warning-7">
+                        {tResult("featureRecognitionIncomplete")}
+                      </div>
+                    ) : null}
                     {reviewedManualFeatures.map((feature) => (
                       <ManualFeatureRow
                         key={`reviewed-manual-${featureKey(feature.featureType, feature.id)}`}
@@ -1395,7 +1402,7 @@ export function ReviewItem({
                           onPreview={setPreviewImage}
                         />
                       ))
-                    ) : hasManualRows || pendingFeatureCandidates.some(candidate => candidate.queueItemId === queueItem.id) ? null : (
+                    ) : hasFeatureRecognitionFailure((queueItem.result as TaggingQueueItemResult | null)?.featureDecision) || hasManualRows || pendingFeatureCandidates.some(candidate => candidate.queueItemId === queueItem.id) ? null : (
                       <div className="text-sm text-basic-5">
                         {tResult(
                           isVideoAsset

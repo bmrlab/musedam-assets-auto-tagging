@@ -697,6 +697,7 @@
         "failed": "Échec"
       },
       "errorReason": {
+        "FEATURE_RECOGNITION_FAILED": "Feature recognition did not finish. Please retry.",
         "NO_VALID_TAGS": "Aucune étiquette valide trouvée (informations insuffisantes sur la ressource ou aucune étiquette adaptée dans le système)",
         "NO_TAG_TREE": "Le système d'étiquettes est vide. Veuillez d'abord créer des étiquettes.",
         "NO_MATCHING_SOURCES_ENABLED": "Aucune stratégie de correspondance activée",

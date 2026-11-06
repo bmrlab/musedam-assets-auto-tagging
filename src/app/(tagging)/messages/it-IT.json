@@ -697,6 +697,7 @@
         "failed": "Non riuscito"
       },
       "errorReason": {
+        "FEATURE_RECOGNITION_FAILED": "Feature recognition did not finish. Please retry.",
         "NO_VALID_TAGS": "Nessun tag valido trovato (informazioni sulla risorsa insufficienti o nessun tag adatto nel sistema di tag)",
         "NO_TAG_TREE": "Il sistema di tag è vuoto. Crea prima i tag.",
         "NO_MATCHING_SOURCES_ENABLED": "Nessuna strategia di corrispondenza abilitata",

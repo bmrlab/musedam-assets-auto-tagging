@@ -359,7 +359,7 @@ export async function classifyAssetFeatures(
             "logo",
           )
         : [],
-      productCandidates.length && imageMode
+      productCandidates.length
         ? loadCatalog(
             prisma.assetProduct.findMany({
               where: {
@@ -368,7 +368,7 @@ export async function classifyAssetFeatures(
                 status: "completed",
                 id: { in: productCandidates.map((match) => match.assetProductId) },
               },
-              select: { id: true, images: { ...imageSelect, select: { objectKey: true } } },
+              select: { id: true, notes: true, images: { ...imageSelect, select: { objectKey: true } } },
             }),
             "product",
           )
@@ -454,6 +454,7 @@ export async function classifyAssetFeatures(
             classId: match.assetProductId,
             featureType: "product",
             name: match.productName,
+            notes: product?.notes,
             typeName: match.productTypeName,
             description: [match.description, match.generalCategory].filter(Boolean).join("\n"),
             similarity: match.similarity,

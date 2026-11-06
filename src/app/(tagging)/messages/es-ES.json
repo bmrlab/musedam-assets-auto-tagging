@@ -711,6 +711,7 @@
         "failed": "Fallido"
       },
       "errorReason": {
+        "FEATURE_RECOGNITION_FAILED": "Feature recognition did not finish. Please retry.",
         "NO_VALID_TAGS": "No se encontraron etiquetas válidas (información insuficiente del recurso o ninguna etiqueta adecuada en el sistema de etiquetas)",
         "NO_TAG_TREE": "El sistema de etiquetas está vacío. Crea etiquetas primero.",
         "NO_MATCHING_SOURCES_ENABLED": "No hay ninguna estrategia de coincidencia activada",

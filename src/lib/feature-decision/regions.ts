@@ -7,7 +7,7 @@ import type {
 export type DecisionFeatureType = "logo" | "ip" | "product";
 export const MAX_CANDIDATES_PER_REGION = 3;
 /** Per decision request, not a cap on the whole asset. */
-export const MAX_FEATURE_REFERENCES = 15;
+export const MAX_FEATURE_REFERENCES = 5;
 const TYPE_ORDER: DecisionFeatureType[] = ["logo", "product", "ip"];
 
 export type RetrievalRegion = {

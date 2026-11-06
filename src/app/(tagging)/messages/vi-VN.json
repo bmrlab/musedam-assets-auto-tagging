@@ -947,6 +947,7 @@
         "failed": "Thất bại"
       },
       "errorReason": {
+        "FEATURE_RECOGNITION_FAILED": "Feature recognition did not finish. Please retry.",
         "NO_VALID_TAGS": "Không khớp được thẻ hợp lệ (thiếu thông tin tài nguyên hoặc không có thẻ phù hợp trong hệ thống thẻ)",
         "NO_TAG_TREE": "Hệ thống thẻ trống. Vui lòng tạo thẻ trước.",
         "NO_MATCHING_SOURCES_ENABLED": "Chưa bật chiến lược khớp nào",

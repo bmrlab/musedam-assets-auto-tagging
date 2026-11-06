@@ -711,6 +711,7 @@
         "failed": "失敗"
       },
       "errorReason": {
+        "FEATURE_RECOGNITION_FAILED": "Feature recognition did not finish. Please retry.",
         "NO_VALID_TAGS": "有効なタグが見つかりませんでした（素材情報が不足しているか、タグ体系に適切なタグがありません）",
         "NO_TAG_TREE": "タグ体系が空です。先にタグを作成してください。",
         "NO_MATCHING_SOURCES_ENABLED": "マッチング戦略が有効になっていません",

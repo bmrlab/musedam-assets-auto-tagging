@@ -106,7 +106,7 @@ export async function runFeatureDecision(
           context,
           kind: "decision",
           model: process.env.FEATURE_DECISION_MODEL?.trim() ?? "",
-          messages: buildFeatureDecisionMessages({ ...input, candidates, imageMode, ocr }),
+          messages: buildFeatureDecisionMessages({ ...input, candidates, contextCandidates: input.candidates, imageMode, ocr }),
           parse: (text) => parseFeatureDecisionResponse(text, candidates, imageMode),
         });
         return { candidateIds: candidates.map((candidate) => candidate.candidateId), call, result };
@@ -116,7 +116,7 @@ export async function runFeatureDecision(
   const successful = batches.filter((batch) => batch.call.status === "completed" && batch.result);
   const matches = successful.flatMap((batch) => batch.result!.matches);
   const failed = batches.length - successful.length;
-  const completed = successful.length > 0 && (failed === 0 || matches.length > 0);
+  const completed = successful.length > 0 && failed === 0;
   return {
     ...diagnosticsMode,
     ocr,

@@ -41,6 +41,10 @@ describe("bounded feature decision batches", () => {
       "fetch",
       vi.fn(async (_url, options) => {
         const request = JSON.parse(options.body);
+        if (request.model !== "ocr") {
+          expect(request.enable_thinking).toBe(false);
+          expect(request.response_format).toEqual({ type: "json_object" });
+        }
         if (request.model === "ocr") {
           ocr++;
           return envelope({ content: [["Product label"]] });
@@ -48,6 +52,8 @@ describe("bounded feature decision batches", () => {
         const text = request.messages[1].content;
         const data = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
         sizes.push(data.candidates.length);
+        expect(data.otherCatalogCandidates).toHaveLength(candidates.length - data.candidates.length);
+        expect(data.otherCatalogCandidates.every((c: Record<string, unknown>) => !Object.hasOwn(c, "candidateId"))).toBe(true);
         active++;
         max = Math.max(max, active);
         await new Promise((resolve) => setTimeout(resolve, 5));
@@ -72,14 +78,14 @@ describe("bounded feature decision batches", () => {
       candidates,
     });
     expect(ocr).toBe(1);
-    expect(sizes).toEqual([15, 15, 4]);
+    expect(sizes).toEqual([5, 5, 5, 5, 5, 5, 4]);
     expect(max).toBe(2);
     expect(result.decision.result?.matches.map((m) => m.candidateId)).toEqual(
       candidates.map((c) => c.candidateId),
     );
     expect(result.decision.result?.matches.every((m) => m.confidence === 91)).toBe(true);
-    expect(result.decision.batches).toHaveLength(3);
-    expect(state.create).toHaveBeenCalledTimes(4);
+    expect(result.decision.batches).toHaveLength(7);
+    expect(state.create).toHaveBeenCalledTimes(8);
   });
   it("retains successful predictions and explicitly records a failed batch", async () => {
     vi.stubGlobal(
@@ -95,7 +101,7 @@ describe("bounded feature decision batches", () => {
           outcome: "matched",
           matches: [
             {
-              candidateId: "product:0",
+              candidateId: data.candidates[0].candidateId,
               confidence: 87,
               reason: "Matching identity",
               evidence: ["retrieval"],
@@ -112,13 +118,13 @@ describe("bounded feature decision batches", () => {
       imageMode: false,
       candidates: candidates.slice(0, 20),
     });
-    expect(result.decision.status).toBe("completed");
-    expect(result.decision.result?.matches).toHaveLength(1);
-    expect(result.decision.batches?.[1].status).toBe("failed");
-    expect(result.decision.batches?.[1].candidateIds).toEqual(
+    expect(result.decision.status).toBe("failed");
+    expect(result.decision.result?.matches).toHaveLength(3);
+    expect(result.decision.batches?.[3].status).toBe("failed");
+    expect(result.decision.batches?.[3].candidateIds).toEqual(
       candidates.slice(15, 20).map((c) => c.candidateId),
     );
-    expect(result.decision.error).toContain("1 of 2");
+    expect(result.decision.error).toContain("1 of 4");
   });
 });
 

@@ -114,6 +114,7 @@
     "candidateFeatures": "Kandidatenmerkmale",
     "candidateFeaturesDescription": "60%-79% Zuversicht",
     "noRecognizedTags": "Keine erkannten Tags",
+    "featureRecognitionIncomplete": "Feature recognition did not finish. Results may be incomplete; please retry.",
     "noRecognizedFeatures": "Keine erkannten Merkmale",
     "featureConfidenceNotCredible": "Für dieses Bild wurde kein passendes Merkmal in der vorhandenen Merkmalsbibliothek gefunden; das Merkmal ist möglicherweise noch nicht erfasst.",
     "videoFeatureLibraryLimited": "Keine erkannten Merkmale: Die aktuelle Merkmalsbibliothek kann Videodateitypen nur eingeschränkt erkennen und unterstützt ausschließlich den Abgleich anhand des ersten Videoframes.",
