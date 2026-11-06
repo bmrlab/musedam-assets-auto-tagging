@@ -37,39 +37,25 @@ export function buildTagDeletionPlan(rows: DeletableTag[], tagId: number) {
 
 export type TagDeletionPlan = ReturnType<typeof buildTagDeletionPlan>;
 
-/** Deepest levels first for legacy gateways; share ancestor context within each level. */
+/** One root operation: the main site's merge transaction recursively deletes its descendants. */
 export function buildCascadeDeletionTree(rows: DeletableTag[], plan: TagDeletionPlan): TagNode[] {
-  const byId = new Map(rows.map((row) => [row.id, row]));
-  const stages = new Map<number, { roots: TagNode[]; nodes: Map<number, TagNode> }>();
-  for (const row of [...plan.descendants].reverse().concat(plan.target)) {
-    if (!row.slug) continue;
-    const path = [row];
-    const seen = new Set([row.id]);
-    let parentId = row.parentId;
-    while (parentId !== null) {
-      const parent = byId.get(parentId);
-      if (!parent?.slug) throw new Error("标签层级尚未与 MuseDAM 同步，请先同步标签后重试");
-      if (seen.has(parent.id)) throw new Error("标签树存在循环关系");
-      seen.add(parent.id);
-      path.unshift(parent);
-      parentId = parent.parentId;
+  if (!plan.target.slug) {
+    if (plan.descendants.some((tag) => tag.slug)) {
+      throw new Error("标签层级尚未与 MuseDAM 同步，请先同步标签后重试");
     }
-    const stage = stages.get(path.length) ?? { roots: [], nodes: new Map<number, TagNode>() };
-    stages.set(path.length, stage);
-    let siblings = stage.roots;
-    for (const item of path) {
-      let node = stage.nodes.get(item.id);
-      if (!node) {
-        node = {
-          ...item,
-          ...(item.id === row.id ? { verb: "delete" as const } : {}),
-          children: [],
-        };
-        siblings.push(node);
-        stage.nodes.set(item.id, node);
-      }
-      siblings = node.children;
-    }
+    return [];
   }
-  return [...stages].sort(([a], [b]) => b - a).flatMap(([, stage]) => stage.roots);
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  let node: TagNode = { ...plan.target, verb: "delete", children: [] };
+  const seen = new Set([plan.target.id]);
+  let parentId = plan.target.parentId;
+  while (parentId !== null) {
+    const parent = byId.get(parentId);
+    if (!parent?.slug) throw new Error("标签层级尚未与 MuseDAM 同步，请先同步标签后重试");
+    if (seen.has(parent.id)) throw new Error("标签树存在循环关系");
+    seen.add(parent.id);
+    node = { ...parent, children: [node] };
+    parentId = parent.parentId;
+  }
+  return [node];
 }

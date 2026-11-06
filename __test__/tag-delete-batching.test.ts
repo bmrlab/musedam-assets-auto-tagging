@@ -7,7 +7,7 @@ const state = vi.hoisted(() => ({
 }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/musedam/lib", () => ({ requestMuseDAMAPI: state.request }));
-it("shares ancestor context without deleting a parent before its descendants", async () => {
+it("submits one root deletion for a 20000-node subtree", async () => {
   const rows = Array.from({ length: 20000 }, (_, i) => ({
     id: i + 1,
     name: String(i),
@@ -16,14 +16,12 @@ it("shares ancestor context without deleting a parent before its descendants", a
     level: i ? 2 : 1,
     parentId: i ? 1 : null,
   }));
-  const legacy: MergeTag[] = rows
-    .slice(1)
-    .map((row) => ({
-      id: 1,
-      name: "0",
-      operation: 0,
-      children: [{ id: row.id, name: row.name, operation: 3 }],
-    }));
+  const legacy: MergeTag[] = rows.slice(1).map((row) => ({
+    id: 1,
+    name: "0",
+    operation: 0,
+    children: [{ id: row.id, name: row.name, operation: 3 }],
+  }));
   legacy.push({ id: 1, name: "0", operation: 3 });
   await mergeTagsInBatches(legacy, "test-only");
   const before = state.request.mock.calls.length;
@@ -48,9 +46,8 @@ it("shares ancestor context without deleting a parent before its descendants", a
       ]);
     return flatten(body.tags);
   });
-  expect(operations).toHaveLength(20000);
-  expect(new Set(operations).size).toBe(20000);
-  expect(operations.at(-1)).toBe(1);
-  expect(after).toBeLessThan(before);
+  expect(operations).toEqual([1]);
+  expect(after).toBe(1);
+  expect(before).toBe(40);
   console.log("DELETE_REQUEST_COUNTS", { nodes: rows.length, before, after });
 });
