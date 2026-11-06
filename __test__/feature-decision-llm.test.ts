@@ -117,8 +117,33 @@ describe("feature LLM response contracts", () => {
       content: [["原文 30 ml"], []],
     });
     expect(() => parseOcrResponse('{"content":[["wrong"],[]]}', 3)).toThrow();
-    expect(() => parseOcrResponse('{"content":["not an array"]}')).toThrow();
+    expect(() => parseOcrResponse('{"content":["not an array"]}', 2)).toThrow();
     expect(boundOcrSegments(["原文", "原文", " ", "30 ml"])).toEqual(["原文", "30 ml"]);
+  });
+
+  it.each([false, true])("accepts the flat LANEIGE OCR response (fenced=%s)", (fenced) => {
+    const segments = [
+      "LANEIGE",
+      "LIP SLEEPING MASK",
+      "MASQUE DE NUIT POUR LES LÈVRES",
+      "ACAI MANGO SMOOTHIE",
+      "SMOOTHIE ACAI MANGUE",
+      "Net wt. 0.70 oz / Poids net 20 g",
+    ];
+    const json = JSON.stringify({ content: segments });
+    const response = fenced ? `\`\`\`json\n${json}\n\`\`\`` : json;
+    expect(parseOcrResponse(response)).toEqual({ content: [segments] });
+    expect(() => parseOcrResponse(response, 2)).toThrow();
+  });
+
+  it("normalizes mixed flat OCR segments while rejecting invalid text values", () => {
+    expect(parseOcrResponse('{"content":["LANEIGE",{"text":"20 g"}]}')).toEqual({
+      content: [["LANEIGE", "20 g"]],
+    });
+    expect(parseOcrResponse('{"content":[]}')).toEqual({ content: [[]] });
+    for (const content of [["LANEIGE", 123], [null], [{ text: false }]]) {
+      expect(() => parseOcrResponse(JSON.stringify({ content }))).toThrow();
+    }
   });
 
   it.each(["```json\n%s\n```", "```\r\n%s\r\n```", "Here is the JSON:\n```JSON\n%s\n```\nDone."])(
@@ -277,7 +302,7 @@ describe("single-attempt feature OCR and decision gateway", () => {
     };
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(response('{"content":[["Model A","30 ml"]]}'))
+      .mockResolvedValueOnce(response('```json\n{"content":["Model A","30 ml"]}\n```'))
       .mockResolvedValueOnce(response(JSON.stringify(textDecision)));
     vi.stubGlobal("fetch", fetchMock);
     const { runFeatureDecision } = await import("@/lib/feature-decision/service");
