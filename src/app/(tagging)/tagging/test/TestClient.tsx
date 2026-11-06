@@ -481,7 +481,8 @@ export default function TestClient() {
   const tClient = useTranslations("Tagging.TestClient");
   const tResult = useTranslations("TaggingResultDisplay");
   const tSidebar = useTranslations("Tagging.Sidebar");
-  const featureLibraryFeatures = useFeatureLibraryFeatures();
+  // Persist URL settings before server actions run; visibility is handled by the result display.
+  useFeatureLibraryFeatures();
   const localFileInputRef = useRef<HTMLInputElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isPolling, setIsPolling] = useState(false);
@@ -680,18 +681,12 @@ export default function TestClient() {
             // 转换结果格式以适配TaggingResultDisplay组件
             const formattedResults = completedResults.map((result) => {
               const { assetObject, result: resultData, extra } = result;
-              const brandRecommendation = featureLibraryFeatures.featureBrand
-                ? getBrandRecommendationFromQueueResult(resultData)
-                : null;
-              const ipRecommendation = featureLibraryFeatures.featureIp
-                ? getIpRecommendationFromQueueResult(resultData)
-                : null;
-              const productRecommendation = featureLibraryFeatures.featureProduct
-                ? getProductRecommendationFromQueueResult(resultData)
-                : null;
-              const personRecommendation = featureLibraryFeatures.featurePerson
-                ? getPersonRecommendationFromQueueResult(resultData)
-                : null;
+              // Keep classification evidence even if feature settings are still hydrating.
+              // TaggingResultDisplay applies the current visibility settings separately.
+              const brandRecommendation = getBrandRecommendationFromQueueResult(resultData);
+              const ipRecommendation = getIpRecommendationFromQueueResult(resultData);
+              const productRecommendation = getProductRecommendationFromQueueResult(resultData);
+              const personRecommendation = getPersonRecommendationFromQueueResult(resultData);
               const linkedBrandTags: Array<{
                 assetLogoId?: string;
                 assetTagId?: number;
@@ -992,7 +987,7 @@ export default function TestClient() {
         }
       }
     },
-    [featureLibraryFeatures, stopPolling, t, tClient, tResult, tSidebar],
+    [stopPolling, t, tClient, tResult, tSidebar],
   );
 
   // 始终调用最新的 pollQueueStatus（它依赖的翻译函数等会变化）
@@ -1075,8 +1070,13 @@ export default function TestClient() {
       setSelectedScene(persisted.selectedScene);
       setRecognitionAccuracy(persisted.recognitionAccuracy);
       setMatchingSources(persisted.matchingSources);
-      if (persisted.isPolling && persisted.queueItemIds.length > 0) {
-        beginPollingSession(persisted.queueItemIds, persisted.pollingStartedAt ?? Date.now());
+      // Re-read completed results too: older cached display data may have lost features
+      // during settings hydration. This only polls saved jobs; it never reruns tagging.
+      if (persisted.queueItemIds.length > 0) {
+        beginPollingSession(
+          persisted.queueItemIds,
+          persisted.isPolling ? (persisted.pollingStartedAt ?? Date.now()) : Date.now(),
+        );
       }
     }
     setHydrated(true);

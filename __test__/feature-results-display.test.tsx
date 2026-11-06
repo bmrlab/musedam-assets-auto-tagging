@@ -74,8 +74,8 @@ describe("multiple logo and IP feature results", () => {
     render(
       <TaggingResultDisplay
         result={result({
-          brands: [brand("Brand A", 95), brand("Brand B", 75), brand("Weak brand", 74)],
-          ips: [ip("Character X", 94), ip("Character Y", 80), ip("Weak IP", 79)],
+          brands: [brand("Brand A", 95), brand("Brand B", 60), brand("Weak brand", 59)],
+          ips: [ip("Character X", 94), ip("Character Y", 60), ip("Weak IP", 59)],
         })}
       />,
     );
@@ -83,8 +83,7 @@ describe("multiple logo and IP feature results", () => {
       expect(screen.getByText(name)).toBeTruthy();
     expect(screen.getByText("Logo > Brand B")).toBeTruthy();
     expect(screen.getByText("IP > Character Y")).toBeTruthy();
-    expect(screen.getByText("confidence: 75%")).toBeTruthy();
-    expect(screen.getByText("confidence: 80%")).toBeTruthy();
+    expect(screen.getAllByText("confidence: 60%")).toHaveLength(2);
     expect(screen.queryByText("Weak brand")).toBeNull();
     expect(screen.queryByText("Weak IP")).toBeNull();
   });

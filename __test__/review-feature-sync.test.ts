@@ -568,7 +568,7 @@ describe("review feature synchronization", () => {
 
   it("applies the confidence threshold to each product and respects an explicit empty match list", () => {
     const source = multipleProductResult();
-    source.productRecommendation!.matches![1].confidence = 79;
+    source.productRecommendation!.matches![1].confidence = 59;
     expect(getReviewFeatures(source).map((feature) => feature.id)).toEqual([ids.product]);
     source.productRecommendation!.matches = [];
     expect(getReviewFeatures(source)).toEqual([]);
