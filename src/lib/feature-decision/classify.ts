@@ -1,5 +1,5 @@
 import "server-only";
-import { FEATURE_DECISION_MODE } from "./config";
+import { FEATURE_DECISION_MODE, isDecisionLlmImageUseEnabled } from "./config";
 
 import {
   classifyBrandImageCrops,
@@ -68,9 +68,9 @@ export async function classifyAssetFeatures(
   },
 ): Promise<AssetFeatureClassification> {
   const { teamId, imageInput } = input;
-  // Dev requests always use the decision layer; their switch controls image evidence only.
+  // Dev requests always use the decision layer; their explicit switch controls image evidence.
   const mode = input.imageMode === undefined ? getFeatureDecisionMode() : "llm";
-  const imageMode = input.imageMode ?? true;
+  const imageMode = input.imageMode ?? isDecisionLlmImageUseEnabled();
   const enabledTypes = [...new Set(input.enabledTypes)];
   const errors: string[] = [];
   const boxesByType: Partial<Record<DecisionFeatureType, ClassificationDetectionBox[]>> = {};

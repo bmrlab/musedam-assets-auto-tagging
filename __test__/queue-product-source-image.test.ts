@@ -64,6 +64,7 @@ vi.mock("@/lib/logging", () => {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.stubEnv("DECISION_LLM_IMAGE_USE", "false");
   // These source-selection regressions exercise the explicitly configured old flow.
   mocks.mode = "legacy";
   mocks.productCount.mockResolvedValue(1);
@@ -255,6 +256,7 @@ describe("combined LLM feature classification", () => {
       assetObjectId: 2,
       fileName: "雅诗兰黛小棕瓶系列.jpg",
       folderPath: "/产品/雅诗兰黛",
+      imageMode: false,
       imageInput: preparedSource,
       enabledTypes: ["logo", "product", "ip"],
     });
@@ -264,6 +266,15 @@ describe("combined LLM feature classification", () => {
     for (const classify of [mocks.brand, mocks.ip, mocks.product]) {
       expect(classify).not.toHaveBeenCalled();
     }
+  });
+
+  it("enables image mode only when DECISION_LLM_IMAGE_USE is true", async () => {
+    vi.stubEnv("DECISION_LLM_IMAGE_USE", "true");
+    await run({ extension: "jpg", downloadUrl: "https://example.test/original.jpg" });
+
+    expect(mocks.classifyFeatures).toHaveBeenCalledWith(
+      expect.objectContaining({ imageMode: true }),
+    );
   });
 
   it("includes only enabled feature libraries with available reference vectors", async () => {

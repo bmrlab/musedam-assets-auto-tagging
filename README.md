@@ -111,9 +111,9 @@ pnpm scheduled-tagger
 
 ## 商品、Logo、IP 的 LLM 决策与 OCR
 
-商品、Logo、IP 的开发分类页面提供默认开启的「图像模式」开关。两种模式均执行 OCR 和 LLM 决策：开启时向决策模型发送源图和候选参考图；关闭时仅发送相似度、候选名称/类型/描述、文件名/路径及 OCR 等文字信息，且不下载候选参考图。OCR 在两种模式下仍单独读取源图。页面保留同一文件与元数据下最近一次图像/纯文本结果，可对比特征、置信度、决策 token 与 OCR token，并展开各次请求与响应；更换文件或元数据会清空对比。
+商品、Logo、IP 的开发分类页面提供默认关闭的「图像模式」开关。两种模式均执行 OCR 和 LLM 决策：开启时向决策模型发送源图和候选参考图；关闭时仅发送相似度、候选名称/类型/描述、文件名/路径及 OCR 等文字信息，且不下载候选参考图。OCR 在两种模式下仍单独读取源图。页面保留同一文件与元数据下最近一次图像/纯文本结果，可对比特征、置信度、决策 token 与 OCR token，并展开各次请求与响应；更换文件或元数据会清空对比。
 
-默认使用 LLM 决策（`src/lib/feature-decision/config.ts` 中的 `FEATURE_DECISION_MODE = "llm"`）：检测框与 embedding 负责召回候选，最终由多模态 LLM 比较整张源图和候选参考图，并结合文件名、文件夹路径和 OCR 原文判断身份。商品、Logo、IP 共用最多 5 个召回区域，每个区域最多 3 个不同类别；类别去重后，按 `sort`、`createdAt`、`id` 的稳定顺序使用第一张参考图。一条决策请求最多包含 16 张图片（1 张源图 + 15 张参考图），不发送检测裁剪图或检测框坐标。遗漏区域、缺失参考图和召回错误保留在诊断信息中。
+默认使用 LLM 决策（`src/lib/feature-decision/config.ts` 中的 `FEATURE_DECISION_MODE = "llm"`）：检测框与 embedding 负责召回候选，最终由 LLM 结合候选信息、文件名、文件夹路径和 OCR 原文判断身份。真实打标队列默认使用纯文本决策；只有 `DECISION_LLM_IMAGE_USE=true` 时才额外向决策模型发送整张源图和候选参考图。商品、Logo、IP 共用最多 5 个召回区域，每个区域最多 3 个不同类别；图像模式下，类别去重后按 `sort`、`createdAt`、`id` 的稳定顺序使用第一张参考图。一条决策请求最多包含 16 张图片（1 张源图 + 15 张参考图），不发送检测裁剪图或检测框坐标。遗漏区域、缺失参考图和召回错误保留在诊断信息中。`/tagging/review` 展示的默认任务和 `/tagging/test` 创建的测试任务都经过这一队列配置。
 
 在已有 `.env` 中设置网关和模型，不要覆盖现有配置：
 
@@ -122,6 +122,7 @@ OPENAI_BASE_URL=https://your-gateway.example/unified/v1
 OPENAI_API_KEY=your_gateway_key
 FEATURE_DECISION_MODEL=your_multimodal_decision_model
 OCR_MODEL=your_ocr_model
+DECISION_LLM_IMAGE_USE=false
 ```
 
 OCR 和决策均直接调用 `OPENAI_BASE_URL/chat/completions`，模型 ID 原样传递，不受 `LLM_PROVIDER` 的云服务路由影响。一次素材处理通常调用 OCR 一次，再为所有启用的商品、Logo、IP 候选合并调用决策模型一次。未设置 `OCR_MODEL` 时 OCR 标记为禁用；没有可用源图时跳过调用，图像模式没有可用候选参考图或纯文本模式没有候选时跳过决策。OCR 失败仍可使用其余证据决策。单次调用有超时和输出 token 上限，不自动重试或调用模型修复响应；决策超时、输出格式错误或模型未配置时，特征结果保持未解决，不自动回退为 embedding 已确认结果。需要明确恢复旧算法时修改代码常量 `FEATURE_DECISION_MODE` 为 `"legacy"`；结果会标记为 legacy，并跳过新增 OCR/决策调用。
@@ -130,7 +131,7 @@ OCR 和决策均直接调用 `OPENAI_BASE_URL/chat/completions`，模型 ID 原�
 
 新增迁移 `prisma/migrations/20261105090000_add_feature_llm_calls/migration.sql` 创建 `FeatureLlmCall`，保存每次调用的模型、输入/输出/总 token、缓存/推理/图片 token、耗时、状态、请求和响应，以及费用和价格快照。迁移文件已准备，本改动未执行数据库迁移；启用前，本地在确认开发库后执行 `pnpm exec prisma migrate dev`，部署环境通过现有 `pnpm db:deploy` 应用迁移，并执行 `pnpm exec prisma generate` 更新客户端。
 
-请求设置集中在 `src/lib/feature-decision/config.ts`：超时 `FEATURE_LLM_TIMEOUT_MS = 300_000`（5 分钟），输出上限 `FEATURE_LLM_MAX_OUTPUT_TOKENS = 8192`。这些设置和决策模式不从环境变量读取。目前只记录 token 用量，费用和单价字段保留为 `null`。
+请求设置集中在 `src/lib/feature-decision/config.ts`：超时 `FEATURE_LLM_TIMEOUT_MS = 300_000`（5 分钟），输出上限 `FEATURE_LLM_MAX_OUTPUT_TOKENS = 8192`。这些设置和决策模式不从环境变量读取；图像证据是例外，仅当 `DECISION_LLM_IMAGE_USE` 的值严格为 `true` 时为真实队列启用。目前只记录 token 用量，费用和单价字段保留为 `null`。
 
 开启现有 `DEBUG_PAGE=true` 后，`/tagging/product/classify`、`/tagging/brand/classify` 和 `/tagging/ip/classify` 可输入源文件名和路径，并查看 OCR 原文、最终置信度、每次调用的 token/费用/耗时、发送的文本与图片，以及模型原始响应和失败原因。
 

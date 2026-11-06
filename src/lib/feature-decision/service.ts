@@ -1,5 +1,6 @@
 import "server-only";
 
+import { isDecisionLlmImageUseEnabled } from "./config";
 import { callFeatureLlm } from "./gateway";
 import { parseFeatureDecisionResponse, parseOcrResponse } from "./parsing";
 import { boundOcrSegments, buildFeatureDecisionMessages, buildOcrMessages } from "./prompts";
@@ -19,7 +20,7 @@ export async function runFeatureDecision(
     candidates: FeatureDecisionCandidate[];
   },
 ): Promise<FeatureDecisionDiagnostics> {
-  const imageMode = input.imageMode ?? true;
+  const imageMode = input.imageMode ?? isDecisionLlmImageUseEnabled();
   const diagnosticsMode = {
     mode: "llm" as const,
     decisionInputMode: imageMode ? ("image" as const) : ("text" as const),
@@ -85,7 +86,7 @@ export async function runFeatureDecision(
     context,
     kind: "decision",
     model: process.env.FEATURE_DECISION_MODEL?.trim() ?? "",
-    messages: buildFeatureDecisionMessages({ ...input, ocr }),
+    messages: buildFeatureDecisionMessages({ ...input, imageMode, ocr }),
     parse: (text) => parseFeatureDecisionResponse(text, input.candidates, imageMode),
   });
   return {

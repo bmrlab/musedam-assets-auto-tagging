@@ -1945,7 +1945,7 @@ export async function classifyIpImageAction(input: {
           objectKey: z.string().trim().min(1),
           mimeType: z.string().trim().min(1).max(255),
           size: z.number().int().positive().max(MAX_CLIENT_IMAGE_UPLOAD_BYTES),
-          imageMode: z.boolean().default(true),
+          imageMode: z.boolean().default(false),
           fileName: z.string().max(1000).optional(),
           folderPath: z.string().max(4000).optional(),
           boxes: z.array(classifyBoxSchema).min(1, t("uploadImageFirst")),
