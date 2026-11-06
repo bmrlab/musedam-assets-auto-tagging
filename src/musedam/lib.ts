@@ -45,7 +45,9 @@ export async function requestMuseDAMAPI<T = unknown>(
   const url = `${process.env.MUSEDAM_API_BASE_URL}${apiPath}`;
   const requestHeaders = {
     "Content-Type": "application/json",
-    // "x-asm-prefer-tag": "version-env-06",
+    ...(process.env.MUSEDAM_API_ENV_TAG
+      ? { "x-asm-prefer-tag": process.env.MUSEDAM_API_ENV_TAG }
+      : {}),
     ...headers,
   };
   const requestBody = method === "POST" ? JSON.stringify(body) : undefined;
