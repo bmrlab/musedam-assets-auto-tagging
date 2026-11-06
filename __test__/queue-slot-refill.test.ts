@@ -11,9 +11,11 @@ const state = vi.hoisted(() => ({
   >(),
   maxActive: 0,
   active: 0,
+  cooperative: true,
 }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/app/(tagging)/queue-role", () => ({
+  IS_QUEUE_WORKER_CHILD: false,
   QUEUE_PAUSED_BY_ENV: false,
   USE_QUEUE_WORKER_PROCESS: false,
 }));
@@ -24,13 +26,33 @@ vi.mock("@/app/(tagging)/queue-config", async (original) => ({
   TAG_TREE_RESERVED_CONCURRENCY: 2,
   ASSET_TAGGING_CONCURRENCY: 1,
 }));
+vi.mock("@/app/(tagging)/queue-candidates", () => ({
+  loadFairQueueCandidates: async (lane: string) =>
+    lane === "tree"
+      ? state.rows.filter((row) => row.status === "pending").map((row) => ({ ...row }))
+      : [],
+}));
 vi.mock("@/app/tags/tagTreeQueue", () => ({
   isTagTreeJob: () => true,
   processTagTreeQueueItem: async (row: TaggingQueueItem) => {
     state.started.push(row.id);
     state.maxActive = Math.max(state.maxActive, ++state.active);
     try {
-      await state.gates.get(row.id)!.promise;
+      const { getQueueExecution, throwIfQueueAborted } = await import(
+        "@/lib/tagging/queue-execution"
+      );
+      const signal = getQueueExecution()?.signal;
+      if (state.cooperative && signal) {
+        await new Promise<void>((resolve, reject) => {
+          const abort = () => reject(signal.reason);
+          signal.addEventListener("abort", abort, { once: true });
+          state.gates.get(row.id)!.promise.then(() => {
+            signal.removeEventListener("abort", abort);
+            resolve();
+          }, reject);
+        });
+      } else await state.gates.get(row.id)!.promise;
+      throwIfQueueAborted();
       state.rows.find((item) => item.id === row.id)!.status = "completed";
     } catch (error) {
       state.rows.find((item) => item.id === row.id)!.status = "failed";
@@ -44,15 +66,15 @@ vi.mock("@/prisma/prisma", () => ({
   default: {
     $executeRaw: vi.fn(async () => 0),
     taggingQueueItem: {
+      findFirst: vi.fn(
+        async ({ where }) =>
+          state.rows.find((row) => row.id === where.id && row.status === where.status) ?? null,
+      ),
       groupBy: vi.fn(async () => []),
       findMany: vi.fn(async ({ where }) =>
         state.rows
-          .filter(
-            (row) =>
-              row.status === "pending" &&
-              (where.taskType === "test" ? row.taskType === "test" : row.taskType !== "test"),
-          )
-          .map((row) => ({ ...row })),
+          .filter((row) => row.status === "pending" && where.id.in.includes(row.id))
+          .map((row) => ({ ...row, assetObject: null })),
       ),
       updateMany: vi.fn(async ({ where, data }) => {
         const row = state.rows.find((row) => row.id === where.id && row.status === where.status);
@@ -89,6 +111,7 @@ beforeEach(async () => {
   state.started = [];
   state.active = 0;
   state.maxActive = 0;
+  state.cooperative = true;
   for (const id of [1, 2, 3]) {
     let resolve!: () => void, reject!: (error: Error) => void;
     const promise = new Promise<void>((res, rej) => {
@@ -143,4 +166,34 @@ describe("queue slot refill", () => {
     expect(state.started).toEqual([1, 2, 3]);
     expect(state.maxActive).toBeLessThanOrEqual(2);
   });
+});
+
+it("cancels cooperative calls before refilling, keeping real concurrency within budget", async () => {
+  const batch = processPendingQueueItems();
+  await vi.advanceTimersByTimeAsync(0);
+  await vi.advanceTimersByTimeAsync(10 * 60 * 1000 + 2000);
+  await batch;
+  expect(state.started).toEqual([1, 2, 3]);
+  expect(state.maxActive).toBe(2);
+  expect(state.rows.find((row) => row.id === 1)!.status).toBe("failed");
+});
+it("retains permits for calls that ignore cancellation, even beyond the grace period", async () => {
+  state.cooperative = false;
+  let finished = false;
+  const batch = processPendingQueueItems().then(() => {
+    finished = true;
+  });
+  await vi.advanceTimersByTimeAsync(0);
+  await vi.advanceTimersByTimeAsync(10 * 60 * 1000 + 20_000);
+  expect(state.active).toBe(2);
+  expect(state.started).toEqual([1, 2]);
+  expect(finished).toBe(false);
+  state.gates.get(1)!.resolve();
+  await vi.advanceTimersByTimeAsync(2000);
+  expect(state.started).toEqual([1, 2, 3]);
+  expect(state.maxActive).toBe(2);
+  state.gates.get(2)!.resolve();
+  state.gates.get(3)!.resolve();
+  await vi.advanceTimersByTimeAsync(0);
+  await batch;
 });

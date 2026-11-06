@@ -58,6 +58,7 @@ export async function buildFeatureRecommendations(result: AssetFeatureClassifica
   return {
     brandRecommendation: brand
       ? {
+          confidenceThreshold: result.confidenceThresholds?.brand,
           decisionSource,
           noConfidentMatch: normalizedBrands.length === 0,
           matches: normalizedBrands,
@@ -69,6 +70,7 @@ export async function buildFeatureRecommendations(result: AssetFeatureClassifica
       : null,
     ipRecommendation: ip
       ? {
+          confidenceThreshold: result.confidenceThresholds?.ip,
           decisionSource,
           noConfidentMatch: ipMatches.length === 0,
           matches: ipMatches,
@@ -80,6 +82,7 @@ export async function buildFeatureRecommendations(result: AssetFeatureClassifica
       : null,
     productRecommendation: product
       ? {
+          confidenceThreshold: result.confidenceThresholds?.product,
           decisionSource,
           noConfidentMatch: productMatches.length === 0,
           matches: productMatches,

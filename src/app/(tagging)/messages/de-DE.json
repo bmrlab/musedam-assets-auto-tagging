@@ -440,7 +440,10 @@
         "logoTypeLabel": "Identitätstyp",
         "logoImagesLabel": "Identitätsbilder · {count}",
         "multiImageMatchLabel": "Multi-image match",
-        "matchStrategy": { "average": "Average", "highest": "Highest" },
+        "matchStrategy": {
+          "average": "Average",
+          "highest": "Highest"
+        },
         "matchStrategyHint": {
           "average": "All reference images jointly determine the retrieval score. Use this when the uploaded images show a consistent logo appearance; unclear or unrelated images will lower the score.",
           "highest": "A match to any one reference image can recall this identity. Use this for color, monochrome, reversed, abbreviated, horizontal, or vertical variants of the same logo."
@@ -1628,6 +1631,19 @@
       "continueImportSkipIssues": "Probleme überspringen und fortfahren",
       "importSuccessWithSkipped": "{count} Zeilen importiert, {skipped} fehlerhafte Zeilen übersprungen",
       "memberImportInProgress": "Member {name} is running a bulk import. Please refresh the page and try again later."
+    },
+    "FeatureThreshold": {
+      "trigger": "Threshold ≥ {value}%",
+      "title": "Team recommendation threshold",
+      "hint": "Applies to new tasks and pending reviews. Reviewed results stay unchanged. History without final decisions needs reclassification.",
+      "minimum": "Min. confidence",
+      "personHint": "Face similarity and ambiguity checks still apply.",
+      "saved": "Saved. Pending reviews use the new threshold.",
+      "save": "Save and apply",
+      "saving": "Saving…",
+      "loadFailed": "Could not load threshold. Please refresh.",
+      "saveFailed": "Could not save. Please retry.",
+      "loading": "Loading threshold…"
     }
   }
 }

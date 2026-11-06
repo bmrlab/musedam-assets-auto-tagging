@@ -7,6 +7,7 @@ import { ServerActionResult } from "@/lib/serverAction";
 import { syncSingleAssetFromMuseDAM } from "@/musedam/assets";
 import { MuseDAMID } from "@/musedam/types";
 import prisma from "@/prisma/prisma";
+import pLimit from "p-limit";
 
 interface SelectedAsset {
   id: string; // 素材唯一标识
@@ -51,42 +52,53 @@ export async function startTaggingTasksAction(
       const queueItemIds: number[] = [];
       const featureLibraryFeatures = await getServerFeatureLibraryFeatures();
 
-      // 批量发起打标任务
-      for (const asset of selectedAssets) {
-        try {
-          const musedamAssetId = MuseDAMID.from(asset.id);
+      const team = await prisma.team.findUniqueOrThrow({
+        where: { id: teamId },
+        select: { id: true, slug: true },
+      });
+      const limit = pLimit(4);
+      const outcomes = await Promise.all(
+        selectedAssets.map((asset) =>
+          limit(async () => {
+            try {
+              const musedamAssetId = MuseDAMID.from(asset.id);
 
-          // 获取完整的team信息
-          const team = await prisma.team.findUniqueOrThrow({
-            where: { id: teamId },
-            select: { id: true, slug: true },
-          });
+              // 1. 从 MuseDAM 同步素材到本地数据库
+              const { assetObject } = await syncSingleAssetFromMuseDAM({
+                musedamAssetId,
+                team,
+              });
 
-          // 1. 从 MuseDAM 同步素材到本地数据库
-          const { assetObject } = await syncSingleAssetFromMuseDAM({
-            musedamAssetId,
-            team,
-          });
+              // 2. 发起 AI 打标任务
+              const taggingQueueItem = await enqueueTaggingTask({
+                assetObject,
+                matchingSources: options?.matchingSources,
+                recognitionAccuracy: options?.recognitionAccuracy,
+                featureClassify: featureLibraryFeatures.featureLibrary,
+                featureClassifications: toFeatureClassificationFlags(featureLibraryFeatures),
+                taskType: "test",
+              });
 
-          // 2. 发起 AI 打标任务
-          const taggingQueueItem = await enqueueTaggingTask({
-            assetObject,
-            matchingSources: options?.matchingSources,
-            recognitionAccuracy: options?.recognitionAccuracy,
-            featureClassify: featureLibraryFeatures.featureLibrary,
-            featureClassifications: toFeatureClassificationFlags(featureLibraryFeatures),
-            taskType: "test",
-          });
-
-          queueItemIds.push(taggingQueueItem.id);
-          successCount++;
-        } catch (error) {
-          console.error(`Error starting tagging for asset ${asset.name} (${asset.id}):`, error);
+              return { id: taggingQueueItem.id };
+            } catch (error) {
+              console.error(`Error starting tagging for asset ${asset.name} (${asset.id}):`, error);
+              return {
+                failure: {
+                  name: asset.name || asset.id,
+                  reason: error instanceof Error ? error.message : String(error),
+                },
+              };
+            }
+          }),
+        ),
+      );
+      for (const outcome of outcomes) {
+        if (outcome.failure) {
           failedCount++;
-          failedAssets.push({
-            name: asset.name || asset.id,
-            reason: error instanceof Error ? error.message : String(error),
-          });
+          failedAssets.push(outcome.failure);
+        } else if (outcome.id !== undefined) {
+          successCount++;
+          queueItemIds.push(outcome.id);
         }
       }
 

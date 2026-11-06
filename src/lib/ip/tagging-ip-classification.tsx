@@ -13,6 +13,7 @@ import {
   normalizeRecommendedTags,
 } from "@/lib/tagging/classification-image";
 import { TaggingIpRecommendation } from "@/prisma/client";
+import { getFeatureThresholds } from "@/lib/tagging/feature-threshold-settings";
 import prisma from "@/prisma/prisma";
 
 export async function classifyAssetIpRecommendation({
@@ -52,6 +53,7 @@ export async function classifyAssetIpRecommendation({
     });
     return (await buildFeatureRecommendations(result)).ipRecommendation;
   }
+  const confidenceThreshold = (await getFeatureThresholds(teamId)).ip;
   const detection = await detectIpFigureBoxes({
     teamId,
     imageInput,
@@ -84,7 +86,8 @@ export async function classifyAssetIpRecommendation({
 
   if (!result.bestMatch) {
     return {
-      decisionSource: "legacy",
+      confidenceThreshold,
+    decisionSource: "legacy",
       noConfidentMatch: true,
       bestMatch: null,
       recommendedTags: [],
@@ -94,6 +97,7 @@ export async function classifyAssetIpRecommendation({
   const normalizedTags = normalizeRecommendedTags(result.bestMatch.recommendedTags);
 
   return {
+    confidenceThreshold,
     decisionSource: "legacy",
     noConfidentMatch: result.noConfidentMatch ?? false,
     bestMatch: {

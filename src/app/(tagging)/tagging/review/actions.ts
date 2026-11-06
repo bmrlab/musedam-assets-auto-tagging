@@ -1,4 +1,7 @@
 "use server";
+
+import { getFeatureThresholds } from "@/lib/tagging/feature-threshold-settings";
+import { rethresholdFeatures } from "@/lib/tagging/rethreshold-features";
 import { withAuth } from "@/app/(auth)/withAuth";
 import { getBrandRecommendationFromQueueResult } from "@/app/(tagging)/brand-recommendation";
 import { recordContentOnlyRejectionFeedbackBatch } from "@/app/(tagging)/evidence-policy-server";
@@ -419,6 +422,13 @@ export async function fetchAssetsWithAuditItems(
             assetObject !== undefined,
         );
 
+      const thresholds = await getFeatureThresholds(teamId);
+      for (const asset of updatedAssetObjects) {
+        const pendingIds = new Set(asset.taggingAuditItems.filter(a => a.status === "pending").map(a => a.queueItemId));
+        for (const audit of asset.taggingAuditItems) {
+          if (audit.queueItem && pendingIds.has(audit.queueItemId)) audit.queueItem.result = rethresholdFeatures(audit.queueItem.result, thresholds) as Prisma.JsonObject;
+        }
+      }
       const featureLibrary = await loadReviewFeatureLibrary(
         teamId,
         updatedAssetObjects.flatMap((asset) =>
@@ -678,6 +688,11 @@ export async function approveAuditItemsAction({
           ),
         ).values(),
       ].filter((queueItem) => featureReviewVersions[queueItem.id] !== undefined);
+      const thresholds = await getFeatureThresholds(teamId);
+      const pendingIds = new Set(storedAuditItems.filter(a => a.status === "pending").map(a => a.queueItemId));
+      for (const queue of queueResults) {
+        if (pendingIds.has(queue.id)) queue.result = rethresholdFeatures(queue.result, thresholds) as Prisma.JsonObject;
+      }
       const featureLibrary = await loadReviewFeatureLibrary(
         teamId,
         queueResults.map(({ result }) => result),
@@ -1051,6 +1066,10 @@ export async function batchApproveAuditItemsAction({
           queueItem: true,
         },
       });
+      const thresholds = await getFeatureThresholds(teamId);
+      for (const audit of auditItems) {
+        if (audit.queueItem) audit.queueItem.result = rethresholdFeatures(audit.queueItem.result, thresholds) as Prisma.JsonObject;
+      }
       const featureLibrary = await loadReviewFeatureLibrary(
         teamId,
         auditItems.flatMap(({ queueItem }) => (queueItem ? [queueItem.result] : [])),

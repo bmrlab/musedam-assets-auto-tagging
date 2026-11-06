@@ -165,7 +165,9 @@ export async function classifyProductImageRegions({
   teamId,
   imageInput,
   boxes,
+  confidenceThreshold,
 }: {
+  confidenceThreshold?: number;
   teamId: number;
   imageInput: ClassificationRemoteImageInput;
   boxes: ProductDetectionBox[];
@@ -196,15 +198,17 @@ export async function classifyProductImageRegions({
       })),
     ),
   );
-  return classifyProductImageGroups({ teamId, rawDetections, crops });
+  return classifyProductImageGroups({ teamId, rawDetections, crops, confidenceThreshold });
 }
 
 async function classifyProductImageGroups({
+  confidenceThreshold,
   teamId,
   rawDetections,
   crops,
 }: {
   teamId: number;
+  confidenceThreshold?: number;
   rawDetections: ProductDetectionBox[];
   crops: Array<{
     box: ProductDetectionBox;
@@ -348,7 +352,7 @@ async function classifyProductImageGroups({
       topMatches,
       bestMatch,
       noConfidentMatch:
-        !bestMatch || !meetsFeatureConfidenceThreshold("product", bestMatch.confidence),
+        !bestMatch || !meetsFeatureConfidenceThreshold("product", bestMatch.confidence, confidenceThreshold),
     };
   });
 

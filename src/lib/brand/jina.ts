@@ -1,3 +1,4 @@
+import { queueAbortSignal, queueSleep, throwIfQueueAborted } from "@/lib/tagging/queue-execution";
 import "server-only";
 
 import { getJinaConfig, isDebugPageEnabled } from "@/lib/brand/env";
@@ -32,11 +33,7 @@ const jinaRequestConcurrencyLimit = pLimit(JINA_REQUEST_CONCURRENCY);
 const jinaRequestPacingLimit = pLimit(1);
 let nextJinaRequestAt = 0;
 
-function sleep(ms: number) {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-}
+const sleep = queueSleep;
 
 function shouldRetryJinaRequest(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
@@ -80,7 +77,9 @@ async function sendJinaEmbeddingRequest({
       )
     : 0;
 
+  throwIfQueueAborted();
   return jinaRequestConcurrencyLimit(async () => {
+    throwIfQueueAborted();
     await jinaRequestPacingLimit(async () => {
       while (nextJinaRequestAt > Date.now()) {
         await sleep(nextJinaRequestAt - Date.now());
@@ -88,6 +87,7 @@ async function sendJinaEmbeddingRequest({
       nextJinaRequestAt = Date.now() + requestIntervalMs;
     });
 
+    throwIfQueueAborted();
     const response = await nodeFetch(config.embeddingsUrl, {
       method: "POST",
       headers: {
@@ -95,7 +95,7 @@ async function sendJinaEmbeddingRequest({
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(config.timeoutMs),
+      signal: queueAbortSignal(AbortSignal.timeout(config.timeoutMs)),
       dispatcher: proxyAgent,
     });
     const payload = (await response.json().catch(() => null)) as JinaResponse | null;

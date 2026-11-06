@@ -14,6 +14,7 @@ import {
   normalizeRecommendedTags,
 } from "@/lib/tagging/classification-image";
 import { TaggingBrandRecommendation } from "@/prisma/client";
+import { getFeatureThresholds } from "@/lib/tagging/feature-threshold-settings";
 import prisma from "@/prisma/prisma";
 
 export async function classifyAssetBrandRecommendation({
@@ -55,6 +56,7 @@ export async function classifyAssetBrandRecommendation({
     return (await buildFeatureRecommendations(result)).brandRecommendation;
   }
   const detectionLabelText = await fetchLogoDetectionLabelText(teamId);
+  const confidenceThreshold = (await getFeatureThresholds(teamId)).brand;
   const detection = await detectBrandLogoBoxes({
     teamId,
     imageInput,
@@ -90,7 +92,8 @@ export async function classifyAssetBrandRecommendation({
 
   if (!result.bestMatch) {
     return {
-      decisionSource: "legacy",
+      confidenceThreshold,
+    decisionSource: "legacy",
       noConfidentMatch: true,
       bestMatch: null,
       recommendedTags: [],
@@ -116,6 +119,7 @@ export async function classifyAssetBrandRecommendation({
   const normalizedTags = normalizeRecommendedTags(logoTags);
 
   return {
+    confidenceThreshold,
     decisionSource: "legacy",
     noConfidentMatch: result.noConfidentMatch ?? false,
     bestMatch: {

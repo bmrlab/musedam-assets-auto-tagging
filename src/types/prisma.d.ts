@@ -133,6 +133,7 @@ declare module "@/prisma/client" {
   };
 
   export type TaggingBrandRecommendation = {
+    confidenceThreshold?: number;
     decisionSource?: "llm" | "legacy";
     matches?: TaggingBrandBestMatch[];
     noConfidentMatch: boolean;
@@ -160,6 +161,7 @@ declare module "@/prisma/client" {
   };
 
   export type TaggingIpRecommendation = {
+    confidenceThreshold?: number;
     decisionSource?: "llm" | "legacy";
     matches?: TaggingIpBestMatch[];
     noConfidentMatch: boolean;
@@ -189,6 +191,7 @@ declare module "@/prisma/client" {
   };
 
   export type TaggingProductRecommendation = {
+    confidenceThreshold?: number;
     decisionSource?: "llm" | "legacy";
     noConfidentMatch: boolean;
     /** Accepted distinct products. An explicit empty array overrides the legacy bestMatch. */
@@ -244,6 +247,7 @@ declare module "@/prisma/client" {
   };
 
   export type TaggingPersonRecommendation = {
+    confidenceThreshold?: number;
     noConfidentMatch: boolean;
     faceCount: number;
     faces: Array<{

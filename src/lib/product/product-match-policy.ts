@@ -68,7 +68,7 @@ export function getAcceptedProductMatches(
       (match) =>
         typeof match?.assetProductId === "string" &&
         match.assetProductId.length > 0 &&
-        meetsFeatureConfidenceThreshold("product", match.confidence),
+        meetsFeatureConfidenceThreshold("product", match.confidence, recommendation?.confidenceThreshold),
     ),
   );
 }

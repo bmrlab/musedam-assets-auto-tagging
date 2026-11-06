@@ -1631,6 +1631,19 @@
       "continueImportSkipIssues": "略過問題行，繼續匯入",
       "importSuccessWithSkipped": "成功匯入 {count} 筆，已略過 {skipped} 筆有問題的行",
       "memberImportInProgress": "成員 {name} 正在執行批次匯入，請稍後重新整理頁面再試。"
+    },
+    "FeatureThreshold": {
+      "trigger": "推荐门槛 ≥ {value}%",
+      "title": "团队推荐门槛",
+      "hint": "保存后对新任务和历史待审核特征生效；已审核结果不变。历史数据缺少最终决策时需重新识别。",
+      "minimum": "最低置信度",
+      "personHint": "人物仍需通过人脸相似度与歧义检查。",
+      "saved": "已保存，待审核特征将按新门槛显示",
+      "save": "保存并应用",
+      "saving": "保存中…",
+      "loadFailed": "读取推荐门槛失败，请刷新重试",
+      "saveFailed": "保存失败，请重试",
+      "loading": "读取门槛中…"
     }
   }
 }

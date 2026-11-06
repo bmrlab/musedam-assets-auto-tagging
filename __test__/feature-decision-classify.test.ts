@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   fetchImage: vi.fn(),
 }));
 vi.mock("server-only", () => ({}));
+vi.mock("@/lib/tagging/feature-threshold-settings", () => ({ getFeatureThresholds: async () => ({ brand: 75, product: 80, ip: 80, person: 60 }) }));
 vi.mock("@/lib/brand/logo-classification", () => ({
   classifyBrandImageCrops: mocks.logo,
   detectBrandLogoBoxes: vi.fn(),

@@ -1,5 +1,6 @@
-import "server-only";
+import { assertQueueExecutionOwned, getQueueExecution, queueAbortSignal } from "@/lib/tagging/queue-execution";
 import { getTagImportSignal } from "@/lib/tagging/tag-import-runtime";
+import "server-only";
 
 const SENSITIVE_HEADER_PATTERN = /^(authorization|cookie|set-cookie|x-api-key|api-key)$/i;
 
@@ -43,6 +44,7 @@ export async function requestMuseDAMAPI<T = unknown>(
     timeoutMs?: number;
   },
 ): Promise<T> {
+  if (getQueueExecution()) await assertQueueExecutionOwned();
   const url = `${process.env.MUSEDAM_API_BASE_URL}${apiPath}`;
   const requestHeaders = {
     "Content-Type": "application/json",
@@ -60,9 +62,11 @@ export async function requestMuseDAMAPI<T = unknown>(
   // Import requests must not keep the team lease alive forever while awaiting an upstream.
   const requestTimeout = timeoutMs ?? (importSignal ? 75_000 : undefined);
   const timeoutSignal = requestTimeout ? AbortSignal.timeout(requestTimeout) : undefined;
-  const signal = importSignal && timeoutSignal
-    ? AbortSignal.any([importSignal, timeoutSignal])
-    : importSignal ?? timeoutSignal;
+  const requestSignal =
+    importSignal && timeoutSignal
+      ? AbortSignal.any([importSignal, timeoutSignal])
+      : (importSignal ?? timeoutSignal);
+  const signal = queueAbortSignal(requestSignal);
   const response = await fetch(url, {
     method: method,
     body: requestBody,

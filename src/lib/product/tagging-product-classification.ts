@@ -14,6 +14,7 @@ import {
   normalizeRecommendedTags,
 } from "@/lib/tagging/classification-image";
 import { TaggingProductRecommendation } from "@/prisma/client";
+import { getFeatureThresholds } from "@/lib/tagging/feature-threshold-settings";
 import prisma from "@/prisma/prisma";
 
 export async function classifyAssetProductRecommendation({
@@ -56,6 +57,7 @@ export async function classifyAssetProductRecommendation({
     });
     return (await buildFeatureRecommendations(result)).productRecommendation;
   }
+  const confidenceThreshold = (await getFeatureThresholds(teamId)).product;
   const detection = await detectProductFigureBoxes({
     teamId,
     imageInput,
@@ -69,6 +71,7 @@ export async function classifyAssetProductRecommendation({
     teamId,
     imageInput,
     boxes: candidateBoxes,
+    confidenceThreshold,
   });
 
   const normalizeMatch = <T extends ProductTopMatch>(match: T) => ({
@@ -81,6 +84,7 @@ export async function classifyAssetProductRecommendation({
   );
 
   return {
+    confidenceThreshold,
     decisionSource: "legacy",
     noConfidentMatch: matches.length === 0,
     rawDetections: result.rawDetections,

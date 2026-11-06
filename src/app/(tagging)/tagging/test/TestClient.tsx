@@ -707,7 +707,7 @@ export default function TestClient() {
                     )
                   : match.recommendedTags;
                 return {
-                  noConfidentMatch: !meetsFeatureConfidenceThreshold("brand", match.confidence),
+                  noConfidentMatch: !meetsFeatureConfidenceThreshold("brand", match.confidence, brandRecommendation?.confidenceThreshold),
                   logoName: match.logoName,
                   logoTypeName: match.logoTypeName,
                   confidence: match.confidence,
@@ -725,7 +725,7 @@ export default function TestClient() {
                     )
                   : match.recommendedTags;
                 return {
-                  noConfidentMatch: !meetsFeatureConfidenceThreshold("ip", match.confidence),
+                  noConfidentMatch: !meetsFeatureConfidenceThreshold("ip", match.confidence, ipRecommendation?.confidenceThreshold),
                   ipName: match.ipName,
                   ipTypeName: match.ipTypeName,
                   confidence: match.confidence,
@@ -764,7 +764,7 @@ export default function TestClient() {
                   : match.recommendedTags;
 
                 return {
-                  noConfidentMatch: !meetsFeatureConfidenceThreshold("product", match.confidence),
+                  noConfidentMatch: !meetsFeatureConfidenceThreshold("product", match.confidence, productRecommendation?.confidenceThreshold),
                   productName: match.productName,
                   productTypeName: match.productTypeName,
                   confidence: match.confidence,
@@ -855,6 +855,12 @@ export default function TestClient() {
               );
 
               return {
+                featureThresholds: {
+                  brand: brandRecommendation?.confidenceThreshold,
+                  ip: ipRecommendation?.confidenceThreshold,
+                  product: productRecommendation?.confidenceThreshold,
+                  person: personRecommendation?.confidenceThreshold,
+                },
                 featureDecision: resultData?.featureDecision,
                 asset: {
                   id: assetObject?.id?.toString() || "",

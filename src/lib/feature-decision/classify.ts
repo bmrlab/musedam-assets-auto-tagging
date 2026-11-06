@@ -32,6 +32,7 @@ import {
   type ClassificationRemoteImageInput,
 } from "@/lib/tagging/classification-image";
 import { meetsFeatureConfidenceThreshold } from "@/lib/tagging/feature-confidence";
+import { getFeatureThresholds } from "@/lib/tagging/feature-threshold-settings";
 import prisma from "@/prisma/prisma";
 import pLimit from "p-limit";
 import { MAX_FEATURE_REFERENCES, selectFeatureRegions, type DecisionFeatureType } from "./regions";
@@ -52,6 +53,7 @@ export type AssetFeatureClassification = {
   ip: WithDiagnostics<IpClassificationResult> | null;
   product: WithDiagnostics<ProductClassificationResult> | null;
   diagnostics: FeatureDecisionDiagnostics;
+  confidenceThresholds?: import("@/lib/tagging/feature-confidence").FeatureThresholds;
   /** Exact catalog-identity tags contradicted by the completed decision; generic tags are excluded. */
   unacceptedIdentityTagIds?: number[];
 };
@@ -68,6 +70,7 @@ export async function classifyAssetFeatures(
   },
 ): Promise<AssetFeatureClassification> {
   const { teamId, imageInput } = input;
+  const thresholds = await getFeatureThresholds(teamId);
   // Dev requests always use the decision layer; their explicit switch controls image evidence.
   const mode = input.imageMode === undefined ? getFeatureDecisionMode() : "llm";
   const imageMode = input.imageMode ?? isDecisionLlmImageUseEnabled();
@@ -525,6 +528,7 @@ export async function classifyAssetFeatures(
               meetsFeatureConfidenceThreshold(
                 candidate.featureType === "logo" ? "brand" : candidate.featureType,
                 decision.confidence,
+                thresholds[candidate.featureType === "logo" ? "brand" : candidate.featureType],
               )
             );
           })
@@ -573,7 +577,7 @@ export async function classifyAssetFeatures(
       const matches = classified.filter(
         (match) =>
           decisions.has(`logo:${match.assetLogoId}`) &&
-          meetsFeatureConfidenceThreshold("brand", match.confidence),
+          meetsFeatureConfidenceThreshold("brand", match.confidence, thresholds.brand),
       );
       output.brand = {
         ...output.brand,
@@ -589,7 +593,7 @@ export async function classifyAssetFeatures(
       const matches = classified.filter(
         (match) =>
           decisions.has(`ip:${match.assetIpId}`) &&
-          meetsFeatureConfidenceThreshold("ip", match.confidence),
+          meetsFeatureConfidenceThreshold("ip", match.confidence, thresholds.ip),
       );
       output.ip = {
         ...output.ip,
@@ -605,7 +609,7 @@ export async function classifyAssetFeatures(
       const matches = classified.filter(
         (match) =>
           decisions.has(`product:${match.assetProductId}`) &&
-          meetsFeatureConfidenceThreshold("product", match.confidence),
+          meetsFeatureConfidenceThreshold("product", match.confidence, thresholds.product),
       );
       output.product = {
         ...output.product,
@@ -626,6 +630,7 @@ export async function classifyAssetFeatures(
       };
     }
   }
+  output.confidenceThresholds = thresholds;
   if (output.brand) output.brand.diagnostics = output.diagnostics;
   if (output.ip) output.ip.diagnostics = output.diagnostics;
   if (output.product) output.product.diagnostics = output.diagnostics;

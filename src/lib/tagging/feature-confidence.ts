@@ -7,6 +7,16 @@ export const FEATURE_CONFIDENCE_MIN = {
   person: 60,
 } as const;
 
+export type FeatureThresholds = Record<keyof typeof FEATURE_CONFIDENCE_MIN, number>;
+
+export function normalizeFeatureThresholds(value: unknown): FeatureThresholds {
+  const raw = (value ?? {}) as Partial<FeatureThresholds>;
+  return Object.fromEntries(Object.entries(FEATURE_CONFIDENCE_MIN).map(([type, fallback]) => {
+    const n = raw[type as keyof FeatureThresholds];
+    return [type, typeof n === "number" && Number.isInteger(n) && n >= 0 && n <= 100 ? n : fallback];
+  })) as FeatureThresholds;
+}
+
 export type FeatureType = keyof typeof FEATURE_CONFIDENCE_MIN;
 
 const BLUE_TONE_CLASS = "text-primary-6 bg-primary-1 border-[#A6C1FF]";
@@ -26,8 +36,9 @@ export function normalizeFeatureConfidence(confidence: number | null | undefined
 export function meetsFeatureConfidenceThreshold(
   featureType: FeatureType,
   confidence: number | null | undefined,
+  threshold?: number,
 ): boolean {
-  return normalizeFeatureConfidence(confidence) >= FEATURE_CONFIDENCE_MIN[featureType];
+  return normalizeFeatureConfidence(confidence) >= (threshold ?? FEATURE_CONFIDENCE_MIN[featureType]);
 }
 
 /** 95–100 blue, 90–95 green, below 90 orange (person: 60–90; brand/ip/product: 80–90). */

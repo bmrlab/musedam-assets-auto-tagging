@@ -84,7 +84,7 @@ export function getAcceptedBrandMatches(
 ): TaggingBrandBestMatch[] {
   return strongestDistinct(
     getBrandMatches(recommendation).filter((match) =>
-      meetsFeatureConfidenceThreshold("brand", match.confidence),
+      meetsFeatureConfidenceThreshold("brand", match.confidence, recommendation?.confidenceThreshold),
     ),
     (match) => match.assetLogoId,
   );
@@ -95,7 +95,7 @@ export function getAcceptedIpMatches(
 ): TaggingIpBestMatch[] {
   return strongestDistinct(
     getIpMatches(recommendation).filter((match) =>
-      meetsFeatureConfidenceThreshold("ip", match.confidence),
+      meetsFeatureConfidenceThreshold("ip", match.confidence, recommendation?.confidenceThreshold),
     ),
     (match) => match.assetIpId,
   );

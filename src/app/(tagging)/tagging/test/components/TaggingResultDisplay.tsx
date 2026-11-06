@@ -66,6 +66,7 @@ export interface IpRecognitionResult {
 }
 
 export interface TaggingResult {
+  featureThresholds?: Partial<import("@/lib/tagging/feature-confidence").FeatureThresholds>;
   featureDecision?: FeatureDecisionDiagnostics;
   asset: {
     id: string;
@@ -368,20 +369,20 @@ export function TaggingResultDisplay({ result, featureThumbnails }: TaggingResul
   const hasFeatureBelowConfidenceThreshold =
     (featureLibraryFeatures.featureBrand &&
       brands.some(
-        (brand) => brand.assetLogoId && !meetsFeatureConfidenceThreshold("brand", brand.confidence),
+        (brand) => brand.assetLogoId && !meetsFeatureConfidenceThreshold("brand", brand.confidence, result.featureThresholds?.brand),
       )) ||
     (featureLibraryFeatures.featureIp &&
-      ips.some((ip) => ip.assetIpId && !meetsFeatureConfidenceThreshold("ip", ip.confidence))) ||
+      ips.some((ip) => ip.assetIpId && !meetsFeatureConfidenceThreshold("ip", ip.confidence, result.featureThresholds?.ip))) ||
     (featureLibraryFeatures.featureProduct &&
       products.some(
         (product) =>
-          product.assetProductId && !meetsFeatureConfidenceThreshold("product", product.confidence),
+          product.assetProductId && !meetsFeatureConfidenceThreshold("product", product.confidence, result.featureThresholds?.product),
       )) ||
     (featureLibraryFeatures.featurePerson &&
       result.personRecognition?.faces.some(
         (face) =>
           face.assetPersonId &&
-          (face.noConfidentMatch || !meetsFeatureConfidenceThreshold("person", face.confidence)),
+          (face.noConfidentMatch || !meetsFeatureConfidenceThreshold("person", face.confidence, result.featureThresholds?.person)),
       ));
 
   if (featureLibraryFeatures.featureProduct) {
@@ -390,7 +391,7 @@ export function TaggingResultDisplay({ result, featureThumbnails }: TaggingResul
         product.noConfidentMatch ||
         !product.productName ||
         !product.assetProductId ||
-        !meetsFeatureConfidenceThreshold("product", product.confidence)
+        !meetsFeatureConfidenceThreshold("product", product.confidence, result.featureThresholds?.product)
       ) {
         return;
       }
@@ -415,7 +416,7 @@ export function TaggingResultDisplay({ result, featureThumbnails }: TaggingResul
     if (
       !brand.logoName ||
       !brand.assetLogoId ||
-      !meetsFeatureConfidenceThreshold("brand", brand.confidence)
+      !meetsFeatureConfidenceThreshold("brand", brand.confidence, result.featureThresholds?.brand)
     )
       continue;
     const score = normalizeFeatureConfidence(brand.confidence);
@@ -434,7 +435,7 @@ export function TaggingResultDisplay({ result, featureThumbnails }: TaggingResul
   }
 
   for (const ip of featureLibraryFeatures.featureIp ? ips : []) {
-    if (!ip.ipName || !ip.assetIpId || !meetsFeatureConfidenceThreshold("ip", ip.confidence))
+    if (!ip.ipName || !ip.assetIpId || !meetsFeatureConfidenceThreshold("ip", ip.confidence, result.featureThresholds?.ip))
       continue;
     const score = normalizeFeatureConfidence(ip.confidence);
     recognitionFeatures.push({
@@ -457,7 +458,7 @@ export function TaggingResultDisplay({ result, featureThumbnails }: TaggingResul
         face.noConfidentMatch ||
         !face.personName ||
         !face.assetPersonId ||
-        !meetsFeatureConfidenceThreshold("person", face.confidence)
+        !meetsFeatureConfidenceThreshold("person", face.confidence, result.featureThresholds?.person)
       ) {
         return;
       }

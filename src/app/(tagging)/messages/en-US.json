@@ -1631,6 +1631,19 @@
       "continueImportSkipIssues": "Skip issues and continue",
       "importSuccessWithSkipped": "Imported {count} rows, skipped {skipped} rows with issues",
       "memberImportInProgress": "Member {name} is running a bulk import. Please refresh the page and try again later."
+    },
+    "FeatureThreshold": {
+      "trigger": "Threshold ≥ {value}%",
+      "title": "Team recommendation threshold",
+      "hint": "Applies to new tasks and pending reviews. Reviewed results stay unchanged. History without final decisions needs reclassification.",
+      "minimum": "Min. confidence",
+      "personHint": "Face similarity and ambiguity checks still apply.",
+      "saved": "Saved. Pending reviews use the new threshold.",
+      "save": "Save and apply",
+      "saving": "Saving…",
+      "loadFailed": "Could not load threshold. Please refresh.",
+      "saveFailed": "Could not save. Please retry.",
+      "loading": "Loading threshold…"
     }
   }
 }

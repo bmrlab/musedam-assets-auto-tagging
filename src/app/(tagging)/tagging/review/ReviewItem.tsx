@@ -1177,19 +1177,19 @@ export function ReviewItem({
                   getBrandMatches(brandRecommendation).some(
                     (brand) =>
                       availableFeatureIdSets.brand.has(brand.assetLogoId) &&
-                      !meetsFeatureConfidenceThreshold("brand", brand.confidence),
+                      !meetsFeatureConfidenceThreshold("brand", brand.confidence, brandRecommendation?.confidenceThreshold),
                   )) ||
                 (featureLibraryFeatures.featureIp &&
                   getIpMatches(ipRecommendation).some(
                     (ip) =>
                       availableFeatureIdSets.ip.has(ip.assetIpId) &&
-                      !meetsFeatureConfidenceThreshold("ip", ip.confidence),
+                      !meetsFeatureConfidenceThreshold("ip", ip.confidence, ipRecommendation?.confidenceThreshold),
                   )) ||
                 (featureLibraryFeatures.featureProduct &&
                   getProductMatches(productRecommendation).some(
                     (product) =>
                       availableFeatureIdSets.product.has(product.assetProductId) &&
-                      !meetsFeatureConfidenceThreshold("product", product.confidence),
+                      !meetsFeatureConfidenceThreshold("product", product.confidence, productRecommendation?.confidenceThreshold),
                   )) ||
                 (featureLibraryFeatures.featurePerson &&
                   personRecommendation?.faces.some((face) => {

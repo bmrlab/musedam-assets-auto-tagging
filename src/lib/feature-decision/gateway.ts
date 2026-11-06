@@ -1,3 +1,4 @@
+import { queueAbortSignal } from "@/lib/tagging/queue-execution";
 import "server-only";
 
 import type { Prisma } from "@/prisma/client";
@@ -55,7 +56,7 @@ export async function callFeatureLlm<T>(input: {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify(request),
-      signal: AbortSignal.timeout(FEATURE_LLM_TIMEOUT_MS),
+      signal: queueAbortSignal(AbortSignal.timeout(FEATURE_LLM_TIMEOUT_MS)),
     });
     const body = await httpResponse.text();
     try {

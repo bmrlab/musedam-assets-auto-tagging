@@ -1,8 +1,12 @@
+import { runWithQueueExecution, throwIfQueueAborted } from "@/lib/tagging/queue-execution";
 import { getTagConfigVersion } from "@/lib/tagging/tag-config-version";
 import { createVersionedTagTreeCache } from "@/lib/tagging/tag-tree-cache";
+import { randomUUID } from "node:crypto";
 import "server-only";
 
 import { isTagTreeJob, processTagTreeQueueItem } from "@/app/tags/tagTreeQueue";
+import { getFeatureThresholds } from "@/lib/tagging/feature-threshold-settings";
+import { rethresholdFeatures } from "@/lib/tagging/rethreshold-features";
 import { classifyAssetBrandRecommendation } from "@/lib/brand/tagging-brand-classification";
 import { classifyAssetFeatures, getFeatureDecisionMode } from "@/lib/feature-decision/classify";
 import { isDecisionLlmImageUseEnabled } from "@/lib/feature-decision/config";
@@ -78,6 +82,7 @@ import {
 import { predictAssetTags, predictUnparsedSizeTags } from "./predict";
 import { getProductRecommendationTagIdsFromQueueResult } from "./product-recommendation";
 import { RECOGNITION_ACCURACY_CONFIG } from "./prompt";
+import { loadFairQueueCandidates } from "./queue-candidates";
 import {
   ASSET_TAGGING_CONCURRENCY,
   PROCESSING_TIMING_VERSION,
@@ -85,7 +90,7 @@ import {
   TEST_TAGGING_CONCURRENCY,
   TOTAL_QUEUE_CONCURRENCY,
 } from "./queue-config";
-import { QUEUE_PAUSED_BY_ENV, USE_QUEUE_WORKER_PROCESS } from "./queue-role";
+import { IS_QUEUE_WORKER_CHILD, QUEUE_PAUSED_BY_ENV, USE_QUEUE_WORKER_PROCESS } from "./queue-role";
 import { pickPendingQueueItems } from "./queue-schedule";
 import { getTaggingSettings } from "./tagging/settings/lib";
 import { SourceBasedTagPredictions, TagWithScore } from "./types";
@@ -530,7 +535,7 @@ export async function processQueueItem({
       brandRecommendation,
       ipRecommendation,
       productRecommendation,
-      personRecommendation,
+      rawPersonRecommendation,
     ] = await Promise.all([
       logStepFinished(
         "predictAssetTags",
@@ -543,6 +548,9 @@ export async function processQueueItem({
       productRecommendationPromise,
       personRecommendationPromise,
     ]);
+    const personRecommendation = rawPersonRecommendation
+      ? rethresholdFeatures({ personRecommendation: rawPersonRecommendation }, await getFeatureThresholds(teamId)).personRecommendation ?? null
+      : null;
     if ("error" in predictionResult) throw predictionResult.error;
     const {
       predictions,
@@ -935,6 +943,7 @@ export async function processQueueItem({
       },
     });
   } catch (error) {
+    throwIfQueueAborted();
     const errorCode = normalizeTaggingErrorCode(error);
     if (
       errorCode === "NO_VALID_TAGS" ||
@@ -1095,7 +1104,7 @@ export function createBatchTagsTreeLoader(
 
 async function markQueueItemTimedOut(queueItem: TaggingQueueItem): Promise<void> {
   rootLogger.error({
-    msg: "Queue item timed out, releasing slot",
+    msg: "Queue item timed out, requesting cancellation",
     teamId: queueItem.teamId,
     assetObjectId: queueItem.assetObjectId,
     queueItemId: queueItem.id,
@@ -1136,7 +1145,8 @@ async function tryClaimAndProcess(
     const extra = {
       ...(queueItem.extra as TaggingQueueItemExtra),
       processingTimingVersion: PROCESSING_TIMING_VERSION,
-    } as TaggingQueueItemExtra & { processingTimingVersion: number };
+      executionAttempt: randomUUID(),
+    } as TaggingQueueItemExtra & { processingTimingVersion: number; executionAttempt: string };
     const updated = await prisma.taggingQueueItem.updateMany({
       where: { id: queueItem.id, status: "pending" },
       data: {
@@ -1147,6 +1157,7 @@ async function tryClaimAndProcess(
       },
     });
     if (updated.count > 0) {
+      const controller = new AbortController();
       rootLogger.info({
         msg: "Queue item claimed",
         queueItemId: queueItem.id,
@@ -1158,8 +1169,16 @@ async function tryClaimAndProcess(
       heartbeat = setInterval(() => {
         void prisma.taggingQueueItem
           .updateMany({
-            where: { id: queueItem.id, status: "processing" },
+            where: {
+              id: queueItem.id,
+              status: "processing",
+              extra: { path: ["executionAttempt"], equals: extra.executionAttempt },
+            },
             data: { status: "processing" },
+          })
+          .then((result) => {
+            if (!result.count)
+              controller.abort(new Error("Queue execution was cancelled or superseded"));
           })
           .catch((error) => {
             rootLogger.warn({
@@ -1169,32 +1188,81 @@ async function tryClaimAndProcess(
             });
           });
       }, PROCESSING_HEARTBEAT_MS);
-      const work = isTagTreeJob(queueItem)
-        ? processTagTreeQueueItem({ ...queueItem, status: "processing", startsAt, extra })
-        : processQueueItem({
-            ...(queueItem as TaggingQueueItem & { assetObject: AssetObject | null }),
+      const assertOwned = async () => {
+        const owned = await prisma.taggingQueueItem.findFirst({
+          where: {
+            id: queueItem.id,
             status: "processing",
-            startsAt,
-            extra,
-            tagsTreeLoader,
-          });
+            extra: { path: ["executionAttempt"], equals: extra.executionAttempt },
+          },
+          select: { id: true },
+        });
+        if (!owned) {
+          controller.abort(new Error("Queue execution was superseded or cancelled"));
+          controller.signal.throwIfAborted();
+        }
+      };
+      const work = runWithQueueExecution(
+        {
+          queueItemId: queueItem.id,
+          attempt: extra.executionAttempt!,
+          signal: controller.signal,
+          assertOwned,
+        },
+        () =>
+          isTagTreeJob(queueItem)
+            ? processTagTreeQueueItem({ ...queueItem, status: "processing", startsAt, extra })
+            : processQueueItem({
+                ...(queueItem as TaggingQueueItem & { assetObject: AssetObject | null }),
+                status: "processing",
+                startsAt,
+                extra,
+                tagsTreeLoader,
+              }),
+      );
+      // Observe failures immediately; cancellation must not leave an unhandled rejection.
+      const settled = work.then(
+        () => undefined,
+        (error) => {
+          if (!controller.signal.aborted) throw error;
+        },
+      );
       let timeoutId: ReturnType<typeof setTimeout> | undefined;
       const timedOut = await Promise.race([
-        work.then(() => false),
+        settled.then(() => false),
         new Promise<true>((resolve) => {
-          timeoutId = setTimeout(() => resolve(true), QUEUE_ITEM_TIMEOUT_MS);
+          timeoutId = setTimeout(() => {
+            controller.abort(new Error("Queue execution deadline exceeded"));
+            resolve(true);
+          }, QUEUE_ITEM_TIMEOUT_MS);
         }),
       ]).finally(() => clearTimeout(timeoutId));
       if (timedOut) {
-        // 超时后底层任务还在后台跑，它之后的异常不能变成 unhandled rejection
-        work.catch((error) => {
-          rootLogger.warn({
-            msg: "Timed-out queue item failed later",
-            queueItemId: queueItem.id,
-            err: error,
-          });
-        });
+        if (heartbeat) {
+          clearInterval(heartbeat);
+          heartbeat = null;
+        }
         await markQueueItemTimedOut(queueItem);
+        // Keep the permit until underlying work really stops. An uncooperative SDK
+        // must not create invisible extra concurrency after its caller times out.
+        let graceTimer: ReturnType<typeof setTimeout> | undefined;
+        const stopped = await Promise.race([
+          settled.then(() => true),
+          new Promise<false>((resolve) => {
+            graceTimer = setTimeout(
+              () => resolve(false),
+              Number(process.env.QUEUE_CANCELLATION_GRACE_MS) || 10_000,
+            );
+          }),
+        ]).finally(() => clearTimeout(graceTimer));
+        if (!stopped) {
+          rootLogger.error({
+            msg: "Queue cancellation did not settle; retaining resource permit",
+            queueItemId: queueItem.id,
+          });
+          if (IS_QUEUE_WORKER_CHILD) process.exit(1); // Supervisor restarts only the isolated worker.
+          await settled; // Web-mode fallback protects the page process from excess concurrency.
+        }
         onSkip();
         return;
       }
@@ -1218,6 +1286,7 @@ async function tryClaimAndProcess(
 // 候选池大小：需要足够大，才能在"某个团队短时间内堆积大量任务"时，
 // 仍然覆盖到其他团队较早创建的任务，避免被单一团队的任务淹没（见 selectRoundRobinByTeam）。
 const CANDIDATE_POOL_SIZE = 200;
+const candidateCursors = { tree: 0, test: 0, production: 0 };
 
 const PENDING_SUMMARY_LOG_INTERVAL_MS = 30_000;
 let lastPendingSummaryLoggedAt = 0;
@@ -1304,48 +1373,50 @@ export async function processPendingQueueItems(): Promise<{
     // 测试和正式分开查：正式积压超过候选池时，测试任务也不会被挡在池子外面。
     // 候选池不带 assetObject：素材的 content/extra 是整条 MuseDAM 素材 JSON，全拉下来
     // 再在主线程解析很重，而每轮只会领走空闲槽位那么多条；选定之后再只查被选中那几条的素材。
-    const [productionPool, testCandidates] = await Promise.all([
-      prisma.taggingQueueItem.findMany({
-        where: { status: "pending", taskType: { not: "test" } },
-        orderBy: { createdAt: "asc" },
-        take: CANDIDATE_POOL_SIZE,
-      }),
-      prisma.taggingQueueItem.findMany({
-        where: { status: "pending", taskType: "test" },
-        orderBy: { createdAt: "asc" },
-        take: CANDIDATE_POOL_SIZE,
-      }),
+    const [tagTreeCandidates, testCandidates, productionCandidates] = await Promise.all([
+      loadFairQueueCandidates(
+        "tree",
+        candidateCursors.tree,
+        TAG_TREE_RESERVED_CONCURRENCY,
+        CANDIDATE_POOL_SIZE,
+      ),
+      loadFairQueueCandidates(
+        "test",
+        candidateCursors.test,
+        ASSET_TAGGING_CONCURRENCY,
+        CANDIDATE_POOL_SIZE,
+      ),
+      loadFairQueueCandidates(
+        "production",
+        candidateCursors.production,
+        ASSET_TAGGING_CONCURRENCY,
+        CANDIDATE_POOL_SIZE,
+      ),
     ]);
 
     // 按团队轮询挑选，避免某个团队短时间内堆积大量任务时把其他团队"饿死"。
     // 只领空闲槽位数量的任务，不多领去 pLimit 里排队。
     const { tagTreeItems, testItems, productionItems } = pickPendingQueueItems({
-      tagTreeCandidates: productionPool.filter(isTagTreeJob),
+      tagTreeCandidates,
       testCandidates,
-      productionCandidates: productionPool.filter((item) => !isTagTreeJob(item)),
+      productionCandidates,
       freeSlots,
       tagTreeReserved: TAG_TREE_RESERVED_CONCURRENCY,
       testReserved: TEST_TAGGING_CONCURRENCY,
       assetConcurrency: ASSET_TAGGING_CONCURRENCY,
       ...activeQueueCounts(),
     });
+    if (tagTreeItems.length) candidateCursors.tree = tagTreeItems.at(-1)!.teamId;
+    if (testItems.length) candidateCursors.test = testItems.at(-1)!.teamId;
+    if (productionItems.length) candidateCursors.production = productionItems.at(-1)!.teamId;
     const normalItems = [...testItems, ...productionItems];
-
-    const selectedAssetObjectIds = normalItems
-      .map((item) => item.assetObjectId)
-      .filter((id): id is number => id !== null);
-    const assetObjectsById = new Map(
-      selectedAssetObjectIds.length > 0
-        ? (
-            await prisma.assetObject.findMany({ where: { id: { in: selectedAssetObjectIds } } })
-          ).map((assetObject) => [assetObject.id, assetObject])
-        : [],
-    );
-    const allItems = [...tagTreeItems, ...normalItems].map((item) => ({
-      ...item,
-      assetObject:
-        item.assetObjectId !== null ? (assetObjectsById.get(item.assetObjectId) ?? null) : null,
-    }));
+    const ids = [...tagTreeItems, ...normalItems].map((item) => item.id);
+    const allItems = ids.length
+      ? await prisma.taggingQueueItem.findMany({
+          where: { id: { in: ids }, status: "pending" },
+          include: { assetObject: true },
+        })
+      : [];
 
     const tagsTreeLoader = createBatchTagsTreeLoader();
 
