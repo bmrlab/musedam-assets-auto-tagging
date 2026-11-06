@@ -59,3 +59,17 @@ describe("explicit logo folder inclusion", () => {
     ).toEqual([]);
   });
 });
+
+
+it("keeps a genuine OCR-only logo accepted when review thresholds are recomputed", () => {
+  const result = {
+    brandRecommendation: { matches: [], noConfidentMatch: true, bestMatch: null, recommendedTags: [] },
+    featureDecision: { ocrMatchedLogoIds: ["snow"], decisionInputMode: "text", ocr: { status: "completed", segments: ["Sulwhasoo"] },
+      decision: { status: "completed", result: { outcome: "matched", matches: [
+        { candidateId: "logo:snow", confidence: 92, evidence: ["ocr"], reason: "OCR文字匹配", conflicts: [], specificityLimit: null },
+        { candidateId: "logo:other", confidence: 92, evidence: ["ocr"], reason: "没有实际OCR别名", conflicts: [], specificityLimit: null },
+      ] } },
+    },
+  };
+  expect(rethresholdFeatures(result, { brand: 60, product: 60, ip: 60, person: 60 }).brandRecommendation?.matches?.map(m => m.assetLogoId)).toEqual(["snow"]);
+});

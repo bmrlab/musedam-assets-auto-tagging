@@ -36,7 +36,7 @@ import { getFeatureThresholds } from "@/lib/tagging/feature-threshold-settings";
 import prisma from "@/prisma/prisma";
 import pLimit from "p-limit";
 import { selectFeatureRegions, type DecisionFeatureType } from "./regions";
-import { runFeatureDecision } from "./service";
+import { recognizeFeatureOcr, runFeatureDecision } from "./service";
 import { allowsLogoFolderMatch, logoFolderAlias } from "./path-candidates";
 import type {
   FeatureDecisionCandidate,
@@ -67,6 +67,8 @@ export async function classifyAssetFeatures(
     imageMode?: boolean;
     fileName?: string;
     folderPath?: string;
+    ocrSegments?: string[];
+    ocrImage?: string;
     boxes?: Partial<Record<DecisionFeatureType, ClassificationDetectionBox[]>>;
   },
 ): Promise<AssetFeatureClassification> {
@@ -301,12 +303,17 @@ export async function classifyAssetFeatures(
         return [];
       }
     };
-    const folderCatalog = enabledTypes.includes("logo") && input.folderPath
+    const ocr = await recognizeFeatureOcr({
+      teamId, queueItemId: input.queueItemId, assetObjectId: input.assetObjectId,
+      sourceImage: input.ocrImage ?? imageInput.dataUrl, segments: input.ocrSegments,
+    });
+    const ocrText = ocr.segments.join("\n");
+    const folderCatalog = enabledTypes.includes("logo") && (input.folderPath || ocrText)
       ? await loadCatalog(prisma.assetLogo.findMany({
-          where: { teamId, enabled: true, status: "completed", OR: [
+          where: { teamId, enabled: true, status: "completed", ...(ocrText ? {} : { OR: [
             { notes: { contains: "文件夹" } }, { notes: { contains: "文件路径" } },
             { notes: { contains: "folder", mode: "insensitive" } }, { notes: { contains: "file path", mode: "insensitive" } },
-          ] },
+          ] }) },
           select: { id: true, name: true, notes: true, logoTypeId: true, logoTypeName: true, referenceMatchStrategy: true },
         }), "logo")
       : [];
@@ -314,7 +321,9 @@ export async function classifyAssetFeatures(
       allowsLogoFolderMatch(logo.notes) && logoFolderAlias(logo.name, input.folderPath ?? ""),
     );
     const folderMatchIds = new Set(folderMatches.map(logo => logo.id));
-    for (const logo of folderMatches) {
+    const ocrMatches = ocrText ? folderCatalog.filter(logo => logoFolderAlias(logo.name, ocrText)) : [];
+    const ocrMatchIds = new Set(ocrMatches.map(logo => logo.id));
+    for (const logo of [...folderMatches, ...ocrMatches]) {
       if (brandCandidates.some(match => match.assetLogoId === logo.id)) continue;
       brandCandidates.push({
         assetLogoId: logo.id, logoName: logo.name, logoTypeId: logo.logoTypeId,
@@ -429,6 +438,7 @@ export async function classifyAssetFeatures(
             similarity: match.similarity,
             referenceMatchStrategy: match.referenceMatchStrategy,
             regionIds: match.detectionIndex < 0 ? [] : [`logo:${match.detectionIndex}`],
+            ocrMatch: ocrMatchIds.has(match.assetLogoId) ? { alias: logoFolderAlias(match.logoName, ocrText)! } : undefined,
             folderMatch: folderMatchIds.has(match.assetLogoId) ? { alias: logoFolderAlias(match.logoName, input.folderPath ?? "")!, path: input.folderPath! } : undefined,
           },
           referenceImage?.objectKey,
@@ -500,11 +510,13 @@ export async function classifyAssetFeatures(
         sourceImage: imageInput.dataUrl,
         imageMode,
         candidates,
+        ocr,
       })),
       mode,
       decisionInputMode: imageMode ? "image" : "text",
       retrieval,
       folderMatchedLogoIds: [...folderMatchIds],
+      ocrMatchedLogoIds: [...ocrMatchIds],
     };
     for (const batch of output.diagnostics.decision.batches ?? []) {
       if (batch.status !== "completed") retrieval.unassessedCandidates.push(...batch.candidateIds.map(candidateId => ({
@@ -528,7 +540,8 @@ export async function classifyAssetFeatures(
           !match.specificityLimit?.trim() &&
           (!candidateId.startsWith("logo:") ||
             match.evidence.includes(imageMode ? "visual" : "retrieval") ||
-            (folderMatchIds.has(candidateId.slice(5)) && match.evidence.includes("path"))),
+            (folderMatchIds.has(candidateId.slice(5)) && match.evidence.includes("path")) ||
+            (ocrMatchIds.has(candidateId.slice(5)) && match.evidence.includes("ocr"))),
       ),
     );
     if (output.diagnostics.decision.status === "completed") {

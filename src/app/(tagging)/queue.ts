@@ -9,6 +9,8 @@ import { getFeatureThresholds } from "@/lib/tagging/feature-threshold-settings";
 import { rethresholdFeatures } from "@/lib/tagging/rethreshold-features";
 import { classifyAssetBrandRecommendation } from "@/lib/brand/tagging-brand-classification";
 import { classifyAssetFeatures, getFeatureDecisionMode } from "@/lib/feature-decision/classify";
+import { extractVideoOcrFrame } from "@/lib/tagging/video-frame";
+import { getAssetOcrSegments } from "@/lib/feature-decision/asset-ocr";
 import { isDecisionLlmImageUseEnabled } from "@/lib/feature-decision/config";
 import { buildFeatureRecommendations } from "@/lib/feature-decision/recommendations";
 import type { FeatureDecisionDiagnostics } from "@/lib/feature-decision/types";
@@ -405,6 +407,16 @@ export async function processQueueItem({
                 };
                 return null;
               }
+              const ocrSegments = getAssetOcrSegments(assetExtra, assetObject.content);
+              let ocrImage: string | undefined;
+              if (!ocrSegments.length && process.env.OCR_MODEL?.trim() && isVideoAssetExtension(assetExtra?.extension) && assetExtra?.downloadUrl) {
+                try {
+                  ocrImage = await extractVideoOcrFrame(assetExtra.downloadUrl, assetExtra.duration);
+                } catch (error) {
+                  throwIfQueueAborted();
+                  logger.warn({ msg: "Video OCR frame unavailable, using thumbnail", error: error instanceof Error ? error.message : "Frame extraction failed" });
+                }
+              }
               const result = await withFallback(
                 classifyAssetFeatures({
                   teamId,
@@ -413,6 +425,8 @@ export async function processQueueItem({
                   assetObjectId: assetObject.id,
                   fileName: assetObject.name,
                   folderPath: assetObject.materializedPath,
+                  ocrSegments,
+                  ocrImage,
                   imageMode: isDecisionLlmImageUseEnabled(),
                   enabledTypes: [
                     ...(logoCount > 0 ? ["logo" as const] : []),

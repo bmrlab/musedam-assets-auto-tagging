@@ -26,6 +26,8 @@ declare module "@/prisma/client" {
     thumbnailAccessUrl: string;
     downloadUrl: string;
     size: number;
+    /** Video duration in milliseconds, as returned by MuseDAM. */
+    duration: number;
     extension: string;
     /** 原始像素宽/高（来自 MuseDAM assets-by-ids 原样落库），用于画幅比例确定性打标；旧数据可能缺失 */
     width: number;

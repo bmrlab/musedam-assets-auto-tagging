@@ -63,6 +63,7 @@ EVIDENCE AND CONFIDENCE
 - If supplied candidates actually distinguish different capacities, models, or variants and the evidence cannot distinguish them, return plausible alternatives with lower confidence and a specificityLimit describing that actual ambiguity. A shared series name alone does not resolve such differences.
 - For a set named only as a water/emulsion set (such as "雪花秀御时参养水乳套装(1)"), assess the named series and water/emulsion set identity. Do not require a package-specific SKU, exact sizes, bonus gifts, or a complete gift inventory unless the candidate name defines those details. A real competing series or product identity may remain uncertain; explain that actual difference instead of adding an unnamed SKU requirement.
 - For example, the catalog product "悦诗风吟维他命C焕亮洁肤面膜洁面膏" does not specify capacity: matching product-name OCR, strong retrieval, and a source labeled 100g can support that product without confirming a separate 100g SKU. Likewise "悦诗风吟红茶多肽抗皱柔肤水" can match a 15ml sample when its product identity is supported. In both cases, do not add a capacity/SKU specificityLimit unless the supplied catalog entry itself defines that distinction.
+- A supplied ocrMatch marks a literal catalog-name alias transcribed in the source OCR. It can establish a text-logo identity without vector retrieval support. Use "ocr" evidence; do not invent retrieval or visual evidence. A zero retrieval score for an OCR-only candidate means it was added through OCR, not a negative visual comparison.
 - A supplied folderMatch marks an exact catalog-name alias in the folder path AND an explicit positive folder inclusion rule in that logo configuration. For these candidates, classify the configured brand association: path evidence alone can establish the match without visible logo text, OCR, or vector support. Chinese/English aliases in the same catalog name refer to the same brand. Do not invent visual/retrieval evidence for path-only candidates or require visual logo presence contrary to that configured scope. A zero retrieval score with no regionIds means this candidate was added from its folder rule, not a failed visual comparison. Missing folderMatch leaves the ordinary logo identity policy unchanged.
 - Explain reasons, conflicts, and specificityLimit in Simplified Chinese; preserve catalog names and literal OCR text.
 - For IP, prioritize identity-defining traits and respect the supplied partial-match definition.
@@ -159,6 +160,7 @@ export function buildFeatureDecisionMessages(input: {
     description: candidate.description?.slice(0, MAX_DESCRIPTION_CHARACTERS) ?? "",
     ...(imageMode ? { referenceImageLabel: `REFERENCE ${index + 1}` } : {}),
     folderMatch: candidate.folderMatch ?? null,
+    ocrMatch: candidate.ocrMatch ?? null,
     retrieval: {
       score: candidate.similarity,
       scoreMeaning:

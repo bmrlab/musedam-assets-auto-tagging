@@ -121,3 +121,22 @@ describe("bounded feature decision batches", () => {
     expect(result.decision.error).toContain("1 of 2");
   });
 });
+
+describe("precomputed OCR", () => {
+  it("does not issue a second OCR call when the queue already supplied interface OCR", async () => {
+    const fetchMock = vi.fn(async (_url, options) => {
+      expect(JSON.parse(options.body).model).toBe("decision");
+      return envelope({ outcome: "matched", matches: [{ candidateId: "product:0", confidence: 90, reason: "OCR identity", evidence: ["ocr"], conflicts: [], specificityLimit: null }] });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await runFeatureDecision({ teamId: 1, sourceImage: "source", imageMode: false, candidates: candidates.slice(0, 1), ocr: { status: "completed", source: "musedam", segments: ["Product 0"] } });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.ocr.source).toBe("musedam");
+  });
+  it("uses interface OCR before the model fallback even when OCR_MODEL is configured", async () => {
+    const { recognizeFeatureOcr } = await import("@/lib/feature-decision/service");
+    const fetchMock = vi.fn();vi.stubGlobal("fetch", fetchMock);
+    expect(await recognizeFeatureOcr({ teamId: 1, sourceImage: "source", segments: [" Sulwhasoo "] })).toEqual({ status: "completed", source: "musedam", segments: ["Sulwhasoo"] });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});

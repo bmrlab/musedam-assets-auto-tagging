@@ -13,6 +13,35 @@ import type {
   FeatureOcrDiagnostics,
 } from "./types";
 
+export async function recognizeFeatureOcr(input: FeatureLlmContext & {
+  sourceImage: string;
+  segments?: string[];
+}): Promise<FeatureOcrDiagnostics> {
+  const supplied = boundOcrSegments(input.segments ?? []);
+  if (supplied.length) return { status: "completed", segments: supplied, source: "musedam" };
+  let ocr: FeatureOcrDiagnostics;
+  const ocrModel = process.env.OCR_MODEL?.trim();
+  if (!ocrModel) {
+    ocr = { status: "disabled", segments: [] };
+  } else {
+    const { call, result } = await callFeatureLlm({
+      context: { teamId: input.teamId, queueItemId: input.queueItemId, assetObjectId: input.assetObjectId },
+      kind: "ocr",
+      model: ocrModel,
+      messages: buildOcrMessages(input.sourceImage),
+      parse: (text) => parseOcrResponse(text, 1),
+    });
+    const segments = result ? boundOcrSegments(result.content[0]) : [];
+    ocr = {
+      status: call.status === "failed" ? "failed" : segments.length ? "completed" : "empty",
+      segments,
+      call,
+      ...(call.error ? { error: call.error } : {}),
+    };
+  }
+  return { ...ocr, source: "model" };
+}
+
 export async function runFeatureDecision(
   input: FeatureLlmContext & {
     sourceImage: string;
@@ -20,6 +49,7 @@ export async function runFeatureDecision(
     fileName?: string;
     folderPath?: string;
     candidates: FeatureDecisionCandidate[];
+    ocr?: FeatureOcrDiagnostics;
   },
 ): Promise<FeatureDecisionDiagnostics> {
   const imageMode = input.imageMode ?? isDecisionLlmImageUseEnabled();
@@ -39,26 +69,7 @@ export async function runFeatureDecision(
     queueItemId: input.queueItemId,
     assetObjectId: input.assetObjectId,
   };
-  let ocr: FeatureOcrDiagnostics;
-  const ocrModel = process.env.OCR_MODEL?.trim();
-  if (!ocrModel) {
-    ocr = { status: "disabled", segments: [] };
-  } else {
-    const { call, result } = await callFeatureLlm({
-      context,
-      kind: "ocr",
-      model: ocrModel,
-      messages: buildOcrMessages(input.sourceImage),
-      parse: (text) => parseOcrResponse(text, 1),
-    });
-    const segments = result ? boundOcrSegments(result.content[0]) : [];
-    ocr = {
-      status: call.status === "failed" ? "failed" : segments.length ? "completed" : "empty",
-      segments,
-      call,
-      ...(call.error ? { error: call.error } : {}),
-    };
-  }
+  const ocr = input.ocr ?? await recognizeFeatureOcr(input);
 
   if (input.candidates.length === 0) {
     return {

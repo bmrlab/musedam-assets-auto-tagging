@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   ip: vi.fn(),
   product: vi.fn(),
   decision: vi.fn(),
+  ocr: vi.fn(),
   logos: vi.fn(),
   products: vi.fn(),
   ips: vi.fn(),
@@ -28,7 +29,7 @@ vi.mock("@/lib/product/product-classification", () => ({
   classifyProductImageRegions: mocks.product,
   detectProductFigureBoxes: vi.fn(),
 }));
-vi.mock("@/lib/feature-decision/service", () => ({ runFeatureDecision: mocks.decision }));
+vi.mock("@/lib/feature-decision/service", () => ({ runFeatureDecision: mocks.decision, recognizeFeatureOcr: mocks.ocr }));
 vi.mock("@/prisma/prisma", () => ({
   default: {
     assetLogo: { findMany: mocks.logos },
@@ -81,6 +82,7 @@ const decisionMatch = (id: string, confidence = 91) => ({
 
 beforeEach(() => {
   vi.resetAllMocks();
+  mocks.ocr.mockResolvedValue({ status: "empty", segments: [] });
   vi.stubEnv("DECISION_LLM_IMAGE_USE", "true");
   mocks.logo.mockResolvedValue({
     topMatches: [logo("first"), logo("lower", 0.6)],
@@ -526,5 +528,19 @@ describe("folder configured logo recall", () => {
     await classifyAssetFeatures({ teamId: 1, imageInput, enabledTypes: ["logo"], imageMode: false,
       folderPath: "雪花秀", boxes: { logo: [box(0)] } });
     expect(mocks.decision.mock.calls[0][0].candidates.some((c: FeatureDecisionCandidate) => c.classId === "snow")).toBe(false);
+  });
+});
+
+describe("OCR logo recall", () => {
+  it("recalls a missing logo from literal OCR without claiming a vector hit", async () => {
+    mocks.ocr.mockResolvedValue({ status: "completed", source: "musedam", segments: ["Sulwhasoo"] });
+    mocks.logos.mockResolvedValue([{ id: "snow", name: "雪花秀/SULWHASOO LOGO(1)", notes: "", logoTypeId: null, logoTypeName: "Logo", images: [{ objectKey: "snow-ref" }] }]);
+    mocks.decision.mockResolvedValue({ ocr: { status: "completed", segments: ["Sulwhasoo"] }, decision: { status: "completed", result: { outcome: "matched", matches: [{ ...decisionMatch("snow", 94), evidence: ["ocr"] }] } } });
+    const result = await classifyAssetFeatures({ teamId: 1, imageInput, imageMode: false, enabledTypes: ["logo"], boxes: { logo: [box(0)] }, ocrSegments: ["Sulwhasoo"] });
+    expect(result.brand?.matches?.map(m => m.assetLogoId)).toEqual(["snow"]);
+    expect(result.diagnostics.ocrMatchedLogoIds).toEqual(["snow"]);
+    expect(mocks.decision.mock.calls[0][0]).toMatchObject({ ocr: { segments: ["Sulwhasoo"] } });
+    expect(mocks.decision.mock.calls[0][0].candidates.find((c: FeatureDecisionCandidate) => c.classId === "snow")).toMatchObject({ similarity: 0, regionIds: [], ocrMatch: { alias: "SULWHASOO" } });
+    expect(mocks.ocr).toHaveBeenCalledOnce();
   });
 });

@@ -89,7 +89,7 @@ describe("direct mode feature-library thresholds (shared with review path)", () 
           matches: [
             productMatch("phone", 92, [10, 11]),
             productMatch("headphones", 80, [11, 12]),
-            productMatch("bottle", 79, [13]),
+            productMatch("bottle", FEATURE_CONFIDENCE_MIN.product - 1, [13]),
           ],
           recommendedTags: [{ assetTagId: 999, tagPath: ["Unrelated aggregate tag"] }],
         },

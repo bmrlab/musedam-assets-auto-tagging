@@ -35,6 +35,9 @@ RUN pnpm run build
 
 # Production image, copy all the files and run next
 FROM base AS runner
+RUN apt-get update -y \
+  && apt-get install -y --no-install-recommends ffmpeg \
+  && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 ENV NODE_ENV=production

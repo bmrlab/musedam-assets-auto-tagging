@@ -24,7 +24,8 @@ export function rethresholdFeatures(
       (imageMode || !m.evidence.includes("visual")) &&
       (!m.candidateId.startsWith("logo:") ||
         m.evidence.includes(imageMode ? "visual" : "retrieval") ||
-        (diagnostics?.folderMatchedLogoIds?.includes(m.candidateId.slice(5)) && m.evidence.includes("path"))),
+        (diagnostics?.folderMatchedLogoIds?.includes(m.candidateId.slice(5)) && m.evidence.includes("path")) ||
+        (diagnostics?.ocrMatchedLogoIds?.includes(m.candidateId.slice(5)) && m.evidence.includes("ocr"))),
   );
   // Metadata placeholders are hydrated from the current team-owned feature library before review.
   const common = {
