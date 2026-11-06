@@ -125,6 +125,48 @@ describe("pickPendingQueueItems", () => {
   });
 });
 
+describe("refilling slots while older tasks remain active", () => {
+  it("counts active tests against the reservation so production is not starved", () => {
+    const picked = pickPendingQueueItems({
+      ...slots,
+      freeSlots: 1,
+      activeTests: 1,
+      activeProduction: 3,
+      tagTreeCandidates: [],
+      testCandidates: items([101]),
+      productionCandidates: items([1]),
+    });
+    expect(picked.testItems).toHaveLength(0);
+    expect(picked.productionItems.map((item) => item.id)).toEqual([1]);
+  });
+  it("does not borrow the tree slot when five assets are already active", () => {
+    const picked = pickPendingQueueItems({
+      ...slots,
+      freeSlots: 1,
+      activeProduction: 5,
+      tagTreeCandidates: items([9]),
+      testCandidates: items([101]),
+      productionCandidates: items([1]),
+    });
+    expect(picked.tagTreeItems.map((item) => item.id)).toEqual([9]);
+    expect(picked.testItems).toHaveLength(0);
+    expect(picked.productionItems).toHaveLength(0);
+  });
+  it("does not start another tree while its reservation is occupied", () => {
+    const picked = pickPendingQueueItems({
+      ...slots,
+      freeSlots: 2,
+      activeTagTrees: 1,
+      activeProduction: 3,
+      tagTreeCandidates: items([9]),
+      testCandidates: [],
+      productionCandidates: items([1, 2, 3]),
+    });
+    expect(picked.tagTreeItems).toHaveLength(0);
+    expect(picked.productionItems).toHaveLength(2);
+  });
+});
+
 describe("queueLaneConcurrency", () => {
   it("uses every asset slot when the other lane is idle, and splits them when it is busy", () => {
     const assetSlots = Math.max(1, ASSET_TAGGING_CONCURRENCY);

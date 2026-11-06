@@ -997,6 +997,19 @@ export async function processQueueItem({
 // 进程级单例并发闸：保证即使有多个重叠的 processPendingQueueItems 调用，
 // 全局同时处理的队列项也不会超过 TOTAL_QUEUE_CONCURRENCY（每次调用新建 pLimit 无法做到这点）。
 const queueConcurrencyLimit = pLimit(TOTAL_QUEUE_CONCURRENCY);
+const activeQueueItems = new Map<number, "tree" | "test" | "production">();
+let dispatchInProgress = false;
+let dispatchRequested = false;
+function activeQueueCounts() {
+  const counts = { activeTagTrees: 0, activeTests: 0, activeProduction: 0 };
+  for (const lane of activeQueueItems.values()) {
+    if (lane === "tree") counts.activeTagTrees++;
+    else if (lane === "test") counts.activeTests++;
+    else counts.activeProduction++;
+  }
+  return counts;
+}
+
 // 处理中的任务每 30 秒刷新一次 updatedAt（心跳），超过 2 分钟没有心跳就说明处理它的进程已经没了
 // （被看门狗重启、崩溃或 pod 被替换）。之前没有心跳，只能等 15 分钟才敢判定，正常但较慢的任务也可能被误判。
 const PROCESSING_HEARTBEAT_MS = 30_000;
@@ -1134,6 +1147,13 @@ async function tryClaimAndProcess(
       },
     });
     if (updated.count > 0) {
+      rootLogger.info({
+        msg: "Queue item claimed",
+        queueItemId: queueItem.id,
+        teamId: queueItem.teamId,
+        waitMs: Math.max(0, startsAt.getTime() - queueItem.createdAt.getTime()),
+        ...activeQueueCounts(),
+      });
       // 心跳：处理期间定时刷新 updatedAt，让回收逻辑能区分"还在跑"和"进程已经没了"
       heartbeat = setInterval(() => {
         void prisma.taggingQueueItem
@@ -1254,83 +1274,118 @@ export async function processPendingQueueItems(): Promise<{
     }
     return { processing: 0, skipped: 0 };
   }
-  logPendingSummaryThrottled();
-  // 本进程的槽位已经占满（含已排进 pLimit 等待的）时直接跳过：处理一个任务要几十秒，
-  // 而 queue-processor 调用 / 入队 kick 每几秒就来一轮，不跳过的话一轮接一轮排在 pLimit 后面，
-  // 每轮都攥着自己的候选和素材数据，积压时内存持续上涨直到堆溢出、进程崩溃。
-  const freeSlots =
-    TOTAL_QUEUE_CONCURRENCY -
-    (queueConcurrencyLimit.activeCount + queueConcurrencyLimit.pendingCount);
-  if (freeSlots <= 0) {
-    rootLogger.info({ msg: "processPendingQueueItems skipped: all slots busy" });
+  if (dispatchInProgress) {
+    dispatchRequested = true;
     return { processing: 0, skipped: 0 };
   }
-  rootLogger.info(`processPendingQueueItems`);
-  await recoverStaleProcessingItems();
-
-  // 测试和正式分开查：正式积压超过候选池时，测试任务也不会被挡在池子外面。
-  // 候选池不带 assetObject：素材的 content/extra 是整条 MuseDAM 素材 JSON，全拉下来
-  // 再在主线程解析很重，而每轮只会领走空闲槽位那么多条；选定之后再只查被选中那几条的素材。
-  const [productionPool, testCandidates] = await Promise.all([
-    prisma.taggingQueueItem.findMany({
-      where: { status: "pending", taskType: { not: "test" } },
-      orderBy: { createdAt: "asc" },
-      take: CANDIDATE_POOL_SIZE,
-    }),
-    prisma.taggingQueueItem.findMany({
-      where: { status: "pending", taskType: "test" },
-      orderBy: { createdAt: "asc" },
-      take: CANDIDATE_POOL_SIZE,
-    }),
-  ]);
-
-  // 按团队轮询挑选，避免某个团队短时间内堆积大量任务时把其他团队"饿死"。
-  // 只领空闲槽位数量的任务，不多领去 pLimit 里排队。
-  const { tagTreeItems, testItems, productionItems } = pickPendingQueueItems({
-    tagTreeCandidates: productionPool.filter(isTagTreeJob),
-    testCandidates,
-    productionCandidates: productionPool.filter((item) => !isTagTreeJob(item)),
-    freeSlots,
-    tagTreeReserved: TAG_TREE_RESERVED_CONCURRENCY,
-    testReserved: TEST_TAGGING_CONCURRENCY,
-    assetConcurrency: ASSET_TAGGING_CONCURRENCY,
-  });
-  const normalItems = [...testItems, ...productionItems];
-
-  const selectedAssetObjectIds = normalItems
-    .map((item) => item.assetObjectId)
-    .filter((id): id is number => id !== null);
-  const assetObjectsById = new Map(
-    selectedAssetObjectIds.length > 0
-      ? (await prisma.assetObject.findMany({ where: { id: { in: selectedAssetObjectIds } } })).map(
-          (assetObject) => [assetObject.id, assetObject],
-        )
-      : [],
-  );
-  const allItems = [...tagTreeItems, ...normalItems].map((item) => ({
-    ...item,
-    assetObject:
-      item.assetObjectId !== null ? (assetObjectsById.get(item.assetObjectId) ?? null) : null,
-  }));
-
+  dispatchInProgress = true;
   let processing = 0;
   let skipped = 0;
-  const tagsTreeLoader = createBatchTagsTreeLoader();
+  let processTasks: Promise<void>[] = [];
+  let pickedCounts = { tagTreePicked: 0, normalPicked: 0, testPicked: 0, productionPicked: 0 };
+  try {
+    logPendingSummaryThrottled();
+    // 本进程的槽位已经占满（含已排进 pLimit 等待的）时直接跳过：处理一个任务要几十秒，
+    // 而 queue-processor 调用 / 入队 kick 每几秒就来一轮，不跳过的话一轮接一轮排在 pLimit 后面，
+    // 每轮都攥着自己的候选和素材数据，积压时内存持续上涨直到堆溢出、进程崩溃。
+    const freeSlots =
+      TOTAL_QUEUE_CONCURRENCY -
+      (queueConcurrencyLimit.activeCount + queueConcurrencyLimit.pendingCount);
+    if (freeSlots <= 0) {
+      rootLogger.info({
+        msg: "processPendingQueueItems skipped: all slots busy",
+        ...activeQueueCounts(),
+      });
+      return { processing: 0, skipped: 0 };
+    }
+    rootLogger.info(`processPendingQueueItems`);
+    await recoverStaleProcessingItems();
 
-  const processTasks = allItems.map((queueItem) =>
-    queueConcurrencyLimit(() =>
-      tryClaimAndProcess(
-        queueItem,
-        () => {
-          processing++;
-        },
-        () => {
-          skipped++;
-        },
-        tagsTreeLoader,
-      ),
-    ),
-  );
+    // 测试和正式分开查：正式积压超过候选池时，测试任务也不会被挡在池子外面。
+    // 候选池不带 assetObject：素材的 content/extra 是整条 MuseDAM 素材 JSON，全拉下来
+    // 再在主线程解析很重，而每轮只会领走空闲槽位那么多条；选定之后再只查被选中那几条的素材。
+    const [productionPool, testCandidates] = await Promise.all([
+      prisma.taggingQueueItem.findMany({
+        where: { status: "pending", taskType: { not: "test" } },
+        orderBy: { createdAt: "asc" },
+        take: CANDIDATE_POOL_SIZE,
+      }),
+      prisma.taggingQueueItem.findMany({
+        where: { status: "pending", taskType: "test" },
+        orderBy: { createdAt: "asc" },
+        take: CANDIDATE_POOL_SIZE,
+      }),
+    ]);
+
+    // 按团队轮询挑选，避免某个团队短时间内堆积大量任务时把其他团队"饿死"。
+    // 只领空闲槽位数量的任务，不多领去 pLimit 里排队。
+    const { tagTreeItems, testItems, productionItems } = pickPendingQueueItems({
+      tagTreeCandidates: productionPool.filter(isTagTreeJob),
+      testCandidates,
+      productionCandidates: productionPool.filter((item) => !isTagTreeJob(item)),
+      freeSlots,
+      tagTreeReserved: TAG_TREE_RESERVED_CONCURRENCY,
+      testReserved: TEST_TAGGING_CONCURRENCY,
+      assetConcurrency: ASSET_TAGGING_CONCURRENCY,
+      ...activeQueueCounts(),
+    });
+    const normalItems = [...testItems, ...productionItems];
+
+    const selectedAssetObjectIds = normalItems
+      .map((item) => item.assetObjectId)
+      .filter((id): id is number => id !== null);
+    const assetObjectsById = new Map(
+      selectedAssetObjectIds.length > 0
+        ? (
+            await prisma.assetObject.findMany({ where: { id: { in: selectedAssetObjectIds } } })
+          ).map((assetObject) => [assetObject.id, assetObject])
+        : [],
+    );
+    const allItems = [...tagTreeItems, ...normalItems].map((item) => ({
+      ...item,
+      assetObject:
+        item.assetObjectId !== null ? (assetObjectsById.get(item.assetObjectId) ?? null) : null,
+    }));
+
+    const tagsTreeLoader = createBatchTagsTreeLoader();
+
+    pickedCounts = {
+      tagTreePicked: tagTreeItems.length,
+      normalPicked: normalItems.length,
+      testPicked: testItems.length,
+      productionPicked: productionItems.length,
+    };
+    processTasks = allItems.map((queueItem) => {
+      activeQueueItems.set(
+        queueItem.id,
+        isTagTreeJob(queueItem) ? "tree" : queueItem.taskType === "test" ? "test" : "production",
+      );
+      return queueConcurrencyLimit(() =>
+        tryClaimAndProcess(
+          queueItem,
+          () => {
+            processing++;
+          },
+          () => {
+            skipped++;
+          },
+          tagsTreeLoader,
+        ),
+      ).finally(() => {
+        activeQueueItems.delete(queueItem.id);
+        // Refill as each slot is released: an embedded/external scheduler may still be
+        // awaiting a slow sibling in this batch, and therefore cannot poll again itself.
+        kickQueueProcessing();
+      });
+    });
+  } finally {
+    // Serialize only candidate selection/dispatch, never model execution.
+    dispatchInProgress = false;
+    if (dispatchRequested) {
+      dispatchRequested = false;
+      kickQueueProcessing();
+    }
+  }
 
   await Promise.all(processTasks);
 
@@ -1338,10 +1393,7 @@ export async function processPendingQueueItems(): Promise<{
     msg: `processPendingQueueItems`,
     processing,
     skipped,
-    tagTreePicked: tagTreeItems.length,
-    normalPicked: normalItems.length,
-    testPicked: testItems.length,
-    productionPicked: productionItems.length,
+    ...pickedCounts,
   });
 
   return { processing, skipped };

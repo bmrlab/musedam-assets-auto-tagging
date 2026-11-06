@@ -347,4 +347,6 @@ https://yourdomain.com/tagging?locale=en-US
 
 标签的历史审核、任务和特征库关联通过 `AssetTag.deletedAt` 保留，正常标签查询仅返回未删除记录。同名重建使用新 ID。启用前先应用 `20261106090000_tag_soft_delete_queue_poll` 并重新生成 Prisma Client；不能混用不识别软删除的旧应用实例。
 
+队列现在会在单个任务结束后补领空槽，不等待同批最慢任务完成，并按活动任务数保留现有车道并发限制。
+
 排查依据、批量写入与队列索引、实际本地测量、迁移兼容和未完成的环境 9 端到端验证见 [标签处理性能与软删除](docs/tagging-performance.md)。
