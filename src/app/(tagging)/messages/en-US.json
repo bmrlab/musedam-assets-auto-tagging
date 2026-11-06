@@ -186,8 +186,8 @@
         "save": "Save",
         "previewImage": "Preview Image",
         "closePreview": "Close Preview",
-        "reviewRefreshTitle": "Refresh existing review results?",
-        "reviewRefreshDescription": "The match strategy changed. Do you want to re-run all completed, unreviewed Logo-enabled batches in Tagging Review? Existing test results and reviewed history will remain unchanged.",
+        "reviewRefreshTitle": "Update pending-review features?",
+        "reviewRefreshDescription": "The multi-image match strategy has changed. Recalculate this feature's ranking in the pending-review list using the new rules? Already reviewed results will not be affected.",
         "saveOnly": "No, save only",
         "saveAndRefresh": "Yes, save and refresh",
         "reviewRefreshScheduled": "Logo updated. Existing unreviewed results will refresh after reference processing finishes."
