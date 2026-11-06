@@ -669,6 +669,9 @@
       "testDescriptionText2": "• タグ体系が作成されていることを確認してください。AIアシスタントを使用して業界タグ体系を迅速に生成することもできます。",
       "testDescriptionText3": "• AIマッチングテストの設定はテスト用のみであり、AIラベリング設定には影響を与えません",
       "testOnlyDescription": "テスト用のみで、ファイル及び結果は保存または企業ライブラリに取り込まれません。",
+      "uploadLocalFiles": "Upload local images",
+      "localFileInvalid": "{name}: Select an image up to 20 MB.",
+      "localUploadFailed": "Local image upload failed.",
       "uploadTestFiles": "テストファイルをアップロード",
       "videoCreative": "ビデオクリエイティブ"
     },

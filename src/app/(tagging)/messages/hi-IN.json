@@ -951,6 +951,9 @@
       "testDescriptionText2": "• कृपया सुनिश्चित करें कि टैग सिस्टम बनाया गया है; आप उद्योग टैग सिस्टम को जल्दी से बनाने के लिए AI सहायक का भी उपयोग कर सकते हैं",
       "testDescriptionText3": "• परीक्षण में AI मिलान कॉन्फ़िगरेशन केवल परीक्षण के लिए है और यह AI टैगिंग सेटिंग्स को प्रभावित नहीं करता है",
       "testOnlyDescription": "केवल परीक्षण के लिए, फ़ाइलें और परिणाम सहेजे नहीं जाएंगे या एंटरप्राइज़ लाइब्रेरी में दर्ज नहीं किए जाएंगे",
+      "uploadLocalFiles": "Upload local images",
+      "localFileInvalid": "{name}: Select an image up to 20 MB.",
+      "localUploadFailed": "Local image upload failed.",
       "uploadTestFiles": "टेस्ट फाइलें अपलोड करें",
       "videoCreative": "वीडियो क्रिएटिव"
     },

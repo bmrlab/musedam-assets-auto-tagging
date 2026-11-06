@@ -669,6 +669,9 @@
       "testDescriptionText2": "• Stellen Sie sicher, dass ein Tag-System erstellt wird; Sie können auch den KI-Assistenten verwenden, um schnell ein Branchen-Tag-System zu generieren",
       "testDescriptionText3": "• Die AI-Matching-Konfiguration im Testmodus dient nur zu Testzwecken und beeinträchtigt nicht die AI-Tagging-Einstellungen",
       "testOnlyDescription": "Nur zu Testzwecken. Dateien und Ergebnisse werden nicht gespeichert oder in die Unternehmensbibliothek aufgenommen.",
+      "uploadLocalFiles": "Upload local images",
+      "localFileInvalid": "{name}: Select an image up to 20 MB.",
+      "localUploadFailed": "Local image upload failed.",
       "uploadTestFiles": "Testdateien hochladen",
       "videoCreative": "Videokreativität"
     },

@@ -614,6 +614,9 @@
       "remove": "Rimuovi"
     },
     "Test": {
+      "uploadLocalFiles": "Upload local images",
+      "localFileInvalid": "{name}: Select an image up to 20 MB.",
+      "localUploadFailed": "Local image upload failed.",
       "uploadTestFiles": "Carica file di test",
       "testDescription": "Descrizione test",
       "removeAsset": "Rimuovi",

@@ -669,6 +669,9 @@
       "testDescriptionText2": "• Certifique-se de que o sistema de tags seja criado; Você também pode usar o assistente AI para gerar rapidamente o sistema de tags do setor",
       "testDescriptionText3": "• A configuração de correspondência de IA em teste é apenas para fins de teste e não afeta as configurações de marcação de IA",
       "testOnlyDescription": "Apenas para teste, arquivos e resultados não serão salvos nem inseridos na biblioteca empresarial",
+      "uploadLocalFiles": "Upload local images",
+      "localFileInvalid": "{name}: Select an image up to 20 MB.",
+      "localUploadFailed": "Local image upload failed.",
       "uploadTestFiles": "Carregar Arquivos de Teste",
       "videoCreative": "Criativo de Vídeo"
     },

@@ -27,11 +27,19 @@ import {
 } from "@/lib/product/product-match-policy";
 import { meetsFeatureConfidenceThreshold } from "@/lib/tagging/feature-confidence";
 import { cn } from "@/lib/utils";
-import { AlertCircleIcon, Loader2, PlayIcon, PlusIcon, RefreshCwIcon, Trash } from "lucide-react";
+import {
+  AlertCircleIcon,
+  Loader2,
+  PlayIcon,
+  PlusIcon,
+  RefreshCwIcon,
+  Trash,
+  UploadIcon,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { startTaggingTasksAction } from "./actions";
+import { startTaggingTasksAction, uploadLocalTestFileAction } from "./actions";
 import { getFeatureThumbnailsAction } from "./components/actions";
 import {
   getTaggingResultFeatureKeys,
@@ -40,6 +48,7 @@ import {
 } from "./components/TaggingResultDisplay";
 
 interface SelectedAsset {
+  source?: "local";
   id: string; // 素材唯一标识
   name: string; // 素材名称
   extension: string; // 文件扩展名
@@ -473,6 +482,7 @@ export default function TestClient() {
   const tResult = useTranslations("TaggingResultDisplay");
   const tSidebar = useTranslations("Tagging.Sidebar");
   const featureLibraryFeatures = useFeatureLibraryFeatures();
+  const localFileInputRef = useRef<HTMLInputElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isPolling, setIsPolling] = useState(false);
   const [selectedAssets, setSelectedAssets] = useState<SelectedAsset[]>([]);
@@ -1197,6 +1207,31 @@ export default function TestClient() {
     beginPollingSession(queueItemIds, pollingStartedAtRef.current ?? Date.now());
   }, [beginPollingSession, queueItemIds]);
 
+  const handleLocalFiles = async (files: File[]) => {
+    if (!files.length) return;
+    setIsProcessing(true);
+    try {
+      for (const file of files) {
+        if (!file.type.startsWith("image/") || file.size === 0 || file.size > 20 * 1024 * 1024) {
+          toast.error(t("localFileInvalid", { name: file.name }));
+          continue;
+        }
+        const formData = new FormData();
+        formData.set("file", file);
+        const result = await uploadLocalTestFileAction(formData);
+        if (result.success) {
+          setSelectedAssets((current) => [...current, result.data]);
+        } else {
+          toast.error(result.message || t("localUploadFailed"));
+        }
+      }
+    } catch {
+      toast.error(t("localUploadFailed"));
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleAssetSelection = async () => {
     try {
       setIsProcessing(true);
@@ -1212,7 +1247,10 @@ export default function TestClient() {
           return;
         }
 
-        setSelectedAssets(convertedAssets);
+        setSelectedAssets((current) => [
+          ...current.filter((asset) => asset.source === "local"),
+          ...convertedAssets,
+        ]);
         toast.success(t("assetsSelectedSuccess", { count: convertedAssets.length }));
       } else {
         toast.info(t("noAssetsSelected"));
@@ -1411,7 +1449,21 @@ export default function TestClient() {
               </div>
             )}
 
-            <div className="flex items-center justify-start gap-3">
+            <div className="flex flex-wrap items-center justify-start gap-3">
+              <input
+                ref={localFileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                aria-label={t("uploadLocalFiles")}
+                disabled={isProcessing || isPolling}
+                onChange={(event) => {
+                  const files = Array.from(event.target.files ?? []);
+                  event.target.value = "";
+                  void handleLocalFiles(files);
+                }}
+              />
               <Button
                 onClick={handleStartTagging}
                 className="gap-2"
@@ -1438,6 +1490,15 @@ export default function TestClient() {
               >
                 <PlusIcon className="size-4" />
                 {t("selectAssetFiles")}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isProcessing || isPolling}
+                onClick={() => localFileInputRef.current?.click()}
+              >
+                <UploadIcon className="size-4" />
+                {t("uploadLocalFiles")}
               </Button>
               {/* {isPolling && (
                 <Button

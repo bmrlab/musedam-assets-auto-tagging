@@ -996,6 +996,9 @@
       "testDescriptionText2": "• Убедитесь, что система тегов создана; вы также можете использовать помощника ИИ для быстрого создания систем тегов для отрасли",
       "testDescriptionText3": "• Конфигурация сопоставления ИИ в тесте предназначена только для тестирования и не влияет на настройки тегирования ИИ",
       "testOnlyDescription": "Только для тестирования, файлы и результаты не сохраняются и не добавляются в корпоративную библиотеку",
+      "uploadLocalFiles": "Upload local images",
+      "localFileInvalid": "{name}: Select an image up to 20 MB.",
+      "localUploadFailed": "Local image upload failed.",
       "uploadTestFiles": "Загрузить тестовые файлы",
       "videoCreative": "Видеокреатив"
     },

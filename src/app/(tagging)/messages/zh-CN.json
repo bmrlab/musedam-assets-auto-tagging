@@ -941,6 +941,9 @@
       "remove": "移除"
     },
     "Test": {
+      "uploadLocalFiles": "上传本地图片",
+      "localFileInvalid": "{name}：请选择不超过 20 MB 的图片",
+      "localUploadFailed": "本地图片上传失败",
       "uploadTestFiles": "上传测试文件",
       "testDescription": "测试说明",
       "removeAsset": "移除",

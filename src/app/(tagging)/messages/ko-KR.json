@@ -668,6 +668,9 @@
       "testDescriptionText2": "• 태그 체계가 생성되었는지 확인하세요. AI 어시스턴트를 사용하여 산업별 태그 체계를 빠르게 생성할 수도 있습니다.",
       "testDescriptionText3": "• AI 매칭 테스트의 구성은 테스트용으로만 사용되며, AI 라벨링 설정과는 상호 영향을 미치지 않습니다.",
       "testOnlyDescription": "테스트용으로만 사용되며 파일 및 결과는 저장되거나 기업 라이브러리에 들어가지 않습니다.",
+      "uploadLocalFiles": "Upload local images",
+      "localFileInvalid": "{name}: Select an image up to 20 MB.",
+      "localUploadFailed": "Local image upload failed.",
       "uploadTestFiles": "테스트 파일 업로드",
       "videoCreative": "비디오创意"
     },
