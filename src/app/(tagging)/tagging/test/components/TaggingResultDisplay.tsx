@@ -487,6 +487,7 @@ export function TaggingResultDisplay({ result, featureThumbnails }: TaggingResul
             <Image
               src={result.asset.thumbnail}
               alt={result.asset.name}
+              unoptimized
               fill
               sizes="80px"
               className="object-cover"
