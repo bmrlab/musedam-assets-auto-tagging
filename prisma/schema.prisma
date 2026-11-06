@@ -157,6 +157,7 @@ model AssetTag {
   // Active sibling/root uniqueness is maintained by partial indexes in the migration.
   // Tombstones retain their original name, slug, hierarchy and historical foreign keys.
   @@index([teamId, deletedAt, parentId])
+  @@index([slug])
 
 }
 
@@ -632,6 +633,8 @@ model TaggingQueueItem {
   taggingAuditItems TaggingAuditItem[]
 
   @@index([teamId, status])
+  @@index([status, createdAt])
+  @@index([status, updatedAt])
 }
 
 enum TaggingAuditStatus {

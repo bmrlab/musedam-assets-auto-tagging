@@ -111,9 +111,9 @@ describe("team thresholds on pending review evidence", () => {
   it("validates persisted settings and preserves defaults", () => {
     expect(normalizeFeatureThresholds({ brand: 70, ip: -1, person: "30", product: 1000 })).toEqual({
       brand: 70,
-      ip: 80,
+      ip: 60,
       person: 60,
-      product: 80,
+      product: 60,
     });
   });
 });

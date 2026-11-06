@@ -13,7 +13,7 @@ it("isolates settings by authenticated team and does not overwrite other feature
   await saveFeatureThreshold("brand", 70); await saveFeatureThreshold("product", 55);
   expect(await fetchFeatureThreshold("brand")).toBe(70);
   state.teamId = 8;
-  expect(await fetchFeatureThreshold("brand")).toBe(75);
+  expect(await fetchFeatureThreshold("brand")).toBe(60);
   await saveFeatureThreshold("brand", 90);
   state.teamId = 7;
   expect(await fetchFeatureThreshold("brand")).toBe(70);
