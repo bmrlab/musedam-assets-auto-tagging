@@ -37,7 +37,7 @@ import {
 } from "@/lib/brand/browser-image";
 import { MAX_TOTAL_NEW_REFERENCE_UPLOAD_BYTES } from "@/lib/brand/upload-constants";
 import { uploadS3ObjectFromBrowser } from "@/lib/s3-browser-upload";
-import { CircleHelp, Loader2, Plus, TriangleAlert, X } from "lucide-react";
+import { Loader2, Plus, TriangleAlert, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -492,7 +492,6 @@ export default function BrandLogoDialog({
               <div className="flex items-center gap-2">
                 <span className="inline-flex items-center gap-1 text-[12px] text-basic-5">
                   {t("dialog.multiImageMatchLabel")}
-                  <CircleHelp className="size-3.5" aria-hidden="true" />
                 </span>
                 <div className="inline-flex rounded-[6px] bg-basic-2 p-0.5">
                   {(["average", "highest"] as const).map((strategy) => (
