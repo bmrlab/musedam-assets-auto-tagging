@@ -1,4 +1,3 @@
-import type { FeatureEvidence } from "@/lib/feature-decision/types";
 import { getBrandMatches, getIpMatches } from "@/lib/feature-decision/match-policy";
 import { getProductMatches } from "@/lib/product/product-match-policy";
 import {
@@ -13,9 +12,7 @@ export type PendingFeatureCandidate = {
   key: string;
   name: string;
   confidence: number;
-  reasons: string[];
-  evidence: FeatureEvidence[];
-  reason: string;
+  feature: ReviewFeature;
 };
 
 /** High scoring unresolved predictions are informational; they never enter applied matches. */
@@ -56,9 +53,7 @@ export function pendingFeatureCandidates(
         key: match.candidateId,
         name: feature.name,
         confidence: match.confidence,
-        reasons,
-        evidence: match.evidence,
-        reason: match.reason,
+        feature,
       },
     ];
   });

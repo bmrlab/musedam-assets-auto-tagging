@@ -31,7 +31,7 @@ vi.mock("@/app/(tagging)/tagging/review/components/AddTagDialog", () => ({
   AddTagDialog: () => null,
 }));
 vi.mock("@/app/(tagging)/tagging/review/components/FeatureThumbnail", () => ({
-  FeatureThumbnail: () => null,
+  FeatureThumbnail: ({ alt, initialImage }: { alt: string; initialImage?: { signedUrl: string } }) => <img alt={alt} src={initialImage?.signedUrl} />,
 }));
 
 function props(): ComponentProps<typeof ReviewItem> {
@@ -165,6 +165,26 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("review feature visibility during settings hydration", () => {
+  it.each([61, 92, 97])("renders candidate images and confidence colors at %s without internal details", (confidence) => {
+    const data = props();
+    data.pendingFeatureCandidates = [{
+      queueItemId: 1,
+      key: "product:candidate",
+      name: "Candidate cream",
+      confidence,
+      feature: { id: "candidate", featureType: "product", name: "Candidate cream", typeId: null, typeName: "Cream", tags: [] },
+    }];
+    data.featureThumbnails["product:candidate"] = { signedUrl: "https://example.com/cream.jpg", signedUrlExpiresAt: Date.now() + 600000 };
+    render(<ReviewItem {...data} />);
+    const card = screen.getByText("Candidate cream").closest(".border")!;
+    expect(card.textContent).toContain(`${confidence}%`);
+    expect(card.className).toContain(confidence >= 95 ? "bg-primary-1" : confidence >= 90 ? "bg-[#F6FFED]" : "bg-[#FFF7E6]");
+    expect(screen.getByAltText("Candidate cream").getAttribute("src")).toBe("https://example.com/cream.jpg");
+    expect(screen.queryByText("pendingFeatureConfirmation")).toBeNull();
+    expect(screen.queryByText("recognitionEvidence")).toBeNull();
+    expect(screen.queryByText("evidenceDetails")).toBeNull();
+  });
+
   it("retains all four classifications while initial false settings hydrate to enabled", () => {
     const data = props();
     const originalBatch = JSON.stringify(data.batch);

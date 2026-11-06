@@ -74,8 +74,6 @@ import {
 } from "./actions";
 import { AddFeatureDialog } from "./components/AddFeatureDialog";
 import { AddTagDialog } from "./components/AddTagDialog";
-import { FeatureEvidence } from "./components/FeatureEvidence";
-import type { FeatureDecisionMatch } from "@/lib/feature-decision/types";
 import { FeatureThumbnail } from "./components/FeatureThumbnail";
 import {
   FEATURE_REVIEW_CHANGED,
@@ -189,7 +187,6 @@ function ExistingFeatureSnapshotRow({
 }
 
 function FeatureRecognitionRow({
-  decision,
   featureType,
   featureId,
   featureClass,
@@ -205,8 +202,9 @@ function FeatureRecognitionRow({
   tooltipRemove,
   onPreview,
   thumbnail,
+  showToggle = true,
 }: {
-  decision?: FeatureDecisionMatch;
+  showToggle?: boolean;
   featureType: "brand" | "ip" | "product" | "person";
   featureId: string;
   /** undefined → 列表未预签名，由 FeatureThumbnail 自行请求 */
@@ -263,10 +261,6 @@ function FeatureRecognitionRow({
         <div className="mt-0.5 truncate text-[10px] text-current/60">
           {tResult("matchingSource")}: {tResult(`${featureType}Recognition`)}
         </div>
-        <FeatureEvidence
-          evidence={decision?.evidence ?? (rawSimilarity !== undefined ? ["retrieval"] : undefined)}
-          reason={decision?.reason}
-        />
         {tagPaths.length > 0 ? (
           <div className="mt-1 flex flex-wrap gap-1">
             {tagPaths.map((tagPath, index) => (
@@ -286,7 +280,7 @@ function FeatureRecognitionRow({
           className="w-[60px] bg-current/20 [&>[data-slot=progress-indicator]]:bg-current"
         />
         <span className="w-8 text-right text-[10px]">{confidence}%</span>
-        <TooltipProvider>
+        {showToggle ? <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -304,7 +298,7 @@ function FeatureRecognitionRow({
               <p>{isRejected ? tooltipAdd : tooltipRemove}</p>
             </TooltipContent>
           </Tooltip>
-        </TooltipProvider>
+        </TooltipProvider> : null}
       </div>
     </div>
   );
@@ -1382,7 +1376,6 @@ export function ReviewItem({
                       featureRows.map((feature) => (
                         <FeatureRecognitionRow
                           key={feature.key}
-                          decision={(queueItem.result as TaggingQueueItemResult | null)?.featureDecision?.decision.result?.matches.find(match => match.candidateId === `${feature.featureType === "brand" ? "logo" : feature.featureType}:${feature.featureId}`)}
                           featureType={feature.featureType}
                           featureId={feature.featureId}
                           thumbnail={
@@ -1414,14 +1407,23 @@ export function ReviewItem({
                       </div>
                     )}
                     {pendingFeatureCandidates.filter(candidate => candidate.queueItemId === queueItem.id).map(candidate => (
-                      <div key={candidate.key} className="rounded-lg border border-warning-3 bg-warning-1 p-3 text-sm text-basic-8">
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="font-medium">{candidate.name}</span>
-                          <span className="shrink-0 text-xs text-warning-7">{t("pendingFeatureConfirmation")} · {candidate.confidence}%</span>
-                        </div>
-                        <FeatureEvidence evidence={candidate.evidence} reason={candidate.reason} />
-                        {candidate.reasons.map((reason, index) => <p key={index} className="mt-1 text-xs text-basic-5">{reason}</p>)}
-                      </div>
+                      <FeatureRecognitionRow
+                        key={candidate.key}
+                        featureType={candidate.feature.featureType}
+                        featureId={candidate.feature.id}
+                        thumbnail={featureThumbnails[featureKey(candidate.feature.featureType, candidate.feature.id)]}
+                        featureClass={getFeatureClassLabel(candidate.feature.featureType)}
+                        featureTypeName={candidate.feature.typeName}
+                        classifiedName={candidate.name}
+                        confidence={candidate.confidence}
+                        tagPaths={[]}
+                        isRejected={false}
+                        onToggle={() => {}}
+                        showToggle={false}
+                        tooltipAdd={t("tooltipAdd")}
+                        tooltipRemove={t("tooltipRemove")}
+                        onPreview={setPreviewImage}
+                      />
                     ))}
                     {isEditableManualBatch ? (
                       <button
