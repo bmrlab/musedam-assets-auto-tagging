@@ -45,6 +45,7 @@ export type BrandLogoItem = {
   processedAt: Date | null;
   enabled: boolean;
   notes: string;
+  referenceMatchStrategy: "highest" | "average";
   createdAt: Date;
   updatedAt: Date;
   images: BrandLogoImageItem[];
@@ -114,6 +115,8 @@ export type BrandClassificationMatch = {
   similarity: number;
   confidence: number;
   detectionIndex: number;
+  referenceMatchStrategy?: "highest" | "average";
+  matchedReferenceImageId?: string | null;
 };
 
 export type BrandClassificationResult = {

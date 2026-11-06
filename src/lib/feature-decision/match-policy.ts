@@ -11,10 +11,16 @@ export function getBrandMatches(
   recommendation: TaggingBrandRecommendation | null | undefined,
 ): TaggingBrandBestMatch[] {
   if (!recommendation) return [];
-  if (Array.isArray(recommendation.matches)) return recommendation.matches;
+  const normalizeHistoricalMatch = (match: TaggingBrandBestMatch): TaggingBrandBestMatch => ({
+    ...match,
+    referenceMatchStrategy: match.referenceMatchStrategy === "average" ? "average" : "highest",
+    matchedReferenceImageId: match.matchedReferenceImageId ?? null,
+  });
+  if (Array.isArray(recommendation.matches))
+    return recommendation.matches.map(normalizeHistoricalMatch);
   if (!recommendation.bestMatch) return [];
   return [
-    {
+    normalizeHistoricalMatch({
       ...recommendation.bestMatch,
       recommendedTags: [
         ...new Map(
@@ -24,7 +30,7 @@ export function getBrandMatches(
           ].map((tag) => [tag.assetTagId, tag] as const),
         ).values(),
       ],
-    },
+    }),
   ];
 }
 

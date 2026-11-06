@@ -1,6 +1,7 @@
 import "server-only";
 
-import { querySimilarVectors, deletePointsByFilter, executeRawInsert, executeRawUpdate } from "@/lib/pgvector/client";
+import { deletePointsByFilter, executeRawInsert, executeRawUpdate } from "@/lib/pgvector/client";
+import prisma from "@/prisma/prisma";
 
 export type LogoVectorPayload = {
   teamId: number;
@@ -9,6 +10,7 @@ export type LogoVectorPayload = {
   logoTypeId: string | null;
   enabled: boolean;
   status: "pending" | "processing" | "completed" | "failed";
+  referenceMatchStrategy?: "highest" | "average";
 };
 
 export type PgVectorLogoQueryPoint = {
@@ -31,11 +33,10 @@ export async function deleteLogoVectorPointsByLogo({
   teamId: number;
   assetLogoId: string;
 }): Promise<void> {
-  await deletePointsByFilter(
-    TABLE_NAME,
-    `"teamId" = $1 AND "assetLogoId" = $2::uuid`,
-    [teamId, assetLogoId],
-  );
+  await deletePointsByFilter(TABLE_NAME, `"teamId" = $1 AND "assetLogoId" = $2::uuid`, [
+    teamId,
+    assetLogoId,
+  ]);
 }
 
 export async function setLogoVectorPayloadByLogo({
@@ -101,7 +102,7 @@ export async function upsertLogoVectorPoints(
     const base = i * 7 + 1;
     const p = points[i];
     valuePlaceholders.push(
-      `($${base}, $${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}::uuid, $${base + 5}::uuid, $${base + 6}::uuid)`
+      `($${base}, $${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}::uuid, $${base + 5}::uuid, $${base + 6}::uuid)`,
     );
     params.push(
       p.id,
@@ -116,10 +117,12 @@ export async function upsertLogoVectorPoints(
 
   const query = `
     INSERT INTO "${TABLE_NAME}" ("id", "teamId", "enabled", "status", "assetLogoId", "assetLogoImageId", "logoTypeId", "embedding", "createdAt", "updatedAt")
-    VALUES ${valuePlaceholders.map((ph, idx) => {
-      const p = points[idx];
-      return `${ph.slice(0, -1)}, ${vectorToSql(p.vector)}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`;
-    }).join(", ")}
+    VALUES ${valuePlaceholders
+      .map((ph, idx) => {
+        const p = points[idx];
+        return `${ph.slice(0, -1)}, ${vectorToSql(p.vector)}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`;
+      })
+      .join(", ")}
     ON CONFLICT ("id") DO UPDATE SET
       "teamId" = EXCLUDED."teamId",
       "enabled" = EXCLUDED."enabled",
@@ -145,28 +148,81 @@ export async function queryLogoVectorPoints({
   limit: number;
   scoreThreshold?: number;
 }): Promise<PgVectorLogoQueryPoint[]> {
-  const results = await querySimilarVectors(
-    TABLE_NAME,
-    {
-      vector,
-      limit,
-      scoreThreshold,
-      whereClause: `"teamId" = $1 AND "enabled" = true AND "status" = 'completed'`,
-      params: [teamId],
-      columns: ["id", "teamId", "enabled", "status", "assetLogoId", "assetLogoImageId", "logoTypeId", "embeddingModel", "createdAt", "updatedAt"],
-    },
-  );
+  if (!Number.isInteger(limit) || limit <= 0) {
+    throw new Error("Logo vector query limit must be a positive integer");
+  }
+  if (vector.length === 0 || vector.some((value) => !Number.isFinite(value))) {
+    throw new Error("Logo query vector must contain only finite values");
+  }
+  if (scoreThreshold !== undefined && !Number.isFinite(scoreThreshold)) {
+    throw new Error("Logo vector score threshold must be finite");
+  }
+
+  // Rank identities, not individual image points. `highest` keeps the best reference while
+  // `average` requires the query crop to agree with the reference set as a whole. Doing the
+  // aggregation before LIMIT also prevents a logo with many images from crowding other classes
+  // out of the regional top-k candidate budget.
+  const query = `
+    WITH "referenceScores" AS (
+      SELECT
+        v."assetLogoId",
+        v."assetLogoImageId",
+        l."referenceMatchStrategy",
+        1 - (v."embedding" <=> $2::vector) AS "pointSimilarity"
+      FROM "${TABLE_NAME}" v
+      INNER JOIN "AssetLogo" l ON l."id" = v."assetLogoId"
+      WHERE v."teamId" = $1
+        AND v."enabled" = true
+        AND v."status" = 'completed'
+        AND l."teamId" = $1
+        AND l."enabled" = true
+        AND l."status" = 'completed'
+    ),
+    "classScores" AS (
+      SELECT
+        "assetLogoId",
+        "referenceMatchStrategy",
+        CASE
+          WHEN "referenceMatchStrategy" = 'average'
+            THEN AVG("pointSimilarity")
+          ELSE MAX("pointSimilarity")
+        END AS "similarity",
+        (ARRAY_AGG(
+          "assetLogoImageId"
+          ORDER BY "pointSimilarity" DESC, "assetLogoImageId" ASC
+        ))[1] AS "matchedReferenceImageId"
+      FROM "referenceScores"
+      GROUP BY "assetLogoId", "referenceMatchStrategy"
+    )
+    SELECT
+      "assetLogoId",
+      "referenceMatchStrategy",
+      "similarity",
+      "matchedReferenceImageId"
+    FROM "classScores"
+    WHERE $3::double precision IS NULL OR "similarity" >= $3
+    ORDER BY "similarity" DESC, "assetLogoId" ASC
+    LIMIT $4
+  `;
+  const results = await prisma.$queryRawUnsafe<
+    Array<{
+      assetLogoId: string;
+      referenceMatchStrategy: "highest" | "average";
+      similarity: number;
+      matchedReferenceImageId: string;
+    }>
+  >(query, teamId, `[${vector.join(",")}]`, scoreThreshold ?? null, limit);
 
   return results.map((r) => ({
-    id: r.id,
-    score: r.score,
+    id: r.assetLogoId,
+    score: Number(r.similarity),
     payload: {
-      teamId: r.payload.teamId as number,
-      assetLogoId: r.payload.assetLogoId as string,
-      assetLogoImageId: r.payload.assetLogoImageId as string,
-      logoTypeId: r.payload.logoTypeId as string | null,
-      enabled: r.payload.enabled as boolean,
-      status: r.payload.status as LogoVectorPayload["status"],
+      teamId,
+      assetLogoId: r.assetLogoId,
+      assetLogoImageId: r.matchedReferenceImageId,
+      enabled: true,
+      status: "completed",
+      referenceMatchStrategy: r.referenceMatchStrategy,
     },
   }));
 }

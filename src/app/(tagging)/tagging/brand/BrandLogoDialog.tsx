@@ -1,6 +1,16 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -27,7 +37,7 @@ import {
 } from "@/lib/brand/browser-image";
 import { MAX_TOTAL_NEW_REFERENCE_UPLOAD_BYTES } from "@/lib/brand/upload-constants";
 import { uploadS3ObjectFromBrowser } from "@/lib/s3-browser-upload";
-import { Loader2, Plus, X } from "lucide-react";
+import { CircleHelp, Loader2, Plus, TriangleAlert, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -116,6 +126,10 @@ export default function BrandLogoDialog({
   const [logoTypeId, setLogoTypeId] = useState<string | null>(null);
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
   const [notes, setNotes] = useState("");
+  const [referenceMatchStrategy, setReferenceMatchStrategy] = useState<"highest" | "average">(
+    "highest",
+  );
+  const [refreshConfirmationOpen, setRefreshConfirmationOpen] = useState(false);
   const [images, setImages] = useState<DraftImage[]>([]);
   const [previewImage, setPreviewImage] = useState<DraftImage | null>(null);
   const [isSelectingAssets, setIsSelectingAssets] = useState(false);
@@ -134,6 +148,10 @@ export default function BrandLogoDialog({
       logo?.tags.map((tag) => tag.assetTagId).filter((id): id is number => Boolean(id)) ?? [],
     );
     setNotes(logo?.notes ?? "");
+    setReferenceMatchStrategy(
+      logo?.referenceMatchStrategy === "average" ? "average" : "highest",
+    );
+    setRefreshConfirmationOpen(false);
     setImages((current) => {
       revokeDraftImageUrls(current);
       return buildDraftImages(logo, t);
@@ -324,7 +342,7 @@ export default function BrandLogoDialog({
     return nextImages;
   }
 
-  async function handleSubmit() {
+  async function handleSubmit(refreshPendingReviewResults = false) {
     if (!trimmedName) {
       toast.error(t("validation.nameRequired"));
       return;
@@ -369,6 +387,11 @@ export default function BrandLogoDialog({
       formData.append("logoTypeId", String(logoTypeId));
       formData.append("tagIds", JSON.stringify(selectedTagIds));
       formData.append("notes", notes.trim());
+      formData.append("referenceMatchStrategy", referenceMatchStrategy);
+      formData.append(
+        "refreshPendingReviewResults",
+        refreshPendingReviewResults ? "true" : "false",
+      );
       formData.append(
         "existingImageIds",
         JSON.stringify(
@@ -407,7 +430,11 @@ export default function BrandLogoDialog({
       onSaved(result.data.logo);
       onOpenChange(false);
       toast.success(
-        mode === "create" ? t("createProcessingSuccess") : t("updateProcessingSuccess"),
+        refreshPendingReviewResults
+          ? t("dialog.reviewRefreshScheduled")
+          : mode === "create"
+            ? t("createProcessingSuccess")
+            : t("updateProcessingSuccess"),
       );
     } finally {
       setIsSaving(false);
@@ -458,10 +485,34 @@ export default function BrandLogoDialog({
           </div>
 
           <div className="space-y-2">
-            <div className="space-y-1">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <label className="h-[22px] text-[14px] leading-[22px] font-normal text-basic-8">
-                {t("dialog.logoImagesLabel")}
+                {t("dialog.logoImagesLabel", { count: images.length })}
               </label>
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1 text-[12px] text-basic-5">
+                  {t("dialog.multiImageMatchLabel")}
+                  <CircleHelp className="size-3.5" aria-hidden="true" />
+                </span>
+                <div className="inline-flex rounded-[6px] bg-basic-2 p-0.5">
+                  {(["average", "highest"] as const).map((strategy) => (
+                    <button
+                      key={strategy}
+                      type="button"
+                      disabled={isSaving}
+                      aria-pressed={referenceMatchStrategy === strategy}
+                      onClick={() => setReferenceMatchStrategy(strategy)}
+                      className={`h-7 rounded-[5px] px-3 text-[13px] transition-colors ${
+                        referenceMatchStrategy === strategy
+                          ? "bg-primary-6 text-white shadow-sm"
+                          : "text-basic-7 hover:bg-basic-3"
+                      }`}
+                    >
+                      {t(`dialog.matchStrategy.${strategy}`)}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
             <input
@@ -563,10 +614,16 @@ export default function BrandLogoDialog({
               ))}
             </div>
 
-            <div className="mt-3 flex items-start gap-[10px] rounded-[8px] border border-primary-5 bg-primary-1 px-3 py-[14px] text-[12px] leading-[16px] font-normal text-basic-8">
+            <div className="mt-3 flex items-start gap-[10px] rounded-[8px] border border-warning-3 bg-warning-1 px-3 py-[14px] text-[12px] leading-[16px] font-normal text-basic-8">
+              <TriangleAlert
+                className="mt-0.5 size-4 shrink-0 text-warning-7"
+                aria-hidden="true"
+              />
               <p className="text-[12px] leading-[16px] font-normal text-basic-8">
-                💡 <span className="font-semibold">{t("dialog.uploadHintTitle")}</span>
-                {t("dialog.uploadHint")}
+                <span className="font-semibold">
+                  {t(`dialog.matchStrategy.${referenceMatchStrategy}`)}:{" "}
+                </span>
+                {t(`dialog.matchStrategyHint.${referenceMatchStrategy}`)}
               </p>
             </div>
           </div>
@@ -633,7 +690,18 @@ export default function BrandLogoDialog({
           </Button>
           <Button
             type="button"
-            onClick={handleSubmit}
+            onClick={() => {
+              const strategyChanged =
+                mode === "edit" &&
+                logo !== null &&
+                (logo.referenceMatchStrategy === "average" ? "average" : "highest") !==
+                  referenceMatchStrategy;
+              if (strategyChanged) {
+                setRefreshConfirmationOpen(true);
+              } else {
+                void handleSubmit(false);
+              }
+            }}
             disabled={isSubmitDisabled}
             className="h-8 w-20 rounded-[6px] border border-primary-6 px-3 py-1 hover:border-primary-7"
           >
@@ -679,6 +747,23 @@ export default function BrandLogoDialog({
           ) : null}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={refreshConfirmationOpen} onOpenChange={setRefreshConfirmationOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("dialog.reviewRefreshTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("dialog.reviewRefreshDescription")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => void handleSubmit(false)} disabled={isSaving}>
+              {t("dialog.saveOnly")}
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={() => void handleSubmit(true)} disabled={isSaving}>
+              {t("dialog.saveAndRefresh")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

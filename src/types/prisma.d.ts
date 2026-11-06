@@ -126,6 +126,9 @@ declare module "@/prisma/client" {
     similarity: number;
     confidence: number;
     detectionIndex: number;
+    /** Missing on historical JSON; consumers normalize it to highest. */
+    referenceMatchStrategy?: "highest" | "average";
+    matchedReferenceImageId?: string | null;
     recommendedTags: TaggingBrandRecommendedTag[];
   };
 

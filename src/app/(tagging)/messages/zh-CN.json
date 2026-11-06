@@ -167,7 +167,16 @@
         "logoNameLabel": "标识名称",
         "logoNamePlaceholder": "请输入标识名称",
         "logoTypeLabel": "标识类型",
-        "logoImagesLabel": "标识图片",
+        "logoImagesLabel": "标识图片 · {count}张",
+        "multiImageMatchLabel": "多图匹配",
+        "matchStrategy": {
+          "average": "平均值",
+          "highest": "最高值"
+        },
+        "matchStrategyHint": {
+          "average": "所有参考图共同决定召回分数，适合外观一致的 Logo。模糊或无关图片会拉低整体分数。",
+          "highest": "任一参考图匹配即可召回，适合彩色、单色、反白、简称、横版或竖版等形态差异较大的同一 Logo。"
+        },
         "uploadImage": "上传图片",
         "uploadLocal": "本地上传",
         "uploadFromLibrary": "从素材库选取",
@@ -184,7 +193,12 @@
         "confirm": "确认",
         "save": "保存",
         "previewImage": "预览图片",
-        "closePreview": "关闭预览"
+        "closePreview": "关闭预览",
+        "reviewRefreshTitle": "是否更新已有审核结果？",
+        "reviewRefreshDescription": "多图匹配策略已变更。是否重新运行「打标审核」中所有已完成、尚未审核且启用了 Logo 识别的批次？已有测试结果和已审核历史不会改变。",
+        "saveOnly": "否，仅保存",
+        "saveAndRefresh": "是，保存并更新",
+        "reviewRefreshScheduled": "Logo 已更新。参考图处理完成后，将自动刷新尚未审核的结果。"
       },
       "confirmDialog": {
         "title": "操作提示",

@@ -450,7 +450,16 @@
         "logoNameLabel": "標識名稱",
         "logoNamePlaceholder": "請輸入標識名稱",
         "logoTypeLabel": "標識類型",
-        "logoImagesLabel": "標識圖片",
+        "logoImagesLabel": "標識圖片 · {count}張",
+        "multiImageMatchLabel": "多圖匹配",
+        "matchStrategy": {
+          "average": "平均值",
+          "highest": "最高值"
+        },
+        "matchStrategyHint": {
+          "average": "所有參考圖共同決定召回分數，適合外觀一致的 Logo。模糊或無關圖片會拉低整體分數。",
+          "highest": "任一參考圖匹配即可召回，適合彩色、單色、反白、簡稱、橫版或直版等形態差異較大的同一 Logo。"
+        },
         "uploadImage": "上傳圖片",
         "uploadLocal": "本地上傳",
         "uploadFromLibrary": "從素材庫選取",
@@ -467,7 +476,12 @@
         "confirm": "確認",
         "save": "儲存",
         "previewImage": "預覽圖片",
-        "closePreview": "關閉預覽"
+        "closePreview": "關閉預覽",
+        "reviewRefreshTitle": "是否更新既有審核結果？",
+        "reviewRefreshDescription": "多圖匹配策略已變更。是否重新執行「打標審核」中所有已完成、尚未審核且已啟用 Logo 辨識的批次？既有測試結果和已審核歷史不會改變。",
+        "saveOnly": "否，僅儲存",
+        "saveAndRefresh": "是，儲存並更新",
+        "reviewRefreshScheduled": "Logo 已更新。參考圖處理完成後，將自動重新整理尚未審核的結果。"
       },
       "confirmDialog": {
         "title": "操作提示",
