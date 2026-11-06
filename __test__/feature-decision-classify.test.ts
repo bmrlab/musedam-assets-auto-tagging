@@ -341,7 +341,7 @@ describe("whole-asset feature decision orchestration", () => {
     ).toEqual(["prepared-reference-first", "prepared-reference-lower"]);
     expect(JSON.stringify(request.candidates)).not.toContain("xMin");
     expect(JSON.stringify(request.candidates)).not.toContain("internal-crop");
-    expect(mocks.logos.mock.calls[0][0].select.images.orderBy).toEqual([
+    expect(mocks.logos.mock.calls.find(call => call[0].select.images)?.[0].select.images.orderBy).toEqual([
       { sort: "asc" },
       { createdAt: "asc" },
       { id: "asc" },
@@ -502,5 +502,29 @@ describe("whole-asset feature decision orchestration", () => {
     expect(result.brand?.topMatches[0].confidence).toBe(70);
     expect(result.brand?.matches).toEqual([]);
     expect(result.unacceptedIdentityTagIds).toEqual([1, 2]);
+  });
+});
+
+
+describe("folder configured logo recall", () => {
+  it("adds an exact folder alias missed by the vector top results and accepts path evidence", async () => {
+    mocks.logos.mockResolvedValue([{ id: "snow", name: "雪花秀/SULWHASOO LOGO(1)", logoTypeId: null,
+      logoType: { name: "主Logo" }, notes: "素材画面和文件夹名称包含SULWHASOO的都需要打出该特征",
+      images: [{ objectKey: "snow-ref" }], tags: [] }]);
+    mocks.decision.mockResolvedValue({ ocr: { status: "empty", segments: [] }, decision: {
+      status: "completed", result: { outcome: "matched", matches: [{ ...decisionMatch("snow", 94), evidence: ["path"] }] },
+    } });
+    const result = await classifyAssetFeatures({ teamId: 1, imageInput, enabledTypes: ["logo"],
+      imageMode: false, folderPath: "amore/雪花秀-琉光系列/成分&质地", boxes: { logo: [box(0)] } });
+    const candidate = mocks.decision.mock.calls[0][0].candidates.find((c: FeatureDecisionCandidate) => c.classId === "snow");
+    expect(candidate).toMatchObject({ similarity: 0, regionIds: [], folderMatch: { alias: "雪花秀" } });
+    expect(result.brand?.matches?.map(m => m.assetLogoId)).toEqual(["snow"]);
+    expect(result.diagnostics.folderMatchedLogoIds).toEqual(["snow"]);
+  });
+  it("does not add metadata-only logos without an explicit folder rule", async () => {
+    mocks.logos.mockResolvedValue([{ id: "snow", name: "雪花秀/SULWHASOO LOGO(1)", notes: "可见的主Logo", images: [] }]);
+    await classifyAssetFeatures({ teamId: 1, imageInput, enabledTypes: ["logo"], imageMode: false,
+      folderPath: "雪花秀", boxes: { logo: [box(0)] } });
+    expect(mocks.decision.mock.calls[0][0].candidates.some((c: FeatureDecisionCandidate) => c.classId === "snow")).toBe(false);
   });
 });

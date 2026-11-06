@@ -33,6 +33,8 @@ describe("read-only pending feature candidates", () => {
         name: feature.name,
         confidence: 88,
         reasons: ["Rich variant unresolved"],
+        evidence: ["retrieval"],
+        reason: "Cream identified",
       },
     ]);
     expect(result.productRecommendation.matches).toEqual([]);

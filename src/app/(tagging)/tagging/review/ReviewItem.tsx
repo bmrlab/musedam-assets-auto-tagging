@@ -74,6 +74,8 @@ import {
 } from "./actions";
 import { AddFeatureDialog } from "./components/AddFeatureDialog";
 import { AddTagDialog } from "./components/AddTagDialog";
+import { FeatureEvidence } from "./components/FeatureEvidence";
+import type { FeatureDecisionMatch } from "@/lib/feature-decision/types";
 import { FeatureThumbnail } from "./components/FeatureThumbnail";
 import {
   FEATURE_REVIEW_CHANGED,
@@ -187,6 +189,7 @@ function ExistingFeatureSnapshotRow({
 }
 
 function FeatureRecognitionRow({
+  decision,
   featureType,
   featureId,
   featureClass,
@@ -203,6 +206,7 @@ function FeatureRecognitionRow({
   onPreview,
   thumbnail,
 }: {
+  decision?: FeatureDecisionMatch;
   featureType: "brand" | "ip" | "product" | "person";
   featureId: string;
   /** undefined → 列表未预签名，由 FeatureThumbnail 自行请求 */
@@ -259,6 +263,10 @@ function FeatureRecognitionRow({
         <div className="mt-0.5 truncate text-[10px] text-current/60">
           {tResult("matchingSource")}: {tResult(`${featureType}Recognition`)}
         </div>
+        <FeatureEvidence
+          evidence={decision?.evidence ?? (rawSimilarity !== undefined ? ["retrieval"] : undefined)}
+          reason={decision?.reason}
+        />
         {tagPaths.length > 0 ? (
           <div className="mt-1 flex flex-wrap gap-1">
             {tagPaths.map((tagPath, index) => (
@@ -1374,6 +1382,7 @@ export function ReviewItem({
                       featureRows.map((feature) => (
                         <FeatureRecognitionRow
                           key={feature.key}
+                          decision={(queueItem.result as TaggingQueueItemResult | null)?.featureDecision?.decision.result?.matches.find(match => match.candidateId === `${feature.featureType === "brand" ? "logo" : feature.featureType}:${feature.featureId}`)}
                           featureType={feature.featureType}
                           featureId={feature.featureId}
                           thumbnail={
@@ -1410,6 +1419,7 @@ export function ReviewItem({
                           <span className="font-medium">{candidate.name}</span>
                           <span className="shrink-0 text-xs text-warning-7">{t("pendingFeatureConfirmation")} · {candidate.confidence}%</span>
                         </div>
+                        <FeatureEvidence evidence={candidate.evidence} reason={candidate.reason} />
                         {candidate.reasons.map((reason, index) => <p key={index} className="mt-1 text-xs text-basic-5">{reason}</p>)}
                       </div>
                     ))}

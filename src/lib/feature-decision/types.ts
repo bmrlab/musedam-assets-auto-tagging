@@ -24,6 +24,7 @@ export type FeatureDecisionCandidate = {
   retrievedRegions?: number;
   regionIds?: string[];
   referenceMatchStrategy?: "highest" | "average";
+  folderMatch?: { alias: string; path: string };
 };
 
 export type FeatureEvidence = "visual" | "retrieval" | "filename" | "path" | "ocr";
@@ -122,6 +123,8 @@ export type FeatureOcrDiagnostics = {
 };
 
 export type FeatureDecisionDiagnostics = {
+  /** Exact alias hits for logos with an explicit positive folder inclusion rule. */
+  folderMatchedLogoIds?: string[];
   decisionInputMode?: FeatureDecisionInputMode;
   reconciliation?: { suppressedIdentityTagIds: number[] };
   mode?: "llm" | "legacy";

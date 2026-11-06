@@ -37,6 +37,7 @@ import prisma from "@/prisma/prisma";
 import pLimit from "p-limit";
 import { selectFeatureRegions, type DecisionFeatureType } from "./regions";
 import { runFeatureDecision } from "./service";
+import { allowsLogoFolderMatch, logoFolderAlias } from "./path-candidates";
 import type {
   FeatureDecisionCandidate,
   FeatureDecisionDiagnostics,
@@ -300,6 +301,28 @@ export async function classifyAssetFeatures(
         return [];
       }
     };
+    const folderCatalog = enabledTypes.includes("logo") && input.folderPath
+      ? await loadCatalog(prisma.assetLogo.findMany({
+          where: { teamId, enabled: true, status: "completed", OR: [
+            { notes: { contains: "文件夹" } }, { notes: { contains: "文件路径" } },
+            { notes: { contains: "folder", mode: "insensitive" } }, { notes: { contains: "file path", mode: "insensitive" } },
+          ] },
+          select: { id: true, name: true, notes: true, logoTypeId: true, logoTypeName: true, referenceMatchStrategy: true },
+        }), "logo")
+      : [];
+    const folderMatches = folderCatalog.filter(logo =>
+      allowsLogoFolderMatch(logo.notes) && logoFolderAlias(logo.name, input.folderPath ?? ""),
+    );
+    const folderMatchIds = new Set(folderMatches.map(logo => logo.id));
+    for (const logo of folderMatches) {
+      if (brandCandidates.some(match => match.assetLogoId === logo.id)) continue;
+      brandCandidates.push({
+        assetLogoId: logo.id, logoName: logo.name, logoTypeId: logo.logoTypeId,
+        logoTypeName: logo.logoTypeName ?? "", similarity: 0, confidence: 0,
+        referenceMatchStrategy: logo.referenceMatchStrategy,
+        detectionIndex: -1,
+      });
+    }
     // Stable library order chooses the reference, independently from the winning retrieval vector.
     const [logos, products, ips] = await Promise.all([
       brandCandidates.length
@@ -405,7 +428,8 @@ export async function classifyAssetFeatures(
             description: logo?.notes,
             similarity: match.similarity,
             referenceMatchStrategy: match.referenceMatchStrategy,
-            regionIds: [`logo:${match.detectionIndex}`],
+            regionIds: match.detectionIndex < 0 ? [] : [`logo:${match.detectionIndex}`],
+            folderMatch: folderMatchIds.has(match.assetLogoId) ? { alias: logoFolderAlias(match.logoName, input.folderPath ?? "")!, path: input.folderPath! } : undefined,
           },
           referenceImage?.objectKey,
         ),
@@ -480,6 +504,7 @@ export async function classifyAssetFeatures(
       mode,
       decisionInputMode: imageMode ? "image" : "text",
       retrieval,
+      folderMatchedLogoIds: [...folderMatchIds],
     };
     for (const batch of output.diagnostics.decision.batches ?? []) {
       if (batch.status !== "completed") retrieval.unassessedCandidates.push(...batch.candidateIds.map(candidateId => ({
@@ -502,7 +527,8 @@ export async function classifyAssetFeatures(
           match.conflicts.length === 0 &&
           !match.specificityLimit?.trim() &&
           (!candidateId.startsWith("logo:") ||
-            match.evidence.includes(imageMode ? "visual" : "retrieval")),
+            match.evidence.includes(imageMode ? "visual" : "retrieval") ||
+            (folderMatchIds.has(candidateId.slice(5)) && match.evidence.includes("path"))),
       ),
     );
     if (output.diagnostics.decision.status === "completed") {
