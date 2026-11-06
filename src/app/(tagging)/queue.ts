@@ -5,6 +5,7 @@ import "server-only";
 import { isTagTreeJob, processTagTreeQueueItem } from "@/app/tags/tagTreeQueue";
 import { classifyAssetBrandRecommendation } from "@/lib/brand/tagging-brand-classification";
 import { classifyAssetFeatures, getFeatureDecisionMode } from "@/lib/feature-decision/classify";
+import { isDecisionLlmImageUseEnabled } from "@/lib/feature-decision/config";
 import { buildFeatureRecommendations } from "@/lib/feature-decision/recommendations";
 import type { FeatureDecisionDiagnostics } from "@/lib/feature-decision/types";
 import {
@@ -413,6 +414,7 @@ export async function processQueueItem({
                   assetObjectId: assetObject.id,
                   fileName: assetObject.name,
                   folderPath: assetObject.materializedPath,
+                  imageMode: isDecisionLlmImageUseEnabled(),
                   enabledTypes: [
                     ...(logoCount > 0 ? ["logo" as const] : []),
                     ...(productCount > 0 ? ["product" as const] : []),

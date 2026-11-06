@@ -80,6 +80,7 @@ const decisionMatch = (id: string, confidence = 91) => ({
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.stubEnv("DECISION_LLM_IMAGE_USE", "true");
   mocks.logo.mockResolvedValue({
     topMatches: [logo("first"), logo("lower", 0.6)],
     bestMatch: logo("first"),
@@ -227,7 +228,7 @@ describe("whole-asset feature decision orchestration", () => {
     },
   );
 
-  it("always runs the LLM in text mode without loading reference images, then defaults to image mode", async () => {
+  it("uses text mode by default and enables image evidence only when the env key is true", async () => {
     const input = {
       teamId: 1,
       imageInput,
@@ -246,7 +247,8 @@ describe("whole-asset feature decision orchestration", () => {
         },
       },
     });
-    const result = await classifyAssetFeatures({ ...input, imageMode: false });
+    vi.stubEnv("DECISION_LLM_IMAGE_USE", "false");
+    const result = await classifyAssetFeatures(input);
     expect(result.brand?.bestMatch?.assetLogoId).toBe("lower");
     expect(result.brand?.bestMatch?.confidence).toBe(91);
     expect(result.diagnostics).toMatchObject({
@@ -268,6 +270,7 @@ describe("whole-asset feature decision orchestration", () => {
       ),
     ).toBe(true);
     expect(mocks.fetchImage).not.toHaveBeenCalled();
+    vi.stubEnv("DECISION_LLM_IMAGE_USE", "true");
     const next = await classifyAssetFeatures(input);
     expect(next.diagnostics).toMatchObject({ mode: "llm", decisionInputMode: "image" });
     expect(mocks.decision).toHaveBeenCalledTimes(2);

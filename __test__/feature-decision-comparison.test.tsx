@@ -112,9 +112,9 @@ describe("decision input mode controls and comparison", () => {
     expect(screen.queryByText("automaticAccepted")).toBeNull();
   });
 
-  it("switches from image to text-only inputs without disabling the decision layer", () => {
+  it("defaults to text-only and can switch to image inputs without disabling the decision layer", () => {
     function Inputs() {
-      const [imageMode, setImageMode] = useState(true);
+      const [imageMode, setImageMode] = useState(false);
       return (
         <FeatureClassificationContextInputs
           imageMode={imageMode}
@@ -129,9 +129,9 @@ describe("decision input mode controls and comparison", () => {
     }
     render(<Inputs />);
     const toggle = screen.getByRole("switch", { name: "imageMode" });
-    expect(toggle.getAttribute("aria-checked")).toBe("true");
-    fireEvent.click(toggle);
     expect(toggle.getAttribute("aria-checked")).toBe("false");
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-checked")).toBe("true");
     expect(screen.getByText("imageModeHelp")).toBeTruthy();
   });
 

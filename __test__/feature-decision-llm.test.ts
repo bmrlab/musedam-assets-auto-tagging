@@ -45,6 +45,7 @@ beforeEach(() => {
     OPENAI_API_KEY: "secret-key",
     OCR_MODEL: "ocr-model",
     FEATURE_DECISION_MODEL: "decision-model",
+    DECISION_LLM_IMAGE_USE: "true",
   };
   createCall.mockResolvedValue({ id: "call-id" });
 });
