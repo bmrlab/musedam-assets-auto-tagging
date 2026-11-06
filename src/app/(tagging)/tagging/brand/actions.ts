@@ -1,5 +1,6 @@
 "use server";
 
+import { kickQueueProcessing } from "@/app/(tagging)/queue";
 import { classifyAssetFeatures } from "@/lib/feature-decision/classify";
 import { getDetectionDebugRequestMode } from "@/lib/media-process/debug-request-mode";
 import { signObjectDetectionImageUrl } from "@/lib/media-process/image-url";
@@ -18,6 +19,7 @@ import {
   processAssetLogoReferenceVectors,
 } from "@/lib/brand/logo-processing";
 import { deleteLogoVectorPointsByLogo, setLogoVectorPayloadByLogo } from "@/lib/brand/pgvector";
+import { requeuePendingBrandReviewResults } from "@/lib/brand/review-refresh";
 import {
   MAX_CLIENT_IMAGE_UPLOAD_BYTES,
   MAX_TOTAL_NEW_REFERENCE_UPLOAD_BYTES,
@@ -114,6 +116,8 @@ const createOrUpdateLogoSchema = z.object({
   logoTypeId: z.string().uuid(),
   tagIds: z.array(z.number().int().positive()).min(1, "tagsRequired").max(100),
   notes: z.string().max(5000).default(""),
+  referenceMatchStrategy: z.enum(["highest", "average"]).default("highest"),
+  refreshPendingReviewResults: z.boolean().default(false),
   existingImageIds: z.array(z.string().uuid()).max(100).default([]),
   assetLibraryDownloadUrls: z.array(z.string().url()).max(100).default([]),
   assetLibraryUploadedImages: z
@@ -248,6 +252,7 @@ function normalizeBrandLogo(logo: AssetLogoRecord): BrandLogoItem {
     processedAt: logo.processedAt,
     enabled: logo.enabled,
     notes: logo.notes,
+    referenceMatchStrategy: logo.referenceMatchStrategy === "average" ? "average" : "highest",
     createdAt: logo.createdAt,
     updatedAt: logo.updatedAt,
     images: logo.images
@@ -1048,6 +1053,8 @@ function parseCreateOrUpdateInput(formData: FormData) {
     logoTypeId: formData.get("logoTypeId"),
     tagIds: parseJsonField<number[]>(formData.get("tagIds"), []),
     notes: typeof formData.get("notes") === "string" ? formData.get("notes") : "",
+    referenceMatchStrategy: formData.get("referenceMatchStrategy") ?? "highest",
+    refreshPendingReviewResults: formData.get("refreshPendingReviewResults") === "true",
     existingImageIds: parseJsonField<string[]>(formData.get("existingImageIds"), []),
     assetLibraryDownloadUrls: parseJsonField<string[]>(
       formData.get("assetLibraryDownloadUrls"),
@@ -1231,13 +1238,26 @@ async function loadBrandLogosByIds(teamId: number, logoIds: string[]) {
   return logos.map((logo) => normalizeBrandLogo(logo));
 }
 
-function scheduleAssetLogoProcessing(teamId: number, logoId: string) {
+function scheduleAssetLogoProcessing(
+  teamId: number,
+  logoId: string,
+  options: { refreshPendingReviewResults?: boolean } = {},
+) {
   after(async () => {
     try {
       await processAssetLogoReferenceVectors({
         teamId,
         logoId,
       });
+      if (options.refreshPendingReviewResults) {
+        const requeued = await requeuePendingBrandReviewResults(teamId);
+        if (requeued > 0) kickQueueProcessing();
+        console.info("Requeued pending brand review results after match strategy change", {
+          teamId,
+          logoId,
+          requeued,
+        });
+      }
     } catch (error) {
       console.error("Failed to process asset logo vectors:", error);
     }
@@ -1696,6 +1716,7 @@ export async function createAssetLogoAction(
           logoTypeId: logoType.id,
           logoTypeName: logoType.name,
           notes: input.notes,
+          referenceMatchStrategy: input.referenceMatchStrategy,
           status: "pending",
           processingError: null,
           enabled: true,
@@ -1842,6 +1863,7 @@ export async function updateAssetLogoAction(
             logoTypeId: logoType.id,
             logoTypeName: logoType.name,
             notes: input.notes,
+            referenceMatchStrategy: input.referenceMatchStrategy,
             status: "pending",
             processingError: null,
             processedAt: null,
@@ -1917,7 +1939,10 @@ export async function updateAssetLogoAction(
       });
 
       const updatedLogo = await loadBrandLogo(team.id, logo.id);
-      scheduleAssetLogoProcessing(team.id, logo.id);
+      const strategyChanged = logo.referenceMatchStrategy !== input.referenceMatchStrategy;
+      scheduleAssetLogoProcessing(team.id, logo.id, {
+        refreshPendingReviewResults: strategyChanged && input.refreshPendingReviewResults,
+      });
       schedulePushFeatureToMuseDAM({
         team,
         featureType: "brand",

@@ -311,7 +311,10 @@ export async function classifyAssetFeatures(
                 id: true,
                 notes: true,
                 tags: { select: { assetTagId: true, tagPath: true } },
-                images: { ...imageSelect, select: { objectKey: true } },
+                images: {
+                  orderBy: imageSelect.orderBy,
+                  select: { id: true, objectKey: true },
+                },
               },
             }),
             "logo",
@@ -382,6 +385,8 @@ export async function classifyAssetFeatures(
     const pending: Array<Promise<FeatureDecisionCandidate | null>> = [];
     for (const match of brandCandidates) {
       const logo = logos.find((entry) => entry.id === match.assetLogoId);
+      const referenceImage =
+        logo?.images.find((image) => image.id === match.matchedReferenceImageId) ?? logo?.images[0];
       pending.push(
         addReference(
           {
@@ -392,8 +397,9 @@ export async function classifyAssetFeatures(
             typeName: match.logoTypeName,
             description: logo?.notes,
             similarity: match.similarity,
+            referenceMatchStrategy: match.referenceMatchStrategy,
           },
-          logo?.images[0]?.objectKey,
+          referenceImage?.objectKey,
         ),
       );
     }

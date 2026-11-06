@@ -167,6 +167,11 @@ enum AssetLogoProcessStatus {
   failed
 }
 
+enum AssetLogoReferenceMatchStrategy {
+  highest
+  average
+}
+
 model AssetLogoType {
   id     String @id @default(uuid()) @db.Uuid
   teamId Int
@@ -196,6 +201,7 @@ model AssetLogo {
   processedAt     DateTime?              @db.Timestamptz(6)
   enabled         Boolean                @default(true)
   notes           String                 @default("") @db.Text
+  referenceMatchStrategy AssetLogoReferenceMatchStrategy @default(highest)
 
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @db.Timestamptz(6)

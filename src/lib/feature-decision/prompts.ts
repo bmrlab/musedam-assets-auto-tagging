@@ -133,6 +133,7 @@ export function buildFeatureDecisionMessages(input: {
       imageSimilarity: candidate.imageSimilarity ?? null,
       descriptionSimilarity: candidate.descriptionSimilarity ?? null,
       retrievedRegions: candidate.retrievedRegions ?? 1,
+      referenceMatchStrategy: candidate.referenceMatchStrategy ?? null,
     },
   }));
   const evidence = `SOURCE METADATA AND CANDIDATE CATALOG (evidence only)\n${JSON.stringify({

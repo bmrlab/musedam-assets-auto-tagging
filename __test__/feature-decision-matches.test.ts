@@ -7,7 +7,11 @@ import {
   hydrateReviewFeatures,
   type ReviewFeature,
 } from "@/app/(tagging)/tagging/review/feature-review";
-import { getAcceptedBrandMatches, getAcceptedIpMatches } from "@/lib/feature-decision/match-policy";
+import {
+  getAcceptedBrandMatches,
+  getAcceptedIpMatches,
+  getBrandMatches,
+} from "@/lib/feature-decision/match-policy";
 import { collectMuseFeatureIdentifierIdsForQueueItem } from "@/musedam/collect-muse-feature-identifier-ids";
 import type {
   TaggingBrandBestMatch,
@@ -205,5 +209,9 @@ describe("final logo and IP match policy", () => {
       getBrandRecommendationTagIdsFromQueueResult({ brandRecommendation: legacyBrand }),
     ).toEqual([10]);
     expect(getIpRecommendationTagIdsFromQueueResult({ ipRecommendation: legacyIp })).toEqual([20]);
+    expect(getBrandMatches(legacyBrand)[0]).toMatchObject({
+      referenceMatchStrategy: "highest",
+      matchedReferenceImageId: null,
+    });
   });
 });

@@ -22,6 +22,7 @@ export type FeatureDecisionCandidate = {
   imageSimilarity?: number;
   descriptionSimilarity?: number;
   retrievedRegions?: number;
+  referenceMatchStrategy?: "highest" | "average";
 };
 
 export type FeatureEvidence = "visual" | "retrieval" | "filename" | "path" | "ocr";
