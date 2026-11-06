@@ -418,6 +418,10 @@
       "batchEnableFailed": "Falha ao habilitar em lote, tente novamente mais tarde",
       "batchDisableFailed": "Falha ao desabilitar em lote, tente novamente mais tarde",
       "batchDeleteFailed": "Falha ao excluir em lote, tente novamente mais tarde",
+      "batchMatchStrategy": "Match strategy",
+      "batchMatchStrategySuccess": "Updated the match strategy for the selected brand identities",
+      "batchMatchStrategyFailed": "Failed to batch update match strategy, please retry later",
+      "batchMatchStrategyUnchanged": "The selected items already use this match strategy",
       "emptyFiltered": "Nenhuma identidade de marca corresponde aos filtros atuais",
       "allTypes": "Todos os Tipos",
       "allStatuses": "Todos os Statuses",
@@ -452,7 +456,10 @@
         "logoTypeLabel": "Tipo de Identidade",
         "logoImagesLabel": "Imagens da Identidade · {count}",
         "multiImageMatchLabel": "Multi-image match",
-        "matchStrategy": { "average": "Average", "highest": "Highest" },
+        "matchStrategy": {
+          "average": "Average",
+          "highest": "Highest"
+        },
         "matchStrategyHint": {
           "average": "All reference images jointly determine the retrieval score. Use this when the uploaded images show a consistent logo appearance; unclear or unrelated images will lower the score.",
           "highest": "A match to any one reference image can recall this identity. Use this for color, monochrome, reversed, abbreviated, horizontal, or vertical variants of the same logo."
@@ -497,7 +504,10 @@
         "disableDescription": "Tem certeza que deseja desabilitar os {count} itens selecionados? Após desabilitar, novos ativos carregados não reconhecerão automaticamente estas entradas e aplicarão as tags associadas.",
         "confirmEnable": "Confirmar Habilitação",
         "confirmDisable": "Confirmar Desabilitação",
-        "cancel": "Cancelar"
+        "cancel": "Cancelar",
+        "matchStrategyTitle": "Batch set multi-image match",
+        "matchStrategyDescription": "Set the match strategy for the selected {count} items. This controls how multiple reference images jointly determine the retrieval score.",
+        "matchStrategyApply": "Apply"
       },
       "uploadErrors": {
         "fileTooLarge": "Cada imagem não pode exceder 50MB",

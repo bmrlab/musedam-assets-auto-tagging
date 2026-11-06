@@ -135,6 +135,10 @@
       "batchEnableFailed": "Toplu etkinleştirme başarısız, lütfen daha sonra tekrar deneyin",
       "batchDisableFailed": "Toplu devre dışı bırakma başarısız, lütfen daha sonra tekrar deneyin",
       "batchDeleteFailed": "Toplu silme başarısız, lütfen daha sonra tekrar deneyin",
+      "batchMatchStrategy": "Match strategy",
+      "batchMatchStrategySuccess": "Updated the match strategy for the selected brand identities",
+      "batchMatchStrategyFailed": "Failed to batch update match strategy, please retry later",
+      "batchMatchStrategyUnchanged": "The selected items already use this match strategy",
       "emptyFiltered": "Mevcut filtrelerle eşleşen marka kimliği yok",
       "allTypes": "Tüm Türler",
       "allStatuses": "Tüm Durumlar",
@@ -169,7 +173,10 @@
         "logoTypeLabel": "Kimlik Türü",
         "logoImagesLabel": "Kimlik Resimleri · {count}",
         "multiImageMatchLabel": "Multi-image match",
-        "matchStrategy": { "average": "Average", "highest": "Highest" },
+        "matchStrategy": {
+          "average": "Average",
+          "highest": "Highest"
+        },
         "matchStrategyHint": {
           "average": "All reference images jointly determine the retrieval score. Use this when the uploaded images show a consistent logo appearance; unclear or unrelated images will lower the score.",
           "highest": "A match to any one reference image can recall this identity. Use this for color, monochrome, reversed, abbreviated, horizontal, or vertical variants of the same logo."
@@ -214,7 +221,10 @@
         "disableDescription": "Seçilen {count} öğeyi devre dışı bırakmak istediğinizden emin misiniz? Devre dışı bıraktıktan sonra yeni yüklenen varlıklar bu girdileri otomatik olarak tanımayacaktır ve bağlı etiket uygulamayacaktır.",
         "confirmEnable": "Etkinleştirmeyi Onayla",
         "confirmDisable": "Devre Dışı Bırakmayı Onayla",
-        "cancel": "İptal"
+        "cancel": "İptal",
+        "matchStrategyTitle": "Batch set multi-image match",
+        "matchStrategyDescription": "Set the match strategy for the selected {count} items. This controls how multiple reference images jointly determine the retrieval score.",
+        "matchStrategyApply": "Apply"
       },
       "uploadErrors": {
         "fileTooLarge": "Her resim 50MB'tan küçük olmalıdır",

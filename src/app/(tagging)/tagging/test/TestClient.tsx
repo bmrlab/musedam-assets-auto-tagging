@@ -855,7 +855,6 @@ export default function TestClient() {
               );
 
               return {
-                featureDecision: resultData?.featureDecision,
                 asset: {
                   id: assetObject?.id?.toString() || "",
                   name: assetObject?.name || "",

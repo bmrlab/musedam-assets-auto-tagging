@@ -123,6 +123,10 @@
       "batchEnableFailed": "Batch enable failed, please retry later",
       "batchDisableFailed": "Batch disable failed, please retry later",
       "batchDeleteFailed": "Batch delete failed, please retry later",
+      "batchMatchStrategy": "Match strategy",
+      "batchMatchStrategySuccess": "Updated the match strategy for the selected brand identities",
+      "batchMatchStrategyFailed": "Failed to batch update match strategy, please retry later",
+      "batchMatchStrategyUnchanged": "The selected items already use this match strategy",
       "emptyFiltered": "No brand identities match the current filters",
       "allTypes": "All Types",
       "allStatuses": "All Statuses",
@@ -205,7 +209,10 @@
         "disableDescription": "Are you sure you want to disable the selected {count} items? After disabling, newly uploaded assets will not automatically recognize these entries and apply linked tags.",
         "confirmEnable": "Confirm Enable",
         "confirmDisable": "Confirm Disable",
-        "cancel": "Cancel"
+        "cancel": "Cancel",
+        "matchStrategyTitle": "Batch set multi-image match",
+        "matchStrategyDescription": "Set the match strategy for the selected {count} items. This controls how multiple reference images jointly determine the retrieval score.",
+        "matchStrategyApply": "Apply"
       },
       "uploadErrors": {
         "fileTooLarge": "Each image must be 50MB or smaller",

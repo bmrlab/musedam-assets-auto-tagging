@@ -146,6 +146,52 @@ describe("feature LLM response contracts", () => {
     }
   });
 
+  it.each([false, true])(
+    "repairs the cleanser response's missing closing bracket (fenced=%s)",
+    (fenced) => {
+      const malformed =
+        '{"content":[["LANEIGE", "WATER BANK", "Gentle Gel Cleanser", "For Normal To Oily Skin", "10 ml / 0.33 fl. oz."]}';
+      const content = fenced ? `\`\`\`json\n${malformed}\n\`\`\`` : malformed;
+      expect(parseOcrResponse(content)).toEqual({
+        content: [
+          [
+            "LANEIGE",
+            "WATER BANK",
+            "Gentle Gel Cleanser",
+            "For Normal To Oily Skin",
+            "10 ml / 0.33 fl. oz.",
+          ],
+        ],
+      });
+      // Structural recovery is exclusive to OCR, not classification decisions.
+      expect(() => parseLlmJson(content)).toThrow();
+    },
+  );
+
+  it.each(['{"content":[["LANEIGE"}', '{"content":[["LANEIGE"]', '{"content":[["LANEIGE"'])(
+    "recovers missing OCR container closers: %s",
+    (content) => {
+      expect(parseOcrResponse(content)).toEqual({ content: [["LANEIGE"]] });
+    },
+  );
+
+  it("preserves literal brackets, escaped quotes, and backslashes during OCR recovery", () => {
+    const segments = ["Label [A] {B}", 'Say "hello"', "C:\\label\\", 'Ends with \\"quote"'];
+    const malformed = JSON.stringify({ content: [segments] }).replace(/\]\}$/, "}");
+    expect(parseOcrResponse(malformed)).toEqual({ content: [segments] });
+  });
+
+  it.each([
+    '{"content":[["unfinished',
+    '{"content":[["LANEIGE",}',
+    '{"content":[["LANEIGE" "WATER BANK"]]}',
+    '{"content":}',
+    '{"content":[[123]}',
+    '{"content":[["LANEIGE"]]}}',
+  ])("rejects OCR errors that require guessing text or values: %s", (content) => {
+    expect(() => parseOcrResponse(content)).toThrow();
+  });
+
   it.each(["```json\n%s\n```", "```\r\n%s\r\n```", "Here is the JSON:\n```JSON\n%s\n```\nDone."])(
     "recovers single-image product groups from Markdown: %s",
     (wrapper) => {
@@ -347,7 +393,7 @@ describe("single-attempt feature OCR and decision gateway", () => {
   it("calls the configured gateway for OCR and one combined decision and persists both usages", async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(response('```json\n{"content":[["Model A"],["30 ml"]]}\n```'))
+      .mockResolvedValueOnce(response('```json\n{"content":[["Model A"],["30 ml"]}\n```'))
       .mockResolvedValueOnce(response(JSON.stringify(validDecision)));
     vi.stubGlobal("fetch", fetchMock);
     const { runFeatureDecision } = await import("@/lib/feature-decision/service");

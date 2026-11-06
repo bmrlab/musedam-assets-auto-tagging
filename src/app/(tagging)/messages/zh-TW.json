@@ -418,6 +418,10 @@
       "batchEnableFailed": "批次啟用失敗，請稍後重試",
       "batchDisableFailed": "批次停用失敗，請稍後重試",
       "batchDeleteFailed": "批次刪除失敗，請稍後重試",
+      "batchMatchStrategy": "匹配策略",
+      "batchMatchStrategySuccess": "已批次更新所選品牌標識的匹配策略",
+      "batchMatchStrategyFailed": "批次更新匹配策略失敗，請稍後重試",
+      "batchMatchStrategyUnchanged": "所選條目已是該匹配策略",
       "emptyFiltered": "沒有符合目前篩選條件的品牌標識",
       "allTypes": "全部類型",
       "allStatuses": "全部處理狀態",
@@ -500,7 +504,10 @@
         "disableDescription": "確定要停用選中的 {count} 個條目嗎？停用後，新上傳的素材將不會自動辨識該條目並打上關聯標籤",
         "confirmEnable": "確認啟用",
         "confirmDisable": "確認停用",
-        "cancel": "取消"
+        "cancel": "取消",
+        "matchStrategyTitle": "批次設定多圖匹配",
+        "matchStrategyDescription": "將為選中的 {count} 個條目設定匹配策略。該策略會影響多張參考圖如何共同決定召回分數。",
+        "matchStrategyApply": "套用"
       },
       "uploadErrors": {
         "fileTooLarge": "單張圖片不能超過 50MB",

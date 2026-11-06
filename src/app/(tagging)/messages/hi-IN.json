@@ -414,6 +414,10 @@
       "batchEnableFailed": "बैच सक्षम विफल, बाद में पुनः प्रयास करें",
       "batchDisableFailed": "बैच अक्षम विफल, बाद में पुनः प्रयास करें",
       "batchDeleteFailed": "बैच हटाना विफल, बाद में पुनः प्रयास करें",
+      "batchMatchStrategy": "Match strategy",
+      "batchMatchStrategySuccess": "Updated the match strategy for the selected brand identities",
+      "batchMatchStrategyFailed": "Failed to batch update match strategy, please retry later",
+      "batchMatchStrategyUnchanged": "The selected items already use this match strategy",
       "emptyFiltered": "वर्तमान फिल्टर से मेल खाने वाली कोई ब्रांड पहचान नहीं",
       "allTypes": "सभी प्रकार",
       "allStatuses": "सभी स्थिति",
@@ -448,7 +452,10 @@
         "logoTypeLabel": "पहचान प्रकार",
         "logoImagesLabel": "पहचान चित्र · {count}",
         "multiImageMatchLabel": "Multi-image match",
-        "matchStrategy": { "average": "Average", "highest": "Highest" },
+        "matchStrategy": {
+          "average": "Average",
+          "highest": "Highest"
+        },
         "matchStrategyHint": {
           "average": "All reference images jointly determine the retrieval score. Use this when the uploaded images show a consistent logo appearance; unclear or unrelated images will lower the score.",
           "highest": "A match to any one reference image can recall this identity. Use this for color, monochrome, reversed, abbreviated, horizontal, or vertical variants of the same logo."
@@ -493,7 +500,10 @@
         "disableDescription": "क्या आप चयनित {count} आइटम अक्षम करना चाहते हैं? अक्षम करने के बाद, नई सामग्री इस एंट्री को स्वचालित रूप से पहचान नहीं करेगी और लिंक्ड टैग लागू नहीं करेगी।",
         "confirmEnable": "सक्षम की पुष्टि करें",
         "confirmDisable": "अक्षम की पुष्टि करें",
-        "cancel": "रद्द करें"
+        "cancel": "रद्द करें",
+        "matchStrategyTitle": "Batch set multi-image match",
+        "matchStrategyDescription": "Set the match strategy for the selected {count} items. This controls how multiple reference images jointly determine the retrieval score.",
+        "matchStrategyApply": "Apply"
       },
       "uploadErrors": {
         "fileTooLarge": "एकल चित्र 50MB से अधिक नहीं हो सकता",

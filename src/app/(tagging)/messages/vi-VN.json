@@ -135,6 +135,10 @@
       "batchEnableFailed": "Kích hoạt hàng loạt thất bại, vui lòng thử lại sau",
       "batchDisableFailed": "Vô hiệu hóa hàng loạt thất bại, vui lòng thử lại sau",
       "batchDeleteFailed": "Xóa hàng loạt thất bại, vui lòng thử lại sau",
+      "batchMatchStrategy": "Match strategy",
+      "batchMatchStrategySuccess": "Updated the match strategy for the selected brand identities",
+      "batchMatchStrategyFailed": "Failed to batch update match strategy, please retry later",
+      "batchMatchStrategyUnchanged": "The selected items already use this match strategy",
       "emptyFiltered": "Không có nhận dạng thương hiệu nào phù hợp với bộ lọc hiện tại",
       "allTypes": "Tất cả các loại",
       "allStatuses": "Tất cả trạng thái",
@@ -169,7 +173,10 @@
         "logoTypeLabel": "Loại nhận diện",
         "logoImagesLabel": "Hình ảnh nhận diện · {count}",
         "multiImageMatchLabel": "Multi-image match",
-        "matchStrategy": { "average": "Average", "highest": "Highest" },
+        "matchStrategy": {
+          "average": "Average",
+          "highest": "Highest"
+        },
         "matchStrategyHint": {
           "average": "All reference images jointly determine the retrieval score. Use this when the uploaded images show a consistent logo appearance; unclear or unrelated images will lower the score.",
           "highest": "A match to any one reference image can recall this identity. Use this for color, monochrome, reversed, abbreviated, horizontal, or vertical variants of the same logo."
@@ -214,7 +221,10 @@
         "disableDescription": "Bạn có chắc chắn muốn vô hiệu hóa {count} mục đã chọn không? Sau khi vô hiệu hóa, tài sản mới tải lên sẽ không tự động nhận diện các mục này và gắn thẻ liên kết.",
         "confirmEnable": "Xác nhận kích hoạt",
         "confirmDisable": "Xác nhận vô hiệu hóa",
-        "cancel": "Hủy"
+        "cancel": "Hủy",
+        "matchStrategyTitle": "Batch set multi-image match",
+        "matchStrategyDescription": "Set the match strategy for the selected {count} items. This controls how multiple reference images jointly determine the retrieval score.",
+        "matchStrategyApply": "Apply"
       },
       "uploadErrors": {
         "fileTooLarge": "Mỗi hình ảnh không được vượt quá 50MB",

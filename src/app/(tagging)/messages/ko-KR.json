@@ -406,6 +406,10 @@
       "batchEnableFailed": "일괄 활성화 실패, 나중에 다시 시도하세요",
       "batchDisableFailed": "일괄 비활성화 실패, 나중에 다시 시도하세요",
       "batchDeleteFailed": "일괄 삭제 실패, 나중에 다시 시도하세요",
+      "batchMatchStrategy": "Match strategy",
+      "batchMatchStrategySuccess": "Updated the match strategy for the selected brand identities",
+      "batchMatchStrategyFailed": "Failed to batch update match strategy, please retry later",
+      "batchMatchStrategyUnchanged": "The selected items already use this match strategy",
       "emptyFiltered": "현재 필터 조건과 일치하는 브랜드 식별이 없습니다",
       "allTypes": "모든 유형",
       "allStatuses": "모든 상태",
@@ -440,7 +444,10 @@
         "logoTypeLabel": "식별 유형",
         "logoImagesLabel": "식별 이미지 · {count}",
         "multiImageMatchLabel": "Multi-image match",
-        "matchStrategy": { "average": "Average", "highest": "Highest" },
+        "matchStrategy": {
+          "average": "Average",
+          "highest": "Highest"
+        },
         "matchStrategyHint": {
           "average": "All reference images jointly determine the retrieval score. Use this when the uploaded images show a consistent logo appearance; unclear or unrelated images will lower the score.",
           "highest": "A match to any one reference image can recall this identity. Use this for color, monochrome, reversed, abbreviated, horizontal, or vertical variants of the same logo."
@@ -485,7 +492,10 @@
         "disableDescription": "선택한 {count}개 항목을 비활성화하시겠습니까? 비활성화 후 새로 업로드된 자산은 이러한 항목을 자동으로 인식하지 않고 연결된 태그를 적용하지 않습니다.",
         "confirmEnable": "활성화 확인",
         "confirmDisable": "비활성화 확인",
-        "cancel": "취소"
+        "cancel": "취소",
+        "matchStrategyTitle": "Batch set multi-image match",
+        "matchStrategyDescription": "Set the match strategy for the selected {count} items. This controls how multiple reference images jointly determine the retrieval score.",
+        "matchStrategyApply": "Apply"
       },
       "uploadErrors": {
         "fileTooLarge": "각 이미지는 50MB 이하여야 합니다",

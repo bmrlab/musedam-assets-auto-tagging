@@ -43,29 +43,70 @@ export function parseChatEnvelope(value: unknown): OpenAIChatResponse {
   return chatResponseSchema.parse(value);
 }
 
-/** Accept raw JSON first, then a single Markdown JSON block without repairing its contents. */
-export function parseLlmJson(content: string): unknown {
+function unwrapLlmJson(content: string): string {
   const text = content.trim();
   try {
-    return JSON.parse(text);
-  } catch (error) {
+    JSON.parse(text);
+    return text;
+  } catch {
     const blocks = [
       ...text.matchAll(
         /(?:^|\n)[ \t]*```(?:json)?[ \t]*\r?\n([\s\S]*?)\r?\n[ \t]*```[ \t]*(?=\r?\n|$)/gi,
       ),
     ];
-    if (blocks.length === 1) return JSON.parse(blocks[0][1]);
+    if (blocks.length === 1) return blocks[0][1];
     // Retain support for gateways that put the entire fence on one line.
     const inline = text.match(/^```(?:json)?\s*([^\n]*?)\s*```$/i);
-    if (inline) return JSON.parse(inline[1]);
-    throw error;
+    if (inline) return inline[1];
+    return text;
+  }
+}
+
+/** Accept raw JSON first, then a single Markdown JSON block. */
+export function parseLlmJson(content: string): unknown {
+  return JSON.parse(unwrapLlmJson(content));
+}
+
+/** OCR-only fallback: insert missing container closers, never modify text or values. */
+function parseOcrJson(content: string): unknown {
+  const text = unwrapLlmJson(content);
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    const stack: string[] = [];
+    let quoted = false;
+    let escaped = false;
+    let repaired = "";
+    for (const character of text) {
+      if (quoted) {
+        if (escaped) escaped = false;
+        else if (character === "\\") escaped = true;
+        else if (character === '"') quoted = false;
+      } else if (character === '"') {
+        quoted = true;
+      } else if (character === "[" || character === "{") {
+        stack.push(character === "[" ? "]" : "}");
+      } else if (character === "]" || character === "}") {
+        // A model may close the object before closing its content arrays.
+        while (character === "}" && stack.at(-1) === "]") {
+          repaired += stack.pop();
+        }
+        if (stack.pop() !== character) throw error;
+      }
+      repaired += character;
+    }
+    // Never invent the rest of a cut-off string. JSON.parse still rejects missing
+    // values, separators, trailing commas, and every other syntax error.
+    if (quoted) throw error;
+    repaired += stack.reverse().join("");
+    return JSON.parse(repaired);
   }
 }
 
 export function parseOcrResponse(content: string, imageCount = 1): OcrResponse {
   const textBlock = z.object({ text: z.string() });
   const segment = z.union([z.string(), textBlock.transform((block) => block.text)]);
-  let payload = parseLlmJson(content);
+  let payload = parseOcrJson(content);
   // Some OCR gateways return a flat list of strings or text blocks for one image.
   // Only unwrap that variant when image association is unambiguous; never regroup
   // flat blocks from a multi-image request or coerce malformed text values.

@@ -418,6 +418,10 @@
       "batchEnableFailed": "Не удалось пакетно включить, повторите позже",
       "batchDisableFailed": "Не удалось пакетно отключить, повторите позже",
       "batchDeleteFailed": "Не удалось пакетно удалить, повторите позже",
+      "batchMatchStrategy": "Match strategy",
+      "batchMatchStrategySuccess": "Updated the match strategy for the selected brand identities",
+      "batchMatchStrategyFailed": "Failed to batch update match strategy, please retry later",
+      "batchMatchStrategyUnchanged": "The selected items already use this match strategy",
       "emptyFiltered": "Нет идентификаторов бренда, соответствующих текущим фильтрам",
       "allTypes": "Все типы",
       "allStatuses": "Все статусы",
@@ -452,7 +456,10 @@
         "logoTypeLabel": "Тип идентификатора",
         "logoImagesLabel": "Изображения идентификатора · {count}",
         "multiImageMatchLabel": "Multi-image match",
-        "matchStrategy": { "average": "Average", "highest": "Highest" },
+        "matchStrategy": {
+          "average": "Average",
+          "highest": "Highest"
+        },
         "matchStrategyHint": {
           "average": "All reference images jointly determine the retrieval score. Use this when the uploaded images show a consistent logo appearance; unclear or unrelated images will lower the score.",
           "highest": "A match to any one reference image can recall this identity. Use this for color, monochrome, reversed, abbreviated, horizontal, or vertical variants of the same logo."
@@ -497,7 +504,10 @@
         "disableDescription": "Вы уверены, что хотите отключить выбранные {count} элементов? После отключения новые активы не будут автоматически распознавать эти записи и применять теги.",
         "confirmEnable": "Подтвердить включение",
         "confirmDisable": "Подтвердить отключение",
-        "cancel": "Отмена"
+        "cancel": "Отмена",
+        "matchStrategyTitle": "Batch set multi-image match",
+        "matchStrategyDescription": "Set the match strategy for the selected {count} items. This controls how multiple reference images jointly determine the retrieval score.",
+        "matchStrategyApply": "Apply"
       },
       "uploadErrors": {
         "fileTooLarge": "Одно изображение не может превышать 50 МБ",

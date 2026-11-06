@@ -135,6 +135,10 @@
       "batchEnableFailed": "เปิดใช้งานเป็นชุดล้มเหลว กรุณาลองใหม่อีกครั้งในภายหลัง",
       "batchDisableFailed": "ปิดใช้งานเป็นชุดล้มเหลว กรุณาลองใหม่อีกครั้งในภายหลัง",
       "batchDeleteFailed": "ลบเป็นชุดล้มเหลว กรุณาลองใหม่อีกครั้งในภายหลัง",
+      "batchMatchStrategy": "Match strategy",
+      "batchMatchStrategySuccess": "Updated the match strategy for the selected brand identities",
+      "batchMatchStrategyFailed": "Failed to batch update match strategy, please retry later",
+      "batchMatchStrategyUnchanged": "The selected items already use this match strategy",
       "emptyFiltered": "ไม่มี การระบุตัวตนแบรนด์ที่ตรงกับเงื่อนไขการกรองปัจจุบัน",
       "allTypes": "ทุกประเภท",
       "allStatuses": "ทุกสถานะ",
@@ -169,7 +173,10 @@
         "logoTypeLabel": "ประเภทการระบุตัวตน",
         "logoImagesLabel": "ภาพการระบุตัวตน · {count}",
         "multiImageMatchLabel": "Multi-image match",
-        "matchStrategy": { "average": "Average", "highest": "Highest" },
+        "matchStrategy": {
+          "average": "Average",
+          "highest": "Highest"
+        },
         "matchStrategyHint": {
           "average": "All reference images jointly determine the retrieval score. Use this when the uploaded images show a consistent logo appearance; unclear or unrelated images will lower the score.",
           "highest": "A match to any one reference image can recall this identity. Use this for color, monochrome, reversed, abbreviated, horizontal, or vertical variants of the same logo."
@@ -214,7 +221,10 @@
         "disableDescription": "คุณแน่ใจหรือไม่ที่จะปิดใช้งาน {count} รายการที่เลือก ? หลังจากปิดใช้งาน วัสดุที่อัปโหลดใหม่จะไม่สามารถระบุรายการเหล่านี้โดยอัตโนมัติและใส่แท็กที่เกี่ยวข้อง",
         "confirmEnable": "ยืนยันการเปิดใช้งาน",
         "confirmDisable": "ยืนยันการปิดใช้งาน",
-        "cancel": "ยกเลิก"
+        "cancel": "ยกเลิก",
+        "matchStrategyTitle": "Batch set multi-image match",
+        "matchStrategyDescription": "Set the match strategy for the selected {count} items. This controls how multiple reference images jointly determine the retrieval score.",
+        "matchStrategyApply": "Apply"
       },
       "uploadErrors": {
         "fileTooLarge": "ภาพเดี่ยวไม่สามารถเกิน 50MB",

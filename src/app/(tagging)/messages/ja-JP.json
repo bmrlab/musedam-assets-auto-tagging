@@ -406,6 +406,10 @@
       "batchEnableFailed": "一括有効化に失敗しました。後でもう一度お試しください",
       "batchDisableFailed": "一括無効化に失敗しました。後でもう一度お試しください",
       "batchDeleteFailed": "一括削除に失敗しました。後でもう一度お試しください",
+      "batchMatchStrategy": "Match strategy",
+      "batchMatchStrategySuccess": "Updated the match strategy for the selected brand identities",
+      "batchMatchStrategyFailed": "Failed to batch update match strategy, please retry later",
+      "batchMatchStrategyUnchanged": "The selected items already use this match strategy",
       "emptyFiltered": "現在のフィルター条件に一致するブランド識別はありません",
       "allTypes": "すべてのタイプ",
       "allStatuses": "すべての状態",
@@ -440,7 +444,10 @@
         "logoTypeLabel": "識別タイプ",
         "logoImagesLabel": "識別画像 · {count}",
         "multiImageMatchLabel": "Multi-image match",
-        "matchStrategy": { "average": "Average", "highest": "Highest" },
+        "matchStrategy": {
+          "average": "Average",
+          "highest": "Highest"
+        },
         "matchStrategyHint": {
           "average": "All reference images jointly determine the retrieval score. Use this when the uploaded images show a consistent logo appearance; unclear or unrelated images will lower the score.",
           "highest": "A match to any one reference image can recall this identity. Use this for color, monochrome, reversed, abbreviated, horizontal, or vertical variants of the same logo."
@@ -485,7 +492,10 @@
         "disableDescription": "選択した {count} 個のアイテムを無効化してもよろしいですか？無効化後、新しくアップロードされたアセットはこれらのエントリを自動的に認識せず、関連タグを適用しません。",
         "confirmEnable": "有効化を確認",
         "confirmDisable": "無効化を確認",
-        "cancel": "キャンセル"
+        "cancel": "キャンセル",
+        "matchStrategyTitle": "Batch set multi-image match",
+        "matchStrategyDescription": "Set the match strategy for the selected {count} items. This controls how multiple reference images jointly determine the retrieval score.",
+        "matchStrategyApply": "Apply"
       },
       "uploadErrors": {
         "fileTooLarge": "各画像は50MB以下である必要があります",

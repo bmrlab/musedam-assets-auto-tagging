@@ -1,13 +1,11 @@
 "use client";
 
-import { FeatureDecisionDiagnosticsPanel } from "@/app/(tagging)/tagging/components/FeatureDecisionDiagnosticsPanel";
 import type {
   FeatureThumbnailImage,
   FeatureThumbnails,
 } from "@/app/(tagging)/tagging/review/feature-review";
 import { TagOutlinedIcon, VimIcon } from "@/components/ui";
 import { useFeatureLibraryFeatures } from "@/hooks/use-feature-library";
-import type { FeatureDecisionDiagnostics } from "@/lib/feature-decision/types";
 import { isVideoAssetExtension } from "@/lib/feature-library";
 import {
   getFeatureConfidenceToneClass,
@@ -66,7 +64,6 @@ export interface IpRecognitionResult {
 }
 
 export interface TaggingResult {
-  featureDecision?: FeatureDecisionDiagnostics;
   asset: {
     id: string;
     name: string;
@@ -599,9 +596,6 @@ export function TaggingResultDisplay({ result, featureThumbnails }: TaggingResul
             </div>
           )}
         </SectionShell>
-      ) : null}
-      {result.featureDecision ? (
-        <FeatureDecisionDiagnosticsPanel diagnostics={result.featureDecision} />
       ) : null}
     </div>
   );
