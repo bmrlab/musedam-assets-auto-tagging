@@ -2144,6 +2144,81 @@ export async function setAssetLogosEnabledAction(
   });
 }
 
+export async function setAssetLogosMatchStrategyAction(
+  ids: string[],
+  strategy: "highest" | "average",
+  refreshPendingReviewResults = false,
+): Promise<
+  ServerActionResult<{ logos: BrandLogoItem[]; failedIds: string[]; updatedCount: number }>
+> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    const t = await getBrandLibraryTranslations();
+    if (!Array.isArray(ids) || ids.length > BATCH_LOGOS_MAX) {
+      return { success: false, message: t("batchMatchStrategyFailed") };
+    }
+    if (strategy !== "highest" && strategy !== "average") {
+      return { success: false, message: t("batchMatchStrategyFailed") };
+    }
+
+    try {
+      const uniqueIds = Array.from(new Set(ids)).filter(
+        (id) => typeof id === "string" && BATCH_ID_PATTERN.test(id),
+      );
+      const owned = await prisma.assetLogo.findMany({
+        where: { teamId, id: { in: uniqueIds } },
+        select: { id: true, referenceMatchStrategy: true },
+      });
+      const ownedIds = owned.map((logo) => logo.id);
+      const ownedIdSet = new Set(ownedIds);
+      const failedIds = Array.from(new Set(ids)).filter((id) => !ownedIdSet.has(id));
+      const idsToUpdate = owned
+        .filter((logo) => logo.referenceMatchStrategy !== strategy)
+        .map((logo) => logo.id);
+
+      if (idsToUpdate.length > 0) {
+        await prisma.assetLogo.updateMany({
+          where: { teamId, id: { in: idsToUpdate } },
+          data: { referenceMatchStrategy: strategy },
+        });
+      }
+
+      if (idsToUpdate.length > 0 && refreshPendingReviewResults) {
+        after(async () => {
+          try {
+            const requeued = await requeuePendingBrandReviewResults(teamId);
+            if (requeued > 0) kickQueueProcessing();
+            console.info(
+              "Requeued pending brand review results after batch match strategy change",
+              {
+                teamId,
+                updatedCount: idsToUpdate.length,
+                requeued,
+              },
+            );
+          } catch (error) {
+            console.error(
+              "Failed to refresh pending brand review results after batch match strategy change:",
+              error,
+            );
+          }
+        });
+      }
+
+      return {
+        success: true,
+        data: {
+          logos: await loadBrandLogosByIds(teamId, ownedIds),
+          failedIds,
+          updatedCount: idsToUpdate.length,
+        },
+      };
+    } catch (error) {
+      console.error("Failed to batch update asset logo match strategy:", error);
+      return { success: false, message: t("batchMatchStrategyFailed") };
+    }
+  });
+}
+
 export async function deleteAssetLogosAction(
   ids: string[],
 ): Promise<ServerActionResult<{ deletedIds: string[]; failedIds: string[] }>> {

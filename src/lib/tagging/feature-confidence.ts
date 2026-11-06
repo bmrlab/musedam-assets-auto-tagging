@@ -1,9 +1,9 @@
 import { PRIMARY_FACE_SIM_THRESHOLD } from "@/lib/person/person-match-policy";
 
 export const FEATURE_CONFIDENCE_MIN = {
-  brand: 75,
-  ip: 80,
-  product: 80,
+  brand: 60,
+  ip: 60,
+  product: 60,
   person: 60,
 } as const;
 
@@ -41,7 +41,7 @@ export function meetsFeatureConfidenceThreshold(
   return normalizeFeatureConfidence(confidence) >= (threshold ?? FEATURE_CONFIDENCE_MIN[featureType]);
 }
 
-/** 95–100 blue, 90–95 green, below 90 orange (person: 60–90; brand/ip/product: 80–90). */
+/** 95–100 blue, 90–95 green, below 90 orange (accepted features: 60–90). */
 export function getFeatureConfidenceToneClass(confidence: number): string {
   if (confidence >= 95) {
     return BLUE_TONE_CLASS;

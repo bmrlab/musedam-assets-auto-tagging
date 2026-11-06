@@ -1,4 +1,4 @@
-import { createJinaImageEmbeddings } from "@/lib/brand/jina";
+import { createJinaImageEmbeddings, createJinaTextEmbeddings } from "@/lib/brand/jina";
 import { prepareJinaImageDataUrl } from "@/lib/tagging/reference-image";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -60,9 +60,10 @@ describe("Jina image preparation boundary", () => {
         ok: true,
         status: 200,
         headers: new Headers(),
-        json: async () => ({
-          data: body.input.map((_item, index) => ({ index, embedding: [index] })),
-        }),
+        text: async () =>
+          JSON.stringify({
+            data: body.input.map((_item, index) => ({ index, embedding: [index] })),
+          }),
       };
     });
   });
@@ -161,7 +162,7 @@ describe("Jina image preparation boundary", () => {
         ok: true,
         status: 200,
         headers: new Headers(),
-        json: async () => ({ data: [{ index: 0, embedding: [1] }] }),
+        text: async () => JSON.stringify({ data: [{ index: 0, embedding: [1] }] }),
       };
     });
 
@@ -174,6 +175,90 @@ describe("Jina image preparation boundary", () => {
     expect(maximumActiveRequests).toBe(8);
   });
 
+  it.each(["image", "text"])(
+    "reports gateway validation errors for %s without retrying",
+    async (kind) => {
+      const log = vi.spyOn(console, "error").mockImplementation(() => {});
+      mocks.fetch.mockResolvedValue({
+        ok: false,
+        status: 400,
+        headers: new Headers(),
+        text: async () =>
+          JSON.stringify({
+            error: {
+              type: "invalid_request_error",
+              code: "invalid_parameter",
+              message: "Invalid base64 encoding: data:image/png;base64,secretpixels",
+            },
+            request_id: "request-123",
+          }),
+      });
+      const request =
+        kind === "image"
+          ? createJinaImageEmbeddings({ images: ["one"] })
+          : createJinaTextEmbeddings({ texts: ["one"] });
+      await expect(request).rejects.toThrow(
+        /HTTP 400; invalid_request_error; invalid_parameter; request_id=request-123; Invalid base64 encoding/,
+      );
+      expect(mocks.fetch).toHaveBeenCalledTimes(1);
+      expect(log).toHaveBeenCalledWith(
+        "[Jina embeddings] Request failed",
+        expect.objectContaining({
+          inputType: kind,
+          model: "jina-clip-v2",
+          attempt: 1,
+          retry: false,
+          timeoutMs: 30_000,
+        }),
+      );
+      expect(JSON.stringify(log.mock.calls)).not.toContain("secretpixels");
+      expect(JSON.stringify(log.mock.calls)).not.toContain("test-key");
+    },
+  );
+
+  it.each([
+    [502, "upstream unavailable"],
+    [200, '{"error":{"message":"provider failure"}}'],
+    [200, '{"data":[{"index":0,"embedding":[]}]}'],
+    [200, "not json"],
+  ])(
+    "handles HTTP %s with an invalid response",
+    async (status, body) => {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      vi.spyOn(console, "warn").mockImplementation(() => {});
+      mocks.fetch.mockResolvedValue({
+        ok: status === 200,
+        status,
+        headers: new Headers({ "x-request-id": "header-id" }),
+        text: async () => body,
+      });
+      await expect(createJinaTextEmbeddings({ texts: ["one"] })).rejects.toThrow(
+        /request_id=header-id/,
+      );
+      expect(mocks.fetch).toHaveBeenCalledTimes(status === 502 ? 5 : 1);
+    },
+    15_000,
+  );
+
+  it("retries a timeout and logs its request context", async () => {
+    const log = vi.spyOn(console, "warn").mockImplementation(() => {});
+    mocks.fetch.mockRejectedValueOnce(
+      new DOMException("The operation was aborted due to timeout", "TimeoutError"),
+    );
+    await expect(createJinaImageEmbeddings({ images: ["one"] })).resolves.toEqual([[0]]);
+    expect(mocks.fetch).toHaveBeenCalledTimes(2);
+    expect(log).toHaveBeenCalledWith(
+      "[Jina embeddings] Request failed; retrying",
+      expect.objectContaining({
+        timeoutMs: 30_000,
+        attempt: 1,
+        retry: true,
+        inputType: "image",
+        message: expect.stringContaining("timeout"),
+      }),
+    );
+  });
+
   it("paces direct Jina requests according to their input token budget", async () => {
     mocks.isDirectJina = true;
     const requestStartedAt: number[] = [];
@@ -183,7 +268,7 @@ describe("Jina image preparation boundary", () => {
         ok: true,
         status: 200,
         headers: new Headers(),
-        json: async () => ({ data: [{ index: 0, embedding: [1] }] }),
+        text: async () => JSON.stringify({ data: [{ index: 0, embedding: [1] }] }),
       };
     });
 

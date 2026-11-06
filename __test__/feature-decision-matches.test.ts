@@ -83,19 +83,19 @@ describe("final logo and IP match policy", () => {
     const source = {
       brandRecommendation: brands([
         brand("a", 92, [10]),
-        brand("b", 75, [11]),
-        brand("weak", 74, [12]),
+        brand("b", 60, [11]),
+        brand("weak", 59, [12]),
         brand("a", 90, [10]),
       ]),
-      ipRecommendation: ips([ip("x", 94, [20]), ip("y", 80, [21]), ip("weak", 79, [22])]),
+      ipRecommendation: ips([ip("x", 94, [20]), ip("y", 60, [21]), ip("weak", 59, [22])]),
     };
     expect(getBrandRecommendationTagIdsFromQueueResult(source)).toEqual([10, 11]);
     expect(getIpRecommendationTagIdsFromQueueResult(source)).toEqual([20, 21]);
     expect(collectFeatureTagCandidates(source)).toEqual([
       { featureType: "brand", leafTagId: 10, confidence: 92 },
-      { featureType: "brand", leafTagId: 11, confidence: 75 },
+      { featureType: "brand", leafTagId: 11, confidence: 60 },
       { featureType: "ip", leafTagId: 20, confidence: 94 },
-      { featureType: "ip", leafTagId: 21, confidence: 80 },
+      { featureType: "ip", leafTagId: 21, confidence: 60 },
     ]);
     expect(getReviewFeatures(source).map((feature) => feature.id)).toEqual(["a", "b", "x", "y"]);
   });
@@ -104,7 +104,7 @@ describe("final logo and IP match policy", () => {
     expect(
       collectMuseFeatureIdentifierIdsForQueueItem({
         brandRecommendation: brands([brand("a", 92, [10]), brand("b", 90, [11])]),
-        ipRecommendation: ips([ip("x", 94, [20]), ip("y", 81, [20]), ip("weak", 79, [20])]),
+        ipRecommendation: ips([ip("x", 94, [20]), ip("y", 81, [20]), ip("weak", 59, [20])]),
         productRecommendation: null,
         personRecommendation: null,
         brandTagIds: [10, 999],

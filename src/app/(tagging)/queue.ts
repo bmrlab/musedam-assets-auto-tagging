@@ -36,7 +36,6 @@ import { classifyAssetProductRecommendation } from "@/lib/product/tagging-produc
 import { idToSlug, slugToId } from "@/lib/slug";
 import {
   fetchRemoteImageSource,
-  isImageTooLargeError,
   prepareImageInput,
   preparePersonImageInput,
   readRemoteImageDimensions,
@@ -378,15 +377,11 @@ export async function processQueueItem({
           )
             .then(prepareDetectionInput)
             .catch(async (error) => {
-              if (
-                !thumbnailUrl ||
-                detectionImageUrl === thumbnailUrl ||
-                !isImageTooLargeError(error)
-              ) {
+              if (!thumbnailUrl || detectionImageUrl === thumbnailUrl) {
                 throw error;
               }
               logger.warn({
-                msg: "Original image too large for feature classification, falling back to thumbnail",
+                msg: "Original image unavailable for feature classification, falling back to thumbnail",
                 error: error instanceof Error ? error.message : String(error),
               });
               return prepareDetectionInput(await getThumbnailSource(thumbnailUrl));

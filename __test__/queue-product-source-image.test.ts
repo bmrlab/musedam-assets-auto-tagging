@@ -227,6 +227,38 @@ describe("legacy automatic object detection source selection", () => {
   });
 });
 
+describe("expired original image fallback", () => {
+  it.each(["legacy", "llm"] as const)("uses a working thumbnail after an original download fails in %s mode", async (mode) => {
+    mocks.mode = mode;
+    const downloadUrl = "https://example.test/original.png?Expires=1787923131";
+    const thumbnailUrl = "https://example.test/thumbnail.jpg";
+    mocks.fetchSource.mockImplementation(async (url: string) => {
+      if (url === downloadUrl) throw new Error("HTTP 403: signed URL expired");
+      return { imageUrl: url, buffer: Buffer.from("image"), mimeType: "image/jpeg" };
+    });
+
+    await run({ extension: "png", downloadUrl, thumbnailAccessUrl: thumbnailUrl });
+
+    expect(mocks.fetchSource).toHaveBeenCalledWith(thumbnailUrl, "task thumbnail");
+    for (const classify of mode === "llm"
+      ? [mocks.classifyFeatures]
+      : [mocks.brand, mocks.ip, mocks.product]) {
+      expect(classify).toHaveBeenCalledWith(
+        expect.objectContaining({ imageInput: expect.objectContaining({ dataUrl: thumbnailUrl }) }),
+      );
+    }
+  });
+
+  it("does not repeatedly retry the same failed source when the thumbnail URL is identical", async () => {
+    mocks.mode = "llm";
+    mocks.fetchSource.mockRejectedValue(new Error("HTTP 403"));
+    const url = "https://example.test/expired.jpg";
+    await run({ extension: "jpg", downloadUrl: url, thumbnailAccessUrl: url });
+    expect(mocks.fetchSource).toHaveBeenCalledTimes(1);
+    expect(mocks.classifyFeatures).not.toHaveBeenCalled();
+  });
+});
+
 describe("combined LLM feature classification", () => {
   beforeEach(() => {
     mocks.mode = "llm";

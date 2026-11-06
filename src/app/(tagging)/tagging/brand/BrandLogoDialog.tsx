@@ -37,7 +37,7 @@ import {
 } from "@/lib/brand/browser-image";
 import { MAX_TOTAL_NEW_REFERENCE_UPLOAD_BYTES } from "@/lib/brand/upload-constants";
 import { uploadS3ObjectFromBrowser } from "@/lib/s3-browser-upload";
-import { Loader2, Plus, TriangleAlert, X } from "lucide-react";
+import { Loader2, Plus, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -49,6 +49,11 @@ import {
 } from "./actions";
 import DialogTagSelector from "../components/DialogTagSelector";
 import LogoTypeSelect from "./LogoTypeSelect";
+import {
+  MatchStrategyHint,
+  MatchStrategySwitch,
+  type LogoReferenceMatchStrategy,
+} from "./MatchStrategySwitch";
 import SignedBrandImage from "./SignedBrandImage";
 import { BrandLogoItem, BrandLogoTypeItem, BrandTagTreeNode } from "./types";
 
@@ -126,9 +131,8 @@ export default function BrandLogoDialog({
   const [logoTypeId, setLogoTypeId] = useState<string | null>(null);
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
   const [notes, setNotes] = useState("");
-  const [referenceMatchStrategy, setReferenceMatchStrategy] = useState<"highest" | "average">(
-    "highest",
-  );
+  const [referenceMatchStrategy, setReferenceMatchStrategy] =
+    useState<LogoReferenceMatchStrategy>("highest");
   const [refreshConfirmationOpen, setRefreshConfirmationOpen] = useState(false);
   const [images, setImages] = useState<DraftImage[]>([]);
   const [previewImage, setPreviewImage] = useState<DraftImage | null>(null);
@@ -493,24 +497,12 @@ export default function BrandLogoDialog({
                 <span className="inline-flex items-center gap-1 text-[12px] text-basic-5">
                   {t("dialog.multiImageMatchLabel")}
                 </span>
-                <div className="inline-flex rounded-[6px] bg-basic-2 p-0.5">
-                  {(["average", "highest"] as const).map((strategy) => (
-                    <button
-                      key={strategy}
-                      type="button"
-                      disabled={isSaving}
-                      aria-pressed={referenceMatchStrategy === strategy}
-                      onClick={() => setReferenceMatchStrategy(strategy)}
-                      className={`h-7 rounded-[5px] px-3 text-[13px] transition-colors ${
-                        referenceMatchStrategy === strategy
-                          ? "bg-primary-6 text-white shadow-sm"
-                          : "text-basic-7 hover:bg-basic-3"
-                      }`}
-                    >
-                      {t(`dialog.matchStrategy.${strategy}`)}
-                    </button>
-                  ))}
-                </div>
+                <MatchStrategySwitch
+                  value={referenceMatchStrategy}
+                  onChange={setReferenceMatchStrategy}
+                  disabled={isSaving}
+                  t={t}
+                />
               </div>
             </div>
 
@@ -613,17 +605,8 @@ export default function BrandLogoDialog({
               ))}
             </div>
 
-            <div className="mt-3 flex items-start gap-[10px] rounded-[8px] border border-warning-3 bg-warning-1 px-3 py-[14px] text-[12px] leading-[16px] font-normal text-basic-8">
-              <TriangleAlert
-                className="mt-0.5 size-4 shrink-0 text-warning-7"
-                aria-hidden="true"
-              />
-              <p className="text-[12px] leading-[16px] font-normal text-basic-8">
-                <span className="font-semibold">
-                  {t(`dialog.matchStrategy.${referenceMatchStrategy}`)}:{" "}
-                </span>
-                {t(`dialog.matchStrategyHint.${referenceMatchStrategy}`)}
-              </p>
+            <div className="mt-3">
+              <MatchStrategyHint strategy={referenceMatchStrategy} t={t} />
             </div>
           </div>
 

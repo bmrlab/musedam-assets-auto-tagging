@@ -1,14 +1,13 @@
 "use client";
 
-import { FeatureDecisionDiagnosticsPanel } from "@/app/(tagging)/tagging/components/FeatureDecisionDiagnosticsPanel";
 import type {
   FeatureThumbnailImage,
   FeatureThumbnails,
 } from "@/app/(tagging)/tagging/review/feature-review";
 import { TagOutlinedIcon, VimIcon } from "@/components/ui";
 import { useFeatureLibraryFeatures } from "@/hooks/use-feature-library";
-import type { FeatureDecisionDiagnostics } from "@/lib/feature-decision/types";
 import { isVideoAssetExtension } from "@/lib/feature-library";
+import type { FeatureDecisionDiagnostics } from "@/lib/feature-decision/types";
 import {
   getFeatureConfidenceToneClass,
   meetsFeatureConfidenceThreshold,
@@ -491,6 +490,7 @@ export function TaggingResultDisplay({ result, featureThumbnails }: TaggingResul
             <Image
               src={result.asset.thumbnail}
               alt={result.asset.name}
+              unoptimized
               fill
               sizes="80px"
               className="object-cover"
@@ -600,9 +600,6 @@ export function TaggingResultDisplay({ result, featureThumbnails }: TaggingResul
             </div>
           )}
         </SectionShell>
-      ) : null}
-      {result.featureDecision ? (
-        <FeatureDecisionDiagnosticsPanel diagnostics={result.featureDecision} />
       ) : null}
     </div>
   );

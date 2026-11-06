@@ -80,8 +80,8 @@ describe("queue status product tag associations", () => {
     ]);
     const result = await responseData([
       product("phone", 92),
-      product("headphones", 80),
-      product("weak", 79),
+      product("headphones", 60),
+      product("weak", 59),
     ]);
 
     expect(result.success).toBe(true);
