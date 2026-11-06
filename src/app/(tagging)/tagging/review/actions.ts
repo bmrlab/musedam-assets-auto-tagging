@@ -51,13 +51,13 @@ import {
   type ReviewFeatureSearchResult,
   type ReviewFeatureType,
 } from "./feature-review";
-import { createTagReviewSnapshot } from "./tag-review";
 import {
   loadFeatureThumbnails,
   loadManualReviewFeatures,
   loadReviewFeatureLibrary,
   searchReviewFeatureLibrary,
 } from "./feature-review-server";
+import { createTagReviewSnapshot } from "./tag-review";
 
 export type ReviewAvailableFeatureIds = {
   brand: string[];
@@ -125,9 +125,7 @@ async function buildAssetObjectTags(
   const tagSlugs = musedamTags.map(({ id: musedamTagId }) => idToSlug("assetTag", musedamTagId));
   const fields = { id: true, slug: true, name: true } as const;
   const assetTags = await prisma.assetTag.findMany({
-    where: {
-      slug: { in: tagSlugs },
-    },
+    where: { deletedAt: null, slug: { in: tagSlugs } },
     // 向上取完整祖先链（MAX_TAG_LEVEL - 1 层）以拼出完整 tagPath；动态深度无法推导类型，按 fields 声明
     select: { ...fields, ...buildParentSelect(fields) } as typeof fields,
   });
@@ -162,29 +160,39 @@ type BatchApproveAssetRef = Pick<AssetObject, "id" | "slug"> & {
 
 export type ReviewTagSearchResult = { id: number; tagPath: string[] };
 
-export type ReviewTagNode = { id: number; parentId: number | null; name: string; selectable: boolean };
+export type ReviewTagNode = {
+  id: number;
+  parentId: number | null;
+  name: string;
+  selectable: boolean;
+};
 
 /** Include structural parents so every selectable tag is reachable in the hierarchy. */
 export async function fetchReviewTagTreeAction(): Promise<ServerActionResult<ReviewTagNode[]>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     const tags = await prisma.assetTag.findMany({
-      where: { teamId },
+      where: { deletedAt: null, teamId },
       select: { id: true, parentId: true, name: true, slug: true },
       orderBy: [{ sort: "asc" }, { id: "asc" }],
     });
-    return { success: true, data: tags.map(({ slug, ...tag }) => ({ ...tag, selectable: slug !== null })) };
+    return {
+      success: true,
+      data: tags.map(({ slug, ...tag }) => ({ ...tag, selectable: slug !== null })),
+    };
   });
 }
 
 async function validateManualTagIds(teamId: number, ids: number[]) {
   const uniqueIds = [...new Set(ids)];
   if (!uniqueIds.length) return [];
-  if (uniqueIds.some((id) => !Number.isSafeInteger(id) || id <= 0)) throw new Error("Invalid manual tags");
+  if (uniqueIds.some((id) => !Number.isSafeInteger(id) || id <= 0))
+    throw new Error("Invalid manual tags");
   const tags = await prisma.assetTag.findMany({
-    where: { teamId, id: { in: uniqueIds }, slug: { not: null } },
+    where: { deletedAt: null, teamId, id: { in: uniqueIds }, slug: { not: null } },
     select: { id: true },
   });
-  if (tags.length !== uniqueIds.length) throw new Error("Selected tags changed. Please select them again.");
+  if (tags.length !== uniqueIds.length)
+    throw new Error("Selected tags changed. Please select them again.");
   return tags.map(({ id }) => id);
 }
 
@@ -626,7 +634,9 @@ export async function approveAuditItemsAction({
       try {
         const synced = await syncSingleAssetFromMuseDAM({ musedamAssetId, team });
         if (synced?.musedamAsset && "tags" in synced.musedamAsset) {
-          existingTagSlugs = (synced.musedamAsset.tags ?? []).map(({ id }) => idToSlug("assetTag", id));
+          existingTagSlugs = (synced.musedamAsset.tags ?? []).map(({ id }) =>
+            idToSlug("assetTag", id),
+          );
         }
       } catch (error) {
         if (error instanceof Error && error.message === "Asset not found") {
@@ -655,7 +665,10 @@ export async function approveAuditItemsAction({
         },
         include: { queueItem: true },
       });
-      if ((manualTagIds.length > 0 && storedAuditItems.length === 0) || storedAuditItems.length !== new Set(auditItems.map(({ id }) => id)).size) {
+      if (
+        (manualTagIds.length > 0 && storedAuditItems.length === 0) ||
+        storedAuditItems.length !== new Set(auditItems.map(({ id }) => id)).size
+      ) {
         return { success: false, message: "Invalid review items" };
       }
       const queueResults = [
@@ -707,6 +720,7 @@ export async function approveAuditItemsAction({
 
       const approvedAsetTags = await prisma.assetTag.findMany({
         where: {
+          deletedAt: null,
           teamId,
           id: {
             in: combinedApprovedTagIds,
@@ -780,7 +794,10 @@ export async function approveAuditItemsAction({
       const tagReview = createTagReviewSnapshot({
         existingTagSlugs,
         appliedTags: approvedAsetTags,
-        manualTagIds: [...validatedManualTagIds, ...manualFeatures.flatMap((feature) => feature.tags.map((tag) => tag.assetTagId))],
+        manualTagIds: [
+          ...validatedManualTagIds,
+          ...manualFeatures.flatMap((feature) => feature.tags.map((tag) => tag.assetTagId)),
+        ],
       });
       stage = "save-review";
       await prisma.$transaction(async (tx) => {
@@ -1008,16 +1025,15 @@ export async function batchApproveAuditItemsAction({
         );
 
       const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
-      const existingMuseDAMAssets = await requestMuseDAMAPI<Array<{ id: MuseDAMID; tags?: { id: MuseDAMID; name: string }[] | null }>>(
-        "/api/muse/assets-by-ids",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${musedamTeamApiKey}`,
-          },
-          body: assetRefs.map(({ musedamAssetId }) => musedamAssetId),
+      const existingMuseDAMAssets = await requestMuseDAMAPI<
+        Array<{ id: MuseDAMID; tags?: { id: MuseDAMID; name: string }[] | null }>
+      >("/api/muse/assets-by-ids", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${musedamTeamApiKey}`,
         },
-      );
+        body: assetRefs.map(({ musedamAssetId }) => musedamAssetId),
+      });
       const existingMuseDAMAssetIds = new Set(
         existingMuseDAMAssets.map((asset) => asset.id.toString()),
       );
@@ -1064,7 +1080,10 @@ export async function batchApproveAuditItemsAction({
         }
         let validatedManualTagIds: number[];
         try {
-          validatedManualTagIds = await validateManualTagIds(teamId, assetObject.manualTagIds ?? []);
+          validatedManualTagIds = await validateManualTagIds(
+            teamId,
+            assetObject.manualTagIds ?? [],
+          );
         } catch {
           failedCount++;
           continue;
@@ -1151,7 +1170,11 @@ export async function batchApproveAuditItemsAction({
           feature.tags.map((tag) => tag.assetTagId),
         );
 
-        if (finalAssetAuditItems.length === 0 && selectedFeatures.length === 0 && validatedManualTagIds.length === 0) {
+        if (
+          finalAssetAuditItems.length === 0 &&
+          selectedFeatures.length === 0 &&
+          validatedManualTagIds.length === 0
+        ) {
           failedCount++;
           continue;
         }
@@ -1174,6 +1197,7 @@ export async function batchApproveAuditItemsAction({
 
         const approvedAssetTags = await prisma.assetTag.findMany({
           where: {
+            deletedAt: null,
             teamId,
             id: {
               in: combinedApprovedTagIds,
@@ -1231,12 +1255,19 @@ export async function batchApproveAuditItemsAction({
           continue;
         }
 
-        const beforeAsset = existingMuseDAMAssets.find((asset) => asset.id.toString() === musedamAssetId.toString());
+        const beforeAsset = existingMuseDAMAssets.find(
+          (asset) => asset.id.toString() === musedamAssetId.toString(),
+        );
         const tagReview = createTagReviewSnapshot({
-          existingTagSlugs: beforeAsset && "tags" in beforeAsset
-            ? (beforeAsset.tags ?? []).map(({ id }) => idToSlug("assetTag", id)) : null,
+          existingTagSlugs:
+            beforeAsset && "tags" in beforeAsset
+              ? (beforeAsset.tags ?? []).map(({ id }) => idToSlug("assetTag", id))
+              : null,
           appliedTags: approvedAssetTags,
-          manualTagIds: [...validatedManualTagIds, ...manualFeatures.flatMap((feature) => feature.tags.map((tag) => tag.assetTagId))],
+          manualTagIds: [
+            ...validatedManualTagIds,
+            ...manualFeatures.flatMap((feature) => feature.tags.map((tag) => tag.assetTagId)),
+          ],
         });
         await prisma.$transaction(async (tx) => {
           await tx.taggingAuditItem.updateMany({

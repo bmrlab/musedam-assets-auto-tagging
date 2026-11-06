@@ -253,7 +253,7 @@ async function queryReviewFeatures(
     tags: {
       // A local tag can be linked before it has a MuseDAM ID. Keep it visible;
       // approval resolves which tag IDs can be sent to MuseDAM separately.
-      where: { assetTag: { teamId } },
+      where: { assetTag: { teamId, deletedAt: null } },
       orderBy: { sort: "asc" },
       select: {
         assetTagId: true,

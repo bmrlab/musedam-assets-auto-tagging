@@ -101,14 +101,13 @@ function normalizeTaggingErrorCode(error: unknown): string {
 
 // 辅助函数：从 MuseDAM 标签构建 AssetObjectTags
 async function buildAssetObjectTags(
+  teamId: number,
   musedamTags: { id: MuseDAMID; name: string }[],
 ): Promise<AssetObjectTags> {
   const tagSlugs = musedamTags.map(({ id: musedamTagId }) => idToSlug("assetTag", musedamTagId));
   const fields = { id: true, slug: true, name: true } as const;
   const assetTags = await prisma.assetTag.findMany({
-    where: {
-      slug: { in: tagSlugs },
-    },
+    where: { deletedAt: null, teamId, slug: { in: tagSlugs } },
     // 向上取完整祖先链（MAX_TAG_LEVEL - 1 层）以拼出完整 tagPath；动态深度无法推导类型，按 fields 声明
     select: { ...fields, ...buildParentSelect(fields) } as typeof fields,
   });
@@ -764,6 +763,8 @@ export async function processQueueItem({
         // 先查询对应的 AssetTag 获取 slug
         const approvedAssetTags = await prisma.assetTag.findMany({
           where: {
+            deletedAt: null,
+            teamId: queueItem.teamId,
             id: {
               in: combinedLeafTagIds,
             },
@@ -857,7 +858,7 @@ export async function processQueueItem({
               id: MuseDAMID;
               tags: { id: MuseDAMID; name: string }[] | null;
             };
-            const tags = await buildAssetObjectTags(musedamAsset.tags ?? []);
+            const tags = await buildAssetObjectTags(queueItem.teamId, musedamAsset.tags ?? []);
 
             await prisma.assetObject.update({
               where: { id: assetObject.id },

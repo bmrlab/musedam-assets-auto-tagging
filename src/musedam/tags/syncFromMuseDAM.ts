@@ -86,7 +86,14 @@ export async function syncTagsFromMuseDAM({ team }: { team: { id: number; slug: 
 
   await prisma.$transaction(
     async (tx) => {
-      const existingTags = await tx.assetTag.findMany({ where: { teamId: team.id } });
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(${team.id}::int, 5521735::int)::text`;
+      const tombstones = await tx.assetTag.count({
+        where: { teamId: team.id, deletedAt: { not: null }, slug: { in: [...incomingSlugs] } },
+      });
+      if (tombstones) throw new Error("MuseDAM 返回了已删除的标签，请等待主站同步完成后重试");
+      const existingTags = await tx.assetTag.findMany({
+        where: { deletedAt: null, teamId: team.id },
+      });
       const bySlug = new Map<string, AssetTag>();
       const byPath = new Map<string, AssetTag>();
       const keyOf = (parentId: number | null, name: string) => JSON.stringify([parentId, name]);
@@ -138,12 +145,18 @@ export async function syncTagsFromMuseDAM({ team }: { team: { id: number; slug: 
           .map((item) => item.existing!.id),
       );
 
+      const staleIds = existingTags.filter((tag) => !keptIds.has(tag.id)).map((tag) => tag.id);
+      if (staleIds.length)
+        await tx.assetTag.updateMany({
+          where: { teamId: team.id, deletedAt: null, id: { in: staleIds } },
+          data: { deletedAt: new Date() },
+        });
       // Free old sibling names before updates, including name swaps and moves into stale paths.
       // Stale parents remain until retained children have moved out, to preserve their relations.
       for (const tag of existingTags) {
-        if (changedPositions.has(tag.id) || !keptIds.has(tag.id)) {
+        if (changedPositions.has(tag.id)) {
           await tx.assetTag.update({
-            where: { id: tag.id, teamId: team.id },
+            where: { deletedAt: null, id: tag.id, teamId: team.id },
             data: { name: `__musedam_sync_${randomUUID()}` },
           });
         }
@@ -167,17 +180,15 @@ export async function syncTagsFromMuseDAM({ team }: { team: { id: number; slug: 
             tag.level !== data.level ||
             tag.parentId !== data.parentId
           ) {
-            await tx.assetTag.update({ where: { id: tag.id, teamId: team.id }, data });
+            await tx.assetTag.update({
+              where: { deletedAt: null, id: tag.id, teamId: team.id },
+              data,
+            });
           }
         } else {
           const created = await tx.assetTag.create({ data: { ...data, teamId: team.id } });
           item.id = created.id;
         }
-      }
-
-      const staleIds = existingTags.filter((tag) => !keptIds.has(tag.id)).map((tag) => tag.id);
-      if (staleIds.length > 0) {
-        await tx.assetTag.deleteMany({ where: { teamId: team.id, id: { in: staleIds } } });
       }
     },
     { timeout: 60000 },

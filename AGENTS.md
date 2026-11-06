@@ -30,6 +30,8 @@ pnpm exec prisma migrate dev
 
 新增 `20261105090000_add_feature_llm_calls` 迁移用于 OCR/决策调用的用量、费用与诊断记录；文件已准备，未自动应用到数据库。启用新算法前需按上述开发库流程应用迁移并生成客户端，部署环境使用现有 `pnpm db:deploy`。
 
+新增 `20261106090000_tag_soft_delete_queue_poll` 为标签软删除、活动名称唯一约束、事务内缓存版本和队列轮询索引；迁移及旧实例兼容说明见 [docs/tagging-performance.md](docs/tagging-performance.md)。历史开发库有其他分支迁移时，使用独立测试库验证，不 reset 或伪造 migration 状态。
+
 ## 启动
 
 ```sh

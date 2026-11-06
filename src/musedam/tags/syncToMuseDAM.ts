@@ -32,13 +32,14 @@ interface MuseDAMTagResponse {
 function convertToMuseDAMFormat(
   node: TagNode,
   createdTagMapping: Map<string, MuseDAMID>,
+  assetTagCache: Map<number, AssetTag>,
 ): MuseDAMTagRequest | null {
   let operation: 0 | 1 | 2 | 3 = 0; // 默认不操作
   let musedamId: MuseDAMID | undefined;
 
   // 如果有 id，说明在数据库中已存在，可以获取其对应的 MuseDAM ID
   if (node.id) {
-    const assetTag = findAssetTagById(node.id);
+    const assetTag = assetTagCache.get(node.id);
     if (assetTag?.slug) {
       musedamId = slugToId("assetTag", assetTag.slug);
     }
@@ -90,7 +91,7 @@ function convertToMuseDAMFormat(
   // 处理子标签
   if (node.children.length > 0) {
     const childrenRequests = node.children
-      .map((child) => convertToMuseDAMFormat(child, createdTagMapping))
+      .map((child) => convertToMuseDAMFormat(child, createdTagMapping, assetTagCache))
       .filter(Boolean) as MuseDAMTagRequest[];
 
     if (childrenRequests.length > 0) {
@@ -101,17 +102,11 @@ function convertToMuseDAMFormat(
   return result;
 }
 
-// 简单的内存缓存，避免重复查询
-const assetTagCache = new Map<number, AssetTag | null>();
-
-function findAssetTagById(id: number): AssetTag | null {
-  return assetTagCache.get(id) || null;
-}
-
 /**
  * 预加载所有相关的 AssetTag 数据到缓存
  */
-async function preloadAssetTags(nodes: TagNode[], teamId: number): Promise<void> {
+async function preloadAssetTags(nodes: TagNode[], teamId: number): Promise<Map<number, AssetTag>> {
+  const assetTagCache = new Map<number, AssetTag>();
   const ids: number[] = [];
 
   const collectIds = (node: TagNode) => {
@@ -125,24 +120,15 @@ async function preloadAssetTags(nodes: TagNode[], teamId: number): Promise<void>
 
   if (ids.length > 0) {
     const assetTags = await prisma.assetTag.findMany({
-      where: {
-        id: { in: ids },
-        teamId,
-      },
+      where: { deletedAt: null, id: { in: ids }, teamId },
     });
 
     // 填充缓存
     assetTags.forEach((tag) => {
       assetTagCache.set(tag.id, tag);
     });
-
-    // 对于没找到的 ID，也要标记为 null
-    ids.forEach((id) => {
-      if (!assetTagCache.has(id)) {
-        assetTagCache.set(id, null);
-      }
-    });
   }
+  return assetTagCache;
 }
 
 /**
@@ -177,18 +163,14 @@ export async function syncTagsToMuseDAM({
     return { tags: [], createdTagMapping: new Map() }; // 没有需要同步的操作
   }
 
-  // 清空缓存
-  assetTagCache.clear();
-
-  // 预加载所有相关的 AssetTag 数据
-  await preloadAssetTags(operationNodes, team.id);
+  const assetTagCache = await preloadAssetTags(operationNodes, team.id);
 
   // 创建映射表
   const createdTagMapping = new Map<string, MuseDAMID>();
 
   // 转换为 MuseDAM 格式
   const musedamTags = operationNodes
-    .map((node) => convertToMuseDAMFormat(node, createdTagMapping))
+    .map((node) => convertToMuseDAMFormat(node, createdTagMapping, assetTagCache))
     .filter(Boolean) as MuseDAMTagRequest[];
 
   // 如果没有需要同步的标签，直接返回
@@ -236,7 +218,7 @@ export async function syncTagsToMuseDAM({
   const updateAssetTagSort = async (nodeId: number, sort: number) => {
     try {
       await prisma.assetTag.update({
-        where: { id: nodeId },
+        where: { deletedAt: null, id: nodeId },
         data: { sort },
       });
     } catch (error) {
@@ -266,9 +248,9 @@ export async function syncTagsToMuseDAM({
 
         if (matchingNode && matchingNode.tempId) {
           createdTagMapping.set(matchingNode.tempId, MuseDAMID.from(responseTag.id));
-          if (matchingNode.id && !findAssetTagById(matchingNode.id)?.slug) {
+          if (matchingNode.id && !assetTagCache.get(matchingNode.id)?.slug) {
             await prisma.assetTag.update({
-              where: { id: matchingNode.id, teamId: team.id },
+              where: { deletedAt: null, id: matchingNode.id, teamId: team.id },
               data: { slug: idToSlug("assetTag", MuseDAMID.from(responseTag.id)) },
             });
           }
@@ -391,10 +373,7 @@ export async function syncTagsToMuseDAMWithCurrentSystemAsBase({
 }): Promise<void> {
   // 1. 获取当前系统中的标签树（一级标签）
   const currentTags = await prisma.assetTag.findMany({
-    where: {
-      teamId: team.id,
-      parentId: null,
-    },
+    where: { deletedAt: null, teamId: team.id, parentId: null },
     orderBy: [{ sort: "desc" }, { id: "asc" }],
     // 必须取到完整深度：漏取的深层标签会在下面 buildChildRequests 里被当成「本地已删除」而推送删除
     include: buildChildrenInclude(MAX_TAG_LEVEL - 1, {
@@ -436,7 +415,7 @@ export async function syncTagsToMuseDAMWithCurrentSystemAsBase({
       if (musedamTag) {
         const slug = idToSlug("assetTag", musedamTag.id);
         await prisma.assetTag.update({
-          where: { id: tag.id },
+          where: { deletedAt: null, id: tag.id },
           data: {
             slug,
           },
@@ -582,11 +561,7 @@ export async function syncTagsToMuseDAMWithCurrentSystemAsBase({
 
   // 9. 如果有需要同步的操作，调用同步 API
   if (deleteTags.length > 0 || updateTags.length > 0 || createTags.length > 0) {
-    // 清空缓存
-    assetTagCache.clear();
-
-    // 预加载所有相关的 AssetTag 数据
-    await preloadAssetTags(currentTagsTree, team.id);
+    const assetTagCache = await preloadAssetTags(currentTagsTree, team.id);
 
     // 构建同步请求
     const syncTags: MuseDAMTagRequest[] = [];
@@ -600,7 +575,7 @@ export async function syncTagsToMuseDAMWithCurrentSystemAsBase({
     // 添加创建操作
     const createdTagMapping = new Map<string, MuseDAMID>();
     createTags.forEach((tag) => {
-      const musedamTag = convertToMuseDAMFormat(tag, createdTagMapping);
+      const musedamTag = convertToMuseDAMFormat(tag, createdTagMapping, assetTagCache);
       if (musedamTag) {
         syncTags.push(musedamTag);
       }
@@ -639,12 +614,12 @@ export async function syncTagsToMuseDAMWithCurrentSystemAsBase({
         ? { teamId: team.id, parentId, name: musedamTag.name }
         : { teamId: team.id, name: musedamTag.name, parentId: null };
 
-      const existingTag = await prisma.assetTag.findFirst({ where });
+      const existingTag = await prisma.assetTag.findFirst({ where: { ...where, deletedAt: null } });
 
       if (existingTag) {
         // 更新 slug 和 sort
         await prisma.assetTag.update({
-          where: { id: existingTag.id },
+          where: { deletedAt: null, id: existingTag.id },
           data: {
             slug,
             sort: musedamTag.sort,

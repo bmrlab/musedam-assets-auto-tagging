@@ -76,7 +76,7 @@ export async function relinkFeatureTags(teamId: number, types: LibraryType[], dr
   return prisma.$transaction(
     async (tx) => {
       const tags = await tx.assetTag.findMany({
-        where: { teamId },
+        where: { deletedAt: null, teamId },
         select: { id: true, name: true, parentId: true },
       });
       const results = [];

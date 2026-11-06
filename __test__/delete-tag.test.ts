@@ -1,3 +1,8 @@
+vi.mock("server-only", () => ({}));
+vi.mock("@/lib/tagging/tag-import-lock", () => ({
+  runTagImportExclusive: (_t: number, _u: number, run: () => Promise<unknown>) => run(),
+  assertTagImportOwnership: vi.fn(),
+}));
 import { deleteTagAndDescendants } from "@/app/tags/delete-tag";
 import {
   buildCascadeDeletionTree,
@@ -15,17 +20,26 @@ const mocks = vi.hoisted(() => {
   };
   const prisma = {
     assetTag,
+    $executeRaw: vi.fn(async () => 3),
+    $queryRaw: vi.fn(async () => []),
     team: { findUniqueOrThrow: vi.fn(async () => ({ id: 7, slug: "team" })) },
-    $transaction: vi.fn(async (callback: (tx: { assetTag: typeof assetTag }) => Promise<void>) =>
-      callback({ assetTag }),
+    $transaction: vi.fn(
+      async (
+        callback: (tx: {
+          assetTag: typeof assetTag;
+          $executeRaw: typeof prisma.$executeRaw;
+          $queryRaw: typeof prisma.$queryRaw;
+        }) => Promise<void>,
+      ) => callback({ assetTag, $executeRaw: prisma.$executeRaw, $queryRaw: prisma.$queryRaw }),
     ),
   };
   return { prisma, syncTagsToMuseDAM: vi.fn() };
 });
 vi.mock("@/prisma/prisma", () => ({ default: mocks.prisma }));
 vi.mock("@/app/(auth)/withAuth", () => ({
-  withAuth: (callback: (args: { team: { id: number } }) => Promise<unknown>) =>
-    callback({ team: { id: 7 } }),
+  withAuth: (
+    callback: (args: { user: { id: number }; team: { id: number } }) => Promise<unknown>,
+  ) => callback({ user: { id: 1 }, team: { id: 7 } }),
 }));
 vi.mock("@/musedam/tags/syncToMuseDAM", () => ({ syncTagsToMuseDAM: mocks.syncTagsToMuseDAM }));
 
@@ -53,15 +67,16 @@ describe("tag deletion", () => {
 
   it("explicitly deletes all descendants despite the SET NULL parent foreign key", async () => {
     await deleteTagAndDescendants(1);
-    expect(mocks.prisma.assetTag.deleteMany).toHaveBeenCalledExactlyOnceWith({
-      where: { teamId: 7, id: { in: [1, 2, 3] } },
-    });
+    expect(mocks.prisma.$executeRaw).toHaveBeenCalledTimes(2);
+    expect(mocks.prisma.assetTag.deleteMany).not.toHaveBeenCalled();
     expect(mocks.prisma.assetTag.update).not.toHaveBeenCalled();
   });
 
   it("rejects tags outside the authenticated team's rows", async () => {
     expect(await deleteTagAndDescendants(999)).toMatchObject({ success: false });
-    expect(mocks.prisma.assetTag.findMany).toHaveBeenCalledWith({ where: { teamId: 7 } });
+    expect(mocks.prisma.assetTag.findMany).toHaveBeenCalledWith({
+      where: { deletedAt: null, teamId: 7 },
+    });
     expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
   });
 

@@ -1,8 +1,9 @@
-import { throwIfTagImportAborted } from "@/lib/tagging/tag-import-runtime";
-import type { TagTreeImportStats } from "@/lib/tagging/tag-import-result";
 import { idToSlug } from "@/lib/slug";
+import { cancelPendingTagImports } from "@/lib/tagging/soft-delete-tags";
 import { bumpTagConfigVersion } from "@/lib/tagging/tag-config-version";
 import { assertTagImportOwnership } from "@/lib/tagging/tag-import-lock";
+import type { TagTreeImportStats } from "@/lib/tagging/tag-import-result";
+import { throwIfTagImportAborted } from "@/lib/tagging/tag-import-runtime";
 import { Prisma } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 import { createHash, randomUUID } from "node:crypto";
@@ -34,7 +35,7 @@ const resultSchema = z.object({
 type Result = z.infer<typeof resultSchema>;
 type Receipt = {
   requestId: string;
-  state: "pending" | "remoteCommitted" | "localSaved";
+  state: "pending" | "remoteCommitted" | "localSaved" | "cancelled";
   nodes: RequestNode[];
   result?: Result;
   imported: boolean;
@@ -77,7 +78,7 @@ export async function importTagTreeSynchronously(
     await tx.$queryRaw`SELECT pg_advisory_xact_lock(${team.id}::int, ${parseInt(hash.slice(0, 7), 16)}::int)::text`;
     const previous = await tx.teamConfig.findUnique({ where });
     const saved = previous?.value as unknown as Receipt | undefined;
-    if (saved && saved.state !== "localSaved") return saved;
+    if (saved && (saved.state === "pending" || saved.state === "remoteCommitted")) return saved;
     const next: Receipt = {
       requestId: `tag-tree-${randomUUID()}`,
       state: "pending",
@@ -111,7 +112,12 @@ export async function importTagTreeSynchronously(
     validateMappings(receipt.nodes, result);
     const remote: Receipt = { ...receipt, state: "remoteCommitted", result };
     await prisma.teamConfig.updateMany({
-      where: { teamId: team.id, key, value: { path: ["requestId"], equals: receipt.requestId } },
+      where: {
+        teamId: team.id,
+        key,
+        value: { path: ["requestId"], equals: receipt.requestId },
+        AND: [{ value: { path: ["state"], not: "cancelled" } }],
+      },
       data: { value: remote as unknown as Prisma.InputJsonValue },
     });
   }
@@ -125,15 +131,26 @@ export async function importTagTreeSynchronously(
       // 串行本地补存，保留已有 ID/extra；父级落库后再存子级，避免 ID 混用。
       await tx.$queryRaw`SELECT pg_advisory_xact_lock(${team.id}::int, ${parseInt(hash.slice(0, 7), 16)}::int)::text`;
       const current = await tx.teamConfig.findUnique({ where });
-      if ((current?.value as unknown as Receipt | undefined)?.requestId !== receipt.requestId)
+      if (
+        (current?.value as unknown as Receipt | undefined)?.state === "cancelled" ||
+        (current?.value as unknown as Receipt | undefined)?.requestId !== receipt.requestId
+      )
         throw new Error("导入记录已变化，请重新导入以核对结果");
       await tx.$queryRaw`SELECT pg_advisory_xact_lock(${team.id}::int, 5521735::int)::text`;
+      const deletedRemoteIds = await tx.assetTag.count({
+        where: {
+          teamId: team.id,
+          deletedAt: { not: null },
+          slug: { in: result.nodes.map((node) => idToSlug("assetTag", new MuseDAMID(node.id))) },
+        },
+      });
+      if (deletedRemoteIds) throw new Error("导入回执包含已删除标签，请重新提交导入");
       const localKey = (parentId: number | null, name: string) => JSON.stringify([parentId, name]);
       const loadIndex = async () =>
         new Map(
           (
             await tx.assetTag.findMany({
-              where: { teamId: team.id },
+              where: { deletedAt: null, teamId: team.id },
               select: { id: true, parentId: true, name: true },
             })
           ).map((tag) => [localKey(tag.parentId, tag.name), tag]),
@@ -189,7 +206,7 @@ export async function importTagTreeSynchronously(
           "extra" = CASE WHEN ${imported} THEN (CASE WHEN jsonb_typeof(t."extra") = 'object' THEN t."extra" ELSE '{}'::jsonb END) || '{"configurationSource":"import"}'::jsonb ELSE t."extra" END,
           "updatedAt" = now()
           FROM jsonb_to_recordset(${payload}::jsonb) AS p(id int, slug text, sort int)
-          WHERE t."id" = p.id AND t."teamId" = ${team.id}`;
+          WHERE t."deletedAt" IS NULL AND t."id" = p.id AND t."teamId" = ${team.id}`;
         }
         level = level.flatMap(({ node, parentId, depth }) =>
           node.children.map((child) => ({
@@ -201,7 +218,11 @@ export async function importTagTreeSynchronously(
       }
       throwIfTagImportAborted();
       if (mode === "overwrite") {
-        await tx.assetTag.deleteMany({ where: { teamId: team.id, id: { notIn: retainedIds } } });
+        await tx.assetTag.updateMany({
+          where: { teamId: team.id, deletedAt: null, id: { notIn: retainedIds } },
+          data: { deletedAt: new Date() },
+        });
+        await cancelPendingTagImports(tx, team.id, key);
       }
       await tx.teamConfig.update({
         where,
@@ -214,7 +235,11 @@ export async function importTagTreeSynchronously(
     },
     { timeout: 60_000, isolationLevel: "ReadCommitted" },
   );
-  return { totalCount: result.nodes.length, existingCount: result.reusedCount, createdCount: result.createdCount };
+  return {
+    totalCount: result.nodes.length,
+    existingCount: result.reusedCount,
+    createdCount: result.createdCount,
+  };
 }
 
 function validateMappings(nodes: RequestNode[], result: Result) {

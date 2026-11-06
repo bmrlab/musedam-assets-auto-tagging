@@ -2,7 +2,11 @@ import "server-only";
 
 import { AssetTagExtra } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
-import { getStrongKeywordVariantsForTagName, normalizeForMatch, pathIncludesKeyword } from "./predict";
+import {
+  getStrongKeywordVariantsForTagName,
+  normalizeForMatch,
+  pathIncludesKeyword,
+} from "./predict";
 
 /**
  * 同一个（标签, 自动关键词）组合累计被人工拒绝达到这个次数后，
@@ -32,7 +36,7 @@ export async function recordKeywordRejectionFeedback({
   assetName: string;
 }): Promise<{ autoExcludedKeyword?: string }> {
   const tag = await prisma.assetTag.findUnique({
-    where: { id: leafTagId },
+    where: { deletedAt: null, id: leafTagId },
     select: { id: true, teamId: true, name: true, extra: true },
   });
   if (!tag || tag.teamId !== teamId) return {};
@@ -58,13 +62,14 @@ export async function recordKeywordRejectionFeedback({
   const rejectionCounts = { ...(extra.keywordRejectionCounts ?? {}) };
   rejectionCounts[matchedKeyword] = (rejectionCounts[matchedKeyword] ?? 0) + 1;
 
-  const shouldAutoExclude = rejectionCounts[matchedKeyword] >= KEYWORD_REJECTION_AUTO_EXCLUDE_THRESHOLD;
+  const shouldAutoExclude =
+    rejectionCounts[matchedKeyword] >= KEYWORD_REJECTION_AUTO_EXCLUDE_THRESHOLD;
   const nextNegativeKeywords = shouldAutoExclude
     ? [...existingNegativeKeywords, matchedKeyword]
     : existingNegativeKeywords;
 
   await prisma.assetTag.update({
-    where: { id: leafTagId },
+    where: { deletedAt: null, id: leafTagId },
     data: {
       extra: {
         ...extra,
@@ -90,13 +95,18 @@ export function pruneRejectionCountsForRemovedKeywords(
   const previousNegativeKeywords = (extra.negativeKeywords ?? []).map((keyword) =>
     normalizeForMatch(keyword),
   );
-  const nextNormalizedSet = new Set(nextNegativeKeywords.map((keyword) => normalizeForMatch(keyword)));
+  const nextNormalizedSet = new Set(
+    nextNegativeKeywords.map((keyword) => normalizeForMatch(keyword)),
+  );
   const removedKeywords = previousNegativeKeywords.filter(
     (keyword) => !nextNormalizedSet.has(keyword),
   );
 
   if (removedKeywords.length === 0 || !extra.keywordRejectionCounts) {
-    return { negativeKeywords: nextNegativeKeywords, keywordRejectionCounts: extra.keywordRejectionCounts };
+    return {
+      negativeKeywords: nextNegativeKeywords,
+      keywordRejectionCounts: extra.keywordRejectionCounts,
+    };
   }
 
   const keywordRejectionCounts = { ...extra.keywordRejectionCounts };

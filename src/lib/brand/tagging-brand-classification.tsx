@@ -101,6 +101,7 @@ export async function classifyAssetBrandRecommendation({
   const logoTags = await prisma.assetLogoTag.findMany({
     where: {
       assetLogoId: result.bestMatch.assetLogoId,
+      assetTag: { teamId, deletedAt: null },
       assetTagId: {
         not: null,
       },

@@ -156,14 +156,13 @@ export async function getFeatureByAssetFromMuseDAM({
 
 // build AssetObjectTags from tags response from musedam
 async function buildAssetObjectTags(
+  teamId: number,
   musedamTags: { id: MuseDAMID; name: string }[],
 ): Promise<AssetObjectTags> {
   const tagSlugs = musedamTags.map(({ id: musedamTagId }) => idToSlug("assetTag", musedamTagId));
   const fields = { id: true, slug: true, name: true } as const;
   const assetTags = await prisma.assetTag.findMany({
-    where: {
-      slug: { in: tagSlugs },
-    },
+    where: { deletedAt: null, teamId, slug: { in: tagSlugs } },
     // 向上取完整祖先链（MAX_TAG_LEVEL - 1 层）以拼出完整 tagPath；动态深度无法推导类型，按 fields 声明
     select: { ...fields, ...buildParentSelect(fields) } as typeof fields,
   });
@@ -219,7 +218,7 @@ export async function syncSingleAssetFromMuseDAM({
   const [folderPath, contentAnalysis, tags] = await Promise.all([
     fetchMuseDAMFolderPaths({ team, musedamFolderIds: musedamAsset.parentIds ?? [] }),
     fetchContentAnalysisFromMuseDAM({ team, musedamAssetId }),
-    buildAssetObjectTags(musedamAsset.tags ?? []),
+    buildAssetObjectTags(team.id, musedamAsset.tags ?? []),
   ]);
   const assetSlug = idToSlug("assetObject", musedamAsset.id);
   // 更新或创建 asset 记录

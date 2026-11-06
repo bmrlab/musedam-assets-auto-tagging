@@ -38,7 +38,7 @@ it("merges imported fields into the latest locked extra rather than the prefligh
   ];
   await applyTagConfigImportChunk(tx as unknown as Prisma.TransactionClient, 7, items);
   expect(update).toHaveBeenCalledWith({
-    where: { id: 1, teamId: 7 },
+    where: { deletedAt: null, id: 1, teamId: 7 },
     data: {
       extra: {
         ...current,

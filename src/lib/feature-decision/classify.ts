@@ -310,7 +310,10 @@ export async function classifyAssetFeatures(
               select: {
                 id: true,
                 notes: true,
-                tags: { select: { assetTagId: true, tagPath: true } },
+                tags: {
+                  where: { assetTag: { teamId, deletedAt: null } },
+                  select: { assetTagId: true, tagPath: true },
+                },
                 images: {
                   orderBy: imageSelect.orderBy,
                   select: { id: true, objectKey: true },

@@ -133,6 +133,7 @@ export async function classifyPersonFaceEmbeddings({
             personTypeId: true,
             personTypeName: true,
             tags: {
+              where: { assetTag: { deletedAt: null } },
               orderBy: [{ sort: "asc" }, { id: "asc" }],
               select: {
                 id: true,

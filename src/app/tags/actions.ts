@@ -1,12 +1,14 @@
 "use server";
+import { softDeleteTagSubtree } from "@/lib/tagging/soft-delete-tags";
+import { deleteTagAndDescendants } from "./delete-tag";
 
 import { withAuth } from "@/app/(auth)/withAuth";
 import { executeGenerateTagTreeByLLM } from "@/app/tags/generateTagTreeLLM";
 import { Locale } from "@/i18n/routing";
 import { ServerActionResult } from "@/lib/serverAction";
-import type { TagTreeImportStats } from "@/lib/tagging/tag-import-result";
 import { idToSlug } from "@/lib/slug";
 import { applyTagConfigImportChunk } from "@/lib/tagging/import-tag-config";
+import type { TagTreeImportStats } from "@/lib/tagging/tag-import-result";
 import {
   AssetTagTreeNode,
   buildChildrenInclude,
@@ -21,7 +23,7 @@ import {
   syncTagsToMuseDAMWithCurrentSystemAsBase,
 } from "@/musedam/tags/syncToMuseDAM";
 import { MuseDAMID } from "@/musedam/types";
-import type { AssetTagExtra, Prisma } from "@/prisma/client";
+import type { AssetTagExtra } from "@/prisma/client";
 import { AssetTag } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 import { TagNode } from "./types";
@@ -64,8 +66,6 @@ function tagNodesExceedMaxLevel(nodes: TagNode[], baseLevel: number = 1): boolea
     }) !== null
   );
 }
-
-
 
 // 根据 MuseDAM 返回的标签树构建 musedamId -> sort 的映射
 function buildMuseDAMSortMap(tags: MuseDAMTagResponse[]): Map<number, number> {
@@ -111,6 +111,7 @@ export async function getTeamHasTags(): Promise<
   return withAuth(async ({ team: { id: teamId } }) => {
     const tags = await prisma.assetTag.findMany({
       where: {
+        deletedAt: null,
         teamId,
         parentId: {
           equals: null,
@@ -134,6 +135,7 @@ export async function fetchTeamTags(): Promise<
   return withAuth(async ({ team: { id: teamId } }) => {
     const tags = await prisma.assetTag.findMany({
       where: {
+        deletedAt: null,
         teamId,
         parentId: {
           equals: null,
@@ -243,6 +245,9 @@ export async function saveTagsTree(tagsTree: TagNode[]): Promise<ServerActionRes
         return { success: false, message: TAG_LEVEL_EXCEEDED_MESSAGE };
       }
 
+      const includesDelete = (nodes: TagNode[]): boolean =>
+        nodes.some((node) => node.verb === "delete" || includesDelete(node.children));
+      const deleting = includesDelete(tagsTree);
       // 在数据库操作前先同步到 MuseDAM（此时数据库中的数据还是完整的）
       let syncResult: SyncResult | null = null;
       try {
@@ -250,9 +255,11 @@ export async function saveTagsTree(tagsTree: TagNode[]): Promise<ServerActionRes
         if (syncResponse.success) {
           syncResult = syncResponse.data;
         } else {
+          if (deleting) throw new Error(syncResponse.message);
           console.error("Sync to MuseDAM failed:", syncResponse.message);
         }
       } catch (error) {
+        if (deleting) throw error;
         console.error("Sync to MuseDAM error:", error);
         // MuseDAM 同步失败不影响本地保存结果
       }
@@ -261,6 +268,7 @@ export async function saveTagsTree(tagsTree: TagNode[]): Promise<ServerActionRes
       const musedamSortMap = syncResult ? buildMuseDAMSortMap(syncResult.tags) : null;
 
       await prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(${teamId}::int, 5521735::int)::text`;
         // 递归处理标签节点
         const processNodes = async (
           nodes: TagNode[],
@@ -270,12 +278,7 @@ export async function saveTagsTree(tagsTree: TagNode[]): Promise<ServerActionRes
           for (const node of nodes) {
             if (node.verb === "delete" && node.id) {
               // 删除标签（级联删除子标签）
-              await tx.assetTag.delete({
-                where: {
-                  id: node.id,
-                  teamId,
-                },
-              });
+              await softDeleteTagSubtree(tx, teamId, node.id);
             } else if (node.verb === "create") {
               // 创建新标签
               if (!node.name.trim()) {
@@ -287,11 +290,7 @@ export async function saveTagsTree(tagsTree: TagNode[]): Promise<ServerActionRes
 
               // 检查同级标签名是否重复
               const existingTag = await tx.assetTag.findFirst({
-                where: {
-                  teamId,
-                  parentId,
-                  name: node.name.trim(),
-                },
+                where: { deletedAt: null, teamId, parentId, name: node.name.trim() },
               });
 
               let targetTagId: number;
@@ -352,6 +351,7 @@ export async function saveTagsTree(tagsTree: TagNode[]): Promise<ServerActionRes
               // 检查同级标签名是否重复（排除自己）
               const existingTag = await tx.assetTag.findFirst({
                 where: {
+                  deletedAt: null,
                   teamId,
                   parentId,
                   name: node.name.trim(),
@@ -366,10 +366,7 @@ export async function saveTagsTree(tagsTree: TagNode[]): Promise<ServerActionRes
               }
 
               await tx.assetTag.update({
-                where: {
-                  id: node.id,
-                  teamId,
-                },
+                where: { deletedAt: null, id: node.id, teamId },
                 data: {
                   name: node.name.trim(),
                 },
@@ -418,7 +415,7 @@ export async function checkExistingTags(): Promise<
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
       const count = await prisma.assetTag.count({
-        where: { teamId },
+        where: { deletedAt: null, teamId },
       });
 
       return {
@@ -501,11 +498,12 @@ export async function saveSingleTagChange(
 ): Promise<ServerActionResult<void>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
+      if (node.verb === "delete" && node.id) return deleteTagAndDescendants(node.id);
       // 层级以库里父节点的实际层级为准（客户端传入的 level 仅作兜底），新建节点不能超过 MAX_TAG_LEVEL
       let effectiveLevel = level;
       if (parentId !== null) {
         const parentTag = await prisma.assetTag.findFirst({
-          where: { id: parentId, teamId },
+          where: { deletedAt: null, id: parentId, teamId },
           select: { level: true },
         });
         if (parentTag) effectiveLevel = Math.max(level, parentTag.level + 1);
@@ -540,14 +538,19 @@ export async function saveSingleTagChange(
       const musedamSortMap = syncResult ? buildMuseDAMSortMap(syncResult.tags) : null;
 
       await prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(${teamId}::int, 5521735::int)::text`;
+        if (
+          parentId !== null &&
+          !(await tx.assetTag.findFirst({
+            where: { id: parentId, teamId, deletedAt: null },
+            select: { id: true },
+          }))
+        ) {
+          throw new Error("父标签不存在或已被删除，请刷新后重试");
+        }
         if (node.verb === "delete" && node.id) {
           // 删除标签（级联删除子标签）
-          await tx.assetTag.delete({
-            where: {
-              id: node.id,
-              teamId,
-            },
-          });
+          await softDeleteTagSubtree(tx, teamId, node.id);
         } else if (node.verb === "create") {
           // 创建新标签
           if (!node.name.trim()) {
@@ -556,11 +559,7 @@ export async function saveSingleTagChange(
 
           // 检查同级标签名是否重复
           const existingTag = await tx.assetTag.findFirst({
-            where: {
-              teamId,
-              parentId,
-              name: node.name.trim(),
-            },
+            where: { deletedAt: null, teamId, parentId, name: node.name.trim() },
           });
 
           let targetTagId: number;
@@ -623,6 +622,7 @@ export async function saveSingleTagChange(
           // 检查同级标签名是否重复（排除自己）
           const existingTag = await tx.assetTag.findFirst({
             where: {
+              deletedAt: null,
               teamId,
               parentId,
               name: node.name.trim(),
@@ -637,10 +637,7 @@ export async function saveSingleTagChange(
           }
 
           await tx.assetTag.update({
-            where: {
-              id: node.id,
-              teamId,
-            },
+            where: { deletedAt: null, id: node.id, teamId },
             data: {
               name: node.name.trim(),
             },
@@ -686,10 +683,7 @@ export async function updateTagSort(
         // 批量更新标签排序
         for (const { id, sort } of tagSortData) {
           await tx.assetTag.update({
-            where: {
-              id,
-              teamId,
-            },
+            where: { deletedAt: null, id, teamId },
             data: {
               sort,
             },
@@ -729,10 +723,7 @@ export async function updateTagExtra(
     try {
       // 获取现有标签
       const existingTag = await prisma.assetTag.findFirst({
-        where: {
-          id: tagId,
-          teamId,
-        },
+        where: { deletedAt: null, id: tagId, teamId },
       });
 
       if (!existingTag) {
@@ -750,6 +741,7 @@ export async function updateTagExtra(
         // 检查同级标签名是否重复
         const duplicateTag = await prisma.assetTag.findFirst({
           where: {
+            deletedAt: null,
             teamId,
             parentId: existingTag.parentId,
             name: data.name.trim(),

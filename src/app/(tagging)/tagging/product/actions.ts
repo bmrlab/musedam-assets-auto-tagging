@@ -339,9 +339,7 @@ function getProductBatchTranslator(t: TranslationFunction) {
 
 async function buildTagPathLookup(teamId: number) {
   const tags = await prisma.assetTag.findMany({
-    where: {
-      teamId,
-    },
+    where: { deletedAt: null, teamId },
     include: buildParentInclude(),
   });
   const tagLookup = new Map<
@@ -488,10 +486,7 @@ async function ensureImportedProductType({
 
 async function fetchProductTags(teamId: number) {
   const tags = await prisma.assetTag.findMany({
-    where: {
-      teamId,
-      parentId: null,
-    },
+    where: { deletedAt: null, teamId, parentId: null },
     orderBy: [{ sort: "desc" }, { name: "asc" }],
     include: buildChildrenInclude(MAX_TAG_LEVEL - 1, {
       orderBy: [{ sort: "desc" }, { name: "asc" }],
@@ -512,6 +507,7 @@ async function fetchProducts(teamId: number) {
         orderBy: [{ sort: "asc" }, { id: "asc" }],
       },
       tags: {
+        where: { OR: [{ assetTagId: null }, { assetTag: { deletedAt: null } }] },
         orderBy: [{ sort: "asc" }, { id: "asc" }],
       },
     },
@@ -546,6 +542,7 @@ async function resolveSelectedTags(teamId: number, tagIds: number[]) {
 
   const tags = await prisma.assetTag.findMany({
     where: {
+      deletedAt: null,
       teamId,
       id: {
         in: uniqueTagIds,
@@ -1067,6 +1064,7 @@ async function loadProduct(teamId: number, productId: string) {
         orderBy: [{ sort: "asc" }, { id: "asc" }],
       },
       tags: {
+        where: { OR: [{ assetTagId: null }, { assetTag: { deletedAt: null } }] },
         orderBy: [{ sort: "asc" }, { id: "asc" }],
       },
     },
@@ -1097,6 +1095,7 @@ async function loadProductsByIds(teamId: number, productIds: string[]) {
         orderBy: [{ sort: "asc" }, { id: "asc" }],
       },
       tags: {
+        where: { OR: [{ assetTagId: null }, { assetTag: { deletedAt: null } }] },
         orderBy: [{ sort: "asc" }, { id: "asc" }],
       },
     },
@@ -1199,6 +1198,7 @@ async function queryProductsPage(
           orderBy: [{ sort: "asc" }, { id: "asc" }],
         },
         tags: {
+          where: { OR: [{ assetTagId: null }, { assetTag: { deletedAt: null } }] },
           orderBy: [{ sort: "asc" }, { id: "asc" }],
         },
       },

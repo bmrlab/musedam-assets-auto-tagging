@@ -296,6 +296,7 @@ async function classifyProductImageGroups({
             description: true,
             generalCategory: true,
             tags: {
+              where: { assetTag: { deletedAt: null } },
               orderBy: [{ sort: "asc" }, { id: "asc" }],
               select: { id: true, assetTagId: true, tagPath: true },
             },
