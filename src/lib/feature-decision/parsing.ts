@@ -43,13 +43,23 @@ export function parseChatEnvelope(value: unknown): OpenAIChatResponse {
   return chatResponseSchema.parse(value);
 }
 
-/** Some compatible gateways wrap their otherwise valid JSON in a single code fence. */
+/** Accept raw JSON first, then a single Markdown JSON block without repairing its contents. */
 export function parseLlmJson(content: string): unknown {
-  const text = content
-    .trim()
-    .replace(/^```(?:json)?\s*\n?([\s\S]*?)\n?```$/i, "$1")
-    .trim();
-  return JSON.parse(text);
+  const text = content.trim();
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    const blocks = [
+      ...text.matchAll(
+        /(?:^|\n)[ \t]*```(?:json)?[ \t]*\r?\n([\s\S]*?)\r?\n[ \t]*```[ \t]*(?=\r?\n|$)/gi,
+      ),
+    ];
+    if (blocks.length === 1) return JSON.parse(blocks[0][1]);
+    // Retain support for gateways that put the entire fence on one line.
+    const inline = text.match(/^```(?:json)?\s*([^\n]*?)\s*```$/i);
+    if (inline) return JSON.parse(inline[1]);
+    throw error;
+  }
 }
 
 export function parseOcrResponse(content: string, imageCount = 1): OcrResponse {
@@ -68,10 +78,15 @@ export function parseOcrResponse(content: string, imageCount = 1): OcrResponse {
       payload = { content: [flatBlocks.data.content.map((block) => block.text)] };
     }
   }
-  return z
-    .object({ content: z.array(z.array(segment)).length(imageCount) })
+  const parsed = z
+    .object({ content: z.array(z.array(segment)) })
     .strict()
     .parse(payload);
+  // A single image may contain several products or text regions. Some models
+  // incorrectly group those as separate images; all still belong to this source.
+  if (imageCount === 1) return { content: [parsed.content.flat()] };
+  z.array(z.array(z.string())).length(imageCount).parse(parsed.content);
+  return parsed;
 }
 
 const decisionResponseSchema = z
