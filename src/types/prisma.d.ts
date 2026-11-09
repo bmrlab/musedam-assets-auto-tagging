@@ -177,6 +177,7 @@ declare module "@/prisma/client" {
   };
 
   export type TaggingProductBestMatch = {
+    matchingSource?: "assetName";
     assetProductId: string;
     productName: string;
     productTypeId: string | null;

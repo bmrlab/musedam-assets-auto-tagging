@@ -124,6 +124,7 @@
     "featureClassProduct": "商品",
     "ipRecognition": "IP 形象辨識",
     "personRecognition": "人物辨識",
+    "productNameMatch": "商品名稱匹配",
     "productRecognition": "商品辨識"
   },
   "TagsPage": {

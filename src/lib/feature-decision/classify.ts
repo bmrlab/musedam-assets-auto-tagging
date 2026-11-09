@@ -1,3 +1,4 @@
+import { findProductNameMatches } from "@/lib/product/product-name-evidence";
 import "server-only";
 import { FEATURE_DECISION_MODE, isDecisionLlmImageUseEnabled } from "./config";
 
@@ -678,6 +679,23 @@ export async function classifyAssetFeatures(
         }),
       };
     }
+  }
+  if (output.product) {
+    // Resolve image ownership before merging independent filename evidence.
+    const regions = output.product.detections;
+    const imageMatches = output.product.matches.flatMap(match => {
+      const owned = regions.filter(region => !region.noConfidentMatch &&
+        region.bestMatch?.assetProductId === match.assetProductId);
+      if (!owned.length) return [];
+      const indices = owned.flatMap(region => region.sourceDetectionIndices ?? [region.detectionIndex]);
+      return [{ ...match, detectionIndex: indices[0], detectionIndices: indices }];
+    });
+    const nameMatches = await findProductNameMatches(teamId, input.fileName);
+    const matches = deduplicateProductMatches([...nameMatches, ...imageMatches]);
+    output.product = { ...output.product, matches,
+      bestMatch: matches[0] ?? output.product.bestMatch,
+      noConfidentMatch: matches.length === 0,
+      winningDetectionIndex: matches[0]?.detectionIndex ?? null };
   }
   output.confidenceThresholds = thresholds;
   if (output.brand) output.brand.diagnostics = output.diagnostics;

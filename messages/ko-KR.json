@@ -124,6 +124,7 @@
     "featureClassProduct": "상품",
     "ipRecognition": "IP 캐릭터 인식",
     "personRecognition": "인물 인식",
+    "productNameMatch": "상품명 일치",
     "productRecognition": "상품 인식"
   },
   "TagsPage": {

@@ -107,6 +107,38 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllEnvs());
 
 describe("whole-asset feature decision orchestration", () => {
+  it("keeps one product per image region and recalls a complete filename identity outside retrieval", async () => {
+    const matches = ["first", "lower"].map((id, index) => ({
+      assetProductId: id, productName: id, productTypeId: null, productTypeName: "Products",
+      description: "", generalCategory: "bottle", confidence: 95 - index,
+      similarity: 0.95 - index * 0.01, imageSimilarity: 0.95 - index * 0.01,
+      descriptionSimilarity: 0, detectionIndex: 0, detectionIndices: [0], recommendedTags: [],
+    }));
+    mocks.product.mockResolvedValue({ matches: [matches[0]], topMatches: matches,
+      bestMatch: matches[0], noConfidentMatch: false, winningDetectionIndex: 0,
+      rawDetections: [box(0)], detections: [{ detectionIndex: 0, sourceDetectionIndices: [0],
+        box: box(0), topMatches: matches, bestMatch: matches[0], noConfidentMatch: false }],
+    });
+    mocks.products.mockResolvedValue([
+      ...matches.map(match => ({ id: match.assetProductId, name: match.productName, notes: "", images: [], tags: [] })),
+      { id: "415", name: "赫妍魅感裸透镜彩唇釉 415", productTypeId: null, productTypeName: "主推产品",
+        description: "", generalCategory: "lip gloss", notes: "", images: [], tags: [] },
+    ]);
+    mocks.decision.mockResolvedValue({
+      ocr: { status: "empty", segments: [] },
+      decision: { status: "completed", result: { outcome: "matched", matches: matches.map((match, index) => ({
+        ...decisionMatch(match.assetProductId, 95 - index), candidateId: `product:${match.assetProductId}`, evidence: ["retrieval"],
+      })) } },
+    });
+    const result = await classifyAssetFeatures({ teamId: 1, imageInput,
+      enabledTypes: ["product"], boxes: { product: [box(0)] }, imageMode: false,
+      fileName: "赫妍魅感裸透镜彩唇釉415_试色图",
+    });
+    expect(result.product?.matches.map(match => match.assetProductId)).toEqual(["415", "first"]);
+    expect(result.product?.matches[0]).toMatchObject({ matchingSource: "assetName", detectionIndex: -1, detectionIndices: [] });
+    expect(result.product?.topMatches.map(match => match.assetProductId)).toEqual(["first", "lower"]);
+  });
+
   it.each([
     ["logo", true],
     ["logo", false],

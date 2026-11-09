@@ -319,6 +319,7 @@
     "featureClassProduct": "Sản phẩm",
     "ipRecognition": "Nhận diện nhân vật IP",
     "personRecognition": "Nhận diện người",
+    "productNameMatch": "Khớp tên sản phẩm",
     "productRecognition": "Nhận diện sản phẩm"
   },
   "SmartTags": {

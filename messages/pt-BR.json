@@ -124,6 +124,7 @@
     "featureClassProduct": "Produto",
     "ipRecognition": "Reconhecimento de personagem IP",
     "personRecognition": "Reconhecimento de pessoa",
+    "productNameMatch": "Correspondência do nome do produto",
     "productRecognition": "Reconhecimento de produto"
   },
   "TagsPage": {

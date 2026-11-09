@@ -319,6 +319,7 @@
     "featureClassProduct": "Ürün",
     "ipRecognition": "IP Karakteri Tanıma",
     "personRecognition": "Kişi Tanıma",
+    "productNameMatch": "Ürün adı eşleşmesi",
     "productRecognition": "Ürün Tanıma"
   },
   "SmartTags": {

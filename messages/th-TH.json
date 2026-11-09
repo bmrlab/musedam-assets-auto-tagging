@@ -319,6 +319,7 @@
     "featureClassProduct": "สินค้า",
     "ipRecognition": "การรู้จำตัวละคร IP",
     "personRecognition": "การรู้จำบุคคล",
+    "productNameMatch": "ตรงกับชื่อสินค้า",
     "productRecognition": "การรู้จำสินค้า"
   },
   "SmartTags": {

@@ -29,6 +29,7 @@ import { MatchedKeywordsBadge } from "../../components/MatchedKeywordsBadge";
 import { FeatureThumbnail } from "./FeatureThumbnail";
 
 export interface ProductRecognitionResult {
+  matchingSource?: "assetName";
   noConfidentMatch: boolean;
   productName: string | null;
   productTypeName: string | null;
@@ -401,7 +402,7 @@ export function TaggingResultDisplay({ result, featureThumbnails }: TaggingResul
         title: product.productName,
         featureName: t("featureClassProduct"),
         featureType: product.productTypeName || "-",
-        matchingSource: t("productRecognition"),
+        matchingSource: t(product.matchingSource === "assetName" ? "productNameMatch" : "productRecognition"),
         confidence: score,
         score,
         featureTypeId: "product",

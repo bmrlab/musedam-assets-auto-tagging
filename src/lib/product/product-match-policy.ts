@@ -63,12 +63,29 @@ export function getProductMatches(
 export function getAcceptedProductMatches(
   recommendation: TaggingProductRecommendation | null | undefined,
 ): Array<TaggingProductBestMatch & { detectionIndices: number[] }> {
+  // Some historical AI review results saved every alternative in `matches`.
+  // Region winners establish ownership; alternatives cannot create extra products.
+  const regionWinners = recommendation?.detections?.length ? new Map<string, number[]>() : null;
+  for (const detection of recommendation?.detections ?? []) {
+    if (!regionWinners || detection.noConfidentMatch || !detection.bestMatch) continue;
+    const id = detection.bestMatch.assetProductId;
+    regionWinners.set(id, [
+      ...(regionWinners.get(id) ?? []),
+      ...(detection.sourceDetectionIndices ?? [detection.detectionIndex]),
+    ]);
+  }
   return deduplicateProductMatches(
-    getProductMatches(recommendation).filter(
-      (match) =>
-        typeof match?.assetProductId === "string" &&
-        match.assetProductId.length > 0 &&
-        meetsFeatureConfidenceThreshold("product", match.confidence, recommendation?.confidenceThreshold),
-    ),
+    getProductMatches(recommendation).flatMap((match) => {
+      if (
+        typeof match?.assetProductId !== "string" ||
+        !match.assetProductId.length ||
+        !meetsFeatureConfidenceThreshold("product", match.confidence, recommendation?.confidenceThreshold)
+      )
+        return [];
+      if (!regionWinners || match.matchingSource === "assetName") return [match];
+      const indices = regionWinners.get(match.assetProductId);
+      if (!indices?.length) return [];
+      return [{ ...match, detectionIndex: indices[0], detectionIndices: indices }];
+    }),
   );
 }

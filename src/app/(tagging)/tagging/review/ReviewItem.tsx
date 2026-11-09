@@ -196,6 +196,7 @@ function FeatureRecognitionRow({
   classifiedName,
   confidence,
   rawSimilarity,
+  matchingSource,
   tagPaths,
   isRejected,
   onToggle,
@@ -216,6 +217,7 @@ function FeatureRecognitionRow({
   classifiedName: string;
   confidence: number;
   rawSimilarity?: number;
+  matchingSource?: "assetName";
   tagPaths: string[][];
   isRejected: boolean;
   onToggle: () => void;
@@ -261,7 +263,7 @@ function FeatureRecognitionRow({
           {featureClass} &gt; {featureTypeName || "-"}
         </div>
         <div className="mt-0.5 truncate text-[10px] text-current/60">
-          {tResult("matchingSource")}: {tResult(`${featureType}Recognition`)}
+          {tResult("matchingSource")}: {tResult(matchingSource === "assetName" ? "productNameMatch" : `${featureType}Recognition`)}
         </div>
         {tagPaths.length > 0 ? (
           <div className="mt-1 flex flex-wrap gap-1">
@@ -1215,6 +1217,7 @@ export function ReviewItem({
                 classifiedName: string;
                 confidence: number;
                 rawSimilarity?: number;
+                matchingSource?: "assetName";
                 tagPaths: string[][];
                 isRejected: boolean;
                 onToggle: () => void;
@@ -1268,6 +1271,7 @@ export function ReviewItem({
                   featureTypeName: product.productTypeName,
                   classifiedName: product.productName,
                   confidence: normalizeFeatureConfidence(product.confidence),
+                  matchingSource: product.matchingSource,
                   tagPaths: product.recommendedTags?.map((tag) => tag.tagPath) ?? [],
                   isRejected: rejectedFeatureKeys.includes(
                     featureKey("product", product.assetProductId),
@@ -1335,6 +1339,9 @@ export function ReviewItem({
                     <StarIcon className="size-4" />
                     <span className="text-sm font-medium">{t("featureRecognition")}</span>
                     <span className="text-xs text-basic-5">{t("basedOnFeatureLibrary")}</span>
+                    {!taggingAuditItems.some(({ status }) => status === "pending") ? (
+                      <span className="rounded border border-basic-3 px-2 py-0.5 text-xs text-basic-5">{t("reviewedBadge")}</span>
+                    ) : null}
                     {isLatestBatch ? (
                       <span className="ml-2 inline-flex items-center rounded-[4px] border border-danger-3 bg-danger-1 px-[13px] py-[2px] text-xs text-danger-6">
                         {t("latest")}
@@ -1393,10 +1400,12 @@ export function ReviewItem({
                           classifiedName={feature.classifiedName}
                           confidence={feature.confidence}
                           rawSimilarity={feature.rawSimilarity}
+                          matchingSource={feature.matchingSource}
                           tagPaths={feature.tagPaths}
                           isRejected={feature.isRejected}
                           onToggle={feature.onToggle}
-                          disabled={realLoading || !hasPendingAuditItems}
+                          disabled={realLoading || sourceDeleted}
+                          showToggle={taggingAuditItems.some(({ status }) => status === "pending")}
                           tooltipAdd={t("tooltipAdd")}
                           tooltipRemove={t("tooltipRemove")}
                           onPreview={setPreviewImage}

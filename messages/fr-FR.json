@@ -319,6 +319,7 @@
     "featureClassProduct": "Produit",
     "ipRecognition": "Reconnaissance de personnage IP",
     "personRecognition": "Reconnaissance de personne",
+    "productNameMatch": "Correspondance du nom du produit",
     "productRecognition": "Reconnaissance de produit"
   },
   "SmartTags": {

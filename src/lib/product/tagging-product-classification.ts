@@ -1,3 +1,5 @@
+import { findProductNameMatches } from "./product-name-evidence";
+import { deduplicateProductMatches } from "./product-match-policy";
 import { classifyAssetFeatures, getFeatureDecisionMode } from "@/lib/feature-decision/classify";
 import { buildFeatureRecommendations } from "@/lib/feature-decision/recommendations";
 import "server-only";
@@ -78,9 +80,12 @@ export async function classifyAssetProductRecommendation({
     ...match,
     recommendedTags: normalizeRecommendedTags(match.recommendedTags),
   });
-  const matches = result.matches.map(normalizeMatch);
+  const matches = deduplicateProductMatches([
+    ...(await findProductNameMatches(teamId, fileName)).map(normalizeMatch),
+    ...result.matches.map(normalizeMatch),
+  ]);
   const recommendedTags = normalizeRecommendedTags(
-    result.matches.flatMap((match) => match.recommendedTags),
+    matches.flatMap((match) => match.recommendedTags),
   );
 
   return {
@@ -94,7 +99,7 @@ export async function classifyAssetProductRecommendation({
       topMatches: detection.topMatches.map(normalizeMatch),
       bestMatch: detection.bestMatch ? normalizeMatch(detection.bestMatch) : null,
     })),
-    bestMatch: result.bestMatch ? normalizeMatch(result.bestMatch) : null,
+    bestMatch: matches[0] ?? (result.bestMatch ? normalizeMatch(result.bestMatch) : null),
     recommendedTags,
   };
 }

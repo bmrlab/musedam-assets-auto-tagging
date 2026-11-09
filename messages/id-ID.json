@@ -319,6 +319,7 @@
     "featureClassProduct": "Produk",
     "ipRecognition": "Pengenalan karakter IP",
     "personRecognition": "Pengenalan orang",
+    "productNameMatch": "Kecocokan nama produk",
     "productRecognition": "Pengenalan produk"
   },
   "SmartTags": {

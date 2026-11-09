@@ -165,6 +165,18 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("review feature visibility during settings hydration", () => {
+  it("marks completed feature batches reviewed and hides removal controls", () => {
+    const data = props();
+    data.batch[0].taggingAuditItems[0].status = "approved";
+    render(<ReviewItem {...data} />);
+    expect(screen.getAllByText("reviewedBadge").length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: "tooltipRemove" })).toBeNull();
+  });
+  it("keeps removal controls available for pending feature batches", () => {
+    render(<ReviewItem {...props()} />);
+    expect(screen.getAllByRole("button", { name: "tooltipRemove" }).length).toBeGreaterThan(0);
+  });
+
   it("warns about historical partial decisions instead of silently showing no features", () => {
     const data = props();
     const result = data.batch[0].queueItem.result as any;

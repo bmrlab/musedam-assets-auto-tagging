@@ -428,7 +428,7 @@ export async function processQueueItem({
                   imageInput,
                   queueItemId: queueItem.id,
                   assetObjectId: assetObject.id,
-                  fileName: assetObject.name,
+                  fileName: extra?.matchingSources?.basicInfo === false ? undefined : assetObject.name,
                   folderPath: assetObject.materializedPath,
                   ocrSegments,
                   ocrImage,
@@ -493,7 +493,7 @@ export async function processQueueItem({
               productRecommendationPromise = sharedImagePromise.then((imageInput) =>
                 imageInput
                   ? withFallback(
-                      classifyAssetProductRecommendation({ teamId, imageInput }),
+                      classifyAssetProductRecommendation({ teamId, imageInput, fileName: extra?.matchingSources?.basicInfo === false ? undefined : assetObject.name }),
                       "classifyAssetProductRecommendation",
                     )
                   : null,

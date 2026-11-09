@@ -124,6 +124,7 @@
     "featureClassProduct": "उत्पाद",
     "ipRecognition": "IP कैरेक्टर पहचान",
     "personRecognition": "व्यक्ति पहचान",
+    "productNameMatch": "उत्पाद नाम का मिलान",
     "productRecognition": "उत्पाद पहचान"
   },
   "TagsPage": {

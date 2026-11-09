@@ -752,11 +752,13 @@ export default function TestClient() {
                 tagPath?: string[];
               }> = Array.isArray(result.productLinkedTags) ? result.productLinkedTags : [];
               const acceptedProducts = getAcceptedProductMatches(productRecommendation);
-              // Retain weak candidates so the empty state can explain why no feature is shown.
+              const acceptedProductIds = new Set(acceptedProducts.map(match => match.assetProductId));
+              // Keep weak candidates for diagnostics, but exclude same-region alternatives.
               const products = deduplicateProductMatches(
                 getProductMatches(productRecommendation).filter(
                   (match) =>
-                    typeof match?.assetProductId === "string" && match.assetProductId.length > 0,
+                    typeof match?.assetProductId === "string" && match.assetProductId.length > 0 &&
+                    (!meetsFeatureConfidenceThreshold("product", match.confidence, productRecommendation?.confidenceThreshold) || acceptedProductIds.has(match.assetProductId)),
                 ),
               ).map((match) => {
                 const refreshedTags = linkedProductTags.filter(
@@ -771,6 +773,7 @@ export default function TestClient() {
                 return {
                   noConfidentMatch: !meetsFeatureConfidenceThreshold("product", match.confidence, productRecommendation?.confidenceThreshold),
                   productName: match.productName,
+                  matchingSource: match.matchingSource,
                   productTypeName: match.productTypeName,
                   confidence: match.confidence,
                   similarity: match.similarity,

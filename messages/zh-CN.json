@@ -319,6 +319,7 @@
     "featureClassProduct": "商品",
     "ipRecognition": "IP 形象识别",
     "personRecognition": "人物识别",
+    "productNameMatch": "商品名称匹配",
     "productRecognition": "商品识别"
   },
   "SmartTags": {

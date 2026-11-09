@@ -124,6 +124,7 @@
     "featureClassProduct": "Товар",
     "ipRecognition": "Распознавание IP-персонажа",
     "personRecognition": "Распознавание персоны",
+    "productNameMatch": "Совпадение названия товара",
     "productRecognition": "Распознавание товара"
   },
   "TagsPage": {
