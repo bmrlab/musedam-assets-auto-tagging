@@ -71,7 +71,7 @@ function seed(id: number, name: string, parentId: number | null = null, teamId =
     id,
     teamId,
     name,
-    slug: `g/${id}`,
+    slug: `g/${id}` as string | null,
     parentId,
     taggingEnabled: true,
     extra: {} as Record<string, unknown>,
@@ -391,40 +391,58 @@ describe("overwrite repeated tag paths", () => {
 });
 
 
-it("previews the same uploaded tree in both modes without consulting the existing database or exported IDs", async () => {
-  seed(1, "不相关旧标签");
+it("previews the uploaded tree independently of mode and validates duplicate MuseDAM IDs without querying tags", async () => {
   const form = file([
-    ["标签 ID", "一级标签", "二级标签", "匹配关键词"],
-    ["999999", "所属系列", "pro系列", "pro"],
-    ["999999", "所属系列", "pro系列", "pro"],
+    ["MuseDAM 标签 ID", "一级标签", "二级标签"],
+    ["999999", "所属系列", "pro系列"],
+    ["999999", "所属系列", "pro系列"],
   ]);
-  form.set("importMode", "merge");
   const merge = await precheckTagTreeImportAction(form);
   form.set("importMode", "overwrite");
   expect(await precheckTagTreeImportAction(form)).toEqual(merge);
   expect(merge).toMatchObject({ success: true, data: {
-    importableCount: 2, issues: [],
-    previewTree: [{ name: "所属系列", nameChildList: [{ name: "pro系列" }] }],
+    issues: [{ rowNumber: 3, message: expect.stringContaining("ID 重复") }],
   } });
   expect(mocks.assetTag.findMany).not.toHaveBeenCalled();
+});
+
+it.each(["merge", "overwrite"])("%s rejects unknown MuseDAM IDs even when the path and local ID exist", async mode => {
+  seed(1, "所属系列").slug = "g/1001";
+  const child = seed(2, "pro系列", 1);
+  child.slug = "g/2002";
+  const form = file([["MuseDAM 标签 ID", "一级标签", "二级标签", "匹配关键词"],
+    ["2", "所属系列", "pro系列", "错误写入"]]);
+  form.set("treeImport", "true"); form.set("importMode", mode);
+  expect(await importTagTreeAction(form)).toMatchObject({ success: true, data: { failedCount: 1, successCount: 0 } });
+  expect(child.extra).toEqual({});
   expect(mocks.assetTag.update).not.toHaveBeenCalled();
   expect(mocks.batchCreateTags).not.toHaveBeenCalled();
 });
 
-it("uses paths to reuse existing tags on confirmed tree import, ignoring stale exported IDs", async () => {
-  const root = seed(1, "所属系列");
-  const child = seed(2, "pro系列", root.id);
-  child.extra = { description: "保留配置" };
-  const form = file([
-    ["标签 ID", "一级标签", "二级标签", "匹配关键词"],
-    ["999999", "所属系列", "pro系列", "pro"],
-    ["999999", "所属系列", "pro系列", "pro"],
-  ]);
+it("updates by MuseDAM ID rather than an unrelated local ID, including confirmed tree imports", async () => {
+  seed(1, "所属系列").slug = "g/1001";
+  const target = seed(2, "pro系列", 1); target.slug = "g/2002";
+  const decoy = seed(2002, "同号本地标签"); decoy.slug = "g/9999";
+  const form = file([["MuseDAM 标签 ID", "一级标签", "二级标签", "匹配关键词"],
+    ["2002", "所属系列", "pro系列", "pro"]]);
   form.set("treeImport", "true");
-  form.set("importMode", "merge");
   expect(await importTagTreeAction(form)).toMatchObject({ success: true, data: { failedCount: 0, successCount: 1 } });
+  expect(target.extra).toMatchObject({ keywords: ["pro"] });
+  expect(decoy.extra).toEqual({});
   expect(mocks.batchCreateTags).not.toHaveBeenCalled();
-  expect(mocks.rows.find((row) => row.id === 2)?.extra).toMatchObject({ description: "保留配置", keywords: ["pro"] });
+});
+
+it.each(["csv", "xlsx"] as const)("exports only MuseDAM IDs in %s and leaves unsynchronized IDs blank", async format => {
+  seed(1, "已同步").slug = "g/12345";
+  seed(2, "未同步").slug = null;
+  const result = await exportTagTreeAction(format);
+  if (!result.success) throw new Error("export failed");
+  const data = Buffer.from(result.data.base64, "base64");
+  const rows = format === "csv" ? parseCsv(data) : parseXlsx(data);
+  expect(rows[0][0]).toBe("MuseDAM 标签 ID");
+  expect(rows.slice(1).map(row => row[0])).toEqual(["12345", ""]);
+  expect(rows[0].some(column => /slug/i.test(column))).toBe(false);
+  expect(rows.flat().some(cell => cell.startsWith("g/"))).toBe(false);
 });
 
 
@@ -478,4 +496,27 @@ it("counts all deduplicated file tags, including existing paths outside the stru
   expect(await importTagTreeAction(form)).toMatchObject({ success: true, data: {
     totalCount: 4, existingCount: 3, createdCount: 1, failedCount: 0,
   } });
+});
+
+
+it("preserves MuseDAM identity when overwrite import renames an existing tag", async () => {
+  const original = seed(7, "旧名称"); original.slug = "g/7007";
+  mocks.batchCreateTags.mockImplementation(async (nodes, addType) => {
+    expect(addType).toBe(1);
+    expect(nodes).toEqual([{ name: "新名称" }]);
+    expect(original.name).toBe("新名称");
+    return { success: true };
+  });
+  const form = file([["MuseDAM 标签 ID", "一级标签", "标签描述"], ["7007", "新名称", "新描述"]]);
+  form.set("treeImport", "true"); form.set("importMode", "overwrite");
+  expect(await importTagTreeAction(form)).toMatchObject({ success: true, data: { failedCount: 0 } });
+  expect(original).toMatchObject({ id: 7, slug: "g/7007", name: "新名称", extra: expect.objectContaining({ description: "新描述" }) });
+  expect(mocks.saveTagsTreeToMuseDAM).toHaveBeenCalledWith([expect.objectContaining({ id: 7, slug: "g/7007", name: "新名称" })]);
+});
+
+it("does not resolve MuseDAM IDs belonging only to another team", async () => {
+  seed(2, "别的团队", null, 2).slug = "g/2002";
+  const form = file([["MuseDAM 标签 ID", "标签描述"], ["2002", "不能修改"]]);
+  expect(await importTagTreeAction(form)).toMatchObject({ success: true, data: { failedCount: 1, successCount: 0 } });
+  expect(mocks.assetTag.update).not.toHaveBeenCalled();
 });

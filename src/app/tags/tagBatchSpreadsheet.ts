@@ -34,7 +34,7 @@ export type TagBatchFieldKey = (typeof TAG_BATCH_FIELD_KEYS)[number];
 export type TagBatchColumnKey = (typeof TAG_BATCH_COLUMN_KEYS)[number];
 
 const COLUMN_LABELS: Record<TagBatchColumnKey, Record<"zh-CN" | "zh-TW" | "en-US", string>> = {
-  id: { "zh-CN": "标签 ID", "zh-TW": "標籤 ID", "en-US": "Tag ID" },
+  id: { "zh-CN": "MuseDAM 标签 ID", "zh-TW": "MuseDAM 標籤 ID", "en-US": "MuseDAM Tag ID" },
   level1: { "zh-CN": "一级标签", "zh-TW": "一級標籤", "en-US": "Level 1 Tag" },
   level2: { "zh-CN": "二级标签", "zh-TW": "二級標籤", "en-US": "Level 2 Tag" },
   level3: { "zh-CN": "三级标签", "zh-TW": "三級標籤", "en-US": "Level 3 Tag" },
@@ -53,7 +53,7 @@ const COLUMN_LABELS: Record<TagBatchColumnKey, Record<"zh-CN" | "zh-TW" | "en-US
 
 /** 额外表头别名，兼容导出文件被改名后的常见写法 */
 const COLUMN_EXTRA_ALIASES: Partial<Record<TagBatchColumnKey, string[]>> = {
-  id: ["ID", "id", "标签ID", "標籤ID", "TagID"],
+  id: ["ID", "id", "标签ID", "標籤ID", "TagID", "标签 ID", "標籤 ID", "Tag ID"],
 };
 
 const BOOLEAN_ON = new Set([
@@ -102,7 +102,7 @@ export type TagBatchFieldPatch = {
 
 export type ParsedTagBatchRecord = {
   rowNumber: number;
-  /** 导出带回的标签 ID；有值时导入按 ID 更新，不走路径新建 */
+  /** MuseDAM 标签 ID（纯数字）；有值时按当前团队的 MuseDAM 映射更新。 */
   id?: number;
   path: string[];
   fields: TagBatchFieldPatch;
@@ -120,7 +120,8 @@ export type TagBatchCreateNode = {
 };
 
 export type TagBatchExportNode = {
-  id: number;
+  /** 未同步到 MuseDAM 的标签留空，不能回退成本地 ID。 */
+  id?: number;
   name: string;
   taggingEnabled: boolean;
   extra: unknown;
@@ -267,7 +268,7 @@ export function buildTagBatchTemplateRows(locale: string): string[][] {
     ? [
         "Replace or delete example rows before import. All configuration columns are optional. Switches accept On/Off, true/false or 1/0. Child exclusivity and required groups apply to parents with children. Required groups without children are turned off and reported after import.",
         "Blank settings use defaults for new tags and preserve settings for existing tags. Keywords accept ;, Chinese ； or line breaks; commas and enumeration commas are part of the keyword.",
-        "Use - alone to clear descriptions or keywords. Keep Tag ID empty for new tags; retain exported IDs to update or rename existing tags. Settings apply to the deepest tag in each row.",
+        "Use - alone to clear descriptions or keywords. Keep Tag ID empty for new tags; retain exported MuseDAM IDs to update or rename existing tags. Settings apply to the deepest tag in each row.",
       ]
     : traditional
       ? [
@@ -278,7 +279,7 @@ export function buildTagBatchTemplateRows(locale: string): string[][] {
       : [
           "导入前请替换或删除示例行。配置列均可选填；开关支持开启/关闭、true/false、1/0。子标签单选及必打标签组适用于有子标签的父标签；没有子标签时自动关闭必打，导入完成后提示。",
           "配置留空：新标签使用默认值，已有标签保留原值。关键词用英文分号 ;、中文分号 ； 或单元格内换行分隔；逗号、顿号视为词的一部分。",
-          "描述或关键词单独填 - 表示清空。新增标签时 ID 留空；更新或改名时保留导出的 ID。每行配置应用于该行最末级标签。",
+          "描述或关键词单独填 - 表示清空。新增标签时 ID 留空；更新或改名时保留导出的 MuseDAM ID。每行配置应用于该行最末级标签。",
         ];
   return [
     [
@@ -559,7 +560,7 @@ function appendExportNodes(
     const extra = readExtra(node.extra);
     const levels = TAG_BATCH_LEVEL_KEYS.map((_, index) => path[index] ?? "");
     rows.push([
-      String(node.id),
+      node.id === undefined ? "" : String(node.id),
       ...levels,
       extra.description ?? "",
       joinTagBatchKeywords(extra.keywords),
