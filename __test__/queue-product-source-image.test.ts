@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   buildRecommendations: vi.fn(),
   predict: vi.fn(),
   mode: "legacy" as "llm" | "legacy",
+  imageMode: false,
 }));
 
 vi.mock("server-only", () => ({}));
@@ -48,7 +49,7 @@ vi.mock("@/app/(tagging)/predict", () => ({
   predictAssetTags: mocks.predict,
 }));
 vi.mock("@/app/(tagging)/tagging/settings/lib", () => ({
-  getTaggingSettings: async () => ({ sourceWeights: {} }),
+  getTaggingSettings: async () => ({ sourceWeights: {}, featureImageMode: mocks.imageMode }),
 }));
 vi.mock("@/prisma/prisma", () => ({
   default: {
@@ -68,6 +69,7 @@ beforeEach(() => {
   vi.stubEnv("DECISION_LLM_IMAGE_USE", "false");
   // These source-selection regressions exercise the explicitly configured old flow.
   mocks.mode = "legacy";
+  mocks.imageMode = false;
   mocks.productCount.mockResolvedValue(1);
   mocks.brandCount.mockResolvedValue(1);
   mocks.ipCount.mockResolvedValue(1);
@@ -261,6 +263,13 @@ describe("expired original image fallback", () => {
 });
 
 describe("combined LLM feature classification", () => {
+  it.each([false, true])("uses the team's image mode setting (%s) for queued feature recognition", async enabled => {
+    mocks.mode = "llm";
+    mocks.imageMode = enabled;
+    await run({ extension: "jpg", downloadUrl: "https://example.test/image.jpg" });
+    expect(mocks.classifyFeatures).toHaveBeenCalledWith(expect.objectContaining({ teamId: 7, imageMode: enabled }));
+  });
+
   beforeEach(() => {
     mocks.mode = "llm";
   });
@@ -303,12 +312,12 @@ describe("combined LLM feature classification", () => {
     }
   });
 
-  it("enables image mode only when DECISION_LLM_IMAGE_USE is true", async () => {
+  it("uses the team setting even when the old environment flag enables image mode", async () => {
     vi.stubEnv("DECISION_LLM_IMAGE_USE", "true");
     await run({ extension: "jpg", downloadUrl: "https://example.test/original.jpg" });
 
     expect(mocks.classifyFeatures).toHaveBeenCalledWith(
-      expect.objectContaining({ imageMode: true }),
+      expect.objectContaining({ imageMode: false }),
     );
   });
 

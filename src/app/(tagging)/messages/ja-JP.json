@@ -255,6 +255,7 @@
     },
     "Settings": {
       "AIRecognition": {
+        "imageModeCostHint": "有効時は素材ごとに2ポイント、無効時は1ポイントを消費します。",
         "balanced": "バランスモード",
         "balancedDesc": "タグの正確性とカバレッジのバランスを保ち、日常のほとんどのシーンに適しています",
         "broad": "広範囲モード",

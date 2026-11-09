@@ -255,6 +255,7 @@
     },
     "Settings": {
       "AIRecognition": {
+        "imageModeCostHint": "활성화하면 소재당 2포인트, 비활성화하면 1포인트가 소모됩니다.",
         "balanced": "균형 모드",
         "balancedDesc": "태그의 정확성과 포괄성을 균형 있게 유지하여 일상의 대부분 시나리오에 적합함",
         "broad": "광범위 모드",

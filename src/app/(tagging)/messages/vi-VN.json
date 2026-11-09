@@ -671,6 +671,7 @@
         "firstTimeRecommendationDesc": "Duyệt thủ công giúp đánh giá hiệu quả gắn thẻ AI, sau khi độ chính xác đạt yêu cầu có thể chuyển sang áp dụng trực tiếp"
       },
       "AIRecognition": {
+        "imageModeCostHint": "Mỗi tài nguyên tiêu tốn 2 điểm khi bật và 1 điểm khi tắt.",
         "title": "Cài đặt nhận diện AI",
         "precise": "Chế độ chính xác",
         "preciseDesc": "Ưu tiên độ chính xác, phù hợp các kịch bản yêu cầu cao",

@@ -671,6 +671,7 @@
         "firstTimeRecommendationDesc": "Manuel inceleme AI etiketleme etkinliğini değerlendirmeye yardımcı olabilir. Doğruluk gereksinimleri karşılandığında doğrudan uygulama moduna geçin"
       },
       "AIRecognition": {
+        "imageModeCostHint": "Etkinleştirildiğinde her varlık 2 puan, devre dışıyken 1 puan tüketir.",
         "title": "AI Tanıma",
         "precise": "Hassas",
         "preciseDesc": "Yüksek doğruluk, daha az etiket",

@@ -255,6 +255,7 @@
     },
     "Settings": {
       "AIRecognition": {
+        "imageModeCostHint": "Jedes Asset kostet bei aktivierter Option 2 Punkte, andernfalls 1 Punkt.",
         "balanced": "Ausgewogen",
         "balancedDesc": "Ausgewogene Genauigkeit und Abdeckung",
         "broad": "Breit",

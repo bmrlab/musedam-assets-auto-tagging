@@ -10,7 +10,7 @@
 - 翻译使用 `TRANSLATION_SERVICE_MODEL`，直接调用 `OPENAI_BASE_URL/chat/completions` 并使用 `OPENAI_API_KEY`。
 - 商品、Logo、IP 分类开发页和检测调试页默认使用异步检测；仅当 `DETECTION_DEBUG_SYNC=true` 时使用同步检测。
 - 自动打标需要模型/embedding 配置、对象存储及 MuseDAM 凭据。需要独立队列消费者时另开终端执行 `pnpm queue-processor`；同时核对 EMBEDDED_QUEUE_SCHEDULER 和 README，避免重复启动调度器。
-- 商品、Logo、IP 默认使用新增 LLM 决策：配置 `OPENAI_BASE_URL`、`OPENAI_API_KEY`、`FEATURE_DECISION_MODEL` 和 `OCR_MODEL`（未设置 OCR 模型时禁用 OCR）。二者直接调用同一网关，不经过 `LLM_PROVIDER` 路由；决策模式、5 分钟调用超时和输出 token 上限统一在 `src/lib/feature-decision/config.ts` 定义；修改模式常量为 `"legacy"` 可切回旧算法。目前记录 token 用量，费用保留为 `null`。开发分类页的「图像模式」默认关闭，关闭时仍运行 OCR/LLM 决策，仅决策请求改为纯文本；页面支持两种输入模式的结果与 token 对比。真实打标队列（含 `tagging/review` 与 `tagging/test` 产生的任务）仅在 `DECISION_LLM_IMAGE_USE=true` 时向决策模型发送源图和参考图，未设置或其他值均使用纯文本决策。决策应返回合理的低置信度预测或多个可能选项，不再输出 `ambiguous`；只有全部候选明显无关时使用 `no_match`，预测展示与自动应用阈值独立。
+- 商品、Logo、IP 默认使用新增 LLM 决策：配置 `OPENAI_BASE_URL`、`OPENAI_API_KEY`、`FEATURE_DECISION_MODEL` 和 `OCR_MODEL`（未设置 OCR 模型时禁用 OCR）。二者直接调用同一网关，不经过 `LLM_PROVIDER` 路由；决策模式、5 分钟调用超时和输出 token 上限统一在 `src/lib/feature-decision/config.ts` 定义；修改模式常量为 `"legacy"` 可切回旧算法。目前记录 token 用量，费用保留为 `null`。开发分类页的「图像模式」默认关闭，关闭时仍运行 OCR/LLM 决策，仅决策请求改为纯文本；页面支持两种输入模式的结果与 token 对比。真实打标队列（含 `tagging/review` 与 `tagging/test` 产生的任务）按团队 `TeamConfig` 的 `featureImageMode` 设置发送图像证据，默认关闭；设置页可按团队开启，不再使用 `DECISION_LLM_IMAGE_USE` 控制真实队列。决策应返回合理的低置信度预测或多个可能选项，不再输出 `ambiguous`；只有全部候选明显无关时使用 `no_match`，预测展示与自动应用阈值独立。
 
 视频兜底 OCR 需要 PATH 中的 `ffmpeg`（Docker runner 已安装）。队列优先复用开放接口 OCR，缺失时抽取原视频清晰帧；抽帧失败回退缩略图，资源上限及诊断约定见 README 的 LLM 决策与 OCR 章节。
 
@@ -57,6 +57,8 @@ package 中的 lint 为 next lint，若当前 Next 版本已不支持该子命�
 ## UI 开发约定
 
 MuseDAM 界面按 `muse-development/references/design-system.md`（由工作区 Muse 开发 skill 提供）；新增静态样式使用 Tailwind，先复用本项目组件与图标。两种主题均需适配。跨仓定位见 工作区 `muse-development/SKILL.md`。
+
+团队级「图像模式」通过 AI 打标设置保存到现有 `TeamConfig.featureImageMode` 配置项（JSON 布尔值），默认关闭，无需 migration；队列处理时读取团队当前配置。开发分类页的临时图像开关不改写团队设置。
 
 ## 标签导入开发
 

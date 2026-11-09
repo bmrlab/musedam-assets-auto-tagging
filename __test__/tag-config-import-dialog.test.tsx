@@ -445,3 +445,26 @@ it("shows the backend failure reason in a dismissible dialog and preserves the p
   await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
   expect(screen.getByText("importPreviewTitle")).toBeTruthy();
 });
+
+
+it("explains export cleanup and refreshes the visible tree after deleting unmapped tags", async () => {
+  mocks.exportTagTreeAction.mockResolvedValue({ success: true, data: {
+    filename: "tags.xlsx", mimeType: "application/octet-stream", base64: btoa("file"), deletedTagCount: 2,
+  } });
+  vi.stubGlobal("URL", class extends URL {
+    static createObjectURL = vi.fn(() => "blob:export");
+    static revokeObjectURL = vi.fn();
+  });
+  const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+  try {
+    const view = setup();
+    fireEvent.click(screen.getByText("tabExport"));
+    expect(await screen.findByText("exportCleanupHint")).toBeTruthy();
+    fireEvent.click(screen.getByText("confirm"));
+    await waitFor(() => expect(view.onImported).toHaveBeenCalledOnce());
+    expect(mocks.toastSuccess).toHaveBeenCalledWith("exportCleanupComplete");
+    expect(click).toHaveBeenCalledOnce();
+  } finally {
+    click.mockRestore(); vi.unstubAllGlobals();
+  }
+});

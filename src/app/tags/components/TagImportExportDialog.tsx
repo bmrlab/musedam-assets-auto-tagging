@@ -31,11 +31,13 @@ export function TagImportExportDialog({
   maxLevel,
   onOpenChange,
   onImported,
+  onExportCleaned,
 }: {
   open: boolean;
   maxLevel: 3 | 4;
   onOpenChange: (open: boolean) => void;
   onImported: (result: TagTreeBatchImportResult) => void;
+  onExportCleaned?: () => void;
 }) {
   const t = useTranslations("TagsPage");
   const tips = useTranslations("TagsPage.ManualCreateTipsModal");
@@ -131,7 +133,15 @@ export function TagImportExportDialog({
             );
           }
         }}
-        exportAction={(format) => exportTagTreeAction(format, maxLevel)}
+        exportHint={t("exportCleanupHint")}
+        exportAction={async format => {
+          const result = await exportTagTreeAction(format, maxLevel);
+          if (result.success && result.data.deletedTagCount) {
+            onExportCleaned?.();
+            toast.success(t("exportCleanupComplete", { count: result.data.deletedTagCount }));
+          }
+          return result;
+        }}
         importAction={async (formData) => {
           formData.set("tagLevel", String(maxLevel));
           formData.set("importMode", importMode);

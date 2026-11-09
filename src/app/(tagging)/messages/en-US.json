@@ -748,6 +748,7 @@
         "firstTimeRecommendationDesc": "Manual review can help evaluate AI tagging effectiveness. Switch to direct application mode once accuracy meets requirements"
       },
       "AIRecognition": {
+        "imageModeCostHint": "Each asset costs 2 points when enabled and 1 point when disabled.",
         "title": "AI Recognition",
         "precise": "Precise",
         "preciseDesc": "High accuracy, fewer tags",

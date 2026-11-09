@@ -748,6 +748,7 @@
         "firstTimeRecommendationDesc": "通过人工审核可以评估 AI 打标效果，待准确率满足要求后在切换为直接应用模式"
       },
       "AIRecognition": {
+        "imageModeCostHint": "开启后每个素材消耗 2 点，未开启每个素材消耗 1 点。",
         "title": "AI 识别设置",
         "precise": "精准模式",
         "preciseDesc": "优先准确性，适合打标要求严格的场景",

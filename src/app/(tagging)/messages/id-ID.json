@@ -712,6 +712,7 @@
         "firstTimeRecommendationDesc": "Tinjauan manual dapat membantu mengevaluasi efektivitas pelabelan AI. Beralih ke mode aplikasi langsung setelah akurasi memenuhi persyaratan"
       },
       "AIRecognition": {
+        "imageModeCostHint": "Setiap aset menggunakan 2 poin saat diaktifkan dan 1 poin saat dinonaktifkan.",
         "title": "Pengenalan AI",
         "precise": "Presisi",
         "preciseDesc": "Akurasi tinggi, lebih sedikit tag",

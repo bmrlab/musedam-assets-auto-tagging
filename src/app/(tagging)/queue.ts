@@ -13,7 +13,6 @@ import { hasFeatureRecognitionFailure } from "@/lib/feature-decision/completion"
 import { refreshQueuedAsset } from "@/lib/tagging/refresh-asset";
 import { extractVideoOcrFrame } from "@/lib/tagging/video-frame";
 import { getAssetOcrSegments } from "@/lib/feature-decision/asset-ocr";
-import { isDecisionLlmImageUseEnabled } from "@/lib/feature-decision/config";
 import { buildFeatureRecommendations } from "@/lib/feature-decision/recommendations";
 import type { FeatureDecisionDiagnostics } from "@/lib/feature-decision/types";
 import {
@@ -432,7 +431,7 @@ export async function processQueueItem({
                   folderPath: assetObject.materializedPath,
                   ocrSegments,
                   ocrImage,
-                  imageMode: isDecisionLlmImageUseEnabled(),
+                  imageMode: teamSetting.featureImageMode,
                   enabledTypes: [
                     ...(logoCount > 0 ? ["logo" as const] : []),
                     ...(productCount > 0 ? ["product" as const] : []),

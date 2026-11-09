@@ -671,6 +671,7 @@
         "firstTimeRecommendationDesc": "Ręczny przegląd może pomóc ocenić skuteczność tagowania AI. Przełącz na tryb bezpośredniego stosowania, gdy dokładność spełnia wymagania"
       },
       "AIRecognition": {
+        "imageModeCostHint": "Każdy zasób zużywa 2 punkty po włączeniu tej opcji i 1 punkt po jej wyłączeniu.",
         "title": "Rozpoznawanie AI",
         "precise": "Precyzyjne",
         "preciseDesc": "Wysoka dokładność, mniej tagów",

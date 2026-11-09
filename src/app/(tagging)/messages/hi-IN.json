@@ -255,6 +255,7 @@
     },
     "Settings": {
       "AIRecognition": {
+        "imageModeCostHint": "चालू होने पर प्रत्येक एसेट के लिए 2 पॉइंट और बंद होने पर 1 पॉइंट खर्च होता है।",
         "balanced": "संतुलित",
         "balancedDesc": "संतुलित सटीकता और कवरेज",
         "broad": "व्यापक",

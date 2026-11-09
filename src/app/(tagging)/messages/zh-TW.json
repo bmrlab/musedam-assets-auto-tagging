@@ -255,6 +255,7 @@
     },
     "Settings": {
       "AIRecognition": {
+        "imageModeCostHint": "開啟後每個素材消耗 2 點，未開啟每個素材消耗 1 點。",
         "balanced": "平衡模式",
         "balancedDesc": "平衡標籤準確性與覆蓋度，適合日常大多數場景",
         "broad": "寬鬆模式",

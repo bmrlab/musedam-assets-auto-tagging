@@ -255,6 +255,7 @@
     },
     "Settings": {
       "AIRecognition": {
+        "imageModeCostHint": "Cada recurso consome 2 pontos quando ativado e 1 ponto quando desativado.",
         "balanced": "Equilibrado",
         "balancedDesc": "Precisão e cobertura equilibradas",
         "broad": "Amplo",

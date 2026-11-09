@@ -113,7 +113,7 @@ pnpm scheduled-tagger
 
 商品、Logo、IP 的开发分类页面提供默认关闭的「图像模式」开关。两种模式均执行 OCR 和 LLM 决策：开启时向决策模型发送源图和候选参考图；关闭时仅发送相似度、候选名称/类型/描述、文件名/路径及 OCR 等文字信息，且不下载候选参考图。OCR 在两种模式下仍单独读取源图。页面保留同一文件与元数据下最近一次图像/纯文本结果，可对比特征、置信度、决策 token 与 OCR token，并展开各次请求与响应；更换文件或元数据会清空对比。
 
-默认使用 LLM 决策（`src/lib/feature-decision/config.ts` 中的 `FEATURE_DECISION_MODE = "llm"`）：检测框与 embedding 负责召回候选，最终由 LLM 结合候选信息、文件名、文件夹路径和 OCR 原文判断身份。真实打标队列默认使用纯文本决策；只有 `DECISION_LLM_IMAGE_USE=true` 时才额外向决策模型发送整张源图和候选参考图。商品、Logo、IP 分别保留有效去重后的所有召回区域，每个区域最多 3 个不同类别；图像模式下，类别去重后按 `sort`、`createdAt`、`id` 的稳定顺序使用第一张参考图。候选每 15 个分一批、最多并行 2 批；图像模式下一条决策请求最多包含 16 张图片（1 张源图 + 15 张参考图），不发送检测裁剪图或检测框坐标。遗漏区域、缺失参考图和召回错误保留在诊断信息中。`/tagging/review` 展示的默认任务和 `/tagging/test` 创建的测试任务都经过这一队列配置。
+默认使用 LLM 决策（`src/lib/feature-decision/config.ts` 中的 `FEATURE_DECISION_MODE = "llm"`）：检测框与 embedding 负责召回候选，最终由 LLM 结合候选信息、文件名、文件夹路径和 OCR 原文判断身份。真实打标队列默认使用纯文本决策；只有团队在 AI 识别设置中开启「图像模式」时，才额外向决策模型发送整张源图和候选参考图。商品、Logo、IP 分别保留有效去重后的所有召回区域，每个区域最多 3 个不同类别；图像模式下，类别去重后按 `sort`、`createdAt`、`id` 的稳定顺序使用第一张参考图。候选每 15 个分一批、最多并行 2 批；图像模式下一条决策请求最多包含 16 张图片（1 张源图 + 15 张参考图），不发送检测裁剪图或检测框坐标。遗漏区域、缺失参考图和召回错误保留在诊断信息中。`/tagging/review` 展示的默认任务和 `/tagging/test` 创建的测试任务都经过这一队列配置。
 
 在已有 `.env` 中设置网关和模型，不要覆盖现有配置：
 
@@ -122,7 +122,6 @@ OPENAI_BASE_URL=https://your-gateway.example/unified/v1
 OPENAI_API_KEY=your_gateway_key
 FEATURE_DECISION_MODEL=your_multimodal_decision_model
 OCR_MODEL=your_ocr_model
-DECISION_LLM_IMAGE_USE=false
 ```
 
 真实打标队列优先复用开放接口的 `ocrContent`、`imageContentAnalysis.aiOcr` 和已同步内容中的显式 OCR 字段，不将 AI 描述当作 OCR。接口有文字时不再重复调用 OCR 模型；没有文字时保留模型 OCR 兜底。视频兜底使用原视频清晰抽帧：已知时长时取第 1 秒（短于 2 秒时取中间帧），未知时长取首帧，长边不超过 2048；下载和抽帧总超时 60 秒，下载上限 128 MiB，全局串行执行，任务取消时终止并清理临时文件。原视频不可下载、超限或解码失败时继续使用缩略图。Docker 运行镜像安装 ffmpeg，本地运行也需在 PATH 中提供 ffmpeg。OCR 中的完整品牌别名可补充召回同团队启用的 Logo，允许以真实 OCR 为依据通过匹配，无需伪造向量命中；是否自动接受仍受最终模型置信度、冲突和阈值控制。
@@ -133,7 +132,7 @@ OCR 和决策均直接调用 `OPENAI_BASE_URL/chat/completions`，模型 ID 原�
 
 新增迁移 `prisma/migrations/20261105090000_add_feature_llm_calls/migration.sql` 创建 `FeatureLlmCall`，保存每次调用的模型、输入/输出/总 token、缓存/推理/图片 token、耗时、状态、请求和响应，以及费用和价格快照。迁移文件已准备，本改动未执行数据库迁移；启用前，本地在确认开发库后执行 `pnpm exec prisma migrate dev`，部署环境通过现有 `pnpm db:deploy` 应用迁移，并执行 `pnpm exec prisma generate` 更新客户端。
 
-请求设置集中在 `src/lib/feature-decision/config.ts`：超时 `FEATURE_LLM_TIMEOUT_MS = 300_000`（5 分钟），输出上限 `FEATURE_LLM_MAX_OUTPUT_TOKENS = 8192`。这些设置和决策模式不从环境变量读取；图像证据是例外，仅当 `DECISION_LLM_IMAGE_USE` 的值严格为 `true` 时为真实队列启用。目前只记录 token 用量，费用和单价字段保留为 `null`。
+请求设置集中在 `src/lib/feature-decision/config.ts`：超时 `FEATURE_LLM_TIMEOUT_MS = 300_000`（5 分钟），输出上限 `FEATURE_LLM_MAX_OUTPUT_TOKENS = 8192`。这些设置和决策模式不从环境变量读取；图像证据通过团队 `TeamConfig.featureImageMode` 布尔配置启用，默认关闭，队列不再读取旧环境变量 `DECISION_LLM_IMAGE_USE`。目前只记录 token 用量，费用和单价字段保留为 `null`。
 
 开启现有 `DEBUG_PAGE=true` 后，`/tagging/product/classify`、`/tagging/brand/classify` 和 `/tagging/ip/classify` 可输入源文件名和路径，并查看 OCR 原文、最终置信度、每次调用的 token/费用/耗时、发送的文本与图片，以及模型原始响应和失败原因。
 
@@ -343,7 +342,7 @@ https://yourdomain.com/tagging?locale=en-US
 
 回归测试 `__test__/tag-import-postgres.integration.test.ts` 可通过 `TAG_IMPORT_TEST_DATABASE_URL` 指定独立本地测试库运行；只接受 localhost/127.0.0.1 且数据库名以 `tag_import_test_` 开头的连接，测试会清空该测试库中的相关测试表，不能使用开发业务库或生产库。未指定时此组集成测试跳过。锁 SQL 的 advisory-lock 返回值显式转为 text，确保 Prisma 能解码；覆盖回执须明确返回 `mode=overwrite`，旧主仓未确认模式时客户端不会删除本地旧树。
 
-标签树导入流程为“上传 → 文件预检及预览 → 选择合并/覆盖 → 确认执行”。预检只读取文件本身，校验层级、名称和配置，合并重复标签路径及匹配/排除关键词，并展示不阻塞导入的合并提示。其余问题行可在预览后确认跳过；只要仍有有效树节点，两种模式均允许继续导入。预检不查询现有标签树，切换模式不重新预检。CSV/XLSX 的「MuseDAM 标签 ID」导出 MuseDAM 的纯数字标签 ID，不导出本地数据库 ID、slug 或 `g/` 前缀；未同步到 MuseDAM 的标签 ID 留空。导入时有 ID 的行按当前团队的 MuseDAM ID 定位已有标签（找不到时报错，不回退成本地 ID 或同名路径），无 ID 的行按完整路径新增或复用；合并保留其他旧标签，覆盖仅删除未出现在文件树中的旧标签。确认执行后仍会重新校验文件、核对当前数据及权限，并在团队互斥锁内写入。
+标签树导入流程为“上传 → 文件预检及预览 → 选择合并/覆盖 → 确认执行”。预检只读取文件本身，校验层级、名称和配置，合并重复标签路径及匹配/排除关键词，并展示不阻塞导入的合并提示。其余问题行可在预览后确认跳过；只要仍有有效树节点，两种模式均允许继续导入。预检不查询现有标签树，切换模式不重新预检。CSV/XLSX 的「MuseDAM 标签 ID」导出 MuseDAM 的纯数字标签 ID，不导出本地数据库 ID、slug 或 `g/` 前缀；未同步到 MuseDAM 的本地活动标签会在导出时清理。导入时有 ID 的行按当前团队的 MuseDAM ID 定位已有标签（找不到时报错，不回退成本地 ID 或同名路径），无 ID 的行按完整路径新增或复用；合并保留其他旧标签，覆盖仅删除未出现在文件树中的旧标签。确认执行后仍会重新校验文件、核对当前数据及权限，并在团队互斥锁内写入。
 
 ## 标签性能与软删除
 
@@ -364,3 +363,7 @@ https://yourdomain.com/tagging?locale=en-US
 任一决策批次失败或存在未评估候选时，队列标记为 `FEATURE_RECOGNITION_FAILED`，保存诊断并停止应用本轮标签。历史部分失败结果在审核页显示“特征识别未完整完成”，不再静默当作未命中。每次处理前重新获取开放接口的素材、OCR 和路径；本地测试素材沿用本地输入。
 
 `pnpm exec tsx scripts/resume-feature-rerun.ts` 默认只读预检原暂停批次。部署后先从测试页面重跑“绿茶牛奶水15ml_正面”，再添加 `--apply` 恢复。脚本要求最近 30 分钟内由工作进程生成的验证任务使用当前提示词、无部分失败、正确商品通过且错误“绿茶水”低于门槛；保留已审核、已删除、已有活动任务及较新成功结果的素材。新任务与原任务通过 `resumedQueueId` 关联，重复执行不会重复入队。原暂停记录不删除。
+
+标签树导出会在当前团队的互斥锁和数据库事务内，删除没有有效 MuseDAM ID 映射的本地标签（包括当前展示层级之外的无映射节点），分批软删除并取消未完成的旧导入回执，在同一事务内更新配置缓存版本。成功导出的文件只含有 MuseDAM ID 的标签；编码或删除失败则整次回滚。无映射父节点下若有已映射子节点，导出会报错并保留所有标签，需先修复层级。清理仅依据本地 ID 映射，不向 MuseDAM 发起删除，也不实时核验远端标签是否仍存在；导出成功后页面刷新标签树并提示清理数量。
+
+AI 打标设置的「AI 识别设置」下提供团队级「图像模式」，默认关闭。配置保存在现有 `TeamConfig` 表的 `featureImageMode` JSON 布尔值中，按团队隔离，无需新增字段或 migration。后续开始处理的打标任务（含测试任务）读取团队当前设置；开启时特征决策模型接收源图和候选参考图，关闭时只使用文字证据，OCR 和向量检索仍会读取图像。开发分类页仍可用临时开关单次对比，不修改团队设置。

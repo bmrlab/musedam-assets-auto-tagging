@@ -18,6 +18,8 @@ import {
 } from "@/lib/tagging/tag-import-lock";
 import type { TagTreeImportStats } from "@/lib/tagging/tag-import-result";
 import { throwIfTagImportAborted } from "@/lib/tagging/tag-import-runtime";
+import { cancelPendingTagImports } from "@/lib/tagging/soft-delete-tags";
+import { bumpTagConfigVersion } from "@/lib/tagging/tag-config-version";
 import { MAX_TAG_LEVEL } from "@/lib/tagging/tag-level";
 import type { AssetTagExtra, Prisma } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
@@ -45,6 +47,7 @@ import {
 import type { TagNode } from "./types";
 
 export type TagTreeBatchFileResult = {
+  deletedTagCount?: number;
   filename: string;
   mimeType: string;
   base64: string;
@@ -123,15 +126,45 @@ export async function exportTagTreeAction(
   format: BatchFileFormat,
   maxLevel: 3 | 4 = 4,
 ): Promise<ServerActionResult<TagTreeBatchFileResult>> {
-  return withAuth(async ({ team: { id: teamId } }) => {
+  return withAuth(async ({ user, team: { id: teamId } }) => {
     const locale = await getLocale();
     const t = await getTranslations("Tagging.BatchImportExport");
+    const tTags = await getTranslations("TagsPage");
     try {
       const parsedFormat = z.enum(["csv", "xlsx"]).parse(format);
-      const tags = limitTagTreeDepth(await loadTagTree(teamId), maxLevel === 3 ? 3 : 4);
-      const rows = buildTagBatchExportRows({ tags, locale });
-      return fileResult("tag-tree", parsedFormat, rows);
+      return await runTagImportExclusive(teamId, user.id, () => prisma.$transaction(async tx => {
+        await assertTagImportOwnership(tx);
+        const tags = await tx.assetTag.findMany({
+          where: { teamId, deletedAt: null },
+          select: { id: true, slug: true, name: true, parentId: true, sort: true, taggingEnabled: true, extra: true },
+          orderBy: [{ sort: "desc" }, { name: "asc" }],
+        });
+        const unmapped = tags.filter(tag => museDAMTagId(tag.slug) === undefined);
+        const unmappedIds = new Set(unmapped.map(tag => tag.id));
+        const mappedChild = tags.find(tag => !unmappedIds.has(tag.id) &&
+          tag.parentId !== null && unmappedIds.has(tag.parentId));
+        if (mappedChild) throw new Error(tTags("exportCleanupMappedChild", { tag: mappedChild.name }));
+        const synced = tags.filter(tag => !unmappedIds.has(tag.id));
+        const tree = limitTagTreeDepth(buildTagTree(synced), maxLevel === 3 ? 3 : 4);
+        // Encode before deleting. Any encoding/deletion failure rolls the entire cleanup back.
+        const file = fileResult("tag-tree", parsedFormat, buildTagBatchExportRows({ tags: tree, locale }));
+        for (let offset = 0; offset < unmapped.length; offset += 100) {
+          throwIfTagImportAborted();
+          await assertTagImportOwnership(tx);
+          await tx.assetTag.updateMany({
+            where: { teamId, deletedAt: null, id: { in: unmapped.slice(offset, offset + 100).map(tag => tag.id) } },
+            data: { deletedAt: new Date() },
+          });
+        }
+        if (unmapped.length) await cancelPendingTagImports(tx, teamId);
+        if (unmapped.length) await bumpTagConfigVersion(tx, teamId);
+        await assertTagImportOwnership(tx);
+        throwIfTagImportAborted();
+        return { ...file, data: { ...file.data, deletedTagCount: unmapped.length } };
+      }, { isolationLevel: "Serializable", timeout: 40_000, maxWait: 5_000 }));
     } catch (error) {
+      if (error instanceof TagImportBusyError)
+        return { success: false, code: "busy", message: t("memberImportInProgress", { name: error.memberName }) };
       console.error("Failed to export tag tree:", error);
       return {
         success: false,
@@ -809,7 +842,9 @@ function limitTagTreeDepth(
 function museDAMTagId(slug: string | null): number | undefined {
   if (!slug || !/^g\/\d+$/.test(slug)) return undefined;
   const id = parseTagBatchId(slug.slice(2));
-  return id !== undefined && Number.isFinite(id) ? id : undefined;
+  if (id !== undefined && Number.isFinite(id)) return id;
+  if (BigInt(slug.slice(2)) > BigInt(0)) throw new Error("MuseDAM tag ID exceeds the supported integer range");
+  return undefined;
 }
 
 function indexTagsByMuseDAMId(tags: TagRow[]): Map<number, TagRow> {
@@ -823,20 +858,7 @@ function indexTagsByMuseDAMId(tags: TagRow[]): Map<number, TagRow> {
   return index;
 }
 
-async function loadTagTree(teamId: number): Promise<TagBatchExportNode[]> {
-  const tags = await prisma.assetTag.findMany({
-    where: { deletedAt: null, teamId },
-    select: {
-      id: true,
-      slug: true,
-      name: true,
-      parentId: true,
-      sort: true,
-      taggingEnabled: true,
-      extra: true,
-    },
-    orderBy: [{ sort: "desc" }, { name: "asc" }],
-  });
+function buildTagTree(tags: Array<TagRow & { sort: number }>): TagBatchExportNode[] {
   const byParent = new Map<number | null, typeof tags>();
   for (const tag of tags) {
     const siblings = byParent.get(tag.parentId) ?? [];

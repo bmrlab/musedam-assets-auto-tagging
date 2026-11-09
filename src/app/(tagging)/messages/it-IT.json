@@ -421,6 +421,7 @@
         "firstTimeRecommendationDesc": "La revisione manuale può aiutare a valutare l'efficacia dell'etichettatura IA. Passa alla modalità applicazione diretta una volta che la precisione soddisfa i requisiti"
       },
       "AIRecognition": {
+        "imageModeCostHint": "Ogni risorsa consuma 2 punti se attivata e 1 punto se disattivata.",
         "title": "Riconoscimento IA",
         "precise": "Preciso",
         "preciseDesc": "Alta precisione, meno tag",
