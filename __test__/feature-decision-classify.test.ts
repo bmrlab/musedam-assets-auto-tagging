@@ -2,6 +2,7 @@
 import { classifyAssetFeatures } from "@/lib/feature-decision/classify";
 import type { FeatureDecisionCandidate } from "@/lib/feature-decision/types";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import sharp from "sharp";
 
 const mocks = vi.hoisted(() => ({
   logo: vi.fn(),
@@ -107,6 +108,29 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllEnvs());
 
 describe("whole-asset feature decision orchestration", () => {
+  it("sends both a logo wordmark and its uploaded graphical variant in highest mode", async () => {
+    const png = await sharp({ create: { width: 40, height: 40, channels: 3, background: "black" } }).png().toBuffer();
+    mocks.fetchImage.mockResolvedValue({ dataUrl: `data:image/png;base64,${png.toString("base64")}` });
+    mocks.logo.mockResolvedValue({ topMatches: [{ ...logo("first"), referenceMatchStrategy: "highest" }],
+      bestMatch: logo("first"), noConfidentMatch: false, winningDetectionIndex: 0 });
+    mocks.logos.mockResolvedValue([{
+      id: "first", name: "HERA", notes: "素材中包含HERA文字的都需要识别到该特征", images: [
+        { id: "wordmark", objectKey: "orchestration-wordmark" },
+        { id: "monogram", objectKey: "orchestration-monogram" },
+      ],
+    }]);
+    mocks.decision.mockResolvedValue({ ocr: { status: "empty", segments: [] }, decision: {
+      status: "completed", result: { outcome: "matched", matches: [decisionMatch("first", 95)] },
+    } });
+    await classifyAssetFeatures({ teamId: 1, imageInput, enabledTypes: ["logo"], imageMode: true, boxes: { logo: [box(0)] } });
+    const candidate = mocks.decision.mock.calls[0][0].candidates.find((c: FeatureDecisionCandidate) => c.candidateId === "logo:first");
+    expect(candidate).toMatchObject({ referenceMatchStrategy: "highest", referenceImageCount: 2, referenceImageIds: ["wordmark", "monogram"] });
+    expect(candidate.referenceImage).toMatch(/^data:image\/jpeg;base64,/);
+    expect(mocks.fetchImage.mock.calls.map(call => call[0])).toEqual(expect.arrayContaining([
+      "orchestration-wordmark", "orchestration-monogram",
+    ]));
+  });
+
   it("keeps only the highest-scoring product per region and recalls filename identity", async () => {
     const matches = ["first", "lower"].map((id, index) => ({
       assetProductId: id, productName: id, productTypeId: null, productTypeName: "Products",

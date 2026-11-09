@@ -1,4 +1,5 @@
 import { selectProductRegionWinners } from "@/lib/product/product-match-policy";
+import { prepareLogoReferenceSheet } from "./logo-reference-sheet";
 import { getScoredFeaturePredictions } from "./match-policy";
 import { findProductNameMatches } from "@/lib/product/product-name-evidence";
 import "server-only";
@@ -335,7 +336,7 @@ export async function classifyAssetFeatures(
         detectionIndex: -1,
       });
     }
-    // Stable library order chooses the reference, independently from the winning retrieval vector.
+    // Logo decisions see every configured variant; products/IP retain one reference.
     const [logos, products, ips] = await Promise.all([
       brandCandidates.length
         ? loadCatalog(
@@ -424,13 +425,29 @@ export async function classifyAssetFeatures(
         return null;
       }
     };
+    const addLogoReferences = async (
+      candidate: FeatureDecisionCandidate,
+      images: Array<{ id?: string; objectKey: string }>,
+    ): Promise<FeatureDecisionCandidate | null> => {
+      if (!imageMode) return candidate;
+      try {
+        const prepared = await prepareLogoReferenceSheet(images, objectKey => referenceWork(async () => {
+          const { signedUrl } = getCachedSignedS3ObjectUrl({ objectKey });
+          return (await fetchRemoteImageInput(signedUrl, "feature decision logo references")).dataUrl;
+        }));
+        return { ...candidate, referenceImage: prepared.dataUrl,
+          referenceImageCount: prepared.referenceImageCount, referenceImageIds: prepared.referenceImageIds };
+      } catch (error) {
+        retrieval.unassessedCandidates.push({ candidateId: candidate.candidateId,
+          reason: error instanceof Error ? error.message : String(error) });
+        return null;
+      }
+    };
     const pending: Array<Promise<FeatureDecisionCandidate | null>> = [];
     for (const match of brandCandidates) {
       const logo = logos.find((entry) => entry.id === match.assetLogoId);
-      const referenceImage =
-        logo?.images.find((image) => image.id === match.matchedReferenceImageId) ?? logo?.images[0];
       pending.push(
-        addReference(
+        addLogoReferences(
           {
             candidateId: `logo:${match.assetLogoId}`,
             classId: match.assetLogoId,
@@ -444,7 +461,7 @@ export async function classifyAssetFeatures(
             ocrMatch: ocrMatchIds.has(match.assetLogoId) ? { alias: logoFolderAlias(match.logoName, ocrText)! } : undefined,
             folderMatch: folderMatchIds.has(match.assetLogoId) ? { alias: logoFolderAlias(match.logoName, input.folderPath ?? "")!, path: input.folderPath! } : undefined,
           },
-          referenceImage?.objectKey,
+          logo?.images ?? [],
         ),
       );
     }

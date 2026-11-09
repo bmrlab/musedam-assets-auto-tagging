@@ -20,6 +20,8 @@ export type FeatureDecisionCandidate = {
   /** Catalog notes, including user-maintained product nicknames. */
   notes?: string;
   referenceImage?: string;
+  referenceImageCount?: number;
+  referenceImageIds?: string[];
   similarity: number;
   imageSimilarity?: number;
   descriptionSimilarity?: number;
