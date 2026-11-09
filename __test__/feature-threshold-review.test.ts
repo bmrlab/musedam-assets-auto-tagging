@@ -136,7 +136,10 @@ it("recovers scored product decisions outside the old region winner list and mak
   source.productRecommendation = { decisionSource: "llm", matches: [], bestMatch: null,
     noConfidentMatch: true, recommendedTags: [], detections: [{ detectionIndex: 0,
       box: { xMin: 0, yMin: 0, xMax: 1, yMax: 1, score: 1, label: "product" },
-      bestMatch: null, topMatches: [], noConfidentMatch: true }],
+      bestMatch: null, topMatches: [{ assetProductId: "cream", productName: "Cream", productTypeId: null,
+        productTypeName: "Product", description: "", generalCategory: "", similarity: 0.8,
+        imageSimilarity: 0.8, descriptionSimilarity: 0, confidence: 80, detectionIndex: 0,
+        recommendedTags: [] }], noConfidentMatch: true }],
   };
   const feature = { featureType: "product" as const, id: "cream", name: "Cream", typeId: null,
     typeName: "Product", tags: [{ assetTagId: 3, tagPath: ["Cream"] }] };

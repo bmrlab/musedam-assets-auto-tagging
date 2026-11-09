@@ -107,12 +107,14 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllEnvs());
 
 describe("whole-asset feature decision orchestration", () => {
-  it("keeps scored LLM product alternatives and recalls a complete filename identity outside retrieval", async () => {
+  it("keeps only the highest-scoring product per region and recalls filename identity", async () => {
     const matches = ["first", "lower"].map((id, index) => ({
       assetProductId: id, productName: id, productTypeId: null, productTypeName: "Products",
       description: "", generalCategory: "bottle", confidence: 95 - index,
       similarity: 0.95 - index * 0.01, imageSimilarity: 0.95 - index * 0.01,
-      descriptionSimilarity: 0, detectionIndex: 0, detectionIndices: [0], recommendedTags: [],
+      descriptionSimilarity: 0, detectionIndex: 0, detectionIndices: [0], recommendedTags: [
+        { assetTagId: 100 + index, tagPath: ["Products", id] },
+      ],
     }));
     mocks.product.mockResolvedValue({ matches: [matches[0]], topMatches: matches,
       bestMatch: matches[0], noConfidentMatch: false, winningDetectionIndex: 0,
@@ -134,9 +136,13 @@ describe("whole-asset feature decision orchestration", () => {
       enabledTypes: ["product"], boxes: { product: [box(0)] }, imageMode: false,
       fileName: "赫妍魅感裸透镜彩唇釉415_试色图",
     });
-    expect(result.product?.matches.map(match => match.assetProductId)).toEqual(["415", "first", "lower"]);
+    expect(result.product?.matches.map(match => match.assetProductId)).toEqual(["415", "first"]);
+    expect(result.unacceptedIdentityTagIds).toEqual([101]);
+    expect(mocks.decision.mock.calls[0][0].candidates.find((candidate: FeatureDecisionCandidate) => candidate.candidateId === "product:first").regionEvidence)
+      .toEqual([{ regionId: "product:0", wholeAssetFallback: false, similarity: 0.95, imageSimilarity: 0.95, descriptionSimilarity: 0 }]);
     expect(result.product?.matches[0]).toMatchObject({ matchingSource: "assetName", detectionIndex: -1, detectionIndices: [] });
-    expect(result.product?.topMatches.map(match => match.assetProductId)).toEqual(["first", "lower"]);
+    expect(result.product?.topMatches.map(match => match.assetProductId)).toEqual(["first"]);
+    expect(result.diagnostics.decision.result?.matches.map(match => match.candidateId)).toEqual(["product:first"]);
   });
 
   it.each([
@@ -147,7 +153,7 @@ describe("whole-asset feature decision orchestration", () => {
     ["ip", true],
     ["ip", false],
   ] as const)(
-    "retains all low-confidence %s alternatives in imageMode=%s",
+    "retains low-confidence %s predictions with one product per region in imageMode=%s",
     async (type, imageMode) => {
       const common = {
         productTypeId: null,
@@ -218,10 +224,10 @@ describe("whole-asset feature decision orchestration", () => {
       });
       const classified =
         type === "logo" ? result.brand : type === "product" ? result.product : result.ip;
-      expect(classified?.topMatches.map((entry) => entry.confidence)).toEqual([43, 0]);
+      expect(classified?.topMatches.map((entry) => entry.confidence)).toEqual(type === "product" ? [43] : [43, 0]);
       expect(classified?.matches).toEqual([]);
       expect(classified?.bestMatch?.confidence).toBe(43);
-      expect(result.diagnostics.decision.result?.matches).toEqual(alternatives);
+      expect(result.diagnostics.decision.result?.matches).toEqual(type === "product" ? alternatives.slice(0, 1) : alternatives);
       expect(mocks.decision).toHaveBeenCalledOnce();
       if (type === "product") expect(mocks.decision.mock.calls[0][0].candidates[0].notes).toBe("Catalog nickname");
     },

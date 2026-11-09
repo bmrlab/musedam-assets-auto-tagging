@@ -25,6 +25,14 @@ export type FeatureDecisionCandidate = {
   descriptionSimilarity?: number;
   retrievedRegions?: number;
   regionIds?: string[];
+  /** Retrieval observations for this candidate in each source region; not spatial OCR. */
+  regionEvidence?: Array<{
+    regionId: string;
+    wholeAssetFallback?: boolean;
+    similarity: number;
+    imageSimilarity: number;
+    descriptionSimilarity: number;
+  }>;
   referenceMatchStrategy?: "highest" | "average";
   folderMatch?: { alias: string; path: string };
   ocrMatch?: { alias: string };

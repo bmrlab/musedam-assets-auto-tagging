@@ -1,6 +1,6 @@
 import { getBrandMatches, getIpMatches, getScoredFeaturePredictions } from "@/lib/feature-decision/match-policy";
 import { isReviewablePersonFace } from "@/lib/person/person-match-policy";
-import { getProductMatches } from "@/lib/product/product-match-policy";
+import { getProductMatches, selectProductRegionWinners } from "@/lib/product/product-match-policy";
 import type { TaggingQueueItemResult } from "@/prisma/client";
 import { meetsFeatureConfidenceThreshold, type FeatureThresholds } from "./feature-confidence";
 
@@ -88,12 +88,15 @@ export function rethresholdFeatures(
             productTypeId: null,
             productTypeName: "",
             generalCategory: "",
+            ...source.productRecommendation!.detections?.flatMap(region => region.topMatches)
+              .find(m => `product:${m.assetProductId}` === d.candidateId),
             ...old.find((m) => `product:${m.assetProductId}` === d.candidateId),
             assetProductId: d.candidateId.slice(8),
             confidence: d.confidence,
           }))
       : old;
-    const matches = candidates.filter((m) =>
+    const winners = selectProductRegionWinners(candidates, source.productRecommendation.detections ?? []);
+    const matches = winners.filter((m) =>
       meetsFeatureConfidenceThreshold("product", m.confidence, thresholds.product),
     );
     output.productRecommendation = {
@@ -104,7 +107,18 @@ export function rethresholdFeatures(
       bestMatch: matches[0] ?? null,
       noConfidentMatch: !matches.length,
       recommendedTags: matches.flatMap((m) => m.recommendedTags),
+      detections: source.productRecommendation.detections?.map(region => {
+        const bestMatch = matches.find(match => match.detectionIndices.includes(region.detectionIndex)) ?? null;
+        return { ...region, bestMatch, topMatches: bestMatch ? [bestMatch] : [], noConfidentMatch: !bestMatch };
+      }),
     };
+    if (diagnostics?.decision.result) {
+      const kept = new Set(winners.map(match => `product:${match.assetProductId}`));
+      output.featureDecision = { ...diagnostics, decision: { ...diagnostics.decision,
+        result: { ...diagnostics.decision.result, matches: diagnostics.decision.result.matches.filter(match =>
+          !match.candidateId.startsWith("product:") || kept.has(match.candidateId)) },
+      } };
+    }
   }
   if (source.personRecommendation) {
     const faces = source.personRecommendation.faces.map((face) => ({

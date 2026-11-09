@@ -1,3 +1,4 @@
+import { selectProductRegionWinners } from "@/lib/product/product-match-policy";
 import { getScoredFeaturePredictions } from "./match-policy";
 import { findProductNameMatches } from "@/lib/product/product-name-evidence";
 import "server-only";
@@ -465,6 +466,16 @@ export async function classifyAssetFeatures(
             regionIds: output.product?.detections.filter(region =>
               region.topMatches.some(candidate => candidate.assetProductId === match.assetProductId),
             ).map(region => `product:${region.detectionIndex}`),
+            regionEvidence: output.product?.detections.flatMap(region => {
+              const candidate = region.topMatches.find(item => item.assetProductId === match.assetProductId);
+              return candidate ? [{
+                regionId: `product:${region.detectionIndex}`,
+                wholeAssetFallback: region.sourceDetectionIndices.length === 0,
+                similarity: candidate.similarity,
+                imageSimilarity: candidate.imageSimilarity,
+                descriptionSimilarity: candidate.descriptionSimilarity,
+              }] : [];
+            }),
             retrievedRegions: output.product?.detections.filter((region) =>
               region.topMatches.some(
                 (candidate) => candidate.assetProductId === match.assetProductId,
@@ -530,6 +541,25 @@ export async function classifyAssetFeatures(
     const predictions = new Map(getScoredFeaturePredictions(output.diagnostics)
       .map(match => [match.candidateId, match]));
     const decisions = predictions;
+    const final = <T extends { confidence: number }>(
+      matches: T[],
+      key: (match: T) => string,
+      type: DecisionFeatureType,
+    ): T[] =>
+      matches
+        .flatMap((match) => {
+          const decision = predictions.get(`${type}:${key(match)}`);
+          if (!decision) return [];
+          return [
+            { ...match, confidence: decision.confidence, decisionSource: "llm" as const, decision },
+          ];
+        })
+        .sort((a, b) => b.confidence - a.confidence);
+    const classifiedProducts = selectProductRegionWinners(
+      final(productCandidates, (match) => match.assetProductId, "product"),
+      output.product?.detections ?? [],
+    );
+    const productWinnerIds = new Set(classifiedProducts.map(match => `product:${match.assetProductId}`));
     if (output.diagnostics.decision.status === "completed") {
       // A rejected catalog identity must not be reapplied through general AI tagging. Only
       // exact identity names are withheld; shared/generic linked tags remain independent.
@@ -559,6 +589,7 @@ export async function classifyAssetFeatures(
             const decision = decisions.get(candidate.candidateId);
             return (
               decision &&
+              (candidate.featureType !== "product" || productWinnerIds.has(candidate.candidateId)) &&
               meetsFeatureConfidenceThreshold(
                 candidate.featureType === "logo" ? "brand" : candidate.featureType,
                 decision.confidence,
@@ -592,20 +623,6 @@ export async function classifyAssetFeatures(
         ),
       ].filter((id): id is number => typeof id === "number" && id > 0 && !acceptedTagIds.has(id));
     }
-    const final = <T extends { confidence: number }>(
-      matches: T[],
-      key: (match: T) => string,
-      type: DecisionFeatureType,
-    ): T[] =>
-      matches
-        .flatMap((match) => {
-          const decision = predictions.get(`${type}:${key(match)}`);
-          if (!decision) return [];
-          return [
-            { ...match, confidence: decision.confidence, decisionSource: "llm" as const, decision },
-          ];
-        })
-        .sort((a, b) => b.confidence - a.confidence);
     if (output.brand) {
       const classified = final(brandCandidates, (match) => match.assetLogoId, "logo");
       const matches = classified.filter(
@@ -639,7 +656,7 @@ export async function classifyAssetFeatures(
       };
     }
     if (output.product) {
-      const classified = final(productCandidates, (match) => match.assetProductId, "product");
+      const classified = classifiedProducts;
       const matches = classified.filter(
         (match) =>
           decisions.has(`product:${match.assetProductId}`) &&
@@ -654,32 +671,27 @@ export async function classifyAssetFeatures(
         winningDetectionIndex: (matches[0] ?? classified[0])?.detectionIndex ?? null,
         detections: output.product.detections.map((region) => {
           const bestMatch =
-            matches.find((match) =>
-              region.topMatches.some(
-                (candidate) => candidate.assetProductId === match.assetProductId,
-              ),
-            ) ?? null;
-          return { ...region, bestMatch, noConfidentMatch: !bestMatch };
+            matches.find(match => match.detectionIndices.includes(region.detectionIndex)) ?? null;
+          return { ...region, bestMatch,
+            topMatches: bestMatch ? [bestMatch] : [],
+            noConfidentMatch: !bestMatch };
         }),
       };
     }
   }
   if (output.product) {
-    // LLM candidates use score-only eligibility. Legacy embedding results keep region ownership.
-    const regions = output.product.detections;
-    const imageMatches = mode === "llm" ? output.product.matches : output.product.matches.flatMap(match => {
-      const owned = regions.filter(region => !region.noConfidentMatch &&
-        region.bestMatch?.assetProductId === match.assetProductId);
-      if (!owned.length) return [];
-      const indices = owned.flatMap(region => region.sourceDetectionIndices ?? [region.detectionIndex]);
-      return [{ ...match, detectionIndex: indices[0], detectionIndices: indices }];
-    });
+    const imageMatches = selectProductRegionWinners(output.product.matches, output.product.detections);
     const nameMatches = await findProductNameMatches(teamId, input.fileName);
     const matches = deduplicateProductMatches([...nameMatches, ...imageMatches]);
     output.product = { ...output.product, matches,
       bestMatch: matches[0] ?? output.product.bestMatch,
       noConfidentMatch: matches.length === 0,
       winningDetectionIndex: matches[0]?.detectionIndex ?? null };
+  }
+  if (output.product && output.diagnostics.decision.result) {
+    const kept = new Set(output.product.topMatches.map(match => `product:${match.assetProductId}`));
+    output.diagnostics.decision.result.matches = output.diagnostics.decision.result.matches.filter(match =>
+      !match.candidateId.startsWith("product:") || kept.has(match.candidateId));
   }
   output.confidenceThresholds = thresholds;
   if (output.brand) output.brand.diagnostics = output.diagnostics;
