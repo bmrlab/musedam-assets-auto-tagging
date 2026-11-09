@@ -1,3 +1,5 @@
+import { hasFeatureRecognitionFailure } from "./completion";
+import type { FeatureDecisionDiagnostics } from "./types";
 import { meetsFeatureConfidenceThreshold } from "@/lib/tagging/feature-confidence";
 import type {
   TaggingBrandBestMatch,
@@ -98,5 +100,14 @@ export function getAcceptedIpMatches(
       meetsFeatureConfidenceThreshold("ip", match.confidence, recommendation?.confidenceThreshold),
     ),
     (match) => match.assetIpId,
+  );
+}
+
+
+/** Conflict and specificity notes explain a score; they are not extra acceptance gates. */
+export function getScoredFeaturePredictions(diagnostics: FeatureDecisionDiagnostics | undefined) {
+  if (diagnostics?.decision.status !== "completed" || hasFeatureRecognitionFailure(diagnostics)) return [];
+  return (diagnostics.decision.result?.matches ?? []).filter(match =>
+    Number.isFinite(match.confidence) && match.confidence >= 0 && match.confidence <= 100,
   );
 }

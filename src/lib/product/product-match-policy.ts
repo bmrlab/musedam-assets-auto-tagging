@@ -63,9 +63,9 @@ export function getProductMatches(
 export function getAcceptedProductMatches(
   recommendation: TaggingProductRecommendation | null | undefined,
 ): Array<TaggingProductBestMatch & { detectionIndices: number[] }> {
-  // Some historical AI review results saved every alternative in `matches`.
-  // Region winners establish ownership; alternatives cannot create extra products.
-  const regionWinners = recommendation?.detections?.length ? new Map<string, number[]>() : null;
+  // LLM decisions use score-only eligibility; legacy retrieval results retain region ownership.
+  const regionWinners = recommendation?.decisionSource !== "llm" && recommendation?.detections?.length
+    ? new Map<string, number[]>() : null;
   for (const detection of recommendation?.detections ?? []) {
     if (!regionWinners || detection.noConfidentMatch || !detection.bestMatch) continue;
     const id = detection.bestMatch.assetProductId;

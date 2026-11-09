@@ -38,7 +38,7 @@ export async function loadReviewFeatureLibrary(
       (value ?? {}) as TaggingQueueItemResult,
       enabledFeatures,
     );
-    // Include unresolved predictions for read-only "pending confirmation" rows.
+    // Include scored predictions so saved decisions can be hydrated at current thresholds.
     for (const match of result.featureDecision?.decision.result?.matches ?? []) {
       const [kind, id] = match.candidateId.split(":");
       const type = kind === "logo" ? "brand" : kind === "product" ? "product" : kind === "ip" ? "ip" : null;

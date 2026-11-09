@@ -1,7 +1,7 @@
 import { ReviewItem } from "@/app/(tagging)/tagging/review/ReviewItem";
 import { setFeatureToggleValue } from "@/hooks/use-feature-library";
 import { FEATURE_LIBRARY_TOGGLE_NAMES } from "@/lib/feature-library";
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen, fireEvent, within } from "@testing-library/react";
 import type { ComponentProps } from "react";
 import { renderToString } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -187,19 +187,20 @@ describe("review feature visibility during settings hydration", () => {
 
   it.each([61, 92, 97])("renders candidate images and confidence colors at %s without internal details", (confidence) => {
     const data = props();
-    data.pendingFeatureCandidates = [{
-      queueItemId: 1,
-      key: "product:candidate",
-      name: "Candidate cream",
-      confidence,
-      feature: { id: "candidate", featureType: "product", name: "Candidate cream", typeId: null, typeName: "Cream", tags: [] },
-    }];
+    const result = data.batch[0].queueItem.result as any;
+    const candidate = { ...result.productRecommendation.matches[0],
+      assetProductId: "candidate", productName: "Candidate cream", confidence };
+    result.productRecommendation = { ...result.productRecommendation,
+      decisionSource: "llm", matches: [candidate], bestMatch: candidate };
+    data.availableFeatureIds.product.push("candidate");
     data.featureThumbnails["product:candidate"] = { signedUrl: "https://example.com/cream.jpg", signedUrlExpiresAt: Date.now() + 600000 };
     render(<ReviewItem {...data} />);
     const card = screen.getByText("Candidate cream").closest(".border")!;
     expect(card.textContent).toContain(`${confidence}%`);
     expect(card.className).toContain(confidence >= 95 ? "bg-primary-1" : confidence >= 90 ? "bg-[#F6FFED]" : "bg-[#FFF7E6]");
     expect(screen.getByAltText("Candidate cream").getAttribute("src")).toBe("https://example.com/cream.jpg");
+    fireEvent.click(within(card as HTMLElement).getByRole("button", { name: "tooltipRemove" }));
+    expect(data.onToggleFeatureKey).toHaveBeenCalledWith("product:candidate");
     expect(screen.queryByText("pendingFeatureConfirmation")).toBeNull();
     expect(screen.queryByText("recognitionEvidence")).toBeNull();
     expect(screen.queryByText("evidenceDetails")).toBeNull();

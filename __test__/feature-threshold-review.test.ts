@@ -71,8 +71,8 @@ describe("team thresholds on pending review evidence", () => {
       { assetTagId: 9, tagPath: ["Brand"] },
     ]);
   });
-  it.each(["conflict", "specificity", "evidence", "failed"])(
-    "does not bypass %s safety when lowering confidence",
+  it.each(["conflict", "specificity", "evidence"])(
+    "uses confidence alone for saved predictions containing %s notes",
     (kind) => {
       const source = historical();
       const diagnostics = source.featureDecision!;
@@ -80,14 +80,22 @@ describe("team thresholds on pending review evidence", () => {
       if (kind === "conflict") match.conflicts = ["different brand"];
       if (kind === "specificity") match.specificityLimit = "uncertain";
       if (kind === "evidence") match.evidence = ["filename"];
-      if (kind === "failed") diagnostics.decision.status = "failed";
       expect(
         getAcceptedBrandMatches(
           rethresholdFeatures(source, { ...thresholds, brand: 0 }).brandRecommendation,
         ),
-      ).toEqual([]);
+      ).toEqual([expect.objectContaining({ assetLogoId: "one", confidence: 73 })]);
     },
   );
+  it("does not accept an incomplete model call even if a scored prediction was saved", () => {
+    const source = historical();
+    source.featureDecision!.decision.status = "failed";
+    expect(getAcceptedBrandMatches(rethresholdFeatures(source, thresholds).brandRecommendation)).toEqual([]);
+    source.featureDecision!.decision.status = "completed";
+    source.featureDecision!.decision.error = "partial batch failure";
+    expect(getAcceptedBrandMatches(rethresholdFeatures(source, thresholds).brandRecommendation)).toEqual([]);
+  });
+
   it("never uses a retrieval-only product candidate as final confidence", () => {
     const source: TaggingQueueItemResult = {
       productRecommendation: {
@@ -116,4 +124,24 @@ describe("team thresholds on pending review evidence", () => {
       product: 60,
     });
   });
+});
+
+
+it("recovers scored product decisions outside the old region winner list and makes them reviewable", () => {
+  const source = historical();
+  source.featureDecision!.decision.result!.matches = [{
+    candidateId: "product:cream", confidence: 75, reason: "Possible cream", evidence: ["retrieval"],
+    conflicts: ["Brand text missing"], specificityLimit: "Variant uncertain",
+  }];
+  source.productRecommendation = { decisionSource: "llm", matches: [], bestMatch: null,
+    noConfidentMatch: true, recommendedTags: [], detections: [{ detectionIndex: 0,
+      box: { xMin: 0, yMin: 0, xMax: 1, yMax: 1, score: 1, label: "product" },
+      bestMatch: null, topMatches: [], noConfidentMatch: true }],
+  };
+  const feature = { featureType: "product" as const, id: "cream", name: "Cream", typeId: null,
+    typeName: "Product", tags: [{ assetTagId: 3, tagPath: ["Cream"] }] };
+  const refreshed = rethresholdFeatures(source, { ...thresholds, product: 60 });
+  expect(getReviewFeatures(hydrateReviewFeatures(refreshed, new Map([["product:cream", feature]]))))
+    .toEqual([expect.objectContaining(feature)]);
+  expect(source.productRecommendation.matches).toEqual([]);
 });

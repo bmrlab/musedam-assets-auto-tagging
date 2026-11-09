@@ -1,4 +1,4 @@
-import { getBrandMatches, getIpMatches } from "@/lib/feature-decision/match-policy";
+import { getBrandMatches, getIpMatches, getScoredFeaturePredictions } from "@/lib/feature-decision/match-policy";
 import { isReviewablePersonFace } from "@/lib/person/person-match-policy";
 import { getProductMatches } from "@/lib/product/product-match-policy";
 import type { TaggingQueueItemResult } from "@/prisma/client";
@@ -13,20 +13,7 @@ export function rethresholdFeatures(
   const output = { ...source };
   const diagnostics = source.featureDecision;
   const hasDecisions = diagnostics?.decision.status === "completed";
-  const imageMode = diagnostics?.decisionInputMode === "image";
-  const decisions = (hasDecisions ? (diagnostics.decision.result?.matches ?? []) : []).filter(
-    (m) =>
-      Number.isFinite(m.confidence) &&
-      Array.isArray(m.conflicts) &&
-      m.conflicts.length === 0 &&
-      !m.specificityLimit?.trim() &&
-      Array.isArray(m.evidence) &&
-      (imageMode || !m.evidence.includes("visual")) &&
-      (!m.candidateId.startsWith("logo:") ||
-        m.evidence.includes(imageMode ? "visual" : "retrieval") ||
-        (diagnostics?.folderMatchedLogoIds?.includes(m.candidateId.slice(5)) && m.evidence.includes("path")) ||
-        (diagnostics?.ocrMatchedLogoIds?.includes(m.candidateId.slice(5)) && m.evidence.includes("ocr"))),
-  );
+  const decisions = getScoredFeaturePredictions(diagnostics);
   // Metadata placeholders are hydrated from the current team-owned feature library before review.
   const common = {
     similarity: 0,
@@ -111,6 +98,7 @@ export function rethresholdFeatures(
     );
     output.productRecommendation = {
       ...source.productRecommendation,
+      decisionSource: hasDecisions ? "llm" : source.productRecommendation.decisionSource,
       confidenceThreshold: thresholds.product,
       ...(hasDecisions || Array.isArray(source.productRecommendation.matches) ? { matches } : {}),
       bestMatch: matches[0] ?? null,

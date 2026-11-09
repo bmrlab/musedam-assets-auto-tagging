@@ -62,7 +62,6 @@ import {
 } from "./feature-review-server";
 import { createTagReviewSnapshot } from "./tag-review";
 
-import { pendingFeatureCandidates, type PendingFeatureCandidate } from "./pending-feature-candidates";
 import { attachReviewQueues, reviewQueueItemsQuery } from "./review-list-data";
 
 export type ReviewAvailableFeatureIds = {
@@ -147,7 +146,6 @@ async function buildAssetObjectTags(
 export type AssetWithAuditItemsBatch = {
   assetObject: AssetObject;
   existingFeatures: MuseDAMMaterialFeatureSnapshot[];
-  pendingFeatureCandidates?: PendingFeatureCandidate[];
   availableFeatureIds: ReviewAvailableFeatureIds;
   featureThumbnails: FeatureThumbnails;
   batch: {
@@ -586,11 +584,6 @@ export async function fetchAssetsWithAuditItems(
             // Do not serialize the entire joined audit/queue graph again inside the asset.
             assetObject: assetRecord,
             existingFeatures,
-            pendingFeatureCandidates: filteredBatch.flatMap(group =>
-              group.taggingAuditItems.some(audit => audit.status === "pending")
-                ? pendingFeatureCandidates(group.queueItem.id, group.queueItem.result, featureLibrary, thresholds)
-                : [],
-            ),
             availableFeatureIds,
             featureThumbnails,
             batch: filteredBatch,

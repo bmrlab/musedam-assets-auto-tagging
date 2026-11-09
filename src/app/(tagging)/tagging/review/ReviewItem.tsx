@@ -402,7 +402,6 @@ export function ReviewItem({
   batchLoading,
   rejectedFeatureKeys,
   onToggleFeatureKey,
-  pendingFeatureCandidates = [],
   manualTags = [],
   onAddManualTags,
   onRemoveManualTag,
@@ -1411,7 +1410,7 @@ export function ReviewItem({
                           onPreview={setPreviewImage}
                         />
                       ))
-                    ) : hasFeatureRecognitionFailure((queueItem.result as TaggingQueueItemResult | null)?.featureDecision) || hasManualRows || pendingFeatureCandidates.some(candidate => candidate.queueItemId === queueItem.id) ? null : (
+                    ) : hasFeatureRecognitionFailure((queueItem.result as TaggingQueueItemResult | null)?.featureDecision) || hasManualRows ? null : (
                       <div className="text-sm text-basic-5">
                         {tResult(
                           isVideoAsset
@@ -1422,25 +1421,6 @@ export function ReviewItem({
                         )}
                       </div>
                     )}
-                    {pendingFeatureCandidates.filter(candidate => candidate.queueItemId === queueItem.id).map(candidate => (
-                      <FeatureRecognitionRow
-                        key={candidate.key}
-                        featureType={candidate.feature.featureType}
-                        featureId={candidate.feature.id}
-                        thumbnail={featureThumbnails[featureKey(candidate.feature.featureType, candidate.feature.id)]}
-                        featureClass={getFeatureClassLabel(candidate.feature.featureType)}
-                        featureTypeName={candidate.feature.typeName}
-                        classifiedName={candidate.name}
-                        confidence={candidate.confidence}
-                        tagPaths={[]}
-                        isRejected={false}
-                        onToggle={() => {}}
-                        showToggle={false}
-                        tooltipAdd={t("tooltipAdd")}
-                        tooltipRemove={t("tooltipRemove")}
-                        onPreview={setPreviewImage}
-                      />
-                    ))}
                     {isEditableManualBatch ? (
                       <button
                         type="button"

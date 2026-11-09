@@ -107,7 +107,7 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllEnvs());
 
 describe("whole-asset feature decision orchestration", () => {
-  it("keeps one product per image region and recalls a complete filename identity outside retrieval", async () => {
+  it("keeps scored LLM product alternatives and recalls a complete filename identity outside retrieval", async () => {
     const matches = ["first", "lower"].map((id, index) => ({
       assetProductId: id, productName: id, productTypeId: null, productTypeName: "Products",
       description: "", generalCategory: "bottle", confidence: 95 - index,
@@ -134,7 +134,7 @@ describe("whole-asset feature decision orchestration", () => {
       enabledTypes: ["product"], boxes: { product: [box(0)] }, imageMode: false,
       fileName: "赫妍魅感裸透镜彩唇釉415_试色图",
     });
-    expect(result.product?.matches.map(match => match.assetProductId)).toEqual(["415", "first"]);
+    expect(result.product?.matches.map(match => match.assetProductId)).toEqual(["415", "first", "lower"]);
     expect(result.product?.matches[0]).toMatchObject({ matchingSource: "assetName", detectionIndex: -1, detectionIndices: [] });
     expect(result.product?.topMatches.map(match => match.assetProductId)).toEqual(["first", "lower"]);
   });
@@ -228,7 +228,7 @@ describe("whole-asset feature decision orchestration", () => {
   );
 
   it.each([true, false])(
-    "keeps high-confidence limited predictions visible without automatically accepting them in imageMode=%s",
+    "accepts high-confidence predictions despite conflicts and specificity notes in imageMode=%s",
     async (imageMode) => {
       mocks.decision.mockResolvedValue({
         ocr: { status: "empty", segments: [] },
@@ -259,8 +259,8 @@ describe("whole-asset feature decision orchestration", () => {
         "first",
         "lower",
       ]);
-      expect(result.brand?.matches?.map((entry) => entry.assetLogoId)).toEqual(["lower"]);
-      expect(result.brand?.bestMatch?.assetLogoId).toBe("lower");
+      expect(result.brand?.matches?.map((entry) => entry.assetLogoId)).toEqual(["first", "lower"]);
+      expect(result.brand?.bestMatch?.assetLogoId).toBe("first");
     },
   );
 
@@ -408,7 +408,7 @@ describe("whole-asset feature decision orchestration", () => {
     },
   );
 
-  it("keeps references that cannot load unassessed and does not autoaccept conflicting or metadata-only logos", async () => {
+  it("keeps incomplete reference retrieval unassessed instead of accepting partial results", async () => {
     mocks.fetchImage.mockRejectedValueOnce(new Error("missing reference"));
     mocks.decision.mockResolvedValue({
       ocr: { status: "empty", segments: [] },

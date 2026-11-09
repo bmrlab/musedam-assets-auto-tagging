@@ -1,3 +1,4 @@
+import { getScoredFeaturePredictions } from "./match-policy";
 import { findProductNameMatches } from "@/lib/product/product-name-evidence";
 import "server-only";
 import { FEATURE_DECISION_MODE, isDecisionLlmImageUseEnabled } from "./config";
@@ -525,27 +526,10 @@ export async function classifyAssetFeatures(
         candidateId, reason: batch.error ?? "Decision batch failed",
       })));
     }
-    // Predictions remain visible regardless of confidence, conflicts or specificity.
-    // Automatic application has a separate gate and must never promote alternatives.
-    const predictions = new Map(
-      (output.diagnostics.decision.status === "completed"
-        ? (output.diagnostics.decision.result?.matches ?? [])
-        : []
-      )
-        .filter((match) => imageMode || !match.evidence.includes("visual"))
-        .map((match) => [match.candidateId, match]),
-    );
-    const decisions = new Map(
-      [...predictions].filter(
-        ([candidateId, match]) =>
-          match.conflicts.length === 0 &&
-          !match.specificityLimit?.trim() &&
-          (!candidateId.startsWith("logo:") ||
-            match.evidence.includes(imageMode ? "visual" : "retrieval") ||
-            (folderMatchIds.has(candidateId.slice(5)) && match.evidence.includes("path")) ||
-            (ocrMatchIds.has(candidateId.slice(5)) && match.evidence.includes("ocr"))),
-      ),
-    );
+    // Final model predictions are accepted solely by the team's score threshold.
+    const predictions = new Map(getScoredFeaturePredictions(output.diagnostics)
+      .map(match => [match.candidateId, match]));
+    const decisions = predictions;
     if (output.diagnostics.decision.status === "completed") {
       // A rejected catalog identity must not be reapplied through general AI tagging. Only
       // exact identity names are withheld; shared/generic linked tags remain independent.
@@ -681,9 +665,9 @@ export async function classifyAssetFeatures(
     }
   }
   if (output.product) {
-    // Resolve image ownership before merging independent filename evidence.
+    // LLM candidates use score-only eligibility. Legacy embedding results keep region ownership.
     const regions = output.product.detections;
-    const imageMatches = output.product.matches.flatMap(match => {
+    const imageMatches = mode === "llm" ? output.product.matches : output.product.matches.flatMap(match => {
       const owned = regions.filter(region => !region.noConfidentMatch &&
         region.bestMatch?.assetProductId === match.assetProductId);
       if (!owned.length) return [];
