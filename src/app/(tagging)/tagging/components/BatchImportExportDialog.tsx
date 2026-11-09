@@ -76,6 +76,7 @@ type BatchImportExportDialogProps<TResult extends BatchImportResultBase> = {
   downloadTemplateAction: (format: ExportFormat) => Promise<ServerActionResult<BatchFileResult>>;
   /** 覆盖上传区第二行说明 */
   uploadHint?: string;
+  exportHint?: string;
   headerExtra?: (pending: boolean) => ReactNode;
   /** 提供时先检测：有问题行、会新建或改名时二次确认，用户可返回修改或继续导入 */
   precheckAction?: (formData: FormData) => Promise<ServerActionResult<BatchImportPrecheck>>;
@@ -130,6 +131,7 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
   importAction,
   downloadTemplateAction,
   uploadHint,
+  exportHint,
   headerExtra,
   precheckAction,
   reviewTitle,
@@ -784,7 +786,7 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
                       </label>
                     </RadioGroup>
                     <div className="flex items-start gap-2 text-[12px] leading-[16px] font-normal text-basic-5">
-                      <span>{t("exportHint", { entity: entityName })}</span>
+                      <span>{exportHint ?? t("exportHint", { entity: entityName })}</span>
                     </div>
                   </div>
                 ) : (

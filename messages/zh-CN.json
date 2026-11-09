@@ -4,6 +4,9 @@
   },
   "Components": {},
   "TagsPage": {
+    "exportCleanupHint": "导出时会从库内删除没有有效 MuseDAM 标签 ID 的标签；若其下有已映射子标签，需先修复层级再导出。",
+    "exportCleanupComplete": "已清理 {count} 个没有 MuseDAM 标签 ID 的标签",
+    "exportCleanupMappedChild": "「{tag}」有 MuseDAM ID，但其父标签没有。请先修复标签层级再导出，本次未删除任何标签。",
     "importPreviewConfigurationHint": "预览展示标签层级，表格中的配置会一并保留并在确认后导入。合并保留已有标签，覆盖将替换原标签体系。",
     "importPreviewTitle": "导入标签预览",
     "requiredGroupsAutoDisabledMore": "{tags}等 {count} 个标签",

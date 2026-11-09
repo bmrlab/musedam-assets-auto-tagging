@@ -4,6 +4,9 @@
   },
   "Components": {},
   "TagsPage": {
+    "exportCleanupHint": "Export removes local tags without a valid MuseDAM tag ID. Mapped descendants prevent cleanup until the hierarchy is repaired.",
+    "exportCleanupComplete": "Removed {count} tags without a MuseDAM tag ID",
+    "exportCleanupMappedChild": "“{tag}” has a MuseDAM ID but its parent does not. Repair the tag hierarchy before exporting; no tags were deleted.",
     "importPreviewConfigurationHint": "The preview shows tag paths. Configuration from the same file is retained and applied after you confirm. Merge preserves existing tags; overwrite replaces the tag tree.",
     "importPreviewTitle": "Import tag preview",
     "requiredGroupsAutoDisabledMore": "{tags} and others ({count} tags total)",

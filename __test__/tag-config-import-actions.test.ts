@@ -14,6 +14,15 @@ const mocks = vi.hoisted(() => {
   };
   const rows: Row[] = [];
   const assetTag = {
+    deleteMany: vi.fn(async ({ where }: { where: { teamId: number; id: { in: number[] } } }) => {
+      let count = 0;
+      for (let index = rows.length - 1; index >= 0; index--) {
+        if (rows[index].teamId === where.teamId && where.id.in.includes(rows[index].id)) {
+          rows.splice(index, 1); count++;
+        }
+      }
+      return { count };
+    }),
     findMany: vi.fn(async ({ where }: { where: { teamId: number } }) =>
       rows.filter((row) => row.teamId === where.teamId).map((row) => structuredClone(row)),
     ),
@@ -29,15 +38,23 @@ const mocks = vi.hoisted(() => {
   return {
     rows,
     assetTag,
+    bumpVersion: vi.fn(),
     transaction: vi.fn(async (queries: Promise<unknown>[] | ((tx: unknown) => Promise<unknown>)) => {
       if (typeof queries !== "function") return Promise.all(queries);
-      return queries({ assetTag, $queryRaw: async () => rows.map((row) => structuredClone(row)), $executeRaw: async () => 1 });
+      const snapshot = structuredClone(rows);
+      try {
+        return await queries({ assetTag, $queryRaw: async () => rows.map((row) => structuredClone(row)), $executeRaw: async () => 1 });
+      } catch (error) {
+        rows.splice(0, rows.length, ...snapshot);
+        throw error;
+      }
     }),
     batchCreateTags: vi.fn(),
     saveTagsTreeToMuseDAM: vi.fn(),
   };
 });
 vi.mock("server-only", () => ({}));
+vi.mock("@/lib/tagging/tag-config-version", () => ({ bumpTagConfigVersion: mocks.bumpVersion }));
 vi.mock("@/lib/tagging/tag-import-lock", async (original) => ({
   ...(await original<typeof import("@/lib/tagging/tag-import-lock")>()),
   runTagImportExclusive: async (_team: number, _user: number, run: () => Promise<unknown>) => run(),
@@ -432,7 +449,7 @@ it("updates by MuseDAM ID rather than an unrelated local ID, including confirmed
   expect(mocks.batchCreateTags).not.toHaveBeenCalled();
 });
 
-it.each(["csv", "xlsx"] as const)("exports only MuseDAM IDs in %s and leaves unsynchronized IDs blank", async format => {
+it.each(["csv", "xlsx"] as const)("exports only MuseDAM IDs in %s and deletes unsynchronized tags", async format => {
   seed(1, "已同步").slug = "g/12345";
   seed(2, "未同步").slug = null;
   const result = await exportTagTreeAction(format);
@@ -440,7 +457,10 @@ it.each(["csv", "xlsx"] as const)("exports only MuseDAM IDs in %s and leaves uns
   const data = Buffer.from(result.data.base64, "base64");
   const rows = format === "csv" ? parseCsv(data) : parseXlsx(data);
   expect(rows[0][0]).toBe("MuseDAM 标签 ID");
-  expect(rows.slice(1).map(row => row[0])).toEqual(["12345", ""]);
+  expect(rows.slice(1).map(row => row[0])).toEqual(["12345"]);
+  expect(mocks.rows.map(row => row.id)).toEqual([1]);
+  expect(result.data.deletedTagCount).toBe(1);
+  expect(mocks.bumpVersion).toHaveBeenCalledWith(expect.anything(), 1);
   expect(rows[0].some(column => /slug/i.test(column))).toBe(false);
   expect(rows.flat().some(cell => cell.startsWith("g/"))).toBe(false);
 });
@@ -519,4 +539,56 @@ it("does not resolve MuseDAM IDs belonging only to another team", async () => {
   const form = file([["MuseDAM 标签 ID", "标签描述"], ["2002", "不能修改"]]);
   expect(await importTagTreeAction(form)).toMatchObject({ success: true, data: { failedCount: 1, successCount: 0 } });
   expect(mocks.assetTag.update).not.toHaveBeenCalled();
+});
+
+
+it("cleans unmapped subtrees leaf first, including hidden levels, while retaining other teams", async () => {
+  seed(1, "同步根");
+  seed(2, "无映射子节点", 1).slug = null;
+  seed(3, "无映射孙节点", 2).slug = "";
+  seed(4, "隐藏的四级", 3).slug = "not-a-musedam-id";
+  seed(5, "其他团队", null, 2).slug = null;
+  const result = await exportTagTreeAction("csv", 3);
+  expect(result).toMatchObject({ success: true, data: { deletedTagCount: 3 } });
+  expect(mocks.rows.map(row => row.id)).toEqual([1, 5]);
+  expect(mocks.assetTag.deleteMany.mock.calls.map(([args]) => args.where.id.in)).toEqual([[4], [3], [2]]);
+  expect(mocks.bumpVersion).toHaveBeenCalledTimes(1);
+});
+
+it("blocks cleanup before any deletion when an unmapped parent has mapped descendants", async () => {
+  seed(1, "无映射根").slug = null;
+  seed(2, "已映射子节点", 1);
+  const result = await exportTagTreeAction("csv");
+  expect(result).toMatchObject({ success: false, message: "exportCleanupMappedChild" });
+  expect(mocks.rows).toHaveLength(2);
+  expect(mocks.assetTag.deleteMany).not.toHaveBeenCalled();
+  expect(mocks.bumpVersion).not.toHaveBeenCalled();
+});
+
+it("rolls back already deleted batches and returns no file when a later batch fails", async () => {
+  for (let id = 1; id <= 101; id++) seed(id, `无映射${id}`).slug = null;
+  mocks.assetTag.deleteMany.mockImplementationOnce(async ({ where }) => {
+    const count = where.id.in.length;
+    for (let index = mocks.rows.length - 1; index >= 0; index--)
+      if (where.id.in.includes(mocks.rows[index].id)) mocks.rows.splice(index, 1);
+    return { count };
+  }).mockRejectedValueOnce(new Error("delete failed"));
+  expect(await exportTagTreeAction("csv")).toMatchObject({ success: false, message: "delete failed" });
+  expect(mocks.rows).toHaveLength(101);
+  expect(mocks.bumpVersion).not.toHaveBeenCalled();
+});
+
+it("does not write tag rows or invalidate the cache when all tags are mapped", async () => {
+  seed(1, "已映射");
+  expect(await exportTagTreeAction("xlsx")).toMatchObject({ success: true, data: { deletedTagCount: 0 } });
+  expect(mocks.assetTag.deleteMany).not.toHaveBeenCalled();
+  expect(mocks.bumpVersion).not.toHaveBeenCalled();
+});
+
+
+it("preserves mapped tags with IDs beyond the supported file range instead of deleting them", async () => {
+  seed(1, "长 ID 标签").slug = "g/9007199254740993";
+  expect(await exportTagTreeAction("csv")).toMatchObject({ success: false });
+  expect(mocks.rows).toHaveLength(1);
+  expect(mocks.assetTag.deleteMany).not.toHaveBeenCalled();
 });
