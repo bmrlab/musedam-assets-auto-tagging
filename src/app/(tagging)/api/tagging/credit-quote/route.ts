@@ -1,9 +1,7 @@
 import { getTaggingSettings } from "@/app/(tagging)/tagging/settings/lib";
-import { isTeamTaggingSuspended } from "@/lib/tagging/team-suspension";
 import { getTaggingCreditCost } from "@/lib/tagging-credit";
 import { idToSlug } from "@/lib/slug";
 import { assertTeamTaggingAuthorization } from "@/musedam/apiKey";
-import { hasEnabledTaggingOutput } from "@/musedam/metadata";
 import { MuseDAMID } from "@/musedam/types";
 import prisma from "@/prisma/prisma";
 import { NextRequest, NextResponse } from "next/server";
@@ -28,7 +26,11 @@ export async function POST(request: NextRequest) {
     }
 
     const settings = await getTaggingSettings(team.id);
-    if (await isTeamTaggingSuspended(team.id)) {
+    const suspension = await prisma.teamConfig.findUnique({
+      where: { teamId_key: { teamId: team.id, key: "taggingSuspended" } },
+      select: { value: true },
+    });
+    if (suspension?.value === true) {
       return NextResponse.json({
         success: true,
         data: {
@@ -49,7 +51,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const creditCost = (await hasEnabledTaggingOutput(team, settings))
+    const creditCost = settings.isTaggingEnabled
       ? getTaggingCreditCost(settings.featureImageMode)
       : 0;
     return NextResponse.json({
