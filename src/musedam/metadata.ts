@@ -50,7 +50,7 @@ export async function hasEnabledTaggingOutput(
 
 /** Existing read-only metadata API; values are keyed by field name. */
 export const fetchMetadataValues = (team: Team, materialId: string) =>
-  call<Record<string, { values?: Record<string, unknown> }>>(
+  call<Record<string, Record<string, unknown>>>(
     team,
     "/api/muse/metadata-records-by-ids",
     { materialIds: [materialId] },

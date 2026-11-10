@@ -145,6 +145,6 @@ export async function fetchReviewMetadataValues(assetObjectId: number) {
     });
     const materialId = slugToId("assetObject", asset.slug).toString();
     const records = await fetchMetadataValues(team, materialId);
-    return records[materialId]?.values || {};
+    return records[materialId] || {};
   });
 }
