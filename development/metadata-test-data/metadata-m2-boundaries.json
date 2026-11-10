@@ -1,0 +1,21 @@
+{
+  "pendingInboundBlocked": true,
+  "manualFalseProtected": {
+    "fieldVersion": 4,
+    "result": {
+      "applied": [],
+      "skipped": [
+        "f2e048a4-8d46-415c-ab1c-7df6fa2ad1bc"
+      ]
+    }
+  },
+  "idempotentRetry": {
+    "beforeVersion": 6,
+    "afterVersion": 7,
+    "retriedVersion": 7
+  },
+  "changedIdempotencyPayloadRejected": "MB100005",
+  "invalidConfidenceRejected": "MB100005",
+  "cascadeNonleafRejected": "MB100005",
+  "manualFalseStillFalse": true
+}

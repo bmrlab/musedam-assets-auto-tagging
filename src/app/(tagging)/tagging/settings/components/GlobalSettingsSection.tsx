@@ -38,6 +38,7 @@ export function GlobalSettingsSection({
   onTaggingEnabledChange,
 }: GlobalSettingsSectionProps) {
   const t = useTranslations("Tagging.Settings.Global");
+  const tc = useTranslations("Tagging.Settings.ConfirmDialog");
   const [metadataConfirm, setMetadataConfirm] = useState<boolean | null>(null);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<"enable" | "disable" | null>(null);
@@ -163,12 +164,13 @@ export function GlobalSettingsSection({
                 setMetadataConfirm(null);
               }}
             >
-              {t("confirm")}
+              {tc(metadataConfirm ? "confirmEnable" : "confirmDisable")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
       <AITaggingConfirmDialog
+        metadataAvailable={metadataAvailable}
         open={confirmDialogOpen}
         onOpenChange={setConfirmDialogOpen}
         action={pendingAction || "enable"}

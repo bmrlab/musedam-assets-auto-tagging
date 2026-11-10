@@ -20,6 +20,7 @@ import { getTeamHasTags } from "@/app/tags/actions";
 import { fetchDashboardStats } from "../../dashboard/actions";
 
 interface AITaggingConfirmDialogProps {
+    metadataAvailable?: boolean;
     open: boolean;
     onOpenChange: (open: boolean) => void;
     action: "enable" | "disable";
@@ -28,6 +29,7 @@ interface AITaggingConfirmDialogProps {
 }
 
 export function AITaggingConfirmDialog({
+    metadataAvailable = false,
     open,
     onOpenChange,
     action,
@@ -74,6 +76,7 @@ export function AITaggingConfirmDialog({
 
     // 根据场景确定标题
     const getTitle = () => {
+        if (metadataAvailable) return t(isEnable ? "enableTagSystemTitle" : "disableTagSystemTitle");
         if (isEnable) {
             return t("enableTitle");
         } else {

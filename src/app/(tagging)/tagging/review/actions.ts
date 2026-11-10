@@ -1,7 +1,4 @@
 "use server";
-
-import { getFeatureThresholds } from "@/lib/tagging/feature-threshold-settings";
-import { rethresholdFeatures } from "@/lib/tagging/rethreshold-features";
 import { withAuth } from "@/app/(auth)/withAuth";
 import { getBrandRecommendationFromQueueResult } from "@/app/(tagging)/brand-recommendation";
 import { recordContentOnlyRejectionFeedbackBatch } from "@/app/(tagging)/evidence-policy-server";
@@ -17,6 +14,8 @@ import {
 import { getServerFeatureLibraryFeatures } from "@/lib/feature-library-server";
 import { ServerActionResult } from "@/lib/serverAction";
 import { idToSlug, slugToId } from "@/lib/slug";
+import { getFeatureThresholds } from "@/lib/tagging/feature-threshold-settings";
+import { rethresholdFeatures } from "@/lib/tagging/rethreshold-features";
 import { buildParentSelect, buildTagNamePath, TagWithParentChain } from "@/lib/tagging/tag-level";
 import { retrieveTeamCredentials } from "@/musedam/apiKey";
 import {
@@ -41,6 +40,7 @@ import {
 import prisma from "@/prisma/prisma";
 import {
   createFeatureReviewSnapshot,
+  isScopedFeatureReviewComplete,
   FEATURE_REVIEW_CHANGED,
   featureKey,
   getFeatureReviewVersion,
@@ -144,7 +144,11 @@ async function buildAssetObjectTags(
 }
 
 export type AssetWithAuditItemsBatch = {
-  metadataReviews?: { id: number; status: TaggingAuditStatus; prediction: import("@/lib/metadata/types").MetadataPrediction }[];
+  metadataReviews?: {
+    id: number;
+    status: TaggingAuditStatus;
+    prediction: import("@/lib/metadata/types").MetadataPrediction;
+  }[];
   assetObject: AssetObject;
   existingFeatures: MuseDAMMaterialFeatureSnapshot[];
   availableFeatureIds: ReviewAvailableFeatureIds;
@@ -231,6 +235,7 @@ export async function fetchAssetsWithAuditItems(
   timeFilter?: "all" | "today" | "week" | "month",
   windowOffset: number = 0,
   windowLimit?: number,
+  content: "all" | "tags" | "features" = "all",
 ): Promise<
   ServerActionResult<{
     assets: AssetWithAuditItemsBatch[];
@@ -252,7 +257,10 @@ export async function fetchAssetsWithAuditItems(
       page = Math.max(1, Math.floor(page) || 1);
       limit = Math.min(100, Math.max(1, Math.floor(limit) || 10));
       windowOffset = Math.min(limit, Math.max(0, Math.floor(windowOffset) || 0));
-      const take = Math.min(limit - windowOffset, Math.max(1, Math.floor(windowLimit ?? limit) || 10));
+      const take = Math.min(
+        limit - windowOffset,
+        Math.max(1, Math.floor(windowLimit ?? limit) || 10),
+      );
       const offset = (page - 1) * limit + windowOffset;
 
       // 审核项筛选条件，直接拼成 SQL：Prisma 的 distinct 是在内存里去重的，
@@ -263,7 +271,29 @@ export async function fetchAssetsWithAuditItems(
         Prisma.sql`a."queueItemId" IS NOT NULL`,
       ];
       // 和列表组装用同一条「能展示」条件，避免标签被清空后总数仍把这些素材算进去
-      conditions.push(Prisma.sql`(a."isMetadata" OR ${displayedAuditItemSql(featureLibraryFeatures)})`);
+      conditions.push(
+        Prisma.sql`(a."isMetadata" OR ${displayedAuditItemSql(featureLibraryFeatures)})`,
+      );
+      const scopedFeatureReviewComplete = Prisma.sql`(q."extra"->'featureReview'->'scoped' = 'true'::jsonb AND (q."extra"->'featureReview'->>'runStartedAt')::timestamp IS NOT DISTINCT FROM q."startsAt")`;
+      if (content === "tags") {
+        conditions.push(
+          Prisma.sql`NOT a."isMetadata" AND (a."leafTagId" IS NOT NULL OR jsonb_array_length(a."tagPath") > 0)`,
+        );
+      } else if (content === "features") {
+        // Reuse the enabled-library predicate without its tag branch.
+        const featureOnly = Prisma.sql`(${displayedAuditItemSql(featureLibraryFeatures)})`;
+        conditions.push(Prisma.sql`NOT a."isMetadata" AND ${featureOnly} AND (
+          ${featureLibraryFeatures.featureBrand} AND jsonb_typeof(q."result"->'brandRecommendation') = 'object'
+          OR ${featureLibraryFeatures.featureIp} AND jsonb_typeof(q."result"->'ipRecommendation') = 'object'
+          OR ${featureLibraryFeatures.featureProduct} AND jsonb_typeof(q."result"->'productRecommendation') = 'object'
+          OR ${featureLibraryFeatures.featurePerson} AND jsonb_typeof(q."result"->'personRecommendation') = 'object'
+        )`);
+        if (statusFilter === "pending")
+          conditions.push(Prisma.sql`NOT COALESCE(${scopedFeatureReviewComplete}, false)`);
+        conditions.push(
+          Prisma.sql`(NOT COALESCE(${scopedFeatureReviewComplete}, false) OR (a."leafTagId" IS NULL AND jsonb_array_length(a."tagPath") = 0) OR NOT EXISTS (SELECT 1 FROM "TaggingAuditItem" carrier WHERE carrier."queueItemId" = q."id" AND carrier."teamId" = ${teamId} AND carrier."leafTagId" IS NULL AND jsonb_array_length(carrier."tagPath") = 0))`,
+        );
+      }
 
       // “全部”保留已删除素材作为可追溯记录，普通拒绝项仍按原规则排除。
       conditions.push(
@@ -364,8 +394,8 @@ export async function fetchAssetsWithAuditItems(
       const totalPages = Math.ceil(totalCount / limit);
       const hasMore = page < totalPages;
       const consumed = windowOffset + pageRows.length;
-      const nextWindowOffset = consumed < Math.min(limit, Math.max(0, totalCount - (page - 1) * limit))
-        ? consumed : null;
+      const nextWindowOffset =
+        consumed < Math.min(limit, Math.max(0, totalCount - (page - 1) * limit)) ? consumed : null;
 
       if (assetObjectIds.length === 0) {
         return {
@@ -385,16 +415,25 @@ export async function fetchAssetsWithAuditItems(
       const assetRows = await prisma.assetObject.findMany({
         where: { teamId, id: { in: assetObjectIds } },
         include: {
-          metadataAuditItems: { where: { status: statusFilter ?? { not: "rejected" } }, orderBy: { createdAt: "desc" } },
+          metadataAuditItems: {
+            where: { status: statusFilter ?? { not: "rejected" } },
+            orderBy: { createdAt: "desc" },
+          },
           taggingAuditItems: {
             where: { teamId },
             orderBy: [{ score: "desc" }, { createdAt: "desc" }],
           },
         },
       });
-      const queueIds = [...new Set(assetRows.flatMap(asset =>
-        asset.taggingAuditItems.flatMap(audit => audit.queueItemId === null ? [] : [audit.queueItemId]),
-      ))];
+      const queueIds = [
+        ...new Set(
+          assetRows.flatMap((asset) =>
+            asset.taggingAuditItems.flatMap((audit) =>
+              audit.queueItemId === null ? [] : [audit.queueItemId],
+            ),
+          ),
+        ),
+      ];
       const queues = queueIds.length
         ? await prisma.$queryRaw<TaggingQueueItem[]>(reviewQueueItemsQuery(teamId, queueIds))
         : [];
@@ -405,14 +444,23 @@ export async function fetchAssetsWithAuditItems(
       const materialIdByAssetObjectId = new Map<number, MuseDAMID>();
       if (hasEnabledFeatures) {
         for (const asset of assetObjects) {
-          try { materialIdByAssetObjectId.set(asset.id, slugToId("assetObject", asset.slug)); }
-          catch { /* Local test inputs have no MuseDAM material ID. */ }
+          try {
+            materialIdByAssetObjectId.set(asset.id, slugToId("assetObject", asset.slug));
+          } catch {
+            /* Local test inputs have no MuseDAM material ID. */
+          }
         }
       }
-      const existingFeaturesPromise = hasEnabledFeatures && materialIdByAssetObjectId.size
-        ? getFeatureByAssetFromMuseDAM({ team, materialIds: [...materialIdByAssetObjectId.values()] })
-            .catch(error => { console.error("批量获取资产已有特征失败:", error); return []; })
-        : Promise.resolve([]);
+      const existingFeaturesPromise =
+        hasEnabledFeatures && materialIdByAssetObjectId.size
+          ? getFeatureByAssetFromMuseDAM({
+              team,
+              materialIds: [...materialIdByAssetObjectId.values()],
+            }).catch((error) => {
+              console.error("批量获取资产已有特征失败:", error);
+              return [];
+            })
+          : Promise.resolve([]);
       const musedamAssetIds = assetObjects
         .map((assetObject) => {
           try {
@@ -463,14 +511,20 @@ export async function fetchAssetsWithAuditItems(
         );
 
       const thresholds = await getFeatureThresholds(teamId);
-      const pendingQueueIds = new Set(updatedAssetObjects.flatMap(asset => asset.taggingAuditItems
-        .filter(audit => audit.status === "pending").map(audit => audit.queueItemId)));
+      const pendingQueueIds = new Set(
+        updatedAssetObjects.flatMap((asset) =>
+          asset.taggingAuditItems
+            .filter((audit) => audit.status === "pending")
+            .map((audit) => audit.queueItemId),
+        ),
+      );
       for (const queue of queues) {
-        if (pendingQueueIds.has(queue.id)) queue.result = rethresholdFeatures(queue.result, thresholds) as Prisma.JsonObject;
+        if (pendingQueueIds.has(queue.id))
+          queue.result = rethresholdFeatures(queue.result, thresholds) as Prisma.JsonObject;
       }
       const featureLibrary = await loadReviewFeatureLibrary(
         teamId,
-        queues.map(queue => queue.result),
+        queues.map((queue) => queue.result),
         featureLibraryFeatures,
       );
       const availableFeatureIds: ReviewAvailableFeatureIds = {
@@ -499,14 +553,17 @@ export async function fetchAssetsWithAuditItems(
 
       const featuresByMaterialId = new Map<number, MuseDAMMaterialFeatureSnapshot[]>();
       for (const entry of await existingFeaturesPromise) {
-        featuresByMaterialId.set(entry.materialId, (entry.features ?? []).filter(feature =>
-          isFeatureTypeEnabled(featureLibraryFeatures, feature.featureType),
-        ));
+        featuresByMaterialId.set(
+          entry.materialId,
+          (entry.features ?? []).filter((feature) =>
+            isFeatureTypeEnabled(featureLibraryFeatures, feature.featureType),
+          ),
+        );
       }
 
       const results: AssetWithAuditItemsBatch[] = [];
 
-      const updatedById = new Map(updatedAssetObjects.map(asset => [asset.id, asset]));
+      const updatedById = new Map(updatedAssetObjects.map((asset) => [asset.id, asset]));
       for (const assetObjectId of assetObjectIds) {
         const assetObject = updatedById.get(assetObjectId);
         if (!assetObject) continue;
@@ -514,6 +571,18 @@ export async function fetchAssetsWithAuditItems(
         const batch: AssetWithAuditItemsBatch["batch"] = [];
         for (const { queueItem, tagPath, ...taggingAuditItem } of taggingAuditItems) {
           if (!queueItem) continue;
+          if (content === "tags" && !(Array.isArray(tagPath) && tagPath.length) && taggingAuditItem.leafTagId === null)
+            continue;
+          if (
+            content === "features" &&
+            (!hasEnabledFeatureRecommendation(queueItem.result, featureLibraryFeatures) ||
+              (statusFilter === "pending" &&
+                isScopedFeatureReviewComplete(queueItem)))
+          )
+            continue;
+          if (content === "features" && isScopedFeatureReviewComplete(queueItem)
+            && (taggingAuditItem.leafTagId !== null || (Array.isArray(tagPath) && tagPath.length > 0))
+            && taggingAuditItems.some(row => row.queueItem?.id === queueItem.id && row.leafTagId === null && Array.isArray(row.tagPath) && row.tagPath.length === 0)) continue;
           if (
             !isDisplayedAuditItem(
               { ...taggingAuditItem, tagPath: tagPath as Prisma.JsonValue },
@@ -530,9 +599,10 @@ export async function fetchAssetsWithAuditItems(
               queueItem: {
                 ...queueItem,
                 result: filterFeatureLibraryRecommendations(
-                  taggingAuditItems.some(
-                    (item) => item.queueItem?.id === queueItem.id && item.status === "pending",
-                  )
+                  !isScopedFeatureReviewComplete(queueItem) &&
+                    taggingAuditItems.some(
+                      (item) => item.queueItem?.id === queueItem.id && item.status === "pending",
+                    )
                     ? hydrateReviewFeatures(queueItem.result, featureLibrary)
                     : getReviewedFeatureResult(queueItem.result, queueItem.extra),
                   featureLibraryFeatures,
@@ -597,8 +667,25 @@ export async function fetchAssetsWithAuditItems(
             existingFeatures,
             availableFeatureIds,
             featureThumbnails,
-            batch: filteredBatch,
-            metadataReviews: (assetObject.metadataAuditItems || []).map(item => ({ id: item.id, status: item.status, prediction: item.prediction as unknown as import("@/lib/metadata/types").MetadataPrediction })),
+            batch: filteredBatch.map((group) =>
+              content === "features"
+                ? {
+                    ...group,
+                    taggingAuditItems: group.taggingAuditItems.map((item) => ({
+                      ...item,
+                      tagPath: [],
+                    })),
+                  }
+                : group,
+            ),
+            metadataReviews: (content === "all" ? assetObject.metadataAuditItems || [] : []).map(
+              (item) => ({
+                id: item.id,
+                status: item.status,
+                prediction:
+                  item.prediction as unknown as import("@/lib/metadata/types").MetadataPrediction,
+              }),
+            ),
           });
         }
       }
@@ -632,7 +719,11 @@ export async function approveAuditItemsAction({
   manualFeatureKeys = [],
   manualTagIds = [],
   append = true,
+  contentScope = "all",
+  rejectFeatures = false,
 }: {
+  contentScope?: "all" | "tags" | "features";
+  rejectFeatures?: boolean;
   assetSlug: string;
   auditItems: { id: number; leafTagId: number | null; status: TaggingAuditStatus }[];
   featureReviewVersions: FeatureReviewVersions;
@@ -695,17 +786,47 @@ export async function approveAuditItemsAction({
       ) {
         return { success: false, message: "Invalid review items" };
       }
+      if (contentScope === "features" && storedAuditItems.some(row => row.queueItem
+        && !isScopedFeatureReviewComplete(row.queueItem)
+        && hasEnabledFeatureRecommendation(row.queueItem.result, featureLibraryFeatures)
+        && featureReviewVersions[row.queueItem.id] === undefined)) {
+        return { success: false, message: FEATURE_REVIEW_CHANGED };
+      }
+      const requestedAuditItems =
+        contentScope === "all"
+          ? auditItems
+          : auditItems.map((item) => {
+              const stored = storedAuditItems.find((row) => row.id === item.id)!;
+              const isTag =
+                stored.leafTagId !== null ||
+                (Array.isArray(stored.tagPath) && stored.tagPath.length > 0);
+              return {
+                ...item,
+                status:
+                  (contentScope === "features" && isTag) || (contentScope === "tags" && !isTag)
+                    ? stored.status
+                    : item.status,
+              };
+            });
       const queueResults = [
         ...new Map(
           storedAuditItems.flatMap(({ queueItem }) =>
             queueItem ? [[queueItem.id, queueItem] as const] : [],
           ),
         ).values(),
-      ].filter((queueItem) => featureReviewVersions[queueItem.id] !== undefined);
+      ].filter(
+        (queueItem) =>
+          contentScope !== "tags" &&
+          featureReviewVersions[queueItem.id] !== undefined &&
+          !isScopedFeatureReviewComplete(queueItem),
+      );
       const thresholds = await getFeatureThresholds(teamId);
-      const pendingIds = new Set(storedAuditItems.filter(a => a.status === "pending").map(a => a.queueItemId));
+      const pendingIds = new Set(
+        storedAuditItems.filter((a) => a.status === "pending").map((a) => a.queueItemId),
+      );
       for (const queue of queueResults) {
-        if (pendingIds.has(queue.id)) queue.result = rethresholdFeatures(queue.result, thresholds) as Prisma.JsonObject;
+        if (pendingIds.has(queue.id))
+          queue.result = rethresholdFeatures(queue.result, thresholds) as Prisma.JsonObject;
       }
       const featureLibrary = await loadReviewFeatureLibrary(
         teamId,
@@ -725,22 +846,29 @@ export async function approveAuditItemsAction({
       }
       const manualFeatures = await loadManualReviewFeatures(
         teamId,
-        manualFeatureKeys,
+        contentScope === "tags" ? [] : manualFeatureKeys,
         featureLibraryFeatures,
       );
-      const selectedFeatures = mergeManualReviewFeatures(
-        selectReviewFeatures(
-          currentResults.map(({ result }) => result),
-          rejectedFeatureKeys,
-        ),
-        manualFeatures,
+      const selectedFeatures = rejectFeatures
+        ? []
+        : mergeManualReviewFeatures(
+            selectReviewFeatures(
+              currentResults.map(({ result }) => result),
+              rejectedFeatureKeys,
+            ),
+            manualFeatures,
+          );
+      const validatedManualTagIds = await validateManualTagIds(
+        teamId,
+        contentScope === "features" ? [] : manualTagIds,
       );
-      const validatedManualTagIds = await validateManualTagIds(teamId, manualTagIds);
-      const requestedStatus = new Map(auditItems.map(({ id, status }) => [id, status]));
+      const requestedStatus = new Map(requestedAuditItems.map(({ id, status }) => [id, status]));
       const combinedApprovedTagIds = Array.from(
         new Set([
           ...storedAuditItems.flatMap(({ id, leafTagId }) =>
-            requestedStatus.get(id) === "approved" && leafTagId ? [leafTagId] : [],
+            contentScope !== "features" && requestedStatus.get(id) === "approved" && leafTagId
+              ? [leafTagId]
+              : [],
           ),
           ...selectedFeatures.flatMap((feature) => feature.tags.map((tag) => tag.assetTagId)),
           ...validatedManualTagIds,
@@ -814,7 +942,7 @@ export async function approveAuditItemsAction({
           })
         ).map(({ id, status }) => [id, status]),
       );
-      const newlyRejectedAuditItemIds = auditItems
+      const newlyRejectedAuditItemIds = requestedAuditItems
         .filter(
           ({ id, status }) => status === "rejected" && previousStatusById.get(id) !== "rejected",
         )
@@ -830,11 +958,56 @@ export async function approveAuditItemsAction({
       });
       stage = "save-review";
       await prisma.$transaction(async (tx) => {
-        for (const { id, status } of auditItems) {
+        // Tag and feature recommendations historically share review rows. Retain a
+        // feature-only carrier when tags are reviewed separately, so features stay pending.
+        if (contentScope !== "all") {
+          const queues = [
+            ...new Map(
+              storedAuditItems.flatMap((row) =>
+                row.queueItem ? [[row.queueItem.id, row.queueItem] as const] : [],
+              ),
+            ).values(),
+          ];
+          for (const queue of queues) {
+            if (
+              isScopedFeatureReviewComplete(queue) ||
+              !hasEnabledFeatureRecommendation(queue.result, featureLibraryFeatures)
+            )
+              continue;
+            const carrier = await tx.taggingAuditItem.findFirst({
+              where: { teamId, queueItemId: queue.id, leafTagId: null, tagPath: { equals: [] } },
+            });
+            if (!carrier)
+              await tx.taggingAuditItem.create({
+                data: {
+                  teamId,
+                  queueItemId: queue.id,
+                  assetObjectId: storedAuditItems[0].assetObjectId,
+                  leafTagId: null,
+                  tagPath: [],
+                  score: Math.max(
+                    ...storedAuditItems
+                      .filter((row) => row.queueItemId === queue.id)
+                      .map((row) => row.score),
+                  ),
+                  status:
+                    contentScope === "tags" ? "pending" : rejectFeatures ? "rejected" : "approved",
+                },
+              });
+          }
+        }
+        for (const { id, status } of requestedAuditItems) {
           await tx.taggingAuditItem.update({
             where: { id, teamId },
             data: { status },
           });
+        }
+        const tagOnlyQueues = contentScope === "tags" ? [...new Map(storedAuditItems.flatMap(row => row.queueItem ? [[row.queueItem.id, row.queueItem] as const] : [])).values()] : [];
+        for (const queueItem of tagOnlyQueues) {
+          await tx.taggingQueueItem.update({ where: { id: queueItem.id, teamId }, data: { extra: {
+            ...(queueItem.extra as Prisma.JsonObject),
+            tagReview: (queueItem.extra as Prisma.JsonObject | null)?.tagReview ?? tagReview,
+          } } });
         }
         for (const queueItem of currentResults) {
           await tx.taggingQueueItem.update({
@@ -842,12 +1015,16 @@ export async function approveAuditItemsAction({
             data: {
               extra: {
                 ...(queueItem.extra as Prisma.JsonObject),
-                tagReview: (queueItem.extra as Prisma.JsonObject | null)?.tagReview ?? tagReview,
-                featureReview: createFeatureReviewSnapshot(
-                  queueItem.result,
-                  selectedFeatures,
-                  manualFeatures,
-                ),
+                ...(contentScope === "features"
+                  ? {}
+                  : {
+                      tagReview:
+                        (queueItem.extra as Prisma.JsonObject | null)?.tagReview ?? tagReview,
+                    }),
+                featureReview: {
+                  ...createFeatureReviewSnapshot(queueItem.result, selectedFeatures, manualFeatures),
+                  ...(contentScope === "features" ? { scoped: true, runStartedAt: queueItem.startsAt?.toISOString() ?? null } : {}),
+                },
               },
             },
           });
@@ -1082,7 +1259,11 @@ export async function batchApproveAuditItemsAction({
       });
       const thresholds = await getFeatureThresholds(teamId);
       for (const audit of auditItems) {
-        if (audit.queueItem) audit.queueItem.result = rethresholdFeatures(audit.queueItem.result, thresholds) as Prisma.JsonObject;
+        if (audit.queueItem)
+          audit.queueItem.result = rethresholdFeatures(
+            audit.queueItem.result,
+            thresholds,
+          ) as Prisma.JsonObject;
       }
       const featureLibrary = await loadReviewFeatureLibrary(
         teamId,
@@ -1170,13 +1351,15 @@ export async function batchApproveAuditItemsAction({
           }
         });
 
-        const currentGroups = finalGroups.map((group) => ({
-          ...group,
-          queueItem: {
-            ...group.queueItem,
-            result: hydrateReviewFeatures(group.queueItem.result, featureLibrary),
-          },
-        }));
+        const currentGroups = finalGroups
+          .filter((group) => !isScopedFeatureReviewComplete(group.queueItem))
+          .map((group) => ({
+            ...group,
+            queueItem: {
+              ...group.queueItem,
+              result: hydrateReviewFeatures(group.queueItem.result, featureLibrary),
+            },
+          }));
         if (
           currentGroups.some(
             ({ queueItem }) =>
@@ -1415,5 +1598,56 @@ export async function batchRejectAuditItemsAction({
         message: "批量删除 AI 打标记录失败",
       };
     }
+  });
+}
+
+/** Review a material's selected content type without touching its other recommendations. */
+export async function reviewScopedAssetsAction({
+  assetObjects,
+  content,
+  decision,
+}: {
+  assetObjects: (BatchApproveAssetRef & { auditItemIds: number[] })[];
+  content: "tags" | "features";
+  decision: "approve" | "reject";
+}): Promise<ServerActionResult<void>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    if (
+      !["tags", "features"].includes(content) ||
+      !["approve", "reject"].includes(decision) ||
+      assetObjects.length > 10
+    ) {
+      return { success: false, message: "Invalid review scope" };
+    }
+    for (const asset of assetObjects) {
+      const rows = await prisma.taggingAuditItem.findMany({
+        where: { teamId, id: { in: asset.auditItemIds }, assetObject: { id: asset.id, slug: asset.slug }, status: "pending" },
+      });
+      const targets =
+        content === "tags"
+          ? rows.filter(
+              (row) =>
+                row.leafTagId !== null || (Array.isArray(row.tagPath) && row.tagPath.length > 0),
+            )
+          : rows;
+      if (!targets.length) continue;
+      const result = await approveAuditItemsAction({
+        assetSlug: asset.slug,
+        auditItems: targets.map((row) => ({
+          id: row.id,
+          leafTagId: row.leafTagId,
+          status: decision === "approve" ? "approved" : "rejected",
+        })),
+        featureReviewVersions: content === "features" ? asset.featureReviewVersions : {},
+        manualTagIds: decision === "approve" && content === "tags" ? asset.manualTagIds : [],
+        rejectedFeatureKeys: asset.rejectedFeatureKeys,
+        manualFeatureKeys:
+          decision === "approve" && content === "features" ? asset.manualFeatureKeys : [],
+        contentScope: content,
+        rejectFeatures: decision === "reject",
+      });
+      if (!result.success) return result;
+    }
+    return { success: true, data: undefined };
   });
 }

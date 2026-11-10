@@ -19,6 +19,7 @@ export async function predictMetadata(
   asset: AssetObject,
   team: { id: number; slug: string },
   settings: TaggingSettingsData,
+  onEligibility?: (eligible: boolean) => void,
 ) {
   // Matching-test uploads have no DAM material or existing values to protect.
   const localTest =
@@ -26,6 +27,7 @@ export async function predictMetadata(
     (asset.extra as { localTest?: boolean } | null)?.localTest === true;
   const materialId = localTest ? undefined : slugToId("assetObject", asset.slug).toString();
   let context = await fetchMetadataContext(team, materialId);
+  onEligibility?.(context.enabled && context.fields.length > 0);
   if (!context.enabled || !context.fields.length) return [];
   const texts: Partial<Record<MetadataSource, string>> = {};
   if (settings.matchingSources.basicInfo)

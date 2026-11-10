@@ -1,5 +1,7 @@
 "use client";
 import { reviewMetadata } from "./metadata-actions";
+import { UnmatchedReviewPanel } from "./UnmatchedReviewPanel";
+import type { ReviewContent, ReviewStatus } from "./unmatched-query";
 import { MetadataReviewPanel } from "./MetadataReviewPanel";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -33,7 +35,7 @@ import { CheckIcon, Loader2Icon, Search, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { type ReviewTagSearchResult, AssetWithAuditItemsBatch, fetchAssetsWithAuditItems, batchApproveAuditItemsAction, batchRejectAuditItemsAction } from "./actions";
+import { reviewScopedAssetsAction, type ReviewTagSearchResult, AssetWithAuditItemsBatch, fetchAssetsWithAuditItems, batchApproveAuditItemsAction, batchRejectAuditItemsAction } from "./actions";
 import { ReviewItem } from "./ReviewItem";
 import { useProgressiveReview } from "./use-progressive-review";
 import { featureKey, getFeatureReviewVersions, type ReviewFeatureSearchResult } from "./feature-review";
@@ -44,7 +46,6 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useSession } from "@/components/AuthProvider";
 
-type TaggingAuditStatus = "pending" | "approved" | "rejected";
 const BATCH_APPROVE_CHUNK_SIZE = 10;
 
 export default function ReviewPageClient({ metadataAvailable = false }: { metadataAvailable?: boolean }) {
@@ -58,7 +59,7 @@ export default function ReviewPageClient({ metadataAvailable = false }: { metada
     refresh, loadMore, loadAll } = useProgressiveReview<AssetWithAuditItemsBatch>(asset => asset.assetObject.id);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const [loadMoreFailed, setLoadMoreFailed] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<TaggingAuditStatus | "all">("pending");
+  const [statusFilter, setStatusFilter] = useState<ReviewStatus>("pending");
   const [confidenceFilter, setConfidenceFilter] = useState<"all" | "high" | "medium" | "low">(
     "all",
   );
@@ -88,18 +89,20 @@ export default function ReviewPageClient({ metadataAvailable = false }: { metada
   const refreshDataWithFilters = useCallback(
     async (
       page: number = currentPage,
-      status: TaggingAuditStatus | "all" = statusFilter,
+      status: ReviewStatus = statusFilter,
       confidence: "all" | "high" | "medium" | "low" = confidenceFilter,
       search: string = searchQuery,
       time: "all" | "today" | "week" | "month" = timeFilter,
       size: number = pageSize,
+      content: string = contentFilter,
     ) => {
+      if (status === "unmatched") return;
       setLoadMoreFailed(false);
       try {
         const newAssets = await refresh((offset, take) => fetchAssetsWithAuditItems(
           page, size, status === "all" ? undefined : status,
           confidence === "all" ? undefined : confidence, search || undefined,
-          time === "all" ? undefined : time, offset, take,
+          time === "all" ? undefined : time, offset, take, content === "tags" || content === "features" ? content : "all",
         ));
         if (newAssets) {
           const refreshed = new Map(newAssets.map(asset => [asset.assetObject.id, asset]));
@@ -110,7 +113,7 @@ export default function ReviewPageClient({ metadataAvailable = false }: { metada
         toast.error(t("refreshDataFailed"));
       }
     },
-    [currentPage, pageSize, statusFilter, confidenceFilter, searchQuery, timeFilter, t, refresh],
+    [currentPage, pageSize, statusFilter, confidenceFilter, searchQuery, timeFilter, contentFilter, t, refresh],
   );
 
   const handleLoadMore = useCallback(async () => {
@@ -162,6 +165,65 @@ export default function ReviewPageClient({ metadataAvailable = false }: { metada
     [totalPages, handlePageChange],
   );
 
+
+  const changeStatus = (value: ReviewStatus) => {
+    setStatusFilter(value);
+    setCurrentPage(1);
+    setSelectedAssets([]);
+    setSelectedAssetIds(new Set());
+    if (value !== "unmatched" && contentFilter !== "fields") void refreshDataWithFilters(1, value, confidenceFilter, searchQuery, timeFilter);
+  };
+
+  const changeContent = (value: string) => {
+    const status = value !== "fields" && !isAdmin && statusFilter === "rejected" ? "pending" : statusFilter;
+    setStatusFilter(status);
+    setContentFilter(value);
+    setCurrentPage(1);
+    setSelectedAssets([]);
+    setSelectedAssetIds(new Set());
+    setManualTagsByAsset({});
+    setManualFeaturesByAsset({});
+    setRejectedFeaturesByAsset({});
+    if (value !== "fields")
+      void refreshDataWithFilters(
+        1,
+        status,
+        confidenceFilter,
+        searchQuery,
+        timeFilter,
+        pageSize,
+        value,
+      );
+  };
+
+  const reviewScopedSelection = async (decision: "approve" | "reject") => {
+    if (contentFilter !== "tags" && contentFilter !== "features") return;
+    for (let start = 0; start < selectedAssets.length; start += 10) {
+      const result = await reviewScopedAssetsAction({
+        content: contentFilter,
+        decision,
+        assetObjects: selectedAssets.slice(start, start + 10).map((asset) => ({
+          id: asset.assetObject.id,
+          slug: asset.assetObject.slug,
+          auditItemIds: asset.batch.filter(group => getFeatureReviewVersions(asset.batch)[group.queueItem.id] !== undefined).flatMap(group => group.taggingAuditItems.map(item => item.id)),
+          featureReviewVersions: getFeatureReviewVersions(asset.batch),
+          manualTagIds: (manualTagsByAsset[asset.assetObject.id] ?? []).map((tag) => tag.id),
+          manualFeatureKeys: (manualFeaturesByAsset[asset.assetObject.id] ?? []).map((feature) =>
+            featureKey(feature.featureType, feature.id),
+          ),
+          rejectedFeatureKeys: rejectedFeaturesByAsset[asset.assetObject.id] ?? [],
+        })),
+      });
+      if (!result.success) throw new Error(result.message);
+    }
+    setSelectedAssets([]);
+    setSelectedAssetIds(new Set());
+    setManualTagsByAsset({});
+    setManualFeaturesByAsset({});
+    setRejectedFeaturesByAsset({});
+    await refreshDataWithFilters();
+    toast.success(t(decision === "approve" ? "applySuccess" : "rejectSuccess"));
+  };
 
   // 计算选择状态
   const isAllSelected = !hasMoreInPage && assets.length > 0 && assets.every(asset => selectedAssetIds.has(asset.assetObject.id));
@@ -216,6 +278,7 @@ export default function ReviewPageClient({ metadataAvailable = false }: { metada
 
     setLoading(true);
     try {
+      if (contentFilter === "tags" || contentFilter === "features") { await reviewScopedSelection("approve"); return; }
       let failedCount = 0;
       let deletedCount = 0;
       let changedCount = 0;
@@ -278,7 +341,7 @@ export default function ReviewPageClient({ metadataAvailable = false }: { metada
     } finally {
       setLoading(false);
     }
-  }, [selectedAssets, rejectedFeaturesByAsset, manualFeaturesByAsset, manualTagsByAsset, t, refreshDataWithFilters]);
+  }, [selectedAssets, rejectedFeaturesByAsset, manualFeaturesByAsset, manualTagsByAsset, contentFilter, t, refreshDataWithFilters]);
 
   // 批量拒绝审核
   const handleBatchReject = useCallback(async () => {
@@ -286,6 +349,7 @@ export default function ReviewPageClient({ metadataAvailable = false }: { metada
 
     setLoading(true);
     try {
+      if (contentFilter === "tags" || contentFilter === "features") { await reviewScopedSelection("reject"); return; }
       const metadataIds = selectedAssets.flatMap(asset => (asset.metadataReviews || []).filter(item => item.status === "pending").map(item => item.id));
       for (let start = 0; start < metadataIds.length; start += 100) await reviewMetadata(metadataIds.slice(start,start+100), "reject");
       await batchRejectAuditItemsAction({
@@ -305,12 +369,13 @@ export default function ReviewPageClient({ metadataAvailable = false }: { metada
     } finally {
       setLoading(false);
     }
-  }, [selectedAssets, t, refreshDataWithFilters]);
+  }, [selectedAssets, contentFilter, rejectedFeaturesByAsset, manualFeaturesByAsset, manualTagsByAsset, t, refreshDataWithFilters]);
 
   return (
     // data-fill-viewport：页面占满可视高度，只有列表区域滚动、分页栏始终可见（见 tagging/layout.tsx）
     <div data-fill-viewport className="flex min-h-0 flex-1 flex-col gap-[10px]">
-      {contentFilter === "fields" ? <MetadataReviewPanel onContentChange={setContentFilter} /> : <>
+      {statusFilter === "unmatched" ? <UnmatchedReviewPanel content={contentFilter as ReviewContent} metadataAvailable={metadataAvailable} isAdmin={isAdmin} onContentChange={changeContent} onStatusChange={changeStatus} />
+        : contentFilter === "fields" ? <MetadataReviewPanel initialStatus={statusFilter} onStatusChange={changeStatus} onContentChange={changeContent} /> : <>
       {/* 筛选器和搜索 */}
       <div className="flex items-center justify-between py-4 px-5 bg-background border rounded-[6px]">
         <div className="text-[13px] font-medium flex items-center gap-3">
@@ -372,19 +437,19 @@ export default function ReviewPageClient({ metadataAvailable = false }: { metada
           </>}
         </div>
         <div className="flex flex-col sm:flex-row justify-end gap-4">
-          {metadataAvailable && <Select value={contentFilter} onValueChange={setContentFilter}>
+          <Select value={contentFilter} onValueChange={changeContent}>
             <SelectTrigger className="w-fit gap-2 !h-8 rounded-md" aria-label={tm("reviewContent")}><SelectValue /></SelectTrigger>
-            <SelectContent><SelectItem value="all">{tm("reviewContent")}：{tm("allContent")}</SelectItem><SelectItem value="fields">{tm("reviewContent")}：{tm("onlyFields")}</SelectItem></SelectContent>
-          </Select>}
+            <SelectContent>
+              <SelectItem value="all">{tm("reviewContent")}：{tm("allContent")}</SelectItem>
+              <SelectItem value="tags">{tm("reviewContent")}：{tm("onlyTags")}</SelectItem>
+              <SelectItem value="features">{tm("reviewContent")}：{tm("onlyFeatures")}</SelectItem>
+              {metadataAvailable && <SelectItem value="fields">{tm("reviewContent")}：{tm("onlyFields")}</SelectItem>}
+            </SelectContent>
+          </Select>
 
           <Select
             value={statusFilter}
-            onValueChange={(value) => {
-              const newStatus = value as TaggingAuditStatus | "all";
-              setStatusFilter(newStatus);
-              setCurrentPage(1);
-              refreshDataWithFilters(1, newStatus, confidenceFilter, searchQuery, timeFilter);
-            }}
+            onValueChange={value => changeStatus(value as ReviewStatus)}
           >
             <SelectTrigger className="min-w-32 w-fit !h-8 rounded-[6px]">
               <SelectValue placeholder={t("allStatuses")} />
@@ -393,7 +458,8 @@ export default function ReviewPageClient({ metadataAvailable = false }: { metada
               <SelectItem value="all">{t("allStatuses")}</SelectItem>
               <SelectItem value="pending">{t("pending")}</SelectItem>
               <SelectItem value="approved">{t("approved")}</SelectItem>
-              {isAdmin && <SelectItem value="rejected">{t("rejected")}</SelectItem>}
+              {isAdmin && <SelectItem value="rejected">{tm("rejected")}</SelectItem>}
+              <SelectItem value="unmatched">{tm("unmatched")}</SelectItem>
             </SelectContent>
           </Select>
           <Select
@@ -487,6 +553,7 @@ export default function ReviewPageClient({ metadataAvailable = false }: { metada
         <div ref={listScrollRef} className="min-h-[240px] flex-1 space-y-[10px] overflow-y-auto">
         {assets.map((asset) => (
           <ReviewItem
+            contentScope={contentFilter === "tags" || contentFilter === "features" ? contentFilter : "all"}
             {...asset}
             metadataAvailable={metadataAvailable}
             batchLoading={loading}

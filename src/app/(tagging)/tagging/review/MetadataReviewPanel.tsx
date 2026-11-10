@@ -27,10 +27,15 @@ import { fetchMetadataReviewAssets, reviewMetadata } from "./metadata-actions";
 import { defaultMetadataReviewFilters, type MetadataReviewFilters } from "./metadata-review-query";
 import { MetadataCurrentValues } from "./MetadataCurrentValues";
 import { MetadataReviewSuggestions } from "./MetadataReviewSuggestions";
+import type { ReviewStatus } from "./unmatched-query";
 type Data = Awaited<ReturnType<typeof fetchMetadataReviewAssets>>;
 export function MetadataReviewPanel({
   onContentChange,
+  initialStatus = "pending",
+  onStatusChange,
 }: {
+  initialStatus?: MetadataReviewFilters["status"];
+  onStatusChange?: (value: ReviewStatus) => void;
   onContentChange?: (value: string) => void;
 }) {
   const t = useTranslations("Tagging.Metadata");
@@ -38,7 +43,7 @@ export function MetadataReviewPanel({
   const [data, setData] = useState<Data>();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(40);
-  const [filters, setFilters] = useState(defaultMetadataReviewFilters);
+  const [filters, setFilters] = useState({ ...defaultMetadataReviewFilters, status: initialStatus });
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
@@ -197,6 +202,8 @@ export function MetadataReviewPanel({
             "fields",
             [
               ["all", `${t("reviewContent")}：${t("allContent")}`],
+              ["tags", `${t("reviewContent")}：${t("onlyTags")}`],
+              ["features", `${t("reviewContent")}：${t("onlyFeatures")}`],
               ["fields", `${t("reviewContent")}：${t("onlyFields")}`],
             ],
             t("reviewContent"),
@@ -220,9 +227,13 @@ export function MetadataReviewPanel({
               ["pending", t("pending")],
               ["approved", t("approved")],
               ["rejected", t("rejected")],
+              ["unmatched", t("unmatched")],
             ],
             tr("allStatuses"),
-            (value) => change("status", value as MetadataReviewFilters["status"]),
+            (value) => {
+              if (value !== "unmatched") change("status", value as MetadataReviewFilters["status"]);
+              onStatusChange?.(value as ReviewStatus);
+            },
           )}
           {dropdown(
             filters.confidence,

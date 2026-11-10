@@ -272,6 +272,8 @@ declare module "@/prisma/client" {
 
   import { SourceBasedTagPredictions, TagWithScore } from "@/app/(tagging)/types";
   export type TaggingQueueItemResult = Partial<{
+    /** Output types actually processed in this execution, for unmatched-result filtering. */
+    outputTypes: { tags: boolean; fields: boolean; features: boolean };
     metadataPredictions: import("@/lib/metadata/types").MetadataPrediction[];
     featureDecision: import("@/lib/feature-decision/types").FeatureDecisionDiagnostics;
     error: string;

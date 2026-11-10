@@ -1,0 +1,479 @@
+{
+  "jobs": [
+    {
+      "queueItemId": 1755,
+      "material": "a/6964801",
+      "name": "04-无依据",
+      "status": "completed",
+      "predictions": []
+    },
+    {
+      "queueItemId": 1759,
+      "material": "a/6964802",
+      "name": "02-线上电商-秋季冬季-彩妆口红-含人物",
+      "status": "completed",
+      "predictions": [
+        {
+          "score": 100,
+          "labels": [
+            "线上电商"
+          ],
+          "fieldId": "3accf9ca-3bbd-4b3c-ab98-181ed786764c",
+          "sources": [
+            {
+              "source": "basicInfo",
+              "evidence": "线上电商",
+              "confidence": 1
+            },
+            {
+              "source": "contentAnalysis",
+              "evidence": "线上电商",
+              "confidence": 1
+            }
+          ],
+          "effective": true,
+          "fieldName": "AI测试-销售渠道",
+          "optionIds": [
+            "11825d49-877a-452e-8568-28fdf4fc8309"
+          ],
+          "confidence": 1,
+          "expectedFieldVersion": 1
+        },
+        {
+          "score": 100,
+          "labels": [
+            "秋季",
+            "冬季"
+          ],
+          "fieldId": "526c01bd-940d-440d-8d38-11d0338ab332",
+          "sources": [
+            {
+              "source": "basicInfo",
+              "evidence": "秋季冬季",
+              "confidence": 1
+            },
+            {
+              "source": "contentAnalysis",
+              "evidence": "秋季、冬季",
+              "confidence": 1
+            }
+          ],
+          "effective": true,
+          "fieldName": "AI测试-适用季节",
+          "optionIds": [
+            "b99fd14b-9113-4f48-a4ce-3421f5c801a6",
+            "f59ee0ee-7571-446b-af7b-89fdde1a9334"
+          ],
+          "confidence": 1,
+          "expectedFieldVersion": 1
+        },
+        {
+          "score": 100,
+          "labels": [],
+          "checked": true,
+          "fieldId": "f2e048a4-8d46-415c-ab1c-7df6fa2ad1bc",
+          "sources": [
+            {
+              "source": "basicInfo",
+              "evidence": "含人物",
+              "confidence": 1
+            }
+          ],
+          "effective": true,
+          "fieldName": "AI测试-含人物",
+          "confidence": 1,
+          "expectedFieldVersion": 1
+        },
+        {
+          "score": 100,
+          "labels": [
+            "彩妆 / 口红"
+          ],
+          "fieldId": "9b016a4e-f300-4ad8-aeaf-e25d67d59a6d",
+          "sources": [
+            {
+              "source": "basicInfo",
+              "evidence": "彩妆口红",
+              "confidence": 1
+            },
+            {
+              "source": "contentAnalysis",
+              "evidence": "彩妆/口红",
+              "confidence": 1
+            }
+          ],
+          "effective": true,
+          "fieldName": "AI测试-产品分类",
+          "optionIds": [
+            "d258b3b2-9178-4b58-9dbc-1e70590e3a4d"
+          ],
+          "confidence": 1,
+          "expectedFieldVersion": 1
+        }
+      ]
+    },
+    {
+      "queueItemId": 1760,
+      "material": "a/6964803",
+      "name": "01-线下门店-春季夏季-护肤精华-不含人物",
+      "status": "completed",
+      "predictions": [
+        {
+          "score": 100,
+          "labels": [
+            "线下门店"
+          ],
+          "fieldId": "3accf9ca-3bbd-4b3c-ab98-181ed786764c",
+          "sources": [
+            {
+              "source": "basicInfo",
+              "evidence": "线下门店",
+              "confidence": 1
+            },
+            {
+              "source": "contentAnalysis",
+              "evidence": "线下门店",
+              "confidence": 1
+            }
+          ],
+          "effective": true,
+          "fieldName": "AI测试-销售渠道",
+          "optionIds": [
+            "0bfaf70b-a792-4428-a940-ba83a6330506"
+          ],
+          "confidence": 1,
+          "expectedFieldVersion": 1
+        },
+        {
+          "score": 100,
+          "labels": [
+            "春季",
+            "夏季"
+          ],
+          "fieldId": "526c01bd-940d-440d-8d38-11d0338ab332",
+          "sources": [
+            {
+              "source": "basicInfo",
+              "evidence": "春季夏季",
+              "confidence": 1
+            },
+            {
+              "source": "contentAnalysis",
+              "evidence": "春季、夏季",
+              "confidence": 1
+            }
+          ],
+          "effective": true,
+          "fieldName": "AI测试-适用季节",
+          "optionIds": [
+            "606aee84-5f79-4b75-81dc-20069c04ee73",
+            "7de12224-0232-444e-a9da-d3427b039e22"
+          ],
+          "confidence": 1,
+          "expectedFieldVersion": 1
+        },
+        {
+          "score": 100,
+          "labels": [],
+          "checked": false,
+          "fieldId": "f2e048a4-8d46-415c-ab1c-7df6fa2ad1bc",
+          "sources": [
+            {
+              "source": "basicInfo",
+              "evidence": "不含人物",
+              "confidence": 1
+            },
+            {
+              "source": "contentAnalysis",
+              "evidence": "不含人物",
+              "confidence": 1
+            }
+          ],
+          "effective": true,
+          "fieldName": "AI测试-含人物",
+          "confidence": 1,
+          "expectedFieldVersion": 1
+        },
+        {
+          "score": 100,
+          "labels": [
+            "护肤 / 精华"
+          ],
+          "fieldId": "9b016a4e-f300-4ad8-aeaf-e25d67d59a6d",
+          "sources": [
+            {
+              "source": "basicInfo",
+              "evidence": "护肤精华",
+              "confidence": 1
+            },
+            {
+              "source": "contentAnalysis",
+              "evidence": "护肤精华",
+              "confidence": 1
+            }
+          ],
+          "effective": true,
+          "fieldName": "AI测试-产品分类",
+          "optionIds": [
+            "c92d8e0c-de20-4f80-8f96-24b568c8e7cb"
+          ],
+          "confidence": 1,
+          "expectedFieldVersion": 1
+        }
+      ]
+    },
+    {
+      "queueItemId": 1761,
+      "material": "a/6964804",
+      "name": "03-销售渠道未定-春季秋季-护肤面霜-不含人物",
+      "status": "completed",
+      "predictions": [
+        {
+          "score": 100,
+          "labels": [
+            "春季",
+            "秋季"
+          ],
+          "fieldId": "526c01bd-940d-440d-8d38-11d0338ab332",
+          "sources": [
+            {
+              "source": "basicInfo",
+              "evidence": "春季秋季",
+              "confidence": 1
+            },
+            {
+              "source": "contentAnalysis",
+              "evidence": "适用于春季和秋季",
+              "confidence": 1
+            }
+          ],
+          "effective": true,
+          "fieldName": "AI测试-适用季节",
+          "optionIds": [
+            "606aee84-5f79-4b75-81dc-20069c04ee73",
+            "b99fd14b-9113-4f48-a4ce-3421f5c801a6"
+          ],
+          "confidence": 1,
+          "expectedFieldVersion": 1
+        },
+        {
+          "score": 100,
+          "labels": [],
+          "checked": false,
+          "fieldId": "f2e048a4-8d46-415c-ab1c-7df6fa2ad1bc",
+          "sources": [
+            {
+              "source": "basicInfo",
+              "evidence": "不含人物",
+              "confidence": 1
+            }
+          ],
+          "effective": true,
+          "fieldName": "AI测试-含人物",
+          "confidence": 1,
+          "expectedFieldVersion": 1
+        },
+        {
+          "score": 100,
+          "labels": [
+            "护肤 / 面霜"
+          ],
+          "fieldId": "9b016a4e-f300-4ad8-aeaf-e25d67d59a6d",
+          "sources": [
+            {
+              "source": "basicInfo",
+              "evidence": "护肤面霜",
+              "confidence": 1
+            },
+            {
+              "source": "contentAnalysis",
+              "evidence": "护肤/面霜",
+              "confidence": 1
+            }
+          ],
+          "effective": true,
+          "fieldName": "AI测试-产品分类",
+          "optionIds": [
+            "9936ed04-fd9f-49c4-9303-99fb7b920262"
+          ],
+          "confidence": 1,
+          "expectedFieldVersion": 1
+        }
+      ]
+    },
+    {
+      "queueItemId": 1762,
+      "material": "a/6964802",
+      "name": "02-线上电商-秋季冬季-彩妆口红-含人物",
+      "status": "completed",
+      "predictions": [
+        {
+          "score": 100,
+          "labels": [
+            "线上电商"
+          ],
+          "fieldId": "3accf9ca-3bbd-4b3c-ab98-181ed786764c",
+          "sources": [
+            {
+              "source": "basicInfo",
+              "evidence": "线上电商",
+              "confidence": 1
+            },
+            {
+              "source": "contentAnalysis",
+              "evidence": "线上电商",
+              "confidence": 1
+            }
+          ],
+          "effective": true,
+          "fieldName": "AI测试-销售渠道",
+          "optionIds": [
+            "11825d49-877a-452e-8568-28fdf4fc8309"
+          ],
+          "confidence": 1,
+          "expectedFieldVersion": 2
+        },
+        {
+          "score": 100,
+          "labels": [
+            "秋季",
+            "冬季"
+          ],
+          "fieldId": "526c01bd-940d-440d-8d38-11d0338ab332",
+          "sources": [
+            {
+              "source": "basicInfo",
+              "evidence": "秋季冬季",
+              "confidence": 1
+            },
+            {
+              "source": "contentAnalysis",
+              "evidence": "秋季、冬季",
+              "confidence": 1
+            }
+          ],
+          "effective": true,
+          "fieldName": "AI测试-适用季节",
+          "optionIds": [
+            "b99fd14b-9113-4f48-a4ce-3421f5c801a6",
+            "f59ee0ee-7571-446b-af7b-89fdde1a9334"
+          ],
+          "confidence": 1,
+          "expectedFieldVersion": 2
+        },
+        {
+          "score": 100,
+          "labels": [
+            "彩妆 / 口红"
+          ],
+          "fieldId": "9b016a4e-f300-4ad8-aeaf-e25d67d59a6d",
+          "sources": [
+            {
+              "source": "basicInfo",
+              "evidence": "彩妆口红",
+              "confidence": 1
+            },
+            {
+              "source": "contentAnalysis",
+              "evidence": "彩妆/口红",
+              "confidence": 1
+            }
+          ],
+          "effective": true,
+          "fieldName": "AI测试-产品分类",
+          "optionIds": [
+            "d258b3b2-9178-4b58-9dbc-1e70590e3a4d"
+          ],
+          "confidence": 1,
+          "expectedFieldVersion": 2
+        }
+      ]
+    }
+  ],
+  "audits": [
+    {
+      "id": 7,
+      "queueItemId": 1760,
+      "fieldId": "f2e048a4-8d46-415c-ab1c-7df6fa2ad1bc",
+      "status": "approved"
+    },
+    {
+      "id": 1,
+      "queueItemId": 1759,
+      "fieldId": "3accf9ca-3bbd-4b3c-ab98-181ed786764c",
+      "status": "approved"
+    },
+    {
+      "id": 2,
+      "queueItemId": 1759,
+      "fieldId": "526c01bd-940d-440d-8d38-11d0338ab332",
+      "status": "approved"
+    },
+    {
+      "id": 3,
+      "queueItemId": 1759,
+      "fieldId": "f2e048a4-8d46-415c-ab1c-7df6fa2ad1bc",
+      "status": "approved"
+    },
+    {
+      "id": 9,
+      "queueItemId": 1761,
+      "fieldId": "526c01bd-940d-440d-8d38-11d0338ab332",
+      "status": "rejected"
+    },
+    {
+      "id": 10,
+      "queueItemId": 1761,
+      "fieldId": "f2e048a4-8d46-415c-ab1c-7df6fa2ad1bc",
+      "status": "rejected"
+    },
+    {
+      "id": 11,
+      "queueItemId": 1761,
+      "fieldId": "9b016a4e-f300-4ad8-aeaf-e25d67d59a6d",
+      "status": "rejected"
+    },
+    {
+      "id": 5,
+      "queueItemId": 1760,
+      "fieldId": "3accf9ca-3bbd-4b3c-ab98-181ed786764c",
+      "status": "rejected"
+    },
+    {
+      "id": 6,
+      "queueItemId": 1760,
+      "fieldId": "526c01bd-940d-440d-8d38-11d0338ab332",
+      "status": "rejected"
+    },
+    {
+      "id": 8,
+      "queueItemId": 1760,
+      "fieldId": "9b016a4e-f300-4ad8-aeaf-e25d67d59a6d",
+      "status": "rejected"
+    },
+    {
+      "id": 4,
+      "queueItemId": 1759,
+      "fieldId": "9b016a4e-f300-4ad8-aeaf-e25d67d59a6d",
+      "status": "approved"
+    },
+    {
+      "id": 12,
+      "queueItemId": 1762,
+      "fieldId": "3accf9ca-3bbd-4b3c-ab98-181ed786764c",
+      "status": "approved"
+    },
+    {
+      "id": 13,
+      "queueItemId": 1762,
+      "fieldId": "526c01bd-940d-440d-8d38-11d0338ab332",
+      "status": "approved"
+    },
+    {
+      "id": 14,
+      "queueItemId": 1762,
+      "fieldId": "9b016a4e-f300-4ad8-aeaf-e25d67d59a6d",
+      "status": "approved"
+    }
+  ]
+}

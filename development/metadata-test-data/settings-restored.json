@@ -1,0 +1,63 @@
+{
+  "restored": true,
+  "settings": [
+    {
+      "key": "sourceWeights",
+      "value": {
+        "basicInfo": 1,
+        "tagKeywords": 1,
+        "contentAnalysis": 1,
+        "materializedPath": 1
+      }
+    },
+    {
+      "key": "applicationScope",
+      "value": {
+        "scopeType": "specific",
+        "selectedFolders": [
+          {
+            "name": "amore测试文件夹-du",
+            "slug": "f/125583"
+          }
+        ]
+      }
+    },
+    {
+      "key": "isMetadataEnabled",
+      "value": false
+    },
+    {
+      "key": "featureImageMode",
+      "value": true
+    },
+    {
+      "key": "isTaggingEnabled",
+      "value": true
+    },
+    {
+      "key": "taggingMode",
+      "value": "review"
+    },
+    {
+      "key": "recognitionAccuracy",
+      "value": "precise"
+    },
+    {
+      "key": "triggerTiming",
+      "value": {
+        "scheduledTagging": false,
+        "autoRealtimeTagging": false,
+        "manualTriggerTagging": true
+      }
+    },
+    {
+      "key": "matchingSources",
+      "value": {
+        "basicInfo": true,
+        "tagKeywords": true,
+        "contentAnalysis": true,
+        "materializedPath": true
+      }
+    }
+  ]
+}

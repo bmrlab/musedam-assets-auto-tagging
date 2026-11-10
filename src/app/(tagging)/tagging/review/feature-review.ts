@@ -361,3 +361,9 @@ export function getReviewedFeatureResult(result: unknown, extra: unknown): Taggi
   )?.featureReview;
   return { ...(result as TaggingQueueItemResult), ...review?.result };
 }
+
+/** A separate feature review belongs to one execution, not a later rerun of the queue item. */
+export function isScopedFeatureReviewComplete(queue: { extra: unknown; startsAt?: Date | null }): boolean {
+  const review = (queue.extra as { featureReview?: { scoped?: boolean; runStartedAt?: string | null } } | null)?.featureReview;
+  return review?.scoped === true && review.runStartedAt === (queue.startsAt?.toISOString() ?? null);
+}

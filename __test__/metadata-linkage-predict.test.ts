@@ -73,6 +73,22 @@ beforeEach(() => {
 });
 
 describe("metadata linkage prediction stages", () => {
+  it.each([false, true])("does not mark disabled or ineligible fields as evaluated (%s)", async enabled => {
+    fetchContext.mockResolvedValue({ ...context(enabled ? [] : [source]), enabled });
+    const eligibility = vi.fn();
+    expect(await predictMetadata(asset, { id: 1, slug: "t/135" }, settings, eligibility)).toEqual([]);
+    expect(eligibility).toHaveBeenCalledWith(false);
+    expect(generate).not.toHaveBeenCalled();
+  });
+  it("records an eligible field evaluation even when no option matches", async () => {
+    fetchContext.mockResolvedValue(context([source]));
+    generate.mockResolvedValue({ object: { predictions: [] } });
+    const eligibility = vi.fn();
+    expect(await predictMetadata(asset, { id: 1, slug: "t/135" }, settings, eligibility)).toEqual([]);
+    expect(eligibility).toHaveBeenCalledWith(true);
+    expect(generate).toHaveBeenCalledTimes(1);
+  });
+
   it("identifies the source first and only sends restricted downstream options to the second model call", async () => {
     fetchContext
       .mockResolvedValueOnce(context([target, source]))

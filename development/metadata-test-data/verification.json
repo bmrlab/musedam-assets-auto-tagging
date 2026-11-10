@@ -1,0 +1,172 @@
+{
+  "date": "2026-11-10",
+  "environment": "version-env-09",
+  "merge": {
+    "branch": "codex/metadata-categories-field-types",
+    "source": "test/master",
+    "commit": "5f9dd6c",
+    "pushed": false
+  },
+  "services": {
+    "mainSite": "http://localhost:3000",
+    "autoTagging": "http://localhost:3001",
+    "automaticQueuePaused": true
+  },
+  "database": {
+    "postgresMigration": "20261105120000_metadata_audit applied; after merge prisma migrate deploy reports no pending migrations",
+    "mysqlMigration": "000118_metadata_ai.sql applied and three columns / three open_service entries verified"
+  },
+  "fixtures": {
+    "team": "MuseDAM 企业版 (135)",
+    "template": "元数据AI联调-20261110",
+    "folderId": 125622,
+    "folderUrl": "http://localhost:3000/home/folder/125622",
+    "assetCount": 4,
+    "fields": [
+      "AI测试-销售渠道 (single_select)",
+      "AI测试-适用季节 (multiple_select)",
+      "AI测试-含人物 (boolean)",
+      "AI测试-产品分类 (cascade)"
+    ],
+    "folderBinding": "test folder bound after AI predictions/writeback solely for main-site field display; AI predictions succeeded before binding",
+    "materials": {
+      "6964801": "04-无依据",
+      "6964802": "02-线上电商-秋季冬季-彩妆口红-含人物",
+      "6964803": "01-线下门店-春季夏季-护肤精华-不含人物",
+      "6964804": "03-销售渠道未定-春季秋季-护肤面霜-不含人物"
+    }
+  },
+  "verification": {
+    "currentAutoTaggingRegressionTests": 42,
+    "currentTypeScript": "passed",
+    "materialRegressionTests": 22,
+    "openServiceRegressionTests": 4,
+    "priorAutoTaggingBaselineTests": 132,
+    "priorMainSiteTests": {
+      "count": 42,
+      "commit": "c8db3fc3b"
+    },
+    "mainSiteCurrentCommit": "a0dd74669",
+    "actualLiveReviewCases": {
+      "noEvidence": {
+        "job": 1755,
+        "predictionCount": 0
+      },
+      "positiveTrue": {
+        "job": 1759,
+        "predictionCount": 4,
+        "approved": 4
+      },
+      "positiveFalse": {
+        "job": 1760,
+        "predictionCount": 4,
+        "approvedBooleanFalse": true,
+        "remaining3": "rejected after template binding changed field version"
+      },
+      "partialEvidence": {
+        "job": 1761,
+        "predictionCount": 3,
+        "noSalesChannelPrediction": true,
+        "rejected": 3
+      }
+    },
+    "actualDirectRerun": {
+      "job": 1762,
+      "predictions": 3,
+      "applied": 3,
+      "manualFalsePreserved": true
+    },
+    "manualEditingClearsOnlyTouchedAiMarker": true,
+    "manualFalseProtectedAgainstCurrentFieldVersionAiWrite": true,
+    "indexAndAuditOutbox": "all fixture events DONE, attempts=0",
+    "settingsRestored": true,
+    "currentMainSiteRegressionTests": {
+      "metadata": 42,
+      "folderScope": 3,
+      "total": 45
+    },
+    "currentBackendContextAndAiTests": 10,
+    "actualLocalImageMatchingTest": {
+      "job": 1769,
+      "fields": 4,
+      "confidence": 96,
+      "tags": 0,
+      "auditRows": 0,
+      "uiOverallScore": 96
+    },
+    "newEnvironmentFeatureRetry": {
+      "job": 1766,
+      "status": "completed",
+      "fields": 4,
+      "ocr": "completed",
+      "decision": "completed",
+      "retrievalErrors": 0
+    },
+    "tagOnlyOutputCheck": {
+      "job": 1771,
+      "tags": 6,
+      "metadataPredictionsAbsent": true,
+      "materialRecordVersionUnchanged": 7
+    },
+    "actualReviewManualRace": {
+      "job": 1770,
+      "materialId": 6964804,
+      "aiSuggestion": false,
+      "manualValue": true,
+      "auditStatus": "rejected",
+      "valueOrigin": null,
+      "remainingSuggestions": "rejected",
+      "pendingFixtureAudits": 0
+    },
+    "fieldInstructionLimit": 500,
+    "fieldConfigurationDoesNotReenqueueFixtures": true,
+    "fieldAiConfigAudit": "toggle off/on events DONE, before/after recorded",
+    "teamSettingsRestored": {
+      "originalKeysCompared": 8,
+      "mismatches": [],
+      "metadataEnabled": false
+    }
+  },
+  "notVerified": [
+    "Every case in the Feishu phase-2 acceptance checklist was not exhaustively executed",
+    "Cleanup-based integration suites were not run on shared remote databases",
+    "Embedded DAM asset picker and range dialog could not be driven by IAB nested-frame input; local image upload/start/results were verified through the real page",
+    "Pure V2 and non-entitled-space UI, billing ledger, changed-instruction AI value replacement, complete M1 journeys were not fully executed"
+  ],
+  "limitations": [
+    "Local TXT preview is blocked by CDN Referer ACL (403); metadata fields, remote content analysis and auto-tagging are usable",
+    "Shared test database has legacy queue consumers: first obsolete jobs 1756-1758 were excluded and their fixture tag reviews rejected; successful cases were immediately claimed and processed by the local worker",
+    "Temporary env-09 open-service remains alongside the base deployment"
+  ],
+  "phase": "自动打标-支持元数据 M2",
+  "backend": {
+    "branch": "codex/metadata-categories-field-types",
+    "materialCommit": "6e41cd2a7",
+    "openServiceCommit": "92831fc76",
+    "materialEnvironment": "env-09",
+    "openServiceEnvironment": "base",
+    "baseRoutingVerification": "Base rollout deployed successfully; isolated base -> env-09 routing is NOT verified. External env-09 request succeeds while temporary env-09 open-service remains active. OPS YAML Save made no visible change; replicas remain 1.",
+    "temporaryEnv09OpenService": "Kept at 1 replica; attempted scale-to-zero did not persist in OPS, dialog cancelled; no deletion performed.",
+    "scaleBlocker": "OPS Save did not persist replicas:0; pod service account innovation/default returned HTTP403 for deployments/scale read. No permissions changed.",
+    "materialPipeline": "202611101413461559704916"
+  },
+  "fixes": [
+    "Backend M2 APIs ported onto specified metadata branch, full enabled field dictionary independent of templates/rules, current MQ index queue preserved",
+    "Local iframe CSP accepts localhost:3000",
+    "Local product-library iframe now uses its registered test origin instead of colliding with auto-tagging port 3001",
+    "Auto-tagging review reads the actual flat name-keyed records response; local commit 4eec74a, not pushed",
+    "Base open-service forwards lane and trace context; deployment succeeded, isolated routing verification remains outstanding",
+    "Local image matching uploads use the team field dictionary without parsing a DAM material ID; auto-tagging a707038, backend 6e41cd2a7",
+    "Matching-test overall score now includes displayed metadata field scores; auto-tagging 3df3cf2, browser verified 96"
+  ],
+  "acceptanceIssues": [
+    "18.4: main-site field editor did not show the engine-disabled warning while the auto-tagging metadata switch was confirmed false; investigate hidden iframe team-settings initialization",
+    "Base-only routing to env-09 remains unverified; temporary env-09 open-service stays at one replica"
+  ],
+  "localCommitsNotPushed": [
+    "4eec74a",
+    "a707038",
+    "3df3cf2"
+  ],
+  "overallAcceptance": "Core real workflows passed; full M2 acceptance is not approved due to remaining issues and unexecuted cases"
+}

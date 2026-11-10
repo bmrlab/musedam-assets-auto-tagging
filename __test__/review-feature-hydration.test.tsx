@@ -1,3 +1,4 @@
+import { reviewScopedAssetsAction } from "@/app/(tagging)/tagging/review/actions";
 import { ReviewItem } from "@/app/(tagging)/tagging/review/ReviewItem";
 import { setFeatureToggleValue } from "@/hooks/use-feature-library";
 import { FEATURE_LIBRARY_TOGGLE_NAMES } from "@/lib/feature-library";
@@ -18,8 +19,10 @@ vi.mock("@/components/ui/icons", () => ({
   TagAIIcon: () => null,
   TagsIcon: () => null,
 }));
+vi.mock("@/app/(tagging)/tagging/review/metadata-actions", () => ({ reviewMetadata: vi.fn() }));
 vi.mock("@/embed/message", () => ({ dispatchMuseDAMClientAction: vi.fn() }));
 vi.mock("@/app/(tagging)/tagging/review/actions", () => ({
+  reviewScopedAssetsAction: vi.fn(),
   approveAuditItemsAction: vi.fn(),
   rejectAuditItemsAction: vi.fn(),
   setAuditItemsRejectedAction: vi.fn(),
@@ -165,6 +168,30 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("review feature visibility during settings hydration", () => {
+  it("hides feature recommendations from tag-only review", () => {
+    const data = props();
+    data.batch[0].taggingAuditItems[0].tagPath = ["AI tag"];
+    render(<ReviewItem {...data} contentScope="tags" />);
+    expect(screen.getByText("AI tag")).toBeTruthy();
+    for (const name of names) expect(screen.queryByText(name)).toBeNull();
+  });
+  it("hides tag recommendations from feature-only review and submits the selected scope", async () => {
+    const data = props();
+    data.batch[0].taggingAuditItems[0].tagPath = ["AI tag"];
+    vi.mocked(reviewScopedAssetsAction).mockResolvedValue({ success: true, data: undefined });
+    render(<ReviewItem {...data} metadataAvailable contentScope="features" />);
+    expect(screen.queryByText("title")).toBeNull();
+    expect(screen.queryByText("AI tag")).toBeNull();
+    expect(screen.getByText(names[0])).toBeTruthy();
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "add" })); });
+    expect(reviewScopedAssetsAction).toHaveBeenCalledWith(expect.objectContaining({ content: "features", decision: "approve", assetObjects: [expect.objectContaining({ auditItemIds: [1] })] }));
+  });
+  it("does not offer removal of features already reviewed while labels remain pending", () => {
+    const data = props();
+    data.batch[0].queueItem.extra = { featureReview: { scoped: true, runStartedAt: data.batch[0].queueItem.startsAt?.toISOString() ?? null, reviewedAt: new Date().toISOString(), result: {} } };
+    render(<ReviewItem {...data} contentScope="features" />);
+    expect(screen.queryByRole("button", { name: "tooltipRemove" })).toBeNull();
+  });
   it("marks completed feature batches reviewed and hides removal controls", () => {
     const data = props();
     data.batch[0].taggingAuditItems[0].status = "approved";

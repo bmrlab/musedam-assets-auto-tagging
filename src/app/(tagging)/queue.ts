@@ -329,8 +329,9 @@ export async function processQueueItem({
     const tagsEnabledForTask = teamSetting.isTaggingEnabled || queueItem.taskType === "test" && !teamSetting.isMetadataEnabled;
     const tagsTree = tagsEnabledForTask && tagsTreeLoader ? await tagsTreeLoader(teamId) : undefined;
     const metadataTeam = await prisma.team.findUniqueOrThrow({ where: { id: teamId }, select: { id: true, slug: true } });
+    let metadataEligibleForTask = false;
     const metadataPredictions = teamSetting.isMetadataEnabled
-      ? await predictMetadata(assetObject, metadataTeam, { ...teamSetting, matchingSources: extra?.matchingSources ?? teamSetting.matchingSources, recognitionAccuracy: extra?.recognitionAccuracy ?? teamSetting.recognitionAccuracy }) : [];
+      ? await predictMetadata(assetObject, metadataTeam, { ...teamSetting, matchingSources: extra?.matchingSources ?? teamSetting.matchingSources, recognitionAccuracy: extra?.recognitionAccuracy ?? teamSetting.recognitionAccuracy }, eligible => { metadataEligibleForTask = eligible; }) : [];
     const emptyTags = { predictions: [], tagsWithScore: [], extra: {} };
     const runTagPrediction: typeof predictAssetTags = (...args) => tagsEnabledForTask
       ? predictAssetTags(...args) : Promise.resolve(emptyTags);
@@ -972,6 +973,12 @@ export async function processQueueItem({
         status: "completed",
         endsAt: new Date(),
         result: {
+          outputTypes: {
+            tags: tagsEnabledForTask,
+            fields: metadataEligibleForTask,
+            features: hasFeatureClassifications && !hasFeatureRecognitionFailure(featureDecision)
+              && (featureDecision?.mode === "legacy" || featureDecision?.decision?.status === "completed"),
+          },
           ...(teamSetting.isMetadataEnabled ? { metadataPredictions } : {}),
           predictions,
           tagsWithScore,

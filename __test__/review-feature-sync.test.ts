@@ -24,7 +24,7 @@ const mocks = vi.hoisted(() => ({
     assetPersonImage: { findMany: vi.fn() },
     assetTag: { findMany: vi.fn() },
     assetObject: { findMany: vi.fn(), findUniqueOrThrow: vi.fn(), update: vi.fn() },
-    taggingAuditItem: { findMany: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
+    taggingAuditItem: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     taggingQueueItem: { update: vi.fn() },
     $queryRaw: vi.fn(),
     $transaction: vi.fn(),
@@ -378,6 +378,68 @@ beforeEach(() => {
 });
 
 describe("review feature synchronization", () => {
+  it("reviews features again when the same queue starts a later execution", async () => {
+    queue.extra = { featureReview: { scoped: true, runStartedAt: null, reviewedAt: new Date().toISOString(), result: {} } };
+    Object.assign(queue, { startsAt: new Date() });
+    const response = await approveAuditItemsAction(input());
+    expect(response.success).toBe(true);
+    expect(mocks.bind).toHaveBeenCalledTimes(4);
+  });
+
+  it("requires the feature version before completing a feature-only review", async () => {
+    const response = await approveAuditItemsAction({ ...input(), contentScope: "features", featureReviewVersions: {} });
+    expect(response).toMatchObject({ success: false, message: FEATURE_REVIEW_CHANGED });
+    expect(mocks.bind).not.toHaveBeenCalled();
+    expect(mocks.prisma.taggingAuditItem.update).not.toHaveBeenCalled();
+  });
+  it.each(["tags", "features"] as const)("applies the %s predicate to both count and page SQL", async content => {
+    await fetchAssetsWithAuditItems(1, 10, "pending", undefined, undefined, undefined, 0, 10, content);
+    for (const [query] of mocks.prisma.$queryRaw.mock.calls.slice(0, 2)) {
+      expect(query.sql).toContain('NOT a."isMetadata"');
+      expect(query.values).toContain(7);
+      if (content === "features") expect(query.sql).toContain(`q."extra"->'featureReview'->'scoped'`);
+      else expect(query.sql).toContain('jsonb_array_length(a."tagPath") > 0');
+    }
+  });
+  it("reviews only tags and retains an independent pending feature carrier", async () => {
+    Object.assign(audits[0], { leafTagId: 10, tagPath: ["Tag"], queueItemId: 1 });
+    mocks.prisma.taggingAuditItem.findFirst.mockResolvedValue(null);
+    const response = await approveAuditItemsAction({ ...input(), contentScope: "tags" });
+    expect(response.success).toBe(true);
+    expect(mocks.bind).not.toHaveBeenCalled();
+    expect(mocks.prisma.taggingQueueItem.update.mock.calls[0][0].data.extra.featureReview).toBeUndefined();
+    expect(mocks.prisma.taggingAuditItem.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ queueItemId: 1, tagPath: [], leafTagId: null, status: "pending" }) }));
+    expect(mocks.prisma.taggingAuditItem.update).toHaveBeenCalledWith({ where: { id: 1, teamId: 7 }, data: { status: "approved" } });
+  });
+
+  it("reviews only features without applying or completing the pending tag", async () => {
+    Object.assign(audits[0], { leafTagId: 10, tagPath: ["Tag"], queueItemId: 1 });
+    mocks.prisma.taggingAuditItem.findFirst.mockResolvedValue(null);
+    const response = await approveAuditItemsAction({ ...input(), contentScope: "features" });
+    expect(response.success).toBe(true);
+    expect(mocks.bind).toHaveBeenCalledTimes(4);
+    expect(mocks.setTags.mock.calls[0][0].musedamTagIds.map(String)).not.toContain("10");
+    expect(mocks.prisma.taggingAuditItem.update).toHaveBeenCalledWith({ where: { id: 1, teamId: 7 }, data: { status: "pending" } });
+    expect(mocks.prisma.taggingAuditItem.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "approved", leafTagId: null }) }));
+  });
+
+  it("rejects only features without binding features, adding tags, or rejecting the pending tag", async () => {
+    Object.assign(audits[0], { leafTagId: 10, tagPath: ["Tag"], queueItemId: 1 });
+    mocks.prisma.taggingAuditItem.findFirst.mockResolvedValue(null);
+    const response = await approveAuditItemsAction({ ...input(), contentScope: "features", rejectFeatures: true, auditItems: [{ id: 1, leafTagId: 10, status: "rejected" }] });
+    expect(response.success).toBe(true);
+    expect(mocks.bind).not.toHaveBeenCalled();
+    expect(mocks.setTags).not.toHaveBeenCalled();
+    expect(mocks.prisma.taggingAuditItem.update).toHaveBeenCalledWith({ where: { id: 1, teamId: 7 }, data: { status: "pending" } });
+    expect(mocks.prisma.taggingAuditItem.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "rejected", leafTagId: null }) }));
+  });
+
+  it("does not re-apply features already reviewed separately when adding the remaining tags", async () => {
+    queue.extra = { featureReview: { scoped: true, runStartedAt: null, reviewedAt: new Date().toISOString(), result: {} } };
+    const response = await approveAuditItemsAction(input());
+    expect(response.success).toBe(true);
+    expect(mocks.bind).not.toHaveBeenCalled();
+  });
   it("bounds continuation requests within a logical page and omits the duplicate audit graph", async () => {
     mocks.prisma.$queryRaw.mockImplementation(async query =>
       query.sql.includes('AS "result"') ? [queue]

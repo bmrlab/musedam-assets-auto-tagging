@@ -1,0 +1,256 @@
+{
+  "values": [
+    {
+      "material_id": 6964802,
+      "field_id": "3accf9ca-3bbd-4b3c-ab98-181ed786764c",
+      "option_ids_json": "[\"11825d49-877a-452e-8568-28fdf4fc8309\"]",
+      "extended_value_json": null,
+      "value_origin": "AI",
+      "ai_confidence": 1.0
+    },
+    {
+      "material_id": 6964802,
+      "field_id": "526c01bd-940d-440d-8d38-11d0338ab332",
+      "option_ids_json": "[\"b99fd14b-9113-4f48-a4ce-3421f5c801a6\",\"f59ee0ee-7571-446b-af7b-89fdde1a9334\"]",
+      "extended_value_json": null,
+      "value_origin": "AI",
+      "ai_confidence": 1.0
+    },
+    {
+      "material_id": 6964802,
+      "field_id": "9b016a4e-f300-4ad8-aeaf-e25d67d59a6d",
+      "option_ids_json": "[\"d258b3b2-9178-4b58-9dbc-1e70590e3a4d\"]",
+      "extended_value_json": null,
+      "value_origin": "AI",
+      "ai_confidence": 1.0
+    },
+    {
+      "material_id": 6964802,
+      "field_id": "f2e048a4-8d46-415c-ab1c-7df6fa2ad1bc",
+      "option_ids_json": null,
+      "extended_value_json": "{\"checked\":false}",
+      "value_origin": null,
+      "ai_confidence": null
+    },
+    {
+      "material_id": 6964803,
+      "field_id": "f2e048a4-8d46-415c-ab1c-7df6fa2ad1bc",
+      "option_ids_json": null,
+      "extended_value_json": "{\"checked\":false}",
+      "value_origin": "AI",
+      "ai_confidence": 1.0
+    }
+  ],
+  "events": [
+    {
+      "material_id": 6964803,
+      "consumer_purpose": "INDEX",
+      "origin": "AI",
+      "target_version": 1,
+      "process_state": "DONE",
+      "attempts": 0
+    },
+    {
+      "material_id": 6964803,
+      "consumer_purpose": "AI_AUDIT",
+      "origin": "AI",
+      "target_version": 1,
+      "process_state": "DONE",
+      "attempts": 0
+    },
+    {
+      "material_id": 6964803,
+      "consumer_purpose": "RECEIPT",
+      "origin": "AI",
+      "target_version": 1,
+      "process_state": "DONE",
+      "attempts": 0
+    },
+    {
+      "material_id": 6964802,
+      "consumer_purpose": "INDEX",
+      "origin": "AI",
+      "target_version": 1,
+      "process_state": "DONE",
+      "attempts": 0
+    },
+    {
+      "material_id": 6964802,
+      "consumer_purpose": "AI_AUDIT",
+      "origin": "AI",
+      "target_version": 1,
+      "process_state": "DONE",
+      "attempts": 0
+    },
+    {
+      "material_id": 6964802,
+      "consumer_purpose": "RECEIPT",
+      "origin": "AI",
+      "target_version": 1,
+      "process_state": "DONE",
+      "attempts": 0
+    },
+    {
+      "material_id": 6964802,
+      "consumer_purpose": "INDEX",
+      "origin": "AI",
+      "target_version": 2,
+      "process_state": "DONE",
+      "attempts": 0
+    },
+    {
+      "material_id": 6964802,
+      "consumer_purpose": "AI_AUDIT",
+      "origin": "AI",
+      "target_version": 2,
+      "process_state": "DONE",
+      "attempts": 0
+    },
+    {
+      "material_id": 6964802,
+      "consumer_purpose": "RECEIPT",
+      "origin": "AI",
+      "target_version": 2,
+      "process_state": "DONE",
+      "attempts": 0
+    },
+    {
+      "material_id": 6964802,
+      "consumer_purpose": "INDEX",
+      "origin": "AI",
+      "target_version": 3,
+      "process_state": "DONE",
+      "attempts": 0
+    },
+    {
+      "material_id": 6964802,
+      "consumer_purpose": "AI_AUDIT",
+      "origin": "AI",
+      "target_version": 3,
+      "process_state": "DONE",
+      "attempts": 0
+    },
+    {
+      "material_id": 6964802,
+      "consumer_purpose": "RECEIPT",
+      "origin": "AI",
+      "target_version": 3,
+      "process_state": "DONE",
+      "attempts": 0
+    },
+    {
+      "material_id": 6964802,
+      "consumer_purpose": "INDEX",
+      "origin": "AI",
+      "target_version": 4,
+      "process_state": "DONE",
+      "attempts": 0
+    },
+    {
+      "material_id": 6964802,
+      "consumer_purpose": "AI_AUDIT",
+      "origin": "AI",
+      "target_version": 4,
+      "process_state": "DONE",
+      "attempts": 0
+    },
+    {
+      "material_id": 6964802,
+      "consumer_purpose": "RECEIPT",
+      "origin": "AI",
+      "target_version": 4,
+      "process_state": "DONE",
+      "attempts": 0
+    },
+    {
+      "material_id": 6964803,
+      "consumer_purpose": "INDEX",
+      "origin": "REINDEX",
+      "target_version": 1,
+      "process_state": "DONE",
+      "attempts": 0
+    },
+    {
+      "material_id": 6964802,
+      "consumer_purpose": "INDEX",
+      "origin": "REINDEX",
+      "target_version": 4,
+      "process_state": "DONE",
+      "attempts": 0
+    },
+    {
+      "material_id": 6964802,
+      "consumer_purpose": "INDEX",
+      "origin": "USER",
+      "target_version": 5,
+      "process_state": "DONE",
+      "attempts": 0
+    },
+    {
+      "material_id": 6964802,
+      "consumer_purpose": "AUTOMATION",
+      "origin": "USER",
+      "target_version": 5,
+      "process_state": "DONE",
+      "attempts": 0
+    },
+    {
+      "material_id": 6964802,
+      "consumer_purpose": "RECEIPT",
+      "origin": "USER",
+      "target_version": 5,
+      "process_state": "DONE",
+      "attempts": 0
+    },
+    {
+      "material_id": 6964802,
+      "consumer_purpose": "RECEIPT",
+      "origin": "AI",
+      "target_version": 5,
+      "process_state": "DONE",
+      "attempts": 0
+    },
+    {
+      "material_id": 6964802,
+      "consumer_purpose": "RECEIPT",
+      "origin": "AI",
+      "target_version": 5,
+      "process_state": "DONE",
+      "attempts": 0
+    },
+    {
+      "material_id": 6964802,
+      "consumer_purpose": "INDEX",
+      "origin": "AI",
+      "target_version": 6,
+      "process_state": "DONE",
+      "attempts": 0
+    },
+    {
+      "material_id": 6964802,
+      "consumer_purpose": "AI_AUDIT",
+      "origin": "AI",
+      "target_version": 6,
+      "process_state": "DONE",
+      "attempts": 0
+    },
+    {
+      "material_id": 6964802,
+      "consumer_purpose": "RECEIPT",
+      "origin": "AI",
+      "target_version": 6,
+      "process_state": "DONE",
+      "attempts": 0
+    }
+  ],
+  "records": [
+    {
+      "material_id": 6964802,
+      "version": 6
+    },
+    {
+      "material_id": 6964803,
+      "version": 1
+    }
+  ]
+}

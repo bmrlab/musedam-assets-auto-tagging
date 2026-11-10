@@ -1,0 +1,28 @@
+{
+  "newEnvRetry": {
+    "status": "completed",
+    "metadataFields": 4,
+    "decisionStatus": "completed",
+    "ocrStatus": "completed",
+    "retrievalErrorCount": 0,
+    "regionsDetected": 1
+  },
+  "raceReview": [
+    {
+      "id": 16,
+      "fieldId": "f2e048a4-8d46-415c-ab1c-7df6fa2ad1bc",
+      "status": "rejected"
+    },
+    {
+      "id": 15,
+      "fieldId": "526c01bd-940d-440d-8d38-11d0338ab332",
+      "status": "rejected"
+    },
+    {
+      "id": 17,
+      "fieldId": "9b016a4e-f300-4ad8-aeaf-e25d67d59a6d",
+      "status": "rejected"
+    }
+  ],
+  "fixturePendingAuditCount": 0
+}
