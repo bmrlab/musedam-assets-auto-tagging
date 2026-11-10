@@ -357,6 +357,10 @@ function FeatureResultRow({
 }
 
 export function TaggingResultDisplay({ result, featureThumbnails }: TaggingResultDisplayProps) {
+  const overallScore = Math.max(
+    result.overallScore,
+    ...(result.metadataPredictions ?? []).filter((item) => item.score >= 60).map((item) => item.score),
+  );
   const t = useTranslations("TaggingResultDisplay");
   const featureLibraryFeatures = useFeatureLibraryFeatures();
   const hasEnabledFeatures =
@@ -540,7 +544,7 @@ export function TaggingResultDisplay({ result, featureThumbnails }: TaggingResul
         </div>
 
         <div className="shrink-0 text-right">
-          <div className="text-3xl font-bold text-primary">{result.overallScore}</div>
+          <div className="text-3xl font-bold text-primary">{overallScore}</div>
           <div className="text-sm text-basic-5">{t("overallScore")}</div>
         </div>
       </div>
