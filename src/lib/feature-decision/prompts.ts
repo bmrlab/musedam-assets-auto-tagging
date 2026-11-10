@@ -50,6 +50,8 @@ EXPECTED OUTPUT EXAMPLE (one image without readable text)
 Check silently: JSON only; one array per image; strings only; all visible text included; all quotes and brackets closed. Output only the JSON object.`;
 
 const FEATURE_DECISION_RULES = `PRODUCT METADATA AND SET IDENTITY
+- Omit unsupported identities rather than emitting placeholder rows with zero confidence and empty reason/evidence. Only IDs in this batch's candidates are eligible, never source-region IDs or invented IDs.
+- Bind every output candidateId to its own catalog name and reference label. Never describe a different catalog identity under that ID, even if that other identity is a better match or appears in otherCatalogCandidates. If the best identity belongs to another batch, do not transfer its name, visual evidence or confidence to this batch.
 - metadataMatches lists literal filename/path terms used ONLY to recall extra product candidates. A zero retrieval score means no vector observation, not a negative visual comparison. These candidates have no localized metadata evidence; compare them against the actual source object and all competing identities. Recall alone never confirms the product.
 - Compare named brand, series and form across filename, path, OCR and references. A path naming one series (for example 琉光系列) supports that series; explicitly explain a competing named series (for example 人参系列) instead of silently substituting it based on package color. Folder placement alone is not proof of identity or absence, and a mixed-product asset may contain other series.
 - A single emulsion bottle is not a water/emulsion SET. Matching one component or the same brand/color does not establish a set identity. Unless the source actually supports the named combination as a set (visually or through explicit set metadata), do not return a set as an accepted identity. If a set is only a plausible alternative because the source is incomplete, keep it below 50 and explain the limitation. Do not claim a set is correct merely because it is the closest supplied option.
@@ -243,8 +245,9 @@ export function buildFeatureDecisionMessages(input: {
 }): FeatureChatMessage[] {
   const imageMode = input.imageMode ?? true;
   const logoOnly = input.candidates.length > 0 && input.candidates.every(candidate => candidate.featureType === "logo");
+  const batchTypes = new Set(input.candidates.map(candidate => candidate.featureType));
   const contextCandidates = (input.contextCandidates ?? input.candidates)
-    .filter(candidate => !logoOnly || candidate.featureType === "logo");
+    .filter(candidate => batchTypes.has(candidate.featureType));
   const catalog = input.candidates.map((candidate, index) => ({
     candidateId: candidate.candidateId,
     featureType: candidate.featureType,
@@ -309,7 +312,7 @@ export function buildFeatureDecisionMessages(input: {
     if (!candidate.referenceImage?.trim())
       throw new Error(`Missing reference image for ${candidate.candidateId}`);
     images.push(
-      { type: "text", text: `REFERENCE ${index + 1} — candidateId: ${candidate.candidateId}${(candidate.referenceImageCount ?? 1) > 1 ? ` — contact sheet of ${candidate.referenceImageCount} uploaded variants of this same identity` : ""}` },
+      { type: "text", text: `REFERENCE ${index + 1} — candidateId: ${candidate.candidateId} — catalogName: ${JSON.stringify(candidate.name.slice(0, 1000))}${(candidate.referenceImageCount ?? 1) > 1 ? ` — contact sheet of ${candidate.referenceImageCount} uploaded variants of this same identity` : ""}` },
       { type: "image_url", image_url: { url: candidate.referenceImage } },
     );
   });

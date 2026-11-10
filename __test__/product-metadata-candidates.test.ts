@@ -12,7 +12,7 @@ describe("product metadata candidate recall", () => {
       fileName: "Essential Revitalizing Emulsion EX_model 05",
       folderPath: "amore测试文件夹-du/雪花秀-琉光系列/美图",
     });
-    expect(hits.map((hit) => hit.product.id)).toEqual(["emulsion", "water", "set"]);
+    expect(hits.map((hit) => hit.product.id)).toEqual(["emulsion", "water"]);
     expect(hits[0].evidence).toContainEqual({ source: "path", terms: ["雪花秀", "琉光"] });
     expect(hits[0]).not.toHaveProperty("confidence");
   });
@@ -55,4 +55,30 @@ it("does not use a filename extension as catalog evidence", () => {
   expect(
     recallProductsByMetadata([{ id: "ext", name: "WEBP" }], { fileName: "photo.webp" }),
   ).toEqual([]);
+});
+
+it("does not expand a specific filename into unrelated products sharing only the path brand", () => {
+  const hits = recallProductsByMetadata(catalog, {
+    fileName: "滋盈琉光乳_开盖+质地（3）",
+    folderPath: "雪花秀-琉光系列",
+  });
+  expect(hits.map((hit) => hit.product.id)).toEqual(["emulsion"]);
+});
+it("keeps unrelated metadata identities for a multi-product asset", () => {
+  const hits = recallProductsByMetadata(catalog, { fileName: "琉光乳_人参水乳" });
+  expect(new Set(hits.map((hit) => hit.product.id))).toEqual(new Set(["emulsion", "set"]));
+});
+
+it("does not recall unrelated brands from shared short fragments or the series suffix", () => {
+  const expanded = [
+    ...catalog,
+    { id: "shampoo", name: "吕滋盈韧发洗发水", notes: "紫吕", tags: [] },
+    { id: "other-lotion", name: "兰芝柔光乳", notes: "柔光乳", tags: [] },
+    { id: "green-tea", name: "悦诗风吟绿茶水", notes: "", tags: [{ tagPath: ["水光系列"] }] },
+  ];
+  const ids = recallProductsByMetadata(expanded, {
+    fileName: "滋盈琉光乳_开盖+质地（3）",
+    folderPath: "雪花秀-琉光系列",
+  }).map((hit) => hit.product.id);
+  expect(ids).toEqual(["emulsion"]);
 });

@@ -32,7 +32,9 @@ const normalize = (value: string) => value.normalize("NFKC").toLowerCase();
 
 function termsIn(source: string, catalog: string): string[] {
   const hits = new Set<string>();
-  for (const chunk of normalize(source).match(/[\p{Script=Han}]+|[a-z][a-z0-9]*/gu) ?? []) {
+  for (const chunk of normalize(source)
+    .replace(/系列|产品|素材|文件夹/g, " / ")
+    .match(/[\p{Script=Han}]+|[a-z][a-z0-9]*/gu) ?? []) {
     if (/^[a-z]/.test(chunk)) {
       if (
         chunk.length >= 3 &&
@@ -69,7 +71,7 @@ export function recallProductsByMetadata<T extends CatalogProduct>(
     },
     { source: "path" as const, text: input.folderPath?.slice(0, 3000) ?? "" },
   ];
-  return products
+  const ranked = products
     .map((product) => {
       const catalog = normalize(
         [
@@ -89,7 +91,22 @@ export function recallProductsByMetadata<T extends CatalogProduct>(
       const score = [...unique].reduce((sum, term) => sum + term.length ** 2, 0);
       return { product, evidence, score };
     })
-    .filter((hit) => hit.score > 0)
+    .filter((hit) => hit.score > 0);
+  // Do not expand a specific series/product hint into every product sharing only
+  // its brand. Keep incomparable hints (including separate products in an asset)
+  // and equally supported alternatives; vector-retrieved candidates are untouched.
+  const terms = (hit: (typeof ranked)[number]) => new Set(hit.evidence.flatMap((e) => e.terms));
+  return ranked
+    .filter((hit) => {
+      const own = terms(hit);
+      return !ranked.some((other) => {
+        if (other === hit) return false;
+        const stronger = terms(other);
+        const covered = (left: Set<string>, right: Set<string>) =>
+          [...left].every((term) => [...right].some((phrase) => phrase.includes(term)));
+        return covered(own, stronger) && !covered(stronger, own);
+      });
+    })
     .sort((a, b) => b.score - a.score || a.product.id.localeCompare(b.product.id))
     .slice(0, limit)
     .map(({ product, evidence }) => ({ product, evidence }));

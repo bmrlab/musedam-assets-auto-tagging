@@ -46,3 +46,27 @@ describe("multi-product evidence ownership", () => {
     expect(buildSourceRegionGroups([product], new Set())[0].scope).toBe("whole_asset_fallback");
   });
 });
+
+it("binds catalog identity names directly to their own reference images", () => {
+  const emulsion = { ...candidate("emulsion", "雪花秀滋盈琉光润颜乳", []), referenceImage: "emulsion-reference" };
+  const brightening = { ...candidate("brightening", "雪花秀滋晶臻白精华乳", []), referenceImage: "brightening-reference" };
+  const messages = buildFeatureDecisionMessages({ sourceImage: "source", imageMode: true,
+    ocr: { status: "empty", segments: [] }, candidates: [emulsion, brightening] });
+  const parts = messages[1].content as Array<{type: string; text?: string; image_url?: {url: string}}>;
+  for (const item of [emulsion, brightening]) {
+    const index = parts.findIndex(part => part.type === "text" && part.text?.startsWith("REFERENCE ") && part.text.includes(item.candidateId));
+    expect(parts[index].text).toContain(item.name);
+    expect(parts[index + 1].image_url?.url).toBe(item.referenceImage);
+  }
+});
+
+it("does not expose Logo context as output choices in a product comparison batch", () => {
+  const product = candidate("emulsion", "琉光乳", ["product:0"]);
+  const logo = { ...candidate("brand", "Sulwhasoo Logo", ["logo:0"]), featureType: "logo" as const, candidateId: "logo:brand" };
+  const messages = buildFeatureDecisionMessages({ sourceImage: "source", imageMode: false,
+    ocr: { status: "empty", segments: [] }, candidates: [product], contextCandidates: [logo, product] });
+  const userText = messages[1].content as string;
+  expect(userText).not.toContain("Sulwhasoo Logo");
+  expect(userText).not.toContain("logo:0");
+  expect(userText).toContain("product:emulsion");
+});
