@@ -513,6 +513,11 @@
       }
     },
     "Review": {
+      "batchImageModeOn": "Modalità immagine: attiva",
+      "batchImageModeOff": "Modalità immagine: disattiva",
+      "batchImageModeUnknown": "Modalità immagine: non registrata",
+      "batchImageModeHint": "Usa la modalità immagine salvata quando il lotto è stato accodato.",
+      "batchImageModeUnknownHint": "Questo lotto precedente non ha una modalità immagine salvata; la configurazione originale è sconosciuta.",
       "tagSourceExisting": "Esistente",
       "tagSourceAi": "Compilato dall’IA",
       "tagSourceManual": "Aggiunto manualmente",

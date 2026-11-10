@@ -804,6 +804,11 @@
       }
     },
     "Review": {
+      "batchImageModeOn": "Mode gambar: aktif",
+      "batchImageModeOff": "Mode gambar: nonaktif",
+      "batchImageModeUnknown": "Mode gambar: tidak tercatat",
+      "batchImageModeHint": "Menggunakan mode gambar yang disimpan saat kelompok ini masuk antrean.",
+      "batchImageModeUnknownHint": "Kelompok lama ini tidak memiliki mode gambar tersimpan; pengaturan aslinya tidak diketahui.",
       "tagSourceExisting": "Tag yang ada",
       "tagSourceAi": "Diisi AI",
       "tagSourceManual": "Ditambahkan manual",

@@ -607,3 +607,43 @@ describe("OCR logo recall", () => {
     expect(mocks.ocr).toHaveBeenCalledOnce();
   });
 });
+
+it.each([false, true])("adds a metadata-only emulsion to decision competition (image mode %s) without accepting it from recall", async imageMode => {
+  const old = { assetProductId: "set", productName: "雪花秀人参水乳套装", productTypeId: null,
+    productTypeName: "商品", description: "多瓶组合", generalCategory: "cosmetics",
+    confidence: 90, similarity: 0.9, imageSimilarity: 0.9, descriptionSimilarity: 0,
+    detectionIndex: 0, detectionIndices: [0], recommendedTags: [] };
+  mocks.product.mockResolvedValue({ topMatches: [old], matches: [old], bestMatch: old,
+    rawDetections: [box(0)], detections: [{ detectionIndex: 0, sourceDetectionIndices: [0],
+      box: box(0), topMatches: [old], bestMatch: old, noConfidentMatch: false }],
+    noConfidentMatch: false, winningDetectionIndex: 0 });
+  const emulsion = { id: "emulsion", name: "雪花秀滋盈琉光润颜乳(1)", notes: "琉光乳",
+    productTypeId: null, productTypeName: "商品", description: "", generalCategory: "cosmetics", tags: [],
+    images: [{ objectKey: "emulsion-reference" }] };
+  mocks.products.mockImplementation(async query => query.where.id
+    ? [emulsion, { ...emulsion, id: "set", name: old.productName, images: [{ objectKey: "set-reference" }] }]
+    : [emulsion]);
+  mocks.decision.mockResolvedValue({ ocr: { status: "completed", segments: ["Whasoo"] },
+    decision: { status: "completed", result: { outcome: "matched", matches: [{
+      candidateId: "product:emulsion", confidence: 95, reason: "琉光系列乳液与参考匹配",
+      evidence: ["path", "visual"], conflicts: [], specificityLimit: null,
+    }] } } });
+  const result = await classifyAssetFeatures({ teamId: 1, imageInput, enabledTypes: ["product"],
+    boxes: { product: [box(0)] }, imageMode,
+    fileName: "Essential Revitalizing Emulsion EX_model 05", folderPath: "雪花秀-琉光系列/美图" });
+  const candidate = mocks.decision.mock.calls[0][0].candidates.find((c: FeatureDecisionCandidate) => c.classId === "emulsion");
+  expect(candidate).toMatchObject({ similarity: 0, regionIds: [], regionEvidence: [], retrievedRegions: 0,
+    metadataMatches: [{ source: "path", terms: ["雪花秀", "琉光"] }] });
+  expect(candidate.referenceImage).toBe(imageMode ? "prepared-emulsion-reference" : undefined);
+  expect(result.product?.matches.map(m => m.assetProductId)).toEqual(["emulsion"]);
+  expect(result.product?.matches[0].confidence).toBe(95);
+  expect(mocks.products).toHaveBeenCalledWith(expect.objectContaining({
+    where: { teamId: 1, enabled: true, status: "completed" },
+    select: expect.objectContaining({ tags: expect.objectContaining({ where: { assetTag: { teamId: 1, deletedAt: null } } }) }),
+  }));
+  mocks.decision.mockResolvedValue({ ocr: { status: "empty", segments: [] }, decision: {
+    status: "completed", result: { outcome: "no_match", matches: [] } } });
+  const rejected = await classifyAssetFeatures({ teamId: 1, imageInput, enabledTypes: ["product"],
+    boxes: { product: [box(0)] }, imageMode, folderPath: "雪花秀-琉光系列/美图" });
+  expect(rejected.product?.matches).toEqual([]);
+});

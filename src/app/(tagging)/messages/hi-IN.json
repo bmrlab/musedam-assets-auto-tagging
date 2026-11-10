@@ -156,6 +156,11 @@
       "searchPlaceholder": "एसेट नाम से खोजें"
     },
     "Review": {
+      "batchImageModeOn": "छवि मोड: चालू",
+      "batchImageModeOff": "छवि मोड: बंद",
+      "batchImageModeUnknown": "छवि मोड: दर्ज नहीं",
+      "batchImageModeHint": "इस बैच को कतार में जोड़ते समय सहेजा गया छवि मोड लागू है।",
+      "batchImageModeUnknownHint": "इस पुराने बैच का छवि मोड सहेजा नहीं गया था; मूल सेटिंग अज्ञात है।",
       "tagSourceExisting": "मौजूदा टैग",
       "tagSourceAi": "AI द्वारा भरा गया",
       "tagSourceManual": "मैन्युअल रूप से जोड़ा गया",

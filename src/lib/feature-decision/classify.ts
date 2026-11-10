@@ -1,3 +1,4 @@
+import { recallProductsByMetadata, type ProductMetadataEvidence } from "@/lib/product/metadata-candidates";
 import { selectProductRegionWinners } from "@/lib/product/product-match-policy";
 import { prepareLogoReferenceSheet } from "./logo-reference-sheet";
 import { getScoredFeaturePredictions } from "./match-policy";
@@ -269,6 +270,35 @@ export async function classifyAssetFeatures(
     }),
   );
 
+  const metadataEvidence = new Map<string, ProductMetadataEvidence[]>();
+  if (mode === "llm" && output.product && (input.fileName || input.folderPath)) {
+    try {
+      const catalog = await prisma.assetProduct.findMany({
+        where: { teamId, enabled: true, status: "completed" },
+        select: { id: true, name: true, notes: true, productTypeId: true, productTypeName: true,
+          description: true, generalCategory: true,
+          tags: { where: { assetTag: { teamId, deletedAt: null } },
+            select: { id: true, assetTagId: true, tagPath: true } } },
+      });
+      for (const { product, evidence } of recallProductsByMetadata(catalog, input)) {
+        metadataEvidence.set(product.id, evidence);
+        // These are competing hypotheses for each region, not localized metadata
+        // or observed vector matches. The decision must identify the actual object.
+        for (const region of output.product.detections) {
+          if (region.topMatches.some(match => match.assetProductId === product.id)) continue;
+          region.topMatches.push({ assetProductId: product.id, productName: product.name,
+            productTypeId: product.productTypeId, productTypeName: product.productTypeName,
+            description: product.description, generalCategory: product.generalCategory,
+            confidence: 0, similarity: 0, imageSimilarity: 0, descriptionSimilarity: 0,
+            detectionIndex: region.detectionIndex, detectionIndices: region.sourceDetectionIndices,
+            recommendedTags: product.tags.map(tag => ({ ...tag,
+              tagPath: Array.isArray(tag.tagPath) ? tag.tagPath.map(String) : [] })) });
+        }
+      }
+    } catch (error) {
+      errors.push(`product metadata recall: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
   const productCandidates = deduplicateProductMatches(
     output.product?.detections.flatMap((region) => region.topMatches) ?? [],
   );
@@ -475,17 +505,18 @@ export async function classifyAssetFeatures(
             featureType: "product",
             name: match.productName,
             notes: product?.notes,
+            metadataMatches: metadataEvidence.get(match.assetProductId),
             typeName: match.productTypeName,
             description: [match.description, match.generalCategory].filter(Boolean).join("\n"),
             similarity: match.similarity,
             imageSimilarity: match.imageSimilarity,
             descriptionSimilarity: match.descriptionSimilarity,
             regionIds: output.product?.detections.filter(region =>
-              region.topMatches.some(candidate => candidate.assetProductId === match.assetProductId),
+              region.topMatches.some(candidate => candidate.assetProductId === match.assetProductId && candidate.similarity > 0),
             ).map(region => `product:${region.detectionIndex}`),
             regionEvidence: output.product?.detections.flatMap(region => {
               const candidate = region.topMatches.find(item => item.assetProductId === match.assetProductId);
-              return candidate ? [{
+              return candidate && candidate.similarity > 0 ? [{
                 regionId: `product:${region.detectionIndex}`,
                 wholeAssetFallback: region.sourceDetectionIndices.length === 0,
                 similarity: candidate.similarity,
@@ -495,7 +526,7 @@ export async function classifyAssetFeatures(
             }),
             retrievedRegions: output.product?.detections.filter((region) =>
               region.topMatches.some(
-                (candidate) => candidate.assetProductId === match.assetProductId,
+                (candidate) => candidate.assetProductId === match.assetProductId && candidate.similarity > 0,
               ),
             ).length,
           },

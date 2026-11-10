@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { runFeatureDecision } from "@/lib/feature-decision/service";
+import { batchFeatureCandidates, runFeatureDecision } from "@/lib/feature-decision/service";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const state = vi.hoisted(() => ({ create: vi.fn() }));
 vi.mock("server-only", () => ({}));
@@ -145,4 +145,18 @@ describe("precomputed OCR", () => {
     expect(await recognizeFeatureOcr({ teamId: 1, sourceImage: "source", segments: [" Sulwhasoo "] })).toEqual({ status: "completed", source: "musedam", segments: ["Sulwhasoo"] });
     expect(fetchMock).not.toHaveBeenCalled();
   });
+});
+
+it("keeps the complete product comparison together after logo references", () => {
+  const logos = Array.from({length: 3}, (_, i) => ({ ...candidates[i], featureType: "logo" as const, candidateId: `logo:${i}` }));
+  const products = candidates.slice(0, 4);
+  const batches = batchFeatureCandidates([...logos, ...products]);
+  expect(batches.map(batch => batch.map(c => c.candidateId)))
+    .toEqual([logos.map(c => c.candidateId), products.map(c => c.candidateId)]);
+  expect(batches.every(batch => batch.length <= 5)).toBe(true);
+});
+it("keeps product identities isolated even when a small Logo group could fit", () => {
+  const logo = { ...candidates[0], featureType: "logo" as const, candidateId: "logo:0" };
+  expect(batchFeatureCandidates([logo, ...candidates.slice(0, 4)]).map(batch => batch.map(c => c.featureType)))
+    .toEqual([["logo"], ["product", "product", "product", "product"]]);
 });

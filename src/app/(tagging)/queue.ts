@@ -1,3 +1,4 @@
+import { getTaggingCreditCost } from "@/lib/tagging-credit";
 import { assertTeamTaggingEnabled, TeamTaggingSuspendedError } from "@/lib/tagging/team-suspension";
 import { runWithQueueExecution, throwIfQueueAborted } from "@/lib/tagging/queue-execution";
 import { getTagConfigVersion } from "@/lib/tagging/tag-config-version";
@@ -187,6 +188,7 @@ export async function enqueueTaggingTask({
   featureClassify = true,
   featureClassifications,
   taskType = "default",
+  featureImageMode,
 }: {
   assetObject: AssetObject;
   matchingSources?: {
@@ -199,6 +201,7 @@ export async function enqueueTaggingTask({
   featureClassify?: boolean;
   featureClassifications?: Partial<FeatureClassificationFlags>;
   taskType?: "default" | "test" | "manual" | "scheduled";
+  featureImageMode?: boolean;
 }): Promise<TaggingQueueItem> {
   const teamId = assetObject.teamId;
   const classifications = resolveFeatureClassificationFlags(
@@ -206,6 +209,8 @@ export async function enqueueTaggingTask({
     featureClassifications,
   );
 
+  const imageMode = featureImageMode ?? (await getTaggingSettings(teamId)).featureImageMode;
+  const creditCost = getTaggingCreditCost(imageMode);
   const taggingQueueItem = await prisma.$transaction(async (tx) => {
     // Serialize enqueue with administrative suspension, including concurrent batches.
     await tx.$queryRaw`SELECT "id" FROM "Team" WHERE "id" = ${teamId} FOR UPDATE`;
@@ -217,6 +222,8 @@ export async function enqueueTaggingTask({
         status: "pending",
         taskType,
         extra: {
+          featureImageMode: imageMode,
+          creditCost,
           matchingSources,
           recognitionAccuracy,
           featureClassify,
@@ -450,7 +457,8 @@ export async function processQueueItem({
                   folderPath: assetObject.materializedPath,
                   ocrSegments,
                   ocrImage,
-                  imageMode: teamSetting.featureImageMode,
+                  // Legacy tasks without a snapshot keep the previous behavior.
+                  imageMode: extra?.featureImageMode ?? teamSetting.featureImageMode,
                   enabledTypes: [
                     ...(logoCount > 0 ? ["logo" as const] : []),
                     ...(productCount > 0 ? ["product" as const] : []),

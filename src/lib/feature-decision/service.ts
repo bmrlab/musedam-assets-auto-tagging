@@ -94,10 +94,7 @@ export async function runFeatureDecision(
       },
     };
   }
-  const chunks: FeatureDecisionCandidate[][] = [];
-  for (let offset = 0; offset < input.candidates.length; offset += MAX_FEATURE_REFERENCES) {
-    chunks.push(input.candidates.slice(offset, offset + MAX_FEATURE_REFERENCES));
-  }
+  const chunks = batchFeatureCandidates(input.candidates);
   const work = pLimit(2);
   const batches = await Promise.all(
     chunks.map((candidates) =>
@@ -146,4 +143,27 @@ export async function runFeatureDecision(
         : {}),
     },
   };
+}
+
+/** Keep a bounded group of competing identities together instead of letting
+ * unrelated Logo/IP references consume its comparison slots. */
+export function batchFeatureCandidates(candidates: FeatureDecisionCandidate[]): FeatureDecisionCandidate[][] {
+  const groups = new Map<string, FeatureDecisionCandidate[]>();
+  for (const candidate of candidates) {
+    const group = groups.get(candidate.featureType) ?? [];
+    group.push(candidate);
+    groups.set(candidate.featureType, group);
+  }
+  const batches: FeatureDecisionCandidate[][] = [];
+  for (const group of groups.values()) {
+    for (let start = 0; start < group.length; start += MAX_FEATURE_REFERENCES) {
+      const block = group.slice(start, start + MAX_FEATURE_REFERENCES);
+      const previous = batches.at(-1);
+      const containsProduct = block.some(candidate => candidate.featureType === "product") ||
+        previous?.some(candidate => candidate.featureType === "product");
+      if (previous && !containsProduct && previous.length + block.length <= MAX_FEATURE_REFERENCES) previous.push(...block);
+      else batches.push(block);
+    }
+  }
+  return batches;
 }

@@ -13,10 +13,14 @@ const mocks = vi.hoisted(() => ({
   findTask: vi.fn(),
   findTasks: vi.fn(),
   updateTask: vi.fn(),
+  deleteAudits: vi.fn(),
+  transaction: vi.fn(),
 }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/prisma/prisma", () => ({
   default: {
+    $transaction: mocks.transaction,
+    taggingAuditItem: { deleteMany: mocks.deleteAudits },
     team: { findUnique: mocks.findTeam },
     teamConfig: { findUnique: mocks.findConfig },
     taggingQueueItem: {
@@ -178,4 +182,46 @@ it("ignores individual scheduled callbacks after scheduled tagging was disabled"
   });
   expect(mocks.syncAsset).not.toHaveBeenCalled();
   expect(mocks.enqueue).not.toHaveBeenCalled();
+});
+
+describe("single tagging creditCost", () => {
+  it.each([false, true])("returns the new task price for image mode %s", async enabled => {
+    const settings = await mocks.settings();
+    mocks.settings.mockResolvedValue({ ...settings, featureImageMode: enabled });
+    const data = (await (await single(request())).json()).data;
+    expect(data).toMatchObject({ queueItemId: 99, creditCost: enabled ? 2 : 1 });
+    expect(mocks.enqueue).toHaveBeenCalledWith(expect.objectContaining({ featureImageMode: enabled }));
+  });
+
+  it.each(["disabled", "realtime disabled", "out of scope"])("returns zero when %s", async reason => {
+    const settings = await mocks.settings();
+    mocks.settings.mockResolvedValue({
+      ...settings,
+      featureImageMode: true,
+      isTaggingEnabled: reason !== "disabled",
+      triggerTiming: { autoRealtimeTagging: reason !== "realtime disabled" },
+    });
+    mocks.inScope.mockReturnValue(reason !== "out of scope");
+    expect((await (await single(request())).json()).data).toMatchObject({ queueItemId: null, creditCost: 0 });
+    expect(mocks.enqueue).not.toHaveBeenCalled();
+  });
+
+  it("does not charge or revive a cancelled default task", async () => {
+    mocks.findTask.mockResolvedValue({ id: 12, status: "failed", result: { error: "CANCELLED" } });
+    expect((await (await single(request())).json()).data).toMatchObject({ queueItemId: null, creditCost: 0 });
+    expect(mocks.updateTask).not.toHaveBeenCalled();
+    expect(mocks.enqueue).not.toHaveBeenCalled();
+  });
+
+  it.each(["pending", "processing", "completed", "failed"])("does not charge a duplicate %s task and preserves its snapshot", async status => {
+    mocks.settings.mockResolvedValue({ ...(await mocks.settings()), featureImageMode: false });
+    mocks.findTask.mockResolvedValue({ id: 12, status, extra: { featureImageMode: true, creditCost: 2 } });
+    expect((await (await single(request())).json()).data).toMatchObject({ queueItemId: null, creditCost: 0 });
+    expect(mocks.enqueue).not.toHaveBeenCalled();
+    if (status !== "pending") {
+      expect(mocks.updateTask).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ extra: expect.objectContaining({ featureImageMode: true, creditCost: 2 }) }),
+      }));
+    }
+  });
 });

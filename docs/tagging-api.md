@@ -76,6 +76,7 @@ Content-Type: application/json
   "data": {
     "message": "Asset tagging task enqueued successfully",
     "queueItemId": 456,
+    "creditCost": 2,
     "status": "processing"
   }
 }
@@ -89,10 +90,28 @@ Content-Type: application/json
   "data": {
     "message": "Asset 6908914 is not in the selected folders",
     "queueItemId": null,
+    "creditCost": 0,
     "status": null
   }
 }
 ```
+
+#### 积分与队列配置快照
+
+所有成功响应的 `data.creditCost` 表示**本次请求应扣积分数**：
+
+| 场景 | creditCost |
+| --- | ---: |
+| 新任务入队，团队图像模式关闭（默认） | 1 |
+| 新任务入队，团队图像模式开启 | 2 |
+| 打标未开启、实时触发未开启、素材不在应用范围 | 0 |
+| 重复 default 请求（包括已有任务重排队、请求处理后重跑、已取消任务） | 0 |
+
+价格按团队图像模式确定，不随特征分类开关、候选数量、识别结果或实际模型调用次数变化。接口只返回应扣数，积分扣除由上游执行；错误响应不扣点。
+
+入队时将 `featureImageMode` 与 `creditCost` 保存到队列项 `extra`。执行、重试及重复 default 回调复用的任务均保留原快照；之后切换团队图像模式只影响新入队任务。例如开启时入队返回 2，随后关闭，原任务仍按图像模式执行。没有快照的历史任务继续在执行时读取团队当前设置。
+
+上游仅在 `success: true` 时按 `data.creditCost` 扣点，并以非空 `queueItemId` 作为扣点幂等键。`queueItemId: null` 时 `creditCost` 固定为 0。兼容部署期间，旧服务未返回该字段时可沿用原规则：非空 `queueItemId` 扣 1，否则不扣；两端升级后以 `creditCost` 为准。worker 也须升级，才能保证按快照执行。
 
 **错误响应**:
 

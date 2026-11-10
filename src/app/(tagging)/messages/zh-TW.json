@@ -156,6 +156,11 @@
       "searchPlaceholder": "搜尋素材名稱"
     },
     "Review": {
+      "batchImageModeOn": "圖像模式：已開啟",
+      "batchImageModeOff": "圖像模式：未開啟",
+      "batchImageModeUnknown": "圖像模式：未記錄",
+      "batchImageModeHint": "以本批次加入佇列時的圖像模式設定為準。",
+      "batchImageModeUnknownHint": "歷史批次未儲存圖像模式，無法確認當時是否開啟。",
       "tagSourceExisting": "已有标签",
       "tagSourceAi": "AI 填寫",
       "tagSourceManual": "手动添加",

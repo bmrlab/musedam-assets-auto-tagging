@@ -60,7 +60,7 @@ package 中的 lint 为 next lint，若当前 Next 版本已不支持该子命�
 
 MuseDAM 界面按 `muse-development/references/design-system.md`（由工作区 Muse 开发 skill 提供）；新增静态样式使用 Tailwind，先复用本项目组件与图标。两种主题均需适配。跨仓定位见 工作区 `muse-development/SKILL.md`。
 
-团队级「图像模式」通过 AI 打标设置保存到现有 `TeamConfig.featureImageMode` 配置项（JSON 布尔值），默认关闭，无需 migration；队列处理时读取团队当前配置。开发分类页的临时图像开关不改写团队设置。
+团队级「图像模式」通过 AI 打标设置保存到现有 `TeamConfig.featureImageMode` 配置项（JSON 布尔值），默认关闭，无需 migration；入队时保存图像模式及积分快照，执行和重试沿用快照；无快照的历史任务仍读取团队当前配置。开发分类页的临时图像开关不改写团队设置。
 
 ## 标签导入开发
 
@@ -77,3 +77,5 @@ MuseDAM 界面按 `muse-development/references/design-system.md`（由工作区 
 Logo 图像决策使用全部上传样本合成的参考对照图；“最高值/平均值”继续用于检索聚合。正向包含说明不自动转为必要条件；图形变体可独立提供视觉证据。商品/IP 仍使用单张参考。详见 README 的 LLM 决策章节，无新增 migration。
 
 纯 Logo 批次使用专用精简提示词及 Logo 上下文；参考对照图最长边为 768 像素，保留全部样本，不新增模型调用。混合批次继续保留商品竞争证据。
+
+商品候选召回会额外使用文件名、路径与商品名称、备注和关联标签，最多补充 12 个文字相关候选；弱命中被其他商品更具体的完整命中覆盖时不额外召回，原向量候选保留。同类型商品候选尽量在同批比较；文字证据仅参与候选与 LLM 决策，不自动确认身份。真实素材验证入口及单品/套装规则见 README 的 LLM 决策章节，无新增 migration。

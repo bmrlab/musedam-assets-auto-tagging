@@ -156,6 +156,11 @@
       "searchPlaceholder": "Buscar por nome do ativo"
     },
     "Review": {
+      "batchImageModeOn": "Modo de imagem: ativado",
+      "batchImageModeOff": "Modo de imagem: desativado",
+      "batchImageModeUnknown": "Modo de imagem: não registrado",
+      "batchImageModeHint": "Usa o modo de imagem salvo quando este lote entrou na fila.",
+      "batchImageModeUnknownHint": "Este lote antigo não tem um modo de imagem salvo; a configuração original é desconhecida.",
       "tagSourceExisting": "Já existente",
       "tagSourceAi": "Preenchido por IA",
       "tagSourceManual": "Adicionado manualmente",
