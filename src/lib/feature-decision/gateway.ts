@@ -1,3 +1,4 @@
+import { queueAbortSignal } from "@/lib/tagging/queue-execution";
 import "server-only";
 
 import type { Prisma } from "@/prisma/client";
@@ -38,6 +39,7 @@ export async function callFeatureLlm<T>(input: {
     model: input.model,
     messages: input.messages,
     max_tokens: FEATURE_LLM_MAX_OUTPUT_TOKENS,
+    ...(input.kind === "decision" ? { enable_thinking: false, response_format: { type: "json_object" as const } } : {}),
   };
   let rawResponse: FeatureJsonValue = null;
   let response: string | null = null;
@@ -55,7 +57,7 @@ export async function callFeatureLlm<T>(input: {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify(request),
-      signal: AbortSignal.timeout(FEATURE_LLM_TIMEOUT_MS),
+      signal: queueAbortSignal(AbortSignal.timeout(FEATURE_LLM_TIMEOUT_MS)),
     });
     const body = await httpResponse.text();
     try {

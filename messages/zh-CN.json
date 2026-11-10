@@ -312,6 +312,7 @@
     "candidateFeatures": "候选特征",
     "candidateFeaturesDescription": "置信度 60%-79%",
     "noRecognizedTags": "暂无识别标签",
+    "featureRecognitionIncomplete": "特征识别未完整完成，结果可能缺失，请重新识别。",
     "noRecognizedFeatures": "暂无识别特征",
     "featureConfidenceNotCredible": "当前图片暂未匹配到已有特征库特征，可能尚未收录该特征",
     "videoFeatureLibraryLimited": "暂无识别特征",
@@ -321,6 +322,7 @@
     "featureClassProduct": "商品",
     "ipRecognition": "IP 形象识别",
     "personRecognition": "人物识别",
+    "productNameMatch": "商品名称匹配",
     "productRecognition": "商品识别"
   },
   "SmartTags": {

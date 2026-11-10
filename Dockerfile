@@ -35,6 +35,16 @@ RUN pnpm run build
 
 # Production image, copy all the files and run next
 FROM base AS runner
+# Reuse the China mirror used by sibling Muse projects; keep Debian signature verification.
+RUN set -eux; \
+  for source in /etc/apt/sources.list.d/debian.sources /etc/apt/sources.list; do \
+    if [ -f "$source" ]; then \
+      sed -i 's/deb.debian.org/mirrors.aliyun.com/g; s/security.debian.org/mirrors.aliyun.com/g' "$source"; \
+    fi; \
+  done; \
+  apt-get -o Acquire::http::Timeout=30 -o Acquire::Retries=2 update -y; \
+  apt-get -o Acquire::http::Timeout=30 -o Acquire::Retries=2 install -y --no-install-recommends ffmpeg; \
+  rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 ENV NODE_ENV=production

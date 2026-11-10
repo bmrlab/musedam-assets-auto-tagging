@@ -88,13 +88,21 @@ describe("direct mode feature-library thresholds (shared with review path)", () 
           bestMatch: productMatch("weak-alias", 50, [99]),
           matches: [
             productMatch("phone", 92, [10, 11]),
-            productMatch("headphones", 80, [11, 12]),
-            productMatch("bottle", 79, [13]),
+            { ...productMatch("headphones", 80, [11, 12]), detectionIndex: 1 },
+            productMatch("bottle", FEATURE_CONFIDENCE_MIN.product - 1, [13]),
           ],
           recommendedTags: [{ assetTagId: 999, tagPath: ["Unrelated aggregate tag"] }],
         },
       }),
     ).toEqual([10, 11, 12]);
+  });
+
+  it("does not apply the losing product's tags from the same region", () => {
+    expect(getProductRecommendationTagIdsFromQueueResult({
+      productRecommendation: {
+        matches: [productMatch("winner", 92, [10]), productMatch("loser", 85, [12])],
+      },
+    })).toEqual([10]);
   });
 
   it("does not resurrect a legacy bestMatch when the matches array is empty", () => {

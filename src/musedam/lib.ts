@@ -1,3 +1,4 @@
+import { assertQueueExecutionOwned, getQueueExecution, queueAbortSignal } from "@/lib/tagging/queue-execution";
 import { getTagImportSignal } from "@/lib/tagging/tag-import-runtime";
 import "server-only";
 import { MUSE_TIMEOUT_MESSAGE } from "./budget";
@@ -46,6 +47,7 @@ export async function requestMuseDAMAPI<T = unknown>(
     timeoutMs?: number;
   },
 ): Promise<T> {
+  if (getQueueExecution()) await assertQueueExecutionOwned();
   const url = `${process.env.MUSEDAM_API_BASE_URL}${apiPath}`;
   const requestHeaders = {
     "Content-Type": "application/json",
@@ -63,10 +65,11 @@ export async function requestMuseDAMAPI<T = unknown>(
   // Import requests must not keep the team lease alive forever while awaiting an upstream.
   const requestTimeout = timeoutMs ?? (importSignal ? 75_000 : undefined);
   const timeoutSignal = requestTimeout ? AbortSignal.timeout(requestTimeout) : undefined;
-  const signal =
+  const requestSignal =
     importSignal && timeoutSignal
       ? AbortSignal.any([importSignal, timeoutSignal])
       : (importSignal ?? timeoutSignal);
+  const signal = queueAbortSignal(requestSignal);
   let response: Response;
   try {
     response = await fetch(url, {
@@ -78,7 +81,7 @@ export async function requestMuseDAMAPI<T = unknown>(
   } catch (error) {
     if (signal?.aborted) {
       const reason = signal.reason;
-      // Import cancellation carries its own message. A bare timeout does not.
+      // Import cancellation and queue abort carry their own message. A bare timeout does not.
       if (reason instanceof Error && reason.name !== "TimeoutError") throw reason;
       throw new Error(MUSE_TIMEOUT_MESSAGE);
     }

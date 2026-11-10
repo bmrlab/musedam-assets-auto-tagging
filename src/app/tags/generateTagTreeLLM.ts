@@ -1,7 +1,8 @@
+import { queueAbortSignal } from "@/lib/tagging/queue-execution";
 import "server-only";
 
 import { llm, LLMModelName } from "@/ai/provider";
-import { Locale, getLanguageConfig } from "@/i18n/routing";
+import { getLanguageConfig, Locale } from "@/i18n/routing";
 import { rootLogger } from "@/lib/logging";
 import type { ServerActionResult } from "@/lib/serverAction";
 import { generateObject } from "ai";
@@ -76,11 +77,13 @@ export async function executeGenerateTagTreeByLLM({
   lang,
   teamId,
   requestId,
+  abortSignal,
 }: {
   finalPrompt: string;
   lang: Locale;
   teamId: number;
   requestId?: string;
+  abortSignal?: AbortSignal;
 }): Promise<ServerActionResult<{ text: string; input: string }>> {
   try {
     rootLogger.info({
@@ -130,6 +133,7 @@ ${config.notes}`;
 
 必须严格返回一个 JSON 对象，不要返回 markdown 代码块，不要返回解释文本。`;
         const result = await generateObject({
+          abortSignal: queueAbortSignal(abortSignal),
           model: llm(modelName),
           mode: "json",
           schema: tagTreeSchema,

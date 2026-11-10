@@ -312,6 +312,7 @@
     "candidateFeatures": "คุณลักษณะตัวเลือก",
     "candidateFeaturesDescription": "ความมั่นใจ 60%-79%",
     "noRecognizedTags": "ไม่มีแท็กที่รู้จำ",
+    "featureRecognitionIncomplete": "Feature recognition did not finish. Results may be incomplete; please retry.",
     "noRecognizedFeatures": "ไม่มีคุณลักษณะที่รู้จำ",
     "featureConfidenceNotCredible": "รูปภาพปัจจุบันยังไม่ตรงกับคุณลักษณะในคลังคุณลักษณะที่มีอยู่ คุณลักษณะนี้อาจยังไม่ถูกรวบรวม",
     "videoFeatureLibraryLimited": "ไม่มีคุณลักษณะที่รู้จำ: คลังคุณลักษณะปัจจุบันมีความสามารถจำกัดในการจดจำประเภทไฟล์วิดีโอ และรองรับการจับคู่โดยใช้เฉพาะเฟรมแรกของวิดีโอเท่านั้น",
@@ -321,6 +322,7 @@
     "featureClassProduct": "สินค้า",
     "ipRecognition": "การรู้จำตัวละคร IP",
     "personRecognition": "การรู้จำบุคคล",
+    "productNameMatch": "ตรงกับชื่อสินค้า",
     "productRecognition": "การรู้จำสินค้า"
   },
   "SmartTags": {

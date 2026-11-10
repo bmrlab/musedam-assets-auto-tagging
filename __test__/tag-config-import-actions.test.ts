@@ -11,20 +11,21 @@ const mocks = vi.hoisted(() => {
     taggingEnabled: boolean;
     extra: Record<string, unknown>;
     sort: number;
+    deletedAt?: Date | null;
   };
   const rows: Row[] = [];
   const assetTag = {
-    deleteMany: vi.fn(async ({ where }: { where: { teamId: number; id: { in: number[] } } }) => {
+    updateMany: vi.fn(async ({ where, data }: { where: { teamId: number; id: { in: number[] } }; data: { deletedAt: Date } }) => {
       let count = 0;
       for (let index = rows.length - 1; index >= 0; index--) {
         if (rows[index].teamId === where.teamId && where.id.in.includes(rows[index].id)) {
-          rows.splice(index, 1); count++;
+          rows[index].deletedAt = data.deletedAt; count++;
         }
       }
       return { count };
     }),
     findMany: vi.fn(async ({ where }: { where: { teamId: number } }) =>
-      rows.filter((row) => row.teamId === where.teamId).map((row) => structuredClone(row)),
+      rows.filter((row) => row.teamId === where.teamId && !row.deletedAt).map((row) => structuredClone(row)),
     ),
     update: vi.fn(
       async ({ where, data }: { where: { id: number; teamId: number }; data: Partial<Row> }) => {
@@ -81,7 +82,7 @@ import {
   importTagTreeAction,
   precheckTagTreeImportAction,
 } from "@/app/tags/tagBatchActions";
-import { getTagBatchColumns } from "@/app/tags/tagBatchSpreadsheet";
+import { getTagBatchColumns, parseTagBatchTable } from "@/app/tags/tagBatchSpreadsheet";
 
 function seed(id: number, name: string, parentId: number | null = null, teamId = 1) {
   const row = {
@@ -125,6 +126,30 @@ beforeEach(() => {
       return { success: true };
     },
   );
+});
+
+it.each(["csv", "xlsx"] as const)("exports spreadsheet-safe long keywords and imports all continuations from %s", async format => {
+  const keywords = Array.from({ length: 7000 }, (_, index) => `SKU.${index}`);
+  seed(1, "防水").extra = { keywords };
+  const result = await exportTagTreeAction(format);
+  expect(result.success).toBe(true);
+  if (!result.success) return;
+  const buffer = Buffer.from(result.data.base64, "base64");
+  const rows = format === "csv" ? parseCsv(buffer) : parseXlsx(buffer);
+  expect(rows.every(row => row.every(cell => cell.length <= 30000))).toBe(true);
+  expect(rows.slice(1).every(row => row[0] === "1" && row[1] === "防水")).toBe(true);
+  expect(parseTagBatchTable({ rows, maxLevel: 4 })).toMatchObject({
+    errors: [], records: [{ id: 1, fields: { keywords } }],
+  });
+  const form = new FormData();
+  form.set("file", new File([new Uint8Array(buffer)], result.data.filename));
+  form.set("tagLevel", "4");
+  expect(await precheckTagTreeImportAction(form)).toMatchObject({
+    success: true, data: { issues: [], importableCount: 1 },
+  });
+  mocks.rows[0].extra = {};
+  expect(await importTagTreeAction(form)).toMatchObject({ success: true, data: { failedCount: 0 } });
+  expect(mocks.rows[0].extra.keywords).toEqual(keywords);
 });
 
 describe("tag configuration import", () => {
@@ -458,7 +483,7 @@ it.each(["csv", "xlsx"] as const)("exports only MuseDAM IDs in %s and deletes un
   const rows = format === "csv" ? parseCsv(data) : parseXlsx(data);
   expect(rows[0][0]).toBe("MuseDAM 标签 ID");
   expect(rows.slice(1).map(row => row[0])).toEqual(["12345"]);
-  expect(mocks.rows.map(row => row.id)).toEqual([1]);
+  expect(mocks.rows.filter(row => !row.deletedAt).map(row => row.id)).toEqual([1]);
   expect(result.data.deletedTagCount).toBe(1);
   expect(mocks.bumpVersion).toHaveBeenCalledWith(expect.anything(), 1);
   expect(rows[0].some(column => /slug/i.test(column))).toBe(false);
@@ -550,8 +575,8 @@ it("cleans unmapped subtrees leaf first, including hidden levels, while retainin
   seed(5, "其他团队", null, 2).slug = null;
   const result = await exportTagTreeAction("csv", 3);
   expect(result).toMatchObject({ success: true, data: { deletedTagCount: 3 } });
-  expect(mocks.rows.map(row => row.id)).toEqual([1, 5]);
-  expect(mocks.assetTag.deleteMany.mock.calls.map(([args]) => args.where.id.in)).toEqual([[4], [3], [2]]);
+  expect(mocks.rows.filter(row => !row.deletedAt).map(row => row.id)).toEqual([1, 5]);
+  expect(mocks.rows.filter(row => row.deletedAt).map(row => row.id)).toEqual([2, 3, 4]);
   expect(mocks.bumpVersion).toHaveBeenCalledTimes(1);
 });
 
@@ -561,27 +586,28 @@ it("blocks cleanup before any deletion when an unmapped parent has mapped descen
   const result = await exportTagTreeAction("csv");
   expect(result).toMatchObject({ success: false, message: "exportCleanupMappedChild" });
   expect(mocks.rows).toHaveLength(2);
-  expect(mocks.assetTag.deleteMany).not.toHaveBeenCalled();
+  expect(mocks.assetTag.updateMany).not.toHaveBeenCalled();
   expect(mocks.bumpVersion).not.toHaveBeenCalled();
 });
 
 it("rolls back already deleted batches and returns no file when a later batch fails", async () => {
   for (let id = 1; id <= 101; id++) seed(id, `无映射${id}`).slug = null;
-  mocks.assetTag.deleteMany.mockImplementationOnce(async ({ where }) => {
+  mocks.assetTag.updateMany.mockImplementationOnce(async ({ where }) => {
     const count = where.id.in.length;
     for (let index = mocks.rows.length - 1; index >= 0; index--)
-      if (where.id.in.includes(mocks.rows[index].id)) mocks.rows.splice(index, 1);
+      if (where.id.in.includes(mocks.rows[index].id)) mocks.rows[index].deletedAt = new Date();
     return { count };
   }).mockRejectedValueOnce(new Error("delete failed"));
   expect(await exportTagTreeAction("csv")).toMatchObject({ success: false, message: "delete failed" });
   expect(mocks.rows).toHaveLength(101);
+  expect(mocks.rows.every(row => !row.deletedAt)).toBe(true);
   expect(mocks.bumpVersion).not.toHaveBeenCalled();
 });
 
 it("does not write tag rows or invalidate the cache when all tags are mapped", async () => {
   seed(1, "已映射");
   expect(await exportTagTreeAction("xlsx")).toMatchObject({ success: true, data: { deletedTagCount: 0 } });
-  expect(mocks.assetTag.deleteMany).not.toHaveBeenCalled();
+  expect(mocks.assetTag.updateMany).not.toHaveBeenCalled();
   expect(mocks.bumpVersion).not.toHaveBeenCalled();
 });
 
@@ -590,5 +616,5 @@ it("preserves mapped tags with IDs beyond the supported file range instead of de
   seed(1, "长 ID 标签").slug = "g/9007199254740993";
   expect(await exportTagTreeAction("csv")).toMatchObject({ success: false });
   expect(mocks.rows).toHaveLength(1);
-  expect(mocks.assetTag.deleteMany).not.toHaveBeenCalled();
+  expect(mocks.assetTag.updateMany).not.toHaveBeenCalled();
 });

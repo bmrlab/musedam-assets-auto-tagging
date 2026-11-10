@@ -1,6 +1,5 @@
 import "server-only";
 
-import { deleteTagsWithinBudget } from "@/lib/tagging/delete-tag-batches";
 import { idToSlug, slugToId } from "@/lib/slug";
 import { retrieveTeamCredentials } from "@/musedam/apiKey";
 import { MUSE_CALL_BUDGET_MS } from "@/musedam/budget";
@@ -66,7 +65,7 @@ function readTagTree(value: unknown, slugs = new Set<string>()): SyncNode[] {
 
 /**
  * 按 MuseDAM ID 优先、同父级同名兜底匹配，保留已有 AssetTag 的 id、配置和关联。
- * 改名、移动也更新原行；只新增缺失标签、删除 MuseDAM 中已不存在的标签。
+ * 改名、移动也更新原行；只新增缺失标签、软删除 MuseDAM 中已不存在的标签。
  * 整次本地同步在事务中完成，不能因半途失败留下临时名称或不完整的标签树。
  */
 export async function syncTagsFromMuseDAM({ team }: { team: { id: number; slug: string } }) {
@@ -87,10 +86,16 @@ export async function syncTagsFromMuseDAM({ team }: { team: { id: number; slug: 
   };
   collectSlugs(nodes);
 
-  const stale: { id: number; parentId: number | null }[] = [];
   await prisma.$transaction(
     async (tx) => {
-      const existingTags = await tx.assetTag.findMany({ where: { teamId: team.id } });
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(${team.id}::int, 5521735::int)::text`;
+      const tombstones = await tx.assetTag.count({
+        where: { teamId: team.id, deletedAt: { not: null }, slug: { in: [...incomingSlugs] } },
+      });
+      if (tombstones) throw new Error("MuseDAM 返回了已删除的标签，请等待主站同步完成后重试");
+      const existingTags = await tx.assetTag.findMany({
+        where: { deletedAt: null, teamId: team.id },
+      });
       const bySlug = new Map<string, AssetTag>();
       const byPath = new Map<string, AssetTag>();
       const keyOf = (parentId: number | null, name: string) => JSON.stringify([parentId, name]);
@@ -142,15 +147,29 @@ export async function syncTagsFromMuseDAM({ team }: { team: { id: number; slug: 
           .map((item) => item.existing!.id),
       );
 
+      // Soft-delete first so stale names stop competing with retained moves/renames.
+      const staleIds = existingTags.filter((tag) => !keptIds.has(tag.id)).map((tag) => tag.id);
+      if (staleIds.length) {
+        await tx.assetTag.updateMany({
+          where: { teamId: team.id, deletedAt: null, id: { in: staleIds } },
+          data: { deletedAt: new Date() },
+        });
+      }
+
       // Only rows that are about to change name or parent need a temporary name.
-      // Tags MuseDAM no longer has are deleted afterwards, so renaming all of
-      // them (thousands of writes) is what blows the ingress timeout.
+      // Soft-deleted stale tags no longer occupy sibling names.
       const renameIds = new Set(changedPositions);
-      const byKey = new Map(existingTags.map((tag) => [keyOf(tag.parentId, tag.name), tag]));
+      const byKey = new Map(
+        existingTags
+          .filter((tag) => keptIds.has(tag.id))
+          .map((tag) => [keyOf(tag.parentId, tag.name), tag]),
+      );
       for (const item of plan) {
         if (item.parent && item.parent.id == null) continue;
         const holder = byKey.get(keyOf(item.parent?.id ?? null, item.node.name));
-        if (holder && holder.id !== item.existing?.id && !keptIds.has(holder.id)) renameIds.add(holder.id);
+        if (holder && holder.id !== item.existing?.id && keptIds.has(holder.id)) {
+          renameIds.add(holder.id);
+        }
       }
       await writeTagRows(
         tx,
@@ -215,21 +234,9 @@ export async function syncTagsFromMuseDAM({ team }: { team: { id: number; slug: 
           if (pending.size > 0) throw new Error("新建标签未能回填");
         }
       }
-
-      stale.push(
-        ...existingTags
-          .filter((tag) => !keptIds.has(tag.id))
-          .map((tag) => ({ id: tag.id, parentId: tag.parentId })),
-      );
     },
     { timeout: 60000 },
   );
-
-  // Kept rows are already committed. Drop the rest in short transactions so a
-  // gateway timeout does not roll the whole cleanup back to the start.
-  if (!(await deleteTagsWithinBudget(team.id, stale))) {
-    throw new Error("TAG_CLEANUP_CONTINUE");
-  }
 
   return result as MuseDAMTagTree;
 }
@@ -261,7 +268,7 @@ async function writeTagRows(
       await tx.$executeRaw`
         UPDATE "AssetTag" AS t SET "name" = p.name, "updatedAt" = now()
         FROM jsonb_to_recordset(${payload}::jsonb) AS p(id int, name text)
-        WHERE t."id" = p.id AND t."teamId" = ${teamId}`;
+        WHERE t."deletedAt" IS NULL AND t."id" = p.id AND t."teamId" = ${teamId}`;
     } else {
       await tx.$executeRaw`
         UPDATE "AssetTag" AS t SET
@@ -274,7 +281,7 @@ async function writeTagRows(
         FROM jsonb_to_recordset(${payload}::jsonb) AS p(
           id int, name text, slug text, sort int, level int, "parentId" int
         )
-        WHERE t."id" = p.id AND t."teamId" = ${teamId}`;
+        WHERE t."deletedAt" IS NULL AND t."id" = p.id AND t."teamId" = ${teamId}`;
     }
   }
 }

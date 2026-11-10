@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   classify: vi.fn(),
 }));
 vi.mock("server-only", () => ({}));
+vi.mock("@/lib/tagging/feature-threshold-settings", () => ({ getFeatureThresholds: async () => ({ brand: 75, product: 80, ip: 80, person: 60 }) }));
 vi.mock("@/lib/feature-decision/config", () => ({ FEATURE_DECISION_MODE: "legacy" }));
 vi.mock("@/prisma/prisma", () => ({ default: { productVector: { count: mocks.count } } }));
 vi.mock("@/lib/product/product-classification", () => ({
@@ -85,6 +86,7 @@ describe("automatic product recommendations", () => {
     });
     const result = await classifyAssetProductRecommendation({ teamId: 7, imageInput });
     expect(mocks.classify).toHaveBeenCalledExactlyOnceWith({
+      confidenceThreshold: 80,
       teamId: 7,
       imageInput,
       boxes,
@@ -124,7 +126,7 @@ describe("automatic product recommendations", () => {
 
     const result = await classifyAssetProductRecommendation({ teamId: 7, imageInput });
 
-    expect(mocks.classify).toHaveBeenCalledExactlyOnceWith({ teamId: 7, imageInput, boxes });
+    expect(mocks.classify).toHaveBeenCalledExactlyOnceWith({ teamId: 7, imageInput, boxes, confidenceThreshold: 80 });
     expect(result?.rawDetections).toEqual(boxes);
     expect(result?.detections).toHaveLength(1);
     expect(result?.detections?.[0].sourceDetectionIndices).toEqual([0, 2]);
@@ -146,6 +148,7 @@ describe("automatic product recommendations", () => {
     expect(result).toMatchObject({ matches: [], recommendedTags: [], noConfidentMatch: true });
     expect(result?.bestMatch?.assetProductId).toBe("bottle");
     expect(mocks.classify).toHaveBeenCalledExactlyOnceWith({
+      confidenceThreshold: 80,
       teamId: 7,
       imageInput,
       boxes: [

@@ -12,6 +12,22 @@ export const TAG_BATCH_CLEAR_VALUE = "-";
 export const TAG_BATCH_MAX_FILE_BYTES = 5 * 1024 * 1024;
 /** 字段回写分片大小 */
 export const TAG_BATCH_UPDATE_CHUNK_SIZE = 50;
+/** Leave room below spreadsheet applications' 32,767-character cell limit. */
+export const TAG_BATCH_EXPORT_CELL_LIMIT = 30_000;
+const CONTINUATION_HEADERS = ["关键词续行", "關鍵詞續行", "Keyword Continuation"];
+
+function keywordChunks(keywords: string[] | undefined): string[] {
+  const chunks = [""];
+  for (const keyword of keywords ?? []) {
+    if (keyword.length > TAG_BATCH_EXPORT_CELL_LIMIT)
+      throw new Error("A tag keyword exceeds the spreadsheet cell limit");
+    const last = chunks.length - 1;
+    const next = chunks[last] ? `${chunks[last]};${keyword}` : keyword;
+    if (next.length > TAG_BATCH_EXPORT_CELL_LIMIT) chunks.push(keyword);
+    else chunks[last] = next;
+  }
+  return chunks;
+}
 
 export const TAG_BATCH_LEVEL_KEYS = ["level1", "level2", "level3", "level4"] as const;
 export const TAG_BATCH_FIELD_KEYS = [
@@ -382,7 +398,7 @@ export function filterMissingPathRecords(
 }
 
 export function joinTagBatchKeywords(keywords: string[] | undefined) {
-  return (keywords ?? []).join("; ");
+  return (keywords ?? []).join(";");
 }
 
 export function parseTagBatchTable({
@@ -414,6 +430,7 @@ export function parseTagBatchTable({
 
   const columns = getTagBatchColumns(locale);
   const headerMap = buildHeaderMap(headerRow, columns);
+  const continuationColumn = headerRow.findIndex(header => CONTINUATION_HEADERS.includes(header.trim()));
   if (ignoreIds) delete headerMap.id;
   // 无 ID 列时必须有一级标签列，才能按路径新建；有 ID 列则可只靠 ID 更新
   if (headerMap.level1 === undefined && headerMap.id === undefined) {
@@ -444,6 +461,24 @@ export function parseTagBatchTable({
     });
     if ("message" in parsed) {
       errors.push({ rowNumber, message: parsed.message });
+      return;
+    }
+    if (continuationColumn >= 0 && cell(row, continuationColumn)) {
+      const previous = records.at(-1);
+      const keywordFields = ["keywords", "negativeKeywords"] as const;
+      if (cell(row, continuationColumn) !== "1" || !previous ||
+          parsed.id !== previous.id || !parsed.path.length ||
+          JSON.stringify(parsed.path) !== JSON.stringify(previous.path) ||
+          Object.keys(parsed.fields).some(key => key !== "keywords" && key !== "negativeKeywords") ||
+          !keywordFields.some(key => parsed.fields[key]?.length)) {
+        errors.push({ rowNumber, message: text.pathMismatch });
+        return;
+      }
+      for (const key of keywordFields) {
+        if (parsed.fields[key]) previous.fields[key] = [...new Set([
+          ...(previous.fields[key] ?? []), ...parsed.fields[key]!,
+        ])];
+      }
       return;
     }
     if (parsed.id !== undefined) {
@@ -542,6 +577,11 @@ export function buildTagBatchExportRows({
   const columns = getTagBatchColumns(locale);
   const rows = [columns.map((column) => column.header)];
   appendExportNodes(tags, [], rows, locale);
+  // Only add the marker column when at least one node needs continuation rows.
+  if (rows.some(row => row.length > columns.length)) {
+    rows[0].push(CONTINUATION_HEADERS[tagBatchLabelLocale(locale) === "zh-CN" ? 0 : tagBatchLabelLocale(locale) === "zh-TW" ? 1 : 2]);
+    for (const row of rows.slice(1)) if (row.length === columns.length) row.push("");
+  }
   return rows;
 }
 
@@ -559,7 +599,7 @@ function appendExportNodes(
     const path = [...ancestors, node.name];
     const extra = readExtra(node.extra);
     const levels = TAG_BATCH_LEVEL_KEYS.map((_, index) => path[index] ?? "");
-    rows.push([
+    const baseRow = [
       node.id === undefined ? "" : String(node.id),
       ...levels,
       extra.description ?? "",
@@ -568,7 +608,20 @@ function appendExportNodes(
       formatTagBatchBoolean(node.taggingEnabled, locale),
       formatTagBatchBoolean(extra.siblingsExclusive, locale),
       formatTagBatchBoolean(extra.requiredGroup, locale),
-    ]);
+    ];
+    const matching = keywordChunks(extra.keywords);
+    const excluded = keywordChunks(extra.negativeKeywords);
+    baseRow[6] = matching[0];
+    baseRow[7] = excluded[0];
+    if (baseRow.some(value => value.length > TAG_BATCH_EXPORT_CELL_LIMIT))
+      throw new Error("A tag field exceeds the spreadsheet cell limit");
+    rows.push(baseRow);
+    for (let index = 1; index < Math.max(matching.length, excluded.length); index++) {
+      rows.push([
+        ...baseRow.slice(0, 5), "", matching[index] ?? "", excluded[index] ?? "",
+        "", "", "", "1",
+      ]);
+    }
     if (node.children?.length) {
       appendExportNodes(node.children, path, rows, locale);
     }

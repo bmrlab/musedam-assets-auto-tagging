@@ -312,6 +312,7 @@
     "candidateFeatures": "Caractéristiques candidates",
     "candidateFeaturesDescription": "Confiance 60%-79%",
     "noRecognizedTags": "Aucun tag reconnu",
+    "featureRecognitionIncomplete": "Feature recognition did not finish. Results may be incomplete; please retry.",
     "noRecognizedFeatures": "Aucune caractéristique reconnue",
     "featureConfidenceNotCredible": "Aucune caractéristique correspondante n’a été trouvée dans la bibliothèque de caractéristiques existante pour cette image ; cette caractéristique n’est peut-être pas encore répertoriée.",
     "videoFeatureLibraryLimited": "Aucune caractéristique reconnue : La bibliothèque de caractéristiques actuelle dispose de capacités limitées pour reconnaître les types de fichiers vidéo et prend uniquement en charge la correspondance à partir de la première image de la vidéo.",
@@ -321,6 +322,7 @@
     "featureClassProduct": "Produit",
     "ipRecognition": "Reconnaissance de personnage IP",
     "personRecognition": "Reconnaissance de personne",
+    "productNameMatch": "Correspondance du nom du produit",
     "productRecognition": "Reconnaissance de produit"
   },
   "SmartTags": {

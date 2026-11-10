@@ -38,6 +38,12 @@ export async function loadReviewFeatureLibrary(
       (value ?? {}) as TaggingQueueItemResult,
       enabledFeatures,
     );
+    // Include scored predictions so saved decisions can be hydrated at current thresholds.
+    for (const match of result.featureDecision?.decision.result?.matches ?? []) {
+      const [kind, id] = match.candidateId.split(":");
+      const type = kind === "logo" ? "brand" : kind === "product" ? "product" : kind === "ip" ? "ip" : null;
+      if (type && isFeatureTypeEnabled(enabledFeatures, type)) ids[type].add(id);
+    }
     for (const brand of getBrandMatches(result.brandRecommendation))
       ids.brand.add(brand.assetLogoId);
     for (const ip of getIpMatches(result.ipRecommendation)) ids.ip.add(ip.assetIpId);
@@ -253,7 +259,7 @@ async function queryReviewFeatures(
     tags: {
       // A local tag can be linked before it has a MuseDAM ID. Keep it visible;
       // approval resolves which tag IDs can be sent to MuseDAM separately.
-      where: { assetTag: { teamId } },
+      where: { assetTag: { teamId, deletedAt: null } },
       orderBy: { sort: "asc" },
       select: {
         assetTagId: true,

@@ -4,9 +4,9 @@
       "noPredictions": "No supplied candidate was classified. Check the response and call status for unrelated candidates or a processing failure.",
       "conflicts": "Conflicting evidence",
       "specificityLimit": "Specificity limit",
-      "predictionOnly": "Prediction only · confidence or evidence checks not passed",
+      "predictionOnly": "For reference: confidence is below the recommendation threshold",
       "automaticAccepted": "Eligible for automatic application",
-      "predictionHelp": "All plausible LLM predictions are shown, including low-confidence alternatives. Automatic application uses separate confidence and evidence checks.",
+      "predictionHelp": "Shows LLM feature predictions and confidence. Results meeting the team threshold can be reviewed and applied.",
       "ocrTotalTokens": "OCR total tokens",
       "runDetails": "OCR, request, response, and usage for this run",
       "comparisonPending": "Run classification in this mode to compare results.",
@@ -123,6 +123,10 @@
       "batchEnableFailed": "Batch enable failed, please retry later",
       "batchDisableFailed": "Batch disable failed, please retry later",
       "batchDeleteFailed": "Batch delete failed, please retry later",
+      "batchMatchStrategy": "Match strategy",
+      "batchMatchStrategySuccess": "Updated the match strategy for the selected brand identities",
+      "batchMatchStrategyFailed": "Failed to batch update match strategy, please retry later",
+      "batchMatchStrategyUnchanged": "The selected items already use this match strategy",
       "emptyFiltered": "No brand identities match the current filters",
       "allTypes": "All Types",
       "allStatuses": "All Statuses",
@@ -155,7 +159,16 @@
         "logoNameLabel": "Identity Name",
         "logoNamePlaceholder": "Enter identity name",
         "logoTypeLabel": "Identity Type",
-        "logoImagesLabel": "Identity Images",
+        "logoImagesLabel": "Identity Images · {count}",
+        "multiImageMatchLabel": "Multi-image match",
+        "matchStrategy": {
+          "average": "Average",
+          "highest": "Highest"
+        },
+        "matchStrategyHint": {
+          "average": "All reference images jointly determine the retrieval score. Use this when the uploaded images show a consistent logo appearance; unclear or unrelated images will lower the score.",
+          "highest": "A match to any one reference image can recall this identity. Use this for color, monochrome, reversed, abbreviated, horizontal, or vertical variants of the same logo."
+        },
         "uploadImage": "Upload Image",
         "uploadLocal": "Upload from Local",
         "uploadFromLibrary": "Select from Asset Library",
@@ -172,7 +185,12 @@
         "confirm": "Confirm",
         "save": "Save",
         "previewImage": "Preview Image",
-        "closePreview": "Close Preview"
+        "closePreview": "Close Preview",
+        "reviewRefreshTitle": "Update pending-review features?",
+        "reviewRefreshDescription": "The multi-image match strategy has changed. Recalculate this feature's ranking in the pending-review list using the new rules? Already reviewed results will not be affected.",
+        "saveOnly": "No, save only",
+        "saveAndRefresh": "Yes, save and refresh",
+        "reviewRefreshScheduled": "Logo updated. Existing unreviewed results will refresh after reference processing finishes."
       },
       "confirmDialog": {
         "title": "Action Confirmation",
@@ -191,7 +209,10 @@
         "disableDescription": "Are you sure you want to disable the selected {count} items? After disabling, newly uploaded assets will not automatically recognize these entries and apply linked tags.",
         "confirmEnable": "Confirm Enable",
         "confirmDisable": "Confirm Disable",
-        "cancel": "Cancel"
+        "cancel": "Cancel",
+        "matchStrategyTitle": "Batch set multi-image match",
+        "matchStrategyDescription": "Set the match strategy for the selected {count} items. This controls how multiple reference images jointly determine the retrieval score.",
+        "matchStrategyApply": "Apply"
       },
       "uploadErrors": {
         "fileTooLarge": "Each image must be 50MB or smaller",
@@ -727,6 +748,7 @@
         "firstTimeRecommendationDesc": "Manual review can help evaluate AI tagging effectiveness. Switch to direct application mode once accuracy meets requirements"
       },
       "AIRecognition": {
+        "imageModeCostHint": "Each asset costs 2 points when enabled and 1 point when disabled.",
         "title": "AI Recognition",
         "precise": "Precise",
         "preciseDesc": "High accuracy, fewer tags",
@@ -802,6 +824,11 @@
       }
     },
     "Review": {
+      "batchImageModeOn": "Image mode: On",
+      "batchImageModeOff": "Image mode: Off",
+      "batchImageModeUnknown": "Image mode: Not recorded",
+      "batchImageModeHint": "Uses the image mode saved when this batch was queued.",
+      "batchImageModeUnknownHint": "This older batch has no saved image mode; its original setting is unknown.",
       "tagSourceExisting": "Existing",
       "tagSourceAi": "AI filled",
       "tagSourceManual": "Manually added",
@@ -832,6 +859,11 @@
       "brandRecommendedTags": "Brand Logo Recommended Tags",
       "basedOnTagSystem": "Based on tag system matching",
       "basedOnFeatureLibrary": "Based on feature library matching",
+      "pendingFeatureConfirmation": "Pending confirmation",
+      "recognitionEvidence": "Recognition evidence",
+      "evidenceNotRecorded": "Not recorded",
+      "evidenceDetails": "View recognition reason",
+      "evidenceSources": {"retrieval": "Vector", "path": "File path", "ocr": "OCR", "filename": "Filename", "visual": "Image"},
       "addFeatureManually": "Add feature manually",
       "addFeatureTitle": "Add features",
       "addFeatureAllTypes": "All",
@@ -920,6 +952,9 @@
       "remove": "Remove"
     },
     "Test": {
+      "uploadLocalFiles": "Upload local images",
+      "localFileInvalid": "{name}: Select an image up to 20 MB.",
+      "localUploadFailed": "Local image upload failed.",
       "uploadTestFiles": "Upload Test Files",
       "testDescription": "Test Description",
       "removeAsset": "Remove",
@@ -995,6 +1030,7 @@
         "failed": "Failed"
       },
       "errorReason": {
+        "FEATURE_RECOGNITION_FAILED": "Feature recognition did not finish. Please retry.",
         "NO_VALID_TAGS": "No valid tags matched (insufficient asset information or no suitable tag in the tag system)",
         "NO_TAG_TREE": "The tag system is empty. Please create tags first.",
         "NO_MATCHING_SOURCES_ENABLED": "No matching strategy is enabled",
@@ -1617,6 +1653,19 @@
       "continueImportSkipIssues": "Skip issues and continue",
       "importSuccessWithSkipped": "Imported {count} rows, skipped {skipped} rows with issues",
       "memberImportInProgress": "Member {name} is running a bulk import. Please refresh the page and try again later."
+    },
+    "FeatureThreshold": {
+      "trigger": "Threshold ≥ {value}%",
+      "title": "Team recommendation threshold",
+      "hint": "Applies to new tasks and pending reviews. Reviewed results stay unchanged. History without final decisions needs reclassification.",
+      "minimum": "Min. confidence",
+      "personHint": "Face similarity and ambiguity checks still apply.",
+      "saved": "Saved. Pending reviews use the new threshold.",
+      "save": "Save and apply",
+      "saving": "Saving…",
+      "loadFailed": "Could not load threshold. Please refresh.",
+      "saveFailed": "Could not save. Please retry.",
+      "loading": "Loading threshold…"
     }
   }
 }

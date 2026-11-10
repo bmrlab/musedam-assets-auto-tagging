@@ -32,7 +32,7 @@ describe("relink feature tags transaction", () => {
   it("scopes every library and target tag to the session team, with no writes in preview", async () => {
     const result = await relinkFeatureTags(7, ["product", "brand", "person", "ip"], true);
     expect(mocks.tx.assetTag.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { teamId: 7 } }),
+      expect.objectContaining({ where: { deletedAt: null, teamId: 7 } }),
     );
     for (const [model, relation] of libraries) {
       expect(mocks.tx[model].findMany).toHaveBeenCalledWith(

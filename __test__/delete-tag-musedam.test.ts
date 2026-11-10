@@ -12,7 +12,7 @@ vi.mock("@/musedam/apiKey", () => ({
 }));
 vi.mock("@/musedam/lib", () => ({ requestMuseDAMAPI: mocks.request }));
 
-it("deletes the parent once so MuseDAM can cascade the synced subtree", async () => {
+it("sends one root operation to the MuseDAM recursive subtree deletion API", async () => {
   const rows = [1, 2, 3].map((id) => ({
     id,
     name: `tag${id}`,

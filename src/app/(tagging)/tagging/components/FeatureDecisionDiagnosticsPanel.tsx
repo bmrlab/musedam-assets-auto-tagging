@@ -96,7 +96,11 @@ export function FeatureDecisionComparison({ runs }: { runs: ComparisonRuns }) {
       <div className="grid gap-4 md:grid-cols-2">
         {(["image", "text"] as const).map((mode) => {
           const run = runs[mode];
-          const call = run?.diagnostics.decision.call;
+          const decisionCalls = run?.diagnostics.decision.batches?.map(batch => batch.call)
+            ?? (run?.diagnostics.decision.call ? [run.diagnostics.decision.call] : []);
+          const tokens = (key: "inputTokens" | "outputTokens" | "totalTokens") =>
+            decisionCalls.length && decisionCalls.every(call => call.usage[key] !== null)
+              ? decisionCalls.reduce((sum, call) => sum + (call.usage[key] ?? 0), 0) : null;
           return (
             <div
               key={mode}
@@ -123,11 +127,11 @@ export function FeatureDecisionComparison({ runs }: { runs: ComparisonRuns }) {
                   )}
                   <dl className="grid grid-cols-2 gap-2">
                     <dt>{t("inputTokens")}</dt>
-                    <dd>{count(call?.usage.inputTokens)}</dd>
+                    <dd>{count(tokens("inputTokens"))}</dd>
                     <dt>{t("outputTokens")}</dt>
-                    <dd>{count(call?.usage.outputTokens)}</dd>
+                    <dd>{count(tokens("outputTokens"))}</dd>
                     <dt>{t("totalTokens")}</dt>
-                    <dd>{count(call?.usage.totalTokens)}</dd>
+                    <dd>{count(tokens("totalTokens"))}</dd>
                     <dt>{t("ocrTotalTokens")}</dt>
                     <dd>{count(run.diagnostics.ocr.call?.usage.totalTokens)}</dd>
                   </dl>
@@ -324,7 +328,7 @@ export function FeatureDecisionDiagnosticsPanel({
   diagnostics: FeatureDecisionDiagnostics;
 }) {
   const t = useTranslations("Tagging.FeatureDecisionDiagnostics");
-  const calls = [diagnostics.ocr.call, diagnostics.decision.call].filter(
+  const calls = [diagnostics.ocr.call, ...(diagnostics.decision.batches?.map(batch => batch.call) ?? [diagnostics.decision.call])].filter(
     (call): call is FeatureLlmCallDiagnostics => Boolean(call),
   );
 

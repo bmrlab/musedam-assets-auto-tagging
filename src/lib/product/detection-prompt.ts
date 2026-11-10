@@ -1,3 +1,4 @@
+import { queueAbortSignal } from "@/lib/tagging/queue-execution";
 import "server-only";
 
 import { llm, LLMModelName } from "@/ai/provider";
@@ -55,7 +56,7 @@ function getProductCategorySummaryModel(): LLMModelName {
 async function summarizeProductCategories(categories: string[]) {
   const result = await generateObject({
     model: llm(getProductCategorySummaryModel()),
-    abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+    abortSignal: queueAbortSignal(AbortSignal.timeout(LLM_TIMEOUT_MS)),
     schemaName: "ProductDetectionCategories",
     schemaDescription:
       'Return JSON with one "categories" array containing concise English product categories.',

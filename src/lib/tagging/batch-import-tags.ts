@@ -48,15 +48,7 @@ export function findMissingBatchImportTagPaths({
   return Array.from(missingPaths.values());
 }
 
-function isUniqueConstraintError(error: unknown) {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as { code?: unknown }).code === "P2002"
-  );
-}
-
+/** Shared prefixes are resolved once; inserts are bounded and grouped by tree depth. */
 export async function createMissingBatchImportTagTrees({
   teamId,
   tagPaths,
@@ -64,64 +56,56 @@ export async function createMissingBatchImportTagTrees({
   teamId: number;
   tagPaths: string[];
 }) {
-  for (const tagPath of tagPaths) {
-    const names = splitTagPath(tagPath);
-    let parentId: number | null = null;
-
-    for (const [index, name] of names.entries()) {
-      let tag: { id: number } | null = await prisma.assetTag.findFirst({
-        where: {
-          teamId,
-          parentId,
-          name: {
-            equals: name,
-            mode: "insensitive",
-          },
-        },
-        select: {
-          id: true,
-        },
-      });
-
-      if (!tag) {
-        try {
-          tag = await prisma.assetTag.create({
-            data: {
-              teamId,
-              parentId,
-              name,
-              level: index + 1,
-            },
-            select: {
-              id: true,
-            },
-          });
-        } catch (error) {
-          if (!isUniqueConstraintError(error)) {
-            throw error;
-          }
-
-          tag = await prisma.assetTag.findFirst({
-            where: {
-              teamId,
-              parentId,
-              name: {
-                equals: name,
-                mode: "insensitive",
-              },
-            },
-            select: {
-              id: true,
-            },
-          });
-
-          if (!tag) {
-            throw error;
-          }
+  const paths = tagPaths.map(splitTagPath).filter((path) => path.length);
+  if (paths.some((path) => path.length > 4)) throw new Error("标签层级不能超过 4 级");
+  if (!paths.length) return;
+  await prisma.$transaction(
+    async (tx) => {
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(${teamId}::int, 5521735::int)::text`;
+      const key = (parentId: number | null, name: string) =>
+        JSON.stringify([parentId, name.toLowerCase()]);
+      const load = async () =>
+        new Map(
+          (
+            await tx.assetTag.findMany({
+              where: { teamId, deletedAt: null },
+              select: { id: true, parentId: true, name: true },
+              orderBy: { id: "asc" },
+            })
+          ).map((tag) => [key(tag.parentId, tag.name), tag]),
+        );
+      let index = await load();
+      let level = paths.map((names) => ({ names, parentId: null as number | null }));
+      let depth = 1;
+      while (level.length) {
+        const missing = new Map<
+          string,
+          { teamId: number; parentId: number | null; name: string; level: number }
+        >();
+        for (const { names, parentId } of level) {
+          const k = key(parentId, names[0]);
+          if (!index.has(k) && !missing.has(k))
+            missing.set(k, { teamId, parentId, name: names[0], level: depth });
         }
+        const data = [...missing.values()];
+        for (let offset = 0; offset < data.length; offset += 500) {
+          const chunk = data.slice(offset, offset + 500);
+          const created = await tx.assetTag.createManyAndReturn({
+            data: chunk,
+            skipDuplicates: true,
+            select: { id: true, parentId: true, name: true },
+          });
+          for (const tag of created) index.set(key(tag.parentId, tag.name), tag);
+          if (created.length < chunk.length) index = await load();
+        }
+        level = level.flatMap(({ names, parentId }) => {
+          const tag = index.get(key(parentId, names[0]));
+          if (!tag) throw new Error("标签创建冲突，请刷新后重试");
+          return names.length > 1 ? [{ names: names.slice(1), parentId: tag.id }] : [];
+        });
+        depth++;
       }
-
-      parentId = tag.id;
-    }
-  }
+    },
+    { timeout: 60_000 },
+  );
 }

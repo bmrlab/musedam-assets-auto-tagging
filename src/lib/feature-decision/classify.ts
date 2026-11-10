@@ -1,5 +1,10 @@
+import { recallProductsByMetadata, type ProductMetadataEvidence } from "@/lib/product/metadata-candidates";
+import { selectProductRegionWinners } from "@/lib/product/product-match-policy";
+import { prepareLogoReferenceSheet } from "./logo-reference-sheet";
+import { getScoredFeaturePredictions } from "./match-policy";
+import { findProductNameMatches } from "@/lib/product/product-name-evidence";
 import "server-only";
-import { FEATURE_DECISION_MODE } from "./config";
+import { FEATURE_DECISION_MODE, isDecisionLlmImageUseEnabled } from "./config";
 
 import {
   classifyBrandImageCrops,
@@ -32,10 +37,12 @@ import {
   type ClassificationRemoteImageInput,
 } from "@/lib/tagging/classification-image";
 import { meetsFeatureConfidenceThreshold } from "@/lib/tagging/feature-confidence";
+import { getFeatureThresholds } from "@/lib/tagging/feature-threshold-settings";
 import prisma from "@/prisma/prisma";
 import pLimit from "p-limit";
-import { MAX_FEATURE_REFERENCES, selectFeatureRegions, type DecisionFeatureType } from "./regions";
-import { runFeatureDecision } from "./service";
+import { selectFeatureRegions, type DecisionFeatureType } from "./regions";
+import { recognizeFeatureOcr, runFeatureDecision } from "./service";
+import { allowsLogoFolderMatch, logoFolderAlias } from "./path-candidates";
 import type {
   FeatureDecisionCandidate,
   FeatureDecisionDiagnostics,
@@ -52,6 +59,7 @@ export type AssetFeatureClassification = {
   ip: WithDiagnostics<IpClassificationResult> | null;
   product: WithDiagnostics<ProductClassificationResult> | null;
   diagnostics: FeatureDecisionDiagnostics;
+  confidenceThresholds?: import("@/lib/tagging/feature-confidence").FeatureThresholds;
   /** Exact catalog-identity tags contradicted by the completed decision; generic tags are excluded. */
   unacceptedIdentityTagIds?: number[];
 };
@@ -64,13 +72,16 @@ export async function classifyAssetFeatures(
     imageMode?: boolean;
     fileName?: string;
     folderPath?: string;
+    ocrSegments?: string[];
+    ocrImage?: string;
     boxes?: Partial<Record<DecisionFeatureType, ClassificationDetectionBox[]>>;
   },
 ): Promise<AssetFeatureClassification> {
   const { teamId, imageInput } = input;
-  // Dev requests always use the decision layer; their switch controls image evidence only.
+  const thresholds = await getFeatureThresholds(teamId);
+  // Dev requests always use the decision layer; their explicit switch controls image evidence.
   const mode = input.imageMode === undefined ? getFeatureDecisionMode() : "llm";
-  const imageMode = input.imageMode ?? true;
+  const imageMode = input.imageMode ?? isDecisionLlmImageUseEnabled();
   const enabledTypes = [...new Set(input.enabledTypes)];
   const errors: string[] = [];
   const boxesByType: Partial<Record<DecisionFeatureType, ClassificationDetectionBox[]>> = {};
@@ -167,6 +178,7 @@ export async function classifyAssetFeatures(
       decision: { status: "skipped" },
     },
   };
+  const cropWork = pLimit(4);
   await Promise.all(
     enabledTypes.map(async (type) => {
       const selected = regions.selected.filter((region) => region.featureType === type);
@@ -207,7 +219,7 @@ export async function classifyAssetFeatures(
           };
         } else {
           const crops = await Promise.all(
-            selected.map(async ({ box }) => ({
+            selected.map(({ box }) => cropWork(async () => ({
               box,
               image: await cropImageToDataUrl({
                 imageDataUrl: imageInput.dataUrl,
@@ -216,7 +228,7 @@ export async function classifyAssetFeatures(
                 meta: imageInput,
                 box,
               }),
-            })),
+            }))),
           );
           if (type === "logo") {
             const result = await classifyBrandImageCrops({
@@ -258,6 +270,35 @@ export async function classifyAssetFeatures(
     }),
   );
 
+  const metadataEvidence = new Map<string, ProductMetadataEvidence[]>();
+  if (mode === "llm" && output.product && (input.fileName || input.folderPath)) {
+    try {
+      const catalog = await prisma.assetProduct.findMany({
+        where: { teamId, enabled: true, status: "completed" },
+        select: { id: true, name: true, notes: true, productTypeId: true, productTypeName: true,
+          description: true, generalCategory: true,
+          tags: { where: { assetTag: { teamId, deletedAt: null } },
+            select: { id: true, assetTagId: true, tagPath: true } } },
+      });
+      for (const { product, evidence } of recallProductsByMetadata(catalog, input)) {
+        metadataEvidence.set(product.id, evidence);
+        // These are competing hypotheses for each region, not localized metadata
+        // or observed vector matches. The decision must identify the actual object.
+        for (const region of output.product.detections) {
+          if (region.topMatches.some(match => match.assetProductId === product.id)) continue;
+          region.topMatches.push({ assetProductId: product.id, productName: product.name,
+            productTypeId: product.productTypeId, productTypeName: product.productTypeName,
+            description: product.description, generalCategory: product.generalCategory,
+            confidence: 0, similarity: 0, imageSimilarity: 0, descriptionSimilarity: 0,
+            detectionIndex: region.detectionIndex, detectionIndices: region.sourceDetectionIndices,
+            recommendedTags: product.tags.map(tag => ({ ...tag,
+              tagPath: Array.isArray(tag.tagPath) ? tag.tagPath.map(String) : [] })) });
+        }
+      }
+    } catch (error) {
+      errors.push(`product metadata recall: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
   const productCandidates = deduplicateProductMatches(
     output.product?.detections.flatMap((region) => region.topMatches) ?? [],
   );
@@ -296,7 +337,36 @@ export async function classifyAssetFeatures(
         return [];
       }
     };
-    // Stable library order chooses the reference, independently from the winning retrieval vector.
+    const ocr = await recognizeFeatureOcr({
+      teamId, queueItemId: input.queueItemId, assetObjectId: input.assetObjectId,
+      sourceImage: input.ocrImage ?? imageInput.dataUrl, segments: input.ocrSegments,
+    });
+    const ocrText = ocr.segments.join("\n");
+    const folderCatalog = enabledTypes.includes("logo") && (input.folderPath || ocrText)
+      ? await loadCatalog(prisma.assetLogo.findMany({
+          where: { teamId, enabled: true, status: "completed", ...(ocrText ? {} : { OR: [
+            { notes: { contains: "文件夹" } }, { notes: { contains: "文件路径" } },
+            { notes: { contains: "folder", mode: "insensitive" } }, { notes: { contains: "file path", mode: "insensitive" } },
+          ] }) },
+          select: { id: true, name: true, notes: true, logoTypeId: true, logoTypeName: true, referenceMatchStrategy: true },
+        }), "logo")
+      : [];
+    const folderMatches = folderCatalog.filter(logo =>
+      allowsLogoFolderMatch(logo.notes) && logoFolderAlias(logo.name, input.folderPath ?? ""),
+    );
+    const folderMatchIds = new Set(folderMatches.map(logo => logo.id));
+    const ocrMatches = ocrText ? folderCatalog.filter(logo => logoFolderAlias(logo.name, ocrText)) : [];
+    const ocrMatchIds = new Set(ocrMatches.map(logo => logo.id));
+    for (const logo of [...folderMatches, ...ocrMatches]) {
+      if (brandCandidates.some(match => match.assetLogoId === logo.id)) continue;
+      brandCandidates.push({
+        assetLogoId: logo.id, logoName: logo.name, logoTypeId: logo.logoTypeId,
+        logoTypeName: logo.logoTypeName ?? "", similarity: 0, confidence: 0,
+        referenceMatchStrategy: logo.referenceMatchStrategy,
+        detectionIndex: -1,
+      });
+    }
+    // Logo decisions see every configured variant; products/IP retain one reference.
     const [logos, products, ips] = await Promise.all([
       brandCandidates.length
         ? loadCatalog(
@@ -310,14 +380,20 @@ export async function classifyAssetFeatures(
               select: {
                 id: true,
                 notes: true,
-                tags: { select: { assetTagId: true, tagPath: true } },
-                images: { ...imageSelect, select: { objectKey: true } },
+                tags: {
+                  where: { assetTag: { teamId, deletedAt: null } },
+                  select: { assetTagId: true, tagPath: true },
+                },
+                images: {
+                  orderBy: imageSelect.orderBy,
+                  select: { id: true, objectKey: true },
+                },
               },
             }),
             "logo",
           )
         : [],
-      productCandidates.length && imageMode
+      productCandidates.length
         ? loadCatalog(
             prisma.assetProduct.findMany({
               where: {
@@ -326,7 +402,7 @@ export async function classifyAssetFeatures(
                 status: "completed",
                 id: { in: productCandidates.map((match) => match.assetProductId) },
               },
-              select: { id: true, images: { ...imageSelect, select: { objectKey: true } } },
+              select: { id: true, notes: true, images: { ...imageSelect, select: { objectKey: true } } },
             }),
             "product",
           )
@@ -379,11 +455,29 @@ export async function classifyAssetFeatures(
         return null;
       }
     };
+    const addLogoReferences = async (
+      candidate: FeatureDecisionCandidate,
+      images: Array<{ id?: string; objectKey: string }>,
+    ): Promise<FeatureDecisionCandidate | null> => {
+      if (!imageMode) return candidate;
+      try {
+        const prepared = await prepareLogoReferenceSheet(images, objectKey => referenceWork(async () => {
+          const { signedUrl } = getCachedSignedS3ObjectUrl({ objectKey });
+          return (await fetchRemoteImageInput(signedUrl, "feature decision logo references")).dataUrl;
+        }));
+        return { ...candidate, referenceImage: prepared.dataUrl,
+          referenceImageCount: prepared.referenceImageCount, referenceImageIds: prepared.referenceImageIds };
+      } catch (error) {
+        retrieval.unassessedCandidates.push({ candidateId: candidate.candidateId,
+          reason: error instanceof Error ? error.message : String(error) });
+        return null;
+      }
+    };
     const pending: Array<Promise<FeatureDecisionCandidate | null>> = [];
     for (const match of brandCandidates) {
       const logo = logos.find((entry) => entry.id === match.assetLogoId);
       pending.push(
-        addReference(
+        addLogoReferences(
           {
             candidateId: `logo:${match.assetLogoId}`,
             classId: match.assetLogoId,
@@ -392,8 +486,12 @@ export async function classifyAssetFeatures(
             typeName: match.logoTypeName,
             description: logo?.notes,
             similarity: match.similarity,
+            referenceMatchStrategy: match.referenceMatchStrategy,
+            regionIds: match.detectionIndex < 0 ? [] : [`logo:${match.detectionIndex}`],
+            ocrMatch: ocrMatchIds.has(match.assetLogoId) ? { alias: logoFolderAlias(match.logoName, ocrText)! } : undefined,
+            folderMatch: folderMatchIds.has(match.assetLogoId) ? { alias: logoFolderAlias(match.logoName, input.folderPath ?? "")!, path: input.folderPath! } : undefined,
           },
-          logo?.images[0]?.objectKey,
+          logo?.images ?? [],
         ),
       );
     }
@@ -406,14 +504,29 @@ export async function classifyAssetFeatures(
             classId: match.assetProductId,
             featureType: "product",
             name: match.productName,
+            notes: product?.notes,
+            metadataMatches: metadataEvidence.get(match.assetProductId),
             typeName: match.productTypeName,
             description: [match.description, match.generalCategory].filter(Boolean).join("\n"),
             similarity: match.similarity,
             imageSimilarity: match.imageSimilarity,
             descriptionSimilarity: match.descriptionSimilarity,
+            regionIds: output.product?.detections.filter(region =>
+              region.topMatches.some(candidate => candidate.assetProductId === match.assetProductId && candidate.similarity > 0),
+            ).map(region => `product:${region.detectionIndex}`),
+            regionEvidence: output.product?.detections.flatMap(region => {
+              const candidate = region.topMatches.find(item => item.assetProductId === match.assetProductId);
+              return candidate && candidate.similarity > 0 ? [{
+                regionId: `product:${region.detectionIndex}`,
+                wholeAssetFallback: region.sourceDetectionIndices.length === 0,
+                similarity: candidate.similarity,
+                imageSimilarity: candidate.imageSimilarity,
+                descriptionSimilarity: candidate.descriptionSimilarity,
+              }] : [];
+            }),
             retrievedRegions: output.product?.detections.filter((region) =>
               region.topMatches.some(
-                (candidate) => candidate.assetProductId === match.assetProductId,
+                (candidate) => candidate.assetProductId === match.assetProductId && candidate.similarity > 0,
               ),
             ).length,
           },
@@ -440,6 +553,7 @@ export async function classifyAssetFeatures(
               .filter(Boolean)
               .join("\n"),
             similarity: match.similarity,
+            regionIds: [`ip:${match.detectionIndex}`],
             imageSimilarity: match.imageSimilarity,
             descriptionSimilarity: match.descriptionSimilarity,
           },
@@ -448,8 +562,6 @@ export async function classifyAssetFeatures(
       );
     }
     for (const candidate of await Promise.all(pending)) if (candidate) candidates.push(candidate);
-    if (candidates.length > MAX_FEATURE_REFERENCES)
-      throw new Error("Feature decision reference budget exceeded");
     output.diagnostics = {
       ...(await runFeatureDecision({
         teamId,
@@ -460,30 +572,42 @@ export async function classifyAssetFeatures(
         sourceImage: imageInput.dataUrl,
         imageMode,
         candidates,
+        ocr,
       })),
       mode,
       decisionInputMode: imageMode ? "image" : "text",
       retrieval,
+      folderMatchedLogoIds: [...folderMatchIds],
+      ocrMatchedLogoIds: [...ocrMatchIds],
     };
-    // Predictions remain visible regardless of confidence, conflicts or specificity.
-    // Automatic application has a separate gate and must never promote alternatives.
-    const predictions = new Map(
-      (output.diagnostics.decision.status === "completed"
-        ? (output.diagnostics.decision.result?.matches ?? [])
-        : []
-      )
-        .filter((match) => imageMode || !match.evidence.includes("visual"))
-        .map((match) => [match.candidateId, match]),
+    for (const batch of output.diagnostics.decision.batches ?? []) {
+      if (batch.status !== "completed") retrieval.unassessedCandidates.push(...batch.candidateIds.map(candidateId => ({
+        candidateId, reason: batch.error ?? "Decision batch failed",
+      })));
+    }
+    // Final model predictions are accepted solely by the team's score threshold.
+    const predictions = new Map(getScoredFeaturePredictions(output.diagnostics)
+      .map(match => [match.candidateId, match]));
+    const decisions = predictions;
+    const final = <T extends { confidence: number }>(
+      matches: T[],
+      key: (match: T) => string,
+      type: DecisionFeatureType,
+    ): T[] =>
+      matches
+        .flatMap((match) => {
+          const decision = predictions.get(`${type}:${key(match)}`);
+          if (!decision) return [];
+          return [
+            { ...match, confidence: decision.confidence, decisionSource: "llm" as const, decision },
+          ];
+        })
+        .sort((a, b) => b.confidence - a.confidence);
+    const classifiedProducts = selectProductRegionWinners(
+      final(productCandidates, (match) => match.assetProductId, "product"),
+      output.product?.detections ?? [],
     );
-    const decisions = new Map(
-      [...predictions].filter(
-        ([candidateId, match]) =>
-          match.conflicts.length === 0 &&
-          !match.specificityLimit?.trim() &&
-          (!candidateId.startsWith("logo:") ||
-            match.evidence.includes(imageMode ? "visual" : "retrieval")),
-      ),
-    );
+    const productWinnerIds = new Set(classifiedProducts.map(match => `product:${match.assetProductId}`));
     if (output.diagnostics.decision.status === "completed") {
       // A rejected catalog identity must not be reapplied through general AI tagging. Only
       // exact identity names are withheld; shared/generic linked tags remain independent.
@@ -513,9 +637,11 @@ export async function classifyAssetFeatures(
             const decision = decisions.get(candidate.candidateId);
             return (
               decision &&
+              (candidate.featureType !== "product" || productWinnerIds.has(candidate.candidateId)) &&
               meetsFeatureConfidenceThreshold(
                 candidate.featureType === "logo" ? "brand" : candidate.featureType,
                 decision.confidence,
+                thresholds[candidate.featureType === "logo" ? "brand" : candidate.featureType],
               )
             );
           })
@@ -545,26 +671,12 @@ export async function classifyAssetFeatures(
         ),
       ].filter((id): id is number => typeof id === "number" && id > 0 && !acceptedTagIds.has(id));
     }
-    const final = <T extends { confidence: number }>(
-      matches: T[],
-      key: (match: T) => string,
-      type: DecisionFeatureType,
-    ): T[] =>
-      matches
-        .flatMap((match) => {
-          const decision = predictions.get(`${type}:${key(match)}`);
-          if (!decision) return [];
-          return [
-            { ...match, confidence: decision.confidence, decisionSource: "llm" as const, decision },
-          ];
-        })
-        .sort((a, b) => b.confidence - a.confidence);
     if (output.brand) {
       const classified = final(brandCandidates, (match) => match.assetLogoId, "logo");
       const matches = classified.filter(
         (match) =>
           decisions.has(`logo:${match.assetLogoId}`) &&
-          meetsFeatureConfidenceThreshold("brand", match.confidence),
+          meetsFeatureConfidenceThreshold("brand", match.confidence, thresholds.brand),
       );
       output.brand = {
         ...output.brand,
@@ -580,7 +692,7 @@ export async function classifyAssetFeatures(
       const matches = classified.filter(
         (match) =>
           decisions.has(`ip:${match.assetIpId}`) &&
-          meetsFeatureConfidenceThreshold("ip", match.confidence),
+          meetsFeatureConfidenceThreshold("ip", match.confidence, thresholds.ip),
       );
       output.ip = {
         ...output.ip,
@@ -592,11 +704,11 @@ export async function classifyAssetFeatures(
       };
     }
     if (output.product) {
-      const classified = final(productCandidates, (match) => match.assetProductId, "product");
+      const classified = classifiedProducts;
       const matches = classified.filter(
         (match) =>
           decisions.has(`product:${match.assetProductId}`) &&
-          meetsFeatureConfidenceThreshold("product", match.confidence),
+          meetsFeatureConfidenceThreshold("product", match.confidence, thresholds.product),
       );
       output.product = {
         ...output.product,
@@ -607,16 +719,29 @@ export async function classifyAssetFeatures(
         winningDetectionIndex: (matches[0] ?? classified[0])?.detectionIndex ?? null,
         detections: output.product.detections.map((region) => {
           const bestMatch =
-            matches.find((match) =>
-              region.topMatches.some(
-                (candidate) => candidate.assetProductId === match.assetProductId,
-              ),
-            ) ?? null;
-          return { ...region, bestMatch, noConfidentMatch: !bestMatch };
+            matches.find(match => match.detectionIndices.includes(region.detectionIndex)) ?? null;
+          return { ...region, bestMatch,
+            topMatches: bestMatch ? [bestMatch] : [],
+            noConfidentMatch: !bestMatch };
         }),
       };
     }
   }
+  if (output.product) {
+    const imageMatches = selectProductRegionWinners(output.product.matches, output.product.detections);
+    const nameMatches = await findProductNameMatches(teamId, input.fileName);
+    const matches = deduplicateProductMatches([...nameMatches, ...imageMatches]);
+    output.product = { ...output.product, matches,
+      bestMatch: matches[0] ?? output.product.bestMatch,
+      noConfidentMatch: matches.length === 0,
+      winningDetectionIndex: matches[0]?.detectionIndex ?? null };
+  }
+  if (output.product && output.diagnostics.decision.result) {
+    const kept = new Set(output.product.topMatches.map(match => `product:${match.assetProductId}`));
+    output.diagnostics.decision.result.matches = output.diagnostics.decision.result.matches.filter(match =>
+      !match.candidateId.startsWith("product:") || kept.has(match.candidateId));
+  }
+  output.confidenceThresholds = thresholds;
   if (output.brand) output.brand.diagnostics = output.diagnostics;
   if (output.ip) output.ip.diagnostics = output.diagnostics;
   if (output.product) output.product.diagnostics = output.diagnostics;

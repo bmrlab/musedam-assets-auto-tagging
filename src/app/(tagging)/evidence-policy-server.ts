@@ -177,7 +177,7 @@ async function initializePolicies(
       if (!renewed.count) break;
       try {
         const rows = await prisma.assetTag.findMany({
-          where: { teamId, id: { in: batch.map((node) => node.id) } },
+          where: { deletedAt: null, teamId, id: { in: batch.map((node) => node.id) } },
           select: { id: true, extra: true },
         });
         const byId = new Map(rows.map((row) => [row.id, row]));
@@ -244,6 +244,7 @@ async function initializePolicies(
                 // being overwritten by the model's older snapshot.
                 const updated = await prisma.assetTag.updateMany({
                   where: {
+                    deletedAt: null,
                     id: row.id,
                     teamId,
                     extra: { equals: row.extra === null ? Prisma.JsonNull : row.extra },
@@ -362,7 +363,7 @@ export async function recordContentOnlyRejectionFeedbackBatch(
     if (!isContentOnlySupport(item.confidenceBySources)) continue;
     try {
       const tag = await prisma.assetTag.findUnique({
-        where: { id: item.leafTagId },
+        where: { deletedAt: null, id: item.leafTagId },
         select: { id: true, teamId: true, extra: true },
       });
       if (!tag || tag.teamId !== item.teamId) continue;
@@ -370,6 +371,7 @@ export async function recordContentOnlyRejectionFeedbackBatch(
       const { extra, downgraded } = applyContentOnlyRejection(tag.extra as AssetTagExtra | null);
       const written = await prisma.assetTag.updateMany({
         where: {
+          deletedAt: null,
           id: tag.id,
           teamId: item.teamId,
           extra: { equals: tag.extra === null ? Prisma.JsonNull : tag.extra },

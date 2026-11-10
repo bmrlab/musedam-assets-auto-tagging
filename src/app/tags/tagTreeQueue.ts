@@ -3,9 +3,12 @@ import "server-only";
 import { executeGenerateTagTreeByLLM } from "@/app/tags/generateTagTreeLLM";
 import { Locale } from "@/i18n/routing";
 import { rootLogger } from "@/lib/logging";
-import { TagTreeGenerationJobExtra, TagTreeGenerationJobResult } from "@/prisma/client";
+import {
+  TaggingQueueItem,
+  TagTreeGenerationJobExtra,
+  TagTreeGenerationJobResult,
+} from "@/prisma/client";
 import prisma from "@/prisma/prisma";
-import { TaggingQueueItem } from "@/prisma/client";
 
 export const TAG_TREE_JOB_KIND = "tag-tree-generation" as const;
 const TAG_TREE_QUEUE_LLM_TIMEOUT_MS = Number(
@@ -70,26 +73,19 @@ export async function processTagTreeQueueItem(item: TaggingQueueItem): Promise<v
   });
 
   const startedAt = Date.now();
-  logger.info({ msg: "tag-tree job worker start", lang: extra.lang, promptLength: extra.prompt?.length });
+  logger.info({
+    msg: "tag-tree job worker start",
+    lang: extra.lang,
+    promptLength: extra.prompt?.length,
+  });
 
   try {
-    let timeoutId: ReturnType<typeof setTimeout> | undefined;
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      timeoutId = setTimeout(() => {
-        reject(new Error(`TAG_TREE_LLM_TIMEOUT(${TAG_TREE_QUEUE_LLM_TIMEOUT_MS}ms)`));
-      }, TAG_TREE_QUEUE_LLM_TIMEOUT_MS);
-    });
-
-    const llmResult = await Promise.race([
-      executeGenerateTagTreeByLLM({
-        finalPrompt: extra.prompt,
-        lang: extra.lang as Locale,
-        teamId: item.teamId,
-        requestId: extra.requestId,
-      }),
-      timeoutPromise,
-    ]).finally(() => {
-      if (timeoutId) clearTimeout(timeoutId);
+    const llmResult = await executeGenerateTagTreeByLLM({
+      finalPrompt: extra.prompt,
+      lang: extra.lang as Locale,
+      teamId: item.teamId,
+      requestId: extra.requestId,
+      abortSignal: AbortSignal.timeout(TAG_TREE_QUEUE_LLM_TIMEOUT_MS),
     });
 
     const elapsedMs = Date.now() - startedAt;

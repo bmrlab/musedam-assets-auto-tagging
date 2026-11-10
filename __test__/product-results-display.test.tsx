@@ -75,8 +75,8 @@ describe("product feature results", () => {
             product("Phone", 92),
             product("Headphones", 88),
             product("Camera", 84),
-            product("Speaker", 80),
-            product("Bottle", 74),
+            product("Speaker", 60),
+            product("Bottle", 59),
           ],
         })}
       />,
@@ -86,7 +86,7 @@ describe("product feature results", () => {
       ["Phone", 92],
       ["Headphones", 88],
       ["Camera", 84],
-      ["Speaker", 80],
+      ["Speaker", 60],
     ] as const) {
       expect(screen.getByText(name)).toBeTruthy();
       expect(screen.getByText(`confidence: ${confidence}%`)).toBeTruthy();

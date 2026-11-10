@@ -1,4 +1,7 @@
 "use server";
+
+import { getFeatureThresholds } from "@/lib/tagging/feature-threshold-settings";
+import { rethresholdFeatures } from "@/lib/tagging/rethreshold-features";
 import { withAuth } from "@/app/(auth)/withAuth";
 import { getBrandRecommendationFromQueueResult } from "@/app/(tagging)/brand-recommendation";
 import { recordContentOnlyRejectionFeedbackBatch } from "@/app/(tagging)/evidence-policy-server";
@@ -51,13 +54,15 @@ import {
   type ReviewFeatureSearchResult,
   type ReviewFeatureType,
 } from "./feature-review";
-import { createTagReviewSnapshot } from "./tag-review";
 import {
   loadFeatureThumbnails,
   loadManualReviewFeatures,
   loadReviewFeatureLibrary,
   searchReviewFeatureLibrary,
 } from "./feature-review-server";
+import { createTagReviewSnapshot } from "./tag-review";
+
+import { attachReviewQueues, reviewQueueItemsQuery } from "./review-list-data";
 
 export type ReviewAvailableFeatureIds = {
   brand: string[];
@@ -125,9 +130,7 @@ async function buildAssetObjectTags(
   const tagSlugs = musedamTags.map(({ id: musedamTagId }) => idToSlug("assetTag", musedamTagId));
   const fields = { id: true, slug: true, name: true } as const;
   const assetTags = await prisma.assetTag.findMany({
-    where: {
-      slug: { in: tagSlugs },
-    },
+    where: { deletedAt: null, slug: { in: tagSlugs } },
     // 向上取完整祖先链（MAX_TAG_LEVEL - 1 层）以拼出完整 tagPath；动态深度无法推导类型，按 fields 声明
     select: { ...fields, ...buildParentSelect(fields) } as typeof fields,
   });
@@ -162,29 +165,39 @@ type BatchApproveAssetRef = Pick<AssetObject, "id" | "slug"> & {
 
 export type ReviewTagSearchResult = { id: number; tagPath: string[] };
 
-export type ReviewTagNode = { id: number; parentId: number | null; name: string; selectable: boolean };
+export type ReviewTagNode = {
+  id: number;
+  parentId: number | null;
+  name: string;
+  selectable: boolean;
+};
 
 /** Include structural parents so every selectable tag is reachable in the hierarchy. */
 export async function fetchReviewTagTreeAction(): Promise<ServerActionResult<ReviewTagNode[]>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     const tags = await prisma.assetTag.findMany({
-      where: { teamId },
+      where: { deletedAt: null, teamId },
       select: { id: true, parentId: true, name: true, slug: true },
       orderBy: [{ sort: "asc" }, { id: "asc" }],
     });
-    return { success: true, data: tags.map(({ slug, ...tag }) => ({ ...tag, selectable: slug !== null })) };
+    return {
+      success: true,
+      data: tags.map(({ slug, ...tag }) => ({ ...tag, selectable: slug !== null })),
+    };
   });
 }
 
 async function validateManualTagIds(teamId: number, ids: number[]) {
   const uniqueIds = [...new Set(ids)];
   if (!uniqueIds.length) return [];
-  if (uniqueIds.some((id) => !Number.isSafeInteger(id) || id <= 0)) throw new Error("Invalid manual tags");
+  if (uniqueIds.some((id) => !Number.isSafeInteger(id) || id <= 0))
+    throw new Error("Invalid manual tags");
   const tags = await prisma.assetTag.findMany({
-    where: { teamId, id: { in: uniqueIds }, slug: { not: null } },
+    where: { deletedAt: null, teamId, id: { in: uniqueIds }, slug: { not: null } },
     select: { id: true },
   });
-  if (tags.length !== uniqueIds.length) throw new Error("Selected tags changed. Please select them again.");
+  if (tags.length !== uniqueIds.length)
+    throw new Error("Selected tags changed. Please select them again.");
   return tags.map(({ id }) => id);
 }
 
@@ -215,6 +228,8 @@ export async function fetchAssetsWithAuditItems(
   confidenceFilter?: "high" | "medium" | "low",
   searchQuery?: string,
   timeFilter?: "all" | "today" | "week" | "month",
+  windowOffset: number = 0,
+  windowLimit?: number,
 ): Promise<
   ServerActionResult<{
     assets: AssetWithAuditItemsBatch[];
@@ -222,6 +237,7 @@ export async function fetchAssetsWithAuditItems(
     hasMore: boolean;
     currentPage: number;
     totalPages: number;
+    nextWindowOffset: number | null;
   }>
 > {
   return withAuth(async ({ team: { id: teamId, slug: teamSlug } }) => {
@@ -232,7 +248,11 @@ export async function fetchAssetsWithAuditItems(
         featureLibraryFeatures.featureIp ||
         featureLibraryFeatures.featureProduct ||
         featureLibraryFeatures.featurePerson;
-      const offset = (page - 1) * limit;
+      page = Math.max(1, Math.floor(page) || 1);
+      limit = Math.min(100, Math.max(1, Math.floor(limit) || 10));
+      windowOffset = Math.min(limit, Math.max(0, Math.floor(windowOffset) || 0));
+      const take = Math.min(limit - windowOffset, Math.max(1, Math.floor(windowLimit ?? limit) || 10));
+      const offset = (page - 1) * limit + windowOffset;
 
       // 审核项筛选条件，直接拼成 SQL：Prisma 的 distinct 是在内存里去重的，
       // 会把团队全部审核项拉出来两遍（算总数、取当前页），数据量大时非常慢。
@@ -324,7 +344,7 @@ export async function fetchAssetsWithAuditItems(
           WHERE ${whereSql}
           GROUP BY a."assetObjectId"
           ORDER BY MAX(q."createdAt") DESC, a."assetObjectId" DESC
-          LIMIT ${limit} OFFSET ${offset}
+          LIMIT ${take} OFFSET ${offset}
         `,
         ),
       ]);
@@ -333,6 +353,9 @@ export async function fetchAssetsWithAuditItems(
 
       const totalPages = Math.ceil(totalCount / limit);
       const hasMore = page < totalPages;
+      const consumed = windowOffset + pageRows.length;
+      const nextWindowOffset = consumed < Math.min(limit, Math.max(0, totalCount - (page - 1) * limit))
+        ? consumed : null;
 
       if (assetObjectIds.length === 0) {
         return {
@@ -343,25 +366,42 @@ export async function fetchAssetsWithAuditItems(
             hasMore: false,
             currentPage: page,
             totalPages,
+            nextWindowOffset: null,
           },
         };
       }
 
       // assetIds 已经过滤好，也限制了数量，这里可以直接使用了
-      const assetObjects = await prisma.assetObject.findMany({
+      const assetRows = await prisma.assetObject.findMany({
         where: { teamId, id: { in: assetObjectIds } },
         include: {
           taggingAuditItems: {
-            include: {
-              queueItem: true,
-            },
+            where: { teamId },
             orderBy: [{ score: "desc" }, { createdAt: "desc" }],
           },
         },
       });
+      const queueIds = [...new Set(assetRows.flatMap(asset =>
+        asset.taggingAuditItems.flatMap(audit => audit.queueItemId === null ? [] : [audit.queueItemId]),
+      ))];
+      const queues = queueIds.length
+        ? await prisma.$queryRaw<TaggingQueueItem[]>(reviewQueueItemsQuery(teamId, queueIds))
+        : [];
+      const assetObjects = attachReviewQueues(assetRows, queues);
 
       // 批量同步资产缩略图URL（防止签名过期）
       const team = { id: teamId, slug: teamSlug };
+      const materialIdByAssetObjectId = new Map<number, MuseDAMID>();
+      if (hasEnabledFeatures) {
+        for (const asset of assetObjects) {
+          try { materialIdByAssetObjectId.set(asset.id, slugToId("assetObject", asset.slug)); }
+          catch { /* Local test inputs have no MuseDAM material ID. */ }
+        }
+      }
+      const existingFeaturesPromise = hasEnabledFeatures && materialIdByAssetObjectId.size
+        ? getFeatureByAssetFromMuseDAM({ team, materialIds: [...materialIdByAssetObjectId.values()] })
+            .catch(error => { console.error("批量获取资产已有特征失败:", error); return []; })
+        : Promise.resolve([]);
       const musedamAssetIds = assetObjects
         .map((assetObject) => {
           try {
@@ -411,11 +451,15 @@ export async function fetchAssetsWithAuditItems(
             assetObject !== undefined,
         );
 
+      const thresholds = await getFeatureThresholds(teamId);
+      const pendingQueueIds = new Set(updatedAssetObjects.flatMap(asset => asset.taggingAuditItems
+        .filter(audit => audit.status === "pending").map(audit => audit.queueItemId)));
+      for (const queue of queues) {
+        if (pendingQueueIds.has(queue.id)) queue.result = rethresholdFeatures(queue.result, thresholds) as Prisma.JsonObject;
+      }
       const featureLibrary = await loadReviewFeatureLibrary(
         teamId,
-        updatedAssetObjects.flatMap((asset) =>
-          asset.taggingAuditItems.flatMap(({ queueItem }) => (queueItem ? [queueItem.result] : [])),
-        ),
+        queues.map(queue => queue.result),
         featureLibraryFeatures,
       );
       const availableFeatureIds: ReviewAvailableFeatureIds = {
@@ -442,48 +486,22 @@ export async function fetchAssetsWithAuditItems(
       }
       const featureThumbnails = await loadFeatureThumbnails(thumbnailIds);
 
-      const materialIdByAssetObjectId = new Map<number, MuseDAMID>();
-      if (hasEnabledFeatures) {
-        for (const assetObject of updatedAssetObjects) {
-          try {
-            materialIdByAssetObjectId.set(
-              assetObject.id,
-              slugToId("assetObject", assetObject.slug),
-            );
-          } catch {
-            // skip assets without a valid MuseDAM slug
-          }
-        }
-      }
-
       const featuresByMaterialId = new Map<number, MuseDAMMaterialFeatureSnapshot[]>();
-      const materialIdsForFeatures = [...materialIdByAssetObjectId.values()];
-      if (hasEnabledFeatures && materialIdsForFeatures.length > 0) {
-        try {
-          const featureEntries = await getFeatureByAssetFromMuseDAM({
-            team,
-            materialIds: materialIdsForFeatures,
-          });
-          for (const entry of featureEntries) {
-            featuresByMaterialId.set(
-              entry.materialId,
-              (entry.features ?? []).filter((feature) =>
-                isFeatureTypeEnabled(featureLibraryFeatures, feature.featureType),
-              ),
-            );
-          }
-        } catch (error) {
-          console.error("批量获取资产已有特征失败:", error);
-        }
+      for (const entry of await existingFeaturesPromise) {
+        featuresByMaterialId.set(entry.materialId, (entry.features ?? []).filter(feature =>
+          isFeatureTypeEnabled(featureLibraryFeatures, feature.featureType),
+        ));
       }
 
       const results: AssetWithAuditItemsBatch[] = [];
 
+      const updatedById = new Map(updatedAssetObjects.map(asset => [asset.id, asset]));
       for (const assetObjectId of assetObjectIds) {
-        const assetObject = updatedAssetObjects.find(({ id }) => id === assetObjectId);
+        const assetObject = updatedById.get(assetObjectId);
         if (!assetObject) continue;
+        const { taggingAuditItems, ...assetRecord } = assetObject;
         const batch: AssetWithAuditItemsBatch["batch"] = [];
-        for (const { queueItem, tagPath, ...taggingAuditItem } of assetObject.taggingAuditItems) {
+        for (const { queueItem, tagPath, ...taggingAuditItem } of taggingAuditItems) {
           if (!queueItem) continue;
           if (
             !isDisplayedAuditItem(
@@ -501,7 +519,7 @@ export async function fetchAssetsWithAuditItems(
               queueItem: {
                 ...queueItem,
                 result: filterFeatureLibraryRecommendations(
-                  assetObject.taggingAuditItems.some(
+                  taggingAuditItems.some(
                     (item) => item.queueItem?.id === queueItem.id && item.status === "pending",
                   )
                     ? hydrateReviewFeatures(queueItem.result, featureLibrary)
@@ -563,7 +581,8 @@ export async function fetchAssetsWithAuditItems(
               : [];
 
           results.push({
-            assetObject,
+            // Do not serialize the entire joined audit/queue graph again inside the asset.
+            assetObject: assetRecord,
             existingFeatures,
             availableFeatureIds,
             featureThumbnails,
@@ -580,6 +599,7 @@ export async function fetchAssetsWithAuditItems(
           hasMore,
           currentPage: page,
           totalPages,
+          nextWindowOffset,
         },
       };
     } catch (error) {
@@ -626,7 +646,9 @@ export async function approveAuditItemsAction({
       try {
         const synced = await syncSingleAssetFromMuseDAM({ musedamAssetId, team });
         if (synced?.musedamAsset && "tags" in synced.musedamAsset) {
-          existingTagSlugs = (synced.musedamAsset.tags ?? []).map(({ id }) => idToSlug("assetTag", id));
+          existingTagSlugs = (synced.musedamAsset.tags ?? []).map(({ id }) =>
+            idToSlug("assetTag", id),
+          );
         }
       } catch (error) {
         if (error instanceof Error && error.message === "Asset not found") {
@@ -655,7 +677,10 @@ export async function approveAuditItemsAction({
         },
         include: { queueItem: true },
       });
-      if ((manualTagIds.length > 0 && storedAuditItems.length === 0) || storedAuditItems.length !== new Set(auditItems.map(({ id }) => id)).size) {
+      if (
+        (manualTagIds.length > 0 && storedAuditItems.length === 0) ||
+        storedAuditItems.length !== new Set(auditItems.map(({ id }) => id)).size
+      ) {
         return { success: false, message: "Invalid review items" };
       }
       const queueResults = [
@@ -665,6 +690,11 @@ export async function approveAuditItemsAction({
           ),
         ).values(),
       ].filter((queueItem) => featureReviewVersions[queueItem.id] !== undefined);
+      const thresholds = await getFeatureThresholds(teamId);
+      const pendingIds = new Set(storedAuditItems.filter(a => a.status === "pending").map(a => a.queueItemId));
+      for (const queue of queueResults) {
+        if (pendingIds.has(queue.id)) queue.result = rethresholdFeatures(queue.result, thresholds) as Prisma.JsonObject;
+      }
       const featureLibrary = await loadReviewFeatureLibrary(
         teamId,
         queueResults.map(({ result }) => result),
@@ -707,6 +737,7 @@ export async function approveAuditItemsAction({
 
       const approvedAsetTags = await prisma.assetTag.findMany({
         where: {
+          deletedAt: null,
           teamId,
           id: {
             in: combinedApprovedTagIds,
@@ -780,7 +811,10 @@ export async function approveAuditItemsAction({
       const tagReview = createTagReviewSnapshot({
         existingTagSlugs,
         appliedTags: approvedAsetTags,
-        manualTagIds: [...validatedManualTagIds, ...manualFeatures.flatMap((feature) => feature.tags.map((tag) => tag.assetTagId))],
+        manualTagIds: [
+          ...validatedManualTagIds,
+          ...manualFeatures.flatMap((feature) => feature.tags.map((tag) => tag.assetTagId)),
+        ],
       });
       stage = "save-review";
       await prisma.$transaction(async (tx) => {
@@ -1008,16 +1042,15 @@ export async function batchApproveAuditItemsAction({
         );
 
       const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
-      const existingMuseDAMAssets = await requestMuseDAMAPI<Array<{ id: MuseDAMID; tags?: { id: MuseDAMID; name: string }[] | null }>>(
-        "/api/muse/assets-by-ids",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${musedamTeamApiKey}`,
-          },
-          body: assetRefs.map(({ musedamAssetId }) => musedamAssetId),
+      const existingMuseDAMAssets = await requestMuseDAMAPI<
+        Array<{ id: MuseDAMID; tags?: { id: MuseDAMID; name: string }[] | null }>
+      >("/api/muse/assets-by-ids", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${musedamTeamApiKey}`,
         },
-      );
+        body: assetRefs.map(({ musedamAssetId }) => musedamAssetId),
+      });
       const existingMuseDAMAssetIds = new Set(
         existingMuseDAMAssets.map((asset) => asset.id.toString()),
       );
@@ -1035,6 +1068,10 @@ export async function batchApproveAuditItemsAction({
           queueItem: true,
         },
       });
+      const thresholds = await getFeatureThresholds(teamId);
+      for (const audit of auditItems) {
+        if (audit.queueItem) audit.queueItem.result = rethresholdFeatures(audit.queueItem.result, thresholds) as Prisma.JsonObject;
+      }
       const featureLibrary = await loadReviewFeatureLibrary(
         teamId,
         auditItems.flatMap(({ queueItem }) => (queueItem ? [queueItem.result] : [])),
@@ -1064,7 +1101,10 @@ export async function batchApproveAuditItemsAction({
         }
         let validatedManualTagIds: number[];
         try {
-          validatedManualTagIds = await validateManualTagIds(teamId, assetObject.manualTagIds ?? []);
+          validatedManualTagIds = await validateManualTagIds(
+            teamId,
+            assetObject.manualTagIds ?? [],
+          );
         } catch {
           failedCount++;
           continue;
@@ -1151,7 +1191,11 @@ export async function batchApproveAuditItemsAction({
           feature.tags.map((tag) => tag.assetTagId),
         );
 
-        if (finalAssetAuditItems.length === 0 && selectedFeatures.length === 0 && validatedManualTagIds.length === 0) {
+        if (
+          finalAssetAuditItems.length === 0 &&
+          selectedFeatures.length === 0 &&
+          validatedManualTagIds.length === 0
+        ) {
           failedCount++;
           continue;
         }
@@ -1174,6 +1218,7 @@ export async function batchApproveAuditItemsAction({
 
         const approvedAssetTags = await prisma.assetTag.findMany({
           where: {
+            deletedAt: null,
             teamId,
             id: {
               in: combinedApprovedTagIds,
@@ -1231,12 +1276,19 @@ export async function batchApproveAuditItemsAction({
           continue;
         }
 
-        const beforeAsset = existingMuseDAMAssets.find((asset) => asset.id.toString() === musedamAssetId.toString());
+        const beforeAsset = existingMuseDAMAssets.find(
+          (asset) => asset.id.toString() === musedamAssetId.toString(),
+        );
         const tagReview = createTagReviewSnapshot({
-          existingTagSlugs: beforeAsset && "tags" in beforeAsset
-            ? (beforeAsset.tags ?? []).map(({ id }) => idToSlug("assetTag", id)) : null,
+          existingTagSlugs:
+            beforeAsset && "tags" in beforeAsset
+              ? (beforeAsset.tags ?? []).map(({ id }) => idToSlug("assetTag", id))
+              : null,
           appliedTags: approvedAssetTags,
-          manualTagIds: [...validatedManualTagIds, ...manualFeatures.flatMap((feature) => feature.tags.map((tag) => tag.assetTagId))],
+          manualTagIds: [
+            ...validatedManualTagIds,
+            ...manualFeatures.flatMap((feature) => feature.tags.map((tag) => tag.assetTagId)),
+          ],
         });
         await prisma.$transaction(async (tx) => {
           await tx.taggingAuditItem.updateMany({

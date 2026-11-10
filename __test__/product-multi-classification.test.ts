@@ -74,6 +74,7 @@ async function classify(count: number) {
   return classifyProductImageCrops({
     teamId: 7,
     crops: Array.from({ length: count }, (_, index) => crop(index)),
+    confidenceThreshold: 80,
   });
 }
 
@@ -126,6 +127,14 @@ describe("product classification per detected object", () => {
     expect(result.detections[0].topMatches).toHaveLength(2);
   });
 
+  it("retains equal-scoring identities as diagnostics instead of choosing by product ID", async () => {
+    setup([[{ id: "p1", image: 0.92 }, { id: "p2", image: 0.92 }]]);
+    const result = await classify(1);
+    expect(result.matches).toEqual([]);
+    expect(result.detections[0].noConfidentMatch).toBe(true);
+    expect(result.detections[0].topMatches).toHaveLength(2);
+  });
+
   it("does not promote repeated weak detections using evidence from other boxes", async () => {
     setup(Array.from({ length: 5 }, () => [{ id: "p1", image: 0.77 }]));
     const result = await classify(5);
@@ -144,6 +153,7 @@ describe("product classification per detected object", () => {
     const result = await classifyProductImageCrops({
       teamId: 7,
       crops: [crop(0, "phone"), crop(1, "bottle"), crop(2), crop(3)],
+      confidenceThreshold: 80,
     });
     expect(result.detections.map((detection) => detection.bestMatch?.confidence)).toEqual([
       76, 76, 99, 70,
@@ -331,6 +341,7 @@ function savedMatch(id: string, confidence: number, index = 0): TaggingProductBe
 describe("product recommendation compatibility", () => {
   it("normalizes legacy single matches and their historical tag list", () => {
     const legacy: TaggingProductRecommendation = {
+      confidenceThreshold: 80,
       bestMatch: { ...savedMatch("p1", 90), recommendedTags: [] },
       noConfidentMatch: false,
       recommendedTags: [{ assetTagId: 11, tagPath: ["legacy"] }],
@@ -339,8 +350,27 @@ describe("product recommendation compatibility", () => {
     expect(getAcceptedProductMatches({ ...legacy, bestMatch: savedMatch("p1", 79) })).toEqual([]);
   });
 
+  it("excludes saved alternatives that share a region with another product winner", () => {
+    const shampoo = savedMatch("shampoo", 94, 0);
+    const conditioner = savedMatch("conditioner", 92, 0);
+    const cream = savedMatch("cream", 95, 1);
+    const lotion = savedMatch("lotion", 85, 1);
+    const filename = { ...savedMatch("filename", 100, -1), matchingSource: "assetName" as const };
+    const recommendation: TaggingProductRecommendation = {
+      matches: [shampoo, conditioner, cream, lotion, filename],
+      bestMatch: cream, noConfidentMatch: false, recommendedTags: [],
+      detections: [shampoo, cream].map((bestMatch, index) => ({
+        detectionIndex: index, sourceDetectionIndices: [index],
+        box: crop(index).box, bestMatch, topMatches: [bestMatch], noConfidentMatch: false,
+      })),
+    };
+    expect(getAcceptedProductMatches(recommendation).map((match) => match.assetProductId))
+      .toEqual(["filename", "cream", "shampoo"]);
+  });
+
   it("treats an explicit empty match list as authoritative", () => {
     const result: TaggingProductRecommendation = {
+      confidenceThreshold: 80,
       matches: [],
       bestMatch: savedMatch("old", 99),
       noConfidentMatch: true,
@@ -355,6 +385,7 @@ describe("product recommendation compatibility", () => {
     const stronger = savedMatch("p1", 95, 1);
     const second = { ...savedMatch("p2", 90, 2), recommendedTags: [] };
     const result: TaggingProductRecommendation = {
+      confidenceThreshold: 80,
       matches: [first, stronger, second, savedMatch("weak", 79)],
       bestMatch: stronger,
       noConfidentMatch: false,

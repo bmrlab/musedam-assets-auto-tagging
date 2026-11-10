@@ -1,3 +1,4 @@
+import { queueAbortSignal } from "@/lib/tagging/queue-execution";
 import "server-only";
 
 import { bufferToDataUrl } from "@/lib/brand/image";
@@ -409,10 +410,9 @@ export async function fetchRemoteImageSource(
   let response: Response;
   try {
     response = await fetch(imageUrl, {
-      signal: AbortSignal.any([
-        abortController.signal,
-        AbortSignal.timeout(IMAGE_FETCH_TIMEOUT_MS),
-      ]),
+      signal: queueAbortSignal(
+        AbortSignal.any([abortController.signal, AbortSignal.timeout(IMAGE_FETCH_TIMEOUT_MS)]),
+      ),
     });
   } catch (error) {
     rootLogger.warn({

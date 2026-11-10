@@ -8,6 +8,7 @@ import { getTaggingSettings } from "@/app/(tagging)/tagging/settings/lib";
 import { toFeatureClassificationFlags } from "@/lib/feature-library";
 import { getFeatureLibraryFeaturesFromRequest } from "@/lib/feature-library-server";
 import { idToSlug } from "@/lib/slug";
+import { getTaggingCreditCost } from "@/lib/tagging-credit";
 import {
   apiFeatureToggleRequestSchema,
   apiRecognitionAccuracySchema,
@@ -104,6 +105,7 @@ export async function POST(request: NextRequest) {
         data: {
           message: "Auto tagging is not enabled",
           queueItemId: null,
+          creditCost: 0,
           status: null,
         },
       });
@@ -115,6 +117,7 @@ export async function POST(request: NextRequest) {
         data: {
           message: "Tagging auto realtime is not enabled",
           queueItemId: null,
+          creditCost: 0,
           status: null,
         },
       });
@@ -151,6 +154,7 @@ export async function POST(request: NextRequest) {
           data: {
             message: `Asset ${musedamAssetId} is not in the selected folders`,
             queueItemId: null,
+            creditCost: 0,
             status: null,
           },
         },
@@ -190,6 +194,7 @@ export async function POST(request: NextRequest) {
             data: {
               message: "Default tagging task was cancelled by user",
               queueItemId: null,
+              creditCost: 0,
               status: null,
             },
           });
@@ -211,6 +216,8 @@ export async function POST(request: NextRequest) {
                 endsAt: null,
                 result: {},
                 extra: {
+                  featureImageMode: (existingDefaultQueueItem.extra as TaggingQueueItemExtra | null)?.featureImageMode,
+                  creditCost: (existingDefaultQueueItem.extra as TaggingQueueItemExtra | null)?.creditCost,
                   matchingSources,
                   recognitionAccuracy,
                   featureClassify,
@@ -228,6 +235,7 @@ export async function POST(request: NextRequest) {
             data: {
               message: "Default tagging task re-queued with latest asset data",
               queueItemId: null,
+              creditCost: 0,
               status: null,
             },
           });
@@ -260,6 +268,7 @@ export async function POST(request: NextRequest) {
             data: {
               message: "Default tagging task is processing; rerun requested with latest asset data",
               queueItemId: null,
+              creditCost: 0,
               status: null,
             },
           });
@@ -270,6 +279,7 @@ export async function POST(request: NextRequest) {
           data: {
             message: "Default tagging task already exists for asset",
             queueItemId: null,
+            creditCost: 0,
             status: null,
           },
         });
@@ -285,6 +295,7 @@ export async function POST(request: NextRequest) {
         featureClassify,
         featureClassifications,
         taskType: triggerType,
+        featureImageMode: settings.featureImageMode,
       });
 
       return NextResponse.json({
@@ -292,6 +303,7 @@ export async function POST(request: NextRequest) {
         data: {
           message: "Asset tagging task enqueued successfully",
           queueItemId: taggingQueueItem.id,
+          creditCost: getTaggingCreditCost(settings.featureImageMode),
           status: taggingQueueItem.status,
         },
       });

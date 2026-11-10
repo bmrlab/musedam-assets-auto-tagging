@@ -1,3 +1,5 @@
+import { findProductNameMatches } from "./product-name-evidence";
+import { deduplicateProductMatches } from "./product-match-policy";
 import { classifyAssetFeatures, getFeatureDecisionMode } from "@/lib/feature-decision/classify";
 import { buildFeatureRecommendations } from "@/lib/feature-decision/recommendations";
 import "server-only";
@@ -14,6 +16,7 @@ import {
   normalizeRecommendedTags,
 } from "@/lib/tagging/classification-image";
 import { TaggingProductRecommendation } from "@/prisma/client";
+import { getFeatureThresholds } from "@/lib/tagging/feature-threshold-settings";
 import prisma from "@/prisma/prisma";
 
 export async function classifyAssetProductRecommendation({
@@ -56,6 +59,7 @@ export async function classifyAssetProductRecommendation({
     });
     return (await buildFeatureRecommendations(result)).productRecommendation;
   }
+  const confidenceThreshold = (await getFeatureThresholds(teamId)).product;
   const detection = await detectProductFigureBoxes({
     teamId,
     imageInput,
@@ -69,18 +73,23 @@ export async function classifyAssetProductRecommendation({
     teamId,
     imageInput,
     boxes: candidateBoxes,
+    confidenceThreshold,
   });
 
   const normalizeMatch = <T extends ProductTopMatch>(match: T) => ({
     ...match,
     recommendedTags: normalizeRecommendedTags(match.recommendedTags),
   });
-  const matches = result.matches.map(normalizeMatch);
+  const matches = deduplicateProductMatches([
+    ...(await findProductNameMatches(teamId, fileName)).map(normalizeMatch),
+    ...result.matches.map(normalizeMatch),
+  ]);
   const recommendedTags = normalizeRecommendedTags(
-    result.matches.flatMap((match) => match.recommendedTags),
+    matches.flatMap((match) => match.recommendedTags),
   );
 
   return {
+    confidenceThreshold,
     decisionSource: "legacy",
     noConfidentMatch: matches.length === 0,
     rawDetections: result.rawDetections,
@@ -90,7 +99,7 @@ export async function classifyAssetProductRecommendation({
       topMatches: detection.topMatches.map(normalizeMatch),
       bestMatch: detection.bestMatch ? normalizeMatch(detection.bestMatch) : null,
     })),
-    bestMatch: result.bestMatch ? normalizeMatch(result.bestMatch) : null,
+    bestMatch: matches[0] ?? (result.bestMatch ? normalizeMatch(result.bestMatch) : null),
     recommendedTags,
   };
 }

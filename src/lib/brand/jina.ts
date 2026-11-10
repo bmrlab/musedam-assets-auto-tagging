@@ -1,3 +1,4 @@
+import { queueAbortSignal, queueSleep, throwIfQueueAborted } from "@/lib/tagging/queue-execution";
 import "server-only";
 
 import { getJinaConfig, isDebugPageEnabled } from "@/lib/brand/env";
@@ -14,7 +15,9 @@ type JinaEmbeddingRecord = {
 
 type JinaResponse = {
   data?: JinaEmbeddingRecord[];
-  detail?: string;
+  detail?: unknown;
+  error?: { message?: string; type?: string; code?: string };
+  request_id?: string;
 };
 
 const JINA_MAX_RETRIES = 5;
@@ -32,15 +35,55 @@ const jinaRequestConcurrencyLimit = pLimit(JINA_REQUEST_CONCURRENCY);
 const jinaRequestPacingLimit = pLimit(1);
 let nextJinaRequestAt = 0;
 
-function sleep(ms: number) {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
+const sleep = queueSleep;
+
+class JinaRequestError extends Error {
+  constructor(
+    message: string,
+    readonly retryable: boolean,
+    options?: ErrorOptions,
+  ) {
+    super(`Jina embeddings request failed: ${message}`, options);
+    this.name = "JinaRequestError";
+  }
+}
+
+// Providers may echo request inputs in errors. Keep diagnostics bounded and omit image data.
+function sanitizeDiagnostic(value: string) {
+  return value.replace(/data:[^\s"'<>]+/gi, "[image data redacted]").slice(0, 4000);
+}
+
+function getErrorMessage(error: unknown): string {
+  return error &&
+    typeof error === "object" &&
+    "message" in error &&
+    typeof error.message === "string"
+    ? error.message
+    : String(error);
+}
+
+function logRequestFailure(error: unknown, context: Record<string, unknown>, retry: boolean) {
+  const diagnostic = {
+    ...context,
+    retry,
+    message: sanitizeDiagnostic(getErrorMessage(error)),
+    cause:
+      error instanceof Error && error.cause instanceof Error
+        ? sanitizeDiagnostic(error.cause.message)
+        : undefined,
+  };
+  if (retry) console.warn("[Jina embeddings] Request failed; retrying", diagnostic);
+  else console.error("[Jina embeddings] Request failed", diagnostic);
 }
 
 function shouldRetryJinaRequest(error: unknown) {
-  const message = error instanceof Error ? error.message : String(error);
+  if (error instanceof JinaRequestError) return error.retryable;
+  const message = getErrorMessage(error);
   return (
+    (error !== null &&
+      typeof error === "object" &&
+      "name" in error &&
+      error.name === "TimeoutError") ||
     message.includes("fetch failed") ||
     message.includes("ECONNRESET") ||
     message.includes("ETIMEDOUT") ||
@@ -80,7 +123,9 @@ async function sendJinaEmbeddingRequest({
       )
     : 0;
 
+  throwIfQueueAborted();
   return jinaRequestConcurrencyLimit(async () => {
+    throwIfQueueAborted();
     await jinaRequestPacingLimit(async () => {
       while (nextJinaRequestAt > Date.now()) {
         await sleep(nextJinaRequestAt - Date.now());
@@ -88,6 +133,7 @@ async function sendJinaEmbeddingRequest({
       nextJinaRequestAt = Date.now() + requestIntervalMs;
     });
 
+    throwIfQueueAborted();
     const response = await nodeFetch(config.embeddingsUrl, {
       method: "POST",
       headers: {
@@ -95,13 +141,58 @@ async function sendJinaEmbeddingRequest({
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(config.timeoutMs),
+      signal: queueAbortSignal(AbortSignal.timeout(config.timeoutMs)),
       dispatcher: proxyAgent,
     });
-    const payload = (await response.json().catch(() => null)) as JinaResponse | null;
+    const rawBody = await response.text();
+    let payload: JinaResponse | null = null;
+    try {
+      const parsed: unknown = JSON.parse(rawBody);
+      if (parsed && typeof parsed === "object") payload = parsed as JinaResponse;
+    } catch {
+      // Preserve a bounded diagnostic for HTML/plain-text gateway failures below.
+    }
     if (response.status === 429) {
       const retryDelayMs = getRetryAfterMs(response) ?? JINA_RATE_LIMIT_RETRY_DELAY_MS;
       nextJinaRequestAt = Math.max(nextJinaRequestAt, Date.now() + retryDelayMs);
+    }
+    const validData =
+      Array.isArray(payload?.data) &&
+      payload.data.length === inputCount &&
+      payload.data.every(
+        (item) =>
+          item &&
+          Number.isInteger(item.index) &&
+          item.index >= 0 &&
+          item.index < inputCount &&
+          Array.isArray(item.embedding) &&
+          item.embedding.length > 0 &&
+          item.embedding.every(Number.isFinite),
+      ) &&
+      new Set(payload.data.map((item) => item.index)).size === inputCount;
+    if (!response.ok || payload?.error || !validData) {
+      const detail =
+        payload?.error?.message ||
+        (payload?.detail ? JSON.stringify(payload.detail) : undefined) ||
+        (!response.ok ? rawBody : "Invalid embedding response: missing or malformed vectors");
+      const requestId =
+        payload?.request_id ||
+        response.headers.get("x-request-id") ||
+        response.headers.get("request-id");
+      throw new JinaRequestError(
+        sanitizeDiagnostic(
+          [
+            `HTTP ${response.status}`,
+            payload?.error?.type,
+            payload?.error?.code,
+            requestId ? `request_id=${requestId}` : undefined,
+            detail,
+          ]
+            .filter(Boolean)
+            .join("; "),
+        ),
+        response.status === 429 || response.status >= 500,
+      );
     }
     return { response, payload };
   });
@@ -179,29 +270,31 @@ export async function createJinaImageEmbeddings({
         response = result.response;
         payload = result.payload;
 
-        const retryableStatus = response.status >= 500 || response.status === 429;
-        if (response.ok && payload?.data) {
-          break;
-        }
-
-        const detail = payload?.detail ? `: ${payload.detail}` : "";
-        const responseError = new Error(
-          `Jina embeddings request failed (${response.status})${detail}`,
-        );
-        const isLastAttempt = attempt === JINA_MAX_RETRIES;
-
-        if (!retryableStatus || isLastAttempt) {
-          throw responseError;
-        }
-
-        lastError = responseError;
+        break;
       } catch (error) {
-        const isLastAttempt = attempt === JINA_MAX_RETRIES;
-        if (!shouldRetryJinaRequest(error) || isLastAttempt) {
-          throw error;
-        }
-
-        lastError = error;
+        const retry = shouldRetryJinaRequest(error) && attempt < JINA_MAX_RETRIES;
+        const failure =
+          error instanceof JinaRequestError
+            ? error
+            : new JinaRequestError(sanitizeDiagnostic(getErrorMessage(error)), retry, {
+                cause: error,
+              });
+        logRequestFailure(
+          failure,
+          {
+            endpoint: new URL(config.embeddingsUrl).origin + new URL(config.embeddingsUrl).pathname,
+            model: config.model,
+            inputType: "image",
+            batchStart: start,
+            inputCount: batch.length,
+            attempt,
+            maxAttempts: JINA_MAX_RETRIES,
+            timeoutMs: config.timeoutMs,
+          },
+          retry,
+        );
+        if (!retry) throw failure;
+        lastError = failure;
       }
 
       const backoffMs = JINA_RETRY_BASE_DELAY_MS * 2 ** (attempt - 1);
@@ -256,29 +349,31 @@ export async function createJinaTextEmbeddings({
         response = result.response;
         payload = result.payload;
 
-        const retryableStatus = response.status >= 500 || response.status === 429;
-        if (response.ok && payload?.data) {
-          break;
-        }
-
-        const detail = payload?.detail ? `: ${payload.detail}` : "";
-        const responseError = new Error(
-          `Jina embeddings request failed (${response.status})${detail}`,
-        );
-        const isLastAttempt = attempt === JINA_MAX_RETRIES;
-
-        if (!retryableStatus || isLastAttempt) {
-          throw responseError;
-        }
-
-        lastError = responseError;
+        break;
       } catch (error) {
-        const isLastAttempt = attempt === JINA_MAX_RETRIES;
-        if (!shouldRetryJinaRequest(error) || isLastAttempt) {
-          throw error;
-        }
-
-        lastError = error;
+        const retry = shouldRetryJinaRequest(error) && attempt < JINA_MAX_RETRIES;
+        const failure =
+          error instanceof JinaRequestError
+            ? error
+            : new JinaRequestError(sanitizeDiagnostic(getErrorMessage(error)), retry, {
+                cause: error,
+              });
+        logRequestFailure(
+          failure,
+          {
+            endpoint: new URL(config.embeddingsUrl).origin + new URL(config.embeddingsUrl).pathname,
+            model: config.model,
+            inputType: "text",
+            batchStart: start,
+            inputCount: batch.length,
+            attempt,
+            maxAttempts: JINA_MAX_RETRIES,
+            timeoutMs: config.timeoutMs,
+          },
+          retry,
+        );
+        if (!retry) throw failure;
+        lastError = failure;
       }
 
       const backoffMs = JINA_RETRY_BASE_DELAY_MS * 2 ** (attempt - 1);

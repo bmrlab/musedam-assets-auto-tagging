@@ -114,6 +114,7 @@
     "candidateFeatures": "Кандидатные признаки",
     "candidateFeaturesDescription": "Уверенность 60%-79%",
     "noRecognizedTags": "Нет распознанных тегов",
+    "featureRecognitionIncomplete": "Feature recognition did not finish. Results may be incomplete; please retry.",
     "noRecognizedFeatures": "Нет распознанных признаков",
     "featureConfidenceNotCredible": "Для текущего изображения не найдено совпадений в существующей библиотеке признаков; возможно, этот признак ещё не добавлен.",
     "videoFeatureLibraryLimited": "Нет распознанных признаков: Текущая библиотека признаков имеет ограниченные возможности распознавания типов видеофайлов и поддерживает сопоставление только по первому кадру видео.",
@@ -123,6 +124,7 @@
     "featureClassProduct": "Товар",
     "ipRecognition": "Распознавание IP-персонажа",
     "personRecognition": "Распознавание персоны",
+    "productNameMatch": "Совпадение названия товара",
     "productRecognition": "Распознавание товара"
   },
   "TagsPage": {

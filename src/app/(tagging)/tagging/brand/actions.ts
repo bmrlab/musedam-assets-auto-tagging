@@ -1,5 +1,6 @@
 "use server";
 
+import { kickQueueProcessing } from "@/app/(tagging)/queue";
 import { classifyAssetFeatures } from "@/lib/feature-decision/classify";
 import { getDetectionDebugRequestMode } from "@/lib/media-process/debug-request-mode";
 import { signObjectDetectionImageUrl } from "@/lib/media-process/image-url";
@@ -18,6 +19,7 @@ import {
   processAssetLogoReferenceVectors,
 } from "@/lib/brand/logo-processing";
 import { deleteLogoVectorPointsByLogo, setLogoVectorPayloadByLogo } from "@/lib/brand/pgvector";
+import { requeuePendingBrandReviewResults } from "@/lib/brand/review-refresh";
 import {
   MAX_CLIENT_IMAGE_UPLOAD_BYTES,
   MAX_TOTAL_NEW_REFERENCE_UPLOAD_BYTES,
@@ -114,6 +116,8 @@ const createOrUpdateLogoSchema = z.object({
   logoTypeId: z.string().uuid(),
   tagIds: z.array(z.number().int().positive()).min(1, "tagsRequired").max(100),
   notes: z.string().max(5000).default(""),
+  referenceMatchStrategy: z.enum(["highest", "average"]).default("highest"),
+  refreshPendingReviewResults: z.boolean().default(false),
   existingImageIds: z.array(z.string().uuid()).max(100).default([]),
   assetLibraryDownloadUrls: z.array(z.string().url()).max(100).default([]),
   assetLibraryUploadedImages: z
@@ -248,6 +252,7 @@ function normalizeBrandLogo(logo: AssetLogoRecord): BrandLogoItem {
     processedAt: logo.processedAt,
     enabled: logo.enabled,
     notes: logo.notes,
+    referenceMatchStrategy: logo.referenceMatchStrategy === "average" ? "average" : "highest",
     createdAt: logo.createdAt,
     updatedAt: logo.updatedAt,
     images: logo.images
@@ -389,10 +394,7 @@ async function ensureDefaultLogoTypes(teamId: number, locale: string) {
 
 async function fetchBrandTags(teamId: number) {
   const tags = await prisma.assetTag.findMany({
-    where: {
-      teamId,
-      parentId: null,
-    },
+    where: { deletedAt: null, teamId, parentId: null },
     orderBy: [{ sort: "desc" }, { name: "asc" }],
     include: buildChildrenInclude(MAX_TAG_LEVEL - 1, {
       orderBy: [{ sort: "desc" }, { name: "asc" }],
@@ -413,6 +415,7 @@ async function fetchBrandLogos(teamId: number) {
         orderBy: [{ sort: "asc" }, { id: "asc" }],
       },
       tags: {
+        where: { OR: [{ assetTagId: null }, { assetTag: { deletedAt: null } }] },
         orderBy: [{ sort: "asc" }, { id: "asc" }],
       },
     },
@@ -445,6 +448,7 @@ async function resolveSelectedTags(teamId: number, tagIds: number[]) {
 
   const tags = await prisma.assetTag.findMany({
     where: {
+      deletedAt: null,
       teamId,
       id: {
         in: uniqueTagIds,
@@ -691,9 +695,7 @@ function parseBrandBatchFile({
 
 async function buildTagPathLookup(teamId: number) {
   const tags = await prisma.assetTag.findMany({
-    where: {
-      teamId,
-    },
+    where: { deletedAt: null, teamId },
     include: buildParentInclude(),
   });
   const tagLookup = new Map<
@@ -1048,6 +1050,8 @@ function parseCreateOrUpdateInput(formData: FormData) {
     logoTypeId: formData.get("logoTypeId"),
     tagIds: parseJsonField<number[]>(formData.get("tagIds"), []),
     notes: typeof formData.get("notes") === "string" ? formData.get("notes") : "",
+    referenceMatchStrategy: formData.get("referenceMatchStrategy") ?? "highest",
+    refreshPendingReviewResults: formData.get("refreshPendingReviewResults") === "true",
     existingImageIds: parseJsonField<string[]>(formData.get("existingImageIds"), []),
     assetLibraryDownloadUrls: parseJsonField<string[]>(
       formData.get("assetLibraryDownloadUrls"),
@@ -1193,6 +1197,7 @@ async function loadBrandLogo(teamId: number, logoId: string) {
         orderBy: [{ sort: "asc" }, { id: "asc" }],
       },
       tags: {
+        where: { OR: [{ assetTagId: null }, { assetTag: { deletedAt: null } }] },
         orderBy: [{ sort: "asc" }, { id: "asc" }],
       },
     },
@@ -1223,6 +1228,7 @@ async function loadBrandLogosByIds(teamId: number, logoIds: string[]) {
         orderBy: [{ sort: "asc" }, { id: "asc" }],
       },
       tags: {
+        where: { OR: [{ assetTagId: null }, { assetTag: { deletedAt: null } }] },
         orderBy: [{ sort: "asc" }, { id: "asc" }],
       },
     },
@@ -1231,13 +1237,26 @@ async function loadBrandLogosByIds(teamId: number, logoIds: string[]) {
   return logos.map((logo) => normalizeBrandLogo(logo));
 }
 
-function scheduleAssetLogoProcessing(teamId: number, logoId: string) {
+function scheduleAssetLogoProcessing(
+  teamId: number,
+  logoId: string,
+  options: { refreshPendingReviewResults?: boolean } = {},
+) {
   after(async () => {
     try {
       await processAssetLogoReferenceVectors({
         teamId,
         logoId,
       });
+      if (options.refreshPendingReviewResults) {
+        const requeued = await requeuePendingBrandReviewResults(teamId);
+        if (requeued > 0) kickQueueProcessing();
+        console.info("Requeued pending brand review results after match strategy change", {
+          teamId,
+          logoId,
+          requeued,
+        });
+      }
     } catch (error) {
       console.error("Failed to process asset logo vectors:", error);
     }
@@ -1321,6 +1340,7 @@ async function queryBrandLogosPage(
           orderBy: [{ sort: "asc" }, { id: "asc" }],
         },
         tags: {
+          where: { OR: [{ assetTagId: null }, { assetTag: { deletedAt: null } }] },
           orderBy: [{ sort: "asc" }, { id: "asc" }],
         },
       },
@@ -1696,6 +1716,7 @@ export async function createAssetLogoAction(
           logoTypeId: logoType.id,
           logoTypeName: logoType.name,
           notes: input.notes,
+          referenceMatchStrategy: input.referenceMatchStrategy,
           status: "pending",
           processingError: null,
           enabled: true,
@@ -1842,6 +1863,7 @@ export async function updateAssetLogoAction(
             logoTypeId: logoType.id,
             logoTypeName: logoType.name,
             notes: input.notes,
+            referenceMatchStrategy: input.referenceMatchStrategy,
             status: "pending",
             processingError: null,
             processedAt: null,
@@ -1917,7 +1939,10 @@ export async function updateAssetLogoAction(
       });
 
       const updatedLogo = await loadBrandLogo(team.id, logo.id);
-      scheduleAssetLogoProcessing(team.id, logo.id);
+      const strategyChanged = logo.referenceMatchStrategy !== input.referenceMatchStrategy;
+      scheduleAssetLogoProcessing(team.id, logo.id, {
+        refreshPendingReviewResults: strategyChanged && input.refreshPendingReviewResults,
+      });
       schedulePushFeatureToMuseDAM({
         team,
         featureType: "brand",
@@ -2115,6 +2140,81 @@ export async function setAssetLogosEnabledAction(
     } catch (error) {
       console.error("Failed to batch toggle asset logo enabled:", error);
       return { success: false, message: t("toggleEnabledFailed") };
+    }
+  });
+}
+
+export async function setAssetLogosMatchStrategyAction(
+  ids: string[],
+  strategy: "highest" | "average",
+  refreshPendingReviewResults = false,
+): Promise<
+  ServerActionResult<{ logos: BrandLogoItem[]; failedIds: string[]; updatedCount: number }>
+> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    const t = await getBrandLibraryTranslations();
+    if (!Array.isArray(ids) || ids.length > BATCH_LOGOS_MAX) {
+      return { success: false, message: t("batchMatchStrategyFailed") };
+    }
+    if (strategy !== "highest" && strategy !== "average") {
+      return { success: false, message: t("batchMatchStrategyFailed") };
+    }
+
+    try {
+      const uniqueIds = Array.from(new Set(ids)).filter(
+        (id) => typeof id === "string" && BATCH_ID_PATTERN.test(id),
+      );
+      const owned = await prisma.assetLogo.findMany({
+        where: { teamId, id: { in: uniqueIds } },
+        select: { id: true, referenceMatchStrategy: true },
+      });
+      const ownedIds = owned.map((logo) => logo.id);
+      const ownedIdSet = new Set(ownedIds);
+      const failedIds = Array.from(new Set(ids)).filter((id) => !ownedIdSet.has(id));
+      const idsToUpdate = owned
+        .filter((logo) => logo.referenceMatchStrategy !== strategy)
+        .map((logo) => logo.id);
+
+      if (idsToUpdate.length > 0) {
+        await prisma.assetLogo.updateMany({
+          where: { teamId, id: { in: idsToUpdate } },
+          data: { referenceMatchStrategy: strategy },
+        });
+      }
+
+      if (idsToUpdate.length > 0 && refreshPendingReviewResults) {
+        after(async () => {
+          try {
+            const requeued = await requeuePendingBrandReviewResults(teamId);
+            if (requeued > 0) kickQueueProcessing();
+            console.info(
+              "Requeued pending brand review results after batch match strategy change",
+              {
+                teamId,
+                updatedCount: idsToUpdate.length,
+                requeued,
+              },
+            );
+          } catch (error) {
+            console.error(
+              "Failed to refresh pending brand review results after batch match strategy change:",
+              error,
+            );
+          }
+        });
+      }
+
+      return {
+        success: true,
+        data: {
+          logos: await loadBrandLogosByIds(teamId, ownedIds),
+          failedIds,
+          updatedCount: idsToUpdate.length,
+        },
+      };
+    } catch (error) {
+      console.error("Failed to batch update asset logo match strategy:", error);
+      return { success: false, message: t("batchMatchStrategyFailed") };
     }
   });
 }
@@ -2363,7 +2463,7 @@ export async function classifyBrandImageAction(input: {
           objectKey: z.string().trim().min(1),
           mimeType: z.string().trim().min(1).max(255),
           size: z.number().int().positive().max(MAX_CLIENT_IMAGE_UPLOAD_BYTES),
-          imageMode: z.boolean().default(true),
+          imageMode: z.boolean().default(false),
           fileName: z.string().max(1000).optional(),
           folderPath: z.string().max(4000).optional(),
           boxes: z.array(classifyBoxSchema).min(1, "请先选择至少一个候选框"),

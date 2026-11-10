@@ -4,9 +4,9 @@
       "noPredictions": "未返回候选特征预测。请查看响应与调用状态，区分候选完全无关或处理失败。",
       "conflicts": "冲突证据",
       "specificityLimit": "识别精度限制",
-      "predictionOnly": "仅供参考：置信度或证据尚未满足自动应用条件",
+      "predictionOnly": "仅供参考：置信度未达到推荐门槛",
       "automaticAccepted": "符合自动应用条件",
-      "predictionHelp": "展示所有合理的 LLM 预测，包括低置信度结果与多个可能选项。自动应用另行检查置信度与证据。",
+      "predictionHelp": "展示 LLM 特征预测及置信度；达到团队推荐门槛的结果可审核和应用。",
       "ocrTotalTokens": "OCR 总 token",
       "runDetails": "查看本次 OCR、请求、响应与用量",
       "comparisonPending": "运行此模式的分类以对比结果。",
@@ -135,6 +135,10 @@
       "batchEnableFailed": "批量启用失败，请稍后重试",
       "batchDisableFailed": "批量禁用失败，请稍后重试",
       "batchDeleteFailed": "批量删除失败，请稍后重试",
+      "batchMatchStrategy": "匹配策略",
+      "batchMatchStrategySuccess": "已批量更新所选品牌标识的匹配策略",
+      "batchMatchStrategyFailed": "批量更新匹配策略失败，请稍后重试",
+      "batchMatchStrategyUnchanged": "所选条目已是该匹配策略",
       "emptyFiltered": "没有符合当前筛选条件的品牌标识",
       "allTypes": "全部类型",
       "allStatuses": "全部处理状态",
@@ -167,7 +171,16 @@
         "logoNameLabel": "标识名称",
         "logoNamePlaceholder": "请输入标识名称",
         "logoTypeLabel": "标识类型",
-        "logoImagesLabel": "标识图片",
+        "logoImagesLabel": "标识图片 · {count}张",
+        "multiImageMatchLabel": "多图匹配",
+        "matchStrategy": {
+          "average": "平均值",
+          "highest": "最高值"
+        },
+        "matchStrategyHint": {
+          "average": "所有参考图共同决定召回分数，适合外观一致的 Logo。模糊或无关图片会拉低整体分数。",
+          "highest": "任一参考图匹配即可召回，适合彩色、单色、反白、简称、横版或竖版等形态差异较大的同一 Logo。"
+        },
         "uploadImage": "上传图片",
         "uploadLocal": "本地上传",
         "uploadFromLibrary": "从素材库选取",
@@ -184,7 +197,12 @@
         "confirm": "确认",
         "save": "保存",
         "previewImage": "预览图片",
-        "closePreview": "关闭预览"
+        "closePreview": "关闭预览",
+        "reviewRefreshTitle": "是否更新「待审核」特征？",
+        "reviewRefreshDescription": "多图匹配策略已变更。是否按新规则更新「待审核」列表中的该特征打分排序？已审核结果不受影响。",
+        "saveOnly": "否，仅保存",
+        "saveAndRefresh": "是，保存并更新",
+        "reviewRefreshScheduled": "Logo 已更新。参考图处理完成后，将自动刷新尚未审核的结果。"
       },
       "confirmDialog": {
         "title": "操作提示",
@@ -203,7 +221,10 @@
         "disableDescription": "确定要禁用选中的 {count} 个条目吗？禁用后，新上传的素材将不会自动识别该条目并打上关联标签",
         "confirmEnable": "确认启用",
         "confirmDisable": "确认禁用",
-        "cancel": "取消"
+        "cancel": "取消",
+        "matchStrategyTitle": "批量设置多图匹配",
+        "matchStrategyDescription": "将为选中的 {count} 个条目设置匹配策略。该策略会影响多张参考图如何共同决定召回分数。",
+        "matchStrategyApply": "应用"
       },
       "uploadErrors": {
         "fileTooLarge": "单张图片不能超过 50MB",
@@ -309,12 +330,12 @@
           "nameTooLong": "标识名称不能超过 255 个字符",
           "typeRequired": "标识类型不能为空",
           "typeTooLong": "标识类型不能超过 100 个字符",
-          "descriptionTooLong": "{descriptionColumn} cannot exceed 5000 characters",
+          "descriptionTooLong": "{descriptionColumn}不能超过 5000 个字符",
           "notesTooLong": "备注不能超过 5000 个字符",
           "imageUrlsRequired": "{imageUrlColumn}不能为空",
           "imagesTooMany": "标识图片不能超过 100 张",
-          "matchPatternInvalid": "{matchPatternColumn} only supports: {whole}/{partial}",
-          "partialImportUnsupported": "Partial IP import is not supported in batch files. Use whole match rows or create partial IP entries manually."
+          "matchPatternInvalid": "{matchPatternColumn}仅支持：{whole}/{partial}",
+          "partialImportUnsupported": "批量文件暂不支持导入局部匹配 IP。请使用整体匹配行，或手动创建局部匹配 IP。"
         },
         "entityName": "标识名称",
         "entityNamePlural": "标识名称",
@@ -727,6 +748,7 @@
         "firstTimeRecommendationDesc": "通过人工审核可以评估 AI 打标效果，待准确率满足要求后在切换为直接应用模式"
       },
       "AIRecognition": {
+        "imageModeCostHint": "开启后每个素材消耗 2 点，未开启每个素材消耗 1 点。",
         "title": "AI 识别设置",
         "precise": "精准模式",
         "preciseDesc": "优先准确性，适合打标要求严格的场景",
@@ -802,6 +824,11 @@
       }
     },
     "Review": {
+      "batchImageModeOn": "图像模式：已开启",
+      "batchImageModeOff": "图像模式：未开启",
+      "batchImageModeUnknown": "图像模式：未记录",
+      "batchImageModeHint": "以本批次入队时的图像模式设置为准。",
+      "batchImageModeUnknownHint": "历史批次未保存图像模式，无法确认当时是否开启。",
       "tagSourceExisting": "已有标签",
       "tagSourceAi": "AI 填写",
       "tagSourceManual": "手动添加",
@@ -832,6 +859,11 @@
       "brandRecommendedTags": "品牌标识推荐标签",
       "basedOnTagSystem": "基于标签体系匹配",
       "basedOnFeatureLibrary": "基于特征库匹配",
+      "pendingFeatureConfirmation": "待确认",
+      "recognitionEvidence": "识别依据",
+      "evidenceNotRecorded": "历史结果未记录",
+      "evidenceDetails": "查看识别原因",
+      "evidenceSources": {"retrieval": "向量", "path": "文件路径", "ocr": "OCR", "filename": "文件名", "visual": "图像"},
       "addFeatureManually": "手动添加特征",
       "addFeatureTitle": "添加特征",
       "addFeatureAllTypes": "全部",
@@ -920,6 +952,9 @@
       "remove": "移除"
     },
     "Test": {
+      "uploadLocalFiles": "上传本地图片",
+      "localFileInvalid": "{name}：请选择不超过 20 MB 的图片",
+      "localUploadFailed": "本地图片上传失败",
       "uploadTestFiles": "上传测试文件",
       "testDescription": "测试说明",
       "removeAsset": "移除",
@@ -995,6 +1030,7 @@
         "failed": "失败"
       },
       "errorReason": {
+        "FEATURE_RECOGNITION_FAILED": "特征识别未完整完成，请重新识别",
         "NO_VALID_TAGS": "未匹配到有效标签（素材信息不足或标签体系中没有合适的标签）",
         "NO_TAG_TREE": "标签体系为空，请先创建标签",
         "NO_MATCHING_SOURCES_ENABLED": "未启用任何匹配策略",
@@ -1617,6 +1653,19 @@
       "continueImportSkipIssues": "跳过问题行，继续导入",
       "importSuccessWithSkipped": "成功导入 {count} 条，已跳过 {skipped} 条有问题的行",
       "memberImportInProgress": "成员 {name} 正在执行批量导入，请稍后刷新页面重试。"
+    },
+    "FeatureThreshold": {
+      "trigger": "推荐门槛 ≥ {value}%",
+      "title": "团队推荐门槛",
+      "hint": "保存后对新任务和历史待审核特征生效；已审核结果不变。历史数据缺少最终决策时需重新识别。",
+      "minimum": "最低置信度",
+      "personHint": "人物仍需通过人脸相似度与歧义检查。",
+      "saved": "已保存，待审核特征将按新门槛显示",
+      "save": "保存并应用",
+      "saving": "保存中…",
+      "loadFailed": "读取推荐门槛失败，请刷新重试",
+      "saveFailed": "保存失败，请重试",
+      "loading": "读取门槛中…"
     }
   }
 }

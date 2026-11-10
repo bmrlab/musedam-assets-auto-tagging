@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
 import { tagPredictionSchema } from "@/app/(tagging)/types";
+import { describe, expect, it } from "vitest";
 
 import {
   buildChildrenInclude,
@@ -18,13 +18,21 @@ const chain = (names: string[], verb?: N["verb"]): N[] =>
 
 describe("tag-level helpers", () => {
   it("accepts AI predictions targeting a fourth-level leaf", () => {
-    const prediction = { source: "basicInfo", tags: [{ confidence: 0.95, leafTagId: 4, tagPath: ["商品", "饮料", "茶饮", "绿茶"] }] };
+    const prediction = {
+      source: "basicInfo",
+      tags: [{ confidence: 0.95, leafTagId: 4, tagPath: ["商品", "饮料", "茶饮", "绿茶"] }],
+    };
     expect(tagPredictionSchema.parse(prediction).tags[0].tagPath).toHaveLength(4);
     expect(tagPredictionSchema.parse(prediction).tags[0].leafTagId).toBe(4);
   });
 
   it("rejects AI predictions deeper than four levels", () => {
-    expect(tagPredictionSchema.safeParse({ source: "basicInfo", tags: [{ confidence: 0.95, leafTagId: 5, tagPath: ["一", "二", "三", "四", "五"] }] }).success).toBe(false);
+    expect(
+      tagPredictionSchema.safeParse({
+        source: "basicInfo",
+        tags: [{ confidence: 0.95, leafTagId: 5, tagPath: ["一", "二", "三", "四", "五"] }],
+      }).success,
+    ).toBe(false);
   });
 
   it("MAX_TAG_LEVEL is 4", () => {
@@ -34,13 +42,22 @@ describe("tag-level helpers", () => {
   it("builds recursive children include / select of the given depth", () => {
     const orderBy = { sort: "desc" };
     expect(buildChildrenInclude(2, { orderBy })).toEqual({
-      children: { orderBy, include: { children: { orderBy } } },
+      children: {
+        where: { deletedAt: null },
+        orderBy,
+        include: { children: { where: { deletedAt: null }, orderBy } },
+      },
     });
     expect(buildChildrenInclude(0)).toBeUndefined();
-    expect(buildChildrenSelect(2, { id: true }, { where: { taggingEnabled: true } })).toEqual({
+    expect(
+      buildChildrenSelect(2, { id: true }, { where: { taggingEnabled: true, deletedAt: null } }),
+    ).toEqual({
       children: {
-        where: { taggingEnabled: true },
-        select: { id: true, children: { where: { taggingEnabled: true }, select: { id: true } } },
+        where: { taggingEnabled: true, deletedAt: null },
+        select: {
+          id: true,
+          children: { where: { taggingEnabled: true, deletedAt: null }, select: { id: true } },
+        },
       },
     });
     // 默认从一级节点覆盖到 MAX_TAG_LEVEL

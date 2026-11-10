@@ -25,6 +25,7 @@ export function buildChildrenInclude(
   return {
     children: {
       ...extra,
+      where: { ...((extra.where ?? {}) as Record<string, unknown>), deletedAt: null },
       ...(nested ? { include: nested } : {}),
     },
   };
@@ -45,6 +46,7 @@ export function buildChildrenSelect(
   return {
     children: {
       ...extra,
+      where: { ...((extra.where ?? {}) as Record<string, unknown>), deletedAt: null },
       select: { ...fields, ...(nested ?? {}) },
     },
   };

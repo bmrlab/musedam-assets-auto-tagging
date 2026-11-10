@@ -35,6 +35,7 @@ const mocks = vi.hoisted(() => ({
   request: vi.fn(),
 }));
 vi.mock("server-only", () => ({}));
+vi.mock("@/lib/tagging/feature-threshold-settings", () => ({ getFeatureThresholds: async () => ({ brand: 75, product: 80, ip: 80, person: 60 }) }));
 vi.mock("@/prisma/prisma", () => ({ default: mocks.prisma }));
 vi.mock("@/app/(auth)/withAuth", () => ({
   withAuth: (fn: (args: { team: { id: number; slug: string } }) => unknown) =>
@@ -349,7 +350,8 @@ beforeEach(() => {
     images.findMany.mockResolvedValue([]);
   }
   mocks.prisma.$queryRaw.mockImplementation(async (query) =>
-    query.sql.includes("COUNT(DISTINCT") ? [{ count: BigInt(1) }] : [{ assetObjectId: 42 }],
+    query.sql.includes('AS "result"') ? [...new Map(audits.filter(a => a.queueItem).map(a => [a.queueItem.id, a.queueItem])).values()]
+      : query.sql.includes("COUNT(DISTINCT") ? [{ count: BigInt(1) }] : [{ assetObjectId: 42 }],
   );
   mocks.prisma.team.findUniqueOrThrow.mockResolvedValue({ id: 7, slug: "t/7" });
   mocks.prisma.taggingAuditItem.findMany.mockImplementation(async (args) =>
@@ -360,7 +362,7 @@ beforeEach(() => {
     extra: assetExtra,
   }));
   mocks.prisma.assetObject.findMany.mockImplementation(async () => [
-    { id: 42, slug: "a/42", extra: assetExtra, taggingAuditItems: audits },
+    { id: 42, slug: "a/42", extra: assetExtra, taggingAuditItems: audits.map(audit => ({ ...audit, queueItemId: audit.queueItem?.id ?? null })) },
   ]);
   mocks.prisma.assetTag.findMany.mockImplementation(async (args) =>
     (args.where.id?.in ?? []).map((id: number) => ({
@@ -376,51 +378,95 @@ beforeEach(() => {
 });
 
 describe("review feature synchronization", () => {
+  it("bounds continuation requests within a logical page and omits the duplicate audit graph", async () => {
+    mocks.prisma.$queryRaw.mockImplementation(async query =>
+      query.sql.includes('AS "result"') ? [queue]
+        : query.sql.includes("COUNT(DISTINCT") ? [{ count: BigInt(251) }] : [{ assetObjectId: 42 }],
+    );
+    const response = await fetchAssetsWithAuditItems(2, 100, "pending", undefined, undefined, undefined, 20, 10);
+    if (!response.success) throw new Error(response.message);
+    expect(response.data.totalPages).toBe(3);
+    expect(response.data.nextWindowOffset).toBe(21);
+    expect(response.data.assets).toHaveLength(1);
+    expect(response.data.assets[0].assetObject).not.toHaveProperty("taggingAuditItems");
+    const pageQuery = mocks.prisma.$queryRaw.mock.calls.find(([query]) => query.sql.includes("LIMIT"))![0];
+    expect(pageQuery.values.slice(-2)).toEqual([10, 120]);
+  });
+
   it("preserves an earlier provenance snapshot when applying another review", async () => {
     const tagReview = { version: 1, reviewedAt: "2026-11-05T00:00:00Z", sources: { "g/20": "ai" } };
     queue.extra = { tagReview };
     mocks.syncAsset.mockResolvedValue({ musedamAsset: { tags: [{ id: 20 }] } });
     await approveAuditItemsAction(input());
-    expect(mocks.prisma.taggingQueueItem.update.mock.calls[0][0].data.extra.tagReview).toEqual(tagReview);
+    expect(mocks.prisma.taggingQueueItem.update.mock.calls[0][0].data.extra.tagReview).toEqual(
+      tagReview,
+    );
   });
 
-  it.each(["single", "batch"] as const)("%s persists tag sources after successful application", async (mode) => {
-    audits[0].leafTagId = 70;
-    const before = { id: 42, tags: [{ id: 20, name: "Existing" }] };
-    mocks.syncAsset.mockResolvedValue({ musedamAsset: before });
-    mocks.request.mockResolvedValue([before]);
-    const response = mode === "single"
-      ? await approveAuditItemsAction({ ...input(), manualTagIds: [55] })
-      : await batchApproveAuditItemsAction({ assetObjects: batchInput().assetObjects.map((asset) => ({ ...asset, manualTagIds: [55] })) });
-    expect(response.success).toBe(true);
-    const snapshot = mocks.prisma.taggingQueueItem.update.mock.calls[0][0].data.extra.tagReview;
-    expect(snapshot.version).toBe(1);
-    expect(snapshot.sources).toEqual({ "g/20": "existing", "g/55": "manual", "g/70": "ai" });
-    expect(snapshot.reviewedAt).toEqual(expect.any(String));
-  });
+  it.each(["single", "batch"] as const)(
+    "%s persists tag sources after successful application",
+    async (mode) => {
+      audits[0].leafTagId = 70;
+      const before = { id: 42, tags: [{ id: 20, name: "Existing" }] };
+      mocks.syncAsset.mockResolvedValue({ musedamAsset: before });
+      mocks.request.mockResolvedValue([before]);
+      const response =
+        mode === "single"
+          ? await approveAuditItemsAction({ ...input(), manualTagIds: [55] })
+          : await batchApproveAuditItemsAction({
+              assetObjects: batchInput().assetObjects.map((asset) => ({
+                ...asset,
+                manualTagIds: [55],
+              })),
+            });
+      expect(response.success).toBe(true);
+      const snapshot = mocks.prisma.taggingQueueItem.update.mock.calls[0][0].data.extra.tagReview;
+      expect(snapshot.version).toBe(1);
+      expect(snapshot.sources).toEqual({ "g/20": "existing", "g/55": "manual", "g/70": "ai" });
+      expect(snapshot.reviewedAt).toEqual(expect.any(String));
+    },
+  );
 
-  it.each(["single", "batch"] as const)("%s applies and deduplicates manually selected tags", async (mode) => {
-    const response = mode === "single"
-      ? await approveAuditItemsAction({ ...input(), manualTagIds: [20, 55, 55] })
-      : await batchApproveAuditItemsAction({ assetObjects: batchInput().assetObjects.map((asset) => ({ ...asset, manualTagIds: [20, 55, 55] })) });
-    expect(response.success).toBe(true);
-    expect(mocks.setTags.mock.calls[0][0].musedamTagIds.map(String)).toEqual(["20", "55"]);
-    expect(mocks.prisma.assetTag.findMany).toHaveBeenCalledWith({
-      where: { teamId: 7, id: { in: [20, 55] }, slug: { not: null } },
-      select: { id: true },
-    });
-  });
+  it.each(["single", "batch"] as const)(
+    "%s applies and deduplicates manually selected tags",
+    async (mode) => {
+      const response =
+        mode === "single"
+          ? await approveAuditItemsAction({ ...input(), manualTagIds: [20, 55, 55] })
+          : await batchApproveAuditItemsAction({
+              assetObjects: batchInput().assetObjects.map((asset) => ({
+                ...asset,
+                manualTagIds: [20, 55, 55],
+              })),
+            });
+      expect(response.success).toBe(true);
+      expect(mocks.setTags.mock.calls[0][0].musedamTagIds.map(String)).toEqual(["20", "55"]);
+      expect(mocks.prisma.assetTag.findMany).toHaveBeenCalledWith({
+        where: { deletedAt: null, teamId: 7, id: { in: [20, 55] }, slug: { not: null } },
+        select: { id: true },
+      });
+    },
+  );
 
-  it.each(["single", "batch"] as const)("%s rejects missing or foreign manual tags before applying", async (mode) => {
-    mocks.prisma.assetTag.findMany.mockResolvedValue([]);
-    const response = mode === "single"
-      ? await approveAuditItemsAction({ ...input(), manualTagIds: [999] })
-      : await batchApproveAuditItemsAction({ assetObjects: batchInput().assetObjects.map((asset) => ({ ...asset, manualTagIds: [999] })) });
-    if (mode === "single") expect(response.success).toBe(false);
-    else expect(response).toMatchObject({ success: true, data: { failedCount: 1 } });
-    expect(mocks.setTags).not.toHaveBeenCalled();
-    expect(mocks.prisma.taggingAuditItem.update).not.toHaveBeenCalled();
-  });
+  it.each(["single", "batch"] as const)(
+    "%s rejects missing or foreign manual tags before applying",
+    async (mode) => {
+      mocks.prisma.assetTag.findMany.mockResolvedValue([]);
+      const response =
+        mode === "single"
+          ? await approveAuditItemsAction({ ...input(), manualTagIds: [999] })
+          : await batchApproveAuditItemsAction({
+              assetObjects: batchInput().assetObjects.map((asset) => ({
+                ...asset,
+                manualTagIds: [999],
+              })),
+            });
+      if (mode === "single") expect(response.success).toBe(false);
+      else expect(response).toMatchObject({ success: true, data: { failedCount: 1 } });
+      expect(mocks.setTags).not.toHaveBeenCalled();
+      expect(mocks.prisma.taggingAuditItem.update).not.toHaveBeenCalled();
+    },
+  );
 
   it("keeps rejected counts in reviewed summaries when rejected tags are hidden", async () => {
     audits[0].status = "approved";
@@ -568,7 +614,7 @@ describe("review feature synchronization", () => {
 
   it("applies the confidence threshold to each product and respects an explicit empty match list", () => {
     const source = multipleProductResult();
-    source.productRecommendation!.matches![1].confidence = 79;
+    source.productRecommendation!.matches![1].confidence = 59;
     expect(getReviewFeatures(source).map((feature) => feature.id)).toEqual([ids.product]);
     source.productRecommendation!.matches = [];
     expect(getReviewFeatures(source)).toEqual([]);

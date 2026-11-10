@@ -98,7 +98,7 @@ export default function ProductClassifyClient({
     [initialData.products],
   );
   const [file, setFile] = useState<File | null>(null);
-  const [imageMode, setImageMode] = useState(true);
+  const [imageMode, setImageMode] = useState(false);
   const { runs, recordRun, resetRuns } = useFeatureDecisionComparison();
   const [fileName, setFileName] = useState("");
   const [folderPath, setFolderPath] = useState("");

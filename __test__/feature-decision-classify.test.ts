@@ -2,18 +2,21 @@
 import { classifyAssetFeatures } from "@/lib/feature-decision/classify";
 import type { FeatureDecisionCandidate } from "@/lib/feature-decision/types";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import sharp from "sharp";
 
 const mocks = vi.hoisted(() => ({
   logo: vi.fn(),
   ip: vi.fn(),
   product: vi.fn(),
   decision: vi.fn(),
+  ocr: vi.fn(),
   logos: vi.fn(),
   products: vi.fn(),
   ips: vi.fn(),
   fetchImage: vi.fn(),
 }));
 vi.mock("server-only", () => ({}));
+vi.mock("@/lib/tagging/feature-threshold-settings", () => ({ getFeatureThresholds: async () => ({ brand: 75, product: 80, ip: 80, person: 60 }) }));
 vi.mock("@/lib/brand/logo-classification", () => ({
   classifyBrandImageCrops: mocks.logo,
   detectBrandLogoBoxes: vi.fn(),
@@ -27,7 +30,7 @@ vi.mock("@/lib/product/product-classification", () => ({
   classifyProductImageRegions: mocks.product,
   detectProductFigureBoxes: vi.fn(),
 }));
-vi.mock("@/lib/feature-decision/service", () => ({ runFeatureDecision: mocks.decision }));
+vi.mock("@/lib/feature-decision/service", () => ({ runFeatureDecision: mocks.decision, recognizeFeatureOcr: mocks.ocr }));
 vi.mock("@/prisma/prisma", () => ({
   default: {
     assetLogo: { findMany: mocks.logos },
@@ -80,6 +83,8 @@ const decisionMatch = (id: string, confidence = 91) => ({
 
 beforeEach(() => {
   vi.resetAllMocks();
+  mocks.ocr.mockResolvedValue({ status: "empty", segments: [] });
+  vi.stubEnv("DECISION_LLM_IMAGE_USE", "true");
   mocks.logo.mockResolvedValue({
     topMatches: [logo("first"), logo("lower", 0.6)],
     bestMatch: logo("first"),
@@ -103,6 +108,67 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllEnvs());
 
 describe("whole-asset feature decision orchestration", () => {
+  it("sends both a logo wordmark and its uploaded graphical variant in highest mode", async () => {
+    const png = await sharp({ create: { width: 40, height: 40, channels: 3, background: "black" } }).png().toBuffer();
+    mocks.fetchImage.mockResolvedValue({ dataUrl: `data:image/png;base64,${png.toString("base64")}` });
+    mocks.logo.mockResolvedValue({ topMatches: [{ ...logo("first"), referenceMatchStrategy: "highest" }],
+      bestMatch: logo("first"), noConfidentMatch: false, winningDetectionIndex: 0 });
+    mocks.logos.mockResolvedValue([{
+      id: "first", name: "HERA", notes: "素材中包含HERA文字的都需要识别到该特征", images: [
+        { id: "wordmark", objectKey: "orchestration-wordmark" },
+        { id: "monogram", objectKey: "orchestration-monogram" },
+      ],
+    }]);
+    mocks.decision.mockResolvedValue({ ocr: { status: "empty", segments: [] }, decision: {
+      status: "completed", result: { outcome: "matched", matches: [decisionMatch("first", 95)] },
+    } });
+    await classifyAssetFeatures({ teamId: 1, imageInput, enabledTypes: ["logo"], imageMode: true, boxes: { logo: [box(0)] } });
+    const candidate = mocks.decision.mock.calls[0][0].candidates.find((c: FeatureDecisionCandidate) => c.candidateId === "logo:first");
+    expect(candidate).toMatchObject({ referenceMatchStrategy: "highest", referenceImageCount: 2, referenceImageIds: ["wordmark", "monogram"] });
+    expect(candidate.referenceImage).toMatch(/^data:image\/jpeg;base64,/);
+    expect(mocks.fetchImage.mock.calls.map(call => call[0])).toEqual(expect.arrayContaining([
+      "orchestration-wordmark", "orchestration-monogram",
+    ]));
+  });
+
+  it("keeps only the highest-scoring product per region and recalls filename identity", async () => {
+    const matches = ["first", "lower"].map((id, index) => ({
+      assetProductId: id, productName: id, productTypeId: null, productTypeName: "Products",
+      description: "", generalCategory: "bottle", confidence: 95 - index,
+      similarity: 0.95 - index * 0.01, imageSimilarity: 0.95 - index * 0.01,
+      descriptionSimilarity: 0, detectionIndex: 0, detectionIndices: [0], recommendedTags: [
+        { assetTagId: 100 + index, tagPath: ["Products", id] },
+      ],
+    }));
+    mocks.product.mockResolvedValue({ matches: [matches[0]], topMatches: matches,
+      bestMatch: matches[0], noConfidentMatch: false, winningDetectionIndex: 0,
+      rawDetections: [box(0)], detections: [{ detectionIndex: 0, sourceDetectionIndices: [0],
+        box: box(0), topMatches: matches, bestMatch: matches[0], noConfidentMatch: false }],
+    });
+    mocks.products.mockResolvedValue([
+      ...matches.map(match => ({ id: match.assetProductId, name: match.productName, notes: "", images: [], tags: [] })),
+      { id: "415", name: "赫妍魅感裸透镜彩唇釉 415", productTypeId: null, productTypeName: "主推产品",
+        description: "", generalCategory: "lip gloss", notes: "", images: [], tags: [] },
+    ]);
+    mocks.decision.mockResolvedValue({
+      ocr: { status: "empty", segments: [] },
+      decision: { status: "completed", result: { outcome: "matched", matches: matches.map((match, index) => ({
+        ...decisionMatch(match.assetProductId, 95 - index), candidateId: `product:${match.assetProductId}`, evidence: ["retrieval"],
+      })) } },
+    });
+    const result = await classifyAssetFeatures({ teamId: 1, imageInput,
+      enabledTypes: ["product"], boxes: { product: [box(0)] }, imageMode: false,
+      fileName: "赫妍魅感裸透镜彩唇釉415_试色图",
+    });
+    expect(result.product?.matches.map(match => match.assetProductId)).toEqual(["415", "first"]);
+    expect(result.unacceptedIdentityTagIds).toEqual([101]);
+    expect(mocks.decision.mock.calls[0][0].candidates.find((candidate: FeatureDecisionCandidate) => candidate.candidateId === "product:first").regionEvidence)
+      .toEqual([{ regionId: "product:0", wholeAssetFallback: false, similarity: 0.95, imageSimilarity: 0.95, descriptionSimilarity: 0 }]);
+    expect(result.product?.matches[0]).toMatchObject({ matchingSource: "assetName", detectionIndex: -1, detectionIndices: [] });
+    expect(result.product?.topMatches.map(match => match.assetProductId)).toEqual(["first"]);
+    expect(result.diagnostics.decision.result?.matches.map(match => match.candidateId)).toEqual(["product:first"]);
+  });
+
   it.each([
     ["logo", true],
     ["logo", false],
@@ -111,7 +177,7 @@ describe("whole-asset feature decision orchestration", () => {
     ["ip", true],
     ["ip", false],
   ] as const)(
-    "retains all low-confidence %s alternatives in imageMode=%s",
+    "retains low-confidence %s predictions with one product per region in imageMode=%s",
     async (type, imageMode) => {
       const common = {
         productTypeId: null,
@@ -157,7 +223,7 @@ describe("whole-asset feature decision orchestration", () => {
       const catalog = ["first", "lower"].map((id) => ({
         id,
         matchPattern: "whole",
-        notes: "",
+        notes: "Catalog nickname",
         images: [{ objectKey: `reference-${id}` }],
       }));
       mocks.products.mockResolvedValue(catalog);
@@ -182,16 +248,17 @@ describe("whole-asset feature decision orchestration", () => {
       });
       const classified =
         type === "logo" ? result.brand : type === "product" ? result.product : result.ip;
-      expect(classified?.topMatches.map((entry) => entry.confidence)).toEqual([43, 0]);
+      expect(classified?.topMatches.map((entry) => entry.confidence)).toEqual(type === "product" ? [43] : [43, 0]);
       expect(classified?.matches).toEqual([]);
       expect(classified?.bestMatch?.confidence).toBe(43);
-      expect(result.diagnostics.decision.result?.matches).toEqual(alternatives);
+      expect(result.diagnostics.decision.result?.matches).toEqual(type === "product" ? alternatives.slice(0, 1) : alternatives);
       expect(mocks.decision).toHaveBeenCalledOnce();
+      if (type === "product") expect(mocks.decision.mock.calls[0][0].candidates[0].notes).toBe("Catalog nickname");
     },
   );
 
   it.each([true, false])(
-    "keeps high-confidence limited predictions visible without automatically accepting them in imageMode=%s",
+    "accepts high-confidence predictions despite conflicts and specificity notes in imageMode=%s",
     async (imageMode) => {
       mocks.decision.mockResolvedValue({
         ocr: { status: "empty", segments: [] },
@@ -222,12 +289,12 @@ describe("whole-asset feature decision orchestration", () => {
         "first",
         "lower",
       ]);
-      expect(result.brand?.matches?.map((entry) => entry.assetLogoId)).toEqual(["lower"]);
-      expect(result.brand?.bestMatch?.assetLogoId).toBe("lower");
+      expect(result.brand?.matches?.map((entry) => entry.assetLogoId)).toEqual(["first", "lower"]);
+      expect(result.brand?.bestMatch?.assetLogoId).toBe("first");
     },
   );
 
-  it("always runs the LLM in text mode without loading reference images, then defaults to image mode", async () => {
+  it("uses text mode by default and enables image evidence only when the env key is true", async () => {
     const input = {
       teamId: 1,
       imageInput,
@@ -246,7 +313,8 @@ describe("whole-asset feature decision orchestration", () => {
         },
       },
     });
-    const result = await classifyAssetFeatures({ ...input, imageMode: false });
+    vi.stubEnv("DECISION_LLM_IMAGE_USE", "false");
+    const result = await classifyAssetFeatures(input);
     expect(result.brand?.bestMatch?.assetLogoId).toBe("lower");
     expect(result.brand?.bestMatch?.confidence).toBe(91);
     expect(result.diagnostics).toMatchObject({
@@ -268,13 +336,14 @@ describe("whole-asset feature decision orchestration", () => {
       ),
     ).toBe(true);
     expect(mocks.fetchImage).not.toHaveBeenCalled();
+    vi.stubEnv("DECISION_LLM_IMAGE_USE", "true");
     const next = await classifyAssetFeatures(input);
     expect(next.diagnostics).toMatchObject({ mode: "llm", decisionInputMode: "image" });
     expect(mocks.decision).toHaveBeenCalledTimes(2);
     expect(mocks.fetchImage).toHaveBeenCalledTimes(2);
   });
 
-  it("uses the same bounded product retrieval in text-only mode", async () => {
+  it("retains every product region in text-only mode", async () => {
     const boxes = Array.from({ length: 9 }, (_, index) => box(index));
     mocks.product.mockResolvedValue({
       topMatches: [],
@@ -292,8 +361,8 @@ describe("whole-asset feature decision orchestration", () => {
       boxes: { product: boxes },
       imageMode: false,
     });
-    expect(mocks.product.mock.calls[0][0].boxes).toHaveLength(5);
-    expect(result.diagnostics.retrieval?.regionsSelected).toBe(5);
+    expect(mocks.product.mock.calls[0][0].boxes).toHaveLength(9);
+    expect(result.diagnostics.retrieval?.regionsSelected).toBe(9);
     expect(result.diagnostics.decisionInputMode).toBe("text");
     expect(mocks.decision).toHaveBeenCalledOnce();
   });
@@ -337,7 +406,7 @@ describe("whole-asset feature decision orchestration", () => {
     ).toEqual(["prepared-reference-first", "prepared-reference-lower"]);
     expect(JSON.stringify(request.candidates)).not.toContain("xMin");
     expect(JSON.stringify(request.candidates)).not.toContain("internal-crop");
-    expect(mocks.logos.mock.calls[0][0].select.images.orderBy).toEqual([
+    expect(mocks.logos.mock.calls.find(call => call[0].select.images)?.[0].select.images.orderBy).toEqual([
       { sort: "asc" },
       { createdAt: "asc" },
       { id: "asc" },
@@ -369,7 +438,7 @@ describe("whole-asset feature decision orchestration", () => {
     },
   );
 
-  it("keeps references that cannot load unassessed and does not autoaccept conflicting or metadata-only logos", async () => {
+  it("keeps incomplete reference retrieval unassessed instead of accepting partial results", async () => {
     mocks.fetchImage.mockRejectedValueOnce(new Error("missing reference"));
     mocks.decision.mockResolvedValue({
       ocr: { status: "empty", segments: [] },
@@ -394,7 +463,7 @@ describe("whole-asset feature decision orchestration", () => {
     expect(result.brand?.matches).toEqual([]);
   });
 
-  it("shares five selected regions among tasks before embedding", async () => {
+  it("retrieves every distinct region independently across feature types", async () => {
     mocks.ip.mockResolvedValue({
       topMatches: [],
       bestMatch: null,
@@ -421,8 +490,8 @@ describe("whole-asset feature decision orchestration", () => {
       mocks.logo.mock.calls[0][0].crops.length +
       mocks.ip.mock.calls[0][0].crops.length +
       mocks.product.mock.calls[0][0].boxes.length;
-    expect(count).toBe(5);
-    expect(result.diagnostics.retrieval?.regionsOmitted).toBe(19);
+    expect(count).toBe(24);
+    expect(result.diagnostics.retrieval?.regionsOmitted).toBe(0);
     expect(mocks.decision).toHaveBeenCalledOnce();
   });
 
@@ -499,4 +568,82 @@ describe("whole-asset feature decision orchestration", () => {
     expect(result.brand?.matches).toEqual([]);
     expect(result.unacceptedIdentityTagIds).toEqual([1, 2]);
   });
+});
+
+
+describe("folder configured logo recall", () => {
+  it("adds an exact folder alias missed by the vector top results and accepts path evidence", async () => {
+    mocks.logos.mockResolvedValue([{ id: "snow", name: "雪花秀/SULWHASOO LOGO(1)", logoTypeId: null,
+      logoType: { name: "主Logo" }, notes: "素材画面和文件夹名称包含SULWHASOO的都需要打出该特征",
+      images: [{ objectKey: "snow-ref" }], tags: [] }]);
+    mocks.decision.mockResolvedValue({ ocr: { status: "empty", segments: [] }, decision: {
+      status: "completed", result: { outcome: "matched", matches: [{ ...decisionMatch("snow", 94), evidence: ["path"] }] },
+    } });
+    const result = await classifyAssetFeatures({ teamId: 1, imageInput, enabledTypes: ["logo"],
+      imageMode: false, folderPath: "amore/雪花秀-琉光系列/成分&质地", boxes: { logo: [box(0)] } });
+    const candidate = mocks.decision.mock.calls[0][0].candidates.find((c: FeatureDecisionCandidate) => c.classId === "snow");
+    expect(candidate).toMatchObject({ similarity: 0, regionIds: [], folderMatch: { alias: "雪花秀" } });
+    expect(result.brand?.matches?.map(m => m.assetLogoId)).toEqual(["snow"]);
+    expect(result.diagnostics.folderMatchedLogoIds).toEqual(["snow"]);
+  });
+  it("does not add metadata-only logos without an explicit folder rule", async () => {
+    mocks.logos.mockResolvedValue([{ id: "snow", name: "雪花秀/SULWHASOO LOGO(1)", notes: "可见的主Logo", images: [] }]);
+    await classifyAssetFeatures({ teamId: 1, imageInput, enabledTypes: ["logo"], imageMode: false,
+      folderPath: "雪花秀", boxes: { logo: [box(0)] } });
+    expect(mocks.decision.mock.calls[0][0].candidates.some((c: FeatureDecisionCandidate) => c.classId === "snow")).toBe(false);
+  });
+});
+
+describe("OCR logo recall", () => {
+  it("recalls a missing logo from literal OCR without claiming a vector hit", async () => {
+    mocks.ocr.mockResolvedValue({ status: "completed", source: "musedam", segments: ["Sulwhasoo"] });
+    mocks.logos.mockResolvedValue([{ id: "snow", name: "雪花秀/SULWHASOO LOGO(1)", notes: "", logoTypeId: null, logoTypeName: "Logo", images: [{ objectKey: "snow-ref" }] }]);
+    mocks.decision.mockResolvedValue({ ocr: { status: "completed", segments: ["Sulwhasoo"] }, decision: { status: "completed", result: { outcome: "matched", matches: [{ ...decisionMatch("snow", 94), evidence: ["ocr"] }] } } });
+    const result = await classifyAssetFeatures({ teamId: 1, imageInput, imageMode: false, enabledTypes: ["logo"], boxes: { logo: [box(0)] }, ocrSegments: ["Sulwhasoo"] });
+    expect(result.brand?.matches?.map(m => m.assetLogoId)).toEqual(["snow"]);
+    expect(result.diagnostics.ocrMatchedLogoIds).toEqual(["snow"]);
+    expect(mocks.decision.mock.calls[0][0]).toMatchObject({ ocr: { segments: ["Sulwhasoo"] } });
+    expect(mocks.decision.mock.calls[0][0].candidates.find((c: FeatureDecisionCandidate) => c.classId === "snow")).toMatchObject({ similarity: 0, regionIds: [], ocrMatch: { alias: "SULWHASOO" } });
+    expect(mocks.ocr).toHaveBeenCalledOnce();
+  });
+});
+
+it.each([false, true])("adds a metadata-only emulsion to decision competition (image mode %s) without accepting it from recall", async imageMode => {
+  const old = { assetProductId: "set", productName: "雪花秀人参水乳套装", productTypeId: null,
+    productTypeName: "商品", description: "多瓶组合", generalCategory: "cosmetics",
+    confidence: 90, similarity: 0.9, imageSimilarity: 0.9, descriptionSimilarity: 0,
+    detectionIndex: 0, detectionIndices: [0], recommendedTags: [] };
+  mocks.product.mockResolvedValue({ topMatches: [old], matches: [old], bestMatch: old,
+    rawDetections: [box(0)], detections: [{ detectionIndex: 0, sourceDetectionIndices: [0],
+      box: box(0), topMatches: [old], bestMatch: old, noConfidentMatch: false }],
+    noConfidentMatch: false, winningDetectionIndex: 0 });
+  const emulsion = { id: "emulsion", name: "雪花秀滋盈琉光润颜乳(1)", notes: "琉光乳",
+    productTypeId: null, productTypeName: "商品", description: "", generalCategory: "cosmetics", tags: [],
+    images: [{ objectKey: "emulsion-reference" }] };
+  mocks.products.mockImplementation(async query => query.where.id
+    ? [emulsion, { ...emulsion, id: "set", name: old.productName, images: [{ objectKey: "set-reference" }] }]
+    : [emulsion]);
+  mocks.decision.mockResolvedValue({ ocr: { status: "completed", segments: ["Whasoo"] },
+    decision: { status: "completed", result: { outcome: "matched", matches: [{
+      candidateId: "product:emulsion", confidence: 95, reason: "琉光系列乳液与参考匹配",
+      evidence: ["path", "visual"], conflicts: [], specificityLimit: null,
+    }] } } });
+  const result = await classifyAssetFeatures({ teamId: 1, imageInput, enabledTypes: ["product"],
+    boxes: { product: [box(0)] }, imageMode,
+    fileName: "Essential Revitalizing Emulsion EX_model 05", folderPath: "雪花秀-琉光系列/美图" });
+  const candidate = mocks.decision.mock.calls[0][0].candidates.find((c: FeatureDecisionCandidate) => c.classId === "emulsion");
+  expect(candidate).toMatchObject({ similarity: 0, regionIds: [], regionEvidence: [], retrievedRegions: 0,
+    metadataMatches: [{ source: "path", terms: ["雪花秀", "琉光"] }] });
+  expect(candidate.referenceImage).toBe(imageMode ? "prepared-emulsion-reference" : undefined);
+  expect(result.product?.matches.map(m => m.assetProductId)).toEqual(["emulsion"]);
+  expect(result.product?.matches[0].confidence).toBe(95);
+  expect(mocks.products).toHaveBeenCalledWith(expect.objectContaining({
+    where: { teamId: 1, enabled: true, status: "completed" },
+    select: expect.objectContaining({ tags: expect.objectContaining({ where: { assetTag: { teamId: 1, deletedAt: null } } }) }),
+  }));
+  mocks.decision.mockResolvedValue({ ocr: { status: "empty", segments: [] }, decision: {
+    status: "completed", result: { outcome: "no_match", matches: [] } } });
+  const rejected = await classifyAssetFeatures({ teamId: 1, imageInput, enabledTypes: ["product"],
+    boxes: { product: [box(0)] }, imageMode, folderPath: "雪花秀-琉光系列/美图" });
+  expect(rejected.product?.matches).toEqual([]);
 });

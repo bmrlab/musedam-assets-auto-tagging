@@ -59,7 +59,7 @@ describe("recordKeywordRejectionFeedback", () => {
 
     expect(result).toEqual({});
     expect(prisma.assetTag.update).toHaveBeenCalledWith({
-      where: { id: 3 },
+      where: { deletedAt: null, id: 3 },
       data: {
         extra: expect.objectContaining({
           keywordRejectionCounts: { pop: 2 },
@@ -86,7 +86,7 @@ describe("recordKeywordRejectionFeedback", () => {
 
     expect(result).toEqual({ autoExcludedKeyword: "pop" });
     expect(prisma.assetTag.update).toHaveBeenCalledWith({
-      where: { id: 3 },
+      where: { deletedAt: null, id: 3 },
       data: {
         extra: expect.objectContaining({
           keywordRejectionCounts: { pop: KEYWORD_REJECTION_AUTO_EXCLUDE_THRESHOLD },

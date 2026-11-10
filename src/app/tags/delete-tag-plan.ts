@@ -14,9 +14,20 @@ export interface DeletableTag {
 export function buildTagDeletionPlan(rows: DeletableTag[], tagId: number) {
   const target = rows.find((row) => row.id === tagId);
   if (!target) throw new Error("标签不存在或已被删除，请刷新后重试");
+  const children = new Map<number, DeletableTag[]>();
+  for (const row of rows) {
+    if (row.parentId !== null) {
+      const siblings = children.get(row.parentId) ?? [];
+      siblings.push(row);
+      children.set(row.parentId, siblings);
+    }
+  }
   const descendants: DeletableTag[] = [];
+  const seen = new Set([target.id]);
   const collect = (parentId: number) => {
-    for (const row of rows.filter((row) => row.parentId === parentId)) {
+    for (const row of children.get(parentId) ?? []) {
+      if (seen.has(row.id)) throw new Error("标签树存在循环关系");
+      seen.add(row.id);
       descendants.push(row);
       collect(row.id);
     }

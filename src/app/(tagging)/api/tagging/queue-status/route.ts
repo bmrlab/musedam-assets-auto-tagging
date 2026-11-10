@@ -2,14 +2,12 @@ import { withAuth } from "@/app/(auth)/withAuth";
 import { getFeatureLibraryFeaturesFromRequest } from "@/lib/feature-library-server";
 import prisma from "@/prisma/prisma";
 import { NextRequest, NextResponse } from "next/server";
-import pLimit from "p-limit";
 import { z } from "zod";
-import { buildQueueStatusPayload } from "./queue-status-payload";
+import { buildQueueStatusPayloads } from "./queue-status-payload";
 
 // 单次最多查询的队列项数量（测试页一次选择的素材数通常远小于此）
 const MAX_QUEUE_ITEM_IDS = 200;
-// 每个队列项还要查排队预估与关联标签，限制并发避免占满数据库连接池
-const PAYLOAD_CONCURRENCY = 5;
+// 等待预估和特征关联按请求批量查询，不按队列项重复查询。
 
 const idsSchema = z.array(z.coerce.number().int().positive()).min(1).max(MAX_QUEUE_ITEM_IDS);
 
@@ -47,12 +45,7 @@ export async function GET(request: NextRequest) {
         },
       });
       const foundIds = new Set(queueItems.map((item) => item.id));
-      const limit = pLimit(PAYLOAD_CONCURRENCY);
-      const items = await Promise.all(
-        queueItems.map((queueItem) =>
-          limit(() => buildQueueStatusPayload({ teamId, queueItem, featureLibraryFeatures })),
-        ),
-      );
+      const items = await buildQueueStatusPayloads({ teamId, queueItems, featureLibraryFeatures });
 
       return NextResponse.json({
         success: true,

@@ -11,7 +11,7 @@ import type { ClassificationRemoteImageInput } from "@/lib/tagging/classificatio
 import { normalizeDetectionText } from "@/lib/utils";
 import prisma from "@/prisma/prisma";
 
-const LOGO_VECTOR_QUERY_LIMIT = 12;
+const LOGO_CLASS_QUERY_LIMIT = 3;
 const LOGO_VECTOR_SCORE_THRESHOLD = 0.45;
 
 const CONFIDENT_WINNER_HIGH_SIMILARITY = 0.83;
@@ -35,6 +35,9 @@ export type BrandTopMatch = {
   similarity: number;
   confidence: number;
   detectionIndex: number;
+  /** Missing only in historical/mocked results; runtime retrieval always sets it. */
+  referenceMatchStrategy?: "highest" | "average";
+  matchedReferenceImageId?: string | null;
 };
 
 export type BrandClassificationResult = {
@@ -134,6 +137,8 @@ export async function classifyBrandImageCrops({
     {
       similarity: number;
       detectionIndex: number;
+      referenceMatchStrategy: "highest" | "average";
+      matchedReferenceImageId: string | null;
     }
   >();
 
@@ -143,7 +148,7 @@ export async function classifyBrandImageCrops({
       matches: await queryLogoVectorPoints({
         teamId,
         vector,
-        limit: LOGO_VECTOR_QUERY_LIMIT,
+        limit: LOGO_CLASS_QUERY_LIMIT,
         scoreThreshold: LOGO_VECTOR_SCORE_THRESHOLD,
       }),
     })),
@@ -162,6 +167,12 @@ export async function classifyBrandImageCrops({
         rankedByLogo.set(assetLogoId, {
           similarity: match.score,
           detectionIndex: index,
+          referenceMatchStrategy:
+            match.payload?.referenceMatchStrategy === "average" ? "average" : "highest",
+          matchedReferenceImageId:
+            typeof match.payload?.assetLogoImageId === "string"
+              ? match.payload.assetLogoImageId
+              : null,
         });
       }
     }
@@ -200,7 +211,14 @@ export async function classifyBrandImageCrops({
     // Filter unavailable classes before choosing the three references for that region.
     rankedByLogo.clear();
     for (const { index, matches } of matchGroups) {
-      const regionScores = new Map<string, number>();
+      const regionScores = new Map<
+        string,
+        {
+          similarity: number;
+          referenceMatchStrategy: "highest" | "average";
+          matchedReferenceImageId: string | null;
+        }
+      >();
       for (const match of matches) {
         const id = match.payload?.assetLogoId;
         if (
@@ -210,15 +228,29 @@ export async function classifyBrandImageCrops({
           match.score <= 0
         )
           continue;
-        regionScores.set(id, Math.max(regionScores.get(id) ?? 0, match.score));
+        const current = regionScores.get(id);
+        if (!current || match.score > current.similarity) {
+          regionScores.set(id, {
+            similarity: match.score,
+            referenceMatchStrategy:
+              match.payload?.referenceMatchStrategy === "average" ? "average" : "highest",
+            matchedReferenceImageId:
+              typeof match.payload?.assetLogoImageId === "string"
+                ? match.payload.assetLogoImageId
+                : null,
+          });
+        }
       }
       const regionCandidates = Array.from(regionScores.entries())
-        .sort(([leftId, left], [rightId, right]) => right - left || leftId.localeCompare(rightId))
+        .sort(
+          ([leftId, left], [rightId, right]) =>
+            right.similarity - left.similarity || leftId.localeCompare(rightId),
+        )
         .slice(0, 3);
-      for (const [id, similarity] of regionCandidates) {
+      for (const [id, candidate] of regionCandidates) {
         const current = rankedByLogo.get(id);
-        if (!current || similarity > current.similarity) {
-          rankedByLogo.set(id, { similarity, detectionIndex: index });
+        if (!current || candidate.similarity > current.similarity) {
+          rankedByLogo.set(id, { ...candidate, detectionIndex: index });
         }
       }
     }
@@ -240,9 +272,11 @@ export async function classifyBrandImageCrops({
         similarity: stats.similarity,
         confidence: similarityToConfidence(stats.similarity),
         detectionIndex: stats.detectionIndex,
+        referenceMatchStrategy: stats.referenceMatchStrategy,
+        matchedReferenceImageId: stats.matchedReferenceImageId,
       } satisfies BrandTopMatch;
     })
-    .filter((match): match is BrandTopMatch => Boolean(match))
+    .filter((match): match is NonNullable<typeof match> => Boolean(match))
     .sort(
       (left, right) =>
         right.similarity - left.similarity || left.assetLogoId.localeCompare(right.assetLogoId),

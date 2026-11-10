@@ -529,12 +529,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
     try {
       setIsSaving(true);
       if (context.node.id) {
-        let localOnly = false;
-        let result = await deleteTagAndDescendants(context.node.id, localOnly);
-        for (let attempt = 0; !result.success && result.code === "continue" && attempt < 40; attempt++) {
-          localOnly = true;
-          result = await deleteTagAndDescendants(context.node.id, localOnly);
-        }
+        const result = await deleteTagAndDescendants(context.node.id);
         if (!result.success) {
           toast.error(localizeTagActionMessage(result.message, t) || t("saveFailed"));
           return false;

@@ -1,5 +1,9 @@
 "use client";
 
+import { BatchImageModeBadge } from "./components/BatchImageModeBadge";
+
+import { hasFeatureRecognitionFailure } from "@/lib/feature-decision/completion";
+
 import { MatchedKeywordsBadge } from "../components/MatchedKeywordsBadge";
 
 import { getBrandRecommendationFromQueueResult } from "@/app/(tagging)/brand-recommendation";
@@ -194,6 +198,7 @@ function FeatureRecognitionRow({
   classifiedName,
   confidence,
   rawSimilarity,
+  matchingSource,
   tagPaths,
   isRejected,
   onToggle,
@@ -202,7 +207,9 @@ function FeatureRecognitionRow({
   tooltipRemove,
   onPreview,
   thumbnail,
+  showToggle = true,
 }: {
+  showToggle?: boolean;
   featureType: "brand" | "ip" | "product" | "person";
   featureId: string;
   /** undefined → 列表未预签名，由 FeatureThumbnail 自行请求 */
@@ -212,6 +219,7 @@ function FeatureRecognitionRow({
   classifiedName: string;
   confidence: number;
   rawSimilarity?: number;
+  matchingSource?: "assetName";
   tagPaths: string[][];
   isRejected: boolean;
   onToggle: () => void;
@@ -257,7 +265,7 @@ function FeatureRecognitionRow({
           {featureClass} &gt; {featureTypeName || "-"}
         </div>
         <div className="mt-0.5 truncate text-[10px] text-current/60">
-          {tResult("matchingSource")}: {tResult(`${featureType}Recognition`)}
+          {tResult("matchingSource")}: {tResult(matchingSource === "assetName" ? "productNameMatch" : `${featureType}Recognition`)}
         </div>
         {tagPaths.length > 0 ? (
           <div className="mt-1 flex flex-wrap gap-1">
@@ -278,7 +286,7 @@ function FeatureRecognitionRow({
           className="w-[60px] bg-current/20 [&>[data-slot=progress-indicator]]:bg-current"
         />
         <span className="w-8 text-right text-[10px]">{confidence}%</span>
-        <TooltipProvider>
+        {showToggle ? <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -296,7 +304,7 @@ function FeatureRecognitionRow({
               <p>{isRejected ? tooltipAdd : tooltipRemove}</p>
             </TooltipContent>
           </Tooltip>
-        </TooltipProvider>
+        </TooltipProvider> : null}
       </div>
     </div>
   );
@@ -971,6 +979,7 @@ export function ReviewItem({
                     <TagAIIcon className="size-4" />
                     <span className="text-sm font-medium">{t("aiRecommendedTags")}</span>
                     <span className="text-xs text-basic-5">{t("basedOnTagSystem")}</span>
+                    <BatchImageModeBadge extra={queueItem.extra} />
                     {isLatestBatch ? (
                       <span className="ml-2 inline-flex items-center px-[13px] py-[2px] rounded-[4px] text-xs text-danger-6 border border-danger-3 bg-danger-1">
                         {t("latest")}
@@ -1177,19 +1186,19 @@ export function ReviewItem({
                   getBrandMatches(brandRecommendation).some(
                     (brand) =>
                       availableFeatureIdSets.brand.has(brand.assetLogoId) &&
-                      !meetsFeatureConfidenceThreshold("brand", brand.confidence),
+                      !meetsFeatureConfidenceThreshold("brand", brand.confidence, brandRecommendation?.confidenceThreshold),
                   )) ||
                 (featureLibraryFeatures.featureIp &&
                   getIpMatches(ipRecommendation).some(
                     (ip) =>
                       availableFeatureIdSets.ip.has(ip.assetIpId) &&
-                      !meetsFeatureConfidenceThreshold("ip", ip.confidence),
+                      !meetsFeatureConfidenceThreshold("ip", ip.confidence, ipRecommendation?.confidenceThreshold),
                   )) ||
                 (featureLibraryFeatures.featureProduct &&
                   getProductMatches(productRecommendation).some(
                     (product) =>
                       availableFeatureIdSets.product.has(product.assetProductId) &&
-                      !meetsFeatureConfidenceThreshold("product", product.confidence),
+                      !meetsFeatureConfidenceThreshold("product", product.confidence, productRecommendation?.confidenceThreshold),
                   )) ||
                 (featureLibraryFeatures.featurePerson &&
                   personRecommendation?.faces.some((face) => {
@@ -1210,6 +1219,7 @@ export function ReviewItem({
                 classifiedName: string;
                 confidence: number;
                 rawSimilarity?: number;
+                matchingSource?: "assetName";
                 tagPaths: string[][];
                 isRejected: boolean;
                 onToggle: () => void;
@@ -1263,6 +1273,7 @@ export function ReviewItem({
                   featureTypeName: product.productTypeName,
                   classifiedName: product.productName,
                   confidence: normalizeFeatureConfidence(product.confidence),
+                  matchingSource: product.matchingSource,
                   tagPaths: product.recommendedTags?.map((tag) => tag.tagPath) ?? [],
                   isRejected: rejectedFeatureKeys.includes(
                     featureKey("product", product.assetProductId),
@@ -1326,10 +1337,14 @@ export function ReviewItem({
                   key={`features-${queueItem.id}`}
                   className="w-full rounded-md bg-[rgba(247,249,252,0.8)] p-4 dark:bg-basic-1"
                 >
-                  <div className="mb-3 flex items-center gap-2">
+                  <div className="mb-3 flex flex-wrap items-center gap-2">
                     <StarIcon className="size-4" />
                     <span className="text-sm font-medium">{t("featureRecognition")}</span>
                     <span className="text-xs text-basic-5">{t("basedOnFeatureLibrary")}</span>
+                    <BatchImageModeBadge extra={queueItem.extra} />
+                    {!taggingAuditItems.some(({ status }) => status === "pending") ? (
+                      <span className="rounded border border-basic-3 px-2 py-0.5 text-xs text-basic-5">{t("reviewedBadge")}</span>
+                    ) : null}
                     {isLatestBatch ? (
                       <span className="ml-2 inline-flex items-center rounded-[4px] border border-danger-3 bg-danger-1 px-[13px] py-[2px] text-xs text-danger-6">
                         {t("latest")}
@@ -1341,6 +1356,11 @@ export function ReviewItem({
                     </span>
                   </div>
                   <div className="space-y-2">
+                    {hasFeatureRecognitionFailure((queueItem.result as TaggingQueueItemResult | null)?.featureDecision) ? (
+                      <div role="status" className="rounded-md border border-warning-3 bg-warning-1 p-3 text-sm text-warning-7">
+                        {tResult("featureRecognitionIncomplete")}
+                      </div>
+                    ) : null}
                     {reviewedManualFeatures.map((feature) => (
                       <ManualFeatureRow
                         key={`reviewed-manual-${featureKey(feature.featureType, feature.id)}`}
@@ -1383,16 +1403,18 @@ export function ReviewItem({
                           classifiedName={feature.classifiedName}
                           confidence={feature.confidence}
                           rawSimilarity={feature.rawSimilarity}
+                          matchingSource={feature.matchingSource}
                           tagPaths={feature.tagPaths}
                           isRejected={feature.isRejected}
                           onToggle={feature.onToggle}
-                          disabled={realLoading || !hasPendingAuditItems}
+                          disabled={realLoading || sourceDeleted}
+                          showToggle={taggingAuditItems.some(({ status }) => status === "pending")}
                           tooltipAdd={t("tooltipAdd")}
                           tooltipRemove={t("tooltipRemove")}
                           onPreview={setPreviewImage}
                         />
                       ))
-                    ) : hasManualRows ? null : (
+                    ) : hasFeatureRecognitionFailure((queueItem.result as TaggingQueueItemResult | null)?.featureDecision) || hasManualRows ? null : (
                       <div className="text-sm text-basic-5">
                         {tResult(
                           isVideoAsset
