@@ -15,15 +15,33 @@ import "../../src/app/globals.css";
 import { Button } from "../../src/components/ui/button";
 import { prediction } from "./actions";
 function App() {
-  const [dark, setDark] = useState(true);
+  const [dark, setDark] = useState(false);
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
     return () => document.documentElement.classList.remove("dark");
   }, [dark]);
-  const [tab, setTab] = useState("设置");
+  const [tab, setTab] = useState("审核");
   const [tags, setTags] = useState(true);
   const [metadata, setMetadata] = useState(true);
   const [settings, setSettings] = useState(DEFAULT_TAGGING_SETTINGS);
+  if (new URLSearchParams(window.location.search).get("view") === "fields")
+    return (
+      <NextIntlClientProvider locale="zh-CN" messages={messages}>
+        <main
+          className={`${dark ? "dark" : ""} flex h-screen flex-col bg-background p-5 text-foreground`}
+        >
+          <MetadataReviewPanel />
+          <Button
+            variant="outline"
+            className="fixed bottom-4 left-4"
+            onClick={() => setDark(!dark)}
+          >
+            切换主题
+          </Button>
+          <Toaster />
+        </main>
+      </NextIntlClientProvider>
+    );
   return (
     <NextIntlClientProvider locale="zh-CN" messages={messages}>
       <div className={dark ? "dark" : ""}>
@@ -67,7 +85,9 @@ function App() {
               />
               <AIRecognitionSection
                 imageMode={settings.featureImageMode ?? false}
-                onImageModeChange={(featureImageMode) => setSettings({ ...settings, featureImageMode })}
+                onImageModeChange={(featureImageMode) =>
+                  setSettings({ ...settings, featureImageMode })
+                }
                 recognitionAccuracy={settings.recognitionAccuracy}
                 onRecognitionAccuracyChange={(recognitionAccuracy) =>
                   setSettings({ ...settings, recognitionAccuracy })

@@ -1670,6 +1670,10 @@
       "memberImportInProgress": "Le membre {name} exécute un import groupé. Actualisez la page et réessayez plus tard."
     },
     "Metadata": {
+      "emptyFieldsHint": "Remplit uniquement les champs vides",
+      "reviewContent": "Contenu à vérifier",
+      "source": "Source",
+      "allSources": "Toutes",
       "title": "Champs de métadonnées",
       "empty": "Aucun résultat de champ",
       "effective": "Effectif",

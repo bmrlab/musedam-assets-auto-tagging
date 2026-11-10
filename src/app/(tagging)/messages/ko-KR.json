@@ -1668,6 +1668,10 @@
       "memberImportInProgress": "멤버 {name}님이 일괄 가져오기를 실행 중입니다. 페이지를 새로 고친 뒤 나중에 다시 시도해 주세요."
     },
     "Metadata": {
+      "emptyFieldsHint": "빈 필드만 채우기",
+      "reviewContent": "검토 내용",
+      "source": "출처",
+      "allSources": "전체",
       "title": "메타데이터 필드",
       "empty": "필드 결과 없음",
       "effective": "적용됨",

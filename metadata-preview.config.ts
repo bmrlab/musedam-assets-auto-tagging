@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { defineConfig } from "vitest/config";
 export default defineConfig({
   root: resolve(__dirname, "development/metadata-preview"),
+  publicDir: resolve(__dirname, "public"),
   plugins: [
     {
       name: "metadata-fixture-actions",
@@ -21,7 +22,7 @@ export default defineConfig({
     },
     react(),
   ],
-  resolve: { alias: { "@": resolve(__dirname, "src") } },
+  resolve: { alias: { "@": resolve(__dirname, "src"), "next/image": resolve(__dirname,"development/metadata-preview/image.tsx") } },
   css: { postcss: { plugins: [tailwind()] } },
   server: { host: "127.0.0.1", port: 3019, fs: { allow: [__dirname] } },
 });

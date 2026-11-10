@@ -1670,6 +1670,10 @@
       "memberImportInProgress": "Członek {name} wykonuje import zbiorczy. Odśwież stronę i spróbuj ponownie później."
     },
     "Metadata": {
+      "emptyFieldsHint": "Wypełnia tylko puste pola",
+      "reviewContent": "Treść do sprawdzenia",
+      "source": "Źródło",
+      "allSources": "Wszystkie",
       "title": "Pola metadanych",
       "empty": "Brak wyników pól",
       "effective": "Zastosowane",

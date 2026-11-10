@@ -1670,6 +1670,10 @@
       "memberImportInProgress": "Anggota {name} sedang menjalankan impor massal. Segarkan halaman dan coba lagi nanti."
     },
     "Metadata": {
+      "emptyFieldsHint": "Hanya mengisi kolom kosong",
+      "reviewContent": "Konten tinjauan",
+      "source": "Sumber",
+      "allSources": "Semua",
       "title": "Kolom metadata",
       "empty": "Tidak ada hasil kolom",
       "effective": "Berlaku",

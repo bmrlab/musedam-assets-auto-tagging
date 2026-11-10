@@ -1625,6 +1625,10 @@
       "memberImportInProgress": "सदस्य {name} बल्क आयात चला रहा है। कृपया पेज रिफ्रेश करके बाद में पुनः प्रयास करें।"
     },
     "Metadata": {
+      "emptyFieldsHint": "केवल खाली फ़ील्ड भरता है",
+      "reviewContent": "समीक्षा सामग्री",
+      "source": "स्रोत",
+      "allSources": "सभी",
       "title": "मेटाडेटा फ़ील्ड",
       "empty": "कोई फ़ील्ड परिणाम नहीं",
       "effective": "प्रभावी",

@@ -1670,6 +1670,10 @@
       "memberImportInProgress": "成员 {name} 正在执行批量导入，请稍后刷新页面重试。"
     },
     "Metadata": {
+      "emptyFieldsHint": "只填写空字段",
+      "reviewContent": "审核内容",
+      "source": "来源",
+      "allSources": "全部",
       "title": "元数据字段",
       "empty": "暂无字段结果",
       "effective": "生效",

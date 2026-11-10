@@ -1,6 +1,8 @@
 "use client";
+import { AssetThumbnail } from "@/components/AssetThumbnail";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -8,199 +10,422 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { formatSize } from "@/lib/utils";
+import type { AssetObjectExtra } from "@/prisma/client";
+import {
+  CheckIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  Loader2Icon,
+  SearchIcon,
+  XIcon,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { MetadataResults } from "../components/MetadataResults";
-import { fetchMetadataReviews, reviewMetadata } from "./metadata-actions";
+import { fetchMetadataReviewAssets, reviewMetadata } from "./metadata-actions";
+import { defaultMetadataReviewFilters, type MetadataReviewFilters } from "./metadata-review-query";
 import { MetadataCurrentValues } from "./MetadataCurrentValues";
-
-type Status = "pending" | "approved" | "rejected";
-type Data = Awaited<ReturnType<typeof fetchMetadataReviews>>;
-export function MetadataReviewPanel() {
+import { MetadataReviewSuggestions } from "./MetadataReviewSuggestions";
+type Data = Awaited<ReturnType<typeof fetchMetadataReviewAssets>>;
+export function MetadataReviewPanel({
+  onContentChange,
+}: {
+  onContentChange?: (value: string) => void;
+}) {
   const t = useTranslations("Tagging.Metadata");
+  const tr = useTranslations("Tagging.Review");
   const [data, setData] = useState<Data>();
   const [page, setPage] = useState(1);
-  const [status, setStatus] = useState<Status>("pending");
+  const [pageSize, setPageSize] = useState(40);
+  const [filters, setFilters] = useState(defaultMetadataReviewFilters);
+  const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<number[]>([]);
+  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
-  const load = async () => {
-    setBusy(true);
-    setError(false);
-    try {
-      setData(await fetchMetadataReviews(page, status));
-      setSelected([]);
-    } catch {
-      setError(true);
-    } finally {
-      setBusy(false);
-    }
-  };
+  const [refresh, setRefresh] = useState(0);
   useEffect(() => {
     let alive = true;
-    setBusy(true);
+    setLoading(true);
     setError(false);
     setSelected([]);
-    fetchMetadataReviews(page, status)
+    fetchMetadataReviewAssets(page, pageSize, filters)
       .then((result) => {
-        if (alive) setData(result);
+        if (alive) {
+          const lastPage = Math.max(1, Math.ceil(result.total / pageSize));
+          if (page > lastPage) setPage(lastPage);
+          else setData(result);
+        }
       })
       .catch(() => {
         if (alive) setError(true);
       })
       .finally(() => {
-        if (alive) setBusy(false);
+        if (alive) setLoading(false);
       });
     return () => {
       alive = false;
     };
-  }, [page, status]);
+  }, [page, pageSize, filters, refresh]);
+  const change = <K extends keyof MetadataReviewFilters>(
+    key: K,
+    value: MetadataReviewFilters[K],
+  ) => {
+    setFilters((current) => ({ ...current, [key]: value }));
+    setPage(1);
+  };
+  const assets = data?.assets || [];
+  const pendingAssets = assets.filter((asset) =>
+    asset.rows.some((row) => row.status === "pending"),
+  );
+  const selectedRows = assets
+    .filter((asset) => selected.includes(asset.assetObject.id))
+    .flatMap((asset) => asset.rows.filter((row) => row.status === "pending"));
+  const disabled = busy || loading;
+  const allSelected =
+    !!pendingAssets.length &&
+    pendingAssets.every((asset) => selected.includes(asset.assetObject.id));
   const act = async (ids: number[], action: "approve" | "reject") => {
-    if (busy) return;
+    if (disabled || !ids.length) return;
     setBusy(true);
     try {
-      const result = await reviewMetadata(ids, action);
-      if (result.skipped) toast.message(t("manualKept"));
-      if (result.applied) toast.success(t("appliedCount", { count: result.applied }));
-      await load();
+      let applied = 0,
+        skipped = 0;
+      for (let i = 0; i < ids.length; i += 100) {
+        const result = await reviewMetadata(ids.slice(i, i + 100), action);
+        applied += result.applied;
+        skipped += result.skipped;
+      }
+      if (action === "approve" && skipped) toast.message(t("manualKept"));
+      if (applied) toast.success(t("appliedCount", { count: applied }));
     } catch {
       toast.error(t("reviewFailed"));
     } finally {
       setBusy(false);
+      setRefresh((v) => v + 1);
     }
   };
+  const dropdown = (
+    value: string,
+    options: [string, string][],
+    label: string,
+    onChange: (value: string) => void,
+    className = "",
+  ) => (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger
+        aria-label={label}
+        className={`h-9 w-auto gap-2 rounded-md text-[13px] ${className}`}
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map(([value, label]) => (
+          <SelectItem key={value} value={value}>
+            {label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+  const totalPages = Math.max(1, Math.ceil((data?.total || 0) / pageSize));
+  const pages = [
+    ...new Set([
+      1,
+      ...Array.from(
+        { length: 5 },
+        (_, i) => Math.max(1, Math.min(page - 2, totalPages - 4)) + i,
+      ).filter((p) => p <= totalPages),
+      totalPages,
+    ]),
+  ];
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3" aria-busy={busy}>
-      <div className="flex flex-wrap items-center gap-3 rounded-lg border p-4">
-        <Select
-          value={status}
-          onValueChange={(value) => {
-            setStatus(value as Status);
-            setPage(1);
-          }}
-        >
-          <SelectTrigger className="h-9 w-40" aria-label={t("title")}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {(["pending", "approved", "rejected"] as const).map((s) => (
-              <SelectItem key={s} value={s}>
-                {t(s)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {status === "pending" && (
-          <>
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox
-                aria-label={t("selectAll")}
-                checked={!!data?.rows.length && selected.length === data.rows.length}
-                onCheckedChange={(checked) =>
-                  setSelected(checked ? data?.rows.map((r) => r.id) || [] : [])
+    <div className="flex min-h-0 flex-1 flex-col gap-4" aria-busy={disabled}>
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border bg-background px-4 py-3">
+        <div className="flex shrink-0 items-center gap-3 text-sm">
+          <Checkbox
+            aria-label={t("selectAll")}
+            checked={allSelected}
+            indeterminate={!!selected.length && !allSelected}
+            disabled={disabled || !pendingAssets.length}
+            onCheckedChange={(checked) =>
+              setSelected(checked ? pendingAssets.map((a) => a.assetObject.id) : [])
+            }
+          />
+          <span>
+            {selected.length
+              ? tr("selectedItemsCount", { count: selected.length, total: data?.total || 0 })
+              : tr("totalItems", { total: data?.total || 0 })}
+          </span>
+          {!!selected.length && (
+            <>
+              <Button
+                size="sm"
+                disabled={
+                  disabled || !selectedRows.length || selectedRows.some((r) => !r.available)
                 }
-              />
-              {t("selectAll")}
-            </label>
-            <Button
-              disabled={
-                busy ||
-                !selected.length ||
-                selected.some((id) => !data?.rows.find((row) => row.id === id)?.available)
-              }
-              onClick={() => act(selected, "approve")}
-            >
-              {t("approve")}
+                onClick={() =>
+                  act(
+                    selectedRows.map((r) => r.id),
+                    "approve",
+                  )
+                }
+              >
+                <CheckIcon className="size-4" />
+                {t("approve")}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={disabled || !selectedRows.length}
+                onClick={() =>
+                  act(
+                    selectedRows.map((r) => r.id),
+                    "reject",
+                  )
+                }
+              >
+                <XIcon className="size-4" />
+                {t("reject")}
+              </Button>
+            </>
+          )}
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          {dropdown(
+            "fields",
+            [
+              ["all", `${t("reviewContent")}：${t("allContent")}`],
+              ["fields", `${t("reviewContent")}：${t("onlyFields")}`],
+            ],
+            t("reviewContent"),
+            (value) => onContentChange?.(value),
+          )}
+          {dropdown(
+            filters.source,
+            [
+              ["all", `${t("source")}：${t("allSources")}`],
+              ["basicInfo", t("sourceBasicInfo")],
+              ["materializedPath", t("sourceMaterializedPath")],
+              ["contentAnalysis", t("sourceContentAnalysis")],
+            ],
+            t("source"),
+            (value) => change("source", value as MetadataReviewFilters["source"]),
+          )}
+          {dropdown(
+            filters.status,
+            [
+              ["all", tr("allStatuses")],
+              ["pending", t("pending")],
+              ["approved", t("approved")],
+              ["rejected", t("rejected")],
+            ],
+            tr("allStatuses"),
+            (value) => change("status", value as MetadataReviewFilters["status"]),
+          )}
+          {dropdown(
+            filters.confidence,
+            [
+              ["all", tr("allConfidence")],
+              ["high", t("high")],
+              ["medium", t("medium")],
+              ["low", t("low")],
+            ],
+            tr("allConfidence"),
+            (value) => change("confidence", value as MetadataReviewFilters["confidence"]),
+          )}
+          {dropdown(
+            filters.time,
+            [
+              ["all", tr("taggingInitiatedTime")],
+              ["today", tr("today")],
+              ["week", tr("thisWeek")],
+              ["month", tr("thisMonth")],
+            ],
+            tr("taggingInitiatedTime"),
+            (value) => change("time", value as MetadataReviewFilters["time"]),
+          )}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              change("search", search);
+            }}
+            className="relative w-52"
+          >
+            <SearchIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-basic-5" />
+            <Input
+              aria-label={tr("searchPlaceholder")}
+              placeholder={tr("searchPlaceholder")}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-9 rounded-md pl-9 text-[13px]"
+            />
+          </form>
+        </div>
+      </div>
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+        {loading ? (
+          <div role="status" className="flex justify-center gap-2 p-8 text-sm text-basic-5">
+            <Loader2Icon className="size-4 animate-spin" />
+            {t("loading")}
+          </div>
+        ) : error ? (
+          <div role="alert" className="p-4 text-sm">
+            {t("loadFailed")}
+            <Button variant="link" onClick={() => setRefresh((v) => v + 1)}>
+              {t("retry")}
             </Button>
-            <Button
-              variant="outline"
-              disabled={busy || !selected.length}
-              onClick={() => act(selected, "reject")}
-            >
-              {t("reject")}
-            </Button>
-          </>
+          </div>
+        ) : !assets.length ? (
+          <p className="p-8 text-center text-sm text-basic-5 dark:text-basic-6">{t("empty")}</p>
+        ) : (
+          assets.map((asset) => {
+            const extra = asset.assetObject.extra as AssetObjectExtra;
+            const pending = asset.rows.filter((row) => row.status === "pending");
+            return (
+              <article
+                key={asset.assetObject.id}
+                className="flex flex-col gap-4 rounded-lg border bg-background p-4"
+              >
+                <div className="flex items-start gap-3">
+                  <Checkbox
+                    className="mt-2"
+                    aria-label={asset.assetObject.name}
+                    checked={selected.includes(asset.assetObject.id)}
+                    disabled={disabled || !pending.length}
+                    onCheckedChange={(checked) =>
+                      setSelected((previous) =>
+                        checked
+                          ? [...previous, asset.assetObject.id]
+                          : previous.filter((id) => id !== asset.assetObject.id),
+                      )
+                    }
+                  />
+                  <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-basic-1 dark:bg-basic-3">
+                    <AssetThumbnail
+                      asset={{
+                        extension: extra?.extension,
+                        thumbnailUrl: extra?.thumbnailAccessUrl,
+                      }}
+                      maxWidth={64}
+                      maxHeight={64}
+                      className="size-16 rounded-lg object-cover"
+                    />
+                  </div>
+                  <div className="flex min-w-0 flex-1 flex-col gap-1">
+                    <h2 className="break-words text-base font-semibold leading-6">
+                      {asset.assetObject.name}
+                    </h2>
+                    <p className="text-xs text-basic-5 dark:text-basic-6">
+                      {[
+                        extra?.extension?.toUpperCase(),
+                        extra?.size == null ? undefined : formatSize(extra.size),
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                  </div>
+                  {!!pending.length && (
+                    <div className="flex shrink-0 gap-2">
+                      <Button
+                        size="sm"
+                        className="rounded-md"
+                        disabled={disabled || pending.some((row) => !row.available)}
+                        onClick={() =>
+                          act(
+                            pending.map((row) => row.id),
+                            "approve",
+                          )
+                        }
+                      >
+                        <CheckIcon className="size-4" />
+                        {t("approve")}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="rounded-md"
+                        disabled={disabled}
+                        onClick={() =>
+                          act(
+                            pending.map((row) => row.id),
+                            "reject",
+                          )
+                        }
+                      >
+                        <XIcon className="size-4" />
+                        {t("reject")}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                <div className="flex flex-col gap-4 lg:flex-row">
+                  <MetadataCurrentValues
+                    assetObjectId={asset.assetObject.id}
+                    refreshKey={`${refresh}`}
+                  />
+                  <MetadataReviewSuggestions
+                    rows={asset.rows}
+                    createdAt={asset.createdAt}
+                    busy={disabled}
+                    onReview={act}
+                  />
+                </div>
+              </article>
+            );
+          })
         )}
       </div>
-      {error ? (
-        <div role="alert" className="p-4 text-sm">
-          {t("loadFailed")}
-          <Button variant="link" onClick={load}>
-            {t("retry")}
-          </Button>
-        </div>
-      ) : (
-        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
-          {!busy && !data?.rows.length && <p className="p-4 text-sm text-basic-5 dark:text-basic-6">{t("empty")}</p>}
-          {data?.rows.map((row) => (
-            <article
-              key={row.id}
-              className="flex flex-col gap-3 rounded-lg border bg-background p-4"
-            >
-              <div className="flex items-center justify-between gap-3">
-                <label className="flex min-w-0 items-center gap-2 text-sm font-medium">
-                  {status === "pending" && (
-                    <Checkbox
-                      aria-label={row.name}
-                      checked={selected.includes(row.id)}
-                      onCheckedChange={(checked) =>
-                        setSelected((previous) =>
-                          checked ? [...previous, row.id] : previous.filter((id) => id !== row.id),
-                        )
-                      }
-                    />
-                  )}
-                  <span className="truncate">{row.name}</span>
-                </label>
-                {status === "pending" && (
-                  <div className="flex gap-2">
-                    <Button
-                      className="h-9"
-                      disabled={busy || !row.available}
-                      onClick={() => act([row.id], "approve")}
-                    >
-                      {t("approve")}
-                    </Button>
-                    <Button
-                      className="h-9"
-                      variant="outline"
-                      disabled={busy}
-                      onClick={() => act([row.id], "reject")}
-                    >
-                      {t("reject")}
-                    </Button>
-                  </div>
-                )}
-              </div>
-              {!row.available && status === "pending" && (
-                <p className="text-[13px] text-basic-5 dark:text-basic-6">{t("unavailable")}</p>
-              )}
-              <div className="flex flex-col gap-4 lg:flex-row">
-                <MetadataCurrentValues assetObjectId={row.assetObjectId} refreshKey={status} />
-                <div className="min-w-0 flex-1">
-                  <MetadataResults predictions={[row.prediction]} />
-                </div>
-              </div>
-            </article>
-          ))}
-        </div>
-      )}
-      <div className="flex items-center justify-end gap-3 py-3">
-        <Button variant="outline" disabled={busy || page === 1} onClick={() => setPage(page - 1)}>
-          {t("previous")}
-        </Button>
-        <span className="text-sm">
-          {page} / {Math.max(1, Math.ceil((data?.total || 0) / 20))}
-        </span>
+      <nav
+        aria-label={t("next")}
+        className="flex shrink-0 items-center justify-end gap-1 py-2 text-xs text-basic-5 dark:text-basic-6"
+      >
         <Button
-          variant="outline"
-          disabled={busy || page * 20 >= (data?.total || 0)}
+          size="icon"
+          variant="ghost"
+          className="size-8"
+          disabled={disabled || page === 1}
+          aria-label={t("previous")}
+          onClick={() => setPage(page - 1)}
+        >
+          <ChevronLeftIcon className="size-4" />
+        </Button>
+        {pages.map((p, i) => (
+          <span key={p} className="flex items-center">
+            {i > 0 && p > pages[i - 1] + 1 && <span className="px-1">…</span>}
+            <Button
+              variant="ghost"
+              className={`size-8 p-0 text-xs ${p === page ? "text-primary-6" : ""}`}
+              aria-current={p === page ? "page" : undefined}
+              disabled={disabled}
+              onClick={() => setPage(p)}
+            >
+              {p}
+            </Button>
+          </span>
+        ))}
+        <Button
+          size="icon"
+          variant="ghost"
+          className="size-8"
+          disabled={disabled || page === totalPages}
+          aria-label={t("next")}
           onClick={() => setPage(page + 1)}
         >
-          {t("next")}
+          <ChevronRightIcon className="size-4" />
         </Button>
-      </div>
+        {dropdown(
+          String(pageSize),
+          [20, 40, 80].map((size) => [String(size), tr("itemsPerPage", { count: size })]),
+          tr("itemsPerPage", { count: pageSize }),
+          (value) => {
+            setPageSize(Number(value));
+            setPage(1);
+          },
+          "border-0 shadow-none",
+        )}
+      </nav>
     </div>
   );
 }

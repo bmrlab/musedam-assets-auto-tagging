@@ -1670,6 +1670,10 @@
       "memberImportInProgress": "O membro {name} está executando uma importação em lote. Atualize a página e tente novamente mais tarde."
     },
     "Metadata": {
+      "emptyFieldsHint": "Preenche apenas campos vazios",
+      "reviewContent": "Conteúdo da revisão",
+      "source": "Origem",
+      "allSources": "Todas",
       "title": "Campos de metadados",
       "empty": "Nenhum resultado de campo",
       "effective": "Efetivo",

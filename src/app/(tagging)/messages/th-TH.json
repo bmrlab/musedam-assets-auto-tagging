@@ -1670,6 +1670,10 @@
       "memberImportInProgress": "สมาชิก {name} กำลังนำเข้าจำนวนมาก โปรดรีเฟรชหน้าแล้วลองใหม่ภายหลัง"
     },
     "Metadata": {
+      "emptyFieldsHint": "กรอกเฉพาะช่องว่าง",
+      "reviewContent": "เนื้อหาที่ตรวจสอบ",
+      "source": "แหล่งที่มา",
+      "allSources": "ทั้งหมด",
       "title": "ฟิลด์เมตาดาตา",
       "empty": "ไม่มีผลลัพธ์ฟิลด์",
       "effective": "มีผล",

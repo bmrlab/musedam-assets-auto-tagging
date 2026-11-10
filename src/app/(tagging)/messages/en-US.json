@@ -1670,6 +1670,10 @@
       "memberImportInProgress": "Member {name} is running a bulk import. Please refresh the page and try again later."
     },
     "Metadata": {
+      "emptyFieldsHint": "Only fills empty fields",
+      "reviewContent": "Review content",
+      "source": "Source",
+      "allSources": "All",
       "title": "Metadata fields",
       "empty": "No field results",
       "effective": "Effective",

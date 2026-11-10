@@ -310,11 +310,7 @@ export default function ReviewPageClient({ metadataAvailable = false }: { metada
   return (
     // data-fill-viewport：页面占满可视高度，只有列表区域滚动、分页栏始终可见（见 tagging/layout.tsx）
     <div data-fill-viewport className="flex min-h-0 flex-1 flex-col gap-[10px]">
-      {metadataAvailable && <div className="flex gap-2" role="group" aria-label={tm("title")}>
-        <Button variant={contentFilter === "all" ? "default" : "outline"} onClick={() => setContentFilter("all")}>{tm("allContent")}</Button>
-        <Button variant={contentFilter === "fields" ? "default" : "outline"} onClick={() => setContentFilter("fields")}>{tm("onlyFields")}</Button>
-      </div>}
-      {contentFilter === "fields" ? <MetadataReviewPanel /> : <>
+      {contentFilter === "fields" ? <MetadataReviewPanel onContentChange={setContentFilter} /> : <>
       {/* 筛选器和搜索 */}
       <div className="flex items-center justify-between py-4 px-5 bg-background border rounded-[6px]">
         <div className="text-[13px] font-medium flex items-center gap-3">
@@ -376,6 +372,11 @@ export default function ReviewPageClient({ metadataAvailable = false }: { metada
           </>}
         </div>
         <div className="flex flex-col sm:flex-row justify-end gap-4">
+          {metadataAvailable && <Select value={contentFilter} onValueChange={setContentFilter}>
+            <SelectTrigger className="w-fit gap-2 !h-8 rounded-md" aria-label={tm("reviewContent")}><SelectValue /></SelectTrigger>
+            <SelectContent><SelectItem value="all">{tm("reviewContent")}：{tm("allContent")}</SelectItem><SelectItem value="fields">{tm("reviewContent")}：{tm("onlyFields")}</SelectItem></SelectContent>
+          </Select>}
+
           <Select
             value={statusFilter}
             onValueChange={(value) => {

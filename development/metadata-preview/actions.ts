@@ -13,18 +13,47 @@ let rows = [
   {
     id: 1,
     assetObjectId: 1,
-    name: "精华液主视觉.jpg",
+    name: "产品发布会海报",
     status: "pending",
-    prediction,
+    prediction: { ...prediction, fieldName: "投放渠道", labels: ["天猫", "小红书"] },
+    available: true,
+  },
+  {
+    id: 3,
+    assetObjectId: 1,
+    name: "产品发布会海报",
+    status: "pending",
+    prediction: {
+      ...prediction,
+      fieldId: "spec",
+      fieldName: "素材规格",
+      labels: ["1920×1080 横版"],
+      score: 76,
+    },
     available: true,
   },
   {
     id: 2,
     assetObjectId: 2,
-    name: "已停用字段示例.jpg",
+    name: "运动鞋户外摄影",
     status: "pending",
-    prediction: { ...prediction, fieldName: "已停用字段" },
-    available: false,
+    prediction: { ...prediction, fieldName: "素材用途", labels: ["种草笔记"] },
+    available: true,
+  },
+  {
+    id: 4,
+    assetObjectId: 2,
+    name: "运动鞋户外摄影",
+    status: "pending",
+    prediction: {
+      ...prediction,
+      fieldId: "channel",
+      fieldName: "投放渠道",
+      labels: ["小红书"],
+      score: 50,
+      effective: false,
+    },
+    available: true,
   },
 ];
 export async function fetchMetadataReviews(_page = 1, status = "pending") {
@@ -49,6 +78,48 @@ export async function dispatchMuseDAMClientAction() {
   return null;
 }
 
-export async function fetchReviewMetadataValues() {
-  return { 素材用途: "主视觉", 含人物: false };
+export async function fetchReviewMetadataValues(assetObjectId?: number) {
+  return assetObjectId === 2 ? {} : { 素材用途: "主视觉" };
+}
+
+// UI fixture only: uses the production review components without contacting a database.
+export async function fetchMetadataReviewAssets(
+  page = 1,
+  pageSize = 40,
+  filters = { status: "pending", source: "all", confidence: "all", time: "all", search: "" },
+) {
+  const matches = rows.filter(
+    (row) =>
+      (filters.status === "all" || row.status === filters.status) &&
+      (!filters.search || row.name.includes(filters.search)) &&
+      (filters.source === "all" ||
+        row.prediction.sources.some((s) => s.source === filters.source)) &&
+      (filters.confidence === "all" ||
+        (filters.confidence === "high"
+          ? row.prediction.score >= 80
+          : filters.confidence === "medium"
+            ? row.prediction.score >= 60 && row.prediction.score < 80
+            : row.prediction.score < 60)),
+  );
+  const ids = [...new Set(matches.map((row) => row.assetObjectId))];
+  return {
+    total: ids.length,
+    assets: ids.slice((page - 1) * pageSize, page * pageSize).map((id) => ({
+      assetObject: {
+        id,
+        slug: `a/${id}`,
+        name: matches.find((row) => row.assetObjectId === id)!.name,
+        extra: {
+          extension: "jpg",
+          size: 2621440,
+          thumbnailAccessUrl:
+            id === 1
+              ? new URL("./poster.svg", import.meta.url).href
+              : new URL("./outdoor.svg", import.meta.url).href,
+        },
+      },
+      createdAt: new Date("2025-07-30T10:30:00+08:00"),
+      rows: matches.filter((row) => row.assetObjectId === id),
+    })),
+  };
 }

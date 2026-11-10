@@ -1670,6 +1670,10 @@
       "memberImportInProgress": "メンバー {name} が一括インポートを実行中です。ページを更新してから、しばらくして再試行してください。"
     },
     "Metadata": {
+      "emptyFieldsHint": "空のフィールドのみ入力",
+      "reviewContent": "レビュー内容",
+      "source": "ソース",
+      "allSources": "すべて",
       "title": "メタデータフィールド",
       "empty": "フィールドの結果はありません",
       "effective": "有効",

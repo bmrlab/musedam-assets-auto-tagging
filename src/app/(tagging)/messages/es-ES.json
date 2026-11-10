@@ -1670,6 +1670,10 @@
       "memberImportInProgress": "El miembro {name} está ejecutando una importación masiva. Actualiza la página e inténtalo más tarde."
     },
     "Metadata": {
+      "emptyFieldsHint": "Solo rellena campos vacíos",
+      "reviewContent": "Contenido de revisión",
+      "source": "Origen",
+      "allSources": "Todos",
       "title": "Campos de metadatos",
       "empty": "Sin resultados de campos",
       "effective": "Efectivo",

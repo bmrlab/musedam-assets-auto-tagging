@@ -1670,6 +1670,10 @@
       "memberImportInProgress": "Mitglied {name} führt gerade einen Massenimport aus. Bitte aktualisieren Sie die Seite und versuchen Sie es später erneut."
     },
     "Metadata": {
+      "emptyFieldsHint": "Nur leere Felder ausfüllen",
+      "reviewContent": "Prüfinhalt",
+      "source": "Quelle",
+      "allSources": "Alle",
       "title": "Metadatenfelder",
       "empty": "Keine Feldergebnisse",
       "effective": "Wirksam",

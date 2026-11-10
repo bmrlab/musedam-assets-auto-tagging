@@ -12,6 +12,7 @@ import {
 import { Prisma, type TaggingAuditStatus } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 import { getTaggingSettings } from "../settings/lib";
+import { metadataReviewWhere, type MetadataReviewFilters } from "./metadata-review-query";
 
 export async function fetchMetadataReviews(page = 1, status: TaggingAuditStatus = "pending") {
   return withAuth(async ({ team, user }) => {
@@ -149,5 +150,83 @@ export async function fetchReviewMetadataValues(assetObjectId: number) {
     const materialId = slugToId("assetObject", asset.slug).toString();
     const records = await fetchMetadataValues(team, materialId);
     return records[materialId] || {};
+  });
+}
+
+/** Paginate assets, then load all matching fields for those assets; never split a card across pages. */
+export async function fetchMetadataReviewAssets(
+  page: number,
+  pageSize: number,
+  filters: MetadataReviewFilters,
+) {
+  return withAuth(async ({ team, user }) => {
+    await checkUserPermission({ team, user });
+    if (!Number.isInteger(page) || page < 1 || page > 100000 || ![20, 40, 80].includes(pageSize))
+      throw new Error("Invalid query");
+    let where = metadataReviewWhere(team.id, filters);
+    if (filters.search.trim()) {
+      const literal = `%${filters.search.trim().replace(/[\\%_]/g, "\\$&")}%`;
+      const matches = await prisma.$queryRaw<{ id: number }[]>(
+        Prisma.sql`SELECT "id" FROM "AssetObject" WHERE "teamId" = ${team.id} AND "tags"::text ILIKE ${literal}`,
+      );
+      where = metadataReviewWhere(
+        team.id,
+        filters,
+        new Date(),
+        matches.map((asset) => asset.id),
+      );
+    }
+    const [groups, count] = await Promise.all([
+      prisma.metadataAuditItem.groupBy({
+        by: ["assetObjectId"],
+        where,
+        _max: { createdAt: true },
+        orderBy: [{ _max: { createdAt: "desc" } }, { assetObjectId: "desc" }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      prisma.metadataAuditItem.groupBy({ by: ["assetObjectId"], where }),
+    ]);
+    const rows = groups.length
+      ? await prisma.metadataAuditItem.findMany({
+          where: { ...where, assetObjectId: { in: groups.map((g) => g.assetObjectId) } },
+          include: {
+            assetObject: { select: { id: true, name: true, slug: true, extra: true } },
+            queueItem: { select: { createdAt: true } },
+          },
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        })
+      : [];
+    const assets = await Promise.all(
+      groups.map(async (group) => {
+        const items = rows.filter((row) => row.assetObjectId === group.assetObjectId);
+        const asset = items[0].assetObject;
+        const context = await fetchMetadataContext(
+          team,
+          slugToId("assetObject", asset.slug).toString(),
+        );
+        return {
+          assetObject: asset,
+          createdAt: items[0].queueItem.createdAt,
+          rows: items.map((row) => {
+            const prediction = row.prediction as unknown as MetadataPrediction;
+            const current = context.fields.find((f) => f.fieldId === row.fieldId);
+            return {
+              id: row.id,
+              status: row.status,
+              prediction,
+              available:
+                context.enabled &&
+                !!current &&
+                current.fieldVersion === prediction.expectedFieldVersion &&
+                (prediction.optionIds ?? []).every((id) =>
+                  current.options.some((option) => option.id === id),
+                ),
+            };
+          }),
+        };
+      }),
+    );
+    return { assets, total: count.length };
   });
 }

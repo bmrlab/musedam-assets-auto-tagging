@@ -1670,6 +1670,10 @@
       "memberImportInProgress": "Il membro {name} sta eseguendo un’importazione in blocco. Aggiorna la pagina e riprova più tardi."
     },
     "Metadata": {
+      "emptyFieldsHint": "Compila solo i campi vuoti",
+      "reviewContent": "Contenuto da verificare",
+      "source": "Origine",
+      "allSources": "Tutte",
       "title": "Campi dei metadati",
       "empty": "Nessun risultato dei campi",
       "effective": "Effettivo",

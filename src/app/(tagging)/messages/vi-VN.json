@@ -1670,6 +1670,10 @@
       "memberImportInProgress": "Thành viên {name} đang chạy nhập hàng loạt. Vui lòng làm mới trang và thử lại sau."
     },
     "Metadata": {
+      "emptyFieldsHint": "Chỉ điền trường trống",
+      "reviewContent": "Nội dung duyệt",
+      "source": "Nguồn",
+      "allSources": "Tất cả",
       "title": "Trường siêu dữ liệu",
       "empty": "Chưa có kết quả trường",
       "effective": "Có hiệu lực",

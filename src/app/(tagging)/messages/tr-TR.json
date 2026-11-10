@@ -1670,6 +1670,10 @@
       "memberImportInProgress": "Üye {name} toplu içe aktarma çalıştırıyor. Lütfen sayfayı yenileyip daha sonra tekrar deneyin."
     },
     "Metadata": {
+      "emptyFieldsHint": "Yalnızca boş alanları doldurur",
+      "reviewContent": "İnceleme içeriği",
+      "source": "Kaynak",
+      "allSources": "Tümü",
       "title": "Meta veri alanları",
       "empty": "Alan sonucu yok",
       "effective": "Geçerli",
