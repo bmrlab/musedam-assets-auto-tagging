@@ -8,15 +8,14 @@ import {
 import { ServerActionResult } from "@/lib/serverAction";
 import { slugToId } from "@/lib/slug";
 import { batchSyncAssetThumbnails } from "@/musedam/assets";
-import {
-  AssetObject,
-  AssetObjectExtra,
-  Prisma,
-  TaggingQueueItem,
-  TaggingQueueStatus,
-} from "@/prisma/client";
+import { Prisma, TaggingQueueStatus } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 import { getTranslations } from "next-intl/server";
+import {
+  applyThumbnailUpdates,
+  type DashboardTaskListItem,
+} from "./dashboard-list-data";
+import { loadDashboardTaskListItems } from "./dashboard-list-query";
 import {
   calculateAverageProcessingTimeSeconds,
   calculateEstimatedRemainingTimeSeconds,
@@ -36,11 +35,10 @@ export type DashboardStats = {
   estimatedRemainingTime: number; // 预计剩余时间（秒）
 };
 
-export type TaskWithAsset = Omit<TaggingQueueItem, "assetObject"> & {
-  assetObject: Omit<AssetObject, "extra"> & {
-    extra: AssetObjectExtra;
-  };
-};
+export type TaskWithAsset = DashboardTaskListItem;
+
+/** 首屏不无限等开放网关；超时后仍后台写库，下次刷新能带上新签名。 */
+const THUMBNAIL_SYNC_BUDGET_MS = 800;
 
 // 控制面板只统计 / 展示正式打标任务：匹配测试页发起的 taskType=test 任务不进审核、不写回 MuseDAM，
 // 也不应该混进统计数字与任务列表里。
@@ -56,18 +54,12 @@ const FAILED_NOT_CANCELLED_FILTER: Prisma.TaggingQueueItemWhereInput = {
   ],
 };
 
+// NOT (failed AND cancelled) — 与原先三段 OR 等价，条件更短。
 const ALL_NOT_CANCELLED_FILTER: Prisma.TaggingQueueItemWhereInput = {
-  OR: [
-    { status: { not: "failed" } },
-    {
-      status: "failed",
-      result: { path: ["error"], equals: Prisma.AnyNull },
-    },
-    {
-      status: "failed",
-      NOT: { result: { path: ["error"], equals: CANCELLED_TASK_ERROR_CODE } },
-    },
-  ],
+  NOT: {
+    status: "failed",
+    result: { path: ["error"], equals: CANCELLED_TASK_ERROR_CODE },
+  },
 };
 
 // 原生聚合 SQL 用的时间参数：统一转成带时区的 ISO 字符串再显式 cast，
@@ -95,7 +87,8 @@ export async function fetchDashboardStats(): Promise<
 
       // 各状态计数与本月 / 今日完成数合并成一次扫描；failed 排除批量取消的任务
       // （result.error = CANCELLED，与 FAILED_NOT_CANCELLED_FILTER 一致）。
-      const [[counts], totalAssets] = await Promise.all([
+      // 近期完成样本与聚合并行，缩短统计接口墙钟时间。
+      const [[counts], totalAssets, recentCompletedTasks] = await Promise.all([
         prisma.$queryRaw<
           {
             totalCompleted: bigint;
@@ -130,6 +123,25 @@ export async function fetchDashboardStats(): Promise<
         prisma.assetObject.count({
           where: { teamId },
         }),
+        // 使用最近完成的资产任务估算单项耗时。startsAt 在任务被 worker claim 时写入，
+        // 因此这里只计算真正的处理时间，不包含 pending 队列中的等待时间。
+        prisma.taggingQueueItem.findMany({
+          where: {
+            teamId,
+            ...DASHBOARD_TASK_FILTER,
+            assetObjectId: { not: null },
+            status: "completed",
+            startsAt: { not: null },
+            endsAt: { not: null },
+          },
+          orderBy: { endsAt: "desc" },
+          take: RECENT_PROCESSING_TIME_SAMPLE_SIZE,
+          select: {
+            startsAt: true,
+            endsAt: true,
+            extra: true,
+          },
+        }),
       ]);
       const totalCompleted = Number(counts.totalCompleted);
       const processing = Number(counts.processing);
@@ -137,26 +149,6 @@ export async function fetchDashboardStats(): Promise<
       const failed = Number(counts.failed);
       const monthlyCompleted = Number(counts.monthlyCompleted);
       const dailyCompleted = Number(counts.dailyCompleted);
-
-      // 使用最近完成的资产任务估算单项耗时。startsAt 在任务被 worker claim 时写入，
-      // 因此这里只计算真正的处理时间，不包含 pending 队列中的等待时间。
-      const recentCompletedTasks = await prisma.taggingQueueItem.findMany({
-        where: {
-          teamId,
-          ...DASHBOARD_TASK_FILTER,
-          assetObjectId: { not: null },
-          status: "completed",
-          startsAt: { not: null },
-          endsAt: { not: null },
-        },
-        orderBy: { endsAt: "desc" },
-        take: RECENT_PROCESSING_TIME_SAMPLE_SIZE,
-        select: {
-          startsAt: true,
-          endsAt: true,
-          extra: true,
-        },
-      });
 
       const correctlyTimedTasks = recentCompletedTasks.filter((task) =>
         hasProcessingTimingVersion(task.extra, PROCESSING_TIMING_VERSION),
@@ -232,17 +224,12 @@ export async function fetchProcessingTasks(
           : { isNot: null },
       };
 
-      const [tasks, total] = await Promise.all([
+      // 先只取 id，再按展示字段投影回表，避免把完整 result / extra 拉进 Node。
+      const [taskIdRows, total] = await Promise.all([
         prisma.taggingQueueItem.findMany({
           where: whereClause,
-          include: {
-            assetObject: true,
-          },
-          orderBy: [
-            // { status: "asc" }, // processing 优先 ? 不用这样
-            // { createdAt: "desc" },
-            { id: "desc" },
-          ],
+          select: { id: true },
+          orderBy: [{ id: "desc" }],
           skip: offset,
           take: limit,
         }),
@@ -251,11 +238,13 @@ export async function fetchProcessingTasks(
         }),
       ]);
 
-      // 批量同步资产缩略图URL（防止签名过期）
+      const taskIds = taskIdRows.map((row) => row.id);
+      let tasks = await loadDashboardTaskListItems(teamId, taskIds);
+
+      // 批量同步缩略图签名；限时等待，超时不挡首屏，结果内存合并、无需二次整表查询。
       const team = { id: teamId, slug: teamSlug };
       const musedamAssetIds = tasks
         .map((task) => {
-          if (!task.assetObject) return null;
           try {
             return slugToId("assetObject", task.assetObject.slug);
           } catch {
@@ -265,41 +254,30 @@ export async function fetchProcessingTasks(
         .filter((id): id is NonNullable<typeof id> => id !== null);
 
       if (musedamAssetIds.length > 0) {
-        await batchSyncAssetThumbnails({
+        const syncPromise = batchSyncAssetThumbnails({
           musedamAssetIds,
           team,
         }).catch((error) => {
-          // 同步失败不影响主流程，只记录错误
           console.error("批量同步资产缩略图失败:", error);
+          return new Map<string, string>();
         });
+        const thumbnailUpdates = await Promise.race([
+          syncPromise,
+          new Promise<Map<string, string>>((resolve) => {
+            setTimeout(() => resolve(new Map()), THUMBNAIL_SYNC_BUDGET_MS);
+          }),
+        ]);
+        // 超时后仍让同步跑完，下一轮刷新可读到库里的新 URL
+        void syncPromise;
+        tasks = applyThumbnailUpdates(tasks, thumbnailUpdates);
       }
-
-      // 重新查询更新后的任务列表，保持原有顺序
-      const taskIds = tasks.map((t) => t.id);
-      const updatedTasksMap = new Map(
-        (
-          await prisma.taggingQueueItem.findMany({
-            where: {
-              id: { in: taskIds },
-            },
-            include: {
-              assetObject: true,
-            },
-          })
-        ).map((task) => [task.id, task]),
-      );
-
-      // 按照原来的顺序重新组装任务列表
-      const updatedTasks = taskIds
-        .map((id) => updatedTasksMap.get(id))
-        .filter((task): task is NonNullable<typeof task> => task !== undefined);
 
       const hasMore = offset + tasks.length < total;
 
       return {
         success: true,
         data: {
-          tasks: updatedTasks as TaskWithAsset[],
+          tasks,
           total,
           hasMore,
           page,

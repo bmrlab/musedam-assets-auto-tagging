@@ -11,7 +11,6 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import { ExtractServerActionData } from "@/lib/serverAction";
-import { AssetObjectExtra } from "@/prisma/client";
 import { Input } from "@/components/ui/input";
 import { CheckCircle2, SearchIcon, X } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -476,29 +475,23 @@ export default function DashboardClient({
             <div className="max-h-[622px] overflow-y-auto">
               {tasks.map((task) => {
                 const assetObject = task.assetObject;
-                const extra = (assetObject?.extra ?? null) as AssetObjectExtra | null;
-                const assetName = assetObject?.name || "Unknown Asset";
+                const extra = assetObject.extra;
+                const assetName = assetObject.name || "Unknown Asset";
                 const failedReason = (() => {
                   if (task.status !== "failed") return null;
-                  try {
-                    const result = task.result as unknown as {
-                      error?: string | { code?: string };
-                    } | null;
-                    const code =
-                      typeof result?.error === "string"
-                        ? result.error
-                        : typeof result?.error === "object" && result?.error
-                          ? result.error.code
-                          : null;
-                    if (!code) return null;
+                  const result = task.result;
+                  const code =
+                    typeof result?.error === "string"
+                      ? result.error
+                      : typeof result?.error === "object" && result?.error
+                        ? result.error.code
+                        : null;
+                  if (!code) return null;
 
-                    if (code === "NO_TAG_TREE") return t("emptyTagErrorMsg");
-                    if (code === "NO_VALID_TAGS") return t("noAppropriateTagErrorMsg");
-                    if (code === "NO_MATCHING_SOURCES_ENABLED") return t("noMatchingSourceErrorMsg");
-                    return null;
-                  } catch {
-                    return null;
-                  }
+                  if (code === "NO_TAG_TREE") return t("emptyTagErrorMsg");
+                  if (code === "NO_VALID_TAGS") return t("noAppropriateTagErrorMsg");
+                  if (code === "NO_MATCHING_SOURCES_ENABLED") return t("noMatchingSourceErrorMsg");
+                  return null;
                 })();
                 return (
                   <div
@@ -508,8 +501,8 @@ export default function DashboardClient({
                     {/* Thumbnail or Icon */}
                     <div className="shrink-0 size-8 relative overflow-hidden">
                       <AssetThumbnail asset={{
-                        thumbnailUrl: extra?.thumbnailAccessUrl,
-                        extension: extra?.extension,
+                        thumbnailUrl: extra.thumbnailAccessUrl,
+                        extension: extra.extension,
                       }}
                         className="size-8 rounded-sm"
                         maxWidth={32}
@@ -526,9 +519,9 @@ export default function DashboardClient({
                       </div>
                       <div className="flex items-center gap-2 text-xs mt-0.5 text-basic-6">
                         <span>
-                          {extra?.extension?.toUpperCase() || "UNKNOWN"}
+                          {extra.extension?.toUpperCase() || "UNKNOWN"}
                         </span>
-                        {extra?.size !== null && extra?.size !== undefined && (
+                        {extra.size !== null && extra.size !== undefined && (
                             <span className="text-basic-5">
                               <span> · </span>
                               {formatFileSize(extra.size)}

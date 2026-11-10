@@ -254,7 +254,8 @@ export async function syncSingleAssetFromMuseDAM({
 }
 
 /**
- * 批量同步资产的 thumbnailAccessUrl（轻量级，只更新缩略图URL，防止签名过期）
+ * 批量同步资产的 thumbnailAccessUrl（轻量级，只更新缩略图URL，防止签名过期）。
+ * 返回实际写库的 slug → 新 URL，调用方可内存合并，不必再整表重查。
  */
 export async function batchSyncAssetThumbnails({
   musedamAssetIds,
@@ -265,8 +266,9 @@ export async function batchSyncAssetThumbnails({
     id: number;
     slug: string;
   };
-}): Promise<void> {
-  if (musedamAssetIds.length === 0) return;
+}): Promise<Map<string, string>> {
+  const updatedBySlug = new Map<string, string>();
+  if (musedamAssetIds.length === 0) return updatedBySlug;
 
   const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
 
@@ -284,7 +286,7 @@ export async function batchSyncAssetThumbnails({
     body: musedamAssetIds,
   });
 
-  if (!assets || assets.length === 0) return;
+  if (!assets || assets.length === 0) return updatedBySlug;
 
   // 一次查出现有资产，只对缩略图 URL 实际变化的资产写库，避免每次读列表都整行重写 extra
   const slugs = assets.map((musedamAsset) => {
@@ -308,7 +310,7 @@ export async function batchSyncAssetThumbnails({
       try {
         const slug = slugs[index];
         const existingAsset = slug ? existingBySlug.get(slug) : undefined;
-        if (!existingAsset) return;
+        if (!existingAsset || !slug) return;
 
         // 只更新 extra 中的 thumbnailAccessUrl，保留其他字段
         const extra = (existingAsset.extra as Record<string, unknown>) || {};
@@ -323,12 +325,15 @@ export async function batchSyncAssetThumbnails({
             },
           },
         });
+        updatedBySlug.set(slug, musedamAsset.thumbnailAccessUrl);
       } catch (error) {
         // 单个资产更新失败不影响其他资产
         console.error(`更新资产缩略图失败 (assetId: ${musedamAsset.id}):`, error);
       }
     }),
   );
+
+  return updatedBySlug;
 }
 
 export async function setAssetTagsToMuseDAM({
