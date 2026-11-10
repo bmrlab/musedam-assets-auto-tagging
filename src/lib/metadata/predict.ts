@@ -20,7 +20,12 @@ export async function predictMetadata(
   team: { id: number; slug: string },
   settings: TaggingSettingsData,
 ) {
-  const context = await fetchMetadataContext(team, slugToId("assetObject", asset.slug).toString());
+  // Matching-test uploads have no DAM material or existing values to protect.
+  const localTest =
+    asset.slug.startsWith("local-test-") &&
+    (asset.extra as { localTest?: boolean } | null)?.localTest === true;
+  const materialId = localTest ? undefined : slugToId("assetObject", asset.slug).toString();
+  const context = await fetchMetadataContext(team, materialId);
   if (!context.enabled || !context.fields.length) return [];
   const texts: Partial<Record<MetadataSource, string>> = {};
   if (settings.matchingSources.basicInfo)
