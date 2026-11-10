@@ -58,7 +58,7 @@ package 中的 lint 为 next lint，若当前 Next 版本已不支持该子命�
 
 MuseDAM 界面按 `muse-development/references/design-system.md`（由工作区 Muse 开发 skill 提供）；新增静态样式使用 Tailwind，先复用本项目组件与图标。两种主题均需适配。跨仓定位见 工作区 `muse-development/SKILL.md`。
 
-团队级「图像模式」通过 AI 打标设置保存到现有 `TeamConfig.featureImageMode` 配置项（JSON 布尔值），默认关闭，无需 migration；入队时保存图像模式及积分快照，执行和重试沿用快照；无快照的历史任务仍读取团队当前配置。开发分类页的临时图像开关不改写团队设置。
+团队级「图像模式」通过 AI 打标设置保存到现有 `TeamConfig.featureImageMode` 配置项（JSON 布尔值），默认关闭，无需 migration；入队时保存图像模式及积分快照，执行和重试沿用快照；无快照的历史任务仍读取团队当前配置。开发分类页的临时图像开关不改写团队设置。`POST /api/tagging/credit-quote` 只返回当前每个新任务的积分（图像模式关闭 1、开启 2，未开启或暂停为 0），不入队；询价不能调用 `predict-asset-tag`。
 
 ## 标签导入开发
 
