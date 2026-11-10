@@ -1,0 +1,167 @@
+{
+  "testedAt": "2026-11-10T07:03:35.153Z",
+  "materialId": "6964801",
+  "assetName": "04-联动测试-线上电商-春季秋季-彩妆口红-含人物",
+  "predictions": [
+    {
+      "fieldId": "3accf9ca-3bbd-4b3c-ab98-181ed786764c",
+      "expectedFieldVersion": 3,
+      "fieldName": "AI测试-销售渠道",
+      "optionIds": [
+        "11825d49-877a-452e-8568-28fdf4fc8309"
+      ],
+      "labels": [
+        "线上电商"
+      ],
+      "confidence": 0.99,
+      "score": 99,
+      "effective": true,
+      "sources": [
+        {
+          "source": "basicInfo",
+          "confidence": 0.99,
+          "evidence": "线上电商"
+        }
+      ]
+    },
+    {
+      "fieldId": "526c01bd-940d-440d-8d38-11d0338ab332",
+      "expectedFieldVersion": 2,
+      "fieldName": "AI测试-适用季节",
+      "optionIds": [
+        "b99fd14b-9113-4f48-a4ce-3421f5c801a6"
+      ],
+      "labels": [
+        "秋季"
+      ],
+      "confidence": 0.96,
+      "score": 96,
+      "effective": true,
+      "sources": [
+        {
+          "source": "basicInfo",
+          "confidence": 0.95,
+          "evidence": "秋季"
+        }
+      ]
+    }
+  ],
+  "applied": {
+    "applied": [
+      "3accf9ca-3bbd-4b3c-ab98-181ed786764c",
+      "526c01bd-940d-440d-8d38-11d0338ab332"
+    ],
+    "skipped": []
+  },
+  "retry": {
+    "applied": [
+      "3accf9ca-3bbd-4b3c-ab98-181ed786764c",
+      "526c01bd-940d-440d-8d38-11d0338ab332"
+    ],
+    "skipped": []
+  },
+  "blocked": {
+    "applied": [],
+    "skipped": [
+      "526c01bd-940d-440d-8d38-11d0338ab332",
+      "9b016a4e-f300-4ad8-aeaf-e25d67d59a6d",
+      "f2e048a4-8d46-415c-ab1c-7df6fa2ad1bc"
+    ]
+  },
+  "beforeVersion": 0,
+  "afterVersion": 1,
+  "values": {
+    "6964801": {
+      "recordId": "d69f3bed-2c49-4152-8ed3-31c9eedb217e",
+      "AI测试-销售渠道": "线上电商",
+      "AI测试-产品分类": [
+        "9936ed04-fd9f-49c4-9303-99fb7b920262"
+      ],
+      "materialId": 6964801,
+      "__metadata": {
+        "fields": [
+          {
+            "name": "AI测试-销售渠道",
+            "options": [
+              {
+                "id": "0bfaf70b-a792-4428-a940-ba83a6330506",
+                "label": "线下门店"
+              },
+              {
+                "id": "11825d49-877a-452e-8568-28fdf4fc8309",
+                "label": "线上电商"
+              }
+            ],
+            "id": "3accf9ca-3bbd-4b3c-ab98-181ed786764c",
+            "type": "single_select",
+            "version": 3
+          },
+          {
+            "name": "AI测试-适用季节",
+            "options": [
+              {
+                "id": "606aee84-5f79-4b75-81dc-20069c04ee73",
+                "label": "春季"
+              },
+              {
+                "id": "7de12224-0232-444e-a9da-d3427b039e22",
+                "label": "夏季"
+              },
+              {
+                "id": "b99fd14b-9113-4f48-a4ce-3421f5c801a6",
+                "label": "秋季"
+              },
+              {
+                "id": "f59ee0ee-7571-446b-af7b-89fdde1a9334",
+                "label": "冬季"
+              }
+            ],
+            "id": "526c01bd-940d-440d-8d38-11d0338ab332",
+            "type": "multiple_select",
+            "version": 2
+          },
+          {
+            "name": "AI测试-含人物",
+            "options": [],
+            "id": "f2e048a4-8d46-415c-ab1c-7df6fa2ad1bc",
+            "type": "boolean",
+            "version": 5
+          },
+          {
+            "name": "AI测试-产品分类",
+            "options": [
+              {
+                "id": "96a8218e-e2f4-4e07-8933-d9767eea3914",
+                "label": "护肤"
+              },
+              {
+                "id": "c92d8e0c-de20-4f80-8f96-24b568c8e7cb",
+                "label": "精华"
+              },
+              {
+                "id": "9936ed04-fd9f-49c4-9303-99fb7b920262",
+                "label": "面霜"
+              },
+              {
+                "id": "c000a1fd-83df-4ad2-94dc-2cf9bc8d2f4b",
+                "label": "彩妆"
+              },
+              {
+                "id": "d258b3b2-9178-4b58-9dbc-1e70590e3a4d",
+                "label": "口红"
+              }
+            ],
+            "id": "9b016a4e-f300-4ad8-aeaf-e25d67d59a6d",
+            "type": "cascade",
+            "version": 2
+          }
+        ],
+        "version": 1
+      },
+      "AI测试-适用季节": [
+        "秋季"
+      ],
+      "AI测试-含人物": false
+    }
+  }
+}

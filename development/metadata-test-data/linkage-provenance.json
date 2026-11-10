@@ -1,0 +1,61 @@
+{
+  "values": [
+    {
+      "field_id": "3accf9ca-3bbd-4b3c-ab98-181ed786764c",
+      "option_ids_json": "[\"11825d49-877a-452e-8568-28fdf4fc8309\"]",
+      "extended_value_json": null,
+      "value_origin": "AI",
+      "ai_confidence": 0.99,
+      "rule_source_field_id": null
+    },
+    {
+      "field_id": "526c01bd-940d-440d-8d38-11d0338ab332",
+      "option_ids_json": "[\"b99fd14b-9113-4f48-a4ce-3421f5c801a6\"]",
+      "extended_value_json": null,
+      "value_origin": "AI",
+      "ai_confidence": 0.96,
+      "rule_source_field_id": null
+    },
+    {
+      "field_id": "9b016a4e-f300-4ad8-aeaf-e25d67d59a6d",
+      "option_ids_json": "[\"9936ed04-fd9f-49c4-9303-99fb7b920262\"]",
+      "extended_value_json": null,
+      "value_origin": "RULE",
+      "ai_confidence": null,
+      "rule_source_field_id": "f2e048a4-8d46-415c-ab1c-7df6fa2ad1bc"
+    },
+    {
+      "field_id": "f2e048a4-8d46-415c-ab1c-7df6fa2ad1bc",
+      "option_ids_json": null,
+      "extended_value_json": "{\"checked\":false}",
+      "value_origin": "RULE",
+      "ai_confidence": null,
+      "rule_source_field_id": "3accf9ca-3bbd-4b3c-ab98-181ed786764c"
+    }
+  ],
+  "record": {
+    "version": 1
+  },
+  "events": [
+    {
+      "consumer_purpose": "INDEX",
+      "process_state": "DONE",
+      "target_version": 1
+    },
+    {
+      "consumer_purpose": "AI_AUDIT",
+      "process_state": "DONE",
+      "target_version": 1
+    },
+    {
+      "consumer_purpose": "RECEIPT",
+      "process_state": "DONE",
+      "target_version": 1
+    },
+    {
+      "consumer_purpose": "RECEIPT",
+      "process_state": "DONE",
+      "target_version": 1
+    }
+  ]
+}
