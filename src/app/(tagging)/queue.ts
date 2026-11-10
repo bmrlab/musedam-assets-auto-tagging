@@ -1,3 +1,4 @@
+import { getTaggingCreditCost } from "@/lib/tagging-credit";
 import { runWithQueueExecution, throwIfQueueAborted } from "@/lib/tagging/queue-execution";
 import { getTagConfigVersion } from "@/lib/tagging/tag-config-version";
 import { createVersionedTagTreeCache } from "@/lib/tagging/tag-tree-cache";
@@ -182,6 +183,7 @@ export async function enqueueTaggingTask({
   featureClassify = true,
   featureClassifications,
   taskType = "default",
+  featureImageMode,
 }: {
   assetObject: AssetObject;
   matchingSources?: {
@@ -194,6 +196,7 @@ export async function enqueueTaggingTask({
   featureClassify?: boolean;
   featureClassifications?: Partial<FeatureClassificationFlags>;
   taskType?: "default" | "test" | "manual" | "scheduled";
+  featureImageMode?: boolean;
 }): Promise<TaggingQueueItem> {
   const teamId = assetObject.teamId;
   const classifications = resolveFeatureClassificationFlags(
@@ -201,6 +204,8 @@ export async function enqueueTaggingTask({
     featureClassifications,
   );
 
+  const imageMode = featureImageMode ?? (await getTaggingSettings(teamId)).featureImageMode;
+  const creditCost = getTaggingCreditCost(imageMode);
   const taggingQueueItem = await prisma.taggingQueueItem.create({
     data: {
       teamId: teamId,
@@ -208,6 +213,8 @@ export async function enqueueTaggingTask({
       status: "pending",
       taskType,
       extra: {
+        featureImageMode: imageMode,
+        creditCost,
         matchingSources,
         recognitionAccuracy,
         featureClassify,
@@ -431,7 +438,8 @@ export async function processQueueItem({
                   folderPath: assetObject.materializedPath,
                   ocrSegments,
                   ocrImage,
-                  imageMode: teamSetting.featureImageMode,
+                  // Legacy tasks without a snapshot keep the previous behavior.
+                  imageMode: extra?.featureImageMode ?? teamSetting.featureImageMode,
                   enabledTypes: [
                     ...(logoCount > 0 ? ["logo" as const] : []),
                     ...(productCount > 0 ? ["product" as const] : []),

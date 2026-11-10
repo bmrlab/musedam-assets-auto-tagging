@@ -1,6 +1,6 @@
 // @vitest-environment node
 
-import { processQueueItem } from "@/app/(tagging)/queue";
+import { enqueueTaggingTask, processQueueItem } from "@/app/(tagging)/queue";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   productCount: vi.fn(),
   brandCount: vi.fn(),
   ipCount: vi.fn(),
+  create: vi.fn(),
   update: vi.fn(),
   findUnique: vi.fn(),
   classifyFeatures: vi.fn(),
@@ -56,7 +57,7 @@ vi.mock("@/prisma/prisma", () => ({
     productVector: { count: mocks.productCount },
     logoVector: { count: mocks.brandCount },
     ipVector: { count: mocks.ipCount },
-    taggingQueueItem: { update: mocks.update, findUnique: mocks.findUnique },
+    taggingQueueItem: { create: mocks.create, update: mocks.update, findUnique: mocks.findUnique },
   },
 }));
 vi.mock("@/lib/logging", () => {
@@ -106,6 +107,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.clearAllTimers();
+  vi.useRealTimers();
   vi.unstubAllEnvs();
 });
 
@@ -116,6 +119,7 @@ async function run(
     product: true,
     ip: true,
   },
+  snapshot?: boolean,
 ) {
   await processQueueItem({
     id: 1,
@@ -123,6 +127,7 @@ async function run(
     taskType: "test",
     assetObjectId: 2,
     extra: {
+      ...(snapshot === undefined ? {} : { featureImageMode: snapshot, creditCost: snapshot ? 2 : 1 }),
       featureClassify: true,
       featureBrand: features.brand ?? false,
       featureProduct: features.product ?? false,
@@ -421,5 +426,31 @@ describe("combined LLM feature classification", () => {
         }),
       }),
     );
+  });
+});
+
+
+describe("queued image mode snapshot", () => {
+  it.each([false, true])("keeps the enqueue mode %s after the team setting changes", async snapshot => {
+    mocks.mode = "llm";
+    mocks.imageMode = !snapshot;
+    await run({ extension: "jpg", downloadUrl: "https://example.test/image.jpg" }, undefined, snapshot);
+    expect(mocks.classifyFeatures).toHaveBeenCalledWith(expect.objectContaining({ imageMode: snapshot }));
+  });
+
+  it.each([false, true])("captures team mode %s and price for all enqueue callers", async enabled => {
+    vi.useFakeTimers();
+    mocks.imageMode = enabled;
+    mocks.create.mockImplementation(async ({ data }) => ({ id: 123, ...data }));
+    const task = await enqueueTaggingTask({ assetObject: { id: 2, teamId: 7 } as never });
+    expect(task.extra).toMatchObject({ featureImageMode: enabled, creditCost: enabled ? 2 : 1 });
+  });
+
+  it("uses the API snapshot even when the team setting changes before creation", async () => {
+    vi.useFakeTimers();
+    mocks.imageMode = false;
+    mocks.create.mockImplementation(async ({ data }) => ({ id: 123, ...data }));
+    const task = await enqueueTaggingTask({ assetObject: { id: 2, teamId: 7 } as never, featureImageMode: true });
+    expect(task.extra).toMatchObject({ featureImageMode: true, creditCost: 2 });
   });
 });
