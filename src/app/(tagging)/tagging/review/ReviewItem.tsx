@@ -999,41 +999,6 @@ export function ReviewItem({
               </div>
             );
           })}
-          {hasPendingAuditItems && !sourceDeleted ? (
-            <div className="rounded-md bg-basic-1 p-4">
-              {manualTags.length > 0 ? (
-                <div className="mb-3 flex flex-wrap gap-2">
-                  {manualTags.map((tag) => (
-                    <span
-                      key={tag.id}
-                      className="inline-flex items-center gap-2 rounded-md border border-primary-3 bg-primary-1 px-2 py-1 text-xs text-primary-6"
-                    >
-                      {tag.tagPath.join(" > ")}
-                      <span className="text-basic-5">{t("manuallyAdded")}</span>
-                      <button
-                        type="button"
-                        disabled={realLoading}
-                        aria-label={`${t("tooltipRemove")} ${tag.tagPath.join(" > ")}`}
-                        onClick={() => onRemoveManualTag(tag.id)}
-                      >
-                        <XIcon className="size-3" />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              ) : null}
-              <button
-                type="button"
-                disabled={realLoading}
-                className="inline-flex items-center gap-1 text-xs text-primary-6 disabled:opacity-50"
-                onClick={() => setAddTagOpen(true)}
-              >
-                <PlusIcon className="size-3" />
-                {t("addTagManually")}
-              </button>
-              <p className="mt-2 text-xs text-basic-5">{t("addTagHint")}</p>
-            </div>
-          ) : null}
           {historyCount > 0 ? (
             <button
               type="button"
@@ -1054,10 +1019,8 @@ export function ReviewItem({
               const productRecommendation = productRecommendationsByQueueId.get(queueItem.id);
               const personRecommendation = personRecommendationsByQueueId.get(queueItem.id);
               const isLatestBatch = finalBatch.length > 1 && index === 0;
-              // 待审核：手动添加的特征挂在最新一次识别结果下，可移除；
-              // 已应用：展示该次审核快照里记录的手动添加特征，只读
-              const isCurrentBatch = index === 0;
-              const isEditableManualBatch = isCurrentBatch && hasPendingAuditItems;
+              // 已应用批次：展示该次审核快照里记录的手动添加特征（只读）；
+              // 待审核时手动添加特征放在下方统一手动添加块，不混进 AI 识别结果。
               const reviewedManualFeatures = taggingAuditItems.some(
                 ({ status }) => status === "pending",
               )
@@ -1065,9 +1028,7 @@ export function ReviewItem({
                 : getReviewedManualFeatures(queueItem.extra).filter((feature) =>
                     isFeatureTypeEnabled(featureLibraryFeatures, feature.featureType),
                   );
-              const hasManualRows =
-                reviewedManualFeatures.length > 0 ||
-                (isEditableManualBatch && visibleManualFeatures.length > 0);
+              const hasManualRows = reviewedManualFeatures.length > 0;
               const hasFeatureBelowConfidenceThreshold =
                 (featureLibraryFeatures.featureBrand &&
                   getBrandMatches(brandRecommendation).some(
@@ -1248,60 +1209,43 @@ export function ReviewItem({
                         {tResult("featureRecognitionIncomplete")}
                       </div>
                     ) : null}
-                    {reviewedManualFeatures.map((feature) => (
-                      <ManualFeatureRow
-                        key={`reviewed-manual-${featureKey(feature.featureType, feature.id)}`}
-                        feature={feature}
-                        featureClass={getFeatureClassLabel(feature.featureType)}
-                        thumbnail={featureThumbnails[featureKey(feature.featureType, feature.id)]}
-                        onPreview={setPreviewImage}
-                      />
-                    ))}
-                    {isEditableManualBatch
-                      ? visibleManualFeatures.map((feature) => (
+                    {hasManualRows || featureRows.length > 0 ? (
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        {reviewedManualFeatures.map((feature) => (
                           <ManualFeatureRow
-                            key={`manual-${featureKey(feature.featureType, feature.id)}`}
+                            key={`reviewed-manual-${featureKey(feature.featureType, feature.id)}`}
                             feature={feature}
                             featureClass={getFeatureClassLabel(feature.featureType)}
-                            thumbnail={
-                              feature.thumbnail !== undefined
-                                ? feature.thumbnail
-                                : featureThumbnails[featureKey(feature.featureType, feature.id)]
-                            }
-                            disabled={realLoading}
-                            onRemove={() =>
-                              onRemoveManualFeature(featureKey(feature.featureType, feature.id))
-                            }
+                            thumbnail={featureThumbnails[featureKey(feature.featureType, feature.id)]}
                             onPreview={setPreviewImage}
                           />
-                        ))
-                      : null}
-                    {featureRows.length > 0 ? (
-                      featureRows.map((feature) => (
-                        <FeatureRecognitionRow
-                          key={feature.key}
-                          featureType={feature.featureType}
-                          featureId={feature.featureId}
-                          thumbnail={
-                            featureThumbnails[featureKey(feature.featureType, feature.featureId)]
-                          }
-                          featureClass={feature.featureClass}
-                          featureTypeName={feature.featureTypeName}
-                          classifiedName={feature.classifiedName}
-                          confidence={feature.confidence}
-                          rawSimilarity={feature.rawSimilarity}
-                          matchingSource={feature.matchingSource}
-                          tagPaths={feature.tagPaths}
-                          isRejected={feature.isRejected}
-                          onToggle={feature.onToggle}
-                          disabled={realLoading || sourceDeleted}
-                          showToggle={!isScopedFeatureReviewComplete(queueItem) && taggingAuditItems.some(({ status }) => status === "pending")}
-                          tooltipAdd={t("tooltipAdd")}
-                          tooltipRemove={t("tooltipRemove")}
-                          onPreview={setPreviewImage}
-                        />
-                      ))
-                    ) : hasFeatureRecognitionFailure((queueItem.result as TaggingQueueItemResult | null)?.featureDecision) || hasManualRows ? null : (
+                        ))}
+                        {featureRows.map((feature) => (
+                          <FeatureRecognitionRow
+                            key={feature.key}
+                            featureType={feature.featureType}
+                            featureId={feature.featureId}
+                            thumbnail={
+                              featureThumbnails[featureKey(feature.featureType, feature.featureId)]
+                            }
+                            featureClass={feature.featureClass}
+                            featureTypeName={feature.featureTypeName}
+                            classifiedName={feature.classifiedName}
+                            confidence={feature.confidence}
+                            rawSimilarity={feature.rawSimilarity}
+                            matchingSource={feature.matchingSource}
+                            tagPaths={feature.tagPaths}
+                            isRejected={feature.isRejected}
+                            onToggle={feature.onToggle}
+                            disabled={realLoading || sourceDeleted}
+                            showToggle={!isScopedFeatureReviewComplete(queueItem) && taggingAuditItems.some(({ status }) => status === "pending")}
+                            tooltipAdd={t("tooltipAdd")}
+                            tooltipRemove={t("tooltipRemove")}
+                            onPreview={setPreviewImage}
+                          />
+                        ))}
+                      </div>
+                    ) : hasFeatureRecognitionFailure((queueItem.result as TaggingQueueItemResult | null)?.featureDecision) ? null : (
                       <div className="text-sm text-basic-5">
                         {tResult(
                           isVideoAsset
@@ -1312,22 +1256,83 @@ export function ReviewItem({
                         )}
                       </div>
                     )}
-                    {isEditableManualBatch ? (
-                      <button
-                        type="button"
-                        disabled={realLoading}
-                        className="inline-flex items-center gap-1 text-xs text-primary-6 transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
-                        onClick={() => setAddFeatureOpen(true)}
-                      >
-                        <PlusIcon className="size-3" />
-                        {t("addFeatureManually")}
-                      </button>
-                    ) : null}
                   </div>
                 </div>
               );
             })}
           </div>
+      ) : null}
+
+      {hasPendingAuditItems && !sourceDeleted ? (
+        <div className="rounded-md bg-basic-1 p-4">
+          {contentScope !== "features" && manualTags.length > 0 ? (
+            <div className="mb-3 flex flex-wrap gap-2">
+              {manualTags.map((tag) => (
+                <span
+                  key={tag.id}
+                  className="inline-flex items-center gap-2 rounded-md border border-primary-3 bg-primary-1 px-2 py-1 text-xs text-primary-6"
+                >
+                  {tag.tagPath.join(" > ")}
+                  <span className="text-basic-5">{t("manuallyAdded")}</span>
+                  <button
+                    type="button"
+                    disabled={realLoading}
+                    aria-label={`${t("tooltipRemove")} ${tag.tagPath.join(" > ")}`}
+                    onClick={() => onRemoveManualTag(tag.id)}
+                  >
+                    <XIcon className="size-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          ) : null}
+          {hasEnabledFeatures && visibleManualFeatures.length > 0 ? (
+            <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {visibleManualFeatures.map((feature) => (
+                <ManualFeatureRow
+                  key={`manual-${featureKey(feature.featureType, feature.id)}`}
+                  feature={feature}
+                  featureClass={getFeatureClassLabel(feature.featureType)}
+                  thumbnail={
+                    feature.thumbnail !== undefined
+                      ? feature.thumbnail
+                      : featureThumbnails[featureKey(feature.featureType, feature.id)]
+                  }
+                  disabled={realLoading}
+                  onRemove={() => onRemoveManualFeature(featureKey(feature.featureType, feature.id))}
+                  onPreview={setPreviewImage}
+                />
+              ))}
+            </div>
+          ) : null}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            {contentScope !== "features" ? (
+              <button
+                type="button"
+                disabled={realLoading}
+                className="inline-flex items-center gap-1 text-xs text-primary-6 disabled:opacity-50"
+                onClick={() => setAddTagOpen(true)}
+              >
+                <PlusIcon className="size-3" />
+                {t("addTagManually")}
+              </button>
+            ) : null}
+            {hasEnabledFeatures ? (
+              <button
+                type="button"
+                disabled={realLoading}
+                className="inline-flex items-center gap-1 text-xs text-primary-6 transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={() => setAddFeatureOpen(true)}
+              >
+                <PlusIcon className="size-3" />
+                {t("addFeatureManually")}
+              </button>
+            ) : null}
+          </div>
+          {contentScope !== "features" ? (
+            <p className="mt-2 text-xs text-basic-5">{t("addTagHint")}</p>
+          ) : null}
+        </div>
       ) : null}
       <AddTagDialog
         open={addTagOpen}
