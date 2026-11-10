@@ -60,7 +60,10 @@ export async function fetchMetadataReviews(page = 1, status: TaggingAuditStatus 
           available:
             context.enabled &&
             !!current &&
-            current.fieldVersion === prediction.expectedFieldVersion,
+            current.fieldVersion === prediction.expectedFieldVersion &&
+            (prediction.optionIds ?? []).every((id) =>
+              current.options.some((option) => option.id === id),
+            ),
         };
       }),
       total,

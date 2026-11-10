@@ -17,8 +17,23 @@ async function call<T>(team: Team, path: `/${string}`, body: unknown): Promise<T
     body,
   });
 }
-export const fetchMetadataContext = (team: Team, materialId?: string) =>
-  call<MetadataContext>(team, "/api/muse/metadata-ai-context", { materialId });
+const predictionValues = (fields: MetadataPrediction[]) =>
+  fields.map(({ fieldId, expectedFieldVersion, optionIds, checked, confidence }) => ({
+    fieldId,
+    expectedFieldVersion,
+    optionIds,
+    checked,
+    confidence,
+  }));
+export const fetchMetadataContext = (
+  team: Team,
+  materialId?: string,
+  predictions?: MetadataPrediction[],
+) =>
+  call<MetadataContext>(team, "/api/muse/metadata-ai-context", {
+    materialId,
+    ...(predictions ? { predictions: predictionValues(predictions) } : {}),
+  });
 export const applyMetadataPredictions = (
   team: Team,
   materialId: string,
@@ -28,13 +43,7 @@ export const applyMetadataPredictions = (
   call<MetadataApplyResult>(team, "/api/muse/metadata-ai-apply", {
     materialId,
     requestId,
-    fields: fields.map(({ fieldId, expectedFieldVersion, optionIds, checked, confidence }) => ({
-      fieldId,
-      expectedFieldVersion,
-      optionIds,
-      checked,
-      confidence,
-    })),
+    fields: predictionValues(fields),
   });
 
 /** Existing tag-only teams need no metadata endpoint; field-only teams must still have both entitlements. */
@@ -50,8 +59,6 @@ export async function hasEnabledTaggingOutput(
 
 /** Existing read-only metadata API; values are keyed by field name. */
 export const fetchMetadataValues = (team: Team, materialId: string) =>
-  call<Record<string, Record<string, unknown>>>(
-    team,
-    "/api/muse/metadata-records-by-ids",
-    { materialIds: [materialId] },
-  );
+  call<Record<string, Record<string, unknown>>>(team, "/api/muse/metadata-records-by-ids", {
+    materialIds: [materialId],
+  });

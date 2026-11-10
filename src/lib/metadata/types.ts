@@ -7,12 +7,14 @@ export interface MetadataField {
   instruction?: string;
   multiple: boolean;
   options: { id: string; label: string }[];
+  dependsOn?: string[];
 }
 export interface MetadataContext {
   enabled: boolean;
   materialId: string;
   version: number;
   fields: MetadataField[];
+  rejectedFieldIds?: string[];
 }
 export type MetadataPrediction = {
   fieldId: string;
