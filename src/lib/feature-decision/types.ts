@@ -19,6 +19,7 @@ export type FeatureDecisionCandidate = {
   description?: string;
   /** Catalog notes, including user-maintained product nicknames. */
   notes?: string;
+  metadataMatches?: Array<{ source: "filename" | "path"; terms: string[] }>;
   referenceImage?: string;
   referenceImageCount?: number;
   referenceImageIds?: string[];

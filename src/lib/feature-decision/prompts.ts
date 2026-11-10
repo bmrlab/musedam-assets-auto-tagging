@@ -49,7 +49,13 @@ EXPECTED OUTPUT EXAMPLE (one image without readable text)
 5. FINAL CHECK BEFORE RESPONDING
 Check silently: JSON only; one array per image; strings only; all visible text included; all quotes and brackets closed. Output only the JSON object.`;
 
-const FEATURE_DECISION_RULES = `CLASSIFICATION POLICY
+const FEATURE_DECISION_RULES = `PRODUCT METADATA AND SET IDENTITY
+- metadataMatches lists literal filename/path terms used ONLY to recall extra product candidates. A zero retrieval score means no vector observation, not a negative visual comparison. These candidates have no localized metadata evidence; compare them against the actual source object and all competing identities. Recall alone never confirms the product.
+- Compare named brand, series and form across filename, path, OCR and references. A path naming one series (for example 琉光系列) supports that series; explicitly explain a competing named series (for example 人参系列) instead of silently substituting it based on package color. Folder placement alone is not proof of identity or absence, and a mixed-product asset may contain other series.
+- A single emulsion bottle is not a water/emulsion SET. Matching one component or the same brand/color does not establish a set identity. Unless the source actually supports the named combination as a set (visually or through explicit set metadata), do not return a set as an accepted identity. If a set is only a plausible alternative because the source is incomplete, keep it below 50 and explain the limitation. Do not claim a set is correct merely because it is the closest supplied option.
+- Never give a product 50 or above while acknowledging an unresolved single-item-versus-set or named-series contradiction. Prefer the supported single product/series candidate; exclude clearly contradicted alternatives. A visible set can still match when its constituent items are supported; do not require unnamed gifts, capacities or package-specific SKUs.
+
+CLASSIFICATION POLICY
 - Make a best-effort classification. Whenever one or more supplied candidates are plausibly related to the source, return them with individual confidence points, even if every score is low.
 - If several candidates could explain the same feature, return multiple plausible alternatives ranked by confidence. Do not require a clear winner or omit alternatives merely because their scores are close.
 - Unreadable labels, incomplete OCR, similar variants, uncertain identity, and conflicting evidence should LOWER confidence and be explained in reason, conflicts, or specificityLimit. They are not reasons to return an empty classification.
@@ -175,6 +181,7 @@ export function buildSourceRegionGroups(
       candidateId?: string;
       name: string;
       notes: string;
+      metadataMatches: NonNullable<FeatureDecisionCandidate["metadataMatches"]>;
       retrieval: { score: number; scoreScope: "region" | "candidate_aggregate"; imageSimilarity: number | null; descriptionSimilarity: number | null };
     }>;
   }>();
@@ -192,6 +199,7 @@ export function buildSourceRegionGroups(
         ...(outputCandidateIds.has(candidate.candidateId) ? { candidateId: candidate.candidateId } : {}),
         name: candidate.name.slice(0, 1000),
         notes: candidate.notes?.slice(0, MAX_DESCRIPTION_CHARACTERS) ?? "",
+        metadataMatches: candidate.metadataMatches ?? [],
         retrieval: {
           score: observation?.similarity ?? candidate.similarity,
           scoreScope: observation ? "region" : "candidate_aggregate",
@@ -244,6 +252,7 @@ export function buildFeatureDecisionMessages(input: {
     typeName: candidate.typeName.slice(0, 500),
     description: candidate.description?.slice(0, MAX_DESCRIPTION_CHARACTERS) ?? "",
     notes: candidate.notes?.slice(0, MAX_DESCRIPTION_CHARACTERS) ?? "",
+    metadataMatches: candidate.metadataMatches ?? [],
     ...(imageMode ? { referenceImageLabel: `REFERENCE ${index + 1}` } : {}),
     folderMatch: candidate.folderMatch ?? null,
     ocrMatch: candidate.ocrMatch ?? null,
@@ -281,7 +290,7 @@ export function buildFeatureDecisionMessages(input: {
     // Text context spans batches so a competing identity is not lost at a batch boundary.
     otherCatalogCandidates: contextCandidates.filter(candidate =>
       !input.candidates.some(current => current.candidateId === candidate.candidateId)
-    ).map(candidate => ({ name: candidate.name.slice(0, 1000), notes: candidate.notes?.slice(0, MAX_DESCRIPTION_CHARACTERS) ?? "", regionIds: candidate.regionIds ?? [] })),
+    ).map(candidate => ({ name: candidate.name.slice(0, 1000), notes: candidate.notes?.slice(0, MAX_DESCRIPTION_CHARACTERS) ?? "", metadataMatches: candidate.metadataMatches ?? [], regionIds: candidate.regionIds ?? [] })),
   })}`;
   const productCheck = input.candidates.some(candidate => candidate.featureType === "product")
     ? "\nFINAL PRODUCT CHECK: Compare competing identities within each detected source region, including names outside this batch. Whole-asset OCR has no region ownership. Do not cite innisfree text as AESTURA evidence or shampoo text as conditioner evidence. If the supplied evidence still cannot distinguish actual competing product identities and only generic brand/series words or similar retrieval scores support them, give each unresolved alternative 0–49, not several independent exact-match scores. A matching brand or series is not a matching product form: LANEIGE / PERFECT RENEW alone does not establish a powder or foundation identity. Candidate catalog names are not source OCR. For any product score above 49, the reason must identify evidence that distinguishes that product from its same-region competitors, not merely restate a high retrieval score or shared brand. Do not invent extra objects to make every candidate correct. This concerns unresolved identity, not the image-mode setting or unnamed package details. Keep multiple strong matches for separately supported objects. Explain scores in concise Simplified Chinese, then return the required JSON."

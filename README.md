@@ -115,6 +115,10 @@ pnpm scheduled-tagger
 
 默认使用 LLM 决策（`src/lib/feature-decision/config.ts` 中的 `FEATURE_DECISION_MODE = "llm"`）：检测框与 embedding 负责召回候选，最终由 LLM 结合候选信息、文件名、文件夹路径和 OCR 原文判断身份。真实打标队列默认使用纯文本决策；只有团队在 AI 识别设置中开启「图像模式」时，才额外向决策模型发送整张源图和候选参考图。商品、Logo、IP 分别保留有效去重后的所有召回区域，每个区域最多 3 个不同类别；图像模式下，商品/IP 按 `sort`、`createdAt`、`id` 的稳定顺序使用第一张参考图；Logo 将该标识全部已上传参考图按稳定顺序合成一张对照图，包含文字、图形和局部版本，不截断为首张或单张命中图。候选每 5 个分一批、最多并行 2 批；图像模式下一条决策请求最多包含 6 张图片（1 张源图 + 5 张候选参考图，Logo 的多样本对照图占一张），不发送检测裁剪图或检测框坐标。遗漏区域、缺失参考图和召回错误保留在诊断信息中。`/tagging/review` 展示的默认任务和 `/tagging/test` 创建的测试任务都经过这一队列配置。
 
+商品候选除图像向量召回外，还会比较文件名、路径与当前团队已启用且处理完成的商品名称、备注别名和有效关联标签，按文字相关性最多补充 12 个候选。系列名同时命中时优先于仅命中品牌，通用文件夹词和文件扩展名不作为商品证据。文字召回不生成匹配置信度，也不伪造向量分数或文字所在区域；`metadataMatches` 记录来源和字面命中词，最终身份和分数仍由同一 LLM 决策产生。商品参考图及分批规则不变。路径中的系列、文件名和商品形态应共同参与消歧；单瓶或套装中的单个组件不能仅凭品牌、颜色相近就被识别为整套水乳，存在未解决的单品/套装或系列冲突时模型应给出低于 50 的分数。
+
+回归测试：`pnpm exec vitest run __test__/product-metadata-candidates.test.ts __test__/feature-decision-classify.test.ts`。针对 `Essential Revitalizing Emulsion EX_model 05` 的真实网关验证需显式设置 `RUN_PRODUCT_METADATA_LIVE=1` 后运行 `__test__/product-metadata-live.integration.test.ts`；配置目录可由 `PRODUCT_RECALL_ENV_DIR` 指定。该检查读取测试库任务 1754 的源图、OCR 和检测框，重新执行 embedding 与 LLM，记录新的调用用量，不重置任务、不写入审核项。默认结果摘要保存到 `/tmp/musedam-product-recall-validation/result.json`。
+
 在已有 `.env` 中设置网关和模型，不要覆盖现有配置：
 
 ```env
