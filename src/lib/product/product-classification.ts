@@ -33,6 +33,7 @@ export type ProductDetectionBox = {
 };
 
 export type ProductTopMatch = {
+  matchingSource?: "assetName";
   assetProductId: string;
   productName: string;
   productTypeId: string | null;
@@ -144,7 +145,9 @@ export async function detectProductFigureBoxes({
 export async function classifyProductImageCrops({
   teamId,
   crops,
+  confidenceThreshold,
 }: {
+  confidenceThreshold?: number;
   teamId: number;
   crops: Array<{
     box: ProductDetectionBox;
@@ -157,6 +160,7 @@ export async function classifyProductImageCrops({
     teamId,
     rawDetections,
     crops: groups.map((group) => ({ ...group, image: crops[group.detectionIndex].image })),
+    confidenceThreshold,
   });
 }
 
@@ -165,7 +169,9 @@ export async function classifyProductImageRegions({
   teamId,
   imageInput,
   boxes,
+  confidenceThreshold,
 }: {
+  confidenceThreshold?: number;
   teamId: number;
   imageInput: ClassificationRemoteImageInput;
   boxes: ProductDetectionBox[];
@@ -196,15 +202,17 @@ export async function classifyProductImageRegions({
       })),
     ),
   );
-  return classifyProductImageGroups({ teamId, rawDetections, crops });
+  return classifyProductImageGroups({ teamId, rawDetections, crops, confidenceThreshold });
 }
 
 async function classifyProductImageGroups({
+  confidenceThreshold,
   teamId,
   rawDetections,
   crops,
 }: {
   teamId: number;
+  confidenceThreshold?: number;
   rawDetections: ProductDetectionBox[];
   crops: Array<{
     box: ProductDetectionBox;
@@ -296,6 +304,7 @@ async function classifyProductImageGroups({
             description: true,
             generalCategory: true,
             tags: {
+              where: { assetTag: { deletedAt: null } },
               orderBy: [{ sort: "asc" }, { id: "asc" }],
               select: { id: true, assetTagId: true, tagPath: true },
             },
@@ -340,6 +349,8 @@ async function classifyProductImageGroups({
       )
       .slice(0, 3);
     const bestMatch = topMatches[0] ?? null;
+    const ambiguous = topMatches.length > 1 &&
+      Math.abs(topMatches[0].similarity - topMatches[1].similarity) < 1e-9;
     return {
       detectionIndex,
       sourceDetectionIndices,
@@ -347,7 +358,7 @@ async function classifyProductImageGroups({
       topMatches,
       bestMatch,
       noConfidentMatch:
-        !bestMatch || !meetsFeatureConfidenceThreshold("product", bestMatch.confidence),
+        !bestMatch || ambiguous || !meetsFeatureConfidenceThreshold("product", bestMatch.confidence, confidenceThreshold),
     };
   });
 

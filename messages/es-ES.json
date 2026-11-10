@@ -114,6 +114,7 @@
     "candidateFeatures": "Características candidatas",
     "candidateFeaturesDescription": "Confianza 60%-79%",
     "noRecognizedTags": "No hay etiquetas reconocidas",
+    "featureRecognitionIncomplete": "Feature recognition did not finish. Results may be incomplete; please retry.",
     "noRecognizedFeatures": "No hay características reconocidas",
     "featureConfidenceNotCredible": "No se encontró ninguna característica coincidente en la biblioteca de características existente para esta imagen; es posible que la característica aún no esté registrada.",
     "videoFeatureLibraryLimited": "No hay características reconocidas: La biblioteca de características actual tiene una capacidad limitada para reconocer tipos de archivos de vídeo y solo permite realizar coincidencias usando el primer fotograma del vídeo.",
@@ -123,9 +124,13 @@
     "featureClassProduct": "Producto",
     "ipRecognition": "Reconocimiento de personaje IP",
     "personRecognition": "Reconocimiento de persona",
+    "productNameMatch": "Coincidencia del nombre del producto",
     "productRecognition": "Reconocimiento de producto"
   },
   "TagsPage": {
+    "exportCleanupHint": "Export removes local tags without a valid MuseDAM tag ID. Mapped descendants prevent cleanup until the hierarchy is repaired.",
+    "exportCleanupComplete": "Removed {count} tags without a MuseDAM tag ID",
+    "exportCleanupMappedChild": "“{tag}” has a MuseDAM ID but its parent does not. Repair the tag hierarchy before exporting; no tags were deleted.",
     "importPreviewConfigurationHint": "The preview shows tag paths. Configuration from the same file is retained and applied after you confirm. Merge preserves existing tags; overwrite replaces the tag tree.",
     "importPreviewTitle": "Import tag preview",
     "requiredGroupsAutoDisabledMore": "{tags} and others ({count} tags total)",

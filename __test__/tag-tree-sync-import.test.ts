@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => {
     extra: Record<string, unknown>;
     slug?: string;
     sort?: number;
+    deletedAt?: Date;
   }> = [];
   const state = { failLocal: false, id: 100 };
   const configKey = (where: { teamId_key: { teamId: number; key: string } }) =>
@@ -40,14 +41,18 @@ const mocks = vi.hoisted(() => {
     }),
   };
   const assetTag = {
-    deleteMany: vi.fn(async ({ where }) => {
-      const before = rows.length;
-      for (let i = rows.length - 1; i >= 0; i--)
-        if (rows[i].teamId === where.teamId && !where.id?.notIn.includes(rows[i].id)) rows.splice(i, 1);
-      return { count: before - rows.length };
+    count: vi.fn(async () => 0),
+    updateMany: vi.fn(async ({ where, data }) => {
+      const affected = rows.filter(
+        (row) => row.teamId === where.teamId && !where.id?.notIn.includes(row.id),
+      );
+      affected.forEach((row) => Object.assign(row, data));
+      return { count: affected.length };
     }),
     findMany: vi.fn(async ({ where }) =>
-      rows.filter((row) => row.teamId === where.teamId).map((row) => structuredClone(row)),
+      rows
+        .filter((row) => row.teamId === where.teamId && !row.deletedAt)
+        .map((row) => structuredClone(row)),
     ),
     createManyAndReturn: vi.fn(async ({ data }) => {
       if (state.failLocal) {
@@ -210,8 +215,8 @@ it("overwrite sends one atomic request and never deletes local rows on remote fa
     "remote create rolled back",
   );
   expect(mocks.request.mock.calls[0][1].body.mode).toBe("overwrite");
-  expect(mocks.tx.assetTag.deleteMany).not.toHaveBeenCalled();
-  expect(mocks.rows.map((row) => row.name)).toEqual(["Old"]);
+  expect(mocks.tx.assetTag.updateMany).not.toHaveBeenCalled();
+  expect(mocks.rows.filter((row) => !row.deletedAt).map((row) => row.name)).toEqual(["Old"]);
 });
 it("overwrite keeps the local old tree if local creation fails, then recovers without another remote request", async () => {
   mocks.rows.push({
@@ -225,10 +230,13 @@ it("overwrite keeps the local old tree if local creation fails, then recovers wi
   await expect(importTagTreeSynchronously(team, tree, true, "overwrite")).rejects.toThrow(
     "local database unavailable",
   );
-  expect(mocks.rows.map((row) => row.name)).toEqual(["Old"]);
+  expect(mocks.rows.filter((row) => !row.deletedAt).map((row) => row.name)).toEqual(["Old"]);
   await importTagTreeSynchronously(team, tree, true, "overwrite");
   expect(mocks.request).toHaveBeenCalledTimes(1);
-  expect(mocks.rows.map((row) => row.name)).toEqual(["Parent", "Child"]);
+  expect(mocks.rows.filter((row) => !row.deletedAt).map((row) => row.name)).toEqual([
+    "Parent",
+    "Child",
+  ]);
 });
 
 it("does not replace local rows when an older server silently executes merge instead of overwrite", async () => {
@@ -242,20 +250,45 @@ it("does not replace local rows when an older server silently executes merge ins
   await expect(importTagTreeSynchronously(team, tree, true, "overwrite")).rejects.toThrow(
     "主仓未确认原子覆盖模式",
   );
-  expect(mocks.tx.assetTag.deleteMany).not.toHaveBeenCalled();
-  expect(mocks.rows.map((row) => row.name)).toEqual(["Old"]);
+  expect(mocks.tx.assetTag.updateMany).not.toHaveBeenCalled();
+  expect(mocks.rows.filter((row) => !row.deletedAt).map((row) => row.name)).toEqual(["Old"]);
 });
 
+it.each(["merge", "overwrite"] as const)(
+  "%s reuses local IDs and configuration; only overwrite removes omitted tags",
+  async (mode) => {
+    mocks.rows.push(
+      { id: 15, teamId: 7, parentId: null, name: "Parent", extra: { keywords: ["keep"] } },
+      { id: 16, teamId: 7, parentId: 15, name: "Child", extra: { description: "keep" } },
+      { id: 17, teamId: 7, parentId: 15, name: "Omitted", extra: {} },
+    );
+    await importTagTreeSynchronously(team, tree, true, mode);
+    expect(mocks.rows.find((row) => row.name === "Parent")).toMatchObject({
+      id: 15,
+      extra: { keywords: ["keep"] },
+    });
+    expect(mocks.rows.find((row) => row.name === "Child")).toMatchObject({
+      id: 16,
+      parentId: 15,
+      extra: { description: "keep" },
+    });
+    expect(mocks.rows.some((row) => row.id === 17 && !row.deletedAt)).toBe(mode === "merge");
+    expect(mocks.tx.assetTag.createManyAndReturn).not.toHaveBeenCalled();
+  },
+);
 
-it.each(["merge", "overwrite"] as const)("%s reuses local IDs and configuration; only overwrite removes omitted tags", async (mode) => {
-  mocks.rows.push(
-    { id: 15, teamId: 7, parentId: null, name: "Parent", extra: { keywords: ["keep"] } },
-    { id: 16, teamId: 7, parentId: 15, name: "Child", extra: { description: "keep" } },
-    { id: 17, teamId: 7, parentId: 15, name: "Omitted", extra: {} },
-  );
-  await importTagTreeSynchronously(team, tree, true, mode);
-  expect(mocks.rows.find((row) => row.name === "Parent")).toMatchObject({ id: 15, extra: { keywords: ["keep"] } });
-  expect(mocks.rows.find((row) => row.name === "Child")).toMatchObject({ id: 16, parentId: 15, extra: { description: "keep" } });
-  expect(mocks.rows.some((row) => row.id === 17)).toBe(mode === "merge");
+it("returns creation and reuse counts from the committed upstream receipt", async () => {
+  expect(await importTagTreeSynchronously(team, tree, true)).toEqual({
+    totalCount: 2,
+    existingCount: 0,
+    createdCount: 2,
+  });
+});
+
+it("rejects a replay containing a tombstoned remote ID without recreating local tags", async () => {
+  mocks.tx.assetTag.count.mockResolvedValueOnce(1);
+  await expect(
+    importTagTreeSynchronously({ id: 7, slug: "t/7" }, [{ name: "Parent" }]),
+  ).rejects.toThrow("已删除标签");
   expect(mocks.tx.assetTag.createManyAndReturn).not.toHaveBeenCalled();
 });

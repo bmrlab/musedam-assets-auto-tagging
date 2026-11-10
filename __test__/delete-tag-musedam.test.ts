@@ -12,7 +12,7 @@ vi.mock("@/musedam/apiKey", () => ({
 }));
 vi.mock("@/musedam/lib", () => ({ requestMuseDAMAPI: mocks.request }));
 
-it("sends explicit third-, second-, and first-level deletions to the MuseDAM merge API", async () => {
+it("sends one root operation to the MuseDAM recursive subtree deletion API", async () => {
   const rows = [1, 2, 3].map((id) => ({
     id,
     name: `tag${id}`,
@@ -31,31 +31,7 @@ it("sends explicit third-, second-, and first-level deletions to the MuseDAM mer
     method: "POST",
     headers: { Authorization: "Bearer test-key" },
     body: {
-      tags: [
-        {
-          id: 101,
-          name: "tag1",
-          operation: 0,
-          sort: 0,
-          children: [
-            {
-              id: 102,
-              name: "tag2",
-              operation: 0,
-              sort: 0,
-              children: [{ id: 103, name: "tag3", operation: 3, sort: 0 }],
-            },
-          ],
-        },
-        {
-          id: 101,
-          name: "tag1",
-          operation: 0,
-          sort: 0,
-          children: [{ id: 102, name: "tag2", operation: 3, sort: 0 }],
-        },
-        { id: 101, name: "tag1", operation: 3, sort: 0 },
-      ],
+      tags: [{ id: 101, name: "tag1", operation: 3, sort: 0 }],
     },
   });
 });

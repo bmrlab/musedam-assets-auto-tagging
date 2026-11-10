@@ -17,11 +17,27 @@ export type FeatureDecisionCandidate = {
   name: string;
   typeName: string;
   description?: string;
+  /** Catalog notes, including user-maintained product nicknames. */
+  notes?: string;
   referenceImage?: string;
+  referenceImageCount?: number;
+  referenceImageIds?: string[];
   similarity: number;
   imageSimilarity?: number;
   descriptionSimilarity?: number;
   retrievedRegions?: number;
+  regionIds?: string[];
+  /** Retrieval observations for this candidate in each source region; not spatial OCR. */
+  regionEvidence?: Array<{
+    regionId: string;
+    wholeAssetFallback?: boolean;
+    similarity: number;
+    imageSimilarity: number;
+    descriptionSimilarity: number;
+  }>;
+  referenceMatchStrategy?: "highest" | "average";
+  folderMatch?: { alias: string; path: string };
+  ocrMatch?: { alias: string };
 };
 
 export type FeatureEvidence = "visual" | "retrieval" | "filename" | "path" | "ocr";
@@ -56,6 +72,8 @@ export type FeatureChatRequest = {
   model: string;
   messages: FeatureChatMessage[];
   max_tokens?: number;
+  enable_thinking?: boolean;
+  response_format?: { type: "json_object" };
 };
 
 export type OpenAIChatUsage = {
@@ -113,6 +131,7 @@ export type FeatureLlmCallDiagnostics = {
 };
 
 export type FeatureOcrDiagnostics = {
+  source?: "musedam" | "model";
   status: "completed" | "empty" | "failed" | "disabled" | "skipped";
   segments: string[];
   call?: FeatureLlmCallDiagnostics;
@@ -120,6 +139,9 @@ export type FeatureOcrDiagnostics = {
 };
 
 export type FeatureDecisionDiagnostics = {
+  /** Exact alias hits for logos with an explicit positive folder inclusion rule. */
+  folderMatchedLogoIds?: string[];
+  ocrMatchedLogoIds?: string[];
   decisionInputMode?: FeatureDecisionInputMode;
   reconciliation?: { suppressedIdentityTagIds: number[] };
   mode?: "llm" | "legacy";
@@ -135,6 +157,12 @@ export type FeatureDecisionDiagnostics = {
   ocr: FeatureOcrDiagnostics;
   decision: {
     status: "completed" | "failed" | "skipped";
+    batches?: Array<{
+      candidateIds: string[];
+      status: "completed" | "failed";
+      call: FeatureLlmCallDiagnostics;
+      error?: string;
+    }>;
     result?: FeatureDecisionResponse;
     call?: FeatureLlmCallDiagnostics;
     error?: string;

@@ -18,9 +18,11 @@ const mocks = vi.hoisted(() => ({
   buildRecommendations: vi.fn(),
   predict: vi.fn(),
   mode: "legacy" as "llm" | "legacy",
+  imageMode: false,
 }));
 
 vi.mock("server-only", () => ({}));
+vi.mock("@/lib/tagging/refresh-asset", () => ({ refreshQueuedAsset: async (_teamId: number, asset: unknown) => asset }));
 vi.mock("@/lib/product/tagging-product-classification", () => ({
   classifyAssetProductRecommendation: mocks.product,
 }));
@@ -47,7 +49,7 @@ vi.mock("@/app/(tagging)/predict", () => ({
   predictAssetTags: mocks.predict,
 }));
 vi.mock("@/app/(tagging)/tagging/settings/lib", () => ({
-  getTaggingSettings: async () => ({ sourceWeights: {} }),
+  getTaggingSettings: async () => ({ sourceWeights: {}, featureImageMode: mocks.imageMode }),
 }));
 vi.mock("@/prisma/prisma", () => ({
   default: {
@@ -64,8 +66,10 @@ vi.mock("@/lib/logging", () => {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.stubEnv("DECISION_LLM_IMAGE_USE", "false");
   // These source-selection regressions exercise the explicitly configured old flow.
   mocks.mode = "legacy";
+  mocks.imageMode = false;
   mocks.productCount.mockResolvedValue(1);
   mocks.brandCount.mockResolvedValue(1);
   mocks.ipCount.mockResolvedValue(1);
@@ -226,7 +230,46 @@ describe("legacy automatic object detection source selection", () => {
   });
 });
 
+describe("expired original image fallback", () => {
+  it.each(["legacy", "llm"] as const)("uses a working thumbnail after an original download fails in %s mode", async (mode) => {
+    mocks.mode = mode;
+    const downloadUrl = "https://example.test/original.png?Expires=1787923131";
+    const thumbnailUrl = "https://example.test/thumbnail.jpg";
+    mocks.fetchSource.mockImplementation(async (url: string) => {
+      if (url === downloadUrl) throw new Error("HTTP 403: signed URL expired");
+      return { imageUrl: url, buffer: Buffer.from("image"), mimeType: "image/jpeg" };
+    });
+
+    await run({ extension: "png", downloadUrl, thumbnailAccessUrl: thumbnailUrl });
+
+    expect(mocks.fetchSource).toHaveBeenCalledWith(thumbnailUrl, "task thumbnail");
+    for (const classify of mode === "llm"
+      ? [mocks.classifyFeatures]
+      : [mocks.brand, mocks.ip, mocks.product]) {
+      expect(classify).toHaveBeenCalledWith(
+        expect.objectContaining({ imageInput: expect.objectContaining({ dataUrl: thumbnailUrl }) }),
+      );
+    }
+  });
+
+  it("does not repeatedly retry the same failed source when the thumbnail URL is identical", async () => {
+    mocks.mode = "llm";
+    mocks.fetchSource.mockRejectedValue(new Error("HTTP 403"));
+    const url = "https://example.test/expired.jpg";
+    await run({ extension: "jpg", downloadUrl: url, thumbnailAccessUrl: url });
+    expect(mocks.fetchSource).toHaveBeenCalledTimes(1);
+    expect(mocks.classifyFeatures).not.toHaveBeenCalled();
+  });
+});
+
 describe("combined LLM feature classification", () => {
+  it.each([false, true])("uses the team's image mode setting (%s) for queued feature recognition", async enabled => {
+    mocks.mode = "llm";
+    mocks.imageMode = enabled;
+    await run({ extension: "jpg", downloadUrl: "https://example.test/image.jpg" });
+    expect(mocks.classifyFeatures).toHaveBeenCalledWith(expect.objectContaining({ teamId: 7, imageMode: enabled }));
+  });
+
   beforeEach(() => {
     mocks.mode = "llm";
   });
@@ -255,7 +298,10 @@ describe("combined LLM feature classification", () => {
       assetObjectId: 2,
       fileName: "雅诗兰黛小棕瓶系列.jpg",
       folderPath: "/产品/雅诗兰黛",
+      imageMode: false,
       imageInput: preparedSource,
+      ocrImage: undefined,
+      ocrSegments: [],
       enabledTypes: ["logo", "product", "ip"],
     });
     expect(mocks.classifyFeatures.mock.calls[0][0].imageInput).toBe(preparedSource);
@@ -264,6 +310,15 @@ describe("combined LLM feature classification", () => {
     for (const classify of [mocks.brand, mocks.ip, mocks.product]) {
       expect(classify).not.toHaveBeenCalled();
     }
+  });
+
+  it("uses the team setting even when the old environment flag enables image mode", async () => {
+    vi.stubEnv("DECISION_LLM_IMAGE_USE", "true");
+    await run({ extension: "jpg", downloadUrl: "https://example.test/original.jpg" });
+
+    expect(mocks.classifyFeatures).toHaveBeenCalledWith(
+      expect.objectContaining({ imageMode: false }),
+    );
   });
 
   it("includes only enabled feature libraries with available reference vectors", async () => {
@@ -307,8 +362,9 @@ describe("combined LLM feature classification", () => {
     expect(mocks.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          status: "completed",
+          status: "failed",
           result: expect.objectContaining({
+            error: "FEATURE_RECOGNITION_FAILED",
             featureDecision: expect.objectContaining({
               mode: "llm",
               decision: expect.objectContaining({ status: "failed" }),

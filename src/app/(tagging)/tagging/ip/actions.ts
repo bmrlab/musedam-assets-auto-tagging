@@ -452,9 +452,7 @@ function getIpBatchTranslator(t: TranslationFunction) {
 
 async function buildTagPathLookup(teamId: number) {
   const tags = await prisma.assetTag.findMany({
-    where: {
-      teamId,
-    },
+    where: { deletedAt: null, teamId },
     include: buildParentInclude(),
   });
   const tagLookup = new Map<
@@ -627,10 +625,7 @@ function parseImportedMatchPattern(
 
 async function fetchIpTags(teamId: number) {
   const tags = await prisma.assetTag.findMany({
-    where: {
-      teamId,
-      parentId: null,
-    },
+    where: { deletedAt: null, teamId, parentId: null },
     orderBy: [{ sort: "desc" }, { name: "asc" }],
     include: buildChildrenInclude(MAX_TAG_LEVEL - 1, {
       orderBy: [{ sort: "desc" }, { name: "asc" }],
@@ -651,6 +646,7 @@ async function fetchIps(teamId: number) {
         orderBy: [{ sort: "asc" }, { id: "asc" }],
       },
       tags: {
+        where: { OR: [{ assetTagId: null }, { assetTag: { deletedAt: null } }] },
         orderBy: [{ sort: "asc" }, { id: "asc" }],
       },
     },
@@ -685,6 +681,7 @@ async function resolveSelectedTags(teamId: number, tagIds: number[]) {
 
   const tags = await prisma.assetTag.findMany({
     where: {
+      deletedAt: null,
       teamId,
       id: {
         in: uniqueTagIds,
@@ -1402,6 +1399,7 @@ async function loadIp(teamId: number, ipId: string) {
         orderBy: [{ sort: "asc" }, { id: "asc" }],
       },
       tags: {
+        where: { OR: [{ assetTagId: null }, { assetTag: { deletedAt: null } }] },
         orderBy: [{ sort: "asc" }, { id: "asc" }],
       },
     },
@@ -1432,6 +1430,7 @@ async function loadIpsByIds(teamId: number, ipIds: string[]) {
         orderBy: [{ sort: "asc" }, { id: "asc" }],
       },
       tags: {
+        where: { OR: [{ assetTagId: null }, { assetTag: { deletedAt: null } }] },
         orderBy: [{ sort: "asc" }, { id: "asc" }],
       },
     },
@@ -1534,6 +1533,7 @@ async function queryIpsPage(
           orderBy: [{ sort: "asc" }, { id: "asc" }],
         },
         tags: {
+          where: { OR: [{ assetTagId: null }, { assetTag: { deletedAt: null } }] },
           orderBy: [{ sort: "asc" }, { id: "asc" }],
         },
       },
@@ -1945,7 +1945,7 @@ export async function classifyIpImageAction(input: {
           objectKey: z.string().trim().min(1),
           mimeType: z.string().trim().min(1).max(255),
           size: z.number().int().positive().max(MAX_CLIENT_IMAGE_UPLOAD_BYTES),
-          imageMode: z.boolean().default(true),
+          imageMode: z.boolean().default(false),
           fileName: z.string().max(1000).optional(),
           folderPath: z.string().max(4000).optional(),
           boxes: z.array(classifyBoxSchema).min(1, t("uploadImageFirst")),

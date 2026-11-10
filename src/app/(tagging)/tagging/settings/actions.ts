@@ -40,6 +40,10 @@ export async function updateSettings(
         message: "匹配策略权重不合法",
       };
     }
+    if (data.featureImageMode !== undefined &&
+        !taggingSettingsSchema.shape.featureImageMode.safeParse(data.featureImageMode).success) {
+      return { success: false, message: "图像模式设置不合法" };
+    }
     try {
       const parsed = taggingSettingsSchema.parse(data);
       if (parsed.applicationScope.scopeType === "all") parsed.applicationScope.selectedFolders = [];

@@ -23,6 +23,7 @@ export function BatchTagImportExportDialog({
       maxLevel={maxLevel}
       onOpenChange={onOpenChange}
       onImported={() => onImported?.()}
+      onExportCleaned={onImported}
     />
   );
 }

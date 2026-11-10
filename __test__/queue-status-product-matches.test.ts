@@ -80,14 +80,14 @@ describe("queue status product tag associations", () => {
     ]);
     const result = await responseData([
       product("phone", 92),
-      product("headphones", 80),
-      product("weak", 79),
+      product("headphones", 60),
+      product("weak", 59),
     ]);
 
     expect(result.success).toBe(true);
     expect(mocks.findProductTags).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { assetProductId: { in: ["phone", "headphones"] }, assetTagId: { not: null } },
+        where: { assetProductId: { in: ["phone", "headphones"] }, assetTagId: { not: null }, assetTag: { teamId: 7, deletedAt: null }, assetProduct: { teamId: 7 } },
       }),
     );
     expect(result.data.productLinkedTags).toEqual([

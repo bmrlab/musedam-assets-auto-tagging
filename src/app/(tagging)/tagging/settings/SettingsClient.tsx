@@ -30,6 +30,7 @@ export default function SettingsClient({ initialSettings, metadataAvailable = fa
   const [recognitionAccuracy, setRecognitionAccuracy] = useState(
     initialSettings.recognitionAccuracy,
   );
+  const [featureImageMode, setFeatureImageMode] = useState(initialSettings.featureImageMode);
   const [matchingSources, setMatchingSources] = useState(initialSettings.matchingSources);
   const [sourceWeights, setSourceWeights] = useState(initialSettings.sourceWeights);
   const [triggerTiming, setTriggerTiming] = useState(initialSettings.triggerTiming);
@@ -57,7 +58,7 @@ export default function SettingsClient({ initialSettings, metadataAvailable = fa
   const handleSaveSettings = async (overrides?: Partial<TaggingSettingsData>) => {
     if (isPending) {
       toast.message("正在保存，请稍后操作")
-      return
+      return false
     }
     setIsSaving(true)
     const settingsData: TaggingSettingsData = {
@@ -65,28 +66,32 @@ export default function SettingsClient({ initialSettings, metadataAvailable = fa
       isMetadataEnabled: overrides?.isMetadataEnabled ?? isMetadataEnabled,
       taggingMode: overrides?.taggingMode ?? taggingMode,
       recognitionAccuracy: overrides?.recognitionAccuracy ?? recognitionAccuracy,
+      featureImageMode: overrides?.featureImageMode ?? featureImageMode,
       matchingSources: overrides?.matchingSources ?? matchingSources,
       sourceWeights: overrides?.sourceWeights ?? sourceWeights,
       triggerTiming: overrides?.triggerTiming ?? triggerTiming,
       applicationScope: overrides?.applicationScope ?? applicationScope,
     };
 
-    let saved = false;
     try {
       const result = await updateSettings(settingsData);
 
       if (result.success) {
-        saved = true;
         toast.success(overrides?.isMetadataEnabled === undefined ? t("settingsSaved") : tg(overrides.isMetadataEnabled ? "metadataEnabledToast" : "metadataDisabledToast"));
         triggerTeamSettingsNotification();
+        return true;
+
       } else {
         toast.error(t("saveSettingsFailed"));
+        return false;
       }
     } catch (error) {
       toast.error((error as Error).message ?? t("saveSettingsFailed"));
+      return false;
+    } finally {
+      setIsSaving(false);
     }
-    setIsSaving(false)
-    return saved;
+
   }
 
   const handleTaggingEnabledChange = (enabled: boolean) => {
@@ -97,6 +102,13 @@ export default function SettingsClient({ initialSettings, metadataAvailable = fa
   const handleTaggingModeChange = (mode: "direct" | "review") => {
     setTaggingMode(mode);
     handleSaveSettings({ taggingMode: mode });
+  };
+
+  const handleFeatureImageModeChange = async (enabled: boolean) => {
+    if (isPending) return;
+    const previous = featureImageMode;
+    setFeatureImageMode(enabled);
+    if (!await handleSaveSettings({ featureImageMode: enabled })) setFeatureImageMode(previous);
   };
 
   const handleRecognitionAccuracyChange = (accuracy: "precise" | "balanced" | "broad") => {
@@ -195,6 +207,9 @@ export default function SettingsClient({ initialSettings, metadataAvailable = fa
 
       <AIRecognitionSection
         recognitionAccuracy={recognitionAccuracy}
+        imageMode={featureImageMode}
+        onImageModeChange={handleFeatureImageModeChange}
+        disabled={isPending}
         onRecognitionAccuracyChange={handleRecognitionAccuracyChange}
       />
 

@@ -115,6 +115,7 @@ export async function fetchTagsTree({ teamId }: { teamId: number }) {
   const tags = await prisma.assetTag
     .findMany({
       where: {
+        deletedAt: null,
         teamId,
         parentId: { equals: null },
         taggingEnabled: true, // 只获取允许打标的标签

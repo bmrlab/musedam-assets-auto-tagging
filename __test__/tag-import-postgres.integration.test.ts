@@ -49,8 +49,9 @@ describe.skipIf(!testUrl)("real PostgreSQL tag import regression", () => {
     for (const sql of [
       `CREATE TABLE IF NOT EXISTS "User" ("id" serial PRIMARY KEY, "name" text NOT NULL DEFAULT '', "slug" text NOT NULL UNIQUE, "createdAt" timestamptz NOT NULL DEFAULT now(), "updatedAt" timestamptz NOT NULL DEFAULT now())`,
       `CREATE TABLE IF NOT EXISTS "TeamConfig" ("id" serial PRIMARY KEY, "teamId" int NOT NULL, "key" varchar(255) NOT NULL, "value" jsonb NOT NULL DEFAULT '{}', "createdAt" timestamptz NOT NULL DEFAULT now(), "updatedAt" timestamptz NOT NULL DEFAULT now(), UNIQUE("teamId", "key"))`,
-      `CREATE TABLE IF NOT EXISTS "AssetTag" ("id" serial PRIMARY KEY, "teamId" int NOT NULL, "name" varchar(100) NOT NULL, "slug" varchar(64), "level" int NOT NULL DEFAULT 1, "parentId" int, "sort" int NOT NULL DEFAULT 0, "taggingEnabled" boolean NOT NULL DEFAULT true, "extra" jsonb NOT NULL DEFAULT '{}', "createdAt" timestamptz NOT NULL DEFAULT now(), "updatedAt" timestamptz NOT NULL DEFAULT now(), UNIQUE("teamId", "parentId", "name"))`,
-      `CREATE UNIQUE INDEX IF NOT EXISTS "test_root_name" ON "AssetTag" ("teamId", "name") WHERE "parentId" IS NULL`,
+      `CREATE TABLE IF NOT EXISTS "AssetTag" ("id" serial PRIMARY KEY, "teamId" int NOT NULL, "name" varchar(100) NOT NULL, "slug" varchar(64), "level" int NOT NULL DEFAULT 1, "parentId" int, "sort" int NOT NULL DEFAULT 0, "deletedAt" timestamptz, "taggingEnabled" boolean NOT NULL DEFAULT true, "extra" jsonb NOT NULL DEFAULT '{}', "createdAt" timestamptz NOT NULL DEFAULT now(), "updatedAt" timestamptz NOT NULL DEFAULT now())`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS "test_root_name" ON "AssetTag" ("teamId", "name") WHERE "parentId" IS NULL AND "deletedAt" IS NULL`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS "test_sibling_name" ON "AssetTag" ("teamId", "parentId", "name") WHERE "deletedAt" IS NULL`,
     ])
       await db().$executeRawUnsafe(sql);
   });
@@ -155,14 +156,37 @@ describe.skipIf(!testUrl)("real PostgreSQL tag import regression", () => {
       await expect(
         importTagTreeSynchronously(team, [{ name: "New" }], true, "overwrite"),
       ).rejects.toThrow("injected insert failure");
-      expect((await db().assetTag.findMany()).map((row) => row.name)).toEqual(["Old"]);
+      expect(
+        (await db().assetTag.findMany({ where: { deletedAt: null } })).map((row) => row.name),
+      ).toEqual(["Old"]);
       expect(state.request.mock.calls[0][1].body.mode).toBe("overwrite");
     } finally {
       await db().$executeRawUnsafe('DROP TRIGGER reject_tag_insert ON "AssetTag"');
       await db().$executeRawUnsafe("DROP FUNCTION reject_tag_insert()");
     }
     await importTagTreeSynchronously(team, [{ name: "New" }], true, "overwrite");
-    expect((await db().assetTag.findMany()).map((row) => row.name)).toEqual(["New"]);
+    expect(
+      (await db().assetTag.findMany({ where: { deletedAt: null } })).map((row) => row.name),
+    ).toEqual(["New"]);
     expect(state.request).toHaveBeenCalledTimes(1);
+  });
+  it("does not let an in-flight remote receipt overwrite deletion cancellation; deliberate reimport gets a new request ID", async () => {
+    const team = { id: 901, slug: "t/901" };
+    const original = state.request.getMockImplementation()!;
+    state.request.mockImplementationOnce(async (...args) => {
+      const response = await original(...args);
+      await db()
+        .$executeRaw`UPDATE "TeamConfig" SET "value" = jsonb_set("value", '{state}', '"cancelled"'::jsonb)
+      WHERE "teamId" = ${team.id} AND "key" LIKE 'tag-tree-import:%'`;
+      return response;
+    });
+    await expect(importTagTreeSynchronously(team, [{ name: "cancelled" }])).rejects.toThrow(
+      "导入记录已变化",
+    );
+    expect(await db().assetTag.count({ where: { teamId: team.id } })).toBe(0);
+    const oldRequestId = state.request.mock.calls.at(-1)![1].body.requestId;
+    await importTagTreeSynchronously(team, [{ name: "cancelled" }]);
+    expect(state.request.mock.calls.at(-1)![1].body.requestId).not.toBe(oldRequestId);
+    expect(await db().assetTag.count({ where: { teamId: team.id, deletedAt: null } })).toBe(1);
   });
 });

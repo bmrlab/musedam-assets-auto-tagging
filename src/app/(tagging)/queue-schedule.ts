@@ -53,6 +53,9 @@ export function pickPendingQueueItems<T extends SchedulableQueueItem>({
   tagTreeReserved,
   testReserved,
   assetConcurrency,
+  activeTagTrees = 0,
+  activeTests = 0,
+  activeProduction = 0,
 }: {
   tagTreeCandidates: T[];
   testCandidates: T[];
@@ -61,6 +64,9 @@ export function pickPendingQueueItems<T extends SchedulableQueueItem>({
   tagTreeReserved: number;
   testReserved: number;
   assetConcurrency: number;
+  activeTagTrees?: number;
+  activeTests?: number;
+  activeProduction?: number;
 }): { tagTreeItems: T[]; testItems: T[]; productionItems: T[] } {
   if (freeSlots <= 0) {
     return { tagTreeItems: [], testItems: [], productionItems: [] };
@@ -68,19 +74,27 @@ export function pickPendingQueueItems<T extends SchedulableQueueItem>({
 
   const tagTreeItems = selectRoundRobinByTeam(
     tagTreeCandidates,
-    Math.min(tagTreeReserved, freeSlots),
+    Math.min(Math.max(0, tagTreeReserved - activeTagTrees), freeSlots),
   );
-  const assetSlots = Math.min(assetConcurrency, freeSlots - tagTreeItems.length);
+  const assetSlots = Math.min(
+    Math.max(0, assetConcurrency - activeTests - activeProduction),
+    freeSlots - tagTreeItems.length,
+  );
   if (assetSlots <= 0) {
     return { tagTreeItems, testItems: [], productionItems: [] };
   }
 
   let testBudget = 0;
   if (testCandidates.length > 0) {
-    if (productionCandidates.length === 0 || assetSlots <= 1) {
+    if (productionCandidates.length === 0) {
       testBudget = assetSlots;
     } else {
-      testBudget = Math.min(Math.max(0, testReserved), assetSlots - 1);
+      // Reservations count tasks already executing, not just the current dispatch batch.
+      const reserveProduction = activeProduction === 0 && assetSlots > 1 ? 1 : 0;
+      testBudget = Math.min(
+        Math.max(0, testReserved - activeTests),
+        assetSlots - reserveProduction,
+      );
     }
   }
 

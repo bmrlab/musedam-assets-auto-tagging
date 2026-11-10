@@ -114,6 +114,7 @@
     "candidateFeatures": "候補特徴",
     "candidateFeaturesDescription": "信頼度 60%-79%",
     "noRecognizedTags": "認識タグはありません",
+    "featureRecognitionIncomplete": "Feature recognition did not finish. Results may be incomplete; please retry.",
     "noRecognizedFeatures": "認識特徴はありません",
     "featureConfidenceNotCredible": "現在の画像は既存の特徴ライブラリ内の特徴と一致しませんでした。この特徴はまだ登録されていない可能性があります。",
     "videoFeatureLibraryLimited": "認識特徴はありません：現在の特徴ライブラリでは動画ファイル形式の認識能力に制限があり、動画の最初のフレームを使用した照合のみをサポートしています",
@@ -123,9 +124,13 @@
     "featureClassProduct": "商品",
     "ipRecognition": "IPキャラクター認識",
     "personRecognition": "人物認識",
+    "productNameMatch": "商品名の一致",
     "productRecognition": "商品認識"
   },
   "TagsPage": {
+    "exportCleanupHint": "Export removes local tags without a valid MuseDAM tag ID. Mapped descendants prevent cleanup until the hierarchy is repaired.",
+    "exportCleanupComplete": "Removed {count} tags without a MuseDAM tag ID",
+    "exportCleanupMappedChild": "“{tag}” has a MuseDAM ID but its parent does not. Repair the tag hierarchy before exporting; no tags were deleted.",
     "importPreviewConfigurationHint": "The preview shows tag paths. Configuration from the same file is retained and applied after you confirm. Merge preserves existing tags; overwrite replaces the tag tree.",
     "importPreviewTitle": "Import tag preview",
     "requiredGroupsAutoDisabledMore": "{tags} and others ({count} tags total)",

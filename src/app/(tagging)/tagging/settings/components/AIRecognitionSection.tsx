@@ -1,18 +1,26 @@
+import { Switch } from "@/components/ui/switch";
 import { Tag } from "@/components/ui/tag";
 import { cn } from "@/lib/utils";
 import { InfoIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 interface AIRecognitionSectionProps {
+  imageMode: boolean;
+  onImageModeChange: (enabled: boolean) => void;
+  disabled?: boolean;
   recognitionAccuracy: "precise" | "balanced" | "broad";
   onRecognitionAccuracyChange: (accuracy: "precise" | "balanced" | "broad") => void;
 }
 
 export function AIRecognitionSection({
   recognitionAccuracy,
+  imageMode,
+  onImageModeChange,
+  disabled,
   onRecognitionAccuracyChange,
 }: AIRecognitionSectionProps) {
   const t = useTranslations("Tagging.Settings.AIRecognition");
+  const tFeature = useTranslations("Tagging.FeatureDecisionDiagnostics");
   const items: {
     key: "precise" | "balanced" | "broad";
     title: string;
@@ -75,6 +83,26 @@ export function AIRecognitionSection({
                 </div>
               );
             })}
+          </div>
+          <div className="mt-6 flex items-center justify-between gap-4 rounded-lg border border-basic-4 p-4">
+            <div className="min-w-0 flex-1">
+              <label htmlFor="team-feature-image-mode" className="text-sm font-medium leading-[22px] text-basic-9">
+                {tFeature("imageMode")}
+              </label>
+              <p id="team-feature-image-mode-help" className="mt-1 text-xs leading-4 text-basic-5">
+                {tFeature("imageModeHelp")}
+              </p>
+              <p id="team-feature-image-mode-cost" className="mt-1 text-xs leading-4 text-basic-5">
+                {t("imageModeCostHint")}
+              </p>
+            </div>
+            <Switch
+              id="team-feature-image-mode"
+              aria-describedby="team-feature-image-mode-help team-feature-image-mode-cost"
+              checked={imageMode}
+              onCheckedChange={onImageModeChange}
+              disabled={disabled}
+            />
           </div>
         </div>
       </div>

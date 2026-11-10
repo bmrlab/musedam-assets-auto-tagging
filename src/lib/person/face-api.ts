@@ -1,3 +1,4 @@
+import { queueAbortSignal } from "@/lib/tagging/queue-execution";
 import "server-only";
 
 import { getLogoDetectionServerToken, getLogoDetectionServerUrl } from "@/lib/brand/env";
@@ -87,7 +88,7 @@ export async function detectPersonFaces({
   const token = getLogoDetectionServerToken();
   const response = await fetch(`${baseUrl}/face_detection`, {
     method: "POST",
-    signal: AbortSignal.timeout(DETECTION_TIMEOUT_MS),
+    signal: queueAbortSignal(AbortSignal.timeout(DETECTION_TIMEOUT_MS)),
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
@@ -128,7 +129,7 @@ export async function generateFaceEmbedding({
   const token = getLogoDetectionServerToken();
   const response = await fetch(`${baseUrl}/generate_face_embedding`, {
     method: "POST",
-    signal: AbortSignal.timeout(DETECTION_TIMEOUT_MS),
+    signal: queueAbortSignal(AbortSignal.timeout(DETECTION_TIMEOUT_MS)),
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",

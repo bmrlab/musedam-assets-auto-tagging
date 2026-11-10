@@ -66,6 +66,8 @@ function App() {
                 onTaggingModeChange={(taggingMode) => setSettings({ ...settings, taggingMode })}
               />
               <AIRecognitionSection
+                imageMode={settings.featureImageMode ?? false}
+                onImageModeChange={(featureImageMode) => setSettings({ ...settings, featureImageMode })}
                 recognitionAccuracy={settings.recognitionAccuracy}
                 onRecognitionAccuracyChange={(recognitionAccuracy) =>
                   setSettings({ ...settings, recognitionAccuracy })

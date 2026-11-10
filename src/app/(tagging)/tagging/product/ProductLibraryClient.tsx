@@ -10,6 +10,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import FeatureThresholdSetting from "../components/FeatureThresholdSetting";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -585,6 +586,7 @@ export default function ProductLibraryClient({
           </div>
 
           <div className="flex w-full flex-col gap-3 sm:flex-row xl:w-auto">
+            <FeatureThresholdSetting type="product" />
             <div className="relative w-[260px]">
               <Image
                 src="/Icon/Search.svg"

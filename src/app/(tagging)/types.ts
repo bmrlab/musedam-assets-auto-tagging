@@ -69,6 +69,7 @@ export const taggingSettingsSchema = z.object({
   isMetadataEnabled: z.boolean().default(false),
   taggingMode: z.enum(["direct", "review"]),
   recognitionAccuracy: z.enum(["precise", "balanced", "broad"]),
+  featureImageMode: z.boolean(),
   matchingSources: z.object({
     basicInfo: z.boolean(),
     materializedPath: z.boolean(),
@@ -114,6 +115,7 @@ export const TAGGING_CONFIG_KEYS = {
   IS_METADATA_ENABLED: "isMetadataEnabled",
   TAGGING_MODE: "taggingMode",
   RECOGNITION_ACCURACY: "recognitionAccuracy",
+  FEATURE_IMAGE_MODE: "featureImageMode",
   MATCHING_SOURCES: "matchingSources",
   SOURCE_WEIGHTS: "sourceWeights",
   TRIGGER_TIMING: "triggerTiming",
@@ -127,6 +129,7 @@ export const DEFAULT_TAGGING_SETTINGS: TaggingSettingsData = {
   isMetadataEnabled: false,
   taggingMode: "review",
   recognitionAccuracy: "balanced",
+  featureImageMode: false,
   matchingSources: {
     basicInfo: true,
     materializedPath: true,

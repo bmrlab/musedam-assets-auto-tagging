@@ -31,11 +31,13 @@ export function TagImportExportDialog({
   maxLevel,
   onOpenChange,
   onImported,
+  onExportCleaned,
 }: {
   open: boolean;
   maxLevel: 3 | 4;
   onOpenChange: (open: boolean) => void;
   onImported: (result: TagTreeBatchImportResult) => void;
+  onExportCleaned?: () => void;
 }) {
   const t = useTranslations("TagsPage");
   const tips = useTranslations("TagsPage.ManualCreateTipsModal");
@@ -61,7 +63,8 @@ export function TagImportExportDialog({
       <BatchImportExportDialog<TagTreeBatchImportResult>
         open={open}
         reviewTitle={t("importPreviewTitle")}
-        blockImportOnIssues
+        reviewClassName="w-[960px]"
+        showResultDialog
         renderReview={(precheck, pending) => (
           <div className="flex flex-col gap-4">
             <TagImportPreview
@@ -130,7 +133,15 @@ export function TagImportExportDialog({
             );
           }
         }}
-        exportAction={(format) => exportTagTreeAction(format, maxLevel)}
+        exportHint={t("exportCleanupHint")}
+        exportAction={async format => {
+          const result = await exportTagTreeAction(format, maxLevel);
+          if (result.success && result.data.deletedTagCount) {
+            onExportCleaned?.();
+            toast.success(t("exportCleanupComplete", { count: result.data.deletedTagCount }));
+          }
+          return result;
+        }}
         importAction={async (formData) => {
           formData.set("tagLevel", String(maxLevel));
           formData.set("importMode", importMode);
@@ -161,7 +172,7 @@ export function TagImportExportDialog({
             <AlertDialogCancel onClick={() => resolveOverwrite(false)}>
               {tips("Cancel")}
             </AlertDialogCancel>
-            <AlertDialogAction onClick={() => resolveOverwrite(true)}>
+            <AlertDialogAction variant="dialogDanger" onClick={() => resolveOverwrite(true)}>
               {overwriteTips("ClearExistingTagsAndUseNewOnes")}
             </AlertDialogAction>
           </AlertDialogFooter>

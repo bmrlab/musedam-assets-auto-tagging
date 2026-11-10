@@ -114,6 +114,7 @@
     "candidateFeatures": "후보 특징",
     "candidateFeaturesDescription": "신뢰도 60%-79%",
     "noRecognizedTags": "인식된 태그가 없습니다",
+    "featureRecognitionIncomplete": "Feature recognition did not finish. Results may be incomplete; please retry.",
     "noRecognizedFeatures": "인식된 특징이 없습니다",
     "featureConfidenceNotCredible": "현재 이미지가 기존 특징 라이브러리의 특징과 일치하지 않습니다. 해당 특징이 아직 등록되지 않았을 수 있습니다.",
     "videoFeatureLibraryLimited": "인식된 특징이 없습니다: 현재 특징 라이브러리는 동영상 파일 형식 인식 기능이 제한적이며 동영상의 첫 번째 프레임을 사용한 매칭만 지원합니다",
@@ -123,9 +124,13 @@
     "featureClassProduct": "상품",
     "ipRecognition": "IP 캐릭터 인식",
     "personRecognition": "인물 인식",
+    "productNameMatch": "상품명 일치",
     "productRecognition": "상품 인식"
   },
   "TagsPage": {
+    "exportCleanupHint": "Export removes local tags without a valid MuseDAM tag ID. Mapped descendants prevent cleanup until the hierarchy is repaired.",
+    "exportCleanupComplete": "Removed {count} tags without a MuseDAM tag ID",
+    "exportCleanupMappedChild": "“{tag}” has a MuseDAM ID but its parent does not. Repair the tag hierarchy before exporting; no tags were deleted.",
     "importPreviewConfigurationHint": "The preview shows tag paths. Configuration from the same file is retained and applied after you confirm. Merge preserves existing tags; overwrite replaces the tag tree.",
     "importPreviewTitle": "Import tag preview",
     "requiredGroupsAutoDisabledMore": "{tags} and others ({count} tags total)",

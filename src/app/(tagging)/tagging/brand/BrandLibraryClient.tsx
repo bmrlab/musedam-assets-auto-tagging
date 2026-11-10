@@ -10,8 +10,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import FeatureThresholdSetting from "../components/FeatureThresholdSetting";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,6 +52,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
+import FeatureRetryActions from "../components/FeatureRetryActions";
 import {
   libraryTableClassName,
   libraryTableScrollClassName,
@@ -52,7 +62,6 @@ import {
   stickyNameHeaderClassName,
   useHorizontalScrolled,
 } from "../components/library-table";
-import FeatureRetryActions from "../components/FeatureRetryActions";
 import LibraryPagination from "../components/LibraryPagination";
 import {
   linkedTagsColumnCellClassName,
@@ -67,14 +76,20 @@ import {
   deleteAssetLogosAction,
   fetchBrandLogosPageAction,
   pollBrandLogosAction,
-  retryAssetLogoProcessingAction,
   retryAllFailedAssetLogoProcessingAction,
+  retryAssetLogoProcessingAction,
   setAssetLogoEnabledAction,
   setAssetLogosEnabledAction,
+  setAssetLogosMatchStrategyAction,
 } from "./actions";
 import BrandBatchImportExportDialog from "./BrandBatchImportExportDialog";
 import BrandImageHoverCard from "./BrandImageHoverCard";
 import BrandLogoDialog from "./BrandLogoDialog";
+import {
+  MatchStrategyHint,
+  MatchStrategySwitch,
+  type LogoReferenceMatchStrategy,
+} from "./MatchStrategySwitch";
 import SignedBrandImage from "./SignedBrandImage";
 import { BrandLibraryInitialData, BrandLogoBatchImportResult, BrandLogoItem } from "./types";
 
@@ -195,6 +210,10 @@ export default function BrandLibraryClient({
   const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
   const [batchEnableOpen, setBatchEnableOpen] = useState(false);
   const [batchDisableOpen, setBatchDisableOpen] = useState(false);
+  const [batchMatchStrategyOpen, setBatchMatchStrategyOpen] = useState(false);
+  const [batchMatchStrategyRefreshOpen, setBatchMatchStrategyRefreshOpen] = useState(false);
+  const [batchMatchStrategy, setBatchMatchStrategy] =
+    useState<LogoReferenceMatchStrategy>("highest");
   const [batchImportExportOpen, setBatchImportExportOpen] = useState(false);
   const [pendingLogoIds, setPendingLogoIds] = useState<string[]>([]);
   const [isPending, startTransition] = useTransition();
@@ -517,6 +536,80 @@ export default function BrandLibraryClient({
     setBatchEnableOpen(false);
   }
 
+  function getDefaultBatchMatchStrategy(): LogoReferenceMatchStrategy {
+    const selected = logos.filter((logo) => selectedIds.includes(logo.id));
+    const strategies = new Set(
+      selected.map((logo) => (logo.referenceMatchStrategy === "average" ? "average" : "highest")),
+    );
+    return strategies.size === 1 ? [...strategies][0]! : "highest";
+  }
+
+  function handleOpenBatchMatchStrategy() {
+    setBatchMatchStrategy(getDefaultBatchMatchStrategy());
+    setBatchMatchStrategyRefreshOpen(false);
+    setBatchMatchStrategyOpen(true);
+  }
+
+  function handleBatchSetMatchStrategy(refreshPendingReviewResults: boolean) {
+    if (selectedIds.length === 0) {
+      setBatchMatchStrategyOpen(false);
+      setBatchMatchStrategyRefreshOpen(false);
+      return;
+    }
+
+    const targetIds = [...selectedIds];
+    const strategy = batchMatchStrategy;
+    targetIds.forEach((id) => markLogoPending(id, true));
+    setBatchMatchStrategyRefreshOpen(false);
+    setBatchMatchStrategyOpen(false);
+
+    startTransition(async () => {
+      const result = await setAssetLogosMatchStrategyAction(
+        targetIds,
+        strategy,
+        refreshPendingReviewResults,
+      );
+      targetIds.forEach((id) => markLogoPending(id, false));
+
+      if (!result.success) {
+        toast.error(result.message);
+        return;
+      }
+
+      const updatedLogos = result.data.logos;
+      const updatedCount = result.data.updatedCount;
+      const failedCount = result.data.failedIds.length;
+
+      if (updatedCount > 0 && updatedLogos.length > 0) {
+        const updatedById = new Map(updatedLogos.map((logo) => [logo.id, logo]));
+        setLogos((current) => current.map((logo) => updatedById.get(logo.id) ?? logo));
+        setSelectedIds((current) => current.filter((id) => !updatedById.has(id)));
+        reloadList();
+      }
+
+      if (failedCount === 0 && updatedCount === 0) {
+        toast.success(t("batchMatchStrategyUnchanged"));
+        return;
+      }
+
+      if (failedCount === 0) {
+        toast.success(
+          refreshPendingReviewResults
+            ? t("dialog.reviewRefreshScheduled")
+            : t("batchMatchStrategySuccess"),
+        );
+        return;
+      }
+
+      if (updatedCount > 0) {
+        toast.warning(t("batchPartialSuccess", { success: updatedCount, failed: failedCount }));
+        return;
+      }
+
+      toast.error(t("batchMatchStrategyFailed"));
+    });
+  }
+
   function handleBatchDeleteSelected() {
     if (selectedIds.length === 0) {
       setBatchDeleteOpen(false);
@@ -582,6 +675,7 @@ export default function BrandLibraryClient({
           </div>
 
           <div className="flex w-full flex-col gap-3 sm:flex-row xl:w-auto">
+            <FeatureThresholdSetting type="brand" />
             <div className="relative w-[260px]">
               <Image
                 src="/Icon/Search.svg"
@@ -718,6 +812,16 @@ export default function BrandLibraryClient({
                           className="block h-[14px] w-[14px] shrink-0 bg-current [mask-image:url('/Icon/Delete.svg')] [mask-position:center] [mask-repeat:no-repeat] [mask-size:100%_100%]"
                         />
                         {t("delete")}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 gap-1 rounded-[6px] border border-basic-4 bg-background px-3 py-1 text-[14px] leading-[22px] font-normal text-basic-8"
+                        onClick={handleOpenBatchMatchStrategy}
+                        disabled={isPending}
+                      >
+                        {t("batchMatchStrategy")}
                       </Button>
                     </div>
                   ) : null}
@@ -949,8 +1053,9 @@ export default function BrandLibraryClient({
                                   <LogoImagesCell logo={logo} t={t} />
                                 </td>
                                 <td
-                                  className={`h-[58px] px-4 align-middle ${linkedTagsColumnCellClassName} ${logo.tags.length > 1 ? "py-2" : "py-0"
-                                    }`}
+                                  className={`h-[58px] px-4 align-middle ${linkedTagsColumnCellClassName} ${
+                                    logo.tags.length > 1 ? "py-2" : "py-0"
+                                  }`}
                                 >
                                   <LinkedTagsOverflow
                                     tags={logo.tags}
@@ -959,8 +1064,9 @@ export default function BrandLibraryClient({
                                 </td>
                                 <td className="h-[58px] px-4 py-0 align-middle">
                                   <div
-                                    className={`flex items-center ${logo.status === "failed" ? "gap-[8px]" : "gap-3"
-                                      }`}
+                                    className={`flex items-center ${
+                                      logo.status === "failed" ? "gap-[8px]" : "gap-3"
+                                    }`}
                                   >
                                     {logo.status === "failed" ? (
                                       <Tooltip>
@@ -1215,6 +1321,86 @@ export default function BrandLibraryClient({
             <AlertDialogCancel>{t("batchDialog.cancel")}</AlertDialogCancel>
             <AlertDialogAction variant="dialogDanger" onClick={handleBatchDisableSelected}>
               {t("batchDialog.confirmDisable")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog
+        open={batchMatchStrategyOpen}
+        onOpenChange={(open) => {
+          setBatchMatchStrategyOpen(open);
+          if (!open) {
+            setBatchMatchStrategyRefreshOpen(false);
+          }
+        }}
+      >
+        <DialogContent className="w-[520px] max-w-[calc(100%-2rem)] gap-0 rounded-[16px] p-0">
+          <DialogHeader className="h-14 justify-center gap-0 px-5 py-4">
+            <DialogTitle className="text-[16px] leading-6 font-semibold text-basic-9">
+              {t("batchDialog.matchStrategyTitle")}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 px-5 pb-4">
+            <DialogDescription>
+              {t("batchDialog.matchStrategyDescription", { count: selectedIds.length })}
+            </DialogDescription>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-[14px] leading-[22px] font-normal text-basic-8">
+                {t("dialog.multiImageMatchLabel")}
+              </span>
+              <MatchStrategySwitch
+                value={batchMatchStrategy}
+                onChange={setBatchMatchStrategy}
+                disabled={isPending}
+                t={t}
+              />
+            </div>
+            <MatchStrategyHint strategy={batchMatchStrategy} t={t} />
+          </div>
+          <DialogFooter className="min-h-16 gap-[10px] px-5 py-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setBatchMatchStrategyOpen(false)}
+              disabled={isPending}
+              className="h-8 rounded-[6px] px-3 py-1"
+            >
+              {t("batchDialog.cancel")}
+            </Button>
+            <Button
+              type="button"
+              onClick={() => setBatchMatchStrategyRefreshOpen(true)}
+              disabled={isPending}
+              className="h-8 rounded-[6px] px-3 py-1"
+            >
+              {t("batchDialog.matchStrategyApply")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog
+        open={batchMatchStrategyRefreshOpen}
+        onOpenChange={setBatchMatchStrategyRefreshOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("dialog.reviewRefreshTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("dialog.reviewRefreshDescription")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() => handleBatchSetMatchStrategy(false)}
+              disabled={isPending}
+            >
+              {t("dialog.saveOnly")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => handleBatchSetMatchStrategy(true)}
+              disabled={isPending}
+            >
+              {t("dialog.saveAndRefresh")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

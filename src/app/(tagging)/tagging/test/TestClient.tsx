@@ -27,11 +27,19 @@ import {
 } from "@/lib/product/product-match-policy";
 import { meetsFeatureConfidenceThreshold } from "@/lib/tagging/feature-confidence";
 import { cn } from "@/lib/utils";
-import { AlertCircleIcon, Loader2, PlayIcon, PlusIcon, RefreshCwIcon, Trash } from "lucide-react";
+import {
+  AlertCircleIcon,
+  Loader2,
+  PlayIcon,
+  PlusIcon,
+  RefreshCwIcon,
+  Trash,
+  UploadIcon,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { startTaggingTasksAction } from "./actions";
+import { startTaggingTasksAction, uploadLocalTestFileAction } from "./actions";
 import { getFeatureThumbnailsAction } from "./components/actions";
 import {
   getTaggingResultFeatureKeys,
@@ -40,6 +48,7 @@ import {
 } from "./components/TaggingResultDisplay";
 
 interface SelectedAsset {
+  source?: "local";
   id: string; // 素材唯一标识
   name: string; // 素材名称
   extension: string; // 文件扩展名
@@ -472,7 +481,9 @@ export default function TestClient() {
   const tClient = useTranslations("Tagging.TestClient");
   const tResult = useTranslations("TaggingResultDisplay");
   const tSidebar = useTranslations("Tagging.Sidebar");
-  const featureLibraryFeatures = useFeatureLibraryFeatures();
+  // Persist URL settings before server actions run; visibility is handled by the result display.
+  useFeatureLibraryFeatures();
+  const localFileInputRef = useRef<HTMLInputElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isPolling, setIsPolling] = useState(false);
   const [selectedAssets, setSelectedAssets] = useState<SelectedAsset[]>([]);
@@ -670,18 +681,12 @@ export default function TestClient() {
             // 转换结果格式以适配TaggingResultDisplay组件
             const formattedResults = completedResults.map((result) => {
               const { assetObject, result: resultData, extra } = result;
-              const brandRecommendation = featureLibraryFeatures.featureBrand
-                ? getBrandRecommendationFromQueueResult(resultData)
-                : null;
-              const ipRecommendation = featureLibraryFeatures.featureIp
-                ? getIpRecommendationFromQueueResult(resultData)
-                : null;
-              const productRecommendation = featureLibraryFeatures.featureProduct
-                ? getProductRecommendationFromQueueResult(resultData)
-                : null;
-              const personRecommendation = featureLibraryFeatures.featurePerson
-                ? getPersonRecommendationFromQueueResult(resultData)
-                : null;
+              // Keep classification evidence even if feature settings are still hydrating.
+              // TaggingResultDisplay applies the current visibility settings separately.
+              const brandRecommendation = getBrandRecommendationFromQueueResult(resultData);
+              const ipRecommendation = getIpRecommendationFromQueueResult(resultData);
+              const productRecommendation = getProductRecommendationFromQueueResult(resultData);
+              const personRecommendation = getPersonRecommendationFromQueueResult(resultData);
               const linkedBrandTags: Array<{
                 assetLogoId?: string;
                 assetTagId?: number;
@@ -707,7 +712,7 @@ export default function TestClient() {
                     )
                   : match.recommendedTags;
                 return {
-                  noConfidentMatch: !meetsFeatureConfidenceThreshold("brand", match.confidence),
+                  noConfidentMatch: !meetsFeatureConfidenceThreshold("brand", match.confidence, brandRecommendation?.confidenceThreshold),
                   logoName: match.logoName,
                   logoTypeName: match.logoTypeName,
                   confidence: match.confidence,
@@ -725,7 +730,7 @@ export default function TestClient() {
                     )
                   : match.recommendedTags;
                 return {
-                  noConfidentMatch: !meetsFeatureConfidenceThreshold("ip", match.confidence),
+                  noConfidentMatch: !meetsFeatureConfidenceThreshold("ip", match.confidence, ipRecommendation?.confidenceThreshold),
                   ipName: match.ipName,
                   ipTypeName: match.ipTypeName,
                   confidence: match.confidence,
@@ -747,11 +752,13 @@ export default function TestClient() {
                 tagPath?: string[];
               }> = Array.isArray(result.productLinkedTags) ? result.productLinkedTags : [];
               const acceptedProducts = getAcceptedProductMatches(productRecommendation);
-              // Retain weak candidates so the empty state can explain why no feature is shown.
+              const acceptedProductIds = new Set(acceptedProducts.map(match => match.assetProductId));
+              // Keep weak candidates for diagnostics, but exclude same-region alternatives.
               const products = deduplicateProductMatches(
                 getProductMatches(productRecommendation).filter(
                   (match) =>
-                    typeof match?.assetProductId === "string" && match.assetProductId.length > 0,
+                    typeof match?.assetProductId === "string" && match.assetProductId.length > 0 &&
+                    (!meetsFeatureConfidenceThreshold("product", match.confidence, productRecommendation?.confidenceThreshold) || acceptedProductIds.has(match.assetProductId)),
                 ),
               ).map((match) => {
                 const refreshedTags = linkedProductTags.filter(
@@ -764,8 +771,9 @@ export default function TestClient() {
                   : match.recommendedTags;
 
                 return {
-                  noConfidentMatch: !meetsFeatureConfidenceThreshold("product", match.confidence),
+                  noConfidentMatch: !meetsFeatureConfidenceThreshold("product", match.confidence, productRecommendation?.confidenceThreshold),
                   productName: match.productName,
+                  matchingSource: match.matchingSource,
                   productTypeName: match.productTypeName,
                   confidence: match.confidence,
                   similarity: match.similarity,
@@ -856,6 +864,13 @@ export default function TestClient() {
 
               return {
                 metadataPredictions: resultData?.metadataPredictions,
+                featureThresholds: {
+                  brand: brandRecommendation?.confidenceThreshold,
+                  ip: ipRecommendation?.confidenceThreshold,
+                  product: productRecommendation?.confidenceThreshold,
+                  person: personRecommendation?.confidenceThreshold,
+                },
+
                 featureDecision: resultData?.featureDecision,
                 asset: {
                   id: assetObject?.id?.toString() || "",
@@ -984,7 +999,7 @@ export default function TestClient() {
         }
       }
     },
-    [featureLibraryFeatures, stopPolling, t, tClient, tResult, tSidebar],
+    [stopPolling, t, tClient, tResult, tSidebar],
   );
 
   // 始终调用最新的 pollQueueStatus（它依赖的翻译函数等会变化）
@@ -1067,8 +1082,13 @@ export default function TestClient() {
       setSelectedScene(persisted.selectedScene);
       setRecognitionAccuracy(persisted.recognitionAccuracy);
       setMatchingSources(persisted.matchingSources);
-      if (persisted.isPolling && persisted.queueItemIds.length > 0) {
-        beginPollingSession(persisted.queueItemIds, persisted.pollingStartedAt ?? Date.now());
+      // Re-read completed results too: older cached display data may have lost features
+      // during settings hydration. This only polls saved jobs; it never reruns tagging.
+      if (persisted.queueItemIds.length > 0) {
+        beginPollingSession(
+          persisted.queueItemIds,
+          persisted.isPolling ? (persisted.pollingStartedAt ?? Date.now()) : Date.now(),
+        );
       }
     }
     setHydrated(true);
@@ -1199,6 +1219,31 @@ export default function TestClient() {
     beginPollingSession(queueItemIds, pollingStartedAtRef.current ?? Date.now());
   }, [beginPollingSession, queueItemIds]);
 
+  const handleLocalFiles = async (files: File[]) => {
+    if (!files.length) return;
+    setIsProcessing(true);
+    try {
+      for (const file of files) {
+        if (!file.type.startsWith("image/") || file.size === 0 || file.size > 20 * 1024 * 1024) {
+          toast.error(t("localFileInvalid", { name: file.name }));
+          continue;
+        }
+        const formData = new FormData();
+        formData.set("file", file);
+        const result = await uploadLocalTestFileAction(formData);
+        if (result.success) {
+          setSelectedAssets((current) => [...current, result.data]);
+        } else {
+          toast.error(result.message || t("localUploadFailed"));
+        }
+      }
+    } catch {
+      toast.error(t("localUploadFailed"));
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleAssetSelection = async () => {
     try {
       setIsProcessing(true);
@@ -1214,7 +1259,10 @@ export default function TestClient() {
           return;
         }
 
-        setSelectedAssets(convertedAssets);
+        setSelectedAssets((current) => [
+          ...current.filter((asset) => asset.source === "local"),
+          ...convertedAssets,
+        ]);
         toast.success(t("assetsSelectedSuccess", { count: convertedAssets.length }));
       } else {
         toast.info(t("noAssetsSelected"));
@@ -1413,7 +1461,21 @@ export default function TestClient() {
               </div>
             )}
 
-            <div className="flex items-center justify-start gap-3">
+            <div className="flex flex-wrap items-center justify-start gap-3">
+              <input
+                ref={localFileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                aria-label={t("uploadLocalFiles")}
+                disabled={isProcessing || isPolling}
+                onChange={(event) => {
+                  const files = Array.from(event.target.files ?? []);
+                  event.target.value = "";
+                  void handleLocalFiles(files);
+                }}
+              />
               <Button
                 onClick={handleStartTagging}
                 className="gap-2"
@@ -1440,6 +1502,15 @@ export default function TestClient() {
               >
                 <PlusIcon className="size-4" />
                 {t("selectAssetFiles")}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isProcessing || isPolling}
+                onClick={() => localFileInputRef.current?.click()}
+              >
+                <UploadIcon className="size-4" />
+                {t("uploadLocalFiles")}
               </Button>
               {/* {isPolling && (
                 <Button

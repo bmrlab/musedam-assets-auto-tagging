@@ -12,6 +12,22 @@ export const TAG_BATCH_CLEAR_VALUE = "-";
 export const TAG_BATCH_MAX_FILE_BYTES = 5 * 1024 * 1024;
 /** 字段回写分片大小 */
 export const TAG_BATCH_UPDATE_CHUNK_SIZE = 50;
+/** Leave room below spreadsheet applications' 32,767-character cell limit. */
+export const TAG_BATCH_EXPORT_CELL_LIMIT = 30_000;
+const CONTINUATION_HEADERS = ["关键词续行", "關鍵詞續行", "Keyword Continuation"];
+
+function keywordChunks(keywords: string[] | undefined): string[] {
+  const chunks = [""];
+  for (const keyword of keywords ?? []) {
+    if (keyword.length > TAG_BATCH_EXPORT_CELL_LIMIT)
+      throw new Error("A tag keyword exceeds the spreadsheet cell limit");
+    const last = chunks.length - 1;
+    const next = chunks[last] ? `${chunks[last]};${keyword}` : keyword;
+    if (next.length > TAG_BATCH_EXPORT_CELL_LIMIT) chunks.push(keyword);
+    else chunks[last] = next;
+  }
+  return chunks;
+}
 
 export const TAG_BATCH_LEVEL_KEYS = ["level1", "level2", "level3", "level4"] as const;
 export const TAG_BATCH_FIELD_KEYS = [
@@ -34,7 +50,7 @@ export type TagBatchFieldKey = (typeof TAG_BATCH_FIELD_KEYS)[number];
 export type TagBatchColumnKey = (typeof TAG_BATCH_COLUMN_KEYS)[number];
 
 const COLUMN_LABELS: Record<TagBatchColumnKey, Record<"zh-CN" | "zh-TW" | "en-US", string>> = {
-  id: { "zh-CN": "标签 ID", "zh-TW": "標籤 ID", "en-US": "Tag ID" },
+  id: { "zh-CN": "MuseDAM 标签 ID", "zh-TW": "MuseDAM 標籤 ID", "en-US": "MuseDAM Tag ID" },
   level1: { "zh-CN": "一级标签", "zh-TW": "一級標籤", "en-US": "Level 1 Tag" },
   level2: { "zh-CN": "二级标签", "zh-TW": "二級標籤", "en-US": "Level 2 Tag" },
   level3: { "zh-CN": "三级标签", "zh-TW": "三級標籤", "en-US": "Level 3 Tag" },
@@ -53,7 +69,7 @@ const COLUMN_LABELS: Record<TagBatchColumnKey, Record<"zh-CN" | "zh-TW" | "en-US
 
 /** 额外表头别名，兼容导出文件被改名后的常见写法 */
 const COLUMN_EXTRA_ALIASES: Partial<Record<TagBatchColumnKey, string[]>> = {
-  id: ["ID", "id", "标签ID", "標籤ID", "TagID"],
+  id: ["ID", "id", "标签ID", "標籤ID", "TagID", "标签 ID", "標籤 ID", "Tag ID"],
 };
 
 const BOOLEAN_ON = new Set([
@@ -102,7 +118,7 @@ export type TagBatchFieldPatch = {
 
 export type ParsedTagBatchRecord = {
   rowNumber: number;
-  /** 导出带回的标签 ID；有值时导入按 ID 更新，不走路径新建 */
+  /** MuseDAM 标签 ID（纯数字）；有值时按当前团队的 MuseDAM 映射更新。 */
   id?: number;
   path: string[];
   fields: TagBatchFieldPatch;
@@ -120,7 +136,8 @@ export type TagBatchCreateNode = {
 };
 
 export type TagBatchExportNode = {
-  id: number;
+  /** 未同步到 MuseDAM 的标签留空，不能回退成本地 ID。 */
+  id?: number;
   name: string;
   taggingEnabled: boolean;
   extra: unknown;
@@ -130,6 +147,7 @@ export type TagBatchExportNode = {
 export type TagBatchMessages = {
   overwriteRequiresValidRows: string;
   conflictingTreeFields: (columns: string) => string;
+  duplicateTreeContentMerged: string;
   missingHeader: string;
   missingLevel1: string;
   noDataRows: string;
@@ -163,8 +181,9 @@ export function tagBatchMessages(locale: string): TagBatchMessages {
   if (tagBatchLabelLocale(locale) === "en-US") {
     return {
       overwriteRequiresValidRows: "Fix all invalid rows before overwriting the tag tree",
+      duplicateTreeContentMerged: "Duplicate tag paths and keywords were merged automatically; this does not prevent import",
       conflictingTreeFields: (columns) =>
-        `Rows for the same tag path have conflicting settings (${columns}); make them consistent before importing`,
+        `Rows for the same tag path have conflicting settings (${columns}); this row will be skipped if you continue importing`,
       missingHeader: "Missing file header",
       missingLevel1: "File is missing a required column: Level 1 Tag",
       noDataRows: "No importable data found",
@@ -194,10 +213,13 @@ export function tagBatchMessages(locale: string): TagBatchMessages {
     overwriteRequiresValidRows: traditional
       ? "請修正所有問題行後再覆蓋標籤樹"
       : "请修正所有问题行后再覆盖标签树",
+    duplicateTreeContentMerged: traditional
+      ? "重複標籤路徑及關鍵詞已自動合併去重，不影響匯入"
+      : "重复标签路径及关键词已自动合并去重，不影响导入",
     conflictingTreeFields: (columns) =>
       traditional
-        ? `檔案中同一路徑的設定衝突（${columns}），請統一後再匯入`
-        : `文件中同一路径的配置冲突（${columns}），请统一后再导入`,
+        ? `檔案中同一路徑的設定衝突（${columns}），繼續匯入將跳過本行`
+        : `文件中同一路径的配置冲突（${columns}），继续导入将跳过本行`,
     missingHeader: traditional ? "檔案缺少表頭" : "文件缺少表头",
     missingLevel1: traditional ? "檔案缺少必填列：一級標籤" : "文件缺少必填列：一级标签",
     noDataRows: traditional ? "未找到可匯入的資料" : "未找到可导入的数据",
@@ -262,7 +284,7 @@ export function buildTagBatchTemplateRows(locale: string): string[][] {
     ? [
         "Replace or delete example rows before import. All configuration columns are optional. Switches accept On/Off, true/false or 1/0. Child exclusivity and required groups apply to parents with children. Required groups without children are turned off and reported after import.",
         "Blank settings use defaults for new tags and preserve settings for existing tags. Keywords accept ;, Chinese ； or line breaks; commas and enumeration commas are part of the keyword.",
-        "Use - alone to clear descriptions or keywords. Keep Tag ID empty for new tags; retain exported IDs to update or rename existing tags. Settings apply to the deepest tag in each row.",
+        "Use - alone to clear descriptions or keywords. Keep Tag ID empty for new tags; retain exported MuseDAM IDs to update or rename existing tags. Settings apply to the deepest tag in each row.",
       ]
     : traditional
       ? [
@@ -273,7 +295,7 @@ export function buildTagBatchTemplateRows(locale: string): string[][] {
       : [
           "导入前请替换或删除示例行。配置列均可选填；开关支持开启/关闭、true/false、1/0。子标签单选及必打标签组适用于有子标签的父标签；没有子标签时自动关闭必打，导入完成后提示。",
           "配置留空：新标签使用默认值，已有标签保留原值。关键词用英文分号 ;、中文分号 ； 或单元格内换行分隔；逗号、顿号视为词的一部分。",
-          "描述或关键词单独填 - 表示清空。新增标签时 ID 留空；更新或改名时保留导出的 ID。每行配置应用于该行最末级标签。",
+          "描述或关键词单独填 - 表示清空。新增标签时 ID 留空；更新或改名时保留导出的 MuseDAM ID。每行配置应用于该行最末级标签。",
         ];
   return [
     [
@@ -376,7 +398,7 @@ export function filterMissingPathRecords(
 }
 
 export function joinTagBatchKeywords(keywords: string[] | undefined) {
-  return (keywords ?? []).join("; ");
+  return (keywords ?? []).join(";");
 }
 
 export function parseTagBatchTable({
@@ -408,6 +430,7 @@ export function parseTagBatchTable({
 
   const columns = getTagBatchColumns(locale);
   const headerMap = buildHeaderMap(headerRow, columns);
+  const continuationColumn = headerRow.findIndex(header => CONTINUATION_HEADERS.includes(header.trim()));
   if (ignoreIds) delete headerMap.id;
   // 无 ID 列时必须有一级标签列，才能按路径新建；有 ID 列则可只靠 ID 更新
   if (headerMap.level1 === undefined && headerMap.id === undefined) {
@@ -440,6 +463,24 @@ export function parseTagBatchTable({
       errors.push({ rowNumber, message: parsed.message });
       return;
     }
+    if (continuationColumn >= 0 && cell(row, continuationColumn)) {
+      const previous = records.at(-1);
+      const keywordFields = ["keywords", "negativeKeywords"] as const;
+      if (cell(row, continuationColumn) !== "1" || !previous ||
+          parsed.id !== previous.id || !parsed.path.length ||
+          JSON.stringify(parsed.path) !== JSON.stringify(previous.path) ||
+          Object.keys(parsed.fields).some(key => key !== "keywords" && key !== "negativeKeywords") ||
+          !keywordFields.some(key => parsed.fields[key]?.length)) {
+        errors.push({ rowNumber, message: text.pathMismatch });
+        return;
+      }
+      for (const key of keywordFields) {
+        if (parsed.fields[key]) previous.fields[key] = [...new Set([
+          ...(previous.fields[key] ?? []), ...parsed.fields[key]!,
+        ])];
+      }
+      return;
+    }
     if (parsed.id !== undefined) {
       const previousRow = seenIds.get(parsed.id);
       if (previousRow !== undefined) {
@@ -461,14 +502,15 @@ export function parseTagBatchTable({
   return { records, errors };
 }
 
-/** 同一路径只创建一次；重复行可以补充配置，但不能互相覆盖冲突值。 */
+/** 同一路径只创建一次，关键词合并去重；其他字段冲突的行单独报错。 */
 export function coalesceTagTreeRecords(
   records: ParsedTagBatchRecord[],
   locale: string,
   messages: TagBatchMessages = tagBatchMessages(locale),
-): { records: ParsedTagBatchRecord[]; errors: TagBatchParseError[] } {
+): { records: ParsedTagBatchRecord[]; errors: TagBatchParseError[]; warnings: TagBatchParseError[] } {
   const byPath = new Map<string, ParsedTagBatchRecord>();
   const errors: TagBatchParseError[] = [];
+  const warnings: TagBatchParseError[] = [];
   const labels = new Map(getTagBatchColumns(locale).map((column) => [column.key, column.header]));
   for (const record of records) {
     const key = JSON.stringify(record.path.map((name) => name.toLowerCase()));
@@ -481,10 +523,8 @@ export function coalesceTagTreeRecords(
       const previous = existing.fields[field];
       const next = record.fields[field];
       if (previous === undefined || next === undefined) return false;
-      // Keyword order does not change the configuration.
-      const normalize = (value: typeof previous) =>
-        Array.isArray(value) ? [...value].sort() : value;
-      return JSON.stringify(normalize(previous)) !== JSON.stringify(normalize(next));
+      if (field === "keywords" || field === "negativeKeywords") return false;
+      return JSON.stringify(previous) !== JSON.stringify(next);
     });
     if (conflicts.length) {
       errors.push({
@@ -493,9 +533,16 @@ export function coalesceTagTreeRecords(
       });
       continue;
     }
-    Object.assign(existing.fields, record.fields);
+    const fields = { ...record.fields };
+    for (const field of ["keywords", "negativeKeywords"] as const) {
+      if (existing.fields[field] !== undefined && fields[field] !== undefined) {
+        fields[field] = [...new Set([...existing.fields[field]!, ...fields[field]!])];
+      }
+    }
+    Object.assign(existing.fields, fields);
+    warnings.push({ rowNumber: record.rowNumber, message: messages.duplicateTreeContentMerged });
   }
-  return { records: [...byPath.values()], errors };
+  return { records: [...byPath.values()], errors, warnings };
 }
 
 /** 仅无 ID 的行参与路径建树；带 ID 的行按 ID 更新，不新建 */
@@ -530,6 +577,11 @@ export function buildTagBatchExportRows({
   const columns = getTagBatchColumns(locale);
   const rows = [columns.map((column) => column.header)];
   appendExportNodes(tags, [], rows, locale);
+  // Only add the marker column when at least one node needs continuation rows.
+  if (rows.some(row => row.length > columns.length)) {
+    rows[0].push(CONTINUATION_HEADERS[tagBatchLabelLocale(locale) === "zh-CN" ? 0 : tagBatchLabelLocale(locale) === "zh-TW" ? 1 : 2]);
+    for (const row of rows.slice(1)) if (row.length === columns.length) row.push("");
+  }
   return rows;
 }
 
@@ -547,8 +599,8 @@ function appendExportNodes(
     const path = [...ancestors, node.name];
     const extra = readExtra(node.extra);
     const levels = TAG_BATCH_LEVEL_KEYS.map((_, index) => path[index] ?? "");
-    rows.push([
-      String(node.id),
+    const baseRow = [
+      node.id === undefined ? "" : String(node.id),
       ...levels,
       extra.description ?? "",
       joinTagBatchKeywords(extra.keywords),
@@ -556,7 +608,20 @@ function appendExportNodes(
       formatTagBatchBoolean(node.taggingEnabled, locale),
       formatTagBatchBoolean(extra.siblingsExclusive, locale),
       formatTagBatchBoolean(extra.requiredGroup, locale),
-    ]);
+    ];
+    const matching = keywordChunks(extra.keywords);
+    const excluded = keywordChunks(extra.negativeKeywords);
+    baseRow[6] = matching[0];
+    baseRow[7] = excluded[0];
+    if (baseRow.some(value => value.length > TAG_BATCH_EXPORT_CELL_LIMIT))
+      throw new Error("A tag field exceeds the spreadsheet cell limit");
+    rows.push(baseRow);
+    for (let index = 1; index < Math.max(matching.length, excluded.length); index++) {
+      rows.push([
+        ...baseRow.slice(0, 5), "", matching[index] ?? "", excluded[index] ?? "",
+        "", "", "", "1",
+      ]);
+    }
     if (node.children?.length) {
       appendExportNodes(node.children, path, rows, locale);
     }

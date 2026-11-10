@@ -1,0 +1,34 @@
+import SettingsClient from "@/app/(tagging)/tagging/settings/SettingsClient";
+import { DEFAULT_TAGGING_SETTINGS } from "@/app/(tagging)/types";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+const save = vi.hoisted(() => vi.fn());
+vi.mock("next-intl", () => ({ useTranslations: () => (key: string) => key }));
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), message: vi.fn() } }));
+vi.mock("@/embed/message", () => ({ dispatchMuseDAMClientAction: vi.fn(), triggerTeamSettingsNotification: vi.fn() }));
+vi.mock("@/app/(tagging)/tagging/settings/actions", () => ({ updateSettings: save }));
+vi.mock("@/app/(tagging)/tagging/settings/components/GlobalSettingsSection", () => ({ GlobalSettingsSection: () => null }));
+vi.mock("@/app/(tagging)/tagging/settings/components/TaggingModeSection", () => ({ TaggingModeSection: () => null }));
+vi.mock("@/app/(tagging)/tagging/settings/components/MatchingStrategySection", () => ({ MatchingStrategySection: () => null }));
+vi.mock("@/app/(tagging)/tagging/settings/components/TriggerTimingSection", () => ({ TriggerTimingSection: () => null }));
+vi.mock("@/app/(tagging)/tagging/settings/components/ApplicationScopeSection", () => ({ ApplicationScopeSection: () => null }));
+afterEach(cleanup);
+beforeEach(() => { vi.clearAllMocks(); save.mockResolvedValue({ success: true }); });
+it("saves the team toggle and retains its value when changing recognition accuracy", async () => {
+  render(<SettingsClient initialSettings={DEFAULT_TAGGING_SETTINGS} />);
+  const toggle = screen.getByRole("switch", { name: "imageMode" });
+  expect(toggle.getAttribute("aria-checked")).toBe("false");
+  fireEvent.click(toggle);
+  await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ featureImageMode: true })));
+  await waitFor(() => expect((toggle as HTMLButtonElement).disabled).toBe(false));
+  fireEvent.click(screen.getByText("precise"));
+  await waitFor(() => expect(save).toHaveBeenLastCalledWith(expect.objectContaining({ recognitionAccuracy: "precise", featureImageMode: true })));
+});
+it("restores the previous toggle value if saving fails", async () => {
+  save.mockResolvedValue({ success: false });
+  render(<SettingsClient initialSettings={DEFAULT_TAGGING_SETTINGS} />);
+  const toggle = screen.getByRole("switch", { name: "imageMode" });
+  fireEvent.click(toggle);
+  await waitFor(() => expect(save).toHaveBeenCalledOnce());
+  await waitFor(() => expect(toggle.getAttribute("aria-checked")).toBe("false"));
+});

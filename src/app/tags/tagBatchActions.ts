@@ -8,6 +8,7 @@ import {
   parseBatchFile,
   type BatchFileFormat,
 } from "@/app/(tagging)/tagging/batchFile";
+import { rootLogger } from "@/lib/logging";
 import type { ServerActionResult } from "@/lib/serverAction";
 import { applyTagConfigImportChunk } from "@/lib/tagging/import-tag-config";
 import {
@@ -15,6 +16,10 @@ import {
   runTagImportExclusive,
   TagImportBusyError,
 } from "@/lib/tagging/tag-import-lock";
+import type { TagTreeImportStats } from "@/lib/tagging/tag-import-result";
+import { throwIfTagImportAborted } from "@/lib/tagging/tag-import-runtime";
+import { cancelPendingTagImports } from "@/lib/tagging/soft-delete-tags";
+import { bumpTagConfigVersion } from "@/lib/tagging/tag-config-version";
 import { MAX_TAG_LEVEL } from "@/lib/tagging/tag-level";
 import type { AssetTagExtra, Prisma } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
@@ -23,10 +28,11 @@ import { z } from "zod";
 import { batchCreateTags, saveTagsTreeToMuseDAM } from "./actions";
 import {
   buildTagBatchExportRows,
-  coalesceTagTreeRecords,
   buildTagBatchTemplateRows,
+  coalesceTagTreeRecords,
   filterMissingPathRecords,
   parseTagBatchTable,
+  parseTagBatchId,
   TAG_BATCH_MAX_FILE_BYTES,
   TAG_BATCH_UPDATE_CHUNK_SIZE,
   tagBatchMessages,
@@ -41,12 +47,13 @@ import {
 import type { TagNode } from "./types";
 
 export type TagTreeBatchFileResult = {
+  deletedTagCount?: number;
   filename: string;
   mimeType: string;
   base64: string;
 };
 
-export type TagTreeBatchImportResult = {
+export type TagTreeBatchImportResult = Partial<TagTreeImportStats> & {
   /** 已成功导入，但因无直接子标签而自动关闭必打的标签路径。 */
   autoDisabledRequiredGroups?: string[];
   successCount: number;
@@ -81,6 +88,8 @@ export type TagTreeImportPrecheck = {
   unchangedCount: number;
   /** 正式导入时会被跳过的行 */
   issues: ImportFailure[];
+  /** 已自动合并的重复内容，不应作为跳过行或阻止导入的依据。 */
+  warnings?: ImportFailure[];
 };
 
 type ImportFailure = TagTreeBatchImportResult["failures"][number];
@@ -98,6 +107,7 @@ type PreparedImport =
       createCount: number;
       createPaths: string[];
       previewTree: TagBatchCreateNode[];
+      tagStats: TagTreeImportStats;
     };
 
 type PreparedUpdate = {
@@ -116,15 +126,45 @@ export async function exportTagTreeAction(
   format: BatchFileFormat,
   maxLevel: 3 | 4 = 4,
 ): Promise<ServerActionResult<TagTreeBatchFileResult>> {
-  return withAuth(async ({ team: { id: teamId } }) => {
+  return withAuth(async ({ user, team: { id: teamId } }) => {
     const locale = await getLocale();
     const t = await getTranslations("Tagging.BatchImportExport");
+    const tTags = await getTranslations("TagsPage");
     try {
       const parsedFormat = z.enum(["csv", "xlsx"]).parse(format);
-      const tags = limitTagTreeDepth(await loadTagTree(teamId), maxLevel === 3 ? 3 : 4);
-      const rows = buildTagBatchExportRows({ tags, locale });
-      return fileResult("tag-tree", parsedFormat, rows);
+      return await runTagImportExclusive(teamId, user.id, () => prisma.$transaction(async tx => {
+        await assertTagImportOwnership(tx);
+        const tags = await tx.assetTag.findMany({
+          where: { teamId, deletedAt: null },
+          select: { id: true, slug: true, name: true, parentId: true, sort: true, taggingEnabled: true, extra: true },
+          orderBy: [{ sort: "desc" }, { name: "asc" }],
+        });
+        const unmapped = tags.filter(tag => museDAMTagId(tag.slug) === undefined);
+        const unmappedIds = new Set(unmapped.map(tag => tag.id));
+        const mappedChild = tags.find(tag => !unmappedIds.has(tag.id) &&
+          tag.parentId !== null && unmappedIds.has(tag.parentId));
+        if (mappedChild) throw new Error(tTags("exportCleanupMappedChild", { tag: mappedChild.name }));
+        const synced = tags.filter(tag => !unmappedIds.has(tag.id));
+        const tree = limitTagTreeDepth(buildTagTree(synced), maxLevel === 3 ? 3 : 4);
+        // Encode before deleting. Any encoding/deletion failure rolls the entire cleanup back.
+        const file = fileResult("tag-tree", parsedFormat, buildTagBatchExportRows({ tags: tree, locale }));
+        for (let offset = 0; offset < unmapped.length; offset += 100) {
+          throwIfTagImportAborted();
+          await assertTagImportOwnership(tx);
+          await tx.assetTag.updateMany({
+            where: { teamId, deletedAt: null, id: { in: unmapped.slice(offset, offset + 100).map(tag => tag.id) } },
+            data: { deletedAt: new Date() },
+          });
+        }
+        if (unmapped.length) await cancelPendingTagImports(tx, teamId);
+        if (unmapped.length) await bumpTagConfigVersion(tx, teamId);
+        await assertTagImportOwnership(tx);
+        throwIfTagImportAborted();
+        return { ...file, data: { ...file.data, deletedTagCount: unmapped.length } };
+      }, { isolationLevel: "Serializable", timeout: 40_000, maxWait: 5_000 }));
     } catch (error) {
+      if (error instanceof TagImportBusyError)
+        return { success: false, code: "busy", message: t("memberImportInProgress", { name: error.memberName }) };
       console.error("Failed to export tag tree:", error);
       return {
         success: false,
@@ -162,13 +202,21 @@ export async function precheckTagTreeImportAction(
     const t = await getTranslations("Tagging.BatchImportExport");
     try {
       // Preview only the uploaded tree: no database lookup, import mode or writes.
-      const uploaded = await readUploadedTagTree(formData, true);
+      const uploaded = await readUploadedTagTree(formData, false);
       if (uploaded.kind === "error") return { success: false, message: uploaded.message };
       const records = uploaded.records.filter((record) => record.path.length > 0);
-      const pathErrors = uploaded.records.filter((record) => !record.path.length).map((record) => ({
-        rowNumber: record.rowNumber, name: null, message: uploaded.messages.nameRequired,
-      }));
-      const combined = coalesceTagTreeRecords(records.map((record) => ({ ...record, id: undefined })), uploaded.locale, uploaded.messages);
+      const pathErrors = uploaded.records
+        .filter((record) => !record.path.length)
+        .map((record) => ({
+          rowNumber: record.rowNumber,
+          name: null,
+          message: uploaded.messages.nameRequired,
+        }));
+      const combined = coalesceTagTreeRecords(
+        records.map((record) => ({ ...record, id: undefined })),
+        uploaded.locale,
+        uploaded.messages,
+      );
       const tree = tagBatchRecordsToCreateTree(combined.records);
       const paths = collectNewTagPaths(tree, buildTagLookup([]));
       return {
@@ -183,6 +231,7 @@ export async function precheckTagTreeImportAction(
           renameCount: 0,
           unchangedCount: 0,
           issues: [...toFailures(uploaded.errors), ...pathErrors, ...toFailures(combined.errors)],
+          warnings: toFailures(combined.warnings),
         },
       };
     } catch (error) {
@@ -211,7 +260,16 @@ export async function importTagTreeAction(
           // Validate the original file before any mutation. If it both renames a
           // parent and adds descendants, persist accepted renames first so creation
           // resolves those descendants to the original parent ID.
+          const startedAt = Date.now();
+          rootLogger.info({ msg: "Tag import phase", teamId, phase: "validation" });
           const preflight = await prepareTagTreeImport(teamId, formData, true);
+          rootLogger.info({
+            msg: "Tag import phase",
+            teamId,
+            phase: "validation-complete",
+            elapsedMs: Date.now() - startedAt,
+          });
+          throwIfTagImportAborted();
           if (preflight.kind === "ready" && preflight.createCount > 0) {
             const renames = preflight.prepared.filter((item) => item.data.name);
             if (renames.length > 0) {
@@ -242,7 +300,7 @@ export async function importTagTreeAction(
                 await Promise.all(
                   renames.map((item) =>
                     tx.assetTag.update({
-                      where: { id: item.tag.id, teamId },
+                      where: { deletedAt: null, id: item.tag.id, teamId },
                       data: { name: item.data.name },
                     }),
                   ),
@@ -251,6 +309,7 @@ export async function importTagTreeAction(
             }
           }
           const outcome = await prepareTagTreeImport(teamId, formData, false);
+          throwIfTagImportAborted();
           if (outcome.kind === "error") return { success: false, message: outcome.message };
           if (outcome.kind === "fatal") {
             return {
@@ -264,6 +323,13 @@ export async function importTagTreeAction(
             };
           }
           const { prepared, failures, noopSuccessCount, idIndex } = outcome;
+          rootLogger.info({
+            msg: "Tag import phase",
+            teamId,
+            phase: "configuration",
+            updateCount: prepared.length,
+            elapsedMs: Date.now() - startedAt,
+          });
 
           const autoDisabledIds = new Set(
             prepared.filter((item) => item.autoDisabledRequiredGroup).map((item) => item.tag.id),
@@ -298,6 +364,7 @@ export async function importTagTreeAction(
 
           let successCount = noopSuccessCount;
           for (const chunk of chunkArray(prepared, TAG_BATCH_UPDATE_CHUNK_SIZE)) {
+            throwIfTagImportAborted();
             try {
               await prisma.$transaction((tx) => applyTagConfigImportChunk(tx, teamId, chunk));
               for (const item of chunk) {
@@ -306,6 +373,7 @@ export async function importTagTreeAction(
                 successCount += 1;
               }
             } catch (error) {
+              throwIfTagImportAborted();
               console.error("Failed to import tag chunk:", error);
               // 分片失败时降级逐行，尽量保住其余行
               for (const item of chunk) {
@@ -315,6 +383,7 @@ export async function importTagTreeAction(
                   if (autoDisabledIds.has(item.tag.id)) autoDisabledTags.push(item.tag);
                   successCount += 1;
                 } catch (rowError) {
+                  throwIfTagImportAborted();
                   console.error("Failed to import tag row:", rowError);
                   failures.push({
                     rowNumber: item.record.rowNumber,
@@ -330,10 +399,19 @@ export async function importTagTreeAction(
             }
           }
 
+          rootLogger.info({
+            msg: "Tag import phase",
+            teamId,
+            phase: "configuration-complete",
+            successCount,
+            failedCount: failures.length,
+            elapsedMs: Date.now() - startedAt,
+          });
           return {
             success: true,
             data: {
               successCount,
+              ...outcome.tagStats,
               autoDisabledRequiredGroups: [
                 ...new Set(
                   autoDisabledTags.map((tag) =>
@@ -416,22 +494,12 @@ async function prepareTagTreeImport(
   formData: FormData,
   dryRun: boolean,
 ): Promise<PreparedImport> {
-  const uploaded = await readUploadedTagTree(formData, formData.get("treeImport") === "true");
+  const uploaded = await readUploadedTagTree(formData, false);
   if (uploaded.kind === "error") return uploaded;
   const { locale, messages } = uploaded;
   const maxLevel = formData.get("tagLevel") === "4" ? 4 : 3;
   const parsed = { records: uploaded.records, errors: uploaded.errors };
   const treeImport = formData.get("treeImport") === "true";
-  if (treeImport) {
-    const missingPaths = parsed.records.filter((record) => !record.path.length);
-    if (missingPaths.length) return {
-      kind: "fatal", failures: missingPaths.map((record) => ({ rowNumber: record.rowNumber, name: null, message: messages.nameRequired })),
-    };
-    const combined = coalesceTagTreeRecords(parsed.records.map((record) => ({ ...record, id: undefined })), locale, messages);
-    parsed.records = combined.records;
-    parsed.errors.push(...combined.errors);
-    if (parsed.errors.length) return { kind: "fatal", failures: toFailures(parsed.errors) };
-  }
   if (parsed.errors.some((error) => error.fatal)) {
     return { kind: "fatal", failures: toFailures(parsed.errors) };
   }
@@ -441,18 +509,34 @@ async function prepareTagTreeImport(
   const skippedRows = new Set(
     requestedSkips.filter(
       (row) =>
-        parsed.records.some((record) => record.rowNumber === row) || parsed.errors.some((error) => error.rowNumber === row),
+        parsed.records.some((record) => record.rowNumber === row) ||
+        parsed.errors.some((error) => error.rowNumber === row),
     ),
   );
   parsed.records = parsed.records.filter((record) => !skippedRows.has(record.rowNumber));
   parsed.errors = parsed.errors.filter((error) => !skippedRows.has(error.rowNumber));
+  if (treeImport) {
+    const missingPaths = parsed.records.filter((record) => !record.path.length);
+    if (missingPaths.length) return {
+      kind: "fatal", failures: missingPaths.map((record) => ({ rowNumber: record.rowNumber, name: null, message: messages.nameRequired })),
+    };
+    const combined = coalesceTagTreeRecords(parsed.records.filter(record => record.id === undefined), locale, messages);
+    parsed.records = [...parsed.records.filter(record => record.id !== undefined), ...combined.records];
+    parsed.errors.push(...combined.errors);
+    if (parsed.errors.length) return { kind: "fatal", failures: toFailures(parsed.errors) };
+  }
   if (parsed.records.length === 0) {
     return { kind: "fatal", failures: toFailures(parsed.errors), skippedCount: skippedRows.size };
   }
 
   const importMode = z.enum(["merge", "overwrite"]).parse(formData.get("importMode") || "merge");
-  // Overwrite must never destroy existing tags for an invalid or partly skipped file.
-  if (importMode === "overwrite" && (parsed.errors.length > 0 || skippedRows.size > 0)) {
+  // Legacy callers cannot overwrite a partial file. The tree preview flow may
+  // explicitly acknowledge skipped rows; remaining unacknowledged errors were rejected above.
+  if (
+    !treeImport &&
+    importMode === "overwrite" &&
+    (parsed.errors.length > 0 || skippedRows.size > 0)
+  ) {
     return {
       kind: "fatal",
       failures: toFailures(
@@ -468,17 +552,36 @@ async function prepareTagTreeImport(
   // 路径名大小写对齐到已有标签，避免 batchCreateTags（精确匹配）新建出仅大小写不同的同级标签
   // Exported IDs refer to the old tree. Resolve paths before replacement, then
   // discard those IDs so configuration is applied to the newly created tags.
+  const overwriteRenames: PreparedUpdate[] = [];
   if (importMode === "overwrite") {
     const existingById = indexTagsById(tags);
+    const existingByMuseDAMId = indexTagsByMuseDAMId(tags);
     const invalid: ImportFailure[] = [];
+    const renames = new Map<number, string>();
+    for (const record of parsed.records) {
+      const tag = record.id !== undefined ? existingByMuseDAMId.get(record.id) : undefined;
+      if (tag && record.path.length) renames.set(tag.id, record.path.at(-1)!);
+    }
+    const nameOwners = buildNameOwnerIndex(tags);
     parsed.records = parsed.records.map((record) => {
-      const existing = record.id !== undefined ? existingById.get(record.id) : undefined;
+      const existing = record.id !== undefined ? existingByMuseDAMId.get(record.id) : undefined;
       if (record.id !== undefined && !existing) {
         invalid.push({
           rowNumber: record.rowNumber,
           name: `ID ${record.id}`,
           message: messages.tagNotFound,
         });
+      }
+      if (existing && record.path.length) {
+        try {
+          if (!idPathMatchesTag(existing, record.path, existingById, renames))
+            throw new Error(messages.pathMismatch);
+          const update = prepareRecordUpdate(existing, record, messages, nameOwners, false);
+          if (update?.data.name) overwriteRenames.push(update);
+        } catch (error) {
+          invalid.push({ rowNumber: record.rowNumber, name: `ID ${record.id}`,
+            message: error instanceof Error ? error.message : messages.rowImportFailed });
+        }
       }
       const path = record.path.length
         ? record.path
@@ -504,34 +607,54 @@ async function prepareTagTreeImport(
 
   // 只把缺失路径建成局部树再 merge，避免整表推 MuseDAM
   const pathRecords = records.filter((record) => record.id === undefined);
-  const missingPathRecords = importMode === "overwrite"
-    ? pathRecords
-    : filterMissingPathRecords(pathRecords, (path) => resolvePath(lookup, path) !== null);
+  const missingPathRecords =
+    importMode === "overwrite"
+      ? pathRecords
+      : filterMissingPathRecords(pathRecords, (path) => resolvePath(lookup, path) !== null);
   const createTree = tagBatchRecordsToCreateTree(missingPathRecords);
   const createPaths = collectNewTagPaths(createTree, lookup);
+  let createdTagCount = 0;
   if (!dryRun && createTree.length > 0) {
+    const structureStartedAt = Date.now();
+    rootLogger.info({
+      msg: "Tag import phase",
+      teamId,
+      phase: "sync-structure",
+      importMode,
+      endpoint: "import-tag-tree",
+      newNodeCount: createPaths.length,
+    });
     const created = await batchCreateTags(createTree, importMode === "overwrite" ? 1 : 2, {
       imported: true,
+    });
+    rootLogger.info({
+      msg: "Tag import phase",
+      teamId,
+      phase: "sync-structure-complete",
+      success: created.success,
+      elapsedMs: Date.now() - structureStartedAt,
     });
     if (!created.success) {
       return { kind: "error", message: created.message || messages.rowImportFailed };
     }
+    createdTagCount = created.data?.createdCount ?? createPaths.length;
     tags = await loadTeamTagRows(teamId);
     lookup = buildTagLookup(tags);
   }
 
   const idIndex = indexTagsById(tags);
+  const museDAMIdIndex = indexTagsByMuseDAMId(tags);
   const parentIds = new Set(tags.map((tag) => tag.parentId));
   const nameOwnerIndex = buildNameOwnerIndex(tags);
   const renameTargets = new Map<number, string>();
   for (const record of records) {
-    if (record.id !== undefined && record.path.length > 0 && idIndex.has(record.id)) {
-      renameTargets.set(record.id, record.path[record.path.length - 1].trim());
+    if (record.id !== undefined && record.path.length > 0 && museDAMIdIndex.has(record.id)) {
+      renameTargets.set(museDAMIdIndex.get(record.id)!.id, record.path[record.path.length - 1].trim());
     }
   }
   const failures = toFailures(parsed.errors);
 
-  const prepared: PreparedUpdate[] = [];
+  const prepared: PreparedUpdate[] = dryRun ? [...overwriteRenames] : [];
   let noopSuccessCount = 0;
   const firstRowByTarget = new Map<string, number>();
   const claimTarget = (key: string, record: ParsedTagBatchRecord) => {
@@ -551,7 +674,7 @@ async function prepareTagTreeImport(
   for (const record of records) {
     const tag =
       record.id !== undefined
-        ? (idIndex.get(record.id) ?? null)
+        ? (museDAMIdIndex.get(record.id) ?? null)
         : (resolvePath(lookup, record.path)?.at(-1) ?? null);
     if (!tag) {
       if (dryRun && record.id === undefined) {
@@ -619,7 +742,7 @@ async function prepareTagTreeImport(
       ) {
         failures.push({
           rowNumber: item.record.rowNumber,
-          name: `ID ${item.tag.id}`,
+          name: `ID ${item.record.id}`,
           message: messages.pathMismatch,
         });
         prepared.splice(index, 1);
@@ -630,6 +753,18 @@ async function prepareTagTreeImport(
 
   failures.sort((a, b) => a.rowNumber - b.rowNumber);
   const failedRowNumbers = new Set(failures.map((failure) => failure.rowNumber));
+  const previewTree = tagBatchRecordsToCreateTree(
+      records
+        .filter((record) => !failedRowNumbers.has(record.rowNumber))
+        .map((record) => ({
+          ...record,
+          id: undefined,
+          path: record.path.length
+            ? record.path
+            : tagAncestry(museDAMIdIndex.get(record.id!)!, idIndex).map((tag) => tag.name),
+        })),
+    );
+  const totalCount = collectNewTagPaths(previewTree, buildTagLookup([])).length;
   return {
     kind: "ready",
     prepared,
@@ -639,17 +774,12 @@ async function prepareTagTreeImport(
     idIndex,
     createCount: createPaths.length,
     createPaths,
-    previewTree: tagBatchRecordsToCreateTree(
-      records
-        .filter((record) => !failedRowNumbers.has(record.rowNumber))
-        .map((record) => ({
-          ...record,
-          id: undefined,
-          path: record.path.length
-            ? record.path
-            : tagAncestry(idIndex.get(record.id!)!, idIndex).map((tag) => tag.name),
-        })),
-    ),
+    previewTree,
+    tagStats: {
+      totalCount,
+      createdCount: createdTagCount,
+      existingCount: totalCount - createdTagCount,
+    },
   };
 }
 
@@ -708,19 +838,27 @@ function limitTagTreeDepth(
   }));
 }
 
-async function loadTagTree(teamId: number): Promise<TagBatchExportNode[]> {
-  const tags = await prisma.assetTag.findMany({
-    where: { teamId },
-    select: {
-      id: true,
-      name: true,
-      parentId: true,
-      sort: true,
-      taggingEnabled: true,
-      extra: true,
-    },
-    orderBy: [{ sort: "desc" }, { name: "asc" }],
-  });
+/** The file's public ID is always the MuseDAM ID, never AssetTag.id. */
+function museDAMTagId(slug: string | null): number | undefined {
+  if (!slug || !/^g\/\d+$/.test(slug)) return undefined;
+  const id = parseTagBatchId(slug.slice(2));
+  if (id !== undefined && Number.isFinite(id)) return id;
+  if (BigInt(slug.slice(2)) > BigInt(0)) throw new Error("MuseDAM tag ID exceeds the supported integer range");
+  return undefined;
+}
+
+function indexTagsByMuseDAMId(tags: TagRow[]): Map<number, TagRow> {
+  const index = new Map<number, TagRow>();
+  for (const tag of tags) {
+    const id = museDAMTagId(tag.slug);
+    if (id === undefined) continue;
+    if (index.has(id)) throw new Error(`Duplicate MuseDAM tag ID: ${id}`);
+    index.set(id, tag);
+  }
+  return index;
+}
+
+function buildTagTree(tags: Array<TagRow & { sort: number }>): TagBatchExportNode[] {
   const byParent = new Map<number | null, typeof tags>();
   for (const tag of tags) {
     const siblings = byParent.get(tag.parentId) ?? [];
@@ -728,7 +866,7 @@ async function loadTagTree(teamId: number): Promise<TagBatchExportNode[]> {
     byParent.set(tag.parentId, siblings);
   }
   const toNode = (tag: (typeof tags)[number]): TagBatchExportNode => ({
-    id: tag.id,
+    id: museDAMTagId(tag.slug),
     name: tag.name,
     taggingEnabled: tag.taggingEnabled,
     extra: tag.extra,
@@ -739,7 +877,7 @@ async function loadTagTree(teamId: number): Promise<TagBatchExportNode[]> {
 
 async function loadTeamTagRows(teamId: number): Promise<TagRow[]> {
   return prisma.assetTag.findMany({
-    where: { teamId },
+    where: { deletedAt: null, teamId },
     select: { id: true, name: true, slug: true, parentId: true, extra: true, taggingEnabled: true },
   });
 }

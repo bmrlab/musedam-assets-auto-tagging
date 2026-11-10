@@ -41,14 +41,16 @@ function AlertDialogContent({
   className,
   children,
   showCloseButton = true,
+  showOverlay = false,
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Content> & {
   showCloseButton?: boolean;
+  showOverlay?: boolean;
 }) {
   return (
     <AlertDialogPortal>
-      {/* 弹窗蒙层 */}
-      <AlertDialogOverlay />
+      {/* 与嵌入页面的 Dialog 一致，默认不铺设全屏遮罩。 */}
+      {showOverlay && <AlertDialogOverlay />}
       <AlertDialogPrimitive.Content
         data-slot="alert-dialog-content"
         className={cn(

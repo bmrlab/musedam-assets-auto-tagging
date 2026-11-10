@@ -2,6 +2,7 @@ import {
   extractFeatureLlmUsage,
   getUnavailableFeatureLlmCosts,
   parseFeatureDecisionResponse,
+  parseLlmJson,
   parseOcrResponse,
 } from "@/lib/feature-decision/parsing";
 import {
@@ -45,6 +46,7 @@ beforeEach(() => {
     OPENAI_API_KEY: "secret-key",
     OCR_MODEL: "ocr-model",
     FEATURE_DECISION_MODEL: "decision-model",
+    DECISION_LLM_IMAGE_USE: "true",
   };
   createCall.mockResolvedValue({ id: "call-id" });
 });
@@ -114,9 +116,117 @@ describe("feature LLM response contracts", () => {
     expect(parseOcrResponse('```json\n{"content":[["原文 30 ml"],[]]}\n```', 2)).toEqual({
       content: [["原文 30 ml"], []],
     });
-    expect(() => parseOcrResponse('{"content":[["wrong"],[]]}', 1)).toThrow();
-    expect(() => parseOcrResponse('{"content":["not an array"]}')).toThrow();
+    expect(() => parseOcrResponse('{"content":[["wrong"],[]]}', 3)).toThrow();
+    expect(() => parseOcrResponse('{"content":["not an array"]}', 2)).toThrow();
     expect(boundOcrSegments(["原文", "原文", " ", "30 ml"])).toEqual(["原文", "30 ml"]);
+  });
+
+  it.each([false, true])("accepts the flat LANEIGE OCR response (fenced=%s)", (fenced) => {
+    const segments = [
+      "LANEIGE",
+      "LIP SLEEPING MASK",
+      "MASQUE DE NUIT POUR LES LÈVRES",
+      "ACAI MANGO SMOOTHIE",
+      "SMOOTHIE ACAI MANGUE",
+      "Net wt. 0.70 oz / Poids net 20 g",
+    ];
+    const json = JSON.stringify({ content: segments });
+    const response = fenced ? `\`\`\`json\n${json}\n\`\`\`` : json;
+    expect(parseOcrResponse(response)).toEqual({ content: [segments] });
+    expect(() => parseOcrResponse(response, 2)).toThrow();
+  });
+
+  it("normalizes mixed flat OCR segments while rejecting invalid text values", () => {
+    expect(parseOcrResponse('{"content":["LANEIGE",{"text":"20 g"}]}')).toEqual({
+      content: [["LANEIGE", "20 g"]],
+    });
+    expect(parseOcrResponse('{"content":[]}')).toEqual({ content: [[]] });
+    for (const content of [["LANEIGE", 123], [null], [{ text: false }]]) {
+      expect(() => parseOcrResponse(JSON.stringify({ content }))).toThrow();
+    }
+  });
+
+  it.each([false, true])(
+    "repairs the cleanser response's missing closing bracket (fenced=%s)",
+    (fenced) => {
+      const malformed =
+        '{"content":[["LANEIGE", "WATER BANK", "Gentle Gel Cleanser", "For Normal To Oily Skin", "10 ml / 0.33 fl. oz."]}';
+      const content = fenced ? `\`\`\`json\n${malformed}\n\`\`\`` : malformed;
+      expect(parseOcrResponse(content)).toEqual({
+        content: [
+          [
+            "LANEIGE",
+            "WATER BANK",
+            "Gentle Gel Cleanser",
+            "For Normal To Oily Skin",
+            "10 ml / 0.33 fl. oz.",
+          ],
+        ],
+      });
+      // Structural recovery is exclusive to OCR, not classification decisions.
+      expect(() => parseLlmJson(content)).toThrow();
+    },
+  );
+
+  it.each(['{"content":[["LANEIGE"}', '{"content":[["LANEIGE"]', '{"content":[["LANEIGE"'])(
+    "recovers missing OCR container closers: %s",
+    (content) => {
+      expect(parseOcrResponse(content)).toEqual({ content: [["LANEIGE"]] });
+    },
+  );
+
+  it("preserves literal brackets, escaped quotes, and backslashes during OCR recovery", () => {
+    const segments = ["Label [A] {B}", 'Say "hello"', "C:\\label\\", 'Ends with \\"quote"'];
+    const malformed = JSON.stringify({ content: [segments] }).replace(/\]\}$/, "}");
+    expect(parseOcrResponse(malformed)).toEqual({ content: [segments] });
+  });
+
+  it.each([
+    '{"content":[["unfinished',
+    '{"content":[["LANEIGE",}',
+    '{"content":[["LANEIGE" "WATER BANK"]]}',
+    '{"content":}',
+    '{"content":[[123]}',
+    '{"content":[["LANEIGE"]]}}',
+  ])("rejects OCR errors that require guessing text or values: %s", (content) => {
+    expect(() => parseOcrResponse(content)).toThrow();
+  });
+
+  it.each(["```json\n%s\n```", "```\r\n%s\r\n```", "Here is the JSON:\n```JSON\n%s\n```\nDone."])(
+    "recovers single-image product groups from Markdown: %s",
+    (wrapper) => {
+      const groups = [
+        [
+          "Sulwhasoo",
+          "ESSENTIAL REVITALIZING",
+          "WATER EX",
+          "LOTION TONIQUE REVITALISANTE",
+          "ESSENTIEL EX",
+        ],
+        [
+          "Sulwhasoo",
+          "ESSENTIAL REVITALIZING",
+          "EMULSION EX",
+          "ÉMULSION REVITALISANTE",
+          "ESSENTIEL EX",
+        ],
+        ["Sulwhasoo", "ESSENTIAL FIRMING CREAM EX", "CRÈME RAFFERMISSANTE", "ESSENTIEL EX"],
+      ];
+      const content = wrapper.replace("%s", JSON.stringify({ content: groups }));
+      expect(parseOcrResponse(content)).toEqual({ content: [groups.flat()] });
+      expect(parseOcrResponse(content, 3)).toEqual({ content: groups });
+      expect(() => parseOcrResponse(content, 2)).toThrow();
+    },
+  );
+
+  it("rejects malformed or ambiguous Markdown and invalid OCR segments", () => {
+    expect(() => parseLlmJson('```json\n{"content":\n```')).toThrow();
+    expect(() => parseLlmJson("```json\n{}\n```\n```json\n{}\n```")).toThrow();
+    expect(() => parseOcrResponse('{"content":[["valid"],[123]]}')).toThrow();
+    expect(parseLlmJson('```json {"content":[[]]} ```')).toEqual({ content: [[]] });
+    expect(parseLlmJson('{"text":"literal ```json fence"}')).toEqual({
+      text: "literal ```json fence",
+    });
   });
 
   it("accepts only supplied IDs with finite confidence and consistent outcomes", () => {
@@ -238,7 +348,7 @@ describe("single-attempt feature OCR and decision gateway", () => {
     };
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(response('{"content":[["Model A","30 ml"]]}'))
+      .mockResolvedValueOnce(response('```json\n{"content":["Model A","30 ml"]}\n```'))
       .mockResolvedValueOnce(response(JSON.stringify(textDecision)));
     vi.stubGlobal("fetch", fetchMock);
     const { runFeatureDecision } = await import("@/lib/feature-decision/service");
@@ -283,7 +393,7 @@ describe("single-attempt feature OCR and decision gateway", () => {
   it("calls the configured gateway for OCR and one combined decision and persists both usages", async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(response('```json\n{"content":[["Model A","30 ml"]]}\n```'))
+      .mockResolvedValueOnce(response('```json\n{"content":[["Model A"],["30 ml"]}\n```'))
       .mockResolvedValueOnce(response(JSON.stringify(validDecision)));
     vi.stubGlobal("fetch", fetchMock);
     const { runFeatureDecision } = await import("@/lib/feature-decision/service");
@@ -304,6 +414,11 @@ describe("single-attempt feature OCR and decision gateway", () => {
     );
     expect(result.decision.result).toEqual(validDecision);
     expect(result.ocr.segments).toEqual(["Model A", "30 ml"]);
+    expect(result.ocr.status).toBe("completed");
+    const ocrMessages = JSON.parse(fetchMock.mock.calls[0][1].body).messages;
+    expect(ocrMessages[0].content).toContain("Do not use Markdown");
+    expect(ocrMessages[0].content).toContain("one image showing three products");
+    expect(ocrMessages[1].content[0].text).toContain("JSON only");
     expect(createCall).toHaveBeenCalledTimes(2);
     expect(createCall.mock.calls[1][0].data).toMatchObject({
       teamId: 1,
@@ -320,7 +435,7 @@ describe("single-attempt feature OCR and decision gateway", () => {
   it("continues with OCR failure but never retries an invalid decision or fabricates matches", async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(response('{"content":[["mismatched"],[]]}'))
+      .mockResolvedValueOnce(response('{"content":[["valid"],[123]]}'))
       .mockResolvedValueOnce(
         response(
           JSON.stringify({ ...validDecision, matches: [{ ...match, candidateId: "unknown" }] }),

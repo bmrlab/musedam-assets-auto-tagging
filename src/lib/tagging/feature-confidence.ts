@@ -1,11 +1,21 @@
 import { PRIMARY_FACE_SIM_THRESHOLD } from "@/lib/person/person-match-policy";
 
 export const FEATURE_CONFIDENCE_MIN = {
-  brand: 75,
-  ip: 80,
-  product: 80,
+  brand: 60,
+  ip: 60,
+  product: 60,
   person: 60,
 } as const;
+
+export type FeatureThresholds = Record<keyof typeof FEATURE_CONFIDENCE_MIN, number>;
+
+export function normalizeFeatureThresholds(value: unknown): FeatureThresholds {
+  const raw = (value ?? {}) as Partial<FeatureThresholds>;
+  return Object.fromEntries(Object.entries(FEATURE_CONFIDENCE_MIN).map(([type, fallback]) => {
+    const n = raw[type as keyof FeatureThresholds];
+    return [type, typeof n === "number" && Number.isInteger(n) && n >= 0 && n <= 100 ? n : fallback];
+  })) as FeatureThresholds;
+}
 
 export type FeatureType = keyof typeof FEATURE_CONFIDENCE_MIN;
 
@@ -26,11 +36,12 @@ export function normalizeFeatureConfidence(confidence: number | null | undefined
 export function meetsFeatureConfidenceThreshold(
   featureType: FeatureType,
   confidence: number | null | undefined,
+  threshold?: number,
 ): boolean {
-  return normalizeFeatureConfidence(confidence) >= FEATURE_CONFIDENCE_MIN[featureType];
+  return normalizeFeatureConfidence(confidence) >= (threshold ?? FEATURE_CONFIDENCE_MIN[featureType]);
 }
 
-/** 95–100 blue, 90–95 green, below 90 orange (person: 60–90; brand/ip/product: 80–90). */
+/** 95–100 blue, 90–95 green, below 90 orange (accepted features: 60–90). */
 export function getFeatureConfidenceToneClass(confidence: number): string {
   if (confidence >= 95) {
     return BLUE_TONE_CLASS;

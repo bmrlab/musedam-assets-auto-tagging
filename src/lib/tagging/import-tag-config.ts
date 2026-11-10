@@ -4,6 +4,7 @@ import type { AssetTagExtra, Prisma } from "@/prisma/client";
 import { Prisma as PrismaSQL } from "@/prisma/client";
 import "server-only";
 import { bumpTagConfigVersion } from "./tag-config-version";
+import { throwIfTagImportAborted } from "./tag-import-runtime";
 
 export type TagConfigImportUpdate = {
   importAncestorIds?: number[];
@@ -35,11 +36,12 @@ export async function applyTagConfigImportChunk(
     ...new Set(items.flatMap((item) => [item.tag.id, ...(item.importAncestorIds ?? [])])),
   ];
   const rows = await tx.$queryRaw<Array<{ id: number; extra: Prisma.JsonValue }>>(PrismaSQL.sql`
-    SELECT "id", "extra" FROM "AssetTag" WHERE "teamId" = ${teamId}
+    SELECT "id", "extra" FROM "AssetTag" WHERE "deletedAt" IS NULL AND "teamId" = ${teamId}
     AND "id" IN (${PrismaSQL.join(lockIds)}) ORDER BY "id" FOR UPDATE`);
   const byId = new Map(rows.map((row) => [row.id, row]));
   const result = [];
   for (const item of items) {
+    throwIfTagImportAborted();
     const current = byId.get(item.tag.id);
     if (!current) throw new Error(`Tag ${item.tag.id} no longer exists`);
     const extra: AssetTagExtra = {
@@ -54,7 +56,7 @@ export async function applyTagConfigImportChunk(
       Object.assign(extra, pruneRejectionCountsForRemovedKeywords(extra, patch.negativeKeywords));
     if (item.autoDisabledRequiredGroup) extra.requiredGroup = false;
     const saved = await tx.assetTag.update({
-      where: { id: item.tag.id, teamId },
+      where: { deletedAt: null, id: item.tag.id, teamId },
       data: {
         ...(item.data.name ? { name: item.data.name } : {}),
         ...(item.data.taggingEnabled !== undefined
@@ -66,9 +68,11 @@ export async function applyTagConfigImportChunk(
     item.data.extra = extra;
     result.push(saved);
   }
+  throwIfTagImportAborted();
   const ancestors = [...new Set(items.flatMap((item) => item.importAncestorIds ?? []))];
   if (markImported) await markImportedTagNodes(tx, teamId, ancestors);
   await bumpTagConfigVersion(tx, teamId);
+  throwIfTagImportAborted();
   return result;
 }
 
@@ -81,5 +85,5 @@ export async function markImportedTagNodes(
   if (!ids.length) return;
   await tx.$executeRaw(PrismaSQL.sql`UPDATE "AssetTag"
     SET "extra" = (CASE WHEN jsonb_typeof("extra") = 'object' THEN "extra" ELSE '{}'::jsonb END) || '{"configurationSource":"import"}'::jsonb, "updatedAt" = now()
-    WHERE "teamId" = ${teamId} AND "id" IN (${PrismaSQL.join([...new Set(ids)])})`);
+    WHERE "deletedAt" IS NULL AND "teamId" = ${teamId} AND "id" IN (${PrismaSQL.join([...new Set(ids)])})`);
 }

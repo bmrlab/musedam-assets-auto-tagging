@@ -1,3 +1,4 @@
+import { queueAbortSignal } from "@/lib/tagging/queue-execution";
 import "server-only";
 
 import { buildDetectionJpegObjectKey, signS3ObjectUrl, uploadS3Object } from "@/lib/s3";
@@ -195,15 +196,17 @@ export async function detectMediaProcessObjects({
   }, OBJECT_DETECTION_TIMEOUT_MS);
 
   async function requestOnce(path: string, init: RequestInit = {}) {
-    controller.signal.throwIfAborted();
+    queueAbortSignal(controller.signal)?.throwIfAborted();
     const response = await fetch(`${baseUrl}${path}`, {
       ...init,
       cache: "no-store",
       // A synchronous response includes all service-side LLM attempts.
       signal:
         requestMode === "sync"
-          ? controller.signal
-          : AbortSignal.any([controller.signal, AbortSignal.timeout(DETECTION_TIMEOUT_MS)]),
+          ? queueAbortSignal(controller.signal)
+          : queueAbortSignal(
+              AbortSignal.any([controller.signal, AbortSignal.timeout(DETECTION_TIMEOUT_MS)]),
+            ),
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
@@ -232,10 +235,10 @@ export async function detectMediaProcessObjects({
       try {
         return await requestOnce(path, init);
       } catch (error) {
-        controller.signal.throwIfAborted();
+        queueAbortSignal(controller.signal)?.throwIfAborted();
         // Only retry reads. Repeating an ambiguously successful POST could create duplicate jobs.
         if (init.method === "POST" || !isRetryableReadError(error)) throw error;
-        await waitForPoll(retryDelayMs, controller.signal);
+        await waitForPoll(retryDelayMs, queueAbortSignal(controller.signal)!);
         retryDelayMs = Math.min(retryDelayMs * 2, 5_000);
       }
     }
@@ -271,7 +274,7 @@ export async function detectMediaProcessObjects({
       const status = jobStatusSchema.safeParse(await request(`${jobPath}/status`));
       if (!status.success) throw new Error(`${errorPrefix} returned an invalid job status`);
       if (status.data.status === "queued" || status.data.status === "running") {
-        await waitForPoll(pollDelayMs, controller.signal);
+        await waitForPoll(pollDelayMs, queueAbortSignal(controller.signal)!);
         pollDelayMs = Math.min(pollDelayMs * 2, 5_000);
         continue;
       }

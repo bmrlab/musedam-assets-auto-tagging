@@ -1,3 +1,5 @@
+import { hasFeatureRecognitionFailure } from "./completion";
+import type { FeatureDecisionDiagnostics } from "./types";
 import { meetsFeatureConfidenceThreshold } from "@/lib/tagging/feature-confidence";
 import type {
   TaggingBrandBestMatch,
@@ -11,10 +13,16 @@ export function getBrandMatches(
   recommendation: TaggingBrandRecommendation | null | undefined,
 ): TaggingBrandBestMatch[] {
   if (!recommendation) return [];
-  if (Array.isArray(recommendation.matches)) return recommendation.matches;
+  const normalizeHistoricalMatch = (match: TaggingBrandBestMatch): TaggingBrandBestMatch => ({
+    ...match,
+    referenceMatchStrategy: match.referenceMatchStrategy === "average" ? "average" : "highest",
+    matchedReferenceImageId: match.matchedReferenceImageId ?? null,
+  });
+  if (Array.isArray(recommendation.matches))
+    return recommendation.matches.map(normalizeHistoricalMatch);
   if (!recommendation.bestMatch) return [];
   return [
-    {
+    normalizeHistoricalMatch({
       ...recommendation.bestMatch,
       recommendedTags: [
         ...new Map(
@@ -24,7 +32,7 @@ export function getBrandMatches(
           ].map((tag) => [tag.assetTagId, tag] as const),
         ).values(),
       ],
-    },
+    }),
   ];
 }
 
@@ -78,7 +86,7 @@ export function getAcceptedBrandMatches(
 ): TaggingBrandBestMatch[] {
   return strongestDistinct(
     getBrandMatches(recommendation).filter((match) =>
-      meetsFeatureConfidenceThreshold("brand", match.confidence),
+      meetsFeatureConfidenceThreshold("brand", match.confidence, recommendation?.confidenceThreshold),
     ),
     (match) => match.assetLogoId,
   );
@@ -89,8 +97,17 @@ export function getAcceptedIpMatches(
 ): TaggingIpBestMatch[] {
   return strongestDistinct(
     getIpMatches(recommendation).filter((match) =>
-      meetsFeatureConfidenceThreshold("ip", match.confidence),
+      meetsFeatureConfidenceThreshold("ip", match.confidence, recommendation?.confidenceThreshold),
     ),
     (match) => match.assetIpId,
+  );
+}
+
+
+/** Conflict and specificity notes explain a score; they are not extra acceptance gates. */
+export function getScoredFeaturePredictions(diagnostics: FeatureDecisionDiagnostics | undefined) {
+  if (diagnostics?.decision.status !== "completed" || hasFeatureRecognitionFailure(diagnostics)) return [];
+  return (diagnostics.decision.result?.matches ?? []).filter(match =>
+    Number.isFinite(match.confidence) && match.confidence >= 0 && match.confidence <= 100,
   );
 }

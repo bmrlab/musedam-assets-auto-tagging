@@ -170,7 +170,7 @@ it("backfills a reused remote ID on an existing local tag without destructive re
   expect(mocks.request).toHaveBeenCalledOnce();
   expect(result.createdTagMapping.get("existing")?.toString()).toBe("10");
   expect(prisma.assetTag.update).toHaveBeenCalledWith({
-    where: { id: 1, teamId: 1 },
+    where: { deletedAt: null, id: 1, teamId: 1 },
     data: { slug: "g/10" },
   });
 });

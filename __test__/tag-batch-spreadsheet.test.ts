@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildTagBatchExportRows,
+  TAG_BATCH_EXPORT_CELL_LIMIT,
   coalesceTagTreeRecords,
   buildTagBatchTemplateRows,
   filterMissingPathRecords,
@@ -12,6 +13,51 @@ import {
 } from "../src/app/tags/tagBatchSpreadsheet";
 
 const headers = (locale: string) => getTagBatchColumns(locale).map((column) => column.header);
+
+describe("spreadsheet-safe keyword export", () => {
+  it("exports matching and excluded keywords without adding separator spaces", () => {
+    const rows = buildTagBatchExportRows({ locale: "zh-CN", tags: [{
+      id: 1, name: "标签", taggingEnabled: true,
+      extra: { keywords: ["SKU.1", "SKU.2"], negativeKeywords: ["A B", "C"] },
+    }] });
+    expect(rows[1][6]).toBe("SKU.1;SKU.2");
+    expect(rows[1][7]).toBe("A B;C");
+  });
+  it.each(["zh-CN", "zh-TW", "en-US"])("round trips long keyword fields without losing data in %s", locale => {
+    const keywords = Array.from({ length: 9000 }, (_, index) => `SKU.${index}`);
+    const negativeKeywords = Array.from({ length: 4000 }, (_, index) => `excluded.${index}`);
+    const rows = buildTagBatchExportRows({ locale, tags: [{
+      id: 1217092, name: "防水", taggingEnabled: true,
+      extra: { description: "description", keywords, negativeKeywords },
+      children: [{ id: 1217093, name: "child", taggingEnabled: false, extra: {} }],
+    }] });
+    expect(rows.length).toBeGreaterThan(4);
+    expect(rows.every(row => row.length === rows[0].length)).toBe(true);
+    expect(rows.flat().every(cell => cell.length <= TAG_BATCH_EXPORT_CELL_LIMIT)).toBe(true);
+    expect(rows.slice(1).every(row => !row[6].includes("; ") && !row[7].includes("; "))).toBe(true);
+    expect(rows.slice(1).every(row => /^\d+$/.test(row[0]))).toBe(true);
+    const parsed = parseTagBatchTable({ rows, maxLevel: 4, locale });
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.records).toHaveLength(2);
+    expect(parsed.records[0]).toMatchObject({ id: 1217092, path: ["防水"], fields: {
+      description: "description", taggingEnabled: true, keywords, negativeKeywords,
+    } });
+    expect(parsed.records[1]).toMatchObject({ id: 1217093, path: ["防水", "child"] });
+    expect(parseTagBatchTable({ rows, maxLevel: 4, locale, ignoreIds: true }).records[0].fields.keywords).toEqual(keywords);
+  });
+
+  it.each(["id", "path", "configuration", "orphan"])("rejects a continuation with an invalid %s", kind => {
+    const rows = buildTagBatchExportRows({ locale: "zh-CN", tags: [{
+      id: 1, name: "标签", taggingEnabled: true,
+      extra: { keywords: Array.from({ length: 5000 }, (_, index) => `SKU.${index}`) },
+    }] });
+    if (kind === "id") rows[2][0] = "2";
+    if (kind === "path") rows[2][1] = "其他标签";
+    if (kind === "configuration") rows[2][8] = "关闭";
+    if (kind === "orphan") rows.splice(1, 1);
+    expect(parseTagBatchTable({ rows, maxLevel: 4 }).errors.length).toBeGreaterThan(0);
+  });
+});
 
 describe("parseTagBatchTable", () => {
   it("reads configurable fields onto the deepest tag in the path", () => {
@@ -371,7 +417,7 @@ describe("overwrite duplicate paths", () => {
     ];
     const result = coalesceTagTreeRecords(records, "zh-CN");
     expect(result.errors).toEqual([]);
-    expect(result.records[0].fields).toEqual({ description: "品牌描述", keywords: ["B", "A"] });
+    expect(result.records[0].fields).toEqual({ description: "品牌描述", keywords: ["A", "B"] });
     expect(records[0].fields).toEqual({ keywords: ["A", "B"] });
   });
 
@@ -382,7 +428,21 @@ describe("overwrite duplicate paths", () => {
     ], "zh-CN");
     expect(result.errors).toEqual([{
       rowNumber: 582,
-      message: "文件中同一路径的配置冲突（标签描述、AI 自动打标），请统一后再导入",
+      message: "文件中同一路径的配置冲突（标签描述、AI 自动打标），继续导入将跳过本行",
     }]);
   });
+});
+
+
+it("merges keywords and excluded keywords for repeated tag paths and returns only a non-blocking notice", () => {
+  const records = [
+    { rowNumber: 582, path: ["所属系列", "pro系列"], fields: { keywords: ["pro", "专业"], negativeKeywords: ["旧款"] } },
+    { rowNumber: 583, path: ["所属系列", "pro系列"], fields: { keywords: ["pro", "专业版"], negativeKeywords: ["旧款", "草稿"] } },
+  ];
+  const result = coalesceTagTreeRecords(records, "zh-CN");
+  expect(result.errors).toEqual([]);
+  expect(result.records).toHaveLength(1);
+  expect(result.records[0].fields).toEqual({ keywords: ["pro", "专业", "专业版"], negativeKeywords: ["旧款", "草稿"] });
+  expect(result.warnings).toEqual([{ rowNumber: 583, message: expect.stringContaining("不影响导入") }]);
+  expect(records[0].fields.keywords).toEqual(["pro", "专业"]);
 });

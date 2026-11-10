@@ -1,3 +1,4 @@
+import { meetsFeatureConfidenceThreshold } from "@/lib/tagging/feature-confidence";
 import {
   getAcceptedBrandMatches,
   getAcceptedIpMatches,
@@ -216,7 +217,7 @@ export function getReviewFeatures(result: unknown): ReviewFeature[] {
   }
   for (const face of source.personRecommendation?.faces ?? []) {
     const match = face.bestMatch;
-    if (match && isReviewablePersonFace(face)) {
+    if (match && isReviewablePersonFace(face) && meetsFeatureConfidenceThreshold("person", match.confidence, source.personRecommendation?.confidenceThreshold)) {
       features.push({
         featureType: "person",
         id: match.assetPersonId,

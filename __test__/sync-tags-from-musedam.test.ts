@@ -13,6 +13,7 @@ type Row = {
   parentId: number | null;
   level: number;
   sort: number;
+  deletedAt?: Date;
   extra?: { keywords: string[] };
   taggingEnabled?: boolean;
 };
@@ -22,13 +23,16 @@ const mocks = vi.hoisted(() => {
   let nextId = 1000;
   const assetTag = {
     findMany: vi.fn(async ({ where }: { where: { teamId: number } }) =>
-      rows.filter((r) => r.teamId === where.teamId).map((row) => ({ ...row })),
+      rows.filter((r) => r.teamId === where.teamId && !r.deletedAt).map((row) => ({ ...row })),
     ),
     create: vi.fn(async ({ data }: { data: Omit<Row, "id"> }) => {
       if (
         rows.some(
           (row) =>
-            row.teamId === data.teamId && row.parentId === data.parentId && row.name === data.name,
+            !row.deletedAt &&
+            row.teamId === data.teamId &&
+            row.parentId === data.parentId &&
+            row.name === data.name,
         )
       ) {
         throw new Error("Duplicate sibling name");
@@ -43,6 +47,7 @@ const mocks = vi.hoisted(() => {
       if (
         rows.some(
           (other) =>
+            !other.deletedAt &&
             other.id !== row.id &&
             other.teamId === next.teamId &&
             other.parentId === next.parentId &&
@@ -54,23 +59,39 @@ const mocks = vi.hoisted(() => {
       Object.assign(row, data);
       return row;
     }),
-    deleteMany: vi.fn(async ({ where }: { where: { teamId: number; id: { in: number[] } } }) => {
-      const before = rows.length;
-      for (let i = rows.length - 1; i >= 0; i--) {
-        if (rows[i].teamId === where.teamId && where.id.in.includes(rows[i].id)) rows.splice(i, 1);
-      }
-      return { count: before - rows.length };
-    }),
+    count: vi.fn(async () => 0),
+    updateMany: vi.fn(
+      async ({
+        where,
+        data,
+      }: {
+        where: { teamId: number; id: { in: number[] } };
+        data: Partial<Row>;
+      }) => {
+        const affected = rows.filter(
+          (row) => row.teamId === where.teamId && where.id.in.includes(row.id),
+        );
+        affected.forEach((row) => Object.assign(row, data));
+        return { count: affected.length };
+      },
+    ),
   };
-  const transaction = vi.fn(async (fn: (tx: { assetTag: typeof assetTag }) => Promise<unknown>) => {
-    const snapshot = rows.map((row) => ({ ...row }));
-    try {
-      return await fn({ assetTag });
-    } catch (error) {
-      rows.splice(0, rows.length, ...snapshot);
-      throw error;
-    }
-  });
+  const transaction = vi.fn(
+    async (
+      fn: (tx: {
+        assetTag: typeof assetTag;
+        $queryRaw: ReturnType<typeof vi.fn>;
+      }) => Promise<unknown>,
+    ) => {
+      const snapshot = rows.map((row) => ({ ...row }));
+      try {
+        return await fn({ assetTag, $queryRaw: vi.fn(async () => []) });
+      } catch (error) {
+        rows.splice(0, rows.length, ...snapshot);
+        throw error;
+      }
+    },
+  );
   return {
     rows,
     assetTag,
@@ -137,7 +158,7 @@ describe("syncTagsFromMuseDAM", () => {
 
     await syncTagsFromMuseDAM({ team });
 
-    const byName = (name: string) => mocks.rows.find((r) => r.name === name);
+    const byName = (name: string) => mocks.rows.find((r) => !r.deletedAt && r.name === name);
     // 两边都有：id 不变
     expect(byName("车型信息")?.id).toBe(10);
     expect(byName("品牌")?.id).toBe(11);
@@ -150,11 +171,11 @@ describe("syncTagsFromMuseDAM", () => {
     expect(byName("CMF属性")).toBeUndefined();
     expect(byName("基础色系")).toBeUndefined();
     expect(byName("蓝色系")).toBeUndefined();
-    expect(mocks.rows).toHaveLength(4);
+    expect(mocks.rows.filter((row) => !row.deletedAt)).toHaveLength(4);
 
     expect(mocks.assetTag.create).toHaveBeenCalledTimes(1);
-    expect(mocks.assetTag.deleteMany).toHaveBeenCalledTimes(1);
-    expect(mocks.assetTag.deleteMany.mock.calls[0][0].where.id.in.sort()).toEqual([20, 21, 22]);
+    expect(mocks.assetTag.updateMany).toHaveBeenCalledTimes(1);
+    expect(mocks.assetTag.updateMany.mock.calls[0][0].where.id.in.sort()).toEqual([20, 21, 22]);
   });
 
   it("does not touch rows that are already identical", async () => {
@@ -167,7 +188,7 @@ describe("syncTagsFromMuseDAM", () => {
 
     expect(mocks.assetTag.create).not.toHaveBeenCalled();
     expect(mocks.assetTag.update).not.toHaveBeenCalled();
-    expect(mocks.assetTag.deleteMany).not.toHaveBeenCalled();
+    expect(mocks.assetTag.updateMany).not.toHaveBeenCalled();
     expect(mocks.rows[0].id).toBe(10);
   });
 
@@ -218,10 +239,10 @@ describe("syncTagsFromMuseDAM", () => {
 
     await syncTagsFromMuseDAM({ team });
 
-    const byName = (name: string) => mocks.rows.find((r) => r.name === name);
+    const byName = (name: string) => mocks.rows.find((r) => !r.deletedAt && r.name === name);
     expect(byName("SU7")?.id).toBe(13);
     expect(byName("YU7")).toMatchObject({ parentId: 12, level: 4, slug: slugOf(6) });
-    expect(mocks.assetTag.deleteMany).not.toHaveBeenCalled();
+    expect(mocks.assetTag.updateMany).not.toHaveBeenCalled();
     expect(mocks.rows).toHaveLength(5);
   });
 
@@ -254,7 +275,7 @@ describe("syncTagsFromMuseDAM", () => {
     });
     expect(mocks.rows.find((row) => row.id === 11)?.parentId).toBe(10);
     expect(mocks.assetTag.create).not.toHaveBeenCalled();
-    expect(mocks.assetTag.deleteMany).not.toHaveBeenCalled();
+    expect(mocks.assetTag.updateMany).not.toHaveBeenCalled();
   });
 
   it("moves an existing tag out of a stale parent without recreating it", async () => {
@@ -271,9 +292,9 @@ describe("syncTagsFromMuseDAM", () => {
     await syncTagsFromMuseDAM({ team });
     const parent = mocks.rows.find((row) => row.slug === slugOf(3));
     expect(mocks.rows.find((row) => row.id === 11)).toMatchObject({ parentId: parent?.id });
-    expect(mocks.rows.find((row) => row.id === 10)).toBeUndefined();
+    expect(mocks.rows.find((row) => row.id === 10)?.deletedAt).toBeInstanceOf(Date);
     expect(mocks.assetTag.create).toHaveBeenCalledTimes(1);
-    expect(mocks.assetTag.deleteMany.mock.calls[0][0].where.id.in).toEqual([10]);
+    expect(mocks.assetTag.updateMany.mock.calls[0][0].where.id.in).toEqual([10]);
   });
 
   it("keeps identity when two same-level tags exchange names", async () => {
@@ -287,7 +308,7 @@ describe("syncTagsFromMuseDAM", () => {
     expect(mocks.rows.find((row) => row.id === 10)?.name).toBe("B");
     expect(mocks.rows.find((row) => row.id === 11)?.name).toBe("A");
     expect(mocks.assetTag.create).not.toHaveBeenCalled();
-    expect(mocks.assetTag.deleteMany).not.toHaveBeenCalled();
+    expect(mocks.assetTag.updateMany).not.toHaveBeenCalled();
   });
 
   it("does not steal a tag by name when its MuseDAM id belongs to a renamed tag", async () => {
@@ -315,7 +336,7 @@ describe("syncTagsFromMuseDAM", () => {
     await expect(syncTagsFromMuseDAM({ team })).rejects.toThrow();
     expect(mocks.assetTag.create).not.toHaveBeenCalled();
     expect(mocks.assetTag.update).not.toHaveBeenCalled();
-    expect(mocks.assetTag.deleteMany).not.toHaveBeenCalled();
+    expect(mocks.assetTag.updateMany).not.toHaveBeenCalled();
   });
 
   it("rolls back local changes on a write error", async () => {
@@ -341,6 +362,17 @@ describe("syncTagsFromMuseDAM", () => {
     expect(mocks.rows[0].id).toBe(originalId);
     expect(mocks.assetTag.create).not.toHaveBeenCalled();
     expect(mocks.assetTag.update).not.toHaveBeenCalled();
-    expect(mocks.assetTag.deleteMany).not.toHaveBeenCalled();
+    expect(mocks.assetTag.updateMany).not.toHaveBeenCalled();
   });
+});
+
+it("rejects stale remote snapshots containing a tombstoned slug", async () => {
+  mocks.reset();
+  vi.clearAllMocks();
+  mocks.requestMuseDAMAPI.mockResolvedValue([
+    { id: mid(1), name: "deleted", sort: 0, children: null },
+  ]);
+  mocks.assetTag.count.mockResolvedValueOnce(1);
+  await expect(syncTagsFromMuseDAM({ team })).rejects.toThrow("已删除");
+  expect(mocks.assetTag.create).not.toHaveBeenCalled();
 });

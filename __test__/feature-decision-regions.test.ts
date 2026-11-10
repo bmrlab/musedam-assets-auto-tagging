@@ -6,18 +6,18 @@ function box(index: number, score = 0.9) {
   return { xMin: index * 100, yMin: 0, xMax: index * 100 + 80, yMax: 80, score, label: "object" };
 }
 
-describe("shared asset retrieval budget", () => {
-  it("selects at most five regions across tasks with stable task coverage", () => {
+describe("independent asset retrieval regions", () => {
+  it("retains all distinct regions across tasks with stable task coverage", () => {
     const input = {
       logo: Array.from({ length: 6 }, (_, i) => box(i)),
       product: Array.from({ length: 6 }, (_, i) => box(i)),
       ip: Array.from({ length: 6 }, (_, i) => box(i)),
     };
     const result = selectFeatureRegions(input, meta);
-    expect(result.selected).toHaveLength(5);
+    expect(result.selected).toHaveLength(18);
     expect(new Set(result.selected.map((region) => region.featureType)).size).toBe(3);
     expect(result.regionsDetected).toBe(18);
-    expect(result.regionsOmitted).toBe(13);
+    expect(result.regionsOmitted).toBe(0);
     expect(selectFeatureRegions(input, meta)).toEqual(result);
   });
 
@@ -28,7 +28,7 @@ describe("shared asset retrieval budget", () => {
     expect(result.selected[0].sourceDetectionIndices).toEqual([0, 1]);
   });
 
-  it("charges whole-image fallbacks to the same cap and ignores invalid regions", () => {
+  it("retains whole-image fallbacks without displacing distinct products", () => {
     const result = selectFeatureRegions(
       {
         logo: [],
@@ -37,8 +37,8 @@ describe("shared asset retrieval budget", () => {
       },
       meta,
     );
-    expect(result.selected).toHaveLength(5);
+    expect(result.selected).toHaveLength(10);
     expect(result.selected.filter((region) => region.fallback)).toHaveLength(2);
-    expect(result.regionsOmitted).toBe(5);
+    expect(result.regionsOmitted).toBe(0);
   });
 });

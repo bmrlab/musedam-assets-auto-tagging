@@ -1,5 +1,6 @@
 "use client";
 
+import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -34,6 +35,9 @@ export type BatchImportFailure = {
 };
 
 export type BatchImportResultBase = {
+  totalCount?: number;
+  existingCount?: number;
+  createdCount?: number;
   successCount: number;
   failedCount: number;
   skippedCount: number;
@@ -42,6 +46,7 @@ export type BatchImportResultBase = {
 };
 
 export type BatchImportPrecheck = {
+  warnings?: BatchImportFailure[];
   importableCount?: number;
   reviewable?: boolean;
   createCount: number;
@@ -71,11 +76,13 @@ type BatchImportExportDialogProps<TResult extends BatchImportResultBase> = {
   downloadTemplateAction: (format: ExportFormat) => Promise<ServerActionResult<BatchFileResult>>;
   /** 覆盖上传区第二行说明 */
   uploadHint?: string;
+  exportHint?: string;
   headerExtra?: (pending: boolean) => ReactNode;
   /** 提供时先检测：有问题行、会新建或改名时二次确认，用户可返回修改或继续导入 */
   precheckAction?: (formData: FormData) => Promise<ServerActionResult<BatchImportPrecheck>>;
   /** Require a read-only review even if every imported tag already exists. */
   reviewTitle?: string;
+  reviewClassName?: string;
   renderReview?: (
     precheck: BatchImportPrecheck,
     pending: boolean,
@@ -83,6 +90,7 @@ type BatchImportExportDialogProps<TResult extends BatchImportResultBase> = {
   ) => ReactNode;
   confirmImport?: () => Promise<boolean>;
   blockImportOnIssues?: boolean;
+  showResultDialog?: boolean;
 };
 
 function downloadBase64File(file: BatchFileResult) {
@@ -123,14 +131,18 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
   importAction,
   downloadTemplateAction,
   uploadHint,
+  exportHint,
   headerExtra,
   precheckAction,
   reviewTitle,
+  reviewClassName,
   renderReview,
   confirmImport,
   blockImportOnIssues = false,
+  showResultDialog = false,
 }: BatchImportExportDialogProps<TResult>) {
   const t = useTranslations("Tagging.BatchImportExport");
+  const [completion, setCompletion] = useState<{ success: boolean; message: string } | null>(null);
   const [mode, setMode] = useState<BatchMode>("import");
   const [exportFormat, setExportFormat] = useState<ExportFormat>("xlsx");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -233,7 +245,13 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
     for (const [key, value] of Object.entries(fields)) formData.set(key, value);
 
     startTransition(async () => {
-      const result = await precheckAction(formData);
+      let result: Awaited<ReturnType<typeof precheckAction>>;
+      try {
+        result = await precheckAction(formData);
+      } catch {
+        toast.error(t("precheckRequestFailed"));
+        return;
+      }
       // A review flow stays in preview even when validation fails. Switching
       // modes must never look like an import has run or discard the uploaded file.
       if (renderReview) {
@@ -324,9 +342,20 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
       if (!confirmed) return;
     }
     startTransition(async () => {
-      const result = await importAction(formData);
+      let result: Awaited<ReturnType<typeof importAction>>;
+      try {
+        result = await importAction(formData);
+      } catch {
+        // A gateway timeout does not mean the server rolled back. Preserve the
+        // preview and file without automatically retrying a possibly committed import.
+        setPendingMissingTagsChoice(null);
+        if (showResultDialog) setCompletion({ success: false, message: t("importRequestInterrupted") });
+        else toast.warning(t("importRequestInterrupted"));
+        return;
+      }
       if (!result.success && result.code === "busy") {
-        toast.warning(result.message);
+        if (showResultDialog) setCompletion({ success: false, message: result.message });
+        else toast.warning(result.message);
         setPendingMissingTagsChoice(null);
         return;
       }
@@ -335,10 +364,11 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
         setMissingTagsResult(null);
       }
 
-      setPrecheckResult(null);
+      if (!showResultDialog) setPrecheckResult(null);
 
       if (!result.success) {
-        showSingleFailure(result.message);
+        if (showResultDialog) setCompletion({ success: false, message: result.message });
+        else showSingleFailure(result.message);
         return;
       }
 
@@ -354,6 +384,19 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
         (failure) => !acknowledgedKeys.has(failureKey(failure)),
       );
       const skippedCount = result.data.skippedCount + result.data.failures.length - unexpectedFailures.length;
+
+      if (showResultDialog) {
+        if (unexpectedFailures.length > 0) {
+          setCompletion({ success: false, message: unexpectedFailures.map(formatFailureMessage).join("\n") });
+        } else {
+          const { totalCount, existingCount, createdCount } = result.data;
+          const message = typeof totalCount === "number" && typeof existingCount === "number" && typeof createdCount === "number"
+            ? t("importResultSuccessCounts", { total: totalCount, existing: existingCount, created: createdCount })
+            : t("importSuccess", { count: result.data.successCount, entity: entityNamePlural });
+          setCompletion({ success: true, message: skippedCount > 0 ? `${message}\n${t("importResultSkipped", { count: skippedCount })}` : message });
+        }
+        return;
+      }
 
       if (unexpectedFailures.length > 0) {
         setFailureResult({
@@ -423,9 +466,21 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
     setMode("import");
   }
 
+  function dismissCompletion() {
+    if (completion?.success) {
+      resetState();
+      onOpenChange(false);
+    }
+    setCompletion(null);
+  }
+
   return (
+    <>
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="flex max-h-[92vh] w-[512px] max-w-[calc(100%-2rem)] flex-col gap-5 overflow-hidden rounded-[16px] border p-5">
+      <DialogContent className={cn(
+        "flex max-h-[92vh] w-[512px] max-w-[calc(100%-2rem)] flex-col gap-5 overflow-hidden rounded-[16px] border p-5",
+        precheckResult && reviewClassName,
+      )}>
         {precheckResult ? (
           <>
             <DialogHeader className="gap-0 p-0">
@@ -462,6 +517,24 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
                     </div>
                   </div>
                 )}
+
+                {precheckResult.warnings?.length ? (
+                  <div>
+                    <p className="mb-2 text-[12px] leading-[16px] font-normal text-basic-5">
+                      {t("precheckWarningsLabel", { count: precheckResult.warnings.length })}
+                    </p>
+                    <div className="max-h-[160px] overflow-y-auto rounded-[8px] bg-basic-1 px-4 py-3">
+                      <ul className="list-disc space-y-2 pl-4 text-[14px] leading-[22px] font-normal text-basic-8">
+                        {precheckResult.warnings.slice(0, PRECHECK_LIST_LIMIT).map((warning, index) => (
+                          <li key={`${warning.rowNumber}-${index}`}>{formatFailureMessage(warning)}</li>
+                        ))}
+                        {precheckResult.warnings.length > PRECHECK_LIST_LIMIT ? (
+                          <li>{t("precheckMoreItems", { count: precheckResult.warnings.length })}</li>
+                        ) : null}
+                      </ul>
+                    </div>
+                  </div>
+                ) : null}
 
                 {precheckResult.issues.length > 0 ? (
                   <div>
@@ -713,7 +786,7 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
                       </label>
                     </RadioGroup>
                     <div className="flex items-start gap-2 text-[12px] leading-[16px] font-normal text-basic-5">
-                      <span>{t("exportHint", { entity: entityName })}</span>
+                      <span>{exportHint ?? t("exportHint", { entity: entityName })}</span>
                     </div>
                   </div>
                 ) : (
@@ -807,5 +880,19 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
         )}
       </DialogContent>
     </Dialog>
+    <AlertDialog open={Boolean(completion)} onOpenChange={(next) => { if (!next) dismissCompletion(); }}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{t(completion?.success ? "importResultSuccessTitle" : "importResultFailureTitle")}</AlertDialogTitle>
+          <AlertDialogDescription className="max-h-[40vh] overflow-y-auto whitespace-pre-wrap break-words">
+            {completion?.success ? completion.message : t("importResultFailureReason", { reason: completion?.message ?? "" })}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogAction>{t("confirm")}</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

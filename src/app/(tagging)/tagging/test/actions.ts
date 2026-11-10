@@ -3,12 +3,18 @@ import { withAuth } from "@/app/(auth)/withAuth";
 import { enqueueTaggingTask } from "@/app/(tagging)/queue";
 import { toFeatureClassificationFlags } from "@/lib/feature-library";
 import { getServerFeatureLibraryFeatures } from "@/lib/feature-library-server";
+import { getCachedBrowserS3ObjectUrl, getCachedSignedS3ObjectUrl, uploadS3Object } from "@/lib/s3";
 import { ServerActionResult } from "@/lib/serverAction";
 import { syncSingleAssetFromMuseDAM } from "@/musedam/assets";
 import { MuseDAMID } from "@/musedam/types";
+import type { AssetObjectExtra } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
+import { randomUUID } from "crypto";
+import sharp from "sharp";
+import pLimit from "p-limit";
 
 interface SelectedAsset {
+  source?: "local";
   id: string; // 素材唯一标识
   name: string; // 素材名称
   extension: string; // 文件扩展名
@@ -51,42 +57,81 @@ export async function startTaggingTasksAction(
       const queueItemIds: number[] = [];
       const featureLibraryFeatures = await getServerFeatureLibraryFeatures();
 
-      // 批量发起打标任务
-      for (const asset of selectedAssets) {
-        try {
-          const musedamAssetId = MuseDAMID.from(asset.id);
+      const team = await prisma.team.findUniqueOrThrow({
+        where: { id: teamId },
+        select: { id: true, slug: true },
+      });
+      const limit = pLimit(4);
+      const outcomes = await Promise.all(
+        selectedAssets.map((asset) =>
+          limit(async () => {
+            try {
+              const localAsset =
+                asset.source === "local"
+                  ? await prisma.assetObject.findFirstOrThrow({
+                      where: { teamId, slug: { equals: asset.id, startsWith: "local-test-" } },
+                    })
+                  : null;
 
-          // 获取完整的team信息
-          const team = await prisma.team.findUniqueOrThrow({
-            where: { id: teamId },
-            select: { id: true, slug: true },
-          });
+              if (localAsset) {
+                const extra = localAsset.extra as AssetObjectExtra & { objectKey?: string };
+                if (extra.objectKey) {
+                  const { signedUrl } = getCachedSignedS3ObjectUrl({
+                    objectKey: extra.objectKey,
+                    expiresInSeconds: 24 * 60 * 60,
+                  });
+                  localAsset.extra = {
+                    ...extra,
+                    thumbnailAccessUrl: signedUrl,
+                    downloadUrl: signedUrl,
+                  };
+                  await prisma.assetObject.update({
+                    where: { id: localAsset.id },
+                    data: { extra: localAsset.extra },
+                  });
+                }
+              }
 
-          // 1. 从 MuseDAM 同步素材到本地数据库
-          const { assetObject } = await syncSingleAssetFromMuseDAM({
-            musedamAssetId,
-            team,
-          });
+              // 1. 从 MuseDAM 同步素材到本地数据库
+              const assetObject =
+                localAsset ??
+                (
+                  await syncSingleAssetFromMuseDAM({
+                    musedamAssetId: MuseDAMID.from(asset.id),
+                    team,
+                  })
+                ).assetObject;
 
-          // 2. 发起 AI 打标任务
-          const taggingQueueItem = await enqueueTaggingTask({
-            assetObject,
-            matchingSources: options?.matchingSources,
-            recognitionAccuracy: options?.recognitionAccuracy,
-            featureClassify: featureLibraryFeatures.featureLibrary,
-            featureClassifications: toFeatureClassificationFlags(featureLibraryFeatures),
-            taskType: "test",
-          });
+              // 2. 发起 AI 打标任务
+              const taggingQueueItem = await enqueueTaggingTask({
+                assetObject,
+                matchingSources: options?.matchingSources,
+                recognitionAccuracy: options?.recognitionAccuracy,
+                featureClassify: featureLibraryFeatures.featureLibrary,
+                featureClassifications: toFeatureClassificationFlags(featureLibraryFeatures),
+                taskType: "test",
+              });
 
-          queueItemIds.push(taggingQueueItem.id);
-          successCount++;
-        } catch (error) {
-          console.error(`Error starting tagging for asset ${asset.name} (${asset.id}):`, error);
+              return { id: taggingQueueItem.id };
+            } catch (error) {
+              console.error(`Error starting tagging for asset ${asset.name} (${asset.id}):`, error);
+              return {
+                failure: {
+                  name: asset.name || asset.id,
+                  reason: error instanceof Error ? error.message : String(error),
+                },
+              };
+            }
+          }),
+        ),
+      );
+      for (const outcome of outcomes) {
+        if (outcome.failure) {
           failedCount++;
-          failedAssets.push({
-            name: asset.name || asset.id,
-            reason: error instanceof Error ? error.message : String(error),
-          });
+          failedAssets.push(outcome.failure);
+        } else if (outcome.id !== undefined) {
+          successCount++;
+          queueItemIds.push(outcome.id);
         }
       }
 
@@ -104,6 +149,76 @@ export async function startTaggingTasksAction(
       return {
         success: false,
         message: error instanceof Error ? error.message : String(error),
+      };
+    }
+  });
+}
+
+/** Local test inputs stay in this application's storage and never enter DAM. */
+export async function uploadLocalTestFileAction(
+  formData: FormData,
+): Promise<ServerActionResult<SelectedAsset>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    try {
+      const file = formData.get("file");
+      if (!(file instanceof File) || file.size === 0 || file.size > 20 * 1024 * 1024) {
+        return { success: false, message: "Select an image up to 20 MB." };
+      }
+      // Decode the contents instead of trusting the browser's MIME type.
+      const image = sharp(Buffer.from(await file.arrayBuffer()), { limitInputPixels: 100_000_000 });
+      const { data, info } = await image
+        .rotate()
+        .jpeg({ quality: 90 })
+        .toBuffer({ resolveWithObject: true });
+      const slug = `local-test-${randomUUID()}`;
+      const objectKey = `teams-${teamId}-tagging-test-${randomUUID()}.jpg`;
+      const uploaded = await uploadS3Object({ objectKey, body: data, contentType: "image/jpeg" });
+      const { signedUrl: url } = getCachedSignedS3ObjectUrl({
+        objectKey: uploaded.objectKey,
+        expiresInSeconds: 24 * 60 * 60,
+      });
+      const { signedUrl: previewUrl } = getCachedBrowserS3ObjectUrl({
+        objectKey: uploaded.objectKey,
+        expiresInSeconds: 24 * 60 * 60,
+      });
+      await prisma.assetObject.create({
+        data: {
+          teamId,
+          slug,
+          name: file.name,
+          materializedPath: "",
+          description: "",
+          extra: {
+            extension: "jpg",
+            size: file.size,
+            width: info.width,
+            height: info.height,
+            objectKey: uploaded.objectKey,
+            thumbnailAccessUrl: url,
+            downloadUrl: url,
+            localTest: true,
+          },
+        },
+      });
+      return {
+        success: true,
+        data: {
+          id: slug,
+          source: "local",
+          name: file.name,
+          extension: "jpg",
+          size: file.size,
+          width: info.width,
+          height: info.height,
+          url,
+          thumbnail: { url: previewUrl },
+        },
+      };
+    } catch (error) {
+      console.error("Local test upload failed", error);
+      return {
+        success: false,
+        message: "Unable to upload image. Check the image and storage configuration.",
       };
     }
   });

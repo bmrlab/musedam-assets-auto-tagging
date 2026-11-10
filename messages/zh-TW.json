@@ -114,6 +114,7 @@
     "candidateFeatures": "候選特徵",
     "candidateFeaturesDescription": "信賴度 60%-79%",
     "noRecognizedTags": "暫無識別標籤",
+    "featureRecognitionIncomplete": "特徵識別未完整完成，結果可能缺失，請重新識別。",
     "noRecognizedFeatures": "暫無識別特徵",
     "featureConfidenceNotCredible": "當前圖片暫未匹配到已有特徵庫特徵，可能尚未收錄該特徵",
     "videoFeatureLibraryLimited": "暫無識別特徵",
@@ -123,9 +124,13 @@
     "featureClassProduct": "商品",
     "ipRecognition": "IP 形象辨識",
     "personRecognition": "人物辨識",
+    "productNameMatch": "商品名稱匹配",
     "productRecognition": "商品辨識"
   },
   "TagsPage": {
+    "exportCleanupHint": "匯出時會從資料庫刪除沒有有效 MuseDAM 標籤 ID 的標籤；若其下有已對應子標籤，需先修復層級再匯出。",
+    "exportCleanupComplete": "已清理 {count} 個沒有 MuseDAM 標籤 ID 的標籤",
+    "exportCleanupMappedChild": "「{tag}」有 MuseDAM ID，但其父標籤沒有。請先修復標籤層級再匯出，本次未刪除任何標籤。",
     "importPreviewConfigurationHint": "預覽顯示標籤層級，表格中的設定會一併保留並在確認後匯入。合併保留已有標籤，覆蓋將取代原標籤體系。",
     "importPreviewTitle": "匯入標籤預覽",
     "requiredGroupsAutoDisabledMore": "{tags}等 {count} 個標籤",

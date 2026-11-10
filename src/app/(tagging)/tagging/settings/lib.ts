@@ -28,8 +28,14 @@ export async function getTaggingSettings(teamId: number): Promise<TaggingSetting
     return config ? (config.value as T) : defaultValue;
   };
 
+  const imageMode = getConfigValue<unknown>(
+    TAGGING_CONFIG_KEYS.FEATURE_IMAGE_MODE,
+    DEFAULT_TAGGING_SETTINGS.featureImageMode,
+  );
+
   // 合并默认设置和数据库设置
   const settings: TaggingSettingsData = {
+    featureImageMode: typeof imageMode === "boolean" ? imageMode : DEFAULT_TAGGING_SETTINGS.featureImageMode,
     isTaggingEnabled: getConfigValue(
       TAGGING_CONFIG_KEYS.IS_TAGGING_ENABLED,
       DEFAULT_TAGGING_SETTINGS.isTaggingEnabled,
@@ -86,6 +92,12 @@ export async function saveTaggingSettings(
     // 保存各个配置项到不同的 key
     const configUpdates = [
       { key: TAGGING_CONFIG_KEYS.IS_METADATA_ENABLED, value: data.isMetadataEnabled ?? false },
+      // Older clients omit this field; saving another setting must preserve its current value.
+      ...(typeof data.featureImageMode === "boolean" ? [{
+        key: TAGGING_CONFIG_KEYS.FEATURE_IMAGE_MODE,
+        value: data.featureImageMode,
+      }] : []),
+
       {
         key: TAGGING_CONFIG_KEYS.IS_TAGGING_ENABLED,
         value: data.isTaggingEnabled,

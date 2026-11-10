@@ -4,6 +4,9 @@
   },
   "Components": {},
   "TagsPage": {
+    "exportCleanupHint": "Export removes local tags without a valid MuseDAM tag ID. Mapped descendants prevent cleanup until the hierarchy is repaired.",
+    "exportCleanupComplete": "Removed {count} tags without a MuseDAM tag ID",
+    "exportCleanupMappedChild": "“{tag}” has a MuseDAM ID but its parent does not. Repair the tag hierarchy before exporting; no tags were deleted.",
     "importPreviewConfigurationHint": "The preview shows tag paths. Configuration from the same file is retained and applied after you confirm. Merge preserves existing tags; overwrite replaces the tag tree.",
     "importPreviewTitle": "Import tag preview",
     "requiredGroupsAutoDisabledMore": "{tags} and others ({count} tags total)",
@@ -309,6 +312,7 @@
     "candidateFeatures": "Caratteristiche candidate",
     "candidateFeaturesDescription": "Fiducia 60%-79%",
     "noRecognizedTags": "Nessun tag riconosciuto",
+    "featureRecognitionIncomplete": "Feature recognition did not finish. Results may be incomplete; please retry.",
     "noRecognizedFeatures": "Nessuna caratteristica riconosciuta",
     "featureConfidenceNotCredible": "Nessuna caratteristica corrispondente è stata trovata nella libreria delle caratteristiche esistente per questa immagine; la caratteristica potrebbe non essere ancora stata registrata.",
     "videoFeatureLibraryLimited": "Nessuna caratteristica riconosciuta: L'attuale libreria delle caratteristiche ha capacità limitate nel riconoscimento dei tipi di file video e supporta solo la corrispondenza tramite il primo fotogramma del video.",
@@ -318,6 +322,7 @@
     "featureClassProduct": "Prodotto",
     "ipRecognition": "Riconoscimento personaggio IP",
     "personRecognition": "Riconoscimento persona",
+    "productNameMatch": "Corrispondenza del nome prodotto",
     "productRecognition": "Riconoscimento prodotto"
   },
   "SmartTags": {

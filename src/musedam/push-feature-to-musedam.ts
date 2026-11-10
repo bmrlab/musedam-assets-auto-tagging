@@ -17,10 +17,7 @@ export async function resolveMuseDAMTagIdsForAssetTags(
 
   const unique = [...new Set(assetTagIds)];
   const tags = await prisma.assetTag.findMany({
-    where: {
-      teamId,
-      id: { in: unique },
-    },
+    where: { deletedAt: null, teamId, id: { in: unique } },
     select: { id: true, slug: true },
   });
 

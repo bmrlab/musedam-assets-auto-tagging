@@ -389,6 +389,7 @@ export async function classifyIpImageCrops({
       ipTypeName: true,
       description: true,
       tags: {
+        where: { assetTag: { deletedAt: null } },
         orderBy: [{ sort: "asc" }, { id: "asc" }],
         select: {
           id: true,

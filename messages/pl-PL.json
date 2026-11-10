@@ -4,6 +4,9 @@
   },
   "Components": {},
   "TagsPage": {
+    "exportCleanupHint": "Export removes local tags without a valid MuseDAM tag ID. Mapped descendants prevent cleanup until the hierarchy is repaired.",
+    "exportCleanupComplete": "Removed {count} tags without a MuseDAM tag ID",
+    "exportCleanupMappedChild": "“{tag}” has a MuseDAM ID but its parent does not. Repair the tag hierarchy before exporting; no tags were deleted.",
     "importPreviewConfigurationHint": "The preview shows tag paths. Configuration from the same file is retained and applied after you confirm. Merge preserves existing tags; overwrite replaces the tag tree.",
     "importPreviewTitle": "Import tag preview",
     "requiredGroupsAutoDisabledMore": "{tags} and others ({count} tags total)",
@@ -309,6 +312,7 @@
     "candidateFeatures": "Cechy kandydujące",
     "candidateFeaturesDescription": "Pewność 60%-79%",
     "noRecognizedTags": "Brak rozpoznanych tagów",
+    "featureRecognitionIncomplete": "Feature recognition did not finish. Results may be incomplete; please retry.",
     "noRecognizedFeatures": "Brak rozpoznanych cech",
     "featureConfidenceNotCredible": "Dla bieżącego obrazu nie znaleziono dopasowania w istniejącej bibliotece cech; ta cecha mogła nie zostać jeszcze zarejestrowana.",
     "videoFeatureLibraryLimited": "Brak rozpoznanych cech: Obecna biblioteka cech ma ograniczone możliwości rozpoznawania typów plików wideo i obsługuje wyłącznie dopasowywanie na podstawie pierwszej klatki filmu.",
@@ -318,6 +322,7 @@
     "featureClassProduct": "Produkt",
     "ipRecognition": "Rozpoznawanie postaci IP",
     "personRecognition": "Rozpoznawanie osoby",
+    "productNameMatch": "Dopasowanie nazwy produktu",
     "productRecognition": "Rozpoznawanie produktu"
   },
   "SmartTags": {
