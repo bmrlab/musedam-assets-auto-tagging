@@ -119,7 +119,23 @@ for (const [name, post] of [
       expect(mocks.enqueue).not.toHaveBeenCalled();
       expect(mocks.findTask).not.toHaveBeenCalled();
       expect(mocks.updateTask).not.toHaveBeenCalled();
-      expect(mocks.findConfig).not.toHaveBeenCalled();
+      expect(mocks.findConfig).toHaveBeenCalledWith(expect.objectContaining({
+        where: { teamId_key: { teamId: 42, key: "taggingSuspended" } },
+      }));
+    });
+
+    it("acknowledges suspended team callbacks without authorization calls or task changes", async () => {
+      mocks.findConfig.mockResolvedValue({ value: true });
+      const response = await post(request());
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({
+        success: true,
+        data: { message: "Tagging is suspended for this team" },
+      });
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(mocks.enqueue).not.toHaveBeenCalled();
+      expect(mocks.syncAsset).not.toHaveBeenCalled();
+      expect(mocks.updateTask).not.toHaveBeenCalled();
     });
 
     it("fails closed when application credentials are missing", async () => {
@@ -147,3 +163,19 @@ for (const [name, post] of [
     });
   });
 }
+
+it("ignores individual scheduled callbacks after scheduled tagging was disabled", async () => {
+  mocks.settings.mockResolvedValue({
+    isTaggingEnabled: true,
+    triggerTiming: { autoRealtimeTagging: true, scheduledTagging: false },
+  });
+  const response = await single(new NextRequest("https://example.test/api/tagging/predict-asset-tag", {
+    method: "POST",
+    body: JSON.stringify({ teamId: "158057", assetId: "123", triggerType: "scheduled" }),
+  }));
+  expect(await response.json()).toMatchObject({
+    success: true, data: { message: "Scheduled tagging is not enabled", queueItemId: null },
+  });
+  expect(mocks.syncAsset).not.toHaveBeenCalled();
+  expect(mocks.enqueue).not.toHaveBeenCalled();
+});

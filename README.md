@@ -109,6 +109,21 @@ pnpm scheduled-tagger
 
 **注意：** 队列处理器需要在 `.env` 文件中配置 `INTERNAL_API_KEY` 来访问内部 API。
 
+#### 按团队紧急暂停打标
+
+管理员可通过 `POST /api/tagging/admin/team-suspension` 暂停指定团队，使用管理员登录的 `x-auth-token`：
+
+```sh
+curl --request POST 'https://你的打标服务域名/api/tagging/admin/team-suspension' \
+  --header 'Content-Type: application/json' \
+  --header 'x-auth-token: 管理员登录TOKEN' \
+  --data '{"musedamTeamId":"158057","suspended":true}'
+```
+
+该操作在同一事务内保存 `TeamConfig.taggingSuspended=true`，并将该团队 pending/processing 的资产打标任务（含测试任务）标为 CANCELLED。新请求返回成功但不创建任务、不返回可扣点的 queueItemId；定时发起器跳过该团队，入队和执行前也会检查暂停状态。入队与暂停共用团队行锁，避免批量入队与暂停并发漏取消。现有 worker 的执行权检查及心跳会停止后续业务写入；已经发出的模型请求无法撤回。恢复时提交 `suspended:false`，不会恢复已取消任务。无需 migration，所有 web/worker 实例须升级后才能保证完整拦截。
+
+当前主仓 `exchange-api-key` 检查团队存在和应用安装，不能作为订阅未到期的证明。团队暂停独立于用户可编辑的打标设置。若仅关闭定时打标，发起器和单素材 scheduled 回调入口均检查 `triggerTiming.scheduledTagging`；已排队任务仍需取消。主仓全素材定时扫描当前会遍历已有素材，不保证跳过已完成打标的素材，因此开启定时打标可能重复生成审核记录。
+
 ## 商品、Logo、IP 的 LLM 决策与 OCR
 
 商品、Logo、IP 的开发分类页面提供默认关闭的「图像模式」开关。两种模式均执行 OCR 和 LLM 决策：开启时向决策模型发送源图和候选参考图；关闭时仅发送相似度、候选名称/类型/描述、文件名/路径及 OCR 等文字信息，且不下载候选参考图。OCR 在两种模式下仍单独读取源图。页面保留同一文件与元数据下最近一次图像/纯文本结果，可对比特征、置信度、决策 token 与 OCR token，并展开各次请求与响应；更换文件或元数据会清空对比。

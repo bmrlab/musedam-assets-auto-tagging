@@ -1,3 +1,4 @@
+import { isTeamTaggingSuspended } from "@/lib/tagging/team-suspension";
 import { hasEnabledTaggingOutput } from "@/musedam/metadata";
 import {
   buildAllowedFolderIdSet,
@@ -85,6 +86,19 @@ export async function POST(request: NextRequest) {
     // 团队不存在
     if (!team) {
       return NextResponse.json({ success: false, error: "Team not found" }, { status: 404 });
+    }
+
+    if (await isTeamTaggingSuspended(team.id)) {
+      return NextResponse.json({
+        success: true,
+        data: {
+          message: "Tagging is suspended for this team",
+          totalAssets: 0,
+          enqueuedTasks: 0,
+          failedTasks: 0,
+          taskType: "scheduled",
+        },
+      });
     }
 
     try {

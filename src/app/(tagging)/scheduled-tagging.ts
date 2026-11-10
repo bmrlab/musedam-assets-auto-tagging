@@ -1,3 +1,4 @@
+import { isTeamTaggingSuspended } from "@/lib/tagging/team-suspension";
 import "server-only";
 import { hasEnabledTaggingOutput } from "@/musedam/metadata";
 
@@ -25,6 +26,7 @@ export async function runScheduledTagging() {
 
   for (const team of teams) {
     try {
+      if (await isTeamTaggingSuspended(team.id)) continue;
       const settings = await getTaggingSettings(team.id);
       // 开启了打标，且开启了定时打标
       if (settings.triggerTiming.scheduledTagging && await hasEnabledTaggingOutput(team, settings)) {
@@ -73,6 +75,7 @@ export async function runScheduledTagging() {
 
       logger.info(`调用 ${team.name} 的定时标签 API: ${JSON.stringify(requestBody)}`);
 
+      if (await isTeamTaggingSuspended(team.id)) continue;
       // 获取团队 API 密钥
       const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
 

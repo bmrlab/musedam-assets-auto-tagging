@@ -68,6 +68,8 @@ MuseDAM 界面按 `muse-development/references/design-system.md`（由工作区 
 
 ## 启动完成的判断与维护
 
+管理员可通过 `POST /api/tagging/admin/team-suspension` 按团队暂停资产打标，配置使用 `TeamConfig.taggingSuspended`，无需 migration；同时取消 pending/processing 资产任务，恢复不复活旧任务。所有 web/worker 实例须升级。定时打标发起器及单素材 scheduled 回调入口均检查团队定时开关；主仓全素材扫描可能重跑已打标素材，`exchange-api-key` 成功不代表订阅未到期。操作说明见 README 的“按团队紧急暂停打标”。
+
 以终端实际输出的监听地址为准，并验证数据库连接、认证和当前开发的主要流程；编译成功不代表外部依赖已可用。配置模板仅用于首次创建文件，不覆盖已有配置，不把凭据写入本文。数据库准备命令仅用于已确认的本地开发库。脚本、环境入口、端口或目录结构变化时，同步维护本文件。
 
 历史特征重跑恢复使用 `scripts/resume-feature-rerun.ts`，默认只读预检；部署后先重跑绿茶牛奶水验证任务，再用 `--apply` 恢复。脚本校验当前提示词和完整决策结果，跳过已审核、已删除、活动任务及较新完整结果；详见 README 的“历史特征任务恢复”。

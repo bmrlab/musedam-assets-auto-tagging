@@ -1,3 +1,4 @@
+import { isTeamTaggingSuspended } from "@/lib/tagging/team-suspension";
 import { hasEnabledTaggingOutput } from "@/musedam/metadata";
 import {
   buildAllowedFolderIdSet,
@@ -86,6 +87,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Team not found" }, { status: 404 });
     }
 
+    if (await isTeamTaggingSuspended(team.id)) {
+      return NextResponse.json({
+        success: true,
+        data: {
+          message: "Tagging is suspended for this team",
+          queueItemId: null,
+          status: null,
+        },
+      });
+    }
+
     try {
       await assertTeamTaggingAuthorization(team);
     } catch (error) {
@@ -97,6 +109,19 @@ export async function POST(request: NextRequest) {
     }
 
     const settings = await getTaggingSettings(team.id);
+
+    // The upstream timing-tag endpoint sends individual scheduled callbacks too.
+    // Reject callbacks already in flight after scheduled tagging was switched off.
+    if (triggerType === "scheduled" && !settings.triggerTiming.scheduledTagging) {
+      return NextResponse.json({
+        success: true,
+        data: {
+          message: "Scheduled tagging is not enabled",
+          queueItemId: null,
+          status: null,
+        },
+      });
+    }
 
     // 未开启自动打标；且发起的是自动打标任务；不进入队列
     if (!await hasEnabledTaggingOutput(team, settings)) {

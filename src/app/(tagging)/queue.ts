@@ -1,3 +1,4 @@
+import { assertTeamTaggingEnabled, TeamTaggingSuspendedError } from "@/lib/tagging/team-suspension";
 import { runWithQueueExecution, throwIfQueueAborted } from "@/lib/tagging/queue-execution";
 import { getTagConfigVersion } from "@/lib/tagging/tag-config-version";
 import { createVersionedTagTreeCache } from "@/lib/tagging/tag-tree-cache";
@@ -205,22 +206,27 @@ export async function enqueueTaggingTask({
     featureClassifications,
   );
 
-  const taggingQueueItem = await prisma.taggingQueueItem.create({
-    data: {
-      teamId: teamId,
-      assetObjectId: assetObject.id,
-      status: "pending",
-      taskType,
-      extra: {
-        matchingSources,
-        recognitionAccuracy,
-        featureClassify,
-        featureBrand: classifications.brand,
-        featureProduct: classifications.product,
-        featurePerson: classifications.person,
-        featureIp: classifications.ip,
-      } as TaggingQueueItemExtra,
-    },
+  const taggingQueueItem = await prisma.$transaction(async (tx) => {
+    // Serialize enqueue with administrative suspension, including concurrent batches.
+    await tx.$queryRaw`SELECT "id" FROM "Team" WHERE "id" = ${teamId} FOR UPDATE`;
+    await assertTeamTaggingEnabled(teamId, tx);
+    return tx.taggingQueueItem.create({
+      data: {
+        teamId: teamId,
+        assetObjectId: assetObject.id,
+        status: "pending",
+        taskType,
+        extra: {
+          matchingSources,
+          recognitionAccuracy,
+          featureClassify,
+          featureBrand: classifications.brand,
+          featureProduct: classifications.product,
+          featurePerson: classifications.person,
+          featureIp: classifications.ip,
+        } as TaggingQueueItemExtra,
+      },
+    });
   });
 
   // 入队后立即触发一次队列处理，不必等外部调度器的下一轮 tick（线上 15s）。
@@ -288,6 +294,7 @@ export async function processQueueItem({
   let featureDecision: FeatureDecisionDiagnostics | undefined;
 
   try {
+    await assertTeamTaggingEnabled(queueItem.teamId);
     assetObject = await logStepFinished("refreshMuseDAMAsset", refreshQueuedAsset(queueItem.teamId, assetObject));
     throwIfQueueAborted();
     const extra = queueItem.extra as TaggingQueueItemExtra;
@@ -1013,7 +1020,7 @@ export async function processQueueItem({
       .findUnique({ where: { id: queueItem.id }, select: { extra: true } })
       .catch(() => null);
     const latestExtra = (latestRow?.extra ?? queueItem.extra) as TaggingQueueItemExtra;
-    if (latestExtra?.rerunRequested === true) {
+    if (latestExtra?.rerunRequested === true && !(error instanceof TeamTaggingSuspendedError)) {
       logger.info({
         msg: "Rerun requested during processing; retrying with latest asset data instead of marking failed",
         errorCode,
