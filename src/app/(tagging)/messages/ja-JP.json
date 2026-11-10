@@ -156,6 +156,11 @@
       "searchPlaceholder": "素材名で検索"
     },
     "Review": {
+      "batchImageModeOn": "画像モード：オン",
+      "batchImageModeOff": "画像モード：オフ",
+      "batchImageModeUnknown": "画像モード：記録なし",
+      "batchImageModeHint": "このバッチのキュー登録時に保存された画像モードです。",
+      "batchImageModeUnknownHint": "過去のバッチには画像モードが保存されていないため、設定を確認できません。",
       "tagSourceExisting": "既存タグ",
       "tagSourceAi": "AI 記入",
       "tagSourceManual": "手動で追加",

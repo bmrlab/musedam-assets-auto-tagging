@@ -747,6 +747,11 @@
       }
     },
     "Review": {
+      "batchImageModeOn": "Görüntü modu: açık",
+      "batchImageModeOff": "Görüntü modu: kapalı",
+      "batchImageModeUnknown": "Görüntü modu: kaydedilmemiş",
+      "batchImageModeHint": "Bu grup kuyruğa alındığında kaydedilen görüntü modu kullanılır.",
+      "batchImageModeUnknownHint": "Bu eski grubun görüntü modu kaydedilmediğinden önceki ayar bilinmiyor.",
       "tagSourceExisting": "Mevcut",
       "tagSourceAi": "YZ doldurdu",
       "tagSourceManual": "Manuel eklendi",

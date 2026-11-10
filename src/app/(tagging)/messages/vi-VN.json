@@ -747,6 +747,11 @@
       }
     },
     "Review": {
+      "batchImageModeOn": "Chế độ hình ảnh: bật",
+      "batchImageModeOff": "Chế độ hình ảnh: tắt",
+      "batchImageModeUnknown": "Chế độ hình ảnh: chưa ghi nhận",
+      "batchImageModeHint": "Dùng chế độ hình ảnh được lưu khi lô này vào hàng đợi.",
+      "batchImageModeUnknownHint": "Lô cũ này chưa lưu chế độ hình ảnh nên không xác định được cài đặt ban đầu.",
       "tagSourceExisting": "Thẻ hiện có",
       "tagSourceAi": "AI điền",
       "tagSourceManual": "Thêm thủ công",

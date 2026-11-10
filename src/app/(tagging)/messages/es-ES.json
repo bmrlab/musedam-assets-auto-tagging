@@ -156,6 +156,11 @@
       "searchPlaceholder": "Buscar por nombre de recurso"
     },
     "Review": {
+      "batchImageModeOn": "Modo imagen: activado",
+      "batchImageModeOff": "Modo imagen: desactivado",
+      "batchImageModeUnknown": "Modo imagen: sin registrar",
+      "batchImageModeHint": "Usa el modo imagen guardado al poner este lote en cola.",
+      "batchImageModeUnknownHint": "Este lote antiguo no tiene un modo imagen guardado; se desconoce su configuración original.",
       "tagSourceExisting": "Existente",
       "tagSourceAi": "Rellenado por IA",
       "tagSourceManual": "Añadido manualmente",

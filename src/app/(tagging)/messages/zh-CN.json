@@ -824,6 +824,11 @@
       }
     },
     "Review": {
+      "batchImageModeOn": "图像模式：已开启",
+      "batchImageModeOff": "图像模式：未开启",
+      "batchImageModeUnknown": "图像模式：未记录",
+      "batchImageModeHint": "以本批次入队时的图像模式设置为准。",
+      "batchImageModeUnknownHint": "历史批次未保存图像模式，无法确认当时是否开启。",
       "tagSourceExisting": "已有标签",
       "tagSourceAi": "AI 填写",
       "tagSourceManual": "手动添加",

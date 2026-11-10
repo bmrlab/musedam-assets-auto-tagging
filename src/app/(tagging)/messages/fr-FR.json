@@ -497,6 +497,11 @@
       }
     },
     "Review": {
+      "batchImageModeOn": "Mode image : activé",
+      "batchImageModeOff": "Mode image : désactivé",
+      "batchImageModeUnknown": "Mode image : non enregistré",
+      "batchImageModeHint": "Mode image enregistré lors de la mise en file de ce lot.",
+      "batchImageModeUnknownHint": "Ce lot ancien n’a pas de mode image enregistré ; son réglage initial est inconnu.",
       "tagSourceExisting": "Existant",
       "tagSourceAi": "Rempli par l’IA",
       "tagSourceManual": "Ajouté manuellement",

@@ -1,5 +1,7 @@
 "use client";
 
+import { BatchImageModeBadge } from "./components/BatchImageModeBadge";
+
 import { hasFeatureRecognitionFailure } from "@/lib/feature-decision/completion";
 
 import { MatchedKeywordsBadge } from "../components/MatchedKeywordsBadge";
@@ -977,6 +979,7 @@ export function ReviewItem({
                     <TagAIIcon className="size-4" />
                     <span className="text-sm font-medium">{t("aiRecommendedTags")}</span>
                     <span className="text-xs text-basic-5">{t("basedOnTagSystem")}</span>
+                    <BatchImageModeBadge extra={queueItem.extra} />
                     {isLatestBatch ? (
                       <span className="ml-2 inline-flex items-center px-[13px] py-[2px] rounded-[4px] text-xs text-danger-6 border border-danger-3 bg-danger-1">
                         {t("latest")}
@@ -1334,10 +1337,11 @@ export function ReviewItem({
                   key={`features-${queueItem.id}`}
                   className="w-full rounded-md bg-[rgba(247,249,252,0.8)] p-4 dark:bg-basic-1"
                 >
-                  <div className="mb-3 flex items-center gap-2">
+                  <div className="mb-3 flex flex-wrap items-center gap-2">
                     <StarIcon className="size-4" />
                     <span className="text-sm font-medium">{t("featureRecognition")}</span>
                     <span className="text-xs text-basic-5">{t("basedOnFeatureLibrary")}</span>
+                    <BatchImageModeBadge extra={queueItem.extra} />
                     {!taggingAuditItems.some(({ status }) => status === "pending") ? (
                       <span className="rounded border border-basic-3 px-2 py-0.5 text-xs text-basic-5">{t("reviewedBadge")}</span>
                     ) : null}

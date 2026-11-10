@@ -747,6 +747,11 @@
       }
     },
     "Review": {
+      "batchImageModeOn": "Tryb obrazu: włączony",
+      "batchImageModeOff": "Tryb obrazu: wyłączony",
+      "batchImageModeUnknown": "Tryb obrazu: niezapisany",
+      "batchImageModeHint": "Tryb obrazu zapisany podczas dodawania tej partii do kolejki.",
+      "batchImageModeUnknownHint": "Ta starsza partia nie ma zapisanego trybu obrazu; pierwotne ustawienie jest nieznane.",
       "tagSourceExisting": "Istniejący",
       "tagSourceAi": "Wypełnione przez AI",
       "tagSourceManual": "Dodane ręcznie",

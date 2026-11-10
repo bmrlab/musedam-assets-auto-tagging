@@ -824,6 +824,11 @@
       }
     },
     "Review": {
+      "batchImageModeOn": "Image mode: On",
+      "batchImageModeOff": "Image mode: Off",
+      "batchImageModeUnknown": "Image mode: Not recorded",
+      "batchImageModeHint": "Uses the image mode saved when this batch was queued.",
+      "batchImageModeUnknownHint": "This older batch has no saved image mode; its original setting is unknown.",
       "tagSourceExisting": "Existing",
       "tagSourceAi": "AI filled",
       "tagSourceManual": "Manually added",
