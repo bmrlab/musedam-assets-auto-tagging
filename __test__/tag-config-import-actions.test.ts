@@ -82,7 +82,7 @@ import {
   importTagTreeAction,
   precheckTagTreeImportAction,
 } from "@/app/tags/tagBatchActions";
-import { getTagBatchColumns } from "@/app/tags/tagBatchSpreadsheet";
+import { getTagBatchColumns, parseTagBatchTable } from "@/app/tags/tagBatchSpreadsheet";
 
 function seed(id: number, name: string, parentId: number | null = null, teamId = 1) {
   const row = {
@@ -126,6 +126,30 @@ beforeEach(() => {
       return { success: true };
     },
   );
+});
+
+it.each(["csv", "xlsx"] as const)("exports spreadsheet-safe long keywords and imports all continuations from %s", async format => {
+  const keywords = Array.from({ length: 7000 }, (_, index) => `SKU.${index}`);
+  seed(1, "防水").extra = { keywords };
+  const result = await exportTagTreeAction(format);
+  expect(result.success).toBe(true);
+  if (!result.success) return;
+  const buffer = Buffer.from(result.data.base64, "base64");
+  const rows = format === "csv" ? parseCsv(buffer) : parseXlsx(buffer);
+  expect(rows.every(row => row.every(cell => cell.length <= 30000))).toBe(true);
+  expect(rows.slice(1).every(row => row[0] === "1" && row[1] === "防水")).toBe(true);
+  expect(parseTagBatchTable({ rows, maxLevel: 4 })).toMatchObject({
+    errors: [], records: [{ id: 1, fields: { keywords } }],
+  });
+  const form = new FormData();
+  form.set("file", new File([new Uint8Array(buffer)], result.data.filename));
+  form.set("tagLevel", "4");
+  expect(await precheckTagTreeImportAction(form)).toMatchObject({
+    success: true, data: { issues: [], importableCount: 1 },
+  });
+  mocks.rows[0].extra = {};
+  expect(await importTagTreeAction(form)).toMatchObject({ success: true, data: { failedCount: 0 } });
+  expect(mocks.rows[0].extra.keywords).toEqual(keywords);
 });
 
 describe("tag configuration import", () => {
