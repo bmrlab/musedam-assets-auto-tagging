@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { ClockCircleIcon, TagAIIcon, TagsIcon } from "@/components/ui/icons";
+import { ClockCircleIcon, TagAIIcon } from "@/components/ui/icons";
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { dispatchMuseDAMClientAction } from "@/embed/message";
@@ -93,7 +93,6 @@ import {
   type ReviewFeatureSearchResult,
 } from "./feature-review";
 
-import { getReviewTagSources, type ReviewTagSource } from "./tag-review";
 
 type PreviewImage = { src: string; alt: string };
 
@@ -129,67 +128,6 @@ function ImagePreviewDialog({
         ) : null}
       </DialogContent>
     </Dialog>
-  );
-}
-
-function formatSnapshotTagPath(tagPath: string) {
-  return tagPath.replace(/\s*->\s*/g, " > ");
-}
-
-function ExistingFeatureSnapshotRow({
-  feature,
-  featureClass,
-  onPreview,
-}: {
-  feature: MuseDAMMaterialFeatureSnapshot;
-  featureClass: string;
-  onPreview: (image: PreviewImage) => void;
-}) {
-  const t = useTranslations("Tagging.Review");
-
-  return (
-    <div className="flex items-start gap-3 rounded-md border border-basic-3 bg-background p-3">
-      <button
-        type="button"
-        aria-label={t("previewImage", { name: feature.identifierName })}
-        className="relative size-10 shrink-0 cursor-zoom-in overflow-hidden rounded bg-basic-2"
-        onClick={() => onPreview({ src: feature.identifierImagePath, alt: feature.identifierName })}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={feature.identifierImagePath}
-          alt={feature.identifierName}
-          className="h-full w-full object-cover"
-        />
-      </button>
-      <div className="min-w-0 flex-1">
-        <div
-          className="truncate text-[13px] font-medium leading-[18px]"
-          title={feature.identifierName}
-        >
-          {feature.identifierName}
-        </div>
-        <div
-          className="mt-1 truncate text-xs text-basic-5"
-          title={`${featureClass} > ${feature.identifierTypeName || "-"}`}
-        >
-          {featureClass} &gt; {feature.identifierTypeName || "-"}
-        </div>
-        {feature.tagPaths.length > 0 ? (
-          <div className="mt-2 flex flex-wrap gap-1">
-            {feature.tagPaths.map((tagPath, index) => (
-              <span
-                key={`${feature.id}-${index}`}
-                className="inline-flex max-w-full items-center truncate rounded-sm border bg-background px-2 py-0.5 text-[10px] text-basic-5"
-                title={formatSnapshotTagPath(tagPath)}
-              >
-                {formatSnapshotTagPath(tagPath)}
-              </span>
-            ))}
-          </div>
-        ) : null}
-      </div>
-    </div>
   );
 }
 
@@ -476,26 +414,6 @@ export function ReviewItem({
   // 历史打标记录默认折叠：只展示最新一次，避免过往错误结果一直挂在页面上
   const [showHistory, setShowHistory] = useState(false);
 
-  const tagSources = useMemo(
-    () => getReviewTagSources(batch.map(({ queueItem }) => queueItem.extra)),
-    [batch],
-  );
-  const showTagSources = batch.some(
-    ({ taggingAuditItems, reviewSummary }) =>
-      reviewSummary?.reviewed || taggingAuditItems.some((item) => item.status === "approved"),
-  );
-  const tagSourceLabelStyles: Record<ReviewTagSource, string> = {
-    existing: "text-basic-5",
-    ai: "text-primary-6",
-    manual: "text-success-7",
-    unknown: "text-basic-5",
-  };
-  const tagSourceLabels: Record<ReviewTagSource, string> = {
-    existing: t("tagSourceExisting"),
-    ai: t("tagSourceAi"),
-    manual: t("tagSourceManual"),
-    unknown: t("tagSourceUnknown"),
-  };
   const assetExtra = assetObject.extra as AssetObjectExtra | null;
   const sourceDeleted = assetExtra?.reviewAssetDeleted === true;
   const assetPreviewUrl = assetExtra?.thumbnailAccessUrl;
@@ -935,63 +853,8 @@ export function ReviewItem({
         </div>
       </div>
 
-      {contentScope !== "features" ? <div className="grid grid-cols-2 gap-4">
-        <div className="bg-[rgba(247,249,252,0.8)] dark:bg-basic-1 rounded-md p-4 col-span-1">
-          <div className="flex items-center gap-2 mb-2">
-            <TagsIcon className="size-4" />
-            <span className="text-sm font-medium">{t("tags")}</span>
-          </div>
-          <div className="flex flex-wrap gap-1">
-            {(assetObject.tags as AssetObjectTags).map((tag, index) => {
-              const source = tagSources.get(tag.tagSlug) ?? "unknown";
-              const showSourceLabel = showTagSources && source !== "unknown" && source !== "manual";
-              return (
-                <span
-                  key={tag.tagSlug || index}
-                  title={showSourceLabel ? tagSourceLabels[source] : undefined}
-                  className="inline-flex items-center gap-1 rounded border border-basic-3 bg-background px-2 py-1 text-xs text-foreground"
-                >
-                  {tag.tagPath.join(" > ")}
-                  {showSourceLabel ? (
-                    <span
-                      className={cn(
-                        "inline-flex shrink-0 items-center gap-1 rounded",
-                        source === "ai"
-                          ? "bg-primary-6/10 px-1.5 py-0.5 text-xs text-primary-6"
-                          : cn(
-                              "border border-current/30 px-1 text-[10px]",
-                              tagSourceLabelStyles[source],
-                            ),
-                      )}
-                    >
-                      {source === "ai" ? (
-                        <svg
-                          width="1em"
-                          height="1em"
-                          viewBox="0 0 36 36"
-                          fill="currentColor"
-                          xmlns="http://www.w3.org/2000/svg"
-                          aria-hidden="true"
-                          focusable="false"
-                          className="shrink-0"
-                        >
-                          <path
-                            d="M13.6956 1.41311L15.2885 7.37568C15.6114 8.58537 16.2041 9.62912 17.012 10.4487C17.8228 11.2682 18.8503 11.8709 20.0414 12.1984L25.9193 13.8142C26.212 13.8928 26.3871 14.2 26.3096 14.497C26.2565 14.6964 26.1044 14.842 25.9193 14.8929L20.0414 16.5087C18.8503 16.8363 17.8213 17.4389 17.0134 18.2585C16.2041 19.0795 15.61 20.1218 15.2885 21.33L13.6956 27.2926C13.6182 27.5896 13.3153 27.7671 13.0226 27.6885C12.826 27.6347 12.6825 27.4804 12.6323 27.2926L11.0394 21.33C10.7165 20.1218 10.1239 19.0795 9.31451 18.2585C8.50516 17.4375 7.47767 16.8348 6.28658 16.5087L0.408677 14.8929C0.115928 14.8143 -0.0591311 14.5071 0.0183471 14.2102C0.0714429 14.0108 0.223556 13.8652 0.408677 13.8142L6.28658 12.1984C7.47767 11.8709 8.50659 11.2697 9.32884 10.4356C10.1368 9.60579 10.7208 8.57225 11.0394 7.37713L12.6323 1.41456C12.7098 1.1176 13.0126 0.940017 13.3053 1.01861C13.5019 1.07247 13.6454 1.22678 13.6956 1.41456L13.6956 1.41311ZM28.0087 18.1202L29.0147 21.8874C29.2098 22.6167 29.5672 23.2456 30.0536 23.7391C30.5401 24.2326 31.16 24.5951 31.8761 24.793L35.5913 25.8135C35.8841 25.8921 36.0591 26.1993 35.9817 26.4962C35.9286 26.6956 35.7764 26.8412 35.5913 26.8922L31.8776 27.9126C31.1586 28.1106 30.5387 28.4731 30.0522 28.9665C29.5657 29.46 29.2084 30.0889 29.0132 30.8182L28.0073 34.5854C27.9298 34.8824 27.627 35.06 27.3343 34.9814C27.1377 34.9275 26.9942 34.7732 26.9439 34.5854L25.938 30.8167C25.7442 30.0889 25.3869 29.4615 24.899 28.968C24.4125 28.4745 23.7926 28.112 23.0736 27.9141L19.3599 26.8936C19.0671 26.815 18.8921 26.5078 18.9696 26.2109C19.0227 26.0115 19.1748 25.8659 19.3599 25.8149L23.0751 24.7945C23.7926 24.598 24.4111 24.2355 24.899 23.7406C25.3855 23.2471 25.7428 22.6182 25.938 21.8904L26.9439 18.1217C27.0214 17.8247 27.3242 17.6471 27.617 17.7257C27.8136 17.7796 27.9571 17.9339 28.0073 18.1217L28.0087 18.1202Z"
-                            fill="currentColor"
-                            fillOpacity="1"
-                          />
-                        </svg>
-                      ) : null}
-                      {tagSourceLabels[source]}
-                    </span>
-                  ) : null}
-                </span>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="col-span-1 flex flex-col gap-[6px]">
+      {contentScope !== "features" ? (
+      <div className="flex w-full min-w-0 flex-col gap-[6px]">
           {visibleBatch.map(({ queueItem, taggingAuditItems, reviewSummary }, index) => {
             const isLatestBatch = finalBatch.length > 1 && index === 0;
             const visibleAuditItems = taggingAuditItems.filter(
@@ -1181,34 +1044,10 @@ export function ReviewItem({
             </button>
           ) : null}
         </div>
-      </div> : null}
+      ) : null}
 
       {hasEnabledFeatures ? (
-        <div className="grid grid-cols-2 gap-4">
-          <div className="col-span-1 rounded-md bg-[rgba(247,249,252,0.8)] p-4 dark:bg-basic-1">
-            <div className="mb-2 flex items-center gap-2">
-              <StarIcon className="size-4" />
-              <span className="text-sm font-medium">{t("features")}</span>
-            </div>
-            <div className="space-y-2">
-              {existingFeatures.length > 0
-                ? existingFeatures
-                    .filter((feature) =>
-                      isFeatureTypeEnabled(featureLibraryFeatures, feature.featureType),
-                    )
-                    .map((feature) => (
-                      <ExistingFeatureSnapshotRow
-                        key={`${feature.featureType}-${feature.identifierId}-${feature.id}`}
-                        feature={feature}
-                        featureClass={getFeatureClassLabel(feature.featureType)}
-                        onPreview={setPreviewImage}
-                      />
-                    ))
-                : null}
-            </div>
-          </div>
-
-          <div className="col-span-1 flex flex-col gap-[6px]">
+        <div className="flex w-full min-w-0 flex-col gap-[6px]">
             {visibleBatch.map(({ queueItem, taggingAuditItems }, index) => {
               const brandRecommendation = brandRecommendationsByQueueId.get(queueItem.id);
               const ipRecommendation = ipRecommendationsByQueueId.get(queueItem.id);
@@ -1489,7 +1328,6 @@ export function ReviewItem({
               );
             })}
           </div>
-        </div>
       ) : null}
       <AddTagDialog
         open={addTagOpen}
