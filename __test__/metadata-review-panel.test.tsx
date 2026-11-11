@@ -51,6 +51,7 @@ it("excludes a field without applying it immediately, and restores it before rev
   const { container } = mount();
   await screen.findByRole("heading", { name: "海报" });
   expect(container.querySelectorAll("article")).toHaveLength(1);
+  expect(screen.queryByText("已有字段")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "移除 投放渠道" }));
   expect(mocks.review).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "添加 投放渠道" }));

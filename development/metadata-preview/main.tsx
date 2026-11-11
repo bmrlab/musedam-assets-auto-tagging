@@ -145,7 +145,6 @@ function App() {
               <article className="flex flex-col gap-4 rounded-lg border bg-background p-5">
                 <h2 className="text-sm font-semibold">精华液主视觉.jpg · 全部内容中的字段区</h2>
                 <MetadataInlineReview
-                  assetObjectId={1}
                   excludedIds={excludedIds}
                   onToggle={(id) => setExcludedIds(current => current.includes(id) ? current.filter(value => value !== id) : [...current, id])}
                   rows={[{ id: 1, status: "pending", prediction }]}

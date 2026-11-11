@@ -26,7 +26,6 @@ import { toast } from "sonner";
 import { fetchMetadataReviewAssets, reviewMetadata } from "./metadata-actions";
 import { defaultMetadataReviewFilters, type MetadataReviewFilters } from "./metadata-review-query";
 import { applyMetadataReviewSelection } from "./metadata-review-selection";
-import { MetadataCurrentValues } from "./MetadataCurrentValues";
 import { MetadataReviewSuggestions } from "./MetadataReviewSuggestions";
 import type { ReviewStatus } from "./unmatched-query";
 type Data = Awaited<ReturnType<typeof fetchMetadataReviewAssets>>;
@@ -379,10 +378,6 @@ export function MetadataReviewPanel({
                   )}
                 </div>
                 <div className="flex min-w-0 flex-col gap-4">
-                  <MetadataCurrentValues
-                    assetObjectId={asset.assetObject.id}
-                    refreshKey={`${refresh}`}
-                  />
                   <MetadataReviewSuggestions
                     rows={asset.rows}
                     createdAt={asset.createdAt}

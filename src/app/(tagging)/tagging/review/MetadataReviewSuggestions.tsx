@@ -1,10 +1,10 @@
 "use client";
 import { Button } from "@/components/ui/button";
-import { ClockCircleIcon, TagAIIcon } from "@/components/ui/icons";
+import { ClockCircleIcon } from "@/components/ui/icons";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { MetadataPrediction } from "@/lib/metadata/types";
 import { cn } from "@/lib/utils";
-import { CheckIcon, XIcon } from "lucide-react";
+import { CheckIcon, TablePropertiesIcon, XIcon } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { ReviewConfidence } from "./components/ReviewConfidence";
 import { ReviewEvidenceDropdown } from "./components/ReviewEvidenceDropdown";
@@ -38,7 +38,7 @@ export function MetadataReviewSuggestions({
   return (
     <section className="flex min-w-0 flex-1 flex-col gap-3 rounded-md bg-basic-1/80 p-4 dark:bg-basic-1 text-sm leading-[22px]">
       <div className="flex flex-wrap items-center gap-2">
-        <TagAIIcon className="size-4 shrink-0" />
+        <TablePropertiesIcon className="size-4 shrink-0" aria-hidden="true" />
         <h3 className="font-medium">{t("aiTitle")}</h3>
         <span className="text-xs text-basic-5 dark:text-basic-6">{t("fillHint")}</span>
         {createdAt && (

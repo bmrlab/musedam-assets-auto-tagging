@@ -1387,7 +1387,7 @@ export function ReviewItem({
           onConfirm={onAddManualFeatures}
         />
       ) : null}
-      {metadataAvailable && contentScope === "all" && <MetadataInlineReview assetObjectId={assetObject.id} rows={metadataReviews} busy={realLoading || sourceDeleted} excludedIds={excludedMetadataIds} onToggle={onToggleMetadata} />}
+      {metadataAvailable && contentScope === "all" && <MetadataInlineReview rows={metadataReviews} busy={realLoading || sourceDeleted} excludedIds={excludedMetadataIds} onToggle={onToggleMetadata} />}
       <ImagePreviewDialog
         image={previewImage}
         closeLabel={t("closePreview")}
