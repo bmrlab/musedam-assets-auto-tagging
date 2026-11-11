@@ -2,8 +2,9 @@ import "server-only";
 
 import { idToSlug, slugToId } from "@/lib/slug";
 import { retrieveTeamCredentials } from "@/musedam/apiKey";
+import { MUSE_CALL_BUDGET_MS } from "@/musedam/budget";
 import { requestMuseDAMAPI } from "@/musedam/lib";
-import type { AssetTag } from "@/prisma/client";
+import type { AssetTag, Prisma } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 import { randomUUID } from "node:crypto";
 import { MuseDAMID } from "../types";
@@ -64,7 +65,7 @@ function readTagTree(value: unknown, slugs = new Set<string>()): SyncNode[] {
 
 /**
  * 按 MuseDAM ID 优先、同父级同名兜底匹配，保留已有 AssetTag 的 id、配置和关联。
- * 改名、移动也更新原行；只新增缺失标签、删除 MuseDAM 中已不存在的标签。
+ * 改名、移动也更新原行；只新增缺失标签、软删除 MuseDAM 中已不存在的标签。
  * 整次本地同步在事务中完成，不能因半途失败留下临时名称或不完整的标签树。
  */
 export async function syncTagsFromMuseDAM({ team }: { team: { id: number; slug: string } }) {
@@ -73,6 +74,7 @@ export async function syncTagsFromMuseDAM({ team }: { team: { id: number; slug: 
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}` },
     body: { orgId: slugToId("team", team.slug) },
+    timeoutMs: MUSE_CALL_BUDGET_MS,
   });
   const nodes = readTagTree(result);
   const incomingSlugs = new Set<string>();
@@ -145,49 +147,91 @@ export async function syncTagsFromMuseDAM({ team }: { team: { id: number; slug: 
           .map((item) => item.existing!.id),
       );
 
+      // Soft-delete first so stale names stop competing with retained moves/renames.
       const staleIds = existingTags.filter((tag) => !keptIds.has(tag.id)).map((tag) => tag.id);
-      if (staleIds.length)
+      if (staleIds.length) {
         await tx.assetTag.updateMany({
           where: { teamId: team.id, deletedAt: null, id: { in: staleIds } },
           data: { deletedAt: new Date() },
         });
-      // Free old sibling names before updates, including name swaps and moves into stale paths.
-      // Stale parents remain until retained children have moved out, to preserve their relations.
-      for (const tag of existingTags) {
-        if (changedPositions.has(tag.id)) {
-          await tx.assetTag.update({
-            where: { deletedAt: null, id: tag.id, teamId: team.id },
-            data: { name: `__musedam_sync_${randomUUID()}` },
-          });
-        }
       }
 
+      // Only rows that are about to change name or parent need a temporary name.
+      // Soft-deleted stale tags no longer occupy sibling names.
+      const renameIds = new Set(changedPositions);
+      const byKey = new Map(
+        existingTags
+          .filter((tag) => keptIds.has(tag.id))
+          .map((tag) => [keyOf(tag.parentId, tag.name), tag]),
+      );
       for (const item of plan) {
-        const data = {
-          name: item.node.name,
-          slug: item.node.slug,
-          sort: item.node.sort,
-          level: item.level,
-          parentId: item.parent?.id ?? null,
-        };
-        if (item.existing) {
-          const tag = item.existing;
-          if (
-            changedPositions.has(tag.id) ||
-            tag.name !== data.name ||
-            tag.slug !== data.slug ||
-            tag.sort !== data.sort ||
-            tag.level !== data.level ||
-            tag.parentId !== data.parentId
-          ) {
-            await tx.assetTag.update({
-              where: { deletedAt: null, id: tag.id, teamId: team.id },
-              data,
-            });
+        if (item.parent && item.parent.id == null) continue;
+        const holder = byKey.get(keyOf(item.parent?.id ?? null, item.node.name));
+        if (holder && holder.id !== item.existing?.id && keptIds.has(holder.id)) {
+          renameIds.add(holder.id);
+        }
+      }
+      await writeTagRows(
+        tx,
+        team.id,
+        [...renameIds].map((id) => ({ id, name: `__musedam_sync_${randomUUID()}` })),
+        "rename",
+      );
+
+      const maxLevel = plan.reduce((max, item) => Math.max(max, item.level), 0);
+      for (let level = 1; level <= maxLevel; level++) {
+        const updates: TagWrite[] = [];
+        const creates: PlannedTag[] = [];
+        for (const item of plan) {
+          if (item.level !== level) continue;
+          const data = {
+            name: item.node.name,
+            slug: item.node.slug,
+            sort: item.node.sort,
+            level: item.level,
+            parentId: item.parent?.id ?? null,
+          };
+          if (item.existing) {
+            const tag = item.existing;
+            if (
+              changedPositions.has(tag.id) ||
+              tag.name !== data.name ||
+              tag.slug !== data.slug ||
+              tag.sort !== data.sort ||
+              tag.level !== data.level ||
+              tag.parentId !== data.parentId
+            ) {
+              updates.push({ id: tag.id, ...data });
+            }
+          } else {
+            creates.push(item);
           }
-        } else {
-          const created = await tx.assetTag.create({ data: { ...data, teamId: team.id } });
-          item.id = created.id;
+        }
+        await writeTagRows(tx, team.id, updates, "update");
+        for (let offset = 0; offset < creates.length; offset += TAG_WRITE_CHUNK) {
+          const slice = creates.slice(offset, offset + TAG_WRITE_CHUNK);
+          const created = await tx.assetTag.createManyAndReturn({
+            data: slice.map((item) => ({
+              teamId: team.id,
+              name: item.node.name,
+              slug: item.node.slug,
+              sort: item.node.sort,
+              level: item.level,
+              parentId: item.parent?.id ?? null,
+            })),
+            select: { id: true, name: true, parentId: true },
+          });
+          const pending = new Map(
+            slice.map((item) => [tagKey(item.parent?.id ?? null, item.node.name), item]),
+          );
+          for (const row of created) {
+            const key = tagKey(row.parentId, row.name);
+            const item = pending.get(key);
+            if (!item) throw new Error("新建标签未能回填");
+            item.id = row.id;
+            pending.delete(key);
+          }
+          if (pending.size > 0) throw new Error("新建标签未能回填");
         }
       }
     },
@@ -195,4 +239,49 @@ export async function syncTagsFromMuseDAM({ team }: { team: { id: number; slug: 
   );
 
   return result as MuseDAMTagTree;
+}
+
+const TAG_WRITE_CHUNK = 500;
+
+type TagWrite = {
+  id: number;
+  name: string;
+  slug?: string;
+  sort?: number;
+  level?: number;
+  parentId?: number | null;
+};
+
+function tagKey(parentId: number | null, name: string) {
+  return JSON.stringify([parentId, name]);
+}
+
+async function writeTagRows(
+  tx: Prisma.TransactionClient,
+  teamId: number,
+  rows: TagWrite[],
+  mode: "rename" | "update",
+) {
+  for (let offset = 0; offset < rows.length; offset += TAG_WRITE_CHUNK) {
+    const payload = JSON.stringify(rows.slice(offset, offset + TAG_WRITE_CHUNK));
+    if (mode === "rename") {
+      await tx.$executeRaw`
+        UPDATE "AssetTag" AS t SET "name" = p.name, "updatedAt" = now()
+        FROM jsonb_to_recordset(${payload}::jsonb) AS p(id int, name text)
+        WHERE t."deletedAt" IS NULL AND t."id" = p.id AND t."teamId" = ${teamId}`;
+    } else {
+      await tx.$executeRaw`
+        UPDATE "AssetTag" AS t SET
+          "name" = p.name,
+          "slug" = p.slug,
+          "sort" = p.sort,
+          "level" = p.level,
+          "parentId" = p."parentId",
+          "updatedAt" = now()
+        FROM jsonb_to_recordset(${payload}::jsonb) AS p(
+          id int, name text, slug text, sort int, level int, "parentId" int
+        )
+        WHERE t."deletedAt" IS NULL AND t."id" = p.id AND t."teamId" = ${teamId}`;
+    }
+  }
 }

@@ -1,5 +1,6 @@
 import "server-only";
 
+import { MUSE_CALL_BUDGET_MS, MUSE_TIMEOUT_MESSAGE } from "../budget";
 import { requestMuseDAMAPI } from "../lib";
 
 export interface MergeTag {
@@ -24,7 +25,15 @@ const countNodes = (tag: MergeTag): number =>
 export async function mergeTagsInBatches(
   tags: MergeTag[],
   apiKey: string,
+  budgetMs = MUSE_CALL_BUDGET_MS,
 ): Promise<{ tags: MergeTag[] }> {
+  const deadline = Date.now() + budgetMs;
+  const timeoutMs = () => {
+    const left = deadline - Date.now();
+    if (left < 1_000) throw new Error(MUSE_TIMEOUT_MESSAGE);
+    return left;
+  };
+
   async function mergeLevel(nodes: MergeTag[], ancestors: MergeTag[]): Promise<MergeTag[]> {
     const capacity = MERGE_TAG_BATCH_SIZE - ancestors.length;
     const result: MergeTag[] = [];
@@ -39,6 +48,7 @@ export async function mergeTagsInBatches(
         method: "POST",
         headers: { Authorization: `Bearer ${apiKey}` },
         body: { tags: wrapped },
+        timeoutMs: timeoutMs(),
       });
       let level = response.tags;
       for (const ancestor of ancestors) {

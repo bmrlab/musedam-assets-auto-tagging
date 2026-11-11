@@ -24,7 +24,7 @@ export type ServerActionResult<T> =
   | {
       success: false;
       message: string;
-      code?: "not_found" | "unauthorized" | "forbidden" | "internal_server_error" | "busy";
+      code?: "not_found" | "unauthorized" | "forbidden" | "internal_server_error" | "busy" | "continue";
     };
 
 export function throwServerActionError(

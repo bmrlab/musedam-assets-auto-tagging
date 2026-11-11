@@ -1,3 +1,4 @@
+import { deletionIdLayers } from "@/lib/tagging/delete-tag-layers";
 import type { TagNode } from "./types";
 
 export interface DeletableTag {
@@ -37,25 +38,74 @@ export function buildTagDeletionPlan(rows: DeletableTag[], tagId: number) {
 
 export type TagDeletionPlan = ReturnType<typeof buildTagDeletionPlan>;
 
-/** One root operation: the main site's merge transaction recursively deletes its descendants. */
+/**
+ * Whole subtree, deepest layer first. Each DELETE only contains nodes whose
+ * children are already gone, so ON DELETE SET NULL cannot turn a still-living
+ * child into a root and trip AssetTag_teamId_name_key.
+ */
+export function deletionLayers(plan: TagDeletionPlan): number[][] {
+  return deletionIdLayers([...plan.descendants, plan.target]);
+}
+
+/**
+ * MuseDAM cascade-deletes children when a parent is removed, so a subtree is
+ * one delete on the highest synced node. Listing every descendant turns a
+ * parent with thousands of children into thousands of merge-tags operations.
+ */
 export function buildCascadeDeletionTree(rows: DeletableTag[], plan: TagDeletionPlan): TagNode[] {
-  if (!plan.target.slug) {
-    if (plan.descendants.some((tag) => tag.slug)) {
-      throw new Error("标签层级尚未与 MuseDAM 同步，请先同步标签后重试");
-    }
-    return [];
-  }
   const byId = new Map(rows.map((row) => [row.id, row]));
-  let node: TagNode = { ...plan.target, verb: "delete", children: [] };
-  const seen = new Set([plan.target.id]);
-  let parentId = plan.target.parentId;
-  while (parentId !== null) {
-    const parent = byId.get(parentId);
-    if (!parent?.slug) throw new Error("标签层级尚未与 MuseDAM 同步，请先同步标签后重试");
-    if (seen.has(parent.id)) throw new Error("标签树存在循环关系");
-    seen.add(parent.id);
-    node = { ...parent, children: [node] };
-    parentId = parent.parentId;
+  const affected = [plan.target, ...plan.descendants];
+  const affectedIds = new Set(affected.map((row) => row.id));
+  const tops = affected.filter((row) => {
+    if (!row.slug) return false;
+    let parentId = row.parentId;
+    while (parentId !== null && affectedIds.has(parentId)) {
+      const parent = byId.get(parentId);
+      if (parent?.slug) return false;
+      if (!parent) break;
+      parentId = parent.parentId;
+    }
+    return true;
+  });
+  return forestFor(tops.map((row) => row.id));
+
+  function forestFor(leafIds: number[]): TagNode[] {
+    const roots: TagNode[] = [];
+    const nodeByPath = new Map<string, TagNode>();
+    for (const leafId of leafIds) {
+      const chain: DeletableTag[] = [];
+      let cursor = byId.get(leafId);
+      while (cursor) {
+        chain.push(cursor);
+        if (cursor.parentId === null) break;
+        const parent = byId.get(cursor.parentId);
+        if (!parent?.slug) throw new Error("标签层级尚未与 MuseDAM 同步，请先同步标签后重试");
+        cursor = parent;
+      }
+      chain.reverse();
+      let siblings = roots;
+      let path = "";
+      chain.forEach((row, index) => {
+        path += `/${row.id}`;
+        const isLeaf = index === chain.length - 1;
+        let node = nodeByPath.get(path);
+        if (!node) {
+          node = {
+            id: row.id,
+            slug: row.slug,
+            name: row.name,
+            sort: row.sort,
+            children: [],
+            ...(isLeaf ? { verb: "delete" as const } : {}),
+          };
+          nodeByPath.set(path, node);
+          siblings.push(node);
+        } else if (isLeaf) {
+          node.verb = "delete";
+        }
+        siblings = node.children;
+      });
+    }
+    return roots;
   }
-  return [node];
 }

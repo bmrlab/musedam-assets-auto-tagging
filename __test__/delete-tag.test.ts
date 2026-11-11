@@ -92,6 +92,14 @@ describe("tag deletion", () => {
     expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
   });
 
+  it("asks MuseDAM to delete the synced parent once and cascade its children", () => {
+    const syncedRows = rows.map((row) => ({ ...row, slug: String(row.id) }));
+    const tree = buildCascadeDeletionTree(syncedRows, buildTagDeletionPlan(syncedRows, 1));
+    expect(tree).toEqual([
+      expect.objectContaining({ id: 1, verb: "delete", children: [] }),
+    ]);
+  });
+
   it("sends only the target delete while retaining ancestor context for a nested subtree", () => {
     const syncedRows = rows.map((row) => ({ ...row, slug: String(row.id) }));
     const tree = buildCascadeDeletionTree(syncedRows, buildTagDeletionPlan(syncedRows, 2));

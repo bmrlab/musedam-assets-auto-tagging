@@ -30,7 +30,10 @@ export function SyncConfirmDialog({ onSyncComplete }: SyncConfirmDialogProps) {
   const handleSync = async () => {
     setIsLoading(true);
     try {
-      const result = await syncTagsFromMuseDAMAction();
+      let result = await syncTagsFromMuseDAMAction();
+      for (let attempt = 0; !result.success && result.code === "continue" && attempt < 40; attempt++) {
+        result = await syncTagsFromMuseDAMAction();
+      }
       if (result.success) {
         // toast.success(t("syncSuccess"));
         setOpen(false);

@@ -27,11 +27,14 @@ it("sends one root operation to the MuseDAM recursive subtree deletion API", asy
     team: { id: 7, slug: "team" },
     tagsTree: buildCascadeDeletionTree(rows, buildTagDeletionPlan(rows, 1)),
   });
-  expect(mocks.request).toHaveBeenCalledExactlyOnceWith("/api/muse/merge-tags", {
-    method: "POST",
-    headers: { Authorization: "Bearer test-key" },
-    body: {
-      tags: [{ id: 101, name: "tag1", operation: 3, sort: 0 }],
-    },
-  });
+  expect(mocks.request).toHaveBeenCalledExactlyOnceWith(
+    "/api/muse/merge-tags",
+    expect.objectContaining({
+      method: "POST",
+      headers: { Authorization: "Bearer test-key" },
+      body: {
+        tags: [{ id: 101, name: "tag1", operation: 3, sort: 0 }],
+      },
+    }),
+  );
 });

@@ -1,8 +1,11 @@
 import { assertQueueExecutionOwned, getQueueExecution, queueAbortSignal } from "@/lib/tagging/queue-execution";
 import { getTagImportSignal } from "@/lib/tagging/tag-import-runtime";
 import "server-only";
+import { MUSE_TIMEOUT_MESSAGE } from "./budget";
 
 const SENSITIVE_HEADER_PATTERN = /^(authorization|cookie|set-cookie|x-api-key|api-key)$/i;
+
+export { MUSE_CALL_BUDGET_MS, MUSE_TIMEOUT_MESSAGE, museCallBudget } from "./budget";
 
 function sanitizeResponseText(value: string) {
   return value.replace(/(bearer\s+)[^\s"']+/gi, "$1[REDACTED]").slice(0, 1000);
@@ -69,12 +72,23 @@ export async function requestMuseDAMAPI<T = unknown>(
       ? AbortSignal.any([importSignal, timeoutSignal])
       : (importSignal ?? timeoutSignal);
   const signal = queueAbortSignal(requestSignal);
-  const response = await fetch(url, {
-    method: method,
-    body: requestBody,
-    headers: requestHeaders,
-    ...(signal ? { signal } : {}),
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: method,
+      body: requestBody,
+      headers: requestHeaders,
+      ...(signal ? { signal } : {}),
+    });
+  } catch (error) {
+    if (signal?.aborted) {
+      const reason = signal.reason;
+      // Import cancellation and queue abort carry their own message. A bare timeout does not.
+      if (reason instanceof Error && reason.name !== "TimeoutError") throw reason;
+      throw new Error(MUSE_TIMEOUT_MESSAGE);
+    }
+    throw error;
+  }
   if (!response.ok) {
     let responseText = "";
     try {

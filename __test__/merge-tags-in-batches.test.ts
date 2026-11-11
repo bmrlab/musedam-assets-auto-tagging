@@ -31,11 +31,14 @@ describe("mergeTagsInBatches", () => {
   it("keeps small trees in a single request and preserves response IDs and sort", async () => {
     const tags = [{ ...leaf("group"), children: [leaf("child")] }];
     const result = await mergeTagsInBatches(tags, "key");
-    expect(mocks.request).toHaveBeenCalledExactlyOnceWith("/api/muse/merge-tags", {
-      method: "POST",
-      headers: { Authorization: "Bearer key" },
-      body: { tags },
-    });
+    expect(mocks.request).toHaveBeenCalledExactlyOnceWith(
+      "/api/muse/merge-tags",
+      expect.objectContaining({
+        method: "POST",
+        headers: { Authorization: "Bearer key" },
+        body: { tags },
+      }),
+    );
     expect(result.tags[0]).toMatchObject({ id: 1, sort: 10, children: [{ id: 2, sort: 10 }] });
   });
 

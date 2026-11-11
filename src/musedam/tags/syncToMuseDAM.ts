@@ -6,6 +6,7 @@ import { AssetTagTreeNode, buildChildrenInclude, MAX_TAG_LEVEL } from "@/lib/tag
 import { retrieveTeamCredentials } from "@/musedam/apiKey";
 import { AssetTag } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
+import { museCallBudget } from "../budget";
 import { requestMuseDAMAPI } from "../lib";
 import { MuseDAMID } from "../types";
 import { mergeTagsInBatches } from "./mergeTagsInBatches";
@@ -180,6 +181,7 @@ export async function syncTagsToMuseDAM({
 
   // 获取团队凭证
   const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
+  const timeoutMs = museCallBudget();
 
   // A previous request can time out after MuseDAM has committed. Reconcile
   // creations against the actual remote parent path rather than creating the
@@ -191,6 +193,7 @@ export async function syncTagsToMuseDAM({
       method: "POST",
       headers: { Authorization: `Bearer ${musedamTeamApiKey}` },
       body: { orgId: slugToId("team", team.slug) },
+      timeoutMs: timeoutMs(),
     });
     const reuseRemoteTags = (requests: MuseDAMTagRequest[], remote: MuseDAMTagTree) => {
       const byId = new Map(remote.map((tag) => [tag.id.toString(), tag]));
@@ -212,7 +215,7 @@ export async function syncTagsToMuseDAM({
   }
 
   // 调用 MuseDAM API
-  const res = await mergeTagsInBatches(musedamTags, musedamTeamApiKey);
+  const res = await mergeTagsInBatches(musedamTags, musedamTeamApiKey, timeoutMs());
 
   // 更新 AssetTag 的 sort 字段
   const updateAssetTagSort = async (nodeId: number, sort: number) => {
@@ -308,6 +311,7 @@ export async function deleteAllMuseDAMTags({
 }): Promise<void> {
   const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
   const musedamTeamId = slugToId("team", team.slug);
+  const timeoutMs = museCallBudget();
 
   const musedamTagsResult = await requestMuseDAMAPI<MuseDAMTagTree>("/api/muse/query-tag-tree", {
     method: "POST",
@@ -317,6 +321,7 @@ export async function deleteAllMuseDAMTags({
     body: {
       orgId: musedamTeamId,
     },
+    timeoutMs: timeoutMs(),
   });
 
   if (!musedamTagsResult || musedamTagsResult.length === 0) {
@@ -330,7 +335,7 @@ export async function deleteAllMuseDAMTags({
     sort: musedamTag.sort,
   }));
 
-  await mergeTagsInBatches(deleteTags, musedamTeamApiKey);
+  await mergeTagsInBatches(deleteTags, musedamTeamApiKey, timeoutMs());
 }
 
 /**
@@ -392,6 +397,7 @@ export async function syncTagsToMuseDAMWithCurrentSystemAsBase({
   // 2. 获取 MuseDAM 中的标签树
   const { apiKey: musedamTeamApiKey } = await retrieveTeamCredentials({ team });
   const musedamTeamId = slugToId("team", team.slug);
+  const timeoutMs = museCallBudget();
 
   const musedamTagsResult = await requestMuseDAMAPI<MuseDAMTagTree>("/api/muse/query-tag-tree", {
     method: "POST",
@@ -401,6 +407,7 @@ export async function syncTagsToMuseDAMWithCurrentSystemAsBase({
     body: {
       orgId: musedamTeamId,
     },
+    timeoutMs: timeoutMs(),
   });
 
   // 3. 先按名称在 MuseDAM 中查找同层级、同名的标签，如果存在则只更新当前系统的 slug
@@ -583,7 +590,7 @@ export async function syncTagsToMuseDAMWithCurrentSystemAsBase({
 
     if (syncTags.length > 0) {
       // 调用 MuseDAM API
-      await mergeTagsInBatches(syncTags, musedamTeamApiKey);
+      await mergeTagsInBatches(syncTags, musedamTeamApiKey, timeoutMs());
     }
   }
 
@@ -598,6 +605,7 @@ export async function syncTagsToMuseDAMWithCurrentSystemAsBase({
       body: {
         orgId: musedamTeamId,
       },
+      timeoutMs: timeoutMs(),
     },
   );
 

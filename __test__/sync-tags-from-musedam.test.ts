@@ -41,6 +41,11 @@ const mocks = vi.hoisted(() => {
       rows.push(row);
       return row;
     }),
+    createManyAndReturn: vi.fn(async ({ data }: { data: Array<Omit<Row, "id">> }) => {
+      const created = [];
+      for (const item of data) created.push(await assetTag.create({ data: item }));
+      return created;
+    }),
     update: vi.fn(async ({ where, data }: { where: { id: number }; data: Partial<Row> }) => {
       const row = rows.find((r) => r.id === where.id)!;
       const next = { ...row, ...data };
@@ -76,16 +81,49 @@ const mocks = vi.hoisted(() => {
       },
     ),
   };
+  const executeRaw = vi.fn(async (strings: TemplateStringsArray, ...values: unknown[]) => {
+    const sql = Array.from(strings).join(" ");
+    const payload = JSON.parse(String(values[0])) as Array<Record<string, unknown>>;
+    const teamId = Number(values[1]);
+    const next = rows.map((row) => ({ ...row }));
+    for (const item of payload) {
+      const row = next.find((entry) => entry.id === item.id && entry.teamId === teamId && !entry.deletedAt);
+      if (!row) throw new Error("missing tag");
+      if (sql.includes('"slug"')) {
+        row.name = String(item.name);
+        row.slug = String(item.slug);
+        row.sort = Number(item.sort);
+        row.level = Number(item.level);
+        row.parentId = (item.parentId ?? null) as number | null;
+      } else {
+        row.name = String(item.name);
+      }
+    }
+    const seen = new Set<string>();
+    for (const row of next) {
+      if (row.deletedAt) continue;
+      const key = JSON.stringify([row.teamId, row.parentId, row.name]);
+      if (seen.has(key)) throw new Error("Duplicate sibling name");
+      seen.add(key);
+    }
+    rows.splice(0, rows.length, ...next);
+    return payload.length;
+  });
   const transaction = vi.fn(
     async (
       fn: (tx: {
         assetTag: typeof assetTag;
         $queryRaw: ReturnType<typeof vi.fn>;
+        $executeRaw: typeof executeRaw;
       }) => Promise<unknown>,
     ) => {
       const snapshot = rows.map((row) => ({ ...row }));
       try {
-        return await fn({ assetTag, $queryRaw: vi.fn(async () => []) });
+        return await fn({
+          assetTag,
+          $queryRaw: vi.fn(async () => []),
+          $executeRaw: executeRaw,
+        });
       } catch (error) {
         rows.splice(0, rows.length, ...snapshot);
         throw error;
@@ -95,6 +133,7 @@ const mocks = vi.hoisted(() => {
   return {
     rows,
     assetTag,
+    executeRaw,
     transaction,
     reset: () => {
       rows.length = 0;
@@ -173,7 +212,7 @@ describe("syncTagsFromMuseDAM", () => {
     expect(byName("蓝色系")).toBeUndefined();
     expect(mocks.rows.filter((row) => !row.deletedAt)).toHaveLength(4);
 
-    expect(mocks.assetTag.create).toHaveBeenCalledTimes(1);
+    expect(mocks.assetTag.createManyAndReturn).toHaveBeenCalledTimes(1);
     expect(mocks.assetTag.updateMany).toHaveBeenCalledTimes(1);
     expect(mocks.assetTag.updateMany.mock.calls[0][0].where.id.in.sort()).toEqual([20, 21, 22]);
   });
@@ -186,8 +225,8 @@ describe("syncTagsFromMuseDAM", () => {
 
     await syncTagsFromMuseDAM({ team });
 
-    expect(mocks.assetTag.create).not.toHaveBeenCalled();
-    expect(mocks.assetTag.update).not.toHaveBeenCalled();
+    expect(mocks.assetTag.createManyAndReturn).not.toHaveBeenCalled();
+    expect(mocks.executeRaw).not.toHaveBeenCalled();
     expect(mocks.assetTag.updateMany).not.toHaveBeenCalled();
     expect(mocks.rows[0].id).toBe(10);
   });
@@ -201,7 +240,7 @@ describe("syncTagsFromMuseDAM", () => {
     await syncTagsFromMuseDAM({ team });
 
     expect(mocks.rows[0]).toMatchObject({ id: 10, slug: slugOf(1) });
-    expect(mocks.assetTag.create).not.toHaveBeenCalled();
+    expect(mocks.assetTag.createManyAndReturn).not.toHaveBeenCalled();
   });
 
   it("syncs 4-level trees and keeps existing level-4 tags instead of deleting them", async () => {
@@ -274,7 +313,7 @@ describe("syncTagsFromMuseDAM", () => {
       extra: { keywords: ["保留"] },
     });
     expect(mocks.rows.find((row) => row.id === 11)?.parentId).toBe(10);
-    expect(mocks.assetTag.create).not.toHaveBeenCalled();
+    expect(mocks.assetTag.createManyAndReturn).not.toHaveBeenCalled();
     expect(mocks.assetTag.updateMany).not.toHaveBeenCalled();
   });
 
@@ -293,7 +332,7 @@ describe("syncTagsFromMuseDAM", () => {
     const parent = mocks.rows.find((row) => row.slug === slugOf(3));
     expect(mocks.rows.find((row) => row.id === 11)).toMatchObject({ parentId: parent?.id });
     expect(mocks.rows.find((row) => row.id === 10)?.deletedAt).toBeInstanceOf(Date);
-    expect(mocks.assetTag.create).toHaveBeenCalledTimes(1);
+    expect(mocks.assetTag.createManyAndReturn).toHaveBeenCalledTimes(1);
     expect(mocks.assetTag.updateMany.mock.calls[0][0].where.id.in).toEqual([10]);
   });
 
@@ -307,7 +346,7 @@ describe("syncTagsFromMuseDAM", () => {
     await syncTagsFromMuseDAM({ team });
     expect(mocks.rows.find((row) => row.id === 10)?.name).toBe("B");
     expect(mocks.rows.find((row) => row.id === 11)?.name).toBe("A");
-    expect(mocks.assetTag.create).not.toHaveBeenCalled();
+    expect(mocks.assetTag.createManyAndReturn).not.toHaveBeenCalled();
     expect(mocks.assetTag.updateMany).not.toHaveBeenCalled();
   });
 
@@ -334,8 +373,8 @@ describe("syncTagsFromMuseDAM", () => {
     seed({ id: 10, name: "保留", slug: slugOf(1), parentId: null, level: 1, sort: 0 });
     mocks.requestMuseDAMAPI.mockResolvedValue(response);
     await expect(syncTagsFromMuseDAM({ team })).rejects.toThrow();
-    expect(mocks.assetTag.create).not.toHaveBeenCalled();
-    expect(mocks.assetTag.update).not.toHaveBeenCalled();
+    expect(mocks.assetTag.createManyAndReturn).not.toHaveBeenCalled();
+    expect(mocks.executeRaw).not.toHaveBeenCalled();
     expect(mocks.assetTag.updateMany).not.toHaveBeenCalled();
   });
 
@@ -345,7 +384,7 @@ describe("syncTagsFromMuseDAM", () => {
       { id: mid(1), name: "新名称", sort: 0, children: null },
       { id: mid(2), name: "新标签", sort: 0, children: null },
     ]);
-    mocks.assetTag.create.mockRejectedValueOnce(new Error("write failed"));
+    mocks.assetTag.createManyAndReturn.mockRejectedValueOnce(new Error("write failed"));
     await expect(syncTagsFromMuseDAM({ team })).rejects.toThrow("write failed");
     expect(mocks.rows).toEqual([
       { id: 10, teamId: 1, name: "旧名称", slug: slugOf(1), parentId: null, level: 1, sort: 0 },
@@ -360,8 +399,8 @@ describe("syncTagsFromMuseDAM", () => {
     vi.clearAllMocks();
     await syncTagsFromMuseDAM({ team });
     expect(mocks.rows[0].id).toBe(originalId);
-    expect(mocks.assetTag.create).not.toHaveBeenCalled();
-    expect(mocks.assetTag.update).not.toHaveBeenCalled();
+    expect(mocks.assetTag.createManyAndReturn).not.toHaveBeenCalled();
+    expect(mocks.executeRaw).not.toHaveBeenCalled();
     expect(mocks.assetTag.updateMany).not.toHaveBeenCalled();
   });
 });
@@ -374,5 +413,5 @@ it("rejects stale remote snapshots containing a tombstoned slug", async () => {
   ]);
   mocks.assetTag.count.mockResolvedValueOnce(1);
   await expect(syncTagsFromMuseDAM({ team })).rejects.toThrow("已删除");
-  expect(mocks.assetTag.create).not.toHaveBeenCalled();
+  expect(mocks.assetTag.createManyAndReturn).not.toHaveBeenCalled();
 });
