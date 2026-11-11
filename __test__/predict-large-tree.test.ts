@@ -90,3 +90,35 @@ it("continues with lexical candidates when semantic query expansion fails", asyn
   expect(result.tagsWithScore.some((tag) => tag.leafTagId === 1201)).toBe(true);
   expect(result.extra.candidateSelection?.matched).toBeGreaterThan(0);
 });
+
+it("rejects oversized asset content before calling a model instead of returning NO_VALID_TAGS", async () => {
+  await expect(
+    predictAssetTags(
+      { ...asset, description: "x".repeat(130_000) },
+      {
+        tagsTree: [{ id: 1, name: "标签", extra: {} }],
+      },
+    ),
+  ).rejects.toMatchObject({ code: "TAGGING_INPUT_TOO_LARGE" });
+  expect(mocks.generate).not.toHaveBeenCalled();
+});
+
+it("does not retry or switch models after a context-window rejection", async () => {
+  const { APICallError } = await import("ai");
+  mocks.generate.mockImplementation(async ({ schemaName }) => {
+    if (schemaName !== "TagPredictions") return { object: { terms: ["needle_target"] } };
+    throw new APICallError({
+      message: "prompt is too long: ContextWindowExceededError",
+      statusCode: 400,
+      url: "https://gateway.invalid/chat/completions",
+      requestBodyValues: {},
+      responseBody: '{"error":{"code":"input_too_large"}}',
+    });
+  });
+  await expect(predictAssetTags(asset, { tagsTree: tags() })).rejects.toMatchObject({
+    code: "TAGGING_INPUT_TOO_LARGE",
+  });
+  expect(
+    mocks.generate.mock.calls.filter(([args]) => args.schemaName === "TagPredictions"),
+  ).toHaveLength(1);
+});

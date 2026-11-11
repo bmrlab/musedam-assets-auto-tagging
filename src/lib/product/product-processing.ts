@@ -10,6 +10,7 @@ import { getCachedSignedS3ObjectUrl } from "@/lib/s3";
 import {
   downscaleImageBufferIfHuge,
   getResponseByteLength,
+  readRemoteImageResponse,
   withHeavyImageSlot,
 } from "@/lib/tagging/classification-image";
 import { IMAGE_FETCH_TIMEOUT_MS } from "@/lib/tagging/external-timeouts";
@@ -99,7 +100,7 @@ async function fetchImageAsDataUrl(objectKey: string) {
   // 大图串行下载解码，并先缩成工作图再生成缩略图 / 向量输入，避免多张原图同时解码
   return withHeavyImageSlot(getResponseByteLength(response), async () => {
     const image = await downscaleImageBufferIfHuge(
-      Buffer.from(await response.arrayBuffer()),
+      await readRemoteImageResponse(response, "product reference"),
       "application/octet-stream",
       "product reference",
     );

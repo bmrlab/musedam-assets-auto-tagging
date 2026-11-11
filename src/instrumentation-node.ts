@@ -19,19 +19,16 @@ export async function register() {
   if (!globalForMemoryLog.__memoryLogStarted) {
     globalForMemoryLog.__memoryLogStarted = true;
     const { getHeapStatistics } = await import("node:v8");
-    const toMB = (bytes: number) => Math.round(bytes / 1024 / 1024);
+    const { imageMemorySnapshot } = await import("@/lib/tagging/image-memory");
     const memoryLogger = rootLogger.child({
       service: "memory",
       role: process.env.QUEUE_ROLE === "worker" ? "queue-worker" : "web",
     });
     setInterval(() => {
-      const { rss, heapUsed, external } = process.memoryUsage();
       memoryLogger.info({
         msg: "memory usage",
-        rssMB: toMB(rss),
-        heapUsedMB: toMB(heapUsed),
-        heapLimitMB: toMB(getHeapStatistics().heap_size_limit),
-        externalMB: toMB(external),
+        ...imageMemorySnapshot(),
+        heapLimitMB: Math.round(getHeapStatistics().heap_size_limit / 1024 / 1024),
       });
     }, 60_000).unref();
   }

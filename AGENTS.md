@@ -54,6 +54,8 @@ pnpm dev
 
 package 中的 lint 为 next lint，若当前 Next 版本已不支持该子命令，要记录这个已有问题；不能将命令退出误报为检查通过。数据库连接、迁移、认证和 iframe 细节见 [README.md](README.md)。
 
+大标签树请求按实际文本长度校验预算，超限错误为 `TAGGING_INPUT_TOO_LARGE`，不重复发送同一超大请求。图片解码共用进程内槽位，内存诊断、2026-11-11 生产排查及本地合成对照见 [docs/tagging-performance.md](docs/tagging-performance.md) 的“大标签树请求与图片原生内存”。无新增 migration；部署须核对实际镜像含候选筛选/策略分批代码。
+
 元数据自动填写的交付、范围取舍和验证记录见 [docs/metadata-ai-delivery.md](docs/metadata-ai-delivery.md)。可用 `node development/metadata-preview/start.mjs` 启动独立组件样例（默认 `http://127.0.0.1:3019`，以实际输出为准）；它使用模拟审核数据，不连接远端，也不代表真实 iframe/认证验收。`METADATA_TEST_DATABASE_URL` 仅用于明确新建的本地 `metadata_ai_test*` PostgreSQL 测试库；集成测试会清理该测试库的自建数据，不能指向业务库。
 
 ## UI 开发约定

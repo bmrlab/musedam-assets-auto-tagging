@@ -8,6 +8,7 @@ import {
   uploadReferenceThumbnail,
 } from "@/lib/tagging/reference-thumbnail";
 import prisma from "@/prisma/prisma";
+import { readRemoteImageResponse, withHeavyImageSlot } from "./classification-image";
 
 // 已有参考图的缩略图在队列进程里后台慢慢补：生产镜像（Next standalone）里没有 scripts/ 和 tsx，
 // 回填脚本没法在 pod 里跑。每轮每个库只处理一小批、逐张串行，已有缩略图的只做一次 HEAD，
@@ -106,7 +107,10 @@ async function ensureThumbnail(objectKey: string): Promise<boolean> {
   const { signedUrl } = getCachedSignedS3ObjectUrl({ objectKey });
   const response = await fetch(signedUrl, { signal: AbortSignal.timeout(IMAGE_FETCH_TIMEOUT_MS) });
   if (!response.ok) throw new Error(`Failed to download reference image (${response.status})`);
-  await uploadReferenceThumbnail(objectKey, Buffer.from(await response.arrayBuffer()));
+  await withHeavyImageSlot(null, async () => {
+    const buffer = await readRemoteImageResponse(response, "thumbnail backfill");
+    await uploadReferenceThumbnail(objectKey, buffer);
+  });
   return true;
 }
 

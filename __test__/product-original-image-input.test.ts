@@ -33,7 +33,9 @@ describe("product original-image input", () => {
       preserveOriginal: true,
     });
 
-    expect(fetch).toHaveBeenCalledExactlyOnceWith("https://example.test/product.jpg");
+    expect(fetch).toHaveBeenCalledExactlyOnceWith("https://example.test/product.jpg", {
+      signal: expect.any(AbortSignal),
+    });
     expect(input).toMatchObject({ width: 1280, height: 853, mimeType: "image/jpeg" });
     expect(input.byteLength).toBe(input.buffer.length);
     expect(input.dataUrl).toBe(`data:image/jpeg;base64,${input.buffer.toString("base64")}`);

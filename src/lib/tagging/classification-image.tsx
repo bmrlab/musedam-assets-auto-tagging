@@ -7,6 +7,8 @@ import { IMAGE_FETCH_TIMEOUT_MS } from "@/lib/tagging/external-timeouts";
 import { getSvgRasterDensity } from "@/lib/tagging/svg-rasterization";
 import pLimit from "p-limit";
 import sharp from "sharp";
+import { withImageDecodeSlot } from "./image-memory";
+import { readImageResponse } from "./image-response";
 
 // Shared non-person downsampling and crop-output settings. Person detection uses a separate
 // full-resolution path below so small faces are not lost before SCRFD/ArcFace processing.
@@ -171,14 +173,16 @@ export async function prepareSvgCropSource(
   const metadata = await sharp(buffer, SHARP_INPUT_OPTIONS).metadata();
   const density = getSvgRasterDensity(metadata, Math.max(width, height));
   return {
-    buffer: await sharp(buffer, {
-      ...SHARP_INPUT_OPTIONS,
-      ...(density === null ? {} : { density }),
-    })
-      .resize({ width, height, fit: "fill" })
-      .flatten({ background: "#fff" })
-      .jpeg({ quality: IMAGE_JPEG_QUALITY })
-      .toBuffer(),
+    buffer: await withImageDecodeSlot("svg-crop-source", () =>
+      sharp(buffer, {
+        ...SHARP_INPUT_OPTIONS,
+        ...(density === null ? {} : { density }),
+      })
+        .resize({ width, height, fit: "fill" })
+        .flatten({ background: "#fff" })
+        .jpeg({ quality: IMAGE_JPEG_QUALITY })
+        .toBuffer(),
+    ),
     mimeType: "image/jpeg",
   };
 }
@@ -445,10 +449,7 @@ export async function fetchRemoteImageSource(
   }
 
   return withHeavyImageSlot(contentLength, async () => {
-    const buffer = Buffer.from(await response.arrayBuffer());
-    if (buffer.length > MAX_REMOTE_IMAGE_BYTES) {
-      throw new RemoteImageTooLargeError(failureContext, buffer.length);
-    }
+    const buffer = await readRemoteImageResponse(response, failureContext);
 
     return boundRemoteImageSource(
       {
@@ -488,7 +489,7 @@ async function boundRemoteImageSource(
     metadata = await sharp(source.buffer, SHARP_INPUT_OPTIONS).metadata();
     ({ width, height } = metadata.autoOrient);
   } catch (error) {
-    if (sourceIsSvg) throw error;
+    if (sourceIsSvg || isPixelLimitError(error)) throw error;
     return source; // 交给后续环节按原逻辑处理（包括像素超限报错）
   }
   sourceIsSvg ||= metadata.format === "svg";
@@ -504,20 +505,22 @@ async function boundRemoteImageSource(
 
   const targetDimension =
     density === null ? WORKING_IMAGE_MAX_DIMENSION : SVG_WORKING_IMAGE_MAX_DIMENSION;
-  const { data, info } = await sharp(source.buffer, {
-    ...SHARP_INPUT_OPTIONS,
-    ...(density === null ? {} : { density }),
-  })
-    .rotate()
-    .resize({
-      width: targetDimension,
-      height: targetDimension,
-      fit: "inside",
-      withoutEnlargement: density === null,
+  const { data, info } = await withImageDecodeSlot("working-image", () =>
+    sharp(source.buffer, {
+      ...SHARP_INPUT_OPTIONS,
+      ...(density === null ? {} : { density }),
     })
-    .flatten({ background: "#fff" })
-    .jpeg({ quality: WORKING_IMAGE_JPEG_QUALITY })
-    .toBuffer({ resolveWithObject: true });
+      .rotate()
+      .resize({
+        width: targetDimension,
+        height: targetDimension,
+        fit: "inside",
+        withoutEnlargement: density === null,
+      })
+      .flatten({ background: "#fff" })
+      .jpeg({ quality: WORKING_IMAGE_JPEG_QUALITY })
+      .toBuffer({ resolveWithObject: true }),
+  );
   rootLogger.info({
     msg: sourceIsSvg
       ? "SVG rasterized to JPEG working image"
@@ -553,6 +556,14 @@ function isPixelLimitError(error: unknown) {
 /** 图片过大：下载字节数或像素数超过上限，调用方可以退回缩略图。 */
 export function isImageTooLargeError(error: unknown) {
   return error instanceof RemoteImageTooLargeError || isPixelLimitError(error);
+}
+
+export function readRemoteImageResponse(response: Response, failureContext: string) {
+  return readImageResponse(
+    response,
+    MAX_REMOTE_IMAGE_BYTES,
+    (bytes) => new RemoteImageTooLargeError(failureContext, bytes),
+  );
 }
 
 export class RemoteImageTooLargeError extends Error {
@@ -623,10 +634,12 @@ async function prepareRemoteImageInput(
       });
     }
 
-    const { data, info } = await pipeline
-      .flatten({ background: "#fff" })
-      .jpeg({ quality: jpegQuality })
-      .toBuffer({ resolveWithObject: true });
+    const { data, info } = await withImageDecodeSlot("classification-preview", () =>
+      pipeline
+        .flatten({ background: "#fff" })
+        .jpeg({ quality: jpegQuality })
+        .toBuffer({ resolveWithObject: true }),
+    );
 
     return {
       width: info.width,
@@ -787,22 +800,24 @@ export async function cropImageToDataUrl({
   const height = Math.max(1, bottom - top);
 
   try {
-    const jpegBuffer = await sharp(sourceBuffer)
-      .extract({
-        left,
-        top,
-        width,
-        height,
-      })
-      .flatten({ background: "#fff" })
-      .resize({
-        width: MAX_CROP_DIMENSION,
-        height: MAX_CROP_DIMENSION,
-        fit: "inside",
-        withoutEnlargement: true,
-      })
-      .jpeg({ quality: IMAGE_JPEG_QUALITY })
-      .toBuffer();
+    const jpegBuffer = await withImageDecodeSlot("classification-crop", () =>
+      sharp(sourceBuffer, SHARP_INPUT_OPTIONS)
+        .extract({
+          left,
+          top,
+          width,
+          height,
+        })
+        .flatten({ background: "#fff" })
+        .resize({
+          width: MAX_CROP_DIMENSION,
+          height: MAX_CROP_DIMENSION,
+          fit: "inside",
+          withoutEnlargement: true,
+        })
+        .jpeg({ quality: IMAGE_JPEG_QUALITY })
+        .toBuffer(),
+    );
 
     return bufferToDataUrl(jpegBuffer, "image/jpeg");
   } catch (error) {

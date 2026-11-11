@@ -3,6 +3,8 @@ import { buildFeatureDecisionMessages } from "@/lib/feature-decision/prompts";
 import sharp from "sharp";
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("server-only", () => ({}));
+
 async function sample(color: string) {
   const buffer = await sharp({ create: { width: 64, height: 64, channels: 3, background: color } }).png().toBuffer();
   return `data:image/png;base64,${buffer.toString("base64")}`;

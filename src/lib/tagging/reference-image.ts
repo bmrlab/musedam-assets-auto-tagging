@@ -11,6 +11,7 @@ import {
 } from "@/lib/brand/upload-constants";
 import { getSvgRasterDensity } from "@/lib/tagging/svg-rasterization";
 import sharp from "sharp";
+import { withImageDecodeSlot } from "./image-memory";
 
 const MAX_COMPRESSION_ATTEMPTS = 6;
 const MIN_JPEG_QUALITY = 50;
@@ -47,17 +48,23 @@ export async function prepareReferenceImageBuffer(
   const density = getSvgRasterDensity(await sharp(sourceBuffer).metadata(), requestedMaxDimension);
 
   for (let attempt = 0; attempt < MAX_COMPRESSION_ATTEMPTS; attempt += 1) {
-    const { data, info } = await sharp(sourceBuffer, density === null ? undefined : { density })
-      .rotate()
-      .resize({
-        width: maxDimension,
-        height: maxDimension,
-        fit: "inside",
-        withoutEnlargement: density === null,
+    const { data, info } = await withImageDecodeSlot("reference-image", () =>
+      sharp(sourceBuffer, {
+        sequentialRead: true,
+        limitInputPixels: 120_000_000,
+        ...(density === null ? {} : { density }),
       })
-      .flatten({ background: "#fff" })
-      .jpeg({ quality })
-      .toBuffer({ resolveWithObject: true });
+        .rotate()
+        .resize({
+          width: maxDimension,
+          height: maxDimension,
+          fit: "inside",
+          withoutEnlargement: density === null,
+        })
+        .flatten({ background: "#fff" })
+        .jpeg({ quality })
+        .toBuffer({ resolveWithObject: true }),
+    );
 
     if (data.length <= targetBytes) {
       return {
@@ -91,26 +98,32 @@ export async function prepareSquareEmbeddingImageBuffer(
   const density = region
     ? null
     : getSvgRasterDensity(await sharp(sourceBuffer).metadata(), JINA_SQUARE_IMAGE_DIMENSION);
-  let pipeline = sharp(sourceBuffer, density === null ? undefined : { density }).rotate();
+  let pipeline = sharp(sourceBuffer, {
+    sequentialRead: true,
+    limitInputPixels: 120_000_000,
+    ...(density === null ? {} : { density }),
+  }).rotate();
   if (region) {
     pipeline = pipeline.extract(region);
   }
 
-  return pipeline
-    .toColourspace("srgb")
-    .flatten({ background: "#fff" })
-    .resize({
-      width: JINA_SQUARE_IMAGE_DIMENSION,
-      height: JINA_SQUARE_IMAGE_DIMENSION,
-      fit: "contain",
-      position: "centre",
-      background: "#fff",
-      kernel: sharp.kernel.cubic,
-      withoutEnlargement: false,
-    })
-    .removeAlpha()
-    .png()
-    .toBuffer();
+  return withImageDecodeSlot("embedding-image", () =>
+    pipeline
+      .toColourspace("srgb")
+      .flatten({ background: "#fff" })
+      .resize({
+        width: JINA_SQUARE_IMAGE_DIMENSION,
+        height: JINA_SQUARE_IMAGE_DIMENSION,
+        fit: "contain",
+        position: "centre",
+        background: "#fff",
+        kernel: sharp.kernel.cubic,
+        withoutEnlargement: false,
+      })
+      .removeAlpha()
+      .png()
+      .toBuffer(),
+  );
 }
 
 function dataUrlToBuffer(image: string) {

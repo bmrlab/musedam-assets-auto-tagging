@@ -3,6 +3,12 @@ import { queueAbortSignal } from "@/lib/tagging/queue-execution";
 
 import "server-only";
 
+import {
+  checkTaggingPrompt,
+  isLLMInputTooLargeError,
+  TAGGING_INPUT_TOO_LARGE,
+  taggingInputTooLargeError,
+} from "@/ai/input-budget";
 import { resolveModelChain, runWithModelFallback } from "@/ai/model-fallback";
 import { llm, LLMModelName } from "@/ai/provider";
 import { LLM_TIMEOUT_MS } from "@/lib/tagging/external-timeouts";
@@ -1272,7 +1278,9 @@ export async function predictRequiredGroupChoices({
         providerOptions: getTaggingPredictProviderOptions(modelName, teamId),
         abortSignal: queueAbortSignal(AbortSignal.timeout(LLM_TIMEOUT_MS)),
         system: `你是数字资产管理系统的打标助手。下面这些分类被管理员设置为"必打"：每个素材都必须在该分类下选出恰好一个标签，哪怕证据不足也要选最可能的那个，不允许不选。只输出 JSON：{"choices":[{"parentId":<分类 id>,"leafTagId":<所选标签 id>}]}，每个必打分类恰好一条，leafTagId 必须来自该分类下列出的候选。`,
-        prompt: `# 素材信息\n${assetSummary}\n\n# 需要选择的必打分类\n${groupsText}`,
+        prompt: checkTaggingPrompt(
+          `# 素材信息\n${assetSummary}\n\n# 需要选择的必打分类\n${groupsText}`,
+        ),
         temperature: 0,
       }),
     );
@@ -1362,7 +1370,9 @@ export async function predictUnparsedSizeTags({
 - "长"/"高"通常指纵向像素，"宽"指横向像素；"自适应"/"不限"表示该边不做要求。
 - 只有尺寸明确满足标签描述时才选；"约""左右"之类的描述允许 5% 以内误差；说不清的不要选，可以一个都不选。
 - 只输出 JSON：{"matches":[{"leafTagId":<候选 id>,"confidence":<0-1>}]}，leafTagId 必须来自候选列表。`,
-        prompt: `# 素材\n文件名：${assetName}\n像素尺寸：宽 ${width} × 高 ${height}\n\n# 候选规格标签\n${candidatesText}`,
+        prompt: checkTaggingPrompt(
+          `# 素材\n文件名：${assetName}\n像素尺寸：宽 ${width} × 高 ${height}\n\n# 候选规格标签\n${candidatesText}`,
+        ),
         temperature: 0,
       }),
     );
@@ -1645,6 +1655,10 @@ ${sourceSections.join("\n\n")}
     },
   ];
 
+  // Validate the actual rendered request, not just candidate estimates. Do this before
+  // seed serialization and retries so oversized asset text cannot bypass the tree budget.
+  checkTaggingPrompt(tagPredictionSystemPrompt(recognitionAccuracyMode) + JSON.stringify(messages));
+
   // 用于返回，记录在数据库里
   const inputPrompt = messages[1].content as string;
   const stableSeed = buildStableSeed(
@@ -1854,9 +1868,14 @@ ${sourceSections.join("\n\n")}
         },
       };
     } catch (error) {
+      if (isLLMInputTooLargeError(error)) throw taggingInputTooLargeError();
       // 标签树为空不重试
       const code = getErrorCode(error);
-      if (code === "NO_TAG_TREE" || code === "NO_MATCHING_SOURCES_ENABLED") {
+      if (
+        code === "NO_TAG_TREE" ||
+        code === "NO_MATCHING_SOURCES_ENABLED" ||
+        code === TAGGING_INPUT_TOO_LARGE
+      ) {
         throw error;
       }
       lastError = error;
@@ -1866,7 +1885,14 @@ ${sourceSections.join("\n\n")}
   // NO_VALID_TAGS 属于常见的可预期失败（例如素材信息不足/无匹配标签），避免刷屏打印 stack
   const lastErrorCode = getErrorCode(lastError);
   if (lastErrorCode !== "NO_VALID_TAGS" && lastErrorCode !== "NO_MATCHING_SOURCES_ENABLED") {
-    console.error("AI标签预测失败:", lastError);
+    // SDK errors retain the entire request payload; logging them can duplicate a huge
+    // prompt and produce thousands of log lines. Keep attribution and a bounded message.
+    console.error("AI标签预测失败:", {
+      teamId: asset.teamId,
+      assetObjectId: asset.id,
+      errorCode: lastErrorCode,
+      error: (lastError instanceof Error ? lastError.message : String(lastError)).slice(0, 1000),
+    });
   }
   if (lastErrorCode === "NO_MATCHING_SOURCES_ENABLED") {
     throw taggingPredictError(

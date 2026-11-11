@@ -9,6 +9,7 @@ import {
   cropImageToDataUrl as cropClassificationImageToDataUrl,
   getResponseByteLength,
   prepareSvgCropSource,
+  readRemoteImageResponse,
   withHeavyImageSlot,
 } from "@/lib/tagging/classification-image";
 import { IMAGE_FETCH_TIMEOUT_MS } from "@/lib/tagging/external-timeouts";
@@ -88,7 +89,7 @@ async function fetchImageAsDataUrl(
 
   // 大图串行下载（不缩小：局部特征的裁剪坐标是相对原图的）
   return withHeavyImageSlot(getResponseByteLength(response), async () => {
-    const buffer = Buffer.from(await response.arrayBuffer());
+    const buffer = await readRemoteImageResponse(response, "IP reference");
     scheduleReferenceThumbnail(objectKey, buffer);
     return { dataUrl: bufferToDataUrl(buffer, mimeType), buffer };
   });
