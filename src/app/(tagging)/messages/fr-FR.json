@@ -551,6 +551,17 @@
       "pendingFeatureConfirmation": "Pending confirmation",
       "recognitionEvidence": "Recognition evidence",
       "evidenceNotRecorded": "Not recorded",
+      "confidenceHints": {
+        "high": "Confiance élevée ; adoption recommandée",
+        "medium": "Confiance moyenne ; vérifications ponctuelles recommandées",
+        "low": "Confiance faible ; confirmation manuelle recommandée"
+      },
+      "tagEvidenceSources": {
+        "basicInfo": "Correspondance des informations de base",
+        "materializedPath": "Correspondance du chemin du dossier",
+        "contentAnalysis": "Correspondance de l’analyse du contenu",
+        "tagKeywords": "Correspondance de mots-clés"
+      },
       "evidenceDetails": "View recognition reason",
       "evidenceSources": {
         "retrieval": "Vector",

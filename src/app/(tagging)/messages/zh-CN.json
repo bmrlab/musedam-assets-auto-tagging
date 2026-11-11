@@ -878,6 +878,17 @@
       "pendingFeatureConfirmation": "待确认",
       "recognitionEvidence": "识别依据",
       "evidenceNotRecorded": "历史结果未记录",
+      "confidenceHints": {
+        "high": "识别结果可信度高，建议直接采用",
+        "medium": "识别结果较为可信，建议抽查",
+        "low": "识别结果可信度较低，建议人工确认"
+      },
+      "tagEvidenceSources": {
+        "basicInfo": "基础信息匹配",
+        "materializedPath": "文件夹路径匹配",
+        "contentAnalysis": "智能解析匹配",
+        "tagKeywords": "关键词匹配"
+      },
       "evidenceDetails": "查看识别原因",
       "evidenceSources": {
         "retrieval": "向量",

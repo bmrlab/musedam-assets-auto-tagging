@@ -801,6 +801,17 @@
       "pendingFeatureConfirmation": "Pending confirmation",
       "recognitionEvidence": "Recognition evidence",
       "evidenceNotRecorded": "Not recorded",
+      "confidenceHints": {
+        "high": "Wysoka pewność; zalecane przyjęcie",
+        "medium": "Średnia pewność; zalecana kontrola wyrywkowa",
+        "low": "Niska pewność; zalecane potwierdzenie ręczne"
+      },
+      "tagEvidenceSources": {
+        "basicInfo": "Dopasowanie informacji podstawowych",
+        "materializedPath": "Dopasowanie ścieżki folderu",
+        "contentAnalysis": "Dopasowanie analizy treści",
+        "tagKeywords": "Dopasowanie słów kluczowych"
+      },
       "evidenceDetails": "View recognition reason",
       "evidenceSources": {
         "retrieval": "Vector",

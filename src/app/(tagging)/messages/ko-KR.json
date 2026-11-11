@@ -193,6 +193,17 @@
       "pendingFeatureConfirmation": "Pending confirmation",
       "recognitionEvidence": "Recognition evidence",
       "evidenceNotRecorded": "Not recorded",
+      "confidenceHints": {
+        "high": "신뢰도가 높아 적용을 권장합니다",
+        "medium": "신뢰도가 보통으로 표본 검토를 권장합니다",
+        "low": "신뢰도가 낮아 수동 확인을 권장합니다"
+      },
+      "tagEvidenceSources": {
+        "basicInfo": "기본 정보 일치",
+        "materializedPath": "폴더 경로 일치",
+        "contentAnalysis": "콘텐츠 분석 일치",
+        "tagKeywords": "키워드 매칭"
+      },
       "evidenceDetails": "View recognition reason",
       "evidenceSources": {
         "retrieval": "Vector",

@@ -3,8 +3,11 @@ import { Button } from "@/components/ui/button";
 import { ClockCircleIcon, TagAIIcon } from "@/components/ui/icons";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { MetadataPrediction } from "@/lib/metadata/types";
+import { cn } from "@/lib/utils";
 import { CheckIcon, XIcon } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
+import { ReviewConfidence } from "./components/ReviewConfidence";
+import { ReviewEvidenceDropdown } from "./components/ReviewEvidenceDropdown";
 export type MetadataSuggestion = {
   id: number;
   status: string;
@@ -15,26 +18,29 @@ export function MetadataReviewSuggestions({
   rows,
   createdAt,
   busy,
-  onReview,
+  excludedIds = [],
+  onToggle,
 }: {
   rows: MetadataSuggestion[];
   createdAt?: Date | string;
   busy?: boolean;
-  onReview: (ids: number[], action: "approve" | "reject") => void;
+  excludedIds?: number[];
+  onToggle: (id: number) => void;
 }) {
   const t = useTranslations("Tagging.Metadata");
   const locale = useLocale();
+  const tr = useTranslations("Tagging.Review");
   const sources = {
     basicInfo: "sourceBasicInfo",
     materializedPath: "sourceMaterializedPath",
     contentAnalysis: "sourceContentAnalysis",
   } as const;
   return (
-    <section className="flex min-w-0 flex-1 flex-col gap-3 rounded-lg bg-basic-1 p-4 text-sm leading-[22px]">
+    <section className="flex min-w-0 flex-1 flex-col gap-3 rounded-md bg-basic-1/80 p-4 dark:bg-basic-1 text-sm leading-[22px]">
       <div className="flex flex-wrap items-center gap-2">
         <TagAIIcon className="size-4 shrink-0" />
         <h3 className="font-medium">{t("aiTitle")}</h3>
-        <span className="text-xs text-basic-5 dark:text-basic-6">{t("emptyFieldsHint")}</span>
+        <span className="text-xs text-basic-5 dark:text-basic-6">{t("fillHint")}</span>
         {createdAt && (
           <time
             dateTime={new Date(createdAt).toISOString()}
@@ -54,81 +60,76 @@ export function MetadataReviewSuggestions({
       </div>
       {!rows.length && <p className="text-[13px] text-basic-5 dark:text-basic-6">{t("empty")}</p>}
       <TooltipProvider>
-        <div className="flex flex-wrap items-start gap-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {rows.map(({ id, status, prediction: item, available = true }) => {
-            const tone =
-              item.score >= 80
-                ? "border-primary-6 text-primary-6 dark:border-primary-8/60 dark:text-primary-8"
-                : item.score >= 60
-                  ? "border-success-7 text-success-7 dark:text-success-5"
-                  : "border-warning-7 text-warning-7 dark:text-warning-5";
+            const excluded = excludedIds.includes(id);
+            const tone = excluded
+              ? "border-dashed border-basic-4 bg-basic-2 text-basic-5 dark:text-basic-6"
+              : item.score >= 80
+                ? "border-primary-3 bg-primary-1 text-primary-6 dark:border-primary-8/60 dark:bg-primary-6/15 dark:text-primary-8"
+                : item.score >= 70
+                  ? "border-success-3 bg-success-1 text-success-7 dark:border-success-5/60 dark:bg-success-6/10 dark:text-success-5"
+                  : "border-warning-3 bg-warning-1 text-warning-7 dark:border-warning-5/60 dark:bg-warning-6/10 dark:text-warning-5";
             const label = `${item.fieldName}：${item.checked === undefined ? item.labels.join("、") : t(item.checked ? "checked" : "unchecked")}`;
             return (
               <div
                 key={id}
-                className={`group flex max-w-full items-center gap-2 rounded-md border border-dashed px-2 py-1 ${tone} ${!available && status === "pending" ? "opacity-50" : ""}`}
+                className={cn(
+                  "group flex min-w-0 items-center gap-2 rounded-md border p-3",
+                  tone,
+                  !available && status === "pending" && "opacity-50",
+                )}
               >
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      className="flex min-w-0 flex-wrap items-center gap-2 text-left text-[13px] leading-[22px] outline-none focus-visible:ring-2 focus-visible:ring-primary-6"
-                      aria-label={`${label} · ${t("confidence")} ${Math.round(item.score)}%`}
-                    >
-                      <span className="break-words">{label}</span>
-                      <span
-                        role="meter"
-                        aria-label={t("confidence")}
-                        aria-valuemin={0}
-                        aria-valuemax={100}
-                        aria-valuenow={Math.round(item.score)}
-                        className="flex w-12 shrink-0 overflow-hidden rounded-full bg-basic-3 dark:bg-basic-4"
-                      >
-                        <span
-                          className="h-[3px] bg-current"
-                          style={{ width: `${Math.max(0, Math.min(100, item.score))}%` }}
-                        />
-                      </span>
-                      <span className="text-xs">
-                        {t(item.score >= 80 ? "high" : item.score >= 60 ? "medium" : "low")}
-                      </span>
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-80 text-xs leading-5">
-                    <p>
-                      {t("confidence")}：{Math.round(item.score)}%
-                    </p>
-                    {item.sources.map((source, i) => (
-                      <p key={i}>
-                        {t(sources[source.source])}：{source.evidence}
-                      </p>
-                    ))}
-                    {!available && status === "pending" && <p>{t("unavailable")}</p>}
-                  </TooltipContent>
-                </Tooltip>
+                <span className="min-w-0 flex-1 break-words text-[13px] leading-[22px]">
+                  {label}
+                </span>
+                <span
+                  role="meter"
+                  aria-label={t("confidence")}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={Math.round(item.score)}
+                  className="flex w-12 shrink-0 overflow-hidden rounded-full bg-current/20"
+                >
+                  <span
+                    className="h-1 bg-current"
+                    style={{ width: `${Math.max(0, Math.min(100, item.score))}%` }}
+                  />
+                </span>
+                <ReviewConfidence score={item.score} />
+                <ReviewEvidenceDropdown name={label}>
+                  {item.sources.length ? (
+                    item.sources.map((source, i) => (
+                      <div key={i} className="flex min-w-0 flex-col gap-1">
+                        <span className="text-xs text-basic-5 dark:text-basic-6">
+                          {t(sources[source.source])}
+                        </span>
+                        <p className="whitespace-pre-wrap break-words">
+                          {source.evidence || tr("evidenceNotRecorded")}
+                        </p>
+                      </div>
+                    ))
+                  ) : (
+                    <p>{tr("evidenceNotRecorded")}</p>
+                  )}
+                  {!available && status === "pending" && <p>{t("unavailable")}</p>}
+                </ReviewEvidenceDropdown>
                 {status === "pending" ? (
-                  <div className="flex shrink-0 items-center">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-5 text-basic-5 hover:text-primary-6 dark:text-basic-6"
-                      disabled={busy || !available}
-                      aria-label={`${t("approve")} ${item.fieldName}`}
-                      onClick={() => onReview([id], "approve")}
-                    >
-                      <CheckIcon className="size-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-5 w-0 p-0 text-basic-5 opacity-0 transition-[width,opacity] hover:text-danger-6 group-hover:w-5 group-hover:opacity-100 focus-visible:w-5 focus-visible:opacity-100 dark:text-basic-6"
-                      disabled={busy}
-                      aria-label={`${t("reject")} ${item.fieldName}`}
-                      onClick={() => onReview([id], "reject")}
-                    >
-                      <XIcon className="size-3" />
-                    </Button>
-                  </div>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-5 shrink-0 bg-transparent text-basic-5 hover:bg-transparent hover:text-current focus-visible:ring-2 focus-visible:ring-primary-6 dark:text-basic-6"
+                        disabled={busy || (excluded && !available)}
+                        aria-label={`${tr(excluded ? "tooltipAdd" : "tooltipRemove")} ${item.fieldName}`}
+                        onClick={() => onToggle(id)}
+                      >
+                        {excluded ? <CheckIcon className="size-3" /> : <XIcon className="size-3" />}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>{tr(excluded ? "tooltipAdd" : "tooltipRemove")}</TooltipContent>
+                  </Tooltip>
                 ) : (
                   <span className="text-xs text-basic-5 dark:text-basic-6">
                     {t(status === "approved" ? "approved" : "rejected")}

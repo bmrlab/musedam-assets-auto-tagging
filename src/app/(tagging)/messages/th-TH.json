@@ -551,6 +551,17 @@
       "pendingFeatureConfirmation": "Pending confirmation",
       "recognitionEvidence": "Recognition evidence",
       "evidenceNotRecorded": "Not recorded",
+      "confidenceHints": {
+        "high": "ความเชื่อมั่นสูง แนะนำให้นำไปใช้",
+        "medium": "ความเชื่อมั่นปานกลาง แนะนำให้สุ่มตรวจ",
+        "low": "ความเชื่อมั่นต่ำ แนะนำให้ยืนยันด้วยตนเอง"
+      },
+      "tagEvidenceSources": {
+        "basicInfo": "จับคู่ข้อมูลพื้นฐาน",
+        "materializedPath": "จับคู่เส้นทางโฟลเดอร์",
+        "contentAnalysis": "จับคู่การวิเคราะห์เนื้อหา",
+        "tagKeywords": "การจับคู่คำสำคัญ"
+      },
       "evidenceDetails": "View recognition reason",
       "evidenceSources": {
         "retrieval": "Vector",

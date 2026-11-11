@@ -801,6 +801,17 @@
       "pendingFeatureConfirmation": "Pending confirmation",
       "recognitionEvidence": "Recognition evidence",
       "evidenceNotRecorded": "Not recorded",
+      "confidenceHints": {
+        "high": "Độ tin cậy cao; nên áp dụng",
+        "medium": "Độ tin cậy trung bình; nên kiểm tra mẫu",
+        "low": "Độ tin cậy thấp; nên xác nhận thủ công"
+      },
+      "tagEvidenceSources": {
+        "basicInfo": "Khớp thông tin cơ bản",
+        "materializedPath": "Khớp đường dẫn thư mục",
+        "contentAnalysis": "Khớp phân tích nội dung",
+        "tagKeywords": "Khớp từ khóa"
+      },
       "evidenceDetails": "View recognition reason",
       "evidenceSources": {
         "retrieval": "Vector",

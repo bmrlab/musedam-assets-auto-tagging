@@ -551,6 +551,17 @@
       "pendingFeatureConfirmation": "Pending confirmation",
       "recognitionEvidence": "Recognition evidence",
       "evidenceNotRecorded": "Not recorded",
+      "confidenceHints": {
+        "high": "Affidabilità alta; adozione consigliata",
+        "medium": "Affidabilità media; controlli a campione consigliati",
+        "low": "Affidabilità bassa; conferma manuale consigliata"
+      },
+      "tagEvidenceSources": {
+        "basicInfo": "Corrispondenza delle informazioni di base",
+        "materializedPath": "Corrispondenza del percorso della cartella",
+        "contentAnalysis": "Corrispondenza dell’analisi dei contenuti",
+        "tagKeywords": "Corrispondenza parole chiave"
+      },
       "evidenceDetails": "View recognition reason",
       "evidenceSources": {
         "retrieval": "Vector",

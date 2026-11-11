@@ -193,6 +193,17 @@
       "pendingFeatureConfirmation": "Pending confirmation",
       "recognitionEvidence": "Recognition evidence",
       "evidenceNotRecorded": "Not recorded",
+      "confidenceHints": {
+        "high": "उच्च विश्वसनीयता; अपनाने की सलाह दी जाती है",
+        "medium": "मध्यम विश्वसनीयता; नमूना जाँच की सलाह दी जाती है",
+        "low": "कम विश्वसनीयता; मैन्युअल पुष्टि की सलाह दी जाती है"
+      },
+      "tagEvidenceSources": {
+        "basicInfo": "बुनियादी जानकारी का मिलान",
+        "materializedPath": "फ़ोल्डर पथ का मिलान",
+        "contentAnalysis": "सामग्री विश्लेषण का मिलान",
+        "tagKeywords": "कीवर्ड मिलान"
+      },
       "evidenceDetails": "View recognition reason",
       "evidenceSources": {
         "retrieval": "Vector",

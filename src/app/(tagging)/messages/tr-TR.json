@@ -801,6 +801,17 @@
       "pendingFeatureConfirmation": "Pending confirmation",
       "recognitionEvidence": "Recognition evidence",
       "evidenceNotRecorded": "Not recorded",
+      "confidenceHints": {
+        "high": "Yüksek güven; uygulanması önerilir",
+        "medium": "Orta güven; örnekleme kontrolü önerilir",
+        "low": "Düşük güven; manuel onay önerilir"
+      },
+      "tagEvidenceSources": {
+        "basicInfo": "Temel bilgi eşleşmesi",
+        "materializedPath": "Klasör yolu eşleşmesi",
+        "contentAnalysis": "İçerik analizi eşleşmesi",
+        "tagKeywords": "Anahtar kelime eşleştirme"
+      },
       "evidenceDetails": "View recognition reason",
       "evidenceSources": {
         "retrieval": "Vector",

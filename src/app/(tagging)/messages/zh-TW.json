@@ -193,6 +193,17 @@
       "pendingFeatureConfirmation": "待確認",
       "recognitionEvidence": "識別依據",
       "evidenceNotRecorded": "歷史結果未記錄",
+      "confidenceHints": {
+        "high": "識別結果可信度高，建議直接採用",
+        "medium": "識別結果較為可信，建議抽查",
+        "low": "識別結果可信度較低，建議人工確認"
+      },
+      "tagEvidenceSources": {
+        "basicInfo": "基本資訊比對",
+        "materializedPath": "資料夾路徑比對",
+        "contentAnalysis": "智慧解析比對",
+        "tagKeywords": "關鍵字匹配"
+      },
       "evidenceDetails": "查看識別原因",
       "evidenceSources": {
         "retrieval": "向量",

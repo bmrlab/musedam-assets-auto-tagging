@@ -25,6 +25,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { fetchMetadataReviewAssets, reviewMetadata } from "./metadata-actions";
 import { defaultMetadataReviewFilters, type MetadataReviewFilters } from "./metadata-review-query";
+import { applyMetadataReviewSelection } from "./metadata-review-selection";
 import { MetadataCurrentValues } from "./MetadataCurrentValues";
 import { MetadataReviewSuggestions } from "./MetadataReviewSuggestions";
 import type { ReviewStatus } from "./unmatched-query";
@@ -45,6 +46,7 @@ export function MetadataReviewPanel({
   const [pageSize, setPageSize] = useState(40);
   const [filters, setFilters] = useState({ ...defaultMetadataReviewFilters, status: initialStatus });
   const [search, setSearch] = useState("");
+  const [excludedIds, setExcludedIds] = useState<number[]>([]);
   const [selected, setSelected] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -97,10 +99,15 @@ export function MetadataReviewPanel({
     try {
       let applied = 0,
         skipped = 0;
-      for (let i = 0; i < ids.length; i += 100) {
-        const result = await reviewMetadata(ids.slice(i, i + 100), action);
+      const review = async (batch: number[], decision: "approve" | "reject") => {
+        const result = await reviewMetadata(batch, decision);
         applied += result.applied;
-        skipped += result.skipped;
+        if (decision === "approve") skipped += result.skipped;
+      };
+      if (action === "approve") {
+        await applyMetadataReviewSelection(ids.map(id => ({ id, status: "pending" })), excludedIds, review);
+      } else {
+        for (let i = 0; i < ids.length; i += 100) await review(ids.slice(i, i + 100), action);
       }
       if (action === "approve" && skipped) toast.message(t("manualKept"));
       if (applied) toast.success(t("appliedCount", { count: applied }));
@@ -168,7 +175,7 @@ export function MetadataReviewPanel({
               <Button
                 size="sm"
                 disabled={
-                  disabled || !selectedRows.length || selectedRows.some((r) => !r.available)
+                  disabled || !selectedRows.length || selectedRows.some((r) => !r.available && !excludedIds.includes(r.id))
                 }
                 onClick={() =>
                   act(
@@ -342,7 +349,7 @@ export function MetadataReviewPanel({
                       <Button
                         size="sm"
                         className="rounded-md"
-                        disabled={disabled || pending.some((row) => !row.available)}
+                        disabled={disabled || pending.some((row) => !row.available && !excludedIds.includes(row.id))}
                         onClick={() =>
                           act(
                             pending.map((row) => row.id),
@@ -371,7 +378,7 @@ export function MetadataReviewPanel({
                     </div>
                   )}
                 </div>
-                <div className="flex flex-col gap-4 lg:flex-row">
+                <div className="flex min-w-0 flex-col gap-4">
                   <MetadataCurrentValues
                     assetObjectId={asset.assetObject.id}
                     refreshKey={`${refresh}`}
@@ -380,7 +387,9 @@ export function MetadataReviewPanel({
                     rows={asset.rows}
                     createdAt={asset.createdAt}
                     busy={disabled}
-                    onReview={act}
+                    excludedIds={excludedIds}
+                    onToggle={(id) => setExcludedIds(current => current.includes(id)
+                      ? current.filter(item => item !== id) : [...current, id])}
                   />
                 </div>
               </article>

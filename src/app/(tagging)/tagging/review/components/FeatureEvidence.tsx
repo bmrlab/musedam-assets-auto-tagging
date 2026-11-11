@@ -22,10 +22,7 @@ export function FeatureEvidence({ evidence, reason }: { evidence?: Evidence[]; r
         )}
       </div>
       {reason ? (
-        <details className="mt-1 break-words">
-          <summary className="cursor-pointer">{t("evidenceDetails")}</summary>
-          <p className="mt-1 whitespace-pre-wrap">{reason}</p>
-        </details>
+        <p className="mt-1 whitespace-pre-wrap break-words">{reason}</p>
       ) : null}
     </div>
   );

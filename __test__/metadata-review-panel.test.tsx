@@ -47,12 +47,24 @@ const mount = () =>
       <MetadataReviewPanel />
     </NextIntlClientProvider>,
   );
-it("shows one material card containing multiple fields and approves only the selected field from its check action", async () => {
+it("excludes a field without applying it immediately, and restores it before review", async () => {
   const { container } = mount();
   await screen.findByRole("heading", { name: "海报" });
   expect(container.querySelectorAll("article")).toHaveLength(1);
+  fireEvent.click(screen.getByRole("button", { name: "移除 投放渠道" }));
+  expect(mocks.review).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "添加 投放渠道" }));
-  await waitFor(() => expect(mocks.review).toHaveBeenCalledWith([1], "approve"));
+  fireEvent.click(screen.getByRole("button", { name: "添加" }));
+  await waitFor(() => expect(mocks.review).toHaveBeenCalledWith([1, 2], "approve"));
+});
+it("applies included fields and rejects excluded fields in bulk", async () => {
+  mount();
+  await screen.findByRole("heading", { name: "海报" });
+  fireEvent.click(screen.getByRole("button", { name: "移除 投放渠道" }));
+  fireEvent.click(screen.getByRole("checkbox", { name: "全选" }));
+  fireEvent.click(screen.getAllByRole("button", { name: "添加" })[0]);
+  await waitFor(() => expect(mocks.review).toHaveBeenCalledWith([2], "approve"));
+  expect(mocks.review).toHaveBeenCalledWith([1], "reject");
 });
 it("selects materials and reviews all their pending fields as one bulk action", async () => {
   mount();
@@ -68,7 +80,9 @@ it("blocks adding a changed field while allowing its review record to be removed
   });
   mount();
   await screen.findByRole("heading", { name: "海报" });
-  expect(screen.getByRole("button", { name: "添加 投放渠道" }).hasAttribute("disabled")).toBe(true);
+  expect(screen.getByRole("button", { name: "移除 投放渠道" }).hasAttribute("disabled")).toBe(
+    false,
+  );
   expect(screen.getByRole("button", { name: "添加" }).hasAttribute("disabled")).toBe(true);
   fireEvent.click(screen.getByRole("button", { name: "删除" }));
   await waitFor(() => expect(mocks.review).toHaveBeenCalledWith([1], "reject"));

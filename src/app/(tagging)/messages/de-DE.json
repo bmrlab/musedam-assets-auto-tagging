@@ -193,6 +193,17 @@
       "pendingFeatureConfirmation": "Pending confirmation",
       "recognitionEvidence": "Recognition evidence",
       "evidenceNotRecorded": "Not recorded",
+      "confidenceHints": {
+        "high": "Hohe Zuverlässigkeit; Übernahme empfohlen",
+        "medium": "Mittlere Zuverlässigkeit; Stichproben empfohlen",
+        "low": "Geringe Zuverlässigkeit; manuelle Prüfung empfohlen"
+      },
+      "tagEvidenceSources": {
+        "basicInfo": "Abgleich der Basisinformationen",
+        "materializedPath": "Abgleich des Ordnerpfads",
+        "contentAnalysis": "Abgleich der Inhaltsanalyse",
+        "tagKeywords": "Schlüsselwortabgleich"
+      },
       "evidenceDetails": "View recognition reason",
       "evidenceSources": {
         "retrieval": "Vector",

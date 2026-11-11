@@ -1,4 +1,5 @@
 "use client";
+import { applyMetadataReviewSelection } from "./metadata-review-selection";
 import { reviewMetadata } from "./metadata-actions";
 import { UnmatchedReviewPanel } from "./UnmatchedReviewPanel";
 import type { ReviewContent, ReviewStatus } from "./unmatched-query";
@@ -76,6 +77,7 @@ export default function ReviewPageClient({ metadataAvailable = false }: { metada
     listScrollRef.current?.scrollTo({ top: 0 });
   }, [currentPage, pageSize, statusFilter, confidenceFilter, searchQuery, timeFilter]);
   const [loading, setLoading] = useState(false);
+  const [excludedMetadataByAsset, setExcludedMetadataByAsset] = useState<Record<number, number[]>>({});
   const [rejectedFeaturesByAsset, setRejectedFeaturesByAsset] = useState<Record<number, string[]>>({});
   const [manualTagsByAsset, setManualTagsByAsset] = useState<Record<number, ReviewTagSearchResult[]>>({});
   const [manualFeaturesByAsset, setManualFeaturesByAsset] = useState<Record<number, ReviewFeatureSearchResult[]>>({});
@@ -184,6 +186,7 @@ export default function ReviewPageClient({ metadataAvailable = false }: { metada
     setManualTagsByAsset({});
     setManualFeaturesByAsset({});
     setRejectedFeaturesByAsset({});
+    setExcludedMetadataByAsset({});
     if (value !== "fields")
       void refreshDataWithFilters(
         1,
@@ -221,6 +224,7 @@ export default function ReviewPageClient({ metadataAvailable = false }: { metada
     setManualTagsByAsset({});
     setManualFeaturesByAsset({});
     setRejectedFeaturesByAsset({});
+    setExcludedMetadataByAsset({});
     await refreshDataWithFilters();
     toast.success(t(decision === "approve" ? "applySuccess" : "rejectSuccess"));
   };
@@ -285,8 +289,11 @@ export default function ReviewPageClient({ metadataAvailable = false }: { metada
 
       for (let start = 0; start < selectedAssets.length; start += BATCH_APPROVE_CHUNK_SIZE) {
         const chunk = selectedAssets.slice(start, start + BATCH_APPROVE_CHUNK_SIZE);
-        const metadataIds = chunk.flatMap(asset => (asset.metadataReviews || []).filter(item => item.status === "pending").map(item => item.id));
-        for (let start = 0; start < metadataIds.length; start += 100) await reviewMetadata(metadataIds.slice(start,start+100), "approve");
+        await applyMetadataReviewSelection(
+          chunk.flatMap(asset => asset.metadataReviews || []),
+          chunk.flatMap(asset => excludedMetadataByAsset[asset.assetObject.id] ?? []),
+          reviewMetadata,
+        );
         const result = chunk.every(asset => !asset.batch.length) ? { success: true as const, data: { failedCount: 0, deletedCount: 0, changedCount: 0 } } : await batchApproveAuditItemsAction({
           assetObjects: chunk.filter(asset => asset.batch.length > 0).map(({ assetObject, batch }) => ({
             id: assetObject.id,
@@ -341,7 +348,7 @@ export default function ReviewPageClient({ metadataAvailable = false }: { metada
     } finally {
       setLoading(false);
     }
-  }, [selectedAssets, rejectedFeaturesByAsset, manualFeaturesByAsset, manualTagsByAsset, contentFilter, t, refreshDataWithFilters]);
+  }, [selectedAssets, excludedMetadataByAsset, rejectedFeaturesByAsset, manualFeaturesByAsset, manualTagsByAsset, contentFilter, t, refreshDataWithFilters]);
 
   // 批量拒绝审核
   const handleBatchReject = useCallback(async () => {
@@ -556,6 +563,12 @@ export default function ReviewPageClient({ metadataAvailable = false }: { metada
             contentScope={contentFilter === "tags" || contentFilter === "features" ? contentFilter : "all"}
             {...asset}
             metadataAvailable={metadataAvailable}
+            excludedMetadataIds={excludedMetadataByAsset[asset.assetObject.id] ?? []}
+            onToggleMetadata={(id) => setExcludedMetadataByAsset(current => {
+              const excluded = current[asset.assetObject.id] ?? [];
+              return { ...current, [asset.assetObject.id]: excluded.includes(id)
+                ? excluded.filter(item => item !== id) : [...excluded, id] };
+            })}
             batchLoading={loading}
             rejectedFeatureKeys={rejectedFeaturesByAsset[asset.assetObject.id] ?? []}
             onToggleFeatureKey={(key) => setRejectedFeaturesByAsset((current) => {

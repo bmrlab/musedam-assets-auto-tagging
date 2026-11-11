@@ -193,6 +193,17 @@
       "pendingFeatureConfirmation": "Pending confirmation",
       "recognitionEvidence": "Recognition evidence",
       "evidenceNotRecorded": "Not recorded",
+      "confidenceHints": {
+        "high": "信頼度が高いため、採用を推奨します",
+        "medium": "信頼度は中程度です。抜き取り確認を推奨します",
+        "low": "信頼度が低いため、手動確認を推奨します"
+      },
+      "tagEvidenceSources": {
+        "basicInfo": "基本情報の一致",
+        "materializedPath": "フォルダーパスの一致",
+        "contentAnalysis": "コンテンツ解析の一致",
+        "tagKeywords": "キーワード一致"
+      },
       "evidenceDetails": "View recognition reason",
       "evidenceSources": {
         "retrieval": "Vector",

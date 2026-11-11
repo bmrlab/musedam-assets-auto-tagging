@@ -878,6 +878,17 @@
       "pendingFeatureConfirmation": "Pending confirmation",
       "recognitionEvidence": "Recognition evidence",
       "evidenceNotRecorded": "Not recorded",
+      "confidenceHints": {
+        "high": "High confidence; recommended for adoption",
+        "medium": "Moderate confidence; spot checks recommended",
+        "low": "Low confidence; manual confirmation recommended"
+      },
+      "tagEvidenceSources": {
+        "basicInfo": "Basic information match",
+        "materializedPath": "Folder path match",
+        "contentAnalysis": "Content analysis match",
+        "tagKeywords": "Keyword matching"
+      },
       "evidenceDetails": "View recognition reason",
       "evidenceSources": {
         "retrieval": "Vector",

@@ -41,8 +41,9 @@ export function MetadataCurrentValues({
         : typeof value === "object"
           ? JSON.stringify(value)
           : String(value);
+  if (values !== undefined && !failed && !rows.length) return null;
   return (
-    <section className="flex min-w-0 flex-1 flex-col gap-3 rounded-lg bg-basic-1 p-4">
+    <section className="flex min-w-0 flex-1 flex-col gap-3 rounded-md bg-basic-1/80 p-4">
       <h3 className="flex items-center gap-2 text-sm font-medium">
         <TablePropertiesIcon className="size-4" />
         {t("title")}

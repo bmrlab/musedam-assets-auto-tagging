@@ -1,4 +1,9 @@
 "use client";
+import { applyMetadataReviewSelection } from "./metadata-review-selection";
+import { ReviewConfidence } from "./components/ReviewConfidence";
+import { ReviewEvidenceDropdown } from "./components/ReviewEvidenceDropdown";
+import { FeatureEvidence } from "./components/FeatureEvidence";
+import type { FeatureDecisionMatch } from "@/lib/feature-decision/types";
 import { MetadataInlineReview } from "./MetadataInlineReview";
 import { reviewMetadata } from "./metadata-actions";
 import { BatchImageModeBadge } from "./components/BatchImageModeBadge";
@@ -38,6 +43,7 @@ import {
 } from "@/lib/feature-decision/match-policy";
 import { isFeatureTypeEnabled, isVideoAssetExtension } from "@/lib/feature-library";
 import {
+  PRIMARY_FACE_SIM_THRESHOLD,
   getPersonFaceBestRawSimilarity,
   isReviewablePersonFace,
   personSimilarityToConfidence,
@@ -148,8 +154,10 @@ function FeatureRecognitionRow({
   tooltipRemove,
   onPreview,
   thumbnail,
+  decision,
   showToggle = true,
 }: {
+  decision?: FeatureDecisionMatch;
   showToggle?: boolean;
   featureType: "brand" | "ip" | "product" | "person";
   featureId: string;
@@ -175,7 +183,7 @@ function FeatureRecognitionRow({
   return (
     <div
       className={cn(
-        "flex items-center justify-between gap-3 rounded-md border p-3",
+        "group flex items-center justify-between gap-3 rounded-md border p-3",
         rawSimilarity === undefined
           ? getFeatureConfidenceToneClass(confidence)
           : getPersonReviewConfidenceToneClass(rawSimilarity, confidence),
@@ -226,7 +234,15 @@ function FeatureRecognitionRow({
           value={confidence}
           className="w-[60px] bg-current/20 [&>[data-slot=progress-indicator]]:bg-current"
         />
-        <span className="w-8 text-right text-[10px]">{confidence}%</span>
+        <ReviewConfidence
+          score={confidence}
+          high={95}
+          medium={90}
+          level={rawSimilarity === undefined ? undefined : rawSimilarity < PRIMARY_FACE_SIM_THRESHOLD ? "low" : confidence >= 95 ? "high" : "medium"}
+        />
+        <ReviewEvidenceDropdown name={classifiedName}>
+          <FeatureEvidence evidence={decision?.evidence} reason={decision?.reason} />
+        </ReviewEvidenceDropdown>
         {showToggle ? <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -337,6 +353,8 @@ function ManualFeatureRow({
 export function ReviewItem({
   assetObject,
   existingFeatures = [],
+  excludedMetadataIds = [],
+  onToggleMetadata = () => {},
   metadataReviews = [],
   metadataAvailable = false,
   contentScope = "all",
@@ -357,6 +375,8 @@ export function ReviewItem({
 }: AssetWithAuditItemsBatch & {
   CheckboxComponent: React.ReactNode;
   batchLoading?: boolean;
+  excludedMetadataIds?: number[];
+  onToggleMetadata?: (id: number) => void;
   metadataAvailable?: boolean;
   contentScope?: "all" | "tags" | "features";
   rejectedFeatureKeys: string[];
@@ -658,8 +678,7 @@ export function ReviewItem({
       }
 
       try {
-        const metadataIds = metadataReviews.filter(item => item.status === "pending").map(item => item.id);
-        for (let start = 0; start < metadataIds.length; start += 100) await reviewMetadata(metadataIds.slice(start,start+100), "approve");
+        await applyMetadataReviewSelection(metadataReviews, excludedMetadataIds, reviewMetadata);
         if (!allAuditItems.length) { onSuccess?.(); return; }
         const result = await approveAuditItemsAction({
           assetSlug: assetObject.slug,
@@ -709,6 +728,7 @@ export function ReviewItem({
       manualFeatureKeys,
       manualTags,
       metadataReviews,
+      excludedMetadataIds,
       onSuccess,
       rejectedItems,
       t,
@@ -958,7 +978,7 @@ export function ReviewItem({
                           <div
                             key={auditItem.id}
                             className={cn(
-                              "relative max-w-full flex-wrap py-[6px] px-2 rounded-[6px] border items-center flex gap-2",
+                              "group relative max-w-full flex-wrap py-[6px] px-2 rounded-[6px] border items-center flex gap-2",
                               isRejectedItem
                                 ? "border-dashed text-basic-5 bg-basic-2 border-basic-4 dark:bg-basic-2"
                                 : {
@@ -991,8 +1011,22 @@ export function ReviewItem({
                                 value={auditItem.score}
                                 className="bg-current/20 [&>[data-slot=progress-indicator]]:bg-current w-[60px]"
                               />
-                              <span className="text-[10px]">{auditItem.score}%</span>
+                              <ReviewConfidence score={auditItem.score} />
                             </div>
+                            <ReviewEvidenceDropdown name={auditItem.tagPath.join(" > ")}>
+                              {(() => {
+                                const predictions = (queueItem.result as TaggingQueueItemResult | null)?.predictions ?? [];
+                                const hits = predictions.flatMap(group => group.tags
+                                  .filter(tag => tag.leafTagId === auditItem.leafTagId)
+                                  .map(tag => ({ source: group.source, evidence: tag.evidence, keywords: tag.matchedKeywords })));
+                                return hits.length ? hits.map((hit, index) => (
+                                  <div key={index} className="flex min-w-0 flex-col gap-1">
+                                    <span className="text-xs text-basic-5 dark:text-basic-6">{t(`tagEvidenceSources.${hit.source}`)}</span>
+                                    <p className="whitespace-pre-wrap break-words">{hit.evidence || (hit.keywords?.length ? hit.keywords.join("、") : t("evidenceNotRecorded"))}</p>
+                                  </div>
+                                )) : <p>{t("evidenceNotRecorded")}</p>;
+                              })()}
+                            </ReviewEvidenceDropdown>
                             {finalBatch.some((group) => group.queueItem.id === queueItem.id) &&
                             (auditItem.status === "pending" || auditItem.status === "rejected") &&
                             auditItem.leafTagId ? (
@@ -1279,6 +1313,7 @@ export function ReviewItem({
                         {featureRows.map((feature) => (
                           <FeatureRecognitionRow
                             key={feature.key}
+                            decision={(queueItem.result as TaggingQueueItemResult | null)?.featureDecision?.decision.result?.matches.find(match => match.candidateId === `${feature.featureType === "brand" ? "logo" : feature.featureType}:${feature.featureId}`)}
                             featureType={feature.featureType}
                             featureId={feature.featureId}
                             thumbnail={
@@ -1352,7 +1387,7 @@ export function ReviewItem({
           onConfirm={onAddManualFeatures}
         />
       ) : null}
-      {metadataAvailable && contentScope === "all" && <MetadataInlineReview assetObjectId={assetObject.id} rows={metadataReviews} onSuccess={onSuccess} />}
+      {metadataAvailable && contentScope === "all" && <MetadataInlineReview assetObjectId={assetObject.id} rows={metadataReviews} busy={realLoading || sourceDeleted} excludedIds={excludedMetadataIds} onToggle={onToggleMetadata} />}
       <ImagePreviewDialog
         image={previewImage}
         closeLabel={t("closePreview")}

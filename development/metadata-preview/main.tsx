@@ -20,6 +20,7 @@ function App() {
     document.documentElement.classList.toggle("dark", dark);
     return () => document.documentElement.classList.remove("dark");
   }, [dark]);
+  const [excludedIds, setExcludedIds] = useState<number[]>([]);
   const [tab, setTab] = useState("审核");
   const [tags, setTags] = useState(true);
   const [metadata, setMetadata] = useState(true);
@@ -145,6 +146,8 @@ function App() {
                 <h2 className="text-sm font-semibold">精华液主视觉.jpg · 全部内容中的字段区</h2>
                 <MetadataInlineReview
                   assetObjectId={1}
+                  excludedIds={excludedIds}
+                  onToggle={(id) => setExcludedIds(current => current.includes(id) ? current.filter(value => value !== id) : [...current, id])}
                   rows={[{ id: 1, status: "pending", prediction }]}
                 />
               </article>

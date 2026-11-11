@@ -193,6 +193,17 @@
       "pendingFeatureConfirmation": "Pending confirmation",
       "recognitionEvidence": "Recognition evidence",
       "evidenceNotRecorded": "Not recorded",
+      "confidenceHints": {
+        "high": "Высокая уверенность; рекомендуется принять",
+        "medium": "Средняя уверенность; рекомендуется выборочная проверка",
+        "low": "Низкая уверенность; рекомендуется ручная проверка"
+      },
+      "tagEvidenceSources": {
+        "basicInfo": "Совпадение основных сведений",
+        "materializedPath": "Совпадение пути папки",
+        "contentAnalysis": "Совпадение анализа содержимого",
+        "tagKeywords": "Совпадение ключевых слов"
+      },
       "evidenceDetails": "View recognition reason",
       "evidenceSources": {
         "retrieval": "Vector",

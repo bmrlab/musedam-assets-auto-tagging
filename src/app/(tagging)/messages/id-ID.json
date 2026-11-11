@@ -842,6 +842,17 @@
       "pendingFeatureConfirmation": "Pending confirmation",
       "recognitionEvidence": "Recognition evidence",
       "evidenceNotRecorded": "Not recorded",
+      "confidenceHints": {
+        "high": "Keyakinan tinggi; disarankan untuk diterapkan",
+        "medium": "Keyakinan sedang; disarankan pemeriksaan sampel",
+        "low": "Keyakinan rendah; disarankan konfirmasi manual"
+      },
+      "tagEvidenceSources": {
+        "basicInfo": "Kecocokan informasi dasar",
+        "materializedPath": "Kecocokan jalur folder",
+        "contentAnalysis": "Kecocokan analisis konten",
+        "tagKeywords": "Pencocokan kata kunci"
+      },
       "evidenceDetails": "View recognition reason",
       "evidenceSources": {
         "retrieval": "Vector",
