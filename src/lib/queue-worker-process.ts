@@ -128,6 +128,9 @@ export function exitWhenMemoryTooHigh() {
         msg: "Queue worker memory high",
         rssMB: toMB(rss),
         heapUsedMB: toMB(process.memoryUsage().heapUsed),
+        heapTotalMB: toMB(process.memoryUsage().heapTotal),
+        externalMB: toMB(process.memoryUsage().external),
+        arrayBuffersMB: toMB(process.memoryUsage().arrayBuffers),
         containerMB: containerBytes === null ? null : toMB(containerBytes),
       });
     }

@@ -54,6 +54,8 @@ pnpm dev
 
 package 中的 lint 为 next lint，若当前 Next 版本已不支持该子命令，要记录这个已有问题；不能将命令退出误报为检查通过。数据库连接、迁移、认证和 iframe 细节见 [README.md](README.md)。
 
+大标签树请求按实际文本长度校验预算，超限错误为 `TAGGING_INPUT_TOO_LARGE`，不重复发送同一超大请求。图片解码共用进程内槽位，内存诊断、2026-11-11 生产排查及本地合成对照见 [docs/tagging-performance.md](docs/tagging-performance.md) 的“大标签树请求与图片原生内存”。无新增 migration；部署须核对实际镜像含候选筛选/策略分批代码。
+
 ## UI 开发约定
 
 MuseDAM 界面按 `muse-development/references/design-system.md`（由工作区 Muse 开发 skill 提供）；新增静态样式使用 Tailwind，先复用本项目组件与图标。两种主题均需适配。跨仓定位见 工作区 `muse-development/SKILL.md`。

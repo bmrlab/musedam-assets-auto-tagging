@@ -30,8 +30,8 @@ function promptExtra(extra: unknown): AssetTagExtra {
 function nodeCost(node: { name: string; extra: unknown }): number {
   const extra = promptExtra(node.extra);
   return (
-    160 +
-    node.name.length +
+    256 +
+    node.name.length * 2 +
     (extra.description?.length ?? 0) +
     (extra.keywords?.join(", ").length ?? 0) +
     (extra.negativeKeywords?.join(", ").length ?? 0)
@@ -69,8 +69,8 @@ export function needsTagCandidateSelection(tree: TagWithChildren[]): boolean {
       const extra = (node.extra ?? {}) as AssetTagExtra;
       return (
         sum +
-        160 +
-        node.name.length +
+        256 +
+        node.name.length * 2 +
         (extra.description?.length ?? 0) +
         (extra.keywords?.join(", ").length ?? 0) +
         (extra.negativeKeywords?.join(", ").length ?? 0)

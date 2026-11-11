@@ -199,3 +199,34 @@ it("uses the configured model fallback when the primary classifier is unavailabl
   });
   expect(mocks.generate).toHaveBeenCalledTimes(2);
 });
+
+it("bounds even a single abnormally long imported path", () => {
+  const tree = setup(1);
+  tree[0].name = "父".repeat(40_000);
+  tree[0].children![0].name = "子".repeat(40_000);
+  const batches = buildEvidencePolicyBatches(collectTagsMissingEvidencePolicy(tree));
+  expect(batches).toHaveLength(1);
+  // Exercise the serialized request too, not just the count-based batch division.
+  return ensureEvidencePolicies({ teamId: team, tagsTree: tree }).then(() => {
+    expect(mocks.generate.mock.calls[0][0].prompt.length).toBeLessThan(32_500);
+  });
+});
+
+it("splits context-window API errors without trying every fallback model first", async () => {
+  const { APICallError } = await import("ai");
+  mocks.generate.mockRejectedValueOnce(
+    new APICallError({
+      message: "ContextWindowExceededError",
+      statusCode: 400,
+      url: "https://gateway.invalid",
+      requestBodyValues: {},
+    }),
+  );
+  expect(await ensureEvidencePolicies({ teamId: team, tagsTree: setup(10) })).toEqual({
+    classified: 10,
+  });
+  const counts = mocks.generate.mock.calls.map(
+    ([args]) => [...args.prompt.matchAll(/^- id /gm)].length,
+  );
+  expect(counts).toEqual([10, 5, 5]);
+});

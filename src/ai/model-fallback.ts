@@ -1,4 +1,5 @@
 import { APICallError, RetryError } from "ai";
+import { isLLMInputTooLargeError } from "./input-budget";
 
 /**
  * 模型服务本身不可用（欠费/鉴权失败/限流/5xx 等，网关返回了非 2xx）时抛的是 APICallError，
@@ -6,6 +7,8 @@ import { APICallError, RetryError } from "ai";
  * 超时、模型输出不符合 schema 之类的错误不在此列，换模型没意义。
  */
 export function isLLMApiCallError(error: unknown): boolean {
+  // Retrying the same oversized body across every model multiplies latency and memory.
+  if (isLLMInputTooLargeError(error)) return false;
   if (APICallError.isInstance(error)) return true;
   if (RetryError.isInstance(error)) {
     return (

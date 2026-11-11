@@ -1,3 +1,4 @@
+import { withImageDecodeSlot } from "@/lib/tagging/image-memory";
 import { createHash } from "node:crypto";
 import pLimit from "p-limit";
 import sharp from "sharp";
@@ -26,11 +27,11 @@ export async function prepareLogoReferenceSheet(
   references: Reference[],
   load: (objectKey: string) => Promise<string>,
 ): Promise<PreparedLogoReference> {
-  const images = [...new Map(references.map(image => [image.objectKey, image])).values()];
+  const images = [...new Map(references.map((image) => [image.objectKey, image])).values()];
   if (!images.length) throw new Error("Logo reference images unavailable");
   const metadata = {
     referenceImageCount: images.length,
-    referenceImageIds: images.flatMap(image => image.id ? [image.id] : []),
+    referenceImageIds: images.flatMap((image) => (image.id ? [image.id] : [])),
   };
   if (images.length === 1) return { ...metadata, dataUrl: await load(images[0].objectKey) };
 
@@ -49,27 +50,55 @@ export async function prepareLogoReferenceSheet(
   const rows = Math.ceil(images.length / columns);
   if (columns * TILE_WIDTH * rows * TILE_HEIGHT > MAX_PIXELS)
     throw new Error("Logo reference sheet exceeds image pixel budget");
-  const scale = Math.min(1, MAX_SHEET_DIMENSION / (columns * TILE_WIDTH), MAX_SHEET_DIMENSION / (rows * TILE_HEIGHT));
+  const scale = Math.min(
+    1,
+    MAX_SHEET_DIMENSION / (columns * TILE_WIDTH),
+    MAX_SHEET_DIMENSION / (rows * TILE_HEIGHT),
+  );
   const tileWidth = Math.floor(TILE_WIDTH * scale);
   const tileHeight = Math.floor(TILE_HEIGHT * scale);
   const inset = Math.max(1, Math.floor(8 * scale));
   const work = pLimit(4);
-  const tiles = await Promise.all(images.map((image, index) => work(async () => {
-    const dataUrl = await load(image.objectKey);
-    const encoded = /^data:image\/[^;]+;base64,([\s\S]+)$/.exec(dataUrl)?.[1];
-    if (!encoded) throw new Error(`Invalid logo reference image ${index + 1}`);
-    const input = await sharp(Buffer.from(encoded, "base64"), { limitInputPixels: MAX_PIXELS })
-      .rotate()
-      .resize({ width: tileWidth - inset * 2, height: tileHeight - inset * 2, fit: "contain", background: "#ffffff" })
-      .flatten({ background: "#ffffff" })
-      .png()
-      .toBuffer();
-    return { input, left: (index % columns) * tileWidth + inset, top: Math.floor(index / columns) * tileHeight + inset };
-  })));
-  const buffer = await sharp({ create: {
-    width: columns * tileWidth, height: rows * tileHeight,
-    channels: 3, background: "#e5e7eb",
-  } }).composite(tiles).jpeg({ quality: 90 }).toBuffer();
+  const tiles = await Promise.all(
+    images.map((image, index) =>
+      work(async () => {
+        const dataUrl = await load(image.objectKey);
+        const encoded = /^data:image\/[^;]+;base64,([\s\S]+)$/.exec(dataUrl)?.[1];
+        if (!encoded) throw new Error(`Invalid logo reference image ${index + 1}`);
+        const input = await withImageDecodeSlot("logo-reference-tile", () =>
+          sharp(Buffer.from(encoded, "base64"), { limitInputPixels: MAX_PIXELS })
+            .rotate()
+            .resize({
+              width: tileWidth - inset * 2,
+              height: tileHeight - inset * 2,
+              fit: "contain",
+              background: "#ffffff",
+            })
+            .flatten({ background: "#ffffff" })
+            .png()
+            .toBuffer(),
+        );
+        return {
+          input,
+          left: (index % columns) * tileWidth + inset,
+          top: Math.floor(index / columns) * tileHeight + inset,
+        };
+      }),
+    ),
+  );
+  const buffer = await withImageDecodeSlot("logo-reference-sheet", () =>
+    sharp({
+      create: {
+        width: columns * tileWidth,
+        height: rows * tileHeight,
+        channels: 3,
+        background: "#e5e7eb",
+      },
+    })
+      .composite(tiles)
+      .jpeg({ quality: 90 })
+      .toBuffer(),
+  );
   const value = { ...metadata, dataUrl: `data:image/jpeg;base64,${buffer.toString("base64")}` };
   if (value.dataUrl.length <= CACHE_MAX_BYTES) {
     while (cachedBytes + value.dataUrl.length > CACHE_MAX_BYTES && sheets.size) {

@@ -1,5 +1,6 @@
 import "server-only";
 
+import { isLLMInputTooLargeError } from "@/ai/input-budget";
 import { resolveModelChain, runWithModelFallback } from "@/ai/model-fallback";
 import { llm, LLMModelName } from "@/ai/provider";
 import { rootLogger } from "@/lib/logging";
@@ -122,7 +123,8 @@ export function buildEvidencePolicyBatches(
   return batches;
 }
 function policyLine(node: ReturnType<typeof collectTagsMissingEvidencePolicy>[number]) {
-  return `- id ${node.id}: ${node.tagPath.join(" / ")}${node.hasChildren ? "（有子标签，需判断同级互斥）" : ""}`;
+  // Keep all path levels, but a single imported name cannot exceed a whole batch.
+  return `- id ${node.id}: ${node.tagPath.map((name) => name.slice(0, 240)).join(" / ")}${node.hasChildren ? "（有子标签，需判断同级互斥）" : ""}`;
 }
 
 async function initializePolicies(
@@ -276,6 +278,7 @@ async function initializePolicies(
         // Structured-output/context limits are payload-specific: split this
         // failed batch, rather than retrying the same oversized request forever.
         const payloadFailure =
+          isLLMInputTooLargeError(error) ||
           /NoObjectGenerated|NoOutputGenerated|JSONParse|TypeValidation|context.{0,20}(length|limit)|output.{0,20}(length|limit)/i.test(
             `${(error as Error)?.name} ${(error as Error)?.message}`,
           );

@@ -138,7 +138,9 @@ jobs:
           # Update deployment in China region
           kubectl config use-context muse-aws-cn-prod
           kubectl set image deployment/musedam-auto-tagging musedam-auto-tagging=musecr.azurecr.cn/muse/musedam-auto-tagging:${{ env.VERSION }} --namespace musedam
+          kubectl rollout status deployment/musedam-auto-tagging --namespace musedam --timeout=300s
 
           # Update deployment in US region
           kubectl config use-context muse-aws-us-prod
           kubectl set image deployment/musedam-auto-tagging musedam-auto-tagging=musecr.azurecr.cn/muse/musedam-auto-tagging:${{ env.VERSION }} --namespace musedam
+          kubectl rollout status deployment/musedam-auto-tagging --namespace musedam --timeout=300s
