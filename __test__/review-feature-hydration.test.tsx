@@ -168,6 +168,56 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("review feature visibility during settings hydration", () => {
+  it("places each manual picker and selection in its own result section", () => {
+    const data = props();
+    data.manualTags = [{ id: 99, tagPath: ["Manual tag"] }];
+    render(<ReviewItem {...data} />);
+    const tagPanel = screen.getByText("aiRecommendedTags").parentElement!.parentElement!;
+    const featurePanel = screen.getByText("featureRecognition").parentElement!.parentElement!;
+    expect(within(tagPanel).getByRole("button", { name: "addTagManually" })).toBeTruthy();
+    expect(within(tagPanel).getByText("Manual tag")).toBeTruthy();
+    expect(within(tagPanel).queryByRole("button", { name: "addFeatureManually" })).toBeNull();
+    expect(within(featurePanel).getByRole("button", { name: "addFeatureManually" })).toBeTruthy();
+    expect(within(featurePanel).queryByText("Manual tag")).toBeNull();
+  });
+
+  it.each(["all", "features"] as const)("restores older default results in %s history without adding them to the current review", async (contentScope) => {
+    const data = props();
+    data.batch[0].queueItem.taskType = "default";
+    const older = structuredClone(data.batch[0]);
+    older.queueItem.id = 2;
+    older.queueItem.createdAt = new Date("2026-11-05T08:00:00Z");
+    older.taggingAuditItems[0].id = 2;
+    older.taggingAuditItems[0].queueItemId = 2;
+    older.taggingAuditItems[0].tagPath = ["Historical tag"];
+    const result = older.queueItem.result as {
+      brandRecommendation: {
+        matches: { logoName: string }[];
+        bestMatch: { logoName: string };
+      };
+    };
+    result.brandRecommendation.matches[0].logoName = "Historical brand";
+    result.brandRecommendation.bestMatch.logoName = "Historical brand";
+    data.batch.push(older);
+    vi.mocked(reviewScopedAssetsAction).mockResolvedValue({ success: true, data: undefined });
+    render(<ReviewItem {...data} contentScope={contentScope} />);
+    expect(screen.queryByText("Historical brand")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "showHistory" }));
+    expect(screen.getByText("Historical brand")).toBeTruthy();
+    if (contentScope === "all") expect(screen.getByText("Historical tag")).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "addFeatureManually" })).toHaveLength(1);
+    const historicalPanel = screen.getByText("Historical brand").closest(".space-y-2")!;
+    expect(within(historicalPanel as HTMLElement).queryByRole("button")).toBeNull();
+    if (contentScope === "features") {
+      await act(async () => { fireEvent.click(screen.getByRole("button", { name: "add" })); });
+      expect(reviewScopedAssetsAction).toHaveBeenLastCalledWith(expect.objectContaining({
+        assetObjects: [expect.objectContaining({ auditItemIds: [1] })],
+      }));
+    }
+    fireEvent.click(screen.getByRole("button", { name: "hideHistory" }));
+    expect(screen.queryByText("Historical brand")).toBeNull();
+  });
+
   it("hides feature recommendations from tag-only review", () => {
     const data = props();
     data.batch[0].taggingAuditItems[0].tagPath = ["AI tag"];
