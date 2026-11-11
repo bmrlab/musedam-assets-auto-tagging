@@ -551,6 +551,8 @@
       "pendingFeatureConfirmation": "Pending confirmation",
       "recognitionEvidence": "Recognition evidence",
       "evidenceNotRecorded": "Not recorded",
+      "evidenceStrategyLabel": "กลยุทธ์การจับคู่",
+      "evidenceContentLabel": "หลักฐาน",
       "confidenceHints": {
         "high": "ความเชื่อมั่นสูง แนะนำให้นำไปใช้",
         "medium": "ความเชื่อมั่นปานกลาง แนะนำให้สุ่มตรวจ",
@@ -1714,7 +1716,7 @@
       "noUnmatched": "ไม่มีแอสเซ็ตที่ไม่ตรงกัน",
       "allContent": "เนื้อหาทั้งหมด",
       "unavailable": "ฟิลด์ถูกปิดใช้งาน ลบ หรือเปลี่ยนการตั้งค่า",
-      "manualKept": "ฟิลด์ถูกกรอกด้วยตนเอง เก็บค่าที่กรอกเองไว้",
+      "manualKept": "ข้ามฟิลด์ที่มีค่าอยู่แล้วหรือมีการเปลี่ยนแปลงการตั้งค่า",
       "previous": "ก่อนหน้า",
       "next": "ถัดไป",
       "reviewFailed": "ดำเนินการไม่สำเร็จ โปรดลองอีกครั้ง",

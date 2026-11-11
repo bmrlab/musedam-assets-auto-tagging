@@ -193,6 +193,8 @@
       "pendingFeatureConfirmation": "Pending confirmation",
       "recognitionEvidence": "Recognition evidence",
       "evidenceNotRecorded": "Not recorded",
+      "evidenceStrategyLabel": "一致戦略",
+      "evidenceContentLabel": "根拠",
       "confidenceHints": {
         "high": "信頼度が高いため、採用を推奨します",
         "medium": "信頼度は中程度です。抜き取り確認を推奨します",
@@ -1714,7 +1716,7 @@
       "noUnmatched": "一致のない素材はありません",
       "allContent": "すべての内容",
       "unavailable": "フィールドは無効化、削除、または設定変更されています",
-      "manualKept": "手動入力された値を保持しました",
+      "manualKept": "既存の値があるフィールド、または設定が変更されたフィールドをスキップしました",
       "previous": "前へ",
       "next": "次へ",
       "reviewFailed": "操作に失敗しました。再試行してください。",

@@ -193,6 +193,8 @@
       "pendingFeatureConfirmation": "Pending confirmation",
       "recognitionEvidence": "Recognition evidence",
       "evidenceNotRecorded": "Not recorded",
+      "evidenceStrategyLabel": "Estratégia de correspondência",
+      "evidenceContentLabel": "Evidência",
       "confidenceHints": {
         "high": "Alta confiança; adoção recomendada",
         "medium": "Confiança média; verificação por amostragem recomendada",
@@ -1714,7 +1716,7 @@
       "noUnmatched": "Nenhum recurso sem correspondência",
       "allContent": "Todo o conteúdo",
       "unavailable": "Campo desativado, excluído ou configuração alterada",
-      "manualKept": "Campo preenchido manualmente. Valor manual mantido.",
+      "manualKept": "Campos com valores existentes ou configuração alterada foram ignorados",
       "previous": "Anterior",
       "next": "Próximo",
       "reviewFailed": "Falha na operação. Tente novamente.",

@@ -878,6 +878,8 @@
       "pendingFeatureConfirmation": "Pending confirmation",
       "recognitionEvidence": "Recognition evidence",
       "evidenceNotRecorded": "Not recorded",
+      "evidenceStrategyLabel": "Matching strategy",
+      "evidenceContentLabel": "Evidence",
       "confidenceHints": {
         "high": "High confidence; recommended for adoption",
         "medium": "Moderate confidence; spot checks recommended",
@@ -1714,7 +1716,7 @@
       "noUnmatched": "No unmatched assets",
       "allContent": "All content",
       "unavailable": "Field disabled, deleted, or configuration changed",
-      "manualKept": "Field filled manually. Manual value retained.",
+      "manualKept": "Skipped fields with existing values or changed configuration",
       "previous": "Previous",
       "next": "Next",
       "reviewFailed": "Operation failed. Please retry.",

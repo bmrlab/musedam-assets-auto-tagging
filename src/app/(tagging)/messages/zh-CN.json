@@ -878,6 +878,8 @@
       "pendingFeatureConfirmation": "待确认",
       "recognitionEvidence": "识别依据",
       "evidenceNotRecorded": "历史结果未记录",
+      "evidenceStrategyLabel": "命中策略",
+      "evidenceContentLabel": "依据",
       "confidenceHints": {
         "high": "识别结果可信度高，建议直接采用",
         "medium": "识别结果较为可信，建议抽查",
@@ -1714,7 +1716,7 @@
       "noUnmatched": "暂无未匹配素材",
       "allContent": "全部内容",
       "unavailable": "字段已停用、删除或配置已变更",
-      "manualKept": "字段已由人工填写，保留人工值",
+      "manualKept": "字段已有值或配置已变更，已跳过",
       "previous": "上一页",
       "next": "下一页",
       "reviewFailed": "操作失败，请重试",

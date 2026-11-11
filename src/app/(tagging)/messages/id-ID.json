@@ -842,6 +842,8 @@
       "pendingFeatureConfirmation": "Pending confirmation",
       "recognitionEvidence": "Recognition evidence",
       "evidenceNotRecorded": "Not recorded",
+      "evidenceStrategyLabel": "Strategi pencocokan",
+      "evidenceContentLabel": "Bukti",
       "confidenceHints": {
         "high": "Keyakinan tinggi; disarankan untuk diterapkan",
         "medium": "Keyakinan sedang; disarankan pemeriksaan sampel",
@@ -1714,7 +1716,7 @@
       "noUnmatched": "Tidak ada aset tanpa kecocokan",
       "allContent": "Semua konten",
       "unavailable": "Kolom dinonaktifkan, dihapus, atau konfigurasi berubah",
-      "manualKept": "Kolom diisi manual. Nilai manual dipertahankan.",
+      "manualKept": "Kolom dengan nilai yang sudah ada atau konfigurasi yang berubah dilewati",
       "previous": "Sebelumnya",
       "next": "Berikutnya",
       "reviewFailed": "Operasi gagal. Coba lagi.",

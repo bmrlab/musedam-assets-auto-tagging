@@ -69,6 +69,8 @@ it("opens recorded evidence only from the icon and allows dismissing with Escape
   });
   expect(await screen.findByText("文件名含精华液")).toBeTruthy();
   expect(screen.getByText("基础信息匹配")).toBeTruthy();
+  expect(screen.getByText("命中策略").tagName).toBe("DT");
+  expect(screen.getByText("依据").tagName).toBe("DT");
   expect(onToggle).not.toHaveBeenCalled();
   fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
   expect(screen.queryByText("文件名含精华液")).toBeNull();

@@ -193,6 +193,8 @@
       "pendingFeatureConfirmation": "Pending confirmation",
       "recognitionEvidence": "Recognition evidence",
       "evidenceNotRecorded": "Not recorded",
+      "evidenceStrategyLabel": "Стратегия сопоставления",
+      "evidenceContentLabel": "Основание",
       "confidenceHints": {
         "high": "Высокая уверенность; рекомендуется принять",
         "medium": "Средняя уверенность; рекомендуется выборочная проверка",
@@ -1714,7 +1716,7 @@
       "noUnmatched": "Нет ресурсов без совпадений",
       "allContent": "Всё содержимое",
       "unavailable": "Поле отключено, удалено или настройки изменены",
-      "manualKept": "Поле заполнено вручную. Сохранено ручное значение.",
+      "manualKept": "Поля с существующими значениями или изменёнными настройками пропущены",
       "previous": "Назад",
       "next": "Далее",
       "reviewFailed": "Операция не выполнена. Повторите попытку.",

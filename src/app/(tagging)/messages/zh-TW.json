@@ -193,6 +193,8 @@
       "pendingFeatureConfirmation": "待確認",
       "recognitionEvidence": "識別依據",
       "evidenceNotRecorded": "歷史結果未記錄",
+      "evidenceStrategyLabel": "命中策略",
+      "evidenceContentLabel": "依據",
       "confidenceHints": {
         "high": "識別結果可信度高，建議直接採用",
         "medium": "識別結果較為可信，建議抽查",
@@ -1714,7 +1716,7 @@
       "noUnmatched": "暫無未匹配素材",
       "allContent": "全部內容",
       "unavailable": "欄位已停用、刪除或設定已變更",
-      "manualKept": "欄位已由人工填寫，保留人工值",
+      "manualKept": "欄位已有值或設定已變更，已略過",
       "previous": "上一頁",
       "next": "下一頁",
       "reviewFailed": "操作失敗，請重試",

@@ -193,6 +193,8 @@
       "pendingFeatureConfirmation": "Pending confirmation",
       "recognitionEvidence": "Recognition evidence",
       "evidenceNotRecorded": "Not recorded",
+      "evidenceStrategyLabel": "Abgleichstrategie",
+      "evidenceContentLabel": "Beleg",
       "confidenceHints": {
         "high": "Hohe Zuverlässigkeit; Übernahme empfohlen",
         "medium": "Mittlere Zuverlässigkeit; Stichproben empfohlen",
@@ -1714,7 +1716,7 @@
       "noUnmatched": "Keine Assets ohne Treffer",
       "allContent": "Alle Inhalte",
       "unavailable": "Feld deaktiviert, gelöscht oder Konfiguration geändert",
-      "manualKept": "Manuell ausgefülltes Feld. Manueller Wert beibehalten.",
+      "manualKept": "Felder mit vorhandenen Werten oder geänderter Konfiguration wurden übersprungen",
       "previous": "Zurück",
       "next": "Weiter",
       "reviewFailed": "Vorgang fehlgeschlagen. Bitte erneut versuchen.",

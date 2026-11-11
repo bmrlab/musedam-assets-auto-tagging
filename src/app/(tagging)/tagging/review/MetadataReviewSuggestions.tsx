@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { CheckIcon, TablePropertiesIcon, XIcon } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { ReviewConfidence } from "./components/ReviewConfidence";
+import { ReviewEvidenceDetails } from "./components/ReviewEvidenceDetails";
 import { ReviewEvidenceDropdown } from "./components/ReviewEvidenceDropdown";
 export type MetadataSuggestion = {
   id: number;
@@ -100,17 +101,14 @@ export function MetadataReviewSuggestions({
                 <ReviewEvidenceDropdown name={label}>
                   {item.sources.length ? (
                     item.sources.map((source, i) => (
-                      <div key={i} className="flex min-w-0 flex-col gap-1">
-                        <span className="text-xs text-basic-5 dark:text-basic-6">
-                          {t(sources[source.source])}
-                        </span>
-                        <p className="whitespace-pre-wrap break-words">
-                          {source.evidence || tr("evidenceNotRecorded")}
-                        </p>
-                      </div>
+                      <ReviewEvidenceDetails
+                        key={i}
+                        strategy={t(sources[source.source])}
+                        evidence={source.evidence}
+                      />
                     ))
                   ) : (
-                    <p>{tr("evidenceNotRecorded")}</p>
+                    <ReviewEvidenceDetails />
                   )}
                   {!available && status === "pending" && <p>{t("unavailable")}</p>}
                 </ReviewEvidenceDropdown>

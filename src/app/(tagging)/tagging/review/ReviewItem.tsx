@@ -1,6 +1,7 @@
 "use client";
 import { applyMetadataReviewSelection } from "./metadata-review-selection";
 import { ReviewConfidence } from "./components/ReviewConfidence";
+import { ReviewEvidenceDetails } from "./components/ReviewEvidenceDetails";
 import { ReviewEvidenceDropdown } from "./components/ReviewEvidenceDropdown";
 import { FeatureEvidence } from "./components/FeatureEvidence";
 import type { FeatureDecisionMatch } from "@/lib/feature-decision/types";
@@ -1020,11 +1021,11 @@ export function ReviewItem({
                                   .filter(tag => tag.leafTagId === auditItem.leafTagId)
                                   .map(tag => ({ source: group.source, evidence: tag.evidence, keywords: tag.matchedKeywords })));
                                 return hits.length ? hits.map((hit, index) => (
-                                  <div key={index} className="flex min-w-0 flex-col gap-1">
-                                    <span className="text-xs text-basic-5 dark:text-basic-6">{t(`tagEvidenceSources.${hit.source}`)}</span>
-                                    <p className="whitespace-pre-wrap break-words">{hit.evidence || (hit.keywords?.length ? hit.keywords.join("、") : t("evidenceNotRecorded"))}</p>
-                                  </div>
-                                )) : <p>{t("evidenceNotRecorded")}</p>;
+                                  <ReviewEvidenceDetails key={index}
+                                    strategy={t(`tagEvidenceSources.${hit.source}`)}
+                                    evidence={hit.evidence || (hit.keywords?.length ? hit.keywords.join("、") : undefined)}
+                                  />
+                                )) : <ReviewEvidenceDetails />;
                               })()}
                             </ReviewEvidenceDropdown>
                             {finalBatch.some((group) => group.queueItem.id === queueItem.id) &&

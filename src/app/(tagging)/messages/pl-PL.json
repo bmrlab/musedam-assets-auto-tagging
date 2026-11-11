@@ -801,6 +801,8 @@
       "pendingFeatureConfirmation": "Pending confirmation",
       "recognitionEvidence": "Recognition evidence",
       "evidenceNotRecorded": "Not recorded",
+      "evidenceStrategyLabel": "Strategia dopasowania",
+      "evidenceContentLabel": "Uzasadnienie",
       "confidenceHints": {
         "high": "Wysoka pewność; zalecane przyjęcie",
         "medium": "Średnia pewność; zalecana kontrola wyrywkowa",
@@ -1714,7 +1716,7 @@
       "noUnmatched": "Brak niedopasowanych zasobów",
       "allContent": "Cała zawartość",
       "unavailable": "Pole wyłączono, usunięto lub zmieniono konfigurację",
-      "manualKept": "Pole wypełniono ręcznie. Zachowano wartość ręczną.",
+      "manualKept": "Pominięto pola z istniejącymi wartościami lub zmienioną konfiguracją",
       "previous": "Poprzednia",
       "next": "Następna",
       "reviewFailed": "Operacja nie powiodła się. Spróbuj ponownie.",

@@ -801,6 +801,8 @@
       "pendingFeatureConfirmation": "Pending confirmation",
       "recognitionEvidence": "Recognition evidence",
       "evidenceNotRecorded": "Not recorded",
+      "evidenceStrategyLabel": "Chiến lược khớp",
+      "evidenceContentLabel": "Căn cứ",
       "confidenceHints": {
         "high": "Độ tin cậy cao; nên áp dụng",
         "medium": "Độ tin cậy trung bình; nên kiểm tra mẫu",
@@ -1714,7 +1716,7 @@
       "noUnmatched": "Không có tài sản không khớp",
       "allContent": "Tất cả nội dung",
       "unavailable": "Trường đã bị tắt, xóa hoặc thay đổi cấu hình",
-      "manualKept": "Trường đã được điền thủ công. Giữ nguyên giá trị thủ công.",
+      "manualKept": "Đã bỏ qua các trường có giá trị hoặc cấu hình đã thay đổi",
       "previous": "Trước",
       "next": "Tiếp",
       "reviewFailed": "Thao tác thất bại. Vui lòng thử lại.",

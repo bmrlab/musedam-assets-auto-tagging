@@ -551,6 +551,8 @@
       "pendingFeatureConfirmation": "Pending confirmation",
       "recognitionEvidence": "Recognition evidence",
       "evidenceNotRecorded": "Not recorded",
+      "evidenceStrategyLabel": "Stratégie de correspondance",
+      "evidenceContentLabel": "Justification",
       "confidenceHints": {
         "high": "Confiance élevée ; adoption recommandée",
         "medium": "Confiance moyenne ; vérifications ponctuelles recommandées",
@@ -1714,7 +1716,7 @@
       "noUnmatched": "Aucun fichier sans correspondance",
       "allContent": "Tout le contenu",
       "unavailable": "Champ désactivé, supprimé ou configuration modifiée",
-      "manualKept": "Champ rempli manuellement. Valeur manuelle conservée.",
+      "manualKept": "Champs avec valeurs existantes ou configuration modifiée ignorés",
       "previous": "Précédent",
       "next": "Suivant",
       "reviewFailed": "Échec de l’opération. Réessayez.",

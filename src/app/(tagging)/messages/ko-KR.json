@@ -193,6 +193,8 @@
       "pendingFeatureConfirmation": "Pending confirmation",
       "recognitionEvidence": "Recognition evidence",
       "evidenceNotRecorded": "Not recorded",
+      "evidenceStrategyLabel": "매칭 전략",
+      "evidenceContentLabel": "근거",
       "confidenceHints": {
         "high": "신뢰도가 높아 적용을 권장합니다",
         "medium": "신뢰도가 보통으로 표본 검토를 권장합니다",
@@ -1712,7 +1714,7 @@
       "noUnmatched": "일치하지 않는 자산 없음",
       "allContent": "모든 콘텐츠",
       "unavailable": "필드가 비활성화 또는 삭제되었거나 설정이 변경되었습니다",
-      "manualKept": "직접 입력한 값을 유지했습니다",
+      "manualKept": "기존 값이 있거나 설정이 변경된 필드를 건너뛰었습니다",
       "previous": "이전",
       "next": "다음",
       "reviewFailed": "작업에 실패했습니다. 다시 시도하세요.",

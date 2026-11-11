@@ -193,6 +193,8 @@
       "pendingFeatureConfirmation": "Pending confirmation",
       "recognitionEvidence": "Recognition evidence",
       "evidenceNotRecorded": "Not recorded",
+      "evidenceStrategyLabel": "मिलान रणनीति",
+      "evidenceContentLabel": "आधार",
       "confidenceHints": {
         "high": "उच्च विश्वसनीयता; अपनाने की सलाह दी जाती है",
         "medium": "मध्यम विश्वसनीयता; नमूना जाँच की सलाह दी जाती है",
@@ -1669,7 +1671,7 @@
       "noUnmatched": "कोई बेमेल एसेट नहीं",
       "allContent": "सभी सामग्री",
       "unavailable": "फ़ील्ड अक्षम, हटाया गया या कॉन्फ़िगरेशन बदल गया है",
-      "manualKept": "फ़ील्ड मैन्युअल रूप से भरा गया है। मैन्युअल मान रखा गया।",
+      "manualKept": "मौजूदा मान या बदली हुई कॉन्फ़िगरेशन वाले फ़ील्ड छोड़ दिए गए",
       "previous": "पिछला",
       "next": "अगला",
       "reviewFailed": "कार्रवाई विफल हुई। फिर प्रयास करें।",

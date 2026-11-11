@@ -801,6 +801,8 @@
       "pendingFeatureConfirmation": "Pending confirmation",
       "recognitionEvidence": "Recognition evidence",
       "evidenceNotRecorded": "Not recorded",
+      "evidenceStrategyLabel": "Eşleştirme stratejisi",
+      "evidenceContentLabel": "Kanıt",
       "confidenceHints": {
         "high": "Yüksek güven; uygulanması önerilir",
         "medium": "Orta güven; örnekleme kontrolü önerilir",
@@ -1714,7 +1716,7 @@
       "noUnmatched": "Eşleşmeyen varlık yok",
       "allContent": "Tüm içerik",
       "unavailable": "Alan devre dışı, silinmiş veya yapılandırması değiştirilmiş",
-      "manualKept": "Alan elle doldurulmuş. Elle girilen değer korundu.",
+      "manualKept": "Mevcut değerleri olan veya yapılandırması değişen alanlar atlandı",
       "previous": "Önceki",
       "next": "Sonraki",
       "reviewFailed": "İşlem başarısız. Lütfen tekrar deneyin.",

@@ -551,6 +551,8 @@
       "pendingFeatureConfirmation": "Pending confirmation",
       "recognitionEvidence": "Recognition evidence",
       "evidenceNotRecorded": "Not recorded",
+      "evidenceStrategyLabel": "Strategia di corrispondenza",
+      "evidenceContentLabel": "Evidenza",
       "confidenceHints": {
         "high": "Affidabilità alta; adozione consigliata",
         "medium": "Affidabilità media; controlli a campione consigliati",
@@ -1714,7 +1716,7 @@
       "noUnmatched": "Nessuna risorsa senza corrispondenza",
       "allContent": "Tutti i contenuti",
       "unavailable": "Campo disattivato, eliminato o configurazione modificata",
-      "manualKept": "Campo compilato manualmente. Valore manuale mantenuto.",
+      "manualKept": "Campi con valori esistenti o configurazione modificata ignorati",
       "previous": "Precedente",
       "next": "Successivo",
       "reviewFailed": "Operazione non riuscita. Riprova.",
