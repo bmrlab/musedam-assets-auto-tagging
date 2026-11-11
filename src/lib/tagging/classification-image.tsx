@@ -408,15 +408,18 @@ export type RemoteImageSource = {
 export async function fetchRemoteImageSource(
   imageUrl: string,
   failureContext: string,
+  signal?: AbortSignal,
 ): Promise<RemoteImageSource> {
   // 超限时直接中断请求；不 await body.cancel()（经 HTTP 代理时取消可能一直挂着，任务就卡在这里）
   const abortController = new AbortController();
   let response: Response;
   try {
     response = await fetch(imageUrl, {
-      signal: queueAbortSignal(
-        AbortSignal.any([abortController.signal, AbortSignal.timeout(IMAGE_FETCH_TIMEOUT_MS)]),
-      ),
+      signal: queueAbortSignal(AbortSignal.any([
+        abortController.signal,
+        AbortSignal.timeout(IMAGE_FETCH_TIMEOUT_MS),
+        ...(signal ? [signal] : []),
+      ])),
     });
   } catch (error) {
     rootLogger.warn({
@@ -752,10 +755,10 @@ export async function preparePersonImageInput(
 export async function fetchRemoteImageInput(
   imageUrl: string,
   failureContext: string,
-  options: { preserveOriginal?: boolean } = {},
+  options: { preserveOriginal?: boolean; signal?: AbortSignal } = {},
 ): Promise<ClassificationRemoteImageInput> {
   return prepareImageInput(
-    await fetchRemoteImageSource(imageUrl, failureContext),
+    await fetchRemoteImageSource(imageUrl, failureContext, options.signal),
     failureContext,
     options,
   );

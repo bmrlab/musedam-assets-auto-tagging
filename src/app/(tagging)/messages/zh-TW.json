@@ -715,9 +715,9 @@
       "testDescriptionText2": "• 請確保已建立標籤體系；也可使用 AI 助手快速產生行業標籤體系",
       "testDescriptionText3": "• AI 匹配測試中的設定僅為測試使用，與 AI 標記設定互不干擾",
       "testOnlyDescription": "僅測試使用，檔案及結果不會儲存或進入企業庫",
-      "uploadLocalFiles": "上传本地图片",
-      "localFileInvalid": "{name}：请选择不超过 20 MB 的图片",
-      "localUploadFailed": "本地图片上传失败",
+      "uploadLocalFiles": "上传本地文件",
+      "localFileInvalid": "{name}：请选择不超过 20 MB 的图片或 200 MB 的视频",
+      "localUploadFailed": "本地文件上传失败",
       "uploadTestFiles": "上傳測試檔案",
       "videoCreative": "影片創意"
     },

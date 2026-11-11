@@ -435,6 +435,19 @@ export function buildDetectionJpegObjectKey(teamId: number) {
   return buildStorageObjectKey(`teams-${teamId}-detection-svg-${Date.now()}-${randomUUID()}.jpg`);
 }
 
+export function buildClassificationVideoObjectKey(teamId: number, extension: string) {
+  return buildStorageObjectKey(`teams-${teamId}-classification-video-${randomUUID()}.${extension}`);
+}
+
+export function isClassificationVideoObjectKey(objectKey: string, teamId?: number) {
+  const name = objectKey.split("/").at(-1) ?? "";
+  const match = /^teams-(\d+)-classification-video-[a-f0-9-]{36}\.[a-z0-9]+$/.exec(name);
+  return (
+    Boolean(match && (teamId === undefined || match[1] === String(teamId))) &&
+    objectKey === buildStorageObjectKey(name)
+  );
+}
+
 /** Retained copy of the exact image payload sent to Jina when DEBUG_PAGE is enabled. */
 export function buildJinaDebugImageObjectKey(extension: ".jpg" | ".png") {
   return buildStorageObjectKey(`debug-jina-images-${Date.now()}-${randomUUID()}${extension}`);
@@ -561,7 +574,7 @@ export function getBrowserS3ObjectUploadUrl({
 export function signS3ObjectUploadUrl({
   objectKey,
   expiresInSeconds = 60 * 10,
-  acl = "public-read",
+  acl = isClassificationVideoObjectKey(objectKey) ? "" : "public-read",
 }: SignS3ObjectUploadUrlOptions) {
   const { sendAclHeader } = getS3Config();
   return signS3Url({

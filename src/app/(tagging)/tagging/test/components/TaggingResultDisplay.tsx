@@ -8,7 +8,6 @@ import type {
 } from "@/app/(tagging)/tagging/review/feature-review";
 import { TagOutlinedIcon, VimIcon } from "@/components/ui";
 import { useFeatureLibraryFeatures } from "@/hooks/use-feature-library";
-import { isVideoAssetExtension } from "@/lib/feature-library";
 import type { FeatureDecisionDiagnostics } from "@/lib/feature-decision/types";
 import {
   getFeatureConfidenceToneClass,
@@ -489,7 +488,6 @@ export function TaggingResultDisplay({ result, featureThumbnails }: TaggingResul
   recognitionFeatures.sort((left, right) => right.confidence - left.confidence);
   const visibleFeatureCount = recognitionFeatures.length;
   const tagCount = result.effectiveTags.length + result.candidateTags.length;
-  const isVideoAsset = isVideoAssetExtension(result.asset.extension);
 
   return (
     <div className="space-y-6 rounded-lg border border-basic-4 bg-background p-6">
@@ -600,9 +598,7 @@ export function TaggingResultDisplay({ result, featureThumbnails }: TaggingResul
           ) : (
             <div className="text-sm text-basic-5">
               {t(
-                isVideoAsset
-                  ? "videoFeatureLibraryLimited"
-                  : hasFeatureBelowConfidenceThreshold
+                hasFeatureBelowConfidenceThreshold
                     ? "featureConfidenceNotCredible"
                     : "noRecognizedFeatures",
               )}

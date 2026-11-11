@@ -15,6 +15,7 @@ import {
   getClientImagePreparationErrorCode,
   prepareClientImageUpload,
 } from "@/lib/brand/browser-image";
+import { CLASSIFICATION_MEDIA_ACCEPT } from "@/lib/feature-library";
 import { uploadS3ObjectFromBrowser } from "@/lib/s3-browser-upload";
 import { cn } from "@/lib/utils";
 import { ArrowLeft, Loader2, Search, Trophy, Upload } from "lucide-react";
@@ -22,6 +23,14 @@ import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { getVideoExtension } from "../../components/classification-video";
+import { classifyFeatureVideoAction } from "../../components/classification-video-actions";
+import {
+  ClassificationMediaHint,
+  ClassificationVideoPreview,
+  ImportClassificationVideoButton,
+  useClassificationVideo,
+} from "../../components/ClassificationVideoInput";
 import {
   FeatureClassificationContextInputs,
   FeatureDecisionComparison,
@@ -95,6 +104,8 @@ export default function BrandClassifyClient({
     [initialData.logos],
   );
   const [file, setFile] = useState<File | null>(null);
+  const { video, clearVideo, selectLocalVideo, importVideo, isImporting, getVideoSource } =
+    useClassificationVideo();
   const [imageMode, setImageMode] = useState(false);
   const { runs, recordRun, resetRuns } = useFeatureDecisionComparison();
   const [fileName, setFileName] = useState("");
@@ -114,23 +125,27 @@ export default function BrandClassifyClient({
     };
   }, [previewUrl]);
 
-  async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
-    const selectedFile = event.target.files?.[0] ?? null;
+  function resetMediaSelection(name: string, folder = "") {
     resetRuns();
-    event.target.value = "";
-
     setDetections([]);
     setResult(null);
     setImageMeta(null);
     setDetectionImageMeta(null);
     setFile(null);
-    setFileName(selectedFile?.name ?? "");
-    setPreviewUrl((current) => {
-      revokeUrl(current);
-      return null;
-    });
+    setFileName(name);
+    setFolderPath(folder);
+    setPreviewUrl(null);
+  }
 
-    if (!selectedFile) {
+  async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const selectedFile = event.target.files?.[0];
+    event.target.value = "";
+    if (!selectedFile) return;
+
+    clearVideo();
+    resetMediaSelection(selectedFile.name);
+    if (getVideoExtension(selectedFile.name)) {
+      selectLocalVideo(selectedFile);
       return;
     }
 
@@ -158,7 +173,7 @@ export default function BrandClassifyClient({
   }
 
   async function handleClassify() {
-    if (!file || !previewUrl || !imageMeta) {
+    if (!video && (!file || !previewUrl || !imageMeta)) {
       toast.error(t("uploadImageFirst"));
       return;
     }
@@ -171,61 +186,10 @@ export default function BrandClassifyClient({
     setIsRunning(true);
     setResult(null);
     try {
-      const contentType = file.type || "application/octet-stream";
-      const uploadPrepareResult = await prepareLogoImageUploadAction({
-        name: file.name,
-        mimeType: contentType,
-        size: file.size,
-      });
-      if (!uploadPrepareResult.success) {
-        toast.error(uploadPrepareResult.message);
-        return;
-      }
-
-      const uploadResponse = await uploadS3ObjectFromBrowser({
-        uploadUrl: uploadPrepareResult.data.image.uploadUrl,
-        file,
-        contentType: uploadPrepareResult.data.image.mimeType,
-      });
-      if (!uploadResponse.ok) {
-        toast.error(t("errors.imageLoadFailed"));
-        return;
-      }
-
-      const prepareResult = await prepareBrandClassificationAction({
-        objectKey: uploadPrepareResult.data.image.objectKey,
-        mimeType: uploadPrepareResult.data.image.mimeType,
-        size: uploadPrepareResult.data.image.size,
-      });
-      if (!prepareResult.success) {
-        toast.error(prepareResult.message);
-        return;
-      }
-
-      const nextDetectionImageMeta = {
-        width: prepareResult.data.imageWidth,
-        height: prepareResult.data.imageHeight,
-      };
-      const candidateBoxes =
-        prepareResult.data.detections.length > 0
-          ? prepareResult.data.detections
-          : [getFallbackBox(nextDetectionImageMeta)];
-
-      const normalizedBoxes = candidateBoxes.map((box) =>
-        clampClassificationBox(box, nextDetectionImageMeta),
-      );
-      setDetectionImageMeta(nextDetectionImageMeta);
-      setDetections(normalizedBoxes);
-
-      const classifyResult = await classifyBrandImageAction({
-        objectKey: uploadPrepareResult.data.image.objectKey,
-        mimeType: uploadPrepareResult.data.image.mimeType,
-        size: uploadPrepareResult.data.image.size,
-        imageMode,
-        fileName,
-        folderPath,
-        boxes: normalizedBoxes,
-      });
+      const classifyResult = video
+        ? await classifySelectedVideo()
+        : file && (await classifySelectedImage(file));
+      if (!classifyResult) return;
       if (!classifyResult.success) {
         toast.error(classifyResult.message);
         return;
@@ -256,6 +220,78 @@ export default function BrandClassifyClient({
     } finally {
       setIsRunning(false);
     }
+  }
+
+  async function classifySelectedVideo(): ReturnType<typeof classifyBrandImageAction> {
+    const response = await classifyFeatureVideoAction({
+      source: await getVideoSource(),
+      featureType: "logo",
+      imageMode,
+      fileName,
+      folderPath,
+    });
+    if (!response.success) return response;
+    const result = response.data.brand;
+    if (!result) return { success: false, message: t("classifyFailed") };
+    return { success: true, data: { result } };
+  }
+
+  async function classifySelectedImage(file: File) {
+    const contentType = file.type || "application/octet-stream";
+    const uploadPrepareResult = await prepareLogoImageUploadAction({
+      name: file.name,
+      mimeType: contentType,
+      size: file.size,
+    });
+    if (!uploadPrepareResult.success) {
+      toast.error(uploadPrepareResult.message);
+      return;
+    }
+
+    const uploadResponse = await uploadS3ObjectFromBrowser({
+      uploadUrl: uploadPrepareResult.data.image.uploadUrl,
+      file,
+      contentType: uploadPrepareResult.data.image.mimeType,
+    });
+    if (!uploadResponse.ok) {
+      toast.error(t("errors.imageLoadFailed"));
+      return;
+    }
+
+    const prepareResult = await prepareBrandClassificationAction({
+      objectKey: uploadPrepareResult.data.image.objectKey,
+      mimeType: uploadPrepareResult.data.image.mimeType,
+      size: uploadPrepareResult.data.image.size,
+    });
+    if (!prepareResult.success) {
+      toast.error(prepareResult.message);
+      return;
+    }
+
+    const nextDetectionImageMeta = {
+      width: prepareResult.data.imageWidth,
+      height: prepareResult.data.imageHeight,
+    };
+    const candidateBoxes =
+      prepareResult.data.detections.length > 0
+        ? prepareResult.data.detections
+        : [getFallbackBox(nextDetectionImageMeta)];
+
+    const normalizedBoxes = candidateBoxes.map((box) =>
+      clampClassificationBox(box, nextDetectionImageMeta),
+    );
+    setDetectionImageMeta(nextDetectionImageMeta);
+    setDetections(normalizedBoxes);
+
+    return classifyBrandImageAction({
+      objectKey: uploadPrepareResult.data.image.objectKey,
+      mimeType: uploadPrepareResult.data.image.mimeType,
+      size: uploadPrepareResult.data.image.size,
+      imageMode,
+      fileName,
+      folderPath,
+      boxes: normalizedBoxes,
+    });
   }
 
   const boxImageMeta = detectionImageMeta ?? imageMeta;
@@ -290,17 +326,25 @@ export default function BrandClassifyClient({
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_380px]">
         <div className="space-y-6 rounded-[24px] border bg-background p-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+          <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center">
             <Input
               type="file"
-              accept="image/*,.svg"
+              accept={CLASSIFICATION_MEDIA_ACCEPT}
+              disabled={isRunning || isImporting}
               onChange={handleFileChange}
               className="max-w-[320px]"
+            />
+            <ImportClassificationVideoButton
+              disabled={isRunning}
+              isImporting={isImporting}
+              onClick={() => void importVideo(resetMediaSelection)}
             />
             <Button
               type="button"
               onClick={handleClassify}
-              disabled={isRunning || !file || referenceLogos.length === 0}
+              disabled={
+                isRunning || isImporting || (!file && !video) || referenceLogos.length === 0
+              }
             >
               {isRunning ? (
                 <>
@@ -335,7 +379,9 @@ export default function BrandClassifyClient({
           />
 
           <div className="rounded-[20px] border border-dashed border-basic-3 bg-basic-1 p-4">
-            {previewUrl && imageMeta && boxImageMeta ? (
+            {video ? (
+              <ClassificationVideoPreview key={video.url} video={video} />
+            ) : previewUrl && imageMeta && boxImageMeta ? (
               <div className="flex justify-center">
                 <div
                   className="relative isolate overflow-hidden rounded-[16px] bg-[#eef3fb]"
@@ -387,7 +433,7 @@ export default function BrandClassifyClient({
             ) : (
               <div className="flex min-h-[420px] flex-col items-center justify-center gap-3 text-center text-basic-5">
                 <Upload className="size-10" />
-                <p>{t("uploadHint")}</p>
+                <ClassificationMediaHint />
               </div>
             )}
           </div>

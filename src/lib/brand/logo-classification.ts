@@ -82,11 +82,13 @@ export async function detectBrandLogoBoxes({
   imageInput,
   detectionLabelText = "",
   requestMode = "async",
+  signal,
 }: {
   teamId: number;
   imageInput: ClassificationRemoteImageInput;
   detectionLabelText?: string;
   requestMode?: MediaProcessRequestMode;
+  signal?: AbortSignal;
 }) {
   const rawDetectionLabelText = detectionLabelText.trim() || "logo";
   const normalizedDetectionLabelText =
@@ -95,6 +97,7 @@ export async function detectBrandLogoBoxes({
     teamId,
     imageInput,
     requestMode,
+    ...(signal ? { signal } : {}),
     detectionLabelText: normalizedDetectionLabelText,
     defaultLabel: "logo",
     errorPrefix: "Logo detection",

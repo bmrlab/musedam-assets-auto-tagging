@@ -103,20 +103,26 @@ function parseOcrJson(content: string): unknown {
   }
 }
 
-export function parseOcrResponse(content: string, imageCount = 1): OcrResponse {
+export function parseOcrResponse(
+  content: string,
+  imageCount = 1,
+  { allowUnattributed = false }: { allowUnattributed?: boolean } = {},
+): OcrResponse {
   const textBlock = z.object({ text: z.string() });
   const segment = z.union([z.string(), textBlock.transform((block) => block.text)]);
-  let payload = parseOcrJson(content);
-  // Some OCR gateways return a flat list of strings or text blocks for one image.
-  // Only unwrap that variant when image association is unambiguous; never regroup
-  // flat blocks from a multi-image request or coerce malformed text values.
-  if (imageCount === 1) {
+  const payload = parseOcrJson(content);
+  if (imageCount === 1 || allowUnattributed) {
     const flatBlocks = z
       .object({ content: z.array(segment) })
       .strict()
       .safeParse(payload);
     if (flatBlocks.success) {
-      payload = { content: [flatBlocks.data.content] };
+      if (imageCount === 1) return { content: [flatBlocks.data.content] };
+      // A flat response has no frame boundaries, even if its length equals the frame count.
+      return {
+        content: [],
+        unattributedSegments: flatBlocks.data.content.flatMap((text) => text.split(/\r?\n/)),
+      };
     }
   }
   const parsed = z

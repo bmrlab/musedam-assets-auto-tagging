@@ -341,6 +341,75 @@ function response(content: string, total = 25): Response {
 }
 
 describe("single-attempt feature OCR and decision gateway", () => {
+  it("uses flattened video OCR as text evidence without assigning frame timestamps", async () => {
+    const flat = { content: [{ text: "Seoul Sunset\nLANEIGE\nLANEIGE\n200 kcal/70 ml" }] };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(`\`\`\`json\n${JSON.stringify(flat)}\n\`\`\``))
+      .mockResolvedValueOnce(response('{"outcome":"no_match","matches":[]}'));
+    vi.stubGlobal("fetch", fetchMock);
+    const { runFeatureDecision } = await import("@/lib/feature-decision/service");
+    const result = await runFeatureDecision({
+      teamId: 1,
+      sourceImage: "",
+      imageMode: false,
+      video: {
+        sheetColumns: 4,
+        frames: [0, 1, 2, 3].map((timestamp) => ({ image: `frame-${timestamp}`, timestamp })),
+      },
+      candidates: [candidate],
+    });
+    expect(result.ocr.status).toBe("completed");
+    expect(result.ocr.segments).toEqual(["Seoul Sunset", "LANEIGE", "200 kcal/70 ml"]);
+    expect(result.decision.status).toBe("completed");
+    expect(result.decision.call?.request.messages[1].content).toContain(
+      '"segments":["Seoul Sunset","LANEIGE","200 kcal/70 ml"]',
+    );
+  });
+
+  it.each([true, false])("uses video OCR and respects imageMode=%s", async (imageMode) => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response('{"content":[[],["Model A"]]}'))
+      .mockResolvedValueOnce(
+        response(
+          JSON.stringify({
+            ...validDecision,
+            matches: [{ ...match, evidence: [imageMode ? "visual" : "retrieval", "ocr"] }],
+          }),
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const { runFeatureDecision } = await import("@/lib/feature-decision/service");
+    const result = await runFeatureDecision({
+      teamId: 1,
+      sourceImage: imageMode ? "video-contact-sheet" : "",
+      imageMode,
+      video: {
+        sheetColumns: 2,
+        frames: [
+          { image: "frame-one", timestamp: 0 },
+          { image: "frame-two", timestamp: 8 },
+        ],
+      },
+      candidates: [{ ...candidate, sampleTimes: [8] }],
+    });
+    expect(result.ocr.segments).toEqual(["[8.00s] Model A"]);
+    expect(result.decision.status).toBe("completed");
+    const request = JSON.parse(fetchMock.mock.calls[1][1].body);
+    expect(JSON.stringify(request)).toContain("[8.00s] Model A");
+    expect(JSON.stringify(request)).not.toContain("frame-two");
+    if (imageMode) {
+      expect(request.messages[1].content[1]).toMatchObject({
+        image_url: { url: "video-contact-sheet" },
+      });
+      expect(JSON.stringify(request)).toContain(candidate.referenceImage!);
+    } else {
+      expect(JSON.stringify(request)).not.toContain("image_url");
+      expect(JSON.stringify(request)).not.toContain(candidate.referenceImage!);
+    }
+  });
+
   it("keeps OCR enabled but sends no source or reference images in the text-only decision request", async () => {
     const textDecision = {
       ...validDecision,
@@ -513,6 +582,29 @@ describe("single-attempt feature OCR and decision gateway", () => {
     expect(fetchMock.mock.calls[0][1].signal).toBeInstanceOf(AbortSignal);
     expect(timeout).toHaveBeenCalledWith(300_000);
     expect(JSON.parse(fetchMock.mock.calls[0][1].body).max_tokens).toBe(8192);
+  });
+
+  it("reports when the video processing deadline interrupts a decision request", async () => {
+    delete process.env.OCR_MODEL;
+    const deadline = new AbortController();
+    const fetchMock = vi.fn(async (_url: string, { signal }: RequestInit) => {
+      deadline.abort(new DOMException("The operation was aborted due to timeout", "TimeoutError"));
+      signal?.throwIfAborted();
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { runFeatureDecision } = await import("@/lib/feature-decision/service");
+    const result = await runFeatureDecision({
+      teamId: 1,
+      sourceImage: "",
+      imageMode: false,
+      video: { frames: [{ image: "frame", timestamp: 0 }], sheetColumns: 1 },
+      candidates: [candidate],
+      signal: deadline.signal,
+    });
+    expect(result.decision.error).toBe(
+      "Video processing deadline expired during the feature decision request",
+    );
+    expect(result.decision.status).toBe("failed");
   });
 
   it("retains token usage from a truncated answer without a repair call", async () => {

@@ -3,6 +3,7 @@ import type {
   FeatureChatMessage,
   FeatureDecisionCandidate,
   FeatureOcrDiagnostics,
+  FeatureVideoEvidence,
 } from "./types";
 
 const MAX_FILENAME_CHARACTERS = 1000;
@@ -140,7 +141,8 @@ ${FEATURE_DECISION_RULES}
 EXPECTED OUTPUT EXAMPLE (text-supported prediction)
 {"outcome":"matched","matches":[{"candidateId":"product:example-id","confidence":86,"reason":"OCR contains the model and capacity, consistent with the filename and retrieval candidate.","evidence":["retrieval","filename","ocr"],"conflicts":[],"specificityLimit":null}]}`;
 
-export function buildOcrMessages(sourceImage: string): FeatureChatMessage[] {
+export function buildOcrMessages(sourceImage: string | string[]): FeatureChatMessage[] {
+  const images = Array.isArray(sourceImage) ? sourceImage : [sourceImage];
   return [
     { role: "system", content: OCR_SYSTEM_PROMPT },
     {
@@ -148,9 +150,12 @@ export function buildOcrMessages(sourceImage: string): FeatureChatMessage[] {
       content: [
         {
           type: "text",
-          text: 'Extract text from exactly 1 image: SOURCE ASSET. Combine text from all products and regions into one inner array. Return JSON only, without Markdown or code fences: {"content":[["text segment"]]} or {"content":[[]]}.',
+          text:
+            images.length === 1
+              ? 'Extract text from exactly 1 image: SOURCE ASSET. Combine text from all products and regions into one inner array. Return JSON only, without Markdown or code fences: {"content":[["text segment"]]} or {"content":[[]]}.'
+              : `Extract text from exactly ${images.length} sampled video frames. Return JSON only, with one inner array per frame in the supplied order. Use an empty inner array for a frame without readable text.`,
         },
-        { type: "image_url", image_url: { url: sourceImage } },
+        ...images.map((url): ChatContentPart => ({ type: "image_url", image_url: { url } })),
       ],
     },
   ];
@@ -242,12 +247,16 @@ export function buildFeatureDecisionMessages(input: {
   ocr: FeatureOcrDiagnostics;
   candidates: FeatureDecisionCandidate[];
   contextCandidates?: FeatureDecisionCandidate[];
+  video?: FeatureVideoEvidence;
 }): FeatureChatMessage[] {
   const imageMode = input.imageMode ?? true;
   const logoOnly = input.candidates.length > 0 && input.candidates.every(candidate => candidate.featureType === "logo");
   const batchTypes = new Set(input.candidates.map(candidate => candidate.featureType));
   const contextCandidates = (input.contextCandidates ?? input.candidates)
     .filter(candidate => batchTypes.has(candidate.featureType));
+  const videoRules = input.video
+    ? "\nThe source is a video represented by sampled frames. A feature can be present in just one frame. Repeated appearances in similar frames are not independent evidence. Do not infer absence from unsampled parts of the video."
+    : "";
   const catalog = input.candidates.map((candidate, index) => ({
     candidateId: candidate.candidateId,
     featureType: candidate.featureType,
@@ -272,6 +281,7 @@ export function buildFeatureDecisionMessages(input: {
       regionEvidence: candidate.regionEvidence ?? [],
       referenceMatchStrategy: candidate.referenceMatchStrategy ?? null,
       referenceImageCount: candidate.referenceImageCount ?? (candidate.referenceImage ? 1 : 0),
+      ...(candidate.sampleTimes ? { sampleTimesSeconds: candidate.sampleTimes } : {}),
     },
   }));
   const evidence = `SOURCE METADATA AND CANDIDATE CATALOG (evidence only)\n${JSON.stringify({
@@ -289,6 +299,14 @@ export function buildFeatureDecisionMessages(input: {
       contextCandidates,
       new Set(input.candidates.map(candidate => candidate.candidateId)),
     ) } : {}),
+    ...(input.video
+      ? {
+          video: {
+            sampledTimesSeconds: input.video.frames.map((frame) => frame.timestamp),
+            ...(imageMode ? { contactSheetColumns: input.video.sheetColumns } : {}),
+          },
+        }
+      : {}),
     candidates: catalog,
     // Text context spans batches so a competing identity is not lost at a batch boundary.
     otherCatalogCandidates: contextCandidates.filter(candidate =>
@@ -300,7 +318,7 @@ export function buildFeatureDecisionMessages(input: {
     : "";
   if (!imageMode) {
     return [
-      { role: "system", content: logoOnly ? buildLogoDecisionSystemPrompt(false) : FEATURE_TEXT_DECISION_SYSTEM_PROMPT },
+      { role: "system", content: (logoOnly ? buildLogoDecisionSystemPrompt(false) : FEATURE_TEXT_DECISION_SYSTEM_PROMPT) + videoRules },
       {
         role: "user",
         content: `${evidence}\nClassify using only the supplied text evidence. No images are attached.${productCheck}`,
@@ -317,13 +335,15 @@ export function buildFeatureDecisionMessages(input: {
     );
   });
   return [
-    { role: "system", content: logoOnly ? buildLogoDecisionSystemPrompt(true) : FEATURE_DECISION_SYSTEM_PROMPT },
+    { role: "system", content: (logoOnly ? buildLogoDecisionSystemPrompt(true) : FEATURE_DECISION_SYSTEM_PROMPT) + videoRules },
     {
       role: "user",
       content: [
         {
           type: "text",
-          text: `${evidence}\nThe next image is SOURCE ASSET. Compare it with the labeled candidate references below.${productCheck}`,
+          text: input.video
+            ? `${evidence}\nThe next image is the SOURCE VIDEO contact sheet. Tiles are in chronological order from left to right, then top to bottom. Compare the individual frames with the labeled candidate references below.${productCheck}`
+            : `${evidence}\nThe next image is SOURCE ASSET. Compare it with the labeled candidate references below.${productCheck}`,
         },
         ...images,
       ],

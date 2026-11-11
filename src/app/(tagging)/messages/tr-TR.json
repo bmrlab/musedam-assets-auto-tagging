@@ -910,9 +910,9 @@
       "remove": "Kaldır"
     },
     "Test": {
-      "uploadLocalFiles": "Upload local images",
-      "localFileInvalid": "{name}: Select an image up to 20 MB.",
-      "localUploadFailed": "Local image upload failed.",
+      "uploadLocalFiles": "Upload local files",
+      "localFileInvalid": "{name}: Select an image up to 20 MB or a video up to 200 MB.",
+      "localUploadFailed": "Local file upload failed.",
       "uploadTestFiles": "Test Dosyalarını Yükle",
       "testDescription": "Test Açıklaması",
       "removeAsset": "Kaldır",

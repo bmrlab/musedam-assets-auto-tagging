@@ -1,5 +1,12 @@
 {
   "Tagging": {
+    "ClassificationVideo": {
+      "uploadHint": "上传图片或视频，或从 MuseDAM 选择视频。",
+      "selectVideo": "请选择 MuseDAM 中支持的视频文件。",
+      "uploadLimit": "请选择不超过 {size} MB 的视频。",
+      "uploadFailed": "视频上传失败。",
+      "personFirstFrame": "人物分类使用视频的第一帧。"
+    },
     "FeatureDecisionDiagnostics": {
       "noPredictions": "未返回候选特征预测。请查看响应与调用状态，区分候选完全无关或处理失败。",
       "conflicts": "冲突证据",
@@ -987,9 +994,9 @@
       "remove": "移除"
     },
     "Test": {
-      "uploadLocalFiles": "上传本地图片",
-      "localFileInvalid": "{name}：请选择不超过 20 MB 的图片",
-      "localUploadFailed": "本地图片上传失败",
+      "uploadLocalFiles": "上传本地文件",
+      "localFileInvalid": "{name}：请选择不超过 20 MB 的图片或 200 MB 的视频",
+      "localUploadFailed": "本地文件上传失败",
       "uploadTestFiles": "上传测试文件",
       "testDescription": "测试说明",
       "removeAsset": "移除",

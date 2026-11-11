@@ -42,7 +42,7 @@ import {
   getBrandMatches,
   getIpMatches,
 } from "@/lib/feature-decision/match-policy";
-import { isFeatureTypeEnabled, isVideoAssetExtension } from "@/lib/feature-library";
+import { isFeatureTypeEnabled } from "@/lib/feature-library";
 import {
   PRIMARY_FACE_SIM_THRESHOLD,
   getPersonFaceBestRawSimilarity,
@@ -438,7 +438,6 @@ export function ReviewItem({
   const assetExtra = assetObject.extra as AssetObjectExtra | null;
   const sourceDeleted = assetExtra?.reviewAssetDeleted === true;
   const assetPreviewUrl = assetExtra?.thumbnailAccessUrl;
-  const isVideoAsset = isVideoAssetExtension(assetExtra?.extension);
 
   const realLoading = batchLoading || loading;
   const availableFeatureIdSets = useMemo(
@@ -1340,9 +1339,7 @@ export function ReviewItem({
                     ) : hasFeatureRecognitionFailure((queueItem.result as TaggingQueueItemResult | null)?.featureDecision) ? null : (
                       <div className="text-sm text-basic-5">
                         {tResult(
-                          isVideoAsset
-                            ? "videoFeatureLibraryLimited"
-                            : hasFeatureBelowConfidenceThreshold
+                          hasFeatureBelowConfidenceThreshold
                               ? "featureConfidenceNotCredible"
                               : "noRecognizedFeatures",
                         )}
