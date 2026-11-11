@@ -26,7 +26,7 @@ export default function LibraryPagination({
   const visiblePages = getVisiblePageNumbers(currentPage, totalPages);
 
   return (
-    <Pagination className="mx-0 w-auto">
+    <Pagination className="mx-0 w-auto max-w-full overflow-x-auto">
       <PaginationContent>
         <PaginationItem>
           <PaginationPrevious

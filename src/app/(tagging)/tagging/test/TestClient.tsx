@@ -1351,11 +1351,11 @@ export default function TestClient() {
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div className="grid min-w-0 grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
       {/* 左侧：素材选择区域 */}
-      <div className="lg:col-span-2 space-y-6">
+      <div className="min-w-0 lg:col-span-2 space-y-6">
         <div className="bg-background border rounded-md">
-          <div className="px-4 py-3 border-b flex justify-between items-center">
+          <div className="px-4 py-3 border-b flex flex-wrap justify-between items-center gap-3">
             <h3 className="font-medium text-sm">{t("uploadTestFiles")}</h3>
             <Button
               variant="outline"
@@ -1416,7 +1416,7 @@ export default function TestClient() {
                       key={asset.id.toString()}
                       className="flex items-center justify-between p-3 border border-basic-4 rounded-md"
                     >
-                      <div className="flex items-center gap-3 shrink-0">
+                      <div className="flex min-w-0 flex-1 items-center gap-3">
                         <AssetThumbnail
                           asset={{
                             thumbnailUrl: asset.thumbnail?.url,
@@ -1427,7 +1427,7 @@ export default function TestClient() {
                           maxHeight={32}
                         />
                         <div>
-                          <p className="font-medium text-sm">{asset.name}</p>
+                          <p className="break-all font-medium text-sm">{asset.name}</p>
                           <p className="text-xs text-basic-5">
                             {asset.extension} • {(asset.size / 1024).toFixed(1)} KB
                           </p>
@@ -1705,7 +1705,7 @@ export default function TestClient() {
           <div className="px-4 py-3 border-b">
             <h3 className="font-medium text-sm">{t("selectTaggingScene")}</h3>
           </div>
-          <div className="p-4 grid grid-cols-2 gap-3">
+          <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
             {[
               { key: "general", label: t("generalAssets"), icon: "📂" },
               { key: "brand", label: t("brandVisual"), icon: "🧑‍🎨" },
@@ -1737,7 +1737,7 @@ export default function TestClient() {
           <div className="px-4 py-3 border-b">
             <h3 className="font-medium text-sm">{t("recommendedAIRecognition")}</h3>
           </div>
-          <div className="p-4 grid grid-cols-2 gap-3">
+          <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
             {[
               { key: "precise", label: t("preciseMode"), confidence: t("preciseConfidence") },
               {
@@ -1773,7 +1773,7 @@ export default function TestClient() {
           <div className="px-4 py-3 border-b">
             <h3 className="font-medium text-sm">{t("recommendedMatchingStrategy")}</h3>
           </div>
-          <div className="p-4 grid grid-cols-2 gap-3">
+          <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
             {[
               { key: "materializedPath", label: t("pathMatching") },
               { key: "basicInfo", label: t("nameMatching") },

@@ -87,12 +87,12 @@ export function UnmatchedReviewPanel({
     </Select>
   );
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4" aria-busy={loading}>
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4" aria-busy={loading}>
       <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border bg-background px-4 py-3">
         <span className="text-sm">
           {t("totalItems", { total: loading ? 0 : (data?.total ?? 0) })}
         </span>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-3 max-sm:w-full max-sm:[&>[data-slot=select-trigger]]:w-full">
           {dropdown(
             content,
             tm("reviewContent"),
@@ -152,7 +152,7 @@ export function UnmatchedReviewPanel({
         </div>
       </div>
       <p className="text-xs text-basic-5 dark:text-basic-6">{tm("unmatchedDescription")}</p>
-      <div className="min-h-0 flex-1 overflow-auto">
+      <div className="min-h-0 flex-1 overflow-auto max-md:flex-none max-md:overflow-visible">
         {loading ? (
           <p role="status" className="p-6 text-center text-sm text-basic-5">
             {t("loading")}
@@ -173,7 +173,7 @@ export function UnmatchedReviewPanel({
               return (
                 <article
                   key={asset.id}
-                  className="flex items-start gap-4 rounded-lg border bg-background p-4"
+                  className="flex flex-wrap items-start gap-4 rounded-lg border bg-background p-4"
                 >
                   <AssetThumbnail
                     asset={{ extension: extra?.extension, thumbnailUrl: extra?.thumbnailAccessUrl }}
@@ -182,13 +182,13 @@ export function UnmatchedReviewPanel({
                     className="size-16 shrink-0 rounded-lg object-cover"
                   />
                   <div className="flex min-w-0 flex-1 flex-col gap-2">
-                    <h2 className="break-words text-base font-semibold">{asset.name}</h2>
+                    <h2 className="[overflow-wrap:anywhere] text-base font-semibold">{asset.name}</h2>
                     <span className="text-xs text-basic-5 dark:text-basic-6">
                       {new Date(createdAt).toLocaleString(locale)}
                     </span>
                     <Button
                       variant="link"
-                      className="h-auto justify-start self-start p-0"
+                      className="h-auto max-w-full whitespace-normal text-left justify-start self-start p-0"
                       onClick={() =>
                         dispatchMuseDAMClientAction("goto", {
                           url: `/detail/${slugToId("assetObject", asset.slug).toString()}`,

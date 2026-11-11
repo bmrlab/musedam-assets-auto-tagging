@@ -152,9 +152,9 @@ export function MetadataReviewPanel({
     ]),
   ];
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4" aria-busy={disabled}>
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4" aria-busy={disabled}>
       <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border bg-background px-4 py-3">
-        <div className="flex shrink-0 items-center gap-3 text-sm">
+        <div className="flex min-w-0 flex-wrap items-center gap-3 max-sm:w-full max-sm:[&>[data-slot=select-trigger]]:w-full text-sm">
           <Checkbox
             aria-label={t("selectAll")}
             checked={allSelected}
@@ -203,7 +203,7 @@ export function MetadataReviewPanel({
             </>
           )}
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-3 max-sm:w-full max-sm:[&>[data-slot=select-trigger]]:w-full">
           {dropdown(
             "fields",
             [
@@ -268,7 +268,7 @@ export function MetadataReviewPanel({
               e.preventDefault();
               change("search", search);
             }}
-            className="relative w-52"
+            className="relative w-full sm:w-52"
           >
             <SearchIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-basic-5" />
             <Input
@@ -281,7 +281,7 @@ export function MetadataReviewPanel({
           </form>
         </div>
       </div>
-      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-y-auto max-md:flex-none max-md:overflow-visible">
         {loading ? (
           <div role="status" className="flex justify-center gap-2 p-8 text-sm text-basic-5">
             <Loader2Icon className="size-4 animate-spin" />
@@ -305,7 +305,7 @@ export function MetadataReviewPanel({
                 key={asset.assetObject.id}
                 className="flex flex-col gap-4 rounded-lg border bg-background p-4"
               >
-                <div className="flex items-start gap-3">
+                <div className="flex flex-wrap items-start gap-3">
                   <Checkbox
                     className="mt-2"
                     aria-label={asset.assetObject.name}
@@ -331,7 +331,7 @@ export function MetadataReviewPanel({
                     />
                   </div>
                   <div className="flex min-w-0 flex-1 flex-col gap-1">
-                    <h2 className="break-words text-base font-semibold leading-6">
+                    <h2 className="[overflow-wrap:anywhere] text-base font-semibold leading-6">
                       {asset.assetObject.name}
                     </h2>
                     <p className="text-xs text-basic-5 dark:text-basic-6">
@@ -344,7 +344,7 @@ export function MetadataReviewPanel({
                     </p>
                   </div>
                   {!!pending.length && (
-                    <div className="flex shrink-0 gap-2">
+                    <div className="flex shrink-0 flex-wrap gap-2 max-sm:w-full max-sm:justify-end">
                       <Button
                         size="sm"
                         className="rounded-md"
@@ -394,7 +394,7 @@ export function MetadataReviewPanel({
       </div>
       <nav
         aria-label={t("next")}
-        className="flex shrink-0 items-center justify-end gap-1 py-2 text-xs text-basic-5 dark:text-basic-6"
+        className="flex shrink-0 flex-wrap items-center justify-end gap-1 py-2 text-xs text-basic-5 dark:text-basic-6"
       >
         <Button
           size="icon"

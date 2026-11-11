@@ -732,7 +732,7 @@ export default function IpDialog({
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 placeholder={t("dialog.ipNamePlaceholder")}
-                className="h-8 w-[349px] rounded-[6px] border border-basic-4 px-3 py-0 text-[14px] leading-[22px] font-normal placeholder:text-[14px] placeholder:leading-[22px] placeholder:font-normal placeholder:text-basic-5"
+                className="h-8 w-full min-w-0 rounded-[6px] border border-basic-4 px-3 py-0 text-[14px] leading-[22px] font-normal placeholder:text-[14px] placeholder:leading-[22px] placeholder:font-normal placeholder:text-basic-5"
               />
             </div>
 
@@ -750,7 +750,7 @@ export default function IpDialog({
                 onTypeDeleted={onIpTypeDeleted}
                 fallbackType={fallbackType}
                 disabled={isSaving}
-                triggerClassName="h-8 w-[349px] rounded-[6px] border border-basic-4 px-3 py-0 text-[14px] leading-[22px] font-normal"
+                triggerClassName="h-8 w-full min-w-0 rounded-[6px] border border-basic-4 px-3 py-0 text-[14px] leading-[22px] font-normal"
               />
             </div>
           </div>
@@ -764,7 +764,7 @@ export default function IpDialog({
                 {t("dialog.matchPatternDescription")}
               </p>
             </div>
-            <div className="grid w-full grid-cols-2 gap-[12px]">
+            <div className="grid w-full grid-cols-1 sm:grid-cols-2 gap-3">
               <button
                 type="button"
                 onClick={() => setMatchPattern("whole")}

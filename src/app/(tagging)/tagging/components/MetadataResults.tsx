@@ -25,7 +25,7 @@ export function MetadataPredictionRow({
         <CheckIcon
           className={`size-4 shrink-0 ${item.effective ? "text-primary-6" : "text-warning-7"}`}
         />
-        <span className="min-w-0 flex-1 break-words font-medium">
+        <span className="min-w-0 flex-1 basis-full sm:basis-auto [overflow-wrap:anywhere] font-medium">
           {item.fieldName}：
           {item.checked === undefined
             ? item.labels.join(" / ")
@@ -49,7 +49,7 @@ export function MetadataPredictionRow({
         </summary>
         <div className="flex flex-col gap-2 pt-2">
           {item.sources.map((source, index) => (
-            <p key={`${source.source}:${index}`} className="break-words">
+            <p key={`${source.source}:${index}`} className="[overflow-wrap:anywhere]">
               {t(sourceKeys[source.source])}: {source.evidence}
             </p>
           ))}
@@ -69,7 +69,7 @@ export function MetadataResults({
   const t = useTranslations("Tagging.Metadata");
   const displayed = testResult ? predictions.filter((item) => item.score >= 60) : predictions;
   return (
-    <section className="flex flex-col gap-3 rounded-lg border bg-background p-4 text-basic-8 dark:text-[#FAFAFA]">
+    <section className="flex min-w-0 flex-col gap-3 rounded-lg border bg-background p-4 text-basic-8 dark:text-[#FAFAFA]">
       <div className="flex flex-wrap items-center gap-2">
         <TablePropertiesIcon className="size-4" />
         <h3 className="text-sm font-semibold">

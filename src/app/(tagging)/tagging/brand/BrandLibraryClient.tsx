@@ -667,16 +667,16 @@ export default function BrandLibraryClient({
   return (
     <>
       {/* data-fill-viewport：页面占满可视高度，只有列表区域滚动、分页栏始终可见（见 tagging/layout.tsx） */}
-      <div data-fill-viewport className="flex min-h-0 flex-1 flex-col">
+      <div data-fill-viewport className="flex min-h-0 min-w-0 flex-1 flex-col">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <h2 className="text-xl font-semibold">{t("title")}</h2>
             <p className="mt-1 text-sm leading-5 text-basic-5">{t("description")}</p>
           </div>
 
-          <div className="flex w-full flex-col gap-3 sm:flex-row xl:w-auto">
+          <div className="flex w-full min-w-0 flex-col flex-wrap gap-3 sm:flex-row xl:w-auto">
             <FeatureThresholdSetting type="brand" />
-            <div className="relative w-[260px]">
+            <div className="relative w-full sm:w-[260px]">
               <Image
                 src="/Icon/Search.svg"
                 alt=""
@@ -685,7 +685,7 @@ export default function BrandLibraryClient({
                 className="pointer-events-none absolute top-1/2 left-[10px] -translate-y-1/2"
               />
               <Input
-                className="h-8 w-[260px] rounded-[6px] border border-basic-4 bg-background px-[10px] py-1 pl-[32px] text-[14px] leading-[22px] font-normal text-basic-8 placeholder:text-[14px] placeholder:leading-[22px] placeholder:font-normal placeholder:text-basic-5/80"
+                className="h-8 w-full rounded-[6px] border border-basic-4 bg-background px-[10px] py-1 pl-[32px] text-[14px] leading-[22px] font-normal text-basic-8 placeholder:text-[14px] placeholder:leading-[22px] placeholder:font-normal placeholder:text-basic-5/80"
                 placeholder={t("searchPlaceholder")}
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
@@ -1164,7 +1164,7 @@ export default function BrandLibraryClient({
                       </table>
                     </div>
 
-                    <div className="flex shrink-0 flex-col gap-4 border-t px-6 py-4 xl:flex-row xl:items-center xl:justify-between">
+                    <div className="flex shrink-0 flex-col gap-4 border-t px-3 md:px-6 py-4 xl:flex-row xl:items-center xl:justify-between">
                       <Input
                         value={pageInput}
                         onChange={(event) => setPageInput(event.target.value)}
@@ -1174,10 +1174,10 @@ export default function BrandLibraryClient({
                           }
                         }}
                         placeholder={tReview("pageInputPlaceholder")}
-                        className={`h-8 ${isChineseLocale ? "w-[180px]" : "w-[300px]"} rounded-[6px] border border-basic-4 px-3 py-[5px] gap-1`}
+                        className={`h-8 max-w-full ${isChineseLocale ? "w-[180px]" : "w-[300px]"} rounded-[6px] border border-basic-4 px-3 py-[5px] gap-1`}
                       />
 
-                      <div className="flex items-center gap-3 self-end">
+                      <div className="flex max-w-full flex-wrap items-center justify-end gap-3 self-end">
                         <LibraryPagination
                           currentPage={safeCurrentPage}
                           totalPages={totalPages}

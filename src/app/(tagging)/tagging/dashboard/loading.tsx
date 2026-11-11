@@ -15,7 +15,7 @@ export default function DashboardLoading() {
       </div>
 
       <div className="bg-background border rounded-[6px]">
-        <div className="flex items-center justify-between gap-3 py-3 px-5 border-b">
+        <div className="flex flex-wrap items-center justify-between gap-3 py-3 px-5 border-b">
           <Skeleton className="h-5 w-40" />
           <Skeleton className="h-8 w-[220px]" />
         </div>

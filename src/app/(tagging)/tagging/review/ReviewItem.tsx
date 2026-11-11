@@ -184,7 +184,7 @@ function FeatureRecognitionRow({
   return (
     <div
       className={cn(
-        "group flex items-center justify-between gap-3 rounded-md border p-3",
+        "group flex flex-wrap items-center justify-between gap-3 rounded-md border p-3",
         rawSimilarity === undefined
           ? getFeatureConfidenceToneClass(confidence)
           : getPersonReviewConfidenceToneClass(rawSimilarity, confidence),
@@ -230,7 +230,7 @@ function FeatureRecognitionRow({
           </div>
         ) : null}
       </div>
-      <div className="flex shrink-0 items-center gap-[6px]">
+      <div className="flex shrink-0 items-center gap-[6px] max-sm:ml-auto">
         <Progress
           value={confidence}
           className="w-[60px] bg-current/20 [&>[data-slot=progress-indicator]]:bg-current"
@@ -770,8 +770,8 @@ export function ReviewItem({
   }, [assetObject.id, assetObject.slug, batch.length, contentScope, featureReviewVersions, rejectedFeatureKeys, manualFeatureKeys, manualTags, metadataReviews, onSuccess, t, finalBatch]);
 
   return (
-    <div className="bg-background border rounded-[6px] px-6 pt-8 pb-6 space-y-6">
-      <div className="flex items-center gap-4">
+    <div className="min-w-0 bg-background border rounded-[6px] p-3 md:px-6 md:pt-8 md:pb-6 space-y-6">
+      <div className="flex flex-wrap items-center gap-4">
         {CheckboxComponent}
         <button
           type="button"
@@ -795,7 +795,7 @@ export function ReviewItem({
 
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="font-semibold text-basic" title={assetObject.name}>
+            <h3 className="font-semibold text-basic [overflow-wrap:anywhere]" title={assetObject.name}>
               {assetObject.name}
             </h3>
             {sourceDeleted && (
@@ -825,7 +825,7 @@ export function ReviewItem({
           </button>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 max-sm:w-full max-sm:justify-end">
           {hasPendingAuditItems && !sourceDeleted && (
             <Button
               size="sm"
@@ -1276,7 +1276,7 @@ export function ReviewItem({
                     ) : null}
                   </div>
                   {index === 0 && hasPendingAuditItems && !sourceDeleted && hasEnabledFeatures && visibleManualFeatures.length > 0 ? (
-                    <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <div className="mb-3 grid grid-cols-1 gap-2 xl:grid-cols-2">
                       {visibleManualFeatures.map((feature) => (
                         <ManualFeatureRow
                           key={`manual-${featureKey(feature.featureType, feature.id)}`}
@@ -1301,7 +1301,7 @@ export function ReviewItem({
                       </div>
                     ) : null}
                     {hasManualRows || featureRows.length > 0 ? (
-                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
                         {reviewedManualFeatures.map((feature) => (
                           <ManualFeatureRow
                             key={`reviewed-manual-${featureKey(feature.featureType, feature.id)}`}

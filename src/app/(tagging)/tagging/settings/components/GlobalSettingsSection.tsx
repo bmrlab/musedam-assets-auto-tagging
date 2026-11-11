@@ -69,7 +69,7 @@ export function GlobalSettingsSection({
           <h3 className="font-medium text-base">{t("title")}</h3>
         </div>
         <div className="flex flex-col">
-          <div className="flex items-start justify-between gap-4 px-5 pt-5">
+          <div className="flex items-start justify-between gap-4 px-4 md:px-5 pt-5">
             <div>
               <h3 className="font-medium text-sm">
                 {t(metadataAvailable ? "tagSystemSwitch" : "enableTagging")}
@@ -86,7 +86,7 @@ export function GlobalSettingsSection({
             />
           </div>
 
-          <div className="flex gap-2 px-5 pb-5 pt-3">
+          <div className="flex flex-wrap gap-2 px-4 md:px-5 pb-5 pt-3">
             <Button
               variant="outline"
               size="sm"
@@ -103,7 +103,7 @@ export function GlobalSettingsSection({
           </div>
           {metadataAvailable && (
             <div className="flex flex-col border-t">
-              <div className="flex items-start justify-between gap-4 px-5 pt-5">
+              <div className="flex items-start justify-between gap-4 px-4 md:px-5 pt-5">
                 <div className="flex flex-col gap-1">
                   <h3 className="text-sm font-medium">{t("metadataSwitch")}</h3>
                   <p className="text-[13px] text-basic-5 dark:text-basic-6">
@@ -121,7 +121,7 @@ export function GlobalSettingsSection({
                   onCheckedChange={setMetadataConfirm}
                 />
               </div>
-              <div className="flex gap-2 px-5 pb-5 pt-3">
+              <div className="flex flex-wrap gap-2 px-4 md:px-5 pb-5 pt-3">
                 <Button
                   variant="outline"
                   size="sm"

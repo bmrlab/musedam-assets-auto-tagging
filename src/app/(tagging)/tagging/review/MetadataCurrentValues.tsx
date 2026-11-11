@@ -64,7 +64,7 @@ export function MetadataCurrentValues({
           {rows.map((row) => (
             <span
               key={row.name}
-              className="max-w-full break-words rounded border bg-background px-2 py-1 text-[13px] leading-[18px]"
+              className="max-w-full [overflow-wrap:anywhere] rounded border bg-background px-2 py-1 text-[13px] leading-[18px]"
             >
               {row.name}：{display(row.value)}
             </span>

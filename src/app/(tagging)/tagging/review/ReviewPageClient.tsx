@@ -46,10 +46,12 @@ import { dispatchMuseDAMClientAction } from "@/embed/message";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useSession } from "@/components/AuthProvider";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const BATCH_APPROVE_CHUNK_SIZE = 10;
 
 export default function ReviewPageClient({ metadataAvailable = false }: { metadataAvailable?: boolean }) {
+  const isMobile = useIsMobile();
   const t = useTranslations("Tagging.Review");
   const tm = useTranslations("Tagging.Metadata");
   const [contentFilter, setContentFilter] = useState("all");
@@ -133,10 +135,10 @@ export default function ReviewPageClient({ metadataAvailable = false }: { metada
     if (!sentinel || isLoading || isLoadingMore || loading || !hasMoreInPage || loadMoreFailed) return;
     const observer = new IntersectionObserver(entries => {
       if (entries.some(entry => entry.isIntersecting)) void handleLoadMore();
-    }, { root: listScrollRef.current, rootMargin: "400px" });
+    }, { root: isMobile ? null : listScrollRef.current, rootMargin: "400px" });
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [isLoading, isLoadingMore, loading, hasMoreInPage, loadMoreFailed, handleLoadMore, assets.length]);
+  }, [isLoading, isLoadingMore, loading, hasMoreInPage, loadMoreFailed, handleLoadMore, assets.length, isMobile]);
 
   const handlePageChange = useCallback(
     (page: number) => {
@@ -380,12 +382,12 @@ export default function ReviewPageClient({ metadataAvailable = false }: { metada
 
   return (
     // data-fill-viewport：页面占满可视高度，只有列表区域滚动、分页栏始终可见（见 tagging/layout.tsx）
-    <div data-fill-viewport className="flex min-h-0 flex-1 flex-col gap-[10px]">
+    <div data-fill-viewport className="flex min-h-0 min-w-0 flex-1 flex-col gap-[10px]">
       {statusFilter === "unmatched" ? <UnmatchedReviewPanel content={contentFilter as ReviewContent} metadataAvailable={metadataAvailable} isAdmin={isAdmin} onContentChange={changeContent} onStatusChange={changeStatus} />
         : contentFilter === "fields" ? <MetadataReviewPanel initialStatus={statusFilter} onStatusChange={changeStatus} onContentChange={changeContent} /> : <>
       {/* 筛选器和搜索 */}
-      <div className="flex items-center justify-between py-4 px-5 bg-background border rounded-[6px]">
-        <div className="text-[13px] font-medium flex items-center gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 p-3 md:py-4 md:px-5 bg-background border rounded-[6px]">
+        <div className="text-[13px] font-medium flex flex-wrap items-center gap-3">
           <Checkbox
             className="size-4"
             checked={isAllSelected}
@@ -443,7 +445,7 @@ export default function ReviewPageClient({ metadataAvailable = false }: { metada
             </AlertDialog>
           </>}
         </div>
-        <div className="flex flex-col sm:flex-row justify-end gap-4">
+        <div className="flex min-w-0 w-full flex-wrap justify-end gap-3 xl:w-auto max-sm:[&>[data-slot=select-trigger]]:w-full">
           <Select value={contentFilter} onValueChange={changeContent}>
             <SelectTrigger className="w-fit gap-2 !h-8 rounded-md" aria-label={tm("reviewContent")}><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -509,7 +511,7 @@ export default function ReviewPageClient({ metadataAvailable = false }: { metada
             </SelectContent>
           </Select>
 
-          <div className="flex-1 max-w-[209px] relative">
+          <div className="w-full min-w-0 sm:w-52 sm:max-w-[209px] relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-basic-5" />
             <Input
               placeholder={t("searchPlaceholder")}
@@ -557,7 +559,7 @@ export default function ReviewPageClient({ metadataAvailable = false }: { metada
           </CardContent>
         </Card>
       ) : <>
-        <div ref={listScrollRef} className="min-h-[240px] flex-1 space-y-[10px] overflow-y-auto">
+        <div ref={listScrollRef} className="min-h-[240px] flex-1 space-y-[10px] overflow-y-auto max-md:flex-none max-md:overflow-visible">
         {assets.map((asset) => (
           <ReviewItem
             contentScope={contentFilter === "tags" || contentFilter === "features" ? contentFilter : "all"}
@@ -644,7 +646,7 @@ export default function ReviewPageClient({ metadataAvailable = false }: { metada
 
 
           {/* 分页导航 */}
-          <div className="flex items-center gap-2">
+          <div className="flex max-w-full items-center gap-2 overflow-x-auto">
             <Pagination>
               <PaginationContent>
                 <PaginationItem>

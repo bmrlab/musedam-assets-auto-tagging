@@ -61,7 +61,7 @@ export function MetadataReviewSuggestions({
       </div>
       {!rows.length && <p className="text-[13px] text-basic-5 dark:text-basic-6">{t("empty")}</p>}
       <TooltipProvider>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
           {rows.map(({ id, status, prediction: item, available = true }) => {
             const excluded = excludedIds.includes(id);
             const tone = excluded
@@ -76,12 +76,12 @@ export function MetadataReviewSuggestions({
               <div
                 key={id}
                 className={cn(
-                  "group flex min-w-0 items-center gap-2 rounded-md border p-3",
+                  "group flex min-w-0 flex-wrap items-center gap-2 rounded-md border p-3",
                   tone,
                   !available && status === "pending" && "opacity-50",
                 )}
               >
-                <span className="min-w-0 flex-1 break-words text-[13px] leading-[22px]">
+                <span className="min-w-0 flex-1 basis-full sm:basis-auto [overflow-wrap:anywhere] text-[13px] leading-[22px]">
                   {label}
                 </span>
                 <span
@@ -90,7 +90,7 @@ export function MetadataReviewSuggestions({
                   aria-valuemin={0}
                   aria-valuemax={100}
                   aria-valuenow={Math.round(item.score)}
-                  className="flex w-12 shrink-0 overflow-hidden rounded-full bg-current/20"
+                  className="ml-auto sm:ml-0 flex w-12 shrink-0 overflow-hidden rounded-full bg-current/20"
                 >
                   <span
                     className="h-1 bg-current"
@@ -118,7 +118,7 @@ export function MetadataReviewSuggestions({
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="size-5 shrink-0 bg-transparent text-basic-5 hover:bg-transparent hover:text-current focus-visible:ring-2 focus-visible:ring-primary-6 dark:text-basic-6"
+                        className="size-8 sm:size-5 shrink-0 bg-transparent text-basic-5 hover:bg-transparent hover:text-current focus-visible:ring-2 focus-visible:ring-primary-6 dark:text-basic-6"
                         disabled={busy || (excluded && !available)}
                         aria-label={`${tr(excluded ? "tooltipAdd" : "tooltipRemove")} ${item.fieldName}`}
                         onClick={() => onToggle(id)}

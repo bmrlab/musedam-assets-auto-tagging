@@ -56,7 +56,7 @@ export function AIRecognitionSection({
           <h3 className="font-medium text-sm">{t("title")}</h3>
           <InfoIcon className="size-4 text-basic-5" />
         </div>
-        <div className="p-6">
+        <div className="p-4 md:p-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {items.map((item) => {
               return (

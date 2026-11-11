@@ -277,8 +277,8 @@ export default function DashboardClient({
     }
 
     return (
-      <div className="flex items-center justify-between gap-2 p-3 border-t">
-        <Pagination className="flex-1 mx-0">
+      <div className="flex flex-wrap items-center justify-between gap-2 p-3 border-t">
+        <Pagination className="flex-1 mx-0 max-w-full overflow-x-auto">
           <PaginationContent>
             <PaginationItem>
               <PaginationPrevious
@@ -419,13 +419,13 @@ export default function DashboardClient({
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <div className="relative">
+            <div className="relative max-sm:w-full">
               <SearchIcon
                 className="pointer-events-none absolute left-[10px] top-1/2 -translate-y-1/2 text-basic-5"
                 size={14}
               />
               <Input
-                className="h-8 w-[220px] pl-[30px] pr-7"
+                className="h-8 w-full sm:w-[220px] pl-[30px] pr-7"
                 placeholder={t("searchPlaceholder")}
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}

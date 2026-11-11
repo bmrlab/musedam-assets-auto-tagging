@@ -190,7 +190,7 @@ export default function SettingsClient({ initialSettings, metadataAvailable = fa
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between h-[32px]">
+      <div className="flex flex-wrap items-center justify-between gap-3 min-h-8">
         <h1 className="text-sm font-medium">{t("title")}</h1>
       </div>
 
