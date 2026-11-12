@@ -1,9 +1,11 @@
+import { queueSleep } from "@/lib/tagging/queue-execution";
 // @vitest-environment node
 
 import { enqueueTaggingTask, processQueueItem } from "@/app/(tagging)/queue";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  saveRetry: vi.fn(),
   product: vi.fn(),
   brand: vi.fn(),
   ip: vi.fn(),
@@ -25,6 +27,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("server-only", () => ({}));
+vi.mock("@/app/(tagging)/tagging/review/feature-retry-worker", () => ({ saveFeatureRetry: mocks.saveRetry }));
 vi.mock("@/lib/tagging/refresh-asset", () => ({ refreshQueuedAsset: async (_teamId: number, asset: unknown) => asset }));
 vi.mock("@/lib/product/tagging-product-classification", () => ({
   classifyAssetProductRecommendation: mocks.product,
@@ -135,6 +138,7 @@ async function run(
     ip: true,
   },
   snapshot?: boolean,
+  retrySourceId?: number,
 ) {
   await processQueueItem({
     id: 1,
@@ -142,6 +146,7 @@ async function run(
     taskType: "test",
     assetObjectId: 2,
     extra: {
+      ...(retrySourceId ? { featureRetrySourceQueueItemId: retrySourceId } : {}),
       ...(snapshot === undefined ? {} : { featureImageMode: snapshot, creditCost: snapshot ? 2 : 1 }),
       featureClassify: true,
       featureBrand: features.brand ?? false,
@@ -320,6 +325,7 @@ describe("combined LLM feature classification", () => {
     );
     const preparedSource = await mocks.prepare.mock.results[0].value;
     expect(mocks.classifyFeatures).toHaveBeenCalledExactlyOnceWith({
+      onOcr: expect.any(Function),
       teamId: 7,
       queueItemId: 1,
       assetObjectId: 2,
@@ -401,6 +407,41 @@ describe("combined LLM feature classification", () => {
         }),
       }),
     );
+  });
+
+  it.each(["budget", "jina"])("retains ordinary predictions after %s degradation and marks features incomplete", async reason => {
+    mocks.mode = "llm";
+    mocks.predict.mockResolvedValue({ predictions: {}, tagsWithScore: [{
+      leafTagId: 99, tagPath: ["Scene"], confidenceBySources: { basicInfo: 0.9 }, score: 90,
+    }], usage: {}, extra: {} });
+    if (reason === "budget") {
+      vi.useFakeTimers();
+      mocks.classifyFeatures.mockImplementation(input => {
+        input.onOcr?.({ status: "completed", segments: ["Product name"], source: "model" });
+        return queueSleep(200_000);
+      });
+    } else {
+      mocks.classifyFeatures.mockResolvedValue({ brand: null, product: null, ip: null, diagnostics: {
+        mode: "llm", ocr: { status: "completed", segments: ["Product name"], source: "musedam" },
+        retrieval: { errors: ["product retrieval: JINA_UNAVAILABLE: timeout"] },
+        decision: { status: "failed", error: "Jina unavailable" },
+      } });
+    }
+    const task = run({ extension: "jpg", downloadUrl: "https://example.test/original.jpg" });
+    if (reason === "budget") await vi.advanceTimersByTimeAsync(150_001);
+    await task;
+    expect(mocks.buildRecommendations).not.toHaveBeenCalled();
+    expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({
+      status: "completed", result: expect.objectContaining({
+        outputTypes: expect.objectContaining({ features: false }),
+        tagsWithScore: expect.arrayContaining([expect.objectContaining({ leafTagId: 99 })]),
+        featureDecision: expect.objectContaining({
+          degradation: expect.objectContaining({ reason: reason === "budget" ? "budget_exceeded" : "jina_unavailable" }),
+          ocr: expect.objectContaining({ status: "completed", segments: ["Product name"] }),
+          decision: expect.objectContaining({ status: "failed" }),
+        }),
+      }),
+    }) }));
   });
 
   it("preserves completed feature diagnostics when no tags are available", async () => {
@@ -507,4 +548,42 @@ describe("independent video team image mode", () => {
     const task = await enqueueTaggingTask({ assetObject: { id: 2, teamId: 7, extra: { extension: "mp4", duration: 5000 } } as never });
     expect(task.extra).toMatchObject({ featureImageMode: enabled, creditCost: enabled ? 6 : 3, creditFrameCount: 3 });
   });
+});
+
+describe("video feature work admission", () => {
+  it.each(["disabled", "empty"])("does not sample video for %s libraries", async scenario => {
+    mocks.mode = "llm";
+    if (scenario === "empty") {
+      mocks.productCount.mockResolvedValue(0);
+      mocks.brandCount.mockResolvedValue(0);
+      mocks.ipCount.mockResolvedValue(0);
+    }
+    await run({ extension: "mp4", downloadUrl: "https://example.test/video.mp4", thumbnailAccessUrl: "https://example.test/thumb.jpg" },
+      scenario === "empty" ? { brand: true, product: true, ip: true } : { brand: false, product: false, ip: false });
+    expect(mocks.classifyVideo).not.toHaveBeenCalled();
+    expect(mocks.classifyFeatures).not.toHaveBeenCalled();
+    expect(mocks.fetchSource).not.toHaveBeenCalled();
+    expect(mocks.predict).toHaveBeenCalledTimes(1);
+  });
+  it("starts ordinary prediction only once when video feature matching is enabled", async () => {
+    mocks.mode = "llm";
+    await run({ extension: "mp4", downloadUrl: "https://example.test/video.mp4" });
+    expect(mocks.classifyVideo).toHaveBeenCalledTimes(1);
+    expect(mocks.predict).toHaveBeenCalledTimes(1);
+  });
+});
+
+it("feature-only retry bypasses ordinary prediction and merges into the original batch", async () => {
+  mocks.mode = "llm";
+  await run({ extension: "jpg", downloadUrl: "https://example.test/original.jpg" }, { brand: true }, undefined, 50);
+  expect(mocks.predict).not.toHaveBeenCalled();
+  expect(mocks.saveRetry).toHaveBeenCalledWith(7, 50, 1, expect.objectContaining({ featureDecision: expect.objectContaining({ decision: expect.objectContaining({ status: "completed" }) }) }), undefined);
+});
+it("does not merge a failed feature-only retry into the source", async () => {
+  mocks.mode = "llm";
+  mocks.classifyFeatures.mockRejectedValue(Error("unavailable"));
+  await run({ extension: "jpg", downloadUrl: "https://example.test/original.jpg" }, { brand: true }, undefined, 50);
+  expect(mocks.predict).not.toHaveBeenCalled();
+  expect(mocks.saveRetry).not.toHaveBeenCalled();
+  expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "failed" }) }));
 });

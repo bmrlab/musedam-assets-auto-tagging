@@ -1,4 +1,5 @@
 "use client";
+import { FeatureRetryControl, FeatureRetryButton, FeatureRetryContent } from "./components/FeatureRetryControl";
 import { applyMetadataReviewSelection } from "./metadata-review-selection";
 import { ReviewConfidence } from "./components/ReviewConfidence";
 import { ReviewEvidenceDetails } from "./components/ReviewEvidenceDetails";
@@ -363,6 +364,7 @@ export function ReviewItem({
   featureThumbnails,
   batch,
   onSuccess,
+  onFeatureRefresh,
   CheckboxComponent,
   batchLoading,
   rejectedFeatureKeys,
@@ -374,6 +376,7 @@ export function ReviewItem({
   onAddManualFeatures,
   onRemoveManualFeature,
 }: AssetWithAuditItemsBatch & {
+  onFeatureRefresh?: () => void;
   CheckboxComponent: React.ReactNode;
   batchLoading?: boolean;
   excludedMetadataIds?: number[];
@@ -1240,7 +1243,9 @@ export function ReviewItem({
               // Sort features by confidence (high to low)
               featureRows.sort((a, b) => b.confidence - a.confidence);
 
-              return (
+              const retryAvailable = hasFeatureRecognitionFailure((queueItem.result as TaggingQueueItemResult | null)?.featureDecision)
+                && index === 0 && queueItem.status === "completed" && !sourceDeleted && !isScopedFeatureReviewComplete(queueItem);
+              const featurePanel = (
                 <div
                   key={`features-${queueItem.id}`}
                   className="w-full rounded-md bg-[rgba(247,249,252,0.8)] p-4 dark:bg-basic-1"
@@ -1248,6 +1253,7 @@ export function ReviewItem({
                   <div className="mb-3 flex flex-wrap items-center gap-2">
                     <StarIcon className="size-4" />
                     <span className="text-sm font-medium">{t("featureRecognition")}</span>
+                    {retryAvailable ? <FeatureRetryButton /> : null}
                     <span className="text-xs text-basic-5">{t("basedOnFeatureLibrary")}</span>
                     <BatchImageModeBadge extra={queueItem.extra} />
                     {!taggingAuditItems.some(({ status }) => status === "pending") ? (
@@ -1295,7 +1301,9 @@ export function ReviewItem({
                   ) : null}
                   <div className="space-y-2">
                     {hasFeatureRecognitionFailure((queueItem.result as TaggingQueueItemResult | null)?.featureDecision) ? (
-                      <div role="status" className="rounded-md border border-warning-3 bg-warning-1 p-3 text-sm text-warning-7">
+                      retryAvailable ? (
+                        <FeatureRetryContent />
+                      ) : <div role="status" className="rounded-md border border-warning-3 bg-warning-1 p-3 text-sm text-warning-7">
                         {tResult("featureRecognitionIncomplete")}
                       </div>
                     ) : null}
@@ -1348,6 +1356,11 @@ export function ReviewItem({
                   </div>
                 </div>
               );
+              return retryAvailable ? (
+                <FeatureRetryControl key={`feature-retry-${queueItem.id}`} sourceId={queueItem.id} disabled={realLoading} onComplete={onFeatureRefresh}>
+                  {featurePanel}
+                </FeatureRetryControl>
+              ) : featurePanel;
             })}
           </div>
       ) : null}

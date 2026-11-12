@@ -853,6 +853,14 @@
       }
     },
     "Review": {
+      "featureRetryProcessing": "正在识别商品、Logo、IP…",
+      "featureRetryPending": "等待特征识别",
+      "featureRetryStatusUnknown": "暂时无法获取识别状态，请重新检查",
+      "featureRetryFailed": "特征识别暂未完成，可稍后重试；标签结果已保留",
+      "featureRetryIncomplete": "特征识别暂未完成，标签结果已保留",
+      "featureRetryCheck": "重新检查",
+      "featureRetryRunning": "重试中...",
+      "featureRetryButton": "重试特征识别",
       "batchImageModeOn": "图像模式：已开启",
       "batchImageModeOff": "图像模式：未开启",
       "batchImageModeHint": "以本批次入队时的图像模式设置为准。",

@@ -71,6 +71,10 @@ declare module "@/prisma/client" {
   };
 
   export type TaggingQueueItemExtra = Partial<{
+    /** Feature-only continuation of an existing review batch; no additional credit charge. */
+    featureRetryJobId: number;
+    featureRetrySourceQueueItemId: number;
+    featureRetrySourceStartedAt: string | null;
     /** Immutable image mode and price captured at enqueue time. */
     featureImageMode: boolean;
     creditCost: number;

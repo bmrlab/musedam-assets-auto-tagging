@@ -156,6 +156,14 @@
       "searchPlaceholder": "자산 이름으로 검색"
     },
     "Review": {
+      "featureRetryProcessing": "Recognizing products, logos and IP…",
+      "featureRetryPending": "Waiting for feature recognition",
+      "featureRetryStatusUnknown": "Recognition status unavailable. Check again.",
+      "featureRetryFailed": "Feature recognition is incomplete. Try again later; tag results are preserved.",
+      "featureRetryIncomplete": "Feature recognition is incomplete; tag results are preserved.",
+      "featureRetryCheck": "Check again",
+      "featureRetryRunning": "Retrying...",
+      "featureRetryButton": "Retry feature recognition",
       "batchImageModeOn": "이미지 모드: 켜짐",
       "batchImageModeOff": "이미지 모드: 꺼짐",
       "batchImageModeHint": "이 배치가 대기열에 추가될 때 저장된 이미지 모드입니다.",

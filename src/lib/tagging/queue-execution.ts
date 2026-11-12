@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
+import { getOperationSignal } from "./operation-budget";
 
 export type QueueExecution = {
   queueItemId: number;
@@ -7,7 +8,10 @@ export type QueueExecution = {
   assertOwned: () => Promise<void>;
 };
 const execution = new AsyncLocalStorage<QueueExecution>();
-export function runWithQueueExecution<T>(context: QueueExecution, run: () => PromiseLike<T>): Promise<T> {
+export function runWithQueueExecution<T>(
+  context: QueueExecution,
+  run: () => PromiseLike<T>,
+): Promise<T> {
   // Await inside the context as Prisma promises are lazy and may otherwise execute outside it.
   return execution.run(context, async () => await run());
 }
@@ -16,11 +20,14 @@ export function getQueueExecution() {
 }
 export function throwIfQueueAborted() {
   execution.getStore()?.signal.throwIfAborted();
+  getOperationSignal()?.throwIfAborted();
 }
 export function queueAbortSignal(signal?: AbortSignal): AbortSignal | undefined {
-  const parent = execution.getStore()?.signal;
-  parent?.throwIfAborted();
-  return parent && signal ? AbortSignal.any([parent, signal]) : (parent ?? signal);
+  const signals = [execution.getStore()?.signal, getOperationSignal(), signal].filter(
+    (item): item is AbortSignal => !!item,
+  );
+  for (const item of signals) item.throwIfAborted();
+  return signals.length > 1 ? AbortSignal.any(signals) : signals[0];
 }
 export async function assertQueueExecutionOwned() {
   const context = execution.getStore();

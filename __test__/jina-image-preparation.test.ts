@@ -1,3 +1,5 @@
+import { runWithQueueExecution } from "@/lib/tagging/queue-execution";
+import { withFeatureBudget } from "@/lib/tagging/operation-budget";
 import { trackClassificationEmbeddings } from "@/lib/brand/embedding-tracking";
 import { createJinaImageEmbeddings, createJinaTextEmbeddings } from "@/lib/brand/jina";
 import { prepareJinaImageDataUrl } from "@/lib/tagging/reference-image";
@@ -6,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   fetch: vi.fn(),
   debug: false,
+  endpoint: "https://example.test/embeddings",
   isDirectJina: false,
   prepareImage: vi.fn(),
   buildDebugKey: vi.fn(),
@@ -20,7 +23,7 @@ vi.mock("@/lib/brand/env", () => ({
   isDebugPageEnabled: () => mocks.debug,
   getJinaConfig: () => ({
     apiKey: "test-key",
-    embeddingsUrl: "https://example.test/embeddings",
+    embeddingsUrl: mocks.endpoint,
     model: "jina-clip-v2",
     batchSize: 8,
     timeoutMs: 30_000,
@@ -47,6 +50,7 @@ describe("Jina image preparation boundary", () => {
     mocks.fetch.mockReset();
     mocks.info.mockClear();
     mocks.debug = false;
+    mocks.endpoint = "https://example.test/embeddings";
     mocks.isDirectJina = false;
     mocks.prepareImage.mockReset();
     mocks.buildDebugKey.mockReset().mockReturnValue("debug-jina-image.jpg");
@@ -308,4 +312,33 @@ describe("Jina image preparation boundary", () => {
 
     expect(requestStartedAt[1] - requestStartedAt[0]).toBeGreaterThanOrEqual(300);
   });
+});
+
+const inQueue = <T>(run: () => Promise<T>) => runWithQueueExecution({
+  queueItemId: 1, attempt: "test", signal: new AbortController().signal, assertOwned: async () => {},
+}, run);
+it("bounds queue retries across image/text calls and stops HTTP calls when the circuit opens", async () => {
+  mocks.endpoint = "https://queue-circuit.test/embeddings";
+  mocks.fetch.mockReset().mockRejectedValue(new DOMException("slow upstream", "TimeoutError"));
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  vi.spyOn(console, "warn").mockImplementation(() => {});
+  await expect(inQueue(() => createJinaTextEmbeddings({ texts: ["one"] }))).rejects.toThrow("JINA_UNAVAILABLE");
+  expect(mocks.fetch).toHaveBeenCalledTimes(2);
+  mocks.prepareImage.mockResolvedValue("prepared");
+  await expect(inQueue(() => createJinaImageEmbeddings({ images: ["one"] }))).rejects.toThrow("JINA_UNAVAILABLE");
+  expect(mocks.fetch).toHaveBeenCalledTimes(3);
+  await expect(inQueue(() => createJinaTextEmbeddings({ texts: ["two"] }))).rejects.toThrow("circuit open");
+  expect(mocks.fetch).toHaveBeenCalledTimes(3);
+  vi.restoreAllMocks();
+});
+it("aborts the real queue HTTP call at the feature deadline without retrying", async () => {
+  mocks.endpoint = "https://queue-deadline.test/embeddings";
+  mocks.fetch.mockReset().mockImplementation(async (_url, init) => new Promise((_resolve, reject) => {
+    init.signal.addEventListener("abort", () => reject(init.signal.reason), { once: true });
+  }));
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  await expect(inQueue(() => withFeatureBudget(30, () => createJinaTextEmbeddings({ texts: ["one"] })))).rejects.toThrow("FEATURE_BUDGET_EXCEEDED");
+  expect(mocks.fetch).toHaveBeenCalledTimes(1);
+  expect(mocks.fetch.mock.calls[0][1].signal.aborted).toBe(true);
+  vi.restoreAllMocks();
 });

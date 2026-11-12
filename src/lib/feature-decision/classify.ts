@@ -1,3 +1,5 @@
+import { throwIfQueueAborted } from "@/lib/tagging/queue-execution";
+import { withFeatureBudget } from "@/lib/tagging/operation-budget";
 import { recallProductsByMetadata, type ProductMetadataEvidence } from "@/lib/product/metadata-candidates";
 import { selectProductRegionWinners } from "@/lib/product/product-match-policy";
 import { prepareLogoReferenceSheet } from "./logo-reference-sheet";
@@ -78,6 +80,7 @@ type FeatureClassificationInput = FeatureLlmContext & {
   folderPath?: string;
   ocrSegments?: string[];
   ocrImage?: string;
+  onOcr?: (ocr: FeatureDecisionDiagnostics["ocr"]) => void;
   mode?: "llm" | "legacy";
   boxes?: Partial<Record<DecisionFeatureType, ClassificationDetectionBox[]>>;
 } & (
@@ -483,6 +486,17 @@ export async function classifyAssetFeatures(
   const imageMode = input.imageMode ?? isDecisionLlmImageUseEnabled();
   const enabledTypes = [...new Set(input.enabledTypes)];
   const retrievalInput = { teamId, enabledTypes, mode };
+  const ocrPromise = mode === "llm" ? withFeatureBudget(45_000, () => recognizeFeatureOcr({
+      teamId, queueItemId: input.queueItemId, assetObjectId: input.assetObjectId,
+      sourceImage: input.ocrImage ?? sourceImage,
+      segments: input.ocrSegments,
+      ...(videoEvidence ? { video: videoEvidence, signal: video?.decisionSignal } : {}),
+    })).catch((error): FeatureDecisionDiagnostics["ocr"] => ({
+      status: "failed", segments: [], source: "model",
+      error: error instanceof Error ? error.message : String(error),
+    })).then(ocr => { input.onOcr?.(ocr); return ocr; }) : null;
+  // Observe immediately while retrieval runs, even if retrieval itself throws.
+  void ocrPromise?.catch(() => {});
   const { output, regions, errors, sampleTimes } = await trackClassificationEmbeddings(
     {
       teamId,
@@ -517,7 +531,16 @@ export async function classifyAssetFeatures(
             sampleTimes: undefined,
           };
     },
-  );
+  ).finally(async () => { await ocrPromise; });
+  throwIfQueueAborted();
+  if (errors.length && errors.every(error => error.includes("JINA_UNAVAILABLE:"))) {
+    return { brand: null, ip: null, product: null, diagnostics: {
+      mode,
+      retrieval: { ...regions, candidatesRetrieved: 0, unassessedCandidates: [], errors },
+      ocr: await ocrPromise ?? { status: "disabled", segments: [] },
+      decision: { status: "failed", error: "JINA_UNAVAILABLE: feature retrieval incomplete" },
+    } };
+  }
   const metadataEvidence = new Map<string, ProductMetadataEvidence[]>();
   if (mode === "llm" && output.product && (input.fileName || input.folderPath)) {
     try {
@@ -585,12 +608,7 @@ export async function classifyAssetFeatures(
         return [];
       }
     };
-    const ocr = await recognizeFeatureOcr({
-      teamId, queueItemId: input.queueItemId, assetObjectId: input.assetObjectId,
-      sourceImage: input.ocrImage ?? sourceImage,
-      segments: input.ocrSegments,
-      ...(videoEvidence ? { video: videoEvidence, signal: video?.decisionSignal } : {}),
-    });
+    const ocr = await ocrPromise!;
     const ocrText = ocr.segments.join("\n");
     const folderCatalog = enabledTypes.includes("logo") && (input.folderPath || ocrText)
       ? await loadCatalog(prisma.assetLogo.findMany({

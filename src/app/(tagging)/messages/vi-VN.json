@@ -769,6 +769,14 @@
       }
     },
     "Review": {
+      "featureRetryProcessing": "Recognizing products, logos and IP…",
+      "featureRetryPending": "Waiting for feature recognition",
+      "featureRetryStatusUnknown": "Recognition status unavailable. Check again.",
+      "featureRetryFailed": "Feature recognition is incomplete. Try again later; tag results are preserved.",
+      "featureRetryIncomplete": "Feature recognition is incomplete; tag results are preserved.",
+      "featureRetryCheck": "Check again",
+      "featureRetryRunning": "Retrying...",
+      "featureRetryButton": "Retry feature recognition",
       "batchImageModeOn": "Chế độ hình ảnh: bật",
       "batchImageModeOff": "Chế độ hình ảnh: tắt",
       "batchImageModeHint": "Dùng chế độ hình ảnh được lưu khi lô này vào hàng đợi.",

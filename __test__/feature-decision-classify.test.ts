@@ -1,3 +1,4 @@
+import { queueSleep } from "@/lib/tagging/queue-execution";
 // @vitest-environment node
 import { classifyAssetFeatures } from "@/lib/feature-decision/classify";
 import type { FeatureDecisionCandidate } from "@/lib/feature-decision/types";
@@ -720,4 +721,33 @@ it.each([false, true])("adds a metadata-only emulsion to decision competition (i
   const rejected = await classifyAssetFeatures({ teamId: 1, imageInput, enabledTypes: ["product"],
     boxes: { product: [box(0)] }, imageMode, folderPath: "雪花秀-琉光系列/美图" });
   expect(rejected.product?.matches).toEqual([]);
+});
+
+it("preserves independently completed OCR when Jina retrieval is unavailable", async () => {
+  const onOcr = vi.fn();
+  mocks.ocr.mockResolvedValue({ status: "completed", segments: ["Brand name"], source: "musedam" });
+  mocks.logo.mockImplementation(async () => {
+    // OCR should run even while retrieval is still pending.
+    await new Promise(resolve => setTimeout(resolve, 10));
+    expect(onOcr).toHaveBeenCalledWith(expect.objectContaining({ segments: ["Brand name"] }));
+    throw new Error("JINA_UNAVAILABLE: upstream timeout");
+  });
+  const result = await classifyAssetFeatures({ teamId: 1, imageInput, enabledTypes: ["logo"], boxes: { logo: [box(0)] }, imageMode: false, onOcr });
+  expect(result.brand).toBeNull();
+  expect(result.diagnostics.ocr.segments).toEqual(["Brand name"]);
+  expect(result.diagnostics.decision.status).toBe("failed");
+  expect(mocks.decision).not.toHaveBeenCalled();
+});
+it("cancels slow OCR independently while retaining usable feature candidates", async () => {
+  vi.useFakeTimers();
+  try {
+    mocks.ocr.mockImplementation(() => queueSleep(100_000));
+    const task = classifyAssetFeatures({ teamId: 1, imageInput, enabledTypes: ["logo"], boxes: { logo: [box(0)] }, imageMode: false });
+    await vi.advanceTimersByTimeAsync(45_001);
+    await task;
+    expect(mocks.decision).toHaveBeenCalledWith(expect.objectContaining({
+      ocr: expect.objectContaining({ status: "failed" }),
+      candidates: expect.arrayContaining([expect.objectContaining({ candidateId: "logo:first" })]),
+    }));
+  } finally { vi.useRealTimers(); }
 });

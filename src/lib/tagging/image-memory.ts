@@ -1,3 +1,5 @@
+import { runInAbortableSlot } from "./abortable-slot";
+import { throwIfQueueAborted } from "./queue-execution";
 import "server-only";
 
 import { rootLogger } from "@/lib/logging";
@@ -26,7 +28,8 @@ export function imageMemorySnapshot() {
 }
 
 export function withImageDecodeSlot<T>(stage: string, run: () => Promise<T>): Promise<T> {
-  return decodeSlot(async () => {
+  return runInAbortableSlot(decodeSlot, async () => {
+    throwIfQueueAborted();
     const before = imageMemorySnapshot();
     const startedAt = Date.now();
     try {

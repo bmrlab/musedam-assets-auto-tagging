@@ -154,6 +154,7 @@ export type FeatureOcrDiagnostics = {
 };
 
 export type FeatureDecisionDiagnostics = {
+  degradation?: { reason: "budget_exceeded" | "jina_unavailable"; budgetMs: number };
   /** Exact alias hits for logos with an explicit positive folder inclusion rule. */
   folderMatchedLogoIds?: string[];
   ocrMatchedLogoIds?: string[];

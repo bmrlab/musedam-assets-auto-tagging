@@ -156,6 +156,14 @@
       "searchPlaceholder": "搜尋素材名稱"
     },
     "Review": {
+      "featureRetryProcessing": "正在識別商品、Logo、IP…",
+      "featureRetryPending": "等待特徵識別",
+      "featureRetryStatusUnknown": "暫時無法取得識別狀態，請重新檢查",
+      "featureRetryFailed": "特徵識別暫未完成，可稍後重試；標籤結果已保留",
+      "featureRetryIncomplete": "特徵識別暫未完成，標籤結果已保留",
+      "featureRetryCheck": "重新檢查",
+      "featureRetryRunning": "重試中...",
+      "featureRetryButton": "重試特徵識別",
       "batchImageModeOn": "圖像模式：已開啟",
       "batchImageModeOff": "圖像模式：未開啟",
       "batchImageModeHint": "以本批次加入佇列時的圖像模式設定為準。",

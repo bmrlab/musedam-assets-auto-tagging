@@ -562,6 +562,7 @@ export default function ReviewPageClient({ metadataAvailable = false }: { metada
         <div ref={listScrollRef} className="min-h-[240px] flex-1 space-y-[10px] overflow-y-auto max-md:flex-none max-md:overflow-visible">
         {assets.map((asset) => (
           <ReviewItem
+            onFeatureRefresh={() => void refreshDataWithFilters()}
             contentScope={contentFilter === "tags" || contentFilter === "features" ? contentFilter : "all"}
             {...asset}
             metadataAvailable={metadataAvailable}

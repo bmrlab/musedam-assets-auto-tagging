@@ -810,6 +810,14 @@
       }
     },
     "Review": {
+      "featureRetryProcessing": "Recognizing products, logos and IP…",
+      "featureRetryPending": "Waiting for feature recognition",
+      "featureRetryStatusUnknown": "Recognition status unavailable. Check again.",
+      "featureRetryFailed": "Feature recognition is incomplete. Try again later; tag results are preserved.",
+      "featureRetryIncomplete": "Feature recognition is incomplete; tag results are preserved.",
+      "featureRetryCheck": "Check again",
+      "featureRetryRunning": "Retrying...",
+      "featureRetryButton": "Retry feature recognition",
       "batchImageModeOn": "Mode gambar: aktif",
       "batchImageModeOff": "Mode gambar: nonaktif",
       "batchImageModeHint": "Menggunakan mode gambar yang disimpan saat kelompok ini masuk antrean.",

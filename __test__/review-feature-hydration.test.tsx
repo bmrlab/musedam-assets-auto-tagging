@@ -20,6 +20,10 @@ vi.mock("@/components/ui/icons", () => ({
   TagsIcon: () => null,
 }));
 vi.mock("@/app/(tagging)/tagging/review/metadata-actions", () => ({ reviewMetadata: vi.fn() }));
+vi.mock("@/app/(tagging)/tagging/review/feature-retry-actions", () => ({
+  getFeatureRetryStatus: vi.fn(async () => ({ success: true, data: null, sourceComplete: false })),
+  retryFeatures: vi.fn(),
+}));
 vi.mock("@/embed/message", () => ({ dispatchMuseDAMClientAction: vi.fn() }));
 vi.mock("@/app/(tagging)/tagging/review/actions", () => ({
   reviewScopedAssetsAction: vi.fn(),
@@ -259,7 +263,8 @@ describe("review feature visibility during settings hydration", () => {
     const result = data.batch[0].queueItem.result as any;
     result.featureDecision = { mode: "llm", ocr: { status: "empty", segments: [] }, decision: { status: "completed", error: "1 of 2 decision batches failed" } };
     render(<ReviewItem {...data} />);
-    expect(screen.getByRole("status").textContent).toBe("featureRecognitionIncomplete");
+    expect(screen.getByRole("status").textContent).toContain("featureRetryIncomplete");
+    expect(screen.getByRole("button", { name: "featureRetryButton" })).toBeTruthy();
   });
 
   it.each([61, 92, 97])("renders candidate images and confidence colors at %s without internal details", (confidence) => {

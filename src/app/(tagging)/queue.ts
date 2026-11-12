@@ -1,3 +1,6 @@
+import { saveFeatureRetry } from "./tagging/review/feature-retry-worker";
+import { JinaUnavailableError } from "@/lib/brand/jina-circuit";
+import { FeatureBudgetExceededError, withFeatureBudget } from "@/lib/tagging/operation-budget";
 import { getAssetFeatureImageMode, getTaggingCreditQuote } from "@/lib/tagging-credit";
 import { assertTeamTaggingEnabled, TeamTaggingSuspendedError } from "@/lib/tagging/team-suspension";
 import { runWithQueueExecution, throwIfQueueAborted } from "@/lib/tagging/queue-execution";
@@ -310,6 +313,7 @@ export async function processQueueItem({
     assetObject = await logStepFinished("refreshMuseDAMAsset", refreshQueuedAsset(queueItem.teamId, assetObject));
     throwIfQueueAborted();
     const extra = queueItem.extra as TaggingQueueItemExtra;
+    const featureRetrySourceId = extra?.featureRetrySourceQueueItemId;
     const featureClassify = extra?.featureClassify === true;
     // Missing child fields are legacy queue items, for which all classifications were enabled.
     const featureClassifications = resolveFeatureClassificationFlags(featureClassify, {
@@ -338,11 +342,11 @@ export async function processQueueItem({
     const teamId = queueItem.teamId;
     // 权重在处理时按团队当前设置读取，修改后对排队中的任务立即生效
     const teamSetting = await getTaggingSettings(teamId);
-    const tagsEnabledForTask = teamSetting.isTaggingEnabled || queueItem.taskType === "test" && !teamSetting.isMetadataEnabled;
+    const tagsEnabledForTask = !featureRetrySourceId && (teamSetting.isTaggingEnabled || queueItem.taskType === "test" && !teamSetting.isMetadataEnabled);
     const tagsTree = tagsEnabledForTask && tagsTreeLoader ? await tagsTreeLoader(teamId) : undefined;
     const metadataTeam = await prisma.team.findUniqueOrThrow({ where: { id: teamId }, select: { id: true, slug: true } });
     let metadataEligibleForTask = false;
-    const metadataPredictions = teamSetting.isMetadataEnabled
+    const metadataPredictions = !featureRetrySourceId && teamSetting.isMetadataEnabled
       ? await predictMetadata(assetObject, metadataTeam, { ...teamSetting, matchingSources: extra?.matchingSources ?? teamSetting.matchingSources, recognitionAccuracy: extra?.recognitionAccuracy ?? teamSetting.recognitionAccuracy }, eligible => { metadataEligibleForTask = eligible; }) : [];
     const emptyTags = { predictions: [], tagsWithScore: [], extra: {} };
     const runTagPrediction: typeof predictAssetTags = (...args) => tagsEnabledForTask
@@ -390,8 +394,23 @@ export async function processQueueItem({
       ]);
 
       if (logoCount + productCount + ipCount + personCount > 0) {
+        const featureBudgetMs = Math.max(
+          0,
+          Math.min(
+            isVideo ? 240_000 : 150_000,
+            QUEUE_ITEM_TIMEOUT_MS - (Date.now() - taskStartedAt) - 30_000,
+          ),
+        );
         const withFallback = <T>(p: Promise<T>, fn: string): Promise<T | null> =>
           logStepFinished(fn, p).catch((error) => {
+            if (error instanceof JinaUnavailableError && getFeatureDecisionMode() === "legacy") {
+              featureDecision = {
+                mode: "legacy",
+                degradation: { reason: "jina_unavailable", budgetMs: featureBudgetMs },
+                ocr: { status: "disabled", segments: [] },
+                decision: { status: "failed", error: error.message },
+              };
+            }
             logger.warn({
               msg: `${fn} failed, continuing without recommendation`,
               classificationFn: fn,
@@ -407,7 +426,7 @@ export async function processQueueItem({
             prepareImageInput(source, "feature classification", {
               preserveOriginal: productCount > 0,
             });
-          const sharedImagePromise = detectionImageUrl
+          const getSharedImage = () => detectionImageUrl
             ? (
                 detectionImageUrl === thumbnailUrl
                   ? getThumbnailSource(detectionImageUrl)
@@ -434,7 +453,11 @@ export async function processQueueItem({
 
           const mode = getFeatureDecisionMode();
           if (isVideo || mode === "llm") {
+            let completedOcr: FeatureDecisionDiagnostics["ocr"] | undefined;
             const classificationInput = {
+              onOcr: (ocr: FeatureDecisionDiagnostics["ocr"]) => {
+                if (completedOcr?.status !== "completed") completedOcr = ocr;
+              },
               teamId,
               queueItemId: queueItem.id,
               assetObjectId: assetObject.id,
@@ -450,7 +473,7 @@ export async function processQueueItem({
                 ...(ipCount > 0 ? ["ip" as const] : []),
               ],
             };
-            const combined = (async () => {
+            const combined = withFeatureBudget(featureBudgetMs, async () => {
               let result: Awaited<ReturnType<typeof classifyAssetFeatures>> | null = null;
               let videoSignal: AbortSignal | undefined;
               if (isVideo && downloadUrl) {
@@ -466,7 +489,7 @@ export async function processQueueItem({
               if (!result && !videoSignal?.aborted) {
                 const imageInput = isVideo && thumbnailUrl
                   ? await withFallback(getThumbnailSource(thumbnailUrl).then(prepareDetectionInput), "prepareVideoThumbnail")
-                  : await sharedImagePromise;
+                  : await getSharedImage();
                 if (imageInput) {
                   let ocrImage: string | undefined;
                   if (isVideo && downloadUrl && mode === "llm" && !classificationInput.ocrSegments.length && process.env.OCR_MODEL?.trim()) {
@@ -504,9 +527,28 @@ export async function processQueueItem({
                 return null;
               }
               featureDecision = result.diagnostics;
+              if (result.diagnostics.retrieval?.errors.length && result.diagnostics.retrieval.errors.every(error => error.includes("JINA_UNAVAILABLE:"))) {
+                featureDecision.degradation = { reason: "jina_unavailable", budgetMs: featureBudgetMs };
+                featureDecision.decision = { status: "failed", error: "Jina unavailable; ordinary tag prediction retained" };
+                return null;
+              }
               unacceptedIdentityTagIds = result.unacceptedIdentityTagIds ?? [];
               return buildFeatureRecommendations(result);
-            })();
+            }).catch(error => {
+              // Queue cancellation still fails the task. Only the feature deadline is degradable.
+              throwIfQueueAborted();
+              if (!(error instanceof FeatureBudgetExceededError)) throw error;
+              featureDecision = {
+                mode,
+                degradation: { reason: "budget_exceeded", budgetMs: featureBudgetMs },
+                ocr: completedOcr ?? (classificationInput.ocrSegments.length
+                  ? { status: "completed", segments: classificationInput.ocrSegments, source: "musedam" }
+                  : { status: "skipped", segments: [] }),
+                decision: { status: "failed", error: error.message },
+              };
+              logger.warn({ msg: "Feature budget exhausted; retaining ordinary tag prediction", featureBudgetMs });
+              return null;
+            });
             brandRecommendationPromise = combined.then(
               (result) => result?.brandRecommendation ?? null,
             );
@@ -520,36 +562,33 @@ export async function processQueueItem({
               ocr: { status: "disabled", segments: [] },
               decision: { status: "skipped", error: "Explicit embedding-only legacy mode" },
             };
-            if (logoCount > 0) {
-              brandRecommendationPromise = sharedImagePromise.then((sharedImageInput) =>
-                sharedImageInput
-                  ? withFallback(
-                      classifyAssetBrandRecommendation({ teamId, imageInput: sharedImageInput }),
-                      "classifyAssetBrandRecommendation",
-                    )
-                  : null,
-              );
-            }
-            if (ipCount > 0) {
-              ipRecommendationPromise = sharedImagePromise.then((sharedImageInput) =>
-                sharedImageInput
-                  ? withFallback(
-                      classifyAssetIpRecommendation({ teamId, imageInput: sharedImageInput }),
-                      "classifyAssetIpRecommendation",
-                    )
-                  : null,
-              );
-            }
-            if (productCount > 0) {
-              productRecommendationPromise = sharedImagePromise.then((imageInput) =>
-                imageInput
-                  ? withFallback(
-                      classifyAssetProductRecommendation({ teamId, imageInput, fileName: extra?.matchingSources?.basicInfo === false ? undefined : assetObject.name }),
-                      "classifyAssetProductRecommendation",
-                    )
-                  : null,
-              );
-            }
+            const combined = withFeatureBudget(featureBudgetMs, async () => {
+              const imageInput = await getSharedImage();
+              if (!imageInput) return null;
+              const [brandRecommendation, ipRecommendation, productRecommendation] = await Promise.all([
+                logoCount > 0 ? withFallback(classifyAssetBrandRecommendation({ teamId, imageInput }), "classifyAssetBrandRecommendation") : null,
+                ipCount > 0 ? withFallback(classifyAssetIpRecommendation({ teamId, imageInput }), "classifyAssetIpRecommendation") : null,
+                productCount > 0 ? withFallback(classifyAssetProductRecommendation({
+                  teamId, imageInput,
+                  fileName: extra?.matchingSources?.basicInfo === false ? undefined : assetObject.name,
+                }), "classifyAssetProductRecommendation") : null,
+              ]);
+              if (featureDecision?.degradation) return null;
+              return { brandRecommendation, ipRecommendation, productRecommendation };
+            }).catch(error => {
+              throwIfQueueAborted();
+              if (!(error instanceof FeatureBudgetExceededError)) throw error;
+              featureDecision = {
+                mode: "legacy",
+                degradation: { reason: "budget_exceeded", budgetMs: featureBudgetMs },
+                ocr: { status: "disabled", segments: [] },
+                decision: { status: "failed", error: error.message },
+              };
+              return null;
+            });
+            brandRecommendationPromise = combined.then(result => result?.brandRecommendation ?? null);
+            ipRecommendationPromise = combined.then(result => result?.ipRecommendation ?? null);
+            productRecommendationPromise = combined.then(result => result?.productRecommendation ?? null);
           }
         }
 
@@ -588,10 +627,10 @@ export async function processQueueItem({
           });
         } else {
           // No person library: keep legacy timing — start AI tagging without waiting on detection.
-          predictTagsPromise = runTagPrediction(assetObject, predictOptionsBase);
+          predictTagsPromise ??= runTagPrediction(assetObject, predictOptionsBase);
         }
       } else {
-        predictTagsPromise = runTagPrediction(assetObject, predictOptionsBase);
+        predictTagsPromise ??= runTagPrediction(assetObject, predictOptionsBase);
       }
     }
 
@@ -613,7 +652,16 @@ export async function processQueueItem({
       productRecommendationPromise,
       personRecommendationPromise,
     ]);
-    if (hasFeatureRecognitionFailure(featureDecision)) {
+    if (featureRetrySourceId) {
+      if (!featureDecision || featureDecision.degradation || (featureDecision.decision.status !== "completed" && featureDecision.mode !== "legacy") || hasFeatureRecognitionFailure(featureDecision)) {
+        throw Object.assign(new Error("Feature retry incomplete"), { code: "FEATURE_RECOGNITION_FAILED" });
+      }
+      await saveFeatureRetry(teamId, featureRetrySourceId, queueItem.id, {
+        featureDecision, brandRecommendation, ipRecommendation, productRecommendation,
+      } as TaggingQueueItemResult, extra.featureRetrySourceStartedAt);
+      return;
+    }
+    if (hasFeatureRecognitionFailure(featureDecision) && !featureDecision?.degradation) {
       throw Object.assign(new Error("特征识别未完整完成，请重试；已保留诊断记录"), { code: "FEATURE_RECOGNITION_FAILED" });
     }
     const personRecommendation = rawPersonRecommendation
@@ -1009,7 +1057,7 @@ export async function processQueueItem({
           outputTypes: {
             tags: tagsEnabledForTask,
             fields: metadataEligibleForTask,
-            features: hasFeatureClassifications && !hasFeatureRecognitionFailure(featureDecision)
+            features: hasFeatureClassifications && !featureDecision?.degradation && !hasFeatureRecognitionFailure(featureDecision)
               && (featureDecision?.mode === "legacy" || featureDecision?.decision?.status === "completed"),
           },
           ...(teamSetting.isMetadataEnabled ? { metadataPredictions } : {}),

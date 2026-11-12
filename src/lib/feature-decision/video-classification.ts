@@ -26,6 +26,7 @@ export async function classifyVideoAssetFeatures(
     fileName?: string;
     folderPath?: string;
     ocrSegments?: string[];
+    onOcr?: (ocr: import("./types").FeatureOcrDiagnostics) => void;
     imageMode?: boolean;
     mode?: "llm" | "legacy";
     requestMode?: MediaProcessRequestMode;
