@@ -14,6 +14,8 @@
 
 视频商品、Logo 和 IP 识别通过媒体处理服务采样原视频。队列优先复用开放接口 OCR，缺失时使用采样帧做模型 OCR。采样失败时可回退缩略图，兜底 OCR 需要 PATH 中的 `ffmpeg`（Docker runner 已安装）。资源上限及诊断约定见 README 的 LLM 决策与 OCR 章节。
 
+视频特征采样请求使用 `min_frame_interval_seconds: 0.25`，最多 12 帧采样、8 帧检测、4 帧 OCR；需同步升级媒体服务，旧 worker 仍沿用 2 秒默认间隔。近重复优先保留清晰帧，排除空白画面，拼图按画幅排布并控制像素预算。此版不含转场检测。离线费用对照：`NODE_OPTIONS=--conditions=react-server pnpm exec tsx development/video-feature-cost.ts`，假设和限制见 [docs/video-feature-cost.md](docs/video-feature-cost.md)。无需 migration。
+
 ## 安装与首次数据库准备
 
 ```sh
@@ -62,7 +64,7 @@ package 中的 lint 为 next lint，若当前 Next 版本已不支持该子命�
 
 MuseDAM 界面按 `muse-development/references/design-system.md`（由工作区 Muse 开发 skill 提供）；新增静态样式使用 Tailwind，先复用本项目组件与图标。两种主题均需适配。跨仓定位见 工作区 `muse-development/SKILL.md`。
 
-团队级「图像模式」通过 AI 打标设置保存到现有 `TeamConfig.featureImageMode` 配置项（JSON 布尔值），默认关闭，无需 migration；入队时保存图像模式及积分快照，执行和重试沿用快照；无快照的历史任务仍读取团队当前配置。开发分类页的临时图像开关不改写团队设置。`POST /api/tagging/credit-quote` 只返回当前每个新任务的积分（图像模式关闭 1、开启 2，未开启或暂停为 0），不入队；询价不能调用 `predict-asset-tag`。
+图片/视频独立图像模式通过 AI 打标设置保存到 `TeamConfig.featureImageMode`（图片，复用旧设置）和 `featureVideoImageMode`（视频，独立 JSON 布尔值）。两项默认关闭，旧团队视频不继承图片开关，无需 migration；入队时保存图像模式及积分快照，执行和重试沿用快照；无快照的历史任务仍读取团队当前配置。开发分类页的临时图像开关不改写团队设置。图片每个新任务关闭图像模式 1 点、开启 2 点；视频按入队时长每 2 秒计 1 帧（向上取整，1–8 帧；时长未知按 1 帧），每帧关闭 1 点、开启 2 点。计费帧数与真实抽帧/去重独立，入队保存计费版本、时长、帧数和积分，重试不重新定价。`POST /api/tagging/credit-quote` 可接收最多 100 个 `assetIds`，只读获取 MuseDAM 元数据并返回去重后的总积分、图片单价 `unitCreditCost` 和视频每帧单价 `videoUnitCreditCost`；不传素材时仍返回基础单价，关闭打标或暂停为 0。询价不能调用 `predict-asset-tag`。主仓 material 须先升级到接受 0–16 点并逐素材询价的版本，见 README 的计费说明。
 
 ## 标签导入开发
 

@@ -31,6 +31,7 @@ export default function SettingsClient({ initialSettings, metadataAvailable = fa
     initialSettings.recognitionAccuracy,
   );
   const [featureImageMode, setFeatureImageMode] = useState(initialSettings.featureImageMode);
+  const [featureVideoImageMode, setFeatureVideoImageMode] = useState(initialSettings.featureVideoImageMode ?? false);
   const [matchingSources, setMatchingSources] = useState(initialSettings.matchingSources);
   const [sourceWeights, setSourceWeights] = useState(initialSettings.sourceWeights);
   const [triggerTiming, setTriggerTiming] = useState(initialSettings.triggerTiming);
@@ -67,6 +68,7 @@ export default function SettingsClient({ initialSettings, metadataAvailable = fa
       taggingMode: overrides?.taggingMode ?? taggingMode,
       recognitionAccuracy: overrides?.recognitionAccuracy ?? recognitionAccuracy,
       featureImageMode: overrides?.featureImageMode ?? featureImageMode,
+      featureVideoImageMode: overrides?.featureVideoImageMode ?? featureVideoImageMode,
       matchingSources: overrides?.matchingSources ?? matchingSources,
       sourceWeights: overrides?.sourceWeights ?? sourceWeights,
       triggerTiming: overrides?.triggerTiming ?? triggerTiming,
@@ -109,6 +111,13 @@ export default function SettingsClient({ initialSettings, metadataAvailable = fa
     const previous = featureImageMode;
     setFeatureImageMode(enabled);
     if (!await handleSaveSettings({ featureImageMode: enabled })) setFeatureImageMode(previous);
+  };
+
+  const handleFeatureVideoImageModeChange = async (enabled: boolean) => {
+    if (isPending) return;
+    const previous = featureVideoImageMode;
+    setFeatureVideoImageMode(enabled);
+    if (!await handleSaveSettings({ featureVideoImageMode: enabled })) setFeatureVideoImageMode(previous);
   };
 
   const handleRecognitionAccuracyChange = (accuracy: "precise" | "balanced" | "broad") => {
@@ -208,6 +217,8 @@ export default function SettingsClient({ initialSettings, metadataAvailable = fa
       <AIRecognitionSection
         recognitionAccuracy={recognitionAccuracy}
         imageMode={featureImageMode}
+        videoImageMode={featureVideoImageMode}
+        onVideoImageModeChange={handleFeatureVideoImageModeChange}
         onImageModeChange={handleFeatureImageModeChange}
         disabled={isPending}
         onRecognitionAccuracyChange={handleRecognitionAccuracyChange}

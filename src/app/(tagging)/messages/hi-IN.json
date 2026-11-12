@@ -277,7 +277,13 @@
     },
     "Settings": {
       "AIRecognition": {
-        "imageModeCostHint": "चालू होने पर प्रत्येक एसेट के लिए 2 पॉइंट और बंद होने पर 1 पॉइंट खर्च होता है।",
+        "imageModeImages": "चित्रों के लिए छवि मोड",
+        "imageModeImageOn": "चित्र और पाठ से मिलान। प्रति चित्र 2 अंक।",
+        "imageModeImageOff": "फ़ीचर समानता और पाठ से मिलान। प्रति चित्र 1 अंक।",
+        "imageModeVideos": "वीडियो के लिए छवि मोड",
+        "imageModeVideoOn": "चित्र और पाठ से मिलान। प्रति बिल योग्य फ़्रेम 2 अंक।",
+        "imageModeVideoOff": "फ़ीचर समानता और पाठ से मिलान। प्रति बिल योग्य फ़्रेम 1 अंक।",
+        "imageModeVideoBilling": "हर {seconds} सेकंड पर 1 बिल योग्य फ़्रेम, ऊपर की ओर पूर्णांकित, अधिकतम {maxFrames} फ़्रेम।",
         "balanced": "संतुलित",
         "balancedDesc": "संतुलित सटीकता और कवरेज",
         "broad": "व्यापक",

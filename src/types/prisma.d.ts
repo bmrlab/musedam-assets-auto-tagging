@@ -73,7 +73,11 @@ declare module "@/prisma/client" {
   export type TaggingQueueItemExtra = Partial<{
     /** Immutable image mode and price captured at enqueue time. */
     featureImageMode: boolean;
-    creditCost: 1 | 2;
+    creditCost: number;
+    creditPricingVersion: string;
+    creditFrameCount: number;
+    /** Milliseconds; null means duration was unavailable and one frame was priced. */
+    creditDurationMs: number | null;
     evidencePoliciesPending?: boolean;
     candidateSelection?: {
       total: number;

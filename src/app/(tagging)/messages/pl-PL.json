@@ -685,7 +685,13 @@
         "firstTimeRecommendationDesc": "Ręczny przegląd może pomóc ocenić skuteczność tagowania AI. Przełącz na tryb bezpośredniego stosowania, gdy dokładność spełnia wymagania"
       },
       "AIRecognition": {
-        "imageModeCostHint": "Każdy zasób zużywa 2 punkty po włączeniu tej opcji i 1 punkt po jej wyłączeniu.",
+        "imageModeImages": "Tryb obrazu dla obrazów",
+        "imageModeImageOn": "Dopasowanie na podstawie obrazów i tekstu. 2 punkty za obraz.",
+        "imageModeImageOff": "Dopasowanie na podstawie podobieństwa cech i tekstu. 1 punkt za obraz.",
+        "imageModeVideos": "Tryb obrazu dla filmów",
+        "imageModeVideoOn": "Dopasowanie na podstawie obrazów i tekstu. 2 punkty za rozliczaną klatkę.",
+        "imageModeVideoOff": "Dopasowanie na podstawie podobieństwa cech i tekstu. 1 punkt za rozliczaną klatkę.",
+        "imageModeVideoBilling": "1 rozliczana klatka na {seconds} sekundy, w zaokrągleniu w górę, do {maxFrames}.",
         "title": "Rozpoznawanie AI",
         "precise": "Precyzyjne",
         "preciseDesc": "Wysoka dokładność, mniej tagów",

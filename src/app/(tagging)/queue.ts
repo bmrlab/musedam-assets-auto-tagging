@@ -1,4 +1,4 @@
-import { getTaggingCreditCost } from "@/lib/tagging-credit";
+import { getAssetFeatureImageMode, getTaggingCreditQuote } from "@/lib/tagging-credit";
 import { assertTeamTaggingEnabled, TeamTaggingSuspendedError } from "@/lib/tagging/team-suspension";
 import { runWithQueueExecution, throwIfQueueAborted } from "@/lib/tagging/queue-execution";
 import { getTagConfigVersion } from "@/lib/tagging/tag-config-version";
@@ -214,8 +214,8 @@ export async function enqueueTaggingTask({
     featureClassifications,
   );
 
-  const imageMode = featureImageMode ?? (await getTaggingSettings(teamId)).featureImageMode;
-  const creditCost = getTaggingCreditCost(imageMode);
+  const imageMode = featureImageMode ?? getAssetFeatureImageMode(await getTaggingSettings(teamId), assetObject);
+  const creditQuote = getTaggingCreditQuote(imageMode, assetObject);
   const taggingQueueItem = await prisma.$transaction(async (tx) => {
     // Serialize enqueue with administrative suspension, including concurrent batches.
     await tx.$queryRaw`SELECT "id" FROM "Team" WHERE "id" = ${teamId} FOR UPDATE`;
@@ -228,7 +228,7 @@ export async function enqueueTaggingTask({
         taskType,
         extra: {
           featureImageMode: imageMode,
-          creditCost,
+          ...creditQuote,
           matchingSources,
           recognitionAccuracy,
           featureClassify,
@@ -442,7 +442,7 @@ export async function processQueueItem({
               folderPath: assetObject.materializedPath,
               ocrSegments: getAssetOcrSegments(assetExtra, assetObject.content),
               // Legacy tasks without a snapshot use the current team setting.
-              imageMode: extra?.featureImageMode ?? teamSetting.featureImageMode,
+              imageMode: extra?.featureImageMode ?? getAssetFeatureImageMode(teamSetting, assetObject),
               mode,
               enabledTypes: [
                 ...(logoCount > 0 ? ["logo" as const] : []),

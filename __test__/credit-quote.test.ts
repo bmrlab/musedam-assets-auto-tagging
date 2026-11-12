@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   findTeam: vi.fn(),
   findConfig: vi.fn(),
   settings: vi.fn(),
+  assets: vi.fn(),
 }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/prisma/prisma", () => ({
@@ -15,14 +16,15 @@ vi.mock("@/prisma/prisma", () => ({
   },
 }));
 vi.mock("@/app/(tagging)/tagging/settings/lib", () => ({ getTaggingSettings: mocks.settings }));
+vi.mock("@/musedam/asset-credit-quote", () => ({ fetchAssetCreditInputs: mocks.assets }));
 
 import { POST } from "@/app/(tagging)/api/tagging/credit-quote/route";
 
 const fetchMock = vi.fn();
-const request = () =>
+const request = (assetIds?: string[]) =>
   new NextRequest("https://example.test/api/tagging/credit-quote", {
     method: "POST",
-    body: JSON.stringify({ teamId: "158057" }),
+    body: JSON.stringify({ teamId: "158057", assetIds }),
   });
 
 beforeEach(() => {
@@ -52,6 +54,40 @@ afterEach(() => {
 });
 
 describe("credit quote", () => {
+  it.each([[false, false], [false, true], [true, false], [true, true]])(
+    "sums mixed assets for image mode %s and video mode %s",
+    async (enabled, videoEnabled) => {
+      mocks.settings.mockResolvedValue({ isTaggingEnabled: true, featureImageMode: enabled, featureVideoImageMode: videoEnabled });
+      mocks.assets.mockResolvedValue([
+        { extra: { extension: "jpg" } },
+        { extra: { extension: "mp4", duration: 5000 } },
+        { extra: { extension: "mov", duration: 60000 } },
+      ]);
+      const body = await (await POST(request(["1", "2", "3", "1"]))).json();
+      expect(body.data).toMatchObject({
+        creditCost: (enabled ? 2 : 1) + 11 * (videoEnabled ? 2 : 1),
+        videoUnitCreditCost: videoEnabled ? 2 : 1,
+        unitCreditCost: enabled ? 2 : 1,
+        creditPricingVersion: "video-duration-v1",
+      });
+      expect(mocks.assets).toHaveBeenCalledWith(expect.objectContaining({ id: 42 }), [
+        BigInt(1),
+        BigInt(2),
+        BigInt(3),
+      ]);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it("rejects unavailable metadata instead of returning an image price for unknown assets", async () => {
+    mocks.assets.mockRejectedValue(new Error("missing asset"));
+    expect((await POST(request(["1"]))).status).toBe(502);
+  });
+
+  it("quotes an empty selection as zero without fetching assets", async () => {
+    expect((await (await POST(request([]))).json()).data.creditCost).toBe(0);
+    expect(mocks.assets).not.toHaveBeenCalled();
+  });
   it.each([
     [false, 1],
     [true, 2],
@@ -89,4 +125,10 @@ describe("credit quote", () => {
     expect(await response.json()).toMatchObject({ success: false, error: "Team not found" });
     expect(mocks.settings).not.toHaveBeenCalled();
   });
+});
+
+it("defaults legacy teams to text-only video quotes even when image mode is on", async () => {
+  mocks.settings.mockResolvedValue({ isTaggingEnabled: true, featureImageMode: true });
+  mocks.assets.mockResolvedValue([{ extra: { extension: "mp4", duration: 5000 } }]);
+  expect((await (await POST(request(["1"]))).json()).data).toMatchObject({ creditCost: 3, unitCreditCost: 2, videoUnitCreditCost: 1, featureVideoImageMode: false });
 });

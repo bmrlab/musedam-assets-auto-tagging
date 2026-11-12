@@ -277,7 +277,13 @@
     },
     "Settings": {
       "AIRecognition": {
-        "imageModeCostHint": "Cada recurso consome 2 pontos quando ativado e 1 ponto quando desativado.",
+        "imageModeImages": "Modo de imagem para imagens",
+        "imageModeImageOn": "Compara imagens e texto. 2 pontos por imagem.",
+        "imageModeImageOff": "Compara similaridade de características e texto. 1 pontos por imagem.",
+        "imageModeVideos": "Modo de imagem para vídeos",
+        "imageModeVideoOn": "Compara imagens e texto. 2 pontos por quadro faturável.",
+        "imageModeVideoOff": "Compara similaridade de características e texto. 1 pontos por quadro faturável.",
+        "imageModeVideoBilling": "1 quadro faturável a cada {seconds} segundos, arredondado para cima, até {maxFrames}.",
         "balanced": "Equilibrado",
         "balancedDesc": "Precisão e cobertura equilibradas",
         "broad": "Amplo",

@@ -769,7 +769,13 @@
         "firstTimeRecommendationDesc": "Manual review can help evaluate AI tagging effectiveness. Switch to direct application mode once accuracy meets requirements"
       },
       "AIRecognition": {
-        "imageModeCostHint": "Each asset costs 2 points when enabled and 1 point when disabled.",
+        "imageModeImages": "Use image mode for images",
+        "imageModeImageOn": "Matches using images and text. 2 points per image.",
+        "imageModeImageOff": "Matches using feature similarity and text. 1 points per image.",
+        "imageModeVideos": "Use image mode for videos",
+        "imageModeVideoOn": "Matches using images and text. 2 points per billing frame.",
+        "imageModeVideoOff": "Matches using feature similarity and text. 1 points per billing frame.",
+        "imageModeVideoBilling": "1 billing frame per {seconds} seconds, rounded up, up to {maxFrames} frames.",
         "title": "AI Recognition",
         "precise": "Precise",
         "preciseDesc": "High accuracy, fewer tags",

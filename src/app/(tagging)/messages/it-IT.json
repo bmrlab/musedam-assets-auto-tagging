@@ -435,7 +435,13 @@
         "firstTimeRecommendationDesc": "La revisione manuale può aiutare a valutare l'efficacia dell'etichettatura IA. Passa alla modalità applicazione diretta una volta che la precisione soddisfa i requisiti"
       },
       "AIRecognition": {
-        "imageModeCostHint": "Ogni risorsa consuma 2 punti se attivata e 1 punto se disattivata.",
+        "imageModeImages": "Modalità immagine per le immagini",
+        "imageModeImageOn": "Confronta immagini e testo. 2 punti per immagine.",
+        "imageModeImageOff": "Confronta somiglianza delle caratteristiche e testo. 1 punti per immagine.",
+        "imageModeVideos": "Modalità immagine per i video",
+        "imageModeVideoOn": "Confronta immagini e testo. 2 punti per fotogramma fatturabile.",
+        "imageModeVideoOff": "Confronta somiglianza delle caratteristiche e testo. 1 punti per fotogramma fatturabile.",
+        "imageModeVideoBilling": "1 fotogramma fatturabile ogni {seconds} secondi, arrotondato per eccesso, fino a {maxFrames}.",
         "title": "Riconoscimento IA",
         "precise": "Preciso",
         "preciseDesc": "Alta precisione, meno tag",

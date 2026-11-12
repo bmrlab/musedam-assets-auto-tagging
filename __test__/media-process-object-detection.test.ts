@@ -136,7 +136,7 @@ describe("media processing detection", () => {
     });
   });
 
-  it("requests bounded video frames with the MuseDAM org ID and filters densely spaced responses", async () => {
+  it("requests bounded dense video frames with the MuseDAM org ID and sorts short shots", async () => {
     const frames = Array.from({ length: 12 }, (_, index) => ({
       url: `https://assets.test/frame-${index}.jpeg`,
       timestamp: (index * 4.08) / 12,
@@ -149,7 +149,7 @@ describe("media processing detection", () => {
       );
     const url = "https://assets.test/clip.mp4?signature=abc";
     expect(await requestVideoFrames(7, url, new AbortController().signal)).toEqual(
-      [frames[0], frames[6]],
+      frames,
     );
     expect(fetchMock.mock.calls[0][0]).toBe(`${base}/queue/video_sprite`);
     expect(JSON.parse(fetchMock.mock.calls[0][1]!.body as string)).toEqual({
@@ -157,6 +157,7 @@ describe("media processing detection", () => {
       team_id: 16,
       output_frames: true,
       frame_count: 12,
+      min_frame_interval_seconds: 0.25,
       width: 1280,
     });
   });

@@ -277,7 +277,13 @@
     },
     "Settings": {
       "AIRecognition": {
-        "imageModeCostHint": "Jedes Asset kostet bei aktivierter Option 2 Punkte, andernfalls 1 Punkt.",
+        "imageModeImages": "Bildmodus für Bilder verwenden",
+        "imageModeImageOn": "Abgleich mit Bildern und Text. 2 Punkte pro Bild.",
+        "imageModeImageOff": "Abgleich mit Merkmalsähnlichkeit und Text. 1 Punkte pro Bild.",
+        "imageModeVideos": "Bildmodus für Videos verwenden",
+        "imageModeVideoOn": "Abgleich mit Bildern und Text. 2 Punkte pro Abrechnungsbild.",
+        "imageModeVideoOff": "Abgleich mit Merkmalsähnlichkeit und Text. 1 Punkte pro Abrechnungsbild.",
+        "imageModeVideoBilling": "1 Abrechnungsbild je {seconds} Sekunden, aufgerundet, maximal {maxFrames}.",
         "balanced": "Ausgewogen",
         "balancedDesc": "Ausgewogene Genauigkeit und Abdeckung",
         "broad": "Breit",

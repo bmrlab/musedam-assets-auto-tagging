@@ -435,7 +435,13 @@
         "firstTimeRecommendationDesc": "La révision manuelle peut aider à évaluer l'efficacité de l'étiquetage IA. Passez en mode application directe une fois la précision satisfaisante"
       },
       "AIRecognition": {
-        "imageModeCostHint": "Chaque ressource consomme 2 points si cette option est activée, sinon 1 point.",
+        "imageModeImages": "Mode image pour les images",
+        "imageModeImageOn": "Compare les images et le texte. 2 points par image.",
+        "imageModeImageOff": "Compare la similarité des caractéristiques et le texte. 1 points par image.",
+        "imageModeVideos": "Mode image pour les vidéos",
+        "imageModeVideoOn": "Compare les images et le texte. 2 points par image facturée.",
+        "imageModeVideoOff": "Compare la similarité des caractéristiques et le texte. 1 points par image facturée.",
+        "imageModeVideoBilling": "1 image facturée par tranche de {seconds} secondes, arrondie au supérieur, jusqu’à {maxFrames}.",
         "title": "Reconnaissance IA",
         "precise": "Précis",
         "preciseDesc": "Haute précision, moins de tags",

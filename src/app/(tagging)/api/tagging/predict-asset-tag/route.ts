@@ -10,7 +10,7 @@ import { getTaggingSettings } from "@/app/(tagging)/tagging/settings/lib";
 import { toFeatureClassificationFlags } from "@/lib/feature-library";
 import { getFeatureLibraryFeaturesFromRequest } from "@/lib/feature-library-server";
 import { idToSlug } from "@/lib/slug";
-import { getTaggingCreditCost } from "@/lib/tagging-credit";
+import { getAssetFeatureImageMode, getTaggingCreditCost } from "@/lib/tagging-credit";
 import {
   apiFeatureToggleRequestSchema,
   apiRecognitionAccuracySchema,
@@ -244,6 +244,9 @@ export async function POST(request: NextRequest) {
                 extra: {
                   featureImageMode: (existingDefaultQueueItem.extra as TaggingQueueItemExtra | null)?.featureImageMode,
                   creditCost: (existingDefaultQueueItem.extra as TaggingQueueItemExtra | null)?.creditCost,
+                  creditPricingVersion: (existingDefaultQueueItem.extra as TaggingQueueItemExtra | null)?.creditPricingVersion,
+                  creditFrameCount: (existingDefaultQueueItem.extra as TaggingQueueItemExtra | null)?.creditFrameCount,
+                  creditDurationMs: (existingDefaultQueueItem.extra as TaggingQueueItemExtra | null)?.creditDurationMs,
                   matchingSources,
                   recognitionAccuracy,
                   featureClassify,
@@ -314,6 +317,7 @@ export async function POST(request: NextRequest) {
 
     // 2. 发起 AI 打标任务
     try {
+      const featureImageMode = getAssetFeatureImageMode(settings, assetObject);
       const taggingQueueItem = await enqueueTaggingTask({
         assetObject,
         matchingSources,
@@ -321,7 +325,7 @@ export async function POST(request: NextRequest) {
         featureClassify,
         featureClassifications,
         taskType: triggerType,
-        featureImageMode: settings.featureImageMode,
+        featureImageMode,
       });
 
       return NextResponse.json({
@@ -329,7 +333,7 @@ export async function POST(request: NextRequest) {
         data: {
           message: "Asset tagging task enqueued successfully",
           queueItemId: taggingQueueItem.id,
-          creditCost: getTaggingCreditCost(settings.featureImageMode),
+          creditCost: (taggingQueueItem.extra as TaggingQueueItemExtra | null)?.creditCost ?? getTaggingCreditCost(featureImageMode, assetObject),
           status: taggingQueueItem.status,
         },
       });

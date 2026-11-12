@@ -44,6 +44,10 @@ export async function updateSettings(
         !taggingSettingsSchema.shape.featureImageMode.safeParse(data.featureImageMode).success) {
       return { success: false, message: "图像模式设置不合法" };
     }
+    if (data.featureVideoImageMode !== undefined &&
+        !taggingSettingsSchema.shape.featureVideoImageMode.safeParse(data.featureVideoImageMode).success) {
+      return { success: false, message: "视频图像模式设置不合法" };
+    }
     try {
       const parsed = taggingSettingsSchema.parse(data);
       if (parsed.applicationScope.scopeType === "all") parsed.applicationScope.selectedFolders = [];

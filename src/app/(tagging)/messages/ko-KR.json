@@ -277,7 +277,13 @@
     },
     "Settings": {
       "AIRecognition": {
-        "imageModeCostHint": "활성화하면 소재당 2포인트, 비활성화하면 1포인트가 소모됩니다.",
+        "imageModeImages": "이미지에 이미지 모드 사용",
+        "imageModeImageOn": "이미지와 텍스트를 함께 비교합니다. 이미지당 2포인트.",
+        "imageModeImageOff": "특징 유사도와 텍스트로 비교합니다. 이미지당 1포인트.",
+        "imageModeVideos": "동영상에 이미지 모드 사용",
+        "imageModeVideoOn": "이미지와 텍스트를 함께 비교합니다. 과금 프레임당 2포인트.",
+        "imageModeVideoOff": "특징 유사도와 텍스트로 비교합니다. 과금 프레임당 1포인트.",
+        "imageModeVideoBilling": "{seconds}초마다 과금 프레임 1개로 올림하여 최대 {maxFrames}개까지 계산합니다.",
         "balanced": "균형 모드",
         "balancedDesc": "태그의 정확성과 포괄성을 균형 있게 유지하여 일상의 대부분 시나리오에 적합함",
         "broad": "광범위 모드",

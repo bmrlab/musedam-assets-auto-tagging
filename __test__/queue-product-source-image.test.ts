@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => ({
   predict: vi.fn(),
   mode: "legacy" as "llm" | "legacy",
   imageMode: false,
+  videoImageMode: false,
 }));
 
 vi.mock("server-only", () => ({}));
@@ -54,7 +55,7 @@ vi.mock("@/app/(tagging)/predict", () => ({
   predictAssetTags: mocks.predict,
 }));
 vi.mock("@/app/(tagging)/tagging/settings/lib", () => ({
-  getTaggingSettings: async () => ({ sourceWeights: {}, featureImageMode: mocks.imageMode }),
+  getTaggingSettings: async () => ({ sourceWeights: {}, featureImageMode: mocks.imageMode, featureVideoImageMode: mocks.videoImageMode }),
 }));
 vi.mock("@/prisma/prisma", () => ({
   default: {
@@ -79,6 +80,7 @@ vi.mock("@/lib/logging", () => {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  mocks.videoImageMode = false;
   vi.stubEnv("DECISION_LLM_IMAGE_USE", "false");
   // These source-selection regressions exercise the explicitly configured old flow.
   mocks.mode = "legacy";
@@ -452,6 +454,12 @@ describe("combined LLM feature classification", () => {
 
 
 describe("queued image mode snapshot", () => {
+  it("captures immutable duration billing fields for videos", async () => {
+    vi.useFakeTimers();
+    mocks.create.mockImplementation(async ({ data }) => ({ id: 123, ...data }));
+    const task = await enqueueTaggingTask({ assetObject: { id: 2, teamId: 7, extra: { extension: "mp4", duration: 5000 } } as never, featureImageMode: true });
+    expect(task.extra).toMatchObject({ featureImageMode: true, creditCost: 6, creditFrameCount: 3, creditDurationMs: 5000, creditPricingVersion: "video-duration-v1" });
+  });
   it.each([false, true])("keeps the enqueue mode %s after the team setting changes", async snapshot => {
     mocks.mode = "llm";
     mocks.imageMode = !snapshot;
@@ -473,5 +481,30 @@ describe("queued image mode snapshot", () => {
     mocks.create.mockImplementation(async ({ data }) => ({ id: 123, ...data }));
     const task = await enqueueTaggingTask({ assetObject: { id: 2, teamId: 7 } as never, featureImageMode: true });
     expect(task.extra).toMatchObject({ featureImageMode: true, creditCost: 2 });
+  });
+});
+
+describe("independent video team image mode", () => {
+  it.each([false, true])("keeps saved video mode %s after team settings change", async snapshot => {
+    mocks.mode = "llm";
+    mocks.imageMode = !snapshot;
+    mocks.videoImageMode = !snapshot;
+    await run({ extension: "mp4", downloadUrl: "https://example.test/video.mp4" }, undefined, snapshot);
+    expect(mocks.classifyVideo).toHaveBeenCalledWith(expect.objectContaining({ imageMode: snapshot }));
+  });
+  it.each([false, true])("uses video setting %s for historical videos without snapshots", async enabled => {
+    mocks.mode = "llm";
+    mocks.imageMode = !enabled;
+    mocks.videoImageMode = enabled;
+    await run({ extension: "mp4", downloadUrl: "https://example.test/video.mp4" });
+    expect(mocks.classifyVideo).toHaveBeenCalledWith(expect.objectContaining({ imageMode: enabled }));
+  });
+  it.each([false, true])("captures video mode %s and its price independently of image mode", async enabled => {
+    vi.useFakeTimers();
+    mocks.imageMode = !enabled;
+    mocks.videoImageMode = enabled;
+    mocks.create.mockImplementation(async ({ data }) => ({ id: 123, ...data }));
+    const task = await enqueueTaggingTask({ assetObject: { id: 2, teamId: 7, extra: { extension: "mp4", duration: 5000 } } as never });
+    expect(task.extra).toMatchObject({ featureImageMode: enabled, creditCost: enabled ? 6 : 3, creditFrameCount: 3 });
   });
 });

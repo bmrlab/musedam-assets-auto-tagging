@@ -1,11 +1,14 @@
 import { Switch } from "@/components/ui/switch";
 import { Tag } from "@/components/ui/tag";
+import { MAX_VIDEO_CREDIT_FRAMES, VIDEO_CREDIT_INTERVAL_MS } from "@/lib/tagging-credit";
 import { cn } from "@/lib/utils";
 import { InfoIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 interface AIRecognitionSectionProps {
   imageMode: boolean;
+  videoImageMode: boolean;
+  onVideoImageModeChange: (enabled: boolean) => void;
   onImageModeChange: (enabled: boolean) => void;
   disabled?: boolean;
   recognitionAccuracy: "precise" | "balanced" | "broad";
@@ -15,6 +18,8 @@ interface AIRecognitionSectionProps {
 export function AIRecognitionSection({
   recognitionAccuracy,
   imageMode,
+  videoImageMode,
+  onVideoImageModeChange,
   onImageModeChange,
   disabled,
   onRecognitionAccuracyChange,
@@ -28,26 +33,26 @@ export function AIRecognitionSection({
     des: string;
     isRecommended?: boolean;
   }[] = [
-      {
-        key: "precise",
-        title: t("precise"),
-        confidence: t("confidenceHigh"),
-        des: t("preciseDesc"),
-      },
-      {
-        key: "balanced",
-        title: t("balanced"),
-        confidence: t("confidenceMedium"),
-        des: t("balancedDesc"),
-        isRecommended: true,
-      },
-      {
-        key: "broad",
-        title: t("broad"),
-        confidence: t("confidenceLow"),
-        des: t("broadDesc"),
-      },
-    ];
+    {
+      key: "precise",
+      title: t("precise"),
+      confidence: t("confidenceHigh"),
+      des: t("preciseDesc"),
+    },
+    {
+      key: "balanced",
+      title: t("balanced"),
+      confidence: t("confidenceMedium"),
+      des: t("balancedDesc"),
+      isRecommended: true,
+    },
+    {
+      key: "broad",
+      title: t("broad"),
+      confidence: t("confidenceLow"),
+      des: t("broadDesc"),
+    },
+  ];
   return (
     <div className="space-y-6">
       {/* AI 识别设置 */}
@@ -75,34 +80,67 @@ export function AIRecognitionSection({
                       <h3 className="font-medium text-sm">{item.title}</h3>
                       {item.isRecommended && <Tag variant="purple"> {t("recommended")}</Tag>}
                     </div>
-                    <div className="text-xs font-medium text-primary-6 mb-1">
-                      {item.confidence}
-                    </div>
+                    <div className="text-xs font-medium text-primary-6 mb-1">{item.confidence}</div>
                     <p className="text-xs text-basic-5">{item.des}</p>
                   </div>
                 </div>
               );
             })}
           </div>
-          <div className="mt-6 flex items-center justify-between gap-4 rounded-lg border border-basic-4 p-4">
-            <div className="min-w-0 flex-1">
-              <label htmlFor="team-feature-image-mode" className="text-sm font-medium leading-[22px] text-basic-9">
-                {tFeature("imageMode")}
-              </label>
-              <p id="team-feature-image-mode-help" className="mt-1 text-xs leading-4 text-basic-5">
-                {tFeature("imageModeHelp")}
-              </p>
-              <p id="team-feature-image-mode-cost" className="mt-1 text-xs leading-4 text-basic-5">
-                {t("imageModeCostHint")}
-              </p>
-            </div>
-            <Switch
-              id="team-feature-image-mode"
-              aria-describedby="team-feature-image-mode-help team-feature-image-mode-cost"
-              checked={imageMode}
-              onCheckedChange={onImageModeChange}
-              disabled={disabled}
-            />
+          <div className="mt-6 flex flex-col gap-4 rounded-lg border border-basic-4 p-4">
+            <h4 className="text-sm font-medium leading-[22px] text-basic-9">
+              {tFeature("imageMode")}
+            </h4>
+            {(
+              [
+                {
+                  id: "team-feature-image-mode",
+                  label: "imageModeImages",
+                  hint: imageMode ? "imageModeImageOn" : "imageModeImageOff",
+                  billing: false,
+                  checked: imageMode,
+                  change: onImageModeChange,
+                },
+                {
+                  id: "team-feature-video-image-mode",
+                  label: "imageModeVideos",
+                  hint: videoImageMode ? "imageModeVideoOn" : "imageModeVideoOff",
+                  billing: true,
+                  checked: videoImageMode,
+                  change: onVideoImageModeChange,
+                },
+              ] as const
+            ).map((item) => (
+              <div key={item.id} className="flex items-center justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  <label
+                    htmlFor={item.id}
+                    className="cursor-pointer text-sm leading-[22px] text-basic-9"
+                  >
+                    {t(item.label)}
+                  </label>
+                  <p id={`${item.id}-help`} className="mt-1 text-xs leading-4 text-basic-5">
+                    {t(item.hint)}
+                  </p>
+                  {item.billing && (
+                    <p id={`${item.id}-billing`} className="mt-1 text-xs leading-4 text-basic-5">
+                      {t("imageModeVideoBilling", {
+                        seconds: VIDEO_CREDIT_INTERVAL_MS / 1000,
+                        maxFrames: MAX_VIDEO_CREDIT_FRAMES,
+                      })}
+                    </p>
+                  )}
+                </div>
+                <Switch
+                  id={item.id}
+                  className="shrink-0"
+                  aria-describedby={`${item.id}-help${item.billing ? ` ${item.id}-billing` : ""}`}
+                  checked={item.checked}
+                  onCheckedChange={item.change}
+                  disabled={disabled}
+                />
+              </div>
+            ))}
           </div>
         </div>
       </div>

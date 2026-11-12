@@ -685,7 +685,13 @@
         "firstTimeRecommendationDesc": "Duyệt thủ công giúp đánh giá hiệu quả gắn thẻ AI, sau khi độ chính xác đạt yêu cầu có thể chuyển sang áp dụng trực tiếp"
       },
       "AIRecognition": {
-        "imageModeCostHint": "Mỗi tài nguyên tiêu tốn 2 điểm khi bật và 1 điểm khi tắt.",
+        "imageModeImages": "Chế độ hình ảnh cho ảnh",
+        "imageModeImageOn": "Đối chiếu hình ảnh và văn bản. 2 điểm mỗi ảnh.",
+        "imageModeImageOff": "Đối chiếu độ tương đồng đặc trưng và văn bản. 1 điểm mỗi ảnh.",
+        "imageModeVideos": "Chế độ hình ảnh cho video",
+        "imageModeVideoOn": "Đối chiếu hình ảnh và văn bản. 2 điểm mỗi khung hình tính phí.",
+        "imageModeVideoOff": "Đối chiếu độ tương đồng đặc trưng và văn bản. 1 điểm mỗi khung hình tính phí.",
+        "imageModeVideoBilling": "1 khung hình tính phí mỗi {seconds} giây, làm tròn lên, tối đa {maxFrames}.",
         "title": "Cài đặt nhận diện AI",
         "precise": "Chế độ chính xác",
         "preciseDesc": "Ưu tiên độ chính xác, phù hợp các kịch bản yêu cầu cao",

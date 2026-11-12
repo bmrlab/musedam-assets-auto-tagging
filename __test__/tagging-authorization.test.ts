@@ -185,6 +185,12 @@ it("ignores individual scheduled callbacks after scheduled tagging was disabled"
 });
 
 describe("single tagging creditCost", () => {
+  it("returns the immutable queued price instead of recalculating against mutable asset metadata", async () => {
+    mocks.settings.mockResolvedValue({ ...(await mocks.settings()), featureImageMode: true });
+    mocks.syncAsset.mockResolvedValue({ assetObject: { id: 7, teamId: 42, extra: { extension: "mp4", duration: 9000 } }, musedamAsset: { parentIds: [] } });
+    mocks.enqueue.mockResolvedValue({ id: 99, status: "pending", extra: { featureImageMode: true, creditCost: 6, creditFrameCount: 3 } });
+    expect((await (await single(request())).json()).data.creditCost).toBe(6);
+  });
   it.each([false, true])("returns the new task price for image mode %s", async enabled => {
     const settings = await mocks.settings();
     mocks.settings.mockResolvedValue({ ...settings, featureImageMode: enabled });
@@ -215,13 +221,20 @@ describe("single tagging creditCost", () => {
 
   it.each(["pending", "processing", "completed", "failed"])("does not charge a duplicate %s task and preserves its snapshot", async status => {
     mocks.settings.mockResolvedValue({ ...(await mocks.settings()), featureImageMode: false });
-    mocks.findTask.mockResolvedValue({ id: 12, status, extra: { featureImageMode: true, creditCost: 2 } });
+    mocks.findTask.mockResolvedValue({ id: 12, status, extra: { featureImageMode: true, creditCost: 16, creditFrameCount: 8, creditDurationMs: 60000, creditPricingVersion: "video-duration-v1" } });
     expect((await (await single(request())).json()).data).toMatchObject({ queueItemId: null, creditCost: 0 });
     expect(mocks.enqueue).not.toHaveBeenCalled();
     if (status !== "pending") {
       expect(mocks.updateTask).toHaveBeenCalledWith(expect.objectContaining({
-        data: expect.objectContaining({ extra: expect.objectContaining({ featureImageMode: true, creditCost: 2 }) }),
+        data: expect.objectContaining({ extra: expect.objectContaining({ featureImageMode: true, creditCost: 16, creditFrameCount: 8, creditDurationMs: 60000, creditPricingVersion: "video-duration-v1" }) }),
       }));
     }
   });
+});
+
+it.each([false, true])("uses video image mode %s for video enqueue and response price", async enabled => {
+  mocks.settings.mockResolvedValue({ ...(await mocks.settings()), featureImageMode: !enabled, featureVideoImageMode: enabled });
+  mocks.syncAsset.mockResolvedValue({ assetObject: { id: 7, teamId: 42, extra: { extension: "mp4", duration: 5000 } }, musedamAsset: { parentIds: [] } });
+  expect((await (await single(request())).json()).data.creditCost).toBe(enabled ? 6 : 3);
+  expect(mocks.enqueue).toHaveBeenCalledWith(expect.objectContaining({ featureImageMode: enabled }));
 });

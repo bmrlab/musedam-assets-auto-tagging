@@ -685,7 +685,13 @@
         "firstTimeRecommendationDesc": "Manuel inceleme AI etiketleme etkinliğini değerlendirmeye yardımcı olabilir. Doğruluk gereksinimleri karşılandığında doğrudan uygulama moduna geçin"
       },
       "AIRecognition": {
-        "imageModeCostHint": "Etkinleştirildiğinde her varlık 2 puan, devre dışıyken 1 puan tüketir.",
+        "imageModeImages": "Görseller için görüntü modu",
+        "imageModeImageOn": "Görüntü ve metinle eşleştirir. Görsel başına 2 puan.",
+        "imageModeImageOff": "Özellik benzerliği ve metinle eşleştirir. Görsel başına 1 puan.",
+        "imageModeVideos": "Videolar için görüntü modu",
+        "imageModeVideoOn": "Görüntü ve metinle eşleştirir. Faturalandırma karesi başına 2 puan.",
+        "imageModeVideoOff": "Özellik benzerliği ve metinle eşleştirir. Faturalandırma karesi başına 1 puan.",
+        "imageModeVideoBilling": "Her {seconds} saniye için 1 faturalandırma karesi, yukarı yuvarlanır, en fazla {maxFrames} kare.",
         "title": "AI Tanıma",
         "precise": "Hassas",
         "preciseDesc": "Yüksek doğruluk, daha az etiket",

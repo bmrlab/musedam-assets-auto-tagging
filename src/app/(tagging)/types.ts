@@ -70,6 +70,8 @@ export const taggingSettingsSchema = z.object({
   taggingMode: z.enum(["direct", "review"]),
   recognitionAccuracy: z.enum(["precise", "balanced", "broad"]),
   featureImageMode: z.boolean(),
+  // Omitted by older clients: preserve the stored video setting on unrelated saves.
+  featureVideoImageMode: z.boolean().optional(),
   matchingSources: z.object({
     basicInfo: z.boolean(),
     materializedPath: z.boolean(),
@@ -116,6 +118,7 @@ export const TAGGING_CONFIG_KEYS = {
   TAGGING_MODE: "taggingMode",
   RECOGNITION_ACCURACY: "recognitionAccuracy",
   FEATURE_IMAGE_MODE: "featureImageMode",
+  FEATURE_VIDEO_IMAGE_MODE: "featureVideoImageMode",
   MATCHING_SOURCES: "matchingSources",
   SOURCE_WEIGHTS: "sourceWeights",
   TRIGGER_TIMING: "triggerTiming",
@@ -130,6 +133,7 @@ export const DEFAULT_TAGGING_SETTINGS: TaggingSettingsData = {
   taggingMode: "review",
   recognitionAccuracy: "balanced",
   featureImageMode: false,
+  featureVideoImageMode: false,
   matchingSources: {
     basicInfo: true,
     materializedPath: true,

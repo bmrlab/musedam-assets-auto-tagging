@@ -86,6 +86,8 @@ function App() {
               />
               <AIRecognitionSection
                 imageMode={settings.featureImageMode ?? false}
+                videoImageMode={settings.featureVideoImageMode ?? false}
+                onVideoImageModeChange={(featureVideoImageMode) => setSettings({ ...settings, featureVideoImageMode })}
                 onImageModeChange={(featureImageMode) =>
                   setSettings({ ...settings, featureImageMode })
                 }

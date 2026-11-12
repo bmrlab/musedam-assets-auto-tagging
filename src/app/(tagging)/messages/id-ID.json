@@ -726,7 +726,13 @@
         "firstTimeRecommendationDesc": "Tinjauan manual dapat membantu mengevaluasi efektivitas pelabelan AI. Beralih ke mode aplikasi langsung setelah akurasi memenuhi persyaratan"
       },
       "AIRecognition": {
-        "imageModeCostHint": "Setiap aset menggunakan 2 poin saat diaktifkan dan 1 poin saat dinonaktifkan.",
+        "imageModeImages": "Mode gambar untuk gambar",
+        "imageModeImageOn": "Mencocokkan gambar dan teks. 2 poin per gambar.",
+        "imageModeImageOff": "Mencocokkan kemiripan fitur dan teks. 1 poin per gambar.",
+        "imageModeVideos": "Mode gambar untuk video",
+        "imageModeVideoOn": "Mencocokkan gambar dan teks. 2 poin per bingkai tagihan.",
+        "imageModeVideoOff": "Mencocokkan kemiripan fitur dan teks. 1 poin per bingkai tagihan.",
+        "imageModeVideoBilling": "1 bingkai tagihan per {seconds} detik, dibulatkan ke atas, maksimal {maxFrames}.",
         "title": "Pengenalan AI",
         "precise": "Presisi",
         "preciseDesc": "Akurasi tinggi, lebih sedikit tag",

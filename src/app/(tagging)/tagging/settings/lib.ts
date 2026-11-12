@@ -34,8 +34,11 @@ export async function getTaggingSettings(teamId: number): Promise<TaggingSetting
   );
 
   // 合并默认设置和数据库设置
+  const videoImageMode = getConfigValue<unknown>(TAGGING_CONFIG_KEYS.FEATURE_VIDEO_IMAGE_MODE, false);
   const settings: TaggingSettingsData = {
     featureImageMode: typeof imageMode === "boolean" ? imageMode : DEFAULT_TAGGING_SETTINGS.featureImageMode,
+    // The existing switch only described images; never inherit it for videos.
+    featureVideoImageMode: videoImageMode === true,
     isTaggingEnabled: getConfigValue(
       TAGGING_CONFIG_KEYS.IS_TAGGING_ENABLED,
       DEFAULT_TAGGING_SETTINGS.isTaggingEnabled,
@@ -96,6 +99,10 @@ export async function saveTaggingSettings(
       ...(typeof data.featureImageMode === "boolean" ? [{
         key: TAGGING_CONFIG_KEYS.FEATURE_IMAGE_MODE,
         value: data.featureImageMode,
+      }] : []),
+      ...(typeof data.featureVideoImageMode === "boolean" ? [{
+        key: TAGGING_CONFIG_KEYS.FEATURE_VIDEO_IMAGE_MODE,
+        value: data.featureVideoImageMode,
       }] : []),
 
       {
