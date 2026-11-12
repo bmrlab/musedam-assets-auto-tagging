@@ -1,5 +1,5 @@
 import { prepareLogoReferenceSheet } from "@/lib/feature-decision/logo-reference-sheet";
-import { buildFeatureDecisionMessages } from "@/lib/feature-decision/prompts";
+import { buildFeatureDecisionPrompt } from "@/lib/feature-decision/prompts";
 import sharp from "sharp";
 import { describe, expect, it, vi } from "vitest";
 
@@ -38,7 +38,7 @@ describe("all uploaded logo variants in one bounded reference slot", () => {
     const pixel = await sharp(buffer).extract({ left: 3 * 128 + 64, top: 4 * 102 + 51, width: 1, height: 1 }).raw().toBuffer();
     expect(pixel[0]).toBeLessThan(20);
     expect(pixel[2]).toBeGreaterThan(235);
-    const messages = buildFeatureDecisionMessages({ sourceImage: "source", imageMode: true,
+    const { messages } = buildFeatureDecisionPrompt({ sourceImage: "source", imageMode: true,
       ocr: { status: "empty", segments: [] }, candidates: [{
         candidateId: "logo:hera", classId: "hera", featureType: "logo", name: "HERA", typeName: "Logo",
         similarity: 0.8, referenceImage: result.dataUrl, referenceImageCount: result.referenceImageCount,

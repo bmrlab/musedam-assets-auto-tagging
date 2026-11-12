@@ -36,6 +36,7 @@ export type FeatureDecisionCandidate = {
     imageSimilarity: number;
     descriptionSimilarity: number;
   }>;
+  sampleTimes?: number[];
   referenceMatchStrategy?: "highest" | "average";
   folderMatch?: { alias: string; path: string };
   ocrMatch?: { alias: string };
@@ -58,7 +59,16 @@ export type FeatureDecisionResponse = {
   matches: FeatureDecisionMatch[];
 };
 
-export type OcrResponse = { content: string[][] };
+export type OcrResponse = {
+  content: string[][];
+  /** Combined OCR text with no reliable mapping to individual video frames. */
+  unattributedSegments?: string[];
+};
+
+export type FeatureVideoEvidence = {
+  frames: Array<{ image: string; timestamp: number }>;
+  sheetColumns: number;
+};
 
 export type ChatContentPart =
   | { type: "text"; text: string }
@@ -74,7 +84,9 @@ export type FeatureChatRequest = {
   messages: FeatureChatMessage[];
   max_tokens?: number;
   enable_thinking?: boolean;
-  response_format?: { type: "json_object" };
+  response_format?:
+    | { type: "json_object" }
+    | { type: "json_schema"; json_schema: { name: string; strict: true; schema: object } };
 };
 
 export type OpenAIChatUsage = {
@@ -122,6 +134,8 @@ export type FeatureLlmCallDiagnostics = {
   status: "completed" | "failed";
   durationMs: number;
   request: FeatureChatRequest;
+  /** Candidate references used on the wire, mapped to catalog IDs in the decision result. */
+  candidateIdsByReference?: Record<string, string>;
   /** Assistant text as received, including any Markdown fences. */
   response: string | null;
   rawResponse: FeatureJsonValue;
@@ -146,6 +160,7 @@ export type FeatureDecisionDiagnostics = {
   decisionInputMode?: FeatureDecisionInputMode;
   reconciliation?: { suppressedIdentityTagIds: number[] };
   mode?: "llm" | "legacy";
+  video?: { frameTimestamps: number[]; frameLoadFailures: number };
   retrieval?: {
     regionsDetected: number;
     regionsSelected: number;

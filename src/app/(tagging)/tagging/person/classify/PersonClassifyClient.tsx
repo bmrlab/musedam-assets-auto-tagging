@@ -15,6 +15,7 @@ import {
   getClientImagePreparationErrorCode,
   prepareClientImageUpload,
 } from "@/lib/brand/browser-image";
+import { CLASSIFICATION_MEDIA_ACCEPT } from "@/lib/feature-library";
 import {
   evaluatePersonMatchCandidates,
   isAcceptedPersonFace,
@@ -28,6 +29,14 @@ import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import {
+  ClassificationMediaHint,
+  ClassificationVideoPreview,
+  ImportClassificationVideoButton,
+  useClassificationVideo,
+} from "../../components/ClassificationVideoInput";
+import { getVideoExtension } from "../../components/classification-video";
+import { classifyPersonVideoAction } from "../../components/classification-video-actions";
 import {
   classifyPersonImageAction,
   preparePersonClassificationAction,
@@ -120,11 +129,14 @@ export default function PersonClassifyClient({
   initialData: PersonLibraryPageData;
 }) {
   const t = useTranslations("Tagging.PersonClassify") as TranslationFunction;
+  const videoT = useTranslations();
   const referencePersons = useMemo(
     () => initialData.persons.filter((person) => person.enabled && person.status === "completed"),
     [initialData.persons],
   );
   const [file, setFile] = useState<File | null>(null);
+  const { video, clearVideo, selectLocalVideo, importVideo, isImporting, getVideoSource } =
+    useClassificationVideo();
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [imageMeta, setImageMeta] = useState<ClassificationImageMeta | null>(null);
   const [detectionImageMeta, setDetectionImageMeta] = useState<ClassificationImageMeta | null>(
@@ -140,21 +152,24 @@ export default function PersonClassifyClient({
     };
   }, [previewUrl]);
 
-  async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
-    const selectedFile = event.target.files?.[0] ?? null;
-    event.target.value = "";
-
+  function resetMediaSelection() {
     setDetections([]);
     setResult(null);
     setImageMeta(null);
     setDetectionImageMeta(null);
     setFile(null);
-    setPreviewUrl((current) => {
-      revokeUrl(current);
-      return null;
-    });
+    setPreviewUrl(null);
+  }
 
-    if (!selectedFile) {
+  async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const selectedFile = event.target.files?.[0];
+    event.target.value = "";
+    if (!selectedFile) return;
+
+    clearVideo();
+    resetMediaSelection();
+    if (getVideoExtension(selectedFile.name)) {
+      selectLocalVideo(selectedFile);
       return;
     }
 
@@ -182,7 +197,7 @@ export default function PersonClassifyClient({
   }
 
   async function handleClassify() {
-    if (!file || !previewUrl || !imageMeta) {
+    if (!video && (!file || !previewUrl || !imageMeta)) {
       toast.error(t("uploadImageFirst"));
       return;
     }
@@ -194,6 +209,27 @@ export default function PersonClassifyClient({
 
     setIsRunning(true);
     try {
+      if (video) {
+        const classified = await classifyPersonVideoAction(await getVideoSource());
+        if (!classified.success) {
+          toast.error(classified.message);
+          return;
+        }
+        const { detections, result } = classified.data;
+        setDetections(detections);
+        setResult(result);
+        if (!detections.length) {
+          toast.warning(t("noFacesDetected"));
+          return;
+        }
+        toast.success(
+          result.faces.some(isAcceptedPersonFace)
+            ? t("classifyComplete")
+            : t("classifyCompleteNoMatch"),
+        );
+        return;
+      }
+      if (!file) return;
       const contentType = file.type || "application/octet-stream";
       const uploadPrepareResult = await preparePersonImageUploadAction({
         name: file.name,
@@ -310,17 +346,25 @@ export default function PersonClassifyClient({
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_440px]">
         <div className="space-y-6 rounded-[24px] border bg-background p-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+          <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center">
             <Input
               type="file"
-              accept="image/*,.svg"
+              accept={CLASSIFICATION_MEDIA_ACCEPT}
+              disabled={isRunning || isImporting}
               onChange={handleFileChange}
               className="max-w-[320px]"
+            />
+            <ImportClassificationVideoButton
+              disabled={isRunning}
+              isImporting={isImporting}
+              onClick={() => void importVideo(resetMediaSelection)}
             />
             <Button
               type="button"
               onClick={handleClassify}
-              disabled={isRunning || !file || referencePersons.length === 0}
+              disabled={
+                isRunning || isImporting || (!file && !video) || referencePersons.length === 0
+              }
             >
               {isRunning ? (
                 <>
@@ -337,7 +381,16 @@ export default function PersonClassifyClient({
           </div>
 
           <div className="rounded-[20px] border border-dashed border-basic-3 bg-basic-1 p-4">
-            {previewUrl && imageMeta && boxImageMeta ? (
+            {video ? (
+              <>
+                <ClassificationVideoPreview key={video.url} video={video} />
+                <p className="mt-2 text-center text-sm text-basic-5">
+                  {videoT.has("Tagging.ClassificationVideo.personFirstFrame")
+                    ? videoT("Tagging.ClassificationVideo.personFirstFrame")
+                    : "Person classification uses the video’s first frame."}
+                </p>
+              </>
+            ) : previewUrl && imageMeta && boxImageMeta ? (
               <div className="flex justify-center">
                 <div
                   className="relative isolate overflow-hidden rounded-[16px] bg-[#eef3fb]"
@@ -399,7 +452,7 @@ export default function PersonClassifyClient({
             ) : (
               <div className="flex min-h-[420px] flex-col items-center justify-center gap-3 text-center text-basic-5">
                 <Upload className="size-10" />
-                <p>{t("uploadHint")}</p>
+                <ClassificationMediaHint />
               </div>
             )}
           </div>

@@ -1,4 +1,5 @@
 import { signS3ObjectUploadUrl, signS3ObjectUrl, verifyBrowserS3ObjectProxyUrl } from "@/lib/s3";
+import { signedUploadRequiresPublicReadAcl } from "@/lib/s3-browser-upload";
 import { createReadStream } from "fs";
 import { mkdir, open, readFile, rm, writeFile } from "fs/promises";
 import { NextRequest, NextResponse } from "next/server";
@@ -179,7 +180,7 @@ export async function PUT(request: NextRequest, context: S3ObjectRouteContext) {
     method: "PUT",
     headers: {
       "Content-Type": contentType,
-      "x-amz-acl": "public-read",
+      ...(signedUploadRequiresPublicReadAcl(signedUrl) ? { "x-amz-acl": "public-read" } : {}),
     },
     body: uploadBody,
     duplex: "half",

@@ -713,9 +713,9 @@
       "testDescriptionText2": "• Asegúrese de crear el sistema de etiquetas; también puede usar el asistente de IA para generar rápidamente el sistema de etiquetas del sector",
       "testDescriptionText3": "• La configuración de coincidencia de IA en prueba es solo para fines de prueba y no afecta la configuración de etiquetado de IA",
       "testOnlyDescription": "Solo para pruebas, los archivos y resultados no se guardarán ni se ingresarán a la biblioteca empresarial",
-      "uploadLocalFiles": "Upload local images",
-      "localFileInvalid": "{name}: Select an image up to 20 MB.",
-      "localUploadFailed": "Local image upload failed.",
+      "uploadLocalFiles": "Upload local files",
+      "localFileInvalid": "{name}: Select an image up to 20 MB or a video up to 200 MB.",
+      "localUploadFailed": "Local file upload failed.",
       "uploadTestFiles": "Subir archivos de prueba",
       "videoCreative": "Creativo de vídeo"
     },

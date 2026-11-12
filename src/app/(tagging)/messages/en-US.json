@@ -1,5 +1,12 @@
 {
   "Tagging": {
+    "ClassificationVideo": {
+      "uploadHint": "Upload an image or video, or select a video from MuseDAM.",
+      "selectVideo": "Select a supported video from MuseDAM.",
+      "uploadLimit": "Select a video up to {size} MB.",
+      "uploadFailed": "Could not upload video.",
+      "personFirstFrame": "Person classification uses the video’s first frame."
+    },
     "FeatureDecisionDiagnostics": {
       "noPredictions": "No supplied candidate was classified. Check the response and call status for unrelated candidates or a processing failure.",
       "conflicts": "Conflicting evidence",
@@ -985,9 +992,9 @@
       "remove": "Remove"
     },
     "Test": {
-      "uploadLocalFiles": "Upload local images",
-      "localFileInvalid": "{name}: Select an image up to 20 MB.",
-      "localUploadFailed": "Local image upload failed.",
+      "uploadLocalFiles": "Upload local files",
+      "localFileInvalid": "{name}: Select an image up to 20 MB or a video up to 200 MB.",
+      "localUploadFailed": "Local file upload failed.",
       "uploadTestFiles": "Upload Test Files",
       "testDescription": "Test Description",
       "removeAsset": "Remove",

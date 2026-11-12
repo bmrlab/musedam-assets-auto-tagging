@@ -1,6 +1,7 @@
 import { queueAbortSignal, queueSleep, throwIfQueueAborted } from "@/lib/tagging/queue-execution";
 import "server-only";
 
+import { startTrackedEmbeddingBatch } from "@/lib/brand/embedding-tracking";
 import { getJinaConfig, isDebugPageEnabled } from "@/lib/brand/env";
 import { REFERENCE_IMAGE_PREPARATION_CONCURRENCY } from "@/lib/brand/upload-constants";
 import { buildJinaDebugImageObjectKey, signS3ObjectUrl, uploadS3Object } from "@/lib/s3";
@@ -201,7 +202,7 @@ async function sendJinaEmbeddingRequest({
 async function logDebugJinaImage(image: string, index: number, task?: "retrieval.query") {
   const match = /^data:(image\/(?:jpeg|png));base64,([\s\S]+)$/.exec(image);
   if (!match) {
-    console.warn(`[Jina image debug] Image ${index + 1} is not a JPEG or PNG data URL`);
+    // console.warn(`[Jina image debug] Image ${index + 1} is not a JPEG or PNG data URL`);
     return;
   }
 
@@ -217,10 +218,10 @@ async function logDebugJinaImage(image: string, index: number, task?: "retrieval
       objectKey,
       expiresInSeconds: JINA_DEBUG_IMAGE_URL_TTL_SECONDS,
     });
-    console.info(`[Jina image debug] image ${index + 1}${task ? ` (${task})` : ""}: ${signedUrl}`);
-    console.info(`[Jina image debug] S3 object key: ${objectKey}`);
+    // console.info(`[Jina image debug] image ${index + 1}${task ? ` (${task})` : ""}: ${signedUrl}`);
+    // console.info(`[Jina image debug] S3 object key: ${objectKey}`);
   } catch (error) {
-    console.warn(`[Jina image debug] Failed to upload image ${index + 1} to S3`, error);
+    // console.warn(`[Jina image debug] Failed to upload image ${index + 1} to S3`, error);
   }
 }
 
@@ -252,63 +253,72 @@ export async function createJinaImageEmbeddings({
     if (isDebugPageEnabled()) {
       await Promise.all(batch.map((image, index) => logDebugJinaImage(image, start + index, task)));
     }
-    let response: Awaited<ReturnType<typeof nodeFetch>> | null = null;
-    let payload: JinaResponse | null = null;
-    let lastError: unknown = null;
+    const finishBatch = startTrackedEmbeddingBatch(batch.length);
+    let generated = 0;
+    try {
+      let response: Awaited<ReturnType<typeof nodeFetch>> | null = null;
+      let payload: JinaResponse | null = null;
+      let lastError: unknown = null;
 
-    for (let attempt = 1; attempt <= JINA_MAX_RETRIES; attempt += 1) {
-      try {
-        const result = await sendJinaEmbeddingRequest({
-          config,
-          proxyAgent,
-          body: {
-            model: config.model,
-            ...(task ? { task } : {}),
-            input: batch.map((image) => ({ image })),
-          },
-        });
-        response = result.response;
-        payload = result.payload;
+      for (let attempt = 1; attempt <= JINA_MAX_RETRIES; attempt += 1) {
+        try {
+          const result = await sendJinaEmbeddingRequest({
+            config,
+            proxyAgent,
+            body: {
+              model: config.model,
+              ...(task ? { task } : {}),
+              input: batch.map((image) => ({ image })),
+            },
+          });
+          response = result.response;
+          payload = result.payload;
 
-        break;
-      } catch (error) {
-        const retry = shouldRetryJinaRequest(error) && attempt < JINA_MAX_RETRIES;
-        const failure =
-          error instanceof JinaRequestError
-            ? error
-            : new JinaRequestError(sanitizeDiagnostic(getErrorMessage(error)), retry, {
-                cause: error,
-              });
-        logRequestFailure(
-          failure,
-          {
-            endpoint: new URL(config.embeddingsUrl).origin + new URL(config.embeddingsUrl).pathname,
-            model: config.model,
-            inputType: "image",
-            batchStart: start,
-            inputCount: batch.length,
-            attempt,
-            maxAttempts: JINA_MAX_RETRIES,
-            timeoutMs: config.timeoutMs,
-          },
-          retry,
-        );
-        if (!retry) throw failure;
-        lastError = failure;
+          break;
+        } catch (error) {
+          const retry = shouldRetryJinaRequest(error) && attempt < JINA_MAX_RETRIES;
+          const failure =
+            error instanceof JinaRequestError
+              ? error
+              : new JinaRequestError(sanitizeDiagnostic(getErrorMessage(error)), retry, {
+                  cause: error,
+                });
+          logRequestFailure(
+            failure,
+            {
+              endpoint:
+                new URL(config.embeddingsUrl).origin + new URL(config.embeddingsUrl).pathname,
+              model: config.model,
+              inputType: "image",
+              batchStart: start,
+              inputCount: batch.length,
+              attempt,
+              maxAttempts: JINA_MAX_RETRIES,
+              timeoutMs: config.timeoutMs,
+            },
+            retry,
+          );
+          if (!retry) throw failure;
+          lastError = failure;
+        }
+
+        const backoffMs = JINA_RETRY_BASE_DELAY_MS * 2 ** (attempt - 1);
+        await sleep(backoffMs);
       }
 
-      const backoffMs = JINA_RETRY_BASE_DELAY_MS * 2 ** (attempt - 1);
-      await sleep(backoffMs);
-    }
+      if (!response?.ok || !payload?.data) {
+        throw (
+          lastError ??
+          new Error(`Jina embeddings request failed after ${JINA_MAX_RETRIES} attempts`)
+        );
+      }
 
-    if (!response?.ok || !payload?.data) {
-      throw (
-        lastError ?? new Error(`Jina embeddings request failed after ${JINA_MAX_RETRIES} attempts`)
-      );
+      const sorted = payload.data.slice().sort((left, right) => left.index - right.index);
+      embeddings.push(...sorted.map((item) => item.embedding));
+      generated = sorted.length;
+    } finally {
+      finishBatch?.(generated);
     }
-
-    const sorted = payload.data.slice().sort((left, right) => left.index - right.index);
-    embeddings.push(...sorted.map((item) => item.embedding));
   }
 
   return embeddings;

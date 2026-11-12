@@ -1,4 +1,4 @@
-import { buildFeatureDecisionMessages } from "@/lib/feature-decision/prompts";
+import { buildFeatureDecisionPrompt } from "@/lib/feature-decision/prompts";
 import type { FeatureDecisionCandidate } from "@/lib/feature-decision/types";
 import { describe, expect, it } from "vitest";
 
@@ -13,9 +13,9 @@ const product: FeatureDecisionCandidate = {
   regionIds: ["product:0"],
 };
 function messages(candidates: FeatureDecisionCandidate[], imageMode = true) {
-  return buildFeatureDecisionMessages({ sourceImage: "whole-source", imageMode,
+  return buildFeatureDecisionPrompt({ sourceImage: "whole-source", imageMode,
     fileName: "source.jpg", folderPath: "/campaign", ocr: { status: "completed", segments: ["visible source OCR"] },
-    candidates, contextCandidates: [logo("hera"), logo("other"), product] });
+    candidates, contextCandidates: [logo("hera"), logo("other"), product] }).messages;
 }
 function payload(value: ReturnType<typeof messages>) {
   const c = value[1].content;
@@ -39,7 +39,7 @@ describe("logo-only prompt budget", () => {
   it("retains full product competition context for mixed batches", () => {
     const p = payload(messages([logo("hera"), product]));
     expect(p.sourceRegions.some((r: { featureType: string }) => r.featureType === "product")).toBe(true);
-    expect(p.candidates.some((c: { candidateId: string }) => c.candidateId === "product:cream")).toBe(true);
+    expect(p.candidates[1]).toMatchObject({ candidateId: "C2", name: product.name });
   });
   it("does not attach source or reference images in the compact text-only mode", () => {
     const m = messages([logo("hera")], false);

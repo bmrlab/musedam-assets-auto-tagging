@@ -19,12 +19,14 @@ import {
   getBrandMatches,
   getIpMatches,
 } from "@/lib/feature-decision/match-policy";
+import { CLASSIFICATION_MEDIA_ACCEPT } from "@/lib/feature-library";
 import { isAcceptedPersonFace } from "@/lib/person/person-match-policy";
 import {
   deduplicateProductMatches,
   getAcceptedProductMatches,
   getProductMatches,
 } from "@/lib/product/product-match-policy";
+import { uploadS3ObjectFromBrowser } from "@/lib/s3-browser-upload";
 import { meetsFeatureConfidenceThreshold } from "@/lib/tagging/feature-confidence";
 import { cn } from "@/lib/utils";
 import {
@@ -39,7 +41,16 @@ import {
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { startTaggingTasksAction, uploadLocalTestFileAction } from "./actions";
+import {
+  CLASSIFICATION_VIDEO_UPLOAD_LIMIT,
+  getVideoExtension,
+} from "../components/classification-video";
+import { prepareClassificationVideoUploadAction } from "../components/classification-video-actions";
+import {
+  registerLocalTestVideoAction,
+  startTaggingTasksAction,
+  uploadLocalTestFileAction,
+} from "./actions";
 import { getFeatureThumbnailsAction } from "./components/actions";
 import {
   getTaggingResultFeatureKeys,
@@ -1224,6 +1235,35 @@ export default function TestClient() {
     setIsProcessing(true);
     try {
       for (const file of files) {
+        if (getVideoExtension(file.name)) {
+          if (!file.size || file.size > CLASSIFICATION_VIDEO_UPLOAD_LIMIT) {
+            toast.error(t("localFileInvalid", { name: file.name }));
+            continue;
+          }
+          const prepared = await prepareClassificationVideoUploadAction({
+            name: file.name,
+            mimeType: file.type,
+            size: file.size,
+          });
+          if (!prepared.success) {
+            toast.error(prepared.message);
+            continue;
+          }
+          const { objectKey, uploadUrl, contentType } = prepared.data;
+          const uploaded = await uploadS3ObjectFromBrowser({ uploadUrl, file, contentType });
+          if (!uploaded.ok) {
+            toast.error(t("localUploadFailed"));
+            continue;
+          }
+          const registered = await registerLocalTestVideoAction({
+            objectKey,
+            name: file.name,
+            size: file.size,
+          });
+          if (registered.success) setSelectedAssets((current) => [...current, registered.data]);
+          else toast.error(registered.message);
+          continue;
+        }
         if (!file.type.startsWith("image/") || file.size === 0 || file.size > 20 * 1024 * 1024) {
           toast.error(t("localFileInvalid", { name: file.name }));
           continue;
@@ -1465,7 +1505,7 @@ export default function TestClient() {
               <input
                 ref={localFileInputRef}
                 type="file"
-                accept="image/*"
+                accept={CLASSIFICATION_MEDIA_ACCEPT}
                 multiple
                 className="hidden"
                 aria-label={t("uploadLocalFiles")}

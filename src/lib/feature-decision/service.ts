@@ -4,34 +4,64 @@ import { MAX_FEATURE_REFERENCES } from "./regions";
 
 import { isDecisionLlmImageUseEnabled } from "./config";
 import { callFeatureLlm } from "./gateway";
-import { parseFeatureDecisionResponse, parseOcrResponse } from "./parsing";
-import { boundOcrSegments, buildFeatureDecisionMessages, buildOcrMessages } from "./prompts";
+import { buildFeatureDecisionJsonSchema, parseFeatureDecisionResponse, parseOcrResponse } from "./parsing";
+import { boundOcrSegments, buildFeatureDecisionPrompt, buildOcrMessages } from "./prompts";
 import type {
   FeatureDecisionCandidate,
   FeatureDecisionDiagnostics,
   FeatureLlmContext,
   FeatureOcrDiagnostics,
+  FeatureVideoEvidence,
 } from "./types";
+
+const MAX_VIDEO_OCR_FRAMES = 4;
 
 export async function recognizeFeatureOcr(input: FeatureLlmContext & {
   sourceImage: string;
   segments?: string[];
+  video?: FeatureVideoEvidence;
+  signal?: AbortSignal;
 }): Promise<FeatureOcrDiagnostics> {
   const supplied = boundOcrSegments(input.segments ?? []);
   if (supplied.length) return { status: "completed", segments: supplied, source: "musedam" };
+  const context = {
+    teamId: input.teamId,
+    queueItemId: input.queueItemId,
+    assetObjectId: input.assetObjectId,
+  };
   let ocr: FeatureOcrDiagnostics;
   const ocrModel = process.env.OCR_MODEL?.trim();
   if (!ocrModel) {
     ocr = { status: "disabled", segments: [] };
   } else {
+    const frames = input.video?.frames ?? [];
+    const count = Math.min(frames.length, MAX_VIDEO_OCR_FRAMES);
+    const ocrFrames = Array.from(
+      { length: count },
+      (_, index) => frames[Math.round((index * (frames.length - 1)) / Math.max(1, count - 1))],
+    );
     const { call, result } = await callFeatureLlm({
-      context: { teamId: input.teamId, queueItemId: input.queueItemId, assetObjectId: input.assetObjectId },
+      context,
       kind: "ocr",
       model: ocrModel,
-      messages: buildOcrMessages(input.sourceImage),
-      parse: (text) => parseOcrResponse(text, 1),
+      messages: buildOcrMessages(
+        ocrFrames.length ? ocrFrames.map((frame) => frame.image) : input.sourceImage,
+      ),
+      parse: (text) =>
+        parseOcrResponse(text, ocrFrames.length || 1, { allowUnattributed: ocrFrames.length > 1 }),
+      ...(input.signal ? { signal: input.signal } : {}),
     });
-    const segments = result ? boundOcrSegments(result.content[0]) : [];
+    const segments = boundOcrSegments(
+      result?.unattributedSegments ??
+        result?.content.flatMap((group, index) =>
+          ocrFrames.length
+            ? group
+                .filter((text) => text.trim())
+                .map((text) => `[${ocrFrames[index].timestamp.toFixed(2)}s] ${text}`)
+            : group,
+        ) ??
+        [],
+    );
     ocr = {
       status: call.status === "failed" ? "failed" : segments.length ? "completed" : "empty",
       segments,
@@ -50,6 +80,8 @@ export async function runFeatureDecision(
     folderPath?: string;
     candidates: FeatureDecisionCandidate[];
     ocr?: FeatureOcrDiagnostics;
+    video?: FeatureVideoEvidence;
+    signal?: AbortSignal;
   },
 ): Promise<FeatureDecisionDiagnostics> {
   const imageMode = input.imageMode ?? isDecisionLlmImageUseEnabled();
@@ -57,7 +89,7 @@ export async function runFeatureDecision(
     mode: "llm" as const,
     decisionInputMode: imageMode ? ("image" as const) : ("text" as const),
   };
-  if (!input.sourceImage.trim()) {
+  if (!input.sourceImage.trim() && (imageMode || !input.video)) {
     return {
       ...diagnosticsMode,
       ocr: { status: "skipped", segments: [], error: "No usable source image" },
@@ -71,6 +103,16 @@ export async function runFeatureDecision(
   };
   const ocr = input.ocr ?? await recognizeFeatureOcr(input);
 
+  if (input.signal?.aborted) {
+    return {
+      ...diagnosticsMode,
+      ocr,
+      decision: {
+        status: "failed",
+        error: "Video classification exceeded its processing deadline",
+      },
+    };
+  }
   if (input.candidates.length === 0) {
     return {
       ...diagnosticsMode,
@@ -95,18 +137,41 @@ export async function runFeatureDecision(
     };
   }
   const chunks = batchFeatureCandidates(input.candidates);
+  const model = process.env.FEATURE_DECISION_MODEL?.trim() ?? "";
   const work = pLimit(2);
   const batches = await Promise.all(
     chunks.map((candidates) =>
       work(async () => {
+        const { messages, candidateIdsByReference } = buildFeatureDecisionPrompt({
+          ...input,
+          candidates,
+          contextCandidates: input.candidates,
+          imageMode,
+          ocr,
+        });
         const { call, result } = await callFeatureLlm({
           context,
           kind: "decision",
-          model: process.env.FEATURE_DECISION_MODEL?.trim() ?? "",
-          messages: buildFeatureDecisionMessages({ ...input, candidates, contextCandidates: input.candidates, imageMode, ocr }),
-          parse: (text) => parseFeatureDecisionResponse(text, candidates, imageMode),
+          model,
+          messages,
+          ...(model === "qwen3.8-flash" ? {
+            responseFormat: {
+              type: "json_schema",
+              json_schema: {
+                name: "feature_decision",
+                strict: true,
+                schema: buildFeatureDecisionJsonSchema([...candidateIdsByReference.keys()]),
+              },
+            },
+          } : {}),
+          parse: (text) => parseFeatureDecisionResponse(text, candidateIdsByReference, imageMode),
+          ...(input.signal ? { signal: input.signal } : {}),
         });
-        return { candidateIds: candidates.map((candidate) => candidate.candidateId), call, result };
+        return {
+          candidateIds: [...candidateIdsByReference.values()],
+          call: { ...call, candidateIdsByReference: Object.fromEntries(candidateIdsByReference) },
+          result,
+        };
       }),
     ),
   );

@@ -60,6 +60,15 @@ describe("s3 storage config", () => {
     expect(url.searchParams.get("X-Amz-SignedHeaders")).toContain("x-amz-acl");
   });
 
+  it("does not grant public-read access to classification video uploads", async () => {
+    const { buildClassificationVideoObjectKey, signS3ObjectUploadUrl } = await importS3Module();
+    const { signedUrl } = signS3ObjectUploadUrl({
+      contentType: "video/mp4",
+      objectKey: buildClassificationVideoObjectKey(7, "mp4"),
+    });
+    expect(new URL(signedUrl).searchParams.get("X-Amz-SignedHeaders")).not.toContain("x-amz-acl");
+  });
+
   it("omits x-amz-acl on signed upload urls when S3_SEND_ACL_HEADER=false", async () => {
     process.env.S3_SEND_ACL_HEADER = "false";
     const { signS3ObjectUploadUrl } = await importS3Module();

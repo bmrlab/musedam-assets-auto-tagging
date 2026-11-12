@@ -1,6 +1,5 @@
 import { z } from "zod";
 import type {
-  FeatureDecisionCandidate,
   FeatureDecisionResponse,
   FeatureLlmCosts,
   FeatureLlmUsage,
@@ -103,20 +102,26 @@ function parseOcrJson(content: string): unknown {
   }
 }
 
-export function parseOcrResponse(content: string, imageCount = 1): OcrResponse {
+export function parseOcrResponse(
+  content: string,
+  imageCount = 1,
+  { allowUnattributed = false }: { allowUnattributed?: boolean } = {},
+): OcrResponse {
   const textBlock = z.object({ text: z.string() });
   const segment = z.union([z.string(), textBlock.transform((block) => block.text)]);
-  let payload = parseOcrJson(content);
-  // Some OCR gateways return a flat list of strings or text blocks for one image.
-  // Only unwrap that variant when image association is unambiguous; never regroup
-  // flat blocks from a multi-image request or coerce malformed text values.
-  if (imageCount === 1) {
+  const payload = parseOcrJson(content);
+  if (imageCount === 1 || allowUnattributed) {
     const flatBlocks = z
       .object({ content: z.array(segment) })
       .strict()
       .safeParse(payload);
     if (flatBlocks.success) {
-      payload = { content: [flatBlocks.data.content] };
+      if (imageCount === 1) return { content: [flatBlocks.data.content] };
+      // A flat response has no frame boundaries, even if its length equals the frame count.
+      return {
+        content: [],
+        unattributedSegments: flatBlocks.data.content.flatMap((text) => text.split(/\r?\n/)),
+      };
     }
   }
   const parsed = z
@@ -130,51 +135,50 @@ export function parseOcrResponse(content: string, imageCount = 1): OcrResponse {
   return parsed;
 }
 
-const decisionResponseSchema = z
-  .object({
+function featureDecisionResponseSchema(candidateId: z.ZodType<string>) {
+  return z.strictObject({
     outcome: z.enum(["matched", "no_match"]),
-    matches: z
-      .array(
-        z
-          .object({
-            candidateId: z.string().min(1),
-            confidence: z.number().min(0).max(100),
-            reason: z.string().min(1).max(3000),
-            evidence: z
-              .array(z.enum(["visual", "retrieval", "filename", "path", "ocr"]))
-              .min(1)
-              .max(5),
-            conflicts: z.array(z.string()).max(20),
-            specificityLimit: z.string().nullable(),
-          })
-          .strict(),
-      )
-      .max(15),
-  })
-  .strict();
+    matches: z.array(z.strictObject({
+      candidateId,
+      confidence: z.number().min(0).max(100),
+      reason: z.string().min(1).max(3000),
+      evidence: z.array(z.enum(["visual", "retrieval", "filename", "path", "ocr"])).min(1).max(5),
+      conflicts: z.array(z.string()).max(20),
+      specificityLimit: z.string().nullable(),
+    })).max(15),
+  });
+}
+
+const decisionResponseSchema = featureDecisionResponseSchema(z.string().min(1));
+
+export function buildFeatureDecisionJsonSchema(references: string[]) {
+  return z.toJSONSchema(featureDecisionResponseSchema(z.enum(references)), { target: "draft-7" });
+}
 
 export function parseFeatureDecisionResponse(
   content: string,
-  candidates: Pick<FeatureDecisionCandidate, "candidateId">[],
+  candidateIdsByReference: ReadonlyMap<string, string>,
   imageMode = true,
 ): FeatureDecisionResponse {
-  const result = decisionResponseSchema.parse(parseLlmJson(content));
-  const allowed = new Set(candidates.map((candidate) => candidate.candidateId));
-  const seen = new Set<string>();
-  for (const match of result.matches) {
-    if (!imageMode && match.evidence.includes("visual"))
-      throw new Error("Text-only feature decisions cannot claim direct visual evidence");
-    if (!allowed.has(match.candidateId))
-      throw new Error(`Unknown feature candidate ID: ${match.candidateId}`);
-    if (seen.has(match.candidateId))
-      throw new Error(`Duplicate feature candidate ID: ${match.candidateId}`);
-    seen.add(match.candidateId);
-  }
-  const hasMatches = result.matches.length > 0;
-  if ((result.outcome === "matched") !== hasMatches) {
+  const { outcome, matches } = decisionResponseSchema.parse(parseLlmJson(content));
+  if ((outcome === "matched") !== (matches.length > 0)) {
     throw new Error("Feature outcome contradicts the returned matches");
   }
-  return result;
+  const seen = new Set<string>();
+  return {
+    outcome,
+    matches: matches.map((match) => {
+      if (!imageMode && match.evidence.includes("visual"))
+        throw new Error("Text-only feature decisions cannot claim direct visual evidence");
+      const candidateId = candidateIdsByReference.get(match.candidateId);
+      if (candidateId === undefined)
+        throw new Error(`Unknown feature candidate reference: ${match.candidateId}`);
+      if (seen.has(candidateId))
+        throw new Error(`Duplicate feature candidate reference: ${match.candidateId}`);
+      seen.add(candidateId);
+      return { ...match, candidateId };
+    }),
+  };
 }
 
 function record(value: unknown): Record<string, unknown> {

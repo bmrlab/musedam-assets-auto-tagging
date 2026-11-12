@@ -11,6 +11,7 @@ import {
 } from "./parsing";
 import type {
   FeatureChatMessage,
+  FeatureChatRequest,
   FeatureJsonValue,
   FeatureLlmCallDiagnostics,
   FeatureLlmContext,
@@ -33,18 +34,28 @@ export async function callFeatureLlm<T>(input: {
   model: string;
   messages: FeatureChatMessage[];
   parse: (text: string) => T;
+  responseFormat?: FeatureChatRequest["response_format"];
+  signal?: AbortSignal;
 }): Promise<{ call: FeatureLlmCallDiagnostics; result?: T }> {
   const startedAt = Date.now();
-  const request = {
+  const request: FeatureChatRequest = {
     model: input.model,
     messages: input.messages,
     max_tokens: FEATURE_LLM_MAX_OUTPUT_TOKENS,
-    ...(input.kind === "decision" ? { enable_thinking: false, response_format: { type: "json_object" as const } } : {}),
+    ...(input.kind === "decision"
+      ? {
+          // The Qwen gateway rejects reasoning_effort when enable_thinking is set.
+          enable_thinking: false,
+          response_format: input.responseFormat ?? { type: "json_object" },
+        }
+      : {}),
   };
   let rawResponse: FeatureJsonValue = null;
   let response: string | null = null;
   let result: T | undefined;
   let error: string | undefined;
+  let requestTimeout: AbortSignal | undefined;
+  let requestSignal: AbortSignal | undefined;
 
   try {
     const baseUrl = process.env.OPENAI_BASE_URL?.trim().replace(/\/+$/, "");
@@ -53,11 +64,15 @@ export async function callFeatureLlm<T>(input: {
       throw new Error("Set OPENAI_BASE_URL and OPENAI_API_KEY for feature OCR and decision calls");
     if (!input.model.trim())
       throw new Error(`Set ${input.kind === "ocr" ? "OCR_MODEL" : "FEATURE_DECISION_MODEL"}`);
+    requestTimeout = AbortSignal.timeout(FEATURE_LLM_TIMEOUT_MS);
+    requestSignal = queueAbortSignal(
+      input.signal ? AbortSignal.any([requestTimeout, input.signal]) : requestTimeout,
+    );
     const httpResponse = await fetch(`${baseUrl}/chat/completions`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify(request),
-      signal: queueAbortSignal(AbortSignal.timeout(FEATURE_LLM_TIMEOUT_MS)),
+      signal: requestSignal,
     });
     const body = await httpResponse.text();
     try {
@@ -75,7 +90,16 @@ export async function callFeatureLlm<T>(input: {
       throw new Error("Feature LLM returned no usable assistant content");
     result = input.parse(response);
   } catch (cause) {
-    error = errorMessage(cause, "Feature LLM request failed");
+    if (requestSignal?.aborted) {
+      error =
+        requestSignal.reason === requestTimeout?.reason
+          ? `Feature ${input.kind} request exceeded its ${FEATURE_LLM_TIMEOUT_MS / 1000}s deadline`
+          : input.signal?.aborted
+            ? `Video processing deadline expired during the feature ${input.kind} request`
+            : errorMessage(requestSignal.reason, `Feature ${input.kind} request was cancelled`);
+    } else {
+      error = errorMessage(cause, "Feature LLM request failed");
+    }
   }
 
   const usage = extractFeatureLlmUsage(rawResponse);

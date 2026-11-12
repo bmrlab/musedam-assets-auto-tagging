@@ -7,7 +7,7 @@ import {
 } from "@/lib/feature-decision/parsing";
 import {
   boundOcrSegments,
-  buildFeatureDecisionMessages,
+  buildFeatureDecisionPrompt,
   buildOcrMessages,
 } from "@/lib/feature-decision/prompts";
 import type { FeatureDecisionCandidate } from "@/lib/feature-decision/types";
@@ -18,7 +18,7 @@ const { createCall } = vi.hoisted(() => ({ createCall: vi.fn() }));
 vi.mock("@/prisma/prisma", () => ({ default: { featureLlmCall: { create: createCall } } }));
 
 const candidate: FeatureDecisionCandidate = {
-  candidateId: "product:example",
+  candidateId: "product:8b2dca40-147e-4998-9e21-188f878e41a0",
   featureType: "product",
   classId: "example",
   name: "Model A",
@@ -28,7 +28,7 @@ const candidate: FeatureDecisionCandidate = {
   similarity: 0.8,
 };
 const match = {
-  candidateId: candidate.candidateId,
+  candidateId: "C1",
   confidence: 91,
   reason: "The visible model and shape agree.",
   evidence: ["visual", "ocr"],
@@ -36,6 +36,7 @@ const match = {
   specificityLimit: null,
 };
 const validDecision = { outcome: "matched", matches: [match] };
+const candidateIdsByReference = new Map([["C1", candidate.candidateId]]);
 const originalEnv = { ...process.env };
 
 beforeEach(() => {
@@ -69,7 +70,7 @@ describe("feature LLM response contracts", () => {
         },
         {
           ...match,
-          candidateId: "product:alternative",
+          candidateId: "C2",
           confidence: 0,
           evidence: ["retrieval"],
           conflicts: ["Filename suggests another variant"],
@@ -78,11 +79,14 @@ describe("feature LLM response contracts", () => {
       ];
       const result = parseFeatureDecisionResponse(
         JSON.stringify({ outcome: "matched", matches: alternatives }),
-        [candidate, { candidateId: "product:alternative" }],
+        new Map([...candidateIdsByReference, ["C2", "product:alternative"]]),
         imageMode,
       );
-      expect(result.matches).toEqual(alternatives);
-      const messages = buildFeatureDecisionMessages({
+      expect(result.matches).toEqual([
+        { ...alternatives[0], candidateId: candidate.candidateId },
+        { ...alternatives[1], candidateId: "product:alternative" },
+      ]);
+      const { messages } = buildFeatureDecisionPrompt({
         sourceImage: "source",
         imageMode,
         ocr: { status: "empty", segments: [] },
@@ -231,28 +235,28 @@ describe("feature LLM response contracts", () => {
 
   it("accepts only supplied IDs with finite confidence and consistent outcomes", () => {
     expect(
-      parseFeatureDecisionResponse(JSON.stringify(validDecision), [candidate]).matches[0]
-        .confidence,
-    ).toBe(91);
+      parseFeatureDecisionResponse(JSON.stringify(validDecision), candidateIdsByReference).matches[0],
+    ).toEqual({ ...match, candidateId: candidate.candidateId });
     for (const invalid of [
-      { ...validDecision, matches: [{ ...match, candidateId: "invented" }] },
+      { ...validDecision, matches: [{ ...match, candidateId: "C2" }] },
+      { ...validDecision, matches: [{ ...match, candidateId: candidate.candidateId }] },
       { ...validDecision, matches: [match, match] },
       { ...validDecision, matches: [{ ...match, confidence: 101 }] },
       { ...validDecision, matches: [{ ...match, confidence: "91" }] },
       { ...validDecision, matches: [] },
       { ...validDecision, outcome: "no_match" },
     ])
-      expect(() => parseFeatureDecisionResponse(JSON.stringify(invalid), [candidate])).toThrow();
+      expect(() => parseFeatureDecisionResponse(JSON.stringify(invalid), candidateIdsByReference)).toThrow();
     expect(() =>
-      parseFeatureDecisionResponse('{"outcome":"ambiguous","matches":[]}', [candidate]),
+      parseFeatureDecisionResponse('{"outcome":"ambiguous","matches":[]}', candidateIdsByReference),
     ).toThrow();
     expect(
-      parseFeatureDecisionResponse('{"outcome":"no_match","matches":[]}', [candidate]).matches,
+      parseFeatureDecisionResponse('{"outcome":"no_match","matches":[]}', candidateIdsByReference).matches,
     ).toEqual([]);
   });
 
   it("keeps retrieval evidence and final confidence separate with labeled images", () => {
-    const messages = buildFeatureDecisionMessages({
+    const { messages } = buildFeatureDecisionPrompt({
       sourceImage: "source",
       fileName: "中文型号.jpg",
       folderPath: "/产品/中文型号.jpg",
@@ -263,6 +267,8 @@ describe("feature LLM response contracts", () => {
     expect(text).toContain("中文型号.jpg");
     expect(text).toContain("SOURCE ASSET");
     expect(text).toContain("REFERENCE 1");
+    expect(text).toContain("candidateId: C1");
+    expect(text).not.toContain(candidate.candidateId);
     expect(text).not.toContain("xMin");
     const imageParts = messages.flatMap((message) =>
       typeof message.content === "string"
@@ -274,7 +280,7 @@ describe("feature LLM response contracts", () => {
   });
 
   it("sends only curated text evidence to the text-only decision model", () => {
-    const messages = buildFeatureDecisionMessages({
+    const { messages } = buildFeatureDecisionPrompt({
       imageMode: false,
       sourceImage: "private-source-image-marker",
       fileName: "Model A.jpg",
@@ -289,11 +295,12 @@ describe("feature LLM response contracts", () => {
       "/Product/Model A",
       "30 ml",
       "0.8",
-      "product:example",
+      "C1",
       "TEXT ONLY",
     ])
       expect(text).toContain(value);
     for (const value of [
+      candidate.candidateId,
       "private-source-image-marker",
       "data:image",
       "image_url",
@@ -302,7 +309,7 @@ describe("feature LLM response contracts", () => {
     ])
       expect(text).not.toContain(value);
     expect(() =>
-      parseFeatureDecisionResponse(JSON.stringify(validDecision), [candidate], false),
+      parseFeatureDecisionResponse(JSON.stringify(validDecision), candidateIdsByReference, false),
     ).toThrow("visual evidence");
     expect(
       parseFeatureDecisionResponse(
@@ -310,7 +317,7 @@ describe("feature LLM response contracts", () => {
           ...validDecision,
           matches: [{ ...match, evidence: ["retrieval", "ocr"] }],
         }),
-        [candidate],
+        candidateIdsByReference,
         false,
       ).matches,
     ).toHaveLength(1);
@@ -341,6 +348,77 @@ function response(content: string, total = 25): Response {
 }
 
 describe("single-attempt feature OCR and decision gateway", () => {
+  it("uses flattened video OCR as text evidence without assigning frame timestamps", async () => {
+    const flat = { content: [{ text: "Seoul Sunset\nLANEIGE\nLANEIGE\n200 kcal/70 ml" }] };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(`\`\`\`json\n${JSON.stringify(flat)}\n\`\`\``))
+      .mockResolvedValueOnce(response('{"outcome":"no_match","matches":[]}'));
+    vi.stubGlobal("fetch", fetchMock);
+    const { runFeatureDecision } = await import("@/lib/feature-decision/service");
+    const result = await runFeatureDecision({
+      teamId: 1,
+      sourceImage: "",
+      imageMode: false,
+      video: {
+        sheetColumns: 4,
+        frames: [0, 1, 2, 3].map((timestamp) => ({ image: `frame-${timestamp}`, timestamp })),
+      },
+      candidates: [candidate],
+    });
+    expect(result.ocr.status).toBe("completed");
+    expect(result.ocr.segments).toEqual(["Seoul Sunset", "LANEIGE", "200 kcal/70 ml"]);
+    expect(result.decision.status).toBe("completed");
+    expect(result.decision.call?.request.messages[1].content).toContain(
+      '"segments":["Seoul Sunset","LANEIGE","200 kcal/70 ml"]',
+    );
+  });
+
+  it.each([true, false])("uses video OCR and respects imageMode=%s", async (imageMode) => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response('{"content":[[],["Model A"]]}'))
+      .mockResolvedValueOnce(
+        response(
+          JSON.stringify({
+            ...validDecision,
+            matches: [{ ...match, evidence: [imageMode ? "visual" : "retrieval", "ocr"] }],
+          }),
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const { runFeatureDecision } = await import("@/lib/feature-decision/service");
+    const result = await runFeatureDecision({
+      teamId: 1,
+      sourceImage: imageMode ? "video-contact-sheet" : "",
+      imageMode,
+      video: {
+        sheetColumns: 2,
+        frames: [
+          { image: "frame-one", timestamp: 0 },
+          { image: "frame-two", timestamp: 8 },
+        ],
+      },
+      candidates: [{ ...candidate, sampleTimes: [8] }],
+    });
+    expect(result.ocr.segments).toEqual(["[8.00s] Model A"]);
+    expect(result.decision.status).toBe("completed");
+    const request = JSON.parse(fetchMock.mock.calls[1][1].body);
+    expect(request).toMatchObject({ enable_thinking: false, response_format: { type: "json_object" } });
+    expect(request).not.toHaveProperty("reasoning_effort");
+    expect(JSON.stringify(request)).toContain("[8.00s] Model A");
+    expect(JSON.stringify(request)).not.toContain("frame-two");
+    if (imageMode) {
+      expect(request.messages[1].content[1]).toMatchObject({
+        image_url: { url: "video-contact-sheet" },
+      });
+      expect(JSON.stringify(request)).toContain(candidate.referenceImage!);
+    } else {
+      expect(JSON.stringify(request)).not.toContain("image_url");
+      expect(JSON.stringify(request)).not.toContain(candidate.referenceImage!);
+    }
+  });
+
   it("keeps OCR enabled but sends no source or reference images in the text-only decision request", async () => {
     const textDecision = {
       ...validDecision,
@@ -363,15 +441,25 @@ describe("single-attempt feature OCR and decision gateway", () => {
       mode: "llm",
       decisionInputMode: "text",
       ocr: { status: "completed", segments: ["Model A", "30 ml"] },
-      decision: { status: "completed", result: textDecision },
+      decision: {
+        status: "completed",
+        result: {
+          ...textDecision,
+          matches: [{ ...textDecision.matches[0], candidateId: candidate.candidateId }],
+        },
+        call: { candidateIdsByReference: { C1: candidate.candidateId } },
+      },
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
     const ocrRequest = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(ocrRequest).not.toHaveProperty("enable_thinking");
     expect(ocrRequest.messages[1].content[1]).toEqual({
       type: "image_url",
       image_url: { url: "source-only-ocr" },
     });
     const request = JSON.parse(fetchMock.mock.calls[1][1].body);
+    expect(request.enable_thinking).toBe(false);
+    expect(request).not.toHaveProperty("reasoning_effort");
     expect(
       request.messages.every(
         (message: { content: unknown }) => typeof message.content === "string",
@@ -412,7 +500,10 @@ describe("single-attempt feature OCR and decision gateway", () => {
     expect(JSON.parse(fetchMock.mock.calls[1][1].body).messages[1].content[0].text).toContain(
       "30 ml",
     );
-    expect(result.decision.result).toEqual(validDecision);
+    expect(result.decision.result).toEqual({
+      ...validDecision,
+      matches: [{ ...match, candidateId: candidate.candidateId }],
+    });
     expect(result.ocr.segments).toEqual(["Model A", "30 ml"]);
     expect(result.ocr.status).toBe("completed");
     const ocrMessages = JSON.parse(fetchMock.mock.calls[0][1].body).messages;
@@ -513,6 +604,29 @@ describe("single-attempt feature OCR and decision gateway", () => {
     expect(fetchMock.mock.calls[0][1].signal).toBeInstanceOf(AbortSignal);
     expect(timeout).toHaveBeenCalledWith(300_000);
     expect(JSON.parse(fetchMock.mock.calls[0][1].body).max_tokens).toBe(8192);
+  });
+
+  it("reports when the video processing deadline interrupts a decision request", async () => {
+    delete process.env.OCR_MODEL;
+    const deadline = new AbortController();
+    const fetchMock = vi.fn(async (_url: string, { signal }: RequestInit) => {
+      deadline.abort(new DOMException("The operation was aborted due to timeout", "TimeoutError"));
+      signal?.throwIfAborted();
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { runFeatureDecision } = await import("@/lib/feature-decision/service");
+    const result = await runFeatureDecision({
+      teamId: 1,
+      sourceImage: "",
+      imageMode: false,
+      video: { frames: [{ image: "frame", timestamp: 0 }], sheetColumns: 1 },
+      candidates: [candidate],
+      signal: deadline.signal,
+    });
+    expect(result.decision.error).toBe(
+      "Video processing deadline expired during the feature decision request",
+    );
+    expect(result.decision.status).toBe("failed");
   });
 
   it("retains token usage from a truncated answer without a repair call", async () => {

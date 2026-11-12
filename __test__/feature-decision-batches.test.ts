@@ -33,6 +33,7 @@ afterEach(() => {
 });
 describe("bounded feature decision batches", () => {
   it("assesses every candidate with one OCR call and at most two decision calls in flight", async () => {
+    vi.stubEnv("FEATURE_DECISION_MODEL", "qwen3.8-flash");
     let active = 0,
       max = 0,
       ocr = 0;
@@ -41,16 +42,24 @@ describe("bounded feature decision batches", () => {
       "fetch",
       vi.fn(async (_url, options) => {
         const request = JSON.parse(options.body);
-        if (request.model !== "ocr") {
-          expect(request.enable_thinking).toBe(false);
-          expect(request.response_format).toEqual({ type: "json_object" });
-        }
         if (request.model === "ocr") {
           ocr++;
           return envelope({ content: [["Product label"]] });
         }
         const text = request.messages[1].content;
         const data = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
+        expect(request.enable_thinking).toBe(false);
+        expect(request).not.toHaveProperty("reasoning_effort");
+        const references = data.candidates.map((_: unknown, index: number) => `C${index + 1}`);
+        expect(data.candidates.map((candidate: { candidateId: string }) => candidate.candidateId))
+          .toEqual(references);
+        expect(request.response_format).toMatchObject({
+          type: "json_schema",
+          json_schema: {
+            strict: true,
+            schema: { properties: { matches: { items: { properties: { candidateId: { enum: references } } } } } },
+          },
+        });
         sizes.push(data.candidates.length);
         expect(data.otherCatalogCandidates).toHaveLength(candidates.length - data.candidates.length);
         expect(data.otherCatalogCandidates.every((c: Record<string, unknown>) => !Object.hasOwn(c, "candidateId"))).toBe(true);
@@ -95,13 +104,11 @@ describe("bounded feature decision batches", () => {
         if (request.model === "ocr") return envelope({ content: [[]] });
         const text = request.messages[1].content;
         const data = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
-        if (data.candidates[0].candidateId === "product:15")
-          return new Response("unavailable", { status: 503 });
         return envelope({
           outcome: "matched",
           matches: [
             {
-              candidateId: data.candidates[0].candidateId,
+              candidateId: data.candidates[0].name === "Product 15" ? "C99" : data.candidates[0].candidateId,
               confidence: 87,
               reason: "Matching identity",
               evidence: ["retrieval"],
@@ -121,6 +128,7 @@ describe("bounded feature decision batches", () => {
     expect(result.decision.status).toBe("failed");
     expect(result.decision.result?.matches).toHaveLength(3);
     expect(result.decision.batches?.[3].status).toBe("failed");
+    expect(result.decision.batches?.[3].error).toBe("Unknown feature candidate reference: C99");
     expect(result.decision.batches?.[3].candidateIds).toEqual(
       candidates.slice(15, 20).map((c) => c.candidateId),
     );
@@ -132,12 +140,13 @@ describe("precomputed OCR", () => {
   it("does not issue a second OCR call when the queue already supplied interface OCR", async () => {
     const fetchMock = vi.fn(async (_url, options) => {
       expect(JSON.parse(options.body).model).toBe("decision");
-      return envelope({ outcome: "matched", matches: [{ candidateId: "product:0", confidence: 90, reason: "OCR identity", evidence: ["ocr"], conflicts: [], specificityLimit: null }] });
+      return envelope({ outcome: "matched", matches: [{ candidateId: "C1", confidence: 90, reason: "OCR identity", evidence: ["ocr"], conflicts: [], specificityLimit: null }] });
     });
     vi.stubGlobal("fetch", fetchMock);
     const result = await runFeatureDecision({ teamId: 1, sourceImage: "source", imageMode: false, candidates: candidates.slice(0, 1), ocr: { status: "completed", source: "musedam", segments: ["Product 0"] } });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(result.ocr.source).toBe("musedam");
+    expect(result.decision.result?.matches[0].candidateId).toBe(candidates[0].candidateId);
   });
   it("uses interface OCR before the model fallback even when OCR_MODEL is configured", async () => {
     const { recognizeFeatureOcr } = await import("@/lib/feature-decision/service");

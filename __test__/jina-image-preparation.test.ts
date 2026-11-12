@@ -1,3 +1,4 @@
+import { trackClassificationEmbeddings } from "@/lib/brand/embedding-tracking";
 import { createJinaImageEmbeddings, createJinaTextEmbeddings } from "@/lib/brand/jina";
 import { prepareJinaImageDataUrl } from "@/lib/tagging/reference-image";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -10,9 +11,11 @@ const mocks = vi.hoisted(() => ({
   buildDebugKey: vi.fn(),
   upload: vi.fn(),
   sign: vi.fn(),
+  info: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
+vi.mock("@/lib/logging", () => ({ rootLogger: { info: mocks.info } }));
 vi.mock("@/lib/brand/env", () => ({
   isDebugPageEnabled: () => mocks.debug,
   getJinaConfig: () => ({
@@ -42,6 +45,7 @@ vi.mock("undici", () => ({
 describe("Jina image preparation boundary", () => {
   beforeEach(() => {
     mocks.fetch.mockReset();
+    mocks.info.mockClear();
     mocks.debug = false;
     mocks.isDirectJina = false;
     mocks.prepareImage.mockReset();
@@ -90,7 +94,37 @@ describe("Jina image preparation boundary", () => {
     expect(mocks.upload).not.toHaveBeenCalled();
   });
 
-  it("uploads and logs the exact prepared image when DEBUG_PAGE is enabled", async () => {
+  it("logs returned vectors and time spent on both successful and failed batches", async () => {
+    let now = 0;
+    vi.spyOn(performance, "now").mockImplementation(() => now);
+    const success = mocks.fetch.getMockImplementation()!;
+    mocks.fetch
+      .mockImplementationOnce(async (...args) => {
+        now += 10;
+        return success(...args);
+      })
+      .mockImplementationOnce(async () => {
+        now += 20;
+        return new Response('{"error":{"message":"invalid image"}}', { status: 400 });
+      });
+    await expect(
+      trackClassificationEmbeddings({ teamId: 7, frameCount: 1 }, () =>
+        createJinaImageEmbeddings({ images: ["one", "two", "three", "four", "five"] }),
+      ),
+    ).rejects.toThrow();
+    expect(mocks.info).toHaveBeenCalledExactlyOnceWith({
+      msg: "Feature classification embedding summary",
+      teamId: 7,
+      frameCount: 1,
+      embeddingsRequested: 5,
+      embeddingsGenerated: 4,
+      embeddingBatches: 2,
+      embeddingTotalMs: 30,
+      embeddingElapsedMs: 30,
+    });
+  });
+
+  it("uploads the exact prepared image without debug logs when DEBUG_PAGE is enabled", async () => {
     mocks.debug = true;
     const prepared = `data:image/png;base64,${Buffer.from("prepared pixels").toString("base64")}`;
     mocks.prepareImage.mockResolvedValue(prepared);
@@ -109,9 +143,7 @@ describe("Jina image preparation boundary", () => {
       objectKey: "debug-jina-image.png",
       expiresInSeconds: 7 * 24 * 60 * 60,
     });
-    expect(log).toHaveBeenCalledWith(
-      "[Jina image debug] image 1: https://s3.test/debug-jina-image.png",
-    );
+    expect(log).not.toHaveBeenCalled();
     const body = JSON.parse(String(mocks.fetch.mock.calls[0][1]?.body));
     expect(body.input).toEqual([{ image: prepared }]);
   });
@@ -125,10 +157,7 @@ describe("Jina image preparation boundary", () => {
 
     await createJinaImageEmbeddings({ images: ["original"] });
 
-    expect(warning).toHaveBeenCalledWith(
-      "[Jina image debug] Failed to upload image 1 to S3",
-      expect.any(Error),
-    );
+    expect(warning).not.toHaveBeenCalled();
     const body = JSON.parse(String(mocks.fetch.mock.calls[0][1]?.body));
     expect(body.input).toEqual([{ image: prepared }]);
   });

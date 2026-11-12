@@ -3,6 +3,7 @@ import { selectProductRegionWinners } from "@/lib/product/product-match-policy";
 import { prepareLogoReferenceSheet } from "./logo-reference-sheet";
 import { getScoredFeaturePredictions } from "./match-policy";
 import { findProductNameMatches } from "@/lib/product/product-name-evidence";
+import { trackClassificationEmbeddings } from "@/lib/brand/embedding-tracking";
 import "server-only";
 import { FEATURE_DECISION_MODE, isDecisionLlmImageUseEnabled } from "./config";
 
@@ -19,6 +20,7 @@ import {
   type IpClassificationResult,
   type IpTopMatch,
 } from "@/lib/ip/ip-classification";
+import type { MediaProcessRequestMode } from "@/lib/media-process/client";
 import {
   classifyProductImageRegions,
   detectProductFigureBoxes,
@@ -64,50 +66,90 @@ export type AssetFeatureClassification = {
   unacceptedIdentityTagIds?: number[];
 };
 
-/** Detection and crops are retrieval-only; a single whole-image decision owns final identities. */
-export async function classifyAssetFeatures(
-  input: FeatureLlmContext & {
-    imageInput: ClassificationRemoteImageInput;
-    enabledTypes: DecisionFeatureType[];
-    imageMode?: boolean;
-    fileName?: string;
-    folderPath?: string;
-    ocrSegments?: string[];
-    ocrImage?: string;
-    boxes?: Partial<Record<DecisionFeatureType, ClassificationDetectionBox[]>>;
-  },
-): Promise<AssetFeatureClassification> {
-  const { teamId, imageInput } = input;
-  const thresholds = await getFeatureThresholds(teamId);
-  // Dev requests always use the decision layer; their explicit switch controls image evidence.
-  const mode = input.imageMode === undefined ? getFeatureDecisionMode() : "llm";
-  const imageMode = input.imageMode ?? isDecisionLlmImageUseEnabled();
-  const enabledTypes = [...new Set(input.enabledTypes)];
+type FeatureFrame = {
+  imageInput: ClassificationRemoteImageInput;
+  timestamp: number;
+};
+
+type FeatureClassificationInput = FeatureLlmContext & {
+  enabledTypes: DecisionFeatureType[];
+  imageMode?: boolean;
+  fileName?: string;
+  folderPath?: string;
+  ocrSegments?: string[];
+  ocrImage?: string;
+  mode?: "llm" | "legacy";
+  boxes?: Partial<Record<DecisionFeatureType, ClassificationDetectionBox[]>>;
+} & (
+    | { imageInput: ClassificationRemoteImageInput; video?: never }
+    | {
+        imageInput?: never;
+        video: {
+          frames: FeatureFrame[];
+          sourceImage: string;
+          sheetColumns: number;
+          frameLoadFailures: number;
+          signal: AbortSignal;
+          decisionSignal?: AbortSignal;
+          requestMode?: MediaProcessRequestMode;
+        };
+      }
+  );
+
+const MAX_VIDEO_CANDIDATES = 15;
+const videoRetrievalSlot = pLimit(2);
+
+/** Detection and crops supply candidates. One decision owns final identities for the asset. */
+async function retrieveFrameFeatures({
+  teamId,
+  imageInput,
+  enabledTypes,
+  boxes,
+  mode,
+  signal,
+  requestMode,
+}: {
+  teamId: number;
+  imageInput: ClassificationRemoteImageInput;
+  enabledTypes: DecisionFeatureType[];
+  boxes?: FeatureClassificationInput["boxes"];
+  mode: "llm" | "legacy";
+  signal?: AbortSignal;
+  requestMode?: MediaProcessRequestMode;
+}) {
+  signal?.throwIfAborted();
+  const detectionOptions = {
+    teamId,
+    imageInput,
+    ...(signal ? { signal } : {}),
+    ...(requestMode ? { requestMode } : {}),
+  };
   const errors: string[] = [];
   const boxesByType: Partial<Record<DecisionFeatureType, ClassificationDetectionBox[]>> = {};
   await Promise.all(
     enabledTypes.map(async (type) => {
       try {
-        if (input.boxes?.[type] !== undefined) {
-          boxesByType[type] = input.boxes[type];
+        if (boxes?.[type] !== undefined) {
+          boxesByType[type] = boxes[type];
           return;
         }
         const result =
           type === "logo"
             ? await detectBrandLogoBoxes({
-                teamId,
-                imageInput,
+                ...detectionOptions,
                 detectionLabelText: await fetchLogoDetectionLabelText(teamId),
               })
             : type === "product"
-              ? await detectProductFigureBoxes({ teamId, imageInput })
-              : await detectIpFigureBoxes({ teamId, imageInput });
+              ? await detectProductFigureBoxes(detectionOptions)
+              : await detectIpFigureBoxes(detectionOptions);
         boxesByType[type] = result.detections;
       } catch (error) {
         errors.push(`${type} detection: ${error instanceof Error ? error.message : String(error)}`);
       }
     }),
   );
+
+  signal?.throwIfAborted();
 
   // Embedding-only mode retains the original crop policy: all product boxes,
   // and the existing per-task crop limit for logo/IP, with whole-image fallback.
@@ -270,6 +312,212 @@ export async function classifyAssetFeatures(
     }),
   );
 
+  signal?.throwIfAborted();
+  return { output, regions, errors };
+}
+
+type FrameRetrieval = Awaited<ReturnType<typeof retrieveFrameFeatures>> & { timestamp: number };
+
+function mergeVideoRetrieval(
+  frames: FrameRetrieval[],
+  thresholds: Awaited<ReturnType<typeof getFeatureThresholds>>,
+) {
+  const first = frames[0];
+  if (!first) throw new Error("No video frames available for feature retrieval");
+  const sampleTimes = new Map<string, number[]>();
+  function recordTime(candidateId: string, timestamp: number) {
+    const times = sampleTimes.get(candidateId) ?? [];
+    if (times.at(-1) !== timestamp) times.push(timestamp);
+    sampleTimes.set(candidateId, times);
+  }
+  function strongestById<T extends { similarity: number }>(matches: T[], id: (match: T) => string) {
+    return [
+      ...new Map(
+        [...matches].sort((a, b) => a.similarity - b.similarity).map((match) => [id(match), match]),
+      ).values(),
+    ].sort((a, b) => b.similarity - a.similarity || id(a).localeCompare(id(b)));
+  }
+  function mergeIdentities<
+    T extends { similarity: number; confidence: number; detectionIndex: number },
+  >(
+    type: "brand" | "ip",
+    getResult: (frame: FrameRetrieval) => {
+      topMatches: T[];
+      bestMatch: T | null;
+      noConfidentMatch: boolean;
+    } | null,
+    id: (match: T) => string,
+  ) {
+    const observed: T[] = [];
+    const accepted: T[] = [];
+    for (const frame of frames) {
+      const result = getResult(frame);
+      if (!result) continue;
+      for (const match of result.topMatches) {
+        recordTime(`${type === "brand" ? "logo" : type}:${id(match)}`, frame.timestamp);
+        observed.push(match);
+      }
+      if (
+        result.bestMatch &&
+        !result.noConfidentMatch &&
+        meetsFeatureConfidenceThreshold(type, result.bestMatch.confidence, thresholds[type])
+      ) {
+        accepted.push(result.bestMatch);
+      }
+    }
+    const topMatches = strongestById(observed, id);
+    const matches = strongestById(accepted, id);
+    const bestMatch = matches[0] ?? topMatches[0] ?? null;
+    return {
+      topMatches,
+      matches,
+      bestMatch,
+      noConfidentMatch: matches.length === 0,
+      winningDetectionIndex: bestMatch?.detectionIndex ?? null,
+    };
+  }
+
+  const output: AssetFeatureClassification = { ...first.output };
+  if (output.brand) {
+    output.brand = mergeIdentities(
+      "brand",
+      (frame) => frame.output.brand,
+      (match) => match.assetLogoId,
+    );
+  }
+  if (output.ip) {
+    output.ip = mergeIdentities(
+      "ip",
+      (frame) => frame.output.ip,
+      (match) => match.assetIpId,
+    );
+  }
+  if (output.product) {
+    const rawDetections: ProductClassificationResult["rawDetections"] = [];
+    const detections: ProductClassificationResult["detections"] = [];
+    const accepted: ProductTopMatch[] = [];
+    for (const { output: result, timestamp } of frames) {
+      const product = result.product;
+      if (!product) continue;
+      const offset = rawDetections.length;
+      const remap = (match: ProductTopMatch) => ({
+        ...match,
+        detectionIndex: match.detectionIndex + offset,
+        detectionIndices: match.detectionIndices?.map((index) => index + offset),
+      });
+      for (const detection of product.detections) {
+        for (const match of detection.topMatches)
+          recordTime(`product:${match.assetProductId}`, timestamp);
+        detections.push({
+          ...detection,
+          detectionIndex: detection.detectionIndex + offset,
+          sourceDetectionIndices: detection.sourceDetectionIndices.map((index) => index + offset),
+          topMatches: detection.topMatches.map(remap),
+          bestMatch: detection.bestMatch ? remap(detection.bestMatch) : null,
+        });
+      }
+      rawDetections.push(
+        ...(product.rawDetections.length
+          ? product.rawDetections
+          : product.detections.map(({ box }) => box)),
+      );
+      accepted.push(...product.matches.map(remap));
+    }
+    const matches = deduplicateProductMatches(accepted);
+    const bestMatch = matches[0] ?? null;
+    output.product = {
+      rawDetections,
+      detections,
+      topMatches: deduplicateProductMatches(detections.flatMap((region) => region.topMatches)),
+      matches,
+      bestMatch,
+      noConfidentMatch: matches.length === 0,
+      winningDetectionIndex: bestMatch?.detectionIndex ?? null,
+    };
+  }
+  return {
+    output,
+    sampleTimes,
+    regions: {
+      regionsDetected: frames.reduce((sum, { regions }) => sum + regions.regionsDetected, 0),
+      regionsSelected: frames.reduce((sum, { regions }) => sum + regions.regionsSelected, 0),
+      regionsOmitted: frames.reduce((sum, { regions }) => sum + regions.regionsOmitted, 0),
+      regionsDeduplicated: frames.reduce(
+        (sum, { regions }) => sum + regions.regionsDeduplicated,
+        0,
+      ),
+    },
+    errors: frames.flatMap(({ errors, timestamp }) =>
+      errors.map((error) => `Frame at ${timestamp.toFixed(2)}s: ${error}`),
+    ),
+  };
+}
+
+function shortlistVideoCandidates<A, B, C>(logos: A[], products: B[], ips: C[]): [A[], B[], C[]] {
+  // Allocate slots across types without comparing unlike embedding scores.
+  const counts = [0, 0, 0];
+  const pools = [logos, products, ips];
+  let remaining = Math.min(MAX_VIDEO_CANDIDATES, logos.length + products.length + ips.length);
+  while (remaining > 0) {
+    for (let type = 0; type < pools.length && remaining > 0; type++) {
+      if (counts[type] >= pools[type].length) continue;
+      counts[type]++;
+      remaining--;
+    }
+  }
+  return [logos.slice(0, counts[0]), products.slice(0, counts[1]), ips.slice(0, counts[2])];
+}
+
+export async function classifyAssetFeatures(
+  input: FeatureClassificationInput,
+): Promise<AssetFeatureClassification> {
+  const { teamId, video } = input;
+  const thresholds = await getFeatureThresholds(teamId);
+  const sourceImage = video ? video.sourceImage : input.imageInput!.dataUrl;
+  const videoEvidence = video && {
+    frames: video.frames.map(({ imageInput, timestamp }) => ({ image: imageInput.dataUrl, timestamp })),
+    sheetColumns: video.sheetColumns,
+  };
+  // Dev requests always use the decision layer; their explicit switch controls image evidence.
+  const mode = input.mode ?? (input.imageMode === undefined ? getFeatureDecisionMode() : "llm");
+  const imageMode = input.imageMode ?? isDecisionLlmImageUseEnabled();
+  const enabledTypes = [...new Set(input.enabledTypes)];
+  const retrievalInput = { teamId, enabledTypes, mode };
+  const { output, regions, errors, sampleTimes } = await trackClassificationEmbeddings(
+    {
+      teamId,
+      assetObjectId: input.assetObjectId,
+      queueItemId: input.queueItemId,
+      frameCount: video?.frames.length ?? 1,
+    },
+    async () => {
+      const frameResults = video
+        ? await Promise.all(
+            video.frames.map((frame) =>
+              videoRetrievalSlot(async () => ({
+                timestamp: frame.timestamp,
+                ...(await retrieveFrameFeatures({
+                  ...retrievalInput,
+                  imageInput: frame.imageInput,
+                  signal: video.signal,
+                  requestMode: video.requestMode,
+                })),
+              })),
+            ),
+          )
+        : null;
+      return frameResults
+        ? mergeVideoRetrieval(frameResults, thresholds)
+        : {
+            ...(await retrieveFrameFeatures({
+              ...retrievalInput,
+              imageInput: input.imageInput!,
+              boxes: input.boxes,
+            })),
+            sampleTimes: undefined,
+          };
+    },
+  );
   const metadataEvidence = new Map<string, ProductMetadataEvidence[]>();
   if (mode === "llm" && output.product && (input.fileName || input.folderPath)) {
     try {
@@ -299,11 +547,11 @@ export async function classifyAssetFeatures(
       errors.push(`product metadata recall: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
-  const productCandidates = deduplicateProductMatches(
+  let productCandidates = deduplicateProductMatches(
     output.product?.detections.flatMap((region) => region.topMatches) ?? [],
   );
-  const brandCandidates = output.brand?.topMatches ?? [];
-  const ipCandidates = output.ip?.topMatches ?? [];
+  let brandCandidates = output.brand?.topMatches ?? [];
+  let ipCandidates = output.ip?.topMatches ?? [];
   const retrieval = {
     regionsDetected: regions.regionsDetected,
     regionsSelected: regions.regionsSelected,
@@ -339,7 +587,9 @@ export async function classifyAssetFeatures(
     };
     const ocr = await recognizeFeatureOcr({
       teamId, queueItemId: input.queueItemId, assetObjectId: input.assetObjectId,
-      sourceImage: input.ocrImage ?? imageInput.dataUrl, segments: input.ocrSegments,
+      sourceImage: input.ocrImage ?? sourceImage,
+      segments: input.ocrSegments,
+      ...(videoEvidence ? { video: videoEvidence, signal: video?.decisionSignal } : {}),
     });
     const ocrText = ocr.segments.join("\n");
     const folderCatalog = enabledTypes.includes("logo") && (input.folderPath || ocrText)
@@ -365,6 +615,12 @@ export async function classifyAssetFeatures(
         referenceMatchStrategy: logo.referenceMatchStrategy,
         detectionIndex: -1,
       });
+    }
+    if (video) {
+      retrieval.candidatesRetrieved = productCandidates.length + brandCandidates.length + ipCandidates.length;
+      [brandCandidates, productCandidates, ipCandidates] = shortlistVideoCandidates(
+        brandCandidates, productCandidates, ipCandidates,
+      );
     }
     // Logo decisions see every configured variant; products/IP retain one reference.
     const [logos, products, ips] = await Promise.all([
@@ -433,6 +689,8 @@ export async function classifyAssetFeatures(
       candidate: Omit<FeatureDecisionCandidate, "referenceImage">,
       objectKey?: string,
     ): Promise<FeatureDecisionCandidate | null> => {
+      const times = sampleTimes?.get(candidate.candidateId);
+      if (times) candidate = { ...candidate, sampleTimes: times };
       if (!imageMode) return candidate;
       if (!objectKey) {
         retrieval.unassessedCandidates.push({
@@ -444,7 +702,9 @@ export async function classifyAssetFeatures(
       try {
         const { signedUrl } = getCachedSignedS3ObjectUrl({ objectKey });
         const reference = await referenceWork(() =>
-          fetchRemoteImageInput(signedUrl, "feature decision first reference"),
+          fetchRemoteImageInput(signedUrl, "feature decision first reference", {
+            signal: video?.signal,
+          }),
         );
         return { ...candidate, referenceImage: reference.dataUrl };
       } catch (error) {
@@ -459,11 +719,15 @@ export async function classifyAssetFeatures(
       candidate: FeatureDecisionCandidate,
       images: Array<{ id?: string; objectKey: string }>,
     ): Promise<FeatureDecisionCandidate | null> => {
+      const times = sampleTimes?.get(candidate.candidateId);
+      if (times) candidate = { ...candidate, sampleTimes: times };
       if (!imageMode) return candidate;
       try {
         const prepared = await prepareLogoReferenceSheet(images, objectKey => referenceWork(async () => {
           const { signedUrl } = getCachedSignedS3ObjectUrl({ objectKey });
-          return (await fetchRemoteImageInput(signedUrl, "feature decision logo references")).dataUrl;
+          return (await fetchRemoteImageInput(signedUrl, "feature decision logo references", {
+            signal: video?.signal,
+          })).dataUrl;
         }));
         return { ...candidate, referenceImage: prepared.dataUrl,
           referenceImageCount: prepared.referenceImageCount, referenceImageIds: prepared.referenceImageIds };
@@ -562,6 +826,7 @@ export async function classifyAssetFeatures(
       );
     }
     for (const candidate of await Promise.all(pending)) if (candidate) candidates.push(candidate);
+    video?.signal.throwIfAborted();
     output.diagnostics = {
       ...(await runFeatureDecision({
         teamId,
@@ -569,7 +834,9 @@ export async function classifyAssetFeatures(
         assetObjectId: input.assetObjectId,
         fileName: input.fileName,
         folderPath: input.folderPath,
-        sourceImage: imageInput.dataUrl,
+        sourceImage,
+        ...(videoEvidence ? { video: videoEvidence } : {}),
+        ...(video?.decisionSignal ? { signal: video.decisionSignal } : {}),
         imageMode,
         candidates,
         ocr,
@@ -742,6 +1009,12 @@ export async function classifyAssetFeatures(
       !match.candidateId.startsWith("product:") || kept.has(match.candidateId));
   }
   output.confidenceThresholds = thresholds;
+  if (video) {
+    output.diagnostics.video = {
+      frameTimestamps: video.frames.map((frame) => frame.timestamp),
+      frameLoadFailures: video.frameLoadFailures,
+    };
+  }
   if (output.brand) output.brand.diagnostics = output.diagnostics;
   if (output.ip) output.ip.diagnostics = output.diagnostics;
   if (output.product) output.product.diagnostics = output.diagnostics;
