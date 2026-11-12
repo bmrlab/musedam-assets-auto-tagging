@@ -202,7 +202,7 @@ async function sendJinaEmbeddingRequest({
 async function logDebugJinaImage(image: string, index: number, task?: "retrieval.query") {
   const match = /^data:(image\/(?:jpeg|png));base64,([\s\S]+)$/.exec(image);
   if (!match) {
-    console.warn(`[Jina image debug] Image ${index + 1} is not a JPEG or PNG data URL`);
+    // console.warn(`[Jina image debug] Image ${index + 1} is not a JPEG or PNG data URL`);
     return;
   }
 
@@ -218,10 +218,10 @@ async function logDebugJinaImage(image: string, index: number, task?: "retrieval
       objectKey,
       expiresInSeconds: JINA_DEBUG_IMAGE_URL_TTL_SECONDS,
     });
-    console.info(`[Jina image debug] image ${index + 1}${task ? ` (${task})` : ""}: ${signedUrl}`);
-    console.info(`[Jina image debug] S3 object key: ${objectKey}`);
+    // console.info(`[Jina image debug] image ${index + 1}${task ? ` (${task})` : ""}: ${signedUrl}`);
+    // console.info(`[Jina image debug] S3 object key: ${objectKey}`);
   } catch (error) {
-    console.warn(`[Jina image debug] Failed to upload image ${index + 1} to S3`, error);
+    // console.warn(`[Jina image debug] Failed to upload image ${index + 1} to S3`, error);
   }
 }
 

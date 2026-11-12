@@ -124,7 +124,7 @@ describe("Jina image preparation boundary", () => {
     });
   });
 
-  it("uploads and logs the exact prepared image when DEBUG_PAGE is enabled", async () => {
+  it("uploads the exact prepared image without debug logs when DEBUG_PAGE is enabled", async () => {
     mocks.debug = true;
     const prepared = `data:image/png;base64,${Buffer.from("prepared pixels").toString("base64")}`;
     mocks.prepareImage.mockResolvedValue(prepared);
@@ -143,9 +143,7 @@ describe("Jina image preparation boundary", () => {
       objectKey: "debug-jina-image.png",
       expiresInSeconds: 7 * 24 * 60 * 60,
     });
-    expect(log).toHaveBeenCalledWith(
-      "[Jina image debug] image 1: https://s3.test/debug-jina-image.png",
-    );
+    expect(log).not.toHaveBeenCalled();
     const body = JSON.parse(String(mocks.fetch.mock.calls[0][1]?.body));
     expect(body.input).toEqual([{ image: prepared }]);
   });
@@ -159,10 +157,7 @@ describe("Jina image preparation boundary", () => {
 
     await createJinaImageEmbeddings({ images: ["original"] });
 
-    expect(warning).toHaveBeenCalledWith(
-      "[Jina image debug] Failed to upload image 1 to S3",
-      expect.any(Error),
-    );
+    expect(warning).not.toHaveBeenCalled();
     const body = JSON.parse(String(mocks.fetch.mock.calls[0][1]?.body));
     expect(body.input).toEqual([{ image: prepared }]);
   });
