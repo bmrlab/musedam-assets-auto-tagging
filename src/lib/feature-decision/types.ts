@@ -84,7 +84,9 @@ export type FeatureChatRequest = {
   messages: FeatureChatMessage[];
   max_tokens?: number;
   enable_thinking?: boolean;
-  response_format?: { type: "json_object" };
+  response_format?:
+    | { type: "json_object" }
+    | { type: "json_schema"; json_schema: { name: string; strict: true; schema: object } };
 };
 
 export type OpenAIChatUsage = {
@@ -132,6 +134,8 @@ export type FeatureLlmCallDiagnostics = {
   status: "completed" | "failed";
   durationMs: number;
   request: FeatureChatRequest;
+  /** Candidate references used on the wire, mapped to catalog IDs in the decision result. */
+  candidateIdsByReference?: Record<string, string>;
   /** Assistant text as received, including any Markdown fences. */
   response: string | null;
   rawResponse: FeatureJsonValue;

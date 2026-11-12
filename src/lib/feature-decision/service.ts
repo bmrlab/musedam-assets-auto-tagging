@@ -4,8 +4,8 @@ import { MAX_FEATURE_REFERENCES } from "./regions";
 
 import { isDecisionLlmImageUseEnabled } from "./config";
 import { callFeatureLlm } from "./gateway";
-import { parseFeatureDecisionResponse, parseOcrResponse } from "./parsing";
-import { boundOcrSegments, buildFeatureDecisionMessages, buildOcrMessages } from "./prompts";
+import { buildFeatureDecisionJsonSchema, parseFeatureDecisionResponse, parseOcrResponse } from "./parsing";
+import { boundOcrSegments, buildFeatureDecisionPrompt, buildOcrMessages } from "./prompts";
 import type {
   FeatureDecisionCandidate,
   FeatureDecisionDiagnostics,
@@ -137,19 +137,41 @@ export async function runFeatureDecision(
     };
   }
   const chunks = batchFeatureCandidates(input.candidates);
+  const model = process.env.FEATURE_DECISION_MODEL?.trim() ?? "";
   const work = pLimit(2);
   const batches = await Promise.all(
     chunks.map((candidates) =>
       work(async () => {
+        const { messages, candidateIdsByReference } = buildFeatureDecisionPrompt({
+          ...input,
+          candidates,
+          contextCandidates: input.candidates,
+          imageMode,
+          ocr,
+        });
         const { call, result } = await callFeatureLlm({
           context,
           kind: "decision",
-          model: process.env.FEATURE_DECISION_MODEL?.trim() ?? "",
-          messages: buildFeatureDecisionMessages({ ...input, candidates, contextCandidates: input.candidates, imageMode, ocr }),
-          parse: (text) => parseFeatureDecisionResponse(text, candidates, imageMode),
+          model,
+          messages,
+          ...(model === "qwen3.8-flash" ? {
+            responseFormat: {
+              type: "json_schema",
+              json_schema: {
+                name: "feature_decision",
+                strict: true,
+                schema: buildFeatureDecisionJsonSchema([...candidateIdsByReference.keys()]),
+              },
+            },
+          } : {}),
+          parse: (text) => parseFeatureDecisionResponse(text, candidateIdsByReference, imageMode),
           ...(input.signal ? { signal: input.signal } : {}),
         });
-        return { candidateIds: candidates.map((candidate) => candidate.candidateId), call, result };
+        return {
+          candidateIds: [...candidateIdsByReference.values()],
+          call: { ...call, candidateIdsByReference: Object.fromEntries(candidateIdsByReference) },
+          result,
+        };
       }),
     ),
   );

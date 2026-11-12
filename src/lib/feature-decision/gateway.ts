@@ -34,6 +34,7 @@ export async function callFeatureLlm<T>(input: {
   model: string;
   messages: FeatureChatMessage[];
   parse: (text: string) => T;
+  responseFormat?: FeatureChatRequest["response_format"];
   signal?: AbortSignal;
 }): Promise<{ call: FeatureLlmCallDiagnostics; result?: T }> {
   const startedAt = Date.now();
@@ -45,7 +46,7 @@ export async function callFeatureLlm<T>(input: {
       ? {
           // The Qwen gateway rejects reasoning_effort when enable_thinking is set.
           enable_thinking: false,
-          response_format: { type: "json_object" },
+          response_format: input.responseFormat ?? { type: "json_object" },
         }
       : {}),
   };
