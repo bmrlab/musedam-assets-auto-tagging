@@ -43,6 +43,7 @@ describe("bounded feature decision batches", () => {
         const request = JSON.parse(options.body);
         if (request.model !== "ocr") {
           expect(request.enable_thinking).toBe(false);
+          expect(request).not.toHaveProperty("reasoning_effort");
           expect(request.response_format).toEqual({ type: "json_object" });
         }
         if (request.model === "ocr") {

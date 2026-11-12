@@ -3,11 +3,7 @@ import "server-only";
 
 import type { Prisma } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
-import {
-  FEATURE_DECISION_REASONING_EFFORT,
-  FEATURE_LLM_MAX_OUTPUT_TOKENS,
-  FEATURE_LLM_TIMEOUT_MS,
-} from "./config";
+import { FEATURE_LLM_MAX_OUTPUT_TOKENS, FEATURE_LLM_TIMEOUT_MS } from "./config";
 import {
   extractFeatureLlmUsage,
   getUnavailableFeatureLlmCosts,
@@ -47,7 +43,7 @@ export async function callFeatureLlm<T>(input: {
     max_tokens: FEATURE_LLM_MAX_OUTPUT_TOKENS,
     ...(input.kind === "decision"
       ? {
-          reasoning_effort: FEATURE_DECISION_REASONING_EFFORT,
+          // The Qwen gateway rejects reasoning_effort when enable_thinking is set.
           enable_thinking: false,
           response_format: { type: "json_object" },
         }

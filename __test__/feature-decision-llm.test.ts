@@ -397,7 +397,8 @@ describe("single-attempt feature OCR and decision gateway", () => {
     expect(result.ocr.segments).toEqual(["[8.00s] Model A"]);
     expect(result.decision.status).toBe("completed");
     const request = JSON.parse(fetchMock.mock.calls[1][1].body);
-    expect(request.reasoning_effort).toBe("none");
+    expect(request).toMatchObject({ enable_thinking: false, response_format: { type: "json_object" } });
+    expect(request).not.toHaveProperty("reasoning_effort");
     expect(JSON.stringify(request)).toContain("[8.00s] Model A");
     expect(JSON.stringify(request)).not.toContain("frame-two");
     if (imageMode) {
@@ -437,13 +438,14 @@ describe("single-attempt feature OCR and decision gateway", () => {
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
     const ocrRequest = JSON.parse(fetchMock.mock.calls[0][1].body);
-    expect(ocrRequest).not.toHaveProperty("reasoning_effort");
+    expect(ocrRequest).not.toHaveProperty("enable_thinking");
     expect(ocrRequest.messages[1].content[1]).toEqual({
       type: "image_url",
       image_url: { url: "source-only-ocr" },
     });
     const request = JSON.parse(fetchMock.mock.calls[1][1].body);
-    expect(request.reasoning_effort).toBe("none");
+    expect(request.enable_thinking).toBe(false);
+    expect(request).not.toHaveProperty("reasoning_effort");
     expect(
       request.messages.every(
         (message: { content: unknown }) => typeof message.content === "string",

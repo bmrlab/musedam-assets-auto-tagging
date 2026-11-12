@@ -153,7 +153,7 @@ OCR 和决策均直接调用 `OPENAI_BASE_URL/chat/completions`，模型 ID 原�
 
 新增迁移 `prisma/migrations/20261105090000_add_feature_llm_calls/migration.sql` 创建 `FeatureLlmCall`，保存每次调用的模型、输入/输出/总 token、缓存/推理/图片 token、耗时、状态、请求和响应，以及费用和价格快照。迁移文件已准备，本改动未执行数据库迁移；启用前，本地在确认开发库后执行 `pnpm exec prisma migrate dev`，部署环境通过现有 `pnpm db:deploy` 应用迁移，并执行 `pnpm exec prisma generate` 更新客户端。
 
-请求设置集中在 `src/lib/feature-decision/config.ts`：超时 `FEATURE_LLM_TIMEOUT_MS = 300_000`（5 分钟），输出上限 `FEATURE_LLM_MAX_OUTPUT_TOKENS = 8192`。决策请求发送 `reasoning_effort: "none"` 和 `enable_thinking: false` 关闭推理，OCR 使用模型默认设置。这些设置和决策模式不从环境变量读取；图像证据通过团队 `TeamConfig.featureImageMode` 布尔配置启用，默认关闭，队列不再读取旧环境变量 `DECISION_LLM_IMAGE_USE`。目前只记录 token 用量，费用和单价字段保留为 `null`。
+请求设置集中在 `src/lib/feature-decision/config.ts`。超时为 `FEATURE_LLM_TIMEOUT_MS = 300_000`（5 分钟），输出上限为 `FEATURE_LLM_MAX_OUTPUT_TOKENS = 8192`。决策请求使用 `enable_thinking: false` 关闭推理。Qwen 网关在同时传入 `reasoning_effort` 时会拒绝请求。OCR 使用模型默认设置。这些设置和决策模式不从环境变量读取；图像证据通过团队 `TeamConfig.featureImageMode` 布尔配置启用，默认关闭，队列不再读取旧环境变量 `DECISION_LLM_IMAGE_USE`。目前只记录 token 用量，费用和单价字段保留为 `null`。
 
 开启现有 `DEBUG_PAGE=true` 后，`/tagging/product/classify`、`/tagging/brand/classify` 和 `/tagging/ip/classify` 可输入源文件名和路径，并查看 OCR 原文、最终置信度、每次调用的 token/费用/耗时、发送的文本与图片，以及模型原始响应和失败原因。
 
