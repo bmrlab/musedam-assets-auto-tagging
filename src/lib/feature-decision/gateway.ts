@@ -3,7 +3,11 @@ import "server-only";
 
 import type { Prisma } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
-import { FEATURE_LLM_MAX_OUTPUT_TOKENS, FEATURE_LLM_TIMEOUT_MS } from "./config";
+import {
+  FEATURE_DECISION_REASONING_EFFORT,
+  FEATURE_LLM_MAX_OUTPUT_TOKENS,
+  FEATURE_LLM_TIMEOUT_MS,
+} from "./config";
 import {
   extractFeatureLlmUsage,
   getUnavailableFeatureLlmCosts,
@@ -11,6 +15,7 @@ import {
 } from "./parsing";
 import type {
   FeatureChatMessage,
+  FeatureChatRequest,
   FeatureJsonValue,
   FeatureLlmCallDiagnostics,
   FeatureLlmContext,
@@ -36,11 +41,17 @@ export async function callFeatureLlm<T>(input: {
   signal?: AbortSignal;
 }): Promise<{ call: FeatureLlmCallDiagnostics; result?: T }> {
   const startedAt = Date.now();
-  const request = {
+  const request: FeatureChatRequest = {
     model: input.model,
     messages: input.messages,
     max_tokens: FEATURE_LLM_MAX_OUTPUT_TOKENS,
-    ...(input.kind === "decision" ? { enable_thinking: false, response_format: { type: "json_object" as const } } : {}),
+    ...(input.kind === "decision"
+      ? {
+          reasoning_effort: FEATURE_DECISION_REASONING_EFFORT,
+          enable_thinking: false,
+          response_format: { type: "json_object" },
+        }
+      : {}),
   };
   let rawResponse: FeatureJsonValue = null;
   let response: string | null = null;

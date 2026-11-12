@@ -85,6 +85,7 @@ export type FeatureChatRequest = {
   max_tokens?: number;
   enable_thinking?: boolean;
   response_format?: { type: "json_object" };
+  reasoning_effort?: "none";
 };
 
 export type OpenAIChatUsage = {

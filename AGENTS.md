@@ -12,7 +12,7 @@
 - 自动打标需要模型/embedding 配置、对象存储及 MuseDAM 凭据。需要独立队列消费者时另开终端执行 `pnpm queue-processor`；同时核对 EMBEDDED_QUEUE_SCHEDULER 和 README，避免重复启动调度器。
 - 商品、Logo、IP 默认使用新增 LLM 决策：配置 `OPENAI_BASE_URL`、`OPENAI_API_KEY`、`FEATURE_DECISION_MODEL` 和 `OCR_MODEL`（未设置 OCR 模型时禁用 OCR）。二者直接调用同一网关，不经过 `LLM_PROVIDER` 路由；决策模式、5 分钟调用超时和输出 token 上限统一在 `src/lib/feature-decision/config.ts` 定义；修改模式常量为 `"legacy"` 可切回旧算法。目前记录 token 用量，费用保留为 `null`。开发分类页的「图像模式」默认关闭，关闭时仍运行 OCR/LLM 决策，仅决策请求改为纯文本；页面支持两种输入模式的结果与 token 对比。真实打标队列（含 `tagging/review` 与 `tagging/test` 产生的任务）按团队 `TeamConfig` 的 `featureImageMode` 设置发送图像证据，默认关闭；设置页可按团队开启，不再使用 `DECISION_LLM_IMAGE_USE` 控制真实队列。决策应返回合理的低置信度预测或多个可能选项，不再输出 `ambiguous`；只有全部候选明显无关时使用 `no_match`，预测展示与自动应用阈值独立。完整 LLM 决策仅按团队置信度门槛筛选，conflicts/specificityLimit 作为诊断说明，不生成只读候选；待审核特征统一支持排除/恢复；商品额外按来源区域只保留最高分身份，其他商品候选从最终结果移除，不转为只读候选。
 
-视频兜底 OCR 需要 PATH 中的 `ffmpeg`（Docker runner 已安装）。队列优先复用开放接口 OCR，缺失时抽取原视频清晰帧；抽帧失败回退缩略图，资源上限及诊断约定见 README 的 LLM 决策与 OCR 章节。
+视频商品、Logo 和 IP 识别通过媒体处理服务采样原视频。队列优先复用开放接口 OCR，缺失时使用采样帧做模型 OCR。采样失败时可回退缩略图，兜底 OCR 需要 PATH 中的 `ffmpeg`（Docker runner 已安装）。资源上限及诊断约定见 README 的 LLM 决策与 OCR 章节。
 
 ## 安装与首次数据库准备
 

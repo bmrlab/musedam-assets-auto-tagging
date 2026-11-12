@@ -17,6 +17,9 @@ vi.mock("@/app/(tagging)/tagging/test/actions", () => ({
   startTaggingTasksAction: mocks.start,
   uploadLocalTestFileAction: vi.fn(),
 }));
+vi.mock("@/app/(tagging)/tagging/components/classification-video-actions", () => ({
+  prepareClassificationVideoUploadAction: vi.fn(),
+}));
 vi.mock("@/app/(tagging)/tagging/test/components/actions", () => ({
   getFeatureThumbnailsAction: async () => ({ success: true, data: {} }),
 }));

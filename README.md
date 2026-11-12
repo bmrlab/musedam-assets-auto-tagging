@@ -143,7 +143,9 @@ FEATURE_DECISION_MODEL=your_multimodal_decision_model
 OCR_MODEL=your_ocr_model
 ```
 
-真实打标队列优先复用开放接口的 `ocrContent`、`imageContentAnalysis.aiOcr` 和已同步内容中的显式 OCR 字段，不将 AI 描述当作 OCR。接口有文字时不再重复调用 OCR 模型；没有文字时保留模型 OCR 兜底。视频兜底使用原视频清晰抽帧：已知时长时取第 1 秒（短于 2 秒时取中间帧），未知时长取首帧，长边不超过 2048；下载和抽帧总超时 60 秒，下载上限 128 MiB，全局串行执行，任务取消时终止并清理临时文件。原视频不可下载、超限或解码失败时继续使用缩略图。Docker 运行镜像安装 ffmpeg，本地运行也需在 PATH 中提供 ffmpeg。OCR 中的完整品牌别名可补充召回同团队启用的 Logo，允许以真实 OCR 为依据通过匹配，无需伪造向量命中；是否自动接受仍受最终模型置信度、冲突和阈值控制。
+真实打标队列优先复用开放接口的 `ocrContent`、`imageContentAnalysis.aiOcr` 和已同步内容中的显式 OCR 字段，不将 AI 描述当作 OCR。接口有文字时不再重复调用 OCR 模型；没有文字时保留模型 OCR 兜底。视频通过媒体处理服务的 `video_sprite` 接口从原视频抽取样本，去重后选取最多 8 帧检索商品、Logo 和 IP。模型 OCR 最多读取 4 个样本，图像模式使用样本对照图，候选按现有决策批次处理。人物识别在队列中继续使用缩略图。
+
+视频采样失败且仍有处理时间时，队列可以使用缩略图识别特征，并尝试用 ffmpeg 从原视频取帧用于 OCR。已知时长时取第 1 秒（短于 2 秒时取中间帧），未知时长取首帧，长边不超过 2048；下载和抽帧总超时 60 秒，下载上限 128 MiB，全局串行执行，任务取消时终止并清理临时文件。原视频不可下载、超限或解码失败时继续使用缩略图。Docker 运行镜像安装 ffmpeg，本地运行也需在 PATH 中提供 ffmpeg。OCR 中的完整品牌别名可补充召回同团队启用的 Logo，允许以真实 OCR 为依据通过匹配，无需伪造向量命中；是否自动接受仍受最终模型置信度、冲突和阈值控制。
 
 OCR 和决策均直接调用 `OPENAI_BASE_URL/chat/completions`，模型 ID 原样传递，不受 `LLM_PROVIDER` 的云服务路由影响。接口 OCR 缺失时一次素材处理至多调用模型 OCR 一次，再为启用的商品、Logo、IP 候选分批调用决策模型。未设置 `OCR_MODEL` 时 OCR 标记为禁用；没有可用源图时跳过调用，图像模式没有可用候选参考图或纯文本模式没有候选时跳过决策。OCR 失败仍可使用其余证据决策。单次调用有超时和输出 token 上限，不自动重试或调用模型修复响应；决策超时、输出格式错误或模型未配置时，特征结果保持未解决，不自动回退为 embedding 已确认结果。需要明确恢复旧算法时修改代码常量 `FEATURE_DECISION_MODE` 为 `"legacy"`；结果会标记为 legacy，并跳过新增 OCR/决策调用。
 
@@ -151,7 +153,7 @@ OCR 和决策均直接调用 `OPENAI_BASE_URL/chat/completions`，模型 ID 原�
 
 新增迁移 `prisma/migrations/20261105090000_add_feature_llm_calls/migration.sql` 创建 `FeatureLlmCall`，保存每次调用的模型、输入/输出/总 token、缓存/推理/图片 token、耗时、状态、请求和响应，以及费用和价格快照。迁移文件已准备，本改动未执行数据库迁移；启用前，本地在确认开发库后执行 `pnpm exec prisma migrate dev`，部署环境通过现有 `pnpm db:deploy` 应用迁移，并执行 `pnpm exec prisma generate` 更新客户端。
 
-请求设置集中在 `src/lib/feature-decision/config.ts`：超时 `FEATURE_LLM_TIMEOUT_MS = 300_000`（5 分钟），输出上限 `FEATURE_LLM_MAX_OUTPUT_TOKENS = 8192`。这些设置和决策模式不从环境变量读取；图像证据通过团队 `TeamConfig.featureImageMode` 布尔配置启用，默认关闭，队列不再读取旧环境变量 `DECISION_LLM_IMAGE_USE`。目前只记录 token 用量，费用和单价字段保留为 `null`。
+请求设置集中在 `src/lib/feature-decision/config.ts`：超时 `FEATURE_LLM_TIMEOUT_MS = 300_000`（5 分钟），输出上限 `FEATURE_LLM_MAX_OUTPUT_TOKENS = 8192`。决策请求发送 `reasoning_effort: "none"` 和 `enable_thinking: false` 关闭推理，OCR 使用模型默认设置。这些设置和决策模式不从环境变量读取；图像证据通过团队 `TeamConfig.featureImageMode` 布尔配置启用，默认关闭，队列不再读取旧环境变量 `DECISION_LLM_IMAGE_USE`。目前只记录 token 用量，费用和单价字段保留为 `null`。
 
 开启现有 `DEBUG_PAGE=true` 后，`/tagging/product/classify`、`/tagging/brand/classify` 和 `/tagging/ip/classify` 可输入源文件名和路径，并查看 OCR 原文、最终置信度、每次调用的 token/费用/耗时、发送的文本与图片，以及模型原始响应和失败原因。
 

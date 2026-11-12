@@ -230,15 +230,16 @@ describe("whole-asset feature decision orchestration", () => {
   );
 
   it.each([
-    ["logo", true],
-    ["logo", false],
-    ["product", true],
-    ["product", false],
-    ["ip", true],
-    ["ip", false],
+    ["logo", true, 43],
+    ["logo", false, 43],
+    ["product", true, 43],
+    ["product", false, 43],
+    ["ip", true, 43],
+    ["ip", false, 43],
+    ["product", false, 86],
   ] as const)(
-    "retains low-confidence %s predictions with one product per region in imageMode=%s",
-    async (type, imageMode) => {
+    "retains %s predictions in imageMode=%s and applies the threshold to score %d",
+    async (type, imageMode, confidence) => {
       const common = {
         productTypeId: null,
         productTypeName: "Products",
@@ -289,11 +290,11 @@ describe("whole-asset feature decision orchestration", () => {
       mocks.products.mockResolvedValue(catalog);
       mocks.ips.mockResolvedValue(catalog);
       const alternatives = ["first", "lower"].map((id, index) => ({
-        ...decisionMatch(id, index ? 0 : 43),
+        ...decisionMatch(id, index ? 0 : confidence),
         candidateId: `${type}:${id}`,
         evidence: [imageMode ? "visual" : "retrieval"],
         specificityLimit: "Exact variant unresolved",
-        conflicts: index ? ["Filename suggests the other variant"] : [],
+        conflicts: ["Filename is ambiguous"],
       }));
       mocks.decision.mockResolvedValue({
         ocr: { status: "completed", segments: ["Series"] },
@@ -308,10 +309,16 @@ describe("whole-asset feature decision orchestration", () => {
       });
       const classified =
         type === "logo" ? result.brand : type === "product" ? result.product : result.ip;
-      expect(classified?.topMatches.map((entry) => entry.confidence)).toEqual(type === "product" ? [43] : [43, 0]);
-      expect(classified?.matches).toEqual([]);
-      expect(classified?.bestMatch?.confidence).toBe(43);
-      expect(result.diagnostics.decision.result?.matches).toEqual(type === "product" ? alternatives.slice(0, 1) : alternatives);
+      expect(classified?.topMatches.map((entry) => entry.confidence)).toEqual(
+        type === "product" ? [confidence] : [confidence, 0],
+      );
+      expect(classified?.matches?.map((entry) => entry.confidence)).toEqual(
+        confidence === 86 ? [86] : [],
+      );
+      expect(classified?.bestMatch?.confidence).toBe(confidence);
+      expect(result.diagnostics.decision.result?.matches).toEqual(
+        type === "product" ? alternatives.slice(0, 1) : alternatives,
+      );
       expect(mocks.decision).toHaveBeenCalledOnce();
       if (type === "product") expect(mocks.decision.mock.calls[0][0].candidates[0].notes).toBe("Catalog nickname");
     },
@@ -350,7 +357,13 @@ describe("whole-asset feature decision orchestration", () => {
         "lower",
       ]);
       expect(result.brand?.matches?.map((entry) => entry.assetLogoId)).toEqual(["first", "lower"]);
-      expect(result.brand?.bestMatch?.assetLogoId).toBe("first");
+      expect(result.brand?.bestMatch).toMatchObject({
+        assetLogoId: "first",
+        decision: {
+          conflicts: ["Identity conflict unresolved"],
+          specificityLimit: "Only brand association known",
+        },
+      });
     },
   );
 
