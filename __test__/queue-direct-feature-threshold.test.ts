@@ -88,7 +88,7 @@ describe("direct mode feature-library thresholds (shared with review path)", () 
           bestMatch: productMatch("weak-alias", 50, [99]),
           matches: [
             productMatch("phone", 92, [10, 11]),
-            { ...productMatch("headphones", 80, [11, 12]), detectionIndex: 1 },
+            { ...productMatch("headphones", FEATURE_CONFIDENCE_MIN.product, [11, 12]), detectionIndex: 1 },
             productMatch("bottle", FEATURE_CONFIDENCE_MIN.product - 1, [13]),
           ],
           recommendedTags: [{ assetTagId: 999, tagPath: ["Unrelated aggregate tag"] }],

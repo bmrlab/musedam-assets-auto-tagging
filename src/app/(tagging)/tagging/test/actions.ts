@@ -1,9 +1,15 @@
 "use server";
 import { withAuth } from "@/app/(auth)/withAuth";
 import { enqueueTaggingTask } from "@/app/(tagging)/queue";
-import { toFeatureClassificationFlags } from "@/lib/feature-library";
+import { isVideoAssetExtension, toFeatureClassificationFlags } from "@/lib/feature-library";
 import { getServerFeatureLibraryFeatures } from "@/lib/feature-library-server";
-import { getCachedBrowserS3ObjectUrl, getCachedSignedS3ObjectUrl, uploadS3Object } from "@/lib/s3";
+import { requestVideoFrames } from "@/lib/media-process/video-frames";
+import {
+  getCachedBrowserS3ObjectUrl,
+  getCachedSignedS3ObjectUrl,
+  isClassificationVideoObjectKey,
+  uploadS3Object,
+} from "@/lib/s3";
 import { ServerActionResult } from "@/lib/serverAction";
 import { syncSingleAssetFromMuseDAM } from "@/musedam/assets";
 import { MuseDAMID } from "@/musedam/types";
@@ -80,9 +86,12 @@ export async function startTaggingTasksAction(
                     objectKey: extra.objectKey,
                     expiresInSeconds: 24 * 60 * 60,
                   });
+                  const thumbnailAccessUrl = isVideoAssetExtension(extra.extension)
+                    ? (await requestVideoFrames(teamId, signedUrl, AbortSignal.timeout(4 * 60_000), 1))[0].url
+                    : signedUrl;
                   localAsset.extra = {
                     ...extra,
-                    thumbnailAccessUrl: signedUrl,
+                    thumbnailAccessUrl,
                     downloadUrl: signedUrl,
                   };
                   await prisma.assetObject.update({
@@ -151,6 +160,61 @@ export async function startTaggingTasksAction(
         message: error instanceof Error ? error.message : String(error),
       };
     }
+  });
+}
+
+export async function registerLocalTestVideoAction(input: {
+  objectKey: string;
+  name: string;
+  size: number;
+}): Promise<ServerActionResult<SelectedAsset>> {
+  return withAuth(async ({ team: { id: teamId } }) => {
+    const extension = input.name.split(".").pop()?.toLowerCase() ?? "";
+    if (
+      !isClassificationVideoObjectKey(input.objectKey, teamId) ||
+      !isVideoAssetExtension(extension) ||
+      !input.objectKey.endsWith(`.${extension}`) ||
+      !Number.isSafeInteger(input.size) ||
+      input.size <= 0 ||
+      input.size > 200 * 1024 * 1024
+    ) {
+      return { success: false, message: "Invalid video upload." };
+    }
+    const slug = `local-test-${randomUUID()}`;
+    const { signedUrl: url } = getCachedSignedS3ObjectUrl({
+      objectKey: input.objectKey,
+      expiresInSeconds: 86400,
+    });
+    const [frame] = await requestVideoFrames(teamId, url, AbortSignal.timeout(4 * 60_000), 1);
+    await prisma.assetObject.create({
+      data: {
+        teamId,
+        slug,
+        name: input.name,
+        materializedPath: "",
+        description: "",
+        extra: {
+          extension,
+          size: input.size,
+          objectKey: input.objectKey,
+          downloadUrl: url,
+          thumbnailAccessUrl: frame.url,
+          localTest: true,
+        },
+      },
+    });
+    return {
+      success: true,
+      data: {
+        id: slug,
+        source: "local",
+        name: input.name,
+        extension,
+        size: input.size,
+        url,
+        thumbnail: { url: frame.url },
+      },
+    };
   });
 }
 

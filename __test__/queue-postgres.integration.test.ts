@@ -96,6 +96,43 @@ describe.skipIf(!url)("real PostgreSQL fair queue, batched estimates and executi
     expect(JSON.stringify(plan)).toContain("TaggingQueueItem_pending_lane_team_age_idx");
     console.log("FAIR_PROBE_PLAN", JSON.stringify(plan));
   });
+  it("admits image and thumbnail-only jobs behind videos waiting for a frame slot", async () => {
+    const team = await prisma.team.create({ data: { slug: "queue-video-deferral" } });
+    const createAsset = (slug: string, extension: string) =>
+      prisma.assetObject.create({
+        data: { teamId: team.id, slug, name: slug, description: "", materializedPath: "", extra: { extension } },
+      });
+    const video = await createAsset("video", ".MP4");
+    const image = await createAsset("image", "jpg");
+    const pending = { teamId: team.id, status: "pending", taskType: "test" } as const;
+    await prisma.taggingQueueItem.createMany({
+      data: Array.from({ length: 5 }, (_, index) => ({
+        ...pending,
+        assetObjectId: video.id,
+        extra: { featureClassify: true },
+        createdAt: new Date(1700000000000 + index),
+      })),
+    });
+    const thumbnailOnly = await prisma.taggingQueueItem.create({
+      data: {
+        ...pending,
+        assetObjectId: video.id,
+        extra: { featureClassify: true, featureBrand: false, featureProduct: false, featureIp: false },
+        createdAt: new Date(1700000000100),
+      },
+    });
+    const imageJob = await prisma.taggingQueueItem.create({
+      data: {
+        ...pending,
+        assetObjectId: image.id,
+        extra: { featureClassify: true },
+        createdAt: new Date(1700000000200),
+      },
+    });
+    const candidates = await loadFairQueueCandidates("test", 0, 2, 200, true);
+    expect(candidates.filter((item) => item.teamId === team.id).map((item) => item.id))
+      .toEqual([thumbnailOnly.id, imageJob.id]);
+  });
   it("estimates pending rank consistently for equal timestamps and shares history", async () => {
     const rows = await prisma.taggingQueueItem.findMany({
       where: { teamId: teams[0], status: "pending" },

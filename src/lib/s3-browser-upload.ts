@@ -11,7 +11,7 @@ function isLocalS3ObjectProxyUrl(uploadUrl: string) {
   return uploadUrl.startsWith(LOCAL_S3_OBJECT_PROXY_PATH);
 }
 
-function signedUploadRequiresPublicReadAcl(uploadUrl: string) {
+export function signedUploadRequiresPublicReadAcl(uploadUrl: string) {
   try {
     const signedHeaders = new URL(uploadUrl).searchParams.get("X-Amz-SignedHeaders");
     return signedHeaders?.split(";").some((header) => header.trim().toLowerCase() === "x-amz-acl");

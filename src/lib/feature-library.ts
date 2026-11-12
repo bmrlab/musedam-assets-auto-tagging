@@ -46,7 +46,7 @@ const FEATURE_LIBRARY_IMAGE_EXTENSIONS = new Set([
   "webp",
 ]);
 
-const VIDEO_EXTENSIONS = new Set([
+export const VIDEO_EXTENSIONS: ReadonlySet<string> = new Set([
   "3gp",
   "avi",
   "flv",
@@ -60,11 +60,13 @@ const VIDEO_EXTENSIONS = new Set([
   "wmv",
 ]);
 
+export const CLASSIFICATION_MEDIA_ACCEPT = `image/*,.svg,${[...VIDEO_EXTENSIONS].map((ext) => `.${ext}`).join(",")}`;
+
 function normalizeAssetExtension(extension?: string | null) {
   return (extension ?? "").trim().toLowerCase().replace(/^\./, "");
 }
 
-/** Feature-library classifiers accept images directly and videos via their thumbnail image. */
+/** Feature-library classifiers accept images and supported video formats. */
 export function isFeatureLibrarySupportedAsset(extension?: string | null) {
   const normalizedExtension = normalizeAssetExtension(extension);
   return (

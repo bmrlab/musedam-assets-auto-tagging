@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/app/(auth)/withAuth", () => ({ withAuth: (fn: Function) => fn({ team: { id: 42 } }) }));
 vi.mock("@/app/(tagging)/queue", () => ({ enqueueTaggingTask: vi.fn() }));
 vi.mock("@/lib/feature-library-server", () => ({ getServerFeatureLibraryFeatures: vi.fn() }));
+vi.mock("@/lib/media-process/video-frames", () => ({ requestVideoFrames: vi.fn() }));
 vi.mock("@/musedam/assets", () => ({ syncSingleAssetFromMuseDAM: vi.fn() }));
 vi.mock("@/prisma/prisma", () => ({ default: { assetObject: { create: mocks.create } } }));
 vi.mock("@/lib/s3", () => ({

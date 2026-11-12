@@ -2,6 +2,7 @@
 
 import { getDetectionDebugRequestMode } from "@/lib/media-process/debug-request-mode";
 import { detectMediaProcessObjects } from "@/lib/media-process/object-detection";
+import { requestVideoFrames } from "@/lib/media-process/video-frames";
 import type { ClassificationRemoteImageInput } from "@/lib/tagging/classification-image";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -132,6 +133,31 @@ describe("media processing detection", () => {
     expect(await run()).toEqual({ detections: [], found: false });
     expect(JSON.parse(fetchMock.mock.calls[0][1]!.body as string)).toMatchObject({
       detection_mode: "default",
+    });
+  });
+
+  it("requests bounded video frames with the MuseDAM org ID and filters densely spaced responses", async () => {
+    const frames = Array.from({ length: 12 }, (_, index) => ({
+      url: `https://assets.test/frame-${index}.jpeg`,
+      timestamp: (index * 4.08) / 12,
+    }));
+    fetchMock
+      .mockResolvedValueOnce(json(submitted))
+      .mockResolvedValueOnce(json({ status: "completed" }))
+      .mockResolvedValueOnce(
+        json({ status: "completed", result: { frames: frames.toReversed() }, errors: "" }),
+      );
+    const url = "https://assets.test/clip.mp4?signature=abc";
+    expect(await requestVideoFrames(7, url, new AbortController().signal)).toEqual(
+      [frames[0], frames[6]],
+    );
+    expect(fetchMock.mock.calls[0][0]).toBe(`${base}/queue/video_sprite`);
+    expect(JSON.parse(fetchMock.mock.calls[0][1]!.body as string)).toEqual({
+      file: url,
+      team_id: 16,
+      output_frames: true,
+      frame_count: 12,
+      width: 1280,
     });
   });
 

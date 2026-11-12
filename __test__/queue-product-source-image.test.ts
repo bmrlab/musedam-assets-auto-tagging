@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   update: vi.fn(),
   findUnique: vi.fn(),
   classifyFeatures: vi.fn(),
+  classifyVideo: vi.fn(),
   buildRecommendations: vi.fn(),
   predict: vi.fn(),
   mode: "legacy" as "llm" | "legacy",
@@ -37,6 +38,9 @@ vi.mock("@/lib/feature-decision/classify", () => ({
   classifyAssetFeatures: mocks.classifyFeatures,
   getFeatureDecisionMode: () => mocks.mode,
 }));
+vi.mock("@/lib/feature-decision/video-classification", () => ({
+  classifyVideoAssetFeatures: mocks.classifyVideo,
+}));
 vi.mock("@/lib/feature-decision/recommendations", () => ({
   buildFeatureRecommendations: mocks.buildRecommendations,
 }));
@@ -54,6 +58,14 @@ vi.mock("@/app/(tagging)/tagging/settings/lib", () => ({
 }));
 vi.mock("@/prisma/prisma", () => ({
   default: {
+    $transaction: async (run: (db: unknown) => unknown) =>
+      run({
+        $queryRaw: vi.fn(),
+        teamConfig: { findUnique: async () => null },
+        taggingQueueItem: { create: mocks.create },
+      }),
+    team: { findUniqueOrThrow: async () => ({ id: 7, slug: "team" }) },
+    teamConfig: { findUnique: async () => null },
     productVector: { count: mocks.productCount },
     logoVector: { count: mocks.brandCount },
     ipVector: { count: mocks.ipCount },
@@ -90,6 +102,7 @@ beforeEach(() => {
       decision: { status: "completed", result: { outcome: "no_match", matches: [] } },
     },
   });
+  mocks.classifyVideo.mockImplementation(() => mocks.classifyFeatures.getMockImplementation()?.());
   mocks.buildRecommendations.mockResolvedValue({
     brandRecommendation: null,
     ipRecommendation: null,
@@ -184,16 +197,23 @@ describe("legacy automatic object detection source selection", () => {
     expect(mocks.brand.mock.calls[0][0].imageInput.sourceImage.url).toBe(downloadUrl);
   });
 
-  it("uses a video frame instead of the video download", async () => {
+  it("passes the original video, saved image mode and existing OCR to the frame classifier", async () => {
+    mocks.mode = "llm";
     await run({
       extension: "mp4",
       downloadUrl: "https://example.test/video.mp4",
       thumbnailAccessUrl: "https://example.test/frame.jpg",
-    });
-    expect(mocks.fetchSource).toHaveBeenCalledExactlyOnceWith(
-      "https://example.test/frame.jpg",
-      "task thumbnail",
+      ocrContent: ["Video OCR"],
+    }, undefined, true);
+    expect(mocks.classifyVideo).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        videoUrl: "https://example.test/video.mp4",
+        signal: expect.any(AbortSignal),
+        imageMode: true,
+        ocrSegments: ["Video OCR"],
+      }),
     );
+    expect(mocks.fetchSource).not.toHaveBeenCalled();
   });
 
   it("uses the download URL when no thumbnail exists", async () => {
@@ -304,6 +324,7 @@ describe("combined LLM feature classification", () => {
       fileName: "雅诗兰黛小棕瓶系列.jpg",
       folderPath: "/产品/雅诗兰黛",
       imageMode: false,
+      mode: "llm",
       imageInput: preparedSource,
       ocrImage: undefined,
       ocrSegments: [],

@@ -15,7 +15,14 @@ const actions = vi.hoisted(() => ({
 }));
 
 vi.mock("@/app/(tagging)/tagging/product/actions", () => actions);
-vi.mock("next-intl", () => ({ useTranslations: () => (key: string) => key }));
+vi.mock("@/app/(tagging)/tagging/components/classification-video-actions", () => ({
+  classifyFeatureVideoAction: vi.fn(),
+  importClassificationVideoAction: vi.fn(),
+  prepareClassificationVideoUploadAction: vi.fn(),
+}));
+vi.mock("next-intl", () => ({
+  useTranslations: () => Object.assign((key: string) => key, { has: () => true }),
+}));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/lib/s3-browser-upload", () => ({
   uploadS3ObjectFromBrowser: vi.fn().mockResolvedValue({ ok: true }),
@@ -203,7 +210,7 @@ describe("grouped product diagnostics", () => {
 
     expect(screen.getByText("productRegions: 2 · rawDetectionBoxes: 6")).toBeTruthy();
     expect(overlayLabels()).toEqual(["region 1 · Left Toner", "region 2 · Right Lotion"]);
-    expect(screen.getAllByText("topMatches")).toHaveLength(2);
+    expect(screen.getAllByText("retrievalEvidence")).toHaveLength(2);
     expect(screen.getByText("productRegions: 1")).toBeTruthy();
     expect(screen.getByText("productRegions: 2")).toBeTruthy();
 
@@ -230,7 +237,7 @@ describe("grouped product diagnostics", () => {
       "box 5 · toner",
       "box 6 · lotion",
     ]);
-    expect(screen.getAllByText("topMatches")).toHaveLength(2);
+    expect(screen.getAllByText("retrievalEvidence")).toHaveLength(2);
 
     fireEvent.click(screen.getByRole("button", { name: "showProductRegions" }));
     expect(overlayLabels()).toEqual(["region 1 · Left Toner", "region 2 · Right Lotion"]);

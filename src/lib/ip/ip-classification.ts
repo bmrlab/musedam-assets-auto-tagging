@@ -165,10 +165,12 @@ export async function detectIpFigureBoxes({
   teamId,
   imageInput,
   requestMode = "async",
+  signal,
 }: {
   teamId: number;
   imageInput: ClassificationRemoteImageInput;
   requestMode?: MediaProcessRequestMode;
+  signal?: AbortSignal;
 }) {
   const detectionLabelText = normalizeDetectionText(
     await translateDetectionLabelText(await fetchIpDetectionPromptNames(teamId)),
@@ -181,6 +183,7 @@ export async function detectIpFigureBoxes({
     teamId,
     imageInput,
     requestMode,
+    ...(signal ? { signal } : {}),
     detectionLabelText,
     errorPrefix: "IP detection",
   });
@@ -223,12 +226,14 @@ async function requestIpDetection({
   detectionLabelText,
   errorPrefix,
   requestMode = "async",
+  signal,
 }: {
   teamId: number;
   imageInput: ClassificationRemoteImageInput;
   detectionLabelText: string;
   errorPrefix: string;
   requestMode?: MediaProcessRequestMode;
+  signal?: AbortSignal;
 }) {
   const boundedDetectionLabelText = truncateDetectionLabelToTokenLimit(detectionLabelText);
   if (!boundedDetectionLabelText) {
@@ -238,6 +243,7 @@ async function requestIpDetection({
     teamId,
     imageInput,
     requestMode,
+    ...(signal ? { signal } : {}),
     detectionLabelText: boundedDetectionLabelText,
     defaultLabel: "ip figure",
     errorPrefix,

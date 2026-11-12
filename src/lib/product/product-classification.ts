@@ -119,10 +119,12 @@ export async function detectProductFigureBoxes({
   teamId,
   imageInput,
   requestMode = "async",
+  signal,
 }: {
   teamId: number;
   imageInput: ClassificationRemoteImageInput;
   requestMode?: MediaProcessRequestMode;
+  signal?: AbortSignal;
 }) {
   const detectionLabelText = await buildProductDetectionLabelText(
     await fetchProductDetectionPromptSources(teamId),
@@ -134,6 +136,7 @@ export async function detectProductFigureBoxes({
     teamId,
     imageInput,
     requestMode,
+    ...(signal ? { signal } : {}),
     detectionLabelText,
     detectionMode: "product_instances",
     defaultLabel: "product figure",

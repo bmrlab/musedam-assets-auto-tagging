@@ -17,6 +17,11 @@ import { extractVideoOcrFrame } from "@/lib/tagging/video-frame";
 import { getAssetOcrSegments } from "@/lib/feature-decision/asset-ocr";
 import { buildFeatureRecommendations } from "@/lib/feature-decision/recommendations";
 import type { FeatureDecisionDiagnostics } from "@/lib/feature-decision/types";
+import { classifyVideoAssetFeatures } from "@/lib/feature-decision/video-classification";
+import {
+  isVideoClassificationBusy,
+  tryAcquireVideoClassificationSlot,
+} from "@/lib/feature-decision/video-classification-slot";
 import {
   FeatureClassificationFlags,
   isFeatureLibrarySupportedAsset,
@@ -318,15 +323,15 @@ export async function processQueueItem({
     const hasFeatureClassifications =
       supportsFeatureClassification && Object.values(featureClassifications).some(Boolean);
     const thumbnailUrl = assetExtra?.thumbnailAccessUrl;
-    const detectionImageUrl = isVideoAssetExtension(assetExtra?.extension)
-      ? thumbnailUrl
-      : assetExtra?.downloadUrl?.trim() || thumbnailUrl;
+    const isVideo = isVideoAssetExtension(assetExtra?.extension);
+    const downloadUrl = assetExtra?.downloadUrl?.trim();
+    const detectionImageUrl = isVideo ? undefined : downloadUrl || thumbnailUrl;
     // 人脸检测和画幅比例仍可复用缩略图；URL-based 目标检测共用原图。
     let thumbnailSourcePromise: Promise<RemoteImageSource> | null = null;
     const getThumbnailSource = (url: string) =>
       (thumbnailSourcePromise ??= fetchRemoteImageSource(url, "task thumbnail"));
     // Feature classification (brand/IP/product/person): first skip empty feature libraries.
-    // Brand/IP/product share the download URL and prepared image. Product retains pixels for crops.
+    // Brand/IP/product share the prepared image or sampled video frames.
     // Person independently keeps the dimensions of its source.
     // Person path only: detect faces first (for AI faceFeatures + reused matching), then run AI
     // tagging in parallel with person matching. Other paths keep starting AI tagging early.
@@ -368,7 +373,7 @@ export async function processQueueItem({
     > = Promise.resolve(null);
     let unacceptedIdentityTagIds: number[] = [];
 
-    if (hasFeatureClassifications && (thumbnailUrl || detectionImageUrl)) {
+    if (hasFeatureClassifications && (isVideo || thumbnailUrl || detectionImageUrl)) {
       const [logoCount, productCount, ipCount, personCount] = await Promise.all([
         featureClassifications.brand
           ? prisma.logoVector.count({ where: { teamId, enabled: true, status: "completed" } })
@@ -396,84 +401,104 @@ export async function processQueueItem({
             return null;
           });
 
-        // Kick off URL-based detectors from one image, without waiting for face detection.
-        if (logoCount + ipCount + productCount > 0 && detectionImageUrl) {
+        // Start logo, product and IP classification without waiting for face detection.
+        if (logoCount + ipCount + productCount > 0 && (isVideo || detectionImageUrl)) {
           const prepareDetectionInput = (source: RemoteImageSource) =>
             prepareImageInput(source, "feature classification", {
               preserveOriginal: productCount > 0,
             });
-          const sharedImagePromise = (
-            detectionImageUrl === thumbnailUrl
-              ? getThumbnailSource(detectionImageUrl)
-              : fetchRemoteImageSource(detectionImageUrl, "feature classification")
-          )
-            .then(prepareDetectionInput)
-            .catch(async (error) => {
-              if (!thumbnailUrl || detectionImageUrl === thumbnailUrl) {
-                throw error;
-              }
-              logger.warn({
-                msg: "Original image unavailable for feature classification, falling back to thumbnail",
-                error: error instanceof Error ? error.message : String(error),
-              });
-              return prepareDetectionInput(await getThumbnailSource(thumbnailUrl));
-            })
-            .catch((error) => {
-              logger.warn({
-                msg: "feature classification image fetch failed, skipping feature classification",
-                err: error,
-                error: error instanceof Error ? error.message : String(error),
-              });
-              return null;
-            });
+          const sharedImagePromise = detectionImageUrl
+            ? (
+                detectionImageUrl === thumbnailUrl
+                  ? getThumbnailSource(detectionImageUrl)
+                  : fetchRemoteImageSource(detectionImageUrl, "feature classification")
+              )
+                .then(prepareDetectionInput)
+                .catch(async (error) => {
+                  if (!thumbnailUrl || detectionImageUrl === thumbnailUrl) throw error;
+                  logger.warn({
+                    msg: "Original image unavailable for feature classification, falling back to thumbnail",
+                    error: error instanceof Error ? error.message : String(error),
+                  });
+                  return prepareDetectionInput(await getThumbnailSource(thumbnailUrl));
+                })
+                .catch((error) => {
+                  logger.warn({
+                    msg: "feature classification image fetch failed, skipping feature classification",
+                    err: error,
+                    error: error instanceof Error ? error.message : String(error),
+                  });
+                  return null;
+                })
+            : Promise.resolve(null);
 
-          if (getFeatureDecisionMode() === "llm") {
-            const combined = sharedImagePromise.then(async (imageInput) => {
-              if (!imageInput) {
-                featureDecision = {
-                  mode: "llm",
-                  ocr: { status: "skipped", segments: [] },
-                  decision: { status: "skipped", error: "Source image unavailable" },
-                };
-                return null;
+          const mode = getFeatureDecisionMode();
+          if (isVideo || mode === "llm") {
+            const classificationInput = {
+              teamId,
+              queueItemId: queueItem.id,
+              assetObjectId: assetObject.id,
+              fileName: extra?.matchingSources?.basicInfo === false ? undefined : assetObject.name,
+              folderPath: assetObject.materializedPath,
+              ocrSegments: getAssetOcrSegments(assetExtra, assetObject.content),
+              // Legacy tasks without a snapshot use the current team setting.
+              imageMode: extra?.featureImageMode ?? teamSetting.featureImageMode,
+              mode,
+              enabledTypes: [
+                ...(logoCount > 0 ? ["logo" as const] : []),
+                ...(productCount > 0 ? ["product" as const] : []),
+                ...(ipCount > 0 ? ["ip" as const] : []),
+              ],
+            };
+            const combined = (async () => {
+              let result: Awaited<ReturnType<typeof classifyAssetFeatures>> | null = null;
+              let videoSignal: AbortSignal | undefined;
+              if (isVideo && downloadUrl) {
+                videoSignal = AbortSignal.timeout(
+                  Math.max(0, QUEUE_ITEM_TIMEOUT_MS - (Date.now() - taskStartedAt) - VIDEO_QUEUE_FINISH_BUFFER_MS),
+                );
+                result = await withFallback(
+                  classifyVideoAssetFeatures({ ...classificationInput, videoUrl: downloadUrl, signal: videoSignal }),
+                  "classifyVideoAssetFeatures",
+                );
+                throwIfQueueAborted();
               }
-              const ocrSegments = getAssetOcrSegments(assetExtra, assetObject.content);
-              let ocrImage: string | undefined;
-              if (!ocrSegments.length && process.env.OCR_MODEL?.trim() && isVideoAssetExtension(assetExtra?.extension) && assetExtra?.downloadUrl) {
-                try {
-                  ocrImage = await extractVideoOcrFrame(assetExtra.downloadUrl, assetExtra.duration);
-                } catch (error) {
-                  throwIfQueueAborted();
-                  logger.warn({ msg: "Video OCR frame unavailable, using thumbnail", error: error instanceof Error ? error.message : "Frame extraction failed" });
+              if (!result && !videoSignal?.aborted) {
+                const imageInput = isVideo && thumbnailUrl
+                  ? await withFallback(getThumbnailSource(thumbnailUrl).then(prepareDetectionInput), "prepareVideoThumbnail")
+                  : await sharedImagePromise;
+                if (imageInput) {
+                  let ocrImage: string | undefined;
+                  if (isVideo && downloadUrl && mode === "llm" && !classificationInput.ocrSegments.length && process.env.OCR_MODEL?.trim()) {
+                    try {
+                      ocrImage = await extractVideoOcrFrame(downloadUrl, assetExtra?.duration);
+                    } catch (error) {
+                      throwIfQueueAborted();
+                      logger.warn({ msg: "Video OCR frame unavailable, using thumbnail", err: error });
+                    }
+                  }
+                  result = await withFallback(
+                    classifyAssetFeatures({ ...classificationInput, imageInput, ocrImage }),
+                    "classifyAssetFeatures",
+                  );
+                } else if (!videoSignal) {
+                  featureDecision = {
+                    mode,
+                    ocr: { status: "skipped", segments: [] },
+                    decision: { status: "skipped", error: "Source image unavailable" },
+                  };
+                  return null;
                 }
               }
-              const result = await withFallback(
-                classifyAssetFeatures({
-                  teamId,
-                  imageInput,
-                  queueItemId: queueItem.id,
-                  assetObjectId: assetObject.id,
-                  fileName: extra?.matchingSources?.basicInfo === false ? undefined : assetObject.name,
-                  folderPath: assetObject.materializedPath,
-                  ocrSegments,
-                  ocrImage,
-                  // Legacy tasks without a snapshot keep the previous behavior.
-                  imageMode: extra?.featureImageMode ?? teamSetting.featureImageMode,
-                  enabledTypes: [
-                    ...(logoCount > 0 ? ["logo" as const] : []),
-                    ...(productCount > 0 ? ["product" as const] : []),
-                    ...(ipCount > 0 ? ["ip" as const] : []),
-                  ],
-                }),
-                "classifyAssetFeatures",
-              );
               if (!result) {
                 featureDecision = {
-                  mode: "llm",
+                  mode,
                   ocr: { status: "skipped", segments: [] },
                   decision: {
                     status: "failed",
-                    error: "Feature candidate processing failed; no embedding fallback applied",
+                    error: isVideo
+                      ? "Video feature classification failed"
+                      : "Feature candidate processing failed; no embedding fallback applied",
                   },
                 };
                 return null;
@@ -481,7 +506,7 @@ export async function processQueueItem({
               featureDecision = result.diagnostics;
               unacceptedIdentityTagIds = result.unacceptedIdentityTagIds ?? [];
               return buildFeatureRecommendations(result);
-            });
+            })();
             brandRecommendationPromise = combined.then(
               (result) => result?.brandRecommendation ?? null,
             );
@@ -1096,6 +1121,8 @@ const MAX_INTERRUPTED_RETRIES = 1;
 // 上面的回收逻辑认不出来；槽位占满后每轮都 "all slots busy"，调度器的请求也一直挂着，整个队列卡死。
 // 超时后标记失败并释放槽位（底层 Promise 无法取消，会在后台继续跑完，迟到的结果仍会正常落库）。
 const QUEUE_ITEM_TIMEOUT_MS = Number(process.env.QUEUE_ITEM_TIMEOUT_MS) || 10 * 60 * 1000;
+// Leave time for the queue to save results after video classification stops.
+const VIDEO_QUEUE_FINISH_BUFFER_MS = 15_000;
 
 async function recoverStaleProcessingItems(): Promise<number> {
   const staleBefore = new Date(Date.now() - PROCESSING_STALE_TIMEOUT_MS);
@@ -1198,6 +1225,16 @@ async function markQueueItemTimedOut(queueItem: TaggingQueueItem): Promise<void>
     });
 }
 
+function hasVideoFrameClassification(queueItem: TaggingQueueItem) {
+  const extra = queueItem.extra as TaggingQueueItemExtra | null;
+  return (
+    extra?.featureClassify === true &&
+    [extra.featureBrand, extra.featureProduct, extra.featureIp].some(
+      (enabled) => enabled !== false,
+    )
+  );
+}
+
 async function tryClaimAndProcess(
   queueItem: TaggingQueueItem & { assetObject?: AssetObject | null },
   onSuccess: () => void,
@@ -1205,6 +1242,20 @@ async function tryClaimAndProcess(
   tagsTreeLoader?: TagsTreeLoader,
 ): Promise<void> {
   let heartbeat: ReturnType<typeof setInterval> | null = null;
+  let releaseVideoSlot: (() => void) | undefined;
+  const assetExtra = queueItem.assetObject?.extra as AssetObjectExtra | null;
+  if (
+    !isTagTreeJob(queueItem) &&
+    hasVideoFrameClassification(queueItem) &&
+    isVideoAssetExtension(assetExtra?.extension)
+  ) {
+    releaseVideoSlot = tryAcquireVideoClassificationSlot();
+    if (!releaseVideoSlot) {
+      // Leave it pending so the processing deadline starts only after admission.
+      onSkip();
+      return;
+    }
+  }
   try {
     const startsAt = new Date();
     const extra = {
@@ -1345,6 +1396,7 @@ async function tryClaimAndProcess(
     onSkip();
   } finally {
     if (heartbeat) clearInterval(heartbeat);
+    releaseVideoSlot?.();
   }
 }
 
@@ -1440,6 +1492,7 @@ export async function processPendingQueueItems(): Promise<{
     // 测试和正式分开查：正式积压超过候选池时，测试任务也不会被挡在池子外面。
     // 候选池不带 assetObject：素材的 content/extra 是整条 MuseDAM 素材 JSON，全拉下来
     // 再在主线程解析很重，而每轮只会领走空闲槽位那么多条；选定之后再只查被选中那几条的素材。
+    const deferVideo = isVideoClassificationBusy();
     const [tagTreeCandidates, testCandidates, productionCandidates] = await Promise.all([
       loadFairQueueCandidates(
         "tree",
@@ -1452,12 +1505,14 @@ export async function processPendingQueueItems(): Promise<{
         candidateCursors.test,
         ASSET_TAGGING_CONCURRENCY,
         CANDIDATE_POOL_SIZE,
+        deferVideo,
       ),
       loadFairQueueCandidates(
         "production",
         candidateCursors.production,
         ASSET_TAGGING_CONCURRENCY,
         CANDIDATE_POOL_SIZE,
+        deferVideo,
       ),
     ]);
 

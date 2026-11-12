@@ -36,6 +36,7 @@ export type FeatureDecisionCandidate = {
     imageSimilarity: number;
     descriptionSimilarity: number;
   }>;
+  sampleTimes?: number[];
   referenceMatchStrategy?: "highest" | "average";
   folderMatch?: { alias: string; path: string };
   ocrMatch?: { alias: string };
@@ -58,7 +59,16 @@ export type FeatureDecisionResponse = {
   matches: FeatureDecisionMatch[];
 };
 
-export type OcrResponse = { content: string[][] };
+export type OcrResponse = {
+  content: string[][];
+  /** Combined OCR text with no reliable mapping to individual video frames. */
+  unattributedSegments?: string[];
+};
+
+export type FeatureVideoEvidence = {
+  frames: Array<{ image: string; timestamp: number }>;
+  sheetColumns: number;
+};
 
 export type ChatContentPart =
   | { type: "text"; text: string }
@@ -75,6 +85,7 @@ export type FeatureChatRequest = {
   max_tokens?: number;
   enable_thinking?: boolean;
   response_format?: { type: "json_object" };
+  reasoning_effort?: "none";
 };
 
 export type OpenAIChatUsage = {
@@ -146,6 +157,7 @@ export type FeatureDecisionDiagnostics = {
   decisionInputMode?: FeatureDecisionInputMode;
   reconciliation?: { suppressedIdentityTagIds: number[] };
   mode?: "llm" | "legacy";
+  video?: { frameTimestamps: number[]; frameLoadFailures: number };
   retrieval?: {
     regionsDetected: number;
     regionsSelected: number;

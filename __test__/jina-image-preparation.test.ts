@@ -1,3 +1,4 @@
+import { trackClassificationEmbeddings } from "@/lib/brand/embedding-tracking";
 import { createJinaImageEmbeddings, createJinaTextEmbeddings } from "@/lib/brand/jina";
 import { prepareJinaImageDataUrl } from "@/lib/tagging/reference-image";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -10,9 +11,11 @@ const mocks = vi.hoisted(() => ({
   buildDebugKey: vi.fn(),
   upload: vi.fn(),
   sign: vi.fn(),
+  info: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
+vi.mock("@/lib/logging", () => ({ rootLogger: { info: mocks.info } }));
 vi.mock("@/lib/brand/env", () => ({
   isDebugPageEnabled: () => mocks.debug,
   getJinaConfig: () => ({
@@ -42,6 +45,7 @@ vi.mock("undici", () => ({
 describe("Jina image preparation boundary", () => {
   beforeEach(() => {
     mocks.fetch.mockReset();
+    mocks.info.mockClear();
     mocks.debug = false;
     mocks.isDirectJina = false;
     mocks.prepareImage.mockReset();
@@ -88,6 +92,36 @@ describe("Jina image preparation boundary", () => {
     expect(secondBody.input).toEqual([{ image: "prepared:five" }]);
     expect(mocks.prepareImage).toHaveBeenCalledWith("one", { padToSquare: false });
     expect(mocks.upload).not.toHaveBeenCalled();
+  });
+
+  it("logs returned vectors and time spent on both successful and failed batches", async () => {
+    let now = 0;
+    vi.spyOn(performance, "now").mockImplementation(() => now);
+    const success = mocks.fetch.getMockImplementation()!;
+    mocks.fetch
+      .mockImplementationOnce(async (...args) => {
+        now += 10;
+        return success(...args);
+      })
+      .mockImplementationOnce(async () => {
+        now += 20;
+        return new Response('{"error":{"message":"invalid image"}}', { status: 400 });
+      });
+    await expect(
+      trackClassificationEmbeddings({ teamId: 7, frameCount: 1 }, () =>
+        createJinaImageEmbeddings({ images: ["one", "two", "three", "four", "five"] }),
+      ),
+    ).rejects.toThrow();
+    expect(mocks.info).toHaveBeenCalledExactlyOnceWith({
+      msg: "Feature classification embedding summary",
+      teamId: 7,
+      frameCount: 1,
+      embeddingsRequested: 5,
+      embeddingsGenerated: 4,
+      embeddingBatches: 2,
+      embeddingTotalMs: 30,
+      embeddingElapsedMs: 30,
+    });
   });
 
   it("uploads and logs the exact prepared image when DEBUG_PAGE is enabled", async () => {

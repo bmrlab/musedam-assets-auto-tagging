@@ -1,10 +1,12 @@
 // @vitest-environment node
 import { classifyAssetFeatures } from "@/lib/feature-decision/classify";
 import type { FeatureDecisionCandidate } from "@/lib/feature-decision/types";
+import { getFeatureThresholds } from "@/lib/tagging/feature-threshold-settings";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import sharp from "sharp";
 
 const mocks = vi.hoisted(() => ({
+  detectLogo: vi.fn(),
   logo: vi.fn(),
   ip: vi.fn(),
   product: vi.fn(),
@@ -19,7 +21,7 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/lib/tagging/feature-threshold-settings", () => ({ getFeatureThresholds: async () => ({ brand: 75, product: 80, ip: 80, person: 60 }) }));
 vi.mock("@/lib/brand/logo-classification", () => ({
   classifyBrandImageCrops: mocks.logo,
-  detectBrandLogoBoxes: vi.fn(),
+  detectBrandLogoBoxes: mocks.detectLogo,
 }));
 vi.mock("@/lib/brand/logo-detection-prompt", () => ({ fetchLogoDetectionLabelText: vi.fn() }));
 vi.mock("@/lib/ip/ip-classification", () => ({
@@ -168,17 +170,76 @@ describe("whole-asset feature decision orchestration", () => {
     expect(result.product?.topMatches.map(match => match.assetProductId)).toEqual(["first"]);
     expect(result.diagnostics.decision.result?.matches.map(match => match.candidateId)).toEqual(["product:first"]);
   });
+  it.each([false, true])(
+    "merges video candidates with a queue deadline set to %s",
+    async (queued) => {
+      const decisionSignal = queued ? new AbortController().signal : undefined;
+      mocks.detectLogo.mockResolvedValue({ detections: [box(0)] });
+      const first = [
+        logo("shared", 0.8),
+        ...Array.from({ length: 10 }, (_, i) => logo(`first-${i}`, 0.7)),
+      ];
+      const second = [
+        logo("shared", 0.9),
+        logo("later", 0.95),
+        ...Array.from({ length: 10 }, (_, i) => logo(`second-${i}`, 0.7)),
+      ];
+      mocks.logo
+        .mockResolvedValueOnce({ topMatches: first, bestMatch: first[0], noConfidentMatch: true })
+        .mockResolvedValueOnce({
+          topMatches: second,
+          bestMatch: second[1],
+          noConfidentMatch: true,
+        });
+      mocks.decision.mockResolvedValue({
+        ocr: { status: "disabled", segments: [] },
+        decision: {
+          status: "completed",
+          result: {
+            outcome: "matched",
+            matches: [{ ...decisionMatch("later"), evidence: ["retrieval"] }],
+          },
+        },
+      });
+      const result = await classifyAssetFeatures({
+        teamId: 1,
+        enabledTypes: ["logo"],
+        imageMode: false,
+        video: {
+          frames: [
+            { imageInput, timestamp: 0 },
+            { imageInput, timestamp: 8 },
+          ],
+          sourceImage: "",
+          sheetColumns: 2,
+          frameLoadFailures: 0,
+          signal: new AbortController().signal,
+          decisionSignal,
+        },
+      });
+      expect(mocks.decision).toHaveBeenCalledOnce();
+      expect(mocks.decision.mock.calls[0][0].signal).toBe(decisionSignal);
+      const candidates: FeatureDecisionCandidate[] = mocks.decision.mock.calls[0][0].candidates;
+      expect(candidates).toHaveLength(15);
+      expect(candidates.filter(({ candidateId }) => candidateId === "logo:shared")).toEqual([
+        expect.objectContaining({ similarity: 0.9, sampleTimes: [0, 8] }),
+      ]);
+      expect(candidates[0]).toMatchObject({ candidateId: "logo:later", sampleTimes: [8] });
+      expect(result.brand?.matches?.map(({ assetLogoId }) => assetLogoId)).toEqual(["later"]);
+    },
+  );
 
   it.each([
-    ["logo", true],
-    ["logo", false],
-    ["product", true],
-    ["product", false],
-    ["ip", true],
-    ["ip", false],
+    ["logo", true, 43],
+    ["logo", false, 43],
+    ["product", true, 43],
+    ["product", false, 43],
+    ["ip", true, 43],
+    ["ip", false, 43],
+    ["product", false, 86],
   ] as const)(
-    "retains low-confidence %s predictions with one product per region in imageMode=%s",
-    async (type, imageMode) => {
+    "retains %s predictions in imageMode=%s and applies the threshold to score %d",
+    async (type, imageMode, confidence) => {
       const common = {
         productTypeId: null,
         productTypeName: "Products",
@@ -229,11 +290,11 @@ describe("whole-asset feature decision orchestration", () => {
       mocks.products.mockResolvedValue(catalog);
       mocks.ips.mockResolvedValue(catalog);
       const alternatives = ["first", "lower"].map((id, index) => ({
-        ...decisionMatch(id, index ? 0 : 43),
+        ...decisionMatch(id, index ? 0 : confidence),
         candidateId: `${type}:${id}`,
         evidence: [imageMode ? "visual" : "retrieval"],
         specificityLimit: "Exact variant unresolved",
-        conflicts: index ? ["Filename suggests the other variant"] : [],
+        conflicts: ["Filename is ambiguous"],
       }));
       mocks.decision.mockResolvedValue({
         ocr: { status: "completed", segments: ["Series"] },
@@ -248,10 +309,16 @@ describe("whole-asset feature decision orchestration", () => {
       });
       const classified =
         type === "logo" ? result.brand : type === "product" ? result.product : result.ip;
-      expect(classified?.topMatches.map((entry) => entry.confidence)).toEqual(type === "product" ? [43] : [43, 0]);
-      expect(classified?.matches).toEqual([]);
-      expect(classified?.bestMatch?.confidence).toBe(43);
-      expect(result.diagnostics.decision.result?.matches).toEqual(type === "product" ? alternatives.slice(0, 1) : alternatives);
+      expect(classified?.topMatches.map((entry) => entry.confidence)).toEqual(
+        type === "product" ? [confidence] : [confidence, 0],
+      );
+      expect(classified?.matches?.map((entry) => entry.confidence)).toEqual(
+        confidence === 86 ? [86] : [],
+      );
+      expect(classified?.bestMatch?.confidence).toBe(confidence);
+      expect(result.diagnostics.decision.result?.matches).toEqual(
+        type === "product" ? alternatives.slice(0, 1) : alternatives,
+      );
       expect(mocks.decision).toHaveBeenCalledOnce();
       if (type === "product") expect(mocks.decision.mock.calls[0][0].candidates[0].notes).toBe("Catalog nickname");
     },
@@ -290,7 +357,13 @@ describe("whole-asset feature decision orchestration", () => {
         "lower",
       ]);
       expect(result.brand?.matches?.map((entry) => entry.assetLogoId)).toEqual(["first", "lower"]);
-      expect(result.brand?.bestMatch?.assetLogoId).toBe("first");
+      expect(result.brand?.bestMatch).toMatchObject({
+        assetLogoId: "first",
+        decision: {
+          conflicts: ["Identity conflict unresolved"],
+          specificityLimit: "Only brand association known",
+        },
+      });
     },
   );
 
@@ -543,6 +616,7 @@ describe("whole-asset feature decision orchestration", () => {
   });
 
   it("does not allow general tagging to bypass an LLM confidence threshold", async () => {
+    const belowThreshold = (await getFeatureThresholds(1)).brand - 1;
     mocks.logos.mockResolvedValue(
       ["first", "lower"].map((id, index) => ({
         id,
@@ -555,7 +629,7 @@ describe("whole-asset feature decision orchestration", () => {
       ocr: { status: "empty", segments: [] },
       decision: {
         status: "completed",
-        result: { outcome: "matched", matches: [decisionMatch("lower", 70)] },
+        result: { outcome: "matched", matches: [decisionMatch("lower", belowThreshold)] },
       },
     });
     const result = await classifyAssetFeatures({
@@ -564,7 +638,7 @@ describe("whole-asset feature decision orchestration", () => {
       enabledTypes: ["logo"],
       boxes: { logo: [box(0)] },
     });
-    expect(result.brand?.topMatches[0].confidence).toBe(70);
+    expect(result.brand?.topMatches[0].confidence).toBe(belowThreshold);
     expect(result.brand?.matches).toEqual([]);
     expect(result.unacceptedIdentityTagIds).toEqual([1, 2]);
   });
