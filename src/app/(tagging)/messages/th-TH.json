@@ -515,9 +515,7 @@
     "Review": {
       "batchImageModeOn": "โหมดรูปภาพ: เปิด",
       "batchImageModeOff": "โหมดรูปภาพ: ปิด",
-      "batchImageModeUnknown": "โหมดรูปภาพ: ไม่มีบันทึก",
       "batchImageModeHint": "ใช้โหมดรูปภาพที่บันทึกไว้เมื่อเพิ่มชุดนี้ลงในคิว",
-      "batchImageModeUnknownHint": "ชุดเก่านี้ไม่มีโหมดรูปภาพที่บันทึกไว้ จึงไม่ทราบการตั้งค่าเดิม",
       "tagSourceExisting": "แท็กที่มีอยู่",
       "tagSourceAi": "AI กรอก",
       "tagSourceManual": "เพิ่มด้วยตนเอง",

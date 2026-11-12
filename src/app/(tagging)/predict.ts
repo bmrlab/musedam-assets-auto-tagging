@@ -1,5 +1,5 @@
-import { calculateMultiSourceScore } from "@/lib/tagging/source-score";
 import { queueAbortSignal } from "@/lib/tagging/queue-execution";
+import { calculateMultiSourceScore } from "@/lib/tagging/source-score";
 
 import "server-only";
 
@@ -205,7 +205,6 @@ const tagPredictionsResponseSchema = z.object({
 // };
 
 // 多源标签分数计算权重配置
-
 
 // 硬匹配（关键词字面命中）统一使用的置信度和单次最多注入的标签数量上限，
 // materializedPath（文件夹路径）和 basicInfo（文件名/描述）两个文本类来源共用。

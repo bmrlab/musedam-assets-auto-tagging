@@ -158,9 +158,7 @@
     "Review": {
       "batchImageModeOn": "Режим изображений: включён",
       "batchImageModeOff": "Режим изображений: выключен",
-      "batchImageModeUnknown": "Режим изображений: не записан",
       "batchImageModeHint": "Режим изображений, сохранённый при добавлении пакета в очередь.",
-      "batchImageModeUnknownHint": "Для этого старого пакета режим изображений не сохранён; исходная настройка неизвестна.",
       "tagSourceExisting": "Существующий",
       "tagSourceAi": "Заполнено ИИ",
       "tagSourceManual": "Добавлено вручную",

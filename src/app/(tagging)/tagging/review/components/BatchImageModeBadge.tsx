@@ -4,11 +4,10 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import type { TaggingQueueItemExtra } from "@/prisma/client";
 import { useTranslations } from "next-intl";
 
-/** Read only the batch snapshot: current team settings cannot describe an older task. */
+/** Read the batch snapshot; historical batches without one display as disabled. */
 export function BatchImageModeBadge({ extra }: { extra: unknown }) {
   const t = useTranslations("Tagging.Review");
-  const mode = (extra as TaggingQueueItemExtra | null)?.featureImageMode;
-  const recorded = typeof mode === "boolean";
+  const mode = (extra as TaggingQueueItemExtra | null)?.featureImageMode === true;
   return (
     <TooltipProvider>
       <Tooltip>
@@ -21,11 +20,11 @@ export function BatchImageModeBadge({ extra }: { extra: unknown }) {
                 : "border border-basic-3 bg-basic-1 text-basic-8"
             }`}
           >
-            {t(!recorded ? "batchImageModeUnknown" : mode ? "batchImageModeOn" : "batchImageModeOff")}
+            {t(mode ? "batchImageModeOn" : "batchImageModeOff")}
           </span>
         </TooltipTrigger>
         <TooltipContent>
-          {t(recorded ? "batchImageModeHint" : "batchImageModeUnknownHint")}
+          {t("batchImageModeHint")}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

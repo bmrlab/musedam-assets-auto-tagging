@@ -158,9 +158,7 @@
     "Review": {
       "batchImageModeOn": "Bildmodus: Ein",
       "batchImageModeOff": "Bildmodus: Aus",
-      "batchImageModeUnknown": "Bildmodus: Nicht erfasst",
       "batchImageModeHint": "Verwendet den beim Einreihen dieses Stapels gespeicherten Bildmodus.",
-      "batchImageModeUnknownHint": "Für diesen älteren Stapel wurde kein Bildmodus gespeichert; die ursprüngliche Einstellung ist unbekannt.",
       "tagSourceExisting": "Vorhanden",
       "tagSourceAi": "Von KI ausgefüllt",
       "tagSourceManual": "Manuell hinzugefügt",

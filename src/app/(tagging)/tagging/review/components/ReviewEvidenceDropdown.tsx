@@ -23,11 +23,11 @@ export function ReviewEvidenceDropdown({ name, children }: { name: string; child
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
-        className="flex w-80 max-w-[calc(100vw-32px)] flex-col gap-3 rounded-md p-4 text-sm leading-[22px] text-basic-8 dark:text-basic-9"
+        className="flex w-[300px] max-w-[calc(100vw-32px)] flex-col gap-3 rounded-md border-basic-3 bg-basic-0 p-4 text-[13px] leading-[22px] text-basic-8 dark:border-basic-4 dark:text-basic-9"
       >
         <div className="flex min-w-0 flex-col gap-1">
-          <span className="text-xs text-basic-5 dark:text-basic-6">{t("evidence")}</span>
-          <span className="break-words font-medium">{name}</span>
+          <span className="text-[13px] leading-[18px] text-basic-5 dark:text-basic-6">{t("evidence")}</span>
+          <span className="break-words text-[13px] font-semibold leading-[18px]">{name}</span>
         </div>
         {children}
       </DropdownMenuContent>
