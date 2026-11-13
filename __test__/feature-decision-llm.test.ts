@@ -233,7 +233,7 @@ describe("feature LLM response contracts", () => {
     });
   });
 
-  it("accepts only supplied IDs with finite confidence and consistent outcomes", () => {
+  it("requires supplied IDs, finite confidence, and at least one candidate for a match", () => {
     expect(
       parseFeatureDecisionResponse(JSON.stringify(validDecision), candidateIdsByReference).matches[0],
     ).toEqual({ ...match, candidateId: candidate.candidateId });
@@ -244,7 +244,7 @@ describe("feature LLM response contracts", () => {
       { ...validDecision, matches: [{ ...match, confidence: 101 }] },
       { ...validDecision, matches: [{ ...match, confidence: "91" }] },
       { ...validDecision, matches: [] },
-      { ...validDecision, outcome: "no_match" },
+      { outcome: "no_match", matches: [{ ...match, candidateId: "C2" }] },
     ])
       expect(() => parseFeatureDecisionResponse(JSON.stringify(invalid), candidateIdsByReference)).toThrow();
     expect(() =>
@@ -348,6 +348,30 @@ function response(content: string, total = 25): Response {
 }
 
 describe("single-attempt feature OCR and decision gateway", () => {
+  it.each([0, 5])("completes a no-match decision with a rejected candidate scored %s", async (confidence) => {
+    const modelResponse = JSON.stringify({
+      outcome: "no_match",
+      matches: [{ ...match, confidence, reason: "The visible brand differs from the reference." }],
+    });
+    const fetchMock = vi.fn().mockResolvedValue(response(modelResponse));
+    vi.stubGlobal("fetch", fetchMock);
+    const { runFeatureDecision } = await import("@/lib/feature-decision/service");
+    const result = await runFeatureDecision({
+      teamId: 1,
+      sourceImage: "source",
+      imageMode: true,
+      ocr: { status: "completed", segments: ["Other brand"] },
+      candidates: [candidate],
+    });
+
+    expect(result.decision).toMatchObject({
+      status: "completed",
+      result: { outcome: "no_match", matches: [] },
+      call: { response: modelResponse },
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("uses flattened video OCR as text evidence without assigning frame timestamps", async () => {
     const flat = { content: [{ text: "Seoul Sunset\nLANEIGE\nLANEIGE\n200 kcal/70 ml" }] };
     const fetchMock = vi

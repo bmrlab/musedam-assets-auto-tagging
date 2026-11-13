@@ -161,24 +161,24 @@ export function parseFeatureDecisionResponse(
   imageMode = true,
 ): FeatureDecisionResponse {
   const { outcome, matches } = decisionResponseSchema.parse(parseLlmJson(content));
-  if ((outcome === "matched") !== (matches.length > 0)) {
+  if (outcome === "matched" && matches.length === 0) {
     throw new Error("Feature outcome contradicts the returned matches");
   }
   const seen = new Set<string>();
-  return {
-    outcome,
-    matches: matches.map((match) => {
-      if (!imageMode && match.evidence.includes("visual"))
-        throw new Error("Text-only feature decisions cannot claim direct visual evidence");
-      const candidateId = candidateIdsByReference.get(match.candidateId);
-      if (candidateId === undefined)
-        throw new Error(`Unknown feature candidate reference: ${match.candidateId}`);
-      if (seen.has(candidateId))
-        throw new Error(`Duplicate feature candidate reference: ${match.candidateId}`);
-      seen.add(candidateId);
-      return { ...match, candidateId };
-    }),
-  };
+  const resolvedMatches = matches.map((match) => {
+    if (!imageMode && match.evidence.includes("visual"))
+      throw new Error("Text-only feature decisions cannot claim direct visual evidence");
+    const candidateId = candidateIdsByReference.get(match.candidateId);
+    if (candidateId === undefined)
+      throw new Error(`Unknown feature candidate reference: ${match.candidateId}`);
+    if (seen.has(candidateId))
+      throw new Error(`Duplicate feature candidate reference: ${match.candidateId}`);
+    seen.add(candidateId);
+    return { ...match, candidateId };
+  });
+  // A negative outcome can include explanations for rejected candidates. Keep
+  // those rows in the raw call diagnostics and emit no feature matches.
+  return { outcome, matches: outcome === "no_match" ? [] : resolvedMatches };
 }
 
 function record(value: unknown): Record<string, unknown> {

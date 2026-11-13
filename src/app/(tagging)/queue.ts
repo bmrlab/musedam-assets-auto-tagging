@@ -1587,6 +1587,9 @@ export async function processPendingQueueItems(): Promise<{
           include: { assetObject: true },
         })
       : [];
+    // Keep the selected order so an unordered lookup cannot change who gets the video slot.
+    const itemsById = new Map(allItems.map((item) => [item.id, item]));
+    const orderedItems = ids.map((id) => itemsById.get(id)).filter((item) => item !== undefined);
 
     const tagsTreeLoader = createBatchTagsTreeLoader();
 
@@ -1596,7 +1599,7 @@ export async function processPendingQueueItems(): Promise<{
       testPicked: testItems.length,
       productionPicked: productionItems.length,
     };
-    processTasks = allItems.map((queueItem) => {
+    processTasks = orderedItems.map((queueItem) => {
       activeQueueItems.set(
         queueItem.id,
         isTagTreeJob(queueItem) ? "tree" : queueItem.taskType === "test" ? "test" : "production",

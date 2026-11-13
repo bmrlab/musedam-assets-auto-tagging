@@ -74,6 +74,8 @@ vi.mock("@/prisma/prisma", () => ({
       findMany: vi.fn(async ({ where }) =>
         state.rows
           .filter((row) => row.status === "pending" && where.id.in.includes(row.id))
+          // A database lookup by ID can return the selected rows in any order.
+          .reverse()
           .map((row) => ({ ...row, assetObject: null })),
       ),
       updateMany: vi.fn(async ({ where, data }) => {
