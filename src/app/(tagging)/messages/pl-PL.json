@@ -690,7 +690,7 @@
         "imageModeImageOff": "Dopasowanie na podstawie podobieństwa cech i tekstu. 1 punkt za obraz.",
         "imageModeVideos": "Tryb obrazu dla filmów",
         "imageModeVideoOn": "Dopasowanie na podstawie obrazów i tekstu. 2 punkty za rozliczaną klatkę.",
-        "imageModeVideoOff": "Dopasowanie na podstawie podobieństwa cech i tekstu. 1 punkt za rozliczaną klatkę.",
+        "imageModeVideoOff": "Dopasowanie na podstawie podobieństwa cech i tekstu. 1 punkt za zasób.",
         "imageModeVideoBilling": "1 rozliczana klatka na {seconds} sekundy, w zaokrągleniu w górę, do {maxFrames}.",
         "title": "Rozpoznawanie AI",
         "precise": "Precyzyjne",

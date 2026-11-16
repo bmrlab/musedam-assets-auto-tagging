@@ -440,7 +440,7 @@
         "imageModeImageOff": "Confronta somiglianza delle caratteristiche e testo. 1 punti per immagine.",
         "imageModeVideos": "Modalità immagine per i video",
         "imageModeVideoOn": "Confronta immagini e testo. 2 punti per fotogramma fatturabile.",
-        "imageModeVideoOff": "Confronta somiglianza delle caratteristiche e testo. 1 punti per fotogramma fatturabile.",
+        "imageModeVideoOff": "Confronta somiglianza delle caratteristiche e testo. 1 punto per risorsa.",
         "imageModeVideoBilling": "1 fotogramma fatturabile ogni {seconds} secondi, arrotondato per eccesso, fino a {maxFrames}.",
         "title": "Riconoscimento IA",
         "precise": "Preciso",

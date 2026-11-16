@@ -731,7 +731,7 @@
         "imageModeImageOff": "Mencocokkan kemiripan fitur dan teks. 1 poin per gambar.",
         "imageModeVideos": "Mode gambar untuk video",
         "imageModeVideoOn": "Mencocokkan gambar dan teks. 2 poin per bingkai tagihan.",
-        "imageModeVideoOff": "Mencocokkan kemiripan fitur dan teks. 1 poin per bingkai tagihan.",
+        "imageModeVideoOff": "Mencocokkan kemiripan fitur dan teks. 1 poin per aset.",
         "imageModeVideoBilling": "1 bingkai tagihan per {seconds} detik, dibulatkan ke atas, maksimal {maxFrames}.",
         "title": "Pengenalan AI",
         "precise": "Presisi",

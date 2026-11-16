@@ -290,7 +290,7 @@
         "imageModeImageOff": "Compara con similitud de características y texto. 1 puntos por imagen.",
         "imageModeVideos": "Usar modo imagen para vídeos",
         "imageModeVideoOn": "Compara con imágenes y texto. 2 puntos por fotograma facturable.",
-        "imageModeVideoOff": "Compara con similitud de características y texto. 1 puntos por fotograma facturable.",
+        "imageModeVideoOff": "Compara con similitud de características y texto. 1 punto por recurso.",
         "imageModeVideoBilling": "1 fotograma facturable cada {seconds} segundos, redondeando hacia arriba, hasta {maxFrames}.",
         "balanced": "Equilibrado",
         "balancedDesc": "Precisión y cobertura equilibradas",

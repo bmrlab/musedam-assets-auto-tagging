@@ -18,14 +18,14 @@ describe("duration billing frames", () => {
     [-1, 1],
     [NaN, 1],
     [Infinity, 1],
-  ])("prices duration %s ms as %s frames in both image modes", (duration, frames) => {
+  ])("prices duration %s ms as %s frames only with image mode enabled", (duration, frames) => {
     for (const enabled of [false, true]) {
       expect(
         getTaggingCreditQuote(enabled, { extra: { extension: ".MP4", duration } }),
       ).toMatchObject({
-        creditPricingVersion: "video-duration-v1",
-        creditFrameCount: frames,
-        creditCost: frames * (enabled ? 2 : 1),
+        creditPricingVersion: "video-duration-v2",
+        creditFrameCount: enabled ? frames : 1,
+        creditCost: enabled ? frames * 2 : 1,
       });
     }
   });

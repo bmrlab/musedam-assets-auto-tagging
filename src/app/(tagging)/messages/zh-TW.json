@@ -290,7 +290,7 @@
         "imageModeImageOff": "依特徵相似度與文字比對，每張 1 點。",
         "imageModeVideos": "影片使用圖像模式",
         "imageModeVideoOn": "結合圖像與文字比對，每幀 2 點。",
-        "imageModeVideoOff": "依特徵相似度與文字比對，每幀 1 點。",
+        "imageModeVideoOff": "依特徵相似度與文字比對，每個素材 1 點。",
         "imageModeVideoBilling": "每 {seconds} 秒計 1 幀，向上取整，最多 {maxFrames} 幀。",
         "balanced": "平衡模式",
         "balancedDesc": "平衡標籤準確性與覆蓋度，適合日常大多數場景",

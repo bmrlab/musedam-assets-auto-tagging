@@ -65,10 +65,10 @@ describe("credit quote", () => {
       ]);
       const body = await (await POST(request(["1", "2", "3", "1"]))).json();
       expect(body.data).toMatchObject({
-        creditCost: (enabled ? 2 : 1) + 11 * (videoEnabled ? 2 : 1),
+        creditCost: (enabled ? 2 : 1) + (videoEnabled ? 22 : 2),
         videoUnitCreditCost: videoEnabled ? 2 : 1,
         unitCreditCost: enabled ? 2 : 1,
-        creditPricingVersion: "video-duration-v1",
+        creditPricingVersion: "video-duration-v2",
       });
       expect(mocks.assets).toHaveBeenCalledWith(expect.objectContaining({ id: 42 }), [
         BigInt(1),
@@ -130,5 +130,5 @@ describe("credit quote", () => {
 it("defaults legacy teams to text-only video quotes even when image mode is on", async () => {
   mocks.settings.mockResolvedValue({ isTaggingEnabled: true, featureImageMode: true });
   mocks.assets.mockResolvedValue([{ extra: { extension: "mp4", duration: 5000 } }]);
-  expect((await (await POST(request(["1"]))).json()).data).toMatchObject({ creditCost: 3, unitCreditCost: 2, videoUnitCreditCost: 1, featureVideoImageMode: false });
+  expect((await (await POST(request(["1"]))).json()).data).toMatchObject({ creditCost: 1, unitCreditCost: 2, videoUnitCreditCost: 1, featureVideoImageMode: false });
 });

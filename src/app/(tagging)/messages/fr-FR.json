@@ -440,7 +440,7 @@
         "imageModeImageOff": "Compare la similarité des caractéristiques et le texte. 1 points par image.",
         "imageModeVideos": "Mode image pour les vidéos",
         "imageModeVideoOn": "Compare les images et le texte. 2 points par image facturée.",
-        "imageModeVideoOff": "Compare la similarité des caractéristiques et le texte. 1 points par image facturée.",
+        "imageModeVideoOff": "Compare la similarité des caractéristiques et le texte. 1 point par ressource.",
         "imageModeVideoBilling": "1 image facturée par tranche de {seconds} secondes, arrondie au supérieur, jusqu’à {maxFrames}.",
         "title": "Reconnaissance IA",
         "precise": "Précis",

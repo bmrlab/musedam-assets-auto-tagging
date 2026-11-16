@@ -690,7 +690,7 @@
         "imageModeImageOff": "Đối chiếu độ tương đồng đặc trưng và văn bản. 1 điểm mỗi ảnh.",
         "imageModeVideos": "Chế độ hình ảnh cho video",
         "imageModeVideoOn": "Đối chiếu hình ảnh và văn bản. 2 điểm mỗi khung hình tính phí.",
-        "imageModeVideoOff": "Đối chiếu độ tương đồng đặc trưng và văn bản. 1 điểm mỗi khung hình tính phí.",
+        "imageModeVideoOff": "Đối chiếu độ tương đồng đặc trưng và văn bản. 1 điểm mỗi tài nguyên.",
         "imageModeVideoBilling": "1 khung hình tính phí mỗi {seconds} giây, làm tròn lên, tối đa {maxFrames}.",
         "title": "Cài đặt nhận diện AI",
         "precise": "Chế độ chính xác",

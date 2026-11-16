@@ -290,7 +290,7 @@
         "imageModeImageOff": "Compara similaridade de características e texto. 1 pontos por imagem.",
         "imageModeVideos": "Modo de imagem para vídeos",
         "imageModeVideoOn": "Compara imagens e texto. 2 pontos por quadro faturável.",
-        "imageModeVideoOff": "Compara similaridade de características e texto. 1 pontos por quadro faturável.",
+        "imageModeVideoOff": "Compara similaridade de características e texto. 1 ponto por recurso.",
         "imageModeVideoBilling": "1 quadro faturável a cada {seconds} segundos, arredondado para cima, até {maxFrames}.",
         "balanced": "Equilibrado",
         "balancedDesc": "Precisão e cobertura equilibradas",

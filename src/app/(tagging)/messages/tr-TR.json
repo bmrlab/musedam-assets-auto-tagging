@@ -690,7 +690,7 @@
         "imageModeImageOff": "Özellik benzerliği ve metinle eşleştirir. Görsel başına 1 puan.",
         "imageModeVideos": "Videolar için görüntü modu",
         "imageModeVideoOn": "Görüntü ve metinle eşleştirir. Faturalandırma karesi başına 2 puan.",
-        "imageModeVideoOff": "Özellik benzerliği ve metinle eşleştirir. Faturalandırma karesi başına 1 puan.",
+        "imageModeVideoOff": "Özellik benzerliği ve metinle eşleştirir. Varlık başına 1 puan.",
         "imageModeVideoBilling": "Her {seconds} saniye için 1 faturalandırma karesi, yukarı yuvarlanır, en fazla {maxFrames} kare.",
         "title": "AI Tanıma",
         "precise": "Hassas",
