@@ -47,10 +47,9 @@ function nearDuplicate(a: Buffer, b: Buffer) {
   return true;
 }
 
-export function selectVideoFrames<T extends VideoFrameQuality & { timestamp: number }>(
-  frames: T[],
-  limit = 8,
-): T[] {
+export function selectVideoFrames<
+  T extends VideoFrameQuality & { timestamp: number; scene_index?: number | null },
+>(frames: T[], limit = 8): T[] {
   const usable = frames.filter((frame) => !frame.blank);
   // Do not fail an otherwise decodable video when every sample is dark/blank.
   const pool = usable.length ? usable : frames;
@@ -64,6 +63,17 @@ export function selectVideoFrames<T extends VideoFrameQuality & { timestamp: num
   }
   const remaining = unique.sort((a, b) => a.timestamp - b.timestamp);
   const selected: T[] = [];
+  // Preserve representatives of different shots before filling temporal coverage.
+  const scenes = remaining.filter((frame) => frame.scene_index != null);
+  const sceneBudget = Math.min(Math.floor(limit / 2), scenes.length);
+  for (let index = 0; index < sceneBudget; index++) {
+    const frame =
+      scenes[
+        Math.min(scenes.length - 1, Math.floor(((index + 0.5) * scenes.length) / sceneBudget))
+      ];
+    selected.push(frame);
+    remaining.splice(remaining.indexOf(frame), 1);
+  }
   while (remaining.length && selected.length < limit) {
     if (selected.length) {
       const distance = (frame: T) =>

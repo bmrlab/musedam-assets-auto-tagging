@@ -9,7 +9,7 @@ import type { FeatureThumbnailImage } from "@/app/(tagging)/tagging/review/featu
 import { AssetThumbnail } from "@/components/AssetThumbnail";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Switch } from "@/components/ui/switch";
+import { AIRecognitionSection } from "../settings/components/AIRecognitionSection";
 import { FileImageIcon, TagsIcon } from "@/components/ui/icons";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { dispatchMuseDAMClientAction } from "@/embed/message";
@@ -389,6 +389,7 @@ interface PersistedTestPageState {
   pollingStartedAt: number | null;
   selectedScene: string;
   featureImageMode: boolean;
+  featureVideoImageMode: boolean;
   recognitionAccuracy: "precise" | "balanced" | "broad";
   matchingSources: {
     basicInfo: boolean;
@@ -417,6 +418,7 @@ function loadPersistedTestPageState(): PersistedTestPageState | null {
       pollingStartedAt:
         typeof parsed.pollingStartedAt === "number" ? parsed.pollingStartedAt : null,
       featureImageMode: parsed.featureImageMode === true,
+      featureVideoImageMode: typeof parsed.featureVideoImageMode === "boolean" ? parsed.featureVideoImageMode : parsed.featureImageMode === true,
       selectedScene: typeof parsed.selectedScene === "string" ? parsed.selectedScene : "general",
       recognitionAccuracy:
         parsed.recognitionAccuracy === "precise" ||
@@ -495,8 +497,6 @@ export default function TestClient() {
   const tClient = useTranslations("Tagging.TestClient");
   const tResult = useTranslations("TaggingResultDisplay");
   const tSidebar = useTranslations("Tagging.Sidebar");
-  const tFeature = useTranslations("Tagging.FeatureDecisionDiagnostics");
-  const tRecognition = useTranslations("Tagging.Settings.AIRecognition");
   // Persist URL settings before server actions run; visibility is handled by the result display.
   useFeatureLibraryFeatures();
   const localFileInputRef = useRef<HTMLInputElement>(null);
@@ -531,6 +531,7 @@ export default function TestClient() {
   // 配置状态
   const [selectedScene, setSelectedScene] = useState("general");
   const [featureImageMode, setFeatureImageMode] = useState(false);
+  const [featureVideoImageMode, setFeatureVideoImageMode] = useState(false);
   const [recognitionAccuracy, setRecognitionAccuracy] = useState<"precise" | "balanced" | "broad">(
     "balanced",
   );
@@ -1098,6 +1099,7 @@ export default function TestClient() {
       setQueueItemIds(persisted.queueItemIds);
       setSelectedScene(persisted.selectedScene);
       setFeatureImageMode(persisted.featureImageMode);
+      setFeatureVideoImageMode(persisted.featureVideoImageMode);
       setRecognitionAccuracy(persisted.recognitionAccuracy);
       setMatchingSources(persisted.matchingSources);
       // Re-read completed results too: older cached display data may have lost features
@@ -1127,6 +1129,7 @@ export default function TestClient() {
       pollingStartedAt,
       selectedScene,
       featureImageMode,
+      featureVideoImageMode,
       recognitionAccuracy,
       matchingSources,
     });
@@ -1140,6 +1143,7 @@ export default function TestClient() {
     pollingStartedAt,
     selectedScene,
     featureImageMode,
+    featureVideoImageMode,
     recognitionAccuracy,
     matchingSources,
   ]);
@@ -1339,6 +1343,7 @@ export default function TestClient() {
 
       const result = await startTaggingTasksAction(selectedAssets, {
         featureImageMode,
+      featureVideoImageMode,
         matchingSources,
         recognitionAccuracy,
       });
@@ -1381,7 +1386,7 @@ export default function TestClient() {
     } finally {
       setIsProcessing(false);
     }
-  }, [selectedAssets, matchingSources, recognitionAccuracy, featureImageMode, beginPollingSession, t]);
+  }, [selectedAssets, matchingSources, recognitionAccuracy, featureImageMode, featureVideoImageMode, beginPollingSession, t]);
 
   const removeAsset = (assetId: string) => {
     setSelectedAssets((prev) => prev.filter((asset) => asset.id !== assetId));
@@ -1782,41 +1787,16 @@ export default function TestClient() {
           </div>
         </div>
 
-        {/* AI识别模式 */}
-        <div className="bg-background border rounded-md">
-          <div className="px-4 py-3 border-b">
-            <h3 className="font-medium text-sm">{t("recommendedAIRecognition")}</h3>
-          </div>
-          <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {[
-              { key: "precise", label: t("preciseMode"), confidence: t("preciseConfidence") },
-              {
-                key: "balanced",
-                label: t("balancedMode"),
-                confidence: t("balancedConfidence"),
-              },
-              { key: "broad", label: t("broadMode"), confidence: t("broadConfidence") },
-            ].map(({ key, label, confidence }) => (
-              <div
-                key={key}
-                className={cn(
-                  "border rounded-md p-3 cursor-pointer border-basic-4 transition-all hover:border-primary/50",
-                  recognitionAccuracy === key
-                    ? "bg-primary-1 border-primary-6 ring ring-primary-6"
-                    : "hover:border-primary-6",
-                )}
-                onClick={() => setRecognitionAccuracy(key as typeof recognitionAccuracy)}
-              >
-                <div className="text-center space-y-1">
-                  <div className="flex items-center justify-center gap-1">
-                    <h3 className="font-medium text-sm">{label}</h3>
-                  </div>
-                  <div className="text-xs font-medium text-basic-5">{confidence}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <AIRecognitionSection
+          testMode
+          recognitionAccuracy={recognitionAccuracy}
+          onRecognitionAccuracyChange={setRecognitionAccuracy}
+          imageMode={featureImageMode}
+          videoImageMode={featureVideoImageMode}
+          onImageModeChange={setFeatureImageMode}
+          onVideoImageModeChange={setFeatureVideoImageMode}
+          disabled={isProcessing || isPolling}
+        />
 
         {/* 匹配策略 */}
         <div className="bg-background border rounded-md">
@@ -1854,25 +1834,7 @@ export default function TestClient() {
           </div>
         </div>
 
-        <div className="rounded-lg border border-basic-4 bg-background">
-          <div className="flex items-center justify-between gap-4 border-b px-4 py-3">
-            <label htmlFor="test-feature-image-mode" className="cursor-pointer text-sm font-medium leading-[22px]">
-              {tFeature("imageMode")}
-            </label>
-            <Switch
-              id="test-feature-image-mode"
-              aria-describedby="test-feature-image-mode-help"
-              checked={featureImageMode}
-              onCheckedChange={setFeatureImageMode}
-              disabled={isProcessing || isPolling}
-            />
-          </div>
-          <div id="test-feature-image-mode-help" className="flex flex-col gap-2 p-4 text-xs leading-4 text-basic-5 dark:text-basic-6">
-            <p>{t("imageModeScope")}</p>
-            <p>{tFeature("imageModeHelp")}</p>
-            <p>{tRecognition("imageModeVideoSampling")}</p>
-          </div>
-        </div>
+
       </div>
     </div>
   );

@@ -773,16 +773,16 @@
         "firstTimeRecommendationDesc": "通过人工审核可以评估 AI 打标效果，待准确率满足要求后在切换为直接应用模式"
       },
       "AIRecognition": {
-        "imageModeImages": "图片使用图像模式",
-        "imageModeImageDescription": "开启时，结合原图、参考图与文字信息判断特征，每张 2 点；关闭时，基于特征相似度、文件名/路径和 OCR 等文字信息判断，每张 1 点。两种模式均会进行图像特征检索，并在需要时识别 OCR。",
+        "imageModeImages": "图片",
+        "imageModeImageDescription": "开启：2 点/张；关闭：1 点/张。",
         "imageModeImageOn": "结合图像与文字匹配，每张 2 点。",
         "imageModeImageOff": "基于特征相似度与文字匹配，每张 1 点。",
-        "imageModeVideos": "视频使用图像模式",
-        "imageModeVideoDescription": "开启时，结合采样画面、参考图与文字信息判断特征，每计费帧 2 点；关闭时，基于特征相似度、文件名/路径和 OCR 等文字信息判断，每个素材固定 1 点。",
+        "imageModeVideos": "视频",
+        "imageModeVideoDescription": "开启：2 点/计费帧，每个视频 2–16 点；关闭：1 点/个视频。",
         "imageModeVideoOn": "结合图像与文字匹配，每帧 2 点。",
         "imageModeVideoOff": "基于特征相似度与文字匹配，每个素材 1 点。",
-        "imageModeVideoSampling": "两种模式都会从原视频采样最多 12 帧（采样间隔不少于 0.25 秒），优先保留清晰、不重复的有效画面，最多 8 帧用于特征检测、4 帧用于 OCR；采样失败时尝试使用缩略图。",
-        "imageModeVideoBilling": "开启时，每 {seconds} 秒计 1 个计费帧，向上取整，最少 1 帧、最多 {maxFrames} 帧；时长未知按 1 帧。计费帧数与实际抽帧、去重后的帧数无关。",
+        "imageModeVideoSampling": "智能选取视频代表画面，转场分析不可用时采用均匀采样。最多采样 12 帧，其中最多 8 帧用于特征识别、4 帧用于文字识别。采样失败时尝试使用缩略图。图像模式开关不影响采样规则。",
+        "imageModeVideoBilling": "每 {seconds} 秒计 1 个计费帧，不足 {seconds} 秒按 1 帧计算，最少 1 帧、最多 {maxFrames} 帧；时长未知按 1 帧计算。计费帧数与实际采样帧数独立。",
         "title": "AI 识别设置",
         "precise": "精准模式",
         "preciseDesc": "优先准确性，适合打标要求严格的场景",
@@ -794,7 +794,12 @@
         "recommended": "推荐",
         "confidenceHigh": "高置信度",
         "confidenceMedium": "中等置信度",
-        "confidenceLow": "低置信度"
+        "confidenceLow": "低置信度",
+        "recognitionHelp": "识别模式决定标签和特征的置信度门槛：精准模式优先准确性，平衡模式兼顾准确性与覆盖度，宽泛模式提供更多识别结果。图像模式用于配置特征识别方式。",
+        "imageModeHelp": "开启时，结合素材画面、参考图像与文字信息识别特征；关闭时，依据特征相似度与文字信息识别。两种模式均可识别画面文字。",
+        "videoModeHelp": "开启时，结合视频采样画面、参考图像与文字信息识别特征；关闭时，依据特征相似度与文字信息识别。两种模式均可识别画面文字。",
+        "fallbackHelp": "图像识别失败时，自动采用文字识别结果，不额外扣点。",
+        "testScope": "仅对本次测试生效，不扣除点数。"
       },
       "MatchingStrategy": {
         "title": "匹配策略选择",

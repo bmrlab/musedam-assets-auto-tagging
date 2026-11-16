@@ -72,6 +72,20 @@ describe("video evidence selection", () => {
     expect(selectVideoFrames([])).toEqual([]);
   });
 
+  it("retains shot representatives that temporal spacing alone would discard", () => {
+    const frames = Array.from({ length: 12 }, (_, index) => ({
+      timestamp: index,
+      sharpness: 10,
+      blank: false,
+      fingerprint: Buffer.alloc(32 * 32 * 3, 10 + index * 18),
+      scene_index: [1, 2, 3, 4].includes(index) ? index : null,
+    }));
+    const selected = selectVideoFrames(frames);
+    expect(selected).toHaveLength(8);
+    expect(selected.filter(frame => frame.scene_index != null).map(frame => frame.scene_index)).toEqual([1, 2, 3, 4]);
+    expect(selected.at(-1)).toBe(frames.at(-1));
+  });
+
   it.each([0.25, 9 / 16, 1, 16 / 9, 4])(
     "fits aspect %s without increasing the old sheet pixel budget",
     (ratio) => {

@@ -689,16 +689,16 @@
         "firstTimeRecommendationDesc": "Ręczny przegląd może pomóc ocenić skuteczność tagowania AI. Przełącz na tryb bezpośredniego stosowania, gdy dokładność spełnia wymagania"
       },
       "AIRecognition": {
-        "imageModeImages": "Tryb obrazu dla obrazów",
-        "imageModeImageDescription": "When enabled, feature decisions use the source image, reference images and text, at 2 credits per image. When disabled, decisions use feature similarity and text such as filenames, paths and OCR, at 1 credit per image. Both modes retrieve image features and run OCR when needed.",
+        "imageModeImages": "Images",
+        "imageModeImageDescription": "On: 2 credits per image. Off: 1 credit per image.",
         "imageModeImageOn": "Dopasowanie na podstawie obrazów i tekstu. 2 punkty za obraz.",
         "imageModeImageOff": "Dopasowanie na podstawie podobieństwa cech i tekstu. 1 punkt za obraz.",
-        "imageModeVideos": "Tryb obrazu dla filmów",
-        "imageModeVideoDescription": "When enabled, feature decisions use sampled frames, reference images and text, at 2 credits per billable frame. When disabled, decisions use feature similarity and text such as filenames, paths and OCR, at a fixed 1 credit per asset.",
+        "imageModeVideos": "Videos",
+        "imageModeVideoDescription": "On: 2 credits per billable frame, 2–16 credits per video. Off: 1 credit per video.",
         "imageModeVideoOn": "Dopasowanie na podstawie obrazów i tekstu. 2 punkty za rozliczaną klatkę.",
         "imageModeVideoOff": "Dopasowanie na podstawie podobieństwa cech i tekstu. 1 punkt za zasób.",
-        "imageModeVideoSampling": "Both modes sample up to 12 frames from the original video, at least 0.25 seconds apart, preferring clear, distinct, nonblank frames. Up to 8 frames are used for feature detection and 4 for OCR. If sampling fails, a thumbnail fallback is attempted.",
-        "imageModeVideoBilling": "When enabled, every {seconds} seconds counts as one billable frame, rounded up, with a minimum of 1 and a maximum of {maxFrames}; unknown durations count as 1. Billable frames are independent of actual sampling and deduplication.",
+        "imageModeVideoSampling": "Selects representative video frames, using uniform sampling when scene analysis is unavailable. Samples up to 12 frames: up to 8 for feature recognition and 4 for text recognition. A thumbnail is attempted if sampling fails. Image mode does not change sampling rules.",
+        "imageModeVideoBilling": "One billable frame per {seconds} seconds, rounded up, with a minimum of 1 and maximum of {maxFrames} frames. Unknown duration counts as 1 frame. Billable frames are independent of actual samples.",
         "title": "Rozpoznawanie AI",
         "precise": "Precyzyjne",
         "preciseDesc": "Wysoka dokładność, mniej tagów",
@@ -710,7 +710,12 @@
         "recommended": "Zalecane",
         "confidenceHigh": "Wysoka pewność",
         "confidenceMedium": "Średnia pewność",
-        "confidenceLow": "Niska pewność"
+        "confidenceLow": "Niska pewność",
+        "recognitionHelp": "Recognition modes set the confidence threshold for tags and features. Precise prioritizes accuracy, Balanced combines accuracy and coverage, and Broad includes more predictions. Image mode controls how features are identified.",
+        "imageModeHelp": "When enabled, features are identified using asset images, reference images and text. When disabled, recognition uses feature similarity and text. Both modes can recognize text in images.",
+        "videoModeHelp": "When enabled, features are identified using sampled video frames, reference images and text. When disabled, recognition uses feature similarity and text. Both modes can recognize text in frames.",
+        "fallbackHelp": "If image recognition fails, text recognition results are used automatically, with no additional credits.",
+        "testScope": "Applies to this test only. No credits are deducted."
       },
       "MatchingStrategy": {
         "title": "Strategia dopasowania",

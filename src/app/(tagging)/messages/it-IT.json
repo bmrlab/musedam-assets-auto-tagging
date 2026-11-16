@@ -435,16 +435,16 @@
         "firstTimeRecommendationDesc": "La revisione manuale può aiutare a valutare l'efficacia dell'etichettatura IA. Passa alla modalità applicazione diretta una volta che la precisione soddisfa i requisiti"
       },
       "AIRecognition": {
-        "imageModeImages": "Modalità immagine per le immagini",
-        "imageModeImageDescription": "When enabled, feature decisions use the source image, reference images and text, at 2 credits per image. When disabled, decisions use feature similarity and text such as filenames, paths and OCR, at 1 credit per image. Both modes retrieve image features and run OCR when needed.",
+        "imageModeImages": "Images",
+        "imageModeImageDescription": "On: 2 credits per image. Off: 1 credit per image.",
         "imageModeImageOn": "Confronta immagini e testo. 2 punti per immagine.",
         "imageModeImageOff": "Confronta somiglianza delle caratteristiche e testo. 1 punti per immagine.",
-        "imageModeVideos": "Modalità immagine per i video",
-        "imageModeVideoDescription": "When enabled, feature decisions use sampled frames, reference images and text, at 2 credits per billable frame. When disabled, decisions use feature similarity and text such as filenames, paths and OCR, at a fixed 1 credit per asset.",
+        "imageModeVideos": "Videos",
+        "imageModeVideoDescription": "On: 2 credits per billable frame, 2–16 credits per video. Off: 1 credit per video.",
         "imageModeVideoOn": "Confronta immagini e testo. 2 punti per fotogramma fatturabile.",
         "imageModeVideoOff": "Confronta somiglianza delle caratteristiche e testo. 1 punto per risorsa.",
-        "imageModeVideoSampling": "Both modes sample up to 12 frames from the original video, at least 0.25 seconds apart, preferring clear, distinct, nonblank frames. Up to 8 frames are used for feature detection and 4 for OCR. If sampling fails, a thumbnail fallback is attempted.",
-        "imageModeVideoBilling": "When enabled, every {seconds} seconds counts as one billable frame, rounded up, with a minimum of 1 and a maximum of {maxFrames}; unknown durations count as 1. Billable frames are independent of actual sampling and deduplication.",
+        "imageModeVideoSampling": "Selects representative video frames, using uniform sampling when scene analysis is unavailable. Samples up to 12 frames: up to 8 for feature recognition and 4 for text recognition. A thumbnail is attempted if sampling fails. Image mode does not change sampling rules.",
+        "imageModeVideoBilling": "One billable frame per {seconds} seconds, rounded up, with a minimum of 1 and maximum of {maxFrames} frames. Unknown duration counts as 1 frame. Billable frames are independent of actual samples.",
         "title": "Riconoscimento IA",
         "precise": "Preciso",
         "preciseDesc": "Alta precisione, meno tag",
@@ -456,7 +456,12 @@
         "recommended": "Consigliato",
         "confidenceHigh": "Confidenza alta",
         "confidenceMedium": "Confidenza media",
-        "confidenceLow": "Confidenza bassa"
+        "confidenceLow": "Confidenza bassa",
+        "recognitionHelp": "Recognition modes set the confidence threshold for tags and features. Precise prioritizes accuracy, Balanced combines accuracy and coverage, and Broad includes more predictions. Image mode controls how features are identified.",
+        "imageModeHelp": "When enabled, features are identified using asset images, reference images and text. When disabled, recognition uses feature similarity and text. Both modes can recognize text in images.",
+        "videoModeHelp": "When enabled, features are identified using sampled video frames, reference images and text. When disabled, recognition uses feature similarity and text. Both modes can recognize text in frames.",
+        "fallbackHelp": "If image recognition fails, text recognition results are used automatically, with no additional credits.",
+        "testScope": "Applies to this test only. No credits are deducted."
       },
       "MatchingStrategy": {
         "title": "Strategia corrispondenza",

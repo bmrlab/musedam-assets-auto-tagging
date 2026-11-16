@@ -285,16 +285,16 @@
     },
     "Settings": {
       "AIRecognition": {
-        "imageModeImages": "画像に画像モードを使用",
-        "imageModeImageDescription": "When enabled, feature decisions use the source image, reference images and text, at 2 credits per image. When disabled, decisions use feature similarity and text such as filenames, paths and OCR, at 1 credit per image. Both modes retrieve image features and run OCR when needed.",
+        "imageModeImages": "Images",
+        "imageModeImageDescription": "On: 2 credits per image. Off: 1 credit per image.",
         "imageModeImageOn": "画像と文字を組み合わせて照合。画像1枚につき2ポイント。",
         "imageModeImageOff": "特徴の類似度と文字で照合。画像1枚につき1ポイント。",
-        "imageModeVideos": "動画に画像モードを使用",
-        "imageModeVideoDescription": "When enabled, feature decisions use sampled frames, reference images and text, at 2 credits per billable frame. When disabled, decisions use feature similarity and text such as filenames, paths and OCR, at a fixed 1 credit per asset.",
+        "imageModeVideos": "Videos",
+        "imageModeVideoDescription": "On: 2 credits per billable frame, 2–16 credits per video. Off: 1 credit per video.",
         "imageModeVideoOn": "画像と文字を組み合わせて照合。課金フレーム1つにつき2ポイント。",
         "imageModeVideoOff": "特徴の類似度と文字で照合。素材1つにつき1ポイント。",
-        "imageModeVideoSampling": "Both modes sample up to 12 frames from the original video, at least 0.25 seconds apart, preferring clear, distinct, nonblank frames. Up to 8 frames are used for feature detection and 4 for OCR. If sampling fails, a thumbnail fallback is attempted.",
-        "imageModeVideoBilling": "When enabled, every {seconds} seconds counts as one billable frame, rounded up, with a minimum of 1 and a maximum of {maxFrames}; unknown durations count as 1. Billable frames are independent of actual sampling and deduplication.",
+        "imageModeVideoSampling": "Selects representative video frames, using uniform sampling when scene analysis is unavailable. Samples up to 12 frames: up to 8 for feature recognition and 4 for text recognition. A thumbnail is attempted if sampling fails. Image mode does not change sampling rules.",
+        "imageModeVideoBilling": "One billable frame per {seconds} seconds, rounded up, with a minimum of 1 and maximum of {maxFrames} frames. Unknown duration counts as 1 frame. Billable frames are independent of actual samples.",
         "balanced": "バランスモード",
         "balancedDesc": "タグの正確性とカバレッジのバランスを保ち、日常のほとんどのシーンに適しています",
         "broad": "広範囲モード",
@@ -306,7 +306,12 @@
         "title": "AI 認識設定",
         "confidenceHigh": "高信頼度",
         "confidenceMedium": "中信頼度",
-        "confidenceLow": "低信頼度"
+        "confidenceLow": "低信頼度",
+        "recognitionHelp": "Recognition modes set the confidence threshold for tags and features. Precise prioritizes accuracy, Balanced combines accuracy and coverage, and Broad includes more predictions. Image mode controls how features are identified.",
+        "imageModeHelp": "When enabled, features are identified using asset images, reference images and text. When disabled, recognition uses feature similarity and text. Both modes can recognize text in images.",
+        "videoModeHelp": "When enabled, features are identified using sampled video frames, reference images and text. When disabled, recognition uses feature similarity and text. Both modes can recognize text in frames.",
+        "fallbackHelp": "If image recognition fails, text recognition results are used automatically, with no additional credits.",
+        "testScope": "Applies to this test only. No credits are deducted."
       },
       "AdvancedSettings": {
         "title": "高度な設定"

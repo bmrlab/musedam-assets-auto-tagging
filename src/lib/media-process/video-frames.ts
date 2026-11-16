@@ -14,6 +14,7 @@ const videoFramesSchema = z.object({
       z.object({
         url: z.url({ protocol: /^https?$/ }),
         timestamp: z.number().nonnegative(),
+        scene_index: z.number().int().nonnegative().nullish(),
       }),
     )
     .min(1)

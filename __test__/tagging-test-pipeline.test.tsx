@@ -97,14 +97,14 @@ describe("test page full result pipeline", () => {
   it.each([false, true])("submits the independent image mode %s for test jobs", async (enabled) => {
     persist(false, false);
     render(<TestClient />);
-    const toggle = screen.getByRole("switch", { name: "imageMode" });
+    const toggle = screen.getByRole("switch", { name: "imageModeImages" });
     expect(toggle.getAttribute("aria-checked")).toBe("false");
     if (enabled) fireEvent.click(toggle);
-    expect(screen.getByText("imageModeHelp")).toBeTruthy();
-    expect(screen.getByText("imageModeVideoSampling")).toBeTruthy();
+    expect(screen.getByText("testScope")).toBeTruthy();
+    expect(screen.getByRole("switch", { name: "imageModeVideos" }).getAttribute("aria-checked")).toBe("false");
     fireEvent.click(screen.getByRole("button", { name: "startTest" }));
     await waitFor(() => expect(mocks.start).toHaveBeenCalledWith(
-      expect.any(Array), expect.objectContaining({ featureImageMode: enabled }),
+      expect.any(Array), expect.objectContaining({ featureImageMode: enabled, featureVideoImageMode: false }),
     ));
     await waitFor(() => expect(screen.getByText(productName)).toBeTruthy());
   });
@@ -115,7 +115,7 @@ describe("test page full result pipeline", () => {
     saved.featureImageMode = true;
     sessionStorage.setItem("musedam-tagging-test-page-state", JSON.stringify(saved));
     render(<TestClient />);
-    expect(screen.getByRole("switch", { name: "imageMode" }).getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByRole("switch", { name: "imageModeImages" }).getAttribute("aria-checked")).toBe("true");
     expect(mocks.start).not.toHaveBeenCalled();
   });
 

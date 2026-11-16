@@ -77,3 +77,12 @@ describe("test task image mode snapshots", () => {
     }));
   });
 });
+
+
+it.each([false, true])("uses the explicit video test mode %s independently of the image mode", async videoMode => {
+  vi.mocked(getServerFeatureLibraryFeatures).mockResolvedValue({ featureLibrary: true, featureBrand: true, featureProduct: true, featurePerson: false, featureIp: false });
+  vi.mocked(syncSingleAssetFromMuseDAM).mockResolvedValue({ assetObject: { id: 91 } } as never);
+  vi.mocked(enqueueTaggingTask).mockResolvedValue({ id: 92 } as never);
+  await startTaggingTasksAction([{ id: "1", name: "clip", extension: "mp4", size: 1 }], { featureImageMode: !videoMode, featureVideoImageMode: videoMode });
+  expect(enqueueTaggingTask).toHaveBeenLastCalledWith(expect.objectContaining({ taskType: "test", featureImageMode: videoMode }));
+});

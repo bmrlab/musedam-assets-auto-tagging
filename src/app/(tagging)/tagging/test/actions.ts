@@ -40,6 +40,7 @@ export async function startTaggingTasksAction(
   selectedAssets: SelectedAsset[],
   options?: {
     featureImageMode?: boolean;
+    featureVideoImageMode?: boolean;
     matchingSources?: {
       basicInfo: boolean;
       materializedPath: boolean;
@@ -121,7 +122,9 @@ export async function startTaggingTasksAction(
                 featureClassifications: toFeatureClassificationFlags(featureLibraryFeatures),
                 taskType: "test",
                 // Test inputs never inherit the team image/video mode.
-                featureImageMode: options?.featureImageMode === true,
+                featureImageMode: isVideoAssetExtension(asset.extension)
+                  ? (options?.featureVideoImageMode ?? options?.featureImageMode) === true
+                  : options?.featureImageMode === true,
               });
 
               return { id: taggingQueueItem.id };

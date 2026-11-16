@@ -6,8 +6,10 @@ import { requestVideoFrames } from "@/lib/media-process/video-frames";
 import { fetchRemoteImageInput } from "@/lib/tagging/classification-image";
 import { queueAbortSignal } from "@/lib/tagging/queue-execution";
 import pLimit from "p-limit";
+import sharp from "sharp";
 import { classifyAssetFeatures } from "./classify";
 import { isDecisionLlmImageUseEnabled } from "./config";
+import { tryHybridVideoFrames } from "./hybrid-video-frames";
 import type { DecisionFeatureType } from "./regions";
 import type { FeatureLlmContext } from "./types";
 import {
@@ -41,10 +43,13 @@ export async function classifyVideoAssetFeatures(
     ? AbortSignal.any([preparationTimeout, decisionSignal])
     : preparationTimeout;
   input.onProgress?.("video_sampling");
-  const frames = await requestVideoFrames(input.teamId, input.videoUrl, signal);
+  const local = await tryHybridVideoFrames(input.videoUrl, signal);
+  const frames = local.frames.length
+    ? []
+    : await requestVideoFrames(input.teamId, input.videoUrl, signal);
   input.onProgress?.("frame_preparation");
   const prepared = await Promise.allSettled(
-    frames.map(({ url, timestamp }) =>
+    frames.map(({ url, timestamp, scene_index }) =>
       prepareFrameSlot(async () => {
         signal.throwIfAborted();
         const imageInput = await fetchRemoteImageInput(url, "video feature frame", {
@@ -52,20 +57,40 @@ export async function classifyVideoAssetFeatures(
           signal,
         });
         const quality = await measureVideoFrame(imageInput.buffer);
-        return { imageInput, timestamp, ...quality };
+        return { imageInput, timestamp, scene_index, ...quality };
       }),
     ),
   );
   signal.throwIfAborted();
-  const selected = selectVideoFrames(
-    prepared.flatMap((frame) => (frame.status === "fulfilled" ? [frame.value] : [])),
+  const localPrepared = await Promise.all(
+    local.frames.map(async ({ buffer, timestamp, scene_index }) => {
+      const { width, height } = await sharp(buffer).metadata();
+      if (!width || !height) throw new Error("Invalid local video frame");
+      return {
+        timestamp,
+        scene_index,
+        ...(await measureVideoFrame(buffer)),
+        imageInput: {
+          buffer,
+          width,
+          height,
+          mimeType: "image/jpeg",
+          byteLength: buffer.length,
+          dataUrl: bufferToDataUrl(buffer, "image/jpeg"),
+        },
+      };
+    }),
   );
+  const selected = selectVideoFrames([
+    ...localPrepared,
+    ...prepared.flatMap((frame) => (frame.status === "fulfilled" ? [frame.value] : [])),
+  ]);
   if (!selected.length) throw new Error("No sampled video frames could be prepared");
   const imageMode = input.imageMode ?? isDecisionLlmImageUseEnabled();
   const sheet = imageMode
     ? await createVideoContactSheet(selected.map((frame) => frame.imageInput))
     : null;
-  return classifyAssetFeatures({
+  const result = await classifyAssetFeatures({
     ...input,
     video: {
       frames: selected,
@@ -78,4 +103,6 @@ export async function classifyVideoAssetFeatures(
       requestMode: input.requestMode,
     },
   });
+  if (result.diagnostics.video) result.diagnostics.video.sampling = local.diagnostics;
+  return result;
 }

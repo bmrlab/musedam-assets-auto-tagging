@@ -689,16 +689,16 @@
         "firstTimeRecommendationDesc": "Manuel inceleme AI etiketleme etkinliğini değerlendirmeye yardımcı olabilir. Doğruluk gereksinimleri karşılandığında doğrudan uygulama moduna geçin"
       },
       "AIRecognition": {
-        "imageModeImages": "Görseller için görüntü modu",
-        "imageModeImageDescription": "When enabled, feature decisions use the source image, reference images and text, at 2 credits per image. When disabled, decisions use feature similarity and text such as filenames, paths and OCR, at 1 credit per image. Both modes retrieve image features and run OCR when needed.",
+        "imageModeImages": "Images",
+        "imageModeImageDescription": "On: 2 credits per image. Off: 1 credit per image.",
         "imageModeImageOn": "Görüntü ve metinle eşleştirir. Görsel başına 2 puan.",
         "imageModeImageOff": "Özellik benzerliği ve metinle eşleştirir. Görsel başına 1 puan.",
-        "imageModeVideos": "Videolar için görüntü modu",
-        "imageModeVideoDescription": "When enabled, feature decisions use sampled frames, reference images and text, at 2 credits per billable frame. When disabled, decisions use feature similarity and text such as filenames, paths and OCR, at a fixed 1 credit per asset.",
+        "imageModeVideos": "Videos",
+        "imageModeVideoDescription": "On: 2 credits per billable frame, 2–16 credits per video. Off: 1 credit per video.",
         "imageModeVideoOn": "Görüntü ve metinle eşleştirir. Faturalandırma karesi başına 2 puan.",
         "imageModeVideoOff": "Özellik benzerliği ve metinle eşleştirir. Varlık başına 1 puan.",
-        "imageModeVideoSampling": "Both modes sample up to 12 frames from the original video, at least 0.25 seconds apart, preferring clear, distinct, nonblank frames. Up to 8 frames are used for feature detection and 4 for OCR. If sampling fails, a thumbnail fallback is attempted.",
-        "imageModeVideoBilling": "When enabled, every {seconds} seconds counts as one billable frame, rounded up, with a minimum of 1 and a maximum of {maxFrames}; unknown durations count as 1. Billable frames are independent of actual sampling and deduplication.",
+        "imageModeVideoSampling": "Selects representative video frames, using uniform sampling when scene analysis is unavailable. Samples up to 12 frames: up to 8 for feature recognition and 4 for text recognition. A thumbnail is attempted if sampling fails. Image mode does not change sampling rules.",
+        "imageModeVideoBilling": "One billable frame per {seconds} seconds, rounded up, with a minimum of 1 and maximum of {maxFrames} frames. Unknown duration counts as 1 frame. Billable frames are independent of actual samples.",
         "title": "AI Tanıma",
         "precise": "Hassas",
         "preciseDesc": "Yüksek doğruluk, daha az etiket",
@@ -710,7 +710,12 @@
         "recommended": "Önerilen",
         "confidenceHigh": "Yüksek güven",
         "confidenceMedium": "Orta güven",
-        "confidenceLow": "Düşük güven"
+        "confidenceLow": "Düşük güven",
+        "recognitionHelp": "Recognition modes set the confidence threshold for tags and features. Precise prioritizes accuracy, Balanced combines accuracy and coverage, and Broad includes more predictions. Image mode controls how features are identified.",
+        "imageModeHelp": "When enabled, features are identified using asset images, reference images and text. When disabled, recognition uses feature similarity and text. Both modes can recognize text in images.",
+        "videoModeHelp": "When enabled, features are identified using sampled video frames, reference images and text. When disabled, recognition uses feature similarity and text. Both modes can recognize text in frames.",
+        "fallbackHelp": "If image recognition fails, text recognition results are used automatically, with no additional credits.",
+        "testScope": "Applies to this test only. No credits are deducted."
       },
       "MatchingStrategy": {
         "title": "Eşleştirme Stratejisi",

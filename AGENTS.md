@@ -14,7 +14,7 @@
 
 视频商品、Logo 和 IP 识别通过媒体处理服务采样原视频。队列优先复用开放接口 OCR，缺失时使用采样帧做模型 OCR。采样失败时可回退缩略图，兜底 OCR 需要 PATH 中的 `ffmpeg`（Docker runner 已安装）。资源上限及诊断约定见 README 的 LLM 决策与 OCR 章节。
 
-视频特征采样请求使用 `min_frame_interval_seconds: 0.25`，最多 12 帧采样、8 帧检测、4 帧 OCR；需同步升级媒体服务，旧 worker 仍沿用 2 秒默认间隔。近重复优先保留清晰帧，排除空白画面，拼图按画幅排布并控制像素预算。此版不含转场检测。离线费用对照：`NODE_OPTIONS=--conditions=react-server pnpm exec tsx development/video-feature-cost.ts`，假设和限制见 [docs/video-feature-cost.md](docs/video-feature-cost.md)。无需 migration。
+视频特征采样请求使用 `min_frame_interval_seconds: 0.25`，最多 12 帧采样、8 帧检测、4 帧 OCR；需同步升级媒体服务，旧 worker 仍沿用 2 秒默认间隔。近重复优先保留清晰帧，排除空白画面，拼图按画幅排布并控制像素预算。混合抽帧见文末说明。离线费用对照：`NODE_OPTIONS=--conditions=react-server pnpm exec tsx development/video-feature-cost.ts`，假设和限制见 [docs/video-feature-cost.md](docs/video-feature-cost.md)。无需 migration。
 
 ## 安装与首次数据库准备
 
@@ -89,8 +89,11 @@ Logo 图像决策使用全部上传样本合成的参考对照图；“最高值
 
 商品/IP 多图匹配支持按条目选择平均值或最高值，默认最高值；图片按身份聚合后再筛分与限量，文字分数独立取最高值。启用前应用 `20261116090000_product_ip_reference_match_strategy` 并生成客户端，web/worker 同步升级，无需重建向量。`REFERENCE_MATCH_TEST_DATABASE_URL` 仅用于新建且已安装 pgvector 的本地 `reference_match_test_*` 独立测试库；测试会创建最小表结构、执行迁移及清空自建数据，不能指向业务库。详见 README 的“商品 / IP 多图匹配策略”。
 
-匹配测试页的「图像模式」默认关闭，统一控制本次图片/视频测试，不继承或修改团队图像模式；提交时明确保存模式及积分快照，执行和重试沿用快照。本页选择在当前标签页会话中保留。设置页始终展示开启/关闭的完整说明，并区分视频实际采样与计费帧数。
+匹配测试页的「图像模式」默认关闭，分别控制本次图片/视频测试，不继承或修改团队图像模式；提交时明确保存模式及积分快照，执行和重试沿用快照。本页选择在当前标签页会话中保留。设置页展示简洁的开启/关闭点数说明；图片、视频各有 tooltip 说明识别方式、采样与计费规则。测试页复用 AIRecognitionSection，配置不写入团队设置，旧会话的单开关同时恢复到两项。
 
 审核页特征补跑复用原队列任务 ID，以 `extra.featureRetryInPlace` 标记，状态重新进入 pending/processing；不新增控制面板任务。执行和重试仅更新特征，保留普通标签、元数据和审核记录；仍兼容读取升级前的独立补跑任务。无需 migration，web/worker 须同步升级。
 
 队列开启图像模式时共享抽帧/OCR/检索，并行运行图像决策及纯文本兜底；图像分支含参考图准备限时 90 秒，文本兜底限时 60 秒。失败或超时采用文本结果，不新建任务、不额外扣点；有效 no_match 不触发回退。开启图像模式的图片/视频特征总预算为 240/360 秒，关闭为 150/240 秒，仍受整任务剩余时间减 30 秒约束。实际模式、回退原因、阶段耗时与调用用量保留在诊断；开发分类页的模式对比仍保留单分支。无需 migration，web/worker 同步升级；细节见 docs/tagging-performance.md 的同任务纯文本兜底章节。
+
+
+视频混合抽帧（无需媒体服务发布或新增环境变量）：本仓先探测 PATH 中的 ffmpeg/ffprobe；缺失或本地解码槽忙时直接使用原媒体服务接口。不修改 Dockerfile.prod 的依赖，实际镜像无工具时维持均匀采样。工具可用时串行下载最多 128 MiB，整体本地尝试限时 45 秒，下载限时 15 秒；视频超过 10 分钟或元数据不合法则回退。低分辨率 8 fps 扫描转场，扫描限时 10 秒，失败用本地均匀采样。镜头中点与均匀采样合并，间隔至少 0.25 秒，最多 12 帧；最终仍最多 8 帧检测、4 帧模型 OCR，计费规则及快照不变。诊断 video.sampling 记录实际策略、耗时与回退原因；此改动不保证无 FFmpeg 的环境获得转场采样提升。开发对照运行 `pnpm exec vitest run __test__/hybrid-video-frames.test.ts`，仅本地合成视频，不调用付费模型；覆盖率指目标镜头进入检测帧，不能代替商品识别准确率验收。

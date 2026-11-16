@@ -169,7 +169,7 @@ export type FeatureDecisionDiagnostics = {
   decisionInputMode?: FeatureDecisionInputMode;
   reconciliation?: { suppressedIdentityTagIds: number[] };
   mode?: "llm" | "legacy";
-  video?: { frameTimestamps: number[]; frameLoadFailures: number };
+  video?: { frameTimestamps: number[]; frameLoadFailures: number; sampling?: import("./hybrid-video-frames").SamplingDiagnostics };
   retrieval?: {
     regionsDetected: number;
     regionsSelected: number;

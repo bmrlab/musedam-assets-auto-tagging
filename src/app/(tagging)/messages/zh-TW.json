@@ -285,16 +285,16 @@
     },
     "Settings": {
       "AIRecognition": {
-        "imageModeImages": "圖片使用圖像模式",
-        "imageModeImageDescription": "開啟時，結合原圖、參考圖與文字資訊判斷特徵，每張 2 點；關閉時，基於特徵相似度、檔名/路徑和 OCR 等文字資訊判斷，每張 1 點。兩種模式均會進行圖像特徵檢索，並在需要時識別 OCR。",
+        "imageModeImages": "圖片",
+        "imageModeImageDescription": "開啟：2 點/張；關閉：1 點/張。",
         "imageModeImageOn": "結合圖像與文字比對，每張 2 點。",
         "imageModeImageOff": "依特徵相似度與文字比對，每張 1 點。",
-        "imageModeVideos": "影片使用圖像模式",
-        "imageModeVideoDescription": "開啟時，結合取樣畫面、參考圖與文字資訊判斷特徵，每計費影格 2 點；關閉時，基於特徵相似度、檔名/路徑和 OCR 等文字資訊判斷，每個素材固定 1 點。",
+        "imageModeVideos": "影片",
+        "imageModeVideoDescription": "開啟：2 點/計費影格，每個影片 2–16 點；關閉：1 點/個影片。",
         "imageModeVideoOn": "結合圖像與文字比對，每幀 2 點。",
         "imageModeVideoOff": "依特徵相似度與文字比對，每個素材 1 點。",
-        "imageModeVideoSampling": "兩種模式都會從原影片取樣最多 12 個影格（取樣間隔不少於 0.25 秒），優先保留清晰、不重複的有效畫面，最多 8 個影格用於特徵偵測、4 個用於 OCR；取樣失敗時嘗試使用縮圖。",
-        "imageModeVideoBilling": "開啟時，每 {seconds} 秒計 1 個計費影格，無條件進位，最少 1 個、最多 {maxFrames} 個；時長未知按 1 個計。計費影格數與實際取樣、去重後的影格數無關。",
+        "imageModeVideoSampling": "智慧選取影片代表畫面，轉場分析無法使用時採用均勻取樣。最多取樣 12 個影格，其中最多 8 個用於特徵識別、4 個用於文字識別。取樣失敗時嘗試使用縮圖。圖像模式開關不影響取樣規則。",
+        "imageModeVideoBilling": "每 {seconds} 秒計 1 個計費影格，不足 {seconds} 秒以 1 個計算，最少 1 個、最多 {maxFrames} 個；時長未知以 1 個計算。計費影格數與實際取樣影格數獨立。",
         "balanced": "平衡模式",
         "balancedDesc": "平衡標籤準確性與覆蓋度，適合日常大多數場景",
         "broad": "寬鬆模式",
@@ -306,7 +306,12 @@
         "title": "AI 辨識設定",
         "confidenceHigh": "高信賴度",
         "confidenceMedium": "中等信賴度",
-        "confidenceLow": "低信賴度"
+        "confidenceLow": "低信賴度",
+        "recognitionHelp": "識別模式決定標籤和特徵的信心度門檻：精準模式優先準確性，平衡模式兼顧準確性與涵蓋度，寬泛模式提供更多識別結果。圖像模式用於設定特徵識別方式。",
+        "imageModeHelp": "開啟時，結合素材畫面、參考圖像與文字資訊識別特徵；關閉時，依據特徵相似度與文字資訊識別。兩種模式均可識別畫面文字。",
+        "videoModeHelp": "開啟時，結合影片取樣畫面、參考圖像與文字資訊識別特徵；關閉時，依據特徵相似度與文字資訊識別。兩種模式均可識別畫面文字。",
+        "fallbackHelp": "圖像識別失敗時，自動採用文字識別結果，不額外扣點。",
+        "testScope": "僅對本次測試生效，不扣除點數。"
       },
       "AdvancedSettings": {
         "title": "進階設定"
