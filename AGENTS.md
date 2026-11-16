@@ -86,3 +86,5 @@ Logo 图像决策使用全部上传样本合成的参考对照图；“最高值
 
 队列 Jina 重试、进程内熔断和商品/Logo/IP 特征预算及降级规则见 [docs/tagging-performance.md](docs/tagging-performance.md) 的“Jina 有界等待与特征降级”。降级任务保留普通标签结果，但不标记特征完成；无新增 migration，人物识别仍沿用原流程。
 审核页支持对特征未完成的已完成批次免费补跑商品/Logo/IP，沿用现有队列，仅合并特征证据；排队、处理中骨架、失败重试与并发保护见审核页 README。web/worker 需同步升级，无新增 migration。
+
+商品/IP 多图匹配支持按条目选择平均值或最高值，默认最高值；图片按身份聚合后再筛分与限量，文字分数独立取最高值。启用前应用 `20261116090000_product_ip_reference_match_strategy` 并生成客户端，web/worker 同步升级，无需重建向量。`REFERENCE_MATCH_TEST_DATABASE_URL` 仅用于新建且已安装 pgvector 的本地 `reference_match_test_*` 独立测试库；测试会创建最小表结构、执行迁移及清空自建数据，不能指向业务库。详见 README 的“商品 / IP 多图匹配策略”。

@@ -117,6 +117,7 @@ const library: ProductLibraryPageData = {
       processingError: null,
       processedAt: null,
       notes: "",
+      referenceMatchStrategy: "highest",
       createdAt: new Date(),
       updatedAt: new Date(),
       images: [],

@@ -1,8 +1,10 @@
 import "server-only";
 
-import { querySimilarVectors, deletePointsByFilter, executeRawInsert, executeRawUpdate } from "@/lib/pgvector/client";
+import { deletePointsByFilter, executeRawInsert, executeRawUpdate } from "@/lib/pgvector/client";
+import { queryReferenceCandidates } from "@/lib/pgvector/reference-candidates";
 
 export type ProductVectorPayload = {
+  referenceMatchStrategy?: "highest" | "average";
   teamId: number;
   assetProductId: string;
   assetProductImageId: string | null;
@@ -161,30 +163,20 @@ export async function queryProductVectorPoints({
   scoreThreshold?: number;
   sourceType?: ProductVectorPayload["sourceType"];
 }): Promise<PgVectorProductQueryPoint[]> {
-  const filters = [`"teamId" = $1`, `"enabled" = true`, `"status" = 'completed'`];
-  const params: (number | string)[] = [teamId];
-
-  if (sourceType) {
-    filters.push(`"sourceType" = $2`);
-    params.push(sourceType);
-  }
-
-  const results = await querySimilarVectors(
-    TABLE_NAME,
-    {
-      vector,
-      limit,
-      scoreThreshold,
-      whereClause: filters.join(" AND "),
-      params,
-      columns: ["id", "teamId", "enabled", "status", "assetProductId", "assetProductImageId", "productTypeId", "generalCategory", "sourceType", "embeddingModel", "createdAt", "updatedAt"],
-    },
-  );
+  const results = await queryReferenceCandidates({
+    kind: "product",
+    teamId,
+    vector,
+    limit,
+    scoreThreshold,
+    sourceType,
+  });
 
   return results.map((r) => ({
     id: r.id,
     score: r.score,
     payload: {
+      referenceMatchStrategy: r.payload.referenceMatchStrategy as "highest" | "average",
       teamId: r.payload.teamId as number,
       assetProductId: r.payload.assetProductId as string,
       assetProductImageId: r.payload.assetProductImageId as string | null,

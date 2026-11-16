@@ -132,6 +132,7 @@ async function getCreateOrUpdateProductSchema() {
     description: z.string().max(5000).default(""),
     tagIds: z.array(z.number().int().positive()).min(1, messages.tagsRequired).max(100),
     notes: z.string().max(5000).default(""),
+    referenceMatchStrategy: z.enum(["highest", "average"]).optional(),
     existingImageIds: z.array(z.string().uuid()).max(100).default([]),
     assetLibraryDownloadUrls: z.array(z.string().url()).max(100).default([]),
     assetLibraryUploadedImages: z
@@ -272,6 +273,7 @@ function normalizeProduct(product: AssetProductRecord): ProductItem {
     processedAt: product.processedAt,
     enabled: product.enabled,
     notes: product.notes,
+    referenceMatchStrategy: product.referenceMatchStrategy,
     createdAt: product.createdAt,
     updatedAt: product.updatedAt,
     images: product.images
@@ -912,6 +914,7 @@ async function parseCreateOrUpdateInput(formData: FormData) {
     description: typeof formData.get("description") === "string" ? formData.get("description") : "",
     tagIds: parseJsonField<number[]>(formData.get("tagIds"), []),
     notes: typeof formData.get("notes") === "string" ? formData.get("notes") : "",
+    referenceMatchStrategy: formData.get("referenceMatchStrategy") ?? undefined,
     existingImageIds: parseJsonField<string[]>(formData.get("existingImageIds"), []),
     assetLibraryDownloadUrls: parseJsonField<string[]>(
       formData.get("assetLibraryDownloadUrls"),
@@ -1728,6 +1731,7 @@ export async function createAssetProductAction(
           productTypeName: productType.name,
           description: input.description.trim(),
           notes: input.notes,
+          referenceMatchStrategy: input.referenceMatchStrategy,
           status: "pending",
           processingError: null,
           enabled: true,
@@ -1876,6 +1880,7 @@ export async function updateAssetProductAction(
             productTypeName: productType.name,
             description: input.description.trim(),
             notes: input.notes,
+            referenceMatchStrategy: input.referenceMatchStrategy,
             status: "pending",
             processingError: null,
             processedAt: null,

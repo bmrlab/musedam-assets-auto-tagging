@@ -46,6 +46,7 @@ import {
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { MatchStrategySwitch } from "../brand/MatchStrategySwitch";
 import DialogTagSelector from "../components/DialogTagSelector";
 import {
   createAssetIpAction,
@@ -185,6 +186,8 @@ export default function IpDialog({
   const [matchPattern, setMatchPattern] = useState<AssetIpMatchPattern>("whole");
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
   const [notes, setNotes] = useState("");
+  const [referenceMatchStrategy, setReferenceMatchStrategy] =
+    useState<"highest" | "average">("highest");
   const [images, setImages] = useState<DraftImage[]>([]);
   const [previewImage, setPreviewImage] = useState<DraftImage | null>(null);
   const [cropImageId, setCropImageId] = useState<string | null>(null);
@@ -207,6 +210,9 @@ export default function IpDialog({
       ip?.tags.map((tag) => tag.assetTagId).filter((id): id is number => Boolean(id)) ?? [],
     );
     setNotes(ip?.notes ?? "");
+    setReferenceMatchStrategy(
+      ip?.referenceMatchStrategy === "average" ? "average" : "highest",
+    );
     setImages((current) => {
       revokeDraftImageUrls(current);
       return buildDraftImages(ip, t);
@@ -620,6 +626,7 @@ export default function IpDialog({
       formData.append("matchPattern", matchPattern);
       formData.append("tagIds", JSON.stringify(selectedTagIds));
       formData.append("notes", notes.trim());
+      formData.append("referenceMatchStrategy", referenceMatchStrategy);
       formData.append(
         "existingImageIds",
         JSON.stringify(
@@ -864,10 +871,21 @@ export default function IpDialog({
           </div>
 
           <div className="space-y-2">
-            <div className="space-y-1">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <label className="h-[22px] text-[14px] leading-[22px] font-normal text-basic-8">
                 {t("dialog.ipImagesLabel")}
               </label>
+              <div className="flex items-center gap-2">
+                <span className="text-[12px] text-basic-5">
+                  {tBrand("dialog.multiImageMatchLabel")}
+                </span>
+                <MatchStrategySwitch
+                  value={referenceMatchStrategy}
+                  onChange={setReferenceMatchStrategy}
+                  disabled={isSaving}
+                  t={tBrand}
+                />
+              </div>
             </div>
 
             <input
@@ -1004,6 +1022,10 @@ export default function IpDialog({
                 </div>
               ))}
             </div>
+
+            <p className="text-[12px] leading-4 text-basic-6">
+              {t(`dialog.matchStrategyHint.${referenceMatchStrategy}`)}
+            </p>
 
             <div className="mt-3 flex items-start gap-[10px] rounded-[8px] border border-primary-5 bg-primary-1 px-3 py-[14px] text-[12px] leading-[16px] font-normal text-basic-8">
               <p className="text-[12px] leading-[16px] font-normal text-basic-8">

@@ -431,6 +431,10 @@
       "processingErrorTooltip": "Không thể trích xuất đặc trưng hợp lệ: {error}",
       "unknownError": "Lỗi không xác định",
       "dialog": {
+        "matchStrategyHint": {
+          "average": "Lấy trung bình độ tương đồng của tất cả ảnh tham chiếu. Phù hợp với hình thức nhất quán; góc nhìn, biến thể hoặc ảnh bộ phận có thể giảm điểm truy hồi. Văn bản được chấm riêng.",
+          "highest": "Dùng độ tương đồng của ảnh tham chiếu khớp nhất. Phù hợp với các góc nhìn, biến thể hoặc ảnh bộ phận khác nhau. Đây là chế độ mặc định. Văn bản được chấm riêng."
+        },
         "titleCreate": "Tạo Nhân vật IP Mới",
         "titleEdit": "Chỉnh sửa Nhân vật IP",
         "ipNameLabel": "Tên IP",
@@ -1437,6 +1441,10 @@
       "processingErrorTooltip": "Không thể trích xuất đặc trưng hợp lệ: {error}",
       "unknownError": "Lỗi không xác định",
       "dialog": {
+        "matchStrategyHint": {
+          "average": "Lấy trung bình độ tương đồng của tất cả ảnh tham chiếu. Phù hợp với hình thức nhất quán; góc nhìn, biến thể hoặc ảnh bộ phận có thể giảm điểm truy hồi. Văn bản được chấm riêng.",
+          "highest": "Dùng độ tương đồng của ảnh tham chiếu khớp nhất. Phù hợp với các góc nhìn, biến thể hoặc ảnh bộ phận khác nhau. Đây là chế độ mặc định. Văn bản được chấm riêng."
+        },
         "titleCreate": "Tạo đặc trưng sản phẩm mới",
         "titleEdit": "Chỉnh sửa đặc trưng sản phẩm",
         "productNameLabel": "Tên Sản phẩm",

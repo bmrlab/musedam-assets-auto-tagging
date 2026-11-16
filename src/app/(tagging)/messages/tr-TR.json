@@ -431,6 +431,10 @@
       "processingErrorTooltip": "Geçerli özellikler çıkarılamadı: {error}",
       "unknownError": "Bilinmeyen hata",
       "dialog": {
+        "matchStrategyHint": {
+          "average": "Tüm referans görüntülerinin benzerlik ortalaması. Tutarlı görünümler için uygundur; farklı açılar, varyantlar veya kısmi görüntüler arama puanını düşürebilir. Metin ayrı değerlendirilir.",
+          "highest": "En iyi eşleşen referans görüntüsünün benzerliğini kullanır. Farklı açılar, varyantlar veya kısmi görüntüler için uygundur. Varsayılan moddur. Metin ayrı değerlendirilir."
+        },
         "titleCreate": "Yeni IP Karakteri Oluştur",
         "titleEdit": "IP Karakterini Düzenle",
         "ipNameLabel": "IP Adı",
@@ -1437,6 +1441,10 @@
       "processingErrorTooltip": "Geçerli özellikler çıkarılamadı: {error}",
       "unknownError": "Bilinmeyen hata",
       "dialog": {
+        "matchStrategyHint": {
+          "average": "Tüm referans görüntülerinin benzerlik ortalaması. Tutarlı görünümler için uygundur; farklı açılar, varyantlar veya kısmi görüntüler arama puanını düşürebilir. Metin ayrı değerlendirilir.",
+          "highest": "En iyi eşleşen referans görüntüsünün benzerliğini kullanır. Farklı açılar, varyantlar veya kısmi görüntüler için uygundur. Varsayılan moddur. Metin ayrı değerlendirilir."
+        },
         "titleCreate": "Yeni Ürün Özelliği Oluştur",
         "titleEdit": "Ürün Özelliğini Düzenle",
         "productNameLabel": "Ürün Adı",

@@ -1,8 +1,10 @@
 import "server-only";
 
-import { querySimilarVectors, deletePointsByFilter, executeRawInsert, executeRawUpdate } from "@/lib/pgvector/client";
+import { deletePointsByFilter, executeRawInsert, executeRawUpdate } from "@/lib/pgvector/client";
+import { queryReferenceCandidates } from "@/lib/pgvector/reference-candidates";
 
 export type IpVectorPayload = {
+  referenceMatchStrategy?: "highest" | "average";
   teamId: number;
   assetIpId: string;
   assetIpImageId: string | null;
@@ -169,30 +171,20 @@ export async function queryIpVectorPoints({
   scoreThreshold?: number;
   sourceType?: IpVectorPayload["sourceType"];
 }): Promise<PgVectorIpQueryPoint[]> {
-  const filters = [`"teamId" = $1`, `"enabled" = true`, `"status" = 'completed'`];
-  const params: (number | string)[] = [teamId];
-
-  if (sourceType) {
-    filters.push(`"sourceType" = $2`);
-    params.push(sourceType);
-  }
-
-  const results = await querySimilarVectors(
-    TABLE_NAME,
-    {
-      vector,
-      limit,
-      scoreThreshold,
-      whereClause: filters.join(" AND "),
-      params,
-      columns: ["id", "teamId", "enabled", "status", "assetIpId", "assetIpImageId", "ipTypeId", "matchPattern", "partialMatchPatternName", "sourceType", "embeddingModel", "createdAt", "updatedAt"],
-    },
-  );
+  const results = await queryReferenceCandidates({
+    kind: "ip",
+    teamId,
+    vector,
+    limit,
+    scoreThreshold,
+    sourceType,
+  });
 
   return results.map((r) => ({
     id: r.id,
     score: r.score,
     payload: {
+      referenceMatchStrategy: r.payload.referenceMatchStrategy as "highest" | "average",
       teamId: r.payload.teamId as number,
       assetIpId: r.payload.assetIpId as string,
       assetIpImageId: r.payload.assetIpImageId as string | null,

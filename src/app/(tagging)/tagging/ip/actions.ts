@@ -122,6 +122,7 @@ async function getCreateOrUpdateIpSchema() {
     matchPattern: z.enum(ASSET_IP_MATCH_PATTERNS).default("whole"),
     tagIds: z.array(z.number().int().positive()).min(1, messages.tagsRequired).max(100),
     notes: z.string().max(5000).default(""),
+    referenceMatchStrategy: z.enum(["highest", "average"]).optional(),
     existingImageIds: z.array(z.string().uuid()).max(100).default([]),
     existingImagePartialSelections: z
       .array(
@@ -321,6 +322,7 @@ function normalizeIp(ip: AssetIpRecord): IpItem {
     processedAt: ip.processedAt,
     enabled: ip.enabled,
     notes: ip.notes,
+    referenceMatchStrategy: ip.referenceMatchStrategy,
     createdAt: ip.createdAt,
     updatedAt: ip.updatedAt,
     images: ip.images
@@ -1176,6 +1178,7 @@ async function parseCreateOrUpdateInput(formData: FormData) {
       typeof formData.get("matchPattern") === "string" ? formData.get("matchPattern") : "whole",
     tagIds: parseJsonField<number[]>(formData.get("tagIds"), []),
     notes: typeof formData.get("notes") === "string" ? formData.get("notes") : "",
+    referenceMatchStrategy: formData.get("referenceMatchStrategy") ?? undefined,
     existingImageIds: parseJsonField<string[]>(formData.get("existingImageIds"), []),
     existingImagePartialSelections: parseJsonField<
       Array<{ id: string } & ImagePartialSelectionInput>
@@ -2059,6 +2062,7 @@ export async function createAssetIpAction(
           description: input.description.trim(),
           matchPattern: input.matchPattern,
           notes: input.notes,
+          referenceMatchStrategy: input.referenceMatchStrategy,
           status: "pending",
           processingError: null,
           enabled: true,
@@ -2214,6 +2218,7 @@ export async function updateAssetIpAction(
             description: input.description.trim(),
             matchPattern: input.matchPattern,
             notes: input.notes,
+            referenceMatchStrategy: input.referenceMatchStrategy,
             status: "pending",
             processingError: null,
             processedAt: null,

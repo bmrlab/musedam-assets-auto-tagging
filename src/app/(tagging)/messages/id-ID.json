@@ -431,6 +431,10 @@
       "processingErrorTooltip": "Gagal mengekstrak fitur valid: {error}",
       "unknownError": "Kesalahan tidak diketahui",
       "dialog": {
+        "matchStrategyHint": {
+          "average": "Rata-rata kemiripan semua gambar referensi. Cocok untuk tampilan konsisten; sudut, varian, atau referensi parsial dapat menurunkan skor pencarian. Teks dinilai terpisah.",
+          "highest": "Menggunakan kemiripan gambar referensi yang paling cocok. Sesuai untuk sudut, varian, atau referensi parsial yang berbeda. Ini mode bawaan. Teks dinilai terpisah."
+        },
         "titleCreate": "Buat Karakter IP Baru",
         "titleEdit": "Edit Karakter IP",
         "ipNameLabel": "Nama IP",
@@ -1437,6 +1441,10 @@
       "processingErrorTooltip": "Gagal mengekstrak fitur valid: {error}",
       "unknownError": "Kesalahan tidak diketahui",
       "dialog": {
+        "matchStrategyHint": {
+          "average": "Rata-rata kemiripan semua gambar referensi. Cocok untuk tampilan konsisten; sudut, varian, atau referensi parsial dapat menurunkan skor pencarian. Teks dinilai terpisah.",
+          "highest": "Menggunakan kemiripan gambar referensi yang paling cocok. Sesuai untuk sudut, varian, atau referensi parsial yang berbeda. Ini mode bawaan. Teks dinilai terpisah."
+        },
         "titleCreate": "Buat Fitur Produk Baru",
         "titleEdit": "Edit Fitur Produk",
         "productNameLabel": "Nama Produk",

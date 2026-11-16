@@ -895,6 +895,10 @@
       "processingErrorTooltip": "有効な特徴を抽出できませんでした: {error}",
       "unknownError": "不明なエラー",
       "dialog": {
+        "matchStrategyHint": {
+          "average": "すべての参照画像の類似度を平均します。外観が一致する画像に適しています。異なる角度・形態・部分画像は検索スコアを下げる場合があります。説明文は別に計算します。",
+          "highest": "最も一致する参照画像の類似度を使用します。異なる角度・形態・部分画像に適した既定のモードです。説明文は別に計算します。"
+        },
         "titleCreate": "新しいIPキャラクターを作成",
         "titleEdit": "IPキャラクターを編集",
         "ipNameLabel": "IP名",
@@ -1437,6 +1441,10 @@
       "processingErrorTooltip": "有効な特徴を抽出できませんでした: {error}",
       "unknownError": "不明なエラー",
       "dialog": {
+        "matchStrategyHint": {
+          "average": "すべての参照画像の類似度を平均します。外観が一致する画像に適しています。異なる角度・形態・部分画像は検索スコアを下げる場合があります。説明文は別に計算します。",
+          "highest": "最も一致する参照画像の類似度を使用します。異なる角度・形態・部分画像に適した既定のモードです。説明文は別に計算します。"
+        },
         "titleCreate": "新しい商品特徴を作成",
         "titleEdit": "商品特徴を編集",
         "productNameLabel": "商品名",

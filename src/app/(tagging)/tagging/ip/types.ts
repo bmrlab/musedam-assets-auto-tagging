@@ -57,6 +57,7 @@ export type IpItem = {
   processedAt: Date | null;
   enabled: boolean;
   notes: string;
+  referenceMatchStrategy: "highest" | "average";
   createdAt: Date;
   updatedAt: Date;
   images: IpImageItem[];

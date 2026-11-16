@@ -438,6 +438,10 @@
       "processingErrorTooltip": "Failed to extract valid features: {error}",
       "unknownError": "Unknown error",
       "dialog": {
+        "matchStrategyHint": {
+          "average": "Average similarity across all reference images. Best for consistent appearances; different views, variants or partial references may lower retrieval scores. Text descriptions are scored separately.",
+          "highest": "Use the similarity of the best matching reference image. Suitable for different views, variants or partial references. This is the default. Text descriptions are scored separately."
+        },
         "titleCreate": "Create New IP Character",
         "titleEdit": "Edit IP Character",
         "ipNameLabel": "IP Name",
@@ -1444,6 +1448,10 @@
       "processingErrorTooltip": "Failed to extract valid features: {error}",
       "unknownError": "Unknown error",
       "dialog": {
+        "matchStrategyHint": {
+          "average": "Average similarity across all reference images. Best for consistent appearances; different views, variants or partial references may lower retrieval scores. Text descriptions are scored separately.",
+          "highest": "Use the similarity of the best matching reference image. Suitable for different views, variants or partial references. This is the default. Text descriptions are scored separately."
+        },
         "titleCreate": "Create New Product Feature",
         "titleEdit": "Edit Product Feature",
         "productNameLabel": "Product Name",

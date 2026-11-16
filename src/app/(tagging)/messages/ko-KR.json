@@ -894,6 +894,10 @@
       "processingErrorTooltip": "유효한 특징 추출 실패: {error}",
       "unknownError": "알 수 없는 오류",
       "dialog": {
+        "matchStrategyHint": {
+          "average": "모든 참조 이미지의 유사도를 평균합니다. 외형이 일정한 이미지에 적합하며, 다른 각도·형태·부분 이미지는 검색 점수를 낮출 수 있습니다. 설명 텍스트는 별도로 계산합니다.",
+          "highest": "가장 잘 일치하는 참조 이미지의 유사도를 사용합니다. 다른 각도·형태·부분 이미지에 적합한 기본 모드입니다. 설명 텍스트는 별도로 계산합니다."
+        },
         "titleCreate": "새 IP 캐릭터 생성",
         "titleEdit": "IP 캐릭터 편집",
         "ipNameLabel": "IP 이름",
@@ -1435,6 +1439,10 @@
       "processingErrorTooltip": "유효한 특징을 추출할 수 없습니다: {error}",
       "unknownError": "알 수 없는 오류",
       "dialog": {
+        "matchStrategyHint": {
+          "average": "모든 참조 이미지의 유사도를 평균합니다. 외형이 일정한 이미지에 적합하며, 다른 각도·형태·부분 이미지는 검색 점수를 낮출 수 있습니다. 설명 텍스트는 별도로 계산합니다.",
+          "highest": "가장 잘 일치하는 참조 이미지의 유사도를 사용합니다. 다른 각도·형태·부분 이미지에 적합한 기본 모드입니다. 설명 텍스트는 별도로 계산합니다."
+        },
         "titleCreate": "새 상품 특성",
         "titleEdit": "상품 특성 편집",
         "productNameLabel": "상품 이름",

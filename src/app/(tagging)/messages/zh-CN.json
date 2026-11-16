@@ -438,6 +438,10 @@
       "processingErrorTooltip": "无法提取有效特征：{error}",
       "unknownError": "未知错误",
       "dialog": {
+        "matchStrategyHint": {
+          "average": "所有参考图的相似度取平均值。适合外观一致的样本；不同视角、造型或局部样本可能拉低召回分数。文字描述单独计算。",
+          "highest": "取最匹配的一张参考图的相似度。适合不同视角、造型或局部样本，默认使用此模式。文字描述单独计算。"
+        },
         "titleCreate": "新建IP形象特征",
         "titleEdit": "编辑IP形象特征",
         "ipNameLabel": "IP名称",
@@ -1444,6 +1448,10 @@
       "processingErrorTooltip": "无法提取有效特征：{error}",
       "unknownError": "未知错误",
       "dialog": {
+        "matchStrategyHint": {
+          "average": "所有参考图的相似度取平均值。适合外观一致的样本；不同视角、造型或局部样本可能拉低召回分数。文字描述单独计算。",
+          "highest": "取最匹配的一张参考图的相似度。适合不同视角、造型或局部样本，默认使用此模式。文字描述单独计算。"
+        },
         "titleCreate": "新建商品特征",
         "titleEdit": "编辑商品特征",
         "productNameLabel": "商品名称",

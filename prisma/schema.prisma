@@ -297,6 +297,8 @@ model AssetIp {
   enabled         Boolean              @default(true)
   notes           String               @default("") @db.Text
 
+  referenceMatchStrategy AssetReferenceMatchStrategy @default(highest)
+
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @db.Timestamptz(6)
 
@@ -356,6 +358,11 @@ model AssetIpTag {
   @@index([assetIpId, sort])
 }
 
+enum AssetReferenceMatchStrategy {
+  highest
+  average
+}
+
 enum AssetProductProcessStatus {
   pending
   processing
@@ -394,6 +401,8 @@ model AssetProduct {
   processedAt     DateTime?                 @db.Timestamptz(6)
   enabled         Boolean                   @default(true)
   notes           String                    @default("") @db.Text
+
+  referenceMatchStrategy AssetReferenceMatchStrategy @default(highest)
 
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @db.Timestamptz(6)

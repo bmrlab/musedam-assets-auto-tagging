@@ -431,6 +431,10 @@
       "processingErrorTooltip": "Nie udało się wyodrębnić poprawnych cech: {error}",
       "unknownError": "Nieznany błąd",
       "dialog": {
+        "matchStrategyHint": {
+          "average": "Średnie podobieństwo wszystkich obrazów referencyjnych. Dobre dla spójnego wyglądu; inne widoki, warianty lub fragmenty mogą obniżyć wynik wyszukiwania. Tekst jest oceniany osobno.",
+          "highest": "Używa podobieństwa najlepiej dopasowanego obrazu referencyjnego. Dobre dla różnych widoków, wariantów lub fragmentów. Tryb domyślny. Tekst jest oceniany osobno."
+        },
         "titleCreate": "Utwórz nową postać IP",
         "titleEdit": "Edytuj postać IP",
         "ipNameLabel": "Nazwa IP",
@@ -1437,6 +1441,10 @@
       "processingErrorTooltip": "Nie udało się wyodrębnić poprawnych cech: {error}",
       "unknownError": "Nieznany błąd",
       "dialog": {
+        "matchStrategyHint": {
+          "average": "Średnie podobieństwo wszystkich obrazów referencyjnych. Dobre dla spójnego wyglądu; inne widoki, warianty lub fragmenty mogą obniżyć wynik wyszukiwania. Tekst jest oceniany osobno.",
+          "highest": "Używa podobieństwa najlepiej dopasowanego obrazu referencyjnego. Dobre dla różnych widoków, wariantów lub fragmentów. Tryb domyślny. Tekst jest oceniany osobno."
+        },
         "titleCreate": "Utwórz nową cechę produktu",
         "titleEdit": "Edytuj cechę produktu",
         "productNameLabel": "Nazwa produktu",
