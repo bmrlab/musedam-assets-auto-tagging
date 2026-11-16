@@ -286,12 +286,15 @@
     "Settings": {
       "AIRecognition": {
         "imageModeImages": "圖片使用圖像模式",
+        "imageModeImageDescription": "開啟時，結合原圖、參考圖與文字資訊判斷特徵，每張 2 點；關閉時，基於特徵相似度、檔名/路徑和 OCR 等文字資訊判斷，每張 1 點。兩種模式均會進行圖像特徵檢索，並在需要時識別 OCR。",
         "imageModeImageOn": "結合圖像與文字比對，每張 2 點。",
         "imageModeImageOff": "依特徵相似度與文字比對，每張 1 點。",
         "imageModeVideos": "影片使用圖像模式",
+        "imageModeVideoDescription": "開啟時，結合取樣畫面、參考圖與文字資訊判斷特徵，每計費影格 2 點；關閉時，基於特徵相似度、檔名/路徑和 OCR 等文字資訊判斷，每個素材固定 1 點。",
         "imageModeVideoOn": "結合圖像與文字比對，每幀 2 點。",
         "imageModeVideoOff": "依特徵相似度與文字比對，每個素材 1 點。",
-        "imageModeVideoBilling": "每 {seconds} 秒計 1 幀，向上取整，最多 {maxFrames} 幀。",
+        "imageModeVideoSampling": "兩種模式都會從原影片取樣最多 12 個影格（取樣間隔不少於 0.25 秒），優先保留清晰、不重複的有效畫面，最多 8 個影格用於特徵偵測、4 個用於 OCR；取樣失敗時嘗試使用縮圖。",
+        "imageModeVideoBilling": "開啟時，每 {seconds} 秒計 1 個計費影格，無條件進位，最少 1 個、最多 {maxFrames} 個；時長未知按 1 個計。計費影格數與實際取樣、去重後的影格數無關。",
         "balanced": "平衡模式",
         "balancedDesc": "平衡標籤準確性與覆蓋度，適合日常大多數場景",
         "broad": "寬鬆模式",
@@ -686,6 +689,7 @@
       }
     },
     "Test": {
+      "imageModeScope": "僅用於本頁圖片和影片測試，不讀取或修改 AI 標記設定；已提交任務沿用提交時的選擇。",
       "archiveMaterial": "歷史資料",
       "assetSelectionFailed": "選擇素材失敗",
       "assetsSelectedSuccess": "已選擇 {count} 個素材",

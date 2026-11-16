@@ -1,3 +1,4 @@
+import { runImageDecisionWithTextFallback } from "./image-fallback";
 import { throwIfQueueAborted } from "@/lib/tagging/queue-execution";
 import { withFeatureBudget } from "@/lib/tagging/operation-budget";
 import { recallProductsByMetadata, type ProductMetadataEvidence } from "@/lib/product/metadata-candidates";
@@ -76,6 +77,8 @@ type FeatureFrame = {
 type FeatureClassificationInput = FeatureLlmContext & {
   enabledTypes: DecisionFeatureType[];
   imageMode?: boolean;
+  allowTextFallback?: boolean;
+  onProgress?: (stage: string) => void;
   fileName?: string;
   folderPath?: string;
   ocrSegments?: string[];
@@ -497,6 +500,8 @@ export async function classifyAssetFeatures(
     })).then(ocr => { input.onOcr?.(ocr); return ocr; }) : null;
   // Observe immediately while retrieval runs, even if retrieval itself throws.
   void ocrPromise?.catch(() => {});
+  input.onProgress?.("retrieval");
+  const retrievalStarted = Date.now();
   const { output, regions, errors, sampleTimes } = await trackClassificationEmbeddings(
     {
       teamId,
@@ -532,6 +537,9 @@ export async function classifyAssetFeatures(
           };
     },
   ).finally(async () => { await ocrPromise; });
+  const retrievalMs = Date.now() - retrievalStarted;
+  const candidateStarted = Date.now();
+  input.onProgress?.("candidate_preparation");
   throwIfQueueAborted();
   if (errors.length && errors.every(error => error.includes("JINA_UNAVAILABLE:"))) {
     return { brand: null, ip: null, product: null, diagnostics: {
@@ -593,6 +601,7 @@ export async function classifyAssetFeatures(
     };
   } else {
     const candidates: FeatureDecisionCandidate[] = [];
+    const textCandidates: FeatureDecisionCandidate[] = [];
     const referenceWork = pLimit(4);
     const imageSelect = {
       orderBy: [{ sort: "asc" as const }, { createdAt: "asc" as const }, { id: "asc" as const }],
@@ -703,59 +712,65 @@ export async function classifyAssetFeatures(
           )
         : [],
     ]);
-    const addReference = async (
+    const addReference = (
       candidate: Omit<FeatureDecisionCandidate, "referenceImage">,
       objectKey?: string,
-    ): Promise<FeatureDecisionCandidate | null> => {
+    ): (() => Promise<FeatureDecisionCandidate | null>) => {
       const times = sampleTimes?.get(candidate.candidateId);
       if (times) candidate = { ...candidate, sampleTimes: times };
-      if (!imageMode) return candidate;
-      if (!objectKey) {
-        retrieval.unassessedCandidates.push({
-          candidateId: candidate.candidateId,
-          reason: "First reference image unavailable",
-        });
-        return null;
-      }
-      try {
-        const { signedUrl } = getCachedSignedS3ObjectUrl({ objectKey });
-        const reference = await referenceWork(() =>
-          fetchRemoteImageInput(signedUrl, "feature decision first reference", {
-            signal: video?.signal,
-          }),
-        );
-        return { ...candidate, referenceImage: reference.dataUrl };
-      } catch (error) {
-        retrieval.unassessedCandidates.push({
-          candidateId: candidate.candidateId,
-          reason: error instanceof Error ? error.message : String(error),
-        });
-        return null;
-      }
+      textCandidates.push(candidate);
+      return async () => {
+        if (!imageMode) return candidate;
+        if (!objectKey) {
+          retrieval.unassessedCandidates.push({
+            candidateId: candidate.candidateId,
+            reason: "First reference image unavailable",
+          });
+          return null;
+        }
+        try {
+          const { signedUrl } = getCachedSignedS3ObjectUrl({ objectKey });
+          const reference = await referenceWork(() =>
+            fetchRemoteImageInput(signedUrl, "feature decision first reference", {
+              signal: video?.signal,
+            }),
+          );
+          return { ...candidate, referenceImage: reference.dataUrl };
+        } catch (error) {
+          retrieval.unassessedCandidates.push({
+            candidateId: candidate.candidateId,
+            reason: error instanceof Error ? error.message : String(error),
+          });
+          return null;
+        }
+      };
     };
-    const addLogoReferences = async (
+    const addLogoReferences = (
       candidate: FeatureDecisionCandidate,
       images: Array<{ id?: string; objectKey: string }>,
-    ): Promise<FeatureDecisionCandidate | null> => {
+    ): (() => Promise<FeatureDecisionCandidate | null>) => {
       const times = sampleTimes?.get(candidate.candidateId);
       if (times) candidate = { ...candidate, sampleTimes: times };
-      if (!imageMode) return candidate;
-      try {
-        const prepared = await prepareLogoReferenceSheet(images, objectKey => referenceWork(async () => {
-          const { signedUrl } = getCachedSignedS3ObjectUrl({ objectKey });
-          return (await fetchRemoteImageInput(signedUrl, "feature decision logo references", {
-            signal: video?.signal,
-          })).dataUrl;
-        }));
-        return { ...candidate, referenceImage: prepared.dataUrl,
-          referenceImageCount: prepared.referenceImageCount, referenceImageIds: prepared.referenceImageIds };
-      } catch (error) {
-        retrieval.unassessedCandidates.push({ candidateId: candidate.candidateId,
-          reason: error instanceof Error ? error.message : String(error) });
-        return null;
-      }
+      textCandidates.push(candidate);
+      return async () => {
+        if (!imageMode) return candidate;
+        try {
+          const prepared = await prepareLogoReferenceSheet(images, objectKey => referenceWork(async () => {
+            const { signedUrl } = getCachedSignedS3ObjectUrl({ objectKey });
+            return (await fetchRemoteImageInput(signedUrl, "feature decision logo references", {
+              signal: video?.signal,
+            })).dataUrl;
+          }));
+          return { ...candidate, referenceImage: prepared.dataUrl,
+            referenceImageCount: prepared.referenceImageCount, referenceImageIds: prepared.referenceImageIds };
+        } catch (error) {
+          retrieval.unassessedCandidates.push({ candidateId: candidate.candidateId,
+            reason: error instanceof Error ? error.message : String(error) });
+          return null;
+        }
+      };
     };
-    const pending: Array<Promise<FeatureDecisionCandidate | null>> = [];
+    const pending: Array<() => Promise<FeatureDecisionCandidate | null>> = [];
     for (const match of brandCandidates) {
       const logo = logos.find((entry) => entry.id === match.assetLogoId);
       pending.push(
@@ -843,24 +858,40 @@ export async function classifyAssetFeatures(
         ),
       );
     }
-    for (const candidate of await Promise.all(pending)) if (candidate) candidates.push(candidate);
-    video?.signal.throwIfAborted();
+    const candidatePreparationMs = Date.now() - candidateStarted;
+    const prepareImages = async () => (await Promise.all(pending.map(prepare => prepare())))
+      .filter((candidate): candidate is FeatureDecisionCandidate => candidate !== null);
+    const decisionInput = {
+      teamId,
+      queueItemId: input.queueItemId,
+      assetObjectId: input.assetObjectId,
+      fileName: input.fileName,
+      folderPath: input.folderPath,
+      sourceImage,
+      ...(videoEvidence ? { video: videoEvidence } : {}),
+      ...(video?.decisionSignal ? { signal: video.decisionSignal } : {}),
+      imageMode,
+      candidates: textCandidates,
+      ocr,
+    };
+    input.onProgress?.("decision");
+    let decision: FeatureDecisionDiagnostics;
+    if (imageMode && input.allowTextFallback) {
+      const selected = await runImageDecisionWithTextFallback(decisionInput, prepareImages);
+      decision = selected.diagnostics;
+      candidates.push(...selected.candidates);
+      // Text decisions assess every retrieved candidate without needing reference downloads.
+      if (decision.imageFallback?.used) retrieval.unassessedCandidates.length = 0;
+    } else {
+      candidates.push(...await prepareImages());
+      video?.signal.throwIfAborted();
+      decision = await runFeatureDecision({ ...decisionInput, candidates });
+    }
     output.diagnostics = {
-      ...(await runFeatureDecision({
-        teamId,
-        queueItemId: input.queueItemId,
-        assetObjectId: input.assetObjectId,
-        fileName: input.fileName,
-        folderPath: input.folderPath,
-        sourceImage,
-        ...(videoEvidence ? { video: videoEvidence } : {}),
-        ...(video?.decisionSignal ? { signal: video.decisionSignal } : {}),
-        imageMode,
-        candidates,
-        ocr,
-      })),
+      ...decision,
       mode,
-      decisionInputMode: imageMode ? "image" : "text",
+      decisionInputMode: decision.decisionInputMode ?? (imageMode ? "image" : "text"),
+      timings: { ...decision.timings, retrievalMs, candidatePreparationMs },
       retrieval,
       folderMatchedLogoIds: [...folderMatchIds],
       ocrMatchedLogoIds: [...ocrMatchIds],

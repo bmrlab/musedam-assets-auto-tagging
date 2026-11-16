@@ -96,7 +96,7 @@ export function AIRecognitionSection({
                 {
                   id: "team-feature-image-mode",
                   label: "imageModeImages",
-                  hint: imageMode ? "imageModeImageOn" : "imageModeImageOff",
+                  hint: "imageModeImageDescription",
                   billing: false,
                   checked: imageMode,
                   change: onImageModeChange,
@@ -104,8 +104,8 @@ export function AIRecognitionSection({
                 {
                   id: "team-feature-video-image-mode",
                   label: "imageModeVideos",
-                  hint: videoImageMode ? "imageModeVideoOn" : "imageModeVideoOff",
-                  billing: videoImageMode,
+                  hint: "imageModeVideoDescription",
+                  billing: true,
                   checked: videoImageMode,
                   change: onVideoImageModeChange,
                 },
@@ -119,11 +119,16 @@ export function AIRecognitionSection({
                   >
                     {t(item.label)}
                   </label>
-                  <p id={`${item.id}-help`} className="mt-1 text-xs leading-4 text-basic-5">
+                  <p id={`${item.id}-help`} className="mt-1 text-xs leading-4 text-basic-5 dark:text-basic-6">
                     {t(item.hint)}
                   </p>
                   {item.billing && (
-                    <p id={`${item.id}-billing`} className="mt-1 text-xs leading-4 text-basic-5">
+                    <p id={`${item.id}-sampling`} className="mt-1 text-xs leading-4 text-basic-5 dark:text-basic-6">
+                      {t("imageModeVideoSampling")}
+                    </p>
+                  )}
+                  {item.billing && (
+                    <p id={`${item.id}-billing`} className="mt-1 text-xs leading-4 text-basic-5 dark:text-basic-6">
                       {t("imageModeVideoBilling", {
                         seconds: VIDEO_CREDIT_INTERVAL_MS / 1000,
                         maxFrames: MAX_VIDEO_CREDIT_FRAMES,
@@ -134,7 +139,7 @@ export function AIRecognitionSection({
                 <Switch
                   id={item.id}
                   className="shrink-0"
-                  aria-describedby={`${item.id}-help${item.billing ? ` ${item.id}-billing` : ""}`}
+                  aria-describedby={`${item.id}-help${item.billing ? ` ${item.id}-sampling ${item.id}-billing` : ""}`}
                   checked={item.checked}
                   onCheckedChange={item.change}
                   disabled={disabled}

@@ -690,12 +690,15 @@
       },
       "AIRecognition": {
         "imageModeImages": "Chế độ hình ảnh cho ảnh",
+        "imageModeImageDescription": "When enabled, feature decisions use the source image, reference images and text, at 2 credits per image. When disabled, decisions use feature similarity and text such as filenames, paths and OCR, at 1 credit per image. Both modes retrieve image features and run OCR when needed.",
         "imageModeImageOn": "Đối chiếu hình ảnh và văn bản. 2 điểm mỗi ảnh.",
         "imageModeImageOff": "Đối chiếu độ tương đồng đặc trưng và văn bản. 1 điểm mỗi ảnh.",
         "imageModeVideos": "Chế độ hình ảnh cho video",
+        "imageModeVideoDescription": "When enabled, feature decisions use sampled frames, reference images and text, at 2 credits per billable frame. When disabled, decisions use feature similarity and text such as filenames, paths and OCR, at a fixed 1 credit per asset.",
         "imageModeVideoOn": "Đối chiếu hình ảnh và văn bản. 2 điểm mỗi khung hình tính phí.",
         "imageModeVideoOff": "Đối chiếu độ tương đồng đặc trưng và văn bản. 1 điểm mỗi tài nguyên.",
-        "imageModeVideoBilling": "1 khung hình tính phí mỗi {seconds} giây, làm tròn lên, tối đa {maxFrames}.",
+        "imageModeVideoSampling": "Both modes sample up to 12 frames from the original video, at least 0.25 seconds apart, preferring clear, distinct, nonblank frames. Up to 8 frames are used for feature detection and 4 for OCR. If sampling fails, a thumbnail fallback is attempted.",
+        "imageModeVideoBilling": "When enabled, every {seconds} seconds counts as one billable frame, rounded up, with a minimum of 1 and a maximum of {maxFrames}; unknown durations count as 1. Billable frames are independent of actual sampling and deduplication.",
         "title": "Cài đặt nhận diện AI",
         "precise": "Chế độ chính xác",
         "preciseDesc": "Ưu tiên độ chính xác, phù hợp các kịch bản yêu cầu cao",
@@ -926,6 +929,7 @@
       "remove": "Gỡ bỏ"
     },
     "Test": {
+      "imageModeScope": "Applies only to image and video tests on this page. It does not read or change AI tagging settings. Submitted tasks keep the mode selected at submission.",
       "uploadLocalFiles": "Upload local files",
       "localFileInvalid": "{name}: Select an image up to 20 MB or a video up to 200 MB.",
       "localUploadFailed": "Local file upload failed.",

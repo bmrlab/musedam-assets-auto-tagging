@@ -13,8 +13,11 @@ export async function getFeatureRetryStatus(sourceId: number) {
   return withAuth(async ({ team: { id: teamId } }) => {
     const source = await prisma.taggingQueueItem.findFirstOrThrow({
       where: { id: sourceId, teamId },
-      select: { id: true, startsAt: true, extra: true },
+      select: { id: true, status: true, startsAt: true, extra: true },
     });
+    if ((source.extra as TaggingQueueItemExtra)?.featureRetryInPlace) {
+      return { success: true as const, data: { id: source.id, status: source.status } };
+    }
     const job = await prisma.taggingQueueItem.findFirst({
       where: {
         id: (source.extra as TaggingQueueItemExtra)?.featureRetryJobId ?? -1,
@@ -45,17 +48,20 @@ export async function retryFeatures(sourceId: number) {
     if (!enabled.featureLibrary)
       return { success: false as const, message: "FEATURE_LIBRARY_DISABLED" };
     const job = await prisma.$transaction(async (tx) => {
-      // Same team lock as normal enqueue and suspension; concurrent clicks share one job.
+      // Same team lock as normal enqueue and suspension; concurrent clicks share one task.
       await tx.$queryRaw`SELECT "id" FROM "Team" WHERE "id" = ${teamId} FOR UPDATE`;
       await assertTeamTaggingEnabled(teamId, tx);
       const source = await tx.taggingQueueItem.findFirstOrThrow({
         where: { id: sourceId, teamId },
         include: { assetObject: true },
       });
+      const extra = source.extra as TaggingQueueItemExtra;
       const result = source.result as TaggingQueueItemResult | null;
+      if (source.assetObject && extra?.featureRetryInPlace &&
+          (source.status === "pending" || source.status === "processing")) return source;
       if (
         !source.assetObject ||
-        source.status !== "completed" ||
+        (source.status !== "completed" && !(extra?.featureRetryInPlace && source.status === "failed")) ||
         !hasFeatureRecognitionFailure(result?.featureDecision) ||
         isScopedFeatureReviewComplete(source)
       ) {
@@ -70,7 +76,6 @@ export async function retryFeatures(sourceId: number) {
         },
       });
       if (active) return active;
-      const extra = source.extra as TaggingQueueItemExtra;
       const flags = resolveFeatureClassificationFlags(extra?.featureClassify === true, {
         brand: enabled.featureBrand && extra?.featureBrand !== false,
         product: enabled.featureProduct && extra?.featureProduct !== false,
@@ -88,33 +93,32 @@ export async function retryFeatures(sourceId: number) {
         flags.ip ? tx.ipVector.count({ where: { teamId, enabled: true, status: "completed" } }) : 0,
       ]);
       if (!counts.some(Boolean)) throw Error("FEATURE_LIBRARY_EMPTY");
-      const created = await tx.taggingQueueItem.create({
+      const linked = await tx.taggingQueueItem.updateMany({
+        where: { id: source.id, teamId, updatedAt: source.updatedAt, status: source.status },
         data: {
-          teamId,
-          assetObjectId: source.assetObjectId,
-          taskType: "manual",
           status: "pending",
+          startsAt: null,
+          endsAt: null,
+          // Keep the original evidence and review rows while only features are rerun.
           extra: {
-            featureRetrySourceQueueItemId: sourceId,
+            ...extra,
+            featureRetryInPlace: true,
+            featureRetryJobId: source.id,
+            featureRetrySourceQueueItemId: source.id,
             featureRetrySourceStartedAt: source.startsAt?.toISOString() ?? null,
             featureClassify: true,
             featureBrand: flags.brand,
             featureProduct: flags.product,
             featureIp: flags.ip,
             featurePerson: false,
-            matchingSources: extra?.matchingSources,
-            recognitionAccuracy: extra?.recognitionAccuracy,
-            featureImageMode: extra?.featureImageMode,
+            interruptedAttempts: 0,
+            rerunRequested: false,
             creditCost: 0,
           } as Prisma.InputJsonObject,
         },
       });
-      const linked = await tx.taggingQueueItem.updateMany({
-        where: { id: source.id, teamId, updatedAt: source.updatedAt },
-        data: { extra: { ...extra, featureRetryJobId: created.id } as Prisma.InputJsonObject },
-      });
       if (!linked.count) throw Error("FEATURE_REVIEW_CHANGED");
-      return created;
+      return { id: source.id, status: "pending" as const };
     });
     kickQueueProcessing();
     return { success: true as const, data: { id: job.id, status: job.status } };

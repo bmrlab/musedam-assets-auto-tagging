@@ -401,7 +401,7 @@ export async function retryFailedTask(taskId: number): Promise<ServerActionResul
           status: "pending",
           startsAt: null,
           endsAt: null,
-          result: {},
+          ...(!(task.extra as { featureRetryInPlace?: boolean })?.featureRetryInPlace ? { result: {} } : {}),
         },
       });
 
@@ -422,14 +422,23 @@ export async function retryFailedTask(taskId: number): Promise<ServerActionResul
 export async function retryAllFailedTasks(): Promise<ServerActionResult<{ count: number }>> {
   return withAuth(async ({ team: { id: teamId } }) => {
     try {
-      const result = await prisma.taggingQueueItem.updateMany({
-        where: { teamId, ...DASHBOARD_TASK_FILTER, ...FAILED_NOT_CANCELLED_FILTER },
-        data: {
-          status: "pending",
-          startsAt: null,
-          endsAt: null,
-          result: {},
-        },
+      const result = await prisma.$transaction(async tx => {
+        const where = { teamId, ...DASHBOARD_TASK_FILTER, ...FAILED_NOT_CANCELLED_FILTER };
+        const retries = await tx.taggingQueueItem.findMany({
+          where: { ...where, extra: { path: ["featureRetryInPlace"], equals: true } },
+          select: { id: true },
+        });
+        const ids = retries.map(row => row.id);
+        const regular = await tx.taggingQueueItem.updateMany({
+          where: { ...where, ...(ids.length ? { id: { notIn: ids } } : {}) },
+          data: { status: "pending", startsAt: null, endsAt: null, result: {} },
+        });
+        // Feature-only retries retain the original tags, metadata and review evidence.
+        const features = ids.length ? await tx.taggingQueueItem.updateMany({
+          where: { ...where, id: { in: ids } },
+          data: { status: "pending", startsAt: null, endsAt: null },
+        }) : { count: 0 };
+        return { count: regular.count + features.count };
       });
 
       return {

@@ -774,12 +774,15 @@
       },
       "AIRecognition": {
         "imageModeImages": "图片使用图像模式",
+        "imageModeImageDescription": "开启时，结合原图、参考图与文字信息判断特征，每张 2 点；关闭时，基于特征相似度、文件名/路径和 OCR 等文字信息判断，每张 1 点。两种模式均会进行图像特征检索，并在需要时识别 OCR。",
         "imageModeImageOn": "结合图像与文字匹配，每张 2 点。",
         "imageModeImageOff": "基于特征相似度与文字匹配，每张 1 点。",
         "imageModeVideos": "视频使用图像模式",
+        "imageModeVideoDescription": "开启时，结合采样画面、参考图与文字信息判断特征，每计费帧 2 点；关闭时，基于特征相似度、文件名/路径和 OCR 等文字信息判断，每个素材固定 1 点。",
         "imageModeVideoOn": "结合图像与文字匹配，每帧 2 点。",
         "imageModeVideoOff": "基于特征相似度与文字匹配，每个素材 1 点。",
-        "imageModeVideoBilling": "每 {seconds} 秒计 1 帧，向上取整，最多 {maxFrames} 帧。",
+        "imageModeVideoSampling": "两种模式都会从原视频采样最多 12 帧（采样间隔不少于 0.25 秒），优先保留清晰、不重复的有效画面，最多 8 帧用于特征检测、4 帧用于 OCR；采样失败时尝试使用缩略图。",
+        "imageModeVideoBilling": "开启时，每 {seconds} 秒计 1 个计费帧，向上取整，最少 1 帧、最多 {maxFrames} 帧；时长未知按 1 帧。计费帧数与实际抽帧、去重后的帧数无关。",
         "title": "AI 识别设置",
         "precise": "精准模式",
         "preciseDesc": "优先准确性，适合打标要求严格的场景",
@@ -1010,6 +1013,7 @@
       "remove": "移除"
     },
     "Test": {
+      "imageModeScope": "仅用于本页图片和视频测试，不读取或修改 AI 打标设置；已提交任务沿用提交时的选择。",
       "uploadLocalFiles": "上传本地文件",
       "localFileInvalid": "{name}：请选择不超过 20 MB 的图片或 200 MB 的视频",
       "localUploadFailed": "本地文件上传失败",

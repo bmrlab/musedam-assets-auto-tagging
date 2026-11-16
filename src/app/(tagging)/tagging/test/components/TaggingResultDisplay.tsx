@@ -8,6 +8,7 @@ import type {
 } from "@/app/(tagging)/tagging/review/feature-review";
 import { TagOutlinedIcon, VimIcon } from "@/components/ui";
 import { useFeatureLibraryFeatures } from "@/hooks/use-feature-library";
+import { hasFeatureRecognitionFailure } from "@/lib/feature-decision/completion";
 import type { FeatureDecisionDiagnostics } from "@/lib/feature-decision/types";
 import {
   getFeatureConfidenceToneClass,
@@ -362,6 +363,10 @@ export function TaggingResultDisplay({ result, featureThumbnails }: TaggingResul
   );
   const t = useTranslations("TaggingResultDisplay");
   const featureLibraryFeatures = useFeatureLibraryFeatures();
+  const featureRecognitionIncomplete = hasFeatureRecognitionFailure(result.featureDecision)
+    || !!result.featureDecision?.degradation
+    || result.featureDecision?.decision.status === "failed"
+    || result.featureDecision?.decision.status === "skipped";
   const hasEnabledFeatures =
     featureLibraryFeatures.featureBrand ||
     featureLibraryFeatures.featureIp ||
@@ -585,6 +590,11 @@ export function TaggingResultDisplay({ result, featureThumbnails }: TaggingResul
           title={t("recognizedFeatures")}
           count={visibleFeatureCount}
         >
+          {featureRecognitionIncomplete ? (
+            <div role="status" className="text-sm text-basic-5">
+              {t("featureRecognitionIncomplete")}
+            </div>
+          ) : null}
           {recognitionFeatures.length > 0 ? (
             <div className="space-y-3">
               {recognitionFeatures.map((feature) => (
@@ -595,7 +605,7 @@ export function TaggingResultDisplay({ result, featureThumbnails }: TaggingResul
                 />
               ))}
             </div>
-          ) : (
+          ) : !featureRecognitionIncomplete ? (
             <div className="text-sm text-basic-5">
               {t(
                 hasFeatureBelowConfidenceThreshold
@@ -603,7 +613,7 @@ export function TaggingResultDisplay({ result, featureThumbnails }: TaggingResul
                     : "noRecognizedFeatures",
               )}
             </div>
-          )}
+          ) : null}
         </SectionShell>
       ) : null}
       {result.metadataPredictions && <MetadataResults testResult predictions={result.metadataPredictions.filter(item => item.score >= 60)} />}

@@ -1244,7 +1244,7 @@ export function ReviewItem({
               featureRows.sort((a, b) => b.confidence - a.confidence);
 
               const retryAvailable = hasFeatureRecognitionFailure((queueItem.result as TaggingQueueItemResult | null)?.featureDecision)
-                && index === 0 && queueItem.status === "completed" && !sourceDeleted && !isScopedFeatureReviewComplete(queueItem);
+                && index === 0 && (queueItem.status === "completed" || (queueItem.extra as { featureRetryInPlace?: boolean })?.featureRetryInPlace === true) && !sourceDeleted && !isScopedFeatureReviewComplete(queueItem);
               const featurePanel = (
                 <div
                   key={`features-${queueItem.id}`}

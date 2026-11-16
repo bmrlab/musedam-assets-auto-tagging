@@ -154,6 +154,14 @@ export type FeatureOcrDiagnostics = {
 };
 
 export type FeatureDecisionDiagnostics = {
+  timings?: { retrievalMs?: number; candidatePreparationMs?: number; referencePreparationMs?: number; imageAttemptMs?: number; textAttemptMs?: number };
+  progress?: { stage: string; elapsedMs: number };
+  imageFallback?: {
+    used: boolean;
+    reason?: string;
+    imageDecision?: FeatureDecisionDiagnostics["decision"];
+    textDecision?: FeatureDecisionDiagnostics["decision"];
+  };
   degradation?: { reason: "budget_exceeded" | "jina_unavailable"; budgetMs: number };
   /** Exact alias hits for logos with an explicit positive folder inclusion rule. */
   folderMatchedLogoIds?: string[];

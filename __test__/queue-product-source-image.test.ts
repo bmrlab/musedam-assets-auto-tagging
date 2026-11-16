@@ -139,13 +139,17 @@ async function run(
   },
   snapshot?: boolean,
   retrySourceId?: number,
+  inPlace = false,
 ) {
   await processQueueItem({
     id: 1,
     teamId: 7,
     taskType: "test",
     assetObjectId: 2,
+    startsAt: new Date("2026-11-16T00:00:00.000Z"),
+    result: inPlace ? { tagsWithScore: [{ leafTagId: 99 }], metadataPredictions: ["kept"] } : {},
     extra: {
+      ...(inPlace ? { featureRetryInPlace: true } : {}),
       ...(retrySourceId ? { featureRetrySourceQueueItemId: retrySourceId } : {}),
       ...(snapshot === undefined ? {} : { featureImageMode: snapshot, creditCost: snapshot ? 2 : 1 }),
       featureClassify: true,
@@ -326,6 +330,8 @@ describe("combined LLM feature classification", () => {
     const preparedSource = await mocks.prepare.mock.results[0].value;
     expect(mocks.classifyFeatures).toHaveBeenCalledExactlyOnceWith({
       onOcr: expect.any(Function),
+      onProgress: expect.any(Function),
+      allowTextFallback: true,
       teamId: 7,
       queueItemId: 1,
       assetObjectId: 2,
@@ -586,4 +592,60 @@ it("does not merge a failed feature-only retry into the source", async () => {
   expect(mocks.predict).not.toHaveBeenCalled();
   expect(mocks.saveRetry).not.toHaveBeenCalled();
   expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "failed" }) }));
+});
+
+it("retains the original tags and metadata when an in-place feature retry fails", async () => {
+  mocks.mode = "llm";
+  mocks.classifyFeatures.mockRejectedValue(Error("unavailable"));
+  await run({ extension: "jpg", downloadUrl: "https://example.test/original.jpg" }, { brand: true }, undefined, 1, true);
+  expect(mocks.predict).not.toHaveBeenCalled();
+  expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({
+    status: "failed", result: expect.objectContaining({ tagsWithScore: [{ leafTagId: 99 }], metadataPredictions: ["kept"] }),
+  }) }));
+});
+it("saves in-place feature evidence against the current execution of the original task", async () => {
+  mocks.mode = "llm";
+  await run({ extension: "jpg", downloadUrl: "https://example.test/original.jpg" }, { brand: true }, undefined, 1, true);
+  expect(mocks.saveRetry).toHaveBeenCalledWith(7, 1, 1, expect.any(Object), "2026-11-16T00:00:00.000Z");
+  expect(mocks.create).not.toHaveBeenCalled();
+});
+
+it("allows image-mode videos past the former 240s cutoff and keeps one classification pass", async () => {
+  vi.useFakeTimers();
+  mocks.mode = "llm";
+  mocks.predict.mockResolvedValue({ predictions: {}, tagsWithScore: [{
+    leafTagId: 99, tagPath: ["Scene"], confidenceBySources: { basicInfo: 0.9 }, score: 90,
+  }], extra: {} });
+  const classified = await mocks.classifyFeatures();
+  mocks.classifyVideo.mockImplementation(async input => {
+    input.onProgress?.("retrieval");
+    await queueSleep(260_000);
+    return classified;
+  });
+  const task = run({ extension: "mp4", downloadUrl: "https://example.test/video.mp4" }, { brand: true }, true);
+  await vi.advanceTimersByTimeAsync(240_001);
+  expect(mocks.update).not.toHaveBeenCalled();
+  await vi.advanceTimersByTimeAsync(20_000);
+  await task;
+  expect(mocks.classifyVideo).toHaveBeenCalledOnce();
+  expect(mocks.classifyVideo).toHaveBeenCalledWith(expect.objectContaining({ allowTextFallback: true }));
+  expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({
+    status: "completed", result: expect.objectContaining({ outputTypes: expect.objectContaining({ features: true }) }),
+  }) }));
+});
+it("accepts successful text fallback without treating the failed image attempt as failed features", async () => {
+  mocks.mode = "llm";
+  mocks.predict.mockResolvedValue({ predictions: {}, tagsWithScore: [{
+    leafTagId: 99, tagPath: ["Scene"], confidenceBySources: { basicInfo: 0.9 }, score: 90,
+  }], extra: {} });
+  const classified = await mocks.classifyFeatures();
+  classified.diagnostics.decisionInputMode = "text";
+  classified.diagnostics.imageFallback = { used: true, reason: "timeout", imageDecision: { status: "failed", error: "timeout" } };
+  mocks.classifyFeatures.mockResolvedValue(classified);
+  await run({ extension: "jpg", downloadUrl: "https://example.test/image.jpg" }, { brand: true }, true);
+  expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({
+    status: "completed", result: expect.objectContaining({ outputTypes: expect.objectContaining({ features: true }),
+      featureDecision: expect.objectContaining({ decisionInputMode: "text", imageFallback: expect.objectContaining({ used: true }) }),
+    }),
+  }) }));
 });

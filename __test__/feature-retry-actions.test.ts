@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { retryFeatures } from "@/app/(tagging)/tagging/review/feature-retry-actions";
+import { getFeatureRetryStatus, retryFeatures } from "@/app/(tagging)/tagging/review/feature-retry-actions";
 import { beforeEach, expect, it, vi } from "vitest";
 const m = vi.hoisted(() => ({
   source: vi.fn(),
@@ -20,6 +20,7 @@ vi.mock("@/lib/feature-library-server", () => ({ getServerFeatureLibraryFeatures
 vi.mock("@/lib/tagging/team-suspension", () => ({ assertTeamTaggingEnabled: vi.fn() }));
 vi.mock("@/prisma/prisma", () => ({
   default: {
+    taggingQueueItem: { findFirstOrThrow: m.source, findFirst: m.active },
     $transaction: (run: (tx: unknown) => unknown) =>
       run({
         $queryRaw: m.lock,
@@ -51,15 +52,21 @@ beforeEach(() => {
   m.count.mockResolvedValue(1);
   m.create.mockResolvedValue({ id: 3, status: "pending" });
 });
-it("enqueues a free feature-only continuation using team authorization and original mode", async () => {
+it("requeues the original task for free while retaining evidence and the original mode", async () => {
   const response = await retryFeatures(1);
   expect(response.success).toBe(true);
   expect(m.source).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 1, teamId: 7 } }));
-  expect(m.create).toHaveBeenCalledWith({
+  expect(response).toEqual({ success: true, data: { id: 1, status: "pending" } });
+  expect(m.create).not.toHaveBeenCalled();
+  expect(m.link).toHaveBeenCalledWith({
+    where: expect.objectContaining({ id: 1, teamId: 7, status: "completed" }),
     data: expect.objectContaining({
-      teamId: 7,
-      assetObjectId: 2,
+      status: "pending",
+      startsAt: null,
+      endsAt: null,
       extra: expect.objectContaining({
+        featureRetryInPlace: true,
+        featureRetryJobId: 1,
         featureRetrySourceQueueItemId: 1,
         featureImageMode: false,
         creditCost: 0,
@@ -67,6 +74,7 @@ it("enqueues a free feature-only continuation using team authorization and origi
       }),
     }),
   });
+  expect(m.link.mock.calls[0][0].data).not.toHaveProperty("result");
   expect(m.kick).toHaveBeenCalledOnce();
 });
 it("reuses an active retry rather than enqueuing a duplicate", async () => {
@@ -83,4 +91,32 @@ it("rejects disabled feature libraries", async () => {
   m.enabled.mockResolvedValue({ featureLibrary: false });
   expect((await retryFeatures(1)).success).toBe(false);
   expect(m.source).not.toHaveBeenCalled();
+});
+
+it.each(["pending", "processing"])("returns the original %s retry without updating or creating a task", async status => {
+  const source = await m.source();
+  source.status = status;
+  source.extra.featureRetryInPlace = true;
+  expect(await retryFeatures(1)).toEqual({ success: true, data: { id: 1, status } });
+  expect(m.create).not.toHaveBeenCalled();
+  expect(m.link).not.toHaveBeenCalled();
+});
+it("requeues a failed in-place feature retry using the same task", async () => {
+  const source = await m.source();
+  source.status = "failed";
+  source.extra.featureRetryInPlace = true;
+  expect(await retryFeatures(1)).toEqual({ success: true, data: { id: 1, status: "pending" } });
+  expect(m.create).not.toHaveBeenCalled();
+});
+it.each(["pending", "processing", "failed", "completed"])("polls the original in-place task in %s state", async status => {
+  const source = await m.source();
+  source.status = status;
+  source.extra.featureRetryInPlace = true;
+  expect(await getFeatureRetryStatus(1)).toEqual({ success: true, data: { id: 1, status } });
+  expect(m.active).not.toHaveBeenCalled();
+});
+it("rejects concurrent source changes without creating a task", async () => {
+  m.link.mockResolvedValue({ count: 0 });
+  await expect(retryFeatures(1)).rejects.toThrow("FEATURE_REVIEW_CHANGED");
+  expect(m.create).not.toHaveBeenCalled();
 });

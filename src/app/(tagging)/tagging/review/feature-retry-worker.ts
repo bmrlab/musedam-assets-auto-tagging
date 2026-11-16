@@ -1,5 +1,5 @@
 import { assertQueueExecutionOwned } from "@/lib/tagging/queue-execution";
-import type { Prisma, TaggingQueueItemResult } from "@/prisma/client";
+import type { Prisma, TaggingQueueItemExtra, TaggingQueueItemResult } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 import "server-only";
 import { isScopedFeatureReviewComplete } from "./feature-review";
@@ -15,12 +15,14 @@ export async function saveFeatureRetry(
   await assertQueueExecutionOwned();
   await prisma.$transaction(async (tx) => {
     const source = await tx.taggingQueueItem.findFirstOrThrow({ where: { id: sourceId, teamId } });
+    const inPlace = sourceId === jobId && (source.extra as TaggingQueueItemExtra)?.featureRetryInPlace === true;
     if (
-      source.status !== "completed" ||
+      source.status !== (inPlace ? "processing" : "completed") ||
       (source.startsAt?.toISOString() ?? null) !== (sourceStartedAt ?? null)
     )
       throw Error("FEATURE_RETRY_SUPERSEDED");
-    if (isScopedFeatureReviewComplete(source)) throw Error("FEATURE_REVIEW_ALREADY_COMPLETE");
+    if (isScopedFeatureReviewComplete(source) || inPlace &&
+        (source.extra as { featureReview?: { scoped?: boolean } })?.featureReview?.scoped === true) throw Error("FEATURE_REVIEW_ALREADY_COMPLETE");
     const newer = await tx.taggingAuditItem.findFirst({
       where: {
         teamId,
@@ -31,10 +33,16 @@ export async function saveFeatureRetry(
     });
     if (newer) throw Error("FEATURE_RETRY_SUPERSEDED");
     const old = (source.result ?? {}) as TaggingQueueItemResult;
-    const merged = { ...old, ...features, outputTypes: { ...old.outputTypes, features: true } };
+    const evidence = { ...old };
+    delete evidence.error;
+    delete evidence.message;
+    const merged = { ...evidence, ...features, outputTypes: { ...old.outputTypes, features: true } };
     const updated = await tx.taggingQueueItem.updateMany({
       where: { id: sourceId, teamId, updatedAt: source.updatedAt },
-      data: { result: merged as Prisma.InputJsonObject },
+      data: {
+        result: merged as Prisma.InputJsonObject,
+        ...(inPlace ? { status: "completed" as const, endsAt: new Date() } : {}),
+      },
     });
     if (!updated.count) throw Error("FEATURE_REVIEW_CHANGED");
     const pending = await tx.taggingAuditItem.findFirst({
@@ -59,7 +67,7 @@ export async function saveFeatureRetry(
         },
       });
     await assertQueueExecutionOwned();
-    await tx.taggingQueueItem.update({
+    if (!inPlace) await tx.taggingQueueItem.update({
       where: { id: jobId, teamId },
       data: {
         status: "completed",

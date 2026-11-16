@@ -39,6 +39,7 @@ interface SelectedAsset {
 export async function startTaggingTasksAction(
   selectedAssets: SelectedAsset[],
   options?: {
+    featureImageMode?: boolean;
     matchingSources?: {
       basicInfo: boolean;
       materializedPath: boolean;
@@ -119,6 +120,8 @@ export async function startTaggingTasksAction(
                 featureClassify: featureLibraryFeatures.featureLibrary,
                 featureClassifications: toFeatureClassificationFlags(featureLibraryFeatures),
                 taskType: "test",
+                // Test inputs never inherit the team image/video mode.
+                featureImageMode: options?.featureImageMode === true,
               });
 
               return { id: taggingQueueItem.id };

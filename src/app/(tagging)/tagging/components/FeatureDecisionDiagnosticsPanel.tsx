@@ -1,6 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
+import { getFeatureLlmCalls } from "@/lib/feature-decision/calls";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import type {
@@ -96,8 +97,7 @@ export function FeatureDecisionComparison({ runs }: { runs: ComparisonRuns }) {
       <div className="grid gap-4 md:grid-cols-2">
         {(["image", "text"] as const).map((mode) => {
           const run = runs[mode];
-          const decisionCalls = run?.diagnostics.decision.batches?.map(batch => batch.call)
-            ?? (run?.diagnostics.decision.call ? [run.diagnostics.decision.call] : []);
+          const decisionCalls = run ? getFeatureLlmCalls(run.diagnostics).filter(call => call.kind === "decision") : [];
           const tokens = (key: "inputTokens" | "outputTokens" | "totalTokens") =>
             decisionCalls.length && decisionCalls.every(call => call.usage[key] !== null)
               ? decisionCalls.reduce((sum, call) => sum + (call.usage[key] ?? 0), 0) : null;
@@ -328,9 +328,7 @@ export function FeatureDecisionDiagnosticsPanel({
   diagnostics: FeatureDecisionDiagnostics;
 }) {
   const t = useTranslations("Tagging.FeatureDecisionDiagnostics");
-  const calls = [diagnostics.ocr.call, ...(diagnostics.decision.batches?.map(batch => batch.call) ?? [diagnostics.decision.call])].filter(
-    (call): call is FeatureLlmCallDiagnostics => Boolean(call),
-  );
+  const calls = getFeatureLlmCalls(diagnostics);
 
   return (
     <section className="flex min-w-0 flex-col gap-6 rounded-lg border border-basic-3 bg-background p-6">

@@ -690,12 +690,15 @@
       },
       "AIRecognition": {
         "imageModeImages": "Görseller için görüntü modu",
+        "imageModeImageDescription": "When enabled, feature decisions use the source image, reference images and text, at 2 credits per image. When disabled, decisions use feature similarity and text such as filenames, paths and OCR, at 1 credit per image. Both modes retrieve image features and run OCR when needed.",
         "imageModeImageOn": "Görüntü ve metinle eşleştirir. Görsel başına 2 puan.",
         "imageModeImageOff": "Özellik benzerliği ve metinle eşleştirir. Görsel başına 1 puan.",
         "imageModeVideos": "Videolar için görüntü modu",
+        "imageModeVideoDescription": "When enabled, feature decisions use sampled frames, reference images and text, at 2 credits per billable frame. When disabled, decisions use feature similarity and text such as filenames, paths and OCR, at a fixed 1 credit per asset.",
         "imageModeVideoOn": "Görüntü ve metinle eşleştirir. Faturalandırma karesi başına 2 puan.",
         "imageModeVideoOff": "Özellik benzerliği ve metinle eşleştirir. Varlık başına 1 puan.",
-        "imageModeVideoBilling": "Her {seconds} saniye için 1 faturalandırma karesi, yukarı yuvarlanır, en fazla {maxFrames} kare.",
+        "imageModeVideoSampling": "Both modes sample up to 12 frames from the original video, at least 0.25 seconds apart, preferring clear, distinct, nonblank frames. Up to 8 frames are used for feature detection and 4 for OCR. If sampling fails, a thumbnail fallback is attempted.",
+        "imageModeVideoBilling": "When enabled, every {seconds} seconds counts as one billable frame, rounded up, with a minimum of 1 and a maximum of {maxFrames}; unknown durations count as 1. Billable frames are independent of actual sampling and deduplication.",
         "title": "AI Tanıma",
         "precise": "Hassas",
         "preciseDesc": "Yüksek doğruluk, daha az etiket",
@@ -926,6 +929,7 @@
       "remove": "Kaldır"
     },
     "Test": {
+      "imageModeScope": "Applies only to image and video tests on this page. It does not read or change AI tagging settings. Submitted tasks keep the mode selected at submission.",
       "uploadLocalFiles": "Upload local files",
       "localFileInvalid": "{name}: Select an image up to 20 MB or a video up to 200 MB.",
       "localUploadFailed": "Local file upload failed.",

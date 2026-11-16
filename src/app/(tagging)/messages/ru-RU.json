@@ -286,12 +286,15 @@
     "Settings": {
       "AIRecognition": {
         "imageModeImages": "Режим изображений для изображений",
+        "imageModeImageDescription": "When enabled, feature decisions use the source image, reference images and text, at 2 credits per image. When disabled, decisions use feature similarity and text such as filenames, paths and OCR, at 1 credit per image. Both modes retrieve image features and run OCR when needed.",
         "imageModeImageOn": "Сопоставление по изображениям и тексту. 2 балла за изображение.",
         "imageModeImageOff": "Сопоставление по сходству признаков и тексту. 1 балл за изображение.",
         "imageModeVideos": "Режим изображений для видео",
+        "imageModeVideoDescription": "When enabled, feature decisions use sampled frames, reference images and text, at 2 credits per billable frame. When disabled, decisions use feature similarity and text such as filenames, paths and OCR, at a fixed 1 credit per asset.",
         "imageModeVideoOn": "Сопоставление по изображениям и тексту. 2 балла за расчётный кадр.",
         "imageModeVideoOff": "Сопоставление по сходству признаков и тексту. 1 балл за материал.",
-        "imageModeVideoBilling": "1 расчётный кадр за каждые {seconds} секунды с округлением вверх, не более {maxFrames}.",
+        "imageModeVideoSampling": "Both modes sample up to 12 frames from the original video, at least 0.25 seconds apart, preferring clear, distinct, nonblank frames. Up to 8 frames are used for feature detection and 4 for OCR. If sampling fails, a thumbnail fallback is attempted.",
+        "imageModeVideoBilling": "When enabled, every {seconds} seconds counts as one billable frame, rounded up, with a minimum of 1 and a maximum of {maxFrames}; unknown durations count as 1. Billable frames are independent of actual sampling and deduplication.",
         "balanced": "Сбалансированный",
         "balancedDesc": "Сбалансированная точность и охват",
         "broad": "Широкий",
@@ -1017,6 +1020,7 @@
       }
     },
     "Test": {
+      "imageModeScope": "Applies only to image and video tests on this page. It does not read or change AI tagging settings. Submitted tasks keep the mode selected at submission.",
       "archiveMaterial": "Архивированный материал",
       "assetSelectionFailed": "Не удалось выбрать актив",
       "assetsSelectedSuccess": "Выбрано {count} активов",

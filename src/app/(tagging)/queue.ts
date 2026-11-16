@@ -1,3 +1,4 @@
+import { getQueueFeatureBudgetMs } from "@/lib/feature-decision/config";
 import { saveFeatureRetry } from "./tagging/review/feature-retry-worker";
 import { JinaUnavailableError } from "@/lib/brand/jina-circuit";
 import { FeatureBudgetExceededError, withFeatureBudget } from "@/lib/tagging/operation-budget";
@@ -397,7 +398,7 @@ export async function processQueueItem({
         const featureBudgetMs = Math.max(
           0,
           Math.min(
-            isVideo ? 240_000 : 150_000,
+            getQueueFeatureBudgetMs(isVideo, extra?.featureImageMode ?? getAssetFeatureImageMode(teamSetting, assetObject)),
             QUEUE_ITEM_TIMEOUT_MS - (Date.now() - taskStartedAt) - 30_000,
           ),
         );
@@ -454,7 +455,11 @@ export async function processQueueItem({
           const mode = getFeatureDecisionMode();
           if (isVideo || mode === "llm") {
             let completedOcr: FeatureDecisionDiagnostics["ocr"] | undefined;
+            const featureStarted = Date.now();
+            let featureStage = "preparation";
             const classificationInput = {
+              allowTextFallback: true,
+              onProgress: (stage: string) => { featureStage = stage; },
               onOcr: (ocr: FeatureDecisionDiagnostics["ocr"]) => {
                 if (completedOcr?.status !== "completed") completedOcr = ocr;
               },
@@ -527,6 +532,12 @@ export async function processQueueItem({
                 return null;
               }
               featureDecision = result.diagnostics;
+              if (featureDecision.timings || featureDecision.imageFallback) {
+                logger.info({ msg: "Feature decision stages completed", timings: featureDecision.timings,
+                  decisionInputMode: featureDecision.decisionInputMode,
+                  textFallbackUsed: featureDecision.imageFallback?.used ?? false,
+                  fallbackReason: featureDecision.imageFallback?.reason });
+              }
               if (result.diagnostics.retrieval?.errors.length && result.diagnostics.retrieval.errors.every(error => error.includes("JINA_UNAVAILABLE:"))) {
                 featureDecision.degradation = { reason: "jina_unavailable", budgetMs: featureBudgetMs };
                 featureDecision.decision = { status: "failed", error: "Jina unavailable; ordinary tag prediction retained" };
@@ -541,6 +552,7 @@ export async function processQueueItem({
               featureDecision = {
                 mode,
                 degradation: { reason: "budget_exceeded", budgetMs: featureBudgetMs },
+                progress: { stage: featureStage, elapsedMs: Date.now() - featureStarted },
                 ocr: completedOcr ?? (classificationInput.ocrSegments.length
                   ? { status: "completed", segments: classificationInput.ocrSegments, source: "musedam" }
                   : { status: "skipped", segments: [] }),
@@ -658,7 +670,7 @@ export async function processQueueItem({
       }
       await saveFeatureRetry(teamId, featureRetrySourceId, queueItem.id, {
         featureDecision, brandRecommendation, ipRecommendation, productRecommendation,
-      } as TaggingQueueItemResult, extra.featureRetrySourceStartedAt);
+      } as TaggingQueueItemResult, extra.featureRetryInPlace ? queueItem.startsAt?.toISOString() ?? null : extra.featureRetrySourceStartedAt);
       return;
     }
     if (hasFeatureRecognitionFailure(featureDecision) && !featureDecision?.degradation) {
@@ -1105,7 +1117,7 @@ export async function processQueueItem({
     // 处理期间收到了新的 default 请求：这轮失败很可能就是因为旧快照缺内容（如 NO_VALID_TAGS），
     // 直接用最新数据重跑一轮，而不是落 failed 等人工重试。
     const latestRow = await prisma.taggingQueueItem
-      .findUnique({ where: { id: queueItem.id }, select: { extra: true } })
+      .findUnique({ where: { id: queueItem.id }, select: { extra: true, result: true } })
       .catch(() => null);
     const latestExtra = (latestRow?.extra ?? queueItem.extra) as TaggingQueueItemExtra;
     if (latestExtra?.rerunRequested === true && !(error instanceof TeamTaggingSuspendedError)) {
@@ -1132,6 +1144,7 @@ export async function processQueueItem({
         status: "failed",
         endsAt: new Date(),
         result: {
+          ...((queueItem.extra as TaggingQueueItemExtra)?.featureRetryInPlace ? (latestRow?.result ?? queueItem.result) as TaggingQueueItemResult : {}),
           error: errorCode,
           message: errorMessage,
           ...(featureDecision ? { featureDecision } : {}),
@@ -1181,7 +1194,10 @@ async function recoverStaleProcessingItems(): Promise<number> {
   // 重试次数记在 extra.interruptedAttempts（extra 是 jsonb，不需要 migration）
   const failed = await prisma.$executeRaw`
     UPDATE "TaggingQueueItem"
-    SET "status" = 'failed', "endsAt" = now(), "updatedAt" = now(), "result" = ${failedResult}::jsonb
+    SET "status" = 'failed', "endsAt" = now(), "updatedAt" = now(), "result" =
+      CASE WHEN "extra"->>'featureRetryInPlace' = 'true'
+        THEN COALESCE("result", '{}'::jsonb) || ${failedResult}::jsonb
+        ELSE ${failedResult}::jsonb END
     WHERE "status" = 'processing'
       AND "updatedAt" < ${staleBefore}
       AND COALESCE(("extra" ->> 'interruptedAttempts')::int, 0) >= ${MAX_INTERRUPTED_RETRIES}
@@ -1258,6 +1274,7 @@ async function markQueueItemTimedOut(queueItem: TaggingQueueItem): Promise<void>
         status: "failed",
         endsAt: new Date(),
         result: {
+          ...((queueItem.extra as TaggingQueueItemExtra)?.featureRetryInPlace ? queueItem.result as TaggingQueueItemResult : {}),
           // 复用心跳超时的错误码，前端已有对应的「处理超时」文案
           error: "PROCESSING_STALE_TIMEOUT",
           message: `处理超过 ${QUEUE_ITEM_TIMEOUT_MS}ms 未完成，已自动标记失败`,

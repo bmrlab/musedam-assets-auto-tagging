@@ -286,12 +286,15 @@
     "Settings": {
       "AIRecognition": {
         "imageModeImages": "Modo de imagem para imagens",
+        "imageModeImageDescription": "When enabled, feature decisions use the source image, reference images and text, at 2 credits per image. When disabled, decisions use feature similarity and text such as filenames, paths and OCR, at 1 credit per image. Both modes retrieve image features and run OCR when needed.",
         "imageModeImageOn": "Compara imagens e texto. 2 pontos por imagem.",
         "imageModeImageOff": "Compara similaridade de características e texto. 1 pontos por imagem.",
         "imageModeVideos": "Modo de imagem para vídeos",
+        "imageModeVideoDescription": "When enabled, feature decisions use sampled frames, reference images and text, at 2 credits per billable frame. When disabled, decisions use feature similarity and text such as filenames, paths and OCR, at a fixed 1 credit per asset.",
         "imageModeVideoOn": "Compara imagens e texto. 2 pontos por quadro faturável.",
         "imageModeVideoOff": "Compara similaridade de características e texto. 1 ponto por recurso.",
-        "imageModeVideoBilling": "1 quadro faturável a cada {seconds} segundos, arredondado para cima, até {maxFrames}.",
+        "imageModeVideoSampling": "Both modes sample up to 12 frames from the original video, at least 0.25 seconds apart, preferring clear, distinct, nonblank frames. Up to 8 frames are used for feature detection and 4 for OCR. If sampling fails, a thumbnail fallback is attempted.",
+        "imageModeVideoBilling": "When enabled, every {seconds} seconds counts as one billable frame, rounded up, with a minimum of 1 and a maximum of {maxFrames}; unknown durations count as 1. Billable frames are independent of actual sampling and deduplication.",
         "balanced": "Equilibrado",
         "balancedDesc": "Precisão e cobertura equilibradas",
         "broad": "Amplo",
@@ -686,6 +689,7 @@
       }
     },
     "Test": {
+      "imageModeScope": "Applies only to image and video tests on this page. It does not read or change AI tagging settings. Submitted tasks keep the mode selected at submission.",
       "archiveMaterial": "Arquivar Material",
       "assetSelectionFailed": "Falha na seleção do ativo",
       "assetsSelectedSuccess": "{count} ativos selecionados",

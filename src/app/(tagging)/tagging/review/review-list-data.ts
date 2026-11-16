@@ -6,7 +6,8 @@ export function reviewQueueItemsQuery(teamId: number, ids: number[]) {
     SELECT "id", "teamId", "assetObjectId", "status", "taskType", "startsAt", "endsAt",
       "createdAt", "updatedAt",
       "extra" - 'input' - 'usage' AS "extra",
-      "result" #- '{featureDecision,ocr,call}' #- '{featureDecision,decision,call}' #- '{featureDecision,decision,batches}' AS "result"
+      "result" #- '{featureDecision,ocr,call}' #- '{featureDecision,decision,call}' #- '{featureDecision,decision,batches}'
+      #- '{featureDecision,imageFallback,imageDecision}' #- '{featureDecision,imageFallback,textDecision}' AS "result"
     FROM "TaggingQueueItem"
     WHERE "teamId" = ${teamId} AND "id" IN (${Prisma.join(ids)})
   `;

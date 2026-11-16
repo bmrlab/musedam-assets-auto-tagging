@@ -436,12 +436,15 @@
       },
       "AIRecognition": {
         "imageModeImages": "ใช้โหมดรูปภาพสำหรับรูปภาพ",
+        "imageModeImageDescription": "When enabled, feature decisions use the source image, reference images and text, at 2 credits per image. When disabled, decisions use feature similarity and text such as filenames, paths and OCR, at 1 credit per image. Both modes retrieve image features and run OCR when needed.",
         "imageModeImageOn": "จับคู่ด้วยภาพและข้อความ 2 คะแนนต่อภาพ",
         "imageModeImageOff": "จับคู่ด้วยความคล้ายของคุณลักษณะและข้อความ 1 คะแนนต่อภาพ",
         "imageModeVideos": "ใช้โหมดรูปภาพสำหรับวิดีโอ",
+        "imageModeVideoDescription": "When enabled, feature decisions use sampled frames, reference images and text, at 2 credits per billable frame. When disabled, decisions use feature similarity and text such as filenames, paths and OCR, at a fixed 1 credit per asset.",
         "imageModeVideoOn": "จับคู่ด้วยภาพและข้อความ 2 คะแนนต่อเฟรมที่คิดค่าบริการ",
         "imageModeVideoOff": "จับคู่ด้วยความคล้ายของคุณลักษณะและข้อความ 1 คะแนนต่อแอสเซ็ต",
-        "imageModeVideoBilling": "คิด 1 เฟรมต่อ {seconds} วินาที ปัดขึ้น สูงสุด {maxFrames} เฟรม",
+        "imageModeVideoSampling": "Both modes sample up to 12 frames from the original video, at least 0.25 seconds apart, preferring clear, distinct, nonblank frames. Up to 8 frames are used for feature detection and 4 for OCR. If sampling fails, a thumbnail fallback is attempted.",
+        "imageModeVideoBilling": "When enabled, every {seconds} seconds counts as one billable frame, rounded up, with a minimum of 1 and a maximum of {maxFrames}; unknown durations count as 1. Billable frames are independent of actual sampling and deduplication.",
         "title": "การจดจำ AI",
         "precise": "แม่นยำ",
         "preciseDesc": "ความแม่นยำสูง แท็กน้อย",
@@ -672,6 +675,7 @@
       "remove": "ลบ"
     },
     "Test": {
+      "imageModeScope": "Applies only to image and video tests on this page. It does not read or change AI tagging settings. Submitted tasks keep the mode selected at submission.",
       "uploadLocalFiles": "Upload local files",
       "localFileInvalid": "{name}: Select an image up to 20 MB or a video up to 200 MB.",
       "localUploadFailed": "Local file upload failed.",

@@ -34,14 +34,13 @@ it("saves the team toggle and retains its value when changing recognition accura
   render(<SettingsClient initialSettings={DEFAULT_TAGGING_SETTINGS} />);
   const toggle = screen.getByRole("switch", { name: "imageModeImages" });
   expect(toggle.getAttribute("aria-checked")).toBe("false");
-  expect(screen.getByText("imageModeImageOff")).toBeTruthy();
+  expect(screen.getByText("imageModeImageDescription")).toBeTruthy();
   fireEvent.click(toggle);
   await waitFor(() =>
     expect(save).toHaveBeenCalledWith(expect.objectContaining({ featureImageMode: true })),
   );
   await waitFor(() => expect((toggle as HTMLButtonElement).disabled).toBe(false));
-  expect(screen.getByText("imageModeImageOn")).toBeTruthy();
-  expect(screen.queryByText("imageModeImageOff")).toBeNull();
+  expect(screen.getByText("imageModeImageDescription")).toBeTruthy();
   fireEvent.click(screen.getByText("precise"));
   await waitFor(() =>
     expect(save).toHaveBeenLastCalledWith(
@@ -72,9 +71,10 @@ it("keeps legacy image mode enabled but video off, and saves both independently"
   const video = screen.getByRole("switch", { name: "imageModeVideos" });
   expect(image.getAttribute("aria-checked")).toBe("true");
   expect(video.getAttribute("aria-checked")).toBe("false");
-  expect(screen.getByText("imageModeImageOn")).toBeTruthy();
-  expect(screen.getByText("imageModeVideoOff")).toBeTruthy();
-  expect(screen.queryByText("imageModeVideoBilling")).toBeNull();
+  expect(screen.getByText("imageModeImageDescription")).toBeTruthy();
+  expect(screen.getByText("imageModeVideoDescription")).toBeTruthy();
+  expect(screen.getByText("imageModeVideoBilling")).toBeTruthy();
+  expect(screen.getByText("imageModeVideoSampling")).toBeTruthy();
   fireEvent.click(video);
   await waitFor(() =>
     expect(save).toHaveBeenLastCalledWith(
@@ -82,7 +82,7 @@ it("keeps legacy image mode enabled but video off, and saves both independently"
     ),
   );
   await waitFor(() => expect((image as HTMLButtonElement).disabled).toBe(false));
-  expect(screen.getByText("imageModeVideoOn")).toBeTruthy();
+  expect(screen.getByText("imageModeVideoDescription")).toBeTruthy();
   expect(screen.getByText("imageModeVideoBilling")).toBeTruthy();
   fireEvent.click(image);
   await waitFor(() =>
@@ -100,8 +100,8 @@ it("rolls back only the video switch when its save fails", async () => {
   fireEvent.click(video);
   await waitFor(() => expect(save).toHaveBeenCalledOnce());
   await waitFor(() => expect(video.getAttribute("aria-checked")).toBe("false"));
-  expect(screen.getByText("imageModeVideoOff")).toBeTruthy();
-  expect(screen.queryByText("imageModeVideoOn")).toBeNull();
+  expect(screen.getByText("imageModeVideoDescription")).toBeTruthy();
+  expect(screen.getByText("imageModeVideoDescription")).toBeTruthy();
   expect(
     screen.getByRole("switch", { name: "imageModeImages" }).getAttribute("aria-checked"),
   ).toBe("true");

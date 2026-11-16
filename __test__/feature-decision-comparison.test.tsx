@@ -1,3 +1,4 @@
+import { getFeatureLlmCalls } from "@/lib/feature-decision/calls";
 import {
   FeatureClassificationContextInputs,
   FeatureDecisionComparison,
@@ -149,4 +150,13 @@ describe("decision input mode controls and comparison", () => {
     fireEvent.click(screen.getByText("Change source"));
     expect(screen.queryByText("comparisonTitle")).toBeNull();
   });
+});
+
+it("counts both image and fallback calls once when reporting usage", () => {
+  const selected = diagnostics("text");
+  const image = diagnostics("image").decision;
+  selected.imageFallback = { used: true, reason: "timeout", imageDecision: image, textDecision: selected.decision };
+  const calls = getFeatureLlmCalls(selected);
+  expect(calls).toHaveLength(2);
+  expect(calls.reduce((sum, call) => sum + (call.usage.totalTokens ?? 0), 0)).toBe(600);
 });

@@ -94,6 +94,31 @@ afterEach(() => {
 });
 
 describe("test page full result pipeline", () => {
+  it.each([false, true])("submits the independent image mode %s for test jobs", async (enabled) => {
+    persist(false, false);
+    render(<TestClient />);
+    const toggle = screen.getByRole("switch", { name: "imageMode" });
+    expect(toggle.getAttribute("aria-checked")).toBe("false");
+    if (enabled) fireEvent.click(toggle);
+    expect(screen.getByText("imageModeHelp")).toBeTruthy();
+    expect(screen.getByText("imageModeVideoSampling")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "startTest" }));
+    await waitFor(() => expect(mocks.start).toHaveBeenCalledWith(
+      expect.any(Array), expect.objectContaining({ featureImageMode: enabled }),
+    ));
+    await waitFor(() => expect(screen.getByText(productName)).toBeTruthy());
+  });
+
+  it("restores the test image mode without starting a new task", () => {
+    persist(false, false);
+    const saved = JSON.parse(sessionStorage.getItem("musedam-tagging-test-page-state")!);
+    saved.featureImageMode = true;
+    sessionStorage.setItem("musedam-tagging-test-page-state", JSON.stringify(saved));
+    render(<TestClient />);
+    expect(screen.getByRole("switch", { name: "imageMode" }).getAttribute("aria-checked")).toBe("true");
+    expect(mocks.start).not.toHaveBeenCalled();
+  });
+
   it("shows the accepted product returned by polling for a newly started test", async () => {
     persist(false, false);
     render(<TestClient />);

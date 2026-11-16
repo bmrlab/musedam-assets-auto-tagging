@@ -751,3 +751,24 @@ it("cancels slow OCR independently while retaining usable feature candidates", a
     }));
   } finally { vi.useRealTimers(); }
 });
+
+
+it("falls back from missing image references using the same retrieval, OCR and complete candidate set", async () => {
+  mocks.fetchImage.mockRejectedValue(Error("storage unavailable"));
+  mocks.decision.mockImplementation(async args => ({
+    mode: "llm", decisionInputMode: args.imageMode ? "image" : "text", ocr: args.ocr,
+    decision: { status: "completed", result: { outcome: "matched", matches: [decisionMatch("lower", 90)] } },
+  }));
+  const result = await classifyAssetFeatures({
+    teamId: 1, imageInput, enabledTypes: ["logo"], imageMode: true, allowTextFallback: true,
+    boxes: { logo: [box(0)] },
+  });
+  expect(result.diagnostics.imageFallback?.used).toBe(true);
+  expect(result.diagnostics.decisionInputMode).toBe("text");
+  expect(result.diagnostics.retrieval?.unassessedCandidates).toEqual([]);
+  expect(result.brand?.matches?.map(match => match.assetLogoId)).toEqual(["lower"]);
+  expect(mocks.logo).toHaveBeenCalledOnce();
+  expect(mocks.ocr).toHaveBeenCalledOnce();
+  expect(mocks.decision).toHaveBeenCalledOnce();
+  expect(mocks.decision.mock.calls[0][0].candidates.map((item: FeatureDecisionCandidate) => item.candidateId)).toEqual(["logo:first", "logo:lower"]);
+});

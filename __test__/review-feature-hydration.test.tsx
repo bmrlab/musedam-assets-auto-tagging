@@ -258,6 +258,18 @@ describe("review feature visibility during settings hydration", () => {
     expect(screen.getAllByRole("button", { name: "tooltipRemove" }).length).toBeGreaterThan(0);
   });
 
+  it.each(["pending", "processing", "failed"] as const)("keeps the retry control available after refreshing an in-place %s task", (status) => {
+    const data = props();
+    const queue = data.batch[0].queueItem;
+    queue.status = status;
+    queue.extra = { featureRetryInPlace: true };
+    (queue.result as import("@/prisma/client").TaggingQueueItemResult).featureDecision = {
+      mode: "llm", ocr: { status: "empty", segments: [] }, decision: { status: "failed" },
+    };
+    render(<ReviewItem {...data} />);
+    expect(screen.getByRole("button", { name: "featureRetryButton" })).toBeTruthy();
+  });
+
   it("warns about historical partial decisions instead of silently showing no features", () => {
     const data = props();
     const result = data.batch[0].queueItem.result as any;

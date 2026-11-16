@@ -70,6 +70,35 @@ function result(overrides: Partial<TaggingResult>): TaggingResult {
 afterEach(cleanup);
 
 describe("multiple logo and IP feature results", () => {
+  it.each(["failed", "skipped", "partial", "budget"])("warns about %s recognition instead of reporting no match", (scenario) => {
+    render(<TaggingResultDisplay result={result({
+      asset: { ...result({}).asset, extension: "mp4" },
+      featureDecision: {
+        mode: "llm",
+        ocr: { status: "empty", segments: [] },
+        decision: scenario === "partial"
+          ? { status: "completed", error: "1 of 2 decision batches failed" }
+          : { status: scenario === "skipped" ? "skipped" : "failed", error: "Recognition unavailable" },
+        ...(scenario === "budget" ? { degradation: { reason: "budget_exceeded" as const, budgetMs: 240_000 } } : {}),
+      },
+    })} />);
+    expect(screen.getByRole("status").textContent).toContain("featureRecognitionIncomplete");
+    expect(screen.queryByText("noRecognizedFeatures")).toBeNull();
+    expect(screen.queryByText("featureConfidenceNotCredible")).toBeNull();
+  });
+
+  it("keeps successful feature results visible when another decision batch fails", () => {
+    render(<TaggingResultDisplay result={result({
+      brands: [brand("Recognized brand", 95)],
+      featureDecision: {
+        mode: "llm", ocr: { status: "empty", segments: [] },
+        decision: { status: "completed", error: "1 of 2 decision batches failed" },
+      },
+    })} />);
+    expect(screen.getByText("Recognized brand")).toBeTruthy();
+    expect(screen.getByRole("status").textContent).toContain("featureRecognitionIncomplete");
+  });
+
   it("shows every accepted logo/IP with its own confidence and linked tags", () => {
     render(
       <TaggingResultDisplay

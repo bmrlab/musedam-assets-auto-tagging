@@ -104,3 +104,31 @@ it("rejects a retry when the original queue item has been reused for a newer run
   );
   expect(m.updateSource).not.toHaveBeenCalled();
 });
+
+it("finishes an in-place retry on the same task and preserves ordinary evidence", async () => {
+  const source = await m.source();
+  source.status = "processing";
+  source.startsAt = new Date();
+  source.extra = { featureRetryInPlace: true };
+  source.result.error = "FEATURE_RECOGNITION_FAILED";
+  await saveFeatureRetry(7, 1, 1, {
+    featureDecision: { mode: "llm", ocr: { status: "empty", segments: [] }, decision: { status: "completed" } },
+  }, source.startsAt.toISOString());
+  expect(m.updateSource).toHaveBeenCalledWith(expect.objectContaining({
+    where: expect.objectContaining({ id: 1 }),
+    data: expect.objectContaining({
+      status: "completed", endsAt: expect.any(Date),
+      result: expect.objectContaining({ predictions: { basicInfo: ["kept"] }, metadataPredictions: ["kept"] }),
+    }),
+  }));
+  expect(m.updateSource.mock.calls[0][0].data.result.error).toBeUndefined();
+  expect(m.updateJob).not.toHaveBeenCalled();
+});
+it("rejects an in-place retry result from a superseded execution", async () => {
+  const source = await m.source();
+  source.status = "processing";
+  source.startsAt = new Date();
+  source.extra = { featureRetryInPlace: true };
+  await expect(saveFeatureRetry(7, 1, 1, {}, "2020-01-01T00:00:00.000Z")).rejects.toThrow("SUPERSEDED");
+  expect(m.updateSource).not.toHaveBeenCalled();
+});

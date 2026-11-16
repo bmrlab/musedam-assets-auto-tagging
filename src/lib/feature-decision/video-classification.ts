@@ -28,6 +28,8 @@ export async function classifyVideoAssetFeatures(
     ocrSegments?: string[];
     onOcr?: (ocr: import("./types").FeatureOcrDiagnostics) => void;
     imageMode?: boolean;
+    allowTextFallback?: boolean;
+    onProgress?: (stage: string) => void;
     mode?: "llm" | "legacy";
     requestMode?: MediaProcessRequestMode;
     signal?: AbortSignal;
@@ -38,7 +40,9 @@ export async function classifyVideoAssetFeatures(
   const signal = decisionSignal
     ? AbortSignal.any([preparationTimeout, decisionSignal])
     : preparationTimeout;
+  input.onProgress?.("video_sampling");
   const frames = await requestVideoFrames(input.teamId, input.videoUrl, signal);
+  input.onProgress?.("frame_preparation");
   const prepared = await Promise.allSettled(
     frames.map(({ url, timestamp }) =>
       prepareFrameSlot(async () => {
