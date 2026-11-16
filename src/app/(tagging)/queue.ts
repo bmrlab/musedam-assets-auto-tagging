@@ -100,6 +100,7 @@ import { predictAssetTags, predictUnparsedSizeTags } from "./predict";
 import { getProductRecommendationTagIdsFromQueueResult } from "./product-recommendation";
 import { RECOGNITION_ACCURACY_CONFIG } from "./prompt";
 import { loadFairQueueCandidates } from "./queue-candidates";
+import { getPendingQueueLogSummary } from "./queue-log-summary";
 import {
   ASSET_TAGGING_CONCURRENCY,
   PROCESSING_TIMING_VERSION,
@@ -243,6 +244,23 @@ export async function enqueueTaggingTask({
         } as TaggingQueueItemExtra,
       },
     });
+  });
+
+  const assetExtra = assetObject.extra as AssetObjectExtra | null;
+  const extension = assetExtra?.extension?.trim() || assetObject.name.split(".").at(-1);
+  const isVideo = isVideoAssetExtension(extension);
+  const isImage = !isVideo && isFeatureLibrarySupportedAsset(extension);
+  rootLogger.info({
+    msg: "Tagging task enqueued",
+    teamId,
+    assetObjectId: assetObject.id,
+    queueItemId: taggingQueueItem.id,
+    taskType,
+    imageCount: Number(isImage),
+    videoCount: Number(isVideo),
+    otherCount: Number(!isImage && !isVideo),
+    featureImageMode: imageMode,
+    summary: `图片${Number(isImage)}，视频${Number(isVideo)}，图像模式${imageMode ? "开启" : "关闭"}`,
   });
 
   // 入队后立即触发一次队列处理，不必等外部调度器的下一轮 tick（线上 15s）。
@@ -1475,39 +1493,16 @@ let lastPendingSummaryLoggedAt = 0;
 
 /**
  * 按团队汇总排队中（pending）的任务数并打一条日志，方便在观测云里搜 "Queue pending summary" 看积压。
- * 进程内最多每 30s 一次、不阻塞主流程；groupBy 走 [teamId, status] 索引，开销很小。
+ * 进程内最多每 30s 一次、不阻塞主流程；数据库按团队、媒体类型和模式聚合，不加载素材内容。
  */
 function logPendingSummaryThrottled(): void {
   const now = Date.now();
   if (now - lastPendingSummaryLoggedAt < PENDING_SUMMARY_LOG_INTERVAL_MS) return;
   lastPendingSummaryLoggedAt = now;
   void (async () => {
-    const groups = await prisma.taggingQueueItem.groupBy({
-      by: ["teamId"],
-      where: { status: "pending" },
-      _count: { _all: true },
-    });
-    const teams =
-      groups.length > 0
-        ? await prisma.team.findMany({
-            where: { id: { in: groups.map((g) => g.teamId) } },
-            select: { id: true, slug: true },
-          })
-        : [];
-    const slugById = new Map(teams.map((t) => [t.id, t.slug]));
-    const byTeam = Object.fromEntries(
-      groups
-        .map((g) => [slugById.get(g.teamId) ?? `team-id/${g.teamId}`, g._count._all] as const)
-        .sort((a, b) => b[1] - a[1]),
-    );
     rootLogger.info({
       msg: "Queue pending summary",
-      pendingTotal: groups.reduce((sum, g) => sum + g._count._all, 0),
-      teamCount: groups.length,
-      byTeam,
-      summary: Object.entries(byTeam)
-        .map(([slug, count]) => `${slug}:${count}个排队`)
-        .join(", "),
+      ...await getPendingQueueLogSummary(),
     });
   })().catch((error) => {
     rootLogger.error({ msg: "logPendingSummary failed", err: error });
