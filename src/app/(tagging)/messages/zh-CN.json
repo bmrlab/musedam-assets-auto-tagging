@@ -774,7 +774,7 @@
         "imageModeImageOff": "基于特征相似度与文字匹配，每张 1 点。",
         "imageModeVideos": "视频使用图像模式",
         "imageModeVideoOn": "结合图像与文字匹配，每帧 2 点。",
-        "imageModeVideoOff": "基于特征相似度与文字匹配，每帧 1 点。",
+        "imageModeVideoOff": "基于特征相似度与文字匹配，每个素材 1 点。",
         "imageModeVideoBilling": "每 {seconds} 秒计 1 帧，向上取整，最多 {maxFrames} 帧。",
         "title": "AI 识别设置",
         "precise": "精准模式",

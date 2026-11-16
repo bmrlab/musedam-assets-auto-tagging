@@ -74,6 +74,7 @@ it("keeps legacy image mode enabled but video off, and saves both independently"
   expect(video.getAttribute("aria-checked")).toBe("false");
   expect(screen.getByText("imageModeImageOn")).toBeTruthy();
   expect(screen.getByText("imageModeVideoOff")).toBeTruthy();
+  expect(screen.queryByText("imageModeVideoBilling")).toBeNull();
   fireEvent.click(video);
   await waitFor(() =>
     expect(save).toHaveBeenLastCalledWith(
@@ -82,6 +83,7 @@ it("keeps legacy image mode enabled but video off, and saves both independently"
   );
   await waitFor(() => expect((image as HTMLButtonElement).disabled).toBe(false));
   expect(screen.getByText("imageModeVideoOn")).toBeTruthy();
+  expect(screen.getByText("imageModeVideoBilling")).toBeTruthy();
   fireEvent.click(image);
   await waitFor(() =>
     expect(save).toHaveBeenLastCalledWith(

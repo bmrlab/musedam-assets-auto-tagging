@@ -499,7 +499,7 @@ describe("queued image mode snapshot", () => {
     vi.useFakeTimers();
     mocks.create.mockImplementation(async ({ data }) => ({ id: 123, ...data }));
     const task = await enqueueTaggingTask({ assetObject: { id: 2, teamId: 7, extra: { extension: "mp4", duration: 5000 } } as never, featureImageMode: true });
-    expect(task.extra).toMatchObject({ featureImageMode: true, creditCost: 6, creditFrameCount: 3, creditDurationMs: 5000, creditPricingVersion: "video-duration-v1" });
+    expect(task.extra).toMatchObject({ featureImageMode: true, creditCost: 6, creditFrameCount: 3, creditDurationMs: 5000, creditPricingVersion: "video-duration-v2" });
   });
   it.each([false, true])("keeps the enqueue mode %s after the team setting changes", async snapshot => {
     mocks.mode = "llm";
@@ -546,7 +546,7 @@ describe("independent video team image mode", () => {
     mocks.videoImageMode = enabled;
     mocks.create.mockImplementation(async ({ data }) => ({ id: 123, ...data }));
     const task = await enqueueTaggingTask({ assetObject: { id: 2, teamId: 7, extra: { extension: "mp4", duration: 5000 } } as never });
-    expect(task.extra).toMatchObject({ featureImageMode: enabled, creditCost: enabled ? 6 : 3, creditFrameCount: 3 });
+    expect(task.extra).toMatchObject({ featureImageMode: enabled, creditCost: enabled ? 6 : 1, creditFrameCount: enabled ? 3 : 1 });
   });
 });
 

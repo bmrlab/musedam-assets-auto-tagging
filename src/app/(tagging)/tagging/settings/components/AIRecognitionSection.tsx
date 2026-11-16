@@ -105,7 +105,7 @@ export function AIRecognitionSection({
                   id: "team-feature-video-image-mode",
                   label: "imageModeVideos",
                   hint: videoImageMode ? "imageModeVideoOn" : "imageModeVideoOff",
-                  billing: true,
+                  billing: videoImageMode,
                   checked: videoImageMode,
                   change: onVideoImageModeChange,
                 },

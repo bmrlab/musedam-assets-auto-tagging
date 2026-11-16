@@ -774,7 +774,7 @@
         "imageModeImageOff": "Matches using feature similarity and text. 1 points per image.",
         "imageModeVideos": "Use image mode for videos",
         "imageModeVideoOn": "Matches using images and text. 2 points per billing frame.",
-        "imageModeVideoOff": "Matches using feature similarity and text. 1 points per billing frame.",
+        "imageModeVideoOff": "Matches using feature similarity and text. 1 point per asset.",
         "imageModeVideoBilling": "1 billing frame per {seconds} seconds, rounded up, up to {maxFrames} frames.",
         "title": "AI Recognition",
         "precise": "Precise",
