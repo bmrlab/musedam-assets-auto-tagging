@@ -106,6 +106,7 @@
       "allLinkedTagsTitle": "Alle verknüpften Tags ({count})"
     },
     "Dashboard": {
+      "creditCost": "{count} Credits",
       "aiTaggingTime": "AI-Tagging-Zeit",
       "failed": "Tagging fehlgeschlagen",
       "filterAll": "Alle",

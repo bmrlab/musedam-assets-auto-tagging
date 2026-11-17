@@ -683,6 +683,7 @@
       }
     },
     "Dashboard": {
+      "creditCost": "{count} 点",
       "title": "AI 自动打标中",
       "totalCompleted": "总成功打标资产",
       "processing": "正在打标中",

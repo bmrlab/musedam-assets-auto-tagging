@@ -599,6 +599,7 @@
       }
     },
     "Dashboard": {
+      "creditCost": "{count} kredi",
       "title": "AI Otomatik Etiketleme Devam Ediyor",
       "totalCompleted": "Toplam Başarılı Etiketlenmiş Varlık",
       "processing": "İşleniyor",

@@ -106,6 +106,7 @@
       "allLinkedTagsTitle": "모든 연결 태그 ({count})"
     },
     "Dashboard": {
+      "creditCost": "{count} 포인트",
       "aiTaggingTime": "AI 태깅 시간",
       "failed": "레이블링 실패",
       "filterAll": "전체",

@@ -599,6 +599,7 @@
       }
     },
     "Dashboard": {
+      "creditCost": "{count} pkt",
       "title": "Automatyczne tagowanie AI w toku",
       "totalCompleted": "Całkowita liczba oznakowanych zasobów",
       "processing": "Przetwarzanie",

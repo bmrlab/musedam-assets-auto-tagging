@@ -1,11 +1,13 @@
 import { AssetObjectExtra, TaggingQueueStatus } from "@/prisma/client";
 
-/** 看板任务列表只需状态、耗时和失败码；完整 result 含特征决策/OCR，体积很大。 */
+/** 看板仅投影展示字段；不读取含特征决策/OCR 的完整 result / extra。 */
 export type DashboardTaskListItem = {
   id: number;
   status: TaggingQueueStatus;
   startsAt: Date | null;
   endsAt: Date | null;
+  /** Enqueue-time price; null for historical tasks without a recorded snapshot. */
+  creditCost: number | null;
   result: { error?: string | { code?: string } } | Record<string, never>;
   assetObject: {
     id: number;

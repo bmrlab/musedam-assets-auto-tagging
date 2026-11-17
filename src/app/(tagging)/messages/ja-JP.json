@@ -106,6 +106,7 @@
       "allLinkedTagsTitle": "すべての関連タグ ({count})"
     },
     "Dashboard": {
+      "creditCost": "{count} ポイント",
       "aiTaggingTime": "AIタグ付け時間",
       "failed": "ラベル付けに失敗しました",
       "filterAll": "全て",

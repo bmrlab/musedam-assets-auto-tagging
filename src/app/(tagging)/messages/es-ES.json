@@ -106,6 +106,7 @@
       "allLinkedTagsTitle": "Todas las etiquetas vinculadas ({count})"
     },
     "Dashboard": {
+      "creditCost": "{count} créditos",
       "aiTaggingTime": "Tiempo de Etiquetado con IA",
       "failed": "Etiquetado fallido",
       "filterAll": "Todo",

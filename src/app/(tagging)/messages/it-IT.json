@@ -345,6 +345,7 @@
       }
     },
     "Dashboard": {
+      "creditCost": "{count} crediti",
       "title": "Etichettatura automatica IA in corso",
       "totalCompleted": "Totale risorse etichettate con successo",
       "processing": "In elaborazione",

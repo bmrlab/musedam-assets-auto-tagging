@@ -16,6 +16,7 @@ function sampleTask(overrides: {
     startsAt: new Date("2026-11-10T00:00:00.000Z"),
     endsAt: new Date("2026-11-10T00:00:10.000Z"),
     result: {},
+    creditCost: 2,
     assetObject: {
       id: overrides.id ?? 10,
       name: overrides.name ?? "asset.png",
@@ -43,6 +44,7 @@ describe("dashboard list data", () => {
     expect(updated[0].assetObject.extra.thumbnailAccessUrl).toBe("https://new.example/thumb");
     expect(updated[1].assetObject.extra.thumbnailAccessUrl).toBe("https://old.example/thumb");
     expect(updated[0]).not.toBe(tasks[0]);
+    expect(updated[0].creditCost).toBe(2);
   });
 
   it("returns the same array reference when there are no updates", () => {

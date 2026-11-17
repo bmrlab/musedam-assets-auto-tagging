@@ -640,6 +640,7 @@
       }
     },
     "Dashboard": {
+      "creditCost": "{count} kredit",
       "title": "Pelabelan Otomatis AI Sedang Berlangsung",
       "totalCompleted": "Total Aset Berlabel Berhasil",
       "processing": "Memproses",

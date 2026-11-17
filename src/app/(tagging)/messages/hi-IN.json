@@ -106,6 +106,7 @@
       "allLinkedTagsTitle": "सभी लिंक किए गए टैग ({count})"
     },
     "Dashboard": {
+      "creditCost": "{count} क्रेडिट",
       "aiTaggingTime": "एआई टैगिंग टाइम",
       "failed": "टैगिंग विफल रही",
       "filterAll": "सभी",

@@ -683,6 +683,7 @@
       }
     },
     "Dashboard": {
+      "creditCost": "{count} credits",
       "title": "AI Auto-Tagging in Progress",
       "totalCompleted": "Total Successful Tagged Assets",
       "processing": "Processing",

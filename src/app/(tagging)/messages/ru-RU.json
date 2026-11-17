@@ -106,6 +106,7 @@
       "allLinkedTagsTitle": "Все связанные теги ({count})"
     },
     "Dashboard": {
+      "creditCost": "{count} баллов",
       "aiTaggingTime": "Время тегирования AI",
       "failed": "Метки не созданы",
       "filterAll": "Все",

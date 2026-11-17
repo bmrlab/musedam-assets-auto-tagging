@@ -599,6 +599,7 @@
       }
     },
     "Dashboard": {
+      "creditCost": "{count} điểm",
       "title": "Đang gắn thẻ tự động bằng AI",
       "totalCompleted": "Tài sản đã gắn thẻ thành công",
       "processing": "Đang gắn thẻ",

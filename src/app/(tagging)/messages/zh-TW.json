@@ -106,6 +106,7 @@
       "allLinkedTagsTitle": "全部關聯標籤 ({count})"
     },
     "Dashboard": {
+      "creditCost": "{count} 點",
       "aiTaggingTime": "AI 標記時間",
       "failed": "標記失敗",
       "filterAll": "全部",

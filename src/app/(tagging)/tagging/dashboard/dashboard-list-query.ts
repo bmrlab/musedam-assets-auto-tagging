@@ -7,6 +7,7 @@ type DashboardTaskRow = {
   status: TaggingQueueStatus;
   startsAt: Date | null;
   endsAt: Date | null;
+  creditCost: Prisma.JsonValue;
   result: Prisma.JsonValue;
   assetObjectId: number;
   assetName: string;
@@ -31,6 +32,7 @@ export async function loadDashboardTaskListItems(
         q."status",
         q."startsAt",
         q."endsAt",
+        q."extra" -> 'creditCost' AS "creditCost",
         CASE
           WHEN q."status" = 'failed' THEN jsonb_build_object('error', q."result" -> 'error')
           ELSE '{}'::jsonb
@@ -62,6 +64,9 @@ export async function loadDashboardTaskListItems(
         status: row.status,
         startsAt: row.startsAt,
         endsAt: row.endsAt,
+        creditCost: typeof row.creditCost === "number" && Number.isSafeInteger(row.creditCost) && row.creditCost >= 0
+          ? row.creditCost
+          : null,
         result: (row.result ?? {}) as DashboardTaskListItem["result"],
         assetObject: {
           id: row.assetObjectId,

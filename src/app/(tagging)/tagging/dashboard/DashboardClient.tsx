@@ -517,7 +517,7 @@ export default function DashboardClient({
                           {assetName}
                         </span>
                       </div>
-                      <div className="flex items-center gap-2 text-xs mt-0.5 text-basic-6">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs mt-0.5 text-basic-6">
                         <span>
                           {extra.extension?.toUpperCase() || "UNKNOWN"}
                         </span>
@@ -551,6 +551,9 @@ export default function DashboardClient({
                             </span>
                           )}
                         </>
+                        <span className="shrink-0 whitespace-nowrap text-basic-5">
+                          · {t("creditCost", { count: task.creditCost ?? "—" })}
+                        </span>
                       </div>
                     </div>
 
