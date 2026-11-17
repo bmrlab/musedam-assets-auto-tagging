@@ -56,6 +56,21 @@ function expectColor(actual: number[], expected: number[]) {
 }
 
 describe("reference image preparation", () => {
+  it("reduces square embedding PNG payloads without changing decoded pixels", async () => {
+    const original = await stripedImage(512, 512);
+    const prepared = await prepareSquareEmbeddingImageBuffer(original);
+    const [before, after] = await Promise.all([
+      sharp(original).removeAlpha().raw().toBuffer(),
+      sharp(prepared).removeAlpha().raw().toBuffer(),
+    ]);
+
+    expect(after.equals(before)).toBe(true);
+    expect(prepared.length).toBeLessThan(original.length);
+    expect(await sharp(prepared).metadata()).toMatchObject({
+      format: "png", width: 512, height: 512,
+    });
+  });
+
   it("renders a small viewBox SVG at the resolution used for reference matching", async () => {
     const svg = Buffer.from(
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 87.5 57"><rect width="87.5" height="57" fill="white"/><rect x="40" width="7.5" height="57" fill="black"/></svg>',

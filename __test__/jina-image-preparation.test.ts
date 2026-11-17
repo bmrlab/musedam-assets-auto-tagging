@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   debug: false,
   endpoint: "https://example.test/embeddings",
   isDirectJina: false,
+  timeoutMs: 30_000,
   prepareImage: vi.fn(),
   buildDebugKey: vi.fn(),
   upload: vi.fn(),
@@ -26,7 +27,7 @@ vi.mock("@/lib/brand/env", () => ({
     embeddingsUrl: mocks.endpoint,
     model: "jina-clip-v2",
     batchSize: 8,
-    timeoutMs: 30_000,
+    timeoutMs: mocks.timeoutMs,
     isDirectJina: mocks.isDirectJina,
     useProxy: false,
     proxyUrl: "",
@@ -52,6 +53,7 @@ describe("Jina image preparation boundary", () => {
     mocks.debug = false;
     mocks.endpoint = "https://example.test/embeddings";
     mocks.isDirectJina = false;
+    mocks.timeoutMs = 30_000;
     mocks.prepareImage.mockReset();
     mocks.buildDebugKey.mockReset().mockReturnValue("debug-jina-image.jpg");
     mocks.upload.mockReset().mockResolvedValue({ objectKey: "debug-jina-image.jpg" });
@@ -77,7 +79,48 @@ describe("Jina image preparation boundary", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
+  });
+
+  it.each(["image", "text"])("allows a queued %s request to complete after the former 30s cutoff", async (kind) => {
+    vi.useFakeTimers();
+    mocks.timeoutMs = 90_000;
+    const timeout = vi.spyOn(AbortSignal, "timeout").mockImplementation((ms) => {
+      const controller = new AbortController();
+      setTimeout(() => controller.abort(new DOMException("Request timed out", "TimeoutError")), ms);
+      return controller.signal;
+    });
+    const success = mocks.fetch.getMockImplementation()!;
+    mocks.fetch.mockImplementation((_url, init) => new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        init.signal.removeEventListener("abort", abort);
+        resolve(success(_url, init));
+      }, 45_000);
+      const abort = () => { clearTimeout(timer); reject(init.signal.reason); };
+      init.signal.addEventListener("abort", abort, { once: true });
+    }));
+    const request = inQueue(() => kind === "image"
+      ? createJinaImageEmbeddings({ images: ["one"] })
+      : createJinaTextEmbeddings({ texts: ["one"] }));
+    const completed = expect(request).resolves.toEqual([[0]]);
+    await vi.advanceTimersByTimeAsync(45_000);
+    await completed;
+    expect(timeout).toHaveBeenCalledWith(60_000);
+    expect(mocks.fetch).toHaveBeenCalledTimes(1);
+    expect(mocks.fetch.mock.calls[0][1].signal.aborted).toBe(false);
+  });
+
+  it.each(["image", "text"])("retains a shorter configured deadline in queued %s failure diagnostics", async (kind) => {
+    mocks.timeoutMs = 10_000;
+    const timeout = vi.spyOn(AbortSignal, "timeout");
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.fetch.mockResolvedValue(new Response('{"error":{"message":"invalid input"}}', { status: 400 }));
+    await expect(inQueue(() => kind === "image"
+      ? createJinaImageEmbeddings({ images: ["one"] })
+      : createJinaTextEmbeddings({ texts: ["one"] }))).rejects.toThrow("invalid input");
+    expect(timeout).toHaveBeenCalledWith(10_000);
+    expect(log).toHaveBeenCalledWith("[Jina embeddings] Request failed", expect.objectContaining({ timeoutMs: 10_000 }));
   });
 
   it("normalizes every image before sending batches capped at four", async () => {

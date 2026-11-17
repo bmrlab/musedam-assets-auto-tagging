@@ -121,7 +121,8 @@ export async function prepareSquareEmbeddingImageBuffer(
         withoutEnlargement: false,
       })
       .removeAlpha()
-      .png()
+      // Reduce base64 upload size without changing pixels or existing reference vectors.
+      .png({ compressionLevel: 9, adaptiveFiltering: true })
       .toBuffer(),
   );
 }

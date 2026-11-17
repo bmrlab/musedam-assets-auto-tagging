@@ -31,6 +31,7 @@ type JinaResponse = {
 const JINA_MAX_RETRIES = 5;
 const JINA_RETRY_BASE_DELAY_MS = 500;
 const JINA_MAX_IMAGE_BATCH_SIZE = 4;
+const JINA_QUEUE_REQUEST_TIMEOUT_MS = 60_000;
 const JINA_DEBUG_IMAGE_URL_TTL_SECONDS = 7 * 24 * 60 * 60;
 // A paid Jina key allows 2M TPM and each jina-clip-v2 input can use up to 8,192 tokens.
 // Reserve only 80% so mixed image/text traffic has headroom without a fixed per-request delay.
@@ -158,7 +159,7 @@ async function sendJinaEmbeddingRequest({
         body: JSON.stringify(body),
         signal: queueAbortSignal(
           AbortSignal.timeout(
-            getQueueExecution() ? Math.min(config.timeoutMs, 30_000) : config.timeoutMs,
+            getQueueExecution() ? Math.min(config.timeoutMs, JINA_QUEUE_REQUEST_TIMEOUT_MS) : config.timeoutMs,
           ),
         ),
         dispatcher: proxyAgent,
@@ -331,7 +332,7 @@ export async function createJinaImageEmbeddings({
               attempt,
               maxAttempts,
               timeoutMs: getQueueExecution()
-                ? Math.min(config.timeoutMs, 30_000)
+                ? Math.min(config.timeoutMs, JINA_QUEUE_REQUEST_TIMEOUT_MS)
                 : config.timeoutMs,
             },
             retry,
@@ -425,7 +426,7 @@ export async function createJinaTextEmbeddings({
             inputCount: batch.length,
             attempt,
             maxAttempts,
-            timeoutMs: getQueueExecution() ? Math.min(config.timeoutMs, 30_000) : config.timeoutMs,
+            timeoutMs: getQueueExecution() ? Math.min(config.timeoutMs, JINA_QUEUE_REQUEST_TIMEOUT_MS) : config.timeoutMs,
           },
           retry,
         );
