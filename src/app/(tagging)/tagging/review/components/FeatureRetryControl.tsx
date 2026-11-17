@@ -1,7 +1,7 @@
 "use client";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RefreshCwIcon } from "lucide-react";
+import { Loader2Icon, RefreshCwIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { getFeatureRetryStatus, retryFeatures } from "../feature-retry-actions";
@@ -85,11 +85,11 @@ export function FeatureRetryControl({
     <Button
       variant="outline"
       size="sm"
-      className="h-9 shrink-0 gap-2 rounded-md px-4 text-sm"
+      className="h-6 shrink-0 gap-1 rounded-md px-2 text-xs"
       disabled={disabled || retrying}
       onClick={() => (status === "unknown" ? setCheck((value) => value + 1) : void retry())}
     >
-      <RefreshCwIcon className={retrying ? "size-4 animate-spin" : "size-4"} />
+      {retrying ? <Loader2Icon className="size-[14px] animate-spin" /> : <RefreshCwIcon className="size-[14px]" />}
       {t(
         retrying
           ? "featureRetryRunning"

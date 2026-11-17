@@ -38,6 +38,7 @@ import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { reviewScopedAssetsAction, type ReviewTagSearchResult, AssetWithAuditItemsBatch, fetchAssetsWithAuditItems, batchApproveAuditItemsAction, batchRejectAuditItemsAction } from "./actions";
 import { ReviewItem } from "./ReviewItem";
+import { ReviewListSkeleton } from "./components/ReviewListSkeleton";
 import { useProgressiveReview } from "./use-progressive-review";
 import { featureKey, getFeatureReviewVersions, type ReviewFeatureSearchResult } from "./feature-review";
 import { useTheme } from "next-themes";
@@ -537,12 +538,10 @@ export default function ReviewPageClient({ metadataAvailable = false }: { metada
 
       {/* 右侧主要内容 */}
       {isLoading ? (
-        <Card className="flex-1 flex items-center justify-center">
-          <CardContent className="pt-6 text-center">
-            <Loader2Icon className="size-5 animate-spin text-primary-6 mx-auto mb-4" />
-            <p>{t("loading")}</p>
-          </CardContent>
-        </Card>
+        <ReviewListSkeleton
+          contentScope={contentFilter === "tags" || contentFilter === "features" ? contentFilter : "all"}
+          label={t("loading")}
+        />
       ) : assets.length === 0 ? (
         <Card className="flex-1 flex items-center justify-center">
           <CardContent className="pt-6 text-center">
