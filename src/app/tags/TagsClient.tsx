@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { fetchTeamTags, saveTagsTree, saveTagsTreeToMuseDAM } from "./actions";
 import { deleteTagAndDescendants } from "./delete-tag";
 import { localizeTagActionMessage } from "./tagActionMessage";
+import { buildTagNameChange } from "./tagNameChange";
 import { AiCreateModal } from "./components/AiCreateModal";
 import { BatchCreateModal } from "./components/BatchCreateModal";
 import { BatchTagImportExportDialog } from "./components/BatchTagImportExportDialog";
@@ -425,7 +426,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
       }));
     });
 
-    // 当用户完成编辑时，会通过 updateTagName 调用 saveSingleTagChange
+    // 当用户完成编辑时，通过 updateTagName 仅提交该节点及祖先路径
     // 这里不需要立即调用，因为新标签还没有名称
   };
 
@@ -440,9 +441,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
       return false;
     }
 
-    const node = context.node;
-
-    // 简化：基于更新后的整棵树保存
+    // 保留完整树用于界面展示，保存时只提交本次变更及祖先路径
     try {
       setIsSaving(true);
 
@@ -455,7 +454,7 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
 
       setTagsTree(updatedTree);
 
-      const result = await saveTagsTree(updatedTree);
+      const result = await saveTagsTree(buildTagNameChange(tagsTree, nodeId, newName));
 
       if (result.success) {
         toast.success(t("saveSuccess"));
