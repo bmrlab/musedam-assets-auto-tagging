@@ -10,17 +10,17 @@ import { SourceBasedTagPredictions } from "@/app/(tagging)/types";
 import { TagWithChildren } from "@/prisma/client";
 
 // 复现客户案例："产品分类"（必打 + 仅能打一个）下的"兔笼"是没有三级的二级标签，
-// 路径里写着兔笼，却被打成了同组的其他标签。
+// 本组显式配置为按文字归档（literal），验证二级/四级字面匹配仍可用。
 const tagsTree: TagWithChildren[] = [
   {
     id: 1,
     name: "产品分类",
     extra: { siblingsExclusive: true, requiredGroup: true },
     children: [
-      { id: 2, name: "灯光", extra: {}, children: [] },
-      { id: 3, name: "兔笼", extra: {}, children: [] },
-      { id: 4, name: "镜头", extra: {} },
-      { id: 5, name: "镜头转接环", extra: {} },
+      { id: 2, name: "灯光", extra: { evidencePolicy: "literal" }, children: [] },
+      { id: 3, name: "兔笼", extra: { evidencePolicy: "literal" }, children: [] },
+      { id: 4, name: "镜头", extra: { evidencePolicy: "literal" } },
+      { id: 5, name: "镜头转接环", extra: { evidencePolicy: "literal" } },
     ],
   },
 ] as unknown as TagWithChildren[];
@@ -74,11 +74,11 @@ describe("hard match on two-level leaf tags", () => {
                 name: "镜头",
                 extra: { siblingsExclusive: true },
                 children: [
-                  { id: 4, name: "广角镜头", extra: {} },
-                  { id: 5, name: "长焦镜头", extra: {} },
+                  { id: 4, name: "广角镜头", extra: { evidencePolicy: "literal" } },
+                  { id: 5, name: "长焦镜头", extra: { evidencePolicy: "literal" } },
                 ],
               },
-              { id: 6, name: "兔笼", extra: {}, children: [] },
+              { id: 6, name: "兔笼", extra: { evidencePolicy: "literal" }, children: [] },
             ],
           },
         ],

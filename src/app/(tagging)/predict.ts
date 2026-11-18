@@ -465,9 +465,9 @@ export function enforceTextualSourceEvidence(
  * 互斥沿祖先链传播：预测的是更深层的标签时，它同样代表了自己在每个互斥祖先下所在的分支——"产品品类"标了互斥，
  * 那么"护肤 > 面霜"和"彩妆 > 底妆"就是在争同一个位置，按各自分支整体取舍。
  * 分支排序（前者优先）：
- * 0. 字面命中（传入 literalText 时：标签名拆词或配置关键词确实出现在文件名/路径里），
+ * 0. 可锚定的文本来源字面命中（文件名/描述，或字面型标签的路径/关键词来源），
  *    都命中时命中的关键词更长者优先（路径"镜头转接环"同时含"镜头"，应归"镜头转接环"）；
- * 1. 锚定（有 basicInfo / materializedPath / tagKeywords 文本来源，已经过 enforceTextualSourceEvidence 校验）；
+ * 1. 锚定（basicInfo 或字面型标签的文本来源；内容型标签的路径/关键词来源不享受硬优先级）；
  * 2. 各来源最高置信度；
  * 3. 支撑来源数；
  * 4. branchId 小者（保证确定性）。
@@ -482,6 +482,7 @@ export function resolveExclusiveSiblings(
 ): SourceBasedTagPredictions {
   const { exclusiveParentIds, branchesOf } = buildExclusiveBranchResolver(tagsTree);
   if (exclusiveParentIds.size === 0) return predictions;
+  const flattenInfoById = new Map(flattenTagsTree(tagsTree).map((node) => [node.id, node]));
 
   // 标签名拆词/配置关键词在文件名+路径里字面出现，才算"字面命中"。
   // 只靠模型摘录片段过关的文本来源（ASCII 片段被当作别名信任）不算：
@@ -520,10 +521,16 @@ export function resolveExclusiveSiblings(
           sources: new Set(),
           leafTagIds: new Set(),
         };
-        const hitLength = isTextualSource(prediction.source) ? literalHitLength(tag.leafTagId) : 0;
+        // 内容标签的目录/关键词只是模型线索，不能凭字面命中压过更强的内容证据。
+        // 文件名/描述的明确命中，以及字面型业务标签，仍保留原有优先级。
+        const canAnchor =
+          prediction.source === "basicInfo" ||
+          resolveEvidencePolicy(flattenInfoById.get(tag.leafTagId)?.extra, tag.tagPath) === "literal";
+        const hitLength =
+          isTextualSource(prediction.source) && canAnchor ? literalHitLength(tag.leafTagId) : 0;
         stat.literal = stat.literal || hitLength > 0;
         stat.literalLength = Math.max(stat.literalLength, hitLength);
-        stat.anchored = stat.anchored || isTextualSource(prediction.source);
+        stat.anchored = stat.anchored || (isTextualSource(prediction.source) && canAnchor);
         stat.best = Math.max(stat.best, tag.confidence);
         stat.sources.add(prediction.source);
         stat.leafTagIds.add(tag.leafTagId);
@@ -705,6 +712,8 @@ function computeTextHardMatchCandidates(
   formatKind?: "image" | "video";
   matchedKeywordLength: number;
   matchedKeywords: string[];
+  /** false 时只为模型已有预测补充命中词，不创建预测或提高分数。 */
+  allowInjection?: boolean;
 }> {
   // 文本整体是否独立提到了图片/视频这类格式概念（不局限于命中关键词所在的那个片段），
   // 用于校验"标签名带格式关键词、但命中片段本身不带"的情况（如标签"POP-UP视频"被
@@ -745,19 +754,22 @@ function injectHardMatchPredictions(
   }));
 
   let bucket = enhanced.find((item) => item.source === source);
-  if (!bucket) {
-    bucket = { source, tags: [] };
-    enhanced.push(bucket);
-  }
 
   for (const candidate of candidates) {
-    const existed = bucket.tags.find((tag) => tag.leafTagId === candidate.leafTagId);
+    const existed = bucket?.tags.find((tag) => tag.leafTagId === candidate.leafTagId);
     if (existed) {
-      existed.confidence = Math.max(existed.confidence, confidence);
+      if (candidate.allowInjection !== false) {
+        existed.confidence = Math.max(existed.confidence, confidence);
+      }
       existed.matchedKeywords = Array.from(
         new Set([...(existed.matchedKeywords ?? []), ...candidate.matchedKeywords]),
       );
       continue;
+    }
+    if (candidate.allowInjection === false) continue;
+    if (!bucket) {
+      bucket = { source, tags: [] };
+      enhanced.push(bucket);
     }
     bucket.tags.push({
       leafTagId: candidate.leafTagId,
@@ -777,7 +789,12 @@ export function enhancePredictionsByMaterializedPathHardMatch(
 ): SourceBasedTagPredictions {
   const normalizedPath = normalizeForMatch(materializedPath);
   if (!normalizedPath) return predictions;
-  const candidates = computeTextHardMatchCandidates(tagsTree, normalizedPath);
+  const nodes = new Map(flattenTagsTree(tagsTree).map((node) => [node.id, node]));
+  const candidates = computeTextHardMatchCandidates(tagsTree, normalizedPath).map((candidate) => ({
+    ...candidate,
+    allowInjection:
+      resolveEvidencePolicy(nodes.get(candidate.leafTagId)?.extra, candidate.tagPath) === "literal",
+  }));
   return injectHardMatchPredictions(
     predictions,
     "materializedPath",
@@ -787,7 +804,7 @@ export function enhancePredictionsByMaterializedPathHardMatch(
 }
 
 /**
- * 文件名/描述（basicInfo）里的强关键词做硬匹配兜底，逻辑与 materializedPath 完全对称：
+ * 文件名/描述（basicInfo）里的强关键词做硬匹配兜底：
  * 此前只有文件夹路径有这层代码兜底，导致文件名里明明字面出现了"Pop-up"这类关键词，
  * 却完全依赖模型是否"恰好"也从 basicInfo 角度独立给出同一个预测——模型给了就命中，
  * 没给就只能靠路径命中单独撑分，容易让人误以为"名称匹配"没生效。
@@ -812,14 +829,19 @@ export function enhancePredictionsByBasicInfoHardMatch(
  * 标签手动配置的匹配关键词做硬匹配兜底（tagKeywords 来源）：
  * 上面两个硬匹配只用标签名自动拆词，配置关键词完全依赖模型是否"看到"——
  * 文件名 A+7.jpg 明明含有"内容类型 > A+页面"配置的关键词 "A+"，模型没给就打不上。
- * 任意层级的标签都参与（"A+页面"是没有子标签的二级标签）；文本里出现任一排除关键词则不注入。
+ * 字面型标签的文件名/描述命中可以补标；路径命中和内容型标签只补充模型已评估的命中词，
+ * 不绕过语义判断创建高分预测。文本里出现任一排除关键词则不注入。
  */
 export function enhancePredictionsByTagKeywordsHardMatch(
   predictions: SourceBasedTagPredictions,
   tagsTree: TagWithChildren[],
-  text: string,
+  text: string | { basicInfo: string; materializedPath: string },
 ): SourceBasedTagPredictions {
-  const normalizedText = normalizeForMatch(text);
+  // 单字符串调用表示显式文本（兼容开发工具）；队列必须分开传入文件信息与路径。
+  const basicInfoText = normalizeForMatch(typeof text === "string" ? text : text.basicInfo);
+  const normalizedText = normalizeForMatch(
+    typeof text === "string" ? text : `${text.basicInfo} ${text.materializedPath}`,
+  );
   if (!normalizedText) return predictions;
   const candidates: ReturnType<typeof computeTextHardMatchCandidates> = [];
   for (const node of flattenTagsTree(tagsTree)) {
@@ -839,6 +861,9 @@ export function enhancePredictionsByTagKeywordsHardMatch(
       keywords,
       matchedKeywords,
       matchedKeywordLength: normalizeForMatch(matchedKeywords[0]).length,
+      allowInjection:
+        resolveEvidencePolicy(node.extra, node.tagPath) === "literal" &&
+        matchedKeywords.some((keyword) => pathIncludesKeyword(basicInfoText, normalizeForMatch(keyword))),
     });
   }
   candidates.sort((a, b) => b.matchedKeywordLength - a.matchedKeywordLength);
@@ -1790,7 +1815,10 @@ ${sourceSections.join("\n\n")}
         predictions = enhancePredictionsByTagKeywordsHardMatch(
           predictions,
           tagsTree,
-          [asset.name, asset.description, asset.materializedPath].filter(Boolean).join(" "),
+          {
+            basicInfo: [asset.name, asset.description].filter(Boolean).join(" "),
+            materializedPath: asset.materializedPath ?? "",
+          },
         );
       }
       // 用真实文件扩展名兜底过滤，避免格式/媒体类型（图片 vs 视频）与实际元数据矛盾的幻觉标签；

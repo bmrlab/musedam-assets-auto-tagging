@@ -68,7 +68,7 @@ describe("enhancePredictionsByMaterializedPathHardMatch", () => {
     expect(matched).toBeUndefined();
   });
 
-  it("still hard-matches when the keyword appears as a standalone token", () => {
+  it("does not force a content-type prediction even when a directory keyword is a standalone token", () => {
     const predictions: SourceBasedTagPredictions = [];
     const result = enhancePredictionsByMaterializedPathHardMatch(
       predictions,
@@ -76,7 +76,7 @@ describe("enhancePredictionsByMaterializedPathHardMatch", () => {
       "assets/pop-up/video-01.mp4",
     );
     const matched = result.flatMap((p) => p.tags).find((t) => t.leafTagId === 3);
-    expect(matched).toBeDefined();
+    expect(matched).toBeUndefined();
   });
 
   it("skips a candidate keyword that review feedback has added to the tag's negativeKeywords", () => {
