@@ -1,3 +1,4 @@
+import { buildAllowedFolderIdSet, isAssetInApplicationScope } from "@/app/(tagging)/application-scope";
 import { getTaggingSettings } from "@/app/(tagging)/tagging/settings/lib";
 import { idToSlug } from "@/lib/slug";
 import {
@@ -15,6 +16,7 @@ import { z } from "zod";
 
 const requestSchema = z.object({
   teamId: z.coerce.bigint().positive(),
+  checkApplicationScope: z.boolean().optional().default(false),
   assetIds: z.array(z.coerce.bigint().positive()).max(100).optional(),
 });
 
@@ -24,7 +26,7 @@ const requestSchema = z.object({
  */
 export async function POST(request: NextRequest) {
   try {
-    const { teamId: musedamTeamId, assetIds: requestedIds } = requestSchema.parse(
+    const { teamId: musedamTeamId, assetIds: requestedIds, checkApplicationScope } = requestSchema.parse(
       await request.json(),
     );
     const assetIds = requestedIds ? [...new Set(requestedIds)] : undefined;
@@ -69,14 +71,25 @@ export async function POST(request: NextRequest) {
       ? getTaggingCreditCost(settings.featureImageMode)
       : 0;
     let creditCost = unitCreditCost;
+    let eligibleAssetIds: string[] | undefined;
     if (assetIds !== undefined) {
-      if (!unitCreditCost || !assetIds.length) creditCost = 0;
+      if ((!unitCreditCost && !checkApplicationScope) || !assetIds.length) {
+        creditCost = 0;
+        if (checkApplicationScope) eligibleAssetIds = [];
+      }
       else {
         try {
-          const assets = await fetchAssetCreditInputs(team, assetIds);
+          let assets = await fetchAssetCreditInputs(team, assetIds);
+          if (checkApplicationScope) {
+            const allowed = await buildAllowedFolderIdSet({ team, applicationScope: settings.applicationScope });
+            // Missing folder metadata cannot be treated as an unrestricted scope.
+            if (assets.some((asset) => !Array.isArray(asset.parentIds))) throw new Error("Missing parent folders");
+            assets = assets.filter((asset) => isAssetInApplicationScope(asset.parentIds!, allowed));
+            eligibleAssetIds = assets.map((asset) => asset.id);
+          }
           creditCost = assets.reduce(
             (sum, asset) =>
-              sum + getTaggingCreditQuote(getAssetFeatureImageMode(settings, asset), asset).creditCost,
+              sum + (settings.isTaggingEnabled ? getTaggingCreditQuote(getAssetFeatureImageMode(settings, asset), asset).creditCost : 0),
             0,
           );
         } catch {
@@ -90,6 +103,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: {
+        ...(eligibleAssetIds === undefined ? {} : {
+          eligibleAssetIds,
+          excludedCount: (assetIds?.length ?? 0) - eligibleAssetIds.length,
+        }),
         featureImageMode: settings.featureImageMode,
         featureVideoImageMode: settings.featureVideoImageMode === true,
         creditCost,

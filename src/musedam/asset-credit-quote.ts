@@ -8,6 +8,7 @@ const assetsSchema = z.array(
   z.object({
     id: z.coerce.string(),
     name: z.string().optional(),
+    parentIds: z.array(z.coerce.string()).optional(),
     extension: z.string().nullish(),
     duration: z.number().nullish(),
   }),
@@ -32,6 +33,6 @@ export async function fetchAssetCreditInputs(
   return assetIds.map((id) => {
     const asset = byId.get(id.toString());
     if (!asset) throw new Error("A requested asset is unavailable for credit quotation");
-    return { name: asset.name, extra: { extension: asset.extension, duration: asset.duration } };
+    return { id: id.toString(), parentIds: asset.parentIds, name: asset.name, extra: { extension: asset.extension, duration: asset.duration } };
   });
 }

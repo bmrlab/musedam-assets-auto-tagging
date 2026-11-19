@@ -1,3 +1,4 @@
+import { buildAllowedFolderIdSet } from "@/app/(tagging)/application-scope";
 import { hasEnabledTaggingOutput } from "@/musedam/metadata";
 import { AUTH_TOKEN_HEADER, AuthTokenError, getAuthSession, resolveTokenIdentity } from "@/app/(auth)/requestAuth";
 import { checkUserPermission } from "@/app/(auth)/lib";
@@ -47,7 +48,9 @@ export async function GET() {
         .catch(() => false),
     ]);
 
-    // 返回简化的信息
+    const allowed = await buildAllowedFolderIdSet({ team: identity.team, applicationScope: settings.applicationScope });
+
+    // 返回手动任务所需的团队默认值，不提供设置写入能力
     return NextResponse.json({
       success: true,
       data: {
@@ -55,6 +58,13 @@ export async function GET() {
           settings.triggerTiming.manualTriggerTagging && await hasEnabledTaggingOutput(identity.team, settings),
         hasPermission,
         isMetadataEnabled: settings.isMetadataEnabled,
+        manualTaggingDefaults: {
+          recognitionAccuracy: settings.recognitionAccuracy,
+          matchingSources: settings.matchingSources,
+          featureImageMode: settings.featureImageMode,
+          featureVideoImageMode: settings.featureVideoImageMode === true,
+          allowedFolderIds: allowed === null ? null : [...allowed],
+        },
       },
     });
   } catch (error: unknown) {

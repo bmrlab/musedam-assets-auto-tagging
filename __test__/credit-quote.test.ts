@@ -3,11 +3,12 @@ import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  findTeam: vi.fn(),
+  scope: vi.fn(), findTeam: vi.fn(),
   findConfig: vi.fn(),
   settings: vi.fn(),
   assets: vi.fn(),
 }));
+vi.mock("@/app/(tagging)/application-scope", async (importOriginal) => ({ ...await importOriginal<typeof import("@/app/(tagging)/application-scope")>(), buildAllowedFolderIdSet: mocks.scope }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/prisma/prisma", () => ({
   default: {
@@ -29,6 +30,7 @@ const request = (assetIds?: string[]) =>
 
 beforeEach(() => {
   vi.resetAllMocks();
+  mocks.scope.mockResolvedValue(null);
   vi.stubGlobal("fetch", fetchMock);
   vi.stubEnv("MUSEDAM_APP_API_KEY", "app-id");
   vi.stubEnv("MUSEDAM_APP_SECRET", "app-secret");
@@ -131,4 +133,24 @@ it("defaults legacy teams to text-only video quotes even when image mode is on",
   mocks.settings.mockResolvedValue({ isTaggingEnabled: true, featureImageMode: true });
   mocks.assets.mockResolvedValue([{ extra: { extension: "mp4", duration: 5000 } }]);
   expect((await (await POST(request(["1"]))).json()).data).toMatchObject({ creditCost: 1, unitCreditCost: 2, videoUnitCreditCost: 1, featureVideoImageMode: false });
+});
+
+const scopeRequest = () => new NextRequest("https://example.test/api/tagging/credit-quote", { method: "POST", body: JSON.stringify({ teamId: "158057", assetIds: ["1", "2", "3"], checkApplicationScope: true }) });
+it("quotes only filed assets in the selected folders, including any matching parent", async () => {
+  mocks.scope.mockResolvedValue(new Set(["10", "11"]));
+  mocks.assets.mockResolvedValue([
+    { id: "1", parentIds: ["20", "11"], extra: { extension: "jpg" } },
+    { id: "2", parentIds: ["20"], extra: { extension: "jpg" } },
+    { id: "3", parentIds: [], extra: { extension: "jpg" } },
+  ]);
+  expect((await (await POST(scopeRequest())).json()).data).toMatchObject({ creditCost: 1, eligibleAssetIds: ["1"], excludedCount: 2 });
+});
+it("still reports scope for metadata-only teams with a zero quote", async () => {
+  mocks.settings.mockResolvedValue({ isTaggingEnabled: false, isMetadataEnabled: true });
+  mocks.assets.mockResolvedValue([{ id: "1", parentIds: ["10"] }, { id: "2", parentIds: [] }, { id: "3", parentIds: [] }]);
+  expect((await (await POST(scopeRequest())).json()).data).toMatchObject({ creditCost: 0, eligibleAssetIds: ["1"], excludedCount: 2 });
+});
+it("rejects scope quotation if parent metadata is unavailable", async () => {
+  mocks.assets.mockResolvedValue([{ id: "1", extra: { extension: "jpg" } }]);
+  expect((await POST(scopeRequest())).status).toBe(502);
 });
