@@ -43,18 +43,16 @@ export async function POST(request: NextRequest) {
       select: { value: true },
     });
     if (suspension?.value === true) {
-      return NextResponse.json({
-        success: true,
-        data: {
-          featureImageMode: settings.featureImageMode,
-          featureVideoImageMode: settings.featureVideoImageMode === true,
-          creditCost: 0,
-          unitCreditCost: 0,
-          videoUnitCreditCost: 0,
-          creditPricingVersion: TAGGING_CREDIT_PRICING_VERSION,
-          message: "Tagging is suspended for this team",
+      // A suspended task cannot run. Returning a successful zero-price quote
+      // makes the parent application's manual dialog advertise free tagging.
+      return NextResponse.json(
+        {
+          success: false,
+          code: "TEAM_TAGGING_SUSPENDED",
+          error: "Tagging is suspended for this team",
         },
-      });
+        { status: 409 },
+      );
     }
 
     try {

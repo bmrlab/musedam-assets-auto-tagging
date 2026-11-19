@@ -87,7 +87,7 @@ describe("team tagging suspension", () => {
   });
 
   it("blocks enqueue inside the same team lock used by suspension", async () => {
-    await expect(enqueueTaggingTask({ assetObject: { id: 7, teamId: 42 } as AssetObject }))
+    await expect(enqueueTaggingTask({ assetObject: { id: 7, teamId: 42 } as AssetObject, featureImageMode: false }))
       .rejects.toBeInstanceOf(TeamTaggingSuspendedError);
     expect(mocks.create).not.toHaveBeenCalled();
     expect(mocks.lock.mock.invocationCallOrder[0]).toBeLessThan(mocks.config.mock.invocationCallOrder[0]);

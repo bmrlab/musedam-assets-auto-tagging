@@ -1,4 +1,5 @@
 import { buildAllowedFolderIdSet } from "@/app/(tagging)/application-scope";
+import { isTeamTaggingSuspended } from "@/lib/tagging/team-suspension";
 import { hasEnabledTaggingOutput } from "@/musedam/metadata";
 import { AUTH_TOKEN_HEADER, AuthTokenError, getAuthSession, resolveTokenIdentity } from "@/app/(auth)/requestAuth";
 import { checkUserPermission } from "@/app/(auth)/lib";
@@ -41,11 +42,12 @@ export async function GET() {
     }
 
     // 获取团队设置和检查用户权限
-    const [settings, hasPermission] = await Promise.all([
+    const [settings, hasPermission, suspended] = await Promise.all([
       getTaggingSettings(identity.team.id),
       checkUserPermission({ user: identity.user, team: identity.team })
         .then(() => true)
         .catch(() => false),
+      isTeamTaggingSuspended(identity.team.id),
     ]);
 
     const allowed = await buildAllowedFolderIdSet({ team: identity.team, applicationScope: settings.applicationScope });
@@ -55,7 +57,7 @@ export async function GET() {
       success: true,
       data: {
         manualTriggerTagging:
-          settings.triggerTiming.manualTriggerTagging && await hasEnabledTaggingOutput(identity.team, settings),
+          !suspended && settings.triggerTiming.manualTriggerTagging && await hasEnabledTaggingOutput(identity.team, settings),
         hasPermission,
         isMetadataEnabled: settings.isMetadataEnabled,
         manualTaggingDefaults: {

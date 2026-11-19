@@ -108,8 +108,29 @@ describe("credit quote", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it.each(["suspended", "disabled"])("quotes zero when tagging is %s", async (reason) => {
-    if (reason === "suspended") mocks.findConfig.mockResolvedValue({ value: true });
+  it.each([
+    {},
+    { assetIds: [] },
+    { assetIds: ["1"] },
+    { assetIds: ["1"], checkApplicationScope: true },
+  ])("rejects suspended quotation without advertising a free task: %j", async (options) => {
+    mocks.findConfig.mockResolvedValue({ value: true });
+    const response = await POST(new NextRequest("https://example.test/api/tagging/credit-quote", {
+      method: "POST",
+      body: JSON.stringify({ teamId: "158057", ...options }),
+    }));
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      success: false,
+      code: "TEAM_TAGGING_SUSPENDED",
+      error: "Tagging is suspended for this team",
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(mocks.assets).not.toHaveBeenCalled();
+    expect(mocks.scope).not.toHaveBeenCalled();
+  });
+
+  it("quotes zero when all tagging outputs are disabled", async () => {
     mocks.settings.mockResolvedValue({
       isTaggingEnabled: false,
       isMetadataEnabled: false,
@@ -117,7 +138,6 @@ describe("credit quote", () => {
     });
     const body = await (await POST(request())).json();
     expect(body).toMatchObject({ success: true, data: { creditCost: 0, featureImageMode: true } });
-    if (reason === "suspended") expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("returns team-not-found without quoting a price", async () => {

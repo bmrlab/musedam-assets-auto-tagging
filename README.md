@@ -122,7 +122,7 @@ curl --request POST 'https://你的打标服务域名/api/tagging/admin/team-sus
 
 该操作在同一事务内保存 `TeamConfig.taggingSuspended=true`，并将该团队 pending/processing 的资产打标任务（含测试任务）标为 CANCELLED。新请求返回成功但不创建任务、不返回可扣点的 queueItemId；定时发起器跳过该团队，入队和执行前也会检查暂停状态。入队与暂停共用团队行锁，避免批量入队与暂停并发漏取消。现有 worker 的执行权检查及心跳会停止后续业务写入；已经发出的模型请求无法撤回。恢复时提交 `suspended:false`，不会恢复已取消任务。无需 migration，所有 web/worker 实例须升级后才能保证完整拦截。
 
-当前主仓 `exchange-api-key` 检查团队存在和应用安装，不能作为订阅未到期的证明。团队暂停独立于用户可编辑的打标设置。若仅关闭定时打标，发起器和单素材 scheduled 回调入口均检查 `triggerTiming.scheduledTagging`；已排队任务仍需取消。主仓全素材定时扫描当前会遍历已有素材，不保证跳过已完成打标的素材，因此开启定时打标可能重复生成审核记录。
+当前主仓 `exchange-api-key` 检查团队存在和应用安装，不能作为订阅未到期的证明。团队暂停独立于用户可编辑的打标设置。暂停时 `/api/team/settings` 返回 `manualTriggerTagging=false`，只读询价返回 HTTP 409 / `TEAM_TAGGING_SUSPENDED`，避免主站将暂停误显示为免费任务。若仅关闭定时打标，发起器和单素材 scheduled 回调入口均检查 `triggerTiming.scheduledTagging`；已排队任务仍需取消。主仓全素材定时扫描当前会遍历已有素材，不保证跳过已完成打标的素材，因此开启定时打标可能重复生成审核记录。
 
 ## 商品、Logo、IP 的 LLM 决策与 OCR
 
