@@ -309,8 +309,8 @@
         "confidenceMedium": "중간 신뢰도",
         "confidenceLow": "낮은 신뢰도",
         "recognitionHelp": "Recognition modes set the confidence threshold for tags and features. Precise prioritizes accuracy, Balanced combines accuracy and coverage, and Broad includes more predictions. Image mode controls how features are identified.",
-        "imageModeHelp": "When enabled, features are identified using asset images, reference images and text. When disabled, recognition uses feature similarity and text. Both modes can recognize text in images.",
-        "videoModeHelp": "When enabled, features are identified using sampled video frames, reference images and text. When disabled, recognition uses feature similarity and text. Both modes can recognize text in frames.",
+        "imageModeHelp": "When enabled, features are identified using asset images, reference images and text. When disabled, recognition uses feature similarity and text. Both modes can recognize text in images. 활성화하면 콘텐츠 분석이 켜져 있을 때 일반 태그도 에셋 이미지를 직접 사용합니다.",
+        "videoModeHelp": "When enabled, features are identified using sampled video frames, reference images and text. When disabled, recognition uses feature similarity and text. Both modes can recognize text in frames. 활성화하면 콘텐츠 분석이 켜져 있을 때 일반 태그도 동일한 샘플링 영상 프레임을 사용합니다.",
         "fallbackHelp": "If image recognition fails, text recognition results are used automatically, with no additional credits.",
         "testScope": "Applies to this test only. No credits are deducted."
       },

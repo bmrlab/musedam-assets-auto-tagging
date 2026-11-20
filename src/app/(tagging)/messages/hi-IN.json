@@ -309,8 +309,8 @@
         "confidenceMedium": "मध्यम विश्वास",
         "confidenceLow": "कम विश्वास",
         "recognitionHelp": "Recognition modes set the confidence threshold for tags and features. Precise prioritizes accuracy, Balanced combines accuracy and coverage, and Broad includes more predictions. Image mode controls how features are identified.",
-        "imageModeHelp": "When enabled, features are identified using asset images, reference images and text. When disabled, recognition uses feature similarity and text. Both modes can recognize text in images.",
-        "videoModeHelp": "When enabled, features are identified using sampled video frames, reference images and text. When disabled, recognition uses feature similarity and text. Both modes can recognize text in frames.",
+        "imageModeHelp": "When enabled, features are identified using asset images, reference images and text. When disabled, recognition uses feature similarity and text. Both modes can recognize text in images. चालू होने पर सामान्य टैग भी सामग्री की छवि का सीधे उपयोग करते हैं, यदि सामग्री विश्लेषण चालू है।",
+        "videoModeHelp": "When enabled, features are identified using sampled video frames, reference images and text. When disabled, recognition uses feature similarity and text. Both modes can recognize text in frames. चालू होने पर सामान्य टैग भी उन्हीं सैंपल किए गए वीडियो फ़्रेम का उपयोग करते हैं, यदि सामग्री विश्लेषण चालू है।",
         "fallbackHelp": "If image recognition fails, text recognition results are used automatically, with no additional credits.",
         "testScope": "Applies to this test only. No credits are deducted."
       },

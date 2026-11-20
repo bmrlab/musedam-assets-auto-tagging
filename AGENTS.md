@@ -109,3 +109,5 @@ Logo 图像决策使用全部上传样本合成的参考对照图；“最高值
 标签树排序保存改用固定 `POST /api/tags/sort`，复用原团队锁、权限及中断恢复；授权 fetch 同时覆盖该 JSON POST。前端使用服务端确认的排序值直接更新列表，不再走排序后的 Server Action 刷新。遇到非 JSON、网关错误或网络中断时不自动重试，提示结果未知并刷新核对；响应 `x-request-id` 与 `Tag sort request` 日志用于定位。无需 migration；web 页面和 API 必须同版本发布。
 
 大文件标签导入使用 `/api/tags/imports` 签发私有直传 URL、只读预览及持久队列提交。`TaggingQueueItem.extra.jobKind=tag-tree-import` 复用生产槽位，由 worker 在已确认身份/语言上下文中调用原导入 actions；该上下文只能由 server-only worker 建立，不能从 HTTP 参数赋予。中断导入不自动重排，资产控制面板不能重试管理类导入。先升级所有 worker，再升级 web/API；对象存储临时 `tag-imports/` 前缀必须私有并配置清理。长关键词续行校验失败时拒绝整个标签组，避免导入不完整列表。无需新增 migration；协议、验证及上线限制见 [docs/tag-import-jobs.md](docs/tag-import-jobs.md)。
+
+普通标签现已复用入队快照的图像模式：启用「智能解析」信息源时，将图片或共享的视频采样拼图传入现有普通标签预测、语义候选召回和必打补选请求；未配置特征库时也生效。图片准备/图像请求失败时同任务退回文字，无额外扣点。最终无标签判定在合并画幅与特征标签之后执行；`extra.tagImageEvidence` 记录实际模式及回退原因。计费及快照不变，无需 migration，web/worker 同步升级。范围、限制与回归见 README 的“图像模式与普通标签”。

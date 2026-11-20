@@ -459,8 +459,8 @@
         "confidenceMedium": "Confiance moyenne",
         "confidenceLow": "Confiance faible",
         "recognitionHelp": "Recognition modes set the confidence threshold for tags and features. Precise prioritizes accuracy, Balanced combines accuracy and coverage, and Broad includes more predictions. Image mode controls how features are identified.",
-        "imageModeHelp": "When enabled, features are identified using asset images, reference images and text. When disabled, recognition uses feature similarity and text. Both modes can recognize text in images.",
-        "videoModeHelp": "When enabled, features are identified using sampled video frames, reference images and text. When disabled, recognition uses feature similarity and text. Both modes can recognize text in frames.",
+        "imageModeHelp": "When enabled, features are identified using asset images, reference images and text. When disabled, recognition uses feature similarity and text. Both modes can recognize text in images. Lorsque ce mode est activé, les tags ordinaires utilisent aussi directement l’image si l’analyse du contenu est activée.",
+        "videoModeHelp": "When enabled, features are identified using sampled video frames, reference images and text. When disabled, recognition uses feature similarity and text. Both modes can recognize text in frames. Lorsque ce mode est activé, les tags ordinaires utilisent aussi les mêmes images vidéo échantillonnées si l’analyse du contenu est activée.",
         "fallbackHelp": "If image recognition fails, text recognition results are used automatically, with no additional credits.",
         "testScope": "Applies to this test only. No credits are deducted."
       },

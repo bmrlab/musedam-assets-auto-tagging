@@ -25,9 +25,14 @@ vi.mock("@/app/(tagging)/tagging/settings/components/TriggerTimingSection", () =
 vi.mock("@/app/(tagging)/tagging/settings/components/ApplicationScopeSection", () => ({
   ApplicationScopeSection: () => null,
 }));
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubGlobal("ResizeObserver", class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  });
   save.mockResolvedValue({ success: true });
 });
 it("saves the team toggle and retains its value when changing recognition accuracy", async () => {
@@ -73,8 +78,11 @@ it("keeps legacy image mode enabled but video off, and saves both independently"
   expect(video.getAttribute("aria-checked")).toBe("false");
   expect(screen.getByText("imageModeImageDescription")).toBeTruthy();
   expect(screen.getByText("imageModeVideoDescription")).toBeTruthy();
-  expect(screen.getByText("imageModeVideoBilling")).toBeTruthy();
-  expect(screen.getByText("imageModeVideoSampling")).toBeTruthy();
+  fireEvent.focus(screen.getByRole("button", { name: "imageModeVideos" }));
+  const tooltip = await screen.findByRole("tooltip");
+  expect(tooltip.textContent).toContain("imageModeVideoBilling");
+  expect(tooltip.textContent).toContain("imageModeVideoSampling");
+  fireEvent.blur(screen.getByRole("button", { name: "imageModeVideos" }));
   fireEvent.click(video);
   await waitFor(() =>
     expect(save).toHaveBeenLastCalledWith(
@@ -83,7 +91,6 @@ it("keeps legacy image mode enabled but video off, and saves both independently"
   );
   await waitFor(() => expect((image as HTMLButtonElement).disabled).toBe(false));
   expect(screen.getByText("imageModeVideoDescription")).toBeTruthy();
-  expect(screen.getByText("imageModeVideoBilling")).toBeTruthy();
   fireEvent.click(image);
   await waitFor(() =>
     expect(save).toHaveBeenLastCalledWith(

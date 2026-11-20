@@ -21,7 +21,7 @@ import {
 const VIDEO_PREPARATION_TIMEOUT_MS = 8 * 60_000;
 const prepareFrameSlot = pLimit(4);
 
-export async function classifyVideoAssetFeatures(
+export async function prepareVideoAssetEvidence(
   input: FeatureLlmContext & {
     videoUrl: string;
     enabledTypes: DecisionFeatureType[];
@@ -35,6 +35,7 @@ export async function classifyVideoAssetFeatures(
     mode?: "llm" | "legacy";
     requestMode?: MediaProcessRequestMode;
     signal?: AbortSignal;
+    preparationTimeoutMs?: number;
   },
 ) {
   const decisionSignal = queueAbortSignal(input.signal);
@@ -42,26 +43,28 @@ export async function classifyVideoAssetFeatures(
   const signal = decisionSignal
     ? AbortSignal.any([preparationTimeout, decisionSignal])
     : preparationTimeout;
+  const samplingSignal = input.preparationTimeoutMs === undefined ? signal
+    : AbortSignal.any([signal, AbortSignal.timeout(input.preparationTimeoutMs)]);
   input.onProgress?.("video_sampling");
-  const local = await tryHybridVideoFrames(input.videoUrl, signal);
+  const local = await tryHybridVideoFrames(input.videoUrl, samplingSignal);
   const frames = local.frames.length
     ? []
-    : await requestVideoFrames(input.teamId, input.videoUrl, signal);
+    : await requestVideoFrames(input.teamId, input.videoUrl, samplingSignal);
   input.onProgress?.("frame_preparation");
   const prepared = await Promise.allSettled(
     frames.map(({ url, timestamp, scene_index }) =>
       prepareFrameSlot(async () => {
-        signal.throwIfAborted();
+        samplingSignal.throwIfAborted();
         const imageInput = await fetchRemoteImageInput(url, "video feature frame", {
           preserveOriginal: input.enabledTypes.includes("product"),
-          signal,
+          signal: samplingSignal,
         });
         const quality = await measureVideoFrame(imageInput.buffer);
         return { imageInput, timestamp, scene_index, ...quality };
       }),
     ),
   );
-  signal.throwIfAborted();
+  samplingSignal.throwIfAborted();
   const localPrepared = await Promise.all(
     local.frames.map(async ({ buffer, timestamp, scene_index }) => {
       const { width, height } = await sharp(buffer).metadata();
@@ -90,8 +93,8 @@ export async function classifyVideoAssetFeatures(
   const sheet = imageMode
     ? await createVideoContactSheet(selected.map((frame) => frame.imageInput))
     : null;
-  const result = await classifyAssetFeatures({
-    ...input,
+  return {
+    sampling: local.diagnostics,
     video: {
       frames: selected,
       sourceImage: sheet ? bufferToDataUrl(sheet.buffer, "image/jpeg") : "",
@@ -102,7 +105,23 @@ export async function classifyVideoAssetFeatures(
       decisionSignal,
       requestMode: input.requestMode,
     },
-  });
-  if (result.diagnostics.video) result.diagnostics.video.sampling = local.diagnostics;
+  };
+}
+
+export async function classifyVideoAssetFeatures(
+  input: Parameters<typeof prepareVideoAssetEvidence>[0] & {
+    prepareVideo?: () => ReturnType<typeof prepareVideoAssetEvidence>;
+  },
+) {
+  const prepared = await (input.prepareVideo?.() ?? prepareVideoAssetEvidence(input));
+  // Reused sampling must still respect this consumer's own deadline / feature budget.
+  const decisionSignal = input.prepareVideo ? queueAbortSignal(input.signal) : undefined;
+  const video = decisionSignal ? {
+    ...prepared.video,
+    signal: AbortSignal.any([prepared.video.signal, decisionSignal]),
+    decisionSignal,
+  } : prepared.video;
+  const result = await classifyAssetFeatures({ ...input, video });
+  if (result.diagnostics.video) result.diagnostics.video.sampling = prepared.sampling;
   return result;
 }

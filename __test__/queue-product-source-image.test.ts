@@ -19,11 +19,13 @@ const mocks = vi.hoisted(() => ({
   findUnique: vi.fn(),
   classifyFeatures: vi.fn(),
   classifyVideo: vi.fn(),
+  prepareVideo: vi.fn(),
   buildRecommendations: vi.fn(),
   predict: vi.fn(),
   mode: "legacy" as "llm" | "legacy",
   imageMode: false,
   videoImageMode: false,
+  tagsTree: [] as unknown[],
 }));
 
 vi.mock("server-only", () => ({}));
@@ -44,6 +46,7 @@ vi.mock("@/lib/feature-decision/classify", () => ({
 }));
 vi.mock("@/lib/feature-decision/video-classification", () => ({
   classifyVideoAssetFeatures: mocks.classifyVideo,
+  prepareVideoAssetEvidence: mocks.prepareVideo,
 }));
 vi.mock("@/lib/feature-decision/recommendations", () => ({
   buildFeatureRecommendations: mocks.buildRecommendations,
@@ -84,6 +87,7 @@ vi.mock("@/lib/logging", () => {
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.videoImageMode = false;
+  mocks.tagsTree = [];
   vi.stubEnv("DECISION_LLM_IMAGE_USE", "false");
   // These source-selection regressions exercise the explicitly configured old flow.
   mocks.mode = "legacy";
@@ -166,7 +170,7 @@ async function run(
       materializedPath: "/产品/雅诗兰黛",
       extra,
     },
-    tagsTreeLoader: async () => [],
+    tagsTreeLoader: async () => mocks.tagsTree,
   } as unknown as Parameters<typeof processQueueItem>[0]);
 }
 
@@ -518,7 +522,7 @@ describe("queued image mode snapshot", () => {
     vi.useFakeTimers();
     mocks.imageMode = enabled;
     mocks.create.mockImplementation(async ({ data }) => ({ id: 123, ...data }));
-    const task = await enqueueTaggingTask({ assetObject: { id: 2, teamId: 7 } as never });
+    const task = await enqueueTaggingTask({ assetObject: { id: 2, teamId: 7, name: "test.jpg", extra: { extension: "jpg" } } as never });
     expect(task.extra).toMatchObject({ featureImageMode: enabled, creditCost: enabled ? 2 : 1 });
   });
 
@@ -526,7 +530,7 @@ describe("queued image mode snapshot", () => {
     vi.useFakeTimers();
     mocks.imageMode = false;
     mocks.create.mockImplementation(async ({ data }) => ({ id: 123, ...data }));
-    const task = await enqueueTaggingTask({ assetObject: { id: 2, teamId: 7 } as never, featureImageMode: true });
+    const task = await enqueueTaggingTask({ assetObject: { id: 2, teamId: 7, name: "test.jpg", extra: { extension: "jpg" } } as never, featureImageMode: true });
     expect(task.extra).toMatchObject({ featureImageMode: true, creditCost: 2 });
   });
 });
@@ -647,5 +651,70 @@ it("accepts successful text fallback without treating the failed image attempt a
     status: "completed", result: expect.objectContaining({ outputTypes: expect.objectContaining({ features: true }),
       featureDecision: expect.objectContaining({ decisionInputMode: "text", imageFallback: expect.objectContaining({ used: true }) }),
     }),
+  }) }));
+});
+
+
+describe("ordinary tags use the image mode snapshot", () => {
+  it.each([false, true])("honors image snapshot %s independently of current settings", async snapshot => {
+    mocks.imageMode = !snapshot;
+    await run({ extension: "gif", downloadUrl: "https://example.test/source.gif" }, { brand: false, product: false, ip: false }, snapshot);
+    expect(Boolean(mocks.predict.mock.calls[0][1].loadImage)).toBe(snapshot);
+  });
+
+  it("loads an image with no feature library and no smart analysis", async () => {
+    mocks.predict.mockImplementation(async (_asset, options) => {
+      expect(await options.loadImage()).toBe("https://example.test/source.gif");
+      return { predictions: [], tagsWithScore: [], extra: {} };
+    });
+    await run({ extension: "gif", downloadUrl: "https://example.test/source.gif" }, { brand: false, product: false, ip: false }, true);
+    expect(mocks.fetchSource).toHaveBeenCalledTimes(1);
+    expect(mocks.classifyFeatures).not.toHaveBeenCalled();
+  });
+
+  it("shares a single downloaded and decoded image with feature matching", async () => {
+    mocks.mode = "llm";
+    mocks.predict.mockImplementation(async (_asset, options) => {
+      await options.loadImage();
+      return { predictions: [], tagsWithScore: [], extra: {} };
+    });
+    await run({ extension: "jpg", downloadUrl: "https://example.test/image.jpg" }, undefined, true);
+    expect(mocks.fetchSource).toHaveBeenCalledTimes(1);
+    expect(mocks.prepare).toHaveBeenCalledTimes(1);
+    expect(mocks.classifyFeatures).toHaveBeenCalledTimes(1);
+  });
+
+  it("samples video once for ordinary tags and feature matching", async () => {
+    mocks.mode = "llm";
+    const video = { sourceImage: "data:image/jpeg;base64,frames", frames: [], sheetColumns: 1 };
+    mocks.prepareVideo.mockResolvedValue({ video, sampling: {} });
+    mocks.predict.mockImplementation(async (_asset, options) => {
+      expect(await options.loadImage()).toBe(video.sourceImage);
+      return { predictions: [], tagsWithScore: [], extra: {} };
+    });
+    mocks.classifyVideo.mockImplementation(async options => {
+      expect((await options.prepareVideo()).video).toBe(video);
+      return mocks.classifyFeatures.getMockImplementation()?.();
+    });
+    await run({ extension: "mp4", downloadUrl: "https://example.test/video.mp4" }, undefined, true);
+    expect(mocks.prepareVideo).toHaveBeenCalledTimes(1);
+    expect(mocks.classifyVideo).toHaveBeenCalledTimes(1);
+  });
+});
+
+
+it("completes using deterministic dimensions when ordinary prediction is empty", async () => {
+  mocks.tagsTree = [{ id: 10, name: "内容属性", extra: {}, children: [
+    { id: 11, name: "画幅/尺寸", extra: { requiredGroup: true }, children: [
+      { id: 12, name: "9:16", extra: {}, children: [] },
+      { id: 13, name: "1:1", extra: {}, children: [] },
+    ] },
+  ] }];
+  await run({ extension: "gif", width: 1080, height: 1920 }, { brand: false, product: false, ip: false }, false);
+  expect(mocks.predict.mock.calls[0][1].allowEmptyResult).toBe(true);
+  expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({
+    status: "completed", result: expect.objectContaining({ tagsWithScore: expect.arrayContaining([
+      expect.objectContaining({ leafTagId: 12, score: 100, origin: "aspectRatio" }),
+    ]) }),
   }) }));
 });

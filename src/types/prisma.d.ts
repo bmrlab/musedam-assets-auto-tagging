@@ -84,6 +84,7 @@ declare module "@/prisma/client" {
     /** Milliseconds; null means duration was unavailable and one frame was priced. */
     creditDurationMs: number | null;
     evidencePoliciesPending?: boolean;
+    tagImageEvidence?: { requested: boolean; used: boolean; fallbackReason?: string };
     candidateSelection?: {
       total: number;
       selected: number;

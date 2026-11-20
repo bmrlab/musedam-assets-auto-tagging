@@ -22,7 +22,7 @@ import { extractVideoOcrFrame } from "@/lib/tagging/video-frame";
 import { getAssetOcrSegments } from "@/lib/feature-decision/asset-ocr";
 import { buildFeatureRecommendations } from "@/lib/feature-decision/recommendations";
 import type { FeatureDecisionDiagnostics } from "@/lib/feature-decision/types";
-import { classifyVideoAssetFeatures } from "@/lib/feature-decision/video-classification";
+import { classifyVideoAssetFeatures, prepareVideoAssetEvidence } from "@/lib/feature-decision/video-classification";
 import {
   isVideoClassificationBusy,
   tryAcquireVideoClassificationSlot,
@@ -327,6 +327,7 @@ export async function processQueueItem({
       }),
     );
   let featureDecision: FeatureDecisionDiagnostics | undefined;
+  let tagImageEvidence: TaggingQueueItemExtra["tagImageEvidence"];
 
   try {
     await assertTeamTaggingEnabled(queueItem.teamId);
@@ -368,10 +369,69 @@ export async function processQueueItem({
     let metadataEligibleForTask = false;
     const metadataPredictions = !featureRetrySourceId && teamSetting.isMetadataEnabled
       ? await predictMetadata(assetObject, metadataTeam, { ...teamSetting, matchingSources: extra?.matchingSources ?? teamSetting.matchingSources, recognitionAccuracy: extra?.recognitionAccuracy ?? teamSetting.recognitionAccuracy }, eligible => { metadataEligibleForTask = eligible; }) : [];
+    const prepareDetectionInput = (source: RemoteImageSource) =>
+      prepareImageInput(source, "feature classification", {
+        preserveOriginal: featureClassifications.product,
+      });
+    let sharedImagePromise: ReturnType<typeof loadSharedImage> | undefined;
+    const getSharedImage = () => sharedImagePromise ??= loadSharedImage();
+    const loadSharedImage = () => detectionImageUrl
+      ? (
+          detectionImageUrl === thumbnailUrl
+            ? getThumbnailSource(detectionImageUrl)
+            : fetchRemoteImageSource(detectionImageUrl, "feature classification")
+        )
+          .then(prepareDetectionInput)
+          .catch(async (error) => {
+            if (!thumbnailUrl || detectionImageUrl === thumbnailUrl) throw error;
+            logger.warn({
+              msg: "Original image unavailable for feature classification, falling back to thumbnail",
+              error: error instanceof Error ? error.message : String(error),
+            });
+            return prepareDetectionInput(await getThumbnailSource(thumbnailUrl));
+          })
+          .catch((error) => {
+            logger.warn({
+              msg: "feature classification image fetch failed, skipping feature classification",
+              err: error,
+              error: error instanceof Error ? error.message : String(error),
+            });
+            return null;
+          })
+      : Promise.resolve(null);
+    let sharedThumbnailImagePromise: ReturnType<typeof prepareDetectionInput> | undefined;
+    const getPreparedThumbnail = () => sharedThumbnailImagePromise ??=
+      getThumbnailSource(thumbnailUrl!).then(prepareDetectionInput);
+    const imageMode = extra?.featureImageMode ?? getAssetFeatureImageMode(teamSetting, assetObject);
+    let sharedVideoPromise: ReturnType<typeof prepareVideoAssetEvidence> | undefined;
+    const getSharedVideo = () => sharedVideoPromise ??= prepareVideoAssetEvidence({
+      teamId, queueItemId: queueItem.id, assetObjectId: assetObject.id,
+      videoUrl: downloadUrl!, imageMode: true,
+      enabledTypes: featureClassifications.product ? ["product"] : [],
+      preparationTimeoutMs: Math.max(0, Math.min(60_000,
+        QUEUE_ITEM_TIMEOUT_MS - (Date.now() - taskStartedAt) - 30_000)),
+    });
+    const loadTagImage = async () => {
+      if (isVideo && downloadUrl) {
+        try {
+          return (await getSharedVideo()).video.sourceImage;
+        } catch (error) {
+          throwIfQueueAborted();
+          logger.warn({ msg: "Tag image video sampling failed, falling back to thumbnail",
+            error: error instanceof Error ? error.message : String(error) });
+        }
+      }
+      const image = isVideo && thumbnailUrl
+        ? await getPreparedThumbnail()
+        : await getSharedImage();
+      return image?.dataUrl ?? null;
+    };
     const emptyTags = { predictions: [], tagsWithScore: [], extra: {} };
     const runTagPrediction: typeof predictAssetTags = (...args) => tagsEnabledForTask
       ? predictAssetTags(...args) : Promise.resolve(emptyTags);
     const predictOptionsBase = {
+      allowEmptyResult: true,
+      ...(imageMode && supportsFeatureClassification ? { loadImage: loadTagImage } : {}),
       matchingSources: extra?.matchingSources,
       recognitionAccuracy: extra?.recognitionAccuracy,
       sourceWeights: teamSetting.sourceWeights,
@@ -442,34 +502,6 @@ export async function processQueueItem({
 
         // Start logo, product and IP classification without waiting for face detection.
         if (logoCount + ipCount + productCount > 0 && (isVideo || detectionImageUrl)) {
-          const prepareDetectionInput = (source: RemoteImageSource) =>
-            prepareImageInput(source, "feature classification", {
-              preserveOriginal: productCount > 0,
-            });
-          const getSharedImage = () => detectionImageUrl
-            ? (
-                detectionImageUrl === thumbnailUrl
-                  ? getThumbnailSource(detectionImageUrl)
-                  : fetchRemoteImageSource(detectionImageUrl, "feature classification")
-              )
-                .then(prepareDetectionInput)
-                .catch(async (error) => {
-                  if (!thumbnailUrl || detectionImageUrl === thumbnailUrl) throw error;
-                  logger.warn({
-                    msg: "Original image unavailable for feature classification, falling back to thumbnail",
-                    error: error instanceof Error ? error.message : String(error),
-                  });
-                  return prepareDetectionInput(await getThumbnailSource(thumbnailUrl));
-                })
-                .catch((error) => {
-                  logger.warn({
-                    msg: "feature classification image fetch failed, skipping feature classification",
-                    err: error,
-                    error: error instanceof Error ? error.message : String(error),
-                  });
-                  return null;
-                })
-            : Promise.resolve(null);
 
           const mode = getFeatureDecisionMode();
           if (isVideo || mode === "llm") {
@@ -505,14 +537,15 @@ export async function processQueueItem({
                   Math.max(0, QUEUE_ITEM_TIMEOUT_MS - (Date.now() - taskStartedAt) - VIDEO_QUEUE_FINISH_BUFFER_MS),
                 );
                 result = await withFallback(
-                  classifyVideoAssetFeatures({ ...classificationInput, videoUrl: downloadUrl, signal: videoSignal }),
+                  classifyVideoAssetFeatures({ ...classificationInput, videoUrl: downloadUrl, signal: videoSignal,
+                    ...(imageMode ? { prepareVideo: getSharedVideo } : {}) }),
                   "classifyVideoAssetFeatures",
                 );
                 throwIfQueueAborted();
               }
               if (!result && !videoSignal?.aborted) {
                 const imageInput = isVideo && thumbnailUrl
-                  ? await withFallback(getThumbnailSource(thumbnailUrl).then(prepareDetectionInput), "prepareVideoThumbnail")
+                  ? await withFallback(getPreparedThumbnail(), "prepareVideoThumbnail")
                   : await getSharedImage();
                 if (imageInput) {
                   let ocrImage: string | undefined;
@@ -704,6 +737,8 @@ export async function processQueueItem({
       tagsWithScore: predictedTagsWithScore,
       extra: newExtra,
     } = predictionResult.value;
+    tagImageEvidence = newExtra.tagImageEvidence;
+    if (newExtra.tagImageEvidence) logger.info({ msg: "Tag prediction image evidence", ...newExtra.tagImageEvidence });
     // 同级互斥硬约束（AI vs 特征库）：特征库认出了互斥组里的某个分支时，AI 仅凭内容猜到的同组其他分支要让位。
     // 放在这里是因为审核项创建、直接写回、结果持久化都从 tagsWithScore 出发，改一处三处一致。
     const exclusiveTagsTree = tagsEnabledForTask ? tagsTree ?? (await fetchTagsTreeForTagging({ teamId })) : [];
@@ -1161,6 +1196,7 @@ export async function processQueueItem({
       where: { id: queueItem.id },
       data: {
         status: "failed",
+        ...(tagImageEvidence ? { extra: { ...latestExtra, tagImageEvidence } } : {}),
         endsAt: new Date(),
         result: {
           ...((queueItem.extra as TaggingQueueItemExtra)?.featureRetryInPlace ? (latestRow?.result ?? queueItem.result) as TaggingQueueItemResult : {}),
