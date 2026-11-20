@@ -29,7 +29,7 @@ import type { AssetTagExtra } from "@/prisma/client";
 import { AssetTag } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
 import { saveTagSortInTransaction } from "./tagSortPersistence";
-import { validateTagChanges, wrapTagChangeWithAncestors } from "./tagChanges";
+import { prepareManualTagMerge, validateTagChanges, wrapTagChangeWithAncestors } from "./tagChanges";
 import { withTagManagementAuth } from "./tagManagementAuth";
 import { ensureTagMutationRecovered, isTagMutationActive, withTagMutation } from "./tagMutation";
 import type { SavedTagSort } from "./tagSort";
@@ -484,6 +484,18 @@ export async function batchCreateTags(
       // 批量导入的树从一级开始挂载，整体深度不能超过 MAX_TAG_LEVEL
       if (findExceedingTagLevel(nameChildList, (item) => item.nameChildList) !== null) {
         return { success: false, message: TAG_LEVEL_EXCEEDED_MESSAGE };
+      }
+
+      // 文件导入保留同步回执协议；手动/AI 创建的合并复用增量保存与中断恢复。
+      if (addType === 2 && !options?.imported) {
+        const merge = await prepareManualTagMerge(nameChildList, teamId);
+        if (merge) {
+          if (merge.tree.length) {
+            const saved = await saveTagsTree(merge.tree);
+            if (!saved.success) return saved;
+          }
+          return { success: true, data: merge.stats };
+        }
       }
 
       const stats = await importTagTreeSynchronously(

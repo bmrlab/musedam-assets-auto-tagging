@@ -1,7 +1,50 @@
+import type { TagTreeImportStats } from "@/lib/tagging/tag-import-result";
 import prisma from "@/prisma/prisma";
 import { randomUUID } from "node:crypto";
 import "server-only";
+import type { BatchCreateTagData } from "./actions";
 import type { TagNode } from "./types";
+
+/** 少量手动合并仅查找输入路径；大批量仍使用批量写入的导入协议。 */
+export async function prepareManualTagMerge(data: BatchCreateTagData[], teamId: number) {
+  const count = (items: BatchCreateTagData[]): number =>
+    items.reduce((total, item) => total + 1 + count(item.nameChildList ?? []), 0);
+  // 增量保存逐节点校验/落库，不能让大型 AI 生成树进入短事务。
+  if (count(data) > 100) return null;
+  const stats: TagTreeImportStats = { totalCount: 0, existingCount: 0, createdCount: 0 };
+  const walk = async (
+    items: BatchCreateTagData[],
+    parentId: number | null,
+    newParent: boolean,
+  ): Promise<TagNode[]> => {
+    const nodes: TagNode[] = [];
+    for (const item of items) {
+      const name = item.name.trim();
+      if (!name || name.length > 100) throw new Error("标签名不能为空且不能超过100个字符");
+      const existing = newParent
+        ? null
+        : await prisma.assetTag.findFirst({
+            where: { deletedAt: null, teamId, parentId, name },
+            select: { id: true, slug: true, name: true },
+          });
+      if (existing && !existing.slug) throw new Error("标签尚未同步到主站，请先从主站同步标签");
+      stats.totalCount++;
+      if (existing) stats.existingCount++;
+      else stats.createdCount++;
+      const children = await walk(item.nameChildList ?? [], existing?.id ?? null, !existing);
+      // 已有叶节点无需同步，也不改写原有 AI 配置与排序。
+      if (existing && !children.length) continue;
+      nodes.push({
+        ...(existing ? { id: existing.id } : { verb: "create" as const }),
+        slug: existing?.slug ?? null,
+        name,
+        children,
+      });
+    }
+    return nodes;
+  };
+  return { tree: await walk(data, null, false), stats };
+}
 
 export async function wrapTagChangeWithAncestors(
   node: TagNode,
