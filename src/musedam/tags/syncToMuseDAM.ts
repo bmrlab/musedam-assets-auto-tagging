@@ -217,27 +217,25 @@ export async function syncTagsToMuseDAM({
   // 调用 MuseDAM API
   const res = await mergeTagsInBatches(musedamTags, musedamTeamApiKey, timeoutMs());
 
-  // 更新 AssetTag 的 sort 字段
-  const updateAssetTagSort = async (nodeId: number, sort: number) => {
-    try {
-      await prisma.assetTag.update({
-        where: { deletedAt: null, id: nodeId },
-        data: { sort },
-      });
-    } catch (error) {
-      console.error(`Failed to update sort for AssetTag ${nodeId}:`, error);
-    }
-  };
-
-  // 构建新创建标签的映射关系并更新 sort 字段
+  // 构建主站 ID 映射；排序由调用方在本地事务中保存。
   const buildMapping = async (
     requestTags: MuseDAMTagRequest[],
     responseTags: MuseDAMTagResponse[],
     nodePath: TagNode[] = operationNodes,
   ) => {
-    for (let i = 0; i < requestTags.length && i < responseTags.length; i++) {
-      const requestTag = requestTags[i];
-      const responseTag = responseTags[i];
+    for (const requestTag of requestTags) {
+      const responseTag = responseTags.find((tag) => requestTag.id !== undefined
+        ? String(tag.id) === String(requestTag.id)
+        : tag.name === requestTag.name);
+      if (!responseTag) {
+        if (requestTag.operation === 1 || requestTag.operation === 2)
+          throw new Error("MuseDAM 未返回已保存的标签，请刷新后核对结果");
+        // 删除可能不回传节点，但仍需检查有更新的子树。
+        if (requestTag.children) await buildMapping(requestTag.children, [], nodePath.find(node => node.name === requestTag.name)?.children ?? []);
+        continue;
+      }
+      if ((requestTag.operation === 1 || requestTag.operation === 2) && (!responseTag.id || responseTag.name !== requestTag.name))
+        throw new Error("MuseDAM 返回的标签与保存内容不一致，请刷新后核对结果");
 
       // 创建及远端复用的标签都要回填 tempId -> MuseDAM ID
       if (responseTag.id) {
@@ -260,26 +258,13 @@ export async function syncTagsToMuseDAM({
         }
       }
 
-      // 如果是创建或更新操作，且有 sort 字段返回，更新数据库中的 sort 字段
-      if (
-        (requestTag.operation === 1 || requestTag.operation === 2) &&
-        responseTag.sort !== undefined
-      ) {
-        // 查找对应的节点
-        const matchingNode = nodePath.find((node) => node.name === requestTag.name && node.id);
-
-        if (matchingNode && matchingNode.id) {
-          await updateAssetTagSort(matchingNode.id, responseTag.sort);
-        }
-      }
-
       // 递归处理子标签
-      if (requestTag.children && responseTag.children) {
+      if (requestTag.children) {
         // 找到对应的子节点路径
         const childNodePath =
           nodePath.find((node) => node.name === requestTag.name)?.children || [];
 
-        await buildMapping(requestTag.children, responseTag.children, childNodePath);
+        await buildMapping(requestTag.children, responseTag.children ?? [], childNodePath);
       }
     }
   };

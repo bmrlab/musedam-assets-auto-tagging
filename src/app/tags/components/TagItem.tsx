@@ -22,7 +22,7 @@ import { dispatchMuseDAMClientAction } from "@/embed/message";
 import { cn } from "@/lib/utils";
 import { Edit, MoreHorizontal, Trash2Icon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { TagNode } from "../types";
 import { slugToId } from "@/lib/slug";
@@ -64,16 +64,24 @@ export function TagItem({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const nodeId = getNodeId(tag);
+  const saving = useRef(false);
+  const cancelled = useRef(false);
+  useEffect(() => {
+    if (!tag.isEditing) setEditValue(tag.name);
+  }, [tag.name, tag.isEditing]);
 
   const handleSave = async () => {
-    if (!canEdit) return;
+    if (!canEdit || saving.current || cancelled.current) return;
     if (!editValue.trim()) {
       toast.error(t("tagNameRequired"));
       return;
     }
-    const success = await onEdit(nodeId, editValue.trim());
-    if (!success) {
-      setEditValue(tag.name); // 恢复原值
+    saving.current = true;
+    try {
+      const success = await onEdit(nodeId, editValue.trim());
+      if (!success) setEditValue(tag.name);
+    } finally {
+      saving.current = false;
     }
   };
 
@@ -81,6 +89,7 @@ export function TagItem({
     if (e.key === "Enter") {
       await handleSave();
     } else if (e.key === "Escape") {
+      cancelled.current = true;
       setEditValue(tag.name);
       onCancelEdit(nodeId);
     }
@@ -118,6 +127,8 @@ export function TagItem({
   const handleRename = () => {
     if (!canEdit) return;
     setDropdownOpen(false);
+    setEditValue(tag.name);
+    cancelled.current = false;
     onStartEdit(nodeId);
   };
   if (tag.isDeleted) {

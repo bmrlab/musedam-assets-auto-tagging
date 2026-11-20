@@ -1,4 +1,6 @@
 import "server-only";
+import { assertTagImportOwnership } from "@/lib/tagging/tag-import-lock";
+import { bumpTagConfigVersion } from "@/lib/tagging/tag-config-version";
 
 import { idToSlug, slugToId } from "@/lib/slug";
 import { retrieveTeamCredentials } from "@/musedam/apiKey";
@@ -88,6 +90,7 @@ export async function syncTagsFromMuseDAM({ team }: { team: { id: number; slug: 
 
   await prisma.$transaction(
     async (tx) => {
+      await assertTagImportOwnership(tx);
       await tx.$queryRaw`SELECT pg_advisory_xact_lock(${team.id}::int, 5521735::int)::text`;
       const tombstones = await tx.assetTag.count({
         where: { teamId: team.id, deletedAt: { not: null }, slug: { in: [...incomingSlugs] } },
@@ -234,6 +237,8 @@ export async function syncTagsFromMuseDAM({ team }: { team: { id: number; slug: 
           if (pending.size > 0) throw new Error("新建标签未能回填");
         }
       }
+      await bumpTagConfigVersion(tx, team.id);
+      await assertTagImportOwnership(tx);
     },
     { timeout: 60000 },
   );

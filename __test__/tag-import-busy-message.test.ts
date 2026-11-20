@@ -30,3 +30,12 @@ it("returns the requested member-specific message as a busy result before parsin
     message: "成员 张三 正在执行批量导入，请稍后刷新页面重试。",
   });
 });
+
+vi.mock("@/app/tags/tagManagementAuth", async () => {
+  const { withAuth } = await import("@/app/(auth)/withAuth");
+  return { withTagManagementAuth: withAuth };
+});
+vi.mock("@/app/tags/tagMutation", async () => {
+  const { withAuth } = await import("@/app/(auth)/withAuth");
+  return { withTagMutation: withAuth, ensureTagMutationRecovered: vi.fn(), isTagMutationActive: () => true };
+});

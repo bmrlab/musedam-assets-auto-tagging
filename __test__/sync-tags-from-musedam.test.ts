@@ -415,3 +415,7 @@ it("rejects stale remote snapshots containing a tombstoned slug", async () => {
   await expect(syncTagsFromMuseDAM({ team })).rejects.toThrow("已删除");
   expect(mocks.assetTag.createManyAndReturn).not.toHaveBeenCalled();
 });
+
+vi.mock("@/lib/tagging/tag-config-version", () => ({ bumpTagConfigVersion: vi.fn() }));
+
+vi.mock("@/lib/tagging/tag-import-lock", () => ({ assertTagImportOwnership: vi.fn() }));

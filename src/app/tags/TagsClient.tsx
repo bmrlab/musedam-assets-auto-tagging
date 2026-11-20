@@ -8,7 +8,7 @@ import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { fetchTeamTags, saveTagsTree, saveTagsTreeToMuseDAM } from "./actions";
+import { fetchTeamTags, saveTagsTree } from "./actions";
 import { deleteTagAndDescendants } from "./delete-tag";
 import { localizeTagActionMessage } from "./tagActionMessage";
 import { buildTagNameChange } from "./tagNameChange";
@@ -377,13 +377,15 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
   // 刷新数据
   const refetchTagsTree = async () => {
     setIsLoading(true);
-    const refreshResult = await fetchTeamTags();
-    if (refreshResult.success) {
+    try {
+      const refreshResult = await fetchTeamTags();
+      if (!refreshResult.success) throw new Error(refreshResult.message);
       const newTree = convertToTagNodes(refreshResult.data.tags);
       setTagsTree(newTree);
       setOriginalTags(refreshResult.data.tags);
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   // 添加标签
@@ -704,54 +706,16 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
   );
 
   // 处理标签排序
-  const handleSortTags = useCallback(
-    async (level: number, sortedTags: TagNode[]) => {
-      if (!canManageTags) return;
-      try {
-        setIsSaving(true);
-        // 同步更新排序值(sort)：数字越大越靠前，因此首位应为最大值；不改变各自子节点顺序
-        const sortedWithValue = sortedTags.map((item, index) => ({
-          ...item,
-          sort: sortedTags.length - index,
-        }));
-
-        // 用排好序的列表替换指定父节点的 children（不重排其他层级）
-        const replaceChildren = (nodes: TagNode[], parentId: string): TagNode[] =>
-          nodes.map((node) =>
-            getNodeId(node) === parentId
-              ? { ...node, children: sortedWithValue }
-              : { ...node, children: replaceChildren(node.children, parentId) },
-          );
-
-        let newTree: TagNode[];
-        if (level === 1) {
-          newTree = sortedWithValue;
-        } else {
-          const parentId = selectedIds[level - 2];
-          if (!parentId) return;
-          newTree = replaceChildren(tagsTree, parentId);
-        }
-
-        setTagsTree(newTree);
-        const result = await saveTagsTreeToMuseDAM(newTree);
-        if (!result.success) {
-          toast.error(localizeTagActionMessage(result.message, t) || t("sortFailed"));
-          refetchTagsTree();
-          return;
-        }
-        refetchTagsTree();
-        toast.success(t("sortSuccess"));
-      } catch (error) {
-        toast.error(
-          localizeTagActionMessage(error instanceof Error ? error.message : null, t) ||
-            t("sortFailed"),
-        );
-      } finally {
-        setIsSaving(false);
-      }
-    },
-    [tagsTree, selectedIds, getNodeId, t, canManageTags],
-  );
+  const handleSortTags = async () => {
+    if (!canManageTags) return;
+    try {
+      setIsSaving(true);
+      await refetchTagsTree();
+      toast.success(t("sortSuccess"));
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const TagsHeaderMenu = useMemo(
     () => (

@@ -11,7 +11,7 @@ import { AssetTag } from "@/prisma/client";
 import { InfoIcon, Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { updateTagExtra } from "../actions";
 import { localizeTagActionMessage } from "../tagActionMessage";
@@ -76,7 +76,7 @@ function SwitchSetting({
 // 组件Props类型
 interface TagDetailsProps {
   selectedTag: { tag: AssetTag; level: number } | null;
-  refreshTags: () => void;
+  refreshTags: () => Promise<void> | void;
   canEdit?: boolean;
 }
 
@@ -105,6 +105,8 @@ export function TagDetails({ selectedTag, refreshTags, canEdit = false }: TagDet
 
   // 编辑态
   const [editing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const saveInFlight = useRef(false);
   const isEditing = canEdit && editing;
   useEffect(() => { if (!canEdit) setIsEditing(false); }, [canEdit]);
 
@@ -293,7 +295,9 @@ export function TagDetails({ selectedTag, refreshTags, canEdit = false }: TagDet
 
   const handleSave = async () => {
     if (!canEdit) return;
-    if (!selectedTag?.tag?.id) return;
+    if (!selectedTag?.tag?.id || saveInFlight.current) return;
+    saveInFlight.current = true;
+    setSaving(true);
     try {
       const res = await updateTagExtra(selectedTag.tag.id, {
         name: formData.name,
@@ -307,14 +311,17 @@ export function TagDetails({ selectedTag, refreshTags, canEdit = false }: TagDet
           : {}),
       });
       if (res.success) {
+        await refreshTags();
         toast.success(tRoot("saveSuccess"));
-        refreshTags();
         setIsEditing(false);
       } else {
         toast.error(localizeTagActionMessage(res.message, tRoot) || tRoot("saveFailed"));
       }
     } catch (e) {
       toast.error(tRoot("saveFailed"));
+    } finally {
+      saveInFlight.current = false;
+      setSaving(false);
     }
   };
 
@@ -330,10 +337,10 @@ export function TagDetails({ selectedTag, refreshTags, canEdit = false }: TagDet
           </Button>
         ) : (
           <div className="flex items-center gap-2">
-            <Button variant="ghost" onClick={handleCancel} size="sm">
+            <Button variant="ghost" onClick={handleCancel} size="sm" disabled={saving}>
               {tRoot("cancel")}
             </Button>
-            <Button onClick={handleSave} size="sm">
+            <Button onClick={handleSave} size="sm" disabled={saving}>
               {tRoot("saveChanges")}
             </Button>
           </div>

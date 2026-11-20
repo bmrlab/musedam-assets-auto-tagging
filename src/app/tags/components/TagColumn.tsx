@@ -32,7 +32,7 @@ interface TagColumnProps {
   canEdit?: boolean;
   totalCount?: number;
   showAiTags?: boolean;
-  onSortTags?: (level: number, sortedTags: TagNode[]) => void;
+  onSortTags?: (level: number, sortedTags: TagNode[]) => Promise<void> | void;
 }
 
 export function TagColumn({
@@ -100,11 +100,10 @@ export function TagColumn({
   const visibleTags = tags.slice(start, end);
 
   // 处理排序确认
-  const handleSortConfirm = (sortedTags: TagNode[]) => {
+  const handleSortConfirm = async (sortedTags: TagNode[]) => {
     if (canEdit && onSortTags) {
-      onSortTags(level, sortedTags);
+      await onSortTags(level, sortedTags);
     }
-    setSortTagOpen(false);
   };
 
   return (

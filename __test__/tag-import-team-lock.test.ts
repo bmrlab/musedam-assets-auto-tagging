@@ -221,3 +221,16 @@ it("keeps a recent legacy lock exclusive until its maximum age is reached", asyn
   await expect(runTagImportExclusive(7, 2, async () => {})).rejects.toBeInstanceOf(TagImportBusyError);
   expect(mocks.leases.get(7)?.token).toBe("legacy-task");
 });
+
+
+it("reuses the owning team lease for nested save actions without releasing it early", async () => {
+  await runTagImportExclusive(7, 1, async () => {
+    await runTagImportExclusive(7, 1, async () => {
+      expect(mocks.leases.has(7)).toBe(true);
+    });
+    expect(mocks.leases.has(7)).toBe(true);
+    expect(mocks.config.deleteMany).not.toHaveBeenCalled();
+  });
+  expect(mocks.leases.has(7)).toBe(false);
+  expect(mocks.config.deleteMany).toHaveBeenCalledOnce();
+});

@@ -48,7 +48,7 @@ interface TagLevelColumnsProps {
   canEdit?: boolean;
 
   // 排序回调
-  onSortTags?: (level: number, sortedTags: TagNode[]) => void;
+  onSortTags?: (level: number, sortedTags: TagNode[]) => Promise<void> | void;
 
   // 加载状态
   loading?: boolean;

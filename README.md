@@ -357,6 +357,18 @@ https://yourdomain.com/tagging?locale=en-US
 
 本规则不改变商品/Logo/IP 特征库的抽帧、召回或决策链路，无新增迁移；web/worker 需同步升级，历史结果需重新打标才会更新。
 
+### 标签编辑一致性与权限
+
+树上新增/改名、右侧详情保存、排序、删除及导入等标签写入，均在服务端校验实际登录成员的标签管理权限。主站 `org-member-info` 新增 `canManageTags`：企业版按 `DAM_MATERIAL_ADMIN_MANAGEMENT_TAG`，非企业版按 `ORG_TAG_GROUP_MODIFY` 计算；不能用应用访问权限、前端开关或 API Key 管理员身份替代。字段缺失或权限查询失败时拒绝写入。
+
+同一团队的本应用写入复用跨进程导入锁，远端失败不再被当成本地保存成功。排序由服务端一次处理，只提交当前同级节点及祖先路径，使用数据库中的名称，不再由前端先写本地再发第二个同步请求。显式保存名称时，即使名称与本地相同，也会同步主站，便于重新保存历史未同步的改名。
+
+跨系统没有共同的数据库事务，采用主站为权威源的可恢复流程：远端请求前在现有 `TeamConfig` 写入 `tag-mutation-pending`；成功写入两边后清理标记。出现超时、部分失败或本地落库失败时，使用已有主站标签同步器对齐身份、名称和排序，保留本地 ID、AI 配置及关联，并返回失败供用户核对/重试。恢复失败或进程中断时保留标记，后续读取标签树或写入前先恢复，不能把旧树当作已同步结果返回。该机制在请求恢复/重试时对齐，不代表外部主站编辑也参与了本应用的团队锁；各写实例须同时升级，旧实例应停写。
+
+无需数据库 migration。发布顺序：先在主仓构建并发布 `api-mini-dam-user`（本次 master 升至 `2.1.12-SNAPSHOT`）及 user 服务，再发布自动打标 web/worker。按主仓约定，对修改的 API 包使用 JDK 21、仓库 `mini-dam-script/maven/settings.xml` 执行 `mvn clean deploy -DskipTests`，然后发布 user；仅本地 install 不等于发布完成。若仍运行旧 user，本应用将安全拒绝标签写入。
+
+隔离回归可运行 `pnpm exec vitest run __test__/tag-save-consistency.test.ts __test__/tag-mutation-recovery.test.ts __test__/tag-management-auth.test.ts __test__/tag-details-save.test.ts __test__/tag-delete-item.test.tsx`。这些测试使用模拟主站，不修改线上标签；上线验收仍需确认真实 iframe 权限、改名、排序及失败重试。
+
 ### 同步标签树导入与恢复
 
 导入文件中的关键词、必打、互斥等配置由人工维护，导入后的显式节点及其祖先通过 `extra.configurationSource=import` 标记，后台不会为这些节点生成证据策略或自动降级策略。表格未提供的字段保留原值；缺少独立证据策略时仍沿用已有的确定性解析规则。配置导入在短事务中先锁行再合并最新 JSON，避免覆盖并发初始化或人工编辑的其他字段。

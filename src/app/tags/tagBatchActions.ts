@@ -1,4 +1,5 @@
 "use server";
+import { withTagMutation } from "./tagMutation";
 
 import { withAuth } from "@/app/(auth)/withAuth";
 import { pruneRejectionCountsForRemovedKeywords } from "@/app/(tagging)/keyword-feedback";
@@ -126,7 +127,7 @@ export async function exportTagTreeAction(
   format: BatchFileFormat,
   maxLevel: 3 | 4 = 4,
 ): Promise<ServerActionResult<TagTreeBatchFileResult>> {
-  return withAuth(async ({ user, team: { id: teamId } }) => {
+  return withTagMutation(async ({ user, team: { id: teamId } }) => {
     const locale = await getLocale();
     const t = await getTranslations("Tagging.BatchImportExport");
     const tTags = await getTranslations("TagsPage");
@@ -247,7 +248,7 @@ export async function precheckTagTreeImportAction(
 export async function importTagTreeAction(
   formData: FormData,
 ): Promise<ServerActionResult<TagTreeBatchImportResult>> {
-  return withAuth(async ({ user, team: { id: teamId } }) => {
+  return withTagMutation(async ({ user, team: { id: teamId } }) => {
     const locale = await getLocale();
     const t = await getTranslations("Tagging.BatchImportExport");
     const messages = tagBatchMessages(locale);

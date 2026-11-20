@@ -618,3 +618,12 @@ it("preserves mapped tags with IDs beyond the supported file range instead of de
   expect(mocks.rows).toHaveLength(1);
   expect(mocks.assetTag.updateMany).not.toHaveBeenCalled();
 });
+
+vi.mock("@/app/tags/tagManagementAuth", async () => {
+  const { withAuth } = await import("@/app/(auth)/withAuth");
+  return { withTagManagementAuth: withAuth };
+});
+vi.mock("@/app/tags/tagMutation", async () => {
+  const { withAuth } = await import("@/app/(auth)/withAuth");
+  return { withTagMutation: withAuth, ensureTagMutationRecovered: vi.fn(), isTagMutationActive: () => true };
+});

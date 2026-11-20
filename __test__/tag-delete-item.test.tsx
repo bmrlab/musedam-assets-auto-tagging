@@ -61,3 +61,45 @@ describe("tag deletion confirmation", () => {
     expect(onDelete).not.toHaveBeenCalled();
   });
 });
+
+it("uses the current name when editing after a details rename", async () => {
+  const onEdit = vi.fn(async () => true);
+  const props = {
+    level: 1, onEdit, onDelete: async () => true, onStartEdit: () => {},
+    onCancelEdit: () => {}, onRestore: () => {}, getNodeId: () => "1", canEdit: true,
+  };
+  const tag: TagNode = { id: 1, name: "宣传海报", slug: null, children: [] };
+  const { rerender } = render(<TagItem {...props} tag={tag} />);
+  rerender(<TagItem {...props} tag={{ ...tag, name: "1" }} />);
+  rerender(<TagItem {...props} tag={{ ...tag, name: "1", isEditing: true }} />);
+  const input = screen.getByRole("textbox") as HTMLInputElement;
+  expect(input.value).toBe("1");
+  fireEvent.blur(input);
+  await waitFor(() => expect(onEdit).toHaveBeenCalledWith("1", "1"));
+});
+
+it("does not submit the draft on blur after Escape", async () => {
+  const onEdit = vi.fn(async () => true);
+  render(<TagItem tag={{ id: 1, name: "原名", slug: null, children: [], isEditing: true }}
+    level={1} onEdit={onEdit} onDelete={async () => true} onStartEdit={() => {}}
+    onCancelEdit={() => {}} onRestore={() => {}} getNodeId={() => "1"} canEdit />);
+  const input = screen.getByRole("textbox");
+  fireEvent.change(input, { target: { value: "未保存草稿" } });
+  fireEvent.keyDown(input, { key: "Escape" });
+  fireEvent.blur(input);
+  expect(onEdit).not.toHaveBeenCalled();
+});
+
+it("submits Enter followed by blur only once while saving", async () => {
+  let finish!: (value: boolean) => void;
+  const onEdit = vi.fn(() => new Promise<boolean>(resolve => { finish = resolve; }));
+  render(<TagItem tag={{ id: 1, name: "原名", slug: null, children: [], isEditing: true }}
+    level={1} onEdit={onEdit} onDelete={async () => true} onStartEdit={() => {}}
+    onCancelEdit={() => {}} onRestore={() => {}} getNodeId={() => "1"} canEdit />);
+  const input = screen.getByRole("textbox");
+  fireEvent.change(input, { target: { value: "新名" } });
+  fireEvent.keyDown(input, { key: "Enter" });
+  fireEvent.blur(input);
+  expect(onEdit).toHaveBeenCalledOnce();
+  finish(true);
+});

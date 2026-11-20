@@ -46,7 +46,7 @@ const SortableContextView = SortableContext as unknown as React.ComponentType<So
 interface TagSortModalProps {
   open: boolean;
   onClose: () => void;
-  onConfirm: (sortedTags: TagNode[]) => void;
+  onConfirm: (sortedTags: TagNode[]) => Promise<void> | void;
   tags: TagNode[];
   /** 标签层级，1 ~ MAX_TAG_LEVEL */
   level: number;
@@ -190,7 +190,7 @@ export function TagSortModal({
       // 调用排序更新接口-更新数据
       const result = await updateTagSort(sortData);
       if (result.success) {
-        onConfirm(tagsWithNewSort); // 传递带有新sort值的标签数组
+        await onConfirm(tagsWithNewSort); // 传递带有新sort值的标签数组
         onClose();
       } else {
         toast.error(localizeTagActionMessage(result.message, tTags) || t("sortSaveFailed"));

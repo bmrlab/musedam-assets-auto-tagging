@@ -351,3 +351,12 @@ it("does not create a replacement branch when the parent rename fails upstream",
   expect(mocks.assetTag.update).not.toHaveBeenCalled();
   expect(mocks.rows.map((row) => row.name)).toEqual(["旧品牌"]);
 });
+
+vi.mock("@/app/tags/tagManagementAuth", async () => {
+  const { withAuth } = await import("@/app/(auth)/withAuth");
+  return { withTagManagementAuth: withAuth };
+});
+vi.mock("@/app/tags/tagMutation", async () => {
+  const { withAuth } = await import("@/app/(auth)/withAuth");
+  return { withTagMutation: withAuth, ensureTagMutationRecovered: vi.fn(), isTagMutationActive: () => true };
+});

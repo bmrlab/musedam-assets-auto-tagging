@@ -174,3 +174,29 @@ it("backfills a reused remote ID on an existing local tag without destructive re
     data: { slug: "g/10" },
   });
 });
+
+
+it("rejects a missing update receipt instead of allowing local-only success", async () => {
+  const { default: prisma } = await import("@/prisma/prisma");
+  vi.mocked(prisma.assetTag.findMany).mockResolvedValueOnce([
+    { id: 1, slug: "g/10" } as Awaited<ReturnType<typeof prisma.assetTag.findMany>>[number],
+  ]);
+  mocks.request.mockResolvedValueOnce({ tags: [] });
+  await expect(syncTagsToMuseDAM({ team: { id: 1, slug: "t/77" }, tagsTree: [
+    { id: 1, slug: "g/10", name: "new", verb: "update", children: [] },
+  ] })).rejects.toThrow("未返回已保存的标签");
+});
+
+
+it("rejects a missing nested update receipt even when the ancestor is returned", async () => {
+  const { default: prisma } = await import("@/prisma/prisma");
+  vi.mocked(prisma.assetTag.findMany).mockResolvedValueOnce([
+    { id: 1, slug: "g/10" }, { id: 2, slug: "g/20" },
+  ] as Awaited<ReturnType<typeof prisma.assetTag.findMany>>);
+  mocks.request.mockResolvedValueOnce({ tags: [{ id: 10, name: "root", operation: 0 }] });
+  await expect(syncTagsToMuseDAM({ team: { id: 1, slug: "t/77" }, tagsTree: [
+    { id: 1, slug: "g/10", name: "root", children: [
+      { id: 2, slug: "g/20", name: "new", verb: "update", children: [] },
+    ] },
+  ] })).rejects.toThrow("未返回已保存的标签");
+});

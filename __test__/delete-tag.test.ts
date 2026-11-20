@@ -67,7 +67,7 @@ describe("tag deletion", () => {
 
   it("soft-deletes the subtree without clearing historical foreign keys", async () => {
     await deleteTagAndDescendants(1);
-    expect(mocks.prisma.$executeRaw).toHaveBeenCalledTimes(2);
+    expect(mocks.prisma.$executeRaw).toHaveBeenCalledTimes(3);
     expect(mocks.prisma.assetTag.deleteMany).not.toHaveBeenCalled();
     expect(mocks.prisma.assetTag.update).not.toHaveBeenCalled();
   });
@@ -137,4 +137,13 @@ describe("tag deletion", () => {
     expect(await deleteTagAndDescendants(3)).toMatchObject({ success: true });
     expect(mocks.syncTagsToMuseDAM).toHaveBeenCalledOnce();
   });
+});
+
+vi.mock("@/app/tags/tagManagementAuth", async () => {
+  const { withAuth } = await import("@/app/(auth)/withAuth");
+  return { withTagManagementAuth: withAuth };
+});
+vi.mock("@/app/tags/tagMutation", async () => {
+  const { withAuth } = await import("@/app/(auth)/withAuth");
+  return { withTagMutation: withAuth, ensureTagMutationRecovered: vi.fn(), isTagMutationActive: () => true };
 });

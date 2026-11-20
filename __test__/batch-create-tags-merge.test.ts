@@ -130,3 +130,12 @@ it("rejects a tree exceeding the supported depth before contacting MuseDAM", asy
   expect(await batchCreateTags(deep, 2)).toMatchObject({ success: false });
   expect(mocks.atomicImport).not.toHaveBeenCalled();
 });
+
+vi.mock("@/app/tags/tagManagementAuth", async () => {
+  const { withAuth } = await import("@/app/(auth)/withAuth");
+  return { withTagManagementAuth: withAuth };
+});
+vi.mock("@/app/tags/tagMutation", async () => {
+  const { withAuth } = await import("@/app/(auth)/withAuth");
+  return { withTagMutation: withAuth, ensureTagMutationRecovered: vi.fn(), isTagMutationActive: () => true };
+});

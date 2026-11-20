@@ -103,3 +103,5 @@ Logo 图像决策使用全部上传样本合成的参考对照图；“最高值
 视频混合抽帧（无需媒体服务发布或新增环境变量）：本仓先探测 PATH 中的 ffmpeg/ffprobe；缺失或本地解码槽忙时直接使用原媒体服务接口。不修改 Dockerfile.prod 的依赖，实际镜像无工具时维持均匀采样。工具可用时串行下载最多 128 MiB，整体本地尝试限时 45 秒，下载限时 15 秒；视频超过 10 分钟或元数据不合法则回退。低分辨率 8 fps 扫描转场，扫描限时 10 秒，失败用本地均匀采样。镜头中点与均匀采样合并，间隔至少 0.25 秒，最多 12 帧；最终仍最多 8 帧检测、4 帧模型 OCR，计费规则及快照不变。诊断 video.sampling 记录实际策略、耗时与回退原因；此改动不保证无 FFmpeg 的环境获得转场采样提升。开发对照运行 `pnpm exec vitest run __test__/hybrid-video-frames.test.ts`，仅本地合成视频，不调用付费模型；覆盖率指目标镜头进入检测帧，不能代替商品识别准确率验收。
 
 手动发起的团队默认配置、范围感知报价和三仓升级顺序见 [docs/manual-tagging-launch.md](docs/manual-tagging-launch.md)。主前端 `development/manual-tagging-preview` 可运行真实弹窗的模拟组件预览，不连接真实打标队列，不能代替 iframe/认证联调。
+
+标签管理写入统一校验主站 `org-member-info.canManageTags`，先升级主站 user（及 `api-mini-dam-user` 兼容字段）再升级本应用；旧主站未返回字段时拒绝写入。树上编辑、右侧详情和排序均在服务端团队锁内同步，主站失败不提交本地新名称/顺序。`TeamConfig.tag-mutation-pending` 保存中断标记，超时、部分失败或本地落库失败时从主站恢复身份/名称/顺序；恢复失败保留标记，读取标签树及下一次写入前必须恢复。保留本地 AI 配置和关联，无需 migration；仅显式保存当前名称也会同步，以修复此前的本地改名。部署与验证见 README 的“标签编辑一致性与权限”。

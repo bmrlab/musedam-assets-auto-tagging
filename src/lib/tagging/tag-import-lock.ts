@@ -42,6 +42,11 @@ export async function runTagImportExclusive<T>(
   userId: number,
   run: () => Promise<T>,
 ): Promise<T> {
+  const current = context.getStore();
+  if (current?.teamId === teamId) {
+    if (current.lost) throw new Error("批量导入执行锁已失效，请刷新页面后重试。");
+    return run();
+  }
   // 先做不加锁的已提交快照读取，避免 B 的 UPSERT 等待 A 正在写入时持有的租约行锁。
   const running = await prisma.$queryRaw<
     Array<{ memberName: string }>

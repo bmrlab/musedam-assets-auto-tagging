@@ -1,6 +1,7 @@
 "use server";
+import { withTagMutation } from "./tagMutation";
 
-import { withAuth } from "@/app/(auth)/withAuth";
+import { bumpTagConfigVersion } from "@/lib/tagging/tag-config-version";
 import type { ServerActionResult } from "@/lib/serverAction";
 import { softDeleteTagSubtree } from "@/lib/tagging/soft-delete-tags";
 import { assertTagImportOwnership, runTagImportExclusive } from "@/lib/tagging/tag-import-lock";
@@ -9,7 +10,7 @@ import prisma from "@/prisma/prisma";
 import { buildCascadeDeletionTree, buildTagDeletionPlan } from "./delete-tag-plan";
 
 export async function deleteTagAndDescendants(tagId: number): Promise<ServerActionResult<void>> {
-  return withAuth(async ({ user, team: { id: teamId } }) => {
+  return withTagMutation(async ({ user, team: { id: teamId } }) => {
     try {
       return await runTagImportExclusive(teamId, user.id, async () => {
         const rows = await prisma.assetTag.findMany({ where: { deletedAt: null, teamId } });
@@ -26,6 +27,7 @@ export async function deleteTagAndDescendants(tagId: number): Promise<ServerActi
         await prisma.$transaction(async (tx) => {
           await assertTagImportOwnership(tx);
           await softDeleteTagSubtree(tx, teamId, tagId);
+          await bumpTagConfigVersion(tx, teamId);
         });
         return { success: true as const, data: undefined };
       });
