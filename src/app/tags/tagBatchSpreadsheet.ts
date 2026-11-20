@@ -446,7 +446,9 @@ export function parseTagBatchTable({
 
   const records: ParsedTagBatchRecord[] = [];
   const errors: TagBatchParseError[] = [];
-  const seenIds = new Map<number, number>();
+  const seenIds = new Map<number, ParsedTagBatchRecord>();
+  const invalidGroups = new Set<ParsedTagBatchRecord>();
+  let continuationBase: ParsedTagBatchRecord | undefined;
   dataRows.forEach((row, index) => {
     if (row.every((cell) => !String(cell ?? "").trim())) return;
     const rowNumber = index + 2;
@@ -461,10 +463,13 @@ export function parseTagBatchTable({
     });
     if ("message" in parsed) {
       errors.push({ rowNumber, message: parsed.message });
+      if (continuationColumn >= 0 && cell(row, continuationColumn) && continuationBase)
+        invalidGroups.add(continuationBase);
+      else continuationBase = undefined;
       return;
     }
     if (continuationColumn >= 0 && cell(row, continuationColumn)) {
-      const previous = records.at(-1);
+      const previous = continuationBase;
       const keywordFields = ["keywords", "negativeKeywords"] as const;
       if (cell(row, continuationColumn) !== "1" || !previous ||
           parsed.id !== previous.id || !parsed.path.length ||
@@ -472,24 +477,29 @@ export function parseTagBatchTable({
           Object.keys(parsed.fields).some(key => key !== "keywords" && key !== "negativeKeywords") ||
           !keywordFields.some(key => parsed.fields[key]?.length)) {
         errors.push({ rowNumber, message: text.pathMismatch });
+        if (previous) invalidGroups.add(previous);
         return;
       }
       for (const key of keywordFields) {
-        if (parsed.fields[key]) previous.fields[key] = [...new Set([
-          ...(previous.fields[key] ?? []), ...parsed.fields[key]!,
-        ])];
+        if (parsed.fields[key]) {
+          previous.fields[key] ??= [];
+          previous.fields[key]!.push(...parsed.fields[key]!);
+        }
       }
       return;
     }
     if (parsed.id !== undefined) {
       const previousRow = seenIds.get(parsed.id);
       if (previousRow !== undefined) {
+        continuationBase = undefined;
+        if (continuationColumn >= 0) invalidGroups.add(previousRow);
         errors.push({ rowNumber, message: text.duplicateId(parsed.id) });
         return;
       }
-      seenIds.set(parsed.id, rowNumber);
+      seenIds.set(parsed.id, parsed);
     }
     records.push(parsed);
+    continuationBase = parsed;
   });
 
   if (records.length === 0 && errors.length === 0) {
@@ -499,7 +509,12 @@ export function parseTagBatchTable({
     };
   }
 
-  return { records, errors };
+  // An invalid continuation invalidates the entire keyword group; never apply a truncated prefix.
+  for (const record of records) {
+    for (const key of ["keywords", "negativeKeywords"] as const)
+      if (record.fields[key]) record.fields[key] = [...new Set(record.fields[key])];
+  }
+  return { records: records.filter(record => !invalidGroups.has(record)), errors };
 }
 
 /** 同一路径只创建一次，关键词合并去重；其他字段冲突的行单独报错。 */
@@ -603,8 +618,8 @@ function appendExportNodes(
       node.id === undefined ? "" : String(node.id),
       ...levels,
       extra.description ?? "",
-      joinTagBatchKeywords(extra.keywords),
-      joinTagBatchKeywords(extra.negativeKeywords),
+      "",
+      "",
       formatTagBatchBoolean(node.taggingEnabled, locale),
       formatTagBatchBoolean(extra.siblingsExclusive, locale),
       formatTagBatchBoolean(extra.requiredGroup, locale),

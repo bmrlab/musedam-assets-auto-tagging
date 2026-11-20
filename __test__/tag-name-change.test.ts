@@ -2,7 +2,7 @@ import { buildTagNameChange } from "@/app/tags/tagNameChange";
 import type { TagNode } from "@/app/tags/types";
 import { idToSlug } from "@/lib/slug";
 import { MuseDAMID } from "@/musedam/types";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ request: vi.fn(), findMany: vi.fn() }));
 vi.mock("server-only", () => ({}));
@@ -16,6 +16,8 @@ vi.mock("@/prisma/prisma", () => ({
 
 import { syncTagsToMuseDAM } from "@/musedam/tags/syncToMuseDAM";
 
+beforeEach(() => vi.clearAllMocks());
+
 const node = (id: number, children: TagNode[] = []): TagNode => ({
   id,
   slug: idToSlug("assetTag", MuseDAMID.from(id)),
@@ -25,6 +27,47 @@ const node = (id: number, children: TagNode[] = []): TagNode => ({
 });
 
 describe("single tag name changes", () => {
+  it("prunes unrelated siblings at every level even when a caller supplies the full tree", async () => {
+    vi.clearAllMocks();
+    const tree = [node(1, [node(2, Array.from({ length: 20000 }, (_, i) => node(i + 10))), { ...node(3), name: "新名称", verb: "update" as const }])];
+    mocks.findMany.mockResolvedValue([tree[0], tree[0].children[1]]);
+    mocks.request.mockImplementation(async (_path, { body }) => ({ tags: body.tags }));
+    await syncTagsToMuseDAM({ team: { id: 7, slug: "t/77" }, tagsTree: tree });
+    expect(mocks.findMany).toHaveBeenCalledExactlyOnceWith({
+      where: { deletedAt: null, teamId: 7, id: { in: [1, 3] } },
+      select: { id: true, slug: true },
+    });
+    expect(mocks.request).toHaveBeenCalledExactlyOnceWith("/api/muse/merge-tags", expect.objectContaining({
+      body: { tags: [{ id: 1, name: "tag-1", operation: 0, children: [{ id: 3, name: "新名称", operation: 1 }] }] },
+    }));
+    expect(tree[0].children[0].children).toHaveLength(20000);
+  });
+
+  it("deletes a parent without submitting any descendant operations", async () => {
+    vi.clearAllMocks();
+    const target = { ...node(1, [{ ...node(2), verb: "update" as const }]), verb: "delete" as const };
+    mocks.findMany.mockResolvedValue([target]);
+    mocks.request.mockResolvedValue({ tags: [] });
+    await syncTagsToMuseDAM({ team: { id: 7, slug: "t/77" }, tagsTree: [target] });
+    expect(mocks.request).toHaveBeenCalledExactlyOnceWith("/api/muse/merge-tags", expect.objectContaining({
+      body: { tags: [{ id: 1, name: "tag-1", operation: 3 }] },
+    }));
+  });
+
+  it("handles 20000 sibling update receipts with bounded upstream batches", async () => {
+    vi.clearAllMocks();
+    const children = Array.from({ length: 20000 }, (_, i) => ({ ...node(i + 2), verb: "update" as const, sort: i }));
+    const parent = node(1, children);
+    mocks.findMany.mockResolvedValue([parent, ...children]);
+    mocks.request.mockImplementation(async (_path, { body }) => ({ tags: body.tags }));
+    const result = await syncTagsToMuseDAM({ team: { id: 7, slug: "t/77" }, tagsTree: [parent] });
+    expect(mocks.request).toHaveBeenCalledTimes(21);
+    expect(result.tags[0].children).toHaveLength(20000);
+    expect(result.tags[0].children?.[19999]).toMatchObject({ id: 20001, sort: 19999 });
+    for (const [, { body }] of mocks.request.mock.calls)
+      expect(body.tags[0].children.length).toBeLessThanOrEqual(999);
+  });
+
   it("creates a root tag without submitting existing tags", () => {
     const draft: TagNode = { slug: null, name: "", tempId: "temp_new", children: [] };
     expect(buildTagNameChange([node(1), draft], "temp_new", "新标签")).toEqual([

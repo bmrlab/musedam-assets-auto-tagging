@@ -24,7 +24,7 @@ import { bumpTagConfigVersion } from "@/lib/tagging/tag-config-version";
 import { MAX_TAG_LEVEL } from "@/lib/tagging/tag-level";
 import type { AssetTagExtra, Prisma } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
-import { getLocale, getTranslations } from "next-intl/server";
+import { getTagImportLocale as getLocale, getTagImportTranslations as getTranslations } from "./tagImportJobContext";
 import { z } from "zod";
 import { batchCreateTags, saveTagsTreeToMuseDAM } from "./actions";
 import {
@@ -49,6 +49,7 @@ import type { TagNode } from "./types";
 
 export type TagTreeBatchFileResult = {
   deletedTagCount?: number;
+  keywordContinuationRows?: number;
   filename: string;
   mimeType: string;
   base64: string;
@@ -823,6 +824,7 @@ function fileResult(prefix: string, format: BatchFileFormat, rows: string[][]) {
       filename: getBatchFileName(prefix, format),
       mimeType,
       base64: buffer.toString("base64"),
+      keywordContinuationRows: rows[0]?.length === 12 ? rows.slice(1).filter(row => row[11] === "1").length : 0,
     },
   };
 }

@@ -49,19 +49,29 @@ const mocks = vi.hoisted(() => {
       },
     ),
   };
+  const sortWrite = vi.fn(async (_sql: TemplateStringsArray, ids: number[], sorts: number[], teamId: number) => {
+      let count = 0;
+      ids.forEach((id, index) => {
+        const row = local.find(row => row.id === id && row.teamId === teamId);
+        if (row) { row.sort = sorts[index]; count++; }
+      });
+      return count;
+    });
   return {
     local,
     remote,
     markers,
     assetTag,
-    member: vi.fn(),
+    allowed: true,
     sync: vi.fn(),
     recover: vi.fn(),
     bump: vi.fn(),
+    sortWrite,
     transaction: vi.fn(async (run: (tx: unknown) => unknown) =>
       run({
         assetTag,
         $queryRaw: vi.fn(),
+        $executeRaw: sortWrite,
         teamConfig: {
           upsert: async ({ create }: { create: { key: string; value: unknown } }) =>
             markers.set(create.key, create.value),
@@ -82,7 +92,10 @@ vi.mock("@/app/(auth)/withAuth", () => ({
       team: { id: 1, slug: "t/11" },
     }),
 }));
-vi.mock("@/musedam/user", () => ({ fetchMuseDAMUser: mocks.member }));
+vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
+vi.mock("@/lib/tagging/tag-management-proof", () => ({
+  TAG_MANAGEMENT_PROOF_HEADER: "x-tag-management-proof", verifyTagManagementProof: () => mocks.allowed,
+}));
 vi.mock("@/lib/tagging/tag-import-lock", () => ({
   runTagImportExclusive: async (_t: number, _u: number, run: () => unknown) => run(),
   assertTagImportOwnership: vi.fn(),
@@ -124,7 +137,7 @@ const rename: TagNode[] = [
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.member.mockReset().mockResolvedValue({ canManageTags: true });
+  mocks.allowed = true;
   mocks.local.splice(
     0,
     mocks.local.length,
@@ -158,7 +171,7 @@ beforeEach(() => {
 });
 
 it("denies real write entry points before any remote or local mutation", async () => {
-  mocks.member.mockResolvedValue({ canManageTags: false });
+  mocks.allowed = false;
   expect(await saveTagsTree(rename)).toMatchObject({ success: false, code: "forbidden" });
   expect(await updateTagSort([{ id: 2, sort: 1 }])).toMatchObject({
     success: false,
@@ -235,7 +248,7 @@ it("leaves both old sort orders intact when upstream fails", async () => {
 });
 
 it("recovers sort order from the master when local saving fails", async () => {
-  mocks.assetTag.update.mockRejectedValueOnce(new Error("local commit failed"));
+  mocks.sortWrite.mockRejectedValueOnce(new Error("local commit failed"));
   expect(
     await updateTagSort([
       { id: 3, sort: 2 },

@@ -1,42 +1,73 @@
 // @vitest-environment node
 import { withTagManagementAuth } from "@/app/tags/tagManagementAuth";
-import { beforeEach, expect, it, vi } from "vitest";
-const mocks = vi.hoisted(() => ({ member: vi.fn() }));
+import { issueTagManagementProof } from "@/lib/tagging/tag-management-proof";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+const mocks = vi.hoisted(() => ({ proof: null as string | null }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/app/(auth)/withAuth", () => ({
   withAuth: (run: (ctx: unknown) => unknown) =>
-    run({
-      team: { id: 7, slug: "t/77" },
-      user: { id: 9, slug: "u/99" },
-    }),
+    run({ team: { id: 7, slug: "t/77" }, user: { id: 9, slug: "u/99" } }),
 }));
-vi.mock("@/musedam/user", () => ({ fetchMuseDAMUser: mocks.member }));
+vi.mock("next/headers", () => ({
+  headers: async () => new Headers(mocks.proof ? { "x-tag-management-proof": mocks.proof } : {}),
+}));
 
-beforeEach(() => vi.resetAllMocks());
-
-it.each([
-  { canManageTags: false, roleCode: "admin" },
-  { roleCode: "admin" },
-  { canManageTags: "true", roleCode: "content" },
-])("rejects missing or false permission regardless of role: %j", async (member) => {
-  mocks.member.mockResolvedValue(member);
-  const write = vi.fn();
-  expect(await withTagManagementAuth(write)).toMatchObject({ success: false, code: "forbidden" });
-  expect(write).not.toHaveBeenCalled();
+beforeEach(() => {
+  mocks.proof = null;
+  vi.stubEnv("CIPHER_PASSWORD", "test-only-signing-key");
+});
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.useRealTimers();
 });
 
-it("checks the actual session user in the actual session team", async () => {
-  mocks.member.mockResolvedValue({ canManageTags: true, roleCode: "custom" });
+it("rejects missing and forged browser claims before writing", async () => {
+  for (const proof of [
+    null,
+    "true",
+    JSON.stringify({ canManageTags: true }),
+    "invalid.signature",
+  ]) {
+    mocks.proof = proof;
+    const write = vi.fn();
+    expect(await withTagManagementAuth(write)).toMatchObject({ success: false, code: "forbidden" });
+    expect(write).not.toHaveBeenCalled();
+  }
+});
+it("accepts only a server-issued proof for this session user and team", async () => {
   const write = vi.fn(async () => ({ success: true as const, data: undefined }));
+  mocks.proof = issueTagManagementProof(9, 7).proof;
   expect(await withTagManagementAuth(write)).toMatchObject({ success: true });
-  expect(mocks.member.mock.calls[0][0].team).toEqual({ id: 7, slug: "t/77" });
-  expect(mocks.member.mock.calls[0][0].musedamUserId.toString()).toBe("99");
+  expect(write).toHaveBeenCalledOnce();
+  for (const [user, team] of [
+    [10, 7],
+    [9, 8],
+  ]) {
+    mocks.proof = issueTagManagementProof(user, team).proof;
+    expect(await withTagManagementAuth(write)).toMatchObject({ success: false });
+  }
   expect(write).toHaveBeenCalledOnce();
 });
+it("rejects expired proof in a new request, while nested saving uses the already checked authorization", async () => {
+  vi.useFakeTimers();
+  mocks.proof = issueTagManagementProof(9, 7).proof;
+  expect(
+    await withTagManagementAuth(async () => {
+      vi.advanceTimersByTime(31_000);
+      return withTagManagementAuth(async () => ({ success: true, data: undefined }));
+    }),
+  ).toMatchObject({ success: true });
+  expect(
+    await withTagManagementAuth(async () => ({ success: true, data: undefined })),
+  ).toMatchObject({ success: false });
+});
 
-it("fails closed when permission lookup fails", async () => {
-  mocks.member.mockRejectedValue(new Error("offline"));
+it("rejects a valid proof whose user/team payload has been tampered with", async () => {
+  const [payload, signature] = issueTagManagementProof(10, 8).proof.split(".");
+  const decoded = JSON.parse(Buffer.from(payload, "base64url").toString());
+  decoded.userId = 9; decoded.teamId = 7;
+  mocks.proof = `${Buffer.from(JSON.stringify(decoded)).toString("base64url")}.${signature}`;
   const write = vi.fn();
-  expect(await withTagManagementAuth(write)).toMatchObject({ success: false, code: "forbidden" });
+  expect(await withTagManagementAuth(write)).toMatchObject({ success: false });
   expect(write).not.toHaveBeenCalled();
 });

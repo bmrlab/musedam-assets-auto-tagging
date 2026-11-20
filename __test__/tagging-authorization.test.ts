@@ -235,6 +235,7 @@ describe("single tagging creditCost", () => {
 it.each([false, true])("uses video image mode %s for video enqueue and response price", async enabled => {
   mocks.settings.mockResolvedValue({ ...(await mocks.settings()), featureImageMode: !enabled, featureVideoImageMode: enabled });
   mocks.syncAsset.mockResolvedValue({ assetObject: { id: 7, teamId: 42, extra: { extension: "mp4", duration: 5000 } }, musedamAsset: { parentIds: [] } });
-  expect((await (await single(request())).json()).data.creditCost).toBe(enabled ? 6 : 3);
+  // 视频关闭图像模式时按每素材 1 点计费，不再按时长计帧。
+  expect((await (await single(request())).json()).data.creditCost).toBe(enabled ? 6 : 1);
   expect(mocks.enqueue).toHaveBeenCalledWith(expect.objectContaining({ featureImageMode: enabled }));
 });

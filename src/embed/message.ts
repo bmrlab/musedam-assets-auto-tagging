@@ -476,8 +476,8 @@ type ActionMap = {
     result: BaseActionResult<Record<string, never>>;
   };
   "get-tag-management-permission": {
-    args: Record<string, never>;
-    result: BaseActionResult<{ canManageTags: boolean }>;
+    args: { appAuthToken?: string };
+    result: BaseActionResult<{ canManageTags: boolean; proof?: string; expiresAt?: number }>;
   };
   /** 主站按 dam-material-extension-ai-auto-marking 判定内容管理员是否可管理配置 */
   "get-auto-tagging-access": {
@@ -529,6 +529,7 @@ type ExtractSuccessData<T> = T extends { success: true; data: infer U } ? U : ne
 export function dispatchMuseDAMClientAction<T extends keyof ActionMap>(
   action: T,
   args: ActionMap[T]["args"] = {},
+  options?: { timeoutMs?: number },
 ): Promise<ExtractSuccessData<ActionMap[T]["result"]>> {
   // 检查是否在浏览器环境
   if (typeof window === "undefined") {
@@ -581,6 +582,16 @@ export function dispatchMuseDAMClientAction<T extends keyof ActionMap>(
   //   clearTimeout(timeout);
   // });
 
+  if (options?.timeoutMs) {
+    const timer = window.setTimeout(() => {
+      const pending = pendingPromises.get(dispatchId);
+      if (pending) {
+        pendingPromises.delete(dispatchId);
+        pending.reject(new Error("Parent authorization timed out"));
+      }
+    }, options.timeoutMs);
+    return promise.finally(() => window.clearTimeout(timer));
+  }
   return promise;
 }
 

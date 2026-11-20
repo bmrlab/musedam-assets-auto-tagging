@@ -14,7 +14,7 @@ import { GripVertical, Tag } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { updateTagSort } from "../actions";
+import { saveTagSort, TagSortRequestError } from "../tagSortClient";
 import { localizeTagActionMessage } from "../tagActionMessage";
 import { TagNode } from "../types";
 import {
@@ -180,16 +180,10 @@ export function TagSortModal({
         return;
       }
 
-      // 创建带有新sort值的标签数组
-      const tagsWithNewSort = sortedTags.map((tag, index) => ({
-        ...tag,
-        sort: sortedTags.length - index, // 更新sort值
-        verb: "update" as const,
-      }));
-
-      // 调用排序更新接口-更新数据
-      const result = await updateTagSort(sortData);
+      const result = await saveTagSort(sortData);
       if (result.success) {
+        const saved = new Map(result.data.sorts.map(item => [item.id, item.sort]));
+        const tagsWithNewSort = sortedTags.map(tag => ({ ...tag, sort: tag.id ? saved.get(tag.id) ?? tag.sort : tag.sort }));
         await onConfirm(tagsWithNewSort); // 传递带有新sort值的标签数组
         onClose();
       } else {
@@ -197,7 +191,12 @@ export function TagSortModal({
       }
     } catch (error) {
       console.error("Sort tags error:", error);
-      toast.error(t("sortSaveFailed"));
+      if (error instanceof TagSortRequestError) {
+        const detail = [error.status ? `HTTP ${error.status}` : "", error.requestId ?? ""].filter(Boolean).join(" · ");
+        toast.error(`${t("sortOutcomeUnknown")}${detail ? ` (${detail})` : ""}`);
+      } else {
+        toast.error(t("sortSaveFailed"));
+      }
     } finally {
       setIsLoading(false);
     }

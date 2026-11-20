@@ -13,18 +13,17 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   downloadTagTreeImportTemplateAction,
   exportTagTreeAction,
-  importTagTreeAction,
-  precheckTagTreeImportAction,
   type TagTreeBatchImportResult,
   type TagTreeImportPrecheck,
 } from "../tagBatchActions";
 import { TagImportPreview } from "./TagImportPreview";
+import { precheckTagImportFile, resumeTagImport, submitTagImportFile, waitForTagImport, type TagImportStage } from "../tagImportClient";
 
 export function TagImportExportDialog({
   open,
@@ -40,6 +39,11 @@ export function TagImportExportDialog({
   onExportCleaned?: () => void;
 }) {
   const t = useTranslations("TagsPage");
+  const locale = useLocale();
+  const [stage, setStage] = useState<TagImportStage>("");
+  const [resuming, setResuming] = useState(false);
+  const [recoveredCompletion, setRecoveredCompletion] = useState<{ success: boolean; message: string } | null>(null);
+  const controller = useRef<AbortController | null>(null);
   const tips = useTranslations("TagsPage.ManualCreateTipsModal");
   const overwriteTips = useTranslations("TagsPage.ManualCreateTips2Modal");
   const [importMode, setImportMode] = useState<"merge" | "overwrite">("merge");
@@ -51,6 +55,33 @@ export function TagImportExportDialog({
       pendingConfirmation.current?.(false);
       pendingConfirmation.current = null;
     };
+  }, [open]);
+  useEffect(() => {
+    if (!open) return;
+    const abort = new AbortController();
+    controller.current = abort;
+    setResuming(true);
+    setRecoveredCompletion(null);
+    void resumeTagImport().then(async job => {
+      if (!job || abort.signal.aborted) return;
+      const result = await waitForTagImport(job, setStage, abort.signal);
+      if (abort.signal.aborted) return;
+      if (result.success) {
+        onImported(result.data);
+        setRecoveredCompletion({
+          success: !result.data.failedCount,
+          message: [t("importTaskFinished", { count: result.data.successCount }),
+            ...(result.data.failedCount ? [t("importTaskPartial", { count: result.data.failedCount })] : []),
+            ...result.data.failures.map(row => `${row.rowNumber} · ${row.name ?? ""} · ${row.message}`),
+          ].join("\n"),
+        });
+      } else setRecoveredCompletion({ success: false, message: result.message });
+    }).catch(() => {
+      if (!abort.signal.aborted) toast.warning(t("importTaskConnectionLost"));
+    }).finally(() => { if (!abort.signal.aborted) { setStage(""); setResuming(false); } });
+    return () => abort.abort();
+    // A dialog opening resumes once; ordinary parent rerenders must not restart polling.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
   function resolveOverwrite(confirmed: boolean) {
     pendingConfirmation.current?.(confirmed);
@@ -65,6 +96,10 @@ export function TagImportExportDialog({
         reviewTitle={t("importPreviewTitle")}
         reviewClassName="w-[960px]"
         showResultDialog
+        externalPending={resuming}
+        recoveredCompletion={recoveredCompletion}
+        allowCloseWhilePending={stage === "pending" || stage === "processing" || stage === "reconnecting"}
+        statusContent={stage ? <p role="status" className="text-[13px] leading-[18px] text-basic-6">{t(`importTaskStage.${stage}`)}</p> : null}
         renderReview={(precheck, pending) => (
           <div className="flex flex-col gap-4">
             <TagImportPreview
@@ -133,9 +168,11 @@ export function TagImportExportDialog({
             );
           }
         }}
-        exportHint={t("exportCleanupHint")}
+        exportHint={`${t("exportCleanupHint")} ${t("keywordContinuationHint")}`}
         exportAction={async format => {
           const result = await exportTagTreeAction(format, maxLevel);
+          if (result.success && result.data.keywordContinuationRows)
+            toast.info(t("keywordContinuationExported", { count: result.data.keywordContinuationRows }));
           if (result.success && result.data.deletedTagCount) {
             onExportCleaned?.();
             toast.success(t("exportCleanupComplete", { count: result.data.deletedTagCount }));
@@ -146,14 +183,15 @@ export function TagImportExportDialog({
           formData.set("tagLevel", String(maxLevel));
           formData.set("importMode", importMode);
           formData.set("treeImport", "true");
-          return importTagTreeAction(formData);
+          try { return await submitTagImportFile(formData, maxLevel, importMode, locale, setStage, controller.current?.signal); }
+          finally { setStage(""); }
         }}
         precheckAction={async (formData) => {
           formData.set("tagLevel", String(maxLevel));
-          return precheckTagTreeImportAction(formData);
+          return precheckTagImportFile(formData, maxLevel, setStage);
         }}
         downloadTemplateAction={downloadTagTreeImportTemplateAction}
-        uploadHint={t("importUploadHint")}
+        uploadHint={`${t("importUploadHint")} ${t("keywordContinuationHint")}`}
       />
       <AlertDialog
         open={overwriteOpen}

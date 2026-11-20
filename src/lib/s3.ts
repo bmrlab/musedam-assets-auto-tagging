@@ -555,12 +555,14 @@ export function getBrowserS3ObjectUploadUrl({
   contentType,
   objectKey,
   expiresInSeconds = 60 * 10,
+  acl,
 }: SignS3ObjectUploadUrlOptions) {
   if (!isLocalDev()) {
     return signS3ObjectUploadUrl({
       contentType,
       objectKey,
       expiresInSeconds,
+      acl,
     });
   }
 
@@ -574,7 +576,7 @@ export function getBrowserS3ObjectUploadUrl({
 export function signS3ObjectUploadUrl({
   objectKey,
   expiresInSeconds = 60 * 10,
-  acl = isClassificationVideoObjectKey(objectKey) ? "" : "public-read",
+  acl = isClassificationVideoObjectKey(objectKey) ? "" : isTagImportObjectKey(objectKey) ? "private" : "public-read",
 }: SignS3ObjectUploadUrlOptions) {
   const { sendAclHeader } = getS3Config();
   return signS3Url({
@@ -593,6 +595,14 @@ export async function headS3Object(objectKey: string) {
   return response.ok;
 }
 
+export function buildTagImportObjectKey(teamId: number, uploadId: string, extension: string) {
+  return buildStorageObjectKey(`tag-imports/${teamId}/${uploadId}.${extension}`);
+}
+
+function isTagImportObjectKey(objectKey: string) {
+  return objectKey.startsWith(buildStorageObjectKey("tag-imports/"));
+}
+
 // 已规范化的 S3_FOLDER（无首尾斜杠）与 bucket，供迁移导入接口打日志/改写 objectKey 前缀
 export function getS3StorageLocation() {
   const { bucket, endpointUrl } = getS3Config();
@@ -608,7 +618,7 @@ export async function uploadS3Object({ body, contentType, objectKey }: UploadS3O
     payloadHash,
     requestHeaders: {
       "Content-Type": contentType,
-      ...(sendAclHeader ? { "x-amz-acl": "public-read" } : {}),
+      ...(sendAclHeader ? { "x-amz-acl": isTagImportObjectKey(objectKey) ? "private" : "public-read" } : {}),
     },
     url,
   });

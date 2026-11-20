@@ -248,6 +248,7 @@
       "noSortableTags": "沒有可排序的標籤",
       "saving": "儲存中...",
       "sortSaveFailed": "排序儲存失敗",
+      "sortOutcomeUnknown": "未能確認排序儲存結果，請重新整理後核對，再決定是否重試。",
       "sortSaveSuccess": "排序儲存成功",
       "title": "標籤排序"
     },
@@ -331,7 +332,19 @@
       "structureScope": "標籤結構",
       "configurationScope": "標籤及設定"
     },
-    "importUploadHint": "每行填寫一條標籤路徑，設定選填：新標籤留空使用預設值，已有標籤留空保留原值；填 - 清空描述或關鍵詞，多個關鍵詞用分號或換行分隔"
+    "importUploadHint": "每行填寫一條標籤路徑，設定選填：新標籤留空使用預設值，已有標籤留空保留原值；填 - 清空描述或關鍵詞，多個關鍵詞用分號或換行分隔",
+    "keywordContinuationHint": "關鍵詞過長時將自動拆為續行，完整保留內容。編輯後匯入時，請保持同一標籤各行相鄰，並保留標籤 ID、路徑和「關鍵詞續行」標記。",
+    "keywordContinuationExported": "已增加 {count} 行關鍵詞續行，全部關鍵詞均已完整匯出。",
+    "largeBatchUseImport": "本次標籤數量較大，請將標籤路徑儲存為 CSV 或 Excel 檔案，透過「批次匯入」提交。",
+    "importTaskFinished": "匯入完成，成功 {count} 行。",
+    "importTaskPartial": "有 {count} 行匯入失敗，請核對標籤設定後再操作。",
+    "importTaskConnectionLost": "暫時無法取得匯入狀態。請重新開啟此視窗查詢原任務，避免重複提交。",
+    "importTaskStage": {
+      "uploading": "正在上傳檔案…",
+      "pending": "匯入任務排隊中，可關閉視窗，稍後重新開啟查看進度。",
+      "processing": "正在背景匯入，可關閉視窗，稍後重新開啟查看進度。",
+      "reconnecting": "正在重新連線原匯入任務…"
+    }
   },
   "Tagging": {
     "Metadata": {

@@ -33,7 +33,7 @@ interface MuseDAMTagResponse {
 function convertToMuseDAMFormat(
   node: TagNode,
   createdTagMapping: Map<string, MuseDAMID>,
-  assetTagCache: Map<number, AssetTag>,
+  assetTagCache: Map<number, Pick<AssetTag, "id" | "slug">>,
 ): MuseDAMTagRequest | null {
   let operation: 0 | 1 | 2 | 3 = 0; // 默认不操作
   let musedamId: MuseDAMID | undefined;
@@ -106,8 +106,8 @@ function convertToMuseDAMFormat(
 /**
  * 预加载所有相关的 AssetTag 数据到缓存
  */
-async function preloadAssetTags(nodes: TagNode[], teamId: number): Promise<Map<number, AssetTag>> {
-  const assetTagCache = new Map<number, AssetTag>();
+async function preloadAssetTags(nodes: TagNode[], teamId: number): Promise<Map<number, Pick<AssetTag, "id" | "slug">>> {
+  const assetTagCache = new Map<number, Pick<AssetTag, "id" | "slug">>();
   const ids: number[] = [];
 
   const collectIds = (node: TagNode) => {
@@ -122,6 +122,7 @@ async function preloadAssetTags(nodes: TagNode[], teamId: number): Promise<Map<n
   if (ids.length > 0) {
     const assetTags = await prisma.assetTag.findMany({
       where: { deletedAt: null, id: { in: ids }, teamId },
+      select: { id: true, slug: true },
     });
 
     // 填充缓存
@@ -148,17 +149,12 @@ export async function syncTagsToMuseDAM({
   tags: MuseDAMTagRequest[];
   createdTagMapping: Map<string, MuseDAMID>; // tempId -> MuseDAMID 的映射
 }> {
-  // 过滤出有操作的标签
-  const hasOperations = (node: TagNode): boolean => {
-    // 如果节点被标记为删除，只处理该节点本身，不处理子节点
-    // 因为父标签删除时，子标签会被级联删除
-    if (node.verb === "delete") {
-      return true;
-    }
-    return !!node.verb || node.children.some(hasOperations);
-  };
-
-  const operationNodes = tagsTree.filter(hasOperations);
+  // 每一层都裁剪无关分支；删除父节点由主站级联，不发送其后代。
+  const prune = (nodes: TagNode[]): TagNode[] => nodes.flatMap((node) => {
+    const children = node.verb === "delete" ? [] : prune(node.children);
+    return node.verb || children.length ? [{ ...node, children }] : [];
+  });
+  const operationNodes = prune(tagsTree);
 
   if (operationNodes.length === 0) {
     return { tags: [], createdTagMapping: new Map() }; // 没有需要同步的操作
@@ -223,15 +219,19 @@ export async function syncTagsToMuseDAM({
     responseTags: MuseDAMTagResponse[],
     nodePath: TagNode[] = operationNodes,
   ) => {
+    // 大量同级标签时按 ID/名称索引，避免每个回执反复扫描整个同级数组。
+    const responseById = new Map(responseTags.map(tag => [String(tag.id), tag]));
+    const responseByName = new Map(responseTags.map(tag => [tag.name, tag]));
+    const nodeByName = new Map(nodePath.map(node => [node.name, node]));
     for (const requestTag of requestTags) {
-      const responseTag = responseTags.find((tag) => requestTag.id !== undefined
-        ? String(tag.id) === String(requestTag.id)
-        : tag.name === requestTag.name);
+      const responseTag = requestTag.id !== undefined
+        ? responseById.get(String(requestTag.id))
+        : responseByName.get(requestTag.name);
       if (!responseTag) {
         if (requestTag.operation === 1 || requestTag.operation === 2)
           throw new Error("MuseDAM 未返回已保存的标签，请刷新后核对结果");
         // 删除可能不回传节点，但仍需检查有更新的子树。
-        if (requestTag.children) await buildMapping(requestTag.children, [], nodePath.find(node => node.name === requestTag.name)?.children ?? []);
+        if (requestTag.children) await buildMapping(requestTag.children, [], nodeByName.get(requestTag.name)?.children ?? []);
         continue;
       }
       if ((requestTag.operation === 1 || requestTag.operation === 2) && (!responseTag.id || responseTag.name !== requestTag.name))
@@ -240,14 +240,9 @@ export async function syncTagsToMuseDAM({
       // 创建及远端复用的标签都要回填 tempId -> MuseDAM ID
       if (responseTag.id) {
         // 在当前路径中查找匹配的节点
-        const matchingNode = nodePath.find(
-          (node) =>
-            (node.verb === "create" || node.verb === "update") &&
-            node.tempId &&
-            node.name === requestTag.name,
-        );
+        const matchingNode = nodeByName.get(requestTag.name);
 
-        if (matchingNode && matchingNode.tempId) {
+        if (matchingNode?.tempId && (matchingNode.verb === "create" || matchingNode.verb === "update")) {
           createdTagMapping.set(matchingNode.tempId, MuseDAMID.from(responseTag.id));
           if (matchingNode.id && !assetTagCache.get(matchingNode.id)?.slug) {
             await prisma.assetTag.update({
@@ -262,7 +257,7 @@ export async function syncTagsToMuseDAM({
       if (requestTag.children) {
         // 找到对应的子节点路径
         const childNodePath =
-          nodePath.find((node) => node.name === requestTag.name)?.children || [];
+          nodeByName.get(requestTag.name)?.children || [];
 
         await buildMapping(requestTag.children, responseTag.children ?? [], childNodePath);
       }

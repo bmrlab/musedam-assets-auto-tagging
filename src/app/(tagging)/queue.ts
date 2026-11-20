@@ -11,6 +11,7 @@ import { randomUUID } from "node:crypto";
 import "server-only";
 
 import { isTagTreeJob, processTagTreeQueueItem } from "@/app/tags/tagTreeQueue";
+import { isTagImportJob, processTagImportQueueItem } from "@/app/tags/tagImportJobs";
 import { getFeatureThresholds } from "@/lib/tagging/feature-threshold-settings";
 import { rethresholdFeatures } from "@/lib/tagging/rethreshold-features";
 import { classifyAssetBrandRecommendation } from "@/lib/brand/tagging-brand-classification";
@@ -1213,12 +1214,15 @@ async function recoverStaleProcessingItems(): Promise<number> {
   const failed = await prisma.$executeRaw`
     UPDATE "TaggingQueueItem"
     SET "status" = 'failed', "endsAt" = now(), "updatedAt" = now(), "result" =
-      CASE WHEN "extra"->>'featureRetryInPlace' = 'true'
+      CASE WHEN "extra"->>'jobKind' = 'tag-tree-import'
+        THEN jsonb_build_object('success', false, 'message', '导入处理中断，结果可能已写入，请核对标签树后再发起新任务。')
+        WHEN "extra"->>'featureRetryInPlace' = 'true'
         THEN COALESCE("result", '{}'::jsonb) || ${failedResult}::jsonb
         ELSE ${failedResult}::jsonb END
     WHERE "status" = 'processing'
       AND "updatedAt" < ${staleBefore}
-      AND COALESCE(("extra" ->> 'interruptedAttempts')::int, 0) >= ${MAX_INTERRUPTED_RETRIES}
+      AND ("extra"->>'jobKind' = 'tag-tree-import'
+        OR COALESCE(("extra" ->> 'interruptedAttempts')::int, 0) >= ${MAX_INTERRUPTED_RETRIES})
   `;
   const requeued = await prisma.$executeRaw`
     UPDATE "TaggingQueueItem"
@@ -1229,6 +1233,7 @@ async function recoverStaleProcessingItems(): Promise<number> {
           to_jsonb(COALESCE(("extra" ->> 'interruptedAttempts')::int, 0) + 1)
         )
     WHERE "status" = 'processing' AND "updatedAt" < ${staleBefore}
+      AND COALESCE("extra"->>'jobKind', '') <> 'tag-tree-import'
   `;
 
   if (failed > 0 || requeued > 0) {
@@ -1328,7 +1333,7 @@ async function tryClaimAndProcess(
   let releaseVideoSlot: (() => void) | undefined;
   const assetExtra = queueItem.assetObject?.extra as AssetObjectExtra | null;
   if (
-    !isTagTreeJob(queueItem) &&
+    !isTagTreeJob(queueItem) && !isTagImportJob(queueItem) &&
     hasVideoFrameClassification(queueItem) &&
     isVideoAssetExtension(assetExtra?.extension)
   ) {
@@ -1409,7 +1414,9 @@ async function tryClaimAndProcess(
           assertOwned,
         },
         () =>
-          isTagTreeJob(queueItem)
+          isTagImportJob(queueItem)
+            ? processTagImportQueueItem({ ...queueItem, status: "processing", startsAt, extra })
+            : isTagTreeJob(queueItem)
             ? processTagTreeQueueItem({ ...queueItem, status: "processing", startsAt, extra })
             : processQueueItem({
                 ...(queueItem as TaggingQueueItem & { assetObject: AssetObject | null }),

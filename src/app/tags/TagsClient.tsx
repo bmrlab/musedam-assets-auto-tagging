@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { fetchTeamTags, saveTagsTree } from "./actions";
 import { deleteTagAndDescendants } from "./delete-tag";
 import { localizeTagActionMessage } from "./tagActionMessage";
+import { applySavedTagSort } from "./tagSort";
 import { buildTagNameChange } from "./tagNameChange";
 import { AiCreateModal } from "./components/AiCreateModal";
 import { BatchCreateModal } from "./components/BatchCreateModal";
@@ -706,15 +707,12 @@ function TagsClientInner({ initialTags }: TagsClientProps) {
   );
 
   // 处理标签排序
-  const handleSortTags = async () => {
+  const handleSortTags = async (_level: number, sortedTags: TagNode[]) => {
     if (!canManageTags) return;
-    try {
-      setIsSaving(true);
-      await refetchTagsTree();
-      toast.success(t("sortSuccess"));
-    } finally {
-      setIsSaving(false);
-    }
+    const saved = sortedTags.filter((tag): tag is TagNode & { id: number; sort: number } =>
+      tag.id !== undefined && tag.sort !== undefined).map(({ id, sort }) => ({ id, sort }));
+    setTagsTree(tree => applySavedTagSort(tree, saved));
+    toast.success(t("sortSuccess"));
   };
 
   const TagsHeaderMenu = useMemo(

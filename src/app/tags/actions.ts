@@ -28,9 +28,11 @@ import { MuseDAMID } from "@/musedam/types";
 import type { AssetTagExtra } from "@/prisma/client";
 import { AssetTag } from "@/prisma/client";
 import prisma from "@/prisma/prisma";
+import { saveTagSortInTransaction } from "./tagSortPersistence";
 import { validateTagChanges, wrapTagChangeWithAncestors } from "./tagChanges";
 import { withTagManagementAuth } from "./tagManagementAuth";
 import { ensureTagMutationRecovered, isTagMutationActive, withTagMutation } from "./tagMutation";
+import type { SavedTagSort } from "./tagSort";
 import { TagNode } from "./types";
 
 // 定义 MuseDAM 标签请求的类型（与 syncToMuseDAM 返回的类型匹配）
@@ -123,6 +125,7 @@ export async function getTeamHasTags(): Promise<
         },
       },
       take: 1,
+      select: { id: true },
     });
 
     return {
@@ -520,7 +523,7 @@ export async function saveSingleTagChange(
 // 更新标签排序
 export async function updateTagSort(
   tagSortData: { id: number; sort: number }[],
-): Promise<ServerActionResult<void>> {
+): Promise<ServerActionResult<{ sorts: SavedTagSort[] }>> {
   return withTagMutation(async ({ team: { id: teamId } }) => {
     try {
       if (
@@ -558,24 +561,20 @@ export async function updateTagSort(
       const synced = await saveTagsTreeToMuseDAM(path);
       if (!synced.success) return synced;
       const remoteSorts = buildMuseDAMSortMap(synced.data.tags);
+      const savedSorts = tagSortData.map(({ id, sort }) => ({
+        id,
+        sort: remoteSorts.get(Number(byId.get(id)!.slug!.slice(2))) ?? sort,
+      }));
       await prisma.$transaction(async (tx) => {
         await assertTagImportOwnership(tx);
-        for (const { id, sort } of tagSortData) {
-          const tag = byId.get(id)!;
-          // 主站可能规范化排序值，优先保存主站实际返回的值。
-          const remoteId = Number(tag.slug!.slice(2));
-          await tx.assetTag.update({
-            where: { deletedAt: null, id, teamId },
-            data: { sort: remoteSorts.get(remoteId) ?? sort },
-          });
-        }
+        await saveTagSortInTransaction(tx, teamId, savedSorts);
         await bumpTagConfigVersion(tx, teamId);
         await assertTagImportOwnership(tx);
       });
 
       return {
         success: true,
-        data: undefined,
+        data: { sorts: savedSorts },
       };
     } catch (error) {
       console.error("Update tag sort error:", error);

@@ -15,7 +15,7 @@ import type { ServerActionResult } from "@/lib/serverAction";
 import { cn } from "@/lib/utils";
 import { AlertCircle, FileSpreadsheet, Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { type ReactNode, useRef, useState, useTransition } from "react";
+import { type ReactNode, useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 type BatchMode = "import" | "export";
@@ -91,6 +91,10 @@ type BatchImportExportDialogProps<TResult extends BatchImportResultBase> = {
   confirmImport?: () => Promise<boolean>;
   blockImportOnIssues?: boolean;
   showResultDialog?: boolean;
+  externalPending?: boolean;
+  statusContent?: ReactNode;
+  allowCloseWhilePending?: boolean;
+  recoveredCompletion?: { success: boolean; message: string } | null;
 };
 
 function downloadBase64File(file: BatchFileResult) {
@@ -140,9 +144,17 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
   confirmImport,
   blockImportOnIssues = false,
   showResultDialog = false,
+  externalPending = false,
+  statusContent,
+  allowCloseWhilePending = false,
+  recoveredCompletion,
 }: BatchImportExportDialogProps<TResult>) {
   const t = useTranslations("Tagging.BatchImportExport");
   const [completion, setCompletion] = useState<{ success: boolean; message: string } | null>(null);
+  useEffect(() => { if (recoveredCompletion) setCompletion(recoveredCompletion); }, [recoveredCompletion]);
+  const openRef = useRef(open);
+  openRef.current = open;
+  useEffect(() => { if (!open) setCompletion(null); }, [open]);
   const [mode, setMode] = useState<BatchMode>("import");
   const [exportFormat, setExportFormat] = useState<ExportFormat>("xlsx");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -153,7 +165,7 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
   const [precheckResult, setPrecheckResult] = useState<BatchImportPrecheck | null>(null);
   const [isTransitionPending, startTransition] = useTransition();
   const [isConfirming, setIsConfirming] = useState(false);
-  const isPending = isTransitionPending || isConfirming;
+  const isPending = isTransitionPending || isConfirming || externalPending;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   function formatFailureMessage(failure: BatchImportFailure) {
@@ -181,7 +193,7 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
   }
 
   function handleOpenChange(nextOpen: boolean) {
-    if (isPending) {
+    if (isPending && !allowCloseWhilePending) {
       return;
     }
 
@@ -348,11 +360,13 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
       } catch {
         // A gateway timeout does not mean the server rolled back. Preserve the
         // preview and file without automatically retrying a possibly committed import.
+        if (!openRef.current) return;
         setPendingMissingTagsChoice(null);
         if (showResultDialog) setCompletion({ success: false, message: t("importRequestInterrupted") });
         else toast.warning(t("importRequestInterrupted"));
         return;
       }
+      if (!openRef.current) return;
       if (!result.success && result.code === "busy") {
         if (showResultDialog) setCompletion({ success: false, message: result.message });
         else toast.warning(result.message);
@@ -489,6 +503,7 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
               </DialogTitle>
               <DialogDescription className="sr-only">{t("precheckHint")}</DialogDescription>
             </DialogHeader>
+            {statusContent}
 
             <div className="min-h-0 flex-1 overflow-y-auto">
               <div className="flex flex-col gap-5">
@@ -619,6 +634,7 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
                 {t("missingTagsConfirmDescription")}
               </DialogDescription>
             </DialogHeader>
+            {statusContent}
 
             <div className="min-h-0 flex-1 overflow-y-auto">
               <p className="mb-2 text-[12px] leading-[16px] font-normal text-basic-5">
@@ -680,6 +696,7 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
                 {t("failureSrDescription", { entity: entityName })}
               </DialogDescription>
             </DialogHeader>
+            {statusContent}
 
             <div className="min-h-0 flex-1 overflow-y-auto">
               <div className="flex flex-col gap-5">
@@ -743,6 +760,7 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
                 {t("srDescription", { entity: entityName })}
               </DialogDescription>
             </DialogHeader>
+            {statusContent}
 
             {headerExtra?.(isPending)}
             <div className="min-h-0 flex-1 overflow-y-auto">
@@ -880,7 +898,7 @@ export default function BatchImportExportDialog<TResult extends BatchImportResul
         )}
       </DialogContent>
     </Dialog>
-    <AlertDialog open={Boolean(completion)} onOpenChange={(next) => { if (!next) dismissCompletion(); }}>
+    <AlertDialog open={open && Boolean(completion)} onOpenChange={(next) => { if (!next) dismissCompletion(); }}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{t(completion?.success ? "importResultSuccessTitle" : "importResultFailureTitle")}</AlertDialogTitle>

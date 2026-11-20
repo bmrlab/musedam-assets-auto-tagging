@@ -11,8 +11,10 @@ const mocks = vi.hoisted(() => ({
   toastSuccess: vi.fn(),
   toastWarning: vi.fn(),
   toastError: vi.fn(),
+  resume: vi.fn(),
+  wait: vi.fn(),
 }));
-vi.mock("next-intl", () => ({ useTranslations: () => (key: string, values?: Record<string, unknown>) =>
+vi.mock("next-intl", () => ({ useLocale: () => "zh-CN", useTranslations: () => (key: string, values?: Record<string, unknown>) =>
   key === "importResultSuccessCounts" ? `total:${values?.total}, existing:${values?.existing}, created:${values?.created}`
     : key === "importResultFailureReason" ? `reason:${values?.reason}` : key
 }));
@@ -20,6 +22,12 @@ vi.mock("sonner", () => ({
   toast: { success: mocks.toastSuccess, error: mocks.toastError, warning: mocks.toastWarning },
 }));
 vi.mock("@/app/tags/tagBatchActions", () => mocks);
+vi.mock("@/app/tags/tagImportClient", () => ({
+  resumeTagImport: mocks.resume,
+  waitForTagImport: mocks.wait,
+  precheckTagImportFile: (form: FormData) => mocks.precheckTagTreeImportAction(form),
+  submitTagImportFile: (form: FormData) => mocks.importTagTreeAction(form),
+}));
 vi.mock("@/app/tags/components/TagImportPreview", () => ({
   TagImportPreview: ({ tree }: { tree: unknown[] }) => (
     <div data-testid="tag-tree-preview">{JSON.stringify(tree)}</div>
@@ -29,6 +37,7 @@ vi.mock("@/app/tags/components/TagImportPreview", () => ({
 afterEach(cleanup);
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.resume.mockResolvedValue(null);
   mocks.importTagTreeAction.mockResolvedValue({
     success: true,
     data: { successCount: 1, failedCount: 0, skippedCount: 0, failures: [] },
@@ -50,13 +59,22 @@ function setup() {
   );
   return { ...view, onImportedText, onImported, onOpenChange };
 }
-function upload(container: HTMLElement) {
+async function upload(container: HTMLElement) {
   fireEvent.change(container.ownerDocument.querySelector('input[type="file"]')!, {
     target: { files: [new File(["csv"], "tags.csv", { type: "text/csv" })] },
   });
+  await waitFor(() => expect((screen.getByText("confirm") as HTMLButtonElement).disabled).toBe(false));
 }
 
 describe("one entry for tag structure and configuration import/export", () => {
+  it("restores an existing task and displays its result without submitting a new import", async () => {
+    mocks.resume.mockResolvedValueOnce({ jobId: 42, status: "processing" });
+    mocks.wait.mockResolvedValueOnce({ success: true, data: { successCount: 10, failedCount: 0, skippedCount: 0, failures: [] } });
+    const view = setup();
+    await screen.findByText("importTaskFinished");
+    expect(mocks.importTagTreeAction).not.toHaveBeenCalled();
+    expect(view.onImported).toHaveBeenCalledOnce();
+  });
   it("imports a structure-only file through the same entry without a scope selector", async () => {
     mocks.precheckTagTreeImportAction.mockResolvedValue({
       success: true,
@@ -65,7 +83,7 @@ describe("one entry for tag structure and configuration import/export", () => {
     const view = setup();
     expect(screen.queryByText("structureScope")).toBeNull();
     expect(screen.queryByText("configurationScope")).toBeNull();
-    upload(view.container);
+    await upload(view.container);
     fireEvent.click(screen.getByText("confirm"));
     await screen.findByText("importPreviewTitle");
     expect(mocks.importTagTreeAction).not.toHaveBeenCalled();
@@ -94,7 +112,7 @@ describe("one entry for tag structure and configuration import/export", () => {
       },
     });
     const view = setup();
-    upload(view.container);
+    await upload(view.container);
     fireEvent.click(screen.getByText("confirm"));
     await screen.findByText("importPreviewTitle");
     await waitFor(() =>
@@ -129,7 +147,7 @@ describe("one entry for tag structure and configuration import/export", () => {
       data: { successCount: 1, failedCount: 0, skippedCount: 0, failures: [] },
     });
     const view = setup();
-    upload(view.container);
+    await upload(view.container);
     fireEvent.click(screen.getByText("confirm"));
     await screen.findByText("importPreviewTitle");
     expect(mocks.importTagTreeAction).not.toHaveBeenCalled();
@@ -158,7 +176,7 @@ describe("one entry for tag structure and configuration import/export", () => {
       },
     });
     const view = setup();
-    upload(view.container);
+    await upload(view.container);
     fireEvent.click(screen.getByText("confirm"));
     const backButton = (await screen.findByText("backToEdit")) as HTMLButtonElement;
     await waitFor(() => expect(backButton.disabled).toBe(false));
@@ -180,7 +198,7 @@ describe("one entry for tag structure and configuration import/export", () => {
       },
     });
     const view = setup();
-    upload(view.container);
+    await upload(view.container);
     fireEvent.click(screen.getByText("confirm"));
     await screen.findByText("importPreviewTitle");
     expect(screen.getByTestId("tag-tree-preview").textContent).toContain("Logo");
@@ -213,7 +231,7 @@ describe("one entry for tag structure and configuration import/export", () => {
       },
     });
     const view = setup();
-    upload(view.container);
+    await upload(view.container);
     fireEvent.click(screen.getByText("confirm"));
     await screen.findByText("importPreviewTitle");
     const overwriteRadio = screen.getByRole("radio", {
@@ -246,7 +264,7 @@ describe("one entry for tag structure and configuration import/export", () => {
       },
     });
     const view = setup();
-    upload(view.container);
+    await upload(view.container);
     fireEvent.click(screen.getByText("confirm"));
     await screen.findByText("importPreviewTitle");
     const overwriteRadio = screen.getByRole("radio", {
@@ -279,7 +297,7 @@ it("shows the running member and keeps the preview and selected file when the te
     message: "成员 张三 正在执行批量导入，请稍后刷新页面重试。",
   });
   const view = setup();
-  upload(view.container);
+  await upload(view.container);
   fireEvent.click(screen.getByText("confirm"));
   await screen.findByText("importPreviewTitle");
   await waitFor(() =>
@@ -301,7 +319,7 @@ it.each(["merge", "overwrite"])("prechecks once, keeps the uploaded preview when
     data: { importableCount: 2, createCount: 0, createPaths: [], updateCount: 0, unchangedCount: 0, issues: [], previewTree: [{ name: "上传的树" }] },
   });
   const view = setup();
-  upload(view.container);
+  await upload(view.container);
   fireEvent.click(screen.getByText("confirm"));
   await screen.findByText("importPreviewTitle");
   const merge = screen.getByRole("radio", { name: "MergeIntoExistingTagSystem" }) as HTMLButtonElement;
@@ -338,7 +356,7 @@ it.each(["merge", "overwrite"])("allows %s with duplicate notices and acknowledg
       previewTree: [{ name: "上传的树" }],
     },
   });
-  const view = setup(); upload(view.container);
+  const view = setup(); await upload(view.container);
   fireEvent.click(screen.getByText("confirm"));
   await screen.findByText("importPreviewTitle");
   expect(screen.getByText("precheckWarningsLabel")).toBeTruthy();
@@ -365,7 +383,7 @@ it("keeps import disabled only when no valid tree nodes are available", async ()
     importableCount: 0, createCount: 0, createPaths: [], updateCount: 0, unchangedCount: 0,
     issues: [{ rowNumber: 2, name: null, message: "invalid tree" }], previewTree: [],
   } });
-  const view = setup(); upload(view.container); fireEvent.click(screen.getByText("confirm"));
+  const view = setup(); await upload(view.container); fireEvent.click(screen.getByText("confirm"));
   await screen.findByText("importPreviewTitle");
   expect((screen.getByText("continueImportSkipIssues") as HTMLButtonElement).disabled).toBe(true);
   expect(mocks.importTagTreeAction).not.toHaveBeenCalled();
@@ -378,7 +396,7 @@ it("keeps the page and preview usable after a rejected 504 import request", asyn
     issues: [], previewTree: [{ name: "品牌" }],
   } });
   mocks.importTagTreeAction.mockRejectedValueOnce(new Error("Unexpected response: 504 Gateway Timeout"));
-  const view = setup(); upload(view.container); fireEvent.click(screen.getByText("confirm"));
+  const view = setup(); await upload(view.container); fireEvent.click(screen.getByText("confirm"));
   await screen.findByText("importPreviewTitle");
   await waitFor(() => expect((screen.getByText("continueImport") as HTMLButtonElement).disabled).toBe(false));
   fireEvent.click(screen.getByText("continueImport"));
@@ -400,7 +418,7 @@ it("keeps the page and preview usable after a rejected 504 import request", asyn
 
 it("handles a failed precheck request without crashing or losing the selected file", async () => {
   mocks.precheckTagTreeImportAction.mockRejectedValueOnce(new Error("504"));
-  const view = setup(); upload(view.container); fireEvent.click(screen.getByText("confirm"));
+  const view = setup(); await upload(view.container); fireEvent.click(screen.getByText("confirm"));
   await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith("precheckRequestFailed"));
   expect(screen.getByText("tags.csv")).toBeTruthy();
   expect(mocks.importTagTreeAction).not.toHaveBeenCalled();
@@ -415,7 +433,7 @@ it("holds success counts in a result dialog until acknowledgement, then closes t
   mocks.importTagTreeAction.mockResolvedValue({ success: true, data: {
     successCount: 1, failedCount: 0, skippedCount: 0, failures: [], totalCount: 3, existingCount: 2, createdCount: 1,
   } });
-  const view = setup(); upload(view.container); fireEvent.click(screen.getByText("confirm"));
+  const view = setup(); await upload(view.container); fireEvent.click(screen.getByText("confirm"));
   await screen.findByText("importPreviewTitle");
   await waitFor(() => expect((screen.getByText("continueImport") as HTMLButtonElement).disabled).toBe(false));
   fireEvent.click(screen.getByText("continueImport"));
@@ -432,7 +450,7 @@ it("shows the backend failure reason in a dismissible dialog and preserves the p
     importableCount: 1, createCount: 0, createPaths: [], updateCount: 0, unchangedCount: 0, issues: [],
   } });
   mocks.importTagTreeAction.mockResolvedValue({ success: false, message: "上游接口连接超时" });
-  const view = setup(); upload(view.container); fireEvent.click(screen.getByText("confirm"));
+  const view = setup(); await upload(view.container); fireEvent.click(screen.getByText("confirm"));
   await screen.findByText("importPreviewTitle");
   await waitFor(() => expect((screen.getByText("continueImport") as HTMLButtonElement).disabled).toBe(false));
   fireEvent.click(screen.getByText("continueImport"));
@@ -458,8 +476,9 @@ it("explains export cleanup and refreshes the visible tree after deleting unmapp
   const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
   try {
     const view = setup();
+    await waitFor(() => expect((screen.getByText("tabExport") as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(screen.getByText("tabExport"));
-    expect(await screen.findByText("exportCleanupHint")).toBeTruthy();
+    expect(await screen.findByText(/exportCleanupHint/)).toBeTruthy();
     fireEvent.click(screen.getByText("confirm"));
     await waitFor(() => expect(view.onImported).toHaveBeenCalledOnce());
     expect(mocks.toastSuccess).toHaveBeenCalledWith("exportCleanupComplete");

@@ -42,7 +42,8 @@ const THUMBNAIL_SYNC_BUDGET_MS = 800;
 
 // 控制面板只统计 / 展示正式打标任务：匹配测试页发起的 taskType=test 任务不进审核、不写回 MuseDAM，
 // 也不应该混进统计数字与任务列表里。
-const DASHBOARD_TASK_FILTER = { taskType: { not: "test" as const } };
+// Asset controls must never requeue administrative imports (especially overwrite jobs).
+const DASHBOARD_TASK_FILTER = { taskType: { not: "test" as const }, assetObjectId: { not: null } };
 
 // 取消任务落为 failed + result.error=CANCELLED，不需要数据库 migration。
 // JSON path 缺失时比较结果是 NULL，因此要显式接纳 error 不存在的普通失败任务。
@@ -70,7 +71,7 @@ const ALL_NOT_CANCELLED_FILTER: Prisma.TaggingQueueItemWhereInput = {
 const sqlTimestamp = (date: Date) => Prisma.sql`${date.toISOString()}::timestamptz`;
 
 // 与 DASHBOARD_TASK_FILTER 对应的原生 SQL 条件
-const SQL_DASHBOARD_TASK_FILTER = Prisma.sql`"taskType" <> 'test'`;
+const SQL_DASHBOARD_TASK_FILTER = Prisma.sql`"taskType" <> 'test' AND "assetObjectId" IS NOT NULL`;
 
 export async function fetchDashboardStats(): Promise<
   ServerActionResult<{

@@ -28,4 +28,10 @@ it("bulk retry keeps feature evidence and does not create another task", async (
   }));
   expect(m.updateMany).toHaveBeenNthCalledWith(2, expect.objectContaining({ where: expect.objectContaining({ id: { in: [1] } }) }));
   expect(m.updateMany.mock.calls[1][0].data).not.toHaveProperty("result");
+  expect(m.updateMany.mock.calls.every(([arg]) => arg.where.assetObjectId?.not === null)).toBe(true);
+});
+it("cannot replay an administrative import through asset task retry controls", async () => {
+  m.find.mockImplementation(async ({ where }) => where.assetObjectId?.not === null ? null : { id: 42, extra: { jobKind: "tag-tree-import" } });
+  expect(await retryFailedTask(42)).toMatchObject({ success: false });
+  expect(m.update).not.toHaveBeenCalled();
 });

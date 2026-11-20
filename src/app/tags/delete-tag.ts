@@ -13,7 +13,10 @@ export async function deleteTagAndDescendants(tagId: number): Promise<ServerActi
   return withTagMutation(async ({ user, team: { id: teamId } }) => {
     try {
       return await runTagImportExclusive(teamId, user.id, async () => {
-        const rows = await prisma.assetTag.findMany({ where: { deletedAt: null, teamId } });
+        const rows = await prisma.assetTag.findMany({
+          where: { deletedAt: null, teamId },
+          select: { id: true, name: true, slug: true, parentId: true, level: true, sort: true },
+        });
         const plan = buildTagDeletionPlan(rows, tagId);
         const affected = [plan.target, ...plan.descendants];
         if (affected.some((row) => row.slug)) {

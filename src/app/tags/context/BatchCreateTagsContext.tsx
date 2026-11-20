@@ -99,6 +99,10 @@ export const BatchCreateTagsProvider = ({
 
       try {
         const batchData = convertToBatchData(nameChildList);
+        if (new Blob([JSON.stringify(batchData)]).size > 512 * 1024) {
+          toast.warning(tTags("largeBatchUseImport"));
+          return;
+        }
         const result = await batchCreateTags(batchData, addType);
 
         if (result.success) {

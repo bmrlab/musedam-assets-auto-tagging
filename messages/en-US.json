@@ -187,6 +187,7 @@
       "noSortableTags": "No sortable tags",
       "sortSaveSuccess": "Sort saved successfully",
       "sortSaveFailed": "Failed to save sort",
+      "sortOutcomeUnknown": "The sort save result could not be confirmed. Refresh and check before retrying.",
       "cancel": "Cancel",
       "confirm": "Confirm",
       "saving": "Saving...",
@@ -207,7 +208,19 @@
     "TagColumn": {
       "smartTags": "Smart Tags"
     },
-    "importUploadHint": "One tag path per row. Configuration is optional: blank values use defaults for new tags and preserve existing settings. Use - to clear descriptions or keywords; separate keywords with semicolons or line breaks."
+    "importUploadHint": "One tag path per row. Configuration is optional: blank values use defaults for new tags and preserve existing settings. Use - to clear descriptions or keywords; separate keywords with semicolons or line breaks.",
+    "keywordContinuationHint": "Long keyword lists are exported as continuation rows without truncation. Keep each tag’s rows together and preserve its ID, path and Keyword Continuation marker when importing.",
+    "keywordContinuationExported": "Added {count} keyword continuation rows. All keywords are included.",
+    "largeBatchUseImport": "This batch is large. Save the tag paths as a CSV or Excel file and use Batch Import.",
+    "importTaskFinished": "Import finished: {count} rows succeeded.",
+    "importTaskPartial": "{count} rows failed. Check the tag configuration before importing again.",
+    "importTaskConnectionLost": "Unable to retrieve import status. Reopen this dialog to check the existing task; do not submit another import.",
+    "importTaskStage": {
+      "uploading": "Uploading file…",
+      "pending": "Import queued. You can close this dialog and reopen it to check progress.",
+      "processing": "Importing in the background. You can close this dialog and reopen it to check progress.",
+      "reconnecting": "Reconnecting to the existing import task…"
+    }
   },
   "AiCreateModal": {
     "title": "AI Tag System Generator",

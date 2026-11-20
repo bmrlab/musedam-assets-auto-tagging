@@ -187,6 +187,7 @@
       "noSortableTags": "没有可排序的标签",
       "sortSaveSuccess": "排序保存成功",
       "sortSaveFailed": "排序保存失败",
+      "sortOutcomeUnknown": "未能确认排序保存结果，请刷新后核对，再决定是否重试。",
       "cancel": "取消",
       "confirm": "确认",
       "saving": "保存中...",
@@ -207,7 +208,19 @@
     "TagColumn": {
       "smartTags": "智能标签"
     },
-    "importUploadHint": "每行填写一条标签路径，配置选填：新标签留空使用默认值，已有标签留空保留原值；填 - 清空描述或关键词，多个关键词用分号或换行分隔"
+    "importUploadHint": "每行填写一条标签路径，配置选填：新标签留空使用默认值，已有标签留空保留原值；填 - 清空描述或关键词，多个关键词用分号或换行分隔",
+    "keywordContinuationHint": "关键词过长时将自动拆为续行，完整保留内容。编辑后导入时，请保持同一标签各行相邻，并保留标签 ID、路径和“关键词续行”标记。",
+    "keywordContinuationExported": "已增加 {count} 行关键词续行，全部关键词均已完整导出。",
+    "largeBatchUseImport": "本次标签数量较大，请将标签路径保存为 CSV 或 Excel 文件，通过“批量导入”提交。",
+    "importTaskFinished": "导入完成，成功 {count} 行。",
+    "importTaskPartial": "有 {count} 行导入失败，请核对标签配置后再操作。",
+    "importTaskConnectionLost": "暂时无法获取导入状态。请重新打开此窗口查询原任务，避免重复提交。",
+    "importTaskStage": {
+      "uploading": "正在上传文件…",
+      "pending": "导入任务排队中，可关闭窗口，稍后重新打开查看进度。",
+      "processing": "正在后台导入，可关闭窗口，稍后重新打开查看进度。",
+      "reconnecting": "正在重新连接原导入任务…"
+    }
   },
   "AiCreateModal": {
     "title": "AI 智能创建标签",

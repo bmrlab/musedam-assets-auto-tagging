@@ -76,6 +76,7 @@ describe("tag deletion", () => {
     expect(await deleteTagAndDescendants(999)).toMatchObject({ success: false });
     expect(mocks.prisma.assetTag.findMany).toHaveBeenCalledWith({
       where: { deletedAt: null, teamId: 7 },
+      select: { id: true, name: true, slug: true, parentId: true, level: true, sort: true },
     });
     expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
   });

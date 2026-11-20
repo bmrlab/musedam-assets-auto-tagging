@@ -53,7 +53,7 @@ export function installAuthFetch(): void {
   if (fetchInstalled || typeof window === "undefined") return;
   fetchInstalled = true;
   const originalFetch = window.fetch.bind(window);
-  window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+  window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     const token = getAuthToken();
     if (!token) return originalFetch(input, init);
     let requestUrl: string;
@@ -67,6 +67,16 @@ export function installAuthFetch(): void {
     if (!sameOrigin) return originalFetch(input, init);
     const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
     if (!headers.has(AUTH_TOKEN_HEADER)) headers.set(AUTH_TOKEN_HEADER, token);
+    // 标签页的 server action 写入前，经现有父窗口通信取得短效服务端授权。
+    // 获取失败仍由目标 action 的服务端 guard 拒绝；不影响其他页面的业务。
+    const pathname = new URL(requestUrl, window.location.href).pathname;
+    const method = init?.method ?? (input instanceof Request ? input.method : "GET");
+    const isTagSortWrite = (pathname === "/api/tags/sort" || /^\/api\/tags\/imports(?:\/|$)/.test(pathname)) && method.toUpperCase() === "POST";
+    if (isTagSortWrite || (/^\/tags(?:\/|$)/.test(window.location.pathname) && headers.has("next-action"))) {
+      const { requestTagManagementProof } = await import("./tag-management-client");
+      const proof = await requestTagManagementProof(token);
+      if (proof) headers.set("x-tag-management-proof", proof);
+    }
     return originalFetch(input, { ...init, headers });
   };
 }

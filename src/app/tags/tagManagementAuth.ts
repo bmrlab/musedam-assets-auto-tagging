@@ -2,28 +2,35 @@ import "server-only";
 
 import { withAuth } from "@/app/(auth)/withAuth";
 import type { ServerActionResult } from "@/lib/serverAction";
-import { slugToId } from "@/lib/slug";
-import { fetchMuseDAMUser } from "@/musedam/user";
+import {
+  TAG_MANAGEMENT_PROOF_HEADER,
+  verifyTagManagementProof,
+} from "@/lib/tagging/tag-management-proof";
+import { headers } from "next/headers";
+import { AsyncLocalStorage } from "node:async_hooks";
+import { getTagImportJobContext } from "./tagImportJobContext";
 
 type AuthContext = Parameters<Parameters<typeof withAuth>[0]>[0];
+const authorizedRequest = new AsyncLocalStorage<string>();
 
 export async function withTagManagementAuth<T>(
   action: (context: AuthContext) => Promise<ServerActionResult<T>>,
 ): Promise<ServerActionResult<T>> {
   return withAuth(async (context) => {
-    try {
-      const member = await fetchMuseDAMUser({
-        team: context.team,
-        timeoutMs: 15_000,
-        musedamUserId: slugToId("user", context.user.slug),
-      });
-      // 缺失字段（旧版主站）或查询失败一律拒绝，不能用应用访问权限或角色名称替代。
-      if (member.canManageTags !== true) {
-        return { success: false, code: "forbidden", message: "没有标签管理权限" };
-      }
-    } catch {
-      return { success: false, code: "forbidden", message: "无法确认标签管理权限，请稍后重试" };
+    const identity = `${context.user.id}:${context.team.id}`;
+    if (authorizedRequest.getStore() === identity) return action(context);
+    const job = getTagImportJobContext();
+    if (job?.team.id === context.team.id && job.user.id === context.user.id)
+      return authorizedRequest.run(identity, () => action(context));
+    const proof = (await headers()).get(TAG_MANAGEMENT_PROOF_HEADER);
+    if (!verifyTagManagementProof(proof, context.user.id, context.team.id)) {
+      return {
+        success: false,
+        code: "forbidden",
+        message: "无法确认标签管理权限，请在主站中重新操作",
+      };
     }
-    return action(context);
+    // 嵌套保存沿用本次已验证授权；不将凭据缓存到其他请求或团队。
+    return authorizedRequest.run(identity, () => action(context));
   });
 }

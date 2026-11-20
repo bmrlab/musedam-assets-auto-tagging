@@ -46,7 +46,7 @@ describe("spreadsheet-safe keyword export", () => {
     expect(parseTagBatchTable({ rows, maxLevel: 4, locale, ignoreIds: true }).records[0].fields.keywords).toEqual(keywords);
   });
 
-  it.each(["id", "path", "configuration", "orphan"])("rejects a continuation with an invalid %s", kind => {
+  it.each(["id", "path", "configuration", "orphan", "marker"])("rejects a continuation with an invalid %s", kind => {
     const rows = buildTagBatchExportRows({ locale: "zh-CN", tags: [{
       id: 1, name: "标签", taggingEnabled: true,
       extra: { keywords: Array.from({ length: 5000 }, (_, index) => `SKU.${index}`) },
@@ -55,7 +55,21 @@ describe("spreadsheet-safe keyword export", () => {
     if (kind === "path") rows[2][1] = "其他标签";
     if (kind === "configuration") rows[2][8] = "关闭";
     if (kind === "orphan") rows.splice(1, 1);
-    expect(parseTagBatchTable({ rows, maxLevel: 4 }).errors.length).toBeGreaterThan(0);
+    if (kind === "marker") rows[2][11] = "";
+    const parsed = parseTagBatchTable({ rows, maxLevel: 4 });
+    expect(parsed.errors.length).toBeGreaterThan(0);
+    expect(parsed.records).toEqual([]);
+  });
+
+  it("does not apply a partial keyword list when a continuation keyword is invalid", () => {
+    const rows = buildTagBatchExportRows({ locale: "zh-CN", tags: [{
+      id: 1, name: "标签", taggingEnabled: true,
+      extra: { keywords: Array.from({ length: 5000 }, (_, index) => `SKU.${index}`) },
+    }, { id: 2, name: "其他标签", taggingEnabled: true, extra: {} }] });
+    rows[2][6] = "x".repeat(101);
+    const parsed = parseTagBatchTable({ rows, maxLevel: 4 });
+    expect(parsed.errors).toHaveLength(1);
+    expect(parsed.records.map(record => record.id)).toEqual([2]);
   });
 });
 

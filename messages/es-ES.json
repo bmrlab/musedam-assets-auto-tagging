@@ -248,6 +248,7 @@
       "noSortableTags": "Etiquetas no ordenables",
       "saving": "Guardando...",
       "sortSaveFailed": "Error al guardar el orden",
+      "sortOutcomeUnknown": "No se pudo confirmar si se guardó el orden. Actualiza y compruébalo antes de volver a intentarlo.",
       "sortSaveSuccess": "Orden guardado correctamente",
       "title": "Ordenación de Etiquetas"
     },
@@ -331,7 +332,19 @@
       "structureScope": "Tag structure",
       "configurationScope": "Tags and settings"
     },
-    "importUploadHint": "Rows with a Tag ID update that tag; otherwise match by level path and create only missing tags. Empty cells keep existing values; - clears descriptions or keywords. Separate keywords with semicolons or line breaks."
+    "importUploadHint": "Rows with a Tag ID update that tag; otherwise match by level path and create only missing tags. Empty cells keep existing values; - clears descriptions or keywords. Separate keywords with semicolons or line breaks.",
+    "keywordContinuationHint": "Long keyword lists are exported as continuation rows without truncation. Keep each tag’s rows together and preserve its ID, path and Keyword Continuation marker when importing.",
+    "keywordContinuationExported": "Added {count} keyword continuation rows. All keywords are included.",
+    "largeBatchUseImport": "This batch is large. Save the tag paths as a CSV or Excel file and use Batch Import.",
+    "importTaskFinished": "Import finished: {count} rows succeeded.",
+    "importTaskPartial": "{count} rows failed. Check the tag configuration before importing again.",
+    "importTaskConnectionLost": "Unable to retrieve import status. Reopen this dialog to check the existing task; do not submit another import.",
+    "importTaskStage": {
+      "uploading": "Uploading file…",
+      "pending": "Import queued. You can close this dialog and reopen it to check progress.",
+      "processing": "Importing in the background. You can close this dialog and reopen it to check progress.",
+      "reconnecting": "Reconnecting to the existing import task…"
+    }
   },
   "Tagging": {
     "Metadata": {

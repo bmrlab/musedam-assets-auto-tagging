@@ -5,6 +5,16 @@ import { uploadS3ObjectFromBrowser } from "@/lib/s3-browser-upload";
 describe("browser S3-compatible uploads", () => {
   const originalFetch = global.fetch;
 
+  it("preserves the private ACL when uploading a tag import", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
+    global.fetch = fetchMock;
+    await uploadS3ObjectFromBrowser({
+      uploadUrl: "https://storage.example/import.csv?X-Amz-SignedHeaders=host%3Bx-amz-acl",
+      file: new Blob(["tags"]), contentType: "application/octet-stream", acl: "private",
+    });
+    expect(fetchMock.mock.calls[0][1].headers["x-amz-acl"]).toBe("private");
+  });
+
   afterEach(() => {
     global.fetch = originalFetch;
   });

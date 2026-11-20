@@ -248,6 +248,7 @@
       "noSortableTags": "並び替え可能なタグはありません",
       "saving": "保存中...",
       "sortSaveFailed": "並び替えの保存に失敗しました",
+      "sortOutcomeUnknown": "並び順の保存結果を確認できませんでした。再試行する前に、再読み込みして確認してください。",
       "sortSaveSuccess": "並び替えが保存されました",
       "title": "タグの並び替え"
     },
@@ -331,7 +332,19 @@
       "structureScope": "Tag structure",
       "configurationScope": "Tags and settings"
     },
-    "importUploadHint": "Rows with a Tag ID update that tag; otherwise match by level path and create only missing tags. Empty cells keep existing values; - clears descriptions or keywords. Separate keywords with semicolons or line breaks."
+    "importUploadHint": "Rows with a Tag ID update that tag; otherwise match by level path and create only missing tags. Empty cells keep existing values; - clears descriptions or keywords. Separate keywords with semicolons or line breaks.",
+    "keywordContinuationHint": "Long keyword lists are exported as continuation rows without truncation. Keep each tag’s rows together and preserve its ID, path and Keyword Continuation marker when importing.",
+    "keywordContinuationExported": "Added {count} keyword continuation rows. All keywords are included.",
+    "largeBatchUseImport": "This batch is large. Save the tag paths as a CSV or Excel file and use Batch Import.",
+    "importTaskFinished": "Import finished: {count} rows succeeded.",
+    "importTaskPartial": "{count} rows failed. Check the tag configuration before importing again.",
+    "importTaskConnectionLost": "Unable to retrieve import status. Reopen this dialog to check the existing task; do not submit another import.",
+    "importTaskStage": {
+      "uploading": "Uploading file…",
+      "pending": "Import queued. You can close this dialog and reopen it to check progress.",
+      "processing": "Importing in the background. You can close this dialog and reopen it to check progress.",
+      "reconnecting": "Reconnecting to the existing import task…"
+    }
   },
   "Tagging": {
     "Metadata": {
