@@ -129,6 +129,10 @@
       "weeklyTagging": "今週のタグ付け",
       "emptyTagErrorMsg": "タグ体系がありません。先にタグ体系を作成してください~",
       "noAppropriateTagErrorMsg": "現在のタグ体系には適切なタグがありません",
+      "assetUnavailableErrorMsg": "素材を読み取れません。アセットライブラリから削除された可能性があります。",
+      "openAssetDetail": "素材の詳細を開く",
+      "openAssetDetailFailed": "素材の詳細を開けません。MuseDAMから再度お試しください。",
+      "taggingTimeRange": "タグ付け開始・終了時刻",
       "noMatchingSourceErrorMsg": "失敗：タグ付け設定でマッチング情報源が有効になっていません",
       "dayNames": {
         "0": "日曜日",

@@ -368,6 +368,10 @@
       "paginationInfo": "{current} / {total} elementi",
       "emptyTagErrorMsg": "Nessun sistema di tag. Crea prima un sistema di tag~",
       "noAppropriateTagErrorMsg": "Non ci sono tag adatti nel sistema di tag attuale",
+      "assetUnavailableErrorMsg": "Impossibile leggere la risorsa; potrebbe essere stata rimossa dalla libreria.",
+      "openAssetDetail": "Apri dettagli della risorsa",
+      "openAssetDetailFailed": "Impossibile aprire i dettagli. Riprova da MuseDAM.",
+      "taggingTimeRange": "Ora di inizio e fine della taggatura",
       "noMatchingSourceErrorMsg": "Non riuscito: nessuna fonte di corrispondenza è abilitata nelle impostazioni di etichettatura",
       "dayNames": {
         "0": "Domenica",

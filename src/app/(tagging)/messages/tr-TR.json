@@ -622,6 +622,10 @@
       "paginationInfo": "{current} / {total} öğe",
       "emptyTagErrorMsg": "Henüz bir etiket sistemi yok. Lütfen önce bir etiket sistemi oluşturun~",
       "noAppropriateTagErrorMsg": "Mevcut etiket sisteminde uygun etiket yok",
+      "assetUnavailableErrorMsg": "Varlık okunamıyor; varlık kitaplığından kaldırılmış olabilir.",
+      "openAssetDetail": "Varlık ayrıntılarını aç",
+      "openAssetDetailFailed": "Ayrıntılar açılamadı. Lütfen MuseDAM üzerinden tekrar deneyin.",
+      "taggingTimeRange": "Etiketleme başlangıç–bitiş zamanı",
       "noMatchingSourceErrorMsg": "Başarısız: etiketleme ayarlarında hiçbir eşleştirme kaynağı etkin değil",
       "dayNames": {
         "0": "Pazar",

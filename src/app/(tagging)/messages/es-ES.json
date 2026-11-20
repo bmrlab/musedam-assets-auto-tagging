@@ -129,6 +129,10 @@
       "weeklyTagging": "Etiquetado Semanal",
       "emptyTagErrorMsg": "No hay sistema de etiquetas. Por favor, crea uno primero~",
       "noAppropriateTagErrorMsg": "No hay etiquetas adecuadas en el sistema de etiquetas actual",
+      "assetUnavailableErrorMsg": "No se puede leer el recurso; es posible que se haya eliminado de la biblioteca.",
+      "openAssetDetail": "Abrir detalles del recurso",
+      "openAssetDetailFailed": "No se pueden abrir los detalles. Vuelve a intentarlo desde MuseDAM.",
+      "taggingTimeRange": "Hora de inicio y fin del etiquetado",
       "noMatchingSourceErrorMsg": "Fallido: no hay ninguna fuente de coincidencia habilitada en la configuración de etiquetado",
       "dayNames": {
         "0": "Domingo",

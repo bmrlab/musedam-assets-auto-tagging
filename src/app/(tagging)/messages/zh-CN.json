@@ -706,6 +706,10 @@
       "paginationInfo": "{current} / {total} 条",
       "emptyTagErrorMsg": "暂无标签体系，请先创建标签体系~",
       "noAppropriateTagErrorMsg": "当前标签体系没有适合的标签",
+      "assetUnavailableErrorMsg": "无法读取，可能已从资产库移除。",
+      "openAssetDetail": "打开素材详情",
+      "openAssetDetailFailed": "无法打开素材详情，请从主站重试",
+      "taggingTimeRange": "打标开始—完成时间",
       "noMatchingSourceErrorMsg": "打标失败：未启用任何匹配信息源，请检查打标设置",
       "dayNames": {
         "0": "周日",

@@ -34,7 +34,13 @@ export async function loadDashboardTaskListItems(
         q."endsAt",
         q."extra" -> 'creditCost' AS "creditCost",
         CASE
-          WHEN q."status" = 'failed' THEN jsonb_build_object('error', q."result" -> 'error')
+          WHEN q."status" = 'failed' THEN jsonb_build_object(
+            'error', CASE
+              WHEN q."result" ->> 'message' = 'Asset not found'
+                THEN to_jsonb('ASSET_NOT_FOUND'::text)
+              ELSE q."result" -> 'error'
+            END
+          )
           ELSE '{}'::jsonb
         END AS "result",
         a."id" AS "assetObjectId",

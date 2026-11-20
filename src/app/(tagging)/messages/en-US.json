@@ -706,6 +706,10 @@
       "paginationInfo": "{current} / {total} items",
       "emptyTagErrorMsg": "No tag system yet. Please create one first~",
       "noAppropriateTagErrorMsg": "There are no suitable tags in the current tag system",
+      "assetUnavailableErrorMsg": "Unable to read the asset; it may have been removed from the asset library.",
+      "openAssetDetail": "Open asset details",
+      "openAssetDetailFailed": "Unable to open asset details. Please try again from MuseDAM.",
+      "taggingTimeRange": "Tagging start–finish time",
       "noMatchingSourceErrorMsg": "Failed: no matching source is enabled in tagging settings",
       "dayNames": {
         "0": "Sunday",

@@ -368,6 +368,10 @@
       "paginationInfo": "{current} / {total} éléments",
       "emptyTagErrorMsg": "Aucun système de tags. Veuillez d'abord créer un système de tags~",
       "noAppropriateTagErrorMsg": "Il n'y a pas de tags appropriés dans le système de tags actuel",
+      "assetUnavailableErrorMsg": "Impossible de lire la ressource ; elle a peut-être été retirée de la bibliothèque.",
+      "openAssetDetail": "Ouvrir les détails de la ressource",
+      "openAssetDetailFailed": "Impossible d’ouvrir les détails. Réessayez depuis MuseDAM.",
+      "taggingTimeRange": "Heures de début et de fin du taggage",
       "noMatchingSourceErrorMsg": "Échec : aucune source de correspondance n'est activée dans les paramètres de marquage",
       "dayNames": {
         "0": "Dimanche",

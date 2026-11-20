@@ -622,6 +622,10 @@
       "paginationInfo": "{current}/{total} bản ghi",
       "emptyTagErrorMsg": "Chưa có hệ thống nhãn, vui lòng tạo hệ thống nhãn trước~",
       "noAppropriateTagErrorMsg": "Hệ thống nhãn hiện tại không có nhãn phù hợp",
+      "assetUnavailableErrorMsg": "Không thể đọc tài sản; tài sản có thể đã bị xóa khỏi thư viện.",
+      "openAssetDetail": "Mở chi tiết tài sản",
+      "openAssetDetailFailed": "Không thể mở chi tiết. Vui lòng thử lại từ MuseDAM.",
+      "taggingTimeRange": "Thời gian bắt đầu–kết thúc gắn thẻ",
       "noMatchingSourceErrorMsg": "Thất bại: chưa bật nguồn khớp nào trong cài đặt gắn nhãn",
       "dayNames": {
         "0": "Chủ nhật",

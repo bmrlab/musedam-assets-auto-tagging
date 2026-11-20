@@ -368,6 +368,10 @@
       "paginationInfo": "{current} / {total} รายการ",
       "emptyTagErrorMsg": "ยังไม่มีระบบแท็ก โปรดสร้างระบบแท็กก่อน~",
       "noAppropriateTagErrorMsg": "ระบบแท็กปัจจุบันไม่มีแท็กที่เหมาะสม",
+      "assetUnavailableErrorMsg": "ไม่สามารถอ่านแอสเซ็ตได้ อาจถูกนำออกจากคลังแอสเซ็ตแล้ว",
+      "openAssetDetail": "เปิดรายละเอียดแอสเซ็ต",
+      "openAssetDetailFailed": "ไม่สามารถเปิดรายละเอียดได้ โปรดลองอีกครั้งจาก MuseDAM",
+      "taggingTimeRange": "เวลาเริ่มต้น–สิ้นสุดการติดแท็ก",
       "noMatchingSourceErrorMsg": "ล้มเหลว: ไม่มีการเปิดใช้งานแหล่งที่มาการจับคู่ในการตั้งค่าการติดแท็ก",
       "dayNames": {
         "0": "วันอาทิตย์",

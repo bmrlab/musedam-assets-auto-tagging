@@ -622,6 +622,10 @@
       "paginationInfo": "{current} / {total} elementów",
       "emptyTagErrorMsg": "Brak systemu tagów. Najpierw utwórz system tagów~",
       "noAppropriateTagErrorMsg": "W obecnym systemie tagów nie ma odpowiednich tagów",
+      "assetUnavailableErrorMsg": "Nie można odczytać zasobu. Mógł zostać usunięty z biblioteki zasobów.",
+      "openAssetDetail": "Otwórz szczegóły zasobu",
+      "openAssetDetailFailed": "Nie można otworzyć szczegółów. Spróbuj ponownie w MuseDAM.",
+      "taggingTimeRange": "Czas rozpoczęcia–zakończenia tagowania",
       "noMatchingSourceErrorMsg": "Niepowodzenie: w ustawieniach tagowania nie włączono żadnego źródła dopasowania",
       "dayNames": {
         "0": "Niedziela",

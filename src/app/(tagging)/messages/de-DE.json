@@ -129,6 +129,10 @@
       "weeklyTagging": "Wöchentliches Taggen",
       "emptyTagErrorMsg": "Kein Tag-System vorhanden. Bitte erstellen Sie zuerst ein Tag-System~",
       "noAppropriateTagErrorMsg": "Im aktuellen Tag-System gibt es keine passenden Tags",
+      "assetUnavailableErrorMsg": "Das Asset kann nicht gelesen werden. Es wurde möglicherweise aus der Asset-Bibliothek entfernt.",
+      "openAssetDetail": "Asset-Details öffnen",
+      "openAssetDetailFailed": "Asset-Details konnten nicht geöffnet werden. Bitte versuchen Sie es in MuseDAM erneut.",
+      "taggingTimeRange": "Tagging-Start–Endzeit",
       "noMatchingSourceErrorMsg": "Fehlgeschlagen: Keine Abgleichsquelle in den Taggingeinstellungen aktiviert",
       "dayNames": {
         "0": "Sonntag",

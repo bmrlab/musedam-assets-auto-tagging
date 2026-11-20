@@ -12,8 +12,11 @@ import {
 } from "@/components/ui/pagination";
 import { ExtractServerActionData } from "@/lib/serverAction";
 import { Input } from "@/components/ui/input";
-import { CheckCircle2, SearchIcon, X } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { CheckCircle2, ExternalLinkIcon, SearchIcon, X } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
+import { Tooltip as ActionTooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { dispatchMuseDAMClientAction } from "@/embed/message";
+import { slugToId } from "@/lib/slug";
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -73,6 +76,38 @@ function ProcessingDuration({ startsAt }: { startsAt: Date }) {
     return () => clearInterval(timer);
   }, []);
   return <>{formatSeconds(Math.round((now - startsAt.getTime()) / 1000))}</>;
+}
+
+/** Format after hydration so server timezone never changes the user's displayed dates. */
+function TaskTimeRange({ task }: { task: TaskWithAsset }) {
+  const locale = useLocale();
+  const t = useTranslations("Tagging.Dashboard");
+  const [range, setRange] = useState<{ start: string; end: string } | null>(null);
+  useEffect(() => {
+    const start = task.startsAt ? new Date(task.startsAt) : null;
+    const end = task.endsAt ? new Date(task.endsAt) : null;
+    if (!start || !Number.isFinite(start.getTime())) {
+      setRange(null);
+      return;
+    }
+    const dateOptions = { year: "numeric", month: "2-digit", day: "2-digit" } as const;
+    const timeOptions = { hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" } as const;
+    const date = new Intl.DateTimeFormat(locale, dateOptions);
+    const dateTime = new Intl.DateTimeFormat(locale, { ...dateOptions, ...timeOptions });
+    const time = new Intl.DateTimeFormat(locale, timeOptions);
+    setRange({
+      start: dateTime.format(start),
+      end: end && Number.isFinite(end.getTime())
+        ? (date.format(start) === date.format(end) ? time : dateTime).format(end)
+        : "—",
+    });
+  }, [locale, task.startsAt, task.endsAt]);
+  if (!range) return null;
+  return (
+    <span className="whitespace-nowrap text-basic-5" aria-label={t("taggingTimeRange")}>
+      · {range.start} — {task.status === "processing" && !task.endsAt ? t("filterProcessing") : range.end}
+    </span>
+  );
 }
 
 export default function DashboardClient({
@@ -488,6 +523,7 @@ export default function DashboardClient({
                         : null;
                   if (!code) return null;
 
+                  if (code === "ASSET_NOT_FOUND") return t("assetUnavailableErrorMsg");
                   if (code === "NO_TAG_TREE") return t("emptyTagErrorMsg");
                   if (code === "NO_VALID_TAGS") return t("noAppropriateTagErrorMsg");
                   if (code === "NO_MATCHING_SOURCES_ENABLED") return t("noMatchingSourceErrorMsg");
@@ -554,11 +590,12 @@ export default function DashboardClient({
                         <span className="shrink-0 whitespace-nowrap text-basic-5">
                           · {t("creditCost", { count: task.creditCost ?? "—" })}
                         </span>
+                        <TaskTimeRange task={task} />
                       </div>
                     </div>
 
                     {/* Status */}
-                    <div className="shrink-0">
+                    <div className="flex shrink-0 items-center gap-2">
                       {task.status === "processing" ? (
                         <span className="w-1.5 h-1.5 bg-primary-6 rounded-full animate-pulse"></span>
                       ) : task.status === "failed" ? (
@@ -575,6 +612,28 @@ export default function DashboardClient({
                         //   <CheckCircle2 className="h-4 w-4 text-[#00E096]" />
                         // ) 
                         : null}
+                      <ActionTooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="text-basic-6 hover:bg-primary-1 hover:text-primary-6"
+                            aria-label={t("openAssetDetail")}
+                            disabled={!/^a\/\d+$/.test(assetObject.slug)}
+                            onClick={() => {
+                              const assetId = slugToId("assetObject", assetObject.slug);
+                              void dispatchMuseDAMClientAction("goto", {
+                                url: `/detail/${assetId.toString()}`,
+                                target: "_blank",
+                              }).catch(() => toast.error(t("openAssetDetailFailed")));
+                            }}
+                          >
+                            <ExternalLinkIcon className="size-4" aria-hidden="true" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" sideOffset={6}>{t("openAssetDetail")}</TooltipContent>
+                      </ActionTooltip>
                     </div>
                   </div>
                 );

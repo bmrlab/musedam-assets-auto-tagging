@@ -129,6 +129,10 @@
       "weeklyTagging": "本週標記",
       "emptyTagErrorMsg": "暫無標籤體系，請先建立標籤體系~",
       "noAppropriateTagErrorMsg": "目前標籤體系沒有適合的標籤",
+      "assetUnavailableErrorMsg": "無法讀取，可能已從資產庫移除。",
+      "openAssetDetail": "開啟素材詳情",
+      "openAssetDetailFailed": "無法開啟素材詳情，請從主站重試",
+      "taggingTimeRange": "標記開始—完成時間",
       "noMatchingSourceErrorMsg": "打標失敗：未啟用任何匹配資訊來源，請檢查打標設定",
       "dayNames": {
         "0": "週日",

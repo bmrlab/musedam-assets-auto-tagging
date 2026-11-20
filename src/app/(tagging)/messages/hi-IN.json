@@ -129,6 +129,10 @@
       "weeklyTagging": "साप्ताहिक टैगिंग",
       "emptyTagErrorMsg": "कोई टैग सिस्टम नहीं है, कृपया पहले टैग सिस्टम बनाएं~",
       "noAppropriateTagErrorMsg": "वर्तमान टैग सिस्टम में उपयुक्त टैग नहीं हैं",
+      "assetUnavailableErrorMsg": "एसेट पढ़ा नहीं जा सका; संभव है कि उसे एसेट लाइब्रेरी से हटा दिया गया हो।",
+      "openAssetDetail": "एसेट विवरण खोलें",
+      "openAssetDetailFailed": "एसेट विवरण नहीं खुल सका। कृपया MuseDAM से फिर प्रयास करें।",
+      "taggingTimeRange": "टैगिंग प्रारंभ–समाप्ति समय",
       "noMatchingSourceErrorMsg": "विफल: टैगिंग सेटिंग्स में कोई मिलान स्रोत सक्षम नहीं है",
       "dayNames": {
         "0": "रविवार",
