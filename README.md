@@ -367,11 +367,9 @@ https://yourdomain.com/tagging?locale=en-US
 
 ### 标签编辑一致性与权限
 
-按钮显示继续复用父子窗口通信 `get-tag-management-permission`。标签页发起 server action 或排序 JSON 接口写入前，通过同一 action 携带当前应用 token 请求短效授权。父窗口只接受主站自己挂载的 `auto-tag-iframe` / `auto-tag-init-iframe`，将当前主站 `x-token` / `x-user-id` / `x-org-id` 直接 POST 到该 iframe 所属服务的 `/api/tags/authorization`；主站登录 token 不发给子窗口、不放进 URL、不落库。该交换接口只接受显式凭据，CORS 不使用 cookie。
+标签按钮和前端操作入口统一复用现有 `get-tag-management-permission` 父子窗口通信，直接使用主站 `canManageTags()` 结果。不再携带应用 token 向父窗口申请第二份授权，不交换主站登录凭据，不签发短效 proof，也不新增主站网关环境变量。旧版只返回布尔权限的主站可以直接兼容。
 
-自动打标服务通过固定 `MUSEDAM_WEB_API_BASE_URL` 只读访问既有主站接口（`/mini-dam-user/org/{teamId}`、`/org/members/{userId}` 及权限查询），由主站网关核对真实用户会话；同时核对应用会话中的用户、团队、成员状态和团队有效性。企业版按现有 `orgRole/queryCurrentUserAuthCode` 的 `dam-material-admin-management-tag`，非企业版按现有 `org/universal/role-auth` 中当前成员角色的 `ORG_TAG_GROUP_MODIFY` 判定，不能用浏览器布尔值或角色名称替代。
-
-验证通过后，使用现有 `CIPHER_PASSWORD` 签发有效期 30 秒、绑定本地用户和团队的 HMAC 凭据。标签写入服务端检查签名、用途、有效期和身份，嵌套保存仅沿用本次请求已验证授权；不跨请求缓存授权。权限撤销的凭据有效窗口最多 30 秒。缺少凭据、父窗口旧版本、网关失败、凭据过期或跨团队时拒绝写入；读取标签树不需要写入凭据。
+服务端沿用现有自动打标管理权限：通过既有应用登录校验和 `checkUserPermission` 核对当前团队身份，允许 admin/content 或既有访问配置中授予 admin 的用户；只有审核权限的用户不能写入。不会把浏览器传入的 `canManageTags` 当作服务端授权。这里保留的是既有应用管理角色边界，不再逐次复制主站细粒度标签权限。嵌套保存仅沿用本次请求检查，后续请求重新校验；后台导入沿用提交时已确认、绑定任务的授权上下文。
 
 同一团队的本应用写入复用跨进程导入锁，远端失败不再被当成本地保存成功。排序由服务端一次处理，只提交当前同级节点及祖先路径，使用数据库中的名称，不再由前端先写本地再发第二个同步请求。显式保存名称时，即使名称与本地相同，也会同步主站，便于重新保存历史未同步的改名。
 
@@ -385,9 +383,9 @@ https://yourdomain.com/tagging?locale=en-US
 
 跨系统没有共同的数据库事务，采用主站为权威源的可恢复流程：远端请求前在现有 `TeamConfig` 写入 `tag-mutation-pending`；成功写入两边后清理标记。出现超时、部分失败或本地落库失败时，使用已有主站标签同步器对齐身份、名称和排序，保留本地 ID、AI 配置及关联，并返回失败供用户核对/重试。恢复失败或进程中断时保留标记，后续读取标签树或写入前先恢复，不能把旧树当作已同步结果返回。外部主站编辑不参与本应用团队锁；各写实例须同时升级，旧实例应停写。
 
-**本方案不依赖新增 `org-member-info.canManageTags`，不需要发布先前的 user 服务 / `api-mini-dam-user` 补丁，也无需 SQL 或 migration。** 配置 `MUSEDAM_WEB_API_BASE_URL` 为主站 `MUSEDAM_SERVER_URL` 对应的网关根地址（生产使用 HTTPS；本地仅允许 localhost/回环 HTTP），不能由浏览器指定目标 URL；`MUSEDAM_API_ENV_TAG` 继续用于环境标记。发布顺序：先部署自动打标 web/worker 及网关配置，再发布主前端的授权交换接入。两端升级完成前，标签写入会安全拒绝，按钮权限查询仍兼容旧协议。
+**不需要新增环境变量、主站授权交换或 user 服务发布，也无需 SQL / migration。** 自动打标更新后刷新页面即可使用现有主站布尔权限通信；主前端删除旧交换代码只是清理，不是本次自动打标修复的发布依赖。
 
-隔离回归：`pnpm exec vitest run __test__/tag-authorization-route.test.ts __test__/tag-main-site-permission.test.ts __test__/tag-management-auth.test.ts __test__/tag-auth-transport.test.ts __test__/tag-proof-client.test.ts __test__/tag-save-consistency.test.ts`。主前端使用现有聚焦 Jest 配置验证 `components-app/OuterTagSetting/__tests__/authorization.test.ts`；根 Jest 配置缺少 `babel-plugin-transform-replace-object-assign` 时，可用 `development/manual-tagging-preview/jest.config.cjs`。这些测试使用模拟网关，不修改线上标签；真实联调仍需验证父窗口来源、CORS、网关地址及真实权限数据。
+隔离回归：`pnpm exec vitest run __test__/tag-management-auth.test.ts __test__/tag-auth-transport.test.ts __test__/tag-save-consistency.test.ts`。主前端用现有聚焦 Jest 配置验证 `components-app/OuterTagSetting/__tests__/permission-bridge.test.tsx`，覆盖与按钮相同的布尔结果、无凭据交换、既有管理角色及审核角色拒绝。真实操作仍需按管理/审核角色分别验证。
 
 ### 同步标签树导入与恢复
 

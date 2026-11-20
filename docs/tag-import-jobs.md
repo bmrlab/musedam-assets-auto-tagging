@@ -10,7 +10,7 @@
 
 ## 服务端与一致性
 
-- `POST /api/tags/imports` 的 `upload`、`precheck`、`submit` 均验证当前登录和原标签管理短效凭据；文件上传 URL 使用 private ACL，上传回执绑定当前用户和团队。只接受服务端签发的记录 ID，不接受任意对象 URL。
+- `POST /api/tags/imports` 的 `upload`、`precheck`、`submit` 均验证当前登录和既有应用管理权限；文件上传 URL 使用 private ACL，上传回执绑定当前用户和团队。只接受服务端签发的记录 ID，不接受任意对象 URL。
 - 读取文件时校验实际大小和 SHA-256，防止预览后换文件。原文件只存对象存储；`TeamConfig.tag-import-upload:<uuid>` 保存元数据和确认选项，不存文件正文或登录 token。上传记录 30 分钟内可提交。
 - 提交在上传记录行锁内创建 `TaggingQueueItem`，`extra.jobKind=tag-tree-import`、`taskType=manual`、无素材关联。并发提交或 POST 回包丢失后重复确认返回同一任务号；已提交记录不能改导入方式、层级、语言或跳过行。
 - worker 只执行与任务号匹配的已授权回执。身份及语言通过 server-only 的异步上下文传给原导入 actions；HTTP 请求不能设定这个上下文。授权在提交时确认，不持久化主站登录凭据，也不信任浏览器传入的权限布尔值。
@@ -21,7 +21,7 @@
 
 ## 发布和存储配置
 
-无需新增 migration 或 user 服务改动。先升级所有自动打标 worker，再升级 web/API，之后启用该页面；旧 worker 不认识新任务类型。现有主站权限桥接需按 README 的发布顺序就绪。
+无需新增 migration 或 user 服务改动。先升级所有自动打标 worker，再升级 web/API，之后启用该页面；旧 worker 不认识新任务类型。权限沿用已有主站布尔通信和应用管理权限，无新增主站发布依赖。
 
 复用现有 S3/OSS 配置。发布时核对浏览器 PUT 的 CORS、签名 ACL 头和服务端私有读取。`tag-imports/`（位于现有 `S3_FOLDER` 下）必须禁止匿名读取，不应沿用素材图片的公开读取策略；建议为该临时前缀配置 7 天过期清理。代码不会自动修改桶策略或生命周期。生产直传和鉴权须实际联调，组件样例与 mock 测试不能替代。
 

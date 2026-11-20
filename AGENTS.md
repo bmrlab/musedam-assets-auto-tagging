@@ -104,9 +104,9 @@ Logo 图像决策使用全部上传样本合成的参考对照图；“最高值
 
 手动发起的团队默认配置、范围感知报价和三仓升级顺序见 [docs/manual-tagging-launch.md](docs/manual-tagging-launch.md)。主前端 `development/manual-tagging-preview` 可运行真实弹窗的模拟组件预览，不连接真实打标队列，不能代替 iframe/认证联调。
 
-标签管理按钮继续复用 `get-tag-management-permission` 父子窗口通信；保存时父窗口直接向 `/api/tags/authorization` 交换短效凭据，不将主站登录 token 传给子窗口。配置 `MUSEDAM_WEB_API_BASE_URL` 为主站 `MUSEDAM_SERVER_URL` 对应的固定网关根地址，服务端用现有用户会话及权限查询接口核对身份和权限，使用现有 `CIPHER_PASSWORD` 签发有效期 30 秒、绑定用户/团队的标签管理凭据；写入必须验证签名，不能信任浏览器布尔值。不依赖先前新增的 `org-member-info.canManageTags`，无需发布 user / API 包补丁。先部署自动打标及网关配置，再发布主前端；两端升级前拒绝写入。原团队锁、`TeamConfig.tag-mutation-pending` 中断恢复、主站权威对齐及本地 AI 配置/关联保护不变，无需 migration。发布与验证见 README 的“标签编辑一致性与权限”。
+标签按钮及前端操作统一使用现有 `get-tag-management-permission` 布尔权限通信，不再签发/交换短效 proof 或引入主站网关环境变量。服务端复用既有 `checkUserPermission`，允许 admin/content 或应用访问配置中的 admin，拒绝只有审核权限的用户；保留登录、团队隔离、原团队锁和 `tag-mutation-pending` 恢复，不信任浏览器权限布尔值。旧主站兼容，无需新增环境变量、SQL 或 user 服务发布。详见 README 的“标签编辑一致性与权限”。
 
-标签树排序保存改用固定 `POST /api/tags/sort`，复用原团队锁、权限及中断恢复；授权 fetch 同时覆盖该 JSON POST。前端使用服务端确认的排序值直接更新列表，不再走排序后的 Server Action 刷新。遇到非 JSON、网关错误或网络中断时不自动重试，提示结果未知并刷新核对；响应 `x-request-id` 与 `Tag sort request` 日志用于定位。无需 migration；web 页面和 API 必须同版本发布。
+标签树排序保存改用固定 `POST /api/tags/sort`，复用原团队锁、权限及中断恢复；同源 fetch 沿用当前应用登录 token。前端使用服务端确认的排序值直接更新列表，不再走排序后的 Server Action 刷新。遇到非 JSON、网关错误或网络中断时不自动重试，提示结果未知并刷新核对；响应 `x-request-id` 与 `Tag sort request` 日志用于定位。无需 migration；web 页面和 API 必须同版本发布。
 
 大文件标签导入使用 `/api/tags/imports` 签发私有直传 URL、只读预览及持久队列提交。`TaggingQueueItem.extra.jobKind=tag-tree-import` 复用生产槽位，由 worker 在已确认身份/语言上下文中调用原导入 actions；该上下文只能由 server-only worker 建立，不能从 HTTP 参数赋予。中断导入不自动重排，资产控制面板不能重试管理类导入。先升级所有 worker，再升级 web/API；对象存储临时 `tag-imports/` 前缀必须私有并配置清理。长关键词续行校验失败时拒绝整个标签组，避免导入不完整列表。无需新增 migration；协议、验证及上线限制见 [docs/tag-import-jobs.md](docs/tag-import-jobs.md)。
 

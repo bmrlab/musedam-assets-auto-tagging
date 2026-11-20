@@ -2,11 +2,7 @@ import "server-only";
 
 import { withAuth } from "@/app/(auth)/withAuth";
 import type { ServerActionResult } from "@/lib/serverAction";
-import {
-  TAG_MANAGEMENT_PROOF_HEADER,
-  verifyTagManagementProof,
-} from "@/lib/tagging/tag-management-proof";
-import { headers } from "next/headers";
+import { checkUserPermission } from "@/app/(auth)/lib";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { getTagImportJobContext } from "./tagImportJobContext";
 
@@ -22,15 +18,21 @@ export async function withTagManagementAuth<T>(
     const job = getTagImportJobContext();
     if (job?.team.id === context.team.id && job.user.id === context.user.id)
       return authorizedRequest.run(identity, () => action(context));
-    const proof = (await headers()).get(TAG_MANAGEMENT_PROOF_HEADER);
-    if (!verifyTagManagementProof(proof, context.user.id, context.team.id)) {
+    // 复用已有应用管理权限，不接收浏览器布尔值，也不再建立第二套主站授权交换。
+    let canManage = false;
+    try {
+      const access = await checkUserPermission(context);
+      canManage = access.roleCode === "admin" || access.roleCode === "content" ||
+        ("accessRole" in access && access.accessRole === "admin");
+    } catch { /* 原登录/成员校验失败时拒绝写入。 */ }
+    if (!canManage) {
       return {
         success: false,
         code: "forbidden",
-        message: "无法确认标签管理权限，请在主站中重新操作",
+        message: "无自动打标管理权限",
       };
     }
-    // 嵌套保存沿用本次已验证授权；不将凭据缓存到其他请求或团队。
+    // 嵌套保存沿用本次检查，不跨请求或团队缓存。
     return authorizedRequest.run(identity, () => action(context));
   });
 }

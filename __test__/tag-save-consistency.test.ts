@@ -93,8 +93,8 @@ vi.mock("@/app/(auth)/withAuth", () => ({
     }),
 }));
 vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
-vi.mock("@/lib/tagging/tag-management-proof", () => ({
-  TAG_MANAGEMENT_PROOF_HEADER: "x-tag-management-proof", verifyTagManagementProof: () => mocks.allowed,
+vi.mock("@/app/(auth)/lib", () => ({
+  checkUserPermission: async () => ({ roleCode: mocks.allowed ? "admin" : null }),
 }));
 vi.mock("@/lib/tagging/tag-import-lock", () => ({
   runTagImportExclusive: async (_t: number, _u: number, run: () => unknown) => run(),

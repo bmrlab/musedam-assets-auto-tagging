@@ -476,8 +476,8 @@ type ActionMap = {
     result: BaseActionResult<Record<string, never>>;
   };
   "get-tag-management-permission": {
-    args: { appAuthToken?: string };
-    result: BaseActionResult<{ canManageTags: boolean; proof?: string; expiresAt?: number }>;
+    args: Record<string, never>;
+    result: BaseActionResult<{ canManageTags: boolean }>;
   };
   /** 主站按 dam-material-extension-ai-auto-marking 判定内容管理员是否可管理配置 */
   "get-auto-tagging-access": {
